@@ -4,6 +4,7 @@
 #include "platform/bindings.h"
 
 #include <array>
+#include <bit>
 #include <cstring>
 
 #include "common/log.h"
@@ -140,74 +141,79 @@ constexpr ButtonKey kButtonKeys[] = {
 
 constexpr int kButtonCount = static_cast<int>(std::size(kButtonKeys));
 
-// At most this many of a kind on one button: two is what the launcher offers (a key and a spare).
-constexpr int kMostOfAKind = 2;
-
-// One button's bindings, with room for the port's defaults when the player set none.
-struct Slot {
-    std::array<SDL_Scancode, kMostOfAKind + 1> keys{};
-    std::array<SDL_GamepadButton, kMostOfAKind + 1> pad_buttons{};
-    SDL_GamepadAxis trigger = kNoAxis;
-    Bound view{};
-    bool player_keys = false;
-    bool player_pad = false;
-};
-
-std::array<Slot, kButtonCount> g_slots;
-bool g_started = false;
-
+// The slot of a button in Bindings::slots: its bit's position.
 int slot_of(Button button) {
-    for (int i = 0; i < kButtonCount; ++i) {
-        if (kButtonKeys[i].button == button) {
-            return i;
-        }
-    }
-    return -1;
+    return std::countr_zero(static_cast<unsigned>(button));
 }
 
-void refresh(Slot& slot) {
-    slot.view.keys = slot.keys.data();
-    slot.view.key_count = 0;
-    for (SDL_Scancode code : slot.keys) {
-        if (code == SDL_SCANCODE_UNKNOWN) {
+// One button's value from the settings file, read into `slot`: a kind the value names replaces
+// that kind, and a kind it does not name is left as it was.
+void read_value(std::string_view key, std::string_view value, Bindings::Slot& slot) {
+    std::array<SDL_Scancode, kMostOfAKind> keys{};
+    std::array<Binding, kMostOfAKind> pad{};
+    int key_count = 0;
+    int pad_count = 0;
+    for (std::size_t at = 0; at <= value.size();) {
+        const std::size_t comma = value.find(',', at);
+        const std::size_t end = comma == std::string_view::npos ? value.size() : comma;
+        std::string_view name = value.substr(at, end - at);
+        while (!name.empty() && name.front() == ' ') {
+            name.remove_prefix(1);
+        }
+        while (!name.empty() && name.back() == ' ') {
+            name.remove_suffix(1);
+        }
+        if (!name.empty()) {
+            const Binding binding = parse_binding(name);
+            switch (binding.kind) {
+                case Binding::Kind::Key:
+                    if (key_count < kMostOfAKind) {
+                        keys[static_cast<std::size_t>(key_count++)] =
+                            static_cast<SDL_Scancode>(binding.value);
+                    }
+                    break;
+                case Binding::Kind::PadButton:
+                case Binding::Kind::PadTrigger:
+                    if (pad_count < kMostOfAKind) {
+                        pad[static_cast<std::size_t>(pad_count++)] = binding;
+                    }
+                    break;
+                case Binding::Kind::None:
+                    log::warn(
+                        "{} = {}: {} is not a key or pad input the port knows; the default is "
+                        "used",
+                        key,
+                        value,
+                        std::string(name)
+                    );
+                    break;
+            }
+        }
+        if (comma == std::string_view::npos) {
             break;
         }
-        ++slot.view.key_count;
+        at = comma + 1;
     }
-    slot.view.pad_buttons = slot.pad_buttons.data();
-    slot.view.pad_button_count = 0;
-    for (SDL_GamepadButton pad : slot.pad_buttons) {
-        if (pad == kNoButton) {
-            break;
-        }
-        ++slot.view.pad_button_count;
+    // Nothing of a kind: that kind keeps what it had, so a cleared binding can never leave a
+    // player unable to pause.
+    if (key_count > 0) {
+        slot.keys = keys;
+        slot.key_count = key_count;
     }
-    slot.view.trigger = slot.trigger;
+    if (pad_count > 0) {
+        slot.pad = pad;
+        slot.pad_count = pad_count;
+    }
 }
 
-// The port's own tables, which a button with no binding of that kind keeps (input.cpp).
-void start_from_defaults() {
-    for (int i = 0; i < kButtonCount; ++i) {
-        Slot& slot = g_slots[static_cast<std::size_t>(i)];
-        slot = Slot{};
-        slot.keys.fill(SDL_SCANCODE_UNKNOWN);
-        slot.pad_buttons.fill(kNoButton);
-        int keys = 0;
-        for (const DefaultKey& d : kDefaultKeys) {
-            if (d.button == kButtonKeys[i].button && keys < kMostOfAKind) {
-                slot.keys[static_cast<std::size_t>(keys++)] = d.key;
-            }
-        }
-        int pads = 0;
-        for (const DefaultPad& d : kDefaultPads) {
-            if (d.button == kButtonKeys[i].button && pads < kMostOfAKind) {
-                slot.pad_buttons[static_cast<std::size_t>(pads++)] = d.pad_button;
-            }
-        }
-        slot.trigger = default_trigger(kButtonKeys[i].button);
-        refresh(slot);
-    }
-    g_started = true;
+bool key(std::span<const bool> keys, SDL_Scancode code) {
+    const auto index = static_cast<std::size_t>(code);
+    return index < keys.size() && keys[index];
+}
+
+// -1, 0 or +1 from two opposite keys.
+int key_axis(std::span<const bool> keys, SDL_Scancode negative, SDL_Scancode positive) {
+    return (key(keys, positive) ? 1 : 0) - (key(keys, negative) ? 1 : 0);
 }
 
 }  // namespace
@@ -278,91 +284,114 @@ const char* const* binding_keys() {
     return keys.data();
 }
 
-void set_bindings(const std::map<std::string, std::string, std::less<>>& bindings) {
-    start_from_defaults();
+const Bindings::Slot& Bindings::of(Button button) const {
+    return slots[static_cast<std::size_t>(slot_of(button))];
+}
+
+Bindings default_bindings() {
+    Bindings bindings;
+    for (const DefaultKey& d : kDefaultKeys) {
+        Bindings::Slot& slot = bindings.slots[static_cast<std::size_t>(slot_of(d.button))];
+        if (slot.key_count < kMostOfAKind) {
+            slot.keys[static_cast<std::size_t>(slot.key_count++)] = d.key;
+        }
+    }
+    for (const DefaultPad& d : kDefaultPads) {
+        Bindings::Slot& slot = bindings.slots[static_cast<std::size_t>(slot_of(d.button))];
+        if (slot.pad_count < kMostOfAKind) {
+            slot.pad[static_cast<std::size_t>(slot.pad_count++)] =
+                Binding{Binding::Kind::PadButton, static_cast<int>(d.pad_button)};
+        }
+    }
+    for (const Button button : {Button::L2, Button::R2}) {
+        Bindings::Slot& slot = bindings.slots[static_cast<std::size_t>(slot_of(button))];
+        slot.pad[static_cast<std::size_t>(slot.pad_count++)] =
+            Binding{Binding::Kind::PadTrigger, static_cast<int>(default_trigger(button))};
+    }
+    return bindings;
+}
+
+Bindings compile_bindings(const std::map<std::string, std::string, std::less<>>& bindings) {
+    Bindings out = default_bindings();
     for (const auto& [key, value] : bindings) {
         Button button{};
-        if (!button_of_key(key, button)) {
-            continue;
+        if (button_of_key(key, button)) {
+            read_value(key, value, out.slots[static_cast<std::size_t>(slot_of(button))]);
         }
-        const int index = slot_of(button);
-        if (index < 0) {
-            continue;
-        }
-        Slot& slot = g_slots[static_cast<std::size_t>(index)];
-        int keys = 0;
-        int pads = 0;
-        SDL_GamepadAxis trigger = kNoAxis;
-        std::array<SDL_Scancode, kMostOfAKind + 1> read_keys{};
-        std::array<SDL_GamepadButton, kMostOfAKind + 1> read_pads{};
-        read_keys.fill(SDL_SCANCODE_UNKNOWN);
-        read_pads.fill(kNoButton);
-        for (std::size_t at = 0; at <= value.size();) {
-            const std::size_t comma = value.find(',', at);
-            const std::size_t end = comma == std::string::npos ? value.size() : comma;
-            std::string_view name(value.data() + at, end - at);
-            while (!name.empty() && name.front() == ' ') {
-                name.remove_prefix(1);
-            }
-            while (!name.empty() && name.back() == ' ') {
-                name.remove_suffix(1);
-            }
-            if (!name.empty()) {
-                const Binding binding = parse_binding(name);
-                switch (binding.kind) {
-                    case Binding::Kind::Key:
-                        if (keys < kMostOfAKind) {
-                            read_keys[static_cast<std::size_t>(keys++)] =
-                                static_cast<SDL_Scancode>(binding.value);
-                        }
-                        break;
-                    case Binding::Kind::PadButton:
-                        if (pads < kMostOfAKind) {
-                            read_pads[static_cast<std::size_t>(pads++)] =
-                                static_cast<SDL_GamepadButton>(binding.value);
-                        }
-                        break;
-                    case Binding::Kind::PadTrigger:
-                        trigger = static_cast<SDL_GamepadAxis>(binding.value);
-                        break;
-                    case Binding::Kind::None:
-                        log::warn(
-                            "{} = {}: {} is not a key or pad input the port knows; the default is "
-                            "used",
-                            key,
-                            value,
-                            std::string(name)
-                        );
-                        break;
-                }
-            }
-            if (comma == std::string::npos) {
+    }
+    return out;
+}
+
+void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad) {
+    for (const ButtonKey& b : kButtonKeys) {
+        const Bindings::Slot& slot = bindings.of(b.button);
+        for (int k = 0; k < slot.key_count; ++k) {
+            if (key(keys, slot.keys[static_cast<std::size_t>(k)])) {
+                pad.set(b.button, true);
                 break;
             }
-            at = comma + 1;
         }
-        // Nothing of a kind: that kind keeps the port's default, so a cleared binding can never
-        // leave a player unable to pause.
-        if (keys > 0) {
-            slot.keys = read_keys;
-            slot.player_keys = true;
-        }
-        if (pads > 0 || trigger != kNoAxis) {
-            slot.pad_buttons = read_pads;
-            slot.trigger = trigger;
-            slot.player_pad = true;
-        }
-        refresh(slot);
+    }
+    // Escape pauses, as Start does, whatever Start is bound to: it used to end the program at
+    // once, a level's progress with it, and a player must always be able to reach the menu.
+    if (key(keys, SDL_SCANCODE_ESCAPE)) {
+        pad.set(Button::Start, true);
+    }
+    const int lx = key_axis(keys, SDL_SCANCODE_A, SDL_SCANCODE_D);
+    const int ly = key_axis(keys, SDL_SCANCODE_W, SDL_SCANCODE_S);
+    const int rx = key_axis(keys, SDL_SCANCODE_J, SDL_SCANCODE_L);
+    const int ry = key_axis(keys, SDL_SCANCODE_I, SDL_SCANCODE_K);
+    if (lx != 0) {
+        pad.left_x = key_stick_byte(lx);
+    }
+    if (ly != 0) {
+        pad.left_y = key_stick_byte(ly);
+    }
+    if (rx != 0) {
+        pad.right_x = key_stick_byte(rx);
+    }
+    if (ry != 0) {
+        pad.right_y = key_stick_byte(ry);
     }
 }
 
-const Bound& bound(Button button) {
-    if (!g_started) {
-        start_from_defaults();
+void apply_pad(
+    const Bindings& bindings, const PadInputs& inputs, std::array<StickGate, 2>& gates, Pad& pad
+) {
+    for (const ButtonKey& b : kButtonKeys) {
+        const Bindings::Slot& slot = bindings.of(b.button);
+        for (int p = 0; p < slot.pad_count; ++p) {
+            const Binding& binding = slot.pad[static_cast<std::size_t>(p)];
+            if (binding.kind == Binding::Kind::PadButton) {
+                if (inputs.buttons[static_cast<std::size_t>(binding.value)]) {
+                    pad.set(b.button, true);
+                }
+            } else if (binding.kind == Binding::Kind::PadTrigger) {
+                // A trigger bound to a button presses it above about an eighth of its travel, and
+                // its pressure byte follows the trigger all the way.
+                const std::uint8_t travel =
+                    trigger_byte(inputs.axes[static_cast<std::size_t>(binding.value)]);
+                if (travel >= kTriggerThreshold) {
+                    pad.set(b.button, true, travel);
+                }
+            }
+        }
     }
-    const int index = slot_of(button);
-    static const Bound none{nullptr, 0, nullptr, 0, kNoAxis};
-    return index >= 0 ? g_slots[static_cast<std::size_t>(index)].view : none;
+    // Squared as the DualShock 2's (pad.h): a round stick pushed to a diagonal runs.
+    stick_bytes(
+        inputs.axes[SDL_GAMEPAD_AXIS_LEFTX],
+        inputs.axes[SDL_GAMEPAD_AXIS_LEFTY],
+        gates[0],
+        pad.left_x,
+        pad.left_y
+    );
+    stick_bytes(
+        inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX],
+        inputs.axes[SDL_GAMEPAD_AXIS_RIGHTY],
+        gates[1],
+        pad.right_x,
+        pad.right_y
+    );
 }
 
 }  // namespace openrac::platform

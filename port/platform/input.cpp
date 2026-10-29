@@ -13,31 +13,6 @@
 namespace openrac::platform {
 namespace {
 
-// The sixteen buttons a binding can name, in the pad's own order (bindings.h).
-constexpr Button kButtons[] = {
-    Button::Select,
-    Button::L3,
-    Button::R3,
-    Button::Start,
-    Button::Up,
-    Button::Right,
-    Button::Down,
-    Button::Left,
-    Button::L2,
-    Button::R2,
-    Button::L1,
-    Button::R1,
-    Button::Triangle,
-    Button::Circle,
-    Button::Cross,
-    Button::Square,
-};
-constexpr int kButtonCount = static_cast<int>(std::size(kButtons));
-
-// A trigger counts as L2 or R2 held above about an eighth of its travel; its
-// pressure byte follows the trigger all the way.
-constexpr std::uint8_t kTriggerThreshold = 0x20;
-
 // A button of the gamepad down, a stick or a trigger well out (a trigger only pressed in: some
 // rest below zero).
 bool held(SDL_Gamepad* g) {
@@ -58,50 +33,11 @@ bool held(SDL_Gamepad* g) {
     return false;
 }
 
-bool key(std::span<const bool> keys, SDL_Scancode code) {
-    const auto index = static_cast<std::size_t>(code);
-    return index < keys.size() && keys[index];
-}
-
-// -1, 0 or +1 from two opposite keys.
-int key_axis(std::span<const bool> keys, SDL_Scancode negative, SDL_Scancode positive) {
-    return (key(keys, positive) ? 1 : 0) - (key(keys, negative) ? 1 : 0);
-}
-
 }  // namespace
 
 void apply_keyboard(Pad& pad, std::span<const bool> keys) {
-    for (int i = 0; i < kButtonCount; ++i) {
-        const Button button = kButtons[i];
-        const Bound& b = bound(button);
-        for (int k = 0; k < b.key_count; ++k) {
-            if (key(keys, b.keys[k])) {
-                pad.set(button, true);
-                break;
-            }
-        }
-    }
-    // Escape pauses, as Start does, whatever Start is bound to: it used to end the program at
-    // once, a level's progress with it, and a player must always be able to reach the menu.
-    if (key(keys, SDL_SCANCODE_ESCAPE)) {
-        pad.set(Button::Start, true);
-    }
-    const int lx = key_axis(keys, SDL_SCANCODE_A, SDL_SCANCODE_D);
-    const int ly = key_axis(keys, SDL_SCANCODE_W, SDL_SCANCODE_S);
-    const int rx = key_axis(keys, SDL_SCANCODE_J, SDL_SCANCODE_L);
-    const int ry = key_axis(keys, SDL_SCANCODE_I, SDL_SCANCODE_K);
-    if (lx != 0) {
-        pad.left_x = key_stick_byte(lx);
-    }
-    if (ly != 0) {
-        pad.left_y = key_stick_byte(ly);
-    }
-    if (rx != 0) {
-        pad.right_x = key_stick_byte(rx);
-    }
-    if (ry != 0) {
-        pad.right_y = key_stick_byte(ry);
-    }
+    static const Bindings defaults = default_bindings();
+    apply_keys(defaults, keys, pad);
 }
 
 Input::~Input() {
@@ -323,48 +259,27 @@ void Input::refresh_pads() {
         SDL_Gamepad* g = gamepad(port);
         pad.connected = port == 0 || g != nullptr;
         if (g != nullptr) {
-            for (int i = 0; i < kButtonCount; ++i) {
-                const Button button = kButtons[i];
-                const Bound& b = bound(button);
-                for (int p = 0; p < b.pad_button_count; ++p) {
-                    if (SDL_GetGamepadButton(g, b.pad_buttons[p])) {
-                        pad.set(button, true);
-                        break;
-                    }
-                }
-                // A trigger bound to a button presses it above about an eighth of its travel, and
-                // its pressure byte follows the trigger all the way.
-                if (b.trigger != SDL_GAMEPAD_AXIS_INVALID) {
-                    const std::uint8_t travel = trigger_byte(SDL_GetGamepadAxis(g, b.trigger));
-                    if (travel >= kTriggerThreshold) {
-                        pad.set(button, true, travel);
-                    }
-                }
+            PadInputs inputs;
+            for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
+                inputs.buttons[static_cast<std::size_t>(b)] =
+                    SDL_GetGamepadButton(g, static_cast<SDL_GamepadButton>(b));
             }
-            // Squared as the DualShock 2's (pad.h): a round stick pushed to a diagonal runs.
+            for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
+                inputs.axes[static_cast<std::size_t>(a)] =
+                    SDL_GetGamepadAxis(g, static_cast<SDL_GamepadAxis>(a));
+            }
+            // A stick's gate is what its own gamepad has shown: another one on the port starts
+            // afresh.
             auto& gates = m_gates[static_cast<std::size_t>(port)];
             if (m_gates_of[static_cast<std::size_t>(port)] != g) {
                 m_gates_of[static_cast<std::size_t>(port)] = g;
                 gates = {};
             }
-            stick_bytes(
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFTX),
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFTY),
-                gates[0],
-                pad.left_x,
-                pad.left_y
-            );
-            stick_bytes(
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHTX),
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHTY),
-                gates[1],
-                pad.right_x,
-                pad.right_y
-            );
+            apply_pad(m_bindings, inputs, gates, pad);
         }
         if (port == 0) {
             if (m_keyboard_table) {
-                apply_keyboard(pad, keys);
+                apply_keys(m_bindings, keys, pad);
             }
             m_touch.idle(SDL_GetTicks());
             m_touch.apply(pad);

@@ -27,6 +27,7 @@
 #include <span>
 #include <vector>
 
+#include "platform/bindings.h"
 #include "platform/pad.h"
 #include "platform/touch_pad.h"
 
@@ -51,7 +52,7 @@ struct KeyboardMouse {
     bool captured = false;
 };
 
-// Apply the keyboard table to a pad: `keys` is indexed by SDL scancode, as
+// Apply the port's default keyboard table to a pad: `keys` is indexed by SDL scancode, as
 // SDL_GetKeyboardState returns it. A stick key overrides the stick's axis.
 void apply_keyboard(Pad& pad, std::span<const bool> keys);
 
@@ -81,6 +82,11 @@ public:
 
     // The keyboard and mouse as update() last read them, for the mods.
     const KeyboardMouse& keyboard_mouse() const { return m_km; }
+
+    // What the keys and gamepads press from now on (bindings.h): the next read uses it.
+    void set_bindings(const Bindings& bindings) { m_bindings = bindings; }
+
+    const Bindings& bindings() const { return m_bindings; }
 
     // False: the keyboard table no longer presses pad 0's buttons (a mod took the keyboard).
     void set_keyboard_table(bool on) { m_keyboard_table = on; }
@@ -114,6 +120,7 @@ private:
     // Each port's sticks, left and right, as their gamepad has shown them (pad.h), and the gamepad
     // that showed it: another one on the port starts afresh.
     std::array<std::array<StickGate, 2>, kPadPorts> m_gates{};
+    Bindings m_bindings = default_bindings();
     std::array<SDL_Gamepad*, kPadPorts> m_gates_of{};
     TouchPad m_touch;
     KeyboardMouse m_km;

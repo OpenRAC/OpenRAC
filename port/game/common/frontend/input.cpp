@@ -146,6 +146,12 @@ void take_keyboard() {
     }
 }
 
+void set_bindings(const platform::Bindings& bindings) {
+    if (g) {
+        g->input.set_bindings(bindings);
+    }
+}
+
 void capture_mouse(bool capture) {
     if (g) {
         g->capture_wanted = capture;

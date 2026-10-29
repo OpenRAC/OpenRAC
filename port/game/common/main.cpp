@@ -488,9 +488,6 @@ int main(int argc, char** argv) {
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
-        // What the player bound each pad button to, into the pad's own table (platform/bindings.h).
-        // A button with no binding keeps the port's default.
-        platform::set_bindings(settings::get().bindings);
         log::header("settings  " + settings::summary(), false);
         // The console's languages game_host.h names (openrac_game_language): 1 English to 5 Italian.
         constexpr int kFirstLanguage = 1;
@@ -525,6 +522,9 @@ int main(int argc, char** argv) {
             log::fatalf("no window: {}", why);
         }
         g_window = true;
+        // What the player bound each pad button to, into the pad's own table (platform/bindings.h).
+        // A button with no binding keeps the port's default.
+        frontend::set_bindings(platform::compile_bindings(settings::get().bindings));
         if (mods_loaded) {
             apply_early_mod_input();
         }

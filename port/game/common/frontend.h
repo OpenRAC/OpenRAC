@@ -19,6 +19,7 @@
 
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+#include "platform/bindings.h"
 
 namespace openrac::frontend {
 
@@ -170,6 +171,9 @@ KeyboardMouseView keyboard_mouse();
 
 // A mod took the keyboard: the port's own keyboard table stops pressing pad 0's buttons.
 void take_keyboard();
+
+// What the keys and gamepads press the pads from (platform/bindings.h), from the next read on.
+void set_bindings(const platform::Bindings& bindings);
 
 // A mod asks for the cursor captured (relative mouse mode) or let go. Applied each frame, and let
 // go anyway while the window is not focused or the overlay or the debug menu is open.
