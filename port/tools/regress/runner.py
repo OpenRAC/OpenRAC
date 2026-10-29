@@ -183,9 +183,11 @@ def notes(lines: list[str]) -> list[str]:
 
 def run(game: str, levels: list[int] | None, build: Path, out: Path | None = None, jobs: int = 6,
         data: Path | None = None, level_dir: Path | None = None, routes_file: Path | None = None,
-        progress=print, route_set: str | None = None, only: list[str] | None = None) -> Path:
+        progress=print, route_set: str | None = None, only: list[str] | None = None,
+        env: dict | None = None) -> Path:
     """Plays a set's routes (the standard level routes by default) whose level is in levels and,
-    with only, whose key is listed."""
+    with only, whose key is listed; env: switches every run gets (OPENRAC_SOFTWARE_GL=1 on a
+    machine without a graphics card)."""
     exe = build / f"openrac-{game}{'.exe' if os.name == 'nt' else ''}"
     if not exe.exists():
         raise SystemExit(f"no {exe}: build the port first (cd port && cmake --build --preset release)")
@@ -211,7 +213,7 @@ def run(game: str, levels: list[int] | None, build: Path, out: Path | None = Non
             "commit": _commit(build), "set": "standard" if standard else route_set, "levels": {}}
 
     def one(r: routes_mod.Route) -> dict:
-        res = run_level(game, r, exe, data, level_dir, out / r.key)
+        res = run_level(game, r, exe, data, level_dir, out / r.key, env)
         head = f"level {r.level:2d} {r.name:<15}" if standard else f"{r.key:<18} {r.name[:28]:<28}"
         progress(f"  {game} {head} {res['status']:<10} {res['seconds']:6.1f} s"
                  + (f"  control at {res['control_frame']}" if res["control_frame"] is not None else ""))

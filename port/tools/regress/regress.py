@@ -80,7 +80,8 @@ def cmd_run(args) -> int:
           f"{args.jobs} at once")
     out = runner.run(args.game, levels, build, Path(args.out) if args.out else None, args.jobs,
                      Path(args.data) if args.data else None, Path(args.level_data) if args.level_data else None,
-                     Path(args.routes) if args.routes else None, route_set=args.set, only=only)
+                     Path(args.routes) if args.routes else None, route_set=args.set, only=only,
+                     env=dict(e.split("=", 1) for e in args.env or []))
     meta = json.loads((out / "run.json").read_text())
     counts = {}
     for r in meta["levels"].values():
@@ -270,6 +271,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--routes", help="another routes file")
     r.add_argument("--set", help="a route set of routes.json (default: standard, the level routes)")
     r.add_argument("--only", help="a set's routes by name: 11-drown,05-long")
+    r.add_argument("--env", action="append", metavar="KEY=VALUE",
+                   help="a switch every run gets, after the run's own (OPENRAC_SOFTWARE_GL=1 without a graphics card)")
     r.set_defaults(fn=cmd_run)
 
     c = sub.add_parser("compare", help="two runs, aligned on control")
