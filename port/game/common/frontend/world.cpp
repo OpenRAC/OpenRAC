@@ -38,6 +38,7 @@
 #include "game/common/particle_texture_cache.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "options_menu.h"
 #include "program/program.h"
 #include "renderer/direct.h"
 #include "renderer/effects.h"
@@ -242,6 +243,7 @@ void use_level(int number) {
 }
 
 void savestate_restored(std::uint64_t tick) {
+    options_menu::savestate_restored();
     if (!g) {
         return;
     }

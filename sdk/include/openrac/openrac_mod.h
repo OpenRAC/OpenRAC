@@ -51,9 +51,9 @@ extern "C" {
  * hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world:
  * the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's
  * update with the hero standing in for another player, hits watched and posted, eyes that keep
- * mobys running, and the bolts.
+ * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods.
  */
-#define OPENRAC_MOD_API_MINOR 9
+#define OPENRAC_MOD_API_MINOR 10
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -882,6 +882,15 @@ typedef void (*openrac_frame_fn)(void* user);
  * from this callback, at the port's tick boundary. Since 1.6. */
 typedef void (*openrac_tick_boundary_fn)(void* user, uint32_t tick);
 
+/* One entry in a mod's top-level desktop menu. `group` is an optional submenu label; `action` is
+ * a nonzero mod-defined id. Since 1.10. */
+typedef struct openrac_developer_menu_item {
+    const char* label;
+    const char* shortcut;
+    uint32_t action;
+    const char* group;
+} openrac_developer_menu_item;
+
 /* A function the port calls for each pad report (openrac_api.on_pad), with the `user` pointer the
  * mod gave. `report` is the report as the console's pad library hands it to the game (its bytes,
  * `size` of them), which the callback may change before the game reads it; `port` is the
@@ -1320,6 +1329,26 @@ typedef struct openrac_api {
      * in it (openrac_moby_run). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or
      * for a game without it. Since 1.9. */
     int (*moby_run)(int slot, openrac_moby_run* out);
+    /* Adds a top-level menu beside View, Graphics, Sound and Developer to the in-window desktop
+     * menu bar. `title`, item labels, shortcuts and groups are copied. Selections are queued for
+     * the mod and retrieved from its tick-boundary callback; this never calls mod code from UI drawing.
+     * Items may be placed in groups (submenus), and use nonzero mod-defined action ids. Returns
+     * OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN for a duplicate title or action, OPENRAC_HOOK_UNKNOWN
+     * for invalid items, or OPENRAC_HOOK_TOO_LATE unless called during openrac_mod_load. Since 1.10. */
+    int (*developer_menu)(
+        openrac_mod* mod,
+        const char* title,
+        const openrac_developer_menu_item* items,
+        uint32_t item_count
+    );
+
+    /* Returns and removes the next queued action for this mod, or 0 if none. Only from its
+     * on_tick_boundary callback. Since 1.10. */
+    uint32_t (*take_developer_menu_action)(openrac_mod* mod);
+
+    /* Changes a registered item's label, copying `label`. Only from this mod's tick-boundary
+     * callback. Since 1.10. */
+    int (*developer_menu_set_label)(openrac_mod* mod, uint32_t action, const char* label);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

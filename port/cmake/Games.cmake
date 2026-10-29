@@ -293,7 +293,7 @@ function(openrac_add_game config)
   foreach(target IN LISTS targets)
     target_link_libraries(${target} PRIVATE openrac_${target_id}_game openrac_runtime openrac_mods)
     target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/fixes.cpp" "${fixes_cpp}"
-                                     ${program_sources})
+                                     ${program_sources} "${OPENRAC_GAME_DIR}/common/lib/kernel.c")
     target_include_directories(${target} PRIVATE "${OPENRAC_GAME_DIR}/common")
     if(MINGW)
       target_link_libraries(${target} PRIVATE winmm)

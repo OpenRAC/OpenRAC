@@ -46,6 +46,7 @@ static int s_views;
 static int s_ended;
 static int s_menu;
 static int s_savestate;
+static int s_developer_menu;
 static int s_ui;
 static int s_ui_second = -1;
 static int s_play;
@@ -94,6 +95,14 @@ static int add(int x) {
 /* The tick boundary: the snapshot calls are taken here, and the test's game has no snapshot. */
 static void on_tick_boundary(void* user, uint32_t tick) {
     (void)user;
+    if (s_developer_menu) {
+        const uint32_t action = s_api->take_developer_menu_action(s_mod);
+        if (action != 0) {
+            s_record(9000 + (int)action);
+            s_record(9100 + s_api->developer_menu_set_label(s_mod, action, "Saved: Veldin"));
+        }
+        return;
+    }
     char bytes[16] = {0};
     s_record(3000 + (int)tick);
     s_record(3100 + (int)s_api->savestate_size());
@@ -300,6 +309,14 @@ static void on_frame(void* user) {
                 /* And a snapshot outside the boundary. */
                 s_record(1300 + -s_api->savestate_save(bytes, sizeof bytes));
             }
+            if (s_developer_menu) {
+                s_record(1600 + (s_api->take_developer_menu_action(s_mod) == 0));
+                s_record(
+                    1700
+                    + (s_api->developer_menu_set_label(s_mod, 1, "Too late")
+                       == OPENRAC_HOOK_TOO_LATE)
+                );
+            }
         }
     }
 }
@@ -366,6 +383,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_ended = 0;
     s_menu = 0;
     s_savestate = 0;
+    s_developer_menu = 0;
     s_ui = 0;
     s_play = 0;
     s_world = 0;
@@ -429,6 +447,24 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK) {
             return 10;
         }
+    }
+    if (behaviour[0] == 'd') { /* developer_menu */
+        openrac_developer_menu_item items[] = {
+            {"Empty", "Shift+Num0", 1, "Save"},
+            {"Empty", "Ctrl+Num0", 2, "Load"},
+        };
+        const openrac_developer_menu_item duplicate_action[] = {{"Other", NULL, 1, "Other"}};
+        s_developer_menu = 1;
+        if (api->api_minor < 10
+            || api->developer_menu(mod, "Savestates", items, 2) != OPENRAC_HOOK_OK
+            || api->developer_menu(mod, "Savestates", items, 2) != OPENRAC_HOOK_TAKEN
+            || api->developer_menu(mod, "Developer", items, 2) != OPENRAC_HOOK_TAKEN
+            || api->developer_menu(mod, "Other", duplicate_action, 1) != OPENRAC_HOOK_TAKEN
+            || api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK) {
+            return 16;
+        }
+        /* The host copies its strings, so the caller's stack storage can go away. */
+        items[0].label = "Changed after registration";
     }
     if (behaviour[0] == 'p') { /* play */
         s_play = 1;

@@ -64,6 +64,9 @@ struct PauseRows {
 
 constexpr int kPauseRowsShown = 5;
 PauseRows pause_rows(int index);
+// Drops guest-memory addresses cached by the port's Video pages. A restored snapshot can replace
+// the guest allocations and level program those addresses referred to.
+void savestate_restored();
 
 // The items the Options list is given in place of the game's own (with the Video page's added), or 0
 // while it has the game's.

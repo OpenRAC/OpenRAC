@@ -8,6 +8,8 @@
 #ifndef OPENRAC_SOUND_ENGINE_H
 #define OPENRAC_SOUND_ENGINE_H
 
+#define OPENRAC_SOUND_SNAPSHOT_SIZE (8u * 1024u * 1024u)
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -70,6 +72,11 @@ void openrac_stream_read_at_once(int at_once);
  * the globals the readers use are not taken away under them (a crash at quit, when the player
  * closed the window while a track was being read). */
 void openrac_sound_stop_readers(void);
+
+/* Fixed-size opaque payload for rebuilding loaded banks and volume groups. */
+size_t openrac_sound_snapshot_size(void);
+int openrac_sound_snapshot_save(void* output, size_t capacity);
+int openrac_sound_snapshot_load(const void* input, size_t size);
 
 #ifdef __cplusplus
 }
