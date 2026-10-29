@@ -131,11 +131,12 @@ those name and writes `status.json` beside the list. Run by hand without
 `--plugins`, the port reads `<data>/plugins/plugins.json`. Nothing of a
 source tree is read at run time.
 
-**Android** carries the game inside the app and runs it there; the system
-does not let an app load code from the files it writes (since Android 10), so
-native mods are not loaded on Android: the Mods tab shows them as not for
-this platform (no `plugin` entry for it). Data packs work there as
-elsewhere.
+**Android** carries the game inside the app and runs it there. A native mod
+loads there when its release has an `android-arm64` build (the SDK's
+workflow makes one with the NDK); one built before that shows in the Mods tab
+as not built for this platform until its next release. The game opens the
+library read-only, as Android 14 asks of code an app loads from its own
+files. Script mods and data packs work there as elsewhere.
 
 ## 3. The manifest: `openrac-mod.json`
 
@@ -178,7 +179,7 @@ elsewhere.
 | `author`, `description`, `license`, `homepage` | no | shown in the launcher; `homepage` only if `https://` |
 | `api` | yes, with `plugin` | `MAJOR.MINOR`: the interface's version the mod was built against |
 | `games` | yes | at least one game, each with at least one version |
-| `plugin` | no | platform → path inside the mod. Platforms: `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `windows-arm64`. Without it the mod is data only (not used yet: section 10) |
+| `plugin` | no | platform → path inside the mod. Platforms: `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `windows-arm64`, `android-arm64`. Without it the mod is data only (not used yet: section 10) |
 | `hooks` | no | the hook points the mod takes, each by its id (`rac1.player.take_damage`) or an alias (`Hero_TakeDamage`; section 4). The launcher shows which mods share one; the port warns about a hook a mod takes but does not list; `package_mod.py` refuses one the SDK's table (`bindings/<game>.ids.lock`) does not have |
 | `settings` | no | the mod's settings (below) |
 | `requires` | no | mods that must be on and load before it; `version` is `>=X.Y.Z`, `=X.Y.Z` or absent |

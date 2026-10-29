@@ -72,8 +72,8 @@ pub fn dir(install_dir: &Path, game: &str) -> PathBuf {
     crate::install::data_dir(install_dir, game).join("plugins")
 }
 
-/// The manifest's name for this system (`macos-arm64`, `linux-x86_64`, `windows-x86_64`, ...), or
-/// None where no native mod runs (Android).
+/// The manifest's name for this system (`macos-arm64`, `linux-x86_64`, `android-arm64`, ...), or
+/// None where no native mod runs.
 pub fn platform_key() -> Option<&'static str> {
     platform_key_for(std::env::consts::OS, std::env::consts::ARCH)
 }
@@ -86,12 +86,20 @@ fn platform_key_for(os: &str, arch: &str) -> Option<&'static str> {
         ("linux", "aarch64") => "linux-aarch64",
         ("windows", "x86_64") => "windows-x86_64",
         ("windows", "aarch64") => "windows-arm64",
+        ("android", "aarch64") => "android-arm64",
         _ => return None,
     })
 }
 
-const PLATFORMS: [&str; 6] =
-    ["macos-arm64", "macos-x86_64", "linux-x86_64", "linux-aarch64", "windows-x86_64", "windows-arm64"];
+const PLATFORMS: [&str; 7] = [
+    "macos-arm64",
+    "macos-x86_64",
+    "linux-x86_64",
+    "linux-aarch64",
+    "windows-x86_64",
+    "windows-arm64",
+    "android-arm64",
+];
 
 // ---- The manifest -------------------------------------------------------------------------------
 
@@ -1253,7 +1261,8 @@ mod tests {
         assert_eq!(platform_key_for("macos", "aarch64"), Some("macos-arm64"));
         assert_eq!(platform_key_for("windows", "x86_64"), Some("windows-x86_64"));
         assert_eq!(platform_key_for("linux", "aarch64"), Some("linux-aarch64"));
-        assert_eq!(platform_key_for("android", "aarch64"), None);
+        assert_eq!(platform_key_for("android", "aarch64"), Some("android-arm64"));
+        assert_eq!(platform_key_for("android", "x86_64"), None);
         assert!(platform_key().is_none() || PLATFORMS.contains(&platform_key().unwrap()));
     }
 
@@ -1375,7 +1384,7 @@ mod tests {
     #[test]
     fn a_script_mod_runs_on_every_system() {
         let m: Manifest = serde_json::from_value(script("swap", json!({"games": {"rac1": ["pal"]}}))).unwrap();
-        // Android has no platform key for native mods; a script runs there all the same.
+        // A system with no platform key for native mods runs a script all the same.
         assert!(m.runs_on("rac1", "pal", None).is_ok());
         assert!(m.runs_on("rac1", "pal", Some("windows-arm64")).is_ok());
         assert!(m.runs_on("rac1", "ntsc", None).unwrap_err().contains("Not for this disc"));

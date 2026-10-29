@@ -11,7 +11,7 @@
 #   OpenRAC::mod                the interface's headers (openrac/openrac_mod.h, openrac/games/*.h) and
 #                               its C++ layer (openrac/mod.hpp, openrac/games/*.hpp)
 #   OPENRAC_MOD_PLATFORM        this build's platform key: macos-arm64, macos-x86_64, linux-x86_64,
-#                               linux-aarch64, windows-x86_64 or windows-arm64
+#                               linux-aarch64, windows-x86_64, windows-arm64 or android-arm64
 #   OPENRAC_MOD_SDK_DIR         the SDK's folder (its tools: ${OPENRAC_MOD_SDK_DIR}/tools)
 #   openrac_add_mod(<target> MANIFEST <file> SOURCES <file>... [PACKAGE_DIR <dir>])
 #
@@ -66,8 +66,13 @@ function(_openrac_mod_platform out)
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(system linux)
     set(arch "${CMAKE_SYSTEM_PROCESSOR}")
+  # Android, with the NDK's toolchain file: the ABI it builds (arm64-v8a).
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    set(system android)
+    set(arch "${CMAKE_SYSTEM_PROCESSOR}")
   else()
-    message(FATAL_ERROR "openrac_add_mod: OpenRAC mods are built for macOS, Linux or Windows, not ${CMAKE_SYSTEM_NAME}")
+    message(FATAL_ERROR "openrac_add_mod: OpenRAC mods are built for macOS, Linux, Windows or Android, "
+                        "not ${CMAKE_SYSTEM_NAME}")
   endif()
   # Fold the spellings of each processor into the platform keys the manifest and the launcher use.
   string(TOLOWER "${arch}" arch)
@@ -116,7 +121,8 @@ function(openrac_add_mod target)
     C_STANDARD 11
     C_STANDARD_REQUIRED ON
     # C++ sources: C++17 (openrac/mod.hpp), with the compiler's own runtime as the port has it
-    # (libc++ on macOS, libstdc++ on Linux, the DLL runtime /MD on Windows, CMake's default).
+    # (libc++ on macOS, libstdc++ on Linux, the DLL runtime /MD on Windows, CMake's default; on
+    # Android the NDK's libc++, linked in, its toolchain's default).
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
@@ -126,7 +132,7 @@ function(openrac_add_mod target)
   # A mod takes nothing from the program that loads it but the table it is handed: anything left
   # undefined is a mistake, found here rather than when the game opens the library. Apple's and
   # Microsoft's linkers refuse it already (ld64 deprecates saying -undefined error).
-  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|Android)$")
     target_link_options(${target} PRIVATE "LINKER:--no-undefined")
     # Only the entry points are seen from outside: the C++ standard library's template code a mod
     # instantiates (std::function, std::string, ...) would otherwise be exported, weak, on Linux,

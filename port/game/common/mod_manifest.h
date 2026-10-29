@@ -115,7 +115,7 @@ std::map<std::string, SettingValue> resolve_settings(
     std::vector<std::string>& notes
 );
 
-// This build's platform key: "macos-arm64", "linux-x86_64", "windows-x86_64", ...
+// This build's platform key: "macos-arm64", "linux-x86_64", "windows-x86_64", "android-arm64", ...
 const char* platform_key();
 
 // What the port is, for the checks.
