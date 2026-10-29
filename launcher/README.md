@@ -87,6 +87,11 @@ the game you used last.
   The editor will not write while the game runs, backs up the card before
   every write, and offers Undo
   ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#the-save-editor)).
+  A slot the game wrote while mods were loaded is marked **Mods**, with the
+  mods' names on hover; the mark is a small file beside the save
+  (`save0.bin.mods`), never a change to the save itself, and it goes again
+  when the slot is saved over without mods. Ratchet & Clank (PAL) shows the
+  same mark on the game's own memory card page.
   **Import saves from PCSX2**, in the game's menu, copies the game's saves
   from a PCSX2 memory card (a `.ps2` file, or a folder card's
   `_pcsx2_superblock`) onto the card, after a backup of what was there.

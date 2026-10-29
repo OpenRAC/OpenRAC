@@ -34,6 +34,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_func_L00_0025C710 1
 /* The boot loop draws its picture with draw_bootImage (FUN_002012b8), which boot_picture.c wraps. */
 #define RAC1_OMIT_func_001F7680 1
+/* The memory card page's MODS badges (save_marks.c): the page's draw is not carried to this
+ * version yet, so this disc shows the badges in the launcher only. */
+#define RAC1_OMIT_func_00224C30 1
 /* FUN_0023a2c0, the pause menu mobys' update: the NTSC decomp has C for it. */
 #define RAC1_OMIT_game_D_0023B578 1
 /* Variants (variants.c) the NTSC decomp's catalogue names apart, each with C of its own. */

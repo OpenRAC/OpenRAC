@@ -1,6 +1,6 @@
 // How the game page talks about save files: the empty slots in one line, a slot's save time and a
 // backup's name in a player's words. No Svelte or Tauri here, so it can be tested.
-import type { SaveBackupInfo } from "./api";
+import type { SaveBackupInfo, SaveMod } from "./api";
 
 /** The slots' numbers as people count them (1 to 5), in a sentence: "Slots 3 to 5 are empty". */
 export function emptySlots(numbers: number[]): string {
@@ -26,4 +26,11 @@ export function stampSeconds(stamp: string | null): number | null {
 export function backupLabel(b: Pick<SaveBackupInfo, "note">): string {
   const note = b.note?.trim();
   return note ? note.charAt(0).toUpperCase() + note.slice(1) : "Backup";
+}
+
+/** The mods a save was played with, for the badge's tooltip: "Lock-strafe 1.0.0, Button swap". */
+export function savedWithMods(mods: SaveMod[] | null): string {
+  if (!mods?.length) return "";
+  const named = mods.map((m) => (m.version ? `${m.id} ${m.version}` : m.id));
+  return `Played with ${named.join(", ")}`;
 }

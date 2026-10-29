@@ -2395,6 +2395,11 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
             planetName: "Veldin",
             timestamp: "2026-10-09 17:01:21",
             modifiedMillis: Date.now() - 3600000,
+            // Played with mods: the mark beside the save (port/game/common/lib/mc.c).
+            mods: [
+              { id: "lock-strafe", version: "1.0.0" },
+              { id: "camera-tweaks", version: "0.3.1" },
+            ],
           },
           {
             slotIndex: 1,
@@ -2409,6 +2414,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
             planetName: "Kerwan",
             timestamp: "2026-10-09 17:21:44",
             modifiedMillis: Date.now() - 1800000,
+            mods: null,
           },
           {
             slotIndex: 2,

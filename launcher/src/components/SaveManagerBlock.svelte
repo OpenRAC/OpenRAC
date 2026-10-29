@@ -9,7 +9,7 @@
   import { grouped, size } from "$lib/format";
   import { when } from "$lib/reports";
   import { isPlaying } from "$lib/player.svelte";
-  import { backupLabel, emptySlots, stampSeconds } from "$lib/saves";
+  import { backupLabel, emptySlots, savedWithMods, stampSeconds } from "$lib/saves";
   import { fold } from "$lib/motion";
   import { tick } from "svelte";
   import { slide } from "svelte/transition";
@@ -155,6 +155,13 @@
             <span class="when" title={developer ? (slot.timestamp ?? undefined) : undefined}
               >{saved(slot.timestamp)}</span
             >
+            {#if slot.mods?.length}
+              <!-- Written while mods were loaded (the mark beside the save: port/game/common/lib/mc.c).
+                   The names are in the tooltip; the row stays one line. -->
+              <span class="modded" title={savedWithMods(slot.mods)}>Mods</span>
+            {:else}
+              <span></span>
+            {/if}
             {#if slot.editable}
               <button class="small edit" onclick={() => (editing = slot.slotIndex)}
                 ><Icon name="edit" size={14} />Edit</button
@@ -260,7 +267,7 @@
   /* One used slot per row, the columns aligned down the list. */
   .slots li {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, auto) auto;
+    grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, auto) auto auto;
     align-items: center;
     gap: 14px;
     padding: 9px 2px;
@@ -278,6 +285,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* A save written while mods were loaded; the mods themselves are in the tooltip. */
+  .modded {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--amber);
+    background: color-mix(in srgb, var(--amber) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+    border-radius: 6px;
+    padding: 2px 7px;
+    cursor: help;
   }
 
   .bolts {
@@ -389,9 +410,14 @@
       row-gap: 6px;
     }
 
-    /* The date on a line of its own under the planet, Edit at its end. */
+    /* The date on a line of its own under the planet, the mods badge beside it, Edit at its end. */
     .slots .when {
       grid-column: 2;
+    }
+
+    .slots .modded {
+      grid-column: 3;
+      justify-self: end;
     }
 
     .slots li > :last-child {

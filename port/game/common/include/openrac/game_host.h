@@ -93,6 +93,14 @@ void openrac_game_select_destination(int index);
 /* The first memory card's folder (the second is beside it, <folder>.slot2). */
 extern const char* openrac_game_card_dir;
 
+/* The mods loaded for this run, as a JSON array for the save mark:
+ * [{"id":"lock-strafe","version":"1.0.0"}]. "[]" when none loaded and in purist mode (--no-mods).
+ * The mod loader sets it once, before the game runs (game/common/mods.cpp); never null after that,
+ * and it does not change while the game runs. lib/mc.c writes it beside each save the game
+ * writes, so the launcher and the game's own memory card page can say a save was played with mods
+ * (launcher/core/src/saves.rs). */
+extern const char* openrac_game_loaded_mods;
+
 /* The console's language setting (sceScfGetLanguage): 1 English, 2 French,
  * 3 Spanish, 4 German, 5 Italian. */
 extern int openrac_game_language;

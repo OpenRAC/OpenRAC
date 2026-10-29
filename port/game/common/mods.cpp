@@ -27,10 +27,14 @@
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mod_scripts.h"
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
 #include "openrac/openrac_mod.h"
 namespace fs = std::filesystem;
+
+/* The mods loaded for this run, for lib/mc.c's save mark (game_host.h): set by load() below. */
+extern "C" const char* openrac_game_loaded_mods = "[]";
 using namespace openrac;
 
 // One loaded mod: the handle openrac_mod.h's functions are given.
@@ -1002,6 +1006,23 @@ struct Outcome {
     std::vector<std::string> hooks;
 };
 
+/* The loaded mods as the JSON array lib/mc.c writes beside each save, so a save says what it was
+ * played with (openrac_game_loaded_mods, game_host.h). Built once, after loading, and kept for the
+ * run: the save path reads the pointer and never builds anything. */
+std::string g_loaded_mods_json = "[]";
+
+void set_loaded_mods_json() {
+    std::ostringstream o;
+    o << "[";
+    for (std::size_t i = 0; i < g_loaded.size(); ++i) {
+        o << (i == 0 ? "" : ", ") << "{\"id\": " << quoted(g_loaded[i]->id)
+          << ", \"version\": " << quoted(g_loaded[i]->version) << "}";
+    }
+    o << "]";
+    g_loaded_mods_json = o.str();
+    openrac_game_loaded_mods = g_loaded_mods_json.c_str();
+}
+
 void write_status(const Host& host, const std::vector<Outcome>& outcomes) {
     const fs::path folder = host.list.parent_path();
     std::error_code e;
@@ -1322,6 +1343,7 @@ std::string load(const Host& host) {
         g_images.push_back({m->id.c_str(), m->version.c_str(), m->file.c_str(), m->base});
     }
     crash::set_mods(g_images.data(), static_cast<int>(g_images.size()));
+    set_loaded_mods_json();
     std::string line;
     for (const auto& m : g_loaded) {
         line += (line.empty() ? "" : ", ") + m->id + " " + m->version;

@@ -158,6 +158,73 @@ int openrac_lib_sceMcGetInfo(int port, int slot, gaddr type, gaddr free_clusters
 
 #define MAX_FILES 8
 static FILE* files[MAX_FILES];
+/* Each open file's path and whether the game wrote to it, for the save mark below. */
+static char file_paths[MAX_FILES][1024];
+static int file_written[MAX_FILES];
+
+/* ---- The save mark ---- */
+
+/* A save the game wrote keeps a small file of its own beside it, `<save>.mods`, saying which
+ * mods were loaded while it was played (openrac_game_loaded_mods). The save file itself is never
+ * touched: its 8-byte header has no room and every section carries a CRC (assets/disc/save_game.h),
+ * and a real memory card must still take the file. Playing without mods deletes the mark, so an
+ * overwritten save never keeps the one before it. The launcher reads it (core/src/saves.rs) and
+ * so does the game's own memory card page. */
+
+/* Whether `name` (a file name without its folder) is one of the game's save files. The host says
+ * what they are called (openrac_game_play_host->save_file, "save%d.bin"). */
+static int is_save_file(const char* name) {
+    if (openrac_game_play_host == NULL || openrac_game_play_host->save_file == NULL) {
+        return 0;
+    }
+    for (int slot = 0; slot < openrac_game_play_host->save_slots; slot++) {
+        char expected[64];
+        if (snprintf(expected, sizeof expected, openrac_game_play_host->save_file, slot)
+            < (int)sizeof expected
+            && strcmp(expected, name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* The mark's own name for a save's path, "" when it does not fit. */
+static void mark_path(const char* save_path, char* out, size_t size) {
+    if (snprintf(out, size, "%s.mods", save_path) >= (int)size) {
+        *out = '\0';
+    }
+}
+
+/* Writes or removes the mark beside the save at `path`, which the game has just written. */
+static void mark_save(const char* path) {
+    const char* mods = openrac_game_loaded_mods != NULL ? openrac_game_loaded_mods : "[]";
+    char mark[1100];
+    mark_path(path, mark, sizeof mark);
+    if (*mark == '\0') {
+        return;
+    }
+    if (strcmp(mods, "[]") == 0) {
+        remove(mark); /* played without mods: the save is plain again */
+        return;
+    }
+    char when[32];
+    const time_t now = time(NULL);
+    struct tm parts;
+#if defined(_WIN32)
+    const int ok = localtime_s(&parts, &now) == 0;
+#else
+    const int ok = localtime_r(&now, &parts) != NULL;
+#endif
+    if (!ok || strftime(when, sizeof when, "%Y-%m-%dT%H:%M:%S", &parts) == 0) {
+        snprintf(when, sizeof when, "%s", "");
+    }
+    FILE* f = fopen(mark, "wb");
+    if (f == NULL) {
+        return;
+    }
+    fprintf(f, "{\"format\": 1, \"saved\": \"%s\", \"mods\": %s}\n", when, mods);
+    fclose(f);
+}
 
 /* sceMcOpen(port, slot, name, mode): mode 1 read, 2 write, 3 both, 0x200 create. */
 int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
@@ -194,6 +261,8 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
         return finish(MC_OPEN, MC_NOT_FOUND);
     }
     files[fd] = f;
+    snprintf(file_paths[fd], sizeof file_paths[fd], "%s", path);
+    file_written[fd] = 0;
     return finish(MC_OPEN, fd);
 }
 
@@ -204,6 +273,14 @@ int openrac_lib_sceMcClose(int fd) {
     }
     fclose(files[fd]);
     files[fd] = NULL;
+    /* A save just written: its mark is set or removed now, never half way through the write. */
+    if (file_written[fd]) {
+        const char* slash = strrchr(file_paths[fd], '/');
+        if (is_save_file(slash != NULL ? slash + 1 : file_paths[fd])) {
+            mark_save(file_paths[fd]);
+        }
+    }
+    file_written[fd] = 0;
     return finish(MC_CLOSE, MC_OK);
 }
 
@@ -230,6 +307,7 @@ int openrac_lib_sceMcWrite(int fd, gaddr buffer, int size) {
     }
     const size_t n = fwrite(G(buffer), 1, (size_t)size, files[fd]);
     fflush(files[fd]);
+    file_written[fd] = 1;
     return finish(MC_WRITE, (int)n);
 }
 
@@ -335,6 +413,11 @@ static void add_entry(const char* dir, const char* name) {
 }
 
 static int matches(const char* pattern, const char* name) {
+    /* The save marks are the port's own, not the card's: the game never sees them. */
+    const size_t length = strlen(name);
+    if (length > 5 && strcmp(name + length - 5, ".mods") == 0) {
+        return 0;
+    }
     if (strcmp(pattern, "*") == 0) {
         return 1;
     }

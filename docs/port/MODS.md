@@ -634,6 +634,28 @@ and the page runs and follows the `probe-bake` action that bakes the probes
 from the player's own levels. Purist mode does not turn it off: it is not a
 mod. The Rust side is `core/src/enhanced.rs`.
 
+**A save says what it was played with.** While any mod is loaded, the port
+writes a small file beside each save the game writes,
+`<card>/<save folder>/save<N>.bin.mods`:
+
+```json
+{"format": 1, "saved": "2026-10-29T14:02:11", "mods": [{"id": "lock-strafe", "version": "1.0.0"}]}
+```
+
+Saving over the slot without mods removes it, so the mark is always what the
+save was last written with. The save file itself is never touched: its header
+has no room, every section carries a CRC, and a real memory card must still
+take the file ([port/assets/disc/save_game.h](../../port/assets/disc/save_game.h)).
+The game never sees the mark: `sceMcGetDir` leaves it out of a listing. The
+mark is written by [lib/mc.c](../../port/game/common/lib/mc.c) from
+`openrac_game_loaded_mods`, which the mod loader sets once at start
+([mods.cpp](../../port/game/common/mods.cpp)). The launcher's Saves block
+shows a **Mods** badge with the names on hover (`core/src/saves.rs`), and
+Ratchet & Clank (PAL) shows the same badge on the game's own memory card page
+([rac1/host/save_marks.c](../../port/game/rac1/host/save_marks.c), the
+`Pause_DrawSaveSlots` wrap); the NTSC-U disc shows it in the launcher only,
+until that page's draw is carried over.
+
 ## 10. Mods in a git repository
 
 A player pastes a repository's address in the Mods tab (**Add from a
