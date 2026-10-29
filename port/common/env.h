@@ -144,6 +144,7 @@ enum class Var : std::uint16_t {
     SoftwareGl,
     SoundLog,
     Strict,
+    StripFogOff,
     SunInstanceCullOff,
     SunReceiverCullOff,
     SunShadows,
