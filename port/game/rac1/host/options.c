@@ -87,7 +87,8 @@ void func_00209CE8(RAC1_TYPE_func_00209CE8_save save) {
 
 /* Each frame: the options as the player left them, for the next run. The language once InitOnce
  * has set it (it reads what the port remembered), the Sound page once it has the remembered
- * values. */
+ * values. The language is also the console's from then on: Quit Game starts the boot program
+ * again, whose InitOnce reads the console's language once more, and finds the player's. */
 void rac1_options_frame(void) {
     static int language_set;
     const int language = console_language(GREF(int, LANGUAGE));
@@ -98,6 +99,7 @@ void rac1_options_frame(void) {
     /* A language the console has no code for is not remembered. */
     if (language_set && language > 0) {
         openrac_game_set_option("game_language", language);
+        openrac_game_language = language;
     }
     /* Before the sound's start the page holds the game's defaults, not the player's. */
     if (sound_put) {
