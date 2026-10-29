@@ -15,6 +15,7 @@
 
 #include "enhanced/lighting/interior_lights.h"
 #include "enhanced/renderer/reflection_material.h"
+#include "enhanced/renderer/water_float.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/viewer/area_light_overlay.h"
 #include "enhanced/viewer/environment_lighting.h"
@@ -287,6 +288,44 @@ void test_gpu_box_updates(
     bounds.release();
 }
 
+// Water attachments and reflection fragments must keep independent texture bindings in either order.
+void test_water_and_reflection_bindings(
+    openrac::lighting::EnvironmentLighting& captures, const openrac::renderer::FrameBuffer& target
+) {
+    using namespace openrac;
+    using namespace gl;
+    renderer::Shader shader;
+    std::string error;
+    const auto vertex = enhanced::WaterFloat::vertex_source(R"(#version 410 core
+void main() { vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));
+ gl_Position=water_float_pose(vec3(0))*vec4(p*2.-1.,0,1); })");
+    const std::string fragment = R"(#version 430 core
+uniform sampler2D environment_map;
+uniform int environment_count;
+layout(location=0) out vec4 colour;
+void main() { colour=vec4(environment_count>0 ? texelFetch(environment_map,ivec2(2),0).rgb : vec3(0),1); })";
+    CHECK(shader.build("water and reflection binding independence", vertex, fragment, error));
+    enhanced::WaterFloat attachment;
+    attachment.load();
+    shader.use();
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    attachment.bind(shader, false);
+    captures.bind(shader, true);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const auto reference = target.read_rgba();
+    CHECK(reference[0] > 50);
+    // Reload clears the attachment's per-shader binding cache before reversing the call order.
+    attachment.load();
+    captures.bind(shader, true);
+    attachment.bind(shader, false);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    CHECK(target.read_rgba() == reference);
+    attachment.release();
+    shader.release();
+    glEnable(GL_DEPTH_TEST);
+}
+
 // Production preview rendering must sample each capture independently, without tint or GI blending.
 void test_environment_previews(
     const openrac::renderer::FrameInput& input,
@@ -362,6 +401,7 @@ void test_environment_previews(
     }
 
     CHECK(opaque_red == 0);
+    test_water_and_reflection_bindings(captures, target);
     captures.release();
 }
 

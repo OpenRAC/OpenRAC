@@ -17,7 +17,8 @@ namespace openrac::lighting {
 using namespace gl;
 
 namespace {
-constexpr unsigned kEnvironmentUnit = 20;
+// Water deformation uses units 18-20; selection masks and metadata use 21-22.
+constexpr unsigned kEnvironmentUnit = 23;
 
 // Shared packed format for real captures and the descriptor-safe black fallback.
 void upload(unsigned texture, unsigned width, unsigned height, const void* pixels) {
