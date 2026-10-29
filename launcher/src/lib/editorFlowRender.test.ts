@@ -81,9 +81,9 @@ describe("EditorFlow", () => {
     expect(body).not.toContain("Traceback");
   });
 
-  it("keeps Start over in the panel, under Troubleshoot", () => {
+  it("keeps the resets in the panel, under Troubleshoot", () => {
     const { body } = render(EditorFlow, { props: { game, version } });
-    expect(body).toContain("Troubleshoot and start over");
+    expect(body).toContain("Troubleshoot");
     expect(body).toContain("Reset the level editor");
   });
 });

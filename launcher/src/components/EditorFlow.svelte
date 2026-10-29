@@ -1,14 +1,22 @@
 <script lang="ts">
   // The Level editor tab's one panel: where the player is with this disc's levels, in a sentence,
-  // and the step that comes next as the main button; the other steps below it, and Troubleshoot
-  // (Start over) folded at the bottom. The state is the core's look at the editor's folders
+  // and the step that comes next as the main button; the other steps beside it, and Troubleshoot
+  // (the resets) folded at the bottom. The state is the core's look at the editor's folders
   // (core/src/editor_state.rs), asked again when the tab opens, when the window comes back into
   // focus (the player saved in Godot) and when one of the editor's jobs ends; the words and the
   // order of the states are lib/editorFlow.ts's. A failed step is said in a player's words
   // (lib/toolErrors.ts), never in the tool's: what it printed is behind "Show details".
   import { api, pickFile, type EditorState, type GameView, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
-  import { STEP_LABEL, editorStage, updateNote, updateNoteLine, type Step } from "$lib/editorFlow";
+  import {
+    OPEN_ANYWAY,
+    OPEN_ANYWAY_HINT,
+    STEP_LABEL,
+    editorStage,
+    updateNote,
+    updateNoteLine,
+    type Step,
+  } from "$lib/editorFlow";
   import { levelName, levelsOf } from "$lib/labels";
   import { GODOT_URL } from "$lib/links";
   import { EDITOR } from "$lib/modsText";
@@ -220,6 +228,10 @@
     report: "See the log",
   };
 
+  // One orange button on the panel: while a failure offers its own step, that step is the main
+  // one and the stage's main step waits beside the others.
+  const failureLeads = $derived(!!(failureShown && failure && failure.next !== "none" && NEXT_LABEL[failure.next]));
+
   const disabled = (step: Step) => {
     if (busy || extracting || packing) return true;
     if (step === "pack") return !pack?.runnable;
@@ -241,6 +253,9 @@
 
   const picksLevel = (step: Step) => step === "open" || step === "prepare";
   const steps = $derived([...(stage.primary ? [stage.primary] : []), ...stage.secondary]);
+  /** The level picker sits right before the button it is for. */
+  const pickerBefore = $derived(lacksGodot ? null : (steps.find(picksLevel) ?? null));
+  const label = (step: Step) => (step === "open" && stage.kind === "needs-update" ? OPEN_ANYWAY : STEP_LABEL[step]);
 
   let troubleshoot = $state(false);
   const backup = $derived(found?.backups[0] ?? null);
@@ -254,22 +269,19 @@
           size={18}
         />{:else if stage.tone === "warn"}<Icon name="warn" size={18} />{:else}<Icon name="info" size={18} />{/if}
     </span>
-    <div class="words">
-      <h2 id="flow-title">{stage.title}</h2>
-      {#if stage.line}<p>{stage.line}</p>{/if}
-      {#if stage.detail}<p class="muted detail">{stage.detail}</p>{/if}
-    </div>
+    <h2 id="flow-title">{stage.title}</h2>
+    {#if stage.line}<p class="line">{stage.line}</p>{/if}
   </div>
 
   {#if failureShown && failure && failed}
     <div class="failure" role="alert">
-      <Icon name="warn" size={16} />
+      <span class="sign"><Icon name="warn" size={16} /></span>
       <div class="words">
         <strong>{failure.title}</strong>
         <p>{failure.line}</p>
         <div class="row">
           {#if failure.next !== "none" && NEXT_LABEL[failure.next]}
-            <button class="small" onclick={() => void take(failure.next)}>{NEXT_LABEL[failure.next]}</button>
+            <button class="small primary" onclick={() => void take(failure.next)}>{NEXT_LABEL[failure.next]}</button>
           {/if}
           <button class="small ghost" aria-expanded={details} onclick={() => (details = !details)}
             >{details ? "Hide details" : "Show details"}</button
@@ -281,12 +293,51 @@
     </div>
   {/if}
 
+  {#if steps.length}
+    <div class="next">
+      {#if stage.detail}<p class="detail">{stage.detail}</p>{/if}
+      <div class="actions">
+        {#each steps as step, i (step)}
+          {#if step === pickerBefore}
+            <select
+              aria-label={EDITOR.levelLabel}
+              value={level}
+              onchange={(e) => (picked = Number(e.currentTarget.value))}
+              disabled={!!busy || !!extracting}
+            >
+              {#each levelsOf(version.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
+            </select>
+          {/if}
+          <button
+            class={i === 0 && stage.primary && !failureLeads ? "primary" : ""}
+            disabled={disabled(step)}
+            onclick={() => void take(step)}
+          >
+            {#if busy === step}<span class="spinner"></span>{:else}<Icon name={ICON[step]} size={16} />{/if}
+            {label(step)}
+          </button>
+          {#if step === "get-godot"}
+            <button onclick={() => void chooseGodot()}><Icon name="folder" size={16} />{EDITOR.chooseGodot}</button>
+          {/if}
+        {/each}
+        {#if !early && stage.kind === "packed"}
+          <button class="ghost" disabled={disabled("pack")} onclick={() => void take("pack")}
+            ><Icon name="save" size={16} />Pack again</button
+          >
+        {/if}
+      </div>
+      {#if stage.kind === "needs-update" && stage.secondary.includes("open")}
+        <p class="hint">{OPEN_ANYWAY_HINT}</p>
+      {/if}
+    </div>
+  {/if}
+
   {#if note && stage.tone !== "busy"}
     <div class="note">
-      <p>{updateNoteLine(note)}</p>
+      <p class="done"><Icon name="check" size={14} />{updateNoteLine(note)}</p>
       {#if note.redo.length}
-        <details>
-          <summary>What to redo by hand</summary>
+        <details open={note.redo.length <= 5}>
+          <summary>What to redo by hand ({note.redo.length})</summary>
           <ul>
             {#each note.redo as line, i (i)}<li>{line}</li>{/each}
           </ul>
@@ -300,47 +351,11 @@
     </div>
   {/if}
 
-  {#if steps.length}
-    <div class="actions">
-      {#if steps.some(picksLevel) && !lacksGodot}
-        <select
-          aria-label={EDITOR.levelLabel}
-          value={level}
-          onchange={(e) => (picked = Number(e.currentTarget.value))}
-          disabled={!!busy || !!extracting}
-        >
-          {#each levelsOf(version.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
-        </select>
-      {/if}
-      {#each steps as step, i (step)}
-        <button
-          class={i === 0 && stage.primary ? "primary" : ""}
-          disabled={disabled(step)}
-          onclick={() => void take(step)}
-        >
-          {#if busy === step}<span class="spinner"></span>{:else}<Icon name={ICON[step]} size={16} />{/if}
-          {step === "open" && stage.kind === "needs-update" ? "Open anyway" : STEP_LABEL[step]}
-        </button>
-        {#if step === "get-godot"}
-          <button onclick={() => void chooseGodot()}><Icon name="folder" size={16} />{EDITOR.chooseGodot}</button>
-        {/if}
-      {/each}
-      {#if !early && stage.kind === "packed"}
-        <button class="ghost" disabled={disabled("pack")} onclick={() => void take("pack")}
-          ><Icon name="save" size={16} />Pack again</button
-        >
-      {/if}
-    </div>
-    {#if stage.kind === "needs-update" && stage.secondary.includes("open")}
-      <p class="muted hint">Opening an outdated level works for looking around; pack it after the update.</p>
-    {/if}
-  {/if}
-
   <details class="trouble" bind:open={troubleshoot}>
-    <summary><Icon name="reset" size={14} />Troubleshoot and start over</summary>
+    <summary><Icon name="reset" size={14} />Troubleshoot</summary>
     <p class="muted">
-      When levels look wrong in Godot or in the game, or for a clean editor. Your disc, saves and gameplay mods are
-      never touched.
+      Read the levels again or reset the editor, when levels look wrong in Godot or in the game, or for a clean start.
+      Your disc, saves and gameplay mods are never touched.
     </p>
     {#if backup}
       <p class="muted">
@@ -360,14 +375,16 @@
     gap: 16px;
   }
 
+  /* The mark and the title on one line, what it means under both, flush with the buttons below. */
   .status {
-    display: flex;
-    gap: 14px;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 4px;
+    align-items: center;
   }
 
   .mark {
-    flex: 0 0 auto;
     display: grid;
     place-items: center;
     width: 34px;
@@ -390,6 +407,32 @@
     color: var(--amber);
   }
 
+  .status .line {
+    grid-column: 1 / -1;
+    margin: 4px 0 0;
+    max-width: 68ch;
+    color: var(--body);
+  }
+
+  .next {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .detail {
+    margin: 0;
+    max-width: 68ch;
+    font-size: 0.875rem;
+    color: var(--body);
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--soft);
+  }
+
   .words {
     min-width: 0;
     display: flex;
@@ -397,19 +440,10 @@
     gap: 4px;
   }
 
-  .words h2 {
-    font-size: 1.0625rem;
-    margin: 0;
-  }
-
   .words p {
     margin: 0;
     max-width: 68ch;
     color: var(--body);
-  }
-
-  .detail {
-    font-size: 0.8125rem;
   }
 
   .failure {
@@ -420,6 +454,13 @@
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--err) 8%, var(--panel));
     color: var(--err);
+  }
+
+  /* The sign sits on the title's line. */
+  .failure .sign {
+    flex: 0 0 auto;
+    display: inline-flex;
+    margin-top: 2px;
   }
 
   .failure strong {
@@ -462,13 +503,38 @@
     align-items: flex-start;
     gap: 6px;
     padding: 12px 14px;
-    border: 1px dashed var(--line-strong);
+    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
+    background: var(--panel-hi);
     font-size: 0.875rem;
   }
 
   .note p {
     margin: 0;
+  }
+
+  .done {
+    display: flex;
+    gap: 8px;
+    color: var(--body);
+  }
+
+  .done :global(svg) {
+    flex: 0 0 auto;
+    color: var(--ok);
+    align-self: flex-start;
+    margin-top: 3px;
+  }
+
+  .note summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .note summary:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
   }
 
   .note ul {
@@ -477,24 +543,21 @@
     color: var(--soft);
   }
 
+  /* A field, like the launcher's text fields: not one more pill among the buttons. */
   .actions select {
     font: inherit;
     font-size: 0.875rem;
     background: var(--ink-deep);
     color: var(--text);
     border: 1px solid var(--line-field);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 7px 12px;
+    min-height: 36px;
   }
 
   .actions select:focus-visible {
     outline: 2px solid var(--amber);
     outline-offset: 2px;
-  }
-
-  .hint {
-    margin: -8px 0 0;
-    font-size: 0.8125rem;
   }
 
   .trouble {
@@ -532,9 +595,20 @@
   }
 
   @media (max-width: 600px) {
+    .status {
+      grid-template-columns: 28px minmax(0, 1fr);
+      column-gap: 10px;
+    }
+
+    .mark {
+      width: 28px;
+      height: 28px;
+    }
+
     .actions > * {
       flex: 1 1 100%;
       justify-content: center;
+      min-height: 44px;
     }
   }
 </style>
