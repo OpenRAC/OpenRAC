@@ -926,15 +926,24 @@ struct RegionLookup {
         std::vector<std::pair<float, unsigned>> expected;
 
         for (unsigned i = 0; i < grids.size(); ++i) {
-            if (grids[i].origin[0] + view.view[12] > 1.0f
-                || grids[i].origin[0] + 0.001f + view.view[12] < -1.0f) {
+            const auto& grid = grids[i];
+            const float cosine = grid.frame.axis[0];
+            const float sine = grid.frame.axis[1];
+            const float right =
+                grid.origin[0] + std::max(0.f, cosine * .001f) + std::max(0.f, -sine * .2f);
+            const float left =
+                grid.origin[0] + std::min(0.f, cosine * .001f) + std::min(0.f, -sine * .2f);
+            if (left + view.view[12] > 1.0f || right + view.view[12] < -1.0f) {
                 continue;
             }
 
-            float delta =
-                view.position[0]
-                - std::clamp(view.position[0], grids[i].origin[0], grids[i].origin[0] + 0.001f);
-            expected.emplace_back(delta * delta, i);
+            const float x = view.position[0] - grid.origin[0];
+            const float y = view.position[1] - grid.origin[1];
+            const float local_x = x * cosine + y * sine;
+            const float local_y = -x * sine + y * cosine;
+            const float dx = local_x - std::clamp(local_x, 0.f, .001f);
+            const float dy = local_y - std::clamp(local_y, 0.f, .2f);
+            expected.emplace_back(dx * dx + dy * dy, i);
         }
 
         std::sort(expected.begin(), expected.end());
