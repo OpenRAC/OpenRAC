@@ -186,6 +186,12 @@ void skip_after_mods(int port, std::uint16_t& buttons) {
     }
 }
 
+void refresh_pads() {
+    if (g && g->window) {
+        g->input.refresh_pads();
+    }
+}
+
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     if (!g || port < 0 || port >= platform::kPadPorts) {
         return false;

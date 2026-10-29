@@ -133,6 +133,12 @@ std::int64_t since_control();
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
 
+// Reads the pads again just before the game's next tick runs (the end of program::vsync, after
+// its wait): the tick reads the sticks and buttons as they are when it starts, not as they were
+// when the last tick ended. Nothing else of the input changes (the window's events stay queued
+// for the next frame), and the tick still reads one state of the pad.
+void refresh_pads();
+
 // Start skipping what plays (the skip_cutscenes setting): what Start also presses for the game's
 // own skip, and the game's skip hook. pad() does it itself without mods on the pad's reports; with
 // some, the pad library calls it on the report the mods leave (openrac_game_pad_after_mods).

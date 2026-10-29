@@ -66,6 +66,11 @@ public:
     // after the events.
     void update();
 
+    // Read the pads again from what SDL holds now, just before the game's tick reads them: the
+    // gamepads' state brought up to date, the keyboard's and the on-screen pad's as the last
+    // events left them. The mods' keyboard and mouse and the motors stay update()'s.
+    void refresh_pads();
+
     const Pad& pad(int port) const { return m_pads[static_cast<std::size_t>(port)]; }
 
     // The game sets the motors here (scePadSetActDirect); update() plays them.
