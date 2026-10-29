@@ -16,12 +16,20 @@
  * piece's moby is not run by the moby loop (flags 6): the hero's update advances its animation,
  * puts it at its joint's place, builds its matrix and copies the joint's rotation rows over it. The
  * gloves (items 10, 17, 20 and 25) are posed from the hand instead: pack_pose (func_L00_00209940)
- * of the body's joints into a pose buffer the glove's moby then draws.
+ * of the body's joints into a pose buffer the glove's moby then draws (its own seq stays at its
+ * first key: the glove opens and throws with the hand).
  *
  * A figure's pieces are mobys of the same classes, made here, never run (their own updates read
  * the hero), and put on the figure's joints the same way after the moby loop (UpdateMobys,
  * crash_state.c, has advanced and built the figure's), each tick: rac1_figure_items_tick. A loose
- * piece (a thrown wrench) is where the other game says.
+ * piece (a thrown wrench) is where the other game says. A figure's glove is posed from the
+ * figure's hand the same way, into a buffer in the game's memory, where the renderer reads a moby's
+ * keys (scene/moby_pose.cpp: main RAM only, so not the port's statics): one of the game's sixteen
+ * blend slots (0x800 bytes from D_001AAF40, the ones MobyBlendAnimation parks a pose in), taken for
+ * the glove's moby with find_or_allocate_id_slot (func_0020DA68) and kept as the game keeps a
+ * blending moby's (seq 0xFF, frame the slot: prune_moby_references, func_0020DAB0, frees the
+ * slot of a moby that is neither), and given back when the glove goes. With no slot free, the
+ * glove keeps its class's own key that tick.
  *
  * Classes. Most of a level's classes stay loaded, but the weapons' and gadgets'
  * (class_resource_ids, D_001CBE40) share two decode buffers of 0x18000 bytes (the fifth of
@@ -105,6 +113,7 @@ enum {
     MOBY_COLOUR = 0x38,
     MOBY_ROT = 0x40,
     MOBY_FRAME = 0x50,
+    MOBY_SEQ = 0x52,
     MOBY_ANIM_TIME = 0x54,
     MOBY_CUR_FRAME = 0x68,
     MOBY_PREV_FRAME = 0x6C,
@@ -133,8 +142,13 @@ enum {
 
 /* How far away a piece is drawn (play.c's figure's). */
 #define PIECE_DRAW_DIST 400
-/* A glove's pose buffer (pack_pose: a header and three packed rows a joint). */
-#define POSE_BUFFER 0x400u
+/* The blend slots (anim.c) and the table of the mobys holding them (moby_render_slots). */
+#define BLEND_SLOTS OPENRAC_DATA(RAC1_ADDR(0x001AAF40u))
+#define BLEND_SLOT_SIZE 0x800u
+#define BLEND_OWNERS OPENRAC_DATA(RAC1_ADDR(0x001B2F40u))
+#define BLEND_SLOT_COUNT 16
+/* A moby's seq while its key A is a blend slot's (the slot in its frame byte). */
+#define SEQ_BLEND_SLOT 0xFFu
 
 /* The figures' pieces: which figure, the level load, the piece as asked and its moby. */
 #define RECORDS 32
@@ -144,11 +158,9 @@ typedef struct {
     uint32_t load;
     openrac_game_held_piece piece;
     gaddr moby;
-    gaddr pose_buffer; /* a glove's, made once and kept */
 } Record;
 
 static Record records[RECORDS];
-static gaddr pose_buffers[RECORDS];
 
 /* The class each decode buffer holds, as noted by the wrapper (-1 not known), for the load. */
 static int32_t buffer_class[2] = {-1, -1};
@@ -262,11 +274,26 @@ static void leave_level_context(int entered) {
     }
 }
 
+/* The blend slot moby `m` holds, taken for it when it has none; -1 when all are taken. */
+static int blend_slot(gaddr m) {
+    return func_0020DA68((int)m);
+}
+
+/* Moby `m`'s blend slot given back (as prune_moby_references would at the next frame). */
+static void release_blend_slot(gaddr m) {
+    for (uint32_t i = 0; i < BLEND_SLOT_COUNT; ++i) {
+        if (GREF(gaddr, BLEND_OWNERS + 4u * i) == m) {
+            GREF(gaddr, BLEND_OWNERS + 4u * i) = 0;
+        }
+    }
+}
+
 /* Removes record `r`'s moby (when still its own) and frees it; `by_mod`: for the mod's
  * figure_remove (noted as a mod's deletion, moby_kill's way). */
 static void drop_as(Record* r, int by_mod) {
     if (r->moby != 0 && r->load == rac1_program_loads() && in_level()
         && alive(r->moby, r->piece.oclass)) {
+        release_blend_slot(r->moby);
         if (by_mod) {
             rac1_world_moby_kill(r->moby);
         } else {
@@ -414,8 +441,18 @@ static void forget_stale(void) {
     }
 }
 
-/* A piece's animation, as a figure's body is posed (rac1_pose_moby; its place is the tick's). */
+static int glove(int32_t item);
+
+/* A piece's animation, as a figure's body is posed (rac1_pose_moby; its place is the tick's). A
+ * glove's is its hand's (rac1_figure_items_tick): its own seq is left alone. */
 static void animate(gaddr m, const openrac_game_held_piece* p) {
+    if (glove(p->item)) {
+        uint16_t flags = GREF(uint16_t, m + MOBY_FLAGS);
+        flags = (p->flags & HELD_HIDDEN) != 0 ? (uint16_t)(flags | FLAG_HIDDEN)
+                                              : (uint16_t)(flags & ~FLAG_HIDDEN);
+        GREF(uint16_t, m + MOBY_FLAGS) = flags;
+        return;
+    }
     openrac_game_pose pose;
     memset(&pose, 0, sizeof pose);
     for (unsigned i = 0; i < 3; ++i) {
@@ -490,10 +527,6 @@ void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
                 r->figure = figure;
                 r->load = load;
                 r->moby = m;
-                if (pose_buffers[free_at] == 0) {
-                    pose_buffers[free_at] = openrac_guest_static(POSE_BUFFER);
-                }
-                r->pose_buffer = pose_buffers[free_at];
                 at = free_at;
                 if (debug_items()) {
                     fprintf(
@@ -572,14 +605,15 @@ void rac1_figure_items_tick(void) {
             func_00214F78(m + MOBY_MATRIX);
         }
         func_0020EEE8(m);
-        if (is_glove) {
-            func_L00_00209940(
-                GLOVE_JOINTS, r->pose_buffer, GREF(gaddr, m + MOBY_CLASS), 0, (int)r->figure
-            );
+        const int slot = is_glove ? blend_slot(m) : -1;
+        if (slot >= 0) {
+            const gaddr pose = BLEND_SLOTS + BLEND_SLOT_SIZE * (uint32_t)slot;
+            func_L00_00209940(GLOVE_JOINTS, pose, GREF(gaddr, m + MOBY_CLASS), 0, (int)r->figure);
             GREF(float, m + MOBY_ANIM_TIME) = 0.0f;
-            GREF(uint8_t, m + MOBY_FRAME) = 0;
-            GREF(gaddr, m + MOBY_CUR_FRAME) = r->pose_buffer;
-            GREF(gaddr, m + MOBY_PREV_FRAME) = r->pose_buffer;
+            GREF(uint8_t, m + MOBY_SEQ) = SEQ_BLEND_SLOT;
+            GREF(uint8_t, m + MOBY_FRAME) = (uint8_t)slot;
+            GREF(gaddr, m + MOBY_CUR_FRAME) = pose;
+            GREF(gaddr, m + MOBY_PREV_FRAME) = pose;
         }
         GREF(uint16_t, m + MOBY_FLAGS) =
             (uint16_t)(GREF(uint16_t, m + MOBY_FLAGS) | FLAG_NOT_RUN | FLAG_KEEP_MATRIX);

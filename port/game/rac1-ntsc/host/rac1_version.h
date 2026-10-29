@@ -474,6 +474,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0019A4E8u 0x0019A3E8u
 #define RAC1_ADDR_0x0019BEC0u 0x0019BDC0u
 #define RAC1_ADDR_0x001AAF40u 0x001AABC0u
+/* The figures' gloves (figure_items.c): PAL find_or_allocate_id_slot func_0020DA68 is FUN_0020cc18
+ * here (the NTSC decomp's gameplay/animation/blend_moby_animation), and the blend slots' owners,
+ * PAL moby_render_slots D_001B2F40, are 0x001B2BC0. */
+#define func_0020DA68 game_FUN_0020cc18
+#define RAC1_ADDR_0x001B2F40u 0x001B2BC0u
 #define RAC1_ADDR_0x001B3E40u 0x001B3AC0u
 #define RAC1_ADDR_0x001B7A60u 0x001B76E0u
 #define RAC1_ADDR_0x001CBE40u 0x001CBAC0u
