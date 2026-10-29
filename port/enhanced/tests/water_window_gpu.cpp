@@ -346,6 +346,7 @@ uint bits=floatBitsToUint(value);result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)
             + std::string(lighting::shaders::water_mesh_glsl)
             + std::string(lighting::shaders::water_window_glsl)
             + std::string(lighting::shaders::water_swell_glsl)
+            + std::string(lighting::shaders::water_displacement_glsl) + "\n"
             + std::string(lighting::shaders::water_vertex_glsl)
     );
     std::string water_fragment = renderer::shaders::direct_frag;

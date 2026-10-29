@@ -156,7 +156,8 @@ bool LevelScene::same_palette(
 // Returns the key build_groups groups `instance` by: its class model, its blend and whether it
 // is a gameplay subject and casts the hero's shadow.
 std::uint32_t LevelScene::group_key(const Instance& instance) {
-    return instance.model << 4 | (instance.gameplay_essential ? 8u : 0u)
+    return instance.model << 5 | (instance.floats_on_water ? 16u : 0u)
+           | (instance.gameplay_essential ? 8u : 0u)
            | (static_cast<std::uint32_t>(instance.blend & 3) << 1)
            | (instance.hero_shadow_caster ? 1u : 0u);
 }
@@ -180,7 +181,8 @@ LevelScene::CasterBounds LevelScene::instance_bounds(
     const Model& shape,
     const InstanceData& data,
     const std::array<float, 4>& sphere,
-    bool sphere_off
+    bool sphere_off,
+    bool floats_on_water
 ) {
     CasterBounds bounds;
     bounds.low.fill(3e38f);
@@ -218,6 +220,23 @@ LevelScene::CasterBounds LevelScene::instance_bounds(
                 .001f + 1e-6f * std::max(std::abs(bounds.low[k]), std::abs(bounds.high[k]));
             bounds.low[k] -= pad;
             bounds.high[k] += pad;
+        }
+    }
+    if (floats_on_water && bounds.valid) {
+        // Enclose any rigid tilt about the anchor, plus the maximum wave height.
+        float radius_squared = 0;
+        for (int k = 0; k < 3; ++k) {
+            const float extent = std::max(
+                std::abs(bounds.low[k] - data.matrix[12 + k]),
+                std::abs(bounds.high[k] - data.matrix[12 + k])
+            );
+            radius_squared += extent * extent;
+        }
+        const float radius = std::sqrt(radius_squared);
+        for (int k = 0; k < 3; ++k) {
+            const float extent = radius + (k == 2 ? 1.f : 0.f);
+            bounds.low[k] = data.matrix[12 + k] - extent;
+            bounds.high[k] = data.matrix[12 + k] + extent;
         }
     }
     return bounds;
@@ -269,7 +288,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
     auto& groups = m_groups[static_cast<std::size_t>(layer)];
     auto& idle = m_idle[static_cast<std::size_t>(layer)];
     for (std::size_t i = 0; i < used; ++i) {
-        const std::uint32_t model = m_grouping[i].key >> 4;
+        const std::uint32_t model = m_grouping[i].key >> 5;
         // A live layer draws the same classes frame after frame: each keeps its vertex array and
         // buffer, and only the instances are sent again.
         auto kept = std::find_if(idle.begin(), idle.end(), [&](const Group& g) {
@@ -288,6 +307,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         g.blend = static_cast<int>((m_grouping[i].key >> 1) & 3);
         g.hero_shadow_caster = (m_grouping[i].key & 1) != 0;
         g.gameplay_essential = (m_grouping[i].key & 8) != 0;
+        g.floats_on_water = (m_grouping[i].key & 16) != 0;
         fill_group(g, m_grouping[i].instances, live ? GL_STREAM_DRAW : GL_STATIC_DRAW);
         g.cpu_instances = m_grouping[i].instances;
         g.shadow_solid_instances = solid_shadow_instances(g.cpu_instances);
@@ -305,8 +325,12 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         // game's current world sphere, never their bind-pose box. Missing or
         // malformed spheres remain unbounded. Refresh on every instance upload.
         for (std::size_t n = 0; n < g.cpu_instances.size(); ++n) {
-            const CasterBounds bounds = instance_bounds(
-                m_models[model], g.cpu_instances[n], m_grouping[i].spheres[n], sphere_off
+            CasterBounds bounds = instance_bounds(
+                m_models[model],
+                g.cpu_instances[n],
+                m_grouping[i].spheres[n],
+                sphere_off,
+                g.floats_on_water
             );
             g.caster_bounds.push_back(bounds);
             if (native_gpu_bounds) {
@@ -562,8 +586,9 @@ bool LevelScene::rewrite_mobys(const std::vector<Instance>& instances) {
 
         // The same pose and sphere give the same bounds as before.
         if (moved) {
-            g.caster_bounds[slot] =
-                instance_bounds(m_models[g.model], data, sphere, layout.sphere_off);
+            g.caster_bounds[slot] = instance_bounds(
+                m_models[g.model], data, sphere, layout.sphere_off, g.floats_on_water
+            );
             layout.spheres[n] = sphere;
         }
 

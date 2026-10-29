@@ -10,6 +10,7 @@
 #include <memory>
 #include <utility>
 
+#include "enhanced/renderer/water.h"
 #include "renderer/gl.h"
 #include "scene/level_renderer.h"
 
@@ -26,7 +27,7 @@ std::string wetness_shader(std::string source) {
 }  // namespace
 
 std::string SceneLighting::mesh_vertex(std::string source) const {
-    return wetness_shader(std::move(source));
+    return enhanced::WaterFloat::vertex_source(wetness_shader(std::move(source)));
 }
 std::string SceneLighting::mesh_fragment(std::string source) const {
     return wetness_shader(probe_mesh_fragment(std::move(source)));
@@ -40,6 +41,18 @@ void SceneLighting::prepare_wetness(
 
 void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
     m_wetness.bind(shader);
+}
+
+void SceneLighting::prepare_deformation(const renderer::FrameInput& input) {
+    m_water_float.prepare(input);
+}
+
+void SceneLighting::bind_deformation(const renderer::Shader& shader, bool enabled) const {
+    m_water_float.bind(shader, enabled);
+}
+
+bool SceneLighting::deformation_active() const {
+    return enhanced::water_available();
 }
 
 std::string SceneLighting::early_fragment(std::string source) const {
@@ -58,10 +71,12 @@ bool SceneLighting::early_supported() const {
 void SceneLighting::load(const scene::LevelData& level) {
     m_probes.load(level);
     m_wetness.load(level);
+    m_water_float.load();
 }
 
 void SceneLighting::release() {
     m_wetness.release();
+    m_water_float.release();
     m_probes.release();
     m_early_lighting.release();
 }

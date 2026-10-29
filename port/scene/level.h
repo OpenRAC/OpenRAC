@@ -123,6 +123,7 @@ struct Instance {
     std::uint16_t occlusion = Pvs::always;
     std::uint64_t temporal_id = 0;    // Stable live-object identity; zero has no temporal history.
     bool hero_shadow_anchor = false;  // Body transform centres the shared map, never an attachment.
+    bool floats_on_water = false;     // Visual rigid attachment to the local water height.
     bool gameplay_essential = false;  // Eligible for enhanced lighting's subtle GI-coloured rim.
 };
 

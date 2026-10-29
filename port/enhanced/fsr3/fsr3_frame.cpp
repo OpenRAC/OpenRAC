@@ -50,7 +50,10 @@ void Fsr3::State::build_velocities() {
         velocity.previous = from.matrix;
         velocity.palettes = {instance.palette, from.palette};
         velocity.alpha = instance.tint[3];
-        velocity.reactive = !matched;
+        velocity.floats_on_water = instance.floats_on_water && scene->deformation_active();
+        // Simulation-driven offsets have no previous field snapshot: reject stale object history.
+        velocity.reactive = !matched || velocity.floats_on_water
+                            || from.floats_on_water != velocity.floats_on_water;
         velocity.exclude_glow =
             std::abs(instance.moby_light[3]) > .5f && instance.moby_ambient[3] > .5f;
         velocities.push_back(velocity);
@@ -275,7 +278,9 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
 
     // The next frame sees exactly the displayed transforms, including interpolation between simulation ticks.
     for (const auto& instance : instances) {
-        previous.insert_or_assign(instance.temporal_id, instance);
+        auto saved = instance;
+        saved.floats_on_water = instance.floats_on_water && scene->deformation_active();
+        previous.insert_or_assign(instance.temporal_id, saved);
     }
 
     save_palette();

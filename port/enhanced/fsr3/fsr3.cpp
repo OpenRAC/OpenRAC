@@ -69,7 +69,11 @@ bool Fsr3::State::build_shaders(std::string& error) {
                error
            )
            && object_motion.build(
-               "temporal object motion", shaders::motion_vert, shaders::motion_frag, error
+               "temporal object motion",
+               scene ? scene->deformation_vertex(shaders::motion_vert)
+                     : std::string(shaders::motion_vert),
+               shaders::motion_frag,
+               error
            )
            && reactive_mask.build(
                "temporal reactive mask", shaders::fullscreen_vert, shaders::reactive_frag, error
@@ -225,6 +229,7 @@ bool Fsr3::begin(
     const auto size =
         fsr3_detail::render_extent({frame.display.width(), frame.display.height()}, quality);
 
+    state.scene = &frame.scene;
     // A failed setup cannot install callbacks or leave a jittered native fallback.
     if (!state.configure(frame.display, size, error)
         || !state.prepare_camera(frame, sharpness, error)) {

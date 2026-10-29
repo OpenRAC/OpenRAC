@@ -1193,6 +1193,10 @@ TickMobys pose_mobys(
                 {m.address, joints, target, target ? target_mobys.size() : live.size()}
             );
         }
+        // Only world instances attach to water; menu and render-to-texture previews keep their poses.
+        instance.floats_on_water = g->profile->floats_on_water(m.class_id)
+                                   && instance.moby_light[3] < 1.5f
+                                   && !into_texture.contains(m.address);
         if (const auto t = into_texture.find(m.address); t != into_texture.end()) {
             target_mobys.push_back({m.address, instance, *t->second});
             target_mobys.back().camera.focal_x = frame_focal[0];

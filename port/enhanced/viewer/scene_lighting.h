@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "enhanced/lighting/probes.h"
+#include "enhanced/renderer/water_float.h"
 #include "enhanced/renderer/wetness.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_lighting.h"
@@ -36,6 +37,9 @@ public:
         const std::optional<scene::Instance>& hero
     ) override;
     void bind_wetness(const renderer::Shader& shader) const override;
+    void prepare_deformation(const renderer::FrameInput& input) override;
+    void bind_deformation(const renderer::Shader& shader, bool enabled) const override;
+    bool deformation_active() const override;
     std::string early_fragment(std::string source) const override;
     // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
@@ -102,6 +106,7 @@ public:
 
 private:
     enhanced::HeroWetness m_wetness;
+    enhanced::WaterFloat m_water_float;
     ProbeLighting m_probes;          // The level's probe bake on the GPU.
     EarlyLighting m_early_lighting;  // The early-lit world's per-pixel lighting.
 };

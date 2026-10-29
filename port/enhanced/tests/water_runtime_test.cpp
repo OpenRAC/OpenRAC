@@ -69,7 +69,14 @@ int main() {
             input.frame = 10;
             input.water_interactor = renderer::Vec3{.5f, .5f, 1};
             enhanced::set_water_debug_settings(enhanced::WaterDebugSettings{});
+            // Attachments prepare waves before depth; liquid lighting remains deferred.
+            enhanced::prepare_water_deformation(input);
+            CHECK(enhanced::water_available());
+            const auto waves = dispatches();
+            enhanced::prepare_water_deformation(input);
+            CHECK(dispatches() == waves);
             runtime->prepare(input);
+            CHECK(dispatches() == waves + 1);  // lighting only, never a second simulation step
             CHECK(enhanced::water_available());
             auto previous = dispatches();
             runtime->prepare(input);

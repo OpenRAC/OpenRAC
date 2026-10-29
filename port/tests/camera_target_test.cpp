@@ -4,6 +4,7 @@
 #include <limits>
 #include <vector>
 
+#include "game/common/profile.h"
 #include "game/rac1/game_state.h"
 #include "tests/check.h"
 
@@ -48,6 +49,13 @@ void test_focus(const openrac::game::rac1::GameAddresses& addresses) {
 }  // namespace
 
 int main() {
+    for (const auto version : {"rac1-pal", "rac1-ntsc"}) {
+        const auto& profile = openrac::host::game_profile(version);
+        CHECK(profile.floats_on_water(695));
+        CHECK(!profile.floats_on_water(0));
+        CHECK(!profile.floats_on_water(694));
+        CHECK(!profile.floats_on_water(696));
+    }
     test_focus(openrac::game::rac1::kRac1Ntsc);
     test_focus(openrac::game::rac1::kRac1Pal);
     for (int level = 0; level < 19; ++level) {

@@ -47,6 +47,15 @@ public:
 
     virtual void bind_wetness(const renderer::Shader&) const {}
 
+    // Update optional surface deformation before any depth, shadow or colour consumers.
+    virtual void prepare_deformation(const renderer::FrameInput&) {}
+
+    // Bind per-group deformation resources; false retains original mesh positions.
+    virtual void bind_deformation(const renderer::Shader&, bool) const {}
+
+    // Temporal history is retained when the optional deformation is inactive.
+    virtual bool deformation_active() const { return false; }
+
     // Returns the scene's mesh fragment shader `source` as the early-lit variant draws it.
     virtual std::string early_fragment(std::string source) const = 0;
 

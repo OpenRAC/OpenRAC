@@ -176,6 +176,8 @@ public:
 
     // Developer tools: the recording has ended; what diagnostics() watched is let go.
     virtual void diagnostics_off(const DiagnosticsInput& /*input*/) const {}
+    // Visual attachments to enhanced water; collision and gameplay poses stay untouched.
+    virtual bool floats_on_water(int /*class_id*/) const { return false; }
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

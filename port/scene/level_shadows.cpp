@@ -39,7 +39,10 @@ bool LevelScene::enable_hero_shadow(bool enabled, std::string& error) {
     }
     if (!m_hero_depth.id()
         && !m_hero_depth.build(
-            "Ratchet shadow depth", shaders::shadow_depth_vert, shaders::hero_shadow_frag, error
+            "Ratchet shadow depth",
+            deformation_vertex(shaders::shadow_depth_vert),
+            shaders::hero_shadow_frag,
+            error
         )) {
         return false;
     }
@@ -172,12 +175,16 @@ bool LevelScene::enable_sun_shadow(bool enabled, std::string& error) {
     }
     if (!m_hero_depth.id()
         && !m_hero_depth.build(
-            "modern shadow depth", shaders::shadow_depth_vert, shaders::hero_shadow_frag, error
+            "modern shadow depth",
+            deformation_vertex(shaders::shadow_depth_vert),
+            shaders::hero_shadow_frag,
+            error
         )) {
         return false;
     }
     if (!m_shadow_solid.id()) {
-        std::string vertex(shaders::shadow_depth_vert), fragment(shaders::hero_shadow_frag);
+        std::string vertex(deformation_vertex(shaders::shadow_depth_vert)),
+            fragment(shaders::hero_shadow_frag);
         vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_SHADOW_SOLID 1\n");
         fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_SHADOW_SOLID 1\n");
         if (!m_shadow_solid.build("opaque static shadow depth", vertex, fragment, error)) {

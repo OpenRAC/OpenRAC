@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "enhanced/renderer/water.h"
+#include "enhanced/renderer/water_float.h"
 #include "enhanced/renderer/water_window.h"
 #include "enhanced/tests/water_gpu_fixture.h"
 #include "enhanced_viewer_shaders.h"
@@ -353,6 +354,7 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
     displacement_vertex += lighting::shaders::water_mesh_glsl;
     displacement_vertex += lighting::shaders::water_window_glsl;
     displacement_vertex += lighting::shaders::water_swell_glsl;
+    displacement_vertex += lighting::shaders::water_displacement_glsl;
     displacement_vertex += lighting::shaders::water_vertex_glsl;
     displacement_vertex += R"(
 flat out float height;
@@ -427,6 +429,116 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
             std::abs(std::bit_cast<float>(bits) - cpu[5 * width + 5][0] - .045 * std::sin(phase))
             < 2e-6
         );
+    }
+    // The exact liquid evaluator also moves a rigid attachment, preserving its rest offset.
+    renderer::Shader floating;
+    std::string floating_vertex = enhanced::WaterFloat::vertex_source(R"(#version 410 core
+uniform vec3 anchor;
+uniform int attachment_check;
+flat out float height;
+void main(){
+    vec2 q=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));
+    mat4 pose=water_float_pose(anchor);
+    mat3 rotation=mat3(pose);
+    vec3 moved=(pose*vec4(anchor,1)).xyz;
+    vec3 a=water_displaced_position(anchor-vec3(.25,0,0),0);
+    vec3 b=water_displaced_position(anchor+vec3(.25,0,0),0);
+    vec3 c=water_displaced_position(anchor-vec3(0,.25,0),0);
+    vec3 d=water_displaced_position(anchor+vec3(0,.25,0),0);
+    vec3 expected_up=normalize(cross(b-a,d-c));
+    height=moved.z-anchor.z;
+    if(attachment_check==1) height=length(rotation[0])-1.;
+    if(attachment_check==2) height=dot(rotation[0],rotation[1]);
+    if(attachment_check==3) height=length(rotation[2]-expected_up);
+    if(attachment_check==4) height=length(rotation*vec3(.8,-.6,.3))-length(vec3(.8,-.6,.3));
+    if(attachment_check==5) height=length(moved.xy-anchor.xy);
+    if(attachment_check==6) height=determinant(rotation)-1.;
+    if(attachment_check==7) height=length(rotation[2].xy);
+    gl_Position=vec4(q*2.-1.,0,1);
+})");
+    CHECK(floating.build(
+        "water attachment displacement", floating_vertex, displacement_fragment, error
+    ));
+    floating.use();
+    glUniform1i(floating.uniform("water_bodies"), 1);
+    glUniform1i(floating.uniform("water_coast_map"), 2);
+    glUniform1i(floating.uniform("water_wave_map"), 0);
+    glUniform2f(floating.uniform("water_atlas_extent"), width, width);
+    glUniform4fv(floating.uniform("water_atlas[0]"), 64, atlas[0].data());
+    glUniform1f(floating.uniform("water_time"), .43f);
+    for (int scenario = 0; scenario < 7; ++scenario) {
+        // Real water grids have origin Z=0 even when the surface is high above it.
+        if (scenario == 5) {
+            for (auto& cell : wet_coast) {
+                cell[3] = 39.f;
+            }
+            glActiveTexture(GL_TEXTURE0 + 2);
+            glBindTexture(GL_TEXTURE_2D, coast_texture);
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                wgl::GL_RGBA32F,
+                width,
+                width,
+                0,
+                GL_RGBA,
+                GL_FLOAT,
+                wet_coast.data()
+            );
+        }
+        if (scenario == 6) {
+            for (auto& cell : wet_coast) {
+                cell[0] = 0;
+                cell[3] = 0;
+            }
+            glActiveTexture(GL_TEXTURE0 + 2);
+            glBindTexture(GL_TEXTURE_2D, coast_texture);
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                wgl::GL_RGBA32F,
+                width,
+                width,
+                0,
+                GL_RGBA,
+                GL_FLOAT,
+                wet_coast.data()
+            );
+        }
+        glUniform1i(floating.uniform("water_float_enabled"), scenario == 3 ? 0 : 1);
+        glUniform1i(floating.uniform("water_body_count"), scenario == 4 ? 0 : 1);
+        glUniform3f(
+            floating.uniform("anchor"),
+            scenario == 1 ? -100.f : 2.75f,
+            2.75f,
+            scenario == 2   ? 3.f
+            : scenario == 5 ? 39.2f
+                            : .2f
+        );
+        for (int channel = 0; channel < 8; ++channel) {
+            glUniform1i(floating.uniform("attachment_check"), channel);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            const auto bits = std::uint32_t(pixels[0]) | (std::uint32_t(pixels[1]) << 8)
+                              | (std::uint32_t(pixels[2]) << 16) | (std::uint32_t(pixels[3]) << 24);
+            const float actual = std::bit_cast<float>(bits);
+            CHECK(std::isfinite(actual));
+            const bool active = scenario == 0 || scenario == 5;
+            if (channel == 7 && active) {
+                CHECK(actual > 1e-5f);
+                continue;
+            }
+            if (channel == 3 && !active) {
+                continue;  // Disabled/dry attachments keep identity rather than the sampled slope.
+            }
+            float expected = 0;
+            if (channel == 0 && active) {
+                const double phase =
+                    (6.28318531 / 2.75) * 2.75 * (.87 + .49) / std::hypot(.87, .49) - .43 * 1.4;
+                expected = cpu[5 * width + 5][0] + float(.045 * std::sin(phase));
+            }
+            CHECK(std::abs(actual - expected) < 8e-6f);
+        }
     }
     glDeleteTextures(1, &body_texture);
     glDeleteTextures(1, &coast_texture);
@@ -558,7 +670,7 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
         coast.data(),
         GL_DYNAMIC_DRAW
     );
-    for (int scenario = 0; scenario < 5; ++scenario) {
+    for (int scenario = 0; scenario < 7; ++scenario) {
         compute.use();
         glUniform1i(compute.uniform("reset_waves"), 1);
         glUniform1i(compute.uniform("hand_count"), 0);
