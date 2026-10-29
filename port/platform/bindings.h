@@ -11,7 +11,8 @@
 // SDL scancode is. Pad inputs are the port's own names ("PadSouth", "PadLeftTrigger",
 // "PadLeftStickUp"): they are not in the SDK's table, since a mod reading a keybind setting cannot
 // use one. Two pad inputs joined by "+" are a chord: the second presses only while the first is
-// held ("PadLeftShoulder+PadSouth"). "none" binds nothing of either kind.
+// held ("PadLeftShoulder+PadSouth"). "none" binds nothing of either kind; "PadNone" no pad input,
+// leaving the keys named beside it.
 //
 // Keys press buttons only: the sticks' keys are the port's own (input.h), until keyboard
 // remapping comes. A target with no binding of a kind keeps the port's default for it (the
@@ -111,8 +112,10 @@ struct PadChord {
 // The most of a kind (keys, or pad inputs) one target holds.
 inline constexpr int kMostOfAKind = 4;
 
-// The value that binds nothing of either kind.
+// The value that binds nothing of either kind, and the name that binds no pad input while the
+// keys named beside it stay ("Space,PadNone").
 inline constexpr std::string_view kUnbound = "none";
+inline constexpr std::string_view kPadNone = "PadNone";
 
 // How a gamepad's stick is read before anything is pressed from it, in percent of its travel. The
 // defaults change nothing: the game has its own dead zone, so the port adds none.

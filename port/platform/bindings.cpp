@@ -596,11 +596,14 @@ void read_binding(std::string_view key, std::string_view value, int target, Bind
     std::array<PadChord, kMostOfAKind> pad{};
     int key_count = 0;
     int pad_count = 0;
+    bool pad_named = false;  // "PadNone": the pad's kind named, with nothing in it
     for (std::size_t at = 0; at <= value.size();) {
         const std::size_t comma = value.find(',', at);
         const std::size_t end = comma == std::string_view::npos ? value.size() : comma;
         const std::string_view name = trimmed(value.substr(at, end - at));
-        const PadChord read = name.empty() ? PadChord{} : read_name(key, value, name);
+        pad_named = pad_named || name == kPadNone;
+        const PadChord read =
+            name.empty() || name == kPadNone ? PadChord{} : read_name(key, value, name);
         if (read.input.kind == Binding::Kind::Key && !is_button(target)) {
             log::warn(
                 "{} = {}: a stick's direction takes pad inputs only; {} is left out",
@@ -631,7 +634,7 @@ void read_binding(std::string_view key, std::string_view value, int target, Bind
         slot.keys = keys;
         slot.key_count = key_count;
     }
-    if (pad_count > 0) {
+    if (pad_count > 0 || pad_named) {
         slot.pad = pad;
         slot.pad_count = pad_count;
     }
@@ -656,6 +659,9 @@ std::string binding_value(const Bindings::Slot& slot) {
             name = std::string(binding_name(chord.with)) + "+" + name;
         }
         add(name);
+    }
+    if (slot.pad_count == 0 && slot.key_count > 0) {
+        add(std::string(kPadNone));  // the keys stay; no pad input does
     }
     return out.empty() ? std::string(kUnbound) : out;
 }

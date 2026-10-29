@@ -24,8 +24,10 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "platform/bindings.h"
@@ -112,6 +114,21 @@ public:
     // Says whether a controller connected or left, or the players changed, since the last call.
     bool take_devices_changed();
 
+    // What controller `index` of devices() holds now, read from SDL (the controls window's live
+    // view); nothing held for one that is gone.
+    PadInputs read_device(std::size_t index) const;
+
+    // The controls window's "press a button": from begin_capture() every player's pad reads as
+    // nothing held, and the first pad input pressed on any controller (a button, a trigger past
+    // its threshold, a stick past most of the way) that was not already held is kept for
+    // take_captured(). end_capture() lets the pads go again.
+    void begin_capture();
+    void end_capture();
+
+    bool capturing() const { return m_capturing; }
+
+    std::optional<Binding> take_captured() { return std::exchange(m_captured, std::nullopt); }
+
     // The player the keyboard is, -1 none.
     int keyboard_player() const { return m_assignment.keyboard; }
 
@@ -143,6 +160,9 @@ private:
     // Works out again which controller each player reads, and the devices' players.
     void assign_players();
 
+    // One read of the capture: the first pad input pressed that was not held.
+    void capture_step();
+
     std::array<Pad, kPadPorts> m_pads{};
     // The gamepads in port order: first those used so far (the first m_used), then the others in
     // the order they came. A gamepad pressed takes port 0 when port 0's has been left alone for
@@ -153,6 +173,11 @@ private:
     Players m_players = default_players();
     Assignment m_assignment = assign(default_players(), {});
     bool m_devices_changed = true;
+    // The capture: under way, what each controller held when it began (or since, until let go),
+    // and what was pressed.
+    bool m_capturing = false;
+    std::vector<std::vector<Binding>> m_capture_held;
+    std::optional<Binding> m_captured;
     // Each port's sticks, left and right, as their gamepad has shown them (pad.h), and the gamepad
     // that showed it: another one on the port starts afresh.
     std::array<std::array<StickGate, 2>, kPadPorts> m_gates{};

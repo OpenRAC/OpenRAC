@@ -168,6 +168,14 @@ void open_controls(const std::filesystem::path& dir, const std::string& game) {
     }
 }
 
+controls::Store* controls_store() {
+    return g ? &g->controls : nullptr;
+}
+
+platform::Input* input() {
+    return g ? &g->input : nullptr;
+}
+
 void capture_mouse(bool capture) {
     if (g) {
         g->capture_wanted = capture;

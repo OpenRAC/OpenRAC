@@ -244,6 +244,94 @@ bool Input::take_devices_changed() {
     return std::exchange(m_devices_changed, false);
 }
 
+namespace {
+
+// SDL's reading of one gamepad, every button and axis.
+PadInputs read_gamepad(SDL_Gamepad* g) {
+    PadInputs inputs;
+    for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
+        inputs.buttons[static_cast<std::size_t>(b)] =
+            SDL_GetGamepadButton(g, static_cast<SDL_GamepadButton>(b));
+    }
+    for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
+        inputs.axes[static_cast<std::size_t>(a)] =
+            SDL_GetGamepadAxis(g, static_cast<SDL_GamepadAxis>(a));
+    }
+    return inputs;
+}
+
+// The pad inputs a capture counts as pressed on one gamepad: the buttons, the triggers past
+// `threshold`, the sticks past most of the way.
+std::vector<Binding> pressed_inputs(const PadInputs& inputs, std::uint8_t threshold) {
+    std::vector<Binding> out;
+    for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
+        if (inputs.buttons[static_cast<std::size_t>(b)]) {
+            out.push_back({Binding::Kind::PadButton, b, 0});
+        }
+    }
+    for (const auto axis : {SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER}) {
+        if (trigger_byte(inputs.axes[axis]) >= threshold) {
+            out.push_back({Binding::Kind::PadTrigger, axis, 0});
+        }
+    }
+    constexpr int kFar = 24000;  // about three quarters of the way
+    for (int axis = SDL_GAMEPAD_AXIS_LEFTX; axis <= SDL_GAMEPAD_AXIS_RIGHTY; ++axis) {
+        const int value = inputs.axes[static_cast<std::size_t>(axis)];
+        if (value <= -kFar || value >= kFar) {
+            out.push_back({Binding::Kind::PadAxis, axis, value < 0 ? -1 : 1});
+        }
+    }
+    return out;
+}
+
+}  // namespace
+
+PadInputs Input::read_device(std::size_t index) const {
+    return index < m_gamepads.size() ? read_gamepad(m_gamepads[index]) : PadInputs{};
+}
+
+void Input::begin_capture() {
+    // What is held as it begins does not count until let go: the press that asked for the capture
+    // is not what it captures.
+    SDL_UpdateGamepads();
+    m_capture_held.clear();
+    for (SDL_Gamepad* g : m_gamepads) {
+        m_capture_held.push_back(
+            pressed_inputs(read_gamepad(g), m_bindings.tuning.trigger_threshold)
+        );
+    }
+    m_captured.reset();
+    m_capturing = true;
+}
+
+void Input::end_capture() {
+    m_capturing = false;
+    m_capture_held.clear();
+}
+
+void Input::capture_step() {
+    if (m_capture_held.size() != m_gamepads.size()) {
+        // A controller came or went: what each holds now is where the capture starts again.
+        begin_capture();
+        return;
+    }
+    for (std::size_t d = 0; d < m_gamepads.size() && !m_captured; ++d) {
+        const std::vector<Binding> now =
+            pressed_inputs(read_gamepad(m_gamepads[d]), m_bindings.tuning.trigger_threshold);
+        std::vector<Binding>& held = m_capture_held[d];
+        for (const Binding& b : now) {
+            if (std::find(held.begin(), held.end(), b) == held.end()) {
+                m_captured = b;
+                break;
+            }
+        }
+        // What was held and is let go counts again when pressed again.
+        std::erase_if(held, [&now](const Binding& b) {
+            return std::find(now.begin(), now.end(), b) == now.end();
+        });
+    }
+}
+
 void Input::assign_players() {
     std::vector<std::string> ids;
     for (const Device& d : m_devices) {
@@ -343,6 +431,10 @@ void Input::refresh_pads() {
     hold_back_keys(held_keys, m_key_latch);
     const std::span<const bool> keys(held_keys);
 
+    if (m_capturing) {
+        capture_step();
+    }
+
     for (int port = 0; port < kPadPorts; ++port) {
         Pad& pad = m_pads[static_cast<std::size_t>(port)];
         // Fresh state each frame, keeping the motors the game asked for.
@@ -356,18 +448,11 @@ void Input::refresh_pads() {
         const bool keyboard_here = m_assignment.keyboard == port;
         pad.connected = port == 0 || g != nullptr || keyboard_here;
         // The controllers stand still while another window has the keyboard, if the player asked.
-        const bool read =
-            g != nullptr && (m_bindings.tuning.background || SDL_GetKeyboardFocus() != nullptr);
+        // While the controls window captures a press, every pad reads as nothing held.
+        const bool read = g != nullptr && !m_capturing
+                          && (m_bindings.tuning.background || SDL_GetKeyboardFocus() != nullptr);
         if (read) {
-            PadInputs inputs;
-            for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
-                inputs.buttons[static_cast<std::size_t>(b)] =
-                    SDL_GetGamepadButton(g, static_cast<SDL_GamepadButton>(b));
-            }
-            for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
-                inputs.axes[static_cast<std::size_t>(a)] =
-                    SDL_GetGamepadAxis(g, static_cast<SDL_GamepadAxis>(a));
-            }
+            PadInputs inputs = read_gamepad(g);
             // A pad labelled Nintendo's way (A east), read by its labels: A is PadSouth.
             if (m_bindings.tuning.face_labels
                 && SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_SOUTH)
@@ -392,7 +477,7 @@ void Input::refresh_pads() {
             m_last[static_cast<std::size_t>(port)] = {};
             m_latch[static_cast<std::size_t>(port)] = {};
         }
-        if (keyboard_here && m_keyboard_table) {
+        if (keyboard_here && m_keyboard_table && !m_capturing) {
             apply_keys(m_bindings, keys, pad);
         }
         if (port == 0) {

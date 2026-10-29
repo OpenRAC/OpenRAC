@@ -77,6 +77,12 @@ void menu_bar() {
         }
         ImGui::EndMenu();
     }
+    if (ImGui::BeginMenu("Controls")) {
+        if (ImGui::MenuItem("Controller bindings...", "F13", s.controls_window)) {
+            s.controls_window = !s.controls_window;
+        }
+        ImGui::EndMenu();
+    }
     if (ImGui::BeginMenu("Graphics")) {
         // Each item moves its setting on, its value beside it, and leaves the menu open.
         ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);

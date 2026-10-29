@@ -395,6 +395,15 @@ void test_none_and_values() {
         openrac::platform::binding_value(g_bindings.of(Button::R3))
         == "KeyV,PadMisc1,PadLeftShoulder+PadNorth"
     );
+    // PadNone: the keys stay, no pad input presses.
+    set_bindings({{"bind_cross", "Space,PadNone"}});
+    CHECK(g_bindings.of(Button::Cross).key_count == 1);
+    CHECK(g_bindings.of(Button::Cross).pad_count == 0);
+    CHECK(openrac::platform::binding_value(g_bindings.of(Button::Cross)) == "Space,PadNone");
+    // PadNone alone names the pad's kind only: the default keys stay.
+    set_bindings({{"bind_cross", "PadNone"}});
+    CHECK(has_key(Button::Cross, SDL_SCANCODE_SPACE));
+    CHECK(g_bindings.of(Button::Cross).pad_count == 0);
     // Four of a kind at most, and a name twice is once.
     set_bindings({{"bind_cross", "PadSouth,PadSouth,PadEast,PadWest,PadNorth,PadBack"}});
     CHECK(g_bindings.of(Button::Cross).pad_count == 4);

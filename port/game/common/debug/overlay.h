@@ -34,6 +34,7 @@
 #include <SDL3/SDL.h>
 
 #include "debug_overlay.h"
+#include "platform/bindings.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -110,6 +111,31 @@ struct Scroll {
     float velocity = 0.0f;
 };
 
+// The controls window (controls_window()): which file it changes, what is being captured, and
+// what it last said.
+struct ControlsWindow {
+    bool global = false;      // the global file; else the running game's own
+    int tab = 0;              // 0 bindings, 1 sticks and triggers, 2 players
+    char filter[64] = {};     // the bindings' rows shown: those naming this
+    int capture_target = -1;  // the target a press is being captured for; -1 none
+    // What the captured press does: replaces the target's pad inputs, adds one, or is the first
+    // or the second of a chord.
+    enum class Mode {
+        Replace,
+        Add,
+        ChordFirst,
+        ChordSecond,
+    } mode = Mode::Replace;
+    platform::Binding chord_with;  // a chord's first press, once captured
+    std::string message;           // what the last change said
+    // A press just bound that another control also has alone: offered to be taken from it.
+    int clash_target = -1;
+    platform::Binding clash_input;
+    bool confirm_reset = false;  // "Reset" asked once; asked again, it resets
+    std::string drag_key;        // a setting's slider being dragged, and where it is now
+    int drag_value = 0;
+};
+
 // Everything the overlay keeps between frames: what the environment asked for, what the last
 // tick gave it, and what its panels, windows, menus and drawer were set to. One exists (s).
 struct State {
@@ -152,6 +178,8 @@ struct State {
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
+    bool controls_window = false;    // the controls window (F13)
+    ControlsWindow controls;
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
@@ -394,7 +422,7 @@ bool menu_bar_shown();
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
 
-// Draws the menu bar: View, Graphics, Sound and Developer.
+// Draws the menu bar: View, Controls, Graphics, Sound and Developer.
 // Defined in debug/menu_bar.cpp.
 void menu_bar();
 
@@ -408,6 +436,13 @@ void change_setting(int row, int by);
 // where the level has no compatible probe data. A change is saved and marked for the window to
 // apply. Defined in debug/controls.cpp.
 void enhanced_settings_window();
+
+// Draws the controls window (s.controls_window): the running game's or the global controls, a row
+// for each of the pad's controls with what presses it and where that came from, a press captured
+// to change one, the sticks' and triggers' settings with the stick drawn as it reads, and which
+// controller each player is. Every change is written and applied at once (controls_store.h).
+// Defined in debug/controls_window.cpp.
+void controls_window();
 
 // ---- The performance capture (common/perf_capture.h) ----
 

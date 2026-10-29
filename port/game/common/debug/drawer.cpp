@@ -601,6 +601,11 @@ void drawer(const Shown& shown) {
         if (drawer_switch("Skip cutscenes", settings::get().skip_cutscenes)) {
             change_setting(options_menu::kSkipCutscenes, 1);
         }
+        // The controls window (debug/controls_window.cpp), over the game once the drawer is shut.
+        if (drawer_row("Controller bindings")) {
+            s.controls_window = true;
+            set_drawer(false);
+        }
         card_end();
 
         // The on-screen pad (platform/touch_pad.h): its size, the camera's speed, and where its
