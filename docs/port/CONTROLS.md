@@ -198,6 +198,7 @@ never leaves one held.
 - The port's keys (F1 to F13, Alt) do what they do whatever is bound.
 - The defaults are the same DualShock 2 layout for every game.
 
-The launcher has the commands a controls page will use (`controls_view`,
-`controls_set`, `controls_reset`, `controls_reset_players`,
-`controls_export`, `controls_import`, `controls_copy`) and no page yet.
+The launcher has the commands a controls page will use (`controls_view`, for
+every player or one, `controls_set`, `controls_reset`, `controls_reset_player`,
+`controls_reset_players`, `controls_export`, `controls_import`,
+`controls_copy`) and no page yet.
