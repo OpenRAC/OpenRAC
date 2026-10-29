@@ -206,8 +206,15 @@ std::vector<std::uint8_t> direct_packets(
     // The GS registers the strips are drawn with, as the DIRECT data before them leaves them (A+D
     // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
     // RGBA (V4-8) at 2 and positions (V3-32) at 3, drawn by an MSCAL (func_L00_001FDE48's packet).
-    std::uint64_t reg_tex0 = 0, reg_tex1 = 0, reg_clamp = 0, reg_alpha = 0x44;
-    std::uint64_t reg_prim = 0, reg_fogcol = 0, reg_test = 0;
+    // The GS keeps two contexts of TEX0, TEX1, CLAMP, ALPHA and TEST: a strip whose PRIM has CTXT
+    // set is drawn with the second (Oltanis's ice draws its second layer so, another texture
+    // blended half over the first).
+    struct Context {
+        std::uint64_t tex0 = 0, tex1 = 0, clamp = 0, alpha = 0x44, test = 0;
+    };
+    std::array<Context, 2> contexts{};
+    std::uint64_t reg_prim = 0, reg_fogcol = 0;
+    bool strip_context = false;
     // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
     // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
     // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
@@ -311,13 +318,16 @@ std::vector<std::uint8_t> direct_packets(
                             }
                             break;
                         case 0x06:
-                            reg_tex0 = value;
+                        case 0x07:
+                            contexts[(address & 0xFF) - 0x06].tex0 = value;
                             break;
                         case 0x08:
-                            reg_clamp = value;
+                        case 0x09:
+                            contexts[(address & 0xFF) - 0x08].clamp = value;
                             break;
                         case 0x14:
-                            reg_tex1 = value;
+                        case 0x15:
+                            contexts[(address & 0xFF) - 0x14].tex1 = value;
                             break;
                         case 0x00:
                             reg_prim = value;
@@ -326,10 +336,12 @@ std::vector<std::uint8_t> direct_packets(
                             reg_fogcol = value;
                             break;
                         case 0x42:
-                            reg_alpha = value;
+                        case 0x43:
+                            contexts[(address & 0xFF) - 0x42].alpha = value;
                             break;
                         case 0x47:
-                            reg_test = value;
+                        case 0x48:
+                            contexts[(address & 0xFF) - 0x47].test = value;
                             break;
                         case 0x4C:
                         case 0x4D:
@@ -446,6 +458,7 @@ std::vector<std::uint8_t> direct_packets(
                     // PRIM's FGE (bit 5): the tag's PRIM when PRE is set, else the register's.
                     const std::uint64_t prim = ((tag >> 46) & 1) != 0 ? tag >> 47 : reg_prim;
                     strip_fog = ((prim >> 5) & 1) != 0;
+                    strip_context = ((prim >> 9) & 1) != 0;
                     strip_st = strip_rgba = strip_xyz = nullptr;
                 } else if (strip_tag && address == 1 && vn == 1 && vl == 0
                            && count == strip_count) {
@@ -476,15 +489,16 @@ std::vector<std::uint8_t> direct_packets(
         }
         if ((command == 0x14 || command == 0x15 || command == 0x17) && strips != nullptr) {
             const std::size_t strips_before = strips->size();
+            const Context& gs = contexts[strip_tag && strip_context ? 1 : 0];
             if (strip_tag && strip_st != nullptr && strip_rgba != nullptr && strip_xyz != nullptr) {
                 renderer::EffectStrip strip;
                 strip.first = static_cast<std::uint32_t>(strip_vertices->size());
                 strip.count = strip_count;
-                strip.tex0 = reg_tex0;
-                strip.tex1 = reg_tex1;
-                strip.clamp = reg_clamp;
-                strip.alpha = reg_alpha;
-                strip.test = reg_test;
+                strip.tex0 = gs.tex0;
+                strip.tex1 = gs.tex1;
+                strip.clamp = gs.clamp;
+                strip.alpha = gs.alpha;
+                strip.test = gs.test;
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
@@ -509,8 +523,8 @@ std::vector<std::uint8_t> direct_packets(
                     strip.uv_motion.amplitude = -strip.uv_motion.amplitude;
                 }
                 if (uploads != nullptr) {
-                    const std::uint32_t tbp = static_cast<std::uint32_t>(reg_tex0 & 0x3FFF);
-                    const std::uint32_t cbp = static_cast<std::uint32_t>((reg_tex0 >> 37) & 0x3FFF);
+                    const std::uint32_t tbp = static_cast<std::uint32_t>(gs.tex0 & 0x3FFF);
+                    const std::uint32_t cbp = static_cast<std::uint32_t>((gs.tex0 >> 37) & 0x3FFF);
                     for (const std::uint32_t block : {cbp, tbp}) {
                         auto found = images.find(block);
                         if (found != images.end() && found->second.data.size() > 0) {
@@ -533,7 +547,7 @@ std::vector<std::uint8_t> direct_packets(
             }
             if (covering) {
                 draw_coverage::start(
-                    command, imm, strips->size() > strips_before, reg_alpha, reg_test, reg_tex0
+                    command, imm, strips->size() > strips_before, gs.alpha, gs.test, gs.tex0
                 );
             }
             strip_tag = false;
