@@ -120,14 +120,22 @@ struct ButtonKey {
 };
 
 constexpr ButtonKey kButtonKeys[] = {
-    {"bind_cross", Button::Cross},     {"bind_circle", Button::Circle},
-    {"bind_square", Button::Square},   {"bind_triangle", Button::Triangle},
-    {"bind_l1", Button::L1},           {"bind_r1", Button::R1},
-    {"bind_l2", Button::L2},           {"bind_r2", Button::R2},
-    {"bind_l3", Button::L3},           {"bind_r3", Button::R3},
-    {"bind_start", Button::Start},     {"bind_select", Button::Select},
-    {"bind_up", Button::Up},           {"bind_down", Button::Down},
-    {"bind_left", Button::Left},       {"bind_right", Button::Right},
+    {"bind_cross", Button::Cross},
+    {"bind_circle", Button::Circle},
+    {"bind_square", Button::Square},
+    {"bind_triangle", Button::Triangle},
+    {"bind_l1", Button::L1},
+    {"bind_r1", Button::R1},
+    {"bind_l2", Button::L2},
+    {"bind_r2", Button::R2},
+    {"bind_l3", Button::L3},
+    {"bind_r3", Button::R3},
+    {"bind_start", Button::Start},
+    {"bind_select", Button::Select},
+    {"bind_up", Button::Up},
+    {"bind_down", Button::Down},
+    {"bind_left", Button::Left},
+    {"bind_right", Button::Right},
 };
 
 constexpr int kButtonCount = static_cast<int>(std::size(kButtonKeys));

@@ -27,7 +27,12 @@ namespace openrac::platform {
 
 // One name read from the settings file.
 struct Binding {
-    enum class Kind { None, Key, PadButton, PadTrigger };
+    enum class Kind {
+        None,
+        Key,
+        PadButton,
+        PadTrigger
+    };
     Kind kind = Kind::None;
     // Kind::Key: an SDL scancode. Kind::PadButton: an SDL_GamepadButton. Kind::PadTrigger: an
     // SDL_GamepadAxis (the trigger counts as held above input.cpp's threshold).

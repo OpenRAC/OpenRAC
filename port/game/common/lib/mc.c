@@ -112,8 +112,17 @@ static int card_path(int port, const char* name, char* out, size_t size) {
     while (*name == '/') {
         name++;
     }
-    return snprintf(out, size, "%s%s%s%s%s%s", root, port == 0 ? "" : ".slot2", *dir ? "/" : "", dir,
-                    *name ? "/" : "", name)
+    return snprintf(
+               out,
+               size,
+               "%s%s%s%s%s%s",
+               root,
+               port == 0 ? "" : ".slot2",
+               *dir ? "/" : "",
+               dir,
+               *name ? "/" : "",
+               name
+           )
            < (int)size;
 }
 
@@ -181,7 +190,7 @@ static int is_save_file(const char* name) {
     for (int slot = 0; slot < openrac_game_play_host->save_slots; slot++) {
         char expected[64];
         if (snprintf(expected, sizeof expected, openrac_game_play_host->save_file, slot)
-            < (int)sizeof expected
+                < (int)sizeof expected
             && strcmp(expected, name) == 0) {
             return 1;
         }

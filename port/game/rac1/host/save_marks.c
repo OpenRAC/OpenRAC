@@ -26,8 +26,8 @@
  * badge smaller than the rows beside it is drawn here glyph by glyph instead: the small font's
  * table and texture, each quad BADGE_SIZE pixels and the advances scaled with it. */
 #define SMALL_FONT RAC1_ADDR(0x001DF770u) /* small_font_metrics: {u, v, top, advance} a glyph */
-#define FONT_PIXELS 16 /* what a glyph is drawn at unscaled */
-#define BADGE_SIZE 11  /* and what this badge is drawn at */
+#define FONT_PIXELS 16                    /* what a glyph is drawn at unscaled */
+#define BADGE_SIZE 11                     /* and what this badge is drawn at */
 
 /* The flag that says this is the PAL game (its rows are further apart). */
 #define PAL_LINES RAC1_ADDR(0x0015EE80u)
@@ -127,9 +127,8 @@ static int slot_has_a_save(const char* path) {
         return 0;
     }
     int32_t level = 0, bolts = 0, gold_bolts = 0, seconds = 0;
-    return openrac_game_play_host->save_info(
-               head, (uint32_t)size, &level, &bolts, &gold_bolts, &seconds
-           )
+    return openrac_game_play_host
+               ->save_info(head, (uint32_t)size, &level, &bolts, &gold_bolts, &seconds)
            != 0;
 }
 

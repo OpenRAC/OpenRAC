@@ -15,10 +15,22 @@ namespace {
 
 // The sixteen buttons a binding can name, in the pad's own order (bindings.h).
 constexpr Button kButtons[] = {
-    Button::Select, Button::L3,       Button::R3,     Button::Start,
-    Button::Up,     Button::Right,    Button::Down,   Button::Left,
-    Button::L2,     Button::R2,       Button::L1,     Button::R1,
-    Button::Triangle, Button::Circle, Button::Cross,  Button::Square,
+    Button::Select,
+    Button::L3,
+    Button::R3,
+    Button::Start,
+    Button::Up,
+    Button::Right,
+    Button::Down,
+    Button::Left,
+    Button::L2,
+    Button::R2,
+    Button::L1,
+    Button::R1,
+    Button::Triangle,
+    Button::Circle,
+    Button::Cross,
+    Button::Square,
 };
 constexpr int kButtonCount = static_cast<int>(std::size(kButtons));
 
@@ -133,7 +145,8 @@ void Input::handle_event(const SDL_Event& event) {
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            if (event.button.which != SDL_TOUCH_MOUSEID && event.button.button >= 1 && event.button.button <= 5) {
+            if (event.button.which != SDL_TOUCH_MOUSEID && event.button.button >= 1
+                && event.button.button <= 5) {
                 m_mouse_went_down |= 1u << (event.button.button - 1);
             }
             break;
@@ -180,14 +193,16 @@ void Input::update() {
     m_km.focused = keyboard_ours;
     for (std::size_t k = 0; k < kKeyCount; ++k) {
         const bool held = k < keys.size() && keys[k];
-        m_km.keys[k] = static_cast<std::uint8_t>((held ? 1 : 0) | (keyboard_ours && m_went_down[k] ? 2 : 0));
+        m_km.keys[k] =
+            static_cast<std::uint8_t>((held ? 1 : 0) | (keyboard_ours && m_went_down[k] ? 2 : 0));
     }
     m_went_down.fill(0);
     float mx = 0.0f;
     float my = 0.0f;
     const SDL_MouseButtonFlags buttons = SDL_GetMouseState(&mx, &my);
     const bool mouse_ours = SDL_GetMouseFocus() != nullptr || m_km.captured;
-    m_km.mouse_held = keyboard_ours && mouse_ours ? static_cast<std::uint32_t>(buttons) & 0x1Fu : 0u;
+    m_km.mouse_held =
+        keyboard_ours && mouse_ours ? static_cast<std::uint32_t>(buttons) & 0x1Fu : 0u;
     m_km.mouse_pressed = keyboard_ours ? m_mouse_went_down & 0x1Fu : 0u;
     m_km.mouse_dx = keyboard_ours ? m_dx : 0.0f;
     m_km.mouse_dy = keyboard_ours ? m_dy : 0.0f;

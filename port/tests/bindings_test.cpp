@@ -95,11 +95,11 @@ void test_defaults() {
 // binding can never leave a player unable to pause.
 void test_a_binding_replaces_its_own_kind() {
     openrac::platform::set_bindings({
-        {"bind_cross", "KeyJ"},                 // the key only: the pad keeps PadSouth
-        {"bind_square", "PadNorth"},            // the pad only: the key keeps F
-        {"bind_circle", "KeyK, PadEast"},       // both, spaces around a name allowed
-        {"bind_start", ""},                     // nothing: both defaults stay
-        {"bind_triangle", "KeyNowhere"},        // no name of either table: both defaults stay
+        {"bind_cross", "KeyJ"},            // the key only: the pad keeps PadSouth
+        {"bind_square", "PadNorth"},       // the pad only: the key keeps F
+        {"bind_circle", "KeyK, PadEast"},  // both, spaces around a name allowed
+        {"bind_start", ""},                // nothing: both defaults stay
+        {"bind_triangle", "KeyNowhere"},   // no name of either table: both defaults stay
     });
 
     CHECK(has_key(Button::Cross, SDL_SCANCODE_J));
