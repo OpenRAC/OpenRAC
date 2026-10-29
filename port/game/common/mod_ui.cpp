@@ -266,6 +266,7 @@ struct State {
     gaddr texts = 0;   // kTexts strings of kTextBytes
     gaddr question = 0;
     bool patched = false;                         // the main menu has the mods' rows
+    std::array<gaddr, kRowSlots.size()> rows{};   // the main menu's widgets, by row
     std::array<gaddr, kGameRows> game_widgets{};  // the game's items' widgets, by row
     gaddr exit_widget = 0, exit_item = 0;         // the port's Exit row
     int extra_rows = 0;                           // the rows under the game's: the mods' and Exit
@@ -441,6 +442,20 @@ bool main_menu_is_the_games(gaddr page) {
     return true;
 }
 
+// Puts the main menu's rows (s.rows: the game's, the mods' and Exit) in their slots of `page`, the
+// cursor going round them in order.
+void put_rows(gaddr page) {
+    const auto n = static_cast<std::size_t>(kGameRows + s.extra_rows);
+
+    for (std::size_t r = 0; r < n; ++r) {
+        const auto slot = static_cast<gaddr>(kRowSlots[r]);
+        GREF(std::int32_t, page + kSeqs + 4 * slot) = kRowSeqs[r];
+        put_word(page + kScreens + 4 * slot, s.rows[r]);
+        put_word(s.rows[r] + kListUp, s.rows[(r + n - 1) % n]);
+        put_word(s.rows[r] + kListDown, s.rows[(r + 1) % n]);
+    }
+}
+
 // Makes the port's Exit row: a copy of the main menu's Options widget `options` whose one item
 // opens the question page (exit_menu.h), as a mod's item opens its page.
 gaddr make_exit_row(const openrac_front_end& fe, gaddr options) {
@@ -459,12 +474,20 @@ gaddr make_exit_row(const openrac_front_end& fe, gaddr options) {
 // is left (with two mods' rows there is none), every widget in its row's slot, the cursor going
 // round them in order.
 void patch_main(const openrac_front_end& fe) {
+    const gaddr page = fe.main_page;
+
+    // Quit Game puts the boot program's data back (rac1 boot.c), the main menu's three rows with
+    // it: the rows made the first time go back in.
     if (s.patched) {
+        if (s.extra_rows > 0 && main_menu_is_the_games(page)) {
+            put_rows(page);
+            log::info("mod ui: the main menu's rows put back after the game made it again");
+        }
+
         return;
     }
 
     s.patched = true;
-    const gaddr page = fe.main_page;
 
     if (!main_menu_is_the_games(page)) {
         log::warn("mod ui: the main menu is not the game's three items; its items are left out");
@@ -515,15 +538,8 @@ void patch_main(const openrac_front_end& fe) {
     }
 
     s.extra_rows = static_cast<int>(rows.size()) - kGameRows;
-    const auto n = rows.size();
-
-    for (std::size_t r = 0; r < n; ++r) {
-        const auto slot = static_cast<gaddr>(kRowSlots[r]);
-        GREF(std::int32_t, page + kSeqs + 4 * slot) = kRowSeqs[r];
-        put_word(page + kScreens + 4 * slot, rows[r]);
-        put_word(rows[r] + kListUp, rows[(r + n - 1) % n]);
-        put_word(rows[r] + kListDown, rows[(r + 1) % n]);
-    }
+    std::copy(rows.begin(), rows.end(), s.rows.begin());
+    put_rows(page);
 
     log::info(
         "mod ui: {} item(s) in the main menu{}", count, s.exit_widget != 0 ? ", and Exit" : ""
