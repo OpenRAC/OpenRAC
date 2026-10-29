@@ -1087,6 +1087,7 @@ void raise_rows(const openrac_front_end& fe) {
         if (s.leaving_to != 0 && i >= kGameRows) {
             r.put_z[row] -= r.step * static_cast<float>(i - (kGameRows - 1)) * (1.0f - done);
         }
+
         GREF(float, moby + kMobyPosition + kUpward) = r.put_z[row];
     }
 }
