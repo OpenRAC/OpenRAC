@@ -53,9 +53,9 @@ through `env::system_variable`. Vendored code (a path part named
 `third_party`) is not checked, nor is anything outside the scope above.
 
 `GETENV_EXCEPTIONS`, at the top of `check_conventions.py`, names the files
-that still read `OPENRAC_` variables with `getenv` and what moves each: rac1's
-host C until P2-38, and `tests/vulkan_uniform_test.cpp`, which reads its
-switch to know what to expect. The package that moves a file's reads removes
+that still read `OPENRAC_` variables with `getenv` and what moves each: today
+only `tests/vulkan_uniform_test.cpp`, which reads its switch to know what to
+expect. The package that moves a file's reads removes
 its entry in the same commit series. An entry whose file reads none any more,
 or is gone, is printed as a stale advisory rather than a failure, since other
 work removes reads meanwhile. Never add an entry for new code.
