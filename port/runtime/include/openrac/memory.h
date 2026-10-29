@@ -43,11 +43,13 @@ public:
     // region, and resets the game stack and the string region.
     void clear();
 
-    // Copies the backed guest regions in a stable order (RAM, then the plain regions in guest.h).
-    // Used only for warm, in-session snapshots; host runtime state is saved by the caller.
+    // Copies backed guest regions in a stable order (RAM, then the plain regions in guest.h).
+    // Allocation metadata and game-specific host runtime state are saved by the caller.
     static std::size_t snapshot_size();
     bool save_snapshot(std::span<std::uint8_t> out) const;
-    bool restore_snapshot(std::span<const std::uint8_t> in);
+    bool restore_snapshot(
+        std::span<const std::uint8_t> in, const openrac_guest_allocation_state& allocations
+    );
 
     // The game address that a host address inside the reservation stands
     // for, or false. Used by the crash handler.

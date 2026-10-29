@@ -152,13 +152,57 @@ SoundPlayer::~SoundPlayer() = default;
 // ---- Banks and sound control ----
 
 BankHandle SoundPlayer::load_bank(std::span<const std::uint8_t> file) {
+    return load_bank_at(m_next_bank, file);
+}
+
+BankHandle SoundPlayer::load_bank_at(BankHandle handle, std::span<const std::uint8_t> file) {
+    if (handle == 0 || handle == std::numeric_limits<BankHandle>::max()
+        || m_banks.contains(handle)) {
+        throw assets::AssetError("invalid or duplicate sound bank handle");
+    }
     auto b = std::make_unique<Bank>();
     b->bank = assets::parse_sound_bank(file);
     b->samples = std::make_shared<const std::vector<std::uint8_t>>(b->bank.samples);
     b->grain_state.assign(b->bank.grains.size(), 0);
-    const BankHandle handle = m_next_bank++;
     m_banks.emplace(handle, std::move(b));
+    m_next_bank = std::max(m_next_bank, handle + 1);
     return handle;
+}
+
+void SoundPlayer::reset_for_snapshot() {
+    m_mixer = VoiceMixer{};
+    m_banks.clear();
+    m_scripts.clear();
+    m_slots.assign(kVoiceCount, Slot{});
+    m_master.fill(kFullVolume);
+    m_global_registers.fill(0);
+    m_unsupported.clear();
+    m_next_bank = 1;
+    m_next_sound = 1;
+    m_ticks = 0;
+    m_random = 1;
+    m_frame_in_tick = 0;
+}
+
+void SoundPlayer::set_next_handles(BankHandle bank, SoundHandle sound) {
+    m_next_bank = std::max<BankHandle>(bank, 1);
+    m_next_sound = std::max<SoundHandle>(sound, 1);
+}
+
+void SoundPlayer::swap_snapshot_state(SoundPlayer& other) noexcept {
+    using std::swap;
+    swap(m_mixer, other.m_mixer);
+    m_banks.swap(other.m_banks);
+    m_scripts.swap(other.m_scripts);
+    m_slots.swap(other.m_slots);
+    m_master.swap(other.m_master);
+    m_global_registers.swap(other.m_global_registers);
+    m_unsupported.swap(other.m_unsupported);
+    swap(m_next_bank, other.m_next_bank);
+    swap(m_next_sound, other.m_next_sound);
+    swap(m_ticks, other.m_ticks);
+    swap(m_random, other.m_random);
+    swap(m_frame_in_tick, other.m_frame_in_tick);
 }
 
 void SoundPlayer::unload_bank(BankHandle bank) {

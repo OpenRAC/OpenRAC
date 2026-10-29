@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -66,6 +67,22 @@ std::array<std::int32_t, audio::kVolumeGroups> g_master = [] {
     a.fill(audio::kFullVolume);
     return a;
 }();
+std::map<audio::BankHandle, std::vector<std::uint8_t>> g_bank_files;
+
+struct SoundSnapshotHeader {
+    char magic[8];
+    std::uint32_t version;
+    std::uint32_t used;
+    std::uint32_t bank_count;
+    audio::BankHandle next_bank;
+    audio::SoundHandle next_sound;
+    std::array<std::int32_t, audio::kVolumeGroups> master;
+};
+
+struct SoundSnapshotBank {
+    audio::BankHandle handle;
+    std::uint32_t size;
+};
 
 // ---- VAG streams ----
 
@@ -261,7 +278,14 @@ uint32_t openrac_sound_load_bank(const void* bytes, size_t size) {
     }
     std::lock_guard lock(g_lock);
     try {
+        std::vector<std::uint8_t> saved_file(p, p + whole);
         const audio::BankHandle bank = player().load_bank(std::span(p, whole));
+        try {
+            g_bank_files.emplace(bank, std::move(saved_file));
+        } catch (...) {
+            player().unload_bank(bank);
+            throw;
+        }
         log::info("sound: bank {} loaded, {} sounds", bank, player().bank(bank)->sounds.size());
         return bank;
     } catch (const std::exception& e) {
@@ -301,6 +325,105 @@ uint32_t openrac_sound_load_bank_from_disc(uint32_t sector, uint32_t offset) {
 void openrac_sound_unload_bank(uint32_t bank) {
     std::lock_guard lock(g_lock);
     player().unload_bank(bank);
+    g_bank_files.erase(bank);
+}
+
+size_t openrac_sound_snapshot_size(void) {
+    return OPENRAC_SOUND_SNAPSHOT_SIZE;
+}
+
+int openrac_sound_snapshot_save(void* output, size_t capacity) {
+    if (output == nullptr || capacity != OPENRAC_SOUND_SNAPSHOT_SIZE) {
+        return -1;
+    }
+    std::lock_guard lock(g_lock);
+    auto* bytes = static_cast<std::uint8_t*>(output);
+    std::memset(bytes, 0, capacity);
+    SoundSnapshotHeader header{};
+    std::memcpy(header.magic, "ORACSND1", sizeof(header.magic));
+    header.version = 1;
+    header.bank_count = static_cast<std::uint32_t>(g_bank_files.size());
+    header.next_bank = player().next_bank_handle();
+    header.next_sound = player().next_sound_handle();
+    header.master = g_master;
+    std::size_t at = sizeof(header);
+    for (const auto& [handle, file] : g_bank_files) {
+        if (file.size() > UINT32_MAX || at + sizeof(SoundSnapshotBank) + file.size() > capacity) {
+            log::warn(
+                "sound: loaded banks exceed the savestate audio payload limit ({} MiB)",
+                OPENRAC_SOUND_SNAPSHOT_SIZE / (1024u * 1024u)
+            );
+            return -1;
+        }
+        const SoundSnapshotBank bank{handle, static_cast<std::uint32_t>(file.size())};
+        std::memcpy(bytes + at, &bank, sizeof(bank));
+        at += sizeof(bank);
+        std::memcpy(bytes + at, file.data(), file.size());
+        at += file.size();
+    }
+    header.used = static_cast<std::uint32_t>(at);
+    std::memcpy(bytes, &header, sizeof(header));
+    return 0;
+}
+
+int openrac_sound_snapshot_load(const void* input, size_t size) {
+    if (input == nullptr || size != OPENRAC_SOUND_SNAPSHOT_SIZE) {
+        return -1;
+    }
+    try {
+        const auto* bytes = static_cast<const std::uint8_t*>(input);
+        SoundSnapshotHeader header{};
+        std::memcpy(&header, bytes, sizeof(header));
+        if (std::memcmp(header.magic, "ORACSND1", sizeof(header.magic)) != 0 || header.version != 1
+            || header.used < sizeof(header) || header.used > size || header.next_bank == 0
+            || header.next_sound == 0) {
+            return -1;
+        }
+        std::map<audio::BankHandle, std::vector<std::uint8_t>> banks;
+        audio::BankHandle highest_bank = 0;
+        std::size_t at = sizeof(header);
+        for (std::uint32_t i = 0; i < header.bank_count; ++i) {
+            if (at + sizeof(SoundSnapshotBank) > header.used) {
+                return -1;
+            }
+            SoundSnapshotBank bank{};
+            std::memcpy(&bank, bytes + at, sizeof(bank));
+            at += sizeof(bank);
+            if (bank.handle == 0 || bank.size == 0 || at + bank.size > header.used) {
+                return -1;
+            }
+            highest_bank = std::max(highest_bank, bank.handle);
+            if (!banks
+                     .emplace(
+                         bank.handle, std::vector<std::uint8_t>(bytes + at, bytes + at + bank.size)
+                     )
+                     .second) {
+                return -1;
+            }
+            at += bank.size;
+        }
+        if (at != header.used || header.next_bank <= highest_bank) {
+            return -1;
+        }
+        // Parse the full bank set before replacing live audio, so invalid saved
+        // data cannot leave the game with only some banks installed.
+        audio::SoundPlayer checked;
+        for (const auto& [handle, file] : banks) {
+            checked.load_bank_at(handle, file);
+        }
+        checked.set_next_handles(header.next_bank, header.next_sound);
+        for (std::size_t group = 0; group < header.master.size(); ++group) {
+            checked.set_master_volume(group, header.master[group]);
+        }
+        std::lock_guard lock(g_lock);
+        player().swap_snapshot_state(checked);
+        g_bank_files.swap(banks);
+        g_master = header.master;
+        g_streams.clear();
+        return 0;
+    } catch (const std::exception&) {
+        return -1;
+    }
 }
 
 uint32_t openrac_sound_play(

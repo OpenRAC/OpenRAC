@@ -81,6 +81,70 @@ void guest_allocation_generation() {
     CHECK(openrac_guest_allocation_generation() == before + 2);
 }
 
+void snapshots_keep_new_guest_allocations() {
+    Memory& memory = Memory::get();
+    const gaddr old_static = openrac_guest_static(16);
+    *static_cast<std::uint32_t*>(G(old_static)) = 0x12345678u;
+    const char old_text[] = "savestate-before-transition";
+    const gaddr old_string = openrac_guest_string(old_text, sizeof(old_text));
+    openrac_guest_allocation_state allocations{};
+    openrac_guest_get_allocation_state(&allocations);
+
+    constexpr gaddr ram_word = 0x00123450u;
+    GREF(std::uint32_t, ram_word) = 0xAABBCCDDu;
+    std::vector<std::uint8_t> snapshot(Memory::snapshot_size());
+    CHECK(memory.save_snapshot(snapshot));
+
+    GREF(std::uint32_t, ram_word) = 0xDEADBEEFu;
+    *static_cast<std::uint32_t*>(G(old_static)) = 0x0BADF00Du;
+    const gaddr new_static = openrac_guest_static(24);
+    std::memset(G(new_static), 0x5A, 24);
+    const char new_text[] = "savestate-after-transition";
+    const gaddr new_string = openrac_guest_string(new_text, sizeof(new_text));
+
+    CHECK(memory.restore_snapshot(snapshot, allocations));
+    CHECK(GREF(std::uint32_t, ram_word) == 0xAABBCCDDu);
+    CHECK(*static_cast<std::uint32_t*>(G(old_static)) == 0x12345678u);
+    CHECK(std::strcmp(static_cast<const char*>(G(old_string)), old_text) == 0);
+    CHECK(std::strcmp(static_cast<const char*>(G(new_string)), new_text) == 0);
+    for (unsigned i = 0; i < 24; ++i) {
+        CHECK(static_cast<const std::uint8_t*>(G(new_static))[i] == 0x5Au);
+    }
+    CHECK(openrac_guest_static(8) > new_static);
+}
+
+void cold_snapshot_rebinds_generated_static_sites() {
+    constexpr std::uint64_t site = 0xA1B2C3D4E5F60718ull;
+    int fresh = 0;
+    const gaddr address = openrac_guest_static_site(32, site, &fresh);
+    CHECK(address != 0 && fresh == 1);
+    std::memset(G(address), 0x4C, 32);
+
+    openrac_guest_allocation_state allocations{};
+    openrac_guest_get_allocation_state(&allocations);
+    std::vector<std::uint8_t> memory(Memory::snapshot_size());
+    CHECK(Memory::get().save_snapshot(memory));
+    std::vector<std::uint8_t> metadata(openrac_guest_snapshot_metadata_capacity());
+    std::size_t used = 0;
+    CHECK(openrac_guest_snapshot_metadata_save(metadata.data(), metadata.size(), &used) == 0);
+
+    const std::uint64_t old_generation = openrac_guest_cache_generation();
+    CHECK(openrac_guest_static_site(32, 0x1122334455667788ull, &fresh) != 0 && fresh == 1);
+    // A later process state can have advanced the ordinary static allocator
+    // past the snapshot boundary. Cold metadata restore must rewind it.
+    const gaddr later_static = openrac_guest_static(32);
+    CHECK(later_static >= allocations.statics_end);
+    CHECK(openrac_guest_snapshot_metadata_load(metadata.data(), used, &allocations) == 0);
+    CHECK(openrac_guest_cache_generation() != old_generation);
+    CHECK(Memory::get().restore_snapshot(memory, allocations));
+
+    const gaddr rebound = openrac_guest_static_site(32, site, &fresh);
+    CHECK(rebound == address && fresh == 0);
+    for (unsigned i = 0; i < 32; ++i) {
+        CHECK(static_cast<const std::uint8_t*>(G(rebound))[i] == 0x4Cu);
+    }
+}
+
 int level_add(int a, int b) {
     return a + b + 100;
 }
@@ -353,6 +417,8 @@ int main() {
     memory_map();
     frames_and_strings();
     guest_allocation_generation();
+    snapshots_keep_new_guest_allocations();
+    cold_snapshot_rebinds_generated_static_sites();
     functions();
     code_in_copy_jal();
     folded_address();

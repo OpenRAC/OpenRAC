@@ -266,6 +266,16 @@ void load_mods() {
         frontend::savestate_restored(state->frame);
 #endif
     };
+    host.savestate_extra_size = openrac_game_snapshot_extra_size;
+    host.savestate_extra_save = openrac_game_snapshot_extra_save;
+    host.savestate_extra_load = openrac_game_snapshot_extra_load;
+    host.prepare_cold_savestate = [](int overlay) {
+        openrac_game_clear_level_programs();
+        if (overlay >= 0) {
+            openrac_guest_prepare_level_program(overlay);
+            openrac_guest_restore_level_program(overlay);
+        }
+    };
 #ifdef OPENRAC_FRONTEND
     // Mods loaded before the window opens (a mod that makes the Vulkan device): what they ask of
     // the keyboard and the cursor is kept for the window (apply_early_mod_input).

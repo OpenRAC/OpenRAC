@@ -106,10 +106,46 @@ private:
 
 // ---- String literals ----
 
-std::mutex g_strings_lock;
+std::mutex g_allocations_lock;
 std::unordered_map<std::string, gaddr> g_strings;
 gaddr g_strings_next = GUEST_STRINGS;
+gaddr g_statics_next = GUEST_STATICS;
+constexpr gaddr kStaticSitesBegin = GUEST_STATICS;
+constexpr gaddr kStaticSitesEnd = GUEST_STATICS + GUEST_STATICS_SIZE;
+gaddr g_static_sites_begin = GUEST_STATICS + GUEST_STATICS_SIZE;
+
+struct StaticSite {
+    gaddr address;
+    std::uint32_t size;
+};
+
+std::map<std::uint64_t, StaticSite> g_static_sites;
 std::atomic<std::uint64_t> g_allocation_generation{0};
+std::atomic<std::uint64_t> g_cache_generation{0};
+
+struct AllocationMetadataHeader {
+    char magic[8];
+    std::uint32_t version;
+    std::uint32_t strings_count;
+    std::uint32_t sites_count;
+    std::uint32_t used;
+    openrac_guest_allocation_state allocations;
+};
+
+struct StringMetadata {
+    gaddr address;
+    std::uint32_t size;
+};
+
+struct SiteMetadata {
+    std::uint64_t id;
+    gaddr address;
+    std::uint32_t size;
+};
+
+constexpr char kAllocationMetadataMagic[8] = {'O', 'R', 'A', 'C', 'A', 'L', '1', '\0'};
+constexpr std::uint32_t kAllocationMetadataVersion = 1;
+constexpr std::size_t kAllocationMetadataCapacity = 4 * 1024 * 1024;
 
 // ---- Functions by address ----
 
@@ -234,16 +270,57 @@ gaddr openrac_guest_frame(uint32_t size) {
 }
 
 gaddr openrac_guest_static(uint32_t size) {
-    static std::mutex lock;
-    static gaddr next = GUEST_STATICS;
-    std::scoped_lock hold(lock);
-    const gaddr at = next;
-    if (at + size > GUEST_STATICS + GUEST_STATICS_SIZE) {
+    std::scoped_lock hold(g_allocations_lock);
+    const gaddr at = g_statics_next;
+    if (at + size > g_static_sites_begin) {
         fatalf("the statics region is full");
     }
-    next = (at + size + 15) & ~15u;
+    g_statics_next = (at + size + 15) & ~15u;
     g_allocation_generation.fetch_add(1, std::memory_order_relaxed);
     return at;
+}
+
+void openrac_guest_get_allocation_state(openrac_guest_allocation_state* state) {
+    if (state == nullptr) {
+        return;
+    }
+    std::scoped_lock hold(g_allocations_lock);
+    state->strings_end = g_strings_next;
+    state->statics_end = g_statics_next;
+    state->static_sites_begin = g_static_sites_begin;
+}
+
+gaddr openrac_guest_static_site(uint32_t size, uint64_t site, int* fresh) {
+    if (site == 0 || size == 0 || fresh == nullptr) {
+        fatalf("a translated static has an invalid call-site id or size");
+    }
+    std::scoped_lock hold(g_allocations_lock);
+    const auto found = g_static_sites.find(site);
+    if (found != g_static_sites.end()) {
+        if (found->second.size != size) {
+            fatalf("a translated static call-site changed size");
+        }
+        *fresh = 0;
+        return found->second.address;
+    }
+    const gaddr aligned = (size + 15u) & ~15u;
+    if (g_static_sites_begin > kStaticSitesEnd
+        || aligned > g_static_sites_begin - kStaticSitesBegin) {
+        fatalf("the translated statics region is full");
+    }
+    const gaddr at = (g_static_sites_begin - aligned) & ~15u;
+    if (at < kStaticSitesBegin || at < g_statics_next) {
+        fatalf("the translated statics region overlaps host statics");
+    }
+    g_static_sites_begin = at;
+    g_static_sites.emplace(site, StaticSite{at, size});
+    g_allocation_generation.fetch_add(1, std::memory_order_relaxed);
+    *fresh = 1;
+    return at;
+}
+
+uint64_t openrac_guest_cache_generation(void) {
+    return g_cache_generation.load(std::memory_order_relaxed);
 }
 
 uint64_t openrac_guest_allocation_generation(void) {
@@ -251,7 +328,7 @@ uint64_t openrac_guest_allocation_generation(void) {
 }
 
 gaddr openrac_guest_string(const char* s, size_t size) {
-    std::scoped_lock hold(g_strings_lock);
+    std::scoped_lock hold(g_allocations_lock);
     std::string key(s, size);
     auto it = g_strings.find(key);
     if (it != g_strings.end()) {
@@ -266,6 +343,176 @@ gaddr openrac_guest_string(const char* s, size_t size) {
     g_strings.emplace(std::move(key), at);
     g_allocation_generation.fetch_add(1, std::memory_order_relaxed);
     return at;
+}
+
+size_t openrac_guest_snapshot_metadata_capacity(void) {
+    return kAllocationMetadataCapacity;
+}
+
+size_t openrac_guest_snapshot_metadata_size(void) {
+    std::scoped_lock hold(g_allocations_lock);
+    std::size_t size =
+        sizeof(AllocationMetadataHeader) + g_static_sites.size() * sizeof(SiteMetadata);
+    for (const auto& [text, address] : g_strings) {
+        (void)address;
+        size += sizeof(StringMetadata) + text.size();
+    }
+    return size;
+}
+
+int openrac_guest_snapshot_metadata_save(void* output, size_t capacity, size_t* used) {
+    if (output == nullptr || used == nullptr || capacity < sizeof(AllocationMetadataHeader)) {
+        return -1;
+    }
+    std::scoped_lock hold(g_allocations_lock);
+    std::size_t required =
+        sizeof(AllocationMetadataHeader) + g_static_sites.size() * sizeof(SiteMetadata);
+    for (const auto& [text, address] : g_strings) {
+        (void)address;
+        if (text.size() > UINT32_MAX) {
+            return -1;
+        }
+        required += sizeof(StringMetadata) + text.size();
+    }
+    if (required > capacity || required > kAllocationMetadataCapacity
+        || g_strings.size() > UINT32_MAX || g_static_sites.size() > UINT32_MAX) {
+        return -1;
+    }
+    auto* bytes = static_cast<std::uint8_t*>(output);
+    AllocationMetadataHeader header{};
+    std::memcpy(header.magic, kAllocationMetadataMagic, sizeof(kAllocationMetadataMagic));
+    header.version = kAllocationMetadataVersion;
+    header.strings_count = static_cast<std::uint32_t>(g_strings.size());
+    header.sites_count = static_cast<std::uint32_t>(g_static_sites.size());
+    header.used = static_cast<std::uint32_t>(required);
+    header.allocations = {g_strings_next, g_statics_next, g_static_sites_begin};
+    std::size_t at = sizeof(header);
+    for (const auto& [text, address] : g_strings) {
+        const StringMetadata item{address, static_cast<std::uint32_t>(text.size())};
+        if (at + sizeof(item) + text.size() > capacity) {
+            return -1;
+        }
+        std::memcpy(bytes + at, &item, sizeof(item));
+        at += sizeof(item);
+        std::memcpy(bytes + at, text.data(), text.size());
+        at += text.size();
+    }
+    for (const auto& [id, site] : g_static_sites) {
+        const SiteMetadata item{id, site.address, site.size};
+        if (at + sizeof(item) > capacity) {
+            return -1;
+        }
+        std::memcpy(bytes + at, &item, sizeof(item));
+        at += sizeof(item);
+    }
+    header.used = static_cast<std::uint32_t>(at);
+    std::memcpy(bytes, &header, sizeof(header));
+    *used = at;
+    return 0;
+}
+
+int openrac_guest_snapshot_metadata_load(
+    const void* input, size_t size, const openrac_guest_allocation_state* expected
+) {
+    if (input == nullptr || expected == nullptr || size < sizeof(AllocationMetadataHeader)
+        || size > kAllocationMetadataCapacity) {
+        return -1;
+    }
+    AllocationMetadataHeader header{};
+    std::memcpy(&header, input, sizeof(header));
+    if (std::memcmp(header.magic, kAllocationMetadataMagic, sizeof(kAllocationMetadataMagic)) != 0
+        || header.version != kAllocationMetadataVersion || header.used != size
+        || header.allocations.strings_end < GUEST_STRINGS
+        || header.allocations.strings_end > GUEST_STRINGS + GUEST_STRINGS_SIZE
+        || header.allocations.statics_end > GUEST_STATICS + GUEST_STATICS_SIZE
+        || header.allocations.statics_end < GUEST_STATICS
+        || header.allocations.statics_end > header.allocations.static_sites_begin
+        || header.allocations.static_sites_begin < kStaticSitesBegin
+        || header.allocations.static_sites_begin > kStaticSitesEnd
+        || std::memcmp(&header.allocations, expected, sizeof(*expected)) != 0) {
+        return -1;
+    }
+    std::unordered_map<std::string, gaddr> strings;
+    std::map<std::uint64_t, StaticSite> sites;
+    const auto* bytes = static_cast<const std::uint8_t*>(input);
+    std::size_t at = sizeof(header);
+    for (std::uint32_t i = 0; i < header.strings_count; ++i) {
+        if (at + sizeof(StringMetadata) > size) {
+            return -1;
+        }
+        StringMetadata item{};
+        std::memcpy(&item, bytes + at, sizeof(item));
+        at += sizeof(item);
+        if (item.size == 0 || item.address < GUEST_STRINGS
+            || item.size > GUEST_STRINGS + GUEST_STRINGS_SIZE - item.address
+            || item.address + item.size > header.allocations.strings_end || at + item.size > size) {
+            return -1;
+        }
+        std::string text(reinterpret_cast<const char*>(bytes + at), item.size);
+        at += item.size;
+        if (!strings.emplace(std::move(text), item.address).second) {
+            return -1;
+        }
+    }
+    for (std::uint32_t i = 0; i < header.sites_count; ++i) {
+        if (at + sizeof(SiteMetadata) > size) {
+            return -1;
+        }
+        SiteMetadata item{};
+        std::memcpy(&item, bytes + at, sizeof(item));
+        at += sizeof(item);
+        if (item.id == 0 || item.size == 0 || item.address < header.allocations.static_sites_begin
+            || item.address > kStaticSitesEnd || item.size > kStaticSitesEnd - item.address
+            || item.address + item.size > kStaticSitesEnd
+            || !sites.emplace(item.id, StaticSite{item.address, item.size}).second) {
+            return -1;
+        }
+    }
+    if (at != size) {
+        return -1;
+    }
+    if (sites.size() != header.sites_count || strings.size() != header.strings_count) {
+        return -1;
+    }
+    std::vector<std::pair<gaddr, gaddr>> site_ranges;
+    site_ranges.reserve(sites.size());
+    for (const auto& [id, site] : sites) {
+        (void)id;
+        site_ranges.emplace_back(site.address, site.address + site.size);
+    }
+    std::sort(site_ranges.begin(), site_ranges.end());
+    for (std::size_t i = 1; i < site_ranges.size(); ++i) {
+        if (site_ranges[i - 1].second > site_ranges[i].first) {
+            return -1;
+        }
+    }
+    std::vector<std::pair<gaddr, gaddr>> string_ranges;
+    string_ranges.reserve(strings.size());
+    for (const auto& [text, address] : strings) {
+        string_ranges.emplace_back(address, address + static_cast<gaddr>(text.size()));
+    }
+    std::sort(string_ranges.begin(), string_ranges.end());
+    if (!string_ranges.empty() && string_ranges.back().second > header.allocations.strings_end) {
+        return -1;
+    }
+    for (std::size_t i = 1; i < string_ranges.size(); ++i) {
+        if (string_ranges[i - 1].second > string_ranges[i].first) {
+            return -1;
+        }
+    }
+    // A cold restore may replace a process that has already allocated more
+    // guest statics than the saved process had. The saved address map and
+    // allocator boundary are authoritative; cache generations below make
+    // translated call sites refresh their host-side cached addresses.
+    std::scoped_lock hold(g_allocations_lock);
+    g_strings = std::move(strings);
+    g_static_sites = std::move(sites);
+    g_strings_next = header.allocations.strings_end;
+    g_statics_next = header.allocations.statics_end;
+    g_static_sites_begin = header.allocations.static_sites_begin;
+    g_allocation_generation.fetch_add(1, std::memory_order_relaxed);
+    g_cache_generation.fetch_add(1, std::memory_order_relaxed);
+    return 0;
 }
 
 void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t count) {
@@ -1370,6 +1617,36 @@ static gaddr relocate_code(gaddr address) {
 void openrac_guest_set_level_programs(void (*load)(int level)) {
     forget_answers();
     g_level_program_source = load;
+}
+
+int openrac_guest_prepare_level_program(int level) {
+    return level_program(level).empty() ? 0 : 1;
+}
+
+int openrac_guest_restore_level_program(int level) {
+    if (level < 0) {
+        return -1;
+    }
+    const auto& chunks = level_program(level);
+    if (chunks.empty()) {
+        return -1;
+    }
+    std::scoped_lock hold(g_relocate_lock);
+    for (const Chunk& chunk : chunks) {
+        if (!openrac::runtime::Memory::get().mapped(chunk.base, chunk.bytes.size())) {
+            return -1;
+        }
+        std::memcpy(G(chunk.base), chunk.bytes.data(), chunk.bytes.size());
+    }
+    g_overlay = level;
+    return 0;
+}
+
+void openrac_guest_clear_level_programs(void) {
+    std::scoped_lock hold(g_relocate_lock);
+    g_level_programs.clear();
+    g_level_pair_maps.clear();
+    forget_answers();
 }
 
 void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes, uint32_t size) {

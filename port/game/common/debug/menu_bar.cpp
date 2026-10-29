@@ -4,6 +4,7 @@
 // The debug overlay's menu bar (debug/overlay.h): the menus along the window's top on Windows and
 // Linux, whose items press the keys the port already answers or move its settings on.
 
+#include <algorithm>
 #include <format>
 #include <imgui.h>
 #include <string>
@@ -13,6 +14,7 @@
 #include "common/env.h"
 #include "common/slow_cpu.h"
 #include "debug/overlay.h"
+#include "mods.h"
 #include "options_menu.h"
 #include "renderer/gl.h"
 #include "settings.h"
@@ -160,6 +162,45 @@ void menu_bar() {
             if (ImGui::MenuItem("Level select", "F1")) {
                 press(SDLK_F1);
             }
+        }
+        ImGui::EndMenu();
+    }
+    for (const mods::DeveloperMenu& menu : mods::developer_menus()) {
+        if (!ImGui::BeginMenu(menu.title.c_str())) {
+            continue;
+        }
+        for (std::size_t i = 0; i < menu.items.size(); ++i) {
+            const mods::DeveloperMenuItem& item = menu.items[i];
+            if (item.group.empty()) {
+                const char* shortcut = item.shortcut.empty() ? nullptr : item.shortcut.c_str();
+                ImGui::PushID(&item);
+                if (ImGui::MenuItem(item.label.c_str(), shortcut)) {
+                    mods::queue_developer_menu_action(menu.mod, item.action);
+                }
+                ImGui::PopID();
+                continue;
+            }
+            const bool already_shown = std::any_of(
+                menu.items.begin(),
+                menu.items.begin() + i,
+                [&](const mods::DeveloperMenuItem& prior) { return prior.group == item.group; }
+            );
+            if (already_shown || !ImGui::BeginMenu(item.group.c_str())) {
+                continue;
+            }
+            for (const mods::DeveloperMenuItem& grouped : menu.items) {
+                if (grouped.group != item.group) {
+                    continue;
+                }
+                const char* shortcut =
+                    grouped.shortcut.empty() ? nullptr : grouped.shortcut.c_str();
+                ImGui::PushID(&grouped);
+                if (ImGui::MenuItem(grouped.label.c_str(), shortcut)) {
+                    mods::queue_developer_menu_action(menu.mod, grouped.action);
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndMenu();
         }
         ImGui::EndMenu();
     }
