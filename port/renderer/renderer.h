@@ -102,6 +102,13 @@ struct EffectStrip {
     int uploads = -1, upload_count = 0;
     std::uint32_t surface = 0;  // Native semantic marker; 0 leaves the original material alone.
     EffectUvMotion uv_motion{};
+    // The GS fog, when the strip's program applies it (PRIM FGE, with the fog line its packet
+    // gives: the liquid grid's): F per vertex as the world programs compute it (renderer/world/
+    // fog.h: slope per integer unit of depth, offset, lower and upper clamp), towards FOGCOL
+    // (display bytes, R low).
+    bool fogged = false;
+    std::array<float, 4> fog{};
+    std::uint32_t fog_colour = 0;
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:

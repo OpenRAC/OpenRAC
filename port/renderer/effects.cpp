@@ -77,6 +77,9 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     m_tfx = m_shader.uniform("tfx");
     m_tex_alpha_scale = m_shader.uniform("tex_alpha_scale");
     m_fog_enable = m_shader.uniform("fog_enable");
+    m_view = m_shader.uniform("view");
+    m_fog_colour = m_shader.uniform("fog_colour");
+    m_fog_line = m_shader.uniform("fog_line");
     m_alpha_test = m_shader.uniform("alpha_test");
 
     glGenVertexArrays(1, &m_vao);
@@ -116,6 +119,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     m_texture_filter = input.texture_filter;
     const Mat4 view_projection = multiply(input.camera.projection, input.camera.view);
     glUniformMatrix4fv(m_view_projection, 1, GL_FALSE, view_projection.data());
+    glUniformMatrix4fv(m_view, 1, GL_FALSE, input.camera.view.data());
     glUniform1i(m_fog_enable, 0);
     glUniform1i(m_alpha_test, 0);
     glUniform1i(m_textured, 1);
@@ -229,7 +233,26 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         std::uint64_t tex0, tex1, clamp, alpha;
         std::uint32_t tbp, cbp, surface;
         EffectUvMotion motion{};
+        bool fogged = false;
+        std::array<float, 4> fog{};
+        std::uint32_t fog_colour = 0;
         bool operator==(const State&) const = default;
+    };
+    // The GS fog of a strip whose program applies it (EffectStrip::fogged); none for the others.
+    bool fog_on = false;
+    const auto set_fog = [&](bool fogged, const std::array<float, 4>& line, std::uint32_t colour) {
+        if (!fogged && !fog_on) {
+            return;
+        }
+        fog_on = fogged;
+        glUniform1i(m_fog_enable, fogged ? 1 : 0);
+        glUniform4f(m_fog_line, line[0], line[1], line[2], line[3]);
+        glUniform3f(
+            m_fog_colour,
+            static_cast<float>(colour & 0xFF),
+            static_cast<float>((colour >> 8) & 0xFF),
+            static_cast<float>((colour >> 16) & 0xFF)
+        );
     };
 
     std::optional<State> set;
@@ -253,6 +276,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             if (m_material) {
                 m_material->bind(m_shader, wanted.surface, input, wanted.motion);
             }
+            set_fog(wanted.fogged, wanted.fog, wanted.fog_colour);
             set = wanted;
         }
         if (must_have_texture && !drawable) {
@@ -295,6 +319,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             set.reset();
             apply(strip.tex0, strip.tex1, strip.clamp, strip.alpha, state);
             m_material->bind(m_shader, strip.surface, input, strip.uv_motion);
+            set_fog(strip.fogged, strip.fog, strip.fog_colour);
             m_material->draw_mesh(m_shader, *mesh);
             state.stats.draw_calls += mesh->draws;
             state.stats.triangles += mesh->vertices / 3;
@@ -309,7 +334,10 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
              0,
              0,
              strip.surface,
-             strip.uv_motion},
+             strip.uv_motion,
+             strip.fogged,
+             strip.fog,
+             strip.fog_colour},
             at,
             count,
             false);

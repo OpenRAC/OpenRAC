@@ -54,6 +54,7 @@
 #include "renderer/direct.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
+#include "renderer/world/fog.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_pose.h"
@@ -195,6 +196,15 @@ std::vector<std::uint8_t> direct_packets(
     // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
     // RGBA (V4-8) at 2 and positions (V3-32) at 3, drawn by an MSCAL (func_L00_001FDE48's packet).
     std::uint64_t reg_tex0 = 0, reg_tex1 = 0, reg_clamp = 0, reg_alpha = 0x44;
+    std::uint64_t reg_prim = 0, reg_fogcol = 0;
+    // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
+    // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
+    // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
+    // A strip whose GIF tag turns the GS fog on gets F per vertex from it, as the world programs
+    // compute theirs (renderer/world/fog.h). Bit i of vu_fog_set: VU address 0x3AC + i unpacked.
+    std::array<std::uint32_t, 16> vu_fog{};
+    unsigned vu_fog_set = 0;
+    bool strip_fog = false;
     const std::uint8_t* strip_st = nullptr;
     const std::uint8_t* strip_rgba = nullptr;
     const std::uint8_t* strip_xyz = nullptr;
@@ -298,6 +308,12 @@ std::vector<std::uint8_t> direct_packets(
                         case 0x14:
                             reg_tex1 = value;
                             break;
+                        case 0x00:
+                            reg_prim = value;
+                            break;
+                        case 0x3D:
+                            reg_fogcol = value;
+                            break;
                         case 0x42:
                             reg_alpha = value;
                             break;
@@ -392,6 +408,9 @@ std::vector<std::uint8_t> direct_packets(
                     strip_tag = ((tag >> 47) & 7) == 4 && (tag & 0x7FFF) >= 3;
                     strip_count = static_cast<std::uint32_t>(tag & 0x7FFF);
                     second_texture = ((tag >> 56) & 1) != 0;
+                    // PRIM's FGE (bit 5): the tag's PRIM when PRE is set, else the register's.
+                    const std::uint64_t prim = ((tag >> 46) & 1) != 0 ? tag >> 47 : reg_prim;
+                    strip_fog = ((prim >> 5) & 1) != 0;
                     strip_st = strip_rgba = strip_xyz = nullptr;
                 } else if (strip_tag && address == 1 && vn == 1 && vl == 0
                            && count == strip_count) {
@@ -402,6 +421,16 @@ std::vector<std::uint8_t> direct_packets(
                 } else if (strip_tag && address == 3 && vn == 2 && vl == 0
                            && count == strip_count) {
                     strip_xyz = data;
+                }
+                if (vn == 3 && vl == 0) {
+                    for (std::uint32_t q = 0; q < count; ++q) {
+                        const std::uint32_t at_vu = (address + q) & 0x3FF;
+                        if (at_vu >= 0x3AC && at_vu <= 0x3AF) {
+                            const std::uint32_t i = at_vu - 0x3AC;
+                            std::memcpy(&vu_fog[i * 4], data + q * 16, 16);
+                            vu_fog_set |= 1u << i;
+                        }
+                    }
                 }
             }
             at += size;
@@ -421,6 +450,19 @@ std::vector<std::uint8_t> direct_packets(
                 strip.alpha = reg_alpha;
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
+                if (strip_fog && (vu_fog_set & 0xD) == 0xD) {
+                    // UpdateViewContext's terms (renderer/world/fog.h): the slope per integer unit
+                    // is fog_mul over the near plane, the offset fog_add.
+                    const float fog_mul = std::bit_cast<float>(vu_fog[3]);
+                    strip.fogged = true;
+                    strip.fog = {
+                        (1.0f / renderer::world::kNear) * fog_mul,
+                        std::bit_cast<float>(vu_fog[11]),
+                        std::bit_cast<float>(vu_fog[12]),
+                        std::bit_cast<float>(vu_fog[13])
+                    };
+                    strip.fog_colour = static_cast<std::uint32_t>(reg_fogcol & 0xFFFFFF);
+                }
                 const auto uv_at = second_texture ? 2u : 0u;
                 strip.uv_motion.offset = {uv_offsets[uv_at], uv_offsets[uv_at + 1]};
                 if (second_texture) {

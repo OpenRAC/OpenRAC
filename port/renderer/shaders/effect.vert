@@ -10,6 +10,10 @@ layout(location = 1) in vec2 st;
 layout(location = 2) in vec4 colour;  // normalised bytes
 
 uniform mat4 view_projection;
+uniform mat4 view;
+// A fogged strip's F line (EffectStrip::fog: slope per integer unit of depth, offset, lower and
+// upper clamp), as the world programs compute F (world_common.glsl, fog_coefficient).
+uniform vec4 fog_line;
 
 out vec3 v_world;
 out vec3 v_stq;
@@ -25,5 +29,6 @@ void main() {
 #endif
     gl_Position = view_projection * vec4(v_world, 1.0);
     v_stq = vec3(uv, 1.0);
-    v_fog = 1.0;
+    float depth = -(view * vec4(v_world, 1.0)).z * 1024.0;
+    v_fog = trunc(clamp(depth * fog_line.x + fog_line.y, fog_line.z, fog_line.w)) / 255.0;
 }
