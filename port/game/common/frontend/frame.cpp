@@ -2010,6 +2010,13 @@ bool keep_picture() {
     if (!read_window_events()) {
         return false;
     }
+    // The blank is a window frame as a drawn tick is: the scripted presses (OPENRAC_PRESS), the
+    // shots and the run's end count them. Not counted, a script waiting on a frame number during
+    // such a wait (the boot's) waited for ever.
+    ++g->index;
+    if (run_over()) {
+        return false;
+    }
     draw_kept(false);
     return !g->render_failed;
 }
