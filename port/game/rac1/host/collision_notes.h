@@ -18,10 +18,10 @@
 extern "C" {
 #endif
 
-/* One query. A line's a and b are its ends; a volume's a is its centre and b its radius and height.
- * entry: 0 line, 1 sphere, 2 capsule, 5 the executable's line. ignore: the record it leaves out, with
- * that record's first word. tmpl: a line's hit template. out: where CollOutput is; output: its
- * +0x18..+0x7F after the query (moby, kind, point, +0x30, normal, triangle). */
+/* One query. A line's a and b are its ends; a volume's a is its centre, b its radius and height.
+ * entry: 0 line, 1 sphere, 2 capsule, 5 the executable's line. ignore: the record it leaves out,
+ * with that record's first word. tmpl: a line's hit template. out: where CollOutput is; output:
+ * its +0x18..+0x7F after the query (moby, kind, point, +0x30, normal, triangle). */
 typedef struct {
     uint32_t entry, flags, ignore, ignore_word, tmpl, result, out;
     float a[3], b[3];

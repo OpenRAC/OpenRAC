@@ -74,8 +74,6 @@ struct GameState {
     }
 };
 
-// What one game version tells the host program about its memory.
-//
 // What a profile's diagnostics get from the running program beside the game's memory.
 struct DiagnosticsInput {
     // An executable address to the loaded program's copy of it.
@@ -84,6 +82,8 @@ struct DiagnosticsInput {
     void* game = nullptr;
 };
 
+// What one game version tells the host program about its memory.
+//
 // The base answers as a game nothing is known of: no game state (the camera as GameState starts
 // it, no live moby), no display list known to be shown, no shadows, no hero, no extracted levels.
 // A game's profile derives from it and overrides what its folder knows; a game with none uses the

@@ -38,9 +38,8 @@ constexpr int kLevels = 19;
 struct ExecutableAddresses {
     std::uint32_t shadow_directions;  // The four directions the hero's shadow is cast along.
     std::uint32_t hero_state;         // The hero's record (games/rac1's D_0013F450 on PAL).
-    std::uint32_t
-        world_update_time;  // The frame clock create_moby compares a free slot's +0x38 with.
-    std::uint32_t particle_updates;  // The particle updates, by a particle record's type byte.
+    std::uint32_t world_update_time;  // The frame clock create_moby compares a slot's +0x38 to.
+    std::uint32_t particle_updates;   // The particle updates, by a particle record's type byte.
 };
 
 // Each disc's executable addresses: PAL's as games/rac1 has them, NTSC-U's the same data in
@@ -48,101 +47,9 @@ struct ExecutableAddresses {
 constexpr ExecutableAddresses kPalExecutable{0x001CAE00u, 0x0013F450u, 0x0015F6F0u, 0x001CE100u};
 constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u, 0x0015F60Cu, 0x001CDD80u};
 
-std::string notes(
-    std::span<const std::uint8_t> ram,
-    const GameAddresses& a,
-    const host::GameState& state,
-    std::uint32_t clock,
-    OpenracCollWatch* watch
-);
-
-// One disc's profile: its boot program's table, its level programs' tables and its executable's
-// addresses. Ratchet & Clank's levels are extracted for the port, and its frame is one of two list
-// buffers it alternates (the defaults of host::GameProfile).
-class Profile final : public host::GameProfile {
-public:
-    // Makes the profile of the disc whose tables are `boot`, `levels` and `executable`, which
-    // outlive it.
-    constexpr Profile(
-        const GameAddresses& boot,
-        const GameAddresses (&levels)[kLevels],
-        const ExecutableAddresses& executable
-    ) noexcept
-        : m_boot(boot),
-          m_levels(levels),
-          m_executable(executable) {}
-
-    host::GameState read_state(std::span<const std::uint8_t> ram, int level) const override {
-        return read_game_state(ram, addresses(level));
-    }
-
-    std::optional<host::LiveMoby> read_moby(
-        std::span<const std::uint8_t> ram, std::uint32_t moby
-    ) const override {
-        return read_live_moby(ram, moby);
-    }
-
-    bool beyond_draw_distance(
-        const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
-    ) const override {
-        return moby_beyond_draw_distance(moby, eye, forward);
-    }
-
-    std::uint32_t shown_chain(std::span<const std::uint8_t> ram, int level) const override {
-        return rac1::shown_chain(ram, addresses(level));
-    }
-
-    std::uint32_t shadow_directions() const override { return m_executable.shadow_directions; }
-
-    std::uint32_t hero_state() const override { return m_executable.hero_state; }
-
-    bool has_levels() const override { return true; }
-
-    bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
-
-    std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
-
-    std::string diagnostics(
-        std::span<const std::uint8_t> ram,
-        int level,
-        const host::GameState& state,
-        const host::DiagnosticsInput& input
-    ) const override {
-        return notes(
-            ram,
-            addresses(level),
-            state,
-            input.relocate(m_executable.world_update_time),
-            static_cast<OpenracCollWatch*>(input.game)
-        );
-    }
-
-    void diagnostics_off(const host::DiagnosticsInput& input) const override {
-        if (auto* watch = static_cast<OpenracCollWatch*>(input.game)) {
-            watch->rr = 0.0f;
-        }
-    }
-
-private:
-    // Returns the table of the program loaded: a level's, or the boot program's when `level` is
-    // not one (-1 before the first level).
-    const GameAddresses& addresses(int level) const {
-        // Only a level number has a table of its own; the title and the menus run the boot program.
-        if (level >= 0 && level < kLevels) {
-            return m_levels[level];
-        }
-
-        return m_boot;
-    }
-
-    const GameAddresses& m_boot;               // The boot program's table, a constant.
-    const GameAddresses (&m_levels)[kLevels];  // The level programs' tables, constants.
-    const ExecutableAddresses& m_executable;   // The executable's addresses, a constant.
-};
-
-// Developer tools, for a diagnostics recording: the moby table's spawn range (create_moby takes a
-// slot there whose state is 0xFE or more and whose +0x38 the frame clock has reached), with its free
-// slots and the classes of the mobys spawned in it; and, with host/collision.c's watch, the
+// Developer tools, for a diagnostics recording: the moby table's spawn range (create_moby takes
+// a slot there whose state is 0xFE or more and whose +0x38 the frame clock has reached), with its
+// free slots and the classes of the mobys spawned in it; and, with host/collision.c's watch, the
 // collision queries that started near Ratchet since the last tick, after which it watches him
 // again.
 std::string notes(
@@ -259,6 +166,90 @@ std::string notes(
     out += "}";
     return out;
 }
+
+// One disc's profile: its boot program's table, its level programs' tables and its executable's
+// addresses. Ratchet & Clank's levels are extracted for the port, and its frame is one of two list
+// buffers it alternates (the defaults of host::GameProfile).
+class Profile final : public host::GameProfile {
+public:
+    // Makes the profile of the disc whose tables are `boot`, `levels` and `executable`, which
+    // outlive it.
+    constexpr Profile(
+        const GameAddresses& boot,
+        const GameAddresses (&levels)[kLevels],
+        const ExecutableAddresses& executable
+    ) noexcept
+        : m_boot(boot),
+          m_levels(levels),
+          m_executable(executable) {}
+
+    host::GameState read_state(std::span<const std::uint8_t> ram, int level) const override {
+        return read_game_state(ram, addresses(level));
+    }
+
+    std::optional<host::LiveMoby> read_moby(
+        std::span<const std::uint8_t> ram, std::uint32_t moby
+    ) const override {
+        return read_live_moby(ram, moby);
+    }
+
+    bool beyond_draw_distance(
+        const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
+    ) const override {
+        return moby_beyond_draw_distance(moby, eye, forward);
+    }
+
+    std::uint32_t shown_chain(std::span<const std::uint8_t> ram, int level) const override {
+        return rac1::shown_chain(ram, addresses(level));
+    }
+
+    std::uint32_t shadow_directions() const override { return m_executable.shadow_directions; }
+
+    std::uint32_t hero_state() const override { return m_executable.hero_state; }
+
+    bool has_levels() const override { return true; }
+
+    bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
+
+    std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
+
+    std::string diagnostics(
+        std::span<const std::uint8_t> ram,
+        int level,
+        const host::GameState& state,
+        const host::DiagnosticsInput& input
+    ) const override {
+        return notes(
+            ram,
+            addresses(level),
+            state,
+            input.relocate(m_executable.world_update_time),
+            static_cast<OpenracCollWatch*>(input.game)
+        );
+    }
+
+    void diagnostics_off(const host::DiagnosticsInput& input) const override {
+        if (auto* watch = static_cast<OpenracCollWatch*>(input.game)) {
+            watch->rr = 0.0f;
+        }
+    }
+
+private:
+    // Returns the table of the program loaded: a level's, or the boot program's when `level` is
+    // not one (-1 before the first level).
+    const GameAddresses& addresses(int level) const {
+        // Only a level number has a table of its own; the title and the menus run the boot program.
+        if (level >= 0 && level < kLevels) {
+            return m_levels[level];
+        }
+
+        return m_boot;
+    }
+
+    const GameAddresses& m_boot;               // The boot program's table, a constant.
+    const GameAddresses (&m_levels)[kLevels];  // The level programs' tables, constants.
+    const ExecutableAddresses& m_executable;   // The executable's addresses, a constant.
+};
 
 // The two discs' profiles, constants for the program's life.
 const Profile kPalProfile{kRac1Pal, kRac1PalLevels, kPalExecutable};

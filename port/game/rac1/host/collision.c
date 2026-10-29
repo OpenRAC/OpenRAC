@@ -1767,7 +1767,8 @@ static void trace(int kind, int hit) {
 /* Developer tools: a query that starts near the watched point (collision_notes.h) is noted. */
 static OpenracCollWatch g_watch;
 
-/* Whether a recording watches the queries; hands the watch to the profile first, which turns it on. */
+/* Whether a recording watches the queries. Hands the watch to the profile first, which turns it
+ * on. */
 static inline int watching(void) {
     openrac_game_diagnostics = &g_watch;
     return g_watch.rr > 0.0f;

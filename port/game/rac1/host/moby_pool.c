@@ -145,8 +145,9 @@ gaddr func_L00_002422D8(int skip_read) {
  * the same run reads. Placed mobys alone come close on some levels (803 of classes with the bit on
  * Rilgar, kept down by the distance test), and a bigger pool lets spawned enemies add to them.
  *
- * Here (fix_bigger_moby_pool on) the list holds at most 511, the rest left out of it (and so out of what targeting looks
- * through that tick) but still run; one warning in the log says it happened. Under 512 it is the
+ * Here (fix_bigger_moby_pool on) the list holds at most 511, the rest left out of it (and so out
+ * of what targeting looks through that tick) but still run; one warning in the log says it
+ * happened. Under 512 it is the
  * decompilation's C as it is (rac1-decomp nonmatching/functional/func_0020E6B8.c, fcheck SAME;
  * the group pass advances the list for mode & 0x1000, as retail does); its own copy stays as
  * func_0020E6B8__game, unused (libraries.tsv, wrap).

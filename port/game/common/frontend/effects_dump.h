@@ -5,7 +5,8 @@
 // the frame's effect strips and quads near Ratchet (what the effects pass draws: the game's draw
 // callbacks) with their GS state, bounds and distance, so one drawn where it should not be can be
 // traced back to the code that sent it; the particles near him; and the game's own notes
-// (GameProfile::diagnostics: for rac1 the moby table's spawn range and the collision queries near him).
+// (GameProfile::diagnostics: for rac1 the moby table's spawn range and the collision queries near
+// him).
 #pragma once
 
 #include <optional>
