@@ -48,7 +48,7 @@ struct Binding {
     };
     Kind kind = Kind::None;
     // Kind::Key: an SDL scancode. Kind::PadButton: an SDL_GamepadButton. Kind::PadTrigger and
-    // Kind::PadAxis: an SDL_GamepadAxis (a trigger counts as held above kTriggerThreshold).
+    // Kind::PadAxis: an SDL_GamepadAxis (a trigger counts as held above PadTuning::trigger_threshold).
     int value = 0;
     // Kind::PadAxis: the direction, -1 (left or up) or +1 (right or down).
     int sign = 0;
@@ -114,7 +114,45 @@ inline constexpr int kMostOfAKind = 4;
 // The value that binds nothing of either kind.
 inline constexpr std::string_view kUnbound = "none";
 
-// What the pad is pressed from: for each target, the keys and the pad inputs that press it.
+// How a gamepad's stick is read before anything is pressed from it, in percent of its travel. The
+// defaults change nothing: the game has its own dead zone, so the port adds none.
+struct StickTuning {
+    int deadzone = 0;       // a push shorter than this is none (0 to 50)
+    int outer = 100;        // a push this long is a full one (50 to 100)
+    int sensitivity = 100;  // a push is this much as long (25 to 300), held within the gate
+    bool invert_x = false;
+    bool invert_y = false;
+
+    bool operator==(const StickTuning&) const = default;
+};
+
+// How the controllers are read, beside what they are bound to (the controls files' pad_* keys;
+// docs/port/CONTROLS.md).
+struct PadTuning {
+    std::array<StickTuning, 2> sticks{};  // left, right
+    // How far a trigger (or a stick's direction bound to a button) goes before it holds one.
+    std::uint8_t trigger_threshold = 0x20;
+    // The face buttons by their labels, as an Xbox pad has them (A south), rather than by
+    // position: on a pad labelled the other way about (Nintendo's), A is PadSouth.
+    bool face_labels = false;
+    // The controllers count while another window has the keyboard, as they always have.
+    bool background = true;
+
+    bool operator==(const PadTuning&) const = default;
+};
+
+// The keys that set PadTuning, with "pad_" in front.
+inline constexpr std::string_view kTuningPrefix = "pad_";
+
+// Reads one pad_* key into `tuning`. Returns false, reported in the log, for a key that is not one
+// or a value out of its range, which leaves `tuning` as it was.
+bool read_tuning(std::string_view key, std::string_view value, PadTuning& tuning);
+
+// Every pad_* key and its value in `tuning`, in the order the controls window shows them.
+std::map<std::string, std::string, std::less<>> tuning_values(const PadTuning& tuning);
+
+// What the pad is pressed from: for each target, the keys and the pad inputs that press it, and how
+// the controllers are read.
 struct Bindings {
     struct Slot {
         std::array<SDL_Scancode, kMostOfAKind> keys{};
@@ -124,6 +162,7 @@ struct Bindings {
     };
 
     std::array<Slot, kTargetCount> slots{};
+    PadTuning tuning;
 
     const Slot& of(Button button) const {
         return slots[static_cast<std::size_t>(target_of(button))];
@@ -144,7 +183,7 @@ void read_binding(std::string_view key, std::string_view value, int target, Bind
 std::string binding_value(const Bindings::Slot& slot);
 
 // The player's bindings, as the settings file holds them (settings.h's Settings::bindings), read
-// over the defaults with read_binding.
+// over the defaults with read_binding, and the pad_* keys with read_tuning.
 Bindings compile_bindings(const std::map<std::string, std::string, std::less<>>& bindings);
 
 // One gamepad as SDL last reported it: every button, and every axis in SDL's range (sticks
@@ -154,10 +193,19 @@ struct PadInputs {
     std::array<std::int16_t, SDL_GAMEPAD_AXIS_COUNT> axes{};
 };
 
-// A trigger counts as a button held above about an eighth of its travel; its pressure byte follows
-// the trigger all the way. A stick's direction bound to a button presses it from half way.
-inline constexpr std::uint8_t kTriggerThreshold = 0x20;
+// A trigger counts as a button held above about an eighth of its travel (PadTuning's threshold);
+// its pressure byte follows the trigger all the way. A stick's direction bound to a button presses
+// it from half way.
 inline constexpr float kStickPress = 0.5f;
+
+// Applies a stick's tuning to one reading of it (-1..1 each way, as SDL's axes divided by 32768):
+// turned over, then the dead zone and the outer edge, then the sensitivity. The defaults leave the
+// reading exactly as it was.
+void tune_stick(float& x, float& y, const StickTuning& tuning);
+
+// Swaps the face buttons of a pad labelled Nintendo's way (A east, B south), so that PadSouth is
+// the button labelled A (PadTuning::face_labels).
+void swap_face_labels(PadInputs& inputs);
 
 // Presses `pad`'s buttons from the keys held (`keys`, by SDL scancode, as SDL_GetKeyboardState
 // gives them), and moves its sticks from the port's stick keys (input.h). Escape is Start, whatever

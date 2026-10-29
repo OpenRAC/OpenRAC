@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <charconv>
 #include <cmath>
 #include <cstring>
+#include <utility>
 
 #include "common/log.h"
 #include "openrac/keys.h"
@@ -238,15 +240,20 @@ int key_axis(std::span<const bool> keys, SDL_Scancode negative, SDL_Scancode pos
     return (key(keys, positive) ? 1 : 0) - (key(keys, negative) ? 1 : 0);
 }
 
-// The gamepad's sticks as apply_pad reads them: left x, left y, right x, right y, -1..1, which is
-// SDL's order of the axes, so a stick's direction finds its axis by its number.
-using Sticks = std::array<float, 4>;
+// One gamepad as apply_pad reads it: its sticks, tuned and shaped (left x, left y, right x, right
+// y, -1..1, which is SDL's order of the axes, so a stick's direction finds its axis by its number),
+// and how far a trigger goes before it holds a button.
+struct Reading {
+    std::array<float, 4> sticks{};
+    std::uint8_t threshold = 0x20;
+};
+
 static_assert(SDL_GAMEPAD_AXIS_LEFTX == 0 && SDL_GAMEPAD_AXIS_LEFTY == 1);
 static_assert(SDL_GAMEPAD_AXIS_RIGHTX == 2 && SDL_GAMEPAD_AXIS_RIGHTY == 3);
 
 // What one gamepad gives for a pad input, 0 to 1: a button 0 or 1, a trigger its travel, a stick's
 // direction how far the stick is pushed that way.
-float amount(const Binding& b, const PadInputs& inputs, const Sticks& sticks) {
+float amount(const Binding& b, const PadInputs& inputs, const Reading& reading) {
     switch (b.kind) {
         case Binding::Kind::PadButton:
             return inputs.buttons[static_cast<std::size_t>(b.value)] ? 1.0f : 0.0f;
@@ -258,7 +265,7 @@ float amount(const Binding& b, const PadInputs& inputs, const Sticks& sticks) {
             );
         case Binding::Kind::PadAxis:
             return std::max(
-                0.0f, static_cast<float>(b.sign) * sticks[static_cast<std::size_t>(b.value)]
+                0.0f, static_cast<float>(b.sign) * reading.sticks[static_cast<std::size_t>(b.value)]
             );
         case Binding::Kind::Key:
         case Binding::Kind::None:
@@ -269,15 +276,15 @@ float amount(const Binding& b, const PadInputs& inputs, const Sticks& sticks) {
 
 // Says whether a pad input counts as held: a button pressed, a trigger past an eighth of its
 // travel, a stick past half way.
-bool held(const Binding& b, const PadInputs& inputs, const Sticks& sticks) {
+bool held(const Binding& b, const PadInputs& inputs, const Reading& reading) {
     switch (b.kind) {
         case Binding::Kind::PadButton:
             return inputs.buttons[static_cast<std::size_t>(b.value)];
         case Binding::Kind::PadTrigger:
             return trigger_byte(inputs.axes[static_cast<std::size_t>(b.value)])
-                   >= kTriggerThreshold;
+                   >= reading.threshold;
         case Binding::Kind::PadAxis:
-            return amount(b, inputs, sticks) >= kStickPress;
+            return amount(b, inputs, reading) >= kStickPress;
         case Binding::Kind::Key:
         case Binding::Kind::None:
             break;
@@ -287,12 +294,12 @@ bool held(const Binding& b, const PadInputs& inputs, const Sticks& sticks) {
 
 // The pressure a held pad input gives a button: a button's is full, a trigger's or a stick's
 // follows how far it is pushed.
-int pressure_of(const Binding& b, const PadInputs& inputs, const Sticks& sticks) {
+int pressure_of(const Binding& b, const PadInputs& inputs, const Reading& reading) {
     if (b.kind == Binding::Kind::PadButton) {
         return 0xFF;
     }
     return trigger_byte(
-        static_cast<std::int16_t>(std::lround(amount(b, inputs, sticks) * 32767.0f))
+        static_cast<std::int16_t>(std::lround(amount(b, inputs, reading) * 32767.0f))
     );
 }
 
@@ -303,7 +310,141 @@ std::uint8_t axis_byte(float v) {
     );
 }
 
+// One pad_* key's place in PadTuning: an int in a range, or a switch.
+struct TuningKey {
+    const char* key;
+    int low;
+    int high;
+    int StickTuning::* stick_int;  // with `stick`, one of a stick's numbers
+    bool StickTuning::* stick_bool;
+    int stick;  // 0 left, 1 right, -1 not a stick's
+};
+
+constexpr TuningKey kStickKeys[] = {
+    {"pad_left_deadzone", 0, 50, &StickTuning::deadzone, nullptr, 0},
+    {"pad_left_outer", 50, 100, &StickTuning::outer, nullptr, 0},
+    {"pad_left_sensitivity", 25, 300, &StickTuning::sensitivity, nullptr, 0},
+    {"pad_left_invert_x", 0, 1, nullptr, &StickTuning::invert_x, 0},
+    {"pad_left_invert_y", 0, 1, nullptr, &StickTuning::invert_y, 0},
+    {"pad_right_deadzone", 0, 50, &StickTuning::deadzone, nullptr, 1},
+    {"pad_right_outer", 50, 100, &StickTuning::outer, nullptr, 1},
+    {"pad_right_sensitivity", 25, 300, &StickTuning::sensitivity, nullptr, 1},
+    {"pad_right_invert_x", 0, 1, nullptr, &StickTuning::invert_x, 1},
+    {"pad_right_invert_y", 0, 1, nullptr, &StickTuning::invert_y, 1},
+};
+
+// A whole number from `low` to `high`, or nothing.
+bool read_int(std::string_view value, int low, int high, int& out) {
+    value = trimmed(value);
+    int number = 0;
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), number);
+    if (error != std::errc{} || end != value.data() + value.size() || number < low
+        || number > high) {
+        return false;
+    }
+    out = number;
+    return true;
+}
+
+// A switch: 1, 0, on, off, true, false, yes, no (as the settings file reads them).
+bool read_switch(std::string_view value, bool& out) {
+    value = trimmed(value);
+    if (value == "1" || value == "on" || value == "true" || value == "yes") {
+        out = true;
+        return true;
+    }
+    if (value == "0" || value == "off" || value == "false" || value == "no") {
+        out = false;
+        return true;
+    }
+    return false;
+}
+
+// The trigger threshold in the file: a percentage of the travel.
+int threshold_percent(std::uint8_t threshold) {
+    return (static_cast<int>(threshold) * 100 + 127) / 255;
+}
+
 }  // namespace
+
+bool read_tuning(std::string_view key, std::string_view value, PadTuning& tuning) {
+    bool known = true;
+    bool good = false;
+    if (key == "pad_trigger_threshold") {
+        int percent = 0;
+        good = read_int(value, 1, 100, percent);
+        if (good) {
+            tuning.trigger_threshold = static_cast<std::uint8_t>((percent * 255 + 50) / 100);
+        }
+    } else if (key == "pad_face_buttons") {
+        const std::string_view v = trimmed(value);
+        good = v == "position" || v == "labels";
+        if (good) {
+            tuning.face_labels = v == "labels";
+        }
+    } else if (key == "pad_background") {
+        good = read_switch(value, tuning.background);
+    } else {
+        known = false;
+        for (const TuningKey& t : kStickKeys) {
+            if (key != t.key) {
+                continue;
+            }
+            known = true;
+            StickTuning& stick = tuning.sticks[static_cast<std::size_t>(t.stick)];
+            good = t.stick_int != nullptr ? read_int(value, t.low, t.high, stick.*t.stick_int)
+                                          : read_switch(value, stick.*t.stick_bool);
+        }
+    }
+    if (!known) {
+        log::warn("{} = {}: not a setting of the controllers'; it is left out", key, value);
+    } else if (!good) {
+        log::warn("{} = {}: not a value it takes; the one it had is kept", key, value);
+    }
+    return known && good;
+}
+
+std::map<std::string, std::string, std::less<>> tuning_values(const PadTuning& tuning) {
+    std::map<std::string, std::string, std::less<>> out;
+    for (const TuningKey& t : kStickKeys) {
+        const StickTuning& stick = tuning.sticks[static_cast<std::size_t>(t.stick)];
+        out[t.key] = t.stick_int != nullptr ? std::to_string(stick.*t.stick_int)
+                                            : (stick.*t.stick_bool ? "1" : "0");
+    }
+    out["pad_trigger_threshold"] = std::to_string(threshold_percent(tuning.trigger_threshold));
+    out["pad_face_buttons"] = tuning.face_labels ? "labels" : "position";
+    out["pad_background"] = tuning.background ? "1" : "0";
+    return out;
+}
+
+void tune_stick(float& x, float& y, const StickTuning& tuning) {
+    if (tuning.invert_x) {
+        x = -x;
+    }
+    if (tuning.invert_y) {
+        y = -y;
+    }
+    if (tuning.deadzone != 0 || tuning.outer != 100) {
+        // Radial: the stick's direction stays, its length is measured from the dead zone's edge
+        // to the outer one.
+        const float length = std::sqrt(x * x + y * y);
+        const float inner = static_cast<float>(tuning.deadzone) / 100.0f;
+        const float outer = std::max(static_cast<float>(tuning.outer) / 100.0f, inner + 0.01f);
+        const float scale = length <= inner ? 0.0f : (length - inner) / (outer - inner) / length;
+        x = std::clamp(x * scale, -1.0f, 1.0f);
+        y = std::clamp(y * scale, -1.0f, 1.0f);
+    }
+    if (tuning.sensitivity != 100) {
+        const float scale = static_cast<float>(tuning.sensitivity) / 100.0f;
+        x = std::clamp(x * scale, -1.0f, 1.0f);
+        y = std::clamp(y * scale, -1.0f, 1.0f);
+    }
+}
+
+void swap_face_labels(PadInputs& inputs) {
+    std::swap(inputs.buttons[SDL_GAMEPAD_BUTTON_SOUTH], inputs.buttons[SDL_GAMEPAD_BUTTON_EAST]);
+    std::swap(inputs.buttons[SDL_GAMEPAD_BUTTON_WEST], inputs.buttons[SDL_GAMEPAD_BUTTON_NORTH]);
+}
 
 int target_of(Button button) {
     return button_target(button);
@@ -471,6 +612,8 @@ Bindings compile_bindings(const std::map<std::string, std::string, std::less<>>&
         const int target = target_of_key(key);
         if (target >= 0) {
             read_binding(key, value, target, out.slots[static_cast<std::size_t>(target)]);
+        } else if (key.starts_with(kTuningPrefix)) {
+            read_tuning(key, value, out.tuning);
         }
     }
     return out;
@@ -514,12 +657,15 @@ void apply_pad(
 ) {
     // The gamepad's own sticks, squared as the DualShock 2's (pad.h): a round stick pushed to a
     // diagonal runs. Everything below reads them from here.
-    Sticks sticks{};
+    // Each is tuned first (the player's dead zone, sensitivity and inversion), then shaped.
+    Reading reading;
+    reading.threshold = bindings.tuning.trigger_threshold;
     for (std::size_t s = 0; s < 2; ++s) {
-        float& x = sticks[2 * s];
-        float& y = sticks[2 * s + 1];
+        float& x = reading.sticks[2 * s];
+        float& y = reading.sticks[2 * s + 1];
         x = static_cast<float>(inputs.axes[2 * s]) / 32768.0f;
         y = static_cast<float>(inputs.axes[2 * s + 1]) / 32768.0f;
+        tune_stick(x, y, bindings.tuning.sticks[s]);
         shape_stick(x, y, gates[s]);
     }
 
@@ -530,8 +676,8 @@ void apply_pad(
     for (const Bindings::Slot& slot : bindings.slots) {
         for (int p = 0; p < slot.pad_count; ++p) {
             const PadChord& chord = slot.pad[static_cast<std::size_t>(p)];
-            if (chord.with.kind != Binding::Kind::None && held(chord.with, inputs, sticks)
-                && held(chord.input, inputs, sticks)) {
+            if (chord.with.kind != Binding::Kind::None && held(chord.with, inputs, reading)
+                && held(chord.input, inputs, reading)) {
                 taken[taken_count++] = chord.input;
             }
         }
@@ -547,16 +693,16 @@ void apply_pad(
         for (int p = 0; p < slot.pad_count; ++p) {
             const PadChord& chord = slot.pad[static_cast<std::size_t>(p)];
             const bool chord_off =
-                chord.with.kind != Binding::Kind::None && !held(chord.with, inputs, sticks);
+                chord.with.kind != Binding::Kind::None && !held(chord.with, inputs, reading);
             const bool lone_taken =
                 chord.with.kind == Binding::Kind::None
                 && std::find(taken.begin(), taken_end, chord.input) != taken_end;
             if (chord_off || lone_taken) {
                 continue;
             }
-            most = std::max(most, amount(chord.input, inputs, sticks));
-            if (held(chord.input, inputs, sticks)) {
-                pressure = std::max(pressure, pressure_of(chord.input, inputs, sticks));
+            most = std::max(most, amount(chord.input, inputs, reading));
+            if (held(chord.input, inputs, reading)) {
+                pressure = std::max(pressure, pressure_of(chord.input, inputs, reading));
             }
         }
         push[static_cast<std::size_t>(target)] = most;

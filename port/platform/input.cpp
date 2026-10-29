@@ -258,7 +258,10 @@ void Input::refresh_pads() {
 
         SDL_Gamepad* g = gamepad(port);
         pad.connected = port == 0 || g != nullptr;
-        if (g != nullptr) {
+        // The controllers stand still while another window has the keyboard, if the player asked.
+        const bool read =
+            g != nullptr && (m_bindings.tuning.background || SDL_GetKeyboardFocus() != nullptr);
+        if (read) {
             PadInputs inputs;
             for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
                 inputs.buttons[static_cast<std::size_t>(b)] =
@@ -267,6 +270,12 @@ void Input::refresh_pads() {
             for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
                 inputs.axes[static_cast<std::size_t>(a)] =
                     SDL_GetGamepadAxis(g, static_cast<SDL_GamepadAxis>(a));
+            }
+            // A pad labelled Nintendo's way (A east), read by its labels: A is PadSouth.
+            if (m_bindings.tuning.face_labels
+                && SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_SOUTH)
+                       == SDL_GAMEPAD_BUTTON_LABEL_B) {
+                swap_face_labels(inputs);
             }
             // A stick's gate is what its own gamepad has shown: another one on the port starts
             // afresh.

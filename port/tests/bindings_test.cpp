@@ -404,6 +404,102 @@ void test_none_and_values() {
     );
 }
 
+using openrac::platform::PadTuning;
+using openrac::platform::StickTuning;
+
+// The pad_* keys read within their ranges, keep what they had otherwise, and write back as read.
+void test_tuning_reads() {
+    PadTuning tuning;
+    CHECK(openrac::platform::read_tuning("pad_left_deadzone", "15", tuning));
+    CHECK(tuning.sticks[0].deadzone == 15);
+    CHECK(!openrac::platform::read_tuning("pad_left_deadzone", "80", tuning));  // over 50
+    CHECK(!openrac::platform::read_tuning("pad_left_deadzone", "ten", tuning));
+    CHECK(tuning.sticks[0].deadzone == 15);
+    CHECK(openrac::platform::read_tuning("pad_right_invert_y", "on", tuning));
+    CHECK(tuning.sticks[1].invert_y);
+    CHECK(openrac::platform::read_tuning("pad_face_buttons", "labels", tuning));
+    CHECK(tuning.face_labels);
+    CHECK(!openrac::platform::read_tuning("pad_face_buttons", "sideways", tuning));
+    CHECK(openrac::platform::read_tuning("pad_trigger_threshold", "50", tuning));
+    CHECK(tuning.trigger_threshold == 128);
+    CHECK(!openrac::platform::read_tuning("pad_nothing", "1", tuning));
+
+    // Written and read again, every value is the same.
+    PadTuning again;
+    for (const auto& [key, value] : openrac::platform::tuning_values(tuning)) {
+        CHECK(openrac::platform::read_tuning(key, value, again));
+    }
+    CHECK(again == tuning);
+    // The defaults write the threshold the port always had, and read it back exactly.
+    PadTuning defaults;
+    PadTuning back;
+    back.trigger_threshold = 0;
+    for (const auto& [key, value] : openrac::platform::tuning_values(defaults)) {
+        openrac::platform::read_tuning(key, value, back);
+    }
+    CHECK(back.trigger_threshold == 0x20 || back.trigger_threshold == 0x21);
+}
+
+// The dead zone, the outer edge, the sensitivity and the inversion, and the defaults leaving a
+// stick exactly as it was.
+void test_tuned_sticks() {
+    float x = 0.3f;
+    float y = -0.4f;
+    openrac::platform::tune_stick(x, y, StickTuning{});
+    CHECK(x == 0.3f && y == -0.4f);
+
+    StickTuning dead;
+    dead.deadzone = 20;
+    x = 0.1f;
+    y = 0.1f;  // about 0.14 long: inside
+    openrac::platform::tune_stick(x, y, dead);
+    CHECK(x == 0.0f && y == 0.0f);
+    x = 0.6f;
+    y = 0.0f;  // half way from the dead zone's edge to the rim
+    openrac::platform::tune_stick(x, y, dead);
+    CHECK(x > 0.49f && x < 0.51f && y == 0.0f);
+
+    StickTuning outer;
+    outer.outer = 80;
+    x = 0.8f;
+    y = 0.0f;
+    openrac::platform::tune_stick(x, y, outer);
+    CHECK(x > 0.99f);
+
+    StickTuning slow;
+    slow.sensitivity = 50;
+    slow.invert_x = true;
+    x = 1.0f;
+    y = 0.5f;
+    openrac::platform::tune_stick(x, y, slow);
+    CHECK(x == -0.5f && y == 0.25f);
+
+    // Through the bindings: the right stick turned over vertically.
+    set_bindings({{"pad_right_invert_y", "1"}});
+    PadInputs inputs;
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTY] = -32768;
+    const Pad pad = pad_from(g_bindings, inputs);
+    CHECK(pad.right_y == 0xFF);
+    CHECK(pad.left_y == 0x80);
+}
+
+// The trigger threshold moves where L2 holds; labels swap a Nintendo pad's face buttons.
+void test_trigger_threshold_and_labels() {
+    set_bindings({{"pad_trigger_threshold", "50"}});
+    PadInputs inputs;
+    inputs.axes[SDL_GAMEPAD_AXIS_LEFT_TRIGGER] = 12000;  // past an eighth, short of half
+    CHECK(!pad_from(g_bindings, inputs).held(Button::L2));
+    inputs.axes[SDL_GAMEPAD_AXIS_LEFT_TRIGGER] = 20000;
+    CHECK(pad_from(g_bindings, inputs).held(Button::L2));
+
+    PadInputs nintendo;
+    nintendo.buttons[SDL_GAMEPAD_BUTTON_EAST] = true;  // the button labelled A
+    openrac::platform::swap_face_labels(nintendo);
+    CHECK(nintendo.buttons[SDL_GAMEPAD_BUTTON_SOUTH]);
+    CHECK(!nintendo.buttons[SDL_GAMEPAD_BUTTON_EAST]);
+    CHECK(pad_from(openrac::platform::default_bindings(), nintendo).held(Button::Cross));
+}
+
 }  // namespace
 
 int main() {
@@ -419,5 +515,8 @@ int main() {
     test_a_stick_presses_a_button();
     test_chords();
     test_none_and_values();
+    test_tuning_reads();
+    test_tuned_sticks();
+    test_trigger_threshold_and_labels();
     return openrac::test::result();
 }
