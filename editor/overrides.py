@@ -926,7 +926,8 @@ def preview(mods: Path, projects: Path, undo: bool = False) -> dict[str, int]:
     there and are left out. Returns {"shown", "restored", "left_out"}."""
     counts = {"shown": 0, "restored": 0, "left_out": 0}
     levels = sorted({p.name for p in projects.glob("level_*")} | {p.name for p in projects.glob("levels/level_*")})
-    for level in levels:
+    import progress_line
+    for level in progress_line.counted("textures", levels, lambda name: int(name[6:8]) if name[6:8].isdigit() else None):
         folder = project_textures(projects, level)
         if folder is None:
             continue

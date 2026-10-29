@@ -33,6 +33,7 @@ from openrac_common import files as file_ops  # noqa: E402
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
 import errors
+import progress_line
 from godot import SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, write_project
 from spaceships import add_spaceships
 from level import load_flight, load_level, load_title
@@ -92,7 +93,7 @@ def level_schema(level_dir: Path) -> int | None:
 
 
 def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int,
-                 gameplay_source: str | None = None, carry=None) -> dict[str, list[int]]:
+                 gameplay_source: str | None = None, carry=None, again: bool = False) -> dict[str, list[int]]:
     """Brings the Godot projects in DEST (an earlier export of this command) up to date, keeping
     every edit: a level of the current SCHEMA is left as it is (its scene, with the player's
     edits, is the one they work on); a missing level is exported; a level an older extractor wrote
@@ -101,8 +102,9 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
     scripts (rc1/) and the Collision dock (addons/openrac_collision, enabled in project.godot)
     are refreshed in every project. CARRY(level, old level folder, new level folder, backup) carries
     the player's edits from a replaced level's backup onto its fresh one (carry.py) and returns its
-    report. Returns the levels "kept", "added" and "replaced", the "backup" folder when one was
-    made, and the "carried" reports."""
+    report. AGAIN: every level there is replaced (backed up, written fresh from the disc and its
+    edits carried over), not only an outdated one. Returns the levels "kept", "added" and
+    "replaced", the "backup" folder when one was made, and the "carried" reports."""
     place = (lambda i: dest / f"level_{i:02}") if split else (lambda i: dest / "levels" / f"level_{i:02}")
     level_dir = (lambda i: place(i) / "levels" / f"level_{i:02}") if split else place
     report: dict = {"kept": [], "added": [], "replaced": [], "backup": None, "carried": []}
@@ -116,7 +118,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
         if not level_dir(i).is_dir():
             report["added"].append(i)
             todo.append(i)
-        elif (level_schema(level_dir(i)) != schema or not whole(i) or
+        elif (again or level_schema(level_dir(i)) != schema or not whole(i) or
               (gameplay_source is not None and
                json.loads((level_dir(i) / "level.json").read_text()).get("gameplay_source") != gameplay_source)):
             report["replaced"].append(i)
@@ -140,7 +142,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
         finally:
             shutil.rmtree(fresh, ignore_errors=True)
     if carry is not None and report["backup"] is not None:
-        for i in report["replaced"]:
+        for i in progress_line.counted("carry", report["replaced"], lambda i: i):
             old = report["backup"] / f"level_{i:02}"
             old_dir = old / "levels" / f"level_{i:02}" if split else old
             try:
@@ -180,14 +182,14 @@ def say_output(path: Path) -> None:
 
 
 def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, export,
-                 gameplay_source: str | None = None, carry=None) -> str:
+                 gameplay_source: str | None = None, carry=None, again: bool = False) -> str:
     """The godot command's output, made or updated (update_godot); a sentence saying what was done."""
     dest = output_path(out, anywhere, replace=True)
     ours(dest, "godot")
     if export_kind(dest) is None:
         publish(dest, lambda fresh: export(fresh, levels), anywhere, replace=True)
         return f"Godot project{'s, one per level' if split else ''}: {dest}"
-    report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source, carry)
+    report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source, carry, again)
     for done in report["carried"]:
         # One line per level for the launcher (launcher/src/lib/editorFlow.ts, CARRY_LINE).
         print(f"openrac-carry: {json.dumps(done, separators=(',', ':'))}", flush=True)
@@ -197,7 +199,8 @@ def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, expo
     if report["added"]:
         said.append(f"{len(report['added'])} added")
     if report["replaced"]:
-        said.append(f"{len(report['replaced'])} made by an older extractor written again; the old ones, with "
+        why = "" if again else " made by an older extractor"
+        said.append(f"{len(report['replaced'])}{why} written again; the old ones, with "
                     f"any edits, are in {report['backup']}")
     carried = sum(done["mobys"] for done in report["carried"])
     left = sum(len(done["not_carried"]) for done in report["carried"])
@@ -353,20 +356,23 @@ def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: 
     game's levels are read by number (wads.WadDisc.level), Ratchet & Clank's by survey."""
     where = {i: out / f"level_{i:02}" if split else out for i in levels}
     if split:
-        for i in levels:
+        for i in progress_line.counted("project", levels, lambda i: i):
             write_project(where[i], [i], region, game)
     else:
+        progress_line.say("project")
         write_project(out, levels, region, game)
+    progress_line.say("read", 0, len(levels))
     with worker_pool(min(jobs, len(levels))) as pool:
         if game == "rac1":
             running = [pool.submit(export_level, iso, survey["levels"][i], where[i], lod) for i in levels]
         else:
             running = [pool.submit(export_wad_level, iso, i, where[i], lod) for i in levels]
         try:
-            for done in as_completed(running):
+            for count, done in enumerate(as_completed(running), 1):
                 stats = done.result()
                 print(f"level {stats['level']:02}: {stats['mesh_instances']} meshes placed, "
                       f"{stats['triangles']} triangles, {stats['textures']} textures", flush=True)
+                progress_line.say("read", count, len(running), stats.get("level"))
         except BaseException:
             pool.shutdown(cancel_futures=True)
             raise
@@ -412,11 +418,13 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
             running.append(pool.submit(export_port_flight, iso, survey, out, lod))
         else:
             running = [pool.submit(export_port_wad_level, iso, i, out, lod) for i in levels]
+        progress_line.say("read", 0, len(running))
         try:
-            for done in as_completed(running):
+            for count, done in enumerate(as_completed(running), 1):
                 stats = done.result()
                 print(f"level {stats['level']:02}: {stats['mesh_instances']} meshes placed, "
                       f"{stats['triangles']} triangles, {stats['textures']} textures", flush=True)
+                progress_line.say("read", count, len(running), stats.get("level"))
         except BaseException:
             pool.shutdown(cancel_futures=True)
             raise
@@ -465,7 +473,8 @@ def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
     if args.command == "godot":
         print(export_godot(args.out, wanted, args.anywhere, args.split,
                            lambda out, todo: godot(args.iso, survey, todo, args.terrain_lod, max(1, args.jobs), out,
-                                                   args.split, version.region, version.game)))
+                                                   args.split, version.region, version.game),
+                           again=args.again))
         say_output(args.out.resolve())
     elif args.command == "port":
         ours(output_path(args.out, args.anywhere, replace=True), "port")
@@ -508,6 +517,9 @@ def main() -> None:
                         help="a Godot project per level (OUT/level_NN): each opens in seconds")
     export.add_argument("--anywhere", action="store_true",
                         help="OUT may be outside this repository (the installed launcher's data folder)")
+    export.add_argument("--again", action="store_true",
+                        help="export every level again, not only an outdated one: the ones there go to the "
+                             "backups folder and their edits are carried onto the fresh ones")
     native = commands.add_parser("port")
     native.add_argument("iso", type=Path)
     native.add_argument("out", type=Path)
@@ -558,7 +570,8 @@ def main() -> None:
                                    lambda out, todo: godot(args.iso, survey, todo, args.terrain_lod, max(1, args.jobs),
                                                            out, args.split, disc.version.region),
                                    gameplay_source=disc.version.gameplay if disc.version.key == "pal" else None,
-                                   carry=lambda i, old, new, backup: carry_edits(disc, survey, i, old, new, backup)))
+                                   carry=lambda i, old, new, backup: carry_edits(disc, survey, i, old, new, backup),
+                                   again=args.again))
                 say_output(args.out.resolve())
             elif args.command == "port":
                 levels = sorted(set(args.level or range(LEVEL_COUNT)))

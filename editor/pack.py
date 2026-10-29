@@ -45,6 +45,7 @@ from disc import SECTOR
 from formats import FormatError, unpack
 from level import decoded, load_level
 import gamedata
+import progress_line
 import gameplay as gp
 from mobys import (ALWAYS, FIELDS, POINTER, RECORD, SIZE, USUAL, matrix, moby_class_names,
                    moby_instances, node_name)
@@ -387,13 +388,15 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
     """Writes OUT from the scenes of PROJECT, for DISC's version. Returns (levels packed, mobys changed)."""
     import scenery          # it reads the scene with this module's reader
     patches, report, packed, total = [], [], 0, 0
-    for info in survey["levels"]:
+
+    def scene_of(info: dict) -> Path | None:
+        """The level's scene: one project with every level, or a project per level (`godot --split`)."""
         name = f"level_{info['id']:02}"
-        # one project with every level, or a project per level (`godot --split`)
-        scene = next((s for s in (project / "levels" / name / f"{name}.tscn",
-                                  project / name / "levels" / name / f"{name}.tscn") if s.is_file()), None)
-        if scene is None:
-            continue
+        return next((s for s in (project / "levels" / name / f"{name}.tscn",
+                                 project / name / "levels" / name / f"{name}.tscn") if s.is_file()), None)
+    found = [(info, scene) for info in survey["levels"] if (scene := scene_of(info)) is not None]
+    for info, scene in progress_line.counted("pack", found, lambda item: item[0]["id"]):
+        name = f"level_{info['id']:02}"
         if disc.version.key == "pal":
             metadata = scene.with_name("level.json")
             try:
