@@ -140,6 +140,10 @@ function(openrac_add_mod target)
     set(exports "${CMAKE_CURRENT_BINARY_DIR}/${target}.exports")
     file(WRITE "${exports}" "{\n  global: openrac_mod_query; openrac_mod_load; openrac_mod_unload;\n  local: *;\n};\n")
     target_link_options(${target} PRIVATE "LINKER:--version-script=${exports}")
+    # openrac_mod_unload is optional; the NDK's flags make an entry the mod leaves out an error.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+      target_link_options(${target} PRIVATE "LINKER:--undefined-version")
+    endif()
     set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS "${exports}")
   endif()
 
