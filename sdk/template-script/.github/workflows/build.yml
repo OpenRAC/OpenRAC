@@ -4,10 +4,10 @@
 # both: native mods are built from the top CMakeLists.txt, which makes every one of them; script
 # mods ("type": "script", docs/port/MODS.md section 11) are packaged as they are, with no build.
 #
-# Each push and pull request: every native mod built and tested on Windows, Linux and macOS
-# against the SDK sdk.lock pins (tools/fetch_sdk.py), each platform's build packaged as
-# <id>-<version>-<platform>.zip and the platforms joined into <id>-<version>.zip; every script mod
-# packaged as <id>-<version>.zip; and SHA256SUMS over them all: the run's artifacts. A tag
+# Each push and pull request: every native mod built and tested on Windows, Linux and macOS, and
+# built for Android, against the SDK sdk.lock pins (tools/fetch_sdk.py), each platform's build
+# packaged as <id>-<version>-<platform>.zip and the platforms joined into <id>-<version>.zip; every
+# script mod packaged as <id>-<version>.zip; and SHA256SUMS over them all: the run's artifacts. A tag
 # v<version> (or <id>-v<version>) also publishes them on that release, which is what OpenRAC's
 # launcher installs from when a player pastes the repository's address (MODS.md, section 10):
 # push a tag, nothing else. The libraries are not signed.
@@ -88,6 +88,13 @@ jobs:
             os: macos-15
             configure: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
             # An Intel build's tests cannot run on an Apple silicon runner without Rosetta.
+            skip_tests: true
+          # Android (OpenRAC's app, arm64): the runner's NDK, cross-built, no test run here.
+          - name: android-arm64
+            os: ubuntu-24.04
+            configure: >-
+              -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake
+              -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28
             skip_tests: true
     defaults:
       run:
@@ -191,7 +198,7 @@ jobs:
         run: |
           # A native mod's platform archives, <id>-<version>-<platform>.zip: the platform is the last
           # two words, the rest the mod. A script mod's archive is already the one for every platform.
-          platforms='-(macos|linux|windows)-[a-z0-9_]+\.zip$'
+          platforms='-(macos|linux|windows|android)-[a-z0-9_]+\.zip$'
           for mod in $(ls dist/*.zip | grep -E -- "$platforms" | sed -E 's#.*/(.*)-[a-z]+-[a-z0-9_]+\.zip#\1#' | sort -u); do
             python "$SDK/tools/package_mod.py" --merge dist/"$mod"-*.zip -o dist/"$mod".zip
           done

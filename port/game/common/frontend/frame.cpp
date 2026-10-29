@@ -41,6 +41,7 @@
 #include "debug_menu.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
@@ -1790,6 +1791,18 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     PreparedTick prepared;
     prepared.level = g->loaded;
     prepared.state = g->profile->read_state(ram, level);
+    static bool noting = false;  // the profile's diagnostics run (the game's thread, at its vsync)
+    if (const bool recording = effects_dump::armed(); recording || noting) {
+        const host::DiagnosticsInput diagnostics{
+            [](std::uint32_t address) { return OPENRAC_DATA(address); }, openrac_game_diagnostics
+        };
+        noting = recording;
+        if (recording) {
+            effects_dump::note(g->profile->diagnostics(ram, level, prepared.state, diagnostics));
+        } else {
+            g->profile->diagnostics_off(diagnostics);
+        }
+    }
     const bool world_ran = g->world_camera.has_value();
     const bool only_own_camera = !world_ran && !g->moby_cameras.empty();
     const bool under_menu = world_ran && g->world_under_menu;

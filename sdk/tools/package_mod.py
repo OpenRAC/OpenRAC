@@ -36,7 +36,15 @@ SCRIPT_API = (1, 1)
 SCRIPT_FILES = re.compile(r"\.(luau|json|md)$", re.IGNORECASE)
 # Folders a script mod's archive never takes (a build, the SDK fetched, a repository's own).
 SKIP_DIRS = {"build", "dist", "node_modules", "__pycache__"}
-PLATFORMS = ("macos-arm64", "macos-x86_64", "linux-x86_64", "linux-aarch64", "windows-x86_64", "windows-arm64")
+PLATFORMS = (
+    "macos-arm64",
+    "macos-x86_64",
+    "linux-x86_64",
+    "linux-aarch64",
+    "windows-x86_64",
+    "windows-arm64",
+    "android-arm64",
+)
 ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?$")
 API = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)$")

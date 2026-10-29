@@ -1268,7 +1268,7 @@ mod tests {
         assert_eq!(m.kind, "native");
         assert!(m.compatible, "{:?}", m.why);
         assert_eq!(m.asset.as_deref(), Some("lock-strafe-1.0.0-linux-x86_64.zip"));
-        // No platform for native mods (Android): refused, with the reason.
+        // No platform for native mods: refused, with the reason.
         let none = Context { platform: None, ..ctx(dir.path(), &fx) };
         let m = &preview(&none, "https://github.com/o/r").unwrap().mods[0];
         assert!(!m.compatible && m.why.as_deref().unwrap().contains("not loaded"), "{:?}", m.why);
@@ -1300,7 +1300,7 @@ mod tests {
         // macOS: the manifest names no library for it.
         let mac = Context { platform: Some("macos-arm64"), ..ctx(dir.path(), &fx) };
         assert!(preview(&mac, "https://github.com/o/r").unwrap().mods[0].why.as_deref().unwrap().contains("Not built"));
-        // No native mods at all (Android).
+        // No native mods at all (a system with no platform key).
         let none = Context { platform: None, ..ctx(dir.path(), &fx) };
         assert!(!preview(&none, "https://github.com/o/r").unwrap().mods[0].compatible);
     }
@@ -1470,7 +1470,7 @@ mod tests {
             "c1",
         );
         script_zipball(&mut fx, "c1", "swap", "swap", "1.0.0");
-        // On a system with no native mods (Android: no platform) it is offered all the same.
+        // On a system with no native mods (no platform key) it is offered all the same.
         let android = Context { platform: None, ..ctx(dir.path(), &fx) };
         let p = preview(&android, "https://github.com/o/r").unwrap();
         let m = &p.mods[0];

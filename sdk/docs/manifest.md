@@ -68,7 +68,7 @@ the platform it built, and `package_mod.py --merge` joins the platforms
 | `api` | yes | The mod interface you wrote for, `MAJOR.MINOR`: `"1.0"` for native mods, `"1.1"` or later for script mods. A game whose interface has another major version, or a lower minor, does not load the mod and says why. |
 | `games` | yes | The game and the discs the mod is for: `{"rac1": ["pal", "ntsc"]}` (PAL and NTSC-U). |
 | `scripts` | script mods | The `.luau` files to run at start, in order, as paths inside the mod (forward slashes). |
-| `plugin` | native mods | Platform to library path inside the mod. Platforms: `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `windows-arm64`. |
+| `plugin` | native mods | Platform to library path inside the mod. Platforms: `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `windows-arm64`, `android-arm64`. |
 | `hooks` | no | The hook points the mod takes, by id (`rac1.player.take_damage`) or alias (`Hero_TakeDamage`) ([hooks](hooks.md)). `package_mod.py` checks each against the SDK's table of the mod's games. The launcher shows which mods share a hook point. |
 | `settings` | no | Options for players ([settings](settings.md)). |
 | `vulkan_device` | no | `true` for a native mod of `api` 1.4 or later that makes the Vulkan device with the port (`setup_vulkan`, [views](views.md)): the mods then load before the window opens. Ignored otherwise. |

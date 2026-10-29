@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "frontend.h"
+#include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "renderer/direct.h"
@@ -182,6 +183,7 @@ void set_packets(SceneFrame& frame) {
     input.sky_shell_mask = scene.sky_shell_mask;
     input.effect_uploads = scene.effect_uploads;
     input.ui_quads = scene.ui_quads;
+    effects_dump::offer(input, input.water_interactor);
 }
 
 void set_target_mobys(SceneFrame& frame) {
