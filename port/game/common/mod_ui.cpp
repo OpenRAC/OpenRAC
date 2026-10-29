@@ -1099,7 +1099,7 @@ void raise_rows(const openrac_front_end& fe) {
     }
 }
 
-// For OPENRAC_LOG=verbose, to compare the rows' flights: a page switch to or from the main menu
+// In the log (for now at every level, not only verbose), to compare the rows' flights: a page switch to or from the main menu
 // from its first tick to kTraceAfter ticks after it, as each tick leaves it (after the port's own
 // changes). At the start, the seqs of both pages for every slot; each tick, the switch's timer, the
 // raise and the stretch, and for every panel slot its moby's seq, frame (of the seq's frames),
@@ -1114,7 +1114,7 @@ void trace_switch(const openrac_front_end& fe) {
     const gaddr from = word(menu + kPrevious);
     const gaddr to = word(menu + kNext);
 
-    if (!log::verbose_on() || fe.panel_slots == 0) {
+    if (fe.panel_slots == 0) {
         return;
     }
 
@@ -1131,7 +1131,7 @@ void trace_switch(const openrac_front_end& fe) {
                 );
             }
 
-            log::verbose(
+            log::info(
                 "mod ui trace: switch {:#x} -> {:#x} (main {:#x}), extra rows {}, seqs from/to{}",
                 from,
                 to,
@@ -1192,7 +1192,7 @@ void trace_switch(const openrac_front_end& fe) {
         }
     }
 
-    log::verbose(
+    log::info(
         "mod ui trace: tick {} state {} timer {} current {:#x} next {:#x}, raise by {:.3f} height "
         "{:.2f} step {:.2f} learnt {}, leaving to {:#x}, stretch {:.3f}{}",
         tick++,
