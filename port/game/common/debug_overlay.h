@@ -62,7 +62,7 @@ void tick(const Tick& tick);
 void begin(bool first, bool held, float alpha, std::uint64_t tick);
 
 // Before the renderer draws: the passes hidden in the overlay are turned off, wireframe is set.
-void before_render(renderer::Renderer* renderer);
+void before_render(renderer::Renderer* renderer, std::uint64_t frame);
 
 // After the frame was put in the window and before the swap: draws the overlay, if shown.
 struct Shown {

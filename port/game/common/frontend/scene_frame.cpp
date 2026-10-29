@@ -318,7 +318,7 @@ bool draw_world(SceneFrame& frame) {
     // picture draws its 2D once, on its first frame (drawn again, a fade's darkening would add up).
     if (owner.renderer && !owner.repeat_frame && !(owner.overdraw && !frame.output.first)) {
         // [debug tools] The passes hidden in the overlay; the render timed (common/stats.h).
-        debug_overlay::before_render(owner.renderer.get());
+        debug_overlay::before_render(owner.renderer.get(), frame.input.frame);
         const stats::Scope render_scope("render");
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
         target.depth_texture = owner.frame.depth_texture();

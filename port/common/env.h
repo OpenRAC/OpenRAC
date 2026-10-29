@@ -91,6 +91,7 @@ enum class Var : std::uint16_t {
     HeroShadow,
     Hidden,
     HidePasses,
+    HidePassesEvery,
     Hitch,
     HitLog,
     ItemsDebug,

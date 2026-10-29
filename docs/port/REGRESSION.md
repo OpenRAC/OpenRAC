@@ -153,6 +153,31 @@ registers set before it ([draw_coverage.h](../../port/game/common/frontend/draw_
 many routes saw a row: each is something the game drew and the port did not,
 found without a picture to compare with.
 
+## Where a pass shows
+
+```sh
+python3 port/tools/regress/survey.py --game rac1-ntsc --level 14 --pass liquids [--points 32] [--jobs 2]
+```
+
+Finds where on a level a renderer pass shows (`sky`, `terrain`, `ties`,
+`liquids`, `shrubs`, `mobys`, `effects`, `hud`), for proof pictures, in about
+five minutes and without a recording. The places come from the level's
+collision (floors spread over the level, every height of a place included);
+two runs side by side hold the hero at each for 80 frames, at 640x480 with
+half the render scale, on the software rasteriser. The run hides the pass in
+every other 10 frames (`OPENRAC_HIDE_PASSES_EVERY`) and shoots a picture
+every 10, so a place is shot with the pass, without it and with it again:
+the pixels alike in the two with it and unlike the one without are the pass,
+and what moves by itself (rain, an enemy) is left out.
+`build/regress/survey/<level>-<pass>/report.json` lists the places, the most
+of the picture first, with the hero's position and yaw (a route's
+`teleport`; in PCSX2, writes to the hero's position and yaw), and `best.png`
+marks the pass's pixels on the best of them.
+
+`regress.py run --setting KEY=VALUE` (repeatable) writes that line into each
+run's `settings.ini` (docs/port/SETTINGS.md), as the survey does for the
+resolution and the render scale.
+
 ## Adding or changing a route
 
 Routes are data, in [port/tools/regress/routes.json](../../port/tools/regress/routes.json):

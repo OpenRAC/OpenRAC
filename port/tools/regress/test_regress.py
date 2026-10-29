@@ -21,6 +21,7 @@ import coverage
 import reach
 import routes
 import runner
+import survey
 
 
 def tick(f, c, **kw):
@@ -441,6 +442,39 @@ class Outcome(unittest.TestCase):
         self.assertEqual(runner.notes(lines), ["access (SIGBUS) at game address 0x43348F7B, which is not mapped",
                                                "in game_FUN_00210850 < game_FUN_L00_0024f7c8"])
         self.assertEqual(runner.notes(["a", "[error] b", "c"]), ["[error] b"])
+
+
+class SurveyTest(unittest.TestCase):
+    def test_places_keep_each_height_of_a_cell(self):
+        # Four floor triangles make a place (fewer is a ledge); a place stands a unit above them.
+        low = [(10.0 + i, 10.0, 0.0) for i in range(4)]
+        high = [(10.0 + i, 11.0, 20.0) for i in range(4)]
+        self.assertEqual(sorted(p[2] for p in survey.places(low + high + [(30.0, 30.0, 9.0)], 5)), [1.0, 21.0])
+
+    def test_the_mask_keeps_the_pass_and_leaves_out_what_moves(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as d:
+            on, off, again = (Image.new("RGB", (4, 1), (0, 0, 0)) for _ in range(3))
+            on.putpixel((0, 0), (200, 200, 200))     # the pass: in both pictures with it
+            again.putpixel((0, 0), (200, 200, 200))
+            on.putpixel((1, 0), (200, 0, 0))         # rain: in one picture only
+            paths = []
+            for name, im in (("on", on), ("off", off), ("again", again)):
+                paths.append(Path(d) / f"{name}.png")
+                im.save(paths[-1])
+            mask = survey._mask(*paths, threshold=12)
+            self.assertEqual([mask.getpixel((x, 0)) for x in range(4)], [255, 0, 0, 0])
+
+    def test_a_place_needs_three_pictures_with_the_camera_still(self):
+        with tempfile.TemporaryDirectory() as d:
+            trace = Path(d) / "trace.jsonl"
+            ticks = [tick(f, f, cam=[1.0, 2.0, 3.0 + (0.0 if f >= 15 else f)]) for f in range(0, 61)]
+            trace.write_text("\n".join(json.dumps(t) for t in ticks))
+            for f in range(0, 61, survey.EVERY):
+                (Path(d) / f"s_{f}.png").write_bytes(b"")
+            pairs = survey._pairs(trace, f"{d}/s_")
+            self.assertEqual([v[0] for v in pairs.values()], [40])
 
 
 if __name__ == "__main__":
