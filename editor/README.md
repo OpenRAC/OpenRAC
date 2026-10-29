@@ -91,7 +91,7 @@ CPU core at a time. Options:
 Nothing the extractor writes is kept in git, so a fresh checkout has none
 of it: run the command above to make it. The same disc always gives
 byte-identical files. To rebuild a project, delete its directory and run
-the command again; the extractor never overwrites an existing directory.
+the command again (in the launcher: **Reset the level editor**, below); the extractor never overwrites an existing directory.
 Godot rebuilds its import cache (`.godot/`) the next time it opens the
 project.
 
@@ -108,6 +108,47 @@ made. A newer extractor can write scenes with other nodes (the sky's
 WorldEnvironment, for instance), so after updating it, move your changes
 into the new scene instead. Godot saves a scene as text, so a diff
 against a fresh export shows each edit.
+
+## Start over
+
+The launcher's **Mods** page has a **Start over** panel at the bottom of the
+**Level editor** tab, for levels that look wrong or an editor to begin again
+with. Each button asks first, listing what goes, with its size, and what stays.
+Neither runs while the game or another task does. Close Godot first.
+
+- **Read the levels again** deletes the game's copy of the levels (what Play
+  and Models and textures read, with its `levels-<format>.json` and
+  `verified-<format>.json` stamps and its visibility data) and the enhanced
+  lighting baked from it, then reads the levels from the disc again straight
+  away. The Godot projects, your packed levels, edits, packs, exports and
+  saves are kept.
+- **Reset the level editor** deletes the Godot projects of that disc (with
+  Godot's import cache, and any change saved in Godot but not packed) and the
+  models and textures exported for the game. **Open in Godot** then reads
+  fresh copies from the disc. A tick box, off at first, also deletes your own
+  work: the packed levels and the mods put together from them, your imported
+  edits and added packs (the game's, for all its discs), and the older copies
+  of your levels the extractor kept aside.
+
+Where those are:
+
+| | In a checkout | In an installed launcher |
+|---|---|---|
+| The game's levels | `assets/port/<game>/<disc>` | `<data>/port/<disc>` |
+| Enhanced lighting | `<data>/probes/<disc>` | the same |
+| Godot projects | `assets/levels/<game>/<disc>` | `<data>/levels/<disc>` |
+| Older copies of them | `assets/levels/<game>/<disc>-backups` | `<data>/levels/<disc>-backups` |
+| Exported models and textures | `<data>/exports` | the same |
+| Packed levels | `assets/packed/<game>/<disc>` | `<data>/packed/<disc>` |
+| Mods put together | `<data>/mods/<disc>` | the same |
+| Imported edits and packs | `<data>/overrides` | the same |
+
+`<data>` is the game's set-up folder, `<install folder>/active/<game>/data`.
+The hidden `.<disc>-*` folders a stopped extraction leaves beside them go too.
+Nothing else is deleted: never the disc's files, the saves, the gameplay mods
+(`<data>/plugins`), the built game or anything outside these folders. A folder
+that is a link, or that leads outside OpenRAC's folders, stops the reset before
+anything is deleted (`launcher/core/src/reset.rs`).
 
 ## What a moby is, and what runs it
 

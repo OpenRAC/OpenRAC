@@ -200,7 +200,10 @@ display-only `Collision` node: its other edits still pack, its collision is
 left as the disc has it. To get the new scene and keep your edits: move the
 project aside, extract the level again, and redo the edits in the new scene
 (Godot saves scenes as text, so a diff of your old scene against a fresh
-export of the same extractor shows each edit).
+export of the same extractor shows each edit). In the launcher, **Start over**
+at the bottom of the Level editor tab does the extracting again: **Reset the
+level editor** deletes the projects (copy a scene you want to keep first), and
+**Open in Godot** reads fresh ones (README.md, "Start over").
 
 A project made before the Collision dock gets it the next time you extract the
 levels into the same folder (the launcher's **Extract the levels**): the dock is

@@ -24,6 +24,8 @@ import type { Library } from "./generated/Library";
 import type { ModSources } from "./generated/ModSources";
 import type { ModLoadSummary } from "./generated/ModLoadSummary";
 import type { PackView } from "./generated/PackView";
+import type { ResetDone } from "./generated/ResetDone";
+import type { ResetPreview } from "./generated/ResetPreview";
 import type { Platform } from "./generated/Platform";
 import type { PluginStatus } from "./generated/PluginStatus";
 import type { PluginInstalled } from "./generated/PluginInstalled";
@@ -2039,6 +2041,32 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay(null);
     case "overrides_list":
       return delay<PackView[]>([...mockPacks]);
+    case "reset_preview": {
+      // ?reset=error: the folders cannot be read; ?reset=empty: nothing is there.
+      if (query.get("reset") === "error") throw new Error("permission denied");
+      const there = query.get("reset") !== "empty";
+      const part = (part: ResetPreview["parts"][number]["part"], theirs: boolean, bytes: number, files: number) => ({
+        part,
+        theirs,
+        bytes: there ? bytes : 0,
+        files: there ? files : 0,
+        folders: there ? [`/home/player/OpenRAC/${part}`] : [],
+      });
+      const parts =
+        args.reset === "levels"
+          ? [part("gameLevels", false, 1_240_000_000, 2_310)]
+          : [
+              part("projects", false, 812_000_000, 9_420),
+              part("exports", false, 46_000_000, 312),
+              part("packed", true, 3_100_000, 4),
+              part("overrides", true, 21_000_000, 88),
+              part("backups", true, 0, 0),
+            ];
+      return delay<ResetPreview>({ reset: args.reset as ResetPreview["reset"], parts });
+    }
+    case "reset_apply":
+      if (query.get("reset") === "fail") throw new Error("cannot remove /home/player/x: Directory not empty");
+      return delay<ResetDone>({ bytes: 858_000_000, files: 9_732, folders: 2 });
     case "overrides_summary": {
       if (query.get("summary") === "error") throw new Error("The preparation record could not be read.");
       const version = String(args.version).split("/")[1];
