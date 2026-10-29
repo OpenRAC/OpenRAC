@@ -2,7 +2,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Plays the routes: one hidden port process per level, several at once.
 
-Each level's run goes in RUN/LL/ (trace.jsonl, reach.json, run.log, the settings it started from)
+Each level's run goes in RUN/LL/ (trace.jsonl, reach.json, coverage.json, run.log, the settings it started from)
 and its outcome in RUN/run.json: ok (the route played to its end), no-control (the run ended
 before the player had control), crash (the process stopped on a fault or an error code), hang (no
 end before the timeout: the process is stopped) or exit (it ended on its own before the route's
@@ -96,14 +96,15 @@ def classify(rc: int | None, timed_out: bool, ticks: list[dict], length: int, fr
 def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels: Path, out: Path,
               extra_env: dict | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
-    for name in ("trace.jsonl", "reach.json"):
+    for name in ("trace.jsonl", "reach.json", "coverage.json"):
         (out / name).unlink(missing_ok=True)
     env = dict(os.environ)
     for k in list(env):
         if k.startswith("OPENRAC_"):
             del env[k]  # the caller's own switches would change the run
     env.update({"OPENRAC_HIDDEN": "1", "SDL_AUDIODRIVER": "dummy", "OPENRAC_UNCAPPED": "1", "OPENRAC_AUDIO_TICKED": "1",
-                "OPENRAC_TRACE": str(out / "trace.jsonl"), "OPENRAC_REACH": str(out / "reach.json")})
+                "OPENRAC_TRACE": str(out / "trace.jsonl"), "OPENRAC_REACH": str(out / "reach.json"),
+                "OPENRAC_DRAW_COVERAGE": str(out / "coverage.json")})
     env.update(route.env())
     env.update(extra_env or {})
     cmd = [str(exe), "--data", str(data), "--levels", str(levels), "--window", "--skip-movies",

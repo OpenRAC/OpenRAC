@@ -67,6 +67,7 @@ enum class Var : std::uint16_t {
     Developer,
     Direct,
     Drawer,
+    DrawCoverage,
     DumpDraws,
     DumpRam,
     DumpSnapshot,

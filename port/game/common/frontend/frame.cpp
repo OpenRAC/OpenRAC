@@ -41,6 +41,7 @@
 #include "debug_menu.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
@@ -122,9 +123,16 @@ std::vector<std::uint8_t> direct_packets(
     std::uint32_t tag_at = chain & 0x01FFFFF0;
     std::uint32_t stack[2] = {0, 0};
     int depth = 0;
+    // For OPENRAC_DRAW_COVERAGE, where each run of the VIF data came from in game memory (the
+    // scratchpad's as 0x70000000 on): its offset in `vif`, its address.
+    const bool covering = strips != nullptr && draw_coverage::armed();
+    std::vector<std::pair<std::size_t, std::uint32_t>> origins;
     auto append = [&](std::uint32_t at, std::uint32_t bytes) {
         at &= 0x01FFFFFF;
         if (at + bytes <= ram.size()) {
+            if (covering) {
+                origins.emplace_back(vif.size(), at);
+            }
             vif.insert(vif.end(), ram.data() + at, ram.data() + at + bytes);
         }
     };
@@ -134,6 +142,9 @@ std::vector<std::uint8_t> direct_packets(
         at &= 0x3FF0;
         const std::uint8_t* spr = static_cast<const std::uint8_t*>(G(0x70000000u));
         if (at + bytes <= 0x4000u) {
+            if (covering) {
+                origins.emplace_back(vif.size(), 0x70000000u | at);
+            }
             vif.insert(vif.end(), spr + at, spr + at + bytes);
         }
     };
@@ -350,6 +361,18 @@ std::vector<std::uint8_t> direct_packets(
             }
         }
     };
+    const auto origin = [&](std::size_t offset) -> std::uint32_t {
+        const auto it = std::upper_bound(
+            origins.begin(),
+            origins.end(),
+            offset,
+            [](std::size_t o, const auto& run) { return o < run.first; }
+        );
+        return it == origins.begin()
+                   ? 0
+                   : std::prev(it)->second
+                         + static_cast<std::uint32_t>(offset - std::prev(it)->first);
+    };
     std::size_t at = 0;
     while (at + 4 <= vif.size()) {
         std::uint32_t code;
@@ -363,7 +386,11 @@ std::vector<std::uint8_t> direct_packets(
         } else if (command == 0x30 || command == 0x31) {
             at += 16;
         } else if (command == 0x4A) {
-            at += std::size_t{num == 0 ? 256u : num} * 8;
+            const std::size_t size = std::size_t{num == 0 ? 256u : num} * 8;
+            if (covering && at + size <= vif.size()) {
+                draw_coverage::program(imm, {vif.data() + at, size});
+            }
+            at += size;
         } else if (command == 0x50 || command == 0x51) {
             const std::size_t size = std::size_t{imm == 0 ? 65536u : imm} * 16;
             if (at + size > vif.size()) {
@@ -401,6 +428,11 @@ std::vector<std::uint8_t> direct_packets(
             const std::uint32_t count = num == 0 ? 256 : num;
             const std::uint32_t components = vl == 3 ? 1 : vn + 1;
             const std::size_t size = ((count * components * bits + 31) / 32) * 4;
+            if (covering && at + size <= vif.size()) {
+                draw_coverage::unpack(
+                    imm & 0x3FF, vn, vl, count, origin(at), {vif.data() + at, size}
+                );
+            }
             if (strips != nullptr && at + size <= vif.size()) {
                 const std::uint32_t address = imm & 0x3FF;
                 const std::uint8_t* data = vif.data() + at;
@@ -443,6 +475,7 @@ std::vector<std::uint8_t> direct_packets(
             *before_world = gif.size();
         }
         if ((command == 0x14 || command == 0x15 || command == 0x17) && strips != nullptr) {
+            const std::size_t strips_before = strips->size();
             if (strip_tag && strip_st != nullptr && strip_rgba != nullptr && strip_xyz != nullptr) {
                 renderer::EffectStrip strip;
                 strip.first = static_cast<std::uint32_t>(strip_vertices->size());
@@ -497,6 +530,11 @@ std::vector<std::uint8_t> direct_packets(
                     strip_vertices->push_back(v);
                 }
                 strips->push_back(strip);
+            }
+            if (covering) {
+                draw_coverage::start(
+                    command, imm, strips->size() > strips_before, reg_alpha, reg_test, reg_tex0
+                );
             }
             strip_tag = false;
         }
@@ -1492,6 +1530,7 @@ TickPackets capture_2d_path(
     std::size_t before_world = SIZE_MAX;
     std::size_t first_offscreen = SIZE_MAX;
     std::size_t world_marker = SIZE_MAX;
+    draw_coverage::begin_tick(level, g->index);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
         shown,

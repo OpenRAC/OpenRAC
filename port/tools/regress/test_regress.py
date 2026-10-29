@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import compare
+import coverage
 import reach
 import routes
 import runner
@@ -201,6 +202,36 @@ class Reach(unittest.TestCase):
                 {"name": "f", "kind": "asm", "calls": 2}]}))
             (run / "05" / "reach.json").write_text('{"game": "rac1-ntsc", "sit')  # cut short: left out
             self.assertEqual([(g, lv) for g, lv, _ in reach.load_run(run)], [("rac1-ntsc", 3)])
+
+
+class Coverage(unittest.TestCase):
+    def program(self, entry, calls, drawn):
+        return {"command": "MSCAL", "entry": entry, "code": "00ff", "layout": "0:V4-32x1", "calls": calls,
+                "drawn": drawn, "ticks": 1, "ram": "0x1000", "alpha": "0x44", "test": "0x0", "tex0": "0x0",
+                "sample": ""}
+
+    def test_merge_keeps_the_undrawn_ranked_by_routes(self):
+        files = [
+            ("rac1-ntsc", 14, {"levels": {"14": {"ticks": 9, "programs": [
+                self.program("0x10", 50, 0), self.program("0x20", 5, 5), self.program("0x30", 3, 1)],
+                "particles": [{"type": 7, "update": "0x1 f", "drawn": 2, "left_out": {"lines": 4}},
+                              {"type": 8, "update": "0x2 g", "drawn": 6, "left_out": {}}]}}}),
+            ("rac1-ntsc", 3, {"levels": {"3": {"ticks": 9, "programs": [self.program("0x30", 2, 0)],
+                                               "particles": [{"type": 7, "update": "0x1 f", "drawn": 0,
+                                                              "left_out": {"lines": 1, "beyond": 2}}]}}}),
+        ]
+        programs, particles = coverage.merge(files)["rac1-ntsc"]
+        self.assertEqual([r.entry for r in programs], ["0x30", "0x10"])  # 0x20 was always drawn
+        self.assertEqual(programs[0].routes, {"14", "3"})
+        self.assertEqual((programs[0].calls, programs[0].undrawn), (5, 4))
+        self.assertEqual(programs[1].example["level"], "14")
+        self.assertEqual([r.type for r in particles], [7])
+        self.assertEqual(particles[0].left_out, {"lines": 5, "beyond": 2})
+        self.assertIn("0x30", coverage.table("rac1-ntsc", programs, particles, 10))
+
+    def test_a_set_route_names_its_level(self):
+        files = [("g", "14-fire", {"levels": {"14": {"programs": [self.program("0x10", 1, 0)]}}})]
+        self.assertEqual(coverage.merge(files)["g"][0][0].routes, {"14-fire@14"})
 
 
 class Routes(unittest.TestCase):

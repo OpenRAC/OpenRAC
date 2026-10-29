@@ -45,7 +45,7 @@ whatever the player chose). The run prints one line per level and writes
 | `hang` | no end before the route's `timeout` (seconds); the process is stopped |
 | `exit` | it ended on its own between control and the route's end |
 
-`RUN/LL/` keeps level LL's `trace.jsonl`, `reach.json`, `run.log` and
+`RUN/LL/` keeps level LL's `trace.jsonl`, `reach.json`, `coverage.json`, `run.log` and
 settings. A crash report also goes to the data folder's `crashes/`, as for
 any run.
 
@@ -128,6 +128,26 @@ calls:
 
 It is the order to backfill or fix in for gameplay
 ([BACKFILL.md](BACKFILL.md)), next to hostgen's static frontier.
+
+## What a run drew
+
+```sh
+python3 port/tools/regress/regress.py coverage latest:rac1-ntsc@wide [--top 25] [--json FILE]
+```
+
+The port runs the game's own code, so each tick's display list holds every
+VU1 program the game starts and the particle pool every particle it keeps.
+`OPENRAC_DRAW_COVERAGE=FILE` (set by every run, written to each level's
+`coverage.json`) counts, per level, the VU1 program starts that no renderer
+of the port reads (only the effect strips' are: the world's renderers send
+none) and the particles `particle_quads` leaves out (lines, untextured,
+beyond their depth). A program is told apart by its command, its entry, the
+hash of the microcode loaded where the entry is and the layout of the data
+unpacked for it, with the game memory that data came from and the GS
+registers set before it ([draw_coverage.h](../../port/game/common/frontend/draw_coverage.h)).
+`coverage` merges a run's levels into one list per version, ranked by how
+many routes saw a row: each is something the game drew and the port did not,
+found without a picture to compare with.
 
 ## Adding or changing a route
 

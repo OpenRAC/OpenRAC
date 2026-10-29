@@ -33,6 +33,7 @@
 #include "enhanced/renderer/water.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "frontend.h"
+#include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
@@ -623,6 +624,23 @@ std::uint32_t particle_texture(
     return key;
 }
 
+// The update a particle record's type byte picks (GameProfile::particle_updates): its address and
+// name, "?" for a game without the table.
+std::string particle_update(std::span<const std::uint8_t> ram, unsigned type) {
+    const gaddr table = g->profile->particle_updates();
+    if (table == 0) {
+        return "?";
+    }
+    const gaddr at = (OPENRAC_DATA(table) + 4u * type) & 0x01FFFFFFu;
+    if (at + 4 > ram.size()) {
+        return "?";
+    }
+    std::uint32_t fn;
+    std::memcpy(&fn, ram.data() + at, 4);
+    const char* name = openrac_guest_function_name(fn);
+    return std::format("{:#x} {}", fn, name != nullptr ? name : "(no C)");
+}
+
 // Developer tools, for a diagnostics recording: the frame's particles by type, each type with the
 // update its record's type byte picks (GameProfile::particle_updates) and how many of them are not
 // drawn, and the records within 6 units of Ratchet, whole, in hex.
@@ -634,19 +652,8 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
             break;
         }
     }
-    const gaddr table = g->profile->particle_updates();
-    const auto callback = [&](unsigned type) -> std::string {
-        if (table == 0) {
-            return "?";
-        }
-        const gaddr at = (OPENRAC_DATA(table) + 4u * type) & 0x01FFFFFFu;
-        if (at + 4 > ram.size()) {
-            return "?";
-        }
-        std::uint32_t fn;
-        std::memcpy(&fn, ram.data() + at, 4);
-        const char* name = openrac_guest_function_name(fn);
-        return std::format("{:#x} {}", fn, name != nullptr ? name : "(no C)");
+    const auto callback = [&](unsigned type) {
+        return particle_update(ram, type);
     };
     constexpr float kNear = 6.0f;
     std::array<int, 256> counts{};
@@ -764,10 +771,22 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     if (effects_dump::armed()) {
         note_particles(ram, state);
     }
+    const bool covering = draw_coverage::armed();
+    // particle_update's, by type, for OPENRAC_DRAW_COVERAGE.
+    std::vector<std::string> updates(covering ? 256 : 0);
+    const auto cover = [&](const std::uint8_t* r, std::string_view reason) {
+        if (covering) {
+            if (updates[r[0]].empty()) {
+                updates[r[0]] = particle_update(ram, r[0]);
+            }
+            draw_coverage::particle(r[0], reason, updates[r[0]]);
+        }
+    };
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         const int kind = r[1] & 3;
         if (kind == 2 || p.pixels == 0 || p.clut == 0) {
+            cover(r, kind == 2 ? "lines" : "untextured");
             continue;
         }
         std::array<float, 3> p1{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};
@@ -784,8 +803,10 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         const int near12 = (r[9] & 0xF) << 10;
         const int far12 = std::min((r[9] >> 4) << 17, 0x1F4000);
         if (z12 <= near12 || z12 >= far12) {
+            cover(r, "beyond");
             continue;
         }
+        cover(r, "");
         const int fade = std::min({(far12 - z12) >> 4, z12 - near12, 0x1000});
         const auto faded = [fade](std::uint32_t c) {
             return (c & 0x00FFFFFFu) | (((c >> 24) * static_cast<std::uint32_t>(fade) >> 12) << 24);
