@@ -3,6 +3,7 @@
 #include "callees.h"
 #include "include_asm.h"
 #include "vector.h"
+#include "records.h"
 #include "hero.h"
 #include "moby.h"
 
@@ -1836,8 +1837,7 @@ void update_level09_item_unlock_and_frame_record(char *moby) {
     }
 }
 extern char *gaspar_paths[];
-typedef struct { unsigned char pad0[0x454]; unsigned char collected[1]; } L09LevelState;
-extern L09LevelState gaspar_collected_flags_base;
+extern LevelState gaspar_collected_flags_base;
 extern int gaspar_moby_killed[];
 extern int g_current_level_index MACRO_ADDR;
 extern int is_point_inside_clip_volume(void *, int);

@@ -175,6 +175,21 @@ struct MenuLabelData {
     s32 value_variant; /* 0x4C */
 };
 
+struct MenuTextBoxData {
+    s32 flags;                  /* 0x30 */
+    union {
+        s32 text_id;            /* 0x34: single text id */
+        s32 *text_list;         /* 0x34: -1-terminated list of text ids */
+        char *page;             /* 0x34: credits page pointer */
+    };
+    u8 pad_38[0x4];             /* 0x38 */
+    s32 scroll;                 /* 0x3C: line scroll */
+    s32 countdown;              /* 0x40: scaled timer */
+    u8 pad_44[0xC];             /* 0x44 */
+    s32 step;                   /* 0x50: sequence state/step */
+    s32 scroll_done;            /* 0x54: flagged when text ends */
+};
+
 struct MenuScreen {
     s32 (*update)(struct MenuScreen *); /* 0x00 */
     s32 (*draw)(struct MenuScreen *);   /* 0x04: per-frame draw callback */
@@ -205,6 +220,7 @@ struct MenuScreen {
         struct MenuItemPreviewData preview; /* FUN_0021e110, update_item_preview_moby */
         struct MenuLabelData label; /* fun_0021a328 */
         struct MenuPromptData prompt; /* draw_prompt_box, fun_00221a48 */
+        struct MenuTextBoxData textbox; /* draw_menu_text_box, update_timed_menu_sequence */
     } data; /* 0x30 */
 };
 

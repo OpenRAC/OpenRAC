@@ -3,6 +3,7 @@
 #include "callees.h"
 #include "include_asm.h"
 #include "vector.h"
+#include "records.h"
 #include "hero.h"
 #include "moby.h"
 /* Cycling platform: rises, waits, drops and waits again. */
@@ -346,8 +347,7 @@ void magnetboots_update(Moby *m) {
         break;
     }
 }
-typedef struct { char pad0[0x454]; unsigned char collected[1]; } L10State;
-extern L10State orxon_collected_flags_base;
+extern LevelState orxon_collected_flags_base;
 extern unsigned char help_stats_base[] NOT_SDA;
 extern int orxon_moby_killed[];
 extern int g_current_level_index MACRO_ADDR;
@@ -650,7 +650,7 @@ void gadgebot_telepot_pad_update(char *m)
         func_L00_002E9A18_2BFBB8(0);
     }
 }
-extern L10State D_L10_001BAD60;
+extern LevelState D_L10_001BAD60;
 extern unsigned char D_L10_0015FD08[];
 extern unsigned char menu_item_enabled_67[] NOT_SDA;
 /* Collectible platform: state 0 arms it, state 1 lets it fall, state 2 sits above the pickup's spot.

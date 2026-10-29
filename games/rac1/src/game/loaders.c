@@ -761,25 +761,24 @@ void upload_texture_images(int base, int count, Chunk *list) {
     g_gs_texture_allocation_start = g_gs_texture_allocation_cursor;
 }
 
-/* Makes animation sequence idx of the class at arg0 (its seqs[] at +0x48) absolute: the pointer at
+/* Makes animation sequence idx of the class at cls (its seqs[] at +0x48) absolute: the pointer at
    +0x14 and the frame pointer table at +0x1C (count at +0x10) become base + offset. */
-void relocateObjectPointers(char *arg0, int idx) {
-    char *obj;
+void relocateObjectPointers(MobyClass *cls, int idx) {
+    AnimSeq *obj;
     int *p;
     int i;
-    arg0 += idx * 4;
-    obj = *(char **)(arg0 + 0x48);
-    if (*(int *)(obj + 0x14) != 0) {
-        *(int *)(obj + 0x14) = (int)(obj + *(int *)(obj + 0x14));
+    obj = cls->seqs[idx];
+    if (obj->f14 != 0) {
+        obj->f14 = (int)((char *)obj + obj->f14);
     }
-    if (*(unsigned char *)(obj + 0x10) != 0) {
+    if (obj->nframes != 0) {
         i = 0;
-        p = (int *)(obj + 0x1C);
+        p = (int *)obj->frames;
         do {
-            *p = (int)(obj + *p);
+            *p = (int)((char *)obj + *p);
             i++;
             p++;
-        } while (i < *(unsigned char *)(obj + 0x10));
+        } while (i < obj->nframes);
     }
 }
 
@@ -1012,7 +1011,7 @@ extern char object_render_class_material_maps[] NOT_SDA;
 extern int truncate_float_to_s32(float);
 
 /* Registers an object render class: assigns its slot, fixes pointers and sets thresholds. */
-void register_object_render_class(char *self, int a1, char *src, int a3) {
+void register_object_render_class(ObjectRenderClass *self, ResidentRenderTextureDefinition *textures, char *src, int a3) {
     int N;
     int N2;
     int R;
@@ -1050,49 +1049,49 @@ void register_object_render_class(char *self, int a1, char *src, int a3) {
     unsigned long dw8;
     unsigned long c4p;
     unsigned long c7p;
-    char *rec;
+    ResidentRenderTextureDefinition *rec;
     char *E;
 
     *(short *)(object_render_class_ids + registered_object_render_class_count * 2) = a3;
     *(unsigned char *)(object_render_class_slot_by_id + a3) = registered_object_render_class_count;
-    *(char **)(object_render_classes + registered_object_render_class_count * 4) = self;
-    *(short *)(self + 0x46) = registered_object_render_class_count;
-    R = truncate_float_to_s32(*(float *)(self + 0x48) * 1024.0f);
+    *(ObjectRenderClass **)(object_render_classes + registered_object_render_class_count * 4) = self;
+    self->class_slot = registered_object_render_class_count;
+    R = truncate_float_to_s32(self->scale * 1024.0f);
     N2 = registered_object_render_class_count;
     registered_object_render_class_count = N2 + 1;
     *(int *)(object_render_class_fixed_thresholds + 4 * N2) = R;
 
-    *(int *)(self + 0x28) = 0;
-    *(short *)(self + 0x26) = 0;
+    self->first_instance = 0;
+    self->instance_count = 0;
 
     for (k = 0; k < 3; k++) {
-        if (((struct { int p[3]; } *)self)->p[k] != 0) {
-            ((struct { int p[3]; } *)self)->p[k] += (int)self;
-            for (jj = 0; jj < ((struct { char p[0x20]; unsigned char c[4]; } *)self)->c[k]; jj++) {
-                ((int *)((struct { int p[3]; } *)self)->p[k])[jj * 4] += ((struct { int p[3]; } *)self)->p[k];
+        if (self->lod_tables[k] != 0) {
+            self->lod_tables[k] += (int)self;
+            for (jj = 0; jj < self->lod_counts[k]; jj++) {
+                ((int *)self->lod_tables[k])[jj * 4] += self->lod_tables[k];
             }
         }
     }
 
-    v = *(int *)(self + 0x0C) + (int)self;
-    m = (char *)(*(int *)(self + 0x2C) + (int)self);
-    *(int *)(self + 0x0C) = v;
-    *(int *)(self + 0x2C) = (int)m;
+    v = self->f0C + (int)self;
+    m = (char *)(self->packets_offset + (int)self);
+    self->f0C = v;
+    self->packets_offset = (int)m;
 
     dest = object_render_class_material_maps + ((*(unsigned char *)(object_render_class_slot_by_id + a3)) << 4);
     qcopy(dest, src);
 
-    for (j = 0, cur = m; j < *(unsigned char *)(self + 0x23); j++, cur += 0x50) {
+    for (j = 0, cur = m; j < self->packet_count; j++, cur += 0x50) {
         local4 = *(int *)(cur + 0x10);
         idx = *(unsigned char *)(dest + j);
         t23 = *(int *)(cur + 0x14);
         local8 = *(int *)(cur + 0x30);
         local12 = *(int *)(cur + 0x34);
 
-        if (a1 != 0) {
+        if (textures != 0) {
             int h, w; int f1; long HH, WW; long G;
-            rec = (char *)a1 + (idx << 4);
-            t4 = (int)((unsigned int)*(unsigned short *)(rec + 4) << 16);
+            rec = &textures[idx];
+            t4 = (int)((unsigned int)(unsigned short)rec->width << 16);
             h = t4 >> 22;
             w = t4 >> 23;
             if (!(0 < h)) {
@@ -1102,12 +1101,12 @@ void register_object_render_class(char *self, int a1, char *src, int a3) {
                 w = 1;
             }
             f1 = log2dim(t4 >> 16);
-            F2 = log2dim(*(short *)(rec + 6));
+            F2 = log2dim(rec->height);
             K = g_gs_texture_allocation_base >> 8;
-            c7 = *(short *)(rec + 0x0E) + K;
-            c9 = *(short *)(rec + 0x0C) + K;
-            t4 = *(short *)(rec + 0x0A) + K;
-            S8 = *(short *)(rec + 0x08);
+            c7 = rec->mip_block_offset_1 + K;
+            c9 = rec->mip_block_offset_0 + K;
+            t4 = rec->clut_block_offset + K;
+            S8 = rec->draw_control_count;
 
             HH = ((unsigned long)(long)h << 14) | ((unsigned long)0x13 << 20) | ((unsigned long)(long)f1 << 26)
                | ((unsigned long)(long)F2 << 30) | ((unsigned long)1 << 34)
@@ -1144,15 +1143,6 @@ void register_object_render_class(char *self, int a1, char *src, int a3) {
 }
 
 typedef u32 u128_04340 __attribute__((mode(TI), aligned(16)));
-typedef struct ResidentRenderTextureDefinition_04340 {
-    s32 unk0; /* unused here; a word, so the record is 4-byte aligned */
-    s16 width;
-    s16 height;
-    s16 draw_control_count;
-    s16 clut_block_offset; /* 0x0A: TEX0.CBP (bit 37) after adding the base */
-    s16 mip_block_offset_0;
-    s16 mip_block_offset_1;
-} ResidentRenderTextureDefinition_04340;
 typedef union MaterialMap_04340 {
     u128_04340 q;
     u8 b[16];
@@ -1235,7 +1225,7 @@ extern s32 log2dim(s32);
    MIPTBP1 words from the mip texture (or from the resident material templates when there is none), copies the
    class's material map and rewrites every packet's texture words. Adapted from Lombyte's project (GPL-3.0):
    src/rendering/register_shrub_render_class.c, register_shrub_render_class (US 0x203B08). */
-void register_shrub_render_class(ShrubRenderClass_04340 *render_class, ResidentRenderTextureDefinition_04340 *textures,
+void register_shrub_render_class(ShrubRenderClass_04340 *render_class, ResidentRenderTextureDefinition *textures,
                    u128_04340 *material_map, ShrubMipTextureDefinition_04340 *mip_texture, s32 class_id) {
     s32 group_index;
     s32 index;
@@ -1352,7 +1342,7 @@ void register_shrub_render_class(ShrubRenderClass_04340 *render_class, ResidentR
             material_base = packet->material_base;
             material_shift = packet->material_shift;
             if (textures != 0) {
-                ResidentRenderTextureDefinition_04340 *texture;
+                ResidentRenderTextureDefinition *texture;
                 s32 width_bits;
                 s32 width_units_64;
                 s32 width_units_128;

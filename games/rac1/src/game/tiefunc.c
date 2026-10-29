@@ -326,7 +326,7 @@ void DmaTieTextures(void) {
     p[3] = 0;
 }
 
-extern char *object_render_classes[];
+extern ObjectRenderClass *object_render_classes[];
 extern char tie_gif_patch_list[];
 extern char tie_tex_remap_table[];
 
@@ -337,10 +337,10 @@ extern char tie_tex_remap_table[];
 void PatchTieGifs(void) {
     int *p;
     for (p = (int *)tie_gif_patch_list; *p >= 0; p++) {
-        char *tie = object_render_classes[*p];
-        char *r = *(char **)(tie + 0x2C);
+        ObjectRenderClass *tie = object_render_classes[*p];
+        char *r = (char *)tie->packets_offset;
         int i;
-        for (i = 0; i < *(unsigned char *)(tie + 0x23); i++) {
+        for (i = 0; i < tie->packet_count; i++) {
             short *ent = (short *)(tie_tex_remap_table + *(unsigned char *)(r + 0x33) * 4);
             if (ent[0] != 0) *(int *)r = (*(int *)r & 0xFFFFC000) | ent[0];
             if (ent[1] != 0) *(int *)(r + 0x20) = (*(int *)(r + 0x20) & 0xFFFFC000) | ent[1];
@@ -422,7 +422,7 @@ void DrawTies_2(void) {
         int i;
         int n = registered_object_render_class_count;
         for (i = 1; i < n; i += 2) {
-            *(short *)(object_render_classes[i] + 0x24) |= 8;
+            object_render_classes[i]->flags |= 8;
         }
     }
     {
@@ -448,14 +448,14 @@ void DrawTies_2(void) {
         int i;
         int n = registered_object_render_class_count;
         for (i = 1; i < n; i += 2) {
-            *(short *)(object_render_classes[i] + 0x24) &= ~8;
+            object_render_classes[i]->flags &= ~8;
         }
     }
     {
         int i;
         int n = registered_object_render_class_count;
         for (i = 0; i < n; i += 2) {
-            *(short *)(object_render_classes[i] + 0x24) |= 8;
+            object_render_classes[i]->flags |= 8;
         }
     }
     {
@@ -477,7 +477,7 @@ void DrawTies_2(void) {
         int i;
         int n = registered_object_render_class_count;
         for (i = 0; i < n; i += 2) {
-            *(short *)(object_render_classes[i] + 0x24) &= ~8;
+            object_render_classes[i]->flags &= ~8;
         }
     }
     FastMemCopy((void *)g_render_packet_cursor, tie_packet_tail_tags, 0x20);

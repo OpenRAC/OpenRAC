@@ -185,8 +185,7 @@ struct RibbonEffectVars {
 
 extern char hero_globals_base[];
 extern int *oltanis_paths[];
-typedef struct { char pad0[0x454]; unsigned char collected[1]; } CapLevelState;
-extern CapLevelState oltanis_collected_flags_base;
+extern LevelState oltanis_collected_flags_base;
 extern unsigned char help_stats_base[] NOT_SDA;
 extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
 extern int oltanis_moby_killed_bits[];

@@ -7,6 +7,7 @@
 #include "include_asm.h"
 #include "camera.h"
 #include "hero.h"
+#include "moby.h"
 
 extern CameraSystem player_camera;
 extern char hero_globals_base[];
@@ -44,7 +45,7 @@ void setup_level_cameras(void) {
     p1 = &g1->follow.up;
     g1->previous = 0;
     g1->blend.phase = 0;
-    vec_scale_to_length(p1, (char *)(*(int *)&base->moby + 0xE0), 1.0f);
+    vec_scale_to_length(p1, &base->moby->rot_row2, 1.0f);
     qcopy(&g1->follow.up_target, p1);
     qcopy(&g1->follow.up_target_prev, p1);
     clear_u64_value(g1->follow.up_vel);

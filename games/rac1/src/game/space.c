@@ -4,6 +4,7 @@
 #include "records.h"
 #include "vector.h"
 #include "structs.h"
+#include "memcard.h"
 
 /*
  * space.cpp in the original source; text 0x22F128-0x233FF8.
@@ -1003,13 +1004,7 @@ struct LevelProjectionState_305A0 {
     f32 projection_scale;
 };
 /* PAL: the two fields tested sit 8 bytes further than in the US build. */
-struct MemoryCardState_305A0 {
-    u8 pad_0[0xDC];
-    s32 state; /* 0xDC */
-    s32 pad_E0;
-    s32 pending_state; /* 0xE4 */
-};
-extern struct MemoryCardState_305A0 memory_card_state_r __asm__("D_0013D390");
+extern MemoryCardState memory_card_state_r __asm__("D_0013D390");
 extern u8 level_available_base[];
 extern struct LevelRenderState_305A0 level_render_state_r2 __asm__("D_0013E130");
 extern s32 game_frame_counter MACRO_ADDR;
@@ -1087,7 +1082,7 @@ void render_level_frame(void) {
     if ((g_current_level_index_r != 0) && ((g_current_level_index_r != 1) || (level_available_base[0] != 0))) {
         render_environment_mapped_object_r(render_sequence_slots[0]);
     }
-    if ((memory_card_state_r.state >= 3) || (memory_card_state_r.pending_state >= 0)) {
+    if ((memory_card_state_r.state >= 3) || (memory_card_state_r.err >= 0)) {
         VU1_addGSregister_r(0x47, 0x3004B);
         quad_extent = 272.0f;
         texture = GetEffectTex_r(2);
@@ -2635,14 +2630,6 @@ typedef struct {
     s32 half_height;
 } ScreenOfs_32EF0;
 extern u8 second_clear_packet[];
-/* The memory card state: only the two words the loop tests (PAL offsets, 8 further than the US build). */
-struct MemoryCardState_32EF0 {
-    u8 pad_0[0xDC];
-    s32 state; /* 0xDC */
-    s32 pad_E0;
-    s32 pending_state; /* 0xE4 */
-};
-extern struct MemoryCardState_32EF0 memory_card_state_r2 __asm__("D_0013D390");
 struct DmaTag_32EF0 {
     u32 tag;
     u32 addr;
@@ -2703,7 +2690,7 @@ void play_level_loading_slides(s32 language_index, s32 first_slide, s32 second_s
     }
     sce_gs_sync_v(0);
     VU1_initChain();
-    for (frame = 0; frame < duration_ticks && memory_card_state_r2.state < 3 && memory_card_state_r2.pending_state < 0;
+    for (frame = 0; frame < duration_ticks && memory_card_state_r.state < 3 && memory_card_state_r.err < 0;
          frame++) {
         alpha = 0x80;
         ResetGsRegisters();

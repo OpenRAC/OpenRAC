@@ -143,12 +143,7 @@ extern float fog_far_distance MACRO_ADDR;
 extern float fog_near_intensity MACRO_ADDR;
 extern float fog_far_intensity MACRO_ADDR;
 
-typedef struct {
-    char pad0[0xE];
-    unsigned short max;  /* 0x0E */
-    char pad10[0x8];
-} Item1088;
-extern Item1088 vendor_item_prices[];
+extern VendorItemPrice vendor_item_prices[];
 
 typedef struct {
     char pad0[0x3E];
@@ -447,7 +442,7 @@ void update_render_debug_menu(void) {
         int *val;
         if (occl_cam_state.cursor < 13) {
             unsigned char k = ((unsigned char *)&debug_weapon_item_ids)[occl_cam_state.cursor];
-            max = ((Item1088 *)(k * sizeof(Item1088) + (unsigned int)vendor_item_prices))->max;
+            max = vendor_item_prices[k].max_ammo;
             val = &weapon_ammo_counts[k];
         } else {
             val = &gBolts;

@@ -395,7 +395,7 @@ void set_hero_animation(int a0, int a1, float t) {
    0x2080: SEQ in slot 0, the next one (clamped to the bank's last) in
    slot 1, both slots on BANK, time 0x54 reset, then func_0020D6D0. */
 void HeroStartSequenceInBank(int bank, int seq) {
-    AnimState *obj = *(AnimState **)(g_hero + 0x2080);
+    AnimState *obj = *(AnimState **)&((Hero *)g_hero)->moby;
     int last;
 
     obj->seq[0] = seq;
@@ -436,7 +436,7 @@ void hero_set_attack_ticks(int id) {
     if (id == -1) {
         id = scale_ticks(5);
     }
-    *(int *)(g_hero + 0xAB8) = id;
+    ((Hero *)g_hero)->queued_frame_request = id;
 }
 #include "moby.h"
 typedef struct {
@@ -1151,7 +1151,7 @@ float predict_hero_trajectory_z(float *pos, float *vel, int *steps, float step) 
     float a;
     float r;
 
-    switch (*(unsigned char *)(g_hero + 0x20B3)) {
+    switch (((Hero *)g_hero)->gravity_mode) {
     case 0:
         n = truncate_float_to_s32(vel[2] / step);
         a = IntToFloat(n);

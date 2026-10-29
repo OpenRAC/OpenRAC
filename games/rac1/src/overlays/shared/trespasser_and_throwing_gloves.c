@@ -1041,7 +1041,7 @@ void bomb_glove_update(struct Moby *moby) {
                     difference = FastDiffRots(angle, candidateAngle);
                     if ((difference < 0.785398185f || (distance < 4.0f && difference < 1.57079637f)) && distance < best && elevation < 0.959931076f && temporary.arc.f[2] - pos.f[2] < 2.0f && !coll_line_r2(&g_debug_camera_r2, &temporary.arc, 6, moby, 0)) {
                         best = distance;
-                        g_hero_r3.throw_target = (u8 *)candidate;
+                        g_hero_r3.throw_target = candidate;
                         angle = candidateAngle;
                         qcopy(&target, &temporary.arc);
                     }
@@ -2846,7 +2846,7 @@ void compute_glove_of_doom_throw_velocity(int a0, Moby *m, float *a2)
                 }
             }
         } else {
-            *(int *)&((struct Hero *)((char *)&hero_globals_base_r + 0xE1D))->throw_target = 0;
+            ((struct Hero *)((char *)&hero_globals_base_r + 0xE1D))->throw_target = 0;
         }
     }
     compute_glove_of_doom_launch_velocity_r(q0, v90, out, g_frame_time_sq_r2 * 9.0f, 0.00000999999975f,

@@ -66,11 +66,11 @@ void apply_npc_big_head_cheat(char *moby) {
     int i;
     if (hoven_cinematic_mode == 2 && gCheats[0] != 0) {
         for (i = 0; i < hoven_cutscene_state.count; i++) {
-            char *e = hoven_cutscene_state.mobys[i];
-            if (*(short *)(e + 0xA6) == *(short *)(moby + 0xA6)) {
+            Moby *e = (Moby *)hoven_cutscene_state.mobys[i];
+            if (e->oclass == ((Moby *)moby)->oclass) {
                 unsigned char *s = hoven_big_head_cheat_manipulator;
                 if (s[1] == 0) {
-                    AttachManipulator(e, 1, s);
+                    AttachManipulator((char *)e, 1, s);
                     *(float *)(s + 0x20) = 2.75f;
                     *(float *)(s + 0x24) = 2.75f;
                     *(float *)(s + 0x28) = 2.75f;
@@ -179,7 +179,6 @@ void start_blarg_commander_knockback(void *unused, struct Moby *m) {
     m->flags &= ~0x1000;
     MobyBlendAnimation(m, 1, 0, 0);
 }
-typedef struct { char pad[0x40]; float vx, vy; } MO;
 extern int mine_fall(void *, void *);
 extern void func_L00_0025F4A8_alt(void *, void *, void *, float, float, int, int, int,
                                   float, float, float, float, int, float, int, int, int, int)
@@ -192,15 +191,14 @@ void blarg_commander_update(char *m) {
     struct CommanderShotVars *d;
     char *p;
     int r;
-    MO *mo = (MO *)m;
     char v[16];
     st = ((Moby *)m)->prev_seq;
     d = (struct CommanderShotVars *)((Moby *)m)->pvars;
     if (st == 1) {
         p = (char *)d->mine_state;
         r = mine_fall(m, p);
-        mo->vx = FastAddRots(mo->vx, g_frame_time * 4.3633232f);
-        mo->vy = FastAddRots(mo->vy, g_frame_time * 4.3633232f);
+        ((Moby *)m)->rot.x = FastAddRots(((Moby *)m)->rot.x, g_frame_time * 4.3633232f);
+        ((Moby *)m)->rot.y = FastAddRots(((Moby *)m)->rot.y, g_frame_time * 4.3633232f);
         ((Moby *)m)->flags &= 0xEFFF;
         if (r & 0x61) {
             qcopy(v, m + 0x10);
