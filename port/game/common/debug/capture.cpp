@@ -229,6 +229,7 @@ perf_capture::Context context(const Shown& shown) {
           kSceneryDetail,
           kFrameRate,
           kFrameCap,
+          kLowLatency,
           kVSync}) {
         settings_line +=
             std::format("{}{} {}", settings_line.empty() ? "" : ", ", label(row), value(row));

@@ -41,6 +41,7 @@ constexpr const char* kLabels[kRows] = {
     "VSync",
     "Frame rate",
     "Frame cap",
+    "Low-latency frames",
     "Frame counter",
     "Mute in background",
     "Skip cutscenes",
@@ -86,6 +87,11 @@ constexpr Words kWords[] = {
       "Bildratenlimit",
       "Límite de fotogramas",
       "Limite fotogrammi"}},
+    {{"Low-latency frames",
+      "Images à faible latence",
+      "Bilder mit niedriger Latenz",
+      "Fotogramas de baja latencia",
+      "Fotogrammi a bassa latenza"}},
     {{"Frame counter",
       "Compteur d'images",
       "Bildzähler",
@@ -319,6 +325,8 @@ std::string value_of(int row) {
             return settings::frame_rate_name(s);
         case kFrameCap:
             return s.frame_rate == settings::FrameRate::Capped ? std::to_string(s.frame_cap) : std::string("Off");
+        case kLowLatency:
+            return s.low_latency_frames ? "On" : "Off";
         case kShowFps:
             return settings::name(s.show_fps);
         case kMuteUnfocused:
@@ -435,6 +443,9 @@ void step_value(int row, int by) {
             } else {
                 s.frame_cap = std::clamp(s.frame_cap + by * 5, settings::kFrameCapMin, settings::kFrameCapMax);
             }
+            break;
+        case kLowLatency:
+            s.low_latency_frames = !s.low_latency_frames;
             break;
         case kShowFps:
             settings::step_frame_counter(by);

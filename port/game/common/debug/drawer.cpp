@@ -568,9 +568,7 @@ void drawer(const Shown& shown) {
         // Fewer frames queued for the display, and none held back half a tick (settings.h). Off
         // by default: the picture then comes as players have learnt its timing.
         if (drawer_switch("Low-latency frames", settings::get().low_latency_frames)) {
-            settings::get().low_latency_frames = !settings::get().low_latency_frames;
-            settings::save();
-            s.settings_changed = true;
+            change_setting(options_menu::kLowLatency, 1);
         }
         card_end();
 

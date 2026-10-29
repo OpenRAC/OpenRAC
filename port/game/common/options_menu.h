@@ -27,6 +27,7 @@ enum Row {
     kVSync,
     kFrameRate,
     kFrameCap,
+    kLowLatency,
     kShowFps,
     kMuteUnfocused,
     kSkipCutscenes,
