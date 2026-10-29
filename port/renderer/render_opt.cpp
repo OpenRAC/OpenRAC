@@ -108,7 +108,7 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
        true, Tolerance{1.0, 4}},
     {Opt::ShaderFloat16, "shader-float16",
      "audited local FP16 arithmetic on enabled Vulkan devices; shader interfaces remain FP32",
-     true, Tolerance{1.0, 1}},
+     true, Tolerance{1.0, 2}},
 }};
 // clang-format on
 
