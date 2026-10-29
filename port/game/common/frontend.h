@@ -180,7 +180,8 @@ KeyboardMouseView keyboard_mouse();
 void take_keyboard();
 
 // Reads the player's controls of `game` ("rac1") from `dir` (controls_store.h) and presses the pads
-// from them, from the next read on. Bindings the version's settings file held (bind_* keys, before
+// from them, from the next read on; the controller mappings in `dir`'s gamecontrollerdb.txt, if
+// there is one, are added to SDL's. Bindings the version's settings file held (bind_* keys, before
 // the controls had files of their own) move into the game's controls file once.
 void open_controls(const std::filesystem::path& dir, const std::string& game);
 

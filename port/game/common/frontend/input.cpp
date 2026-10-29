@@ -11,8 +11,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <optional>
 #include <string>
+#include <system_error>
 
 #include <SDL3/SDL.h>
 
@@ -149,6 +151,18 @@ void take_keyboard() {
 void open_controls(const std::filesystem::path& dir, const std::string& game) {
     if (!g) {
         return;
+    }
+    // Mappings for controllers SDL does not know as gamepads (SDL's gamecontrollerdb.txt format):
+    // with one, a controller is read by position as any other.
+    std::error_code error;
+    const std::filesystem::path mappings = dir / "gamecontrollerdb.txt";
+    if (std::filesystem::exists(mappings, error)) {
+        const int added = SDL_AddGamepadMappingsFromFile(mappings.string().c_str());
+        if (added < 0) {
+            log::warn("controls: {} cannot be read: {}", mappings.string(), SDL_GetError());
+        } else {
+            log::info("controls: {} controller mapping(s) from {}", added, mappings.string());
+        }
     }
     const auto apply = [](const platform::Bindings& bindings, const platform::Players& players) {
         g->input.set_bindings(bindings);
