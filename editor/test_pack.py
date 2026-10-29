@@ -243,8 +243,9 @@ class PackDisc(unittest.TestCase):
                 if version.key == "pal":
                     from formats import FormatError
                     (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data, move))
-                    with self.assertRaisesRegex(FormatError, "predates the 60 Hz"):
+                    with self.assertRaises(FormatError) as refused:
                         pack(image, survey, project, out)
+                    self.assertEqual(refused.exception.code, "project-outdated-gameplay")
                     self.assertFalse(out.exists())
                 metadata.write_text(json.dumps({"gameplay_source": "gameplay_ntsc"}))
                 (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data, move))

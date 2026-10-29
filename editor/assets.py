@@ -1486,6 +1486,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"openrac-output: {written}")  # the folder, for the launcher (jobs.rs)
         return 0
     except (AssetError, GltfError, PngError, OSError) as exc:
+        import errors
+        errors.say(exc, code=None if isinstance(exc, OSError) else "asset-invalid")
         print(f"assets: {exc}", file=sys.stderr)
         return 1
 

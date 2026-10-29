@@ -41,6 +41,7 @@ import type { Scope } from "./generated/Scope";
 import type { Started } from "./generated/Started";
 import type { VersionStatus } from "./generated/VersionStatus";
 import type { VersionView } from "./generated/VersionView";
+import type { EditorState } from "./generated/EditorState";
 import type { WriteResult } from "./generated/WriteResult";
 import type { AppInfo, DiscScan, GpuDriver, GpuDrivers } from "./api";
 import type { UpdateInfo, UpdateProgressCallback } from "./updates";
@@ -512,6 +513,78 @@ function findAction(scope: Scope, id: string): RawAction | undefined {
 }
 
 /** What a few actions print at the end in the preview, so the pages that read it can be tried. */
+// The level editor's status panel (EditorFlow.svelte): ?editor=none|ready|unpacked|packed|outdated|
+// broken|carried|repack picks where the player is; extracting and packing move it along as the real
+// folders would. ?toolerror=<code> makes the next extract or pack stop with that code and a raw
+// message (that must never show), e.g. ?editor=outdated&toolerror=project-outdated-gameplay.
+// ?editor=reading has no levels yet; with ?progress=<step>:<done>/<total>[:<level>] the next
+// editor job (read, export again, pack, read the game's levels) stops at that count and runs on,
+// e.g. ?editor=reading&progress=read:3/18:4 then "Read the levels and open".
+let mockEditor = query.get("editor") ?? "ready";
+const mockHold = /^([a-z]+):(\d+)\/(\d+)(?::(\d+))?$/.exec(query.get("progress") ?? "");
+
+/** What the editor's tools print as they go (editor/progress_line.py), a few counts of each step. */
+function progressLines(step: string, total: number, levels: (n: number) => number = (n) => n - 1): string[] {
+  const counts = [0, ...[0.25, 0.5, 0.75].map((f) => Math.round(total * f)), total].filter(
+    (n, i, all) => all.indexOf(n) === i,
+  );
+  return counts.map((n) => `openrac-progress: ${step} ${n}/${total}${n ? ` ${levels(n)}` : ""}`);
+}
+
+const EDITOR_JOBS = ["editor-extract", "editor-reexport", "editor-pack", "port-levels", "port-levels-visibility"];
+
+function mockEditorState(): EditorState {
+  const all = Array.from({ length: 19 }, (_, i) => i);
+  const now = Date.now();
+  const state: EditorState = {
+    levels: mockEditor === "none" || mockEditor === "reading" ? [] : all,
+    outdated: [],
+    unpacked: [],
+    broken: [],
+    packedAt: null,
+    packedLevels: 0,
+    packedOtherVersion: false,
+    carried: [],
+    backups: [],
+    gameLevelsFound: true,
+    formatKnown: true,
+  };
+  const backup = {
+    name: "20261028-101500",
+    path: "/home/you/OpenRAC/assets/levels/rac1/pal-backups/20261028-101500",
+    levels: all,
+  };
+  switch (mockEditor) {
+    case "unpacked":
+      return { ...state, unpacked: [0, 3] };
+    case "packed":
+      return { ...state, packedAt: now - 60_000, packedLevels: 2 };
+    case "repack":
+      return { ...state, packedAt: now - 60_000, packedLevels: 2, packedOtherVersion: true };
+    case "outdated":
+      return { ...state, outdated: all.map((level) => ({ level, reason: "gameplay" as const })) };
+    case "broken":
+      return { ...state, broken: [5] };
+    case "carried":
+      return {
+        ...state,
+        unpacked: [0],
+        backups: [backup],
+        carried: [
+          {
+            level: 0,
+            carried: ["Bolt_0002: moved", "Bolt_0003: deleted", "Bolt_0002_copy: added"],
+            notCarried: ["Camera_0001: moved"],
+            failed: false,
+          },
+          { level: 3, carried: [], notCarried: [], failed: false },
+        ],
+      };
+    default:
+      return state;
+  }
+}
+
 function lastLines(id: string, args: Record<string, unknown>): string[] {
   const data = `${config.installDir ?? ""}/active/rac1/data`;
   const level = String(typeof args.level === "number" ? args.level : 0).padStart(2, "0");
@@ -537,6 +610,20 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
     case "overrides-add":
       mockPacks.push({ ...samplePack(name), id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") });
       return [`Added ${name} as ${name.toLowerCase()}, on, last in the order.`];
+    case "editor-extract":
+      return ["openrac-progress: project", ...progressLines("read", 19), "Godot projects, one per level: done"];
+    case "editor-reexport":
+      return [
+        ...progressLines("read", 19),
+        ...progressLines("carry", 19),
+        "Godot projects: 19 written again; the old ones, with any edits, are in the backups folder.",
+      ];
+    case "editor-pack":
+      return [...progressLines("pack", 2, (n) => (n === 1 ? 0 : 3)), "Packed 2 level(s), 3 moby edit(s)"];
+    case "port-levels":
+      return progressLines("read", 19);
+    case "port-levels-visibility":
+      return progressLines("visibility", 19);
     case "overrides-stack":
       return [`Stacked ${mockPacks.filter((p) => p.enabled).length + 1} layer(s), 99 file(s): ${data}/mods/pal`];
     default:
@@ -1639,6 +1726,27 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       );
     }
   }
+  // ?toolerror=<code>: the editor's extract or pack stops as the tool does, its code first.
+  const toolError = query.get("toolerror");
+  if (toolError && ["editor-pack", "editor-extract", "editor-reexport"].includes(id)) {
+    const raw = [
+      ...lines.slice(0, 3),
+      `openrac-error: ${toolError}`,
+      "extract: level 00: this PAL project predates the 60 Hz gameplay fix. Extract the levels again to back up the old project and create a 60 Hz project, then reapply your intended edits. Do not copy the whole old scene.",
+    ];
+    return fakeJob(action.label, command, raw, () => undefined, 1);
+  }
+  // ?progress=…: an editor job stops at that count and runs on, to see the bar mid-way.
+  if (mockHold && EDITOR_JOBS.includes(id)) {
+    const [, step, done, total, level] = mockHold;
+    const held = [
+      ...lines.slice(0, 3),
+      ...(step === "read" ? [] : ["openrac-progress: read 19/19 18"]),
+      `openrac-progress: ${step} 0/${total}`,
+      `openrac-progress: ${step} ${done}/${total}${level ? ` ${level}` : ""}`,
+    ];
+    return fakeJob(action.label, command, held, () => undefined, 0, [], true);
+  }
   // ?fail: every job stops with an error, to see how a failure reads.
   if (query.has("fail")) {
     const failed = [...lines.slice(0, 3), "error: the step could not finish (browser preview)"];
@@ -1658,7 +1766,12 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
             `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
           ]
         : [];
-  return fakeJob(action.label, command, lines, () => undefined, 0, outputs);
+  const moved = () => {
+    if (id === "editor-extract") mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
+    if (id === "editor-reexport") mockEditor = "carried";
+    if (id === "editor-pack") mockEditor = "packed";
+  };
+  return fakeJob(action.label, command, lines, moved, 0, outputs);
 }
 
 /** A job that prints LINES one by one, then ends with CODE (0: it worked) and calls DONE. */
@@ -1669,6 +1782,8 @@ function fakeJob(
   done: () => void,
   code = 0,
   outputs: string[] = [],
+  /** It prints its lines and then runs on, never ending (the bar mid-way, ?progress). */
+  hold = false,
 ): Started {
   const job = ++nextJob;
   let i = 0;
@@ -1680,6 +1795,7 @@ function fakeJob(
         emit({ type: "output", id: job, stream: "stdout", line });
         return;
       }
+      if (hold) return;
       clearInterval(timers.get(job));
       timers.delete(job);
       done();
@@ -2065,6 +2181,8 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
             ];
       return delay<ResetPreview>({ reset: args.reset as ResetPreview["reset"], parts });
     }
+    case "editor_state":
+      return delay<EditorState>(mockEditorState());
     case "reset_apply":
       if (query.get("reset") === "fail") throw new Error("cannot remove /home/player/x: Directory not empty");
       return delay<ResetDone>({ bytes: 858_000_000, files: 9_732, folders: 2 });

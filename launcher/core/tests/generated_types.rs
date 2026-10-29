@@ -17,8 +17,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use openrac_launcher_core::{
-    actions, config, detect, differences, disc_choice, discs, enhanced, jobs, library, overrides, pcsx2_card, plugins,
-    remote, reports, reset, save_edit, saves, update,
+    actions, config, detect, differences, disc_choice, discs, editor_state, enhanced, jobs, library, overrides,
+    pcsx2_card, plugins, remote, reports, reset, save_edit, saves, update,
 };
 use ts_rs::{Config, TS};
 
@@ -53,6 +53,7 @@ fn export_all(cfg: &Config) {
         remote::Update,
         reports::ReportEntry,
         reset::Reset,
+        editor_state::EditorState,
         reset::ResetDone,
         reset::ResetPreview,
         save_edit::SaveChange,
