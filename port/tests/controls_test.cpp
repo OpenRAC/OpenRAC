@@ -231,15 +231,26 @@ void test_store_keeps_a_newer_file(const fs::path& dir) {
 using openrac::platform::Assignment;
 using openrac::platform::Players;
 
-// The defaults are the port's old order: the keyboard and the first controller player 1, the
-// second player 2; a third is nobody's.
+// The defaults: the first controller is player 1, the second player 2, a third nobody's; the
+// keyboard is player 1's only while no controller is.
 void test_default_players() {
     const Players players = openrac::platform::default_players();
     CHECK(openrac::platform::assign(players, {}) == (Assignment{{-1, -1}, 0}));
     const std::string one[] = {"a"};
-    CHECK(openrac::platform::assign(players, one) == (Assignment{{0, -1}, 0}));
+    CHECK(openrac::platform::assign(players, one) == (Assignment{{0, -1}, -1}));
     const std::string three[] = {"a", "b", "c"};
-    CHECK(openrac::platform::assign(players, three) == (Assignment{{0, 1}, 0}));
+    CHECK(openrac::platform::assign(players, three) == (Assignment{{0, 1}, -1}));
+    // "keyboard" keeps the keyboard alongside the controller.
+    Players always = players;
+    always.wants[0] = openrac::platform::read_player("auto, keyboard");
+    CHECK(openrac::platform::assign(always, one) == (Assignment{{0, -1}, 0}));
+    // A fallback for player 2: theirs while only player 1 has a controller.
+    Players second;
+    second.wants[0] = openrac::platform::read_player("auto");
+    second.wants[1] = openrac::platform::read_player("auto, keyboard-fallback");
+    CHECK(openrac::platform::assign(second, one) == (Assignment{{0, -1}, 1}));
+    const std::string two[] = {"a", "b"};
+    CHECK(openrac::platform::assign(second, two) == (Assignment{{0, 1}, -1}));
 }
 
 // A player's own controller is theirs whichever order it connected in, and comes back to them;
@@ -287,7 +298,7 @@ void test_store_players(const fs::path& dir) {
     store.open(dir, "rac1", [&applied](const Store::PlayerBindings&, const Players& players) {
         applied = players;
     });
-    CHECK(applied.wants[0] == std::vector<std::string>({"keyboard", "auto"}));
+    CHECK(applied.wants[0] == std::vector<std::string>({"auto", "keyboard-fallback"}));
     CHECK(applied.wants[1] == std::vector<std::string>({"keyboard", "pad-x"}));
     store.remember({{"pad-x", "Pad X", 1}, {"pad-y", "Pad Y", -1}});
     store.remember({{"pad-y", "Pad Y", 0}});

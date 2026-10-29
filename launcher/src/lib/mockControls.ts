@@ -131,7 +131,7 @@ export function mockControlsView(game: string | null, player: number | null = nu
     players: [
       {
         key: "player1",
-        wants: (file("global").get("player1") ?? "keyboard, auto").split(", "),
+        wants: (file("global").get("player1") ?? "auto, keyboard-fallback").split(", "),
         set: file("global").has("player1"),
       },
       {

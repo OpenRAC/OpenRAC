@@ -142,17 +142,24 @@ squaring that makes a round stick reach the DualShock 2's corners
 ## 5. Players
 
 ```text
-player1 = keyboard, auto
+player1 = auto, keyboard-fallback
 player2 = auto
 ```
 
-Each player names what it reads from: `keyboard` (with the on-screen pad,
-which is always player 1's), `auto` (the first controller no one else has),
-a controller's id, or `none`. A player's named controllers come first,
-whichever order they connected in, and come back to that player when they
-reconnect; `auto` after them is a fallback. The defaults are the port's old
-order: the keyboard and the first controller are player 1, the second
-controller player 2.
+Each player names what it reads from: `auto` (the first controller no one
+else has), a controller's id, `keyboard` (the keyboard, always),
+`keyboard-fallback` (the keyboard while the player has no controller), or
+`none`. The on-screen pad is always player 1's. A player's named controllers
+come first, whichever order they connected in, and come back to that player
+when they reconnect; `auto` after them is a fallback.
+
+The defaults: the first controller is player 1 and the second player 2, and
+the keyboard is player 1's only while no controller is. Plugging a controller
+in takes the keyboard off the game and pulling it out gives it back; a key
+held as that happens waits to be let go. Before this, the keyboard and the
+first controller were player 1 together: `player1 = auto, keyboard` keeps
+that. The port's own keys (F1 to F13, Alt) and the mods' keyboard are not
+players' and always work.
 
 A controller's id is SDL's GUID for its model, with its serial number where
 SDL has one (`<guid>-<serial>`); two of one model without serials are told

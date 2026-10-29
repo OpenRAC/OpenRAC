@@ -580,11 +580,18 @@ void players_tab(controls::Store& store, platform::Input& input) {
         ImGui::PushID(p);
         ImGui::SeparatorText(std::format("Player {}", p + 1).c_str());
         std::vector<std::string> wants = store.players().wants[static_cast<std::size_t>(p)];
-        const bool keyboard = std::find(wants.begin(), wants.end(), "keyboard") != wants.end();
+        // The keyboard: 0 not this player's, 1 while they have no controller, 2 always.
+        const auto has = [&wants](std::string_view name) {
+            return std::find(wants.begin(), wants.end(), name) != wants.end();
+        };
+        int keyboard = has(platform::kKeyboardFallback) ? 1 : 0;
+        if (has(platform::kKeyboard)) {
+            keyboard = 2;
+        }
         // The controller chosen: the first name that is not the keyboard.
         std::string chosen = "none";
         for (const std::string& name : wants) {
-            if (name != "keyboard") {
+            if (name != platform::kKeyboard && name != platform::kKeyboardFallback) {
                 chosen = name;
                 break;
             }
@@ -607,13 +614,15 @@ void players_tab(controls::Store& store, platform::Input& input) {
                 shown = name;
             }
         }
-        const auto write = [&](bool with_keyboard, const std::string& controller) {
+        const auto write = [&](int with_keyboard, const std::string& controller) {
             std::vector<std::string> names;
-            if (with_keyboard) {
-                names.emplace_back("keyboard");
-            }
             if (controller != "none") {
                 names.push_back(controller);
+            }
+            if (with_keyboard > 0) {
+                names.emplace_back(
+                    with_keyboard == 2 ? platform::kKeyboard : platform::kKeyboardFallback
+                );
             }
             store.set(Scope::Global, platform::player_key(p), platform::player_value(names));
         };
@@ -626,8 +635,9 @@ void players_tab(controls::Store& store, platform::Input& input) {
             }
             ImGui::EndCombo();
         }
-        bool with_keyboard = keyboard;
-        if (ImGui::Checkbox("Keyboard", &with_keyboard)) {
+        int with_keyboard = keyboard;
+        ImGui::SetNextItemWidth(dp(260));
+        if (ImGui::Combo("Keyboard", &with_keyboard, "No\0Only without a controller\0Always\0")) {
             write(with_keyboard, chosen);
         }
         // What the game reads from this player now.

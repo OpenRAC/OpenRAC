@@ -220,7 +220,7 @@ const TUNING: &[Tuning] = &[
 ];
 
 /// The players' keys, in the global file only, and their defaults (port/platform/players.h).
-const PLAYERS: &[(&str, &str)] = &[("player1", "keyboard, auto"), ("player2", "auto")];
+const PLAYERS: &[(&str, &str)] = &[("player1", "auto, keyboard-fallback"), ("player2", "auto")];
 
 /// What each control does in a game, where it is known from the game's own documentation. Shown
 /// beside the control; the pad's controls themselves are the same in every game.
@@ -337,7 +337,8 @@ pub struct TuningRow {
 #[serde(rename_all = "camelCase")]
 pub struct PlayerRow {
     pub key: String,
-    /// The names: "keyboard", "auto", controller ids.
+    /// The names: "auto", controller ids, "keyboard" (always), "keyboard-fallback" (while the
+    /// player has no controller).
     pub wants: Vec<String>,
     /// The global file sets it (else it is the default).
     pub set: bool,
@@ -935,7 +936,7 @@ mod tests {
         assert_eq!(row(&v, "bind_cross").hint.as_deref(), Some("Jump"));
         assert!(v.bindings.iter().all(|b| b.keys_from == Layer::Default && b.pad_from == Layer::Default));
         assert!(v.bindings.iter().all(|b| b.shared.is_empty()));
-        assert_eq!(v.players[0].wants, ["keyboard", "auto"]);
+        assert_eq!(v.players[0].wants, ["auto", "keyboard-fallback"]);
         assert_eq!(v.players[1].wants, ["auto"]);
         assert!(v.issues.is_empty());
         assert_eq!(v.tuning.iter().find(|t| t.key == "pad_left_deadzone").unwrap().value, "0");

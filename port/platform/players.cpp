@@ -19,14 +19,14 @@ std::string_view trimmed(std::string_view s) {
 }
 
 bool is_controller(std::string_view name) {
-    return name != "keyboard" && name != "auto" && name != "none";
+    return name != kKeyboard && name != kKeyboardFallback && name != "auto" && name != "none";
 }
 
 }  // namespace
 
 Players default_players() {
     Players players;
-    players.wants[0] = {"keyboard", "auto"};
+    players.wants[0] = {"auto", std::string(kKeyboardFallback)};
     players.wants[1] = {"auto"};
     return players;
 }
@@ -67,7 +67,7 @@ Assignment assign(const Players& players, std::span<const std::string> connected
     // The keyboard is the first player's that names it.
     for (int p = 0; p < kPlayers && out.keyboard < 0; ++p) {
         const auto& wants = players.wants[static_cast<std::size_t>(p)];
-        if (std::find(wants.begin(), wants.end(), "keyboard") != wants.end()) {
+        if (std::find(wants.begin(), wants.end(), kKeyboard) != wants.end()) {
             out.keyboard = p;
         }
     }
@@ -97,6 +97,14 @@ Assignment assign(const Players& players, std::span<const std::string> connected
         if (free != taken.end()) {
             *free = true;
             out.pad[static_cast<std::size_t>(p)] = static_cast<int>(free - taken.begin());
+        }
+    }
+    // No one has it always: the first player who has it as a fallback and no controller.
+    for (int p = 0; p < kPlayers && out.keyboard < 0; ++p) {
+        const auto& wants = players.wants[static_cast<std::size_t>(p)];
+        if (out.pad[static_cast<std::size_t>(p)] < 0
+            && std::find(wants.begin(), wants.end(), kKeyboardFallback) != wants.end()) {
+            out.keyboard = p;
         }
     }
     return out;

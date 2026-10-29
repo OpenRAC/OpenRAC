@@ -2,14 +2,14 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The keyboard and SDL's gamepads, turned into the two DualShock 2 ports the
-// game reads (pad.h). By default port 0 is the keyboard together with the first
-// gamepad and port 1 the second gamepad; the players' controllers can be chosen
-// (players.h). A gamepad counts from its first press, ahead of those not pressed
-// yet (a dock's or a keyboard's device that SDL also lists as one), and one
-// pressed while port 0's has been left alone for two seconds takes port 0 (the
-// player picked up another controller). Gamepad buttons are read by position, so
-// the bottom face button is Cross on any controller unless the player binds it
-// otherwise.
+// game reads (pad.h). By default port 0 is the first gamepad, or the keyboard
+// while there is none, and port 1 the second gamepad; the players' controllers
+// and the keyboard can be chosen (players.h). A gamepad counts from its first
+// press, ahead of those not pressed yet (a dock's or a keyboard's device that SDL
+// also lists as one), and one pressed while port 0's has been left alone for two
+// seconds takes port 0 (the player picked up another controller). Gamepad buttons
+// are read by position, so the bottom face button is Cross on any controller
+// unless the player binds it otherwise.
 //
 // Default keyboard (by key position, whatever the layout):
 //

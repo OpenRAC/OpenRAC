@@ -5,14 +5,15 @@
 //
 // Each player names what it reads from, in the global controls file (docs/port/CONTROLS.md):
 //
-//   player1 = keyboard, auto
+//   player1 = auto, keyboard-fallback
 //   player2 = auto
 //
-// "keyboard" is the keyboard (and the on-screen pad, which is always player 1's); "auto" the
-// first controller no other player has; a controller's id one controller, whichever order it was
-// connected in; "none" nothing. A player may name several controllers, the first one connected
-// counting, and "auto" after them as a fallback. The defaults are what the port always did: the
-// keyboard and the first controller are player 1, the second controller player 2.
+// "auto" is the first controller no other player has; a controller's id one controller, whichever
+// order it was connected in; "keyboard" the keyboard, always; "keyboard-fallback" the keyboard
+// while the player has no controller; "none" nothing. (The on-screen pad is always player 1's.) A
+// player may name several controllers, the first one connected counting, and "auto" after them as
+// a fallback. The defaults: the first controller is player 1, the second player 2, and the
+// keyboard is player 1's only while no controller is theirs.
 //
 // A controller's id is SDL's GUID for its model, and its serial number where SDL reports one,
 // so it is the same from one run to the next; two of one model without serials are told apart
@@ -31,14 +32,20 @@ namespace openrac::platform {
 
 inline constexpr int kPlayers = 2;  // the game's pad ports, input.h's kPadPorts
 
-// What each player reads from, as the file says it: "keyboard", "auto", "none" or ids.
+// The keyboard, always; and the keyboard while the player has no controller.
+inline constexpr std::string_view kKeyboard = "keyboard";
+inline constexpr std::string_view kKeyboardFallback = "keyboard-fallback";
+
+// What each player reads from, as the file says it: "auto", ids, "keyboard", "keyboard-fallback" or
+// "none".
 struct Players {
     std::array<std::vector<std::string>, kPlayers> wants;
 
     bool operator==(const Players&) const = default;
 };
 
-// The defaults: player 1 the keyboard and the first controller, player 2 the next.
+// The defaults: player 1 the first controller (the keyboard while there is none), player 2 the
+// next.
 Players default_players();
 
 // The settings key of a player, "player1" or "player2".

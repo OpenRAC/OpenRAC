@@ -341,6 +341,12 @@ void Input::assign_players() {
     }
     const Assignment was = m_assignment;
     m_assignment = assign(m_players, ids);
+    // The keyboard moved (a controller came or went, and the keyboard was a fallback): what is held
+    // on it waits for its release, so a key held for one player does not press for the other, or
+    // press at all the moment a controller leaves.
+    if (was.keyboard != m_assignment.keyboard) {
+        latch_held_keys(m_last_keys, m_key_latch);
+    }
     for (Device& d : m_devices) {
         d.player = -1;
     }
