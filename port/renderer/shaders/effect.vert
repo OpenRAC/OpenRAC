@@ -30,5 +30,8 @@ void main() {
     gl_Position = view_projection * vec4(v_world, 1.0);
     v_stq = vec3(uv, 1.0);
     float depth = -(view * vec4(v_world, 1.0)).z * 1024.0;
-    v_fog = trunc(clamp(depth * fog_line.x + fog_line.y, fog_line.z, fog_line.w)) / 255.0;
+    // Between the two intensities whichever is lower: GLSL leaves clamp undefined when the lower
+    // bound is above the upper one.
+    float lower = min(fog_line.z, fog_line.w), upper = max(fog_line.z, fog_line.w);
+    v_fog = trunc(clamp(depth * fog_line.x + fog_line.y, lower, upper)) / 255.0;
 }

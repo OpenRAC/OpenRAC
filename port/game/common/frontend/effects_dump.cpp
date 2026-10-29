@@ -79,7 +79,7 @@ std::string snapshot(
         }
         out += std::format(
             "{}{{\"i\":{},\"surface\":{},\"count\":{},\"tex0\":\"{:x}\",\"alpha\":\"{:x}\","
-            "\"clamp\":\"{:x}\","
+            "\"clamp\":\"{:x}\",\"test\":\"{:x}\",\"fog\":{},\"fog_colour\":\"{:06x}\","
             "\"uv_motion\":{},\"min\":{},\"max\":{},\"nearest\":{},\"rgba\":[\"{:08x}\",\"{:08x}\"]"
             "}}",
             first ? "" : ",",
@@ -89,6 +89,16 @@ std::string snapshot(
             strip.tex0,
             strip.alpha,
             strip.clamp,
+            strip.test,
+            strip.fogged ? std::format(
+                               "[{},{},{},{}]",
+                               number(strip.fog[0]),
+                               number(strip.fog[1]),
+                               number(strip.fog[2]),
+                               number(strip.fog[3])
+                           )
+                         : std::string("null"),
+            strip.fog_colour,
             strip.uv_motion.enabled ? 1 : 0,
             vec(low),
             vec(high),
