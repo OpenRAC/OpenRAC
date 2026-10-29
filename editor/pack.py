@@ -178,8 +178,10 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
     if node["class_id"] is not None and node["class_id"] != record["class_id"]:
         edits.append(f"class {record['class_id']} -> {node['class_id']}")
         record["class_id"] = node["class_id"]
-    # rc1_class is the class scene's own; Godot saves it on each instance too.
-    meta = {k: v for k, v in node["meta"].items() if k not in ("index", "class") and not gamedata.owns(k)}
+    # Godot may save inherited class metadata on every instance. These facts describe
+    # the class; they are not editable gameplay fields and must not become false edits.
+    descriptive = ("index", "class", "class_name", "source", "update")
+    meta = {k: v for k, v in node["meta"].items() if k not in descriptive and not gamedata.owns(k)}
     if original is None or not same_fields(meta, original["fields"]):
         for key in ALWAYS:
             if key in meta:

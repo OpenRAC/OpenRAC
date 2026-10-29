@@ -259,6 +259,10 @@ def main() -> int:
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
     files.copy_tree(ROOT / "editor", out / "editor", editor_file)
+    # Players have no decompilation headers. Carry the same validated typed fields the
+    # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
+    proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
+              out / "editor/pvar_layouts.json"])
     # Enhanced graphics' baker's Python half; on Android its program is the APK's library
     # (libopenrac-probe-bake.so, tools/build_android.py).
     files.copy_tree(ROOT / PROBE_TOOLS, out / PROBE_TOOLS,
