@@ -163,6 +163,7 @@ constexpr gaddr kPanelSlots = 14;  // the menu's frame mobys (update_menu_system
 constexpr gaddr kMobyClass = 0x24;
 constexpr gaddr kMobyFrameIndex = 0x50;  // the seq's frame, then the next one
 constexpr gaddr kMobySeq = 0x52;
+constexpr gaddr kMobyAnimTime = 0x54;  // from a frame to the next, 0 to 1
 constexpr gaddr kMobySpeed = 0x58;
 constexpr gaddr kClassSeqs = 0x48;  // the class's seqs, each with its frame count at +0x10
 constexpr gaddr kSeqFrames = 0x10;
@@ -532,6 +533,11 @@ void patch_main(const openrac_front_end& fe) {
     );
 }
 
+// The frame moby in panel slot `slot`, or 0.
+gaddr panel(const openrac_front_end& fe, int slot) {
+    return word(fe.panel_slots + 4 * static_cast<gaddr>(slot));
+}
+
 // The seq page `page` gives slot `slot` in a switch.
 std::int32_t& page_seq(gaddr page, int slot) {
     return GREF(std::int32_t, page + kSeqs + 4 * static_cast<gaddr>(slot));
@@ -547,7 +553,7 @@ std::int32_t& page_seq(gaddr page, int slot) {
 // they merge into Options as the frames shrink and are then out of sight; back, out of sight until
 // Options' frame grows into its row, then out of it to their own. Once the switch is over the page
 // has its seqs back and the rows their own, settled: parked on the page (as the page's seqs leave
-// them), or the row on the main menu (its seq's last frame, as the game's open leaves it). Called
+// them), or the row on the main menu (its seq's first frame, as the game's open leaves it). Called
 // after all that may ask for a switch, so that none begins unseen.
 void follow_switch(const openrac_front_end& fe) {
     const gaddr menu = fe.page_menu;
@@ -585,9 +591,17 @@ void follow_switch(const openrac_front_end& fe) {
             if (s.follow_seen && s.follow_out && current == s.follow_page) {
                 fe.panel_animation(slot, own, 1, 1.0f);
             } else if (s.follow_seen && !s.follow_out && current == fe.main_page) {
+                // Its seq's first frame, held: the main menu's seqs fly the rows in played
+                // backwards (the last frame is off the screen to the left), and a frame moby whose
+                // seq ended backwards keeps its time at 1 (quad_moby_update), which would show the
+                // second frame.
                 fe.panel_animation(
-                    slot, kRowSeqs[static_cast<std::size_t>(kGameRows + r)], 1, 1.0f
+                    slot, kRowSeqs[static_cast<std::size_t>(kGameRows + r)], 0, 0.0f
                 );
+
+                if (panel(fe, slot) != 0) {
+                    GREF(float, panel(fe, slot) + kMobyAnimTime) = 0.0f;
+                }
             }
         }
 
@@ -696,10 +710,6 @@ void show(int game, int page) {
 
     std::memset(G(g.footer_items + kItemBytes * static_cast<gaddr>(ids.size())), 0, kItemBytes);
     put_word(g.footer + kListItems, ids.empty() ? g.game_footer_items : g.footer_items);
-}
-
-gaddr panel(const openrac_front_end& fe, int slot) {
-    return word(fe.panel_slots + 4 * static_cast<gaddr>(slot));
 }
 
 std::span<const std::uint8_t> glyphs(const openrac_front_end& fe, int font) {
