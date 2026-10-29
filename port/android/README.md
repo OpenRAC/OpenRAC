@@ -144,3 +144,11 @@ game's log.
     data, reinstall the same build: games, saves and settings are back with no
     set-up. A build that kept its games in shared storage's OpenRAC folder has
     them moved into the app at the first start.
+16. **The game covers the screen, in landscape.** On a phone with a camera
+    notch or hole and on one without, with the system's auto-rotate on: start
+    a play from the launcher, from Recents and after pulling the notification
+    shade down. No status bar or black band stays at the top (the drawer's
+    frame counter shows in full), a swipe from the edge shows the bars only
+    for a moment, and the game reaches into the notch's side with the touch
+    pad clear of it. Turning the phone upright keeps the game in landscape;
+    turning it over flips it to the other landscape.

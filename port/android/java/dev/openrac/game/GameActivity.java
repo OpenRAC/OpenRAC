@@ -4,8 +4,11 @@
 package dev.openrac.game;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -13,6 +16,10 @@ import android.util.Log;
 import android.view.Display;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
@@ -65,8 +72,84 @@ public class GameActivity extends SDLActivity {
             }
         }
         Log.i(TAG, "starting lib" + library + ".so with " + String.join(" ", arguments));
+        coverCutout();
         super.onCreate(savedInstanceState);
         preferFastestRefresh();
+        coverScreen();
+    }
+
+    /**
+     * The game across the camera's notch or hole as well, the safe area keeping the on-screen pad
+     * and the drawer out of it (SDL_GetWindowSafeArea). SDL sets the mode in the window's
+     * attributes without handing them back to the window, so it only took when something else
+     * changed them later, and a phone could start with a black band where the camera is.
+     */
+    private void coverCutout() {
+        WindowManager.LayoutParams attributes = getWindow().getAttributes();
+        attributes.layoutInDisplayCutoutMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        getWindow().setAttributes(attributes);
+    }
+
+    /**
+     * The game over the whole screen, without the status and navigation bars (a swipe from the edge
+     * shows them for a moment). SDL shows the bars when its activity starts and hides them only
+     * once the game's fullscreen window exists, with the old system UI flags, which the system
+     * drops when the window is not in front at that moment (the launcher's still closing, a
+     * dialog): some phones then kept the status bar, a black band over the top of the game and its
+     * frame counter. Applied again whenever SDL changes the style and the game comes back to the
+     * front; the game has no windowed mode on Android (window.cpp, set_display_mode).
+     */
+    @SuppressWarnings("deprecation")
+    private void coverScreen() {
+        Window window = getWindow();
+        window.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        View decor = window.getDecorView();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false);
+            WindowInsetsController controller = decor.getWindowInsetsController();
+            if (controller != null) {
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                controller.hide(WindowInsets.Type.systemBars());
+            }
+        } else {
+            decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        }
+        // SDL's own re-hiding after a swipe (onSystemUiVisibilityChange) follows this.
+        mFullscreenModeActive = true;
+    }
+
+    @Override
+    protected boolean sendCommand(int command, Object data) {
+        boolean sent = super.sendCommand(command, data);
+        if (command == COMMAND_CHANGE_WINDOW_STYLE) {
+            // After SDL's own handling of it, which runs on the same thread's queue.
+            new Handler(Looper.getMainLooper()).post(this::coverScreen);
+        }
+        return sent;
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            coverScreen();
+        }
+    }
+
+    /**
+     * Landscape only, either way up. The manifest says so (sensorLandscape), but SDL asks again
+     * when it opens the window and, for a resizable one, asked for any orientation the player's
+     * auto-rotate allows: a phone turned upright turned the game with it, and nothing in the game
+     * is laid out for a portrait screen.
+     */
+    @Override
+    public void setOrientationBis(int w, int h, boolean resizable, String hint) {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
     }
 
     /**
