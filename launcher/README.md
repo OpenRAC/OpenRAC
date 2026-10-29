@@ -154,9 +154,11 @@ computer's game can run them.
   Packs also work from other git hosts if git is installed.
 
 A linked mod remembers its source in `<data>/plugins/sources.json`. **Check
-for updates** (also run once a day) offers **Update to X**; **Keep this
-version** stops that
-([docs/port/MODS.md](../docs/port/MODS.md#10-mods-in-a-git-repository)).
+for updates** offers **Update to X**; **Keep this version** stops that
+([docs/port/MODS.md](../docs/port/MODS.md#10-mods-in-a-git-repository)). The
+launcher also looks once a day when it starts and offers them in one window,
+with **Update all**; Settings → Updates turns that off, and the Mods tab
+still looks whenever you ask.
 
 **Level editing** has three steps for each editable game:
 

@@ -40,6 +40,10 @@ pub struct Config {
     /// Look for a new launcher when it starts (default true). Off, it looks only when asked
     /// (Settings, "Check now"); an update is never installed without the player's click.
     pub check_updates: bool,
+    /// Look for newer versions of the installed mods when the launcher starts, once a day, and
+    /// offer them (default true). Off, mods are checked only on the Mods tab's "Check now"; a mod
+    /// is never updated without the player's click.
+    pub check_mod_updates: bool,
     /// Which builds the launcher updates to (update::Channel): the releases, or the newest
     /// development build. Unset: the one it was built from (a release's build, the releases).
     pub update_channel: Option<crate::update::Channel>,
@@ -102,6 +106,7 @@ impl Default for Config {
             last_version: None,
             discord_rpc: true,
             check_updates: true,
+            check_mod_updates: true,
             update_channel: None,
             update_branch: None,
             discord_client_id: None,
@@ -182,6 +187,18 @@ mod tests {
         save(&path, &Config { check_updates: false, ..Config::default() }).unwrap();
         assert!(!load(&path).check_updates);
         assert!(std::fs::read_to_string(&path).unwrap().contains("\"checkUpdates\": false"));
+    }
+
+    /// A settings file from before the mod check offers mod updates; turning it off is kept.
+    #[test]
+    fn checks_for_mod_updates_unless_turned_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
+        assert!(load(&path).check_mod_updates);
+        save(&path, &Config { check_mod_updates: false, ..Config::default() }).unwrap();
+        assert!(!load(&path).check_mod_updates);
+        assert!(std::fs::read_to_string(&path).unwrap().contains("\"checkModUpdates\": false"));
     }
 
     /// A settings file from before the renderer choice draws with OpenGL; Vulkan, chosen, is kept.

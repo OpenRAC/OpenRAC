@@ -703,8 +703,8 @@ so a modder pushes a tag and nothing else; rac1-mods uses the same file.
                              "tag": "v1.0.0", "commit": null, "pin": false } } }
 ```
 
-**Updates.** **Check for updates** (on the Mods tab, and once a day when it
-opens) asks each source for its newest release with an asset for this
+**Updates.** **Check for updates** (on the Mods tab, and once a day when the
+launcher starts, which offers what it finds in one window) asks each source for its newest release with an asset for this
 platform whose version is above the installed one (for a data pack with no
 releases, a newer commit on its branch), and offers **Update** on the mod's
 row. A pinned mod (**Keep this version**) is never offered one. An update

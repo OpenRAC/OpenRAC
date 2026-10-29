@@ -87,12 +87,12 @@ switch it on, open it, play (Play with mods, in the page's head).
 
 ### The panel's head
 
-| Element           | Words                                  | Notes                                                                               |
-| ----------------- | -------------------------------------- | ----------------------------------------------------------------------------------- |
-| Title             | `T.PANEL.title`                        |                                                                                     |
-| Check for updates | `T.PANEL.checkUpdates`                 | only when a mod came from a link; also runs by itself once a day, silently          |
-| Load order        | `T.PANEL.orderTitle`                   | a small line under the list, with two or more mods                                  |
-| Purist mode       | `T.PURIST.title`, `T.PURIST.panelLine` | the panel's last row; the launcher-wide setting (Settings: `T.PURIST.settingsLine`) |
+| Element           | Words                                  | Notes                                                                                                                         |
+| ----------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Title             | `T.PANEL.title`                        |                                                                                                                               |
+| Check for updates | `T.PANEL.checkUpdates`                 | only when a mod came from a link; the launcher looks once a day at start (`lib/modUpdates`) and the panel shows what it found |
+| Load order        | `T.PANEL.orderTitle`                   | a small line under the list, with two or more mods                                                                            |
+| Purist mode       | `T.PURIST.title`, `T.PURIST.panelLine` | the panel's last row; the launcher-wide setting (Settings: `T.PURIST.settingsLine`)                                           |
 
 ### States of the panel
 

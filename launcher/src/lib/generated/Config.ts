@@ -56,6 +56,12 @@ discordRpc: boolean,
  */
 checkUpdates: boolean, 
 /**
+ * Look for newer versions of the installed mods when the launcher starts, once a day, and
+ * offer them (default true). Off, mods are checked only on the Mods tab's "Check now"; a mod
+ * is never updated without the player's click.
+ */
+checkModUpdates: boolean, 
+/**
  * Which builds the launcher updates to (update::Channel): the releases, or the newest
  * development build. Unset: the one it was built from (a release's build, the releases).
  */

@@ -456,6 +456,13 @@
         </span>
         <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkUpdates} />
       </label>
+      <label class="setting">
+        <span class="text">
+          <strong>Look for mod updates at start</strong>
+          <small>Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkModUpdates} />
+      </label>
       {#if app.info?.updateChannels}
         <div class="setting">
           <span class="text">

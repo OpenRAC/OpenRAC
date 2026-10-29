@@ -215,6 +215,7 @@ let config: Config = {
   lastVersion: null,
   discordRpc: true,
   checkUpdates: true,
+  checkModUpdates: true,
   updateChannel: null,
   updateBranch: null,
   layout: "compact",
