@@ -642,9 +642,10 @@ std::string particle_update(std::span<const std::uint8_t> ram, unsigned type) {
 }
 
 // A particle record's depth along the view, as particle_quads culls and fades it by: z from the
-// camera to its position (a ribbon's, kind 3, the middle of its two ends), and z and the record's
-// near and far in 1/4096 units. Outside near to far it is not drawn.
+// camera to its position (`centre`; a ribbon's, kind 3, the middle of its two ends), and z and the
+// record's near and far in 1/4096 units. Outside near to far it is not drawn.
 struct ParticleDepth {
+    std::array<float, 3> centre;
     float z;
     int z12, near12, far12;
 
@@ -655,7 +656,7 @@ ParticleDepth particle_depth(const std::uint8_t* r, const host::GameState& state
     float p1[3], p2[3];
     std::memcpy(p1, r + 0x10, sizeof(p1));
     std::memcpy(p2, r + 0x20, sizeof(p2));
-    float centre[3] = {p1[0], p1[1], p1[2]};
+    std::array<float, 3> centre = {p1[0], p1[1], p1[2]};
     if ((r[1] & 3) == 3) {
         for (int i = 0; i < 3; ++i) {
             centre[i] = (p1[i] + p2[i]) * 0.5f;
@@ -666,7 +667,11 @@ ParticleDepth particle_depth(const std::uint8_t* r, const host::GameState& state
     const float z = (centre[0] - cam[0]) * fwd[0] + (centre[1] - cam[1]) * fwd[1]
                     + (centre[2] - cam[2]) * fwd[2];
     return {
-        z, static_cast<int>(z * 4096.0f), (r[9] & 0xF) << 10, std::min((r[9] >> 4) << 17, 0x1F4000)
+        centre,
+        z,
+        static_cast<int>(z * 4096.0f),
+        (r[9] & 0xF) << 10,
+        std::min((r[9] >> 4) << 17, 0x1F4000)
     };
 }
 
@@ -861,11 +866,8 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
             const float w1 = f32(r + 0x1C);
             const float k2 = f32(r + 0x2C);
             const float e[3] = {p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]};
-            // From the camera to the ribbon's middle (particle_depth's centre).
-            float m[3];
-            for (int i = 0; i < 3; ++i) {
-                m[i] = (p1[i] + p2[i]) * 0.5f - cam[i];
-            }
+            const float m[3] =
+                {depth.centre[0] - cam[0], depth.centre[1] - cam[1], depth.centre[2] - cam[2]};
             float n[3] =
                 {e[1] * m[2] - e[2] * m[1], e[2] * m[0] - e[0] * m[2], e[0] * m[1] - e[1] * m[0]};
             const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
