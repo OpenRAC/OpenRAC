@@ -14,8 +14,8 @@
  * How much wider the sphere test's view is opened: `lists` how many draw callback lists run (their
  * `list_wider`), `effects` how many updates run whose test stands for what the player sees
  * (their `effect_wider`: the nanotech cluster's, Kerwan's air traffic's, the smoke and fire
- * emitter's). 0 where the test sees the game's own 4:3 view: outside
- * both, where it serves the game's logic too, and in a picture no wider than 4:3.
+ * emitter's). 0 where the test sees the game's own 4:3 view: outside both, where it serves the
+ * game's logic too, and in a picture no wider than 4:3.
  */
 static inline float wide_sphere_wider(int lists, float list_wider, int effects, float effect_wider) {
     const float wider = lists > 0 ? list_wider : effects > 0 ? effect_wider : 0.0f;

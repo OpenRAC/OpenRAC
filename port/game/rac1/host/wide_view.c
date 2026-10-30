@@ -59,8 +59,7 @@
  * They are game fixes the player can switch back to the console's 4:3 view (differences.json;
  * openrac_game_fix, game_host.h): fix_wide_liquids for the lists' runs and the liquid grid's cull,
  * fix_wide_nanotech_orbs for the cluster's update, fix_wide_air_traffic for the traffic's,
- * fix_wide_fires for the emitter's. Off,
- * they run as the game wrote them.
+ * fix_wide_fires for the emitter's. Off, they run as the game wrote them.
  *
  * Not opened: the callbacks' tests that project a point to the screen and compare it with the
  * screen's pixels. The rest of the world is the port's own: it draws every terrain part, tie and
@@ -155,7 +154,8 @@ static float g_wider = 1.0f;
 static opened g_list_matrix, g_list_clip;
 
 /* How many updates whose sphere test stands for what the player sees are running (the nanotech
- * cluster's, Kerwan's air traffic's, the smoke and fire emitter's), and how much wider the picture is while they do. */
+ * cluster's, Kerwan's air traffic's, the smoke and fire emitter's), and how much wider the picture
+ * is while they do. */
 static int g_effects;
 static float g_effect_wider = 1.0f;
 
