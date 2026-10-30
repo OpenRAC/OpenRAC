@@ -22,6 +22,19 @@ constexpr int kSamplerUnits = 8;
 
 }  // namespace
 
+std::string shader_constants(std::string source, std::initializer_list<ShaderIntConstant> values) {
+    for (const auto& [name, value] : values) {
+        const std::string declaration = "uniform int " + std::string(name) + ";";
+        const std::string constant =
+            "const int " + std::string(name) + " = " + std::to_string(value) + ";";
+        for (auto at = source.find(declaration); at != std::string::npos;
+             at = source.find(declaration, at + constant.size())) {
+            source.replace(at, declaration.size(), constant);
+        }
+    }
+    return source;
+}
+
 std::string es_source(std::string_view source, bool noperspective, bool clip_distance) {
     // The version line, and the first line after it that is not a comment, are where the ES
     // preamble goes; a source without "#version 410 core" first is given as it is.

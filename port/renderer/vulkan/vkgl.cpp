@@ -186,6 +186,12 @@ bool draw_gpu_instances(renderer::GpuInstanceBatch batch, unsigned first, unsign
     return active() && gpu_submit_draw(batch, first, count);
 }
 
+bool draw_gpu_instance_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
+) {
+    return active() && gpu_submit_ranges(batch, ranges);
+}
+
 bool draw_indexed_indirect(unsigned arguments, unsigned index_count) {
     // Commands must reside in GPU storage, and the pipeline setup needs a representable index count.
     if (!active() || index_count == 0
@@ -242,6 +248,14 @@ GpuMaterialCounters gpu_material_counters() {
 void report_measures() {
     const auto& current = g->submission;
     const auto& previous = g->reported_submission;
+    stats::gauge(
+        "vk_buffer_zero_fill_bytes",
+        double(current.buffer_zero_fill_bytes - previous.buffer_zero_fill_bytes)
+    );
+    stats::gauge(
+        "vk_buffer_mirror_restore_bytes",
+        double(current.buffer_mirror_restore_bytes - previous.buffer_mirror_restore_bytes)
+    );
     stats::gauge("vk_uniform_uploads", double(current.uniform_uploads - previous.uniform_uploads));
     stats::gauge(
         "vk_uniform_upload_kb",

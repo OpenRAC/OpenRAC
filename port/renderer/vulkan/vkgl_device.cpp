@@ -806,6 +806,7 @@ void destroy_all() {
         // Teardown drains all slots directly; resource retirement must not begin another recording.
         g->frame_pending = false;
         release_depth_combine();
+        release_colour_transform();
         tracy_gpu_close();
         gpu_release();
         material_release();

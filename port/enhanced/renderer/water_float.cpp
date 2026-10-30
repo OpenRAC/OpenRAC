@@ -3,10 +3,12 @@
 #include "enhanced/renderer/water_float.h"
 
 #include <array>
+#include <utility>
 
 #include "enhanced/renderer/water.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 
 namespace openrac::enhanced {
@@ -26,6 +28,11 @@ std::string WaterFloat::vertex_source(std::string source) {
                           + std::string(lighting::shaders::water_swell_glsl) + "\n"
                           + std::string(lighting::shaders::water_displacement_glsl) + "\n"
                           + std::string(lighting::shaders::water_float_glsl) + "\n";
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+        helpers.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
+        helpers = renderer::shader_constants(std::move(helpers), {{"water_sim_local", 1}});
+    }
     source.insert(source.find("void main()"), helpers);
     return source;
 }

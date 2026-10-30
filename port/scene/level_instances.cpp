@@ -337,6 +337,18 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
                 g.gpu_bounds.push_back(gpu_cull_bounds(bounds, g.cpu_instances[n], g.occlusion[n]));
             }
         }
+        g.shadow_geometry_bounds.clear();
+        if (layer != Layer::Mobys && g.cpu_instances.size() == 1 && !g.floats_on_water) {
+            for (const auto& chunk : m_shadow_geometry[m_opaque[g.model]]) {
+                Model shape;
+                shape.min = chunk.low;
+                shape.max = chunk.high;
+                auto bound = instance_bounds(shape, g.cpu_instances[0], {}, true, false);
+                bound.valid &= chunk.bounded;
+                g.shadow_geometry_bounds.push_back(bound);
+            }
+        }
+
         // Aggregate the same conservative bounds used by per-instance tests. Animated scenery
         // rebuilds these each frame, so it can use the normal group-level camera rejection too.
         g.bounded = false;

@@ -27,6 +27,45 @@ namespace openrac::scene {
 using namespace openrac::gl;
 using namespace render_detail;
 
+bool LevelScene::make_dry_shadow_programs(bool atlas, std::string& error) {
+    auto& programs = atlas ? m_dry_atlas : m_dry_shadow;
+    for (unsigned solid = 0; solid < programs.size(); ++solid) {
+        if (programs[solid].id()) {
+            continue;
+        }
+        // Positions, palettes and alpha coverage are unchanged. Only water deformation,
+        // which is disabled for these groups, is absent from the vertex program.
+        std::string vertex =
+            m_lighting ? m_lighting->dry_shadow_vertex(std::string(shaders::shadow_depth_vert))
+                       : std::string(shaders::shadow_depth_vert);
+        std::string fragment(shaders::hero_shadow_frag);
+        if (atlas) {
+            vertex.insert(
+                vertex.find('\n') + 1,
+                "#extension GL_ARB_shader_viewport_layer_array : require\n"
+                "#define OPENRAC_SHADOW_ATLAS 1\n"
+            );
+        }
+        if (solid) {
+            vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_SHADOW_SOLID 1\n");
+            fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_SHADOW_SOLID 1\n");
+        }
+        if (!programs[solid].build(
+                std::string(atlas ? "dry atlas shadow " : "dry shadow ")
+                    + (solid ? "solid" : "alpha"),
+                vertex,
+                fragment,
+                error
+            )) {
+            for (auto& shader : programs) {
+                shader.release();
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
 bool LevelScene::enable_hero_shadow(bool enabled, std::string& error) {
     if (enabled && (!enhanced_rendering_available() || !probe_data_available())) {
         error = "Modern shadows require Vulkan, an enhanced build and validated probe data";
@@ -45,6 +84,10 @@ bool LevelScene::enable_hero_shadow(bool enabled, std::string& error) {
             error
         )) {
         return false;
+    }
+    std::string dry_error;
+    if (!make_dry_shadow_programs(false, dry_error)) {
+        log::warn("Dry shadow variants unavailable: {}", dry_error);
     }
     if (!m_hero_map) {
         m_hero_map = std::make_unique<renderer::FrameBuffer>();
@@ -77,6 +120,7 @@ void LevelScene::set_shadow_quality(renderer::ShadowQuality quality) {
 }
 
 void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state) {
+    m_shadow_geometry_indices = {};
     set_shadow_quality(input.shadow_quality);
     m_shadow_atlas_active = false;
 #if defined(OPENRAC_VULKAN)
@@ -113,6 +157,8 @@ void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::Re
     stats::gauge("shadow atlas size", m_shadow_layout.size);
     stats::gauge("sun shadow near size", m_shadow_layout.rects[0][2]);
     stats::gauge("hero shadow size", m_shadow_layout.rects[4][2]);
+    stats::gauge("shadow geometry tested indices", double(m_shadow_geometry_indices[0]));
+    stats::gauge("shadow geometry rejected indices", double(m_shadow_geometry_indices[1]));
 }
 
 void LevelScene::prepare_hero_shadow(
@@ -190,6 +236,10 @@ bool LevelScene::enable_sun_shadow(bool enabled, std::string& error) {
         if (!m_shadow_solid.build("opaque static shadow depth", vertex, fragment, error)) {
             return false;
         }
+    }
+    std::string dry_error;
+    if (!make_dry_shadow_programs(false, dry_error)) {
+        log::warn("Dry shadow variants unavailable: {}", dry_error);
     }
     for (unsigned i = 0; i < kSunCascades; ++i) {
         auto& map = m_sun_maps[i];

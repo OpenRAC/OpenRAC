@@ -687,6 +687,9 @@ public:
         input.camera = camera;
         input.clear_colour = {0.3f, 0.4f, 0.6f, 1.0f};
         input.gtao = m_options.enhanced;
+        // Keep exercising the experimental transport when enhanced rendering is under test.
+        input.volumetric_quality = m_options.enhanced ? renderer::VolumetricQuality::Medium
+                                                      : renderer::VolumetricQuality::Off;
         // The sun's cascades are drawn when the frame asks for them, as the frontend asks.
         input.shadow_quality = shadow_quality;
         input.sun_pixel_shadow = m_options.enhanced && m_scene.sun_shadow_enabled();

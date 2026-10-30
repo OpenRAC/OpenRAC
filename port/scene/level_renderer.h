@@ -248,6 +248,8 @@ public:
     // The light bank the mobys are lit from this frame (16 sets of 16 floats, as the game holds
     // it); until set, the level's exported sets.
     // Shared lighting for optional world materials outside the mesh renderer.
+    std::string atmosphere_source() const;
+    void bind_atmosphere(const renderer::Shader&) const;
     void bind_surface_lighting(
         const renderer::Shader& shader, const renderer::Camera& camera
     ) const;
@@ -261,10 +263,10 @@ public:
 private:
     // One consecutive run of compatible motion instances, preserving draw order.
     struct MotionBatch {
-        std::uint32_t model = 0;  // Shared geometry and material runs.
-        unsigned group = 0;       // Current moby geometry VAO.
-        int first = 0;            // First nine-texel pose record.
-        int count = 0;            // Instances submitted together.
+        std::uint32_t model = 0;       // Shared geometry and material runs.
+        unsigned group = 0;            // Current moby geometry VAO.
+        int first = 0;                 // First nine-texel pose record.
+        int count = 0;                 // Instances submitted together.
         bool floats_on_water = false;  // Shared deformation selection for this batch.
     };
 
@@ -326,6 +328,7 @@ private:
         std::vector<CasterBounds> caster_bounds;
         std::vector<renderer::GpuCullBounds> gpu_bounds;
         renderer::GpuInstanceBatch gpu_camera, gpu_pvs;
+        std::vector<CasterBounds> shadow_geometry_bounds;
         std::vector<std::uint16_t> occlusion;
         unsigned pvs_vao = 0, pvs_instances = 0;
         int pvs_count = 0;
@@ -435,6 +438,9 @@ private:
     std::vector<std::vector<bool>> m_shadow_solid_primitives;
     // Both solid-shader eligibility modes, rebuilt with geometry/materials on level upload.
     std::vector<std::array<std::vector<ShadowDrawRange>, 2>> m_static_shadow_ranges;
+    std::vector<std::vector<ShadowGeometryRange>> m_shadow_geometry;
+    std::vector<std::uint8_t> m_prepass_coverage;  // Static solid/cutout material passes per model.
+    std::array<std::uint64_t, 2> m_shadow_geometry_indices{};  // Tested and rejected indices.
     std::vector<std::uint8_t>
         m_static_shadow_coverage;  // Alpha-tested (1) and permanent opaque (2).
 
@@ -520,12 +526,17 @@ private:
     // mesh.frag's opaque path alone, without discard (the static layers' opaque pass; draw_layer).
     renderer::Shader m_solid;
     renderer::Shader m_depth, m_depth_solid;
+    std::array<renderer::Shader, 2> m_rigid_depth, m_rigid_surface_depth;
+    bool make_rigid_depth_programs(std::string& error);
+    void release_rigid_depth_programs();
     renderer::Shader m_surface_depth;        // Smooth-normal prepass with alpha testing.
     renderer::Shader m_surface_depth_solid;  // Smooth-normal prepass for opaque static geometry.
     renderer::Shader m_sky;
     std::unique_ptr<renderer::FrameBuffer> m_hero_map;
     renderer::Shader m_hero_depth, m_shadow_solid;
     renderer::Shader m_atlas_depth, m_atlas_solid;
+    std::array<renderer::Shader, 2> m_dry_shadow, m_dry_atlas;
+    bool make_dry_shadow_programs(bool atlas, std::string& error);
     std::unique_ptr<renderer::FrameBuffer> m_shadow_atlas;
     bool m_shadow_atlas_active = false;
     ShadowAtlasLayout m_shadow_layout;
@@ -559,6 +570,7 @@ private:
     };
 
     std::array<std::vector<ShadowDraw>, 3> m_shadow_draws;
+    std::vector<renderer::GpuIndexRange> m_shadow_ranges;
     renderer::Mat4 m_hero_matrix = renderer::identity();
     std::optional<renderer::Vec3> m_hero_centre;
     std::optional<Instance> m_wetness_hero;

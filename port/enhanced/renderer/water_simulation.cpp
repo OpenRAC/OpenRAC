@@ -11,6 +11,7 @@
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced/renderer/water_window.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #ifdef OPENRAC_VULKAN
 #include "renderer/vulkan/vkgl.h"
@@ -48,6 +49,7 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
 
     m_mesh->begin_pass();
     m_bound = false;
+    m_effect_setups = 0;
     const auto options = water_debug_settings();
     const auto epoch = water_reset_epoch.load();
     const bool debug_reset =
@@ -296,6 +298,8 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
             point[2]
         );
     }
+    const bool compact_barriers =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::WaterStepBarriers);
     for (unsigned step = 0; step < steps * 4; ++step) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffers[m_current]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_buffers[1 - m_current]);
@@ -315,7 +319,11 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                 hand_impulses[hand]
             );
         }
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+        // The previous substep's trailing barrier already orders its writes before
+        // this dispatch. Keep the initial dependency and every trailing barrier.
+        if (step == 0 || !compact_barriers) {
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+        }
         glDispatchCompute((kWindowCells + 63) / 64, 1, 1);
         glUniform2f(m_step.uniform("previous_window"), float(window[0]), float(window[1]));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);

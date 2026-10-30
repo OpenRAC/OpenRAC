@@ -76,6 +76,21 @@ before and after, and how its frames are shown to be the same.
 | `vk-last-pipeline` | on | none (exact) | Each program keeps its last graphics pipeline and the whole key it was found by; a draw with the same key takes it back before hashing the key or looking it up ([vk-last-pipeline](#vk-last-pipeline-a-programs-last-pipeline)). |
 | `fsr-motion-batch` | on | none (exact) | Enhanced Vulkan with FSR only: the object-motion pass instances consecutive objects of one geometry and material from one pose buffer instead of one draw per object ([fsr-motion-batch](#fsr-motion-batch-object-motion-in-batches)). |
 | `gtao-direct-depth` | on | none (exact) | GTAO's colour composite (levels without an active probe bake) samples the prepass's own depth instead of a copy of it ([gtao-direct-depth](#gtao-direct-depth-the-composite-without-a-depth-copy)). |
+| `vk-buffer-direct-fill` | on | none (exact) | Supplied buffer data replaces the CPU mirror without a preceding zero fill; complete subdata replacements do not recover obsolete bytes. |
+| `fsr-palette-reuse` | on | none (exact) | Previous displayed joint matrices retain texture storage and skip unchanged uploads. |
+| `water-step-barriers` | on | none (exact) | Adjacent water solver substeps share one memory dependency instead of recording it twice. |
+| `shadow-dry-shaders` | on | none (exact) | Dry casters use shadow vertex variants without unused water attachment code. |
+| `probe-translucent-tiles` | on | none (exact) | Blended lighting uses depth-independent tile masks over the same selected probe regions. |
+| `shadow-frame-reuse` | on | none (exact) | Early lighting uses the current shadows already rendered before atmospheric transport. |
+| `native-compute-setup` | on | none (exact) | Small native imports use stack storage and omit repeated read-only image barriers. |
+| `motion-blur-unique-seeds` | on | none (exact) | Later jump-flood passes test each distinct propagated source once per receiver. |
+| `motion-blur-setup-reuse` | on | none (exact) | Unchanged flood uniforms persist between frames without setup-only program switches. |
+| `shadow-geometry-cull` | on | none (exact) | Opaque terrain omits conservative chunks outside the shadow map and submits compatible ranges together. |
+| `effect-quad-shader` | on | none (exact) | Material-approved surface-zero quads omit water vertex, reflection and probe machinery while retaining atmosphere. |
+| `effect-setup-reuse` | on | none (exact) | Water constants and per-program atmosphere bindings are set once per effects pass. |
+| `water-mesh-reuse` | on | none (exact) | Reuses immutable rest-height candidates and bit-matching water subdivision plans; Z selection, UVs and colours stay live. |
+| `effect-strip-shader` | on | none (exact) | Material-approved surface-zero strips without UV animation use the existing plain effect shader. |
+| `fsr-object-history-reuse` | on | none (exact) | Retains history nodes for surviving object identities and erases vanished identities each displayed frame. |
 | `moby-glow-skip` | on | none (exact) | The mobys' two glow draws leave out the triangles with no glow packet vertex, whose every fragment they would discard ([moby-glow-skip](#moby-glow-skip-glow-draws-without-the-faces-they-discard)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
@@ -128,6 +143,8 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_texture_upload_bytes` | frame | Texel bytes staged for upload into images | `vkgl_resources.cpp` | R-13 |
 | `vk_buffer_static_bytes_host_visible` | total | Bytes of the buffers that stopped changing and got memory of their own, where that memory is host-visible (`vmaGetAllocationMemoryProperties`) | `vkgl_resources.cpp` | R-05 |
 | `vk_cpu_mirror_bytes` | total | The bytes of the CPU copies the backend keeps of GL's buffers, now | `vkgl_gl.cpp` | R-05 |
+| `vk_buffer_zero_fill_bytes` | frame | CPU buffer-mirror bytes zeroed by `glBufferData` | `vkgl_gl.cpp` | vk-buffer-direct-fill |
+| `vk_buffer_mirror_restore_bytes` | frame | Discarded CPU buffer-mirror bytes recovered from mapped, staged or device memory | `vkgl_resources.cpp` | vk-buffer-direct-fill |
 | `vk_gpu_payload_bytes` | frame | Bytes the CPU writes for the GPU-driven instances: each batch's view and instances as `gpu_make_batch` builds them, and the page header, groups, commands and payload `gpu_record` copies into the mapped input page | `gpu_draw.inc` | R-15 |
 | `vk_shader_compiles` | total | glslang runs: each shader checked at `glCompileShader`, each program compiled at `glLinkProgram`, the GPU-driven and material programs | `shader_compiler.cpp` | R-12 |
 | `shader_compile_s` | total | The seconds those runs took | `shader_compiler.cpp` | R-12 (informs) |
@@ -1679,3 +1696,137 @@ attachment, so GTAO's colour composite (the path of a level without an active pr
 it directly; before, it blitted depth and stencil into a copy of its own. Radeon 610M, level 03 at
 1920x1080, Enhanced on, `openrac_render_bench --level`: `GTAO depth copy` 0.96 ms gone, the
 picture 32.58 against 31.22 ms. Frames identical in `render_equivalence_vulkan`.
+
+
+## Buffer uploads and motion history
+
+`vk-buffer-direct-fill` initializes a buffer mirror from supplied bytes without first zeroing it.
+Full replacements skip recovery of discarded bytes; partial updates still recover untouched data.
+The required mirror-to-upload copy remains. The buffer regression removes 262,144 redundant zero
+writes and 131,072 recovered bytes in its respective fixtures, with identical pixels.
+
+`fsr-palette-reuse` retains texture storage and exact previous displayed joint matrices. Unchanged
+palettes skip uploads; changed row counts reallocate and partial-row padding stays zero.
+`fsr-object-history-reuse` retains surviving identity nodes, removes vanished objects and clears on
+reset. Neither changes the temporal endpoints used by object motion.
+
+## Water solver and effect geometry
+
+`water-step-barriers` records one dependency between adjacent solver substeps. Read/write ordering
+and simulated time remain unchanged. `water-mesh-reuse` caches immutable rest-height candidates
+and subdivision plans; live Z, UVs and colours remain live. Cache identity includes every input
+that determines topology, and invalidation retains the original mesh path.
+
+`effect-quad-shader` and `effect-strip-shader` use ordinary effect programs only for approved
+materials without water or animated-UV requirements. `effect-setup-reuse` binds unchanged water
+and atmosphere resources once per pass. Material callbacks may change buffer bindings; the core
+upload restores its own VBO before writing. GPU fixtures cover a callback that binds scratch
+storage, optional-program failure and switching between material and ordinary draws.
+
+## Shadow submission
+
+`shadow-frame-reuse` shares the current frame's already-rendered shadow maps between atmosphere
+and early lighting. It does not reuse older poses or cascade transforms.
+`shadow-dry-shaders` omits water attachment work for dry casters. Wet/deformed casters retain their
+full programs. `shadow-geometry-cull` rejects conservative terrain chunks outside each map and
+submits compatible opaque ranges together. Alpha-tested ranges retain material order and coverage.
+No caster bounds, map resolution, filter, bias or distance is reduced by these switches.
+
+## Compute setup and probe lookup
+
+`native-compute-setup` uses bounded stack storage for small imports and skips an image barrier
+only when its existing layout/access already permits the same read. Writable resources still
+receive their required dependency.
+
+`probe-translucent-tiles` supplies conservative, depth-independent region masks to blended
+receivers. The same resident volumes, ordering, three-volume limit and visibility rules apply.
+Opaque receivers retain depth-aware selection. This avoids copying an opaque depth assumption
+onto water or particles that occupy a different depth in the same tile.
+
+`early-probe-setup` prepares receiver-invariant normal/oct-map and atlas terms outside probe-corner
+loops. Corner visibility and distance terms stay inside. Probe formats, weights, filtering and
+leak rejection are unchanged. Exact CPU/GPU comparisons include rotated grids, wide atlases,
+nonlinear irradiance, invalid probes and biased receivers.
+
+## Motion blur
+
+`motion-blur-unique-seeds` tests each distinct propagated source once in later jump-flood passes.
+`motion-blur-setup-reuse` retains unchanged setup uniforms without switching programs solely to
+upload them again. Candidate order, quality settings and temporal validity remain unchanged.
+
+## Shader variants
+
+Bounded variants remove work fixed for a whole draw or dispatch. World programs distinguish
+static/skinned, solid/cutout/translucent and wet/dry materials. Effect programs omit HUD-only work
+but retain authored fog when volumetric transport is disabled. GTAO selects full/half resolution
+and normal-texture availability; atmosphere selects whether local volumes exist. Motion blur
+separates target-relative and camera-relative velocity, and texture reconstruction specializes
+four wrap combinations.
+
+Probe shortlist and tile selection use separate programs so tile dispatches do not carry the
+8 KiB sort scratch. Failure to compile either restores the combined program. Variants are keyed
+by finite feature choices, never continuous settings, material identity or resolution. Per-pixel
+alpha, probe visibility, shadow tests, history rejection and water boundaries remain dynamic.
+The optional local-water sampling variant defaults off because it regressed on the measured GPU.
+
+Representative FP32 SPIR-V comparisons, not driver machine-code sizes or speed guarantees:
+
+| Fixture | Words before/after | Conditional branches before/after |
+|---|---:|---:|
+| Effect fragment | 2017 / 1289 | 12 / 7 |
+| Static alpha fragment | 2211 / 1393 | 22 / 12 |
+| GTAO full resolution | 5258 / 4849 | 31 / 26 |
+| GTAO half resolution | 5258 / 5146 | 31 / 29 |
+
+## Rigid depth/normal prepass
+
+Rigid world draws use dedicated vertex programs without skinning/palette work. Cutouts still
+sample authored alpha, and wet surfaces retain displacement. Normals preserve authored smoothing
+and are oriented toward the camera. Finite, nonzero derivative planes remain valid even for
+close-camera triangles; a small derivative magnitude alone must not reject them. Static/skinned,
+both normal signs and MSAA are covered by the regression tests.
+
+## AgX output reuse
+
+The direct AgX path transforms existing storage outputs in place where format, ownership and
+synchronization permit it. It does not remove required scene snapshots for refraction, temporal
+history or consumers still sampling the previous image. Unsupported paths retain their original
+resolve/copy. CPU and Vulkan references compare the same colour transform and output alpha.
+
+## Separate Vulkan draw integer
+
+`vk-draw-uniform` moves one explicitly marked scalar vertex integer into four bytes of push
+constants. Water uses this for `water_first_triangle`; changing it no longer dirties the whole
+uniform block. Commands capture its value, and indirect batch identity includes its bits.
+There is no extra vertex stream or GPU allocation. Arrays, other types, shared-stage uniforms,
+native compute/material programs and failed optional compilation retain the original uniform.
+OpenGL reads the ordinary declaration. Restart or reload programs when switching the option.
+
+## Validation and measured scope
+
+The equivalence fixtures compare original and optimized paths with Vulkan validation, resource
+churn, reuploads, moving objects and enhanced lighting on/off. Dedicated tests cover water state,
+mesh reconstruction, wetness, particles, cutouts, MSAA, palette history and shader variants.
+FP32 fallback and enhanced-disabled builds exercise supported alternatives. The camera visibility
+reuse entry retains its explicitly listed pixel tolerance; exactness is not claimed beyond each
+registry entry's contract.
+
+Selected warmed Novalis opening measurements on Radeon 780M, 1128x634 internal and 2256x1269
+output, FP16, low shadows, medium volumetrics, unchanged FSR/GTAO/blur, validation off:
+
+| Change | Scope | Reference / retained median (ms) |
+|---|---|---:|
+| Split probe kernels | Whole probe selection GPU | 0.387 / 0.306 |
+| Fixed shader variants | Opaque plus following glow GPU | 3.441 / 2.894 |
+| Fixed shader variants | GTAO horizons GPU | 1.149 / 1.035 |
+| Receiver setup reuse | Early GI/cascades GPU | 1.049 / 1.025 |
+| Separate draw integer | Effect strips CPU | 1.642 / 1.470 |
+| Separate draw integer | Effect strips GPU | 1.253 / 1.212 |
+
+Each pair is the median of five alternating warmed runs. GPU scopes are summed within each of
+the last 100 complete frame windows before taking the median; nested scopes must not be added.
+Raw clocks vary: receiver setup improved in three raw pairs and all five shadow-normalized
+pairs, while the separate integer improved in four raw pairs. Total effects CPU was essentially
+unchanged. These support pass-specific savings, not an overall FPS promise. Other levels,
+GPUs and drivers can differ. Native Windows Vulkan was exercised; Android/macOS hardware and
+OpenGL execution require their own validation.

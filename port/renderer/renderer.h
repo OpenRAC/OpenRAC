@@ -35,6 +35,7 @@
 #include "renderer/shadow_volume.h"
 #include "renderer/texture_filter.h"
 #include "renderer/texture_pool.h"
+#include "renderer/volumetric_settings.h"
 
 namespace openrac::renderer {
 
@@ -140,6 +141,7 @@ struct RenderTarget;
 struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
     ShadowQuality shadow_quality = ShadowQuality::High;
+    VolumetricQuality volumetric_quality = VolumetricQuality::Off;
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;
     bool hero_airborne = false;
@@ -254,6 +256,7 @@ struct RenderState {
     float gtao_strength = 1;
     bool early_lighting = false;
     bool world_shadows_prepared = false;
+    bool atmosphere_prepared = false;
     int opaque_colour_phase = -1;
     bool opaque_colour_batched = false;
 };

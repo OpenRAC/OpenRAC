@@ -3,6 +3,7 @@
 Probe GI requires Vulkan, enhanced rendering enabled at startup and a verified level bake.
 Otherwise original lighting applies and Enhanced controls are disabled, retaining saved settings.
 Core Vulkan optimisations work in either mode. Interiors can still be too dark.
+Enhanced scenes also share [atmosphere and fog transport](../docs/atmosphere.md).
 See the [probe baking tools](../tools/probes/README.md) for pipeline details.
 
 ## Build

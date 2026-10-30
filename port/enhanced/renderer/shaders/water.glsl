@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#ifndef OPENRAC_EFFECT_WORLD
 in vec3 v_world;
+#endif
 in vec3 v_water_rest;
 uniform samplerBuffer water_bodies;
 uniform sampler2D water_coast_map;

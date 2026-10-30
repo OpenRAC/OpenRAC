@@ -33,7 +33,9 @@ std::string SceneLighting::mesh_vertex(std::string source) const {
 }
 
 std::string SceneLighting::mesh_fragment(std::string source) const {
-    return wetness_shader(probe_mesh_fragment(std::move(source)));
+    return enhanced::Atmosphere::fragment_source(
+        wetness_shader(probe_mesh_fragment(std::move(source)))
+    );
 }
 
 void SceneLighting::prepare_wetness(
@@ -56,6 +58,36 @@ void SceneLighting::bind_deformation(const renderer::Shader& shader, bool enable
 
 bool SceneLighting::deformation_active() const {
     return enhanced::water_available();
+}
+
+bool SceneLighting::atmosphere_wanted(const renderer::FrameInput& input) const {
+    return active() && input.volumetric_quality != renderer::VolumetricQuality::Off
+           && enhanced::atmosphere_settings().enabled;
+}
+
+void SceneLighting::prepare_atmosphere(
+    const scene::LevelScene& scene,
+    const renderer::FrameInput& input,
+    const renderer::RenderTarget& target,
+    const std::array<float, 4>& colour,
+    const std::array<float, 4>& fog
+) {
+    m_atmosphere.prepare(scene, input, target, colour, fog, active());
+}
+
+void SceneLighting::draw_atmosphere_sky(const renderer::RenderTarget& target) {
+    m_atmosphere.draw_sky(target);
+}
+
+std::string SceneLighting::atmosphere_source() const {
+    if (!gl::is_vulkan() || !gl::enhanced_rendering_available()) {
+        return {};
+    }
+    return "#define OPENRAC_EFFECT_ATMOSPHERE 1\n" + enhanced::Atmosphere::sampling_source();
+}
+
+void SceneLighting::bind_atmosphere(const renderer::Shader& shader) const {
+    m_atmosphere.bind(shader);
 }
 
 void SceneLighting::bind_material(
@@ -88,7 +120,9 @@ void SceneLighting::bind_material(
 }
 
 std::string SceneLighting::early_fragment(std::string source) const {
-    return wetness_shader(probe_early_fragment(std::move(source)));
+    return enhanced::Atmosphere::fragment_source(
+        wetness_shader(probe_early_fragment(std::move(source)))
+    );
 }
 
 // Keeps the level renderer's direct-light and shadow direction aligned.
@@ -126,11 +160,13 @@ void SceneLighting::load(const scene::LevelData& level) {
     m_probes.load(level);
     m_wetness.load(level);
     m_water_float.load();
+    m_atmosphere.load();
 }
 
 void SceneLighting::release() {
     m_wetness.release();
     m_water_float.release();
+    m_atmosphere.release();
     m_probes.release();
     m_early_lighting.release();
 }
@@ -216,6 +252,7 @@ void SceneLighting::bind(
     bool depth_matched
 ) const {
     m_probes.bind(shader, layer, all_static_receivers, camera, depth_matched);
+    m_atmosphere.bind(shader);
 }
 
 bool SceneLighting::render_early(

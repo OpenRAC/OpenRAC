@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "enhanced/lighting/probes.h"
+#include "enhanced/renderer/atmosphere.h"
 #include "enhanced/renderer/water_float.h"
 #include "enhanced/renderer/wetness.h"
 #include "enhanced/viewer/early_lighting.h"
@@ -32,6 +33,14 @@ class SceneLighting final : public scene::LevelLighting {
 public:
     std::string mesh_fragment(std::string source) const override;
     std::string mesh_vertex(std::string source) const override;
+
+    std::optional<std::string> rigid_depth_vertex(std::string source) const override {
+        return source;
+    }
+
+    // Water attachments are the only position deformation supplied by this provider.
+    std::string dry_shadow_vertex(std::string source) const override { return source; }
+
     void prepare_wetness(
         const renderer::FrameInput& input,
         unsigned palette,
@@ -41,6 +50,17 @@ public:
     void prepare_deformation(const renderer::FrameInput& input) override;
     void bind_deformation(const renderer::Shader& shader, bool enabled) const override;
     bool deformation_active() const override;
+    bool atmosphere_wanted(const renderer::FrameInput&) const override;
+    void prepare_atmosphere(
+        const scene::LevelScene&,
+        const renderer::FrameInput&,
+        const renderer::RenderTarget&,
+        const std::array<float, 4>&,
+        const std::array<float, 4>&
+    ) override;
+    void draw_atmosphere_sky(const renderer::RenderTarget&) override;
+    std::string atmosphere_source() const override;
+    void bind_atmosphere(const renderer::Shader&) const override;
     void bind_material(
         const renderer::Shader& shader, std::uint32_t model, const scene::Material& material
     ) const override;
@@ -115,6 +135,7 @@ private:
         m_reflection_classes;  // Authored object identity for chrome overrides.
     enhanced::HeroWetness m_wetness;
     enhanced::WaterFloat m_water_float;
+    enhanced::Atmosphere m_atmosphere;
     ProbeLighting m_probes;          // The level's probe bake on the GPU.
     EarlyLighting m_early_lighting;  // The early-lit world's per-pixel lighting.
 };

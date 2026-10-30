@@ -614,6 +614,56 @@ bool gpu_submit_draw(renderer::GpuInstanceBatch batch, unsigned first, unsigned 
     return true;
 }
 
+bool gpu_submit_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
+) {
+    prepare_frame();
+    if (!batch || batch.recording != g->recording || batch.page >= frame().gpu.used
+        || ranges.empty()) {
+        return false;
+    }
+    auto& page = frame().gpu.pages[batch.page];
+    if (batch.group >= page.groups.size()
+        || std::any_of(ranges.begin(), ranges.end(), [](auto range) { return range.count == 0; })) {
+        return false;
+    }
+    if (!g->features.multiDrawIndirect
+        || ranges.size() > g->properties.limits.maxDrawIndirectCount) {
+        for (const auto range : ranges) {
+            if (!gpu_submit_draw(batch, range.first, range.count)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (page.commands.size() + ranges.size() > kGpuPageDraws) {
+        throw std::runtime_error("GPU indirect page command capacity exceeded");
+    }
+    const auto first = static_cast<unsigned>(page.commands.size());
+    for (const auto range : ranges) {
+        page.commands.push_back({range.count, range.first, batch.group, 0});
+        stats::count(stats::Counter::DrawCalls);
+        stats::count(
+            stats::Counter::Triangles, std::uint64_t(range.count / 3) * page.groups[batch.group][2]
+        );
+    }
+    draw(
+        GL_TRIANGLES,
+        static_cast<GLsizei>(ranges.front().count),
+        1,
+        true,
+        GL_UNSIGNED_INT,
+        std::uintptr_t(ranges.front().first) * 4,
+        0,
+        &page,
+        first,
+        0,
+        static_cast<unsigned>(ranges.size())
+    );
+    g->gpu.indirect += ranges.size();
+    return true;
+}
+
 void gpu_record() {
     auto& work = frame().gpu;
     // Empty recordings publish zero totals too, rather than retaining a stale scene.

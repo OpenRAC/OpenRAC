@@ -16,7 +16,9 @@ float water_sim_fade(vec2 p,int body) {
     return water_sim_weight*(1.-smoothstep(water_sim_window.z*water_sim_window.w*.375,water_sim_window.z*water_sim_window.w*.46875,length(p-centre)));
 }
 vec4 water_sim_sample(sampler2D field,vec2 p,int body,vec2 legacy_uv,vec2 current) {
+#ifndef OPENRAC_WATER_LOCAL
     if(water_sim_local==0) return textureLod(field,legacy_uv,0.);
+#endif
     vec4 reference=vec4(0,current,water_sim_marker(p));
     float fade=water_sim_fade(p,body);
     if(fade<=0.) return reference;

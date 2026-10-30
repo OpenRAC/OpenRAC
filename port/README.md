@@ -35,7 +35,7 @@ out), and it stays off until the `enhanced_rendering` setting or
 `OPENRAC_ENHANCED=1` turns it on at start; off, the game draws exactly as a
 build without it. Players turn it on in the launcher: Mods, **Enhanced
 graphics**, which plays with Vulkan and bakes the probes on their computer from
-their own extracted levels, one level per thread, into
+their own extracted levels with a shared, bounded worker pool, into
 `<data>/probes/<version>` (`--probes`). It needs Vulkan and a bake that matches
 the level; OpenGL, and a level without one, keep the original lighting. Core
 Vulkan draw/culling optimizations work either way. Only the offline baker needs

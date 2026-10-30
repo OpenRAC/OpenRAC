@@ -21,9 +21,13 @@ layout(location = 2) in vec2 uv;
 layout(location = 3) in vec4 colour;
 layout(location = 4) in mat4 model;  // locations 4 to 7
 layout(location = 8) in vec4 tint;
+#if !defined(OPENRAC_STATIC_COLOUR) || defined(OPENRAC_HERO_WETNESS)
 layout(location = 9) in float palette;
+#endif
+#ifndef OPENRAC_STATIC_COLOUR
 layout(location = 10) in uvec4 joints;
 layout(location = 11) in vec4 weights;
+#endif
 layout(location = 12) in float light_slot;
 layout(location = 13) in float lights;
 layout(location = 14) in vec4
@@ -35,8 +39,10 @@ uniform mat4 view;
 uniform float picture_scale;  // the game's 4:3 picture's width as a part of the target's (1: all of it)
 // The game's fog line (LevelScene::set_fog): F = depth x slope + offset, clamped to [z, w].
 uniform vec4 fog_params;
+#ifndef OPENRAC_STATIC_COLOUR
 uniform int skinning;
 uniform sampler2D palette_texture;
+#endif
 uniform sampler2D light_texture;
 // The level's 16 directional sets: colour A (w = back factor), direction A, colour B, direction B.
 uniform vec4 light_sets[64];
@@ -74,6 +80,7 @@ out vec2 v_fog_w;
 const int kPaletteWidth = 1024;
 const int kLightWidth = 1024;
 
+#ifndef OPENRAC_STATIC_COLOUR
 mat4 joint_matrix(int index) {
     int texel = 4 * index;
     ivec2 at = ivec2(texel % kPaletteWidth, texel / kPaletteWidth);
@@ -84,10 +91,12 @@ mat4 joint_matrix(int index) {
         texelFetch(palette_texture, at + ivec2(3, 0), 0)
     );
 }
+#endif
 
 void main() {
     vec4 p = vec4(position, 1.0);
     vec3 n = normal;
+#ifndef OPENRAC_STATIC_COLOUR
     float total = weights.x + weights.y + weights.z + weights.w;
     if (skinning != 0 && palette >= 0.0 && total > 0.0) {
         int base = int(palette + 0.5);
@@ -98,6 +107,7 @@ void main() {
         p = vec4((skin * p).xyz, 1.0);
         n = mat3(skin) * n;
     }
+#endif
     vec4 world = model * p;
 #ifdef OPENRAC_WATER_FLOAT
     mat4 water_pose = water_float_pose(model[3].xyz);
@@ -183,6 +193,7 @@ void main() {
         v_normal = transpose(inverse(normal_model)) * n;
     }
 #endif
+#ifndef OPENRAC_COLOUR_SPECIALISED
     if (metal_pass != 0) {
         // st = (e.xy + 1) / 2, e the normal in camera space (x right, y down: t grows downward).
         vec3 e = normalize(mat3(view) * normalize(normal_model * n));
@@ -200,4 +211,5 @@ void main() {
         v_lit = 1;
         v_glow = 0;
     }
+#endif
 }

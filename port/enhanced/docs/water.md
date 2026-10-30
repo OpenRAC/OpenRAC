@@ -182,3 +182,6 @@ These describe the mathematics; no source code was copied:
 - [RDycore: MUSCL reconstruction](https://rdycore.github.io/RDycore/theory/muscl.html).
 - [Clawpack: shallow-water solvers](https://www.clawpack.org/v5.12.x/riemann/Shallow_water_Riemann_solvers.html).
 - [GPU Gems: fluid advection](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu).
+
+Water and world particles also share the optional [atmosphere transport](atmosphere.md) at their
+own surface depth.

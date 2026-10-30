@@ -81,8 +81,10 @@ Opaque colour batches across layers when GPU visibility/materials and reusable
 prepass depth are available. It tests `EQUAL` with depth writes off. Runs stop
 at translucent, glow, metal or effect work to preserve pass order. Visibility
 is calculated once per layer. Otherwise original scheduling applies.
-Blended receivers select from all resident probe regions because their surfaces
-can lie outside the opaque depth bounds used to build tile masks.
+Blended receivers use a second conservative probe-region mask built from each tile's four
+side planes, without opaque depth bounds. Their surfaces may occupy any depth, including
+empty opaque tiles. Secondary views and mismatched viewports retain the full selected lookup.
+The `probe-translucent-tiles` registry switch keeps that full lookup as its reference.
 
 Specialised static solid, static cutout, opaque moby and static translucent
 programs reduce unused controls. Solid shaders have no discard; static shaders

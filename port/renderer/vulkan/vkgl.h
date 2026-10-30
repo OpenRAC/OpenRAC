@@ -124,6 +124,11 @@ bool draw_gpu_instances(
     renderer::GpuInstanceBatch batch, unsigned first_index, unsigned index_count
 );
 
+// Consecutive ranges sharing all current state and one instance batch. No per-draw materials.
+bool draw_gpu_instance_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
+);
+
 // Draws triangles with uint32 indices from the current vertex array using a compute-written command.
 // `arguments` is a storage buffer beginning with VkDrawIndexedIndirectCommand; false for invalid inputs.
 [[nodiscard]] bool draw_indexed_indirect(unsigned arguments, unsigned index_count);
@@ -233,6 +238,9 @@ struct SubmissionCounters {
     // can see (VmaAllocationInfo's memory type), made so far.
     std::uint64_t buffer_static_bytes_host_visible = 0;
     std::uint64_t cpu_mirror_bytes = 0;  // Now: the CPU copies GL's buffers keep (glBufferData).
+    std::uint64_t buffer_zero_fill_bytes =
+        0;  // Cumulative: glBufferData mirror zero initialisation.
+    std::uint64_t buffer_mirror_restore_bytes = 0;  // Cumulative: discarded mirrors recovered.
     // Bytes the CPU writes for the GPU-driven instances: each batch's payload as it is built, and
     // its copy into the mapped input page at the end of the recording.
     std::uint64_t gpu_payload_bytes = 0;

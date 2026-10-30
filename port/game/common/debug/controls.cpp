@@ -10,6 +10,7 @@
 
 #include "debug/overlay.h"
 #include "enhanced/fsr3/fsr3.h"
+#include "enhanced/renderer/atmosphere.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/wetness.h"
@@ -332,6 +333,7 @@ void enhanced_settings_window() {
         enhanced::set_wetness_material_settings({});
         enhanced::set_wetness_debug_view(false);
         enhanced::set_water_debug_settings({});
+        enhanced::set_atmosphere_settings({});
         enhanced::reset_water_simulation();
         changed = true;
     }
@@ -595,6 +597,60 @@ void enhanced_settings_window() {
             "%.2f units",
             ImGuiSliderFlags_AlwaysClamp
         );
+    }
+    if (ImGui::CollapsingHeader("Atmosphere and fog")) {
+        auto atmosphere = enhanced::atmosphere_settings();
+        int quality = static_cast<int>(graphics.volumetric_quality);
+        if (ImGui::Combo("Volumetrics", &quality, "Off\0Low\0Medium\0High\0")) {
+            graphics.volumetric_quality = static_cast<renderer::VolumetricQuality>(quality);
+            changed = true;
+        }
+        ImGui::TextWrapped(
+            "Higher quality uses a denser volume grid. Fog thickness stays the same."
+        );
+        ImGui::BeginDisabled(graphics.volumetric_quality == renderer::VolumetricQuality::Off);
+        bool edited = false;
+        ImGui::TextWrapped(
+            "Shared haze and fog for surfaces, water and particles. Quality is saved; other "
+            "controls are session-only. "
+            "Authored skies stay intact."
+        );
+        edited |= ImGui::SliderFloat("Authored haze", &atmosphere.haze, 0, 4);
+        edited |= ImGui::SliderFloat("Fog range", &atmosphere.distance, 10, 2000, "%.0f units");
+        edited |=
+            ImGui::SliderFloat("Height fog density", &atmosphere.height_density, 0, .1f, "%.4f");
+        edited |=
+            ImGui::SliderFloat("Fog base height", &atmosphere.base_height, -100, 200, "%.1f units");
+        edited |= ImGui::SliderFloat("Height falloff", &atmosphere.height_falloff, 0, 1, "%.3f");
+        edited |= ImGui::SliderFloat("Scattered sunlight", &atmosphere.sun_strength, 0, 1);
+        edited |=
+            ImGui::SliderFloat("Scattering directionality", &atmosphere.anisotropy, -.8f, .8f);
+        if (ImGui::TreeNode("Local fog volumes")) {
+            for (std::size_t i = 0; i < atmosphere.volumes.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::TreeNode("volume", "Volume %d", static_cast<int>(i + 1))) {
+                    auto& volume = atmosphere.volumes[i];
+                    edited |= ImGui::InputFloat3("Centre", volume.centre_radius.data());
+                    edited |= ImGui::SliderFloat("Radius", &volume.centre_radius[3], .1f, 100);
+                    edited |= ImGui::ColorEdit3("Fog colour", volume.colour_density.data());
+                    edited |=
+                        ImGui::SliderFloat("Density", &volume.colour_density[3], 0, .1f, "%.4f");
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        ImGui::EndDisabled();
+        if (ImGui::Button("Reset atmosphere")) {
+            atmosphere = enhanced::AtmosphereSettings{};
+            graphics.volumetric_quality = settings::Settings{}.volumetric_quality;
+            changed = true;
+            edited = true;
+        }
+        if (edited) {
+            enhanced::set_atmosphere_settings(atmosphere);
+        }
     }
     if (ImGui::CollapsingHeader("Water simulation")) {
         water_controls();

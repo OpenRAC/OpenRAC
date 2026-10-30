@@ -56,8 +56,32 @@ enum class Opt : std::uint8_t {
     FsrMotionBatch,      // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
     MobyGlowSkip,        // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
     GtaoDirectDepth,  // gtao-direct-depth: the colour composite samples the prepass depth, no copy
-    FsrFloat16,       // fsr-float16: vendor half-precision history filtering
-    ShaderFloat16,    // shader-float16: audited local mixed-precision arithmetic
+    VkBufferDirectFill,  // vk-buffer-direct-fill: supplied buffer bytes replace the mirror directly
+    FsrPaletteReuse,  // fsr-palette-reuse: retain joint-history storage and skip unchanged uploads
+    WaterStepBarriers,  // water-step-barriers: one dependency between adjacent simulation substeps
+    FsrObjectHistoryReuse,  // fsr-object-history-reuse: retain nodes for surviving temporal identities
+    FsrFloat16,             // fsr-float16: vendor half-precision history filtering
+    NativeComputeSetup,  // native-compute-setup: stack imports and reuse established read layouts
+    ShadowFrameReuse,  // shadow-frame-reuse: atmosphere and early lighting share this frame's maps
+    ProbeTranslucentTiles,  // probe-translucent-tiles: depth-independent region masks for blending
+    ShadowDryShaders,       // shadow-dry-shaders: omit unused water deformation for dry casters
+    MotionBlurUniqueSeeds,  // motion-blur-unique-seeds: skip already-tested flood sources
+    MotionBlurSetupReuse,   // motion-blur-setup-reuse: retain unchanged flood uniforms
+    ShadowGeometryCull,  // shadow-geometry-cull: reject off-map chunks of single-instance terrain
+    EffectQuadShader,    // effect-quad-shader: omit water machinery from ordinary quads
+    EffectSetupReuse,    // effect-setup-reuse: bind unchanged material state once per pass
+    WaterMeshReuse,      // water-mesh-reuse: retain immutable rest-height and topology lookups
+    EffectStripShader,   // effect-strip-shader: plain shader for undeformed surface-zero strips
+    ShadowStaticGeometryCull,  // shadow-static-geometry-cull: off-map rigid static ranges
+    AgxDirectOutput,  // agx-direct-output: in-place colour transform on storage-capable outputs
+    PrepassRigid,     // prepass-rigid: static dry depth/normal shaders without skinning
+    EffectStaticControls,    // effect-static-controls: omit unused effect fragment paths
+    WaterLocalShader,        // water-local-shader: specialise local-window water sampling
+    ProbeSelectionVariants,  // probe-selection-variants: separate shortlist and tile kernels
+    EarlyProbeSetup,         // early-probe-setup: prepare receiver atlas coordinates once per grid
+    VkDrawUniform,           // vk-draw-uniform: opt-in vertex draw integer as a push constant
+    ShaderVariants,          // shader-variants: compile fixed pass controls out of local shaders
+    ShaderFloat16,           // shader-float16: audited local mixed-precision arithmetic
 };
 
 // The number of entries: ShaderFloat16 is the last enumerator of Opt.

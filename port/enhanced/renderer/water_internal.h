@@ -51,10 +51,19 @@ public:
     Water(scene::LevelScene& scene, const std::filesystem::path& path);
     std::string fragment_source() const override;
     std::string vertex_source() const override;
+
+    std::optional<std::string> quad_fragment_source() const override {
+        return "vec3 effect_material(vec3 rgb){return rgb;}\n";
+    }
+
+    void bind_quads(const renderer::Shader&, const renderer::FrameInput&) override {}
+
+    bool plain_strips_supported() const override { return true; }
     std::optional<renderer::EffectMesh> mesh(
         const renderer::EffectStrip& strip, std::span<const renderer::EffectVertex> vertices
     ) override;
     void upload_meshes() override;
+    void finish_pass() override;
     void draw_mesh(const renderer::Shader& shader, const renderer::EffectMesh& mesh) override;
     bool init(std::string& error) override;
     void update_lighting(const renderer::FrameInput& input);
@@ -106,5 +115,6 @@ private:
     float m_sim_weight = 1;
     bool m_enabled = false;
     bool m_bound = false;
+    unsigned m_effect_setups = 0;
 };
 }  // namespace openrac::enhanced::water_detail

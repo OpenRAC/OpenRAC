@@ -289,6 +289,11 @@ void main() {
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
     rgb = probe_surface(texel, rgb);
+#ifdef OPENRAC_ATMOSPHERE
+    if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+        rgb = atmosphere_apply(rgb, v_world_position, true);
+    } else
+#endif
     if (fog_colour.w > 0.5) {
         rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }
@@ -299,6 +304,7 @@ void main() {
 #endif
 #endif
 #ifndef OPENRAC_SOLID
+#ifndef OPENRAC_COLOUR_SPECIALISED
     if (metal_pass != 0) {
         vec4 metal = sample_upscaled_texture_colours(v_uv);
         vec4 m = vec4(vec3(mp_vec3(metal.rgb) * mp_vec3(v_colour.rgb)), metal.a * v_colour.a);
@@ -325,21 +331,33 @@ void main() {
             }
         }
 #endif
+    #ifdef OPENRAC_ATMOSPHERE
+        if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+            mrgb = atmosphere_apply(mrgb, v_world_position, true);
+        } else
+#endif
         if (fog_colour.w > 0.5) {
             mrgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(mrgb), mp_float(v_fog)));
         }
         out_colour = vec4(mrgb, clamp(m.a, 0.0, 1.0));
         return;
     }
+#endif
     if (effect_pass == 0 && v_glow != glow_pass) {
         discard;
     }
     vec4 texel = sample_upscaled_texture_colours(v_uv);
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
     vec4 c = texel * v_colour * material_colour;
+#ifndef OPENRAC_COLOUR_SPECIALISED
     if (effect_pass != 0) {
         vec3 e = min(c.rgb, vec3(1.0));
         e = probe_surface(texel, e);
+    #ifdef OPENRAC_ATMOSPHERE
+        if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+            e = atmosphere_apply(e, v_world_position, true);
+        } else
+#endif
         if (fog_colour.w > 0.5) {
             e = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(e), mp_float(v_fog)));
         }
@@ -355,6 +373,7 @@ void main() {
     if (glow_pass != 0 && glow_split != 0 && (c.a >= kWorldAlphaReference) != (glow_split == 1)) {
         discard;
     }
+#endif
     if (cutout != 0 && translucent_pass == 0 && glow_pass == 0 && c.a < 0.99) {
         discard;
     }
@@ -369,6 +388,11 @@ void main() {
     vec3 rgb = min(c.rgb * light, vec3(1.0));
     rgb = probe_surface(texel, rgb);
     // The GS's fog, after the texture: RGB only.
+#ifdef OPENRAC_ATMOSPHERE
+    if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+        rgb = atmosphere_apply(rgb, v_world_position, true);
+    } else
+#endif
     if (fog_colour.w > 0.5) {
         rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }

@@ -822,6 +822,7 @@ const std::vector<std::uint8_t>& buffer_bytes(Buffer& b) {
     }
 
     b.data.assign(b.size, 0);
+    g->submission.buffer_mirror_restore_bytes += b.size;
 
     // Mapped memory, the staging copy this recording has not submitted yet, or a read-back.
     if (b.own_mapped != nullptr) {

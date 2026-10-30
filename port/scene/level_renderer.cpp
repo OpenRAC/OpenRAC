@@ -136,27 +136,22 @@ bool LevelScene::upload(
                 ))) {
             return false;
         }
+    }
+#endif
+    // The same small pass shaders also serve OpenGL and direct/CPU draws. No
+    // material-buffer or batching capability is required to fix these controls.
+    if (m_colour_opaque.id()
+        || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)) {
         // Keep opaque features constant per native program. In particular,
         // static geometry never needs the joint-palette path, and solid
         // geometry must not inherit the alpha shader's discard instructions.
-        const auto fixed_int = [](std::string source, const char* name, int value) {
-            const auto declaration = std::string("uniform int ") + name + ";";
-            const auto at = source.find(declaration);
-            if (at != std::string::npos) {
-                source.replace(
-                    at,
-                    declaration.size(),
-                    std::string("const int ") + name + " = " + std::to_string(value) + ";"
-                );
-            }
-            return source;
-        };
         for (unsigned variant = 0; variant < m_colour_specialised.size(); ++variant) {
             std::string vertex(mesh_vertex);
             vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-            vertex = fixed_int(vertex, "metal_pass", 0);
+            vertex = renderer::shader_constants(vertex, {{"metal_pass", 0}});
             if (variant < 2) {
-                vertex = fixed_int(vertex, "skinning", 0);
+                vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+                vertex = renderer::shader_constants(vertex, {{"skinning", 0}});
             }
             const auto specialise = [&](std::string source) {
                 source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
@@ -169,7 +164,7 @@ bool LevelScene::upload(
                       "translucent_pass",
                       "effect_pass",
                       "probe_effect"}) {
-                    source = fixed_int(std::move(source), name, 0);
+                    source = renderer::shader_constants(std::move(source), {{name, 0}});
                 }
                 return source;
             };
@@ -192,18 +187,20 @@ bool LevelScene::upload(
             .insert(static_vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
         static_translucent
             .insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-        static_vertex = fixed_int(std::move(static_vertex), "skinning", 0);
-        static_vertex = fixed_int(std::move(static_vertex), "metal_pass", 0);
+        static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+        static_vertex = renderer::shader_constants(std::move(static_vertex), {{"skinning", 0}});
+        static_vertex = renderer::shader_constants(std::move(static_vertex), {{"metal_pass", 0}});
         for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
-            static_translucent = fixed_int(std::move(static_translucent), name, 0);
+            static_translucent =
+                renderer::shader_constants(std::move(static_translucent), {{name, 0}});
         }
-        static_translucent = fixed_int(std::move(static_translucent), "translucent_pass", 1);
+        static_translucent =
+            renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
         if (!m_static_translucent
                  .build("static translucent colour", static_vertex, static_translucent, error)) {
             return false;
         }
     }
-#endif
     const std::string depth_source = deformation_vertex(shaders::mesh_depth_vert);
     std::string depth_vertex(depth_source), depth_fragment(shaders::mesh_depth_frag);
     depth_vertex.insert(depth_vertex.find('\n') + 1, "#define OPENRAC_DEPTH_SOLID 1\n");
@@ -228,6 +225,12 @@ bool LevelScene::upload(
             || !m_surface_depth_solid
                     .build("mesh solid surface depth", depth_vertex, depth_fragment, error)) {
             return false;
+        }
+    }
+    if (gl::enhanced_rendering_available()) {
+        std::string rigid_error;
+        if (!make_rigid_depth_programs(rigid_error)) {
+            log::warn("Rigid prepass variants unavailable: {}", rigid_error);
         }
     }
     m_models = level.models;
@@ -397,8 +400,17 @@ bool LevelScene::upload(
     m_static_shadow_ranges.clear();
     m_static_shadow_ranges.resize(m_models.size());
     m_static_shadow_coverage.assign(m_models.size(), 0);
+    m_prepass_coverage.assign(m_models.size(), 3);
     // Include every model a later static-layer instance update can select.
     for (const auto model : m_opaque) {
+        auto& coverage = m_prepass_coverage[model];
+        coverage = 0;
+        for (const auto& primitive : m_models[model].primitives) {
+            const auto& material = m_materials[static_cast<std::size_t>(primitive.material)];
+            if (primitive.index_count && !material.metal) {
+                coverage |= material.cutout ? 2u : 1u;
+            }
+        }
         for (unsigned solid = 0; solid < 2; ++solid) {
             m_static_shadow_ranges[model][solid] = prepare_shadow_draws(
                 m_models[model].primitives,
@@ -409,6 +421,20 @@ bool LevelScene::upload(
         }
         for (const auto& range : m_static_shadow_ranges[model][1]) {
             m_static_shadow_coverage[model] |= range.solid ? 2 : 1;
+        }
+    }
+
+    m_shadow_geometry.clear();
+    m_shadow_geometry.resize(m_models.size());
+    // A custom provider may add other vertex inputs: only the unmodified dry shader is safe.
+    const bool position_only =
+        !m_lighting
+        || m_lighting->dry_shadow_vertex(std::string(shaders::shadow_depth_vert))
+               == shaders::shadow_depth_vert;
+    if (gl::enhanced_rendering_available() && position_only) {
+        for (const auto model : m_opaque) {
+            m_shadow_geometry[model] =
+                prepare_shadow_geometry(m_static_shadow_ranges[model][1], level.vertices, indices);
         }
     }
 
@@ -529,6 +555,11 @@ void LevelScene::release() {
     m_shadow_solid.release();
     m_atlas_depth.release();
     m_atlas_solid.release();
+    for (auto* shaders : {&m_dry_shadow, &m_dry_atlas}) {
+        for (auto& shader : *shaders) {
+            shader.release();
+        }
+    }
     release_target(m_shadow_atlas);
     m_shadow_atlas_active = false;
     release_target(m_static_shadow);
@@ -541,6 +572,8 @@ void LevelScene::release() {
     m_shadow_solid_primitives.clear();
     m_static_shadow_ranges.clear();
     m_static_shadow_coverage.clear();
+    m_prepass_coverage.clear();
+    m_shadow_geometry.clear();
     m_hero_enabled = m_hero_ready = false;
     m_hero_logged_airborne.reset();
     m_hero_transition = {};
@@ -550,6 +583,7 @@ void LevelScene::release() {
     if (m_lighting) {
         m_lighting->release();
     }
+    release_rigid_depth_programs();
     m_surface_depth.release();
     m_surface_depth_solid.release();
     m_early_capable = false;
@@ -771,9 +805,21 @@ void LevelScene::draw_layer(
         m_lighting->prepare_wetness(input, m_palette, m_wetness_hero);
     }
 
+    if (m_lighting && !state.depth_prepass && !state.atmosphere_prepared
+        && (layer == Layer::Sky || layer == Layer::Terrain)) {
+        if (m_lighting->atmosphere_wanted(input) && !state.world_shadows_prepared) {
+            prepare_shadows(input, state);
+            state.world_shadows_prepared = true;
+        }
+        m_lighting->prepare_atmosphere(*this, input, state.target, m_fog_colour, m_fog_params);
+        state.atmosphere_prepared = true;
+    }
     if (layer == Layer::Sky) {
         const stats::Scope pass("sky colour", stats::kGpu);
         draw_sky(input, state);
+        if (m_lighting) {
+            m_lighting->draw_atmosphere_sky(state.target);
+        }
         return;
     }
     if (layer == Layer::Terrain && !state.depth_prepass && !state.world_shadows_prepared) {
@@ -1046,6 +1092,7 @@ void LevelScene::draw_layer(
     bool colour_set = false;
     const renderer::Shader* program = nullptr;
     bool program_depth_matched = false;
+    std::uint64_t rigid_prepass_draws = 0, empty_prepass_groups = 0;
     // The mobys' glow pass runs twice (scene/moby_passes.h): its texels at or above the GS's alpha
     // reference first, writing depth, then the rest without.
     const int steps = mobys ? static_cast<int>(kMobyPassSteps.size()) : passes;
@@ -1089,8 +1136,10 @@ void LevelScene::draw_layer(
         );
         const unsigned variant = solid ? 0 : mobys ? 2 : 1;
         const auto& specialised = early ? m_early_colour_specialised : m_colour_specialised;
-        const bool static_translucent = !state.depth_prepass && !mobys && pass == 2
-                                        && m_static_translucent.id() && !specialisation_off;
+        const bool static_translucent =
+            !state.depth_prepass && !mobys && pass == 2 && m_static_translucent.id()
+            && !specialisation_off
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants);
         const renderer::Shader* selected = &m_mesh;
         // Both depth variants retain identical positions and alpha coverage.
         if (state.depth_prepass) {
@@ -1103,7 +1152,9 @@ void LevelScene::draw_layer(
         } else if (static_translucent) {
             // Static blended packets omit moby-only vertex work.
             selected = &m_static_translucent;
-        } else if (batch_shader && !specialisation_off) {
+        } else if (!specialisation_off && specialised[variant].id()
+                   && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+                   && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {
             // Opaque variants specialise alpha handling for each geometry kind.
             selected = &specialised[variant];
         } else if (batch_shader) {
@@ -1117,6 +1168,15 @@ void LevelScene::draw_layer(
             selected = solid ? &m_solid : &m_mesh;
         }
 
+        const renderer::Shader* depth_reference = selected;
+        const auto& rigid =
+            state.target.normal_texture ? m_rigid_surface_depth[solid] : m_rigid_depth[solid];
+        const bool rigid_prepass =
+            state.depth_prepass && enhanced_rendering_available() && !mobys && rigid.id()
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::PrepassRigid);
+        if (rigid_prepass && !groups.empty() && !groups.front().floats_on_water) {
+            selected = &rigid;
+        }
         const renderer::Shader& wanted = *selected;
         const bool depth_matched = mobys ? pass == 0 : pass <= 1;
         if (program != &wanted || program_depth_matched != depth_matched) {
@@ -1129,8 +1189,8 @@ void LevelScene::draw_layer(
             set_cutout = -1;
             colour_set = false;
         }
-        const int cutout = program->uniform("cutout");
-        const int colour = program->uniform("material_colour");
+        int cutout = program->uniform("cutout");
+        int colour = program->uniform("material_colour");
         glUniform1i(program->uniform("opaque_solid"), solid ? 1 : 0);
         // The cutout materials' opaque texels (static layers).
         const bool cutouts = !mobys && pass == 1;
@@ -1170,6 +1230,29 @@ void LevelScene::draw_layer(
             const int instances = culled ? g.camera_count : g.pvs_count;
             if (!instances) {
                 continue;
+            }
+            if (rigid_prepass) {
+                const auto model = g.model < m_opaque.size() ? m_opaque[g.model] : g.model;
+                if (model < m_prepass_coverage.size()
+                    && !(m_prepass_coverage[model] & (solid ? 1u : 2u))) {
+                    ++empty_prepass_groups;
+                    continue;
+                }
+            }
+            const bool group_rigid = rigid_prepass && !g.floats_on_water;
+            if (rigid_prepass) {
+                const auto* depth_program = group_rigid ? &rigid : depth_reference;
+                if (program != depth_program) {
+                    use(*depth_program, depth_matched);
+                    program = depth_program;
+                    set_material = -1;
+                    set_texture = 0;
+                    set_wrap = -1;
+                    set_cutout = -1;
+                    colour_set = false;
+                    cutout = program->uniform("cutout");
+                    colour = program->uniform("material_colour");
+                }
             }
             if (m_lighting) {
                 m_lighting->bind_deformation(*program, g.floats_on_water);
@@ -1271,6 +1354,7 @@ void LevelScene::draw_layer(
                     set_material = run_material;
                 }
                 submit_instances(batch, run_first, run_count, instances);
+                rigid_prepass_draws += group_rigid ? 1u : 0u;
                 ++state.stats.draw_calls;
                 state.stats.triangles += static_cast<std::uint64_t>(run_count / 3)
                                          * static_cast<std::uint64_t>(instances);
@@ -1373,6 +1457,15 @@ void LevelScene::draw_layer(
     glDepthFunc(GL_GEQUAL);
     glBindVertexArray(0);
     if (stats::enabled()) {
+        if (state.depth_prepass) {
+            stats::gauge(
+                std::string("prepass rigid draws ") + layer_name(layer), double(rigid_prepass_draws)
+            );
+            stats::gauge(
+                std::string("prepass empty groups ") + layer_name(layer),
+                double(empty_prepass_groups)
+            );
+        }
         const auto name = std::string("pvs ") + layer_name(layer);
         stats::gauge(name + " instances culled", static_cast<double>(pvs_rejected));
         stats::gauge(

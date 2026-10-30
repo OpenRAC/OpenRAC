@@ -7,6 +7,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "common/log.h"
@@ -14,6 +15,7 @@
 #include "renderer/direct.h"
 #include "renderer/gl.h"
 #include "renderer/gs.h"
+#include "renderer/render_opt.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -45,8 +47,20 @@ bool EffectRenderer::draws(const EffectStrip& strip) const {
 
 bool EffectRenderer::init(RenderState& state, std::string& error) {
     (void)state;
+    m_quad_shader.release();
+    m_active_shader = nullptr;
     std::string fragment(shaders::direct_frag);
     fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
+    // Effect packets skip HUD distance fields and alpha tests; authored strip fog remains dynamic.
+    // Keep texture functions/tcc dynamic: they can differ between effect strips.
+    if (render_opt::enabled(render_opt::Opt::ShaderVariants)
+        && render_opt::enabled(render_opt::Opt::EffectStaticControls)) {
+        fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_FIXED 1\n");
+        fragment = shader_constants(
+            std::move(fragment),
+            {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
+        );
+    }
     const std::string original_fragment = fragment;
     std::string vertex_source(shaders::effect_vert);
     if (m_material) {
@@ -78,18 +92,20 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         }
         error.clear();
     }
-    m_view_projection = m_shader.uniform("view_projection");
-    m_textured = m_shader.uniform("textured");
-    m_tcc = m_shader.uniform("tcc");
-    m_tfx = m_shader.uniform("tfx");
-    m_tex_alpha_scale = m_shader.uniform("tex_alpha_scale");
-    m_fog_enable = m_shader.uniform("fog_enable");
-    m_view = m_shader.uniform("view");
-    m_source_scale = m_shader.uniform("source_scale");
-    m_source_fix = m_shader.uniform("source_fix");
-    m_fog_colour = m_shader.uniform("fog_colour");
-    m_fog_line = m_shader.uniform("fog_line");
-    m_alpha_test = m_shader.uniform("alpha_test");
+    if (m_material) {
+        const auto plain = m_material->quad_fragment_source();
+        if (plain
+            && (*plain != m_material->fragment_source() || !m_material->vertex_source().empty())) {
+            std::string quad_fragment = original_fragment;
+            quad_fragment.insert(quad_fragment.find("void main()"), *plain);
+            quad_fragment
+                .insert(quad_fragment.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+            if (!m_quad_shader.build("effect quads", shaders::effect_vert, quad_fragment, error)) {
+                log::warn("Original effect quad shader retained: {}", error);
+                error.clear();
+            }
+        }
+    }
 
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
@@ -112,6 +128,29 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     return true;
 }
 
+void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view) {
+    m_active_shader = &shader;
+    shader.use();
+    m_view_projection = shader.uniform("view_projection");
+    m_textured = shader.uniform("textured");
+    m_tcc = shader.uniform("tcc");
+    m_tfx = shader.uniform("tfx");
+    m_tex_alpha_scale = shader.uniform("tex_alpha_scale");
+    m_fog_enable = shader.uniform("fog_enable");
+    m_view = shader.uniform("view");
+    m_fog_colour = shader.uniform("fog_colour");
+    m_fog_line = shader.uniform("fog_line");
+    m_source_scale = shader.uniform("source_scale");
+    m_source_fix = shader.uniform("source_fix");
+    m_alpha_test = shader.uniform("alpha_test");
+    glUniformMatrix4fv(m_view_projection, 1, GL_FALSE, view_projection.data());
+    glUniformMatrix4fv(m_view, 1, GL_FALSE, view.data());
+    glUniform1i(m_fog_enable, 0);
+    glUniform1i(m_alpha_test, 0);
+    glUniform1i(m_textured, 1);
+    m_applied = AppliedState{};
+}
+
 void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     const bool quads = m_part != EffectPart::Liquids && !input.effects.empty();
     bool any = quads;
@@ -119,19 +158,18 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         any = any || draws(strip);
     }
     if (m_material) {
+        const profiling::Zone prepare("Effects material prepare");
         m_material->prepare(input);
     }
     if (!any) {
+        if (m_material) {
+            m_material->finish_pass();
+        }
         return;
     }
-    m_shader.use();
     m_texture_filter = input.texture_filter;
     const Mat4 view_projection = multiply(input.camera.projection, input.camera.view);
-    glUniformMatrix4fv(m_view_projection, 1, GL_FALSE, view_projection.data());
-    glUniformMatrix4fv(m_view, 1, GL_FALSE, input.camera.view.data());
-    glUniform1i(m_fog_enable, 0);
-    glUniform1i(m_alpha_test, 0);
-    glUniform1i(m_textured, 1);
+    use_shader(m_shader, view_projection, input.camera.view);
     glBindFramebuffer(GL_FRAMEBUFFER, state.target.framebuffer);
     glViewport(0, 0, state.target.width, state.target.height);
     glDisable(GL_SCISSOR_TEST);
@@ -142,7 +180,6 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glActiveTexture(GL_TEXTURE0);
-    m_applied = AppliedState{};
 
     static const bool& upload_reference = stats::probe(
         "OPENRAC_VK_EFFECT_UPLOAD_REUSE_OFF", "Reference: copy and hash every effect texture upload"
@@ -150,6 +187,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     const bool reuse_uploads = gl::is_vulkan() && !upload_reference;
     std::uint64_t reused_uploads = 0, reused_bytes = 0;
     const auto upload = [&](const ImageUpload& image) {
+        const profiling::Zone trace("Effects texture upload");
         if (reuse_uploads) {
             if (state.textures.upload_cached(image)) {
                 ++reused_uploads;
@@ -164,6 +202,8 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     // state are then one draw. A frame has hundreds to thousands of them (particles, glows), and
     // a draw each, with its own buffer and state, cost more than the rest of the frame on a phone.
     // The triangles keep their order, so what is blended over what does not change.
+    std::optional<profiling::Zone> geometry;
+    geometry.emplace("Effects geometry setup");
     m_vertices.clear();
     const auto vertex = [](const EffectVertex& e) {
         return Vertex{
@@ -225,12 +265,17 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             );
         }
     }
+    // Optional material uploads may bind their own ARRAY_BUFFER. Restore the
+    // core stream before writing the expanded strips/quads into it.
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glBufferData(
         GL_ARRAY_BUFFER,
         static_cast<GLsizeiptr>(m_vertices.size() * sizeof(Vertex)),
         m_vertices.data(),
         GL_STREAM_DRAW
     );
+
+    geometry.reset();
 
     // The draw being gathered: its first vertex and count, and the GS state it was set up with.
     struct Batch {
@@ -268,6 +313,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     std::optional<State> set;
     const auto flush = [&] {
         if (batch.count > 0) {
+            const profiling::Zone trace("Effects draw batch");
             glDrawArrays(GL_TRIANGLES, batch.first, batch.count);
             state.stats.draw_calls++;
             state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
@@ -284,7 +330,11 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                 wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp
             );
             if (m_material) {
-                m_material->bind(m_shader, wanted.surface, input, wanted.motion);
+                if (m_active_shader == &m_quad_shader) {
+                    m_material->bind_quads(*m_active_shader, input);
+                } else {
+                    m_material->bind(*m_active_shader, wanted.surface, input, wanted.motion);
+                }
             }
             set_fog(wanted.fogged, wanted.fog, wanted.fog_colour);
             set = wanted;
@@ -301,7 +351,12 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         batch.count += count;
     };
 
+    std::optional<stats::Scope> strip_timing;
+    if (!strip_counts.empty()) {
+        strip_timing.emplace("Effect strips", stats::kGpu, std::source_location::current());
+    }
     GLint at = 0;
+    unsigned plain_strips = 0, strip_switches = 0;
     std::size_t strip_index = 0;
     for (const EffectStrip& strip : input.strips) {
         if (strip.count < 3
@@ -323,6 +378,17 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         }
         const auto mesh = material_meshes[strip_index];
         const auto count = strip_counts[strip_index++];
+        const bool plain_strip = !mesh && strip.surface == 0 && !strip.uv_motion.enabled
+                                 && m_quad_shader.id() && m_material->plain_strips_supported()
+                                 && render_opt::enabled(render_opt::Opt::EffectStripShader);
+        auto& wanted_shader = plain_strip ? m_quad_shader : m_shader;
+        if (m_active_shader != &wanted_shader) {
+            flush();
+            use_shader(wanted_shader, view_projection, input.camera.view);
+            set.reset();
+            ++strip_switches;
+        }
+        plain_strips += plain_strip ? 1u : 0u;
         // Keep the original strip order and texture uploads around each material draw.
         if (mesh) {
             flush();
@@ -330,7 +396,10 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             apply(strip.tex0, strip.tex1, strip.clamp, strip.alpha, state);
             m_material->bind(m_shader, strip.surface, input, strip.uv_motion);
             set_fog(strip.fogged, strip.fog, strip.fog_colour);
-            m_material->draw_mesh(m_shader, *mesh);
+            {
+                const profiling::Zone trace("Effects material draw");
+                m_material->draw_mesh(m_shader, *mesh);
+            }
             state.stats.draw_calls += mesh->draws;
             state.stats.triangles += mesh->vertices / 3;
             glBindVertexArray(m_vao);
@@ -354,6 +423,19 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         at += count;
     }
     flush();
+    strip_timing.reset();
+    stats::gauge("effect plain strips", plain_strips);
+    stats::gauge("effect strip shader switches", strip_switches);
+    std::optional<stats::Scope> quad_timing;
+    if (quads) {
+        quad_timing.emplace("Effect quads", stats::kGpu, std::source_location::current());
+    }
+    const bool plain =
+        quads && m_quad_shader.id() && render_opt::enabled(render_opt::Opt::EffectQuadShader);
+    if (plain || (quads && m_active_shader != &m_shader)) {
+        use_shader(plain ? m_quad_shader : m_shader, view_projection, input.camera.view);
+    }
+    stats::gauge("effect quad shader", quads && m_active_shader == &m_quad_shader ? 1 : 0);
     // Every quad's texture before any quad is drawn. A texture's upload rides on the first quad that
     // named it (frontend::particle_quads hands out the pool keys per frame, in pool order), but the
     // quads are drawn back to front: one drawn before that quad sampled what the key held last frame,
@@ -374,6 +456,9 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     flush();
     stats::gauge("effects uploads reused", double(reused_uploads));
+    if (m_material) {
+        m_material->finish_pass();
+    }
     stats::gauge("effects upload bytes reused", double(reused_bytes));
     glBindVertexArray(0);
     glDisable(GL_BLEND);
@@ -389,13 +474,18 @@ bool EffectRenderer::apply(
     std::uint32_t tbp,
     std::uint32_t cbp
 ) {
+    const profiling::Zone trace("Effects state setup");
     const gs::Texa texa{0, false, 0x80};
     gs::Tex0 tex0 = gs::Tex0::decode(tex0_bits);
     if (tbp != 0) {
         tex0.tbp0 = tbp;
         tex0.cbp = cbp;
     }
-    const TextureHandle texture = state.textures.resolve(tex0, texa);
+    TextureHandle texture;
+    {
+        const profiling::Zone resolve("Effects texture resolve");
+        texture = state.textures.resolve(tex0, texa);
+    }
     if (log::level() <= log::Level::Debug) {
         static std::set<std::uint64_t> seen;
         if (seen.insert(tex0_bits).second) {
@@ -420,7 +510,7 @@ bool EffectRenderer::apply(
         const auto wrap = gs::Clamp::decode(clamp_bits);
         state.textures.bind_upscaled_texture_colours(
             texture,
-            m_shader,
+            *m_active_shader,
             m_texture_filter,
             wrap.wms == gs::Wrap::Repeat,
             wrap.wmt == gs::Wrap::Repeat
@@ -429,7 +519,11 @@ bool EffectRenderer::apply(
     m_applied.texture = texture;
     if (rebound || tex1_bits != m_applied.tex1_bits) {
         const gs::Tex1 tex1 = gs::Tex1::decode(tex1_bits);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(tex1.mmag ? GL_LINEAR : GL_NEAREST));
+        glTexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MAG_FILTER,
+            static_cast<GLint>(tex1.mmag ? GL_LINEAR : GL_NEAREST)
+        );
         const bool linear_min = tex1.mmin == 1 || tex1.mmin == 4 || tex1.mmin == 5;
         glTexParameteri(
             GL_TEXTURE_2D,
@@ -456,6 +550,11 @@ bool EffectRenderer::apply(
     }
     if (alpha_bits != m_applied.alpha_bits) {
         const GlBlend b = translate_blend(gs::Alpha::decode(alpha_bits));
+        // Only source-over blends add the medium's in-scattering. Additive/subtractive
+        // effects attenuate their own radiance without injecting fog on every overdraw.
+        glUniform1i(
+            m_active_shader->uniform("atmosphere_inscatter"), (alpha_bits & 0xCFu) == 0x44u ? 1 : 0
+        );
         glEnable(GL_BLEND);
         glBlendEquation(b.equation);
         glBlendFuncSeparate(b.src, b.dst, GL_ONE, GL_ZERO);
@@ -472,6 +571,8 @@ void EffectRenderer::release() {
         m_material->release();
     }
     m_shader.release();
+    m_quad_shader.release();
+    m_active_shader = nullptr;
     if (m_vbo != 0) {
         glDeleteBuffers(1, &m_vbo);
         m_vbo = 0;

@@ -88,6 +88,7 @@ if(OPENRAC_VULKAN)
   add_library(openrac_renderer_vulkan STATIC
     renderer/vulkan/native_compute.cpp
     renderer/vulkan/depth_combine.cpp
+    renderer/vulkan/colour_transform.cpp
     renderer/vulkan/native_shader_compiler.cpp
     renderer/vulkan/pipeline_cache_file.cpp
     renderer/vulkan/shader_compiler.cpp
@@ -133,7 +134,8 @@ if(OPENRAC_VULKAN)
     "${CMAKE_CURRENT_SOURCE_DIR}/*.comp" "${CMAKE_CURRENT_SOURCE_DIR}/*.glsl"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.inc")
-  list(FILTER openrac_renderer_shader_candidates EXCLUDE REGEX "^(build|tests)/")
+  # Test-only shader fixtures do not change the runtime pipeline cache, including enhanced/tests.
+  list(FILTER openrac_renderer_shader_candidates EXCLUDE REGEX "(^|/)(build|tests)/")
   list(SORT openrac_renderer_shader_candidates)
   foreach(candidate IN LISTS openrac_renderer_shader_candidates)
     set(candidate "${CMAKE_CURRENT_SOURCE_DIR}/${candidate}")
@@ -211,6 +213,10 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
+if(OPENRAC_VULKAN)
+  target_link_libraries(openrac_renderer PRIVATE openrac_renderer_vulkan)
+  set_source_files_properties(enhanced/renderer/agx.cpp PROPERTIES COMPILE_DEFINITIONS OPENRAC_VULKAN=1)
+endif()
 openrac_warnings(openrac_renderer)
 
 # ---- renderer/ui (renderer/README.md, "ui/") ----
@@ -306,6 +312,7 @@ openrac_warnings(openrac_probe_scene)
 # link without a graphics context) and this.
 add_library(openrac_scene_renderer STATIC
   scene/level_renderer.cpp
+  scene/depth_prepass.cpp
   scene/level_instances.cpp
   scene/level_shadows.cpp
   scene/shadow_atlas_renderer.cpp
@@ -340,6 +347,7 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/medial_axis_overlay.cpp
   enhanced/viewer/debug_lines.cpp
   enhanced/viewer/probe_volume_overlay.cpp
+  enhanced/renderer/atmosphere.cpp
   enhanced/renderer/water.cpp
   enhanced/renderer/water_float.cpp
   enhanced/renderer/water_asset.cpp
@@ -372,6 +380,11 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/shading_brdf.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/environment.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_transport.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_sample.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_lighting.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_sky.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_vertex.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_displacement.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_float.glsl"
@@ -632,6 +645,10 @@ endif()
 openrac_add_test(renderer_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
                  LIBS openrac_viewer_lib openrac_platform)
 set_tests_properties(renderer_shader PROPERTIES SKIP_RETURN_CODE 77)
+if(OPENRAC_VULKAN)
+  target_compile_definitions(renderer_shader_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan)
+endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
 add_executable(viewer_test tests/viewer_test.cpp)
@@ -735,6 +752,8 @@ set_tests_properties(enhanced_rendering_compat PROPERTIES SKIP_RETURN_CODE 77
   ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=desktop")
 if(OPENRAC_VULKAN)
   add_test(NAME enhanced_rendering_off_vulkan COMMAND enhanced_rendering_test --expect-off)
+  target_compile_definitions(enhanced_rendering_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(enhanced_rendering_test PRIVATE openrac_renderer_vulkan)
   set_tests_properties(enhanced_rendering_off_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=0;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   add_test(NAME enhanced_rendering_vulkan COMMAND enhanced_rendering_test --expect-build)
@@ -766,7 +785,7 @@ endif()
 
 openrac_add_test(water_mesh SOURCES enhanced/tests/water_mesh_test.cpp LIBS openrac_enhanced_viewer)
 
-foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu)
+foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu effect_material)
   openrac_add_test(${water_test} SOURCES enhanced/tests/${water_test}_test.cpp
     INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
   set_tests_properties(${water_test} PROPERTIES SKIP_RETURN_CODE 77
@@ -796,7 +815,31 @@ add_test(NAME water_host COMMAND water_host_test)
 openrac_add_test(agx SOURCES enhanced/tests/agx_test.cpp LIBS openrac_renderer openrac_platform)
 set_tests_properties(agx PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop;OPENRAC_ENHANCED=1")
 if(OPENRAC_VULKAN)
+  target_compile_definitions(agx_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(agx_test PRIVATE openrac_renderer_vulkan)
   add_test(NAME agx_vulkan COMMAND agx_test --expect-on)
   set_tests_properties(agx_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+
+# Unified camera-medium transport, plus explicit compatibility fallback.
+openrac_add_test(atmosphere SOURCES enhanced/tests/atmosphere_test.cpp
+  LIBS openrac_enhanced_viewer openrac_platform)
+target_include_directories(atmosphere_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+if(OPENRAC_VULKAN)
+  target_compile_definitions(atmosphere_test PRIVATE OPENRAC_VULKAN=1)
+endif()
+set_tests_properties(atmosphere PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+add_test(NAME atmosphere_off COMMAND atmosphere_test)
+set_tests_properties(atmosphere_off PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_ENHANCED=0;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+
+if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
+  openrac_add_test(atmosphere_precision SOURCES enhanced/tests/atmosphere_precision_test.cpp
+    LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
+  target_include_directories(atmosphere_precision_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+  target_compile_definitions(atmosphere_precision_test PRIVATE OPENRAC_VULKAN=1)
+  set_tests_properties(atmosphere_precision PROPERTIES SKIP_RETURN_CODE 77
+    ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()

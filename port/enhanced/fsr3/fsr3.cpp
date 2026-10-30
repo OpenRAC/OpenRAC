@@ -263,10 +263,11 @@ void Fsr3::release() {
     state.object_motion.release();
     state.reactive_mask.release();
     state.late_world_depth.release();
-    glDeleteVertexArrays(1, &state.vao);
-    glDeleteTextures(1, &state.previous_palette);
+    if (state.vao) {
+        glDeleteVertexArrays(1, &state.vao);
+    }
+    state.previous_palette.release();
     state.vao = 0;
-    state.previous_palette = 0;
     state.output_texture = 0;
     state.valid = false;
     state.failed = false;

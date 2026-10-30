@@ -28,6 +28,7 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "debug_overlay.h"
+#include "enhanced/renderer/atmosphere.h"
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/renderer/texture_upscale.h"
 #include "enhanced/renderer/water.h"
@@ -219,7 +220,10 @@ void use_level(int number) {
         if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
             && g->renderer->add(
                    std::make_unique<renderer::EffectRenderer>(
-                       "liquids", renderer::EffectPart::Liquids, renderer::Bucket::Ties
+                       "liquids",
+                       renderer::EffectPart::Liquids,
+                       renderer::Bucket::Ties,
+                       enhanced::atmosphere_material(g->scene)
                    ),
                    error
                ) == nullptr) {
@@ -231,8 +235,11 @@ void use_level(int number) {
                 "effects",
                 renderer::EffectPart::Rest,
                 renderer::Bucket::Particles,
-                wanted == 1 && g->game.starts_with("rac1-") ? enhanced::make_water(g->scene, dir)
-                                                            : nullptr
+                enhanced::atmosphere_material(
+                    g->scene,
+                    wanted == 1 && g->game.starts_with("rac1-") ? enhanced::make_water(g->scene, dir)
+                                                          : nullptr
+                )
             ),
             error
         )

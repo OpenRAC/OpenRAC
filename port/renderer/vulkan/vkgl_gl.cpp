@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <regex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -660,14 +661,23 @@ void VKGL buffer_data(GLenum target, GLsizeiptr size, const void* data, GLenum u
         return;
     }
     g->submission.cpu_mirror_bytes -= b->data.size();
-    b->data.assign(static_cast<std::size_t>(size), 0);
+    const bool direct =
+        data != nullptr && size > 0
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::VkBufferDirectFill);
+    if (direct) {
+        const auto* bytes = static_cast<const std::uint8_t*>(data);
+        b->data.assign(bytes, bytes + size);
+    } else {
+        b->data.assign(static_cast<std::size_t>(size), 0);
+        g->submission.buffer_zero_fill_bytes += static_cast<std::uint64_t>(size);
+    }
     g->submission.cpu_mirror_bytes += b->data.size();
     b->size = b->data.size();
     b->static_hint = is_static_usage(usage);
     b->rewritten = false;
     b->mirror_freed = false;
     b->staged = nullptr;
-    if (data != nullptr && size > 0) {
+    if (!direct && data != nullptr && size > 0) {
         std::memcpy(b->data.data(), data, static_cast<std::size_t>(size));
     }
     changed(*b);
@@ -681,9 +691,21 @@ void VKGL buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, const
         return;
     }
 
-    // The rest of the buffer stays as it was: its mirror is read back first if it was let go.
-    buffer_bytes(*b);
-    std::memcpy(b->data.data() + offset, data, static_cast<std::size_t>(size));
+    if (offset == 0 && static_cast<std::size_t>(size) == b->size
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::VkBufferDirectFill)) {
+        // No old byte survives a complete replacement. In particular, do not recover
+        // a discarded CPU mirror from device memory just to overwrite it immediately.
+        g->submission.cpu_mirror_bytes -= b->data.size();
+        const auto* bytes = static_cast<const std::uint8_t*>(data);
+        b->data.assign(bytes, bytes + size);
+        g->submission.cpu_mirror_bytes += b->data.size();
+        b->keep_mirror = b->keep_mirror || b->mirror_freed;
+        b->mirror_freed = false;
+    } else {
+        // Partial updates still require every untouched byte of the old buffer.
+        buffer_bytes(*b);
+        std::memcpy(b->data.data() + offset, data, static_cast<std::size_t>(size));
+    }
     b->rewritten = true;
     changed(*b);
 }
@@ -854,6 +876,55 @@ VkShaderModule module_of(const std::vector<std::uint32_t>& code) {
     return module;
 }
 
+// An explicit source marker opts one scalar int into the ordinary graphics draw's push constant.
+// No shader arithmetic changes; unmarked, compute and native material programs keep their layouts.
+void separate_draw_uniform(Program& p, const std::string& vertex, const std::string& fragment) {
+    p.draw_uniform_offset = -1;
+    if (p.gpu_materials || !p.compiled.compute.empty()
+        || vertex.find("#define OPENRAC_DRAW_INT") == std::string::npos
+        || !renderer::render_opt::enabled(renderer::render_opt::Opt::VkDrawUniform)) {
+        return;
+    }
+    static const std::regex marker(R"(#define\s+OPENRAC_DRAW_INT\s+([A-Za-z_][A-Za-z_0-9]*))");
+    std::smatch match;
+    if (!std::regex_search(vertex, match, marker)) {
+        return;
+    }
+    const std::string name = match[1];
+    const auto uniform =
+        std::find_if(p.compiled.uniforms.begin(), p.compiled.uniforms.end(), [&](const auto& u) {
+            return u.name == name;
+        });
+    if (uniform == p.compiled.uniforms.end() || uniform->sampler || uniform->gl_type != GL_INT
+        || uniform->array_size != 1) {
+        return;
+    }
+    // A cross-stage uniform must retain its shared UBO. This opt-in is vertex-only.
+    const std::regex declaration("uniform\\s+int\\s+" + name + R"(\s*;)");
+    if (std::regex_search(fragment, declaration) || !std::regex_search(vertex, declaration)) {
+        return;
+    }
+    const auto source = std::regex_replace(
+        vertex, declaration, "layout(push_constant) uniform OpenracDrawInt { int " + name + "; };"
+    );
+    CompiledProgram compiled;
+    std::string error;
+    if (!compile_program(source, fragment, compiled, error)) {
+        return;  // An optional optimisation never prevents the original program from linking.
+    }
+    if (std::any_of(compiled.uniforms.begin(), compiled.uniforms.end(), [&](const auto& u) {
+            return u.name == name;
+        })) {
+        return;  // A surviving loose uniform means another stage also uses this name.
+    }
+    auto draw = *uniform;
+    draw.offset = std::max(compiled.default_size, 0);
+    p.draw_uniform_offset = draw.offset;
+    compiled.uniforms.push_back(std::move(draw));
+    std::erase_if(compiled.blocks, [](const auto& b) { return b.name == "OpenracDrawInt"; });
+    p.compiled = std::move(compiled);
+}
+
 void VKGL link_program(GLuint name) {
     Program* p = g->programs.find(name);
     if (p == nullptr) {
@@ -879,6 +950,7 @@ void VKGL link_program(GLuint name) {
     if (!material_program(*p, vs, fs)) {
         return;
     }
+    separate_draw_uniform(*p, vs, fs);
     const CompiledProgram& c = p->compiled;
     if (!c.compute.empty()) {
         p->compute = module_of(c.compute);
@@ -926,12 +998,12 @@ void VKGL link_program(GLuint name) {
     );
     VkPipelineLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
     const VkDescriptorSetLayout layouts[] = {p->set_layout, g->material_layout};
-    const VkPushConstantRange material_push{VK_SHADER_STAGE_VERTEX_BIT, 0, 4};
+    const VkPushConstantRange draw_push{VK_SHADER_STAGE_VERTEX_BIT, 0, 4};
     layout_info.setLayoutCount = p->gpu_materials ? 2u : 1u;
     layout_info.pSetLayouts = layouts;
-    if (p->gpu_materials) {
+    if (p->gpu_materials || p->draw_uniform_offset >= 0) {
         layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges = &material_push;
+        layout_info.pPushConstantRanges = &draw_push;
     }
     check(
         vkCreatePipelineLayout(g->device, &layout_info, nullptr, &p->layout), "a pipeline layout"
@@ -939,7 +1011,8 @@ void VKGL link_program(GLuint name) {
     // Uniforms start at zero, as GL's do; a relink keeps nothing, as GL's does.
     p->uniforms.assign(
         p->gpu_materials ? p->material_start + kMaterialBytes
-                         : static_cast<unsigned>(std::max(c.default_size, 0)),
+                         : static_cast<unsigned>(std::max(c.default_size, 0))
+                               + (p->draw_uniform_offset >= 0 ? 4u : 0u),
         0
     );
     p->units.assign(c.uniforms.size(), 0);
@@ -1077,7 +1150,9 @@ void write_uniform(std::uint8_t* destination, const void* source, std::size_t by
     }
     std::memcpy(destination, source, bytes);
     auto* p = g->programs.find(g->state.program);
-    if (!p->gpu_materials || destination < p->uniforms.data() + p->material_start) {
+    const auto offset = static_cast<std::size_t>(destination - p->uniforms.data());
+    if ((!p->gpu_materials || offset < p->material_start)
+        && (p->draw_uniform_offset < 0 || offset < static_cast<unsigned>(p->draw_uniform_offset))) {
         p->uniforms_dirty = true;
     }
 }

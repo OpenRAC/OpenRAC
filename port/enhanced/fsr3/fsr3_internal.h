@@ -5,12 +5,13 @@
 #pragma once
 
 #include <chrono>
-#include <unordered_map>
 #include <vector>
 
 #include "enhanced/fsr3/frame_target.h"
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/fsr3/motion_blur.h"
+#include "enhanced/fsr3/object_history.h"
+#include "enhanced/fsr3/palette_history.h"
 #include "enhanced/fsr3/sdk_context.h"
 #include "renderer/framebuffer.h"
 #include "renderer/renderer.h"
@@ -38,12 +39,12 @@ struct Fsr3::State {
     renderer::Shader late_world_depth;  // Display-resolution depth for late world effects.
     renderer::Shader reactive_mask;     // Particle colour-difference mask.
     unsigned vao = 0;                   // Empty VAO for fullscreen triangles.
-    unsigned previous_palette = 0;      // Previous displayed joint matrices.
+    fsr3_detail::PaletteHistory previous_palette;  // Previous displayed joint matrices.
     unsigned output_texture = 0;        // Display texture last made storage-capable.
 
     std::vector<scene::Instance> instances;  // Current displayed live mobys.
     std::vector<renderer::Mat4> palette;     // Current displayed joints, padded only on upload.
-    std::unordered_map<std::uint64_t, scene::Instance> previous;  // Last displayed live identities.
+    fsr3_detail::ObjectHistory previous;     // Last displayed live identities.
     std::vector<scene::MotionInstance> velocities;  // Current/previous pairs for the velocity pass.
 
     renderer::Camera camera;                    // Current unjittered camera.

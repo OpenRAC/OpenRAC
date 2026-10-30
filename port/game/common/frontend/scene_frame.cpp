@@ -170,6 +170,7 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_medial_axis_debug(graphics.medial_axis_debug);
     owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
+    input.volumetric_quality = graphics.volumetric_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
                              && openrac_game_has_level(scene.level);

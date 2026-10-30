@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 // Production blur passes against synthetic FSR vectors, without an SDK or game asset dependency.
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <limits>
 #include <vector>
 
+#include "common/stats.h"
 #include "enhanced/fsr3/temporal_math.h"
 #include "enhanced/tests/motion_blur_fixture.h"
 #include "renderer/gl.h"
+#include "renderer/gl_stats.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level.h"
@@ -435,6 +438,137 @@ void test_dense_motion_equivalence() {
     }
 }
 
+// Scaled render/display sizes and live optimisation switches preserve pixels.
+void test_scaled_resize_equivalence() {
+    enhanced::fsr3_detail::MotionBlur blur;
+    enhanced::fsr3_detail::FrameTarget colour, motion, depth;
+    std::string error;
+    unsigned variant = 0;
+    for (const auto shape :
+         {std::array{131, 97, 65, 49}, std::array{127, 77, 73, 45}, std::array{131, 97, 65, 49}}) {
+        const auto [width, height, rw, rh] = shape;
+        CHECK(colour.create(width, height, GL_RGBA8, 0, error));
+        CHECK(motion.create(rw, rh, 0x881A, 0, error));
+        CHECK(depth.create(rw, rh, 0x8814, 0, error));
+        Pixels pixels(std::size_t(width) * height);
+        std::vector<std::array<float, 4>> vectors(std::size_t(rw) * rh), depths(vectors.size());
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                pixels[std::size_t(y) * width + x] =
+                    {static_cast<unsigned char>((x * 13 + y * 7) % 256),
+                     static_cast<unsigned char>((x * 3 + y * 19) % 256),
+                     static_cast<unsigned char>((x ^ y) % 256),
+                     static_cast<unsigned char>(100 + x % 100)};
+            }
+        }
+        for (int y = 0; y < rh; ++y) {
+            for (int x = 0; x < rw; ++x) {
+                const auto at = std::size_t(y) * rw + x;
+                vectors[at] =
+                    {float((x * 7 + y * 11) % 41 - 20),
+                     float((x * 3 + y * 5) % 35 - 17),
+                     (x + y) % 13 == 0 ? 1.f : 0.f,
+                     0};
+                depths[at] = {.2f + .2f * float((x / 4 + y / 5) % 4), 0, 0, 0};
+            }
+        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, motion.texture());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, rw, rh, GL_RGBA, GL_FLOAT, vectors.data());
+        glBindTexture(GL_TEXTURE_2D, depth.texture());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, rw, rh, GL_RGBA, GL_FLOAT, depths.data());
+        renderer::MotionBlurSettings tuning;
+        tuning.samples = variant == 0 ? 8 : variant == 1 ? 64 : 32;
+        tuning.max_radius = variant == 0 ? 1 : 128;
+        const auto draw = [&](bool unique) {
+            renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurUniqueSeeds, unique);
+            glBindTexture(GL_TEXTURE_2D, colour.texture());
+            glTexSubImage2D(
+                GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data()
+            );
+            CHECK(blur.apply(
+                {{colour.framebuffer(), width, height},
+                 {rw, rh},
+                 motion.texture(),
+                 depth.texture(),
+                 renderer::identity(),
+                 renderer::identity(),
+                 {.25f, -.25f},
+                 {},
+                 {},
+                 true,
+                 .7f,
+                 16.666667f,
+                 tuning}
+            ));
+            glBindFramebuffer(GL_FRAMEBUFFER, colour.framebuffer());
+            Pixels result(pixels.size());
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, result.data());
+            return result;
+        };
+        const auto reference = draw(false), result = draw(true);
+        CHECK(reference == result);
+        compare_pixels(result);
+        ++variant;
+    }
+    blur.release();
+}
+
+void test_flood_setup_reuse() {
+    Fixture f;
+    std::string error;
+    CHECK(f.create(error));
+    f.moving_square();
+    const bool previous =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurSetupReuse);
+    renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurSetupReuse, true);
+    stats::set_enabled(stats::Client::Dump, true);
+    unsigned tick = 0;
+    stats::begin_frame(stats::FrameKind::Tick, tick++);
+    const auto draw = [&](int expected) {
+        const auto before = stats::g_counters[std::size_t(stats::Counter::ProgramBinds)];
+        f.render();
+        const auto binds = stats::g_counters[std::size_t(stats::Counter::ProgramBinds)] - before;
+        stats::begin_frame(stats::FrameKind::Tick, tick++);
+        const auto* measured = stats::history(0);
+        CHECK(measured != nullptr);
+        if (measured) {
+            const auto gauge =
+                std::find_if(measured->gauges.begin(), measured->gauges.end(), [](const auto& g) {
+                    return g.first == "motion blur JFA uniform setups";
+                });
+            CHECK(gauge != measured->gauges.end() && gauge->second == expected);
+            const auto selected =
+                std::find_if(measured->gauges.begin(), measured->gauges.end(), [](const auto& g) {
+                    return g.first == "motion blur unique seeds";
+                });
+            const bool unique =
+                renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurFastPath)
+                && renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurUniqueSeeds);
+            CHECK(selected != measured->gauges.end() && selected->second == (unique ? 1 : 0));
+        }
+        return binds;
+    };
+    f.tuning.max_radius = 1;
+    draw(1);
+    draw(0);
+    f.tuning.max_radius = 2;  // A previously unused later-pass program must be initialised.
+    draw(2);
+    f.tuning.max_radius = 128;
+    draw(2);
+    f.tuning.spread = .25f;
+    draw(2);
+    f.tuning.min_motion = 2;  // Change the default threshold to exercise uniform invalidation.
+    draw(2);
+    renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurSetupReuse, false);
+    const auto reference_binds = draw(2);
+    renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurSetupReuse, true);
+    const auto reused_binds = draw(0);
+    CHECK(reference_binds == reused_binds + 2);
+    stats::set_enabled(stats::Client::Dump, false);
+    renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurSetupReuse, previous);
+}
+
 void test_foreground_occlusion() {
     Fixture f;
     std::string error;
@@ -459,8 +593,10 @@ int main(int argc, char**) {
         std::cerr << error << '\n';
         return test::kSkip;
     }
+    renderer::gl_stats::install(platform::Window::gl_loader());
     for (bool direct : {false, true}) {
         renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurFastPath, direct);
+        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, direct);
         compare_direct = direct;
         test_cutscene_camera_blur();
         test_target_reference();
@@ -476,6 +612,8 @@ int main(int argc, char**) {
         test_jump_flood_radius_and_edges();
         test_wide_source_coordinates();
         test_dense_motion_equivalence();
+        test_scaled_resize_equivalence();
+        test_flood_setup_reuse();
     }
     CHECK(compared_frames == reference_frames.size());
     std::cout << "Compared " << compared_frames << " GPU frames byte-for-byte\n";

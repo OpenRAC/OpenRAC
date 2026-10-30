@@ -4,6 +4,9 @@
 // Native compute access to the renderer's device, images and existing command recording.
 #include "renderer/vulkan/native_compute.h"
 
+#include <array>
+
+#include "renderer/render_opt.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl {
@@ -82,9 +85,17 @@ bool record_native_compute(
 
     std::vector<ImagePtr> owners;
     std::vector<NativeImage> images;
+    // FSR imports eight images. Keep synchronous handles pinned without growing
+    // temporary vectors on every dispatch; larger native providers retain the dynamic path.
+    const bool streamlined =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::NativeComputeSetup);
+    std::array<ImagePtr, 8> local_owners{};
+    std::array<NativeImage, 8> local_images{};
+    const bool local = streamlined && textures.size() <= local_owners.size();
 
     // Validate all inputs before changing layouts or ending the current render pass.
-    for (const auto& use : textures) {
+    for (std::size_t i = 0; i < textures.size(); ++i) {
+        const auto& use = textures[i];
         const auto* texture = g->textures.find(use.texture);
 
         // Multisampled images must be resolved before a compute provider reads them.
@@ -97,30 +108,42 @@ bool record_native_compute(
             return false;
         }
 
-        owners.push_back(texture->image);
         const auto& image = *texture->image;
-        images.push_back(
-            {image.image,
-             image.format,
-             image.aspect,
-             static_cast<unsigned>(image.width),
-             static_cast<unsigned>(image.height)}
-        );
+        const NativeImage native{
+            image.image,
+            image.format,
+            image.aspect,
+            static_cast<unsigned>(image.width),
+            static_cast<unsigned>(image.height)
+        };
+        if (local) {
+            local_owners[i] = texture->image;
+            local_images[i] = native;
+        } else {
+            owners.push_back(texture->image);
+            images.push_back(native);
+        }
     }
+    const auto pinned = local ? std::span(local_owners).first(textures.size()) : std::span(owners);
+    const auto imported =
+        local ? std::span(local_images).first(textures.size()) : std::span(images);
 
     end_rendering(PassEnd::Compute);
     const auto command = frame().main;
 
     // Queue order and the renderer's image tracker remain authoritative across native dispatches.
-    for (std::size_t i = 0; i < owners.size(); ++i) {
-        barrier(
-            command,
-            *owners[i],
-            textures[i].write ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        );
-        owners[i]->touched = g->recording;
+    for (std::size_t i = 0; i < pinned.size(); ++i) {
+        const auto layout =
+            textures[i].write ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        // A completed transition to shader-read already made the last writer visible.
+        // Read/read reuse needs no dependency; writable images retain every barrier,
+        // including GENERAL->GENERAL ordering between frames.
+        if (!streamlined || textures[i].write || pinned[i]->layout != layout) {
+            barrier(command, *pinned[i], layout);
+        }
+        pinned[i]->touched = g->recording;
     }
 
-    return record(command, images);
+    return record(command, imported);
 }
 }  // namespace openrac::vkgl

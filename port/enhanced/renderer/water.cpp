@@ -19,6 +19,7 @@
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 
@@ -38,21 +39,33 @@ bool water_disabled() {
 Water* contact_source = nullptr;
 
 std::string Water::fragment_source() const {
-    return std::string(lighting::shaders::water_window_glsl) + "\n"
-           + std::string(lighting::shaders::water_swell_glsl) + "\n"
-           + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
-           + std::string(lighting::shaders::probes_glsl) + "\n"
-           + std::string(lighting::shaders::environment_glsl) + "\n"
-           + std::string(lighting::shaders::water_glsl);
+    std::string source = std::string(lighting::shaders::water_window_glsl) + "\n"
+                         + std::string(lighting::shaders::water_swell_glsl) + "\n"
+                         + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
+                         + std::string(lighting::shaders::probes_glsl) + "\n"
+                         + std::string(lighting::shaders::environment_glsl) + "\n"
+                         + std::string(lighting::shaders::water_glsl);
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+        source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
+        return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
+    }
+    return source;
 }
 
 std::string Water::vertex_source() const {
-    return std::string(lighting::shaders::water_uv_glsl) + "\n"
-           + std::string(lighting::shaders::water_mesh_glsl) + "\n"
-           + std::string(lighting::shaders::water_window_glsl) + "\n"
-           + std::string(lighting::shaders::water_swell_glsl) + "\n"
-           + std::string(lighting::shaders::water_displacement_glsl) + "\n"
-           + std::string(lighting::shaders::water_vertex_glsl);
+    std::string source = std::string(lighting::shaders::water_uv_glsl) + "\n"
+                         + std::string(lighting::shaders::water_mesh_glsl) + "\n"
+                         + std::string(lighting::shaders::water_window_glsl) + "\n"
+                         + std::string(lighting::shaders::water_swell_glsl) + "\n"
+                         + std::string(lighting::shaders::water_displacement_glsl) + "\n"
+                         + std::string(lighting::shaders::water_vertex_glsl);
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+        source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
+        return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
+    }
+    return source;
 }
 
 std::optional<renderer::EffectMesh> Water::mesh(
@@ -78,7 +91,6 @@ void Water::bind(
     const renderer::FrameInput& input,
     const renderer::EffectUvMotion& motion
 ) {
-    m_mesh->bind(shader);
     glUniform1i(shader.uniform("water_mesh"), 0);
     glUniform1i(shader.uniform("water_uv_animate"), motion.enabled ? 1 : 0);
     glUniform4f(
@@ -88,21 +100,25 @@ void Water::bind(
         motion.amplitude,
         float(motion.phase & 511u)
     );
-    glUniform1i(shader.uniform("water_debug_view"), m_debug.view);
-    glUniform1f(shader.uniform("water_debug_height_limit"), m_debug.displacement_limit);
-    glUniform1f(shader.uniform("water_fine_strength"), m_debug.fine_normal_strength);
     glUniform1i(shader.uniform("water_surface"), m_enabled ? int(surface) : 0);
-    glUniform1i(shader.uniform("water_sim_local"), 1);
-    glUniform1i(shader.uniform("water_sim_body"), m_sim_body);
-    glUniform1f(shader.uniform("water_sim_height"), m_sim_height);
-    glUniform1f(shader.uniform("water_sim_weight"), m_sim_weight);
-    glUniform4f(
-        shader.uniform("water_sim_window"),
-        float(m_window_origin[0]) * .25f,
-        float(m_window_origin[1]) * .25f,
-        .25f,
-        float(kWindowSize)
-    );
+    if (!m_bound || !renderer::render_opt::enabled(renderer::render_opt::Opt::EffectSetupReuse)) {
+        m_mesh->bind(shader);
+        glUniform1i(shader.uniform("water_debug_view"), m_debug.view);
+        glUniform1f(shader.uniform("water_debug_height_limit"), m_debug.displacement_limit);
+        glUniform1f(shader.uniform("water_fine_strength"), m_debug.fine_normal_strength);
+        glUniform1i(shader.uniform("water_sim_local"), 1);
+        glUniform1i(shader.uniform("water_sim_body"), m_sim_body);
+        glUniform1f(shader.uniform("water_sim_height"), m_sim_height);
+        glUniform1f(shader.uniform("water_sim_weight"), m_sim_weight);
+        glUniform4f(
+            shader.uniform("water_sim_window"),
+            float(m_window_origin[0]) * .25f,
+            float(m_window_origin[1]) * .25f,
+            .25f,
+            float(kWindowSize)
+        );
+        ++m_effect_setups;
+    }
     // All statically referenced Vulkan descriptors must be valid even on the original-
     // material branch. Bind once per effects pass, then only change the semantic surface.
     if (m_bound) {
@@ -141,6 +157,11 @@ void Water::bind(
     glActiveTexture(GL_TEXTURE0 + 14);
     glBindTexture(GL_TEXTURE_2D, m_maps[0]);
     glActiveTexture(GL_TEXTURE0);
+}
+
+void Water::finish_pass() {
+    stats::gauge("effect water setups", m_effect_setups);
+    m_mesh->finish_pass();
 }
 
 void Water::prepare_deformation(const renderer::FrameInput& input) {

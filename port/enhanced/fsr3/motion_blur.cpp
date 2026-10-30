@@ -109,35 +109,36 @@ void MotionBlur::extract_velocity(const Passes& passes) {
     const auto camera_relative = frame.camera_relative;
     const auto intensity = passes.intensity, milliseconds = frame.milliseconds;
 
-    const stats::Scope extract("Motion blur velocity", stats::kGpu);
-    m_extract.use();
+    const stats::Scope extract_scope("Motion blur velocity", stats::kGpu);
+    const auto& extract = renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+                              ? m_extract_variants[camera_relative ? 1 : 0]
+                              : m_extract;
+    extract.use();
     bind(0, motion);
     bind(1, depth);
-    glUniform1i(m_extract.uniform("motion_texture"), 0);
-    glUniform1f(m_extract.uniform("max_radius"), float(max_radius));
-    glUniform1f(m_extract.uniform("min_motion"), min_motion);
-    glUniform1i(m_extract.uniform("camera_relative"), camera_relative ? 1 : 0);
-    glUniform1i(m_extract.uniform("depth_texture"), 1);
-    glUniformMatrix4fv(m_extract.uniform("inverse_raster"), 1, GL_FALSE, inverse_raster.data());
-    glUniformMatrix4fv(m_extract.uniform("previous_view"), 1, GL_FALSE, previous_view.data());
+    glUniform1i(extract.uniform("motion_texture"), 0);
+    glUniform1f(extract.uniform("max_radius"), float(max_radius));
+    glUniform1f(extract.uniform("min_motion"), min_motion);
+    glUniform1i(extract.uniform("camera_relative"), camera_relative ? 1 : 0);
+    glUniform1i(extract.uniform("depth_texture"), 1);
+    glUniformMatrix4fv(extract.uniform("inverse_raster"), 1, GL_FALSE, inverse_raster.data());
+    glUniformMatrix4fv(extract.uniform("previous_view"), 1, GL_FALSE, previous_view.data());
     glUniform3f(
-        m_extract.uniform("camera_position"),
+        extract.uniform("camera_position"),
         camera_position[0],
         camera_position[1],
         camera_position[2]
     );
     glUniform3f(
-        m_extract.uniform("reference_delta"),
+        extract.uniform("reference_delta"),
         reference_delta[0],
         reference_delta[1],
         reference_delta[2]
     );
-    glUniform2f(m_extract.uniform("jitter"), jitter[0], jitter[1]);
-    glUniform2f(m_extract.uniform("display_size"), float(display.width), float(display.height));
+    glUniform2f(extract.uniform("jitter"), jitter[0], jitter[1]);
+    glUniform2f(extract.uniform("display_size"), float(display.width), float(display.height));
     // Strength 1 is a 1/60 s exposure; normalize displayed-frame displacement by its duration.
-    glUniform1f(
-        m_extract.uniform("exposure"), intensity * 16.666667f / std::max(milliseconds, 1.f)
-    );
+    glUniform1f(extract.uniform("exposure"), intensity * 16.666667f / std::max(milliseconds, 1.f));
     glBindFramebuffer(GL_FRAMEBUFFER, m_velocity.framebuffer());
     glViewport(0, 0, rw, rh);
     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -166,20 +167,44 @@ int MotionBlur::jump_flood(const Passes& passes) {
     bind(1, m_velocity.texture());
     const bool fast = renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurFastPath);
     auto& first = fast ? m_fast_first_jump : m_first_jump;
-    auto& next = fast ? m_fast_jump : m_jump;
-    for (auto* program : {&first, &next}) {
-        program->use();
-        glUniform1i(program->uniform("seed_texture"), 0);
-        glUniform1i(program->uniform("velocity_texture"), 1);
-        glUniform1f(program->uniform("min_motion"), min_motion);
-        glUniform1f(program->uniform("side_spread"), std::clamp(tuning.spread, 0.f, 1.f));
-        glUniform2f(program->uniform("display_size"), float(display.width), float(display.height));
+    const bool unique =
+        fast && m_unique_jump.id()
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurUniqueSeeds);
+    auto& next = unique ? m_unique_jump : fast ? m_fast_jump : m_jump;
+    const bool reuse =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurSetupReuse);
+    const FloodSetup setup{
+        {display.width, display.height},
+        min_motion,
+        std::clamp(tuning.spread, 0.f, 1.f),
+        jump,
+        fast,
+        unique
+    };
+    const bool refresh = !m_flood_setup || *m_flood_setup != setup;
+    int setups = 0;
+    const auto uniforms = [&](const renderer::Shader& program) {
+        glUniform1i(program.uniform("seed_texture"), 0);
+        glUniform1i(program.uniform("velocity_texture"), 1);
+        glUniform1f(program.uniform("min_motion"), min_motion);
+        glUniform1f(program.uniform("side_spread"), setup.spread);
+        glUniform2f(program.uniform("display_size"), float(display.width), float(display.height));
+        ++setups;
+    };
+    if (!reuse) {
+        for (auto* program : {&first, &next}) {
+            program->use();
+            uniforms(*program);
+        }
     }
     int pass_count = 0;
     for (; jump >= 1; jump /= 2) {
         const stats::Scope flood("Motion blur jump flood", stats::kGpu);
         auto& program = pass_count == 0 ? first : next;
         program.use();
+        if (reuse && refresh && pass_count < 2) {
+            uniforms(program);
+        }
         bind(0, m_seeds[source].texture());
         glUniform1i(program.uniform("jump_pixels"), jump);
         glBindFramebuffer(GL_FRAMEBUFFER, m_seeds[1 - source].framebuffer());
@@ -188,6 +213,9 @@ int MotionBlur::jump_flood(const Passes& passes) {
         ++pass_count;
     }
     stats::gauge("motion blur JFA passes", pass_count);
+    stats::gauge("motion blur JFA uniform setups", setups);
+    stats::gauge("motion blur unique seeds", unique ? 1 : 0);
+    m_flood_setup = setup;
 
     return source;
 }
