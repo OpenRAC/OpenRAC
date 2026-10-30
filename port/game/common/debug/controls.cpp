@@ -498,7 +498,7 @@ void enhanced_settings_window() {
         ImGui::BeginDisabled(!enhanced::Fsr3::available());
         int temporal_quality = static_cast<int>(graphics.temporal_quality);
         if (combo(
-                "FSR temporal upscaling",
+                "Temporal upscaling",
                 &temporal_quality,
                 renderer::kTemporalNames,
                 static_cast<int>(renderer::TemporalQuality::Count)
@@ -510,7 +510,7 @@ void enhanced_settings_window() {
 
         ImGui::BeginDisabled(!enhanced::Fsr3::available());
         changed |= slider_float(
-            "FSR sharpening",
+            "Upscaling sharpening",
             &graphics.temporal_sharpness,
             0,
             1,

@@ -63,7 +63,7 @@ export const mockEnhanced: EnhancedView = {
       },
       {
         key: "temporal_quality",
-        name: "FSR temporal upscaling",
+        name: "Temporal upscaling",
         type: "choice",
         default: "quality",
         value: "quality",
@@ -106,7 +106,7 @@ export const mockEnhanced: EnhancedView = {
       {
         key: "temporal_sharpness",
         group: "advanced",
-        name: "FSR sharpening",
+        name: "Upscaling sharpening",
         type: "float",
         default: 0.2,
         value: 0.2,

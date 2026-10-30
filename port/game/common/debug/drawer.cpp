@@ -13,6 +13,7 @@
 #include <imgui_internal.h>  // ImHashStr, ShadeVertsLinearColorGradientKeepAlpha: the eases and gradients
 #include <span>
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL.h>
 
@@ -410,13 +411,16 @@ void drawer_enhanced() {
                 changed = true;
             }
         }
-        // AMD FSR's temporal upscaling (enhanced/fsr3): its preset, and its sharpening while on
-        // (the launcher's steps of 0.05).
+        // Temporal upscaling (enhanced/fsr3, with Arm ASR or AMD FSR 3.1, the one in use named):
+        // its preset, and its sharpening while on (the launcher's steps of 0.05).
         if (enhanced::Fsr3::available()) {
             constexpr int kModes = static_cast<int>(renderer::TemporalQuality::Count);
             const int mode = static_cast<int>(set.temporal_quality);
+            const std::string_view upscaler = enhanced::Fsr3::active_upscaler();
+            const std::string label = upscaler == "none" ? std::string("Upscaling")
+                                                         : std::format("Upscaling ({})", upscaler);
             if (const int by = drawer_choice(
-                    "FSR upscaling", renderer::kTemporalNames[mode], mode > 0, mode < kModes - 1
+                    label.c_str(), renderer::kTemporalNames[mode], mode > 0, mode < kModes - 1
                 )) {
                 set.temporal_quality =
                     static_cast<renderer::TemporalQuality>(std::clamp(mode + by, 0, kModes - 1));
@@ -425,7 +429,7 @@ void drawer_enhanced() {
             if (set.temporal_quality != renderer::TemporalQuality::Off) {
                 const float sharp = set.temporal_sharpness;
                 if (const int by = drawer_choice(
-                        "FSR sharpening",
+                        "Sharpening",
                         std::format("{:.0f}%", sharp * 100.0f),
                         sharp > 0.025f,
                         sharp < 0.975f

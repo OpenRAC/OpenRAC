@@ -114,10 +114,10 @@ pub fn settings() -> Vec<SettingSpec> {
     ];
     let mut temporal = spec(
         "temporal_quality",
-        "FSR temporal upscaling",
+        "Temporal upscaling",
         "choice",
         "quality".into(),
-        "Reconstructs a lower-resolution world image. The HUD stays at full resolution.",
+        "Reconstructs a lower-resolution world image (Arm ASR on phone GPUs, AMD FSR 3.1 elsewhere). The HUD stays at full resolution.",
     );
     temporal.choices = vec![
         Choice { value: "off".into(), name: "Off".into() },
@@ -146,7 +146,7 @@ pub fn settings() -> Vec<SettingSpec> {
             0.01,
         ),
         spec("motion_blur", "Motion blur", "bool", true.into(), "Subtle motion blur to enhance animations."),
-        advanced(range(spec("temporal_sharpness", "FSR sharpening", "float", 0.2.into(), ""), 0.0, 1.0, 0.05)),
+        advanced(range(spec("temporal_sharpness", "Upscaling sharpening", "float", 0.2.into(), ""), 0.0, 1.0, 0.05)),
     ]
 }
 
