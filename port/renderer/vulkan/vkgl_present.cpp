@@ -375,6 +375,34 @@ void advance() {
     g->frame_pending = true;
 }
 
+namespace {
+
+// The slot of the frame queued before this one.
+Frame& previous_frame() {
+    return g->frames[static_cast<std::size_t>((g->frame + kFrames - 1) % kFrames)];
+}
+
+// Low-latency frames: waits until the frame before this one is done on the GPU (one in flight),
+// counted with the frame's GPU waits; the seconds waited, 0 when it was not queued.
+double wait_for_previous_frame() {
+    Frame& last = previous_frame();
+    if (!last.submitted) {
+        return 0.0;
+    }
+    const stats::Scope wait("vulkan frame wait");
+    const Clock::time_point start = Clock::now();
+    if (!check(
+            vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX), "previous frame fence"
+        )) {
+        throw std::runtime_error("cannot wait for the previous Vulkan frame");
+    }
+    const double waited = seconds_since(start);
+    g->measures.wait_s += waited;
+    return waited;
+}
+
+}  // namespace
+
 // Pools and upload memory remain untouched until this slot's previous submission has completed.
 void prepare_frame() {
     if (!g || !g->frame_pending) {
@@ -387,17 +415,8 @@ void prepare_frame() {
     // recorded meanwhile and waits for it only as it is queued (queue_after_previous): the GPU
     // still has one frame at a time, and the CPU's recording no longer waits behind it.
     g->latency.deferred = g->low_latency && g->latency.marked && g->latency.sleep.known();
-    if (Frame& last = g->frames[static_cast<std::size_t>((g->frame + kFrames - 1) % kFrames)];
-        g->low_latency && last.submitted && !g->latency.deferred) {
-        const stats::Scope wait("vulkan frame wait");
-        const Clock::time_point start = Clock::now();
-        if (!check(
-                vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX),
-                "previous frame fence"
-            )) {
-            throw std::runtime_error("cannot wait for the previous Vulkan frame");
-        }
-        g->measures.wait_s += seconds_since(start);
+    if (g->low_latency && !g->latency.deferred) {
+        wait_for_previous_frame();
     }
     if (f.submitted) {
         const stats::Scope wait("vulkan frame wait");
@@ -441,18 +460,8 @@ void queue_after_previous() {
     const double work = seconds_since(l.began) - wait;
     // Its wait for the frame before it, left by prepare_frame: what is left of it is what the next
     // frame's sleep could have taken as well.
-    if (Frame& last = g->frames[static_cast<std::size_t>((g->frame + kFrames - 1) % kFrames)];
-        l.deferred && last.submitted) {
-        const stats::Scope scope("vulkan frame wait");
-        const Clock::time_point start = Clock::now();
-        if (!check(
-                vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX),
-                "previous frame fence"
-            )) {
-            throw std::runtime_error("cannot wait for the previous Vulkan frame");
-        }
-        wait = seconds_since(start);
-        g->measures.wait_s += wait;
+    if (l.deferred && previous_frame().submitted) {
+        wait = wait_for_previous_frame();
     }
     l.sleep.cpu_frame(work, l.slept, wait);
     l.marked = false;
