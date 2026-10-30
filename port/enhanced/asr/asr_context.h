@@ -16,6 +16,9 @@ namespace openrac::enhanced::asr_detail {
 // set, otherwise on a tile-based GPU (vkgl::tile_based), where ASR's fragment passes keep their
 // work in tile memory and FSR 3.1's compute passes cost most.
 [[nodiscard]] bool preferred();
+// Whether ASR can upscale from `render_size`: its luminance pyramid (half the render size) needs a
+// sixth level, so the larger side must be at least 64 pixels; FSR 3.1 upscales smaller frames.
+[[nodiscard]] bool supports(std::array<int, 2> render_size);
 
 // One GPU resource context, used only on the render thread.
 class AsrContext {

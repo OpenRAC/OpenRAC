@@ -4,6 +4,7 @@
 // Arm ASR context creation and dispatch over renderer-owned Vulkan images.
 #include "enhanced/asr/asr_context.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string_view>
 #include <vector>
@@ -74,6 +75,11 @@ bool preferred() {
         return *chosen == "asr";
     }
     return vkgl::tile_based();
+}
+
+bool supports(std::array<int, 2> render_size) {
+    // With fewer levels the library binds its next resource in place of the missing sixth.
+    return std::max(render_size[0], render_size[1]) >= 64;
 }
 
 // Library-owned histories and pipelines; the renderer owns all imported frame images.
@@ -171,7 +177,7 @@ bool AsrContext::configure(
     std::array<int, 2> render_size, std::array<int, 2> display_size, std::string& error
 ) {
     if (render_size[0] <= 0 || render_size[1] <= 0 || display_size[0] < render_size[0]
-        || display_size[1] < render_size[1]) {
+        || display_size[1] < render_size[1] || !supports(render_size)) {
         error = "invalid Arm ASR render or display dimensions";
         return false;
     }

@@ -67,8 +67,9 @@ const char* Fsr3::active_upscaler() {
 bool Fsr3::State::configure_upscaler(
     std::array<int, 2> size, std::array<int, 2> display_size, std::string& error
 ) {
-    // ASR is tried until it fails once; a device it cannot start on keeps FSR 3.1.
-    if (!asr_refused && asr_detail::preferred()) {
+    // ASR is tried until it fails once; a device it cannot start on keeps FSR 3.1, and so do
+    // frames too small for it.
+    if (!asr_refused && asr_detail::preferred() && asr_detail::supports(size)) {
         std::string reason;
 
         if (asr.configure(size, display_size, reason)) {
@@ -83,7 +84,10 @@ bool Fsr3::State::configure_upscaler(
         asr_refused = true;
     }
 
-    use_asr = false;
+    if (use_asr) {
+        asr.release();
+        use_asr = false;
+    }
 
     if (!sdk.configure(size, display_size, error)) {
         return false;

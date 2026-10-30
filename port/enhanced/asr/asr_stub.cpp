@@ -11,6 +11,10 @@ bool preferred() {
     return false;
 }
 
+bool supports(std::array<int, 2>) {
+    return false;
+}
+
 AsrContext::AsrContext() = default;
 AsrContext::~AsrContext() = default;
 
