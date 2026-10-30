@@ -2035,10 +2035,12 @@ class Preparation(unittest.TestCase):
         # The US vfprintf: named like the library's, bound to a game address, taking a game pointer.
         src = ('s32 vfprintf(FILE *fp, const char *f, void *ap) __asm__("FUN_00116da8");\n'
                's32 vfprintf(FILE *fp, const char *f, void *ap) { return vfprintf(fp, f, ap); }\n'
-               'char *s = "vfprintf(";\n')
+               'char *s = "vfprintf(";\n'
+               'extern __typeof__(vfprintf) func_00116DA8 __attribute__((alias("FUN_00116da8")));\n')
         out = prep.rename_va_builtins(src)
         self.assertEqual(out.count("vfprintf_game("), 3)
         self.assertIn('"vfprintf("', out)
+        self.assertIn("__typeof__(vfprintf_game)", out)
         self.assertEqual(prep.rename_va_builtins("int vfprintf(void *, const char *, void *);\n"),
                          "int vfprintf(void *, const char *, void *);\n")
 

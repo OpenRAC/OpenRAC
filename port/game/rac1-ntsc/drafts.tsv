@@ -6,6 +6,4 @@
 # its own decoder above the library (port/media), so they are never reached, and OpenRAC carries no C
 # whose origin it cannot vouch for under docs/policy/SOURCING.md (PAL's movie code was reverted on
 # that ground). unit	functions
-src/assembly/sdk/library/sceCdInit.c	# sceCdInit
 src/assembly/textbin/rendering/init_dma.c	# FUN_0020b418
-src/overlays/shared/gameplay/entities/002648e0.c	# FUN_L00_002648e0
