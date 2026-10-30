@@ -28,10 +28,10 @@ python3 port/tools/regress/regress.py run --game rac1-ntsc --build ../other/port
   `assets/port/rac1/pal` (PAL) or `build/ntsc-data` and `build/ntsc-levels`
   (US); in a worktree, the main checkout's.
 - `--jobs N` runs N levels at once (default 6).
-- `--env KEY=VALUE` gives every run a switch (the runner clears the caller's
-  own `OPENRAC_` variables). On a machine without a graphics card, as a cloud
-  container: `SDL_VIDEODRIVER=offscreen ... --env OPENRAC_SOFTWARE_GL=1`
-  (Mesa's llvmpipe; a level takes two to four minutes, so `--jobs 2`).
+- `--env KEY=VALUE` gives every run a switch (the runner clears your own
+  `OPENRAC_` variables). With no graphics card, as in a cloud container, use
+  `SDL_VIDEODRIVER=offscreen ... --env OPENRAC_SOFTWARE_GL=1` (a level takes
+  two to four minutes, so `--jobs 2`).
 - A run without `--out` becomes `latest:<game>`, the default of `baseline
   save` and `check`; one with `--out` (another build's) is kept apart.
 
@@ -139,19 +139,12 @@ It is the order to backfill or fix in for gameplay
 python3 port/tools/regress/regress.py coverage latest:rac1-ntsc@wide [--top 25] [--json FILE]
 ```
 
-The port runs the game's own code, so each tick's display list holds every
-VU1 program the game starts and the particle pool every particle it keeps.
-`OPENRAC_DRAW_COVERAGE=FILE` (set by every run, written to each level's
-`coverage.json`) counts, per level, the VU1 program starts that no renderer
-of the port reads (only the effect strips' are: the world's renderers send
-none) and the particles `particle_quads` leaves out (lines, untextured,
-beyond their depth). A program is told apart by its command, its entry, the
-hash of the microcode loaded where the entry is and the layout of the data
-unpacked for it, with the game memory that data came from and the GS
-registers set before it ([draw_coverage.h](../../port/game/common/frontend/draw_coverage.h)).
-`coverage` merges a run's levels into one list per version, ranked by how
-many routes saw a row: each is something the game drew and the port did not,
-found without a picture to compare with.
+Shows what the game drew that the port did not, with no picture to compare
+against. Every run sets `OPENRAC_DRAW_COVERAGE` and writes `coverage.json` for
+each level. It counts the VU1 programs that no port renderer reads and the
+particles that `particle_quads` skips. `coverage` merges a run's levels into
+one list, ranked by how many routes saw each row
+([draw_coverage.h](../../port/game/common/frontend/draw_coverage.h)).
 
 ## Where a pass shows
 
@@ -159,23 +152,20 @@ found without a picture to compare with.
 python3 port/tools/regress/survey.py --game rac1-ntsc --level 14 --pass liquids [--points 32] [--jobs 2]
 ```
 
-Finds where on a level a renderer pass shows (`sky`, `terrain`, `ties`,
-`liquids`, `shrubs`, `mobys`, `effects`, `hud`), for proof pictures, in about
-five minutes and without a recording. The places come from the level's
-collision (floors spread over the level, every height of a place included);
-two runs side by side hold the hero at each for 80 frames, at 640x480 with
-half the render scale, on the software rasteriser. The run hides the pass in
-every other 10 frames (`OPENRAC_HIDE_PASSES_EVERY`) and shoots a picture
-every 10, so a place is shot with the pass, without it and with it again:
-the pixels alike in the two with it and unlike the one without are the pass,
-and what moves by itself (rain, an enemy) is left out.
-`build/regress/survey/<level>-<pass>/report.json` lists the places, the most
-of the picture first, with the hero's position and yaw (a route's
-`teleport`; in PCSX2, writes to the hero's position and yaw), and `best.png`
-marks the pass's pixels on the best of them.
+Finds places on a level where a renderer pass shows (`sky`, `terrain`, `ties`,
+`liquids`, `shrubs`, `mobys`, `effects`, `hud`), for proof pictures. It takes
+about five minutes and needs no recording. The places come from the level's
+collision. At each place the hero is held for 80 frames (640x480, half render
+scale, software rasteriser) and the pass is hidden in every other block of 10
+frames (`OPENRAC_HIDE_PASSES_EVERY`). Pixels that match with the pass and
+differ without it belong to the pass. Things that move by themselves (rain,
+enemies) are left out.
+`build/regress/survey/<level>-<pass>/report.json` lists the places, best
+first, with the hero's position and yaw. `best.png` marks the pass's pixels
+on the best one.
 
 `regress.py run --setting KEY=VALUE` (repeatable) writes that line into each
-run's `settings.ini` (docs/port/SETTINGS.md), as the survey does for the
+run's `settings.ini` ([SETTINGS.md](SETTINGS.md)), as the survey does for the
 resolution and the render scale.
 
 ## Adding or changing a route

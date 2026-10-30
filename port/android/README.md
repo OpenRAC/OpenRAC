@@ -144,20 +144,17 @@ game's log.
     data, reinstall the same build: games, saves and settings are back with no
     set-up. A build that kept its games in shared storage's OpenRAC folder has
     them moved into the app at the first start.
-16. **The game covers the screen, in landscape.** On a phone with a camera
-    notch or hole and on one without, with the system's auto-rotate on: start
-    a play from the launcher, from Recents and after pulling the notification
-    shade down. No status bar or black band stays at the top (the drawer's
-    frame counter shows in full), a swipe from the edge shows the bars only
-    for a moment, and the game reaches into the notch's side with the touch
-    pad clear of it. Turning the phone upright keeps the game in landscape;
-    turning it over flips it to the other landscape.
+16. **The game covers the screen, in landscape.** With auto-rotate on, on a
+    phone with a camera notch and one without: start a play from the launcher,
+    from Recents and after pulling the notification shade down. No status bar
+    or black band stays at the top (the drawer's frame counter shows in full),
+    a swipe from the edge shows the bars only briefly, and the touch pad stays
+    clear of the notch. Turning the phone upright keeps landscape; turning it
+    over flips to the other landscape.
 17. **The performance hint (Android 13 and later).** Start a level: the log
     says `performance hints: a session for 1 thread(s), ...` and, once the
-    world is drawn on the render thread (Vulkan), `the session covers 2
-    threads`. A diagnostics recording's header has `performance hint: active,
-    2 thread(s), target 16.67 ms` (the refresh's interval with frames between
-    ticks). Record the same scene again with `OPENRAC_ADPF_OFF` set (the
-    game's `dev.openrac.game.ENVIRONMENT` extra): the header says `off`, and
-    the two recordings' frame times, CPU clocks and thermal lines compare the
-    game with and without it.
+    render thread draws the world (Vulkan), `the session covers 2 threads`. A
+    diagnostics recording's header has `performance hint: active, 2 thread(s),
+    target 16.67 ms`. Record the same scene with `OPENRAC_ADPF_OFF` set (the
+    game's `dev.openrac.game.ENVIRONMENT` extra): the header says `off`. Compare
+    the two recordings' frame times, CPU clocks and thermal lines.

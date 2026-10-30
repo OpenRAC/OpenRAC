@@ -170,7 +170,7 @@ unknown *value* warns in the log and falls back to the default; an unknown
 | `mute_unfocused` | `0`/`1` | `0` | |
 | `skip_cutscenes` | `0`/`1` | `1` | Start also presses the game's own cutscene-skip buttons. |
 | `fresh_input` | `0`/`1` | `0` | The pad read again just before each tick: presses reach the game about a tick sooner. The game's logic and its one pad read a tick are unchanged, but a trick timed by feel lands a frame earlier. |
-| `low_latency_frames` | `0`/`1` | `0` | Frames between ticks not held half a tick back, and fewer frames queued for the display (Vulkan: fewest swapchain images, one frame on the GPU at a time, the next recorded meanwhile and its start slept until it can be queued as the GPU is free; OpenGL: glFinish after each swap). Changes only the picture's timing; may cost frames on a slow GPU with OpenGL. |
+| `low_latency_frames` | `0`/`1` | `0` | Frames between ticks are not held half a tick back, and fewer frames wait for the display. Changes only the picture's timing; may cost frames on a slow GPU with OpenGL. |
 | `volume` | 0–100 | `100` | |
 | `verbose_log` | `0`/`1` | `0` | |
 | `fix_wide_moby_effects` | `0`/`1` | `1` | A port fix; `0` restores the console's behaviour. |

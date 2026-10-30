@@ -82,11 +82,11 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Frame rate | `frame_rate` | `display`, `original`, a number, `unlimited` | How many frames are drawn (section 2). The page offers 30, 60, 75, 90, 120, 144, 165, 240 and 360; a file may hold any number from 20 to 1000 |
 | Frame cap | `frame_rate` | | The same key from another side: turns the cap on and moves it five frames a second at a time, for a rate the list does not have |
 | Frame counter (F2) | `show_fps` | `0` (off), `1` (FPS and whole-frame time), `2` (FPS, CPU and GPU milliseconds) | F2 cycles all three modes. Whole-frame time measures completed presentation intervals, including swap and pacing waits, and agrees with FPS. CPU uses those same intervals with swap-call time removed: all intervening simulation ticks, preparation, rendering and other waits count, even when rendering is skipped. This is elapsed CPU-side time, not processor utilisation. GPU remains the sum of asynchronously measured passes; missing samples show `--`. Updates four times a second |
-| Low-latency frames | `low_latency_frames` | `0` (default), `1` | Frames between ticks are not held half a tick behind the last tick (the next tick starts on time, and without VSync the scene no longer stands still for half a tick and then jumps), and fewer finished frames wait for the display: Vulkan uses as few swapchain images as the surface allows and keeps one frame at a time on the card, OpenGL waits for the card after each swap. On Vulkan a frame is recorded while the one before it is still on the card and queued once that one is done; with the card's timestamps it measures what a frame costs the processor and the card, and a frame between ticks sleeps before it begins (before it reads the time and the input) just long enough to be queued as the card is free, half a millisecond early. Frames then come as fast as with the setting off (the slower of the processor and the card), about one processor frame and one card frame after they began. Until both times are measured, or without the card's timestamps, a frame waits for the one before it as its drawing begins, as it used to. The same holds with the render thread (`OPENRAC_RENDER_THREAD`), whose frames are still held half a tick behind, since one may be shown after the next tick starts. The sleep never passes the next tick, and the frame cap and VSync pace as before. Only the picture's timing changes, never the game's ticks; on OpenGL it can cost frames on a slow graphics card. Off by default so the picture comes with the timing players have learnt. Drawer: Latency; the game's Video options page |
-| Responsive pad | `fresh_input` | `0` (default), `1` | The pads are read again just before each tick, not only at the end of the last one, so a press reaches the game up to a tick sooner. The game still reads one state of the pad a tick and its logic is unchanged, but a trick timed by feel lands about a frame earlier, which is why it is off by default. Drawer: Latency |
+| Low-latency frames | `low_latency_frames` | `0` (default), `1` | Draws the frames between game ticks sooner and keeps fewer finished frames waiting for the display, so the picture reacts faster. Only the timing of the picture changes, never the game's ticks. On OpenGL it can cost frames on a slow graphics card. Off by default. Drawer: Latency; the game's Video options page |
+| Responsive pad | `fresh_input` | `0` (default), `1` | Reads the pads again just before each tick, so a press reaches the game up to a tick sooner. The game's logic is unchanged, but a trick timed by feel lands about a frame earlier, so it is off by default. Drawer: Latency |
 | (Alt) | `menu_bar` | `1`, `0` | The menus along the window's top on Windows and Linux (macOS has them in its own menu bar) |
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
-| Responsive camera | `camera_latch` | `1` (default), `0` | The frames drawn between ticks turn the camera by the right stick as it is when each is drawn, not as the last tick read it: a turn shows at once instead of a tick and a half later (section 2, "The camera between ticks"). Only the picture; the game's tick and its camera are untouched. No effect at the `original` frame rate. Drawer: Latency; the game's Video options page |
+| Responsive camera | `camera_latch` | `1` (default), `0` | Frames drawn between ticks turn the camera with the right stick as it is now, so a turn shows at once, not a tick and a half later (see "The camera between ticks"). Only the picture changes. No effect at the `original` frame rate. Drawer: Latency; the game's Video options page |
 | Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
 | (F9, F10) | `volume` | `100`, `0` to `100` | How loud everything the port plays is |
 | Touch controls: Button size | `touch_scale` | `75`, `50` to `150` (percent) | The on-screen pad's size against its own ([touch_pad.h](../../port/platform/touch_pad.h)). Smaller controls sit nearer the screen's edges as well |
@@ -167,47 +167,27 @@ display or the display changed mode, not polled.
 
 ### The camera between ticks
 
-A frame between ticks shows the camera part way from the last tick's to the
-kept one's, so a push of the right stick shows only once a tick has read it
-and the frames have caught up with that tick: a tick and a half (30 ms at
-50 Hz) after the game itself would have it, half a tick with low-latency
-frames. With `camera_latch` on (Responsive camera), each such frame turns the
-camera about the hero to where the game's follow camera will be when the
-frame is shown: the rest of the way to the kept tick's heading, and on by
-what the game's next ticks will turn with the stick as it is just before the
-frame is drawn ([camera_latch.cpp](../../port/game/common/frontend/camera_latch.cpp)).
-How far is the game's own answer: Ratchet & Clank turns the camera's offset
-from the hero by the stick's x (through its spring, which a level sets to
-follow the stick at once) times the level's turn speed each tick; the port
-asks the same of the camera's state without writing anything back
-([rac1/host/camera_latch.c](../../port/game/rac1/host/camera_latch.c)). The
-camera then follows that offset through its rig's easing, so the picture's
-turn reaches the stick's over some 30 ticks: the latch goes on from the turn
-the last two ticks made, toward the stick's. Measured in Veldin (US, stick
-held right for 150 ticks, `OPENRAC_CAMERA_LATCH_LOG`): the guess for each
-tick was off by 0.00008 rad on average, 0.0017 rad (0.1 degree) at most, in
-the first ticks of the push.
+Without help, a push of the right stick shows only after a tick has read it
+and the frames have caught up: a tick and a half (30 ms at 50 Hz) late, half a
+tick with low-latency frames. With `camera_latch` on (Responsive camera), each
+frame between ticks turns the camera to where the game's follow camera will be
+when the frame is shown. It asks the game's own camera code how far the stick
+will turn it ([camera_latch.cpp](../../port/game/common/frontend/camera_latch.cpp),
+[rac1/host/camera_latch.c](../../port/game/rac1/host/camera_latch.c)).
+In Veldin (US, stick held right for 150 ticks) the guess was off by 0.1 degree
+at most.
 
-- **The game is untouched.** Its stick read runs as written, under a host
-  function that only notes which camera read it; the tick, the camera's
-  variables and the trace are the same with the setting on and off.
-- **No jump at the next tick.** When it comes the game's real camera takes
-  over: a guess that was right goes on without a step, and what one missed
-  by (a wall the camera met, a stick moved after the tick read it) fades
-  within a few frames (to a third in 50 ms). So does the turn when the latch
-  goes off.
-- **Only where it is the game's turn.** In play (the level's mode 0), with
-  the follow camera reading the stick in that tick and its stick turn not
-  locked, and the stick off its dead zone. Cutscenes, the game's menus, path
-  and fixed cameras (a camera volume's lock), the ship and anything else that
-  is not the follow camera turn as they did. The vertical stick is left out:
-  the game eases the pitch toward an angle the stick holds, not at a speed.
+- **The game is untouched.** Its ticks, camera variables and trace are the same
+  with the setting on and off.
+- **No jump at the next tick.** The game's real camera takes over, and any small
+  miss fades within a few frames.
+- **Only in normal play,** with the follow camera, the stick turn not locked and
+  the stick off its dead zone. Cutscenes, menus, fixed cameras, the ship and
+  the vertical stick work as before.
 
-On by default: it changes nothing but the heading of the frames the port
-adds between ticks, which the console never drew, and only while the right
-stick is pushed; with it those frames answer the stick the moment the stick
-moves, the point of drawing them. `OPENRAC_CAMERA_LATCH_LOG=1` writes each
-tick's turn and the latch's guess for it to the log.
+It is on by default because it only changes the frames the port adds between
+ticks, which the console never drew, and only while the right stick is
+pushed. `OPENRAC_CAMERA_LATCH_LOG=1` logs each tick's turn and the guess for it.
 
 ## 3. The game's 50 Hz / 60 Hz option
 
