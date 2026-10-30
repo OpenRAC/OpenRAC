@@ -25,6 +25,7 @@
 #include "common/profiler.h"
 #include "common/stats.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/swapchain_images.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
@@ -267,7 +268,7 @@ bool make_swapchain() {
         return false;  // minimised: made again when it is shown
     }
     std::uint32_t count =
-        g->low_latency ? std::max(caps.minImageCount, 2u) : std::max(caps.minImageCount + 1, 3u);
+        swapchain_images(caps.minImageCount, g->low_latency, kCompositorHoldsImage);
     if (caps.maxImageCount != 0) {
         count = std::min(count, caps.maxImageCount);
     }
