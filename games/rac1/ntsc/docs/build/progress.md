@@ -28,10 +28,13 @@ allowed only:
 - in the approved header macros: the quadword copy in `include/qcopy.h` and
   `include/qzero.h`, and the privileged instructions C cannot write
   (`CpuEnableInt`, `CpuSync`, `CpuReadStatus`, `CpuSyscall`, ...) in
-  `include/kernel.h`.
+  `include/kernel.h`;
+- as a fakematch: a register pin or a small helper that forces the retail
+  schedule, with a `Fakematch:` comment in the 15 lines above it.
 
 Any other asm (instructions, an empty memory barrier, `__asm__("" : "+r"(x))`,
-`.extern`, a register pin like `register int x asm("v1")`) keeps the function
+`.extern`, a register pin like `register int x asm("v1")`) without that
+comment keeps the function
 **pending** (C_FUZZY 99.99) even when the bytes match. The rule is
 `non_label_asm()` in `scripts/rnc_units.py` (copied in
 `scripts/generate_treemap.py`).
@@ -72,7 +75,10 @@ Data counts as matched when C defines it and a check covers it:
   `DATA_OVERLAYS` (`configure.py`) links the unit's section in place of the
   raw bytes, so the executable's hash covers it;
 - levels: a row in `config/overlays/us/data.tsv`, checked by `make overlays`.
-  A `D_XXXXXXXX` row counts in every level.
+  A `D_XXXXXXXX` row counts in every level. The switch tables and float
+  literals in `config/overlays/us/compiler_data.tsv` and the levels' copies of
+  executable data in C (`exe_data.tsv`) count too. A byte two rows cover
+  counts once.
 
 `decomp_map.json` also has `bytes_matching_c_zero`: the part of the matched
 data that is zeros.

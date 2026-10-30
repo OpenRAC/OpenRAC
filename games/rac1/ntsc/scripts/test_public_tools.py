@@ -535,7 +535,7 @@ class DataDeclarationTests(unittest.TestCase):
     """No new data label may get a second type or name (scripts/data-decls.py)."""
 
     # Labels that still disagree; lower it when you fix some, never raise it.
-    KNOWN_CONFLICTS = 574
+    KNOWN_CONFLICTS = 420
 
     def test_no_new_conflicting_declarations(self):
         decls = load_module("rnc_data_decls", ROOT / "scripts" / "data-decls.py")
@@ -555,6 +555,118 @@ class DataDeclarationTests(unittest.TestCase):
             self.assertEqual(decls.conflicts(root), {})
             (root / "src" / "b.c").write_text('extern short frame_count __asm__("D_0015ED00");\n')
             self.assertEqual(list(decls.conflicts(root)), ["D_0015ED00"])
+
+
+class OverlayDataSymbolCacheTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.proof = load_module("rnc_overlay_proof_cache", ROOT / "scripts/overlay_proof.py")
+
+    @staticmethod
+    def _elf_bytes(symbols, data=b"\x01\x02\x03\x04"):
+        """Small ELF32 object; symbols are (name, type, section, value, size)."""
+        names = b"\0.shstrtab\0.strtab\0.symtab\0.data\0.text\0"
+        strings = bytearray(b"\0")
+        table = bytearray(16)  # ELF null symbol
+        for name, kind, section, value, size in symbols:
+            offset = len(strings)
+            strings.extend(name.encode() + b"\0")
+            table.extend(struct.pack("<IIIBBH", offset, value, size, kind, 0, section))
+        payloads = [b"", names, bytes(strings), bytes(table), data, b"\0" * 4]
+        image = bytearray(52)
+        offsets = []
+        for payload in payloads:
+            offsets.append(len(image))
+            image.extend(payload)
+        while len(image) % 4:
+            image.append(0)
+        shoff = len(image)
+        sections = [(0, 0, 0, 0, 0), (names.index(b".shstrtab"), 3, 0, 0, 0),
+                    (names.index(b".strtab"), 3, 0, 0, 0),
+                    (names.index(b".symtab"), 2, 2, 1, 16),
+                    (names.index(b".data"), 1, 0, 0, 0),
+                    (names.index(b".text"), 1, 0, 0, 0)]
+        for i, (name, kind, link, info, entsize) in enumerate(sections):
+            image.extend(struct.pack("<10I", name, kind, 0, 0, offsets[i],
+                                     len(payloads[i]), link, info, 1, entsize))
+        ident = b"\x7fELF\x01\x01\x01" + b"\0" * 9
+        image[:52] = struct.pack("<16sHHIIIIIHHHHHH", ident, 1, 8, 1, 0, 0,
+                                 shoff, 0, 52, 0, 0, 40, len(sections), 1)
+        return bytes(image)
+
+    def test_filter_order_duplicates_and_independent_lists(self):
+        proof = self.proof
+        elf = proof.ELFFile(io.BytesIO(self._elf_bytes([
+            ("dup", 1, 4, 0, 1), ("function", 2, 4, 0, 1),
+            ("undefined", 1, 0, 0, 1), ("absolute", 1, 0xFFF1, 0, 1),
+            ("text", 1, 5, 0, 1),
+            ("zero", 1, 4, 1, 0), ("dup", 1, 4, 2, 1)])))
+        rows = proof.data_symbols(elf)
+        self.assertEqual([(s.name, s["st_value"], s["st_size"], sec) for s, sec in rows],
+                         [("dup", 0, 1, ".data"), ("zero", 1, 0, ".data"),
+                          ("dup", 2, 1, ".data")])
+        first = rows[0]
+        rows.clear()
+        with mock.patch.object(proof, "_symbols", side_effect=AssertionError("rescanned")):
+            self.assertEqual(len(proof.data_symbols(elf)), 3)
+            self.assertEqual(proof._data_symbol(elf, "dup"), first)
+            self.assertIsNone(proof._data_symbol(elf, "absent"))
+            with mock.patch.object(proof, "data_symbols", side_effect=AssertionError("reindexed")):
+                self.assertEqual(proof._data_symbol(elf, "dup"), first)
+                self.assertIsNone(proof._data_symbol(elf, "absent"))
+
+    def test_empty_cache_does_not_rescan(self):
+        proof = self.proof
+        elf = proof.ELFFile(io.BytesIO(self._elf_bytes([])))
+        self.assertEqual(proof.data_symbols(elf), [])
+        with mock.patch.object(proof, "_symbols", side_effect=AssertionError("rescanned")):
+            self.assertEqual(proof.data_symbols(elf), [])
+            self.assertIsNone(proof._data_symbol(elf, "absent"))
+            with mock.patch.object(proof, "data_symbols", side_effect=AssertionError("reindexed")):
+                self.assertIsNone(proof._data_symbol(elf, "still_absent"))
+
+    def test_rebuilt_object_invalidates_cached_symbols(self):
+        proof = self.proof
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "data.o"
+            try:
+                path.write_bytes(self._elf_bytes([("old", 1, 4, 0, 4)]))
+                os.utime(path, ns=(946684800000000000,) * 2)
+                old = proof.open_elf(path)
+                self.assertIsNotNone(proof._data_symbol(old, "old"))
+                self.assertIs(proof.open_elf(path), old)
+                path.write_bytes(self._elf_bytes([("new", 1, 4, 0, 4)]))
+                os.utime(path, ns=(946684802000000000,) * 2)
+                new = proof.open_elf(path)
+                self.assertIsNot(new, old)
+                self.assertIsNone(proof._data_symbol(new, "old"))
+                self.assertIsNotNone(proof._data_symbol(new, "new"))
+            finally:
+                hit = proof._ELVES.pop(str(path), None)
+                if hit:
+                    hit[2].close()
+
+    def test_warm_cache_does_not_cache_retail_verdicts(self):
+        proof = self.proof
+        for name, check in [("D_L00_00100000", proof.check_data),
+                            ("D_00100000", proof.check_shared_data)]:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "data.o"
+                path.write_bytes(self._elf_bytes([(name, 1, 4, 0, 4)]))
+                try:
+                    proof.data_symbols(proof.open_elf(path))
+                    with mock.patch.object(proof.ov, "level_ids", return_value=[0]), \
+                            mock.patch.object(proof.ov, "level_data_bytes",
+                                              return_value=b"\x01\x02\x03\x04") as retail:
+                        self.assertTrue(check(path, name)["exact"])
+                        retail.return_value = b"\x01\x02\x03\xff"
+                        verdict = check(path, name)
+                        self.assertFalse(verdict["exact"])
+                        self.assertTrue(verdict["verdict"].startswith("BYTES"))
+                finally:
+                    hit = proof._ELVES.pop(str(path), None)
+                    if hit:
+                        hit[2].close()
 
 
 class OverlaySourceStateTests(unittest.TestCase):
@@ -834,6 +946,8 @@ class UnitListHelpersTests(unittest.TestCase):
             'void f(void) { register int x __asm__("$5"); }\n': True,
             'void f(int p) { __asm__ volatile("" : "+r"(p)); }\n': True,
             'int f(void) { int r; __asm__("mfc0 %0, $12" : "=r"(r)); return r; }\n': True,
+            'void f(void) {\n    /* Fakematch: pin. */\n    register int x __asm__("$5");\n}\n': False,
+            'void f(void) {\n    /* Fakematch: barrier. */\n    __asm__ volatile("");\n}\n': False,
         }
         with tempfile.TemporaryDirectory() as name:
             for index, (text, expected) in enumerate(cases.items()):
@@ -1851,6 +1965,32 @@ class DataRefsTests(unittest.TestCase):
     def test_scalar_quotes_types_with_brackets(self):
         self.assertEqual(self.refs.scalar("struct Foo"), "struct Foo")
         self.assertEqual(self.refs.scalar("u8 *[2]"), '"u8 *[2]"')
+
+
+class FormatTests(unittest.TestCase):
+    """scripts/blank-blocks.py and scripts/format.py: whitespace only."""
+
+    def load(self, name):
+        path = Path(__file__).resolve().parent / name
+        spec = importlib.util.spec_from_file_location(name.replace("-", "_")[:-3], path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_blank_line_between_top_level_blocks(self):
+        fix = self.load("blank-blocks.py").fix
+        text = '#include "types.h"\ntypedef struct {\n    int a;\n} A;\nextern int x;\nint f(void) {\n    return x;\n}\n'
+        self.assertEqual(fix(text), '#include "types.h"\n\ntypedef struct {\n    int a;\n} A;\n\n'
+                                    'extern int x;\n\nint f(void) {\n    return x;\n}\n')
+
+    def test_multi_line_define_stays_whole(self):
+        fix = self.load("blank-blocks.py").fix
+        text = '#define TWO \\\n    { int a; } \\\n    { int b; }\nint y;\n'
+        self.assertIn('#define TWO \\\n    { int a; } \\\n    { int b; }\n', fix(text))
+
+    def test_include_asm_stays_on_one_line(self):
+        join = self.load("format.py").join_macros
+        self.assertEqual(join('INCLUDE_ASM("a/b.s",\n            func);\n'), 'INCLUDE_ASM("a/b.s", func);\n')
 
 
 class CleanupCheckTests(unittest.TestCase):
