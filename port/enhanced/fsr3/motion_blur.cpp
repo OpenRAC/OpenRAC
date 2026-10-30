@@ -237,6 +237,10 @@ void MotionBlur::gather(const Passes& passes, int source) {
     bind(2, m_seeds[source].texture());
     glUniform1i(resolve.uniform("colour_texture"), 0);
     glUniform1i(resolve.uniform("sample_count"), samples);
+    glUniform1i(
+        resolve.uniform("adaptive_samples"),
+        renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurAdaptiveSamples) ? 1 : 0
+    );
     glUniform1f(resolve.uniform("min_motion"), min_motion);
     glUniform1f(
         resolve.uniform("depth_tolerance"), std::clamp(tuning.depth_tolerance, .001f, .05f)

@@ -549,7 +549,9 @@ The default preset keeps strength 0.5, with 16 samples, a 64-pixel trail cap and
 and the cost of very long trails. Existing saved custom values remain in effect;
 Reset blur tuning applies the new defaults.
 
-Longer trails and more samples increase GPU cost. Minimum motion suppresses tiny
+Longer trails and more samples increase GPU cost. The sample count is a ceiling: a trail
+takes two samples a display pixel of its length, at least 8 (`motion-blur-adaptive-samples`
+in docs/port/RENDER_PERF.md). Minimum motion suppresses tiny
 movements; trail spread controls JFA's sideways reach; depth tolerance controls
 colour gathering across depth differences. A zero cutscene multiplier disables
 cutscene blur. Reset blur tuning restores these defaults and strength 0.5 while

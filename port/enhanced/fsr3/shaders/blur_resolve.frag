@@ -9,6 +9,9 @@ uniform vec2 jitter;
 uniform int sample_count;
 uniform float min_motion;
 uniform float depth_tolerance;
+// Nonzero: each trail takes two samples a display pixel of its length (at least 8), at most
+// sample_count (two thirds of it along the receiver's own trail); zero: always the full counts.
+uniform int adaptive_samples;
 layout(location=0) out vec4 result;
 vec4 velocity_at(vec2 uv) {
     vec2 size = vec2(textureSize(velocity_texture, 0));
@@ -44,8 +47,10 @@ void main() {
     if (length(centre.xy * display) >= min_motion) {
         vec3 sum = centre_colour.rgb;
         float weight = 1;
-        for (int i = 1; i <= max(1, sample_count * 2 / 3); ++i) {
-            vec2 sample_uv = uv + centre.xy * (float(i) / float(max(1, sample_count * 2 / 3)));
+        int own = max(1, sample_count * 2 / 3);
+        if (adaptive_samples != 0) own = clamp(int(ceil(2.0 * length(centre.xy * display))), min(8, own), own);
+        for (int i = 1; i <= own; ++i) {
+            vec2 sample_uv = uv + centre.xy * (float(i) / float(own));
             if (!inside(sample_uv)) continue;
             vec4 v = velocity_at(sample_uv);
             float tolerance = max(0.01, centre.w * depth_tolerance);
@@ -58,10 +63,12 @@ void main() {
     // The jump-flood source brings motion beyond the current silhouette.
     vec3 incoming = vec3(0);
     float coverage = 0;
-    for (int i = 1; i <= sample_count; ++i) {
+    int taps = sample_count;
+    if (adaptive_samples != 0) taps = clamp(int(ceil(2.0 * length(direction * display))), min(8, sample_count), sample_count);
+    for (int i = 1; i <= taps; ++i) {
         // Include the exact propagated source once so a thin feature cannot fall between taps.
         vec2 sample_uv = i == 1 && has_seed ? seed_uv
-            : uv - direction * ((float(i) - 0.5) / float(sample_count));
+            : uv - direction * ((float(i) - 0.5) / float(taps));
         if (!inside(sample_uv)) continue;
         vec4 v = velocity_at(sample_uv);
         vec2 travel = v.xy * display;
@@ -78,6 +85,6 @@ void main() {
     }
     // Keep sample coordinates, rejection, reprojection and the long colour sums FP32.
     // Only blend the final bounded LDR averages in mixed precision.
-    if (coverage > 0) base = vec3(mix(mp_vec3(base), mp_vec3(incoming / coverage), mp_float(coverage / float(sample_count))));
+    if (coverage > 0) base = vec3(mix(mp_vec3(base), mp_vec3(incoming / coverage), mp_float(coverage / float(taps))));
     result = vec4(base, centre_colour.a);
 }

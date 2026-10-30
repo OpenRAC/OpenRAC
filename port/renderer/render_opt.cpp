@@ -191,6 +191,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::MsaaPassResolve, "msaa-pass-resolve",
      "a blit resolving a whole multisampled colour is the pass's resolve attachment, not a copy reading the samples back",
      true, Tolerance{}},
+    {Opt::MotionBlurAdaptiveSamples, "motion-blur-adaptive-samples",
+     "the blur's gather takes two samples a display pixel of trail (at least 8), at most its sample count",
+     true, Tolerance{0.25, 32}},
 }};
 // clang-format on
 
