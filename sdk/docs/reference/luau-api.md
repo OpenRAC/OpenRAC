@@ -217,6 +217,238 @@ rac1.moby.collect_bolt (Moby_CollectBolt) void(u32): Collects a bolt (collect_bo
 type Moby_CollectBoltFn = (bolt: number) -> ()
 ```
 
+### `Menu_ItemGrid_UpdateFn`
+
+rac1.menu.item_grid.update (Menu_ItemGrid_Update) i32(u32): Moves the pause menu item grid's focus and takes its selection (update_menu_grid_selection), each tick the grid is open. Returns the menu's action.
+
+```lua
+type Menu_ItemGrid_UpdateFn = (grid: number) -> number
+```
+
+### `Menu_ItemGrid_DrawFn`
+
+rac1.menu.item_grid.draw (Menu_ItemGrid_Draw) i32(u32): Draws the pause menu item grid (draw_menu_item_grid). Returns the render-pass flags the menu passes on.
+
+```lua
+type Menu_ItemGrid_DrawFn = (grid: number) -> number
+```
+
+### `Menu_ItemSlots_UpdateFn`
+
+rac1.menu.item_slots.update (Menu_ItemSlots_Update) i32(u32): Puts the highlighted item in one of the quick select's eight slots (update_menu_item_slots), in the pause menu's quick select editor.
+
+```lua
+type Menu_ItemSlots_UpdateFn = (list: number) -> number
+```
+
+### `Menu_QuickSelect_DrawFn`
+
+rac1.menu.quick_select.draw (Menu_QuickSelect_Draw) i32(u32): Draws the pause menu's quick select ring (draw_pause_ring). Returns the render-pass flags.
+
+```lua
+type Menu_QuickSelect_DrawFn = (screen: number) -> number
+```
+
+### `Menu_QuickSelect_LoadFn`
+
+rac1.menu.quick_select.load (Menu_QuickSelect_Load) i32(u32): Copies the eight saved quick select items into the pause menu's editor (load_selection_list).
+
+```lua
+type Menu_QuickSelect_LoadFn = (list: number) -> number
+```
+
+### `Menu_QuickSelect_StoreFn`
+
+rac1.menu.quick_select.store (Menu_QuickSelect_Store) i32(u32): Copies the editor's eight quick select items (+0x30 of screen) back to the saved quick select (pause_stage_sprite_lists).
+
+```lua
+type Menu_QuickSelect_StoreFn = (screen: number) -> number
+```
+
+### `Menu_ItemText_DrawFn`
+
+rac1.menu.item_text.draw (Menu_ItemText_Draw) i32(u32): Draws a menu text label from its configuration (render_configured_text_label): the selected item's name and description among others.
+
+```lua
+type Menu_ItemText_DrawFn = (label: number) -> number
+```
+
+### `Menu_ItemAmmo_DrawFn`
+
+rac1.menu.item_ammo.draw (Menu_ItemAmmo_Draw) i32(i32): Draws the selected item's ammo panel in the pause menu (draw_selected_item_ammo).
+
+```lua
+type Menu_ItemAmmo_DrawFn = (screen: number) -> number
+```
+
+### `Menu_Preview_BindFn`
+
+rac1.menu.preview.bind (Menu_Preview_Bind) i32(u32): Binds the selected item, and what it carries, to the pause menu's preview (update_item_preview_binding).
+
+```lua
+type Menu_Preview_BindFn = (preview: number) -> number
+```
+
+### `Menu_Preview_UpdateFn`
+
+rac1.menu.preview.update (Menu_Preview_Update) i32(u32): Makes or replaces the moby of the pause menu's item preview (update_item_preview_moby).
+
+```lua
+type Menu_Preview_UpdateFn = (screen: number) -> number
+```
+
+### `Menu_Preview_DrawAvailableFn`
+
+rac1.menu.preview.draw_available (Menu_Preview_DrawAvailable) i32(u32): Draws the preview mobys of the owned, selected item (draw_available_item_preview_mobys). Returns the render-pass flags.
+
+```lua
+type Menu_Preview_DrawAvailableFn = (screen: number) -> number
+```
+
+### `Menu_Preview_DrawSelectedFn`
+
+rac1.menu.preview.draw_selected (Menu_Preview_DrawSelected) i32(u32): Draws the selected item's preview, or the message for an item not owned (draw_item_preview_screen).
+
+```lua
+type Menu_Preview_DrawSelectedFn = (screen: number) -> number
+```
+
+### `Menu_EquippedPreview_UpdateFn`
+
+rac1.menu.equipped_preview.update (Menu_EquippedPreview_Update) i32(u32): Loads the preview of the gadget or weapon in hand (LoadHandGadget).
+
+```lua
+type Menu_EquippedPreview_UpdateFn = (hand: number) -> number
+```
+
+### `Menu_EquippedPreview_DrawFn`
+
+rac1.menu.equipped_preview.draw (Menu_EquippedPreview_Draw) i32(u32): Draws the pause menu's preview of the hero and what he holds (draw_menu_preview_objects).
+
+```lua
+type Menu_EquippedPreview_DrawFn = (screen: number) -> number
+```
+
+### `Hud_QuickSelect_InitFn`
+
+rac1.hud.quick_select.init (Hud_QuickSelect_Init) void(u32): Sets up the quick select's eight-slot selector in play (initialize_eight_slot_hud_selector).
+
+```lua
+type Hud_QuickSelect_InitFn = (selector: number) -> ()
+```
+
+### `Hud_QuickSelect_UpdateFn`
+
+rac1.hud.quick_select.update (Hud_QuickSelect_Update) void(u32): The quick select in play, each tick (update_hud_item_selector_selection_and_visibility): its focus, whether it shows, and the item chosen.
+
+```lua
+type Hud_QuickSelect_UpdateFn = (selector: number) -> ()
+```
+
+### `Hud_QuickSelect_DrawFn`
+
+rac1.hud.quick_select.draw (Hud_QuickSelect_Draw) i32(u32): Draws the quick select's item icons in play (draw_hud_item_selector_panel).
+
+```lua
+type Hud_QuickSelect_DrawFn = (panel: number) -> number
+```
+
+### `Vendor_MenuUpdateFn`
+
+rac1.vendor.menu_update (Vendor_MenuUpdate) void(): The vendor's purchase menu, each tick it is open (update_vendor_purchase): buying items and ammo.
+
+```lua
+type Vendor_MenuUpdateFn = () -> ()
+```
+
+### `Vendor_InitializeSelectedFn`
+
+rac1.vendor.initialize_selected (Vendor_InitializeSelected) void(): Sets up the mobys and text of the vendor's selected row (initialize_vendor_selected_item_mobys).
+
+```lua
+type Vendor_InitializeSelectedFn = () -> ()
+```
+
+### `Ammo_ChooseDropFn`
+
+rac1.ammo.choose_drop (Ammo_ChooseDrop) i32(u32,u32): Chooses the ammo a dying moby or a broken crate drops (ChooseDropItem): writes the item to out_item and returns how many pickups.
+
+```lua
+type Ammo_ChooseDropFn = (moby: number, out_item: number) -> number
+```
+
+### `Ammo_SpawnDropFn`
+
+rac1.ammo.spawn_drop (Ammo_SpawnDrop) u32(u32,i32,i32,i32): Makes an ammo pickup moby of item at pos (spawn_on_path); amount -1 takes the item's own. Returns the moby, or 0.
+
+```lua
+type Ammo_SpawnDropFn = (pos: number, item: number, amount: number, flags: number) -> number
+```
+
+### `Save_PrepareFn`
+
+rac1.save.prepare (Save_Prepare) void(i32,i32): Writes the game's state into a save and starts a full memory card write (prepare_save_game).
+
+```lua
+type Save_PrepareFn = (buffer: number, slot: number) -> ()
+```
+
+### `Save_RequestAutosaveFn`
+
+rac1.save.request_autosave (Save_RequestAutosave) i32(i32,i32): Writes the save's packets and asks for their memory card update (memcard_Save), as an autosave does.
+
+```lua
+type Save_RequestAutosaveFn = (slot: number, flags: number) -> number
+```
+
+### `Save_RestoreFn`
+
+rac1.save.restore (Save_Restore) void(u32): Restores a whole save from memory (memcard_RestoreGame); a new game's default state goes through it too. The port keeps the player's options around it (rac1/host/options.c).
+
+```lua
+type Save_RestoreFn = (save: number) -> ()
+```
+
+### `Save_RestoreDataFn`
+
+rac1.save.restore_data (Save_RestoreData) i32(u32,i32,u32): Restores one checked save packet (memcard_RestoreData); loading a file calls it directly. Returns non-zero when it took the packet.
+
+```lua
+type Save_RestoreDataFn = (src: number, slot: number, table: number) -> number
+```
+
+### `Save_NewGameFn`
+
+rac1.save.new_game (Save_NewGame) void(): A new game (NewGameInit): the disc's default state, and level 0. The port's --level N runs around it (rac1/host/boot.c).
+
+```lua
+type Save_NewGameFn = () -> ()
+```
+
+### `Save_NewGamePlusFn`
+
+rac1.save.new_game_plus (Save_NewGamePlus) void(i32): Challenge mode's start (load_level_zero_preserving_progress): the game reset to level 0 with the progress it carries kept.
+
+```lua
+type Save_NewGamePlusFn = (slot: number) -> ()
+```
+
+### `Save_SerializeFn`
+
+rac1.save.serialize (Save_Serialize) void(u32): Writes the whole save into out (memcard_MakeWholeSave), with no memory card access.
+
+```lua
+type Save_SerializeFn = (out: number) -> ()
+```
+
+### `Save_UpdateStateFn`
+
+rac1.save.update_state (Save_UpdateState) void(): The memory card's state machine, each tick (memcard_update_state): saves and loads go through it.
+
+```lua
+type Save_UpdateStateFn = () -> ()
+```
+
 ### `MobyUpdateFn`
 
 rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.

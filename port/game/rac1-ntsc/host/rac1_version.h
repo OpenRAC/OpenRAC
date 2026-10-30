@@ -124,7 +124,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * game_language and playback_mode, music_volume, sound_volume (include/rnc/globals.h,
  * gameplay/state/options.h). */
 #define func_00209CE8 game_FUN_00209298
-#define func_00209CE8__game game_FUN_00209298__game
+#define func_00209CE8__hooked game_FUN_00209298__hooked
 #define func_0022DBE8 game_FUN_0022c8d0
 #define func_0022DBE8__game game_FUN_0022c8d0__game
 #define RAC1_TYPE_func_00209CE8_save gaddr
@@ -319,7 +319,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_00205270 game_FUN_00204a40
 #define func_00205270__game game_FUN_00204a40__game
 #define func_00209DC0 game_FUN_00209370
-#define func_00209DC0__game game_FUN_00209370__game
+#define func_00209DC0__hooked game_FUN_00209370__hooked
 #define func_0020C268 func_0020B418
 #define func_0020C468 game_FUN_0020b618
 #define func_0020DD48 game_FUN_0020cef8

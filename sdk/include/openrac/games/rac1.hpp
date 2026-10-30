@@ -163,6 +163,238 @@ struct Moby_CollectBolt {
     using fn = void (*)(uint32_t);
 };
 
+// Moves the pause menu item grid's focus and takes its selection (update_menu_grid_selection), each tick the grid is open. Returns the menu's action.
+struct Menu_ItemGrid_Update {
+    static constexpr const char* id = "rac1.menu.item_grid.update";
+    static constexpr const char* name = "Menu_ItemGrid_Update";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Draws the pause menu item grid (draw_menu_item_grid). Returns the render-pass flags the menu passes on.
+struct Menu_ItemGrid_Draw {
+    static constexpr const char* id = "rac1.menu.item_grid.draw";
+    static constexpr const char* name = "Menu_ItemGrid_Draw";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Puts the highlighted item in one of the quick select's eight slots (update_menu_item_slots), in the pause menu's quick select editor.
+struct Menu_ItemSlots_Update {
+    static constexpr const char* id = "rac1.menu.item_slots.update";
+    static constexpr const char* name = "Menu_ItemSlots_Update";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Draws the pause menu's quick select ring (draw_pause_ring). Returns the render-pass flags.
+struct Menu_QuickSelect_Draw {
+    static constexpr const char* id = "rac1.menu.quick_select.draw";
+    static constexpr const char* name = "Menu_QuickSelect_Draw";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Copies the eight saved quick select items into the pause menu's editor (load_selection_list).
+struct Menu_QuickSelect_Load {
+    static constexpr const char* id = "rac1.menu.quick_select.load";
+    static constexpr const char* name = "Menu_QuickSelect_Load";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Copies the editor's eight quick select items (+0x30 of screen) back to the saved quick select (pause_stage_sprite_lists).
+struct Menu_QuickSelect_Store {
+    static constexpr const char* id = "rac1.menu.quick_select.store";
+    static constexpr const char* name = "Menu_QuickSelect_Store";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Draws a menu text label from its configuration (render_configured_text_label): the selected item's name and description among others.
+struct Menu_ItemText_Draw {
+    static constexpr const char* id = "rac1.menu.item_text.draw";
+    static constexpr const char* name = "Menu_ItemText_Draw";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Draws the selected item's ammo panel in the pause menu (draw_selected_item_ammo).
+struct Menu_ItemAmmo_Draw {
+    static constexpr const char* id = "rac1.menu.item_ammo.draw";
+    static constexpr const char* name = "Menu_ItemAmmo_Draw";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// Binds the selected item, and what it carries, to the pause menu's preview (update_item_preview_binding).
+struct Menu_Preview_Bind {
+    static constexpr const char* id = "rac1.menu.preview.bind";
+    static constexpr const char* name = "Menu_Preview_Bind";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Makes or replaces the moby of the pause menu's item preview (update_item_preview_moby).
+struct Menu_Preview_Update {
+    static constexpr const char* id = "rac1.menu.preview.update";
+    static constexpr const char* name = "Menu_Preview_Update";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Draws the preview mobys of the owned, selected item (draw_available_item_preview_mobys). Returns the render-pass flags.
+struct Menu_Preview_DrawAvailable {
+    static constexpr const char* id = "rac1.menu.preview.draw_available";
+    static constexpr const char* name = "Menu_Preview_DrawAvailable";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Draws the selected item's preview, or the message for an item not owned (draw_item_preview_screen).
+struct Menu_Preview_DrawSelected {
+    static constexpr const char* id = "rac1.menu.preview.draw_selected";
+    static constexpr const char* name = "Menu_Preview_DrawSelected";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Loads the preview of the gadget or weapon in hand (LoadHandGadget).
+struct Menu_EquippedPreview_Update {
+    static constexpr const char* id = "rac1.menu.equipped_preview.update";
+    static constexpr const char* name = "Menu_EquippedPreview_Update";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Draws the pause menu's preview of the hero and what he holds (draw_menu_preview_objects).
+struct Menu_EquippedPreview_Draw {
+    static constexpr const char* id = "rac1.menu.equipped_preview.draw";
+    static constexpr const char* name = "Menu_EquippedPreview_Draw";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// Sets up the quick select's eight-slot selector in play (initialize_eight_slot_hud_selector).
+struct Hud_QuickSelect_Init {
+    static constexpr const char* id = "rac1.hud.quick_select.init";
+    static constexpr const char* name = "Hud_QuickSelect_Init";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// The quick select in play, each tick (update_hud_item_selector_selection_and_visibility): its focus, whether it shows, and the item chosen.
+struct Hud_QuickSelect_Update {
+    static constexpr const char* id = "rac1.hud.quick_select.update";
+    static constexpr const char* name = "Hud_QuickSelect_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Draws the quick select's item icons in play (draw_hud_item_selector_panel).
+struct Hud_QuickSelect_Draw {
+    static constexpr const char* id = "rac1.hud.quick_select.draw";
+    static constexpr const char* name = "Hud_QuickSelect_Draw";
+    static constexpr const char* signature = "i32(u32)";
+    using fn = int32_t (*)(uint32_t);
+};
+
+// The vendor's purchase menu, each tick it is open (update_vendor_purchase): buying items and ammo.
+struct Vendor_MenuUpdate {
+    static constexpr const char* id = "rac1.vendor.menu_update";
+    static constexpr const char* name = "Vendor_MenuUpdate";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Sets up the mobys and text of the vendor's selected row (initialize_vendor_selected_item_mobys).
+struct Vendor_InitializeSelected {
+    static constexpr const char* id = "rac1.vendor.initialize_selected";
+    static constexpr const char* name = "Vendor_InitializeSelected";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Chooses the ammo a dying moby or a broken crate drops (ChooseDropItem): writes the item to out_item and returns how many pickups.
+struct Ammo_ChooseDrop {
+    static constexpr const char* id = "rac1.ammo.choose_drop";
+    static constexpr const char* name = "Ammo_ChooseDrop";
+    static constexpr const char* signature = "i32(u32,u32)";
+    using fn = int32_t (*)(uint32_t, uint32_t);
+};
+
+// Makes an ammo pickup moby of item at pos (spawn_on_path); amount -1 takes the item's own. Returns the moby, or 0.
+struct Ammo_SpawnDrop {
+    static constexpr const char* id = "rac1.ammo.spawn_drop";
+    static constexpr const char* name = "Ammo_SpawnDrop";
+    static constexpr const char* signature = "u32(u32,i32,i32,i32)";
+    using fn = uint32_t (*)(uint32_t, int32_t, int32_t, int32_t);
+};
+
+// Writes the game's state into a save and starts a full memory card write (prepare_save_game).
+struct Save_Prepare {
+    static constexpr const char* id = "rac1.save.prepare";
+    static constexpr const char* name = "Save_Prepare";
+    static constexpr const char* signature = "void(i32,i32)";
+    using fn = void (*)(int32_t, int32_t);
+};
+
+// Writes the save's packets and asks for their memory card update (memcard_Save), as an autosave does.
+struct Save_RequestAutosave {
+    static constexpr const char* id = "rac1.save.request_autosave";
+    static constexpr const char* name = "Save_RequestAutosave";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Restores a whole save from memory (memcard_RestoreGame); a new game's default state goes through it too. The port keeps the player's options around it (rac1/host/options.c).
+struct Save_Restore {
+    static constexpr const char* id = "rac1.save.restore";
+    static constexpr const char* name = "Save_Restore";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Restores one checked save packet (memcard_RestoreData); loading a file calls it directly. Returns non-zero when it took the packet.
+struct Save_RestoreData {
+    static constexpr const char* id = "rac1.save.restore_data";
+    static constexpr const char* name = "Save_RestoreData";
+    static constexpr const char* signature = "i32(u32,i32,u32)";
+    using fn = int32_t (*)(uint32_t, int32_t, uint32_t);
+};
+
+// A new game (NewGameInit): the disc's default state, and level 0. The port's --level N runs around it (rac1/host/boot.c).
+struct Save_NewGame {
+    static constexpr const char* id = "rac1.save.new_game";
+    static constexpr const char* name = "Save_NewGame";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Challenge mode's start (load_level_zero_preserving_progress): the game reset to level 0 with the progress it carries kept.
+struct Save_NewGamePlus {
+    static constexpr const char* id = "rac1.save.new_game_plus";
+    static constexpr const char* name = "Save_NewGamePlus";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Writes the whole save into out (memcard_MakeWholeSave), with no memory card access.
+struct Save_Serialize {
+    static constexpr const char* id = "rac1.save.serialize";
+    static constexpr const char* name = "Save_Serialize";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// The memory card's state machine, each tick (memcard_update_state): saves and loads go through it.
+struct Save_UpdateState {
+    static constexpr const char* id = "rac1.save.update_state";
+    static constexpr const char* name = "Save_UpdateState";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -5260,6 +5492,10 @@ struct Moby_Gadgebot1906_Update {
 };
 
 namespace hooks {
+    namespace ammo {
+        using choose_drop = rac1::Ammo_ChooseDrop;
+        using spawn_drop = rac1::Ammo_SpawnDrop;
+    }  // namespace ammo
     namespace camera {
         namespace follow {
             using apply_overrides = rac1::FollowCamera_ApplyOverrides;
@@ -5271,12 +5507,49 @@ namespace hooks {
     namespace gold_bolt {
         using count_collected = rac1::GoldBolts_CountCollected;
     }  // namespace gold_bolt
+    namespace hud {
+        namespace quick_select {
+            using draw = rac1::Hud_QuickSelect_Draw;
+            using init = rac1::Hud_QuickSelect_Init;
+            using update = rac1::Hud_QuickSelect_Update;
+        }  // namespace quick_select
+    }  // namespace hud
     namespace item {
         using give = rac1::Item_Give;
     }  // namespace item
     namespace level {
         using load_gameplay = rac1::Level_LoadGameplay;
     }  // namespace level
+    namespace menu {
+        namespace equipped_preview {
+            using draw = rac1::Menu_EquippedPreview_Draw;
+            using update = rac1::Menu_EquippedPreview_Update;
+        }  // namespace equipped_preview
+        namespace item_ammo {
+            using draw = rac1::Menu_ItemAmmo_Draw;
+        }  // namespace item_ammo
+        namespace item_grid {
+            using draw = rac1::Menu_ItemGrid_Draw;
+            using update = rac1::Menu_ItemGrid_Update;
+        }  // namespace item_grid
+        namespace item_slots {
+            using update = rac1::Menu_ItemSlots_Update;
+        }  // namespace item_slots
+        namespace item_text {
+            using draw = rac1::Menu_ItemText_Draw;
+        }  // namespace item_text
+        namespace preview {
+            using bind = rac1::Menu_Preview_Bind;
+            using draw_available = rac1::Menu_Preview_DrawAvailable;
+            using draw_selected = rac1::Menu_Preview_DrawSelected;
+            using update = rac1::Menu_Preview_Update;
+        }  // namespace preview
+        namespace quick_select {
+            using draw = rac1::Menu_QuickSelect_Draw;
+            using load = rac1::Menu_QuickSelect_Load;
+            using store = rac1::Menu_QuickSelect_Store;
+        }  // namespace quick_select
+    }  // namespace menu
     namespace moby {
         namespace agnogg_ship {
             using update = rac1::Moby_AgnoggShipFront_Update;
@@ -7206,12 +7479,24 @@ namespace hooks {
         using turn_to_heading = rac1::Hero_TurnToHeading;
         using update_motion_input = rac1::Hero_UpdateMotionInput;
     }  // namespace player
+    namespace save {
+        using new_game = rac1::Save_NewGame;
+        using new_game_plus = rac1::Save_NewGamePlus;
+        using prepare = rac1::Save_Prepare;
+        using request_autosave = rac1::Save_RequestAutosave;
+        using restore = rac1::Save_Restore;
+        using restore_data = rac1::Save_RestoreData;
+        using serialize = rac1::Save_Serialize;
+        using update_state = rac1::Save_UpdateState;
+    }  // namespace save
     namespace ship {
         using travel_to = rac1::Ship_TravelTo;
     }  // namespace ship
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
         using init_level_stock = rac1::Vendor_InitLevelStock;
+        using initialize_selected = rac1::Vendor_InitializeSelected;
+        using menu_update = rac1::Vendor_MenuUpdate;
     }  // namespace vendor
     namespace weapon {
         using take_ammo = rac1::Weapon_TakeAmmo;
