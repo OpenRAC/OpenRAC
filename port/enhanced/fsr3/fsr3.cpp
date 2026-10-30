@@ -3,6 +3,7 @@
 //
 // Fsr3 setup keeps optional SDK resources in enhanced Vulkan rendering and preserves HUD resolution.
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <utility>
 
@@ -27,8 +28,9 @@ GLenum reactive_format() {
                : GL_RGBA8;
 }
 
-// Diagnostics only (the capture report); written on the render thread by configure_upscaler.
-const char* g_active_upscaler = "none";
+// Diagnostics only (the capture report and the drawer, on the window thread); written on the
+// render thread by configure_upscaler.
+std::atomic<const char*> g_active_upscaler{"none"};
 
 // Camera discontinuities need fresh accumulation; ordinary movement retains temporal history.
 bool camera_cut(const renderer::Camera& current, const renderer::Camera& previous) {
@@ -61,7 +63,7 @@ bool Fsr3::available() {
 }
 
 const char* Fsr3::active_upscaler() {
-    return g_active_upscaler;
+    return g_active_upscaler.load(std::memory_order_relaxed);
 }
 
 bool Fsr3::State::configure_upscaler(
@@ -74,6 +76,8 @@ bool Fsr3::State::configure_upscaler(
 
         if (asr.configure(size, display_size, reason)) {
             sdk.release();
+            // The other upscaler's history does not carry over: the first frame starts afresh.
+            valid = valid && use_asr;
             use_asr = true;
             g_active_upscaler = "Arm ASR";
             return true;
@@ -87,6 +91,7 @@ bool Fsr3::State::configure_upscaler(
     if (use_asr) {
         asr.release();
         use_asr = false;
+        valid = false;
     }
 
     if (!sdk.configure(size, display_size, error)) {
@@ -98,7 +103,18 @@ bool Fsr3::State::configure_upscaler(
 }
 
 bool Fsr3::State::dispatch_upscaler(std::array<unsigned, 5> inputs, std::string& error) {
-    return use_asr ? asr.dispatch(inputs, dispatch, error) : sdk.dispatch(inputs, dispatch, error);
+    if (!use_asr) {
+        return sdk.dispatch(inputs, dispatch, error);
+    }
+
+    if (asr.dispatch(inputs, dispatch, error)) {
+        return true;
+    }
+
+    // A device that cannot run ASR's passes upscales with FSR 3.1 from the next frame on.
+    asr_refused = true;
+    asr_dispatch_failed = true;
+    return false;
 }
 
 void Fsr3::set_scene(
@@ -183,7 +199,7 @@ bool Fsr3::State::configure(
     if (resized) {
         log::info(
             "{} temporal upscaling: {}x{} to {}x{}",
-            g_active_upscaler,
+            g_active_upscaler.load(std::memory_order_relaxed),
             size[0],
             size[1],
             output.width(),

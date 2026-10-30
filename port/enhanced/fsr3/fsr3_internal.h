@@ -32,6 +32,7 @@ struct Fsr3::State {
     asr_detail::AsrContext asr;         // Arm's pipelines and GPU history, on tile-based GPUs.
     bool use_asr = false;               // Whether asr, not sdk, holds the live history.
     bool asr_refused = false;           // ASR could not start on this device; FSR 3.1 stays.
+    bool asr_dispatch_failed = false;   // This frame's ASR dispatch failed; FSR 3.1 takes over.
     renderer::FrameBuffer world;        // Render-resolution colour and sampleable opaque depth.
     fsr3_detail::FrameTarget motion;    // RGBA16F: pixel velocity XY and reactive coverage Z.
     fsr3_detail::FrameTarget depth;     // R32F copy, avoiding depth/stencil view reinterpretation.

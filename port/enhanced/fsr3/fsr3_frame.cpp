@@ -3,6 +3,7 @@
 //
 // Fsr3 frame resolve: velocities, particle reactivity, SDK dispatch and displayed-pose history.
 #include <cmath>
+#include <utility>
 
 #include "common/log.h"
 #include "common/stats.h"
@@ -222,11 +223,12 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
         return dispatch_upscaler(inputs, error);
     }();
 
-    // A rejected dispatch still presents a complete world and full-resolution HUD, then stops retrying.
+    // A rejected dispatch still presents a complete world and full-resolution HUD, then stops
+    // retrying; a failed Arm ASR dispatch instead leaves FSR 3.1 to the next frame.
     if (!resolved) {
         log::error("{}", error);
         world.blit_to(display.framebuffer, display.width, display.height);
-        failed = true;
+        failed = !std::exchange(asr_dispatch_failed, false);
     }
 
     if (resolved && delta) {
