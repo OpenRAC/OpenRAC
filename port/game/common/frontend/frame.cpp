@@ -1243,7 +1243,7 @@ TickMobys pose_mobys(
                 );
             }
         }
-        if (animate && instance.hero_shadow_anchor && g->game == "rac1-ntsc" && g->loaded == 1
+        if (animate && instance.hero_shadow_anchor && g->game.starts_with("rac1-") && g->loaded == 1
             && enhanced_graphics_available() && settings::get().enhanced_graphics) {
             const auto pose = scene::moby_pose_matrices(ram, m.address);
             // Ratchet's two palm roots, identified by their finger children in the

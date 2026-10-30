@@ -1,6 +1,6 @@
 # Enhanced Novalis water
 
-Novalis NTSC-U optionally adds Vulkan probe lighting, soft reflections and local GPU shallow-water
+Novalis (NTSC-U and PAL) optionally adds Vulkan probe lighting, soft reflections and local GPU shallow-water
 simulation, disturbed by Ratchet's movement/hands. Painted textures, UV animation, GS alpha and draw
 order stay intact. OpenGL, original graphics or invalid/missing resources use original water.
 
@@ -32,9 +32,10 @@ the water simulation bake are independent.
 ## Bake local water data
 
 The baker reads initialized water tables from a local RAM snapshot, capturing all boundaries
-independently of the camera. Start unmodified NTSC-U Novalis with `OPENRAC_DUMP_RAM=600` to write
+independently of the camera. Start unmodified Novalis with `OPENRAC_DUMP_RAM=600` to write
 `ram_600.bin` in the working directory. Use matching exported collision; keep snapshots/assets ignored.
-Other levels/versions are unsupported.
+The disc comes from the export's `manifest.json` (`--version ntsc|pal` overrides); each reads its own
+records. Other levels/versions are unsupported. The port's hooks are each disc's `host/water.c`.
 
 ```sh
 python port/enhanced/tools/water/bake_water.py --ram build/water/ram_600.bin \

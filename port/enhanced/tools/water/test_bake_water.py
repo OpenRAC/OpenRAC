@@ -133,6 +133,30 @@ class WaterBakeTest(unittest.TestCase):
             if surface!=1:
                 self.assertEqual([p[2] for p in triangles[0]],[3.,5.,7.])
 
+    def test_pal_reads_its_own_records(self):
+        at=water.ADDRESSES['pal']
+        ram=bytearray(32*1024*1024)
+        struct.pack_into('<6f',ram,at['grid'],16,16,-8,-8,1,1)
+        struct.pack_into('<3f',ram,at['tiles'],0,0,1)
+        struct.pack_into('<I',ram,at['masks'],1)
+        pointer=0x300000
+        for address,count in zip(at['layers'],(8,2,4,3)):
+            for i in range(count):
+                struct.pack_into('<I',ram,address+i*0x60,pointer)
+                struct.pack_into('<I',ram,address+i*0x60+0xc,3)
+                for j,point in enumerate(((0,0,2,4),(1,0,4,6),(0,1,6,8))):
+                    struct.pack_into('<4f',ram,pointer+j*16,*point)
+                pointer+=0x40
+        self.assertEqual({kind for kind,_,_ in water.read_surfaces(ram,'pal')},{1,2,3,4,5,6,7})
+        with self.assertRaises(ValueError): water.read_surfaces(ram)
+        with tempfile.TemporaryDirectory() as temp:
+            manifest=Path(temp)/'manifest.json'
+            self.assertEqual(water.disc_version(Path(temp)/'water.bin'),'ntsc')
+            manifest.write_text('{"version":"pal"}')
+            self.assertEqual(water.disc_version(Path(temp)/'water.bin'),'pal')
+            manifest.write_text('{"version":"jp"}')
+            with self.assertRaises(ValueError): water.disc_version(Path(temp)/'water.bin')
+
     def test_cave_pools_have_no_invented_current_or_outlets(self):
         for source in (5,6,7):
             body,cells=water.bake_body(source,self.square(z=1),(0,0,0))
