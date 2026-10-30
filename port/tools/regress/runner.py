@@ -274,6 +274,23 @@ def run_routes(run: Path) -> dict:
     return out
 
 
+def run_files(run: Path, name: str) -> list[tuple[str, int | str, dict]]:
+    """Each route's NAME file of a run (reach.json, coverage.json): (game, the level, or the route's
+    name in a set other than the standard one, the file's JSON). A file missing or cut short is
+    left out."""
+    meta = run / "run.json"
+    game = json.loads(meta.read_text()).get("game", "?") if meta.exists() else "?"
+    out = []
+    for key, (_, _, folder) in sorted(run_routes(run).items(), key=lambda kv: str(kv[0])):
+        f = folder / name
+        if f.exists():
+            try:
+                out.append((game, key, json.loads(f.read_text())))
+            except json.JSONDecodeError:
+                continue
+    return out
+
+
 def run_set(run: Path) -> str:
     meta = run / "run.json"
     return (json.loads(meta.read_text()).get("set") if meta.exists() else None) or "standard"

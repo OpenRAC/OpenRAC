@@ -12,7 +12,6 @@ by its count, with an example of where its data came from in game memory. A star
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -92,19 +91,9 @@ def merge(files: list[tuple[str, int | str, dict]]) -> dict[str, tuple[list[Prog
 
 def load_run(run: Path) -> list[tuple[str, int | str, dict]]:
     """A run's coverage files: (game, the level or the route's name, the file's JSON)."""
-    from runner import run_routes  # noqa: PLC0415 (runner imports nothing of this)
+    from runner import run_files  # noqa: PLC0415 (runner imports nothing of this)
 
-    meta = run / "run.json"
-    game = json.loads(meta.read_text()).get("game", "?") if meta.exists() else "?"
-    out = []
-    for key, (_, _, folder) in sorted(run_routes(run).items(), key=lambda kv: str(kv[0])):
-        f = folder / "coverage.json"
-        if f.exists():
-            try:
-                out.append((game, key, json.loads(f.read_text())))
-            except json.JSONDecodeError:
-                continue
-    return out
+    return run_files(run, "coverage.json")
 
 
 def table(game: str, programs: list[Program], particles: list[Particle], top: int) -> str:
