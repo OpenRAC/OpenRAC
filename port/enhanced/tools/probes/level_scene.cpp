@@ -23,9 +23,10 @@ namespace openrac::lighting {
 namespace {
 // The normal extractor retains raw source sections. Keep legacy explicitly
 // supplied surfaces authoritative so old exports never emit the lava twice.
-bool automatic_liquids(const scene::LevelData& level) {
+// Returns the liquid record's address in the disc's overlay, 0 for none.
+std::uint32_t automatic_liquids(const scene::LevelData& level) {
     if (level.dir.empty() || level.level != 9) {
-        return false;
+        return 0;
     }
     json::Value manifest;
     std::string error;
@@ -34,12 +35,14 @@ bool automatic_liquids(const scene::LevelData& level) {
     }
     const auto& source = manifest["bake_inputs"]["liquid"].string();
     if (source.empty()) {
-        return false;
+        return 0;
     }
-    if (source != "rac1-ntsc-gaspar-v1" || manifest["game"].string() != "rac1"
-        || manifest["version"].string() != "ntsc") {
+    const auto& version = manifest["version"].string();
+    if (manifest["game"].string() != "rac1" || (version != "ntsc" && version != "pal")
+        || source != "rac1-" + version + "-gaspar-v1") {
         throw std::runtime_error("Unsupported authored liquid bake input");
     }
+    const std::uint32_t record = version == "pal" ? kGasparLiquidPal : kGasparLiquidNtsc;
     for (const auto& instance : level.bake_surfaces) {
         for (const auto& primitive : level.models.at(instance.model).primitives) {
             if (primitive.material < 0) {
@@ -50,11 +53,11 @@ bool automatic_liquids(const scene::LevelData& level) {
                 && std::filesystem::path(level.image_paths.at(static_cast<std::size_t>(image)))
                            .filename()
                        == "probe_gaspar_lava.png") {
-                return false;
+                return 0;
             }
         }
     }
-    return true;
+    return record;
 }
 
 std::vector<std::uint8_t> liquid_input(const std::filesystem::path& path) {
@@ -151,12 +154,12 @@ void export_suns(const scene::LevelData& level, unsigned light_set, BakeScene& t
 }
 
 // Adds bake-only liquid surfaces after exported meshes, retaining their source order.
-void export_liquids(const scene::LevelData& level, BakeSceneExport& out) {
+void export_liquids(const scene::LevelData& level, std::uint32_t record, BakeSceneExport& out) {
     const auto directory = level.dir / "bake-inputs";
     const auto overlay = liquid_input(directory / "overlay.bin");
     const auto index = liquid_input(directory / "core_index.bin");
     const auto core = liquid_input(directory / "core_data.bin");
-    const auto triangles = gaspar_liquid_triangles(overlay, index, core);
+    const auto triangles = gaspar_liquid_triangles(overlay, index, core, record);
     out.automatic_liquid_triangles = triangles.size();
     out.surface_instances += triangles.empty() ? 0 : 1;
     for (const auto& triangle : triangles) {
@@ -221,10 +224,11 @@ BakeSceneExport export_probe_scene(
     export_sky(level, out.scene);
     export_suns(level, light_set, out.scene);
     append_probe_geometry(level, out);
-    const bool liquid_source = automatic_liquids(level);
+    const std::uint32_t liquid_record = automatic_liquids(level);
+    const bool liquid_source = liquid_record != 0;
     // Runtime activation fingerprints raw liquid inputs without repeating bake-only analysis.
     if (liquid_source && analyze_liquids) {
-        export_liquids(level, out);
+        export_liquids(level, liquid_record, out);
     }
     if (out.scene.triangles.empty()) {
         throw NothingToBake("no static render geometry to bake");

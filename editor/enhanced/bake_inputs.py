@@ -14,11 +14,13 @@ def write_bake_inputs(level, directory):
     # Empty synthetic exports are permitted; the planner bounds-checks its input.
     (directory / "gameplay.bin").write_bytes(level.gameplay)
     metadata = {"gameplay": "rac1-v1"}
-    if (level.version, level.id) != ("ntsc", 9):
+    if level.id != 9:
         return metadata
     for name in ("overlay", "core_index", "core_data"):
         data = level.stored.get(name)
         if not data:
             raise ValueError("Gaspar bake input missing: " + name)
         (directory / (name + ".bin")).write_bytes(data)
-    return {**metadata, "liquid": "rac1-ntsc-gaspar-v1"}
+    # Each disc's overlay keeps the liquid's record at its own address
+    # (port/enhanced/tools/probes/liquids.h).
+    return {**metadata, "liquid": f"rac1-{level.version}-gaspar-v1"}

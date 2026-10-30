@@ -99,9 +99,11 @@ def piston_travel(gameplay: bytes, moby: dict, game_version: str, level: int):
 
     Do not interpret this layout in unrelated levels or versions. Initial mode
     zero subtracts travel; mode one adds it. Both Novalis piston classes share
-    FUN_L01_002f95c0 (config/overlays/us/names/level-01.json).
+    FUN_L01_002f95c0 (config/overlays/us/names/level-01.json), PAL's
+    func_L01_002FA998 (the same fingerprint in config/overlays/functions.tsv).
     """
-    if game_version != 'rac1-ntsc' or level != 1 or moby['class'] not in (703, 715):
+    if (game_version not in ('rac1-ntsc', 'rac1-pal') or level != 1
+            or moby['class'] not in (703, 715)):
         return None
     index = moby.get('fields', {}).get('pvar_index', -1)
     if index < 0 or len(gameplay) < 0x94:

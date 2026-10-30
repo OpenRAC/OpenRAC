@@ -21,7 +21,7 @@ float display(float c) {
 }  // namespace
 
 std::vector<BakeTriangle> gaspar_liquid_triangles(
-    assets::ByteView overlay, assets::ByteView index, assets::ByteView core
+    assets::ByteView overlay, assets::ByteView index, assets::ByteView core, std::uint32_t record_at
 ) {
     using namespace assets;
     const auto sections = disc::parse_overlay_sections(overlay);
@@ -32,9 +32,9 @@ std::vector<BakeTriangle> gaspar_liquid_triangles(
         }
         return *bytes;
     };
-    // NTSC FUN_L09_002ef750 draws this authored record. No scan of arbitrary
-    // bright materials: only this reviewed liquid renderer contributes here.
-    const auto record = read(0x1fc740, 0x40);
+    // The level's draw callback draws this authored record (liquids.h). No scan of
+    // arbitrary bright materials: only this reviewed liquid renderer contributes here.
+    const auto record = read(record_at, 0x40);
     Float3 origin{};
     for (unsigned c = 0; c < 3; ++c) {
         origin[c] = record.read<float>(c * 4);

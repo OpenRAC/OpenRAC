@@ -1,0 +1,273 @@
+{
+  "version": 1,
+  "materials": [
+    {
+      "name": "garage green panel",
+      "texture_sha256": "7090885954e9919d36a65fc919e452083a9b99355a77cdae804689216162d327",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "Metropolis lamp",
+      "texture_sha256": "571af9af608ac5736ad2b899191f23f333e236806f85ec4be69ddc6cd8a35bb2",
+      "emission": {
+        "runtime_intensity": 4
+      }
+    },
+    {
+      "name": "energy sphere",
+      "texture_sha256": "0c11696c4b85569725091139a27a2dcca4a86ab50bdd4006c789e1d712926dca",
+      "emission": {
+        "runtime_intensity": 1
+      }
+    },
+    {
+      "name": "green ooze",
+      "texture_sha256": "5bd8a14bca6c9448df16d074a98a36ce59ced610e7fce1c76a863a09dad534bd",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "green lamp and window",
+      "texture_sha256": "aedd9d4d506bb394eaa1072d83c2ebb71d3b65de7a48bc59100e87eb2728981e",
+      "emission": {
+        "runtime_intensity": 1
+      }
+    },
+    {
+      "name": "blue instrument light",
+      "texture_sha256": "93ded8a637f169268615210dc095432a6bffdf4d694e46591a44464461d7b34c",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "cyan window with highlights",
+      "texture_sha256": "34e2ed9a353ab3c2ee65750ef77fe942b3de733543f3a6972a8fe12f8b390d97",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "cyan recessed window",
+      "texture_sha256": "4b28ff487658bf2b3eae76247a5972d94e8d1eafd9575dc51bf08b0c03b67087",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "cyan window",
+      "texture_sha256": "06156a37b6d240c0768a6d6bb145668fda10e43035f4b38af096d733984913de",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "red signal light",
+      "texture_sha256": "fdb5d6c0e48640c92011c9473d9413dcf441d10a36d6d0f1a4c7147cc075d357",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "red recessed signal light",
+      "texture_sha256": "dac8a318eb63d8547316ddc6f99185e69783603d6002bf22e4db2416e7b9b688",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "amber window with highlights",
+      "texture_sha256": "462eb1f45836fa7785c54ce6e575235fa1f770f61adcc7743723b94db95aa02e",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "amber recessed window",
+      "texture_sha256": "60004eae0a903e493dbdfae7e32fa7753b3a5d20f86a77220649490a53df1257",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "reviewed metal surface tie_0013.png",
+      "texture_sha256": "cbb6c1bd83111cbfef652775235808dc3e74e695ae39ed6e3715ec4e398892d6",
+      "emission": {}
+    },
+    {
+      "name": "reviewed metal surface tie_0022.png",
+      "texture_sha256": "493a6855b12d1db043c28b5cd13875bf97cbf275d3afcd4c2be11781cb3a31d7",
+      "emission": {}
+    },
+    {
+      "name": "reviewed metal surface tie_0024.png",
+      "texture_sha256": "c09075dc6ed73f21d5e1bfb986951488c4d1a1d45047c8ec10ff4d76bfb5d2da",
+      "emission": {}
+    },
+    {
+      "name": "reviewed metal surface tie_0028.png",
+      "texture_sha256": "f837bb1b5c2d8ad5a895d92f1ca4c776cc74f8deb89e097917f8e31e4510d3ce",
+      "emission": {}
+    },
+    {
+      "name": "reviewed metal surface tie_0036.png",
+      "texture_sha256": "5639def943dfef264da9977cb941824858859369d93d6855fab0d27ae7049875",
+      "emission": {}
+    },
+    {
+      "name": "reviewed metal surface tie_0037.png",
+      "texture_sha256": "d939cde6c78c1dff41d107e8c9765360e93738c04897e2bcae643216dd9eec23",
+      "emission": {}
+    },
+    {
+      "name": "reviewed ordinary surface 5/textures/tie_0000.png",
+      "texture_sha256": "ea09821e13542385c79a755cc97df936c63805a6fc0e588411d4c34161ccf1aa",
+      "emission": {}
+    },
+    {
+      "name": "reviewed ordinary surface 5/textures/tie_0001.png",
+      "texture_sha256": "b2fcf8e36dc071197a2f1b922329abe3794204663e5602697b9a3b3d7c6c0c01",
+      "emission": {}
+    },
+    {
+      "name": "yellow framed light",
+      "texture_sha256": "3e396403b703ec2aa2039d76720ba05521a2eadcaeda5597513981e37c729a98",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "reviewed ordinary surface 5/textures/tie_0047.png",
+      "texture_sha256": "546f9e6eac42c7a8666362ed7b1827ade6914fa11edaf9ad65792658a33f7889",
+      "emission": {}
+    },
+    {
+      "name": "reviewed ordinary surface 5/textures/tie_0102.png",
+      "texture_sha256": "53305cfbf2081505b7425893ec560c35c8d8fa494da1e3d1b2a63d840240b442",
+      "emission": {}
+    },
+    {
+      "name": "reviewed ordinary surface 6/textures/shrub_0002.png",
+      "texture_sha256": "f4ffbf40a51e0e6df1bff1b5283edb82715b774bc34c6820f5116cf7e5cdbfc9",
+      "emission": {}
+    },
+    {
+      "name": "yellow tiled window",
+      "texture_sha256": "a2dfe7cdb089deaefe6b3b43dbe60cca6645009e73874a230adb8379b5fa4b17",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "yellow recessed tiled window",
+      "texture_sha256": "24f749774b27861cabfcd3f39bf57a71ac8eefb8b56d77b0d116c785fdf8bb54",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "orange lamp",
+      "texture_sha256": "83c1257f2c8b93371d02942a58f1aaccdcdea9821c496f3303dbbb30cedf2d9e",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "reviewed ordinary surface 6/textures/tie_0006.png",
+      "texture_sha256": "e0f03e38cd71319f38bf676a523e8de20fc9bfb403a79a25b56c7f125c2033b9",
+      "emission": {}
+    },
+    {
+      "name": "green control panel",
+      "texture_sha256": "9cb789b0bdceb4674614e3629fcdbdf81e2ceb2ffcfccfbb45df5e90ba0718e4",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "green illuminated trim",
+      "texture_sha256": "ff8277bb9808adce8b5b357943313ef77ae30b73dcfff5a9665448e120500006",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "reviewed ordinary surface 6/textures/tie_0068.png",
+      "texture_sha256": "2a6ffaaa423bfc87546bc909bece2173b26176d0dbc33435098193bafda8775d",
+      "emission": {}
+    },
+    {
+      "name": "reviewed ordinary surface 7/textures/shrub_0000.png",
+      "texture_sha256": "87b67da8092d53a15ca5251804b324eefc84f7f331bb3c34aa24df3b3c807d72",
+      "emission": {}
+    },
+    {
+      "name": "reviewed ordinary surface 7/textures/shrub_0023.png",
+      "texture_sha256": "fe58735a2157e5e7dd25b5343918b871e77bb2922cd3051d466d255106699691",
+      "emission": {}
+    },
+    {
+      "name": "red square lamp",
+      "texture_sha256": "99ccb1a52ef09bf393ec77b13234f2f73b7d35adeefb76fd9447e76ea8ec9a23",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "reviewed structural metal textures/shrub_0004.png",
+      "texture_sha256": "57cdc9370a45cf29119aeb70778734591bbec419862a7062c45ab774cb6748db",
+      "emission": {}
+    },
+    {
+      "name": "reviewed structural metal textures/shrub_0005.png",
+      "texture_sha256": "e56a8b71d6aeccd4c90cf107650dc437f4b5d20e798233349a4434d14e4777e7",
+      "emission": {}
+    },
+    {
+      "name": "white recessed window",
+      "texture_sha256": "a027076de243c24e52a4afa60947a992854073d88b1746ad63527fdfd6a7820f",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    }
+  ]
+}

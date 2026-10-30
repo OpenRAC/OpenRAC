@@ -730,12 +730,11 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
             if (layer == Layer::Mobys) {
                 // Reviewed initial-state scenery. Both classes can break; no
                 // characters, crates, traffic, rotating signs or platforms.
+                // Classes and level numbers are the same on the PAL and NTSC-U discs.
                 const bool metropolis_scenery = manifest["game"].string() == "rac1"
-                                                && manifest["version"].string() == "ntsc"
                                                 && out.level == 3 && (id == 817 || id == 1827);
-                const bool orxon_lamp = manifest["game"].string() == "rac1"
-                                        && manifest["version"].string() == "ntsc" && out.level == 10
-                                        && id == 1855;
+                const bool orxon_lamp =
+                    manifest["game"].string() == "rac1" && out.level == 10 && id == 1855;
                 const auto& selection =
                     manifest["classes"]["moby"][std::to_string(id)]["bake_static"];
                 const bool emission_static =
