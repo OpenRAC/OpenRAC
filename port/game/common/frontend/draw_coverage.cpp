@@ -74,6 +74,13 @@ struct Coverage {
 
     ~Coverage() { write(); }
 
+    void new_batch() {
+        layout.clear();
+        unpacks = 0;
+        ram.reset();
+        sample.clear();
+    }
+
     void write() const {
         if (path.empty() || levels.empty()) {
             return;
@@ -188,20 +195,14 @@ void begin_tick(int level, std::uint64_t tick) {
     c->level = &c->levels[level];
     c->level->ticks++;
     c->tick = tick;
-    c->layout.clear();
-    c->unpacks = 0;
-    c->ram.reset();
-    c->sample.clear();
+    c->new_batch();
 }
 
 void program(std::uint32_t at, std::span<const std::uint8_t> code) {
     if (Coverage* c = coverage()) {
         c->code[at] = fnv(code);
         // What was unpacked before belongs to the program before, which started no draw with it.
-        c->layout.clear();
-        c->unpacks = 0;
-        c->ram.reset();
-        c->sample.clear();
+        c->new_batch();
     }
 }
 
@@ -268,10 +269,7 @@ void start(
         n.last_tick = c->tick;
         n.ticks++;
     }
-    c->layout.clear();
-    c->unpacks = 0;
-    c->ram.reset();
-    c->sample.clear();
+    c->new_batch();
 }
 
 void particle(unsigned type, std::string_view reason, std::string_view update) {

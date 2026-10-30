@@ -445,7 +445,7 @@ class Outcome(unittest.TestCase):
         self.assertEqual(runner.notes(["a", "[error] b", "c"]), ["[error] b"])
 
 
-class KeyValueTest(unittest.TestCase):
+class KeyValue(unittest.TestCase):
     def test_env_and_settings_split_at_the_first_equals(self):
         self.assertEqual(regress.key_value("OPENRAC_SHOT=10:a=b"), ("OPENRAC_SHOT", "10:a=b"))
         self.assertEqual(regress.key_value("OPENRAC_X="), ("OPENRAC_X", ""))
@@ -455,7 +455,7 @@ class KeyValueTest(unittest.TestCase):
             regress.main(["run", "--game", "rac1-ntsc", "--env", "OPENRAC_X"])
 
 
-class SurveyTest(unittest.TestCase):
+class Survey(unittest.TestCase):
     def test_places_keep_each_height_of_a_cell(self):
         # Four floor triangles make a place (fewer is a ledge); a place stands a unit above them.
         low = [(10.0 + i, 10.0, 0.0) for i in range(4)]

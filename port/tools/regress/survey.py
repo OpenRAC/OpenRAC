@@ -17,7 +17,8 @@ as ever (only the picture changes), at 640x480 with half the render scale, on th
 rasteriser.
 
 DIR/report.json lists the places, the most of the picture the pass covers first, each with the
-hero's position and yaw (a route's teleport; in PCSX2, writes to the hero's position and yaw), and DIR/best.png shows the best of them with the pass's pixels marked.
+hero's position and yaw (a route's teleport; in PCSX2, writes to the hero's position and yaw),
+and DIR/best.png shows the best of them with the pass's pixels marked.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ import runner
 HERE = Path(__file__).resolve().parent
 HOLD = 80   # frames the hero is held at a place (the camera flies there in about 40)
 EVERY = 10  # the pass is hidden in every other EVERY frames, a picture every EVERY frames
+SHOT_FROM = 1100  # no pictures of the boot and the level's load (window frames)
 
 
 def floors(glb: Path) -> list[tuple[float, float, float]]:
@@ -234,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
                "--set", "survey", "--only", f"{o.level:02d}-survey-{j}", "--out", str(run_dir / str(j)),
                "--jobs", "1", "--env", "OPENRAC_SOFTWARE_GL=1", "--env", f"OPENRAC_HIDE_PASSES={o.pass_}",
                "--env", f"OPENRAC_HIDE_PASSES_EVERY={EVERY}", "--env", f"OPENRAC_SHOT={EVERY}:{folder}/s_",
-               "--env", "OPENRAC_SHOT_FROM=1100", "--setting", "resolution=640x480", "--setting", "render_scale=50"]
+               "--env", f"OPENRAC_SHOT_FROM={SHOT_FROM}", "--setting", "resolution=640x480", "--setting", "render_scale=50"]
         if o.build:
             cmd += ["--build", o.build]
         procs.append(subprocess.Popen(cmd, env={**os.environ, "SDL_VIDEODRIVER": "offscreen"}))
