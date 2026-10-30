@@ -460,6 +460,8 @@ void main(){
         "water attachment displacement", floating_vertex, displacement_fragment, error
     ));
     floating.use();
+    glUniform1i(floating.uniform("water_float_poses"), 1);
+    glUniform1i(floating.uniform("water_float_count"), 0);
     glUniform1i(floating.uniform("water_bodies"), 1);
     glUniform1i(floating.uniform("water_coast_map"), 2);
     glUniform1i(floating.uniform("water_wave_map"), 0);
@@ -539,6 +541,88 @@ void main(){
             }
             CHECK(std::abs(actual - expected) < 8e-6f);
         }
+    }
+    // Exercise the shipped momentum kernel with a controlled step in height and tilt.
+    // Read the resulting FP32 values through the same bit-exact fragment readback.
+    {
+        renderer::Shader momentum, pose_read;
+        std::string kernel(lighting::shaders::water_float_comp);
+        kernel.insert(kernel.find("void main()"), R"(
+uniform vec4 target_pose;
+vec4 water_float_target(vec3 anchor,out bool matched) { matched=true; return target_pose; }
+)");
+        CHECK(momentum.build_compute("attachment momentum regression", kernel, error));
+        if (!momentum.id()) {
+            std::printf("%s\n", error.c_str());
+            return test::result();
+        }
+        CHECK(pose_read.build(
+            "attachment pose readback",
+            R"(#version 430 core
+uniform samplerBuffer pose_values;
+uniform int component;
+flat out float height;
+void main() {
+    vec2 q=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));
+    height=texelFetch(pose_values,1)[component];
+    gl_Position=vec4(q*2.-1.,0,1);
+})",
+            displacement_fragment,
+            error
+        ));
+        unsigned state[3]{}, views[2]{};
+        glGenBuffers(3, state);
+        glGenTextures(2, views);
+        const std::array<Cell, 2> initial_pose{Cell{2, 3, .2f, 1}, Cell{0, 0, 1, .2f}};
+        for (unsigned i = 0; i < 2; ++i) {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, state[i]);
+            glBufferData(
+                GL_SHADER_STORAGE_BUFFER, sizeof(initial_pose), initial_pose.data(), GL_DYNAMIC_DRAW
+            );
+            glActiveTexture(GL_TEXTURE0 + 22 + i);
+            glBindTexture(wgl::GL_TEXTURE_BUFFER, views[i]);
+            glTexBuffer(wgl::GL_TEXTURE_BUFFER, wgl::GL_RGBA32F, state[i]);
+        }
+        const auto step = [&](float previous, float alpha) {
+            const Cell anchor{2, 3, .2f, previous};
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, state[2]);
+            glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(anchor), anchor.data(), GL_STREAM_DRAW);
+            momentum.use();
+            glUniform1i(momentum.uniform("previous_poses"), 22);
+            glUniform1i(momentum.uniform("attachment_count"), 1);
+            glUniform4f(momentum.uniform("target_pose"), .6f, 0, .8f, 1.2f);
+            glUniform2f(momentum.uniform("response"), alpha, alpha);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, state[2]);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, state[1]);
+            glDispatchCompute(1, 1, 1);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+            pose_read.use();
+            glUniform1i(pose_read.uniform("pose_values"), 23);
+            Cell result{};
+            for (int c = 0; c < 4; ++c) {
+                glUniform1i(pose_read.uniform("component"), c);
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+                glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+                const auto bits = std::uint32_t(pixels[0]) | (std::uint32_t(pixels[1]) << 8)
+                                  | (std::uint32_t(pixels[2]) << 16)
+                                  | (std::uint32_t(pixels[3]) << 24);
+                result[c] = std::bit_cast<float>(bits);
+            }
+            return result;
+        };
+        const auto halfway = step(0, .5f);
+        CHECK(std::abs(halfway[3] - .7f) < 1e-6f);
+        CHECK(halfway[0] > 0 && halfway[0] < .6f);
+        CHECK(std::abs(halfway[0] * halfway[0] + halfway[2] * halfway[2] - 1) < 1e-6f);
+        const auto paused = step(0, 0);
+        CHECK(paused == initial_pose[1]);
+        const auto fresh = step(-1, .1f);
+        CHECK(std::abs(fresh[3] - 1.2f) < 1e-6f && std::abs(fresh[0] - .6f) < 1e-6f);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, 0);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, image_buffer);
+        glDeleteTextures(2, views);
+        glDeleteBuffers(3, state);
+        glActiveTexture(GL_TEXTURE0);
     }
     glDeleteTextures(1, &body_texture);
     glDeleteTextures(1, &coast_texture);

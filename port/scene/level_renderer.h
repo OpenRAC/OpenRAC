@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "renderer/framebuffer.h"
@@ -45,6 +46,8 @@ public:
     std::string deformation_vertex(std::string source) const;
     // Reports actual resource-backed deformation, not merely a model's eligibility.
     bool deformation_active() const;
+    // Authored anchors of water attachments, shared by every deformation pass.
+    void floating_anchors(std::vector<std::pair<renderer::Vec3, std::uint64_t>>& anchors) const;
 
     // Upload a level; the GL context must be current.
     bool upload(const LevelData& level, renderer::TexturePool& textures, std::string& error);
@@ -325,6 +328,7 @@ private:
         bool bounded = false;
         renderer::Vec3 low{}, high{};
         std::vector<InstanceData> cpu_instances;
+        std::vector<std::uint64_t> floating_ids;  // CPU only, independent of GPU instance layout.
         std::vector<CasterBounds> caster_bounds;
         std::vector<renderer::GpuCullBounds> gpu_bounds;
         renderer::GpuInstanceBatch gpu_camera, gpu_pvs;
@@ -480,6 +484,7 @@ private:
     struct InstanceGroup {
         std::uint32_t key = 0;
         std::vector<InstanceData> instances;
+        std::vector<std::uint64_t> floating_ids;
         std::vector<std::array<float, 4>> spheres;  // CPU only: no extra GPU instance attributes
         std::vector<std::uint16_t> occlusion;
     };

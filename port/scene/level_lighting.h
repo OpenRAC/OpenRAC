@@ -61,7 +61,7 @@ public:
     virtual void bind_wetness(const renderer::Shader&) const {}
 
     // Update optional surface deformation before any depth, shadow or colour consumers.
-    virtual void prepare_deformation(const renderer::FrameInput&) {}
+    virtual void prepare_deformation(const renderer::FrameInput&, const LevelScene&) {}
 
     // Bind per-group deformation resources; false retains original mesh positions.
     virtual void bind_deformation(const renderer::Shader&, bool) const {}

@@ -132,6 +132,7 @@ struct Settings {
 
     bool motion_blur = true;  // Motion relative to the tracking focus.
     renderer::MotionBlurSettings motion_blur_settings;
+    float lily_momentum = .25f;  // Tilt response time in seconds; zero follows waves immediately.
     float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;

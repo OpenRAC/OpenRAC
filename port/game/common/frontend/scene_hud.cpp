@@ -156,6 +156,7 @@ void set_packets(SceneFrame& frame) {
     input.gtao = enhanced && graphics.gtao && has_camera && (scene.draws & 0x1Fu) != 0;
     input.frame = scene.frame;
     input.enhanced_water = enhanced;
+    input.lily_momentum = graphics.lily_momentum;
     input.water_hands = scene.water_hands;
     for (const auto& instance : scene.live) {
         if (instance.hero_shadow_anchor) {

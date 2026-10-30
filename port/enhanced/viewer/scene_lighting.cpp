@@ -48,8 +48,10 @@ void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
     m_wetness.bind(shader);
 }
 
-void SceneLighting::prepare_deformation(const renderer::FrameInput& input) {
-    m_water_float.prepare(input);
+void SceneLighting::prepare_deformation(
+    const renderer::FrameInput& input, const scene::LevelScene& scene
+) {
+    m_water_float.prepare(input, &scene);
 }
 
 void SceneLighting::bind_deformation(const renderer::Shader& shader, bool enabled) const {

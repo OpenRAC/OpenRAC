@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
+#include <bit>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <string_view>
@@ -8,6 +10,7 @@
 #include "common/stats.h"
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/renderer/water.h"
+#include "enhanced/renderer/water_float.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/tests/prepass_capture.h"
 #include "enhanced/tests/probe_fixture.h"
@@ -25,6 +28,94 @@
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;
+
+// Real controller + GPU lookup: native lily movement must retain history by object identity.
+void check_moving_lily(scene::LevelScene& scene) {
+    using namespace gl;
+    enhanced::WaterFloat attachment;
+    attachment.load();
+    renderer::Shader read;
+    renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create(1, 1, error));
+    CHECK(read.build(
+        "moving lily momentum",
+        enhanced::WaterFloat::vertex_source(R"(#version 410 core
+uniform vec3 anchor;
+uniform int raw_pose;
+flat out float height;
+void main() {
+    bool matched;
+    height=raw_pose!=0 ? water_float_target(anchor,matched).w
+        : (water_float_pose(anchor)*vec4(anchor,1)).z;
+    vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));
+    gl_Position=vec4(p*2.-1.,0,1);
+})"),
+        R"(#version 430 core
+flat in float height;
+layout(location=0) out vec4 colour;
+void main(){uint b=floatBitsToUint(height);
+colour=vec4(float(b&255u),float((b>>8)&255u),float((b>>16)&255u),float(b>>24))/255.;}
+)",
+        error
+    ));
+    unsigned vao = 0;
+    glGenVertexArrays(1, &vao);
+    scene::Instance lily;
+    lily.floats_on_water = true;
+    lily.temporal_id = 7;
+    lily.matrix[12] = lily.matrix[13] = .25f;
+    lily.matrix[14] = 1;
+    renderer::FrameInput input;
+    input.frame = 20;
+    input.enhanced_water = true;
+    input.lily_momentum = 1;
+    const auto sample = [&] {
+        scene.set_instances(scene::Layer::Ties, {lily});
+        attachment.prepare(input, &scene);
+        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+        glViewport(0, 0, 1, 1);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_CULL_FACE);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glBindVertexArray(vao);
+        read.use();
+        attachment.bind(read, true);
+        glUniform3f(read.uniform("anchor"), lily.matrix[12], lily.matrix[13], lily.matrix[14]);
+        std::array<float, 2> heights{};
+        for (int raw = 0; raw < 2; ++raw) {
+            glUniform1i(read.uniform("raw_pose"), raw);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            const auto bytes = target.read_rgba();
+            const auto bits = std::uint32_t(bytes[0]) | (std::uint32_t(bytes[1]) << 8)
+                              | (std::uint32_t(bytes[2]) << 16) | (std::uint32_t(bytes[3]) << 24);
+            heights[raw] = std::bit_cast<float>(bits);
+        }
+        return heights;
+    };
+    const auto initial = sample();
+    CHECK(std::abs(initial[0] - initial[1]) < 2e-6f);
+    ++input.frame;
+    lily.matrix[12] += .01f;
+    lily.matrix[14] += .2f;
+    const auto moving = sample();
+    const float expected = initial[0] + (moving[1] - initial[0]) * float(-std::expm1(-1.5 / 60.));
+    CHECK(std::abs(moving[0] - expected) < 3e-6f);
+    CHECK(std::abs(moving[0] - moving[1]) > .1f);
+    // Replacing an object at the same position must seed a fresh pose, even in-place.
+    ++input.frame;
+    ++lily.temporal_id;
+    const auto replaced = sample();
+    CHECK(std::abs(replaced[0] - replaced[1]) < 2e-6f);
+    // The slider's zero endpoint must change live, including a repeated game tick.
+    input.lily_momentum = 0;
+    lily.matrix[14] += .1f;
+    const auto immediate = sample();
+    CHECK(std::abs(immediate[0] - immediate[1]) < 2e-6f);
+    glDeleteVertexArrays(1, &vao);
+}
 
 // --expect-off: switched off at start (OPENRAC_ENHANCED=0, the setting's default) or on OpenGL,
 // nothing of enhanced rendering may be made, so the game draws as a build without it.
@@ -233,6 +324,7 @@ int main(int argc, char** argv) {
             auto water = enhanced::make_water(scene, fixture.folder);
             CHECK(bool(water));
             CHECK(water && water->init(error));
+            check_moving_lily(scene);
             frame.enhanced_water = true;
             frame.water_interactor = renderer::Vec3{.5f, .5f, 1};
             frame.camera.position = {.5f, .5f, 4};

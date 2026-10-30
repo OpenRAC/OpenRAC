@@ -260,6 +260,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
     // are kept between calls (a live layer is grouped again every frame).
     for (auto& group : m_grouping) {
         group.instances.clear();
+        group.floating_ids.clear();
         group.spheres.clear();
         group.occlusion.clear();
     }
@@ -282,6 +283,9 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         }
 
         m_grouping[at].instances.push_back(instance_data(instance));
+        if (instance.floats_on_water) {
+            m_grouping[at].floating_ids.push_back(instance.temporal_id);
+        }
         m_grouping[at].spheres.push_back(instance.world_sphere);
         m_grouping[at].occlusion.push_back(instance.occlusion);
     }
@@ -310,6 +314,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         g.floats_on_water = (m_grouping[i].key & 16) != 0;
         fill_group(g, m_grouping[i].instances, live ? GL_STREAM_DRAW : GL_STATIC_DRAW);
         g.cpu_instances = m_grouping[i].instances;
+        g.floating_ids = m_grouping[i].floating_ids;
         g.shadow_solid_instances = solid_shadow_instances(g.cpu_instances);
         g.camera_valid = false;
         g.pvs_valid = false;
@@ -595,6 +600,9 @@ bool LevelScene::rewrite_mobys(const std::vector<Instance>& instances) {
             std::memcmp(&g.cpu_instances[slot], &data, sizeof(data)) != 0
             || std::memcmp(layout.spheres[n].data(), sphere.data(), sizeof(sphere)) != 0;
         g.cpu_instances[slot] = data;
+        if (g.floats_on_water) {
+            g.floating_ids[slot] = instances[n].temporal_id;
+        }
         g.occlusion[slot] = instances[n].occlusion;
 
         // The same pose and sphere give the same bounds as before.

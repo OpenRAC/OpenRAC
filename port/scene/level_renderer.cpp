@@ -26,6 +26,30 @@
 
 namespace openrac::scene {
 
+void LevelScene::floating_anchors(
+    std::vector<std::pair<renderer::Vec3, std::uint64_t>>& anchors
+) const {
+    anchors.clear();
+    for (const auto& layer : m_groups) {
+        for (const auto& group : layer) {
+            if (!group.floats_on_water) {
+                continue;
+            }
+            for (std::size_t i = 0; i < group.cpu_instances.size(); ++i) {
+                const auto& instance = group.cpu_instances[i];
+                renderer::Vec3 anchor{
+                    instance.matrix[12], instance.matrix[13], instance.matrix[14]
+                };
+                if (std::all_of(anchor.begin(), anchor.end(), [](float v) {
+                        return std::isfinite(v);
+                    })) {
+                    anchors.emplace_back(anchor, group.floating_ids[i]);
+                }
+            }
+        }
+    }
+}
+
 using namespace openrac::gl;
 using renderer::Bucket;
 using namespace render_detail;
@@ -799,7 +823,7 @@ void LevelScene::draw_layer(
     Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
     if (m_lighting) {
-        m_lighting->prepare_deformation(input);
+        m_lighting->prepare_deformation(input, *this);
     }
     if (layer == Layer::Mobys && m_lighting) {
         m_lighting->prepare_wetness(input, m_palette, m_wetness_hero);

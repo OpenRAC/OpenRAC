@@ -9,7 +9,12 @@ order stay intact. OpenGL, original graphics or invalid/missing resources use or
 With enhanced water active, RAC1 water lilies (class 695, selected by the shared PAL/NTSC game
 profile) bob using the same GPU displacement evaluator as the liquid surface. The whole lily
 bobs at its anchor and tilts with the nearby wave slope, preserving its authored height offset
-and mesh shape. A rigid rotation also updates lighting normals; no vertex bending is applied. Gameplay
+and mesh shape. Height and tilt exponentially lerp toward the current wave pose (6/s and 4/s by default),
+so lilies lag behind the waves with a sense of momentum. Enhanced graphics > Misc > Lily momentum
+sets the tilt response time from 0 to 1 second (default 0.25); height responds 1.5 times faster.
+Zero disables smoothing. The value is saved as `lily_momentum` and restored by Reset enhanced.
+The filter follows the water game clock, seeds new attachments immediately and resets after large
+gaps. A rigid rotation also updates lighting normals; no vertex bending is applied. Gameplay
 positions, collision and interaction stay unchanged. This follows the water feature's existing
 bake availability; unsupported levels/versions and disabled or missing water retain original poses.
 
@@ -17,10 +22,13 @@ Colour, depth, shadows and temporal coverage share the displaced position. Dynam
 reject old FSR object history while active, avoiding reuse of an undeformed pose; inactive water
 keeps normal temporal accumulation. No simulation readback or CPU per-vertex update is needed.
 The atlas's existing alpha component carries rest height so attachments can distinguish nearby
-water from another storey. Shared GPU texture bindings use reserved units 18-20.
+water from another storey. Shared GPU texture bindings use reserved units 18-20; attachment poses use unit 25.
+One compute invocation updates each unique anchor before any drawing; all passes read that pose.
+History follows live object identities, retaining momentum during native lily drift and height
+adjustments. New objects and teleports seed a fresh pose; static attachments use their fixed anchors.
 
 `water_gpu` checks matched wave displacement, authored offsets, nonzero rest heights, dry/outside
-coverage, disabled attachments and missing bodies. `camera_target` also verifies the lily-only
+coverage, disabled attachments, missing bodies, filtered height/tilt, pause and new-anchor seeding. `camera_target` also verifies the lily-only
 profile selection for both regions.
 
 ## Reflections

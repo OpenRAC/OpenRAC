@@ -46,6 +46,7 @@ void Settings::reset_enhanced() {
     motion_blur = defaults.motion_blur;
     motion_blur_settings = defaults.motion_blur_settings;
     motion_blur_strength = defaults.motion_blur_strength;
+    lily_momentum = defaults.lily_momentum;
     temporal_sharpness = defaults.temporal_sharpness;
     texture_filter = defaults.texture_filter;
 }
@@ -350,6 +351,8 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 1.0f, s.agx_brightness);
         } else if (key == "motion_blur") {
             known = parse_bool(value, s.motion_blur);
+        } else if (key == "lily_momentum") {
+            known = parse_float(value, 0.0f, 1.0f, s.lily_momentum);
         } else if (key == "motion_blur_strength") {
             known = parse_float(value, 0.0f, 1.0f, s.motion_blur_strength);
         } else if (key == "motion_blur_radius") {
@@ -556,6 +559,7 @@ void save() {
         << "agx_exposure = " << s.agx_exposure << "\n"
         << "agx_brightness = " << s.agx_brightness << "\n"
         << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
+        << "lily_momentum = " << s.lily_momentum << "\n"
         << "motion_blur_strength = " << s.motion_blur_strength << "\n"
         << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"
         << "motion_blur_samples = " << s.motion_blur_settings.samples << "\n"

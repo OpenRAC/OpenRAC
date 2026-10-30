@@ -146,6 +146,7 @@ struct FrameInput {
     bool hero_pixel_shadow = false;
     bool hero_airborne = false;
     bool enhanced_water = false;
+    float lily_momentum = .25f;            // Tilt response time; height responds 1.5 times faster.
     std::optional<Vec3> water_interactor;  // Captured hero position, never live game memory.
     std::array<std::optional<Vec3>, 2> water_hands{};  // Animated hand positions at this tick.
     bool gtao = false;

@@ -39,6 +39,23 @@ void test_temporal_settings(const std::filesystem::path& file) {
     CHECK(settings::get().motion_blur_strength == .5f);
 }
 
+void test_lily_momentum(const std::filesystem::path& file) {
+    using namespace openrac;
+    for (const float value : {0.f, .25f, .65f, 1.f}) {
+        std::ofstream(file) << "lily_momentum = " << value << "\n";
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == value);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == value);
+    }
+    for (const char* invalid : {"nan", "inf", "-0.1", "1.1", "bad"}) {
+        std::ofstream(file) << "lily_momentum = " << invalid << "\n";
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == .25f);
+    }
+}
+
 void test_reset_enhanced() {
     using namespace openrac;
     settings::Settings s;
@@ -57,6 +74,7 @@ void test_reset_enhanced() {
     s.probe_spheres = true;
     s.motion_blur = false;
     s.motion_blur_settings.samples = 64;
+    s.lily_momentum = .8f;
     s.reset_enhanced();
     CHECK(s.enhanced_rendering && s.enhanced_graphics);
     CHECK(s.volume == 37 && s.render_scale == 75 && s.frame_cap == 144);
@@ -66,6 +84,7 @@ void test_reset_enhanced() {
     CHECK(s.agx_preview && s.agx_exposure == .25f && s.agx_brightness == .5f);
     CHECK(!s.sun_direction_override && !s.probe_spheres);
     CHECK(s.motion_blur && s.motion_blur_settings.samples == 16);
+    CHECK(s.lily_momentum == .25f);
 }
 
 void test_agx_preview(const std::filesystem::path& file) {
@@ -308,6 +327,7 @@ int main() {
     CHECK(settings::get().medial_axis_debug);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
+    test_lily_momentum(file);
     test_reset_enhanced();
     test_agx_preview(file);
     test_motion_blur_tuning(file);

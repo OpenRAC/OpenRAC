@@ -47,7 +47,9 @@ public:
         const std::optional<scene::Instance>& hero
     ) override;
     void bind_wetness(const renderer::Shader& shader) const override;
-    void prepare_deformation(const renderer::FrameInput& input) override;
+    void prepare_deformation(
+        const renderer::FrameInput& input, const scene::LevelScene& scene
+    ) override;
     void bind_deformation(const renderer::Shader& shader, bool enabled) const override;
     bool deformation_active() const override;
     bool atmosphere_wanted(const renderer::FrameInput&) const override;

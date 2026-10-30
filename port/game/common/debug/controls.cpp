@@ -655,6 +655,19 @@ void enhanced_settings_window() {
     if (ImGui::CollapsingHeader("Water simulation")) {
         water_controls();
     }
+    if (ImGui::CollapsingHeader("Misc")) {
+        changed |= ImGui::SliderFloat(
+            "Lily momentum", &graphics.lily_momentum, 0, 1, "%.2f s", ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::TextWrapped(
+            "Higher values make lilies ease more slowly toward the waves. Zero follows waves "
+            "immediately. Requires enhanced water."
+        );
+        if (ImGui::Button("Reset lily momentum")) {
+            graphics.lily_momentum = settings::Settings{}.lily_momentum;
+            changed = true;
+        }
+    }
     ImGui::PopItemWidth();
     ImGui::EndDisabled();
     ImGui::EndDisabled();
