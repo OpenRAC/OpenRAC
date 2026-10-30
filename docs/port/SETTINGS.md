@@ -463,5 +463,7 @@ Ratchet & Clank's fixes now, all on by default and all for both discs:
 | `fix_wide_moby_effects` | MobyProc's "drawn" test ([render_native.c](../../port/game/rac1/host/render_native.c), [moby_view.h](../../port/game/rac1/host/moby_view.h)) against the 4:3 view: mobys near the sides of a wide picture lose their effects |
 | `fix_wide_nanotech_orbs` | the nanotech cluster's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: crates near the sides lose their orb |
 | `fix_wide_liquids` | the draw callback lists and the liquid grid's cull ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: seas, lava and sand are missing near the sides |
+| `fix_wide_air_traffic` | Kerwan's air traffic's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: the traffic stops near the sides, in view |
+| `fix_wide_fires` | the smoke and fire emitter's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: fires near the sides go out |
 
 At 4:3 none of them changes anything.

@@ -33,6 +33,16 @@
       "refs": ["port/game/rac1/host/wide_view.c"]
     },
     {
+      "id": "wide-fires",
+      "kind": "fix",
+      "name": "Wide-screen fires",
+      "discs": ["pal", "ntsc"],
+      "original": "The fires and smoke of Oltanis's buildings (and the other smoke and fire emitters) stop spawning their flames and are not drawn while the emitter is outside the game's 4:3 view.",
+      "port": "Their view test sees the wider picture, so the fires at the sides of a wide picture keep burning. Off: they go out between the 4:3 edge and the picture's, in view.",
+      "setting": { "key": "fix_wide_fires", "default": true },
+      "refs": ["port/game/rac1/host/wide_view.c"]
+    },
+    {
       "id": "wide-liquids",
       "kind": "fix",
       "name": "Wide-screen seas, lava",
