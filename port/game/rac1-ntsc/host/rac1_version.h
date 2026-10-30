@@ -337,7 +337,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_0022D520 game_FUN_0022c208
 #define func_0022D7E0 game_FUN_0022c4c8
 #define func_0022ED80 game_FUN_0022da68
-#define func_0022F4A0 game_InitializeGlobalStateEntry
+#define func_0022F4A0 game_request_space_load
 #define func_00230A90 game_FUN_0022f778
 #define func_00230A90__game game_FUN_0022f778__game
 #define func_00234620 game_FUN_00233308
