@@ -67,6 +67,8 @@ bool frame_may_start(
 );
 
 // Which edge of a frame the frame cap holds to its time (the names are RTSS's limiter modes).
+// Held by its showing, the frames' times are a fixed schedule a cap's frame apart
+// (frame_pacing::next_due from each frame's swap): a frame shown late is made up for by the next.
 enum class CapEdge {
     // Its start (RTSS's back edge sync): the frame reads its time and input as late as the cap
     // lets it, and is shown when it is drawn, so its frame time moves with what it costs.
@@ -75,6 +77,9 @@ enum class CapEdge {
     // and waits for that time before the swap, so each picture reaches the screen a cap's frame
     // after the last and shows the moment it is shown at. The evenest frame times, for a little
     // latency: the frame's time and input are read its cost (and a margin) before it is shown.
+    // Only for more frames than ticks: with a frame a tick or fewer each frame is a tick's own and
+    // cannot start before the tick's work is done, so a fixed schedule either missed (every frame
+    // late, as uneven as before) or, moved after late frames, crept later after the ticks.
     Present,
 };
 
@@ -82,19 +87,6 @@ enum class CapEdge {
 // times how much that moves from frame to frame (`spread`) and a margin, in seconds, and no more
 // than the cap's frame (`step`).
 double present_lead(double cost, double spread, double step);
-
-// When the frame after one shown at `shown` is to be shown, held by its showing (`previous`: when
-// that one was to be, the clock's epoch for none). A cap's frame (`step`) after the last one's
-// time, so that a frame shown late is made up for by the next, as frame_pacing::next_due counts.
-// With no more than a frame a tick (`step` no shorter than the tick's `period`), each frame is a
-// tick's own, drawn after the tick's work: one shown late moves the times to it, so that they
-// settle where that frame is drawn by its time (else every one of them was late, and uneven).
-std::chrono::steady_clock::time_point present_due(
-    std::chrono::steady_clock::time_point previous,
-    std::chrono::steady_clock::time_point shown,
-    std::chrono::steady_clock::duration step,
-    std::chrono::duration<double> period
-);
 
 // How long after the next tick is due a frame held by its showing may still be shown before it,
 // in seconds: the tick then runs as soon as that frame is shown, so that the frames reach the

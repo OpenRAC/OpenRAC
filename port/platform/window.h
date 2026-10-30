@@ -184,6 +184,11 @@ public:
     // anything as Immediate when the driver refuses to wait.
     SwapInterval set_swap_interval(SwapInterval interval);
 
+    // Whether a swap that does not wait for a refresh is shown at once (it may tear), rather than
+    // at the next refresh as the latest frame: Vulkan's mailbox, and Android's compositor with
+    // OpenGL. A frame held to the moment it is shown needs the former (frontend's CapEdge).
+    bool swap_shows_at_once() const;
+
     // Low-latency frames (the player's setting): fewer finished frames wait to be shown. Vulkan:
     // vkgl::set_low_latency. OpenGL: each swap waits for the graphics card to finish (glFinish).
     void set_low_latency(bool on);

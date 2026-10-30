@@ -52,6 +52,8 @@ struct Result {
     double judder_ms = 0.0;           // standard deviation of (shown - drawn for)
     int frames = 0;
     double tick_late_most_ms = 0.0;  // the latest a tick ran after its time
+    double held_ms = 0.0;            // how long a drawn frame waited for its swap, on average
+    double after_tick_ms = 0.0;      // how long after its tick's time a frame was shown, on average
 };
 
 double spread(const std::vector<double>& v) {
@@ -66,20 +68,21 @@ double spread(const std::vector<double>& v) {
     return std::sqrt(var);
 }
 
-// One second of 60 ticks a second at `cap` frames a second, after a second to settle.
+// `ticks` / 2 ticks of 60 a second at `cap` frames a second, after as many to settle.
 class Simulation {
 public:
-    Simulation(CapEdge edge, bool precise, Timer timer, double cap)
+    Simulation(CapEdge edge, bool precise, Timer timer, double cap, int ticks = 240)
         : m_edge(edge),
           m_precise(precise),
           m_timer(timer),
-          m_step(1.0 / cap) {}
+          m_step(1.0 / cap),
+          m_ticks(ticks) {}
 
     Result run() {
         const double period = 1.0 / 60.0;
         Clock::time_point next_tick = m_now;
-        for (int tick = 0; tick < 240; ++tick) {
-            m_measuring = tick >= 120;
+        for (int tick = 0; tick < m_ticks; ++tick) {
+            m_measuring = tick >= m_ticks / 2;
             // The game's tick (program::vsync's wait, then its work), due at its time whenever
             // it runs (set_tick).
             wait(next_tick);
@@ -115,6 +118,12 @@ public:
         r.judder_ms = spread(m_judder) * 1000.0;
         r.frames = static_cast<int>(m_intervals.size());
         r.tick_late_most_ms = m_tick_late_most * 1000.0;
+        for (const double h : m_held) {
+            r.held_ms += h * 1000.0 / static_cast<double>(m_held.size());
+        }
+        for (const double a : m_after_tick) {
+            r.after_tick_ms += a * 1000.0 / static_cast<double>(m_after_tick.size());
+        }
         return r;
     }
 
@@ -171,18 +180,21 @@ private:
             cost += 0.003;
         }
         m_now += span(cost);
+        const Clock::time_point ready = m_now;  // drawn, before any wait for its swap
         m_cost_spread = 0.8 * m_cost_spread + 0.2 * std::abs(cost - m_cost);
         m_cost = 0.8 * m_cost + 0.2 * cost;
         if (m_edge == CapEdge::Present && m_due.time_since_epoch().count() != 0 && m_due > m_now) {
             wait(std::min(m_due, m_tick + span(period) + slip(period)));
         }
         const Clock::time_point shown = m_now;
-        m_due = m_edge == CapEdge::Present
-                    ? frontend::present_due(m_due, shown, span(m_step), duration<double>(period))
-                    : frontend::frame_pacing::next_due(m_due, started, m_now, span(m_step));
+        m_due = frontend::frame_pacing::next_due(
+            m_due, m_edge == CapEdge::Present ? shown : started, m_now, span(m_step)
+        );
         if (m_measuring && m_last_shown.time_since_epoch().count() != 0) {
             m_intervals.push_back(seconds(shown - m_last_shown));
             m_judder.push_back(seconds(shown - drawn_for));
+            m_held.push_back(seconds(shown - ready));
+            m_after_tick.push_back(seconds(shown - m_tick));
         }
         m_last_shown = shown;
     }
@@ -191,6 +203,7 @@ private:
     bool m_precise;
     Timer m_timer;
     double m_step;
+    int m_ticks;
     std::mt19937 m_random{20261030};
     std::uniform_real_distribution<double> m_tick_work_dist{0.001, 0.002};
     std::uniform_real_distribution<double> m_cost_dist{0.00175, 0.00325};
@@ -207,6 +220,8 @@ private:
     bool m_measuring = false;
     std::vector<double> m_intervals;
     std::vector<double> m_judder;
+    std::vector<double> m_held;
+    std::vector<double> m_after_tick;
 };
 
 }  // namespace
@@ -214,16 +229,20 @@ private:
 int main() {
     std::printf(
         "VSync off, 60 ticks a second of 1-2 ms, frames of 1.75-3.25 ms (2%% +3 ms spikes);\n"
-        "the old pacing -> the precise wait only (low-latency frames) -> held by the showing:\n"
+        "the old pacing -> the precise wait only (low-latency frames, caps up to the tick rate)\n"
+        "-> held by the showing (caps above the tick rate):\n"
     );
     for (const Timer timer : {kLinux, kWindows}) {
-        for (const double cap : {60.0, 120.0, 144.0, 240.0}) {
+        for (const double cap : {30.0, 60.0, 120.0, 144.0, 240.0}) {
+            // The edge the frontend picks (interpolation.cpp, cap_edge).
+            const CapEdge edge = cap > 60.0 ? CapEdge::Present : CapEdge::Start;
             const Result before = Simulation(CapEdge::Start, false, timer, cap).run();
             const Result precise = Simulation(CapEdge::Start, true, timer, cap).run();
-            const Result after = Simulation(CapEdge::Present, true, timer, cap).run();
+            const Result after = Simulation(edge, true, timer, cap).run();
             std::printf(
                 "%-19s cap %3.0f: frame time spread %.3f -> %.3f -> %.3f ms, judder %.3f -> "
-                "%.3f -> %.3f ms, frames %d -> %d -> %d, tick late by %.2f -> %.2f -> %.2f ms\n",
+                "%.3f -> %.3f ms, frames %d -> %d -> %d, tick late by %.2f -> %.2f -> %.2f ms, "
+                "held %.2f ms\n",
                 timer.name,
                 cap,
                 before.interval_spread_ms,
@@ -237,15 +256,39 @@ int main() {
                 after.frames,
                 before.tick_late_most_ms,
                 precise.tick_late_most_ms,
-                after.tick_late_most_ms
+                after.tick_late_most_ms,
+                after.held_ms
             );
-            // Evener frames and motion, at the same frame rate, the tick never more than half a
-            // tick after its time.
-            CHECK(after.interval_spread_ms < 0.5 * before.interval_spread_ms);
-            CHECK(after.judder_ms < 0.6 * before.judder_ms);
+            // Never worse; for more frames than ticks, evener frames and motion at the same frame
+            // rate, the tick never more than half a tick after its time.
+            CHECK(after.interval_spread_ms <= before.interval_spread_ms * 1.05);
             CHECK(after.frames >= before.frames - 1);
             CHECK(after.tick_late_most_ms < 1000.0 / 60.0 / 2.0);
+            if (edge == CapEdge::Present) {
+                CHECK(after.interval_spread_ms < 0.5 * before.interval_spread_ms);
+                CHECK(after.judder_ms < 0.6 * before.judder_ms);
+                // The latency it costs: a frame waits for its swap only its margin, a few ms.
+                CHECK(after.held_ms < 3.0);
+            }
         }
+    }
+    // A minute: the schedule does not drift, and the frames stay as soon after their ticks.
+    for (const double cap : {120.0, 144.0}) {
+        const Result short_run = Simulation(CapEdge::Present, true, kLinux, cap).run();
+        const Result minute = Simulation(CapEdge::Present, true, kLinux, cap, 7200).run();
+        std::printf(
+            "a minute at cap %3.0f: frame time spread %.3f ms, held %.2f ms, shown %.2f ms after "
+            "the tick (%.2f in the first seconds), tick late by %.2f ms at most\n",
+            cap,
+            minute.interval_spread_ms,
+            minute.held_ms,
+            minute.after_tick_ms,
+            short_run.after_tick_ms,
+            minute.tick_late_most_ms
+        );
+        CHECK(minute.after_tick_ms < short_run.after_tick_ms + 1.0);
+        CHECK(minute.held_ms < 3.0);
+        CHECK(minute.tick_late_most_ms < 1000.0 / 60.0 / 2.0);
     }
     return openrac::test::result();
 }

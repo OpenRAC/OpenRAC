@@ -6,7 +6,7 @@
 // microseconds on Linux and Android, a millisecond or a whole 15.6 ms timer tick on Windows without
 // a high-resolution timer), and every late wake is a frame shown late, an uneven frame time. So
 // the system is asked to wake a little early, by a margin learned from how late it woke before,
-// and the rest is spun (yielding to other threads) to the deadline, as RTSS's limiter does. The
+// and the rest is spun (with the processor's pause hint) to the deadline, as RTSS's limiter does. The
 // sleep is to an absolute time, so no wait adds to the next one's error.
 //
 // The hybrid wait is a template on its clock, sleep and spin step, so that

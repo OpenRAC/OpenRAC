@@ -166,8 +166,8 @@ refresh-length sleep to the game tick.
 
 How the cap holds a frame to its time (the names are RTSS's limiter modes):
 
-- **VSync off, low-latency frames off: by its showing** (RTSS's front edge
-  sync, its evenest frame times). A frame starts its cost (and a margin)
+- **VSync off, low-latency frames off, a cap above the game's tick rate: by
+  its showing** (RTSS's front edge sync, its evenest frame times). A frame starts its cost (and a margin)
   before its time, waits for that time just before the swap, and is drawn for
   that moment, so the pictures reach the screen a cap's frame apart and the
   motion in them is even too. The next tick may wait for a frame shown just
@@ -176,9 +176,15 @@ How the cap holds a frame to its time (the names are RTSS's limiter modes):
   the tick's logic and the time it is due at do not change. The cost is a
   little latency: the frame's time and input are read a frame's cost before it
   is shown.
-- **VSync on or adaptive, or low-latency frames on: by its start** (RTSS's
-  back edge sync): the frame reads its time and input as late as the cap lets
-  it, and is shown when it is drawn.
+  It needs a swap that is shown at once (it may tear): where the system shows
+  the latest frame at the next refresh instead (Vulkan's mailbox, Android's
+  compositor), the refresh decides when a frame is shown, and the cap holds
+  frames by their start.
+- **Otherwise: by its start** (RTSS's back edge sync): the frame reads its
+  time and input as late as the cap lets it, and is shown when it is drawn.
+  With a frame a tick or fewer (a cap of 60 or 30 on 60 ticks) each frame is
+  the tick's own and starts when the tick's work is done, so a fixed time to
+  show it would either be missed or creep later after the ticks.
 
 Every wait for a time (the tick's, the cap's, the low-latency frames' sleep)
 ends at it to within tens of microseconds: the system sleeps to a little before

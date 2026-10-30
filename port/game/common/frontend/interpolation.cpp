@@ -135,11 +135,13 @@ double frame_cap() {
 
 // Which edge of a frame the cap holds to its time (pacing.h): its showing, the evenest frame times,
 // when nothing else paces the frames shown (no swap waits for a refresh, no render thread's jobs
-// shown after the next tick starts) and the player has not asked for low-latency frames, which
-// begin each frame as late as they can; else its start.
+// shown after the next tick starts, a swap shown at once rather than at the next refresh), the
+// player has not asked for low-latency frames, which begin each frame as late as they can, and
+// the cap draws more frames than the game ticks; else its start.
 CapEdge cap_edge() {
-    return g->swap == platform::SwapInterval::Immediate && !threaded_rendering()
-                   && !settings::get().low_latency_frames
+    return g->swap == platform::SwapInterval::Immediate && g->window->swap_shows_at_once()
+                   && !threaded_rendering() && !settings::get().low_latency_frames
+                   && frame_cap() * pacing.period.count() > 1.001
                ? CapEdge::Present
                : CapEdge::Start;
 }
@@ -199,7 +201,7 @@ void swapped(std::chrono::steady_clock::time_point started) {
     pacing.cost = 0.8 * pacing.cost + 0.2 * cost;
     // Held by its showing, the frame waits here for its time (never longer than the next tick may
     // wait for it, tick_slip): drawn early, it is shown on time all the same.
-    const bool held_to_show = cap_edge() == CapEdge::Present && frame_cap() > 0.0;
+    const bool held_to_show = cap_edge() == CapEdge::Present;
     if (held_to_show && pacing.due > before) {
         const stats::Scope wait("frame cap wait");
         const auto next_tick =
@@ -239,12 +241,12 @@ void swapped(std::chrono::steady_clock::time_point started) {
     // next ones; one more than a frame late starts the count again. It holds beside the swap's
     // wait: 60 frames a second on a 120 Hz display are every other refresh. Nothing sleeps here:
     // the game's tick may be due before the next frame is (frame_due).
-    // Held by its showing, the next frame's time counts from this one's showing (present_due).
+    // Held by its showing, the next frame's time counts from this one's swap.
     if (cap > 0.0) {
         const auto step = duration_cast<steady_clock::duration>(duration<double>(1.0 / cap));
         const auto now = steady_clock::now();
-        pacing.due = held_to_show ? present_due(pacing.due, swap_started, step, pacing.period)
-                                  : frame_pacing::next_due(pacing.due, started, now, step);
+        pacing.due =
+            frame_pacing::next_due(pacing.due, held_to_show ? swap_started : started, now, step);
     } else {
         pacing.due = {};
     }

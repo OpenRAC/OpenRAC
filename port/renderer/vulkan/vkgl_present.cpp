@@ -297,6 +297,7 @@ bool make_swapchain() {
         }
     }
     info.presentMode = present_mode();
+    g->shows_at_once = info.presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR;
     info.clipped = VK_TRUE;
     info.oldSwapchain = g->swapchain;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;

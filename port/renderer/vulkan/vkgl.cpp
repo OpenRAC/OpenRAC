@@ -357,7 +357,12 @@ int set_swap_interval(int interval) {
         return interval;
     }
     const VkPresentModeKHR mode = present_mode();
+    g->shows_at_once = mode == VK_PRESENT_MODE_IMMEDIATE_KHR;
     return mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ? -1 : mode == VK_PRESENT_MODE_FIFO_KHR ? 1 : 0;
+}
+
+bool swap_shows_at_once() {
+    return active() && g->shows_at_once;
 }
 
 void set_low_latency(bool on) {

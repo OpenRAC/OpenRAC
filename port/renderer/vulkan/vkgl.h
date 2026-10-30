@@ -301,6 +301,10 @@ void present();
 // Returns what the screen allows: the nearest of those.
 int set_swap_interval(int interval);
 
+// Whether a swap that does not wait for a refresh is shown at once (the immediate present mode),
+// rather than at the next refresh as the latest image (mailbox, as Android's only is).
+bool swap_shows_at_once();
+
 // Low-latency frames: as few swapchain images as the display allows at full rate
 // (swapchain_images.h) and a frame queued only once the one before it is done on the GPU, so that
 // fewer finished frames wait to be shown. Off: one more image than the surface needs (at least

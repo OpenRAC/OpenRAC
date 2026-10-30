@@ -816,6 +816,19 @@ SwapInterval Window::set_swap_interval(SwapInterval interval) {
     return SwapInterval::Immediate;
 }
 
+bool Window::swap_shows_at_once() const {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::swap_shows_at_once();
+    }
+#endif
+#if defined(__ANDROID__)
+    return false;  // SurfaceFlinger shows a buffer at the next refresh, whatever the interval
+#else
+    return true;
+#endif
+}
+
 void Window::set_low_latency(bool on) {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
