@@ -94,6 +94,16 @@ std::string probe_shader_source(std::string source) {
 }
 
 std::string probe_mesh_fragment(std::string source) {
+    if (!enhanced_rendering_available()) {
+        return source;
+    }
+    source.insert(
+        source.find('\n') + 1,
+        std::string("#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
+            + std::string(shaders::environment_glsl) + "\n#endif\n"
+    );
+    source += std::string("\n#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
+              + std::string(shaders::chrome_glsl) + "\n#endif\n";
     return probe_shader_source(std::move(source));
 }
 
@@ -102,6 +112,13 @@ std::string probe_early_fragment(std::string source) {
         return probe_mesh_fragment(std::move(source));
     }
     source += shaders::early_lighting_glsl;
+    source.insert(
+        source.find('\n') + 1,
+        std::string("#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
+            + std::string(shaders::environment_glsl) + "\n#endif\n"
+    );
+    source += std::string("\n#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
+              + std::string(shaders::chrome_glsl) + "\n#endif\n";
     source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
     return probe_shader_source(std::move(source));
 }
@@ -471,7 +488,13 @@ void ProbeLighting::load(const scene::LevelData& level) {
             m_regions.size()
         );
         m_sunlight_scale = expected.bake.sunlight_scale;
+        m_environment.load(std::filesystem::path(path).parent_path(), volume.grid);
         // Optional markers are loaded only after the corresponding probe bake passed validation.
+        const auto medial =
+            m_medial_axis.load(std::filesystem::path(path).parent_path() / "medial-axis.json");
+        if (!medial) {
+            log::warn("medial axis overlay unavailable: {}", medial.error().message);
+        }
         const auto markers = m_area_lights.load(
             std::filesystem::path(path).parent_path() / "interior-lights-report.json"
         );
@@ -519,7 +542,8 @@ void ProbeLighting::load(const scene::LevelData& level) {
         backlight = env::flag(env::Var::ProbeBacklight);
         const auto sphere_view = environment(env::Var::ProbeSpheres);
         sphere_xray = sphere_view == "xray";
-        show_spheres = sphere_view == "1" || sphere_xray;
+        all_volume_bounds = sphere_view == "all";
+        show_spheres = sphere_view == "1" || sphere_xray || all_volume_bounds;
         environment_spheres = show_spheres;
         if (show_spheres) {
             log::info(
@@ -535,8 +559,10 @@ void ProbeLighting::load(const scene::LevelData& level) {
             m_grid.level,
             mode
         );
-        log::info("probe GI: original ambient replaced on terrain and lit mobys; GTAO follows the "
-                  "user setting");
+        log::info(
+            "probe GI: original ambient replaced on terrain and lit mobys; GTAO follows the "
+            "user setting"
+        );
     } catch (const std::exception& why) {
         release();
         m_load_error = why.what();
@@ -555,6 +581,7 @@ void ProbeLighting::bind(
         return;
     }
     m_selection.bind(shader, camera, depth_matched);
+    m_environment.bind(shader, active(), camera);
     const bool static_receiver =
         layer == scene::Layer::Terrain
         || ((mode == 2 || all_static_receivers)
@@ -593,6 +620,7 @@ void ProbeLighting::bind(
     if (!active() || !receiver) {
         return;
     }
+    glUniform2f(shader.uniform("probe_frame"), m_grid.frame.axis[0], m_grid.frame.axis[1]);
     glUniform3f(
         shader.uniform("probe_origin"), m_grid.origin[0], m_grid.origin[1], m_grid.origin[2]
     );
@@ -618,6 +646,9 @@ void ProbeLighting::bind(
             continue;
         }
         const auto& g = m_region_grids[selected.region];
+        glUniform2f(
+            shader.uniform(("probe_dense_frame" + suffix).c_str()), g.frame.axis[0], g.frame.axis[1]
+        );
         glUniform3f(
             shader.uniform(("probe_dense_origin" + suffix).c_str()),
             g.origin[0],
@@ -653,6 +684,16 @@ void ProbeLighting::draw_spheres(
     renderer::RenderState& state,
     std::optional<lighting::Float3> player
 ) {
+    if (active()) {
+        m_environment.draw_debug(input, state, show_environment_probes);
+    }
+    if (active() && show_medial_axis) {
+        std::string error;
+        if (!m_medial_axis.draw(input, state, error)) {
+            log::warn("medial axis overlay disabled: {}", error);
+            show_medial_axis = false;
+        }
+    }
     // Source markers share the existing placement-overlay pass and its displayed world camera.
     if (active() && show_area_lights) {
         std::string error;
@@ -705,6 +746,9 @@ void ProbeLighting::draw_spheres(
     m_sphere_shader.use();
     m_selection.bind(m_sphere_shader, &input.camera);
     glUniform1i(m_sphere_shader.uniform("probe_compacted"), m_sphere_indirect ? 1 : 0);
+    if (all_volume_bounds) {
+        glUniform1i(m_sphere_shader.uniform("probe_gpu_selection"), 0);
+    }
     const auto matrix = renderer::multiply(input.camera.projection, input.camera.view);
     glUniformMatrix4fv(m_sphere_shader.uniform("view_projection"), 1, GL_FALSE, matrix.data());
     glEnable(GL_DEPTH_TEST);
@@ -761,12 +805,16 @@ void ProbeLighting::draw_spheres(
 }
 
 void ProbeLighting::release() {
+    m_environment.release();
     m_load_error.clear();
     m_volume_bounds.release();
     m_containing_regions.clear();
     m_volume_bounds_failed = false;
+    m_medial_axis.release();
+    show_medial_axis = false;
     m_area_lights.release();
     show_area_lights = false;
+    show_environment_probes = false;
     m_sunlight_scale = {1, 1, 1};
     m_sunlight_direction.reset();
     runtime_sunlight_direction.reset();
@@ -793,6 +841,7 @@ void ProbeLighting::release() {
     show_spheres = false;
     environment_spheres = false;
     sphere_xray = false;
+    all_volume_bounds = false;
     if (m_textures[0]) {
         glDeleteTextures(3, m_textures.data());
     }

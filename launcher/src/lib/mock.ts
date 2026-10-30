@@ -1747,6 +1747,26 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
     ];
     return fakeJob(action.label, command, held, () => undefined, 0, [], true);
   }
+  if (id === "probe-bake" && query.get("fail") === "bake") {
+    const error = {
+      version: 1,
+      code: "input",
+      title: "Lighting data is missing or out of date",
+      explanation: "The exported level data cannot be read by this baker.",
+      suggestion: "Read the levels from your disc again, then retry Prepare enhanced lighting.",
+      detail: "manifest format 3 (this baker reads 4)",
+      level: "level_01",
+      stage: "Read baker profile",
+      log: "/home/you/OpenRAC/lighting/rac1/ntsc/probe-bake.log",
+    };
+    return fakeJob(
+      action.label,
+      command,
+      [...lines.slice(0, 3), "openrac-bake-error: " + JSON.stringify(error)],
+      () => undefined,
+      1,
+    );
+  }
   // ?fail: every job stops with an error, to see how a failure reads.
   if (query.has("fail")) {
     const failed = [...lines.slice(0, 3), "error: the step could not finish (browser preview)"];
@@ -2150,6 +2170,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       emit({ type: "exit", id, code: null, cancelled: true, outputs: [] });
       return delay(null);
     }
+    case "open_bake_log":
     case "open_path":
     case "open_url":
       console.info(`[preview] ${command}`, args);

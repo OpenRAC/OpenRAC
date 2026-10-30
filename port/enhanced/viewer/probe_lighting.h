@@ -7,6 +7,8 @@
 #include "enhanced/lighting/probe_regions.h"
 #include "enhanced/lighting/probes.h"
 #include "enhanced/viewer/area_light_overlay.h"
+#include "enhanced/viewer/environment_lighting.h"
+#include "enhanced/viewer/medial_axis_overlay.h"
 #include "enhanced/viewer/probe_selection.h"
 #include "enhanced/viewer/probe_sphere_culling.h"
 #include "renderer/renderer.h"
@@ -98,11 +100,15 @@ public:
     bool backlight = false;
     bool show_spheres = false;
     bool gpu_spheres = true;  // GPU compaction; false retains the CPU reference for verification.
+    bool show_medial_axis = false;
     bool show_area_lights = false;  // Exact generated source rectangles and emitting directions.
+    bool show_environment_probes = false;  // Reflection capture positions and their actual bounds.
     bool environment_spheres = false;
     bool sphere_xray = false;
+    bool all_volume_bounds = false;  // OPENRAC_PROBE_SPHERES=all: every resident region.
 
 private:
+    EnvironmentLighting m_environment;  // Reflection captures matching the active diffuse bake.
     // Two baked rows share each runtime row before further widening for device height limits.
     static constexpr unsigned kMinimumAtlasTilesX = 128;
     // Draws nominal boxes around the supplied snapshot player, never around the camera.
@@ -115,6 +121,7 @@ private:
     std::vector<int> m_containing_regions;  // Cached dense indices, or -1 for sparse fallback.
     std::string m_load_error;
     bool m_volume_bounds_failed = false;  // Suppresses repeated shader errors until release.
+    MedialAxisOverlay m_medial_axis;
     AreaLightOverlay m_area_lights;  // Companion report geometry, owned by the rendering thread.
     std::array<unsigned, 3> m_textures{};
     unsigned m_atlas_tiles_x = kMinimumAtlasTilesX;  // Runtime width in probe tiles.

@@ -281,6 +281,10 @@ private:
         }
         p[2] += m_settings.height * .5f;
         q[2] += m_settings.height * .5f;
+        if (!traversable(a, b, dx)) {
+            return;
+        }
+        m_result.walkable_edges.push_back({a, b});
         // Authored boxes are evaluated at body height, as their bounds need not reach the floor.
         if (std::any_of(transitions.begin(), transitions.end(), [&](const Transition& transition) {
                 return crosses_transition(transition, p, q);
@@ -289,10 +293,8 @@ private:
             return;
         }
         // Symmetric edges retain the original neighbour insertion order.
-        if (traversable(a, b, dx)) {
-            m_edges[a].push_back(b);
-            m_edges[b].push_back(a);
-        }
+        m_edges[a].push_back(b);
+        m_edges[b].push_back(a);
     }
 
     // Visits only positive X/Y neighbours to avoid evaluating each undirected edge twice.

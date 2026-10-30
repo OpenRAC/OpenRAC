@@ -244,6 +244,14 @@ int main() {
     auto result = infer(triangles, {t});
     CHECK(result.seeds.size() == 2);
     CHECK(result.blocked_portal_edges > 0);
+    CHECK(
+        std::any_of(
+            result.walkable_edges.begin(), result.walkable_edges.end(), [&](const auto& edge) {
+                return result.cells[edge[0]].component != result.cells[edge[1]].component;
+            }
+        )
+    );  // Lighting transitions cut labels, not physical reachability.
+
     CHECK(result.seeds[0].cell >= 0 && result.seeds[1].cell >= 0);
 
     if (result.seeds[0].cell >= 0 && result.seeds[1].cell >= 0) {

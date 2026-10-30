@@ -9,6 +9,7 @@
 #include <string>
 
 #include "renderer/math.h"
+#include "renderer/motion_blur_settings.h"
 #include "renderer/temporal_settings.h"
 
 namespace openrac::renderer {
@@ -32,6 +33,10 @@ struct TemporalFrame {
     scene::LevelScene& scene;         // Uploaded level geometry, borrowed for velocity drawing.
     renderer::TexturePool& textures;  // Original material alpha textures.
     int level = -1;                   // A level change invalidates temporal history.
+    bool motion_blur = false;
+    float motion_blur_strength = 0.5f;
+    bool camera_motion_blur = false;  // Real-time cutscenes use the original FSR motion.
+    renderer::MotionBlurSettings blur_settings;
 };
 
 // Owns SDK histories and intermediate targets; only the render thread calls it.

@@ -79,10 +79,6 @@ GETENV_READERS = (
 # the table. When a package moves a file's reads, it removes the file's entry; an entry whose file
 # reads none any more is reported as stale, a warning, since other work removes reads meanwhile.
 GETENV_EXCEPTIONS = {
-    "port/game/rac1/host/boot.c": "P2-38 reads it through openrac/host_env.h",
-    "port/game/rac1/host/collision.c": "P2-38 reads it through openrac/host_env.h",
-    "port/game/rac1/host/hand.c": "P2-38 reads it through openrac/host_env.h",
-    "port/game/rac1/host/ui2d.c": "P2-38 reads it through openrac/host_env.h",
     "port/tests/vulkan_uniform_test.cpp": "a test that reads the switch to know what to expect",
 }
 

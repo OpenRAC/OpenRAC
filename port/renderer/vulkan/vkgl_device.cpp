@@ -24,6 +24,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "renderer/render_opt.h"
 #include "renderer/vulkan/pipeline_cache_file.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
@@ -541,6 +542,12 @@ bool make_device(std::string& error) {
     available.pNext = &f11;
     f11.pNext = &f12;
     vkGetPhysicalDeviceFeatures2(g->physical, &available);
+    // shaderFloat16 is core in Vulkan 1.2; storage16BitAccess is a separate feature and is not needed.
+    g->shader_float16 = f12.shaderFloat16
+                        && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
+    // The vendor FSR half path also uses native 16-bit integer indexing. No 16-bit storage is enabled.
+    features.shaderInt16 = g->shader_float16 && available.features.shaderInt16;
+    g->features.shaderInt16 = features.shaderInt16;
     g->viewport_index_supported = features.multiViewport && f12.shaderOutputViewportIndex;
     // Vulkan 1.3 made extended dynamic state core, with no feature to ask for (documented: the
     // Vulkan 1.3 promotion of VK_EXT_extended_dynamic_state); the device was chosen for 1.3.
@@ -564,6 +571,7 @@ bool make_device(std::string& error) {
     g->bindless_supported = g->bindless_supported && g->material_texture_capacity >= 16;
     f11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
     f12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    f12.shaderFloat16 = g->shader_float16 ? VK_TRUE : VK_FALSE;
     f12.shaderOutputViewportIndex = g->viewport_index_supported ? VK_TRUE : VK_FALSE;
     f13.pNext = &f11;
     f11.pNext = &f12;
@@ -630,6 +638,10 @@ bool make_device(std::string& error) {
         error = std::format("no Vulkan device ({})", static_cast<int>(r));
         return false;
     }
+    log::info(
+        "vulkan: shaderFloat16 arithmetic {} (storage layouts unchanged)",
+        g->shader_float16 ? "enabled" : "disabled"
+    );
     volkLoadDevice(g->device);
     vkGetDeviceQueue(g->device, g->family, 0, &g->queue);
 

@@ -50,7 +50,10 @@ void Fsr3::State::build_velocities() {
         velocity.previous = from.matrix;
         velocity.palettes = {instance.palette, from.palette};
         velocity.alpha = instance.tint[3];
-        velocity.reactive = !matched;
+        velocity.floats_on_water = instance.floats_on_water && scene->deformation_active();
+        // Simulation-driven offsets have no previous field snapshot: reject stale object history.
+        velocity.reactive = !matched || velocity.floats_on_water
+                            || from.floats_on_water != velocity.floats_on_water;
         velocity.exclude_glow =
             std::abs(instance.moby_light[3]) > .5f && instance.moby_ambient[3] > .5f;
         velocities.push_back(velocity);
@@ -219,12 +222,22 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
     draw_motion();
     draw_reactive();
     std::string error;
+    // Select the reference before dispatch: only frames that will blur borrow its output.
+    const bool blur_frame = !dispatch.reset && !blur_mode_changed && blur_strength > 0
+                            && (!camera_blur || blur_settings.cutscene_multiplier > 0);
+    const auto delta = !blur_frame   ? std::optional<renderer::Vec3>{}
+                       : camera_blur ? std::optional{renderer::Vec3{}}
+                                     : fsr3_detail::reference_displacement(camera, old_camera);
+    const unsigned blur_output =
+        delta && renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurFastPath)
+            ? blur.reconstruction_output(display.width, display.height)
+            : 0;
     const std::array<unsigned, 5> inputs{
         world.colour_texture(),
         depth.texture(),
         motion.texture(),
         reactive.texture(),
-        output_texture
+        blur_output ? blur_output : output_texture
     };
     const bool resolved = [&] {
         const stats::Scope upscaler("FSR upscaler", stats::kGpu);
@@ -238,11 +251,36 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
         failed = true;
     }
 
+    if (resolved && delta) {
+        const bool blurred = blur.apply(
+            {display,
+             {world.width(), world.height()},
+             motion.texture(),
+             world.depth_texture(),
+             inverse_raster,
+             view.previous,
+             dispatch.jitter,
+             camera.position,
+             *delta,
+             camera_blur,
+             blur_strength,
+             dispatch.milliseconds,
+             blur_settings,
+             blur_output}
+        );
+        // Resource failures still present the complete reconstructed world and HUD.
+        if (!blurred && blur_output) {
+            blur.present_reconstruction(display);
+        }
+    }
+
     previous.clear();
 
     // The next frame sees exactly the displayed transforms, including interpolation between simulation ticks.
     for (const auto& instance : instances) {
-        previous.insert_or_assign(instance.temporal_id, instance);
+        auto saved = instance;
+        saved.floats_on_water = instance.floats_on_water && scene->deformation_active();
+        previous.insert_or_assign(instance.temporal_id, saved);
     }
 
     save_palette();

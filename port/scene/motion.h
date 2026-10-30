@@ -23,6 +23,7 @@ struct MotionInstance {
     renderer::Mat4 previous{};            // Last displayed world transform.
     std::array<int, 2> palettes{-1, -1};  // Current and previous first joint matrix.
     float alpha = 1;                      // Authored instance opacity.
+    bool floats_on_water = false;         // Optional visual water attachment.
     bool reactive = false;                // New objects reject stale history.
     bool exclude_glow = false;            // Authored glow vertices never own opaque depth.
 };

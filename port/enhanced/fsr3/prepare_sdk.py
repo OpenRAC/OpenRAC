@@ -42,6 +42,25 @@ def align_scratch(backend):
         '+ extensionPropArraySize'))
 
 
+def core_float16_support(backend):
+    """Query the promoted Vulkan 1.2 feature even without its old extension name.
+
+    The renderer requires Vulkan 1.3. The shader bridge still independently gates
+    permutations on features actually enabled on the logical device.
+    """
+    needle = 'deviceCapabilities->fp16Supported = false;'
+    if backend.count(needle) != 1:
+        raise ValueError('the pinned SDK FP16 capability query is not the expected one')
+    return backend.replace(needle, '''// OpenRAC: Float16 is core in Vulkan 1.2; the extension need not be advertised.
+    VkPhysicalDeviceVulkan12Features openracCore12 = {};
+    openracCore12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    VkPhysicalDeviceFeatures2 openracFeatures = {};
+    openracFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    openracFeatures.pNext = &openracCore12;
+    vkGetPhysicalDeviceFeatures2(backendContext->physicalDevice, &openracFeatures);
+    deviceCapabilities->fp16Supported = openracCore12.shaderFloat16 != VK_FALSE;''')
+
+
 def prepare(source, output):
     """Embed original GLSL and allow SDK device-local allocations on unified-memory GPUs."""
     output.mkdir(parents=True, exist_ok=True)
@@ -124,11 +143,12 @@ uint32_t findMemoryTypeIndex(VkPhysicalDevice device, VkMemoryRequirements requi
 '''
     backend = backend[:start] + replacement + backend[end:]
     backend = align_scratch(backend)
+    backend = core_float16_support(backend)
     # The temporal-only build has no frame-generation swapchain implementation.
     backend = backend.replace(
         'backendInterface->fpSwapChainConfigureFrameGeneration = ffxSetFrameGenerationConfigToSwapchainVK;',
         'backendInterface->fpSwapChainConfigureFrameGeneration = nullptr;')
-    # The renderer requires Vulkan 1.1; promoted functions need no optional KHR extension enabled.
+    # The renderer requires Vulkan 1.3; promoted functions need no optional KHR extension enabled.
     backend = backend.replace('"vkGetBufferMemoryRequirements2KHR"', '"vkGetBufferMemoryRequirements2"')
     write_changed(output / 'ffx_vk.cpp', backend)
 

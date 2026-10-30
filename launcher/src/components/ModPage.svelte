@@ -379,6 +379,12 @@
             {#each g.settings as s (s.key)}
               <ModSetting
                 setting={s}
+                childOf={mod.id === "enhanced-graphics" && s.key === "agx_brightness"
+                  ? `${mod.id}-agx_preview-name`
+                  : undefined}
+                disabled={mod.id === "enhanced-graphics" &&
+                  s.key === "agx_brightness" &&
+                  shown.find((setting) => setting.key === "agx_preview")?.value !== true}
                 id={`${mod.id}-${s.key}`}
                 saved={savedCount[s.key] ?? 0}
                 conflicts={clashes[s.key] ?? []}
@@ -397,6 +403,12 @@
             {#each g.settings as s (s.key)}
               <ModSetting
                 setting={s}
+                childOf={mod.id === "enhanced-graphics" && s.key === "agx_brightness"
+                  ? `${mod.id}-agx_preview-name`
+                  : undefined}
+                disabled={mod.id === "enhanced-graphics" &&
+                  s.key === "agx_brightness" &&
+                  shown.find((setting) => setting.key === "agx_preview")?.value !== true}
                 id={`${mod.id}-${s.key}`}
                 saved={savedCount[s.key] ?? 0}
                 conflicts={clashes[s.key] ?? []}

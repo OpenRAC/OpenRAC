@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -57,6 +58,8 @@ struct Camera {
     Mat4 view = identity();        // world (game axes) to view
     Mat4 projection = identity();  // view to clip, reversed depth (math.h)
     Vec3 position{};
+    std::optional<Vec3> target;  // Captured tracking focus; independent of eye rotation/orbit.
+    std::uint64_t target_id = 0;
 };
 
 // A textured quad the game drew in the world from a draw callback (rac1's func_001F7EF8, ReRAC's

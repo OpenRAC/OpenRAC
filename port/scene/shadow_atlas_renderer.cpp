@@ -29,7 +29,7 @@ using namespace render_detail;
 
 bool LevelScene::make_shadow_atlas(std::string& error) {
     if (!m_atlas_depth.id()) {
-        std::string vertex(shaders::shadow_depth_vert);
+        std::string vertex(deformation_vertex(shaders::shadow_depth_vert));
         vertex.insert(
             vertex.find('\n') + 1,
             "#extension GL_ARB_shader_viewport_layer_array : require\n"

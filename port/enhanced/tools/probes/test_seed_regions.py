@@ -109,8 +109,8 @@ class AuthoredSeeds(unittest.TestCase):
             seeds.plan_regions([], self.coarse, spacing=32)
 
     def test_sparse_metadata(self):
-        header = struct.pack('<4I', 0x5047524f, 4, 1, 9) + b'rac1-ntsc'
-        header += struct.pack('<IQQ6f4If', 3, 1, 2, 0, 0, 0, 32, 32, 32, 5, 5, 5, 8, 1234.5)
+        header = struct.pack('<4I', 0x5047524f, 5, 4, 9) + b'rac1-ntsc'
+        header += struct.pack('<IQQ8f4If', 3, 1, 2, 0, 0, 0, 1, 0, 32, 32, 32, 5, 5, 5, 8, 1234.5)
         with tempfile.TemporaryDirectory() as folder:
             file = Path(folder)/'base.orpg'
             file.write_bytes(header)
@@ -118,9 +118,9 @@ class AuthoredSeeds(unittest.TestCase):
             self.assertEqual(actual['level'], 3)
             self.assertEqual(actual['dimensions'], [5, 5, 5])
             self.assertEqual(actual['max_distance'], 1234.5)
-            self.assertEqual(actual['bake_version'], 1)
-            self.assertEqual(actual['probe_format_version'], 4)
-            for version, revision in ((1, 1), (2, 1), (3, 1), (4, 99)):
+            self.assertEqual(actual['bake_version'], 4)
+            self.assertEqual(actual['probe_format_version'], 5)
+            for version, revision in ((1, 1), (2, 1), (3, 1), (4, 1), (5, 99)):
                 file.write_bytes(struct.pack('<3I', 0x5047524f, version, revision)+header[12:])
                 with self.assertRaises(ValueError):
                     seeds.coarse_header(file)

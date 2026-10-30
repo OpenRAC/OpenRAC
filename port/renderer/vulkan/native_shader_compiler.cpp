@@ -9,6 +9,8 @@
 
 #include "renderer/vulkan/shader_compiler.h"
 #include "renderer/vulkan/shader_compiler_internal.h"
+#include "renderer/vulkan/spirv_precision.h"
+#include "renderer/vulkan/vkgl_internal.h"
 
 #include <SPIRV/GlslangToSpv.h>
 #include <glslang/Include/Types.h>
@@ -157,6 +159,12 @@ bool compile_native_compute(
     options.disableOptimizer = true;
     spv::SpvBuildLogger logger;
     glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), out.code, &logger, &options);
+    if (detail::g) {
+        const auto precision = spirv_precision(out.code);
+        detail::g->submission.shader_fp16_ops += precision.fp16;
+        detail::g->submission.shader_fp32_ops += precision.fp32;
+        detail::g->submission.shader_fp16_modules += precision.fp16 != 0;
+    }
     return !out.code.empty();
 }
 

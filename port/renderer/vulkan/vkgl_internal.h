@@ -970,6 +970,7 @@ struct Context {
         VkPipelineLayout layout = VK_NULL_HANDLE;
         VkPipeline pipeline = VK_NULL_HANDLE;
     } depth_combine;
+
     Measures measures;
     SubmissionCounters submission, reported_submission;
     SubmissionCounters published;  // The render counters as the last frame's gauges left them.
@@ -985,6 +986,7 @@ struct Context {
     VkPhysicalDeviceProperties properties{};
     std::uint32_t timestamp_bits = 0;
     VkPhysicalDeviceFeatures features{};
+    bool shader_float16 = false;  // Actually enabled arithmetic, not 16-bit storage support.
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;
     VkQueue queue = VK_NULL_HANDLE;

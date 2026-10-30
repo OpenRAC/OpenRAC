@@ -15,8 +15,8 @@ rac1-ntsc when none is named. The steps:
      libopenrac-GAME.so (the game's activity loads it) and
      libopenrac-GAME-cli.so (its windowless checks), SDL3, libadrenotools'
      hooks and libopenrac-python.so; and Enhanced graphics' probe baker,
-     libopenrac-probe-bake.so, with Embree (the version and SHA-256
-     tools/build_port.py pins) built by the NDK into build/android/embree
+     libopenrac-probe-bake.so and libopenrac-interior-infer.so, with Embree
+     (the version and SHA-256 tools/build_port.py pins) built by the NDK into build/android/embree
      (--no-probe-baker leaves it out; a baker that does not build is left
      out with a warning, as on the desktops)
   3. those libraries, the NDK's C++ runtime and Python's, in the launcher's
@@ -71,10 +71,9 @@ PYTHON_FILES = {
 }
 # libadrenotools' hook libraries, which it loads by path from the app's native library folder.
 ADRENOTOOLS_HOOKS = ("hook_impl", "main_hook", "file_redirect_hook", "gsl_alloc_hook")
-# Enhanced graphics' probe baker, a program named as a library (Android runs programs only from
-# the app's library folder; OpenracSetup.kt links it to port/build/release/openrac-probe-bake),
-# and the Embree it is built with, for Android.
-BAKER = "openrac-probe-bake"
+# Both bake programs are named as libraries so Android can execute them from the APK's native
+# library folder. Interior inference locates its companion beside the resolved baker executable.
+BAKE_TOOLS = ("openrac-probe-bake", "openrac-interior-infer")
 EMBREE_ANDROID = BUILD / "embree"
 
 
@@ -197,7 +196,7 @@ def build_port(games: list[str], ndk: Path, python_target: Path, baker: bool = T
     targets += ["openrac-python", "SDL3-shared", *ADRENOTOOLS_HOOKS]
     with_baker = "-DOPENRAC_PROBE_BAKER=ON" in defines
     if with_baker:
-        targets.append(BAKER)
+        targets.extend(BAKE_TOOLS)
     proc.run(["cmake", "--build", PORT_BUILD, "--target", *targets], cwd=PORT, env=env, echo=True)
     return with_baker
 
@@ -214,7 +213,7 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
     wanted += [PORT_BUILD / f"libopenrac-{g}-cli.so" for g in games]
     wanted.append(PORT_BUILD / "libopenrac-python.so")
     if baker:
-        wanted.append(PORT_BUILD / f"lib{BAKER}.so")
+        wanted.extend(PORT_BUILD / f"lib{tool}.so" for tool in BAKE_TOOLS)
     for name in ("SDL3", *ADRENOTOOLS_HOOKS):
         found = sorted(PORT_BUILD.rglob(f"lib{name}.so"))
         if not found:

@@ -234,6 +234,9 @@ public:
         }
     }
 
+    // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).
+    bool floats_on_water(int class_id) const override { return class_id == 695; }
+
 private:
     // Returns the table of the program loaded: a level's, or the boot program's when `level` is
     // not one (-1 before the first level).

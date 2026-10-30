@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <string>
 
+#include "enhanced/lighting/environment.h"
 #include "enhanced/tools/probes/level_scene.h"
 
 namespace openrac::lighting {
@@ -15,6 +16,7 @@ struct ProbeActivation {
 
 // Per-level probe-bake.json, then the mod profile, then caller overrides.
 struct LevelBakeProfile {
+    EnvironmentBakeSettings environment;
     ProbeActivation activation;
     Float3 sparse_spacing{256, 256, 256};
     Float3 dense_spacing{4, 4, 4};

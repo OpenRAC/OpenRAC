@@ -38,7 +38,8 @@ bool prepare_temporal(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
     const bool temporal_wanted = enhanced_graphics_available() && graphics.enhanced_graphics
-                                 && graphics.temporal_quality != renderer::TemporalQuality::Off
+                                 && (graphics.temporal_quality != renderer::TemporalQuality::Off
+                                     || (graphics.motion_blur && graphics.motion_blur_strength > 0))
                                  && enhanced::Fsr3::available() && scene.has_camera
                                  && (scene.draws & 0x1Fu) != 0;
 
@@ -166,6 +167,8 @@ void set_lighting(SceneFrame& frame) {
     }
     owner.scene.set_probe_spheres(graphics.probe_spheres);
     owner.scene.set_area_lights(graphics.ceiling_area_lights);
+    owner.scene.set_medial_axis_debug(graphics.medial_axis_debug);
+    owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
@@ -265,6 +268,8 @@ void set_camera(SceneFrame& frame) {
     );
     renderer::Camera camera;
     camera.view = state.view();
+    camera.target = state.camera_target;
+    camera.target_id = state.camera_target_id;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
@@ -335,7 +340,16 @@ bool draw_world(SceneFrame& frame) {
         if (temporal_wanted && !input.keep_colour) {
             std::string temporal_error;
             const enhanced::TemporalFrame temporal{
-                input, target, owner.frame, owner.scene, owner.renderer->textures(), scene.level
+                input,
+                target,
+                owner.frame,
+                owner.scene,
+                owner.renderer->textures(),
+                scene.level,
+                graphics.motion_blur,
+                graphics.motion_blur_strength,
+                scene.cutscene,
+                graphics.motion_blur_settings
             };
             const bool active = owner.temporal->begin(
                 temporal, graphics.temporal_quality, graphics.temporal_sharpness, temporal_error
@@ -347,6 +361,18 @@ bool draw_world(SceneFrame& frame) {
             }
         }
 
+        if (graphics.agx_preview && graphics.enhanced_graphics && enhanced_graphics_available()
+            && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0) {
+            auto before_hud = std::move(input.before_hud);
+            input.before_hud = [&owner,
+                                exposure = graphics.adjusted_agx_exposure(),
+                                before_hud = std::move(before_hud)] {
+                owner.agx.apply(owner.frame, exposure);
+                if (before_hud) {
+                    before_hud();
+                }
+            };
+        }
         owner.renderer->render(input, target);
         return true;
     }

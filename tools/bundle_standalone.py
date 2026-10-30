@@ -87,8 +87,8 @@ LEVELS_ROOT = "{data}/port"
 # only with developer tools on (its actions are `"developer": true`).
 GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac2-ntsc")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
-# (tools/build_port.py --probe-baker), Embree built into it.
-TOOLS = ("openrac-probe-bake",)
+# (tools/build_port.py --probe-baker), Embree built into it, and its interior inference companion.
+TOOLS = ("openrac-probe-bake", "openrac-interior-infer")
 # Its Python half (bake_all.py and what it imports), without the tests.
 PROBE_TOOLS = "port/enhanced/tools/probes"
 # Authored settings travel with the exporter, rather than depending on a source checkout.
@@ -220,6 +220,13 @@ def copy_games(build: Path, dest: Path) -> list[str]:
     """The game programs in BUILD, copied to DEST; their names. On macOS a game is an application
     bundle named by its title in apps/openrac-<id>/ (port/cmake/MacApp.cmake), carried whole; the
     build folder's link to its program is not."""
+    # The baker's Python preparation locates this executable beside the baker.
+    # Reject an incomplete build rather than shipping a launcher whose lighting bake fails.
+    for suffix in ("", ".exe"):
+        baker = build / ("openrac-probe-bake" + suffix)
+        companion = build / ("openrac-interior-infer" + suffix)
+        if baker.is_file() and not companion.is_file():
+            raise ValueError(f"{baker.name} requires {companion.name} beside it; rebuild the probe baker")
     carried = []
     for game in GAMES + TOOLS:
         apps = build / "apps" / game

@@ -69,7 +69,11 @@ bool Fsr3::State::build_shaders(std::string& error) {
                error
            )
            && object_motion.build(
-               "temporal object motion", shaders::motion_vert, shaders::motion_frag, error
+               "temporal object motion",
+               scene ? scene->deformation_vertex(shaders::motion_vert)
+                     : std::string(shaders::motion_vert),
+               shaders::motion_frag,
+               error
            )
            && reactive_mask.build(
                "temporal reactive mask", shaders::fullscreen_vert, shaders::reactive_frag, error
@@ -201,6 +205,15 @@ bool Fsr3::begin(
 ) {
     State& state = *m_state;
 
+    if (quality == renderer::TemporalQuality::Off && frame.motion_blur
+        && frame.motion_blur_strength > 0) {
+        quality = renderer::TemporalQuality::NativeAA;
+    }
+    state.blur_strength = frame.motion_blur ? frame.motion_blur_strength : 0.0f;
+    state.blur_settings = frame.blur_settings;
+    state.blur_mode_changed = state.camera_blur != frame.camera_motion_blur;
+    state.camera_blur = frame.camera_motion_blur;
+
     // Unsupported or failed modes retain native rendering without per-frame retries.
     if (quality == renderer::TemporalQuality::Off || state.failed || !available()) {
         return false;
@@ -216,6 +229,7 @@ bool Fsr3::begin(
     const auto size =
         fsr3_detail::render_extent({frame.display.width(), frame.display.height()}, quality);
 
+    state.scene = &frame.scene;
     // A failed setup cannot install callbacks or leave a jittered native fallback.
     if (!state.configure(frame.display, size, error)
         || !state.prepare_camera(frame, sharpness, error)) {
@@ -239,6 +253,7 @@ void Fsr3::reset() {
 void Fsr3::release() {
     auto& state = *m_state;
     state.sdk.release();
+    state.blur.release();
     state.motion.release();
     state.depth.release();
     state.reactive.release();

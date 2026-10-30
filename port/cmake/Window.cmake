@@ -167,6 +167,7 @@ add_library(openrac_renderer STATIC
   renderer/direct.cpp
   renderer/effects.cpp
   renderer/framebuffer.cpp
+  enhanced/renderer/agx.cpp
   enhanced/renderer/gtao.cpp
   renderer/gl.cpp
   renderer/gl_stats.cpp
@@ -182,6 +183,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shading_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/surface_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/upscaled_texture_colours.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/agx.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_common.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_evaluate.comp"
@@ -319,9 +321,11 @@ openrac_warnings(openrac_scene_renderer)
 # renderer, never the other way round.
 add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/area_light_overlay.cpp
+  enhanced/viewer/medial_axis_overlay.cpp
   enhanced/viewer/debug_lines.cpp
   enhanced/viewer/probe_volume_overlay.cpp
   enhanced/renderer/water.cpp
+  enhanced/renderer/water_float.cpp
   enhanced/renderer/water_asset.cpp
   enhanced/renderer/water_resources.cpp
   enhanced/renderer/water_simulation.cpp
@@ -330,6 +334,10 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/renderer/water_mesh_gpu.cpp
   enhanced/viewer/early_lighting.cpp
   enhanced/viewer/probe_lighting.cpp
+  enhanced/viewer/environment_lighting.cpp
+  enhanced/viewer/environment_overlay.cpp
+  enhanced/viewer/environment_selection.cpp
+  enhanced/renderer/reflection_material.cpp
   enhanced/viewer/probe_selection.cpp
   enhanced/viewer/probe_sphere_culling.cpp
   enhanced/viewer/probe_sphere_instances.cpp
@@ -338,12 +346,19 @@ add_library(openrac_enhanced_viewer STATIC
 openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_selection.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/chrome.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/wetness.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_lighting.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/shading_brdf.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/environment.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_vertex.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_displacement.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_float.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_mesh.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.comp"
@@ -368,6 +383,14 @@ openrac_warnings(openrac_enhanced_viewer)
 openrac_add_test(area_light_overlay SOURCES enhanced/tests/area_light_overlay_test.cpp
                 LIBS openrac_enhanced_viewer openrac_platform)
 if(OPENRAC_VULKAN)
+  openrac_add_test(environment_selection SOURCES enhanced/tests/environment_selection_test.cpp
+                  LIBS openrac_enhanced_viewer openrac_platform)
+  target_include_directories(environment_selection_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+  set_tests_properties(environment_selection PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST environment_selection APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
   openrac_add_test(probe_sphere_culling SOURCES enhanced/tests/probe_sphere_culling_test.cpp
                   LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
   set_tests_properties(probe_sphere_culling PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
@@ -402,6 +425,7 @@ add_library(openrac_game_rac1_profile STATIC
 )
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer)
 openrac_warnings(openrac_game_rac1_profile)
+openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with
@@ -471,7 +495,8 @@ endif()
 # window or creates a graphics context. Embree stays out of viewer/game targets.
 if(OPENRAC_PROBE_BAKER)
   add_executable(openrac-probe-bake enhanced/tools/probes/main.cpp
-    enhanced/tools/probes/batch.cpp enhanced/tools/probes/report.cpp
+    enhanced/tools/probes/batch.cpp enhanced/tools/probes/density_stage.cpp
+    enhanced/tools/probes/environment_stage.cpp enhanced/tools/probes/environment_water_inputs.cpp enhanced/tools/probes/report.cpp enhanced/tools/probes/medial_report.cpp
     enhanced/tools/probes/interior_sources.cpp)
   target_link_libraries(openrac-probe-bake PRIVATE openrac_probe_scene openrac_probe_bake)
   add_dependencies(openrac-probe-bake openrac-interior-infer)
@@ -693,6 +718,7 @@ foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu)
 endforeach()
 target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_optics_gpu.cpp
+  enhanced/tests/environment_gpu.cpp
   enhanced/tests/water_window_gpu.cpp)
 add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")
@@ -702,3 +728,12 @@ target_include_directories(water_host_test PRIVATE enhanced/tests/water_host_stu
   game/common/include runtime/include)
 openrac_warnings(water_host_test)
 add_test(NAME water_host COMMAND water_host_test)
+
+# Optional AgX SDR prototype: reference colours and compatibility bypass.
+openrac_add_test(agx SOURCES enhanced/tests/agx_test.cpp LIBS openrac_renderer openrac_platform)
+set_tests_properties(agx PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop;OPENRAC_ENHANCED=1")
+if(OPENRAC_VULKAN)
+  add_test(NAME agx_vulkan COMMAND agx_test --expect-on)
+  set_tests_properties(agx_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
+endif()

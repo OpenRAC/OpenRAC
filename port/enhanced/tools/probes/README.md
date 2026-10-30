@@ -28,7 +28,8 @@ integrates GPU-ready probe maps.
 3. Compact coverage, add a one-cell apron and repartition into boxes.
 4. Refine faces to penalise crowded blend junctions and small boxes.
 5. Restore blend borders and emit exact lattice endpoints/source evidence.
-6. Align each final grid, then relocate individual probes in the native bake.
+6. Fit upright grids to playable footprints, align them, then relocate individual probes.
+7. With adaptive density enabled, verify reduced grids against the fine bake before reflection capture.
 
 `region_boxes.py` owns integer cell operations; `region_compaction.py` preserves native coverage,
 including rounded world bounds. `region_repartition.py` partitions cores and reports metadata.
@@ -57,10 +58,82 @@ radiance/occupancy trace the full scene. Both grids store filtered first/second 
 Sparse sampling halves variance only beyond the mean blocker, preserving unobstructed fill.
 Coarse grids and finite angular sampling can still leak.
 
+### Adaptive local density
+
+`regions.adaptive_density` enables error-bounded spacing changes; Novalis enables it. The default
+is off for other levels. `adaptive_relative_error` defaults to `0.1` and
+`adaptive_absolute_error` to `0.02`, in linear irradiance. Dark references cap the absolute
+tolerance at `0.003`.
+
+Narrow corridor cross-sections can use half spacing within the original volume's probe budget.
+After tracing the fine grids, each axis can double its spacing where exact lattice endpoints
+permit it. Kept probes retain their captured directional maps, relocation and distance moments.
+Exterior heights and confirmed interior ceiling coverage remain unchanged.
+
+Checks cover player/jump heights and nearby walls/ceilings using two-sided geometric normals,
+five view directions, packed texture precision, visibility and sparse/local boundary blending.
+A final check includes selection and blending of three local volumes; failed reductions restore
+the fine data. The tests sample reachable floors and surfaces rather than proving every pixel.
+
+`probe-density-report.json` records the final count and measured error. `adaptive-reference/`
+keeps fine captures only for reduced volumes, for verification and resume; runtime loads only the
+final region files. This pass reduces runtime storage, but still traces the fine reference first.
+
 Each worker caches up to 65,536 exact byte/tint conversions per rounding mode, about 1 MiB,
 rather than full linear textures. Tint/emission/terrain retain their colour-conversion order;
 visibility reads alpha only. Reports reuse scene/material text but retain per-grid coverage
 and runtime validation.
+
+## Environment captures
+
+An enabled `environment_probes` section in `probe-bake.json` runs reflection capture after all GI
+grids verify. Novalis enables it by default. `environment_stage.cpp` loads the completed GI and
+the gameplay-anchored floor graph. `room_layout.cpp` supplies geometry-based cores, clearance
+centres and upright principal axes for both bakers. `room_grid.cpp` fits local GI footprints without
+growing their probe budgets. `environment_floor_map.cpp` prepares reachable reflection spaces;
+`environment_placement.cpp` centres captures above their actual floors and fills coverage gaps.
+`environment_probe_merge.cpp` coordinates receiver-preserving unions;
+`environment_capture_search.cpp` tests replacement positions, `environment_capture_relocation.cpp`
+repairs spacing, and `environment_merge_policy.cpp` compares lighting and coverage budgets.
+`environment_bake.cpp` shades Embree hits with the runtime GI reference. `environment_filter.cpp`
+builds seam-aware GGX levels and a matching BRDF lookup.
+The versioned `environment.orpe` is consumed by enhanced water and all authored chrome/glass packets. See the
+[lighting guide](../../lighting/README.md#environment-reflections) for defaults and limitations.
+
+GI orientation and reflection placement share a connected floor graph. Short sampling gaps are
+bridged only where actual floor support and body/head clearance agree. Physical reconnection
+searches up to 12 units, following bounded floor-height dips instead of a straight height chord.
+Intermediate samples keep
+the distance field and medial paths continuous; collision component IDs do not define rooms.
+Authored lighting labels preserve mood boundaries. Reflection placement then checks doorway
+clearance and baked GI colour before combining spaces. Walls and separate storeys remain barriers.
+The placement report records bridged edges and merged floor components. Influence covers the
+playable floor footprints and player-height samples, independently of direct visibility from the
+capture. Small occluders inside one lighting space do not require additional captures. Supported
+low passages remain receivers even when a capture cannot fit there. Merging preserves every
+receiver; incomplete coverage fails the bake. Parallax bounds remain separate from influence bounds.
+
+Minimum reflection-capture spacing is six units. The closest visible pair is repaired first,
+including pairs with different fragment IDs or local GI brightness. A shared replacement must
+retain every receiver; otherwise the captures are relocated farther apart. Walls, separate storeys
+and different water media remain separate. Unresolved spacing conflicts fail the bake.
+
+The playable graph has separate walking, jumping and swimming links. Jump arcs sweep the player's
+body against two-sided geometry and connect supported landings without filling the gap with floor
+samples. `playable_space` in `probe-bake.json` configures `jump_distance` (12), `jump_rise` (4),
+`jump_drop` (8), `player_radius` (0.5) and `player_height` (2.5). These are planning approximations,
+not a gameplay-physics replay. The debug view draws the medial axis in orange and checked jump
+arcs as dashed orange lines.
+
+Authored swimmable collision adds surface and submerged gameplay domains. When `water.bin` is
+available its wet mask refines coastlines; it is optional. Basin floors come from collision,
+and sealed rooms below a basin remain dry. Reflection placement and merging retain separate
+above-water and underwater captures. Their influence covers the water column, with a narrow
+transition beneath the surface. Placement reports identify submerged captures and failed bounds.
+Water shallower than `playable_space.minimum_swim_depth` (default 1) instead uses supported wading
+floors and shares reflection spaces with dry land. Novalis sets 0.85, following the wading-depth
+test in `update_hero_ground_material_effects` (seen in game code). It does not create an underwater
+capture layer in shallow water.
 
 ## Depends on
 

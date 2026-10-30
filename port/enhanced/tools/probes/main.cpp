@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <new>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
@@ -325,6 +326,13 @@ int main(int argc, char** argv) {
 
         if (!interior_report->empty() && !batch_output.empty()) {
             const auto& text = *interior_report;
+
+            // Resume regenerates this owned diagnostic before any cached grid is verified.
+            if (resume) {
+                fs::remove(batch_output / "interior-lights-report.json");
+                fs::remove(batch_output / "interior-lights-report.json.tmp");
+            }
+
             write_bake_file(
                 batch_output / "interior-lights-report.json",
                 std::span(reinterpret_cast<const std::uint8_t*>(text.data()), text.size())
@@ -364,6 +372,7 @@ int main(int argc, char** argv) {
             std::cout << "Probe batch ready\n" << std::flush;
             ProbeBatchOptions options;
             options.output_directory = batch_output;
+            options.level_directory = directory;
             options.settings = settings;
             options.light_set = light_set;
             options.threads = threads;
@@ -434,6 +443,10 @@ int main(int argc, char** argv) {
     } catch (const NothingToBake& nothing) {
         std::cerr << "probe bake: " << nothing.what() << '\n';
         return kNothingToBake;
+    } catch (const std::bad_alloc&) {
+        std::cerr << "probe bake: out of memory; close other large apps and retry; use --jobs 1 "
+                     "for command-line baking\n";
+        return 1;
     } catch (const std::exception& error) {
         std::cerr << "probe bake: " << error.what() << '\n';
         return 1;

@@ -347,6 +347,8 @@ jobs:
           baker=$COPY/port/build/release/openrac-probe-bake; [ -f "$baker" ] || baker=$baker.exe
           [ -f "$baker" ] || { echo "the copy carries no openrac-probe-bake"; exit 1; }
           "$baker" --help > /dev/null || { echo "openrac-probe-bake does not start"; exit 1; }
+          infer="$(dirname "$baker")/openrac-interior-infer"; [ -f "$infer" ] || infer=$infer.exe
+          [ -f "$infer" ] || { echo "the copy carries no openrac-interior-infer"; exit 1; }
           "$py" "$COPY/port/enhanced/tools/probes/bake_all.py" --help > /dev/null
           # On macOS each game carries MoltenVK, for the Vulkan renderer (port/cmake/MacApp.cmake).
           if [ "$NAME" = macos ]; then

@@ -75,6 +75,9 @@ constexpr auto kGauges = std::to_array<Gauge>({
      Span::Total},
     {"vk_cpu_mirror_bytes", &SubmissionCounters::cpu_mirror_bytes, Span::Total},
     {"vk_gpu_payload_bytes", &SubmissionCounters::gpu_payload_bytes, Span::Frame},
+    {"vk_shader_fp16_ops", &SubmissionCounters::shader_fp16_ops, Span::Total},
+    {"vk_shader_fp32_ops", &SubmissionCounters::shader_fp32_ops, Span::Total},
+    {"vk_shader_fp16_modules", &SubmissionCounters::shader_fp16_modules, Span::Total},
     {"vk_shader_compiles", &SubmissionCounters::shader_compiles, Span::Total},
 });
 // clang-format on

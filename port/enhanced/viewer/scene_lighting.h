@@ -9,11 +9,13 @@
 
 #pragma once
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "enhanced/lighting/probes.h"
+#include "enhanced/renderer/water_float.h"
 #include "enhanced/renderer/wetness.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_lighting.h"
@@ -36,6 +38,12 @@ public:
         const std::optional<scene::Instance>& hero
     ) override;
     void bind_wetness(const renderer::Shader& shader) const override;
+    void prepare_deformation(const renderer::FrameInput& input) override;
+    void bind_deformation(const renderer::Shader& shader, bool enabled) const override;
+    bool deformation_active() const override;
+    void bind_material(
+        const renderer::Shader& shader, std::uint32_t model, const scene::Material& material
+    ) const override;
     std::string early_fragment(std::string source) const override;
     // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
@@ -55,6 +63,8 @@ public:
     void set_sunlight_direction(std::optional<renderer::Vec3> direction) override;
     void set_spheres(bool shown) override;
     void set_area_lights(bool shown) override;
+    void set_medial_axis_debug(bool shown) override;
+    void set_environment_probe_debug(bool shown) override;
     bool compute_selection() const override;
     void select_visible_regions(
         unsigned depth, const renderer::Camera& camera, int width, int height
@@ -101,7 +111,10 @@ public:
     );
 
 private:
+    std::map<std::uint32_t, int>
+        m_reflection_classes;  // Authored object identity for chrome overrides.
     enhanced::HeroWetness m_wetness;
+    enhanced::WaterFloat m_water_float;
     ProbeLighting m_probes;          // The level's probe bake on the GPU.
     EarlyLighting m_early_lighting;  // The early-lit world's per-pixel lighting.
 };

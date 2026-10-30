@@ -1295,6 +1295,10 @@ TickMobys pose_mobys(
                 {m.address, joints, target, target ? target_mobys.size() : live.size()}
             );
         }
+        // Only world instances attach to water; menu and render-to-texture previews keep their poses.
+        instance.floats_on_water = g->profile->floats_on_water(m.class_id)
+                                   && instance.moby_light[3] < 1.5f
+                                   && !into_texture.contains(m.address);
         if (const auto t = into_texture.find(m.address); t != into_texture.end()) {
             target_mobys.push_back({m.address, instance, *t->second});
             target_mobys.back().camera.focal_x = frame_focal[0];
@@ -1495,6 +1499,10 @@ void keep_tick(
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
                           : std::nullopt;
+    std::uint32_t mode = 0;
+    // RAC1's level mode 2 is a real-time cutscene. Movies bypass world reconstruction.
+    k.cutscene = g->game.starts_with("rac1-") && openrac_game_mode != nullptr
+                 && openrac_game_mode(&mode) != 0 && mode == 2;
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);

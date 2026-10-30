@@ -3,7 +3,7 @@
 """hostgen's tests: small programs in the console's C, translated, compiled
 for the host with a minimal runtime (tests/harness.c), run, and their output
 checked. Each program is what the decompilation does in some function; none
-is game code.
+is game code, except the paired colour-write regression below.
 
     python3 -m unittest discover -s port/tools/hostgen
 """
@@ -138,6 +138,35 @@ class Translate(unittest.TestCase):
             run = subprocess.run([str(exe)], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             return run.stdout.split()
+
+    def test_scripted_moby_colour_notifies_after_writing(self):
+        # Both real routines must notify after writing the same packed colour, without changing
+        # light selection. PAL once lacked this notification, hiding enhanced countdown flashes.
+        for version, symbol in (("pal", "func_L00_00251328"), ("ntsc", "FUN_L00_002502f0")):
+            with self.subTest(version=version):
+                game = HERE.parent.parent / f"game/rac1-{version}"
+                config = json.loads((game / "hostgen.json").read_text())
+                self.assertIn("openrac_game_moby_colour", config["host_functions"])
+                routine = (game / "hand/overlays_shared_mobyfunc_0024FD50.c").read_text()
+                main = """
+                    int test_main(void) {
+                        unsigned long *word = (unsigned long *)0x200038;
+                        *word = 0x29242412345678ul;
+                        test_print((int)COLOUR_WRITE((char *)0x200000, 200, 64, 64));
+                        test_print((int)COLOUR_WRITE((char *)0x200000, 36, 36, 41));
+                        return 0;
+                    }
+                """.replace("COLOUR_WRITE", symbol)
+                out = self.run_program({"colour.c": routine + main},
+                    config={"host_functions": HOST_FUNCTIONS + ["openrac_game_moby_colour"]},
+                    extra_files={"game/include/types.h": COMMON_H}, host_c="""
+                        #include <stdio.h>
+                        void game_openrac_game_moby_colour(unsigned object, unsigned colour) {
+                            printf("%x %x %x\\n", object, colour, GREF(unsigned, object + 0x3c));
+                        }
+                    """)
+                self.assertEqual(out, ["200000", "4040c8", "4040c8", "305419896",
+                                       "200000", "292424", "292424", "305419896"])
 
     def test_globals_structs_and_pointer_arithmetic(self):
         out = self.run_program({"a.c": """

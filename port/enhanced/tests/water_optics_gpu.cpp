@@ -20,6 +20,7 @@
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #ifdef OPENRAC_VULKAN
+#include "renderer/vulkan/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "tests/check.h"
@@ -30,6 +31,14 @@ using namespace openrac::gl;
 namespace wgl = renderer::world::gl;
 
 void check_optics(Context& fixture) {
+    bool float16 = false;
+#ifdef OPENRAC_VULKAN
+    vkgl::NativeDevice device;
+    float16 = vkgl::native_device(device) && device.float16;
+#endif
+    // Optical approximations have a separate explicit budget; displacement/simulation retain theirs.
+    const double optical_error = float16 ? 1e-3 : 2e-5;
+    const double unit_error = 1e-5;
     const auto* vertex = fixture.vertex;
     auto& error = fixture.error;
     auto& pixels = fixture.pixels;
@@ -38,10 +47,15 @@ void check_optics(Context& fixture) {
     // and finite differences, including a spatially varying shoreline taper.
     std::string swell_source = "#version 410 core\n";
     swell_source += lighting::shaders::water_swell_glsl;
+    const std::string water_source = lighting::shaders::water_glsl;
+    const auto curvature_start = water_source.find("float water_shore_curvature");
+    const auto curvature_end = water_source.find("float water_shore_weight", curvature_start);
+    CHECK(curvature_start != std::string::npos && curvature_end > curvature_start);
+    swell_source += water_source.substr(curvature_start, curvature_end - curvature_start);
     swell_source += R"(
 layout(location=0) out vec4 result;
 void main(){
-    int test=int(gl_FragCoord.x)%16;
+    int test=int(gl_FragCoord.x)%36;
     vec3 dx,dy;
     vec3 d=water_swell(vec2(.37,.91),.43,.8,vec2(.1,-.08),dx,dy);
     float value=0.;
@@ -54,7 +68,20 @@ void main(){
     else if(test==12) value=water_boundary_swell(vec3(.3,1,0),.43,.8).z;
     else if(test==13) value=water_boundary_swell(vec3(.3,1,0),.43,.8).x;
     else if(test==14) value=length(water_boundary_swell(vec3(.3,1,0),.43,0.));
-    else value=length(water_boundary_swell(vec3(.3,0,0),.43,.8));
+    else if(test==15) value=length(water_boundary_swell(vec3(.3,0,0),.43,.8));
+    else if(test<32) {
+        // Vary bank direction, taper and distance together, including the fade.
+        vec3 boundary=vec3(.3,.2+.05*float(test-16),.12);
+        vec3 change=vec3(.7,.13,-.09);
+        float epsilon=.001;
+        vec3 numeric=(water_boundary_swell(boundary+epsilon*change,.43,.8+epsilon*.1)
+                     -water_boundary_swell(boundary-epsilon*change,.43,.8-epsilon*.1))/(2.*epsilon);
+        value=length(water_boundary_tangent(boundary,change,.43,.8,.1)-numeric);
+    }
+    if(test==32) value=water_shore_curvature(.25,0.,1.,.5,1.);
+    if(test==33) value=water_shore_curvature(-.5,0.,1.,.5,1.);
+    if(test==34) value=water_shore_curvature(0.,0.,1.,0.,1.);
+    if(test==35) value=water_shore_curvature(0.,0.,1.,1e-8,1.);
     uint bits=floatBitsToUint(value);
     result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
 })";
@@ -82,7 +109,7 @@ void main(){
     const auto bottom = swell_position(.37, .91 - epsilon),
                top = swell_position(.37, .91 + epsilon);
     for (unsigned x = 0; x < kWidth; ++x) {
-        unsigned at = x * 4, test = x % 16;
+        unsigned at = x * 4, test = x % 36;
         const auto bits = std::uint32_t(pixels[at]) | (std::uint32_t(pixels[at + 1]) << 8)
                           | (std::uint32_t(pixels[at + 2]) << 16)
                           | (std::uint32_t(pixels[at + 3]) << 24);
@@ -104,6 +131,9 @@ void main(){
         } else if (test == 13) {
             expected = .014 * .8 * std::exp(-.3 * .12) * .65
                        * std::cos((6.28318531 / 2.2) * .3 - .43 * 2.);
+        }
+        if (test == 32) {
+            expected = 2.;
         }
         CHECK(std::isfinite(actual));
         CHECK(std::abs(actual - expected) < 2e-5);
@@ -135,6 +165,7 @@ void main() {
     renderer::Shader physical_test;
     CHECK(physical_test.build("water physical lighting", vertex, physical.c_str(), error));
     physical_test.use();
+    glUniform3f(physical_test.uniform("water_material"), .22f, .02037f, 1);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const double refracted_cosine = std::sqrt(1. - 1. / (1.333 * 1.333));
@@ -155,7 +186,31 @@ void main() {
                           | (std::uint32_t(pixels[at + 3]) << 24);
         const float actual = std::bit_cast<float>(bits);
         CHECK(std::isfinite(actual));
-        CHECK(std::abs(actual - expected_light[x % 8]) < 2e-5);
+        CHECK(std::abs(actual - expected_light[x % 8]) < optical_error);
+    }
+    // The shared fallback preserves GI colour, applies Fresnel once and keeps black GI black.
+    const std::string fallback_source =
+        std::string("#version 410 core\n") + std::string(lighting::shaders::shading_brdf_glsl) + R"(
+layout(location=0) out vec4 result;
+void main() {
+    int test=int(gl_FragCoord.x)%4;
+    vec3 colour=gi_specular_fallback(test==3 ? vec3(0) : vec3(3.14159265,0,0),test==1 ? 0. : 1.,.04);
+    float value=test==2 ? colour.g : colour.r;
+    uint bits=floatBitsToUint(value);
+    result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
+})";
+    renderer::Shader fallback_test;
+    CHECK(fallback_test.build("local GI reflection fallback", vertex, fallback_source, error));
+    fallback_test.use();
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    const std::array<float, 4> expected_fallback{.04f, 1, 0, 0};
+    for (unsigned x = 0; x < kWidth; ++x) {
+        const auto at = x * 4;
+        const auto bits = std::uint32_t(pixels[at]) | (std::uint32_t(pixels[at + 1]) << 8)
+                          | (std::uint32_t(pixels[at + 2]) << 16)
+                          | (std::uint32_t(pixels[at + 3]) << 24);
+        CHECK(std::abs(std::bit_cast<float>(bits) - expected_fallback[x % 4]) < 1e-5f);
     }
     // Smooth slopes must preserve a planar ramp at subcell positions and atlas borders.
     // Poison outside the selected 8x8 body catches cross-body filtering.
@@ -322,7 +377,7 @@ void main() {
         } else if (test <= 6) {
             CHECK(actual < 5e-4);
         } else {
-            CHECK(std::abs(actual - 1) < 1e-5);
+            CHECK(std::abs(actual - 1) < unit_error);
         }
     }
     CHECK(enhanced::water_window_visible(renderer::identity(), {-.5f, -.5f, 0}, {.5f, .5f, 0}));

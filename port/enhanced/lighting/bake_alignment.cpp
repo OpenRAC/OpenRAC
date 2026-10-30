@@ -50,7 +50,7 @@ Float3 anchored_offset(const ProbeGrid& grid, std::size_t index, Float3 offset) 
         }
     }
 
-    return offset;
+    return grid.frame.to_world(offset);
 }
 
 // Estimates capped clearance with short rays, including surfaces coincident with the probe position.

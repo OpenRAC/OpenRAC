@@ -5,6 +5,7 @@
 
 #include "enhanced/viewer/debug_lines.h"
 
+#include <array>
 #include <cstddef>
 #include <utility>
 
@@ -120,6 +121,31 @@ bool DebugLines::draw(
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     return true;
+}
+
+void append_debug_box(
+    std::vector<DebugLineVertex>& vertices,
+    renderer::Vec3 minimum,
+    renderer::Vec3 maximum,
+    renderer::Vec3 colour
+) {
+    constexpr unsigned kCorners = 8;
+    std::array<renderer::Vec3, kCorners> corners{};
+    for (unsigned corner = 0; corner < kCorners; ++corner) {
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            corners[corner][axis] = (corner & (1u << axis)) ? maximum[axis] : minimum[axis];
+        }
+    }
+    // Only the low endpoint emits each undirected edge.
+    for (unsigned corner = 0; corner < kCorners; ++corner) {
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            const unsigned bit = 1u << axis;
+            if ((corner & bit) == 0) {
+                vertices.push_back({corners[corner], colour});
+                vertices.push_back({corners[corner | bit], colour});
+            }
+        }
+    }
 }
 
 void DebugLines::release() {

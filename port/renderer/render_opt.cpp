@@ -91,6 +91,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::ShadowScrollReuse, "shadow-scroll-reuse",
      "retain static cascade depth between frames when scrolling shadows are enabled",
      true, Tolerance{}},
+    {Opt::MotionBlurFastPath, "motion-blur-fast-path",
+     "unrolled jump flood and direct reconstruction input, with identical output pixels",
+     true, Tolerance{}},
     {Opt::FsrMotionBatch, "fsr-motion-batch",
      "FSR's object motion drawn in batches from one pose buffer, not one draw per object",
      true, Tolerance{}},
@@ -100,6 +103,12 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::GtaoDirectDepth, "gtao-direct-depth",
      "GTAO's colour composite samples the prepass's own depth instead of a copy of it",
      true, Tolerance{}},
+    {Opt::FsrFloat16, "fsr-float16",
+       "vendor FP16 history filtering; incomplete pyramids and temporal state remain FP32",
+       true, Tolerance{1.0, 4}},
+    {Opt::ShaderFloat16, "shader-float16",
+     "audited local FP16 arithmetic on enabled Vulkan devices; shader interfaces remain FP32",
+     true, Tolerance{1.0, 2}},
 }};
 // clang-format on
 

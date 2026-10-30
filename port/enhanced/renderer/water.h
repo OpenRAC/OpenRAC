@@ -34,6 +34,10 @@ bool water_available();
 // Render-thread-only binding of GPU water surfaces for wetness contact tests.
 bool bind_water_contact(const renderer::Shader& shader);
 
+// Render-thread attachment bindings use reserved texture units 18-20.
+void prepare_water_deformation(const renderer::FrameInput& input);
+bool bind_water_deformation(const renderer::Shader& shader);
+
 // Loads the separately baked, local water asset. Missing/invalid bakes retain original rendering.
 std::unique_ptr<renderer::EffectMaterial> make_water(
     scene::LevelScene& scene, const std::filesystem::path& directory

@@ -7,8 +7,10 @@
 #include <bit>
 #include <vector>
 
+#include "common/log.h"
 #include "enhanced/fsr3/sdk_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 
 #include <FidelityFX/host/backends/vk/ffx_vk.h>
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
@@ -48,6 +50,7 @@ struct SdkContext::State {
     std::vector<std::byte> scratch;     // Backend bookkeeping kept at a stable address while live.
     std::array<int, 2> render_size{};   // Active render extent.
     std::array<int, 2> display_size{};  // Active display extent.
+    bool float16 = false;               // Only vendor history filtering; other passes stay FP32.
     bool live = false;                  // Whether the SDK resource context needs destruction.
     std::array<unsigned, 3>
         shared{};  // Required dilated depth, velocity and reconstructed depth outputs.
@@ -174,12 +177,6 @@ bool SdkContext::configure(
         return false;
     }
 
-    // Reuse GPU histories when only the camera or sharpening changes.
-    if (m_state->live && m_state->render_size == render_size
-        && m_state->display_size == display_size) {
-        return true;
-    }
-
     vkgl::NativeDevice device;
 
     // Unsupported devices keep the original renderer without allocating temporal resources.
@@ -189,12 +186,21 @@ bool SdkContext::configure(
         return false;
     }
 
+    const bool half = device.float16 && device.int16 && render_size[0] <= 32767
+                      && render_size[1] <= 32767
+                      && renderer::render_opt::enabled(renderer::render_opt::Opt::FsrFloat16);
+    if (m_state->live && m_state->render_size == render_size
+        && m_state->display_size == display_size && m_state->float16 == half) {
+        return true;
+    }
+
     // Compilation fails before SDK pipeline creation, with the original pass's diagnostic.
-    if (!m_state->shaders.prepare(error)) {
+    if (!m_state->shaders.prepare(error, half)) {
         return false;
     }
 
     release();
+    m_state->float16 = half;
     m_state->render_size = render_size;
     m_state->display_size = display_size;
 
@@ -211,7 +217,16 @@ bool SdkContext::configure(
         return false;
     }
 
+    log::info(
+        "FSR history filtering: {}; pyramids, reprojection coordinates and accumulation remain "
+        "FP32",
+        float16_active() ? "FP16" : "FP32"
+    );
     return true;
+}
+
+bool SdkContext::float16_active() const {
+    return m_state->live && m_state->shaders.float16_selected();
 }
 
 bool SdkContext::dispatch(

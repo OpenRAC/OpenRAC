@@ -76,6 +76,10 @@ void main() {
     }
     v_reactive = reject_history;
     vec4 world = current * posed(tex_T1, int(joints_at.x));
+#ifdef OPENRAC_WATER_FLOAT
+    mat4 water_pose = water_float_pose(current[3].xyz);
+    world = water_pose * world;
+#endif
     gl_Position = raster * world;
     v_current = current_view * world;
     // Newly visible objects have no previous joint range and must never fetch from it.

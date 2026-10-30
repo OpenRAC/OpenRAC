@@ -23,17 +23,20 @@ namespace {
 // Serializes local source gains with their explicit bounds, rather than reporting only a global scalar.
 void write_emission_regions(std::ostream& output, std::span<const SurfaceEmissionRegion> regions) {
     output << '[';
+
     for (std::size_t n = 0; n < regions.size(); ++n) {
         // Separate records without a trailing comma.
         if (n != 0) {
             output << ',';
         }
+
         const auto& region = regions[n];
         output << "{\"minimum\":[" << region.minimum[0] << ',' << region.minimum[1] << ','
                << region.minimum[2] << "],\"maximum\":[" << region.maximum[0] << ','
                << region.maximum[1] << ',' << region.maximum[2] << "],\"scale\":" << region.scale
                << '}';
     }
+
     output << ']';
 }
 }  // namespace
@@ -75,6 +78,12 @@ std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
 
     output << ",\"surface_emission_regions\":";
     write_emission_regions(output, settings.surface_emission_regions);
+    const auto& traversal = settings.traversal;
+    output << ",\"playable_space\":{\"jump_distance\":" << traversal.jump_distance
+           << ",\"jump_rise\":" << traversal.jump_rise << ",\"jump_drop\":" << traversal.jump_drop
+           << ",\"player_radius\":" << traversal.player_radius
+           << ",\"player_height\":" << traversal.player_height
+           << ",\"minimum_swim_depth\":" << traversal.minimum_swim_depth << '}';
     output << "}\n";
     return output.str();
 }
@@ -148,9 +157,16 @@ void report_terrain_coverage(
                 if (coarse) {
                     bool inside = true;
 
+                    Float3 relative{};
+
                     for (unsigned axis = 0; axis < 3; ++axis) {
-                        const float coordinate =
-                            (position[axis] - volume.grid.origin[axis]) / volume.grid.spacing[axis];
+                        relative[axis] = position[axis] - volume.grid.origin[axis];
+                    }
+
+                    relative = volume.grid.frame.to_local(relative);
+
+                    for (unsigned axis = 0; axis < 3; ++axis) {
+                        const float coordinate = relative[axis] / volume.grid.spacing[axis];
                         inside =
                             inside && coordinate >= 0
                             && coordinate <= static_cast<float>(volume.grid.dimensions[axis] - 1);
@@ -305,6 +321,7 @@ void write_grid_report(std::ostream& report, const ProbeGrid& grid, const BakeSe
     payload.grid = grid;
     const auto resolution = grid.map_resolution;
     report << "\nprobe_origin " << grid.origin[0] << ' ' << grid.origin[1] << ' ' << grid.origin[2]
+           << "\nprobe_orientation " << grid.frame.axis[0] << ' ' << grid.frame.axis[1]
            << "\nprobe_dimensions " << grid.dimensions[0] << ' ' << grid.dimensions[1] << ' '
            << grid.dimensions[2] << "\nprobe_spacing " << grid.spacing[0] << ' ' << grid.spacing[1]
            << ' ' << grid.spacing[2] << "\nprobe_count " << grid.probe_count()
@@ -315,6 +332,7 @@ void write_grid_report(std::ostream& report, const ProbeGrid& grid, const BakeSe
            << grid.settings_hash << "\nmap_and_metadata_bytes "
            << payload.atlas_capacity() * (kMapTexelBytes * grid.texels_per_probe() + kMetadataBytes)
            << '\n';
+
     // Retain the direction beside the bake identity for local lighting inspection.
     if (settings.sunlight_direction) {
         const auto& direction = *settings.sunlight_direction;

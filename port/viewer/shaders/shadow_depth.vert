@@ -53,11 +53,16 @@ void main() {
         p = vec4((skin * p).xyz, 1.0);
     }
 #endif
+    vec4 world=model*p;
+#ifdef OPENRAC_WATER_FLOAT
+    mat4 water_pose = water_float_pose(model[3].xyz);
+    world = water_pose * world;
+#endif
 #ifdef OPENRAC_SHADOW_ATLAS
-    gl_Position = shadow_view_projection[shadow_view] * model * p;
+    gl_Position = shadow_view_projection[shadow_view] * world;
     gl_ViewportIndex = shadow_view;
 #else
-    gl_Position = view_projection * model * p;
+    gl_Position = view_projection * world;
 #endif
     gl_ClipDistance[0] = 1.0;
     gl_ClipDistance[1] = 1.0;

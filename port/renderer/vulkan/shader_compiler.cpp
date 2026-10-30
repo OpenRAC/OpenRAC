@@ -18,8 +18,10 @@
 #include <string>
 
 #include "renderer/render_opt.h"
+#include "renderer/shader_precision.h"
 #include "renderer/vulkan/shader_compiler_internal.h"
 #include "renderer/vulkan/spirv_cache_file.h"
+#include "renderer/vulkan/spirv_precision.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 #include <SPIRV/GlslangToSpv.h>
@@ -28,8 +30,10 @@
 #include <glslang/build_info.h>
 // After the public headers it needs: the GLSL resolver, which gives a uniform both stages use one
 // binding (the default mapper numbers each stage's from zero).
+// clang-format off
 #include <glslang/MachineIndependent/localintermediate.h>
 #include <glslang/MachineIndependent/iomapper.h>
+// clang-format on
 
 namespace openrac::vkgl {
 namespace compiler_detail {
@@ -115,8 +119,12 @@ private:
 // shader's own main(), which may set its points' size over the default.
 std::string vertex_source(std::string_view source) {
     static const std::regex main_decl(R"(\bvoid\s+main\s*\(\s*(void)?\s*\))");
-    std::string out = std::regex_replace(std::string(source), main_decl, "void openrac_vk_main()",
-                                         std::regex_constants::format_first_only);
+    std::string out = std::regex_replace(
+        std::string(source),
+        main_decl,
+        "void openrac_vk_main()",
+        std::regex_constants::format_first_only
+    );
     // A point's size is the shader's to say in Vulkan; OpenGL's is 1 unless the shader says.
     out += "\nvoid main() {\n    gl_PointSize = 1.0;\n    openrac_vk_main();\n"
            "    gl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n}\n";
@@ -131,10 +139,14 @@ struct Stage {
         const char* pointer = nullptr;
         int length = 0;
     };
+
     std::unique_ptr<Text> text;
     std::unique_ptr<glslang::TShader> shader;
+
     glslang::TShader* operator->() const { return shader.get(); }
+
     glslang::TShader& operator*() const { return *shader; }
+
     glslang::TShader* get() const { return shader.get(); }
 };
 
@@ -150,10 +162,14 @@ Stage make_shader(EShLanguage stage, std::string source) {
     // capabilities, rather than requiring the older device extension.
     const bool viewport_output =
         out.text->source.find("GL_ARB_shader_viewport_layer_array") != std::string::npos;
-    shader->setEnvClient(glslang::EShClientVulkan, viewport_output ? glslang::EShTargetVulkan_1_2
-                                                               : glslang::EShTargetVulkan_1_1);
-    shader->setEnvTarget(glslang::EShTargetSpv, viewport_output ? glslang::EShTargetSpv_1_5
-                                                            : glslang::EShTargetSpv_1_3);
+    shader->setEnvClient(
+        glslang::EShClientVulkan,
+        viewport_output ? glslang::EShTargetVulkan_1_2 : glslang::EShTargetVulkan_1_1
+    );
+    shader->setEnvTarget(
+        glslang::EShTargetSpv,
+        viewport_output ? glslang::EShTargetSpv_1_5 : glslang::EShTargetSpv_1_3
+    );
     shader->setEnvInputVulkanRulesRelaxed();
     shader->setGlobalUniformBlockName("gl_DefaultUniformBlock");
     shader->setGlobalUniformSet(0);
@@ -205,12 +221,16 @@ bool compile_program_fresh(
     if (compute.empty()) {
         vs = make_shader(EShLangVertex, vertex_source(vertex));
         fs = make_shader(EShLangFragment, std::string(fragment));
-        if (!parse(*vs, log) || !parse(*fs, log)) { return false; }
+        if (!parse(*vs, log) || !parse(*fs, log)) {
+            return false;
+        }
         program.addShader(vs.get());
         program.addShader(fs.get());
     } else {
         cs = make_shader(EShLangCompute, std::string(compute));
-        if (!parse(*cs, log)) { return false; }
+        if (!parse(*cs, log)) {
+            return false;
+        }
         program.addShader(cs.get());
     }
     // Bindings across both stages: a uniform both use has one, the stages' others their own.
@@ -220,7 +240,9 @@ bool compile_program_fresh(
         return false;
     }
     const std::unique_ptr<glslang::TIoMapper> mapper(glslang::GetGlslIoMapper());
-    glslang::TDefaultGlslIoResolver resolver(*program.getIntermediate(compute.empty() ? EShLangVertex : EShLangCompute));
+    glslang::TDefaultGlslIoResolver resolver(
+        *program.getIntermediate(compute.empty() ? EShLangVertex : EShLangCompute)
+    );
     if (!program.mapIO(&resolver, mapper.get())) {
         log += program.getInfoLog();
         log += program.getInfoDebugLog();
@@ -236,10 +258,16 @@ bool compile_program_fresh(
     options.disableOptimizer = true;
     out = CompiledProgram{};
     if (compute.empty()) {
-        glslang::GlslangToSpv(*program.getIntermediate(EShLangVertex), out.vertex, &logger, &options);
-        glslang::GlslangToSpv(*program.getIntermediate(EShLangFragment), out.fragment, &logger, &options);
+        glslang::GlslangToSpv(
+            *program.getIntermediate(EShLangVertex), out.vertex, &logger, &options
+        );
+        glslang::GlslangToSpv(
+            *program.getIntermediate(EShLangFragment), out.fragment, &logger, &options
+        );
     } else {
-        glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), out.compute, &logger, &options);
+        glslang::GlslangToSpv(
+            *program.getIntermediate(EShLangCompute), out.compute, &logger, &options
+        );
     }
     for (int i = 0; i < program.getNumBufferBlocks(); ++i) {
         const auto& b = program.getBufferBlock(i);
@@ -286,10 +314,20 @@ bool compile_program_fresh(
         int columns = 1;
         std::uint32_t type = static_cast<std::uint32_t>(a.glDefineType);
         switch (type) {
-            case 0x8B5C: columns = 4; type = 0x8B52; break;  // mat4: four vec4
-            case 0x8B5B: columns = 3; type = 0x8B51; break;  // mat3: three vec3
-            case 0x8B5A: columns = 2; type = 0x8B50; break;  // mat2: two vec2
-            default: break;
+            case 0x8B5C:
+                columns = 4;
+                type = 0x8B52;
+                break;  // mat4: four vec4
+            case 0x8B5B:
+                columns = 3;
+                type = 0x8B51;
+                break;  // mat3: three vec3
+            case 0x8B5A:
+                columns = 2;
+                type = 0x8B50;
+                break;  // mat2: two vec2
+            default:
+                break;
         }
         const int location = static_cast<int>(a.layoutLocation());
         for (int c = 0; c < columns; ++c) {
@@ -304,7 +342,7 @@ bool compile_program_fresh(
 // What the compiler is, for the cache: glslang's version and the version of the options above.
 // Raise kOptionsVersion with any change to make_shader, vertex_source or the SPIR-V options: a
 // cache made by other options is then dropped whole.
-constexpr int kOptionsVersion = 1;
+constexpr int kOptionsVersion = 2;
 
 // FNV-1a's 64-bit offset basis and prime (documented: the FNV hash's specification).
 constexpr std::uint64_t kFnvBasis = 0xcbf29ce484222325u;
@@ -403,6 +441,12 @@ std::string spirv_compiler_version() {
 }
 
 bool check_stage(bool vertex, std::string_view source, std::string& log) {
+    const auto precise_source = renderer::shader_precision_source(
+        source,
+        detail::g && detail::g->shader_float16
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16)
+    );
+    source = precise_source;
     const std::string_view kind = vertex ? "vertex stage" : "fragment stage";
 
     // Compiled before: it compiles.
@@ -421,6 +465,12 @@ bool check_stage(bool vertex, std::string_view source, std::string& log) {
 }
 
 bool check_compute_stage(std::string_view source, std::string& log) {
+    const auto precise_source = renderer::shader_precision_source(
+        source,
+        detail::g && detail::g->shader_float16
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16)
+    );
+    source = precise_source;
     constexpr std::string_view kKind = "compute stage";
 
     // Compiled before: it compiles.
@@ -445,6 +495,25 @@ bool compile_program(
     std::string& log,
     std::string_view compute
 ) {
+    const bool half = detail::g && detail::g->shader_float16
+                      && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
+    const auto precise_vertex = renderer::shader_precision_source(vertex, half);
+    const auto precise_fragment = renderer::shader_precision_source(fragment, half);
+    const auto precise_compute = renderer::shader_precision_source(compute, half);
+    vertex = precise_vertex;
+    fragment = precise_fragment;
+    compute = precise_compute;
+    const auto audit = [&] {
+        if (!detail::g) {
+            return;
+        }
+        for (const auto* module : {&out.vertex, &out.fragment, &out.compute}) {
+            const auto precision = spirv_precision(*module);
+            detail::g->submission.shader_fp16_ops += precision.fp16;
+            detail::g->submission.shader_fp32_ops += precision.fp32;
+            detail::g->submission.shader_fp16_modules += precision.fp16 != 0;
+        }
+    };
     SpirvCache* cache = spirv_cache();
     const CacheText text = cache_text<3>("program", {vertex, fragment, compute});
 
@@ -453,6 +522,7 @@ bool compile_program(
         // The kept program, unless its bytes are not one (it is then compiled and replaced).
         if (const std::vector<char>* kept = cache->find(text.key, text.check, text.length);
             kept != nullptr && decode_program(*kept, out)) {
+            audit();
             return true;
         }
     }
@@ -464,6 +534,9 @@ bool compile_program(
         cache->insert({text.key, text.check, text.length, encode_program(out)});
     }
 
+    if (ok) {
+        audit();
+    }
     return ok;
 }
 

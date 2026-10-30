@@ -17,8 +17,9 @@ layout(std430, binding = 11) writeonly buffer GtaoValues {
 };
 
 float primitive(float angle, vec2 n) {
-    float s = sin(angle), c = cos(angle);
-    return 0.5 * (n.x * s * s + n.y * (angle - s * c));
+    mp_float a=mp_float(angle), sine=sin(a), cosine=cos(a);
+    mp_vec2 projected=mp_vec2(n);
+    return float(mp_float(.5)*(projected.x*sine*sine+projected.y*(a-sine*cosine)));
 }
 
 // Decorrelate neighbouring estimates without moving the pattern between frames.
@@ -51,7 +52,7 @@ vec4 evaluate(ivec2 cell) {
         96.0
     );
     vec2 phase = sample_phase(cell);
-    float visible = 0.0, total = 0.0;
+    mp_float visible = mp_float(0), total = mp_float(0);
     for (int slice = 0; slice < slice_count; ++slice) {
         float angle = (float(slice) + phase.x) * pi / float(slice_count);
         vec2 direction = vec2(cos(angle), sin(angle));
@@ -67,10 +68,10 @@ vec4 evaluate(ivec2 cell) {
         if (normalLength < 1e-5) {
             continue;
         }
-        projected /= normalLength;
+        projected = vec2(mp_vec2(projected / normalLength));
         float normalAngle = atan(projected.y, projected.x);
-        vec2 openHorizon = vec2(projected.y, -projected.y);
-        vec2 horizon = openHorizon;
+        mp_vec2 openHorizon = mp_vec2(projected.y, -projected.y);
+        mp_vec2 horizon = openHorizon;
         bvec2 foundSurface = bvec2(false);
         float previousDistance = 0.0;
         for (int step = 1; step <= step_count; ++step) {
@@ -128,7 +129,7 @@ vec4 evaluate(ivec2 cell) {
                 float weight = 1.0 - smoothstep(radius * 0.65, radius, distanceWorld);
                 horizon[side] =
                     max(horizon[side],
-                        mix(openHorizon[side], dot(view, delta / distanceWorld), weight));
+                        mix(openHorizon[side], mp_float(dot(mp_vec3(view),mp_vec3(delta / distanceWorld))), mp_float(weight)));
             }
             previousDistance = distancePixels;
         }
@@ -137,19 +138,19 @@ vec4 evaluate(ivec2 cell) {
         // This is local to this receiver and slice in the current frame, not
         // temporal reuse. Unchanged horizons cover the full normal hemisphere.
         if (any(greaterThan(horizon, openHorizon))) {
-            float lower = max(-acos(clamp(horizon.x, -1.0, 1.0)), normalAngle - pi * 0.5);
-            float upper = min(acos(clamp(horizon.y, -1.0, 1.0)), normalAngle + pi * 0.5);
+            float lower = max(-acos(clamp(float(horizon.x), -1.0, 1.0)), normalAngle - pi * 0.5);
+            float upper = min(acos(clamp(float(horizon.y), -1.0, 1.0)), normalAngle + pi * 0.5);
             float integral = upper > lower
                                  ? primitive(lower, projected) + primitive(upper, projected)
                                        - 2.0 * primitive(clamp(0.0, lower, upper), projected)
                                  : 0.0;
             sliceIntegral = integral * normalLength;
         }
-        visible += sliceIntegral;
-        total += fullIntegral;
+        visible += mp_float(sliceIntegral);
+        total += mp_float(fullIntegral);
     }
     return vec4(
-        clamp(visible / max(total, 1e-5), 0.0, 1.0), float(selected) / 3.0, encode_normal(normal)
+        clamp(float(visible) / max(float(total), 1e-5), 0.0, 1.0), float(selected) / 3.0, encode_normal(normal)
     );
 }
 

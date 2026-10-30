@@ -23,7 +23,7 @@ const void* attribute_offset(std::size_t offset) {
 
 bool ProbeLighting::prepare_gpu_spheres(const renderer::FrameInput& input, float range) {
     // The reference remains usable for comparisons and failed compute preparation.
-    if (!gpu_spheres) {
+    if (!gpu_spheres || all_volume_bounds) {
         return false;
     }
 
@@ -52,7 +52,7 @@ void ProbeLighting::prepare_cpu_spheres(const renderer::FrameInput& input, float
 
     for (auto sphere : m_spheres) {
         // CPU-selected dense regions retain their temporal fade.
-        if (sphere.region >= 0 && !m_selection.active()) {
+        if (!all_volume_bounds && sphere.region >= 0 && !m_selection.active()) {
             const auto selected = std::find_if(
                 m_selector.slots.begin(), m_selector.slots.end(), [&](const auto& slot) {
                     return slot.region == sphere.region && slot.weight > 0;
@@ -64,6 +64,10 @@ void ProbeLighting::prepare_cpu_spheres(const renderer::FrameInput& input, float
             }
 
             sphere.opacity = selected->weight;
+        }
+
+        if (all_volume_bounds) {
+            sphere.opacity = 1;
         }
 
         float squared = 0;

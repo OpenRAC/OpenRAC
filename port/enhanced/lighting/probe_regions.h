@@ -36,11 +36,18 @@ struct WeightedProbeRegion {
     float weight = 0;
 };
 
+// Receiver offsets shared by reference sampling and offline reflection captures.
+struct ProbeReceiverBias {
+    float normal = 0.02f;
+    Float3 view{};
+};
+
 // Order-independent overlap of up to three locals, with a sparse fallback.
 std::optional<ProbeSample> sample_probe_regions(
     const ProbeVolume& coarse,
     std::span<const WeightedProbeRegion> regions,
     Float3 position,
-    Float3 normal
+    Float3 normal,
+    ProbeReceiverBias bias = {}
 );
 }  // namespace openrac::lighting

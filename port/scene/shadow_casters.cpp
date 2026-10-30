@@ -14,6 +14,7 @@
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
+#include "scene/level_lighting.h"
 #include "scene/level_renderer.h"
 #include "scene/level_renderer_internal.h"
 #include "scene/moby_passes.h"
@@ -157,6 +158,9 @@ void LevelScene::draw_shadow_map(
         } else {
             use(draw.solid, draw.skinning);
         }
+        if (m_lighting) {
+            m_lighting->bind_deformation(*program, draw.floats_on_water);
+        }
         glBindVertexArray(draw.vao);
         if (!draw.solid) {
             const auto& shader = atlas_view >= 0 ? m_atlas_depth : m_hero_depth;
@@ -288,7 +292,16 @@ void LevelScene::draw_shadow_map(
             const auto draw =
                 [&](std::uint32_t start, std::uint32_t size, bool solid, int material) {
                     const ShadowDraw command{
-                        vao, instances, batch, start, size, solid, skinning, material, atlas_view
+                        vao,
+                        instances,
+                        batch,
+                        start,
+                        size,
+                        solid,
+                        skinning,
+                        group.floats_on_water,
+                        material,
+                        atlas_view
                     };
                     if (counts) {
                         if (solid) {

@@ -75,6 +75,14 @@ std::vector<renderer::TextureHandle> material_textures(
 
 }  // namespace
 
+std::string LevelScene::deformation_vertex(std::string source) const {
+    return m_lighting ? m_lighting->mesh_vertex(std::move(source)) : source;
+}
+
+bool LevelScene::deformation_active() const {
+    return m_lighting && m_lighting->deformation_active();
+}
+
 // ---- Scene upload ----
 
 bool LevelScene::upload(
@@ -194,17 +202,18 @@ bool LevelScene::upload(
         }
     }
 #endif
-    std::string depth_vertex(shaders::mesh_depth_vert), depth_fragment(shaders::mesh_depth_frag);
+    const std::string depth_source = deformation_vertex(shaders::mesh_depth_vert);
+    std::string depth_vertex(depth_source), depth_fragment(shaders::mesh_depth_frag);
     depth_vertex.insert(depth_vertex.find('\n') + 1, "#define OPENRAC_DEPTH_SOLID 1\n");
     depth_fragment.insert(depth_fragment.find('\n') + 1, "#define OPENRAC_DEPTH_SOLID 1\n");
-    if (!m_depth.build("mesh depth", shaders::mesh_depth_vert, shaders::mesh_depth_frag, error)
+    if (!m_depth.build("mesh depth", depth_source, shaders::mesh_depth_frag, error)
         || !m_depth_solid.build("mesh depth solid", depth_vertex, depth_fragment, error)) {
         return false;
     }
     // Compatibility rendering retains the minimal depth-only shaders.
     if (gl::enhanced_rendering_available()) {
         const std::string define = "#define OPENRAC_DEPTH_NORMALS 1\n";
-        std::string vertex(shaders::mesh_depth_vert);
+        std::string vertex(depth_source);
         std::string fragment(shaders::mesh_depth_frag);
         fragment.insert(fragment.find('\n') + 1, renderer::shaders::shading_normal_glsl);
         depth_fragment
@@ -701,6 +710,9 @@ bool LevelScene::colour_blend_barrier(Layer layer) const {
 void LevelScene::draw_layer(
     Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
+    if (m_lighting) {
+        m_lighting->prepare_deformation(input);
+    }
     if (layer == Layer::Mobys && m_lighting) {
         m_lighting->prepare_wetness(input, m_palette, m_wetness_hero);
     }
@@ -1105,6 +1117,9 @@ void LevelScene::draw_layer(
             if (!instances) {
                 continue;
             }
+            if (m_lighting) {
+                m_lighting->bind_deformation(*program, g.floats_on_water);
+            }
             if (effects) {
                 // Additive: the shader writes Cs * As (mesh.frag, effect_additive).
                 glBlendFuncSeparate(
@@ -1139,6 +1154,12 @@ void LevelScene::draw_layer(
             const auto flush = [&] {
                 if (run_count == 0) {
                     return;
+                }
+                // Model-specific reflection overrides may change even when the material is shared.
+                if (m_lighting && metal && !state.depth_prepass) {
+                    m_lighting->bind_material(
+                        *program, g.model, m_materials[static_cast<std::size_t>(run_material)]
+                    );
                 }
                 // The material's state is set only when it is not the last draw's: a model's parts
                 // mostly share a few, and each call into the driver costs more than the test.

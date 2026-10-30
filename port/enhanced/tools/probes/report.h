@@ -12,6 +12,18 @@
 
 namespace openrac::lighting {
 struct LevelBakeProfile;
+struct EnvironmentFloorSample;
+
+namespace bake_detail {
+struct RoomLayout;
+}
+
+// Shared bounded analysis columns, centre paths and junctions for the optional runtime overlay.
+void write_medial_axis_report(
+    const std::filesystem::path& directory,
+    const bake_detail::RoomLayout& layout,
+    std::span<const EnvironmentFloorSample> floors
+);
 
 // Snapshot invariant scene/material text once for all grids in a level batch.
 class ProbeBakeReport {

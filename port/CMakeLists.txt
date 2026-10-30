@@ -277,9 +277,11 @@ openrac_warnings(openrac_ps2float)
 openrac_add_c_test(ps2float NO_FP_CONTRACT LIBS openrac_ps2float)
 
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
-add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp)
+add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
+  enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
 openrac_warnings(openrac_lighting)
+openrac_add_test(environment SOURCES enhanced/tests/environment_test.cpp LIBS openrac_lighting)
 foreach(name IN ITEMS probes probe_atlas probe_regions)
   openrac_add_test(lighting_${name} SOURCES enhanced/tests/lighting/${name}.cpp
                                     LIBS openrac_lighting)

@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "renderer/gtao_settings.h"
+#include "renderer/motion_blur_settings.h"
 #include "renderer/shadow_settings.h"
 #include "renderer/temporal_settings.h"
 #include "renderer/texture_filter.h"
@@ -101,18 +102,32 @@ struct Settings {
     float rim_lift_exponent = 0.09f;
     float rim_lift_max_gain = 7.1f;
     float rim_light_strength = 0.30f;
-    float rim_light_falloff = 6.46f;  // Higher values narrow the lit edge.
-    bool probe_spheres = false;     // diagnostic placement/fade overlay
+    float rim_light_falloff = 6.46f;   // Higher values narrow the lit edge.
+    bool probe_spheres = false;        // diagnostic placement/fade overlay
+    bool medial_axis_debug = false;    // Baked centre paths and junctions.
     bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.
+    bool environment_probe_debug =
+        false;  // Baked reflection capture positions and influence boxes.
     float probe_gi_multiplier = 1.0f;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;
     bool sun_direction_override = false;
     float sun_azimuth = 0, sun_elevation = 45;  // Light-source angles, degrees; Z is up.
     std::optional<std::array<float, 3>> sunlight_direction() const;
+    // Restore this window's preferences without changing general graphics/audio or startup enablement.
+    void reset_enhanced();
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
+    bool agx_preview = true;                 // SDR-only AgX colour treatment experiment.
+    float agx_exposure = 0.25f;              // Base exposure in stops, before AgX.
+    float agx_brightness = 0.5f;             // 0..1 adds -0.8..+0.8 EV; midpoint is neutral.
+
+    float adjusted_agx_exposure() const { return agx_exposure + (agx_brightness - .5f) * 1.6f; }
+
+    bool motion_blur = true;  // Motion relative to the tracking focus.
+    renderer::MotionBlurSettings motion_blur_settings;
+    float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
     int anisotropy = 0;  // 0: mode default; otherwise 1 (off), 2, 4, 8, 16
@@ -125,11 +140,13 @@ struct Settings {
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
     }
+
     VSync vsync = VSync::On;
     FrameRate frame_rate = FrameRate::Display;
-    int frame_cap = 60;  // FrameRate::Capped's frames a second
+    int frame_cap = 60;                         // FrameRate::Capped's frames a second
     FrameCounter show_fps = FrameCounter::Off;  // Counter mode in the picture's corner.
-    bool menu_bar = true;   // the menus along the window's top (not on macOS, whose menu bar has them); Alt hides and shows it
+    bool menu_bar =
+        true;  // the menus along the window's top (not on macOS, whose menu bar has them); Alt hides and shows it
     bool mute_unfocused = false;  // silence while another window has the keyboard
     // Lower input latency (both change only when input is read and frames are shown, never the
     // game's ticks; off, the timing players know). fresh_input: the pad read again just before each
@@ -148,7 +165,8 @@ struct Settings {
     int touch_scale = 75;
     int touch_camera = 100;
     std::string touch_layout;
-    bool verbose_log = false;  // the detailed log (as OPENRAC_LOG=verbose): level loads, pad changes, callers
+    bool verbose_log =
+        false;  // the detailed log (as OPENRAC_LOG=verbose): level loads, pad changes, callers
     // Options the game keeps in its own memory, which a console forgets at power off (keys
     // game_*; game_host.h, openrac_game_option): the port remembers them between runs.
     std::map<std::string, int, std::less<>> game_options;

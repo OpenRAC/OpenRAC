@@ -340,6 +340,7 @@ export const api = {
   openGameFolder: (game: string, path: string) => call<null>("open_game_folder", { game, path }),
   /** A folder a job wrote (a job exit's `outputs`), opened with the system; a file opens its folder. */
   openOutput: (path: string) => call<null>("open_output", { path }),
+  openBakeLog: (version: string, path: string) => call<null>("open_bake_log", { version, path }),
   /** One level's Godot project in the Godot editor (the version's editor-open action). */
   openLevelInGodot: (version: string, level: number) => call<Started>("open_level_in_godot", { version, level }),
   /** Android: the player's GPU driver packages (src-tauri/src/android.rs). */

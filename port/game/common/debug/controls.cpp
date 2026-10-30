@@ -4,10 +4,13 @@
 // The debug overlay's settings controls (debug/overlay.h), which the drawer and the menu bar share:
 // a setting moved on, and the enhanced graphics' switches and sliders with GTAO's.
 
+#include <algorithm>
+#include <array>
 #include <imgui.h>
 
 #include "debug/overlay.h"
 #include "enhanced/fsr3/fsr3.h"
+#include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/wetness.h"
 #include "frontend.h"
@@ -17,6 +20,162 @@
 namespace openrac::frontend::debug_overlay {
 
 namespace {
+
+// Persistent blur tuning lives in its own section, separate from lighting diagnostics.
+bool motion_blur_controls(settings::Settings& graphics) {
+    if (!ImGui::CollapsingHeader("Motion Blur", ImGuiTreeNodeFlags_DefaultOpen)) {
+        return false;
+    }
+    ImGui::BeginDisabled(!enhanced::Fsr3::available());
+    bool changed = ImGui::Checkbox("Enabled##motion_blur", &graphics.motion_blur);
+    ImGui::TextWrapped("Camera-target-relative during play; normal camera blur in cutscenes.");
+    ImGui::BeginDisabled(!graphics.motion_blur);
+    ImGui::PushItemWidth(dp(190.f));
+    auto& blur = graphics.motion_blur_settings;
+    const auto tip = [](const char* text) {
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("%s", text);
+        }
+    };
+    changed |= ImGui::SliderFloat(
+        "Strength", &graphics.motion_blur_strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Exposure strength. 0.5 is a 1/120-second exposure; 1 is 1/60 second.");
+    changed |= ImGui::SliderFloat(
+        "Cutscene multiplier",
+        &blur.cutscene_multiplier,
+        0,
+        2,
+        "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Scales strength only in real-time cutscenes. Zero disables cutscene blur.");
+    changed |= ImGui::SliderInt(
+        "Max trail length", &blur.max_radius, 1, 128, "%d px", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Caps trails in display pixels. Longer limits can require more jump-flood passes.");
+    changed |=
+        ImGui::SliderInt("Samples", &blur.samples, 8, 64, "%d", ImGuiSliderFlags_AlwaysClamp);
+    tip("Higher counts make trails smoother, at a higher GPU cost.");
+    changed |= ImGui::SliderFloat(
+        "Minimum motion", &blur.min_motion, .1f, 4, "%.2f px", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Ignores tiny movements after exposure scaling. Raise it to suppress subtle smearing.");
+    changed |= ImGui::SliderFloat(
+        "Trail spread", &blur.spread, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Sideways reach of jump-flood candidates. Higher values find more nearby motion but may "
+        "introduce halos.");
+    changed |= ImGui::SliderFloat(
+        "Depth tolerance", &blur.depth_tolerance, .001f, .05f, "%.3f", ImGuiSliderFlags_AlwaysClamp
+    );
+    tip("Allowed relative depth difference when gathering colour. Lower values protect occlusion "
+        "edges; higher values blend more freely.");
+    ImGui::PopItemWidth();
+    ImGui::EndDisabled();
+    if (ImGui::Button("Reset blur tuning")) {
+        graphics.motion_blur_strength = .5f;
+        blur = renderer::MotionBlurSettings{};
+        changed = true;
+    }
+    tip("Restores tuning defaults and keeps the Enabled switch unchanged.");
+    ImGui::EndDisabled();
+    return changed;
+}
+
+// Independent surface controls; the renderer reads bounded copies under a lock.
+void reflection_material_controls(const char* label, enhanced::ReflectionSurface surface) {
+    if (!ImGui::TreeNode(label)) {
+        return;
+    }
+    auto material = enhanced::reflection_material_settings(surface);
+    bool changed = ImGui::SliderFloat(
+        "Roughness", &material.roughness, .04f, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= ImGui::SliderFloat(
+        "Reflectivity (F0)", &material.reflectivity, 0, 1, "%.3f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= ImGui::SliderFloat(
+        "Reflection strength", &material.strength, 0, 4, "%.2fx", ImGuiSliderFlags_AlwaysClamp
+    );
+    if (surface != enhanced::ReflectionSurface::Water) {
+        changed |= ImGui::ColorEdit3("Reflection tint", material.tint.data());
+        changed |= ImGui::SliderFloat(
+            "Chrome opacity", &material.opacity, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+    }
+    if (ImGui::Button("Reset material")) {
+        material = enhanced::default_reflection_material(surface);
+        changed = true;
+    }
+    if (changed) {
+        enhanced::set_reflection_material_settings(surface, material);
+    }
+    ImGui::TreePop();
+}
+
+// Class identities are retained by the renderer so exceptions do not depend on texture guesses.
+void reflection_override_controls() {
+    if (!ImGui::TreeNode("Object overrides")) {
+        return;
+    }
+    const auto subjects = enhanced::reflection_subjects();
+    if (subjects.empty()) {
+        ImGui::TextDisabled("No authored chrome objects loaded.");
+        ImGui::TreePop();
+        return;
+    }
+    static int selected = -1;
+    auto current = std::find_if(subjects.begin(), subjects.end(), [&](const auto& s) {
+        return s.class_id == selected;
+    });
+    if (current == subjects.end()) {
+        current = subjects.begin();
+        selected = current->class_id;
+    }
+    const auto label = [](const auto& s) {
+        return s.name + " (" + std::to_string(s.class_id) + ")";
+    };
+    if (ImGui::BeginCombo("Object", label(*current).c_str())) {
+        for (auto entry = subjects.begin(); entry != subjects.end(); ++entry) {
+            if (ImGui::Selectable(label(*entry).c_str(), entry == current)) {
+                selected = entry->class_id;
+                current = entry;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    constexpr std::array profiles{
+        enhanced::ReflectionSurface::Chrome,
+        enhanced::ReflectionSurface::Glass,
+        enhanced::ReflectionSurface::Stylised,
+        enhanced::ReflectionSurface::Clank,
+        enhanced::ReflectionSurface::Wrench
+    };
+    int profile = 0;
+    for (unsigned i = 0; i < profiles.size(); ++i) {
+        if (current->override == profiles[i]) {
+            profile = static_cast<int>(i) + 1;
+        }
+    }
+    if (ImGui::Combo(
+            "Material profile", &profile, "Automatic\0Chrome\0Glass\0Stylised\0Clank\0Wrench\0"
+        )) {
+        enhanced::set_reflection_override(
+            selected,
+            profile == 0 ? std::nullopt
+                         : std::optional{profiles[static_cast<unsigned>(profile - 1)]}
+        );
+    }
+    if (ImGui::Button("Clear object overrides")) {
+        enhanced::clear_reflection_overrides();
+    }
+    ImGui::TextWrapped(
+        "Overrides affect this object's chrome and glass packets. Painted faces keep their "
+        "material."
+    );
+    ImGui::TreePop();
+}
 
 // Live, session-only water controls; the render worker consumes a locked copy.
 void water_controls() {
@@ -168,6 +327,19 @@ void enhanced_settings_window() {
     }
     ImGui::BeginDisabled(!available);
     bool changed = ImGui::Checkbox("Enhanced graphics (F4)", &graphics.enhanced_graphics);
+    if (ImGui::Button("Reset to Defaults##enhanced")) {
+        graphics.reset_enhanced();
+        enhanced::set_wetness_material_settings({});
+        enhanced::set_wetness_debug_view(false);
+        enhanced::set_water_debug_settings({});
+        enhanced::reset_water_simulation();
+        changed = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(
+            "Restore enhanced graphics, post processing and session tuning defaults."
+        );
+    }
     ImGui::BeginDisabled(!graphics.enhanced_graphics);
     ImGui::PushItemWidth(dp(190));
 
@@ -219,6 +391,26 @@ void enhanced_settings_window() {
         changed = true;
     }
     ImGui::EndDisabled();
+
+    if (ImGui::CollapsingHeader("Post Processing", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Indent();
+        ImGui::SeparatorText("AgX");
+        changed |= ImGui::Checkbox("AgX", &graphics.agx_preview);
+        ImGui::TextWrapped(
+            "Colour treatment only: existing SDR buffers have already clipped highlights. "
+            "HUD colours are unchanged."
+        );
+        ImGui::BeginDisabled(!graphics.agx_preview);
+        changed |= ImGui::SliderFloat(
+            "Exposure (EV)", &graphics.agx_exposure, -4, 4, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= ImGui::SliderFloat(
+            "Brightness", &graphics.agx_brightness, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::EndDisabled();
+        changed |= motion_blur_controls(graphics);
+        ImGui::Unindent();
+    }
 
     if (ImGui::CollapsingHeader("Advanced")) {
         ImGui::BeginDisabled(!enhanced::Fsr3::available());
@@ -304,6 +496,16 @@ void enhanced_settings_window() {
             "Updates direct lighting and shadows. Baked bounce lighting keeps its baked direction."
         );
     }
+    if (ImGui::CollapsingHeader("Reflection materials")) {
+        ImGui::TextDisabled("Session only. Authored chrome and glass use probe reflections.");
+        reflection_material_controls("Water", enhanced::ReflectionSurface::Water);
+        reflection_material_controls("Chrome", enhanced::ReflectionSurface::Chrome);
+        reflection_material_controls("Glass", enhanced::ReflectionSurface::Glass);
+        reflection_material_controls("Stylised", enhanced::ReflectionSurface::Stylised);
+        reflection_material_controls("Clank", enhanced::ReflectionSurface::Clank);
+        reflection_material_controls("Wrench", enhanced::ReflectionSurface::Wrench);
+        reflection_override_controls();
+    }
     if (ImGui::CollapsingHeader("Ratchet wetness material")) {
         auto material = enhanced::wetness_material_settings();
         bool material_changed = false;
@@ -359,6 +561,15 @@ void enhanced_settings_window() {
         }
         changed |= ImGui::Checkbox("Probe spheres", &graphics.probe_spheres);
         changed |= ImGui::Checkbox("Ceiling area lights", &graphics.ceiling_area_lights);
+        changed |= ImGui::Checkbox("Medial axis", &graphics.medial_axis_debug);
+        if (graphics.medial_axis_debug) {
+            ImGui::TextWrapped("Green: centre paths. Pink: junctions. White: component centres.");
+        }
+        changed |= ImGui::Checkbox("Environment probes", &graphics.environment_probe_debug);
+        if (graphics.environment_probe_debug) {
+            ImGui::TextDisabled("Mirror spheres: captured reflections. Cyan boxes: bounds.");
+            ImGui::TextDisabled("All loaded probes; hidden edges remain faintly visible.");
+        }
         if (graphics.ceiling_area_lights) {
             ImGui::TextDisabled("Source-coloured frames; cyan arrows point outward.");
             ImGui::TextDisabled("Hidden edges are faintly visible through geometry.");
