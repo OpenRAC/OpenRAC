@@ -30,7 +30,13 @@ pub fn webkit_env(safe: bool) -> Vec<(&'static str, &'static str)> {
 }
 
 /// The variables the webview gets, given what the system is.
-fn env_for(wayland: bool, nvidia: bool, steamos: bool, gamescope: bool, safe: bool) -> Vec<(&'static str, &'static str)> {
+fn env_for(
+    wayland: bool,
+    nvidia: bool,
+    steamos: bool,
+    gamescope: bool,
+    safe: bool,
+) -> Vec<(&'static str, &'static str)> {
     let mut vars = Vec::new();
     if wayland && nvidia {
         vars.push(("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1"));
