@@ -64,6 +64,8 @@ target_link_libraries(openrac_platform PUBLIC openrac_common openrac_sdl3)
 # keybind setting and the settings file all share.
 target_include_directories(openrac_platform PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
 openrac_warnings(openrac_platform)
+# What the player bound each pad button to (platform/bindings.h).
+openrac_add_test(bindings SOURCES tests/bindings_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp)
