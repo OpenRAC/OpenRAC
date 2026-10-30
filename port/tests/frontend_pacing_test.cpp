@@ -16,6 +16,7 @@
 
 namespace {
 
+using openrac::frontend::between_limit;
 using openrac::frontend::frame_may_start;
 using openrac::frontend::kLagTicks;
 using openrac::frontend::kLowLatencyLagTicks;
@@ -159,6 +160,46 @@ void test_a_cap_holds_a_frame_until_it_is_due() {
     }
 }
 
+// With the lag, frames between ticks stop at the refresh the next tick is shown at that much later.
+void test_frames_between_ticks_stop_a_lag_after_the_next_tick() {
+    for (const int rate : kTickRates) {
+        const duration<double> period(1.0 / rate);
+        const auto next_tick = start() + span(period.count());
+        const auto lagged = next_tick + duration_cast<steady_clock::duration>(period * kLagTicks);
+        CHECK(between_limit(next_tick, period, kLagTicks, kCost, kRefresh, start()) == lagged);
+        CHECK(between_limit(next_tick, period, kLagTicks, kCost, 0.0, {}) == lagged);
+    }
+}
+
+// Low-latency frames on a 120 Hz display with NTSC's 60 ticks a second, the swap counting the
+// refreshes: the tick's own frame is swapped 9 ms after the tick (its game logic and drawing), and
+// the next frame, due a refresh after the tick and costing 4 ms, is for the refresh 17.3 ms after
+// it, past the next tick but before the next tick's own frame (at 25.6 ms). It is drawn: left out,
+// the display showed one frame a tick (60 frames a second), the regression this pins.
+void test_low_latency_frames_reach_the_refresh_before_the_next_tick_frame() {
+    constexpr double kFast = 1.0 / 120.0;
+    const duration<double> period(1.0 / 60.0);
+    const auto tick = start();
+    const auto next_tick = tick + span(period.count());
+    const auto swap = tick + span(0.009);
+    const auto display = shown_at(tick + span(kFast), kCost, kFast, swap);
+    CHECK(display == swap + span(kFast));
+    CHECK(display > next_tick);
+    const auto limit = between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kFast, swap);
+    CHECK(display < limit);
+    // The next tick's own frame's refresh is the limit: a frame for it would be shown with it.
+    CHECK(limit == shown_at(next_tick, kCost, kFast, swap));
+    CHECK(!(shown_at(next_tick - span(0.001), kCost, kFast, swap) < limit));
+}
+
+// Low-latency frames without a refresh to count from stop at the next tick, as before.
+void test_low_latency_frames_without_refreshes_stop_at_the_next_tick() {
+    const duration<double> period(1.0 / 60.0);
+    const auto next_tick = start() + span(period.count());
+    CHECK(between_limit(next_tick, period, kLowLatencyLagTicks, kCost, 0.0, start()) == next_tick);
+    CHECK(between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kRefresh, {}) == next_tick);
+}
+
 }  // namespace
 
 int main() {
@@ -170,5 +211,8 @@ int main() {
     test_the_alpha_without_a_lag_reaches_the_kept_tick();
     test_no_cap_lets_a_frame_start();
     test_a_cap_holds_a_frame_until_it_is_due();
+    test_frames_between_ticks_stop_a_lag_after_the_next_tick();
+    test_low_latency_frames_reach_the_refresh_before_the_next_tick_frame();
+    test_low_latency_frames_without_refreshes_stop_at_the_next_tick();
     return openrac::test::result();
 }

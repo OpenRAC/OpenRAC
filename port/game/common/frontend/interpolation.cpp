@@ -582,10 +582,6 @@ int between(std::chrono::steady_clock::time_point next_tick) {
             return -1;
         }
     }
-    // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag).
-    const auto lag = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-        pacing.period * lag_ticks()
-    );
     auto now = std::chrono::steady_clock::now();
     // The frame cap: a frame not due before the next tick is left to after it; one due sooner is
     // waited for here.
@@ -612,12 +608,19 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     if (asynchronous && now >= next_tick) {
         return 0;
     }
+    // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag;
+    // without it, any before the next tick's own frame).
     const auto display = next_display(now);
-    if (display >= next_tick + lag) {
+    if (display >= between_limit(
+            next_tick, pacing.period, lag_ticks(), pacing.cost, pacing.interval, pacing.last_swap
+        )) {
         return 0;
     }
-    // Synchronous rendering must finish before the tick. Owned Vulkan jobs may overlap its simulation.
-    if (!asynchronous && g->swap == platform::SwapInterval::Immediate
+    // Synchronous rendering must finish before the tick (without a swap that waits, or with the
+    // low-latency frames, whose next tick starts on time). Owned Vulkan jobs may overlap its
+    // simulation.
+    if (!asynchronous
+        && (g->swap == platform::SwapInterval::Immediate || lag_ticks() == kLowLatencyLagTicks)
         && now
                    + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                        std::chrono::duration<double>(pacing.cost)
