@@ -215,7 +215,9 @@ let config: Config = {
   lastVersion: null,
   discordRpc: true,
   checkUpdates: true,
-  checkModUpdates: true,
+  // ?modupdates: the mods are looked at when the launcher starts, and the lock-strafe has an update.
+  // Off otherwise, so its prompt does not cover every page of the preview.
+  checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("modupdates"),
   updateChannel: null,
   updateBranch: null,
   layout: "compact",
