@@ -1851,11 +1851,6 @@ one: the vendor ID decides, and `OPENRAC_TILE_BASED=1` or `0` overrides it, so a
 run the same paths. The capture report's `gpu passes` line records it. The analysis behind the
 entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the project files.
 
-- **Scrolling static shadows by default.** On a tile-based GPU the four sun cascades keep their
-  static casters in the toroidal caches of "Scrolling static shadows" above, so a frame redraws
-  only the strips the camera uncovered and the dynamic casters, instead of binning every
-  caster of every cascade again. `OPENRAC_SCROLLING_SHADOWS_OFF` keeps the ordinary atlas there
-  for comparison; elsewhere `OPENRAC_SCROLLING_SHADOWS` still opts in.
 - **`shadow-depth-only`.** The shadow atlas, the static shadow cache and the scrolling caches
   are a float depth image alone. Before, each also had an RGBA8 colour and a stencil attachment
   that nothing read, which a tile-based GPU cleared and stored every frame.
@@ -1876,4 +1871,7 @@ entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the 
   so only the per-pass split is meaningful in such a recording, not the frame time.
 
 The three registry entries are lossless: `render_equivalence_vulkan --opt <name>` compares
-frames with each one on and off with no tolerance.
+frames with each one on and off with no tolerance. The scrolling static shadow caches above
+would save the most binning on these GPUs, but they are not the default there: their texel-snapped
+cascades and unfitted caster bounds change the shadows' pixels (`sun_shadow_vulkan` with
+`OPENRAC_TILE_BASED=1`), so they stay behind `OPENRAC_SCROLLING_SHADOWS`.

@@ -293,13 +293,7 @@ void LevelScene::prepare_sun_shadow(
         static const bool& scrolling = stats::probe(
             "OPENRAC_SCROLLING_SHADOWS", "Experimental toroidal static caches for the sun cascades"
         );
-        static const bool& scrolling_off = stats::probe(
-            "OPENRAC_SCROLLING_SHADOWS_OFF", "Reference: the ordinary atlas on a tile-based GPU"
-        );
-        // A tile-based GPU bins every caster of all four cascades each frame, which costs it far
-        // more than the cache's composition: there the caches are the default.
-        const bool tiled = vkgl::tile_based() && !scrolling_off;
-        if ((scrolling || tiled) && gl::is_vulkan() && m_shadow_atlas_active) {
+        if (scrolling && gl::is_vulkan() && m_shadow_atlas_active) {
             prepare_scrolling_shadows(direction, low, high);
         }
 #endif

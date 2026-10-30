@@ -135,7 +135,6 @@ enum class Var : std::uint16_t {
     RoundNearest,
     ScriptBudgetMs,
     ScrollingShadows,
-    ScrollingShadowsOff,
     ShaderDir,
     ShaderReload,
     ShadowAtlasOff,
