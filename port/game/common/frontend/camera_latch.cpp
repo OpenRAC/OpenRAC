@@ -20,6 +20,7 @@
 #include "game/common/frontend/camera_latch.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <numbers>
 #include <optional>
@@ -143,20 +144,20 @@ CameraTurn latch_camera(
         latch.has_prev_hero = latch.has_hero && next;
         latch.has_hero = openrac_game_hero_position != nullptr
                          && openrac_game_hero_position(latch.hero.data()) != 0;
-        if (log_on && latch.has_guess && scene.has_prev_state) {
-            log::info(
-                "camera latch: tick {} turned {:.4f}, guessed {:.4f}",
-                scene.frame,
-                angle_between(heading(scene.state.forward), heading(scene.prev_state.forward)),
-                latch.guessed_tick
-            );
-        }
-        latch.has_guess = false;
         // How far the camera turned in the kept tick and in the one before.
         const float turned =
             scene.has_prev_state
                 ? angle_between(heading(scene.state.forward), heading(scene.prev_state.forward))
                 : 0.0f;
+        if (log_on && latch.has_guess && scene.has_prev_state) {
+            log::info(
+                "camera latch: tick {} turned {:.4f}, guessed {:.4f}",
+                scene.frame,
+                turned,
+                latch.guessed_tick
+            );
+        }
+        latch.has_guess = false;
         latch.prev_omega = next ? latch.omega : 0.0f;
         latch.omega = std::abs(turned) < kCutRadians ? turned : 0.0f;
         latch.tick = scene.frame;

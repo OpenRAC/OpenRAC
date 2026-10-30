@@ -22,7 +22,6 @@
  * stick holds, not at a speed, and a picture ahead of it would have to guess where it stops.
  */
 #include <math.h>
-#include <string.h>
 
 #include "rac1.h"
 
@@ -37,12 +36,6 @@
 
 static gaddr s_camera;   /* the follow camera's data (its moby's +0x70) the last read was for */
 static unsigned s_reads; /* how many reads so far: the frontend sees whether one ran this tick */
-
-static float get_float(gaddr at) {
-    float v;
-    memcpy(&v, G(at), 4);
-    return v;
-}
 
 void func_L00_002E9E60(gaddr camera, gaddr yaw, gaddr pitch) {
     func_L00_002E9E60__game(camera, yaw, pitch);
@@ -82,14 +75,14 @@ static int camera_turn(
     }
     const gaddr block = CAMERA_BLOCK;
     for (int i = 0; i < 3; ++i) {
-        axis[i] = get_float(block + 0x20u + 4u * (unsigned)i);
+        axis[i] = GREF(float, block + 0x20u + 4u * (unsigned)i);
     }
     /* Cam_InterpValues, a tick at a time, the last one in part. */
-    const float speed = get_float(TURN_SPEED);
-    const float stiffness = get_float(SPRING_STIFFNESS);
-    const float damping = get_float(SPRING_DAMPING);
-    float r = get_float(s_camera + 0x1A8u);
-    float v = get_float(s_camera + 0x1ACu);
+    const float speed = GREF(float, TURN_SPEED);
+    const float stiffness = GREF(float, SPRING_STIFFNESS);
+    const float damping = GREF(float, SPRING_DAMPING);
+    float r = GREF(float, s_camera + 0x1A8u);
+    float v = GREF(float, s_camera + 0x1ACu);
     float turned = 0.0f;
     for (float left = ticks; left > 0.0f; left -= 1.0f) {
         const float diff = target - r;
