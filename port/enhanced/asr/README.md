@@ -11,7 +11,7 @@ module (`enhanced/fsr3`) uses it in place of FSR 3.1 behind the same frame hooks
   (colour, float depth, motion, reactive mask, output), and `preferred()`.
 
 `preferred()` follows `OPENRAC_TEMPORAL_UPSCALER` (`asr` or `fsr3`) when it is set, otherwise
-`vkgl::tile_based()`. ASR needs shaderFloat16, shaderInt16, shaderSubgroupExtendedTypes and
+Qualcomm GPUs only (Adreno: phones and Snapdragon X laptops). ASR needs shaderFloat16, shaderInt16, shaderSubgroupExtendedTypes and
 fragmentStoresAndAtomics: its prebuilt SPIR-V uses 16-bit types, in subgroup operations too, and
 its fragment passes write storage images. Where it cannot start, the module logs why and keeps
 FSR 3.1. The capture report's `enhanced` line names the upscaler in use.

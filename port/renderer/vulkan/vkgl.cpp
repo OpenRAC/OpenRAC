@@ -472,6 +472,10 @@ bool tile_based() {
     return g != nullptr && g->tile_based;
 }
 
+std::uint32_t vendor_id() {
+    return g != nullptr ? g->properties.vendorID : 0;
+}
+
 void set_split_pass_timing(bool on) {
     if (g != nullptr) {
         g->split_pass_timing = on;

@@ -352,6 +352,9 @@ bool device_only_memory();
 // no context.
 bool tile_based();
 
+// The open device's PCI vendor id (0x5143 Qualcomm, 0x13B5 Arm, ...); 0 with no context.
+std::uint32_t vendor_id();
+
 // Split pass timing: each section timed on the GPU (stats::kGpu) ends the render pass it falls
 // in, at its start and at its end, so that its timestamps lie between passes. A tile-based GPU
 // runs a pass's draws together, so timestamps inside one pass read about zero; split, every

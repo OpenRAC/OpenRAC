@@ -1866,7 +1866,7 @@ entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the 
   Not byte-identical: on Novalis while turning, up to about 20% of pixels differ, under 0.2% by
   more than 4 of 255 and none by more than 32; the trails look the same. The player chose this
   trade for 120 fps on phones.
-- **Arm ASR.** On a tile-based GPU the temporal module upscales with Arm Accuracy Super
+- **Arm ASR.** On a Qualcomm (Snapdragon) GPU the temporal module upscales with Arm Accuracy Super
   Resolution (`port/enhanced/asr/README.md`), whose fragment passes suit these GPUs better than
   FSR 3.1's compute passes. `OPENRAC_TEMPORAL_UPSCALER=asr` or `fsr3` chooses either one on any
   GPU; the capture report's `enhanced` line names the one in use.

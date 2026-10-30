@@ -5,6 +5,7 @@
 #include "enhanced/asr/asr_context.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <string_view>
 #include <vector>
@@ -74,7 +75,9 @@ bool preferred() {
     if (const auto chosen = env::value(env::Var::TemporalUpscaler)) {
         return *chosen == "asr";
     }
-    return vkgl::tile_based();
+    // Qualcomm's Adreno (phones, Snapdragon X laptops): measured faster there than FSR 3.1.
+    constexpr std::uint32_t kQualcomm = 0x5143;
+    return vkgl::vendor_id() == kQualcomm;
 }
 
 bool supports(std::array<int, 2> render_size) {

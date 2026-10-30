@@ -117,7 +117,7 @@ pub fn settings() -> Vec<SettingSpec> {
         "Temporal upscaling",
         "choice",
         "quality".into(),
-        "Reconstructs a lower-resolution world image (Arm ASR on phone GPUs, AMD FSR 3.1 elsewhere). The HUD stays at full resolution.",
+        "Reconstructs a lower-resolution world image (Arm ASR on Snapdragon GPUs, AMD FSR 3.1 elsewhere). The HUD stays at full resolution.",
     );
     temporal.choices = vec![
         Choice { value: "off".into(), name: "Off".into() },
