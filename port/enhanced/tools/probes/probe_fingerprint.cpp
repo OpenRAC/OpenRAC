@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "common/profiler.h"
 #include "enhanced/tools/probes/level_scene.h"
 #include "scene/level.h"
 
@@ -60,7 +61,8 @@ std::vector<std::filesystem::path> source_paths(const std::filesystem::path& roo
         // Their sidecars must not invalidate otherwise identical probe bakes.
         const auto name = entry.path().lexically_relative(root).generic_string();
 
-        if (name == "pvs.json" || name == "sunlight-calibration.json") {
+        if (name == "pvs.json" || name == "sunlight-calibration.json"
+            || name.starts_with(".water-native-")) {
             continue;
         }
 
@@ -247,6 +249,8 @@ void point_emitters_hash(Hash& hash, const scene::LevelData& level, const BakeSc
 }  // namespace
 
 std::uint64_t probe_input_hash(const std::filesystem::path& directory) {
+    const profiling::Zone timing("Fingerprint bake inputs");
+
     Hash hash;
     source_files(hash, directory, "base");
     // Coastlines affect placement, while the transport scene hash deliberately retains otherwise valid GI.

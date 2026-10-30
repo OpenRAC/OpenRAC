@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+//
+// Error-bounded probe-density reduction using packed-map precision and playable receiver checks.
 #include "enhanced/lighting/probe_density.h"
 
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_scene.h"
 
@@ -35,6 +38,8 @@ bool inside(const ProbeGrid& grid, Float3 p) {
 
 // Copy only lattice members; interpolating distance moments into new probes would hide blockers.
 ProbeVolume decimate(const ProbeVolume& reference, std::array<unsigned, 3> stride) {
+    const profiling::Zone timing("Decimate probe grid");
+
     auto grid = reference.grid;
 
     for (unsigned a = 0; a < 3; ++a) {
@@ -133,6 +138,8 @@ bool acceptable(
     ProbeDensityReport& report,
     float& maximum
 ) {
+    const profiling::Zone timing("Check density candidate");
+
     maximum = 0;
 
     for (const auto& receiver : receivers) {
@@ -199,6 +206,8 @@ std::vector<ProbeDensityReceiver> probe_density_receivers(
     const BakeSettings& settings,
     unsigned threads
 ) {
+    const profiling::Zone timing("Build density receivers");
+
     if (layout.ceilings.size() != floors.size()) {
         throw std::runtime_error("adaptive probe receivers require matching floor/ceiling data");
     }
@@ -255,6 +264,8 @@ ProbeVolume simplify_probe_density(
     const ProbeDensitySettings& settings,
     ProbeDensityReport& report
 ) {
+    const profiling::Zone timing("Simplify probe density");
+
     settings.validate();
     report = {};
     report.original_probes = report.final_probes = reference.grid.probe_count();
@@ -265,9 +276,13 @@ ProbeVolume simplify_probe_density(
 
     std::vector<ProbeDensityReceiver> supported;
 
-    for (const auto& receiver : receivers) {
-        if (inside(reference.grid, receiver.position)) {
-            supported.push_back(receiver);
+    {
+        const profiling::Zone select_timing("Select density receivers");
+
+        for (const auto& receiver : receivers) {
+            if (inside(reference.grid, receiver.position)) {
+                supported.push_back(receiver);
+            }
         }
     }
 

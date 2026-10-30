@@ -287,9 +287,11 @@ openrac_add_c_test(ps2float NO_FP_CONTRACT LIBS openrac_ps2float)
 add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
+# Shared probe-format timings use the same optional profiling backend as the offline baker.
+target_link_libraries(openrac_lighting PRIVATE openrac_common)
 openrac_warnings(openrac_lighting)
 openrac_add_test(environment SOURCES enhanced/tests/environment_test.cpp LIBS openrac_lighting)
-foreach(name IN ITEMS probes probe_atlas probe_regions)
+foreach(name IN ITEMS probes probe_atlas probe_regions probe_decode)
   openrac_add_test(lighting_${name} SOURCES enhanced/tests/lighting/${name}.cpp
                                     LIBS openrac_lighting)
   set_tests_properties(lighting_${name} PROPERTIES SKIP_RETURN_CODE 77)

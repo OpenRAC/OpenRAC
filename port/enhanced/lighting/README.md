@@ -12,7 +12,7 @@ in a separate folder. Enable it through Mods > **Enhanced graphics**, `enhanced_
 `OPENRAC_ENHANCED=1` or `OPENRAC_PROBE_GI`. It is off at runtime by default; OpenGL uses original lighting.
 
 `python3 tools/build_port.py --probe-baker` statically links pinned Embree 4 into
-`openrac-probe-bake`, as shipped by the launcher, without separate Embree/TBB libraries.
+`openrac-enhanced-baker`, as shipped by the launcher, without separate Embree/TBB libraries.
 Alternatively use `-DOPENRAC_PROBE_BAKER=ON` with an installed Embree 4; Windows needs its DLLs
 on PATH. Python needs no extra packages; the game does not use Embree.
 
@@ -23,10 +23,12 @@ on first use and after re-exporting levels:
 
 ```sh
 python port/enhanced/tools/probes/bake_all.py --levels-dir <levels> \
-  --output-dir <data>/probes/<version> --baker <openrac-probe-bake> --disc <disc> --jobs 0 --update
+  --output-dir <data>/probes/<version> --baker <openrac-enhanced-baker> --disc <disc> --jobs 0 --update
 ```
 
-`--jobs 0` runs one level per four available bake threads, capped by half the machine's memory.
+`--jobs 0` admits up to one level per four available bake threads. One native process shares its
+tracing workers across admitted levels; estimated scene reservations are capped by half physical
+RAM, or `--memory-mib`. This controls admission rather than enforcing a hard resident-memory cap.
 `--update` compares exports, level format, baker and options against `openrac-bake.json`, replacing
 stale data only after verification. The game uses `--probes <data>/probes/<version>` to load
 `level_NN/sparse.orpg`; missing/currently invalid bakes retain original lighting.
@@ -42,7 +44,8 @@ python port/enhanced/tools/probes/bake_level.py \
 ```
 
 Use a fresh output directory outside the source level. Settings, emission and planning feed one
-native process, which shares its converted scene/Embree data across all grids. Registration waits
+native process, which expands enclosed coverage with two-sided collision rays and shares its
+converted scene/Embree data across all grids. Registration waits
 for every file's readback, runtime-rounding and sparse-grid comparison checks. Source changes
 before loading, after planning or after baking abort the batch.
 
@@ -70,8 +73,9 @@ allow remaining levels to continue. `bake-all-result.json` records results; any 
 nonzero. `--dry-run` lists levels without writing. Options include `--baker`, `--disc`, `--rays`,
 `--bounces` and `--threads`.
 
-`--threads N` limits `bake_level.py`, `seed_regions.py` and `openrac-probe-bake`: 1 is serial,
+`--threads N` limits `bake_level.py`, `seed_regions.py` and `openrac-enhanced-baker`: 1 is serial,
 0 automatic. Workers share acceleration data and preserve bytes/identity.
+Whole-field GI validation uses the same workers, with ordered error reduction and bounded comparison buffers.
 `probe_bake_parallel_test --benchmark` checks equality and timing with one, two, four and automatic
 threads on synthetic data, without launching the game.
 
@@ -113,6 +117,7 @@ Re-export and rebake after tracked settings change. Profiles contain no extracte
 
 | Setting | Default |
 | --- | --- |
+| Placement strategy | `gameplay` |
 | Sparse / dense spacing | 256 / 4 units |
 | Probe map | 6x6 texels, 8x8 with border |
 | Rays / bounces | 1,024 / 3 |
@@ -128,7 +133,15 @@ bounces; each channel accepts 0 to 4. Equal channels change strength without
 changing colour. `terrain_vertex_albedo` keeps authored terrain lighting as a
 material tint. Both settings require a rebake.
 
-The optional `regions` section in `probe-bake.json` controls local probe placement:
+`"strategy": "scene"` selects one coarse GI volume around all baked geometry and initial moby
+receivers, padded by one cell. It uses `sparse_spacing` and the normal lighting, emission,
+relocation and visibility settings. It skips gameplay seeds, local volumes, ceiling-light
+generation and floor-based reflection capture placement, even if those features are enabled
+in other profile fields. Background scenes use this strategy. Sky-only scenes without static
+geometry produce a verified empty result because they have no surfaces to light.
+
+The default `"strategy": "gameplay"` uses floor-seeded placement. The optional `regions`
+section in `probe-bake.json` controls its local probe placement:
 
 ```json
 {

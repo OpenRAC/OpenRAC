@@ -4,7 +4,8 @@ Probe bakes infer interiors by default, using unambiguous indoor samples to guid
 emitter boosts and ceiling lights. Set `regions.interior_lighting: false` to skip preparation;
 explicit source sidecars remain authoritative. Novalis NTSC-U (level 1) has the verified profile.
 
-The pipeline reads exported collision and retained gameplay without disc access. Generated
+The native batch worker reads exported collision and retained gameplay without disc access, then
+infers rooms and builds interior sources before GI in the same process. Generated
 `probe-interiors.json` stays beside the export for runtime fingerprint validation; reports stay
 with the bake. Sources refresh when inputs/tools change. Exported water remains non-walkable.
 
@@ -13,7 +14,7 @@ disc through existing read-only editor readers. It exports deduplicated static c
 hero-light environment transitions, game/level identity and a SHA-256 over gameplay and the
 collision-containing core tail. Derived game data stays local in ignored storage.
 
-The optional Embree tool `openrac-interior-infer`:
+The unified `openrac-enhanced-baker --infer-interiors` stage:
 
 1. Samples every collision layer on an XY lattice. Walkable slopes need absolute geometric
    normal Z at least 0.65; authored normals, winding and water cannot supply floor support.
@@ -37,10 +38,10 @@ corners, labels and component sizes. Boxes do not replace the irregular sampled 
 Build with `OPENRAC_PROBE_BAKER=ON` and Embree:
 
 ```sh
-cmake --build port/build/release --target openrac-interior-infer interior_inference_test
+cmake --build port/build/release --target openrac-enhanced-baker interior_inference_test
 ctest --test-dir port/build/release -R '^interior_inference$' --output-on-failure
 python port/enhanced/tools/probes/prepare_interiors.py --disc /path/to/owned-disc.iso --level 1 --output build/probe-gi/novalis-interior-input.json
-port/build/release/openrac-interior-infer build/probe-gi/novalis-interior-input.json build/probe-gi/novalis-interior-regions.json 1
+port/build/release/openrac-enhanced-baker --infer-interiors build/probe-gi/novalis-interior-input.json build/probe-gi/novalis-interior-regions.json 1
 ```
 
 On Windows, put the official Embree package's `bin` directory on PATH. Both tools refuse report

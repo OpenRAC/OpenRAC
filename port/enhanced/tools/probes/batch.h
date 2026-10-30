@@ -14,6 +14,7 @@ namespace openrac::lighting {
 
 // One request from the planner; transport options remain fixed for the whole level.
 struct ProbeBatchOptions {
+    BakeThreadPool* pool = nullptr;  // Borrowed coordinator workers, or null for a private pool.
     std::filesystem::path output_directory;
     std::filesystem::path
         level_directory;  // Optional authored water coastline input for gameplay planning.
@@ -21,6 +22,9 @@ struct ProbeBatchOptions {
     unsigned light_set = 0, threads = 0;
     std::uint64_t source_snapshot = 0;
     std::string plan;
+    std::uint64_t scene_hash = 0;  // Prepared scene identity checked before automatic plan writes.
+    // Automatic requests publish registries after full verification.
+    bool register_outputs = false;
     // Keep each grid already written and verified in the output folder (a bake that was stopped
     // and started again): it is read back and checked against this plan, and baked again only
     // when it does not match.

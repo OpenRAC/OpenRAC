@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Default interior preparation, ownership, cache invalidation and exported collision."""
+"""Persistent native interior preparation selection and legacy gameplay retention."""
 import json
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -20,112 +19,42 @@ class AutomaticInteriors(unittest.TestCase):
         self.level, self.output = self.root/'level', self.root/'output'
         self.level.mkdir()
         self.output.mkdir()
-        self.baker = self.root/'openrac-probe-bake.exe'
-        automatic.inference_tool(self.baker).write_bytes(b'inference fixture')
         self.manifest = dict(game='rac1', version='ntsc', level=0)
-        self.inputs = dict(source_sha256='a'*64)
-        self.report = dict(format=1, game='rac1-ntsc', level=0, source_sha256='a'*64,
-                           transitions=[], seeds=[], regions=[], cells=[])
-        self.sidecar = self.level/'probe-interiors.json'
 
-    def generate(self, command, **kwargs):
-        Path(command[2]).write_text(json.dumps(self.report))
+    def test_exported_gameplay_is_passed_to_the_persistent_worker(self):
+        inputs = self.level/'bake-inputs'
+        inputs.mkdir()
+        path = inputs/'gameplay.bin'
+        path.write_bytes(b'gameplay fixture')
+        self.assertEqual(automatic.native_options(self.level, self.output, self.manifest, path.read_bytes()),
+                         ['--prepare-interiors', str(path)])
+        self.assertEqual(list(self.output.iterdir()), [])
 
-    def prepare(self):
-        automatic.prepare(self.level, self.output, self.baker, self.manifest, b'gameplay')
+    def test_legacy_gameplay_is_retained_without_an_inference_subprocess(self):
+        options = automatic.native_options(self.level, self.output, self.manifest, b'owned disc gameplay')
+        self.assertEqual(options[0], '--prepare-interiors')
+        self.assertEqual(Path(options[1]).read_bytes(), b'owned disc gameplay')
+        self.assertFalse(list(self.output.glob('.interior-gameplay-*')))
 
-    def test_default_generation_reuses_unchanged_sources_and_refreshes_changed_inputs(self):
-        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
-             patch.object(automatic.subprocess, 'run', side_effect=self.generate) as run:
-            self.prepare()
-            self.assertEqual(json.loads(self.sidecar.read_text())['generator'], 'openrac-interiors-v1')
-            self.prepare()
-            self.assertEqual(run.call_count, 1)
-            self.output = self.root/'second'
-            self.output.mkdir()
-            self.inputs['source_sha256'] = 'b'*64
-            self.report['source_sha256'] = 'b'*64
-            self.prepare()
-            self.assertEqual(run.call_count, 2)
-            self.assertEqual(json.loads(self.sidecar.read_text())['source_sha256'], 'b'*64)
+    def test_changed_gameplay_is_rejected_before_native_preparation(self):
+        inputs = self.level/'bake-inputs'
+        inputs.mkdir()
+        (inputs/'gameplay.bin').write_bytes(b'new gameplay')
+        with self.assertRaisesRegex(ValueError, 'source changed'):
+            automatic.native_options(self.level, self.output, self.manifest, b'previous gameplay')
 
-    def test_missing_report_and_stale_report_are_regenerated_safely(self):
-        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
-             patch.object(automatic.subprocess, 'run', side_effect=self.generate) as run:
-            self.prepare()
-            (self.output/'interior-inference.json').unlink()
-            self.prepare()
-            self.assertEqual(run.call_count, 2)
-            self.inputs['source_sha256'] = 'c'*64
-            self.prepare()  # Existing report/log must not block regeneration.
-            self.assertEqual(run.call_count, 3)
-        self.assertFalse(list(self.output.glob('.interior-inference-*')))
-
-    def test_explicit_sources_are_preserved(self):
-        self.sidecar.write_text('{"version":1,"samples":[]}')
-        with patch.object(automatic, 'prepare_export') as read:
-            self.prepare()
-        read.assert_not_called()
-        self.assertEqual(self.sidecar.read_text(), '{"version":1,"samples":[]}')
+    def test_non_gameplay_scenes_skip_preparation(self):
+        for manifest, data in ((self.manifest, None), ({**self.manifest, 'level': 99}, b'gameplay')):
+            self.assertEqual(automatic.native_options(self.level, self.output, manifest, data), [])
 
     def test_opt_out_removes_only_generated_sources(self):
-        self.sidecar.write_text('{"generator":"openrac-interiors-v1"}')
+        sidecar = self.level/'probe-interiors.json'
+        sidecar.write_text('{"generator":"openrac-interiors-v1"}')
         automatic.remove_generated(self.level)
-        self.assertFalse(self.sidecar.exists())
-        self.sidecar.write_text('{"version":1,"samples":[]}')
+        self.assertFalse(sidecar.exists())
+        sidecar.write_text('{"version":1,"samples":[]}')
         automatic.remove_generated(self.level)
-        self.assertTrue(self.sidecar.exists())
-
-    def test_stale_staging_does_not_block_generation(self):
-        stale = self.sidecar.with_suffix('.json.part')
-        stale.write_text('interrupted write')
-        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
-             patch.object(automatic.subprocess, 'run', side_effect=self.generate):
-            self.prepare()
-        self.assertTrue(self.sidecar.exists())
-        self.assertEqual(stale.read_text(), 'interrupted write')
-        self.assertFalse(list(self.level.glob('.probe-interiors-*')))
-
-    def test_failed_publish_cleans_staging_and_preserves_previous_sources(self):
-        original = '{"generator":"openrac-interiors-v1"}'
-        self.sidecar.write_text(original)
-        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
-             patch.object(automatic.subprocess, 'run', side_effect=self.generate), \
-             patch.object(Path, 'replace', side_effect=OSError('publish failed')):
-            with self.assertRaisesRegex(OSError, 'publish failed'):
-                self.prepare()
-        self.assertEqual(self.sidecar.read_text(), original)
-        self.assertFalse(list(self.level.glob('.probe-interiors-*')))
-
-    def test_failed_inference_does_not_publish_sources(self):
-        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
-             patch.object(automatic.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, ['infer'])):
-            with self.assertRaises(subprocess.CalledProcessError):
-                self.prepare()
-        self.assertFalse(self.sidecar.exists())
-
-    def test_failed_inference_keeps_report_and_native_diagnostics(self):
-        report_path = self.output/'interior-inference.json'
-        report_path.write_text('previous verified report')
-
-        def fail(command, **kwargs):
-            kwargs['stdout'].write('native inference failure fixture\n')
-            Path(command[2]).write_text('partial report')
-            raise subprocess.CalledProcessError(1, command)
-
-        with patch.object(automatic, 'prepare_export', return_value=self.inputs), \
-             patch.object(automatic.subprocess, 'run', side_effect=fail):
-            with self.assertRaises(automatic.diagnostics.NativeFailure) as caught:
-                self.prepare()
-        self.assertIn('native inference failure fixture', caught.exception.output)
-        self.assertEqual(report_path.read_text(), 'previous verified report')
-        self.assertFalse(self.sidecar.exists())
-        self.assertFalse(list(self.output.glob('.interior-inference-*')))
-
-    def test_non_gameplay_scenes_skip_inference(self):
-        with patch.object(automatic, 'prepare_export') as read:
-            automatic.prepare(self.level, self.output, self.baker, self.manifest, None)
-        read.assert_not_called()
+        self.assertEqual(json.loads(sidecar.read_text()), {'version': 1, 'samples': []})
 
     def test_exported_collision_keeps_water_non_walkable_and_authored_transitions(self):
         from collision import colour

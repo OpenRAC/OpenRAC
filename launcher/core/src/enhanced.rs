@@ -9,7 +9,7 @@
 //!
 //! With it on, Play starts the game with the Vulkan renderer, the only one that has it, and with
 //! `--probes <data>/probes/<version>`: the probe bakes made on this computer from the player's own
-//! extracted levels by the `probe-bake` action (port/enhanced/tools/probes/bake_all.py --update).
+//! extracted levels by the `probe-bake` action (openrac-enhanced-baker --bake-all --update).
 //! Each baked level records what it was made from (`openrac-bake.json`); a level whose export or
 //! baker changed since counts as not ready and is baked again. The baker is named by what it says
 //! it bakes (`--print-profile`: its probe format, bake version and quality), not by its file, which

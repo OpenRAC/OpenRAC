@@ -4,8 +4,9 @@
 
 Uses each level's settings. Outputs contain game data and must stay local.
 --jobs bakes that many levels at once (0: one per four of the threads the bake
-may use, as many as half the memory holds). The bake uses all but a few of the
-CPU's threads (openrac_common.background), shared between the levels baking,
+may use, as many as the estimated scene-memory budget holds). One native coordinator
+shares tracing workers between levels instead of reserving threads per level.
+The bake uses all but a few of the CPU's threads (openrac_common.background),
 at below-normal priority: the computer stays usable while it runs, and the
 largest levels start first. Without --update a new output root
 is required and previous bakes are preserved. With --update (the launcher's
@@ -20,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -37,6 +37,7 @@ from openrac_common import background, digest, files as file_ops  # noqa: E402
 import bake_level  # noqa: E402
 import diagnostics  # noqa: E402
 import seed_regions as seeds  # noqa: E402
+from native_coordinator import NativeCoordinator  # noqa: E402
 
 # Each level's record of what its bake was made from (--update compares it).
 STAMP = 'openrac-bake.json'
@@ -46,11 +47,7 @@ PARTIAL_STAMP = 'openrac-bake.partial.json'
 STAMP_VERSION = 3
 # Options that change the bake's bytes; --threads does not (bake_level preserves output bytes).
 BAKE_OPTIONS = ('--rays', '--bounces')
-# The threads each level bakes with when the levels are shared out (--jobs 0): enough that the
-# largest level, which starts first, is not left on one core long after the others, few enough that
-# several levels bake at once. Every baker taking every thread instead (as before 2026-10-24) ran
-# one per CPU thread at once, hundreds of threads at normal priority, and left a 16-core desktop
-# barely usable for the length of the bake.
+# Limits simultaneous scene preparation to roughly one level per four tracing threads.
 THREADS_PER_LEVEL = 4
 
 
@@ -213,25 +210,17 @@ def automatic_jobs() -> int:
     return jobs
 
 
-def with_threads(options, jobs: int) -> list[str]:
-    """OPTIONS with --threads sharing the bake's threads (background.cpu_budget) between JOBS
-    bakes at once, unless it names a count itself."""
+def with_threads(options) -> list[str]:
+    """Add the shared tracing budget unless the caller already supplied one."""
     options = list(options)
     if '--threads' not in options:
-        options += ['--threads', str(max(1, background.cpu_budget() // jobs))]
+        options += ['--threads', str(background.cpu_budget())]
     return options
 
 
 def level_size(level: Path) -> int:
     """The bytes of a level's export: roughly how long it takes to bake."""
     return sum(path.stat().st_size for path in level.rglob('*') if path.is_file())
-
-
-def largest_first(levels, sizes=None) -> list[int]:
-    """The indices of LEVELS, the largest export first: the longest bakes start first, and the
-    small ones fill in around them."""
-    sizes = sizes or [level_size(level) for level in levels]
-    return sorted(range(len(levels)), key=lambda i: -sizes[i])
 
 
 def publish(work, final):
@@ -262,7 +251,7 @@ def publish(work, final):
 
 
 def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
-             options=(), dry_run=False, update=False, jobs=1):
+             options=(), dry_run=False, update=False, jobs=1, memory_limit=0):
     levels_dir, output_dir, baker = levels_dir.resolve(), output_dir.resolve(), baker.resolve()
     print(f'Bake inputs: {levels_dir}\nBake cache: {output_dir}\nNative baker: {baker}', flush=True)
     levels = discover_levels(levels_dir)
@@ -283,13 +272,17 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
         return True
 
     output_dir.mkdir(parents=True, exist_ok=update)
-    options = with_threads(options, jobs)
+    # Every admitted scene shares one native pool instead of reserving a fixed slice per level.
+    options = with_threads(options)
+    thread_budget = int(options[options.index('--threads') + 1])
+    memory_budget = memory_limit or max(LEVEL_MEMORY, (physical_memory() or LEVEL_MEMORY * jobs * 2) // 2)
+    sizes = [level_size(level) for level in levels]
+    reservations = [max(LEVEL_MEMORY, size * 4) for size in sizes]
     report = {'version': 1, 'levels_dir': str(levels_dir), 'levels': [
         {'level': level.name, 'verified': False} for level in levels]}
     lock = threading.RLock()
     done = [0]
     # How far each level is (0 to 1), weighted by the size of its export for the whole bake's share.
-    sizes = [level_size(level) for level in levels]
     weights = [max(1, size) for size in sizes]
     fractions = [0.0] * len(levels)
     clock = {'start': time.monotonic(), 'base': None, 'shown': -1.0, 'at': 0.0}
@@ -338,8 +331,8 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
         final = output_dir/level.name
         stamp = profile = None
         diagnostics.stage('Prepare water', bake_level.prepare_water.prepare, level,
-                          diagnostics.read_json(level/'manifest.json'), disc)
-        diagnostics.stage('Prepare emission', bake_level.prepare_emission, level)
+                          diagnostics.read_json(level/'manifest.json'), disc, baker=baker)
+        diagnostics.stage('Prepare emission', bake_level.prepare_emission, level, baker)
         if update:
             text = diagnostics.stage('Read baker profile', baker_profile, baker, level, options)
             profile = diagnostics.parse_profile(text)
@@ -371,7 +364,8 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
             if same:
                 print(f'{level.name}: going on from the bake that was stopped', flush=True)
         sparse = diagnostics.stage('Bake and verify lighting', bake_level.bake_level, level, work, baker,
-                                   disc=disc, options=options, resume=update, progress=level_progress(index))
+                                   disc=disc, options=options, resume=update, progress=level_progress(index),
+                                   process_factory=coordinator.process_factory(index))
         # Preparation can refresh generated interior sources beside the export.
         stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options) if update else None
         if update:
@@ -400,13 +394,9 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
 
     save_report()
     show_progress(force=True)
-    order = largest_first(levels, sizes) if jobs > 1 else range(len(levels))
-    if jobs == 1:
-        for index in order:
-            bake(index)
-    else:
-        with ThreadPoolExecutor(max_workers=jobs) as pool:
-            list(pool.map(bake, order))
+    records = [dict(id=index, weight=size, memory=reservations[index]) for index, size in enumerate(sizes)]
+    with NativeCoordinator(baker, output_dir, threads=thread_budget, jobs=jobs, memory=memory_budget) as coordinator:
+        coordinator.run(records, bake)
 
     passed = sum(result['verified'] for result in report['levels'])
     print(f'Verified {passed}/{len(levels)} levels. Summary: '
@@ -426,13 +416,15 @@ def main():
     parser.add_argument('--output-dir', type=Path, required=True,
                         help='new output root (or, with --update, the cache); each level gets its own directory')
     parser.add_argument('--baker', type=Path, default=seeds.ROOT/'port/build/release'/
-                        ('openrac-probe-bake.exe' if os.name == 'nt' else 'openrac-probe-bake'))
+                        ('openrac-enhanced-baker.exe' if os.name == 'nt' else 'openrac-enhanced-baker'))
     parser.add_argument('--disc', type=Path, help='fallback for older exports without gameplay')
     parser.add_argument('--rays', type=int, help='quality override for every level')
     parser.add_argument('--bounces', type=int, help='bounce override for every level')
     parser.add_argument('--threads', type=int, help='CPU bake threads; 0 uses all, 1 is serial')
     parser.add_argument('--jobs', type=int, default=1,
                         help='levels baked at once; 0 is one per four threads of the bake, as memory allows (default 1)')
+    parser.add_argument('--memory-mib', type=int, default=0,
+                        help='estimated resident scene budget in MiB; 0 uses half physical RAM')
     parser.add_argument('--update', action='store_true',
                         help='keep up-to-date levels of an existing output root and bake the others again')
     parser.add_argument('--dry-run', action='store_true', help='list levels without baking or writing')
@@ -447,7 +439,8 @@ def main():
     try:
         if args.dry_run:
             success = bake_all(args.levels_dir, args.output_dir, args.baker, disc=args.disc,
-                               options=options, dry_run=True, update=args.update, jobs=args.jobs)
+                               options=options, dry_run=True, update=args.update, jobs=args.jobs,
+                               memory_limit=args.memory_mib * (1 << 20))
         else:
             if args.output_dir.resolve().is_relative_to(args.levels_dir.resolve()):
                 raise ValueError('bake outputs must be outside the source levels directory')
@@ -456,7 +449,8 @@ def main():
             with diagnostics.transcript(args.output_dir) as log:
                 try:
                     success = bake_all(args.levels_dir, args.output_dir, args.baker, disc=args.disc,
-                                       options=options, update=True, jobs=args.jobs)
+                                       options=options, update=True, jobs=args.jobs,
+                                       memory_limit=args.memory_mib * (1 << 20))
                 except Exception as error:
                     diagnostics.failed(error, log=log)
                     return 1

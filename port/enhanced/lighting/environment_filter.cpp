@@ -9,6 +9,8 @@
 #include <numbers>
 #include <stdexcept>
 
+#include "common/profiler.h"
+
 namespace openrac::lighting {
 namespace {
 constexpr float kPi = std::numbers::pi_v<float>;
@@ -171,6 +173,8 @@ Float3 brdf(float nv, float roughness, std::span<const Float2> samples) {
 void filter_environment(
     EnvironmentAsset& asset, unsigned probe, std::span<const Float3> faces, unsigned samples
 ) {
+    const profiling::Zone zone("Filter environment GGX mips");
+
     if (samples == 0 || faces.size() != std::size_t(6) * asset.resolution * asset.resolution
         || probe >= asset.probes.size()) {
         throw std::runtime_error("invalid environment filter input");

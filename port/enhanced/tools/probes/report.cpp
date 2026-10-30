@@ -48,8 +48,11 @@ std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
     const auto& environment = profile.activation.environment;
     const auto light_set = profile.activation.light_set;
     const auto resolution = profile.map_resolution;
-    output << std::setprecision(9) << "{\"version\":1,\"sky_intensity\":" << settings.sky_intensity
-           << ",\"surface_emission_scale\":" << settings.surface_emission_scale
+    output << std::setprecision(9) << "{\"version\":1,\"sky_intensity\":"
+           << settings.sky_intensity
+           // Placement strategy belongs in cache/report identity, not the irradiance settings hash.
+           << ",\"strategy\":\"" << (profile.strategy == BakeStrategy::Scene ? "scene" : "gameplay")
+           << '"' << ",\"surface_emission_scale\":" << settings.surface_emission_scale
            << ",\"sky_weight\":" << settings.sky_weight << ",\"sunlight_scale\":["
            << settings.sunlight_scale[0] << ',' << settings.sunlight_scale[1] << ','
            << settings.sunlight_scale[2] << ']'
@@ -237,6 +240,8 @@ void report_terrain_coverage(
 }
 
 void write_bake_file(const fs::path& path, std::span<const std::uint8_t> bytes) {
+    const profiling::Zone timing("Write bake asset");
+
     const fs::path temporary = path.string() + ".tmp";
 
     if (fs::exists(path) || fs::exists(temporary)) {

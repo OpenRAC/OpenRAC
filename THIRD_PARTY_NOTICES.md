@@ -27,7 +27,7 @@ OpenRAC. The launcher lists its own notices in
 
 ## Embree
 
-The offline probe baker (`openrac-probe-bake`: `port/enhanced/lighting/bake.cpp`,
+The offline probe baker (`openrac-enhanced-baker`: `port/enhanced/lighting/bake.cpp`,
 built with `OPENRAC_PROBE_BAKER`) uses [Embree](https://github.com/RenderKit/embree)
 4.4.1, Apache License 2.0, Copyright Intel Corporation. It is never linked into a
 game. `tools/build_port.py --probe-baker` downloads that release's source

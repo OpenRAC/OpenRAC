@@ -18,35 +18,27 @@
 
 #include "common/json.h"
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_output_queue.h"
 #include "enhanced/lighting/probe_density.h"
 #include "enhanced/lighting/room_layout.h"
 #include "enhanced/tools/probes/density_stage.h"
 #include "enhanced/tools/probes/environment_stage.h"
 #include "enhanced/tools/probes/probe_fingerprint.h"
 #include "enhanced/tools/probes/probe_grid.h"
+#include "enhanced/tools/probes/probe_output.h"
+#include "enhanced/tools/probes/probe_rounding.h"
 #include "enhanced/tools/probes/report.h"
 
 namespace fs = std::filesystem;
 
 namespace openrac::lighting {
 namespace {
-// Restore the caller's arithmetic mode even if read-back diagnostics reject a volume.
-class RuntimeRounding {
-public:
-    RuntimeRounding() {
-        if (std::fegetenv(&m_previous) != 0 || std::fesetround(FE_TOWARDZERO) != 0) {
-            throw std::runtime_error("cannot set runtime probe verification rounding");
-        }
+// Stops the controller on output failure; the queue still owns and drains every later task.
+void require_output(Result<void> result) {
+    if (!result) {
+        throw std::runtime_error(result.error().message);
     }
-
-    ~RuntimeRounding() { std::fesetenv(&m_previous); }
-
-    RuntimeRounding(const RuntimeRounding&) = delete;
-    RuntimeRounding& operator=(const RuntimeRounding&) = delete;
-
-private:
-    std::fenv_t m_previous{};  // restored before the next grid is traced
-};
+}
 
 // Fixed names prevent planner input from redirecting writes to unrelated assets.
 struct BatchJob {
@@ -173,6 +165,8 @@ std::vector<BatchJob> batch_jobs(
     std::vector<EnvironmentFloorSample>& floors,
     bake_detail::RoomLayout& layout
 ) {
+    const profiling::Zone timing("Prepare batch grids");
+
     json::Value plan;
     std::string error;
     constexpr std::size_t kMaximumRegions = 1024;  // runtime dense-region limit
@@ -185,7 +179,9 @@ std::vector<BatchJob> batch_jobs(
 
     const auto coarse = batch_coarse_grid(exported, sparse, plan, options.settings);
 
-    if (fs::exists(options.output_directory / "interior-inference.json")
+    // Sparse-only batches do not fit local grids; reflection placement loads its own floor graph.
+    if (!plan["regions"].items().empty()
+        && fs::exists(options.output_directory / "interior-inference.json")
         && fs::exists(options.output_directory / "seed-plan.json")) {
         floors = read_environment_floors(
             options.output_directory, options.level_directory, options.settings.traversal
@@ -246,6 +242,8 @@ std::vector<BatchJob> batch_jobs(
 // A grid a stopped bake already wrote, with its report: its bytes, or nothing when either file
 // is missing.
 std::optional<std::vector<std::uint8_t>> finished_bytes(const BatchJob& job) {
+    const profiling::Zone timing("Read cached probe asset");
+
     if (!fs::exists(job.path) || !fs::exists(job.path.string() + ".txt")) {
         return std::nullopt;
     }
@@ -264,32 +262,13 @@ std::optional<std::vector<std::uint8_t>> finished_bytes(const BatchJob& job) {
 
 // Read the actual file back and verify exactly the bytes produced by this grid.
 ProbeVolume verify_batch_file(const BatchJob& job, const std::vector<std::uint8_t>& encoded) {
-    std::ifstream input(job.path, std::ios::binary | std::ios::ate);
+    auto checked = verify_probe_file(job.path, job.grid, encoded);
 
-    if (!input || input.tellg() != static_cast<std::streamoff>(encoded.size())) {
-        throw std::runtime_error("probe batch read-back size mismatch");
+    if (!checked) {
+        throw std::runtime_error(checked.error().message);
     }
 
-    std::vector<std::uint8_t> bytes(encoded.size());
-    input.seekg(0);
-
-    if (!input.read(
-            reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())
-        )
-        || bytes != encoded) {
-        throw std::runtime_error("probe batch read-back bytes differ");
-    }
-
-    auto volume = decode_probes(bytes);
-    const auto& grid = job.grid;
-
-    if (!probe_identity_matches(
-            volume, grid.game_version, grid.level, grid.scene_hash, grid.settings_hash
-        )) {
-        throw std::runtime_error("probe batch identity mismatch");
-    }
-
-    return volume;
+    return std::move(*checked);
 }
 }  // namespace
 
@@ -317,9 +296,19 @@ void run_probe_batch(
         throw std::runtime_error("source level changed during planning; no batch started");
     }
 
-    auto baker = std::make_unique<ProbeBaker>(exported.scene, options.settings, options.threads);
+    std::unique_ptr<BakeThreadPool> local_workers;
+
+    // Coordinated levels borrow one process-wide budget instead of creating competing pools.
+    if (!options.pool) {
+        local_workers = std::make_unique<BakeThreadPool>(options.threads);
+    }
+
+    auto& workers = options.pool ? *options.pool : *local_workers;
+    auto baker =
+        std::make_unique<ProbeBaker>(exported.scene, options.settings, options.threads, &workers);
     const ProbeBakeReport descriptions(level, exported, options.settings, options.light_set);
     std::optional<ProbeVolume> coarse;
+    BakeOutputQueue outputs(workers, output);
 
     // Progress over the whole level, in probes: every grid's, the ones kept counted as done.
     std::size_t total = 0, done = 0, shown = 0;
@@ -338,6 +327,7 @@ void run_probe_batch(
     };
 
     for (const auto& job : jobs) {
+        require_output(outputs.make_room());
 #ifdef OPENRAC_TRACY
         // Formatting the dynamic label should cost nothing in an ordinary bake.
         const profiling::Zone grid_trace(job.path.filename().string());
@@ -349,8 +339,10 @@ void run_probe_batch(
 
         if (options.resume) {
             if (const auto bytes = finished_bytes(job)) {
+                // Cached validation stays ordered without serialising newly baked outputs.
+                require_output(outputs.finish());
                 try {
-                    RuntimeRounding rounding;
+                    RuntimeProbeRounding rounding;
 
                     if (density.enabled && coarse) {
                         std::ifstream report_file(job.path.string() + ".txt");
@@ -360,7 +352,8 @@ void run_probe_batch(
                             throw std::runtime_error("kept probe grid has another density policy");
                         }
 
-                        final_job.grid = decode_probes(*bytes).grid;
+                        // Only packed validation is needed to recover a cached adaptive grid header.
+                        final_job.grid = decode_gpu_probes(*bytes).grid;
                     }
 
                     auto checked = verify_batch_file(final_job, *bytes);
@@ -403,36 +396,26 @@ void run_probe_batch(
         done += job.grid.probe_count();
         report_done(done);
         bake_detail::ProbeDensityReport density_report;
+        std::optional<ProbeReferenceOutput> fine_reference;
 
         if (coarse && density.enabled) {
-            const auto fine_bytes = encode_probes(volume);
-            const auto fine_report = descriptions.describe(job.grid) + identity
-                                     + std::format(
-                                         "adaptive_original_probes {}\nadaptive_final_probes {}\n"
-                                         "adaptive_overlap_restored 1\n",
-                                         volume.probes.size(),
-                                         volume.probes.size()
-                                     );
+            auto fine_bytes = encode_probes(volume);
+            auto fine_report = descriptions.describe(job.grid) + identity
+                               + std::format(
+                                   "adaptive_original_probes {}\nadaptive_final_probes {}\n"
+                                   "adaptive_overlap_restored 1\n",
+                                   volume.probes.size(),
+                                   volume.probes.size()
+                               );
             volume = bake_detail::simplify_probe_density(
                 std::move(volume), *coarse, receivers, density, density_report
             );
             volume.grid.settings_hash = probe_bake_settings_hash(volume.grid, options.settings);
             final_job.grid = volume.grid;
-            const auto reference =
-                job.path.parent_path() / "adaptive-reference" / job.path.filename();
-            fs::remove(reference);
-            fs::remove(reference.string() + ".txt");
 
             if (volume.probes.size() < job.grid.probe_count()) {
-                fs::create_directories(reference.parent_path());
-                write_bake_file(reference, fine_bytes);
-                write_bake_file(
-                    reference.string() + ".txt",
-                    std::span(
-                        reinterpret_cast<const std::uint8_t*>(fine_report.data()),
-                        fine_report.size()
-                    )
-                );
+                fine_reference =
+                    ProbeReferenceOutput{std::move(fine_bytes), std::move(fine_report)};
             }
 
             output << "Adaptive " << job.path.filename().string() << ' '
@@ -441,27 +424,7 @@ void run_probe_batch(
                    << std::flush;
         }
 
-        const auto encoded = encode_probes(volume);
-        write_bake_file(job.path, encoded);
-        {
-            RuntimeRounding rounding;
-            auto checked = verify_batch_file(final_job, encoded);
-
-            if (checked.grid.settings_hash
-                != probe_bake_settings_hash(checked.grid, options.settings)) {
-                throw std::runtime_error("probe batch settings differ under runtime rounding");
-            }
-
-            if (coarse) {
-                validate_probe_pair(*coarse, checked);
-            }
-
-            report_terrain_coverage(level, checked, coarse ? &*coarse : nullptr, output);
-
-            if (!coarse) {
-                coarse = std::move(checked);
-            }
-        }
+        auto encoded = encode_probes(volume);
         auto report = descriptions.describe(final_job.grid);
         report += identity;
 
@@ -488,24 +451,50 @@ void run_probe_batch(
             std::count_if(volume.probes.begin(), volume.probes.end(), [](const Probe& probe) {
                 return probe.relocated;
             });
-        report += std::format(
-            "relocated_probes {}\nvalid_probes {}\ninvalid_probes {}\n"
-            "bake_seconds {}\nasset_bytes {}\nverified_runtime_rounding 1\n",
-            relocated,
-            valid,
-            volume.probes.size() - static_cast<std::size_t>(valid),
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count(),
-            encoded.size()
-        );
-        write_bake_file(
-            job.path.string() + ".txt",
-            std::span(reinterpret_cast<const std::uint8_t*>(report.data()), report.size())
-        );
-        output << "Verified " << job.path.filename().string() << '\n' << std::flush;
+        ProbeFileOutput file{
+            final_job.path,
+            final_job.grid,
+            std::move(encoded),
+            std::move(report),
+            {volume.probes.size(),
+             static_cast<std::size_t>(valid),
+             static_cast<std::size_t>(relocated)},
+            start,
+            bool(coarse && density.enabled),
+            std::move(fine_reference)
+        };
+        const ProbeOutputContext context{level, options.settings, coarse ? &*coarse : nullptr};
+
+        // Dependent grids cannot start before the coarse field's readback has completed.
+        if (!coarse) {
+            auto completed = write_probe_output(file, context);
+
+            if (!completed) {
+                throw std::runtime_error(completed.error().message);
+            }
+
+            coarse = std::move(completed->coarse);
+            output << completed->diagnostics << std::flush;
+        } else {
+            // The queued callback owns its payload; shared ownership avoids copying encoded planes.
+            auto owned = std::make_shared<ProbeFileOutput>(std::move(file));
+            require_output(outputs.submit([owned, context] {
+                auto completed = write_probe_output(*owned, context);
+
+                if (!completed) {
+                    throw std::runtime_error(completed.error().message);
+                }
+                return std::move(completed->diagnostics);
+            }));
+        }
     }
+
+    require_output(outputs.finish());
 
     // Release GI acceleration before constructing reflection capture state.
     baker.reset();
+
+    std::vector<ProbeVolume> verified_field;
 
     if (density.enabled && !receivers.empty()) {
         std::vector<fs::path> paths;
@@ -514,7 +503,9 @@ void run_probe_batch(
             paths.push_back(job.path);
         }
 
-        verify_probe_density_field(paths, receivers, density, output);
+        verified_field = verify_probe_density_field(
+            paths, receivers, density, output, {options.threads, &workers}
+        );
     }
 
     // A resumed stage regenerates captures only after every GI grid has passed read-back checks.
@@ -524,11 +515,13 @@ void run_probe_batch(
     }
 
     bake_level_environment(
-        level.dir,
-        options.output_directory,
-        exported.scene,
-        options.settings,
-        options.threads,
+        {level.dir,
+         options.output_directory,
+         exported.scene,
+         options.settings,
+         floors,
+         verified_field},
+        {options.threads, &workers},
         output
     );
 
@@ -537,8 +530,6 @@ void run_probe_batch(
             "source level changed during the bake; no manifest was registered"
         );
     }
-
-    output << "Probe batch complete\n" << std::flush;
 }
 
 }  // namespace openrac::lighting

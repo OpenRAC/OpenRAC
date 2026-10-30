@@ -11,13 +11,35 @@ from unittest.mock import patch
 import bake_all as batch
 
 
+class FakeCoordinator:
+    """Runs preparation callbacks without a native process in scheduler-independent cache tests."""
+    def __init__(self, baker, output, **settings):
+        self.settings = settings
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    def process_factory(self, index):
+        return None
+
+    def run(self, records, callback):
+        order = sorted(records, key=lambda record: -record['weight'])
+        if self.settings['jobs'] == 1:
+            order = records
+        for record in order:
+            callback(record['id'])
+
+
 class AllLevelBake(unittest.TestCase):
     def test_water_is_prepared_before_baking_or_reusing_cached_lighting(self):
         level = self.levels/'level_01'
         level.mkdir()
         (level/'manifest.json').write_text('{"game":"rac1","version":"ntsc","level":1}')
 
-        def prepare(path, manifest, disc):
+        def prepare(path, manifest, disc, **kwargs):
             if manifest.get('level') == 1:
                 (path/'water.bin').write_bytes(b'coastline')
                 (path/'water.mesh').write_bytes(b'mesh')
@@ -52,6 +74,12 @@ class AllLevelBake(unittest.TestCase):
             self.assertTrue(batch.up_to_date(output, stamp))
 
     def setUp(self):
+        emission = patch.object(batch.bake_level, 'prepare_emission')
+        emission.start()
+        self.addCleanup(emission.stop)
+        coordinator = patch.object(batch, 'NativeCoordinator', FakeCoordinator)
+        coordinator.start()
+        self.addCleanup(coordinator.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         # bake_all resolves its paths; on macOS the temporary folder's /var is /private/var.
@@ -330,20 +358,19 @@ class AllLevelBake(unittest.TestCase):
             whitelist.write_text('{"version":1,"game":"rac1","classes":[{"class":0}]}')
             self.assertNotEqual(original, batch.planner_hash())
 
-    def test_jobs_share_the_budget_unless_told(self):
-        self.assertEqual(batch.with_threads(['--threads', '2'], 4), ['--threads', '2'])
+    def test_global_budget_is_used_unless_told(self):
+        self.assertEqual(batch.with_threads(['--threads', '2']), ['--threads', '2'])
         # 8 threads: 6 for the bake, 2 kept for the desktop (background.cpu_budget).
         with patch('os.cpu_count', return_value=8):
-            self.assertEqual(batch.with_threads(['--rays', '8'], 1), ['--rays', '8', '--threads', '6'])
-            self.assertEqual(batch.with_threads([], 3), ['--threads', '2'])
-            self.assertEqual(batch.with_threads([], 16), ['--threads', '1'])
+            self.assertEqual(batch.with_threads(['--rays', '8']), ['--rays', '8', '--threads', '6'])
+            self.assertEqual(batch.with_threads([]), ['--threads', '6'])
             self.assertEqual(batch.automatic_jobs(), 1)
         # A 16-core, 32-thread desktop: 28 threads, seven levels at once with four each, as
         # memory allows.
         with patch('os.cpu_count', return_value=32), \
              patch.object(batch, 'physical_memory', return_value=128 << 30):
             self.assertEqual(batch.automatic_jobs(), 7)
-            self.assertEqual(batch.with_threads([], 7), ['--threads', '4'])
+            self.assertEqual(batch.with_threads([]), ['--threads', '28'])
         with patch('os.cpu_count', return_value=32), \
              patch.object(batch, 'physical_memory', return_value=4 << 30):
             self.assertEqual(batch.automatic_jobs(), 2)
@@ -351,9 +378,6 @@ class AllLevelBake(unittest.TestCase):
     def test_bakes_the_largest_levels_first_sharing_the_threads(self):
         (self.levels/'level_99/big.bin').write_bytes(bytes(4096))
         (self.levels/'level_02/mid.bin').write_bytes(bytes(1024))
-        self.assertEqual([batch.discover_levels(self.levels)[i].name
-                          for i in batch.largest_first(batch.discover_levels(self.levels))[:2]],
-                         ['level_99', 'level_02'])
         calls = []
 
         def bake(level, work, baker, *, disc=None, options=(), **kwargs):
@@ -365,9 +389,9 @@ class AllLevelBake(unittest.TestCase):
         with patch.object(batch.bake_level, 'bake_level', side_effect=bake), \
              patch('os.cpu_count', return_value=8):
             self.assertTrue(batch.bake_all(self.levels, self.output, self.baker, jobs=2))
-        # Two at once: the two largest start together, each with half of the bake's 6 threads.
+        # Both levels may request the whole shared budget; native workers enforce the global cap.
         self.assertEqual({name for name, _ in calls[:2]}, {'level_99', 'level_02'})
-        self.assertTrue(all(options == ['--threads', '3'] for _, options in calls))
+        self.assertTrue(all(options == ['--threads', '6'] for _, options in calls))
         # The report keeps the levels' own order.
         report = json.loads((self.output/'bake-all-result.json').read_text())
         self.assertEqual([level['level'] for level in report['levels']],

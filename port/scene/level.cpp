@@ -119,6 +119,7 @@ int image_index(const fs::path& requested, LevelData& level) {
     return pixels != nullptr ? static_cast<int>(level.images.size() - 1) : -1;
 }
 
+// Shares equivalent decoded materials while retaining original emission intent for offline review.
 int material_index(const cgltf_material* source, const fs::path& base, LevelData& level) {
     Material m;
     if (source != nullptr) {
@@ -130,6 +131,8 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
             source->has_emissive_strength ? source->emissive_strength.emissive_strength : 1.0f;
         for (unsigned c = 0; c < 3; ++c) {
             m.emission[c] = source->emissive_factor[c] * strength;
+            // Audits retain explicit material intent even when visible strength is zero.
+            m.authored_emission = m.authored_emission || source->emissive_factor[c] > 0;
         }
         const auto* emission = source->emissive_texture.texture;
         if (emission && emission->image && emission->image->uri) {
@@ -167,10 +170,11 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
     }
     for (std::size_t i = 0; i < level.materials.size(); ++i) {
         const Material& o = level.materials[i];
+        // Shared materials must also agree on the emission intent retained for offline auditing.
         if (o.image == m.image && o.cutout == m.cutout && o.blend == m.blend && o.metal == m.metal
             && o.clamp_s == m.clamp_s && o.clamp_t == m.clamp_t && o.colour == m.colour
             && o.emission == m.emission && o.emission_image == m.emission_image
-            && (!m.metal || o.name == m.name)) {
+            && o.authored_emission == m.authored_emission && (!m.metal || o.name == m.name)) {
             return static_cast<int>(i);
         }
     }

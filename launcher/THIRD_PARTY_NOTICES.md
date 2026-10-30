@@ -102,7 +102,7 @@ each package's `LICENSE`:
 
 ## Embree, in the carried probe baker
 
-The game copy an installer carries includes `openrac-probe-bake`, the baker of
+The game copy an installer carries includes `openrac-enhanced-baker`, the baker of
 the Mods tab's Enhanced graphics, which runs on the player's computer over their
 own extracted levels. It has [Embree](https://github.com/RenderKit/embree) 4.4.1
 built in (Apache License 2.0, Copyright Intel Corporation; on ARM with SSE2NEON,

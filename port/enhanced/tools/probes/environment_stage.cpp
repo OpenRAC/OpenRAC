@@ -11,8 +11,10 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <utility>
 
 #include "common/json.h"
+#include "common/profiler.h"
 #include "enhanced/tools/probes/activation.h"
 #include "enhanced/tools/probes/report.h"
 
@@ -38,6 +40,34 @@ std::vector<std::uint8_t> read(const std::filesystem::path& path) {
     return bytes;
 }
 
+// Loads one field only when no completed density field was supplied by the batch controller.
+std::vector<ProbeVolume> read_environment_field(const std::filesystem::path& output) {
+    const profiling::Zone timing("Read reflection GI field");
+    std::vector<ProbeVolume> loaded_volumes;
+    std::vector<std::filesystem::path> paths;
+
+    // Retain the former filename order and coarse-first field layout.
+    for (const auto& entry : std::filesystem::directory_iterator(output)) {
+        // Only final local-grid assets participate in reflection lighting.
+        if (entry.path().filename().string().starts_with("region-")
+            && entry.path().extension() == ".orpg") {
+            paths.push_back(entry.path());
+        }
+    }
+
+    std::sort(paths.begin(), paths.end());
+    paths.insert(paths.begin(), output / "sparse.orpg");
+
+    // CPU sampling requires expansion when no density stage supplied decoded maps.
+    for (const auto& path : paths) {
+        auto volume = decode_probes(read(path));
+
+        loaded_volumes.push_back(std::move(volume));
+    }
+
+    return loaded_volumes;
+}
+
 }  // namespace
 
 // Reuse collision walkability and connected-room identities from the interior preparation stage.
@@ -46,6 +76,8 @@ std::vector<EnvironmentFloorSample> read_environment_floors(
     const std::filesystem::path& level,
     const BakeTraversalSettings& traversal
 ) {
+    const profiling::Zone timing("Read playable floors");
+
     const auto path = output / "interior-inference.json";
 
     if (!std::filesystem::exists(path)) {
@@ -145,13 +177,21 @@ std::vector<EnvironmentFloorSample> read_environment_floors(
 
     json::Value seeds;
 
-    if (!json::parse_file((output / "seed-plan.json").string(), seeds, error)
-        || !seeds["moby_seeds"].is_array()) {
+    if (!json::parse_file((output / "seed-plan.json").string(), seeds, error)) {
         throw std::runtime_error("environment placement needs gameplay floor anchors: " + error);
     }
 
+    // Optional GI seeding controls must not remove the separately prepared reflection evidence.
+    const auto& anchors =
+        seeds["floor_anchors"].is_array() ? seeds["floor_anchors"] : seeds["moby_seeds"];
+
+    // Missing evidence cannot establish gameplay-reachable floors.
+    if (!anchors.is_array()) {
+        throw std::runtime_error("environment placement needs gameplay floor anchors");
+    }
+
     // Ground-snapped gameplay seeds choose a layer; proximity in XY alone is unsafe in stacked rooms.
-    for (const auto& seed : seeds["moby_seeds"].items()) {
+    for (const auto& seed : anchors.items()) {
         if (!seed["position"].is_array() || seed["position"].items().size() != 3
             || !seed["ground_z"].is_number()) {
             continue;
@@ -423,13 +463,14 @@ void placement_report(
 }  // namespace
 
 void bake_level_environment(
-    const std::filesystem::path& level,
-    const std::filesystem::path& output,
-    const BakeScene& scene,
-    const BakeSettings& settings,
-    unsigned threads,
-    std::ostream& log
+    const EnvironmentStageInput& input, const BakeExecution& execution, std::ostream& log
 ) {
+    const auto& level = input.level;
+    const auto& output = input.output;
+    const auto& scene = input.scene;
+    const auto& settings = input.settings;
+    const profiling::Zone timing("Prepare and bake reflections");
+
     const auto config = load_level_bake_profile(level).environment;
 
     if (!config.enabled) {
@@ -437,27 +478,18 @@ void bake_level_environment(
     }
 
     const auto start = std::chrono::steady_clock::now();
-    std::vector<std::filesystem::path> paths;
+    std::vector<ProbeVolume> loaded_volumes;
+    auto volumes = input.verified_field;
 
-    for (const auto& entry : std::filesystem::directory_iterator(output)) {
-        if (entry.path().filename().string().starts_with("region-")
-            && entry.path().extension() == ".orpg") {
-            paths.push_back(entry.path());
-        }
+    // Standalone or density-disabled bakes still load their complete verified GI field.
+    if (volumes.empty()) {
+        loaded_volumes = read_environment_field(output);
+        volumes = loaded_volumes;
     }
 
-    std::sort(paths.begin(), paths.end());
-    paths.insert(paths.begin(), output / "sparse.orpg");
-    std::vector<ProbeVolume> volumes;
-
-    for (const auto& path : paths) {
-        auto volume = decode_probes(read(path));
-
-        if (!volumes.empty()) {
-            validate_probe_pair(volumes[0], volume);
-        }
-
-        volumes.push_back(std::move(volume));
+    // Reused fields retain the same identity and containment checks as freshly loaded inputs.
+    for (std::size_t index = 1; index < volumes.size(); ++index) {
+        validate_probe_pair(volumes[0], volumes[index]);
     }
 
     log << "Baking environment probes after GI\n" << std::flush;
@@ -465,15 +497,16 @@ void bake_level_environment(
     EnvironmentAsset asset;
 
     try {
-        asset = bake_environment(
-            scene,
-            settings,
-            volumes,
-            read_environment_floors(output, level, settings.traversal),
-            config,
-            threads,
-            &placement
-        );
+        std::vector<EnvironmentFloorSample> loaded_floors;
+        auto floors = input.floors;
+
+        // Normal batches reuse the immutable GI floor graph; standalone callers still load their own.
+        if (floors.empty()) {
+            loaded_floors = read_environment_floors(output, level, settings.traversal);
+            floors = loaded_floors;
+        }
+
+        asset = bake_environment(scene, settings, volumes, floors, config, execution, &placement);
     } catch (...) {
         placement_report(output, placement);
         throw;

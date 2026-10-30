@@ -160,18 +160,26 @@ def rectangles(cells):
         yield x, y, right, top, value
 
 
-def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32, padding=3, *, markers=None):
-    """Grow dense coverage through enclosed playable cells, preserving outdoor seeds."""
+def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32, padding=3, *, markers=None, native_query=None):
+    """Grow coverage natively during baking; retain the Python path for standalone planning and comparison."""
     from seed_regions import axis_spacing, probe_count, split_bounds
     spacing = axis_spacing(spacing)
     if not math.isfinite(max_rise) or max_rise <= 0 or not math.isfinite(padding) or padding < 0:
         raise ValueError('invalid geometry coverage settings')
     padding = max(padding, spacing[2])
-    surfaces = Surfaces(triangles)
+    surfaces = Surfaces(triangles) if native_query is None else None
     lower = [math.ceil(coarse['origin'][i]/spacing[i])*spacing[i] for i in range(3)]
     upper = [math.floor((coarse['origin'][i]+coarse['spacing'][i]*(coarse['dimensions'][i]-1))/spacing[i])*spacing[i] for i in range(3)]
     cell = [spacing[0]*2, spacing[1]*2]
     out, diagnostics = [], []
+    native_results = None
+    if native_query is not None:
+        seeds = [{'bounds': region['bounds'],
+                  'anchors': gameplay_anchors(region, markers) if markers is not None else [],
+                  'require_anchor': markers is not None and not region.get('source_transitions')}
+                 for region in regions]
+        native_results = native_query(dict(seeds=seeds, lower=lower, upper=upper, spacing=spacing,
+                                          max_rise=max_rise, padding=padding))
     for index, region in enumerate(regions):
         original = region['bounds']
         anchors = gameplay_anchors(region, markers) if markers is not None else None
@@ -180,66 +188,75 @@ def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32
         cells, queue, seen = {}, deque(), set()
         indoor, limited, discovered, disconnected = 0, 0, 0, 0
         sample_limit_reached = False
-        for x in range(math.floor(original[0]/cell[0]), math.ceil(original[3]/cell[0])):
-            for y in range(math.floor(original[1]/cell[1]), math.ceil(original[4]/cell[1])):
-                cells[x, y] = (original[2], original[5])
-                # Sample occupied height bands, so a tall seed cannot jump over a room.
-                reference = original[2]+max(spacing[2], 2)+0.25
-                while reference <= original[5]:
-                    queue.append((x, y, reference, False))
-                    reference += max(spacing[2]*2, 4)
-        while queue:
-            x, y, reference, grown = queue.popleft()
-            # A failed direct connection may still be reachable later around a corner.
-            key = (x, y, round(reference/spacing[2]), grown)
-            if key in seen:
-                continue
-            if len(seen) >= MAX_ROOM_SAMPLES:
-                sample_limit_reached = True
-                break
-            seen.add(key)
-            px, py = (x+.5)*cell[0], (y+.5)*cell[1]
-            if not (lower[0]+spacing[0] <= px <= upper[0]-spacing[0]
-                    and lower[1]+spacing[1] <= py <= upper[1]-spacing[1]):
-                continue
-            room = surfaces.room(px, py, reference, max_rise, min(cell))
-            if room is None:
-                continue
-            floor, roof = room
-            if floor < original[2]-spacing[2] or floor > original[5]:
-                continue
-            # Padded marker columns can overlap solid cliffs or inaccessible upper storeys.
-            # Only connected source floors may start expansion; accepted neighbours then flood normally.
-            if not grown and require_anchor and not connected_floor(
-                    surfaces, anchors, px, py, floor, max(2, spacing[2])):
-                disconnected += 1
-                continue
-            # Flood only to nearby walkable heights, never directly into another storey.
-            if grown and abs(floor-(reference-1)) > max(2, spacing[2]):
-                continue
-            indoor += 1
-            limited += roof+padding > limit
-            lo = max(lower[2], math.floor((floor-spacing[2])/spacing[2])*spacing[2])
-            hi = max(original[5], min(math.floor(limit/spacing[2])*spacing[2],
-                                     math.ceil((roof+padding)/spacing[2])*spacing[2]))
-            old = cells.get((x, y))
-            if old is not None:
-                lo, hi = min(lo, old[0]), max(hi, old[1])
-            else:
-                discovered += 1
-            cells[x, y] = (lo, hi)
-            for dx, dy in ((-1,0),(1,0),(0,-1),(0,1)):
-                distance = cell[0] if dx else cell[1]
-                # Neighbouring enclosed cells need a traversable connection;
-                # proximity alone must not flood through a wall into another room.
-                if surfaces.ray((px, py, floor+1.5), (dx, dy, 0), distance) is None:
-                    queue.append((x+dx, y+dy, floor+1, True))
+        if native_results is not None:
+            result = native_results[index]
+            cells = {(x, y): (lo, hi) for x, y, lo, hi in result['cells']}
+            indoor, limited = result['indoor'], result['limited']
+            discovered, disconnected = result['discovered'], result['disconnected']
+            sample_limit_reached = result['sample_limit_reached']
+            seen_count = result['seen']
+        else:
+            for x in range(math.floor(original[0]/cell[0]), math.ceil(original[3]/cell[0])):
+                for y in range(math.floor(original[1]/cell[1]), math.ceil(original[4]/cell[1])):
+                    cells[x, y] = (original[2], original[5])
+                    # Sample occupied height bands, so a tall seed cannot jump over a room.
+                    reference = original[2]+max(spacing[2], 2)+0.25
+                    while reference <= original[5]:
+                        queue.append((x, y, reference, False))
+                        reference += max(spacing[2]*2, 4)
+            while queue:
+                x, y, reference, grown = queue.popleft()
+                # A failed direct connection may still be reachable later around a corner.
+                key = (x, y, round(reference/spacing[2]), grown)
+                if key in seen:
+                    continue
+                if len(seen) >= MAX_ROOM_SAMPLES:
+                    sample_limit_reached = True
+                    break
+                seen.add(key)
+                px, py = (x+.5)*cell[0], (y+.5)*cell[1]
+                if not (lower[0]+spacing[0] <= px <= upper[0]-spacing[0]
+                        and lower[1]+spacing[1] <= py <= upper[1]-spacing[1]):
+                    continue
+                room = surfaces.room(px, py, reference, max_rise, min(cell))
+                if room is None:
+                    continue
+                floor, roof = room
+                if floor < original[2]-spacing[2] or floor > original[5]:
+                    continue
+                # Padded marker columns can overlap solid cliffs or inaccessible upper storeys.
+                # Only connected source floors may start expansion; accepted neighbours then flood normally.
+                if not grown and require_anchor and not connected_floor(
+                        surfaces, anchors, px, py, floor, max(2, spacing[2])):
+                    disconnected += 1
+                    continue
+                # Flood only to nearby walkable heights, never directly into another storey.
+                if grown and abs(floor-(reference-1)) > max(2, spacing[2]):
+                    continue
+                indoor += 1
+                limited += roof+padding > limit
+                lo = max(lower[2], math.floor((floor-spacing[2])/spacing[2])*spacing[2])
+                hi = max(original[5], min(math.floor(limit/spacing[2])*spacing[2],
+                                         math.ceil((roof+padding)/spacing[2])*spacing[2]))
+                old = cells.get((x, y))
+                if old is not None:
+                    lo, hi = min(lo, old[0]), max(hi, old[1])
+                else:
+                    discovered += 1
+                cells[x, y] = (lo, hi)
+                for dx, dy in ((-1,0),(1,0),(0,-1),(0,1)):
+                    distance = cell[0] if dx else cell[1]
+                    # Neighbouring enclosed cells need a traversable connection;
+                    # proximity alone must not flood through a wall into another room.
+                    if surfaces.ray((px, py, floor+1.5), (dx, dy, 0), distance) is None:
+                        queue.append((x+dx, y+dy, floor+1, True))
+            seen_count = len(seen)
         diagnostic = {'seed_region': index, 'seed_bounds': original.copy(),
                       'indoor_samples': indoor, 'connected_cells_added': discovered,
                       'disconnected_samples': disconnected,
                       'limited_surfaces': limited, 'height_limit': limit,
                       'sample_limit_reached': sample_limit_reached,
-                      'unresolved_or_outdoor_samples': len(seen)-indoor, 'changed': False}
+                      'unresolved_or_outdoor_samples': seen_count-indoor, 'changed': False}
         if indoor == 0:
             parts = [original.copy()]
         else:
@@ -279,6 +296,7 @@ def extend_regions(regions, triangles, coarse, spacing, budget=4096, max_rise=32
     merged = merge_regions(pieces, spacing, budget, preserve_height=True)
     for piece in merged:
         piece.update(spacing=spacing, probe_count=probe_count(piece['bounds'], spacing))
-    surfaces.ray.cache_clear()
-    surfaces.room.cache_clear()
+    if surfaces is not None:
+        surfaces.ray.cache_clear()
+        surfaces.room.cache_clear()
     return sorted(merged, key=lambda piece: piece['bounds']), diagnostics

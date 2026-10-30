@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Probe storage, runtime sampling and versioned GPU-format serialisation.
 #include "enhanced/lighting/probes.h"
 
 #include <algorithm>
@@ -6,7 +9,9 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 
+#include "common/profiler.h"
 #include "enhanced/lighting/probe_atlas.h"
 
 namespace openrac::lighting {
@@ -130,6 +135,97 @@ struct Reader {
 
     float f32() { return std::bit_cast<float>(u32()); }
 };
+
+// Reads grid geometry and identity once, before packed or expanded payload validation.
+ProbeGrid read_probe_grid(Reader& reader) {
+    ProbeGrid grid;
+    grid.bake_version = reader.u32();
+    const auto size = reader.u32();
+    // The portable format bounds game identity strings to 64 bytes.
+    constexpr std::uint32_t kMaximumIdentityBytes = 64;
+
+    // The identity is bounded independently of the payload size.
+    if (!size || size > kMaximumIdentityBytes || size > reader.bytes.size() - reader.offset) {
+        invalid("invalid probe identity");
+    }
+
+    grid.game_version
+        .assign(reinterpret_cast<const char*>(reader.bytes.data() + reader.offset), size);
+    reader.offset += size;
+    grid.level = reader.u32();
+    grid.scene_hash = reader.u64();
+    grid.settings_hash = reader.u64();
+
+    // Serialized axes retain their original read and arithmetic order.
+    for (float& value : grid.origin) {
+        value = reader.f32();
+    }
+
+    // The upright frame is stored as its two horizontal axis components.
+    for (float& value : grid.frame.axis) {
+        value = reader.f32();
+    }
+
+    // Spacing and dimensions determine the payload size validated by the caller.
+    for (float& value : grid.spacing) {
+        value = reader.f32();
+    }
+
+    // Read each dimension before validating the complete extent.
+    for (auto& value : grid.dimensions) {
+        value = reader.u32();
+    }
+
+    grid.map_resolution = reader.u32();
+    grid.max_distance = reader.f32();
+    grid.validate();
+
+    return grid;
+}
+
+// Reads only the format contract; callers validate every packed texel before returning a field.
+ProbeVolume read_probe_header(std::vector<std::uint8_t> bytes) {
+    const profiling::Zone timing("Read probe header");
+    Reader reader{bytes};
+
+    // Files from another asset family cannot be interpreted as probes.
+    if (reader.u32() != kMagic) {
+        invalid("unknown probe asset format");
+    }
+
+    const auto format = reader.u32();
+
+    // Only the current GPU plane layout is supported.
+    if (format != kProbeFormatVersion) {
+        invalid("unsupported probe file version; rebake with this version of the baker");
+    }
+
+    const ProbeGrid grid = read_probe_grid(reader);
+    ProbeVolume volume;
+    volume.grid = grid;
+
+    // Canonical atlas dimensions must agree with the decoded grid.
+    if (reader.u32() != kProbeAtlasTilesX || reader.u32() != volume.atlas_rows()) {
+        invalid("unsupported probe atlas layout; rebake this level");
+    }
+
+    // R11G11B10F irradiance plus RG32F moments and RGBA16F probe metadata.
+    constexpr std::size_t kMapTexelBytes = 12;
+    constexpr std::size_t kMetadataBytes = 8;
+    const auto expected = product(
+        volume.atlas_capacity(), product(grid.texels_per_probe(), kMapTexelBytes) + kMetadataBytes
+    );
+
+    // Reject truncation and trailing bytes before accessing any packed texel.
+    if (bytes.size() - reader.offset != expected) {
+        invalid("probe payload size mismatch");
+    }
+
+    volume.gpu_offset = reader.offset;
+    volume.gpu_bytes = std::move(bytes);
+
+    return volume;
+}
 }  // namespace
 
 Float3 ProbeFrame::to_local(Float3 p) const {
@@ -220,6 +316,8 @@ Float3 ProbeVolume::position(std::size_t probe) const {
 }
 
 void ProbeVolume::validate() const {
+    const profiling::Zone timing("Validate probe volume");
+
     grid.validate();
     const auto count = product(grid.probe_count(), grid.texels_per_probe());
 
@@ -566,6 +664,8 @@ std::optional<ProbeSample> sample_probe_volumes(
 }
 
 std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
+    const profiling::Zone timing("Encode probe asset");
+
     v.validate();
     std::vector<std::uint8_t> out;
     write_u32(out, kMagic);
@@ -616,78 +716,25 @@ std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
 }
 
 ProbeVolume decode_gpu_probes(std::vector<std::uint8_t> bytes) {
-    Reader r{bytes};
+    const profiling::Zone timing("Decode GPU probe asset");
+    auto volume = read_probe_header(std::move(bytes));
+    read_probe_planes(volume, false);
+    volume.validate();
 
-    if (r.u32() != kMagic) {
-        invalid("unknown probe asset format");
-    }
-
-    const auto format = r.u32();
-
-    if (format != kProbeFormatVersion) {
-        invalid("unsupported probe file version; rebake with this version of the baker");
-    }
-
-    ProbeGrid grid;
-    grid.bake_version = r.u32();
-    const auto size = r.u32();
-
-    if (!size || size > 64 || size > bytes.size() - r.offset) {
-        invalid("invalid probe identity");
-    }
-
-    grid.game_version.assign(reinterpret_cast<const char*>(bytes.data() + r.offset), size);
-    r.offset += size;
-    grid.level = r.u32();
-    grid.scene_hash = r.u64();
-    grid.settings_hash = r.u64();
-
-    for (float& x : grid.origin) {
-        x = r.f32();
-    }
-
-    for (float& x : grid.frame.axis) {
-        x = r.f32();
-    }
-
-    for (float& x : grid.spacing) {
-        x = r.f32();
-    }
-
-    for (auto& x : grid.dimensions) {
-        x = r.u32();
-    }
-
-    grid.map_resolution = r.u32();
-    grid.max_distance = r.f32();
-    grid.validate();
-    ProbeVolume v;
-    v.grid = grid;
-
-    if (r.u32() != kProbeAtlasTilesX || r.u32() != v.atlas_rows()) {
-        invalid("unsupported probe atlas layout; rebake this level");
-    }
-
-    const auto expected = product(v.atlas_capacity(), product(grid.texels_per_probe(), 12) + 8);
-
-    if (bytes.size() - r.offset != expected) {
-        invalid("probe payload size mismatch");
-    }
-
-    v.gpu_offset = r.offset;
-    v.gpu_bytes = std::move(bytes);
-    read_probe_planes(v, false);
-    v.validate();
-    return v;
+    return volume;
 }
 
 ProbeVolume decode_probes(std::span<const std::uint8_t> bytes) {
-    auto v = decode_gpu_probes({bytes.begin(), bytes.end()});
-    read_probe_planes(v, true);
-    v.gpu_bytes.clear();
-    v.gpu_offset = 0;
-    v.validate();
-    return v;
+    const profiling::Zone timing("Expand CPU probe asset");
+    auto volume = read_probe_header({bytes.begin(), bytes.end()});
+
+    // Expansion validates the same packed channels without an earlier duplicate plane scan.
+    read_probe_planes(volume, true);
+    volume.gpu_bytes = std::vector<std::uint8_t>{};
+    volume.gpu_offset = 0;
+    volume.validate();
+
+    return volume;
 }
 
 bool probe_identity_matches(

@@ -32,7 +32,7 @@ fn sha256(path: &Path) -> Option<String> {
     Some(format!("{:x}", Sha256::digest(&bytes)))
 }
 
-/// What `baker` makes of `level` (`--print-profile`), as bake_all.py's `baker_profile` reads it:
+/// What `baker` makes of `level` (`--print-profile`):
 /// its digest names the baker in a level's stamp, the same for every build of the same baker.
 /// None when it cannot say. Asked once for each build of the baker and each level's files (a few
 /// tens of milliseconds a level).
@@ -67,26 +67,10 @@ fn baker_profile(baker: &Path, level: &Path) -> Option<String> {
     said
 }
 
-/// Whether the bake in `baked`, whose stamp is `stamp`, was made by the baker whose profile is
-/// `profile`. A stamp of version 2 named the baker by its file's digest: it counts when its bake
-/// has the profile's probe format and bake version (bake_all.py, up_to_date).
-fn made_by(stamp: &Value, baked: &Path, profile: &str) -> bool {
+/// Current native bake stamps must match the resolved transport profile exactly.
+fn made_by(stamp: &Value, profile: &str) -> bool {
     let digest = format!("{:x}", Sha256::digest(profile.as_bytes()));
-    if stamp["baker_profile_sha256"].as_str() == Some(digest.as_str()) {
-        return true;
-    }
-    if stamp["version"].as_u64() != Some(2) {
-        return false;
-    }
-    let (Ok(profile), Some(result)) = (
-        serde_json::from_str::<Value>(profile),
-        std::fs::read_to_string(baked.join("bake-result.json"))
-            .ok()
-            .and_then(|t| serde_json::from_str::<Value>(&t).ok()),
-    ) else {
-        return false;
-    };
-    ["bake_version", "probe_format_version"].iter().all(|k| !result[k].is_null() && result[k] == profile[k])
+    stamp["version"] == 5 && stamp["baker_profile_sha256"].as_str() == Some(digest.as_str())
 }
 
 fn verified_bake(baked: &Path) -> bool {
@@ -109,33 +93,31 @@ fn verified_bake(baked: &Path) -> bool {
     };
     present("sparse.orpg")
         && match result.get("regions") {
-            None => true,
             Some(Value::Array(regions)) => regions.iter().all(|r| r.as_str().is_some_and(present)),
             _ => false,
         }
 }
 
-/// Novalis water is prepared with lighting; missing or changed assets must trigger preparation too.
+/// Declarative water sources and both outputs must match their current native cache stamp.
 fn prepared_water(level: &Path, manifest: &Path) -> bool {
-    let document: Value =
-        std::fs::read_to_string(manifest).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null);
-    if document["game"] != "rac1" || document["version"] != "ntsc" || document["level"] != 1 {
-        return true;
-    }
-    let Some(stamp): Option<Value> =
-        std::fs::read_to_string(level.join("water-bake.json")).ok().and_then(|text| serde_json::from_str(&text).ok())
-    else {
-        return false;
+    let read = |path: &Path| -> Value {
+        std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null)
     };
-    stamp["version"] == 1
-        && level.join("bake-inputs/overlay.bin").is_file()
-        && level.join("collision.glb").is_file()
+    let profile = read(&level.join("probe-bake.json"));
+    if profile["water_sources"].is_null() {
+        return read(manifest)["bake_inputs"]["water"].is_null();
+    }
+    let stamp = read(&level.join("water-bake.json"));
+    stamp["version"] == 3
+        && stamp["inputs"]["algorithm"] == "native-water-sources-v1"
+        && ["bake-inputs/overlay.bin", "collision.glb", "probe-bake.json"].iter().all(|name| level.join(name).is_file())
         && ["water.bin", "water.mesh"].iter().enumerate().all(|(i, name)| {
             sha256(&level.join(name)).is_some_and(|digest| stamp["outputs"][i].as_str() == Some(digest.as_str()))
         })
         && [
             ("overlay", "bake-inputs/overlay.bin"),
             ("collision", "collision.glb"),
+            ("profile", "probe-bake.json"),
             ("boundaries", "water-boundaries.json"),
         ]
         .iter()
@@ -186,10 +168,11 @@ fn bake_status_on(
             std::fs::read_to_string(baked.join(STAMP)).ok().and_then(|t| serde_json::from_str(&t).ok());
         let current = stamp.as_ref().is_some_and(|s| {
             s["manifest_sha256"].as_str() == sha256(&manifest).as_deref()
+                && s["profile_sha256"].as_str() == sha256(&entry.path().join("probe-bake.json")).as_deref()
                 && has_baker
                 && verified_bake(&baked)
                 && prepared_water(&entry.path(), &manifest)
-                && profile(&entry.path()).is_some_and(|p| made_by(s, &baked, &p))
+                && profile(&entry.path()).is_some_and(|p| made_by(s, &p))
         });
         if current {
             out.ready += 1;
@@ -305,7 +288,8 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path();
         std::fs::write(root.join("sparse.orpg"), "probe bytes").unwrap();
-        for text in [r#"{"verified":false}"#, r#"{"verified":true,"regions":["missing.orpg"]}"#] {
+        for text in [r#"{"verified":true}"#, r#"{"verified":false}"#, r#"{"verified":true,"regions":["missing.orpg"]}"#]
+        {
             std::fs::write(root.join("bake-result.json"), text).unwrap();
             assert!(!verified_bake(root));
         }
@@ -341,34 +325,70 @@ mod tests {
     }
 
     #[test]
-    fn novalis_water_must_be_prepared_and_match_the_export() {
-        let root = temp("water-preparation");
+    fn previous_bake_stamps_require_a_rebake() {
+        let profile = "current profile";
+        for version in [1, 2, 3, 4] {
+            let stamp = serde_json::json!({"version":version,
+                "baker_profile_sha256":format!("{:x}",Sha256::digest(profile.as_bytes()))});
+            assert!(!made_by(&stamp, profile));
+        }
+    }
+
+    #[test]
+    fn native_water_stamps_check_profiles_sources_and_both_outputs() {
+        let root = temp("native-water");
         std::fs::create_dir_all(root.join("bake-inputs")).unwrap();
         let manifest = root.join("manifest.json");
-        std::fs::write(&manifest, r#"{"game":"rac1","version":"ntsc","level":1}"#).unwrap();
-        assert!(!prepared_water(&root, &manifest));
-        for name in ["water.bin", "water.mesh", "collision.glb", "bake-inputs/overlay.bin"] {
+        std::fs::write(&manifest, "{}").unwrap();
+        assert!(prepared_water(&root, &manifest));
+        for name in ["bake-inputs/overlay.bin", "collision.glb", "water.bin", "water.mesh"] {
             std::fs::write(root.join(name), name).unwrap();
         }
-        let stamp = serde_json::json!({
-            "version": 1,
-            "inputs": {
-                "overlay": sha256(&root.join("bake-inputs/overlay.bin")),
-                "collision": sha256(&root.join("collision.glb")),
-                "boundaries": null,
-            },
-            "outputs": [sha256(&root.join("water.bin")), sha256(&root.join("water.mesh"))],
-        });
+        std::fs::write(root.join("probe-bake.json"), r#"{"water_sources":{"version":1}}"#).unwrap();
+        assert!(!prepared_water(&root, &manifest));
+        let stamp = serde_json::json!({"version": 3, "inputs": {
+            "algorithm":"native-water-sources-v1",
+            "overlay":sha256(&root.join("bake-inputs/overlay.bin")),
+            "collision":sha256(&root.join("collision.glb")),
+            "profile":sha256(&root.join("probe-bake.json")),"boundaries":null},
+            "outputs":[sha256(&root.join("water.bin")),sha256(&root.join("water.mesh"))]});
         std::fs::write(root.join("water-bake.json"), stamp.to_string()).unwrap();
         assert!(prepared_water(&root, &manifest));
-        std::fs::write(root.join("collision.glb"), "changed collision").unwrap();
+        for version in [1, 2] {
+            let mut old = stamp.clone();
+            old["version"] = serde_json::json!(version);
+            std::fs::write(root.join("water-bake.json"), old.to_string()).unwrap();
+            assert!(!prepared_water(&root, &manifest));
+        }
+        std::fs::write(root.join("water-bake.json"), stamp.to_string()).unwrap();
+        std::fs::write(root.join("probe-bake.json"), r#"{"water_sources":{"version":2}}"#).unwrap();
         assert!(!prepared_water(&root, &manifest));
-        std::fs::write(root.join("collision.glb"), "collision.glb").unwrap();
-        std::fs::remove_file(root.join("water.mesh")).unwrap();
-        assert!(!prepared_water(&root, &manifest));
-        std::fs::write(&manifest, r#"{"game":"rac1","version":"pal","level":1}"#).unwrap();
-        assert!(prepared_water(&root, &manifest));
-        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn native_cache_status_tracks_manifest_profile_and_verified_files() {
+        let root = temp("native-stamp");
+        let levels = root.join("levels");
+        let level = levels.join("level_00");
+        let probes = root.join("probes");
+        let baked = probes.join("level_00");
+        let baker = root.join("baker");
+        std::fs::create_dir_all(&level).unwrap();
+        std::fs::create_dir_all(&baked).unwrap();
+        std::fs::write(&baker, "baker").unwrap();
+        std::fs::write(level.join("manifest.json"), "{}").unwrap();
+        std::fs::write(baked.join("sparse.orpg"), "probes").unwrap();
+        std::fs::write(baked.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
+        let stamp = serde_json::json!({"version":5,
+            "manifest_sha256": sha256(&level.join("manifest.json")), "profile_sha256":null,
+            "baker_profile_sha256":format!("{:x}",Sha256::digest(b"profile"))});
+        std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
+        let status = || bake_status_on(&levels, &probes, &baker, true, &|_| Some("profile".to_owned()));
+        assert_eq!(status().ready, 1);
+        std::fs::write(level.join("probe-bake.json"), "{}").unwrap();
+        assert_eq!(status().ready, 0);
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
@@ -390,9 +410,9 @@ mod tests {
             let dir = probes.join(name);
             std::fs::create_dir_all(&dir).unwrap();
             std::fs::write(dir.join("sparse.orpg"), "probe bytes").unwrap();
-            std::fs::write(dir.join("bake-result.json"), r#"{"verified":true}"#).unwrap();
+            std::fs::write(dir.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
             let text = serde_json::json!({
-                "version": 3,
+                "version": 5,
                 "manifest_sha256": format!("{:x}", Sha256::digest(manifest.as_bytes())),
                 "baker_profile_sha256": format!("{:x}", Sha256::digest(b"baker")),
             });
@@ -418,34 +438,6 @@ mod tests {
         // Another build of the same baker (its file differs, its profile does not): kept.
         let same = |_: &Path| Some("baker".to_string());
         assert_eq!(bake_status_on(&levels, &probes, &baker, true, &same).ready, 1);
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn a_bake_stamped_with_the_bakers_file_counts_while_its_versions_are_the_bakers() {
-        let root = temp("legacy");
-        let (levels, probes, baker) = (root.join("levels"), root.join("probes"), root.join("baker"));
-        std::fs::create_dir_all(levels.join("level_00")).unwrap();
-        std::fs::write(levels.join("level_00").join("manifest.json"), "level_00").unwrap();
-        std::fs::write(&baker, "a build").unwrap();
-        let dir = probes.join("level_00");
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("sparse.orpg"), "probe bytes").unwrap();
-        let old = serde_json::json!({
-            "version": 2,
-            "manifest_sha256": format!("{:x}", Sha256::digest(b"level_00")),
-            "baker_sha256": "an older build",
-        });
-        std::fs::write(dir.join(STAMP), old.to_string()).unwrap();
-        std::fs::write(
-            dir.join("bake-result.json"),
-            r#"{"verified":true, "bake_version": 1, "probe_format_version": 3}"#,
-        )
-        .unwrap();
-        let profile = |_: &Path| Some(r#"{"bake_version":1,"probe_format_version":3,"rays":1024}"#.to_string());
-        assert_eq!(bake_status_on(&levels, &probes, &baker, true, &profile).ready, 1);
-        let newer = |_: &Path| Some(r#"{"bake_version":2,"probe_format_version":3}"#.to_string());
-        assert_eq!(bake_status_on(&levels, &probes, &baker, true, &newer).ready, 0);
         let _ = std::fs::remove_dir_all(&root);
     }
 

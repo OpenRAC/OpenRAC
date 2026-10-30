@@ -14,8 +14,15 @@ struct ProbeActivation {
     Float3 environment{0.1f, 0.1f, 0.1f};
 };
 
-// Per-level probe-bake.json, then the mod profile, then caller overrides.
+// Selects floor-based gameplay analysis or one complete scene allocation.
+enum class BakeStrategy {
+    Gameplay,  // Floor-seeded local GI and reflection captures.
+    Scene      // One coarse GI volume over complete render-scene bounds.
+};
+
+// Per-level transport and placement configuration, shared with runtime activation.
 struct LevelBakeProfile {
+    BakeStrategy strategy = BakeStrategy::Gameplay;  // Gameplay analysis is the normal level path.
     EnvironmentBakeSettings environment;
     ProbeActivation activation;
     Float3 sparse_spacing{256, 256, 256};

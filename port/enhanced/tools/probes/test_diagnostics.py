@@ -21,6 +21,7 @@ class BakeDiagnostics(unittest.TestCase):
                  (PermissionError('locked'), 'permission'),
                  (ValueError('manifest format 3 (this baker reads 4)'), 'input'),
                  (ValueError('planned dense regions exceed runtime limit'), 'regions'),
+                 (ValueError('enhanced baker not found: missing.exe'), 'tool'),
                  (diagnostics.NativeFailure(1, ['baker'], 'verification failed'), 'validation'),
                  (diagnostics.NativeFailure(1, ['baker'], 'Verified region-402.orpg\nprobe bake: environment '
                                             'placement incomplete: 3 uncovered samples; 177 captures, '

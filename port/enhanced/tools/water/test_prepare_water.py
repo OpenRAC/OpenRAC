@@ -28,6 +28,43 @@ def overlay():
 
 
 class Preparation(unittest.TestCase):
+    def test_native_baker_runs_before_publication_and_cache_tracks_its_profile(self):
+        profile = {'version': 1, 'algorithm': 'fixture-v1'}
+        def native(memory, collision, output, baker, **kwargs):
+            self.assertEqual(baker,Path('native-baker'))
+            self.assertNotEqual(output,self.level/'water.bin')
+            output.write_bytes(b'water')
+            output.with_suffix('.mesh').write_bytes(b'mesh')
+        with patch.object(prepare_water.subprocess,'check_output',side_effect=lambda *a,**kw:json.dumps(profile)), \
+             patch.object(bake_water,'bake_native',side_effect=native) as run:
+            prepare_water.prepare(self.level,self.manifest,baker=Path('native-baker'))
+            prepare_water.prepare(self.level,self.manifest,baker=Path('native-baker'))
+            self.assertEqual(run.call_count,1)
+            profile['algorithm']='fixture-v2'
+            prepare_water.prepare(self.level,self.manifest,baker=Path('native-baker'))
+            self.assertEqual(run.call_count,2)
+            (self.level/'water.mesh').write_bytes(b'corrupt')
+            prepare_water.prepare(self.level,self.manifest,baker=Path('native-baker'))
+            self.assertEqual(run.call_count,3)
+        self.assertEqual((self.level/'water.bin').read_bytes(), b'water')
+
+    def test_failed_native_mesh_keeps_both_published_files(self):
+        """A native failure after writing fields must not publish an incomplete pair."""
+        (self.level/'water.bin').write_bytes(b'previous water')
+        (self.level/'water.mesh').write_bytes(b'previous mesh')
+
+        def incomplete(memory, collision, output, baker, **kwargs):
+            output.write_bytes(b'unpublished water')
+            raise ValueError('cannot write rest mesh')
+
+        with patch.object(prepare_water.subprocess, 'check_output', return_value='{}'), \
+             patch.object(bake_water, 'bake_native', side_effect=incomplete):
+            with self.assertRaisesRegex(ValueError, 'rest mesh'):
+                prepare_water.prepare(self.level, self.manifest, baker=Path('native-baker'))
+        self.assertEqual((self.level/'water.bin').read_bytes(), b'previous water')
+        self.assertEqual((self.level/'water.mesh').read_bytes(), b'previous mesh')
+        self.assertFalse((self.level/'water-bake.json').exists())
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -36,7 +73,7 @@ class Preparation(unittest.TestCase):
         (self.level/'bake-inputs/overlay.bin').write_bytes(overlay())
         (self.level/'collision.glb').write_bytes(b'collision')
         self.manifest = {'game': 'rac1', 'version': 'ntsc', 'level': 1,
-                         'bake_inputs': {'water': 'rac1-ntsc-novalis-v1'}}
+                         'bake_inputs': {'water': 'profile-v1'}}
 
     def test_offline_initialization_preserves_all_surfaces_and_strip_rest_height(self):
         memory = prepare_water.overlay_memory(overlay())

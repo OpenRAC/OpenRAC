@@ -5,6 +5,7 @@
 #pragma once
 #include <filesystem>
 #include <ostream>
+#include <span>
 
 #include "enhanced/lighting/environment_bake.h"
 
@@ -23,13 +24,20 @@ void append_exported_water(
     const BakeTraversalSettings& traversal = {}
 );
 
+// Borrowed inputs shared with the completed GI stage; the caller owns them until reflections drain.
+struct EnvironmentStageInput {
+    const std::filesystem::path& level;   // Exported level directory.
+    const std::filesystem::path& output;  // Verified GI directory and reflection output directory.
+    const BakeScene& scene;               // Immutable transport geometry and lighting.
+    const BakeSettings& settings;         // Shared transport and traversal settings.
+    std::span<const EnvironmentFloorSample> floors;  // Prepared playable floors, without copying.
+    std::span<const ProbeVolume>
+        verified_field{};  // Optional completed density field, borrowed until return.
+};
+
 // Reads environment_probes from the exported probe-bake.json; disabled when absent.
+// Empty prepared floors retain standalone loading and its existing missing-input diagnostics.
 void bake_level_environment(
-    const std::filesystem::path& level,
-    const std::filesystem::path& output,
-    const BakeScene& scene,
-    const BakeSettings& settings,
-    unsigned threads,
-    std::ostream& log
+    const EnvironmentStageInput& input, const BakeExecution& execution, std::ostream& log
 );
 }  // namespace openrac::lighting

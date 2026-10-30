@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Probe atlas packing and expansion shared by the runtime and offline baker.
 #include "enhanced/lighting/probe_atlas.h"
 
 #include <bit>
@@ -6,6 +9,7 @@
 #include <stdexcept>
 
 #include "common/float_encoding.h"
+#include "common/profiler.h"
 
 namespace openrac::lighting {
 namespace {
@@ -76,6 +80,8 @@ std::span<const std::uint8_t> ProbeVolume::gpu_plane(unsigned plane) const {
 }
 
 std::vector<std::uint8_t> pack_probe_planes(const ProbeVolume& v) {
+    const profiling::Zone timing("Pack probe planes");
+
     v.validate();
     const auto side = v.grid.map_resolution + 2;
     const auto texels = v.atlas_capacity() * v.grid.texels_per_probe();
@@ -120,6 +126,8 @@ std::vector<std::uint8_t> pack_probe_planes(const ProbeVolume& v) {
 }
 
 void read_probe_planes(ProbeVolume& v, bool expand) {
+    const profiling::Zone timing("Read probe planes");
+
     const auto e = v.gpu_plane(0), m = v.gpu_plane(1), metadata = v.gpu_plane(2);
     v.probes.resize(v.grid.probe_count());
     if (expand) {

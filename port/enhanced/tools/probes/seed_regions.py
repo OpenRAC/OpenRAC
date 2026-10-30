@@ -245,7 +245,7 @@ def dense_resident_bytes(regions, profile):
     return capacity*(12*(profile.get('resolution', 6)+2)**2+8)
 
 
-def plan_level(level_dir: Path, coarse: dict, profile: dict, gameplay: bytes, options) -> dict:
+def plan_level(level_dir: Path, coarse: dict, profile: dict, gameplay: bytes, options, *, coverage_query=None) -> dict:
     """Shared bake-time planner: authored volumes, gameplay seeds and surfaces."""
     manifest = json.loads((level_dir/'manifest.json').read_text())
     if manifest['game'] != 'rac1' or manifest['version'] not in ('pal', 'ntsc'):
@@ -284,7 +284,7 @@ def plan_level(level_dir: Path, coarse: dict, profile: dict, gameplay: bytes, op
     if regions and geometry is not None and not options.no_geometry_coverage:
         from surface_coverage import extend_regions
         regions, coverage = extend_regions(regions, geometry, coarse, spacing, options.max_probes,
-                                            options.geometry_max_rise, options.geometry_padding, markers=markers)
+                                            options.geometry_max_rise, options.geometry_padding, markers=markers, native_query=coverage_query)
     regions, compaction, repartition = finalise_regions(regions, spacing, options.max_probes)
     resident_bytes = dense_resident_bytes(regions, profile)
     report = {'level': manifest['level'], 'game_version': coarse['game_version'],
@@ -324,7 +324,7 @@ def main() -> None:
     parser.add_argument('--bake', action='store_true')
     parser.add_argument('--threads', type=int, default=0, help='CPU bake threads; 0 uses all, 1 is serial')
     parser.add_argument('--baker', type=Path,
-                        default=ROOT/'port/build/release'/('openrac-probe-bake.exe' if os.name == 'nt' else 'openrac-probe-bake'))
+                        default=ROOT/'port/build/release'/('openrac-enhanced-baker.exe' if os.name == 'nt' else 'openrac-enhanced-baker'))
     args = parser.parse_args()
     manifest = json.loads((args.level_dir/'manifest.json').read_text())
     coarse = coarse_header(args.coarse)

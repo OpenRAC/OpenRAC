@@ -40,7 +40,7 @@ their own extracted levels, one level per thread, into
 the level; OpenGL, and a level without one, keep the original lighting. Core
 Vulkan draw/culling optimizations work either way. Only the offline baker needs
 Embree: `python3 tools/build_port.py --probe-baker` builds a pinned Embree
-statically into `openrac-probe-bake` (or `-DOPENRAC_PROBE_BAKER=ON` with an
+statically into `openrac-enhanced-baker` (or `-DOPENRAC_PROBE_BAKER=ON` with an
 installed Embree 4); the game never links it.
 
 Dedicated enhanced-rendering sources, shaders, tools and tests live in

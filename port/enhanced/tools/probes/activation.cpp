@@ -295,7 +295,16 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             continue;
         }
 
-        if (key == "sky") {
+        if (key == "strategy") {
+            // Strategies select placement, while transport and material settings remain shared.
+            if (!value.is_string() || (value.string() != "gameplay" && value.string() != "scene")) {
+                fail("strategy must be gameplay or scene");
+            }
+
+            // Scene-only exports do not require walkable floors or gameplay markers.
+            profile.strategy =
+                value.string() == "scene" ? BakeStrategy::Scene : BakeStrategy::Gameplay;
+        } else if (key == "sky") {
             if (value.string() != "level" && value.string() != "uniform") {
                 fail("sky must be level or uniform");
             }
@@ -343,8 +352,13 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             profile.environment = read_environment_profile(value, profile.environment);
         } else if (key == "playable_space") {
             bake.traversal = read_traversal_profile(value, bake.traversal);
+        } else if (key == "water_sources") {
+            // The offline source decoder owns the detailed table schema.
+            if (!value.is_object()) {
+                fail("water_sources requires an object");
+            }
         } else if (key == "regions") {
-            // Offline region planning shares the profile file but is validated by its Python owner.
+            // Offline region planning shares the profile file and validates its own schema.
             if (!value.is_object()) {
                 fail("regions requires an object");
             }
@@ -388,6 +402,11 @@ LevelBakeProfile load_level_bake_profile(
 
     if (!overrides.empty()) {
         apply_profile(overrides / "probe-bake.json", profile);
+    }
+
+    // Scene strategy has no playable-floor graph for local reflection capture placement.
+    if (profile.strategy == BakeStrategy::Scene) {
+        profile.environment.enabled = false;
     }
 
     return profile;

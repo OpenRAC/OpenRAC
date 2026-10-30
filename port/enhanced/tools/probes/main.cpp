@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Enhanced baker command-line dispatch for interior inference, GI and reflection transport.
 #include <algorithm>
 #include <cfenv>
 #include <charconv>
@@ -16,12 +19,21 @@
 #include "common/json.h"
 #include "common/profiler.h"
 #include "enhanced/tools/probes/activation.h"
+#include "enhanced/tools/probes/bake_json.h"
 #include "enhanced/tools/probes/batch.h"
+#include "enhanced/tools/probes/batch_command.h"
+#include "enhanced/tools/probes/coordinator.h"
+#include "enhanced/tools/probes/emission_prepare.h"
+#include "enhanced/tools/probes/interior_prepare.h"
 #include "enhanced/tools/probes/interior_sources.h"
+#include "enhanced/tools/probes/interior_stage.h"
 #include "enhanced/tools/probes/level_scene.h"
+#include "enhanced/tools/probes/pipeline.h"
 #include "enhanced/tools/probes/probe_fingerprint.h"
 #include "enhanced/tools/probes/probe_grid.h"
 #include "enhanced/tools/probes/report.h"
+#include "enhanced/tools/water/water_bake.h"
+#include "enhanced/tools/water/water_source.h"
 
 namespace fs = std::filesystem;
 using namespace openrac;
@@ -50,41 +62,208 @@ float real(const std::string& text) {
     return value;
 }
 
+// Prints the standalone preparation, inspection and transport entry points.
 void usage() {
-    std::cout << "Offline Embree sparse probe bake (no game window)\n"
-              << "openrac-probe-bake --level-dir DIR [--inspect | --output FILE | --verify FILE]\n"
-              << "  --print-profile (resolved grid/quality defaults as JSON, no scene load)\n"
-              << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
-              << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
-              << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 1024 --bounces 3 --seed 1\n"
-              << "  --tracy-wait SECONDS (wait up to 120 seconds for a Tracy capture)\n"
-              << "  --threads 0 (all CPU threads; 1 for serial baking, same quality)\n"
-              << "  --light-set 0 --environment 0.1 (uniform fallback radiance)\n"
-              << "  --sky level|uniform --sky-intensity 1 (linear radiance multiplier)\n"
-              << "  --bounds minX,minY,minZ,maxX,maxY,maxZ (optional local volume)\n"
-              << "  --lattice-bounds minX,minY,minZ,maxX,maxY,maxZ (exact integer cell indices)\n"
-              << "  --max-distance N (visibility range; default 1.5 times cell diagonal)\n"
-              << "  --compare-coarse FILE (with --verify LOCAL_FILE)\n"
-              << "Defaults: per-level probe-bake.json; explicit options override its settings.\n"
-              << "Existing output files are never overwritten. Bakes stay local.\n";
+    std::cout
+        << "Offline enhanced lighting bake (no game window)\n"
+        << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--update]\n"
+        << "  --jobs N --memory-mib N\n"
+        << "openrac-enhanced-baker --level-dir DIR [--inspect | --output FILE | --verify FILE]\n"
+        << "openrac-enhanced-baker --infer-interiors INPUT.json OUTPUT.json [SPACING]\n"
+        << "openrac-enhanced-baker --prepare-level-interiors LEVEL_DIR GAMEPLAY.bin OUTPUT_DIR\n"
+        << "openrac-enhanced-baker --prepare-level-emission LEVEL_DIR CATALOG.json DEFAULTS.json\n"
+        << "openrac-enhanced-baker --decode-water LEVEL_DIR\n"
+        << "openrac-enhanced-baker --bake-water INPUT.json OUTPUT.bin\n"
+        << "  --print-interior-profile (interior stage cache identity, no scene load)\n"
+        << "  --print-profile (resolved grid/quality defaults as JSON, no scene load)\n"
+        << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
+        << "  --prepare-interiors GAMEPLAY.bin (prepare interiors inside the batch process)\n"
+        << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
+        << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 1024 --bounces 3 --seed 1\n"
+        << "  --tracy-wait SECONDS (wait up to 120 seconds for a Tracy capture)\n"
+        << "  --threads 0 (all CPU threads; 1 for serial baking, same quality)\n"
+        << "  --light-set 0 --environment 0.1 (uniform fallback radiance)\n"
+        << "  --sky level|uniform --sky-intensity 1 (linear radiance multiplier)\n"
+        << "  --bounds minX,minY,minZ,maxX,maxY,maxZ (optional local volume)\n"
+        << "  --lattice-bounds minX,minY,minZ,maxX,maxY,maxZ (exact integer cell indices)\n"
+        << "  --max-distance N (visibility range; default 1.5 times cell diagonal)\n"
+        << "  --compare-coarse FILE (with --verify LOCAL_FILE)\n"
+        << "Defaults: per-level probe-bake.json; explicit options override its settings.\n"
+        << "Existing output files are never overwritten. Bakes stay local.\n";
+}
+
+// Runs interior inference through the same executable used for GI and reflection baking.
+void interior_command(int argc, char** argv) {
+    // Input and output are required; the optional spacing remains in game units.
+    if (argc != 4 && argc != 5) {
+        throw std::runtime_error("--infer-interiors requires INPUT.json OUTPUT.json [SPACING]");
+    }
+
+    // The default floor-sample spacing is two game units.
+    const float spacing = argc == 5 ? real(argv[4]) : 2.0f;
+    const auto result = infer_interior_file(argv[2], argv[3], spacing);
+
+    // Native diagnostics flow through main's existing failure handling.
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
+}
+
+// Runs native preparation alone for diagnostics and cold-cache regression checks.
+void prepare_interiors_command(int argc, char** argv) {
+    // The standalone preparation stage needs a level, retained gameplay and an output directory.
+    if (argc != 5) {
+        throw std::runtime_error(
+            "--prepare-level-interiors requires LEVEL_DIR GAMEPLAY.bin OUTPUT_DIR"
+        );
+    }
+
+    const auto result = prepare_level_interiors(argv[2], argv[3], argv[4]);
+
+    // Preserve the stage diagnostic through the existing command-line error boundary.
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
+}
+
+// Refreshes profiles before cache checks or scene loading without decoding meshes.
+void prepare_emission_command(int argc, char** argv) {
+    // Paths are explicit so installed launchers use their matching tracked game profiles.
+    if (argc != 5) {
+        throw std::runtime_error(
+            "--prepare-level-emission requires LEVEL_DIR CATALOG.json DEFAULTS.json"
+        );
+    }
+
+    const auto result = prepare_level_emission(argv[2], argv[3], argv[4]);
+
+    // Source or publication errors keep the previous authored profile intact.
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
+
+    std::cout << "emission_profile_changed " << static_cast<int>(*result) << '\n';
+}
+
+// Runs a staged water bake, optionally waiting for a capture before the short numerical pipeline.
+void water_command(int argc, char** argv) {
+    // Only the two required paths and an optional profiler wait are accepted.
+    if (argc != 4 && argc != 6) {
+        throw std::runtime_error(
+            "--bake-water requires INPUT.json OUTPUT.bin [--tracy-wait SECONDS]"
+        );
+    }
+
+    // A short bake can otherwise finish before an on-demand client connects.
+    if (argc == 6) {
+        const float seconds = real(argv[5]);
+
+        // Profile waits retain the existing two-minute upper bound.
+        if (std::string_view(argv[4]) != "--tracy-wait" || seconds < 0 || seconds > 120) {
+            throw std::runtime_error("invalid water profiler wait");
+        }
+
+        // Waits stay on the controller, before any geometry is loaded.
+        if (!profiling::wait_for_connection(
+                std::chrono::milliseconds(static_cast<int>(seconds * 1000))
+            )) {
+            throw std::runtime_error("Tracy capture not connected (requires OPENRAC_TRACY)");
+        }
+    }
+
+    const auto result = openrac::lighting::water::bake(argv[2], argv[3]);
+
+    // Failed staged pairs must never be installed by the caller.
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
 }
 
 }  // namespace
 
+// Dispatches native enhanced-baker stages and reports failures at the command-line boundary.
 int main(int argc, char** argv) {
     try {
-        profiling::thread_name("Probe bake");
-        fs::path directory, output, verify, compare_coarse, batch_output;
-        bool inspect = false, game_rounding = false, print_profile = false, resume = false;
+        profiling::thread_name("Enhanced bake");
+
+        // One native process admits multiple levels while Python supplies preparation and plans.
+        if (argc == 2 && std::string_view(argv[1]) == "--coordinate-levels") {
+            return coordinate_levels(std::cin, std::cout);
+        }
+
+        // Cache checks use a semantic water identity rather than the executable's build hash.
+        if (argc == 2 && std::string_view(argv[1]) == "--print-water-profile") {
+            std::cout << "{\"version\":1,\"algorithm\":\"native-water-v1\",\"format\":3}\n";
+            return 0;
+        }
+        // Inspection exposes the declarative decoder without running numerical water baking.
+        if (argc == 3 && std::string_view(argv[1]) == "--decode-water") {
+            const auto decoded = water::decode_sources(argv[2]);
+
+            if (!decoded) {
+                throw std::runtime_error(decoded.error().message);
+            }
+
+            std::cout << bake_json::json_text(*decoded) << '\n';
+            return 0;
+        }
+
+        // Version-specific decoding supplies bounded generic inputs to the numerical water pipeline.
+        if (argc > 1 && std::string_view(argv[1]) == "--bake-water") {
+            water_command(argc, argv);
+            return 0;
+        }
+
+        const std::vector<std::string> arguments(argv + 1, argv + argc);
+
+        // Launcher bakes own scheduling and publication directly, without a Python coordinator.
+        if (std::find(arguments.begin(), arguments.end(), "--bake-all") != arguments.end()) {
+            return run_bake_pipeline(arguments, std::cout);
+        }
+
+        // Standalone and coordinated batches share exactly the same level preparation code.
+        if (std::find(arguments.begin(), arguments.end(), "--batch-output") != arguments.end()) {
+            return run_batch_command(arguments, std::cin, std::cout);
+        }
+
+        // Interior cache identity stays independent of unrelated GI and reflection changes.
+        if (argc == 2 && std::string_view(argv[1]) == "--print-interior-profile") {
+            std::cout << interior_stage_profile() << '\n';
+            return 0;
+        }
+
+        // Interior preparation runs before transport loads the generated emission sources.
+        if (argc > 1 && std::string_view(argv[1]) == "--infer-interiors") {
+            interior_command(argc, argv);
+            return 0;
+        }
+
+        // Stage-only preparation shares exactly the same implementation as persistent batches.
+        if (argc > 1 && std::string_view(argv[1]) == "--prepare-level-interiors") {
+            prepare_interiors_command(argc, argv);
+            return 0;
+        }
+
+        // Automatic cache checks need refreshed emission before deciding whether transport is reusable.
+        if (argc > 1 && std::string_view(argv[1]) == "--prepare-level-emission") {
+            prepare_emission_command(argc, argv);
+            return 0;
+        }
+
+        fs::path directory, output, verify, compare_coarse;
+        bool inspect = false, game_rounding = false, print_profile = false;
+
         // Resolve the directory first: explicit CLI overrides win in any order.
         for (int i = 1; i + 1 < argc; ++i) {
             if (std::string_view(argv[i]) == "--level-dir") {
                 directory = argv[++i];
             } else if (std::string_view(argv[i]) == "--tracy-wait") {
                 const float seconds = real(argv[++i]);
+
                 if (seconds < 0 || seconds > 120) {
                     throw std::runtime_error("Tracy wait must be between 0 and 120 seconds");
                 }
+
                 if (!profiling::wait_for_connection(
                         std::chrono::milliseconds(static_cast<int>(seconds * 1000))
                     )) {
@@ -92,14 +271,11 @@ int main(int argc, char** argv) {
                         "Tracy capture not connected (requires OPENRAC_TRACY)"
                     );
                 }
-            } else if (std::string_view(argv[i]) == "--batch-output") {
-                batch_output = argv[++i];
             }
         }
 
         const profiling::Zone trace("Probe baker");
-        const auto source_snapshot =
-            batch_output.empty() || directory.empty() ? 0 : probe_input_hash(directory);
+
         const auto profile =
             directory.empty() ? LevelBakeProfile{} : load_level_bake_profile(directory);
         Float3 spacing = profile.sparse_spacing;
@@ -134,10 +310,7 @@ int main(int argc, char** argv) {
                 game_rounding = true;
                 continue;
             }
-            if (argument == "--resume") {
-                resume = true;
-                continue;
-            }
+
             if (i + 1 >= argc) {
                 throw std::runtime_error("option needs a value");
             }
@@ -150,8 +323,6 @@ int main(int argc, char** argv) {
                 // The first pass waits before any asset loading.
             } else if (argument == "--output") {
                 output = value;
-            } else if (argument == "--batch-output") {
-                batch_output = value;
             } else if (argument == "--verify") {
                 verify = value;
             } else if (argument == "--compare-coarse") {
@@ -227,9 +398,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (directory.empty()
-            || (!inspect && !print_profile && output.empty() && verify.empty()
-                && batch_output.empty())) {
+        if (directory.empty() || (!inspect && !print_profile && output.empty() && verify.empty())) {
             usage();
             return 1;
         }
@@ -243,12 +412,6 @@ int main(int argc, char** argv) {
             resolved.map_resolution = resolution;
             std::cout << describe_level_bake_profile(resolved);
             return 0;
-        }
-
-        if (!batch_output.empty()
-            && (inspect || !verify.empty() || !output.empty() || bounds || max_distance
-                || !compare_coarse.empty() || game_rounding)) {
-            throw std::runtime_error("batch mode cannot be combined with a single-grid operation");
         }
 
         if (!compare_coarse.empty() && verify.empty()) {
@@ -324,21 +487,6 @@ int main(int argc, char** argv) {
             std::cout << "interior_area_emitters " << exported.scene.area_emitters.size() << '\n';
         }
 
-        if (!interior_report->empty() && !batch_output.empty()) {
-            const auto& text = *interior_report;
-
-            // Resume regenerates this owned diagnostic before any cached grid is verified.
-            if (resume) {
-                fs::remove(batch_output / "interior-lights-report.json");
-                fs::remove(batch_output / "interior-lights-report.json.tmp");
-            }
-
-            write_bake_file(
-                batch_output / "interior-lights-report.json",
-                std::span(reinterpret_cast<const std::uint8_t*>(text.data()), text.size())
-            );
-        }
-
         ProbeGrid grid;
 
         // Exact lattice endpoints retain the planner's narrow blend bands at fractional spacing.
@@ -367,24 +515,6 @@ int main(int argc, char** argv) {
         std::ostringstream report;
         report << describe_probe_bake(level, exported, grid, settings, light_set);
         std::cout << report.str() << std::flush;
-
-        if (!batch_output.empty()) {
-            std::cout << "Probe batch ready\n" << std::flush;
-            ProbeBatchOptions options;
-            options.output_directory = batch_output;
-            options.level_directory = directory;
-            options.settings = settings;
-            options.light_set = light_set;
-            options.threads = threads;
-            options.source_snapshot = source_snapshot;
-            options.resume = resume;
-            if (!std::getline(std::cin, options.plan)) {
-                throw std::runtime_error("probe batch plan missing");
-            }
-
-            run_probe_batch(level, exported, grid, options, std::cout);
-            return 0;
-        }
 
         if (inspect) {
             return 0;

@@ -37,16 +37,6 @@ class LevelBake(unittest.TestCase):
         self.assertTrue(batch.RegionSettings.load(self.level).adaptive_density)
         self.assertEqual(batch.RegionSettings.load(self.level).adaptive_relative_error, .08)
 
-    def test_local_region_bounds_include_padding_and_scene_mode_is_unchanged(self):
-        regions = [{'bounds': [1, 2, 3, 4, 5, 6]}, {'bounds': [-2, 4, 1, 8, 9, 10]}]
-        settings = batch.RegionSettings(coarse_bounds='local_regions', coarse_padding=2)
-        self.assertEqual(batch.coarse_bounds(regions, settings), [-4, 0, -1, 10, 11, 12])
-        self.assertIsNone(batch.coarse_bounds(regions, batch.RegionSettings(coarse_bounds='scene')))
-        self.assertIsNone(batch.coarse_bounds([], settings))
-        self.assertEqual(batch.RegionSettings().coarse_bounds, 'local_regions')
-        self.assertEqual(batch.RegionSettings().coarse_padding, 128)
-        self.assertTrue(batch.RegionSettings().interior_lighting)
-
     def test_coarse_bounds_mode_and_padding_are_validated(self):
         for fields in ({'coarse_bounds': 'invalid'}, {'coarse_bounds': 1}, {'coarse_padding': -1}):
             (self.level/'probe-bake.json').write_text(json.dumps({'version': 1, 'regions': fields}))
@@ -97,9 +87,20 @@ class LevelBake(unittest.TestCase):
                 if not self.closed and process.returncode is None:
                     owner.sent_plan = json.loads(self.getvalue())
                     output = Path(command[command.index('--batch-output')+1])
-                    names = ['sparse'] + [f'region-{i:03d}' for i in range(len(owner.sent_plan['regions']))]
+                    request = owner.sent_plan
+                    regions = [{'bounds': [0, 0, 0, 4, 4, 4], 'spacing': [4, 4, 4]}] \
+                        if request['region_settings']['enabled'] else []
+                    plan = dict(regions=regions, region_settings=request['region_settings'])
+                    batch.write_json(output/'seed-plan.json', plan)
+                    names = ['sparse'] + [f'region-{i:03d}' for i in range(len(regions))]
                     for name in names:
                         (output/(name+'.orpg')).write_bytes(b'fake native output')
+                    if not owner.failure and not owner.changed:
+                        registry = {'regions': [name+'.orpg' for name in names[1:]]}
+                        batch.write_json(output/'regions.json', registry)
+                        batch.write_json(output/'sparse.orpg.regions.json', registry)
+                        batch.write_json(output/'bake-result.json', dict(
+                            verified=True, **registry, probe_format_version=4, bake_version=1))
                     process.returncode = int(bool(owner.failure or owner.changed))
                 super().close()
 
@@ -129,31 +130,21 @@ class LevelBake(unittest.TestCase):
         return process
 
     def bake(self):
-        # Exercise real planning/registration and command propagation; only native
-        # transport and collision decoding are replaced with synthetic fixtures.
+        # Python forwards the request; native CLI tests cover planning and registration semantics.
         with patch.object(batch.subprocess, 'check_output', return_value=json.dumps(self.profile)), \
-             patch.object(batch.automatic_interiors, 'prepare') as interiors, \
-             patch.object(batch.emission_audit, 'audit'), \
-             patch.object(batch.subprocess, 'Popen', side_effect=self.run_native), \
-             patch('moby_seeds.Ground.read_triangles', return_value=[
-                 [[30, 30, 75], [50, 30, 75], [30, 70, 75]]]):
+             patch.object(batch.automatic_interiors, 'native_options', wraps=batch.automatic_interiors.native_options) as interiors, \
+             patch.object(batch.subprocess, 'Popen', side_effect=self.run_native):
             result = batch.bake_level(self.level, self.output, Path('fake-baker'), options=['--rays', '16'])
             self.interiors_called = interiors.called
             return result
 
-    def test_complete_bake_plans_geometry_and_registers_verified_regions(self):
+    def test_complete_bake_forwards_settings_and_uses_native_registration(self):
         sparse = self.bake()
-        self.water_prepare.assert_called_once_with(self.level.resolve(), self.manifest, None)
+        self.water_prepare.assert_called_once_with(
+            self.level.resolve(), self.manifest, None, baker=Path('fake-baker').resolve())
         self.assertTrue(self.interiors_called)
         plan = json.loads((self.output/'seed-plan.json').read_text())
         self.assertTrue(plan['regions'])
-        capacity = sum(((r['probe_count']+63)//64)*64 for r in plan['regions'])
-        self.assertEqual(plan['dense_resident_bytes'], capacity*(12*8*8+8))
-        self.assertFalse(plan['dense_residency_budget_exceeded'])
-        self.assertEqual(plan['authored_count'], 1)
-        self.assertEqual(plan['moby_seeds'][0]['class'], 500)
-        # A lone overhead triangle is not evidence of an enclosed room.
-        self.assertFalse(any(item['changed'] for item in plan['geometry_coverage']))
         result = json.loads((self.output/'bake-result.json').read_text())
         self.assertTrue(result['verified'])
         self.assertEqual(result['probe_format_version'], 4)
@@ -163,13 +154,12 @@ class LevelBake(unittest.TestCase):
         self.assertEqual(len(registry['regions']), len(plan['regions']))
         self.assertEqual(len(self.calls), 1)
         self.assertIn('--batch-output', self.calls[0])
-        self.assertEqual(len(self.sent_plan['regions']), len(plan['regions']))
+        self.assertEqual(self.sent_plan['type'], 'bake_level')
         self.assertEqual(self.sent_plan['scene_hash'], '42')
-        self.assertEqual([r['lattice_bounds'] for r in self.sent_plan['regions']],
-                         [r['lattice_bounds'] for r in plan['regions']])
-        self.assertEqual(plan['region_repartition']['border_cells'], 1)
-        self.assertTrue(all(len(region['spacing']) == 3 and region['max_distance'] > 0
-                            for region in self.sent_plan['regions']))
+        self.assertEqual(self.sent_plan['profile'], self.profile)
+        self.assertEqual(self.sent_plan['region_settings'], batch.asdict(batch.RegionSettings()))
+        self.assertEqual(Path(self.sent_plan['gameplay']), self.level/'bake-inputs/gameplay.bin')
+        self.assertNotIn('regions', self.sent_plan)
         self.assertTrue(all('--rays' in call for call in self.calls))
         self.assertTrue(self.native.stdin.closed and self.native.stdout.closed)
 
@@ -182,13 +172,11 @@ class LevelBake(unittest.TestCase):
         self.assertFalse((self.output/'sparse.orpg.regions.json').exists())
         self.assertFalse((self.output/'bake-result.json').exists())
 
-    def test_planning_failure_terminates_the_prepared_native_process(self):
-        with patch.object(seeds, 'plan_level', side_effect=ValueError('invalid seed plan')):
-            with self.assertRaisesRegex(ValueError, 'invalid seed plan'):
-                self.bake()
-        self.assertTrue(self.native.terminated)
-        self.assertTrue(self.native.stdin.closed and self.native.stdout.closed)
-        self.assertFalse((self.output/'sparse.orpg.regions.json').exists())
+    def test_missing_planning_source_fails_before_opening_the_native_process(self):
+        (self.level/'bake-inputs/gameplay.bin').unlink()
+        with self.assertRaises(OSError):
+            self.bake()
+        self.assertFalse(self.output.exists())
 
     def test_cli_forwards_thread_limit(self):
         with patch('sys.argv', ['bake_level.py', '--level-dir', str(self.level),
@@ -209,14 +197,14 @@ class LevelBake(unittest.TestCase):
         (self.level/'bake-inputs/gameplay.bin').unlink()
         sparse = self.bake()
         self.assertEqual(json.loads(Path(str(sparse)+'.regions.json').read_text()), {'regions': []})
-        self.assertEqual(self.sent_plan['regions'], [])
+        self.assertFalse(self.sent_plan['region_settings']['enabled'])
         self.assertFalse(self.interiors_called)
 
     def test_sparse_only_can_still_generate_interior_lighting(self):
         (self.level/'probe-bake.json').write_text('{"version":1,"regions":{"enabled":false}}')
         self.bake()
         self.assertTrue(self.interiors_called)
-        self.assertEqual(self.sent_plan['regions'], [])
+        self.assertFalse(self.sent_plan['region_settings']['enabled'])
 
     def test_existing_outputs_and_recursive_sources_rejected(self):
         self.output.mkdir()

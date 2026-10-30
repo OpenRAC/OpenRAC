@@ -42,7 +42,7 @@ class BuildAndroidTests(unittest.TestCase):
         (path / "build/cmake/android.toolchain.cmake").write_text("")
         return path
 
-    def test_baker_build_requests_its_interior_companion(self):
+    def test_build_requests_the_unified_baker(self):
         for enabled in (False, True):
             defines = [f"-DOPENRAC_PROBE_BAKER={'ON' if enabled else 'OFF'}"]
             with self.subTest(enabled=enabled), \
@@ -50,17 +50,15 @@ class BuildAndroidTests(unittest.TestCase):
                     mock.patch.object(build_android.proc, "run") as run:
                 self.assertEqual(build_android.build_port(["rac1-ntsc"], self.dir, self.dir), enabled)
                 command = run.call_args.args[0]
-                for target in ("openrac-probe-bake", "openrac-interior-infer"):
+                for target in ("openrac-enhanced-baker",):
                     self.assertEqual(target in command, enabled)
 
-    def native_tree(self, *, companion=True):
+    def native_tree(self):
         """Creates fake build outputs, including SDL and the NDK runtime, without compiling."""
         build, app, ndk, python = (self.dir / name for name in ("build", "app", "ndk", "python"))
         names = ["libopenrac-rac1-ntsc.so", "libopenrac-rac1-ntsc-cli.so",
-                 "libopenrac-python.so", "libSDL3.so", "libopenrac-probe-bake.so"]
+                 "libopenrac-python.so", "libSDL3.so", "libopenrac-enhanced-baker.so"]
         names += [f"lib{name}.so" for name in build_android.ADRENOTOOLS_HOOKS]
-        if companion:
-            names.append("libopenrac-interior-infer.so")
         build.mkdir()
         for name in names:
             (build / name).write_bytes(name.encode())
@@ -72,30 +70,30 @@ class BuildAndroidTests(unittest.TestCase):
         runtime.write_bytes(b"synthetic runtime")
         return build, app, ndk, python
 
-    def test_android_library_collection_carries_both_bake_executables(self):
+    def test_android_library_collection_carries_the_unified_baker(self):
         build, app, ndk, python = self.native_tree()
         with mock.patch.object(build_android, "PORT_BUILD", build), \
                 mock.patch.object(build_android, "APP", app):
             names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, baker=True)
-        for name in ("libopenrac-probe-bake.so", "libopenrac-interior-infer.so"):
+        for name in ("libopenrac-enhanced-baker.so",):
             self.assertIn(name, names)
             self.assertEqual((app / "src/main/jniLibs/arm64-v8a" / name).read_bytes(), name.encode())
 
-    def test_android_packaging_rejects_a_missing_interior_companion(self):
-        build, app, ndk, python = self.native_tree(companion=False)
+    def test_android_packaging_rejects_a_missing_baker(self):
+        build, app, ndk, python = self.native_tree()
+        (build/"libopenrac-enhanced-baker.so").unlink()
         with mock.patch.object(build_android, "PORT_BUILD", build), \
                 mock.patch.object(build_android, "APP", app), self.assertRaises(SystemExit) as stop:
             build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, baker=True)
-        self.assertIn("libopenrac-interior-infer.so", str(stop.exception))
+        self.assertIn("libopenrac-enhanced-baker.so", str(stop.exception))
 
-    def test_android_no_baker_collection_needs_neither_bake_executable(self):
-        build, app, ndk, python = self.native_tree(companion=False)
-        (build / "libopenrac-probe-bake.so").unlink()
+    def test_android_no_baker_collection_needs_no_baker(self):
+        build, app, ndk, python = self.native_tree()
+        (build / "libopenrac-enhanced-baker.so").unlink()
         with mock.patch.object(build_android, "PORT_BUILD", build), \
                 mock.patch.object(build_android, "APP", app):
             names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, baker=False)
-        self.assertNotIn("libopenrac-probe-bake.so", names)
-        self.assertNotIn("libopenrac-interior-infer.so", names)
+        self.assertNotIn("libopenrac-enhanced-baker.so", names)
 
     def test_embree_for_android_is_the_ports_target_with_arms_choice(self):
         ndk = self.make_ndk(self.dir / "ndk")

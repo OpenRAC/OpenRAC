@@ -21,8 +21,8 @@ CATALOG = {
               'Read the levels from your disc again, then retry Prepare enhanced lighting.'),
     'settings': ('Lighting settings could not be read', 'A lighting configuration or data file is invalid.',
                  'Restore the affected lighting configuration or re-export the levels, then retry.'),
-    'tool': ('A lighting tool is missing', 'The baker or its interior-lighting companion was not found.',
-             'Update or reinstall the launcher. For a source build, rebuild the probe baker and its companion.'),
+    'tool': ('A lighting tool is missing', 'The enhanced baker was not found.',
+             'Update or reinstall the launcher. For a source build, rebuild openrac-enhanced-baker.'),
     'dependency': ('The lighting tool could not start', 'A library required by the lighting tool is missing.',
                    'Reinstall the launcher for your operating system and check whether antivirus quarantined a file.'),
     'cpu': ('The lighting tool cannot run on this processor', 'The operating system reported an unsupported CPU instruction.',
@@ -125,7 +125,7 @@ def describe(error, *, level=None, log=None):
     elif status == 0xc0000005 or (getattr(error, 'returncode', 0) or 0) < 0:
         code = 'crash'
     elif code is None:
-        if 'inference tool not found' in text or 'native baker not found' in text:
+        if 'inference tool not found' in text or 'baker not found' in text:
             code = 'tool'
         elif 'changed' in text and ('source' in text or 'level' in text or 'scene' in text):
             code = 'changed'

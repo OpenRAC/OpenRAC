@@ -439,21 +439,17 @@
       {
         "id": "probe-bake",
         "label": "Prepare the enhanced lighting",
-        "description": "Bakes the light that bounces off each level, for Enhanced graphics (Mods), from your own extracted levels: one level per CPU thread, each kept until the levels are read again. A few minutes, once.",
+        "description": "Prepares enhanced water, interior lighting, bounced light and reflections from your extracted levels. Native workers share CPU and memory budgets; verified cached levels are reused.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
-        "program": "{python}",
+        "program": "{artifact}",
         "args": [
-          "port/enhanced/tools/probes/bake_all.py",
+          "--bake-all",
           "--levels-dir",
           "{root}/assets/port/rac1/pal",
           "--output-dir",
           "{data}/probes/pal",
-          "--baker",
-          "{artifact}",
-          "--disc",
-          "{disc}",
           "--jobs",
           "0",
           "--update"
@@ -467,11 +463,9 @@
           "android"
         ],
         "requires": [
-          "artifact",
-          "python",
-          "disc"
+          "artifact"
         ],
-        "artifact": "port/build/release/openrac-probe-bake.exe",
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
             "path": "assets/port/rac1/pal/verified-4.json",
@@ -479,7 +473,7 @@
           }
         ],
         "docs": "port/enhanced/lighting/README.md",
-        "todo": "Run from the Mods tab's Enhanced graphics. From a shell on macOS bake_all.py --update baked a PAL level in 46 s; --disc is only read for exports made before the bake inputs."
+        "todo": "The native baker decodes profile-driven source tables, schedules levels, verifies outputs and installs the bake without Python."
       },
       {
         "id": "play",
@@ -1099,21 +1093,17 @@
       {
         "id": "probe-bake",
         "label": "Prepare the enhanced lighting",
-        "description": "Bakes the light that bounces off each level, for Enhanced graphics (Mods), from your own extracted levels: one level per CPU thread, each kept until the levels are read again. A few minutes, once.",
+        "description": "Prepares enhanced water, interior lighting, bounced light and reflections from your extracted levels. Native workers share CPU and memory budgets; verified cached levels are reused.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
-        "program": "{python}",
+        "program": "{artifact}",
         "args": [
-          "port/enhanced/tools/probes/bake_all.py",
+          "--bake-all",
           "--levels-dir",
           "{root}/assets/port/rac1/ntsc",
           "--output-dir",
           "{data}/probes/ntsc",
-          "--baker",
-          "{artifact}",
-          "--disc",
-          "{disc}",
           "--jobs",
           "0",
           "--update"
@@ -1127,11 +1117,9 @@
           "android"
         ],
         "requires": [
-          "artifact",
-          "python",
-          "disc"
+          "artifact"
         ],
-        "artifact": "port/build/release/openrac-probe-bake.exe",
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
             "path": "assets/port/rac1/ntsc/verified-4.json",
@@ -1139,7 +1127,7 @@
           }
         ],
         "docs": "port/enhanced/lighting/README.md",
-        "todo": "Run from the Mods tab's Enhanced graphics. From a shell on macOS bake_all.py --update baked a PAL level in 46 s; --disc is only read for exports made before the bake inputs."
+        "todo": "The native baker decodes profile-driven source tables, schedules levels, verifies outputs and installs the bake without Python."
       },
       {
         "id": "play",

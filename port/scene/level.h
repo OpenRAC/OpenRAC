@@ -63,6 +63,8 @@ struct Material {
     bool clamp_t = false;
     std::array<float, 4> colour{1.0f, 1.0f, 1.0f, 1.0f};
     Vec3 emission{};  // shared linear emitted radiance, independent of diffuse lighting
+    // Original glTF emissiveFactor evidence, retained after profile overrides for offline auditing.
+    bool authored_emission = false;
     // Optional absolute texture multiplier for baking; absent uses runtime emission.
     std::optional<float> bake_intensity;
     int emission_image = -1;

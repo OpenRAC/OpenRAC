@@ -8,6 +8,7 @@
 #include <thread>
 
 #include "enhanced/lighting/bake.h"
+#include "enhanced/lighting/bake_workers.h"
 #include "tests/check.h"
 
 using namespace openrac::lighting;
@@ -59,7 +60,8 @@ void test_direction_cache() {
     settings.bounces = 0;
     ProbeGrid grid;
     const int rounding = std::fegetround();
-    ProbeBaker prepared(scene, settings);
+    BakeThreadPool pool(4);
+    ProbeBaker prepared(scene, settings, 4, &pool);
     for (const int mode : {FE_TONEAREST, FE_TOWARDZERO, FE_TONEAREST}) {
         CHECK(std::fesetround(mode) == 0);
         bool matches = true;
@@ -135,8 +137,20 @@ int main(int argc, char** argv) {
     } else {
         test_direction_cache();
         // A prepared level must produce the same grids and recover after callback cancellation.
-        ProbeBaker prepared(scene, settings);
+        BakeThreadPool pool(4);
+        ProbeBaker prepared(scene, settings, 4, &pool);
         CHECK(encode_probes(prepared.bake(grid, {}, 4)) == encoded);
+        // A one-worker request still reports from its controller when borrowing a wider pool.
+        auto single_grid = grid;
+        single_grid.dimensions = {2, 2, 2};
+        const auto single = prepared.bake(
+            single_grid,
+            [&](std::size_t, std::size_t) { CHECK(std::this_thread::get_id() == caller); },
+            1
+        );
+        CHECK(
+            encode_probes(single) == encode_probes(bake_probes(single_grid, scene, settings, {}, 1))
+        );
         auto local_grid = grid;
         local_grid.origin = {1, 2, 3};
         local_grid.dimensions = {2, 3, 2};
