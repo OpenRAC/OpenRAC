@@ -1733,7 +1733,14 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     const DirectState& s = d.state;
     if (d.mobys != 0) {
         // Mobys the game drew into this target: the frontend draws them, with the target bound;
-        // then this renderer's own state again.
+        // then this renderer's own state again. Without this path's samplers: a sampler bound to a
+        // unit overrides its texture's own wrap and filter, so the mobys sampled with the last 2D
+        // draw's, mostly clamped. The Pyrocitor's texture coordinates run from 1 to 2 (its texture
+        // repeated, as the GS does), and on the vendor's screen and in the quick select it took the
+        // edge texels of its texture all over: grey.
+        glBindSampler(0, 0);
+        glBindSampler(1, 0);
+        m_bound_sampler = 0xFFFFFFFF;
         if (m_frame != nullptr && m_frame->target_mobys && s.target != 0) {
             const Offscreen& o = offscreen(s.target);
             glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
