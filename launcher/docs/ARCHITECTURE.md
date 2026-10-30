@@ -453,7 +453,7 @@ else.
 **The webview.** Two of WebKitGTK's settings draw nothing on some systems, and
 are turned off there, before GTK starts (`core/src/webkit.rs`): its DMA-BUF
 renderer under Wayland with NVIDIA's own driver, and its accelerated
-compositing mode on a Steam Deck, where the window opens empty unless the
+compositing mode there and on a Steam Deck, where the window opens empty unless the
 launcher is started with `WEBKIT_DISABLE_COMPOSITING_MODE=1`. A value the
 player set is left as it is.
 

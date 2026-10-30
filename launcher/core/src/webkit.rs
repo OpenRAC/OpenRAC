@@ -8,6 +8,8 @@
 //!   instead, and only there. Turning the renderer off
 //!   (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) leaves WebKitGTK 2.50 without a
 //!   backing store, and it crashes on the first accelerated draw (a click).
+//!   Shared memory alone still crashes on a laptop with AMD and NVIDIA, so
+//!   there the accelerated compositing mode is turned off as well.
 //! - The accelerated compositing mode draws nothing at all on a Steam Deck:
 //!   the window opens empty, and the launcher has to be started with
 //!   `WEBKIT_DISABLE_COMPOSITING_MODE=1` for anything to show. A Deck is
@@ -27,7 +29,7 @@ fn env_for(wayland: bool, nvidia: bool, steamos: bool, gamescope: bool) -> Vec<(
     if wayland && nvidia {
         vars.push(("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1"));
     }
-    if steamos || gamescope {
+    if (wayland && nvidia) || steamos || gamescope {
         vars.push(("WEBKIT_DISABLE_COMPOSITING_MODE", "1"));
     }
     vars
@@ -77,9 +79,9 @@ mod tests {
     }
 
     #[test]
-    fn the_dmabuf_renderer_uses_shared_memory_on_wayland_with_nvidia() {
+    fn wayland_with_nvidia_uses_shared_memory_without_the_accelerated_compositing_mode() {
         let vars = env_for(true, true, false, false);
-        assert_eq!(vars, vec![("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1")]);
+        assert_eq!(vars, vec![("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1"), ("WEBKIT_DISABLE_COMPOSITING_MODE", "1")]);
         assert!(env_for(false, true, false, false).is_empty());
     }
 
