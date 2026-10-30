@@ -86,6 +86,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Fresh pad input | `fresh_input` | `0` (default), `1` | The pads are read again just before each tick, not only at the end of the last one, so a press reaches the game up to a tick sooner. The game still reads one state of the pad a tick and its logic is unchanged, but a trick timed by feel lands about a frame earlier, which is why it is off by default. Drawer: Sound and game |
 | (Alt) | `menu_bar` | `1`, `0` | The menus along the window's top on Windows and Linux (macOS has them in its own menu bar) |
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
+| Responsive camera | `camera_latch` | `1` (default), `0` | The frames drawn between ticks turn the camera by the right stick as it is when each is drawn, not as the last tick read it: a turn shows at once instead of a tick and a half later (section 2, "The camera between ticks"). Only the picture; the game's tick and its camera are untouched. No effect at the `original` frame rate. Drawer: Graphics; the game's Video options page |
 | Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
 | (F9, F10) | `volume` | `100`, `0` to `100` | How loud everything the port plays is |
 | Touch controls: Button size | `touch_scale` | `75`, `50` to `150` (percent) | The on-screen pad's size against its own ([touch_pad.h](../../port/platform/touch_pad.h)). Smaller controls sit nearer the screen's edges as well |
@@ -163,6 +164,50 @@ refresh-length sleep to the game tick.
 
 The display's refresh rate is read when the window says it moved to another
 display or the display changed mode, not polled.
+
+### The camera between ticks
+
+A frame between ticks shows the camera part way from the last tick's to the
+kept one's, so a push of the right stick shows only once a tick has read it
+and the frames have caught up with that tick: a tick and a half (30 ms at
+50 Hz) after the game itself would have it, half a tick with low-latency
+frames. With `camera_latch` on (Responsive camera), each such frame turns the
+camera about the hero to where the game's follow camera will be when the
+frame is shown: the rest of the way to the kept tick's heading, and on by
+what the game's next ticks will turn with the stick as it is just before the
+frame is drawn ([camera_latch.cpp](../../port/game/common/frontend/camera_latch.cpp)).
+How far is the game's own answer: Ratchet & Clank turns the camera's offset
+from the hero by the stick's x (through its spring, which a level sets to
+follow the stick at once) times the level's turn speed each tick; the port
+asks the same of the camera's state without writing anything back
+([rac1/host/camera_latch.c](../../port/game/rac1/host/camera_latch.c)). The
+camera then follows that offset through its rig's easing, so the picture's
+turn reaches the stick's over some 30 ticks: the latch goes on from the turn
+the last two ticks made, toward the stick's. Measured in Veldin (US, stick
+held right for 150 ticks, `OPENRAC_CAMERA_LATCH_LOG`): the guess for each
+tick was off by 0.00008 rad on average, 0.0017 rad (0.1 degree) at most, in
+the first ticks of the push.
+
+- **The game is untouched.** Its stick read runs as written, under a host
+  function that only notes which camera read it; the tick, the camera's
+  variables and the trace are the same with the setting on and off.
+- **No jump at the next tick.** When it comes the game's real camera takes
+  over: a guess that was right goes on without a step, and what one missed
+  by (a wall the camera met, a stick moved after the tick read it) fades
+  within a few frames (to a third in 50 ms). So does the turn when the latch
+  goes off.
+- **Only where it is the game's turn.** In play (the level's mode 0), with
+  the follow camera reading the stick in that tick and its stick turn not
+  locked, and the stick off its dead zone. Cutscenes, the game's menus, path
+  and fixed cameras (a camera volume's lock), the ship and anything else that
+  is not the follow camera turn as they did. The vertical stick is left out:
+  the game eases the pitch toward an angle the stick holds, not at a speed.
+
+On by default: it changes nothing but the heading of the frames the port
+adds between ticks, which the console never drew, and only while the right
+stick is pushed; with it those frames answer the stick the moment the stick
+moves, the point of drawing them. `OPENRAC_CAMERA_LATCH_LOG=1` writes each
+tick's turn and the latch's guess for it to the log.
 
 ## 3. The game's 50 Hz / 60 Hz option
 

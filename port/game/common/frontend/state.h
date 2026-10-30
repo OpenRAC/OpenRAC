@@ -145,6 +145,10 @@ struct FramePresentation {
     int height = 0;         // Internal render target height.
     float aspect = 0;       // Requested picture aspect.
     float alpha = 1;        // Interpolation amount fixed at submission.
+    // The late camera latch's turn of the interpolated camera (frontend/camera_latch.h), fixed at
+    // submission: radians about the world's up axis, through the pivot.
+    float latch_yaw = 0;
+    renderer::Vec3 latch_pivot{};
     Box box{};              // Picture rectangle in the window.
 
     bool first = false;         // First displayed frame for this game tick.

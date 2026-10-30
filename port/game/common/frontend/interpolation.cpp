@@ -35,6 +35,7 @@
 #include "debug_overlay.h"
 #include "frame_pacing.h"
 #include "frontend.h"
+#include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
@@ -512,7 +513,12 @@ void draw_kept(bool first) try {
     output->started = std::chrono::steady_clock::now();
     output->first = first;
     output->dump_draws = renderer::g_dump_draws;
-    output->alpha = interpolating() ? alpha_at(next_display(output->started)) : 1.0f;
+    const auto display = next_display(output->started);
+    output->alpha = interpolating() ? alpha_at(display) : 1.0f;
+    // Not while the debug overlay holds the game: no tick comes to correct the guess.
+    const CameraTurn turn = g_held ? CameraTurn{} : latch_camera(*g->kept, output->alpha, display);
+    output->latch_yaw = turn.yaw;
+    output->latch_pivot = turn.pivot;
     g->window->drawable_size(output->window_width, output->window_height);
     output->aspect = picture_aspect(output->window_width, output->window_height);
     output->box = frame_box(output->window_width, output->window_height, output->aspect);

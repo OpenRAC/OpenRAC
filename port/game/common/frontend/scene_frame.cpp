@@ -21,6 +21,7 @@
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
@@ -255,9 +256,13 @@ void set_camera(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     auto& input = frame.input;
     const float picture_scale = frame.picture_scale;
-    const auto state = scene.has_prev_state && frame.output.alpha < 1.0f
-                           ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
-                           : scene.state;
+    // Turned by the late camera latch (frontend/camera_latch.h) when it is on.
+    const auto state = turned_camera(
+        scene.has_prev_state && frame.output.alpha < 1.0f
+            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
+            : scene.state,
+        {frame.output.latch_yaw, frame.output.latch_pivot}
+    );
     renderer::Camera camera;
     camera.view = state.view();
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is

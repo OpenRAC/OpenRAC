@@ -339,6 +339,8 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.low_latency_frames);
         } else if (key == "skip_cutscenes") {
             known = parse_bool(value, s.skip_cutscenes);
+        } else if (key == "camera_latch") {
+            known = parse_bool(value, s.camera_latch);
         } else if (key == "strafe" || key == "lock_strafe") {
             old_strafe = true;
         } else if (key == "volume") {
@@ -479,6 +481,7 @@ void save() {
         << "fresh_input = " << (s.fresh_input ? 1 : 0) << "\n"
         << "low_latency_frames = " << (s.low_latency_frames ? 1 : 0) << "\n"
         << "skip_cutscenes = " << (s.skip_cutscenes ? 1 : 0) << "\n"
+        << "camera_latch = " << (s.camera_latch ? 1 : 0) << "\n"
         << "volume = " << s.volume << "\n"
         << "touch_scale = " << s.touch_scale << "\n"
         << "touch_camera = " << s.touch_camera << "\n";
