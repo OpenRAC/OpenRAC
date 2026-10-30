@@ -111,6 +111,9 @@ bool active();
 // (including readback flush boundaries), not merely one displayed frame.
 bool gpu_driven_active();
 bool gpu_materials_active();
+// Starts a recording if needed and returns its identity; zero without GPU instance rendering.
+// Cached instance batches must be rebuilt after the identity changes, including readback flushes.
+std::uint64_t gpu_instance_recording();
 // Indexed viewports route shadow draws to atlas rectangles from the vertex
 // shader. Empty rectangles restore the ordinary single-viewport path.
 bool indexed_viewports_supported(unsigned count);

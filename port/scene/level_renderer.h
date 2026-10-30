@@ -453,6 +453,17 @@ private:
     std::array<CascadeCulling, kSunCascades> m_sun_culling{};
     std::vector<InstanceData> m_camera_survivors;
     Pvs m_pvs;
+
+    // The view inputs whose GPU batches can be reused within one recording.
+    struct CameraVisibility {
+        renderer::Mat4 clip{};
+        Pvs::Mask mask{};
+        std::uint64_t recording = 0;
+        bool culling_off = false;
+    };
+
+    // Instance updates invalidate their layer; a new recording or view rebuilds its batches.
+    std::array<CameraVisibility, kLayerCount> m_camera_visibility{};
     std::vector<InstanceData> m_pvs_survivors;
 
     struct PvsModel {

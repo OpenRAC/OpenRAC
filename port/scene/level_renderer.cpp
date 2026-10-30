@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <iterator>
+#include <optional>
 #include <stdexcept>
 
 #include "common/log.h"
@@ -327,6 +328,7 @@ bool LevelScene::upload(
     }
 
     m_pvs = gl::is_vulkan() ? level.pvs : Pvs{};
+    m_camera_visibility = {};
     // The static layers' models again, their primitives in material order, for the opaque pass:
     // the level's terrain is one model of a primitive per fragment and material, two thousand
     // draws in a frame, and in material order a material's fragments are one run of indices,
@@ -659,6 +661,7 @@ void LevelScene::release() {
     m_camera_survivors.clear();
     m_camera_culling = {};
     m_pvs = {};
+    m_camera_visibility = {};
     for (auto& model : m_pvs_models) {
         glDeleteBuffers(1, &model.indices);
     }
@@ -819,6 +822,7 @@ std::vector<Instance> LevelScene::animated_instances(double seconds) const {
     return result;
 }
 
+// Draws a layer, sharing camera visibility between passes only while its inputs remain current.
 void LevelScene::draw_layer(
     Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
@@ -852,7 +856,7 @@ void LevelScene::draw_layer(
     }
     const bool colour_batch = !state.depth_prepass && batches_opaque_colour()
                               && (state.opaque_colour_phase >= 0 || state.opaque_colour_batched);
-    const bool reuse_camera = colour_batch && state.opaque_colour_phase != 0;
+    bool reuse_camera = colour_batch && state.opaque_colour_phase != 0;
     const stats::Scope colour(
         layer_name(layer),
         state.depth_prepass || colour_batch || layer == Layer::Mobys || layer == Layer::Ties
@@ -861,12 +865,11 @@ void LevelScene::draw_layer(
     );
     auto& groups = m_groups[static_cast<std::size_t>(layer)];
     auto& camera_counts = m_camera_culling[static_cast<std::size_t>(layer)];
-    if (!reuse_camera) {
-        camera_counts = {};
-    }
     if (groups.empty()) {
+        camera_counts = {};
         return;
     }
+    std::optional<stats::Scope> visibility_scope(std::in_place, "camera visibility");
     const renderer::Mat4 view_projection =
         renderer::multiply(input.camera.projection, input.camera.view);
     // The static groups the camera does not see are left out: a level's ties and shrubs are
@@ -882,14 +885,34 @@ void LevelScene::draw_layer(
         "OPENRAC_CAMERA_INSTANCE_CULL_OFF", "Profiling reference: aggregate-group camera culling"
     );
     auto& visible = m_colour_visible[static_cast<std::size_t>(layer)];
-    if (!reuse_camera) {
-        visible.assign(groups.size(), true);
-    }
     static const bool& pvs_off =
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
     const auto pvs_mask = pvs_off ? Pvs::all_visible() : m_pvs.select(input.camera.position);
     const bool use_pvs = !pvs_off && !m_pvs.grid.empty();
     const bool gpu = gpu_driven();
+    const bool cache_visibility =
+        gpu && (state.depth_prepass || state.reuse_prepass_depth)
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::CameraVisibilityReuse);
+    std::uint64_t recording = 0;
+#if defined(OPENRAC_VULKAN)
+    // Recording identity prevents cached batches surviving a frame or readback flush.
+    if (cache_visibility) {
+        recording = vkgl::gpu_instance_recording();
+    }
+#endif
+    auto& prepared = m_camera_visibility[static_cast<std::size_t>(layer)];
+    // Even a colour round must rebuild if a readback started another recording.
+    if (cache_visibility) {
+        reuse_camera = recording != 0 && prepared.recording == recording
+                       && prepared.clip == view_projection && prepared.mask == pvs_mask
+                       && prepared.culling_off == camera_culling_off;
+    }
+
+    if (!reuse_camera) {
+        camera_counts = {};
+        visible.assign(groups.size(), true);
+    }
+
     renderer::GpuCullView gpu_view;
     gpu_view.planes = camera_planes;
     stats::gauge("gpu driven mesh", gpu ? 1 : 0);
@@ -997,6 +1020,13 @@ void LevelScene::draw_layer(
             }
         }
     }
+    // Only a freshly prepared GPU batch may seed reuse in later passes.
+    if (cache_visibility && !reuse_camera) {
+        prepared = {view_projection, pvs_mask, recording, camera_culling_off};
+    }
+
+    visibility_scope.reset();
+
     if (stats::enabled()) {
         const auto name = std::string("camera ") + layer_name(layer);
         stats::gauge(name + " submitted", static_cast<double>(camera_counts.submitted));

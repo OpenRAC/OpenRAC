@@ -19,6 +19,10 @@ Shadow views use their own planes and never camera PVS. Terrain also retains
 its CPU-cached PVS index compaction to preserve material runs. Hi-Z geometry
 occlusion is not implemented.
 
+Depth and colour reuse camera visibility batches within the same Vulkan recording.
+Camera/mask changes, instance updates and recording splits invalidate reuse.
+Set `OPENRAC_RENDER_OPT_OFF=camera-visibility-reuse` for fresh batches per pass.
+
 A second dispatch builds indexed indirect arguments from immutable ranges and
 visible-instance counts. Graphics consumes these and the compacted instance
 stream without CPU visibility readback. Compatible adjacent commands merge

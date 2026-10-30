@@ -428,6 +428,7 @@ void LevelScene::submit_instances(
 void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instances) {
     // The CPU time of handing the scene a layer's instances (the moby layer's, every frame).
     const stats::Scope pass(layer == Layer::Mobys ? "moby instances" : "layer instances");
+    m_camera_visibility[static_cast<std::size_t>(layer)].recording = 0;
     if (layer == Layer::Mobys) {
         m_wetness_hero.reset();
         for (const auto& instance : instances) {

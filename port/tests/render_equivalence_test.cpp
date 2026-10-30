@@ -111,12 +111,16 @@ Frames draw_run(
         const auto shadow_quality = index >= 2 && index < 6
                                         ? openrac::renderer::ShadowQuality::Medium
                                         : openrac::renderer::ShadowQuality::High;
-        scene.draw(
-            render::camera_at(walk, scenario.camera, tick, ticks, aspect),
-            mobys,
-            index,
-            shadow_quality
-        );
+        const auto camera = render::camera_at(walk, scenario.camera, tick, ticks, aspect);
+        // Another view in the same recording must not lend its visibility to this camera.
+        if (index == 4) {
+            auto other = camera;
+            other.position[0] += 4000.0f;  // Outside the fixture's populated area.
+            other.view = openrac::renderer::look_along(other.position, {0, 0, -1}, {0, 1, 0});
+            scene.draw(other, mobys, index, shadow_quality);
+        }
+
+        scene.draw(camera, mobys, index, shadow_quality, enhanced && index == 3);
         frames.push_back(scene.read_rgba());
         openrac::vkgl::present();
         if (check_scroll) {

@@ -178,6 +178,10 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::ShaderFloat16, "shader-float16",
      "audited local FP16 arithmetic on enabled Vulkan devices; shader interfaces remain FP32",
      true, Tolerance{1.0, 2}},
+    // Accepted Novalis difference: two pixels at 1280x720, at most 41/255 per channel.
+    {Opt::CameraVisibilityReuse, "camera-visibility-reuse",
+     "depth and colour share GPU visibility for unchanged instances in the same recording",
+     true, Tolerance{2.0 / (1280.0 * 720.0), 41}},
 }};
 // clang-format on
 

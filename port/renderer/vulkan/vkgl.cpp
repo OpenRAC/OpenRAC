@@ -152,6 +152,17 @@ bool gpu_driven_active() {
     return !off && gpu_make_engine();
 }
 
+// Returns the identity a reusable visibility batch must belong to, opening a recording if needed.
+std::uint64_t gpu_instance_recording() {
+    // CPU rendering has no reusable GPU instance batches.
+    if (!gpu_driven_active()) {
+        return 0;
+    }
+
+    prepare_frame();
+    return g->recording;
+}
+
 bool indexed_viewports_supported(unsigned count) {
     return active() && g->viewport_index_supported && count > 0
            && count <= g->properties.limits.maxViewports && material_enabled();
