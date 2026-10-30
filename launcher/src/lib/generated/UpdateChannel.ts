@@ -2,8 +2,8 @@
 
 /**
  * The builds a launcher updates to, chosen on the Settings page: the repository's releases, or its
- * development builds (the rolling pre-release `launcher-dev-<branch>` CI keeps current). A switch
- * takes effect with the first build on the other channel newer than the one installed: neither
- * Android nor a version number goes back.
+ * development builds (the rolling pre-release `launcher-dev-<branch>` CI keeps current). On its
+ * own channel a launcher only takes a newer build; on the other one it takes that channel's build
+ * whatever its version (`offered`), so a development build can go back to the older release.
  */
 export type UpdateChannel = "stable" | "dev";

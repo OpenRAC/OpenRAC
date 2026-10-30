@@ -22,7 +22,7 @@
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
   import { nameProblem } from "$lib/multiplayerName";
   import { applyPalette, PALETTES } from "$lib/palettes";
-  import { devBranches } from "$lib/updates";
+  import { channelName, devBranches } from "$lib/updates";
   import { tablist } from "$lib/tabs";
 
   let { setup = false }: { setup?: boolean } = $props();
@@ -511,8 +511,10 @@
       {/if}
       <p class="dim note status">
         <button class="link" disabled={looked === "looking"} onclick={() => void checkNow()}>Check now</button>
-        {#if looked === "looking"}· Looking…{:else if looked === "found" || app.update}· {app.update?.name ??
-            "A new version"} is out.
+        {#if looked === "looking"}· Looking…{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
+          {app.update.version} can replace this build.
+          <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
+          >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button>{:else if looked === "none"}·
           You have the latest ({app.info?.version ?? ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
         {#if source}
@@ -522,9 +524,6 @@
           {/if}
         {/if}
       </p>
-      {#if channel === "stable" && app.info?.updates.channel}
-        <p class="dim note">This development build stays until the next release replaces it.</p>
-      {/if}
     </section>
 
     {#if !app.info?.standalone && !onAndroid}
@@ -790,10 +789,6 @@
   .status {
     padding-top: 10px;
     border-top: 1px solid var(--line);
-  }
-
-  .status + .note {
-    margin-top: 4px;
   }
 
   .dev {
