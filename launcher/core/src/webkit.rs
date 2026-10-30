@@ -8,8 +8,8 @@
 //!   instead, and only there. Turning the renderer off
 //!   (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) leaves WebKitGTK 2.50 without a
 //!   backing store, and it crashes on the first accelerated draw (a click).
-//!   Shared memory alone still crashes on a laptop with AMD and NVIDIA, so
-//!   there the accelerated compositing mode is turned off as well.
+//!   Shared memory alone still crashes, on a desktop and on a laptop with AMD
+//!   and NVIDIA, so there the accelerated compositing mode is turned off too.
 //! - The accelerated compositing mode draws nothing at all on a Steam Deck:
 //!   the window opens empty, and the launcher has to be started with
 //!   `WEBKIT_DISABLE_COMPOSITING_MODE=1` for anything to show. A Deck is

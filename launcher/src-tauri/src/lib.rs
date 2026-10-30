@@ -1374,7 +1374,7 @@ fn clean_appimage_env() {
 /// What WebKitGTK needs changed on this system, before GTK starts: its
 /// DMA-BUF renderer's buffers through shared memory under Wayland with
 /// NVIDIA's own driver, and its
-/// accelerated compositing mode on a Steam Deck, where the window opens empty
+/// accelerated compositing mode there and on a Steam Deck, where the window opens empty
 /// unless the launcher is started with WEBKIT_DISABLE_COMPOSITING_MODE=1. A
 /// value the player set is left as it is (core/src/webkit.rs).
 #[cfg(target_os = "linux")]
