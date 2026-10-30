@@ -154,6 +154,20 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * D_L00_0016C960, is D_L00_0016C860 (the address scene_start.c clears and numbers). */
 #define func_L00_00299B68 game_FUN_L00_00298840
 #define RAC1_ADDR_L00_0x0016C960u 0x0016C860u
+/* The follow camera's stick read and turn (camera_latch.c): PAL FollowCamera_ReadStickInput
+ * func_L00_002E9E60 is FUN_L00_002e89b0 here; the pad's mirror and the camera's invert options,
+ * PAL D_0015EEB4 and D_0015EEE0, are D_0015EDB4 and opt_cam_invert; the turn speed, the spring's
+ * stiffness and damping and the camera block, PAL D_L00_0015F044, D_L00_00161D7C, D_L00_00161D80
+ * and D_L00_00166F10, are D_L00_0015EF44, D_L00_00161CAC, D_L00_00161CB0 and D_L00_00166E10 (the
+ * NTSC decomp's follow_camera_turn_and_pitch.c). */
+#define func_L00_002E9E60 game_FUN_L00_002e89b0
+#define func_L00_002E9E60__game game_FUN_L00_002e89b0__game
+#define RAC1_ADDR_0x0015EEB4u 0x0015EDB4u
+#define RAC1_ADDR_0x0015EEE0u 0x0015EDE0u
+#define RAC1_ADDR_L00_0x0015F044u 0x0015EF44u
+#define RAC1_ADDR_L00_0x00161D7Cu 0x00161CACu
+#define RAC1_ADDR_L00_0x00161D80u 0x00161CB0u
+#define RAC1_ADDR_L00_0x00166F10u 0x00166E10u
 
 /* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
  * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its
@@ -236,6 +250,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
 #define RAC1_ADDR_L00_0x0015FB28u 0x0015FA70u
 #define RAC1_ADDR_L00_0x0015FB2Cu 0x0015FA74u
+/* The title loop's exit (front_end.c title_exit), PAL space_load_pending D_0015F690, which
+ * transition.c's title loop waits on: the NTSC decomp's transition_do_transition waits on
+ * space_load_pending D_0015F5B0 (its game_globals.h). 0x15F590 is freeze_fmt_time, a format string
+ * (draw_dialog_text.c), never 0: the port's main menu rows (Exit, the mods') were never put in. */
+#define RAC1_ADDR_0x0015F690u 0x0015F5B0u
 
 /* ---- generated below ---- */
 
@@ -246,6 +265,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_0012DA38__game game_FUN_0012d8f8__game
 #define func_0012DDC0 game_FUN_0012dc80
 #define func_001EFE10 game_FUN_001efa68
+#define func_001F2608 game_FUN_001f2260
+#define func_001F2608__game game_FUN_001f2260__game
 #define func_001F4630 game_FUN_001f4280
 #define func_001F4630__game game_FUN_001f4280__game
 #define func_001F4868 game_FUN_001f44b8
@@ -394,6 +415,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_002AE278__game game_FUN_L00_002acfd8__game
 #define func_L00_002CC3C0 game_FUN_L00_002caf70
 #define func_L00_002CC3C0__game game_FUN_L00_002caf70__game
+#define func_L00_002D83D8 game_FUN_L00_002d6f28
+#define func_L00_002D83D8__hooked game_FUN_L00_002d6f28__hooked
 #define func_L00_002D9EA0 game_FUN_L00_002d89f0
 #define func_L00_002D9EA0__hooked game_FUN_L00_002d89f0__hooked
 #define func_L02_0020A690 func_L02_0020A390
@@ -443,7 +466,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0015F558u 0x0015F458u
 #define RAC1_ADDR_0x0015F56Cu 0x0015F46Cu
 #define RAC1_ADDR_0x0015F570u 0x0015F470u
-#define RAC1_ADDR_0x0015F690u 0x0015F590u
 #define RAC1_ADDR_0x0015F6E8u 0x0015F604u
 #define RAC1_ADDR_0x0015F6FCu 0x0015F618u
 #define RAC1_ADDR_0x00160018u 0x0015FF18u

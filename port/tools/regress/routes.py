@@ -12,7 +12,9 @@ the route's length after control.
 The level routes (routes.json "levels", one a level) are the standard set; "sets" holds more,
 each a table of named routes ("routes": {"11-drown": {"level": 11, ...}}) with defaults of its
 own. A set's steps can do more than press: teleport the hero, give items, equip one, set his
-health, write any word, and repeat a block for each entry of a list ("each").
+health, write any word, and repeat a block for each entry of a list ("each"). A step's
+"camera": [x, y, z, fx, fy, fz] (an eye and forward, as the debug drawer shows them) holds the
+whole run's view there (OPENRAC_CAMERA, in a level, whatever the step's "at").
 """
 
 from __future__ import annotations
@@ -38,7 +40,7 @@ LEVELS = range(19)
 
 # What a step can do besides pressing (a set's routes): each becomes words of game memory written
 # from control, at the version's addresses (routes.json "addresses").
-ACTIONS = ("teleport", "yaw", "give", "equip", "health", "write")
+ACTIONS = ("teleport", "yaw", "give", "equip", "health", "write", "camera")
 
 
 def mask(buttons: str | list | None) -> int:
@@ -119,6 +121,9 @@ class Route:
             env["OPENRAC_CONTROL_FRAMES"] = str(int(self.length))
         if self.writes:
             env["OPENRAC_WRITE"] = self.write()
+        cameras = [s["camera"] for s in self.steps if "camera" in s]
+        if cameras:
+            env["OPENRAC_CAMERA"] = ",".join(f"{float(v):g}" for v in cameras[-1])
         return env
 
 

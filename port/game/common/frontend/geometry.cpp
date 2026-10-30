@@ -197,7 +197,9 @@ bool usable_view(const renderer::Mat4& view, const renderer::Mat4& projection) {
     }
 
     // The view's rotation, column-major: entry (row r, column c) is view[4 * c + r].
-    const auto at = [&view](int r, int c) { return static_cast<double>(view[4 * c + r]); };
+    const auto at = [&view](int r, int c) {
+        return static_cast<double>(view[4 * c + r]);
+    };
     const double det = at(0, 0) * (at(1, 1) * at(2, 2) - at(1, 2) * at(2, 1))
                        - at(0, 1) * (at(1, 0) * at(2, 2) - at(1, 2) * at(2, 0))
                        + at(0, 2) * (at(1, 0) * at(2, 1) - at(1, 1) * at(2, 0));

@@ -21,6 +21,7 @@
 #include "debug_menu.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
@@ -186,6 +187,12 @@ void skip_after_mods(int port, std::uint16_t& buttons) {
     }
 }
 
+void refresh_pads() {
+    if (g && g->window && settings::get().fresh_input) {
+        g->input.refresh_pads();
+    }
+}
+
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     if (!g || port < 0 || port >= platform::kPadPorts) {
         return false;
@@ -253,6 +260,9 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
             at = std::strchr(at, ',');
             at = at ? at + 1 : nullptr;
         }
+        // The late camera latch turns a scripted run's frames by the scripted stick, as the
+        // player's by the pad's.
+        latch_scripted_stick(analog[0]);
     }
     // Start skips an in-game scene the way the game itself skips it: a pressed Start also presses
     // what the game's own skip of the scene playing reads (rac1: in a cutscene the four shoulders,

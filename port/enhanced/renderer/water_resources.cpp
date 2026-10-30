@@ -116,7 +116,10 @@ bool Water::init(std::string& error) {
                 const auto& hydraulic = m_hydraulics[begin + y * width + x];
                 const float depth = hydraulic[3] > 0.f ? hydraulic[3] : hydraulic[0];
                 image_data[(std::size_t(m_atlas[b / 5][1]) + y) * m_atlas_width + x] =
-                    {cell[0] > .5f ? 1 - cell[2] : 0.f, cell[1], depth, 0.f};
+                    {cell[0] > .5f ? 1 - cell[2] : 0.f,
+                     cell[1],
+                     depth,
+                     std::abs(cell[0]) > .5f ? std::abs(cell[0]) - 512.f : 0.f};
             }
         }
     }
@@ -183,5 +186,6 @@ void Water::release() {
     m_exit_time = -1;
     m_sim_weight = 1;
     m_enabled = m_bound = false;
+    m_lighting_pending = false;
 }
 }  // namespace openrac::enhanced::water_detail

@@ -142,4 +142,5 @@ if(TARGET openrac_renderer_vulkan)
   #              read back, and a damaged, stale or colliding entry compiled afresh
   #              (tests/spirv_cache_test.cpp); it needs no GPU
   openrac_add_test(spirv_cache LIBS openrac_renderer_vulkan)
+  openrac_add_test(shader_precision LIBS openrac_renderer_vulkan)
 endif()

@@ -25,8 +25,15 @@ openrac::enhanced::fsr3_detail::ShaderLibrary* g_shader_library = nullptr;
 
 namespace openrac::enhanced::fsr3_detail {
 namespace {
-// Only algorithm switches affect these FP32/default-subgroup shaders; no frame-generation effects are compiled.
+// The pinned half pyramid callbacks are stubs. Select only the complete vendor
+// history-sampling path in accumulation; reprojection and other passes stay FP32.
 constexpr unsigned kShaderSwitches = (1u << 6) - 1;
+constexpr unsigned kHalf = FSR3UPSCALER_SHADER_PERMUTATION_ALLOW_FP16;
+
+bool half_history_pass(unsigned pass) {
+    return pass == FFX_FSR3UPSCALER_PASS_ACCUMULATE
+           || pass == FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN;
+}
 
 // Maps the upscaler's supported passes to unmodified AMD sources.
 constexpr std::array<const char*, FFX_FSR3UPSCALER_PASS_TCR_AUTOGENERATE> kPassSources{
@@ -45,7 +52,10 @@ constexpr std::array<const char*, FFX_FSR3UPSCALER_PASS_TCR_AUTOGENERATE> kPassS
 
 // Translates the SDK's permutation flags to its original GLSL preprocessor switches.
 std::string shader_definitions(unsigned permutation) {
-    std::string result = "#define FFX_GPU 1\n#define FFX_GLSL 1\n#define FFX_HALF 0\n";
+    std::string result = "#define FFX_GPU 1\n#define FFX_GLSL 1\n";
+    result += (permutation & kHalf) ? "#define FFX_HALF 1\n#define "
+                                      "FFX_FSR3UPSCALER_OPTION_REPROJECT_SAMPLERS_USE_DATA_HALF 1\n"
+                                    : "#define FFX_HALF 0\n";
     constexpr std::array<const char*, 6> kSwitches{
         "REPROJECT_USE_LANCZOS_TYPE",
         "HDR_COLOR_INPUT",
@@ -207,31 +217,40 @@ std::string_view ShaderLibrary::source(std::string_view name) const {
     return found == m_sources.end() ? std::string_view{} : std::string_view(found->second);
 }
 
-bool ShaderLibrary::prepare(std::string& error) {
+bool ShaderLibrary::prepare(std::string& error, bool allow_float16) {
+    m_allow_float16 = allow_float16;
     constexpr unsigned kBase = FSR3UPSCALER_SHADER_PERMUTATION_LOW_RES_MOTION_VECTORS
                                | FSR3UPSCALER_SHADER_PERMUTATION_DEPTH_INVERTED;
 
     // Only LDR, unjittered render-resolution motion is exposed by this integration.
     for (unsigned pass = 0; pass < kPassSources.size(); ++pass) {
         // Lanczos lookup and sharpening are independently selected by the SDK.
-        for (unsigned extra : {0u, 1u, 32u, 33u}) {
-            const auto key = std::pair{pass, kBase | extra};
-
-            // Changing quality or resolution reuses the already compiled permutations.
-            if (m_shaders.contains(key)) {
+        for (unsigned half : {0u, kHalf}) {
+            if (half && (!allow_float16 || !half_history_pass(pass))) {
                 continue;
             }
+            for (unsigned extra : {0u, 1u, 32u, 33u}) {
+                const auto key = std::pair{pass, kBase | extra | half};
 
-            auto shader = std::make_unique<Shader>();
+                // Changing quality or resolution reuses the already compiled permutations.
+                if (m_shaders.contains(key)) {
+                    continue;
+                }
 
-            // A failed compilation prevents SDK context creation rather than returning an empty blob.
-            if (!shader->compile(
-                    pass, key.second, [this](std::string_view name) { return source(name); }, error
-                )) {
-                return false;
+                auto shader = std::make_unique<Shader>();
+
+                // A failed compilation prevents SDK context creation rather than returning an empty blob.
+                if (!shader->compile(
+                        pass,
+                        key.second,
+                        [this](std::string_view name) { return source(name); },
+                        error
+                    )) {
+                    return false;
+                }
+
+                m_shaders.emplace(key, std::move(shader));
             }
-
-            m_shaders.emplace(key, std::move(shader));
         }
     }
 
@@ -239,19 +258,23 @@ bool ShaderLibrary::prepare(std::string& error) {
 }
 
 bool ShaderLibrary::find(unsigned pass, unsigned permutation, FfxShaderBlob& out) const {
-    const auto found = m_shaders.find({pass, permutation & kShaderSwitches});
+    const unsigned mask =
+        kShaderSwitches | ((m_allow_float16 && half_history_pass(pass)) ? kHalf : 0u);
+    const auto found = m_shaders.find({pass, permutation & mask});
 
     // Reject SDK modes the renderer has not supplied matching inputs for.
     if (found == m_shaders.end()) {
         return false;
     }
 
+    m_selected_float16 |= (found->first.second & kHalf) != 0;
     const auto blob = found->second->blob();
     std::memcpy(&out, &blob, sizeof(blob));
     return true;
 }
 
 void ShaderLibrary::activate() {
+    m_selected_float16 = false;
     g_shader_library = this;
 }
 

@@ -21,9 +21,12 @@ public:
     ShaderLibrary& operator=(const ShaderLibrary&) = delete;
 
     // Compiles before SDK creation, so a missing shader never reaches Vulkan pipeline creation.
-    [[nodiscard]] bool prepare(std::string& error);
+    [[nodiscard]] bool prepare(std::string& error, bool allow_float16 = false);
     // Copies a stable shader view; false for a permutation outside the prepared contract.
     [[nodiscard]] bool find(unsigned pass, unsigned permutation, FfxShaderBlob& out) const;
+
+    [[nodiscard]] bool float16_selected() const { return m_selected_float16; }
+
     // Makes this owner available only during synchronous SDK context creation on the render thread.
     void activate();
     // Ends the SDK callback scope without releasing cached bytecode.
@@ -32,7 +35,10 @@ public:
 private:
     // Finds original AMD source text, owned until this library is destroyed.
     std::string_view source(std::string_view name) const;
-    struct Shader;  // Bytecode and stable SDK reflection arrays.
+    mutable bool m_selected_float16 =
+        false;                     // Observed SDK pipeline selection, not just preparation.
+    bool m_allow_float16 = false;  // Only accumulation history filtering has a complete half path.
+    struct Shader;                 // Bytecode and stable SDK reflection arrays.
     std::map<std::string, std::string, std::less<>> m_sources;  // Assembled bounded source chunks.
     std::map<std::pair<unsigned, unsigned>, std::unique_ptr<Shader>>
         m_shaders;  // Owned compiled permutations.

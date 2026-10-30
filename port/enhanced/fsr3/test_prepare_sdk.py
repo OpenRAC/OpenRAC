@@ -43,7 +43,7 @@ class PrepareSdkTest(unittest.TestCase):
         backend.parent.mkdir(parents=True)
         backend.write_text(
             "// Synthetic backend fixture.\nuint32_t findMemoryTypeIndex() {}\n"
-            "VkBufferUsageFlags fixture;\n"
+            "VkBufferUsageFlags fixture;\ndeviceCapabilities->fp16Supported = false;\n"
             'const char* symbol = "vkGetBufferMemoryRequirements2KHR";\n'
             "backendInterface->fpSwapChainConfigureFrameGeneration = "
             "ffxSetFrameGenerationConfigToSwapchainVK;\n" + SCRATCH,
@@ -88,6 +88,20 @@ class PrepareSdkTest(unittest.TestCase):
         backend.write_text(backend.read_text(encoding="utf-8").replace("pMem", "memory"),
                            encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "scratch layout"):
+            prepare_sdk.prepare(self.source, self.output)
+
+    def test_float16_query_does_not_depend_on_extension_advertisement(self):
+        prepare_sdk.prepare(self.source, self.output)
+        backend = (self.output / "ffx_vk.cpp").read_text(encoding="utf-8")
+        self.assertIn("VkPhysicalDeviceVulkan12Features", backend)
+        self.assertIn("vkGetPhysicalDeviceFeatures2(backendContext->physicalDevice", backend)
+        self.assertIn("fp16Supported = openracCore12.shaderFloat16", backend)
+
+    def test_unexpected_float16_capability_query_is_rejected(self):
+        backend = self.source / "sdk/src/backends/vk/ffx_vk.cpp"
+        backend.write_text(backend.read_text(encoding="utf-8").replace(
+            'deviceCapabilities->fp16Supported = false;', ''), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "FP16 capability"):
             prepare_sdk.prepare(self.source, self.output)
 
     def test_raw_string_collision_is_rejected(self):

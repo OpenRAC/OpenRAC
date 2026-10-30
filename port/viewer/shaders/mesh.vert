@@ -65,8 +65,11 @@ flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
 out vec3 v_script_emission;
 out vec3 v_emission_colour;
-// GS F / 255: interpolated in screen space, as the GS does.
-noperspective out float v_fog;
+// GS F / 255, interpolated in screen space as the GS does: F times the clip w and w, both
+// interpolated perspective-correctly, whose ratio mesh.frag takes. A noperspective F gave NaN
+// where a triangle crossed the near plane (Mesa, lavapipe): black wedges at the screen's edges
+// when the camera stood by a wall.
+out vec2 v_fog_w;
 
 const int kPaletteWidth = 1024;
 const int kLightWidth = 1024;
@@ -96,6 +99,14 @@ void main() {
         n = mat3(skin) * n;
     }
     vec4 world = model * p;
+#ifdef OPENRAC_WATER_FLOAT
+    mat4 water_pose = water_float_pose(model[3].xyz);
+    world = water_pose * world;
+#endif
+    mat3 normal_model = mat3(model);
+#ifdef OPENRAC_WATER_FLOAT
+    normal_model = mat3(water_pose) * normal_model;
+#endif
     v_world_position = world.xyz;
 #ifdef OPENRAC_HERO_WETNESS
     int wet_index=gl_VertexID-hero_wetness_first;
@@ -117,7 +128,8 @@ void main() {
     gl_ClipDistance[1] = in_picture ? picture_scale * gl_Position.w + gl_Position.x : 1.0;
     // Camera depth in the game's raw units (game units x 1024); the view looks down -Z.
     float depth = -(view * world).z * 1024.0;
-    v_fog = trunc(clamp(depth * fog_params.x + fog_params.y, fog_params.z, fog_params.w)) / 255.0;
+    float fog = trunc(clamp(depth * fog_params.x + fog_params.y, fog_params.z, fog_params.w)) / 255.0;
+    v_fog_w = vec2(fog, 1.0) * gl_Position.w;
     v_uv = uv;
     v_colour = colour * tint;
     v_lit = 0;
@@ -147,7 +159,7 @@ void main() {
             da = normalize(mix(da, light_sets[s1 + 1].xyz, t));
             db = normalize(mix(db, light_sets[s1 + 3].xyz, t));
         }
-        vec3 nw = normalize(mat3(model) * n);
+        vec3 nw = normalize(normal_model * n);
         float fa = dot(-da, nw);
         float fb = dot(-db, nw);
         fa = max(fa, -abs(ca.w) * fa);
@@ -164,16 +176,16 @@ void main() {
         }
         v_lit = 1;
     }
-    v_normal = mat3(model) * n;
+    v_normal = normal_model * n;
 #ifdef OPENRAC_ENHANCED_RENDERING
     if ((probe_mode != 0 || sun_shadow_enabled != 0 || hero_shadow_enabled != 0)
         && probe_receiver != 0) {
-        v_normal = transpose(inverse(mat3(model))) * n;
+        v_normal = transpose(inverse(normal_model)) * n;
     }
 #endif
     if (metal_pass != 0) {
         // st = (e.xy + 1) / 2, e the normal in camera space (x right, y down: t grows downward).
-        vec3 e = normalize(mat3(view) * normalize(mat3(model) * n));
+        vec3 e = normalize(mat3(view) * normalize(normal_model * n));
         v_uv = vec2(e.x * 0.5 + 0.5, 0.5 - e.y * 0.5);
         // The shine alpha: MobyProc's gate min(((distance << 10) - depth) >> 7, 0x80), depth in raw
         // units: full up to 16 game units nearer than the moby's shine distance (+0x73, 0x18 unless the

@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "renderer/gl.h"
+#include "renderer/shader_precision.h"
 #include "renderer/texture_filter.h"
 #include "renderer_shaders.h"
 
@@ -30,7 +31,8 @@ std::string es_source(std::string_view source, bool noperspective, bool clip_dis
     }
     std::string body(source.substr(kDesktop.size()));
     const auto replace_all = [&body](std::string_view from, std::string_view to) {
-        for (std::size_t at = body.find(from); at != std::string::npos; at = body.find(from, at + to.size())) {
+        for (std::size_t at = body.find(from); at != std::string::npos;
+             at = body.find(from, at + to.size())) {
             body.replace(at, from.size(), to);
         }
     };
@@ -55,8 +57,10 @@ std::string es_source(std::string_view source, bool noperspective, bool clip_dis
     // ES has no default precision for floats in a fragment shader or for the sampler types beyond
     // sampler2D and samplerCube; the desktop's is high everywhere.
     out += "precision highp float;\nprecision highp int;\nprecision highp sampler2D;\n"
-           "precision highp sampler2DArray;\nprecision highp usampler2D;\nprecision highp isampler2D;\n"
-           "precision highp samplerBuffer;\nprecision highp usamplerBuffer;\nprecision highp isamplerBuffer;\n";
+           "precision highp sampler2DArray;\nprecision highp usampler2D;\nprecision highp "
+           "isampler2D;\n"
+           "precision highp samplerBuffer;\nprecision highp usamplerBuffer;\nprecision highp "
+           "isamplerBuffer;\n";
     // Keep the source's own line numbers in compiler logs.
     out += "#line 1\n";
     out += body;
@@ -69,8 +73,11 @@ GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
     std::string translated;
     std::string_view source = desktop_source;
     if (is_es()) {
-        translated = es_source(desktop_source, has_extension("GL_NV_shader_noperspective_interpolation"),
-                               has_extension("GL_EXT_clip_cull_distance"));
+        translated = es_source(
+            desktop_source,
+            has_extension("GL_NV_shader_noperspective_interpolation"),
+            has_extension("GL_EXT_clip_cull_distance")
+        );
         source = translated;
     }
     // Give shader stages the same single opt-in as the C++ resource gates.
@@ -78,6 +85,12 @@ GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
         translated = source;
         translated.insert(translated.find('\n') + 1, "#define OPENRAC_ENHANCED_RENDERING 1\n");
         source = translated;
+    }
+    // Desktop GL and ES retain the same arithmetic sources with ordinary FP32 aliases.
+    std::string precision;
+    if (!is_vulkan()) {
+        precision = renderer::shader_precision_source(source, false);
+        source = precision;
     }
     const GLuint shader = glCreateShader(type);
     const GLchar* text = source.data();
@@ -105,7 +118,8 @@ Shader::~Shader() {
 }
 
 Shader::Shader(Shader&& other) noexcept
-    : m_program(std::exchange(other.m_program, 0)), m_locations(std::move(other.m_locations)) {}
+    : m_program(std::exchange(other.m_program, 0)),
+      m_locations(std::move(other.m_locations)) {}
 
 Shader& Shader::operator=(Shader&& other) noexcept {
     if (this != &other) {

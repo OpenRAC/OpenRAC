@@ -8,6 +8,7 @@ Generated plans, logs and probe assets contain game data and must stay local.
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import contextlib
 from dataclasses import asdict, dataclass
 import json
@@ -15,11 +16,17 @@ import math
 import os
 from pathlib import Path
 import subprocess
+import sys
+import tempfile
 from types import SimpleNamespace
+
+sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
 
 import seed_regions as seeds
 import automatic_interiors
 import emission_audit
+import diagnostics
+from openrac_common import files as file_ops
 
 
 @dataclass
@@ -36,11 +43,14 @@ class RegionSettings:
     geometry_max_rise: float = 32
     geometry_padding: float = 3
     no_moby_seeds: bool = False
+    adaptive_density: bool = False
+    adaptive_relative_error: float = 0.1
+    adaptive_absolute_error: float = 0.02
 
     @classmethod
     def load(cls, level_dir: Path):
         path = level_dir/'probe-bake.json'
-        data = json.loads(path.read_text()) if path.exists() else {'version': 1}
+        data = diagnostics.read_json(path) if path.exists() else {'version': 1}
         if not isinstance(data, dict) or data.get('version') != 1:
             raise ValueError('probe-bake.json requires version 1')
         values = data.get('regions', {})
@@ -67,6 +77,8 @@ class RegionSettings:
             raise ValueError('max_regions must be between 1 and 1024')
         if settings.geometry_max_rise <= 0:
             raise ValueError('geometry_max_rise must be positive')
+        if settings.adaptive_relative_error > 0.25 or settings.adaptive_absolute_error > 0.1:
+            raise ValueError('adaptive error limits must not exceed 0.25 relative or 0.1 absolute')
         return settings
 
     def planner_options(self):
@@ -75,11 +87,19 @@ class RegionSettings:
 
 
 def write_json(path, value, *, replace=False):
-    if replace:
-        path.unlink(missing_ok=True)
-    with path.open('x') as out:
-        json.dump(value, out, indent=2, allow_nan=False)
-        out.write('\n')
+    if path.exists() and not replace:
+        raise FileExistsError(str(path))
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent,
+                                         prefix='.'+path.name, suffix='.part', delete=False) as out:
+            temporary = Path(out.name)
+            json.dump(value, out, indent=2, allow_nan=False)
+            out.write('\n')
+        file_ops.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def remove_grids(directory: Path):
@@ -91,7 +111,7 @@ def remove_grids(directory: Path):
 def prepare_emission(level_dir):
     """Resolve the same explicit material definitions used by normal level export."""
     from enhanced.profiles import write_emission_profile
-    manifest = json.loads((level_dir/'manifest.json').read_text())
+    manifest = diagnostics.read_json(level_dir/'manifest.json')
     if all(key in manifest for key in ('game', 'version', 'level')):
         level = SimpleNamespace(game=manifest['game'], version=manifest['version'], id=manifest['level'])
         write_emission_profile(level, level_dir)
@@ -106,16 +126,19 @@ def coarse_bounds(regions, settings):
 
 
 def inspection(text):
-    fields = {line.split(' ', 1)[0]: line.split(' ', 1)[1]
-              for line in text.splitlines() if ' ' in line}
-    grid = {'game_version': fields['game_version'], 'level': int(fields['level']),
-            'origin': list(map(float, fields['probe_origin'].split())),
-            'spacing': list(map(float, fields['probe_spacing'].split())),
-            'dimensions': list(map(int, fields['probe_dimensions'].split()))}
-    emission = {key: fields[key] for key in (
-        'emissive_triangles', 'automatic_liquid_triangles', 'point_emitters',
-        'bake_surfaces', 'emission', 'emission_vertex_colour_triangles') if key in fields}
-    return grid, emission, fields['scene_hash']
+    try:
+        fields = {line.split(' ', 1)[0]: line.split(' ', 1)[1]
+                  for line in text.splitlines() if ' ' in line}
+        grid = {'game_version': fields['game_version'], 'level': int(fields['level']),
+                'origin': list(map(float, fields['probe_origin'].split())),
+                'spacing': list(map(float, fields['probe_spacing'].split())),
+                'dimensions': list(map(int, fields['probe_dimensions'].split()))}
+        emission = {key: fields[key] for key in (
+            'emissive_triangles', 'automatic_liquid_triangles', 'point_emitters',
+            'bake_surfaces', 'emission', 'emission_vertex_colour_triangles') if key in fields}
+        return grid, emission, fields['scene_hash']
+    except (KeyError, ValueError) as error:
+        raise diagnostics.NativeFailure(1, ['scene inspection'], text, protocol=True) from error
 
 
 # The baker's exit status for a level with nothing to bake (level_scene.h, kNothingToBake).
@@ -138,34 +161,56 @@ class NativeBatch:
         self.process = None
         self.log = None
         self.inspection = ''
+        self.tail = deque(maxlen=40)
 
     def __enter__(self):
-        self.log = self.log_path.open('a' if self.append else 'x')
+        self.log = self.log_path.open('a' if self.append else 'x', encoding='utf-8', errors='replace')
         try:
             self.process = subprocess.Popen(self.command, stdin=subprocess.PIPE,
                                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                            text=True, bufsize=1)
+                                            text=True, bufsize=1, encoding='utf-8', errors='replace')
             lines = []
+            inspected_bytes = 0
+            self.log.write('Command: '+subprocess.list2cmdline(list(map(str, self.command)))+'\n')
             for line in self.process.stdout:
+                self.tail.append(line)
                 self.log.write(line)
                 self.log.flush()
                 if line.strip() == 'Probe batch ready':
                     self.inspection = ''.join(lines)
                     return self
+                inspected_bytes += len(line)
+                if inspected_bytes > 131072:
+                    raise diagnostics.NativeFailure(1, self.command, 'Scene inspection exceeded 128 KiB without a ready marker', self.log_path, protocol=True)
                 lines.append(line)
             self.process.wait()
             if self.process.returncode == NOTHING_TO_BAKE:
                 raise NothingToBake(''.join(lines).strip().splitlines()[-1] if lines else 'nothing to bake')
-            raise subprocess.CalledProcessError(self.process.returncode or 1, self.command)
+            raise diagnostics.NativeFailure(self.process.returncode or 1, self.command, ''.join(self.tail),
+                                            self.log_path, protocol=self.process.returncode == 0)
         except BaseException:
             self.close()
             raise
 
     def finish(self, plan):
-        self.process.stdin.write(json.dumps(plan, allow_nan=False)+'\n')
-        self.process.stdin.close()
+        try:
+            self.process.stdin.write(json.dumps(plan, allow_nan=False)+'\n')
+            self.process.stdin.close()
+        except (BrokenPipeError, OSError) as error:
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+            for line in self.process.stdout:
+                self.tail.append(line)
+                self.log.write(line)
+            self.log.flush()
+            raise diagnostics.NativeFailure(self.process.returncode or 1, self.command,
+                                            ''.join(self.tail), self.log_path) from error
         completed = False
         for line in self.process.stdout:
+            self.tail.append(line)
             self.log.write(line)
             self.log.flush()
             if line.startswith(('Baking ', 'Verified ', 'Kept ')):
@@ -177,7 +222,8 @@ class NativeBatch:
             completed |= line.strip() == 'Probe batch complete'
         result = self.process.wait()
         if result or not completed:
-            raise subprocess.CalledProcessError(result or 1, self.command)
+            raise diagnostics.NativeFailure(result or 1, self.command, ''.join(self.tail),
+                                            self.log_path, protocol=result == 0)
 
     def close(self):
         if self.process is not None:
@@ -208,18 +254,21 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
         raise ValueError('bake outputs must be outside the source level directory')
     if output_dir.exists() and not resume:
         raise ValueError('choose a new output directory; previous bakes are preserved')
-    manifest = json.loads((level_dir/'manifest.json').read_text())
-    settings = RegionSettings.load(level_dir)
-    gameplay = seeds.read_gameplay(level_dir, manifest, disc) if settings.enabled or settings.interior_lighting else None
+    manifest = diagnostics.stage('Read level manifest', diagnostics.read_json, level_dir/'manifest.json')
+    settings = diagnostics.stage('Read lighting settings', RegionSettings.load, level_dir)
+    gameplay = diagnostics.stage('Read gameplay seeds', seeds.read_gameplay, level_dir, manifest, disc) \
+        if settings.enabled or settings.interior_lighting else None
     common = [str(baker), '--level-dir', str(level_dir), *options]
-    profile = json.loads(subprocess.check_output(common+['--print-profile'], text=True))
+    profile = diagnostics.stage('Read baker profile', lambda: diagnostics.parse_profile(diagnostics.capture(common+['--print-profile'])))
     output_dir.mkdir(parents=True, exist_ok=resume)
+    # Only a completed native validation may publish a density report for this run.
+    (output_dir/'probe-density-report.json').unlink(missing_ok=True)
 
     # Resolve reviewed shared materials before the native scene snapshot, including older exports.
-    prepare_emission(level_dir)
-    emission_audit.audit(level_dir, output_dir)
+    diagnostics.stage('Prepare emission', prepare_emission, level_dir)
+    diagnostics.stage('Audit emission', emission_audit.audit, level_dir, output_dir)
     if settings.interior_lighting:
-        automatic_interiors.prepare(level_dir, output_dir, baker, manifest, gameplay)
+        diagnostics.stage('Infer interior lighting', automatic_interiors.prepare, level_dir, output_dir, baker, manifest, gameplay)
     else:
         automatic_interiors.remove_generated(level_dir)
 
@@ -236,9 +285,9 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
         return None
     # Started above (its start says whether there is anything to bake): closed whatever happens.
     with contextlib.closing(batch) as native:
-        coarse, emission, source_hash = inspection(native.inspection)
+        coarse, emission, source_hash = diagnostics.stage('Read native scene', inspection, native.inspection)
         if settings.enabled and gameplay is not None:
-            plan = seeds.plan_level(level_dir, coarse, profile, gameplay, settings.planner_options())
+            plan = diagnostics.stage('Plan dense regions', seeds.plan_level, level_dir, coarse, profile, gameplay, settings.planner_options())
         elif settings.enabled:
             plan = {'regions': [], 'note': 'No gameplay to seed dense regions from (a scene, not a level of the disc).'}
         else:
@@ -265,11 +314,18 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
                             'max_distance': 1.5*math.sqrt(sum(s*s for s in spacing)),
                             **({'lattice_bounds': region['lattice_bounds']} if 'lattice_bounds' in region else {})})
         bounds = coarse_bounds(plan['regions'], settings)
-        native.finish({'version': 1, 'scene_hash': source_hash, 'regions': regions,
-                       **({'coarse_bounds': bounds} if bounds is not None else {})})
+        diagnostics.stage('Bake and verify grids', native.finish,
+                          {'version': 1, 'scene_hash': source_hash, 'regions': regions,
+                           'adaptive_density': {'enabled': settings.adaptive_density,
+                                                'relative_error': settings.adaptive_relative_error,
+                                                'absolute_error': settings.adaptive_absolute_error},
+                           **({'coarse_bounds': bounds} if bounds is not None else {})})
 
     sparse = output_dir/'sparse.orpg'
     assets = [output_dir/f'region-{i:03d}.orpg' for i in range(len(plan['regions']))]
+    for path in [sparse, *assets]:
+        if not path.is_file() or path.stat().st_size == 0:
+            raise diagnostics.NativeFailure(1, command, f'Baker reported completion but output is missing or empty: {path}', output_dir/'batch.log', protocol=True)
     registry = {'regions': [path.name for path in assets]}
     write_json(Path(str(sparse)+'.regions.json'), registry, replace=resume)
     write_json(output_dir/'regions.json', registry, replace=resume)
@@ -277,12 +333,16 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
         'version': 1, 'game_version': coarse['game_version'], 'level': coarse['level'],
         'scene_hash': source_hash, 'sparse': sparse.name, 'regions': registry['regions'],
         'probe_format_version': profile['probe_format_version'],
-        'bake_version': profile['bake_version'], 'verified': True, 'emission': emission})
+        'bake_version': profile['bake_version'], 'verified': True, 'emission': emission,
+        **({'density_report': 'probe-density-report.json'}
+           if (output_dir/'probe-density-report.json').is_file() else {}),
+        **({'environment': 'environment.orpe'} if (output_dir/'environment.orpe').is_file() else {})})
     print('Verified level bake:', sparse, flush=True)
     return sparse
 
 
 def main():
+    diagnostics.configure_streams()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--level-dir', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
@@ -298,8 +358,22 @@ def main():
         value = getattr(args, key)
         if value is not None:
             options.extend(('--' + key, str(value)))
-    bake_level(args.level_dir, args.output_dir, args.baker, disc=args.disc, options=options)
+    try:
+        if args.output_dir.resolve().is_relative_to(args.level_dir.resolve()):
+            raise ValueError('bake outputs must be outside the source level directory')
+        if args.output_dir.exists():
+            raise ValueError('choose a new output directory; previous bakes are preserved')
+        with diagnostics.transcript(args.output_dir) as log:
+            try:
+                bake_level(args.level_dir, args.output_dir, args.baker, disc=args.disc, options=options, resume=True)
+            except Exception as error:
+                diagnostics.failed(error, level=args.level_dir.name, log=log)
+                return 1
+    except Exception as error:
+        diagnostics.failed(error, level=args.level_dir.name)
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

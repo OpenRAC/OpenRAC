@@ -40,6 +40,10 @@ void Water::update_lighting(const renderer::FrameInput& input) {
 }
 
 void Water::prepare(const renderer::FrameInput& input) {
+    prepare_frame(input, true);
+}
+
+void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     const profiling::Zone trace("Prepare enhanced water");
 
     m_mesh->begin_pass();
@@ -52,6 +56,7 @@ void Water::prepare(const renderer::FrameInput& input) {
     m_enabled = input.enhanced_water && !water_disabled();
     water_ready.store(m_enabled);
     if (!m_enabled) {
+        m_lighting_pending = false;
         m_last_frame = m_prepared_frame = m_clock_frame = std::numeric_limits<std::uint64_t>::max();
         m_sim_body = -1;
         m_exit_time = -1;
@@ -60,9 +65,14 @@ void Water::prepare(const renderer::FrameInput& input) {
         return;
     }
     if (input.frame == m_prepared_frame && !debug_reset) {
+        if (lighting && m_lighting_pending) {
+            update_lighting(input);
+            m_lighting_pending = false;
+        }
         return;
     }
     m_prepared_frame = input.frame;
+    m_lighting_pending = false;
     if (m_clock_frame != input.frame) {
         if (!m_debug.paused && m_clock_frame != std::numeric_limits<std::uint64_t>::max()
             && input.frame > m_clock_frame) {
@@ -159,7 +169,11 @@ void Water::prepare(const renderer::FrameInput& input) {
     stats::gauge("water simulation cells", selected >= 0 ? double(kWindowCells) : 0.);
     stats::gauge("water simulation body", double(selected));
     if (visible_surfaces != 0 || selected >= 0) {
-        update_lighting(input);
+        if (lighting) {
+            update_lighting(input);
+        } else {
+            m_lighting_pending = true;
+        }
     }
     if (selected < 0) {
         remember_tick(input, hero, epoch);

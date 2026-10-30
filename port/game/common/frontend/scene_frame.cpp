@@ -21,6 +21,7 @@
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
@@ -37,7 +38,8 @@ bool prepare_temporal(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
     const bool temporal_wanted = enhanced_graphics_available() && graphics.enhanced_graphics
-                                 && graphics.temporal_quality != renderer::TemporalQuality::Off
+                                 && (graphics.temporal_quality != renderer::TemporalQuality::Off
+                                     || (graphics.motion_blur && graphics.motion_blur_strength > 0))
                                  && enhanced::Fsr3::available() && scene.has_camera
                                  && (scene.draws & 0x1Fu) != 0;
 
@@ -165,6 +167,8 @@ void set_lighting(SceneFrame& frame) {
     }
     owner.scene.set_probe_spheres(graphics.probe_spheres);
     owner.scene.set_area_lights(graphics.ceiling_area_lights);
+    owner.scene.set_medial_axis_debug(graphics.medial_axis_debug);
+    owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
@@ -255,11 +259,17 @@ void set_camera(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     auto& input = frame.input;
     const float picture_scale = frame.picture_scale;
-    const auto state = scene.has_prev_state && frame.output.alpha < 1.0f
-                           ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
-                           : scene.state;
+    // Turned by the late camera latch (frontend/camera_latch.h) when it is on.
+    const auto state = turned_camera(
+        scene.has_prev_state && frame.output.alpha < 1.0f
+            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
+            : scene.state,
+        {frame.output.latch_yaw, frame.output.latch_pivot}
+    );
     renderer::Camera camera;
     camera.view = state.view();
+    camera.target = state.camera_target;
+    camera.target_id = state.camera_target_id;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
@@ -272,15 +282,16 @@ void set_camera(SceneFrame& frame) {
     );
     camera.position = state.camera_position;
     // No camera yet (loading, fades between programs): a black frame, not the level's background.
-    // Nor one the guard refuses with no good one to draw instead. With one, the colour the game
-    // clears to (the level settings' background, which a mod can change), else the extracted
-    // level's.
+    // Nor one the guard refuses with no good one to draw instead, nor a tick that draws no world
+    // (a loading screen's or a new game's captions, whose view context holds the levels' colours
+    // as they come and go). With a world, the colour the game clears to (the level settings'
+    // background, which a mod can change), else the extracted level's.
     const std::optional<renderer::Camera> drawn =
         scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
     const bool has_camera = drawn.has_value();
     frame.has_camera = has_camera;
     const auto background = scene.state.background_or(owner.level.background);
-    input.clear_colour = has_camera
+    input.clear_colour = has_camera && (scene.draws & kWorldLayers) != 0
                              ? std::array<float, 4>{background[0], background[1], background[2], 1}
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
@@ -317,7 +328,7 @@ bool draw_world(SceneFrame& frame) {
     // picture draws its 2D once, on its first frame (drawn again, a fade's darkening would add up).
     if (owner.renderer && !owner.repeat_frame && !(owner.overdraw && !frame.output.first)) {
         // [debug tools] The passes hidden in the overlay; the render timed (common/stats.h).
-        debug_overlay::before_render(owner.renderer.get());
+        debug_overlay::before_render(owner.renderer.get(), frame.input.frame);
         const stats::Scope render_scope("render");
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
         target.depth_texture = owner.frame.depth_texture();
@@ -329,7 +340,16 @@ bool draw_world(SceneFrame& frame) {
         if (temporal_wanted && !input.keep_colour) {
             std::string temporal_error;
             const enhanced::TemporalFrame temporal{
-                input, target, owner.frame, owner.scene, owner.renderer->textures(), scene.level
+                input,
+                target,
+                owner.frame,
+                owner.scene,
+                owner.renderer->textures(),
+                scene.level,
+                graphics.motion_blur,
+                graphics.motion_blur_strength,
+                scene.cutscene,
+                graphics.motion_blur_settings
             };
             const bool active = owner.temporal->begin(
                 temporal, graphics.temporal_quality, graphics.temporal_sharpness, temporal_error
@@ -341,6 +361,18 @@ bool draw_world(SceneFrame& frame) {
             }
         }
 
+        if (graphics.agx_preview && graphics.enhanced_graphics && enhanced_graphics_available()
+            && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0) {
+            auto before_hud = std::move(input.before_hud);
+            input.before_hud = [&owner,
+                                exposure = graphics.adjusted_agx_exposure(),
+                                before_hud = std::move(before_hud)] {
+                owner.agx.apply(owner.frame, exposure);
+                if (before_hud) {
+                    before_hud();
+                }
+            };
+        }
         owner.renderer->render(input, target);
         return true;
     }

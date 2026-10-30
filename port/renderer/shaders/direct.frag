@@ -22,6 +22,8 @@ uniform int alpha_test;       // 0 off, else TEST.ATST (2 LESS ... 7 NOTEQUAL)
 uniform float alpha_ref;      // TEST.AREF
 uniform int alpha_keep_failing;  // the second pass of the double draw
 uniform int distance_field;   // the texture's alpha is a distance field (text drawn sharp)
+uniform int source_scale;     // the blend's weight of Cs, applied here (GlBlend): 1 As, 2 FIX
+uniform float source_fix;     // FIX / 128, unclamped
 
 layout(location = 0) out vec4 out_colour;
 
@@ -60,24 +62,26 @@ void main() {
         } else {
             t.a *= tex_alpha_scale;
         }
+        // Byte RGB products are bounded by 255*255=65025 (<65504); alpha remains FP32.
         if (tfx == 0) {
-            c.rgb = c.rgb * t.rgb / 128.0;
+            c.rgb = vec3(mp_vec3(c.rgb) * mp_vec3(t.rgb) / mp_float(128));
             c.a = tcc != 0 ? c.a * t.a / 128.0 : c.a;
         } else if (tfx == 1) {
             c.rgb = t.rgb;
             c.a = tcc != 0 ? t.a : c.a;
         } else if (tfx == 2) {
-            c.rgb = c.rgb * t.rgb / 128.0 + c.a;
+            c.rgb = vec3(mp_vec3(c.rgb) * mp_vec3(t.rgb) / mp_float(128) + mp_float(c.a));
             c.a = tcc != 0 ? c.a + t.a : c.a;
         } else {
-            c.rgb = c.rgb * t.rgb / 128.0 + c.a;
+            c.rgb = vec3(mp_vec3(c.rgb) * mp_vec3(t.rgb) / mp_float(128) + mp_float(c.a));
             c.a = tcc != 0 ? t.a : c.a;
         }
     }
     // COLCLAMP: the chip clamps to 0..255.
     c = clamp(c, 0.0, 255.0);
     if (fog_enable != 0) {
-        c.rgb = mix(fog_colour, c.rgb, v_fog);
+        // Alpha and alpha-test arithmetic remain FP32.
+        c.rgb = vec3(mix(mp_vec3(fog_colour), mp_vec3(c.rgb), mp_float(v_fog)));
     }
     if (alpha_test != 0 && alpha_passes(c.a) == (alpha_keep_failing != 0)) {
         discard;
@@ -86,5 +90,11 @@ void main() {
 #ifdef OPENRAC_EFFECT_MATERIAL
     c.rgb = effect_material(c.rgb / 255.0) * 255.0;
 #endif
+    // Weights above 1 (As or FIX up to 0xFF) that GL's blend factors would clamp.
+    if (source_scale == 1) {
+        c.rgb = min(c.rgb * c.a / 128.0, 255.0);
+    } else if (source_scale == 2) {
+        c.rgb = min(c.rgb * source_fix, 255.0);
+    }
     out_colour = vec4(c.rgb / 255.0, c.a / 128.0);
 }

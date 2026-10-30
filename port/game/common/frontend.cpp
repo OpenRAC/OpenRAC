@@ -374,6 +374,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     set_window_icon(*g->window);
     g->swap_asked = wanted_swap();
     g->swap = g->window->set_swap_interval(g->swap_asked);
+    g->window->set_low_latency(settings::get().low_latency_frames);
     g->display_mode = chosen.display_mode;
     g->monitor = chosen.monitor;
     g->fullscreen_width = chosen.fullscreen_width;
@@ -529,6 +530,7 @@ void close() {
         release_views(*g);
         // Temporal histories reference the target and scene, so retire them before either owner.
         g->temporal.reset();
+        g->agx.release();
         g->frame.release();
         g->picture.release();
         g->last_world.release();

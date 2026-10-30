@@ -8,6 +8,7 @@
     regress.py baseline save NAME [RUN ...] [--set wide]   (the latest run of each version by default)
     regress.py check NAME [RUN ...] [--set wide]           (the latest runs against the baseline)
     regress.py reach RUN [RUN ...] [--top N] [--json FILE]
+    regress.py coverage RUN [RUN ...] [--top N] [--json FILE]  (what the game drew and the port did not)
     regress.py card --game rac1-pal|rac1-ntsc [--from DIR]  (the prepared memory card, a copy)
     regress.py sets                                          (the route sets and their routes)
 
@@ -27,6 +28,7 @@ from pathlib import Path
 
 import card as card_mod
 import compare as compare_mod
+import coverage as coverage_mod
 import reach as reach_mod
 import routes as routes_mod
 import runner
@@ -78,7 +80,8 @@ def cmd_run(args) -> int:
           f"{args.jobs} at once")
     out = runner.run(args.game, levels, build, Path(args.out) if args.out else None, args.jobs,
                      Path(args.data) if args.data else None, Path(args.level_data) if args.level_data else None,
-                     Path(args.routes) if args.routes else None, route_set=args.set, only=only)
+                     Path(args.routes) if args.routes else None, route_set=args.set, only=only,
+                     env=dict(args.env or []), settings=dict(args.setting or []))
     meta = json.loads((out / "run.json").read_text())
     counts = {}
     for r in meta["levels"].values():
@@ -239,6 +242,28 @@ def cmd_reach(args) -> int:
     return 0
 
 
+def cmd_coverage(args) -> int:
+    files = []
+    for r in args.runs:
+        files += coverage_mod.load_run(resolve(r))
+    merged = coverage_mod.merge(files)
+    for game, (programs, particles) in merged.items():
+        print(coverage_mod.table(game, programs, particles, args.top))
+    if args.json:
+        Path(args.json).write_text(json.dumps(
+            {g: {"programs": [r.as_dict() for r in ps], "particles": [r.as_dict() for r in qs]}
+             for g, (ps, qs) in merged.items()}, indent=1))
+    return 0
+
+
+def key_value(text: str) -> tuple[str, str]:
+    """KEY=VALUE as --env and --setting take it."""
+    key, eq, value = text.partition("=")
+    if not key or not eq:
+        raise argparse.ArgumentTypeError(f"{text!r} is not KEY=VALUE")
+    return key, value
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
@@ -254,6 +279,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--routes", help="another routes file")
     r.add_argument("--set", help="a route set of routes.json (default: standard, the level routes)")
     r.add_argument("--only", help="a set's routes by name: 11-drown,05-long")
+    r.add_argument("--env", action="append", type=key_value, metavar="KEY=VALUE",
+                   help="a switch every run gets, after the run's own (OPENRAC_SOFTWARE_GL=1 without a graphics card)")
+    r.add_argument("--setting", action="append", type=key_value, metavar="KEY=VALUE",
+                   help="a settings.ini line every run starts from (render_scale=25: a quicker picture)")
     r.set_defaults(fn=cmd_run)
 
     c = sub.add_parser("compare", help="two runs, aligned on control")
@@ -287,6 +316,11 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--top", type=int, default=25)
     m.add_argument("--json")
     m.set_defaults(fn=cmd_reach)
+    v = sub.add_parser("coverage", help="what the game asked to draw that the port left undrawn, per version")
+    v.add_argument("runs", nargs="+")
+    v.add_argument("--top", type=int, default=25)
+    v.add_argument("--json")
+    v.set_defaults(fn=cmd_coverage)
 
     d = sub.add_parser("card", help="the prepared memory card: a copy of a card, every item, five slots")
     d.add_argument("--game", required=True, choices=routes_mod.GAMES)

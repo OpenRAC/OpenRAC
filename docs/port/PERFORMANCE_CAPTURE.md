@@ -27,6 +27,13 @@ and snapshots of the game's state (`_effects.json`, below). Send the whole zip.
 **Tips:** keep it short and repeatable. Stay in one place in one level, keep the same
 settings and record for 30 s. Record the same scene before and after a change.
 
+### With and without the performance hint (Android)
+
+On Android 13 and later the game tells the system each frame's target time and how long
+the work took (ADPF). The system then keeps the CPU fast instead of lowering its clocks
+while the game waits for the display. To compare, record once as usual and once with
+`OPENRAC_ADPF_OFF` set. The header's **performance hint** line says which one you have.
+
 ### Simulating a slower device
 
 **Simulate slow CPU** (2x, 4x, 6x), in the same menus, makes the game's threads that many
@@ -36,7 +43,7 @@ weak phone. Works on Linux, Android and macOS.
 ## What the report contains
 
 - **Setup**: build, device, CPU and its clock speeds, thermal state (Android), GPU and
-  driver, window size and settings.
+  driver, window size and settings. On Android, **performance hint** says whether the game used the hint (below).
 - **Verdict**: whether frames hit their target and, if not, whether the CPU or the GPU is
   the bottleneck. It also says how much slower a CPU and GPU could be and still run at
   60 fps.

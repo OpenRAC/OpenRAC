@@ -86,10 +86,9 @@ std::uint32_t options_stream(Read32 read, std::uint32_t page, std::uint32_t list
 
 // The stream's entries for the port's list: the game's `count` entries (two words each) with `extra`
 // empty ones (no sectors: the stream reads nothing and keeps the picture it has) at `before`, where
-// the list has its Video item and the mods' after it, and `after` copies of the game's last one at
-// the end (the port's Exit shows Quit Game's picture). `out` holds 2 * (count + extra + after) words.
+// the list has its Video item and the mods' after it. `out` holds 2 * (count + extra) words.
 inline void entries_with_extra(
-    const std::uint32_t* game, int count, int before, int extra, std::uint32_t* out, int after = 0
+    const std::uint32_t* game, int count, int before, int extra, std::uint32_t* out
 ) {
     before = before < 0 ? 0 : before > count ? count : before;
     int o = 0;
@@ -105,10 +104,6 @@ inline void entries_with_extra(
             out[2 * o + 1] = game[2 * i + 1];
             ++o;
         }
-    }
-    for (int e = 0; e < after; ++e, ++o) {
-        out[2 * o] = count > 0 ? game[2 * (count - 1)] : 0;
-        out[2 * o + 1] = count > 0 ? game[2 * (count - 1) + 1] : 0;
     }
 }
 

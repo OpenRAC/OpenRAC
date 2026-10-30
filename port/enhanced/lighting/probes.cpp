@@ -132,6 +132,19 @@ struct Reader {
 };
 }  // namespace
 
+Float3 ProbeFrame::to_local(Float3 p) const {
+    return {axis[0] * p[0] + axis[1] * p[1], -axis[1] * p[0] + axis[0] * p[1], p[2]};
+}
+
+Float3 ProbeFrame::to_world(Float3 p) const {
+    return {axis[0] * p[0] - axis[1] * p[1], axis[1] * p[0] + axis[0] * p[1], p[2]};
+}
+
+bool ProbeFrame::valid() const {
+    return std::isfinite(axis[0]) && std::isfinite(axis[1])
+           && std::abs(axis[0] * axis[0] + axis[1] * axis[1] - 1) < .0001f;
+}
+
 float encode_probe_irradiance(float linear) {
     return std::pow(std::max(linear, 0.0f), 1.0f / kProbeIrradianceGamma);
 }
@@ -149,7 +162,8 @@ void ProbeGrid::validate() const {
         invalid("unsupported probe bake revision; rebake with this version of the baker");
     }
 
-    if (!finite(origin) || !finite(spacing) || !std::isfinite(max_distance) || max_distance <= 0
+    if (!frame.valid() || !finite(origin) || !finite(spacing) || !std::isfinite(max_distance)
+        || max_distance <= 0
         || max_distance > std::sqrt(std::numeric_limits<float>::max()) * 0.5f) {
         invalid("invalid probe world units or distance");
     }
@@ -193,8 +207,13 @@ Float3 ProbeVolume::position(std::size_t probe) const {
     Float3 out{};
 
     for (std::size_t i = 0; i < 3; ++i) {
-        out[i] = grid.origin[i] + grid.spacing[i] * static_cast<float>(index[i])
-                 + probes.at(probe).offset[i];
+        out[i] = grid.spacing[i] * static_cast<float>(index[i]);
+    }
+
+    out = grid.frame.to_world(out);
+
+    for (unsigned a = 0; a < 3; ++a) {
+        out[a] += grid.origin[a] + probes.at(probe).offset[a];
     }
 
     return out;
@@ -216,7 +235,7 @@ void ProbeVolume::validate() const {
         }
 
         for (std::size_t i = 0; i < 3; ++i) {
-            if (std::abs(p.offset[i]) > grid.spacing[i] * 0.45f) {
+            if (std::abs(grid.frame.to_local(p.offset)[i]) > grid.spacing[i] * 0.45f) {
                 invalid("probe relocation exceeds cell limit");
             }
         }
@@ -312,16 +331,22 @@ static std::optional<ProbeSample> sample_probe_grid(
     std::array<std::size_t, 3> cell{};
     Float3 fraction{}, receiver = p;
 
+    for (unsigned a = 0; a < 3; ++a) {
+        receiver[a] += n[a] * bias + view_offset[a];
+    }
+
+    const auto local = v.grid.frame.to_local(subtract(p, v.grid.origin));
+    const auto local_receiver = v.grid.frame.to_local(subtract(receiver, v.grid.origin));
+
     for (std::size_t axis = 0; axis < 3; ++axis) {
-        const float coordinate = (p[axis] - v.grid.origin[axis]) / v.grid.spacing[axis];
+        const float coordinate = local[axis] / v.grid.spacing[axis];
 
         if (coordinate < 0 || coordinate > static_cast<float>(v.grid.dimensions[axis] - 1)) {
             return {};
         }
 
-        receiver[axis] += n[axis] * bias + view_offset[axis];
         const float biased_coordinate = std::clamp(
-            (receiver[axis] - v.grid.origin[axis]) / v.grid.spacing[axis],
+            local_receiver[axis] / v.grid.spacing[axis],
             0.0f,
             static_cast<float>(v.grid.dimensions[axis] - 1)
         );
@@ -406,6 +431,7 @@ static std::optional<ProbeSample> sample_probe_grid(
 
     out.coverage = std::clamp(valid_support / support, 0.0f, 1.0f);
     out.confidence = std::clamp(out.weight / support, 0.0f, 1.0f);
+    out.visibility = facing_support > 0 ? std::clamp(out.weight / facing_support, 0.f, 1.f) : 0;
 
     if (!(out.weight > 1e-8f)) {
         out.irradiance = {};
@@ -446,14 +472,32 @@ void validate_probe_pair(const ProbeVolume& coarse, const ProbeVolume& dense) {
     }
 
     for (unsigned axis = 0; axis < 3; ++axis) {
-        const float a_end =
-            a.origin[axis] + a.spacing[axis] * static_cast<float>(a.dimensions[axis] - 1);
-        const float b_end =
-            b.origin[axis] + b.spacing[axis] * static_cast<float>(b.dimensions[axis] - 1);
+        if (b.spacing[axis] >= a.spacing[axis]) {
+            invalid("local probe volume must be finer");
+        }
+    }
 
-        if (b.spacing[axis] >= a.spacing[axis] || b.origin[axis] < a.origin[axis]
-            || b_end > a_end) {
-            invalid("local probe volume must be finer and contained in level volume");
+    for (unsigned corner = 0; corner < 8; ++corner) {
+        Float3 local{};
+
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            local[axis] =
+                (corner & (1u << axis)) ? b.spacing[axis] * float(b.dimensions[axis] - 1) : 0;
+        }
+
+        auto point = b.frame.to_world(local);
+
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            point[axis] += b.origin[axis] - a.origin[axis];
+        }
+
+        point = a.frame.to_local(point);
+
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            if (point[axis] < -.001f
+                || point[axis] > a.spacing[axis] * float(a.dimensions[axis] - 1) + .001f) {
+                invalid("local probe volume must be contained in level volume");
+            }
         }
     }
 }
@@ -466,9 +510,10 @@ std::optional<ProbeSample> sample_local_probes(
 
 float probe_boundary_weight(const ProbeGrid& grid, Float3 p) {
     float edge = 1;
+    p = grid.frame.to_local(subtract(p, grid.origin));
 
     for (unsigned axis = 0; axis < 3; ++axis) {
-        const float coordinate = (p[axis] - grid.origin[axis]) / grid.spacing[axis];
+        const float coordinate = p[axis] / grid.spacing[axis];
         edge = std::min(
             edge, std::min(coordinate, static_cast<float>(grid.dimensions[axis] - 1) - coordinate)
         );
@@ -540,6 +585,10 @@ std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
         write_float(out, x);
     }
 
+    for (float x : v.grid.frame.axis) {
+        write_float(out, x);
+    }
+
     for (float x : v.grid.spacing) {
         write_float(out, x);
     }
@@ -594,6 +643,10 @@ ProbeVolume decode_gpu_probes(std::vector<std::uint8_t> bytes) {
     grid.settings_hash = r.u64();
 
     for (float& x : grid.origin) {
+        x = r.f32();
+    }
+
+    for (float& x : grid.frame.axis) {
         x = r.f32();
     }
 

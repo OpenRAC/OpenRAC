@@ -143,7 +143,10 @@ Frames draw_run(
                     } else if (gauge.first == "sun shadow near size") {
                         CHECK(gauge.second == 2048 / divisor);
                     } else if (gauge.first == "hero shadow size") {
-                        CHECK(gauge.second == 512 / divisor);
+                        CHECK(
+                            gauge.second
+                            == openrac::renderer::hero_shadow_resolution(shadow_quality)
+                        );
                     }
                 }
                 // The separate-target/CPU fallback deliberately bypasses the experiment.

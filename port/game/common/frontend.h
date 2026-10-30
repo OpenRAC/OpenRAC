@@ -133,6 +133,13 @@ std::int64_t since_control();
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
 
+// With the player's fresh_input setting, reads the pads again just before the game's next tick
+// runs (the end of program::vsync, after its wait): the tick reads the sticks and buttons as they
+// are when it starts, not as they were when the last tick ended. Nothing else of the input changes
+// (the window's events stay queued for the next frame), and the tick still reads one state of the
+// pad. Off (the default), the tick reads the pad as the last tick's end left it.
+void refresh_pads();
+
 // Start skipping what plays (the skip_cutscenes setting): what Start also presses for the game's
 // own skip, and the game's skip hook. pad() does it itself without mods on the pad's reports; with
 // some, the pad library calls it on the report the mods leave (openrac_game_pad_after_mods).
@@ -175,6 +182,10 @@ void set_view_source(const openrac_view_source* source);
 // While the debug overlay holds the game (its pause): draws the last tick again and reads the
 // window's events until the overlay lets a tick through. False once the window was closed.
 bool hold();
+
+// A tick on which the game sent nothing to draw (program/vsync.cpp): the last tick drawn again
+// and the window's events read. False once the window was closed.
+bool keep_picture();
 
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();

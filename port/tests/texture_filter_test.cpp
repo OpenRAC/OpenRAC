@@ -55,13 +55,13 @@ flat out int v_lit;
 flat out int v_glow;
 out vec3 v_script_emission;
 out vec3 v_emission_colour;
-noperspective out float v_fog;
+out vec2 v_fog_w;
 void main(){
  vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);
  gl_Position=vec4(p*2-1,0,1);v_uv=p;v_stq=vec3(p,1);
  v_colour=vec4(1);v_normal=vec3(0,0,1);v_world_position=vec3(0);
  v_probe_multiplier=vec4(1);v_probe_selector=vec4(0);v_lit=1;v_glow=0;
- v_script_emission=vec3(0);v_emission_colour=vec3(0);v_fog=0;
+ v_script_emission=vec3(0);v_emission_colour=vec3(0);v_fog_w=vec2(0,1);
 })";
 
 struct PathCase {
@@ -368,7 +368,10 @@ private:
         if (path.kind == 2) {
             fs = renderer::shaders::direct_frag;
             fs.insert(fs.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
-            vs.replace(vs.find("noperspective "), std::string("noperspective ").size(), "");
+            // direct.frag takes F itself, not mesh.frag's F and w.
+            const std::string fog_out = "out vec2 v_fog_w;", fog_set = "v_fog_w=vec2(0,1);";
+            vs.replace(vs.find(fog_out), fog_out.size(), "out float v_fog;");
+            vs.replace(vs.find(fog_set), fog_set.size(), "v_fog=0;");
             vs.replace(
                 vs.find("v_colour=vec4(1)"),
                 std::string("v_colour=vec4(1)").size(),

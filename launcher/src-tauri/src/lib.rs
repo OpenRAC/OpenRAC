@@ -1322,6 +1322,14 @@ fn open_output(app: AppHandle, state: State<'_, AppState>, path: String) -> Resu
     open_path_with_system(&app, &target.to_string_lossy())
 }
 
+/// Open a lighting diagnostic in the system's text viewer, only after checking its owning cache.
+#[tauri::command]
+fn open_bake_log(app: AppHandle, state: State<'_, AppState>, version: String, path: String) -> Result<(), String> {
+    let config = state.config.lock().unwrap().clone();
+    let log = openrac_launcher_core::enhanced::bake_log(&config, &version, Path::new(&path))?;
+    open_path_with_system(&app, &log.to_string_lossy())
+}
+
 /// Opens one level's Godot project in the Godot editor (the version's `editor-open` action, with
 /// its checks: Godot set up, the level extracted), for a job's result or a level's row.
 #[tauri::command]
@@ -1531,6 +1539,7 @@ pub fn run() {
             plugins_set_pin,
             open_game_folder,
             open_output,
+            open_bake_log,
             open_level_in_godot,
             reports_list,
             latest_crash,

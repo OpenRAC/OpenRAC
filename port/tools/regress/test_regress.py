@@ -17,9 +17,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import compare
+import coverage
 import reach
 import routes
 import runner
+import regress
+import survey
 
 
 def tick(f, c, **kw):
@@ -201,6 +204,41 @@ class Reach(unittest.TestCase):
                 {"name": "f", "kind": "asm", "calls": 2}]}))
             (run / "05" / "reach.json").write_text('{"game": "rac1-ntsc", "sit')  # cut short: left out
             self.assertEqual([(g, lv) for g, lv, _ in reach.load_run(run)], [("rac1-ntsc", 3)])
+
+
+class Coverage(unittest.TestCase):
+    def program(self, entry, calls, drawn):
+        return {"command": "MSCAL", "entry": entry, "code": "00ff", "layout": "0:V4-32x1", "calls": calls,
+                "drawn": drawn, "ticks": 1, "ram": "0x1000", "alpha": "0x44", "test": "0x0", "tex0": "0x0",
+                "sample": ""}
+
+    def test_merge_keeps_the_undrawn_ranked_by_routes(self):
+        files = [
+            ("rac1-ntsc", 14, {"levels": {"14": {"ticks": 9, "programs": [
+                self.program("0x10", 50, 0), self.program("0x20", 5, 5), self.program("0x30", 3, 1)],
+                "particles": [{"type": 7, "update": "0x1 f", "drawn": 2, "left_out": {"lines": 4}},
+                              {"type": 8, "update": "0x2 g", "drawn": 6, "left_out": {}}]}}}),
+            ("rac1-ntsc", 3, {"levels": {"3": {"ticks": 9, "programs": [self.program("0x30", 2, 0)],
+                                               "particles": [{"type": 7, "update": "0x1 f", "drawn": 0,
+                                                              "left_out": {"lines": 1, "beyond": 2}}]}}}),
+        ]
+        programs, particles = coverage.merge(files)["rac1-ntsc"]
+        self.assertEqual([r.entry for r in programs], ["0x30", "0x10"])  # 0x20 was always drawn
+        self.assertEqual(programs[0].routes, {"14", "3"})
+        self.assertEqual((programs[0].calls, programs[0].undrawn), (5, 4))
+        self.assertEqual(programs[1].example["level"], "14")
+        self.assertEqual([r.type for r in particles], [7])
+        self.assertEqual(particles[0].left_out, {"lines": 5, "beyond": 2})
+        self.assertIn("0x30", coverage.table("rac1-ntsc", programs, particles, 10))
+
+    def test_a_programs_set_up_is_left_out(self):
+        setup = dict(self.program("0x0", 4, 0), code="d859b12145f6f10e")
+        files = [("g", 14, {"levels": {"14": {"programs": [setup]}}})]
+        self.assertNotIn("g", coverage.merge(files))
+
+    def test_a_set_route_names_its_level(self):
+        files = [("g", "14-fire", {"levels": {"14": {"programs": [self.program("0x10", 1, 0)]}}})]
+        self.assertEqual(coverage.merge(files)["g"][0][0].routes, {"14-fire@14"})
 
 
 class Routes(unittest.TestCase):
@@ -405,6 +443,49 @@ class Outcome(unittest.TestCase):
         self.assertEqual(runner.notes(lines), ["access (SIGBUS) at game address 0x43348F7B, which is not mapped",
                                                "in game_FUN_00210850 < game_FUN_L00_0024f7c8"])
         self.assertEqual(runner.notes(["a", "[error] b", "c"]), ["[error] b"])
+
+
+class KeyValue(unittest.TestCase):
+    def test_env_and_settings_split_at_the_first_equals(self):
+        self.assertEqual(regress.key_value("OPENRAC_SHOT=10:a=b"), ("OPENRAC_SHOT", "10:a=b"))
+        self.assertEqual(regress.key_value("OPENRAC_X="), ("OPENRAC_X", ""))
+
+    def test_a_word_without_equals_is_refused(self):
+        with self.assertRaises(SystemExit), patch("sys.stderr"):
+            regress.main(["run", "--game", "rac1-ntsc", "--env", "OPENRAC_X"])
+
+
+class Survey(unittest.TestCase):
+    def test_places_keep_each_height_of_a_cell(self):
+        # Four floor triangles make a place (fewer is a ledge); a place stands a unit above them.
+        low = [(10.0 + i, 10.0, 0.0) for i in range(4)]
+        high = [(10.0 + i, 11.0, 20.0) for i in range(4)]
+        self.assertEqual(sorted(p[2] for p in survey.places(low + high + [(30.0, 30.0, 9.0)], 5)), [1.0, 21.0])
+
+    def test_the_mask_keeps_the_pass_and_leaves_out_what_moves(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as d:
+            on, off, again = (Image.new("RGB", (4, 1), (0, 0, 0)) for _ in range(3))
+            on.putpixel((0, 0), (200, 200, 200))     # the pass: in both pictures with it
+            again.putpixel((0, 0), (200, 200, 200))
+            on.putpixel((1, 0), (200, 0, 0))         # rain: in one picture only
+            paths = []
+            for name, im in (("on", on), ("off", off), ("again", again)):
+                paths.append(Path(d) / f"{name}.png")
+                im.save(paths[-1])
+            mask = survey._mask(*paths, threshold=12)
+            self.assertEqual([mask.getpixel((x, 0)) for x in range(4)], [255, 0, 0, 0])
+
+    def test_a_place_needs_three_pictures_with_the_camera_still(self):
+        with tempfile.TemporaryDirectory() as d:
+            trace = Path(d) / "trace.jsonl"
+            ticks = [tick(f, f, cam=[1.0, 2.0, 3.0 + (0.0 if f >= 15 else f)]) for f in range(0, 61)]
+            trace.write_text("\n".join(json.dumps(t) for t in ticks))
+            for f in range(0, 61, survey.EVERY):
+                (Path(d) / f"s_{f}.png").write_bytes(b"")
+            pairs = survey._pairs(trace, f"{d}/s_")
+            self.assertEqual([v[0] for v in pairs.values()], [40])
 
 
 if __name__ == "__main__":

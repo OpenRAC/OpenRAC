@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 in vec3 v_world;
 in vec3 v_water_rest;
-in float v_water_swell_weight;
-in vec3 v_water_boundary;
 uniform samplerBuffer water_bodies;
 uniform sampler2D water_coast_map;
 uniform sampler2D water_wave_map;
@@ -54,18 +52,28 @@ vec3 water_smooth_normal(vec3 rest_normal,vec2 gradient) {
     // Novalis rest surfaces and displacement are height fields in world XY/Z.
     if(rest_normal.z<0.) rest_normal=-rest_normal;
     vec2 rest_gradient=-rest_normal.xy/max(rest_normal.z,1e-5);
+    // Small slope changes must survive normalization and the specular response.
     return normalize(vec3(-(rest_gradient+gradient),1.));
 }
 // Air/water interface (IOR 1.333); shared Schlick Fresnel and GGX/Smith BRDF.
+uniform vec3 water_material; // Roughness, normal-incidence reflectivity, reflection strength.
 float water_fresnel(float cosine) {
-    return dielectric_fresnel(cosine, .02037);
+    // Keep the water interface response FP32 while retaining live material controls.
+    float f=1.-clamp(cosine,0.,1.);
+    return water_material.y+(1.-water_material.y)*f*f*f*f*f;
 }
 float water_specular(vec3 n, vec3 eye, vec3 light, float roughness) {
-    return ggx_specular(n, eye, light, roughness, .02037);
+    return ggx_specular_fp32(n, eye, light, roughness, water_material.y);
 }
 vec3 water_transmittance(float depth,float nv) {
+#ifdef OPENRAC_USE_FP16
+    mp_float cosine=mp_float(clamp(nv,0.,1.)),ior=mp_float(1.333);
+    mp_float transmitted_cosine=sqrt(mp_float(1)-(mp_float(1)-cosine*cosine)/(ior*ior));
+    return vec3(exp(-mp_vec3(.85,.24,.12)*mp_float(max(depth,0.))/transmitted_cosine));
+#else
     float transmitted_cosine=sqrt(1.-(1.-nv*nv)/(1.333*1.333));
     return exp(-vec3(.85,.24,.12)*max(depth,0.)/transmitted_cosine);
+#endif
 }
 vec3 water_direct_specular(vec3 p,vec3 n,vec3 eye,float roughness,float shadow,out vec3 irradiance) {
     vec3 result=vec3(0);
@@ -77,7 +85,7 @@ vec3 water_direct_specular(vec3 p,vec3 n,vec3 eye,float roughness,float shadow,o
         vec3 radiance=max(light_sets[light*2].rgb,vec3(0));
         if(light==0) radiance*=probe_sunlight_scale*shadow;
         vec3 light_direction=-normalize(direction);
-        irradiance+=radiance*max(dot(n,light_direction),0.);
+        irradiance+=radiance*float(max(dot(mp_vec3(n),mp_vec3(light_direction)),mp_float(0)));
         result+=radiance*water_specular(n,eye,light_direction,roughness);
     }
     for(int i=0;i<8;++i) {
@@ -85,7 +93,7 @@ vec3 water_direct_specular(vec3 p,vec3 n,vec3 eye,float roughness,float shadow,o
         float radius=probe_point_position[i].w,distance=length(delta);
         if(radius<=0. || distance>=radius || distance<1e-6) continue;
         vec3 radiance=max(probe_point_colour[i].rgb,vec3(0))*(1.-distance/radius);
-        irradiance+=radiance*max(dot(n,delta/distance),0.);
+        irradiance+=radiance*float(max(dot(mp_vec3(n),mp_vec3(delta/distance)),mp_float(0)));
         result+=radiance*water_specular(n,eye,delta/distance,roughness);
     }
     return result;
@@ -140,6 +148,14 @@ vec2 water_fine_gradient(vec2 p,vec2 velocity,vec2 axis,float time,vec2 dpdx,vec
     vec2 g0=water_stylised_gradient(q0,axis,time,dpdx,dpdy);
     vec2 g1=water_stylised_gradient(q1,axis,time,dpdx,dpdy);
     return strength*mix(g1,g0,1.-abs(phase*2.-1.));
+}
+// No curvature estimate is available when a clamped axis has only one neighbour.
+float water_shore_curvature(float lo,float centre,float hi,float lower_step,float upper_step) {
+    if(min(lower_step,upper_step)<1e-5) return 0.;
+    return 2.*((hi-centre)/upper_step-(centre-lo)/lower_step)/(lower_step+upper_step);
+}
+float water_shore_weight(vec4 coast) {
+    return clamp(coast.x,0.,1.)*smoothstep(0.,1.2,coast.y)*smoothstep(.03,.4,coast.z);
 }
 vec3 effect_material(vec3 painted) {
     if (water_surface==0) return painted;
@@ -200,23 +216,43 @@ vec3 effect_material(vec3 painted) {
     vec3 smooth_normal=water_smooth_normal(rest_normal,gradient);
     // Transform both smooth tangents by the Gerstner Jacobian, including the
     // bank taper. Rest coordinates keep the wave and simulation lookup attached.
-    vec2 px=dFdx(v_water_rest.xy),py=dFdy(v_water_rest.xy);
-    float determinant=px.x*py.y-px.y*py.x;
-    vec2 weight_gradient=vec2(0);
-    if(abs(determinant)>1e-10) {
-        vec2 dw=vec2(dFdx(v_water_swell_weight),dFdy(v_water_swell_weight));
-        weight_gradient=vec2(dw.x*py.y-dw.y*px.y,px.x*dw.y-py.x*dw.x)/determinant;
-    }
+    // Sample shoreline data per fragment: derivatives of vertex-interpolated
+    // taper/direction change at triangle edges and facet the optical normal.
+    vec2 cell=uv+.5;
+    vec2 lo=clamp(cell-1.,vec2(.5),vec2(size)-.5);
+    vec2 hi=clamp(cell+1.,vec2(.5),vec2(size)-.5);
+    vec2 centre=clamp(cell,vec2(.5),vec2(size)-.5);
+    vec4 left=textureLod(water_coast_map,(water_atlas[chosen].xy+vec2(lo.x,centre.y))/water_atlas_extent,0.);
+    vec4 right=textureLod(water_coast_map,(water_atlas[chosen].xy+vec2(hi.x,centre.y))/water_atlas_extent,0.);
+    vec4 bottom=textureLod(water_coast_map,(water_atlas[chosen].xy+vec2(centre.x,lo.y))/water_atlas_extent,0.);
+    vec4 top=textureLod(water_coast_map,(water_atlas[chosen].xy+vec2(centre.x,hi.y))/water_atlas_extent,0.);
+    vec2 span=max(hi-lo,vec2(.001))*dx;
+    vec2 distance_gradient=vec2(right.y-left.y,top.y-bottom.y)/span;
+    vec3 boundary=vec3(coast.y,u.xy*distance_gradient.x+v.xy*distance_gradient.y);
+    float swell_weight=water_shore_weight(coast);
+    vec2 local_weight_gradient=vec2(water_shore_weight(right)-water_shore_weight(left),
+                                   water_shore_weight(top)-water_shore_weight(bottom))/span;
+    vec2 weight_gradient=u.xy*local_weight_gradient.x+v.xy*local_weight_gradient.y;
     vec3 sx,sy;
-    vec3 swell=water_swell(v_water_rest.xy,water_time,v_water_swell_weight,weight_gradient,sx,sy);
-    vec3 boundary_swell=water_boundary_swell(v_water_boundary,water_time,v_water_swell_weight);
-    // Differentiate the continuous boundary wave, including its curved direction
-    // and bank taper, rather than using the displaced triangle face normal.
-    vec3 bx=dFdx(boundary_swell),by=dFdy(boundary_swell);
-    if(abs(determinant)>1e-10) {
-        sx+=(bx*py.y-by*px.y)/determinant;
-        sy+=(px.x*by-py.x*bx)/determinant;
-    }
+    vec3 swell=water_swell(v_water_rest.xy,water_time,swell_weight,weight_gradient,sx,sy);
+    vec3 boundary_swell=water_boundary_swell(boundary,water_time,swell_weight);
+    // Derive the shoreline direction spatially, never from pixel-quad differences.
+    float ll=textureLod(water_coast_map,(water_atlas[chosen].xy+lo)/water_atlas_extent,0.).y;
+    float lr=textureLod(water_coast_map,(water_atlas[chosen].xy+vec2(hi.x,lo.y))/water_atlas_extent,0.).y;
+    float ul=textureLod(water_coast_map,(water_atlas[chosen].xy+vec2(lo.x,hi.y))/water_atlas_extent,0.).y;
+    float ur=textureLod(water_coast_map,(water_atlas[chosen].xy+hi)/water_atlas_extent,0.).y;
+    // Unequal sample spacing at atlas edges needs a nonuniform second difference.
+    vec2 lower_step=(centre-lo)*dx,upper_step=(hi-centre)*dx;
+    vec2 curvature=vec2(
+        water_shore_curvature(left.y,coast.y,right.y,lower_step.x,upper_step.x),
+        water_shore_curvature(bottom.y,coast.y,top.y,lower_step.y,upper_step.y));
+    float mixed=(ur-ul-lr+ll)/(span.x*span.y);
+    vec2 gradient_u=u.xy*curvature.x+v.xy*mixed;
+    vec2 gradient_v=u.xy*mixed+v.xy*curvature.y;
+    vec3 boundary_dx=vec3(boundary.y,gradient_u*u.x+gradient_v*v.x);
+    vec3 boundary_dy=vec3(boundary.z,gradient_u*u.y+gradient_v*v.y);
+    sx+=water_boundary_tangent(boundary,boundary_dx,water_time,swell_weight,weight_gradient.x);
+    sy+=water_boundary_tangent(boundary,boundary_dy,water_time,swell_weight,weight_gradient.y);
     swell+=boundary_swell;
     vec2 slope=-smooth_normal.xy/max(smooth_normal.z,1e-5);
     smooth_normal=normalize(cross(vec3(1,0,slope.x)+sx,vec3(0,1,slope.y)+sy));
@@ -226,20 +262,22 @@ vec3 effect_material(vec3 painted) {
     // Shadow the actual displaced receiver; do not retain the opaque shader's 10% sun floor.
     float visibility=sun_shadow_visibility(v_world,n,surface_normal);
     vec3 direct;
-    vec3 specular=water_direct_specular(v_world,n,eye,.22,visibility,direct);
+    vec3 specular=water_direct_specular(v_world,n,eye,water_material.x,visibility,direct);
     vec3 illumination=max(cached.rgb/3.14159265+direct,vec3(0));
     float nv=max(dot(n,eye),.001),fresnel=water_fresnel(nv);
     // Refracted ray angle from Snell's law, measured against the surface normal.
     vec3 transmittance=water_transmittance(coast.z+h+swell.z,nv);
     // Existing artwork represents the submerged colour; no opaque scene refraction here.
     float streak=smoothstep(.25,.75,wave.w);
-    vec3 bed=probe_linear(painted)*mix(.86,1.14,streak);
-    vec3 body_colour=water_art_tint(vec3(.025,.19,.30),probe_linear(painted));
-    vec3 transmission=(bed*transmittance+body_colour*(1.-transmittance))*illumination;
-    // Low-frequency probe approximation until environment reflection maps are available.
-    vec3 reflection=max(cached.rgb/3.14159265,vec3(0));
-    vec3 lit=(1.-fresnel)*transmission+fresnel*reflection;
-    lit+=specular;
+    mp_vec3 bed=mp_vec3(probe_linear(painted))*mix(mp_float(.86),mp_float(1.14),mp_float(streak));
+    mp_vec3 body_colour=mp_vec3(water_art_tint(vec3(.025,.19,.30),probe_linear(painted)));
+    mp_vec3 transmitted=mp_vec3(transmittance);
+    // Bounded colour math can use half; widen before HDR transport.
+    vec3 transmission=vec3(bed*transmitted+body_colour*(mp_float(1)-transmitted))*illumination;
+    // Missing capture coverage uses the same broad local-GI fallback as chrome and glass.
+    vec3 fallback=gi_specular_fallback(cached.rgb*probe_gi_multiplier,nv,water_material.y);
+    vec3 reflection=environment_specular(v_world,n,eye,water_material.x,water_material.y,fallback);
+    vec3 lit=(1.-fresnel)*transmission+(reflection+specular)*water_material.z;
     float shore_phase=coast.y*5.5-water_time*1.4;
     float shore=exp(-coast.y*.7)*coast.x;
     float crest=smoothstep(.006,.025,h)+smoothstep(.83,.97,sin(shore_phase))*shore*.35

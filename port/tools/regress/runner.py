@@ -2,7 +2,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Plays the routes: one hidden port process per level, several at once.
 
-Each level's run goes in RUN/LL/ (trace.jsonl, reach.json, run.log, the settings it started from)
+Each level's run goes in RUN/LL/ (trace.jsonl, reach.json, coverage.json, run.log, the settings it started from)
 and its outcome in RUN/run.json: ok (the route played to its end), no-control (the run ended
 before the player had control), crash (the process stopped on a fault or an error code), hang (no
 end before the timeout: the process is stopped) or exit (it ended on its own before the route's
@@ -94,16 +94,17 @@ def classify(rc: int | None, timed_out: bool, ticks: list[dict], length: int, fr
 
 
 def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels: Path, out: Path,
-              extra_env: dict | None = None) -> dict:
+              extra_env: dict | None = None, settings: dict | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
-    for name in ("trace.jsonl", "reach.json"):
+    for name in ("trace.jsonl", "reach.json", "coverage.json"):
         (out / name).unlink(missing_ok=True)
     env = dict(os.environ)
     for k in list(env):
         if k.startswith("OPENRAC_"):
             del env[k]  # the caller's own switches would change the run
     env.update({"OPENRAC_HIDDEN": "1", "SDL_AUDIODRIVER": "dummy", "OPENRAC_UNCAPPED": "1", "OPENRAC_AUDIO_TICKED": "1",
-                "OPENRAC_TRACE": str(out / "trace.jsonl"), "OPENRAC_REACH": str(out / "reach.json")})
+                "OPENRAC_TRACE": str(out / "trace.jsonl"), "OPENRAC_REACH": str(out / "reach.json"),
+                "OPENRAC_DRAW_COVERAGE": str(out / "coverage.json")})
     env.update(route.env())
     env.update(extra_env or {})
     cmd = [str(exe), "--data", str(data), "--levels", str(levels), "--window", "--skip-movies",
@@ -122,6 +123,9 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
     else:
         cmd.append("--no-card")
     (out / "settings.ini").unlink(missing_ok=True)  # the defaults, whatever the player chose
+    if settings:
+        # Settings every run starts from (render_scale = 25 for a quick survey), the rest default.
+        (out / "settings.ini").write_text("".join(f"{k} = {v}\n" for k, v in settings.items()))
     started = time.monotonic()
     timed_out = False
     with (out / "run.log").open("w") as log:
@@ -182,9 +186,11 @@ def notes(lines: list[str]) -> list[str]:
 
 def run(game: str, levels: list[int] | None, build: Path, out: Path | None = None, jobs: int = 6,
         data: Path | None = None, level_dir: Path | None = None, routes_file: Path | None = None,
-        progress=print, route_set: str | None = None, only: list[str] | None = None) -> Path:
+        progress=print, route_set: str | None = None, only: list[str] | None = None,
+        env: dict | None = None, settings: dict | None = None) -> Path:
     """Plays a set's routes (the standard level routes by default) whose level is in levels and,
-    with only, whose key is listed."""
+    with only, whose key is listed; env: switches every run gets (OPENRAC_SOFTWARE_GL=1 on a
+    machine without a graphics card); settings: settings.ini lines every run starts from."""
     exe = build / f"openrac-{game}{'.exe' if os.name == 'nt' else ''}"
     if not exe.exists():
         raise SystemExit(f"no {exe}: build the port first (cd port && cmake --build --preset release)")
@@ -210,7 +216,7 @@ def run(game: str, levels: list[int] | None, build: Path, out: Path | None = Non
             "commit": _commit(build), "set": "standard" if standard else route_set, "levels": {}}
 
     def one(r: routes_mod.Route) -> dict:
-        res = run_level(game, r, exe, data, level_dir, out / r.key)
+        res = run_level(game, r, exe, data, level_dir, out / r.key, env, settings)
         head = f"level {r.level:2d} {r.name:<15}" if standard else f"{r.key:<18} {r.name[:28]:<28}"
         progress(f"  {game} {head} {res['status']:<10} {res['seconds']:6.1f} s"
                  + (f"  control at {res['control_frame']}" if res["control_frame"] is not None else ""))
@@ -265,6 +271,23 @@ def run_routes(run: Path) -> dict:
         for d in sorted(run.iterdir()):
             if d.is_dir() and d.name.isdigit():
                 out[int(d.name)] = ("", int(d.name), d)
+    return out
+
+
+def run_files(run: Path, name: str) -> list[tuple[str, int | str, dict]]:
+    """Each route's NAME file of a run (reach.json, coverage.json): (game, the level, or the route's
+    name in a set other than the standard one, the file's JSON). A file missing or cut short is
+    left out."""
+    meta = run / "run.json"
+    game = json.loads(meta.read_text()).get("game", "?") if meta.exists() else "?"
+    out = []
+    for key, (_, _, folder) in sorted(run_routes(run).items(), key=lambda kv: str(kv[0])):
+        f = folder / name
+        if f.exists():
+            try:
+                out.append((game, key, json.loads(f.read_text())))
+            except json.JSONDecodeError:
+                continue
     return out
 
 

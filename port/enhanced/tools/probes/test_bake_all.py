@@ -12,6 +12,18 @@ import bake_all as batch
 
 
 class AllLevelBake(unittest.TestCase):
+    def test_missing_environment_asset_invalidates_cache(self):
+        """An enabled reflection bake cannot be skipped just because its diffuse grids remain."""
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)
+            stamp = {'version': batch.STAMP_VERSION, 'environment_probes': 13}
+            (output/batch.STAMP).write_text(json.dumps(stamp))
+            (output/'sparse.orpg').write_bytes(b'gi')
+            (output/'bake-result.json').write_text('{"verified":true,"regions":[]}')
+            self.assertFalse(batch.up_to_date(output, stamp))
+            (output/'environment.orpe').write_bytes(b'reflections')
+            self.assertTrue(batch.up_to_date(output, stamp))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -105,7 +117,7 @@ class AllLevelBake(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, ['fake-baker'])
             output.mkdir(parents=True, exist_ok=True)
             (output/'sparse.orpg').write_text(level.name)
-            (output/'bake-result.json').write_text('{"bake_version": 1, "probe_format_version": 3}')
+            (output/'bake-result.json').write_text('{"verified": true, "bake_version": 1, "probe_format_version": 3}')
             return output/'sparse.orpg'
         return bake
 
@@ -144,7 +156,7 @@ class AllLevelBake(unittest.TestCase):
         with patch.object(batch.bake_level, 'bake_level', side_effect=self.fake_bake(fail={'level_10'})):
             self.assertFalse(batch.bake_all(self.levels, self.output, self.baker, update=True))
         self.assertEqual((self.output/'level_10/sparse.orpg').read_text(), 'level_10')
-        self.assertEqual((self.output/'.level_10.failed/sparse.bake.log').read_text(), 'failed')
+        self.assertEqual((self.output/'.level_10.partial/sparse.bake.log').read_text(), 'failed')
         report = json.loads((self.output/'bake-all-result.json').read_text())
         self.assertEqual([level['verified'] for level in report['levels']], [True, True, False, True])
 
@@ -254,6 +266,16 @@ class AllLevelBake(unittest.TestCase):
         self.assertNotEqual(initial, regions)
         (level/'probe-bake.json').write_text('{"version": 1, "dense_spacing": [4, 4, 2]}')
         self.assertNotEqual(regions, batch.level_stamp(level, 'native', []))
+
+    def test_cache_stamp_tracks_water_coastline(self):
+        """A changed optional wet mask changes gameplay placement even when transport is unchanged."""
+        level = self.levels/'level_02'
+        before = batch.level_stamp(level, 'native', [])
+        (level/'water.bin').write_bytes(b'first coastline')
+        first = batch.level_stamp(level, 'native', [])
+        self.assertNotEqual(before, first)
+        (level/'water.bin').write_bytes(b'changed coastline')
+        self.assertNotEqual(first, batch.level_stamp(level, 'native', []))
 
     def test_update_tracks_explicit_and_generated_interior_sources(self):
         bake = self.fake_bake()

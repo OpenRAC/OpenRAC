@@ -18,6 +18,8 @@
     setting: s,
     id,
     saved = 0,
+    disabled = false,
+    childOf,
     conflicts = [],
     clashing = [],
     onchange,
@@ -28,6 +30,10 @@
     id: string;
     /** How many times it was saved: each time, the row says so for a moment. */
     saved?: number;
+    /** The setting is unavailable until its parent option is enabled. */
+    disabled?: boolean;
+    /** Label id of the parent setting, for a visually subordinate row. */
+    childOf?: string;
     /** A keybind's: the other keybinds of its group with one of its inputs. */
     conflicts?: string[];
     /** A keybind's: its binds one of those has too. */
@@ -112,7 +118,14 @@
   const textValue = $derived(typeof s.value === "string" ? s.value : "");
 </script>
 
-<div class="setting-row" class:binds={control === "keybind"} role="group" aria-labelledby={`${id}-name`}>
+<div
+  class="setting-row"
+  class:child={childOf !== undefined}
+  class:binds={control === "keybind"}
+  role="group"
+  aria-labelledby={`${id}-name`}
+  aria-describedby={childOf}
+>
   <div class="text">
     <div class="name-line">
       <span class="name" id={`${id}-name`}>{s.name}</span>
@@ -144,7 +157,7 @@
     {#if note}<p class="line">{note}</p>{/if}
   </div>
 
-  <div class="control">
+  <fieldset class="control" {disabled}>
     {#if control === "slider"}
       {@const at = percentOf(s, s.value)}
       {@const mark = percentOf(s, s.default)}
@@ -270,7 +283,7 @@
         onchange(s.default, 0);
       }}><Icon name="reset" size={16} /></button
     >
-  </div>
+  </fieldset>
 </div>
 
 <style>
@@ -286,6 +299,24 @@
     min-height: 64px;
     padding: 12px 0;
     border-top: 1px solid var(--line);
+  }
+
+  .setting-row.child {
+    margin-left: 24px;
+    margin-bottom: 8px;
+    padding-left: 16px;
+    min-height: 52px;
+    border-top: 0;
+    border-left: 2px solid var(--line);
+  }
+
+  .child .name {
+    font-size: 0.875rem;
+    color: var(--soft);
+  }
+
+  .control:disabled {
+    opacity: 0.5;
   }
 
   .setting-row:first-child {
@@ -396,6 +427,10 @@
   }
 
   .control {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
     flex: 0 0 auto;
     display: flex;
     flex-direction: row;

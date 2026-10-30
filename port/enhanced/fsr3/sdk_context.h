@@ -31,7 +31,7 @@ public:
     SdkContext(const SdkContext&) = delete;
     SdkContext& operator=(const SdkContext&) = delete;
 
-    // Recreates GPU resources only when render/display extents change; false includes an SDK diagnostic.
+    // Recreates GPU resources when render/display extents or precision change; false includes an SDK diagnostic.
     [[nodiscard]] bool configure(
         std::array<int, 2> render_size, std::array<int, 2> display_size, std::string& error
     );
@@ -39,6 +39,8 @@ public:
     [[nodiscard]] bool dispatch(
         std::array<unsigned, 5> textures, const Dispatch& frame, std::string& error
     );
+    // Reports actual SDK pipeline selection, not merely hardware capability.
+    [[nodiscard]] bool float16_active() const;
     // Retires GPU resources while the graphics context is still current; cached shaders survive.
     void release();
 

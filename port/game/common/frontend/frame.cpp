@@ -41,6 +41,7 @@
 #include "debug_menu.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
@@ -50,10 +51,12 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
+#include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "renderer/direct.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
+#include "renderer/world/fog.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_pose.h"
@@ -121,9 +124,16 @@ std::vector<std::uint8_t> direct_packets(
     std::uint32_t tag_at = chain & 0x01FFFFF0;
     std::uint32_t stack[2] = {0, 0};
     int depth = 0;
+    // For OPENRAC_DRAW_COVERAGE, where each run of the VIF data came from in game memory (the
+    // scratchpad's as 0x70000000 on): its offset in `vif`, its address.
+    const bool covering = strips != nullptr && draw_coverage::armed();
+    std::vector<std::pair<std::size_t, std::uint32_t>> origins;
     auto append = [&](std::uint32_t at, std::uint32_t bytes) {
         at &= 0x01FFFFFF;
         if (at + bytes <= ram.size()) {
+            if (covering) {
+                origins.emplace_back(vif.size(), at);
+            }
             vif.insert(vif.end(), ram.data() + at, ram.data() + at + bytes);
         }
     };
@@ -133,6 +143,9 @@ std::vector<std::uint8_t> direct_packets(
         at &= 0x3FF0;
         const std::uint8_t* spr = static_cast<const std::uint8_t*>(G(0x70000000u));
         if (at + bytes <= 0x4000u) {
+            if (covering) {
+                origins.emplace_back(vif.size(), 0x70000000u | at);
+            }
             vif.insert(vif.end(), spr + at, spr + at + bytes);
         }
     };
@@ -191,10 +204,28 @@ std::vector<std::uint8_t> direct_packets(
         }
     }
     std::vector<std::uint8_t> gif;
+
     // The GS registers the strips are drawn with, as the DIRECT data before them leaves them (A+D
     // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
     // RGBA (V4-8) at 2 and positions (V3-32) at 3, drawn by an MSCAL (func_L00_001FDE48's packet).
-    std::uint64_t reg_tex0 = 0, reg_tex1 = 0, reg_clamp = 0, reg_alpha = 0x44;
+    // The GS keeps two contexts of TEX0, TEX1, CLAMP, ALPHA and TEST: a strip whose PRIM has CTXT
+    // set is drawn with the second (Oltanis's ice draws its second layer so, another texture
+    // blended half over the first).
+    struct Context {
+        std::uint64_t tex0 = 0, tex1 = 0, clamp = 0, alpha = 0x44, test = 0;
+    };
+
+    std::array<Context, 2> contexts{};
+    std::uint64_t reg_prim = 0, reg_fogcol = 0;
+    bool strip_context = false;
+    // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
+    // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
+    // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
+    // A strip whose GIF tag turns the GS fog on gets F per vertex from it, as the world programs
+    // compute theirs (renderer/world/fog.h). Bit i of vu_fog_set: VU address 0x3AC + i unpacked.
+    std::array<std::uint32_t, 16> vu_fog{};
+    unsigned vu_fog_set = 0;
+    bool strip_fog = false;
     const std::uint8_t* strip_st = nullptr;
     const std::uint8_t* strip_rgba = nullptr;
     const std::uint8_t* strip_xyz = nullptr;
@@ -290,16 +321,30 @@ std::vector<std::uint8_t> direct_packets(
                             }
                             break;
                         case 0x06:
-                            reg_tex0 = value;
+                        case 0x07:
+                            contexts[(address & 0xFF) - 0x06].tex0 = value;
                             break;
                         case 0x08:
-                            reg_clamp = value;
+                        case 0x09:
+                            contexts[(address & 0xFF) - 0x08].clamp = value;
                             break;
                         case 0x14:
-                            reg_tex1 = value;
+                        case 0x15:
+                            contexts[(address & 0xFF) - 0x14].tex1 = value;
+                            break;
+                        case 0x00:
+                            reg_prim = value;
+                            break;
+                        case 0x3D:
+                            reg_fogcol = value;
                             break;
                         case 0x42:
-                            reg_alpha = value;
+                        case 0x43:
+                            contexts[(address & 0xFF) - 0x42].alpha = value;
+                            break;
+                        case 0x47:
+                        case 0x48:
+                            contexts[(address & 0xFF) - 0x47].test = value;
                             break;
                         case 0x4C:
                         case 0x4D:
@@ -331,6 +376,17 @@ std::vector<std::uint8_t> direct_packets(
             }
         }
     };
+    const auto origin = [&](std::size_t offset) -> std::uint32_t {
+        const auto it = std::upper_bound(
+            origins.begin(), origins.end(), offset, [](std::size_t o, const auto& run) {
+                return o < run.first;
+            }
+        );
+        return it == origins.begin()
+                   ? 0
+                   : std::prev(it)->second
+                         + static_cast<std::uint32_t>(offset - std::prev(it)->first);
+    };
     std::size_t at = 0;
     while (at + 4 <= vif.size()) {
         std::uint32_t code;
@@ -344,7 +400,11 @@ std::vector<std::uint8_t> direct_packets(
         } else if (command == 0x30 || command == 0x31) {
             at += 16;
         } else if (command == 0x4A) {
-            at += std::size_t{num == 0 ? 256u : num} * 8;
+            const std::size_t size = std::size_t{num == 0 ? 256u : num} * 8;
+            if (covering && at + size <= vif.size()) {
+                draw_coverage::program(imm, {vif.data() + at, size});
+            }
+            at += size;
         } else if (command == 0x50 || command == 0x51) {
             const std::size_t size = std::size_t{imm == 0 ? 65536u : imm} * 16;
             if (at + size > vif.size()) {
@@ -382,6 +442,11 @@ std::vector<std::uint8_t> direct_packets(
             const std::uint32_t count = num == 0 ? 256 : num;
             const std::uint32_t components = vl == 3 ? 1 : vn + 1;
             const std::size_t size = ((count * components * bits + 31) / 32) * 4;
+            if (covering && at + size <= vif.size()) {
+                draw_coverage::unpack(
+                    imm & 0x3FF, vn, vl, count, origin(at), {vif.data() + at, size}
+                );
+            }
             if (strips != nullptr && at + size <= vif.size()) {
                 const std::uint32_t address = imm & 0x3FF;
                 const std::uint8_t* data = vif.data() + at;
@@ -392,6 +457,10 @@ std::vector<std::uint8_t> direct_packets(
                     strip_tag = ((tag >> 47) & 7) == 4 && (tag & 0x7FFF) >= 3;
                     strip_count = static_cast<std::uint32_t>(tag & 0x7FFF);
                     second_texture = ((tag >> 56) & 1) != 0;
+                    // PRIM's FGE (bit 5): the tag's PRIM when PRE is set, else the register's.
+                    const std::uint64_t prim = ((tag >> 46) & 1) != 0 ? tag >> 47 : reg_prim;
+                    strip_fog = ((prim >> 5) & 1) != 0;
+                    strip_context = ((prim >> 9) & 1) != 0;
                     strip_st = strip_rgba = strip_xyz = nullptr;
                 } else if (strip_tag && address == 1 && vn == 1 && vl == 0
                            && count == strip_count) {
@@ -403,6 +472,16 @@ std::vector<std::uint8_t> direct_packets(
                            && count == strip_count) {
                     strip_xyz = data;
                 }
+                if (vn == 3 && vl == 0) {
+                    for (std::uint32_t q = 0; q < count; ++q) {
+                        const std::uint32_t at_vu = (address + q) & 0x3FF;
+                        if (at_vu >= 0x3AC && at_vu <= 0x3AF) {
+                            const std::uint32_t i = at_vu - 0x3AC;
+                            std::memcpy(&vu_fog[i * 4], data + q * 16, 16);
+                            vu_fog_set |= 1u << i;
+                        }
+                    }
+                }
             }
             at += size;
         } else if ((command == 0x14 || command == 0x15 || command == 0x17)
@@ -411,24 +490,42 @@ std::vector<std::uint8_t> direct_packets(
             *before_world = gif.size();
         }
         if ((command == 0x14 || command == 0x15 || command == 0x17) && strips != nullptr) {
+            const std::size_t strips_before = strips->size();
+            const Context& gs = contexts[strip_tag && strip_context ? 1 : 0];
             if (strip_tag && strip_st != nullptr && strip_rgba != nullptr && strip_xyz != nullptr) {
                 renderer::EffectStrip strip;
                 strip.first = static_cast<std::uint32_t>(strip_vertices->size());
                 strip.count = strip_count;
-                strip.tex0 = reg_tex0;
-                strip.tex1 = reg_tex1;
-                strip.clamp = reg_clamp;
-                strip.alpha = reg_alpha;
+                strip.tex0 = gs.tex0;
+                strip.tex1 = gs.tex1;
+                strip.clamp = gs.clamp;
+                strip.alpha = gs.alpha;
+                strip.test = gs.test;
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
+                static const bool& strip_fog_off = stats::probe(
+                    "OPENRAC_STRIP_FOG_OFF", "reference: the effect strips drawn without the GS fog"
+                );
+                if (strip_fog && (vu_fog_set & 0xD) == 0xD && !strip_fog_off) {
+                    // UpdateViewContext's terms (renderer/world/fog.h): the slope per integer unit
+                    // is fog_mul over the near plane, the offset fog_add.
+                    const float fog_mul = std::bit_cast<float>(vu_fog[3]);
+                    strip.fogged = true;
+                    strip.fog =
+                        {(1.0f / renderer::world::kNear) * fog_mul,
+                         std::bit_cast<float>(vu_fog[11]),
+                         std::bit_cast<float>(vu_fog[12]),
+                         std::bit_cast<float>(vu_fog[13])};
+                    strip.fog_colour = static_cast<std::uint32_t>(reg_fogcol & 0xFFFFFF);
+                }
                 const auto uv_at = second_texture ? 2u : 0u;
                 strip.uv_motion.offset = {uv_offsets[uv_at], uv_offsets[uv_at + 1]};
                 if (second_texture) {
                     strip.uv_motion.amplitude = -strip.uv_motion.amplitude;
                 }
                 if (uploads != nullptr) {
-                    const std::uint32_t tbp = static_cast<std::uint32_t>(reg_tex0 & 0x3FFF);
-                    const std::uint32_t cbp = static_cast<std::uint32_t>((reg_tex0 >> 37) & 0x3FFF);
+                    const std::uint32_t tbp = static_cast<std::uint32_t>(gs.tex0 & 0x3FFF);
+                    const std::uint32_t cbp = static_cast<std::uint32_t>((gs.tex0 >> 37) & 0x3FFF);
                     for (const std::uint32_t block : {cbp, tbp}) {
                         auto found = images.find(block);
                         if (found != images.end() && found->second.data.size() > 0) {
@@ -448,6 +545,11 @@ std::vector<std::uint8_t> direct_packets(
                     strip_vertices->push_back(v);
                 }
                 strips->push_back(strip);
+            }
+            if (covering) {
+                draw_coverage::start(
+                    command, imm, strips->size() > strips_before, gs.alpha, gs.test, gs.tex0
+                );
             }
             strip_tag = false;
         }
@@ -1193,6 +1295,10 @@ TickMobys pose_mobys(
                 {m.address, joints, target, target ? target_mobys.size() : live.size()}
             );
         }
+        // Only world instances attach to water; menu and render-to-texture previews keep their poses.
+        instance.floats_on_water = g->profile->floats_on_water(m.class_id)
+                                   && instance.moby_light[3] < 1.5f
+                                   && !into_texture.contains(m.address);
         if (const auto t = into_texture.find(m.address); t != into_texture.end()) {
             target_mobys.push_back({m.address, instance, *t->second});
             target_mobys.back().camera.focal_x = frame_focal[0];
@@ -1359,6 +1465,9 @@ void keep_tick(
         k.shadows.clear();
         k.shadow_moby = 0;
         k.level = g->loaded;
+        // A new level's frames cost what they cost: the system forgets the last level's
+        // (performance_hint.h).
+        platform::workload_reset();
     }
     const bool adjacent = g->index == k.frame + 1;
     k.prev_state = k.state;
@@ -1390,6 +1499,10 @@ void keep_tick(
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
                           : std::nullopt;
+    std::uint32_t mode = 0;
+    // RAC1's level mode 2 is a real-time cutscene. Movies bypass world reconstruction.
+    k.cutscene = g->game.starts_with("rac1-") && openrac_game_mode != nullptr
+                 && openrac_game_mode(&mode) != 0 && mode == 2;
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);
@@ -1443,6 +1556,7 @@ TickPackets capture_2d_path(
     std::size_t before_world = SIZE_MAX;
     std::size_t first_offscreen = SIZE_MAX;
     std::size_t world_marker = SIZE_MAX;
+    draw_coverage::begin_tick(level, g->index);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
         shown,
@@ -1913,6 +2027,24 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->kept->before_world = bytes_before_world(packets.before_world, under_menu);
     part.reset();
     return finish_tick(ram, state, packets.named_quads, level, debug, scene);
+}
+
+bool keep_picture() {
+    if (!g) {
+        return true;
+    }
+    if (!read_window_events()) {
+        return false;
+    }
+    // The blank is a window frame as a drawn tick is: the scripted presses (OPENRAC_PRESS), the
+    // shots and the run's end count them. Not counted, a script waiting on a frame number during
+    // such a wait (the boot's) waited for ever.
+    ++g->index;
+    if (run_over()) {
+        return false;
+    }
+    draw_kept(false);
+    return !g->render_failed;
 }
 
 }  // namespace openrac::frontend

@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -57,6 +58,8 @@ struct Camera {
     Mat4 view = identity();        // world (game axes) to view
     Mat4 projection = identity();  // view to clip, reversed depth (math.h)
     Vec3 position{};
+    std::optional<Vec3> target;  // Captured tracking focus; independent of eye rotation/orbit.
+    std::uint64_t target_id = 0;
 };
 
 // A textured quad the game drew in the world from a draw callback (rac1's func_001F7EF8, ReRAC's
@@ -97,11 +100,19 @@ struct EffectUvMotion {
 struct EffectStrip {
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
+    std::uint64_t test = 0;  // TEST as the DIRECT data before the strip leaves it (0: none seen)
     // FrameInput::effect_uploads[uploads..uploads + upload_count): the images the game sent to
     // TEX0's blocks just before the strip; put in the pool before it is drawn.
     int uploads = -1, upload_count = 0;
     std::uint32_t surface = 0;  // Native semantic marker; 0 leaves the original material alone.
     EffectUvMotion uv_motion{};
+    // The GS fog, when the strip's program applies it (PRIM FGE, with the fog line its packet
+    // gives: the liquid grid's): F per vertex as the world programs compute it (renderer/world/
+    // fog.h: slope per integer unit of depth, offset, lower and upper clamp), towards FOGCOL
+    // (display bytes, R low).
+    bool fogged = false;
+    std::array<float, 4> fog{};
+    std::uint32_t fog_colour = 0;
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:

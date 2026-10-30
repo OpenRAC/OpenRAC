@@ -50,10 +50,13 @@ enum class Truth : std::uint8_t {
 // The variables, one per name: each enumerator is the name without OPENRAC_, in PascalCase
 // (OPENRAC_GL_API is GlApi), in the table's order, which is alphabetical by name.
 enum class Var : std::uint16_t {
+    AdpfOff,
     Anim,
     AnimTrace,
     AudioTicked,
+    Camera,
     CameraInstanceCullOff,
+    CameraLatchLog,
     CamLog,
     CollTrace,
     ControlFrames,
@@ -67,6 +70,7 @@ enum class Var : std::uint16_t {
     Developer,
     Direct,
     Drawer,
+    DrawCoverage,
     DumpDraws,
     DumpRam,
     DumpSnapshot,
@@ -90,6 +94,7 @@ enum class Var : std::uint16_t {
     HeroShadow,
     Hidden,
     HidePasses,
+    HidePassesEvery,
     Hitch,
     HitLog,
     ItemsDebug,
@@ -144,6 +149,7 @@ enum class Var : std::uint16_t {
     SoftwareGl,
     SoundLog,
     Strict,
+    StripFogOff,
     SunInstanceCullOff,
     SunReceiverCullOff,
     SunShadows,

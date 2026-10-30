@@ -10,7 +10,6 @@ makes with an argument hostgen filled with 0; the details name the callees).
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -49,19 +48,9 @@ def merge(files: list[tuple[str, int, dict]]) -> dict[str, list[Row]]:
 def load_run(run: Path) -> list[tuple[str, int | str, dict]]:
     """A run's reach files: (game, the level, or the route's name in a set other than the
     standard one, the file's JSON)."""
-    from runner import run_routes  # noqa: PLC0415 (runner imports nothing of this)
+    from runner import run_files  # noqa: PLC0415 (runner imports nothing of this)
 
-    meta = run / "run.json"
-    game = json.loads(meta.read_text()).get("game", "?") if meta.exists() else "?"
-    out = []
-    for key, (_, _, folder) in sorted(run_routes(run).items(), key=lambda kv: str(kv[0])):
-        f = folder / "reach.json"
-        if f.exists():
-            try:
-                out.append((game, key, json.loads(f.read_text())))
-            except json.JSONDecodeError:
-                continue
-    return out
+    return run_files(run, "reach.json")
 
 
 def table(game: str, rows: list[Row], top: int) -> str:

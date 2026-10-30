@@ -203,6 +203,7 @@ private:
             triangle.terrain_prelighting = layer == 0;
             triangle.texture = texture;
             triangle.emission = emission;
+            triangle.visible_emission = material.emission;
             triangle.fixed_emission = material.bake_intensity.has_value();
             triangle.emission_texture = texture_index(material.emission_image);
             triangle.emission_vertex_colour = material.emission_vertex_colour;

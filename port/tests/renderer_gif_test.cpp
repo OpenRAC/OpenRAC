@@ -9,6 +9,7 @@
 
 #include "check.h"
 #include "renderer/direct.h"
+#include "renderer/effects.h"
 #include "renderer_gif_builder.h"
 
 namespace {
@@ -445,9 +446,34 @@ void texture_under_draw_buffer() {
     }
 }
 
+// Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
+// a layer that writes no Z (Oltanis's ice) out of the liquids.
+void blend_weights() {
+    using openrac::test::alpha_reg;
+    const auto blend = [](std::uint64_t bits) {
+        return translate_blend(gs::Alpha::decode(bits));
+    };
+    const GlBlend add_as = blend(alpha_reg(0, 2, 0, 1));  // Cs * As + Cd
+    CHECK(add_as.source_scale == SourceScale::Alpha && add_as.src == 1u && add_as.dst == 1u);
+    const GlBlend add_fix = blend(alpha_reg(0, 2, 2, 1, 0xC0));  // Cs * FIX + Cd, FIX 1.5
+    CHECK(add_fix.source_scale == SourceScale::Fix && add_fix.fix == 1.5f && add_fix.exact);
+    const GlBlend sub_fix = blend(alpha_reg(2, 0, 2, 1, 0xA0));  // Cd - Cs * FIX
+    CHECK(sub_fix.source_scale == SourceScale::Fix && sub_fix.equation == 0x800Bu);
+    // FIX at or below 1 keeps GL's constant; (Cs - Cd) As + Cd keeps SRC_ALPHA.
+    CHECK(blend(alpha_reg(0, 2, 2, 1, 0x80)).source_scale == SourceScale::None);
+    CHECK(blend(alpha_reg(0, 1, 0, 1)).source_scale == SourceScale::None);
+    CHECK(!blend(alpha_reg(0, 1, 2, 1, 0xC0)).exact);  // (Cs - Cd) FIX + Cd beyond 1
+
+    CHECK(liquid_strip(0x8000000064ull, 0));         // no TEST seen: a sea, as before
+    CHECK(liquid_strip(0x8000000064ull, 0x5360B));   // Z written where As >= 0x60
+    CHECK(!liquid_strip(0x8000000064ull, 0x513F1));  // NEVER, FB_ONLY: no Z
+    CHECK(!liquid_strip(0x4000000064ull, 0x5360B));  // FIX 0x40: not drawn solid
+}
+
 }  // namespace
 
 int main() {
+    blend_weights();
     sprite();
     strips_and_kicks();
     packed_and_reglist();

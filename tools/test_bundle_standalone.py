@@ -252,6 +252,39 @@ class Bundle(unittest.TestCase):
             self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
             self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
 
+    def test_probe_baker_carries_its_interior_inference_companion(self):
+        for suffix in ("", ".exe"):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as tmp:
+                build, dest = Path(tmp) / "build", Path(tmp) / "dest"
+                build.mkdir()
+                dest.mkdir()
+                baker = build / ("openrac-probe-bake" + suffix)
+                infer = build / ("openrac-interior-infer" + suffix)
+                baker.write_bytes(b"baker")
+                infer.write_bytes(b"interior inference")
+                infer.chmod(0o755)
+                (build / "openrac-interior-infer.pdb").write_bytes(b"debug")
+                carried = bundle.copy_games(build, dest)
+                self.assertIn(baker.name, carried)
+                self.assertIn(infer.name, carried)
+                self.assertEqual((dest / infer.name).read_bytes(), infer.read_bytes())
+                self.assertFalse((dest / "openrac-interior-infer.pdb").exists())
+                if sys.platform != "win32":
+                    self.assertTrue((dest / infer.name).stat().st_mode & 0o111)
+
+    def test_probe_baker_without_matching_inference_companion_is_rejected(self):
+        for suffix in ("", ".exe"):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as tmp:
+                build, dest = Path(tmp) / "build", Path(tmp) / "dest"
+                build.mkdir()
+                dest.mkdir()
+                (build / ("openrac-probe-bake" + suffix)).write_bytes(b"baker")
+                # A different platform's executable must not satisfy the requirement.
+                wrong_suffix = ".exe" if not suffix else ""
+                (build / ("openrac-interior-infer" + wrong_suffix)).write_bytes(b"wrong platform")
+                with self.assertRaisesRegex(ValueError, "openrac-interior-infer"):
+                    bundle.copy_games(build, dest)
+
     def test_games_as_built(self):
         # On macOS a game is its bundle, carried whole; the build folder's link to it is not.
         with tempfile.TemporaryDirectory() as tmp:

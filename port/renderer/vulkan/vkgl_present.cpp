@@ -75,6 +75,9 @@ constexpr auto kGauges = std::to_array<Gauge>({
      Span::Total},
     {"vk_cpu_mirror_bytes", &SubmissionCounters::cpu_mirror_bytes, Span::Total},
     {"vk_gpu_payload_bytes", &SubmissionCounters::gpu_payload_bytes, Span::Frame},
+    {"vk_shader_fp16_ops", &SubmissionCounters::shader_fp16_ops, Span::Total},
+    {"vk_shader_fp32_ops", &SubmissionCounters::shader_fp32_ops, Span::Total},
+    {"vk_shader_fp16_modules", &SubmissionCounters::shader_fp16_modules, Span::Total},
     {"vk_shader_compiles", &SubmissionCounters::shader_compiles, Span::Total},
 });
 // clang-format on
@@ -263,7 +266,8 @@ bool make_swapchain() {
     if (extent.width == 0 || extent.height == 0) {
         return false;  // minimised: made again when it is shown
     }
-    std::uint32_t count = std::max(caps.minImageCount + 1, 3u);
+    std::uint32_t count =
+        g->low_latency ? std::max(caps.minImageCount, 2u) : std::max(caps.minImageCount + 1, 3u);
     if (caps.maxImageCount != 0) {
         count = std::min(count, caps.maxImageCount);
     }
@@ -374,6 +378,34 @@ void advance() {
     g->frame_pending = true;
 }
 
+namespace {
+
+// The slot of the frame queued before this one.
+Frame& previous_frame() {
+    return g->frames[static_cast<std::size_t>((g->frame + kFrames - 1) % kFrames)];
+}
+
+// Low-latency frames: waits until the frame before this one is done on the GPU (one in flight),
+// counted with the frame's GPU waits; the seconds waited, 0 when it was not queued.
+double wait_for_previous_frame() {
+    Frame& last = previous_frame();
+    if (!last.submitted) {
+        return 0.0;
+    }
+    const stats::Scope wait("vulkan frame wait");
+    const Clock::time_point start = Clock::now();
+    if (!check(
+            vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX), "previous frame fence"
+        )) {
+        throw std::runtime_error("cannot wait for the previous Vulkan frame");
+    }
+    const double waited = seconds_since(start);
+    g->measures.wait_s += waited;
+    return waited;
+}
+
+}  // namespace
+
 // Pools and upload memory remain untouched until this slot's previous submission has completed.
 void prepare_frame() {
     if (!g || !g->frame_pending) {
@@ -381,6 +413,14 @@ void prepare_frame() {
     }
     const profiling::Zone trace("Prepare Vulkan frame slot");
     Frame& f = g->frames[static_cast<std::size_t>(g->frame)];
+    // Low-latency frames: the frame before this one is done on the GPU first (one in flight). A
+    // frame whose beginning the frontend noted (latency_sleep), once the times are known, is
+    // recorded meanwhile and waits for it only as it is queued (queue_after_previous): the GPU
+    // still has one frame at a time, and the CPU's recording no longer waits behind it.
+    g->latency.deferred = g->low_latency && g->latency.marked && g->latency.sleep.known();
+    if (g->low_latency && !g->latency.deferred) {
+        wait_for_previous_frame();
+    }
     if (f.submitted) {
         const stats::Scope wait("vulkan frame wait");
         const Clock::time_point start = Clock::now();
@@ -411,6 +451,24 @@ void prepare_frame() {
     // A copy that waited for a screen there was not (no window, or none shown): made now, so the
     // default framebuffer holds what glBlitFramebuffer put there, as before.
     make_present_copy();
+}
+
+void queue_after_previous() {
+    auto& l = g->latency;
+    if (!l.marked) {
+        return;
+    }
+    // The frame's own work: from its beginning to here, without the waits for the GPU in it.
+    double wait = g->measures.wait_s - l.waited;
+    const double work = seconds_since(l.began) - wait;
+    // Its wait for the frame before it, left by prepare_frame: what is left of it is what the next
+    // frame's sleep could have taken as well.
+    if (l.deferred && previous_frame().submitted) {
+        wait = wait_for_previous_frame();
+    }
+    l.sleep.cpu_frame(work, l.slept, wait);
+    l.marked = false;
+    l.deferred = false;
 }
 
 namespace {

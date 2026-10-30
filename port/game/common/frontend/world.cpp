@@ -33,6 +33,7 @@
 #include "enhanced/renderer/water.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "frontend.h"
+#include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
@@ -290,6 +291,7 @@ void savestate_restored(std::uint64_t tick) {
     g->repeat_frame = false;
     g->overdraw = false;
     g->skipped = 0;
+    g->agx.release();
     g->frame.release();
     g->picture.release();
     g->last_world.release();
@@ -623,9 +625,60 @@ std::uint32_t particle_texture(
     return key;
 }
 
+// The update a particle record's type byte picks (GameProfile::particle_updates): its address and
+// name, "?" for a game without the table.
+std::string particle_update(std::span<const std::uint8_t> ram, unsigned type) {
+    const gaddr table = g->profile->particle_updates();
+    if (table == 0) {
+        return "?";
+    }
+    const gaddr at = (OPENRAC_DATA(table) + 4u * type) & 0x01FFFFFFu;
+    if (at + 4 > ram.size()) {
+        return "?";
+    }
+    std::uint32_t fn;
+    std::memcpy(&fn, ram.data() + at, 4);
+    const char* name = openrac_guest_function_name(fn);
+    return std::format("{:#x} {}", fn, name != nullptr ? name : "(no C)");
+}
+
+// A particle record's depth along the view, as particle_quads culls and fades it by: z from the
+// camera to its position (`centre`; a ribbon's, kind 3, the middle of its two ends), and z and the
+// record's near and far in 1/4096 units. Outside near to far it is not drawn.
+struct ParticleDepth {
+    std::array<float, 3> centre;
+    float z;
+    int z12, near12, far12;
+
+    bool beyond() const { return z12 <= near12 || z12 >= far12; }
+};
+
+ParticleDepth particle_depth(const std::uint8_t* r, const host::GameState& state) {
+    float p1[3], p2[3];
+    std::memcpy(p1, r + 0x10, sizeof(p1));
+    std::memcpy(p2, r + 0x20, sizeof(p2));
+    std::array<float, 3> centre = {p1[0], p1[1], p1[2]};
+    if ((r[1] & 3) == 3) {
+        for (int i = 0; i < 3; ++i) {
+            centre[i] = (p1[i] + p2[i]) * 0.5f;
+        }
+    }
+    const std::array<float, 3>& cam = state.camera_position;
+    const std::array<float, 3>& fwd = state.forward;
+    const float z = (centre[0] - cam[0]) * fwd[0] + (centre[1] - cam[1]) * fwd[1]
+                    + (centre[2] - cam[2]) * fwd[2];
+    return {
+        centre,
+        z,
+        static_cast<int>(z * 4096.0f),
+        (r[9] & 0xF) << 10,
+        std::min((r[9] >> 4) << 17, 0x1F4000)
+    };
+}
+
 // Developer tools, for a diagnostics recording: the frame's particles by type, each type with the
-// update its record's type byte picks (GameProfile::particle_updates), and the records within 6
-// units of Ratchet, whole, in hex.
+// update its record's type byte picks (GameProfile::particle_updates) and how many of them are not
+// drawn, and the records within 6 units of Ratchet, whole, in hex.
 void note_particles(std::span<const std::uint8_t> ram, const host::GameState& state) {
     const host::LiveMoby* hero = nullptr;
     for (const host::LiveMoby& m : state.mobys) {
@@ -634,27 +687,26 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
             break;
         }
     }
-    const gaddr table = g->profile->particle_updates();
-    const auto callback = [&](unsigned type) -> std::string {
-        if (table == 0) {
-            return "?";
-        }
-        const gaddr at = (OPENRAC_DATA(table) + 4u * type) & 0x01FFFFFFu;
-        if (at + 4 > ram.size()) {
-            return "?";
-        }
-        std::uint32_t fn;
-        std::memcpy(&fn, ram.data() + at, 4);
-        const char* name = openrac_guest_function_name(fn);
-        return std::format("{:#x} {}", fn, name != nullptr ? name : "(no C)");
+    const auto callback = [&](unsigned type) {
+        return particle_update(ram, type);
     };
     constexpr float kNear = 6.0f;
     std::array<int, 256> counts{};
+    // Per type, those particle_quads leaves out: lines (kind 2, not drawn yet), those without a
+    // texture, and those outside the record's near and far depth.
+    std::array<int, 256> lines{}, untextured{}, beyond{};
     std::string near;
     int listed = 0;
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         ++counts[r[0]];
+        if ((r[1] & 3) == 2) {
+            ++lines[r[0]];
+        } else if (p.pixels == 0 || p.clut == 0) {
+            ++untextured[r[0]];
+        } else if (particle_depth(r, state).beyond()) {
+            ++beyond[r[0]];
+        }
         if (hero == nullptr || listed >= 40) {
             continue;
         }
@@ -686,10 +738,14 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
             continue;
         }
         out += std::format(
-            "{}{{\"type\":{},\"count\":{},\"update\":\"{}\"}}",
+            "{}{{\"type\":{},\"count\":{},\"lines\":{},\"untextured\":{},\"beyond\":{},"
+            "\"update\":\"{}\"}}",
             first ? "" : ",",
             t,
             counts[t],
+            lines[t],
+            untextured[t],
+            beyond[t],
             callback(t)
         );
         first = false;
@@ -718,7 +774,6 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         return v;
     };
     const std::array<float, 3> cam = state.camera_position;
-    const std::array<float, 3> fwd = state.forward;
     const std::array<float, 3> right{-state.left[0], -state.left[1], -state.left[2]};
     const std::array<float, 3> down{-state.up[0], -state.up[1], -state.up[2]};
 
@@ -744,29 +799,35 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     if (effects_dump::armed()) {
         note_particles(ram, state);
     }
+    const bool covering = draw_coverage::armed();
+    // particle_update's, by type, for OPENRAC_DRAW_COVERAGE.
+    std::vector<std::string> updates(covering ? 256 : 0);
+    const auto cover = [&](const std::uint8_t* r, std::string_view reason) {
+        if (covering) {
+            if (updates[r[0]].empty()) {
+                updates[r[0]] = particle_update(ram, r[0]);
+            }
+            draw_coverage::particle(r[0], reason, updates[r[0]]);
+        }
+    };
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         const int kind = r[1] & 3;
         if (kind == 2 || p.pixels == 0 || p.clut == 0) {
+            cover(r, kind == 2 ? "lines" : "untextured");
             continue;
         }
         std::array<float, 3> p1{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};
         std::array<float, 3> p2{f32(r + 0x20), f32(r + 0x24), f32(r + 0x28)};
-        std::array<float, 3> centre = p1;
-        if (kind == 3) {
-            for (int i = 0; i < 3; ++i) {
-                centre[i] = (p1[i] + p2[i]) * 0.5f;
-            }
-        }
-        const float z = (centre[0] - cam[0]) * fwd[0] + (centre[1] - cam[1]) * fwd[1]
-                        + (centre[2] - cam[2]) * fwd[2];
-        const int z12 = static_cast<int>(z * 4096.0f);
-        const int near12 = (r[9] & 0xF) << 10;
-        const int far12 = std::min((r[9] >> 4) << 17, 0x1F4000);
-        if (z12 <= near12 || z12 >= far12) {
+        const ParticleDepth depth = particle_depth(r, state);
+        if (depth.beyond()) {
+            cover(r, "beyond");
             continue;
         }
-        const int fade = std::min({(far12 - z12) >> 4, z12 - near12, 0x1000});
+        cover(r, "");
+        const float z = depth.z;
+        const int fade =
+            std::min({(depth.far12 - depth.z12) >> 4, depth.z12 - depth.near12, 0x1000});
         const auto faded = [fade](std::uint32_t c) {
             return (c & 0x00FFFFFFu) | (((c >> 24) * static_cast<std::uint32_t>(fade) >> 12) << 24);
         };
@@ -806,7 +867,8 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
             const float w1 = f32(r + 0x1C);
             const float k2 = f32(r + 0x2C);
             const float e[3] = {p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]};
-            const float m[3] = {centre[0] - cam[0], centre[1] - cam[1], centre[2] - cam[2]};
+            const float m[3] =
+                {depth.centre[0] - cam[0], depth.centre[1] - cam[1], depth.centre[2] - cam[2]};
             float n[3] =
                 {e[1] * m[2] - e[2] * m[1], e[2] * m[0] - e[0] * m[2], e[0] * m[1] - e[1] * m[0]};
             const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);

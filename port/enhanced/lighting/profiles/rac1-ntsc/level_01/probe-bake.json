@@ -1,5 +1,19 @@
 {
   "version": 1,
+  "playable_space": {
+    "minimum_swim_depth": 0.85
+  },
+  "regions": {
+    "adaptive_density": true
+  },
+  "environment_probes": {
+    "enabled": true,
+    "resolution": 128,
+    "maximum_probes": 512,
+    "filter_samples": 128,
+    "spacing": 24,
+    "box_distance": 64
+  },
   "sky_intensity": 0.5,
   "sky_weight": 0.3,
   "terrain_vertex_albedo": true,

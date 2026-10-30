@@ -15,6 +15,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
@@ -34,13 +35,14 @@ bool water_disabled() {
     return off;
 }
 
-const Water* contact_source = nullptr;
+Water* contact_source = nullptr;
 
 std::string Water::fragment_source() const {
     return std::string(lighting::shaders::water_window_glsl) + "\n"
            + std::string(lighting::shaders::water_swell_glsl) + "\n"
            + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
            + std::string(lighting::shaders::probes_glsl) + "\n"
+           + std::string(lighting::shaders::environment_glsl) + "\n"
            + std::string(lighting::shaders::water_glsl);
 }
 
@@ -49,6 +51,7 @@ std::string Water::vertex_source() const {
            + std::string(lighting::shaders::water_mesh_glsl) + "\n"
            + std::string(lighting::shaders::water_window_glsl) + "\n"
            + std::string(lighting::shaders::water_swell_glsl) + "\n"
+           + std::string(lighting::shaders::water_displacement_glsl) + "\n"
            + std::string(lighting::shaders::water_vertex_glsl);
 }
 
@@ -106,6 +109,13 @@ void Water::bind(
         return;
     }
     m_bound = true;
+    const auto material = reflection_material_settings(ReflectionSurface::Water);
+    glUniform3f(
+        shader.uniform("water_material"),
+        material.roughness,
+        material.reflectivity,
+        material.strength
+    );
     m_scene.bind_surface_lighting(shader, input.camera);
     glUniform1i(shader.uniform("water_bodies"), 11);
     glUniform1i(shader.uniform("water_coast_map"), 12);
@@ -130,6 +140,36 @@ void Water::bind(
     glBindTexture(GL_TEXTURE_2D, m_maps[1]);
     glActiveTexture(GL_TEXTURE0 + 14);
     glBindTexture(GL_TEXTURE_2D, m_maps[0]);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+void Water::prepare_deformation(const renderer::FrameInput& input) {
+    prepare_frame(input, false);
+}
+
+void Water::bind_deformation(const renderer::Shader& shader) const {
+    glActiveTexture(GL_TEXTURE0 + 18);
+    glBindTexture(wgl::GL_TEXTURE_BUFFER, m_textures[kBodyTexture]);
+    glActiveTexture(GL_TEXTURE0 + 19);
+    glBindTexture(GL_TEXTURE_2D, m_maps[1]);
+    glActiveTexture(GL_TEXTURE0 + 20);
+    glBindTexture(GL_TEXTURE_2D, m_maps[0]);
+    glUniform1i(shader.uniform("water_body_count"), int(m_bodies.size() / 5));
+    glUniform4fv(shader.uniform("water_atlas[0]"), 64, m_atlas[0].data());
+    glUniform2f(shader.uniform("water_atlas_extent"), float(m_atlas_width), float(m_atlas_height));
+    glUniform1i(shader.uniform("water_sim_local"), 1);
+    glUniform1i(shader.uniform("water_sim_body"), m_sim_body);
+    glUniform1f(shader.uniform("water_sim_height"), m_sim_height);
+    glUniform1f(shader.uniform("water_sim_weight"), m_sim_weight);
+    glUniform4f(
+        shader.uniform("water_sim_window"),
+        float(m_window_origin[0]) * .25f,
+        float(m_window_origin[1]) * .25f,
+        .25f,
+        float(kWindowSize)
+    );
+    glUniform1f(shader.uniform("water_time"), float(m_time));
+    glUniform1f(shader.uniform("water_current_scale"), m_debug.current_scale);
     glActiveTexture(GL_TEXTURE0);
 }
 
@@ -196,6 +236,20 @@ bool bind_water_contact(const renderer::Shader& shader) {
         return false;
     }
     contact_source->bind_contact(shader);
+    return true;
+}
+
+void prepare_water_deformation(const renderer::FrameInput& input) {
+    if (contact_source) {
+        contact_source->prepare_deformation(input);
+    }
+}
+
+bool bind_water_deformation(const renderer::Shader& shader) {
+    if (!contact_source || !water_ready.load()) {
+        return false;
+    }
+    contact_source->bind_deformation(shader);
     return true;
 }
 

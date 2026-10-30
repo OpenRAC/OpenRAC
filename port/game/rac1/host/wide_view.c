@@ -48,12 +48,18 @@
  * traffic stopped dead between the 4:3 edge and the picture's, in plain view; on the console it
  * stops only out of sight. Opened, it stops out of the picture's sight instead. This one changes
  * what the game does in a wide picture (where the ships are a few ticks later), not only what it
- * draws: the setting turns it off.
+ * draws: the setting turns it off. And the smoke and fire emitter's (class 760, the fires and smoke
+ * of Oltanis's buildings and others; PAL func_L00_002D83D8, US FUN_L00_002d6f28): each tick it
+ * returns at once while the sphere test finds it out of view, before it spawns its flames and
+ * registers their draw callback. Tested against the 4:3 tangent, a fire between the 4:3 edge and
+ * the picture's went out. Its spawning draws random numbers, so this one too changes what the game
+ * does in a wide picture (the random sequence the rest of the game sees), and the setting turns
+ * it off.
  *
  * They are game fixes the player can switch back to the console's 4:3 view (differences.json;
  * openrac_game_fix, game_host.h): fix_wide_liquids for the lists' runs and the liquid grid's cull,
- * fix_wide_nanotech_orbs for the cluster's update, fix_wide_air_traffic for the traffic's. Off,
- * they run as the game wrote them.
+ * fix_wide_nanotech_orbs for the cluster's update, fix_wide_air_traffic for the traffic's,
+ * fix_wide_fires for the emitter's. Off, they run as the game wrote them.
  *
  * Not opened: the callbacks' tests that project a point to the screen and compare it with the
  * screen's pixels. The rest of the world is the port's own: it draws every terrain part, tie and
@@ -148,7 +154,8 @@ static float g_wider = 1.0f;
 static opened g_list_matrix, g_list_clip;
 
 /* How many updates whose sphere test stands for what the player sees are running (the nanotech
- * cluster's, Kerwan's air traffic's), and how much wider the picture is while they do. */
+ * cluster's, Kerwan's air traffic's, the smoke and fire emitter's), and how much wider the picture
+ * is while they do. */
 static int g_effects;
 static float g_effect_wider = 1.0f;
 
@@ -164,6 +171,7 @@ static float wider_for(const unsigned char** flag, const char* key) {
 static const unsigned char* g_fix_liquids;
 static const unsigned char* g_fix_orbs;
 static const unsigned char* g_fix_traffic;
+static const unsigned char* g_fix_fires;
 
 static void run_list(void (*run)(void)) {
     if (g_lists > 0) {
@@ -253,5 +261,17 @@ void func_L03_0029ED60(gaddr moby) {
         g_effect_wider = wider_for(&g_fix_traffic, "fix_wide_air_traffic");
     }
     func_L03_0029ED60__hooked(moby);
+    g_effects--;
+}
+
+/* The smoke and fire emitter's update: it spawns and draws its flames only while its sphere test
+ * finds it in view; it is run against the picture's sides. A hook point for mods too
+ * (rac1.moby.particle_field.update), under this as func_L00_002D83D8__hooked, so the fix holds for
+ * a mod's update as well. */
+void func_L00_002D83D8(gaddr moby) {
+    if (g_effects++ == 0) {
+        g_effect_wider = wider_for(&g_fix_fires, "fix_wide_fires");
+    }
+    func_L00_002D83D8__hooked(moby);
     g_effects--;
 }

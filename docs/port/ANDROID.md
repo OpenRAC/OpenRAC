@@ -213,6 +213,7 @@ easing. The cards:
 - **Graphics:** picture shape (4:3 to 32:9, or the whole screen), HUD
   position, render scale, anti-aliasing, texture filtering, frame rate, VSync
   and the FPS counter.
+- **Latency:** Low-latency frames, Responsive camera and Responsive pad.
 - **Enhanced graphics** (when on in the launcher's Mods): its switch, modern
   shadows, bounced light and its strength, ambient occlusion and its quality.
   When this run cannot have it, the card says why.

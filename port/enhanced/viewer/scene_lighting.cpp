@@ -7,9 +7,12 @@
 
 #include "enhanced/viewer/scene_lighting.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
+#include "enhanced/renderer/reflection_material.h"
+#include "enhanced/renderer/water.h"
 #include "renderer/gl.h"
 #include "scene/level_renderer.h"
 
@@ -26,8 +29,9 @@ std::string wetness_shader(std::string source) {
 }  // namespace
 
 std::string SceneLighting::mesh_vertex(std::string source) const {
-    return wetness_shader(std::move(source));
+    return enhanced::WaterFloat::vertex_source(wetness_shader(std::move(source)));
 }
+
 std::string SceneLighting::mesh_fragment(std::string source) const {
     return wetness_shader(probe_mesh_fragment(std::move(source)));
 }
@@ -40,6 +44,47 @@ void SceneLighting::prepare_wetness(
 
 void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
     m_wetness.bind(shader);
+}
+
+void SceneLighting::prepare_deformation(const renderer::FrameInput& input) {
+    m_water_float.prepare(input);
+}
+
+void SceneLighting::bind_deformation(const renderer::Shader& shader, bool enabled) const {
+    m_water_float.bind(shader, enabled);
+}
+
+bool SceneLighting::deformation_active() const {
+    return enhanced::water_available();
+}
+
+void SceneLighting::bind_material(
+    const renderer::Shader& shader, std::uint32_t model, const scene::Material& source
+) const {
+    const auto location = shader.uniform("object_reflection_enabled");
+    if (location < 0) {
+        return;
+    }
+    gl::glUniform1i(location, active() && source.metal ? 1 : 0);
+    if (!source.metal) {
+        return;
+    }
+    const auto found = m_reflection_classes.find(model);
+    const int class_id = found != m_reflection_classes.end() ? found->second : -1;
+    const auto material = enhanced::reflection_material_for(source.name, class_id);
+    gl::glUniform3f(
+        shader.uniform("object_reflection_material"),
+        material.roughness,
+        material.reflectivity,
+        material.strength
+    );
+    gl::glUniform4f(
+        shader.uniform("object_reflection_tint"),
+        material.tint[0],
+        material.tint[1],
+        material.tint[2],
+        material.opacity
+    );
 }
 
 std::string SceneLighting::early_fragment(std::string source) const {
@@ -56,12 +101,36 @@ bool SceneLighting::early_supported() const {
 }
 
 void SceneLighting::load(const scene::LevelData& level) {
+    m_reflection_classes.clear();
+    std::vector<enhanced::ReflectionSubject> subjects;
+    for (const auto& [class_id, entry] : level.moby_classes) {
+        const auto [model, stand_in] = entry;
+        if (stand_in) {
+            continue;
+        }
+        m_reflection_classes[model] = class_id;
+        if (model >= level.models.size()) {
+            continue;
+        }
+        const auto& source = level.models[model];
+        const bool chrome =
+            std::any_of(source.primitives.begin(), source.primitives.end(), [&](const auto& p) {
+                return level.materials[static_cast<std::size_t>(p.material)].metal;
+            });
+        if (chrome) {
+            const auto name = class_id == 87 ? "Clank" : class_id == 71 ? "Wrench" : source.name;
+            subjects.push_back({class_id, name, {}});
+        }
+    }
+    enhanced::set_reflection_subjects(std::move(subjects));
     m_probes.load(level);
     m_wetness.load(level);
+    m_water_float.load();
 }
 
 void SceneLighting::release() {
     m_wetness.release();
+    m_water_float.release();
     m_probes.release();
     m_early_lighting.release();
 }
@@ -110,6 +179,14 @@ void SceneLighting::set_area_lights(bool shown) {
 
 bool SceneLighting::compute_selection() const {
     return m_probes.compute_selection();
+}
+
+void SceneLighting::set_medial_axis_debug(bool shown) {
+    m_probes.show_medial_axis = shown;
+}
+
+void SceneLighting::set_environment_probe_debug(bool shown) {
+    m_probes.show_environment_probes = shown;
 }
 
 void SceneLighting::select_visible_regions(

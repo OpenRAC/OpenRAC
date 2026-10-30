@@ -41,6 +41,11 @@ namespace openrac::scene {
 
 class LevelScene {
 public:
+    // Supplies optional visual deformation to external velocity passes without owning the provider.
+    std::string deformation_vertex(std::string source) const;
+    // Reports actual resource-backed deformation, not merely a model's eligibility.
+    bool deformation_active() const;
+
     // Upload a level; the GL context must be current.
     bool upload(const LevelData& level, renderer::TexturePool& textures, std::string& error);
     void release();
@@ -181,6 +186,19 @@ public:
         }
     }
 
+    // Shows reflection diagnostics through the registered lighting provider.
+    void set_medial_axis_debug(bool shown) {
+        if (m_lighting) {
+            m_lighting->set_medial_axis_debug(shown);
+        }
+    }
+
+    void set_environment_probe_debug(bool shown) {
+        if (m_lighting) {
+            m_lighting->set_environment_probe_debug(shown);
+        }
+    }
+
     void update_probe_regions(const renderer::Camera& camera, float seconds = -1) {
         // Without registered lighting there are no probe regions to stream.
         if (m_lighting) {
@@ -245,6 +263,7 @@ private:
         unsigned group = 0;       // Current moby geometry VAO.
         int first = 0;            // First nine-texel pose record.
         int count = 0;            // Instances submitted together.
+        bool floats_on_water = false;  // Shared deformation selection for this batch.
     };
 
     // Builds stable pose records and batches; multi-material models retain instance-major order.
@@ -268,8 +287,10 @@ private:
         const renderer::Shader& shader,
         std::uint32_t model,
         renderer::TexturePool& textures,
-        int instances = 1
+        int instances = 1,
+        bool floats_on_water = false
     );
+
     struct CasterBounds {
         renderer::Vec3 low{}, high{};
         bool valid = false;
@@ -288,6 +309,7 @@ private:
     struct Group {
         bool hero_shadow_caster = false;
         bool gameplay_essential = false;
+        bool floats_on_water = false;
         bool shadow_solid_instances = false;  // tint/glow cannot discard opaque static faces
         std::uint32_t model = 0;
         int blend = 0;  // Instance::blend of all its instances
@@ -368,7 +390,8 @@ private:
         const Model& shape,
         const InstanceData& data,
         const std::array<float, 4>& sphere,
-        bool sphere_off
+        bool sphere_off,
+        bool floats_on_water = false
     );
     static renderer::GpuCullBounds gpu_cull_bounds(
         const CasterBounds& bounds, const InstanceData& data, std::uint16_t occlusion
@@ -527,6 +550,7 @@ private:
         renderer::GpuInstanceBatch batch;
         std::uint32_t first, count;
         bool solid, skinning;
+        bool floats_on_water;
         int material, view;
     };
 

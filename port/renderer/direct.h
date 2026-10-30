@@ -49,11 +49,24 @@ namespace openrac::renderer {
 // plus a multiple of Cd, each multiple k * C + m with k in {-1, 0, 1} and m
 // in {0, 1}; GL's factors and equation express every such pair whose sign
 // works out, which covers every mode the games use.
+//
+// GL clamps the source alpha and the constant to 1, while the chip's As and FIX reach 0xFF (about
+// 2.0): Oltanis's ice adds its layers with As up to 0xFF. Where C weighs Cs alone (D the colour
+// added to or taken from, Cd not weighed: Cs C + Cd, Cd - Cs C, Cs C), the shader multiplies Cs by
+// C itself (source_scale) and GL takes it as it is; the chip's sum clamps at 255 either way, so the
+// source clamped first gives the same colour.
+enum class SourceScale : int {
+    None = 0,
+    Alpha = 1,
+    Fix = 2
+};
 struct GlBlend {
     unsigned src = 0x0001;       // GL_ONE
     unsigned dst = 0;            // GL_ZERO
     unsigned equation = 0x8006;  // GL_FUNC_ADD
     float constant = 0.0f;
+    SourceScale source_scale = SourceScale::None;
+    float fix = 0.0f;  // FIX / 128, unclamped, for SourceScale::Fix
     bool exact = true;
 };
 GlBlend translate_blend(const gs::Alpha& alpha);
@@ -411,7 +424,7 @@ private:
 
     struct Uniforms {
         int textured, tcc, tfx, tex_alpha_scale, fog_enable, fog_colour, alpha_test, alpha_ref,
-            alpha_keep_failing, distance_field, tex_T1, pixel_offset;
+            alpha_keep_failing, distance_field, tex_T1, pixel_offset, source_scale, source_fix;
     } m_uniforms{};
 };
 

@@ -85,8 +85,9 @@ std::vector<std::uint8_t> pack_probe_planes(const ProbeVolume& v) {
         // Validity and individual relocation share the existing half-float metadata channel.
         const float status = probe_status(probe);
         for (unsigned c = 0; c < 4; ++c) {
-            auto value =
-                float_encoding::pack_small_float(c < 3 ? probe.offset[c] : status, 10, true);
+            auto value = float_encoding::pack_small_float(
+                c < 3 ? v.grid.frame.to_local(probe.offset)[c] : status, 10, true
+            );
             // Half rounding must not move a relocated probe past its cell limit.
             if (c < 3 && std::abs(unpack(value, 10, true)) > v.grid.spacing[c] * 0.45f) {
                 --value;
@@ -130,8 +131,9 @@ void read_probe_planes(ProbeVolume& v, bool expand) {
         for (unsigned c = 0; c < 3; ++c) {
             v.probes[p].offset[c] = unpack(get(metadata, p * 8 + c * 2, 2), 10, true);
         }
+        v.probes[p].offset = v.grid.frame.to_world(v.probes[p].offset);
         const float status = unpack(get(metadata, p * 8 + 6, 2), 10, true);
-        // Only the four status combinations defined by format four are accepted.
+        // Only the four defined status combinations are accepted.
         if (status != -1 && status != 0 && status != 1 && status != 2) {
             throw std::runtime_error("invalid packed probe validity");
         }

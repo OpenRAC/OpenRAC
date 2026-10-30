@@ -26,6 +26,7 @@
 
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/game/scripted_moby_colour.h"
+#include "enhanced/renderer/agx.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
 #include "game/common/frontend/tick_picture.h"
@@ -59,6 +60,7 @@ namespace openrac::frontend {
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
     int level = -3;  // the level the mobys belong to: another one starts over
+    bool cutscene = false;  // Captured game state, never queried by the render worker.
     host::GameState state, prev_state;
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
@@ -145,6 +147,10 @@ struct FramePresentation {
     int height = 0;         // Internal render target height.
     float aspect = 0;       // Requested picture aspect.
     float alpha = 1;        // Interpolation amount fixed at submission.
+    // The late camera latch's turn of the interpolated camera (frontend/camera_latch.h), fixed at
+    // submission: radians about the world's up axis, through the pivot.
+    float latch_yaw = 0;
+    renderer::Vec3 latch_pivot{};
     Box box{};              // Picture rectangle in the window.
 
     bool first = false;         // First displayed frame for this game tick.
@@ -183,6 +189,7 @@ struct State {
         nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
     std::unique_ptr<enhanced::Fsr3>
         temporal;  // Optional enhanced upscaler, released before the window.
+    enhanced::AgxPreview agx;
     renderer::FrameBuffer frame;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
     // The last frame the game drew its world in: what its draw buffer still holds on a frame it

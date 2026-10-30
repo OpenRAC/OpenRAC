@@ -139,14 +139,24 @@ int main() {
     }
     const auto high = shadow_atlas_layout(openrac::renderer::ShadowQuality::High);
     const auto medium = shadow_atlas_layout(openrac::renderer::ShadowQuality::Medium);
-    CHECK(high.size == 3072 && medium.size == 1536);
+    const auto low = shadow_atlas_layout(openrac::renderer::ShadowQuality::Low);
+    CHECK(high.size == 3072 && medium.size == 1536 && low.size == 768);
     for (unsigned i = 0; i < high.rects.size(); ++i) {
         for (unsigned j = 0; j < 4; ++j) {
-            CHECK(high.rects[i][j] == medium.rects[i][j] * 2);
+            if (i < 4 || j < 2) {
+                CHECK(high.rects[i][j] == medium.rects[i][j] * 2);
+                CHECK(medium.rects[i][j] == low.rects[i][j] * 2);
+            }
         }
+        CHECK(low.rects[i][0] + low.rects[i][2] <= low.size);
+        CHECK(low.rects[i][1] + low.rects[i][3] <= low.size);
+        CHECK(low.rects[i][2] > 0 && low.rects[i][3] > 0);
         CHECK(medium.rects[i][0] + medium.rects[i][2] <= medium.size);
         CHECK(medium.rects[i][1] + medium.rects[i][3] <= medium.size);
     }
+    CHECK(high.rects[4][2] == 512 && high.rects[4][3] == 512);
+    CHECK(medium.rects[4][2] == 512 && medium.rects[4][3] == 512);
+    CHECK(low.rects[4][2] == 256 && low.rects[4][3] == 256);
     test_invalidation();
     test_projection();
     test_subtexel_jitter();

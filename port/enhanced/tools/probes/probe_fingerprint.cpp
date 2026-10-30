@@ -249,6 +249,10 @@ void point_emitters_hash(Hash& hash, const scene::LevelData& level, const BakeSc
 std::uint64_t probe_input_hash(const std::filesystem::path& directory) {
     Hash hash;
     source_files(hash, directory, "base");
+    // Coastlines affect placement, while the transport scene hash deliberately retains otherwise valid GI.
+    if (std::filesystem::exists(directory / "water.bin")) {
+        source_file(hash, directory, directory / "water.bin");
+    }
     return hash.value;
 }
 
@@ -339,6 +343,7 @@ std::uint64_t probe_bake_settings_hash(const ProbeGrid& grid, const BakeSettings
 
     hash.u32(settings.terrain_vertex_albedo ? 1u : 0u);
     hash.floats(grid.origin);
+    hash.floats(grid.frame.axis);
     hash.floats(grid.spacing);
 
     for (auto n : grid.dimensions) {

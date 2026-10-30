@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <new>
 #include <stdexcept>
 
 #include "common/json.h"
@@ -110,6 +111,11 @@ int main(int argc, char** argv) {
             out << '[' << c.position[0] << ',' << c.position[1] << ',' << c.position[2] << ','
                 << c.component << ',' << c.sky << ']';
         }
+        out << "],\"walkable_edges\":[";
+        for (unsigned i = 0; i < result.walkable_edges.size(); ++i) {
+            const auto edge = result.walkable_edges[i];
+            out << (i ? "," : "") << '[' << edge[0] << ',' << edge[1] << ']';
+        }
         out << "],\"regions\":[";
         for (unsigned i = 0; i < result.regions.size(); ++i) {
             if (i) {
@@ -150,6 +156,10 @@ int main(int argc, char** argv) {
                       << " label " << s.label << '\n';
         }
         return 0;
+    } catch (const std::bad_alloc&) {
+        std::cerr << "probe bake: out of memory; close other large apps and retry; use --jobs 1 "
+                     "for command-line baking\n";
+        return 1;
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return 1;

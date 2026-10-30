@@ -290,6 +290,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_VULKAN_LIBRARY` | path | macOS: the Vulkan library to open (a loader or MoltenVK) in place of the one the application bundle carries. | `port/platform/window.cpp` |
 | `OPENRAC_GL_HIDE_EXTENSIONS` | `NAME,...` | The renderer acts as if the driver lacked these GL extensions, to try the fallbacks a phone's driver needs on one that has them (`GL_NV_shader_noperspective_interpolation`, `GL_EXT_clip_cull_distance`). | `port/renderer/gl.cpp` |
 | `OPENRAC_HIDE_PASSES` | `NAME,...` | The renderer's passes of those names are not drawn: the names of the Renderer section's rows (`sky`, `terrain`, `ties`, `shrubs`, `mobys`, `effects`, `hud`). | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_HIDE_PASSES_EVERY` | `N` | `OPENRAC_HIDE_PASSES` hides its passes only in every other block of N frames, so one run shoots a place with and without them (`port/tools/regress/survey.py`). | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_DEBUG_DUMP` | `FILE` | The frame dump, as `--debug-dump FILE`. | `port/game/common/main.cpp` |
 | `OPENRAC_PAUSE_AT` | `TICK[:FRAMES]` | Pauses the game at that window frame; with `FRAMES`, goes on by itself after that many held pictures. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_PERF_CAPTURE` | `FRAME:SECONDS[:FILE]` | A performance capture by script: from that window frame, that many seconds; the report to `FILE` and the frames beside it as `.jsonl`, else both zipped in `perf/perf_<game>_<time>.zip`. See [PERFORMANCE_CAPTURE.md](PERFORMANCE_CAPTURE.md). | `port/game/common/debug/capture.cpp` |
@@ -329,6 +330,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_DUMP_RAM` | `FRAME` (decimal) | At that frame, writes the game's 32 MB of main memory to `ram_FRAME.bin` in the working directory. | `port/game/common/frontend.cpp` |
 | `OPENRAC_DUMP_VIF` | `FILE` | Writes the VIF data collected from the frame's display list (the 2D path's DMA chain) to that file, each time the chain is followed. | `port/game/common/frontend.cpp` |
 | `OPENRAC_DUMP_TEXTURE` | `BLOCK` (hexadecimal) | Each conversion of a texture whose `TBP0` is that block is written to the working directory as `texture_<block>_<n>.ppm` (RGB) and `.pgm` (alpha). | `port/renderer/texture_pool.cpp` |
+| `OPENRAC_DRAW_COVERAGE` | `FILE` | Writes to a JSON file what the game asked to draw and the port did not draw, per level ([REGRESSION.md](REGRESSION.md), What a run drew). | `port/game/common/frontend/draw_coverage.cpp` |
 | `OPENRAC_DUMP_DRAWS` | `N` or `N-M` (decimal) | Turns on the logging of the 2D path's draws for ticks `N` to `M` (or only `N`). | `port/game/common/frontend.cpp` |
 
 ### Logs and traces
@@ -383,12 +385,16 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_GPU_DRIVEN_OFF` | any (set) | Reference (Vulkan): instance visibility on the CPU and direct mesh draws, in place of the GPU-driven path. See [GPU rendering](RAC1_GPU_DRIVEN.md). | `port/renderer/vulkan/vkgl.cpp` |
 | `OPENRAC_GPU_MATERIALS_OFF` | any (set) | Reference (Vulkan): each mesh's material uniforms and textures bound one by one; takes effect at the next shader reload. | `port/renderer/vulkan/gpu_materials.inc` |
 | `OPENRAC_VK_EFFECT_UPLOAD_REUSE_OFF` | any (set) | Reference (Vulkan): every effect texture upload is copied and hashed, and identical ones are not reused. | `port/renderer/effects.cpp` |
+| `OPENRAC_STRIP_FOG_OFF` | any (set) | Reference: draws the effect strips (the seas, Oltanis's ice) without their GS fog. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_VK_PARTICLE_TEXTURE_REUSE_OFF` | any (set) | Reference (Vulkan): the texture of every visible particle is hashed, and none is reused. | `port/game/common/frontend.cpp` |
 | `OPENRAC_RENDER_OPT_OFF` | `NAME,...` or `all` | Switches the listed render optimisations of the registry off (`all`: every one), so their reference paths draw; an unknown name is warned of and ignored. Read once, at the first question the draw code asks. The names, what each lowers and how its frames are compared are in [RENDER_PERF.md](RENDER_PERF.md). | `port/renderer/render_opt.cpp` |
 | `OPENRAC_PVS_OFF` | any (set) | Profiling reference (Vulkan): no baked camera visibility; the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs-vulkan-only). | `port/scene/level_renderer.cpp` |
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |
 | `OPENRAC_RENDER_THREAD` | `0` disables | Vulkan world-recording worker with one owned snapshot in flight, enabled by default. Set to `0` for synchronous rendering. UI and presentation stay on the window thread; OpenGL stays synchronous. | `port/game/common/frontend/interpolation.cpp` |
+| `OPENRAC_ADPF_OFF` | any (set) | Android: turns off the performance hint (ADPF) so a diagnostics recording can be compared with and without it. | `port/platform/performance_hint.cpp` |
+| `OPENRAC_CAMERA` | `X,Y,Z,FX,FY,FZ` | Forces the camera's eye and forward (as the debug drawer shows them) before every view build. No roll. Debugging only: the game's logic reads the camera too. Routes: a step's `camera`. | `port/game/rac1/host/camera_override.c` |
 | `OPENRAC_CAMERA_INSTANCE_CULL_OFF` | any (set) | Profiling reference: camera culling of aggregate groups only, with no per-instance frustum planes. | `port/scene/level_renderer.cpp` |
+| `OPENRAC_CAMERA_LATCH_LOG` | any (set) | Logs each tick's camera turn and the camera latch's guess for it ([SETTINGS.md](SETTINGS.md#the-camera-between-ticks)). | `port/game/common/frontend/camera_latch.cpp` |
 | `OPENRAC_PROBE_TILED_REFERENCE` | `1` | Evaluates every resident volume per fragment instead of tile masks, retaining the same ranking and two-sample GI limit. Correctness reference for tiled culling. | `port/enhanced/viewer/probe_selection.cpp` |
 | `OPENRAC_PROBE_COMPUTE_OFF` | `1` | Uses the CPU/frustum selector and two uploaded dense slots instead of compute coverage selection. Also used automatically when compute or full residency is unavailable. | `port/enhanced/viewer/probe_selection.cpp` |
 | `OPENRAC_HERO_SHADOW` | any (set) | Enables the separate Ratchet map independently; also enabled automatically with sun cascades. Main light grounded, downward cue airborne. See [hero shadow](../../port/enhanced/docs/RAC1_HERO_SHADOW.md). | `port/game/common/frontend.cpp` |

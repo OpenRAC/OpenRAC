@@ -1380,6 +1380,15 @@ GlBlend translate_blend(const gs::Alpha& alpha) {
     int dst_sign = 1;
     term(ks, ms, out.src, src_sign);
     term(kd, md, out.dst, dst_sign);
+    // Cs weighed by As or by a FIX above 1, Cd not weighed: the shader weighs Cs (SourceScale).
+    if ((ks == 1 || ks == -1) && ms == 0 && kd == 0
+        && (alpha.c == 0 || (alpha.c == 2 && alpha.fix > 0x80))) {
+        out.src = GL_ONE;
+        out.source_scale = alpha.c == 0 ? SourceScale::Alpha : SourceScale::Fix;
+        out.fix = static_cast<float>(alpha.fix) / 128.0f;
+    } else if (alpha.c == 2 && alpha.fix > 0x80 && (ks != 0 || kd != 0)) {
+        out.exact = false;  // a FIX above 1 that weighs Cd too: GL's constant stops at 1
+    }
     if (src_sign > 0 && dst_sign > 0) {
         out.equation = GL_FUNC_ADD;
     } else if (src_sign < 0 && dst_sign > 0) {
@@ -1437,6 +1446,8 @@ bool DirectRenderer::init(RenderState& state, std::string& error) {
     m_uniforms.distance_field = m_shader.uniform("distance_field");
     m_uniforms.tex_T1 = m_shader.uniform("tex_T1");
     m_uniforms.pixel_offset = m_shader.uniform("pixel_offset");
+    m_uniforms.source_scale = m_shader.uniform("source_scale");
+    m_uniforms.source_fix = m_shader.uniform("source_fix");
 
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
@@ -1673,8 +1684,11 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         // The chip writes the source alpha as it is; it never blends alpha.
         glBlendFuncSeparate(b.src, b.dst, GL_ONE, GL_ZERO);
         glBlendColor(0.0f, 0.0f, 0.0f, b.constant);
+        glUniform1i(m_uniforms.source_scale, static_cast<GLint>(b.source_scale));
+        glUniform1f(m_uniforms.source_fix, b.fix);
     } else {
         glDisable(GL_BLEND);
+        glUniform1i(m_uniforms.source_scale, 0);
     }
 
     if (!s.test.zte) {

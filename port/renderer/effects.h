@@ -36,8 +36,9 @@ enum class EffectPart : std::uint8_t {
     Rest,     // the strips that are not, then every quad
 };
 
-// A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60.
-bool liquid_strip(std::uint64_t alpha);
+// A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60, under a
+// TEST that writes Z.
+bool liquid_strip(std::uint64_t alpha, std::uint64_t test);
 
 // A material-owned mesh for one strip; counts let core keep its existing rendering statistics.
 struct EffectMesh {
@@ -131,6 +132,8 @@ private:
     int m_view_projection = -1;
     int m_textured = -1, m_tcc = -1, m_tfx = -1, m_tex_alpha_scale = -1;
     int m_fog_enable = -1, m_alpha_test = -1;
+    int m_view = -1, m_fog_colour = -1, m_fog_line = -1;
+    int m_source_scale = -1, m_source_fix = -1;
     unsigned m_vao = 0, m_vbo = 0;
     std::vector<Vertex> m_vertices;  // the frame's triangles, kept for their storage
 };
