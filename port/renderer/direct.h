@@ -51,7 +51,7 @@ namespace openrac::renderer {
 // works out, which covers every mode the games use.
 //
 // GL clamps the source alpha and the constant to 1, while the chip's As and FIX reach 0xFF (about
-// 2.0): Batalia's ice adds its layers with As up to 0xFF. Where C weighs Cs alone (D the colour
+// 2.0): Oltanis's ice adds its layers with As up to 0xFF. Where C weighs Cs alone (D the colour
 // added to or taken from, Cd not weighed: Cs C + Cd, Cd - Cs C, Cs C), the shader multiplies Cs by
 // C itself (source_scale) and GL takes it as it is; the chip's sum clamps at 255 either way, so the
 // source clamped first gives the same colour.

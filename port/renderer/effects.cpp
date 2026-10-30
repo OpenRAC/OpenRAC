@@ -22,7 +22,7 @@ using namespace gl;
 
 bool liquid_strip(std::uint64_t alpha, std::uint64_t test) {
     // A TEST whose alpha test never passes and keeps only the colour writes no Z: a layer over
-    // the picture, not a surface (Batalia's ice, the first of its passes, drawn from callback
+    // the picture, not a surface (Oltanis's ice, the first of its passes, drawn from callback
     // list 1 after the mobys).
     const gs::Test t = gs::Test::decode(test);
     const bool writes_z =

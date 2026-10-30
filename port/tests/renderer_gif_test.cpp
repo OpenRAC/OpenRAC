@@ -447,7 +447,7 @@ void texture_under_draw_buffer() {
 }
 
 // Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
-// a layer that writes no Z (Batalia's ice) out of the liquids.
+// a layer that writes no Z (Oltanis's ice) out of the liquids.
 void blend_weights() {
     using openrac::test::alpha_reg;
     const auto blend = [](std::uint64_t bits) {

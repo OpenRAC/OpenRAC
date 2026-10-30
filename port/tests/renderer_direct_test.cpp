@@ -197,7 +197,7 @@ std::vector<std::uint8_t> packets() {
             true);
 
     // 9. Weights above 1, which GL's factors would clamp: Cs * As + Cd at As 0xFF and Cs * FIX + Cd
-    // at FIX 0xC0, over black (Batalia's ice adds its layers so).
+    // at FIX 0xC0, over black (Oltanis's ice adds its layers so).
     p.ad(
         {{gs::kAlpha1, openrac::test::alpha_reg(0, 2, 0, 1)},
          {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, true)},
