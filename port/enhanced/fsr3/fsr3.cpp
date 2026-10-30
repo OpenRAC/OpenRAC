@@ -27,6 +27,9 @@ GLenum reactive_format() {
                : GL_RGBA8;
 }
 
+// Diagnostics only (the capture report); written on the render thread by configure_upscaler.
+const char* g_active_upscaler = "none";
+
 // Camera discontinuities need fresh accumulation; ordinary movement retains temporal history.
 bool camera_cut(const renderer::Camera& current, const renderer::Camera& previous) {
     float distance_squared = 0;
@@ -55,6 +58,43 @@ Fsr3::~Fsr3() {
 bool Fsr3::available() {
     vkgl::NativeDevice device;
     return enhanced_rendering_available() && vkgl::native_device(device) && device.storage_formats;
+}
+
+const char* Fsr3::active_upscaler() {
+    return g_active_upscaler;
+}
+
+bool Fsr3::State::configure_upscaler(
+    std::array<int, 2> size, std::array<int, 2> display_size, std::string& error
+) {
+    // ASR is tried until it fails once; a device it cannot start on keeps FSR 3.1.
+    if (!asr_refused && asr_detail::preferred()) {
+        std::string reason;
+
+        if (asr.configure(size, display_size, reason)) {
+            sdk.release();
+            use_asr = true;
+            g_active_upscaler = "Arm ASR";
+            return true;
+        }
+
+        log::warn("Arm ASR unavailable, upscaling with FSR 3.1: {}", reason);
+        asr.release();
+        asr_refused = true;
+    }
+
+    use_asr = false;
+
+    if (!sdk.configure(size, display_size, error)) {
+        return false;
+    }
+
+    g_active_upscaler = "FSR 3.1";
+    return true;
+}
+
+bool Fsr3::State::dispatch_upscaler(std::array<unsigned, 5> inputs, std::string& error) {
+    return use_asr ? asr.dispatch(inputs, dispatch, error) : sdk.dispatch(inputs, dispatch, error);
 }
 
 void Fsr3::set_scene(
@@ -130,14 +170,16 @@ bool Fsr3::State::configure(
     }
 
     // Only complete setups are reported as active temporal rendering.
-    if (!build_shaders(error) || !sdk.configure(size, {output.width(), output.height()}, error)) {
+    if (!build_shaders(error)
+        || !configure_upscaler(size, {output.width(), output.height()}, error)) {
         return false;
     }
 
     // Resolution changes are useful diagnostics without a message on every displayed frame.
     if (resized) {
         log::info(
-            "FSR temporal upscaling: {}x{} to {}x{}",
+            "{} temporal upscaling: {}x{} to {}x{}",
+            g_active_upscaler,
             size[0],
             size[1],
             output.width(),
@@ -263,6 +305,8 @@ void Fsr3::reset() {
 void Fsr3::release() {
     auto& state = *m_state;
     state.sdk.release();
+    state.asr.release();
+    state.use_asr = false;
     state.blur.release();
     state.motion.release();
     state.depth.release();

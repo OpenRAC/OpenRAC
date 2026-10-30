@@ -7,6 +7,7 @@
 #include <chrono>
 #include <vector>
 
+#include "enhanced/asr/asr_context.h"
 #include "enhanced/fsr3/frame_target.h"
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/fsr3/motion_blur.h"
@@ -28,6 +29,9 @@ struct Fsr3::State {
     bool camera_blur = false;
     bool blur_mode_changed = false;
     fsr3_detail::SdkContext sdk;        // AMD pipelines and GPU history.
+    asr_detail::AsrContext asr;         // Arm's pipelines and GPU history, on tile-based GPUs.
+    bool use_asr = false;               // Whether asr, not sdk, holds the live history.
+    bool asr_refused = false;           // ASR could not start on this device; FSR 3.1 stays.
     renderer::FrameBuffer world;        // Render-resolution colour and sampleable opaque depth.
     fsr3_detail::FrameTarget motion;    // RGBA16F: pixel velocity XY and reactive coverage Z.
     fsr3_detail::FrameTarget depth;     // R32F copy, avoiding depth/stencil view reinterpretation.
@@ -69,6 +73,12 @@ struct Fsr3::State {
     [[nodiscard]] bool configure(
         renderer::FrameBuffer& output, std::array<int, 2> size, std::string& error
     );
+    // Configures Arm ASR where it is preferred and starts, otherwise FSR 3.1.
+    [[nodiscard]] bool configure_upscaler(
+        std::array<int, 2> size, std::array<int, 2> display_size, std::string& error
+    );
+    // Records the chosen upscaler over colour, depth, motion, reactive mask and output.
+    [[nodiscard]] bool dispatch_upscaler(std::array<unsigned, 5> inputs, std::string& error);
     // Applies a new jitter sample and establishes current/previous camera transforms.
     [[nodiscard]] bool prepare_camera(TemporalFrame frame, float sharpness, std::string& error);
     // Installs the render-resolution world target and the synchronous reconstruction callbacks.

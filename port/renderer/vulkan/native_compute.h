@@ -17,6 +17,8 @@ struct NativeDevice {
     bool float16 = false;          // Enabled shaderFloat16 arithmetic; no implied 16-bit storage.
     bool int16 = false;            // Enabled shaderInt16 arithmetic (independent of float16).
     bool storage_formats = false;  // Extended storage formats and formatless writes are enabled.
+    bool subgroup_extended_types = false;  // Subgroup operations on 16-bit values are enabled.
+    bool fragment_stores = false;          // Fragment shaders may write storage images.
 };
 
 // An image's native identity, borrowed only for a synchronous compute callback.

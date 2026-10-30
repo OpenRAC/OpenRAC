@@ -1865,6 +1865,10 @@ entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the 
   the pass stored them and a separate resolve read them back.
 - **`fsr-reactive-r8`.** The upscaler's reactive mask is one R8 channel instead of RGBA8; the
   upscaler reads only its red channel.
+- **Arm ASR.** On a tile-based GPU the temporal module upscales with Arm Accuracy Super
+  Resolution (`port/enhanced/asr/README.md`), whose fragment passes suit these GPUs better than
+  FSR 3.1's compute passes. `OPENRAC_TEMPORAL_UPSCALER=asr` or `fsr3` chooses either one on any
+  GPU; the capture report's `enhanced` line names the one in use.
 - **Pass timing.** Timestamps written inside an open render pass on a tile-based GPU measure
   the binning, not the shading, so the capture's per-pass GPU column reads about zero there.
   **Time GPU passes** (Developer tools, or `OPENRAC_GPU_PASS_TIMING`) ends the pass around each

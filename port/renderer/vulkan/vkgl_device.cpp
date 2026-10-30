@@ -533,6 +533,8 @@ bool make_device(std::string& error) {
     features.shaderStorageImageWriteWithoutFormat =
         g->features.shaderStorageImageWriteWithoutFormat;
     features.shaderStorageImageReadWithoutFormat = g->features.shaderStorageImageReadWithoutFormat;
+    // Arm ASR's fragment passes also write storage images.
+    features.fragmentStoresAndAtomics = g->features.fragmentStoresAndAtomics;
 #endif
     g->features = features;
     VkPhysicalDeviceVulkan13Features f13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
@@ -555,6 +557,8 @@ bool make_device(std::string& error) {
     // The vendor FSR half path also uses native 16-bit integer indexing. No 16-bit storage is enabled.
     features.shaderInt16 = g->shader_float16 && available.features.shaderInt16;
     g->features.shaderInt16 = features.shaderInt16;
+    // Arm ASR's prebuilt shaders also use subgroup operations on their 16-bit values.
+    g->subgroup_extended_types = g->shader_float16 && f12.shaderSubgroupExtendedTypes;
     g->viewport_index_supported = features.multiViewport && f12.shaderOutputViewportIndex;
     // Vulkan 1.3 made extended dynamic state core, with no feature to ask for (documented: the
     // Vulkan 1.3 promotion of VK_EXT_extended_dynamic_state); the device was chosen for 1.3.
@@ -579,6 +583,7 @@ bool make_device(std::string& error) {
     f11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
     f12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     f12.shaderFloat16 = g->shader_float16 ? VK_TRUE : VK_FALSE;
+    f12.shaderSubgroupExtendedTypes = g->subgroup_extended_types ? VK_TRUE : VK_FALSE;
     f12.shaderOutputViewportIndex = g->viewport_index_supported ? VK_TRUE : VK_FALSE;
     f13.pNext = &f11;
     f11.pNext = &f12;

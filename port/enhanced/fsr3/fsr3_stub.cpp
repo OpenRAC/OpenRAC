@@ -14,6 +14,10 @@ bool Fsr3::available() {
     return false;
 }
 
+const char* Fsr3::active_upscaler() {
+    return "none";
+}
+
 void Fsr3::set_scene(std::span<const scene::Instance>, std::span<const renderer::Mat4>) {}
 
 bool Fsr3::begin(TemporalFrame, renderer::TemporalQuality, float, std::string&) {

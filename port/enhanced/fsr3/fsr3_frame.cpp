@@ -219,7 +219,7 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
     };
     const bool resolved = [&] {
         const stats::Scope upscaler("FSR upscaler", stats::kGpu);
-        return sdk.dispatch(inputs, dispatch, error);
+        return dispatch_upscaler(inputs, error);
     }();
 
     // A rejected dispatch still presents a complete world and full-resolution HUD, then stops retrying.

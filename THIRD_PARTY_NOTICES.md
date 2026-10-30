@@ -187,6 +187,7 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 | [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) | 3.3.0 | MIT | the Vulkan renderer: its memory |
 | [glslang](https://github.com/KhronosGroup/glslang) | vulkan-sdk-1.4.350.1 | BSD-3-Clause and others (its LICENSE.txt) | the Vulkan renderer: compiling its shaders |
 | [AMD FidelityFX SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/tree/c6efa6bf7f2027b3ec94f28578bb5965eabb9e55) | 1.1.4, FSR 3.1.4 | MIT | enhanced Vulkan temporal upscaling; original GLSL, upscaler host code and Vulkan backend, prepared by `port/enhanced/fsr3/prepare_sdk.py` |
+| [Arm Accuracy Super Resolution](https://github.com/arm/accuracy-super-resolution-generic-library/tree/0501f490bd9946a2e1806b5363d7ab8a9a6a5e0a) | 25.06 | MIT | enhanced Vulkan temporal upscaling on tile-based GPUs; its host code, Vulkan backend and prebuilt SPIR-V shaders, built by `port/cmake/ArmAsr.cmake` (off with `OPENRAC_ARM_ASR=OFF`) |
 | [MoltenVK](https://github.com/KhronosGroup/MoltenVK) | 1.4.2 (Homebrew's `molten-vk`, or the Vulkan SDK's) | Apache-2.0 | the Vulkan renderer on macOS: Vulkan on Metal. Not fetched: its library is taken from the build machine and carried in each game's application bundle (`Contents/Frameworks/libMoltenVK.dylib`, its license in `Contents/Resources/MoltenVK-LICENSE.txt`; [port/cmake/MacApp.cmake](port/cmake/MacApp.cmake)) |
 
 ### AMD FidelityFX SDK licence
@@ -210,6 +211,29 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+### Arm Accuracy Super Resolution licence
+
+Copyright © 2023 Advanced Micro Devices, Inc.
+Copyright © 2024-2025 Arm Limited.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 The renderer's conventions (colour 0x80 as 1.0, reversed depth, the double
 draw for alpha-test fail modes, textures identified by the game's base

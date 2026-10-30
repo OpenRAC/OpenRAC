@@ -31,6 +31,7 @@
 #include "common/system_info.h"
 #include "common/zip_writer.h"
 #include "debug/overlay.h"
+#include "enhanced/fsr3/fsr3.h"
 #include "game/common/frontend/effects_dump.h"
 #include "openrac/game_host.h"
 #include "options_menu.h"
@@ -256,13 +257,14 @@ perf_capture::Context context(const Shown& shown) {
         // What each costly part of it was set to, so that two recordings compare like for like.
         add("enhanced",
             std::format(
-                "{}{}{}{}, temporal {}, shadows {}, GTAO {}, motion blur {}, AgX {}, "
+                "{}{}{}{}, temporal {} (upscaler {}), shadows {}, GTAO {}, motion blur {}, AgX {}, "
                 "rim {}",
                 graphics.enhanced_graphics ? "on" : "off",
                 graphics.enhanced_shadows ? ", modern shadows" : "",
                 graphics.enhanced_graphics ? ", probe lighting" : "",
                 graphics.gtao ? ", GTAO" : "",
                 renderer::kTemporalKeys[static_cast<int>(graphics.temporal_quality)],
+                enhanced::Fsr3::active_upscaler(),
                 renderer::kShadowQualityKeys[static_cast<int>(graphics.shadow_quality)],
                 graphics.gtao ? std::format(
                                     "{} {}x{}{}",

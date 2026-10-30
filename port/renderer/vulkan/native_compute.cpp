@@ -27,7 +27,9 @@ bool native_device(NativeDevice& out) {
          bool(
              g->features.shaderStorageImageExtendedFormats
              && g->features.shaderStorageImageWriteWithoutFormat
-         )};
+         ),
+         g->subgroup_extended_types,
+         bool(g->features.fragmentStoresAndAtomics)};
     return true;
 }
 
