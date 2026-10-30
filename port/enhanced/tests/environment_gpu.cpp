@@ -101,12 +101,12 @@ void main() {
 out vec2 v_uv; out vec4 v_colour; out vec3 v_normal; out vec3 v_world_position;
 out vec4 v_probe_multiplier; flat out vec4 v_probe_selector;
 flat out int v_lit; flat out int v_glow; out vec3 v_script_emission; out vec3 v_emission_colour;
-noperspective out float v_fog;
+out vec2 v_fog_w;
 void main() {
     vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));
     gl_Position=vec4(p*2.-1.,0,1); v_uv=vec2(.5); v_colour=vec4(1); v_normal=vec3(0,0,1);
     v_world_position=vec3(0,0,-2); v_probe_multiplier=vec4(1); v_probe_selector=vec4(0);
-    v_lit=1; v_glow=0; v_script_emission=vec3(0); v_emission_colour=vec3(1); v_fog=1.;
+    v_lit=1; v_glow=0; v_script_emission=vec3(0); v_emission_colour=vec3(1); v_fog_w=vec2(1.);
 })";
     renderer::Shader chrome;
     CHECK(chrome.build(
