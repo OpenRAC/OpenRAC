@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -186,6 +187,13 @@ public:
     // Low-latency frames (the player's setting): fewer finished frames wait to be shown. Vulkan:
     // vkgl::set_low_latency. OpenGL: each swap waits for the graphics card to finish (glFinish).
     void set_low_latency(bool on);
+
+    // Low-latency frames, before a frame begins and reads its time and the input: Vulkan sleeps
+    // until the frame would be queued just as the GPU is free for it, never past `limit`, and
+    // returns the seconds slept (vkgl::latency_sleep); latency_begin, as it begins, is told them.
+    // OpenGL: nothing (its swap's glFinish stays).
+    double latency_sleep(std::chrono::steady_clock::time_point limit);
+    void latency_begin(double slept);
 
     // The refresh rate of the display the window is on now, in hertz; 0 when it does not say.
     float refresh_rate() const;

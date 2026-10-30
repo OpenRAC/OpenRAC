@@ -96,6 +96,10 @@ struct FrameCost {
 // window touches it.
 bool g_held = false;
 
+// What between() slept for the low-latency frames before the frame it draws, for draw_kept to
+// pass on as the frame begins (Window::latency_begin); 0 for the others.
+double g_latency_slept = 0.0;
+
 // Vulkan jobs own their snapshots; mod views share the window thread and graphics queue.
 bool threaded_rendering() {
     static const bool requested = env::flag(env::Var::RenderThread);
@@ -487,6 +491,11 @@ void draw_kept(bool first) try {
     if (!finish_render()) {
         return;
     }
+    // The frame's beginning, for the low-latency frames' sleep: a tick's frame, drawn as soon as
+    // the tick's time and input are read, is not slept (between() sleeps the others).
+    if (!threaded_rendering() && settings::get().low_latency_frames) {
+        g->window->latency_begin(std::exchange(g_latency_slept, 0.0));
+    }
     auto output = std::make_shared<FramePresentation>();
     output->started = std::chrono::steady_clock::now();
     output->first = first;
@@ -574,6 +583,14 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     if (asynchronous && now >= next_tick) {
         return 0;
     }
+    // Low-latency frames: the frame begins as late as lets it be queued just as the graphics card
+    // is free for it, so that what it draws for and the input it reads are as fresh as they can
+    // be, and never after the next tick is due (Window::latency_sleep).
+    double slept = 0.0;
+    if (!asynchronous && settings::get().low_latency_frames) {
+        slept = g->window->latency_sleep(next_tick);
+        now = std::chrono::steady_clock::now();
+    }
     const auto display = next_display(now);
     if (display >= next_tick + lag) {
         return 0;
@@ -611,6 +628,7 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     pacing.first_pending = false;
     {
         const profiling::Zone trace("Queue interpolated frame");
+        g_latency_slept = slept;
         draw_kept(first);
     }
     renderer::g_dump_draws = dump;

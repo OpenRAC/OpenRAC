@@ -382,9 +382,13 @@ void prepare_frame() {
     }
     const profiling::Zone trace("Prepare Vulkan frame slot");
     Frame& f = g->frames[static_cast<std::size_t>(g->frame)];
-    // Low-latency frames: the frame before this one is done on the GPU first (one in flight).
+    // Low-latency frames: the frame before this one is done on the GPU first (one in flight). A
+    // frame whose beginning the frontend noted (latency_sleep), once the times are known, is
+    // recorded meanwhile and waits for it only as it is queued (queue_after_previous): the GPU
+    // still has one frame at a time, and the CPU's recording no longer waits behind it.
+    g->latency.deferred = g->low_latency && g->latency.marked && g->latency.sleep.known();
     if (Frame& last = g->frames[static_cast<std::size_t>((g->frame + kFrames - 1) % kFrames)];
-        g->low_latency && last.submitted) {
+        g->low_latency && last.submitted && !g->latency.deferred) {
         const stats::Scope wait("vulkan frame wait");
         const Clock::time_point start = Clock::now();
         if (!check(
@@ -425,6 +429,34 @@ void prepare_frame() {
     // A copy that waited for a screen there was not (no window, or none shown): made now, so the
     // default framebuffer holds what glBlitFramebuffer put there, as before.
     make_present_copy();
+}
+
+void queue_after_previous() {
+    auto& l = g->latency;
+    if (!l.marked) {
+        return;
+    }
+    // The frame's own work: from its beginning to here, without the waits for the GPU in it.
+    double wait = g->measures.wait_s - l.waited;
+    const double work = seconds_since(l.began) - wait;
+    // Its wait for the frame before it, left by prepare_frame: what is left of it is what the next
+    // frame's sleep could have taken as well.
+    if (Frame& last = g->frames[static_cast<std::size_t>((g->frame + kFrames - 1) % kFrames)];
+        l.deferred && last.submitted) {
+        const stats::Scope scope("vulkan frame wait");
+        const Clock::time_point start = Clock::now();
+        if (!check(
+                vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX),
+                "previous frame fence"
+            )) {
+            throw std::runtime_error("cannot wait for the previous Vulkan frame");
+        }
+        wait = seconds_since(start);
+        g->measures.wait_s += wait;
+    }
+    l.sleep.cpu_frame(work, l.slept, wait);
+    l.marked = false;
+    l.deferred = false;
 }
 
 namespace {

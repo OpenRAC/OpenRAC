@@ -829,6 +829,23 @@ void Window::set_low_latency(bool on) {
     }
 }
 
+double Window::latency_sleep([[maybe_unused]] std::chrono::steady_clock::time_point limit) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::latency_sleep(limit);
+    }
+#endif
+    return 0.0;
+}
+
+void Window::latency_begin([[maybe_unused]] double slept) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        vkgl::latency_begin(slept);
+    }
+#endif
+}
+
 float Window::refresh_rate() const {
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(m_window));
     return mode != nullptr ? mode->refresh_rate : 0.0f;

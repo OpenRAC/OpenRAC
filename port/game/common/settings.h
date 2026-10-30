@@ -134,7 +134,8 @@ struct Settings {
     // Lower input latency (both change only when input is read and frames are shown, never the
     // game's ticks; off, the timing players know). fresh_input: the pad read again just before each
     // tick. low_latency_frames: frames between ticks not held half a tick back, and fewer finished
-    // frames queued for the display.
+    // frames queued for the display; on Vulkan a frame between ticks begins (reads the time and the
+    // input) as late as lets it be queued just as the GPU is free, so that the frame rate stays.
     bool fresh_input = false;
     bool low_latency_frames = false;
     bool skip_cutscenes = true;   // Start skips an in-game cutscene (without the game's L1 L2 R1 R2 hold)
