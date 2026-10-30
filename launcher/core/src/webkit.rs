@@ -169,6 +169,8 @@ mod tests {
         assert_eq!(vars, vec![("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1"), ("WEBKIT_DISABLE_COMPOSITING_MODE", "1")]);
     }
 
+    // A running launcher is told apart by /proc, which only Linux has (the check is Linux's alone).
+    #[cfg(target_os = "linux")]
     #[test]
     fn a_start_that_never_drew_is_found_at_the_next() {
         let dir = std::env::temp_dir().join(format!("openrac-draw-check-{}", std::process::id()));
