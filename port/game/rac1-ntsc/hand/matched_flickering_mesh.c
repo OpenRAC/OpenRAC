@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* FUN_L08_002f5e58 (draw_flickering_mesh_effect), Batalia's animated grid effect. As the port
- * runs it: the NTSC decomp's matching C (src/overlays/l08/mobys/commando.c) with its
+ * runs it: the NTSC decomp's matching C (src/overlays/l08/mobys/flickering_mesh_effect.c) with its
  * three variable-length arrays (the grid of (ny+1) x (nx+1) points, the u and v rows) taken from
  * the game stack with alloca instead, which hostgen translates and a variable-length array it does
  * not. The space is the same, kept until the function returns rather than until its block ends,
  * which here is the same point. Otherwise the matching C, line for line; it goes at the end of
- * commando.c, whose declarations give the name its address. Not a PS2 match; the decomp's C stays
- * as it is (hostgen.json "overrides": this C replaces it in the port only). PAL's
+ * flickering_mesh_effect.c, whose declarations give the name its address. Not a PS2 match; the
+ * decomp's C stays as it is (hostgen.json "overrides": this C replaces it in the port only). PAL's
  * func_L08_002F7318 has the same override (port/game/rac1-pal/hand/matched_flickering_mesh.c). */
 void draw_flickering_mesh_effect(struct Moby *moby) {
     Vec4              corner[4], step, left_step, right_step, left, right, point, edge, normal;
