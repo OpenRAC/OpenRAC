@@ -5,7 +5,7 @@
   // update itself (one from GitHub's page, the browser preview's ?download) is sent to the release.
   // On the other channel than the launcher's (Settings) it switches to that channel's build, also an
   // older one: a development build going back to the release.
-  import { app } from "$lib/app.svelte";
+  import { app, saveConfig } from "$lib/app.svelte";
   import { api, onAndroid } from "$lib/api";
   import { size } from "$lib/format";
   import { modal } from "$lib/portal";
@@ -32,9 +32,22 @@
     return "";
   });
 
+  /** A switch found by Settings' "Check now" before the channel was saved: saved now, or the
+   *  switched launcher would be offered the other channel's build back at its next start. */
+  async function keepChannel(): Promise<boolean> {
+    const switchTo = app.update?.switchTo;
+    if (!switchTo || !app.config || app.config.updateChannel === switchTo) return true;
+    return saveConfig({ ...app.config, updateChannel: switchTo });
+  }
+
+  async function download(url: string) {
+    if (await keepChannel()) void api.openUrl(url);
+  }
+
   async function install() {
     if (busy) return;
     error = null;
+    if (!(await keepChannel())) return;
     stage = "downloading";
     percent = 0;
     try {
@@ -146,7 +159,7 @@
           {#if stage === "failed" || !update.canInstallDirectly}
             <button
               class={update.canInstallDirectly ? "btn-cancel" : "btn-primary"}
-              onclick={() => void api.openUrl(update.url)}>Download from GitHub</button
+              onclick={() => void download(update.url)}>Download from GitHub</button
             >
           {/if}
           {#if update.canInstallDirectly}
