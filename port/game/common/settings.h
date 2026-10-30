@@ -148,17 +148,17 @@ struct Settings {
     bool menu_bar =
         true;  // the menus along the window's top (not on macOS, whose menu bar has them); Alt hides and shows it
     bool mute_unfocused = false;  // silence while another window has the keyboard
-    // Lower input latency (both change only when input is read and frames are shown, never the
-    // game's ticks; off, the timing players know). fresh_input: the pad read again just before each
-    // tick. low_latency_frames: frames between ticks not held half a tick back, and fewer finished
-    // frames queued for the display; on Vulkan a frame between ticks begins (reads the time and the
-    // input) as late as lets it be queued just as the GPU is free, so that the frame rate stays.
-    bool fresh_input = false;
-    bool low_latency_frames = false;
     bool skip_cutscenes = true;   // Start skips an in-game cutscene (without the game's L1 L2 R1 R2 hold)
-    // The late camera latch (frontend/camera_latch.h): the frames between ticks turn the camera by
-    // the right stick as it is when each is drawn. Only the picture; the game's camera is its own.
-    bool camera_latch = true;
+    // Lower input latency, off by default (the timing players know). Reads the pad again just
+    // before each tick (frontend.h refresh_pads), and turns the camera in the frames between ticks
+    // with the right stick as it is now (frontend/camera_latch.h, the picture only). The game's
+    // ticks and logic are unchanged.
+    bool responsive_controls = false;
+    // Low-latency frames, off by default (only when frames are shown, never the game's ticks):
+    // frames between ticks are not held half a tick back, and fewer finished frames queue for the
+    // display. On Vulkan a frame between ticks starts (reads the time and input) as late as it can
+    // while still being queued the moment the GPU is free, so the frame rate stays the same.
+    bool low_latency_frames = false;
     int volume = 100;  // of everything the port plays, 0 (nothing at all) to 100 (as mixed)
     // The on-screen pad (platform/touch_pad.h): its controls' size and the camera's speed, in
     // percent of the pad's own, and where the player moved its groups (TouchPad::layout()).
@@ -170,6 +170,10 @@ struct Settings {
     // Options the game keeps in its own memory, which a console forgets at power off (keys
     // game_*; game_host.h, openrac_game_option): the port remembers them between runs.
     std::map<std::string, int, std::less<>> game_options;
+    // What the player bound each pad button to (keys bind_*, values as platform/bindings.h names
+    // them: "Space,PadSouth"). Kept as the file wrote them, so this file needs nothing of SDL;
+    // platform::set_bindings reads the names. A button with no binding keeps the port's default.
+    std::map<std::string, std::string, std::less<>> bindings;
 };
 
 // The settings in use.
@@ -192,6 +196,9 @@ float output_gain();
 
 // The start of every key of Settings::game_options in the file.
 inline constexpr std::string_view kGameOptionPrefix = "game_";
+
+// The prefix of a key that binds a pad button (platform/bindings.h names the values).
+inline constexpr std::string_view kBindPrefix = "bind_";
 
 // Returns the game's option `key` (`game_` and a name, one of Settings::game_options), or
 // `fallback` while none is remembered. openrac_game_option's body (program/game_host.cpp).

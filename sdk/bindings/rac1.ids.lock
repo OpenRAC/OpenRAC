@@ -1,11 +1,30 @@
 # The hook points' ids of rac1, by sdk/tools/gen_binding.py: id, anchor (the function's place
 # on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
 # and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
+rac1.ammo.choose_drop	pal:L00:00258250	Ammo_ChooseDrop,FUN_L00_00257218,func_L00_00258250
+rac1.ammo.spawn_drop	pal:L00:002C6608	Ammo_SpawnDrop,FUN_L00_002c52a8,func_L00_002C6608
 rac1.camera.follow.apply_overrides	pal:L00:002E74B0	FUN_L00_002e6000,FollowCamera_ApplyOverrides,func_L00_002E74B0
 rac1.combat.get_hit	pal:L00:0025B478	FUN_L00_0025a420,Moby_GetHitMessage,func_L00_0025B478
 rac1.gold_bolt.count_collected	pal:002160E0	FUN_00215290,GoldBolts_CountCollected,func_002160E0
+rac1.hud.quick_select.draw	pal:L00:00238C30	FUN_L00_002382a0,Hud_QuickSelect_Draw,func_L00_00238C30
+rac1.hud.quick_select.init	pal:L00:00238478	FUN_L00_00237ae8,Hud_QuickSelect_Init,func_L00_00238478
+rac1.hud.quick_select.update	pal:L00:00238530	FUN_L00_00237ba0,Hud_QuickSelect_Update,func_L00_00238530
 rac1.item.give	pal:L00:002618D8	FUN_L00_00260860,Item_Give,func_L00_002618D8
 rac1.level.load_gameplay	pal:L00:002422D8	FUN_L00_00241940,Level_LoadGameplay,func_L00_002422D8
+rac1.menu.equipped_preview.draw	pal:0021EE00	FUN_0021ddf8,Menu_EquippedPreview_Draw,func_0021EE00
+rac1.menu.equipped_preview.update	pal:002255F8	FUN_00224368,Menu_EquippedPreview_Update,func_002255F8
+rac1.menu.item_ammo.draw	pal:00220160	FUN_0021f158,Menu_ItemAmmo_Draw,func_00220160
+rac1.menu.item_grid.draw	pal:0021E950	FUN_0021d948,Menu_ItemGrid_Draw,func_0021E950
+rac1.menu.item_grid.update	pal:0021C840	FUN_0021b858,Menu_ItemGrid_Update,func_0021C840
+rac1.menu.item_slots.update	pal:0021D7A0	FUN_0021c7a0,Menu_ItemSlots_Update,func_0021D7A0
+rac1.menu.item_text.draw	pal:0021B298	FUN_0021a328,Menu_ItemText_Draw,func_0021B298
+rac1.menu.preview.bind	pal:0021F238	FUN_0021e230,Menu_Preview_Bind,func_0021F238
+rac1.menu.preview.draw_available	pal:0021F610	FUN_0021e608,Menu_Preview_DrawAvailable,func_0021F610
+rac1.menu.preview.draw_selected	pal:0021F118	FUN_0021e110,Menu_Preview_DrawSelected,func_0021F118
+rac1.menu.preview.update	pal:0021EFA0	FUN_0021df98,Menu_Preview_Update,func_0021EFA0
+rac1.menu.quick_select.draw	pal:00221B58	FUN_00220b20,Menu_QuickSelect_Draw,func_00221B58
+rac1.menu.quick_select.load	pal:0021D9C8	FUN_0021c9c8,Menu_QuickSelect_Load,func_0021D9C8
+rac1.menu.quick_select.store	pal:0021DA60	FUN_0021ca60,Menu_QuickSelect_Store,func_0021DA60
 rac1.moby.agnogg_ship.update	pal:L01:002FC140	FUN_L01_002fad68,Moby_AgnoggShipFront_Update,func_L01_002FC140
 rac1.moby.airship_chain_link.update	pal:L09:00305710	FUN_L09_00304360,Moby_AirshipPart1181_Update,func_L09_00305710
 rac1.moby.airship_part.update	pal:L09:002C3858	FUN_L09_002c26c8,Moby_AirshipPart_Update,func_L09_002C3858
@@ -653,7 +672,17 @@ rac1.player.set_planar_velocity	pal:L00:00212790	FUN_L00_002120d8,Hero_SetPlanar
 rac1.player.take_damage	pal:L00:002056D8	FUN_L00_002050c0,Hero_TakeDamage,func_L00_002056D8
 rac1.player.turn_to_heading	pal:L00:002124E8	FUN_L00_00211e30,Hero_TurnToHeading,func_L00_002124E8
 rac1.player.update_motion_input	pal:L00:00211D28	FUN_L00_00211670,Hero_UpdateMotionInput,func_L00_00211D28
+rac1.save.new_game	pal:00209DC0	FUN_00209370,Save_NewGame,func_00209DC0
+rac1.save.new_game_plus	pal:00227DB0	FUN_00226b08,Save_NewGamePlus,func_00227DB0
+rac1.save.prepare	pal:00227C78	FUN_002269c0,Save_Prepare,func_00227C78
+rac1.save.request_autosave	pal:0020BFC8	FUN_0020b178,Save_RequestAutosave,func_0020BFC8
+rac1.save.restore	pal:00209CE8	FUN_00209298,Save_Restore,func_00209CE8
+rac1.save.restore_data	pal:0020BD70	FUN_0020af20,Save_RestoreData,func_0020BD70
+rac1.save.serialize	pal:0020BA00	FUN_0020abb0,Save_Serialize,func_0020BA00
+rac1.save.update_state	pal:00209E68	FUN_002093d8,Save_UpdateState,func_00209E68
 rac1.ship.travel_to	pal:L00:00290030	FUN_L00_0028ed58,Ship_TravelTo,func_L00_00290030
 rac1.vendor.build_item_list	pal:L00:0029B770	FUN_L00_0029a400,Vendor_BuildItemList,func_L00_0029B770
 rac1.vendor.init_level_stock	pal:L00:0023DB30	FUN_L00_0023d198,Vendor_InitLevelStock,func_L00_0023DB30
+rac1.vendor.initialize_selected	pal:L00:0029C9E8	FUN_L00_0029b680,Vendor_InitializeSelected,func_L00_0029C9E8
+rac1.vendor.menu_update	pal:L00:0029CDE0	FUN_L00_0029ba78,Vendor_MenuUpdate,func_L00_0029CDE0
 rac1.weapon.take_ammo	pal:L00:00234638	FUN_L00_00233db8,Weapon_TakeAmmo,func_L00_00234638

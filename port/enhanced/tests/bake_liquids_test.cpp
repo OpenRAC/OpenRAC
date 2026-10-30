@@ -93,6 +93,14 @@ int main() {
         }
     }
     CHECK(max_x == 24 && max_y == 41);
+    // The PAL overlay keeps the same record at its own address.
+    Bytes pal_overlay;
+    section(pal_overlay, lighting::kGasparLiquidPal, record);
+    section(pal_overlay, 0x200000, colours);
+    section(pal_overlay, 0x210000, order);
+    const auto pal =
+        lighting::gaspar_liquid_triangles(pal_overlay, index, core, lighting::kGasparLiquidPal);
+    CHECK(pal.size() == 98);
     auto animated_core = core;
     animated_core.resize(9216);  // second texture is black
     auto animated_index = index;

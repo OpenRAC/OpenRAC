@@ -40,6 +40,7 @@ import type { SaveView } from "./generated/SaveView";
 import type { Scope } from "./generated/Scope";
 import type { Started } from "./generated/Started";
 import type { VersionStatus } from "./generated/VersionStatus";
+import type { UpdateChannel } from "./generated/UpdateChannel";
 import type { VersionView } from "./generated/VersionView";
 import type { EditorState } from "./generated/EditorState";
 import type { WriteResult } from "./generated/WriteResult";
@@ -215,6 +216,9 @@ let config: Config = {
   lastVersion: null,
   discordRpc: true,
   checkUpdates: true,
+  // ?modupdates: the mods are looked at when the launcher starts, and the lock-strafe has an update.
+  // Off otherwise, so its prompt does not cover every page of the preview.
+  checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("modupdates"),
   updateChannel: null,
   updateBranch: null,
   layout: "compact",
@@ -2072,7 +2076,10 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         configFile: "~/.config/dev.openrac.launcher/launcher.json",
         // ?standalone shows an installed launcher's pages: no checkout, nothing to find.
         standalone: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("standalone"),
-        updates: STABLE,
+        // ?devbuild: a development build, whose Stable channel offers the older release.
+        updates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("devbuild")
+          ? DEV
+          : STABLE,
         updateChannels: { stable: STABLE, dev: DEV },
         // ?nocompositing: a Steam Deck's webview, without page slides.
         noCompositing: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("nocompositing"),
@@ -2417,6 +2424,11 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
             planetName: "Veldin",
             timestamp: "2026-10-09 17:01:21",
             modifiedMillis: Date.now() - 3600000,
+            // Played with mods: the mark beside the save (port/game/common/lib/mc.c).
+            mods: [
+              { id: "lock-strafe", version: "1.0.0" },
+              { id: "camera-tweaks", version: "0.3.1" },
+            ],
           },
           {
             slotIndex: 1,
@@ -2431,6 +2443,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
             planetName: "Kerwan",
             timestamp: "2026-10-09 17:21:44",
             modifiedMillis: Date.now() - 1800000,
+            mods: null,
           },
           {
             slotIndex: 2,
@@ -2621,17 +2634,21 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
 // ---- launcher updates ----------------------------------------------------------------
 
 /** The preview's answer to "is a newer launcher out?": ?update (one is, and installs itself;
- *  with ?download only from GitHub), ?latest (none), ?offline (GitHub cannot be reached).
+ *  with ?download only from GitHub), ?latest (none), ?offline (GitHub cannot be reached); on the
+ *  other channel (SWITCHTO; ?devbuild with Stable chosen) the older release.
  *  Undefined: no switch, so the real check runs. */
-export function mockUpdate(current: string): UpdateInfo | null | Error | undefined {
+export function mockUpdate(
+  current: string,
+  switchTo: UpdateChannel | null = null,
+): UpdateInfo | null | Error | undefined {
   if (query.has("offline")) return new Error("no connection to GitHub");
   if (query.has("latest")) return null;
-  if (!query.has("update")) return undefined;
+  if (!query.has("update") && !switchTo) return undefined;
   const [major = 0, minor = 0] = current
     .replace(/^[^0-9]*/, "")
     .split(".")
     .map((n) => parseInt(n, 10) || 0);
-  const version = `${major}.${minor + 1}.0`;
+  const version = switchTo === "stable" ? `${major}.${Math.max(0, minor - 1)}.0` : `${major}.${minor + 1}.0`;
   return {
     version,
     tag: `v${version}`,
@@ -2645,6 +2662,7 @@ export function mockUpdate(current: string): UpdateInfo | null | Error | undefin
     ].join("\n"),
     publishedAt: new Date(Date.now() - 86400000).toISOString(),
     canInstallDirectly: !query.has("download"),
+    switchTo,
   };
 }
 

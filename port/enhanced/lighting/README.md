@@ -105,6 +105,8 @@ airborne shadows retain their directions. Rebake after changes.
 
 The [Novalis NTSC profile](profiles/rac1-ntsc/level_01/probe-bake.json) sets sky intensity 0.5,
 sky weight 0.3, sunlight direction and 8/3-unit dense spacing, two-thirds of the standard 4 units.
+The PAL profiles (`profiles/rac1-pal/`) start as copies of NTSC-U's: the levels' classes, textures
+and coordinates are expected to match; check a PAL bake before tuning them apart.
 Export copies `profiles/<game>-<version>/level_NN/probe-bake.json`; launcher bundles include these
 profiles. Baker/runtime read the exported copy without a checkout. Missing profiles use defaults.
 Re-export and rebake after tracked settings change. Profiles contain no extracted meshes/bakes.

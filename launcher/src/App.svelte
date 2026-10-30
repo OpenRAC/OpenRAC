@@ -3,9 +3,11 @@
   import Header from "$components/Header.svelte";
   import LaunchScreen from "$components/LaunchScreen.svelte";
   import Toasts from "$components/Toasts.svelte";
+  import ModUpdateModal from "$components/ModUpdateModal.svelte";
   import UpdateModal from "$components/UpdateModal.svelte";
   import { errorText, onAndroid } from "$lib/api";
   import { app, openDevelop, refresh, showLaunch, start, updateDiscordPresence, type Page } from "$lib/app.svelte";
+  import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
   import { slide, slides } from "$lib/motion";
   import { applyPalette } from "$lib/palettes";
@@ -116,6 +118,9 @@
         else if (page) app.page = page;
         // ?update&modal=update: the update window open on the preview's update (mock.ts).
         if (params.get("modal") === "update") app.showUpdateModal = true;
+        // The installed mods are looked at once a day, where they came from a link: what is found
+        // is offered in one window and read by the Mods tab, so GitHub is not asked twice.
+        if (app.config?.checkModUpdates) void lookForModUpdates().catch(() => undefined);
         // ?launch: the version's start (Android's spinning disc), as Play shows it.
         if (params.has("launch") && version) {
           const game = app.library?.games.find((g) => g.id === version.split("/")[0]);
@@ -165,6 +170,7 @@
 <GameRunning />
 <Toasts />
 <UpdateModal />
+<ModUpdateModal />
 
 <style>
   .loading {

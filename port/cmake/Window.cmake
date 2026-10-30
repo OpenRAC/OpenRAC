@@ -49,6 +49,7 @@ endfunction()
 # ---- platform ----
 add_library(openrac_platform STATIC
   platform/audio.cpp
+  platform/bindings.cpp
   platform/clock.cpp
   platform/gpu_driver.cpp
   platform/input.cpp
@@ -59,7 +60,12 @@ add_library(openrac_platform STATIC
   platform/window.cpp
 )
 target_link_libraries(openrac_platform PUBLIC openrac_common openrac_sdl3)
+# bindings.cpp reads the SDK's key names (sdk/include/openrac/keys.h), which the launcher, a mod's
+# keybind setting and the settings file all share.
+target_include_directories(openrac_platform PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
 openrac_warnings(openrac_platform)
+# What the player bound each pad button to (platform/bindings.h).
+openrac_add_test(bindings SOURCES tests/bindings_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp)
@@ -533,6 +539,8 @@ openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                  game/common/frontend/geometry.cpp INCLUDES .)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
+openrac_add_test(frontend_latch_fade SOURCES tests/frontend_latch_fade_test.cpp
+                 game/common/frontend/latch_fade.cpp INCLUDES .)
 
 openrac_add_test(logo SOURCES tests/logo_test.cpp renderer/ui/logo.cpp INCLUDES .)
 openrac_add_test(touch_overlay LIBS openrac_renderer_ui openrac_platform)

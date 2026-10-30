@@ -292,7 +292,8 @@ class MobySeeds(unittest.TestCase):
         self.assertEqual(mobys.piston_travel(data, m, 'rac1-ntsc', 1), -4.5)
         data[176+0xa4] = 1
         self.assertEqual(mobys.piston_travel(data, m, 'rac1-ntsc', 1), 4.5)
-        self.assertIsNone(mobys.piston_travel(data, m, 'rac1-pal', 1))
+        self.assertEqual(mobys.piston_travel(data, m, 'rac1-pal', 1), 4.5)
+        self.assertIsNone(mobys.piston_travel(data, m, 'rac2-ntsc', 1))
         self.assertIsNone(mobys.piston_travel(data, m, 'rac1-ntsc', 2))
         self.assertIsNone(mobys.piston_travel(data[:200], m, 'rac1-ntsc', 1))
         malformed = bytearray(data)

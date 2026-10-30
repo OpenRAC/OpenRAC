@@ -515,26 +515,42 @@ def _asm_constraints(raw: str, at: int) -> dict | None:
     return {"out": lists[0], "in": lists[1]}
 
 
-def asm_strings(text: str, ast: dict, rel: str) -> None:
-    """Gives each asm statement of the unit's own file its instructions ("asmString"), which
-    Clang's JSON leaves out: lower.py tells an ordering barrier (sync) from code it cannot run
-    (rac1-decomp's VU0 asm statements, FastVecCross's projection in src/game/drawquad.c), which
-    would otherwise become a barrier as well; and its operands' constraints ("asmConstraints"), for
-    an empty one that only hands a value to an output (kputchar's `__asm__("" : "=r"(p) :
-    "0"(0x1000F180))` in src/core/00119D88.c, which hides the address from the optimizer). A
-    statement in a header, or spelled through a macro, keeps none."""
-    raw = text.encode("utf-8", errors="surrogateescape")
+def asm_strings(text: str, ast: dict, rel: str, root: Path | None = None) -> None:
+    """Gives each asm statement of the unit its instructions ("asmString"), which Clang's JSON
+    leaves out: lower.py tells an ordering barrier (sync) from code it cannot run (rac1-decomp's
+    VU0 asm statements, FastVecCross's projection in src/game/drawquad.c), which would otherwise
+    become a barrier as well; and its operands' constraints ("asmConstraints"), for an empty one
+    that only hands a value to an output (kputchar's `__asm__("" : "=r"(p) : "0"(0x1000F180))` in
+    src/core/00119D88.c, which hides the address from the optimizer). A statement spelled in a
+    header or through a macro is read where it is spelled (the NTSC decomp's MOBY_CALL_UPDATE,
+    include/moby_update.h), given ROOT, the directory Clang ran in; one whose instructions are not
+    plain string literals (a macro's argument) keeps none, and lower.py reports it."""
+    files = {rel: text.encode("utf-8", errors="surrogateescape").decode("latin-1")}  # offsets count bytes
+
+    def source(name: str) -> str | None:
+        key = rel if name.endswith(rel) else name
+        if key not in files:
+            path = Path(name) if root is None or Path(name).is_absolute() else root / name
+            try:
+                files[key] = path.read_bytes().decode("latin-1")
+            except OSError:
+                files[key] = None
+        return files[key]
 
     def walk(node: dict):
-        if node.get("kind") == "GCCAsmStmt" and "asmString" not in node and node.get("_file", "").endswith(rel):
+        if node.get("kind") == "GCCAsmStmt" and "asmString" not in node and node.get("_file"):
             begin = (node.get("range") or {}).get("begin") or {}
-            if "spellingLoc" not in begin and "offset" in begin:
-                found = _asm_literal(raw.decode("latin-1"), begin["offset"])  # offsets count bytes
-                if found is not None:
-                    node["asmString"] = found
-                    cons = _asm_constraints(raw.decode("latin-1"), begin["offset"])
-                    if cons is not None:
-                        node["asmConstraints"] = cons
+            if "spellingLoc" in begin:
+                name, at = node.get("_spelling_file", ""), begin["spellingLoc"].get("offset")
+            else:
+                name, at = node["_file"], begin.get("offset")
+            raw = source(name) if at is not None and (root is not None or name.endswith(rel)) else None
+            found = _asm_literal(raw, at) if raw is not None else None
+            if found is not None:
+                node["asmString"] = found
+                cons = _asm_constraints(raw, at)
+                if cons is not None:
+                    node["asmConstraints"] = cons
         for c in node.get("inner", []):
             walk(c)
 
@@ -601,7 +617,7 @@ def parse_unit(clang: str, root: Path, rel: str, flags: list[str], attempts: int
             ast = json.loads(out.stdout)
             annotate(ast)
             text = path.read_text(encoding="utf-8", errors="surrogateescape")
-            asm_strings(text, ast, rel)
+            asm_strings(text, ast, rel, root)
             named, more = name_vla_lengths(text, ast, rel)
             if more:
                 _write(path, named)
@@ -684,7 +700,14 @@ def annotate(ast: dict) -> None:
         rng = node.get("range")
         begin = None
         if rng:
-            begin = visit_loc(rng.get("begin"))
+            start = rng.get("begin") or {}
+            if "spellingLoc" in start:
+                # Spelled in a macro: where its text is (the macro's header), for asm_strings.
+                visit_loc(start["spellingLoc"])
+                node["_spelling_file"] = state["file"]
+                begin = visit_loc(start["expansionLoc"])
+            else:
+                begin = visit_loc(start)
             visit_loc(rng.get("end"))
         spot = where or begin
         if spot:

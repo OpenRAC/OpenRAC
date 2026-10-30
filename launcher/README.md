@@ -87,6 +87,11 @@ the game you used last.
   The editor will not write while the game runs, backs up the card before
   every write, and offers Undo
   ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#the-save-editor)).
+  A slot the game wrote while mods were loaded is marked **Mods**, with the
+  mods' names on hover; the mark is a small file beside the save
+  (`save0.bin.mods`), never a change to the save itself, and it goes again
+  when the slot is saved over without mods. Ratchet & Clank (PAL) shows the
+  same mark on the game's own memory card page.
   **Import saves from PCSX2**, in the game's menu, copies the game's saves
   from a PCSX2 memory card (a `.ps2` file, or a folder card's
   `_pcsx2_superblock`) onto the card, after a backup of what was there.
@@ -145,7 +150,8 @@ game is downloaded
 
 **Add from a link** takes a GitHub repository or release. Before installing
 anything, the launcher shows the mods, their author, and whether this
-computer's game can run them.
+computer's game can run them. Links you already added from are listed under
+the field: one click reads that repository again.
 
 - A gameplay mod is installed from its release `.zip`, and only when
   `SHA256SUMS` lists the same hash. Nothing is compiled locally.
@@ -154,9 +160,11 @@ computer's game can run them.
   Packs also work from other git hosts if git is installed.
 
 A linked mod remembers its source in `<data>/plugins/sources.json`. **Check
-for updates** (also run once a day) offers **Update to X**; **Keep this
-version** stops that
-([docs/port/MODS.md](../docs/port/MODS.md#10-mods-in-a-git-repository)).
+for updates** offers **Update to X**; **Keep this version** stops that
+([docs/port/MODS.md](../docs/port/MODS.md#10-mods-in-a-git-repository)). The
+launcher also looks once a day when it starts and offers them in one window,
+with **Update all**; Settings → Updates turns that off, and the Mods tab
+still looks whenever you ask.
 
 **Level editing** has three steps for each editable game:
 

@@ -348,11 +348,13 @@ def rename_va_builtins(text: str) -> str:
     decompilation's `vfprintf(FILE *, const char *, void *) __asm__("FUN_00116da8")`) is renamed
     NAME_game in its file. Clang otherwise takes it for the library's own, gives its definition the
     host's va_list while its body uses the game's pointer, and the translation casts one to the other
-    (a struct on Linux on ARM, where it does not compile). The assembler label keeps the symbol."""
+    (a struct on Linux on ARM, where it does not compile). The assembler label keeps the symbol. A
+    `__typeof__(NAME)` (the file's alias) is renamed too: Clang declares the library's own only where
+    the file has a FILE type of that name, so elsewhere the plain name is undeclared."""
     names = set(_LABELLED_VA_BUILTIN.findall(text))
     if not names:
         return text
-    word = re.compile(r"\b(" + "|".join(sorted(names)) + r")\b(?=\s*\()")
+    word = re.compile(r"\b(" + "|".join(sorted(names)) + r")\b(?=\s*[()])")
     out, pos = [], 0
     for m in _SKIP.finditer(text):
         out.append(word.sub(r"\1_game", text[pos:m.start()]))

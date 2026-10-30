@@ -271,6 +271,383 @@
         "ntsc": "FUN_L00_002a6b70"
       },
       "about": "Collects a bolt (collect_bolt), called by the bolt update (classes 13 to 16) once the bolt reaches the hero: adds its value (1, or 5 / 20 / 50 for classes 14 / 15 / 16) to the bolt count, the level's total and its source's stats, shows the bolt counter and makes two sparkles at it. The bolt update then deletes the bolt (a placed one marked taken) whether or not this ran."
+    },
+    {
+      "id": "rac1.menu.item_grid.update",
+      "name": "Menu_ItemGrid_Update",
+      "signature": "i32(u32)",
+      "params": [
+        "grid"
+      ],
+      "symbols": {
+        "pal": "func_0021C840",
+        "ntsc": "FUN_0021b858"
+      },
+      "about": "Moves the pause menu item grid's focus and takes its selection (update_menu_grid_selection), each tick the grid is open. Returns the menu's action."
+    },
+    {
+      "id": "rac1.menu.item_grid.draw",
+      "name": "Menu_ItemGrid_Draw",
+      "signature": "i32(u32)",
+      "params": [
+        "grid"
+      ],
+      "symbols": {
+        "pal": "func_0021E950",
+        "ntsc": "FUN_0021d948"
+      },
+      "about": "Draws the pause menu item grid (draw_menu_item_grid). Returns the render-pass flags the menu passes on."
+    },
+    {
+      "id": "rac1.menu.item_slots.update",
+      "name": "Menu_ItemSlots_Update",
+      "signature": "i32(u32)",
+      "params": [
+        "list"
+      ],
+      "symbols": {
+        "pal": "func_0021D7A0",
+        "ntsc": "FUN_0021c7a0"
+      },
+      "about": "Puts the highlighted item in one of the quick select's eight slots (update_menu_item_slots), in the pause menu's quick select editor."
+    },
+    {
+      "id": "rac1.menu.quick_select.draw",
+      "name": "Menu_QuickSelect_Draw",
+      "signature": "i32(u32)",
+      "params": [
+        "screen"
+      ],
+      "symbols": {
+        "pal": "func_00221B58",
+        "ntsc": "FUN_00220b20"
+      },
+      "about": "Draws the pause menu's quick select ring (draw_pause_ring). Returns the render-pass flags."
+    },
+    {
+      "id": "rac1.menu.quick_select.load",
+      "name": "Menu_QuickSelect_Load",
+      "signature": "i32(u32)",
+      "params": [
+        "list"
+      ],
+      "symbols": {
+        "pal": "func_0021D9C8",
+        "ntsc": "FUN_0021c9c8"
+      },
+      "about": "Copies the eight saved quick select items into the pause menu's editor (load_selection_list)."
+    },
+    {
+      "id": "rac1.menu.quick_select.store",
+      "name": "Menu_QuickSelect_Store",
+      "signature": "i32(u32)",
+      "params": [
+        "screen"
+      ],
+      "symbols": {
+        "pal": "func_0021DA60",
+        "ntsc": "FUN_0021ca60"
+      },
+      "about": "Copies the editor's eight quick select items (+0x30 of screen) back to the saved quick select (pause_stage_sprite_lists)."
+    },
+    {
+      "id": "rac1.menu.item_text.draw",
+      "name": "Menu_ItemText_Draw",
+      "signature": "i32(u32)",
+      "params": [
+        "label"
+      ],
+      "symbols": {
+        "pal": "func_0021B298",
+        "ntsc": "FUN_0021a328"
+      },
+      "about": "Draws a menu text label from its configuration (render_configured_text_label): the selected item's name and description among others."
+    },
+    {
+      "id": "rac1.menu.item_ammo.draw",
+      "name": "Menu_ItemAmmo_Draw",
+      "signature": "i32(i32)",
+      "params": [
+        "screen"
+      ],
+      "symbols": {
+        "pal": "func_00220160",
+        "ntsc": "FUN_0021f158"
+      },
+      "about": "Draws the selected item's ammo panel in the pause menu (draw_selected_item_ammo)."
+    },
+    {
+      "id": "rac1.menu.preview.bind",
+      "name": "Menu_Preview_Bind",
+      "signature": "i32(u32)",
+      "params": [
+        "preview"
+      ],
+      "symbols": {
+        "pal": "func_0021F238",
+        "ntsc": "FUN_0021e230"
+      },
+      "about": "Binds the selected item, and what it carries, to the pause menu's preview (update_item_preview_binding)."
+    },
+    {
+      "id": "rac1.menu.preview.update",
+      "name": "Menu_Preview_Update",
+      "signature": "i32(u32)",
+      "params": [
+        "screen"
+      ],
+      "symbols": {
+        "pal": "func_0021EFA0",
+        "ntsc": "FUN_0021df98"
+      },
+      "about": "Makes or replaces the moby of the pause menu's item preview (update_item_preview_moby)."
+    },
+    {
+      "id": "rac1.menu.preview.draw_available",
+      "name": "Menu_Preview_DrawAvailable",
+      "signature": "i32(u32)",
+      "params": [
+        "screen"
+      ],
+      "symbols": {
+        "pal": "func_0021F610",
+        "ntsc": "FUN_0021e608"
+      },
+      "about": "Draws the preview mobys of the owned, selected item (draw_available_item_preview_mobys). Returns the render-pass flags."
+    },
+    {
+      "id": "rac1.menu.preview.draw_selected",
+      "name": "Menu_Preview_DrawSelected",
+      "signature": "i32(u32)",
+      "params": [
+        "screen"
+      ],
+      "symbols": {
+        "pal": "func_0021F118",
+        "ntsc": "FUN_0021e110"
+      },
+      "about": "Draws the selected item's preview, or the message for an item not owned (draw_item_preview_screen)."
+    },
+    {
+      "id": "rac1.menu.equipped_preview.update",
+      "name": "Menu_EquippedPreview_Update",
+      "signature": "i32(u32)",
+      "params": [
+        "hand"
+      ],
+      "symbols": {
+        "pal": "func_002255F8",
+        "ntsc": "FUN_00224368"
+      },
+      "about": "Loads the preview of the gadget or weapon in hand (LoadHandGadget)."
+    },
+    {
+      "id": "rac1.menu.equipped_preview.draw",
+      "name": "Menu_EquippedPreview_Draw",
+      "signature": "i32(u32)",
+      "params": [
+        "screen"
+      ],
+      "symbols": {
+        "pal": "func_0021EE00",
+        "ntsc": "FUN_0021ddf8"
+      },
+      "about": "Draws the pause menu's preview of the hero and what he holds (draw_menu_preview_objects)."
+    },
+    {
+      "id": "rac1.hud.quick_select.init",
+      "name": "Hud_QuickSelect_Init",
+      "signature": "void(u32)",
+      "params": [
+        "selector"
+      ],
+      "symbols": {
+        "pal": "func_L00_00238478",
+        "ntsc": "FUN_L00_00237ae8"
+      },
+      "about": "Sets up the quick select's eight-slot selector in play (initialize_eight_slot_hud_selector)."
+    },
+    {
+      "id": "rac1.hud.quick_select.update",
+      "name": "Hud_QuickSelect_Update",
+      "signature": "void(u32)",
+      "params": [
+        "selector"
+      ],
+      "symbols": {
+        "pal": "func_L00_00238530",
+        "ntsc": "FUN_L00_00237ba0"
+      },
+      "about": "The quick select in play, each tick (update_hud_item_selector_selection_and_visibility): its focus, whether it shows, and the item chosen."
+    },
+    {
+      "id": "rac1.hud.quick_select.draw",
+      "name": "Hud_QuickSelect_Draw",
+      "signature": "i32(u32)",
+      "params": [
+        "panel"
+      ],
+      "symbols": {
+        "pal": "func_L00_00238C30",
+        "ntsc": "FUN_L00_002382a0"
+      },
+      "about": "Draws the quick select's item icons in play (draw_hud_item_selector_panel)."
+    },
+    {
+      "id": "rac1.vendor.menu_update",
+      "name": "Vendor_MenuUpdate",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_0029CDE0",
+        "ntsc": "FUN_L00_0029ba78"
+      },
+      "about": "The vendor's purchase menu, each tick it is open (update_vendor_purchase): buying items and ammo."
+    },
+    {
+      "id": "rac1.vendor.initialize_selected",
+      "name": "Vendor_InitializeSelected",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_0029C9E8",
+        "ntsc": "FUN_L00_0029b680"
+      },
+      "about": "Sets up the mobys and text of the vendor's selected row (initialize_vendor_selected_item_mobys)."
+    },
+    {
+      "id": "rac1.ammo.choose_drop",
+      "name": "Ammo_ChooseDrop",
+      "signature": "i32(u32,u32)",
+      "params": [
+        "moby",
+        "out_item"
+      ],
+      "symbols": {
+        "pal": "func_L00_00258250",
+        "ntsc": "FUN_L00_00257218"
+      },
+      "about": "Chooses the ammo a dying moby or a broken crate drops (ChooseDropItem): writes the item to out_item and returns how many pickups."
+    },
+    {
+      "id": "rac1.ammo.spawn_drop",
+      "name": "Ammo_SpawnDrop",
+      "signature": "u32(u32,i32,i32,i32)",
+      "params": [
+        "pos",
+        "item",
+        "amount",
+        "flags"
+      ],
+      "symbols": {
+        "pal": "func_L00_002C6608",
+        "ntsc": "FUN_L00_002c52a8"
+      },
+      "about": "Makes an ammo pickup moby of item at pos (spawn_on_path); amount -1 takes the item's own. Returns the moby, or 0."
+    },
+    {
+      "id": "rac1.save.prepare",
+      "name": "Save_Prepare",
+      "signature": "void(i32,i32)",
+      "params": [
+        "buffer",
+        "slot"
+      ],
+      "symbols": {
+        "pal": "func_00227C78",
+        "ntsc": "FUN_002269c0"
+      },
+      "about": "Writes the game's state into a save and starts a full memory card write (prepare_save_game)."
+    },
+    {
+      "id": "rac1.save.request_autosave",
+      "name": "Save_RequestAutosave",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "slot",
+        "flags"
+      ],
+      "symbols": {
+        "pal": "func_0020BFC8",
+        "ntsc": "FUN_0020b178"
+      },
+      "about": "Writes the save's packets and asks for their memory card update (memcard_Save), as an autosave does."
+    },
+    {
+      "id": "rac1.save.restore",
+      "name": "Save_Restore",
+      "signature": "void(u32)",
+      "params": [
+        "save"
+      ],
+      "symbols": {
+        "pal": "func_00209CE8",
+        "ntsc": "FUN_00209298"
+      },
+      "about": "Restores a whole save from memory (memcard_RestoreGame); a new game's default state goes through it too. The port keeps the player's options around it (rac1/host/options.c)."
+    },
+    {
+      "id": "rac1.save.restore_data",
+      "name": "Save_RestoreData",
+      "signature": "i32(u32,i32,u32)",
+      "params": [
+        "src",
+        "slot",
+        "table"
+      ],
+      "symbols": {
+        "pal": "func_0020BD70",
+        "ntsc": "FUN_0020af20"
+      },
+      "about": "Restores one checked save packet (memcard_RestoreData); loading a file calls it directly. Returns non-zero when it took the packet."
+    },
+    {
+      "id": "rac1.save.new_game",
+      "name": "Save_NewGame",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00209DC0",
+        "ntsc": "FUN_00209370"
+      },
+      "about": "A new game (NewGameInit): the disc's default state, and level 0. The port's --level N runs around it (rac1/host/boot.c)."
+    },
+    {
+      "id": "rac1.save.new_game_plus",
+      "name": "Save_NewGamePlus",
+      "signature": "void(i32)",
+      "params": [
+        "slot"
+      ],
+      "symbols": {
+        "pal": "func_00227DB0",
+        "ntsc": "FUN_00226b08"
+      },
+      "about": "Challenge mode's start (load_level_zero_preserving_progress): the game reset to level 0 with the progress it carries kept."
+    },
+    {
+      "id": "rac1.save.serialize",
+      "name": "Save_Serialize",
+      "signature": "void(u32)",
+      "params": [
+        "out"
+      ],
+      "symbols": {
+        "pal": "func_0020BA00",
+        "ntsc": "FUN_0020abb0"
+      },
+      "about": "Writes the whole save into out (memcard_MakeWholeSave), with no memory card access."
+    },
+    {
+      "id": "rac1.save.update_state",
+      "name": "Save_UpdateState",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00209E68",
+        "ntsc": "FUN_002093d8"
+      },
+      "about": "The memory card's state machine, each tick (memcard_update_state): saves and loads go through it."
     }
   ],
   "bases": {

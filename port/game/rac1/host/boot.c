@@ -110,9 +110,10 @@ void func_001F4630(int arg0) {
 
 /* NewGameInit: a new game's state is a fresh save restored from the disc, with the level set to 0
  * (Veldin); the level's files are read right after. With --level N the new game starts in level N
- * instead, the way the behaviour checker reaches a level with its level write. */
+ * instead, the way the behaviour checker reaches a level with its level write. The mods' hook point
+ * (rac1.save.new_game) sits under this, as func_00209DC0__hooked. */
 void func_00209DC0(void) {
-    func_00209DC0__game();
+    func_00209DC0__hooked();
     if (openrac_game_start_level >= 0 && openrac_game_start_level < LEVELS) {
         GREF(int, CURRENT_LEVEL) = openrac_game_start_level;
     }

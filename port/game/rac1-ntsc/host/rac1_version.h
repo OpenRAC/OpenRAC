@@ -34,6 +34,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_func_L00_0025C710 1
 /* The boot loop draws its picture with draw_bootImage (FUN_002012b8), which boot_picture.c wraps. */
 #define RAC1_OMIT_func_001F7680 1
+/* The memory card page's MODS badges (save_marks.c): the page's draw is not carried to this
+ * version yet, so this disc shows the badges in the launcher only. */
+#define RAC1_OMIT_func_00224C30 1
 /* FUN_0023a2c0, the pause menu mobys' update: the NTSC decomp has C for it. */
 #define RAC1_OMIT_game_D_0023B578 1
 /* Variants (variants.c) the NTSC decomp's catalogue names apart, each with C of its own. */
@@ -124,7 +127,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * game_language and playback_mode, music_volume, sound_volume (include/rnc/globals.h,
  * gameplay/state/options.h). */
 #define func_00209CE8 game_FUN_00209298
-#define func_00209CE8__game game_FUN_00209298__game
+#define func_00209CE8__hooked game_FUN_00209298__hooked
 #define func_0022DBE8 game_FUN_0022c8d0
 #define func_0022DBE8__game game_FUN_0022c8d0__game
 #define RAC1_TYPE_func_00209CE8_save gaddr
@@ -319,7 +322,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_00205270 game_FUN_00204a40
 #define func_00205270__game game_FUN_00204a40__game
 #define func_00209DC0 game_FUN_00209370
-#define func_00209DC0__game game_FUN_00209370__game
+#define func_00209DC0__hooked game_FUN_00209370__hooked
 #define func_0020C268 func_0020B418
 #define func_0020C468 game_FUN_0020b618
 #define func_0020DD48 game_FUN_0020cef8
@@ -353,7 +356,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_0022D520 game_FUN_0022c208
 #define func_0022D7E0 game_FUN_0022c4c8
 #define func_0022ED80 game_FUN_0022da68
-#define func_0022F4A0 game_InitializeGlobalStateEntry
+#define func_0022F4A0 game_request_space_load
 #define func_00230A90 game_FUN_0022f778
 #define func_00230A90__game game_FUN_0022f778__game
 #define func_00234620 game_FUN_00233308

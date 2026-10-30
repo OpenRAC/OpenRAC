@@ -6,6 +6,7 @@
   import { api, inTauri, onAndroid } from "$lib/api";
   import { app, jobs, openDevelop, pendingJobs, runningJob, type Page } from "$lib/app.svelte";
   import { DISCORD_URL, SITE_URL } from "$lib/links";
+  import { channelName, updateLabel } from "$lib/updates";
   import { untrack } from "svelte";
   import Icon, { type IconName } from "./Icon.svelte";
   import Logo from "./Logo.svelte";
@@ -145,9 +146,13 @@
       <button
         class="update"
         onclick={() => (app.showUpdateModal = true)}
-        title={`Launcher ${update.version} is out: see what's new and update`}
+        title={update.switchTo
+          ? `${updateLabel(update)}: the channel chosen in Settings`
+          : `Launcher ${update.version} is out: see what's new and update`}
       >
-        <span class="pulse" aria-hidden="true"></span>Update<span class="label">{update.version}</span>
+        <span class="pulse" aria-hidden="true"></span>{update.switchTo
+          ? `Switch to ${channelName(update.switchTo)}`
+          : "Update"}<span class="label">{update.version}</span>
       </button>
     {/if}
     {#if !inTauri}<span class="preview">Browser preview</span>{/if}

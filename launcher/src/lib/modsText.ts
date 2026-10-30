@@ -302,6 +302,26 @@ export const cannotSwitchOn = (why: string) => `Cannot be switched on: ${why}`;
 export const removeConfirm = (name: string) => `Remove ${name}? The launcher's copy and its settings are deleted.`;
 export const withName = (name: string, why: string) => `${name}: ${why}`;
 
+/** The links a mod was already added from, under the link field (AddMod). */
+export const SAVED_SOURCES = {
+  label: "Added from before",
+  hint: (source: string) => `Read ${source} again`,
+};
+
+/** The prompt when the launcher starts and the day's look found newer mods (modUpdates). */
+export const START_UPDATES = {
+  title: "Your mods have updates",
+  lead: (title: string, count: number) =>
+    `${count} ${count === 1 ? "mod" : "mods"} of ${title} ${count === 1 ? "has" : "have"} a newer version.`,
+  kept: "Each mod keeps its place in the load order, its switch and its settings.",
+  later: "Later",
+  never: "Don't ask again",
+  all: (count: number) => (count === 1 ? "Update it" : "Update all"),
+  working: "Updating…",
+  failed: (why: string) => `The update stopped: ${why}. Nothing was changed; the Mods tab can try again.`,
+  neverHint: "The Mods tab's \u201cCheck now\u201d still looks whenever you ask.",
+};
+
 /** The update check's answer. */
 export function updatesFound(count: number, errors: string[]): string {
   const found =

@@ -1,0 +1,42 @@
+/* Energy sphere holder: initializes its vars, and sets a moby state to 2. */
+#include "types.h"
+#include "rnc/mobys/moby.h"
+#include "asm.h"
+
+#include "sda.h"
+#include "rnc/math/random.h"
+#include "rnc/math/fast_math.h"
+/* Fills a moby data block: four random values, fixed constants, four frame-scaled counts. */
+
+void initialize_energy_sphere_holder_vars(char *moby) __asm__("FUN_L06_002f7548");
+
+void initialize_energy_sphere_holder_vars(char *moby) {
+    float *holder_vars = ((float *)MOBY(moby)->pvars);
+    int   *scaled_frame_counts;
+    int    i;
+
+    for (i = 0; i < 4; i++) {
+        holder_vars[i] = (float)random_integer_below(0xFF);
+    }
+    holder_vars[4] = -2.0f;
+    holder_vars[5] = -4.25f;
+    holder_vars[6] = 2.25f;
+    holder_vars[7] = 4.5f;
+    scaled_frame_counts = (int *)(holder_vars + 8);
+    for (i = 0; i < 4; i++) {
+        scaled_frame_counts[i] = scale_game_frames(0x3F + i * 0x40);
+    }
+    holder_vars[12] = 1.75f;
+    holder_vars[13] = 2.25f;
+    holder_vars[15] = 1.75f;
+    holder_vars[14] = 2.25f;
+}
+
+#include "qcopy.h"
+
+/* Sets the moby state byte to 2. */
+void set_moby_state_two(struct Moby *moby) __asm__("FUN_L06_00303150");
+
+void set_moby_state_two(struct Moby *moby) {
+    moby->state = 0x2;
+}

@@ -1003,32 +1003,52 @@ class Unit:
         (the VU0's, COP0's, a sqrt.s) are code the host does not run: the statement stays a barrier,
         as before, and the function's report lists what it skips (report.json
         "inline_assembly_skipped"), since what those instructions compute is missing from the
-        translation. One whose text hostgen could not read (a header's, a macro's) is a barrier."""
+        translation. One whose text hostgen could not read (instructions a macro's argument spells)
+        is a barrier, reported the same way: what it does is missing too."""
         text = n.get("asmString")
         if text is None:
+            self._asm_skipped(["(asm text hostgen cannot read)"])
             return "GBARRIER();"
         words = text.replace(";", "\n").split("\n")
         ops = [w.strip().split()[0] for w in words if w.strip()]
         cons = n.get("asmConstraints") or {}
+        store = re.fullmatch(r"\s*sw\s+%(\d+)\s*,\s*%(\d+)\s*", text)
+        if store and cons.get("out"):
+            # One word stored to a memory output (the NTSC decomp's func_0012C4C8,
+            # src/sdk/video/mpeg/headers/update_mpeg_frame_size.c: `__asm__("sw %2,%1" : "=r"(field5),
+            # "=m"(mpeg->width) : "r"(width), "0"(last_field))`): the store, then each register output
+            # takes the input tied to it, as below.
+            kids = _inner(n)
+            outs, ins = kids[:len(cons["out"])], kids[len(cons["out"]):]
+            src, dst = int(store.group(1)), int(store.group(2))
+            if (dst < len(outs) and "m" in cons["out"][dst] and len(outs) <= src < len(outs) + len(ins)
+                    and cons["in"][src - len(outs)].strip() == "r"):
+                stored = f"({self.lv(outs[dst]).text} = {self.convert(ins[src - len(outs)], self.ty(outs[dst]))});"
+                return " ".join(["GBARRIER();", stored, *self._asm_tied(cons, outs, ins, skip=dst)])
         if not ops and cons.get("out"):
             # No instructions, only operands: each output gets the input tied to it ("0" for output 0), the
             # value the register holds (kputchar's pointer to the SIO's transmit register, hidden this way from
             # the optimizer). An output tied to none keeps whatever it held, as before, and is reported.
             kids = _inner(n)
             outs, ins = kids[:len(cons["out"])], kids[len(cons["out"]):]
-            stmts = ["GBARRIER();"]
-            for k, (c, o) in enumerate(zip(cons["out"], outs)):
-                if c.startswith("+"):
-                    continue
-                tied = [i for i, ic in enumerate(cons["in"]) if ic.strip() == str(k)]
-                if not tied or tied[0] >= len(ins):
-                    self._asm_skipped([f"(output {k} without an input)"])
-                    continue
-                stmts.append(f"({self.lv(o).text} = {self.convert(ins[tied[0]], self.ty(o))});")
-            return " ".join(stmts)
+            return " ".join(["GBARRIER();", *self._asm_tied(cons, outs, ins)])
         if not all(op in ("sync", "sync.l", "sync.p", "nop") for op in ops):
             self._asm_skipped(ops)
         return "GBARRIER();"
+
+    def _asm_tied(self, cons: dict, outs: list, ins: list, skip: int = -1) -> list[str]:
+        """Each register output of an asm statement (but SKIP) takes the input tied to it; one tied to
+        none keeps whatever it held, and is reported."""
+        stmts = []
+        for k, (c, o) in enumerate(zip(cons["out"], outs)):
+            if k == skip or c.startswith("+"):
+                continue
+            tied = [i for i, ic in enumerate(cons["in"]) if ic.strip() == str(k)]
+            if not tied or tied[0] >= len(ins):
+                self._asm_skipped([f"(output {k} without an input)"])
+                continue
+            stmts.append(f"({self.lv(o).text} = {self.convert(ins[tied[0]], self.ty(o))});")
+        return stmts
 
     def _asm_skipped(self, what: list[str]) -> None:
         """Notes instructions (or operands) of an asm statement the host does not run in the report of

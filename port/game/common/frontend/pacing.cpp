@@ -29,6 +29,23 @@ steady_clock::time_point shown_at(
     return last_swap + duration_cast<steady_clock::duration>(duration<double>(n * interval));
 }
 
+steady_clock::time_point between_limit(
+    steady_clock::time_point next_tick,
+    duration<double> period,
+    double lag,
+    double cost,
+    double interval,
+    steady_clock::time_point last_swap
+) {
+    if (lag > 0.0) {
+        return next_tick + duration_cast<steady_clock::duration>(period * lag);
+    }
+    if (interval <= 0.0 || last_swap.time_since_epoch().count() == 0) {
+        return next_tick;
+    }
+    return std::max(next_tick, shown_at(next_tick, cost, interval, last_swap));
+}
+
 float tick_alpha(
     steady_clock::time_point display,
     steady_clock::time_point tick,

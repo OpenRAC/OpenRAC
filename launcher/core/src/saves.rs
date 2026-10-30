@@ -17,6 +17,33 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// One mod a save was played with, as the mark beside it names it (`save0.mods`).
+#[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveMod {
+    pub id: String,
+    #[serde(default)]
+    pub version: Option<String>,
+}
+
+/// The mark the game writes beside a save it wrote with mods loaded (port/game/common/lib/mc.c).
+/// The save file itself is never changed: its header has no room and every section carries a CRC,
+/// and a real memory card must still take the file.
+#[derive(Debug, Clone, Deserialize)]
+struct SaveMark {
+    #[serde(default)]
+    mods: Vec<SaveMod>,
+}
+
+/// The mods a save was played with, from `<save>.mods` beside it; `None` when there is no mark
+/// (played without mods, or saved by a build from before the mark) and when it cannot be read.
+fn save_mods(save_path: &Path) -> Option<Vec<SaveMod>> {
+    let mark = PathBuf::from(format!("{}.mods", save_path.to_string_lossy()));
+    let text = fs::read_to_string(mark).ok()?;
+    let read: SaveMark = serde_json::from_str(&text).ok()?;
+    (!read.mods.is_empty()).then_some(read.mods)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveSlotInfo {
@@ -37,6 +64,9 @@ pub struct SaveSlotInfo {
     pub modified_millis: Option<u64>,
     /// The save editor can open it (a game in it, and a game whose saves it knows).
     pub editable: bool,
+    /// The mods this save was last written with, from the mark beside it; `None` for a save
+    /// played without mods. Editing a save here neither adds nor clears the mark.
+    pub mods: Option<Vec<SaveMod>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
@@ -408,6 +438,7 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
                     timestamp,
                     modified_millis: mtime,
                     editable: exists && !is_empty && crate::save_edit::edits_serial(serial),
+                    mods: if exists && !is_empty { save_mods(&save_path) } else { None },
                 });
             }
         }
@@ -721,6 +752,37 @@ mod tests {
         let g = parse_save_gameplay_info(&data);
         assert!(g.empty);
         assert_eq!(g.timestamp, None);
+    }
+
+    /// The mark beside a save (port/game/common/lib/mc.c) names the mods it was played with.
+    #[test]
+    fn a_save_says_which_mods_it_was_played_with() {
+        let card = tempfile::tempdir().unwrap();
+        let save = card.path().join("save0.bin");
+        fs::write(&save, b"not read here").unwrap();
+        assert!(save_mods(&save).is_none(), "no mark: played without mods");
+
+        fs::write(
+            card.path().join("save0.bin.mods"),
+            r#"{"format": 1, "saved": "2026-10-29T14:02:11", "mods": [{"id": "lock-strafe", "version": "1.0.0"}]}"#,
+        )
+        .unwrap();
+        let mods = save_mods(&save).expect("the mark is read");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].id, "lock-strafe");
+        assert_eq!(mods[0].version.as_deref(), Some("1.0.0"));
+    }
+
+    /// A mark with no mods in it, or one that is not the file we write, is the same as no mark.
+    #[test]
+    fn an_empty_or_broken_mark_leaves_the_save_plain() {
+        let card = tempfile::tempdir().unwrap();
+        let save = card.path().join("save1.bin");
+        fs::write(&save, b"not read here").unwrap();
+        fs::write(card.path().join("save1.bin.mods"), r#"{"format": 1, "mods": []}"#).unwrap();
+        assert!(save_mods(&save).is_none());
+        fs::write(card.path().join("save1.bin.mods"), "{ not json").unwrap();
+        assert!(save_mods(&save).is_none());
     }
 
     #[test]

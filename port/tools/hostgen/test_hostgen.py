@@ -1017,6 +1017,52 @@ class Translate(unittest.TestCase):
         """})
         self.assertEqual(out, ["16"])
 
+    def test_asm_spelled_through_a_macro_is_read_and_reported(self):
+        # The NTSC decomp's MOBY_CALL_UPDATE (include/moby_update.h) writes the moby update loops'
+        # call as a jalr in a macro: Clang's JSON has no text for it, and it became a barrier
+        # unreported, so no moby's update ran. Now its instructions are read where the macro spells
+        # them, and what the host does not run is listed.
+        out = self.run_program({"a.c": """
+            #define CALL_IF(f, x) __asm__ __volatile__("beqz %0, 1f\\n\\tmove $4, %1\\n\\tjalr %0\\n1:" : : "r"(f), "r"(x) : "$4", "$31", "memory")
+            void func_00100100(int *seen) { *seen += 2; }
+            void loop(void (*f)(int *), int *seen) { CALL_IF(f, seen); }
+            int test_main(void) { int seen = 0; loop(func_00100100, &seen); test_print(seen); return 0; }
+        """})
+        self.assertEqual(out, ["0"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {"loop": "beqz, move, jalr, 1:"})
+
+    def test_a_macro_given_as_c_in_the_defines_replaces_its_asm(self):
+        # hostgen.json "defines": the macro's header guard and the macro as C (rac1-ntsc's
+        # MOBY_CALL_UPDATE): the call runs.
+        out = self.run_program({"call_if.h": """
+            #ifndef CALL_IF_H
+            #define CALL_IF_H
+            #define CALL_IF(f, x) __asm__ __volatile__("jalr %0" : : "r"(f), "r"(x))
+            #endif
+        """, "a.c": """
+            #include "call_if.h"
+            void func_00100100(int *seen) { *seen += 2; }
+            void loop(void (*f)(int *), int *seen) { CALL_IF(f, seen); CALL_IF((void (*)(int *))0, seen); }
+            int test_main(void) { int seen = 0; loop(func_00100100, &seen); test_print(seen); return 0; }
+        """}, config={"defines": ["CALL_IF_H", "CALL_IF(f,x)=do { if (f) (f)(x); } while (0)"]})
+        self.assertEqual(out, ["2"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
+
+    def test_a_word_stored_by_asm_to_a_memory_output(self):
+        # The NTSC decomp's func_0012C4C8 (update_mpeg_frame_size.c) stores a field and moves a
+        # register in one asm statement: `sw %2,%1` with "=m" output 1 and output 0 tied to input 3.
+        out = self.run_program({"a.c": """
+            struct s { int a, width; };
+            int store(struct s *p, int w, int q) {
+                int r;
+                __asm__("sw %2,%1" : "=r"(r), "=m"(p->width) : "r"(w), "0"(q) : "memory");
+                return r;
+            }
+            int test_main(void) { struct s v = {1, 2}; int r = store(&v, 7, 9); test_print(v.width); test_print(r); return 0; }
+        """})
+        self.assertEqual(out, ["7", "9"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
+
     def test_float_to_integer_as_the_ee_converts(self):
         # Out of the target's range C says nothing and the hosts differ (ARM gives 0 for a
         # negative float into an unsigned type): the EE's conversion on every host.
@@ -2055,10 +2101,12 @@ class Preparation(unittest.TestCase):
         # The US vfprintf: named like the library's, bound to a game address, taking a game pointer.
         src = ('s32 vfprintf(FILE *fp, const char *f, void *ap) __asm__("FUN_00116da8");\n'
                's32 vfprintf(FILE *fp, const char *f, void *ap) { return vfprintf(fp, f, ap); }\n'
-               'char *s = "vfprintf(";\n')
+               'char *s = "vfprintf(";\n'
+               'extern __typeof__(vfprintf) func_00116DA8 __attribute__((alias("FUN_00116da8")));\n')
         out = prep.rename_va_builtins(src)
         self.assertEqual(out.count("vfprintf_game("), 3)
         self.assertIn('"vfprintf("', out)
+        self.assertIn("__typeof__(vfprintf_game)", out)
         self.assertEqual(prep.rename_va_builtins("int vfprintf(void *, const char *, void *);\n"),
                          "int vfprintf(void *, const char *, void *);\n")
 

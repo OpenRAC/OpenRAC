@@ -3,7 +3,7 @@
 
 /*
  * Ratchet & Clank: what the follow camera's right stick turn will be, for the picture's late
- * camera latch (settings camera_latch, frontend/camera_latch.cpp, docs/port/SETTINGS.md).
+ * camera latch (settings responsive_controls, frontend/camera_latch.cpp, docs/port/SETTINGS.md).
  *
  * Each tick the follow camera's view (FollowCameraBuildView) reads the right stick
  * (FollowCamera_ReadStickInput, func_L00_002E9E60; US FUN_L00_002e89b0): its x, the pad's

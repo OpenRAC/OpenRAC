@@ -19,6 +19,13 @@ class BakeInputs(unittest.TestCase):
             for name, data in source.items():
                 self.assertEqual((root/"bake-inputs"/(name+".bin")).read_bytes(), data)
 
+    def test_pal_names_its_own_liquid_source(self):
+        source = {"overlay": b"o", "core_index": b"i", "core_data": b"c"}
+        level = SimpleNamespace(game="rac1", version="pal", id=9, stored=source, gameplay=b"gameplay")
+        with tempfile.TemporaryDirectory() as temporary:
+            metadata = write_bake_inputs(level, Path(temporary))
+            self.assertEqual(metadata, {"gameplay": "rac1-v1", "liquid": "rac1-pal-gaspar-v1"})
+
     def test_normal_port_export_registers_raw_sources(self):
         from test_port import synthetic_level
         from port import PortLevelWriter

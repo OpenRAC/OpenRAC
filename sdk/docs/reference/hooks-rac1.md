@@ -29,6 +29,35 @@ game address.
 | `rac1.player.approach_speed` | `Hero_ApproachSpeed` | `void(f32,f32)` | up, down | pal, ntsc | Eases the hero's ground speed (+0x194, the speed Hero_SetPlanarVelocity moves him at) toward his target speed (+0x190) by up when below it and by down when above, each tick he moves on foot, in every level. |
 | `rac1.ship.travel_to` | `Ship_TravelTo` | `void(i32)` | dest | pal, ntsc | The ship's travel from the planet select (ShipTravelTo), once its menu closes: to the planet it is on (dest the level now), the landing again, as backing out of the select does; to another, the game saved to the card and the ship's flight out of the level, whose loop then ends and flies to dest. After the take-off; a level's only way to another planet by ship. |
 | `rac1.moby.collect_bolt` | `Moby_CollectBolt` | `void(u32)` | bolt | pal, ntsc | Collects a bolt (collect_bolt), called by the bolt update (classes 13 to 16) once the bolt reaches the hero: adds its value (1, or 5 / 20 / 50 for classes 14 / 15 / 16) to the bolt count, the level's total and its source's stats, shows the bolt counter and makes two sparkles at it. The bolt update then deletes the bolt (a placed one marked taken) whether or not this ran. |
+| `rac1.menu.item_grid.update` | `Menu_ItemGrid_Update` | `i32(u32)` | grid | pal, ntsc | Moves the pause menu item grid's focus and takes its selection (update_menu_grid_selection), each tick the grid is open. Returns the menu's action. |
+| `rac1.menu.item_grid.draw` | `Menu_ItemGrid_Draw` | `i32(u32)` | grid | pal, ntsc | Draws the pause menu item grid (draw_menu_item_grid). Returns the render-pass flags the menu passes on. |
+| `rac1.menu.item_slots.update` | `Menu_ItemSlots_Update` | `i32(u32)` | list | pal, ntsc | Puts the highlighted item in one of the quick select's eight slots (update_menu_item_slots), in the pause menu's quick select editor. |
+| `rac1.menu.quick_select.draw` | `Menu_QuickSelect_Draw` | `i32(u32)` | screen | pal, ntsc | Draws the pause menu's quick select ring (draw_pause_ring). Returns the render-pass flags. |
+| `rac1.menu.quick_select.load` | `Menu_QuickSelect_Load` | `i32(u32)` | list | pal, ntsc | Copies the eight saved quick select items into the pause menu's editor (load_selection_list). |
+| `rac1.menu.quick_select.store` | `Menu_QuickSelect_Store` | `i32(u32)` | screen | pal, ntsc | Copies the editor's eight quick select items (+0x30 of screen) back to the saved quick select (pause_stage_sprite_lists). |
+| `rac1.menu.item_text.draw` | `Menu_ItemText_Draw` | `i32(u32)` | label | pal, ntsc | Draws a menu text label from its configuration (render_configured_text_label): the selected item's name and description among others. |
+| `rac1.menu.item_ammo.draw` | `Menu_ItemAmmo_Draw` | `i32(i32)` | screen | pal, ntsc | Draws the selected item's ammo panel in the pause menu (draw_selected_item_ammo). |
+| `rac1.menu.preview.bind` | `Menu_Preview_Bind` | `i32(u32)` | preview | pal, ntsc | Binds the selected item, and what it carries, to the pause menu's preview (update_item_preview_binding). |
+| `rac1.menu.preview.update` | `Menu_Preview_Update` | `i32(u32)` | screen | pal, ntsc | Makes or replaces the moby of the pause menu's item preview (update_item_preview_moby). |
+| `rac1.menu.preview.draw_available` | `Menu_Preview_DrawAvailable` | `i32(u32)` | screen | pal, ntsc | Draws the preview mobys of the owned, selected item (draw_available_item_preview_mobys). Returns the render-pass flags. |
+| `rac1.menu.preview.draw_selected` | `Menu_Preview_DrawSelected` | `i32(u32)` | screen | pal, ntsc | Draws the selected item's preview, or the message for an item not owned (draw_item_preview_screen). |
+| `rac1.menu.equipped_preview.update` | `Menu_EquippedPreview_Update` | `i32(u32)` | hand | pal, ntsc | Loads the preview of the gadget or weapon in hand (LoadHandGadget). |
+| `rac1.menu.equipped_preview.draw` | `Menu_EquippedPreview_Draw` | `i32(u32)` | screen | pal, ntsc | Draws the pause menu's preview of the hero and what he holds (draw_menu_preview_objects). |
+| `rac1.hud.quick_select.init` | `Hud_QuickSelect_Init` | `void(u32)` | selector | pal, ntsc | Sets up the quick select's eight-slot selector in play (initialize_eight_slot_hud_selector). |
+| `rac1.hud.quick_select.update` | `Hud_QuickSelect_Update` | `void(u32)` | selector | pal, ntsc | The quick select in play, each tick (update_hud_item_selector_selection_and_visibility): its focus, whether it shows, and the item chosen. |
+| `rac1.hud.quick_select.draw` | `Hud_QuickSelect_Draw` | `i32(u32)` | panel | pal, ntsc | Draws the quick select's item icons in play (draw_hud_item_selector_panel). |
+| `rac1.vendor.menu_update` | `Vendor_MenuUpdate` | `void()` |  | pal, ntsc | The vendor's purchase menu, each tick it is open (update_vendor_purchase): buying items and ammo. |
+| `rac1.vendor.initialize_selected` | `Vendor_InitializeSelected` | `void()` |  | pal, ntsc | Sets up the mobys and text of the vendor's selected row (initialize_vendor_selected_item_mobys). |
+| `rac1.ammo.choose_drop` | `Ammo_ChooseDrop` | `i32(u32,u32)` | moby, out_item | pal, ntsc | Chooses the ammo a dying moby or a broken crate drops (ChooseDropItem): writes the item to out_item and returns how many pickups. |
+| `rac1.ammo.spawn_drop` | `Ammo_SpawnDrop` | `u32(u32,i32,i32,i32)` | pos, item, amount, flags | pal, ntsc | Makes an ammo pickup moby of item at pos (spawn_on_path); amount -1 takes the item's own. Returns the moby, or 0. |
+| `rac1.save.prepare` | `Save_Prepare` | `void(i32,i32)` | buffer, slot | pal, ntsc | Writes the game's state into a save and starts a full memory card write (prepare_save_game). |
+| `rac1.save.request_autosave` | `Save_RequestAutosave` | `i32(i32,i32)` | slot, flags | pal, ntsc | Writes the save's packets and asks for their memory card update (memcard_Save), as an autosave does. |
+| `rac1.save.restore` | `Save_Restore` | `void(u32)` | save | pal, ntsc | Restores a whole save from memory (memcard_RestoreGame); a new game's default state goes through it too. The port keeps the player's options around it (rac1/host/options.c). |
+| `rac1.save.restore_data` | `Save_RestoreData` | `i32(u32,i32,u32)` | src, slot, table | pal, ntsc | Restores one checked save packet (memcard_RestoreData); loading a file calls it directly. Returns non-zero when it took the packet. |
+| `rac1.save.new_game` | `Save_NewGame` | `void()` |  | pal, ntsc | A new game (NewGameInit): the disc's default state, and level 0. The port's --level N runs around it (rac1/host/boot.c). |
+| `rac1.save.new_game_plus` | `Save_NewGamePlus` | `void(i32)` | slot | pal, ntsc | Challenge mode's start (load_level_zero_preserving_progress): the game reset to level 0 with the progress it carries kept. |
+| `rac1.save.serialize` | `Save_Serialize` | `void(u32)` | out | pal, ntsc | Writes the whole save into out (memcard_MakeWholeSave), with no memory card access. |
+| `rac1.save.update_state` | `Save_UpdateState` | `void()` |  | pal, ntsc | The memory card's state machine, each tick (memcard_update_state): saves and loads go through it. |
 
 ## Fields
 

@@ -399,7 +399,9 @@ pub async fn update_check<R: Runtime>(
     #[cfg(target_os = "android")]
     {
         // CHANNEL and BRANCH or the player's (Settings), the one it was built from by default.
-        let endpoint = crate::chosen_update_source(&app, channel, branch).manifest;
+        let source = crate::chosen_update_source(&app, channel, branch);
+        let switching = crate::switching_channel(&app, &source);
+        let endpoint = source.manifest;
         let manifest = updates_dir(&app)?.join("latest.json");
         let _: serde_json::Value =
             kotlin(&app, "download", serde_json::json!({ "url": endpoint, "path": manifest })).await.map_err(|e| {
@@ -411,7 +413,7 @@ pub async fn update_check<R: Runtime>(
             })?;
         let text = std::fs::read_to_string(&manifest).map_err(|e| e.to_string())?;
         let _ = std::fs::remove_file(&manifest);
-        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app))
+        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app), switching)
     }
     #[cfg(not(target_os = "android"))]
     {

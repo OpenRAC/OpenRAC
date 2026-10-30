@@ -6,7 +6,7 @@
   // and Escape return here). Up, down and Remove are in its menu. Adding is AddMod's. The Mods switch under Play
   // on the game's page starts the game with them or with none; off, a notice here says so. Every change is written at once to the
   // list the game reads at its next start (plugins.json). A mod installed from a link keeps its
-  // source, offers its updates (checked once a day here) and can be kept at its version. No folder
+  // source, offers its updates (looked for once a day, at start: lib/modUpdates) and can be kept at its version. No folder
   // shows here: a mod's is in its page's folded About. Above the mods, for a version that has it,
   // the built-in Enhanced graphics entry (core/src/enhanced.rs): a row and a page as a mod's, its
   // values in the game's own settings file, and the lighting bake it needs (the probe-bake action),
@@ -31,6 +31,7 @@
   import ModPage from "./ModPage.svelte";
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
+  import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
 
   let {
     version: v,
@@ -161,28 +162,12 @@
     }
   }
 
-  /** The last update check, per game, in this browser's storage: once a day by itself. */
-  const checkedKey = () => `openrac.mods.checked.${v.game}`;
-  const DAY = 24 * 60 * 60 * 1000;
-
-  function lastChecked(): number {
-    try {
-      return Number(localStorage.getItem(checkedKey()) ?? 0) || 0;
-    } catch {
-      return 0;
-    }
-  }
-
   async function checkUpdates(quiet = false) {
     checking = true;
     try {
       const found = await api.pluginsCheckUpdates(v.game, v.name);
       updates = Object.fromEntries(found.updates.map((u) => [u.id, u]));
-      try {
-        localStorage.setItem(checkedKey(), String(Date.now()));
-      } catch {
-        // Private windows: checked again next time.
-      }
+      markChecked(v.game);
       if (!quiet) {
         const n = found.updates.length;
         said = { text: T.updatesFound(n, found.errors), failed: found.errors.length > 0 && n === 0 };
@@ -239,8 +224,14 @@
   const hasSources = $derived(Object.keys(sources).length > 0);
 
   $effect(() => {
-    // Once a day by itself, when a mod came from a link.
-    if (hasSources && !checking && Date.now() - lastChecked() > DAY) void checkUpdates(true);
+    // The launcher's own look at start (lib/modUpdates) already found these: shown without asking
+    // GitHub again. Else, once a day by itself, when a mod came from a link.
+    const found = modUpdates.found[v.game];
+    if (found && Object.keys(updates).length === 0) {
+      updates = Object.fromEntries(found.updates.map((u) => [u.id, u]));
+      return;
+    }
+    if (hasSources && !checking && checkDue(v.game)) void checkUpdates(true);
   });
 
   $effect(() => {

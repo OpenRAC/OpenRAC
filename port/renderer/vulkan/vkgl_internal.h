@@ -1006,8 +1006,8 @@ struct Context {
     // there): a new one is made from the window SDL holds before the next frame is shown.
     std::atomic<bool> surface_lost{false};
     int interval = 1;  // -1 adaptive, 0 immediate, 1 vsync
-    // The player's low-latency frames (set_low_latency): the fewest swapchain images, and one
-    // frame at a time on the GPU.
+    // The player's low-latency frames (set_low_latency): the fewest swapchain images the display
+    // lets frames come at its rate with (swapchain_images.h), and one frame at a time on the GPU.
     bool low_latency = false;
 
     // Their sleep (latency_sleep): the times it is worked out from, and the frame being drawn's

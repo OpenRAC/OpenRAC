@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { devTag, updateSourceOf, type AppInfo, type Config } from "./api";
-import { checkGitHubRelease, isNewerVersion, offerUpdate, PUT_OFF_MS } from "./updates";
+import {
+  checkGitHubRelease,
+  isNewerVersion,
+  offeredVersion,
+  offerUpdate,
+  PUT_OFF_MS,
+  switchingChannel,
+  updateLabel,
+  type UpdateInfo,
+} from "./updates";
 
 describe("isNewerVersion", () => {
   it("detects major updates", () => {
@@ -30,6 +39,41 @@ describe("isNewerVersion", () => {
     expect(isNewerVersion("0.8.0-dev.10", "0.8.0-dev.9")).toBe(false);
     expect(isNewerVersion("0.8.0-dev.10", "0.8.0")).toBe(true);
     expect(isNewerVersion("0.8.0", "0.8.0-dev.10")).toBe(false);
+  });
+});
+
+describe("switching channel", () => {
+  const stable = {
+    repository: "OpenRAC/OpenRAC",
+    fork: false,
+    channel: null,
+    manifest: "https://github.com/OpenRAC/OpenRAC/releases/latest/download/latest.json",
+    page: "https://github.com/OpenRAC/OpenRAC/releases",
+  };
+  const dev = {
+    ...stable,
+    channel: "launcher-dev-develop",
+    manifest: "https://github.com/OpenRAC/OpenRAC/releases/download/launcher-dev-develop/latest.json",
+  };
+
+  it("offers the other channel's older build, and only newer ones on the launcher's own", () => {
+    expect(offeredVersion("0.10.1-dev.40", "0.10.0", false)).toBe(false);
+    expect(offeredVersion("0.10.1-dev.40", "0.10.0", true)).toBe(true);
+    expect(offeredVersion("0.10.0", "0.10.0", true)).toBe(false);
+    expect(offeredVersion("0.10.0", "0.10.1-dev.3", false)).toBe(true);
+  });
+
+  it("knows a switch by the channel, not the branch", () => {
+    expect(switchingChannel(dev, stable)).toBe(true);
+    expect(switchingChannel(stable, dev)).toBe(true);
+    expect(switchingChannel(dev, { ...dev, channel: "launcher-dev-feature-x" })).toBe(false);
+    expect(switchingChannel(stable, stable)).toBe(false);
+  });
+
+  it("names the switch on the button", () => {
+    const update = { version: "0.10.0", switchTo: "stable" } as UpdateInfo;
+    expect(updateLabel(update)).toBe("Switch to Stable 0.10.0");
+    expect(updateLabel({ ...update, switchTo: null })).toBe("Update 0.10.0");
   });
 });
 

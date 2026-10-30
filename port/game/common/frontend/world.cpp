@@ -221,8 +221,8 @@ void use_level(int number) {
                 "effects",
                 renderer::EffectPart::Rest,
                 renderer::Bucket::Particles,
-                wanted == 1 && g->game == "rac1-ntsc" ? enhanced::make_water(g->scene, dir)
-                                                      : nullptr
+                wanted == 1 && g->game.starts_with("rac1-") ? enhanced::make_water(g->scene, dir)
+                                                            : nullptr
             ),
             error
         )
@@ -950,7 +950,7 @@ extern "C" int openrac_game_enhanced_water(void) {
     using namespace openrac;
     return c_boundary::call("openrac_game_enhanced_water", 0, [] {
         return int(
-            frontend::g && frontend::g->game == "rac1-ntsc" && frontend::g->loaded == 1
+            frontend::g && frontend::g->game.starts_with("rac1-") && frontend::g->loaded == 1
             && frontend::enhanced_graphics_available() && settings::get().enhanced_graphics
             && enhanced::water_available()
         );

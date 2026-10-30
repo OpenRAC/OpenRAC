@@ -21,6 +21,10 @@ export interface UpdateInfo {
   body: string;
   publishedAt: string;
   canInstallDirectly: boolean;
+  /** The channel the player chose when it is the other one than this launcher's: this is that
+   *  channel's build, which may be older than this one (a development build going back to the
+   *  release). Null on the launcher's own channel. */
+  switchTo: UpdateChannel | null;
 }
 
 export type UpdateProgressCallback = (progress: {
@@ -108,6 +112,29 @@ interface GitHubReleaseResponse {
   prerelease?: boolean;
 }
 
+/** core/src/update.rs's offered: a newer build on the launcher's own channel, any other build on
+ *  the other channel (SWITCHING), so a development build can go back to an older release. */
+export function offeredVersion(current: string, latest: string, switching: boolean): boolean {
+  return isNewerVersion(current, latest) || (switching && isNewerVersion(latest, current));
+}
+
+/** What the launcher's button says for UPDATE: "Switch to Stable 0.10.0" on the other channel,
+ *  "Update 0.10.1" on its own. */
+export function updateLabel(update: UpdateInfo): string {
+  return update.switchTo ? `Switch to ${channelName(update.switchTo)} ${update.version}` : `Update ${update.version}`;
+}
+
+/** CHANNEL as Settings names it. */
+export function channelName(channel: UpdateChannel): string {
+  return channel === "dev" ? "Development" : "Stable";
+}
+
+/** Whether SOURCE is the other channel than the one BUILT (the source this launcher was built
+ *  with) is: src-tauri/src/lib.rs, switching_channel. */
+export function switchingChannel(built: UpdateSource, source: UpdateSource): boolean {
+  return !!built.channel !== !!source.channel;
+}
+
 /** The launcher's own releases are tagged `launcher-v<version>`; the repository publishes others
  *  (the mod SDK's `sdk-v<version>`), and GitHub's "latest" can be one of those. */
 const LAUNCHER_TAG = /^launcher-v\d/;
@@ -115,6 +142,7 @@ const LAUNCHER_TAG = /^launcher-v\d/;
 export async function checkGitHubRelease(
   currentVersion: string,
   source: UpdateSource = DEFAULT_SOURCE,
+  switching = false,
 ): Promise<UpdateInfo | null> {
   if (!/^[\w.-]+\/[\w.-]+$/.test(source.repository)) return null;
   const release = source.channel ? `tags/${encodeURIComponent(source.channel)}` : "latest";
@@ -153,7 +181,7 @@ export async function checkGitHubRelease(
       ? ((data.name ?? "").replace(/^[^0-9]*/, "").split(" ")[0] ?? "")
       : tag.replace(/^[^0-9]*/, "");
 
-    if (isNewerVersion(currentVersion, cleanVersion)) {
+    if (offeredVersion(currentVersion, cleanVersion, switching)) {
       return {
         version: cleanVersion,
         tag,
@@ -162,6 +190,7 @@ export async function checkGitHubRelease(
         body: data.body ?? "",
         publishedAt: data.published_at ?? "",
         canInstallDirectly: false,
+        switchTo: switching ? (source.channel ? "dev" : "stable") : null,
       };
     }
     return null;
@@ -199,11 +228,12 @@ export async function checkForUpdate(
   source: UpdateSource = DEFAULT_SOURCE,
   channel: UpdateChannel = source.channel ? "dev" : "stable",
   branch: string | null = null,
+  switching = false,
 ): Promise<UpdateInfo | null> {
   if (!inTauri) {
     // The browser preview's own answer (?update, ?latest, ?offline), when it has one.
     const { mockUpdate } = await import("./mock");
-    const answer = mockUpdate(currentVersion);
+    const answer = mockUpdate(currentVersion, switching ? channel : null);
     if (answer instanceof Error) throw answer;
     if (answer !== undefined) return answer;
   }
@@ -214,14 +244,18 @@ export async function checkForUpdate(
     const release = await api.updateCheck(channel, branch);
     activeAndroidRelease = release;
     if (!release) return null;
+    // Android installs no older build over a newer one (its version code): the release is
+    // downloaded from its page instead, and installed once this launcher is uninstalled.
+    const older = isNewerVersion(release.version, currentVersion);
     return {
       version: release.version,
       tag: `v${release.version}`,
-      url: source.page,
+      url: older && !source.channel ? `${source.page}/tag/launcher-v${release.version}` : source.page,
       name: `OpenRAC Launcher v${release.version}`,
       body: release.notes,
       publishedAt: release.date,
-      canInstallDirectly: true,
+      canInstallDirectly: !older,
+      switchTo: switching ? channel : null,
     };
   } else if (inTauri) {
     activeTauriUpdate = null;
@@ -240,6 +274,7 @@ export async function checkForUpdate(
           body: update.body ?? "",
           publishedAt: update.date ?? "",
           canInstallDirectly: true,
+          switchTo: switching ? channel : null,
         };
       }
     } catch (e) {
@@ -247,7 +282,7 @@ export async function checkForUpdate(
     }
   }
 
-  return checkGitHubRelease(currentVersion, source);
+  return checkGitHubRelease(currentVersion, source, switching);
 }
 
 /**

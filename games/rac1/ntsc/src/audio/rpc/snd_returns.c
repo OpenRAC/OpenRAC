@@ -4,12 +4,12 @@
 
 /* The IOP return buffer this file owns: both functions below reach these
    gp-relative, which needs their definitions ahead of them. */
-s32 *snd_current_buffer __asm__("D_0015EC80") = 0;
-s32 snd_current_buffer_index __asm__("D_0015EC84") = 0;
-extern u8 snd_no_return_error_string[] __asm__("D_00153C98");
+s32        *snd_current_buffer __asm__("D_0015EC80") = 0;
+s32         snd_current_buffer_index __asm__("D_0015EC84") = 0;
+extern u8   snd_no_return_error_string[] __asm__("D_00153C98");
 extern void FlushCache();
-extern s32 SceSifCheckStatRpc();
-extern s32 printf();
+extern s32  SceSifCheckStatRpc();
+extern s32  printf();
 
 s32 snd_got_returns(void) __asm__("FUN_0012de70");
 
@@ -39,7 +39,7 @@ s32 snd_got_returns(void) {
 extern s32 func_0012DE70(void) __attribute__((alias("FUN_0012de70")));
 extern s32 snd_GotReturns(void) __attribute__((alias("FUN_0012de70")));
 
-void StoreObjectIndex(s32 *obj, s32 idx) {
+void snd_prepare_return_buffer(s32 *obj, s32 idx) {
     snd_current_buffer_index = idx;
     snd_current_buffer = obj;
     obj[idx + 1] = 0;

@@ -27,6 +27,35 @@ type HookPoint =
     | "rac1.player.approach_speed"
     | "rac1.ship.travel_to"
     | "rac1.moby.collect_bolt"
+    | "rac1.menu.item_grid.update"
+    | "rac1.menu.item_grid.draw"
+    | "rac1.menu.item_slots.update"
+    | "rac1.menu.quick_select.draw"
+    | "rac1.menu.quick_select.load"
+    | "rac1.menu.quick_select.store"
+    | "rac1.menu.item_text.draw"
+    | "rac1.menu.item_ammo.draw"
+    | "rac1.menu.preview.bind"
+    | "rac1.menu.preview.update"
+    | "rac1.menu.preview.draw_available"
+    | "rac1.menu.preview.draw_selected"
+    | "rac1.menu.equipped_preview.update"
+    | "rac1.menu.equipped_preview.draw"
+    | "rac1.hud.quick_select.init"
+    | "rac1.hud.quick_select.update"
+    | "rac1.hud.quick_select.draw"
+    | "rac1.vendor.menu_update"
+    | "rac1.vendor.initialize_selected"
+    | "rac1.ammo.choose_drop"
+    | "rac1.ammo.spawn_drop"
+    | "rac1.save.prepare"
+    | "rac1.save.request_autosave"
+    | "rac1.save.restore"
+    | "rac1.save.restore_data"
+    | "rac1.save.new_game"
+    | "rac1.save.new_game_plus"
+    | "rac1.save.serialize"
+    | "rac1.save.update_state"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -664,6 +693,8 @@ type HookPoint =
     | "rac1.moby.moby1584.update"
     | "rac1.moby.moby1799.update"
     | "rac1.moby.moby1906.update"
+    | "Ammo_ChooseDrop"
+    | "Ammo_SpawnDrop"
     | "FollowCamera_ApplyOverrides"
     | "GoldBolts_CountCollected"
     | "Hero_AdvanceAnimation"
@@ -672,8 +703,25 @@ type HookPoint =
     | "Hero_TakeDamage"
     | "Hero_TurnToHeading"
     | "Hero_UpdateMotionInput"
+    | "Hud_QuickSelect_Draw"
+    | "Hud_QuickSelect_Init"
+    | "Hud_QuickSelect_Update"
     | "Item_Give"
     | "Level_LoadGameplay"
+    | "Menu_EquippedPreview_Draw"
+    | "Menu_EquippedPreview_Update"
+    | "Menu_ItemAmmo_Draw"
+    | "Menu_ItemGrid_Draw"
+    | "Menu_ItemGrid_Update"
+    | "Menu_ItemSlots_Update"
+    | "Menu_ItemText_Draw"
+    | "Menu_Preview_Bind"
+    | "Menu_Preview_DrawAvailable"
+    | "Menu_Preview_DrawSelected"
+    | "Menu_Preview_Update"
+    | "Menu_QuickSelect_Draw"
+    | "Menu_QuickSelect_Load"
+    | "Menu_QuickSelect_Store"
     | "Moby_AgnoggShipFront_Update"
     | "Moby_AirshipPart1181_Update"
     | "Moby_AirshipPart_Update"
@@ -1316,9 +1364,19 @@ type HookPoint =
     | "Moby_Wrench_Update"
     | "Pad_ProcessReport"
     | "Planet_Unlock"
+    | "Save_NewGame"
+    | "Save_NewGamePlus"
+    | "Save_Prepare"
+    | "Save_RequestAutosave"
+    | "Save_Restore"
+    | "Save_RestoreData"
+    | "Save_Serialize"
+    | "Save_UpdateState"
     | "Ship_TravelTo"
     | "Vendor_BuildItemList"
     | "Vendor_InitLevelStock"
+    | "Vendor_InitializeSelected"
+    | "Vendor_MenuUpdate"
     | "Weapon_TakeAmmo"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
 
@@ -1374,6 +1432,64 @@ type Hero_ApproachSpeedFn = (up: number, down: number) -> ()
 type Ship_TravelToFn = (dest: number) -> ()
 -- rac1.moby.collect_bolt (Moby_CollectBolt) void(u32): Collects a bolt (collect_bolt), called by the bolt update (classes 13 to 16) once the bolt reaches the hero: adds its value (1, or 5 / 20 / 50 for classes 14 / 15 / 16) to the bolt count, the level's total and its source's stats, shows the bolt counter and makes two sparkles at it. The bolt update then deletes the bolt (a placed one marked taken) whether or not this ran.
 type Moby_CollectBoltFn = (bolt: number) -> ()
+-- rac1.menu.item_grid.update (Menu_ItemGrid_Update) i32(u32): Moves the pause menu item grid's focus and takes its selection (update_menu_grid_selection), each tick the grid is open. Returns the menu's action.
+type Menu_ItemGrid_UpdateFn = (grid: number) -> number
+-- rac1.menu.item_grid.draw (Menu_ItemGrid_Draw) i32(u32): Draws the pause menu item grid (draw_menu_item_grid). Returns the render-pass flags the menu passes on.
+type Menu_ItemGrid_DrawFn = (grid: number) -> number
+-- rac1.menu.item_slots.update (Menu_ItemSlots_Update) i32(u32): Puts the highlighted item in one of the quick select's eight slots (update_menu_item_slots), in the pause menu's quick select editor.
+type Menu_ItemSlots_UpdateFn = (list: number) -> number
+-- rac1.menu.quick_select.draw (Menu_QuickSelect_Draw) i32(u32): Draws the pause menu's quick select ring (draw_pause_ring). Returns the render-pass flags.
+type Menu_QuickSelect_DrawFn = (screen: number) -> number
+-- rac1.menu.quick_select.load (Menu_QuickSelect_Load) i32(u32): Copies the eight saved quick select items into the pause menu's editor (load_selection_list).
+type Menu_QuickSelect_LoadFn = (list: number) -> number
+-- rac1.menu.quick_select.store (Menu_QuickSelect_Store) i32(u32): Copies the editor's eight quick select items (+0x30 of screen) back to the saved quick select (pause_stage_sprite_lists).
+type Menu_QuickSelect_StoreFn = (screen: number) -> number
+-- rac1.menu.item_text.draw (Menu_ItemText_Draw) i32(u32): Draws a menu text label from its configuration (render_configured_text_label): the selected item's name and description among others.
+type Menu_ItemText_DrawFn = (label: number) -> number
+-- rac1.menu.item_ammo.draw (Menu_ItemAmmo_Draw) i32(i32): Draws the selected item's ammo panel in the pause menu (draw_selected_item_ammo).
+type Menu_ItemAmmo_DrawFn = (screen: number) -> number
+-- rac1.menu.preview.bind (Menu_Preview_Bind) i32(u32): Binds the selected item, and what it carries, to the pause menu's preview (update_item_preview_binding).
+type Menu_Preview_BindFn = (preview: number) -> number
+-- rac1.menu.preview.update (Menu_Preview_Update) i32(u32): Makes or replaces the moby of the pause menu's item preview (update_item_preview_moby).
+type Menu_Preview_UpdateFn = (screen: number) -> number
+-- rac1.menu.preview.draw_available (Menu_Preview_DrawAvailable) i32(u32): Draws the preview mobys of the owned, selected item (draw_available_item_preview_mobys). Returns the render-pass flags.
+type Menu_Preview_DrawAvailableFn = (screen: number) -> number
+-- rac1.menu.preview.draw_selected (Menu_Preview_DrawSelected) i32(u32): Draws the selected item's preview, or the message for an item not owned (draw_item_preview_screen).
+type Menu_Preview_DrawSelectedFn = (screen: number) -> number
+-- rac1.menu.equipped_preview.update (Menu_EquippedPreview_Update) i32(u32): Loads the preview of the gadget or weapon in hand (LoadHandGadget).
+type Menu_EquippedPreview_UpdateFn = (hand: number) -> number
+-- rac1.menu.equipped_preview.draw (Menu_EquippedPreview_Draw) i32(u32): Draws the pause menu's preview of the hero and what he holds (draw_menu_preview_objects).
+type Menu_EquippedPreview_DrawFn = (screen: number) -> number
+-- rac1.hud.quick_select.init (Hud_QuickSelect_Init) void(u32): Sets up the quick select's eight-slot selector in play (initialize_eight_slot_hud_selector).
+type Hud_QuickSelect_InitFn = (selector: number) -> ()
+-- rac1.hud.quick_select.update (Hud_QuickSelect_Update) void(u32): The quick select in play, each tick (update_hud_item_selector_selection_and_visibility): its focus, whether it shows, and the item chosen.
+type Hud_QuickSelect_UpdateFn = (selector: number) -> ()
+-- rac1.hud.quick_select.draw (Hud_QuickSelect_Draw) i32(u32): Draws the quick select's item icons in play (draw_hud_item_selector_panel).
+type Hud_QuickSelect_DrawFn = (panel: number) -> number
+-- rac1.vendor.menu_update (Vendor_MenuUpdate) void(): The vendor's purchase menu, each tick it is open (update_vendor_purchase): buying items and ammo.
+type Vendor_MenuUpdateFn = () -> ()
+-- rac1.vendor.initialize_selected (Vendor_InitializeSelected) void(): Sets up the mobys and text of the vendor's selected row (initialize_vendor_selected_item_mobys).
+type Vendor_InitializeSelectedFn = () -> ()
+-- rac1.ammo.choose_drop (Ammo_ChooseDrop) i32(u32,u32): Chooses the ammo a dying moby or a broken crate drops (ChooseDropItem): writes the item to out_item and returns how many pickups.
+type Ammo_ChooseDropFn = (moby: number, out_item: number) -> number
+-- rac1.ammo.spawn_drop (Ammo_SpawnDrop) u32(u32,i32,i32,i32): Makes an ammo pickup moby of item at pos (spawn_on_path); amount -1 takes the item's own. Returns the moby, or 0.
+type Ammo_SpawnDropFn = (pos: number, item: number, amount: number, flags: number) -> number
+-- rac1.save.prepare (Save_Prepare) void(i32,i32): Writes the game's state into a save and starts a full memory card write (prepare_save_game).
+type Save_PrepareFn = (buffer: number, slot: number) -> ()
+-- rac1.save.request_autosave (Save_RequestAutosave) i32(i32,i32): Writes the save's packets and asks for their memory card update (memcard_Save), as an autosave does.
+type Save_RequestAutosaveFn = (slot: number, flags: number) -> number
+-- rac1.save.restore (Save_Restore) void(u32): Restores a whole save from memory (memcard_RestoreGame); a new game's default state goes through it too. The port keeps the player's options around it (rac1/host/options.c).
+type Save_RestoreFn = (save: number) -> ()
+-- rac1.save.restore_data (Save_RestoreData) i32(u32,i32,u32): Restores one checked save packet (memcard_RestoreData); loading a file calls it directly. Returns non-zero when it took the packet.
+type Save_RestoreDataFn = (src: number, slot: number, table: number) -> number
+-- rac1.save.new_game (Save_NewGame) void(): A new game (NewGameInit): the disc's default state, and level 0. The port's --level N runs around it (rac1/host/boot.c).
+type Save_NewGameFn = () -> ()
+-- rac1.save.new_game_plus (Save_NewGamePlus) void(i32): Challenge mode's start (load_level_zero_preserving_progress): the game reset to level 0 with the progress it carries kept.
+type Save_NewGamePlusFn = (slot: number) -> ()
+-- rac1.save.serialize (Save_Serialize) void(u32): Writes the whole save into out (memcard_MakeWholeSave), with no memory card access.
+type Save_SerializeFn = (out: number) -> ()
+-- rac1.save.update_state (Save_UpdateState) void(): The memory card's state machine, each tick (memcard_update_state): saves and loads go through it.
+type Save_UpdateStateFn = () -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 

@@ -71,6 +71,6 @@ Changed mesh files require a matching probe bake under the existing source-finge
 
 ## Water
 
-Novalis NTSC [enhanced water](docs/water.md) needs local `water.bin` and `water.mesh` files beside
+Novalis [enhanced water](docs/water.md) (NTSC-U and PAL) needs local `water.bin` and `water.mesh` files beside
 the manifest. Its separate bake stores banks, rest heights, dense mesh and outlets. Compute adds
 Ratchet's ripples and bank reflections; cached lighting preserves the painted blue textures.

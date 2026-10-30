@@ -93,6 +93,14 @@ void openrac_game_select_destination(int index);
 /* The first memory card's folder (the second is beside it, <folder>.slot2). */
 extern const char* openrac_game_card_dir;
 
+/* The mods loaded for this run, as a JSON array for the save mark:
+ * [{"id":"lock-strafe","version":"1.0.0"}]. "[]" when none loaded and in purist mode (--no-mods).
+ * The mod loader sets it once, before the game runs (game/common/mods.cpp); never null after that,
+ * and it does not change while the game runs. lib/mc.c writes it beside each save the game
+ * writes, so the launcher and the game's own memory card page can say a save was played with mods
+ * (launcher/core/src/saves.rs). */
+extern const char* openrac_game_loaded_mods;
+
 /* The console's language setting (sceScfGetLanguage): 1 English, 2 French,
  * 3 Spanish, 4 German, 5 Italian. */
 extern int openrac_game_language;
@@ -149,9 +157,9 @@ extern int (*openrac_game_updating_moby)(openrac_game_moby* out);
  * rotation (game axes; z the yaw) and state id. 0 when there is none now (no level loaded). */
 extern int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* state);
 
-/* For the picture's late camera latch (settings camera_latch, frontend/camera_latch.cpp), when a
- * game installs it (rac1: camera_latch.c): the turn its follow camera would make over the next
- * `ticks` ticks (a fraction too) with the right stick held from now on at `right_x` (the pad's
+/* For the picture's late camera latch (settings responsive_controls, frontend/camera_latch.cpp),
+ * when a game installs it (rac1: camera_latch.c): the turn its follow camera would make over the
+ * next `ticks` ticks (a fraction too) with the right stick held from now on at `right_x` (the pad's
  * byte, 128 centred), in radians about `axis` (game axes, the way the game turns the camera's
  * offset from the hero). `reads` counts the camera's stick reads so far, so that a tick without
  * one shows. Returns 0, with no turn, while that camera does not steer the view, its stick turn

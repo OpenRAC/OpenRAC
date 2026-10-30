@@ -105,6 +105,15 @@ fn chosen_update_source<R: tauri::Runtime>(
     built.chosen(channel.unwrap_or(built.kind()), branch.as_deref())
 }
 
+/// Whether SOURCE is the other channel than the one this launcher was built for: its build is then
+/// offered whatever its version (update::offered), so a development build can go back to Stable.
+fn switching_channel<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    source: &openrac_launcher_core::update::UpdateSource,
+) -> bool {
+    source.kind() != update_source(app).kind()
+}
+
 #[tauri::command]
 fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
     use openrac_launcher_core::update::Channel;
@@ -138,8 +147,15 @@ async fn launcher_update_check(
         use tauri_plugin_updater::UpdaterExt;
         let source = chosen_update_source(webview.app_handle(), channel, branch);
         let url = tauri::Url::parse(&source.manifest).map_err(|e| format!("{}: {e}", source.manifest))?;
-        let updater =
-            webview.updater_builder().endpoints(vec![url]).and_then(|b| b.build()).map_err(|e| e.to_string())?;
+        let mut builder = webview.updater_builder();
+        if switching_channel(webview.app_handle(), &source) {
+            // The other channel's build, also when it is older (the release a development build came after).
+            builder = builder.version_comparator(|current, release| {
+                let current = openrac_launcher_core::update::effective_version(&current.to_string(), LAUNCHER_BUILD);
+                openrac_launcher_core::update::offered(&current, &release.version.to_string(), true)
+            });
+        }
+        let updater = builder.endpoints(vec![url]).and_then(|b| b.build()).map_err(|e| e.to_string())?;
         let Some(update) = updater.check().await.map_err(|e| e.to_string())? else { return Ok(None) };
         let date = update.raw_json.get("pub_date").cloned();
         let (current_version, version, body, raw_json) =

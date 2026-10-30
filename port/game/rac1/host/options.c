@@ -71,14 +71,15 @@ void func_0022DBE8(void) {
 }
 
 /* memcard_RestoreGame: a save's state, the options with it; the language and the Sound page stay
- * as they were (the caller gives the mixer the Sound page's values right after). */
+ * as they were (the caller gives the mixer the Sound page's values right after). The mods' hook
+ * point (rac1.save.restore) sits under this, as func_00209CE8__hooked. */
 void func_00209CE8(RAC1_TYPE_func_00209CE8_save save) {
     const int language = GREF(int, LANGUAGE);
     int sound[SOUND_WORDS];
     for (unsigned i = 0; i < SOUND_WORDS; ++i) {
         sound[i] = GREF(int, SOUND_WORD(i));
     }
-    func_00209CE8__game(save);
+    func_00209CE8__hooked(save);
     GREF(int, LANGUAGE) = language;
     for (unsigned i = 0; i < SOUND_WORDS; ++i) {
         GREF(int, SOUND_WORD(i)) = sound[i];

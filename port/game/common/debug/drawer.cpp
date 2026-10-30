@@ -581,15 +581,10 @@ void drawer(const Shown& shown) {
         if (drawer_switch("Low-latency frames", settings::get().low_latency_frames)) {
             change_setting(options_menu::kLowLatency, 1);
         }
-        // The frames between ticks turned by the right stick as it is now (settings.h).
-        if (drawer_switch("Responsive camera", settings::get().camera_latch)) {
-            change_setting(options_menu::kCameraLatch, 1);
-        }
-        // The pad read again just before each tick. Off by default: a press then reaches the game
-        // a tick later, as players have learnt it.
-        if (drawer_switch("Responsive pad", settings::get().fresh_input)) {
-            settings::get().fresh_input = !settings::get().fresh_input;
-            settings::save();
+        // Reads the pad again before each tick and turns the camera between ticks with the right
+        // stick as it is now (settings.h). Off by default: the timing players have learnt.
+        if (drawer_switch("Responsive controls", settings::get().responsive_controls)) {
+            change_setting(options_menu::kResponsiveControls, 1);
         }
         card_end();
 
