@@ -176,7 +176,7 @@
         "checkout": "../rac1-decomp-ntsc",
         "license": "GPL-3.0 (GPL-2.0 and newlib parts keep theirs)",
         "exclude": [],
-        "commit": "5f8ddca1b02945ee5380ea9d86ce76853c855b05",
+        "commit": "f809a274a53a6ebb8b59e618a5afbe8a291b4713",
         "date": "2026-10-30",
         "imported": "2026-10-30"
       },
