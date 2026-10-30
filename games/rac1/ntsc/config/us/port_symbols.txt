@@ -37,6 +37,7 @@ probe_ground_height = 0x00213508; // 63 of 63 labelled declarations
 random_float_between = 0x002132A8; // 161 of 161 labelled declarations
 random_integer_below = 0x00213260; // 142 of 142 labelled declarations
 refresh_moby_spatial_bounds_from_basis = 0x0020E098; // 14 of 14 labelled declarations
+release_voice_slot = 0x0022D798; // 41 of 41 labelled declarations
 scale_game_frames = 0x001F96F8; // 291 of 292 labelled declarations
 scale_vector_xyz = 0x001F9A68; // 95 of 97 labelled declarations
 subtract_vector_xyz = 0x001F9A28; // 189 of 189 labelled declarations
