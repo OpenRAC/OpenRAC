@@ -22,7 +22,11 @@
     "include",
     "src"
   ],
-  "defines": ["LOMBYTE_QZERO_H"],
+  "defines": [
+    "LOMBYTE_QZERO_H",
+    "LOMBYTE_MOBY_UPDATE_H",
+    "MOBY_CALL_UPDATE(update,moby)=do { if (update) (update)(moby); } while (0)"
+  ],
   "aliases": ["config/us/port_aliases.h"],
   "symbols": [
     "config/us/symbol_addrs.txt",

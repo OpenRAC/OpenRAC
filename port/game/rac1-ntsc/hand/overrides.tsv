@@ -5,3 +5,4 @@
 # spells in the decompilation's file.
 # name	file (relative to this table)
 draw_flickering_mesh_effect	matched_flickering_mesh.c
+draw_vendor_effects	matched_vendor_effects.c
