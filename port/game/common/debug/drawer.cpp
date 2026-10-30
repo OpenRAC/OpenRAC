@@ -570,6 +570,10 @@ void drawer(const Shown& shown) {
         if (drawer_switch("Low-latency frames", settings::get().low_latency_frames)) {
             change_setting(options_menu::kLowLatency, 1);
         }
+        // The frames between ticks turned by the right stick as it is now (settings.h).
+        if (drawer_switch("Responsive camera", settings::get().camera_latch)) {
+            change_setting(options_menu::kCameraLatch, 1);
+        }
         card_end();
 
         drawer_enhanced();
