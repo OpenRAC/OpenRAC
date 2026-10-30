@@ -9,6 +9,7 @@
 // every time is an offset from a fixed point.
 
 #include <chrono>
+#include <cmath>
 
 #include "check.h"
 #include "game/common/frame_pacing.h"
@@ -17,11 +18,16 @@
 namespace {
 
 using openrac::frontend::between_limit;
+using openrac::frontend::cap_start;
+using openrac::frontend::CapEdge;
 using openrac::frontend::frame_may_start;
 using openrac::frontend::kLagTicks;
 using openrac::frontend::kLowLatencyLagTicks;
+using openrac::frontend::present_due;
+using openrac::frontend::present_lead;
 using openrac::frontend::shown_at;
 using openrac::frontend::tick_alpha;
+using openrac::frontend::tick_slip;
 using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
@@ -200,6 +206,46 @@ void test_low_latency_frames_without_refreshes_stop_at_the_next_tick() {
     CHECK(between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kRefresh, {}) == next_tick);
 }
 
+// Held by its start, a frame starts at its time; held by its showing, its lead before it, the lead
+// being its cost, three times its spread and half a millisecond, no more than the cap's frame.
+void test_a_frame_held_by_its_showing_starts_its_lead_early() {
+    const auto due = start();
+    CHECK(cap_start(CapEdge::Start, due, 0.003) == due);
+    CHECK(cap_start(CapEdge::Present, due, 0.003) == due - span(0.003));
+    CHECK(cap_start(CapEdge::Present, {}, 0.003) == steady_clock::time_point{});
+    CHECK(std::abs(present_lead(0.002, 0.0005, 1.0 / 144.0) - 0.004) < 1e-12);
+    CHECK(present_lead(0.010, 0.001, 1.0 / 144.0) == 1.0 / 144.0);
+}
+
+// Held by its showing, the next frame is due a cap's frame after the last was: one shown late is
+// made up for when there are several frames a tick, and moves the times with one a tick or fewer.
+void test_the_frame_after_one_shown_is_due_a_cap_frame_later() {
+    const duration<double> period(1.0 / 60.0);
+    const auto due = start();
+    const auto fast = span(1.0 / 144.0);
+    const auto tick = span(1.0 / 60.0);
+    CHECK(present_due({}, due, fast, period) == due + fast);
+    CHECK(present_due(due, due, fast, period) == due + fast);
+    CHECK(present_due(due, due + span(0.001), fast, period) == due + fast);
+    CHECK(present_due(due, due + span(0.001), tick, period) == due + span(0.001) + tick);
+    CHECK(present_due(due, due - span(0.001), tick, period) == due + tick);
+    // More than two frames late: the times start again from the frame.
+    CHECK(present_due(due, due + 3 * fast, fast, period) == due + 4 * fast);
+}
+
+// How long the next tick may wait for a frame shown after its time: a cap's frame, the lag's half
+// tick, or what leaves the tick's work done by half a tick after its time, the least of them.
+void test_the_tick_waits_for_a_frame_no_longer_than_its_work_allows() {
+    const double period = 1.0 / 60.0;
+    CHECK(tick_slip(1.0 / 144.0, period, kLagTicks, 0.001) == 1.0 / 144.0);
+    CHECK(tick_slip(1.0 / 60.0, period, kLagTicks, 0.0) == 0.5 * period);
+    CHECK(
+        std::abs(tick_slip(1.0 / 144.0, period, kLagTicks, 0.004) - (0.5 * period - 0.004)) < 1e-12
+    );
+    CHECK(tick_slip(1.0 / 144.0, period, kLagTicks, 0.010) == 0.0);
+    CHECK(tick_slip(1.0 / 144.0, period, kLowLatencyLagTicks, 0.001) == 0.0);
+}
+
 }  // namespace
 
 int main() {
@@ -214,5 +260,8 @@ int main() {
     test_frames_between_ticks_stop_a_lag_after_the_next_tick();
     test_low_latency_frames_reach_the_refresh_before_the_next_tick_frame();
     test_low_latency_frames_without_refreshes_stop_at_the_next_tick();
+    test_a_frame_held_by_its_showing_starts_its_lead_early();
+    test_the_frame_after_one_shown_is_due_a_cap_frame_later();
+    test_the_tick_waits_for_a_frame_no_longer_than_its_work_allows();
     return openrac::test::result();
 }

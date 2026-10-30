@@ -66,4 +66,49 @@ bool frame_may_start(
     double cap, std::chrono::steady_clock::time_point due, std::chrono::steady_clock::time_point now
 );
 
+// Which edge of a frame the frame cap holds to its time (the names are RTSS's limiter modes).
+enum class CapEdge {
+    // Its start (RTSS's back edge sync): the frame reads its time and input as late as the cap
+    // lets it, and is shown when it is drawn, so its frame time moves with what it costs.
+    Start,
+    // Its showing (RTSS's front edge sync): the frame starts early enough to be drawn by its time
+    // and waits for that time before the swap, so each picture reaches the screen a cap's frame
+    // after the last and shows the moment it is shown at. The evenest frame times, for a little
+    // latency: the frame's time and input are read its cost (and a margin) before it is shown.
+    Present,
+};
+
+// How long before its time a frame held by its showing starts: what a frame costs (`cost`), three
+// times how much that moves from frame to frame (`spread`) and a margin, in seconds, and no more
+// than the cap's frame (`step`).
+double present_lead(double cost, double spread, double step);
+
+// When the frame after one shown at `shown` is to be shown, held by its showing (`previous`: when
+// that one was to be, the clock's epoch for none). A cap's frame (`step`) after the last one's
+// time, so that a frame shown late is made up for by the next, as frame_pacing::next_due counts.
+// With no more than a frame a tick (`step` no shorter than the tick's `period`), each frame is a
+// tick's own, drawn after the tick's work: one shown late moves the times to it, so that they
+// settle where that frame is drawn by its time (else every one of them was late, and uneven).
+std::chrono::steady_clock::time_point present_due(
+    std::chrono::steady_clock::time_point previous,
+    std::chrono::steady_clock::time_point shown,
+    std::chrono::steady_clock::duration step,
+    std::chrono::duration<double> period
+);
+
+// How long after the next tick is due a frame held by its showing may still be shown before it,
+// in seconds: the tick then runs as soon as that frame is shown, so that the frames reach the
+// screen evenly however the cap's frames fall against the ticks (RTSS's front edge sync paces the
+// game's whole frame, its work too). No more than a cap's frame (`step`), than the scene runs
+// behind (`lag` ticks of `period`, which it still shows), nor than leaves the tick's own work
+// (`tick_work`) done by half a tick after its time; 0 where that leaves nothing. The game's tick
+// is not changed by it, only when it runs: its time and alpha stay the ones it was due at.
+double tick_slip(double step, double period, double lag, double tick_work);
+
+// When a frame held to `due` (by `edge`) may start: `due` itself, or `lead` seconds before it when
+// it is held by its showing. The clock's epoch (no frame held yet) stays the epoch.
+std::chrono::steady_clock::time_point cap_start(
+    CapEdge edge, std::chrono::steady_clock::time_point due, double lead
+);
+
 }  // namespace openrac::frontend

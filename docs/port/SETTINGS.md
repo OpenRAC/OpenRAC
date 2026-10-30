@@ -133,7 +133,8 @@ The game's time is kept apart from the drawing in both directions:
 - **A slow one does not slow it down.** The frame cap never sleeps in the
   tick's path (a frame not yet due is drawn between ticks, when it is).
   Without vsync, a frame that would not be finished by the next tick's time
-  is not started. And a tick that comes more than a tick late is not drawn at
+  is not started (or, held by its showing, not shown by the time the tick may
+  wait for it). And a tick that comes more than a tick late is not drawn at
   all, three in a row at most: the machine shows fewer pictures, and the game
   runs at its speed. Only a machine that cannot draw one frame in four ticks
   (80 ms) slows the game, and says so in the log.
@@ -162,6 +163,30 @@ With VSync on or adaptive, a numeric cap is an upper bound: a 120 FPS cap on a
 60 Hz display shows at most 60 frames per second. Refresh and frame-cap limits
 share one deadline, so asynchronous Vulkan presentation does not add a second
 refresh-length sleep to the game tick.
+
+How the cap holds a frame to its time (the names are RTSS's limiter modes):
+
+- **VSync off, low-latency frames off: by its showing** (RTSS's front edge
+  sync, its evenest frame times). A frame starts its cost (and a margin)
+  before its time, waits for that time just before the swap, and is drawn for
+  that moment, so the pictures reach the screen a cap's frame apart and the
+  motion in them is even too. The next tick may wait for a frame shown just
+  after its time (up to a cap's frame, and never past half a tick with its own
+  work), so that the frames stay even however they fall against the ticks;
+  the tick's logic and the time it is due at do not change. The cost is a
+  little latency: the frame's time and input are read a frame's cost before it
+  is shown.
+- **VSync on or adaptive, or low-latency frames on: by its start** (RTSS's
+  back edge sync): the frame reads its time and input as late as the cap lets
+  it, and is shown when it is drawn.
+
+Every wait for a time (the tick's, the cap's, the low-latency frames' sleep)
+ends at it to within tens of microseconds: the system sleeps to a little before
+it (a high-resolution waitable timer on Windows, `clock_nanosleep` to an
+absolute time on Linux and Android) and the rest is spun, yielding the
+processor (`port/common/precise_wait.h`). A plain sleep wakes late by its own
+amount, up to a millisecond or more on Windows, and every late wake was an
+uneven frame.
 
 The display's refresh rate is read when the window says it moved to another
 display or the display changed mode, not polled.

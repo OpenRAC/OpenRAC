@@ -539,6 +539,8 @@ openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                  game/common/frontend/geometry.cpp INCLUDES .)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
+openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
+                 game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frontend_latch_fade SOURCES tests/frontend_latch_fade_test.cpp
                  game/common/frontend/latch_fade.cpp INCLUDES .)
 

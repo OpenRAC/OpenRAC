@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -28,6 +29,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "common/precise_wait.h"
 #include "common/sampler.h"
 #include "common/slow_cpu.h"
 #include "common/stats.h"
@@ -131,9 +133,32 @@ double frame_cap() {
     );
 }
 
-// The refresh a frame started now is shown at: the first after the frame is drawn.
+// Which edge of a frame the cap holds to its time (pacing.h): its showing, the evenest frame times,
+// when nothing else paces the frames shown (no swap waits for a refresh, no render thread's jobs
+// shown after the next tick starts) and the player has not asked for low-latency frames, which
+// begin each frame as late as they can; else its start.
+CapEdge cap_edge() {
+    return g->swap == platform::SwapInterval::Immediate && !threaded_rendering()
+                   && !settings::get().low_latency_frames
+               ? CapEdge::Present
+               : CapEdge::Start;
+}
+
+// When the frame cap lets the next frame start: the clock's epoch when it holds none back.
+std::chrono::steady_clock::time_point cap_start_time() {
+    const double cap = frame_cap();
+    const double step = cap > 0.0 ? 1.0 / cap : 0.0;
+    return cap_start(cap_edge(), pacing.due, present_lead(pacing.cost, pacing.cost_spread, step));
+}
+
+// The refresh a frame started now is shown at: the first after the frame is drawn, and no sooner
+// than its time when the cap holds it to its showing.
 std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::time_point now) {
-    return shown_at(now, pacing.cost, pacing.interval, pacing.last_swap);
+    const auto shown = shown_at(now, pacing.cost, pacing.interval, pacing.last_swap);
+    if (cap_edge() == CapEdge::Present && pacing.due.time_since_epoch().count() != 0) {
+        return std::max(shown, pacing.due);
+    }
+    return shown;
 }
 
 // How far behind the kept tick the scene runs: none with the player's low-latency frames (not
@@ -141,6 +166,20 @@ std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::ti
 double lag_ticks() {
     return settings::get().low_latency_frames && !threaded_rendering() ? kLowLatencyLagTicks
                                                                        : kLagTicks;
+}
+
+// How long after the next tick is due a frame held by its showing may still be shown (pacing.h,
+// tick_slip): none for a frame held by its start.
+std::chrono::steady_clock::duration slip() {
+    const double cap = frame_cap();
+    if (cap_edge() != CapEdge::Present || cap <= 0.0) {
+        return {};
+    }
+    return std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(
+            tick_slip(1.0 / cap, pacing.period.count(), lag_ticks(), pacing.tick_work)
+        )
+    );
 }
 
 // How far the scene is from the last tick's to the kept one's at that refresh.
@@ -155,12 +194,23 @@ void swapped(std::chrono::steady_clock::time_point started) {
     using namespace std::chrono;
     const auto before = steady_clock::now();
     platform::frame_work_done();
+    const double cost = duration<double>(before - started).count();
+    pacing.cost_spread = 0.8 * pacing.cost_spread + 0.2 * std::abs(cost - pacing.cost);
+    pacing.cost = 0.8 * pacing.cost + 0.2 * cost;
+    // Held by its showing, the frame waits here for its time (never longer than the next tick may
+    // wait for it, tick_slip): drawn early, it is shown on time all the same.
+    const bool held_to_show = cap_edge() == CapEdge::Present && frame_cap() > 0.0;
+    if (held_to_show && pacing.due > before) {
+        const stats::Scope wait("frame cap wait");
+        const auto next_tick =
+            pacing.tick + duration_cast<steady_clock::duration>(pacing.period) + slip();
+        precise_wait::until(std::min(pacing.due, next_tick));
+        platform::work_waited(duration<double>(steady_clock::now() - before).count());
+    }
     const auto swap_started = steady_clock::now();
     g->window->swap();
     profiling::frame();
     const auto after = steady_clock::now();
-    const double cost = duration<double>(before - started).count();
-    pacing.cost = 0.8 * pacing.cost + 0.2 * cost;
     renderer::ui::fps_counter::frame_drawn(
         after, duration<double>(after - swap_started).count(), settings::get().show_fps
     );
@@ -189,10 +239,12 @@ void swapped(std::chrono::steady_clock::time_point started) {
     // next ones; one more than a frame late starts the count again. It holds beside the swap's
     // wait: 60 frames a second on a 120 Hz display are every other refresh. Nothing sleeps here:
     // the game's tick may be due before the next frame is (frame_due).
+    // Held by its showing, the next frame's time counts from this one's showing (present_due).
     if (cap > 0.0) {
         const auto step = duration_cast<steady_clock::duration>(duration<double>(1.0 / cap));
         const auto now = steady_clock::now();
-        pacing.due = frame_pacing::next_due(pacing.due, started, now, step);
+        pacing.due = held_to_show ? present_due(pacing.due, swap_started, step, pacing.period)
+                                  : frame_pacing::next_due(pacing.due, started, now, step);
     } else {
         pacing.due = {};
     }
@@ -213,7 +265,7 @@ void slow_frame() {
 
 // Whether the frame cap lets a frame start now (within a millisecond: a sleep wakes that coarsely).
 bool frame_due(std::chrono::steady_clock::time_point now) {
-    return frame_may_start(frame_cap(), pacing.due, now);
+    return frame_may_start(frame_cap(), cap_start_time(), now);
 }
 
 // ---- The kept tick ----
@@ -550,11 +602,13 @@ void draw_kept(bool first) try {
 void set_tick(
     std::chrono::steady_clock::time_point tick,
     std::chrono::duration<double> period,
-    std::chrono::duration<double> late
+    std::chrono::duration<double> late,
+    std::chrono::duration<double> work
 ) {
     pacing.tick = tick;
     pacing.period = period;
     pacing.late = late;
+    pacing.tick_work = std::max(work.count(), 0.9 * pacing.tick_work);
 }
 
 bool interpolating() {
@@ -584,12 +638,12 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     }
     auto now = std::chrono::steady_clock::now();
     // The frame cap: a frame not due before the next tick is left to after it; one due sooner is
-    // waited for here.
-    if (!frame_due(now)) {
-        if (pacing.due >= next_tick) {
+    // waited for here, to its time.
+    if (const auto start = cap_start_time(); now < start) {
+        if (start >= next_tick) {
             return 0;
         }
-        std::this_thread::sleep_until(pacing.due);
+        precise_wait::until(start);
         platform::work_resumed();
         now = std::chrono::steady_clock::now();
     }
@@ -617,15 +671,18 @@ int between(std::chrono::steady_clock::time_point next_tick) {
         return 0;
     }
     // Synchronous rendering must finish before the tick (without a swap that waits, or with the
-    // low-latency frames, whose next tick starts on time). Owned Vulkan jobs may overlap its
-    // simulation.
+    // low-latency frames, whose next tick starts on time); a frame held by its showing must be
+    // shown before it, or no later than it may wait for one (tick_slip). Owned Vulkan jobs may
+    // overlap its simulation.
+    const auto ready = cap_edge() == CapEdge::Present
+                           ? display
+                           : now
+                                 + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                     std::chrono::duration<double>(pacing.cost)
+                                 );
     if (!asynchronous
         && (g->swap == platform::SwapInterval::Immediate || lag_ticks() == kLowLatencyLagTicks)
-        && now
-                   + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                       std::chrono::duration<double>(pacing.cost)
-                   )
-               >= next_tick) {
+        && ready >= next_tick + slip()) {
         return 0;
     }
     // The scene has arrived at the kept tick's: another frame would be the same picture again.

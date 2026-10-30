@@ -88,9 +88,14 @@ void savestate_restored(std::uint64_t tick);
 // reads the window's events: 1 drawn or queued, 0 none due, -1 the window was closed or rendering failed.
 // An owned Vulkan job may remain in flight when the next game tick starts.
 // `late`: how long after its time the tick came (a machine that draws slower than the game ticks):
-// frame() leaves the frames of ticks that come more than a tick late undrawn.
-void set_tick(std::chrono::steady_clock::time_point tick, std::chrono::duration<double> period,
-              std::chrono::duration<double> late = std::chrono::duration<double>(0.0));
+// frame() leaves the frames of ticks that come more than a tick late undrawn. `work`: how long
+// the game's own work for it took, from the end of the wait before it.
+void set_tick(
+    std::chrono::steady_clock::time_point tick,
+    std::chrono::duration<double> period,
+    std::chrono::duration<double> late = std::chrono::duration<double>(0.0),
+    std::chrono::duration<double> work = std::chrono::duration<double>(0.0)
+);
 bool interpolating();
 
 // The game's text lookup, asked for an id of the port's own (the rows it adds to the game's

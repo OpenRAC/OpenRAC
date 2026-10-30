@@ -21,11 +21,11 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <thread>
 
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
+#include "common/precise_wait.h"
 #include "common/stats.h"
 #include "mods.h"
 #include "openrac/game_host.h"
@@ -168,6 +168,10 @@ void apply_writes() {
     }
 }
 
+// When the game's work for the next tick began: the end of the wait before it (the clock's epoch
+// before the first).
+std::chrono::steady_clock::time_point g_tick_resumed{};
+
 // [debug tools] The game's tick length, stretched by the overlay's slow motion (debug_overlay.h).
 std::chrono::microseconds tick_period() {
     auto period = std::chrono::microseconds(1000000 / tick_rate());
@@ -275,7 +279,10 @@ int vsync() {
                 : g_next_frame,
             period,
             counted && now > g_next_frame ? std::chrono::duration<double>(now - g_next_frame)
-                                          : std::chrono::duration<double>(0.0)
+                                          : std::chrono::duration<double>(0.0),
+            counted && g_tick_resumed.time_since_epoch().count() != 0
+                ? std::chrono::duration<double>(now - g_tick_resumed)
+                : std::chrono::duration<double>(0.0)
         );
         const auto* ram = runtime::Memory::get().base();
         const std::uint32_t draws = g_reports_draws ? g_draws : ~0u;
@@ -462,7 +469,7 @@ int vsync() {
         if (!render_pending) {
             wait.emplace("wait");
         }
-        std::this_thread::sleep_until(g_next_frame);
+        precise_wait::until(g_next_frame);
     }
 #ifdef OPENRAC_FRONTEND
     openrac::platform::
@@ -478,6 +485,7 @@ int vsync() {
         frontend::refresh_pads();
     }
 #endif
+    g_tick_resumed = steady_clock::now();
     return static_cast<int>(g_frame & 1);
 }
 

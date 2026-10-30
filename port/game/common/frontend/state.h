@@ -321,9 +321,14 @@ struct Pacing {
     // display or that display's mode changed (window_event), not by asking every so many frames.
     bool interval_stale = true;
     double cost = 0.004;                      // seconds
+    double cost_spread = 0.0;  // seconds: how much the cost moves from frame to frame, smoothed
     std::chrono::duration<double> late{0.0};  // how long after its time the tick came (set_tick)
+    // The game's work for a tick (set_tick), the longest of late, ebbing a tenth a tick: seconds.
+    double tick_work = 0.0;
     float last_alpha = -1.0f;                 // how far between ticks the last frame was drawn
-    std::chrono::steady_clock::time_point due{};  // when the frame cap lets the next frame start
+    // When the frame cap lets the next frame start, or (CapEdge::Present, cap_edge) when it is to
+    // be shown.
+    std::chrono::steady_clock::time_point due{};
     // The kept tick has not been drawn yet (the cap held its own frame back): the next frame drawn
     // is its first.
     bool first_pending = false;
