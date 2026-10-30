@@ -159,9 +159,24 @@ bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& e
     if (sphere[0] == 0.0f && sphere[1] == 0.0f && sphere[2] == 0.0f && sphere[3] == 0.0f) {
         return false;
     }
-    const float depth = (sphere[0] / 1024.0f - eye[0]) * forward[0] + (sphere[1] / 1024.0f - eye[1]) * forward[1]
-                      + (sphere[2] / 1024.0f - eye[2]) * forward[2];
-    return depth > static_cast<float>(distance) || depth + std::fabs(sphere[3]) / 1024.0f <= 32.0f / 1024.0f;
+    const float to[3] =
+        {sphere[0] / 1024.0f - eye[0], sphere[1] / 1024.0f - eye[1], sphere[2] / 1024.0f - eye[2]};
+    const float depth = to[0] * forward[0] + to[1] * forward[1] + to[2] * forward[2];
+    const float radius = std::fabs(sphere[3]) / 1024.0f;
+    if (depth > static_cast<float>(distance) || depth + radius <= 32.0f / 1024.0f) {
+        return true;
+    }
+    // Wholly outside the view's sides, by far: the game's sphere test culls it (the view block's
+    // clip constants), and the depth alone does not. Pokitaru's two class 1161 mobys turned by
+    // -5 pi have spheres thousands of units to the side; seen at a right angle to them (the
+    // camera at 507 411 232 looking -0.474 0.877, a player's report) their depth came within the
+    // draw distance and the window drew them: rows thousands long, a cyan cover over the sky and
+    // the ground. The bound is a tangent of 8, wider than any picture's field of view, so only
+    // such spheres are culled here and every moby the wider pictures show is still drawn.
+    constexpr float kWidestTangent = 8.0f;
+    const float side2 = to[0] * to[0] + to[1] * to[1] + to[2] * to[2] - depth * depth;
+    const float reach = (depth + radius) * kWidestTangent + radius;
+    return side2 > reach * reach;
 }
 
 host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses& a) {
