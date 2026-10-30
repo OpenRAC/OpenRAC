@@ -148,17 +148,17 @@ struct Settings {
     bool menu_bar =
         true;  // the menus along the window's top (not on macOS, whose menu bar has them); Alt hides and shows it
     bool mute_unfocused = false;  // silence while another window has the keyboard
-    // Lower input latency (both change only when input is read and frames are shown, never the
-    // game's ticks; off, the timing players know). fresh_input: the pad read again just before each
-    // tick. low_latency_frames: frames between ticks not held half a tick back, and fewer finished
-    // frames queued for the display; on Vulkan a frame between ticks begins (reads the time and the
-    // input) as late as lets it be queued just as the GPU is free, so that the frame rate stays.
-    bool fresh_input = false;
-    bool low_latency_frames = false;
     bool skip_cutscenes = true;   // Start skips an in-game cutscene (without the game's L1 L2 R1 R2 hold)
-    // The late camera latch (frontend/camera_latch.h): the frames between ticks turn the camera by
-    // the right stick as it is when each is drawn. Only the picture; the game's camera is its own.
-    bool camera_latch = true;
+    // Lower input latency, off by default (the timing players know): the pad read again just before
+    // each tick (frontend.h refresh_pads), and the frames between ticks turned by the right stick
+    // as it is when each is drawn (the late camera latch, frontend/camera_latch.h). Never the
+    // game's ticks: only when input is read, and the picture's camera, not the game's.
+    bool responsive_controls = false;
+    // Low-latency frames, off by default (only when frames are shown, never the game's ticks):
+    // frames between ticks not held half a tick back, and fewer finished frames queued for the
+    // display; on Vulkan a frame between ticks begins (reads the time and the input) as late as
+    // lets it be queued just as the GPU is free, so that the frame rate stays.
+    bool low_latency_frames = false;
     int volume = 100;  // of everything the port plays, 0 (nothing at all) to 100 (as mixed)
     // The on-screen pad (platform/touch_pad.h): its controls' size and the camera's speed, in
     // percent of the pad's own, and where the player moved its groups (TouchPad::layout()).

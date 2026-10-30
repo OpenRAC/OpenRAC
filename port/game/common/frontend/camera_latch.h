@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The late camera latch (settings camera_latch, docs/port/SETTINGS.md section 2): in the frames
-// drawn between ticks, the picture's camera turned by the right stick as it is just before the
+// The late camera latch (settings responsive_controls, docs/port/SETTINGS.md section 2): in the
+// frames drawn between ticks, the picture's camera turned by the right stick as it is just before the
 // frame is drawn, not as it was at the last tick. Only the picture: the game's tick and its camera
 // are never touched. Internal to the frontend.
 

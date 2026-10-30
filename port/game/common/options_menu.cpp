@@ -45,7 +45,7 @@ constexpr const char* kLabels[kRows] = {
     "Frame counter",
     "Mute in background",
     "Skip cutscenes",
-    "Responsive camera",
+    "Responsive controls",
 
 };
 
@@ -108,11 +108,11 @@ constexpr Words kWords[] = {
       "Videos überspringen",
       "Saltar cinemáticas",
       "Salta filmati"}},
-    {{"Responsive camera",
-      "Caméra réactive",
-      "Reaktive Kamera",
-      "Cámara reactiva",
-      "Telecamera reattiva"}},
+    {{"Responsive controls",
+      "Commandes réactives",
+      "Reaktive Steuerung",
+      "Controles reactivos",
+      "Controlli reattivi"}},
     {{"Game fixes",
       "Corrections du jeu",
       "Spielkorrekturen",
@@ -344,8 +344,8 @@ std::string value_of(int row) {
             return s.mute_unfocused ? "On" : "Off";
         case kSkipCutscenes:
             return s.skip_cutscenes ? "Start" : "Off";
-        case kCameraLatch:
-            return s.camera_latch ? "On" : "Off";
+        case kResponsiveControls:
+            return s.responsive_controls ? "On" : "Off";
         default:
             return {};
     }
@@ -469,8 +469,8 @@ void step_value(int row, int by) {
         case kSkipCutscenes:
             s.skip_cutscenes = !s.skip_cutscenes;
             break;
-        case kCameraLatch:
-            s.camera_latch = !s.camera_latch;
+        case kResponsiveControls:
+            s.responsive_controls = !s.responsive_controls;
             break;
         default:
             break;

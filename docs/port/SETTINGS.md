@@ -85,10 +85,9 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Frame cap | `frame_rate` | | The same key from another side: turns the cap on and moves it five frames a second at a time, for a rate the list does not have |
 | Frame counter (F2) | `show_fps` | `0` (off), `1` (FPS and whole-frame time), `2` (FPS, CPU and GPU milliseconds) | F2 cycles all three modes. Whole-frame time measures completed presentation intervals, including swap and pacing waits, and agrees with FPS. CPU uses those same intervals with swap-call time removed: all intervening simulation ticks, preparation, rendering and other waits count, even when rendering is skipped. This is elapsed CPU-side time, not processor utilisation. GPU remains the sum of asynchronously measured passes; missing samples show `--`. Updates four times a second |
 | Low-latency frames | `low_latency_frames` | `0` (default), `1` | Draws the frames between game ticks sooner and keeps fewer finished frames waiting for the display, so the picture reacts faster. Only the timing of the picture changes, never the game's ticks. On OpenGL it can cost frames on a slow graphics card. Off by default. Drawer: Latency; the game's Video options page |
-| Responsive pad | `fresh_input` | `0` (default), `1` | Reads the pads again just before each tick, so a press reaches the game up to a tick sooner. The game's logic is unchanged, but a trick timed by feel lands about a frame earlier, so it is off by default. Drawer: Latency |
+| Responsive controls | `responsive_controls` | `0` (default), `1` | Reads the pads again just before each tick, so a press reaches the game up to a tick sooner, and turns the camera in the frames drawn between ticks with the right stick as it is now, so a turn shows at once, not a tick and a half later (see "The camera between ticks"). The game's logic is unchanged, but a trick timed by feel lands about a frame earlier, so it is off by default. The camera part has no effect at the `original` frame rate. Replaces the earlier Responsive pad (`fresh_input`) and Responsive camera (`camera_latch`), whose values are read and dropped: the switch starts off. Drawer: Latency; the game's Video options page |
 | (Alt) | `menu_bar` | `1`, `0` | The menus along the window's top on Windows and Linux (macOS has them in its own menu bar) |
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
-| Responsive camera | `camera_latch` | `1` (default), `0` | Frames drawn between ticks turn the camera with the right stick as it is now, so a turn shows at once, not a tick and a half later (see "The camera between ticks"). Only the picture changes. No effect at the `original` frame rate. Drawer: Latency; the game's Video options page |
 | Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
 | (F9, F10) | `volume` | `100`, `0` to `100` | How loud everything the port plays is |
 | Touch controls: Button size | `touch_scale` | `75`, `50` to `150` (percent) | The on-screen pad's size against its own ([touch_pad.h](../../port/platform/touch_pad.h)). Smaller controls sit nearer the screen's edges as well |
@@ -171,10 +170,10 @@ display or the display changed mode, not polled.
 
 Without help, a push of the right stick shows only after a tick has read it
 and the frames have caught up: a tick and a half (30 ms at 50 Hz) late, half a
-tick with low-latency frames. With `camera_latch` on (Responsive camera), each
-frame between ticks turns the camera to where the game's follow camera will be
-when the frame is shown. It asks the game's own camera code how far the stick
-will turn it ([camera_latch.cpp](../../port/game/common/frontend/camera_latch.cpp),
+tick with low-latency frames. With `responsive_controls` on (Responsive
+controls), each frame between ticks turns the camera to where the game's follow
+camera will be when the frame is shown. It asks the game's own camera code how
+far the stick will turn it ([camera_latch.cpp](../../port/game/common/frontend/camera_latch.cpp),
 [rac1/host/camera_latch.c](../../port/game/rac1/host/camera_latch.c)).
 In Veldin (US, stick held right for 150 ticks) the guess was off by 0.1 degree
 at most.
@@ -182,14 +181,24 @@ at most.
 - **The game is untouched.** Its ticks, camera variables and trace are the same
   with the setting on and off.
 - **No jump at the next tick.** The game's real camera takes over, and any small
-  miss fades within a few frames.
+  miss fades within a few frames. Across a tick the picture goes on at the turn
+  the game's camera made in it, so that it follows at any frame rate: two or
+  more frames a tick, one (a frame cap at the tick rate, 60 on NTSC), or fewer
+  (ticks without a frame of their own) ([latch_fade.h](../../port/game/common/frontend/latch_fade.h),
+  tested in `frontend_latch_fade`).
+- **Letting go.** The game's camera eases its turn out over some 30 ticks after
+  the stick is let go; the latch goes on guessing that, so the picture slows with
+  it instead of stopping ahead and turning back.
 - **Only in normal play,** with the follow camera, the stick turn not locked and
   the stick off its dead zone. Cutscenes, menus, fixed cameras, the ship and
   the vertical stick work as before.
 
-It is on by default because it only changes the frames the port adds between
-ticks, which the console never drew, and only while the right stick is
-pushed. `OPENRAC_CAMERA_LATCH_LOG=1` logs each tick's turn and the guess for it.
+It is off by default (the same switch reads the pad again just before each
+tick, which moves tricks timed by feel): the picture's camera then moves only
+as the game's ticks move it. It changes only the frames the port adds between
+ticks, which the console never drew, and only while the right stick is pushed
+(and the turn easing out after it).
+`OPENRAC_CAMERA_LATCH_LOG=1` logs each tick's turn and the guess for it.
 
 ## 3. The game's 50 Hz / 60 Hz option
 

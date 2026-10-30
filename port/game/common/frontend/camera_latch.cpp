@@ -22,12 +22,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <numbers>
 #include <optional>
 
 #include "common/log.h"
 #include "common/stats.h"
 #include "frontend.h"
+#include "game/common/frontend/latch_fade.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
 #include "settings.h"
@@ -35,25 +35,31 @@
 namespace openrac::frontend {
 namespace {
 
-// How fast a missed guess fades: its difference is down to a third after this long.
-constexpr double kFadeSeconds = 0.05;
+// The most ticks a frame may follow the last frame's kept tick by and the latch still go on from
+// it. A frame cap at or under the game's tick rate (60 frames a second on NTSC's 60 ticks) leaves
+// some ticks without a frame of their own: without this the latch went off at each such tick and
+// guessed from no turn at all after it, so that the picture stood still and then caught up.
+constexpr std::uint64_t kSkippedTicks = 4;
 
-// A turn bigger than this between two frames is a cut (another camera, a teleport): not faded.
-constexpr float kCutRadians = 0.6f;
+// With the stick let go the game's camera still eases its turn out over some 30 ticks (its rig
+// follows the offset the stick turned): the latch goes on guessing that, towards no turn, for at
+// most this many ticks or until the turn is under kStillRadians a tick, so that the picture slows
+// with the camera rather than stopping ahead of it and turning back.
+constexpr unsigned kCoastTicks = 45;
+constexpr float kStillRadians = 0.0005f;
 
 // What the latch keeps from one frame to the next.
 struct Latch {
     std::uint64_t tick = ~0ull;  // the kept tick of the last frame
     unsigned reads = 0;          // the camera's stick reads at that tick's first frame
-    unsigned reads_before = 0;   // at the tick before's
-    bool steered = false;        // the follow camera read the stick in the kept tick
+    bool steered = false;        // the follow camera read the stick since the last frame's tick
     std::array<float, 3> hero{}, prev_hero{};
     bool has_hero = false, has_prev_hero = false;
-    float picture_yaw = 0.0f;               // the last frame's heading, as shown
-    float carry = 0.0f;                     // what a missed guess is off by, fading
-    float rate = 0.0f;                      // how fast it turned, radians a second
+    LatchFade fade;       // a missed guess's (latch_fade.h)
+    bool was_on = false;  // the latch turned the last frame
+    float up = 1.0f;      // the stick's turn's axis (its sign), when last pushed
+    unsigned coast = 0;   // the ticks the latch went on after the stick was let go
     float omega = 0.0f, prev_omega = 0.0f;  // the camera's turn in the kept tick, in the one before
-    bool was_on = false;                    // the latch turned the last frame
     std::chrono::steady_clock::time_point shown{};
     bool has_shown = false;
     std::optional<std::uint8_t> scripted;  // latch_scripted_stick's
@@ -66,17 +72,6 @@ Latch latch;
 
 float heading(const renderer::Vec3& forward) {
     return std::atan2(forward[1], forward[0]);
-}
-
-// a - b, the short way round.
-float angle_between(float a, float b) {
-    float d = std::fmod(a - b, 2.0f * std::numbers::pi_v<float>);
-    if (d > std::numbers::pi_v<float>) {
-        d -= 2.0f * std::numbers::pi_v<float>;
-    } else if (d < -std::numbers::pi_v<float>) {
-        d += 2.0f * std::numbers::pi_v<float>;
-    }
-    return d;
 }
 
 // The camera's turn over the next `ticks` ticks (a fraction too), from its turn in the last two
@@ -137,9 +132,10 @@ CameraTurn latch_camera(
                          && openrac_game_camera_turn(stick, 1.0f, &radians, axis, &reads) != 0;
     if (new_tick) {
         const bool next = scene.frame == latch.tick + 1;
-        latch.reads_before = next ? latch.reads : reads;
+        // A tick or a few later (the ticks between had no frame): the latch goes on from the last.
+        const bool later = scene.frame > latch.tick && scene.frame - latch.tick <= kSkippedTicks;
+        latch.steered = later && reads != latch.reads;
         latch.reads = reads;
-        latch.steered = next && reads != latch.reads_before;
         latch.prev_hero = latch.hero;
         latch.has_prev_hero = latch.has_hero && next;
         latch.has_hero = openrac_game_hero_position != nullptr
@@ -158,21 +154,32 @@ CameraTurn latch_camera(
             );
         }
         latch.has_guess = false;
-        latch.prev_omega = next ? latch.omega : 0.0f;
-        latch.omega = std::abs(turned) < kCutRadians ? turned : 0.0f;
+        // After ticks without a frame, the turn last seen stands for the tick before's.
+        latch.prev_omega = later ? latch.omega : 0.0f;
+        latch.omega = std::abs(turned) < LatchFade::kCutRadians ? turned : 0.0f;
         latch.tick = scene.frame;
     }
 
     // The latch's own heading: the rest of the way to the kept tick's camera, then the game's turn
     // from there. The game turns its camera's offset about the camera block's axis, the world's up.
     float wanted = 0.0f;
-    const bool on = settings::get().camera_latch && interpolating() && turning && latch.steered
-                    && latch.has_hero && std::abs(axis[2]) > 0.9f;
+    const bool pushed = turning && std::abs(axis[2]) > 0.9f;
+    if (pushed) {
+        latch.up = axis[2] > 0.0f ? 1.0f : -1.0f;
+        latch.coast = 0;
+    } else if (new_tick && latch.was_on) {
+        ++latch.coast;
+    }
+    const bool coasting = !pushed && latch.was_on && latch.coast <= kCoastTicks
+                          && std::abs(latch.omega) >= kStillRadians;
+    const bool on = settings::get().responsive_controls && interpolating() && (pushed || coasting)
+                    && latch.steered && latch.has_hero;
     if (on) {
-        const float target = axis[2] > 0.0f ? radians : -radians;
+        const float target = pushed ? latch.up * radians : 0.0f;
         wanted = angle_between(heading(scene.state.forward), base)
                  + ahead(latch.omega, latch.prev_omega, target, std::clamp(ticks, 0.0f, 2.0f));
     }
+    latch.was_on = on;
     // The guess for one tick, whether the frames are latched or not (a run with one frame a tick
     // has none between ticks), to compare with the turn the tick makes.
     if (log_on && turning && latch.steered && !latch.has_guess) {
@@ -181,36 +188,26 @@ CameraTurn latch_camera(
         latch.has_guess = true;
     }
 
-    // A missed guess fades. Where the latch's heading takes over from another (a new tick, the
-    // latch going on or off) the picture goes on turning as it did (the last frames' rate) and the
-    // step to the new heading is carried, to fade; a cut is not. Without the latch on either side
-    // there is nothing to carry: the interpolated camera is continuous by itself.
+    // A missed guess fades (latch_fade.h). Across a new tick the heading goes on at the turn the
+    // game's camera made in the kept tick.
     const double since =
         latch.has_shown
             ? std::max(std::chrono::duration<double>(display - latch.shown).count(), 0.0)
             : 0.0;
-    latch.carry *= static_cast<float>(std::exp(-since / kFadeSeconds));
-    if (latch.has_shown && (on || latch.was_on) && (new_tick || on != latch.was_on)) {
-        const float expected = latch.picture_yaw + latch.rate * static_cast<float>(since);
-        const float step = angle_between(expected, base + wanted + latch.carry);
-        latch.carry = std::abs(step) < kCutRadians ? latch.carry + step : 0.0f;
-    }
-    if (!settings::get().camera_latch || !interpolating()) {
-        latch.carry = 0.0f;
-    }
-    const float picture = base + wanted + latch.carry;
-    if (latch.has_shown && since > 0.0 && since < 0.1) {
-        latch.rate = angle_between(picture, latch.picture_yaw) / static_cast<float>(since);
-    } else {
-        latch.rate = 0.0f;
-    }
-    latch.was_on = on;
-    latch.picture_yaw = picture;
+    const double period = pacing.period.count();
+    latch.fade.frame(
+        base + wanted,
+        on,
+        new_tick,
+        period > 0.0 ? latch.omega / static_cast<float>(period) : 0.0f,
+        since,
+        settings::get().responsive_controls && interpolating()
+    );
     latch.shown = display;
     latch.has_shown = true;
 
     CameraTurn result;
-    result.yaw = wanted + latch.carry;
+    result.yaw = wanted + latch.fade.carry();
     if (result.yaw == 0.0f) {
         return result;
     }

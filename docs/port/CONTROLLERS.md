@@ -67,7 +67,7 @@ Gamepad buttons are mapped **by position**, so the bottom face button is
 Cross on a DualSense and A on an Xbox pad
 (`port/platform/input.cpp:46-62`).
 
-With the `fresh_input` setting (off by default, docs/port/SETTINGS.md) the pads are read twice a tick: with the window's events at the end of a tick
+With the `responsive_controls` setting (off by default, docs/port/SETTINGS.md) the pads are read twice a tick: with the window's events at the end of a tick
 (`Input::update`, which also gathers the mods' keyboard and mouse and plays the
 motors), and again just before the next tick runs, after the wait for its time
 and the frames drawn between ticks (`Input::refresh_pads`, called at the end of
