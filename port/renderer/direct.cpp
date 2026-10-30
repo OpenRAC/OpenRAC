@@ -1443,6 +1443,7 @@ bool DirectRenderer::init(RenderState& state, std::string& error) {
     m_uniforms.alpha_test = m_shader.uniform("alpha_test");
     m_uniforms.alpha_ref = m_shader.uniform("alpha_ref");
     m_uniforms.alpha_keep_failing = m_shader.uniform("alpha_keep_failing");
+    m_uniforms.multisampled = m_shader.uniform("multisampled");
     m_uniforms.distance_field = m_shader.uniform("distance_field");
     m_uniforms.tex_T1 = m_shader.uniform("tex_T1");
     m_uniforms.pixel_offset = m_shader.uniform("pixel_offset");
@@ -1598,6 +1599,11 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform2f(m_uniforms.pixel_offset, 0.5f / static_cast<float>(std::max(render_state.target.width, 1)),
                     -0.5f / static_cast<float>(std::max(render_state.target.height, 1)));
     }
+    // Off-screen targets have one sample a pixel; the frame has several when it has a resolve target.
+    glUniform1i(
+        m_uniforms.multisampled,
+        s.target == 0 && render_state.target.resolve_framebuffer != 0 ? 1 : 0
+    );
     glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
