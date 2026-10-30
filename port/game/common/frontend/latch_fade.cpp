@@ -28,8 +28,8 @@ float LatchFade::frame(
         m_rate = tick_rate;
     }
     m_carry *= static_cast<float>(std::exp(-since / kFadeSeconds));
-    // Without the latch on either side there is nothing to carry: the interpolated camera is
-    // continuous by itself.
+    // With the latch off before and after, there is nothing to carry: the interpolated camera is
+    // smooth by itself.
     const bool stepped = m_shown && (on || m_was_on) && (new_tick || on != m_was_on);
     if (stepped) {
         const float expected = m_heading + m_rate * static_cast<float>(since);
@@ -39,7 +39,7 @@ float LatchFade::frame(
     if (!enabled) {
         m_carry = 0.0f;
     }
-    // Between ticks, the rate the target turns at (a frame long ago tells nothing).
+    // Between ticks, measure how fast the target turns (not from a frame long ago).
     if (!new_tick && !stepped) {
         m_rate = since > 0.0 && since < 0.1
                      ? angle_between(target, m_heading) / static_cast<float>(since)

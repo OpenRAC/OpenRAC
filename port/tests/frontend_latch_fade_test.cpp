@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The late camera latch's fade (game/common/frontend/latch_fade.h) with the frame rates a player
-// can have: one frame a tick (a frame cap at the game's tick rate), two (120 Hz on NTSC's 60
-// ticks), and fewer frames than ticks (ticks without a frame of their own). The game's camera is
-// a model: it turns at a steady rate from when the stick is pushed, and the latch's heading for a
-// frame is where it is when the frame is shown, missed by a set amount at each new tick when the
-// test says so. The picture must follow it: never standing still while the camera turns, never
-// jumping, and back on the latch's heading within a few frames.
+// The late camera latch's fade (game/common/frontend/latch_fade.h) at the frame rates a player can
+// have: one frame a tick (a frame cap at the tick rate), two (120 Hz on NTSC's 60 ticks), and
+// fewer frames than ticks. The game's camera is a model that turns at a steady rate once the stick
+// is pushed; the latch's heading is where that camera is when the frame is shown, optionally off
+// by a set amount at every other tick. The picture must follow it: never freeze while the camera
+// turns, never jump, and settle back on the latch's heading within a few frames.
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -20,15 +20,16 @@ namespace {
 using openrac::frontend::LatchFade;
 
 constexpr double kTick = 1.0 / 60.0;  // NTSC's tick
-constexpr float kTurn = 0.03f;        // what the camera turns a tick, radians (about 100° a second)
+constexpr float kTurn = 0.03f;        // the camera's turn a tick, radians (about 100° a second)
 
-// One run: frames every `frame` seconds for `seconds`, the stick pushed from `push` seconds on.
-// `miss`: what the latch's heading is off by from each new tick on. Returns the headings shown.
+// The headings of one run, frame by frame: shown, the latch's, and whether the camera turned.
 struct Run {
     std::vector<float> shown, target;
     std::vector<bool> turning;
 };
 
+// Frames every `frame` seconds for `seconds`, the stick pushed from `push` seconds on. `miss`:
+// how far the latch's heading is off at every other tick.
 Run run(double frame, double seconds, double push, float miss = 0.0f, bool enabled = true) {
     LatchFade fade;
     Run r;

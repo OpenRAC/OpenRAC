@@ -169,7 +169,7 @@ unknown *value* warns in the log and falls back to the default; an unknown
 | `menu_bar` | `0`/`1` | `1` | |
 | `mute_unfocused` | `0`/`1` | `0` | |
 | `skip_cutscenes` | `0`/`1` | `1` | Start also presses the game's own cutscene-skip buttons. |
-| `responsive_controls` | `0`/`1` | `0` | The pad read again just before each tick: presses reach the game about a tick sooner. The game's logic and its one pad read a tick are unchanged, but a trick timed by feel lands a frame earlier. Also turns the picture's camera between ticks with the right stick as it is now (only the picture). |
+| `responsive_controls` | `0`/`1` | `0` | Reads the pad again just before each tick: presses reach the game about a tick sooner. The game's logic and its one pad read a tick are unchanged, but a trick timed by feel lands a frame earlier. Also turns the picture's camera between ticks with the right stick (the picture only). |
 | `low_latency_frames` | `0`/`1` | `0` | Frames between ticks are not held half a tick back, and fewer frames wait for the display. Changes only the picture's timing; may cost frames on a slow GPU with OpenGL. |
 | `volume` | 0–100 | `100` | |
 | `verbose_log` | `0`/`1` | `0` | |

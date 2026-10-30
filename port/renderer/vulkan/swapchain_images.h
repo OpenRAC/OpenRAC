@@ -11,22 +11,21 @@
 
 namespace openrac::vkgl {
 
-// Whether the system's compositor keeps an image of the window's for a refresh more after it was
-// presented (Android's SurfaceFlinger: it latches a picture at one refresh and shows it at the
-// next, and lets the one before go only then).
+// Whether the system's compositor holds a presented image one refresh longer (Android's
+// SurfaceFlinger takes a picture at one refresh, shows it at the next, and only then releases the
+// one before).
 #if defined(__ANDROID__)
 constexpr bool kCompositorHoldsImage = true;
 #else
 constexpr bool kCompositorHoldsImage = false;
 #endif
 
-// The images for a swapchain whose surface needs at least `min_images`: one more than that, and
-// at least three, so that a frame never waits for the display to let go of one; the player's
-// low-latency frames as few as the surface allows (at least two), fewer frames queued for the
-// display. Not where the compositor holds an image a refresh longer: with two there, each frame
-// waits for the one before it to leave the screen, and a frame takes two refreshes (60 frames a
-// second on a 120 Hz display), so low-latency frames keep the three as well. Their one frame in
-// flight on the graphics card keeps the queue short by itself.
+// The swapchain's image count for a surface that needs at least `min_images`. Normally one more
+// than that and at least three, so a frame never waits for the display to release an image.
+// Low-latency frames use as few as the surface allows (at least two), so fewer frames queue for
+// the display. Where the compositor holds an image longer, two images make every frame wait a
+// refresh (60 fps on a 120 Hz display), so low-latency frames keep three there; their single
+// frame in flight on the GPU still keeps the queue short.
 constexpr std::uint32_t swapchain_images(
     std::uint32_t min_images, bool low_latency, bool compositor_holds_image
 ) {

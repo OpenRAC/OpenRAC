@@ -396,7 +396,7 @@ void load(const std::filesystem::path& file) {
         } else if (key == "low_latency_frames") {
             known = parse_bool(value, s.low_latency_frames);
         } else if (key == "fresh_input" || key == "camera_latch") {
-            // The earlier switches responsive_controls joins: off until the player turns it on.
+            // Old switches merged into responsive_controls: dropped, so it starts off.
         } else if (key == "skip_cutscenes") {
             known = parse_bool(value, s.skip_cutscenes);
         } else if (key == "strafe" || key == "lock_strafe") {

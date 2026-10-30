@@ -158,8 +158,8 @@ extern int (*openrac_game_updating_moby)(openrac_game_moby* out);
 extern int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* state);
 
 /* For the picture's late camera latch (settings responsive_controls, frontend/camera_latch.cpp),
- * when a game installs it (rac1: camera_latch.c): the turn its follow camera would make over the next
- * `ticks` ticks (a fraction too) with the right stick held from now on at `right_x` (the pad's
+ * when a game installs it (rac1: camera_latch.c): the turn its follow camera would make over the
+ * next `ticks` ticks (a fraction too) with the right stick held from now on at `right_x` (the pad's
  * byte, 128 centred), in radians about `axis` (game axes, the way the game turns the camera's
  * offset from the hero). `reads` counts the camera's stick reads so far, so that a tick without
  * one shows. Returns 0, with no turn, while that camera does not steer the view, its stick turn

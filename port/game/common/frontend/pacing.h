@@ -34,13 +34,12 @@ std::chrono::steady_clock::time_point shown_at(
 // stood still for half a tick and then jumped).
 constexpr double kLowLatencyLagTicks = 0.0;
 
-// The refresh from which on between() leaves a frame between ticks out: `next_tick` is when the
-// next tick is due, `lag` how many ticks of `period` the scene runs behind, and `cost`, `interval`
-// and `last_swap` as shown_at's. With the lag, the refresh the next tick is shown at that much
-// later. Without it (low-latency frames), the refresh the next tick's own frame is shown at, at the
-// soonest: a frame for a refresh before it shows the kept tick, where none would leave the last
-// frame on the screen for one more refresh (on a display of twice the tick rate, one frame a tick).
-// The next tick itself when the refreshes are not known.
+// The time from which between() draws no more frames for the kept tick. `next_tick`: when the next
+// tick is due; `lag`: how many ticks of `period` the scene runs behind; `cost`, `interval` and
+// `last_swap` as for shown_at. With a lag: the next tick plus the lag. Without one (low-latency
+// frames): the refresh the next tick's own frame is shown at, so the refresh before it still gets
+// a frame (else a 120 Hz display showed one frame a tick); the next tick itself when the refreshes
+// are not known.
 std::chrono::steady_clock::time_point between_limit(
     std::chrono::steady_clock::time_point next_tick,
     std::chrono::duration<double> period,

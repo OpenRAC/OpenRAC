@@ -581,8 +581,8 @@ void drawer(const Shown& shown) {
         if (drawer_switch("Low-latency frames", settings::get().low_latency_frames)) {
             change_setting(options_menu::kLowLatency, 1);
         }
-        // The pad read again just before each tick, and the frames between ticks turned by the
-        // right stick as it is now (settings.h). Off by default: the timing players have learnt.
+        // Reads the pad again before each tick and turns the camera between ticks with the right
+        // stick as it is now (settings.h). Off by default: the timing players have learnt.
         if (drawer_switch("Responsive controls", settings::get().responsive_controls)) {
             change_setting(options_menu::kResponsiveControls, 1);
         }

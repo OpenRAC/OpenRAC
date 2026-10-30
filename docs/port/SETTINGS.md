@@ -85,7 +85,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Frame cap | `frame_rate` | | The same key from another side: turns the cap on and moves it five frames a second at a time, for a rate the list does not have |
 | Frame counter (F2) | `show_fps` | `0` (off), `1` (FPS and whole-frame time), `2` (FPS, CPU and GPU milliseconds) | F2 cycles all three modes. Whole-frame time measures completed presentation intervals, including swap and pacing waits, and agrees with FPS. CPU uses those same intervals with swap-call time removed: all intervening simulation ticks, preparation, rendering and other waits count, even when rendering is skipped. This is elapsed CPU-side time, not processor utilisation. GPU remains the sum of asynchronously measured passes; missing samples show `--`. Updates four times a second |
 | Low-latency frames | `low_latency_frames` | `0` (default), `1` | Draws the frames between game ticks sooner and keeps fewer finished frames waiting for the display, so the picture reacts faster. Only the timing of the picture changes, never the game's ticks. On OpenGL it can cost frames on a slow graphics card. Off by default. Drawer: Latency; the game's Video options page |
-| Responsive controls | `responsive_controls` | `0` (default), `1` | Reads the pads again just before each tick, so a press reaches the game up to a tick sooner, and turns the camera in the frames drawn between ticks with the right stick as it is now, so a turn shows at once, not a tick and a half later (see "The camera between ticks"). The game's logic is unchanged, but a trick timed by feel lands about a frame earlier, so it is off by default. The camera part has no effect at the `original` frame rate. Replaces the earlier Responsive pad (`fresh_input`) and Responsive camera (`camera_latch`), whose values are read and dropped: the switch starts off. Drawer: Latency; the game's Video options page |
+| Responsive controls | `responsive_controls` | `0` (default), `1` | Reads the pads again just before each tick, so a press reaches the game up to a tick sooner. Also turns the camera in the frames between ticks with the right stick as it is now, so a turn shows at once (see "The camera between ticks"; not at the `original` frame rate). The game's logic is unchanged, but a trick timed by feel lands about a frame earlier, so it is off by default. Replaces Responsive pad (`fresh_input`) and Responsive camera (`camera_latch`); those keys are ignored, so it starts off. Drawer: Latency; the game's Video options page |
 | (Alt) | `menu_bar` | `1`, `0` | The menus along the window's top on Windows and Linux (macOS has them in its own menu bar) |
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
 | Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
@@ -181,23 +181,21 @@ at most.
 - **The game is untouched.** Its ticks, camera variables and trace are the same
   with the setting on and off.
 - **No jump at the next tick.** The game's real camera takes over, and any small
-  miss fades within a few frames. Across a tick the picture goes on at the turn
-  the game's camera made in it, so that it follows at any frame rate: two or
-  more frames a tick, one (a frame cap at the tick rate, 60 on NTSC), or fewer
-  (ticks without a frame of their own) ([latch_fade.h](../../port/game/common/frontend/latch_fade.h),
-  tested in `frontend_latch_fade`).
-- **Letting go.** The game's camera eases its turn out over some 30 ticks after
-  the stick is let go; the latch goes on guessing that, so the picture slows with
-  it instead of stopping ahead and turning back.
+  miss fades within a few frames. This works at any frame rate: several frames
+  a tick, one (a frame cap of 60 on NTSC), or fewer
+  ([latch_fade.h](../../port/game/common/frontend/latch_fade.h), tested by
+  `frontend_latch_fade`).
+- **Letting go.** The game's camera slows down over about 30 ticks after the
+  stick is let go. The latch predicts that too, so the picture slows with it
+  instead of stopping ahead and turning back.
 - **Only in normal play,** with the follow camera, the stick turn not locked and
   the stick off its dead zone. Cutscenes, menus, fixed cameras, the ship and
   the vertical stick work as before.
 
-It is off by default (the same switch reads the pad again just before each
-tick, which moves tricks timed by feel): the picture's camera then moves only
-as the game's ticks move it. It changes only the frames the port adds between
-ticks, which the console never drew, and only while the right stick is pushed
-(and the turn easing out after it).
+It is off by default, because the same switch also reads the pad again before
+each tick, which shifts tricks timed by feel. It changes only the frames the
+port adds between ticks, which the console never drew, and only while the right
+stick turns the camera.
 `OPENRAC_CAMERA_LATCH_LOG=1` logs each tick's turn and the guess for it.
 
 ## 3. The game's 50 Hz / 60 Hz option

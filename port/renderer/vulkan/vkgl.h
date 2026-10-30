@@ -301,9 +301,10 @@ void present();
 // Returns what the screen allows: the nearest of those.
 int set_swap_interval(int interval);
 
-// Low-latency frames: as few swapchain images as the surface allows (at least two; three on
-// Android, swapchain_images.h) and a frame queued only once the one before it is done on the GPU,
-// so that fewer finished frames wait to be shown. Off: one more image than the surface needs (at least three) and two frames in flight.
+// Low-latency frames: as few swapchain images as the display allows at full rate
+// (swapchain_images.h) and a frame queued only once the one before it is done on the GPU, so that
+// fewer finished frames wait to be shown. Off: one more image than the surface needs (at least
+// three) and two frames in flight.
 void set_low_latency(bool on);
 
 // With low-latency frames, called by the window's thread before a frame begins, before it reads
