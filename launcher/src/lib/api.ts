@@ -151,6 +151,8 @@ export interface AppInfo {
   updateChannels: Record<UpdateChannel, UpdateSource>;
   /** WebKitGTK draws without its accelerated compositing mode (a Steam Deck): no page slides. */
   noCompositing: boolean;
+  /** The last start's window crashed before it drew a click, and Safe rendering was turned on. */
+  safeRenderingAfterCrash: boolean;
 }
 
 /** The games folder looked through (scan_discs, src-tauri/src/lib.rs). */
@@ -469,6 +471,21 @@ export async function pickFolder(title: string): Promise<string | null> {
   if (!inTauri) return null;
   const picked = await open({ directory: true, title });
   return typeof picked === "string" ? picked : null;
+}
+
+/** Linux: tells the launcher when its window has drawn the player's first click, so a start that
+ *  crashes there turns Safe rendering on at the next (core/src/webkit.rs, DrawCheck). */
+export function watchFirstDraw(): void {
+  if (!inTauri) return;
+  window.addEventListener(
+    "pointerdown",
+    () => {
+      void invoke("webview_clicked");
+      // Two frames for the click's own draw, then time for the page slide it starts.
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => void invoke("webview_drew"), 1500)));
+    },
+    { once: true, capture: true },
+  );
 }
 
 /** Restart the launcher application (e.g. after installing an update). */

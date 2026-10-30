@@ -225,6 +225,7 @@ let config: Config = {
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")
     ? "vulkan"
     : "opengl",
+  safeRendering: false,
   // ?mods: the Mods switch under Play is on.
   playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
   crashesSeen: {},
@@ -2075,6 +2076,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         updateChannels: { stable: STABLE, dev: DEV },
         // ?nocompositing: a Steam Deck's webview, without page slides.
         noCompositing: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("nocompositing"),
+        safeRenderingAfterCrash: false,
       });
     case "get_config":
       return delay<Config>({ ...config });

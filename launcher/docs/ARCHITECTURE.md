@@ -456,6 +456,9 @@ renderer under Wayland with NVIDIA's own driver, and its accelerated
 compositing mode there and on a Steam Deck, where the window opens empty unless the
 launcher is started with `WEBKIT_DISABLE_COMPOSITING_MODE=1`. A value the
 player set is left as it is.
+Elsewhere Settings' Safe rendering turns the same mode off. The launcher turns
+it on by itself when the last start crashed before its window drew a click: a
+`webview-check` file beside `launcher.json` holds the process id until then.
 
 Android (`Platform::Android`) is an APK built by `tools/build_android.py`
 (docs/port/ANDROID.md): the same UI and Rust, a project of its own in

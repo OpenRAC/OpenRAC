@@ -64,6 +64,10 @@ pub struct Config {
     /// (src-tauri/src/android.rs).
     #[ts(type = "\"opengl\" | \"vulkan\"")]
     pub renderer: String,
+    /// Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
+    /// (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
+    /// a start whose window crashed before it drew a click; the player may turn it off again.
+    pub safe_rendering: bool,
     /// The Mods switch under Play on the game's page: the game loads the mods the Mods tab switched on (the
     /// gameplay mods, the packs and the packed levels). Off by default: Play starts the game with no
     /// mods at all (`--no-mods`, docs/port/MODS.md). It took the place of Settings' Purist mode.
@@ -109,6 +113,7 @@ impl Default for Config {
             theme: "openrac".into(),
             detailed_game_log: false,
             renderer: "opengl".into(),
+            safe_rendering: false,
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
             disc_choice: BTreeMap::new(),

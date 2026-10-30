@@ -92,6 +92,12 @@ detailedGameLog: boolean,
  */
 renderer: "opengl" | "vulkan", 
 /**
+ * Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
+ * (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
+ * a start whose window crashed before it drew a click; the player may turn it off again.
+ */
+safeRendering: boolean, 
+/**
  * The Mods switch under Play on the game's page: the game loads the mods the Mods tab switched on (the
  * gameplay mods, the packs and the packed levels). Off by default: Play starts the game with no
  * mods at all (`--no-mods`, docs/port/MODS.md). It took the place of Settings' Purist mode.

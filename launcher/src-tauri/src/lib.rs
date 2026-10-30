@@ -4,7 +4,8 @@
 // commands and events is docs/ARCHITECTURE.md's; keep them in step with
 // src/lib/api.ts and src/lib/mock.ts.
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 mod android;
 
@@ -59,6 +60,9 @@ struct AppInfo {
     /// WEBKIT_DISABLE_COMPOSITING_MODE): the page gives its page slides up, whose view transitions
     /// crashed the webview there whenever a page was opened (src/lib/motion.ts).
     no_compositing: bool,
+    /// The last start's window crashed before it drew a click, and this start turned Safe
+    /// rendering on for it (Config::safe_rendering): the page says so once.
+    safe_rendering_after_crash: bool,
 }
 
 #[derive(Serialize)]
@@ -116,6 +120,7 @@ fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
         update_channels: UpdateChannels { stable: updates.on(Channel::Stable), dev: updates.on(Channel::Dev) },
         updates,
         no_compositing: cfg!(target_os = "linux") && std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_some(),
+        safe_rendering_after_crash: SAFE_AFTER_CRASH.load(Ordering::Relaxed),
     }
 }
 
@@ -159,6 +164,31 @@ async fn launcher_update_check(
 #[tauri::command]
 fn relaunch_app(app: AppHandle) {
     tauri::process::restart(&app.env());
+}
+
+/// The app's identifier (tauri.conf.json), which names its per-user config folder.
+const IDENTIFIER: &str = "dev.openrac.launcher";
+
+/// This start's draw check (core webkit.rs), when it has one: Linux, Safe rendering off, and not a
+/// second start.
+static DRAW_CHECK: OnceLock<openrac_launcher_core::webkit::DrawCheck> = OnceLock::new();
+/// The player clicked in the window: a quit from now on does not end the draw check.
+static CLICKED: AtomicBool = AtomicBool::new(false);
+/// This start turned Safe rendering on, after the last one crashed (AppInfo).
+static SAFE_AFTER_CRASH: AtomicBool = AtomicBool::new(false);
+
+/// The page saw the player's first click, before it is drawn.
+#[tauri::command]
+fn webview_clicked() {
+    CLICKED.store(true, Ordering::Relaxed);
+}
+
+/// The page drew the player's first click: the window draws, and the draw check ends.
+#[tauri::command]
+fn webview_drew() {
+    if let Some(check) = DRAW_CHECK.get() {
+        check.end();
+    }
 }
 
 #[tauri::command]
@@ -1371,15 +1401,46 @@ fn clean_appimage_env() {
     openrac_launcher_core::appimage::clean_process_env();
 }
 
+/// Whether the window draws in Safe rendering (Config::safe_rendering), read before the app
+/// exists. A last start that crashed before it drew a click turns it on, and it is saved; a start
+/// without it begins a draw check of its own (core webkit.rs).
+#[cfg(target_os = "linux")]
+fn settle_safe_rendering() -> bool {
+    use openrac_launcher_core::webkit::{self, DrawCheck, LastStart};
+    let Some(dir) = webkit::config_dir(IDENTIFIER) else { return false };
+    let file = dir.join("launcher.json");
+    let mut config = config::load(&file);
+    let check = DrawCheck::new(&dir);
+    match check.last_start() {
+        // A second start shows the first launcher's window and goes.
+        LastStart::Running => return config.safe_rendering,
+        LastStart::Crashed if !config.safe_rendering => {
+            config.safe_rendering = true;
+            let _ = config::save(&file, &config);
+            SAFE_AFTER_CRASH.store(true, Ordering::Relaxed);
+        }
+        _ => {}
+    }
+    if config.safe_rendering {
+        // Nothing is checked: a crashed start's file has done its work.
+        check.clear();
+    } else {
+        check.begin();
+        let _ = DRAW_CHECK.set(check);
+    }
+    config.safe_rendering
+}
+
 /// What WebKitGTK needs changed on this system, before GTK starts: its
 /// DMA-BUF renderer's buffers through shared memory under Wayland with
 /// NVIDIA's own driver, and its
 /// accelerated compositing mode there and on a Steam Deck, where the window opens empty
-/// unless the launcher is started with WEBKIT_DISABLE_COMPOSITING_MODE=1. A
+/// unless the launcher is started with WEBKIT_DISABLE_COMPOSITING_MODE=1, and wherever Safe
+/// rendering is on. A
 /// value the player set is left as it is (core/src/webkit.rs).
 #[cfg(target_os = "linux")]
-fn tune_webkit() {
-    for (name, value) in openrac_launcher_core::webkit::webkit_env() {
+fn tune_webkit(safe: bool) {
+    for (name, value) in openrac_launcher_core::webkit::webkit_env(safe) {
         if std::env::var_os(name).is_none() {
             std::env::set_var(name, value);
         }
@@ -1484,6 +1545,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_info,
             relaunch_app,
+            webview_clicked,
+            webview_drew,
             get_config,
             save_config,
             detect,
@@ -1566,8 +1629,16 @@ pub fn run() {
             android::game_status,
             android::game_window,
         ])
-        .run(tauri::generate_context!())
-        .expect("the launcher failed to start");
+        .build(tauri::generate_context!())
+        .expect("the launcher failed to start")
+        .run(|_, event| {
+            // A quit before any click: nothing was drawn that could have crashed.
+            if matches!(event, tauri::RunEvent::Exit) && !CLICKED.load(Ordering::Relaxed) {
+                if let Some(check) = DRAW_CHECK.get() {
+                    check.end();
+                }
+            }
+        });
 }
 
 /// What the process's environment must say before GTK and WebKit start, on Linux: the AppImage's
@@ -1576,7 +1647,7 @@ fn prepare_environment() {
     #[cfg(target_os = "linux")]
     {
         clean_appimage_env();
-        tune_webkit();
+        tune_webkit(settle_safe_rendering());
         ensure_wayland_cursor_fallback();
     }
 }

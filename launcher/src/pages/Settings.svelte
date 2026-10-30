@@ -10,6 +10,7 @@
     api,
     errorText,
     onAndroid,
+    relaunchApp,
     updateBranchOf,
     updateChannelOf,
     updateSourceOf,
@@ -50,6 +51,7 @@
     "updateBranch",
     "detailedGameLog",
     "renderer",
+    "safeRendering",
     "saveEditorAdvanced",
     "developer",
     "discordClientId",
@@ -79,7 +81,11 @@
   );
   /** Advanced opens by itself when something in it is on. */
   let advancedOpen = $state(
-    saved().detailedGameLog || saved().developer || saved().saveEditorAdvanced || saved().renderer === "vulkan",
+    saved().detailedGameLog ||
+      saved().developer ||
+      saved().saveEditorAdvanced ||
+      saved().renderer === "vulkan" ||
+      saved().safeRendering,
   );
 
   /** The update channel as this page has it, saved or not. */
@@ -184,6 +190,7 @@
     let customId: string | null = draft.discordClientId?.trim() ?? null;
     if (customId === "") customId = null;
     const before = app.info ? updateSourceOf(app.info, app.config).manifest : null;
+    const restart = draft.safeRendering !== saved().safeRendering;
     const written = await saveConfig({
       ...saved(),
       ...edited(draft),
@@ -205,6 +212,8 @@
       if (app.config?.checkUpdates) lookForUpdate().catch(() => undefined);
     }
     saving = false;
+    // The window's renderer is set before it opens.
+    if (restart) await relaunchApp();
     if (finish) app.page = "library";
   }
 </script>
@@ -581,6 +590,17 @@
               >
             </div>
           </div>
+        {/if}
+        {#if app.info?.platform === "linux"}
+          <!-- The launcher's own window without WebKitGTK's accelerated compositing
+               (core/src/webkit.rs); on by itself after a start that crashed. -->
+          <label class="setting">
+            <span class="text">
+              <strong>Safe rendering</strong>
+              <small>For a launcher that crashes or stays blank. No page slides. The launcher restarts.</small>
+            </span>
+            <input type="checkbox" role="switch" class="switch" bind:checked={draft.safeRendering} />
+          </label>
         {/if}
         <label class="setting">
           <span class="text">

@@ -26,6 +26,7 @@ import {
   updateChannelOf,
   updateBranchOf,
   updateSourceOf,
+  watchFirstDraw,
 } from "./api";
 import { stopSlides } from "./motion";
 import { Queue, type Job } from "./queue";
@@ -316,6 +317,10 @@ export async function start() {
     }
     app.info = await api.appInfo();
     if (app.info.noCompositing) stopSlides();
+    if (app.info.platform === "linux" && !app.info.noCompositing) watchFirstDraw();
+    if (app.info.safeRenderingAfterCrash) {
+      toast("The launcher crashed last time, so Safe rendering is now on (Settings, Advanced).");
+    }
     // Android: the config names the carried tools' Python only once they are unpacked.
     if (onAndroid) await prepareTools();
     app.config = await firstRun(await api.getConfig());
