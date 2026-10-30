@@ -21,7 +21,6 @@
 #include <span>
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include <utility>
 #include <volk.h>
 
@@ -29,6 +28,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "common/precise_wait.h"
 #include "common/stats.h"
 #include "renderer/gpu_draw.h"
 #include "renderer/vulkan/vkgl_internal.h"
@@ -393,7 +393,7 @@ double latency_sleep(std::chrono::steady_clock::time_point limit) {
         return 0.0;
     }
     const stats::Scope sleep("latency sleep");
-    std::this_thread::sleep_until(until);
+    precise_wait::until(until);
     return seconds_since(start);
 }
 
