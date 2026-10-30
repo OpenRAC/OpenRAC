@@ -8,6 +8,7 @@
 #include <format>
 #include <imgui.h>
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL.h>
 
@@ -162,6 +163,13 @@ void menu_bar() {
                 }
             }
             ImGui::EndMenu();
+        }
+        // Each pass's own GPU time on a tile-based GPU, at the price of a slower frame.
+        if (pass_timing_available()
+            && ImGui::MenuItem(
+                "Time GPU passes", nullptr, std::string_view(pass_timing_name()) == "On"
+            )) {
+            toggle_pass_timing();
         }
         if (s.developer) {
             ImGui::Separator();

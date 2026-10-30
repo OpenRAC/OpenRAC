@@ -39,6 +39,9 @@
 #include "renderer/gl_stats.h"
 #include "scene/stb_extra.h"
 #include "settings.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend::debug_overlay {
 
@@ -250,15 +253,44 @@ perf_capture::Context context(const Shown& shown) {
     }
     const auto& graphics = settings::get();
     if (gl::enhanced_rendering_available()) {
+        // What each costly part of it was set to, so that two recordings compare like for like.
         add("enhanced",
             std::format(
-                "{}{}{}{}",
+                "{}{}{}{}, temporal {}, shadows {}, GTAO {}, motion blur {}, AgX {}, "
+                "rim {}",
                 graphics.enhanced_graphics ? "on" : "off",
                 graphics.enhanced_shadows ? ", modern shadows" : "",
                 graphics.enhanced_graphics ? ", probe lighting" : "",
-                graphics.gtao ? ", GTAO" : ""
+                graphics.gtao ? ", GTAO" : "",
+                renderer::kTemporalKeys[static_cast<int>(graphics.temporal_quality)],
+                renderer::kShadowQualityKeys[static_cast<int>(graphics.shadow_quality)],
+                graphics.gtao ? std::format(
+                                    "{} {}x{}{}",
+                                    graphics.gtao_settings.quality == renderer::GtaoQuality::Quality
+                                        ? "quality"
+                                        : "performance",
+                                    graphics.gtao_settings.slices,
+                                    graphics.gtao_settings.steps,
+                                    graphics.gtao_settings.half_resolution ? " half" : ""
+                                )
+                              : std::string("off"),
+                graphics.motion_blur ? "on" : "off",
+                graphics.agx_preview ? "on" : "off",
+                graphics.rim_light ? "on" : "off"
             ));
     }
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        add("gpu passes",
+            std::format(
+                "{}tile-based GPU, {}",
+                vkgl::tile_based() ? "" : "not a ",
+                vkgl::split_pass_timing()
+                    ? "each timed pass split out (its GPU times are its own; the frame is slower)"
+                    : "passes not split (on a tile-based GPU their GPU times read about zero)"
+            ));
+    }
+#endif
     const stats::ProcessMemory memory = stats::process_memory();
     add("process",
         std::format(
@@ -373,6 +405,28 @@ const char* capture_length_name() {
     static std::string name;
     name = seconds > 0.0 ? std::format("{:.0f} s", seconds) : std::string("Until stopped");
     return name.c_str();
+}
+
+bool pass_timing_available() {
+#if defined(OPENRAC_VULKAN)
+    return gl::is_vulkan() && stats::gpu_timers();
+#else
+    return false;
+#endif
+}
+
+const char* pass_timing_name() {
+#if defined(OPENRAC_VULKAN)
+    return vkgl::split_pass_timing() ? "On" : "Off";
+#else
+    return "Off";
+#endif
+}
+
+void toggle_pass_timing() {
+#if defined(OPENRAC_VULKAN)
+    vkgl::set_split_pass_timing(!vkgl::split_pass_timing());
+#endif
 }
 
 std::string slow_cpu_name() {

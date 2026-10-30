@@ -54,7 +54,7 @@ bool LevelScene::make_shadow_atlas(std::string& error) {
         m_shadow_atlas = std::make_unique<renderer::FrameBuffer>();
     }
     if (!m_shadow_atlas->id()
-        && !m_shadow_atlas->create(m_shadow_layout.size, m_shadow_layout.size, error, 1, true)) {
+        && !create_shadow_target(*m_shadow_atlas, m_shadow_layout.size, error)) {
         return false;
     }
     // The reference targets are recreated on demand if the user switches
@@ -214,8 +214,7 @@ unsigned LevelScene::draw_cached_cascades(renderer::RenderState& state) {
             std::string error;
 
             // No memory for it: the atlas draws every caster, as with the entry off.
-            if (!m_static_shadow
-                     ->create(m_shadow_layout.size, m_shadow_layout.size, error, 1, true)) {
+            if (!create_shadow_target(*m_static_shadow, m_shadow_layout.size, error)) {
                 log::warn("static shadow cache unavailable: {}", error);
                 release_target(m_static_shadow);
                 begin_shadow_target(m_shadow_atlas->id());

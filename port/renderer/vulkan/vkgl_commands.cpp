@@ -363,6 +363,17 @@ void end_deferred(const Target& t) {
             colour.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD,
             colour.storeOp == VK_ATTACHMENT_STORE_OP_STORE
         );
+
+        // The samples averaged into the image a blit asked for, as each tile is written out.
+        if (Image* resolved = pass.resolve_colour; resolved != nullptr) {
+            barrier(f.main, *resolved, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            colour.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+            colour.resolveImageView = attachment_view(*resolved);
+            colour.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            count_attachment(*resolved, area, false, true);
+            resolved->discarded = 0;
+            resolved->touched = g->recording;
+        }
     }
 
     // The depth and stencil image: each aspect's operations of its own, counted once.
@@ -548,7 +559,7 @@ void end_rendering(PassEnd why) {
     gpu_flush_draws();
     if (g->rendering) {
         if (stats::enabled()) {
-            constexpr std::array<std::string_view, 8> kWhy = {
+            constexpr std::array<std::string_view, 9> kWhy = {
                 "vk_pass_end target",
                 "vk_pass_end copy",
                 "vk_pass_end sample",
@@ -556,6 +567,7 @@ void end_rendering(PassEnd why) {
                 "vk_pass_end barrier",
                 "vk_pass_end submit",
                 "vk_pass_end present",
+                "vk_pass_end timing",
                 "vk_pass_end other",
             };
             count_where(kWhy[static_cast<std::size_t>(why)]);
@@ -667,6 +679,11 @@ bool timing_begin(std::uint64_t serial, int section) {
     if (f.active_timing >= 0 || f.timestamp_used + 2 > kFrameTimestamp) {
         return false;
     }
+    // Split, the section's first draw begins a pass of its own (which loads what the last one
+    // stored): the timestamp lies between passes, where a tile-based GPU measures it.
+    if (g->split_pass_timing) {
+        end_rendering(PassEnd::Timing);
+    }
     f.active_timing = static_cast<int>(f.timings.size());
     f.timings.push_back({serial, section, f.timestamp_used});
 #if defined(OPENRAC_GPU_MARKERS)
@@ -705,6 +722,9 @@ void timing_end() {
     auto& f = frame();
     if (f.active_timing < 0) {
         return;
+    }
+    if (g->split_pass_timing) {
+        end_rendering(PassEnd::Timing);
     }
     auto& timing = f.timings[static_cast<std::size_t>(f.active_timing)];
     vkCmdWriteTimestamp(

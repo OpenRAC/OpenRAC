@@ -1656,6 +1656,24 @@ bool hold_present_copy(const std::array<GLint, 8>& r, GLenum filter) {
     return true;
 }
 
+// Ends the open pass with its colour resolved into `dst` when it draws into `src`, a
+// multisampled image, and the blit asks for nothing else: all of it, unscaled and unflipped, into
+// a single-sampled image of the same size and format. False, with nothing done, otherwise.
+bool resolve_in_pass(Image& src, Image& dst, const std::array<GLint, 8>& r) {
+    const bool whole = r[0] == 0 && r[1] == 0 && r[2] == src.width && r[3] == src.height
+                       && r[4] == 0 && r[5] == 0 && r[6] == dst.width && r[7] == dst.height;
+    if (!renderer::render_opt::enabled(renderer::render_opt::Opt::MsaaPassResolve) || !whole
+        || !g->rendering || !g->pass.deferred || g->rendering_target.colour != &src
+        || src.samples == VK_SAMPLE_COUNT_1_BIT || dst.samples != VK_SAMPLE_COUNT_1_BIT
+        || src.format != dst.format || src.width != dst.width || src.height != dst.height
+        || (dst.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0) {
+        return false;
+    }
+    g->pass.resolve_colour = &dst;
+    end_rendering(PassEnd::Copy);
+    return true;
+}
+
 void VKGL blit_framebuffer(
     GLint sx0,
     GLint sy0,
@@ -1672,6 +1690,13 @@ void VKGL blit_framebuffer(
     const Target to = target_of(g->state.draw_framebuffer);
     auto blit_one = [&](Image* src, Image* dst, VkImageAspectFlags aspect, VkFilter f) {
         if (src == nullptr || dst == nullptr || src == dst) {
+            return;
+        }
+        // The whole of the open pass's multisampled colour resolved into an image of its size:
+        // done by the pass itself as it ends (msaa-pass-resolve), not by a copy that reads every
+        // sample back from memory.
+        if (aspect == VK_IMAGE_ASPECT_COLOR_BIT
+            && resolve_in_pass(*src, *dst, {sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1})) {
             return;
         }
         VkCommandBuffer cmd = cmd_for(src, true);

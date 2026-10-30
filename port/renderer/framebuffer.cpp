@@ -143,6 +143,42 @@ bool FrameBuffer::create(
     return true;
 }
 
+bool FrameBuffer::create_depth(int width, int height, std::string& error) {
+    release();
+    m_width = width;
+    m_height = height;
+    m_texture_depth = true;
+    glGenTextures(1, &m_depth);
+    glBindTexture(GL_TEXTURE_2D, m_depth);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_DEPTH_COMPONENT32F,
+        width,
+        height,
+        0,
+        GL_DEPTH_COMPONENT,
+        GL_FLOAT,
+        nullptr
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenFramebuffers(1, &m_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depth, 0);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        error =
+            std::format("depth-only framebuffer {}x{} incomplete ({:#x})", width, height, status);
+        release();
+        return false;
+    }
+    return true;
+}
+
 void FrameBuffer::release() {
     if (m_framebuffer != 0) {
         glDeleteFramebuffers(1, &m_framebuffer);

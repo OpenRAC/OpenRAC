@@ -693,6 +693,10 @@ void drawer(const Shown& shown) {
                     step_slow_cpu(by);
                 }
             }
+            // Each pass's own GPU time on a phone's GPU, at the price of a slower frame.
+            if (pass_timing_available() && drawer_choice("Time GPU passes", pass_timing_name())) {
+                toggle_pass_timing();
+            }
             if (s.developer && drawer_row("Level select")) {
                 set_drawer(false);
                 press(SDLK_F1);

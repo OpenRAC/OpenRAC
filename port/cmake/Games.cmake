@@ -329,6 +329,11 @@ function(openrac_add_game config)
       openrac_moby_class_names(names_cpp)
       target_sources(${target} PRIVATE "${names_cpp}")
       target_compile_definitions(${target} PRIVATE OPENRAC_FRONTEND=1)
+      # The debug tools ask the Vulkan backend itself (vkgl.h) for its tile-based guess and split
+      # pass timing; openrac_fsr3 links it wherever Vulkan is built.
+      if(OPENRAC_VULKAN)
+        target_compile_definitions(${target} PRIVATE OPENRAC_VULKAN=1)
+      endif()
       # The window's icon: the game's own or the launcher's, embedded as PNG bytes.
       openrac_window_icon("${config_dir}" "${target_id}" icon_c)
       target_sources(${target} PRIVATE "${icon_c}")

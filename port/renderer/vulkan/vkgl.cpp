@@ -55,6 +55,16 @@ bool SDLCALL on_event(void*, SDL_Event* event) {
     return true;
 }
 
+// Whether the vendor's GPUs draw in tiles (tile_based()): Arm, Qualcomm, Apple and Imagination.
+// OPENRAC_TILE_BASED decides instead when it is set: 1 for yes, anything else for no.
+bool guess_tile_based(std::uint32_t vendor) {
+    if (const auto chosen = env::value(env::Var::TileBased)) {
+        return *chosen == "1";
+    }
+    constexpr std::array<std::uint32_t, 4> kTiled = {0x13B5, 0x5143, 0x106B, 0x1010};
+    return std::find(kTiled.begin(), kTiled.end(), vendor) != kTiled.end();
+}
+
 bool open(const Config& config, std::string& error) {
     if (g != nullptr) {
         error = "a Vulkan context is open already";
@@ -104,6 +114,8 @@ bool open(const Config& config, std::string& error) {
         return false;
     }
     describe_device();
+    g->tile_based = guess_tile_based(g->properties.vendorID);
+    g->split_pass_timing = env::flag(env::Var::GpuPassTiming);
     if (g->timestamp_bits) {
         stats::set_gpu_hooks({timing_begin, timing_end, nullptr});
     }
@@ -454,6 +466,20 @@ const std::string& api_version() {
 
 bool software() {
     return g != nullptr && g->software;
+}
+
+bool tile_based() {
+    return g != nullptr && g->tile_based;
+}
+
+void set_split_pass_timing(bool on) {
+    if (g != nullptr) {
+        g->split_pass_timing = on;
+    }
+}
+
+bool split_pass_timing() {
+    return g != nullptr && g->split_pass_timing;
 }
 
 }  // namespace openrac::vkgl

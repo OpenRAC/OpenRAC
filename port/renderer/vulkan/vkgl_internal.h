@@ -617,6 +617,10 @@ struct OpenPass {
     VkImageAspectFlags drop_depth = 0;
     // vk_cmds_recorded when the pass began: the same at its end means its buffer holds nothing.
     std::uint64_t commands_at_begin = 0;
+    // A single-sampled image the pass's multisampled colour is resolved into as the pass ends
+    // (msaa-pass-resolve): a blit that resolves the whole of it, made part of the pass, so that
+    // the samples are not read back from memory by a copy of their own. Set just before the end.
+    Image* resolve_colour = nullptr;
 };
 
 // A copy into the default framebuffer that waits for present() (present-single-copy,
@@ -999,6 +1003,8 @@ struct Context {
     VkPhysicalDeviceFeatures features{};
     bool astc_hdr = false;        // Enabled Vulkan 1.3 HDR ASTC sampling.
     bool shader_float16 = false;  // Actually enabled arithmetic, not 16-bit storage support.
+    bool tile_based = false;      // tile_based(): the vendor's guess or OPENRAC_TILE_BASED.
+    bool split_pass_timing = false;  // set_split_pass_timing(): timed sections end their pass.
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;
     VkQueue queue = VK_NULL_HANDLE;
@@ -1271,6 +1277,7 @@ enum class PassEnd : std::uint8_t {
     Barrier,
     Submit,
     Present,
+    Timing,  // split pass timing (set_split_pass_timing)
     Other
 };
 

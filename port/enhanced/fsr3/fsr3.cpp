@@ -11,6 +11,7 @@
 #include "enhanced/fsr3/temporal_math.h"
 #include "fsr3_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
 
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
@@ -19,6 +20,13 @@ namespace openrac::enhanced {
 using namespace openrac::gl;
 
 namespace {
+// The reactive mask's format: one channel (fsr-reactive-r8), or RGBA8 as before it.
+GLenum reactive_format() {
+    return renderer::render_opt::enabled(renderer::render_opt::Opt::FsrReactiveR8)
+               ? 0x8229 /* GL_R8 */
+               : GL_RGBA8;
+}
+
 // Camera discontinuities need fresh accumulation; ordinary movement retains temporal history.
 bool camera_cut(const renderer::Camera& current, const renderer::Camera& previous) {
     float distance_squared = 0;
@@ -93,11 +101,13 @@ bool Fsr3::State::configure(
     if (world.width() != size[0] || world.height() != size[1]) {
         valid = false;
 
-        // RGBA16F preserves signed velocity; R32F stores depth without a stencil aspect.
+        // RGBA16F preserves signed velocity and its history flag; R32F stores depth without a
+        // stencil aspect. Reactivity is one channel, which R8 holds in a quarter of RGBA8's bytes
+        // (the upscaler reads its red alone either way).
         if (!world.create(size[0], size[1], error, 1, true)
             || !motion.create(size[0], size[1], 0x881A, 0, error)
             || !depth.create(size[0], size[1], 0x822E, 0, error)
-            || !reactive.create(size[0], size[1], GL_RGBA8, 0, error)
+            || !reactive.create(size[0], size[1], reactive_format(), 0, error)
             || !opaque.create(size[0], size[1], GL_RGBA8, 0, error)) {
             return false;
         }

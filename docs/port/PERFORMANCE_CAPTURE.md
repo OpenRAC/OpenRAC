@@ -40,6 +40,14 @@ while the game waits for the display. To compare, record once as usual and once 
 times slower. The GPU is not slowed. It gives a rough idea, not an exact match for a real
 weak phone. Works on Linux, Android and macOS.
 
+### Timing each GPU pass on a phone
+
+On Mali and Adreno the GPU time of a section inside a render pass reads about zero: the GPU
+renders the whole pass later, tile by tile. **Time GPU passes** (Developer tools, Vulkan only)
+splits the pass around each timed section so that its GPU time is its own. It makes the frame
+slower, so record once with it for the per-section split and once without it for the frame
+time. The report's **gpu passes** line says which way a recording was made.
+
 ## What the report contains
 
 - **Setup**: build, device, CPU and its clock speeds, thermal state (Android), GPU and

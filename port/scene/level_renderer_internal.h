@@ -5,10 +5,12 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <string>
 
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/math.h"
+#include "renderer/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -43,6 +45,15 @@ inline void release_target(std::unique_ptr<renderer::FrameBuffer>& target) {
 
     target->release();
     target.reset();
+}
+
+// Makes `target` a square map of `size` for the sun's and the hero's shadows (the atlas and its
+// static caches): depth alone (shadow-depth-only), or, as before it, a colour with a depth-stencil
+// texture. Each one that is copied into another must be made the same way, for the same format.
+inline bool create_shadow_target(renderer::FrameBuffer& target, int size, std::string& error) {
+    return renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowDepthOnly)
+               ? target.create_depth(size, size, error)
+               : target.create(size, size, error, 1, true);
 }
 
 // The sides of what a camera sees (its view and projection, column-major), as planes a point is

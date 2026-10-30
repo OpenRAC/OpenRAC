@@ -459,6 +459,13 @@ void step_capture_length(int by);
 std::string slow_cpu_name();
 void step_slow_cpu(int by);
 
+// Split pass timing (vkgl::set_split_pass_timing): available on Vulkan only. Each timed pass then
+// ends its render pass, so that a tile-based GPU (a phone's) reports what each pass costs, and the
+// frame is slower while it is on. The name is "On" or "Off".
+bool pass_timing_available();
+const char* pass_timing_name();
+void toggle_pass_timing();
+
 // Says whether a capture runs or is about to start (or one is due by script), so that the
 // overlay is drawn for its badge; and whether one is counting down to its start.
 bool capture_busy();
