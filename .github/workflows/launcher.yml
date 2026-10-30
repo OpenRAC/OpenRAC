@@ -48,7 +48,9 @@ on:
       - "games/*/game.json"
       - ".github/workflows/launcher.yml"
       - ".github/actions/**"
+  # A pull request into develop builds nothing here: its push to develop builds the dev release.
   pull_request:
+    branches-ignore: [develop]
     paths: *paths
   workflow_dispatch:
 
