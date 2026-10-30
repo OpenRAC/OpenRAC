@@ -34,6 +34,7 @@
 #include "game/common/frontend/effects_dump.h"
 #include "openrac/game_host.h"
 #include "options_menu.h"
+#include "platform/performance_hint.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
 #include "scene/stb_extra.h"
@@ -188,6 +189,9 @@ perf_capture::Context context(const Shown& shown) {
     if (!thermal.empty()) {
         add("thermal", std::format("start {}; end {}", c.thermal_at_start, thermal));
     }
+    // Android: whether the system was told each frame's work (ADPF), so that a recording with
+    // OPENRAC_ADPF_OFF reads as one.
+    add("performance hint", platform::hint_status());
     const renderer::gl_stats::Info& gpu = renderer::gl_stats::info();
     const char* api = s.gl_subset ? "Vulkan" : gl::is_es() ? "OpenGL ES" : "OpenGL";
     add("graphics",

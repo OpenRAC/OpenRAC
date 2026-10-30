@@ -51,6 +51,7 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
+#include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "renderer/direct.h"
 #include "renderer/renderer.h"
@@ -1460,6 +1461,9 @@ void keep_tick(
         k.shadows.clear();
         k.shadow_moby = 0;
         k.level = g->loaded;
+        // A new level's frames cost what they cost: the system forgets the last level's
+        // (performance_hint.h).
+        platform::workload_reset();
     }
     const bool adjacent = g->index == k.frame + 1;
     k.prev_state = k.state;

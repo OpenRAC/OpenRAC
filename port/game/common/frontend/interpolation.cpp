@@ -168,10 +168,12 @@ void swapped(std::chrono::steady_clock::time_point started) {
         pacing.interval = rate > 20.0f ? 1.0 / rate : 0.0;
         pacing.interval_stale = false;
     }
-    // What a frame may take, for the system's CPU clocks (performance_hint.h): a refresh, or the
-    // player's frame cap when it is lower.
+    // What a frame may take, for the system's CPU clocks (performance_hint.h), as the diagnostics
+    // recording sets its target: with frames between ticks a refresh, or the player's frame cap
+    // when it is lower; with a frame a tick (or a refresh not known), the game's tick.
     const double cap = frame_cap();
-    platform::set_frame_target(cap > 0.0 ? std::max(1.0 / cap, pacing.interval) : pacing.interval);
+    const double display = cap > 0.0 ? std::max(1.0 / cap, pacing.interval) : pacing.interval;
+    platform::set_frame_target(interpolating() && display > 0.0 ? display : pacing.period.count());
     if (g->swap == platform::SwapInterval::Immediate || gl::is_vulkan()
         || duration<double>(after - before).count() < 0.0005) {
         // Vulkan's return is not a vblank timestamp, and an immediate GL return
@@ -331,12 +333,22 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
     State& owner = *g;
     const bool queued = g->render_worker->submit(
         [&owner, snapshot = std::move(snapshot)] {
+            // The render thread's share of the frame, for the system's CPU clocks
+            // (performance_hint.h).
+            const auto job_started = std::chrono::steady_clock::now();
+            platform::add_this_thread();
             renderer::g_dump_draws = snapshot->presentation->dump_draws;
             render_scene(owner, *snapshot->scene, snapshot->graphics, *snapshot->presentation);
             sampler::note_thread("render");  // [debug tools] sampled while a capture runs
             // [debug tools] The render thread's share of a simulated slow processor.
-            const stats::Scope slow("simulated slow cpu");
-            slow_cpu::pad();
+            {
+                const stats::Scope slow("simulated slow cpu");
+                slow_cpu::pad();
+            }
+            platform::render_work_done(
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - job_started)
+                    .count()
+            );
         },
         error
     );
@@ -467,11 +479,9 @@ bool finish_render() try {
         g->render_failed = true;
         return false;
     }
-    stats::gauge(
-        "render thread wait ms",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
-            .count()
-    );
+    const std::chrono::duration<double> waited = std::chrono::steady_clock::now() - started;
+    stats::gauge("render thread wait ms", waited.count() * 1000.0);
+    platform::work_waited(waited.count());  // the render thread's work, reported as its own
     present_frame(*output);
     return true;
 } catch (const std::exception& failure) {

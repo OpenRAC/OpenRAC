@@ -25,6 +25,9 @@ constexpr int kHexBase = 16;
 // DEBUGGING.md's rows, which say more.
 // clang-format off: one variable per row: its names, then how it is read, then what it does.
 constexpr std::array<Variable, kVariableCount> kVariables = {{
+    {Var::AdpfOff, "OPENRAC_ADPF_OFF",
+     Kind::Flag, Truth::Set, "off",
+     "Android: no performance hint session (ADPF), for comparison"},
     {Var::Anim, "OPENRAC_ANIM",
      Kind::Flag, Truth::UnlessZero, "on",
      "moby animation; 0 draws every moby in its bind pose"},

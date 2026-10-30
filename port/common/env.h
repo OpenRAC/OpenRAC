@@ -50,6 +50,7 @@ enum class Truth : std::uint8_t {
 // The variables, one per name: each enumerator is the name without OPENRAC_, in PascalCase
 // (OPENRAC_GL_API is GlApi), in the table's order, which is alphabetical by name.
 enum class Var : std::uint16_t {
+    AdpfOff,
     Anim,
     AnimTrace,
     AudioTicked,
