@@ -204,6 +204,7 @@ std::vector<std::uint8_t> direct_packets(
         }
     }
     std::vector<std::uint8_t> gif;
+
     // The GS registers the strips are drawn with, as the DIRECT data before them leaves them (A+D
     // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
     // RGBA (V4-8) at 2 and positions (V3-32) at 3, drawn by an MSCAL (func_L00_001FDE48's packet).
@@ -213,6 +214,7 @@ std::vector<std::uint8_t> direct_packets(
     struct Context {
         std::uint64_t tex0 = 0, tex1 = 0, clamp = 0, alpha = 0x44, test = 0;
     };
+
     std::array<Context, 2> contexts{};
     std::uint64_t reg_prim = 0, reg_fogcol = 0;
     bool strip_context = false;
@@ -376,10 +378,9 @@ std::vector<std::uint8_t> direct_packets(
     };
     const auto origin = [&](std::size_t offset) -> std::uint32_t {
         const auto it = std::upper_bound(
-            origins.begin(),
-            origins.end(),
-            offset,
-            [](std::size_t o, const auto& run) { return o < run.first; }
+            origins.begin(), origins.end(), offset, [](std::size_t o, const auto& run) {
+                return o < run.first;
+            }
         );
         return it == origins.begin()
                    ? 0
@@ -510,12 +511,11 @@ std::vector<std::uint8_t> direct_packets(
                     // is fog_mul over the near plane, the offset fog_add.
                     const float fog_mul = std::bit_cast<float>(vu_fog[3]);
                     strip.fogged = true;
-                    strip.fog = {
-                        (1.0f / renderer::world::kNear) * fog_mul,
-                        std::bit_cast<float>(vu_fog[11]),
-                        std::bit_cast<float>(vu_fog[12]),
-                        std::bit_cast<float>(vu_fog[13])
-                    };
+                    strip.fog =
+                        {(1.0f / renderer::world::kNear) * fog_mul,
+                         std::bit_cast<float>(vu_fog[11]),
+                         std::bit_cast<float>(vu_fog[12]),
+                         std::bit_cast<float>(vu_fog[13])};
                     strip.fog_colour = static_cast<std::uint32_t>(reg_fogcol & 0xFFFFFF);
                 }
                 const auto uv_at = second_texture ? 2u : 0u;

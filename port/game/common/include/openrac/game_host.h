@@ -156,7 +156,9 @@ extern int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* s
  * offset from the hero). `reads` counts the camera's stick reads so far, so that a tick without
  * one shows. Returns 0, with no turn, while that camera does not steer the view, its stick turn
  * is locked or the stick is centred. It only reads the game's memory. */
-extern int (*openrac_game_camera_turn)(uint8_t right_x, float ticks, float* radians, float axis[3], unsigned* reads);
+extern int (*openrac_game_camera_turn)(
+    uint8_t right_x, float ticks, float* radians, float axis[3], unsigned* reads
+);
 
 /* A trap the game raised on purpose, or another reason the game cannot go on: writes a crash
  * report (<data>/crashes) and ends the program. */

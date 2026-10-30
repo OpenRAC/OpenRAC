@@ -1007,6 +1007,7 @@ struct Context {
     // The player's low-latency frames (set_low_latency): the fewest swapchain images, and one
     // frame at a time on the GPU.
     bool low_latency = false;
+
     // Their sleep (latency_sleep): the times it is worked out from, and the frame being drawn's
     // beginning. `marked`: the frontend said when this frame began (latency_begin), so that its
     // wait for the frame before it is left to its queueing (present) instead of its first graphics
@@ -1020,6 +1021,7 @@ struct Context {
         double slept = 0.0;
         double waited = 0.0;
     } latency;
+
     VkFormat depth_format = VK_FORMAT_UNDEFINED;
     VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
     StaticMemory static_memory;  // Where a static buffer's own copy goes (vkgl_resources.cpp).

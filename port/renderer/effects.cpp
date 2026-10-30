@@ -247,6 +247,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         std::uint32_t fog_colour = 0;
         bool operator==(const State&) const = default;
     };
+
     // The GS fog of a strip whose program applies it (EffectStrip::fogged); none for the others.
     bool fog_on = false;
     const auto set_fog = [&](bool fogged, const std::array<float, 4>& line, std::uint32_t colour) {
