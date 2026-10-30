@@ -267,6 +267,7 @@ FUN_0020fa90	game	FUN_0020fa90	host	the port's own (rac1/host/render_native.c); 
 func_L00_00251CE8	game	func_L00_00251CE8	host	the port's own (rac1/host/anim.c); its signature decides the prototype; PAL func_L00_00252D20	void (unsigned int, int)
 FUN_L00_0024d8d0	game	WadDecompress (the levels' copy)	host	the NTSC decomp's catalogue lists the levels' copy apart from the executable's FUN_0020b618 (rac1/host/hand.c)	int (int, int)
 FUN_0022f778	space	FlightUpdate	wrap	the flight between planets, each of its frames: marks the flight as playing for the Start skip (rac1/host/boot.c); PAL func_00230A90	void (void)
+FUN_001f2260	draw	BuildViewMatrices	wrap	the view, clip and cull matrices from the camera's eye and rows: with OPENRAC_CAMERA set, that camera written over the game's first, for looking at one exact view (rac1/host/camera_override.c); PAL func_001F2608	void (void)
 FUN_0022b690	draw	SkyDrawShell	wrap	the shell's matrix (D_001D96E0, built by the sky code before each shell) goes to the window, which draws the shells natively (rac1/host/render_native.c); PAL func_0022C9A8	void (int)
 func_L00_002852C0	game	func_L00_002852C0	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c); PAL func_L00_00286598	void (void)
 func_L03_002DC990	game	func_L03_002DC990	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c); PAL func_L03_002DDD58	void (void)

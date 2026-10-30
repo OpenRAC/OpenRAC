@@ -54,6 +54,7 @@ enum class Var : std::uint16_t {
     Anim,
     AnimTrace,
     AudioTicked,
+    Camera,
     CameraInstanceCullOff,
     CameraLatchLog,
     CamLog,
