@@ -45,10 +45,15 @@ water. The editor's surface selector documents these meanings.
 
 Use a static `.glb` or `.gltf` from an extracted donor level or make your own in
 Blender or another modeling tool and import it into the Godot project. Static imports add
-geometry to the map; they do not add a moby class or enemy behavior. The model
-must use triangle meshes, PNG or JPEG textures, and supported glTF materials. Texture
-and buffer files must be inside the donor level or creator project; `.gltf` buffer files
-are flattened into the project-local import. Unsupported animation, skinning and behavior are refused.
+geometry to the map; they do not add a moby class or enemy behavior. Adding a class
+from another level is not supported because its core data and native update code are
+level-specific. The packer rejects a class absent from the target level's core. It also
+rejects a class with no existing instance to copy initialized per-object data from.
+Use a class already placed in the target level or add its model as static scenery.
+Models must use triangle meshes, PNG or JPEG textures, and supported glTF materials.
+Texture and buffer files must be inside the donor level or creator project; `.gltf`
+buffer files are flattened into the project-local import. Unsupported animation,
+skinning and behavior are refused.
 
 For a model already in the Godot project, open the extracted level scene and
 choose **Add static glTF model to map** in the Collision dock. The editor instances it

@@ -221,7 +221,8 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
     return edits
 
 
-def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[str], list[str]]:
+def pack_level(level_id: int, gameplay: bytes, scene: str,
+               available_classes: set[int] | None = None) -> tuple[bytes, list[str], list[str]]:
     """The gameplay file with the scene's edits, what changed, and what could not be packed.
 
     A moby the scene has once keeps its place in the table. A node with the index of another
@@ -258,6 +259,22 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
         try:
             if index is not None and owner[index] is node:
                 record = dict(zip(FIELDS, RECORD.unpack(raw[index])))
+                target_class = node["class_id"]
+                if (available_classes is not None and target_class is not None
+                        and target_class != record["class_id"]):
+                    if target_class not in available_classes:
+                        problems.append(
+                            f"{node['name']}: class {target_class} is not in this level's core class table; "
+                            "native classes from another level are not supported yet. Use a class available in "
+                            "this level or import the model as static scenery."
+                        )
+                    elif target_class not in {m["class_id"] for m in originals}:
+                        problems.append(
+                            f"{node['name']}: class {target_class} exists in this level's core, but there is "
+                            "no placed instance to copy initialized pvars from; changing to this class cannot "
+                            "be packed safely. Use a class with an existing instance or import the model as "
+                            "static scenery."
+                        )
                 edits = apply(node, record, originals[index], True, problems)
                 kept[index] = RECORD.pack(*(record[f] for f in FIELDS)) if edits else raw[index]
                 if edits:
@@ -273,8 +290,21 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
                 record = dict.fromkeys(FIELDS, 0)
                 record.update(USUAL, size=SIZE, class_id=node["class_id"], scale=1.0, group=-1, pvar_index=-1,
                               r=128, g=128, b=128)
-                problems.append(f"{node['name']}: the level has no moby of class {node['class_id']} to take "
-                                "after; added with the usual values and no pvars")
+                if available_classes is not None and node["class_id"] not in available_classes:
+                    problems.append(
+                        f"{node['name']}: class {node['class_id']} is not in this level's core class table; "
+                        "native classes from another level are not supported yet. Use a class available in "
+                        "this level or import the model as static scenery."
+                    )
+                elif available_classes is not None:
+                    problems.append(
+                        f"{node['name']}: class {node['class_id']} exists in this level's core, but there is "
+                        "no placed instance to copy initialized pvars from; this class cannot be added safely. "
+                        "Use a class with an existing instance or import the model as static scenery."
+                    )
+                else:
+                    problems.append(f"{node['name']}: the level has no moby of class {node['class_id']} to take "
+                                    "after; added with the usual values and no pvars")
             else:
                 record = dict(zip(FIELDS, RECORD.unpack(raw[model])))
             source_pvar = record["pvar_index"] if model is not None else -1
@@ -490,7 +520,14 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             static_instances = static_assets.placements(scene.parents[2], text)
         except (ValueError, KeyError, IndexError) as error:
             raise FormatError(f'Static import placement: {error}', code="static-import") from None
-        edited, changes, problems = pack_level(info["id"], gameplay, text)
+        original_classes = {m["class_id"] for m in moby_instances(gameplay)}
+        authored_classes = {n["class_id"] for n in scene_mobys(text) if n["class_id"] is not None}
+        available_classes = None
+        if authored_classes - original_classes:
+            target_level = load_level(disc, info)
+            available_classes = {struct.unpack_from("<i", entry, 4)[0]
+                                 for entry in target_level.table(0x18, 32)}
+        edited, changes, problems = pack_level(info["id"], gameplay, text, available_classes)
         if edited != gameplay and len(edited) > EXPANDED_RAM_BYTES:
             raise FormatError(f"level {info['id']:02}: decoded gameplay data is {len(edited)} bytes; it cannot "
                               "fit in the 256 MiB expanded guest RAM arena", code="level-too-big")
