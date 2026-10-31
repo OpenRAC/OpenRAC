@@ -58,6 +58,7 @@ RESOURCE = re.compile(r'^\[ext_resource [^\]]*path="([^"]+)"[^\]]*id="([^"]+)"')
 CLASS_SCENE = re.compile(r"/(moby|tie|shrub)_(\d+)\.(?:tscn|glb)$")
 PROPERTY = re.compile(r"^([A-Za-z_/0-9]+) = (.*)$")
 RAC1_SPAWN_ID_COUNT = 0x800  # RAC1's 64-word per-level killed-state bitset.
+VANILLA_RAM_BYTES = 32 * 1024 * 1024
 EXPANDED_RAM_BYTES = 256 * 1024 * 1024  # The largest guest arena selected for virtual level streams.
 IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
 
@@ -427,7 +428,7 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
                           "the 256 MiB expanded guest RAM arena", code="level-too-big")
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
     expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress,
-                                                   force=force_expanded_ram)
+                                                   force=force_expanded_ram or len(core) > VANILLA_RAM_BYTES)
     core_stream = compress(core, data[struct.unpack_from("<i", data, 10 * 8)[0]:][:16])
     changes.append(
         f"level core size: {len(core)} bytes decoded; {len(core_stream)} compressed; "
@@ -534,12 +535,17 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         if decoded(stream) != edited:
             raise FormatError(f"level {info['id']}: the packed file does not read back", code="pack-internal")
         room = place["sectors"] * SECTOR
+        if len(stream) > room:
+            storage = "stored in expanded virtual sectors"
+        elif len(edited) > VANILLA_RAM_BYTES:
+            storage = "stored in virtual sectors to select the expanded RAM arena"
+        else:
+            storage = "fits disc slot"
         report.append(
             f"  gameplay size: {len(edited)} bytes decoded; {len(stream)} compressed, "
-            f"disc slot {room} bytes"
-            + (" (fits disc slot)" if len(stream) <= room else " (stored in expanded virtual sectors)")
+            f"disc slot {room} bytes ({storage})"
         )
-        if len(stream) <= room:
+        if len(stream) <= room and len(edited) <= VANILLA_RAM_BYTES:
             file = f"{name}/gameplay_{disc.version.key}.wad"
             (out / file).parent.mkdir(parents=True, exist_ok=True)
             (out / file).write_bytes(stream + bytes(room - len(stream)))

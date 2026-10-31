@@ -316,8 +316,11 @@ How it stays exact ([pack.py](pack.py), [wadpack.py](wadpack.py)):
   crosses, each ending with a skip and unused room after it, and no literal
   run after a literal run. Re-encoding the original files is smaller than
   retail's for every level. Edits can make a stream larger than its disc slot;
-  the packer then stores it in a virtual sector range in the mod, leaving the
-  disc and vanilla read path untouched (see [Pack](#pack-your-edits)). Expanded
+  the packer then stores it in a virtual sector range in the mod. It also uses
+  virtual sectors when decoded gameplay or core data grows beyond 32 MiB even
+  if compression still fits the disc slot, so the launcher selects the expanded
+  arena the stream requires. The disc and vanilla read path stay untouched (see
+  [Pack](#pack-your-edits)). Expanded
   streams use a bounded 256 MiB guest RAM arena and remain subject to RAC1's
   game-owned table, address, and heap limits. The packer rejects edited gameplay
   or core data whose decoded stream alone exceeds 256 MiB; a level's other
