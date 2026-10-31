@@ -30,25 +30,26 @@ extern s32   allocate_voice_for_target_entry_u(s32, s32, void *) __asm__("func_0
 extern void  sample_camera_path(void *, s32, void *, void *, s32, f32) __asm__("func_00214E58");
 s32          is_point_inside_clip_volume(s32 arg0, s32 arg1) __asm__("FUN_00214720");
 
-void update_path_following_rocket(struct Moby *moby) __asm__("FUN_L16_002c3d38");
+void path_following_rocket_update(struct Moby *moby) __asm__("FUN_L16_002c3d38");
 
-void update_path_following_rocket(struct Moby *moby) {
+/* Moby class 257 */
+void path_following_rocket_update(struct Moby *moby) {
     enum {
         ROCKET_STATE_INITIALIZE = 0,
         ROCKET_STATE_WAIT_FOR_TRIGGER = 1,
         ROCKET_STATE_FOLLOW_PATH = 2,
         ROCKET_STATE_WAIT_FOR_RESET = 3
     };
-    char *data = (char *)moby->pvars;
-    char *path = D_L16_001B0930[*(int *)(data + 4)];
+    char *rocket_path_data = (char *)moby->pvars;
+    char *path = D_L16_001B0930[*(int *)(rocket_path_data + 4)];
     switch (moby->state) {
     case ROCKET_STATE_INITIALIZE:
-        if (*(int *)data == -1 || *(int *)(data + 4) == -1) {
+        if (*(int *)rocket_path_data == -1 || *(int *)(rocket_path_data + 4) == -1) {
             mark_moby_for_removal(moby);
             break;
         }
-        *(float *)(data + 0xC) =
-            *(float *)(data + 8) * D_0015ED6C / fast_vec_dist(path + 0x10, path + 0x20);
+        *(float *)(rocket_path_data + 0xC) =
+            *(float *)(rocket_path_data + 8) * D_0015ED6C / fast_vec_dist(path + 0x10, path + 0x20);
         moby->state = 1;
         moby->update_dist = 100;
         moby->command = 0;
@@ -57,29 +58,29 @@ void update_path_following_rocket(struct Moby *moby) {
         struct Hero *player = &hero;
         if (player->state.control_mode != 15)
             break;
-        if (is_point_inside_clip_volume(&player->motion.body_center, *(int *)data)) {
+        if (is_point_inside_clip_volume(&player->motion.body_center, *(int *)rocket_path_data)) {
             moby->state = 2;
-            *(short *)(data + 0x16) = 0;
+            *(short *)(rocket_path_data + 0x16) = 0;
         }
         break;
     }
     case ROCKET_STATE_FOLLOW_PATH:
-        *(float *)(data + 0x10) += *(float *)(data + 0xC);
-        if ((float)(*(int *)path - 1) <= *(float *)(data + 0x10)) {
+        *(float *)(rocket_path_data + 0x10) += *(float *)(rocket_path_data + 0xC);
+        if ((float)(*(int *)path - 1) <= *(float *)(rocket_path_data + 0x10)) {
             moby->update_dist = 0xFF;
             moby->state = 3;
         } else {
             sample_camera_path(
-                (int *)path, 0, &moby->pos, &moby->rot.x, 0, *(float *)(data + 0x10));
+                (int *)path, 0, &moby->pos, &moby->rot.x, 0, *(float *)(rocket_path_data + 0x10));
         }
         if (moby->command)
             moby->collision = 0;
-        if (!voice_is_playing(moby, *(short *)(data + 0x14))) {
-            *(short *)(data + 0x14) = allocate_voice_for_target_entry(0, 4, moby);
+        if (!voice_is_playing(moby, *(short *)(rocket_path_data + 0x14))) {
+            *(short *)(rocket_path_data + 0x14) = allocate_voice_for_target_entry(0, 4, moby);
         }
-        if (*(short *)(data + 0x16) == 0 &&
+        if (*(short *)(rocket_path_data + 0x16) == 0 &&
             vector_distance_xy(&moby->pos, (char *)(&hero.motion.pos)) < 7.0f) {
-            *(short *)(data + 0x16) = 1;
+            *(short *)(rocket_path_data + 0x16) = 1;
             allocate_voice_for_target_entry_u(1, 0, moby);
         }
         break;
@@ -95,13 +96,17 @@ void update_path_following_rocket(struct Moby *moby) {
             pos[3] = 3.0f;
             if (fast_bsphere_check((char *)pos, 64.0f) == -1) {
                 moby->command = 0;
-                *(int *)(data + 0x10) = 0;
-                sample_camera_path(
-                    (int *)path, 0, &moby->pos, &moby->rot.x, 0, *(float *)(data + 0x10));
+                *(int *)(rocket_path_data + 0x10) = 0;
+                sample_camera_path((int *)path,
+                                   0,
+                                   &moby->pos,
+                                   &moby->rot.x,
+                                   0,
+                                   *(float *)(rocket_path_data + 0x10));
                 moby->visible = 1;
                 moby->flags &= ~1;
                 moby->collision = moby->pclass->collision;
-                *(short *)(data + 0x16) = 0;
+                *(short *)(rocket_path_data + 0x16) = 0;
                 moby->state = 1;
             }
         }

@@ -47,10 +47,10 @@ struct Spark_c8e0 {
     } draw;
 };
 
-extern f32 D_L05_00161FC8_gp __asm__("D_L05_00161FC8") __attribute__((sda));
+f32 breakable_lamp_tip_distance_gp __asm__("D_L05_00161FC8") = 4.0f;
 
-extern f32  debris_axis_launch_speed_gp __asm__("D_L05_00161FD0") __attribute__((sda));
-extern f32  debris_upward_launch_speed_gp __asm__("D_L05_00161FD4") __attribute__((sda));
+f32         debris_axis_launch_speed_gp __asm__("D_L05_00161FD0") = 0.075f;
+f32         debris_upward_launch_speed_gp __asm__("D_L05_00161FD4") = 0.08f;
 extern void allocate_voice_for_target_entry(s32, s32, struct Moby *) __asm__("FUN_0022da68");
 extern struct Moby *spawn_debris_c8e0(f32,
                                       struct Moby *,
@@ -72,10 +72,11 @@ extern char *spawn_moby_class_5ea_from_source(unsigned char *) __asm__("FUN_L05_
 void         draw_moby_glow_sprite(char *m) __asm__("FUN_L05_0031cf58");
 
 /* Mine update: sets its glow, fades it out with camera distance and blows up into debris, smoke and sparks when something touches it. */
-void update_moby_glow_and_contact_explosion(struct Moby *moby) __asm__("FUN_L05_0031c8e0");
+void breakable_lamp_update(struct Moby *moby) __asm__("FUN_L05_0031c8e0");
 
-void update_moby_glow_and_contact_explosion(struct Moby *moby) {
-    struct MineVars_c8e0  *vars = (struct MineVars_c8e0 *)moby->pvars;
+/* Moby class 1511 */
+void breakable_lamp_update(struct Moby *moby) {
+    struct MineVars_c8e0  *glow_and_spark_state = (struct MineVars_c8e0 *)moby->pvars;
     Vec4                   tip;
     Vec4                   debris_velocity;
     Vec4                   effect_motion;
@@ -97,8 +98,12 @@ void update_moby_glow_and_contact_explosion(struct Moby *moby) {
 
     if (moby->state == 0) {
         moby->state = 1;
-        moby->glow_color = (0x7F000000 | vars->glow_b << 16 | vars->glow_g << 8) | vars->glow_r;
-        vars->color = vars->spark_b << 16 | vars->spark_g << 8 | vars->spark_r;
+        moby->glow_color =
+            (0x7F000000 | glow_and_spark_state->glow_b << 16 | glow_and_spark_state->glow_g << 8) |
+            glow_and_spark_state->glow_r;
+        glow_and_spark_state->color = glow_and_spark_state->spark_b << 16 |
+                                      glow_and_spark_state->spark_g << 8 |
+                                      glow_and_spark_state->spark_r;
     }
     distance = vector_distance_xy(D_L05_001671C0, &moby->pos);
     if (48.0f <= distance) {
@@ -106,10 +111,10 @@ void update_moby_glow_and_contact_explosion(struct Moby *moby) {
     }
     if (32.0f <= distance) {
         fade = (distance - 32.0f) * 0.0625f;
-        vars->alpha =
-            truncate_float_to_s32(convert_integer_to_float(vars->max_alpha) * (1.0f - fade));
+        glow_and_spark_state->alpha = truncate_float_to_s32(
+            convert_integer_to_float(glow_and_spark_state->max_alpha) * (1.0f - fade));
     } else {
-        vars->alpha = vars->max_alpha;
+        glow_and_spark_state->alpha = glow_and_spark_state->max_alpha;
     }
     add_draw_callback(draw_moby_glow_sprite, moby);
     hit = find_moby_hit(moby, 0x810000, 0);
@@ -117,7 +122,7 @@ void update_moby_glow_and_contact_explosion(struct Moby *moby) {
     if (hit == 0) {
         return;
     }
-    fast_vec_scale(&tip, &moby->rot_row2, D_L05_00161FC8_gp);
+    fast_vec_scale(&tip, &moby->rot_row2, breakable_lamp_tip_distance_gp);
     fast_vec_add(&tip, &moby->pos, &tip);
     if (!(*(s32 *)(hit + 0x24) & 0x800000) && !(fast_vec_dist(&tip, hit) <= 0.8f)) {
         if ((*(struct Moby **)(hit + 0x20))->oclass != 0x47) {
@@ -193,7 +198,7 @@ void update_moby_glow_and_contact_explosion(struct Moby *moby) {
                          frames,
                          size * 0.1f,
                          size,
-                         vars->color | 0x7F000000,
+                         glow_and_spark_state->color | 0x7F000000,
                          0,
                          sign,
                          &effect_motion,
@@ -268,7 +273,7 @@ void draw_moby_glow_sprite(char *m) {
     pk.uv[5] = 0.0f;
     pk.uv[6] = 1.0f;
     pk.uv[7] = 1.0f;
-    fast_vec_scale(sprite_offset, m + 0xE0, *(float *)&D_L05_00161FC8_gp);
+    fast_vec_scale(sprite_offset, m + 0xE0, *(float *)&breakable_lamp_tip_distance_gp);
     fast_vec_add(M[3], m + 0x10, sprite_offset);
     fast_vec_sub(M[0], D_L05_001671C0_lui, M[3]);
     fast_vec_normalize(M[0], M[0], 1.0f);

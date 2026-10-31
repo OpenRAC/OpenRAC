@@ -43,14 +43,14 @@ extern void build_look_at_matrix(void *out, void *dir, void *axis, f32 ang) __as
 extern float D_0015ED6C MACRO_ADDR;
 extern void             draw_geometry_quad(void *, void *, int) __asm__("FUN_001f7d30");
 
-extern float FUN_L04_001f1978(float);
-extern s32   rand(void);
-extern int   spiderbot_effect_spawn_count_gp __asm__("D_L15_00161558") __attribute__((sda));
-extern float spiderbot_effect_scale_gp __asm__("D_L15_0016155C") __attribute__((sda));
-extern float spiderbot_effect_lifetime_range_end_gp __asm__("D_L15_00161560") __attribute__((sda));
-extern u8    D_L15_00174460[];
-extern void  draw_spiderbot_effect_quad() __asm__("FUN_L15_002a7628");
-void         normalize_vector_triplet(f32 *vectors) __asm__("FUN_00214128");
+extern float          FUN_L04_001f1978(float);
+extern s32            rand(void);
+int                   spiderbot_effect_spawn_count_gp __asm__("D_L15_00161558") = 40;
+float                 spiderbot_effect_scale_gp __asm__("D_L15_0016155C") = 0.75f;
+float                 spiderbot_effect_lifetime_range_end_gp __asm__("D_L15_00161560") = 5.0f;
+extern u8             D_L15_00174460[];
+extern void           draw_spiderbot_effect_quad() __asm__("FUN_L15_002a7628");
+void                  normalize_vector_triplet(f32 *vectors) __asm__("FUN_00214128");
 extern unsigned char *func_L00_00273F80_r(float        *pos,
                                           char         *vel,
                                           int           color,
@@ -69,6 +69,7 @@ void draw_spiderbot_effect_quad(char *moby) __asm__("FUN_L15_002a7628");
 
 void spiderbot_update(unsigned char *moby) __asm__("FUN_L15_002a6e68");
 
+/* Moby class 123 */
 void spiderbot_update(unsigned char *moby) {
     enum {
         SPIDERBOT_INITIALIZE = 0,
@@ -76,19 +77,19 @@ void spiderbot_update(unsigned char *moby) {
         SPIDERBOT_ARC_OSCILLATION = 2,
         SPIDERBOT_LINEAR_OSCILLATION = 3
     };
-    float          old[4];
+    float          previous_moby_position[4];
     float          A[4];
     float          B[4];
     float          C[4];
     unsigned char *moby_data = ((unsigned char *)MOBY(moby)->pvars);
-    *(u128_2A8090 *)old = *(u128_2A8090 *)(moby + 0x10);
+    *(u128_2A8090 *)previous_moby_position = *(u128_2A8090 *)(moby + 0x10);
     {
         float D[4];
         float M[16];
         float T[4];
         switch (moby[0x20]) {
         case SPIDERBOT_INITIALIZE:
-            *(u128_2A8090 *)moby_data = *(u128_2A8090 *)old;
+            *(u128_2A8090 *)moby_data = *(u128_2A8090 *)previous_moby_position;
             MOBY(moby)->anim_speed = *(float *)(moby_data + 0x30) / 1.5f;
             *(float *)(moby_data + 0x28) = *(float *)(moby_data + 0x28) * 0.017453292f;
             if (*(int *)(moby_data + 0x20) == 0) {
@@ -203,7 +204,7 @@ void spiderbot_update(unsigned char *moby) {
         R.fC = 5627.9248f;
         R.b18 = 1;
         R.b19 = 1;
-        fast_vec_sub(T2, moby + 0x10, old);
+        fast_vec_sub(T2, moby + 0x10, previous_moby_position);
         *(u128_2A8090 *)C = *(u128_2A8090 *)T2;
         collision_line(moby + 0x10, A, 9, moby, &R);
         if (collision_line(moby + 0x10, A, 2, 0, 0)) {

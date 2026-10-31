@@ -24,8 +24,8 @@ FUN_L00_00259bc8_2c7530(float, void *, void *, int, void *, void *) __asm__("FUN
 extern void spawn_type_14_particle(int, void *) __asm__("FUN_L01_00280970");
 extern void FUN_0020c828(void *);
 
-extern s32 moby_motion_particle_random_sign_base_gp __asm__("D_L01_00161494") __attribute__((sda));
-extern f32 moby_motion_collision_radius_gp __asm__("D_L01_0016149C") __attribute__((sda));
+s32 moby_motion_particle_random_sign_base_gp __asm__("D_L01_00161494") = 8;
+f32 moby_motion_collision_radius_gp __asm__("D_L01_0016149C") = 0.25f;
 
 /* spawns two bursts of particles around a point */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002B90A8.c: func_L01_002C84D8), where it is exact; names translated to the US level program. */
@@ -67,15 +67,16 @@ void spawn_collision_particle_bursts(void) {
     }
 }
 
-void update_billboard_projectile(char *moby) __asm__("FUN_L01_002c7530");
+void billboard_projectile_update(char *moby) __asm__("FUN_L01_002c7530");
 
-void update_billboard_projectile(char *moby) {
+/* Moby class 156 */
+void billboard_projectile_update(char *moby) {
     enum {
         UPDATE_TRANSFORM_ONLY = 0,
         COLLISION_CHECK_AND_COUNTDOWN = 1,
         TIMED_REMOVAL = 2
     };
-    int  *data = ((int *)MOBY(moby)->pvars);
+    int  *motion_lifetime_vars = ((int *)MOBY(moby)->pvars);
     char *camera = D_L01_00167240;
     char  hit[0x30];
     float normal[4];
@@ -86,15 +87,15 @@ void update_billboard_projectile(char *moby) {
     MOBY(moby)->rot.y = -fast_arc_tan(distance, *(float *)(camera + 0x148) - MOBY(moby)->pos.z);
     MOBY(moby)->rot.z = fast_arc_tan(*(float *)(camera + 0x140) - MOBY(moby)->pos.x,
                                      *(float *)(camera + 0x144) - MOBY(moby)->pos.y);
-    MOBY(moby)->rot.x = fast_add_rotations(MOBY(moby)->rot.x, *(float *)(data + 3));
-    fast_vec_add(moby + 0x10, moby + 0x10, data + 8);
+    MOBY(moby)->rot.x = fast_add_rotations(MOBY(moby)->rot.x, *(float *)(motion_lifetime_vars + 3));
+    fast_vec_add(moby + 0x10, moby + 0x10, motion_lifetime_vars + 8);
     switch ((u8)moby[0x20]) {
     case COLLISION_CHECK_AND_COUNTDOWN:
         spawn_type_14_particle(moby_motion_particle_random_sign_base_gp, moby);
-        fast_vec_normalize(normal, data + 8, 1.0f);
+        fast_vec_normalize(normal, motion_lifetime_vars + 8, 1.0f);
         make_hit_descriptor(hit, moby, 0, 0.0f, normal);
         if (collect_mobies_in_sphere(
-                moby_motion_collision_radius_gp, moby + 0x10, 0x10, data[6], hit) &&
+                moby_motion_collision_radius_gp, moby + 0x10, 0x10, motion_lifetime_vars[6], hit) &&
             !noop_callback_l(moby)) {
             CollisionHit *contact = (CollisionHit *)D_L01_001742C0;
             if (contact->moby != 0)
@@ -103,22 +104,23 @@ void update_billboard_projectile(char *moby) {
             ((void (*)(void *))spawn_collision_particle_bursts)(moby);
             goto remove;
         }
-        if (fast_dec_timer(data)) {
-            data[0] = scale_game_frames(0x1e);
+        if (fast_dec_timer(motion_lifetime_vars)) {
+            motion_lifetime_vars[0] = scale_game_frames(0x1e);
             moby[0x20] = 2;
-            if (data[4] != 0)
-                data[4] = 0;
+            if (motion_lifetime_vars[4] != 0)
+                motion_lifetime_vars[4] = 0;
         }
         break;
     case UPDATE_TRANSFORM_ONLY:
         break;
     case TIMED_REMOVAL:
-        if (fast_dec_timer(data)) {
+        if (fast_dec_timer(motion_lifetime_vars)) {
         remove:
             FUN_0020c828(moby);
         } else {
             int duration = scale_game_frames(0x1e);
-            moby[0x23] = truncate_float_to_s32((float)data[0] * (127.0f / (float)duration));
+            moby[0x23] =
+                truncate_float_to_s32((float)motion_lifetime_vars[0] * (127.0f / (float)duration));
         }
         break;
     }

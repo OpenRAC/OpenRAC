@@ -18,23 +18,25 @@ extern void add_draw_callback(void *, void *) __asm__("FUN_001f4600");
 
 extern void draw_level_12_effects(void) __asm__("FUN_L12_002e71b0");
 
-void       update_effects_draw_trigger(struct Moby *moby) __asm__("FUN_L12_002e7208");
+void       effects_draw_trigger_update(struct Moby *moby) __asm__("FUN_L12_002e7208");
 extern s32 is_point_inside_clip_volume(void *, s32) __asm__("FUN_00214720");
 
-void update_effects_draw_trigger(struct Moby *moby) {
+/* Moby class 293 */
+void effects_draw_trigger_update(struct Moby *moby) {
     enum {
         DRAW_CALLBACK_INITIALIZE = 0,
         DRAW_CALLBACK_CHECK_VOLUME_AND_REGISTER = 1
     };
-    char *data = (char *)moby->pvars;
+    char *draw_callback_vars = (char *)moby->pvars;
     switch (moby->state) {
     case DRAW_CALLBACK_INITIALIZE:
         moby->state = 1;
         moby->update_dist = 0xFF;
         break;
     case DRAW_CALLBACK_CHECK_VOLUME_AND_REGISTER: {
-        int value = *(int *)(data + 0xC);
-        if (value == -1 || is_point_inside_clip_volume(D_L12_00167240, value)) {
+        int clip_volume_index = *(int *)(draw_callback_vars + 0xC);
+        if (clip_volume_index == -1 ||
+            is_point_inside_clip_volume(D_L12_00167240, clip_volume_index)) {
             add_draw_callback((void *)draw_level_12_effects, moby);
         }
     } break;

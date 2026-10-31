@@ -45,9 +45,10 @@ void       draw_trespasser_barrier_quads(struct Moby *moby) __asm__("FUN_L18_002
 extern void draw_trespasser_barrier_quads(struct Moby *) __asm__("FUN_L18_002f1fd8");
 extern void release_voice_slot(s32) __asm__("FUN_0022d798");
 
-void update_trespasser_barrier(struct Moby *moby) __asm__("FUN_L18_002f1e68");
+void trespasser_barrier_update(struct Moby *moby) __asm__("FUN_L18_002f1e68");
 
-void update_trespasser_barrier(struct Moby *moby) {
+/* Moby class 1392 */
+void trespasser_barrier_update(struct Moby *moby) {
     enum {
         GLOW_INITIALIZE = 0,
         GLOW_ACTIVE = 1,
@@ -103,13 +104,14 @@ extern float D_0015ED6C;
 
 #include "rnc/overlay/l18/mobys/trespasser_barrier_globals.h"
 
-extern f32 glow_moby_phase_rate_gp __asm__("D_L18_001622E0") __attribute__((sda));
+f32 glow_moby_phase_rate_gp __asm__("D_L18_001622E0") = 2.0f;
 
 #include "rnc/overlay/l18/mobys/trespasser_barrier_data/draw_trespasser_barrier_quads.h"
 
-extern int glow_moby_phase_blend_start_color_gp __asm__("D_L18_001622C8") __attribute__((sda));
-extern int glow_moby_phase_blend_end_color_gp __asm__("D_L18_001622CC") __attribute__((sda));
-extern f32 glow_moby_layer_z_step_gp __asm__("D_L18_001622D0") __attribute__((sda));
+int glow_moby_phase_blend_start_color_gp __asm__("D_L18_001622C8") =
+    0x3000ff00; /* RGBA, 0xAABBGGRR */
+int        glow_moby_phase_blend_end_color_gp __asm__("D_L18_001622CC") = 0xc0ff;
+f32        glow_moby_layer_z_step_gp __asm__("D_L18_001622D0") = 2.035f;
 extern f32 D_L18_001622D4 __attribute__((sda));
 
 f32 D_L18_001DA350[4][2] = {
@@ -124,7 +126,7 @@ extern u128 glow_moby_quad_base_positions[4] __asm__("D_L18_001DA370");
 void draw_trespasser_barrier_quads(struct Moby *moby) {
     struct GeometryQuad quads[4];
     float               matrix[4][4] __attribute__((aligned(16)));
-    struct GlowVars    *vars;
+    struct GlowVars    *glow_moby_render_vars;
     float               alpha;
     float               step;
     float               phase;
@@ -133,17 +135,17 @@ void draw_trespasser_barrier_quads(struct Moby *moby) {
     int                 j;
     int                 pass;
 
-    vars = (struct GlowVars *)moby->pvars;
+    glow_moby_render_vars = (struct GlowVars *)moby->pvars;
     copy_matrix_rotation(matrix, &moby->rot_row0);
     qcopy(matrix[3], &moby->pos);
     matrix[3][3] = 1.0f;
-    vars->scroll += glow_moby_phase_rate_gp * D_0015ED6C;
-    if (1.0f < vars->scroll) {
-        vars->scroll -= 1.0f;
+    glow_moby_render_vars->scroll += glow_moby_phase_rate_gp * D_0015ED6C;
+    if (1.0f < glow_moby_render_vars->scroll) {
+        glow_moby_render_vars->scroll -= 1.0f;
     }
     alpha = (48.0f - fast_vec_dist(&moby->pos, D_L18_001677C0)) * 0.25f;
-    if (vars->max_alpha < alpha) {
-        alpha = vars->max_alpha;
+    if (glow_moby_render_vars->max_alpha < alpha) {
+        alpha = glow_moby_render_vars->max_alpha;
     } else if (alpha < 0.0f) {
         alpha = 0.0f;
     }
@@ -156,7 +158,7 @@ void draw_trespasser_barrier_quads(struct Moby *moby) {
                              ((u64)glow_moby_blend_subtrahend_selector_gp << 2) |
                              ((u64)glow_moby_blend_factor_selector_gp << 4) |
                              ((u64)glow_moby_blend_addend_selector_gp << 6) | 0x8000000000ULL;
-        phase = vars->scroll + i * step;
+        phase = glow_moby_render_vars->scroll + i * step;
         phase = phase - (float)truncate_float_to_s32(phase);
         color = fast_tween_color(
             glow_moby_phase_blend_start_color_gp, glow_moby_phase_blend_end_color_gp, phase);

@@ -95,9 +95,9 @@ extern void update_joint_animation(float, float, void *, void *, int) __asm__("F
 extern void begin_dialogue_camera_transition(void *, float) __asm__("FUN_L01_002783a8");
 extern void memcard_save_data(int, int) __asm__("FUN_0020b178");
 
-extern G_q           D_L01_0016CCE0_q __asm__("D_L01_0016CCE0");
-extern unsigned char D_L01_0017C8C0_lui[] __asm__("D_L01_0017C8C0") NOT_SDA;
-extern float         cutscene_big_head_scale_gp __asm__("D_L01_00161D30") __attribute__((sda));
+extern G_q                      D_L01_0016CCE0_q __asm__("D_L01_0016CCE0");
+extern unsigned char            D_L01_0017C8C0_lui[] __asm__("D_L01_0017C8C0") NOT_SDA;
+float                           cutscene_big_head_scale_gp __asm__("D_L01_00161D30") = 2.1f;
 extern unsigned char D_0013DD42 NOT_SDA;
 extern char                     plumber_level_one_dialogue_data[] __asm__("D_L01_0020B600");
 extern char                     plumber_level_eight_dialogue_data[] __asm__("D_L01_00161D38");
@@ -140,6 +140,7 @@ void attach_cutscene_big_head_manipulator(struct Moby *class_reference_moby) {
 /* Watcher moby update with a level-specific state script, then turns its head toward the hero or a random target. */
 void the_plumber_update(L01WatchMoby *m) __asm__("FUN_L01_002ff118");
 
+/* Moby class 774 */
 void the_plumber_update(L01WatchMoby *plumber_moby) {
     enum {
         PLUMBER_INITIALIZE = 0,
@@ -150,7 +151,7 @@ void the_plumber_update(L01WatchMoby *plumber_moby) {
         PLUMBER_LEVEL_EIGHT_POST_DIALOGUE = 5,
         PLUMBER_LEVEL_EIGHT_DIALOGUE_FINISHED = 6
     };
-    L01WatchScratch scratch;
+    L01WatchScratch look_tracking_vectors;
     L01WatchData   *plumber_vars = (L01WatchData *)plumber_moby->data;
     float           rate;
     float           head_rate;
@@ -268,22 +269,25 @@ void the_plumber_update(L01WatchMoby *plumber_moby) {
             fast_vec_add(plumber_vars->target, plumber_vars->target, plumber_moby->position);
         }
         if (plumber_vars->moving_timer) {
-            qcopy(scratch.target, hero.motion.body_center.f);
+            qcopy(look_tracking_vectors.target, hero.motion.body_center.f);
             rate = 0.04f;
             head_rate = 0.3f;
         } else {
-            qcopy(scratch.target, plumber_vars->target);
+            qcopy(look_tracking_vectors.target, plumber_vars->target);
         }
     }
     if (tracking) {
         float yaw;
         float pitch;
-        qcopy(scratch.eye, plumber_moby->position);
-        scratch.eye[2] += 1.0f;
-        fast_vec_sub(scratch.delta, scratch.target, scratch.eye);
-        yaw = fast_subtract_rotations(fast_arc_tan(scratch.delta[0], scratch.delta[1]),
-                                      plumber_moby->yaw);
-        pitch = -fast_arc_tan(vector_length_xy(scratch.delta), scratch.delta[2]);
+        qcopy(look_tracking_vectors.eye, plumber_moby->position);
+        look_tracking_vectors.eye[2] += 1.0f;
+        fast_vec_sub(
+            look_tracking_vectors.delta, look_tracking_vectors.target, look_tracking_vectors.eye);
+        yaw = fast_subtract_rotations(
+            fast_arc_tan(look_tracking_vectors.delta[0], look_tracking_vectors.delta[1]),
+            plumber_moby->yaw);
+        pitch = -fast_arc_tan(vector_length_xy(look_tracking_vectors.delta),
+                              look_tracking_vectors.delta[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)

@@ -23,8 +23,11 @@ extern int D_L10_0015F5CC;
 /* Ported from rac1-decomp (src/overlays/l10_orxon/vendor_00296BD8.c: func_L10_002DA0F0), where it is exact; names translated to the US level program. */
 
 extern char point_light_parameter_entries[] __asm__("D_L10_00180740");
-extern char path_spark_missing_path_message[] __asm__("D_L10_001DD120");
-extern int  allocate_colored_effect_slot(float *, float, float, float, float, float) __asm__("FUN_L00_0023e738");
+
+char path_spark_missing_path_message[62] __asm__("D_L10_001DD120") =
+    "Moby947 maya instance %d HAS NO PATH!!!\n\n\nMoron.\nMobyDeleted\n";
+
+extern int allocate_colored_effect_slot(float *, float, float, float, float, float) __asm__("FUN_L00_0023e738");
 extern void    release_point_light_slot(int) __asm__("FUN_L00_0023e838");
 unsigned char *spawn_path_spark_effect(int   source_moby,
                                        void *initial_position,
@@ -40,9 +43,10 @@ extern void
 func_L00_002633D8_f(float, float, void *, int *, float *, void *) __asm__("FUN_L00_00262360");
 extern int trooper_play_sound(int, int, void *, int) __asm__("FUN_L00_0028dc90");
 
-void update_path_spark_emitter(struct Moby *moby) __asm__("FUN_L10_002d8d30");
+void path_spark_emitter_update(struct Moby *moby) __asm__("FUN_L10_002d8d30");
 
-void update_path_spark_emitter(struct Moby *moby) {
+/* Moby class 947 */
+void path_spark_emitter_update(struct Moby *moby) {
     enum {
         SPARK_STATE_WAIT_FOR_TIMER = 0,
         SPARK_STATE_TRAVERSE_PATH = 1

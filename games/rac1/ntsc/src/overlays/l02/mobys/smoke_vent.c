@@ -93,7 +93,7 @@ extern s32 alternating_smoke_burst_second_timing_base_gp __asm__("D_L02_00162130
 extern s32 alternating_smoke_burst_third_timing_base_gp __asm__("D_L02_00162134")
     __attribute__((sda));
 
-#include "rnc/overlay/l02/mobys/smoke_vent_data/update_smoke_vent.h"
+#include "rnc/overlay/l02/mobys/smoke_vent_data/smoke_vent_update.h"
 
 extern f32 alternating_smoke_burst_velocity_w_random_range_start_gp __asm__("D_L02_0016213C")
     __attribute__((sda));
@@ -114,16 +114,17 @@ s32        D_L02_00162164 = 0x10019;
 /* Smoke vent: once visible within 120 units it puffs bursts (D_L02_001620C8 / D_L02_00162118 parameter blocks)
  * on a timer plus occasional single puffs (D_L02_00162088 / D_L02_00162048); state 2 alternates its puff life.
  * Each burst and puff block has its own locals: shared ones become long-lived pseudos and shift the allocation. */
-void update_smoke_vent(struct Moby *moby) __asm__("FUN_L02_002ef020");
+void smoke_vent_update(struct Moby *moby) __asm__("FUN_L02_002ef020");
 
-void update_smoke_vent(struct Moby *moby) {
+/* Moby class 1479 */
+void smoke_vent_update(struct Moby *moby) {
     enum {
         SMOKE_VENT_STATE_INITIALIZE = 0,
         SMOKE_VENT_STATE_VIEW_GATED_EMISSION = 1,
         SMOKE_VENT_STATE_ALTERNATING_PUFF_TIMING = 2,
         SMOKE_VENT_STATE_REMOVE = 3
     };
-    char *data = (char *)moby->pvars;
+    char *smoke_vent_vars = (char *)moby->pvars;
     Vec4  view_sphere;
     Vec4  smoke_particle_velocity;
     Vec4  acc;
@@ -153,7 +154,7 @@ void update_smoke_vent(struct Moby *moby) {
 
     switch (moby->state) {
     case SMOKE_VENT_STATE_INITIALIZE:
-        moby->state = data[0] + 1;
+        moby->state = smoke_vent_vars[0] + 1;
         euler_rotation_basis(&moby->rot_row0, &moby->rot);
         break;
     case SMOKE_VENT_STATE_VIEW_GATED_EMISSION:
@@ -162,8 +163,8 @@ void update_smoke_vent(struct Moby *moby) {
         if (fast_bsphere_check(&view_sphere, 120.0f) == -1) {
             break;
         }
-        if (fast_dec_timer((s32 *)(data + 0xC0)) != 0) {
-            *(s32 *)(data + 0xC0) = truncate_float_to_s32(
+        if (fast_dec_timer((s32 *)(smoke_vent_vars + 0xC0)) != 0) {
+            *(s32 *)(smoke_vent_vars + 0xC0) = truncate_float_to_s32(
                 scale_time(random_float_between((f32)view_gated_smoke_burst_interval_min_gp,
                                                 (f32)view_gated_smoke_burst_interval_max_gp)));
             count1 = random_integer_below(7) != 0 ? 1 : random_integer_below(5) + 5;
@@ -283,13 +284,13 @@ void update_smoke_vent(struct Moby *moby) {
                     -1);
         break;
     case SMOKE_VENT_STATE_ALTERNATING_PUFF_TIMING:
-        if (fast_dec_timer((s32 *)(data + 0xC4)) != 0) {
-            if (*(s32 *)(data + 0xC8) < 21) {
-                *(s32 *)(data + 0xC8) = 30;
+        if (fast_dec_timer((s32 *)(smoke_vent_vars + 0xC4)) != 0) {
+            if (*(s32 *)(smoke_vent_vars + 0xC8) < 21) {
+                *(s32 *)(smoke_vent_vars + 0xC8) = 30;
             } else {
-                *(s32 *)(data + 0xC8) = 10;
+                *(s32 *)(smoke_vent_vars + 0xC8) = 10;
             }
-            *(s32 *)(data + 0xC4) =
+            *(s32 *)(smoke_vent_vars + 0xC4) =
                 truncate_float_to_s32(scale_time(random_float_between(120.0f, 180.0f)));
         }
         qcopy(&view_sphere, &moby->pos);
@@ -297,8 +298,8 @@ void update_smoke_vent(struct Moby *moby) {
         if (fast_bsphere_check(&view_sphere, 120.0f) == -1 && random_integer_below(4) != 0) {
             break;
         }
-        if (fast_dec_timer((s32 *)(data + 0xC0)) != 0) {
-            *(s32 *)(data + 0xC0) = truncate_float_to_s32(
+        if (fast_dec_timer((s32 *)(smoke_vent_vars + 0xC0)) != 0) {
+            *(s32 *)(smoke_vent_vars + 0xC0) = truncate_float_to_s32(
                 scale_time(random_float_between((f32)alternating_smoke_burst_interval_min_gp,
                                                 (f32)alternating_smoke_burst_interval_max_gp)));
             count2 = random_integer_below(7) != 0 ? 1 : random_integer_below(5) + 5;
@@ -394,8 +395,8 @@ void update_smoke_vent(struct Moby *moby) {
             fast_tween_color(D_L02_00162078, D_L02_0016207C, random_float_between(0.0f, 1.0f));
         color_b2_puff =
             fast_tween_color(D_L02_00162080, D_L02_00162084, random_float_between(0.0f, 1.0f));
-        time_a2_puff = truncate_float_to_s32(
-            scale_time((f32) * (s32 *)(data + 0xC8) * random_float_between(0.0f, 1.0f) + 1.0f));
+        time_a2_puff = truncate_float_to_s32(scale_time(
+            (f32) * (s32 *)(smoke_vent_vars + 0xC8) * random_float_between(0.0f, 1.0f) + 1.0f));
         time_b2_puff = truncate_float_to_s32(
             scale_time((f32)alternating_smoke_puff_second_timing_base_gp *
                        (random_float_between(-alternating_smoke_puff_timing_variation_fraction_gp,

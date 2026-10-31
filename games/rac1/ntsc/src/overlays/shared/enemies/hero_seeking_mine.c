@@ -36,38 +36,40 @@ extern int              D_L15_0015F5CC_macro __asm__("D_L15_0015F5CC") MACRO_ADD
 
 extern char *find_moby_hit(void *, int, int) __asm__("FUN_L00_0025a420");
 extern int   D_L15_00161AB8_lui __asm__("D_L15_00161AB8"); /* no foreign declaration */
-extern float group_moby_seeking_speed_gp __asm__("D_L15_001614B4") __attribute__((sda));
-extern int   group_moby_particle_color_gp __asm__("D_L15_001614B8") __attribute__((sda));
-extern float group_moby_particle_scale_gp __asm__("D_L15_001614BC") __attribute__((sda));
-extern int   group_moby_particle_lifetime_frames_gp __asm__("D_L15_001614C0") __attribute__((sda));
-extern float group_moby_effect_z_offset_gp __asm__("D_L15_001614C4") __attribute__((sda));
-extern void  spawn_moving_hero_relative_alpha_fade_particle(float        *pos,
-                                                            char         *vel,
-                                                            int           color,
-                                                            unsigned char life,
-                                                            unsigned char b,
-                                                            int           mode,
-                                                            float scale) __asm__("FUN_L00_002730e0");
-void         draw_group_moby_effect_quads(unsigned char *moby) __asm__("FUN_L15_002a29b8");
+float        group_moby_seeking_speed_gp __asm__("D_L15_001614B4") = 1e+01f;
+int   group_moby_particle_color_gp __asm__("D_L15_001614B8") = 0x60206080; /* RGBA, 0xAABBGGRR */
+float group_moby_particle_scale_gp __asm__("D_L15_001614BC") = 0.25f;
+extern int  group_moby_particle_lifetime_frames_gp __asm__("D_L15_001614C0") __attribute__((sda));
+float       group_moby_effect_z_offset_gp __asm__("D_L15_001614C4") = 0.333f;
+extern void spawn_moving_hero_relative_alpha_fade_particle(float        *pos,
+                                                           char         *vel,
+                                                           int           color,
+                                                           unsigned char life,
+                                                           unsigned char b,
+                                                           int           mode,
+                                                           float scale) __asm__("FUN_L00_002730e0");
+void        draw_group_moby_effect_quads(unsigned char *moby) __asm__("FUN_L15_002a29b8");
 
 extern void draw_group_moby_effect_quads(unsigned char *) __asm__("FUN_L15_002a29b8");
 extern void func_L00_0025A8E8_m(void *, void *, int, float, float, float, int, int, int) __asm__("FUN_L00_002598b0");
 
 extern float group_moby_effect_quad_vertices[4][4][4] __asm__("D_L15_001CE110");
 extern float group_moby_effect_quad_uvs[8] __asm__("D_L15_001CE210");
-extern int   group_moby_effect_first_quad_color_gp __asm__("D_L15_001614C8") __attribute__((sda));
+int          group_moby_effect_first_quad_color_gp __asm__("D_L15_001614C8") =
+    0x40602080; /* RGBA, 0xAABBGGRR */
 extern long long get_effect_texture(int) __asm__("FUN_001f44b8");
 extern void      draw_geometry_quad(void *, void *, int) __asm__("FUN_001f7d30");
 
 /* Shared level 15/17 moby update (class 77): steers the moby toward its target and runs its state machine. */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_00298BB8.c: func_L15_002A3668), where it is exact; names translated to the US level program. */
 
-void update_hero_seeking_group_moby(char *moby) __asm__("FUN_L15_002a2488");
+void hero_seeking_mine_update(char *moby) __asm__("FUN_L15_002a2488");
 
-void update_hero_seeking_group_moby(char *moby) {
+/* Moby class 77 */
+void hero_seeking_mine_update(char *moby) {
     float         va[4];
     float         pb[4];
-    char         *data;
+    char         *group_moby_data;
     char         *callback_frame_stamp;
     char         *hero_base;
     float         fa;
@@ -85,7 +87,7 @@ void update_hero_seeking_group_moby(char *moby) {
     int           particle_initial_rotation;
     unsigned char life;
 
-    data = ((char *)MOBY(moby)->pvars);
+    group_moby_data = ((char *)MOBY(moby)->pvars);
     if (find_moby_hit(moby, 0x330000, 0) != 0) {
         ((unsigned char *)moby)[0x20] = 4;
         ((unsigned char *)moby)[0xA4] = 0xFF;
@@ -109,7 +111,7 @@ void update_hero_seeking_group_moby(char *moby) {
                                                        (unsigned char)particle_initial_rotation,
                                                        0,
                                                        *(float *)&group_moby_particle_scale_gp);
-        callback_frame_stamp = *(char **)(data + 0x6C);
+        callback_frame_stamp = *(char **)(group_moby_data + 0x6C);
         if (callback_frame_stamp == 0 || *(int *)callback_frame_stamp != D_L15_0015F5CC_macro) {
             if (callback_frame_stamp != 0) {
                 *(int *)callback_frame_stamp = D_L15_0015F5CC_macro;
@@ -133,21 +135,21 @@ void update_hero_seeking_group_moby(char *moby) {
 
 s2:
     MOBY(moby)->pos.z = MOBY(moby)->pos.z + (D_0015ED6C + D_0015ED6C);
-    if (fast_dec_timer(data + 0x68) == 0)
+    if (fast_dec_timer(group_moby_data + 0x68) == 0)
         return;
     ((unsigned char *)moby)[0x20] = 3;
     if (((unsigned char *)moby)[0x53] != 1) {
         animation_blend_frames = scale_game_frames(10);
         blend_moby_animation(moby, 1, 0, animation_blend_frames);
     }
-    *(int *)(data + 0x68) = scale_game_frames(0xF0);
+    *(int *)(group_moby_data + 0x68) = scale_game_frames(0xF0);
     return;
 
 s3:
     hero_base = (char *)&hero;
     fa = *(float *)(hero_base + 0x80) - MOBY(moby)->pos.x;
     fb = *(float *)(hero_base + 0x84) - MOBY(moby)->pos.y;
-    yaw = fast_add_rotations(*(float *)(data + 0x64), fast_arc_tan(fa, fb));
+    yaw = fast_add_rotations(*(float *)(group_moby_data + 0x64), fast_arc_tan(fa, fb));
     target_z = *(float *)(hero_base + 0xC8);
     yaw_cosine = fast_cos(yaw);
     va[0] = yaw_cosine * (*(float *)&group_moby_seeking_speed_gp * D_0015ED6C);
@@ -163,7 +165,7 @@ s3:
     FUN_L00_00258830((int)moby, (int)va, 0.25f, 0.25f, 0.0f, 0);
     reference_distance_xy =
         vector_distance_xy((float *)((char *)((char *)&D_0013F420)), (float *)&MOBY(moby)->pos);
-    if (reference_distance_xy < 0.5f || fast_dec_timer(data + 0x68)) {
+    if (reference_distance_xy < 0.5f || fast_dec_timer(group_moby_data + 0x68)) {
         ((unsigned char *)moby)[0x20] = 4;
         return;
     }
@@ -215,16 +217,17 @@ void draw_group_moby_effect_quads(unsigned char *moby) {
     }
     group_moby_entry = (unsigned short *)D_L15_001ABE40[MOBY(moby)->group];
     do {
-        unsigned char *other =
+        unsigned char *group_member_moby =
             (unsigned char *)((int)l15_moby_array + ((*group_moby_entry & 0x7fff) << 8));
-        if (MOBY(other)->state != 1) {
+        if (MOBY(group_member_moby)->state != 1) {
             clear_u64_value(angles);
-            angles[2] = fast_arc_tan(l15_camera.pos.f[0] - MOBY(other)->pos.x,
-                                     l15_camera.pos.f[1] - MOBY(other)->pos.y);
-            angles[1] = -fast_arc_tan(vector_distance_xy(&MOBY(other)->pos, l15_camera.pos.f),
-                                      l15_camera.pos.f[2] - MOBY(other)->pos.z);
+            angles[2] = fast_arc_tan(l15_camera.pos.f[0] - MOBY(group_member_moby)->pos.x,
+                                     l15_camera.pos.f[1] - MOBY(group_member_moby)->pos.y);
+            angles[1] =
+                -fast_arc_tan(vector_distance_xy(&MOBY(group_member_moby)->pos, l15_camera.pos.f),
+                              l15_camera.pos.f[2] - MOBY(group_member_moby)->pos.z);
             euler_rotation_matrix(rotation, angles);
-            qcopy(position, &MOBY(other)->pos);
+            qcopy(position, &MOBY(group_member_moby)->pos);
             position[2] += group_moby_effect_z_offset_gp;
             position[3] = 1.0f;
             for (i = 0; i < 4; i++) {

@@ -2,6 +2,7 @@
 #include "rnc/game/level_object_states.h"
 #include "rnc/ui/menus/menu_globals.h"
 #include "rnc/globals.h"
+#include "rnc/ui/map/copy_level_object_positions.h"
 
 struct ObjectVector {
     u8  pad_0[0x10];
@@ -10,8 +11,6 @@ struct ObjectVector {
     u8  pad_18[0x30];
     f32 z;
 };
-
-extern u32 level_object_index_boundaries[] __asm__("D_001E03B8");
 
 void copy_level_object_positions(void) __asm__("FUN_00208770");
 
@@ -23,7 +22,7 @@ void copy_level_object_positions(void) {
     u8                  *destination;
     u8                  *source_base;
     u8                 **source;
-    struct ObjectVector *object;
+    struct ObjectVector *source_object;
 
     index = current_level_index;
     if ((u32)index >= 0x13U) {
@@ -40,14 +39,18 @@ void copy_level_object_positions(void) {
     source = (u8 **)(source_base + start * 4);
     start = end - start;
     do {
-        object = (struct ObjectVector *)*source;
-        if (object != 0) {
-            *(f32 *)(destination + 0x0) = object->x;
-            *(f32 *)(destination + 0x4) = object->y;
-            *(f32 *)(destination + 0x8) = object->z;
+        source_object = (struct ObjectVector *)*source;
+        if (source_object != 0) {
+            *(f32 *)(destination + 0x0) = source_object->x;
+            *(f32 *)(destination + 0x4) = source_object->y;
+            *(f32 *)(destination + 0x8) = source_object->z;
         }
         destination += 0x10;
         start--;
         source++;
     } while (start != 0);
 }
+
+u32 level_object_index_boundaries[20] = {0,    2,    0xf,  0x13, 0x22, 0x25, 0x2e,
+                                         0x32, 0x36, 0x3a, 0x3c, 0x41, 0x45, 0x4a,
+                                         0x56, 0x5d, 0x64, 0x6b, 0x72, 0x79};

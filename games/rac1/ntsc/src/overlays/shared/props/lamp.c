@@ -27,7 +27,7 @@ void        draw_moby_wobble_quads(struct Moby *moby) __asm__("FUN_L05_0030c220"
 
 extern void draw_moby_wobble_quads(struct Moby *m) __asm__("FUN_L05_0030c220");
 
-void update_moby_wobble(unsigned char *moby) __asm__("FUN_L05_0030c0a8");
+void moby_wobble_update(unsigned char *moby) __asm__("FUN_L05_0030c0a8");
 
 extern void  draw_geometry_quad(void *, float *, int) __asm__("FUN_001f7d30");
 extern float wobble_quad_texcoords[][2] __asm__("D_L05_001D67B0");
@@ -35,20 +35,21 @@ extern float wobble_quad_a_base_vertices[][4] __asm__("D_L05_001D67D0");
 extern float wobble_quad_b_base_vertices[][4] __asm__("D_L05_001D6810");
 extern float D_L05_001671C0_30c220[] __asm__("D_L05_001671C0");
 
-extern int wobble_quad_blend_a_selector_gp __asm__("D_L05_00161CF4") __attribute__((sda));
-extern int wobble_quad_blend_b_selector_gp __asm__("D_L05_00161CF8") __attribute__((sda));
-extern int wobble_quad_blend_c_selector_gp __asm__("D_L05_00161CFC") __attribute__((sda));
-extern int wobble_quad_blend_d_selector_gp __asm__("D_L05_00161D00") __attribute__((sda));
-extern int wobble_quad_start_color_gp __asm__("D_L05_00161D04") __attribute__((sda));
+int        wobble_quad_blend_a_selector_gp __asm__("D_L05_00161CF4") = 0;
+int        wobble_quad_blend_b_selector_gp __asm__("D_L05_00161CF8") = 2;
+int        wobble_quad_blend_c_selector_gp __asm__("D_L05_00161CFC") = 0;
+int        wobble_quad_blend_d_selector_gp __asm__("D_L05_00161D00") = 1;
+int        wobble_quad_start_color_gp __asm__("D_L05_00161D04") = 0x40807070; /* RGBA, 0xAABBGGRR */
 extern int wobble_quad_end_color_gp __asm__("D_L05_00161D08") __attribute__((sda));
 extern int wobble_quad_texture_index_gp __asm__("D_L05_00161D0C") __attribute__((sda));
 
 /* UpdateMoby_823: pick random wobble parameters, then animate them each frame */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002CF2C0.c: func_L05_0030D500), where it is exact; names translated to the US level program. */
 
-void update_moby_wobble(unsigned char *m) __asm__("FUN_L05_0030c0a8");
+void moby_wobble_update(unsigned char *m) __asm__("FUN_L05_0030c0a8");
 
-void update_moby_wobble(unsigned char *moby) {
+/* Moby class 823 */
+void moby_wobble_update(unsigned char *moby) {
     enum {
         MOBY_WOBBLE_STATE_INITIALIZE = 0,
         MOBY_WOBBLE_STATE_ANIMATE = 1
@@ -107,12 +108,12 @@ void draw_moby_wobble_quads(struct Moby *moby) {
     float  offset_a_x, offset_a_z, offset_b_x, offset_b_z;
     int    i, j, k;
     float *vertex_a, *vertex_b;
-    char  *vars = (char *)moby->pvars;
+    char  *moby_wobble_vars = (char *)moby->pvars;
 
     moby_point_position(moby, 0, position);
     clear_u64_value(rotation);
     rotation[2] = moby->rot.z;
-    rotation[1] = fast_sin(*(float *)(vars + 0x48)) * 0.5235988f + 0.5235988f;
+    rotation[1] = fast_sin(*(float *)(moby_wobble_vars + 0x48)) * 0.5235988f + 0.5235988f;
     side = matrix;
     euler_rotation_matrix(side, rotation);
     direction = matrix + 4;

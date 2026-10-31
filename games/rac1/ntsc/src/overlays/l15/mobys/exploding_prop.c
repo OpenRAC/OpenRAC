@@ -69,9 +69,10 @@ extern void *spawn_debris_chunk(void *pos,
 extern void *
 mine_debris(void *pos, void *vel, int color, int color2, float size, int life, int tint) __asm__("FUN_L00_0026bed0");
 
-void update_exploding_prop(struct Moby *moby) __asm__("FUN_L15_002aa280");
+void exploding_prop_update(struct Moby *moby) __asm__("FUN_L15_002aa280");
 
-void update_exploding_prop(struct Moby *moby) {
+/* Moby class 154 */
+void exploding_prop_update(struct Moby *moby) {
     char *hit = 0;
     Vec4  velocity, hit_direction, push, offset, center;
     u32   palette[4];
@@ -86,12 +87,12 @@ void update_exploding_prop(struct Moby *moby) {
         return;
 
     for (hit_record_index = 0; hit_record_index < 64; hit_record_index++) {
-        char *entry = D_L15_00178700 + hit_record_index * 0x40;
-        if (*(struct Moby **)(entry + 0x34) != moby)
+        char *scanned_hit_record = D_L15_00178700 + hit_record_index * 0x40;
+        if (*(struct Moby **)(scanned_hit_record + 0x34) != moby)
             continue;
-        if ((*(u32 *)(entry + 0x24) & 0x80000) == 0)
+        if ((*(u32 *)(scanned_hit_record + 0x24) & 0x80000) == 0)
             continue;
-        hit = entry;
+        hit = scanned_hit_record;
         break;
     }
     moby->hit_slot = 0xff;

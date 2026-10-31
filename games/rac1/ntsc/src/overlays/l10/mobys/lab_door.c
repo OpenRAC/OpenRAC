@@ -17,11 +17,11 @@ extern OvlQuad D_L10_00167240;
 
 #include "rnc/overlay/l10/mobys/lab_door_globals.h"
 
-extern float lab_door_local_y_half_extent_gp __asm__("D_L10_00161C0C") __attribute__((sda));
-extern float lab_door_local_x_half_extent_gp __asm__("D_L10_00161C10") __attribute__((sda));
-int          test_point_in_lab_door_local_xy_bounds(struct Moby *moby,
-                                                    float       *world_point) __asm__("FUN_L10_002d9000");
-extern int   test_point_in_lab_door_local_xy_bounds() __asm__("FUN_L10_002d9000");
+float      lab_door_local_y_half_extent_gp __asm__("D_L10_00161C0C") = 0.5f;
+float      lab_door_local_x_half_extent_gp __asm__("D_L10_00161C10") = 1.75f;
+int        test_point_in_lab_door_local_xy_bounds(struct Moby *moby,
+                                                  float       *world_point) __asm__("FUN_L10_002d9000");
+extern int test_point_in_lab_door_local_xy_bounds() __asm__("FUN_L10_002d9000");
 
 int test_point_in_lab_door_local_xy_bounds(struct Moby *moby, float *world_point) {
     float tested_world_point[4] __attribute__((aligned(16)));
@@ -52,6 +52,7 @@ extern int get_next_moby_in_group(int *, int, int, int) __asm__("FUN_L00_002592b
 void       lab_door_update(unsigned char *m) __asm__("FUN_L10_002d90a8");
 extern f32 scale_time(f32) __asm__("FUN_001f96b0");
 
+/* Moby classes 1015, 1282 */
 void lab_door_update(unsigned char *door_moby) {
     enum {
         LAB_DOOR_STATE_INITIALIZE = 0,

@@ -47,7 +47,7 @@ extern s32  D_L15_00161AB8;
 extern s32  D_L15_00161AC0_gp __asm__("D_L15_00161AC0") __attribute__((sda));
 extern void emit_sine_modulated_rgba_draw_packet(void) __asm__("FUN_L15_002cbd88");
 
-extern int   sentrybot_alarm_voice_slot_index_gp __asm__("D_L15_00161AC4") __attribute__((sda));
+int          sentrybot_alarm_voice_slot_index_gp __asm__("D_L15_00161AC4") = -1;
 extern short sentrybot_alarm_voice_owner_gp __asm__("D_L15_00161AC8") __attribute__((sda));
 
 /* Ported from rac1-decomp (src/overlays/shared/vendor_00298BB8.c: func_L15_002A3A48), where it is exact; names translated to the US level program. */
@@ -62,16 +62,17 @@ int activate_first_inactive_group_moby(int moby_group_index, void *pos) {
             (unsigned char *)l15_moby_array + ((*(unsigned short *)group_moby_entry & 0x7FFF) << 8);
         unsigned char state = listed_moby[0x20];
         if (state == 1) {
-            char *data;
+            char *activated_moby_data;
             listed_moby[0x20] = 2;
             if (listed_moby[0x53] != 0)
                 blend_moby_animation(listed_moby, 0, 0, 0);
             MOBY(listed_moby)->flags |= 1;
             listed_moby[0x31] = 0;
-            data = ((char *)MOBY(listed_moby)->pvars);
+            activated_moby_data = ((char *)MOBY(listed_moby)->pvars);
             MOBY(listed_moby)->collision = *(int *)(((char *)MOBY(listed_moby)->pclass) + 0x10);
-            *(float *)(data + 0x64) = random_float_between(-15.0f, 15.0f) * DEG_TO_RAD;
-            *(int *)(data + 0x68) = scale_game_frames(0x3C);
+            *(float *)(activated_moby_data + 0x64) =
+                random_float_between(-15.0f, 15.0f) * DEG_TO_RAD;
+            *(int *)(activated_moby_data + 0x68) = scale_game_frames(0x3C);
             qcopy(listed_moby + 0x10, pos);
             MOBY(listed_moby)->pos.z -= 1.0f;
             MOBY(listed_moby)->rot.z =
@@ -87,6 +88,7 @@ int activate_first_inactive_group_moby(int moby_group_index, void *pos) {
 
 void sentrybot_alarm_update(unsigned char *moby) __asm__("FUN_L15_002cb4c8");
 
+/* Moby class 408 */
 void sentrybot_alarm_update(unsigned char *moby) {
     float position[4];
     float step;
@@ -248,12 +250,12 @@ update:
 /* Ported from rac1-decomp (src/overlays/shared/vendor_00298BB8.c: func_L15_002CCFC0), where it is exact; names translated to the US level program. */
 
 void update_sentrybot_alarm_effect(void *moby) {
-    struct Hero *base = &hero;
-    if (base->state.current == 0x65) {
+    struct Hero *alarm_gating_hero = &hero;
+    if (alarm_gating_hero->state.current == 0x65) {
         approach_value(&D_L15_00161ABC_gp, 0.0f, frame_time * 2);
         FUN_L15_002cbac0_u(moby, 0);
     } else if (*(int *)&D_L15_00161AB8 != 0 &&
-               (D_0015ED84 != 0xF || 240.0f < base->motion.pos.f[1])) {
+               (D_0015ED84 != 0xF || 240.0f < alarm_gating_hero->motion.pos.f[1])) {
         approach_value(&D_L15_00161ABC_gp, 1.0f, frame_time * 2);
     } else {
         approach_value(&D_L15_00161ABC_gp, 0.0f, frame_time * 2);

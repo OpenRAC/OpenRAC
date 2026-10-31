@@ -131,7 +131,9 @@ char D_L14_001FBEE8[] = "Hovertank with a bomb path that has no points. UID: %d\
 
 char D_L14_001FBF20[] = "Hovertank with no exit Path. UID: %d\n";
 
-extern char minibomber_empty_exit_path_diagnostic[] __asm__("D_L14_001FBF48");
+/* "Hovertank with a exit path that has no points. UID: %d\n" */
+char minibomber_empty_exit_path_diagnostic[56] __asm__("D_L14_001FBF48") =
+    "Hovertank with a exit path that has no points. UID: %d\n";
 
 extern float D_0015ED60;
 
@@ -257,6 +259,7 @@ extern void func_L00_0025F4A8_2B5938(void *,
 
 void minibomber_update(Moby_2B5938 *moby) __asm__("FUN_L14_002b46e8");
 
+/* Moby class 31 */
 void minibomber_update(Moby_2B5938 *moby) {
     enum {
         MINIBOMBER_STATE_INITIALIZE = 0,
@@ -724,7 +727,7 @@ void update_minibomber_oscillation(struct Moby *moby) __asm__("FUN_L14_002b5428"
 void update_minibomber_oscillation(struct Moby *moby) {
     int           raw = moby->state;
     unsigned char state = raw;
-    char         *data = (char *)moby->pvars;
+    char         *minibomber_instance_vars = (char *)moby->pvars;
     float         spring_target;
     if (state == 0 || state == 9 || state == 1)
         return;
@@ -732,24 +735,28 @@ void update_minibomber_oscillation(struct Moby *moby) {
     if ((raw >= 2 && raw <= 3) || state == 7) {
         spring_target = spring_target * 1.5f;
     } else {
-        FUN_L00_0025b8c0_c((float *)(data + 0x168),
-                           (float *)(data + 0x16C),
+        FUN_L00_0025b8c0_c((float *)(minibomber_instance_vars + 0x168),
+                           (float *)(minibomber_instance_vars + 0x16C),
                            *(float *)&minibomber_vertical_oscillation_phase_increment_target_gp,
                            0.002f,
                            0.2f,
                            0.0f);
         FUN_L00_00262b00_c(*(float *)&minibomber_vertical_oscillation_amplitude_gp,
-                           *(float *)(data + 0x168),
+                           *(float *)(minibomber_instance_vars + 0x168),
                            moby,
-                           (float *)(data + 0xC0),
-                           (float *)(data + 0xC4));
+                           (float *)(minibomber_instance_vars + 0xC0),
+                           (float *)(minibomber_instance_vars + 0xC4));
     }
-    FUN_L00_0025b8c0_c(
-        (float *)(data + 0x160), (float *)(data + 0x164), spring_target, 0.003f, 0.2f, 0.0f);
+    FUN_L00_0025b8c0_c((float *)(minibomber_instance_vars + 0x160),
+                       (float *)(minibomber_instance_vars + 0x164),
+                       spring_target,
+                       0.003f,
+                       0.2f,
+                       0.0f);
     FUN_L00_00262b80_c(moby,
-                       data + 0xC8,
-                       data + 0xCC,
-                       *(float *)(data + 0x160),
+                       minibomber_instance_vars + 0xC8,
+                       minibomber_instance_vars + 0xCC,
+                       *(float *)(minibomber_instance_vars + 0x160),
                        *(float *)&minibomber_rotation_oscillation_first_phase_increment_gp,
                        *(float *)&minibomber_rotation_oscillation_second_phase_increment_gp);
 }
@@ -759,12 +766,13 @@ extern int FUN_L00_0025ff38(float a, char *m, char *b, int c, int d, int *e, int
 void update_minibomber_target(struct Moby *moby) __asm__("FUN_L14_002b5530");
 
 void update_minibomber_target(struct Moby *moby) {
-    char *data = (char *)moby->pvars;
+    char *minibomber_private_vars = (char *)moby->pvars;
     if (moby->state != 0 && moby->state != 9) {
-        int *bound_path = ((int *)l14_paths[*(int *)(data + 0xD4)]);
-        FUN_L00_0025ff38(255.0f, moby, data + 0x70, 0, 0, bound_path + 4, *bound_path);
-        if (*(int *)(data + 0xB0) == 0) {
-            *(int *)(data + 0xB0) = *(int *)(D_0013E533 + 0x2E9D);
+        int *bound_path = ((int *)l14_paths[*(int *)(minibomber_private_vars + 0xD4)]);
+        FUN_L00_0025ff38(
+            255.0f, moby, minibomber_private_vars + 0x70, 0, 0, bound_path + 4, *bound_path);
+        if (*(int *)(minibomber_private_vars + 0xB0) == 0) {
+            *(int *)(minibomber_private_vars + 0xB0) = *(int *)(D_0013E533 + 0x2E9D);
         }
     }
 }
@@ -772,25 +780,25 @@ void update_minibomber_target(struct Moby *moby) {
 void initialize_minibomber_path_segment_lengths(struct Moby *moby) __asm__("FUN_L14_002b55b0");
 
 void initialize_minibomber_path_segment_lengths(struct Moby *moby) {
-    char *data = (char *)moby->pvars;
+    char *minibomber_path_vars = (char *)moby->pvars;
     char *path;
     int   i;
-    path = ((int *)l14_paths[*(int *)(data + 0xD0)]);
+    path = ((int *)l14_paths[*(int *)(minibomber_path_vars + 0xD0)]);
     for (i = 0; i < *(int *)path - 1; i++) {
         *(float *)(path + 0x1C + i * 0x10) =
             fast_vec_dist(path + 0x10 + i * 0x10, path + 0x20 + i * 0x10);
     }
-    path = ((int *)l14_paths[*(int *)(data + 0x150)]);
+    path = ((int *)l14_paths[*(int *)(minibomber_path_vars + 0x150)]);
     for (i = 0; i < *(int *)path - 1; i++) {
         *(float *)(path + 0x1C + i * 0x10) =
             fast_vec_dist(path + 0x10 + i * 0x10, path + 0x20 + i * 0x10);
     }
-    path = ((int *)l14_paths[*(int *)(data + 0xDC)]);
+    path = ((int *)l14_paths[*(int *)(minibomber_path_vars + 0xDC)]);
     for (i = 0; i < *(int *)path - 1; i++) {
         *(float *)(path + 0x1C + i * 0x10) =
             fast_vec_dist(path + 0x10 + i * 0x10, path + 0x20 + i * 0x10);
     }
-    *(int *)(data + 0x10C) = 0;
+    *(int *)(minibomber_path_vars + 0x10C) = 0;
 }
 
 extern float FUN_L00_0025b8c0_5730(
@@ -870,31 +878,31 @@ void ease_minibomber_position_and_heading(char  *moby,
                                           float  heading_velocity_damping,
 
                                           float heading_velocity_limit) {
-    int data;
+    int minibomber_private_vars_base;
     int moby_state = moby[0x20] & 0xFF;
     if ((moby_state >= 4 && moby_state <= 6) || moby_state == 8) {
-        data = *(int *)(moby + 0x78);
+        minibomber_private_vars_base = *(int *)(moby + 0x78);
         vendor_spring((float *)&MOBY(moby)->pos,
-                      (float *)(data + 0xF0),
+                      (float *)(minibomber_private_vars_base + 0xF0),
                       target[0],
                       position_error_gain,
                       position_velocity_damping,
                       position_snap_threshold_scale);
         vendor_spring((float *)&MOBY(moby)->pos.y,
-                      (float *)(data + 0xF4),
+                      (float *)(minibomber_private_vars_base + 0xF4),
                       target[1],
                       position_error_gain,
                       position_velocity_damping,
                       position_snap_threshold_scale);
         vendor_spring((float *)&MOBY(moby)->pos.z,
-                      (float *)(data + 0xF8),
+                      (float *)(minibomber_private_vars_base + 0xF8),
                       target[2],
                       position_error_gain,
                       position_velocity_damping,
                       position_snap_threshold_scale);
         approach_w(moby,
                    target_heading,
-                   (float *)(data + 0xE4),
+                   (float *)(minibomber_private_vars_base + 0xE4),
                    heading_error_gain,
                    heading_velocity_damping,
                    heading_velocity_limit);
@@ -913,7 +921,45 @@ extern void spawn_two_point_effect_particle(void *, void *) __asm__("FUN_L00_002
 
 extern void mine_camera_blast(int, void *, int, int) __asm__("FUN_L00_002d3838");
 
-extern char l14_minibomber_bomb_release_blast_template[] __asm__("D_L14_001D88D0");
+/* Settings mine_camera_blast (FUN_L00_002d3838) copies into its blast moby. It reads bytes up to 0x49 and
+ * qcopies the first quad, so the object is quad aligned: 0x50 bytes (the l03 mine copies its template as 0x50). */
+typedef struct MinibomberBlastSettings {
+    f32 position_offset[4]; /* 0x00: qcopied when no override is passed */
+    u8  colors[0x10];       /* 0x10: three colour groups (0x10-0x15, 0x16-0x1A, 0x1B-0x1F) */
+    f32 values[5];          /* 0x20 */
+    s32 word34;             /* 0x34 */
+    s32 word38;             /* 0x38 */
+    u8  draw_dist;          /* 0x3C */
+    u8  byte3D;
+    u8  byte3E;
+    u8  byte3F;
+    u16 half40;
+    u16 half42;
+    u16 half44;
+    u16 half46;
+    u8  byte48;
+    u8  byte49;
+    u8  pad4A[6];
+} MinibomberBlastSettings;
+
+MinibomberBlastSettings l14_minibomber_bomb_release_blast_template __asm__("D_L14_001D88D0") = {
+    {0},
+    {0, 0, 0xff, 0, 0x19, 0x19, 0, 0xff, 0, 0x19, 0x19, 0, 0x64, 0, 0x19, 0x19},
+    {2.0f, 2.0f, 2.0f, 0.01f, 0.01f},
+    0x14,
+    0x80000,
+    0xff,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    {0}
+};
 
 extern float D_L14_0015F580_macro[] __asm__("D_L14_0015F580") MACRO_ADDR;
 
@@ -927,7 +973,7 @@ void emit_minibomber_bomb_release_effects(struct Moby *moby, float *point, float
     float        small_offset[4];
     float        direction[4];
     float        original_pos[4];
-    float        value;
+    float        effect_rotation_angle;
     float        puff_size;
     float        step;
     L14Puff     *part;
@@ -940,9 +986,9 @@ void emit_minibomber_bomb_release_effects(struct Moby *moby, float *point, float
     int          low_color;
     int          high_color;
 
-    value = fast_add_rotations(angle, moby->rot.z);
-    offset[0] = fast_cos(value) * 0.8f;
-    offset[1] = fast_sin(value) * 0.8f;
+    effect_rotation_angle = fast_add_rotations(angle, moby->rot.z);
+    offset[0] = fast_cos(effect_rotation_angle) * 0.8f;
+    offset[1] = fast_sin(effect_rotation_angle) * 0.8f;
     offset[2] = 0.0f;
     fast_vec_add(effect_spawn_position, point, offset);
     for (i = 5; i >= 0; i--) {
@@ -976,14 +1022,15 @@ void emit_minibomber_bomb_release_effects(struct Moby *moby, float *point, float
     qcopy(original_pos, effect_spawn_position);
     step = 0.6283f;
     for (j = 0; j < 16; j++) {
-        value = randf_sym(0.0f, 0.5f);
-        build_look_at_matrix(direction, offset, small_offset, (float)j * step + value);
+        effect_rotation_angle = randf_sym(0.0f, 0.5f);
+        build_look_at_matrix(
+            direction, offset, small_offset, (float)j * step + effect_rotation_angle);
         effect_spawn_position[0] = original_pos[0] + randf_sym(0.0f, 0.2f);
         effect_spawn_position[1] = original_pos[1] + randf_sym(0.0f, 0.2f);
         effect_spawn_position[2] = original_pos[2] + randf_sym(0.0f, 0.2f);
         spawn_two_point_effect_particle(effect_spawn_position, direction);
     }
-    mine_camera_blast((int)l14_minibomber_bomb_release_blast_template, original_pos, 0, 0);
+    mine_camera_blast((int)&l14_minibomber_bomb_release_blast_template, original_pos, 0, 0);
 }
 
 typedef struct {
@@ -1020,18 +1067,18 @@ void initialize_minibomber_path_retrace(struct Moby *moby) {
 void hide_minibomber_and_release_voice(struct Moby *moby) __asm__("FUN_L14_002b5c98");
 
 void hide_minibomber_and_release_voice(struct Moby *moby) {
-    u8 *data = ((u8 *)moby->pvars);
+    u8 *minibomber_vars = ((u8 *)moby->pvars);
     s32 voice_slot_index;
     moby->flags |= 0x41;
     moby->collision = 0;
-    voice_slot_index = *(s32 *)(data + 0x108);
+    voice_slot_index = *(s32 *)(minibomber_vars + 0x108);
     if (voice_slot_index != -1) {
         u8 *voice_slot = (u8 *)&voice_pool + voice_slot_index * 0x70;
         if (*(u8 **)(voice_slot + 0x88) == moby && *(u8 *)(voice_slot + 0x74) != 0) {
             release_voice_slot(voice_slot_index);
         }
     }
-    *(s32 *)(data + 0x108) = -1;
+    *(s32 *)(minibomber_vars + 0x108) = -1;
 }
 
 void initialize_minibomber_path_following(struct Moby *moby) __asm__("FUN_L14_002b5d18");

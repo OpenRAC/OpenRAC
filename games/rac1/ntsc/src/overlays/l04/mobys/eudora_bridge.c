@@ -34,6 +34,7 @@ extern s32 allocate_voice_for_target_entry(s32, s32, struct Moby *) __asm__("FUN
 /* Follows a linked switch moby (class 0x118): mirrors its position value, loops a sound while it moves, plays a click at either end and swaps class 0x41C back to 0x1B0 when it reaches 1.0. */
 void eudora_bridge_update(struct Moby *m) __asm__("FUN_L04_002c6858");
 
+/* Moby classes 432, 1052 */
 void eudora_bridge_update(struct Moby *moby) {
     enum {
         EUDORA_BRIDGE_STATE_INITIALIZE = 0,
@@ -42,7 +43,7 @@ void eudora_bridge_update(struct Moby *moby) {
     };
     SwitchFollowerVars *switch_follower_vars = (SwitchFollowerVars *)moby->pvars;
     f32                 last = moby->anim_time;
-    struct Moby        *other;
+    struct Moby        *linked_switch_moby;
     f32                *linked_switch_travel;
     f32                 sampled_switch_travel;
 
@@ -71,10 +72,10 @@ void eudora_bridge_update(struct Moby *moby) {
     case EUDORA_BRIDGE_STATE_FOLLOW_LINKED_SWITCH:
         if (switch_follower_vars->link == -1)
             break;
-        other = (struct Moby *)(moby_array + (switch_follower_vars->link << 8));
-        if (other->oclass != 0x118)
+        linked_switch_moby = (struct Moby *)(moby_array + (switch_follower_vars->link << 8));
+        if (linked_switch_moby->oclass != 0x118)
             break;
-        linked_switch_travel = (f32 *)other->pvars;
+        linked_switch_travel = (f32 *)linked_switch_moby->pvars;
         sampled_switch_travel = *linked_switch_travel;
         moby->anim_time = sampled_switch_travel;
         if (sampled_switch_travel != last) {

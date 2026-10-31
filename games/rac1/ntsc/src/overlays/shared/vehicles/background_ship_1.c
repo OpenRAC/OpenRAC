@@ -40,7 +40,7 @@ extern char  background_ship_1_missing_path_message[] __asm__("D_L02_001FAD60");
 extern char  background_ship_1_empty_path_message[] __asm__("D_L02_001FAD80");
 extern float D_0015ED60;
 extern float D_L02_0015F580;
-extern float background_ship_1_path_travel_speed_gp __asm__("D_L02_00161F64") __attribute__((sda));
+float        background_ship_1_path_travel_speed_gp __asm__("D_L02_00161F64") = 2e+01f;
 extern float background_ship_1_color_phase_rate_degrees_gp __asm__("D_L02_00161F70")
     __attribute__((sda));
 extern short background_ship_1_color_tween_start_gp __asm__("D_L02_00161F74") __attribute__((sda));
@@ -101,19 +101,19 @@ short D_L09_00161D28 = 0x1020;
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002A5218.c: func_L02_002ED740), where it is exact; names translated to the US level program. */
 void draw_background_ship_1_joint_billboards(char *self) __asm__("FUN_L02_002ec308");
 
-void draw_background_ship_1_joint_billboards(char *self) {
+void draw_background_ship_1_joint_billboards(char *reference_moby) {
     struct Moby *current_moby;
-    get_first_moby_in_group((int *)&current_moby, *(unsigned char *)(self + 0x21), 0, 0);
+    get_first_moby_in_group((int *)&current_moby, *(unsigned char *)(reference_moby + 0x21), 0, 0);
     while (current_moby != 0) {
         if (current_moby->visible != 0) {
-            char *data = ((char *)current_moby->pvars);
-            if (current_moby->oclass == *(short *)(self + 0xA6)) {
-                if ((*(int *)(data + 0xB0) & 0xFF) > 0x80) {
-                    char *joint_position = data + 0x80;
+            char *joint_billboard_data = ((char *)current_moby->pvars);
+            if (current_moby->oclass == *(short *)(reference_moby + 0xA6)) {
+                if ((*(int *)(joint_billboard_data + 0xB0) & 0xFF) > 0x80) {
+                    char *joint_position = joint_billboard_data + 0x80;
                     int   i;
                     for (i = 2; i >= 0; i--) {
                         draw_offset_textured_effect_quad(
-                            joint_position, *(int *)(data + 0xB0), 0.9f, 0.45f);
+                            joint_position, *(int *)(joint_billboard_data + 0xB0), 0.9f, 0.45f);
                         joint_position += 0x10;
                     }
                 }
@@ -129,7 +129,7 @@ void prepare_background_ship_1_joint_billboards(char *moby) __asm__("FUN_L02_002
 
 void prepare_background_ship_1_joint_billboards(char *moby) {
     int   i;
-    char *data;
+    char *background_ship_data;
     char *joint_position_out;
     int   current_global_value;
     int   r, g, b, packed_color;
@@ -138,8 +138,8 @@ void prepare_background_ship_1_joint_billboards(char *moby) {
     if (MOBY(moby)->group == 0xFF) {
         return;
     }
-    data = ((char *)MOBY(moby)->pvars);
-    joint_position_out = data + 0x80;
+    background_ship_data = ((char *)MOBY(moby)->pvars);
+    joint_position_out = background_ship_data + 0x80;
     for (i = 0; i < 3; i++) {
         moby_point_position(moby, i + 3, joint_position_out);
         joint_position_out += 0x10;
@@ -151,9 +151,9 @@ void prepare_background_ship_1_joint_billboards(char *moby) {
     packed_color = (r << 16) | 0x30000000;
     packed_color |= g << 8;
     packed_color |= b;
-    *(int *)(data + 0xB0) = packed_color;
+    *(int *)(background_ship_data + 0xB0) = packed_color;
     if (current_global_value != 0) {
-        cached_global_value_ptr = *(int **)(data + 0xB4);
+        cached_global_value_ptr = *(int **)(background_ship_data + 0xB4);
         if (current_global_value != *cached_global_value_ptr) {
             *cached_global_value_ptr = current_global_value;
             add_draw_callback(draw_background_ship_1_joint_billboards, moby);
@@ -165,6 +165,7 @@ void prepare_background_ship_1_joint_billboards(char *moby) {
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002A5218.c: func_L02_002ED8F0), where it is exact; names translated to the US level program. */
 void background_ship_1_update(char *moby) __asm__("FUN_L02_002ec4b8");
 
+/* Moby class 1212 */
 void background_ship_1_update(char *moby) {
     enum {
         BACKGROUND_SHIP_1_INITIALIZE = 0,
@@ -420,3 +421,35 @@ short background_ship_1_first_spark_color_tween_start_gp __asm__("D_L02_00161FB0
 short background_ship_1_first_spark_color_tween_end_gp __asm__("D_L02_00161FB4") = -24384;
 short background_ship_1_second_spark_color_tween_start_gp __asm__("D_L02_00161FB8") = 0x2040;
 short background_ship_1_second_spark_color_tween_end_gp __asm__("D_L02_00161FBC") = 0x1020;
+
+float background_ship_1_color_phase_rate_degrees_gp __asm__("D_L02_00161F70") = 3.6e+02f;
+
+extern short background_ship_1_first_spark_position_delta_scale_gp __asm__("D_L02_00161F84")
+    __attribute__((sda));
+
+extern short background_ship_1_second_spark_position_delta_scale_gp __asm__("D_L02_00161F88")
+    __attribute__((sda));
+
+extern short background_ship_1_spark_random_offset_radius_scale_gp __asm__("D_L02_00161F8C")
+    __attribute__((sda));
+
+extern short background_ship_1_spark_frame_count_random_span_gp __asm__("D_L02_00161F90")
+    __attribute__((sda));
+
+extern short background_ship_1_spark_second_frame_count_base_gp __asm__("D_L02_00161F94")
+    __attribute__((sda));
+
+extern short background_ship_1_spark_third_frame_count_base_gp __asm__("D_L02_00161F98")
+    __attribute__((sda));
+
+extern short background_ship_1_spark_frame_count_variation_fraction_gp __asm__("D_L02_00161F9C")
+    __attribute__((sda));
+
+extern short background_ship_1_first_spark_fourth_component_range_start_gp __asm__("D_L02_00161FA0")
+    __attribute__((sda));
+
+extern short background_ship_1_first_spark_fourth_component_range_end_gp __asm__("D_L02_00161FA4")
+    __attribute__((sda));
+
+extern short background_ship_1_second_spark_fourth_component_range_end_gp __asm__("D_L02_00161FAC")
+    __attribute__((sda));

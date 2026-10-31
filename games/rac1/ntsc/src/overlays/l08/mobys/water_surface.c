@@ -23,7 +23,7 @@ extern float scale_time(float) __asm__("FUN_001f96b0");
 
 /* Splashes the hero into the water: once inits the water plane, queues the
  * surface draw, and when the hero breaks the surface spawns spray and ripples. */
-extern int   water_entry_plane_initialized_gp __asm__("D_L08_00161970") __attribute__((sda));
+int          water_entry_plane_initialized_gp __asm__("D_L08_00161970") = 0;
 extern float water_entry_plane_data[4] __asm__("D_L08_001D7060");
 extern f32   D_L08_0015F580[] MACRO_ADDR;
 extern void  FUN_L08_002da0d0(void *);
@@ -31,11 +31,12 @@ extern int   FUN_L00_00257b90(int, int);
 extern void  spawn_debris_chunk(void *, void *, int, int) __asm__("FUN_L00_0026f548");
 extern unsigned char      *
 spawn_splash(void *, void *, void *, float, float) __asm__("FUN_L00_002718d0");
-void update_water_surface(struct Moby *moby) __asm__("FUN_L08_002da0f0");
+void water_surface_update(struct Moby *moby) __asm__("FUN_L08_002da0f0");
 
 float water_entry_plane_data[4] __asm__("D_L08_001D7060") = {-2.6e+02f, -2.2e+02f, 15.0f, 1.6e+05f};
 
-void update_water_surface(struct Moby *moby) {
+/* Moby class 327 */
+void water_surface_update(struct Moby *moby) {
     Vec4         pos;
     Vec4         spray_velocity_or_splash_position;
     struct Moby *water_entry_moby;

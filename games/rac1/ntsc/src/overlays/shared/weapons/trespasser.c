@@ -19,7 +19,7 @@ extern unsigned char D_0013A4E0[];
 extern int           D_L00_0015F5CC_2c1778[1] __asm__("D_L00_0015F5CC");
 extern const float   l00_trespasser_pickup_initial_height_offset __asm__("D_L00_00161828")
     __attribute__((sda));
-extern float trespasser_pickup_z_rotation_step_gp __asm__("D_L00_00161830") __attribute__((sda));
+float trespasser_pickup_z_rotation_step_gp __asm__("D_L00_00161830") = 0;
 
 float D_L01_00161858 = 0.2f;
 float D_L01_00161860 = 0;
@@ -62,6 +62,7 @@ float D_L18_001618A0 = 0;
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002C12B0.c: func_L00_002C2A20), where it is exact; names translated to the US level program. */
 void trespasser_update(struct Moby *m) __asm__("FUN_L00_002c1718");
 
+/* Moby class 188 */
 void trespasser_update(struct Moby *trespasser_moby) {
     if (*(int *)(((char *)trespasser_moby->pvars) + 4) != 0) {
         update_trespasser_pickup(trespasser_moby);

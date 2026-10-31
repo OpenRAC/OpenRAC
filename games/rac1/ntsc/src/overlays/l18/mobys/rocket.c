@@ -42,9 +42,10 @@ void         spawn_rocket_trail_effects(void *mobyp, void *vec) __asm__("FUN_L18
 extern void  spawn_rocket_explosion(void *, void *) __asm__("FUN_L18_002d5610");
 void         draw_rocket_target_pulse_quad(struct Moby *m) __asm__("FUN_L18_002d5768");
 
-void update_rocket_moby(struct Moby *moby) __asm__("FUN_L18_002d5050");
+void rocket_moby_update(struct Moby *moby) __asm__("FUN_L18_002d5050");
 
-void update_rocket_moby(struct Moby *moby) {
+/* Moby class 564 */
+void rocket_moby_update(struct Moby *moby) {
     L18D *moby_vars = (L18D *)moby->pvars;
     float target_movement_step[4];
     float movement_step[4];
@@ -118,9 +119,9 @@ void update_rocket_moby(struct Moby *moby) {
 extern void *create_moby() __asm__("FUN_0020c4f8");
 
 /* Spawns a moby that travels along a path, with its heading set from the direction vector. */
-extern float rocket_spawn_scale_multiplier_gp __asm__("D_L18_00161960") __attribute__((sda));
-extern void  set_moby_color(void *, int, int, int) __asm__("FUN_L00_002502f0");
-extern void  allocate_voice_for_target_entry(int, int, int) __asm__("FUN_0022da68");
+float       rocket_spawn_scale_multiplier_gp __asm__("D_L18_00161960") = 5.0f;
+extern void set_moby_color(void *, int, int, int) __asm__("FUN_L00_002502f0");
+extern void allocate_voice_for_target_entry(int, int, int) __asm__("FUN_0022da68");
 
 char *create_rocket_moby(float *pos,
                          float *initial_movement_step,
@@ -140,7 +141,7 @@ char *create_rocket_moby(float *rocket_spawn_position,
                          int kind) {
     char *moby = create_moby(0x234);
     if (moby != 0) {
-        char *data;
+        char *rocket_private_vars;
         ((unsigned char *)moby)[0x30] = 0xFF;
         MOBY(moby)->draw_dist = 0xFF;
         moby[0x31] = 1;
@@ -148,15 +149,15 @@ char *create_rocket_moby(float *rocket_spawn_position,
         set_moby_color(moby, 0xC0, 0xC0, 0xC0);
         MOBY(moby)->scale = MOBY(moby)->scale * rocket_spawn_scale_multiplier_gp;
         qcopy(moby + 0x10, rocket_spawn_position);
-        data = ((char *)MOBY(moby)->pvars);
-        qcopy(data, initial_movement_step);
-        qcopy(data + 0x10, target);
-        *(float *)(data + 0x24) = movement_rotation_z;
-        *(float *)(data + 0x28) = movement_rotation_y;
-        *(int *)(data + 0x2C) = 0;
-        *(int *)(data + 0x34) = frames;
-        *(int *)(data + 0x30) = frames >> 1;
-        *(int *)(data + 0x38) = kind;
+        rocket_private_vars = ((char *)MOBY(moby)->pvars);
+        qcopy(rocket_private_vars, initial_movement_step);
+        qcopy(rocket_private_vars + 0x10, target);
+        *(float *)(rocket_private_vars + 0x24) = movement_rotation_z;
+        *(float *)(rocket_private_vars + 0x28) = movement_rotation_y;
+        *(int *)(rocket_private_vars + 0x2C) = 0;
+        *(int *)(rocket_private_vars + 0x34) = frames;
+        *(int *)(rocket_private_vars + 0x30) = frames >> 1;
+        *(int *)(rocket_private_vars + 0x38) = kind;
         MOBY(moby)->rot.z = fast_arc_tan(initial_movement_step[0], initial_movement_step[1]);
         MOBY(moby)->rot.y =
             -fast_arc_tan(vector_length_xy(initial_movement_step), initial_movement_step[2]);
@@ -257,7 +258,7 @@ extern void func_L00_0025F4A8_alt(void *,
                                   int,
                                   int) __asm__("FUN_L00_0025e450");
 
-extern float rocket_explosion_hit_priority_gp __asm__("D_L18_0016196C") __attribute__((sda));
+float rocket_explosion_hit_priority_gp __asm__("D_L18_0016196C") = 3.0f;
 
 void spawn_rocket_explosion(void *moby_object, void *movement_step) {
     char  *moby = moby_object;
@@ -321,8 +322,9 @@ extern void               draw_geometry_quad(void *, int, int) __asm__("FUN_001f
 
 #include "rnc/overlay/l18/mobys/rocket_data/draw_rocket_target_pulse_quad.h"
 
-extern int rocket_target_pulse_color_start_gp __asm__("D_L18_00161980") __attribute__((sda));
-extern int rocket_target_pulse_color_end_gp __asm__("D_L18_00161984") __attribute__((sda));
+int rocket_target_pulse_color_start_gp __asm__("D_L18_00161980") =
+    0x800020f0;                                                              /* RGBA, 0xAABBGGRR */
+int rocket_target_pulse_color_end_gp __asm__("D_L18_00161984") = 0x8000f0f0; /* RGBA, 0xAABBGGRR */
 
 void draw_rocket_target_pulse_quad(struct Moby *m) {
     Pk           pk;

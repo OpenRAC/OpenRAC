@@ -24,7 +24,9 @@ typedef struct {
     float fade;
 } CamVars_c788;
 
-extern struct Moby *l11_three_per_side_child_mobys[] __asm__("D_L11_001DA710");
+/* Three child mobys per side, created and posed in loops of 6. */
+struct Moby *l11_three_per_side_child_mobys[6] __asm__("D_L11_001DA710") = {0};
+
 extern struct Moby *D_L11_00161F10[] MACRO_ADDR;
 extern struct Moby *D_L11_00161F20[] MACRO_ADDR;
 extern struct Moby *D_L11_00161F30[] MACRO_ADDR;
@@ -58,9 +60,10 @@ void update_child_set_poses(struct Moby *m) __asm__("FUN_L11_0030d1b0");
 
 /* Controller for the child moby sets laid out by FUN_L11_0030d1b0: spawns them, waits for its linked
    moby, fades in, then unfolds the sets one after another while blending between two l11_cuboids points. */
-void update_child_sets_controller(struct Moby *child_sets_controller) __asm__("FUN_L11_0030c788");
+void child_sets_controller_update(struct Moby *child_sets_controller) __asm__("FUN_L11_0030c788");
 
-void update_child_sets_controller(struct Moby *child_sets_controller) {
+/* Moby class 1156 */
+void child_sets_controller_update(struct Moby *child_sets_controller) {
     enum {
         CHILD_SETS_STATE_CREATE_CHILDREN = 0,
         CHILD_SETS_STATE_WAIT_FOR_LINK_TRIGGER = 1,
@@ -292,7 +295,7 @@ void update_child_sets_controller(struct Moby *child_sets_controller) {
 
 #include "rnc/overlay/l11/mobys/child_sets_controller_globals.h"
 
-extern float child_set_base_z_offset_gp __asm__("D_L11_00161EAC") __attribute__((sda));
+float child_set_base_z_offset_gp __asm__("D_L11_00161EAC") = -14.0f;
 
 #include "rnc/overlay/l11/mobys/child_sets_controller_data/update_child_set_poses_3.h"
 
@@ -300,11 +303,11 @@ extern float D_L11_00161EB4 __attribute__((sda));
 
 #include "rnc/overlay/l11/mobys/child_sets_controller_data/update_child_set_poses_2.h"
 
-extern float child_set_base_rotation_y_degrees_gp __asm__("D_L11_00161EBC") __attribute__((sda));
+float child_set_base_rotation_y_degrees_gp __asm__("D_L11_00161EBC") = 3e+01f;
 
 #include "rnc/overlay/l11/mobys/child_sets_controller_data/update_child_set_poses.h"
 
-extern float final_child_set_z_offset_gp __asm__("D_L11_00161F08") __attribute__((sda));
+float final_child_set_z_offset_gp __asm__("D_L11_00161F08") = -0.2f;
 
 extern float fast_add_rotations(float, float);
 

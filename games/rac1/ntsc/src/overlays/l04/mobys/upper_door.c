@@ -43,10 +43,12 @@ struct RiserVars {
 
 extern s32            level_completed_save_id_bits[] __asm__("D_L04_001BA650");
 extern LevelCollected l04_save_id_collection_state __asm__("D_L04_001BB3B0");
-extern int            trooper_play_sound(int, int, struct Moby *, int) __asm__("FUN_L00_0028dc90");
+
+extern int trooper_play_sound(int, int, struct Moby *, int) __asm__("FUN_L00_0028dc90");
 
 void upper_door_update(struct Moby *m) __asm__("FUN_L04_002e17d8");
 
+/* Moby classes 1101, 1102, 1531, 1532 */
 void upper_door_update(struct Moby *moby) {
     enum {
         UPPER_DOOR_INITIALIZE = 0,

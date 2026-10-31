@@ -37,7 +37,7 @@ extern void spawn_background_ship_2_level_10_joint_sparks(char *moby,
 extern int   D_L02_0015F5CC;
 extern char *D_L02_001B0AB0[];
 extern float D_L02_0015F580;
-extern float background_ship_2_path_travel_speed_gp __asm__("D_L02_00161FC0") __attribute__((sda));
+float        background_ship_2_path_travel_speed_gp __asm__("D_L02_00161FC0") = 2e+01f;
 extern char  background_ship_2_missing_path_message[] __asm__("D_L02_001FADB0");
 extern char  background_ship_2_empty_path_message[] __asm__("D_L02_001FADD0");
 extern float background_ship_2_color_phase_rate_degrees_gp __asm__("D_L02_00161FC4")
@@ -151,7 +151,7 @@ void prepare_background_ship_2_joint_draw_data(char *moby) __asm__("FUN_L02_002e
 
 void prepare_background_ship_2_joint_draw_data(char *moby) {
     int   i;
-    char *data;
+    char *background_ship_2_data;
     char *joint_position_out;
     int   current_global_value;
     int   r, g, b, packed_color;
@@ -160,8 +160,8 @@ void prepare_background_ship_2_joint_draw_data(char *moby) {
     if (MOBY(moby)->group == 0xFF) {
         return;
     }
-    data = ((char *)MOBY(moby)->pvars);
-    joint_position_out = data + 0x80;
+    background_ship_2_data = ((char *)MOBY(moby)->pvars);
+    joint_position_out = background_ship_2_data + 0x80;
     for (i = 0; i < 6; i++) {
         moby_point_position(moby, i + 2, joint_position_out);
         joint_position_out += 0x10;
@@ -173,9 +173,9 @@ void prepare_background_ship_2_joint_draw_data(char *moby) {
     packed_color = (r << 16) | 0x30000000;
     packed_color |= g << 8;
     packed_color |= b;
-    *(int *)(data + 0xE0) = packed_color;
+    *(int *)(background_ship_2_data + 0xE0) = packed_color;
     if (current_global_value != 0) {
-        cached_global_value_ptr = *(int **)(data + 0xE4);
+        cached_global_value_ptr = *(int **)(background_ship_2_data + 0xE4);
         if (current_global_value != *cached_global_value_ptr) {
             *cached_global_value_ptr = current_global_value;
             add_draw_callback(draw_matching_moby_slot_quads, moby);
@@ -188,6 +188,7 @@ void prepare_background_ship_2_joint_draw_data(char *moby) {
 /* Update for a ship moby: eases its attach point along a path, spawns effects and drives its state machine. */
 void background_ship_2_update(char *moby) __asm__("FUN_L02_002ece18");
 
+/* Moby classes 1213, 1973 */
 void background_ship_2_update(char *moby) {
     enum {
         BACKGROUND_SHIP_2_INITIALIZE = 0,
@@ -538,3 +539,35 @@ short
     background_ship_2_level_10_second_spark_color_tween_start_gp __asm__("D_L02_00162028") = 0x6020;
 
 short background_ship_2_level_10_second_spark_color_tween_end_gp __asm__("D_L02_0016202C") = 0x6050;
+
+float background_ship_2_color_phase_rate_degrees_gp __asm__("D_L02_00161FC4") = 3.6e+02f;
+
+extern short background_ship_2_first_spark_position_delta_scale_gp __asm__("D_L02_00161FD8")
+    __attribute__((sda));
+
+extern short background_ship_2_second_spark_position_delta_scale_gp __asm__("D_L02_00161FDC")
+    __attribute__((sda));
+
+extern short background_ship_2_spark_random_offset_radius_scale_gp __asm__("D_L02_00161FE0")
+    __attribute__((sda));
+
+extern short background_ship_2_spark_frame_count_random_span_gp __asm__("D_L02_00161FE4")
+    __attribute__((sda));
+
+extern short background_ship_2_spark_second_frame_count_base_gp __asm__("D_L02_00161FE8")
+    __attribute__((sda));
+
+extern short background_ship_2_spark_third_frame_count_base_gp __asm__("D_L02_00161FEC")
+    __attribute__((sda));
+
+extern short background_ship_2_spark_frame_count_variation_fraction_gp __asm__("D_L02_00161FF0")
+    __attribute__((sda));
+
+extern short background_ship_2_first_spark_fourth_component_range_start_gp __asm__("D_L02_00161FF4")
+    __attribute__((sda));
+
+extern short background_ship_2_first_spark_fourth_component_range_end_gp __asm__("D_L02_00161FF8")
+    __attribute__((sda));
+
+extern short background_ship_2_second_spark_fourth_component_range_end_gp __asm__("D_L02_00162000")
+    __attribute__((sda));

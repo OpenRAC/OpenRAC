@@ -18,8 +18,8 @@ typedef struct {
 int  find_moby_hit(void *, int, int) __asm__("FUN_L00_0025a420");
 void mark_moby_for_removal(void *) __asm__("FUN_0020c828");
 
-extern int linked_moby_selection_delay_gp __asm__("D_L00_00161478") __attribute__((sda));
-extern int owned_record_cooldown_gp __asm__("D_L00_00161480") __attribute__((sda));
+int linked_moby_selection_delay_gp __asm__("D_L00_00161478") = 0;
+int owned_record_cooldown_gp __asm__("D_L00_00161480") = 0;
 
 int D_L01_001614A0 = 0;
 int D_L01_001614A8 = 0;
@@ -58,9 +58,10 @@ int D_L17_00161560 = 0;
 int D_L18_001614E8 = 0;
 int D_L18_001614F0 = 0;
 
-void update_linked_moby_states(unsigned char *source_moby) __asm__("FUN_L00_002b3458");
+void linked_moby_states_update(unsigned char *source_moby) __asm__("FUN_L00_002b3458");
 
-void update_linked_moby_states(unsigned char *source_moby) {
+/* Moby class 166 */
+void linked_moby_states_update(unsigned char *source_moby) {
     enum {
         STATE_INITIALIZE = 0,
         STATE_ACTIVE = 1

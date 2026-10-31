@@ -10,15 +10,16 @@ typedef struct {
     u8 alpha;
 } SlotMoby;
 
-extern int  beam_slot_state[] __asm__("D_L00_00161BF8") MACRO_ADDR;
-extern int  beam_slot_id[] __asm__("D_L00_00161C88") MACRO_ADDR;
+extern int  beam_slot_state[3] __asm__("D_L00_00161BF8") MACRO_ADDR;
+extern int  beam_slot_id[3] __asm__("D_L00_00161C88") MACRO_ADDR;
 extern void release_beam_slot(s32) __asm__("FUN_L00_002e20f8");
 extern void update_slot_panes_and_effects(s32, s32) __asm__("FUN_L00_002e2250");
 extern void draw_active_beam_slots() __asm__("FUN_L00_002e2af0");
 
-void update_beam_slot_controller(SlotMoby *slot_controller) __asm__("FUN_L00_002e1df0");
+void beam_slot_controller_update(SlotMoby *slot_controller) __asm__("FUN_L00_002e1df0");
 
-void update_beam_slot_controller(SlotMoby *slot_controller) {
+/* Moby class 1471 */
+void beam_slot_controller_update(SlotMoby *slot_controller) {
     enum {
         SLOT_CONTROLLER_STATE_INITIALIZE = 0,
         SLOT_CONTROLLER_STATE_PROCESS_SLOTS = 1

@@ -12,7 +12,7 @@
 #include "rnc/overlay/level_path.h"
 #include "sda.h"
 #include "rnc/overlay/quad.h"
-#include "rnc/overlay/shared/vehicles/gunship_follow_path_data/gunship_follow_path.h"
+#include "rnc/overlay/shared/vehicles/gunship_data/gunship_update.h"
 
 struct DriftEmitter {
     s32 count; /* 0x00 */
@@ -163,34 +163,37 @@ extern void spawn_explosion(struct Moby *,
 
 void apply_gunship_path_position_offsets(char *moby, float *out) __asm__("FUN_L01_002f5040");
 
-void apply_gunship_path_position_offsets(char *moby, float *out) {
+void apply_gunship_path_position_offsets(char *moby, float *path_position) {
     float unit_x_axis[4];
     float rotated_x_axis[4];
     float horizontal_offset[4];
     float vertical_plane_offset[4];
     float rotated_x_axis_minus_unit_z[4];
     float rotation_matrix[16];
-    char *data;
+    char *gunship_path_vars;
     *(OvlQuad *)unit_x_axis = 0;
     unit_x_axis[0] = 1.0f;
-    data = ((char *)MOBY(moby)->pvars);
-    if (*(float *)(data + 0x130) != 0.0f || *(float *)(data + 0x134) != 0.0f) {
+    gunship_path_vars = ((char *)MOBY(moby)->pvars);
+    if (*(float *)(gunship_path_vars + 0x130) != 0.0f ||
+        *(float *)(gunship_path_vars + 0x134) != 0.0f) {
         euler_rotation_matrix(rotation_matrix, (float *)&MOBY(moby)->rot);
         transform_vector(rotated_x_axis, unit_x_axis, rotation_matrix);
         *(OvlQuad *)rotated_x_axis_minus_unit_z = *(OvlQuad *)rotated_x_axis;
         rotated_x_axis_minus_unit_z[2] = rotated_x_axis_minus_unit_z[2] - 1.0f;
         fast_vec_cross(horizontal_offset, rotated_x_axis, rotated_x_axis_minus_unit_z);
         fast_vec_cross(vertical_plane_offset, rotated_x_axis, horizontal_offset);
-        fast_vec_scale(horizontal_offset, horizontal_offset, *(float *)(data + 0x130));
-        fast_vec_scale(vertical_plane_offset, vertical_plane_offset, *(float *)(data + 0x134));
-        fast_vec_add(out, out, horizontal_offset);
-        fast_vec_add(out, out, vertical_plane_offset);
+        fast_vec_scale(horizontal_offset, horizontal_offset, *(float *)(gunship_path_vars + 0x130));
+        fast_vec_scale(
+            vertical_plane_offset, vertical_plane_offset, *(float *)(gunship_path_vars + 0x134));
+        fast_vec_add(path_position, path_position, horizontal_offset);
+        fast_vec_add(path_position, path_position, vertical_plane_offset);
     }
 }
 
-void gunship_follow_path(struct Moby *m) __asm__("FUN_L01_002f5168");
+void gunship_update(struct Moby *m) __asm__("FUN_L01_002f5168");
 
-void gunship_follow_path(struct Moby *moby) {
+/* Moby class 845 */
+void gunship_update(struct Moby *moby) {
     enum {
         GUNSHIP_PATH_STATE_INITIALIZE = 0,
         GUNSHIP_PATH_STATE_FOLLOW_PATH = 1,
@@ -554,7 +557,7 @@ void gunship_follow_path(struct Moby *moby) {
                             0);
         }
     }
-    D_L01_00160770 = (void *)gunship_follow_path;
+    D_L01_00160770 = (void *)gunship_update;
     moby->hit_slot = 0xFF;
     if (v->unk13A == 0)
         return;

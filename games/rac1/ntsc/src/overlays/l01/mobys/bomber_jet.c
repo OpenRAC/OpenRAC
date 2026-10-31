@@ -12,7 +12,7 @@
 #include "rnc/overlay/shared/mobys/find_moby_hit.h"
 #include "rnc/overlay/shared/mobys/moby_point_position.h"
 #include "rnc/overlay/l01/hero/hero_set_state.h"
-#include "rnc/overlay/shared/vehicles/gunship_follow_path.h"
+#include "rnc/overlay/shared/vehicles/gunship.h"
 
 #include "rnc/overlay/level_path.h"
 #include "rnc/overlay/level_labels.h"
@@ -211,9 +211,9 @@ typedef struct {
     GunshipMoby *moby;
 } GunshipHit;
 
-extern f32 gunship_min_scale __asm__("D_L01_00161BD0") __attribute__((sda));
-extern f32 gunship_far_dist __asm__("D_L01_00161BD4") __attribute__((sda));
-extern f32 gunship_near_dist __asm__("D_L01_00161BD8") __attribute__((sda));
+f32 gunship_min_scale __asm__("D_L01_00161BD0") = 0.5f;
+f32 gunship_far_dist __asm__("D_L01_00161BD4") = 2e+02f;
+f32 gunship_near_dist __asm__("D_L01_00161BD8") = 2e+01f;
 
 GunshipTargets gunship_no_targets __asm__("D_L01_00161BE0") = {
     {-1, -1, -1, -1}
@@ -259,6 +259,7 @@ extern f32 frame_time_macro __asm__("D_0015ED6C") MACRO_ADDR;
 /* Ported from rac1-decomp src/overlays/l01_novalis/vendor_002BA898.c (func_L01_002F8B00) */
 void bomber_jet_update(GunshipMoby *m) __asm__("FUN_L01_002f7728");
 
+/* Moby class 688 */
 void bomber_jet_update(GunshipMoby *bomber_jet_moby) {
     GunshipVars   *gunship_vars = bomber_jet_moby->vars;
     GunshipFollow *sub = &gunship_vars->sub;
@@ -365,7 +366,7 @@ void bomber_jet_update(GunshipMoby *bomber_jet_moby) {
         }
         if (gunship_vars->trigger_volume != -1) {
             if (bomber_jet_moby->state == 0) {
-                gunship_follow_path((char *)bomber_jet_moby);
+                gunship_update((char *)bomber_jet_moby);
             }
             if (gunship_vars->cutscene_timer == -1 &&
                 is_point_inside_clip_volume(&hero.motion.pos, gunship_vars->trigger_volume)) {
@@ -428,13 +429,13 @@ void bomber_jet_update(GunshipMoby *bomber_jet_moby) {
                         }
                     }
                 }
-                gunship_follow_path((char *)bomber_jet_moby);
+                gunship_update((char *)bomber_jet_moby);
             } else {
                 bomber_jet_moby->flags |= 0x41;
                 break;
             }
         } else {
-            gunship_follow_path((char *)bomber_jet_moby);
+            gunship_update((char *)bomber_jet_moby);
         }
         bomber_jet_moby->flags |= 0x1000;
         gunship_vars->b2B = 1;
@@ -508,7 +509,7 @@ void bomber_jet_update(GunshipMoby *bomber_jet_moby) {
                         gunship_vars->trigger_volume != -1);
                     if (bm != 0) {
                         int  k = 0;
-                        int *out = (int *)((char *)bm->vars + 0x20);
+                        int *beam_guard_moby_indices = (int *)((char *)bm->vars + 0x20);
                         {
                             unsigned char *t = gunship_vars->stop_nodes;
                             gunship_vars->last_fire_node = t[found];
@@ -524,7 +525,7 @@ void bomber_jet_update(GunshipMoby *bomber_jet_moby) {
                                         is_point_inside_clip_volume(&hero.motion.pos,
                                                                     guard_vars->f8) &&
                                         is_point_inside_clip_volume(camera_pos, guard_vars->f8)) {
-                                        out[k] = gunship_vars->guards[i];
+                                        beam_guard_moby_indices[k] = gunship_vars->guards[i];
                                         k++;
                                     }
                                     if (k >= 4)

@@ -47,7 +47,7 @@ char *spawn_homing_rocket(void        *heading_vector,
         qcopy(moby_vars, heading_vector);
         MOBY(spawned_moby)->rot.z = fast_arc_tan(*(float *)moby_vars, *(float *)(moby_vars + 4));
         *(int *)(moby_vars + 0x14) = scale_game_frames(timer_frames);
-        *(float *)(moby_vars + 0x18) = unread_value; /* update_homing_rocket never reads it */
+        *(float *)(moby_vars + 0x18) = unread_value; /* homing_rocket_update never reads it */
         *(float *)(moby_vars + 0x1C) = initial_heading;
         *(float *)(moby_vars + 0x24) = initial_speed;
         *(char **)(moby_vars + 0x10) = parent;
@@ -92,23 +92,24 @@ extern void  add_vectors(void *, void *, void *) __asm__("FUN_L00_001ff290");
 extern int   FUN_L00_00257b90(int, int);
 extern void  spawn_effect(void *, void *, int, int, int, int, int, int) __asm__("FUN_L00_00269958");
 extern float spring_turn(float *vel, float cur, float target, float k, float d, float max) __asm__("FUN_L00_00258110");
-extern int   coll_sphere(float, void *, int, void *) __asm__("FUN_L00_001f0d60");
-extern void  make_hit_descriptor(void *, void *, int, float, void *) __asm__("FUN_L00_00259888");
-extern void  record_moby_hit(void *, void *) __asm__("FUN_L00_00259a88");
-extern void  cart_burst(void *, void *, int, float, float) __asm__("FUN_L00_0025f090");
-extern float rocket_trail_offset_z_scale_gp __asm__("D_L03_00161B28") __attribute__((sda));
+extern int  coll_sphere(float, void *, int, void *) __asm__("FUN_L00_001f0d60");
+extern void make_hit_descriptor(void *, void *, int, float, void *) __asm__("FUN_L00_00259888");
+extern void record_moby_hit(void *, void *) __asm__("FUN_L00_00259a88");
+extern void cart_burst(void *, void *, int, float, float) __asm__("FUN_L00_0025f090");
+float       rocket_trail_offset_z_scale_gp __asm__("D_L03_00161B28") = 0.35f;
 extern CollisionHit D_L03_00173F40;
 
 /* Homing rocket update: flies on, trails smoke, steers up or down toward a target, explodes on impact or timeout. */
 extern Vec4 D_0013F490_v __asm__("D_0013F490");
-void        update_homing_rocket(struct Moby *rocket_moby) __asm__("FUN_L03_002d43c8");
+void        homing_rocket_update(struct Moby *rocket_moby) __asm__("FUN_L03_002d43c8");
 
-void update_homing_rocket(struct Moby *rocket_moby) {
+/* Moby class 833 */
+void homing_rocket_update(struct Moby *rocket_moby) {
     enum {
         ROCKET_FLY = 1,
         ROCKET_BURST_AND_REMOVE = 2
     };
-    Vec4                old;
+    Vec4                previous_position;
     Vec4                side;
     Vec4                back;
     Vec4                trail_vector_offset;
@@ -127,7 +128,7 @@ void update_homing_rocket(struct Moby *rocket_moby) {
         pos = &rocket_moby->pos;
         range = convert_integer_to_float(rocket_vars->timer * 2) * rocket_vars->speed;
         select_moby_target_with_hero_fallback(rocket_moby, &target, range);
-        qcopy(&old, pos);
+        qcopy(&previous_position, pos);
         fast_vec_add(pos, pos, rocket_vars);
         trail_vector_offset.q = D_0013F490_v.q;
         trail_vector_offset.f[2] *= rocket_trail_offset_z_scale_gp;
@@ -170,7 +171,7 @@ void update_homing_rocket(struct Moby *rocket_moby) {
                                              frame_time * 0.5235988f);
             rocket_moby->pos.z += fast_sin(-rocket_moby->rot.y) * rocket_vars->speed;
         }
-        if (collision_line(pos, &old, 0, rocket_vars->ignore, 0) != 0 ||
+        if (collision_line(pos, &previous_position, 0, rocket_vars->ignore, 0) != 0 ||
             coll_sphere(0.2f, pos, 0, rocket_vars->ignore) != 0) {
             level = (void **)&D_L03_00173F40;
             if (level[6] != NULL) {

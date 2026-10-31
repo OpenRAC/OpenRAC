@@ -2,24 +2,25 @@
 #include "types.h"
 #include "rnc/math/fast_math.h"
 #include "rnc/overlay/shared/props/particle_spawner_smoke_fire_controller_data/update_frame_timing_and_wrapped_value_2.h"
-#include "rnc/overlay/shared/props/particle_spawner_smoke_fire_controller_data/update_frame_timing_and_wrapped_value.h"
+#include "rnc/overlay/shared/props/particle_spawner_smoke_fire_controller_data/smoke_fire_controller_update.h"
 #include "rnc/globals.h"
 #include "qcopy.h"
 
 extern int configured_unscaled_frame_count_gp __asm__("D_L00_00161368") __attribute__((sda));
-extern int configured_reciprocal_frame_count_gp __asm__("D_L00_0016136C") __attribute__((sda));
+int        configured_reciprocal_frame_count_gp __asm__("D_L00_0016136C") = 60;
 
 extern int   D_L00_0016137C_gp __asm__("D_L00_0016137C") __attribute__((sda));
 extern int   D_L00_00161380 __attribute__((sda));
 extern int   D_L00_00161388;
 extern float D_L00_00161374_gp __asm__("D_L00_00161374") __attribute__((sda));
-extern float wrapped_value_decrement_rate_gp __asm__("D_L00_00161378") __attribute__((sda));
+float        wrapped_value_decrement_rate_gp __asm__("D_L00_00161378") = 0.0025f;
 extern float D_L00_00161384_gp __asm__("D_L00_00161384") __attribute__((sda));
 extern float D_L00_0016138C_gp __asm__("D_L00_0016138C") __attribute__((sda));
 
-void update_frame_timing_and_wrapped_value(unsigned char *state_object) __asm__("FUN_L00_002a4cd8");
+void smoke_fire_controller_update(unsigned char *state_object) __asm__("FUN_L00_002a4cd8");
 
-void update_frame_timing_and_wrapped_value(unsigned char *state_object) {
+/* Moby class 809 */
+void smoke_fire_controller_update(unsigned char *state_object) {
     enum {
         INITIALIZE_FRAME_TIMING = 0,
         UPDATE_WRAPPED_VALUE = 1

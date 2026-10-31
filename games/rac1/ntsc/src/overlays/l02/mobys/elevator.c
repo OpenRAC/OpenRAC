@@ -64,6 +64,7 @@ extern void add_draw_callback(void *, void *) __asm__("FUN_001f4600");
 /* Same platform routine as elevator_update, with a waiting state (1) and this level's tables. */
 void elevator_update(L16PlatformMoby *moby) __asm__("FUN_L02_002dbd38");
 
+/* Moby class 651 */
 void elevator_update(L16PlatformMoby *moby) {
     enum {
         ELEVATOR_INITIALIZE = 0,
@@ -262,12 +263,12 @@ void draw_elevator_rotating_rings(struct Moby *moby) {
     L16RingMatrix matrix;
     char         *moby_vars = (char *)moby->pvars;
     int           bound_index = (*(int *)((char *)moby_vars + 0xA0)) << 7;
-    char         *entry = (char *)(bound_index + (int)level02_elevator_transform_table);
-    float         translation = (*(float *)((char *)moby_vars + 0xB8));
-    float         lower = (*(float *)((char *)entry + 0x38));
-    float         half = (*(float *)((char *)entry + 0x28));
-    float         upper = lower + half + translation;
-    int           color;
+    char *elevator_transform_entry = (char *)(bound_index + (int)level02_elevator_transform_table);
+    float translation = (*(float *)((char *)moby_vars + 0xB8));
+    float lower = (*(float *)((char *)elevator_transform_entry + 0x38));
+    float half = (*(float *)((char *)elevator_transform_entry + 0x28));
+    float upper = lower + half + translation;
+    int   color;
     float(*uv)[2];
     L16RingVector *point;
     float         *v, *u;

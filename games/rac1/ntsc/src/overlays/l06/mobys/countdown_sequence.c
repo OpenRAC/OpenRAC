@@ -39,12 +39,12 @@ extern char *D_L06_0015FFD8_301b90 __asm__("D_L06_0015FFD8");
 extern int  *D_L06_001B0C30_301b90[] __asm__("D_L06_001B0C30");
 extern char  dialogue_playback_phase[] __asm__("D_0015172A");
 extern int   D_L06_0015F5C4 __asm__("D_L06_0015F5C4");
-extern float D_L06_00162098 __asm__("D_L06_00162098") __attribute__((sda));
-extern float D_L06_0016209C __asm__("D_L06_0016209C") __attribute__((sda));
-extern float D_L06_001620A0 __asm__("D_L06_001620A0") __attribute__((sda));
-extern float D_L06_001620A4 __asm__("D_L06_001620A4") __attribute__((sda));
-extern float D_L06_001620A8 __asm__("D_L06_001620A8") __attribute__((sda));
-extern float D_L06_001620B0 __asm__("D_L06_001620B0") __attribute__((sda));
+float        D_L06_00162098 = 0.0001f;
+float        D_L06_0016209C = 1.0f;
+float        D_L06_001620A0 = 0;
+float        D_L06_001620A4 = 0.001f;
+float        D_L06_001620A8 = 1.0f;
+float        D_L06_001620B0 = 0;
 extern float l06_linked_sequence_post_path_countdown_duration __asm__("D_L06_001620C4")
     __attribute__((sda));
 extern void set_moby_list_state_4(int) __asm__("FUN_L06_002f45f0");
@@ -68,7 +68,7 @@ extern int   hero_respawn(void) __asm__("FUN_L00_00211250");
 extern void  FUN_001f4600(int, char *) __asm__("FUN_L06_00210fc8");
 extern void  draw_pulsing_timer_display(char *) __asm__("FUN_L06_003021d8");
 extern void  allocate_voice_for_group_entry(int, int, int) __asm__("FUN_0022dba0");
-void         update_countdown_sequence(unsigned char *moby) __asm__("FUN_L06_00301b90");
+void         countdown_sequence_update(unsigned char *moby) __asm__("FUN_L06_00301b90");
 
 struct TauntVoiceVars {
     u8  pad0[0x38];
@@ -77,7 +77,8 @@ struct TauntVoiceVars {
     s32 chatter[3][6]; /* 0x68 */
 };
 
-extern s32 chatter_variant_used_flags[1] __asm__("D_L06_001620B8") __attribute__((sda));
+s32 chatter_variant_used_flags[1] __asm__("D_L06_001620B8") = {0};
+
 extern s32 queued_dialogue_id[] __asm__("D_001516EC");
 extern s32 FUN_00213260(s32);
 extern int D_L06_0015F5C4;
@@ -166,7 +167,8 @@ void set_moby_list_state_17(int moby_list_index) {
     }
 }
 
-void update_countdown_sequence(unsigned char *moby) {
+/* Moby class 1108 */
+void countdown_sequence_update(unsigned char *moby) {
     enum {
         INITIALIZE_ENTITY = 0,
         TRIGGER_LINKED_SEQUENCE_WHEN_GROUP_INACTIVE = 1,
@@ -408,3 +410,5 @@ s32 get_red_button_sequence_status(const u8 *moby) {
     }
     return 0;
 }
+
+float l06_linked_sequence_post_path_countdown_duration __asm__("D_L06_001620C4") = 2.7e+03f;

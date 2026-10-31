@@ -53,40 +53,41 @@ extern float            D_L08_00174660[];
 extern int              collision_line(void *, void *, int, void *, int) __asm__("FUN_001efa68");
 extern int              coll_sphere(float, void *, int, void *) __asm__("FUN_L00_001f0d60");
 extern int collect_mobies_in_sphere(void *, float, int, void *, void *) __asm__("FUN_L00_001f2868");
-extern float bomb_downward_acceleration_gp __asm__("D_L08_00161860") __attribute__((sda));
-extern void  FUN_L00_001ff660_c(void *, void *, void *) __asm__("FUN_L00_001ff660");
-extern void  jet_animate(void *, float) __asm__("FUN_L00_00259fe8");
-extern void  trooper_anim_update(void *, short *) __asm__("FUN_L00_0025d458");
-extern void  trooper_anim_finish(void *, void *) __asm__("FUN_L00_0025d538");
-extern void  spawn_explosion(void *,
-                             void *,
-                             void *,
-                             float,
-                             float,
-                             int,
-                             int,
-                             int,
-                             float,
-                             float,
-                             float,
-                             float,
-                             int,
-                             float,
-                             int,
-                             int,
-                             int,
-                             int) __asm__("FUN_L00_0025e450");
+float      bomb_downward_acceleration_gp __asm__("D_L08_00161860") = 15.0f;
+extern void FUN_L00_001ff660_c(void *, void *, void *) __asm__("FUN_L00_001ff660");
+extern void jet_animate(void *, float) __asm__("FUN_L00_00259fe8");
+extern void trooper_anim_update(void *, short *) __asm__("FUN_L00_0025d458");
+extern void trooper_anim_finish(void *, void *) __asm__("FUN_L00_0025d538");
+extern void spawn_explosion(void *,
+                            void *,
+                            void *,
+                            float,
+                            float,
+                            int,
+                            int,
+                            int,
+                            float,
+                            float,
+                            float,
+                            float,
+                            int,
+                            float,
+                            int,
+                            int,
+                            int,
+                            int) __asm__("FUN_L00_0025e450");
 extern void
 FUN_L00_00269958_c(void *, void *, int, int, int, int, int, int) __asm__("FUN_L00_00269958");
 extern float D_L08_0015F580_macro[] __asm__("D_L08_0015F580") MACRO_ADDR;
-void         update_bomb(char *moby) __asm__("FUN_L08_002d23f0");
+void         moby_248_update(char *moby) __asm__("FUN_L08_002d23f0");
 extern float D_0015ED6C;
 
 blk16 l08_bomb_moving_particle_initial_colors __asm__("D_L08_00161868") = {
     {-1, -1, -1, 0x2f, -1, -1, 0, 0x2f, -1, 0x7f, 0, 0x2f, -1, 0x4f, 0, 0x2f}
 };
 
-void update_bomb(char *moby) {
+/* Moby class 248 */
+void moby_248_update(char *moby) {
     enum {
         BOMB_STATE_MOVING = 1,
         BOMB_STATE_STATIONARY_FUSE = 2,

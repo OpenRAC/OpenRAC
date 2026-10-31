@@ -737,7 +737,11 @@ skip:
 
 extern char *get_help_message_text(s32) __asm__("func_001FDD10");
 extern char  fighter_jet_ammo_icon_strip_data[] __asm__("D_L17_001D99E0");
-extern int   D_L17_001D9B68[];
+/* Saved copy of the hp bar CLUT: 256 colour words, filled by one 0x400-byte
+   block copy in the fighter jet's init and read back entry by entry (CSM1
+   swizzled index of j < 0xFE) when the bar is redrawn. */
+int fighter_jet_saved_hp_bar_clut[256] __asm__("D_L17_001D9B68") = {0};
+
 int          lock_hold_frames __asm__("D_L17_00162170") = 500;
 int          lock_fade_frames __asm__("D_L17_00162174") = 100;
 extern short D_L17_00162180 __attribute__((sda));
@@ -940,7 +944,8 @@ void draw_fighter_jet_hud(struct Moby *moby) {
     for (j = lo; j <= hi; j++) {
         hp_bar_clut_index = (j & 0xE7) | ((j & 0x10) >> 1) | ((j & 8) << 1);
         if (j < hp_bar_fill_threshold) {
-            (*(int **)&D_L17_00162180)[hp_bar_clut_index] = D_L17_001D9B68[hp_bar_clut_index];
+            (*(int **)&D_L17_00162180)[hp_bar_clut_index] =
+                fighter_jet_saved_hp_bar_clut[hp_bar_clut_index];
         } else {
             (*(int **)&D_L17_00162180)[hp_bar_clut_index] = 0x80000000;
         }
@@ -1187,7 +1192,7 @@ void update_fighter_jet_flight(FighterJetMoby *ship_moby,
                                FighterJetVars *ship_vars) __asm__("FUN_L17_002ec360");
 
 void update_fighter_jet_flight(FighterJetMoby *ship_moby, FighterJetVars *ship_vars) {
-    sceVu0FVECTOR old;
+    sceVu0FVECTOR pre_movement_ship_position;
     sceVu0FVECTOR death_explosion_velocity;
     UQ_c4         movement_delta;
     sceVu0FVECTOR side;
@@ -1330,9 +1335,9 @@ void update_fighter_jet_flight(FighterJetMoby *ship_moby, FighterJetVars *ship_v
     lenB = 500.0f;
     if (ship_vars->i110 != -1) {
         int   target_record_byte_offset = ship_vars->i110 << 7;
-        char *base = D_L17_001600EC;
-        qcopy(target, ((char(*)[128])base)[ship_vars->i110] + 0x30);
-        lenA = fast_vec_length(base + target_record_byte_offset + 0x20);
+        char *target_record_array = D_L17_001600EC;
+        qcopy(target, ((char(*)[128])target_record_array)[ship_vars->i110] + 0x30);
+        lenA = fast_vec_length(target_record_array + target_record_byte_offset + 0x20);
         fast_vec_add(target_record_sum_or_camera_local_offset,
                      (ship_vars->i110 << 7) + D_L17_001600EC,
                      (ship_vars->i110 << 7) + D_L17_001600EC + 0x10);
@@ -1378,7 +1383,7 @@ void update_fighter_jet_flight(FighterJetMoby *ship_moby, FighterJetVars *ship_v
         lenA);
     build_spherical_offset(movement_delta.v, ship_vars->speed, ship_vars->f38, -ship_vars->f34);
     fast_vec_normalize(ship_vars->v10, movement_delta.v, 1.0f);
-    qcopy(old, ship_moby->pos);
+    qcopy(pre_movement_ship_position, ship_moby->pos);
     if (ship_moby->bc == 0) {
         fast_vec_add(ship_moby->pos, ship_moby->pos, movement_delta.v);
     }
@@ -1678,9 +1683,11 @@ typedef struct {
     char           padC[4];
 } ShipLevelEntry;
 
-extern char D_L17_001D9B68_ed[] __asm__("D_L17_001D9B68");
-extern char fighter_jet_missing_victory_placement_message[] __asm__("D_L17_001E6E00");
-char        D_L17_001E6E38[] = "no final place for hero during victory, so just fall\n";
+char fighter_jet_missing_victory_placement_message[56] __asm__("D_L17_001E6E00") =
+    "no final place for jet during victory, so use init pos\n";
+
+char fighter_jet_missing_victory_hero_placement_message[] __asm__("D_L17_001E6E38") =
+    "no final place for hero during victory, so just fall\n";
 
 #include "rnc/overlay/l17/mobys/fighter_jet_globals.h"
 
@@ -1734,6 +1741,7 @@ extern char          *fighter_jet_hp_bar_clut_lookup_base __asm__("D_L17_0015F42
 extern ShipLevelEntry l17_fighter_jet_hp_bar_clut_entries[] __asm__("D_L17_0016DA80");
 void                  fighter_jet_update(ShipMoby *moby) __asm__("FUN_L17_002ed018");
 
+/* Moby class 1379 */
 void fighter_jet_update(ShipMoby *moby) {
     enum {
         FIGHTER_JET_STATE_INITIALIZE = 0,
@@ -1851,7 +1859,7 @@ void fighter_jet_update(ShipMoby *moby) {
                     (l17_fighter_jet_hp_bar_clut_entries + hp_bar_level_entry_index)->idx * 16;
             }
             if (hp_bar_saved == 0) {
-                *(ShipBlock400 *)D_L17_001D9B68_ed = *(ShipBlock400 *)hp_bar_clut;
+                *(ShipBlock400 *)fighter_jet_saved_hp_bar_clut = *(ShipBlock400 *)hp_bar_clut;
             }
             hp_bar_saved = 1;
             ship_vars->timerF8 = 1;
@@ -2068,7 +2076,7 @@ void fighter_jet_update(ShipMoby *moby) {
                 moby->scale = *(float *)(moby->pclass + 0x24);
                 refresh_moby_spatial_bounds_from_basis(moby);
                 if (ship_vars->exit_path == -1) {
-                    debug_print(D_L17_001E6E38);
+                    debug_print(fighter_jet_missing_victory_hero_placement_message);
                 } else {
                     if (ship_vars->i11C > 0) {
                         jet_group_state(ship_vars->i11C, 0, 0, 0);

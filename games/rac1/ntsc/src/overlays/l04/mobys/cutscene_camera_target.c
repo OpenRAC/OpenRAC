@@ -15,11 +15,13 @@ struct L04MissionState {
 
 extern int                    D_L04_0015F5C4;
 extern struct L04MissionState l04_mode_slot_dispatch_state __asm__("D_L04_0016C9E0");
-extern void                   cutscene_set_camera_target(int) __asm__("FUN_L00_002637f8");
 
-void update_cutscene_camera_target(struct Moby *moby) __asm__("FUN_L04_002e53a0");
+extern void cutscene_set_camera_target(int) __asm__("FUN_L00_002637f8");
 
-void update_cutscene_camera_target(struct Moby *moby) {
+void cutscene_camera_target_update(struct Moby *moby) __asm__("FUN_L04_002e53a0");
+
+/* Moby class 1549 */
+void cutscene_camera_target_update(struct Moby *moby) {
     enum {
         MODE_SLOT_STATE_INITIALIZE = 0,
         MODE_SLOT_STATE_DISPATCH_SELECTED_SLOT = 1

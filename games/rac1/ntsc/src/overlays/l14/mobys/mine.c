@@ -46,9 +46,9 @@ extern char mine_missing_path_error_format[] __asm__("D_L14_001FCA98");
 
 extern char mine_empty_path_error_format[] __asm__("D_L14_001FCAD8");
 
-extern f32 mine_path_step_rate_gp __asm__("D_L14_00161C44") __attribute__((sda));
+f32 mine_path_step_rate_gp __asm__("D_L14_00161C44") = 6.0f;
 
-extern f32 mine_glow_pulse_phase_step_gp __asm__("D_L14_00161C48") __attribute__((sda));
+f32 mine_glow_pulse_phase_step_gp __asm__("D_L14_00161C48") = 0.05235988f;
 
 extern float FUN_L00_00257c48(float, float);
 
@@ -81,9 +81,10 @@ extern void mine_explode(void *,
 
 extern int mine_ftoi(float) __asm__("FUN_001fa6d0");
 
-void update_looping_path_mine(struct Moby *moby) __asm__("FUN_L14_002ec810");
+void looping_path_mine_update(struct Moby *moby) __asm__("FUN_L14_002ec810");
 
-void update_looping_path_mine(struct Moby *moby) {
+/* Moby class 643 */
+void looping_path_mine_update(struct Moby *moby) {
     enum {
         MINE_STATE_INITIALIZE = 0,
         MINE_STATE_FOLLOW_PATH = 1

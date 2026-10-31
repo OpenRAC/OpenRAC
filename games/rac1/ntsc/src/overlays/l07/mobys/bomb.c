@@ -65,7 +65,7 @@ extern struct Moby *debris_target __asm__("D_L07_00173ED8") NOT_SDA;
 extern char         debris_far_point[] __asm__("D_L07_00166E40");
 
 /* Debris update: moves and spins it, bursts it on impact, removes it out of bounds. */
-void        update_bomb(struct Moby *moby) __asm__("FUN_L07_0030bbc8");
+void        bombomatic_bomb_update(struct Moby *moby) __asm__("FUN_L07_0030bbc8");
 extern void spawn_explosion(void *,
                             void *,
                             void *,
@@ -107,18 +107,19 @@ s32         allocate_voice_for_target_entry(s32   entry_index,
                                             s32   flags,
                                             void *target) __asm__("FUN_0022da68");
 
-void update_bomb(struct Moby *moby) {
+/* Moby class 882 */
+void bombomatic_bomb_update(struct Moby *moby) {
     Vec4f      *pos = &moby->pos;
     DebrisVars *debris_vars = (DebrisVars *)moby->pvars;
-    Vec4        old;
+    Vec4        previous_debris_position;
     float       size;
 
-    qcopy(&old, pos);
+    qcopy(&previous_debris_position, pos);
     fast_vec_add(pos, pos, debris_vars);
     debris_vars->vel.z -= frame_time_sq * 9.8f;
     moby->rot.y = fast_add_rotations(moby->rot.y, debris_vars->spin_y);
     moby->rot.z = fast_add_rotations(moby->rot.z, debris_vars->spin_z);
-    if (collision_line(&old, pos, 0, debris_vars->ignore, NULL) != 0 ||
+    if (collision_line(&previous_debris_position, pos, 0, debris_vars->ignore, NULL) != 0 ||
         coll_sphere(0.5f, pos, 0, debris_vars->ignore) != 0) {
         if (debris_target == NULL || (u16)(debris_target->oclass - 0x371) >= 2) {
             if (moby->visible != 0 || vector_distance_xy(pos, &hero.motion.pos) < 5.0f) {

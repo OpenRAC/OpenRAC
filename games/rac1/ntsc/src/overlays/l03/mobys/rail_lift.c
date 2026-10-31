@@ -18,11 +18,11 @@
 int is_rail_lift_started(struct Moby *moby) __asm__("FUN_L03_002dcb30");
 
 int is_rail_lift_started(struct Moby *moby) {
-    char *data = (char *)moby->pvars;
+    char *rail_lift_vars = (char *)moby->pvars;
     if (moby->oclass != 0x3F4) {
         return 0;
     }
-    if (moby->state && *(int *)(data + 0x7C) == 1) {
+    if (moby->state && *(int *)(rail_lift_vars + 0x7C) == 1) {
         return 1;
     }
     return 0;
@@ -100,9 +100,10 @@ struct RailLiftVars {
 
 void update_rail_lift_oscillation(struct Moby *moby) __asm__("FUN_L03_002dd0f0");
 
-void update_rail_lift(struct Moby *lift_moby) __asm__("FUN_L03_002dccc0");
+void rail_lift_update(struct Moby *lift_moby) __asm__("FUN_L03_002dccc0");
 
-void update_rail_lift(struct Moby *lift_moby) {
+/* Moby class 1012 */
+void rail_lift_update(struct Moby *lift_moby) {
     enum {
         LIFT_INITIALIZE = 0,
         LIFT_WAIT_FOR_DEPARTURE = 1,

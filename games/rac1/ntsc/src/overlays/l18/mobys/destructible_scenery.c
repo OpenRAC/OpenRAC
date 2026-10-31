@@ -48,19 +48,21 @@ extern float D_0013F3D0[4];
 
 #include "rnc/game/game_globals.h"
 
-extern unsigned char D_L18_001F29A0_9768[] __asm__("D_L18_001F29A0");
-extern unsigned char D_L18_001F29B8_9768[] __asm__("D_L18_001F29B8");
+/* The two six-colour particle palettes of the burst: copied whole (24 bytes) and indexed with random_integer_below(6). */
+extern u32 destructible_burst_first_colors[6] __asm__("D_L18_001F29A0");
+extern u32 destructible_burst_second_colors[6] __asm__("D_L18_001F29B8");
 
-void update_moby_hit_response_burst_and_ballistic_flight(struct Moby *moby) __asm__("FUN_L18_002e9768");
+void destructible_scenery_update(struct Moby *moby) __asm__("FUN_L18_002e9768");
 
-void update_moby_hit_response_burst_and_ballistic_flight(struct Moby *moby) {
+/* Moby classes 885, 888, 891, 892, 894, 900, 901, 936 */
+void destructible_scenery_update(struct Moby *moby) {
     enum {
         STATE_INITIALIZE = 0,
         STATE_WAIT_FOR_HIT = 1,
         STATE_BURST_OR_LAUNCH = 2,
         STATE_BALLISTIC_FLIGHT = 3
     };
-    float *data = (float *)moby->pvars;
+    float *hit_response_and_flight_private_vars = (float *)moby->pvars;
     long   state = moby->state;
     float  magnitude;
 
@@ -72,8 +74,8 @@ void update_moby_hit_response_burst_and_ballistic_flight(struct Moby *moby) {
                 goto remove;
         }
         moby->state = 1;
-        if (*(int *)data != 0)
-            *(int *)(*(int *)data) = 3;
+        if (*(int *)hit_response_and_flight_private_vars != 0)
+            *(int *)(*(int *)hit_response_and_flight_private_vars) = 3;
         return;
     }
     case STATE_WAIT_FOR_HIT:
@@ -96,8 +98,8 @@ void update_moby_hit_response_burst_and_ballistic_flight(struct Moby *moby) {
                 do {
                     pos = &moby->pos.x;
                     magnitude = random_float_between(8.0f, 10.0f) * frame_time;
-                    __builtin_memcpy(colors, D_L18_001F29A0_9768, 24);
-                    __builtin_memcpy(colors2, D_L18_001F29B8_9768, 24);
+                    __builtin_memcpy(colors, destructible_burst_first_colors, 24);
+                    __builtin_memcpy(colors2, destructible_burst_second_colors, 24);
                     qcopy(position, pos);
                     ++i;
                     position[2] += random_float_between(0.0f, 6.0f);
@@ -150,8 +152,8 @@ void update_moby_hit_response_burst_and_ballistic_flight(struct Moby *moby) {
                     qcopy(position, pos);
                     ++i;
                     position[2] += random_float_between(zero, 6.0f);
-                    __builtin_memcpy(colors, D_L18_001F29A0_9768, 24);
-                    __builtin_memcpy(colors2, D_L18_001F29B8_9768, 24);
+                    __builtin_memcpy(colors, destructible_burst_first_colors, 24);
+                    __builtin_memcpy(colors2, destructible_burst_second_colors, 24);
                     *(OvlQuad *)direction = 0;
                     direction[0] = random_float_between(-1.0f, 1.0f);
                     direction[1] = random_float_between(-1.0f, 1.0f);
@@ -178,25 +180,34 @@ void update_moby_hit_response_burst_and_ballistic_flight(struct Moby *moby) {
             float speed = random_float_between(10.0f, 15.0f) * frame_time;
             moby->collision = 0;
             moby->state = 3;
-            data[2] = FUN_L00_00257c48(0.0f, 90.0f) * DEG_TO_RAD * frame_time;
-            data[3] = FUN_L00_00257c48(0.0f, 90.0f) * DEG_TO_RAD * frame_time;
-            subtract_vector_9768(data + 4, &moby->pos.x, D_0013F3D0);
-            data[6] = 0.0f;
-            scale_vector_9768(data + 4, data + 4, speed);
+            hit_response_and_flight_private_vars[2] =
+                FUN_L00_00257c48(0.0f, 90.0f) * DEG_TO_RAD * frame_time;
+            hit_response_and_flight_private_vars[3] =
+                FUN_L00_00257c48(0.0f, 90.0f) * DEG_TO_RAD * frame_time;
+            subtract_vector_9768(
+                hit_response_and_flight_private_vars + 4, &moby->pos.x, D_0013F3D0);
+            hit_response_and_flight_private_vars[6] = 0.0f;
+            scale_vector_9768(hit_response_and_flight_private_vars + 4,
+                              hit_response_and_flight_private_vars + 4,
+                              speed);
             random_vector(vector, speed, speed);
-            add_vector_9768(data + 4, data + 4, vector);
-            data[6] = absolute_float(data[6]);
-            data[7] = moby->pos.z;
+            add_vector_9768(hit_response_and_flight_private_vars + 4,
+                            hit_response_and_flight_private_vars + 4,
+                            vector);
+            hit_response_and_flight_private_vars[6] =
+                absolute_float(hit_response_and_flight_private_vars[6]);
+            hit_response_and_flight_private_vars[7] = moby->pos.z;
             return;
         }
         break;
     case STATE_BALLISTIC_FLIGHT: {
         float *pos = &moby->pos.x;
-        moby->rot.x = fast_add_rotations(moby->rot.x, data[2]);
-        moby->rot.y = fast_add_rotations(moby->rot.y, data[2]);
-        data[6] -= frame_time_sq * 20.0f;
-        add_vector_9768(pos, pos, data + 4);
-        if (data[7] - 16.0f > moby->pos.z || coll_sphere(1.0f, pos, 2, moby)) {
+        moby->rot.x = fast_add_rotations(moby->rot.x, hit_response_and_flight_private_vars[2]);
+        moby->rot.y = fast_add_rotations(moby->rot.y, hit_response_and_flight_private_vars[2]);
+        hit_response_and_flight_private_vars[6] -= frame_time_sq * 20.0f;
+        add_vector_9768(pos, pos, hit_response_and_flight_private_vars + 4);
+        if (hit_response_and_flight_private_vars[7] - 16.0f > moby->pos.z ||
+            coll_sphere(1.0f, pos, 2, moby)) {
             cart_burst(1.5f, 0.0f, moby, pos, -1);
             mark_moby_for_removal(moby);
         }
@@ -214,3 +225,9 @@ void set_moby_group_state_two(int group) __asm__("FUN_L18_002e9e50");
 void set_moby_group_state_two(int group) {
     set_moby_list_state((void *)group, 0x2);
 }
+
+u32 destructible_burst_first_colors[6] __asm__("D_L18_001F29A0") = {
+    0x4f008fff, 0x4f008fff, 0x4f007fff, 0x4f006fff, 0x2fffffff, 0x2fffffff};
+
+u32 destructible_burst_second_colors[6] __asm__("D_L18_001F29B8") = {
+    0x2f005f7f, 0x2f004f7f, 0x2f003f7f, 0x2f00004f, 0x2f000000, 0x3f000000};

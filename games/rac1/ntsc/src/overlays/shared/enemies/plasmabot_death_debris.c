@@ -50,9 +50,10 @@ FUN_L00_0026d000_de670(void *, f32, f32, f32, s32, void *, f32, s32) __asm__("FU
 extern f32 D_L14_00161B18 __attribute__((sda));
 extern f32 D_L14_00161B1C __attribute__((sda));
 extern f32 D_L14_00161B20 __attribute__((sda));
-void       update_spinning_moby_with_particle_trail(struct Moby *moby) __asm__("FUN_L14_002de670");
+void       plasmabot_death_debris_update(struct Moby *moby) __asm__("FUN_L14_002de670");
 
-void update_spinning_moby_with_particle_trail(struct Moby *moby) {
+/* Moby class 325 */
+void plasmabot_death_debris_update(struct Moby *moby) {
     f32 *velocity = (f32 *)moby->pvars;
     s32  i;
     s32  signed_particle_variation;
@@ -162,16 +163,16 @@ extern float plasmabot_debris_z_velocity_range_end_gp __asm__("D_L14_00161B14")
 
 unsigned char *spawn_plasmabot_death_debris(char *owner, char *pos) __asm__("FUN_L14_002dea98");
 
-unsigned char *spawn_plasmabot_death_debris(char *owner, char *pos) {
+unsigned char *spawn_plasmabot_death_debris(char *debris_source_moby, char *pos) {
     unsigned char *spawned_moby = create_moby(0x145);
     char          *spawned_vars;
     char          *hero_launch_reference;
     float          launch_vector_scratch[8];
     if (spawned_moby != 0) {
         spawned_vars = ((char *)MOBY(spawned_moby)->pvars);
-        *(char **)(spawned_vars + 0x24) = owner;
+        *(char **)(spawned_vars + 0x24) = debris_source_moby;
         qcopy(spawned_moby + 0x10, pos);
-        MOBY(spawned_moby)->rot.z = *(float *)(owner + 0x48);
+        MOBY(spawned_moby)->rot.z = *(float *)(debris_source_moby + 0x48);
         spawned_moby[0x20] = 0;
         spawned_moby[0x30] = 0xFF;
         MOBY(spawned_moby)->draw_dist = 0xFF;

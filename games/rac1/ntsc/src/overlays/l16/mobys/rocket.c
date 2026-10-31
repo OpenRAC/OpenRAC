@@ -71,9 +71,10 @@ void        mark_moby_for_removal(void *obj) __asm__("FUN_0020c828");
 extern L16SparkHit D_L16_001742C0_hit __asm__("D_L16_00174240");
 extern float       func_L00_0025CCF0_spark(void *, void *, float, float, float, float, int) __asm__("FUN_L00_0025bc98");
 
-void update_homing_projectile(unsigned char *moby) __asm__("FUN_L16_002a3f38");
+void homing_projectile_update(unsigned char *moby) __asm__("FUN_L16_002a3f38");
 
-void update_homing_projectile(unsigned char *moby) {
+/* Moby class 1475 */
+void homing_projectile_update(unsigned char *moby) {
     enum {
         PROJECTILE_STATE_FLYING = 0,
         PROJECTILE_STATE_IMPACT = 1
@@ -185,14 +186,14 @@ void update_homing_projectile(unsigned char *moby) {
             query.cls = ((unsigned short)MOBY(moby)->oclass);
             query.enabled = impact_state;
             if (collision_line(previous.f, position, 0, ((void *)player->moby), &query)) {
-                L16SparkHit *result = &D_L16_001742C0_hit;
-                char        *hit = result->moby;
+                L16SparkHit *collision_hit = &D_L16_001742C0_hit;
+                char        *hit = collision_hit->moby;
                 if (hit) {
                     if (hit == ((char *)player->moby) || hit == *(char **)projectile_data)
                         break;
-                } else if (result->count <= 0)
+                } else if (collision_hit->count <= 0)
                     break;
-                qcopy(position, result->position);
+                qcopy(position, collision_hit->position);
                 moby[0x20] = impact_state;
             } else if (fast_dec_timer_s16(projectile_data + 4) ||
                        vector_distance_xy(position, &player->motion.pos) > 60.0f) {
