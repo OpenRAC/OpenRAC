@@ -171,8 +171,8 @@ gaddr func_L00_002422D8(int skip_read) {
 #define TARGETS RAC1_ADDR(0x001C7C80u)
 
 enum {
-    SLOTS = 0x70000000u, /* 224 class slots: {head, tail} */
-    SLOTS_END = 0x70000700u,
+    SLOTS = 0x70000000u, /* 256 byte-indexed class slots: {head, tail} */
+    SLOTS_END = 0x70000800u,
     TARGET_LIST = 0x70000800u,
     TARGET_LIST_END = 0x70000C00u,
     GROUP_FLAGS = 0x70000C80u,
