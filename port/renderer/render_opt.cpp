@@ -194,6 +194,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::MotionBlurAdaptiveSamples, "motion-blur-adaptive-samples",
      "the blur's gather takes two samples a display pixel of trail (at least 8), at most its sample count",
      true, Tolerance{0.25, 32}},
+    {Opt::AttachmentUntouched, "attachment-untouched",
+     "a colour or depth attachment no draw or clear of a pass touches is neither loaded nor stored (load/store op none)",
+     true, Tolerance{}},
 }};
 // clang-format on
 

@@ -613,6 +613,18 @@ bool make_device(std::string& error) {
                 extensions.push_back(kPortabilitySubset);
             }
         }
+
+        // The same operations under two names: the EXT one where offered, which more tools know.
+        for (const char* name :
+             {VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME, VK_KHR_LOAD_STORE_OP_NONE_EXTENSION_NAME}) {
+            const bool offers = std::any_of(offered.begin(), offered.end(), [&](const auto& e) {
+                return std::strcmp(e.extensionName, name) == 0;
+            });
+            if (offers && !g->load_store_none) {
+                extensions.push_back(name);
+                g->load_store_none = true;
+            }
+        }
     }
 
     VkPhysicalDevicePresentIdFeaturesKHR present_id{

@@ -621,6 +621,10 @@ struct OpenPass {
     // (msaa-pass-resolve): a blit that resolves the whole of it, made part of the pass, so that
     // the samples are not read back from memory by a copy of their own. Set just before the end.
     Image* resolve_colour = nullptr;
+    // Whether a draw or clear of the pass touched its colour or its depth and stencil
+    // (attachment-untouched): an untouched one is neither loaded nor stored.
+    bool used_colour = false;
+    bool used_depth = false;
 };
 
 // A copy into the default framebuffer that waits for present() (present-single-copy,
@@ -1003,8 +1007,8 @@ struct Context {
     VkPhysicalDeviceFeatures features{};
     bool astc_hdr = false;        // Enabled Vulkan 1.3 HDR ASTC sampling.
     bool subgroup_extended_types = false;  // Subgroup operations on 16-bit values, enabled.
-    bool shader_float16 = false;  // Actually enabled arithmetic, not 16-bit storage support.
-    bool tile_based = false;      // tile_based(): the vendor's guess or OPENRAC_TILE_BASED.
+    bool shader_float16 = false;     // Actually enabled arithmetic, not 16-bit storage support.
+    bool tile_based = false;         // tile_based(): the vendor's guess or OPENRAC_TILE_BASED.
     bool split_pass_timing = false;  // set_split_pass_timing(): timed sections end their pass.
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;
@@ -1110,6 +1114,9 @@ struct Context {
     std::string device_name, driver_version, api_version, gl_renderer, gl_version;
     bool software = false;
     bool viewport_index_supported = false;
+    // VK_EXT/KHR_load_store_op_none: an attachment a pass leaves alone is neither loaded nor
+    // stored (attachment-untouched).
+    bool load_store_none = false;
     // The device takes cull, front face, depth and stencil state as dynamic state (Vulkan 1.3's
     // core extended dynamic state), so pipelines need not bake them (R-11).
     bool extended_dynamic_state = false;

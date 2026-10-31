@@ -1670,6 +1670,7 @@ bool resolve_in_pass(Image& src, Image& dst, const std::array<GLint, 8>& r) {
         return false;
     }
     g->pass.resolve_colour = &dst;
+    g->pass.used_colour = true;
     end_rendering(PassEnd::Copy);
     return true;
 }

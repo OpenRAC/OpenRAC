@@ -346,8 +346,24 @@ void end_deferred(const Target& t) {
     info.layerCount = 1;
     const VkExtent2D area = info.renderArea.extent;
 
+    // An attachment no draw or clear of the pass touched keeps what it held, unread and unwritten
+    // (attachment-untouched; it stays as let go as it was).
+    const bool untouched_ops =
+        g->load_store_none && render_opt::enabled(render_opt::Opt::AttachmentUntouched);
+    const bool colour_untouched =
+        untouched_ops && !pass.clear_colour && !pass.used_colour && pass.resolve_colour == nullptr;
+    const bool depth_untouched =
+        untouched_ops && !pass.clear_depth && !pass.clear_stencil && !pass.used_depth;
+
     // The colour attachment: cleared, not loaded or loaded; stored unless let go.
-    if (t.colour != nullptr) {
+    if (t.colour != nullptr && colour_untouched) {
+        colour.imageView = attachment_view(*t.colour);
+        colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colour.loadOp = VK_ATTACHMENT_LOAD_OP_NONE_EXT;
+        colour.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+        info.colorAttachmentCount = 1;
+        info.pColorAttachments = &colour;
+    } else if (t.colour != nullptr) {
         colour.imageView = attachment_view(*t.colour);
         colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         colour.loadOp = load_op(*t.colour, VK_IMAGE_ASPECT_COLOR_BIT, pass.clear_colour);
@@ -377,7 +393,19 @@ void end_deferred(const Target& t) {
     }
 
     // The depth and stencil image: each aspect's operations of its own, counted once.
-    if (t.depth != nullptr) {
+    if (t.depth != nullptr && depth_untouched) {
+        depth.imageView = attachment_view(*t.depth);
+        depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depth.loadOp = VK_ATTACHMENT_LOAD_OP_NONE_EXT;
+        depth.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+        info.pDepthAttachment = &depth;
+
+        // The stencil aspect of the same image, alike.
+        if (has_stencil(t.depth->format)) {
+            stencil = depth;
+            info.pStencilAttachment = &stencil;
+        }
+    } else if (t.depth != nullptr) {
         depth.imageView = attachment_view(*t.depth);
         depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depth.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_DEPTH_BIT, pass.clear_depth);
@@ -423,13 +451,13 @@ void end_deferred(const Target& t) {
     pass = OpenPass{};
 
     // What the pass wrote is whole again; what it let go holds nothing (or the poison).
-    if (t.colour != nullptr) {
+    if (t.colour != nullptr && !colour_untouched) {
         t.colour->discarded = 0;
         mark_discarded(*t.colour, ended.drop_colour);
     }
 
     // The same for the depth and stencil image.
-    if (t.depth != nullptr) {
+    if (t.depth != nullptr && !depth_untouched) {
         t.depth->discarded = 0;
         mark_discarded(*t.depth, ended.drop_depth);
     }
@@ -944,6 +972,12 @@ void ensure_rendering(const Target& t) {
     // A draw or a clear after glInvalidateFramebuffer: what it writes is kept.
     g->pass.drop_colour = 0;
     g->pass.drop_depth = 0;
+
+    // What the draw (or clear) about to be recorded may touch, by the state it is recorded with.
+    const State& s = g->state;
+    g->pass.used_colour = g->pass.used_colour || s.colour_mask[0] || s.colour_mask[1]
+                          || s.colour_mask[2] || s.colour_mask[3];
+    g->pass.used_depth = g->pass.used_depth || s.depth_test || s.stencil_test;
 }
 
 bool drop_clear_pass(VkClearColorValue& clear) {
@@ -1031,6 +1065,8 @@ void clear(GLbitfield mask) {
         return;
     }
     ensure_rendering(t);
+    g->pass.used_colour = g->pass.used_colour || c.colour;
+    g->pass.used_depth = g->pass.used_depth || c.depth || c.stencil;
     VkClearAttachment attachments[2]{};
     std::uint32_t n = 0;
     if (c.colour) {
