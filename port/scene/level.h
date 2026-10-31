@@ -169,6 +169,7 @@ struct LevelData {
     std::vector<std::filesystem::path> mod_roots;
     int overridden_models = 0;
     int overridden_images = 0;
+    std::string game;  // Manifest game identity for optional authored material profiles.
     int level = -1;
     // Authored animated surfaces exported for static transport, never drawn twice.
     std::vector<Instance> bake_surfaces;

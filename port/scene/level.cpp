@@ -522,6 +522,7 @@ bool load_level(
     if (!json::parse_file((dir / "manifest.json").string(), manifest, error)) {
         return false;
     }
+    out.game = manifest["game"].string();
     const int format = static_cast<int>(manifest["format"].number(-1));
     if (format != kManifestFormat) {
         // Newer levels than the game: the game is the old part, and reading the levels again

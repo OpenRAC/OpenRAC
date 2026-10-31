@@ -180,7 +180,7 @@ bool LevelScene::upload(
             }
             const auto specialise = [&](std::string source) {
                 source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-                // Static colour shaders cannot receive Ratchet's wet-coat reflections.
+                // Both stages must agree when static variants remove material-specific interfaces.
                 if (variant < 2) {
                     source.insert(source.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
                 }

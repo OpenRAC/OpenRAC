@@ -61,6 +61,10 @@ uniform int hero_wetness_enabled, hero_wetness_first, hero_wetness_count, hero_w
 out float v_hero_wetness;
 #endif
 
+#ifdef OPENRAC_HERO_FUR
+flat out int v_hero_fur;
+#endif
+
 out vec2 v_uv;
 out vec4 v_colour;
 out vec3 v_normal;
@@ -118,6 +122,9 @@ void main() {
     normal_model = mat3(water_pose) * normal_model;
 #endif
     v_world_position = world.xyz;
+#ifdef OPENRAC_HERO_FUR
+    v_hero_fur = hero_fur_receiver(gl_VertexID, palette, moby_light.w);
+#endif
 #ifdef OPENRAC_HERO_WETNESS
     int wet_index=gl_VertexID-hero_wetness_first;
     bool wet_receiver=hero_wetness_enabled!=0 && palette>=0. && int(palette+.5)==hero_wetness_palette

@@ -136,6 +136,21 @@ int main(int argc, char** argv) {
     if (expect_off) {
         CHECK(!gl::enhanced_rendering_available());
     }
+    // Live fur controls cannot opt the original renderer into enhanced shaders.
+    {
+        const auto saved = enhanced::fur_material_settings();
+        enhanced::set_fur_material_settings({});
+        enhanced::set_fur_debug_view(enhanced::FurDebug::Mask);
+        lighting::SceneLighting lighting;
+        const auto vertex = lighting.mesh_vertex(scene::shaders::mesh_vert);
+        const auto fragment = lighting.mesh_fragment(scene::shaders::mesh_frag);
+        const auto early = lighting.early_fragment(scene::shaders::mesh_frag);
+        for (const auto* source : {&vertex, &fragment, &early}) {
+            CHECK((source->find("#define OPENRAC_HERO_FUR 1") != std::string::npos) == expected);
+        }
+        enhanced::set_fur_debug_view(enhanced::FurDebug::Off);
+        enhanced::set_fur_material_settings(saved);
+    }
     if (!expected) {
         // Explicit API requests must not bypass the build/backend boundary.
         auto volume = lighting::ProbeVolume::allocate({});

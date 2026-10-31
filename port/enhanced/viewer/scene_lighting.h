@@ -16,6 +16,7 @@
 
 #include "enhanced/lighting/probes.h"
 #include "enhanced/renderer/atmosphere.h"
+#include "enhanced/renderer/fur.h"
 #include "enhanced/renderer/water_float.h"
 #include "enhanced/renderer/wetness.h"
 #include "enhanced/viewer/early_lighting.h"
@@ -136,6 +137,7 @@ private:
     std::map<std::uint32_t, int>
         m_reflection_classes;  // Authored object identity for chrome overrides.
     enhanced::HeroWetness m_wetness;
+    enhanced::HeroFur m_fur;
     enhanced::WaterFloat m_water_float;
     enhanced::Atmosphere m_atmosphere;
     ProbeLighting m_probes;          // The level's probe bake on the GPU.

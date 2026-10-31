@@ -12,6 +12,7 @@
 #include "debug/overlay.h"
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/renderer/atmosphere.h"
+#include "enhanced/renderer/fur.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/wetness.h"
@@ -465,6 +466,8 @@ void enhanced_settings_window() {
         graphics.reset_enhanced();
         enhanced::set_wetness_material_settings({});
         enhanced::set_wetness_debug_view(false);
+        enhanced::set_fur_debug_view(enhanced::FurDebug::Off);
+        enhanced::set_fur_material_settings({});
         enhanced::set_water_debug_settings({});
         enhanced::set_atmosphere_settings({});
         enhanced::reset_water_simulation();
@@ -680,6 +683,60 @@ void enhanced_settings_window() {
         changed |= motion_blur_controls(graphics);
     }
     if (ImGui::CollapsingHeader("Materials & water")) {
+        if (ImGui::TreeNode("Ratchet fur")) {
+            ImGui::TextDisabled("Session only; changes are not saved.");
+            auto fur = enhanced::fur_material_settings();
+            bool fur_changed = checkbox("Directional fur detail", &fur.enabled);
+            fur_changed |= slider_float(
+                "Detail strength", &fur.strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+            );
+            fur_changed |= slider_float(
+                "Strand contrast", &fur.contrast, 0, .15f, "%.3f", ImGuiSliderFlags_AlwaysClamp
+            );
+            fur_changed |= slider_float(
+                "Detail fade distance",
+                &fur.fade_distance,
+                8,
+                160,
+                "%.0f units",
+                ImGuiSliderFlags_AlwaysClamp
+            );
+            ImGui::SeparatorText("Lighting");
+            fur_changed |= checkbox("Fur highlights and scattering", &fur.lighting_enabled);
+            fur_changed |= slider_float(
+                "Environment response",
+                &fur.environment_strength,
+                0,
+                4,
+                "%.2fx",
+                ImGuiSliderFlags_AlwaysClamp
+            );
+            fur_changed |= slider_float(
+                "Highlight strength", &fur.highlight, 0, 2, "%.2f", ImGuiSliderFlags_AlwaysClamp
+            );
+            fur_changed |= slider_float(
+                "Highlight softness", &fur.softness, .35f, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+            );
+            fur_changed |= slider_float(
+                "Highlight directionality",
+                &fur.directionality,
+                0,
+                .9f,
+                "%.2f",
+                ImGuiSliderFlags_AlwaysClamp
+            );
+            fur_changed |= slider_float(
+                "Light scattering", &fur.scattering, 0, .5f, "%.2f", ImGuiSliderFlags_AlwaysClamp
+            );
+            if (ImGui::Button("Reset fur material")) {
+                fur = {};
+                fur_changed = true;
+            }
+            if (fur_changed) {
+                enhanced::set_fur_material_settings(fur);
+            }
+            ImGui::TreePop();
+        }
         if (ImGui::TreeNode("Reflection materials")) {
             ImGui::TextDisabled("Session only; changes are not saved.");
             reflection_material_controls("Water", enhanced::ReflectionSurface::Water);
@@ -754,6 +811,16 @@ void enhanced_settings_window() {
         }
     }
     if (ImGui::CollapsingHeader("Diagnostics")) {
+        int fur_view = int(enhanced::fur_debug_view());
+        if (combo("Ratchet fur view", &fur_view, "Off\0Mask\0Direction\0Detail normals\0")) {
+            enhanced::set_fur_debug_view(static_cast<enhanced::FurDebug>(fur_view));
+        }
+        if (fur_view != 0) {
+            ImGui::TextDisabled(
+                "Green: fur. Direction: UV growth arrows. Normals: strand surface detail."
+            );
+            ImGui::TextDisabled("Original Ratchet atlas only. Material controls apply live.");
+        }
         bool wetness_view = enhanced::wetness_debug_view();
         if (checkbox("Ratchet wetness view (GPU)", &wetness_view)) {
             enhanced::set_wetness_debug_view(wetness_view);
@@ -809,6 +876,7 @@ void enhanced_settings_window() {
             graphics.probe_normal_bias = defaults.probe_normal_bias;
             graphics.probe_view_bias = defaults.probe_view_bias;
             enhanced::set_wetness_debug_view(false);
+            enhanced::set_fur_debug_view(enhanced::FurDebug::Off);
             changed = true;
         }
     }

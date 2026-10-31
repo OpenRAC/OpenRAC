@@ -121,7 +121,7 @@ void EnvironmentLighting::bind(
     const auto count = shader.uniform("environment_count");
 
     if (count < 0) {
-        return;  // Ordinary mesh and early-lit shaders do not consume reflection data.
+        return;  // Programs without an environment material need no reflection descriptors.
     }
 
     if (!m_texture && !m_fallback) {
