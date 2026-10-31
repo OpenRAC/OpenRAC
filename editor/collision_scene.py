@@ -482,9 +482,9 @@ def pack_block(block: bytes, scene: dict) -> tuple[bytes | None, list[str], list
     return col.write(model), changes, problems
 
 
-def has_extended_leaves(block: bytes) -> bool:
+def requires_expanded_collision(block: bytes) -> bool:
     """Whether a packed collision block needs expanded-RAM runtime support."""
-    return col.has_extended_leaves(block)
+    return col.requires_expanded_collision(block)
 
 
 def tile_name(key: tuple) -> str:

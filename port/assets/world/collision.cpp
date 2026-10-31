@@ -184,13 +184,23 @@ CollisionNode checked_node(
 // Decodes one leaf: header, packed vertices, faces, then the quads' fourth indices. `word` is the
 // tree entry (leaf offset << 8 | size in quadwords). Every face index is checked against the
 // vertex count.
-CollisionCell read_leaf(ByteView mesh, s16 x, s16 y, s16 z, u32 word) {
-    const std::size_t leaf = word >> 8;
+CollisionCell read_leaf(ByteView mesh, s16 x, s16 y, s16 z, u32 word, bool indexed,
+                        const std::vector<u32>& extended_leaf_offsets) {
+    u32 leaf_offset = word >> 8;
+    if (indexed) {
+        const u32 index = word >> 8;
+        if (index == 0 || index > extended_leaf_offsets.size()) {
+            fail("collision: expanded leaf directory index is out of range");
+        }
+        leaf_offset = extended_leaf_offsets[index - 1];
+    }
+    const std::size_t leaf = leaf_offset;
     CollisionCell cell;
     cell.x = x;
     cell.y = y;
     cell.z = z;
     cell.leaf_word = word;
+    cell.resolved_leaf_offset = leaf_offset;
     const bool extended = (word & 0xff) == 0;
     std::size_t vertex_at = leaf + 4;
     std::size_t face_at = 0;
@@ -371,6 +381,27 @@ CollisionMesh read_collision(Game game, ByteView block) {
     CollisionMesh mesh;
     mesh.mesh_offset = block.s32_at(0);
     mesh.hero_offset = block.s32_at(4);
+    if (block.u32_at(8) == 0x49434C52u) {  // "RLCI": 32-bit leaf offset table.
+        mesh.has_extended_leaf_index = true;
+        const std::size_t table_at = block.u32_at(12);
+        block.check(table_at, 4, "expanded leaf offset table count");
+        if (table_at < static_cast<std::size_t>(mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset)) {
+            fail("collision: expanded leaf offset table overlaps the mesh or hero data");
+        }
+        const u32 count = block.u32_at(table_at);
+        if (count > 0xffffff) {
+            fail("collision: expanded leaf offset table count is too large");
+        }
+        block.check(table_at + 4, 4 * std::size_t{count}, "expanded leaf offset table");
+        const ByteView offsets = block.sub(table_at + 4, 4 * std::size_t{count}, "expanded leaf offsets");
+        for (u32 i = 0; i < count; ++i) {
+            const u32 offset = offsets.u32_at(4 * std::size_t{i});
+            if ((offset & 15) != 0) {
+                fail("collision: expanded leaf offset is not 16-byte aligned");
+            }
+            mesh.extended_leaf_offsets.push_back(offset);
+        }
+    }
 
     // The mesh follows the block's two offsets, so its offset must be positive.
     if (mesh.mesh_offset <= 0) {
@@ -436,7 +467,9 @@ CollisionMesh read_collision(Game game, ByteView block) {
                 // A zero word is an empty cell.
                 if (row.leaves[xi] != 0) {
                     const auto x = static_cast<s16>(row.node.base + static_cast<s16>(xi));
-                    mesh.cells.push_back(read_leaf(m, x, row.y, z, row.leaves[xi]));
+                    mesh.cells.push_back(read_leaf(m, x, row.y, z, row.leaves[xi],
+                                                   mesh.has_extended_leaf_index,
+                                                   mesh.extended_leaf_offsets));
                 }
             }
 

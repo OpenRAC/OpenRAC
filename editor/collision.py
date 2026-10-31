@@ -17,6 +17,7 @@ from mesh import Mesh
 CELL = 4
 LEAF_LIMIT = 0x1000
 EXT_LEAF_MAGIC = b"RLCX"                 # Expanded-mode leaf; size byte 0 in the cell word.
+EXT_INDEX_MAGIC = b"RLCI"                # Header extension for 32-bit mesh-relative leaf offsets.
 EXT_MAX_VERTICES = 1 << 20                # Runtime query scratch limit.
 EXT_MAX_BYTES = 128 * 1024 * 1024         # Largest supported expanded guest RAM arena.
 SCALE = 64  # World coordinates are held in 1/64 units while decoding.
@@ -55,7 +56,7 @@ def table(mesh: bytes, at: int, entry: str) -> tuple[int, list[int]]:
     return base, list(unpack(f"<{count}{entry}", mesh, at + 4)) if count else []
 
 
-def leaves(mesh: bytes):
+def leaves(mesh: bytes, extended_offsets: tuple[int, ...] | None = None):
     """Yield ((x, y, z) cell, leaf bytes, extended marker) for every non-empty cell."""
     z_base, z_slabs = table(mesh, 0, "H")
     for k, slab in enumerate(z_slabs):
@@ -69,13 +70,39 @@ def leaves(mesh: bytes):
             for i, word in enumerate(cells):
                 if word:
                     extended = (word & 0xff) == 0
+                    index = word >> 8
+                    if extended_offsets is None:
+                        offset = index
+                    else:
+                        check(0 < index <= len(extended_offsets),
+                              "collision leaf index is outside its offset table")
+                        offset = extended_offsets[index - 1]
                     if not extended:
                         size = (word & 0xff) * 16
                     else:
-                        magic, size, _, _ = unpack("<4sIII", mesh, word >> 8)
+                        magic, size, _, _ = unpack("<4sIII", mesh, offset)
                         if magic != EXT_LEAF_MAGIC or size < 16 or size % 16:
                             raise FormatError("expanded collision leaf has an invalid header")
-                    yield (x_base + i, y_base + j, z_base + k), span(mesh, word >> 8, size), extended
+                    yield (x_base + i, y_base + j, z_base + k), span(mesh, offset, size), extended
+
+
+def _extended_leaf_offsets(block: bytes, mesh_at: int, hero_at: int) -> tuple[int, ...] | None:
+    """Read the mod-only leaf offset directory from the collision block header."""
+    if block[8:12] != EXT_INDEX_MAGIC:
+        check(not any(block[8:HEADER]), "collision header has unknown extension data")
+        return None
+    table_at, = unpack("<I", block, 12)
+    check((hero_at or mesh_at) <= table_at <= len(block),
+          "expanded collision leaf offset table overlaps collision data or is outside the block")
+    count, = unpack("<I", block, table_at)
+    check(count <= 0xffffff, "expanded collision leaf offset table is too large")
+    table = span(block, table_at + 4, 4 * count)
+    offsets = unpack(f"<{count}I", table) if count else ()
+    mesh_end = hero_at or table_at
+    check(all(offset % 16 == 0 and mesh_at + offset < mesh_end for offset in offsets),
+          "expanded collision leaf offset points outside the mesh")
+    check(not any(block[16:HEADER]), "collision header extension has unknown trailing data")
+    return offsets
 
 
 def decode(block: bytes) -> Collision:
@@ -87,10 +114,11 @@ def decode(block: bytes) -> Collision:
     mesh_at, hero_at = unpack("<II", block)
     if mesh_at < 8 or mesh_at > len(block) or hero_at and not mesh_at <= hero_at <= len(block):
         raise FormatError("collision header is out of range")
+    extended_offsets = _extended_leaf_offsets(block, mesh_at, hero_at)
     tree = span(block, mesh_at, (hero_at or len(block)) - mesh_at)
     result = Collision()
     seen = set()
-    for (x, y, z), leaf, extended in leaves(tree):
+    for (x, y, z), leaf, extended in leaves(tree, extended_offsets):
         if extended:
             _, size, vertices, faces = unpack("<4sIII", leaf)
             quads = 0
@@ -214,8 +242,9 @@ class Block:
 def parse(block: bytes) -> Block:
     """The model of a collision block; write(parse(b)) == b for the layouts on the disc."""
     mesh_at, hero_at = unpack("<II", block)
-    check(mesh_at == HEADER and not any(block[8:HEADER]), "collision header is not the usual one")
+    check(mesh_at == HEADER, "collision header is not the usual one")
     check(not hero_at or mesh_at <= hero_at <= len(block), "collision header is out of range")
+    extended_offsets = _extended_leaf_offsets(block, mesh_at, hero_at)
     mesh = span(block, mesh_at, (hero_at or len(block)) - mesh_at)
     z_base, z_slabs = table(mesh, 0, "H")
     out = Block((z_base, len(z_slabs)), {}, {}, {}, [], [], [], None)
@@ -238,14 +267,20 @@ def parse(block: bytes) -> Block:
                 if not word:
                     continue
                 cell = (x_base + i, y, z)
+                index = word >> 8
+                if extended_offsets is None:
+                    offset = index
+                else:
+                    check(0 < index <= len(extended_offsets),
+                          f"collision leaf index for cell {cell} is outside its offset table")
+                    offset = extended_offsets[index - 1]
                 if word & 0xff:
-                    leaf = span(mesh, word >> 8, (word & 0xff) * 16)
+                    leaf = span(mesh, offset, (word & 0xff) * 16)
                     faces, count, quads = unpack("<HBB", leaf)
                     check(quads <= faces and 4 + 4 * count + 4 * faces + quads <= len(leaf),
                           f"collision leaf at cell {cell} is inconsistent")
                     extended = False
                 else:
-                    offset = word >> 8
                     magic, size, count, faces = unpack("<4sIII", mesh, offset)
                     check(magic == EXT_LEAF_MAGIC and size >= 16 and size % 16 == 0,
                           f"expanded collision leaf at cell {cell} has an invalid header")
@@ -269,7 +304,7 @@ def parse(block: bytes) -> Block:
                     check(max(corners) < count, f"collision face in cell {cell} uses a missing vertex")
                     records.append((corners, kind))
                 out.cells[cell] = Leaf(points, records, extended)
-                where.append((word >> 8, 2, cell))
+                where.append((offset, 2, cell))
     where.sort()
     out.slab_order = [key for _, kind, key in where if kind == 0]
     out.row_order = [key for _, kind, key in where if kind == 1]
@@ -286,9 +321,9 @@ def parse(block: bytes) -> Block:
     return out
 
 
-def has_extended_leaves(block: bytes) -> bool:
-    """Whether a collision block uses the mod-only leaf encoding."""
-    return any(leaf.extended for leaf in parse(block).cells.values())
+def requires_expanded_collision(block: bytes) -> bool:
+    """Whether a collision block uses an OpenRAC-only collision extension."""
+    return block[8:12] == EXT_INDEX_MAGIC or any(leaf.extended for leaf in parse(block).cells.values())
 
 
 def encode_leaf(cell: tuple[int, int, int], leaf: Leaf) -> bytes:
@@ -344,6 +379,11 @@ def write(model: Block) -> bytes:
         leaves[cell] = encode_leaf(cell, model.cells[cell])
         leaf_at[cell] = at
         at += len(leaves[cell])
+    extended_cells = [cell for cell in model.leaf_order if leaves[cell].startswith(EXT_LEAF_MAGIC)]
+    directory_needed = bool(extended_cells) or any(leaf_at[cell] >= 1 << 24 for cell in leaf_at)
+    indexed_cells = model.leaf_order if directory_needed else []
+    check(len(indexed_cells) <= 0xffffff, "collision: too many leaves for the expanded cell-word index")
+    leaf_index = {cell: i + 1 for i, cell in enumerate(indexed_cells)}
     mesh = bytearray(_align(at, 0x40))
     entries = []
     for k in range(z_count):
@@ -361,9 +401,13 @@ def write(model: Block) -> bytes:
         for i in range(count):
             cell = (x_base + i, y, z)
             if cell in leaf_at:
-                check(leaf_at[cell] < 1 << 24, "collision: the mesh is larger than a cell word can address")
-                size = 0 if leaves[cell].startswith(EXT_LEAF_MAGIC) else len(leaves[cell]) // 16
-                words.append(leaf_at[cell] << 8 | size)
+                if directory_needed:
+                    low_size = 0 if cell in extended_cells else len(leaves[cell]) // 16
+                    words.append(leaf_index[cell] << 8 | low_size)
+                else:
+                    check(leaf_at[cell] < 1 << 24,
+                          "collision: retail leaf is larger than a cell word can address")
+                    words.append(leaf_at[cell] << 8 | len(leaves[cell]) // 16)
             else:
                 words.append(0)
         struct.pack_into(f"<hH{count}I", mesh, offset, x_base, count, *words)
@@ -383,6 +427,14 @@ def write(model: Block) -> bytes:
             for t in g.triangles:
                 data += bytes((*t, 0))
         out += records + data
+    if directory_needed:
+        out += bytes(-len(out) % 4)
+        table_at = len(out)
+        check(table_at <= 0xffffffff and all(leaf_at[cell] <= 0xffffffff for cell in indexed_cells),
+              "collision: expanded leaf directory is outside the block address range")
+        out += struct.pack("<I", len(indexed_cells))
+        out += struct.pack(f"<{len(indexed_cells)}I", *(leaf_at[cell] for cell in indexed_cells))
+        struct.pack_into("<4sI", out, 8, EXT_INDEX_MAGIC, table_at)
     return bytes(out) + bytes(-len(out) % 0x40)
 
 

@@ -91,7 +91,8 @@ discs. The pool size is data, not a fixed array:
     outgrows the retail 255-vertex / 4,080-byte form. The packer forces the level-data stream
     through virtual sectors so the game selects expanded RAM. The PAL/NTSC-U code builds, but
     a dense-cell level has not yet been run in the game. Each extended cell is capped at
-    1,048,576 vertices, and the table still limits its leaf start to 24 bits.
+    1,048,576 vertices; its directory carries 32-bit leaf offsets and supports up to
+    0xFFFFFF indexed leaves. Dense-cell gameplay remains unverified.
   - **The renderer** draws from vectors; the only fixed cap is the port's
     4096-moby guard in render_native.c's mark_drawn_mobys. The game's own VU1
     packet buffers belong to the console renderer, which the port stubs.

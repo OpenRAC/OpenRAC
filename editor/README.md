@@ -656,8 +656,9 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
 - Checked before anything is written, or the level's collision is left as
   the disc has it and `changes.txt` says why: at most 1,048,576 unique vertices
   in an expanded cell (the editor writes a mod-only extended leaf and selects
-  expanded RAM when a retail cell no longer fits), each leaf starting within
-  the cell table's 24-bit offset, everything inside 0-1024 units on each axis
+  expanded RAM when a retail cell no longer fits), at most 0xFFFFFF indexed
+  leaves (their 32-bit directory removes the retail 24-bit leaf-start bound),
+  everything inside 0-1024 units on each axis
   (the game answers no query outside), and hero walls split into groups of at
   most 255 triangles and 255 unique vertices. Retail leaves remain byte-for-byte
   when they fit; their 4,080-byte size and 16-bit face count remain unchanged.

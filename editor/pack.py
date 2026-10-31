@@ -392,7 +392,7 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
         level = load_level(disc, info)
         try:
             new, changes, more = collision_scene.pack_block(level.block(unpack("<I", level.index, 0x14)[0]), found)
-            force_expanded_ram = new is not None and collision_scene.has_extended_leaves(new)
+            force_expanded_ram = new is not None and collision_scene.requires_expanded_collision(new)
             problems += more
         except FormatError as e:
             problems += found["problems"] + [f"{e}; the collision is left as the disc has it"]

@@ -74,7 +74,13 @@ Padded to 16 bytes.
 ### OpenRAC expanded leaf
 
 Only an expanded-RAM mod session may use this encoding. The cell word keeps
-the same 24-bit offset and sets the size byte to zero. At that offset:
+the size byte set to zero. If the collision block header has `RLCI` at +8,
+the upper 24 bits for **every nonempty cell** are a 1-based index into a
+directory; otherwise, older OpenRAC leaves and vanilla leaves use a direct
+24-bit mesh offset. The directory has a u32 count followed by that many u32
+mesh-relative leaf offsets; its absolute block offset is stored at header +12.
+The low byte remains the retail size in quadwords, or zero for `RLCX`. At the
+resolved leaf offset:
 
 | Field | Content |
 |---|---|
@@ -88,10 +94,14 @@ the same 24-bit offset and sets the size byte to zero. At that offset:
 Every record is a triangle; quads from an edited cell are emitted as their
 two game triangles. The runtime checks the marker, length and counts against
 guest RAM before reading it. The host query scratch currently caps one cell at
-1,048,576 vertices. The cell offset remains 24-bit, so a leaf must start in
-the first 16 MiB of its mesh. The packer makes a virtual level-data stream for
-any block using this marker, which selects expanded RAM. Vanilla sessions
-ignore the marker, and retail leaves retain their original encoding.
+1,048,576 vertices. The directory supports up to 0xFFFFFF indexed leaves and
+32-bit mesh-relative leaf offsets, removing the cell word's 16 MiB start
+limit. Existing tree tables still have their retail widths: root-to-slab
+offsets are u16 quadword offsets and slab/row pointers are u32 byte offsets.
+The directory raises only the cell-to-leaf offset range; it does not remove
+the tree table limits. The packer makes a virtual level-data stream for any block using either
+marker, which selects expanded RAM. Vanilla sessions ignore these markers, and
+retail leaves retain their original encoding.
 
 **Vertex**: X in bits 0–9 and Y in 10–19 (signed, 1/16 unit), Z in bits 20–31
 (signed, 1/64), from the cell centre (4 × cell + 2). The range ±32 units lets a

@@ -104,15 +104,16 @@ struct CollisionCell {
     s16 x = 0;
     s16 y = 0;
     s16 z = 0;
-    // The tree entry: leaf offset from the mesh << 8 | leaf size in quadwords.
+    // Raw tree entry: leaf offset (or expanded-directory index) << 8 | size in quadwords.
     u32 leaf_word = 0;
+    u32 resolved_leaf_offset = 0;  // Directory-resolved mesh offset, or the retail leaf offset.
     CollisionLeafHeader header;
     std::vector<PackedCollisionVertex> packed;
     std::vector<std::array<float, 3>> vertices;  // world positions of `packed`
     std::vector<CollisionFace> faces;            // quads first, then triangles
     std::vector<u32> quad_v3;                    // the fourth index of each quad
 
-    u32 leaf_offset() const { return leaf_word >> 8; }
+    u32 leaf_offset() const { return resolved_leaf_offset ? resolved_leaf_offset : leaf_word >> 8; }
 
     u32 leaf_qwords() const { return leaf_word & 0xff; }
 
@@ -164,6 +165,8 @@ struct CollisionRow {
 struct CollisionMesh {
     s32 mesh_offset = 0;  // from the block; 0x40 on every retail level
     s32 hero_offset = 0;  // from the block, 0 for none
+    bool has_extended_leaf_index = false;
+    std::vector<u32> extended_leaf_offsets;  // mesh-relative offsets indexed by RLCI cell words
     CollisionNode root;
     std::vector<u16> root_entries;  // slab offset / 4 per Z, 0 for none
     std::vector<CollisionSlab> slabs;

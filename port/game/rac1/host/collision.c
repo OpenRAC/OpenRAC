@@ -276,10 +276,46 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
     if (word == 0) {
         return 0;
     }
-    c->leaf = mesh + (word >> 8);
     c->extended = 0;
-    if ((word & 0xff) == 0) {
-        if (openrac_guest_ram_size <= GUEST_RAM_SIZE || U32(c->leaf) != 0x58434C52u) {
+    if (openrac_guest_ram_size > GUEST_RAM_SIZE && mesh >= 0x40) {
+        uint32_t leaf_offset = word >> 8;
+        const gaddr block = mesh - 0x40;
+        const int indexed = U32(block + 8) == 0x49434C52u;
+        if (indexed) {
+            const uint32_t table_at = U32(block + 12);
+            const gaddr block_ram = openrac_guest_ram_address(block);
+            if (block_ram > openrac_guest_ram_size || table_at > openrac_guest_ram_size - block_ram
+                || openrac_guest_ram_size - block_ram - table_at < 4) {
+                return 0;
+            }
+            const gaddr table = block + table_at;
+            const uint32_t count = U32(table);
+            const uint32_t index = word >> 8;
+            const uint64_t table_bytes = 4u + 4u * (uint64_t)count;
+            if (count > 0xffffffu || index == 0 || index > count
+                || table_bytes > openrac_guest_ram_size - (block_ram + table_at)) {
+                return 0;
+            }
+            leaf_offset = U32(table + 4u * index);
+        }
+        if ((word & 0xff) != 0) {
+            c->leaf = mesh + (indexed ? leaf_offset : word >> 8);
+            c->nv = U8(c->leaf + 2);
+            c->nf = U16(c->leaf);
+            c->nq = U8(c->leaf + 3);
+            return c->nv != 0;
+        }
+        const uint32_t hero_at = U32(block + 4);
+        if (hero_at != 0 && (hero_at < 0x40u || leaf_offset >= hero_at - 0x40u)) {
+            return 0;
+        }
+        const gaddr mesh_ram = openrac_guest_ram_address(mesh);
+        if (mesh_ram > openrac_guest_ram_size || leaf_offset > openrac_guest_ram_size - mesh_ram
+            || openrac_guest_ram_size - mesh_ram - leaf_offset < 16) {
+            return 0;
+        }
+        c->leaf = mesh + leaf_offset;
+        if (U32(c->leaf) != 0x58434C52u) {
             return 0;
         }
         const uint32_t bytes = U32(c->leaf + 4);
@@ -291,6 +327,9 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
             || leaf_ram > openrac_guest_ram_size || bytes > openrac_guest_ram_size - leaf_ram) {
             return 0;
         }
+        if (hero_at != 0 && bytes > hero_at - 0x40u - leaf_offset) {
+            return 0;
+        }
         c->nv = (int)nv;
         c->nf = (int)nf;
         c->nq = 0;
@@ -300,6 +339,10 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
         c->extended = 1;
         return c->nv != 0;
     }
+    if ((word & 0xff) == 0) {
+        return 0;
+    }
+    c->leaf = mesh + (word >> 8);
     c->nv = U8(c->leaf + 2);
     if (c->nv == 0) {
         return 0;
