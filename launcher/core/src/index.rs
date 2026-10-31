@@ -1,4 +1,4 @@
-//! The mod index: one signed `index.json` per mods repository (format 1, rac1-mods
+//! The mod index: one signed `index.json` per mods repository (format 1, openrac-mods
 //! `INDEX_FORMAT.md`), the list the Browse view, the change set and the resolver read.
 //!
 //! Each index is fetched with its minisign signature and checked with the launcher's built-in key
@@ -26,9 +26,9 @@ pub const FORMAT: u32 = 1;
 
 /// Where the indexes are, in order: the first wins when two list the same id. Settings may name
 /// others (`Config::mod_indexes`).
-pub const INDEXES: &[&str] = &["https://github.com/OpenRAC/rac1-mods/releases/download/index/index.json"];
+pub const INDEXES: &[&str] = &["https://github.com/OpenRAC/openrac-mods/releases/download/index/index.json"];
 
-/// The public half of the key rac1-mods' index.yml signs index.json with (minisign key id
+/// The public half of the key openrac-mods' index.yml signs index.json with (minisign key id
 /// 5466767758D8C8D1): base64 of its .pub file, as the updater's `pubkey` is.
 pub const INDEX_PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgNTQ2Njc2Nzc1OEQ4QzhEMQpSV1RSeU5oWWQzWm1WRDZEN2Jwd2d4MGdrYlZ6THJlUDc4dm5LeHRMVkp6UWZ6aGFnM0piWDFaYwo=";
 
@@ -614,9 +614,9 @@ pub(crate) mod tests {
 
     pub const FIXTURE: &str = include_str!("../tests/fixtures/index.json");
     pub const FIXTURE_SIG: &str = include_str!("../tests/fixtures/index.json.minisig");
-    /// A key made for these tests only (`tauri signer generate`), its private half thrown away;
-    /// FIXTURE_SIG is its signature of the fixture (`tauri signer sign`).
-    pub const TEST_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1NjUxOUI3RjJDMUYyMEEKUldRSzhzSHl0eGxsZFUvRGcxL1g5WVF0ODRMdUlNV0MrTVo1VU5OMzRSZ3NsNHY0U1NWQ1JyQUEK";
+    /// A key made for these tests only (`minisign -G -W`), its private half thrown away;
+    /// FIXTURE_SIG is its signature of the fixture (`minisign -S`, the format index.yml publishes).
+    pub const TEST_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgMzk2RkM2MzFGRDkyM0NGMgpSV1R5UEpMOU1jWnZPUU8zNE1OTytWWmdjN3hwMjRXOFBKRUpSSkNvVGlwMlIxU1pYV0FIVGpsSAo=";
     const URL: &str = "https://example.test/index.json";
 
     pub fn fixture() -> ModIndex {

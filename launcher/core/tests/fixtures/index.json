@@ -3,8 +3,8 @@
  "serial": 1761904800,
  "generated": "2026-10-31T10:00:00Z",
  "expires": "2026-11-07T10:00:00Z",
- "source": "https://github.com/OpenRAC/rac1-mods",
- "media": "https://github.com/OpenRAC/rac1-mods/releases/download/index/",
+ "source": "https://github.com/OpenRAC/openrac-mods",
+ "media": "https://github.com/OpenRAC/openrac-mods/releases/download/index/",
  "ports": {
   "stable": {
    "launcher": "0.10.1",
@@ -36,8 +36,8 @@
    "author": "OpenRAC contributors",
    "description": "Raises every weapon's ammo cap. Revoked 1.0.0 broke saves.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/ammo-max",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/ammo-max",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "ammo-max",
    "type": "script",
    "games": {
@@ -55,7 +55,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 700,
    "downloads7d": 20,
@@ -185,8 +185,8 @@
    "author": "OpenRAC contributors",
    "description": "Play Ratchet & Clank in an Archipelago multiworld with other games.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/archipelago",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/archipelago",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "archipelago",
    "type": "native",
    "games": {
@@ -206,7 +206,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 800,
    "downloads7d": 400,
@@ -324,8 +324,8 @@
    "author": "OpenRAC contributors",
    "description": "Shared camera helpers other mods build on.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/camera-base",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/camera-base",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "camera-base",
    "type": "script",
    "games": {
@@ -343,7 +343,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 900,
    "downloads7d": 40,
@@ -473,8 +473,8 @@
    "author": "OpenRAC contributors",
    "description": "Smoother camera with adjustable distance and field of view.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/camera-tweaks",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/camera-tweaks",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "camera-tweaks",
    "type": "script",
    "games": {
@@ -493,7 +493,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 1500,
    "downloads7d": 120,
@@ -601,8 +601,8 @@
    "author": "OpenRAC contributors",
    "description": "Restores the original strafe-less control scheme with remappable buttons.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/classic-controls",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/classic-controls",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "classic-controls",
    "type": "script",
    "games": {
@@ -619,7 +619,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 400,
    "downloads7d": 5,
@@ -725,8 +725,8 @@
    "author": "OpenRAC contributors",
    "description": "Shuffles gadgets, weapons and gold bolts with a seed you can share.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/item-randomizer",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/item-randomizer",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "item-randomizer",
    "type": "native",
    "games": {
@@ -745,7 +745,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 5100,
    "downloads7d": 640,
@@ -960,8 +960,8 @@
    "author": "OpenRAC contributors",
    "description": "Strafe as in the later games: hold L2 or R2 to lock your facing.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/lock-strafe",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/lock-strafe",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "lock-strafe",
    "type": "native",
    "games": {
@@ -979,7 +979,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 3412,
    "downloads7d": 210,
@@ -1170,8 +1170,8 @@
    "author": "Community",
    "description": "Everything for a randomizer run: the randomizer, camera tweaks and Xbox icons.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "",
    "type": "pack",
    "games": {
@@ -1188,7 +1188,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 120,
    "downloads7d": 90,
@@ -1292,8 +1292,8 @@
    "author": "OpenRAC contributors",
    "description": "Shows Xbox button icons instead of PlayStation ones.",
    "license": "MIT",
-   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/xbox-icons",
-   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "homepage": "https://github.com/OpenRAC/openrac-mods/tree/master/xbox-icons",
+   "repo": "https://github.com/OpenRAC/openrac-mods",
    "path": "xbox-icons",
    "type": "data",
    "games": {
@@ -1312,7 +1312,7 @@
    ],
    "aliases": [],
    "links": {
-    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+    "bugs": "https://github.com/OpenRAC/openrac-mods/issues"
    },
    "downloads": 2200,
    "downloads7d": 300,

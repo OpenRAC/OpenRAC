@@ -206,7 +206,7 @@ folder for the last export, `api.openOutput`) and Import your edits
 
 ## The mod hub: Browse and the change set
 
-Mods from the signed index (`core/src/index.rs`; rac1-mods `INDEX_FORMAT.md`), installed from
+Mods from the signed index (`core/src/index.rs`; openrac-mods `INDEX_FORMAT.md`), installed from
 the Browse tab or an `openrac://` link from openrac.dev. Words: `T.CHANGE_SET`, `T.BROWSE`,
 `T.PRESET_LABEL`, `T.DETAIL_TAB` and the functions after them in modsText.ts.
 

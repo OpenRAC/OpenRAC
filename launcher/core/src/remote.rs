@@ -499,7 +499,7 @@ fn read_github(
                 .ok_or_else(|| format!("github.com/{owner}/{repo} has no release {t}"))?;
             vec![r.clone()]
         }
-        // The mod index's own release (rac1-mods' `index` tag) holds no mod: never a mod's release.
+        // The mod index's own release (openrac-mods' `index` tag) holds no mod: never a mod's release.
         None => releases.iter().filter(|r| !r.draft && !r.prerelease && r.tag_name != INDEX_TAG).cloned().collect(),
     };
     // What the manifests are read at: the release named, a branch or commit named, the newest

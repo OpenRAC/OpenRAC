@@ -304,7 +304,7 @@ mod tests {
 
     const API: &str = "https://api.test";
     const RAW: &str = "https://raw.test";
-    const OWNER_REPO: &str = "OpenRAC/rac1-mods";
+    const OWNER_REPO: &str = "OpenRAC/openrac-mods";
 
     fn zip_of(files: &[(&str, &str)]) -> Vec<u8> {
         let mut buf = std::io::Cursor::new(Vec::new());

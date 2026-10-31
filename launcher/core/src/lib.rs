@@ -24,7 +24,7 @@
 //! - [`window`]: the window's size on a screen too small for it.
 //! - [`overrides`]: a game's overrides packs (replacement textures and models): list, order, on/off.
 //! - [`plugins`]: a game's native mods (docs/port/MODS.md): install, list, order, on/off, settings.
-//! - [`index`]: the signed mod index (rac1-mods), fetched, checked and cached; [`resolver`]: what
+//! - [`index`]: the signed mod index (openrac-mods), fetched, checked and cached; [`resolver`]: what
 //!   installing mods from it takes; [`index_apply`]: doing it; [`deeplink`]: `openrac://` links;
 //!   [`mod_error`]: their errors, with the fix the page offers.
 //! - [`reset`]: starting the level editor over: what it removes, checked to stay in OpenRAC's folders.
