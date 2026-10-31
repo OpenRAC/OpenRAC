@@ -89,7 +89,7 @@ def ours_packed(path: Path, version: str) -> None:
     if not path.exists():
         return
     if not path.is_dir():
-        raise FormatError(f"{path} is not a packed-level folder; choose another folder", code="folder-not-ours")
+        raise FormatError(f"{path} is not a packed-level folder; choose another folder", code="pack-folder-not-ours")
     if not any(path.iterdir()):
         return
     try:
@@ -98,7 +98,7 @@ def ours_packed(path: Path, version: str) -> None:
         manifest = None
     if not isinstance(manifest, dict) or manifest.get("game") != "rac1" or manifest.get("version") != version:
         raise FormatError(f"{path} holds files that are not a RAC1 {version.upper()} packed-level export; "
-                          "choose another folder", code="folder-not-ours")
+                          "choose another folder", code="pack-folder-not-ours")
 
 
 def level_schema(level_dir: Path) -> int | None:

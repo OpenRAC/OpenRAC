@@ -62,6 +62,11 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
     line: "Some changes in your Godot scenes could not be used in the game. Show details lists them; correct or remove those edits, then pack again.",
     next: "retry",
   },
+  "pack-folder-not-ours": {
+    title: "The packed output folder holds something else",
+    line: "Choose another output folder, or move the existing files elsewhere before packing.",
+    next: "retry",
+  },
   "folder-not-allowed": {
     title: "The editor cannot write there",
     line: "OpenRAC only writes inside its own folders. Check the install folder in Settings.",
