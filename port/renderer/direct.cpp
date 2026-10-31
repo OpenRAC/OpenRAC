@@ -28,6 +28,11 @@ constexpr std::int64_t kFrameFillLines = 400;
 
 // A frame buffer is read back as a texture only in a colour format; an indexed texture (PSMT8,
 // PSMT4) at the same address is a texture of its own that the game pages in there.
+// The first pixel at or after a 12.4 position: the chip samples a pixel at its integer coordinates.
+std::int64_t ceil16(std::int64_t v) {
+    return v >= 0 ? (v + 15) / 16 : -((-v) / 16);
+}
+
 bool is_colour_format(std::uint8_t psm) {
     return psm == 0x00 || psm == 0x01 || psm == 0x02 || psm == 0x0A;
 }
@@ -1152,7 +1157,6 @@ bool GifInterpreter::covers_no_pixel(std::initializer_list<const GsVertex*> corn
         y_hi = std::max(y_hi, y);
     }
     // The samples in [lo, hi) of 16ths of a pixel: from ceil(lo / 16) to ceil(hi / 16) - 1.
-    auto ceil16 = [](std::int64_t v) { return v >= 0 ? (v + 15) / 16 : -((-v) / 16); };
     std::int64_t sx0 = c.scissor.x0;
     std::int64_t sx1 = c.scissor.x1;
     // On a target wider than the picture with the HUD at its sides, a scissor of the screen's whole
@@ -1255,6 +1259,32 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     // (a sprite has no perspective).
     DirectVertex p = convert(a);
     DirectVertex q = convert(b);
+    if (!attributes().tme && offscreen_target() == 0) {
+        // A plain fill that covers the screen's last column or line (the chip fills a pixel from
+        // ceil(x0) to ceil(x1) - 1) goes on to the screen's edge. The game's fills and fades run
+        // from -0.5 to 511.5; drawn there, the last half pixel of the right and bottom was never
+        // filled, and a fade left the old picture showing in a line along them (before the
+        // captions on black). Only those edges move, so nothing inside the screen shifts.
+        const std::int64_t ofx = context().xyoffset.ofx;
+        const std::int64_t ofy = context().xyoffset.ofy;
+        const std::int64_t width = 2 * (2048 - ofx / 16);
+        const std::int64_t height = 2 * (2048 - ofy / 16);
+        auto to_edge = [&](GsVertex v) {
+            if (ceil16(static_cast<std::int64_t>(v.x) - ofx) >= width) {
+                v.x = static_cast<decltype(v.x)>(ofx + width * 16);
+            }
+            if (ceil16(static_cast<std::int64_t>(v.y) - ofy) >= height) {
+                v.y = static_cast<decltype(v.y)>(ofy + height * 16);
+            }
+            return convert(v);
+        };
+        const DirectVertex ep = to_edge(a);
+        const DirectVertex eq = to_edge(b);
+        p.x = ep.x;
+        p.y = ep.y;
+        q.x = eq.x;
+        q.y = eq.y;
+    }
     const float s0 = p.s / p.q;
     const float t0 = p.t / p.q;
     const float s1 = q.s / q.q;
@@ -1431,24 +1461,32 @@ DirectRenderer::~DirectRenderer() = default;
 
 bool DirectRenderer::init(RenderState& state, std::string& error) {
     m_interpreter = std::make_unique<GifInterpreter>(state.textures, m_config);
-    if (!m_shader.build("direct", shaders::direct_vert, shaders::direct_frag, error)) {
+    std::string masked(shaders::direct_frag);
+    masked.insert(masked.find('\n') + 1, "#define OPENRAC_SAMPLE_MASK 1\n");
+    if (!m_shader.build("direct", shaders::direct_vert, shaders::direct_frag, error)
+        || !m_shader_masked.build("direct masked", shaders::direct_vert, masked, error)) {
         return false;
     }
-    m_uniforms.textured = m_shader.uniform("textured");
-    m_uniforms.tcc = m_shader.uniform("tcc");
-    m_uniforms.tfx = m_shader.uniform("tfx");
-    m_uniforms.tex_alpha_scale = m_shader.uniform("tex_alpha_scale");
-    m_uniforms.fog_enable = m_shader.uniform("fog_enable");
-    m_uniforms.fog_colour = m_shader.uniform("fog_colour");
-    m_uniforms.alpha_test = m_shader.uniform("alpha_test");
-    m_uniforms.alpha_ref = m_shader.uniform("alpha_ref");
-    m_uniforms.alpha_keep_failing = m_shader.uniform("alpha_keep_failing");
-    m_uniforms.multisampled = m_shader.uniform("multisampled");
-    m_uniforms.distance_field = m_shader.uniform("distance_field");
-    m_uniforms.tex_T1 = m_shader.uniform("tex_T1");
-    m_uniforms.pixel_offset = m_shader.uniform("pixel_offset");
-    m_uniforms.source_scale = m_shader.uniform("source_scale");
-    m_uniforms.source_fix = m_shader.uniform("source_fix");
+    for (int k = 0; k < 2; ++k) {
+        const Shader& p = k == 0 ? m_shader : m_shader_masked;
+        Uniforms& u = m_program_uniforms[static_cast<std::size_t>(k)];
+        u.textured = p.uniform("textured");
+        u.tcc = p.uniform("tcc");
+        u.tfx = p.uniform("tfx");
+        u.tex_alpha_scale = p.uniform("tex_alpha_scale");
+        u.fog_enable = p.uniform("fog_enable");
+        u.fog_colour = p.uniform("fog_colour");
+        u.alpha_test = p.uniform("alpha_test");
+        u.alpha_ref = p.uniform("alpha_ref");
+        u.alpha_keep_failing = p.uniform("alpha_keep_failing");
+        u.distance_field = p.uniform("distance_field");
+        u.tex_T1 = p.uniform("tex_T1");
+        u.pixel_offset = p.uniform("pixel_offset");
+        u.source_scale = p.uniform("source_scale");
+        u.source_fix = p.uniform("source_fix");
+    }
+    m_masked = false;
+    m_uniforms = m_program_uniforms[0];
 
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
@@ -1495,6 +1533,7 @@ bool DirectRenderer::init(RenderState& state, std::string& error) {
 
 void DirectRenderer::release() {
     m_shader.release();
+    m_shader_masked.release();
     if (m_vbo != 0) {
         glDeleteBuffers(1, &m_vbo);
         m_vbo = 0;
@@ -1585,7 +1624,19 @@ const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) 
     return m_offscreen_targets.back().second;
 }
 
+void DirectRenderer::use_program(bool masked) {
+    m_masked = masked;
+    m_uniforms = m_program_uniforms[masked ? 1 : 0];
+    (masked ? m_shader_masked : m_shader).use();
+}
+
 void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+    // Off-screen targets have one sample a pixel; the frame has several when it has a resolve
+    // target. The program first: every uniform below is set for this draw.
+    const bool masked = s.target == 0 && render_state.target.resolve_framebuffer != 0;
+    if (masked != m_masked) {
+        use_program(masked);
+    }
     // Where the draw goes: an off-screen target's square, or the frame.
     if (s.target != 0) {
         const Offscreen& o = offscreen(s.target);
@@ -1599,11 +1650,6 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform2f(m_uniforms.pixel_offset, 0.5f / static_cast<float>(std::max(render_state.target.width, 1)),
                     -0.5f / static_cast<float>(std::max(render_state.target.height, 1)));
     }
-    // Off-screen targets have one sample a pixel; the frame has several when it has a resolve target.
-    glUniform1i(
-        m_uniforms.multisampled,
-        s.target == 0 && render_state.target.resolve_framebuffer != 0 ? 1 : 0
-    );
     glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
@@ -1751,7 +1797,7 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
                                   d.clear_depth);
             glDisable(GL_CULL_FACE);
             glDisable(GL_SCISSOR_TEST);
-            m_shader.use();
+            use_program(m_masked);
             glBindVertexArray(m_vao);
             glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
             glActiveTexture(GL_TEXTURE0);
@@ -1763,7 +1809,7 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
             m_frame->screen_mobys(d.mobys, render_state.target, d.clear_depth);
             glDisable(GL_CULL_FACE);
             glDisable(GL_SCISSOR_TEST);
-            m_shader.use();
+            use_program(m_masked);
             glBindVertexArray(m_vao);
             glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
             glActiveTexture(GL_TEXTURE0);
@@ -1915,7 +1961,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), vertices.data());
     }
     m_vbo_bytes = std::max(bytes, m_vbo_bytes);
-    m_shader.use();
+    use_program(m_masked);
     if (k < 1.0f) {
         for (const Run& r : runs) {
             m_whole_target = r.whole;

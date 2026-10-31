@@ -144,7 +144,7 @@ library folder, so the APK carries them as libraries:
 |---|---|
 | `libpython3.13.so`, `libopenrac-python.so` | CPython for Android from [Chaquopy](https://github.com/chaquo/chaquopy) (MIT, pinned from Maven Central), and a small `python3` around it (`port/android/python_main.c`) |
 | `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels` |
-| `libopenrac-probe-bake.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
+| `libopenrac-enhanced-baker.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
 
 The copy of OpenRAC (`tools/bundle_standalone.py --android`) is
 `assets/openrac.zip`. When the APK changes, `OpenracSetup.kt` unpacks it into
@@ -159,9 +159,9 @@ so if it takes more than a second.
   (`--boot-only`), though it still checks every file;
 - Android's Python has no process pools (no `sem_open`), so `editor/extract.py`
   runs up to four levels in separate processes (`SubprocessPool`);
-- the enhanced lighting bake lets each baker use every thread and starts the
-  largest levels first, so the last one does not bake alone on one core
-  (`bake_all.py`). The result is the same at any thread count.
+- `openrac-enhanced-baker` schedules the largest lighting levels first and shares a bounded
+  tracing pool across them. Water decoding runs in the same native
+  process, configured by the exported per-level profile. Results are identical at any thread count.
 
 You can leave the app during setup: a foreground service (`SetupService.kt`)
 keeps it going and shows the step in a notification (`backgroundStatus` in

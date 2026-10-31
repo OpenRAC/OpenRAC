@@ -56,7 +56,8 @@ endif()
 
 add_library(openrac_fsr3 STATIC enhanced/fsr3/sdk_context.cpp enhanced/fsr3/frame_target.cpp
   enhanced/fsr3/fsr3.cpp enhanced/fsr3/fsr3_frame.cpp enhanced/fsr3/motion_blur.cpp
-  enhanced/fsr3/motion_blur_targets.cpp)
+  enhanced/fsr3/motion_blur_targets.cpp enhanced/fsr3/palette_history.cpp
+  enhanced/fsr3/object_history.cpp)
 target_link_libraries(openrac_fsr3 PUBLIC openrac_renderer_vulkan PRIVATE openrac_renderer
   openrac_scene_renderer openrac_fsr3_sdk)
 openrac_embed_shaders(openrac_fsr3 fsr3 openrac::enhanced

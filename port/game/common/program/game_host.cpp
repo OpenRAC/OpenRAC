@@ -383,6 +383,17 @@ void openrac_game_effect_quad(const openrac_game_quad* quad) {
     });
 }
 
+void openrac_game_water_explosion(const float position[3], float radius, float strength) {
+    c_boundary::call("openrac_game_water_explosion", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window)
+            frontend::water_explosion(position, radius, strength);
+#else
+        (void)position; (void)radius; (void)strength;
+#endif
+    });
+}
+
 void openrac_game_sky_shell(int shell, const float* matrix) {
     c_boundary::call("openrac_game_sky_shell", [&] {
 #ifdef OPENRAC_FRONTEND

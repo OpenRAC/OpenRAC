@@ -88,6 +88,7 @@ if(OPENRAC_VULKAN)
   add_library(openrac_renderer_vulkan STATIC
     renderer/vulkan/native_compute.cpp
     renderer/vulkan/depth_combine.cpp
+    renderer/vulkan/colour_transform.cpp
     renderer/vulkan/native_shader_compiler.cpp
     renderer/vulkan/pipeline_cache_file.cpp
     renderer/vulkan/shader_compiler.cpp
@@ -133,7 +134,8 @@ if(OPENRAC_VULKAN)
     "${CMAKE_CURRENT_SOURCE_DIR}/*.comp" "${CMAKE_CURRENT_SOURCE_DIR}/*.glsl"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.inc")
-  list(FILTER openrac_renderer_shader_candidates EXCLUDE REGEX "^(build|tests)/")
+  # Test-only shader fixtures do not change the runtime pipeline cache, including enhanced/tests.
+  list(FILTER openrac_renderer_shader_candidates EXCLUDE REGEX "(^|/)(build|tests)/")
   list(SORT openrac_renderer_shader_candidates)
   foreach(candidate IN LISTS openrac_renderer_shader_candidates)
     set(candidate "${CMAKE_CURRENT_SOURCE_DIR}/${candidate}")
@@ -211,6 +213,10 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
+if(OPENRAC_VULKAN)
+  target_link_libraries(openrac_renderer PRIVATE openrac_renderer_vulkan)
+  set_source_files_properties(enhanced/renderer/agx.cpp PROPERTIES COMPILE_DEFINITIONS OPENRAC_VULKAN=1)
+endif()
 openrac_warnings(openrac_renderer)
 
 # ---- renderer/ui (renderer/README.md, "ui/") ----
@@ -290,12 +296,12 @@ openrac_warnings(openrac_scene)
 # Scene conversion/fingerprinting is shared by activation checks and the
 # offline tool. It contains no Embree calls and is available in normal builds.
 add_library(openrac_probe_scene STATIC
-  enhanced/tools/probes/level_scene.cpp
-  enhanced/tools/probes/probe_grid.cpp
-  enhanced/tools/probes/probe_fingerprint.cpp
-  enhanced/tools/probes/scene_geometry.cpp
-  enhanced/tools/probes/activation.cpp
-  enhanced/tools/probes/liquids.cpp
+  enhanced/tools/baker/sources/level_scene.cpp
+  enhanced/tools/baker/sources/probe_grid.cpp
+  enhanced/tools/baker/sources/probe_fingerprint.cpp
+  enhanced/tools/baker/sources/scene_geometry.cpp
+  enhanced/tools/baker/sources/activation.cpp
+  enhanced/tools/baker/sources/liquids.cpp
 )
 target_link_libraries(openrac_probe_scene PUBLIC openrac_lighting openrac_scene openrac_assets_disc)
 openrac_warnings(openrac_probe_scene)
@@ -306,6 +312,7 @@ openrac_warnings(openrac_probe_scene)
 # link without a graphics context) and this.
 add_library(openrac_scene_renderer STATIC
   scene/level_renderer.cpp
+  scene/depth_prepass.cpp
   scene/level_instances.cpp
   scene/level_shadows.cpp
   scene/shadow_atlas_renderer.cpp
@@ -340,12 +347,17 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/medial_axis_overlay.cpp
   enhanced/viewer/debug_lines.cpp
   enhanced/viewer/probe_volume_overlay.cpp
+  enhanced/renderer/atmosphere.cpp
   enhanced/renderer/water.cpp
   enhanced/renderer/water_float.cpp
   enhanced/renderer/water_asset.cpp
   enhanced/renderer/water_resources.cpp
   enhanced/renderer/water_simulation.cpp
   enhanced/renderer/wetness.cpp
+  enhanced/renderer/fur.cpp
+  enhanced/renderer/fur_profile.cpp
+  enhanced/renderer/fur_map.cpp
+  enhanced/renderer/fur_detail.cpp
   enhanced/renderer/water_mesh.cpp
   enhanced/renderer/water_mesh_gpu.cpp
   enhanced/viewer/early_lighting.cpp
@@ -368,13 +380,25 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/chrome.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/wetness.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_vertex.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_detail.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_lighting.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_environment.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_lighting.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/shading_brdf.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_transmission.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/environment.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_transport.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_sample.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_lighting.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_sky.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_vertex.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_displacement.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_float.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_float.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_mesh.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.comp"
@@ -390,11 +414,42 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_spheres.frag"
 )
 target_link_libraries(openrac_enhanced_viewer PUBLIC openrac_scene_renderer openrac_probe_scene)
+# Authored UV regions contain no retail texture pixels; the maps are generated at level load.
+set(fur_profile "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/profiles/rac1/fur.json")
+file(READ "${fur_profile}" fur_profile_text)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${fur_profile}")
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/fur_profile_data.h"
+  CONTENT "#pragma once\nnamespace openrac::enhanced { inline constexpr char kRac1FurProfile[] = R\"json(${fur_profile_text})json\"; }\n" @ONLY)
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_enhanced_viewer PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_enhanced_viewer PRIVATE OPENRAC_VULKAN=1)
 endif()
 openrac_warnings(openrac_enhanced_viewer)
+
+openrac_add_test(fur SOURCES enhanced/tests/fur_test.cpp
+  INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
+openrac_add_test(fur_detail SOURCES enhanced/tests/fur_detail_test.cpp
+  INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
+if(OPENRAC_VULKAN)
+  add_test(NAME fur_detail_gpu COMMAND fur_detail_test --gpu)
+  openrac_add_test(fur_lighting SOURCES enhanced/tests/fur_lighting_test.cpp
+    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
+  target_compile_definitions(fur_lighting_test PRIVATE OPENRAC_VULKAN=1)
+  set_tests_properties(fur_lighting PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  target_compile_definitions(fur_detail_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(fur_detail_test PRIVATE openrac_renderer_vulkan)
+  set_tests_properties(fur_detail_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  add_test(NAME fur_gpu COMMAND fur_test --gpu)
+  set_tests_properties(fur_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST fur_detail_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+    set_property(TEST fur_lighting APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+    set_property(TEST fur_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
+endif()
 
 openrac_add_test(area_light_overlay SOURCES enhanced/tests/area_light_overlay_test.cpp
                 LIBS openrac_enhanced_viewer openrac_platform)
@@ -443,6 +498,7 @@ target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer)
 openrac_warnings(openrac_game_rac1_profile)
 openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
+openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with
@@ -473,7 +529,7 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
 endif()
 
 openrac_add_test(probe_scene SOURCES enhanced/tests/probe_scene_test.cpp
-                enhanced/tools/probes/report.cpp LIBS openrac_probe_scene)
+                enhanced/tools/baker/output/report.cpp LIBS openrac_probe_scene)
 
 openrac_add_test(object_picker SOURCES tests/object_picker_test.cpp LIBS openrac_scene)
 openrac_add_test(shadow_draws LIBS openrac_scene)
@@ -508,23 +564,7 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   set_tests_properties(sun_shadow_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
-# This executable uses only the viewer's CPU level loader; it never opens a
-# window or creates a graphics context. Embree stays out of viewer/game targets.
-if(OPENRAC_PROBE_BAKER)
-  add_executable(openrac-probe-bake enhanced/tools/probes/main.cpp
-    enhanced/tools/probes/batch.cpp enhanced/tools/probes/density_stage.cpp
-    enhanced/tools/probes/environment_stage.cpp enhanced/tools/probes/environment_water_inputs.cpp enhanced/tools/probes/report.cpp enhanced/tools/probes/medial_report.cpp
-    enhanced/tools/probes/interior_sources.cpp)
-  target_link_libraries(openrac-probe-bake PRIVATE openrac_probe_scene openrac_probe_bake)
-  add_dependencies(openrac-probe-bake openrac-interior-infer)
-  openrac_warnings(openrac-probe-bake)
-  if(ANDROID)
-    # Android runs programs only from the app's library folder: named like a library, as the
-    # games' -cli programs are (cmake/Games.cmake), finding libc++_shared.so beside it.
-    set_target_properties(openrac-probe-bake PROPERTIES OUTPUT_NAME "libopenrac-probe-bake.so"
-                                                        BUILD_RPATH "\$ORIGIN")
-  endif()
-endif()
+include(EnhancedBaker)
 
 add_executable(openrac-viewer viewer/main.cpp)
 target_link_libraries(openrac-viewer PRIVATE openrac_viewer_lib openrac_game_rac1_profile openrac_platform)
@@ -590,6 +630,10 @@ endif()
 openrac_add_test(renderer_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
                  LIBS openrac_viewer_lib openrac_platform)
 set_tests_properties(renderer_shader PROPERTIES SKIP_RETURN_CODE 77)
+if(OPENRAC_VULKAN)
+  target_compile_definitions(renderer_shader_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan)
+endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
 add_executable(viewer_test tests/viewer_test.cpp)
@@ -693,6 +737,8 @@ set_tests_properties(enhanced_rendering_compat PROPERTIES SKIP_RETURN_CODE 77
   ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=desktop")
 if(OPENRAC_VULKAN)
   add_test(NAME enhanced_rendering_off_vulkan COMMAND enhanced_rendering_test --expect-off)
+  target_compile_definitions(enhanced_rendering_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(enhanced_rendering_test PRIVATE openrac_renderer_vulkan)
   set_tests_properties(enhanced_rendering_off_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=0;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   add_test(NAME enhanced_rendering_vulkan COMMAND enhanced_rendering_test --expect-build)
@@ -724,7 +770,17 @@ endif()
 
 openrac_add_test(water_mesh SOURCES enhanced/tests/water_mesh_test.cpp LIBS openrac_enhanced_viewer)
 
-foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu)
+if(OPENRAC_PROBE_BAKER)
+  openrac_add_test(probe_compression_gpu SOURCES enhanced/tests/probe_compression_gpu_test.cpp
+    LIBS openrac_probe_bake openrac_enhanced_viewer openrac_platform)
+  set_tests_properties(probe_compression_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST probe_compression_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
+endif()
+
+foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu effect_material)
   openrac_add_test(${water_test} SOURCES enhanced/tests/${water_test}_test.cpp
     INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
   set_tests_properties(${water_test} PROPERTIES SKIP_RETURN_CODE 77
@@ -739,14 +795,18 @@ foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu)
 endforeach()
 target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_optics_gpu.cpp
+  enhanced/tests/water_foam_gpu.cpp
+  enhanced/tests/water_transmission_gpu.cpp
   enhanced/tests/environment_gpu.cpp
+  enhanced/tests/water_sampling_gpu.cpp
   enhanced/tests/water_window_gpu.cpp)
 add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")
 
-add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c)
-target_include_directories(water_host_test PRIVATE enhanced/tests/water_host_stubs
-  game/common/include runtime/include)
+add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
+  game/rac1/host/water.c)
+target_include_directories(water_host_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" enhanced/tests/water_host_stubs
+  game/rac1-ntsc/host game/common/include runtime/include)
 openrac_warnings(water_host_test)
 add_test(NAME water_host COMMAND water_host_test)
 
@@ -754,7 +814,31 @@ add_test(NAME water_host COMMAND water_host_test)
 openrac_add_test(agx SOURCES enhanced/tests/agx_test.cpp LIBS openrac_renderer openrac_platform)
 set_tests_properties(agx PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop;OPENRAC_ENHANCED=1")
 if(OPENRAC_VULKAN)
+  target_compile_definitions(agx_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(agx_test PRIVATE openrac_renderer_vulkan)
   add_test(NAME agx_vulkan COMMAND agx_test --expect-on)
   set_tests_properties(agx_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+
+# Unified camera-medium transport, plus explicit compatibility fallback.
+openrac_add_test(atmosphere SOURCES enhanced/tests/atmosphere_test.cpp
+  LIBS openrac_enhanced_viewer openrac_platform)
+target_include_directories(atmosphere_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+if(OPENRAC_VULKAN)
+  target_compile_definitions(atmosphere_test PRIVATE OPENRAC_VULKAN=1)
+endif()
+set_tests_properties(atmosphere PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+add_test(NAME atmosphere_off COMMAND atmosphere_test)
+set_tests_properties(atmosphere_off PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_ENHANCED=0;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+
+if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
+  openrac_add_test(atmosphere_precision SOURCES enhanced/tests/atmosphere_precision_test.cpp
+    LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
+  target_include_directories(atmosphere_precision_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+  target_compile_definitions(atmosphere_precision_test PRIVATE OPENRAC_VULKAN=1)
+  set_tests_properties(atmosphere_precision PROPERTIES SKIP_RETURN_CODE 77
+    ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()

@@ -4,6 +4,7 @@
 // AMD FSR 3.1.4 context creation and dispatch over renderer-owned Vulkan images.
 #include "enhanced/fsr3/sdk_context.h"
 
+#include <algorithm>
 #include <bit>
 #include <vector>
 
@@ -271,7 +272,11 @@ void SdkContext::release() {
         m_state->live = false;
     }
 
-    gl::glDeleteTextures(static_cast<int>(m_state->shared.size()), m_state->shared.data());
+    if (std::any_of(m_state->shared.begin(), m_state->shared.end(), [](auto name) {
+            return name != 0;
+        })) {
+        gl::glDeleteTextures(static_cast<int>(m_state->shared.size()), m_state->shared.data());
+    }
     m_state->shared = {};
 }
 }  // namespace openrac::enhanced::fsr3_detail

@@ -5,6 +5,7 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 
@@ -42,6 +43,9 @@ bool EarlyLighting::render(
     if (!m_compute.id()) {
         std::string source = shaders::early_lighting_comp;
         source = probe_shader_source(std::move(source));
+        if (renderer::render_opt::enabled(renderer::render_opt::Opt::EarlyProbeSetup)) {
+            source.insert(source.find('\n') + 1, "#define OPENRAC_PROBE_RECEIVER_SETUP 1\n");
+        }
         source.insert(source.find('\n') + 1, renderer::shaders::surface_normal_glsl);
         source.insert(
             source.find('\n') + 1, "#define OPENRAC_PROBE_PIXEL early_pixel\nivec2 early_pixel;\n"
@@ -120,8 +124,9 @@ void EarlyLighting::bind(
     glActiveTexture(GL_TEXTURE0);
 }
 
-bool EarlyLighting::matches(const renderer::FrameInput& input, const renderer::RenderState& state)
-    const {
+bool EarlyLighting::matches(
+    const renderer::FrameInput& input, const renderer::RenderState& state
+) const {
     GLint viewport[4]{};
     glGetIntegerv(GL_VIEWPORT, viewport);
     return state.early_lighting && m_ready && m_frame == input.frame

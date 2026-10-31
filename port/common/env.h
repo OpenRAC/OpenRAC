@@ -58,6 +58,8 @@ enum class Var : std::uint16_t {
     CameraInstanceCullOff,
     CameraLatchLog,
     CamLog,
+    CollCheck,
+    CollCheckPrint,
     CollTrace,
     ControlFrames,
     CrashTest,
@@ -177,6 +179,7 @@ enum class Var : std::uint16_t {
     VulkanValidation,
     Watch,
     WaterOff,
+    WaterView,
     Write,
 };
 

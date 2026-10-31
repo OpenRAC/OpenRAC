@@ -8,6 +8,8 @@
 #include "enhanced/lighting/probes.h"
 
 namespace openrac::lighting {
+// Offline worker budget borrowed by prepared bakers.
+class BakeThreadPool;
 
 // Regular subtexel integration footprint; part of the bake settings identity.
 inline constexpr unsigned kProbeTexelSamplesPerAxis = 2;
@@ -105,6 +107,7 @@ struct BakeTraversalSettings {
 };
 
 struct BakeSettings {
+    ProbeTextureFormat texture_format = ProbeTextureFormat::R11G11B10;  // Offline storage policy.
     BakeTraversalSettings traversal{};
     bool use_level_sky = true;
     float sky_intensity = 1.0f;
@@ -115,7 +118,8 @@ struct BakeSettings {
     // Optional world-space light travel direction; absent preserves authored primary directions.
     std::optional<Float3> sunlight_direction;
     bool terrain_vertex_albedo = true;  // preserve authored terrain shading as an artistic tint
-    std::uint32_t rays_per_probe = 1024;
+    // Each probe pairs this many primary directions with independent emitter samples.
+    std::uint32_t rays_per_probe = 256;
     std::uint32_t bounces = 3;
     std::uint32_t seed = 1;
     float ray_bias = 0.002f;  // game world units
@@ -134,12 +138,18 @@ Float3 sample_bake_environment(
 
 // Prepared, immutable transport state shared by a level's sparse and dense grids.
 // The source scene must remain unchanged and outlive the baker; each bake has
-// independent output, random seeds, progress and worker lifetime.
+// independent output, random seeds and progress. A supplied pool is borrowed for each bake.
 class ProbeBaker {
 public:
     // Validate the source and build Embree acceleration once; invalid inputs throw. THREADS: the
     // acceleration build's threads (0: every CPU thread); bake() takes its own count.
-    ProbeBaker(const BakeScene& scene, const BakeSettings& settings, std::uint32_t threads = 0);
+    // A supplied pool outlives this baker and is used from one calling thread at a time.
+    ProbeBaker(
+        const BakeScene& scene,
+        const BakeSettings& settings,
+        std::uint32_t threads = 0,
+        BakeThreadPool* pool = nullptr
+    );
     ~ProbeBaker();
     ProbeBaker(const ProbeBaker&) = delete;
     ProbeBaker& operator=(const ProbeBaker&) = delete;

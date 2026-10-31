@@ -11,3 +11,24 @@ void game_FUN_L00_002a3ec8__game(gaddr, int, int, float, float, float, float);
 void game_FUN_L01_00262618__game(gaddr);
 void game_FUN_L01_00309bf8__game(void);
 void game_FUN_L01_00309bf8(void);
+
+void game_FUN_L00_0025e450__game(
+    gaddr,
+    gaddr,
+    gaddr,
+    float,
+    float,
+    int,
+    int,
+    int,
+    float,
+    float,
+    float,
+    float,
+    int,
+    float,
+    int,
+    int,
+    int,
+    unsigned char
+);

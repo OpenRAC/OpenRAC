@@ -6,11 +6,14 @@
 #include <cstdint>
 #include <limits>
 
+#include "common/env.h"
 #include "common/profiler.h"
 #include "common/stats.h"
+#include "enhanced/renderer/water_impulse_contact.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced/renderer/water_window.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #ifdef OPENRAC_VULKAN
 #include "renderer/vulkan/vkgl.h"
@@ -39,24 +42,33 @@ void Water::update_lighting(const renderer::FrameInput& input) {
     glActiveTexture(GL_TEXTURE0);
 }
 
+// Each pass needs a fresh scene snapshot, even when the simulation tick is already prepared.
 void Water::prepare(const renderer::FrameInput& input) {
+    m_background_ready = false;
     prepare_frame(input, true);
 }
 
+// Prepare the simulation once per tick and apply session or scripted diagnostic views.
 void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     const profiling::Zone trace("Prepare enhanced water");
 
     m_mesh->begin_pass();
     m_bound = false;
+    m_effect_setups = 0;
     const auto options = water_debug_settings();
     const auto epoch = water_reset_epoch.load();
     const bool debug_reset =
         epoch != m_reset_epoch || options.current_scale != m_debug.current_scale;
     m_debug = options;
+    const auto scripted_view = env::integer(env::Var::WaterView, -1);
+    if (scripted_view >= 0) {
+        m_debug.view = int(std::clamp<std::int64_t>(scripted_view, 0, 17));
+    }
     m_enabled = input.enhanced_water && !water_disabled();
     water_ready.store(m_enabled);
     if (!m_enabled) {
         m_lighting_pending = false;
+        m_impulse_frame = input.frame;
         m_last_frame = m_prepared_frame = m_clock_frame = std::numeric_limits<std::uint64_t>::max();
         m_sim_body = -1;
         m_exit_time = -1;
@@ -80,6 +92,40 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
         }
         m_clock_frame = input.frame;
     }
+    std::array<Texel, renderer::kWaterImpulseLimit> impulse_starts{}, impulse_ends{};
+    unsigned impulse_count = 0;
+    if (m_impulse_frame != input.frame && !m_debug.paused) {
+        for (auto impulse : input.water_impulses) {
+            if (impulse_count == renderer::kWaterImpulseLimit) {
+                break;
+            }
+            if (!renderer::valid_water_impulse(impulse)) {
+                continue;
+            }
+            // Capture supplies zero-length explosions and nonzero swept projectiles.
+            // Tune before both activation/contact queries and GPU kicks, so the slider's
+            // radius and zero-strength opt-out agree even for an idle pond.
+            const bool explosion = impulse.from == impulse.to;
+            impulse.strength = std::min(
+                4.f,
+                impulse.strength
+                    * (explosion ? m_debug.explosion_strength : m_debug.projectile_strength)
+            );
+            impulse.radius = std::clamp(
+                impulse.radius * (explosion ? m_debug.explosion_radius : m_debug.projectile_radius),
+                .05f,
+                4.f
+            );
+            if (impulse.strength == 0) {
+                continue;
+            }
+            impulse_starts[impulse_count] =
+                {impulse.from[0], impulse.from[1], impulse.from[2], impulse.radius};
+            impulse_ends[impulse_count++] =
+                {impulse.to[0], impulse.to[1], impulse.to[2], impulse.strength};
+        }
+    }
+    m_impulse_frame = input.frame;
     auto hero = input.water_interactor.value_or(renderer::Vec3{0, 0, 100000});
     unsigned visible_surfaces = 0;
     const auto view_projection = renderer::multiply(input.camera.projection, input.camera.view);
@@ -139,6 +185,25 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                     selected = int(b);
                     selected_height = cell[0] - 512.f;
                 }
+            }
+        }
+    }
+    // Hits wake water even when Ratchet is on the bank or above the pond. Keep an active
+    // swimming window in preference to remote hits; one bounded local grid remains in use.
+    bool effect_contact = false;
+    if (!contact_water && impulse_count) {
+        for (unsigned i = 0; i < impulse_count; ++i) {
+            const auto& a = impulse_starts[i];
+            const auto& b = impulse_ends[i];
+            const renderer::WaterImpulse impulse{
+                {a[0], a[1], a[2]}, {b[0], b[1], b[2]}, a[3], b[3]
+            };
+            if (const auto hit = water_impulse_contact(m_bodies, m_coast, impulse)) {
+                hero = hit->point;
+                selected = hit->body;
+                selected_height = hero[2];
+                contact_water = effect_contact = true;
+                break;
             }
         }
     }
@@ -204,12 +269,12 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
         return;
     }
     const float impulse =
-        input.water_interactor && !reset && !retiring
+        input.water_interactor && !reset && !retiring && !effect_contact
             ? std::min(1.0f, std::sqrt(distance) * 2.5f) * m_debug.interaction_strength
             : 0.f;
     std::array<float, 2> hand_impulses{};
     for (unsigned hand = 0; hand < hand_impulses.size(); ++hand) {
-        if (reset || retiring || !input.water_hands[hand] || !m_hands[hand]) {
+        if (reset || retiring || effect_contact || !input.water_hands[hand] || !m_hands[hand]) {
             continue;
         }
         float moved = 0;
@@ -296,10 +361,22 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
             point[2]
         );
     }
+    if (impulse_count) {
+        glUniform4fv(
+            m_step.uniform("impulse_starts[0]"), int(impulse_count), impulse_starts[0].data()
+        );
+        glUniform4fv(m_step.uniform("impulse_ends[0]"), int(impulse_count), impulse_ends[0].data());
+    }
+    const bool compact_barriers =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::WaterStepBarriers);
     for (unsigned step = 0; step < steps * 4; ++step) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffers[m_current]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_buffers[1 - m_current]);
         glUniform1i(m_step.uniform("reset_waves"), reset && step == 0 ? 1 : 0);
+        // A fresh window clears in substep zero; kick it after that clear, exactly once.
+        glUniform1i(
+            m_step.uniform("impulse_count"), step == (reset ? 1u : 0u) ? int(impulse_count) : 0
+        );
         glUniform4f(m_step.uniform("hero"), hero[0], hero[1], hero[2], step == 0 ? impulse : 0.f);
         glUniform1i(
             m_step.uniform("hand_count"),
@@ -315,7 +392,11 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                 hand_impulses[hand]
             );
         }
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+        // The previous substep's trailing barrier already orders its writes before
+        // this dispatch. Keep the initial dependency and every trailing barrier.
+        if (step == 0 || !compact_barriers) {
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+        }
         glDispatchCompute((kWindowCells + 63) / 64, 1, 1);
         glUniform2f(m_step.uniform("previous_window"), float(window[0]), float(window[1]));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -335,6 +416,7 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     m_window_origin = window;
     remember_tick(input, hero, epoch);
     stats::gauge("water simulation state bytes", double(kWindowCells * sizeof(Texel) * 2));
+    stats::gauge("water projectile and blast impulses", double(impulse_count));
     stats::gauge("water impulse", double(impulse));
     stats::gauge("water hand impulse", double(hand_impulses[0] + hand_impulses[1]));
 }

@@ -82,6 +82,7 @@ struct Kept {
     std::size_t before_world = 0;
     std::vector<renderer::EffectVertex> strip_vertices;
     std::vector<renderer::EffectStrip> strips;
+    std::vector<renderer::WaterImpulse> water_impulses;
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;
     std::array<renderer::Mat4, 8> sky_shells{};
@@ -222,6 +223,8 @@ struct State {
     bool world_under_menu = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
+    // One-shot blasts captured since the last displayed tick; projectiles are added at capture.
+    std::vector<renderer::WaterImpulse> water_impulses;
     // The world effect quads the game drew since the last frame (effect_quad).
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;  // the quads' textures (EffectQuad::uploads)
@@ -431,6 +434,10 @@ gaddr light_bank_address();
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets
 // where it was (frontend/world.cpp).
 void use_level(int number);
+
+// Reads level `number`'s files on another thread for use_level to take when the level comes: the
+// flight between planets reads its destination's while it plays (frontend/world.cpp).
+void preload_level(int number);
 
 // The sky sprites the game drew since the last frame, as effect quads seen from `state`'s camera,
 // put first among the frame's effect quads: drawn behind everything (frontend/world.cpp).

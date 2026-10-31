@@ -35,12 +35,12 @@ out), and it stays off until the `enhanced_rendering` setting or
 `OPENRAC_ENHANCED=1` turns it on at start; off, the game draws exactly as a
 build without it. Players turn it on in the launcher: Mods, **Enhanced
 graphics**, which plays with Vulkan and bakes the probes on their computer from
-their own extracted levels, one level per thread, into
+their own extracted levels with a shared, bounded worker pool, into
 `<data>/probes/<version>` (`--probes`). It needs Vulkan and a bake that matches
 the level; OpenGL, and a level without one, keep the original lighting. Core
 Vulkan draw/culling optimizations work either way. Only the offline baker needs
 Embree: `python3 tools/build_port.py --probe-baker` builds a pinned Embree
-statically into `openrac-probe-bake` (or `-DOPENRAC_PROBE_BAKER=ON` with an
+statically into `openrac-enhanced-baker` (or `-DOPENRAC_PROBE_BAKER=ON` with an
 installed Embree 4); the game never links it.
 
 Dedicated enhanced-rendering sources, shaders, tools and tests live in
@@ -148,7 +148,7 @@ points run the game's own C. The loader is
 [game/common/mods.cpp](game/common/mods.cpp); the design, the manifest and
 the SDK are in [docs/port/MODS.md](../docs/port/MODS.md). Ratchet & Clank's
 mods, the lock-strafe first, are in
-[OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods).
+[OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods).
 
 Script mods are `.luau` files that the program runs in Luau (fetched by
 [cmake/Luau.cmake](cmake/Luau.cmake)), one sandboxed state each, with a time

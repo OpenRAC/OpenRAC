@@ -77,7 +77,7 @@ struct Fixture {
     renderer::Shader shader;
     renderer::FrameBuffer target;
     lighting::EnvironmentSelection selection;
-    unsigned texture = 0, vao = 0;
+    unsigned texture = 0, vao = 0, brdf_texture = 0;
     unsigned comparisons = 0;
     std::string error;
 
@@ -93,6 +93,7 @@ uniform vec3 receiver_eye;
 uniform vec4 receiver_viewport;
 uniform float receiver_depth;
 uniform int channel;
+uniform vec3 receiver_offset;
 layout(location=0) out vec4 result;
 void main() {
  uint bits;
@@ -101,7 +102,7 @@ void main() {
   vec2 ndc=(gl_FragCoord.xy-receiver_viewport.xy)/receiver_viewport.zw*2.-1.;
   vec4 h=inverse(receiver_clip)*vec4(ndc,receiver_depth*2.-1.,1);
   vec3 p=h.xyz/h.w,eye=normalize(receiver_eye-p);
-  vec3 colour=environment_specular(p,eye,eye,.37,.65,vec3(.013,.027,.041));
+  vec3 colour=environment_specular_surface(p,p+receiver_offset,eye,eye,.37,.65,vec3(.013,.027,.041));
   bits=floatBitsToUint(colour[channel]);
  }
  result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
@@ -113,6 +114,7 @@ void main() {
 
         glGenVertexArrays(1, &vao);
         glGenTextures(1, &texture);
+        glGenTextures(1, &brdf_texture);
         glBindVertexArray(vao);
         glBindFramebuffer(GL_FRAMEBUFFER, target.id());
         glDisable(GL_DEPTH_TEST);
@@ -147,15 +149,43 @@ void main() {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+        std::vector<std::uint32_t> lookup(64 * 64);
+        for (unsigned y = 0; y < 64; ++y) {
+            std::copy_n(
+                asset.pixels.begin() + std::size_t(asset.brdf_row() + y) * asset.width(),
+                64,
+                lookup.begin() + y * 64
+            );
+        }
+        glActiveTexture(GL_TEXTURE0 + 24);
+        glBindTexture(GL_TEXTURE_2D, brdf_texture);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_R11F_G11F_B10F,
+            64,
+            64,
+            0,
+            GL_RGB,
+            GL_UNSIGNED_INT_10F_11F_11F_REV,
+            lookup.data()
+        );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glUniform1i(shader.uniform("environment_brdf"), 24);
         glActiveTexture(GL_TEXTURE0);
     }
 
+    // Read one channel or candidate word through the requested reflection selection path.
     std::vector<std::uint8_t> draw(
         const renderer::Camera& camera,
         std::array<int, 4> viewport,
         float depth,
         int channel,
-        bool tiled
+        bool tiled,
+        float receiver_offset = 0
     ) {
         glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
         shader.use();
@@ -176,16 +206,23 @@ void main() {
         );
         glUniform1f(shader.uniform("receiver_depth"), depth);
         glUniform1i(shader.uniform("channel"), channel);
+        glUniform3f(shader.uniform("receiver_offset"), 0, 0, receiver_offset);
         selection.bind(shader, tiled ? &camera : nullptr);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     }
 
-    void compare(const renderer::Camera& camera, std::array<int, 4> viewport, float depth) {
+    // Biased receivers must preserve every float bit between full-loop and tiled selection.
+    void compare(
+        const renderer::Camera& camera,
+        std::array<int, 4> viewport,
+        float depth,
+        float receiver_offset = 0
+    ) {
         for (int channel = 0; channel < 3; ++channel) {
-            const auto reference = draw(camera, viewport, depth, channel, false);
-            const auto tiled = draw(camera, viewport, depth, channel, true);
+            const auto reference = draw(camera, viewport, depth, channel, false, receiver_offset);
+            const auto tiled = draw(camera, viewport, depth, channel, true, receiver_offset);
             CHECK(reference == tiled);
             ++comparisons;
         }
@@ -195,6 +232,7 @@ void main() {
         selection.release();
         shader.release();
         glDeleteTextures(1, &texture);
+        glDeleteTextures(1, &brdf_texture);
         glDeleteVertexArrays(1, &vao);
         target.release();
     }
@@ -241,6 +279,8 @@ int main(int argc, char** argv) {
     CHECK(reduced);
     fixture.upload(synthetic(32, true));
     fixture.compare(camera, {0, 0, 96, 80}, .02f);  // All candidates and exact score ties.
+    fixture.compare(camera, {0, 0, 96, 80}, .02f, .5f);   // Water above the interface.
+    fixture.compare(camera, {0, 0, 96, 80}, .02f, -.5f);  // Camera below the interface.
     auto large = synthetic(lighting::kEnvironmentProbeLimit, false);
 
     for (auto& p : large.probes) {

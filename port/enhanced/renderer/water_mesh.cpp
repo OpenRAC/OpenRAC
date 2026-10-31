@@ -13,6 +13,7 @@
 #include "common/log.h"
 #include "common/profiler.h"
 #include "common/stats.h"
+#include "renderer/render_opt.h"
 
 namespace openrac::enhanced {
 WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 32>& fingerprint) {
@@ -93,7 +94,9 @@ WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 3
     }
 }
 
-float WaterMesh::rest_height(const renderer::EffectVertex& p, unsigned surface) const {
+float WaterMesh::rest_height(
+    const renderer::EffectVertex& p, unsigned surface, std::vector<float>* heights
+) const {
     auto found = m_rest_tiles.find({int(std::floor(p.x)), int(std::floor(p.y))});
     float best = std::numeric_limits<float>::max(), result = p.z;
     if (found == m_rest_tiles.end()) {
@@ -117,6 +120,9 @@ float WaterMesh::rest_height(const renderer::EffectVertex& p, unsigned surface) 
             continue;
         }
         float z = u * a[2] + v * b[2] + (1 - u - v) * c[2];
+        if (heights) {
+            heights->push_back(z);
+        }
         if (std::abs(z - p.z) < best) {
             best = std::abs(z - p.z);
             result = z;
@@ -129,6 +135,14 @@ float WaterMesh::rest_height(const renderer::EffectVertex& p, unsigned surface) 
 void WaterMesh::begin_pass() {
     m_sources.clear();
     m_used = 0;
+    m_cache_counts = {};
+}
+
+void WaterMesh::finish_pass() const {
+    stats::gauge("water rest lookups", m_cache_counts[0]);
+    stats::gauge("water rest cache hits", m_cache_counts[1]);
+    stats::gauge("water topology builds", m_cache_counts[2]);
+    stats::gauge("water topology cache hits", m_cache_counts[3]);
 }
 
 // Each instance references the original coarse triangle, never an expanded CPU vertex stream.
@@ -142,47 +156,108 @@ renderer::EffectMesh WaterMesh::prepare(
     auto& plan = m_plans[m_used];
     plan.batches.clear();
     plan.vertices = 0;
-    std::vector<renderer::EffectVertex> rest(vertices.begin(), vertices.end());
-    for (auto& p : rest) {
-        p.z = rest_height(p, strip.surface);
+    const bool reuse = renderer::render_opt::enabled(renderer::render_opt::Opt::WaterMeshReuse);
+    std::vector<renderer::EffectVertex> reference_rest;
+    auto& rest = reuse ? m_rest_vertices : reference_rest;
+    rest.assign(vertices.begin(), vertices.end());
+    if (reuse) {
+        plan.rest.resize(rest.size());
+    }
+    m_position_bits.clear();
+    for (std::size_t i = 0; i < rest.size(); ++i) {
+        auto& p = rest[i];
+        if (reuse && std::isfinite(p.x) && std::isfinite(p.y)) {
+            auto& lookup = plan.rest[i];
+            const std::array key{
+                std::bit_cast<std::uint32_t>(p.x), std::bit_cast<std::uint32_t>(p.y), strip.surface
+            };
+            if (!lookup.valid || lookup.key != key) {
+                lookup.key = key;
+                lookup.heights.clear();
+                p.z = rest_height(p, strip.surface, &lookup.heights);
+                lookup.valid = true;
+                ++m_cache_counts[0];
+            } else {
+                float best = std::numeric_limits<float>::max(), result = p.z;
+                for (const auto z : lookup.heights) {
+                    if (std::abs(z - p.z) < best) {
+                        best = std::abs(z - p.z);
+                        result = z;
+                    }
+                }
+                p.z = result;
+                ++m_cache_counts[1];
+            }
+        } else {
+            p.z = rest_height(p, strip.surface);
+            ++m_cache_counts[0];
+        }
+        if (reuse) {
+            m_position_bits.push_back(
+                {std::bit_cast<std::uint32_t>(p.x),
+                 std::bit_cast<std::uint32_t>(p.y),
+                 std::bit_cast<std::uint32_t>(p.z)}
+            );
+        }
     }
     constexpr unsigned orders[6][3] =
         {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
-    for (std::size_t k = 0; k + 2 < rest.size(); ++k) {
-        const auto& p = rest[k];
-        const auto& q = rest[k + 1];
-        const auto& r = rest[k + 2];
-        // Strip restart connectors have no visible triangle.
-        if (std::abs((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)) < 1e-8f) {
-            continue;
-        }
-        Shape shape{0, 3};  // The first resident template is a flat, untessellated fallback.
-        const unsigned* order = orders[0];
-        bool matched = false;
-        for (const auto& candidate : orders) {
-            const auto& a = rest[k + candidate[0]];
-            const auto& b = rest[k + candidate[1]];
-            const auto& c = rest[k + candidate[2]];
-            const auto quantize = [](float x) {
-                return int(std::floor(x * 256 + .5f));
-            };
-            const std::array<int, 4> key{
-                quantize(b.x - a.x), quantize(b.y - a.y), quantize(c.x - a.x), quantize(c.y - a.y)
-            };
-            auto found = m_templates.find(key);
-            if (found != m_templates.end()) {
-                shape = found->second;
-                order = candidate;
-                matched = true;
-                break;
+    const bool topology_hit = reuse && plan.topology_valid && plan.positions == m_position_bits;
+    if (!topology_hit) {
+        ++m_cache_counts[2];
+        plan.topology.clear();
+        for (std::size_t k = 0; k + 2 < rest.size(); ++k) {
+            const auto& p = rest[k];
+            const auto& q = rest[k + 1];
+            const auto& r = rest[k + 2];
+            // Strip restart connectors have no visible triangle.
+            if (std::abs((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)) < 1e-8f) {
+                continue;
             }
+            Shape shape{0, 3};  // The first resident template is a flat, untessellated fallback.
+            const unsigned* order = orders[0];
+            bool matched = false;
+            for (const auto& candidate : orders) {
+                const auto& a = rest[k + candidate[0]];
+                const auto& b = rest[k + candidate[1]];
+                const auto& c = rest[k + candidate[2]];
+                const auto quantize = [](float x) {
+                    return int(std::floor(x * 256 + .5f));
+                };
+                const std::array<int, 4> key{
+                    quantize(b.x - a.x),
+                    quantize(b.y - a.y),
+                    quantize(c.x - a.x),
+                    quantize(c.y - a.y)
+                };
+                auto found = m_templates.find(key);
+                if (found != m_templates.end()) {
+                    shape = found->second;
+                    order = candidate;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && !m_missing_template) {
+                log::warn(
+                    "Water bake missing mesh shape for surface {}; using coarse triangle",
+                    strip.surface
+                );
+                m_missing_template = true;
+            }
+            plan.topology.push_back({k, {order[0], order[1], order[2]}, shape});
         }
-        if (!matched && !m_missing_template) {
-            log::warn(
-                "Water bake missing mesh shape for surface {}; using coarse triangle", strip.surface
-            );
-            m_missing_template = true;
+        plan.topology_valid = reuse;
+        if (reuse) {
+            plan.positions = m_position_bits;
         }
+    } else {
+        ++m_cache_counts[3];
+    }
+    for (const auto& triangle : plan.topology) {
+        const auto k = triangle.first;
+        const auto& order = triangle.order;
+        const auto shape = triangle.shape;
         const auto first = static_cast<unsigned>(m_sources.size());
         Source source{};
         for (unsigned i = 0; i < 3; ++i) {

@@ -283,13 +283,25 @@ openrac_warnings(openrac_ps2float)
 
 openrac_add_c_test(ps2float NO_FP_CONTRACT LIBS openrac_ps2float)
 
+# Encoders are offline; enhanced builds also decode blocks for asset checks and CPU reference sampling.
+option(OPENRAC_PROBE_BAKER "Build the offline Embree 4 probe baker" OFF)
+if(OPENRAC_ENHANCED_RENDERING OR OPENRAC_PROBE_BAKER)
+  include(ProbeCompression)
+endif()
+
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
-add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
+add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
+if(TARGET openrac_astc_decode)
+  target_link_libraries(openrac_lighting PRIVATE openrac_astc_decode openrac_bc6)
+  target_compile_definitions(openrac_lighting PRIVATE OPENRAC_PROBE_COMPRESSION=1)
+endif()
+# Shared probe-format timings use the same optional profiling backend as the offline baker.
+target_link_libraries(openrac_lighting PRIVATE openrac_common)
 openrac_warnings(openrac_lighting)
 openrac_add_test(environment SOURCES enhanced/tests/environment_test.cpp LIBS openrac_lighting)
-foreach(name IN ITEMS probes probe_atlas probe_regions)
+foreach(name IN ITEMS probes probe_atlas probe_regions probe_decode)
   openrac_add_test(lighting_${name} SOURCES enhanced/tests/lighting/${name}.cpp
                                     LIBS openrac_lighting)
   set_tests_properties(lighting_${name} PROPERTIES SKIP_RETURN_CODE 77)
@@ -352,6 +364,10 @@ if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
 include(Render)
+include(GpuTests)
+openrac_configure_gpu_tests(${openrac_parallel_gpu_tests})
+add_test(NAME gpu_test_config
+         COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/test_gpu_tests.py")
 
 # ---- the games, from their decompilations (port/game/*/hostgen.json) ----
 if(OPENRAC_PORT_GAMES)

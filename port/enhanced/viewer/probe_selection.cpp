@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "enhanced/viewer/probe_selection.h"
 
+#include <utility>
 #include <vector>
 
+#include "common/log.h"
 #include "common/stats.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 
 namespace openrac::lighting {
@@ -73,7 +76,24 @@ bool ProbeSelection::prepare(
         || offsets.size() != grids.size()) {
         return false;
     }
-    if (!m_cull.build_compute("tiled probe-volume culling", shaders::probe_selection_comp, error)) {
+    bool split = false;
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeSelectionVariants)) {
+        std::string tile_source(shaders::probe_selection_comp), select_source(tile_source);
+        select_source.insert(select_source.find('\n') + 1, "#define OPENRAC_PROBE_SHORTLIST 1\n");
+        tile_source.insert(tile_source.find('\n') + 1, "#define OPENRAC_PROBE_TILES 1\n");
+        split = m_select.build_compute("probe region shortlist", select_source, error)
+                && m_cull.build_compute("tiled probe-volume culling", tile_source, error);
+        if (!split) {
+            log::warn("Split probe kernels unavailable: {}; using the combined kernel", error);
+            m_select.release();
+            m_cull.release();
+            error.clear();
+        }
+    }
+    if (!split
+        && !m_cull.build_compute(
+            "tiled probe-volume culling", shaders::probe_selection_comp, error
+        )) {
         return false;
     }
     m_count = static_cast<unsigned>(grids.size());
@@ -91,6 +111,9 @@ bool ProbeSelection::prepare(
     glBindBuffer(wgl::GL_UNIFORM_BUFFER, m_buffers[0]);
     glBufferData(wgl::GL_UNIFORM_BUFFER, sizeof(metadata), metadata.data(), GL_STATIC_DRAW);
     block(m_cull);
+    if (m_select.id()) {
+        block(m_select);
+    }
     return true;
 }
 
@@ -105,7 +128,7 @@ void ProbeSelection::dispatch(
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, m_buffers[1]);
     if (width != m_width || height != m_height) {
         std::vector<unsigned> zeros(
-            selected_capacity + 1 + std::size_t(tiles_x) * tiles_y * kWords, 0
+            selected_capacity + 1 + std::size_t(tiles_x) * tiles_y * kWords * 2, 0
         );
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_buffers[1]);
         glBufferData(
@@ -119,21 +142,35 @@ void ProbeSelection::dispatch(
     glMemoryBarrier(
         GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT
     );  // texture-fetch readers
-    m_cull.use();
-    glUniform1i(m_cull.uniform("region_count"), static_cast<int>(m_count));
-    glUniform1i(m_cull.uniform("scene_depth"), 0);
-    glUniformMatrix4fv(m_cull.uniform("world_to_clip"), 1, GL_FALSE, m_clip.data());
+    const auto& select = m_select.id() ? m_select : m_cull;
+    select.use();
+    glUniform1i(select.uniform("region_count"), static_cast<int>(m_count));
+    glUniform1i(select.uniform("scene_depth"), 0);
+    glUniformMatrix4fv(select.uniform("world_to_clip"), 1, GL_FALSE, m_clip.data());
     glUniform3f(
-        m_cull.uniform("camera_position"),
+        select.uniform("camera_position"),
         camera.position[0],
         camera.position[1],
         camera.position[2]
     );
-    glUniform1i(m_cull.uniform("select_regions"), 1);
-    glDispatchCompute(1, 1, 1);
+    glUniform1i(select.uniform("select_regions"), 1);
+    {
+        const stats::Scope shortlist("probe region shortlist", stats::kGpu);
+        glDispatchCompute(1, 1, 1);
+    }
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    m_cull.use();
+    glUniform1i(m_cull.uniform("scene_depth"), 0);
+    glUniformMatrix4fv(m_cull.uniform("world_to_clip"), 1, GL_FALSE, m_clip.data());
     glUniform1i(m_cull.uniform("select_regions"), 0);
-    glDispatchCompute(static_cast<unsigned>(tiles_x), static_cast<unsigned>(tiles_y), 1);
+    stats::gauge("probe split kernels", m_select.id() ? 1 : 0);
+    m_translucent_tiles =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeTranslucentTiles);
+    glUniform1i(m_cull.uniform("translucent_tiles"), m_translucent_tiles ? 1 : 0);
+    {
+        const stats::Scope tiles("probe tile masks", stats::kGpu);
+        glDispatchCompute(static_cast<unsigned>(tiles_x), static_cast<unsigned>(tiles_y), 1);
+    }
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     m_started = true;
     m_width = width;
@@ -161,12 +198,13 @@ void ProbeSelection::bind(
             glBindBufferBase(wgl::GL_UNIFORM_BUFFER, 7, m_buffers[0]);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, m_buffers[2]);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-            m_cull.use();
-            glUniform1i(m_cull.uniform("region_count"), static_cast<int>(m_count));
-            glUniform1i(m_cull.uniform("select_regions"), 1);
-            glUniformMatrix4fv(m_cull.uniform("world_to_clip"), 1, GL_FALSE, clip.data());
+            const auto& select = m_select.id() ? m_select : m_cull;
+            select.use();
+            glUniform1i(select.uniform("region_count"), static_cast<int>(m_count));
+            glUniform1i(select.uniform("select_regions"), 1);
+            glUniformMatrix4fv(select.uniform("world_to_clip"), 1, GL_FALSE, clip.data());
             glUniform3f(
-                m_cull.uniform("camera_position"),
+                select.uniform("camera_position"),
                 camera->position[0],
                 camera->position[1],
                 camera->position[2]
@@ -179,11 +217,15 @@ void ProbeSelection::bind(
             m_secondary_valid = true;
         }
     }
-    const bool tiled = depth_matched && !reference && same_view && viewport[0] == 0
-                       && viewport[1] == 0 && viewport[2] == m_width && viewport[3] == m_height;
-    // Blended receivers can lie outside opaque depth bounds, even in the same view.
-    // They and secondary cameras use the selected lookup without opaque-only masks.
-    glUniform1i(shader.uniform("probe_gpu_selection"), active() ? (tiled ? 1 : 2) : 0);
+    const bool tiled = !reference && same_view && viewport[0] == 0 && viewport[1] == 0
+                       && viewport[2] == m_width && viewport[3] == m_height;
+    // Blended receivers use the complete tile frustum, never opaque depth bounds.
+    // Secondary cameras and mismatched viewports keep the full selected lookup.
+    const bool broad =
+        camera && m_translucent_tiles
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeTranslucentTiles);
+    const int mode = tiled ? (depth_matched ? 1 : broad ? 3 : 2) : 2;
+    glUniform1i(shader.uniform("probe_gpu_selection"), active() ? mode : 0);
     glUniform1i(shader.uniform("probe_region_count"), static_cast<int>(m_count));
     glUniform2f(shader.uniform("probe_tile_extent"), float(m_width), float(m_height));
     glUniform1i(shader.uniform("probe_region_masks"), 15);
@@ -196,6 +238,7 @@ void ProbeSelection::bind(
 
 void ProbeSelection::release() {
     m_cull.release();
+    m_select.release();
     if (m_buffers[0]) {
         glDeleteBuffers(3, m_buffers.data());
     }
@@ -212,5 +255,6 @@ void ProbeSelection::release() {
     m_width = m_height = 0;
     m_count = 0;
     m_started = false;
+    m_translucent_tiles = false;
 }
 }  // namespace openrac::lighting

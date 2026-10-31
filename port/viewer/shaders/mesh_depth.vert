@@ -4,14 +4,18 @@
 invariant gl_Position;
 layout(location = 0) in vec3 position;
 layout(location = 4) in mat4 model;
+#ifndef OPENRAC_DEPTH_RIGID
 layout(location = 9) in float palette;
 layout(location = 10) in uvec4 joints;
 layout(location = 11) in vec4 weights;
+#endif
 layout(location = 14) in vec4 moby_light;
 uniform mat4 view_projection;
 uniform float picture_scale;
+#ifndef OPENRAC_DEPTH_RIGID
 uniform int skinning;
 uniform sampler2D palette_texture;
+#endif
 #ifdef OPENRAC_DEPTH_NORMALS
 layout(location = 1) in vec3 normal;
 uniform mat4 view;
@@ -30,6 +34,7 @@ out vec2 v_uv;
 out float v_alpha;
 flat out int v_glow;
 #endif
+#ifndef OPENRAC_DEPTH_RIGID
 const int kPaletteWidth = 1024;
 
 mat4 joint_matrix(int index) {
@@ -43,11 +48,14 @@ mat4 joint_matrix(int index) {
     );
 }
 
+#endif
+
 void main() {
     vec4 p = vec4(position, 1.0);
 #ifdef OPENRAC_DEPTH_NORMALS
     vec3 n = normal;
 #endif
+#ifndef OPENRAC_DEPTH_RIGID
     float total = weights.x + weights.y + weights.z + weights.w;
     if (skinning != 0 && palette >= 0.0 && total > 0.0) {
         int base = int(palette + 0.5);
@@ -60,6 +68,7 @@ void main() {
         n = mat3(skin) * n;
 #endif
     }
+#endif
     vec4 world = model * p;
 #ifdef OPENRAC_WATER_FLOAT
     mat4 water_pose = water_float_pose(model[3].xyz);

@@ -11,6 +11,15 @@ from enhanced import profiles
 
 
 class ProfileTests(unittest.TestCase):
+    def test_background_scene_strategies_are_exported(self):
+        """Each tracked background profile reaches exports without a gameplay dependency."""
+        for number in (98, 99):
+            with self.subTest(level=number), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp)
+                profiles.write_bake_profile(SimpleNamespace(game='rac1', version='ntsc', id=number), directory)
+                settings = json.loads((directory/'probe-bake.json').read_text())
+                self.assertEqual(settings['strategy'], 'scene')
+
     def test_region_settings_are_exported_with_bake_profile(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

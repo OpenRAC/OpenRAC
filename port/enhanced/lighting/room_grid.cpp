@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/room_layout.h"
 
@@ -54,6 +55,8 @@ ProbeGrid fit_room_grid(
     const RoomLayout& layout,
     bool refine_corridors
 ) {
+    const profiling::Zone timing("Fit room probe grid");
+
     if (floors.empty()) {
         return source;
     }

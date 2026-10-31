@@ -57,6 +57,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Medial axis | `medial_axis_debug` | `0` (default), `1` | Enhanced > Diagnostics: green centre paths, pink junctions and white component centres from the bake |
 | Environment probes | `environment_probe_debug` | `0` (default), `1` | Enhanced > Diagnostics: mirror spheres show each capture; cyan reflection bounds and faint hidden wire markers show coverage |
 | Modern shadows | `enhanced_shadows` | `1` (default), `0` | Independently toggles sun cascades and Ratchet's shadow map in the Enhanced Settings window. Off restores original stencil shadows while keeping GI and GTAO preferences |
+| Volumetrics | `volumetric_quality` | `off` (default), `low`, `medium`, `high` | Experimental, available in the in-game enhanced developer panel only. Sample grid density: Low uses 64-pixel columns/24 depth slices, Medium 32/48, High 16/96. Off retains original fog. Applies immediately; fog thickness stays unchanged |
 | Shadow quality | `shadow_quality` | `high` (default), `medium`, `low` | High uses 2048x2048 for the nearest sun cascade, 1024x1024 for the other cascades and 512x512 for Ratchet. Medium halves the sun map dimensions but keeps Ratchet at 512x512. Low quarters the sun map dimensions and uses 256x256 for Ratchet. Changes apply immediately, including the scrolling shadow cache |
 | Probe normal bias | `probe_normal_bias` | `0.0` to `2.0` world units (default `0.5`) | Offsets the GI visibility receiver along the camera-facing surface normal; updates immediately |
 | Probe view bias | `probe_view_bias` | `0.0` to `2.0` world units (default `0.5`) | Offsets the GI visibility receiver toward the camera; updates immediately |
@@ -438,7 +439,7 @@ follows ReRAC's idea and says so in
 
 The strafe of the later games (Going Commando's Hold L2-R2, Up Your
 Arsenal's lock-strafe), which was a row of this page until 2026-10-21, is
-a mod now: **lock-strafe**, in [OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods),
+a mod now: **lock-strafe**, in [OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods),
 installed and switched in the launcher's Mods tab, with its mode (Lock with
 weapons, or Hold L2-R2) among its settings ([MODS.md](MODS.md)). Its
 README says what each mode does, how it is built from the game's own strafe
@@ -536,12 +537,17 @@ Motion Blur tuning is saved with the graphics settings:
 
 | Key | Range | Default |
 |---|---|---|
-| `motion_blur_radius` | 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“128 display pixels | 128 |
-| `motion_blur_samples` | 8ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“64 | 32 |
-| `motion_blur_min_motion` | 0.1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“4 display pixels | 0.5 |
-| `motion_blur_spread` | 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“1 | 0.5 |
-| `motion_blur_depth_tolerance` | 0.001ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“0.05 | 0.009 |
-| `motion_blur_cutscene_multiplier` | 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“2 | 1 |
+| `motion_blur_radius` | 1 to 128 display pixels | 64 |
+| `motion_blur_samples` | 8 to 64 | 16 |
+| `motion_blur_min_motion` | 0.1 to 4 display pixels | 1 |
+| `motion_blur_spread` | 0 to 1 | 0.5 |
+| `motion_blur_depth_tolerance` | 0.001 to 0.05 | 0.009 |
+| `motion_blur_cutscene_multiplier` | 0 to 2 | 1 |
+
+The default preset keeps strength 0.5, with 16 samples, a 64-pixel trail cap and a
+1-pixel motion threshold. It preserves prominent motion while avoiding subpixel blur
+and the cost of very long trails. Existing saved custom values remain in effect;
+Reset blur tuning applies the new defaults.
 
 Longer trails and more samples increase GPU cost. Minimum motion suppresses tiny
 movements; trail spread controls JFA's sideways reach; depth tolerance controls

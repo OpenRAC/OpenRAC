@@ -229,8 +229,10 @@ int main(void) {
 
     /* A tick with 100 mobys: the 90 with 0x1000 in the target table, in array order, NULL after;
      * the run list links all 100, class slot by class slot. */
+    GREF(gaddr, 0x70000700u) = 0xA5A5A5A5u; /* past retail's 224 class slots */
     gaddr first = run(100);
     CHECK(run_length(first) == 100 && first == ARRAY);
+    CHECK(GREF(gaddr, 0x70000700u) == 0xA5A5A5A5u); /* the console's arena leaves it alone */
     CHECK(GREF(gaddr, 0x001C7C80u) == ARRAY && GREF(gaddr, 0x001C7C80u + 4) == ARRAY + 0x100);
     CHECK(GREF(gaddr, 0x001C7C80u + 9 * 4) == ARRAY + 10 * 0x100); /* the tenth has no 0x1000 */
     CHECK(GREF(gaddr, 0x001C7C80u + 90 * 4) == 0 && warnings == 0);

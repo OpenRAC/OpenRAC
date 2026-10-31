@@ -71,8 +71,20 @@ private:
     std::array<int, 2> m_colour_size{};
     std::array<FrameTarget, 2>
         m_seeds;  // R32UI packed 16-bit source coordinates, ping-ponged by JFA.
+    std::array<renderer::Shader, 2> m_extract_variants;
     renderer::Shader m_extract, m_first_jump, m_jump, m_resolve, m_copy_resolve;
     renderer::Shader m_fast_first_jump, m_fast_jump;
+    renderer::Shader m_unique_jump;
+
+    struct FloodSetup {
+        std::array<int, 2> display;
+        float min_motion, spread;
+        int first_jump;
+        bool fast, unique;
+        bool operator==(const FloodSetup&) const = default;
+    };
+
+    std::optional<FloodSetup> m_flood_setup;
     unsigned m_vao = 0;
     std::array<int, 4> m_size{};
     bool m_failed = false;

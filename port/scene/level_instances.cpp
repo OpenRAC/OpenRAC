@@ -260,6 +260,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
     // are kept between calls (a live layer is grouped again every frame).
     for (auto& group : m_grouping) {
         group.instances.clear();
+        group.floating_ids.clear();
         group.spheres.clear();
         group.occlusion.clear();
     }
@@ -282,6 +283,9 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         }
 
         m_grouping[at].instances.push_back(instance_data(instance));
+        if (instance.floats_on_water) {
+            m_grouping[at].floating_ids.push_back(instance.temporal_id);
+        }
         m_grouping[at].spheres.push_back(instance.world_sphere);
         m_grouping[at].occlusion.push_back(instance.occlusion);
     }
@@ -310,6 +314,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         g.floats_on_water = (m_grouping[i].key & 16) != 0;
         fill_group(g, m_grouping[i].instances, live ? GL_STREAM_DRAW : GL_STATIC_DRAW);
         g.cpu_instances = m_grouping[i].instances;
+        g.floating_ids = m_grouping[i].floating_ids;
         g.shadow_solid_instances = solid_shadow_instances(g.cpu_instances);
         g.camera_valid = false;
         g.pvs_valid = false;
@@ -337,6 +342,18 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
                 g.gpu_bounds.push_back(gpu_cull_bounds(bounds, g.cpu_instances[n], g.occlusion[n]));
             }
         }
+        g.shadow_geometry_bounds.clear();
+        if (layer != Layer::Mobys && g.cpu_instances.size() == 1 && !g.floats_on_water) {
+            for (const auto& chunk : m_shadow_geometry[m_opaque[g.model]]) {
+                Model shape;
+                shape.min = chunk.low;
+                shape.max = chunk.high;
+                auto bound = instance_bounds(shape, g.cpu_instances[0], {}, true, false);
+                bound.valid &= chunk.bounded;
+                g.shadow_geometry_bounds.push_back(bound);
+            }
+        }
+
         // Aggregate the same conservative bounds used by per-instance tests. Animated scenery
         // rebuilds these each frame, so it can use the normal group-level camera rejection too.
         g.bounded = false;
@@ -411,6 +428,7 @@ void LevelScene::submit_instances(
 void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instances) {
     // The CPU time of handing the scene a layer's instances (the moby layer's, every frame).
     const stats::Scope pass(layer == Layer::Mobys ? "moby instances" : "layer instances");
+    m_camera_visibility[static_cast<std::size_t>(layer)].recording = 0;
     if (layer == Layer::Mobys) {
         m_wetness_hero.reset();
         for (const auto& instance : instances) {
@@ -583,6 +601,9 @@ bool LevelScene::rewrite_mobys(const std::vector<Instance>& instances) {
             std::memcmp(&g.cpu_instances[slot], &data, sizeof(data)) != 0
             || std::memcmp(layout.spheres[n].data(), sphere.data(), sizeof(sphere)) != 0;
         g.cpu_instances[slot] = data;
+        if (g.floats_on_water) {
+            g.floating_ids[slot] = instances[n].temporal_id;
+        }
         g.occlusion[slot] = instances[n].occlusion;
 
         // The same pose and sphere give the same bounds as before.

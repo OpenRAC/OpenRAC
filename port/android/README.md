@@ -122,10 +122,10 @@ game's log.
     Games: Gameplay mods with Enhanced graphics first, Add a mod (a link or a
     .zip), then the packs.
     - Switch Enhanced graphics on: "Prepare the enhanced lighting" runs for a
-      few minutes (the log names `libopenrac-probe-bake.so`).
+      few minutes (the log names `libopenrac-enhanced-baker.so`).
     - Play: the drawer's footer says Vulkan, its Enhanced graphics card has
       its switches, and the log says the probe bake loaded.
-    - Add lock-strafe from its link (OpenRAC/rac1-mods): it installs and loads.
+    - Add lock-strafe from its link (OpenRAC/openrac-mods): it installs and loads.
     - Settings has no Discord, Compact layout or Godot, and saves a switch
       without a Save bar.
 13. **The launcher with a controller.** Without touching the screen: the d-pad

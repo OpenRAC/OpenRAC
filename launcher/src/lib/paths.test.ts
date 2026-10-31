@@ -22,8 +22,8 @@ describe("hidePaths", () => {
 
   it("leaves links, repositories, fractions and buttons alone", () => {
     for (const text of [
-      "Installed Lock-strafe from OpenRAC/rac1-mods.",
-      "This repository is private: https://github.com/OpenRAC/rac1-mods/tree/master/x",
+      "Installed Lock-strafe from OpenRAC/openrac-mods.",
+      "This repository is private: https://github.com/OpenRAC/openrac-mods/tree/master/x",
       "Hold L2 or R2, 1/2 of the time",
       "not for this disc (rac1/pal)",
     ]) {

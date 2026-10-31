@@ -70,6 +70,16 @@ void LevelScene::bind_hero_shadow(const renderer::Shader& shader) const {
     }
 }
 
+std::string LevelScene::atmosphere_source() const {
+    return m_lighting ? m_lighting->atmosphere_source() : std::string{};
+}
+
+void LevelScene::bind_atmosphere(const renderer::Shader& shader) const {
+    if (m_lighting) {
+        m_lighting->bind_atmosphere(shader);
+    }
+}
+
 void LevelScene::bind_surface_lighting(
     const renderer::Shader& shader, const renderer::Camera& camera
 ) const {
@@ -135,7 +145,12 @@ void LevelScene::bind_sun_shadow(
 void LevelScene::render_early_lighting(
     unsigned depth, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
-    prepare_shadows(input, state);
+    // Atmosphere may already have drawn the current maps before the sky. No scene or
+    // camera update occurs between that preparation and this frame's early lighting.
+    if (!state.world_shadows_prepared
+        || !renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowFrameReuse)) {
+        prepare_shadows(input, state);
+    }
     state.world_shadows_prepared = true;
     std::string error;
     // Drawn only where it is needed (needs_early_lighting), which takes registered lighting.

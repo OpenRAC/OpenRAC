@@ -31,6 +31,8 @@ struct RaySample {
 // Explicit emitter estimate shared by the same texel footprints as traced radiance.
 struct EmissionSample {
     Float3 direction{}, radiance_weight{};
+    double pdf = 0;      // Full solid-angle density, including emitter selection.
+    bool delta = false;  // Point sources have no competing continuous direction sample.
 };
 
 // Linear irradiance and normalised distance moments for one texel.

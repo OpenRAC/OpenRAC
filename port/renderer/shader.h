@@ -9,11 +9,22 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
 namespace openrac::renderer {
+
+struct ShaderIntConstant {
+    std::string_view name;
+    int value;
+};
+
+// Specialise standalone `uniform int name;` declarations in our authored GLSL. Missing
+// declarations are allowed when a shared variant description serves several stages. Keep
+// storage formats and arithmetic unchanged; the compiler removes constant control flow.
+std::string shader_constants(std::string source, std::initializer_list<ShaderIntConstant> values);
 
 // A `#version 410 core` source as GLSL ES 3.20: the version line, the extensions it needs where the
 // context has them (noperspective, gl_ClipDistance) and the precisions ES wants stated. Without the
@@ -55,12 +66,14 @@ public:
 
 private:
     unsigned m_program = 0;
+
     // By the name's address (callers pass literals), with the name itself kept to tell a buffer
     // that was written again apart.
     struct Location {
         std::string name;
         int location = -1;
     };
+
     mutable std::unordered_map<const char*, Location> m_locations;
 };
 

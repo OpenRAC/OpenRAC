@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#ifndef OPENRAC_EFFECT_WORLD
 in vec3 v_world;
+#endif
 in vec3 v_water_rest;
 uniform samplerBuffer water_bodies;
 uniform sampler2D water_coast_map;
@@ -30,7 +32,7 @@ vec4 water_cached_light(int offset,ivec2 extent,vec2 p) {
     return sum>.001?(a*weights.x+b*weights.y+c*weights.z+d*weights.w)/sum:vec4(vec3(3.14159265*.65),1);
 }
 // Smooth simulation slopes, independent of the displacement mesh's triangle edges.
-vec4 water_surface_gradients(vec2 cell,vec2 origin,vec2 extent,float dx,out float rotation) {
+vec4 water_surface_gradients(vec2 cell,vec2 origin,vec2 extent,float dx,float height,out float rotation,out float compression,out float curvature) {
     vec2 lo=clamp(cell-1.,vec2(.5),extent-.5);
     vec2 hi=clamp(cell+1.,vec2(.5),extent-.5);
     vec2 centre=clamp(cell,vec2(.5),extent-.5);
@@ -41,12 +43,16 @@ vec4 water_surface_gradients(vec2 cell,vec2 origin,vec2 extent,float dx,out floa
     // Reuse the four filtered taps for physical height and advected surface detail.
     vec2 span=max(hi-lo,vec2(.001))*dx;
     rotation=(right.z-left.z)/span.x-(top.y-bottom.y)/span.y;
+    compression=-(right.y-left.y)/span.x-(top.z-bottom.z)/span.y;
+    vec2 lower_step=(centre-lo)*dx,upper_step=(hi-centre)*dx;
+    curvature=-water_shore_curvature(left.x,height,right.x,lower_step.x,upper_step.x)
+              -water_shore_curvature(bottom.x,height,top.x,lower_step.y,upper_step.y);
     return vec4((right.x-left.x)/span.x,(top.x-bottom.x)/span.y,
                 (right.w-left.w)/span.x,(top.w-bottom.w)/span.y);
 }
 vec2 water_height_gradient(vec2 cell,vec2 origin,vec2 extent,float dx) {
-    float rotation;
-    return water_surface_gradients(cell,origin,extent,dx,rotation).xy;
+    float rotation,compression,curvature;
+    return water_surface_gradients(cell,origin,extent,dx,0.,rotation,compression,curvature).xy;
 }
 vec3 water_smooth_normal(vec3 rest_normal,vec2 gradient) {
     // Novalis rest surfaces and displacement are height fields in world XY/Z.
@@ -149,13 +155,16 @@ vec2 water_fine_gradient(vec2 p,vec2 velocity,vec2 axis,float time,vec2 dpdx,vec
     vec2 g1=water_stylised_gradient(q1,axis,time,dpdx,dpdy);
     return strength*mix(g1,g0,1.-abs(phase*2.-1.));
 }
-// No curvature estimate is available when a clamped axis has only one neighbour.
-float water_shore_curvature(float lo,float centre,float hi,float lower_step,float upper_step) {
-    if(min(lower_step,upper_step)<1e-5) return 0.;
-    return 2.*((hi-centre)/upper_step-(centre-lo)/lower_step)/(lower_step+upper_step);
-}
 float water_shore_weight(vec4 coast) {
     return clamp(coast.x,0.,1.)*smoothstep(0.,1.2,coast.y)*smoothstep(.03,.4,coast.z);
+}
+// Raised plateaus and broad swells do not create foam: only sharp, steep or converging crests.
+float water_breaking_foam(vec2 slope,float curvature,float compression,float marker) {
+    float sharp=smoothstep(.35,1.5,curvature);
+    float steep=smoothstep(.12,.35,length(slope));
+    float converging=smoothstep(.5,2.5,compression);
+    float breakup=.25+.75*smoothstep(.25,.85,marker);
+    return .18*sharp*max(steep,converging)*breakup;
 }
 vec3 effect_material(vec3 painted) {
     if (water_surface==0) return painted;
@@ -195,10 +204,10 @@ vec3 effect_material(vec3 painted) {
     vec3 surface_normal=normalize(cross(dFdx(v_world),dFdy(v_world)));
     if(surface_normal.z<0.) surface_normal=-surface_normal;
     vec3 rest_normal=normalize(cross(dFdx(v_water_rest),dFdy(v_water_rest)));
-    float rotation;
+    float rotation,compression,crest_curvature;
     vec4 gradients=water_sim_local!=0
-        ?water_sim_gradients(water_wave_map,v_water_rest.xy,sample_body,maintained_current,rotation)
-        :water_surface_gradients(uv+.5,water_atlas[chosen].xy,vec2(size),dx,rotation);
+        ?water_sim_gradients(water_wave_map,v_water_rest.xy,sample_body,maintained_current,h,rotation,compression,crest_curvature)
+        :water_surface_gradients(uv+.5,water_atlas[chosen].xy,vec2(size),dx,h,rotation,compression,crest_curvature);
     // A small optical ripple carried by the simulated flow makes horizontal
     // eddies visible without inventing extra mesh displacement.
     vec2 gradient=gradients.xy+gradients.zw*.045;
@@ -265,32 +274,72 @@ vec3 effect_material(vec3 painted) {
     vec3 specular=water_direct_specular(v_world,n,eye,water_material.x,visibility,direct);
     vec3 illumination=max(cached.rgb/3.14159265+direct,vec3(0));
     float nv=max(dot(n,eye),.001),fresnel=water_fresnel(nv);
-    // Refracted ray angle from Snell's law, measured against the surface normal.
-    vec3 transmittance=water_transmittance(coast.z+h+swell.z,nv);
-    // Existing artwork represents the submerged colour; no opaque scene refraction here.
-    float streak=smoothstep(.25,.75,wave.w);
-    mp_vec3 bed=mp_vec3(probe_linear(painted))*mix(mp_float(.86),mp_float(1.14),mp_float(streak));
-    mp_vec3 body_colour=mp_vec3(water_art_tint(vec3(.025,.19,.30),probe_linear(painted)));
-    mp_vec3 transmitted=mp_vec3(transmittance);
-    // Bounded colour math can use half; widen before HDR transport.
-    vec3 transmission=vec3(bed*transmitted+body_colour*(mp_float(1)-transmitted))*illumination;
+    vec3 view_position=(water_scene_view*vec4(v_world,1.)).xyz;
+    vec2 normal_offset=(water_scene_view*vec4(n-surface_normal,0.)).xy;
+    float thickness;
+    bool scene_valid=water_scene_sample(gl_FragCoord.xy/water_scene_extent,gl_FragCoord.z,
+                                       view_position,normal_offset,nv,abs(dot(plane.xyz,eye)),
+                                       water_debug_view!=17,water_background,thickness);
+    vec3 transmittance=scene_valid?water_transmittance(thickness,nv):vec3(0);
+    // Original art contributes only the stylised medium tint and ripple detail, never a fake bed.
+    vec3 body_colour=water_art_tint(vec3(.025,.19,.30),probe_linear(painted));
+    vec3 transmission=body_colour*(1.-transmittance)*illumination;
+    water_background_weight=(1.-fresnel)*transmittance;
+    water_composite_active=true;
     // Missing capture coverage uses the same broad local-GI fallback as chrome and glass.
     vec3 fallback=gi_specular_fallback(cached.rgb*probe_gi_multiplier,nv,water_material.y);
-    vec3 reflection=environment_specular(v_world,n,eye,water_material.x,water_material.y,fallback);
+    // Reflection comes from the viewing side of the interface, not the underwater fade band.
+    // The actual displaced surface still anchors box-projected reflection rays.
+    vec3 reflection=water_debug_view==12
+        ?environment_specular(v_world,n,eye,water_material.x,water_material.y,fallback)
+        :environment_specular_surface(v_world,v_world+n*.5,n,eye,water_material.x,water_material.y,fallback);
+    if(water_debug_view>=5 && water_debug_view<=11) {
+        water_contact_coverage=1.;
+        water_background_weight=vec3(0);
+        water_radiance=water_debug_view==5?specular*water_material.z
+                      :water_debug_view==6?reflection*water_material.z
+                      :water_debug_view==7?illumination
+                      :water_debug_view==8?vec3(1)
+                      :water_debug_view==9?environment_specular_surface(v_world,v_world+n*.5,n,eye,water_material.x,water_material.y,vec3(0))
+                      :water_debug_view==10?fallback:cached.rgb/3.14159265;
+        return probe_display(max(water_radiance,vec3(0)));
+    }
     vec3 lit=(1.-fresnel)*transmission+(reflection+specular)*water_material.z;
     float shore_phase=coast.y*5.5-water_time*1.4;
     float shore=exp(-coast.y*.7)*coast.x;
-    float crest=smoothstep(.006,.025,h)+smoothstep(.83,.97,sin(shore_phase))*shore*.35
-                *(1.-smoothstep(.4,1.5,fwidth(shore_phase)));
     float breakup=.5+.5*wave.w;
     vec2 maintained=(water_surface==1?vec2(0):flow.xy*.8)*water_current_scale;
     float activity=smoothstep(.12,.7,abs(rotation))*smoothstep(.05,.25,length(wave.yz-maintained));
-    // Thin advected ribbons reveal rotational flow. Only disturbed water gets
-    // this foam-like scattering; quiet water retains the original painted art.
+    // Thin advected ribbons reveal rotational flow without obscuring quiet shallow water.
     float ribbon_distance=abs(wave.w-.62)/max(length(gradients.zw),.1);
     float edge=max(fwidth(ribbon_distance),.015);
     float ribbon=1.-smoothstep(.025,.025+edge,ribbon_distance);
-    float foam=activity*ribbon*.3;
-    lit=mix(lit,vec3(.65,.8,.85)*illumination,clamp(crest*breakup*.35+foam,0.,.55));
-    return probe_display(max(lit,vec3(0)));
+    float crest_foam=water_breaking_foam(gradients.xy,crest_curvature,compression,wave.w);
+    float shore_foam=.06*smoothstep(.83,.97,sin(shore_phase))*shore*breakup
+                     *(1.-smoothstep(.4,1.5,fwidth(shore_phase)));
+    // Rotating flow alone stays transparent; only breaking crests add pale advected ribbons.
+    float wake_foam=.04*activity*ribbon*(crest_foam/.18);
+    float foam_weight=min(crest_foam+shore_foam+wake_foam,.2);
+    if(water_debug_view==15) {
+        float crest=smoothstep(.006,.025,h)+smoothstep(.83,.97,sin(shore_phase))*shore*.35
+                    *(1.-smoothstep(.4,1.5,fwidth(shore_phase)));
+        foam_weight=clamp(crest*breakup*.35+activity*ribbon*.3,0.,.55);
+    }
+    if(water_debug_view==13) foam_weight=0.;
+    if(water_debug_view==14) {
+        water_contact_coverage=1.;
+        water_background_weight=vec3(0);
+        water_radiance=vec3(foam_weight);
+        return probe_display(water_radiance);
+    }
+    if(water_debug_view==16) {
+        water_background_weight=vec3(0);
+        water_radiance=vec3(water_contact_coverage);
+        water_contact_coverage=1.;
+        return probe_display(water_radiance);
+    }
+    lit=mix(lit,vec3(.65,.8,.85)*illumination,foam_weight);
+    water_background_weight*=1.-foam_weight;
+    water_radiance=max(lit,vec3(0));
+    return probe_display(water_radiance);
 }

@@ -402,7 +402,12 @@ private:
     DirectConfig m_config;
     Input m_input;
     std::unique_ptr<GifInterpreter> m_interpreter;
+    // The 2D shader as it drops a pixel failing the alpha test: discarded, or on a multisampled
+    // frame its samples masked out (OPENRAC_SAMPLE_MASK). use_program picks one.
     Shader m_shader;
+    Shader m_shader_masked;
+    bool m_masked = false;
+    void use_program(bool masked);
     unsigned m_vao = 0;
     unsigned m_vbo = 0;
     // The render target as drawn so far, copied for a draw that reads the frame (frame_source).
@@ -424,9 +429,10 @@ private:
 
     struct Uniforms {
         int textured, tcc, tfx, tex_alpha_scale, fog_enable, fog_colour, alpha_test, alpha_ref,
-            alpha_keep_failing, multisampled, distance_field, tex_T1, pixel_offset, source_scale,
-            source_fix;
-    } m_uniforms{};
+            alpha_keep_failing, distance_field, tex_T1, pixel_offset, source_scale, source_fix;
+    } m_uniforms{};  // those of the program in use
+
+    std::array<Uniforms, 2> m_program_uniforms{};
 };
 
 // The part of a DirectRenderer's frame that comes before the world (FrameInput::

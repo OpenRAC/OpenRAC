@@ -19,9 +19,15 @@ struct WaterDebugSettings {
     float outlet_damping = 12;
     float interaction_strength = 1.4f;
     float interaction_radius = .54772256f;
+    float projectile_strength = 1;  // Multipliers preserve each weapon's base response.
+    float projectile_radius = 1;
+    float explosion_strength = 1;
+    float explosion_radius = 1;
     float displacement_limit = .25f;
     float fine_normal_strength = 1;
-    int view = 0;  // Lit, height, velocity, banks, flow detail.
+    // Lit (0), simulation (1-4), lighting (5-11), reference reflections (12),
+    // foam (13-15), shoreline (16-17).
+    int view = 0;
 };
 
 WaterDebugSettings water_debug_settings();

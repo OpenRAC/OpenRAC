@@ -130,7 +130,25 @@ void main() {
         if (pixel.x >= jump_pixels && pixel.y >= jump_pixels)
             lower_left = seed_at(pixel + ivec2(-jump_pixels,-jump_pixels));
     }
+#ifdef UNIQUE_SEEDS
+    uvec4 first=uvec4(left,right,down,up);
+    if(centre_seed==invalid_seed && all(equal(first,uvec4(invalid_seed)))
+        && all(equal(uvec4(upper_left,lower_right,upper_right,lower_left),uvec4(invalid_seed)))) return;
+#endif
     consider(centre_seed, vec2(pixel), best_depth, best_fitness);
+#ifdef UNIQUE_SEEDS
+    // Sources have immutable fitness at this receiver, and the best depth/fitness only improves.
+    // Once tested, a duplicate cannot win later; preserve the first occurrence and its tie order.
+    if(left==centre_seed) left=invalid_seed;
+    if(right==centre_seed || right==left) right=invalid_seed;
+    if(down==centre_seed || down==left || down==right) down=invalid_seed;
+    if(up==centre_seed || up==left || up==right || up==down) up=invalid_seed;
+    first=uvec4(left,right,down,up);
+    if(upper_left==centre_seed || any(equal(uvec4(upper_left),first))) upper_left=invalid_seed;
+    if(lower_right==centre_seed || lower_right==upper_left || any(equal(uvec4(lower_right),first))) lower_right=invalid_seed;
+    if(upper_right==centre_seed || upper_right==upper_left || upper_right==lower_right || any(equal(uvec4(upper_right),first))) upper_right=invalid_seed;
+    if(lower_left==centre_seed || lower_left==upper_left || lower_left==lower_right || lower_left==upper_right || any(equal(uvec4(lower_left),first))) lower_left=invalid_seed;
+#endif
     consider(left, vec2(pixel), best_depth, best_fitness);
     consider(right, vec2(pixel), best_depth, best_fitness);
     consider(down, vec2(pixel), best_depth, best_fitness);

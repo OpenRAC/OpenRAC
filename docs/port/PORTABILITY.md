@@ -213,7 +213,7 @@ also needs:
 What one platform ships differently from the others, and why.
 
 - **Intel Macs ship without the probe baker** (decided by the maintainers).
-  The baker, `openrac-probe-bake`, links Embree 4 as a static library
+  The baker, `openrac-enhanced-baker`, links Embree 4 as a static library
   ([port/enhanced/lighting](../../port/enhanced/lighting/README.md)), and
   with AppleClang Embree's static library takes a single ISA, while x86-64
   needs several (SSE2, AVX, AVX2: `EMBREE_X86_ISAS` in

@@ -126,7 +126,7 @@
         onadded({ plugin: true, pack: false });
       }
       if (preview.mods.length > 1) {
-        // A repository of several mods (rac1-mods): the preview stays for the others, this one
+        // A repository of several mods (openrac-mods): the preview stays for the others, this one
         // now installed.
         preview = { ...preview, mods: preview.mods.map((x) => (x.id === m.id ? { ...x, installed: m.version } : x)) };
       } else {

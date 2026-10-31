@@ -414,7 +414,8 @@ void draw(
     GLint first,
     GpuPage* gpu_page,
     unsigned gpu_command,
-    unsigned indirect_buffer
+    unsigned indirect_buffer,
+    unsigned gpu_draw_count
 ) {
     // The draw's count, and its time for the vk_draw_ms gauge. The two clock reads are taken only
     // while the debug tools measure (vk-draw-clock): the gauge is published only then.
@@ -603,6 +604,9 @@ void draw(
         gpu_bindings.descriptors = set;
         gpu_bindings.materials = material.set;
         gpu_bindings.dynamic_offset = static_cast<std::uint32_t>(p->uniforms_offset);
+        if (p->draw_uniform_offset >= 0) {
+            std::memcpy(&gpu_bindings.draw_uniform, p->uniforms.data() + p->draw_uniform_offset, 4);
+        }
         gpu_bindings.inputs = n;
         std::copy_n(buffers, n, gpu_bindings.vertices.begin());
         std::copy_n(offsets, n, gpu_bindings.offsets.begin());
@@ -624,7 +628,8 @@ void draw(
             const bool reasons[] =
                 {before.pipeline != after.pipeline,
                  before.descriptors != after.descriptors,
-                 before.dynamic_offset != after.dynamic_offset,
+                 before.dynamic_offset != after.dynamic_offset
+                     || before.draw_uniform != after.draw_uniform,
                  before.vertices != after.vertices || before.offsets != after.offsets,
                  before.index != after.index || before.index_offset != after.index_offset,
                  before.materials != after.materials,
@@ -640,14 +645,14 @@ void draw(
             }
         }
         if (g->features.multiDrawIndirect && pending.pending_count
-            && pending.pending_count < g->properties.limits.maxDrawIndirectCount
+            && pending.pending_count + gpu_draw_count <= g->properties.limits.maxDrawIndirectCount
             && pending.pending_arguments == gpu_page->arguments.buffer
             && argument_offset == pending.pending_offset + pending.pending_count * 20
             && pending.pending_bindings == gpu_bindings
             && (!material.set
                 || material.draw == pending.pending_material_base + pending.pending_count)) {
-            ++pending.pending_count;
-            ++pending.merged;
+            pending.pending_count += gpu_draw_count;
+            pending.merged += gpu_draw_count;
             return;
         }
     }
@@ -660,6 +665,19 @@ void draw(
     record_fixed_state(cmd, dynamic_fixed, fixed);
     // Sets bound with another program's layout are not trusted for this one.
     g->recorded.use_layout(p->layout);
+
+    // The opted-in scalar is immutable command data for this draw, separate from the shared UBO.
+    if (p->draw_uniform_offset >= 0) {
+        vkCmdPushConstants(
+            cmd,
+            p->layout,
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            4,
+            p->uniforms.data() + p->draw_uniform_offset
+        );
+        count_command(Command::Other);
+    }
 
     // The program's set 0: its uniforms and textures, when it has any.
     if (set != VK_NULL_HANDLE) {
@@ -690,7 +708,8 @@ void draw(
             g->gpu.pending_bindings = gpu_bindings;
             g->gpu.pending_arguments = gpu_page->arguments.buffer;
             g->gpu.pending_offset = argument_offset;
-            g->gpu.pending_count = 1;
+            g->gpu.pending_count = gpu_draw_count;
+            g->gpu.merged += gpu_draw_count - 1;
             g->gpu.pending_material_base = material.draw;
         } else {
             vkCmdDrawIndexed(

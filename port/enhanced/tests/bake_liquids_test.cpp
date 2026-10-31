@@ -5,8 +5,8 @@
 #include <filesystem>
 #include <fstream>
 
-#include "enhanced/tools/probes/level_scene.h"
-#include "enhanced/tools/probes/liquids.h"
+#include "enhanced/tools/baker/sources/level_scene.h"
+#include "enhanced/tools/baker/sources/liquids.h"
 #include "tests/check.h"
 
 using namespace openrac;

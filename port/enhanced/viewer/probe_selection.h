@@ -17,7 +17,7 @@ public:
         std::string& error
     );
     void dispatch(unsigned depth, const renderer::Camera& camera, int width, int height);
-    // Only receivers represented by the culling depth may use its tile masks.
+    // Depth-matched receivers use opaque masks; others may use depth-independent tile masks.
     void bind(
         const renderer::Shader& shader,
         const renderer::Camera* camera = nullptr,
@@ -31,7 +31,7 @@ public:
     void release();
 
 private:
-    renderer::Shader m_cull;
+    renderer::Shader m_cull, m_select;
     mutable std::array<unsigned, 3> m_buffers{};
     mutable unsigned m_mask_texture = 0, m_secondary_texture = 0;
     mutable renderer::Mat4 m_secondary_clip = renderer::identity();
@@ -42,5 +42,6 @@ private:
     void ensure_buffers() const;
     unsigned m_count = 0;
     bool m_started = false;
+    bool m_translucent_tiles = false;
 };
 }  // namespace openrac::lighting

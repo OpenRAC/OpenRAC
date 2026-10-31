@@ -125,7 +125,7 @@ bool early_surface(
 // This replaces RGB only. Alpha tests, fading and blend equations stay in
 // the existing path, as do explicitly unlit, additive, metal and glow passes.
 #ifdef OPENRAC_HERO_WETNESS
-// A thin wet coat: less diffuse reflection and a narrow water-like highlight.
+// A thin wet coat: diffuse darkening, direct GGX highlights and local environment reflections.
 vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) {
     float wet = clamp(v_hero_wetness, 0., 1.);
     if (wet <= 0.) return linear_colour;
@@ -138,8 +138,14 @@ vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) 
     float roughness = mix(hero_wetness_material.z, hero_wetness_material.w, wet);
     vec3 radiance = max(mix(light_sets[a].rgb, light_sets[b].rgb, blend), vec3(0.))
         * probe_sunlight_scale;
-    vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0)
-        * visibility * hero_wetness_material.y;
+    vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0) * visibility;
+#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_STATIC_COLOUR)
+    // Captures contain their own lighting; the current sun shadow must not erase them.
+    if (dot(n, eye) > 0.) {
+        shine += environment_specular(v_world_position, n, eye, roughness, hero_wetness_f0, vec3(0.));
+    }
+#endif
+    shine *= hero_wetness_material.y;
     return linear_colour * mix(1., hero_wetness_material.x, wet) + wet * shine;
 }
 #else
@@ -147,6 +153,11 @@ vec3 wet_coat(vec3 linear_colour,vec3 n,vec3 toward_camera,float visibility) {re
 #endif
 
 vec3 probe_surface(vec4 texel, vec3 original) {
+#ifdef OPENRAC_HERO_FUR
+    if (hero_fur_debug > 0 && hero_fur_debug < 3 && v_hero_fur != 0 && v_glow == 0 && probe_effect == 0 && metal_pass == 0) {
+        return fur_diagnostic(v_uv);
+    }
+#endif
     if (probe_receiver == 0 || v_glow != 0 || probe_effect != 0 || metal_pass != 0
         || (probe_receiver == 2 && v_probe_selector.w > 1.5)) {
         return original;
@@ -156,7 +167,11 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return mix(vec3(.12), vec3(0., .65, 1.), clamp(v_hero_wetness, 0., 1.));
     }
 #endif
-    if (probe_mode == 0 && sun_shadow_enabled == 0 && hero_shadow_enabled == 0) {
+    if (probe_mode == 0 && sun_shadow_enabled == 0 && hero_shadow_enabled == 0
+#ifdef OPENRAC_HERO_FUR
+        && !(v_hero_fur != 0 && (hero_fur_debug == 3 || hero_fur_lighting_enabled != 0))
+#endif
+    ) {
         return original;
     }
     vec3 geometric = cross(dFdx(v_world_position), dFdy(v_world_position));
@@ -168,6 +183,23 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
     vec3 eye_normal = orient_shading_normal(mat3(view) * n, mat3(view) * geometric, -eye_position);
     n = transpose(mat3(view)) * eye_normal;
+    vec3 surface_n = n;
+    float fur_grain = 1.;
+#ifdef OPENRAC_HERO_FUR
+    FurSurfaceData fur_surface = FurSurfaceData(n, vec3(0.), transpose(mat3(view)) * (-eye_position), 0., 1.);
+    if (v_hero_fur != 0 && (hero_fur_detail_enabled != 0 || hero_fur_lighting_enabled != 0)) {
+        float wetness = 0.;
+#ifdef OPENRAC_HERO_WETNESS
+        wetness = v_hero_wetness;
+#endif
+        fur_surface = fur_surface_data(n, v_world_position, v_uv, transpose(mat3(view)) * (-eye_position), wetness);
+        surface_n = fur_surface.normal;
+        fur_grain = fur_surface.grain;
+    }
+    if (hero_fur_debug == 3 && v_hero_fur != 0) {
+        return surface_n * .5 + .5;
+    }
+#endif
 #ifdef OPENRAC_EARLY_LIGHTING
     bool cached_coverage;
     vec4 cached_lighting;
@@ -190,17 +222,34 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     if (hero_shadow_receiver == 0) {
         hero_cue = 1.0 - 0.45 * hero_shadow_air_blend * (1.0 - sun_visibility) * (1.0 - hero_visibility);
     }
+    vec3 albedo = probe_linear(texel.rgb) * material_colour.rgb * v_probe_multiplier.rgb;
+    if (probe_terrain_albedo != 0) {
+        // Preserve the GS modulation as an artistic material tint, then decode once.
+        albedo = probe_linear(clamp(texel.rgb * v_colour.rgb * material_colour.rgb, 0.0, 1.0));
+    }
+    vec3 emitted = surface_emission(texel);
+    vec3 fur_direct = vec3(0.);
+#ifdef OPENRAC_HERO_FUR
+    if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0 && probe_mode <= 3 && probe_mode != 2) {
+        vec4 fur_selector = probe_receiver == 1 ? vec4(0.) : v_probe_selector;
+        fur_direct = fur_direct_lighting(fur_surface, v_world_position, fur_selector, visibility, albedo);
+    }
+#endif
     // Without a probe asset, retain the original authored lighting and apply
     // the same shadow floor. This also covers holes in probe coverage.
-    vec3 emitted = surface_emission(texel);
     // Legacy prelighting may already contain authored brightness. Preserve that
     // component while shadowing the remaining diffuse, without adding it twice.
-    vec3 fallback = probe_display(
-        wet_coat(max(probe_linear(original) - emitted, vec3(0.0)) * mix(0.1, 1.0, visibility) * hero_cue,
-                 n, transpose(mat3(view)) * (-eye_position), visibility) + emitted
-    );
+    vec3 fallback = wet_coat(
+        max(probe_linear(original) - emitted, vec3(0.0)) * fur_grain * mix(0.1, 1.0, visibility) * hero_cue,
+        surface_n, transpose(mat3(view)) * (-eye_position), visibility
+    ) + fur_direct + emitted;
     if (probe_mode == 0) {
-        return fallback;
+#ifdef OPENRAC_HERO_FUR
+        if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0) {
+            fallback += fur_environment_lighting(fur_surface, v_world_position, vec3(0.), albedo);
+        }
+#endif
+        return probe_display(fallback);
     }
     vec3 indirect;
     // Use the same smooth receiver normal as the depth/normal prepass and early lighting.
@@ -221,7 +270,13 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return vec3(0.0);
     }
     if (!covered && probe_mode != 3) {
-        return fallback;
+#ifdef OPENRAC_HERO_FUR
+        // A local capture can illuminate the fur even where diffuse probe coverage is absent.
+        if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0) {
+            fallback += fur_environment_lighting(fur_surface, v_world_position, vec3(0.), albedo);
+        }
+#endif
+        return probe_display(fallback);
     }
     // Artistic GI exposure; keep the bake and direct-light energy unchanged.
     indirect *= probe_gi_multiplier;
@@ -234,18 +289,21 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
 #endif
     vec4 selector = probe_receiver == 1 ? vec4(0.0) : v_probe_selector;
-    vec3 direct = probe_direct(v_world_position, n, selector, visibility);
+    // Fine fur changes material response; shadow tests, probe lookup bias and cached GI keep smooth normals.
+    vec3 direct = probe_direct(v_world_position, surface_n, selector, visibility);
     vec3 illumination = probe_mode == 2
                             ? indirect / 3.14159265359
                             : (probe_mode == 3 ? direct : direct + indirect / 3.14159265359);
-    vec3 albedo = probe_linear(texel.rgb) * material_colour.rgb * v_probe_multiplier.rgb;
-    if (probe_terrain_albedo != 0) {
-        // Preserve the GS modulation as an artistic material tint, then decode once.
-        albedo = probe_linear(clamp(texel.rgb * v_colour.rgb * material_colour.rgb, 0.0, 1.0));
-    }
     if (probe_mode != 2) {
         illumination *= hero_cue;
     }
+    albedo *= fur_grain;
+    vec3 fur_indirect = vec3(0.);
+#ifdef OPENRAC_HERO_FUR
+    if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0 && (probe_mode == 1 || probe_mode == 2)) {
+        fur_indirect = fur_environment_lighting(fur_surface, v_world_position, indirect, albedo);
+    }
+#endif
     vec3 rim = vec3(0.0);
 #ifdef OPENRAC_EARLY_LIGHTING
     // Essential opaque world objects pick up their surroundings at grazing angles.
@@ -257,7 +315,8 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 #endif
     // Emission is independent of GI exposure, AO and shadow visibility.
     return probe_display(
-        wet_coat(albedo * illumination * material_diffuse_scale + rim, n, toward_camera, visibility)
+        wet_coat(albedo * illumination * material_diffuse_scale + rim, surface_n, toward_camera, visibility)
+        + fur_direct + fur_indirect
         + (probe_mode == 1 ? emitted : vec3(0.0))
     );
 }
@@ -289,6 +348,11 @@ void main() {
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
     rgb = probe_surface(texel, rgb);
+#ifdef OPENRAC_ATMOSPHERE
+    if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+        rgb = atmosphere_apply(rgb, v_world_position, true);
+    } else
+#endif
     if (fog_colour.w > 0.5) {
         rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }
@@ -299,6 +363,7 @@ void main() {
 #endif
 #endif
 #ifndef OPENRAC_SOLID
+#ifndef OPENRAC_COLOUR_SPECIALISED
     if (metal_pass != 0) {
         vec4 metal = sample_upscaled_texture_colours(v_uv);
         vec4 m = vec4(vec3(mp_vec3(metal.rgb) * mp_vec3(v_colour.rgb)), metal.a * v_colour.a);
@@ -325,21 +390,33 @@ void main() {
             }
         }
 #endif
+    #ifdef OPENRAC_ATMOSPHERE
+        if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+            mrgb = atmosphere_apply(mrgb, v_world_position, true);
+        } else
+#endif
         if (fog_colour.w > 0.5) {
             mrgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(mrgb), mp_float(v_fog)));
         }
         out_colour = vec4(mrgb, clamp(m.a, 0.0, 1.0));
         return;
     }
+#endif
     if (effect_pass == 0 && v_glow != glow_pass) {
         discard;
     }
     vec4 texel = sample_upscaled_texture_colours(v_uv);
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
     vec4 c = texel * v_colour * material_colour;
+#ifndef OPENRAC_COLOUR_SPECIALISED
     if (effect_pass != 0) {
         vec3 e = min(c.rgb, vec3(1.0));
         e = probe_surface(texel, e);
+    #ifdef OPENRAC_ATMOSPHERE
+        if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+            e = atmosphere_apply(e, v_world_position, true);
+        } else
+#endif
         if (fog_colour.w > 0.5) {
             e = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(e), mp_float(v_fog)));
         }
@@ -355,6 +432,7 @@ void main() {
     if (glow_pass != 0 && glow_split != 0 && (c.a >= kWorldAlphaReference) != (glow_split == 1)) {
         discard;
     }
+#endif
     if (cutout != 0 && translucent_pass == 0 && glow_pass == 0 && c.a < 0.99) {
         discard;
     }
@@ -369,6 +447,11 @@ void main() {
     vec3 rgb = min(c.rgb * light, vec3(1.0));
     rgb = probe_surface(texel, rgb);
     // The GS's fog, after the texture: RGB only.
+#ifdef OPENRAC_ATMOSPHERE
+    if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
+        rgb = atmosphere_apply(rgb, v_world_position, true);
+    } else
+#endif
     if (fog_colour.w > 0.5) {
         rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }

@@ -80,8 +80,10 @@ void LevelScene::draw_shadow_map(
         "OPENRAC_SHADOW_SOLID_OFF",
         "Profiling reference: alpha-capable shader for opaque static shadow casters"
     );
-    const auto use = [&](bool solid, bool skinning) {
-        const auto& shader = solid ? m_shadow_solid : m_hero_depth;
+    const auto use = [&](bool solid, bool skinning, bool dry) {
+        const auto& shader = dry && m_dry_shadow[solid].id() ? m_dry_shadow[solid]
+                             : solid                         ? m_shadow_solid
+                                                             : m_hero_depth;
         if (program != &shader) {
             shader.use();
             glUniformMatrix4fv(shader.uniform("view_projection"), 1, GL_FALSE, matrix.data());
@@ -134,9 +136,15 @@ void LevelScene::draw_shadow_map(
     const bool cached_draws =
         renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowDrawCache);
     auto& shadow_draws = m_shadow_draws;
-    const auto submit = [&](const ShadowDraw& draw) {
+    const auto submit = [&](const ShadowDraw& draw,
+                            std::span<const renderer::GpuIndexRange> ranges = {}) {
+        const bool dry =
+            !draw.skinning && !draw.floats_on_water
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowDryShaders);
         if (atlas_view >= 0) {
-            const auto& shader = draw.solid ? m_atlas_solid : m_atlas_depth;
+            const auto& shader = dry && m_dry_atlas[draw.solid].id() ? m_dry_atlas[draw.solid]
+                                 : draw.solid                        ? m_atlas_solid
+                                                                     : m_atlas_depth;
             if (program != &shader) {
                 shader.use();
                 glUniformMatrix4fv(
@@ -156,14 +164,14 @@ void LevelScene::draw_shadow_map(
                 set_skinning = int(draw.skinning);
             }
         } else {
-            use(draw.solid, draw.skinning);
+            use(draw.solid, draw.skinning, dry);
         }
         if (m_lighting) {
             m_lighting->bind_deformation(*program, draw.floats_on_water);
         }
         glBindVertexArray(draw.vao);
         if (!draw.solid) {
-            const auto& shader = atlas_view >= 0 ? m_atlas_depth : m_hero_depth;
+            const auto& shader = *program;
             const Material* material = draw.material >= 0 ? &m_materials[draw.material] : nullptr;
             const auto texture = material && material->image >= 0
                                      ? m_textures[static_cast<std::size_t>(material->image)]
@@ -176,14 +184,62 @@ void LevelScene::draw_shadow_map(
                 glUniform4f(shader.uniform("material_colour"), 1, 1, 1, 1);
             }
         }
-        submit_instances(draw.batch, draw.first, draw.count, draw.instances);
-        ++state.stats.draw_calls;
-        state.stats.triangles += std::uint64_t{draw.count / 3} * draw.instances;
+        if (ranges.empty()) {
+            submit_instances(draw.batch, draw.first, draw.count, draw.instances);
+            ++state.stats.draw_calls;
+            state.stats.triangles += std::uint64_t{draw.count / 3} * draw.instances;
+        } else {
+#if defined(OPENRAC_VULKAN)
+            if (!vkgl::draw_gpu_instance_ranges(draw.batch, ranges)) {
+                throw std::runtime_error("GPU shadow ranges expired before submission");
+            }
+            stats::gauge("shadow opaque bulk ranges", double(ranges.size()));
+            state.stats.draw_calls += static_cast<int>(ranges.size());
+            for (const auto range : ranges) {
+                state.stats.triangles += std::uint64_t{range.count / 3} * draw.instances;
+            }
+#endif
+        }
     };
     const auto flush_buckets = [&] {
-        for (auto& bucket : shadow_draws) {
-            for (const auto& command : bucket) {
-                submit(command);
+        constexpr const char* names[] =
+            {"shadow opaque", "shadow unskinned alpha", "shadow skinned alpha"};
+        for (std::size_t i = 0; i < shadow_draws.size(); ++i) {
+            auto& bucket = shadow_draws[i];
+            std::optional<stats::Scope> timing;
+            if (atlas_view >= 0 && !bucket.empty()) {
+                timing.emplace(names[i], stats::kGpu, std::source_location::current());
+            }
+            for (std::size_t at = 0; at < bucket.size();) {
+                const auto& command = bucket[at];
+                std::size_t end = at + 1;
+                if (i == 0 && command.batch
+                    && renderer::render_opt::enabled(
+                        renderer::render_opt::Opt::ShadowGeometryCull
+                    )) {
+                    for (; end < bucket.size(); ++end) {
+                        const auto& next = bucket[end];
+                        if (next.vao != command.vao || next.view != command.view
+                            || next.instances != command.instances
+                            || next.skinning != command.skinning
+                            || next.floats_on_water != command.floats_on_water
+                            || next.batch.recording != command.batch.recording
+                            || next.batch.page != command.batch.page
+                            || next.batch.group != command.batch.group) {
+                            break;
+                        }
+                    }
+                }
+                if (end == at + 1) {
+                    submit(command);
+                } else {
+                    m_shadow_ranges.clear();
+                    for (auto n = at; n < end; ++n) {
+                        m_shadow_ranges.push_back({bucket[n].first, bucket[n].count});
+                    }
+                    submit(command, m_shadow_ranges);
+                }
+                at = end;
             }
             bucket.clear();
         }
@@ -325,6 +381,63 @@ void LevelScene::draw_shadow_map(
                                        || casters == ShadowCasters::DynamicAlpha;
                 const bool solid =
                     (!solid_off || partition) && !hero && group.shadow_solid_instances;
+                const auto& geometry = m_shadow_geometry[model];
+                const bool static_geometry = renderer::render_opt::enabled(
+                    renderer::render_opt::Opt::ShadowStaticGeometryCull
+                );
+                const bool terrain_geometry =
+                    layer == static_cast<std::size_t>(Layer::Terrain) && solid && !solid_off
+                    && renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowGeometryCull);
+                const bool geometry_cull =
+                    (static_geometry || terrain_geometry) && !skinning && !group.floats_on_water
+                    && group.cpu_instances.size() == 1 && !geometry.empty()
+                    && group.shadow_geometry_bounds.size() == geometry.size()
+                    && renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowDryShaders)
+                    && (atlas_view >= 0 ? m_dry_atlas[solid].id() : m_dry_shadow[solid].id());
+                if (geometry_cull) {
+                    ShadowDrawRange run;
+                    const auto flush_run = [&] {
+                        if (run.count) {
+                            draw(run.first, run.count, run.solid, run.material);
+                            run = {};
+                        }
+                    };
+                    for (std::size_t i = 0; i < geometry.size(); ++i) {
+                        auto range = geometry[i].draw;
+                        // Instance alpha determines whether an opaque range can omit coverage tests.
+                        range.solid = range.solid && solid && !solid_off;
+                        const auto& bounds = group.shadow_geometry_bounds[i];
+                        const bool permanent =
+                            geometry[i].draw.solid && group.shadow_solid_instances;
+                        if ((casters == ShadowCasters::StaticOpaque && !permanent)
+                            || (casters == ShadowCasters::DynamicAlpha && permanent)) {
+                            flush_run();
+                            continue;
+                        }
+                        if (range.solid || static_geometry) {
+                            m_shadow_geometry_indices[0] += range.count;
+                            // Map sides only: off-camera occluders remain, and the entire map
+                            // retains identical depth. Existing bounds include a rounding pad.
+                            if (bounds.valid && outside(sides, bounds.low, bounds.high)) {
+                                m_shadow_geometry_indices[1] += range.count;
+                                flush_run();
+                                continue;
+                            }
+                        }
+                        // Keep adjacent untextured runs joined when instance alpha requires
+                        // the coverage shader instead of the solid shader.
+                        if (run.count && run.solid == range.solid
+                            && (run.solid || (run.material == -1 && range.material == -1))
+                            && run.first + run.count == range.first) {
+                            run.count += range.count;
+                        } else {
+                            flush_run();
+                            run = range;
+                        }
+                    }
+                    flush_run();
+                    continue;
+                }
                 for (const auto& range : m_static_shadow_ranges[model][solid ? 1 : 0]) {
                     if ((casters == ShadowCasters::StaticOpaque && !range.solid)
                         || (casters == ShadowCasters::DynamicAlpha && range.solid)) {

@@ -663,14 +663,14 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
 }
 
 /** The native mods the preview pretends are installed: ?nomods shows none. */
-/** Where the mock's mods came from (remote.rs's sources.json): the lock-strafe, from rac1-mods. */
+/** Where the mock's mods came from (remote.rs's sources.json): the lock-strafe, from openrac-mods. */
 const mockSources: ModSources = {
   format: 1,
   mods: query.has("nomods")
     ? {}
     : {
         "lock-strafe": {
-          url: "https://github.com/OpenRAC/rac1-mods",
+          url: "https://github.com/OpenRAC/openrac-mods",
           path: "lock-strafe",
           version: "1.0.0",
           tag: "v1.0.0",
@@ -681,11 +681,11 @@ const mockSources: ModSources = {
       },
 };
 
-/** What rac1-mods holds, as remote.rs's preview gives it: the lock-strafe, and a mod for another game. */
+/** What openrac-mods holds, as remote.rs's preview gives it: the lock-strafe, and a mod for another game. */
 function mockPreview(url: string): RemotePreview {
   return {
-    url: "https://github.com/OpenRAC/rac1-mods",
-    label: url.includes("rac1-mods") ? "OpenRAC/rac1-mods" : url.replace(/^https?:\/\/(www\.)?github\.com\//, ""),
+    url: "https://github.com/OpenRAC/openrac-mods",
+    label: url.includes("openrac-mods") ? "OpenRAC/openrac-mods" : url.replace(/^https?:\/\/(www\.)?github\.com\//, ""),
     host: "github",
     owner: "OpenRAC",
     reference: "v1.1.0",
@@ -698,7 +698,7 @@ function mockPreview(url: string): RemotePreview {
         version: "1.1.0",
         author: "OpenRAC contributors",
         description: "Strafe as in the later games: hold L2 or R2, or lock it on with a weapon in hand.",
-        homepage: "https://github.com/OpenRAC/rac1-mods",
+        homepage: "https://github.com/OpenRAC/openrac-mods",
         path: "lock-strafe",
         kind: "native",
         games: { rac1: ["pal", "ntsc"] },
@@ -732,7 +732,7 @@ function mockPreview(url: string): RemotePreview {
         version: "1.0.0",
         author: "OpenRAC contributors",
         description: "Swaps two buttons of the controller: Cross and Square, Circle and Triangle, or L1 and R1.",
-        homepage: "https://github.com/OpenRAC/rac1-mods",
+        homepage: "https://github.com/OpenRAC/openrac-mods",
         path: "button-swap",
         kind: "script",
         games: { rac1: ["pal", "ntsc"] },
@@ -757,7 +757,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
         author: "OpenRAC contributors",
         description:
           "Plays Ratchet & Clank with a keyboard and mouse: WASD moves, the mouse aims the camera, left click fires, holding right click opens the Quick Select and the mouse picks its slot, Space jumps, Escape pauses, the number keys and the wheel change weapons. Every action can be bound to any key, mouse button or wheel direction, two binds each, with Left-handed and Arrow keys presets. A gamepad keeps working beside it.",
-        homepage: "https://github.com/OpenRAC/rac1-mods/tree/master/keyboard-mouse",
+        homepage: "https://github.com/OpenRAC/openrac-mods/tree/master/keyboard-mouse",
         license: "GPL-3.0-or-later",
         enabled: true,
         state: "ready",
@@ -1166,7 +1166,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
         author: "OpenRAC contributors",
         description:
           "Strafe as in the later games: with a weapon that fires ahead the camera stays behind Ratchet, the right stick turns him and the left stick strafes.",
-        homepage: "https://github.com/OpenRAC/rac1-mods",
+        homepage: "https://github.com/OpenRAC/openrac-mods",
         license: "GPL-3.0-or-later",
         enabled: true,
         state: "ready",
@@ -1218,7 +1218,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
         version: "1.0.0",
         author: "OpenRAC contributors",
         description: "Swaps two buttons of the controller.",
-        homepage: "https://github.com/OpenRAC/rac1-mods",
+        homepage: "https://github.com/OpenRAC/openrac-mods",
         license: "GPL-3.0-or-later",
         enabled: false,
         state: "off",
@@ -1244,7 +1244,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
         kind: "script",
         path: "/home/you/OpenRAC/active/rac1/data/plugins/button-swap",
       },
-      // The item randomizer (OpenRAC/rac1-mods), its manifest's settings.
+      // The item randomizer (OpenRAC/openrac-mods), its manifest's settings.
       {
         id: "item-randomizer",
         name: "Item randomizer",
@@ -1252,7 +1252,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
         author: "OpenRAC contributors",
         description:
           "Shuffles what the game gives out: the gadgets and weapons from NPCs and pickups, the vendor's weapons, the gold bolts and the infobots' coordinates, so each seed is a new route through the game. The placement follows what each place needs, so every seed can be finished. Share a seed's code and a friend plays the same game. A spoiler log of each seed is written to the mod's data folder. A save made with a seed belongs to that seed.",
-        homepage: "https://github.com/OpenRAC/rac1-mods/tree/master/item-randomizer",
+        homepage: "https://github.com/OpenRAC/openrac-mods/tree/master/item-randomizer",
         license: "GPL-3.0-or-later",
         enabled: true,
         state: "ready",
@@ -1358,7 +1358,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
         kind: "native",
         path: "/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/item-randomizer",
       },
-      // The difficulty mod (OpenRAC/rac1-mods), its manifest's settings and presets.
+      // The difficulty mod (OpenRAC/openrac-mods), its manifest's settings and presets.
       {
         id: "difficulty",
         name: "Difficulty",
@@ -1366,7 +1366,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
         author: "OpenRAC contributors",
         description:
           "A slider for everything that makes Ratchet & Clank hard or easy: how many enemies there are, the damage Ratchet takes and deals, how fast the enemies and Ratchet move, weapon and ammo prices, ammo per shot and max ammo, bolt drops, max health and health pickups. Presets fill them: Easy, Retail, Hard, Brutal, and Chaos, which rolls new values for each level from a seed (and, if you like, a random event every few minutes). Every slider at 1.0 plays as the original game.",
-        homepage: "https://github.com/OpenRAC/rac1-mods/tree/master/difficulty-mod",
+        homepage: "https://github.com/OpenRAC/openrac-mods/tree/master/difficulty-mod",
         license: "GPL-3.0-or-later",
         enabled: true,
         state: "ready",
@@ -2353,7 +2353,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       if (!m) throw new Error(`no mod ${String(args.id)}`);
       if (!m.compatible) throw new Error(m.why ?? "it cannot be installed here");
       mockSources.mods[m.id] = {
-        url: "https://github.com/OpenRAC/rac1-mods",
+        url: "https://github.com/OpenRAC/openrac-mods",
         path: m.path,
         version: m.version,
         tag: m.tag,

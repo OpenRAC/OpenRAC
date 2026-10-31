@@ -15,7 +15,7 @@ rac1-ntsc when none is named. The steps:
      libopenrac-GAME.so (the game's activity loads it) and
      libopenrac-GAME-cli.so (its windowless checks), SDL3, libadrenotools'
      hooks and libopenrac-python.so; and Enhanced graphics' probe baker,
-     libopenrac-probe-bake.so and libopenrac-interior-infer.so, with Embree
+     libopenrac-enhanced-baker.so, with Embree
      (the version and SHA-256 tools/build_port.py pins) built by the NDK into build/android/embree
      (--no-probe-baker leaves it out; a baker that does not build is left
      out with a warning, as on the desktops)
@@ -71,9 +71,8 @@ PYTHON_FILES = {
 }
 # libadrenotools' hook libraries, which it loads by path from the app's native library folder.
 ADRENOTOOLS_HOOKS = ("hook_impl", "main_hook", "file_redirect_hook", "gsl_alloc_hook")
-# Both bake programs are named as libraries so Android can execute them from the APK's native
-# library folder. Interior inference locates its companion beside the resolved baker executable.
-BAKE_TOOLS = ("openrac-probe-bake", "openrac-interior-infer")
+# The unified baker is named as a library so Android can execute it from the APK's native folder.
+BAKE_TOOLS = ("openrac-enhanced-baker",)
 EMBREE_ANDROID = BUILD / "embree"
 
 
@@ -248,6 +247,9 @@ def bundle(python_home: Path, baker: bool = False) -> Path:
     out = BUILD / "openrac"
     proc.run([sys.executable, ROOT / "tools/bundle_standalone.py", out, "--android", "--python", python_home],
              cwd=ROOT, echo=True)
+    # Runtime HDR decoders also need their notices when the baker is omitted.
+    if (PORT_BUILD / "licenses").is_dir():
+        shutil.copytree(PORT_BUILD / "licenses", out / "port/build/release/licenses", dirs_exist_ok=True)
     if baker:
         # The license of what the baker has built in, beside where the launcher finds it, as a
         # desktop's copy carries it (tools/bundle_standalone.py).

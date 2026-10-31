@@ -2,7 +2,6 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Fsr3 frame resolve: velocities, particle reactivity, SDK dispatch and displayed-pose history.
-#include <algorithm>
 #include <cmath>
 
 #include "common/log.h"
@@ -27,8 +26,8 @@ void Fsr3::State::build_velocities() {
         }
 
         const auto old = previous.find(instance.temporal_id);
-        bool matched = !dispatch.reset && instance.temporal_id != 0 && old != previous.end();
-        matched = matched && old->second.model == instance.model;
+        bool matched = !dispatch.reset && instance.temporal_id != 0 && old != nullptr;
+        matched = matched && old->model == instance.model;
 
         // A replaced skeleton or a large translation must not reproject an unrelated pose.
         if (matched) {
@@ -36,14 +35,14 @@ void Fsr3::State::build_velocities() {
 
             // The fourth matrix column contains the world translation.
             for (std::size_t n = 12; n < 15; ++n) {
-                const float delta = instance.matrix[n] - old->second.matrix[n];
+                const float delta = instance.matrix[n] - old->matrix[n];
                 movement += delta * delta;
             }
 
-            matched = movement < 64 && (instance.palette < 0) == (old->second.palette < 0);
+            matched = movement < 64 && (instance.palette < 0) == (old->palette < 0);
         }
 
-        const auto& from = matched ? old->second : instance;
+        const auto& from = matched ? *old : instance;
         scene::MotionInstance velocity;
         velocity.model = instance.model;
         velocity.current = instance.matrix;
@@ -62,28 +61,7 @@ void Fsr3::State::build_velocities() {
 
 void Fsr3::State::save_palette() {
     const stats::Scope timing("FSR palette history", stats::kGpu);
-    // The vertex shader uses four texels per matrix, with 256 matrices per row.
-    constexpr std::size_t kMatricesPerRow = 256;
-    const std::size_t rows =
-        std::max(std::size_t{1}, (palette.size() + kMatricesPerRow - 1) / kMatricesPerRow);
-    std::vector<renderer::Mat4> padded(rows * kMatricesPerRow);
-    std::copy(palette.begin(), palette.end(), padded.begin());
-
-    // The first displayed frame has no previous joint image yet.
-    if (!previous_palette) {
-        glGenTextures(1, &previous_palette);
-    }
-
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_2D, previous_palette);
-    // RGBA32F retains the exact joint columns consumed by the current-frame skinning shader.
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, 0x8814, 1024, static_cast<int>(rows), 0, GL_RGBA, GL_FLOAT, padded.data()
-    );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glActiveTexture(GL_TEXTURE0);
+    previous_palette.update(palette);
 }
 
 void Fsr3::State::capture_opaque(const renderer::RenderTarget& target) {
@@ -145,12 +123,12 @@ void Fsr3::State::draw_motion() {
     draw_camera_motion();
 
     // Fresh history uses current joints at both endpoints; the reactive flag rejects any old colour.
-    if (dispatch.reset || !previous_palette) {
+    if (dispatch.reset || !previous_palette.texture()) {
         save_palette();
     }
 
     build_velocities();
-    view.previous_palette = previous_palette;
+    view.previous_palette = previous_palette.texture();
     // Attach world depth only after the fullscreen sampling passes have finished.
     glFramebufferTexture2D(
         GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, world.depth_texture(), 0
@@ -274,14 +252,10 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
         }
     }
 
-    previous.clear();
-
-    // The next frame sees exactly the displayed transforms, including interpolation between simulation ticks.
-    for (const auto& instance : instances) {
-        auto saved = instance;
-        saved.floats_on_water = instance.floats_on_water && scene->deformation_active();
-        previous.insert_or_assign(instance.temporal_id, saved);
-    }
+    // Preserve displayed poses (including interpolation), without reallocating survivors.
+    const auto changes = previous.update(instances, scene->deformation_active());
+    stats::gauge("FSR history nodes inserted", double(changes.inserted));
+    stats::gauge("FSR history nodes erased", double(changes.erased));
 
     save_palette();
     old_camera = camera;

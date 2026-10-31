@@ -32,8 +32,10 @@ void main() {
     // Invalid authored normals retain the neutral fallback instead of propagating NaNs.
     float squared = dot(v_surface_normal, v_surface_normal);
     surface_normal = vec4(0);
+    // Derivative magnitude shrinks near the camera and at higher resolutions; it is not
+    // a measure of triangle validity. Keep every finite, nonzero receiver plane.
     if (!any(isnan(v_surface_normal)) && !isinf(squared) && squared > 1e-12
-        && dot(geometric, geometric) > 1e-12) {
+        && !any(isnan(geometric)) && !any(isinf(geometric)) && dot(geometric, geometric) > 0.) {
         vec3 normal = orient_shading_normal(v_surface_normal, geometric, -v_surface_position);
         surface_normal = vec4(normal * 0.5 + 0.5, 1);
     }

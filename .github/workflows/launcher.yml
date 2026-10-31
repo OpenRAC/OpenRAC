@@ -342,14 +342,12 @@ jobs:
           us=$(program "$COPY/port/build/release/openrac-rac1-ntsc")
           [ -f "$us" ] || { echo "the copy carries no openrac-rac1-ntsc"; exit 1; }
           "$us" --help || true
-          # The enhanced lighting's baker (Embree built in) and its Python half: the Mods tab's
-          # Enhanced graphics bakes the player's own levels with them.
-          baker=$COPY/port/build/release/openrac-probe-bake; [ -f "$baker" ] || baker=$baker.exe
-          [ -f "$baker" ] || { echo "the copy carries no openrac-probe-bake"; exit 1; }
-          "$baker" --help > /dev/null || { echo "openrac-probe-bake does not start"; exit 1; }
-          infer="$(dirname "$baker")/openrac-interior-infer"; [ -f "$infer" ] || infer=$infer.exe
-          [ -f "$infer" ] || { echo "the copy carries no openrac-interior-infer"; exit 1; }
-          "$py" "$COPY/port/enhanced/tools/probes/bake_all.py" --help > /dev/null
+          # The unified native baker carries all enhanced preparation stages.
+          baker=$COPY/port/build/release/openrac-enhanced-baker; [ -f "$baker" ] || baker=$baker.exe
+          [ -f "$baker" ] || { echo "the copy carries no openrac-enhanced-baker"; exit 1; }
+          "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
+          "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
+          "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
           # On macOS each game carries MoltenVK, for the Vulkan renderer (port/cmake/MacApp.cmake).
           if [ "$NAME" = macos ]; then
             for program in "$game" "$us"; do

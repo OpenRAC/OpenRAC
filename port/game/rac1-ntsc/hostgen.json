@@ -173,6 +173,8 @@
     "dirs": ["config/us/overlays/asm", "config/us/expected/asm", "config/us/asm",
              "build/baseline/config/us/expected/asm", "build/baseline/config/us/asm"],
     "retail": {"exe": "config/us/SCUS_971.99", "dump": "config/us/overlays"},
-    "gp": "0x00166C00"
+    "gp": "0x00166C00",
+    "in_place": ["FUN_001ef9c8"],
+    "shadows": {"coll_line": "func_L00_001EFC70", "coll_line_boot": "FUN_001efa68", "coll_sphere": "FUN_L00_001f0d60", "coll_capsule": "FUN_L00_001f19a0", "coll_sphere_mobys": "FUN_L00_001f2868", "coll_hero_groups": "FUN_L00_001f3170"}
   }
 }
