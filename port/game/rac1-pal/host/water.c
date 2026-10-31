@@ -5,6 +5,8 @@
  * fingerprint, or the same size and places where the NTSC decomp's differs. The data are
  * games/rac1's names (include/names.h) of the NTSC decomp's same records. */
 #include <string.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #include "game_protos.h"
 #include "openrac/game_host.h"
@@ -141,6 +143,25 @@ static int water_layer(gaddr layer) {
     return 0;
 }
 
+/* Packet construction is synchronous, so reusable host scratch can hold the authored vertex count. */
+static float* water_vertex_snapshot(unsigned count) {
+    static float* saved;
+    static size_t capacity;
+    if ((size_t)count > SIZE_MAX / (2 * sizeof(*saved))) {
+        return NULL;
+    }
+    const size_t needed = (size_t)count * 2;
+    if (needed > capacity) {
+        float* grown = realloc(saved, needed * sizeof(*saved));
+        if (grown == NULL) {
+            return NULL;
+        }
+        saved = grown;
+        capacity = needed;
+    }
+    return saved;
+}
+
 /* build_overlay_layer_wave_vertices (NTSC FUN_L01_00262618). */
 void func_L01_002635C8(gaddr layer) {
     const int surface = water_layer(layer);
@@ -153,12 +174,17 @@ void func_L01_002635C8(gaddr layer) {
     }
     const gaddr vertices = GREF(gaddr, layer);
     const unsigned count = GREF(unsigned, layer + 0xCu);
-    if (count < 3 || count > 4096) {
+    if (count < 3 || vertices == 0 || vertices > openrac_guest_ram_size
+        || count > (openrac_guest_ram_size - vertices) / 16u) {
         func_L01_002635C8__game(layer);
         return;
     }
     /* Packet building runs synchronously on the game thread; no recursive call uses this scratch. */
-    static float saved[4096 * 2];
+    float* saved = water_vertex_snapshot(count);
+    if (saved == NULL) {
+        func_L01_002635C8__game(layer);
+        return;
+    }
     const float amplitude = GREF(float, layer + 0x18);
     float offsets[4];
     memcpy(offsets, G(layer + 0x40), sizeof(offsets));
