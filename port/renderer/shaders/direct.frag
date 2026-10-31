@@ -27,7 +27,6 @@ uniform vec3 fog_colour;      // 0..255
 uniform int alpha_test;       // 0 off, else TEST.ATST (2 LESS ... 7 NOTEQUAL)
 uniform float alpha_ref;      // TEST.AREF
 uniform int alpha_keep_failing;  // the second pass of the double draw
-uniform int multisampled;     // the target has more than one sample a pixel
 uniform int distance_field;   // the texture's alpha is a distance field (text drawn sharp)
 uniform int source_scale;     // the blend's weight of Cs, applied here (GlBlend): 1 As, 2 FIX
 uniform float source_fix;     // FIX / 128, unclamped
@@ -105,13 +104,19 @@ void main() {
         c.rgb = vec3(mix(mp_vec3(fog_colour), mp_vec3(c.rgb), mp_float(v_fog)));
     }
 #ifndef OPENRAC_EFFECT_FIXED
-    // A pixel that fails the test writes nothing. On a multisampled target its samples are masked
-    // out instead of discarded: with discard there, Intel Arc's driver lost whole draws (menu text).
+    // A pixel that fails the test writes nothing.
     bool failed = alpha_test != 0 && alpha_passes(c.a) == (alpha_keep_failing != 0);
+#ifdef OPENRAC_SAMPLE_MASK
+    // On a multisampled frame its samples are masked out: with discard there, Intel Arc's driver
+    // lost whole draws (menu text).
     gl_SampleMask[0] = failed ? 0 : -1;
-    if (failed && multisampled == 0) {
+#else
+    // Elsewhere it is discarded and gl_SampleMask is never written: on one sample a pixel, Adreno
+    // drew a flickering checkerboard over the menus' panels when it was.
+    if (failed) {
         discard;
     }
+#endif
 #endif
     // Alpha 0x80 is 1.0 for blending.
 #ifdef OPENRAC_EFFECT_MATERIAL
