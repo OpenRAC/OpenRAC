@@ -283,7 +283,7 @@ The hero's fields are also exposed by name to script mods:
 | **Script binding** | rac1 only; the others use `script_binding_none.c` and refuse script mods |
 | **Script budget** | 2 ms per call, `OPENRAC_SCRIPT_BUDGET_MS` |
 | **Per-tick cost with no mods** | One test of a bool (`mods.h:67-71`) |
-| **The mod list** | <https://github.com/OpenRAC/rac1-mods> |
+| **The mod list** | <https://github.com/OpenRAC/openrac-mods> |
 
 The full hook table with signatures and parameters is generated into
 [`sdk/docs/reference/hooks-rac1.md`](../../../sdk/docs/reference/hooks-rac1.md),

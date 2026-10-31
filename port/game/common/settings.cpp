@@ -453,7 +453,7 @@ void load(const std::filesystem::path& file) {
     }
     if (old_strafe) {
         log::info(
-            "{}: the strafe is a mod now, lock-strafe (OpenRAC/rac1-mods): add it in the "
+            "{}: the strafe is a mod now, lock-strafe (OpenRAC/openrac-mods): add it in the "
             "launcher's "
             "Mods tab. This file's strafe setting is left out.",
             file.string()

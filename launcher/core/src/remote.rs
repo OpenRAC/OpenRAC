@@ -1142,8 +1142,14 @@ mod tests {
             reference: reference.map(Into::into),
             tag: tag.map(Into::into),
         };
-        assert_eq!(parse_url("https://github.com/OpenRAC/rac1-mods").unwrap(), gh("OpenRAC", "rac1-mods", None, None));
-        assert_eq!(parse_url("github.com/OpenRAC/rac1-mods.git/").unwrap(), gh("OpenRAC", "rac1-mods", None, None));
+        assert_eq!(
+            parse_url("https://github.com/OpenRAC/openrac-mods").unwrap(),
+            gh("OpenRAC", "openrac-mods", None, None)
+        );
+        assert_eq!(
+            parse_url("github.com/OpenRAC/openrac-mods.git/").unwrap(),
+            gh("OpenRAC", "openrac-mods", None, None)
+        );
         assert_eq!(parse_url("https://www.github.com/a/b/tree/dev/x").unwrap(), gh("a", "b", Some("dev/x"), None));
         assert_eq!(
             parse_url("https://github.com/a/b/releases/tag/v1.2.0").unwrap(),
@@ -1167,35 +1173,35 @@ mod tests {
 
     #[test]
     fn every_common_link_form() {
-        let plain = Source::GitHub { owner: "OpenRAC".into(), repo: "rac1-mods".into(), reference: None, tag: None };
+        let plain = Source::GitHub { owner: "OpenRAC".into(), repo: "openrac-mods".into(), reference: None, tag: None };
         for text in [
-            "https://github.com/OpenRAC/rac1-mods",
-            "http://github.com/OpenRAC/rac1-mods",
-            "github.com/OpenRAC/rac1-mods",
-            "  https://github.com/OpenRAC/rac1-mods/  ",
-            "https://github.com/OpenRAC/rac1-mods.git",
-            "https://github.com/OpenRAC/rac1-mods?tab=readme",
-            "git@github.com:OpenRAC/rac1-mods.git",
-            "git@github.com:OpenRAC/rac1-mods",
-            "ssh://git@github.com/OpenRAC/rac1-mods.git",
-            "OpenRAC/rac1-mods",
+            "https://github.com/OpenRAC/openrac-mods",
+            "http://github.com/OpenRAC/openrac-mods",
+            "github.com/OpenRAC/openrac-mods",
+            "  https://github.com/OpenRAC/openrac-mods/  ",
+            "https://github.com/OpenRAC/openrac-mods.git",
+            "https://github.com/OpenRAC/openrac-mods?tab=readme",
+            "git@github.com:OpenRAC/openrac-mods.git",
+            "git@github.com:OpenRAC/openrac-mods",
+            "ssh://git@github.com/OpenRAC/openrac-mods.git",
+            "OpenRAC/openrac-mods",
         ] {
             assert_eq!(parse_url(text).unwrap(), plain, "{text}");
         }
         assert_eq!(
-            parse_url("https://github.com/OpenRAC/rac1-mods/tree/master/lock-strafe").unwrap(),
+            parse_url("https://github.com/OpenRAC/openrac-mods/tree/master/lock-strafe").unwrap(),
             Source::GitHub {
                 owner: "OpenRAC".into(),
-                repo: "rac1-mods".into(),
+                repo: "openrac-mods".into(),
                 reference: Some("master/lock-strafe".into()),
                 tag: None
             }
         );
         assert_eq!(
-            parse_url("https://github.com/OpenRAC/rac1-mods/releases/tag/v1.0.0").unwrap(),
+            parse_url("https://github.com/OpenRAC/openrac-mods/releases/tag/v1.0.0").unwrap(),
             Source::GitHub {
                 owner: "OpenRAC".into(),
-                repo: "rac1-mods".into(),
+                repo: "openrac-mods".into(),
                 reference: None,
                 tag: Some("v1.0.0".into())
             }
@@ -1656,10 +1662,10 @@ mod tests {
         let e = preview(&c, "https://github.com/OpenRAC/OpenRAC").unwrap_err();
         eprintln!("OpenRAC/OpenRAC: {e}");
         assert!(e.starts_with("No OpenRAC mod"), "{e}");
-        // rac1-mods, once it is public, holds the lock-strafe.
-        match preview(&c, "https://github.com/OpenRAC/rac1-mods") {
+        // openrac-mods, once it is public, holds the lock-strafe.
+        match preview(&c, "https://github.com/OpenRAC/openrac-mods") {
             Ok(p) => assert!(p.mods.iter().any(|m| m.id == "lock-strafe"), "{p:#?}"),
-            Err(e) => eprintln!("OpenRAC/rac1-mods: {e}"),
+            Err(e) => eprintln!("OpenRAC/openrac-mods: {e}"),
         }
     }
 }

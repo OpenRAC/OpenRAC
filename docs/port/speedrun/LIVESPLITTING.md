@@ -5,7 +5,7 @@ extend it when the default (one split a planet) is not enough.
 
 ## 1. What exists
 
-The `live-splits` mod, in [OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods):
+The `live-splits` mod, in [OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods):
 
 > Splits a LiveSplit timer as the player goes from planet to planet: the mod
 > talks to LiveSplit's own server and splits at every planet, so a speedrunner
@@ -30,7 +30,7 @@ What it does, from its own source:
 ### 2.1 Install the mod
 
 In the OpenRAC launcher's **Mods** tab: **Add from a link**, and paste
-`https://github.com/OpenRAC/rac1-mods`. The launcher lists the mods, checks
+`https://github.com/OpenRAC/openrac-mods`. The launcher lists the mods, checks
 the download against the release's `SHA256SUMS`, and installs the build for
 your platform. Switch `live-splits` on, choose its settings, and play.
 
@@ -46,7 +46,7 @@ Port** to the one the mod is looking for.
 
 > **The default port is 27500, not LiveSplit's own default.** The mod's
 > `port` setting defaults to `27500`
-> (`rac1-mods/live-splits/openrac-mod.json:44-51`). LiveSplit's built-in
+> (`openrac-mods/live-splits/openrac-mod.json:44-51`). LiveSplit's built-in
 > server reads its port from `Settings.ServerPort`
 > (`LiveSplit.Core/Options/Settings.cs:24`) and the deprecated standalone
 > server component defaulted to `16834`
@@ -74,7 +74,7 @@ the nineteen planets, so the segments are the same.
 | 9 | Gaspar | | | |
 
 The names are the port's own (`port/game/rac1/host/front_end.c:12-16`), and the
-mod hard-codes the same list (`rac1-mods/live-splits/src/levels.hpp:11-15`).
+mod hard-codes the same list (`openrac-mods/live-splits/src/levels.hpp:11-15`).
 
 ### 2.4 Run
 
@@ -89,7 +89,7 @@ planet, where the last boss is.
 
 ## 3. The mod's settings
 
-`rac1-mods/live-splits/openrac-mod.json:13-71`:
+`openrac-mods/live-splits/openrac-mod.json:13-71`:
 
 | Setting | Default | |
 |---|---|---|
@@ -108,7 +108,7 @@ whether the mod and the timer agree.
 The mod sends `setgametime` with the game's own time: its tick count times the
 game's tick length, read from the disc's own memory
 (`D_0015EE7C` on PAL, `D_0015ED7C` on NTSC-U). It refreshes every 30 ticks
-(`rac1-mods/live-splits/src/live_splits.cpp:179-184`).
+(`openrac-mods/live-splits/src/live_splits.cpp:179-184`).
 
 Because the port runs the game at 60 Hz on both discs, game time and real time
 are the same number here — see [TIMING.md](TIMING.md) §4.
@@ -145,7 +145,7 @@ Two practical notes: the server's WebSocket service lives at the path
 `/livesplit`, and the mod's "ask the server" mode works by sending `ping` and
 reading the answer — a TCP server answers `pong`, a WebSocket server answers
 an HTTP error, which is how the mod tells them apart
-(`rac1-mods/live-splits/src/client.cpp:283-316`).
+(`openrac-mods/live-splits/src/client.cpp:283-316`).
 
 ## 6. Writing your own splitter
 
@@ -230,7 +230,7 @@ OPENRAC_MOD_CPP("my-splitter", "1.0.0", load)
 
 The manifest is a JSON file, `openrac-mod.json`, in the mod's folder. The
 format is documented in [MODS.md](../MODS.md) §"The manifest", and
-`rac1-mods/live-splits/openrac-mod.json` is a complete, working example with
+`openrac-mods/live-splits/openrac-mod.json` is a complete, working example with
 every setting type.
 
 ### Script mods

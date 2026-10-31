@@ -74,7 +74,7 @@ The pad report's layout is in [scripts.md](scripts.md#the-pad-report).
 
 Interface 1.2 (`"api": "1.2"`) lets a mod read the keyboard and mouse and
 press the pad's buttons from them, for a mod that plays the game with a
-keyboard and mouse (rac1-mods' keyboard-mouse):
+keyboard and mouse (openrac-mods' keyboard-mouse):
 
 ```c
 #include "openrac/keys.h"   /* names for keys, mouse buttons and the wheel */

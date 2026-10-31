@@ -1,5 +1,5 @@
 //! Installing mods from a link against the real GitHub, end to end, as the Mods tab does it: the
-//! public OpenRAC/rac1-mods, its lock-strafe release and its script mod. Needs the network, so it is
+//! public OpenRAC/openrac-mods, its lock-strafe release and its script mod. Needs the network, so it is
 //! run by hand: `cargo test -p openrac-launcher-core --test live_mods -- --ignored --nocapture`.
 //!
 //! The mods go where an installed launcher puts them, `<install>/active/rac1/data/plugins` under a
@@ -10,7 +10,7 @@ use std::path::Path;
 use openrac_launcher_core::plugins;
 use openrac_launcher_core::remote::{self, Context, Curl, Hosts};
 
-const REPO: &str = "https://github.com/OpenRAC/rac1-mods";
+const REPO: &str = "https://github.com/OpenRAC/openrac-mods";
 
 fn context(dir: &Path) -> Context<'_> {
     Context {

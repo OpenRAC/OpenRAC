@@ -77,7 +77,7 @@ export const PAGE = {
 export const ADD = {
   title: "Add a mod",
   linkLabel: "A mod's link",
-  linkPlaceholder: "Paste a mod's link, like github.com/OpenRAC/rac1-mods",
+  linkPlaceholder: "Paste a mod's link, like github.com/OpenRAC/openrac-mods",
   go: "Find",
   file: "File…",
   folder: "Folder…",
@@ -86,7 +86,7 @@ export const ADD = {
   drop: "or drop a .zip or folder on this page",
   dropHere: "Drop to add it",
   browse: "Browse mods",
-  modsUrl: "https://github.com/OpenRAC/rac1-mods",
+  modsUrl: "https://github.com/OpenRAC/openrac-mods",
   close: "Close",
 } as const;
 

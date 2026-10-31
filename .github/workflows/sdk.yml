@@ -5,7 +5,7 @@
 # and macOS (Clang), and builds the two for Android (the NDK), from the archive alone, unpacked
 # away from the checkout; the archive is the run's artifact. A tag
 # `sdk-v<version>` (sdk/VERSION, whose MAJOR.MINOR is the interface's) also publishes it, with its
-# SHA-256, on a release of that name, which mods pin (OpenRAC/rac1-mods). The archive is the same
+# SHA-256, on a release of that name, which mods pin (OpenRAC/openrac-mods). The archive is the same
 # bytes wherever it is made, so the pin holds.
 #
 # Every action is pinned to a commit, as in launcher.yml.

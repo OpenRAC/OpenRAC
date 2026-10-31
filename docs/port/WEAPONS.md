@@ -262,7 +262,7 @@ trap: in an `OPENRAC_PRESS` line `0x4000` is **Cross**, not Down, and
 
 The game's side is the decompilation's own weapon mobies; this table is what
 a tester watches. "Feels" is the DualSense mod's per-weapon vibration
-(`rac1-mods/dualsense`, a sibling repository) — the column is here because
+(`openrac-mods/dualsense`, a sibling repository) — the column is here because
 that mod is the reason to fire every weapon in one session and check that
 each one gets its own feedback.
 
@@ -377,7 +377,7 @@ watched word). The Walloper has no flag — it fires from its own hero state
 Visibomb Gun and the Taunter read the pad themselves. For the ones that fire
 on a counter, `hero.items[0].moby` (`0x1404E0`), then `+0x78` (the moby's
 pvars) and `+0x00` is the shot's cooldown; the R.Y.N.O.'s `+0x04` counts
-its missiles (`rac1-mods/dualsense/src/weapons.cpp`, `weapon_moment`).
+its missiles (`openrac-mods/dualsense/src/weapons.cpp`, `weapon_moment`).
 
 ## 7. What is verified, and what is not
 

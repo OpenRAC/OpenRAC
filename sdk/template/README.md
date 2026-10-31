@@ -2,7 +2,7 @@
 
 A native mod for OpenRAC's port of Ratchet & Clank. This folder is a
 repository template: copy it into a repository of its own (or a folder per mod
-in a repository of several, as [rac1-mods](https://github.com/OpenRAC/rac1-mods)),
+in a repository of several, as [openrac-mods](https://github.com/OpenRAC/openrac-mods)),
 then set the id, name, author and version in `openrac-mod.json` and the target
 in `CMakeLists.txt`.
 

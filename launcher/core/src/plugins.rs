@@ -1002,7 +1002,7 @@ pub(crate) fn manifest_root(folder: &Path) -> Result<PathBuf, String> {
 
 /// The mods a folder the player chose holds, each one to install: the folder itself when it is one
 /// mod (its manifest at its top or in its one folder), else every folder at its top that is one.
-/// A checkout of a mods repository (rac1-mods) is taken from its build, `build/package/<id>`,
+/// A checkout of a mods repository (openrac-mods) is taken from its build, `build/package/<id>`,
 /// first: there a native mod has its library, which its source folder does not. A .zip is
 /// returned as it is (install says what it holds).
 pub fn mod_folders(source: &Path) -> Result<Vec<PathBuf>, String> {

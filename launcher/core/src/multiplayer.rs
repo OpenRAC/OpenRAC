@@ -1,4 +1,4 @@
-//! The player's multiplayer name: shown to the other players by online mods (rac1-mods'
+//! The player's multiplayer name: shown to the other players by online mods (openrac-mods'
 //! `multiplayer`). The launcher keeps it in its settings (`multiplayerName`), makes a random one at
 //! the first start, and gives it to the game when it plays, as the environment variable
 //! [`ENV`], which a native mod reads (docs/port/MODS.md, section 9).

@@ -439,7 +439,7 @@ follows ReRAC's idea and says so in
 
 The strafe of the later games (Going Commando's Hold L2-R2, Up Your
 Arsenal's lock-strafe), which was a row of this page until 2026-10-21, is
-a mod now: **lock-strafe**, in [OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods),
+a mod now: **lock-strafe**, in [OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods),
 installed and switched in the launcher's Mods tab, with its mode (Lock with
 weapons, or Hold L2-R2) among its settings ([MODS.md](MODS.md)). Its
 README says what each mode does, how it is built from the game's own strafe

@@ -148,7 +148,7 @@ points run the game's own C. The loader is
 [game/common/mods.cpp](game/common/mods.cpp); the design, the manifest and
 the SDK are in [docs/port/MODS.md](../docs/port/MODS.md). Ratchet & Clank's
 mods, the lock-strafe first, are in
-[OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods).
+[OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods).
 
 Script mods are `.luau` files that the program runs in Luau (fetched by
 [cmake/Luau.cmake](cmake/Luau.cmake)), one sandboxed state each, with a time

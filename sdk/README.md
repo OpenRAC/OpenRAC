@@ -5,7 +5,7 @@ shared library the game loads at start, which changes what the game does
 through named hook points, a callback each game tick, the pad's reports and
 its own settings. The design, the rules and how the port and the launcher
 treat a mod are in [docs/port/MODS.md](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/MODS.md) (`docs/MODS.md` in the archive); Ratchet &
-Clank's mods are in [OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods),
+Clank's mods are in [OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods),
 starting with the lock-strafe.
 
 A mod of textures, models or level edits needs none of this: that is a data
@@ -76,14 +76,14 @@ library that leaves a symbol undefined.
 Several mods on one hook point chain: each calls the original it was given,
 and the mod loaded last runs first. A mod for several discs keeps a table of
 the addresses and names it uses on each and picks it by `api->version`
-(the lock-strafe does: `lock-strafe/src/discs.h` in rac1-mods).
+(the lock-strafe does: `lock-strafe/src/discs.h` in openrac-mods).
 
 ## In C++
 
 `openrac/mod.hpp` is a header-only C++17 layer over the same interface,
 compiled into the mod: the port sees only the two C entry points, and the C
 table stays the boundary (it lasts through the port's own move to C++). The
-template and rac1-mods' lock-strafe are written with it.
+template and openrac-mods' lock-strafe are written with it.
 
 ```cpp
 #include "openrac/games/rac1.hpp"
@@ -133,7 +133,7 @@ Download `openrac-mod-sdk-<version>.zip` from the
 version is the mod interface's `MAJOR.MINOR` and a patch for fixes to the SDK
 (`VERSION`): the SDK 1.0.x builds mods for interface 1.0, which every port of
 interface 1.y loads. Each release gives the archive's SHA-256, so a build can
-pin it (rac1-mods' `sdk.lock` and `tools/fetch_sdk.py` do). Below, `<SDK>` is
+pin it (openrac-mods' `sdk.lock` and `tools/fetch_sdk.py` do). Below, `<SDK>` is
 the unpacked folder (`openrac-mod-sdk-1.0.0`), or `sdk/` in a checkout of
 OpenRAC; `python3 sdk/tools/package_sdk.py` makes the archive from a checkout.
 
@@ -229,7 +229,7 @@ the template already follows:
   The launcher downloads only an asset `SHA256SUMS` lists with the same hash.
 
 So releasing is: set the version in the manifest, commit, push a tag
-`v<version>`. [rac1-mods](https://github.com/OpenRAC/rac1-mods) uses the same
+`v<version>`. [openrac-mods](https://github.com/OpenRAC/openrac-mods) uses the same
 workflow, file for file.
 
 ## Installing and trying a mod
