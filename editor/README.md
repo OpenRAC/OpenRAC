@@ -6,8 +6,12 @@ It also covers standalone maps and updates to an installed world.
 
 The editor turns the levels on your own disc of Ratchet & Clank (PAL,
 `SCES_509.16` v2.00, or NTSC-U, `SCUS_971.99` v1.00) into a Godot 4 project.
-Godot is the map editor: open a level, move, add or delete objects, and save. Tools to pack edited scenes back into game
-data come later; the scenes already keep what they will need.
+Godot is the map editor: open a level, move, add or delete objects, and save.
+For RAC1 PAL and NTSC-U, `extract.py pack` turns supported scene edits back
+into mod files without writing to the disc. The launcher's Mods page can
+extract, open, pack, and run those edits. Later games are still early access:
+their levels can be exported for inspection, but packing edits back into those
+games is not supported yet.
 
 It sits at the top of OpenRAC because it serves all four games. It reads
 Ratchet & Clank's PAL and NTSC-U discs in full, and Going Commando's, Up
@@ -299,15 +303,19 @@ than it has room for is not caught yet: the room is what the level's own
 How it stays exact ([pack.py](pack.py), [wadpack.py](wadpack.py)):
 
 - A moby the scene has as the extractor wrote it keeps its bytes from the
-  disc. A project nobody edited packs to nothing, and an edited level's file
-  differs from the disc's only in the records that were edited. Godot's own
-  way of saving a scene (other float rounding, `unique_id`, `rc1_class` on
-  every instance) is not an edit.
+  disc. A project nobody edited packs to nothing. Edits preserve untouched
+  moby records and change the tables, links, and data blocks needed to express
+  the saved scene. Godot's own way of saving a scene (other float rounding,
+  `unique_id`, `rc1_class` on every instance) is not an edit.
 - The compressor writes streams the way the retail ones are laid out,
   measured on all 19 gameplay files: 0x2000-byte blocks that no packet
   crosses, each ending with a skip and unused room after it, and no literal
-  run after a literal run. Its output is smaller than retail's for every
-  level, so a packed level always fits where the original is.
+  run after a literal run. Re-encoding the original files is smaller than
+  retail's for every level. Edits can make a stream larger than its disc slot;
+  the packer then stores it in a virtual sector range in the mod, leaving the
+  disc and vanilla read path untouched (see [Pack](#pack-your-edits)). Expanded
+  streams use a bounded 128 MiB guest RAM arena and remain subject to RAC1's
+  game-owned table, address, and heap limits.
 
 Checked on 2026-10-12: all 19 gameplay files round-trip through the
 compressor; a scene re-saved by Godot 4.7.2 with one moby moved packs to a
