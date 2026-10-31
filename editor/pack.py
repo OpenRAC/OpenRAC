@@ -58,6 +58,7 @@ RESOURCE = re.compile(r'^\[ext_resource [^\]]*path="([^"]+)"[^\]]*id="([^"]+)"')
 CLASS_SCENE = re.compile(r"/(moby|tie|shrub)_(\d+)\.(?:tscn|glb)$")
 PROPERTY = re.compile(r"^([A-Za-z_/0-9]+) = (.*)$")
 RAC1_SPAWN_ID_COUNT = 0x800  # RAC1's 64-word per-level killed-state bitset.
+EXPANDED_RAM_BYTES = 256 * 1024 * 1024  # The largest guest arena selected for virtual level streams.
 IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
 
 
@@ -421,6 +422,9 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
         at, = unpack("<I", level.index, 0x14)
         core, index, more = collision_scene.core_with(core, index, at, len(level.block(at)), new)
         notes += more
+    if len(core) > EXPANDED_RAM_BYTES:
+        raise FormatError(f"level {info['id']:02}: decoded core data is {len(core)} bytes; it cannot fit in "
+                          "the 256 MiB expanded guest RAM arena", code="level-too-big")
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
     expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress,
                                                    force=force_expanded_ram)
@@ -486,6 +490,9 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         except (ValueError, KeyError, IndexError) as error:
             raise FormatError(f'Static import placement: {error}', code="static-import") from None
         edited, changes, problems = pack_level(info["id"], gameplay, text)
+        if edited != gameplay and len(edited) > EXPANDED_RAM_BYTES:
+            raise FormatError(f"level {info['id']:02}: decoded gameplay data is {len(edited)} bytes; it cannot "
+                              "fit in the 256 MiB expanded guest RAM arena", code="level-too-big")
         # Ties and shrubs: the port draws them from the extractor's files, so they are packed as
         # those are (scenery.py), beside the gameplay file.
         placements, scenery_changes, scenery_problems = None, [], []

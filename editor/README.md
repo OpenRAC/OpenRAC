@@ -319,7 +319,10 @@ How it stays exact ([pack.py](pack.py), [wadpack.py](wadpack.py)):
   the packer then stores it in a virtual sector range in the mod, leaving the
   disc and vanilla read path untouched (see [Pack](#pack-your-edits)). Expanded
   streams use a bounded 256 MiB guest RAM arena and remain subject to RAC1's
-  game-owned table, address, and heap limits.
+  game-owned table, address, and heap limits. The packer rejects edited gameplay
+  or core data whose decoded stream alone exceeds 256 MiB; a level's other
+  allocations can leave less room, so this is an absolute ceiling, not a promise
+  that every stream below it will fit.
 
 Checked on 2026-10-12: all 19 gameplay files round-trip through the
 compressor; a scene re-saved by Godot 4.7.2 with one moby moved packs to a
