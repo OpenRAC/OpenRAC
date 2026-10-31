@@ -133,8 +133,7 @@ The game's time is kept apart from the drawing in both directions:
 - **A slow one does not slow it down.** The frame cap never sleeps in the
   tick's path (a frame not yet due is drawn between ticks, when it is).
   Without vsync, a frame that would not be finished by the next tick's time
-  is not started (or, held by its showing, not shown by the time the tick may
-  wait for it). And a tick that comes more than a tick late is not drawn at
+  is not started. And a tick that comes more than a tick late is not drawn at
   all, three in a row at most: the machine shows fewer pictures, and the game
   runs at its speed. Only a machine that cannot draw one frame in four ticks
   (80 ms) slows the game, and says so in the log.
@@ -164,35 +163,25 @@ With VSync on or adaptive, a numeric cap is an upper bound: a 120 FPS cap on a
 share one deadline, so asynchronous Vulkan presentation does not add a second
 refresh-length sleep to the game tick.
 
-How the cap holds a frame to its time (the names are RTSS's limiter modes):
+How the frame cap keeps frames even:
 
-- **VSync off, low-latency frames off, a cap above the game's tick rate: by
-  its showing** (RTSS's front edge sync, its evenest frame times). A frame starts its cost (and a margin)
-  before its time, waits for that time just before the swap, and is drawn for
-  that moment, so the pictures reach the screen a cap's frame apart and the
-  motion in them is even too. The next tick may wait for a frame shown just
-  after its time (up to a cap's frame, and never past half a tick with its own
-  work), so that the frames stay even however they fall against the ticks;
-  the tick's logic and the time it is due at do not change. The cost is a
-  little latency: the frame's time and input are read a frame's cost before it
-  is shown.
-  It needs a swap that is shown at once (it may tear): where the system shows
-  the latest frame at the next refresh instead (Vulkan's mailbox, Android's
-  compositor), the refresh decides when a frame is shown, and the cap holds
-  frames by their start.
-- **Otherwise: by its start** (RTSS's back edge sync): the frame reads its
-  time and input as late as the cap lets it, and is shown when it is drawn.
-  With a frame a tick or fewer (a cap of 60 or 30 on 60 ticks) each frame is
-  the tick's own and starts when the tick's work is done, so a fixed time to
-  show it would either be missed or creep later after the ticks.
+- **VSync off, low-latency frames off, a cap above the game's tick rate**
+  (for example 120 or 144): each frame has a fixed time on the screen, one cap
+  frame after the last. The frame is drawn a little before that time, then
+  waits for it and is shown exactly on time. The picture is drawn for that
+  moment too, so the motion is even. A tick may start a few milliseconds late
+  to let such a frame out first (never more than half a tick). The game's
+  logic does not change. The cost is about 1-2 ms more input latency.
+- **Everything else** (VSync on, low-latency frames on, a cap of 60 or less,
+  Android): a frame starts at its time and is shown as soon as it is drawn.
+  With VSync on the display already keeps frames even. With a cap of 60 or
+  less each frame belongs to one tick and cannot start before the tick ends.
+  On Android a frame is only ever shown at the next refresh.
 
-Every wait for a time (the tick's, the cap's, the low-latency frames' sleep)
-ends at it to within tens of microseconds: the system sleeps to a little before
-it (a high-resolution waitable timer on Windows, `clock_nanosleep` to an
-absolute time on Linux and Android) and the rest is spun, yielding the
-processor (`port/common/precise_wait.h`). A plain sleep wakes late by its own
-amount, up to a millisecond or more on Windows, and every late wake was an
-uneven frame.
+All of these waits are precise to a few microseconds
+(`port/common/precise_wait.h`). The system sleeps until just before the time
+and the last bit is a short busy wait. A plain sleep can wake up a millisecond
+or more late, which shows as an uneven frame.
 
 The display's refresh rate is read when the window says it moved to another
 display or the display changed mode, not polled.
