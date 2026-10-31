@@ -1175,13 +1175,22 @@ void LevelScene::draw_layer(
             }
         }
         const bool solid = !mobys && pass == 0;
+        const bool sweep_translucent = !state.depth_prepass && pass == 2;
+        if (sweep_translucent && m_sweep_translucent_off) {
+            continue;
+        }
         const bool reused =
             state.reuse_prepass_depth && !state.depth_prepass && (mobys ? pass == 0 : pass <= 1);
         std::optional<stats::Scope> layer_pass;
-        if (layer == Layer::Ties && !state.depth_prepass && state.opaque_colour_phase < 0) {
-            static constexpr const char* names[] =
-                {"ties solid", "ties cutout", "ties translucent"};
-            layer_pass.emplace(names[pass], stats::kGpu, std::source_location::current());
+        if ((layer == Layer::Terrain || layer == Layer::Ties || layer == Layer::Shrubs)
+            && !state.depth_prepass && state.opaque_colour_phase < 0) {
+            static constexpr const char* names[][3] = {
+                {"terrain solid", "terrain cutout", "terrain translucent"},
+                {"ties solid", "ties cutout", "ties translucent"},
+                {"shrubs solid", "shrubs cutout", "shrubs translucent"},
+            };
+            const int row = layer == Layer::Terrain ? 0 : layer == Layer::Ties ? 1 : 2;
+            layer_pass.emplace(names[row][pass], stats::kGpu, std::source_location::current());
         }
         if (mobys && !state.depth_prepass && state.opaque_colour_phase < 0) {
             layer_pass.emplace(moby_pass_names[pass], stats::kGpu, std::source_location::current());
@@ -1248,6 +1257,11 @@ void LevelScene::draw_layer(
             set_wrap = -1;
             set_cutout = -1;
             colour_set = false;
+        }
+        if (sweep_translucent && m_sweep_translucent_unlit) {
+            glUniform1i(program->uniform("probe_mode"), 0);
+            glUniform1i(program->uniform("sun_shadow_enabled"), 0);
+            glUniform1i(program->uniform("hero_shadow_enabled"), 0);
         }
         int cutout = program->uniform("cutout");
         int colour = program->uniform("material_colour");

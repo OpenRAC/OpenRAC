@@ -157,6 +157,8 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_probe_lighting(
         enhanced && !graphics.sweep_probe_lighting_off, graphics.probe_gi_multiplier
     );
+    owner.scene
+        .set_sweep_translucent(graphics.sweep_translucent_off, graphics.sweep_translucent_unlit);
     owner.scene.set_gameplay_rim(
         enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
     );

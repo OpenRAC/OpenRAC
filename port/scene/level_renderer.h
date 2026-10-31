@@ -159,6 +159,14 @@ public:
         }
     }
 
+    // The settings sweep's experiments (debug/capture.cpp): the blended passes of every layer
+    // (static translucent texels, the mobys' translucent pass) left out, or drawn without probe
+    // light.
+    void set_sweep_translucent(bool off, bool unlit) {
+        m_sweep_translucent_off = off;
+        m_sweep_translucent_unlit = unlit;
+    }
+
     // Controls the GI-coloured edge light on essential gameplay objects.
     void set_gameplay_rim(bool enabled, float strength, float falloff) {
         m_gameplay_rim = {enabled ? strength : 0.0f, falloff};
@@ -524,6 +532,8 @@ private:
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
+    bool m_sweep_translucent_off = false;
+    bool m_sweep_translucent_unlit = false;
     std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
     std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.

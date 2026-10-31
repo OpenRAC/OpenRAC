@@ -114,7 +114,10 @@ struct Settings {
     bool environment_probe_debug =
         false;  // Baked reflection capture positions and influence boxes.
     float probe_gi_multiplier = 1.0f;
-    bool sweep_probe_lighting_off = false;  // the settings sweep's step alone; never saved
+    // The settings sweep's experiments alone (debug/capture.cpp); never saved.
+    bool sweep_probe_lighting_off = false;
+    bool sweep_translucent_off = false;
+    bool sweep_translucent_unlit = false;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;
     bool sun_direction_override = false;
