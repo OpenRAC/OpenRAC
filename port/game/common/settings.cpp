@@ -287,6 +287,8 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_shadows);
         } else if (key == "rim_light") {
             known = parse_bool(value, s.rim_light);
+        } else if (key == "texture_pack") {
+            known = parse_bool(value, s.texture_pack);
         } else if (key == "rim_shadow_lift") {
             known = parse_bool(value, s.rim_shadow_lift);
         } else if (key == "rim_lift_exponent") {
@@ -519,6 +521,7 @@ void save() {
         << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
         << "rim_light = " << (s.rim_light ? 1 : 0) << "\n"
+        << "texture_pack = " << (s.texture_pack ? 1 : 0) << "\n"
         << "rim_shadow_lift = " << (s.rim_shadow_lift ? 1 : 0) << "\n"
         << "rim_lift_exponent = " << s.rim_lift_exponent << "\n"
         << "rim_lift_max_gain = " << s.rim_lift_max_gain << "\n"

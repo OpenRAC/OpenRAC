@@ -187,6 +187,7 @@ add_library(openrac_renderer STATIC
   renderer/shader.cpp
   renderer/subsystems.cpp
   renderer/texture.cpp
+  renderer/texture_pack.cpp
   renderer/texture_pool.cpp
 )
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer

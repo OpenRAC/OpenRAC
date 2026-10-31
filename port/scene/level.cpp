@@ -19,6 +19,7 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
+#include "renderer/texture_pack.h"
 
 namespace openrac::scene {
 
@@ -102,6 +103,8 @@ int image_index(const fs::path& requested, LevelData& level) {
         log::warn("texture {}: {}", key, stbi_failure_reason());
         ++level.missing_images;
     }
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size.
+    renderer::texture_pack::replace(image);
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {

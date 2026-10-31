@@ -330,6 +330,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_DUMP_RAM` | `FRAME` (decimal) | At that frame, writes the game's 32 MB of main memory to `ram_FRAME.bin` in the working directory. | `port/game/common/frontend.cpp` |
 | `OPENRAC_DUMP_VIF` | `FILE` | Writes the VIF data collected from the frame's display list (the 2D path's DMA chain) to that file, each time the chain is followed. | `port/game/common/frontend.cpp` |
 | `OPENRAC_DUMP_TEXTURE` | `BLOCK` (hexadecimal) | Each conversion of a texture whose `TBP0` is that block is written to the working directory as `texture_<block>_<n>.ppm` (RGB) and `.pgm` (alpha). | `port/renderer/texture_pool.cpp` |
+| `OPENRAC_DUMP_TEXTURES` | `DIR` | Every texture, the levels' and the 2D layer's, written once to that folder as `<hash>.png`: the names a texture pack uses ([TEXTURE_PACKS.md](TEXTURE_PACKS.md)). | `port/renderer/texture_pack.cpp` |
 | `OPENRAC_DRAW_COVERAGE` | `FILE` | Writes to a JSON file what the game asked to draw and the port did not draw, per level ([REGRESSION.md](REGRESSION.md), What a run drew). | `port/game/common/frontend/draw_coverage.cpp` |
 | `OPENRAC_DUMP_DRAWS` | `N` or `N-M` (decimal) | Turns on the logging of the 2D path's draws for ticks `N` to `M` (or only `N`). | `port/game/common/frontend.cpp` |
 

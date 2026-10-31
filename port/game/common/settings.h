@@ -98,6 +98,9 @@ struct Settings {
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
     renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
     bool rim_light = true;
+    // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
+    // effect at the next start.
+    bool texture_pack = true;
     bool rim_shadow_lift = true;
     float rim_lift_exponent = 0.09f;
     float rim_lift_max_gain = 7.1f;
