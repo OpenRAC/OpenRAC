@@ -82,8 +82,103 @@ enum {
 #define VARIANT_INDEX (RAC1_ADDR(0x0013E130u) + 0x26u)
 #define HERO_MOBY (RAC1_ADDR(0x0013F450u) + 0x2080u)
 
+/*
+ * The flight's update (func_00230A90: a level's landing and take-off, and the flight between
+ * planets) moves each actor of the scene every frame, through render_sequence.objects[0..count)
+ * (the transfer state's +0x178 and +0x44), without a check for 0: an actor skipped above is read
+ * as the null moby, and its animation pointer (+0x78) read from low memory sent the port to an
+ * unmapped address (Blarg Station's landing with a mod's extra enemies in its 255 slots). So while
+ * that update runs the missing actors are left out of the list: the others packed in order at its
+ * start and the count lowered, then the list put back as it was. With every actor there nothing
+ * changes. If the game rewrote the list meanwhile (a new scene, the state cleared at the end),
+ * what it wrote stays.
+ */
+enum {
+    PACK_MAX = 64
+};
+
+static struct {
+    int flight; /* the flight's update runs */
+    int packed;
+    short count;          /* the list's count before packing */
+    short kept;           /* the count while packed */
+    gaddr slot[PACK_MAX]; /* the list before packing, 0 for a missing actor */
+} g_pack;
+
+static void pack(void) {
+    const gaddr state = OPENRAC_DATA(TRANSFER);
+    const short count = GREF(short, state + TRANSFER_PARTS);
+    if (g_pack.packed || count <= 0 || count > PACK_MAX) {
+        return;
+    }
+    short kept = 0;
+    for (int i = 0; i < count; i++) {
+        g_pack.slot[i] = GREF(gaddr, state + TRANSFER_SLOTS + (gaddr)i * 4u);
+        kept = (short)(kept + (g_pack.slot[i] != 0));
+    }
+    /* Every actor there: the list as it is. */
+    if (kept == count) {
+        return;
+    }
+    int k = 0;
+    for (int i = 0; i < count; i++) {
+        if (g_pack.slot[i] != 0) {
+            GREF(gaddr, state + TRANSFER_SLOTS + (gaddr)k++ * 4u) = g_pack.slot[i];
+        }
+    }
+    for (; k < count; k++) {
+        GREF(gaddr, state + TRANSFER_SLOTS + (gaddr)k * 4u) = 0;
+    }
+    GREF(short, state + TRANSFER_PARTS) = kept;
+    g_pack.count = count;
+    g_pack.kept = kept;
+    g_pack.packed = 1;
+}
+
+static void unpack(void) {
+    if (!g_pack.packed) {
+        return;
+    }
+    g_pack.packed = 0;
+    const gaddr state = OPENRAC_DATA(TRANSFER);
+    /* The game's own list since: left as it is. */
+    if (GREF(short, state + TRANSFER_PARTS) != g_pack.kept) {
+        return;
+    }
+    /* The packed list as packing left it: the kept actors in order, then 0. */
+    int k = 0;
+    for (int i = 0; i < g_pack.count; i++) {
+        gaddr want = 0;
+        if (i < g_pack.kept) {
+            while (g_pack.slot[k] == 0) {
+                k++;
+            }
+            want = g_pack.slot[k++];
+        }
+        if (GREF(gaddr, state + TRANSFER_SLOTS + (gaddr)i * 4u) != want) {
+            return;
+        }
+    }
+    for (int i = 0; i < g_pack.count; i++) {
+        GREF(gaddr, state + TRANSFER_SLOTS + (gaddr)i * 4u) = g_pack.slot[i];
+    }
+    GREF(short, state + TRANSFER_PARTS) = g_pack.count;
+}
+
+void rac1_scene_actors_pack(void) {
+    g_pack.flight = 1;
+    pack();
+}
+
+void rac1_scene_actors_unpack(void) {
+    g_pack.flight = 0;
+    unpack();
+}
+
 void func_00204FC0(RAC1_TYPE_func_00204FC0_params) {
     const gaddr state = OPENRAC_DATA(TRANSFER);
+    /* Run inside the flight's update (its next scene chunk): the parts' own slots back first. */
+    unpack();
     func_00118D80(0);
     func_0020C468(GREF(int, state + TRANSFER_UNK5C), (int)GREF(gaddr, state + TRANSFER_REC));
     func_00118D80(0);
@@ -146,5 +241,9 @@ void func_00204FC0(RAC1_TYPE_func_00204FC0_params) {
             const gaddr w = sp + 0x1C + (gaddr)k * 4u;
             GREF(int, w) = (int)sp + GREF(int, w);
         }
+    }
+    /* Inside the flight's update: the actors still missing (or newly so) left out again. */
+    if (g_pack.flight) {
+        pack();
     }
 }

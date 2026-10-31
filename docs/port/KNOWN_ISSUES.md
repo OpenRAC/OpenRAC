@@ -33,6 +33,17 @@ because the pool is full, it skips that actor and logs "scene actor
 skipped". The scene plays without that copy. This is a documented divergence
 from the console.
 
+**The ship's landing (2026-10-31):** a player crash on 0.10.0 (NTSC,
+Windows): Blarg Station (level 6), game mode 6, "read at game address
+0xC04851D7", with the difficulty mod's extra enemies filling the level's 255
+slots. The landing's actors (classes 0, 10 and 531) were skipped as above,
+and the flight's update (FlightUpdate, PAL `func_00230A90`, the US disc's
+`FUN_0022f778`) moves every actor of its list each frame without a check for
+0, so it read the null moby's animation pointer out of low memory. Now, while
+that update runs, the missing actors are left out of its list and put back
+after it (rac1/host/scene_actors.c, boot.c's wrap); the landing plays without
+them.
+
 **The bigger pool (2026-10-22):** `port/game/rac1/host/moby_pool.c`, on both
 discs. The pool size is data, not a fixed array:
 

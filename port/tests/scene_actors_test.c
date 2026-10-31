@@ -97,5 +97,82 @@ int main(void) {
     CHECK(GREF(unsigned char, MOBY_B + 0x73) == 0 && GREF(int, MOBY_B + 0x78) == REC + 0x400);
     CHECK(GREF(int, PARTS_B + 0x48) == REC + 0x210);
     CHECK(memcmp(low, ram, sizeof low) == 0);
+
+    /* The flight's update: a missing actor left out of the list while it runs, then put back. */
+    const gaddr slots = STATE + 0x178;
+    GREF(short, STATE + 0x44) = 3;
+    GREF(gaddr, slots) = MOBY_A;
+    GREF(gaddr, slots + 4) = 0;
+    GREF(gaddr, slots + 8) = MOBY_B;
+    rac1_scene_actors_pack();
+    CHECK(GREF(short, STATE + 0x44) == 2);
+    CHECK(
+        GREF(gaddr, slots) == MOBY_A && GREF(gaddr, slots + 4) == MOBY_B
+        && GREF(gaddr, slots + 8) == 0
+    );
+    rac1_scene_actors_unpack();
+    CHECK(GREF(short, STATE + 0x44) == 3);
+    CHECK(
+        GREF(gaddr, slots) == MOBY_A && GREF(gaddr, slots + 4) == 0
+        && GREF(gaddr, slots + 8) == MOBY_B
+    );
+    rac1_scene_actors_unpack();
+    CHECK(GREF(short, STATE + 0x44) == 3 && GREF(gaddr, slots + 4) == 0);
+
+    /* Every actor there: nothing changes. */
+    GREF(gaddr, slots + 4) = MOBY_B;
+    rac1_scene_actors_pack();
+    CHECK(GREF(short, STATE + 0x44) == 3 && GREF(gaddr, slots + 4) == MOBY_B);
+    rac1_scene_actors_unpack();
+    CHECK(GREF(short, STATE + 0x44) == 3 && GREF(gaddr, slots + 4) == MOBY_B);
+
+    /* The game cleared the list meanwhile: what it wrote stays. */
+    GREF(gaddr, slots + 4) = 0;
+    rac1_scene_actors_pack();
+    GREF(short, STATE + 0x44) = 0;
+    GREF(gaddr, slots) = 0;
+    GREF(gaddr, slots + 4) = 0;
+    rac1_scene_actors_unpack();
+    CHECK(GREF(short, STATE + 0x44) == 0 && GREF(gaddr, slots) == 0 && GREF(gaddr, slots + 8) == 0);
+
+    /* A scene chunk inside the update: its parts get their own slots, the missing one tried again
+     * and, the pool still full, left out again. */
+    GREF(short, STATE + 0x44) = 2;
+    GREF(gaddr, slots) = 0;
+    GREF(gaddr, slots + 4) = MOBY_B;
+    rac1_scene_actors_pack();
+    CHECK(GREF(short, STATE + 0x44) == 1 && GREF(gaddr, slots) == MOBY_B);
+    created[3] = 0;
+    func_00204FC0(0);
+    CHECK(creates == 4 && warnings == 2);
+    CHECK(
+        GREF(short, STATE + 0x44) == 1 && GREF(gaddr, slots) == MOBY_B
+        && GREF(gaddr, slots + 4) == 0
+    );
+    rac1_scene_actors_unpack();
+    CHECK(
+        GREF(short, STATE + 0x44) == 2 && GREF(gaddr, slots) == 0
+        && GREF(gaddr, slots + 4) == MOBY_B
+    );
+
+    /* Every actor there when the update starts, one of a chunk's parts missing: left out too. */
+    GREF(gaddr, slots) = MOBY_A;
+    GREF(gaddr, slots + 4) = MOBY_B;
+    rac1_scene_actors_pack();
+    CHECK(GREF(short, STATE + 0x44) == 2);
+    GREF(gaddr, slots + 4) = 0; /* the part's slot emptied before the chunk */
+    next_create = 3;
+    func_00204FC0(0);
+    CHECK(creates == 5 && warnings == 3);
+    CHECK(
+        GREF(short, STATE + 0x44) == 1 && GREF(gaddr, slots) == MOBY_A
+        && GREF(gaddr, slots + 4) == 0
+    );
+    rac1_scene_actors_unpack();
+    CHECK(
+        GREF(short, STATE + 0x44) == 2 && GREF(gaddr, slots) == MOBY_A
+        && GREF(gaddr, slots + 4) == 0
+    );
+    CHECK(memcmp(low, ram, sizeof low) == 0);
     return 0;
 }

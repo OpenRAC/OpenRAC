@@ -241,7 +241,10 @@ static int hero(float position[3], float rotation[3], int32_t *state) {
 /* The flight's update (func_00230A90), once a frame of the transition's flight loop (space.c). */
 void func_00230A90(void) {
     flight_frames = 2;
+    /* An actor the full moby pool left out is not moved through the null moby (scene_actors.c). */
+    rac1_scene_actors_pack();
     func_00230A90__game();
+    rac1_scene_actors_unpack();
 }
 
 /*
