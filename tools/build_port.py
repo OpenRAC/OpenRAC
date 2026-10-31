@@ -111,7 +111,8 @@ EMBREE_OPTIONS = {
     "EMBREE_GEOMETRY_QUAD": "OFF",
     "EMBREE_GEOMETRY_CURVE": "OFF",
     "EMBREE_GEOMETRY_SUBDIVISION": "OFF",
-    "EMBREE_GEOMETRY_USER": "OFF",
+    # The bake traces its interior area lights as user geometry (bake_emitters.cpp).
+    "EMBREE_GEOMETRY_USER": "ON",
     "EMBREE_GEOMETRY_INSTANCE": "OFF",
     "EMBREE_GEOMETRY_INSTANCE_ARRAY": "OFF",
     "EMBREE_GEOMETRY_GRID": "OFF",
