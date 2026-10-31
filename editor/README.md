@@ -690,14 +690,18 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   the original disc-slot ceiling. With the expanded 256 MiB arena, the larger
   pool can use the remaining 15-bit moby indices for spawned objects; the
   vanilla 32 MiB pool size and its three crowded levels are unchanged. Expanded
-  mode also uses a separate 64×64 moby grid with 32-bit cell counts and a
-  16 MiB pool of 32-byte blocks; the original 1,536-block grid remains in use
-  for vanilla sessions. If the expanded pool is exhausted, an updating moby
-  keeps its previous collision coverage and OpenRAC warns. The expanded target
-  pointer table can hold 32,768 entries; vanilla keeps the original 511-target
-  limit. Remaining game-format bounds include 32,768 source mobys, the
-  2,048 persistent spawn IDs, collision's 131,072-unit expanded world, and per-cell
-  vertex/face storage. These are game-structure limits, not disc-slot limits.
+  mode now uses a sparse moby grid across the positive 131,072-unit collision
+  world, with 16-unit cells, 65,536 hash slots, and a 14.5 MiB pool of 32-byte
+  blocks; vanilla retains the original 1,536-block grid. A single moby's grid
+  bounds must fit the expanded grid's cell capacity. If grid allocation fails,
+  that moby keeps its previous collision coverage and OpenRAC warns. The
+  expanded target pointer table can hold 32,768 entries; vanilla keeps the
+  original 511-target limit. Host moby bookkeeping and HUD markers now cover
+  all 32,768 signed-index slots. Remaining game-format bounds include 32,768
+  source mobys, the 2,048 persistent spawn IDs, collision's positive 131,072-unit
+  world, and per-cell vertex/face storage. Large-world moby collision and
+  levels using the upper moby-index range still need live-game validation.
+  These are game-structure limits, not disc-slot limits.
 
 What the decoded collision misses: the cells' quads are split into triangles
 here, and a face shared by cells appears once, so the tiles show the level's
