@@ -265,18 +265,32 @@ def publish(path: Path, build, anywhere: bool = False, replace: bool = False) ->
     dest = output_path(path, anywhere, replace)
     dest.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{dest.name}-", dir=dest.parent))
+    old = None
     try:
         build(temporary)
         if dest.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{dest.name}-old-", dir=dest.parent))
-            file_ops.rename(dest, old / dest.name)
-            file_ops.rename(temporary, dest)
+            backup = old / dest.name
+            file_ops.rename(dest, backup)
+            try:
+                file_ops.rename(temporary, dest)
+            except BaseException:
+                # The completed build is not published. Put the previous directory back;
+                # if the filesystem also refuses that rename, leave the backup recoverable.
+                try:
+                    if not dest.exists() and backup.exists():
+                        file_ops.rename(backup, dest)
+                except OSError:
+                    pass
+                raise
             shutil.rmtree(old)
         else:
             file_ops.rename(temporary, dest)
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)
+        if old is not None and old.exists() and not (old / dest.name).exists():
+            shutil.rmtree(old)
     return dest
 
 
