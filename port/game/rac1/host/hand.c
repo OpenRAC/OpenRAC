@@ -65,7 +65,7 @@ uint32_t openrac_lib_wad_decompress(const uint8_t *src, uint8_t *dst, uint32_t c
  * memory. Its output may run to the end of main memory. The level loader's gameplay header gets its
  * bigger moby pool here (moby_pool.c). */
 int func_0020C468(int src, int dst) {
-    const uint32_t end_of_ram = 0x02000000u;
+    const uint32_t end_of_ram = GUEST_RAM_SIZE;
     const gaddr to = (gaddr)dst;
     const uint32_t made = openrac_lib_wad_decompress((const uint8_t *)G(src), (uint8_t *)G(to),
                                                      to < end_of_ram ? end_of_ram - to : 0);
