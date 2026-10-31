@@ -344,7 +344,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      Kind::Flag, Truth::Set, "off",
      "detailed cascade and layer GPU timers"},
     {Var::TemporalUpscaler, "OPENRAC_TEMPORAL_UPSCALER",
-     Kind::Text, Truth::NotAFlag, "Arm ASR on a tile-based GPU, FSR 3.1 elsewhere",
+     Kind::Text, Truth::NotAFlag, "Arm ASR on Adreno, FSR 3.1 elsewhere; on Android ASR or none",
      "asr or fsr3: the temporal upscaler behind Enhanced temporal reconstruction"},
     {Var::TileBased, "OPENRAC_TILE_BASED",
      Kind::Text, Truth::NotAFlag, "the vendor's guess",

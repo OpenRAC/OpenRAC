@@ -66,9 +66,29 @@ const char* Fsr3::active_upscaler() {
     return g_active_upscaler.load(std::memory_order_relaxed);
 }
 
+#if defined(__ANDROID__)
+constexpr bool kFsrAllowed = false;  // too slow on phones' GPUs: ASR or nothing
+#else
+constexpr bool kFsrAllowed = true;
+#endif
+
+bool Fsr3::State::asr_possible() const {
+    return !asr_refused && asr_detail::preferred();
+}
+
 bool Fsr3::State::configure_upscaler(
     std::array<int, 2> size, std::array<int, 2> display_size, std::string& error
 ) {
+    plain = plain_wanted || (!kFsrAllowed && !(asr_possible() && asr_detail::supports(size)));
+    if (plain) {
+        sdk.release();
+        asr.release();
+        valid = valid && !use_asr;
+        use_asr = false;
+        g_active_upscaler = "none";
+        return true;
+    }
+
     // ASR is tried until it fails once; a device it cannot start on keeps FSR 3.1, and so do
     // frames too small for it.
     if (!asr_refused && asr_detail::preferred() && asr_detail::supports(size)) {
@@ -83,9 +103,16 @@ bool Fsr3::State::configure_upscaler(
             return true;
         }
 
-        log::warn("Arm ASR unavailable, upscaling with FSR 3.1: {}", reason);
+        log::warn("Arm ASR unavailable: {}", reason);
         asr.release();
         asr_refused = true;
+        if (!kFsrAllowed) {
+            plain = true;
+            valid = false;
+            use_asr = false;
+            g_active_upscaler = "none";
+            return true;
+        }
     }
 
     if (use_asr) {
@@ -221,9 +248,16 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     last_time = now;
     dispatch.sharpness = std::clamp(sharpness, 0.0f, 1.0f);
     dispatch.vertical_fov = 2 * std::atan(1 / camera.projection[5]);
-    const int phases = ffxFsr3UpscalerGetJitterPhaseCount(size[0], frame.display.width());
-    ffxFsr3UpscalerGetJitterOffset(&dispatch.jitter[0], &dispatch.jitter[1], jitter_index, phases);
-    jitter_index = (jitter_index + 1) % phases;
+    // Without an upscaler nothing gathers jittered frames: the camera stays still.
+    if (plain) {
+        dispatch.jitter = {0.0f, 0.0f};
+    } else {
+        const int phases = ffxFsr3UpscalerGetJitterPhaseCount(size[0], frame.display.width());
+        ffxFsr3UpscalerGetJitterOffset(
+            &dispatch.jitter[0], &dispatch.jitter[1], jitter_index, phases
+        );
+        jitter_index = (jitter_index + 1) % phases;
+    }
     renderer::Mat4 offset = renderer::identity();
     offset[12] = 2 * dispatch.jitter[0] / static_cast<float>(size[0]);
     offset[13] = 2 * dispatch.jitter[1] / static_cast<float>(size[1]);
@@ -277,10 +311,13 @@ bool Fsr3::begin(
 ) {
     State& state = *m_state;
 
-    if (quality == renderer::TemporalQuality::Off && frame.motion_blur
-        && frame.motion_blur_strength > 0) {
+    // Motion blur with temporal upscaling off: its motion is drawn, no upscaler runs.
+    const bool blur_only = quality == renderer::TemporalQuality::Off && frame.motion_blur
+                           && frame.motion_blur_strength > 0;
+    if (blur_only) {
         quality = renderer::TemporalQuality::NativeAA;
     }
+    state.plain_wanted = blur_only || (!kFsrAllowed && !state.asr_possible());
     state.blur_strength = frame.motion_blur ? frame.motion_blur_strength : 0.0f;
     state.blur_settings = frame.blur_settings;
     state.blur_mode_changed = state.camera_blur != frame.camera_motion_blur;
@@ -298,8 +335,11 @@ bool Fsr3::begin(
         return false;
     }
 
-    const auto size =
-        fsr3_detail::render_extent({frame.display.width(), frame.display.height()}, quality);
+    // Without an upscaler the world is drawn at the picture's own size.
+    const auto size = fsr3_detail::render_extent(
+        {frame.display.width(), frame.display.height()},
+        state.plain_wanted ? renderer::TemporalQuality::NativeAA : quality
+    );
 
     state.scene = &frame.scene;
     // A failed setup cannot install callbacks or leave a jittered native fallback.
