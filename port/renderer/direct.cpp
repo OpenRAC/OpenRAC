@@ -1259,27 +1259,31 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     // (a sprite has no perspective).
     DirectVertex p = convert(a);
     DirectVertex q = convert(b);
-    if (!attributes().tme) {
-        // A plain fill covers the chip's pixels from ceil(x0) to ceil(x1) - 1, so its edges go
-        // on those pixels' edges. The game's fills run from -0.5 to 511.5; drawn there, the last
-        // half pixel of the right and bottom was never filled, and a fade left the old picture
-        // showing in a line along them (before the captions on black).
-        // (Moved on, never back: a corner stays at or past its own position.)
-        auto snapped = [this](GsVertex v) {
-            const std::int64_t ofx = context().xyoffset.ofx;
-            const std::int64_t ofy = context().xyoffset.ofy;
-            v.x =
-                static_cast<decltype(v.x)>(ofx + ceil16(static_cast<std::int64_t>(v.x) - ofx) * 16);
-            v.y =
-                static_cast<decltype(v.y)>(ofy + ceil16(static_cast<std::int64_t>(v.y) - ofy) * 16);
+    if (!attributes().tme && offscreen_target() == 0) {
+        // A plain fill that covers the screen's last column or line (the chip fills a pixel from
+        // ceil(x0) to ceil(x1) - 1) goes on to the screen's edge. The game's fills and fades run
+        // from -0.5 to 511.5; drawn there, the last half pixel of the right and bottom was never
+        // filled, and a fade left the old picture showing in a line along them (before the
+        // captions on black). Only those edges move, so nothing inside the screen shifts.
+        const std::int64_t ofx = context().xyoffset.ofx;
+        const std::int64_t ofy = context().xyoffset.ofy;
+        const std::int64_t width = 2 * (2048 - ofx / 16);
+        const std::int64_t height = 2 * (2048 - ofy / 16);
+        auto to_edge = [&](GsVertex v) {
+            if (ceil16(static_cast<std::int64_t>(v.x) - ofx) >= width) {
+                v.x = static_cast<decltype(v.x)>(ofx + width * 16);
+            }
+            if (ceil16(static_cast<std::int64_t>(v.y) - ofy) >= height) {
+                v.y = static_cast<decltype(v.y)>(ofy + height * 16);
+            }
             return convert(v);
         };
-        const DirectVertex sp = snapped(a);
-        const DirectVertex sq = snapped(b);
-        p.x = sp.x;
-        p.y = sp.y;
-        q.x = sq.x;
-        q.y = sq.y;
+        const DirectVertex ep = to_edge(a);
+        const DirectVertex eq = to_edge(b);
+        p.x = ep.x;
+        p.y = ep.y;
+        q.x = eq.x;
+        q.y = eq.y;
     }
     const float s0 = p.s / p.q;
     const float t0 = p.t / p.q;

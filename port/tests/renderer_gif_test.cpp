@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <utility>
 
 #include "check.h"
 #include "renderer/direct.h"
@@ -296,25 +297,29 @@ void no_sample_no_pixel() {
           == 0);
 }
 
-// A plain fill goes to the edges of the pixels the chip fills: the game's fills run from -0.5 to
-// 511.5, and drawn there they left the right and bottom half pixel unfilled (a line of the old
-// picture along them under a fade).
+// A plain fill over the screen's last column or line goes on to its edge: the game's fills run
+// from -0.5 to 511.5, and drawn there they left the right and bottom half pixel unfilled (a line
+// of the old picture along them under a fade). Edges inside the screen stay where they are.
 void fill_to_the_edges() {
     TexturePool textures;
-    GifInterpreter gif(textures);
-    GifBuilder b;
-    b
-        .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
-             {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
-             {gs::kXyz2, xyz2(-0.5, 99.5, 0)},
-             {gs::kXyz2, xyz2(511.5, 223.5, 0)}},
-            true);
-    CHECK(gif.gif(b.bytes));
-    CHECK(gif.vertices().size() == 6);
-    const DirectVertex& first = gif.vertices()[0];
-    const DirectVertex& last = gif.vertices()[4];
-    CHECK(near(first.x, -1.0f) && near(first.y, 1.0f - 100.0f / 224.0f));
-    CHECK(near(last.x, 1.0f) && near(last.y, 0.0f));
+    auto corners = [&](double x0, double y0, double x1, double y1) {
+        GifInterpreter gif(textures);
+        GifBuilder b;
+        b
+            .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+                 {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
+                 {gs::kXyz2, xyz2(x0, y0, 0)},
+                 {gs::kXyz2, xyz2(x1, y1, 0)}},
+                true);
+        CHECK(gif.gif(b.bytes));
+        CHECK(gif.vertices().size() == 6);
+        return std::make_pair(gif.vertices()[0], gif.vertices()[4]);
+    };
+    const auto [first, last] = corners(-0.5, 99.5, 511.5, 447.5);
+    CHECK(near(first.x, -1.0f - 0.5f / 256.0f) && near(first.y, 1.0f - 99.5f / 224.0f));
+    CHECK(near(last.x, 1.0f) && near(last.y, -1.0f));
+    const auto [inner_first, inner_last] = corners(9.5, 99.5, 300.5, 200.5);
+    CHECK(near(inner_last.x, 300.5f / 256.0f - 1.0f) && near(inner_last.y, 1.0f - 200.5f / 224.0f));
 }
 
 void textures_and_vif() {
