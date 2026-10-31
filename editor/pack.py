@@ -57,6 +57,7 @@ INSTANCE = re.compile(r'instance=ExtResource\("([^"]+)"\)')
 RESOURCE = re.compile(r'^\[ext_resource [^\]]*path="([^"]+)"[^\]]*id="([^"]+)"')
 CLASS_SCENE = re.compile(r"/(moby|tie|shrub)_(\d+)\.(?:tscn|glb)$")
 PROPERTY = re.compile(r"^([A-Za-z_/0-9]+) = (.*)$")
+RAC1_SPAWN_ID_COUNT = 0x800  # RAC1's 64-word per-level killed-state bitset.
 IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
 
 
@@ -309,10 +310,19 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
     pvars = gp.pvar_table(gameplay, gp.pvar_count(gameplay, used))
     data_start, data_end = gp.extent(gameplay, gp.DATA)
     data = bytearray(gameplay[data_start:data_end]) if data_start > 0 else bytearray()
-    spawn = max((m["fields"]["spawn_id"] for m in originals), default=-1)
+    used_spawn_ids = {m["fields"]["spawn_id"] for m in originals
+                      if 0 <= m["fields"]["spawn_id"] < RAC1_SPAWN_ID_COUNT}
+    free_spawn_ids = [i for i in range(RAC1_SPAWN_ID_COUNT) if i not in used_spawn_ids]
+    without_save_id = 0
     for record, model in added:
-        spawn += 1
-        record["spawn_id"] = spawn
+        if free_spawn_ids:
+            record["spawn_id"] = free_spawn_ids.pop(0)
+        else:
+            # The game's per-level and session killed-state bitsets hold 2,048 IDs. Keep
+            # excess additions usable as non-persistent mobys instead of indexing past them.
+            record["spawn_id"] = -1
+            record["spawn_flags"] = 0
+            without_save_id += 1
         source = record["pvar_index"]
         if 0 <= source < len(pvars):
             at, size = pvars[source]
@@ -331,6 +341,9 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
         if 0 <= group < len(group_lists):
             group_lists[group] = (group_lists[group] or []) + [len(table)]
         table.append(RECORD.pack(*(record[f] for f in FIELDS)))
+    if without_save_id:
+        changes.append(f"{without_save_id} added mobys have no free RAC1 spawn ID; made non-persistent "
+                       "(spawn ID -1, spawn flags 0)")
     # A link is a moby's place in the table, inside a pvar block: it follows the moby.
     for pvar, where in links:
         at = pvars[pvar][0] + where

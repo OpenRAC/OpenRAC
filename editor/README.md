@@ -671,8 +671,11 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   arena is active, both PAL and NTSC-U now allocate remap storage from level
   memory for tables above 64 records. The vanilla 32 MiB path keeps its
   original allocation. Signed-short remap values still limit a source gameplay
-  table to 32,768 mobys. Expanded streams remove the original disc-slot ceiling;
-  they do not make those game structures unlimited.
+  table to 32,768 mobys. RAC1's killed-state bitsets hold 2,048 spawn IDs;
+  additions use unused IDs in that range, then become non-persistent (spawn ID
+  `-1`, spawn flags `0`) with a note in `changes.txt`. Expanded streams remove
+  the original disc-slot ceiling; they do not make those game structures
+  unlimited.
 
 What the decoded collision misses: the cells' quads are split into triangles
 here, and a face shared by cells appears once, so the tiles show the level's
