@@ -28,7 +28,7 @@ import tempfile
 import time
 
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
-from openrac_common import files as file_ops  # noqa: E402
+from openrac_common import background, files as file_ops  # noqa: E402
 
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
@@ -261,6 +261,18 @@ def publish(path: Path, build, anywhere: bool = False, replace: bool = False) ->
         if temporary.exists():
             shutil.rmtree(temporary)
     return dest
+
+
+def default_jobs() -> int:
+    """How many levels are written at once: all but a few of the CPU's threads
+    (background.cpu_budget), so the computer stays usable, unless OPENRAC_EXTRACT_JOBS says
+    otherwise: a number, or "all" for every thread."""
+    wanted = os.environ.get("OPENRAC_EXTRACT_JOBS", "").strip().lower()
+    if wanted == "all":
+        return os.cpu_count() or 1
+    if wanted.isdigit() and int(wanted) > 0:
+        return int(wanted)
+    return background.cpu_budget()
 
 
 def worker_pool(jobs: int) -> Executor:
@@ -509,8 +521,8 @@ def main() -> None:
     export.add_argument("out", type=Path)
     export.add_argument("--level", type=int, action="append",
                         help="a level to export (repeatable; default: all)")
-    export.add_argument("--jobs", type=int, default=os.cpu_count() or 1,
-                        help="levels to export at once (default: one per CPU)")
+    export.add_argument("--jobs", type=int, default=default_jobs(),
+                        help="levels to export at once (default: all but a few CPU threads, or OPENRAC_EXTRACT_JOBS)")
     export.add_argument("--terrain-lod", type=int, choices=(0, 2), default=0,
                         help="terrain detail: 0 finest (default), 2 coarsest")
     export.add_argument("--split", action="store_true",
@@ -525,8 +537,8 @@ def main() -> None:
     native.add_argument("out", type=Path)
     native.add_argument("--level", type=int, action="append",
                         help="a level to export (repeatable; default: all)")
-    native.add_argument("--jobs", type=int, default=os.cpu_count() or 1,
-                        help="levels to export at once (default: one per CPU)")
+    native.add_argument("--jobs", type=int, default=default_jobs(),
+                        help="levels to export at once (default: all but a few CPU threads, or OPENRAC_EXTRACT_JOBS)")
     native.add_argument("--terrain-lod", type=int, choices=(0, 2), default=0,
                         help="terrain detail: 0 finest (default), 2 coarsest")
     native.add_argument("--replace", action="store_true",
@@ -546,6 +558,9 @@ def main() -> None:
     dump.add_argument("out", type=Path)
     dump.add_argument("--level", type=int, required=True, action="append")
     args = parser.parse_args()
+    if args.command in ("godot", "port"):
+        # Whatever the player does comes first; the levels' processes have the rest of the CPU.
+        background.lower_priority()
     try:
         with Disc(args.iso) as disc:
             later = wads.identify(disc)

@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 from pathlib import Path
 import pickle
 import sys
@@ -47,6 +48,24 @@ class OutputTests(unittest.TestCase):
 
 
 class PoolTests(unittest.TestCase):
+    def test_jobs_leave_threads_free_unless_told(self):
+        with mock.patch.dict(os.environ, {}, clear=False), mock.patch("os.cpu_count", return_value=8):
+            os.environ.pop("OPENRAC_EXTRACT_JOBS", None)
+            self.assertEqual(extract.default_jobs(), 6)
+            for given, jobs in (("all", 8), ("3", 3), ("0", 6), ("many", 6)):
+                os.environ["OPENRAC_EXTRACT_JOBS"] = given
+                self.assertEqual(extract.default_jobs(), jobs, given)
+
+    def test_level_exports_lower_their_priority(self):
+        for command, lowered in (("port", True), ("godot", True), ("survey", False)):
+            args = [command, "missing.iso"] + (["build/out"] if command != "survey" else [])
+            with mock.patch.object(sys, "argv", ["extract.py", *args]), \
+                    mock.patch.object(extract.background, "lower_priority") as lower, \
+                    mock.patch.object(extract, "Disc", side_effect=FileNotFoundError("missing.iso")), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), self.assertRaises(SystemExit):
+                extract.main()
+            self.assertEqual(lower.called, lowered, command)
+
     def test_processes_where_python_has_them(self):
         with worker_pool(2) as pool:
             self.assertIsInstance(pool, ProcessPoolExecutor)
