@@ -792,7 +792,7 @@ bool run_over() {
 
 // Writes the game's main memory at the frame OPENRAC_DUMP_RAM names.
 void dump_ram(std::span<const std::uint8_t> ram) {
-    // OPENRAC_DUMP_RAM=FRAME: the game's 32 MB of main memory at that frame, to ram_FRAME.bin.
+    // OPENRAC_DUMP_RAM=FRAME: the game's active main memory at that frame, to ram_FRAME.bin.
     static const std::optional<std::uint64_t> dump_ram = env_frame(env::Var::DumpRam);
     if (dump_ram && g->index == *dump_ram) {
         const std::string path = std::format("ram_{}.bin", g->index);

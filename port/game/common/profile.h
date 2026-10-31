@@ -106,7 +106,7 @@ class GameProfile {
 public:
     virtual ~GameProfile() = default;
 
-    // Reads the camera and the live mobys from the game's 32 MB of main memory, `ram`. `level` is
+    // Reads the camera and the live mobys from the game's active main memory, `ram`. `level` is
     // the level program loaded now (-1 for the boot program, the title and the menus): each has its
     // globals at other addresses. A table pointer outside memory leaves the moby list empty.
     virtual GameState read_state(std::span<const std::uint8_t> /*ram*/, int /*level*/) const {

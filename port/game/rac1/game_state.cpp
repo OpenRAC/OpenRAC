@@ -325,8 +325,14 @@ const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram) {
 bool load_memory(const std::filesystem::path& path, std::vector<std::uint8_t>& out, std::string& error) {
     std::ifstream f(path, std::ios::binary);
     out.assign(std::istreambuf_iterator<char>(f), {});
-    if (out.size() != 32u * 1024 * 1024) {
-        error = std::format("{}: not a 32 MB memory picture ({} bytes)", path.string(), out.size());
+    if (out.size() != GUEST_RAM_SIZE && out.size() != GUEST_RAM_EXPANDED_SIZE) {
+        error = std::format(
+            "{}: memory picture is {} bytes; expected {} or {}",
+            path.string(),
+            out.size(),
+            GUEST_RAM_SIZE,
+            GUEST_RAM_EXPANDED_SIZE
+        );
         return false;
     }
     return true;
