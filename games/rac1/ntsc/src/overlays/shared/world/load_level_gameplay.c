@@ -506,7 +506,7 @@ extern void rac1_check_level_heap(u32 cursor, u64 bytes);
         }                                                                                          \
     } while (0)
 #else
-#define EXPANDED_LEVEL_RAM (GetMemorySize() > 0x02000000)
+#define EXPANDED_LEVEL_RAM 0 /* the console's 32 MiB: the retail code, unchanged */
 #define CHECK_LEVEL_HEAP(cursor, bytes) ((void)0)
 #endif
 
