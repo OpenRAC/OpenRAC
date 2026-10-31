@@ -287,6 +287,12 @@ static uint64_t grid_rect_area(GridRect rect) {
                       : 0;
 }
 
+static uint32_t grid_rect_packed(GridRect rect) {
+    return rect.valid ? ((rect.x0 & 255u) | ((rect.y0 & 255u) << 8)
+                         | ((rect.x1 & 255u) << 16) | ((rect.y1 & 255u) << 24))
+                      : 0;
+}
+
 static GridRect grid_rect_load(gaddr base, uint16_t id) {
     const gaddr at = base + GRID_BOUNDS + (gaddr)id * 8u;
     const unsigned x0 = GREF(uint16_t, at);
@@ -346,11 +352,12 @@ void game_rac1_update_expanded_moby_grid(gaddr moby, uint32_t next) {
     const uint16_t id = (uint16_t)raw_id;
     const gaddr base = rac1_expanded_grid_base();
     const GridRect old = grid_rect_load(base, id);
-    /* The native updater uses -1 to remove a moby from the grid. Other packed values are too
-     * narrow to describe the expanded rectangle, so derive those from the current sphere. */
-    GridRect fresh = {0, 0, 0, 0, 0};
-    if (next != UINT32_MAX) {
-        fresh = moby_rect(moby);
+    /* The native updater uses -1 to remove a moby from the grid. The retail packed rectangle can
+     * also equal -1 at a valid expanded coordinate, so distinguish it by recomputing the sphere's
+     * low-byte rectangle before treating it as removal. */
+    GridRect fresh = moby_rect(moby);
+    if (next == UINT32_MAX && grid_rect_packed(fresh) != next) {
+        fresh.valid = 0;
     }
     if (old.valid == fresh.valid && (!old.valid || (old.x0 == fresh.x0 && old.y0 == fresh.y0
         && old.x1 == fresh.x1 && old.y1 == fresh.y1))) {
