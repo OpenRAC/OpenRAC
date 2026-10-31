@@ -374,12 +374,58 @@ class GameData(unittest.TestCase):
         self.assertEqual(out[self.pvar_at(out, 2, 0x1F)], 1)
         self.assertEqual(gd.SOUND_HEAD.unpack_from(gd.table(out, gd.SOUNDS, gd.SOUND_SIZE)[0])[4], 40.0)
 
-    def test_cameras_are_neither_added_nor_deleted(self):
+    def test_duplicate_camera_gets_a_private_pvar_block(self):
+        blob, shared = gp.shared(self.g)
+        source = gp.replace(self.g, {
+            gp.LINKS: gp.write_fixups(gp.fixups(self.g, gp.LINKS) + [(2, 0x24)]),
+            gp.POINTERS: gp.write_fixups(gp.fixups(self.g, gp.POINTERS) + [(2, 0x3C)]),
+            gp.SHARED: gp.write_shared(blob, shared + [(2, 0x40, 0)]),
+        })
+        text = scene_text(source)
+        match = re.search(r'^\[node name="Camera_0000"[^\n]*\n(?:(?!\[)[^\n]*\n)*', text, re.M)
+        duplicate = match.group(0).replace('Camera_0000', 'Camera_Custom', 1)
+        duplicate = edit(duplicate, "Camera_Custom", "metadata/rc1_pv_priority", "3")
+        out, changes, problems = pack_level(0, source, text + "\n" + duplicate)
+        self.assertEqual(problems, [])
+        self.assertIn("Camera_Custom: added camera with copied pvars (class 17)", changes)
+        cameras = gd.table(out, gd.CAMERAS, gd.CAMERA_SIZE)
+        self.assertEqual(len(cameras), 3)
+        added = gd.CAMERA.unpack(cameras[2])
+        self.assertEqual((added[0], added[7]), (17, 4))
+        pvars = gd.Pvars(out)
+        source, copied = pvars.block(2), pvars.block(4)
+        self.assertIsNotNone(source)
+        self.assertIsNotNone(copied)
+        self.assertNotEqual(source, copied)
+        self.assertEqual(copied[0x1C], 3)
+        self.assertEqual(struct.unpack_from("<h", copied, 0x2E)[0], 0)
+        self.assertIn((4, 0x24), gp.fixups(out, gp.LINKS))
+        self.assertIn((4, 0x3C), gp.fixups(out, gp.POINTERS))
+        self.assertIn((4, 0x40, 0), gp.shared(out)[1])
+
+    def test_added_camera_cannot_reference_a_volume_missing_from_camera_grid(self):
+        match = re.search(r'^\[node name="Camera_0000"[^\n]*\n(?:(?!\[)[^\n]*\n)*', self.text, re.M)
+        duplicate = match.group(0).replace('Camera_0000', 'Camera_Custom', 1)
+        duplicate = duplicate.replace("metadata/rc1_pv_cuboid = 0", "metadata/rc1_pv_cuboid = 2")
+        _, _, problems = self.pack(self.text + "\n" + duplicate)
+        self.assertTrue(any("camera grid cannot be rebuilt" in problem for problem in problems))
+
+    def test_camera_additions_stop_at_the_runtime_slot_limit(self):
+        match = re.search(r'^\[node name="Camera_0000"[^\n]*\n(?:(?!\[)[^\n]*\n)*', self.text, re.M)
+        template = match.group(0)
+        copies = [template.replace("Camera_0000", f"Camera_Copy_{i:02}", 1) for i in range(47)]
+        packed, _, problems = self.pack(self.text + "\n" + "\n".join(copies[:46]))
+        self.assertEqual(problems, [])
+        self.assertEqual(len(gd.table(packed, gd.CAMERAS, gd.CAMERA_SIZE)), 48)
+        _, _, problems = self.pack(self.text + "\n" + "\n".join(copies))
+        self.assertTrue(any("at most 48 camera records" in problem for problem in problems))
+
+    def test_camera_deletion_is_rejected(self):
         text = re.sub(r'\[node name="Camera_0001"[^\n]*\n(?:(?!\[)[^\n]*\n)*', "", self.text)
-        text += '\n[node name="Camera_0099" parent="Game/Cameras"]\n'
         out, changes, problems = self.pack(text)
         self.assertEqual((out, changes), (self.g, []))
-        self.assertEqual(len(problems), 2)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("deleting cameras is not supported", problems[0])
 
     def test_level_settings_and_the_ship(self):
         text = edit(self.text, "LevelSettings", "metadata/rc1_death_height", "-4.5")
