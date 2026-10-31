@@ -71,6 +71,23 @@
         },
         "setup": "python3 tools/levels.py dump in games/rac2/ntsc"
       }
+    },
+    "pal": {
+      "region": "PAL (Europe)",
+      "serial": "SCES_516.07",
+      "disc": {
+        "file": "SCES_516.07.iso",
+        "video": "PAL",
+        "size": 3548545024,
+        "sha256": "519f9fa78b8e821b6bb7fa501fc10e8b10f378e27a6410f68d0dd8952860b41a",
+        "files": 96,
+        "contents": "8a34bee424474fc92940554d98d2678d1c1ef58cc42f4dcb4df3ab7d48216edc"
+      },
+      "boot": {
+        "file": "SCES_516.07",
+        "sha1": "cb59ce5396ddebb8aa539b0847f8bf66d6a47fe0"
+      },
+      "target": "Extraction only: the disc is recognised and its files are read. Nothing is built from the PAL release yet (games/rac2/ntsc/docs/REGIONS.md), and there is no PAL port to play it with."
     }
   }
 }

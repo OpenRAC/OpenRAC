@@ -85,6 +85,13 @@ class ExtractTests(unittest.TestCase):
                 extractor.extract(self.iso, "rac9", self.proj, minimum=0)
         self.assertEqual(caught.exception.code, 4002)
 
+    def test_knows_the_rac2_pal_disc(self):
+        # Issue #66: the European R&C2 disc is a known build (extraction only, no port yet).
+        version = extractor.builds("rac2")["SCES_516.07"][2]
+        self.assertEqual(version["boot"]["sha1"], "cb59ce5396ddebb8aa539b0847f8bf66d6a47fe0")
+        self.assertEqual(version["disc"]["files"], 96)
+        self.assertNotIn("port", version)
+
     def test_refuses_another_game(self):
         with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())):
             with self.assertRaises(extractor.ExtractError) as caught:

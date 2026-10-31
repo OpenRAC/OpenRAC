@@ -1755,6 +1755,18 @@
         ]
       }
     ],
+    "rac2/pal": [
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "Going Commando's European release as a native PC program. Only its files are read so far: the disc is recognised and extracted, and nothing is built from it yet.",
+        "kind": "play",
+        "area": "port",
+        "state": "planned",
+        "docs": "games/rac2/ntsc/docs/REGIONS.md",
+        "todo": "Needs rac2/ntsc to get past the first level load, then a PAL function map (tools/versions.py) and port/game/rac2-pal, as rac1 has for its PAL release."
+      }
+    ],
     "rac3/ntsc": [
       {
         "id": "setup",
