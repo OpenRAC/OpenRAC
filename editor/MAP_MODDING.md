@@ -43,15 +43,15 @@ water. The editor's surface selector documents these meanings.
 
 ### Import static scenery from another level or your own model
 
-Use a static `.glb` from an extracted donor level or make your own in Blender or
-another modeling tool and import it into the Godot project. Static imports add
+Use a static `.glb` or `.gltf` from an extracted donor level or make your own in
+Blender or another modeling tool and import it into the Godot project. Static imports add
 geometry to the map; they do not add a moby class or enemy behavior. The model
 must use triangle meshes, PNG or JPEG textures, and supported glTF materials. Texture
-files must be inside the donor level or creator project; unsupported animation,
-skinning and behavior are refused.
+and buffer files must be inside the donor level or creator project; `.gltf` buffer files
+are flattened into the project-local import. Unsupported animation, skinning and behavior are refused.
 
 For a model already in the Godot project, open the extracted level scene and
-choose **Add static GLB to map** in the Collision dock. The editor instances it
+choose **Add static glTF model to map** in the Collision dock. The editor instances it
 under **Game/StaticAssets**, where you can position, rotate and scale it. This
 is undoable and keeps the model linked to its project asset. For a donor model
 outside the project, use the import command below to copy it and its textures
@@ -59,10 +59,10 @@ into the project first.
 
 ```sh
 python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project YOUR_PROJECT --level 2 --name MyDecor --at X Y Z --collision mesh
-python editor/static_assets.py --source YOUR_PROJECT/models/my-building.glb --project YOUR_PROJECT --level 2 --name MyBuilding --at X Y Z --collision mesh
+python editor/static_assets.py --source YOUR_PROJECT/models/my-building.gltf --project YOUR_PROJECT --level 2 --name MyBuilding --at X Y Z --collision mesh
 ```
 
-The tool copies the mesh and its referenced PNG/JPEG textures, adds an instance under
+The tool copies the mesh data and its referenced PNG/JPEG textures, adds an instance under
 **Game/StaticAssets**, and backs up the level scene in `.openrac-backups/`.
 Texture names are based on content, so two levels' `tie_0001.png` files cannot
 silently overwrite each other. Source files are copied into the project; the

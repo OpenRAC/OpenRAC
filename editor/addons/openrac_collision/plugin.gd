@@ -109,7 +109,7 @@ func _enter_tree() -> void:
 	static_model_dialog = EditorFileDialog.new()
 	static_model_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
 	static_model_dialog.access = EditorFileDialog.ACCESS_RESOURCES
-	static_model_dialog.add_filter("*.glb ; glTF Binary model")
+	static_model_dialog.add_filter("*.glb,*.gltf ; glTF model")
 	static_model_dialog.file_selected.connect(handle_static_model_selected)
 	add_child(static_model_dialog)
 	scene_changed.connect(handle_scene_changed)
@@ -147,10 +147,10 @@ func add_static_model() -> void:
 	static_model_dialog.popup_file_dialog()
 
 
-## Instances a project GLB below Game/StaticAssets as an undoable scene edit.
+## Instances a project GLB/glTF below Game/StaticAssets as an undoable scene edit.
 func handle_static_model_selected(path: String) -> void:
-	if not path.begins_with("res://") or path.get_extension().to_lower() != "glb":
-		dock.show_report("Choose a project-local .glb model.")
+	if not path.begins_with("res://") or path.get_extension().to_lower() not in ["glb", "gltf"]:
+		dock.show_report("Choose a project-local .glb or .gltf model.")
 		return
 	var packed_scene := ResourceLoader.load(path) as PackedScene
 	if packed_scene == null:
@@ -181,7 +181,7 @@ func handle_static_model_selected(path: String) -> void:
 		suffix += 1
 	instance.name = node_name
 	var undo_redo := get_undo_redo()
-	undo_redo.create_action("Add static GLB to map", UndoRedo.MERGE_DISABLE, scene_root)
+	undo_redo.create_action("Add static glTF model to map", UndoRedo.MERGE_DISABLE, scene_root)
 	if make_group:
 		undo_redo.add_do_method(game, "add_child", group)
 		undo_redo.add_do_property(group, "owner", scene_root)
