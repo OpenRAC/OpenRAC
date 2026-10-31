@@ -128,12 +128,15 @@ for that level's collision only, what the game cannot hold, and says why in
 **Check the limits** estimates it), anything outside 0 to 1024 units on an
 axis. Positions snap to the game's grid, 1/16 unit across and 1/64 up; a
 sliver that becomes a line there is left out, and a large face is cut in
-pieces small enough for the cells.
+pieces small enough for the cells. Edited and added hero-wall meshes split into
+game groups of at most 255 triangles and 255 unique vertices.
 
 A level whose collision grew past its place on the disc gets it moved to the
-end of the level's core data, which takes more of the level's memory. That
-has not been tried in the running game yet: keep additions modest, and report
-how it goes.
+end of the level's core data, which takes more of the level's memory. With an
+expanded level-data stream, the editor can move a larger compressed core into
+virtual sectors while leaving the disc image unchanged. The game still has
+format and memory limits; dense-cell limits and maximum-size gameplay behavior
+remain under investigation.
 
 ### Advanced: the tiles in Blender
 
@@ -150,8 +153,9 @@ Keep the file in the level's `collision/` folder under its own name; Godot
 reimports it when the editor gets focus. The dock's edits apply on top of
 what the tiles hold, so edit a tile in Blender before you edit its faces in
 the dock (a face the dock removed that the tile no longer has is reported, not
-guessed at). Hero walls are the same under `Game/HeroWalls`, at most 255
-triangles per wall (more become several walls).
+guessed at). Hero walls are the same under `Game/HeroWalls`; each exported
+game group holds at most 255 triangles and 255 unique vertices, and larger
+meshes split into several groups.
 
 ## Object collision: a crate's shape
 
