@@ -84,6 +84,23 @@ def ours(path: Path, kind: str) -> None:
                           code="folder-not-ours")
 
 
+def ours_packed(path: Path, version: str) -> None:
+    """Refuses to replace a non-empty directory unless it is this version's RAC1 pack."""
+    if not path.exists():
+        return
+    if not path.is_dir():
+        raise FormatError(f"{path} is not a packed-level folder; choose another folder", code="folder-not-ours")
+    if not any(path.iterdir()):
+        return
+    try:
+        manifest = json.loads((path / "packed.json").read_text())
+    except (OSError, ValueError):
+        manifest = None
+    if not isinstance(manifest, dict) or manifest.get("game") != "rac1" or manifest.get("version") != version:
+        raise FormatError(f"{path} holds files that are not a RAC1 {version.upper()} packed-level export; "
+                          "choose another folder", code="folder-not-ours")
+
+
 def level_schema(level_dir: Path) -> int | None:
     """The level.json schema a Godot level was written with, None when it has none."""
     try:
@@ -603,6 +620,7 @@ def main() -> None:
                     if game != "rac1":
                         raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet",
                                           code="game-not-packable")
+                ours_packed(dest, disc.version.key)
                 # Build beside the published pack. An unsupported Godot edit must not leave a
                 # half pack behind or replace the last good one: pack.py records such edits in
                 # changes.txt so authors can see exactly what needs attention.
