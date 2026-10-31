@@ -265,8 +265,13 @@ static void grid_remove_rect(gaddr base, uint32_t rect, uint32_t keep, uint16_t 
 /* Hostgen calls this only when expanded RAM is selected. Vanilla keeps the original updater and
  * the original four-byte cell layout. */
 void game_rac1_update_expanded_moby_grid(gaddr moby, uint32_t next) {
-    const uint32_t old = GREF(uint32_t, moby + 0xA0u);
+    uint32_t old = GREF(uint32_t, moby + 0xA0u);
     const uint16_t id = (uint16_t)GREF(uint32_t, moby + 0xACu);
+    /* The retail byte rectangle wraps for coordinates beyond its range. Until the expanded
+     * sparse grid is used, treat rectangles the 64x64 backing table cannot represent as outside
+     * that table instead of trapping or aliasing a different region of the world. */
+    if (!rect_valid(old)) old = 0x80000000u;
+    if (!rect_valid(next)) next = 0x80000000u;
     if (!rect_valid(old) || !rect_valid(next)) {
         openrac_game_crash("expanded moby collision grid received an invalid rectangle");
         return;

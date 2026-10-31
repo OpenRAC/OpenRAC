@@ -87,12 +87,12 @@ void func_0020EA70(unsigned char* moby, unsigned int next) {
     unsigned int id = *(unsigned int*)(moby + 0xAC);
     unsigned short* pool = (unsigned short*)(exe_grid + 0x4000);
     int x, y, i, first, capacity, fresh;
-    if (!exe_grid_valid(old) || !exe_grid_valid(next)) {
-        exe_grid_trap();
-        return;
-    }
     if (rac1_expanded_ram()) {
         rac1_update_expanded_moby_grid((unsigned int)moby, next);
+        return;
+    }
+    if (!exe_grid_valid(old) || !exe_grid_valid(next)) {
+        exe_grid_trap();
         return;
     }
     if (!(old & 0x80000000u)) {

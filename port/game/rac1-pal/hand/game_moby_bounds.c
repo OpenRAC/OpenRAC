@@ -32,6 +32,7 @@ typedef struct BoundsMoby {
 
 extern float bounds_snapshots[][4] __asm__("D_001B2F80");
 extern void bounds_grid(void*, int) __asm__("func_0020EA70");
+extern int rac1_expanded_ram(void);
 
 /* Same saturating conversion convention as the native collision code. */
 static int bounds_integer(float f) {
@@ -83,7 +84,12 @@ void func_0020EEE8(void* object) {
         | ((((x + radius) >> 14) & 255) << 16)
         | ((((y + radius) >> 14) & 255) << 24);
     /* Retail compares the zero-extended packed word to a sign-extended lw. */
-    if (!(m->grid & 0x80000000u) && packed == m->grid) return;
-    if (packed & 0xC0C0) return;
+    /* Retail's byte grid drops any rectangle beyond 64 cells. In expanded mode the host updater
+     * derives full bounds from the moby's sphere, so call it even when the packed retail value
+     * wraps or repeats. */
+    if (!rac1_expanded_ram()) {
+        if (!(m->grid & 0x80000000u) && packed == m->grid) return;
+        if (packed & 0xC0C0) return;
+    }
     bounds_grid(m, (int)packed);
 }
