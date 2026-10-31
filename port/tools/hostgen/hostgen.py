@@ -648,6 +648,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "assembly_unsupported": dict(sorted(stage.unsupported.items())),
         "assembly_unsupported_reasons": dict(sorted(asm_reasons.items(), key=lambda kv: -kv[1])),
         "without_c_or_assembly": sorted(stage.without_asm),
+        "shadows": {**{k: "translated" for k in stage.shadows}, **stage.shadow_why},
         # Each function with no C or with C from its assembly: where it sits, and the spelling with
         # C its calls go to instead (no_c.py classifies them from this).
         "without_c_places": {
@@ -1145,7 +1146,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     for p in problems:
         if p.startswith("overrides:"):
             print(f"hostgen: warning: {p}", file=sys.stderr)
-    asm_files = asmc.write_files(out, cfg, asm_results, cfg.get("title", cfg.get("name", "")))
+    asm_files = asmc.write_files(out, cfg, asm_results, cfg.get("title", cfg.get("name", "")), asm_stage)
     extra["asm"] = asm_stage
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))

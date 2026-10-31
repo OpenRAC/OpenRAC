@@ -127,6 +127,8 @@
     "enabled": true,
     "dirs": ["asm/nonmatchings", "asm/handwritten", "asm/overlays", "asm/remnants"],
     "retail": {"exe": "baserom/SCES_509.16", "dump": "baserom/overlays"},
-    "gp": "0x00166D00"
+    "gp": "0x00166D00",
+    "in_place": ["func_001EFD70"],
+    "shadows": {"coll_line": "func_L00_001EFFF0", "coll_line_boot": "func_001EFE10", "coll_sphere": "func_L00_001F10E0", "coll_capsule": "func_L00_001F1D20", "coll_sphere_mobys": "func_L00_001F2BE8", "coll_hero_groups": "func_L00_001F34F0"}
   }
 }

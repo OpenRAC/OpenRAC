@@ -122,6 +122,12 @@ def is_control(i: asm.Insn) -> bool:
 
 class Translator:
     forward_unprototyped = False  # asm.forward_unprototyped in hostgen.json
+    # asm.in_place in hostgen.json: hand-written routines called in their own register convention,
+    # whose code a translation runs in place whatever C they have (rac1's collision cell lookup).
+    in_place: frozenset = frozenset()
+    # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
+    # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
+    ps2: bool = False
     def __init__(self, program: Program, index: asm.Index | None, gp: int | None = None, mode: str = "host",
                  source: Path | None = None):
         self.program = program
@@ -196,12 +202,17 @@ class Translator:
         cache = Translator._inline_cache
         if key in cache:
             return bool(cache[key])
+        if self.at(target) is not None and self._name_at(target) in self.in_place:
+            cache[key] = True
+            return True
         if self._is_other_entry(target) or self.at(target) is None:
             cache[key] = False
             return False
         cache[key] = False                   # while it is looked at: a call back to it is a call
         sub = Translator(self.program, self.index, self.gp, self.mode, self.source)
         sub.forward_unprototyped = self.forward_unprototyped
+        sub.in_place = self.in_place
+        sub.ps2 = self.ps2
         try:
             sub._load(Function(f"sub_{target:08X}", Signature(ctype.Base("int"), (), False, False)),
                       (self.home, target))
@@ -299,6 +310,13 @@ class Translator:
             raise AsmUnsupported(f"it reaches padding at {addr:08X}, not code")
         return ins
 
+    def _name_at(self, addr: int) -> str | None:
+        """The function the catalogue places at addr, in this program or the executable."""
+        sym = getattr(self.program, "by_place", {}).get((self.home, addr))
+        if sym is None and self.home >= 0:
+            sym = getattr(self.program, "by_place", {}).get((-1, addr))
+        return sym
+
     def _is_other_entry(self, addr: int) -> bool:
         """Whether a jump to addr leaves for another function, a tail call: addr starts a
         function that has C (or the port's own). Other code the assembly has is followed into, as
@@ -309,9 +327,7 @@ class Translator:
             return False
         if self.at(addr) is None:
             return True                      # code with no assembly here: only a call can reach it
-        sym = getattr(self.program, "by_place", {}).get((self.home, addr))
-        if sym is None and self.home >= 0:
-            sym = getattr(self.program, "by_place", {}).get((-1, addr))
+        sym = self._name_at(addr)
         f = self.program.functions.get(sym) if sym else None
         has_c = f is not None and (f.unit not in (None, "<asm>") or sym in self.program.host)
         return has_c
@@ -1024,17 +1040,33 @@ class Translator:
             return self.vu0(ins)
         raise AsmUnsupported(f"{op if op != '?' else 'an instruction it does not know'} at {ins.addr:08X}")
 
+    def _f(self, kind: str, a: str, b: str) -> str:
+        """a + b, a - b or a * b (kind "add", "sub", "mul"), in the host's floats or the EE's."""
+        if self.ps2:
+            return f"openrac_ps2_{kind}({a}, {b})"
+        return f"{a} {dict(add='+', sub='-', mul='*')[kind]} {b}"
+
+    def _fn(self, name: str, *args: str) -> str:
+        """The divide, the roots, max and min: openrac_ee_<name>, or the EE's model of it."""
+        if self.ps2:
+            name = {"fdiv": "openrac_ps2_div", "sqrt": "openrac_ps2_sqrt", "rsqrt": "openrac_ps2_rsqrt",
+                    "max": "openrac_ps2s_max", "min": "openrac_ps2s_min"}[name]
+        else:
+            name = f"openrac_ee_{name}"
+        return f"{name}({', '.join(args)})"
+
     def fpu(self, ins: asm.Insn) -> list[str]:
         op, fs, ft, fd = ins.op, f"f{ins.fs}", f"f{ins.ft}", f"f{ins.fd}"
-        binary = {"add.s": "+", "sub.s": "-", "mul.s": "*"}
+        f = self._f
+        binary = {"add.s": "add", "sub.s": "sub", "mul.s": "mul"}
         if op in binary:
-            return [f"{fd} = {fs} {binary[op]} {ft};"]
+            return [f"{fd} = {f(binary[op], fs, ft)};"]
         if op == "div.s":
-            return [f"{fd} = openrac_ee_fdiv({fs}, {ft});"]
+            return [f"{fd} = {self._fn('fdiv', fs, ft)};"]
         if op == "sqrt.s":
-            return [f"{fd} = openrac_ee_sqrt({ft});"]
+            return [f"{fd} = {self._fn('sqrt', ft)};"]
         if op == "rsqrt.s":
-            return [f"{fd} = openrac_ee_rsqrt({fs}, {ft});"]
+            return [f"{fd} = {self._fn('rsqrt', fs, ft)};"]
         if op == "abs.s":
             return [f"{fd} = openrac_ee_fabs({fs});"]
         if op == "neg.s":
@@ -1042,31 +1074,37 @@ class Translator:
         if op == "mov.s":
             return [f"{fd} = {fs};"]
         if op == "max.s":
-            return [f"{fd} = openrac_ee_max({fs}, {ft});"]
+            return [f"{fd} = {self._fn('max', fs, ft)};"]
         if op == "min.s":
-            return [f"{fd} = openrac_ee_min({fs}, {ft});"]
+            return [f"{fd} = {self._fn('min', fs, ft)};"]
         if op == "adda.s":
-            return [f"facc_ = {fs} + {ft};"]
+            return [f"facc_ = {f('add', fs, ft)};"]
         if op == "suba.s":
-            return [f"facc_ = {fs} - {ft};"]
+            return [f"facc_ = {f('sub', fs, ft)};"]
         if op == "mula.s":
-            return [f"facc_ = {fs} * {ft};"]
+            return [f"facc_ = {f('mul', fs, ft)};"]
         if op == "madda.s":
-            return [f"facc_ = facc_ + {fs} * {ft};"]
+            return [f"facc_ = {f('add', 'facc_', f('mul', fs, ft))};"]
         if op == "msuba.s":
-            return [f"facc_ = facc_ - {fs} * {ft};"]
+            return [f"facc_ = {f('sub', 'facc_', f('mul', fs, ft))};"]
         if op == "madd.s":
-            return [f"{fd} = facc_ + {fs} * {ft};"]
+            return [f"{fd} = {f('add', 'facc_', f('mul', fs, ft))};"]
         if op == "msub.s":
-            return [f"{fd} = facc_ - {fs} * {ft};"]
+            return [f"{fd} = {f('sub', 'facc_', f('mul', fs, ft))};"]
         if op == "c.f.s":
             return ["fcc_ = 0;"]
         if op in ("c.eq.s", "c.lt.s", "c.le.s"):
+            if self.ps2:
+                return [f"fcc_ = openrac_ps2_{op[2:4]}({fs}, {ft});"]
             c = {"c.eq.s": "==", "c.lt.s": "<", "c.le.s": "<="}[op]
             return [f"fcc_ = {fs} {c} {ft};"]
         if op == "cvt.s.w":
+            if self.ps2:
+                return [f"{fd} = openrac_ps2_itof((openrac_s32)openrac_ee_bits({fs}));"]
             return [f"{fd} = (openrac_f32)(openrac_s32)openrac_ee_bits({fs});"]
         if op == "cvt.w.s":
+            if self.ps2:
+                return [f"{fd} = openrac_ee_f((openrac_u32)openrac_ps2_ftoi({fs}));"]
             return [f"{fd} = openrac_ee_f(openrac_ee_cvtws({fs}));"]
         if op == "mtc1":
             return [f"{fs} = openrac_ee_f({self.R(ins.rt)});"]
@@ -1170,7 +1208,7 @@ class Translator:
             return lines
 
         acc = lambda c: f"{V}acc[{c}]"
-        binop = {"add": "+", "sub": "-", "mul": "*"}
+        f = self._f
         m = re.fullmatch(r"v(add|sub|mul|max|mini|madd|msub)(a?)(bc|q|i)?", op)
         if m:
             kind, to_acc, src = m.groups()
@@ -1179,16 +1217,16 @@ class Translator:
             for c in comps:
                 b = vf(ft, bc) if src == "bc" else f"{V}q" if src == "q" else f"{V}i" if src == "i" else vf(ft, c)
                 a = vf(fs, c)
-                if kind in binop:
-                    vals[c] = f"{a} {binop[kind]} {b}"
+                if kind in ("add", "sub", "mul"):
+                    vals[c] = f(kind, a, b)
                 elif kind == "max":
-                    vals[c] = f"openrac_ee_max({a}, {b})"
+                    vals[c] = self._fn("max", a, b)
                 elif kind == "mini":
-                    vals[c] = f"openrac_ee_min({a}, {b})"
+                    vals[c] = self._fn("min", a, b)
                 elif kind == "madd":
-                    vals[c] = f"{acc(c)} + {a} * {b}"
+                    vals[c] = f("add", acc(c), f("mul", a, b))
                 elif kind == "msub":
-                    vals[c] = f"{acc(c)} - {a} * {b}"
+                    vals[c] = f("sub", acc(c), f("mul", a, b))
             return store(dst, vals, flags=kind not in ("max", "mini"))
         if op in ("vopmula", "vopmsub"):
             rot_s, rot_t = [1, 2, 0], [2, 0, 1]
@@ -1196,8 +1234,8 @@ class Translator:
             for c in comps:
                 if c == 3:
                     continue
-                prod = f"{vf(fs, rot_s[c])} * {vf(ft, rot_t[c])}"
-                vals[c] = prod if op == "vopmula" else f"{acc(c)} - {prod}"
+                prod = f("mul", vf(fs, rot_s[c]), vf(ft, rot_t[c]))
+                vals[c] = prod if op == "vopmula" else f("sub", acc(c), prod)
             return store("acc" if op == "vopmula" else fd, vals, flags=True)
         if op in ("vmove", "vabs", "vmr32"):
             vals = {}
@@ -1214,7 +1252,15 @@ class Translator:
             kind, frac = m.group(1), int(m.group(2))
             vals = {}
             for c in comps:
-                if kind == "ftoi":
+                if self.ps2:
+                    k = f"openrac_ee_f({(127 + frac if kind == 'ftoi' else 127 - frac) << 23:#010x}u)"
+                    if kind == "ftoi":
+                        x = vf(fs, c) if frac == 0 else f("mul", vf(fs, c), k)
+                        vals[c] = f"openrac_ee_f((openrac_u32)openrac_ps2_ftoi({x}))"
+                    else:
+                        x = f"openrac_ps2_itof((openrac_s32)openrac_ee_bits({vf(fs, c)}))"
+                        vals[c] = x if frac == 0 else f("mul", x, k)
+                elif kind == "ftoi":
                     vals[c] = f"openrac_ee_f(openrac_ee_ftoi({vf(fs, c)}, {frac}))"
                 else:
                     vals[c] = f"openrac_ee_itof(openrac_ee_bits({vf(fs, c)}), {frac})"
@@ -1224,10 +1270,10 @@ class Translator:
             flags = ([f"openrac_vu0_set_div({V[:-2]}, {('vdiv', 'vsqrt', 'vrsqrt').index(op)}, {s}, {t});"]
                      if self.vu_flags else [])
             if op == "vdiv":
-                return flags + [f"{V}q = openrac_ee_fdiv({s}, {t});"]
+                return flags + [f"{V}q = {self._fn('fdiv', s, t)};"]
             if op == "vsqrt":
-                return flags + [f"{V}q = openrac_ee_sqrt({t});"]
-            return flags + [f"{V}q = openrac_ee_rsqrt({s}, {t});"]
+                return flags + [f"{V}q = {self._fn('sqrt', t)};"]
+            return flags + [f"{V}q = {self._fn('rsqrt', s, t)};"]
         if op == "vmtir":
             return [] if ft & 15 == 0 else [f"{V}vi[{ft & 15}] = openrac_ee_bits({vf(fs, bc)}) & 0xFFFFu;"]
         if op == "vmfir":
@@ -1417,6 +1463,8 @@ class Stage:
     translator: "Translator | None" = None    # for the console's form (write_console)
     found: dict = field(default_factory=dict)  # name -> (program, address) of its entry
     retail: str = ""                           # the retail program read for instructions, if any
+    shadows: dict = field(default_factory=dict)   # alias -> its translation's C (or None), "shadows"
+    shadow_why: dict = field(default_factory=dict)  # alias -> why it has none
 
 
 def asm_config(cfg: dict) -> dict | None:
@@ -1444,7 +1492,39 @@ def retail_source(a: dict, program: Program, base: Path) -> "retail.Retail | Non
 
 def file_names(cfg: dict) -> list[str]:
     a = asm_config(cfg)
-    return [f"asm_{k}.c" for k in range(int(a.get("files", 8)))] if a else []
+    if not a:
+        return []
+    names = [f"asm_{k}.c" for k in range(int(a.get("files", 8)))]
+    return names + (["asm_shadows.c"] if a.get("shadows") else [])
+
+
+def translate_shadows(stage: Stage, program: Program, a: dict) -> None:
+    """hostgen.json "asm" "shadows" ({alias: function}): the port's own C for a function the
+    decompilation keeps as assembly (a host function), translated from that assembly as well, under
+    the name openrac_shadow_<alias>, so the port can run both and compare them (rac1's collision
+    kernels, rac1/host/collision.c), computing its floats as the EE does (openrac/ps2float.h), as
+    that C does. Never called by the game; with no assembly there is none."""
+    tr = stage.translator
+    if tr is not None:
+        tr.ps2 = True
+    for alias, sym in sorted(a.get("shadows", {}).items()):
+        f = program.functions.get(sym)
+        if tr is None or f is None:
+            stage.shadow_why[alias] = "no assembly read" if tr is None else f"no function {sym}"
+            continue
+        hit = tr.find(f)
+        if hit is None:
+            stage.shadow_why[alias] = f"no assembly for {sym}"
+            continue
+        r = tr.translate(f, hit)
+        if r.text is None:
+            stage.shadow_why[alias] = r.reason
+            continue
+        head = f" {cname(sym)}("
+        if head not in r.text:
+            stage.shadow_why[alias] = f"no definition of {cname(sym)} in its translation"
+            continue
+        stage.shadows[alias] = r.text.replace(head, f" openrac_shadow_{alias}(", 1)
 
 
 def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple[Stage, dict[str, Result]]:
@@ -1462,6 +1542,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     gp = int(str(a["gp"]), 0) if a.get("gp") is not None else None
     tr = Translator(program, None, gp, "host", base)
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
+    tr.in_place = frozenset(a.get("in_place", []))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
     tr.index = index
@@ -1532,16 +1613,20 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     program.index_places()
     stage.translator = tr
     stage.found = found
+    translate_shadows(stage, program, a)
     return stage, results
 
 
-def write_files(out: Path, cfg: dict, results: dict[str, Result], game: str) -> list[str]:
+def write_files(out: Path, cfg: dict, results: dict[str, Result], game: str,
+                stage: Stage | None = None) -> list[str]:
     names = file_names(cfg)
     if not names:
         return []
-    chunks: list[list[str]] = [[] for _ in names]
+    shadows = asm_config(cfg).get("shadows", {})
+    spread = len(names) - (1 if shadows else 0)
+    chunks: list[list[str]] = [[] for _ in range(spread)]
     for k, (sym, r) in enumerate(sorted(results.items())):
-        chunks[k % len(names)].append(r.text)
+        chunks[k % spread].append(r.text)
     head = [f"/* Generated by port/tools/hostgen for {game} from the decompilation's assembly (asmc.py).",
             " * Do not edit: give the function C in the decompilation, and it replaces this. */",
             "#include <math.h>", "#include \"openrac/ee.h\"", "#include \"game_protos.h\"", "",
@@ -1549,8 +1634,25 @@ def write_files(out: Path, cfg: dict, results: dict[str, Result], game: str) -> 
             "#define OPENRAC_ASM_SP() OPENRAC_EE_S32(sp_in_)",
             "#define OPENRAC_ASM_CALL() (openrac_guest_sp = (gaddr)r29)",
             "#define OPENRAC_ASM_LEAVE() (openrac_guest_sp = sp_in_)", ""]
+    if shadows:
+        texts = stage.shadows if stage is not None else {}
+        # Each shadow's address, or 0 where there is no translation: what the port reads.
+        table = [f"void *const openrac_shadow_{alias}_fn = "
+                 + (f"(void *)openrac_shadow_{alias};" if alias in texts else "0;")
+                 for alias in sorted(shadows)]
+        chunks.append([texts[k] for k in sorted(texts)] + table)
     for name, chunk in zip(names, chunks):
-        text = "\n".join(head + chunk) + "\n"
+        # The shadows reach game memory through the port's checker, which keeps what they touch.
+        lead = ["#include <string.h>", "#include \"openrac/guest.h\"", "#include \"openrac/ps2float.h\"",
+                "void *openrac_shadow_ptr(gaddr a);", "#define OPENRAC_EE_PTR(a) openrac_shadow_ptr(a)",
+                # max and min as the EE compares: sign and magnitude.
+                "static inline int openrac_ps2s_key(float f) { unsigned u; memcpy(&u, &f, 4);"
+                " return (u >> 31) ? -(int)(u & 0x7FFFFFFFu) : (int)u; }",
+                "static inline float openrac_ps2s_max(float a, float b) {"
+                " return openrac_ps2s_key(b) > openrac_ps2s_key(a) ? b : a; }",
+                "static inline float openrac_ps2s_min(float a, float b) {"
+                " return openrac_ps2s_key(b) < openrac_ps2s_key(a) ? b : a; }"] if name == "asm_shadows.c" else []
+        text = "\n".join(head[:2] + lead + head[2:] + chunk) + "\n"
         path = out / name
         if not path.exists() or path.read_text() != text:
             path.write_text(text)
