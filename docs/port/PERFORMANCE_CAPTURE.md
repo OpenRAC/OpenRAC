@@ -50,13 +50,14 @@ time. The report's **gpu passes** line says which way a recording was made.
 
 ### What each graphics setting costs (settings sweep)
 
-Developer tools > **Record diagnostics** > **Graphics settings sweep** records 72 seconds and changes the graphics settings
-every 4 seconds: Enhanced graphics off, every Enhanced effect off, then each effect off on its own,
-anisotropic filtering off and render scale 50%. VSync is off while it runs, so a step's frame time
-is the device's own and not a multiple of the display's refresh. Stand still for the whole
-recording. The report lists each step's mean and median frame time and GPU time (the first 1.5 s
-of each step are left out), and each frame carries a `settings sweep step` gauge. The settings are
-given back when it ends.
+Developer tools > **Record diagnostics** > **Graphics settings sweep** records 68 seconds and
+changes the graphics settings every 4 seconds: Enhanced graphics off, every Enhanced effect off,
+probe lighting off, render scale 50%, then each effect off on its own. VSync is off while it runs,
+so a step's time is the device's own and not a multiple of the display's refresh, and split GPU
+pass timing is off but in one step of its own. Stand still for the whole recording. The report
+lists each step's time a picture (ticks the game runs without drawing are not counted) and GPU
+time; the first 1.5 s of each step are left out, and each frame carries a `settings sweep step`
+gauge. The settings are given back when it ends.
 
 ## What the report contains
 

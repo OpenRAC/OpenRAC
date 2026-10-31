@@ -79,9 +79,11 @@ Capture c;
 
 // The settings sweep: one recording that changes the graphics settings every few seconds, with
 // VSync off so that each step's frame time is the device's own, not a multiple of the refresh.
+// Split pass timing (vkgl) is off in every step but its own, as it slows the frame.
 struct SweepStep {
     const char* name;
     void (*apply)(settings::Settings&);
+    bool split_timing = false;
 };
 
 void effects_off(settings::Settings& g) {
@@ -99,10 +101,16 @@ constexpr SweepStep kSweep[] = {
     {"as set", [](settings::Settings&) {}},
     {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
     {"enhanced, every effect off", effects_off},
-    {"enhanced, every effect off, anisotropic off",
+    {"enhanced, every effect off, probe lighting off",
      [](settings::Settings& g) {
          effects_off(g);
-         g.anisotropy = 1;
+         g.sweep_probe_lighting_off = true;
+     }},
+    {"enhanced, every effect off, probe lighting off, scale 50%",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.sweep_probe_lighting_off = true;
+         g.render_scale = 50;
      }},
     {"enhanced, every effect off, render scale 50%",
      [](settings::Settings& g) {
@@ -114,23 +122,18 @@ constexpr SweepStep kSweep[] = {
          g.enhanced_graphics = false;
          g.render_scale = 50;
      }},
+    {"enhanced, every effect off, GPU passes timed", effects_off, true},
     {"as set, temporal off (native)",
      [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Off; }},
     {"as set, motion blur off", [](settings::Settings& g) { g.motion_blur = false; }},
-    {"as set, temporal and motion blur off",
-     [](settings::Settings& g) {
-         g.temporal_quality = renderer::TemporalQuality::Off;
-         g.motion_blur = false;
-     }},
     {"as set, GTAO off", [](settings::Settings& g) { g.gtao = false; }},
     {"as set, modern shadows off", [](settings::Settings& g) { g.enhanced_shadows = false; }},
     {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
     {"as set, edge-aware textures off",
      [](settings::Settings& g) { g.texture_filter = renderer::TextureFilter::Normal; }},
     {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
-    {"as set, bounce light 0x", [](settings::Settings& g) { g.probe_gi_multiplier = 0.0f; }},
-    {"as set, anisotropic off", [](settings::Settings& g) { g.anisotropy = 1; }},
-    {"as set, render scale 50%", [](settings::Settings& g) { g.render_scale = 50; }},
+    {"as set, probe lighting off",
+     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
     {"as set (again)", [](settings::Settings&) {}},
 };
 constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));
@@ -141,6 +144,7 @@ struct Sweep {
     bool asked = false;    // the next capture is a sweep
     bool running = false;  // settings changed and not yet given back
     settings::Settings saved;
+    bool saved_split = false;  // split pass timing as it was
     int step = -1;
 
     struct Boundary {
@@ -150,11 +154,31 @@ struct Sweep {
 
     std::vector<Boundary> starts;  // where each step's frames begin
     std::uint64_t done_serial = 0;
-    std::vector<std::vector<double>> frame_ms, gpu_ms;
+    // Each step's pictures: when each began, and its GPU time where measured. A tick the game
+    // runs without drawing is a frame of its own in stats' history, and not counted.
+    std::vector<std::vector<double>> picture_s, gpu_ms;
     std::vector<std::string> results;  // the report's lines, once it ended
 };
 
 Sweep sweep;
+
+bool split_timing() {
+#if defined(OPENRAC_VULKAN)
+    return vkgl::split_pass_timing();
+#else
+    return false;
+#endif
+}
+
+void set_split_timing(bool on) {
+#if defined(OPENRAC_VULKAN)
+    if (vkgl::split_pass_timing() != on) {
+        vkgl::set_split_pass_timing(on);
+    }
+#else
+    static_cast<void>(on);
+#endif
+}
 
 void sweep_apply(int step) {
     settings::Settings next = sweep.saved;
@@ -163,6 +187,7 @@ void sweep_apply(int step) {
     kSweep[step].apply(next);
     settings::get() = next;
     s.settings_changed = true;
+    set_split_timing(kSweep[step].split_timing);
     sweep.step = step;
     const stats::Frame* last = stats::history(0);
     sweep.starts.push_back(
@@ -187,10 +212,11 @@ void sweep_collect() {
                 step = i;
             }
         }
-        if (step < 0 || f->start_s < sweep.starts[step].start_s + kSweepSettleS) {
+        const bool picture = f->gpu_frame_ms >= 0.0 || f->cpu_ms("render") > 0.0;
+        if (step < 0 || !picture || f->start_s < sweep.starts[step].start_s + kSweepSettleS) {
             continue;
         }
-        sweep.frame_ms[step].push_back(f->interval_ms);
+        sweep.picture_s[step].push_back(f->start_s);
         if (f->gpu_frame_ms >= 0.0) {
             sweep.gpu_ms[step].push_back(f->gpu_frame_ms);
         }
@@ -205,7 +231,7 @@ double percentile(std::vector<double> v, double p) {
     return v[std::min(v.size() - 1, static_cast<std::size_t>(p * static_cast<double>(v.size())))];
 }
 
-// The settings given back, and each step's frame times written down for the report.
+// The settings given back, and each step's picture times written down for the report.
 void sweep_end() {
     if (!sweep.running) {
         return;
@@ -213,22 +239,23 @@ void sweep_end() {
     sweep.running = false;
     settings::get() = sweep.saved;
     s.settings_changed = true;
+    set_split_timing(sweep.saved_split);
     sweep.results.clear();
     for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {
-        const std::vector<double>& frames = sweep.frame_ms[i];
-        if (frames.empty()) {
+        const std::vector<double>& starts = sweep.picture_s[i];
+        if (starts.size() < 3) {
             continue;
         }
-        double sum = 0.0;
-        for (const double ms : frames) {
-            sum += ms;
+        std::vector<double> frames;
+        for (std::size_t n = 1; n < starts.size(); ++n) {
+            frames.push_back((starts[n] - starts[n - 1]) * 1000.0);
         }
-        const double mean = sum / static_cast<double>(frames.size());
+        const double mean =
+            (starts.back() - starts.front()) * 1000.0 / static_cast<double>(starts.size() - 1);
         sweep.results.push_back(
             std::format(
-                "{:2} {:<46} frame {:6.2f} ms ({:5.1f} fps), median {:6.2f}, p90 {:6.2f}; gpu "
-                "median "
-                "{:6.2f}; {} frames",
+                "{:2} {:<58} {:6.2f} ms a picture ({:5.1f} fps), median {:6.2f}, p90 {:6.2f}; gpu "
+                "median {:6.2f}; {} pictures",
                 i,
                 kSweep[i].name,
                 mean,
@@ -236,7 +263,7 @@ void sweep_end() {
                 percentile(frames, 0.5),
                 percentile(frames, 0.9),
                 percentile(sweep.gpu_ms[i], 0.5),
-                frames.size()
+                starts.size()
             )
         );
     }
@@ -300,7 +327,7 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
     }
     c.path = std::move(path);
     effects_dump::arm(true);  // snapshots of effects and the game's notes (effects_dump.h)
-    sampler::start();  // where the window and render threads' time goes (common/sampler.h)
+    sampler::start();         // where the window and render threads' time goes (common/sampler.h)
     c.clocks_at_start = system_info::cpu_clocks();
     c.thermal_at_start = system_info::thermal();
     c.level_at_start = s.level;
@@ -462,8 +489,8 @@ perf_capture::Context context(const Shown& shown) {
     if (!sweep.results.empty()) {
         add("settings sweep",
             std::format(
-                "VSync off, {:.0f} s a step, its first {:.1f} s not counted; frames tagged by the "
-                "\"settings sweep step\" gauge",
+                "VSync off, GPU passes not split but in their own step, {:.0f} s a step, its "
+                "first {:.1f} s not counted; frames tagged by the \"settings sweep step\" gauge",
                 kSweepStepS,
                 kSweepSettleS
             ));
@@ -725,7 +752,8 @@ void capture_frame(const Shown& shown) {
                         sweep.step = -1;
                         sweep.starts.clear();
                         sweep.done_serial = 0;
-                        sweep.frame_ms.assign(kSweepSteps, {});
+                        sweep.saved_split = split_timing();
+                        sweep.picture_s.assign(kSweepSteps, {});
                         sweep.gpu_ms.assign(kSweepSteps, {});
                         sweep_apply(0);
                     }
