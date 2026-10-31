@@ -572,7 +572,7 @@ func check_limits() -> void:
 	if animated_group != null:
 		var animated_count := count_animated_instances(animated_group)
 		if animated_count > MAX_ANIMATED_OBJECTS:
-			lines.append("Game/AnimatedAssets has %d props; the runtime limit is %d." %
+			lines.insert(0, "Game/AnimatedAssets has %d props; the runtime limit is %d." %
 				[animated_count, MAX_ANIMATED_OBJECTS])
 
 	# Nothing over a limit, as far as the estimate goes.
