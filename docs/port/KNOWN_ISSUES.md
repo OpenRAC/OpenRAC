@@ -90,10 +90,11 @@ discs. The pool size is data, not a fixed array:
   - **Static collision cells.** Godot can now write an `RLCX` extended leaf for a cell that
     outgrows the retail 255-vertex / 4,080-byte form. The packer forces the level-data stream
     through virtual sectors so the game selects expanded RAM. The PAL/NTSC-U code builds, but
-    a dense-cell level has not yet been run in the game. Each extended cell is capped at
-    2,147,483,647 vertices by signed query index; actual allocation is memory-limited. Its
-    directory carries 32-bit leaf offsets and supports up to
-    0xFFFFFF indexed leaves. Dense-cell gameplay remains unverified.
+    a dense-cell or large-world level has not yet been run in the game. Query scratch grows
+    dynamically within signed 32-bit indices and available memory. RLCI carries 32-bit leaf
+    offsets for up to 0xFFFFFF leaves, RLCT extends root-to-slab offsets, and marked static
+    collision queries reach positive coordinates below 32,768 units. Vanilla remains on its
+    1,024-unit bounds and direct offsets.
   - **The renderer** draws from vectors; the only fixed cap is the port's
     4096-moby guard in render_native.c's mark_drawn_mobys. The game's own VU1
     packet buffers belong to the console renderer, which the port stubs.

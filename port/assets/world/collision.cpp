@@ -152,7 +152,7 @@ std::map<u8, std::size_t> CollisionMesh::type_counts() const {
 namespace {
 
 // The most entries a node may claim; the real levels stay well below it (assumed).
-constexpr std::size_t kMaxNodeEntries = 4096;
+constexpr std::size_t kMaxNodeEntries = 8192;
 
 // The most hero groups accepted before the count is called damaged (assumed).
 constexpr s32 kMaxHeroGroups = 100'000;
@@ -402,6 +402,27 @@ CollisionMesh read_collision(Game game, ByteView block) {
             mesh.extended_leaf_offsets.push_back(offset);
         }
     }
+    if (block.u32_at(16) == 0x54434C52u) {  // "RLCT": root entries index 32-bit slab offsets.
+        mesh.has_extended_slab_index = true;
+        const std::size_t table_at = block.u32_at(20);
+        block.check(table_at, 4, "expanded slab offset table count");
+        if (table_at < static_cast<std::size_t>(mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset)) {
+            fail("collision: expanded slab offset table overlaps the mesh or hero data");
+        }
+        const u32 count = block.u32_at(table_at);
+        if (count != block.u16_at(static_cast<std::size_t>(mesh.mesh_offset) + 2)) {
+            fail("collision: expanded slab offset table does not match the root count");
+        }
+        block.check(table_at + 4, 4 * std::size_t{count}, "expanded slab offset table");
+        const ByteView offsets = block.sub(table_at + 4, 4 * std::size_t{count}, "expanded slab offsets");
+        for (u32 i = 0; i < count; ++i) {
+            const u32 offset = offsets.u32_at(4 * std::size_t{i});
+            if (offset != 0 && (offset & 3) != 0) {
+                fail("collision: expanded slab offset is not quadword aligned");
+            }
+            mesh.extended_slab_offsets.push_back(offset);
+        }
+    }
 
     // The mesh follows the block's two offsets, so its offset must be positive.
     if (mesh.mesh_offset <= 0) {
@@ -429,13 +450,15 @@ CollisionMesh read_collision(Game game, ByteView block) {
     // One slab per Z that has any geometry.
     for (std::size_t zi = 0; zi < mesh.root_entries.size(); ++zi) {
         // A zero entry is a Z with no geometry.
-        if (mesh.root_entries[zi] == 0) {
+        const u32 slab_offset = mesh.has_extended_slab_index ? mesh.extended_slab_offsets[zi]
+                                                            : u32{mesh.root_entries[zi]} * 4;
+        if (slab_offset == 0) {
             continue;
         }
 
         const auto z = static_cast<s16>(mesh.root.base + static_cast<s16>(zi));
         CollisionSlab slab;
-        slab.offset = u32{mesh.root_entries[zi]} * 4;
+        slab.offset = slab_offset;
         slab.z = z;
         slab.node = checked_node(m, slab.offset, 4, "collision y");
 
@@ -490,7 +513,9 @@ CollisionMesh read_collision(Game game, ByteView block) {
 }
 
 // Mirrors the game's walk: each level returns nothing for an out-of-range or zero entry.
-std::optional<u32> lookup_collision_leaf(ByteView mesh, s32 x, s32 y, s32 z) {
+std::optional<u32> lookup_collision_leaf(
+    ByteView mesh, s32 x, s32 y, s32 z, const std::vector<u32>* extended_slab_offsets
+) {
     const auto zi = entry_index(read_node(mesh, 0), z);
 
     // The Z index is outside the root's range, so the cell is empty.
@@ -498,7 +523,12 @@ std::optional<u32> lookup_collision_leaf(ByteView mesh, s32 x, s32 y, s32 z) {
         return std::nullopt;
     }
 
-    const std::size_t slab = std::size_t{mesh.u16_at(4 + 2 * *zi)} * 4;
+    const u16 root_entry = mesh.u16_at(4 + 2 * *zi);
+    if (extended_slab_offsets != nullptr && *zi >= extended_slab_offsets->size()) {
+        fail("collision: expanded slab directory index is out of range");
+    }
+    const std::size_t slab = extended_slab_offsets != nullptr ? (*extended_slab_offsets)[*zi]
+                                                              : std::size_t{root_entry} * 4;
 
     // A zero slab offset is a Z with no geometry.
     if (slab == 0) {

@@ -452,8 +452,11 @@ func make_from_mesh(kind: int) -> void:
 	var made: Dictionary = faces.simplify(triangles)
 	var before: Dictionary = faces.stored_edits()
 	var count: int = faces.add_triangles(made.triangles, kind)
-	var over: String = (" A cell estimate is %d corners; the expanded query scratch limit is %d." %
-		[made.most, LevelFaces.CELL_LIMIT]) if int(made.most) > LevelFaces.CELL_LIMIT else ""
+	var over := ""
+	if not bool(made.estimate_complete):
+		over = " The cell estimate was skipped for very broad face bounds; use Check Limits before packing."
+	elif int(made.most) > LevelFaces.CELL_LIMIT:
+		over = " A cell estimate is %d corners; the expanded query index limit is %d." % [made.most, LevelFaces.CELL_LIMIT]
 	dock.show_report("%d faces added from %s (%d triangles), snapped to the game's collision grid.%s" %
 		[count, selected_node.name, int(triangles.size() / 3.0), over])
 	commit("Make collision from a mesh", before)

@@ -658,8 +658,8 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   in an expanded cell (the editor writes a mod-only extended leaf and selects
   expanded RAM when a retail cell no longer fits), at most 0xFFFFFF indexed
   leaves (their 32-bit directory removes the retail 24-bit leaf-start bound),
-  everything inside 0-1024 units on each axis
-  (the game answers no query outside), and hero walls split into groups of at
+  everything inside 0-32,768 units on each positive axis in expanded mod
+  collision (vanilla stays at 0-1024 units), and hero walls split into groups of at
   most 255 triangles and 255 unique vertices. Retail leaves remain byte-for-byte
   when they fit; their 4,080-byte size and 16-bit face count remain unchanged.
 - The block goes back into the level's core data, in its own place when it
@@ -675,8 +675,9 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   grew the compressed core beyond its original slot, so the packer moved the
   collision block to the core tail and expanded the level-data container.
 - The expanded stream path uses a bounded 128 MiB guest RAM arena. RAC1 still
-  has format and game-owned limits: collision is queryable only inside the
-  0-1024-unit world, each collision cell has bounded vertex/face storage, and
+  has format and game-owned limits: vanilla collision is queryable only inside
+  the 0-1024-unit world, marked mod collision reaches 32,768 units, each cell
+  has bounded vertex/face storage, and
   gameplay objects still depend on their per-level tables and heap. The
   NTSC-U's old moby-index remap held only 64 entries; when the expanded 128 MiB
   arena is active, both PAL and NTSC-U now allocate remap storage from level
@@ -694,7 +695,7 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   keeps its previous collision coverage and OpenRAC warns. The expanded target
   pointer table can hold 32,768 entries; vanilla keeps the original 511-target
   limit. Remaining game-format bounds include 32,768 source mobys, the
-  2,048 persistent spawn IDs, collision's 0–1024-unit world, and per-cell
+  2,048 persistent spawn IDs, collision's 32,768-unit expanded world, and per-cell
   vertex/face storage. These are game-structure limits, not disc-slot limits.
 
 What the decoded collision misses: the cells' quads are split into triangles

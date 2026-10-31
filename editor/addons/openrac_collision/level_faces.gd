@@ -93,12 +93,13 @@ const BUCKET: float = 16.0
 
 ## A collision cell's side in 1/64 units (4 game units).
 const CELL: int = 256
+const ESTIMATE_CELL_LIMIT: int = 100000
 
 ## Expanded collision query scratch limit; retail leaves retain their byte-sized vertex field.
-const CELL_LIMIT: int = 1048576
+const CELL_LIMIT: int = 2147483647
 
-## The game answers queries inside 0 to 1024 units on each axis only.
-const WORLD: int = 1024 * UNIT
+## Expanded mod collision answers queries in this positive-coordinate box; vanilla remains 0..1024.
+const WORLD: int = 32768 * UNIT
 
 ## The metadata names of the edits.
 const EDIT_KEYS: Array[String] = ["rc1_removed", "rc1_added", "rc1_hero_removed"]
@@ -896,6 +897,7 @@ func simplify(triangles: PackedVector3Array) -> Dictionary:
 	var existing: Dictionary = cell_corners(records, face_count(), bounds_of(triangles))
 	var out := PackedVector3Array()
 	var cells: Dictionary = {}
+	var estimate_complete := true
 
 	for i in range(0, triangles.size() - 2, 3):
 		var corners: Array[Vector3i] = []
@@ -906,7 +908,8 @@ func simplify(triangles: PackedVector3Array) -> Dictionary:
 		if is_degenerate(corners):
 			continue
 
-		count_corners(cells, corners)
+		if not count_corners(cells, corners):
+			estimate_complete = false
 
 		for p in corners:
 			out.append(Vector3(p) / UNIT)
@@ -916,7 +919,7 @@ func simplify(triangles: PackedVector3Array) -> Dictionary:
 	for cell in cells:
 		most = maxi(most, cells[cell].size() + existing.get(cell, {}).size())
 
-	return {"triangles": out, "most": most, "step": 4}
+	return {"triangles": out, "most": most, "step": 4, "estimate_complete": estimate_complete}
 
 
 ## The bounds of triangles in 1/64 units, a cell wider on each side.
@@ -945,15 +948,26 @@ static func cell_corners(array: PackedInt32Array, count: int, inside: AABB) -> D
 
 ## Adds a face's corners to every cell its bounds reach (an estimate of the cells the packer puts
 ## it in, never fewer).
-static func count_corners(cells: Dictionary, corners: Array[Vector3i]) -> void:
+static func count_corners(cells: Dictionary, corners: Array[Vector3i]) -> bool:
 	var low := Vector3i(mini(corners[0].x, mini(corners[1].x, corners[2].x)),
 		mini(corners[0].y, mini(corners[1].y, corners[2].y)), mini(corners[0].z, mini(corners[1].z, corners[2].z)))
 	var high := Vector3i(maxi(corners[0].x, maxi(corners[1].x, corners[2].x)),
 		maxi(corners[0].y, maxi(corners[1].y, corners[2].y)), maxi(corners[0].z, maxi(corners[1].z, corners[2].z)))
+	var x0 := floori(low.x / float(CELL))
+	var y0 := floori(low.y / float(CELL))
+	var z0 := floori(low.z / float(CELL))
+	var nx := floori(high.x / float(CELL)) - x0 + 1
+	var ny := floori(high.y / float(CELL)) - y0 + 1
+	var nz := floori(high.z / float(CELL)) - z0 + 1
+	if nx > ESTIMATE_CELL_LIMIT or ny > ESTIMATE_CELL_LIMIT or nz > ESTIMATE_CELL_LIMIT:
+		return false
+	var xy := nx * ny
+	if xy > ESTIMATE_CELL_LIMIT or xy * nz > ESTIMATE_CELL_LIMIT:
+		return false
 
-	for z in range(floori(low.z / float(CELL)), floori(high.z / float(CELL)) + 1):
-		for y in range(floori(low.y / float(CELL)), floori(high.y / float(CELL)) + 1):
-			for x in range(floori(low.x / float(CELL)), floori(high.x / float(CELL)) + 1):
+	for z in range(z0, z0 + nz):
+		for y in range(y0, y0 + ny):
+			for x in range(x0, x0 + nx):
 				var cell := Vector3i(x, y, z)
 
 				# Each cell keeps its own set of corners.
@@ -962,10 +976,11 @@ static func count_corners(cells: Dictionary, corners: Array[Vector3i]) -> void:
 
 				for p in corners:
 					cells[cell][p] = true
+	return true
 
 
 ## What the packer would refuse, estimated: cells over the vertex limit (by their faces' bounds,
-## so a count can be high) and faces outside 0-1024 units. Lines of text, empty when it looks fine.
+## so a count can be high) and faces outside the expanded mod world. Lines of text, empty when fine.
 func check_limits() -> PackedStringArray:
 	var out := PackedStringArray()
 	var level: Array[int] = []
@@ -980,7 +995,11 @@ func check_limits() -> PackedStringArray:
 	for face in level:
 		flat.append_array(records.slice(face * RECORD, (face + 1) * RECORD))
 
-	var cells: Dictionary = cell_corners(flat, level.size(), AABB(Vector3(-1e9, -1e9, -1e9), Vector3(2e9, 2e9, 2e9)))
+	var cells: Dictionary = {}
+	var estimate_complete := true
+	for face in level.size():
+		if not count_corners(cells, corners_of(flat, face)):
+			estimate_complete = false
 
 	for cell in sorted(cells.keys()):
 		# Only cells beyond expanded mode's per-query scratch bound matter.
@@ -990,10 +1009,12 @@ func check_limits() -> PackedStringArray:
 
 	for face in level:
 		for p in corners_of(records, face):
-			# The game answers no query outside its world.
+			# Expanded collision only answers queries inside this positive-coordinate world.
 			if p.x < 0 or p.y < 0 or p.z < 0 or p.x >= WORLD or p.y >= WORLD or p.z >= WORLD:
-				out.append("a face at %s is outside 0-1024 units" % (Vector3(p) / UNIT))
+				out.append("a face at %s is outside 0-32768 units" % (Vector3(p) / UNIT))
 				break
+	if not estimate_complete:
+		out.append("some cell estimates were skipped because face bounds span more than %d cells" % ESTIMATE_CELL_LIMIT)
 
 	return out
 

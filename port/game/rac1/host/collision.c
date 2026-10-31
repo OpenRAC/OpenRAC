@@ -239,7 +239,35 @@ static uint32_t cell_word(gaddr mesh, int x, int y, int z) {
     if (i < 0 || (int)U16(mesh + 2) - i <= 0) {
         return 0;
     }
-    gaddr slab = (gaddr)U16(mesh + 4 + 2 * i) * 4;
+    const uint16_t root_entry = U16(mesh + 4 + 2 * i);
+    gaddr slab;
+    if (root_entry != 0 && openrac_guest_ram_size > GUEST_RAM_SIZE && mesh >= 0x40
+        && U32(mesh - 0x40 + 16) == 0x54434C52u) {
+        const gaddr block = mesh - 0x40;
+        const uint32_t table_at = U32(block + 20);
+        const gaddr block_ram = openrac_guest_ram_address(block);
+        if (block_ram > openrac_guest_ram_size || table_at > openrac_guest_ram_size - block_ram
+            || openrac_guest_ram_size - block_ram - table_at < 4) {
+            return 0;
+        }
+        const gaddr table = block + table_at;
+        const uint32_t count = U32(table);
+        if (count != U16(mesh + 2) || root_entry > count
+            || 4u + 4u * (uint64_t)count > openrac_guest_ram_size - (block_ram + table_at)) {
+            return 0;
+        }
+        slab = U32(table + 4u * root_entry);
+        const uint32_t hero_at = U32(block + 4);
+        const gaddr mesh_ram = openrac_guest_ram_address(mesh);
+        if (slab == 0 || mesh_ram > openrac_guest_ram_size
+            || slab > openrac_guest_ram_size - mesh_ram
+            || openrac_guest_ram_size - mesh_ram - slab < 4
+            || (hero_at != 0 && (hero_at < 0x40u || slab >= hero_at - 0x40u))) {
+            return 0;
+        }
+    } else {
+        slab = (gaddr)root_entry * 4;
+    }
     if (slab == 0) {
         return 0;
     }
@@ -258,6 +286,11 @@ static uint32_t cell_word(gaddr mesh, int x, int y, int z) {
         return 0;
     }
     return U32(row + 4 + 4 * i);
+}
+
+static int collision_has_extended_tree(gaddr mesh) {
+    return openrac_guest_ram_size > GUEST_RAM_SIZE && mesh >= 0x40
+           && (U32(mesh - 0x40 + 8) == 0x49434C52u || U32(mesh - 0x40 + 16) == 0x54434C52u);
 }
 
 typedef struct {
@@ -1133,7 +1166,8 @@ typedef struct {
 } LineCell;
 
 #define DDA_MAX 256
-static LineCell g_list[3 * DDA_MAX + 2];
+#define EXTENDED_DDA_MAX 8192
+static LineCell g_list[3 * EXTENDED_DDA_MAX + 2];
 
 /* `vmini`/`vmax` of the endpoints and the [0, 1024)^3 test from the MAC sign flags, in two steps:
  * the low corner not below 0, the high corner below 1024. */
@@ -1146,9 +1180,10 @@ static int in_world_lo(V3 a, V3 b) {
     return 1;
 }
 
-static int in_world_hi(V3 a, V3 b) {
+static int in_world_hi(V3 a, V3 b, int extended) {
+    const float limit = extended ? 32768.0f : K1024;
     for (int k = 0; k < 3; ++k) {
-        if (!neg(fsub(fmax2(a.v[k], b.v[k]), K1024))) {
+        if (!neg(fsub(fmax2(a.v[k], b.v[k]), limit))) {
             return 0;
         }
     }
@@ -1184,7 +1219,8 @@ static int line_cell_list(V3 a1024, V3 b1024) {
     /* the walk keeps the start in vf2 (vmove.xyz) and turns it once per axis (vmr32): its w ends as
      * z */
     g_vf2w = fb(a1024.v[2]);
-    static int32_t lists[3][DDA_MAX + 1];
+    static int32_t lists[3][EXTENDED_DDA_MAX + 1];
+    const int max_steps = openrac_guest_ram_size > GUEST_RAM_SIZE ? EXTENDED_DDA_MAX : DDA_MAX;
     int len[3] = {0, 0, 0}, dir[3];
     const V3 d = vsub(b1024, a1024);
     for (int k = 0; k < 3; ++k) {
@@ -1200,7 +1236,7 @@ static int line_cell_list(V3 a1024, V3 b1024) {
             step = -1;
         }
         dir[k] = step;
-        while (at != end && len[k] < DDA_MAX) {
+        while (at != end && len[k] < max_steps) {
             at += step;
             const float t = fmul(fsub((float)(at << 12), a1024.v[k]), q);
             int32_t bits = (int32_t)fb(t);
@@ -1410,11 +1446,16 @@ static void line_mobys(
     float* best_t,
     Best* best
 ) {
-    static unsigned cells[3 * DDA_MAX + 2][2];
+    static unsigned cells[3 * EXTENDED_DDA_MAX + 2][2];
     int nc = 0;
     for (int i = 0; i < n; ++i) {
         if (i > 0 && fb(g_list[i].t) == 0x3F800000u) {
             break;
+        }
+        if (openrac_guest_ram_size > GUEST_RAM_SIZE
+            && (g_list[i].c[0] < 0 || g_list[i].c[0] >= 256 || g_list[i].c[1] < 0
+                || g_list[i].c[1] >= 256)) {
+            continue;
         }
         const unsigned gx = (unsigned)(g_list[i].c[0] & 0xFF) >> 2,
                        gy = (unsigned)(g_list[i].c[1] & 0xFF) >> 2;
@@ -1542,7 +1583,7 @@ static int coll_line(const Ctx* x, gaddr pa, gaddr pb, uint32_t fl, gaddr ignore
         return 0;
     }
     vf_int(29, b1024);
-    if (!in_world_hi(a, b)) {
+    if (!in_world_hi(a, b, collision_has_extended_tree(U32(x->out)))) {
         return 0;
     }
     const int n = line_cell_list(a1024, b1024);
@@ -1578,7 +1619,7 @@ typedef struct {
     int capsule;
 } Volume;
 
-static int volume_new(Volume* v, gaddr centre, float radius, float height, int capsule) {
+static int volume_new(Volume* v, gaddr centre, float radius, float height, int capsule, int extended) {
     const V3 c = vld(centre);
     v->capsule = capsule;
     for (int k = 0; k < 3; ++k) {
@@ -1598,7 +1639,7 @@ static int volume_new(Volume* v, gaddr centre, float radius, float height, int c
         return 0;
     }
     for (int k = 0; k < 3; ++k) {
-        if (!neg(fsub(v->hi.v[k], K1024))) {
+        if (!neg(fsub(v->hi.v[k], extended ? 32768.0f : K1024))) {
             return 0;
         }
     }
@@ -1649,6 +1690,13 @@ static void volume_mobys(
     for (int k = 0; k < 2; ++k) {
         lo[k] = (uint32_t)ftoi0(vol->lo1024.v[k]) >> 14;
         hi[k] = (uint32_t)ftoi0(vol->hi1024.v[k]) >> 14;
+    }
+    if (openrac_guest_ram_size > GUEST_RAM_SIZE) {
+        if (lo[0] >= 64 || lo[1] >= 64 || lo[0] > hi[0] || lo[1] > hi[1]) {
+            return;
+        }
+        if (hi[0] >= 64) hi[0] = 63;
+        if (hi[1] >= 64) hi[1] = 63;
     }
     for (unsigned gy = lo[1]; gy <= hi[1]; ++gy) {
         for (unsigned gx = lo[0]; gx <= hi[0]; ++gx) {
@@ -1766,7 +1814,8 @@ static int coll_volume(
         return 0;
     }
     Volume vol;
-    if (!volume_new(&vol, centre, radius, height, capsule)) {
+    const gaddr mesh = U32(x->out);
+    if (!volume_new(&vol, centre, radius, height, capsule, collision_has_extended_tree(mesh))) {
         return 0;
     }
     const float shrink = best_shrink();
@@ -1774,7 +1823,6 @@ static int coll_volume(
     Best best;
     best_start(&best);
     g_joints = 0;
-    const gaddr mesh = U32(x->out);
     if ((fl & 0x1) == 0) {
         int lo[3], hi[3];
         for (int k = 0; k < 3; ++k) {
@@ -2058,7 +2106,7 @@ int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
     Volume vol;
     g_joints = 0;
     g_r7 = x->grid;
-    if (stamp >= 0 && volume_new(&vol, a1, a0, 0.0f, 0)) {
+    if (stamp >= 0 && volume_new(&vol, a1, a0, 0.0f, 0, 0)) {
         const V3 c = vol.c1024;
         const float r = vol.r1024;
         const float best = vol.rr;

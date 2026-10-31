@@ -46,8 +46,9 @@ the size in quadwords (the DMA count the game uses to copy the leaf to the
 scratchpad; it equals ⌈(4 + 4V + 4F + Q) / 16⌉ on all 429,484 NTSC-U cells,
 so a leaf is under 0x1000 bytes). OpenRAC's expanded format reserves a zero
 size byte as a marker for the tagged leaf below; the game reads that form only
-in expanded-RAM sessions. The game reads the bases unsigned and only answers queries
-inside [0, 1024)³; all retail coordinates are ≥ 0 (up to cell 200, 220, 111).
+in expanded-RAM sessions. Retail collision answers queries inside [0, 1024)³.
+Marked mod collision supports positive coordinates inside [0, 32,768)³; the
+existing 16-bit node counts and signed node bases bound that expanded grid.
 
 **Layout in memory** (all 19 PAL levels): the root, then every slab table,
 then every row table (each 4-byte aligned), then every leaf (16-byte aligned,
@@ -99,10 +100,15 @@ to available host memory. The directory supports up to 0xFFFFFF indexed leaves
 and 32-bit mesh-relative leaf offsets, removing the cell word's 16 MiB start
 limit. Existing tree tables still have their retail widths: root-to-slab
 offsets are u16 quadword offsets and slab/row pointers are u32 byte offsets.
-The directory raises only the cell-to-leaf offset range; it does not remove
-the tree table limits. The packer makes a virtual level-data stream for any
-block using either marker, which selects expanded RAM. Vanilla sessions ignore these markers, and
-retail leaves retain their original encoding.
+The directory raises the cell-to-leaf offset range; it does not remove the
+tree table count limits. When a slab starts beyond the root's 16-bit
+quadword-offset range, the header also has `RLCT` at +16 and a block-absolute
+offset to a u32 count and that many u32 mesh-relative slab offsets at +20.
+Root entries then hold 1-based indices into that table. The packer makes a
+virtual level-data stream for any block using these markers, which selects
+expanded RAM. Vanilla sessions ignore them, and retail leaves retain their
+original encoding. Hero-only groups keep their separate 0–1024 coordinate
+encoding.
 
 **Vertex**: X in bits 0–9 and Y in 10–19 (signed, 1/16 unit), Z in bits 20–31
 (signed, 1/64), from the cell centre (4 × cell + 2). The range ±32 units lets a

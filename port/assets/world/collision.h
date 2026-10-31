@@ -167,8 +167,10 @@ struct CollisionMesh {
     s32 hero_offset = 0;  // from the block, 0 for none
     bool has_extended_leaf_index = false;
     std::vector<u32> extended_leaf_offsets;  // mesh-relative offsets indexed by RLCI cell words
+    bool has_extended_slab_index = false;
+    std::vector<u32> extended_slab_offsets;  // mesh-relative offsets indexed by root Z entry
     CollisionNode root;
-    std::vector<u16> root_entries;  // slab offset / 4 per Z, 0 for none
+    std::vector<u16> root_entries;  // retail slab offset / 4 or RLCT directory index per Z
     std::vector<CollisionSlab> slabs;
     std::vector<CollisionRow> rows;
     std::vector<CollisionCell> cells;
@@ -188,7 +190,9 @@ CollisionMesh read_collision(Game game, ByteView block);
 // The game's cell lookup (NTSC-U level01 0x2117d0) on the raw tree: the
 // non-zero leaf word of cell (x, y, z), or nothing when the cell is outside the
 // grid or empty. `mesh` is the bytes from the root node on.
-std::optional<u32> lookup_collision_leaf(ByteView mesh, s32 x, s32 y, s32 z);
+std::optional<u32> lookup_collision_leaf(
+    ByteView mesh, s32 x, s32 y, s32 z, const std::vector<u32>* extended_slab_offsets = nullptr
+);
 
 // The cell holding world position p, or nothing outside [0, 1024)^3. The game
 // computes trunc(p * 1024) >> 12 for lines and trunc(p) >> 2 for volumes; both

@@ -43,7 +43,7 @@ slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
   selects expanded RAM for those levels. Run a Godot edit that pushes one cell
   past 255 vertices and 4,080 bytes, confirm floors/walls and face filters in
   gameplay, then exercise allocation failure and 0xFFFFFF-directory-entry
-  refusal paths. The expanded directory indexes all leaves and carries 32-bit offsets.
+  refusal paths. The expanded directory indexes all leaves and carries 32-bit offsets. Mod collision trees now support a positive 32,768-unit world and an optional 32-bit slab-offset directory; large-world gameplay proof remains.
 
 ## 2. Rearrange rac3-uya-decomp like rac1-decomp and rac2-decomp
 

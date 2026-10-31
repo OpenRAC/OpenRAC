@@ -18,6 +18,7 @@ CELL = 4
 LEAF_LIMIT = 0x1000
 EXT_LEAF_MAGIC = b"RLCX"                 # Expanded-mode leaf; size byte 0 in the cell word.
 EXT_INDEX_MAGIC = b"RLCI"                # Header extension for 32-bit mesh-relative leaf offsets.
+EXT_SLAB_MAGIC = b"RLCT"                 # Expanded root-to-slab offset directory.
 EXT_MAX_VERTICES = 0x7fffffff             # Runtime query indices are signed 32-bit.
 EXT_MAX_BYTES = 128 * 1024 * 1024         # Largest supported expanded guest RAM arena.
 SCALE = 64  # World coordinates are held in 1/64 units while decoding.
@@ -56,10 +57,13 @@ def table(mesh: bytes, at: int, entry: str) -> tuple[int, list[int]]:
     return base, list(unpack(f"<{count}{entry}", mesh, at + 4)) if count else []
 
 
-def leaves(mesh: bytes, extended_offsets: tuple[int, ...] | None = None):
+def leaves(mesh: bytes, extended_offsets: tuple[int, ...] | None = None,
+           slab_offsets: tuple[int, ...] | None = None):
     """Yield ((x, y, z) cell, leaf bytes, extended marker) for every non-empty cell."""
     z_base, z_slabs = table(mesh, 0, "H")
     for k, slab in enumerate(z_slabs):
+        if slab_offsets is not None:
+            slab = slab_offsets[k] // 4
         if not slab:
             continue
         y_base, rows = table(mesh, slab * 4, "I")
@@ -89,7 +93,13 @@ def leaves(mesh: bytes, extended_offsets: tuple[int, ...] | None = None):
 def _extended_leaf_offsets(block: bytes, mesh_at: int, hero_at: int) -> tuple[int, ...] | None:
     """Read the mod-only leaf offset directory from the collision block header."""
     if block[8:12] != EXT_INDEX_MAGIC:
-        check(not any(block[8:HEADER]), "collision header has unknown extension data")
+        check(not any(block[8:16]) and block[16:20] in (bytes(4), EXT_SLAB_MAGIC),
+              "collision header has unknown extension data")
+        if block[16:20] == EXT_SLAB_MAGIC:
+            check(bool(unpack("<I", block, 20)[0]) and not any(block[24:HEADER]),
+                  "expanded slab offset table marker and pointer disagree")
+        else:
+            check(not any(block[20:HEADER]), "collision header has unknown extension data")
         return None
     table_at, = unpack("<I", block, 12)
     check((hero_at or mesh_at) <= table_at <= len(block),
@@ -101,7 +111,25 @@ def _extended_leaf_offsets(block: bytes, mesh_at: int, hero_at: int) -> tuple[in
     mesh_end = hero_at or table_at
     check(all(offset % 16 == 0 and mesh_at + offset < mesh_end for offset in offsets),
           "expanded collision leaf offset points outside the mesh")
-    check(not any(block[16:HEADER]), "collision header extension has unknown trailing data")
+    check(block[16:20] in (bytes(4), EXT_SLAB_MAGIC), "collision header extension has unknown trailing data")
+    check((block[16:20] == EXT_SLAB_MAGIC) == bool(unpack("<I", block, 20)[0]),
+          "expanded slab offset table marker and pointer disagree")
+    check(not any(block[24:HEADER]), "collision header extension has unknown trailing data")
+    return offsets
+
+
+def _extended_slab_offsets(block: bytes, z_count: int, mesh_at: int, hero_at: int) -> tuple[int, ...] | None:
+    if block[16:20] != EXT_SLAB_MAGIC:
+        check(not any(block[20:HEADER]), "collision header extension has unknown trailing data")
+        return None
+    table_at, = unpack("<I", block, 20)
+    check((hero_at or mesh_at) <= table_at <= len(block),
+          "expanded slab offset table overlaps collision data or is outside the block")
+    count, = unpack("<I", block, table_at)
+    check(count == z_count, "expanded slab offset table does not match the root table")
+    offsets = unpack(f"<{count}I", span(block, table_at + 4, 4 * count)) if count else ()
+    check(all(offset == 0 or offset % 4 == 0 for offset in offsets),
+          "expanded slab offset is not quadword aligned")
     return offsets
 
 
@@ -118,7 +146,9 @@ def decode(block: bytes) -> Collision:
     tree = span(block, mesh_at, (hero_at or len(block)) - mesh_at)
     result = Collision()
     seen = set()
-    for (x, y, z), leaf, extended in leaves(tree, extended_offsets):
+    z_base, z_slabs = table(tree, 0, "H")
+    extended_slabs = _extended_slab_offsets(block, len(z_slabs), mesh_at, hero_at)
+    for (x, y, z), leaf, extended in leaves(tree, extended_offsets, extended_slabs):
         if extended:
             _, size, vertices, faces = unpack("<4sIII", leaf)
             quads = 0
@@ -194,7 +224,8 @@ HEADER = 0x40
 LEAF_MAX = 0xff * 16                     # the cell word's size byte, in quadwords
 SPAN_XY, SPAN_Z = 511 * 4, 2047          # how far a leaf's vertex can be from its cell's centre
 SPAN_XY_LOW, SPAN_Z_LOW = -512 * 4, -2048
-WORLD = 1024 * SCALE                     # the game answers queries inside [0, 1024) units only
+WORLD_CELLS = 8192                       # expanded RAC1 query grid: 32,768 units per axis
+WORLD = WORLD_CELLS * CELL * SCALE
 CELL_UNITS = CELL * SCALE                # a cell's side in model units (256)
 
 
@@ -247,9 +278,12 @@ def parse(block: bytes) -> Block:
     extended_offsets = _extended_leaf_offsets(block, mesh_at, hero_at)
     mesh = span(block, mesh_at, (hero_at or len(block)) - mesh_at)
     z_base, z_slabs = table(mesh, 0, "H")
+    extended_slabs = _extended_slab_offsets(block, len(z_slabs), mesh_at, hero_at)
     out = Block((z_base, len(z_slabs)), {}, {}, {}, [], [], [], None)
     where = []                                          # (offset, kind, key) to recover the order
     for k, slab in enumerate(z_slabs):
+        if extended_slabs is not None:
+            slab = extended_slabs[k] // 4
         if not slab:
             continue
         z = z_base + k
@@ -323,7 +357,8 @@ def parse(block: bytes) -> Block:
 
 def requires_expanded_collision(block: bytes) -> bool:
     """Whether a collision block uses an OpenRAC-only collision extension."""
-    return block[8:12] == EXT_INDEX_MAGIC or any(leaf.extended for leaf in parse(block).cells.values())
+    return block[8:12] == EXT_INDEX_MAGIC or block[16:20] == EXT_SLAB_MAGIC \
+        or any(leaf.extended for leaf in parse(block).cells.values())
 
 
 def encode_leaf(cell: tuple[int, int, int], leaf: Leaf) -> bytes:
@@ -380,7 +415,12 @@ def write(model: Block) -> bytes:
         leaf_at[cell] = at
         at += len(leaves[cell])
     extended_cells = [cell for cell in model.leaf_order if leaves[cell].startswith(EXT_LEAF_MAGIC)]
-    directory_needed = bool(extended_cells) or any(leaf_at[cell] >= 1 << 24 for cell in leaf_at)
+    slab_directory_needed = any(offset // 4 > 0xffff for offset in slab_at.values())
+    extended_world = z_base + z_count > 256 or any(
+        c[0] >= 256 or c[1] >= 256 or c[2] >= 256 for c in leaf_at
+    )
+    directory_needed = bool(extended_cells) or extended_world or slab_directory_needed \
+        or any(leaf_at[cell] >= 1 << 24 for cell in leaf_at)
     indexed_cells = model.leaf_order if directory_needed else []
     check(len(indexed_cells) <= 0xffffff, "collision: too many leaves for the expanded cell-word index")
     leaf_index = {cell: i + 1 for i, cell in enumerate(indexed_cells)}
@@ -388,8 +428,11 @@ def write(model: Block) -> bytes:
     entries = []
     for k in range(z_count):
         offset = slab_at.get(z_base + k, 0)
-        check(offset // 4 <= 0xffff, "collision: the slab tables do not fit the root's 16-bit entries")
-        entries.append(offset // 4)
+        if slab_directory_needed:
+            entries.append(k + 1 if offset else 0)
+        else:
+            check(offset // 4 <= 0xffff, "collision: the slab tables do not fit the root's 16-bit entries")
+            entries.append(offset // 4)
     struct.pack_into(f"<hH{z_count}H", mesh, 0, z_base, z_count, *entries)
     for z, offset in slab_at.items():
         y_base, count = model.slabs[z]
@@ -435,17 +478,28 @@ def write(model: Block) -> bytes:
         out += struct.pack("<I", len(indexed_cells))
         out += struct.pack(f"<{len(indexed_cells)}I", *(leaf_at[cell] for cell in indexed_cells))
         struct.pack_into("<4sI", out, 8, EXT_INDEX_MAGIC, table_at)
+    if slab_directory_needed:
+        out += bytes(-len(out) % 4)
+        table_at = len(out)
+        slab_offsets = [slab_at.get(z_base + k, 0) for k in range(z_count)]
+        check(table_at <= 0xffffffff and all(offset <= 0xffffffff for offset in slab_offsets),
+              "collision: expanded slab directory is outside the block address range")
+        out += struct.pack("<I", len(slab_offsets))
+        out += struct.pack(f"<{len(slab_offsets)}I", *slab_offsets)
+        struct.pack_into("<4sI", out, 16, EXT_SLAB_MAGIC, table_at)
     return bytes(out) + bytes(-len(out) % 0x40)
 
 
 def validate(model: Block) -> None:
     """Raises FormatError for what the game cannot hold: leaf limits, coordinates, the tables."""
-    check(0 <= model.z[0] and model.z[0] + model.z[1] <= 256 and model.z[1] <= 0xffff,
-           "collision: Z cells outside 0-255 (the game answers queries inside 0-1024 units only)")
+    check(0 <= model.z[0] and model.z[0] + model.z[1] <= WORLD_CELLS and model.z[1] <= 0xffff,
+           f"collision: Z cells outside the expanded {WORLD_CELLS}-cell query world")
     for z, (y_base, count) in model.slabs.items():
-        check(0 <= y_base and y_base + count <= 256, f"collision: slab {z} has Y cells outside 0-255")
+        check(0 <= y_base and y_base + count <= WORLD_CELLS,
+              f"collision: slab {z} has Y cells outside the expanded query world")
     for key, (x_base, count) in model.rows.items():
-        check(0 <= x_base and x_base + count <= 256, f"collision: row {key} has X cells outside 0-255")
+        check(0 <= x_base and x_base + count <= WORLD_CELLS,
+              f"collision: row {key} has X cells outside the expanded query world")
     for cell, leaf in model.cells.items():
         x, y, z = cell
         check(model.rows.get((z, y), (0, 0))[0] <= x < sum(model.rows.get((z, y), (0, 0))),
