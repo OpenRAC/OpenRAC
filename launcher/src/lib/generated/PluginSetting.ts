@@ -17,4 +17,9 @@ binds?: number,
  * A keybind's group: two keybinds of one group on the same input conflict; of two groups
  * ("play", "menu") they may share it.
  */
-group?: string, };
+group?: string, 
+/**
+ * What it is to a multiplayer party (interface 1.11): `own` (each player's), `host` (the
+ * host's rules bring it); absent: it must match the host's.
+ */
+multiplayer?: string, };

@@ -52,6 +52,19 @@ struct openrac_mod {
     std::vector<std::pair<void**, void*>> taken;  // each slot it filled, and what was there before
     std::vector<std::string> hooks;               // the hook points it took
     openrac_mod_unload_fn unload = nullptr;
+    // What a party needs of it (interface 1.11): its settings as text, made when first asked and
+    // kept for the life of the mod (the table hands out their strings), the rules it published
+    // (none yet: not published), how often, and who takes the host's rules.
+    struct PartySetting {
+        std::string value, shown;
+    };
+    std::vector<PartySetting> party_settings;
+    bool has_party_rules = false;
+    std::vector<std::uint8_t> party_rules;
+    std::string party_text;
+    std::uint32_t party_version = 0;
+    openrac_party_rules_fn party_fn = nullptr;
+    void* party_user = nullptr;
 };
 
 namespace {
@@ -913,6 +926,145 @@ int api_ui_sound(openrac_mod* mod, int sound) {
     return OPENRAC_HOOK_OK;
 }
 
+// ---- The mods a party has to agree on (interface 1.11) ----
+
+// While on, what the mods make the game do is another player's doing passed on.
+bool g_party_replay = false;
+
+openrac_mod* loaded_mod(int index) {
+    return index >= 0 && static_cast<std::size_t>(index) < g_loaded.size()
+               ? g_loaded[static_cast<std::size_t>(index)].get()
+               : nullptr;
+}
+
+int api_mod_count() {
+    return static_cast<int>(g_loaded.size());
+}
+
+int api_mod_entry(int index, openrac_mod_entry* out) {
+    const openrac_mod* mod = loaded_mod(index);
+    if (mod == nullptr || out == nullptr || out->size < sizeof(openrac_mod_entry)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->id = mod->id.c_str();
+    out->name = mod->manifest.name.c_str();
+    out->version = mod->version.c_str();
+    out->party = mod->manifest.party;
+    out->settings = static_cast<std::int32_t>(mod->manifest.settings.size());
+    return OPENRAC_HOOK_OK;
+}
+
+// A setting's value as text: the same value, the same text in every game. A float by the shortest
+// text that reads back as it, so nothing of a machine's formatting comes into it.
+std::string setting_text(const SettingValue& v) {
+    switch (v.type) {
+        case SettingType::Bool:
+            return v.b ? "true" : "false";
+        case SettingType::Int:
+            return std::to_string(v.i);
+        case SettingType::Float:
+            return std::format("{}", v.f);
+        default:
+            return v.s;
+    }
+}
+
+// The same in a player's words: a switch's on or off, a choice's name.
+std::string setting_shown(const Setting& s, const SettingValue& v) {
+    if (s.type == SettingType::Bool) {
+        return v.b ? "on" : "off";
+    }
+    if (s.type == SettingType::Choice) {
+        const auto at = std::find(s.choices.begin(), s.choices.end(), v.s);
+        if (at != s.choices.end()) {
+            return s.choice_names[static_cast<std::size_t>(at - s.choices.begin())];
+        }
+    }
+    return setting_text(v);
+}
+
+int api_mod_setting(int index, int setting, openrac_mod_setting* out) {
+    openrac_mod* mod = loaded_mod(index);
+    if (mod == nullptr || out == nullptr || out->size < sizeof(openrac_mod_setting) || setting < 0
+        || static_cast<std::size_t>(setting) >= mod->manifest.settings.size()) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (mod->party_settings.empty()) {
+        for (const Setting& s : mod->manifest.settings) {
+            const auto v = mod->settings.find(s.key);
+            const SettingValue& value = v != mod->settings.end() ? v->second : s.fallback;
+            mod->party_settings.push_back({setting_text(value), setting_shown(s, value)});
+        }
+    }
+    const Setting& s = mod->manifest.settings[static_cast<std::size_t>(setting)];
+    const openrac_mod::PartySetting& text = mod->party_settings[static_cast<std::size_t>(setting)];
+    out->key = s.key.c_str();
+    out->name = s.name.c_str();
+    out->value = text.value.c_str();
+    out->shown = text.shown.c_str();
+    out->party = s.party;
+    out->is_default = text.value == setting_text(s.fallback) ? 1 : 0;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_party_rules_publish(openrac_mod* mod, const void* data, uint32_t size, const char* text) {
+    if (mod == nullptr || (data == nullptr && size != 0) || size > OPENRAC_PARTY_RULES_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
+    mod->party_rules.assign(bytes, bytes + size);
+    mod->party_text = text != nullptr ? text : "";
+    mod->has_party_rules = true;
+    ++mod->party_version;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_party_rules_read(int index, void* out, uint32_t size, uint32_t* version) {
+    const openrac_mod* mod = loaded_mod(index);
+    if (mod == nullptr || !mod->has_party_rules) {
+        return -1;
+    }
+    if (out != nullptr && !mod->party_rules.empty()) {
+        std::memcpy(out, mod->party_rules.data(), std::min<std::size_t>(size, mod->party_rules.size()));
+    }
+    if (version != nullptr) {
+        *version = mod->party_version;
+    }
+    return static_cast<int>(mod->party_rules.size());
+}
+
+const char* api_party_rules_text(int index) {
+    const openrac_mod* mod = loaded_mod(index);
+    return mod != nullptr ? mod->party_text.c_str() : "";
+}
+
+int api_on_party_rules(openrac_mod* mod, openrac_party_rules_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    mod->party_fn = fn;
+    mod->party_user = user;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_party_rules_deliver(int index, const void* data, uint32_t size) {
+    const openrac_mod* mod = loaded_mod(index);
+    if (mod == nullptr || mod->party_fn == nullptr || size > OPENRAC_PARTY_RULES_MAX
+        || (data == nullptr && size != 0)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    mod->party_fn(mod->party_user, data, size);
+    return OPENRAC_HOOK_OK;
+}
+
+void api_party_replay(int on) {
+    g_party_replay = on != 0;
+}
+
+int api_party_replaying() {
+    return g_party_replay ? 1 : 0;
+}
+
 void fill_api(const Host& host) {
     static std::string game, version, openrac_version;
     game = host.game;
@@ -967,6 +1119,16 @@ void fill_api(const Host& host) {
     g_api.ui_cursor = api_ui_cursor;
     g_api.ui_sound = api_ui_sound;
     g_api.ui_pause_item = api_ui_pause_item;
+    g_api.mod_count = api_mod_count;
+    g_api.mod_entry = api_mod_entry;
+    g_api.mod_setting = api_mod_setting;
+    g_api.party_rules_publish = api_party_rules_publish;
+    g_api.party_rules_read = api_party_rules_read;
+    g_api.party_rules_text = api_party_rules_text;
+    g_api.on_party_rules = api_on_party_rules;
+    g_api.party_rules_deliver = api_party_rules_deliver;
+    g_api.party_replay = api_party_replay;
+    g_api.party_replaying = api_party_replaying;
     fill_play_api(g_api, host.play, host.cards);
 }
 
@@ -1562,6 +1724,10 @@ int loaded_count() {
     return static_cast<int>(g_loaded.size());
 }
 
+const openrac_api& api_for_tests() {
+    return g_api;
+}
+
 const char* mod_id(const openrac_mod* mod) {
     return mod != nullptr ? mod->id.c_str() : "a mod";
 }
@@ -1590,6 +1756,7 @@ void reset() {
     g_ui_main_menu = false;
     g_ui_requests = UiRequests{};
     reset_play();
+    g_party_replay = false;
     g_tick_boundaries.clear();
     g_tick_mod = nullptr;
     g_in_tick_boundary = false;

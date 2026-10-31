@@ -1496,12 +1496,12 @@ mod tests {
         let mut fx3 = Fixture::default();
         repo(
             &mut fx3,
-            &[("openrac-mod.json", script_manifest("swap", "1.0.0").replace("\"1.1\"", "\"1.11\""))],
+            &[("openrac-mod.json", script_manifest("swap", "1.0.0").replace("\"1.1\"", "\"1.12\""))],
             serde_json::json!([]),
             "c1",
         );
         let p = preview(&ctx(dir.path(), &fx3), "https://github.com/o/r").unwrap();
-        assert!(!p.mods[0].compatible && p.mods[0].why.as_deref().unwrap().contains("interface 1.11"));
+        assert!(!p.mods[0].compatible && p.mods[0].why.as_deref().unwrap().contains("interface 1.12"));
     }
 
     #[test]

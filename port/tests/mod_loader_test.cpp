@@ -79,7 +79,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.10",
+    const std::string& api = "1.11",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -102,6 +102,7 @@ void install(
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
                                   {"value": "developer_menu", "name": "Developer menu"},
+                                  {"value": "rules", "name": "Rules"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"}]},
@@ -420,7 +421,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.10", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.11", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -529,6 +530,55 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::run_menu_page(1, frame));  // no such page: closed
     mods::reset();
     CHECK(mods::menu_entry_count() == 0);
+}
+
+// The mods a party has to agree on (interface 1.11): the mods loaded and their settings as read this
+// run, the rules a mod publishes and the host's it takes, the replay switch.
+void a_party_reads_the_mods(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "rules", "tag": 7}},
+        {"id": "test-b", "enabled": true}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.api_minor >= 11 && api.mod_count() == 2);
+    openrac_mod_entry entry{};
+    entry.size = sizeof entry;
+    CHECK(api.mod_entry(0, &entry) == OPENRAC_HOOK_OK);
+    CHECK(std::string(entry.id) == "test-a" && std::string(entry.version) == "1.0.0");
+    CHECK(entry.party == OPENRAC_PARTY_MOD_GAMEPLAY && entry.settings == 3);
+    CHECK(api.mod_entry(2, &entry) == OPENRAC_HOOK_UNKNOWN);
+    openrac_mod_setting setting{};
+    setting.size = sizeof setting;
+    CHECK(api.mod_setting(0, 0, &setting) == OPENRAC_HOOK_OK);
+    CHECK(std::string(setting.key) == "tag" && std::string(setting.value) == "7" && !setting.is_default);
+    CHECK(api.mod_setting(0, 1, &setting) == OPENRAC_HOOK_OK);
+    CHECK(std::string(setting.value) == "rules" && std::string(setting.shown) == "Rules");
+    CHECK(api.mod_setting(1, 0, &setting) == OPENRAC_HOOK_OK);
+    CHECK(std::string(setting.value) == "0" && setting.is_default);
+    CHECK(api.mod_setting(0, 3, &setting) == OPENRAC_HOOK_UNKNOWN);
+
+    // What it published (a blob too big is refused, what was there stays); nothing from the other.
+    char blob[8] = {};
+    std::uint32_t version = 0;
+    CHECK(api.party_rules_read(0, blob, sizeof blob, &version) == 3);
+    CHECK(std::string(blob) == "abc" && version == 1);
+    CHECK(std::string(api.party_rules_text(0)) == "Bolts x2");
+    CHECK(api.party_rules_read(1, blob, sizeof blob, &version) == -1);
+
+    // The host's reach the one that listens, and only it.
+    CHECK(api.party_rules_deliver(0, "xy", 2) == OPENRAC_HOOK_OK);
+    CHECK(api.party_rules_deliver(0, nullptr, 0) == OPENRAC_HOOK_OK);
+    CHECK(api.party_rules_deliver(1, "xy", 2) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.party_rules_deliver(7, "xy", 2) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(std::count(g_records.begin(), g_records.end(), 7000 + 20 + ('x' - 'a')) == 1);
+    CHECK(std::count(g_records.begin(), g_records.end(), 7000) == 1);
+
+    CHECK(api.party_replaying() == 0);
+    api.party_replay(1);
+    CHECK(api.party_replaying() == 1);
+    api.party_replay(0);
+    mods::reset();
 }
 
 // A mod-provided desktop menu (interface 1.10): copied strings, queued actions handled at the
@@ -959,7 +1009,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.10", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.11", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1021,6 +1071,7 @@ int main() {
     views_reach_the_host(plugins);
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
+    a_party_reads_the_mods(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);

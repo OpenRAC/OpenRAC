@@ -111,6 +111,14 @@ Draws a mod's menu page during its callback: rectangles and text on a page of OP
 | `R operator()(A... args) const` | Calls the original with `args`, as the game would have called the hook point. |
 | `fn get() const` | Returns the original as a plain function pointer. |
 
+## `openrac::ModEntry`
+
+One loaded mod (Mod::mods, since 1.11): its index for the calls that take one, its manifest's id, name and version, what it is to a party (OPENRAC_PARTY_MOD_*) and how many settings it has.
+
+## `openrac::ModSetting`
+
+One setting of a loaded mod (Mod::mod_settings, since 1.11).
+
 ## `openrac::UiItem`
 
 ---------------------------------------------------------------------------------------------- Pages of the game's own menus (since 1.7) ---------------------------------------------------------------------------------------------- One item of a page (openrac_ui_item), as the mod puts it in a UiContent. Since 1.7.
@@ -248,6 +256,16 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool moby_deletion(int slot, openrac_moby_deletion& out) const` | Since 1.9: the last deletion the game made of the moby in `slot` in this level load into `out`; false for none seen or a port without it. |
 | `bool camera_position(float (&out)[3]) const` | Since 1.9: where the game's camera is into `out` (x, y, z); false outside a level or for a port without it. |
 | `bool has_moby_run() const` | Since 1.9: whether the port offers moby_run(). |
+| `bool has_party_rules() const` | Since 1.11: whether this port lists the loaded mods and carries party rules. |
+| `std::vector<ModEntry> mods() const` | Since 1.11: the mods loaded this run, in load order; none for a port without them. |
+| `std::vector<ModSetting> mod_settings(int index) const` | Since 1.11: the settings of the mod `index` as it reads them this run. |
+| `bool party_rules_publish(const std::vector<std::uint8_t>& data, const std::string& text) const` | Since 1.11: this game's rules, for a party it hosts (openrac_api.party_rules_publish): false for a port without them, or too many bytes. |
+| `bool party_rules_read(int index, std::vector<std::uint8_t>& out, std::uint32_t& version) const` | Since 1.11: the rules mod `index` published, false when it published none; `version` grows with each publish. |
+| `std::string party_rules_text(int index) const` | Since 1.11: the words mod `index` published with its rules. |
+| `bool on_party_rules(openrac_party_rules_fn fn, void* user = nullptr) const` | Since 1.11: `fn(user, data, size)` when the host's rules for this mod reach this game (null and 0: there are none any more). During load; false for a port without it. |
+| `bool party_rules_deliver(int index, const std::vector<std::uint8_t>& data) const` | Since 1.11: hands mod `index` the host's rules; empty: there are none any more. |
+| `void party_replay(bool on) const` | Since 1.11: what mods make the game do is another player's doing passed on, while on. |
+| `bool party_replaying() const` |  |
 | `bool moby_run(int slot, openrac_moby_run& out) const` | Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1: none) in it, into `out`; false outside a level or for a port without it. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |

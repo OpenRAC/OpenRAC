@@ -374,6 +374,14 @@ static void on_pad(void* user, int port, uint8_t* report, int size) {
     }
 }
 
+/* The host's rules heard (interface 1.11): its bytes as a number, 0 for none any more. */
+static char s_big[OPENRAC_PARTY_RULES_MAX + 1];
+
+static void on_party_rules(void* user, const void* data, uint32_t size) {
+    (void)user;
+    s_record(data == NULL ? 7000 : 7000 + (int)size * 10 + ((const char*)data)[0] - 'a');
+}
+
 OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod) {
     s_api = api;
     s_frames = 0;
@@ -439,6 +447,15 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->menu_entry(mod, "No page", NULL, NULL) != OPENRAC_HOOK_UNKNOWN) {
             return 9;
         }
+    }
+    if (behaviour[0] == 'r') { /* rules */
+        if (api->api_minor < 11 || s_record == NULL
+            || api->on_party_rules(mod, on_party_rules, NULL) != 0
+            || api->party_rules_publish(mod, "abc", 3, "Bolts x2") != OPENRAC_HOOK_OK
+            || api->party_rules_publish(mod, s_big, sizeof s_big, "") == OPENRAC_HOOK_OK) {
+            return 16;
+        }
+        s_api = api;
     }
     if (behaviour[0] == 's') { /* savestate */
         s_savestate = 1;

@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 10;
+pub const API_MINOR: u32 = 11;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -150,6 +150,11 @@ pub struct SettingSpec {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     #[ts(as = "Option<String>", optional)]
     pub group: String,
+    /// What it is to a multiplayer party (interface 1.11): `own` (each player's), `host` (the
+    /// host's rules bring it); absent: it must match the host's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub multiplayer: Option<String>,
 }
 
 impl SettingSpec {
@@ -241,6 +246,10 @@ pub struct Manifest {
     pub conflicts: Vec<Conflict>,
     #[serde(default)]
     pub load: LoadHints,
+    /// What the mod is to a multiplayer party (interface 1.11): `gameplay` (also when absent),
+    /// `input`, `cosmetic` or `solo`.
+    #[serde(default)]
+    pub multiplayer: Option<String>,
 }
 
 /// An id: lower-case letters and digits in words joined by hyphens, at most 64 characters.
@@ -375,10 +384,18 @@ impl Manifest {
                 return Err(format!("its library for {platform} is not a path inside the mod"));
             }
         }
+        if let Some(word) = &self.multiplayer {
+            if !matches!(word.as_str(), "gameplay" | "input" | "cosmetic" | "solo") {
+                return Err(format!("\"multiplayer\" is gameplay, input, cosmetic or solo, not {word:?}"));
+            }
+        }
         let mut keys = BTreeSet::new();
         for s in &self.settings {
             if !valid_key(&s.key) || !keys.insert(s.key.as_str()) {
                 return Err(format!("setting {:?}: the key is not [a-z0-9_]+, or is there twice", s.key));
+            }
+            if !matches!(s.multiplayer.as_deref(), None | Some("own" | "host")) {
+                return Err(format!("setting {:?}: \"multiplayer\" is own or host", s.key));
             }
             match s.kind.as_str() {
                 "bool" | "int" | "float" | "string" | "keybind" => {}
@@ -1311,6 +1328,16 @@ mod tests {
             m.validate().unwrap_err()
         };
         assert!(broken(json!({"format": 1})).contains("format"));
+        assert!(broken(json!({"multiplayer": "party"})).contains("multiplayer"));
+        let party = |word: &str| -> Result<(), String> {
+            let m: Manifest = serde_json::from_value(manifest("x", json!({"multiplayer": word}))).unwrap();
+            m.validate()
+        };
+        assert!(party("gameplay").is_ok() && party("input").is_ok() && party("cosmetic").is_ok() && party("solo").is_ok());
+        assert!(broken(json!({"settings": [
+            {"key": "a", "name": "A", "type": "bool", "default": true, "multiplayer": "mine"}
+        ]}))
+        .contains("multiplayer"));
         assert!(broken(json!({"id": "Lock_Strafe"})).contains("id"));
         assert!(broken(json!({"id": "a--b"})).contains("id"));
         assert!(broken(json!({"version": "1.0"})).contains("version"));
@@ -1344,8 +1371,8 @@ mod tests {
         assert!(m.runs_on("rac2", "ntsc", Some(here())).unwrap_err().contains("not for rac2"));
         assert!(m.runs_on("rac1", "pal", Some("windows-arm64")).unwrap_err().contains("Not built"));
         assert!(m.runs_on("rac1", "pal", None).unwrap_err().contains("do not run"));
-        let newer: Manifest = serde_json::from_value(manifest("a", json!({"api": "1.11"}))).unwrap();
-        assert!(newer.runs_on("rac1", "pal", Some(here())).unwrap_err().contains("interface 1.11"));
+        let newer: Manifest = serde_json::from_value(manifest("a", json!({"api": "1.12"}))).unwrap();
+        assert!(newer.runs_on("rac1", "pal", Some(here())).unwrap_err().contains("interface 1.12"));
         let other: Manifest = serde_json::from_value(manifest("a", json!({"api": "2.0"}))).unwrap();
         assert!(other.runs_on("rac1", "pal", Some(here())).is_err());
         let data: Manifest = serde_json::from_value(manifest("a", json!({"plugin": {}, "api": null}))).unwrap();
@@ -1402,8 +1429,8 @@ mod tests {
         assert!(m.runs_on("rac1", "pal", None).is_ok());
         assert!(m.runs_on("rac1", "pal", Some("windows-arm64")).is_ok());
         assert!(m.runs_on("rac1", "ntsc", None).unwrap_err().contains("Not for this disc"));
-        let newer: Manifest = serde_json::from_value(script("swap", json!({"api": "1.11"}))).unwrap();
-        assert!(newer.runs_on("rac1", "pal", None).unwrap_err().contains("interface 1.11"));
+        let newer: Manifest = serde_json::from_value(script("swap", json!({"api": "1.12"}))).unwrap();
+        assert!(newer.runs_on("rac1", "pal", None).unwrap_err().contains("interface 1.12"));
     }
 
     #[test]
@@ -1627,7 +1654,7 @@ mod tests {
         let dir = tmp.path();
         installed_mod(dir, "pal-only", json!({"games": {"rac1": ["pal"]}}));
         installed_mod(dir, "fine", json!({"version": "1.1.0"}));
-        installed_mod(dir, "newer-api", json!({"api": "1.11"}));
+        installed_mod(dir, "newer-api", json!({"api": "1.12"}));
         std::fs::create_dir_all(dir.join("broken")).unwrap();
         std::fs::write(dir.join("broken").join(MANIFEST), "{ nope").unwrap();
         std::fs::write(
@@ -1640,7 +1667,7 @@ mod tests {
         assert_eq!(view(&views, "pal-only").state, "refused");
         assert!(view(&views, "pal-only").reason.contains("Not for this disc"));
         assert_eq!(view(&views, "fine").state, "ready");
-        assert!(view(&views, "newer-api").reason.contains("interface 1.11"));
+        assert!(view(&views, "newer-api").reason.contains("interface 1.12"));
         assert!(view(&views, "broken").reason.contains("Cannot be read"));
         assert_eq!(view(&views, "broken").name, "broken");
 

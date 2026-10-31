@@ -17,6 +17,7 @@
 #include <string_view>
 #include <vector>
 
+#include "openrac/openrac_mod.h"
 #include "check.h"
 #include "common/json.h"
 #include "mod_manifest.h"
@@ -498,8 +499,43 @@ void assets() {
     }
 }
 
+// What a mod and a setting are to a party (interface 1.11): gameplay and shared unless they say.
+void party() {
+    const auto of = [](const std::string& fields) {
+        return R"({"format": 2, "id": "a", "name": "A", "version": "1.0.0", "games": {"rac1": ["pal"]},)" + fields
+               + "}";
+    };
+    Manifest m;
+    std::string error;
+    CHECK(parse_manifest(of(R"("settings": [])"), m, error) && m.party == OPENRAC_PARTY_MOD_GAMEPLAY);
+    Manifest input;
+    CHECK(parse_manifest(of(R"("multiplayer": "input")"), input, error) && input.party == OPENRAC_PARTY_MOD_INPUT);
+    Manifest cosmetic;
+    CHECK(parse_manifest(of(R"("multiplayer": "cosmetic")"), cosmetic, error)
+          && cosmetic.party == OPENRAC_PARTY_MOD_COSMETIC);
+    Manifest solo;
+    CHECK(parse_manifest(of(R"("multiplayer": "solo")"), solo, error) && solo.party == OPENRAC_PARTY_MOD_SOLO);
+    Manifest bad;
+    CHECK(!parse_manifest(of(R"("multiplayer": "party")"), bad, error));
+    CHECK(error.find("multiplayer") != std::string::npos);
+    Manifest settings;
+    CHECK(parse_manifest(of(R"("settings": [
+        {"key": "a", "name": "A", "type": "bool", "default": false},
+        {"key": "b", "name": "B", "type": "string", "default": "", "multiplayer": "own"},
+        {"key": "c", "name": "C", "type": "string", "default": "", "multiplayer": "host"}])"),
+                         settings, error));
+    CHECK(settings.settings[0].party == OPENRAC_PARTY_SETTING_SHARED);
+    CHECK(settings.settings[1].party == OPENRAC_PARTY_SETTING_OWN);
+    CHECK(settings.settings[2].party == OPENRAC_PARTY_SETTING_HOST);
+    Manifest bad_setting;
+    CHECK(!parse_manifest(of(R"("settings": [
+        {"key": "a", "name": "A", "type": "bool", "default": false, "multiplayer": "mine"}])"),
+                          bad_setting, error));
+}
+
 int main() {
     versions();
+    party();
     assets();
     manifests();
     settings();

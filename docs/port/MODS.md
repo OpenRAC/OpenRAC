@@ -182,6 +182,7 @@ files. Script mods and data packs work there as elsewhere.
 | `plugin` | no | platform → path inside the mod. Platforms: `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `windows-arm64`, `android-arm64`. Without it the mod is data only (not used yet: section 10) |
 | `hooks` | no | the hook points the mod takes, each by its id (`rac1.player.take_damage`) or an alias (`Hero_TakeDamage`; section 4). The launcher shows which mods share one; the port warns about a hook a mod takes but does not list; `package_mod.py` refuses one the SDK's table (`bindings/<game>.ids.lock`) does not have |
 | `settings` | no | the mod's settings (below) |
+| `multiplayer` | no | what the mod is to a multiplayer party (interface 1.11). `gameplay`, the default: it must be the same in every game of a party, its id, version and settings. `input`, `cosmetic`: each player's own. `solo`: it cannot be played in a party at all |
 | `requires` | no | mods that must be on and load before it; `version` is `>=X.Y.Z`, `=X.Y.Z` or absent |
 | `conflicts` | no | mods it cannot run with; either side may list the other |
 | `load` | no | `after` and `before`: ids it should load after or before when both are on (an order hint the launcher applies when a mod is installed or switched on) |
@@ -219,6 +220,10 @@ setting takes. A preset covers the mod's keybinds and every setting one of its
 presets names; of those, the ones it does not name go back to their defaults.
 The launcher adds a Default button of its own, unless a preset's id is
 `default`; the port and `package_mod.py` check the values as the launcher does.
+
+A setting of a gameplay mod may say `"multiplayer": "own"`, each player's (a trace, a
+spoiler log), or `"multiplayer": "host"`, not compared because the host's rules bring it (a
+seed). The others must match the host's for a player to join.
 
 A value that is missing, of the wrong type or out of range is the default
 (the port logs it). Settings count from the game's next start.
@@ -483,6 +488,10 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `moby_run(slot, &out)` (1.9) | how the game ran the level's mobys in the last tick, for a report of why one stopped or left: the run list's camera, what the last menu update did with the world (`OPENRAC_RUN_MENU_*`: held, the pause menu's first tick, the level's camera put up, the menu's own left up, a freeze dialog) and the level's camera it puts up, the level's game mode and moby context, and the moby in `slot`: its update and draw distances, drawn or not, and how the run list treated it (`OPENRAC_MOBY_RUN_*`: left out by distance, run as drawn, always, near, near an eye, or by its group) |
 | `developer_menu(mod, title, items, count)`, `take_developer_menu_action(mod)` (1.10) | register a top-level desktop menu beside Developer; grouped items become submenus, and selections are queued for the mod's tick-boundary callback |
 | `developer_menu_set_label(mod, action, label)` (1.10) | update an item's label from the owning mod's tick-boundary callback |
+| `mod_count()`, `mod_entry(index, &out)`, `mod_setting(index, setting, &out)` (1.11) | the mods loaded this run, in load order: id, name, version, what each is to a party (`OPENRAC_PARTY_MOD_*`, the manifest's `multiplayer`) and each setting as that mod reads it: its value as text (the same value, the same text in every game), in a player's words, what it is to a party (`OPENRAC_PARTY_SETTING_*`) and whether it is the default |
+| `party_rules_publish(mod, data, size, text)`, `party_rules_read(index, out, size, &version)`, `party_rules_text(index)` (1.11) | the rules a mod plays by in this game, for a party this game hosts: up to `OPENRAC_PARTY_RULES_MAX` (1,024) bytes of the mod's own format and words for a player, published again when they change (`version` grows), read by the mod that carries them. With no party they change nothing |
+| `on_party_rules(mod, fn, user)`, `party_rules_deliver(index, data, size)` (1.11) | `fn(user, data, size)` hears the host's rules for this mod (during load, one a mod); `party_rules_deliver` hands them to the same mod of this game, null and 0 when there are none any more and the mod's own settings count again |
+| `party_replay(on)`, `party_replaying()` (1.11) | while on, what mods make the game do is another player's doing passed on, already decided in that player's game: a mod that changes what the game gives (a randomizer) lets it through as it is |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -538,7 +547,12 @@ figure wear and hold and the shots they fire (`hero_held`, `figure_held`,
 `has_notice()`), and items of the pause menu's Options page opening the mod's pages
 there (`ui_pause_item`; `has_pause_items()`). 1.10 (SDK 1.10.0) optional top-level desktop
 menus (`developer_menu`, `take_developer_menu_action`, and `developer_menu_set_label`), whose
-selections are handled at tick boundaries.
+selections are handled at tick boundaries. 1.11 (SDK 1.11.0) the mods a party has to agree on: the
+loaded mods and their settings listed (`mod_count`, `mod_entry`, `mod_setting`; the C++ layer's
+`mods()`, `mod_settings()`), rules a mod publishes for the host's game and the same mod takes in the
+members' games (`party_rules_publish`, `party_rules_read`, `party_rules_text`, `on_party_rules`,
+`party_rules_deliver`; `has_party_rules()`), `party_replay`, and the manifest's `multiplayer`, for
+a mod and for a setting.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

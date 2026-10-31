@@ -580,6 +580,82 @@ int host_camera_position(float out[3]) {
     return OPENRAC_HOOK_OK;
 }
 
+// A fake host's mods (interface 1.11): one mod with one setting, rules kept and handed back.
+int host_mod_count() {
+    return 1;
+}
+
+int host_mod_entry(int index, openrac_mod_entry* out) {
+    if (index != 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    out->id = "difficulty";
+    out->name = "Difficulty";
+    out->version = "1.2.3";
+    out->party = OPENRAC_PARTY_MOD_GAMEPLAY;
+    out->settings = 1;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_mod_setting(int index, int setting, openrac_mod_setting* out) {
+    if (index != 0 || setting != 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    out->key = "seed";
+    out->name = "Seed";
+    out->value = "";
+    out->shown = "";
+    out->party = OPENRAC_PARTY_SETTING_HOST;
+    out->is_default = 1;
+    return OPENRAC_HOOK_OK;
+}
+
+std::vector<std::uint8_t> g_rules;
+std::string g_rules_text;
+int g_replay = 0;
+openrac_party_rules_fn g_rules_fn = nullptr;
+
+int host_rules_publish(openrac_mod*, const void* data, uint32_t size, const char* text) {
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
+    g_rules.assign(bytes, bytes + size);
+    g_rules_text = text;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_rules_read(int index, void* out, uint32_t size, uint32_t* version) {
+    if (index != 0 || g_rules.size() > size) {
+        return -1;
+    }
+
+    std::memcpy(out, g_rules.data(), g_rules.size());
+    *version = 4;
+    return static_cast<int>(g_rules.size());
+}
+
+const char* host_rules_text(int) {
+    return g_rules_text.c_str();
+}
+
+int host_on_rules(openrac_mod*, openrac_party_rules_fn fn, void*) {
+    g_rules_fn = fn;
+    return 0;
+}
+
+int host_rules_deliver(int, const void* data, uint32_t size) {
+    g_rules_fn(nullptr, data, size);
+    return OPENRAC_HOOK_OK;
+}
+
+void host_replay(int on) {
+    g_replay = on;
+}
+
+int host_replaying() {
+    return g_replay;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -598,6 +674,16 @@ openrac_api make_api() {
     api.setting_float = host_setting_float;
     api.setting_string = host_setting_string;
     api.hook = host_hook;
+    api.mod_count = host_mod_count;
+    api.mod_entry = host_mod_entry;
+    api.mod_setting = host_mod_setting;
+    api.party_rules_publish = host_rules_publish;
+    api.party_rules_read = host_rules_read;
+    api.party_rules_text = host_rules_text;
+    api.on_party_rules = host_on_rules;
+    api.party_rules_deliver = host_rules_deliver;
+    api.party_replay = host_replay;
+    api.party_replaying = host_replaying;
     api.on_frame = host_on_frame;
     api.on_pad = host_on_pad;
     api.function = host_function;
@@ -1382,6 +1468,31 @@ int main() {
         api.size = static_cast<std::uint32_t>(offsetof(openrac_api, camera_position) + sizeof(void*));
         CHECK(!mod.has_moby_run() && !mod.moby_run(4, run) && run.runs == 0);
         api.size = size;
+    }
+    {
+        // The mods a party agrees on (interface 1.11), and a port without them.
+        openrac::Mod mod(&api, handle);
+        CHECK(mod.has_party_rules());
+        const std::vector<openrac::ModEntry> mods = mod.mods();
+        CHECK(mods.size() == 1 && mods[0].id == "difficulty" && mods[0].version == "1.2.3");
+        const std::vector<openrac::ModSetting> settings = mod.mod_settings(0);
+        CHECK(settings.size() == 1 && settings[0].key == "seed" && settings[0].is_default);
+        CHECK(settings[0].party == OPENRAC_PARTY_SETTING_HOST);
+        CHECK(mod.party_rules_publish({1, 2, 3}, "Bolts x2"));
+        std::vector<std::uint8_t> blob;
+        std::uint32_t version = 0;
+        CHECK(mod.party_rules_read(0, blob, version) && blob.size() == 3 && version == 4);
+        CHECK(mod.party_rules_text(0) == "Bolts x2");
+        static std::uint32_t heard = 0;
+        CHECK(mod.on_party_rules([](void*, const void*, uint32_t size) { heard = size; }));
+        CHECK(mod.party_rules_deliver(0, {9, 9}) && heard == 2);
+        CHECK(mod.party_rules_deliver(0, {}) && heard == 0);
+        mod.party_replay(true);
+        CHECK(mod.party_replaying());
+        mod.party_replay(false);
+        api.api_minor = 10;
+        CHECK(!mod.has_party_rules() && mod.mods().empty() && !mod.party_rules_publish({1}, ""));
+        api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

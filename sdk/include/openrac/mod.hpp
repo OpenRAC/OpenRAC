@@ -289,6 +289,27 @@ private:
     fn m_fn;
 };
 
+// One loaded mod (Mod::mods, since 1.11): its index for the calls that take one, its manifest's id,
+// name and version, what it is to a party (OPENRAC_PARTY_MOD_*) and how many settings it has.
+struct ModEntry {
+    int index = 0;
+    std::string id;
+    std::string name;
+    std::string version;
+    int party = OPENRAC_PARTY_MOD_GAMEPLAY;
+    int settings = 0;
+};
+
+// One setting of a loaded mod (Mod::mod_settings, since 1.11).
+struct ModSetting {
+    std::string key;
+    std::string name;
+    std::string value;
+    std::string shown;
+    int party = OPENRAC_PARTY_SETTING_SHARED;
+    bool is_default = false;
+};
+
 class Mod;
 
 // ----------------------------------------------------------------------------------------------
@@ -1349,6 +1370,103 @@ public:
     bool has_moby_run() const {
         return has_world() && m_api->size >= offsetof(openrac_api, moby_run) + sizeof(void*);
     }
+
+    // Since 1.11: whether this port lists the loaded mods and carries party rules.
+    bool has_party_rules() const {
+        return m_api != nullptr && m_api->api_minor >= 11
+               && m_api->size >= offsetof(openrac_api, party_replaying) + sizeof(void*);
+    }
+
+    // Since 1.11: the mods loaded this run, in load order; none for a port without them.
+    std::vector<ModEntry> mods() const {
+        std::vector<ModEntry> out;
+
+        if (!has_party_rules()) {
+            return out;
+        }
+
+        const int count = m_api->mod_count();
+
+        for (int i = 0; i < count; ++i) {
+            openrac_mod_entry e{};
+            e.size = sizeof e;
+
+            if (m_api->mod_entry(i, &e) == OPENRAC_HOOK_OK) {
+                out.push_back({i, e.id, e.name, e.version, e.party, e.settings});
+            }
+        }
+
+        return out;
+    }
+
+    // Since 1.11: the settings of the mod `index` as it reads them this run.
+    std::vector<ModSetting> mod_settings(int index) const {
+        std::vector<ModSetting> out;
+
+        if (!has_party_rules()) {
+            return out;
+        }
+
+        for (int i = 0;; ++i) {
+            openrac_mod_setting s{};
+            s.size = sizeof s;
+
+            if (m_api->mod_setting(index, i, &s) != OPENRAC_HOOK_OK) {
+                return out;
+            }
+
+            out.push_back({s.key, s.name, s.value, s.shown, s.party, s.is_default != 0});
+        }
+    }
+
+    // Since 1.11: this game's rules, for a party it hosts (openrac_api.party_rules_publish): false
+    // for a port without them, or too many bytes.
+    bool party_rules_publish(const std::vector<std::uint8_t>& data, const std::string& text) const {
+        return has_party_rules()
+               && m_api->party_rules_publish(
+                      m_handle, data.data(), static_cast<std::uint32_t>(data.size()), text.c_str()
+                  ) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.11: the rules mod `index` published, false when it published none; `version` grows
+    // with each publish.
+    bool party_rules_read(int index, std::vector<std::uint8_t>& out, std::uint32_t& version) const {
+        out.assign(OPENRAC_PARTY_RULES_MAX, 0);
+        const int n = has_party_rules()
+                          ? m_api->party_rules_read(index, out.data(), OPENRAC_PARTY_RULES_MAX, &version)
+                          : -1;
+        out.resize(n > 0 ? static_cast<std::size_t>(n) : 0);
+        return n >= 0;
+    }
+
+    // Since 1.11: the words mod `index` published with its rules.
+    std::string party_rules_text(int index) const {
+        const char* text = has_party_rules() ? m_api->party_rules_text(index) : nullptr;
+        return text != nullptr ? text : "";
+    }
+
+    // Since 1.11: `fn(user, data, size)` when the host's rules for this mod reach this game (null
+    // and 0: there are none any more). During load; false for a port without it.
+    bool on_party_rules(openrac_party_rules_fn fn, void* user = nullptr) const {
+        return has_party_rules() && m_api->on_party_rules(m_handle, fn, user) == 0;
+    }
+
+    // Since 1.11: hands mod `index` the host's rules; empty: there are none any more.
+    bool party_rules_deliver(int index, const std::vector<std::uint8_t>& data) const {
+        return has_party_rules()
+               && m_api->party_rules_deliver(
+                      index, data.empty() ? nullptr : data.data(), static_cast<std::uint32_t>(data.size())
+                  ) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.11: what mods make the game do is another player's doing passed on, while on.
+    void party_replay(bool on) const {
+        if (has_party_rules()) {
+            m_api->party_replay(on ? 1 : 0);
+        }
+    }
+
+    bool party_replaying() const { return has_party_rules() && m_api->party_replaying() != 0; }
 
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
     // none) in it, into `out`; false outside a level or for a port without it.
