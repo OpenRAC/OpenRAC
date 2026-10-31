@@ -37,6 +37,7 @@
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
+#include "game/common/mods.h"
 #include "game/common/particle_texture_cache.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -120,13 +121,18 @@ void use_level(int number) {
         edited = std::filesystem::path(openrac_game_mods_dir) / std::format("level_{:02d}", wanted)
                  / "placements.json";
     }
+    // The loaded mods' assets for this level (MODS.md, section 3), searched before its own files.
+    std::vector<std::filesystem::path> mod_roots;
+    for (const std::filesystem::path& root : mods::asset_roots()) {
+        mod_roots.push_back(root / std::format("level_{:02d}", wanted));
+    }
     debug_overlay::notice({});
     // Only Ratchet & Clank's levels are extracted for the port so far (its profile says so). The
     // other games (Going Commando, Up Your Arsenal, Deadlocked at their menus) have no scenery to
     // read: their whole picture is the 2D path, both its parts, and nothing is missing to tell the
     // player about.
     const bool has_levels = g->profile->has_levels();
-    if (!has_levels && !scene::load_level(dir, g->level, error, edited)) {
+    if (!has_levels && !scene::load_level(dir, g->level, error, edited, mod_roots)) {
         log::info(
             "level {}: no scenery for this game yet ({}); the 2D path is drawn alone", wanted, error
         );
@@ -143,7 +149,7 @@ void use_level(int number) {
         }
         return;
     }
-    if (has_levels && !scene::load_level(dir, g->level, error, edited)) {
+    if (has_levels && !scene::load_level(dir, g->level, error, edited, mod_roots)) {
         log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
         // Said in the picture: the game goes on, its HUD over a black world, and a player takes
         // that for the game being broken.

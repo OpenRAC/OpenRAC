@@ -223,6 +223,23 @@ The launcher adds a Default button of its own, unless a preset's id is
 A value that is missing, of the wrong type or out of range is the default
 (the port logs it). Settings count from the game's next start.
 
+### Assets
+
+`"assets": "assets"` names a folder inside the mod (relative, with `/`) that
+carries its own data. While the mod is loaded, the game reads each level from
+its `assets/level_NN/` before the extracted level, by the same relative path: a
+texture or a mesh there takes the place of the level's own, and a model there
+names the level's textures it does not carry by their usual paths. The mods
+loaded last come first, and every mod comes before the data packs (`--mods`).
+
+`assets/level_NN/classes.json` adds render classes, or replaces the level's
+of the same id, in the form of the level manifest's `"classes"`:
+`{"moby": {"1234": {"mesh": "mobys/my_weapon.glb", "scale": 1}}}` (also `"tie"`
+and `"shrub"`). Every class needs a `mesh`, read from the mod's folder; a
+broken `classes.json` stops the level from loading, with the reason in the log.
+The original manifests are never changed. `package_mod.py` checks the folder
+and packs it whole (hidden files left out).
+
 ## 4. Hook points
 
 A hook point is declared in a disc's `libraries.tsv`, in the `port` column:
@@ -962,9 +979,6 @@ callback that swaps two buttons, chosen in its settings.
 
 ## 12. What is proposed or open
 
-- **Proposed: a mod with data.** A format-2 mod with an `assets` folder that
-  is a data pack, added to the packs when the mod is installed and on when the
-  mod is, so a mod can carry code and textures together.
 - **Proposed: settings in the game.** The in-game drawer showing the loaded
   mods and their settings, written back to `plugins.json`. A mod's own page
   in the front-end menu is there since 1.5 (`menu_entry`, section 6), and

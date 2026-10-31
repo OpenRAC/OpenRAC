@@ -224,6 +224,10 @@ pub struct Manifest {
     /// A script mod's entry files, run in this order, relative to its folder.
     #[serde(default)]
     pub scripts: Vec<String>,
+    /// A folder inside the mod whose level folders the game reads before the levels' own
+    /// (MODS.md, section 3).
+    #[serde(default)]
+    pub assets: Option<String>,
     #[serde(default)]
     pub hooks: Vec<String>,
     #[serde(default)]
@@ -353,6 +357,11 @@ impl Manifest {
             }
         } else if !self.scripts.is_empty() {
             return Err("only a script mod (\"type\": \"script\") names scripts".into());
+        }
+        if let Some(assets) = &self.assets {
+            if !safe_relative(assets) {
+                return Err(format!("its assets {assets:?} is not a folder inside the mod"));
+            }
         }
         if !self.plugin.is_empty() {
             let api = self.api.as_deref().ok_or("it has a library but no \"api\"")?;
@@ -1376,6 +1385,11 @@ mod tests {
         };
         assert!(native(json!({"scripts": ["main.luau"]})).unwrap_err().contains("only a script mod"));
         native(json!({"type": "native"})).unwrap();
+        // A mod's assets folder (MODS.md, section 3) lies inside it.
+        native(json!({"assets": "assets"})).unwrap();
+        for bad in ["", "../up", "/abs", "a\\b"] {
+            assert!(native(json!({"assets": bad})).unwrap_err().contains("assets"), "{bad}");
+        }
         // A native mod built for interface 1.0 still loads on 1.1.
         let old: Manifest = serde_json::from_value(manifest("n", json!({"api": "1.0"}))).unwrap();
         assert!(old.runs_on("rac1", "pal", Some(here())).is_ok());
