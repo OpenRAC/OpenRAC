@@ -691,6 +691,19 @@ void drawer(const Shown& shown) {
                     set_drawer(false);
                 }
             }
+            // The graphics settings changed every few seconds while it records: what each costs
+            // on this device, in one recording (debug/capture.cpp).
+            const std::string sweep_label =
+                sweep_pending()
+                    ? std::string("Cancel settings sweep")
+                    : std::format("Record settings sweep ({:.0f} s)", settings_sweep_seconds());
+            if (drawer_row(sweep_label.c_str())) {
+                const bool starts = !capture_pending();
+                toggle_settings_sweep();
+                if (starts) {
+                    set_drawer(false);
+                }
+            }
             // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).
             if (slow_cpu::available()) {
                 if (const int by = drawer_choice("Simulate slow CPU", slow_cpu_name())) {

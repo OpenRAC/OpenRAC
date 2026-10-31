@@ -450,6 +450,13 @@ void controls_window();
 // debug/capture.cpp.
 void toggle_capture(bool after_drawer);
 
+// A settings sweep: a capture that changes the graphics settings every few seconds (VSync off) and
+// gives them back at its end, its report listing each step's frame time. Started like
+// toggle_capture(true); pending while its countdown runs. Defined in debug/capture.cpp.
+void toggle_settings_sweep();
+bool sweep_pending();
+double settings_sweep_seconds();
+
 // The capture's length as the drawer shows it ("30 s", "Until stopped"), and moved on by `by`.
 const char* capture_length_name();
 void step_capture_length(int by);

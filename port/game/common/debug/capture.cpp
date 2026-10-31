@@ -6,6 +6,7 @@
 // it runs, and once it is finished zipped with the frames it measured and copied to the
 // clipboard, ready to paste. docs/port/PERFORMANCE_CAPTURE.md describes it.
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -75,6 +76,171 @@ struct Capture {
 };
 
 Capture c;
+
+// The settings sweep: one recording that changes the graphics settings every few seconds, with
+// VSync off so that each step's frame time is the device's own, not a multiple of the refresh.
+struct SweepStep {
+    const char* name;
+    void (*apply)(settings::Settings&);
+};
+
+void effects_off(settings::Settings& g) {
+    g.temporal_quality = renderer::TemporalQuality::Off;
+    g.motion_blur = false;
+    g.agx_preview = false;
+    g.gtao = false;
+    g.enhanced_shadows = false;
+    g.rim_light = false;
+    g.probe_gi_multiplier = 0.0f;
+    g.texture_filter = renderer::TextureFilter::Normal;
+}
+
+constexpr SweepStep kSweep[] = {
+    {"as set", [](settings::Settings&) {}},
+    {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
+    {"enhanced, every effect off", effects_off},
+    {"enhanced, every effect off, anisotropic off",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.anisotropy = 1;
+     }},
+    {"enhanced, every effect off, render scale 50%",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.render_scale = 50;
+     }},
+    {"enhanced off, render scale 50%",
+     [](settings::Settings& g) {
+         g.enhanced_graphics = false;
+         g.render_scale = 50;
+     }},
+    {"as set, temporal off (native)",
+     [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Off; }},
+    {"as set, motion blur off", [](settings::Settings& g) { g.motion_blur = false; }},
+    {"as set, temporal and motion blur off",
+     [](settings::Settings& g) {
+         g.temporal_quality = renderer::TemporalQuality::Off;
+         g.motion_blur = false;
+     }},
+    {"as set, GTAO off", [](settings::Settings& g) { g.gtao = false; }},
+    {"as set, modern shadows off", [](settings::Settings& g) { g.enhanced_shadows = false; }},
+    {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
+    {"as set, edge-aware textures off",
+     [](settings::Settings& g) { g.texture_filter = renderer::TextureFilter::Normal; }},
+    {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
+    {"as set, bounce light 0x", [](settings::Settings& g) { g.probe_gi_multiplier = 0.0f; }},
+    {"as set, anisotropic off", [](settings::Settings& g) { g.anisotropy = 1; }},
+    {"as set, render scale 50%", [](settings::Settings& g) { g.render_scale = 50; }},
+    {"as set (again)", [](settings::Settings&) {}},
+};
+constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));
+constexpr double kSweepStepS = 4.0;    // each step's length
+constexpr double kSweepSettleS = 1.5;  // its first part not counted: targets and history renewed
+
+struct Sweep {
+    bool asked = false;    // the next capture is a sweep
+    bool running = false;  // settings changed and not yet given back
+    settings::Settings saved;
+    int step = -1;
+
+    struct Boundary {
+        std::uint64_t serial;
+        double start_s;
+    };
+
+    std::vector<Boundary> starts;  // where each step's frames begin
+    std::uint64_t done_serial = 0;
+    std::vector<std::vector<double>> frame_ms, gpu_ms;
+    std::vector<std::string> results;  // the report's lines, once it ended
+};
+
+Sweep sweep;
+
+void sweep_apply(int step) {
+    settings::Settings next = sweep.saved;
+    next.vsync = settings::VSync::Off;
+    next.frame_rate = settings::FrameRate::Unlimited;
+    kSweep[step].apply(next);
+    settings::get() = next;
+    s.settings_changed = true;
+    sweep.step = step;
+    const stats::Frame* last = stats::history(0);
+    sweep.starts.push_back(
+        last != nullptr
+            ? Sweep::Boundary{last->serial + 1, last->start_s + last->interval_ms / 1000.0}
+            : Sweep::Boundary{0, 0.0}
+    );
+}
+
+// The frames closed since the last look, a few behind the newest so that their GPU times are in.
+void sweep_collect() {
+    const std::size_t size = stats::history_size();
+    for (std::size_t back = std::min<std::size_t>(size, 96); back-- > 6;) {
+        const stats::Frame* f = stats::history(back);
+        if (f == nullptr || f->serial <= sweep.done_serial) {
+            continue;
+        }
+        sweep.done_serial = f->serial;
+        int step = -1;
+        for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {
+            if (f->serial >= sweep.starts[i].serial) {
+                step = i;
+            }
+        }
+        if (step < 0 || f->start_s < sweep.starts[step].start_s + kSweepSettleS) {
+            continue;
+        }
+        sweep.frame_ms[step].push_back(f->interval_ms);
+        if (f->gpu_frame_ms >= 0.0) {
+            sweep.gpu_ms[step].push_back(f->gpu_frame_ms);
+        }
+    }
+}
+
+double percentile(std::vector<double> v, double p) {
+    if (v.empty()) {
+        return 0.0;
+    }
+    std::sort(v.begin(), v.end());
+    return v[std::min(v.size() - 1, static_cast<std::size_t>(p * static_cast<double>(v.size())))];
+}
+
+// The settings given back, and each step's frame times written down for the report.
+void sweep_end() {
+    if (!sweep.running) {
+        return;
+    }
+    sweep.running = false;
+    settings::get() = sweep.saved;
+    s.settings_changed = true;
+    sweep.results.clear();
+    for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {
+        const std::vector<double>& frames = sweep.frame_ms[i];
+        if (frames.empty()) {
+            continue;
+        }
+        double sum = 0.0;
+        for (const double ms : frames) {
+            sum += ms;
+        }
+        const double mean = sum / static_cast<double>(frames.size());
+        sweep.results.push_back(
+            std::format(
+                "{:2} {:<46} frame {:6.2f} ms ({:5.1f} fps), median {:6.2f}, p90 {:6.2f}; gpu "
+                "median "
+                "{:6.2f}; {} frames",
+                i,
+                kSweep[i].name,
+                mean,
+                mean > 0.0 ? 1000.0 / mean : 0.0,
+                percentile(frames, 0.5),
+                percentile(frames, 0.9),
+                percentile(sweep.gpu_ms[i], 0.5),
+                frames.size()
+            )
+        );
+    }
+}
 
 void configure_capture() {
     if (c.configured) {
@@ -293,6 +459,19 @@ perf_capture::Context context(const Shown& shown) {
             ));
     }
 #endif
+    if (!sweep.results.empty()) {
+        add("settings sweep",
+            std::format(
+                "VSync off, {:.0f} s a step, its first {:.1f} s not counted; frames tagged by the "
+                "\"settings sweep step\" gauge",
+                kSweepStepS,
+                kSweepSettleS
+            ));
+        for (std::string& line : sweep.results) {
+            add("sweep", std::move(line));
+        }
+        sweep.results.clear();
+    }
     const stats::ProcessMemory memory = stats::process_memory();
     add("process",
         std::format(
@@ -326,6 +505,10 @@ std::vector<std::uint8_t> file_bytes(const std::filesystem::path& path) {
 }
 
 void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) {
+    if (sweep.running) {
+        sweep_collect();
+        sweep_end();
+    }
     // The hot functions of the threads sampled while it ran, at the report's end.
     const std::string report = recorder.report(context(shown)) + sampler::stop();
     if (c.opened_dump) {
@@ -470,6 +653,20 @@ void toggle_capture(bool after_drawer) {
     c.wait_for_drawer = after_drawer;
     c.start_at = Clock::now() + std::chrono::seconds(after_drawer ? 3 : 0);
     c.path.clear();
+    sweep.asked = false;
+}
+
+void toggle_settings_sweep() {
+    toggle_capture(true);
+    sweep.asked = c.start_at.has_value();
+}
+
+bool sweep_pending() {
+    return c.start_at.has_value() && sweep.asked;
+}
+
+double settings_sweep_seconds() {
+    return kSweepSteps * kSweepStepS;
 }
 
 bool capture_busy() {
@@ -497,6 +694,15 @@ std::string capture_badge() {
     if (length > 0.0 && elapsed >= length) {
         return "Recording finished, writing the report";
     }
+    if (sweep.running && sweep.step >= 0) {
+        return std::format(
+            "REC {:.0f} / {:.0f} s, step {} of {}: stand still",
+            elapsed,
+            length,
+            sweep.step + 1,
+            kSweepSteps
+        );
+    }
     return length > 0.0 ? std::format("REC {:.0f} / {:.0f} s", elapsed, length)
                         : std::format("REC {:.0f} s", elapsed);
 }
@@ -514,9 +720,33 @@ void capture_frame(const Shown& shown) {
             c.wait_for_drawer = false;
             if (Clock::now() >= *c.start_at) {
                 c.start_at.reset();
-                begin_capture(shown, s.capture_seconds, {});
+                if (sweep.asked) {
+                    sweep.asked = false;
+                    begin_capture(shown, settings_sweep_seconds(), {});
+                    if (perf_capture::active()) {
+                        sweep.running = true;
+                        sweep.saved = settings::get();
+                        sweep.step = -1;
+                        sweep.starts.clear();
+                        sweep.done_serial = 0;
+                        sweep.frame_ms.assign(kSweepSteps, {});
+                        sweep.gpu_ms.assign(kSweepSteps, {});
+                        sweep_apply(0);
+                    }
+                } else {
+                    begin_capture(shown, s.capture_seconds, {});
+                }
             }
         }
+    }
+    if (sweep.running && perf_capture::active()) {
+        sweep_collect();
+        const int step =
+            std::min(static_cast<int>(perf_capture::elapsed_s() / kSweepStepS), kSweepSteps - 1);
+        if (step != sweep.step) {
+            sweep_apply(step);
+        }
+        stats::gauge("settings sweep step", sweep.step);
     }
     if (perf_capture::active()) {
         // Opening the drawer pauses the game: the capture ends with what it has.
