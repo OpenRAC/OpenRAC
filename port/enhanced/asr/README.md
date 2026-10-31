@@ -11,8 +11,8 @@ module (`enhanced/fsr3`) uses it in place of FSR 3.1 behind the same frame hooks
   (colour, float depth, motion, reactive mask, output), and `preferred()`.
 
 `preferred()` follows `OPENRAC_TEMPORAL_UPSCALER` (`asr` or `fsr3`) when it is set, otherwise
-Qualcomm GPUs only (Adreno: phones and Snapdragon X laptops). ASR needs shaderFloat16, shaderInt16, shaderSubgroupExtendedTypes and
-fragmentStoresAndAtomics: its prebuilt SPIR-V uses 16-bit types, in subgroup operations too, and
+Qualcomm GPUs only (Adreno: phones and Snapdragon X laptops). ASR needs shaderFloat16,
+shaderInt16, shaderSubgroupExtendedTypes and fragmentStoresAndAtomics: its prebuilt SPIR-V uses 16-bit types, in subgroup operations too, and
 its fragment passes write storage images. Where it cannot start, the module logs why and keeps
 FSR 3.1. The capture report's `enhanced` line names the upscaler in use.
 
@@ -21,7 +21,8 @@ FSR 3.1. The capture report's `enhanced` line names the upscaler in use.
 The Vulkan backend and the MIT-licensed Arm ASR generic library, release 25.06, which
 `cmake/ArmAsr.cmake` fetches at commit `0501f490bd9946a2e1806b5363d7ab8a9a6a5e0a`. Its shaders come
 prebuilt as SPIR-V headers in that library; nothing is compiled from HLSL. Its Vulkan backend is
-built against OpenRAC's volk loader: `asr_compat.h`, force-included, brings `volk.h` and the standard headers the library leaves out. `OPENRAC_ARM_ASR=OFF` builds
+built against OpenRAC's volk loader: `asr_compat.h`, force-included, brings `volk.h` and the
+standard headers the library leaves out. `OPENRAC_ARM_ASR=OFF` builds
 `asr_stub.cpp` instead, and FSR 3.1 alone upscales.
 
 ## Quality

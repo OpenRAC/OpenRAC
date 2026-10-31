@@ -48,7 +48,9 @@ void main() {
         vec3 sum = centre_colour.rgb;
         float weight = 1;
         int own = max(1, sample_count * 2 / 3);
-        if (adaptive_samples != 0) own = clamp(int(ceil(2.0 * length(centre.xy * display))), min(8, own), own);
+        if (adaptive_samples != 0) {
+            own = clamp(int(ceil(2.0 * length(centre.xy * display))), min(8, own), own);
+        }
         for (int i = 1; i <= own; ++i) {
             vec2 sample_uv = uv + centre.xy * (float(i) / float(own));
             if (!inside(sample_uv)) continue;
@@ -64,7 +66,9 @@ void main() {
     vec3 incoming = vec3(0);
     float coverage = 0;
     int taps = sample_count;
-    if (adaptive_samples != 0) taps = clamp(int(ceil(2.0 * length(direction * display))), min(8, sample_count), sample_count);
+    if (adaptive_samples != 0) {
+        taps = clamp(int(ceil(2.0 * length(direction * display))), min(8, sample_count), sample_count);
+    }
     for (int i = 1; i <= taps; ++i) {
         // Include the exact propagated source once so a thin feature cannot fall between taps.
         vec2 sample_uv = i == 1 && has_seed ? seed_uv

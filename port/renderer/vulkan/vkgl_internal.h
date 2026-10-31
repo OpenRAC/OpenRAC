@@ -1019,7 +1019,7 @@ struct Context {
     bool subgroup_extended_types = false;  // Subgroup operations on 16-bit values, enabled.
     bool shader_float16 = false;     // Actually enabled arithmetic, not 16-bit storage support.
     bool tile_based = false;         // tile_based(): the vendor's guess or OPENRAC_TILE_BASED.
-    bool split_pass_timing = false;  // set_split_pass_timing(): timed sections end their pass.
+    bool split_pass_timing = false;  // OPENRAC_GPU_PASS_TIMING: timed sections end their pass.
     // Pass sampling (stats::pass_sampling): the last frame asked about, whether it is split, and
     // the frames with timed sections counted so far.
     std::uint64_t split_serial = ~0ull;
@@ -1300,7 +1300,7 @@ enum class PassEnd : std::uint8_t {
     Barrier,
     Submit,
     Present,
-    Timing,  // split pass timing (set_split_pass_timing)
+    Timing,  // split pass timing (split_pass_timing, pass sampling)
     Other
 };
 

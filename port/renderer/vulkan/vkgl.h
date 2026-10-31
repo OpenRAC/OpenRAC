@@ -359,9 +359,8 @@ std::uint32_t vendor_id();
 // in, at its start and at its end, so that its timestamps lie between passes. A tile-based GPU
 // runs a pass's draws together, so timestamps inside one pass read about zero; split, every
 // timed section reads its own time, at the price of the attachments each split stores and loads
-// again (the frame is slower while it is on). Off by default; OPENRAC_GPU_PASS_TIMING turns it on
-// at the start, the debug tools' "Time GPU passes" at any time.
-void set_split_pass_timing(bool on);
+// again (the frame is slower while it is on). Off by default; OPENRAC_GPU_PASS_TIMING turns it on.
+// Without it, a performance capture splits one frame in a few (stats::set_pass_sampling).
 bool split_pass_timing();
 
 }  // namespace openrac::vkgl

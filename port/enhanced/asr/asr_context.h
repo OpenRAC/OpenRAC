@@ -13,8 +13,7 @@
 
 namespace openrac::enhanced::asr_detail {
 // Whether Arm ASR upscales instead of FSR 3.1: OPENRAC_TEMPORAL_UPSCALER=asr or fsr3 when it is
-// set, otherwise on a tile-based GPU (vkgl::tile_based), where ASR's fragment passes keep their
-// work in tile memory and FSR 3.1's compute passes cost most.
+// set, otherwise on Qualcomm Adreno GPUs only, where it measured faster than FSR 3.1.
 [[nodiscard]] bool preferred();
 // Whether ASR can upscale from `render_size`: its luminance pyramid (half the render size) needs a
 // sixth level, so the larger side must be at least 64 pixels; FSR 3.1 upscales smaller frames.

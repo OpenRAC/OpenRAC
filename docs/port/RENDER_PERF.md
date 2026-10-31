@@ -1842,14 +1842,14 @@ pairs, while the separate integer improved in four raw pairs. Total effects CPU 
 unchanged. These support pass-specific savings, not an overall FPS promise. Other levels,
 GPUs and drivers can differ. Native Windows Vulkan was exercised; Android/macOS hardware and
 OpenGL execution require their own validation.
+
 ## Tile-based GPUs
 
 Phone GPUs (Arm Mali, Qualcomm Adreno, Apple, Imagination) bin each pass's geometry and keep its
 attachments in tile memory; what they pay for is vertex binning and the bytes a pass loads from
 and stores to memory, not the pixels it shades. `vkgl::tile_based()` says whether the device is
 one: the vendor ID decides, and `OPENRAC_TILE_BASED=1` or `0` overrides it, so a desktop GPU can
-run the same paths. The capture report's `gpu passes` line records it. The analysis behind the
-entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the project files.
+run the same paths. The capture report's `gpu passes` line records it.
 
 - **`shadow-depth-only`.** The shadow atlas, the static shadow cache and the scrolling caches
   are a float depth image alone. Before, each also had an RGBA8 colour and a stencil attachment
@@ -1864,8 +1864,7 @@ entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the 
   each trail's length (at least 8) instead of always `motion_blur_samples` (two thirds of it
   along the receiver's own trail): a short trail no longer samples the same texels many times.
   Not byte-identical: on Novalis while turning, up to about 20% of pixels differ, under 0.2% by
-  more than 4 of 255 and none by more than 32; the trails look the same. The player chose this
-  trade for 120 fps on phones.
+  more than 4 of 255 and none by more than 32; the trails look the same.
 - **`attachment-untouched`.** A deferred Vulkan pass whose draws and clears never touch an
   attachment (no colour write, no depth or stencil test, no clear) gives it the load and store
   operation NONE (`VK_EXT_load_store_op_none` or `VK_KHR_load_store_op_none`): the attachment
@@ -1892,8 +1891,9 @@ entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the 
   `OPENRAC_GPU_PASS_TIMING`): those frames give each section's own time, at the cost of extra
   loads and stores, and are left out of the frame's GPU time.
 
-The three registry entries are lossless: `render_equivalence_vulkan --opt <name>` compares
-frames with each one on and off with no tolerance. The scrolling static shadow caches above
+The registry entries above, except `motion-blur-adaptive-samples`, are lossless:
+`render_equivalence_vulkan --opt <name>` compares frames with each one on and off with no
+tolerance. The scrolling static shadow caches above
 would save the most binning on these GPUs, but they are not the default there: their texel-snapped
 cascades and unfitted caster bounds change the shadows' pixels (`sun_shadow_vulkan` with
 `OPENRAC_TILE_BASED=1`), so they stay behind `OPENRAC_SCROLLING_SHADOWS`.

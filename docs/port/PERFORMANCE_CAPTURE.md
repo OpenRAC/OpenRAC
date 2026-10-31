@@ -53,8 +53,8 @@ time; the other nine give the frame's true GPU time. Nothing needs switching on.
 
 Developer tools > **Record diagnostics** > **Graphics settings sweep** records 80 seconds and
 changes the graphics settings every 4 seconds: Enhanced graphics off, every Enhanced effect off,
-probe lighting off, the blended passes left out, drawn without probe light or with full probe light, render scale 50%,
-then each effect off on its own. VSync is off while it runs, so a step's time is the device's own
+probe lighting off, the blended passes left out, drawn without probe light or with full probe
+light, render scale 50%, then each effect off on its own. VSync is off while it runs, so a step's time is the device's own
 and not a multiple of the display's refresh. Stand still for the whole recording. The report
 lists each step's time a picture (ticks the game runs without drawing are not counted) and GPU
 time (frames split to time their passes left out); the first 1.5 s of each step are left out,
