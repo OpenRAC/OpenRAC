@@ -34,7 +34,7 @@ const ImVec4 kYellow{1.0f, 0.9f, 0.35f, 1.0f};
 // ---- Reading the game's memory ----
 
 bool in_ram(std::uint32_t address, std::uint32_t size) {
-    address &= 0x01FFFFFF;
+    address = openrac_guest_ram_address_for_size(address, static_cast<std::uint32_t>(s.ram.size()));
     return static_cast<std::size_t>(address) + size <= s.ram.size();
 }
 

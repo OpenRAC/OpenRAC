@@ -12,14 +12,28 @@ namespace rac1 = assets::rac1;
 
 namespace {
 
-constexpr std::uint32_t kAddressMask = 0x01FFFFFF;
 // More joints than the scratchpad holds (0x6f) is not a class.
 constexpr std::size_t kMaxJoints = 0x70;
+
+std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
+    constexpr std::uint32_t uncached = 0x20000000u;
+    constexpr std::uint32_t uncached_accel = 0x30000000u;
+    if (address < size) {
+        return address;
+    }
+    if (address >= uncached && address - uncached < size) {
+        return address - uncached;
+    }
+    if (address >= uncached_accel && address - uncached_accel < size) {
+        return address - uncached_accel;
+    }
+    return address & 0x01FFFFFFu;
+}
 
 template <typename T>
 T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
     T value{};
-    address &= kAddressMask;
+    address = ram_address(address, ram.size());
     if (address + sizeof(T) <= ram.size()) {
         std::memcpy(&value, ram.data() + address, sizeof(T));
     }
@@ -27,7 +41,7 @@ T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
 }
 
 bool inside(std::span<const std::uint8_t> ram, std::uint32_t address, std::size_t bytes) {
-    address &= kAddressMask;
+    address = ram_address(address, ram.size());
     return address != 0 && address + bytes <= ram.size();
 }
 
@@ -40,7 +54,10 @@ std::optional<rac1::MobyFrame> key_at(
         return std::nullopt;
     }
     try {
-        rac1::MobyFrame f = rac1::parse_frame(assets::ByteView(ram), address & kAddressMask);
+        rac1::MobyFrame f = rac1::parse_frame(
+            assets::ByteView(ram),
+            ram_address(address, ram.size())
+        );
         if (f.header.quat_bytes == 0 || f.header.quat_bytes > 8 * kMaxJoints || joints == 0) {
             return std::nullopt;
         }

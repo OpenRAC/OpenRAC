@@ -273,6 +273,7 @@ add_library(openrac_scene STATIC
   scene/shadow_draws.cpp
   scene/shadow_scroll.cpp
 )
+target_include_directories(openrac_scene PRIVATE runtime/include)
 target_link_libraries(openrac_scene PUBLIC openrac_renderer openrac_viewer_third_party
   openrac_assets_geometry)
 openrac_warnings(openrac_scene)
@@ -429,6 +430,7 @@ add_library(openrac_game_rac1_profile STATIC
   game/rac1/game_state.cpp
   game/rac1/profile.cpp
 )
+target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer)
 openrac_warnings(openrac_game_rac1_profile)
 openrac_add_test(camera_target LIBS openrac_game_rac1_profile)

@@ -237,7 +237,7 @@ int vsync() {
     // Prepare owned CPU data before waiting; graphics and profiling storage still transfer at completion.
     if (g_window) {
         const auto* ram = runtime::Memory::get().base();
-        const std::span<const std::uint8_t> memory(ram, GUEST_RAM_SIZE);
+        const std::span<const std::uint8_t> memory(ram, runtime::Memory::get().ram_size());
 
         // Only a completed handoff may present or begin the next graphics measurement frame.
         if (!frontend::prepare_frame(memory) || !frontend::finish_render()) {
@@ -300,7 +300,7 @@ int vsync() {
             }
         } else if (!keep
                    && !frontend::frame(
-                       std::span<const std::uint8_t>(ram, GUEST_RAM_SIZE), g_chain, draws
+                       std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()), g_chain, draws
                    )) {
             leave();
         }

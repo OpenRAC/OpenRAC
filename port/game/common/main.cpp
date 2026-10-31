@@ -39,6 +39,7 @@
 #include <ctime>
 #include <filesystem>
 #include <format>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -448,7 +449,22 @@ int main(int argc, char** argv) {
         );
     }
 
-    runtime::Memory::create();
+    std::uint32_t ram_size = GUEST_RAM_SIZE;
+    if (!g_options.mods.empty()) {
+        std::ifstream virtual_map(g_options.mods / "virtual.tsv");
+        std::string line;
+        while (std::getline(virtual_map, line)) {
+            const auto first = line.find_first_not_of(" \t\r");
+            if (first != std::string::npos && line[first] != '#') {
+                ram_size = GUEST_RAM_EXPANDED_SIZE;
+                break;
+            }
+        }
+    }
+    if (ram_size > GUEST_RAM_SIZE) {
+        log::info("expanded level streams enabled: guest RAM is {} MiB", ram_size >> 20);
+    }
+    runtime::Memory::create(ram_size);
     runtime::install_crash_handler();
     // The threads reading a track are stopped before the program exits, whichever way it ends
     // (a window closed, a run of so many frames, an error): a reader that is still working

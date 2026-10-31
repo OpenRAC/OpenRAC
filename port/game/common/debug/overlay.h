@@ -34,12 +34,11 @@
 #include <SDL3/SDL.h>
 
 #include "debug_overlay.h"
+#include "openrac/guest.h"
 
 namespace openrac::frontend::debug_overlay {
 
-// The game's main memory, 32 MB, and one moby's bytes in it (the size of
-// the game's moby struct).
-constexpr std::uint32_t kRamSize = 32u * 1024 * 1024;
+// One moby's bytes in main memory (the size of the game's moby struct).
 constexpr std::uint32_t kMobySize = 0x100;
 
 // The sections of the panel, as OPENRAC_OVERLAY names them.
@@ -77,7 +76,6 @@ constexpr std::array<const char*, 16> kButtonNames =
 
 // The main memory map: one cell per 128 KB.
 constexpr std::uint32_t kCellBytes = 128 * 1024;
-constexpr std::size_t kCells = kRamSize / kCellBytes;
 
 // One cell of the memory map (scan_ram): how much of it holds data, and whether it changed.
 struct RamCell {
@@ -164,7 +162,7 @@ struct State {
     bool memory_viewer = false;               // the memory viewer window is open
     std::uint32_t view_address = 0x00100000;  // the first address it shows
     bool view_words = false;                  // it shows words and floats, not bytes
-    std::array<RamCell, kCells> cells{};      // the memory map, as scan_ram last measured it
+    std::vector<RamCell> cells;               // the memory map, as scan_ram last measured it
     std::uint64_t scanned_at = ~0ull;         // the tick of that scan, divided by 25; ~0 never
     std::uint32_t used_pages = 0;             // the 4 KB pages holding data, in all the cells
 
@@ -469,7 +467,7 @@ void text_coloured(const ImVec4& colour, std::format_string<Args...> fmt, Args&&
 template <typename T>
 T read(std::uint32_t address) {
     T value{};
-    address &= 0x01FFFFFF;
+    address = openrac_guest_ram_address_for_size(address, static_cast<std::uint32_t>(s.ram.size()));
 
     if (static_cast<std::size_t>(address) + sizeof(T) <= s.ram.size()) {
         std::memcpy(&value, s.ram.data() + address, sizeof(T));

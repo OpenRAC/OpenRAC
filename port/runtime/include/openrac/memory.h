@@ -20,13 +20,14 @@ public:
     // platform can alias pages), the scratchpad, the register pages and the
     // port's region, and sets openrac_guest_base. Ends the program if the
     // reservation fails.
-    static Memory& create();
+    static Memory& create(std::uint32_t ram_size = GUEST_RAM_SIZE);
     static Memory& get();
 
     Memory(const Memory&) = delete;
     Memory& operator=(const Memory&) = delete;
 
     std::uint8_t* base() const { return base_; }
+    std::uint32_t ram_size() const { return ram_size_; }
 
     // True when main RAM is visible at its uncached addresses as well
     // (Linux and macOS; Windows 10 1803 and later).
@@ -61,6 +62,7 @@ private:
 
     std::uint8_t* base_ = nullptr;
     bool aliases_ = false;
+    std::uint32_t ram_size_ = GUEST_RAM_SIZE;
 };
 
 // Installs a handler that reports an access to an unmapped game address

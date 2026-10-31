@@ -33,6 +33,7 @@
 
 extern "C" {
 std::uint8_t* openrac_guest_base = nullptr;
+std::uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE;
 }
 
 namespace openrac::runtime {
@@ -86,7 +87,7 @@ using MapViewOfFile3Fn = PVOID(WINAPI*)(
     HANDLE, HANDLE, PVOID, ULONG64, SIZE_T, ULONG, ULONG, MEM_EXTENDED_PARAMETER*, ULONG
 );
 
-bool map_with_placeholders(std::uint8_t** base_out) {
+bool map_with_placeholders(std::uint8_t** base_out, std::uint32_t ram_size) {
     HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
     if (kernelbase == nullptr) {
         return false;
@@ -116,19 +117,19 @@ bool map_with_placeholders(std::uint8_t** base_out) {
         return VirtualFree(base + address, size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) != 0;
     };
     HANDLE ram = CreateFileMappingW(
-        INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, GUEST_RAM_SIZE, nullptr
+        INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, ram_size, nullptr
     );
     if (ram == nullptr) {
         return false;
     }
     for (gaddr view : kRamViews) {
-        if (!carve(view, GUEST_RAM_SIZE)
+        if (!carve(view, ram_size)
             || map_view3(
                    ram,
                    GetCurrentProcess(),
                    base + view,
                    0,
-                   GUEST_RAM_SIZE,
+                   ram_size,
                    MEM_REPLACE_PLACEHOLDER,
                    PAGE_READWRITE,
                    nullptr,
@@ -159,7 +160,7 @@ bool map_with_placeholders(std::uint8_t** base_out) {
 }  // namespace
 
 void Memory::map_all() {
-    if (map_with_placeholders(&base_)) {
+    if (map_with_placeholders(&base_, ram_size_)) {
         aliases_ = true;
         return;
     }
@@ -170,7 +171,7 @@ void Memory::map_all() {
         log::fatal("could not reserve 4 GB of address space for game memory");
     }
     const std::uint32_t page = page_size();
-    if (VirtualAlloc(base_ + GUEST_RAM, GUEST_RAM_SIZE, MEM_COMMIT, PAGE_READWRITE) == nullptr) {
+    if (VirtualAlloc(base_ + GUEST_RAM, ram_size_, MEM_COMMIT, PAGE_READWRITE) == nullptr) {
         log::fatal("could not commit game RAM");
     }
     for (const Region& r : kPlainRegions) {
@@ -224,10 +225,10 @@ void Memory::map_all() {
 
     aliases_ = false;
     int fd = ram_object();
-    if (fd >= 0 && ftruncate(fd, GUEST_RAM_SIZE) == 0) {
+    if (fd >= 0 && ftruncate(fd, ram_size_) == 0) {
         aliases_ = true;
         for (gaddr view : kRamViews) {
-            if (!map_fixed(base_ + view, GUEST_RAM_SIZE, fd)) {
+            if (!map_fixed(base_ + view, ram_size_, fd)) {
                 aliases_ = false;
                 break;
             }
@@ -237,7 +238,7 @@ void Memory::map_all() {
         close(fd);
     }
     if (!aliases_) {
-        if (!map_fixed(base_ + GUEST_RAM, GUEST_RAM_SIZE, -1)) {
+        if (!map_fixed(base_ + GUEST_RAM, ram_size_, -1)) {
             log::fatal("could not map game RAM");
         }
         log::warn("main RAM could not be aliased: uncached RAM addresses are not mapped");
@@ -252,13 +253,21 @@ void Memory::map_all() {
 
 #endif
 
-Memory& Memory::create() {
+Memory& Memory::create(std::uint32_t ram_size) {
+    if (ram_size < GUEST_RAM_SIZE || ram_size > GUEST_RAM_EXPANDED_SIZE) {
+        log::fatalf("game RAM size {:#x} is outside the supported range", ram_size);
+    }
     if (g_memory != nullptr) {
+        if (g_memory->ram_size_ != ram_size) {
+            log::fatal("game memory was already created with a different RAM size");
+        }
         return *g_memory;
     }
     g_memory = new Memory();
+    g_memory->ram_size_ = ram_size;
     g_memory->map_all();
     openrac_guest_base = g_memory->base_;
+    openrac_guest_ram_size = ram_size;
     g_memory->clear();
     return *g_memory;
 }
@@ -276,12 +285,12 @@ bool Memory::mapped(gaddr address, std::size_t size) const {
     auto inside = [&](gaddr at, std::uint32_t length) {
         return begin >= at && end <= static_cast<std::uint64_t>(at) + length;
     };
-    if (inside(GUEST_RAM, GUEST_RAM_SIZE)) {
+    if (inside(GUEST_RAM, ram_size_)) {
         return true;
     }
     if (aliases_
-        && (inside(GUEST_RAM_UNCACHED, GUEST_RAM_SIZE)
-            || inside(GUEST_RAM_UNCACHED_ACCEL, GUEST_RAM_SIZE))) {
+        && (inside(GUEST_RAM_UNCACHED, ram_size_)
+            || inside(GUEST_RAM_UNCACHED_ACCEL, ram_size_))) {
         return true;
     }
     for (const Region& r : kPlainRegions) {
@@ -300,7 +309,7 @@ std::span<std::uint8_t> Memory::bytes(gaddr address, std::size_t size) {
 }
 
 void Memory::clear() {
-    std::memset(base_ + GUEST_RAM, 0, GUEST_RAM_SIZE);
+    std::memset(base_ + GUEST_RAM, 0, ram_size_);
     for (const Region& r : kPlainRegions) {
         std::memset(base_ + r.address, 0, r.size);
     }
@@ -308,7 +317,7 @@ void Memory::clear() {
 }
 
 std::size_t Memory::snapshot_size() {
-    std::size_t size = GUEST_RAM_SIZE;
+    std::size_t size = openrac_guest_ram_size;
     for (const Region& r : kPlainRegions) {
         size += r.size;
     }
@@ -320,8 +329,8 @@ bool Memory::save_snapshot(std::span<std::uint8_t> out) const {
         return false;
     }
     std::size_t at = 0;
-    std::memcpy(out.data() + at, base_ + GUEST_RAM, GUEST_RAM_SIZE);
-    at += GUEST_RAM_SIZE;
+    std::memcpy(out.data() + at, base_ + GUEST_RAM, ram_size_);
+    at += ram_size_;
     for (const Region& r : kPlainRegions) {
         std::memcpy(out.data() + at, base_ + r.address, r.size);
         at += r.size;
@@ -394,8 +403,8 @@ bool Memory::restore_snapshot(
             );
         }
         std::size_t at = 0;
-        std::memcpy(base_ + GUEST_RAM, in.data() + at, GUEST_RAM_SIZE);
-        at += GUEST_RAM_SIZE;
+        std::memcpy(base_ + GUEST_RAM, in.data() + at, ram_size_);
+        at += ram_size_;
         for (const Region& r : kPlainRegions) {
             std::memcpy(base_ + r.address, in.data() + at, r.size);
             at += r.size;

@@ -25,6 +25,7 @@
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "game/rac1/host/collision_notes.h"
+#include "openrac/guest.h"
 #include "renderer/math.h"
 
 namespace openrac::game::rac1 {
@@ -60,7 +61,7 @@ std::string notes(
     OpenracCollWatch* watch
 ) {
     const auto word = [&](std::uint32_t at) -> std::uint32_t {
-        at &= 0x01FFFFFFu;
+        at = openrac_guest_ram_address_for_size(at, static_cast<std::uint32_t>(ram.size()));
         if (at + 4 > ram.size()) {
             return 0;
         }
@@ -69,7 +70,7 @@ std::string notes(
         return v;
     };
     const auto byte = [&](std::uint32_t at) -> unsigned {
-        at &= 0x01FFFFFFu;
+        at = openrac_guest_ram_address_for_size(at, static_cast<std::uint32_t>(ram.size()));
         return at < ram.size() ? ram[at] : 0u;
     };
     const auto number = [](float v) {
@@ -79,8 +80,12 @@ std::string notes(
         return static_cast<std::int16_t>(word(moby + 0xA4) >> 16);
     };
 
-    const std::uint32_t first = word(a.moby_first) & 0x01FFFFFFu;
-    const std::uint32_t end = word(a.moby_end) & 0x01FFFFFFu;
+    const std::uint32_t first = openrac_guest_ram_address_for_size(
+        word(a.moby_first), static_cast<std::uint32_t>(ram.size())
+    );
+    const std::uint32_t end = openrac_guest_ram_address_for_size(
+        word(a.moby_end), static_cast<std::uint32_t>(ram.size())
+    );
     std::string free_slots;
     unsigned free = 0;
     std::map<int, unsigned> classes;
@@ -146,7 +151,9 @@ std::string notes(
             for (std::size_t k = 0; k < std::size(n.output); ++k) {
                 out += std::format("{}{:08X}", k ? " " : "", n.output[k]);
             }
-            const std::uint32_t hit = n.output[0] & 0x01FFFFFFu;  // CollOutput +0x18, the moby hit
+            const std::uint32_t hit = openrac_guest_ram_address_for_size(
+                n.output[0], static_cast<std::uint32_t>(ram.size())
+            );
             out += std::format("\",\"hit_class\":{}}}", hit != 0 ? class_of(hit) : -1);
         }
         out += "]}";

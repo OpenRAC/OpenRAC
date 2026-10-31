@@ -179,6 +179,7 @@ endif()
 openrac_warnings(openrac_runtime)
 
 openrac_add_test(runtime SOURCES tests/runtime_test.cpp tests/guest_c.c LIBS openrac_runtime)
+openrac_add_test(expanded_memory SOURCES tests/expanded_memory_test.cpp LIBS openrac_runtime)
 # The C entry point to the OPENRAC_* table (openrac/host_env.h), from C.
 openrac_add_c_test(host_env LIBS openrac_runtime)
 

@@ -47,6 +47,7 @@ __extension__ typedef unsigned __int128 openrac_u128;
  * reservation is inaccessible, so a stray access stops with its address. */
 #define GUEST_RAM 0x00000000u
 #define GUEST_RAM_SIZE 0x02000000u /* 32 MB */
+#define GUEST_RAM_EXPANDED_SIZE 0x08000000u /* 128 MB, only for levels with virtual streams */
 #define GUEST_RAM_UNCACHED 0x20000000u
 #define GUEST_RAM_UNCACHED_ACCEL 0x30000000u
 #define GUEST_EE_REGS 0x10000000u
@@ -81,6 +82,28 @@ __extension__ typedef unsigned __int128 openrac_u128;
 /* Where game memory starts in the host's address space. Set once by the
  * runtime before any game code runs. */
 extern OPENRAC_GUEST_GLOBAL uint8_t* openrac_guest_base;
+/* Active guest RAM size: 32 MiB normally, larger only for an expanded-level mount. */
+extern OPENRAC_GUEST_GLOBAL uint32_t openrac_guest_ram_size;
+
+/* Normalize a direct or aliased RAM pointer to the direct RAM view. Other bus addresses retain
+ * the console's 25-bit physical-address behavior. */
+static inline gaddr openrac_guest_ram_address_for_size(gaddr address, uint32_t ram_size) {
+    if (address < ram_size) {
+        return address;
+    }
+    if (address >= GUEST_RAM_UNCACHED
+        && address - GUEST_RAM_UNCACHED < ram_size) {
+        return address - GUEST_RAM_UNCACHED;
+    }
+    if (address >= GUEST_RAM_UNCACHED_ACCEL
+        && address - GUEST_RAM_UNCACHED_ACCEL < ram_size) {
+        return address - GUEST_RAM_UNCACHED_ACCEL;
+    }
+    return address & 0x01FFFFFFu;
+}
+static inline gaddr openrac_guest_ram_address(gaddr address) {
+    return openrac_guest_ram_address_for_size(address, openrac_guest_ram_size);
+}
 
 /* The host pointer for a game address, and an lvalue of type T there. */
 #define G(a) ((void*)(openrac_guest_base + (gaddr)(a)))

@@ -44,7 +44,7 @@ int openrac_wad_routine(int source, int destination, const char* game) {
     const uint32_t to = (uint32_t)destination & kPhysicalMask;
 
     /* The whole header is read below, and the output has to start inside RAM. */
-    if (from > GUEST_RAM_SIZE - kHeaderBytes || to >= GUEST_RAM_SIZE) {
+    if (from > openrac_guest_ram_size - kHeaderBytes || to >= openrac_guest_ram_size) {
         crash(game, "buffer lies outside game RAM");
     }
 
@@ -54,11 +54,12 @@ int openrac_wad_routine(int source, int destination, const char* game) {
 
     /* The retail routine traps on a bad header; a size past RAM's end cannot be read. */
     if (memcmp(data, kMagic, sizeof kMagic - 1) != 0 || compressed < kHeaderBytes
-        || compressed > GUEST_RAM_SIZE - from) {
+        || compressed > openrac_guest_ram_size - from) {
         crash(game, "header or compressed size is invalid");
     }
 
-    const uint32_t made = openrac_lib_wad_decompress(data, G(to), GUEST_RAM_SIZE - to);
+    const uint32_t made =
+        openrac_lib_wad_decompress(data, G(to), openrac_guest_ram_size - to);
 
     /* The stream's packets did not decode, or would not fit in RAM after `to`. */
     if (made == 0) {

@@ -93,7 +93,7 @@ gaddr rac1_updating_moby(void) {
 
 static int updating_moby(openrac_game_moby *out) {
     const gaddr m = g_updating;
-    if (m == 0 || m > GUEST_RAM + GUEST_RAM_SIZE - MOBY_SIZE) {
+    if (m == 0 || m > GUEST_RAM + openrac_guest_ram_size - MOBY_SIZE) {
         return 0;
     }
     out->address = m;

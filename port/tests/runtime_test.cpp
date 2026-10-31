@@ -33,6 +33,8 @@ using openrac::runtime::Memory;
 void memory_map() {
     Memory& m = Memory::get();
     CHECK(openrac_guest_base == m.base());
+    CHECK(m.ram_size() == GUEST_RAM_SIZE);
+    CHECK(openrac_guest_ram_size == GUEST_RAM_SIZE);
     CHECK(m.mapped(0, GUEST_RAM_SIZE));
     CHECK(!m.mapped(GUEST_RAM_SIZE, 4));
     CHECK(m.mapped(GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE));
