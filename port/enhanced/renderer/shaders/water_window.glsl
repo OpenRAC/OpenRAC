@@ -20,6 +20,23 @@ float water_sim_fade(vec2 p,int body) {
     vec2 centre=water_sim_window.xy+vec2(water_sim_window.z*water_sim_window.w*.5);
     return water_sim_weight*(1.-smoothstep(water_sim_window.z*water_sim_window.w*.375,water_sim_window.z*water_sim_window.w*.46875,length(p-centre)));
 }
+// Catmull-Rom height reconstruction on the repeating simulation torus, in FP32.
+// Merge the positive middle weights into bilinear taps: nine reads instead of sixteen.
+float water_sim_bicubic_height(sampler2D field,vec2 uv) {
+    vec2 size=vec2(textureSize(field,0));
+    vec2 pixel=uv*size-.5,base=floor(pixel),f=pixel-base;
+    vec2 f2=f*f,f3=f2*f;
+    vec2 w0=-.5*f+f2-.5*f3;
+    vec2 w1=vec2(1.)-2.5*f2+1.5*f3;
+    vec2 w2=.5*f+2.*f2-1.5*f3;
+    vec2 w3=-.5*f2+.5*f3;
+    vec2 middle=w1+w2;
+    vec2 a=(base-.5)/size,b=(base+.5+w2/middle)/size,c=(base+2.5)/size;
+    return dot(vec3(w0.y,middle.y,w3.y),vec3(
+        dot(vec3(w0.x,middle.x,w3.x),vec3(textureLod(field,vec2(a.x,a.y),0.).x,textureLod(field,vec2(b.x,a.y),0.).x,textureLod(field,vec2(c.x,a.y),0.).x)),
+        dot(vec3(w0.x,middle.x,w3.x),vec3(textureLod(field,vec2(a.x,b.y),0.).x,textureLod(field,vec2(b.x,b.y),0.).x,textureLod(field,vec2(c.x,b.y),0.).x)),
+        dot(vec3(w0.x,middle.x,w3.x),vec3(textureLod(field,vec2(a.x,c.y),0.).x,textureLod(field,vec2(b.x,c.y),0.).x,textureLod(field,vec2(c.x,c.y),0.).x))));
+}
 vec4 water_sim_sample(sampler2D field,vec2 p,int body,vec2 legacy_uv,vec2 current) {
 #ifndef OPENRAC_WATER_LOCAL
     if(water_sim_local==0) return textureLod(field,legacy_uv,0.);
@@ -29,7 +46,9 @@ vec4 water_sim_sample(sampler2D field,vec2 p,int body,vec2 legacy_uv,vec2 curren
     if(fade<=0.) return reference;
     // World-addressed torus: moving the origin never shifts existing state.
     vec2 uv=fract(p/(water_sim_window.z*water_sim_window.w));
-    return mix(reference,textureLod(field,uv,0.),fade);
+    vec4 sample_value=textureLod(field,uv,0.);
+    sample_value.x=water_sim_bicubic_height(field,uv);
+    return mix(reference,sample_value,fade);
 }
 vec4 water_sim_gradients(sampler2D field,vec2 p,int body,vec2 current,float height,out float rotation,out float compression,out float curvature) {
     float dx=water_sim_window.z;

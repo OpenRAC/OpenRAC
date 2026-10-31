@@ -33,4 +33,6 @@ void check_transmission(Context& fixture);
 void check_environment(Context& fixture);
 // Check toroidal history, adjacent body metadata, seam sampling and lighting receivers.
 void check_window(Context& fixture);
+// Compare bicubic height reconstruction with an independent periodic CPU reference.
+void check_sampling(Context& fixture);
 }  // namespace openrac::test::water

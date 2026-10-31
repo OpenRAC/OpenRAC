@@ -1012,6 +1012,7 @@ void main() {
     test::water::check_transmission(fixture);
     test::water::check_environment(fixture);
     test::water::check_window(fixture);
+    test::water::check_sampling(fixture);
     glDeleteVertexArrays(1, &vao);
     glDeleteTextures(1, &texture);
     glDeleteBuffers(5, buffers.data());

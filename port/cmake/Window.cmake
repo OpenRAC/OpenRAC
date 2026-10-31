@@ -846,6 +846,7 @@ target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_foam_gpu.cpp
   enhanced/tests/water_transmission_gpu.cpp
   enhanced/tests/environment_gpu.cpp
+  enhanced/tests/water_sampling_gpu.cpp
   enhanced/tests/water_window_gpu.cpp)
 add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")

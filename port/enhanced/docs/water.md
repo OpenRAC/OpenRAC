@@ -125,6 +125,11 @@ A 128x128 window follows Ratchet in 0.25-unit cells across 32x32 units. Two RGBA
 World-cell modulo addressing preserves overlap without moving buffers, including negative coordinates.
 New/incompatible cells start undisturbed.
 
+Surface height uses FP32 Catmull-Rom bicubic reconstruction with nine filtered taps. It preserves
+grid-sample heights and smooths interpolation across cells and the periodic boundary. Displacement,
+surface slopes, lily attachments and wetness contact share this sampler; discharge and surface-detail
+channels retain bilinear filtering. Solver state and updates are unchanged.
+
 The solver evolves height displacement and horizontal discharge around the authored rest surface
 and maintained current. It uses slope-limited MUSCL reconstruction, HLL gravity-wave fluxes,
 contact-upwind transverse momentum and hydrostatic bed-depth reconstruction. Reference-flux
