@@ -18,7 +18,7 @@
 
   // Mods, Activity and Develop load the first time they are opened, so starting the launcher reads
   // only what the game page needs; they are fetched while the launcher idles after it starts, so
-  // opening them later is instant.
+  // opening them later is instant. Opened before that, the page's slide waits for them.
   const once = <T,>(load: () => Promise<T>) => {
     let loaded: Promise<T> | null = null;
     return () => (loaded ??= load());
@@ -26,6 +26,11 @@
   const modsPage = once(() => import("./pages/Mods.svelte"));
   const tasksPage = once(() => import("./pages/Tasks.svelte"));
   const developPage = once(() => import("./pages/Develop.svelte"));
+  const lazyPages: Partial<Record<Page, () => Promise<unknown>>> = {
+    mods: modsPage,
+    tasks: tasksPage,
+    develop: developPage,
+  };
   $effect(() => {
     const later = setTimeout(() => {
       void modsPage();
@@ -73,9 +78,11 @@
     else
       slide(
         () => {
-          page = next;
+          // Another tab pressed while this page's code was on its way: that tab's change is the one.
+          if (app.page === next) page = next;
         },
         ORDER[next] >= ORDER[page] ? "forward" : "back",
+        lazyPages[next]?.(),
       );
   });
   $effect(() => {

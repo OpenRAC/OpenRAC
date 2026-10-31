@@ -1,8 +1,10 @@
 // The desktop's tabs with a list (SideFrame), as the browser preview draws them: the list and the
-// page each scroll in their own column, and <main> never does. WebKitGTK stops drawing the list
-// during a slide if <main> becomes scrollable part way through it (docs/STYLE.md). Chromium, which
-// runs this, does not, so this holds the layout that keeps it from happening, not the drawing.
-// `yarn test:android` runs it with the Android pages (vitest.e2e.config.ts).
+// page each scroll in their own column, and <main> never does; and the list is there when a slide
+// takes its picture of the next page, even on the first press, its page's code still on its way.
+// WebKitGTK stops drawing the list during a slide if <main> becomes scrollable part way through it
+// (docs/STYLE.md). Chromium, which runs this, does not, so this holds the layout that keeps it from
+// happening, not the drawing. `yarn test:android` runs it with the Android pages
+// (vitest.e2e.config.ts).
 import { chromium, type Browser, type Page } from "playwright-core";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -10,7 +12,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 declare global {
   interface Window {
     /** The slides so far (countSlides). */
-    slides: { started: number; finished: number };
+    slides: { started: number; finished: number; parts: string[] };
   }
 }
 
@@ -36,9 +38,10 @@ afterAll(async () => {
   await server.close();
 });
 
-/** Runs in the page before its own scripts: counts the slides. */
+/** Runs in the page before its own scripts: counts the slides, and keeps which parts of the page
+ *  the last one moves on its own. */
 function countSlides() {
-  window.slides = { started: 0, finished: 0 };
+  window.slides = { started: 0, finished: 0, parts: [] };
   const start = document.startViewTransition.bind(document);
   document.startViewTransition = (update) => {
     window.slides.started += 1;
@@ -46,6 +49,15 @@ function countSlides() {
     const done = () => {
       window.slides.finished += 1;
     };
+    // A skipped slide has no parts, and still finishes.
+    transition.ready
+      .then(() => {
+        window.slides.parts = document
+          .getAnimations()
+          .map((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "")
+          .filter((part) => part.includes("view-transition"));
+      })
+      .catch(() => undefined);
     void transition.finished.then(done, done);
     return transition;
   };
@@ -89,7 +101,7 @@ async function press(tab: string) {
         end = performance.now() + 500;
       }
     }
-    return { slides: window.slides.started - before, overflow };
+    return { slides: window.slides.started - before, overflow, parts: window.slides.parts };
   }, tab);
 }
 
@@ -109,6 +121,23 @@ describe("a desktop tab with a list", () => {
       }
     });
   }
+
+  it("has the list in the slide on the first press, its page's code still on its way", async () => {
+    // Once, so that the preview's server has the code ready and only the delay below remains.
+    await page.goto(`${base}?latest&page=mods`);
+    await page.locator("main aside").waitFor();
+    // The page's code takes longer than the slide's picture, every time, on any machine.
+    await page.route("**/pages/Mods.svelte*", async (route) => {
+      await new Promise((done) => setTimeout(done, 300));
+      await route.continue();
+    });
+    await openSettings();
+    const fetched = await page.evaluate(() =>
+      performance.getEntriesByType("resource").some((entry) => entry.name.includes("Mods")),
+    );
+    expect(fetched).toBe(false);
+    expect((await press("mods")).parts).toContain("::view-transition-new(side)");
+  });
 
   it("scrolls the page beside the list, which stays put", async () => {
     await openSettings();
