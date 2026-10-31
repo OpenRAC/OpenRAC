@@ -42,9 +42,9 @@
           "tools/extract",
           "docs/GDSCRIPT_CONVENTIONS.md"
         ],
-        "commit": "0f0bfcfe98553a7a0ea9a26db94ff00deecf8be5",
-        "date": "2026-10-29",
-        "imported": "2026-10-28"
+        "commit": "693667f240575350b3feedc312b10c3d3b4a7b83",
+        "date": "2026-10-31",
+        "imported": "2026-10-31"
       },
       "build": {
         "host": "macOS or Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",

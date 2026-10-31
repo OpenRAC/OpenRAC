@@ -2688,7 +2688,7 @@ extern void Moby_GetJointWorldPos(void *, int, void *);
 extern int Moby_PlaySound_r(int, int, void *) __asm__("func_0022ED80");
 extern int coll_line_r(void *, void *, int, void *, void *) __asm__("func_L00_001EFFF0");
 
-/* Update function for moby class 1199 on level 10: rises from its spawn, wanders, chases and dives at its target, then dies. */
+/* Update function for moby class 1199 (Screamer) on level 10: rises from its spawn, wanders, chases and dives at its target, then retreats back to its home position. Dies only upon taking lethal damage. */
 void Moby1199Update(Moby *m) {
     float v[20];
     D_2E1568 *d = (D_2E1568 *)m->pvars;
@@ -3121,7 +3121,7 @@ extern int g_hero_moby_r __asm__("D_001414D0");
 extern Anim_2E2B80 *orxon_scene_points_r2 __asm__("D_L10_0016016C") MACRO_ADDR;
 extern Path_2E2B80 *orxon_paths_r2[] __asm__("D_L10_001B0C30");
 
-/* Level 10 moby update: tracks the owner's height and fires a shot, then sets the moby's display state. */
+/* Level 10 moby class 1199 (Screamer): processes damage and hit reactions (entering death state 13 when health is depleted), and updates target selection. */
 void update_class_1199_hit_reactions_and_targeting(Moby *moby)
 {
     MobyData_2E2B80 *data = (struct MobyData_2E2B80 *)moby->pvars;
