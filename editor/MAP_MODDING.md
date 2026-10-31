@@ -46,7 +46,7 @@ water. The editor's surface selector documents these meanings.
 Use a static `.glb` from an extracted donor level or make your own in Blender or
 another modeling tool and import it into the Godot project. Static imports add
 geometry to the map; they do not add a moby class or enemy behavior. The model
-must use triangle meshes, PNG textures, and supported glTF materials. Texture
+must use triangle meshes, PNG or JPEG textures, and supported glTF materials. Texture
 files must be inside the donor level or creator project; unsupported animation,
 skinning and behavior are refused.
 
@@ -62,7 +62,7 @@ python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project Y
 python editor/static_assets.py --source YOUR_PROJECT/models/my-building.glb --project YOUR_PROJECT --level 2 --name MyBuilding --at X Y Z --collision mesh
 ```
 
-The tool copies the mesh and its referenced PNG textures, adds an instance under
+The tool copies the mesh and its referenced PNG/JPEG textures, adds an instance under
 **Game/StaticAssets**, and backs up the level scene in `.openrac-backups/`.
 Texture names are based on content, so two levels' `tie_0001.png` files cannot
 silently overwrite each other. Source files are copied into the project; the

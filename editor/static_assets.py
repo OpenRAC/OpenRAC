@@ -27,6 +27,8 @@ from scenery import matrix_of
 GROUP = 'Game/StaticAssets'
 STAMP = 'static-assets.json'
 PNG = b'\x89PNG\r\n\x1a\n'
+JPEG = b'\xff\xd8\xff'
+IMAGE_TYPES = ((PNG, '.png'), (JPEG, '.jpg'))
 
 
 def digest(data):
@@ -66,13 +68,14 @@ def validate(document):
 
 
 def images(document):
-    """Copy only referenced PNGs, naming by content so donor texture numbers cannot collide."""
+    """Copy referenced PNG/JPEG textures, naming by content to avoid donor-name collisions."""
     result = {}
     for image in document.list('images'):
         data = document.image_bytes(image)
-        if not data.startswith(PNG):
-            raise ValueError('Static imports currently require the extractor\'s PNG textures')
-        name = f'static_{digest(data)[:24]}.png'
+        suffix = next((ext for signature, ext in IMAGE_TYPES if data.startswith(signature)), None)
+        if suffix is None:
+            raise ValueError('Static imports currently require PNG or JPEG textures')
+        name = f'static_{digest(data)[:24]}{suffix}'
         if name in result and result[name] != data:
             raise ValueError('Imported texture identifiers collide; no image was overwritten')
         result[name] = data
