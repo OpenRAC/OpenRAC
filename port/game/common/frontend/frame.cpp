@@ -2050,6 +2050,10 @@ bool keep_picture() {
     if (run_over()) {
         return false;
     }
+    // The console shows its frame buffer as it is: the picture stands and nothing is drawn again.
+    // Drawn again, the kept tick's 2D read the textures a load had written over since (the flight's
+    // planet name came out as a solid block and its planet striped, before the landing).
+    g->repeat_frame = true;
     draw_kept(false);
     return !g->render_failed;
 }
