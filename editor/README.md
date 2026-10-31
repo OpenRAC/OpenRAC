@@ -492,10 +492,10 @@ and packed back like the mobys ([gamedata.py](gamedata.py); the formats are in
 | `Game/LevelSettings` | `rc1_background`, `rc1_fog_colour` (r, g, b), `rc1_fog_near`, `rc1_fog_far` and their `_intensity`, `rc1_death_height`, `rc1_ship_path`, `rc1_ship_camera_cuboids` (first, last) | values |
 | `Game/LevelSettings/Ship` | where the player's ship lands; turn it about Z only | moved |
 | `Game/MobyGroups` | `rc1_group_<n>`: each group's members, by node name | members |
-| `Game/Cameras/Camera_NNNN` | position and rotation (the game's Euler angles), `rc1_class`, pvars | edited in place |
+| `Game/Cameras/Camera_NNNN` | position and rotation (the game's Euler angles), `rc1_class`, the common camera header and known class-specific pvars | edited in place |
 | `Game/Sounds/Sound_NNNN` | the record's matrix, `rc1_class`, `rc1_m_class`, `rc1_range`, pvars (hidden) | edited in place |
 | `Game/Volumes/Cuboids/Cuboid_NNNN`, `Spheres`, `Cylinders`, `Pills` | the unit shape through the record's matrix, translucent (hidden until you show `Volumes`) | moved, turned, scaled, added |
-| `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added |
+| `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added; records cannot be deleted |
 | `Game/GrindPaths/GrindPath_NNNN` | as paths, with `rc1_bounding_sphere` (x, y, z, r) and `rc1_flag` | the same |
 
 `rc1_background` is the colour the game clears the frame to before it draws the sky (SetBackgroundColor). It is not a sky tint: it shows only where the sky's shells leave gaps or are see-through. In 15 of the 19 levels the sky's first shell is an opaque dome coloured per vertex (Novalis, Kerwan, Pokitaru and most others), which hides the background completely; there the sky's colour is that dome's, part of the sky model. The background shows in Rilgar and Umbris, and below the horizon in Orxon and Quartu. `rc1_background` and `rc1_fog_colour` take red, green and blue from 0 to 255. The editor's sky panorama is baked over the background when the level is extracted, so an edit shows in the game, not in the editor's sky until the next extraction.
@@ -511,8 +511,11 @@ variables, `rc1_pvar_index`):
   [moby_pvars.h](../games/rac1/include/moby_pvars.h), 19 classes, and the
   header every camera block starts with: `rc1_pv_sphere`, `_cuboid`,
   `_cylinder`, `_path` name the volumes and path the camera's region test
-  uses, `rc1_pv_activation` when it switches on). A field and the word under
-  it are the same bytes: edit either; when both change, the field wins.
+  uses, `rc1_pv_activation` when it switches on). Camera classes 3, 14, 17,
+  18 and 23 also expose their named fields from `port/assets/world/cameras.h`;
+  the runtime may replace fields marked as counters when the camera activates.
+  A field and the word under it are the same bytes: edit either; when both
+  change, the field wins.
 - `rc1_link_<offset>`: a moby link in the block (the gameplay file's +0x50
   list), as the name of the moby node it names, or `"-1"` for none. Name
   another moby node to point it there; a link follows its moby when mobys
@@ -541,12 +544,14 @@ group then lists the mobys whose `rc1_group` names it, so setting a moby's
 
 Volumes, paths and grind paths are named by their place in their table by
 other data (camera blocks, moby pvars, the camera collision grid, the level
-settings), so they are never deleted or renumbered: a node deleted in Godot
-is packed as it was, with a note in `changes.txt`. A new one (a copy, or
+settings), so they are never deleted or renumbered: Pack refuses a project
+with one of these nodes deleted and explains which index it kept. A new one (a copy, or
 `gameplay/<kind>.tscn` dropped under its group, or a new `Path3D` under
 `Game/Paths`) goes after the table's own; when the section no longer fits
 where it was it moves to the end of the file. Cameras and sound instances
-are edited in place only. An edited volume's inverse matrix and Euler angles
+are edited in place only; adding and deleting those records is not supported.
+Changing a camera class while it has a pvar block is refused, since the block
+has the original class's layout. An edited volume's inverse matrix and Euler angles
 are computed again; an edited grind path keeps its bounding sphere when it
 still holds every point, and grows it just enough otherwise (the disc's own
 rule is not known). Curve handles and tilts are not the game's: paths are

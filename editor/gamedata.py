@@ -97,6 +97,37 @@ CAMERA_HEADER = (("w00", 0x00, "f32", 0), ("sphere", 0x08, "s32", 0), ("cuboid",
                  ("cylinder", 0x10, "s32", 0), ("path", 0x14, "s32", 0), ("f18", 0x18, "f32", 0),
                  ("priority", 0x1C, "u8", 0), ("blend", 0x1D, "u8", 0), ("b1e", 0x1E, "u8", 0),
                  ("activation", 0x1F, "u8", 0))
+# Camera classes share CAMERA_HEADER; these additional pvar fields are documented in
+# port/assets/world/cameras.h. Runtime counters are exposed too because their initial values are part
+# of the serialized block, but the level loader/game may replace them when a camera activates.
+CAMERA_LAYOUTS = {
+    3: (("rail_path", 0x20, "s32", 0), ("rail_grind_path", 0x24, "s32", 0),
+        ("map_path", 0x28, "s32", 0), ("map_grind_path", 0x2C, "s32", 0),
+        ("mode", 0x30, "s32", 0), ("mapped", 0x34, "s16", 0), ("flipped", 0x36, "s16", 0),
+        ("along", 0x38, "f32", 0)),
+    14: (("distance", 0x20, "f32", 0), ("height", 0x24, "f32", 0)),
+    17: (("tolerance", 0x20, "f32", 0), ("distance", 0x24, "f32", 0),
+         ("pivot_height", 0x28, "f32", 0), ("mode", 0x2C, "s16", 0), ("counter", 0x2E, "s16", 0),
+         ("look_height", 0x30, "f32", 0), ("leash", 0x34, "s16", 0), ("facing", 0x36, "s16", 0),
+         ("spring_k", 0x38, "f32", 0), ("spring_d", 0x3C, "f32", 0),
+         ("from_k", 0x40, "f32", 0), ("from_d", 0x44, "f32", 0), ("once", 0x48, "s16", 0),
+         ("left", 0x4A, "s16", 0), ("cuboid2", 0x4C, "s32", 0), ("pitch", 0x50, "f32", 0),
+         ("no_pitch", 0x54, "s16", 0), ("no_yaw", 0x56, "s16", 0)),
+    18: (("counter", 0x20, "s16", 0), ("near_kind", 0x22, "u8", 0), ("radius", 0x24, "f32", 0),
+         ("max_pitch", 0x2C, "f32", 0), ("max_angle", 0x30, "f32", 0), ("distance", 0x34, "f32", 0),
+         ("pivot_height", 0x38, "f32", 0), ("mode", 0x3C, "s16", 0), ("counter2", 0x3E, "s16", 0),
+         ("yaw", 0x40, "f32", 0), ("group", 0x44, "s32", 0), ("look_height", 0x4C, "f32", 0),
+         ("suppress", 0x50, "s32", 0)),
+    23: (("counter", 0x20, "s32", 0), ("leash", 0x24, "s16", 0), ("done", 0x26, "s16", 0),
+         ("pitch", 0x28, "f32", 0), ("look_angle", 0x2C, "f32", 0), ("f30", 0x30, "f32", 0),
+         ("still", 0x34, "s32", 0), ("distance", 0x38, "f32", 0), ("height", 0x3C, "f32", 0),
+         ("look_height", 0x40, "f32", 0), ("not_clank", 0x44, "s16", 0),
+         ("clank_only", 0x46, "s16", 0)),
+}
+
+
+def camera_layout(class_id: int) -> tuple[tuple, ...]:
+    return CAMERA_HEADER + CAMERA_LAYOUTS.get(class_id, ())
 
 
 def owns(key: str) -> bool:
@@ -646,7 +677,8 @@ def write_scene(scene, directory: Path, res: str, g: bytes) -> dict:
     cameras = table(g, CAMERAS, CAMERA_SIZE)
     for i, record in enumerate(cameras):
         class_id, *place, pvar = CAMERA.unpack(record)
-        meta = {"index": i, "class": class_id, "pvar_index": pvar, **pvar_meta(pvars, pvar, CAMERA_HEADER, names)}
+        meta = {"index": i, "class": class_id, "pvar_index": pvar,
+                **pvar_meta(pvars, pvar, camera_layout(class_id), names)}
         scene.node(f"Camera_{i:04}", "Game/Cameras", instance=scenes["camera"], rotation_order=0,
                    transform=transform(euler_matrix(place[:3], place[3:], 1.0)), **raw(meta))
     stats["cameras"] = len(cameras)
@@ -1053,6 +1085,7 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, chang
     count = len(Pvars(original).table)
     for i, node in owner.items():
         class_id, *place, pvar = CAMERA.unpack(cameras[i])
+        original_class = class_id
         meta, edits = meta_of(node), []
         try:
             t = placed(nodes, node)
@@ -1070,6 +1103,10 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, chang
                 problems.append(f"{node['name']}: rc1_{key} = {new!r} is out of range; not packed")
                 continue
             if key == "class":
+                if new != original_class and pvar >= 0:
+                    problems.append(f"{node['name']}: changing a camera class would keep the old class's pvars; "
+                                    "not packed")
+                    continue
                 class_id = new
             else:
                 pvar = new
@@ -1079,7 +1116,7 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, chang
                 problems.append(f"{node['name']}: no such value: rc1_{key}")
         if edits:
             out[at + i * CAMERA_SIZE:at + (i + 1) * CAMERA_SIZE] = CAMERA.pack(class_id, *place, pvar)
-        if pvar_edits(node, meta, CAMERA.unpack(cameras[i])[7], pvar, CAMERA_HEADER):
+        if pvar_edits(node, meta, CAMERA.unpack(cameras[i])[7], pvar, camera_layout(original_class)):
             edits.append("pvars")
         if edits:
             changes.append(f"{node['name']}: {', '.join(edits)}")
