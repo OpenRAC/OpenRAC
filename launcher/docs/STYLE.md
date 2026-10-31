@@ -185,6 +185,10 @@ release, and a new file adds its line there when it is added.
   `--slow` for transitions; `--page-x`, `--page-top`, `--page-bottom` and
   `--page-gap` for every page's margins. A page's sections rise in turn as
   it opens (`.page > section` in `app.css`).
+- What a slide keeps apart from the page (`view-transition-name`) is not
+  sticky inside a scroller whose overflow can change during the slide:
+  WebKitGTK stops drawing it until the slide ends, where Chromium does not.
+  So a tab with a list scrolls in columns (`SideFrame.svelte`), not in `<main>`.
 - Hover styles go inside `@media (hover: hover)`: on a touch screen a tapped
   control would otherwise keep them until the next tap elsewhere. A press
   shows with `:active`, a keyboard's or controller's focus with
