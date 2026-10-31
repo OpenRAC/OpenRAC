@@ -264,6 +264,8 @@ indices, and the face-byte count then describes 8-byte records (three u16
 indices, a type byte, and padding). The host collision query reads the low 31
 bits as the primitive-byte count. Vanilla class blobs keep the retail layout;
 the marked form is for OpenRAC and is not readable by the original game.
+OpenRAC's host query walks the number of primitives in that byte count rather
+than imposing a fixed primitive-entry ceiling.
 
 **Units**: a blob point p is at the moby's position + its rotation of
 p × the moby's scale / 1024, where the moby's scale (+0x2C) is the class

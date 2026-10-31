@@ -764,15 +764,14 @@ static int moby_face(const MobyColl* c, int n, int i, uint32_t fl, Vert* v, int*
  * from the blob's +0x10 on, up to the one that ends the list (mask bit 15), each unless moby +0x98
  * disables it (bit i, the first 32) or its mask lacks the query's bit (bit 0 with flag 0x4, bit 1
  * without). Returns the next record to test from *i (0 to start), 0 past the last. */
-#define PRIMS_MAX 0x400
-
 static gaddr next_prim(const MobyColl* c, uint32_t fl, int* i, int* last) {
     if (*i == 0 && ((fl & 0x2) != 0 || c->primitive_bytes == 0)) {
         return 0;
     }
     const uint32_t disable = U32(c->m + 0x98);
     const int sel = (fl & 0x4) ? 1 : 2;
-    while (!*last && *i < PRIMS_MAX) {
+    const uint32_t primitive_count = c->primitive_bytes / 0x20u;
+    while (!*last && (uint32_t)*i < primitive_count) {
         const int k = (*i)++;
         const gaddr p = c->blob + 0x10 + 0x20 * (gaddr)k;
         const int16_t mask = S16(p + 2);

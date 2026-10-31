@@ -175,6 +175,8 @@ def write(blob: Blob) -> bytes:
     """The blob's bytes (no padding; it is 16-byte aligned in its class and padded to 16 there)."""
     extended = blob.extended or len(blob.vertices) > 2048 or any(max(f[:3]) >= 256 for f in blob.faces)
     primitive_bytes = PRIMITIVE * len(blob.primitives)
+    check(primitive_bytes <= 0x7fffffff,
+          "moby collision: primitive bytes exceed the 32-bit size field")
     if extended:
         check(primitive_bytes < 0x80000000, "moby collision: primitive bytes exceed the extended header field")
         primitive_bytes |= 0x80000000
@@ -225,6 +227,8 @@ def validate(blob: Blob, joint_count: int | None = None) -> None:
     class's skeleton (JOINT_COUNT: header byte 8) or not posed, vertices past the faces' indices
     or the s16 range, faces naming a missing vertex."""
     n = len(blob.primitives)
+    check(PRIMITIVE * n <= 0x7fffffff,
+          "moby collision: primitive bytes exceed the 32-bit size field")
     for i, p in enumerate(blob.primitives):
         what = f"moby collision: primitive {i} ({p.name})"
         check(p.kind in KIND_NAMES, f"{what}: kind {p.kind} is not one the game has (1 to 4)")
