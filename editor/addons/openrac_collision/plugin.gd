@@ -570,11 +570,7 @@ func check_limits() -> void:
 	var lines: PackedStringArray = faces.check_limits()
 	var animated_group := scene_root.get_node_or_null("Game/AnimatedAssets") if scene_root != null else null
 	if animated_group != null:
-		var animated_count := 0
-		for node in animated_group.find_children("*", "Node3D", true, false):
-			var path := (node as Node3D).scene_file_path.to_lower()
-			if path.ends_with(".glb") or path.ends_with(".gltf"):
-				animated_count += 1
+		var animated_count := count_animated_instances(animated_group)
 		if animated_count > MAX_ANIMATED_OBJECTS:
 			lines.append("Game/AnimatedAssets has %d props; the runtime limit is %d." %
 				[animated_count, MAX_ANIMATED_OBJECTS])
@@ -591,6 +587,17 @@ func check_limits() -> void:
 		shown.append("... and %d more" % (lines.size() - REPORT_LINES))
 
 	dock.show_report("\n".join(shown))
+
+
+## Counts GLB/glTF instance roots under transform groups without counting their packed children.
+func count_animated_instances(node: Node) -> int:
+	var path := node.scene_file_path.to_lower()
+	if path.ends_with(".glb") or path.ends_with(".gltf"):
+		return 1
+	var count := 0
+	for child in node.get_children():
+		count += count_animated_instances(child)
+	return count
 
 
 # --- Object (class) collision ---
