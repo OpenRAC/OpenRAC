@@ -23,6 +23,7 @@
     "src"
   ],
   "defines": [
+    "OPENRAC_HAS_DISC=1",
     "LOMBYTE_QZERO_H",
     "LOMBYTE_MOBY_UPDATE_H",
     "MOBY_CALL_UPDATE(update,moby)=do { if (update) (update)(moby); } while (0)"
@@ -82,6 +83,7 @@
   ],
   "host_functions": [
     "rac1_expanded_ram",
+    "rac1_check_level_heap",
     "rac1_update_expanded_moby_grid",
     "FUN_00212d68",
     "openrac_game_moby_colour",

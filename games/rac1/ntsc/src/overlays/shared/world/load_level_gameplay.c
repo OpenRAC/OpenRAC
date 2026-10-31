@@ -494,6 +494,22 @@ void        srand(int value) __asm__("func_001160C8");
 extern void read_disc_sectors_and_wait(void *, int, int) __asm__("FUN_00216828");
 extern s32 GetMemorySize(void);
 
+/* The port may give an edited level a larger guest RAM arena. Check its aggregate
+ * level-heap allocations before touching them; the retail build has no such hook. */
+#ifdef OPENRAC_HAS_DISC
+extern void rac1_check_level_heap(u32 cursor, u64 bytes);
+#define EXPANDED_LEVEL_RAM expanded_ram
+#define CHECK_LEVEL_HEAP(cursor, bytes)                                                            \
+    do {                                                                                           \
+        if (EXPANDED_LEVEL_RAM) {                                                                  \
+            rac1_check_level_heap((u32)(cursor), (u64)(bytes));                                    \
+        }                                                                                          \
+    } while (0)
+#else
+#define EXPANDED_LEVEL_RAM (GetMemorySize() > 0x02000000)
+#define CHECK_LEVEL_HEAP(cursor, bytes) ((void)0)
+#endif
+
 char                *load_level_gameplay(int skip_gameplay_read) __asm__("FUN_L00_00241940");
 extern unsigned char l00_moby_load_exclusion_flags_by_uid[] __asm__("D_L00_001BB684");
 extern f32           frame_scale __asm__("D_0015ED60") MACRO_ADDR;
@@ -504,17 +520,25 @@ char *load_level_gameplay(int skip_gameplay_read) {
     LevelHeader *hdr;
     char        *mem;
     float       *ship;
+#ifdef OPENRAC_HAS_DISC
+    int expanded_ram;
+#endif
     short       *moby_index_remap =
         gameplay_moby_index_remap; /* moby index by file order; a pointer local, so its address is formed at each use */
     int level_or_group_scratch; /* scratch int: the level number in the moby loop, a group's offset and end flag in the group loop */
 
     hdr = D_L00_00173E00.f4;
     mem = D_L00_00173E00.f18;
+#ifdef OPENRAC_HAS_DISC
+    expanded_ram = GetMemorySize() > 0x02000000;
+#endif
     if (skip_gameplay_read == 0) {
         if (pal_mode != 0) {
+            CHECK_LEVEL_HEAP(mem, disc_table.sound_archive_alt.size);
             read_disc_sectors_and_wait(
                 mem, disc_table.sound_archive_alt.sector, disc_table.sound_archive_alt.size);
         } else {
+            CHECK_LEVEL_HEAP(mem, disc_table.sound_archive.size);
             read_disc_sectors_and_wait(
                 mem, disc_table.sound_archive.sector, disc_table.sound_archive.size);
         }
@@ -651,6 +675,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         size += 3;
         size &= ~3;
         size -= 8;
+        CHECK_LEVEL_HEAP(mem, size);
         copy_memory_aligned(mem, p, size);
         for (i = 0; i < D_L00_00179410.f2C; i++) {
             int delta = (int)D_L00_0015F660 - 8;
@@ -668,12 +693,14 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_00160FC0 = (TieInst *)mem;
         p += 0x10;
         D_L00_00160FCC = n;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 5);
         mem += n << 5;
         if (n != 0) {
             FillTransferWords(D_L00_00160FC0, 0, n << 5);
         }
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         D_L00_00160FC8 = (TieMatrix *)mem;
+        CHECK_LEVEL_HEAP(mem, (u64)D_L00_00160FCC * 0x1C0);
         mem += D_L00_00160FCC * 0x1C0;
         if (D_L00_00160FCC != 0) {
             FillTransferWords(D_L00_00160FC8, 0, D_L00_00160FCC * 0x1C0);
@@ -740,17 +767,20 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_00160494 = (ShrubInst *)mem;
         p += 0x10;
         D_L00_00160490 = n;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 5);
         mem += n << 5;
         if (n != 0) {
             FillTransferWords(D_L00_00160494, 0, n << 5);
         }
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         D_L00_0016049C = (ShrubMatrix *)mem;
+        CHECK_LEVEL_HEAP(mem, (u64)D_L00_00160490 << 6);
         mem += D_L00_00160490 << 6;
         if (D_L00_00160490 != 0) {
             FillTransferWords(D_L00_0016049C, 0, D_L00_00160490 << 6);
         }
         D_L00_001604A0 = (unsigned char *)mem;
+        CHECK_LEVEL_HEAP(mem, (u64)D_L00_00160490 * 0x60);
         mem += D_L00_00160490 * 0x60;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (D_L00_00160490 != 0) {
@@ -874,6 +904,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_0015EF50 = (Cuboid *)mem;
         p += 0x10;
         D_L00_0015EF54 = n;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 5);
         mem += n << 5;
         if (n != 0) {
             FillTransferWords(D_L00_0015EF50, 0, n << 5);
@@ -905,6 +936,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
             int i;
 
             voice_pool.sound_instances = (SoundInstance *)mem;
+            CHECK_LEVEL_HEAP(mem, size);
             mem += size;
             mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
             FillTransferWords(voice_pool.sound_instances, 0, size);
@@ -933,13 +965,17 @@ char *load_level_gameplay(int skip_gameplay_read) {
         p += 0xC;
         /* The retail overlay reserves 64 entries for this file-order map. Larger modded
          * tables need their own level-arena storage; keep the retail path unchanged otherwise. */
-        if (GetMemorySize() > 0x02000000
+        if (EXPANDED_LEVEL_RAM
             && n > (int)(sizeof(gameplay_moby_index_remap) / sizeof(gameplay_moby_index_remap[0]))) {
             moby_index_remap = (short *)mem;
+            CHECK_LEVEL_HEAP(mem, (u64)n * sizeof(*moby_index_remap));
             mem += n * sizeof(*moby_index_remap);
             mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         }
         moby_table = (MobyInst *)mem;
+        /* This table is initialized before the cursor advances below. Reserve both
+         * its primary entries and its secondary indexed records up front. */
+        CHECK_LEVEL_HEAP(mem, (((u64)n + (u64)n2) << 8) + ((u64)n2 << 7));
         FillTransferWords(mem, 0, (n + n2) << 8);
         for (i = 0; i < n; i++) {
             int           mission;
@@ -1096,8 +1132,10 @@ char *load_level_gameplay(int skip_gameplay_read) {
         }
         D_L00_0015FFDC = moby_table + count;
         D_L00_0015FFDC->f20 = 0xFF;
+        CHECK_LEVEL_HEAP(mem, ((u64)count + (u64)n2) << 8);
         mem += (count + n2) << 8;
         D_L00_0015FFE8_macro = mem;
+        CHECK_LEVEL_HEAP(mem, (u64)n2 << 7);
         mem += n2 << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         D_L00_0015FFE0 = (MobyInst *)((int)moby_table + ((count + n2) << 8) - 0x100);
@@ -1118,8 +1156,10 @@ char *load_level_gameplay(int skip_gameplay_read) {
                 char *src = pv + tbl[k].f0;
 
                 D_L00_0015EF50[i].f1C = (int)mem;
+                CHECK_LEVEL_HEAP(mem, size);
                 fast_mem_copy(mem, src, size);
                 tbl[k].f0 = (int)mem;
+                CHECK_LEVEL_HEAP(mem, size);
                 mem += size;
             }
         }
@@ -1133,8 +1173,10 @@ char *load_level_gameplay(int skip_gameplay_read) {
                 char *src = pv + tbl[k].f0;
 
                 voice_pool.sound_instances[i].data = (int)mem;
+                CHECK_LEVEL_HEAP(mem, size);
                 fast_mem_copy(mem, src, size);
                 tbl[k].f0 = (int)mem;
+                CHECK_LEVEL_HEAP(mem, size);
                 mem += size;
             }
         }
@@ -1148,8 +1190,10 @@ char *load_level_gameplay(int skip_gameplay_read) {
                 char *src = pv + tbl[k].f0;
 
                 m->f78 = (int)mem;
+                CHECK_LEVEL_HEAP(mem, size);
                 fast_mem_copy(mem, src, size);
                 tbl[k].f0 = (int)mem;
+                CHECK_LEVEL_HEAP(mem, size);
                 mem += size;
             }
         }
@@ -1201,6 +1245,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         q += 4;
         size = *(int *)q;
         offs = (int *)(q + 0xC);
+        CHECK_LEVEL_HEAP(mem, size);
         mem += size;
         q = (char *)offs + (n << 2);
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
@@ -1256,6 +1301,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         q += 4;
         n = *(int *)q;
         q += 0xC;
+        CHECK_LEVEL_HEAP(mem, size);
         mem += size;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (size != 0) {
@@ -1284,6 +1330,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         src = q + *(int *)(q + 4);
         size = *(int *)(q + 8);
         D_L00_00160108_macro = mem;
+        CHECK_LEVEL_HEAP(mem, size);
         mem += size;
         q += 0x10;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
@@ -1308,6 +1355,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         src = q + *(int *)(q + 4);
         size = *(int *)(q + 8);
         l00_splines_macro = (LevelSpline *)mem;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 5);
         mem += n << 5;
         q += 0x10;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
@@ -1324,6 +1372,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
             } while (--i != 0);
         }
         base = mem;
+        CHECK_LEVEL_HEAP(mem, size);
         mem += size;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (size != 0) {
@@ -1342,6 +1391,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_001600E4 = mem;
         D_L00_001600E8 = n;
         q += 0x10;
+        CHECK_LEVEL_HEAP(mem, (u64)n * 0x90);
         mem += n * 0x90;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
@@ -1360,6 +1410,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_001600EC = mem;
         q += 0x10;
         D_L00_001600F0 = n;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 7);
         mem += n << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
@@ -1378,6 +1429,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_001600F4 = mem;
         q += 0x10;
         D_L00_001600F8 = n;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 7);
         mem += n << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
@@ -1396,6 +1448,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_001600FC = mem;
         q += 0x10;
         D_L00_00160100 = n;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 7);
         mem += n << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
@@ -1413,6 +1466,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_0015EF80 = mem;
         q += 0x10;
         size += 0x4000;
+        CHECK_LEVEL_HEAP(mem, size);
         mem += size;
         copy_memory_aligned(D_L00_0015EF80, q, size);
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
@@ -1424,6 +1478,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_0015FBC0 = mem;
         q += 0x10;
         size += 0x4000;
+        CHECK_LEVEL_HEAP(mem, size);
         mem += size;
         copy_memory_aligned(D_L00_0015FBC0, q, size);
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
@@ -1435,6 +1490,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_0015FB80 = mem;
         q += 0x10;
         D_L00_0015FB50 = n;
+        CHECK_LEVEL_HEAP(mem, (u64)n << 5);
         mem += n << 5;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
@@ -1448,6 +1504,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         D_L00_00160040 = mem;
         D_L00_00160014 = n;
         q += 0x10;
+        CHECK_LEVEL_HEAP(mem, (u64)n * 0x30);
         mem += n * 0x30;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         if (n != 0) {
@@ -1455,6 +1512,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         }
     }
     D_L00_0016016C_macro = mem;
+    CHECK_LEVEL_HEAP(mem, 0x20000);
     mem += 0x20000;
     D_L00_00160174 = -1;
     D_L00_00160170 = 0;
@@ -1671,6 +1729,7 @@ char *load_level_gameplay(int skip_gameplay_read) {
         break;
     }
     D_L00_0015F310 = D_L00_0015F318;
+    CHECK_LEVEL_HEAP(mem, 0);
     return mem;
 }
 

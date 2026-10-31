@@ -18,7 +18,7 @@
     "include",
     "src"
   ],
-  "defines": [],
+  "defines": ["OPENRAC_HAS_DISC=1"],
   "aliases": ["include/names.h"],
   "places": "config/overlays/functions.tsv",
   "split_places": "split_places.tsv",
@@ -39,6 +39,7 @@
   ],
   "host_functions": [
     "rac1_expanded_ram",
+    "rac1_check_level_heap",
     "rac1_update_expanded_moby_grid",
     "openrac_game_moby_colour",
     "func_001F7560",
