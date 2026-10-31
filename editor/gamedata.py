@@ -1168,19 +1168,27 @@ def clone_camera_pvars(original: bytes, edited: bytes, nodes: dict, problems: li
     return gp.replace(edited, sections), additions
 
 
-def camera_grid_references_valid(original: bytes, block: bytes | None, class_id: int) -> bool:
+def camera_grid_references_valid(original: bytes, block: bytes | None, class_id: int, nodes: dict) -> bool:
     """The camera grid indexes the level's original volumes; it is not rebuilt by the editor."""
     if block is None:
         return True
-    refs = ((0x08, 0x64, SHAPE_SIZE), (0x0C, 0x60, SHAPE_SIZE), (0x10, 0x68, SHAPE_SIZE))
+    refs = ((0x08, 0x64, SHAPE_SIZE, "Spheres", "Sphere"),
+            (0x0C, 0x60, SHAPE_SIZE, "Cuboids", "Cuboid"),
+            (0x10, 0x68, SHAPE_SIZE, "Cylinders", "Cylinder"))
     if class_id == 17:
-        refs += ((0x4C, 0x60, SHAPE_SIZE),)
-    for offset, section, record_size in refs:
+        refs += ((0x4C, 0x60, SHAPE_SIZE, "Cuboids", "Cuboid"),)
+    from pack import same, scene_transform
+    for offset, section, record_size, group, prefix in refs:
         if offset + 4 > len(block):
             continue
         index, = struct.unpack_from("<i", block, offset)
-        if index >= len(table(original, section, record_size)):
+        bodies = table(original, section, record_size)
+        if index >= len(bodies):
             return False
+        if index >= 0:
+            node = nodes.get(f"Game/Volumes/{group}/{prefix}_{index:04}")
+            if node and not same(placed(nodes, node), scene_transform(shape_matrix(bodies[index]))):
+                return False
     return True
 
 
@@ -1235,8 +1243,9 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, camer
         if pvar_edits(node, meta, CAMERA.unpack(cameras[i])[7], pvar, camera_layout(original_class),
                       CAMERA_RUNTIME_OFFSETS.get(original_class, set())):
             edits.append("pvars")
-        if pvar >= 0 and not camera_grid_references_valid(original, Pvars(bytes(out)).block(pvar), original_class):
-            problems.append(f"{node['name']}: a camera region uses a newly added volume, but the camera grid "
+        if pvar >= 0 and not camera_grid_references_valid(
+                original, Pvars(bytes(out)).block(pvar), original_class, nodes):
+            problems.append(f"{node['name']}: its camera region uses a new or moved volume, but the camera grid "
                             "cannot be rebuilt yet; not packed")
         if edits:
             changes.append(f"{node['name']}: {', '.join(edits)}")
@@ -1280,8 +1289,9 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, camer
             changes.append(f"{node['name']}: added camera with copied pvars (class {class_id})")
         else:
             changes.append(f"{node['name']}: added camera (class {class_id})")
-        if pvar >= 0 and not camera_grid_references_valid(original, Pvars(bytes(out)).block(pvar), class_id):
-            problems.append(f"{node['name']}: a camera region uses a newly added volume, but the camera grid "
+        if pvar >= 0 and not camera_grid_references_valid(
+                original, Pvars(bytes(out)).block(pvar), class_id, nodes):
+            problems.append(f"{node['name']}: its camera region uses a new or moved volume, but the camera grid "
                             "cannot be rebuilt yet; not packed")
 
     if additions:

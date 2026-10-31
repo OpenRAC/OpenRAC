@@ -312,7 +312,8 @@ class GameData(unittest.TestCase):
     def test_a_volume_moved(self):
         out, changes, problems = self.pack(edit(self.text, "Cuboid_0000", "transform",
                                                 "Transform3D(0, -2, 0, 2, 0, 0, 0, 0, 1, 11, 21, 31)"))
-        self.assertEqual((changes, problems), (["Cuboid_0000: moved"], []))
+        self.assertEqual(changes, ["Cuboid_0000: moved"])
+        self.assertTrue(any("camera grid cannot be rebuilt" in problem for problem in problems))
         at = gp.offset(out, 0x60) + 0x10
         self.assertTrue(all(at <= i < at + 0x80 for i in changed_bytes(self.g, out)))
         self.assertEqual(struct.unpack_from("<4f", out, at + 0x30), (11.0, 21.0, 31.0, gd.SHAPE_W[3]))
@@ -408,6 +409,12 @@ class GameData(unittest.TestCase):
         duplicate = match.group(0).replace('Camera_0000', 'Camera_Custom', 1)
         duplicate = duplicate.replace("metadata/rc1_pv_cuboid = 0", "metadata/rc1_pv_cuboid = 2")
         _, _, problems = self.pack(self.text + "\n" + duplicate)
+        self.assertTrue(any("camera grid cannot be rebuilt" in problem for problem in problems))
+
+    def test_camera_region_volume_cannot_move_until_camera_grid_is_rebuilt(self):
+        text = edit(self.text, "Cuboid_0000", "transform",
+                    "Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 20, 30)")
+        _, _, problems = self.pack(text)
         self.assertTrue(any("camera grid cannot be rebuilt" in problem for problem in problems))
 
     def test_camera_additions_stop_at_the_runtime_slot_limit(self):
