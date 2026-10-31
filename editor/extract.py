@@ -603,9 +603,25 @@ def main() -> None:
                     if game != "rac1":
                         raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet",
                                           code="game-not-packable")
-                levels, mobys = pack(disc, survey, args.project, dest)
-                print((dest / "changes.txt").read_text(), end="")
-                print(f"Packed {levels} level(s), {mobys} moby edit(s): {dest}")
+                # Build beside the published pack. An unsupported Godot edit must not leave a
+                # half pack behind or replace the last good one: pack.py records such edits in
+                # changes.txt so authors can see exactly what needs attention.
+                result = {}
+
+                def build_pack(directory: Path) -> None:
+                    levels, mobys = pack(disc, survey, args.project, directory)
+                    report = (directory / "changes.txt").read_text()
+                    incomplete = [line.strip() for line in report.splitlines()
+                                  if line.lstrip().startswith("not packed:")]
+                    if incomplete:
+                        details = "\n".join(f"  {line}" for line in incomplete)
+                        raise FormatError("Some Godot edits could not be packed:\n" + details,
+                                          code="pack-incomplete")
+                    result.update(levels=levels, mobys=mobys, report=report)
+
+                dest = publish(dest, build_pack, args.anywhere, replace=True)
+                print(result["report"], end="")
+                print(f"Packed {result['levels']} level(s), {result['mobys']} moby edit(s): {dest}")
                 say_output(dest)
             else:
                 dest = publish(args.out, lambda out: raw(disc, survey, args.level[0], out))

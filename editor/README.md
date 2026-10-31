@@ -557,6 +557,9 @@ an untouched project packs to nothing, and Godot's own saving is not an
 edit. Values that cannot be packed (not a number, out of the field's range,
 a link to no moby, an index past its table) are listed as `not packed:` in
 `changes.txt` and leave the bytes as they were.
+The pack command fails instead of publishing a partial result when any edit is
+listed as `not packed:`; an earlier packed folder is kept intact so you can fix
+the scene and pack again.
 
 Checked on 2026-10-21 on the PAL disc: every section above, read and written
 again unchanged, gives its bytes back in all 19 levels; each level exported
