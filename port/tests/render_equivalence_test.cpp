@@ -7,7 +7,7 @@
 // each scenario of render_fixture.h (the camera walking, the camera still with the mobys moving,
 // pictures between ticks, the level uploaded again halfway, mobys entering and leaving at ticks,
 // Enhanced on and off) it first draws
-// the frames twice with the same settings and requires identical frames, since every later proof
+// the frames twice with the same settings and retains one verified default run, since every later proof
 // rests on the driver drawing alike twice. Then, for each entry of the optimisation registry
 // (renderer/render_opt.h), it draws the frames with the entry on and with it off and compares
 // them with the entry's tolerance: byte for byte unless the entry says otherwise. The registry's
@@ -271,10 +271,11 @@ bool test_the_driver_draws_alike_twice(
     const openrac::scene::LevelData& level,
     const render::SceneSize& size,
     const render::Scenario& scenario,
-    bool enhanced
+    bool enhanced,
+    Frames& baseline
 ) {
     std::string error;
-    const Frames first = draw_run(level, size, scenario, enhanced, error);
+    Frames first = draw_run(level, size, scenario, enhanced, error);
     const Frames second = draw_run(level, size, scenario, enhanced, error);
     CHECK(!first.empty());
     const Difference noise = compare(first, second);
@@ -290,6 +291,7 @@ bool test_the_driver_draws_alike_twice(
         error.c_str()
     );
     CHECK(alike);
+    baseline = std::move(first);
     return alike;
 }
 
@@ -298,15 +300,18 @@ void test_an_entry_changes_no_frame(
     const openrac::scene::LevelData& level,
     const render::SceneSize& size,
     const render::Scenario& scenario,
-    bool enhanced,
+    const Frames& baseline,
     const render_opt::Entry& entry
 ) {
     std::string error;
-    render_opt::set(entry.opt, true);
-    const Frames on = draw_run(level, size, scenario, enhanced, error);
-    render_opt::set(entry.opt, false);
-    const Frames off = draw_run(level, size, scenario, enhanced, error);
+    const bool enhanced = openrac::gl::enhanced_rendering_available();
+    const bool baseline_on = render_opt::enabled(entry.opt);
+    render_opt::set(entry.opt, !baseline_on);
+    const Frames changed = draw_run(level, size, scenario, enhanced, error);
     render_opt::reset();
+    // Every comparison keeps both paths; unchanged default frames were already checked twice.
+    const Frames& on = baseline_on ? baseline : changed;
+    const Frames& off = baseline_on ? changed : baseline;
     const Difference difference = compare(on, off);
     const bool equivalent = !on.empty() && within(difference, entry.tolerance);
     std::printf(
@@ -391,15 +396,22 @@ int main(int argc, char** argv) {
     use_enhanced(false);
     test_the_scene_is_drawn(level, size);
     bool deterministic = true;
+    std::array<std::array<Frames, render::kScenarios.size()>, 2> baselines;
 
     // Determinism first, every scenario in each mode: the comparisons below rest on it.
     for (const bool enhanced : modes) {
         use_enhanced(enhanced);
 
         // Each scenario of the fixture.
-        for (const render::Scenario& scenario : render::kScenarios) {
-            deterministic =
-                test_the_driver_draws_alike_twice(level, size, scenario, enhanced) && deterministic;
+        for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
+            deterministic = test_the_driver_draws_alike_twice(
+                                level,
+                                size,
+                                render::kScenarios[index],
+                                enhanced,
+                                baselines[enhanced ? 1 : 0][index]
+                            )
+                            && deterministic;
         }
     }
 
@@ -414,13 +426,15 @@ int main(int argc, char** argv) {
         use_enhanced(enhanced);
 
         // Each scenario of the fixture.
-        for (const render::Scenario& scenario : render::kScenarios) {
+        for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
+            const auto& scenario = render::kScenarios[index];
+            const auto& baseline = baselines[enhanced ? 1 : 0][index];
             // Each entry of the registry.
             for (const render_opt::Entry& entry : render_opt::entries()) {
                 if (selected && entry.opt != selected->opt) {
                     continue;
                 }
-                test_an_entry_changes_no_frame(level, size, scenario, enhanced, entry);
+                test_an_entry_changes_no_frame(level, size, scenario, baseline, entry);
             }
 
             test_no_pass_reads_what_it_discards(level, size, scenario, enhanced);

@@ -300,10 +300,13 @@ package's report gives.
 **The equivalence test**, `render_equivalence_vulkan`
 ([`port/tests/render_equivalence_test.cpp`](../../port/tests/render_equivalence_test.cpp)), draws
 the scene at a tenth of its size at 320 by 180, eight frames a scenario, under the validation layer.
-It first checks that the scene is drawn at all (half the first frame is over the clear colour),
+It first checks that the scene is drawn at all (more than 5% of its first frame is over the clear colour),
 then draws every scenario twice, Enhanced off and on, and requires identical frames: every later
-proof rests on the driver drawing alike twice. Then each registry entry is drawn on and off in every
-scenario and the frames are compared with the entry's tolerance, byte for byte unless it states one.
+proof rests on the driver drawing alike twice. One verified default run is retained per scenario
+and mode. Each registry entry then draws the opposite of its default state and compares against
+those frames with the entry's tolerance, byte for byte unless it states one. Default-off entries
+and environment overrides use the same rule. This avoids repeating unchanged default draws while
+retaining every on/off comparison, scene rebuild and discarded-attachment check.
 The self-test entry is compared as well, as the harness's check of itself: its reference path is in
 the fixture (`SceneRenderer::selftest_reference_path`). The validation layer must report nothing.
 

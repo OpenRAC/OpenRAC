@@ -276,7 +276,7 @@ jobs:
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release
+        run: ctest --preset release --stop-on-failure
 
   # The port without a window (the headless preset, no SDL3): the runtime, the
   # games and their tests. Built here so code that only the window build can
@@ -340,7 +340,7 @@ jobs:
         env:
           SDL_VIDEO_DRIVER: x11
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: xvfb-run -a ctest --preset enhanced --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
+        run: xvfb-run -a ctest --preset enhanced --stop-on-failure --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
       - name: Enhanced GPU and bake checks must run, not skip
         working-directory: port
         run: |
@@ -399,7 +399,7 @@ jobs:
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release
+        run: ctest --preset release --stop-on-failure
 
   # The native port on Windows: rac1/pal's program built as the launcher's
   # "Build the game" builds it (tools/build_port.py: Visual Studio's C++
