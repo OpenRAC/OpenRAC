@@ -513,9 +513,9 @@ variables, `rc1_pvar_index`):
   `_cylinder`, `_path` name the volumes and path the camera's region test
   uses, `rc1_pv_activation` when it switches on). Camera classes 3, 14, 17,
   18 and 23 also expose their named fields from `port/assets/world/cameras.h`;
-  the runtime may replace fields marked as counters when the camera activates.
+  runtime-owned fields are shown for inspection but Pack refuses edits to them.
   A field and the word under it are the same bytes: edit either; when both
-  change, the field wins.
+  change, the field wins, except runtime-owned words which cannot be changed.
 - `rc1_link_<offset>`: a moby link in the block (the gameplay file's +0x50
   list), as the name of the moby node it names, or `"-1"` for none. Name
   another moby node to point it there; a link follows its moby when mobys

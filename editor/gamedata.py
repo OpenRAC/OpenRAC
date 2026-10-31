@@ -98,8 +98,8 @@ CAMERA_HEADER = (("w00", 0x00, "f32", 0), ("sphere", 0x08, "s32", 0), ("cuboid",
                  ("priority", 0x1C, "u8", 0), ("blend", 0x1D, "u8", 0), ("b1e", 0x1E, "u8", 0),
                  ("activation", 0x1F, "u8", 0))
 # Camera classes share CAMERA_HEADER; these additional pvar fields are documented in
-# port/assets/world/cameras.h. Runtime counters are exposed too because their initial values are part
-# of the serialized block, but the level loader/game may replace them when a camera activates.
+# port/assets/world/cameras.h. Runtime fields stay visible in the scene, but Pack refuses edits to
+# them because the level loader/game owns their values after activation.
 CAMERA_LAYOUTS = {
     3: (("rail_path", 0x20, "s32", 0), ("rail_grind_path", 0x24, "s32", 0),
         ("map_path", 0x28, "s32", 0), ("map_grind_path", 0x2C, "s32", 0),
@@ -128,6 +128,14 @@ CAMERA_LAYOUTS = {
 
 def camera_layout(class_id: int) -> tuple[tuple, ...]:
     return CAMERA_HEADER + CAMERA_LAYOUTS.get(class_id, ())
+
+
+CAMERA_RUNTIME_OFFSETS = {
+    3: {0x34, 0x36},  # mapped, flipped
+    17: {0x2E, 0x40, 0x44, 0x4A},  # counter, captured springs, left
+    18: {0x20, 0x3E, 0x40},  # counters, live yaw
+    23: {0x20, 0x26, 0x38, 0x3C, 0x40},  # counter, done, and arrival offsets
+}
 
 
 def owns(key: str) -> bool:
@@ -522,10 +530,11 @@ def pack_field(value, kind: str, count: int) -> bytes:
 
 
 def edit_block(name: str, block: bytearray, base: dict, meta: dict, layout, links: list[int], locked: set[int],
-               numbering: dict[str, int], problems: list[str]) -> bool:
+               numbering: dict[str, int], problems: list[str], readonly_offsets: set[int] | None = None) -> bool:
     """Writes into BLOCK what META (a node's keys) changed from BASE (what the extractor wrote for
     it); True when something was written. Words first, then typed fields, then links."""
     edited, special = False, set(links) | locked
+    readonly_offsets = readonly_offsets or set()
     if "pvar" in meta and "pvar" in base and not same_value(meta["pvar"], base["pvar"]):
         words = meta["pvar"]
         if not isinstance(words, list) or len(words) != len(base["pvar"]):
@@ -537,6 +546,10 @@ def edit_block(name: str, block: bytearray, base: dict, meta: dict, layout, link
                 if 4 * k in special:
                     problems.append(f"{name}: rc1_pvar word {k} (+{4 * k:#x}) is one the level loader rewrites "
                                     f"({'a moby link: edit rc1_link_' + format(4 * k, 'x') if 4 * k in links else 'a pointer'}); not packed")
+                    continue
+                if any(4 * k <= at < 4 * k + 4 for at in readonly_offsets):
+                    problems.append(f"{name}: rc1_pvar word {k} (+{4 * k:#x}) contains a runtime-owned camera field; "
+                                    "not packed")
                     continue
                 try:
                     block[4 * k:4 * k + 4] = pack_word(now)
@@ -550,6 +563,9 @@ def edit_block(name: str, block: bytearray, base: dict, meta: dict, layout, link
             continue
         at, kind, count = fields[key]
         if same_typed(meta[key], base[key], kind):
+            continue
+        if at in readonly_offsets:
+            problems.append(f"{name}: rc1_{key} is runtime-owned by the camera; not packed")
             continue
         try:
             block[at:at + field_size(kind, count)] = pack_field(meta[key], kind, count)
@@ -976,7 +992,8 @@ def pack_level(original: bytes, edited: bytes, source: str, numbering: dict[str,
     layouts = class_layouts()
     sections: dict[int, bytes] = {}
 
-    def pvar_edits(node: dict, meta: dict, base_index: int, target_index: int, layout) -> bool:
+    def pvar_edits(node: dict, meta: dict, base_index: int, target_index: int, layout,
+                   readonly_offsets: set[int] | None = None) -> bool:
         if not any(owns(k) for k in meta):
             return False
         base = pvar_meta(before, base_index, layout, names)
@@ -986,7 +1003,7 @@ def pack_level(original: bytes, edited: bytes, source: str, numbering: dict[str,
             return False
         work = bytearray(block)
         if not edit_block(node["name"], work, base, meta, layout, after.link_offsets(target_index),
-                          after.locked(target_index), numbering, problems):
+                          after.locked(target_index), numbering, problems, readonly_offsets):
             return False
         at = after.data_at + after.table[target_index][0]
         out[at:at + len(work)] = work
@@ -1116,7 +1133,8 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, chang
                 problems.append(f"{node['name']}: no such value: rc1_{key}")
         if edits:
             out[at + i * CAMERA_SIZE:at + (i + 1) * CAMERA_SIZE] = CAMERA.pack(class_id, *place, pvar)
-        if pvar_edits(node, meta, CAMERA.unpack(cameras[i])[7], pvar, camera_layout(original_class)):
+        if pvar_edits(node, meta, CAMERA.unpack(cameras[i])[7], pvar, camera_layout(original_class),
+                      CAMERA_RUNTIME_OFFSETS.get(original_class, set())):
             edits.append("pvars")
         if edits:
             changes.append(f"{node['name']}: {', '.join(edits)}")
