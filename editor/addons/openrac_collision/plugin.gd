@@ -66,6 +66,9 @@ var reload_timer: Timer
 ## The project-local static model picker.
 var static_model_dialog: EditorFileDialog
 
+## Whether the shared model picker should create a spinning prop instead of static scenery.
+var animated_model_pick: bool = false
+
 # =============================================================================
 # CONSTANTS
 # =============================================================================
@@ -143,6 +146,17 @@ func add_static_model() -> void:
 	if scene_root == null or faces == null:
 		dock.show_report("Open an extracted level scene before adding static geometry.")
 		return
+	animated_model_pick = false
+	static_model_dialog.current_dir = "res://"
+	static_model_dialog.popup_file_dialog()
+
+
+## Opens the project asset picker for a mod-only spinning visual prop.
+func add_animated_model() -> void:
+	if scene_root == null or faces == null:
+		dock.show_report("Open an extracted level scene before adding an animated prop.")
+		return
+	animated_model_pick = true
 	static_model_dialog.current_dir = "res://"
 	static_model_dialog.popup_file_dialog()
 
@@ -154,7 +168,7 @@ func handle_static_model_selected(path: String) -> void:
 		return
 	var packed_scene := ResourceLoader.load(path) as PackedScene
 	if packed_scene == null:
-		dock.show_report("Godot could not import this GLB as a scene.")
+		dock.show_report("Godot could not import this glTF model as a scene.")
 		return
 	var instance := packed_scene.instantiate()
 	if not instance is Node3D:
@@ -166,11 +180,12 @@ func handle_static_model_selected(path: String) -> void:
 		instance.queue_free()
 		dock.show_report("This scene has no Game node.")
 		return
-	var group := game.get_node_or_null("StaticAssets") as Node3D
+	var group_name := "AnimatedAssets" if animated_model_pick else "StaticAssets"
+	var group := game.get_node_or_null(group_name) as Node3D
 	var make_group := group == null
 	if make_group:
 		group = Node3D.new()
-		group.name = "StaticAssets"
+		group.name = group_name
 	var base_name := path.get_file().get_basename().validate_node_name()
 	if base_name.is_empty():
 		base_name = "StaticModel"
@@ -181,14 +196,22 @@ func handle_static_model_selected(path: String) -> void:
 		suffix += 1
 	instance.name = node_name
 	var undo_redo := get_undo_redo()
-	undo_redo.create_action("Add static glTF model to map", UndoRedo.MERGE_DISABLE, scene_root)
+	var action := "Add spinning glTF prop to map" if animated_model_pick else "Add static glTF model to map"
+	undo_redo.create_action(action, UndoRedo.MERGE_DISABLE, scene_root)
 	if make_group:
 		undo_redo.add_do_method(game, "add_child", group)
 		undo_redo.add_do_property(group, "owner", scene_root)
 		undo_redo.add_do_reference(group)
 	undo_redo.add_do_method(group, "add_child", instance)
 	undo_redo.add_do_property(instance, "owner", scene_root)
-	undo_redo.add_do_method(instance, "set_meta", "rc1_static_collision", false)
+	if animated_model_pick:
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_x", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_y", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_z", 1.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_speed", 1.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_phase", 0.0)
+	else:
+		undo_redo.add_do_method(instance, "set_meta", "rc1_static_collision", false)
 	undo_redo.add_undo_method(group, "remove_child", instance)
 	undo_redo.add_do_reference(instance)
 	if make_group:
@@ -196,7 +219,8 @@ func handle_static_model_selected(path: String) -> void:
 	undo_redo.commit_action()
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(instance)
-	dock.show_report("Added %s. Move and scale it in the 3D view, then Pack the level." % node_name)
+	var kind := "spinning prop" if animated_model_pick else "static model"
+	dock.show_report("Added %s %s. Move and scale it in the 3D view, then Pack the level." % [kind, node_name])
 
 
 ## Removes the overlay from the scene it was in.

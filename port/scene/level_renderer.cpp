@@ -42,6 +42,8 @@ Bucket bucket_of(Layer layer) {
             return Bucket::Ties;
         case Layer::Shrubs:
             return Bucket::Shrubs;
+        case Layer::Animated:
+            return Bucket::Mobys;
         default:
             return Bucket::Mobys;
     }
@@ -229,6 +231,8 @@ bool LevelScene::upload(
         }
     }
     m_models = level.models;
+    m_animated_base = level.instances[static_cast<std::size_t>(Layer::Animated)];
+    m_spins = level.spins;
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
         Scenery& scenery = m_scenery[k];
         const auto layer = static_cast<std::size_t>(kSceneryLayers[k]);
@@ -604,6 +608,8 @@ void LevelScene::release() {
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
+    m_animated_base.clear();
+    m_spins.clear();
     m_sky.release();
 }
 
@@ -705,6 +711,45 @@ bool LevelScene::colour_blend_barrier(Layer layer) const {
         }
     }
     return false;
+}
+
+std::vector<Instance> LevelScene::animated_instances(double seconds) const {
+    std::vector<Instance> result = m_animated_base;
+    if (!std::isfinite(seconds)) {
+        return result;
+    }
+    constexpr double tau = 6.2831853071795864769;
+    for (const SpinAnimation& spin : m_spins) {
+        if (spin.instance >= result.size()) {
+            continue;
+        }
+        const double angle = std::remainder(
+            static_cast<double>(spin.radians_per_second) * seconds + spin.phase, tau
+        );
+        const float c = std::cos(static_cast<float>(angle));
+        const float s = std::sin(static_cast<float>(angle));
+        const float t = 1.0f - c;
+        const float x = spin.axis[0], y = spin.axis[1], z = spin.axis[2];
+        Mat4 rotation = renderer::identity();
+        rotation[0] = c + x * x * t;
+        rotation[4] = x * y * t - z * s;
+        rotation[8] = x * z * t + y * s;
+        rotation[1] = y * x * t + z * s;
+        rotation[5] = c + y * y * t;
+        rotation[9] = y * z * t - x * s;
+        rotation[2] = z * x * t - y * s;
+        rotation[6] = z * y * t + x * s;
+        rotation[10] = c + z * z * t;
+        const Mat4& base = m_animated_base[spin.instance].matrix;
+        // The editor-authored axis is in world coordinates. Rotate the basis around the
+        // instance's origin while leaving its translation intact.
+        Mat4 spun = renderer::multiply(rotation, base);
+        spun[12] = base[12];
+        spun[13] = base[13];
+        spun[14] = base[14];
+        result[spin.instance].matrix = spun;
+    }
+    return result;
 }
 
 void LevelScene::draw_layer(
@@ -1343,6 +1388,9 @@ LayerRenderer::LayerRenderer(LevelScene& scene, Layer layer)
       m_layer(layer) {}
 
 void LayerRenderer::render(const renderer::FrameInput& input, renderer::RenderState& state) {
+    if (m_layer == Layer::Animated) {
+        m_scene.set_instances(m_layer, m_scene.animated_instances(input.seconds));
+    }
     m_scene.draw_layer(m_layer, input, state);
     if (m_layer == Layer::Mobys) {
         m_scene.draw_probe_spheres(input, state);
@@ -1351,6 +1399,9 @@ void LayerRenderer::render(const renderer::FrameInput& input, renderer::RenderSt
 
 void LayerRenderer::render_depth(const renderer::FrameInput& input, renderer::RenderState& state) {
     if (m_layer != Layer::Sky) {
+        if (m_layer == Layer::Animated) {
+            m_scene.set_instances(m_layer, m_scene.animated_instances(input.seconds));
+        }
         m_scene.draw_layer(m_layer, input, state);
     }
 }

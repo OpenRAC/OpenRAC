@@ -547,13 +547,22 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             static_bake = static_assets.write_packed(scene.parents[2], scene.parent, text, out / name)
         except (ValueError, KeyError, IndexError) as error:
             raise FormatError(f'Static import geometry: {error}', code="static-import") from None
+        try:
+            animated_count = static_assets.write_animated(scene.parents[2], text, out / name)
+        except (OSError, ValueError, KeyError, IndexError) as error:
+            raise FormatError(f'Animated prop export: {error}', code="static-import") from None
         scenery_changes += collision_changes
         scenery_problems += collision_problems
         if static_bake is not None:
             scenery_changes.append(f"static imports: {static_bake['instances']} instance(s) baked into terrain")
-            if not changes and placements is None and not wrote:
+            if not changes and placements is None and not wrote and not animated_count:
                 packed += 1
                 total += static_bake['instances']
+        if animated_count:
+            scenery_changes.append(f"animated props: {animated_count} spinning visual instance(s)")
+            total += animated_count
+            if not changes and placements is None and not wrote and static_bake is None:
+                packed += 1
         if wrote:
             packed += 0 if changes or placements is not None else 1
             total += len(collision_changes)

@@ -34,6 +34,8 @@ const char* layer_name(Layer layer) {
             return "ties";
         case Layer::Shrubs:
             return "shrubs";
+        case Layer::Animated:
+            return "animated props";
         case Layer::Mobys:
             return "mobys";
         case Layer::Count:
@@ -683,6 +685,121 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
     if (!edited.empty() && fs::exists(edited) && !json::parse_file(edited.string(), edits, error)) {
         return false;
     }
+    // Creator-authored spinning scenery lives in the mod folder. The retail manifests and
+    // placements do not know about this optional, mod-only stream.
+    if (!out.overrides.empty()) {
+        const fs::path animation_file = out.overrides / "animated.json";
+        std::error_code file_error;
+        if (fs::is_regular_file(animation_file, file_error)) {
+            json::Value animation;
+            if (!json::parse_file(animation_file.string(), animation, error)) {
+                return false;
+            }
+            if (animation["format"].number(-1) != 1 || !animation["objects"].is_array()) {
+                error = "animated.json must use format 1 and contain an objects array";
+                return false;
+            }
+            if (animation["objects"].items().size() > 4096) {
+                error = "animated.json contains more than 4096 objects";
+                return false;
+            }
+            std::map<std::string, std::uint32_t> model_cache;
+            const fs::path mod_root = fs::canonical(out.overrides, file_error);
+            if (file_error) {
+                error = "cannot resolve the mod folder for animated.json";
+                return false;
+            }
+            for (const json::Value& object : animation["objects"].items()) {
+                if (!object.is_object()) {
+                    error = "animated.json objects must be objects";
+                    return false;
+                }
+                const std::string& model_uri = object["model"].string();
+                const fs::path relative(model_uri);
+                if (model_uri.empty() || relative.is_absolute() || relative.has_root_name()
+                    || std::any_of(relative.begin(), relative.end(), [](const fs::path& part) {
+                           return part == "..";
+                       })) {
+                    error = "animated object model must be a relative path inside the mod folder";
+                    return false;
+                }
+                const fs::path model_path = fs::canonical(mod_root / relative, file_error);
+                if (file_error || !fs::is_regular_file(model_path, file_error)) {
+                    error = std::format("animated object model {} is missing", model_uri);
+                    return false;
+                }
+                const fs::path contained = model_path.lexically_relative(mod_root);
+                if (contained.empty() || contained.is_absolute()
+                    || std::any_of(contained.begin(), contained.end(), [](const fs::path& part) {
+                           return part == "..";
+                       })) {
+                    error = "animated object model resolves outside the mod folder";
+                    return false;
+                }
+                std::uint32_t model_index = 0;
+                const std::string cache_key = model_path.string();
+                if (const auto found = model_cache.find(cache_key); found != model_cache.end()) {
+                    model_index = found->second;
+                } else {
+                    const auto loaded = load_model(model_path, out, error);
+                    if (!loaded) {
+                        return false;
+                    }
+                    model_index = *loaded;
+                    model_cache.emplace(cache_key, model_index);
+                }
+                const json::Value& matrix = object["matrix"];
+                if (!matrix.is_array() || matrix.items().size() != 16) {
+                    error = "animated object matrix must contain 16 numbers";
+                    return false;
+                }
+                Instance instance;
+                instance.model = model_index;
+                for (std::size_t i = 0; i < instance.matrix.size(); ++i) {
+                    const json::Value& value = matrix[i];
+                    const double number = value.number(std::numeric_limits<double>::quiet_NaN());
+                    if (!value.is_number() || !std::isfinite(number)
+                        || std::abs(number) > 1.0e6) {
+                        error = "animated object matrix contains an invalid value";
+                        return false;
+                    }
+                    instance.matrix[i] = static_cast<float>(number);
+                }
+                const json::Value& axis = object["spin_axis"];
+                if (!axis.is_array() || axis.items().size() != 3
+                    || !object["spin_speed"].is_number()) {
+                    error = "animated object needs a three-number spin_axis and spin_speed";
+                    return false;
+                }
+                Vec3 spin_axis{};
+                for (std::size_t i = 0; i < spin_axis.size(); ++i) {
+                    spin_axis[i] = static_cast<float>(axis[i].number(
+                        std::numeric_limits<double>::quiet_NaN()));
+                    if (!std::isfinite(spin_axis[i])) {
+                        error = "animated object spin_axis contains an invalid value";
+                        return false;
+                    }
+                }
+                const float axis_length = renderer::dot(spin_axis, spin_axis);
+                if (!std::isfinite(axis_length) || axis_length < 1.0e-8f) {
+                    error = "animated object spin_axis must have non-zero length";
+                    return false;
+                }
+                spin_axis = renderer::normalize(spin_axis);
+                const double speed = object["spin_speed"].number();
+                const double phase = object["phase"].number(0.0);
+                if (!std::isfinite(speed) || std::abs(speed) > 100.0
+                    || !std::isfinite(phase) || std::abs(phase) > 1000000.0) {
+                    error = "animated object spin_speed or phase is outside its supported range";
+                    return false;
+                }
+                auto& instances = out.instances[static_cast<std::size_t>(Layer::Animated)];
+                out.spins.push_back({instances.size(), spin_axis, static_cast<float>(speed),
+                                     static_cast<float>(phase)});
+                instances.push_back(instance);
+            }
+        }
+    }
     const std::tuple<const char*, Layer, std::map<int, ClassModel>*> groups[] =
         {{"ties", Layer::Ties, &ties},
          {"shrubs", Layer::Shrubs, &shrubs},
@@ -918,7 +1035,8 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
         );
     }
     // Authored visibility is not valid after arbitrary geometry/placement edits.
-    if (out.overridden_models || edits["ties"].is_array() || edits["mobys"].is_array()) {
+    if (out.overridden_models || edits["ties"].is_array() || edits["mobys"].is_array()
+        || !out.spins.empty()) {
         out.pvs.grid.clear();
     }
     log::info(

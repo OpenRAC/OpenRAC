@@ -51,6 +51,8 @@ public:
     void release();
 
     void draw_layer(Layer layer, const renderer::FrameInput& input, renderer::RenderState& state);
+    // The mod-only animated scenery layer at this presentation time (seconds since startup).
+    std::vector<Instance> animated_instances(double seconds) const;
     bool needs_early_lighting(const renderer::FrameInput& input) const;
 
     // Registers the level's probe and early lighting (scene/level_lighting.h), replacing what it
@@ -414,6 +416,8 @@ private:
     );
 
     std::vector<Model> m_models;
+    std::vector<Instance> m_animated_base;
+    std::vector<SpinAnimation> m_spins;
 
     // choose_scenery: per layer (the ties, the shrubs) the instances as loaded, their draw
     // distances, their bounds' world centres and whether each is drawn now, 1 or 0 (empty while

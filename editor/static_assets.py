@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 the OpenRAC contributors
-"""Import a static GLB/glTF, then bake placed copies into a map's terrain at Pack.
+"""Import GLB/glTF scenery and bake static copies or export spinning props at Pack.
 
 python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project PROJECT \
     --level 2 --name MyDecor --at X Y Z [--collision mesh]
 Place, duplicate or transform the imported nodes below Game/StaticAssets in Godot.
-Inputs and generated game assets stay private. Animated/skinned objects are refused.
+Spinning props go below Game/AnimatedAssets. Inputs and generated game assets stay private.
+Skeletal animation and behaviors are refused.
 """
 
 import argparse
@@ -25,6 +26,7 @@ from gltf import Gltf
 from scenery import matrix_of
 
 GROUP = 'Game/StaticAssets'
+ANIMATED_GROUP = 'Game/AnimatedAssets'
 STAMP = 'static-assets.json'
 PNG = b'\x89PNG\r\n\x1a\n'
 JPEG = b'\xff\xd8\xff'
@@ -130,6 +132,45 @@ def placements(project: Path, text: str):
         if type(collision) is not bool:
             raise ValueError(f'{path}: rc1_static_collision must be true or false')
         result.append((path, source, matrix, collision))
+    return result
+
+
+def animated_placements(project: Path, text: str):
+    """Resolve spinning GLB/glTF props in the Godot scene, including grouping transforms."""
+    if ANIMATED_GROUP not in text:
+        return []
+    import collision_scene
+    ext, _, _ = collision_scene.read_scene(text)
+    nodes, _ = gamedata.parse_scene(text)
+    result = []
+    for path, node in nodes.items():
+        if not path.startswith(ANIMATED_GROUP + '/') or not node['instance']:
+            continue
+        instance = gamedata.parse_value(node['instance'])
+        uri = ext.get(instance.args[0]) if isinstance(instance, gamedata.Call) and instance.args else None
+        if not uri or not uri.startswith('res://'):
+            raise ValueError(f'{path}: use a project-local GLB/glTF model')
+        source = (project / uri[6:]).resolve()
+        if not source.is_relative_to(project.resolve()) or source.suffix.lower() not in ('.glb', '.gltf'):
+            raise ValueError(f'{path}: animated props must use project-local GLB/glTF files')
+        matrix = matrix_of(gamedata.placed(nodes, node))
+        if len(matrix) != 16 or not all(math.isfinite(v) for v in matrix):
+            raise ValueError(f'{path}: its transform is not finite')
+        gltf_read.invert(matrix)  # refuse a zero scale before generating partial output
+        meta = gamedata.meta_of(node)
+        try:
+            axis = [float(meta.get(f'spin_{axis}', default)) for axis, default in
+                    (('x', 0), ('y', 0), ('z', 1))]
+            speed = float(meta.get('spin_speed', 1.0))
+            phase = float(meta.get('spin_phase', 0.0))
+        except (TypeError, ValueError):
+            raise ValueError(f'{path}: spin axis, speed and phase must be numbers') from None
+        length = math.sqrt(sum(component * component for component in axis))
+        if not all(math.isfinite(v) for v in (*axis, speed, phase)) or length <= 1e-8:
+            raise ValueError(f'{path}: spin axis must be non-zero and spin values finite')
+        if abs(speed) > 100 or abs(phase) > 1_000_000:
+            raise ValueError(f'{path}: spin speed must be within ±100 rad/s and phase within ±1,000,000 rad')
+        result.append((path, source, matrix, [v / length for v in axis], speed, phase))
     return result
 
 
@@ -334,6 +375,42 @@ def write_packed(project: Path, level_dir: Path, text: str, out: Path):
         (out / 'textures' / name).write_bytes(data)
     (out / STAMP).write_text(json.dumps(stamp, indent=2) + '\n')
     return stamp
+
+
+def write_animated(project: Path, text: str, out: Path):
+    """Bundle spinning visual props and their transforms into the mod's animated.json."""
+    placed = animated_placements(project, text)
+    if not placed:
+        return 0
+    objects = []
+    for node, source, matrix, axis, speed, phase in placed:
+        document = read_model(source, project)
+        validate(document)
+        if not any(order for _, order, _ in triangles(document, gltf_read.trs())):
+            raise ValueError(f'{node}: the selected animated model contains no triangles')
+        textures = images(document)
+        model = Gltf()
+        model.doc = document.doc
+        model.buffer = bytearray(document.buffers[0])
+        payload = model.glb()
+        asset_id = digest(payload)[:24]
+        bundle = out / 'animated' / asset_id
+        bundle.mkdir(parents=True, exist_ok=True)
+        model_path = bundle / 'model.glb'
+        if model_path.exists() and model_path.read_bytes() != payload:
+            raise ValueError(f'{node}: animated asset identifier collision; no file was overwritten')
+        model_path.write_bytes(payload)
+        (bundle / 'textures').mkdir(exist_ok=True)
+        for filename, data in textures.items():
+            texture_path = bundle / 'textures' / filename
+            if texture_path.exists() and texture_path.read_bytes() != data:
+                raise ValueError(f'{node}: animated texture identifier collision; no file was overwritten')
+            texture_path.write_bytes(data)
+        objects.append({'model': f'animated/{asset_id}/model.glb', 'matrix': matrix,
+                        'spin_axis': axis, 'spin_speed': speed, 'phase': phase})
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'animated.json').write_text(json.dumps({'format': 1, 'objects': objects}, indent=2) + '\n')
+    return len(objects)
 
 
 def main():

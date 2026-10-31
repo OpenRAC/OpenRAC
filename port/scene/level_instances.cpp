@@ -337,9 +337,10 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
                 g.gpu_bounds.push_back(gpu_cull_bounds(bounds, g.cpu_instances[n], g.occlusion[n]));
             }
         }
-        // Aggregate the same conservative bounds used by per-instance tests.
+        // Aggregate the same conservative bounds used by per-instance tests. Animated scenery
+        // rebuilds these each frame, so it can use the normal group-level camera rejection too.
         g.bounded = false;
-        if (!live
+        if ((!live || layer == Layer::Animated)
             && std::all_of(
                 g.caster_bounds.begin(), g.caster_bounds.end(), [](const CasterBounds& b) {
                     return b.valid;

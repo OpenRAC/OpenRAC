@@ -92,6 +92,16 @@ so donor per-instance lighting is not transplanted. The imported result is
 static: skeletons, animations and behaviors are refused. Generated meshes,
 textures and packed collision remain private like the rest of the map.
 
+For visual motion without a native moby class, use **Add spinning glTF prop to
+map** in the Collision dock. The prop appears under **Game/AnimatedAssets** and
+rotates around its configured world-space axis through its origin at runtime. In the Inspector, adjust its metadata:
+`rc1_spin_x`, `rc1_spin_y`, `rc1_spin_z` define the axis, `rc1_spin_speed` is
+radians per second (positive or negative, up to 100), and `rc1_spin_phase` is
+the starting angle in radians. The default is one radian per second around Z.
+These are visual objects with no game collision or native moby behavior. Packing
+places their model bundles and `animated.json` in the mod output; it does not
+change the disc data or vanilla path.
+
 ## 3. Pack and export an added destination
 
 Save the project, then use **Pack** or the command below. Substitute your own
