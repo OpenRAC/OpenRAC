@@ -303,6 +303,12 @@ void func_0022CC40(gaddr a0) {
     (void)a0;
 }
 
+/* A mapped level may place its sky data in the expanded arena. Check guest spans against active RAM
+ * before converting their addresses through G(). */
+static int sky_ram_span(gaddr at, uint32_t bytes) {
+    return at <= openrac_guest_ram_size && bytes <= openrac_guest_ram_size - at;
+}
+
 /*
  * SkySpriteProc: the sky's sprites (stars, glows), from the sky header (+0x08 their count, +0x10 the
  * texture table, 16 bytes an entry with the TEX0 first, +0x1C the 0x20-byte records; a negative
@@ -311,22 +317,30 @@ void func_0022CC40(gaddr a0) {
 void func_0022CEB8(void) {
     openrac_game_draw(OPENRAC_DRAW_SKY);
     const gaddr sky = GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x0016055Cu)));
-    if (sky == 0 || sky >= 0x01FFF000u) {
+    if (sky == 0 || !sky_ram_span(sky, 0x20u)) {
         return;
     }
     const gaddr records = GREF(gaddr, sky + 0x1C);
-    const int count = GREF(uint16_t, sky + 0x08);
+    const unsigned count = GREF(uint16_t, sky + 0x08);
     const gaddr textures = GREF(gaddr, sky + 0x10);
-    if (records == 0 || textures == 0 || records >= 0x01FFF000u) {
+    if (records == 0 || textures == 0 || !sky_ram_span(records, count * 0x20u)) {
         return;
     }
-    for (int i = 0; i < count && i < 1024; ++i) {
+    for (unsigned i = 0; i < count; ++i) {
         const uint8_t* r = G(records + (gaddr)i * 0x20);
         if ((int8_t)r[2] < 0) {
             continue;
         }
+        const uint32_t texture_offset = (uint32_t)r[2] * 16u;
+        if (textures > UINT32_MAX - texture_offset) {
+            return;
+        }
+        const gaddr texture = textures + texture_offset;
+        if (!sky_ram_span(texture, sizeof(uint64_t))) {
+            return;
+        }
         uint64_t tex0;
-        memcpy(&tex0, G(textures + (gaddr)r[2] * 16), 8);
+        memcpy(&tex0, G(texture), sizeof(tex0));
         openrac_game_sky_sprite(r, tex0);
     }
 }
