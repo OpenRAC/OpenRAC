@@ -94,6 +94,9 @@ const OVERLAY_NAME: String = "OpenRACCollisionOverlay"
 ## The most lines a report shows.
 const REPORT_LINES: int = 12
 
+## Must match editor/static_assets.py and port/scene/level.cpp.
+const MAX_ANIMATED_OBJECTS: int = 4096
+
 # =============================================================================
 # METHODS
 # =============================================================================
@@ -565,6 +568,16 @@ func make_from_mesh(kind: int) -> void:
 ## Estimates what the packer would refuse.
 func check_limits() -> void:
 	var lines: PackedStringArray = faces.check_limits()
+	var animated_group := scene_root.get_node_or_null("Game/AnimatedAssets") if scene_root != null else null
+	if animated_group != null:
+		var animated_count := 0
+		for node in animated_group.find_children("*", "Node3D", true, false):
+			var path := (node as Node3D).scene_file_path.to_lower()
+			if path.ends_with(".glb") or path.ends_with(".gltf"):
+				animated_count += 1
+		if animated_count > MAX_ANIMATED_OBJECTS:
+			lines.append("Game/AnimatedAssets has %d props; the runtime limit is %d." %
+				[animated_count, MAX_ANIMATED_OBJECTS])
 
 	# Nothing over a limit, as far as the estimate goes.
 	if lines.is_empty():
