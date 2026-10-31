@@ -27,6 +27,7 @@ from scenery import matrix_of
 
 GROUP = 'Game/StaticAssets'
 ANIMATED_GROUP = 'Game/AnimatedAssets'
+MAX_ANIMATED_OBJECTS = 4096  # Must match port/scene/level.cpp's animated.json loader.
 STAMP = 'static-assets.json'
 PNG = b'\x89PNG\r\n\x1a\n'
 JPEG = b'\xff\xd8\xff'
@@ -187,6 +188,9 @@ def animated_placements(project: Path, text: str):
             move_axis = [v / move_length for v in move_axis]
         result.append((path, source, matrix, [v / length for v in axis], speed, phase,
                        move_axis, move_distance, move_speed, move_phase))
+        if len(result) > MAX_ANIMATED_OBJECTS:
+            raise ValueError(f'{ANIMATED_GROUP} has more than {MAX_ANIMATED_OBJECTS} props; '
+                             'the runtime cannot load this level')
     return result
 
 
