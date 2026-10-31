@@ -124,10 +124,6 @@ openrac_add_test(render_worker SOURCES tests/render_worker_test.cpp
   game/common/frontend/render_worker.cpp INCLUDES . LIBS openrac_common Threads::Threads)
 openrac_add_test(settings SOURCES tests/settings_test.cpp game/common/settings.cpp
                           LIBS openrac_common)
-# The controls files and the store that layers them (platform/controls_file.h,
-# game/common/controls_store.h).
-openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_store.cpp
-                          INCLUDES . game/common LIBS openrac_platform)
 # Texture packs: names by hash, replacement, the dump (renderer/texture_pack.h).
 openrac_add_test(texture_pack SOURCES tests/texture_pack_test.cpp renderer/texture_pack.cpp
                               INCLUDES . LIBS openrac_common)

@@ -107,6 +107,16 @@ class ManifestTests(unittest.TestCase):
         for game, name, version in games.versions():
             for key in ("region", "serial", "disc", "boot", "target"):
                 self.assertIn(key, version, f"{game['id']}/{name}")
+            self.assertNotIn(version["serial"], serials)
+            serials.add(version["serial"])
+            # A version only extracted (no decompilation built from it, no port: rac2's PAL disc)
+            # is pinned by what the extractor checks: the boot's SHA-1, the disc's files and
+            # their contents hash, recorded from a player's disc.
+            if not version.get("source") and "port" not in version:
+                self.assertIn("sha1", version["boot"], f"{game['id']}/{name}")
+                for key in ("files", "contents"):
+                    self.assertIn(key, version["disc"], f"{game['id']}/{name}")
+                continue
             # Size and SHA-256 pin a build; the other checksums follow once someone with the disc
             # records them (rac5's project pins its boot by SHA-256 alone).
             for key in ("size", "sha256"):
@@ -117,8 +127,6 @@ class ManifestTests(unittest.TestCase):
                 for key in ("crc32", "md5", "sha1"):
                     self.assertIn(key, version["disc"], f"{game['id']}/{name}")
                     self.assertIn(key, version["boot"], f"{game['id']}/{name}")
-            self.assertNotIn(version["serial"], serials)
-            serials.add(version["serial"])
             if version.get("source"):
                 self.assertTrue((openrac.ROOT / games.version_dir(game, name)).is_dir(), f"{game['id']}/{name}")
                 self.assertRegex(version["source"]["commit"], r"^[0-9a-f]{40}$")
