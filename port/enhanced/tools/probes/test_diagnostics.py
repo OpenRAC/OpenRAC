@@ -22,6 +22,9 @@ class BakeDiagnostics(unittest.TestCase):
                  (ValueError('manifest format 3 (this baker reads 4)'), 'input'),
                  (ValueError('planned dense regions exceed runtime limit'), 'regions'),
                  (diagnostics.NativeFailure(1, ['baker'], 'verification failed'), 'validation'),
+                 (diagnostics.NativeFailure(1, ['baker'], 'Verified region-402.orpg\nprobe bake: environment '
+                                            'placement incomplete: 3 uncovered samples; 177 captures, '
+                                            'safety limit 512'), 'native'),
                  (diagnostics.NativeFailure(0xc000001d, ['baker']), 'cpu'),
                  (diagnostics.NativeFailure(0xc0000135, ['baker']), 'dependency'),
                  (diagnostics.NativeFailure(0xc0000005, ['baker']), 'crash'),

@@ -208,6 +208,22 @@ void compact(RoomDistanceField& field, const Scene& scene, const BakeSettings& s
         });
     }
 
+    // The checks above run from each end, and the body check is not symmetric: keep an edge
+    // only when it passed from both ends, so a path may walk it either way.
+    std::vector<std::vector<unsigned>> kept(nodes.size());
+
+    for (unsigned a = 0; a < nodes.size(); ++a) {
+        for (auto b : nodes[a].neighbours) {
+            if (std::binary_search(nodes[b].neighbours.begin(), nodes[b].neighbours.end(), a)) {
+                kept[a].push_back(b);
+            }
+        }
+    }
+
+    for (unsigned a = 0; a < nodes.size(); ++a) {
+        nodes[a].neighbours = std::move(kept[a]);
+    }
+
     field.nodes = std::move(nodes);
 }
 
