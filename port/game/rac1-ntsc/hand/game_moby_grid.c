@@ -110,7 +110,7 @@ static int exe_grid_would_overflow_cell(unsigned int old, unsigned int next) {
     return 0;
 }
 
-void FUN_0020dc20(unsigned char* moby, unsigned int next) {
+void update_moby_grids(unsigned char* moby, unsigned int next) {
     unsigned int old = *(unsigned int*)(moby + 0xA0);
     unsigned int id = *(unsigned int*)(moby + 0xAC);
     unsigned short* pool = (unsigned short*)(exe_grid + 0x4000);
