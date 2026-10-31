@@ -2399,6 +2399,48 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(out[1:3], ["-0.500", "3.000"])
         self.assertEqual(out[3], "340282346638528859811704183484516925440.000")
 
+    def test_a_shadow_computes_as_the_ee_and_reaches_memory_through_the_port(self):
+        # hostgen.json "asm" "shadows": the function translated once more, as
+        # openrac_shadow_<alias>, its floats the EE's (1 + 1.5 * 2^-24 is 1: the adder drops the
+        # bits), its memory reached through openrac_shadow_ptr (the port's checker), with a table
+        # of the translations. The game's own call is the ordinary translation.
+        config = {"asm": {**ASM_CONFIG["asm"], "shadows": {"sum": "func_00100000", "none": "func_00999999"}},
+                  "host_functions": HOST_FUNCTIONS + ["shadow_test"]}
+        files = {f"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, """
+                lwc1 $f0, 0($4)
+                lwc1 $f1, 4($4)
+                add.s $f0, $f0, $f1
+                swc1 $f0, 8($4)
+                jr $31
+                lw $2, 8($4)
+            """)}
+        out = self.run_program({"a.c": """
+            extern unsigned D_00200000[4];
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(unsigned *p);
+            extern void shadow_test(void);
+            int test_main(void) {
+                D_00200000[0] = 0x3F800000u;
+                D_00200000[1] = 0x33C00000u;
+                test_print(func_00100000(D_00200000));
+                shadow_test();
+                return 0;
+            }
+        """}, config=config, extra_files=files, cxx=PS2FLOAT_CXX, host_c="""
+            #include <stdio.h>
+            extern void *const openrac_shadow_sum_fn;
+            extern void *const openrac_shadow_none_fn;
+            void *openrac_shadow_ptr(gaddr a) { printf("at %x\\n", a); return G(a); }
+            void game_shadow_test(void) {
+                printf("%d\\n", ((int (*)(unsigned))openrac_shadow_sum_fn)(0x200000u));
+                printf("%d\\n", openrac_shadow_none_fn == 0);
+            }
+        """)
+        self.assertEqual(out[0], str(0x3F800001))
+        self.assertEqual(out[1:], ["at", "200000", "at", "200004", "at", "200008", "at", "200008",
+                                   str(0x3F800000), "1"])
+        self.assertEqual(self.last_report["shadows"], {"sum": "translated", "none": "no function func_00999999"})
+
     def test_loads_and_stores(self):
         out = self.run_asm("""
             extern unsigned char D_00300000[32];

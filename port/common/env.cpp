@@ -49,6 +49,13 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::CamLog, "OPENRAC_CAM_LOG",
      Kind::Flag, Truth::Set, "off",
      "the camera each drawn frame is seen from, in the log"},
+    {Var::CollCheck, "OPENRAC_COLL_CHECK",
+     Kind::Integer, Truth::NotAFlag, "off",
+     "N: each collision query also runs the kernel's own instructions and differences go to "
+     "stderr; all memory compared every Nth query (1: never)"},
+    {Var::CollCheckPrint, "OPENRAC_COLL_CHECK_PRINT",
+     Kind::Integer, Truth::NotAFlag, "400",
+     "how many [coll-check] difference lines are printed"},
     {Var::CollTrace, "OPENRAC_COLL_TRACE",
      Kind::Flag, Truth::Set, "off",
      "collision queries and hits by kind, totals on stderr every 2000 queries"},
