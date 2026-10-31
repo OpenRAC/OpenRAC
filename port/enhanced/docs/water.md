@@ -198,8 +198,8 @@ physics and decorative water time. Reset works while paused. Restore defaults re
 history. Lit, height, velocity, banks and flow-detail views expose the GPU state.
 
 Default interaction strength is 1.4, friction is 0.12/s and fine-ripple strength is 1. Ratchet wetness
-controls default to diffuse scale 0.34, specular strength 1.07, dry/wet roughness 0.51/0.35 and
-reflectivity 0.0633. Its diagnostic shows wet samples in blue and dry samples in grey. These
+controls default to diffuse scale 0.28, specular strength 1.00, dry/wet roughness 0.50/0.34 and
+reflectivity 0.0632. Its diagnostic shows wet samples in blue and dry samples in grey. These
 controls do not alter contact or drying. `OPENRAC_WATER_OFF=1` selects original water for comparison.
 
 ## Modules and verification

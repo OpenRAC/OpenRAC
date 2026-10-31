@@ -283,9 +283,9 @@ int main() {
         return test::kSkip;
     }
     const auto defaults = enhanced::wetness_material_settings();
-    CHECK(defaults.diffuse_scale == .34f && defaults.specular_strength == 1.07f);
-    CHECK(defaults.dry_roughness == .51f && defaults.wet_roughness == .35f);
-    CHECK(defaults.reflectivity == .0633f);
+    CHECK(defaults.diffuse_scale == .28f && defaults.specular_strength == 1);
+    CHECK(defaults.dry_roughness == .50f && defaults.wet_roughness == .34f);
+    CHECK(defaults.reflectivity == .0632f);
     auto invalid = enhanced::WetnessMaterialSettings{};
     invalid.diffuse_scale = -1;
     invalid.specular_strength = 100;
@@ -296,7 +296,7 @@ int main() {
     auto bounded = enhanced::wetness_material_settings();
     CHECK(bounded.diffuse_scale == 0 && bounded.specular_strength == 4);
     CHECK(bounded.dry_roughness == .08f && bounded.wet_roughness == 1);
-    CHECK(bounded.reflectivity == .0633f);
+    CHECK(bounded.reflectivity == .0632f);
     enhanced::set_wetness_material_settings({});
     ggx_coat_reference();
     // Actual runtime controller and production compute shader, with synthetic assets only.

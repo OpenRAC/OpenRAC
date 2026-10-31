@@ -11,11 +11,11 @@
 namespace openrac::enhanced {
 // Session-only material tuning, shared safely between the UI and render worker.
 struct WetnessMaterialSettings {
-    float diffuse_scale = .34f;
-    float specular_strength = 1.07f;
-    float dry_roughness = .51f;
-    float wet_roughness = .35f;
-    float reflectivity = .0633f;
+    float diffuse_scale = .28f;
+    float specular_strength = 1;
+    float dry_roughness = .50f;
+    float wet_roughness = .34f;
+    float reflectivity = .0632f;
 };
 
 WetnessMaterialSettings wetness_material_settings();
