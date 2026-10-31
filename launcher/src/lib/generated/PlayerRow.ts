@@ -5,7 +5,8 @@
  */
 export type PlayerRow = { key: string, 
 /**
- * The names: "keyboard", "auto", controller ids.
+ * The names: "auto", controller ids, "keyboard" (always), "keyboard-fallback" (while the
+ * player has no controller).
  */
 wants: Array<string>, 
 /**
