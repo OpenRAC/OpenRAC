@@ -210,7 +210,7 @@ and the list of disc sectors it replaces:
 
 ```
 assets/packed/rac1/pal/
-  level_NN/gameplay_<version>.wad   one per level whose mobys were edited, the size of its place on the disc
+  level_NN/gameplay_<version>.wad   one per level whose gameplay data changed; padded to its disc slot or virtual range
   level_NN/placements.json    one per level whose ties or shrubs were edited, for the native port
   level_NN/core_<version>.bin  one per level whose collision (the level's or a moby class's) was edited: the level data's sectors of its core data
   level_NN/index_<version>.bin with it, when the core data grew (a collision moved to its end): the core index's sector
@@ -653,10 +653,22 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
 - The block goes back into the level's core data, in its own place when it
   fits; a larger one moves to the end of the core data (the core index says
   where), and the level's memory after the core moves up by the block's size.
-  **That has not been tried in the running game yet**: keep growth small, and
-  tell us how it goes.
-- The core data is compressed again (about ten seconds a level) into the room
-  it has on the disc, and its sectors go in the packed folder.
+- If the recompressed core still fits its original slot, the packer writes the
+  changed sectors there. If it outgrows that slot, the packer appends the core
+  stream to an expanded level-data container and redirects the level header
+  through `virtual.tsv`; the original disc image is not changed. The expanded
+  gameplay and level-data loading paths have run in the real game on PAL and
+  NTSC-U. A 9,500-moby gameplay stream and an oversized core container each
+  loaded for 1,200 frames on both versions. The oversized-container test grew
+  the decoded core with an unreferenced tail, so a collision edit that itself
+  makes the compressed core exceed the original slot still needs a real-game
+  check.
+- The expanded stream path uses a bounded 128 MiB guest RAM arena. RAC1 still
+  has format and game-owned limits: collision is queryable only inside the
+  0-1024-unit world, each collision cell has bounded vertex/face storage, and
+  gameplay objects still depend on their per-level tables and heap. Expanded
+  streams remove the original disc-slot ceiling; they do not make those game
+  structures unlimited.
 
 What the decoded collision misses: the cells' quads are split into triangles
 here, and a face shared by cells appears once, so the tiles show the level's
