@@ -681,8 +681,13 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   table to 32,768 mobys. RAC1's killed-state bitsets hold 2,048 spawn IDs;
   additions use unused IDs in that range, then become non-persistent (spawn ID
   `-1`, spawn flags `0`) with a note in `changes.txt`. Expanded streams remove
-  the original disc-slot ceiling; they do not make those game structures
-  unlimited.
+  the original disc-slot ceiling. With the expanded 128 MiB arena, the larger
+  pool can use the remaining 15-bit moby indices for spawned objects; the
+  vanilla 32 MiB pool size and its three crowded levels are unchanged. RAC1's
+  target pointer table still holds 511 mobys. When more active mobys request
+  targeting, the rest continue updating but are left out of lock-on and other
+  target scans for that tick. These are game-structure limits, not disc-slot
+  limits.
 
 What the decoded collision misses: the cells' quads are split into triangles
 here, and a face shared by cells appears once, so the tiles show the level's

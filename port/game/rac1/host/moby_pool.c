@@ -20,23 +20,19 @@
  * a console into low memory, in the port a crash (docs/port/KNOWN_ISSUES.md; scene_actors.c guards
  * the one call site seen).
  *
- * Here the loader sees at least SPARE spare slots where the level heap has room for them. Each
- * spare slot takes 0x180 bytes (the moby and its pvars), so 768 take 192 KiB more than 256. The
- * heap runs from the level's data up to 0x1FF8000 (the console's malloc arena and stack sit above,
- * set up by crt0); nothing checks it, and in the port memory ends at 0x2000000. Replaying the
- * loader's allocations on both discs (every placed moby kept, the largest ship and text) leaves
- * Kalebo III 829 KiB, Kerwan 287 KiB, Gemlik 278 KiB and every other level more, but Rilgar (5),
- * Blarg Station (6) and Quartu (15) end within 0 to 65 KiB of the top: those three keep the disc's
- * count. Every other level has room for 768 with at least 64 KiB to spare.
+ * In vanilla mode the loader sees 768 spare slots where the 32 MiB level heap has room: Rilgar,
+ * Blarg Station and Quartu keep the disc's count. With an expanded-level mount the heap extends
+ * into the 128 MiB arena, so those levels can use the larger pool too. Each spare slot takes
+ * 0x180 bytes (the moby and its pvars); the expanded pool uses the remaining 15-bit moby indices,
+ * capped so placed plus spare mobys never exceed 32768.
  *
  * The loader decompresses the gameplay file's
  * header itself (WadDecompress, func_0020C468, into the load state's header pointer, D_L00_00173F00
  * + 4) and reads it at once, so the count is raised as that decompression ends (hand.c calls
  * rac1_wad_decompressed), while a run of the loader is under way and the destination is the header
- * it named at its start. The array, the pvars, the pool's end and what follows all follow; indices
- * stay far below the 15 bits a moby's index has. The limits on the way (the level heap's headroom
- * on the levels with the most placed mobys, the moby grid's blocks, the renderer) are in
- * docs/port/KNOWN_ISSUES.md.
+ * it named at its start. The array, the pvars, the pool's end and what follows all follow; expanded
+ * mode caps the complete array to the 15-bit index range. The moby grid's blocks and renderer have
+ * their own limits (docs/port/KNOWN_ISSUES.md).
  *
  * LoadLevelGameplay is a hook point for mods too (rac1.level.load_gameplay; the difficulty mod
  * takes it): the hook sits under this, as func_L00_002422D8__hooked (hostgen's hooks.c: the mod's
@@ -54,12 +50,12 @@ enum {
     LOAD_HEADER = 0x4,
     HEADER_MOBYS = 0x44, /* the moby section's offset in the header */
     MOBYS_SPARE = 0x4,   /* in the section: the placed count, then the spare count n2 */
-    SPARE = 768          /* spare slots a level with room gets at least (767 usable) */
+    VANILLA_SPARE = 768  /* spare slots in the original 32 MiB arena (767 usable) */
 };
 
 #define CURRENT_LEVEL RAC1_ADDR(0x0015EE84u)
 
-/* The levels whose heap has no room for more: Rilgar, Blarg Station, Quartu. */
+/* The vanilla heap has no room for more on Rilgar, Blarg Station and Quartu. */
 static int heap_full(int level) {
     return level == 5 || level == 6 || level == 15;
 }
@@ -103,7 +99,7 @@ static int bigger_pool(void) {
 }
 
 /* The gameplay header decompressed to `to`, while a loader that named it runs: its spare count raised
- * to SPARE (once a run; a level that ships more keeps its own, and so does one without room). */
+ * to the selected arena's spare capacity (once a run; a level that ships more keeps its own). */
 void rac1_wad_decompressed(gaddr to) {
     /* Only the header the running loader named: every other WAD decompresses as it is. */
     if (g_header == 0 || to != g_header) {
@@ -115,14 +111,19 @@ void rac1_wad_decompressed(gaddr to) {
     if (!bigger_pool()) {
         return;
     }
-    /* Rilgar, Blarg Station and Quartu: 192 KiB more would run past the heap's top. */
-    if (heap_full(GREF(int, OPENRAC_DATA(CURRENT_LEVEL)))) {
+    const gaddr spare = to + (gaddr)GREF(int, to + HEADER_MOBYS) + MOBYS_SPARE;
+    /* Vanilla keeps its measured heap-safe pool. The expanded arena has room to use every spare
+     * index that fits the game's signed-short moby index representation. */
+    const int level = GREF(int, OPENRAC_DATA(CURRENT_LEVEL));
+    const int placed = GREF(int, to + GREF(int, to + HEADER_MOBYS));
+    const int expanded = openrac_guest_ram_size > GUEST_RAM_SIZE;
+    if (!expanded && heap_full(level)) {
         return;
     }
-    const gaddr spare = to + (gaddr)GREF(int, to + HEADER_MOBYS) + MOBYS_SPARE;
-    /* A level that ships more (none does yet) keeps its own. */
-    if (GREF(int, spare) < SPARE) {
-        GREF(int, spare) = SPARE;
+    const int wanted = expanded ? (placed < 0x8000 ? 0x8000 - placed : 0) : VANILLA_SPARE;
+    /* A level that ships more spare slots keeps its own. */
+    if (GREF(int, spare) < wanted) {
+        GREF(int, spare) = wanted;
     }
 }
 
