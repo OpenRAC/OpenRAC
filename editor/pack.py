@@ -427,7 +427,7 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
     core_stream = compress(core, data[struct.unpack_from("<i", data, 10 * 8)[0]:][:16])
     changes.append(
         f"level core size: {len(core)} bytes decoded; {len(core_stream)} compressed; "
-        f"disc slot {struct.unpack_from('<i', data, 10 * 8 + 4)[0]} bytes"
+        f"original core stream slot {struct.unpack_from('<i', data, 10 * 8 + 4)[0]} bytes"
     )
     name = f"level_{info['id']:02}"
     if expanded is not None:

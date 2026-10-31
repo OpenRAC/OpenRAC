@@ -41,21 +41,25 @@ accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 The game uses Z up. Surface type **31 / 0x1f** is ordinary ground; type **0** is
 water. The editor's surface selector documents these meanings.
 
-### Import static scenery from another level
+### Import static scenery from another level or your own model
 
-Start with **ties and shrubs** from an extracted donor level's Godot project.
-These are static models, not moby classes or enemy behaviors. Choose the native
-Z-up `.glb` under the donor's `ties/` or `shrubs/` folder, then import it into
-your own project:
+Use a static `.glb` from an extracted donor level or make your own in Blender or
+another modeling tool and import it into the Godot project. Static imports add
+geometry to the map; they do not add a moby class or enemy behavior. The model
+must use triangle meshes, PNG textures, and supported glTF materials. Texture
+files must be inside the donor level or creator project; unsupported animation,
+skinning and behavior are refused.
 
 ```sh
 python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project YOUR_PROJECT --level 2 --name MyDecor --at X Y Z --collision mesh
+python editor/static_assets.py --source YOUR_PROJECT/models/my-building.glb --project YOUR_PROJECT --level 2 --name MyBuilding --at X Y Z --collision mesh
 ```
 
 The tool copies the mesh and its referenced PNG textures, adds an instance under
 **Game/StaticAssets**, and backs up the level scene in `.openrac-backups/`.
 Texture names are based on content, so two levels' `tie_0001.png` files cannot
-silently overwrite each other. The donor level is never changed.
+silently overwrite each other. Source files are copied into the project; the
+donor and original model files are never changed.
 
 Reopen the scene in Godot. Move, rotate, scale or duplicate the imported instance;
 groups beneath Game/StaticAssets can be transformed too. Keep the instances under
@@ -72,8 +76,8 @@ transparent foliage and detailed models may need simpler authored collision.
 Packing combines the static instances into the map's terrain and copies their
 texture dependencies. No new runtime object class or donor-level code is required.
 Vertex colours are preserved; models without them get neutral vertex colours,
-so the donor's per-instance lighting is not transplanted. Skeletons, animations
-and behaviors are deliberately refused in this first importer. Generated meshes,
+so donor per-instance lighting is not transplanted. The imported result is
+static: skeletons, animations and behaviors are refused. Generated meshes,
 textures and packed collision remain private like the rest of the map.
 
 ## 3. Pack and export an added destination

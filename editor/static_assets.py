@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 the OpenRAC contributors
-"""Import static ties/shrubs from another extracted level, then bake placed copies at Pack.
+"""Import a static GLB, then bake placed copies into a map's terrain at Pack.
 
 python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project PROJECT \
     --level 2 --name MyDecor --at X Y Z [--collision mesh]
@@ -113,8 +113,8 @@ def placements(project: Path, text: str):
 def import_asset(source: Path, project: Path, level: int, name: str, at, collision=False):
     """Copy a static model and dependencies, then add one editable scene instance with a backup."""
     source, project = Path(source).resolve(), Path(project).resolve()
-    if source.parent.name not in ('ties', 'shrubs') or source.suffix.lower() != '.glb':
-        raise ValueError('Choose an extracted ties/*.glb or shrubs/*.glb; behavior imports come later')
+    if not source.is_file() or source.suffix.lower() != '.glb':
+        raise ValueError('Choose an existing .glb file; behavior imports come later')
     if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name):
         raise ValueError('Use a node name containing letters, digits and underscores')
     if len(at) != 3 or not all(math.isfinite(v) for v in at):
@@ -130,7 +130,13 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
         raise ValueError('The project must contain Game and the new node name must be unused')
     if collision and ('Game/Collision' not in nodes or not (directory / 'collision/collision.json').is_file()):
         raise ValueError('Re-extract this project with collision metadata before importing solid geometry')
-    document = read_model(source, source.parent.parent)
+    # Extracted level assets share textures at the level root. Creator GLBs may keep
+    # dependencies in their own folder or anywhere inside their Godot project.
+    source_root = next((p for p in (source.parent, *source.parents)
+                        if (p / 'project.godot').is_file()), None)
+    if source_root is None:
+        source_root = source.parent.parent if source.parent.name in ('ties', 'shrubs', 'mobys') else source.parent
+    document = read_model(source, source_root)
     validate(document)
     if not any(order for _, order, _ in triangles(document, gltf_read.trs())):
         raise ValueError('The selected static model contains no triangles')
@@ -153,8 +159,9 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
         (bundle / 'textures').mkdir()
         for filename, image in textures.items():
             (bundle / 'textures' / filename).write_bytes(image)
-        provenance = {'format': 1, 'source_level': source.parent.parent.name,
-                      'kind': source.parent.name, 'source_model': source.name,
+        extracted = source.parent.name in ('ties', 'shrubs', 'mobys')
+        provenance = {'format': 1, 'source_level': source.parent.parent.name if extracted else None,
+                      'kind': source.parent.name if extracted else 'creator-glb', 'source_model': source.name,
                       'source_sha256': digest(source.read_bytes()), 'textures': sorted(textures)}
         (bundle / 'source.json').write_text(json.dumps(provenance, indent=2) + '\n')
     resource = 'static_' + uuid.uuid4().hex[:12]
@@ -312,7 +319,7 @@ def write_packed(project: Path, level_dir: Path, text: str, out: Path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--source', type=Path, required=True, help='static GLB from a donor level or your own project')
     parser.add_argument('--project', type=Path, required=True)
     parser.add_argument('--level', type=int, required=True)
     parser.add_argument('--name', required=True)
@@ -323,7 +330,8 @@ def main():
         result = import_asset(args.source, args.project, args.level, args.name, args.at, args.collision == 'mesh')
     except (OSError, ValueError, KeyError) as error:
         parser.exit(1, f'static import: {error}\n')
-    print(f"Imported {result['node']} with {result['textures']} texture(s). Reopen the scene, place it and Pack again.")
+    print(f"Imported {result['node']} with {result['textures']} texture(s). It is static scenery, not game behavior.")
+    print("Reopen the scene, place it and Pack again.")
     print(f"Scene backup: {result['backup']}")
 
 
