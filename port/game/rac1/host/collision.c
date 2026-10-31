@@ -469,6 +469,12 @@ static inline gaddr moby_at(const Ctx* x, unsigned idx) {
 
 /* Cell (gx, gy) of the moby grid: its moby indices and how many. */
 static gaddr grid_cell(const Ctx* x, unsigned gx, unsigned gy, int* count) {
+    if (openrac_guest_ram_size > GUEST_RAM_SIZE) {
+        const gaddr base = rac1_expanded_grid_base();
+        const gaddr cell = base + 0x10u + (gx + gy * 64u) * 12u;
+        *count = (int)U32(cell + 4u);
+        return base + 0xC010u + U32(cell) * 32u;
+    }
     const gaddr cell = x->grid + gx * 4 + gy * 0x100;
     *count = S8(cell + 2);
     return x->grid + 0x4000 + (gaddr)U16(cell) * 32;

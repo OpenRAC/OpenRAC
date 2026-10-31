@@ -108,7 +108,7 @@ void game_rac1_warn_moby_grid_full(void) {
     static int warned;
     if (!warned) {
         warned = 1;
-        openrac_game_warn("moby collision grid cell full: a moby was left out of collision");
+        openrac_game_warn("expanded moby collision grid full: a moby was left out of collision");
     }
 }
 

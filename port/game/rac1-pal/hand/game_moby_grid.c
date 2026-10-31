@@ -8,7 +8,7 @@ extern unsigned char exe_grid[] __asm__("D_001B7A60");
 extern unsigned int exe_grid_used[] __asm__("D_001C7A60");
 extern void exe_grid_trap(void) __asm__("func_001F9978");
 extern int rac1_expanded_ram(void);
-extern void rac1_warn_moby_grid_full(void);
+extern void rac1_update_expanded_moby_grid(unsigned int moby, unsigned int next);
 
 void func_0020E990(int first, int blocks) {
     int i;
@@ -82,21 +82,6 @@ static int exe_grid_valid(unsigned int rect) {
         && ((rect >> 16) & 255) <= 64 && (rect >> 24) * 64 + ((rect >> 16) & 255) < 4096);
 }
 
-static int exe_grid_would_overflow_cell(unsigned int old, unsigned int next) {
-    int x, y;
-    if (!rac1_expanded_ram() || (next & 0x80000000u)) return 0;
-    for (y = (next >> 8) & 255; y <= (int)(next >> 24); ++y) {
-        for (x = next & 255; x <= (int)((next >> 16) & 255); ++x) {
-            unsigned char* cell;
-            if (exe_grid_contains(old, x, y)) continue;
-            cell = exe_grid + (y * 64 + x) * 4;
-            /* Collision queries load this population as a signed byte. */
-            if (cell[2] >= 127) return 1;
-        }
-    }
-    return 0;
-}
-
 void func_0020EA70(unsigned char* moby, unsigned int next) {
     unsigned int old = *(unsigned int*)(moby + 0xA0);
     unsigned int id = *(unsigned int*)(moby + 0xAC);
@@ -106,11 +91,9 @@ void func_0020EA70(unsigned char* moby, unsigned int next) {
         exe_grid_trap();
         return;
     }
-    /* Keep the expanded path's signed-byte collision population representable. If any new cell
-     * is full, this moby leaves the grid as a whole and will retry on its next update. */
-    if (exe_grid_would_overflow_cell(old, next)) {
-        next = 0x80807F7Fu;
-        rac1_warn_moby_grid_full();
+    if (rac1_expanded_ram()) {
+        rac1_update_expanded_moby_grid((unsigned int)moby, next);
+        return;
     }
     if (!(old & 0x80000000u)) {
         for (y = (old >> 8) & 255; y <= (int)(old >> 24); ++y) {
