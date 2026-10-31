@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <numbers>
 
@@ -190,7 +191,25 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
             const auto full = frame.read_rgba();
             renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
             renderer.render(input, {frame.id(), width, height});
-            CHECK(frame.read_rgba() == full);
+            const auto unspecialized = frame.read_rgba();
+            if (unspecialized != full) {
+                std::size_t different = 0;
+                int maximum = 0;
+                for (std::size_t at = 0; at < full.size(); ++at) {
+                    const int delta = std::abs(int(unspecialized[at]) - int(full[at]));
+                    different += delta != 0;
+                    maximum = std::max(maximum, delta);
+                }
+                std::printf(
+                    "GTAO variant %dx%d quality=%d: %zu differing channels, max %d\n",
+                    width,
+                    height,
+                    int(quality),
+                    different,
+                    maximum
+                );
+            }
+            CHECK(unspecialized == full);
             renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
             CHECK(full.size() == plain.size());
             CHECK(full != plain);
