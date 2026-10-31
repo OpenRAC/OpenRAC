@@ -139,6 +139,10 @@ void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
 // How many mods are loaded.
 int loaded_count();
 
+// The loaded mods' assets folders (MODS.md, section 3), the last loaded first: a file in one takes
+// the place of the same path in those after it and in the extracted levels.
+const std::vector<std::filesystem::path>& asset_roots();
+
 // A loaded mod's id ("multiplayer"), for the log; "a mod" for none.
 const char* mod_id(const openrac_mod* mod);
 

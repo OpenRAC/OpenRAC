@@ -2189,6 +2189,9 @@ class Unit:
             else:
                 fp = self.function_value(target)
         else:
+            direct = self._cast_exe_call(c, wide_ret)
+            if direct is not None:
+                return self.direct_call(direct, args, result_t)
             fp = self.rv(callee)
         # A call through a code address: the call site's own type.
         pt = self.resolve(self.ty(callee))
@@ -2208,6 +2211,34 @@ class Unit:
                 return defined
         values = [self.rv(a) for a in args]
         return f"GFN({ctype.fn_pointer(hostft)}, {fp})({', '.join(values)})"
+
+    def _cast_exe_call(self, callee: dict, wide_ret) -> str | None:
+        """The function a call through a cast of a plain executable function names (PAL's
+        `((s32 (*)(s32))func_001F98C0)(12)`), called directly as a call by name is; else None.
+        Through OPENRAC_CODE such a call found no level copy for an executable function the
+        catalogue places nowhere else, kept the executable's address, and ran the level's own
+        function there: the PAL flight to Quartu faded to black for 1.4M frames."""
+        if callee.get("kind") != "CStyleCastExpr" or wide_ret is not None or self.fn is None:
+            return None
+        inner = _strip_parens(_inner(callee)[0])
+        if inner.get("kind") == "ImplicitCastExpr" and inner.get("castKind") == "FunctionToPointerDecay":
+            inner = _strip_parens(_inner(inner)[0])
+        if inner.get("kind") != "DeclRefExpr" or inner["referencedDecl"].get("kind") != "FunctionDecl":
+            return None
+        sym = self._callee_symbol(inner)
+        if "__" in sym or sym in getattr(self.program, "splits", {}) or self._folded_places(sym):
+            return None
+        places = self.program.code_places(sym)
+        if not places or any(o >= 0 for o, _ in places):
+            return None
+        if not getattr(self.program, "relocate", None) or LEVEL_NAME.match(self.fn.code):
+            return None  # code_address forms no OPENRAC_CODE here
+        if self._level_hook(sym) is not None:
+            return None
+        f = self.program.lookup(self.unit, sym)
+        if f is None or not f.sig.prototyped or f.sig.variadic:
+            return None
+        return sym
 
     def _function_at(self, overlay: int, address: int) -> str | None:
         """The function a call through that place finds (Program.function_at), or None."""

@@ -145,6 +145,7 @@ const char* hook_id(const Host& host, const char* name) {
 }
 openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks are taken then only
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
+std::vector<fs::path> g_asset_roots;  // the loaded mods' assets folders, the last loaded first
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
 std::vector<MenuCallback> g_menus;
@@ -1234,6 +1235,10 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
 
 }  // namespace
 
+const std::vector<fs::path>& asset_roots() {
+    return g_asset_roots;
+}
+
 std::string load(const Host& host) {
     if (host.purist) {
         log::info("mods: purist mode (--no-mods), none loaded");
@@ -1315,6 +1320,17 @@ std::string load(const Host& host) {
                                   return s;
                               }());
                     g_loaded.push_back(std::move(mod));
+                    // Its assets (MODS.md, section 3): searched before the levels' own files.
+                    if (!c.manifest.assets.empty()) {
+                        std::error_code e;
+                        const fs::path assets = folder / c.manifest.id / fs::path(c.manifest.assets);
+                        if (fs::is_directory(assets, e)) {
+                            g_asset_roots.insert(g_asset_roots.begin(), assets);
+                        } else {
+                            log::warn("mod {}: its assets folder {} is missing", c.manifest.id,
+                                      c.manifest.assets);
+                        }
+                    }
                 }
             }
         }
@@ -1561,6 +1577,7 @@ void reset() {
     scripts::reset();
     g_outcomes.clear();
     g_loaded.clear();
+    g_asset_roots.clear();
     g_frames.clear();
     g_pads.clear();
     g_menus.clear();

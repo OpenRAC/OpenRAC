@@ -51,9 +51,11 @@ add_library(openrac_platform STATIC
   platform/audio.cpp
   platform/bindings.cpp
   platform/clock.cpp
+  platform/controls_file.cpp
   platform/gpu_driver.cpp
   platform/input.cpp
   platform/pad.cpp
+  platform/players.cpp
   platform/performance_hint.cpp
   platform/pump.cpp
   platform/touch_pad.cpp
@@ -66,6 +68,12 @@ target_include_directories(openrac_platform PRIVATE "${PROJECT_SOURCE_DIR}/../sd
 openrac_warnings(openrac_platform)
 # What the player bound each pad button to (platform/bindings.h).
 openrac_add_test(bindings SOURCES tests/bindings_test.cpp INCLUDES . LIBS openrac_platform)
+# The controls files and the store that layers them (platform/controls_file.h,
+# game/common/controls_store.h).
+openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_store.cpp
+                          INCLUDES . game/common LIBS openrac_platform)
+# Which gamepad plays on which port (platform/input.h).
+openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp)
@@ -183,6 +191,7 @@ add_library(openrac_renderer STATIC
   renderer/shader.cpp
   renderer/subsystems.cpp
   renderer/texture.cpp
+  renderer/texture_pack.cpp
   renderer/texture_pool.cpp
 )
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer

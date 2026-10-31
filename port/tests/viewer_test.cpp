@@ -1028,6 +1028,52 @@ void write_grid(
     write_text(path, gltf);
 }
 
+// Native mods' assets (MODS.md, section 3): each mod's level_03 is searched before the data pack's
+// and the level's own, the first mod first; a mod's classes.json adds a moby class with its own mesh.
+void mod_assets(const fs::path& dir) {
+    const fs::path base = dir.parent_path() / (dir.filename().string() + "_assets");
+    const fs::path first = base / "first" / "level_03";
+    const fs::path second = base / "second" / "level_03";
+    const fs::path pack = base / "pack" / "level_03";
+    fs::remove_all(base);
+    fs::create_directories(first / "textures");
+    fs::create_directories(second / "textures");
+    fs::create_directories(pack / "textures");
+    const auto solid = [](const fs::path& path, int size, std::uint8_t red) {
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(size * size * 4), 255);
+        for (std::size_t i = 0; i < pixels.size(); i += 4) {
+            pixels[i] = red;
+        }
+        stbi_write_png(path.string().c_str(), size, size, 4, pixels.data(), size * 4);
+    };
+    solid(first / "textures" / "terrain_0000.png", 4, 11);
+    solid(second / "textures" / "terrain_0000.png", 8, 22);
+    solid(pack / "textures" / "terrain_0000.png", 16, 33);
+    write_square(second / "mobys" / "added.gltf", 4.0f, 0.0f, "../textures/tie_0001.png");
+    write_text(second / "classes.json", R"({"moby": {"1234": {"mesh": "mobys/added.gltf"}}})");
+
+    scene::LevelData level;
+    std::string error;
+    CHECK(scene::load_level(dir, level, error, pack / "placements.json", {first, second}));
+    // The first mod's terrain texture wins over the second's and the data pack's.
+    CHECK(level.images[0].width == 4 && (level.images[0].texel(0, 0) & 0xFF) == 11);
+    // The second mod's class is there, its mesh 4 units across; the level's own class 7 too.
+    CHECK(level.moby_classes.contains(1234) && level.moby_classes.contains(7));
+    if (level.moby_classes.contains(1234)) {
+        const auto& added = level.models[level.moby_classes.at(1234).first];
+        CHECK(std::fabs(added.max[0] - 2.0f) < 1e-6f);
+    }
+    // Without the first mod, the second's texture.
+    scene::LevelData one;
+    CHECK(scene::load_level(dir, one, error, {}, {second}));
+    CHECK(one.images[0].width == 8 && (one.images[0].texel(0, 0) & 0xFF) == 22);
+    // A broken classes.json is an error, not a silent skip.
+    write_text(second / "classes.json", R"({"moby": {"5": {"scale": 2}}})");
+    scene::LevelData broken;
+    CHECK(!scene::load_level(dir, broken, error, {}, {second}) && error.find("no mesh") != std::string::npos);
+    fs::remove_all(base);
+}
+
 // A mod's terrain (editor/overrides.py: level_NN/terrain.glb, as the manifest names it), denser than
 // the level's: drawn in its place whatever its vertex count, lit by its vertex colours, naming the
 // level's terrain texture it does not carry.
@@ -1192,6 +1238,7 @@ int main(int argc, char** argv) {
     scene::LevelData level;
     loader(dir, level);
     overrides(dir);
+    mod_assets(dir);
     denser_terrain(dir);
     translucent_texels(dir);
     pvs_loader(dir);

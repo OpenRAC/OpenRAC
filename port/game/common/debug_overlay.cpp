@@ -499,7 +499,7 @@ void toggle_drawer() {
 }
 
 bool visible() {
-    return s.visible || s.enhanced_settings;
+    return s.visible || s.enhanced_settings || s.controls_window;
 }
 
 bool event(const SDL_Event& e) {
@@ -537,6 +537,10 @@ bool event(const SDL_Event& e) {
             case SDLK_F12:
                 s.shot_path = shot_name(s.tick);
                 return true;
+            // The controls window (debug/controls_window.cpp); the menus press it too.
+            case SDLK_F13:
+                s.controls_window = !s.controls_window;
+                return true;
             default:
                 break;
         }
@@ -555,7 +559,8 @@ bool event(const SDL_Event& e) {
             settings::save();
         }
     }
-    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || s.drawer_open)
+    if (!(s.visible || s.enhanced_settings || s.controls_window || picker_enabled()
+          || menu_bar_shown() || s.drawer_open)
         || !s.initialised) {
         return false;
     }
@@ -676,8 +681,8 @@ void draw(const Shown& shown) {
                        || capture_busy() || !mods::play_notice().empty();
     const bool drawer_out =
         s.drawer_open || s.drawer_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(s.visible || s.enhanced_settings || picker_enabled() || menu_bar_shown() || badge
-          || drawer_out || !s.shot_path.empty())
+    if (!(s.visible || s.enhanced_settings || s.controls_window || picker_enabled()
+          || menu_bar_shown() || badge || drawer_out || !s.shot_path.empty())
         || shown.window == nullptr || !initialise(shown.window)) {
         return;
     }
@@ -709,6 +714,7 @@ void draw(const Shown& shown) {
         menu_bar();
     }
     enhanced_settings_window();
+    controls_window();
     if (s.visible) {
         panel(shown);
         inspector_window();

@@ -500,7 +500,7 @@ Ordered by value per unit of work, for *this* game.
 | 1 | **Honest analog pressure** — thread `platform::Pad::pressure` through `openrac_game_pad` into `scePad2Read`, instead of re-deriving 0/0xFF from the button bits | **Small** | The port already measures the triggers' real values (`input.cpp:245-254`) and throws them away. With this, a DualSense's L2/R2 report their true travel to the game. It also stops the game believing every held button is pressed at maximum |
 | 2 | **Report the pad's type** — expose the DualSense's identity so the port can say what it is | **Small** | `SDL_GetGamepadType()`, `SDL_GetGamepadVendor()`/`Product()`. The port currently maps by position and never asks what the pad is |
 | 3 | **The light bar** — `SDL_SetGamepadLED()` | **Small** | Nothing in the game drives it, so this is a **port-level** nicety: a player indicator, or a colour that reflects the game state. It needs a player-index mapping first (the port assigns ports by connection order) |
-| 4 | **The touchpad click and the Edge paddles as extra buttons** | **Small** | Two spare inputs the DS2 never had. The paddles are a genuine speedrun aid: weapon and quick-select switching without leaving the thumbstick. They need the port's rebinding work (`SETTINGS.md:305-306`) to be useful |
+| 4 | **The touchpad click and the Edge paddles as extra buttons** | **Small** | Two spare inputs the DS2 never had. The paddles are a genuine speedrun aid: weapon and quick-select switching without leaving the thumbstick. They can be bound now ([CONTROLS.md](CONTROLS.md): `PadLeftPaddle1`, `PadTouchpad`) |
 | 5 | **The gyroscope** — `SDL_SetGamepadSensorEnabled()` / `SDL_GetGamepadSensorData()` | **Medium** | The `keyboard-mouse` mod already turns the mouse into the camera; a gyro could be an alternative for players who prefer it. The game has no use for it, so this is a port-level extra |
 | 6 | **Adaptive triggers** — `SDL_SendGamepadEffect()` with a filled trigger array | **Medium** | **No fidelity payoff**: nothing in R&C1 reads a trigger's travel. It could be a *mod* — a resistance cue on the Swingshot, the Bomb Glove, the Suck Cannon — which is the honest way to offer it, since it changes how the game plays |
 | 7 | **HD haptics** | **Large** | A separate USB audio path SDL cannot do. Only worth it if the port grows a rumble feature the game does not have |
@@ -517,11 +517,11 @@ adaptive triggers.
 
 | | |
 |---|---|
-| **The stick dead zone is the game's own** | The game applies its own: `d >= 0x30` with a `/0x4C` scale (`games/rac1/src/game/pad.c:346-362`). SDL3 applies **no** software dead zone to a DualSense, so the game's own is what you get. A `render_scale`/`msaa` tweak will not change it; a **rebinding and sensitivity page** would |
-| **Rebinding** | `SETTINGS.md:305-306` lists it as *later*: the port's table is hard-coded in `input.cpp:20-62`. The `keyboard-mouse` mod is the workaround today, and it is the comfortable option on a PC |
+| **The stick dead zone is the game's own** | The game applies its own: `d >= 0x30` with a `/0x4C` scale (`games/rac1/src/game/pad.c:346-362`). SDL3 applies **no** software dead zone to a DualSense, so the game's own is what you get. A `render_scale`/`msaa` tweak will not change it; the port's own dead zone, outer edge and sensitivity per stick can ([CONTROLS.md](CONTROLS.md), section 4) |
+| **Rebinding** | The controller's buttons and sticks, chords too, every game's and each game's own ([CONTROLS.md](CONTROLS.md)); the keyboard's buttons by `bind_*` keys. The `keyboard-mouse` mod is still the way to play with the mouse |
 | **Sticks are read as 8-bit** | `stick_byte()` converts SDL's ±32767 to the console's byte (`port/platform/pad.cpp:75-79`), so the resolution the game sees is the console's, not the pad's |
 | **The touchpad and the Edge paddles are free buttons** | Two inputs the DS2 did not have. Mapped to weapon switching, they would remove a thumbstick movement from a run |
-| **Extra buttons the game has no use for** | The DS5's mic button (`SDL_GAMEPAD_BUTTON_MISC1`) and the touchpad are both spare. The port's rebinding work is what makes them usable |
+| **Extra buttons the game has no use for** | The DS5's mic button (`SDL_GAMEPAD_BUTTON_MISC1`) and the touchpad are both spare. They can be bound now (`PadMisc1`, `PadTouchpad`; [CONTROLS.md](CONTROLS.md)) |
 | **Input latency** | The port polls SDL once per tick (`input.cpp:195`), and the tick is on the wall clock (`main.cpp:781-800`). The pad's own latency is the USB or Bluetooth report interval — 250 Hz or 1000 Hz per SDL's driver |
 | **The mouse is not a game control** | The game does not use it; only mods do (`docs/port/DEBUGGING.md:52`). The `keyboard-mouse` mod is how a runner uses it |
 

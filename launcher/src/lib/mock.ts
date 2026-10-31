@@ -10,10 +10,20 @@ import summaryFile from "../../../progress/summary.json";
 import packageFile from "../../package.json";
 import { onAndroid } from "./api";
 import { mockEnhanced } from "./mockEnhanced";
+import {
+  mockControlsCopy,
+  mockControlsReset,
+  mockControlsResetPlayer,
+  mockControlsResetPlayers,
+  mockControlsSet,
+  mockControlsView,
+} from "./mockControls";
 import type { ActionView } from "./generated/ActionView";
 import type { BuildInfo } from "./generated/BuildInfo";
 import type { Check } from "./generated/Check";
 import type { Config } from "./generated/Config";
+import type { ControlsScope } from "./generated/ControlsScope";
+import type { ControlsView } from "./generated/ControlsView";
 import type { Detected } from "./generated/Detected";
 import type { DifferenceView } from "./generated/DifferenceView";
 import type { Differences } from "./generated/Differences";
@@ -2561,6 +2571,35 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       fixValues.set(key, values);
       return delay<Differences>(mockDifferences(now.game, now.version));
     }
+    case "controls_view":
+      return delay<ControlsView>(
+        mockControlsView(
+          typeof args.game === "string" ? args.game : null,
+          typeof args.player === "number" ? args.player : null,
+        ),
+      );
+    case "controls_reset_player":
+      return delay<ControlsView>(mockControlsResetPlayer(args.scope as ControlsScope, Number(args.player)));
+    case "controls_set":
+      return delay<ControlsView>(
+        mockControlsSet(
+          args.scope as ControlsScope,
+          String(args.key),
+          typeof args.value === "string" ? args.value : null,
+        ),
+      );
+    case "controls_reset":
+      return delay<ControlsView>(mockControlsReset(args.scope as ControlsScope));
+    case "controls_reset_players":
+      return delay<ControlsView>(mockControlsResetPlayers());
+    case "controls_export":
+      return delay<null>(null);
+    case "controls_import": {
+      const scope = args.scope as ControlsScope;
+      return delay<ControlsView>(mockControlsView(scope.kind === "game" ? scope.game : null));
+    }
+    case "controls_copy":
+      return delay<ControlsView>(mockControlsCopy(String(args.from), String(args.to)));
     case "read_save":
       return delay<SaveView>(
         mockSave(typeof args.serial === "string" ? args.serial : "SCES_509.16", Number(args.slot ?? 0)),

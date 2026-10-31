@@ -20,6 +20,14 @@
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
 
+namespace openrac::controls {
+class Store;
+}
+
+namespace openrac::platform {
+class Input;
+}
+
 namespace openrac::frontend {
 
 // Opens the window. `levels` holds the extracted levels (level_00, level_01, ...).
@@ -170,6 +178,17 @@ KeyboardMouseView keyboard_mouse();
 
 // A mod took the keyboard: the port's own keyboard table stops pressing pad 0's buttons.
 void take_keyboard();
+
+// Reads the player's controls of `game` ("rac1") from `dir` (controls_store.h) and presses the pads
+// from them, from the next read on; the controller mappings in `dir`'s gamecontrollerdb.txt, if
+// there is one, are added to SDL's. Bindings the version's settings file held (bind_* keys, before
+// the controls had files of their own) move into the game's controls file once.
+void open_controls(const std::filesystem::path& dir, const std::string& game);
+
+// The player's controls and the input they press, for the controls window
+// (debug/controls_window.cpp); null while no window is open.
+controls::Store* controls_store();
+platform::Input* input();
 
 // A mod asks for the cursor captured (relative mouse mode) or let go. Applied each frame, and let
 // go anyway while the window is not focused or the overlay or the debug menu is open.

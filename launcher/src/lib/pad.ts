@@ -288,9 +288,26 @@ function usingPad(on: boolean) {
   if (document.documentElement.dataset.input !== mode) document.documentElement.dataset.input = mode;
 }
 
+/** While a controls page waits for a press to bind (`holdPad(true)`), the controller does not move
+ *  the focus or press anything: the press is the page's. */
+let holding = false;
+
+/** Holds the controller's navigation back while a press is captured, or lets it go again. What is
+ *  held as it is let go acts only once let go and pressed again. */
+export function holdPad(on: boolean) {
+  holding = on;
+  releasePad();
+}
+
+/** Says whether the controller's navigation is held back (holdPad). */
+export function padHeld(): boolean {
+  return holding;
+}
+
 /** A button pressed (`down:accept`) or let go (`up:accept`). A press while held is ignored, so
  *  that a hat seen both as keys and as an axis acts once. */
 function padEvent(event: string) {
+  if (holding) return;
   const [kind, name] = event.split(":");
   if (!name || !BUTTONS.includes(name)) return;
   const button = name as PadButton;
@@ -386,7 +403,7 @@ export function startPad(home: () => boolean, gamepadApi: boolean) {
   let pressed = new Set<PadButton>();
   let polling = false;
   const poll = () => {
-    pressed = pollGamepads(pressed, navigator.getGamepads(), document.hasFocus());
+    pressed = pollGamepads(pressed, navigator.getGamepads(), document.hasFocus() && !holding);
     if (navigator.getGamepads().some((p) => p)) requestAnimationFrame(poll);
     else polling = false;
   };

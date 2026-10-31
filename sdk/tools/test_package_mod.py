@@ -206,6 +206,28 @@ class Archives(unittest.TestCase):
                              ["README.md", "lib/linux-x86_64/lock_strafe.so", "openrac-mod.json"])
             self.assertEqual(z.namelist()[0], "openrac-mod.json")
 
+    def test_package_carries_the_assets(self):
+        # MODS.md, section 3: the assets folder goes in whole, hidden files left out.
+        folder = self.folder("linux-x86_64")
+        m = json.loads((folder / pm.MANIFEST).read_text())
+        m["assets"] = "assets"
+        (folder / pm.MANIFEST).write_text(json.dumps(m))
+        (folder / "assets" / "level_04" / "textures").mkdir(parents=True)
+        (folder / "assets" / "level_04" / "textures" / "terrain_0000.png").write_bytes(b"png")
+        (folder / "assets" / "level_04" / "classes.json").write_text("{}")
+        (folder / "assets" / ".DS_Store").write_bytes(b"x")
+        out = pm.package(folder, self.root / "dist")
+        with zipfile.ZipFile(out) as z:
+            names = z.namelist()
+        self.assertIn("assets/level_04/textures/terrain_0000.png", names)
+        self.assertIn("assets/level_04/classes.json", names)
+        self.assertNotIn("assets/.DS_Store", names)
+
+    def test_assets_must_be_a_folder_inside(self):
+        for bad in ("", "../up", "/abs", "a\\b", "c:/x", "a//b", 3):
+            self.assertTrue(any("assets" in e for e in pm.check_manifest(changed(assets=bad))), bad)
+        self.assertEqual(pm.check_manifest(changed(assets="assets")), [])
+
     def test_package_refuses_a_missing_library(self):
         folder = self.folder("linux-x86_64")
         (folder / "lib/linux-x86_64/lock_strafe.so").unlink()

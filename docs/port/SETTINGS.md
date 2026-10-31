@@ -79,6 +79,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | GTAO strength | `gtao_strength` | `0.0` to `3.0` (default `1.0`) | Multiplies indirect-light occlusion; zero leaves the picture unchanged |
 | Texture filtering | `texture_filter` | `normal`, `edge-aware` (default with Enhanced Graphics) | In Graphics > Enhanced Settings, enabled by the Enhanced graphics master switch. Enlarged world textures (meshes, reflections, sky and world effects): original sampling or cached 2x edge-aware colour reconstruction with directional debanding (Vulkan compute only; OpenGL supports Normal only; other saved values use Normal there). The cache is limited to 64 MiB per texture pool and falls back to Normal when full. Alpha/cutout coverage, shadow/depth sampling, HUD text and distant mip/anisotropic filtering are unchanged |
 | Anisotropic filtering | `anisotropy` | `auto` (default), `1` (`off`: trilinear), `2`, `4`, `8`, `16` | Auto uses 4x with Enhanced Graphics and Off with OpenGL or original graphics. Explicit choices are preserved across modes. The anisotropic filter of the world's textures is held to what the driver offers |
+| Texture pack | `texture_pack` | `0`, `1` (default `1`) | Reads a texture pack from `<data>/texture_packs/<game id>/` (`rac1-pal`, `rac1-ntsc`), PNGs named by the textures they replace, at any size ([TEXTURE_PACKS.md](TEXTURE_PACKS.md)). No folder, no change. Counts from the next start |
 | Scenery detail | `original_lod` | `0` (Full, default), `1` (Original) | For low-end devices, Original draws no tie (scenery model) or shrub beyond the game's draw distances (a tie's own, at most 720 units; a shrub's at least 16, a billboard class's at least its fade distance + 24, at most 500), each one it draws at full detail. The game's lower tie LODs are not drawn: in captures they saved a few percent of the triangles for twice the ties' draws. The shrubs' fade and billboards are not drawn either: a billboard class keeps its mesh out to its distance, and an instance leaves a few units past it. Full draws every tie and shrub however far, as before. Needs levels exported again (the launcher's level export) for the shrub limits; with an older export Original limits only the ties |
 | VSync | `vsync` | `on`, `off`, `adaptive` | Whether a frame waits for the display's refresh. `adaptive` waits, but shows a frame that comes late at once (it tears) rather than a refresh later; a driver without it gives `on` |
 | Frame rate | `frame_rate` | `display`, `original`, a number, `unlimited` | How many frames are drawn (section 2). The page offers 30, 60, 75, 90, 120, 144, 165, 240 and 360; a file may hold any number from 20 to 1000 |
@@ -410,13 +411,13 @@ follows ReRAC's idea and says so in
 
 | Setting | OpenGOAL | ReRAC | OpenRAC | |
 |---|---|---|---|---|
-| Choose the controller, port mapping | yes | first pad only | first two gamepads, in order | **later** |
-| Rebind controller, keyboard, mouse | yes | no | no: the table in `input.cpp` | **later**: its own page and its own file section; input is not this work's |
-| Stick deadzone, sensitivity | yes | fixed scale 1.33 | the game's own | **later**, with rebinding |
+| Choose the controller, port mapping | yes | first pad only | each player's controller by its id, or the next free one ([CONTROLS.md](CONTROLS.md)) | **now** |
+| Rebind controller, keyboard, mouse | yes | no | the controller's buttons and sticks, chords, every game's and each game's own, in their own files and a window in the game ([CONTROLS.md](CONTROLS.md)); keys on the buttons only | **now** for the controller; keyboard and mouse **later** |
+| Stick deadzone, sensitivity | yes | fixed scale 1.33 | the game's own, and the port's per stick if set, with inversion | **now** |
 | Vibration on or off | yes | no rumble | rumble as the game drives it, no switch | **later**: a row on the game's own options |
 | Camera inverted, speed | its own page | the game's Camera page | the game's Camera page | **never** in the port: the game has it |
 | Keyboard, mouse camera and movement | yes | mouse as right stick | keyboard as a pad, no mouse | **later** |
-| Ignore the controller while unfocused | yes | no | no | **later**, beside `mute_unfocused` |
+| Ignore the controller while unfocused | yes | no | `pad_background = 0` ([CONTROLS.md](CONTROLS.md)) | **now** |
 | Controller LED, trigger effects, pressure | yes | no | no | **never** for the LED and triggers (nothing in the game drives them); pressure **later** |
 
 ### Other

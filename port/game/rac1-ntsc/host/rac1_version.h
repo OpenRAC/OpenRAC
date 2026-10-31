@@ -162,6 +162,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * NTSC decomp's follow_camera_turn_and_pitch.c). */
 #define func_L00_002E9E60 game_FUN_L00_002e89b0
 #define func_L00_002E9E60__game game_FUN_L00_002e89b0__game
+/* Ratchet's animation guard (hero_anim_guard.c): PAL set_hero_animation func_L00_00232C10 is
+ * FUN_L00_002323b8 here. */
+#define func_L00_00232C10 game_FUN_L00_002323b8
+#define func_L00_00232C10__game game_FUN_L00_002323b8__game
 #define RAC1_ADDR_0x0015EEB4u 0x0015EDB4u
 #define RAC1_ADDR_0x0015EEE0u 0x0015EDE0u
 #define RAC1_ADDR_L00_0x0015F044u 0x0015EF44u

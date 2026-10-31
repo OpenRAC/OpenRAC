@@ -485,8 +485,22 @@ void test_shared_manifests_keep_their_verdicts() {
 
 }  // namespace
 
+// A mod's assets folder (MODS.md, section 3): a folder inside the mod.
+void assets() {
+    Manifest m;
+    std::string error;
+    CHECK(parse_manifest(manifest("a"), m, error) && m.assets.empty());
+    CHECK(parse_manifest(manifest("a", "1.0.0", R"(, "assets": "assets")"), m, error) && m.assets == "assets");
+    CHECK(parse_manifest(manifest("a", "1.0.0", R"(, "assets": "data/levels")"), m, error));
+    for (const char* bad : {R"("")", R"("../up")", R"("/abs")", R"("a\\b")", R"("c:/x")", R"("a//b")", "1"}) {
+        CHECK(!parse_manifest(manifest("a", "1.0.0", std::string(R"(, "assets": )") + bad), m, error));
+        CHECK(error.find("assets") != std::string::npos);
+    }
+}
+
 int main() {
     versions();
+    assets();
     manifests();
     settings();
     keybinds();

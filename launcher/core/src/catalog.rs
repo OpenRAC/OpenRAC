@@ -445,7 +445,7 @@ mod tests {
         // In game.json's order: rac1's PAL first.
         assert_eq!(
             catalog.version_keys(),
-            ["rac1/pal", "rac1/ntsc", "rac2/ntsc", "rac3/ntsc", "rac4/ntsc", "rac5/ntsc", "rac6/ntsc"]
+            ["rac1/pal", "rac1/ntsc", "rac2/ntsc", "rac2/pal", "rac3/ntsc", "rac4/ntsc", "rac5/ntsc", "rac6/ntsc"]
         );
         let pal = catalog.version("rac1/pal").unwrap();
         assert_eq!(pal.serial, "SCES_509.16");

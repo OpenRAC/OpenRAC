@@ -24,7 +24,7 @@ tools since P2-10; `editor/` and `sdk/tools/` move onto it in their own packages
 | `files` | `openrac` (`place_link`), `extractor`, `bundle_standalone`; the editor's asset exports, mod packs and level publication; probe planning and bake publication |
 | `proc` | every `git` call in `tools/` (`permuter` fetching decomp-permuter included); `build_android`'s and `bundle_standalone`'s commands |
 | `iso9660` | `openrac`, `extractor` |
-| `background` | `build_port` (below-normal priority, Ninja's job count); the probe tools' `bake_all` (priority, the threads its levels share) |
+| `background` | `build_port` (below-normal priority, Ninja's job count); the probe tools' `bake_all` (priority, the threads its levels share); the editor's `extract` (priority, how many levels are written at once) |
 
 Two places in `tools/` keep their own code on purpose. `fcheck_level_build.py` runs copied alone
 inside rac1-decomp's container, from rac1-decomp's root, where neither OpenRAC nor this package is.

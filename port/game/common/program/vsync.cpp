@@ -120,6 +120,43 @@ void crash_test() {
     }
 }
 
+// A game that sends no picture for this many ticks (20 seconds) is stuck in a wait of its own that
+// never ends; a load sends none for a second or two at most.
+constexpr long kStallTicks = 1200;
+
+// The window keeps the last picture while the game sends none, so a game stuck in a wait looks
+// frozen and leaves nothing in the log (rac1: a flight between planets that never ended). Once a
+// stall, the log says so and names the host functions the wait is in, for a bug report to show
+// which wait it was (on Windows as the module and its offset, for the build's PDB).
+void report_stall(bool sent) {
+    static long undrawn = 0;
+    undrawn = sent ? 0 : undrawn + 1;
+
+    if (undrawn != kStallTicks) {
+        return;
+    }
+
+    const int level = openrac_game_loaded_overlay();
+    std::uint32_t mode = 0;
+    const bool has_mode = openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0;
+    log::warn(
+        "the game has sent no picture for {} ticks (level {}, game mode {}): it waits in",
+        kStallTicks,
+        level == OPENRAC_OVERLAY_EXE ? -1 : level,
+        has_mode ? std::to_string(mode) : "-"
+    );
+
+    for (int depth = 0; depth < 14; ++depth) {
+        // A C string: openrac_host_caller leaves "?" past the stack's end.
+        char who[256] = "";
+        openrac_host_caller(depth, who, sizeof(who));
+
+        if (std::strcmp(who, "?") != 0 && who[0] != '\0') {
+            log::warn("  {}", static_cast<const char*>(who));
+        }
+    }
+}
+
 // OPENRAC_REACH=FILE: the functions without C (and the zero-filled calls) this run reached, with
 // their calls (guest.h, openrac_reach_site; port/tools/regress reach). Written at exit and every
 // 600 frames, so a run that crashes still leaves most of it.
@@ -261,6 +298,7 @@ int vsync() {
     const bool sent = !g_vsync_since_kick;
     sent_once = sent_once || sent;
     g_vsync_since_kick = true;
+    report_stall(sent || !sent_once);
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND

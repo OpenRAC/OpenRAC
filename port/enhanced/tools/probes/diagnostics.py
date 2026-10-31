@@ -134,6 +134,9 @@ def describe(error, *, level=None, log=None):
               or ('manifest' in text and ('missing' in text or 'not found' in text))
               or getattr(error, 'bake_stage', None) == 'Read level manifest'):
             code = 'input'
+        elif 'environment placement incomplete' in text:
+            # Its output names region files and a safety limit, which is not a region plan.
+            code = 'native'
         elif 'region' in text and ('exceed' in text or 'limit' in text):
             code = 'regions'
         elif 'verif' in text or 'checksum' in text:

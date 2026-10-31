@@ -301,6 +301,7 @@ function(openrac_add_game config)
     # The window: the renderer draws what the game holds in memory (game/common/frontend.h).
     if(TARGET openrac_scene_renderer AND TARGET openrac_platform)
       target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/frontend.cpp"
+                                       "${OPENRAC_GAME_DIR}/common/controls_store.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/exit_menu.cpp"

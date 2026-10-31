@@ -16,6 +16,7 @@
 //! - [`desktop`]: the Linux desktop's menu entries and icons for the launcher and the games.
 //! - [`install`]: setting a game up from the player's disc, OpenGOAL's way.
 //! - [`disc_choice`]: for developers with two discs of a game, which one is played.
+//! - [`controls`]: the player's controls files, global and per game, as the port reads them.
 //! - [`differences`]: what the port does otherwise than the PS2 game, and the fixes a player switches back.
 //! - [`jobs`]: running an action as a child process and streaming its output.
 //! - [`appimage`]: the environment an AppImage hands over, and what the launcher takes back.
@@ -38,6 +39,7 @@ pub mod appimage;
 pub mod catalog;
 pub mod chd;
 pub mod config;
+pub mod controls;
 pub mod desktop;
 pub mod detect;
 pub mod differences;

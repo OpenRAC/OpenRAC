@@ -119,6 +119,11 @@ and says how the frames are paced against the game's tick, what the graphics
 card is checked for, where a frame's time goes, and how the settings compare
 with OpenGOAL's and ReRAC's.
 
+The controls are files of their own, `<data home>/openrac/controls/` (`--controls
+DIR` names another folder): every game's, and each game's own over them, with
+which controller each player is. F13 opens a window in the game that changes
+them; [docs/port/CONTROLS.md](../docs/port/CONTROLS.md) says what they hold.
+
 In Ratchet & Clank (PAL) they are the rows of the title menu's Options,
 Video page, drawn by the game's widgets
 ([options_menu.cpp](game/common/options_menu.cpp)): Cross or Right moves a

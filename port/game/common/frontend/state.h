@@ -27,6 +27,7 @@
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/game/scripted_moby_colour.h"
 #include "enhanced/renderer/agx.h"
+#include "game/common/controls_store.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
 #include "game/common/frontend/tick_picture.h"
@@ -182,6 +183,7 @@ struct State {
     std::unique_ptr<platform::Platform> sdl;
     std::unique_ptr<platform::Window> window;
     platform::Input input;
+    controls::Store controls;     // the player's controls files, applied to `input`
     bool capture_wanted = false;  // a mod's asking (capture_mouse)
     bool keyboard_taken = false;  // a mod took the keyboard (take_keyboard)
     std::unique_ptr<renderer::Renderer> renderer;

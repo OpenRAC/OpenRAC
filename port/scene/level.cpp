@@ -19,6 +19,7 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
+#include "renderer/texture_pack.h"
 
 namespace openrac::scene {
 
@@ -46,30 +47,38 @@ const char* layer_name(Layer layer) {
 
 namespace {
 
-// A level file's path, or the mod's file in its place: the same path under LevelData::overrides
-// when the level has a mod folder and the file is there. `overridden` counts the files taken.
+// A level file's path, or a mod's file in its place: the same path under one of
+// LevelData::mod_roots, then under LevelData::overrides, when the file is there. `overridden`
+// counts the files taken.
 fs::path override_of(const fs::path& path, const LevelData& level, int* overridden) {
-    if (level.overrides.empty()) {
+    if (level.overrides.empty() && level.mod_roots.empty()) {
         return path;
     }
+    std::vector<fs::path> mods = level.mod_roots;
+    if (!level.overrides.empty()) {
+        mods.push_back(level.overrides);
+    }
+    // The path within the level: from the level's folder, or from a mod's (a mod's model names
+    // the textures beside it, and the level's it does not replace, by the same relative path).
     const fs::path normal = path.lexically_normal();
-    for (const fs::path& root :
-         {level.dir.lexically_normal(), level.overrides.lexically_normal()}) {
-        const fs::path rel = normal.lexically_relative(root);
-        if (rel.empty() || *rel.begin() == "..") {
-            continue;
-        }
+    const auto inside = [](const fs::path& rel) { return !rel.empty() && *rel.begin() != ".."; };
+    fs::path rel = normal.lexically_relative(level.dir.lexically_normal());
+    for (std::size_t i = 0; i < mods.size() && !inside(rel); ++i) {
+        rel = normal.lexically_relative(mods[i].lexically_normal());
+    }
+    if (!inside(rel)) {
+        return path;
+    }
+    for (const fs::path& root : mods) {
         std::error_code ignored;
-        if (fs::is_regular_file(level.overrides / rel, ignored)) {
+        if (fs::is_regular_file(root / rel, ignored)) {
             if (overridden != nullptr) {
                 ++*overridden;
             }
-            return (level.overrides / rel).lexically_normal();
+            return (root / rel).lexically_normal();
         }
-        // A mod's model names the level's textures it does not replace by the same relative path.
-        return (level.dir / rel).lexically_normal();
     }
-    return path;
+    return (level.dir / rel).lexically_normal();
 }
 
 int image_index(const fs::path& requested, LevelData& level) {
@@ -96,6 +105,8 @@ int image_index(const fs::path& requested, LevelData& level) {
         log::warn("texture {}: {}", key, stbi_failure_reason());
         ++level.missing_images;
     }
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size.
+    renderer::texture_pack::replace(image);
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {
@@ -480,11 +491,23 @@ Vec3 bounds_centre(const Model& model, const Mat4& matrix) {
     );
 }
 
-bool load_level(const fs::path& dir, LevelData& out, std::string& error, const fs::path& edited) {
+bool load_level(
+    const fs::path& dir,
+    LevelData& out,
+    std::string& error,
+    const fs::path& edited,
+    const std::vector<fs::path>& mod_roots
+) {
     const profiling::Zone trace("Load level assets");
 
     out = LevelData{};
     out.dir = dir;
+    for (const fs::path& root : mod_roots) {
+        std::error_code ignored;
+        if (fs::is_directory(root, ignored)) {
+            out.mod_roots.push_back(fs::absolute(root, ignored));
+        }
+    }
     if (!edited.empty()) {
         std::error_code ignored;
         if (fs::is_directory(edited.parent_path(), ignored)) {
@@ -640,6 +663,42 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                     box = add_box_model(out);
                 }
                 (*table)[id] = {*box, 1.0f, true};
+            }
+        }
+    }
+
+    // A mod's classes.json (its assets' level_NN, MODS.md section 3) adds classes, or replaces the
+    // level's of the same id, in the manifest's "classes" form; its meshes are read from the mod's
+    // folder by the same path. The last mod in the list first, so the first wins.
+    for (auto root = out.mod_roots.rbegin(); root != out.mod_roots.rend(); ++root) {
+        std::error_code ignored;
+        const fs::path file = *root / "classes.json";
+        if (!fs::is_regular_file(file, ignored)) {
+            continue;
+        }
+        json::Value added;
+        if (!json::parse_file(file.string(), added, error)) {
+            error = std::format("{}: {}", file.string(), error);
+            return false;
+        }
+        for (const auto& [family, table] : families) {
+            for (const auto& [key, cls] : added[family].members()) {
+                if (!cls["mesh"].is_string()) {
+                    error = std::format("{}: {} class {} has no mesh", file.string(), family, key);
+                    return false;
+                }
+                auto model = model_at(cls["mesh"]);
+                if (!model) {
+                    return false;
+                }
+                (*table)[std::atoi(key.c_str())] = {
+                    *model, static_cast<float>(cls["scale"].number(1.0)), false
+                };
+                if (table == &shrubs) {
+                    billboard_fades[std::atoi(key.c_str())] =
+                        static_cast<int>(cls["billboard_fade"].number(-1));
+                    fades_known = fades_known && cls["billboard_fade"].is_number();
+                }
             }
         }
     }

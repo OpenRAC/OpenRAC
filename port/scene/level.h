@@ -161,6 +161,10 @@ struct LevelData {
     // texture there is read in place of the level's own of the same path (an upscaled texture, a
     // replacement moby model). Empty without mods.
     std::filesystem::path overrides;
+    // The loaded native mods' folders for this level (their "assets" folder's level_NN, MODS.md
+    // section 3), the first searched first and all before `overrides`; their classes.json adds
+    // render classes.
+    std::vector<std::filesystem::path> mod_roots;
     int overridden_models = 0;
     int overridden_images = 0;
     int level = -1;
@@ -216,7 +220,8 @@ bool load_level(
     const std::filesystem::path& dir,
     LevelData& out,
     std::string& error,
-    const std::filesystem::path& edited = {}
+    const std::filesystem::path& edited = {},
+    const std::vector<std::filesystem::path>& mod_roots = {}
 );
 
 // The level's sky textures (textures/sky_NNNN.png, by the sky's own texture numbers), including the

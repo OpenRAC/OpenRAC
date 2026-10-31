@@ -1890,8 +1890,11 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 // What lies along one side of the picture (the black line the game draws down the
                 // screen's first column) was at the television's edge; in the middle of a wider
                 // target it would be a line through the world, and it is left out.
+                // Only what lies inside that band: with the HUD at the target's sides, plain
+                // rectangles the game moved past the edge (the Suck Cannon's gauge) are drawn.
                 constexpr float kEdge = 1.0f - 3.0f / 512.0f;
-                if (!s.textured && ((lo <= -kEdge && hi <= -kEdge) || (lo >= kEdge && hi >= kEdge))) {
+                constexpr float kOut = 1.0f + 1.0f / 512.0f;
+                if (!s.textured && ((lo >= -kOut && hi <= -kEdge) || (lo >= kEdge && hi <= kOut))) {
                     continue;
                 }
                 if (!runs.empty() && runs.back().draw == &d && runs.back().whole == whole) {

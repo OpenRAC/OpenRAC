@@ -75,6 +75,7 @@ enum class Var : std::uint16_t {
     DumpRam,
     DumpSnapshot,
     DumpTexture,
+    DumpTextures,
     DumpVif,
     EarlyLightingOff,
     Enhanced,

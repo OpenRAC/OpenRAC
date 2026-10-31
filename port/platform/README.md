@@ -44,5 +44,6 @@ buttons map by position (the bottom face button is Cross).
 The replacements of the game's library calls themselves (`scePadRead`,
 989snd, `sceGsSyncV`) belong to the game's build; this layer is what they
 call. The display's settings are the program's
-([docs/port/SETTINGS.md](../../docs/port/SETTINGS.md)); key remapping is not
-a setting yet.
+([docs/port/SETTINGS.md](../../docs/port/SETTINGS.md)); what presses the pad
+is the player's controls ([docs/port/CONTROLS.md](../../docs/port/CONTROLS.md):
+bindings.h, controls_file.h, players.h).

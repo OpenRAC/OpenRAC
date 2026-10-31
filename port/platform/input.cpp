@@ -4,6 +4,7 @@
 #include "platform/input.h"
 
 #include <algorithm>
+#include <utility>
 
 #include <SDL3/SDL.h>
 
@@ -13,80 +14,50 @@
 namespace openrac::platform {
 namespace {
 
-// The sixteen buttons a binding can name, in the pad's own order (bindings.h).
-constexpr Button kButtons[] = {
-    Button::Select,
-    Button::L3,
-    Button::R3,
-    Button::Start,
-    Button::Up,
-    Button::Right,
-    Button::Down,
-    Button::Left,
-    Button::L2,
-    Button::R2,
-    Button::L1,
-    Button::R1,
-    Button::Triangle,
-    Button::Circle,
-    Button::Cross,
-    Button::Square,
-};
-constexpr int kButtonCount = static_cast<int>(std::size(kButtons));
-
-// A trigger counts as L2 or R2 held above about an eighth of its travel; its
-// pressure byte follows the trigger all the way.
-constexpr std::uint8_t kTriggerThreshold = 0x20;
-
-bool key(std::span<const bool> keys, SDL_Scancode code) {
-    const auto index = static_cast<std::size_t>(code);
-    return index < keys.size() && keys[index];
-}
-
-// -1, 0 or +1 from two opposite keys.
-int key_axis(std::span<const bool> keys, SDL_Scancode negative, SDL_Scancode positive) {
-    return (key(keys, positive) ? 1 : 0) - (key(keys, negative) ? 1 : 0);
+// A button of the gamepad down, a stick or a trigger well out (a trigger only pressed in: some
+// rest below zero).
+bool held(SDL_Gamepad* g) {
+    for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
+        if (SDL_GetGamepadButton(g, static_cast<SDL_GamepadButton>(b))) {
+            return true;
+        }
+    }
+    for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
+        const auto axis = static_cast<SDL_GamepadAxis>(a);
+        const int value = SDL_GetGamepadAxis(g, axis);
+        const bool trigger =
+            axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
+        if (value > 16000 || (!trigger && value < -16000)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }  // namespace
 
 void apply_keyboard(Pad& pad, std::span<const bool> keys) {
-    for (int i = 0; i < kButtonCount; ++i) {
-        const Button button = kButtons[i];
-        const Bound& b = bound(button);
-        for (int k = 0; k < b.key_count; ++k) {
-            if (key(keys, b.keys[k])) {
-                pad.set(button, true);
-                break;
-            }
+    static const Bindings defaults = default_bindings();
+    apply_keys(defaults, keys, pad);
+}
+
+void Input::set_bindings(const std::array<Bindings, kPadPorts>& bindings) {
+    for (int port = 0; port < kPadPorts; ++port) {
+        const auto p = static_cast<std::size_t>(port);
+        if (!differ(bindings[p], m_bindings[p])) {
+            continue;
         }
-    }
-    // Escape pauses, as Start does, whatever Start is bound to: it used to end the program at
-    // once, a level's progress with it, and a player must always be able to reach the menu.
-    if (key(keys, SDL_SCANCODE_ESCAPE)) {
-        pad.set(Button::Start, true);
-    }
-    const int lx = key_axis(keys, SDL_SCANCODE_A, SDL_SCANCODE_D);
-    const int ly = key_axis(keys, SDL_SCANCODE_W, SDL_SCANCODE_S);
-    const int rx = key_axis(keys, SDL_SCANCODE_J, SDL_SCANCODE_L);
-    const int ry = key_axis(keys, SDL_SCANCODE_I, SDL_SCANCODE_K);
-    if (lx != 0) {
-        pad.left_x = key_stick_byte(lx);
-    }
-    if (ly != 0) {
-        pad.left_y = key_stick_byte(ly);
-    }
-    if (rx != 0) {
-        pad.right_x = key_stick_byte(rx);
-    }
-    if (ry != 0) {
-        pad.right_y = key_stick_byte(ry);
+        latch_held(m_last[p], m_bindings[p].tuning.trigger_threshold, m_latch[p]);
+        if (m_assignment.keyboard == port) {
+            latch_held_keys(m_last_keys, m_key_latch);
+        }
+        m_bindings[p] = bindings[p];
     }
 }
 
 Input::~Input() {
-    for (SDL_Gamepad* g : m_gamepads) {
-        SDL_CloseGamepad(g);
+    for (const Connected& c : m_gamepads) {
+        SDL_CloseGamepad(c.gamepad);
     }
 }
 
@@ -95,19 +66,49 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_GAMEPAD_ADDED: {
             SDL_Gamepad* g = SDL_OpenGamepad(event.gdevice.which);
             if (g != nullptr) {
-                log::info("gamepad connected: {}", SDL_GetGamepadName(g));
-                m_gamepads.push_back(g);
+                // Its id is its model's GUID and its serial, which stay the same from one run to
+                // the next, where SDL's instance number does not (players.h).
+                char guid[33] = {};
+                SDL_GUIDToString(SDL_GetGamepadGUIDForID(event.gdevice.which), guid, sizeof guid);
+                const char* serial = SDL_GetGamepadSerial(g);
+                const char* name = SDL_GetGamepadName(g);
+                std::vector<std::string> taken;
+                for (const Device& d : m_devices) {
+                    taken.push_back(d.id);
+                }
+                Device device{
+                    controller_id(guid, serial != nullptr ? serial : "", taken),
+                    name != nullptr ? name : "Controller",
+                    -1,
+                };
+                log::info("gamepad connected: {} ({})", device.name, device.id);
+                m_gamepads.push_back({g});
+                m_devices.push_back(std::move(device));
+                assign_players();
             }
             break;
         }
         case SDL_EVENT_GAMEPAD_REMOVED: {
-            auto it = std::find_if(m_gamepads.begin(), m_gamepads.end(), [&](SDL_Gamepad* g) {
-                return SDL_GetGamepadID(g) == event.gdevice.which;
-            });
+            const auto it = find(event.gdevice.which);
             if (it != m_gamepads.end()) {
-                log::info("gamepad disconnected");
-                SDL_CloseGamepad(*it);
+                const auto index = it - m_gamepads.begin();
+                log::info(
+                    "gamepad disconnected: {}", m_devices[static_cast<std::size_t>(index)].name
+                );
+                if (static_cast<std::size_t>(index) < m_used) {
+                    --m_used;
+                }
+                // A gamepad opened later at the same address is another one: its sticks start afresh.
+                std::replace(
+                    m_gates_of.begin(),
+                    m_gates_of.end(),
+                    it->gamepad,
+                    static_cast<SDL_Gamepad*>(nullptr)
+                );
+                SDL_CloseGamepad(it->gamepad);
                 m_gamepads.erase(it);
+                m_devices.erase(m_devices.begin() + index);
+                assign_players();
             }
             break;
         }
@@ -134,6 +135,7 @@ void Input::handle_event(const SDL_Event& event) {
             m_touch.hide();
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            pressed(event.gbutton.which, event.gbutton.timestamp);
             m_touch.hide();
             break;
         // The mouse, for the mods (KeyboardMouse): gathered until the next update(). A touch screen's
@@ -159,6 +161,9 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_GAMEPAD_AXIS_MOTION:
             // A stick pushed well past its dead zone, not a resting stick's drift.
             if (event.gaxis.value > 16000 || event.gaxis.value < -16000) {
+                if (const auto it = find(event.gaxis.which); it != m_gamepads.end()) {
+                    it->active_ns = event.gaxis.timestamp;
+                }
                 m_touch.hide();
             }
             break;
@@ -171,9 +176,199 @@ void Input::handle_event(const SDL_Event& event) {
     }
 }
 
+std::vector<Input::Connected>::iterator Input::find(std::uint32_t which) {
+    return std::find_if(m_gamepads.begin(), m_gamepads.end(), [&](const Connected& c) {
+        return SDL_GetGamepadID(c.gamepad) == which;
+    });
+}
+
+void Input::pressed(std::uint32_t which, std::uint64_t ns) {
+    auto it = find(which);
+    if (it == m_gamepads.end()) {
+        return;
+    }
+    // Its first press puts it behind the gamepads used before it and ahead of those never used: a
+    // device that only looks like a gamepad (a USB-C dock's or hub's, a keyboard's arrow keys) and
+    // was found before the controller no longer holds port 0. A button only: such a device may
+    // rest off centre.
+    if (static_cast<std::size_t>(it - m_gamepads.begin()) >= m_used) {
+        move_gamepad(static_cast<std::size_t>(it - m_gamepads.begin()), m_used);
+        it = m_gamepads.begin() + static_cast<std::ptrdiff_t>(m_used);
+        ++m_used;
+        assign_players();
+    }
+    // Port 0 changes hands when its gamepad has been left alone a while, nothing on it pressed or
+    // pushed (a stick held all the way sends nothing more): the player has picked up another
+    // controller. Two players playing at once keep their ports.
+    const Connected& front = m_gamepads.front();
+    if (it != m_gamepads.begin() && ns >= front.active_ns + kHandOverNs && !held(front.gamepad)) {
+        move_gamepad(static_cast<std::size_t>(it - m_gamepads.begin()), 0);
+        it = m_gamepads.begin();
+        assign_players();
+        log::info(
+            "gamepad on port 0: {}",
+            SDL_GetGamepadName(it->gamepad) ? SDL_GetGamepadName(it->gamepad) : "?"
+        );
+    }
+    it->active_ns = ns;
+}
+
+void Input::move_gamepad(std::size_t from, std::size_t to) {
+    const auto rotate = [&](auto& v) {
+        const auto a = v.begin() + static_cast<std::ptrdiff_t>(std::min(from, to));
+        const auto b = v.begin() + static_cast<std::ptrdiff_t>(std::max(from, to));
+        if (from > to) {
+            std::rotate(a, b, b + 1);
+        } else {
+            std::rotate(a, a + 1, b + 1);
+        }
+    };
+    rotate(m_gamepads);
+    rotate(m_devices);
+}
+
 SDL_Gamepad* Input::gamepad(int port) const {
-    const auto index = static_cast<std::size_t>(port);
-    return index < m_gamepads.size() ? m_gamepads[index] : nullptr;
+    const int index = m_assignment.pad[static_cast<std::size_t>(port)];
+    return index >= 0 && static_cast<std::size_t>(index) < m_gamepads.size()
+               ? m_gamepads[static_cast<std::size_t>(index)].gamepad
+               : nullptr;
+}
+
+void Input::set_players(const Players& players) {
+    if (players == m_players) {
+        return;
+    }
+    m_players = players;
+    assign_players();
+}
+
+bool Input::take_devices_changed() {
+    return std::exchange(m_devices_changed, false);
+}
+
+namespace {
+
+// SDL's reading of one gamepad, every button and axis.
+PadInputs read_gamepad(SDL_Gamepad* g) {
+    PadInputs inputs;
+    for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
+        inputs.buttons[static_cast<std::size_t>(b)] =
+            SDL_GetGamepadButton(g, static_cast<SDL_GamepadButton>(b));
+    }
+    for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
+        inputs.axes[static_cast<std::size_t>(a)] =
+            SDL_GetGamepadAxis(g, static_cast<SDL_GamepadAxis>(a));
+    }
+    return inputs;
+}
+
+// The pad inputs a capture counts as pressed on one gamepad: the buttons, the triggers past
+// `threshold`, the sticks past most of the way.
+std::vector<Binding> pressed_inputs(const PadInputs& inputs, std::uint8_t threshold) {
+    std::vector<Binding> out;
+    for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
+        if (inputs.buttons[static_cast<std::size_t>(b)]) {
+            out.push_back({Binding::Kind::PadButton, b, 0});
+        }
+    }
+    for (const auto axis : {SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER}) {
+        if (trigger_byte(inputs.axes[axis]) >= threshold) {
+            out.push_back({Binding::Kind::PadTrigger, axis, 0});
+        }
+    }
+    constexpr int kFar = 24000;  // about three quarters of the way
+    for (int axis = SDL_GAMEPAD_AXIS_LEFTX; axis <= SDL_GAMEPAD_AXIS_RIGHTY; ++axis) {
+        const int value = inputs.axes[static_cast<std::size_t>(axis)];
+        if (value <= -kFar || value >= kFar) {
+            out.push_back({Binding::Kind::PadAxis, axis, value < 0 ? -1 : 1});
+        }
+    }
+    return out;
+}
+
+}  // namespace
+
+PadInputs Input::read_device(std::size_t index) const {
+    return index < m_gamepads.size() ? read_gamepad(m_gamepads[index].gamepad) : PadInputs{};
+}
+
+void Input::begin_capture() {
+    // What is held as it begins does not count until let go: the press that asked for the capture
+    // is not what it captures.
+    SDL_UpdateGamepads();
+    m_capture_held.clear();
+    for (const Connected& c : m_gamepads) {
+        m_capture_held.push_back(
+            pressed_inputs(read_gamepad(c.gamepad), m_bindings[0].tuning.trigger_threshold)
+        );
+    }
+    m_captured.reset();
+    m_capturing = true;
+}
+
+void Input::end_capture() {
+    m_capturing = false;
+    m_capture_held.clear();
+}
+
+void Input::capture_step() {
+    if (m_capture_held.size() != m_gamepads.size()) {
+        // A controller came or went: what each holds now is where the capture starts again.
+        begin_capture();
+        return;
+    }
+    for (std::size_t d = 0; d < m_gamepads.size() && !m_captured; ++d) {
+        const std::vector<Binding> now =
+            pressed_inputs(read_gamepad(m_gamepads[d].gamepad), m_bindings[0].tuning.trigger_threshold);
+        std::vector<Binding>& held = m_capture_held[d];
+        for (const Binding& b : now) {
+            if (std::find(held.begin(), held.end(), b) == held.end()) {
+                m_captured = b;
+                break;
+            }
+        }
+        // What was held and is let go counts again when pressed again.
+        std::erase_if(held, [&now](const Binding& b) {
+            return std::find(now.begin(), now.end(), b) == now.end();
+        });
+    }
+}
+
+void Input::assign_players() {
+    std::vector<std::string> ids;
+    for (const Device& d : m_devices) {
+        ids.push_back(d.id);
+    }
+    const Assignment was = m_assignment;
+    m_assignment = assign(m_players, ids);
+    // The keyboard moved (a controller came or went, and the keyboard was a fallback): what is held
+    // on it waits for its release, so a key held for one player does not press for the other, or
+    // press at all the moment a controller leaves.
+    if (was.keyboard != m_assignment.keyboard) {
+        latch_held_keys(m_last_keys, m_key_latch);
+    }
+    for (Device& d : m_devices) {
+        d.player = -1;
+    }
+    for (int p = 0; p < kPlayers; ++p) {
+        const int index = m_assignment.pad[static_cast<std::size_t>(p)];
+        if (index >= 0) {
+            m_devices[static_cast<std::size_t>(index)].player = p;
+        }
+    }
+    if (!(was == m_assignment)) {
+        for (int p = 0; p < kPlayers; ++p) {
+            const int index = m_assignment.pad[static_cast<std::size_t>(p)];
+            log::info(
+                "player {}: {}{}",
+                p + 1,
+                index >= 0 ? m_devices[static_cast<std::size_t>(index)].name
+                           : std::string("no controller"),
+                m_assignment.keyboard == p ? " and the keyboard" : ""
+            );
+        }
+    }
+    m_devices_changed = true;
 }
 
 void Input::update() {
@@ -233,9 +428,20 @@ void Input::refresh_pads() {
     const bool* state = SDL_GetKeyboardState(&key_count);
     const bool keyboard_ours =
         SDL_GetKeyboardFocus() != nullptr && (SDL_GetModState() & SDL_KMOD_GUI) == 0;
-    const std::span<const bool> keys(
-        state, state != nullptr && keyboard_ours ? static_cast<std::size_t>(key_count) : 0
-    );
+    // The keys as the pad reads them: those held back since the bindings changed read as let go.
+    std::array<bool, kKeyCount> held_keys{};
+    if (state != nullptr && keyboard_ours) {
+        std::copy_n(
+            state, std::min(static_cast<std::size_t>(key_count), kKeyCount), held_keys.begin()
+        );
+    }
+    m_last_keys = held_keys;
+    hold_back_keys(held_keys, m_key_latch);
+    const std::span<const bool> keys(held_keys);
+
+    if (m_capturing) {
+        capture_step();
+    }
 
     for (int port = 0; port < kPadPorts; ++port) {
         Pad& pad = m_pads[static_cast<std::size_t>(port)];
@@ -247,51 +453,45 @@ void Input::refresh_pads() {
         pad.large_motor = large_motor;
 
         SDL_Gamepad* g = gamepad(port);
-        pad.connected = port == 0 || g != nullptr;
-        if (g != nullptr) {
-            for (int i = 0; i < kButtonCount; ++i) {
-                const Button button = kButtons[i];
-                const Bound& b = bound(button);
-                for (int p = 0; p < b.pad_button_count; ++p) {
-                    if (SDL_GetGamepadButton(g, b.pad_buttons[p])) {
-                        pad.set(button, true);
-                        break;
-                    }
-                }
-                // A trigger bound to a button presses it above about an eighth of its travel, and
-                // its pressure byte follows the trigger all the way.
-                if (b.trigger != SDL_GAMEPAD_AXIS_INVALID) {
-                    const std::uint8_t travel = trigger_byte(SDL_GetGamepadAxis(g, b.trigger));
-                    if (travel >= kTriggerThreshold) {
-                        pad.set(button, true, travel);
-                    }
-                }
+        const bool keyboard_here = m_assignment.keyboard == port;
+        pad.connected = port == 0 || g != nullptr || keyboard_here;
+        // The controllers stand still while another window has the keyboard, if the player asked.
+        // While the controls window captures a press, every pad reads as nothing held.
+        const bool read = g != nullptr && !m_capturing
+                          && (m_bindings[static_cast<std::size_t>(port)].tuning.background
+                              || SDL_GetKeyboardFocus() != nullptr);
+        if (read) {
+            PadInputs inputs = read_gamepad(g);
+            // A pad labelled Nintendo's way (A east), read by its labels: A is PadSouth.
+            if (m_bindings[static_cast<std::size_t>(port)].tuning.face_labels
+                && SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_SOUTH)
+                       == SDL_GAMEPAD_BUTTON_LABEL_B) {
+                swap_face_labels(inputs);
             }
-            // Squared as the DualShock 2's (pad.h): a round stick pushed to a diagonal runs.
+            // A stick's gate is what its own gamepad has shown: another one on the port starts
+            // afresh, with nothing held back.
             auto& gates = m_gates[static_cast<std::size_t>(port)];
             if (m_gates_of[static_cast<std::size_t>(port)] != g) {
                 m_gates_of[static_cast<std::size_t>(port)] = g;
                 gates = {};
+                m_latch[static_cast<std::size_t>(port)] = {};
             }
-            stick_bytes(
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFTX),
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFTY),
-                gates[0],
-                pad.left_x,
-                pad.left_y
+            m_last[static_cast<std::size_t>(port)] = inputs;
+            hold_back(
+                inputs,
+                m_bindings[static_cast<std::size_t>(port)].tuning.trigger_threshold,
+                m_latch[static_cast<std::size_t>(port)]
             );
-            stick_bytes(
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHTX),
-                SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHTY),
-                gates[1],
-                pad.right_x,
-                pad.right_y
-            );
+            apply_pad(m_bindings[static_cast<std::size_t>(port)], inputs, gates, pad);
+        } else {
+            // Gone, or not read: nothing of it is held, so nothing is held back either.
+            m_last[static_cast<std::size_t>(port)] = {};
+            m_latch[static_cast<std::size_t>(port)] = {};
+        }
+        if (keyboard_here && m_keyboard_table && !m_capturing) {
+            apply_keys(m_bindings[static_cast<std::size_t>(port)], keys, pad);
         }
         if (port == 0) {
-            if (m_keyboard_table) {
-                apply_keyboard(pad, keys);
-            }
             m_touch.idle(SDL_GetTicks());
             m_touch.apply(pad);
         }

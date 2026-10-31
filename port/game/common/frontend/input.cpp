@@ -11,8 +11,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <optional>
 #include <string>
+#include <system_error>
 
 #include <SDL3/SDL.h>
 
@@ -144,6 +146,49 @@ void take_keyboard() {
         g->keyboard_taken = true;
         g->input.set_keyboard_table(false);
     }
+}
+
+void open_controls(const std::filesystem::path& dir, const std::string& game) {
+    if (!g) {
+        return;
+    }
+    // Mappings for controllers SDL does not know as gamepads (SDL's gamecontrollerdb.txt format):
+    // with one, a controller is read by position as any other.
+    std::error_code error;
+    const std::filesystem::path mappings = dir / "gamecontrollerdb.txt";
+    if (std::filesystem::exists(mappings, error)) {
+        const int added = SDL_AddGamepadMappingsFromFile(mappings.string().c_str());
+        if (added < 0) {
+            log::warn("controls: {} cannot be read: {}", mappings.string(), SDL_GetError());
+        } else {
+            log::info("controls: {} controller mapping(s) from {}", added, mappings.string());
+        }
+    }
+    const auto apply = [](const controls::Store::PlayerBindings& bindings,
+                          const platform::Players& players) {
+        g->input.set_bindings(bindings);
+        g->input.set_players(players);
+    };
+    g->controls.open(dir, game, apply);
+    settings::Settings& set = settings::get();
+    if (!set.bindings.empty() && !g->controls.file(controls::Scope::Game).read_only()) {
+        const int moved = g->controls.adopt(set.bindings);
+        log::info(
+            "controls: {} binding(s) of the settings file moved to {}",
+            moved,
+            g->controls.path(controls::Scope::Game).string()
+        );
+        set.bindings.clear();
+        settings::save();
+    }
+}
+
+controls::Store* controls_store() {
+    return g ? &g->controls : nullptr;
+}
+
+platform::Input* input() {
+    return g ? &g->input : nullptr;
 }
 
 void capture_mouse(bool capture) {

@@ -84,11 +84,15 @@ earlier versions of this page): the other levels are then in the FileSystem
 dock under `levels/`, and Godot's first import takes about a minute and a
 half.
 
-All 19 levels take about 20 seconds and 800 MB to extract, one level per
-CPU core at a time. Options:
+All 19 levels take about 20 seconds and 800 MB to extract, several levels
+at a time, below normal priority so the computer stays usable. Options:
 
 - `--level N` (repeatable) exports only some levels.
-- `--jobs N` limits how many levels are exported at once.
+- `--jobs N` limits how many levels are exported at once: by default all but
+  an eighth of the CPU's threads (at least two kept free), or
+  `OPENRAC_EXTRACT_JOBS` when it is set (a number, or `all`). The launcher's
+  **Get the levels ready** reads the variable too: set it to `2` or `3` on a
+  computer that struggles while the levels are read.
 - `--terrain-lod 2` uses the coarsest terrain.
 
 ## Regenerate

@@ -30,6 +30,7 @@ struct Options {
     fs::path
         mods;  // levels edited in Godot and packed (editor/pack.py), read in place of the disc's
     fs::path settings;  // the player's settings (settings.h); in OpenRAC's data folder unless given
+    fs::path controls;  // the player's controls files (controls_store.h); likewise
     fs::path plugins;   // the native mods' list (mods.h): <data>/plugins/plugins.json unless given
     fs::path probes;    // the player's probe bakes, a level_NN folder each (enhanced rendering)
     bool no_mods = false;  // purist mode: no native mod is loaded (docs/port/MODS.md)

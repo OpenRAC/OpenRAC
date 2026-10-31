@@ -72,7 +72,10 @@ class TableTests(unittest.TestCase):
     def test_game_json_agrees(self):
         for game, versions in games.VERSIONS.items():
             catalogue = json.loads((ROOT / "games" / game / "game.json").read_text())
-            self.assertEqual(sorted(catalogue["versions"]), sorted(versions), game)
+            # Every version but those only recognised for extraction (no source, no port).
+            mapped = [name for name, entry in catalogue["versions"].items()
+                      if entry.get("source") or "port" in entry]
+            self.assertEqual(sorted(mapped), sorted(versions), game)
         for version in wads.VERSIONS:
             catalogue = json.loads((ROOT / "games" / version.game / "game.json").read_text())
             entry = catalogue["versions"][version.key]

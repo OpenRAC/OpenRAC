@@ -73,6 +73,7 @@
 #include "platform/pump.h"
 #include "platform/window.h"
 #include "renderer/gl.h"
+#include "renderer/texture_pack.h"
 #include "settings.h"
 #endif
 #if defined(OPENRAC_ANDROID_ACTIVITY)
@@ -80,6 +81,34 @@
 // activity calls with the arguments the launcher gave it. The executable beside it
 // (libopenrac-<id>-cli.so) keeps its main.
 #include <SDL3/SDL_main.h>
+#endif
+
+#ifdef OPENRAC_FRONTEND
+#include <stb_image.h>
+#include <stb_image_write.h>
+
+namespace {
+// A texture pack's PNGs (renderer/texture_pack.h), read and written with stb.
+std::optional<openrac::renderer::Rgba8Image> texture_pack_load(const std::filesystem::path& file) {
+    int w = 0;
+    int h = 0;
+    int channels = 0;
+    unsigned char* pixels = stbi_load(file.string().c_str(), &w, &h, &channels, 4);
+    if (pixels == nullptr) {
+        return std::nullopt;
+    }
+    openrac::renderer::Rgba8Image image(w, h);
+    std::copy(pixels, pixels + static_cast<std::ptrdiff_t>(w) * h * 4, image.pixels.begin());
+    stbi_image_free(pixels);
+    return image;
+}
+
+bool texture_pack_save(const std::filesystem::path& file, const openrac::renderer::Rgba8Image& image) {
+    return stbi_write_png(file.string().c_str(), image.width, image.height, 4, image.pixels.data(),
+                          image.width * 4)
+           != 0;
+}
+}  // namespace
 #endif
 
 namespace {
@@ -523,9 +552,6 @@ int main(int argc, char** argv) {
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
-        // What the player bound each pad button to, into the pad's own table (platform/bindings.h).
-        // A button with no binding keeps the port's default.
-        platform::set_bindings(settings::get().bindings);
         log::header("settings  " + settings::summary(), false);
         // The console's languages game_host.h names (openrac_game_language): 1 English to 5 Italian.
         constexpr int kFirstLanguage = 1;
@@ -548,6 +574,17 @@ int main(int argc, char** argv) {
             log::info("enhanced rendering on (Vulkan only); probe bakes from {}",
                       g_options.probes.empty() ? std::string("nowhere") : g_options.probes.string());
         }
+        // A texture pack (docs/port/TEXTURE_PACKS.md): <data>/texture_packs/<game id>/, and
+        // OPENRAC_DUMP_TEXTURES=DIR writes every texture under the names a pack uses.
+        {
+            const auto dump = env::value(env::Var::DumpTextures);
+            renderer::texture_pack::configure(
+                settings::get().texture_pack ? g_options.data / "texture_packs" / openrac_game.id
+                                             : fs::path{},
+                dump ? fs::path(std::string(*dump)) : fs::path{},
+                {texture_pack_load, texture_pack_save}
+            );
+        }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);
         // A mod that makes the Vulkan device with the port (a VR headset's) is loaded before the
         // window, which makes the device; without one the mods load after it, as always.
@@ -560,6 +597,8 @@ int main(int argc, char** argv) {
             log::fatalf("no window: {}", why);
         }
         g_window = true;
+        // The player's controls (controls_store.h): the global file, then the game's own over it.
+        frontend::open_controls(g_options.controls, openrac_game.game);
         if (mods_loaded) {
             apply_early_mod_input();
         }
