@@ -125,7 +125,7 @@ counter-clockwise from; an added box faces out.
 The game keeps the collision in a grid of 4-unit cells. The packer refuses,
 for that level's collision only, what the game cannot hold, and says why in
 `changes.txt`: more than 2,147,483,647 unique corners in one cell, anything
-outside 0 to 32,768 units on a positive axis in expanded collision (vanilla
+outside 0 to 131,072 units on a positive axis in expanded collision (vanilla
 queries remain inside 0 to 1024 units), or another format bound. **Check the
 limits** estimates the cell counts and world bounds. Positions snap to the
 game's grid, 1/16 unit across and 1/64 up; a

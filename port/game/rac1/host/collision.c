@@ -1166,7 +1166,7 @@ typedef struct {
 } LineCell;
 
 #define DDA_MAX 256
-#define EXTENDED_DDA_MAX 8192
+#define EXTENDED_DDA_MAX 32768
 static LineCell g_list[3 * EXTENDED_DDA_MAX + 2];
 
 /* `vmini`/`vmax` of the endpoints and the [0, 1024)^3 test from the MAC sign flags, in two steps:
@@ -1181,7 +1181,7 @@ static int in_world_lo(V3 a, V3 b) {
 }
 
 static int in_world_hi(V3 a, V3 b, int extended) {
-    const float limit = extended ? 32768.0f : K1024;
+    const float limit = extended ? 131072.0f : K1024;
     for (int k = 0; k < 3; ++k) {
         if (!neg(fsub(fmax2(a.v[k], b.v[k]), limit))) {
             return 0;
@@ -1639,7 +1639,7 @@ static int volume_new(Volume* v, gaddr centre, float radius, float height, int c
         return 0;
     }
     for (int k = 0; k < 3; ++k) {
-        if (!neg(fsub(v->hi.v[k], extended ? 32768.0f : K1024))) {
+        if (!neg(fsub(v->hi.v[k], extended ? 131072.0f : K1024))) {
             return 0;
         }
     }

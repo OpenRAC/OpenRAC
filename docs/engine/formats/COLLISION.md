@@ -47,7 +47,7 @@ scratchpad; it equals ⌈(4 + 4V + 4F + Q) / 16⌉ on all 429,484 NTSC-U cells,
 so a leaf is under 0x1000 bytes). OpenRAC's expanded format reserves a zero
 size byte as a marker for the tagged leaf below; the game reads that form only
 in expanded-RAM sessions. Retail collision answers queries inside [0, 1024)³.
-Marked mod collision supports positive coordinates inside [0, 32,768)³; the
+Marked mod collision supports positive coordinates inside [0, 131,072)³; the
 existing 16-bit node counts and signed node bases bound that expanded grid.
 
 **Layout in memory** (all 19 PAL levels): the root, then every slab table,

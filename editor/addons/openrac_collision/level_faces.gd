@@ -99,7 +99,7 @@ const ESTIMATE_CELL_LIMIT: int = 100000
 const CELL_LIMIT: int = 2147483647
 
 ## Expanded mod collision answers queries in this positive-coordinate box; vanilla remains 0..1024.
-const WORLD: int = 32768 * UNIT
+const WORLD: int = 131072 * UNIT
 
 ## The metadata names of the edits.
 const EDIT_KEYS: Array[String] = ["rc1_removed", "rc1_added", "rc1_hero_removed"]
@@ -1011,7 +1011,7 @@ func check_limits() -> PackedStringArray:
 		for p in corners_of(records, face):
 			# Expanded collision only answers queries inside this positive-coordinate world.
 			if p.x < 0 or p.y < 0 or p.z < 0 or p.x >= WORLD or p.y >= WORLD or p.z >= WORLD:
-				out.append("a face at %s is outside 0-32768 units" % (Vector3(p) / UNIT))
+				out.append("a face at %s is outside 0-131072 units" % (Vector3(p) / UNIT))
 				break
 	if not estimate_complete:
 		out.append("some cell estimates were skipped because face bounds span more than %d cells" % ESTIMATE_CELL_LIMIT)

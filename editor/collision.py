@@ -224,7 +224,7 @@ HEADER = 0x40
 LEAF_MAX = 0xff * 16                     # the cell word's size byte, in quadwords
 SPAN_XY, SPAN_Z = 511 * 4, 2047          # how far a leaf's vertex can be from its cell's centre
 SPAN_XY_LOW, SPAN_Z_LOW = -512 * 4, -2048
-WORLD_CELLS = 8192                       # expanded RAC1 query grid: 32,768 units per axis
+WORLD_CELLS = 32768                      # expanded RAC1 query grid: 131,072 units per axis
 WORLD = WORLD_CELLS * CELL * SCALE
 CELL_UNITS = CELL * SCALE                # a cell's side in model units (256)
 

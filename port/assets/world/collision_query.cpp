@@ -36,7 +36,7 @@ namespace cf = ps2;
 
 constexpr u32 kOneBits = 0x3f80'0000;
 constexpr u32 k1024Bits = 0x4480'0000;     // world -> x1024
-constexpr u32 k32768Bits = 0x4700'0000;    // expanded mod world bound
+constexpr u32 k131072Bits = 0x4800'0000;   // expanded mod world bound
 constexpr u32 kInv1024Bits = 0x3a80'0000;  // x1024 -> world
 constexpr u32 k2048Bits = 0x4500'0000;     // half a cell, x1024
 constexpr u32 k4096Bits = 0x4580'0000;     // a cell, x1024
@@ -409,7 +409,7 @@ struct Kernels {
             }
 
             // The larger end is not below 1024, so the segment leaves the grid.
-            const F limit = M::lit(expanded ? k32768Bits : k1024Bits);
+            const F limit = M::lit(expanded ? k131072Bits : k1024Bits);
             if (!M::neg(M::sub(M::max(a[k], b[k]), limit))) {
                 return false;
             }
@@ -764,7 +764,7 @@ struct Kernels {
         // The box must stay below 1024 on every axis.
         for (std::size_t k = 0; k < 3; ++k) {
             // The high corner reaches 1024, so the volume leaves the grid.
-            const F limit = M::lit(expanded ? k32768Bits : k1024Bits);
+            const F limit = M::lit(expanded ? k131072Bits : k1024Bits);
             if (!M::neg(M::sub(v.hi[k], limit))) {
                 return std::nullopt;
             }

@@ -93,7 +93,7 @@ discs. The pool size is data, not a fixed array:
     a dense-cell or large-world level has not yet been run in the game. Query scratch grows
     dynamically within signed 32-bit indices and available memory. RLCI carries 32-bit leaf
     offsets for up to 0xFFFFFF leaves, RLCT extends root-to-slab offsets, and marked static
-    collision queries reach positive coordinates below 32,768 units. Vanilla remains on its
+    collision queries reach positive coordinates below 131,072 units. Vanilla remains on its
     1,024-unit bounds and direct offsets.
   - **The renderer** draws from vectors; the only fixed cap is the port's
     4096-moby guard in render_native.c's mark_drawn_mobys. The game's own VU1

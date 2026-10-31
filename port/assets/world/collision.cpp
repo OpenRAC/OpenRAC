@@ -152,7 +152,7 @@ std::map<u8, std::size_t> CollisionMesh::type_counts() const {
 namespace {
 
 // The most entries a node may claim; the real levels stay well below it (assumed).
-constexpr std::size_t kMaxNodeEntries = 8192;
+constexpr std::size_t kMaxNodeEntries = 32768;
 
 // The most hero groups accepted before the count is called damaged (assumed).
 constexpr s32 kMaxHeroGroups = 100'000;
