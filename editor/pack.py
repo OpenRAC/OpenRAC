@@ -41,7 +41,7 @@ import re
 import struct
 from pathlib import Path
 
-from disc import SECTOR
+from disc import LEVEL_HEADER_SIZE, LEVEL_RANGES, SECTOR
 from formats import FormatError, unpack
 from level import decoded, load_level
 import gamedata
@@ -163,6 +163,15 @@ def placement(t: tuple) -> tuple[tuple, tuple, float]:
     else:                                   # looking straight up or down: x and z turn about one axis
         rx, rz = math.atan2(-r[1][2], r[1][1]), 0.0
     return tuple(t[9:12]), (rx, ry, rz), scale
+
+
+def set_expanded_range(disc, info: dict, headers: dict[int, bytearray], slot: int,
+                       first: int, count: int) -> None:
+    """Set one range in a level header, preserving other expanded ranges."""
+    level = info["id"]
+    if level not in headers:
+        headers[level] = bytearray(disc.read(info["header_lba"] * SECTOR, LEVEL_HEADER_SIZE))
+    struct.pack_into("<II", headers[level], 8 + slot * 8, first, count)
 
 
 def apply(node: dict, record: dict, original: dict | None, whole: bool, problems: list[str]) -> list[str]:
@@ -336,7 +345,8 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
     return gamedata.pack_level(gameplay, gp.replace(gameplay, sections), scene, numbering, changes, problems)
 
 
-def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches: list[str]) -> tuple[list[str], list[str]]:
+def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches: list[str],
+                   virtual: list[str], headers: dict[int, bytearray]) -> tuple[list[str], list[str], bool]:
     """The level's collision and its moby classes' collision as the scene and the class scenes
     have them: when they differ from the disc's, the level data's sectors that change (the core
     data stream, and the core index when a block moved or the core grew) go to
@@ -374,8 +384,19 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
         core, index, more = collision_scene.core_with(core, index, at, len(level.block(at)), new)
         notes += more
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
-    runs = collision_scene.level_data_patches(data, core, index, level.index, compress)
+    expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress)
     name = f"level_{info['id']:02}"
+    if expanded is not None:
+        first = 0x10000000 + info["id"] * 0x01000000 + 0x00800000
+        count = -(-len(expanded) // SECTOR)
+        file = f"{name}/data_{disc.version.key}.bin"
+        (out / file).parent.mkdir(parents=True, exist_ok=True)
+        (out / file).write_bytes(expanded + bytes(count * SECTOR - len(expanded)))
+        virtual.append(f"{first}\t{count}\t{file}\t{info['id']}\t0\t{info['ranges']['data']['lba']}\t"
+                       f"{info['ranges']['data']['sectors']}")
+        set_expanded_range(disc, info, headers, LEVEL_RANGES.index("data"), first, count)
+        return changes + notes + [f"level data expanded to {len(expanded)} bytes in virtual sectors"], problems, True
+    runs = collision_scene.level_data_patches(data, core, index, level.index, compress)
     for (offset, payload), kind in zip(runs, ["index", "core"] if len(runs) == 2 else ["core"]):
         file = f"{name}/{kind}_{disc.version.key}.bin"
         (out / name).mkdir(parents=True, exist_ok=True)
@@ -387,7 +408,8 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
 def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
     """Writes OUT from the scenes of PROJECT, for DISC's version. Returns (levels packed, mobys changed)."""
     import scenery          # it reads the scene with this module's reader
-    patches, report, packed, total = [], [], 0, 0
+    patches, virtual, report, packed, total = [], [], [], 0, 0
+    headers: dict[int, bytearray] = {}
 
     def scene_of(info: dict) -> Path | None:
         """The level's scene: one project with every level, or a project per level (`godot --split`)."""
@@ -425,7 +447,8 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             placements, scenery_changes, scenery_problems = scenery.pack_scenery(load_level(disc, info), text)
         # Collision, the level's and its moby classes': the level data's core (collision_scene.py,
         # moby_collision_scene.py), only when the scenes' differ.
-        collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out, patches)
+        collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out,
+                                                                      patches, virtual, headers)
         if any(solid for _, _, _, solid in static_instances) and collision_problems:
             raise FormatError('Static import collision could not be packed: ' + '; '.join(collision_problems),
                               code="static-import")
@@ -458,17 +481,35 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         if decoded(stream) != edited:
             raise FormatError(f"level {info['id']}: the packed file does not read back", code="pack-internal")
         room = place["sectors"] * SECTOR
-        if len(stream) > room:
-            raise FormatError(f"level {info['id']}: the packed gameplay file is {len(stream)} bytes, "
-                              f"{len(stream) - room} more than its place on the disc", code="level-too-big")
-        name = f"{name}/gameplay_{disc.version.key}.wad"
-        (out / name).parent.mkdir(parents=True, exist_ok=True)
-        (out / name).write_bytes(stream + bytes(room - len(stream)))
-        patches.append(f"{place['lba']}\t{place['sectors']}\t{name}")
+        if len(stream) <= room:
+            file = f"{name}/gameplay_{disc.version.key}.wad"
+            (out / file).parent.mkdir(parents=True, exist_ok=True)
+            (out / file).write_bytes(stream + bytes(room - len(stream)))
+            patches.append(f"{place['lba']}\t{place['sectors']}\t{file}")
+        else:
+            # Store expanded content in the mod's virtual disc and redirect
+            # only this level's header. The user's disc is never rewritten.
+            first = 0x10000000 + info["id"] * 0x01000000
+            count = -(-len(stream) // SECTOR)
+            file = f"{name}/gameplay_{disc.version.key}.wad"
+            (out / file).parent.mkdir(parents=True, exist_ok=True)
+            (out / file).write_bytes(stream + bytes(count * SECTOR - len(stream)))
+            range_index = LEVEL_RANGES.index(disc.version.gameplay)
+            virtual.append(f"{first}\t{count}\t{file}\t{info['id']}\t{range_index}\t"
+                           f"{place['lba']}\t{place['sectors']}")
+            set_expanded_range(disc, info, headers, range_index, first, count)
+            report.append(f"  gameplay stream expanded to {len(stream)} bytes in virtual sectors")
         packed += 1
         total += len(changes)
     out.mkdir(parents=True, exist_ok=True)
+    for level, header in sorted(headers.items()):
+        info = survey["levels"][level]
+        file = f"level_{level:02}/header_{disc.version.key}.bin"
+        (out / file).parent.mkdir(parents=True, exist_ok=True)
+        (out / file).write_bytes(header + bytes(-len(header) % SECTOR))
+        patches.append(f"{info['header_lba']}\t{-(-LEVEL_HEADER_SIZE // SECTOR)}\t{file}")
     (out / "patches.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in patches))
+    (out / "virtual.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in virtual))
     (out / "changes.txt").write_text("\n".join(report) + "\n" if report else "No level differs from the disc.\n")
     (out / "packed.json").write_text(json.dumps({"format": 1, "game": "rac1", "version": disc.version.key}) + "\n")
     return packed, total

@@ -98,9 +98,10 @@ LEVELS_FORMAT = FORMAT
 # metal packets and chrome and glass maps; 3 only added classes, 4 the clamped textures' samplers (a
 # pack's older models still draw, repeating them) (port.py FORMAT).
 MODELS_SINCE = 2
-FILES = re.compile(r"^(?:patches\.tsv|level_\d{2}/(?:textures/[A-Za-z0-9_.-]+\.png|(?:mobys|ties|shrubs)/"
+FILES = re.compile(r"^(?:patches\.tsv|virtual\.tsv|level_\d{2}/(?:textures/[A-Za-z0-9_.-]+\.png|(?:mobys|ties|shrubs)/"
                    r"[A-Za-z0-9_.-]+\.glb|terrain\.glb|placements\.json|gameplay_(?:" + "|".join(VERSIONS) + r")\.wad"
-                   r"|(?:core|index)_(?:" + "|".join(VERSIONS) + r")\.bin))$")
+                   r"|(?:core|index|data)_(?:" + "|".join(VERSIONS) + r")\.bin"
+                   r"|header_(?:" + "|".join(VERSIONS) + r")\.bin))$")
 TEXTURE = re.compile(r"^level_(\d{2})/textures/([A-Za-z0-9_.-]+)\.png$")
 MODEL = re.compile(r"^level_(\d{2})/(moby|tie|shrub)s/\2_(\d+)\.glb$")
 TERRAIN = re.compile(r"^level_(\d{2})/terrain\.glb$")
@@ -307,6 +308,39 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
                     for line in data.decode("utf-8").splitlines():
                         if line and not line.startswith("#") and len(line.split("\t")) != 3:
                             raise ValueError(f"the line {line!r} is not sector, count, file")
+                elif rel == "virtual.tsv":
+                    ranges = []
+                    for line in data.decode("utf-8").splitlines():
+                        if not line or line.startswith("#"):
+                            continue
+                        fields = line.split("\t")
+                        if len(fields) not in (3, 7):
+                            raise ValueError(f"the line {line!r} is not sector, count, file")
+                        first, count = int(fields[0]), int(fields[1])
+                        target = fields[2]
+                        if first < 0 or count <= 0 or first + count > 0x7fffffff:
+                            raise ValueError(f"the line {line!r} has an invalid virtual sector range")
+                        if not FILES.fullmatch(target) or target not in source.files:
+                            raise ValueError(f"the line {line!r} names a missing or invalid file")
+                        if len(source.read(target)) < count * 2048:
+                            raise ValueError(f"{target} is shorter than its declared virtual sector range")
+                        if len(fields) == 7:
+                            level, slot, original_first, original_count = map(int, fields[3:])
+                            if not 0 <= level < 19 or not 0 <= slot < 4 or original_first < 0 or original_count <= 0:
+                                raise ValueError(f"the line {line!r} has invalid header-range metadata")
+                            if not target.startswith(f"level_{level:02}/"):
+                                raise ValueError(f"the line {line!r} maps a file from another level")
+                            header_rel = f"level_{level:02}/header_{manifest['version']}.bin"
+                            patch_source = source.read("patches.tsv").decode("utf-8") if "patches.tsv" in source.files else ""
+                            if not any(row.split("\t")[-1] == header_rel for row in patch_source.splitlines()
+                                       if row and not row.startswith("#")):
+                                raise ValueError(f"the line {line!r} has no matching level-header patch")
+                        ranges.append((first, first + count))
+                    ranges.sort()
+                    if len(ranges) > 1024:
+                        raise ValueError("more than 1024 virtual sector ranges")
+                    if any(ranges[i][0] < ranges[i - 1][1] for i in range(1, len(ranges))):
+                        raise ValueError("virtual sector ranges overlap")
             except (ValueError, pngio.PngError, gltf_read.GltfError, UnicodeDecodeError, struct.error) as exc:
                 problems.append(f"{rel}: {exc}")
                 continue
@@ -767,7 +801,49 @@ def cross_disc(root: Path, manifest: dict, target: Target) -> tuple[dict, list[s
 def write_layers(layers, target, temporary: Path) -> dict:
     """Compose one isolated world from ordered layers; no destination shares an output folder."""
     temporary.mkdir(parents=True, exist_ok=True)
-    owners, patches, notes, skipped = {}, {}, [], {}
+    owners, patches, virtuals, notes, skipped = {}, {}, {}, [], {}
+
+    def supersede_expanded_stream(rel: str, version: str) -> None:
+        found = re.fullmatch(r"level_(\d{2})/(?:gameplay_(?:pal|ntsc)\.wad|(?:core|index)_(?:pal|ntsc)\.bin)", rel)
+        if not found:
+            return
+        level = int(found.group(1))
+        slot = 1 if "/gameplay_" in rel else 0
+        previous = virtuals.pop((level, slot), None)
+        if previous is None:
+            return
+        first, count, file, owner, logical_level, logical_slot, original_first, original_count = previous
+        header_rel = f"level_{level:02}/header_{version}.bin"
+        header_path = temporary / header_rel
+        if header_path.is_file():
+            header = bytearray(header_path.read_bytes())
+            struct.pack_into("<II", header, 8 + slot * 8, original_first, original_count)
+            header_path.write_bytes(header)
+        if not any(k[0] == level for k in virtuals if isinstance(k, tuple) and len(k) == 2):
+            for patch_key, (patch_rel, _) in list(patches.items()):
+                if patch_rel == header_rel:
+                    del patches[patch_key]
+            header_path.unlink(missing_ok=True)
+            owners.pop(header_rel, None)
+
+    def reconcile_headers() -> None:
+        """Reapply every active virtual range after a layer replaces a level header."""
+        for _, (header_rel, _) in list(patches.items()):
+            found = re.fullmatch(r"level_(\d{2})/header_(?:pal|ntsc)\.bin", header_rel)
+            if not found:
+                continue
+            level = int(found.group(1))
+            path = temporary / header_rel
+            if not path.is_file():
+                continue
+            header = bytearray(path.read_bytes())
+            changed = False
+            for first, count, _, _, logical_level, slot, _, _ in virtuals.values():
+                if logical_level == level and slot is not None:
+                    struct.pack_into("<II", header, 8 + slot * 8, first, count)
+                    changed = True
+            if changed:
+                path.write_bytes(header)
     for name, ident, root, manifest in layers:
         made = manifest if isinstance(manifest, str) else manifest.get("version", "pal")
         game = GAME if isinstance(manifest, str) else manifest.get("game", GAME)
@@ -797,9 +873,31 @@ def write_layers(layers, target, temporary: Path) -> dict:
                     if line.startswith("#") or len(fields) != 3:
                         continue
                     key = (int(fields[0]), int(fields[1]))
+                    supersede_expanded_stream(fields[2], made)
                     if key in patches and patches[key][1] != ident:
                         notes.append(f"{name} replaces the level file {patches[key][1]} put at sector {key[0]}")
                     patches[key] = (fields[2], ident)
+                continue
+            if rel == "virtual.tsv":
+                for line in source.read_text().splitlines():
+                    fields = line.split("\t")
+                    if line.startswith("#") or len(fields) not in (3, 7):
+                        continue
+                    first, count = int(fields[0]), int(fields[1])
+                    if len(fields) == 7:
+                        level, slot, original_first, original_count = map(int, fields[3:])
+                        key = (level, slot)
+                    else:
+                        level = slot = original_first = original_count = None
+                        key = ("range", first, count)
+                    end = first + count
+                    for old, previous in list(virtuals.items()):
+                        old_first, old_count = previous[0], previous[1]
+                        if first < old_first + old_count and old_first < end:
+                            if previous[3] != ident:
+                                notes.append(f"{name} replaces overlapping virtual sectors from {previous[3]}")
+                            del virtuals[old]
+                    virtuals[key] = (first, count, fields[2], ident, level, slot, original_first, original_count)
                 continue
             if rel in owners and owners[rel] != ident:
                 notes.append(f"{rel}: {name} wins over {owners[rel]}")
@@ -811,9 +909,18 @@ def write_layers(layers, target, temporary: Path) -> dict:
             else:
                 place(source, temporary / rel)
             owners[rel] = ident
+        reconcile_headers()
+    if len(patches) > 1024 or len(virtuals) > 1024:
+        raise PackError("the stacked level data exceeds OpenRAC's 1024 patch or virtual-range limit")
     (temporary / "patches.tsv").write_text(
         "# first sector\tsectors\tfile (beside this list)\n"
         + "".join(f"{first}\t{count}\t{file}\n" for (first, count), (file, _) in sorted(patches.items())))
+    (temporary / "virtual.tsv").write_text(
+        "# first sector\tsectors\tfile (beside this list)\n"
+        + "".join(f"{first}\t{count}\t{file}"
+                 + (f"\t{level}\t{slot}\t{original_first}\t{original_count}" if level is not None else "") + "\n"
+                 for first, count, file, _, level, slot, original_first, original_count in
+                 sorted(virtuals.values(), key=lambda row: row[0])))
     summary = {"format": 1, "version": target.version if target else None,
                "layers": [{"id": ident, "name": name} for name, ident, _, _ in layers],
                "files": dict(sorted(owners.items())), "notes": notes,

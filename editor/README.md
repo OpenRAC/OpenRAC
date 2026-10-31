@@ -214,7 +214,9 @@ assets/packed/rac1/pal/
   level_NN/placements.json    one per level whose ties or shrubs were edited, for the native port
   level_NN/core_<version>.bin  one per level whose collision (the level's or a moby class's) was edited: the level data's sectors of its core data
   level_NN/index_<version>.bin with it, when the core data grew (a collision moved to its end): the core index's sector
+  level_NN/data_<version>.bin   expanded level-data container when the compressed core outgrows its disc slot
   patches.tsv                 first sector, sector count, file
+  virtual.tsv                 expanded streams: virtual first sector, sector count, file, level range and original range
   changes.txt                 what changed, in words
   packed.json                 the disc it was packed from
 ```
@@ -226,6 +228,14 @@ this does not make PAL and NTSC-U packs interchangeable. A packed folder serves
 the disc it was packed from only; the
 Mods page stacks it for that disc and leaves it out for the other
 ([overrides.py](overrides.py)).
+
+When an edited gameplay stream or level-data core no longer fits its original
+sector range, the packer writes a padded file under `level_NN/`, gives it a
+virtual sector range in `virtual.tsv`, and patches that level's header to point
+there. OpenRAC serves those sectors only while this mod stack is active. The
+disc image and no-mod read path stay unchanged. This removes the original
+disc-slot ceiling; it does not remove the game's memory, object-index, or
+collision-format limits.
 
 A PAL project made before this read the 50 Hz copy. The launcher says so
 ("Your levels need an update") and its **Update project** runs **Extract the

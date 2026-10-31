@@ -64,6 +64,34 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
             raise overrides.PackError("Keep a working Ship under Game/LevelSettings for the return journey")
     files = {rel: path for rel, path in overrides.layer_files(packed).items()
              if rel.startswith(prefix + "/")}
+    virtual_rows = []
+    virtual_file = packed / "virtual.tsv"
+    if virtual_file.is_file():
+        for line in virtual_file.read_text().splitlines():
+            if not line.strip() or line.startswith("#"):
+                continue
+            fields = line.split("\t")
+            if len(fields) not in (3, 7):
+                raise overrides.PackError("Packed virtual.tsv has a malformed row")
+            first, count, rel = fields
+            try:
+                valid = int(first) >= 0 and int(count) > 0
+            except ValueError:
+                valid = False
+            if not valid or not overrides.FILES.fullmatch(rel):
+                raise overrides.PackError("Packed virtual.tsv has an invalid sector range or file")
+            if len(fields) == 7:
+                try:
+                    level_id, slot, original_first, original_count = map(int, fields[3:])
+                    valid_meta = 0 <= level_id < 19 and 0 <= slot < 4 and original_first >= 0 and original_count > 0
+                except ValueError:
+                    valid_meta = False
+                if not valid_meta:
+                    raise overrides.PackError("Packed virtual.tsv has invalid header-range metadata")
+            if rel.startswith(prefix + "/"):
+                if rel not in files:
+                    raise overrides.PackError(f"Packed virtual level file {rel} is missing")
+                virtual_rows.append(line)
     terrain = level_dir / "terrain.glb"
     import static_assets
     packed_level = packed / prefix
@@ -112,6 +140,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
         (stage / "patches.tsv").write_text("# first sector\tsectors\tfile\n" + "\n".join(patches) + "\n")
+        (stage / "virtual.tsv").write_text("# first sector\tsectors\tfile\n" + "\n".join(virtual_rows) + "\n")
         (stage / overrides.MANIFEST).write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
         _, _, _, problems = overrides.check(stage)
         if problems:

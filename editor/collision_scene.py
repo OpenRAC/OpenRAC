@@ -533,3 +533,26 @@ def level_data_patches(data: bytes, core: bytes, index: bytes, original_index: b
         first, last = start // SECTOR, -(-end // SECTOR)
         out.append((first * SECTOR, bytes(new[first * SECTOR:last * SECTOR])))
     return out
+
+
+def expanded_level_data(data: bytes, core: bytes, index: bytes, original_index: bytes, compress) -> bytes | None:
+    """Build a larger level-data container when the compressed core outgrows its disc slot.
+
+    Existing sections keep their offsets. The replacement core stream is appended on a 0x40
+    boundary and the container's core range is redirected to it. None means the original slot fits.
+    """
+    index_at, index_size = struct.unpack_from("<ii", data, 2 * 8)
+    core_at, core_size = struct.unpack_from("<ii", data, 10 * 8)
+    stream = compress(core, data[core_at:core_at + 16])
+    if len(stream) <= core_size:
+        return None
+    if len(index) > index_size:
+        raise FormatError("the expanded core index no longer fits its level-data section")
+    out = bytearray(data)
+    out[index_at:index_at + index_size] = index + bytes(index_size - len(index))
+    out[core_at:core_at + core_size] = bytes(core_size)
+    out += bytes(-len(out) % 0x40)
+    new_core_at = len(out)
+    out += stream
+    struct.pack_into("<ii", out, 10 * 8, new_core_at, len(stream))
+    return bytes(out)

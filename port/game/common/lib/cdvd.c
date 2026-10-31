@@ -15,7 +15,8 @@
 #include "openrac/host_env.h"
 
 #define SECTOR 2048
-#define MAX_PATCHES 64
+#define MAX_PATCHES 1024
+#define MAX_VIRTUAL 1024
 
 static FILE* disc;
 static int last_error;
@@ -29,6 +30,64 @@ static struct {
 } patches[MAX_PATCHES];
 static int patch_count = -1; /* -1: the list has not been read yet */
 static unsigned patch_generation;
+
+/* Expanded mod-owned streams, outside the disc's LBA space. virtual.tsv has
+ * first sector, sector count, file. With no such rows the retail read path is
+ * byte-for-byte the same. */
+static struct { unsigned first, count; FILE* file; } virtuals[MAX_VIRTUAL];
+static int virtual_count = -1;
+static unsigned virtual_generation;
+
+static void load_virtuals(void) {
+    char path[4096], line[4096], name[2048];
+    FILE* list;
+    virtual_count = 0;
+    if (openrac_game_mods_dir == NULL) {
+        return;
+    }
+    snprintf(path, sizeof path, "%s/virtual.tsv", openrac_game_mods_dir);
+    list = fopen(path, "r");
+    if (list == NULL) {
+        return;
+    }
+    while (fgets(line, sizeof line, list) != NULL && virtual_count < MAX_VIRTUAL) {
+        unsigned first, count;
+        if (line[0] == '#' || sscanf(line, "%u\t%u\t%2047[^\t\r\n]", &first, &count, name) != 3 || count == 0) {
+            continue;
+        }
+        snprintf(path, sizeof path, "%s/%s", openrac_game_mods_dir, name);
+        FILE* file = fopen(path, "rb");
+        if (file == NULL) continue;
+        virtuals[virtual_count].first = first;
+        virtuals[virtual_count].count = count;
+        virtuals[virtual_count++].file = file;
+    }
+    fclose(list);
+}
+
+static void refresh_virtuals(void) {
+    int i;
+    if (virtual_generation != openrac_game_mods_generation) {
+        for (i = 0; i < virtual_count; ++i) fclose(virtuals[i].file);
+        virtual_count = -1;
+        virtual_generation = openrac_game_mods_generation;
+    }
+    if (virtual_count < 0) load_virtuals();
+}
+
+static int virtual_sector(unsigned sector, unsigned char* out) {
+    int i;
+    refresh_virtuals();
+    for (i = 0; i < virtual_count; ++i) {
+        if (sector >= virtuals[i].first && sector - virtuals[i].first < virtuals[i].count) {
+            const unsigned offset = sector - virtuals[i].first;
+            if (fseek(virtuals[i].file, (long)offset * SECTOR, SEEK_SET) != 0
+                || fread(out, 1, SECTOR, virtuals[i].file) != SECTOR) return -1;
+            return 1;
+        }
+    }
+    return 0;
+}
 
 static void load_patches(void) {
     char path[4096], line[4096], name[2048];
@@ -130,16 +189,40 @@ int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer,
         last_error = 0x01; /* any non-zero error: the game retries */
         return 0;
     }
+    refresh_virtuals();
+    if (virtual_count == 0) {
+#if defined(_WIN32)
+        if (_fseeki64(f, (long long)sector * SECTOR, SEEK_SET) != 0
+#else
+        if (fseeko(f, (off_t)sector * SECTOR, SEEK_SET) != 0
+#endif
+            || fread(G(buffer), SECTOR, count, f) != count) {
+            fprintf(stderr, "[error] disc read of %u sectors at %u failed\n", count, sector);
+            last_error = 0x32;
+            return 0;
+        }
+        apply_patches(sector, count, (unsigned char*)G(buffer));
+        last_error = 0;
+        return 1;
+    }
+    /* Reads may cross from the physical image into mod-owned virtual sectors.
+     * Resolve sector by sector so mixed reads preserve the disc bytes too. */
+    for (unsigned i = 0; i < count; ++i) {
+        unsigned char* dst = (unsigned char*)G(buffer) + (size_t)i * SECTOR;
+        int mapped = virtual_sector(sector + i, dst);
+        if (mapped < 0) { last_error = 0x32; return 0; }
+        if (mapped > 0) continue;
 #if defined(_WIN32)
     /* Windows' C library has no fseeko; _fseeki64 is its 64-bit seek. */
-    if (_fseeki64(f, (long long)sector * SECTOR, SEEK_SET) != 0
+        if (_fseeki64(f, (long long)(sector + i) * SECTOR, SEEK_SET) != 0
 #else
-    if (fseeko(f, (off_t)sector * SECTOR, SEEK_SET) != 0
+        if (fseeko(f, (off_t)(sector + i) * SECTOR, SEEK_SET) != 0
 #endif
-        || fread(G(buffer), SECTOR, count, f) != count) {
-        fprintf(stderr, "[error] disc read of %u sectors at %u failed\n", count, sector);
-        last_error = 0x32;
-        return 0;
+            || fread(dst, SECTOR, 1, f) != 1) {
+            fprintf(stderr, "[error] disc read of sector %u failed\n", sector + i);
+            last_error = 0x32;
+            return 0;
+        }
     }
     apply_patches(sector, count, (unsigned char*)G(buffer));
     last_error = 0;
