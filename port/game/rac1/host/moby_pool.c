@@ -261,7 +261,7 @@ static int near_an_eye(gaddr m, float reach2) {
 /* What the last run list of the level's mobys did with each slot (interface 1.9, moby_run: the
  * OPENRAC_MOBY_RUN_* values, -1 not looked at), the camera it measured from, and how many were
  * built in the level load. The pause menu's own mobys' lists are not kept. */
-#define RUN_SLOTS 4096
+#define RUN_SLOTS 32768
 
 static struct {
     uint32_t load;

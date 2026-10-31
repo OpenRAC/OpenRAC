@@ -145,7 +145,7 @@ static void mark_drawn_mobys(gaddr first, int count) {
     const int max_distance = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x00160030u)));
     const uint8_t* groups = G(OPENRAC_DATA(RAC1_ADDR(0x001940C0u)));
     for (gaddr m = first; count < 0 || m != end; m += 0x100) {
-        if (m - first >= 0x100u * 4096u) {
+        if (m - first >= 0x100u * 32768u) {
             break;
         }
         uint8_t* b = G(m);
@@ -181,10 +181,10 @@ int func_00212658(int a0, int a1, int a2, int a3) {
     mark_drawn_mobys((gaddr)a0, a2);
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
     if (openrac_game_mobys_drawn((gaddr)a0, a2)) {
-        /* A moby marker in the display list (put_marker), the count in bits 32-39 and the first
+        /* A moby marker in the display list (put_marker), the count in bits 32-47 and the first
          * moby in the low word: the mobys of a screen the game renders to a texture (the vendor's
          * item and salesman) are drawn into it there. */
-        put_marker((0x4D42ull << 48) | ((uint64_t)(a2 & 0xFF) << 32) | (uint32_t)a0);
+        put_marker((0x4D42ull << 48) | ((uint64_t)(a2 & 0xFFFF) << 32) | (uint32_t)a0);
     }
     (void)a0;
     (void)a1;

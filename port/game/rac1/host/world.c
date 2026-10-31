@@ -101,7 +101,7 @@ enum {
 /* A placed moby deleted (DeleteMoby): its slot is never used again in the level load. */
 #define STATE_DELETED 0xFDu
 /* The most records a level's file has that the keys follow, and eyes. */
-#define KEYS_MAX 4096
+#define KEYS_MAX 32768
 #define EYES_MAX 8
 
 static int16_t key_of[KEYS_MAX];  /* by slot: its key, -1 none */
@@ -180,7 +180,7 @@ static void read_keys(void) {
     /* Every placed moby has its record; the table runs on past the last for none. */
     for (int32_t record = 0; record < KEYS_MAX && found < placed; ++record) {
         const int16_t slot = GREF(int16_t, FILE_ORDER + 2u * (unsigned)record);
-        if (slot >= 0 && slot < placed && slot < KEYS_MAX) {
+        if (slot >= 0 && slot < placed) {
             key_of[slot] = (int16_t)record;
             slot_of[record] = slot;
             ++found;

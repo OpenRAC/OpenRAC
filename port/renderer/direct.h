@@ -208,7 +208,7 @@ public:
         m_wide_2d = wide_2d;
     }
     // Mobys the game drew while rendering to a texture: a marker of the same form, kMobyMarker in
-    // the top 16 bits, the mobys' count in bits 32-39 and the first's address in the low 32,
+    // the top 16 bits, the mobys' count in bits 32-47 and the first's address in the low 32,
     // becomes a draw of no vertices (DirectDraw::mobys) in the target being drawn.
     static constexpr std::uint64_t kMobyMarker = 0x4D42;
     // Where the world is drawn: a marker of the same form, kWorldMarker in the top 16 bits, put by

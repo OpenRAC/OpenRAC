@@ -355,7 +355,7 @@ int openrac_game_mobys_drawn(gaddr first, int count) {
             frontend::mobys_drawn(
                 std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()), first, count
             );
-            return count <= 0xFF ? 1 : 0;
+            return count <= 0xFFFF ? 1 : 0;
         }
 #else
         (void)first;

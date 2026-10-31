@@ -45,8 +45,8 @@ void refresh_frame_snapshot(const renderer::FrameBuffer& world) {
 // Draws menu mobys using their captured cameras, without reading live game memory.
 void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target) {
     const std::uint32_t first = static_cast<std::uint32_t>(target.marker);
-    // The HUD marker packs the first game address below an eight-bit instance count.
-    const std::uint32_t count = static_cast<std::uint32_t>(target.marker >> 32) & 0xFFu;
+    // The HUD marker packs the first game address below a 16-bit instance count.
+    const std::uint32_t count = static_cast<std::uint32_t>(target.marker >> 32) & 0xFFFFu;
     std::vector<scene::Instance> instances;
     const host::GameState* camera = nullptr;
 
@@ -107,8 +107,8 @@ void draw_screen_mobys(
     bool clear_depth
 ) {
     const std::uint32_t first = static_cast<std::uint32_t>(marker);
-    // The HUD marker packs the first game address below an eight-bit instance count.
-    const std::uint32_t count = static_cast<std::uint32_t>(marker >> 32) & 0xFFu;
+    // The HUD marker packs the first game address below a 16-bit instance count.
+    const std::uint32_t count = static_cast<std::uint32_t>(marker >> 32) & 0xFFFFu;
     std::vector<scene::Instance> instances;
     const host::GameState* camera = nullptr;
     for (const Kept::TargetMoby& moby : scene.target_mobys) {
