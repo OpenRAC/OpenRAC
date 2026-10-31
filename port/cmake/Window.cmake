@@ -379,6 +379,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_lighting.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/shading_brdf.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_transmission.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/environment.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_transport.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/atmosphere_sample.glsl"
@@ -457,6 +458,7 @@ target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer)
 openrac_warnings(openrac_game_rac1_profile)
 openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
+openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with
@@ -801,14 +803,17 @@ foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu e
 endforeach()
 target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_optics_gpu.cpp
+  enhanced/tests/water_foam_gpu.cpp
+  enhanced/tests/water_transmission_gpu.cpp
   enhanced/tests/environment_gpu.cpp
   enhanced/tests/water_window_gpu.cpp)
 add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")
 
-add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c)
-target_include_directories(water_host_test PRIVATE enhanced/tests/water_host_stubs
-  game/common/include runtime/include)
+add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
+  game/rac1/host/water.c)
+target_include_directories(water_host_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" enhanced/tests/water_host_stubs
+  game/rac1-ntsc/host game/common/include runtime/include)
 openrac_warnings(water_host_test)
 add_test(NAME water_host COMMAND water_host_test)
 

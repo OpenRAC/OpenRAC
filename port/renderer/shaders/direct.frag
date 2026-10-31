@@ -112,6 +112,17 @@ void main() {
 #ifdef OPENRAC_EFFECT_MATERIAL
     c.rgb = effect_material(c.rgb / 255.0) * 255.0;
 #endif
+#ifdef OPENRAC_EFFECT_COMPOSITE
+    if (effect_has_composite()) {
+        vec3 medium_transmittance = vec3(1), medium_scatter = vec3(0);
+#ifdef OPENRAC_EFFECT_ATMOSPHERE
+        medium_transmittance = atmosphere_apply(vec3(1), v_world, false);
+        medium_scatter = atmosphere_apply(vec3(0), v_world, atmosphere_inscatter != 0);
+#endif
+        out_colour = effect_composite(medium_transmittance, medium_scatter);
+        return;
+    }
+#endif
 #ifdef OPENRAC_EFFECT_ATMOSPHERE
     c.rgb = atmosphere_apply(c.rgb / 255.0, v_world, atmosphere_inscatter != 0) * 255.0;
 #endif

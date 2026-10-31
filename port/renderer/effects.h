@@ -74,6 +74,9 @@ public:
     // Upload the small per-pass instance stream after collecting strips, before any draws.
     virtual void upload_meshes() {}
 
+    // Snapshot the scene before any effects draw, only when a replacement mesh is visible.
+    virtual void prepare_scene(const FrameInput&, const RenderTarget&) {}
+
     // Publish per-pass counters after drawing, avoiding work on every material bind.
     virtual void finish_pass() {}
 

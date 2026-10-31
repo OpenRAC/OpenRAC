@@ -158,6 +158,7 @@ void set_packets(SceneFrame& frame) {
     input.enhanced_water = enhanced;
     input.lily_momentum = graphics.lily_momentum;
     input.water_hands = scene.water_hands;
+    input.water_impulses = scene.water_impulses;
     for (const auto& instance : scene.live) {
         if (instance.hero_shadow_anchor) {
             const renderer::Vec3 point{

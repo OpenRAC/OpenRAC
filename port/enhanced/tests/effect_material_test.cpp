@@ -327,6 +327,109 @@ int main() {
         // The last mixed frame moved the camera away from these quads.
         input.camera.position = {.5f, .5f, 4};
         input.camera.view = renderer::look_along(input.camera.position, {0, 0, -1}, {0, 1, 0});
+        // Real material snapshots must transmit scene colour once, including MSAA and resize.
+        vertices[0].x = vertices[2].x = 0;
+        vertices[1].x = 1;
+        input.strips = std::span<const renderer::EffectStrip>(strips.data(), 1);
+        input.effects = {};
+        input.enhanced_water = true;
+        input.water_interactor.reset();
+        input.frame = 1000;
+        input.seconds = 2;
+        for (const int samples : {1, 4}) {
+            CHECK(target.create(samples == 1 ? 64 : 79, samples == 1 ? 64 : 53, error, samples));
+            state.target = {target.id(), target.width(), target.height()};
+            lighting::scene_lighting(scene)
+                ->prepare_atmosphere(scene, input, state.target, {.1f, .2f, .3f, 1}, {0, 0, 10, 1});
+            std::array<double, 2> transmitted_difference{};
+            for (unsigned depth = 0; depth < 3; ++depth) {
+                const float distance = depth == 0 ? 3.06f : depth == 1 ? 12.f : 2.f;
+                const auto& p = input.camera.projection;
+                const float screen_depth = .5f * ((-p[10] * distance + p[14]) / distance + 1);
+                std::array<std::vector<std::uint8_t>, 2> images;
+                for (unsigned colour = 0; colour < 2; ++colour) {
+                    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+                    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                    glDepthMask(GL_TRUE);
+                    glDisable(GL_SCISSOR_TEST);
+                    glClearColor(colour == 0 ? .6f : .05f, .1f, colour == 0 ? .05f : .6f, .3f);
+                    glClearDepth(screen_depth);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    const auto cleared = target.read_rgba();
+                    effects.render(input, state);
+                    images[colour] = target.read_rgba();
+                    if (depth < 2) {
+                        auto debug = enhanced::water_debug_settings();
+                        debug.view = 17;
+                        enhanced::set_water_debug_settings(debug);
+                        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+                        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                        glDepthMask(GL_TRUE);
+                        glDisable(GL_SCISSOR_TEST);
+                        glClearColor(colour == 0 ? .6f : .05f, .1f, colour == 0 ? .05f : .6f, .3f);
+                        glClearDepth(screen_depth);
+                        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                        CHECK(target.read_rgba() == cleared);
+                        effects.render(input, state);
+                        const auto reference = target.read_rgba();
+                        debug.view = 0;
+                        enhanced::set_water_debug_settings(debug);
+                        if (depth == 1) {
+                            CHECK(images[colour] == reference);
+                        } else {
+                            double blended_distance = 0, reference_distance = 0;
+                            for (std::size_t at = 0; at < reference.size(); at += 4) {
+                                if (reference[at + 3] != 255 || images[colour][at + 3] != 255) {
+                                    continue;
+                                }
+                                for (unsigned c = 0; c < 3; ++c) {
+                                    const int blended =
+                                        int(images[colour][at + c]) - int(cleared[at + c]);
+                                    const int original =
+                                        int(reference[at + c]) - int(cleared[at + c]);
+                                    CHECK(std::abs(blended) <= std::abs(original) + 1);
+                                    blended_distance += std::abs(blended);
+                                    reference_distance += std::abs(original);
+                                }
+                            }
+                            CHECK(reference_distance > 0);
+                            CHECK(blended_distance < reference_distance * .95);
+                        }
+                    }
+                    if (depth == 2) {
+                        CHECK(
+                            images[colour] == cleared
+                        );  // Above-water foreground remains untouched.
+                    }
+                }
+                if (depth < 2) {
+                    unsigned wet_pixels = 0;
+                    for (std::size_t at = 0; at < images[0].size(); at += 4) {
+                        if (images[0][at + 3] == 255 && images[1][at + 3] == 255) {
+                            ++wet_pixels;
+                            for (unsigned c = 0; c < 3; ++c) {
+                                transmitted_difference[depth] +=
+                                    std::abs(int(images[0][at + c]) - int(images[1][at + c]));
+                            }
+                        }
+                    }
+                    CHECK(wet_pixels > 20);
+                    transmitted_difference[depth] /= std::max(1u, wet_pixels);
+                }
+                CHECK(glGetError() == GL_NO_ERROR);
+            }
+            CHECK(transmitted_difference[0] > 30);
+            CHECK(transmitted_difference[1] < transmitted_difference[0] * .75);
+            std::printf(
+                "Water scene colour difference, %dx MSAA: shallow %.3f, deep %.3f bytes/pixel\n",
+                target.samples(),
+                transmitted_difference[0],
+                transmitted_difference[1]
+            );
+        }
+        CHECK(target.create(79, 53, error));
+        state.target = {target.id(), 79, 53};
+        glClearDepth(0);
         for (const bool fail : {false, true}) {
             renderer::EffectRenderer fallback(
                 "effect fallback",

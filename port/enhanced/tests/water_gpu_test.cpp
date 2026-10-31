@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 #include <span>
 #include <string>
 #include <vector>
@@ -36,11 +37,17 @@ int main() {
     settings.interaction_radius = 0;
     settings.view = 99;
     settings.fine_normal_strength = 100;
+    settings.projectile_strength = 100;
+    settings.projectile_radius = 0;
+    settings.explosion_strength = std::numeric_limits<float>::quiet_NaN();
+    settings.explosion_radius = std::numeric_limits<float>::infinity();
     enhanced::set_water_debug_settings(settings);
     auto sanitized = enhanced::water_debug_settings();
     CHECK(
         sanitized.current_scale == 2.5f && sanitized.interaction_radius == .1f
-        && sanitized.view == 4 && sanitized.fine_normal_strength == 2
+        && sanitized.view == 17 && sanitized.fine_normal_strength == 2
+        && sanitized.projectile_strength == 4 && sanitized.projectile_radius == .1f
+        && sanitized.explosion_strength == 1 && sanitized.explosion_radius == 1
     );
     enhanced::set_water_debug_settings(enhanced::WaterDebugSettings{});
 
@@ -1001,6 +1008,8 @@ void main() {
         compute, read, error, pixels, buffers, bodies, texture, image_buffer, vertex
     };
     test::water::check_optics(fixture);
+    test::water::check_foam(fixture);
+    test::water::check_transmission(fixture);
     test::water::check_environment(fixture);
     test::water::check_window(fixture);
     glDeleteVertexArrays(1, &vao);

@@ -180,6 +180,10 @@ bool LevelScene::upload(
             }
             const auto specialise = [&](std::string source) {
                 source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+                // Static colour shaders cannot receive Ratchet's wet-coat reflections.
+                if (variant < 2) {
+                    source.insert(source.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+                }
                 if (variant == 0) {
                     source.insert(source.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
                 }
@@ -213,6 +217,8 @@ bool LevelScene::upload(
         static_translucent
             .insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
         static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+        static_translucent
+            .insert(static_translucent.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
         static_vertex = renderer::shader_constants(std::move(static_vertex), {{"skinning", 0}});
         static_vertex = renderer::shader_constants(std::move(static_vertex), {{"metal_pass", 0}});
         for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {

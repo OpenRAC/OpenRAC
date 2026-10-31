@@ -275,6 +275,7 @@ void savestate_restored(std::uint64_t tick) {
     g->prepared_tick.reset();
     g->pending_images.clear();
     g->images.clear();
+    g->water_impulses.clear();
     g->kept = std::make_shared<Kept>();
     g->scene.release();
     g->renderer.reset();
@@ -322,6 +323,22 @@ void savestate_restored(std::uint64_t tick) {
     pacing.due = {};
     pacing.last_alpha = -1.0f;
     pacing.first_pending = false;
+}
+
+void water_explosion(const float* position, float radius, float strength) {
+    if (!g || g->loaded < 0 || !position
+        || g->water_impulses.size() >= renderer::kWaterImpulseLimit) {
+        return;
+    }
+    renderer::WaterImpulse impulse{
+        {position[0], position[1], position[2]},
+        {position[0], position[1], position[2]},
+        radius,
+        strength
+    };
+    if (renderer::valid_water_impulse(impulse)) {
+        g->water_impulses.push_back(impulse);
+    }
 }
 
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad) {

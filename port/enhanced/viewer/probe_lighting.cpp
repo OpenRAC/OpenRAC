@@ -99,8 +99,11 @@ std::string probe_mesh_fragment(std::string source) {
     }
     source.insert(
         source.find('\n') + 1,
-        std::string("#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
-            + std::string(shaders::environment_glsl) + "\n#endif\n"
+        std::string(
+            "#if !defined(OPENRAC_SOLID) && (!defined(OPENRAC_COLOUR_SPECIALISED) || "
+            "(defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)))\n"
+        ) + std::string(shaders::environment_glsl)
+            + "\n#endif\n"
     );
     source += std::string("\n#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
               + std::string(shaders::chrome_glsl) + "\n#endif\n";
@@ -114,8 +117,11 @@ std::string probe_early_fragment(std::string source) {
     source += shaders::early_lighting_glsl;
     source.insert(
         source.find('\n') + 1,
-        std::string("#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
-            + std::string(shaders::environment_glsl) + "\n#endif\n"
+        std::string(
+            "#if !defined(OPENRAC_SOLID) && (!defined(OPENRAC_COLOUR_SPECIALISED) || "
+            "(defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)))\n"
+        ) + std::string(shaders::environment_glsl)
+            + "\n#endif\n"
     );
     source += std::string("\n#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
               + std::string(shaders::chrome_glsl) + "\n#endif\n";

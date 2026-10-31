@@ -47,6 +47,9 @@ void moby_colour(std::uint32_t object, unsigned colour, int level);
 // objects, drawn with the menu's camera): they are drawn as that camera saw them.
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count);
 
+// One-shot world explosion, captured on the game thread for enhanced water.
+void water_explosion(const float* position, float radius, float strength);
+
 // A world effect quad the game drew this frame (openrac_game_effect_quad).
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad);
 // A sky shell the game drew this frame, with its matrix (openrac_game_sky_shell).

@@ -582,6 +582,9 @@ typedef struct openrac_game_quad {
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
 
+/* World-space explosion; optional visual water response, with no gameplay side effects. */
+void openrac_game_water_explosion(const float position[3], float radius, float strength);
+
 /* A sky shell the game drew this frame (rac1: SkyDrawShell) and the matrix it was drawn with: 16
  * floats, the game's rows (x, y, z axes, then the translation, in the sky's own units), each row
  * one column of the window's column-major matrix. */

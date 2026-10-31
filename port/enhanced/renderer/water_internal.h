@@ -11,6 +11,7 @@
 
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/water_mesh.h"
+#include "renderer/framebuffer.h"
 #include "renderer/shader.h"
 
 namespace openrac::enhanced::water_detail {
@@ -63,6 +64,10 @@ public:
         const renderer::EffectStrip& strip, std::span<const renderer::EffectVertex> vertices
     ) override;
     void upload_meshes() override;
+    // Captures opaque colour and reversed depth before enhanced water composites them.
+    void prepare_scene(
+        const renderer::FrameInput& input, const renderer::RenderTarget& target
+    ) override;
     void finish_pass() override;
     void draw_mesh(const renderer::Shader& shader, const renderer::EffectMesh& mesh) override;
     bool init(std::string& error) override;
@@ -89,6 +94,8 @@ private:
         const renderer::FrameInput& input, const renderer::Vec3& hero, std::uint64_t epoch
     );
     std::unique_ptr<WaterMesh> m_mesh;
+    renderer::FrameBuffer m_background;
+    bool m_background_ready = false;
     scene::LevelScene& m_scene;
     std::vector<Texel> m_bodies, m_coast, m_hydraulics;
     renderer::Shader m_step, m_light, m_window_prepare;
@@ -110,6 +117,7 @@ private:
     std::uint64_t m_reset_epoch = 0;
     std::uint64_t m_last_frame = std::numeric_limits<std::uint64_t>::max();
     renderer::Vec3 m_hero{};
+    std::uint64_t m_impulse_frame = std::numeric_limits<std::uint64_t>::max();
     std::array<std::optional<renderer::Vec3>, 2> m_hands{};
     double m_time = 0, m_exit_time = -1;
     float m_sim_weight = 1;

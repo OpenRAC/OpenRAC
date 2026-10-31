@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 #include <array>
+#include <bit>
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <string_view>
@@ -115,6 +117,216 @@ void main(){
     );
     renderer::render_opt::reset();
     enhanced::set_water_debug_settings({});
+    glDeleteVertexArrays(1, &vao);
+}
+
+// Real GPU controller: impacts must wake an idle pond, without requiring Ratchet in the water.
+void check_impact_waves(const test::WaterTestBake& fixture, scene::LevelScene& scene) {
+    renderer::Shader read;
+    renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create(512, 128, error));
+    CHECK(read.build(
+        "impact wave bits",
+        R"(#version 430 core
+void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.-1.,0,1);})",
+        R"(#version 430 core
+uniform sampler2D waves;
+layout(location=0) out vec4 result;
+void main(){ivec2 p=ivec2(gl_FragCoord.xy);
+uint b=floatBitsToUint(texelFetch(waves,ivec2(p.x/4,p.y),0)[p.x%4]);
+result=vec4(float(b&255u),float((b>>8)&255u),float((b>>16)&255u),float(b>>24))/255.;})",
+        error
+    ));
+    unsigned vao = 0;
+    glGenVertexArrays(1, &vao);
+    const auto snapshot = [&] {
+        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+        glViewport(0, 0, 512, 128);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_SCISSOR_TEST);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        read.use();
+        glUniform1i(read.uniform("waves"), 20);
+        CHECK(enhanced::bind_water_deformation(read));
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        return target.read_rgba();
+    };
+    const renderer::WaterImpulse blast{{4, 4, 1}, {4, 4, 1}, 1.5f, 1.2f};
+    const renderer::WaterImpulse projectile{{4, 4, 4}, {4, 4, -2}, .3f, .6f};
+    for (const auto impulse : {blast, projectile}) {
+        auto water = enhanced::make_water(scene, fixture.folder);
+        const bool ready = water && water->init(error);
+        CHECK(ready);
+        if (!ready) {
+            std::printf("impact fixture: %s\n", error.c_str());
+            continue;
+        }
+        renderer::FrameInput input;
+        input.enhanced_water = true;
+        input.frame = 1;
+        input.water_interactor =
+            renderer::Vec3{30, 30, 20};  // Shore/air, no body/hand contribution.
+        input.water_impulses = std::span(&impulse, 1);
+        water->prepare(
+            input
+        );  // Includes reset: the first real impact must survive initialization.
+        const auto first = snapshot();
+        float height_peak = 0, velocity_peak = 0;
+        double mass = 0;
+        for (std::size_t texel = 0; texel < 128 * 128; ++texel) {
+            for (unsigned c = 0; c < 4; ++c) {
+                const auto at = (texel * 4 + c) * 4;
+                const auto bits = std::uint32_t(first[at]) | (std::uint32_t(first[at + 1]) << 8)
+                                  | (std::uint32_t(first[at + 2]) << 16)
+                                  | (std::uint32_t(first[at + 3]) << 24);
+                const float value = std::bit_cast<float>(bits);
+                CHECK(std::isfinite(value));
+                if (c == 0) {
+                    height_peak = std::max(height_peak, std::abs(value));
+                    mass += value;
+                }
+                if (c == 1 || c == 2) {
+                    velocity_peak = std::max(velocity_peak, std::abs(value));
+                }
+            }
+        }
+        CHECK(height_peak > 1e-6f && velocity_peak > .001f);
+        CHECK(
+            height_peak <= enhanced::WaterDebugSettings{}.displacement_limit + 1e-6f
+            && velocity_peak <= 2.501f
+        );
+        CHECK(std::abs(mass) < .002);  // The pressure kick changes momentum, not water mass.
+        water->prepare(input);
+        CHECK(snapshot() == first);  // Colour/depth/shadow preparations never apply an event twice.
+        auto options = enhanced::water_debug_settings();
+        options.paused = true;
+        enhanced::set_water_debug_settings(options);
+        ++input.frame;
+        water->prepare(input);
+        CHECK(snapshot() == first);
+        enhanced::set_water_debug_settings({});
+        // A sustained burst at the per-tick limit must stay finite and bounded.
+        std::array<renderer::WaterImpulse, renderer::kWaterImpulseLimit> burst;
+        burst.fill(impulse);
+        input.water_impulses = burst;
+        for (unsigned tick = 0; tick < 30; ++tick) {
+            ++input.frame;
+            water->prepare(input);
+        }
+        const auto stressed = snapshot();
+        std::array<float, 4> maxima{};
+        for (std::size_t at = 0; at < stressed.size(); at += 4) {
+            const auto bits = std::uint32_t(stressed[at]) | (std::uint32_t(stressed[at + 1]) << 8)
+                              | (std::uint32_t(stressed[at + 2]) << 16)
+                              | (std::uint32_t(stressed[at + 3]) << 24);
+            const float value = std::bit_cast<float>(bits);
+            CHECK(std::isfinite(value));
+            const unsigned channel = unsigned(at / 4) % 4;
+            maxima[channel] = std::max(maxima[channel], std::abs(value));
+        }
+        std::printf(
+            "Impact burst: peak height %.6f, velocity %.6f/%.6f, marker %.6f\n",
+            maxima[0],
+            maxima[1],
+            maxima[2],
+            maxima[3]
+        );
+        CHECK(maxima[0] <= enhanced::WaterDebugSettings{}.displacement_limit + 1e-6f);
+        CHECK(maxima[1] <= 2.501f && maxima[2] <= 2.501f && maxima[3] <= 1.f);
+        water->release();
+    }
+    // Exercise the actual live controls, including source independence and idle activation.
+    const auto response = [&](const renderer::WaterImpulse& impulse,
+                              enhanced::WaterDebugSettings tuning) {
+        enhanced::set_water_debug_settings(tuning);
+        auto water = enhanced::make_water(scene, fixture.folder);
+        const bool ready = water && water->init(error);
+        CHECK(ready);
+        std::array<double, 2> result{};  // Kinetic response and its spatial second moment.
+        if (!ready) {
+            return result;
+        }
+        renderer::FrameInput input;
+        input.frame = 1;
+        input.enhanced_water = true;
+        input.water_impulses = std::span(&impulse, 1);
+        const auto before =
+            vkgl::submission_counters().commands[std::size_t(vkgl::Command::Dispatch)];
+        water->prepare(input);
+        const bool explosion = impulse.from == impulse.to;
+        if ((explosion ? tuning.explosion_strength : tuning.projectile_strength) == 0) {
+            CHECK(
+                vkgl::submission_counters().commands[std::size_t(vkgl::Command::Dispatch)] == before
+            );
+            return result;
+        }
+        const auto pixels = snapshot();
+        for (std::size_t texel = 0; texel < 128 * 128; ++texel) {
+            double energy = 0;
+            for (unsigned channel = 1; channel <= 2; ++channel) {
+                const auto at = (texel * 4 + channel) * 4;
+                const auto bits = std::uint32_t(pixels[at]) | (std::uint32_t(pixels[at + 1]) << 8)
+                                  | (std::uint32_t(pixels[at + 2]) << 16)
+                                  | (std::uint32_t(pixels[at + 3]) << 24);
+                const float velocity = std::bit_cast<float>(bits);
+                CHECK(std::isfinite(velocity));
+                energy += double(velocity) * velocity;
+            }
+            const double dx = std::remainder((double(texel % 128) + .5) * .25 - 4, 32);
+            // read_rgba returns top-to-bottom rows; the simulation texture is bottom-to-top.
+            const double dy = std::remainder((double(127 - texel / 128) + .5) * .25 - 4, 32);
+            result[0] += energy;
+            result[1] += energy * (dx * dx + dy * dy);
+        }
+        if (result[0] > 0) {
+            result[1] /= result[0];
+        }
+        return result;
+    };
+    for (const auto& impulse : {blast, projectile}) {
+        const bool explosion = impulse.from == impulse.to;
+        auto tuning = enhanced::WaterDebugSettings{};
+        const auto normal = response(impulse, tuning);
+        CHECK(normal[0] > 0);
+        (explosion ? tuning.explosion_strength : tuning.projectile_strength) = 0;
+        CHECK(response(impulse, tuning)[0] == 0);
+        (explosion ? tuning.explosion_strength : tuning.projectile_strength) = .5f;
+        CHECK(response(impulse, tuning)[0] < normal[0] * .8);
+        (explosion ? tuning.explosion_strength : tuning.projectile_strength) = 2;
+        CHECK(response(impulse, tuning)[0] > normal[0] * 2);
+        tuning = {};
+        // Disabling the other source leaves this one byte-for-byte equivalent in its response.
+        (explosion ? tuning.projectile_strength : tuning.explosion_strength) = 0;
+        CHECK(response(impulse, tuning) == normal);
+        tuning = {};
+        (explosion ? tuning.explosion_radius : tuning.projectile_radius) = 2;
+        CHECK(response(impulse, tuning)[1] > normal[1] * 1.5);
+        (explosion ? tuning.explosion_radius : tuning.projectile_radius) = .5f;
+        const auto smaller = response(impulse, tuning);
+        CHECK(smaller[0] < normal[0] * .8);
+        // Tiny projectile radii approach the grid spacing: footprint size is quantised.
+        CHECK(smaller[1] < normal[1]);
+    }
+    enhanced::set_water_debug_settings({});
+    // A projectile entirely above the surface must not activate the local simulation.
+    auto water = enhanced::make_water(scene, fixture.folder);
+    const bool ready = water && water->init(error);
+    CHECK(ready);
+    if (ready) {
+        renderer::WaterImpulse miss{{4, 4, 10}, {5, 4, 10}, .3f, .6f};
+        renderer::FrameInput input;
+        input.frame = 1;
+        input.enhanced_water = true;
+        input.water_impulses = std::span(&miss, 1);
+        const auto before =
+            vkgl::submission_counters().commands[std::size_t(vkgl::Command::Dispatch)];
+        water->prepare(input);
+        CHECK(vkgl::submission_counters().commands[std::size_t(vkgl::Command::Dispatch)] == before);
+    }
     glDeleteVertexArrays(1, &vao);
 }
 #endif
@@ -263,6 +475,7 @@ int main() {
         CHECK(!enhanced::water_available());
     }
     check_barrier_reuse(fixture, fixture_scene);
+    check_impact_waves(fixture, fixture_scene);
     // Malformed metadata must fall back before it can reach XY indexing or GPU allocation.
     for (const auto& [offset, value] : std::array<std::pair<std::streamoff, float>, 4>{
              {{64, 1.5f}, {68, 2.f}, {52, 1e30f}, {144, 1.f}}

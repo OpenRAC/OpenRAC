@@ -16,6 +16,7 @@
 #include "tests/check.h"
 
 namespace openrac::test::water {
+// Check packed captures, interface-side selection and unchanged opaque material reflection.
 void check_environment(Context& fixture) {
     using namespace gl;
     lighting::EnvironmentAsset asset;
@@ -33,14 +34,26 @@ void check_environment(Context& fixture) {
     lighting::integrate_environment_brdf(asset, 128);
     const std::string source =
         std::string("#version 410 core\n") + std::string(lighting::shaders::environment_glsl) + R"(
+uniform int interface_side;
 layout(location=0) out vec4 result;
 void main() {
-    int test=int(gl_FragCoord.x)%5;float value;
+    int test=int(gl_FragCoord.x)%11;float value;
     if(test==0) value=environment_specular(vec3(0),vec3(0,0,1),vec3(0,0,1),0.,.04,vec3(.1,.2,.3)).r;
     if(test==1) value=environment_specular(vec3(9,0,0),vec3(0,0,1),vec3(0,0,1),0.,.04,vec3(.1,.2,.3)).g;
     if(test==2) value=environment_project(0,vec3(2,1,0),vec3(1,0,0)).x;
     if(test==3) value=environment_project(0,vec3(2,1,0),vec3(1,0,0)).y;
     if(test==4) value=environment_specular(vec3(0),vec3(0,0,1),vec3(0,0,1),1.,.04,vec3(.1,.2,.3)).r;
+    if(test==5) value=environment_specular(vec3(0,0,-4.75),vec3(0,0,1),vec3(0,0,1),1.,.04,vec3(.8)).r;
+    if(test==6) value=environment_specular_surface(vec3(0,0,-4.75),vec3(0,0,-4.25),vec3(0,0,1),vec3(0,0,1),1.,.04,vec3(.8)).r;
+    if(test==7) value=environment_specular_surface(vec3(0),vec3(0,0,.5),vec3(0,0,1),vec3(0,0,1),1.,.04,vec3(.8)).r;
+    if(test==8) value=environment_specular_surface(vec3(9,0,0),vec3(9,0,.5),vec3(0,0,1),vec3(0,0,1),1.,.04,vec3(.1,.2,.3)).g;
+    if(test==9) value=environment_specular_surface(vec3(0,0,4.75),vec3(0,0,4.25),vec3(0,0,-1),vec3(0,0,-1),1.,.04,vec3(.8)).r;
+    if(test==10) value=environment_specular_surface(vec3(0,0,-4.75),vec3(0,0,100),vec3(0,0,1),vec3(0,0,1),1.,.04,vec3(.8)).r;
+    if(interface_side!=0) {
+        vec3 side=vec3(0,0,float(interface_side));
+        vec3 colour=environment_specular_surface(vec3(0),side*.5,side,side,1.,.04,vec3(.8));
+        value=colour[int(gl_FragCoord.x)%3];
+    }
     uint bits=floatBitsToUint(value);
     result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
 })";
@@ -82,7 +95,21 @@ void main() {
     const auto brdf = lighting::unpack_environment_colour(
         asset.pixels[std::size_t(asset.brdf_row() + 63) * asset.width() + 63]
     );
-    const std::array<float, 5> expected{.02f, .2f, 6, 1, (brdf[0] * .04f + brdf[1]) * .5f};
+    const float captured = (brdf[0] * .04f + brdf[1]) * .5f;
+    const float edge_coverage = (1.f / 3) * (1.f / 3) * (3 - 2.f / 3);
+    const std::array<float, 11> expected{
+        .02f,
+        .2f,
+        6,
+        1,
+        captured,
+        .8f * (1 - edge_coverage) + captured * edge_coverage,
+        captured,
+        captured,
+        .2f,
+        captured,
+        captured
+    };
 
     for (unsigned x = 0; x < kWidth; ++x) {
         unsigned bits = 0;
@@ -93,8 +120,33 @@ void main() {
 
         const auto value = std::bit_cast<float>(bits);
         CHECK(std::isfinite(value));
-        CHECK(std::abs(value - expected[x % 5]) < .001f);
+        CHECK(std::abs(value - expected[x % 11]) < .001f);
     }
+
+    // An interface overlaps the floor fade bands of two differently coloured reflection media.
+    // Select the viewing side without moving the true surface/parallax origin.
+    auto media = asset.probes;
+    media[0].minimum[2] = -.25f;
+    media[1].maximum[2] = .25f;
+    CHECK(reference_selection.prepare(lighting::environment_metadata(media), fixture.error));
+    reference_selection.bind(shader);
+    for (const int side : {1, -1}) {
+        glUniform1i(shader.uniform("interface_side"), side);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
+        for (unsigned x = 0; x < kWidth; ++x) {
+            unsigned bits = 0;
+            for (unsigned c = 0; c < 4; ++c) {
+                bits |= unsigned(fixture.pixels[x * 4 + c]) << (c * 8);
+            }
+            const float value = std::bit_cast<float>(bits);
+            const float expected_medium = x % 3 == (side == 1 ? 0u : 2u) ? captured * 2 : 0;
+            CHECK(std::isfinite(value) && std::abs(value - expected_medium) < .001f);
+        }
+    }
+    glUniform1i(shader.uniform("interface_side"), 0);
+    CHECK(reference_selection.prepare(metadata, fixture.error));
+    reference_selection.bind(shader);
 
     // The production chrome branch replaces the old material reflection, not its alpha or siblings.
     const char* metal_vertex = R"(#version 410 core

@@ -69,7 +69,11 @@ vec3 environment_project(int probe,vec3 p,vec3 direction) {
     float distance=min(limits.x,min(limits.y,limits.z));
     return environment_world(probe,p+direction*max(distance,0.))-environment_probe(probe*5).xyz;
 }
-vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,float f0,vec3 fallback) {
+// A bounded receiver offset selects the reflection medium at an interface. Parallax stays at p.
+// Keep the bound in sync with the conservative expansion in environment_selection.comp.
+vec3 environment_specular_surface(vec3 p,vec3 receiver,vec3 n,vec3 view,float roughness,float f0,vec3 fallback) {
+    vec3 offset=receiver-p;
+    receiver=p+offset*min(1.,.5/max(length(offset),1e-6));
     if(environment_count==0) return fallback;
     ivec2 best=ivec2(-1);vec2 weights=vec2(0);float coverage=0.;
     uint words=environment_candidate_words();
@@ -83,7 +87,7 @@ vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,float f0,vec3 
         if(i>=environment_count) continue;
         vec3 centre=environment_probe(i*5).xyz;
         vec3 lo=environment_probe(i*5+1).xyz,hi=environment_probe(i*5+2).xyz;
-        vec3 local=environment_local(i,p);
+        vec3 local=environment_local(i,receiver);
         if(any(lessThan(local,lo)) || any(greaterThan(local,hi))) continue;
         // World-space blend bands also cover receivers close to their true supporting floor.
         vec3 edge=min(local-lo,hi-local);
@@ -111,4 +115,9 @@ vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,float f0,vec3 
     coordinate.y+=float(((environment_count+max(environment_columns,1)-1)/max(environment_columns,1))*environment_row(levels));
     vec2 brdf=textureLod(environment_map,coordinate/vec2(textureSize(environment_map,0)),0.).rg;
     return mix(fallback,radiance*(f0*brdf.x+brdf.y),coverage);
+}
+
+// Opaque materials retain their exact original selection point, weights and reflection rays.
+vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,float f0,vec3 fallback) {
+    return environment_specular_surface(p,p,n,view,roughness,f0,fallback);
 }

@@ -177,6 +177,7 @@ enum class Var : std::uint16_t {
     VulkanValidation,
     Watch,
     WaterOff,
+    WaterView,
     Write,
 };
 

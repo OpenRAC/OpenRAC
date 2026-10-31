@@ -93,6 +93,7 @@ uniform vec3 receiver_eye;
 uniform vec4 receiver_viewport;
 uniform float receiver_depth;
 uniform int channel;
+uniform vec3 receiver_offset;
 layout(location=0) out vec4 result;
 void main() {
  uint bits;
@@ -101,7 +102,7 @@ void main() {
   vec2 ndc=(gl_FragCoord.xy-receiver_viewport.xy)/receiver_viewport.zw*2.-1.;
   vec4 h=inverse(receiver_clip)*vec4(ndc,receiver_depth*2.-1.,1);
   vec3 p=h.xyz/h.w,eye=normalize(receiver_eye-p);
-  vec3 colour=environment_specular(p,eye,eye,.37,.65,vec3(.013,.027,.041));
+  vec3 colour=environment_specular_surface(p,p+receiver_offset,eye,eye,.37,.65,vec3(.013,.027,.041));
   bits=floatBitsToUint(colour[channel]);
  }
  result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
@@ -150,12 +151,14 @@ void main() {
         glActiveTexture(GL_TEXTURE0);
     }
 
+    // Read one channel or candidate word through the requested reflection selection path.
     std::vector<std::uint8_t> draw(
         const renderer::Camera& camera,
         std::array<int, 4> viewport,
         float depth,
         int channel,
-        bool tiled
+        bool tiled,
+        float receiver_offset = 0
     ) {
         glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
         shader.use();
@@ -176,16 +179,23 @@ void main() {
         );
         glUniform1f(shader.uniform("receiver_depth"), depth);
         glUniform1i(shader.uniform("channel"), channel);
+        glUniform3f(shader.uniform("receiver_offset"), 0, 0, receiver_offset);
         selection.bind(shader, tiled ? &camera : nullptr);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     }
 
-    void compare(const renderer::Camera& camera, std::array<int, 4> viewport, float depth) {
+    // Biased receivers must preserve every float bit between full-loop and tiled selection.
+    void compare(
+        const renderer::Camera& camera,
+        std::array<int, 4> viewport,
+        float depth,
+        float receiver_offset = 0
+    ) {
         for (int channel = 0; channel < 3; ++channel) {
-            const auto reference = draw(camera, viewport, depth, channel, false);
-            const auto tiled = draw(camera, viewport, depth, channel, true);
+            const auto reference = draw(camera, viewport, depth, channel, false, receiver_offset);
+            const auto tiled = draw(camera, viewport, depth, channel, true, receiver_offset);
             CHECK(reference == tiled);
             ++comparisons;
         }
@@ -241,6 +251,8 @@ int main(int argc, char** argv) {
     CHECK(reduced);
     fixture.upload(synthetic(32, true));
     fixture.compare(camera, {0, 0, 96, 80}, .02f);  // All candidates and exact score ties.
+    fixture.compare(camera, {0, 0, 96, 80}, .02f, .5f);   // Water above the interface.
+    fixture.compare(camera, {0, 0, 96, 80}, .02f, -.5f);  // Camera below the interface.
     auto large = synthetic(lighting::kEnvironmentProbeLimit, false);
 
     for (auto& p : large.probes) {

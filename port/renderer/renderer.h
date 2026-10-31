@@ -36,6 +36,7 @@
 #include "renderer/texture_filter.h"
 #include "renderer/texture_pool.h"
 #include "renderer/volumetric_settings.h"
+#include "renderer/water_impulse.h"
 
 namespace openrac::renderer {
 
@@ -146,6 +147,8 @@ struct FrameInput {
     bool hero_pixel_shadow = false;
     bool hero_airborne = false;
     bool enhanced_water = false;
+    std::span<const WaterImpulse>
+        water_impulses;                    // Owned tick snapshot; consumed once per game tick.
     float lily_momentum = .25f;            // Tilt response time; height responds 1.5 times faster.
     std::optional<Vec3> water_interactor;  // Captured hero position, never live game memory.
     std::array<std::optional<Vec3>, 2> water_hands{};  // Animated hand positions at this tick.

@@ -7,14 +7,17 @@
 #include <cstdio>
 #include <limits>
 
+#include "enhanced/lighting/environment.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/wetness.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/tests/water_test_bake.h"
+#include "enhanced/viewer/environment_selection.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 #include "scene_shaders.h"
@@ -34,10 +37,13 @@ void ggx_coat_reference() {
     CHECK(begin != std::string::npos && end != std::string::npos);
     std::string fragment = "#version 430 core\n";
     fragment += lighting::shaders::shading_brdf_glsl;
+    fragment += lighting::shaders::environment_glsl;
     fragment += R"(
-vec4 hero_wetness_material=vec4(.32,4,.52,.30);
-float hero_wetness_f0=.02037;
+vec4 hero_wetness_material=vec4(.34,1.07,.51,.35);
+float hero_wetness_f0=.0633;
 float v_hero_wetness;
+vec3 v_world_position=vec3(0);
+uniform int reflection_outside;
 vec4 v_probe_selector;
 vec4 probe_sunlight_direction=vec4(0);
 vec3 probe_sunlight_scale=vec3(1);
@@ -49,6 +55,7 @@ vec3 probe_unit(vec3 v){return length(v)>0.?normalize(v):vec3(0);}
 layout(location=0) out vec4 result;
 void main() {
     int test=int(gl_FragCoord.x);
+    v_world_position=reflection_outside!=0?vec3(8):vec3(0);
     v_hero_wetness=test==0?0.:(test==2?.5:1.);
     v_probe_selector=vec4(0,1,test==7?.75:.25,1);
     light_sets[0]=vec4(1); light_sets[4]=vec4(3);
@@ -60,6 +67,9 @@ void main() {
 })";
     renderer::Shader shader;
     std::string error;
+    // The analytical CPU oracle is FP32; exercise mixed precision in rendered_surface instead.
+    const bool fp16 = renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
+    renderer::render_opt::set(renderer::render_opt::Opt::ShaderFloat16, false);
     const bool built = shader.build(
         "wet coat GGX reference",
         R"(#version 430 core
@@ -67,6 +77,7 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Posit
         fragment,
         error
     );
+    renderer::render_opt::set(renderer::render_opt::Opt::ShaderFloat16, fp16);
     if (!built) {
         std::printf("%s\n", error.c_str());
     }
@@ -84,26 +95,79 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Posit
     glViewport(0, 0, 8, 1);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    std::array<unsigned char, 32> pixels{};
-    glReadPixels(0, 0, 8, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-    for (unsigned i = 0; i < 8; ++i) {
-        unsigned at = i * 4;
-        auto bits = std::uint32_t(pixels[at]) | (std::uint32_t(pixels[at + 1]) << 8)
-                    | (std::uint32_t(pixels[at + 2]) << 16) | (std::uint32_t(pixels[at + 3]) << 24);
-        double actual = std::bit_cast<float>(bits);
-        double wet = i == 0 ? 0. : (i == 2 ? .5 : 1.);
-        double roughness = .52 + (.30 - .52) * wet;
-        // At normal incidence GGX*Smith*F*NoL reduces to F0/(4 pi roughness^4).
-        double specular =
-            (i >= 3 && i <= 6) ? 0. : .02037 / (4 * 3.141592653589793 * std::pow(roughness, 4));
-        double expected = .25 * (1 - .68 * wet) + wet * 4 * (i == 7 ? 2.5 : 1.5) * specular;
-        const double tolerance = 3e-5 * std::max(1., std::abs(expected));
-        if (std::abs(actual - expected) >= tolerance) {
-            std::printf("GGX case %u: GPU %.9g reference %.9g\n", i, actual, expected);
+    // A known atlas separates reflection strength and roughness from direct-light GGX.
+    constexpr unsigned kAtlasSide = 64, kCaptureRows = 13, kAtlasHeight = kCaptureRows + kAtlasSide;
+    std::vector<float> atlas(kAtlasSide * kAtlasHeight * 4, 0);
+    for (unsigned y = 0; y < kAtlasHeight; ++y) {
+        for (unsigned x = 0; x < kAtlasSide; ++x) {
+            const float radiance = y < 6 ? 2.f : (y < 10 ? 4.f : 6.f);
+            atlas[(y * kAtlasSide + x) * 4] = y < kCaptureRows ? radiance : 1.f;
         }
-        CHECK(std::isfinite(actual) && std::abs(actual - expected) < tolerance);
     }
+    unsigned environment = 0;
+    glGenTextures(1, &environment);
+    glActiveTexture(GL_TEXTURE0 + 20);
+    glBindTexture(GL_TEXTURE_2D, environment);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        renderer::world::gl::GL_RGBA32F,
+        kAtlasSide,
+        kAtlasHeight,
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        atlas.data()
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glActiveTexture(GL_TEXTURE0);
+    lighting::EnvironmentSelection selection;
+    const std::array<lighting::EnvironmentProbe, 1> probes{{{{0, 0, 0}, {-4, -4, -4}, {4, 4, 4}}}};
+    CHECK(selection.prepare(lighting::environment_metadata(probes), error));
+    selection.bind(shader);
+    glUniform1i(shader.uniform("environment_map"), 20);
+    glUniform1i(shader.uniform("environment_resolution"), 8);
+    glUniform1i(shader.uniform("environment_columns"), 1);
+    for (int capture = 0; capture <= 2; ++capture) {
+        glUniform1i(shader.uniform("environment_count"), capture != 0 ? 1 : 0);
+        glUniform1i(shader.uniform("reflection_outside"), capture == 2 ? 1 : 0);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        std::array<unsigned char, 32> pixels{};
+        glReadPixels(0, 0, 8, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        for (unsigned i = 0; i < 8; ++i) {
+            unsigned at = i * 4;
+            auto bits = std::uint32_t(pixels[at]) | (std::uint32_t(pixels[at + 1]) << 8)
+                        | (std::uint32_t(pixels[at + 2]) << 16)
+                        | (std::uint32_t(pixels[at + 3]) << 24);
+            double actual = std::bit_cast<float>(bits);
+            double wet = i == 0 ? 0. : (i == 2 ? .5 : 1.);
+            double roughness = .51 + (.35 - .51) * wet;
+            // At normal incidence GGX*Smith*F*NoL reduces to F0/(4 pi roughness^4).
+            double specular =
+                (i >= 3 && i <= 6) ? 0. : .0633 / (4 * 3.141592653589793 * std::pow(roughness, 4));
+            const double lod = std::max(roughness, 1. / 3.) * 3 - 1;
+            const double reflected = capture == 1 && i != 5 && i != 6 ? (2 + 2 * lod) * .0633 : 0;
+            double expected =
+                .25 * (1 - .66 * wet) + wet * 1.07 * ((i == 7 ? 2.5 : 1.5) * specular + reflected);
+            const double tolerance = 3e-5 * std::max(1., std::abs(expected));
+            if (std::abs(actual - expected) >= tolerance) {
+                std::printf(
+                    "Wet coat capture %d case %u: GPU %.9g reference %.9g\n",
+                    capture,
+                    i,
+                    actual,
+                    expected
+                );
+            }
+            CHECK(std::isfinite(actual) && std::abs(actual - expected) < tolerance);
+        }
+    }
+    selection.release();
+    glDeleteTextures(1, &environment);
     glDeleteVertexArrays(1, &vao);
 }
 
@@ -218,6 +282,10 @@ int main() {
     if (!is_vulkan() || !enhanced_rendering_available()) {
         return test::kSkip;
     }
+    const auto defaults = enhanced::wetness_material_settings();
+    CHECK(defaults.diffuse_scale == .34f && defaults.specular_strength == 1.07f);
+    CHECK(defaults.dry_roughness == .51f && defaults.wet_roughness == .35f);
+    CHECK(defaults.reflectivity == .0633f);
     auto invalid = enhanced::WetnessMaterialSettings{};
     invalid.diffuse_scale = -1;
     invalid.specular_strength = 100;
@@ -228,7 +296,7 @@ int main() {
     auto bounded = enhanced::wetness_material_settings();
     CHECK(bounded.diffuse_scale == 0 && bounded.specular_strength == 4);
     CHECK(bounded.dry_roughness == .08f && bounded.wet_roughness == 1);
-    CHECK(bounded.reflectivity == .02037f);
+    CHECK(bounded.reflectivity == .0633f);
     enhanced::set_wetness_material_settings({});
     ggx_coat_reference();
     // Actual runtime controller and production compute shader, with synthetic assets only.

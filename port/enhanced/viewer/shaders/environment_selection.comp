@@ -19,8 +19,9 @@ void main() {
     vec4 planes[4]=vec4[4](transform*vec4(1,0,0,-lo.x),transform*vec4(-1,0,0,hi.x),
                           transform*vec4(0,1,0,-lo.y),transform*vec4(0,-1,0,hi.y));
     for(uint id=lane;id<uint(capture_count);id+=32u) {
-        vec3 minimum=texelFetch(capture_boxes,int(id*5u+1u)).xyz;
-        vec3 maximum=texelFetch(capture_boxes,int(id*5u+2u)).xyz;
+        // Water selects the camera-facing medium up to half a world unit from its surface.
+        vec3 minimum=texelFetch(capture_boxes,int(id*5u+1u)).xyz-.5;
+        vec3 maximum=texelFetch(capture_boxes,int(id*5u+2u)).xyz+.5;
         vec2 axis=vec2(texelFetch(capture_boxes,int(id*5u)).w,texelFetch(capture_boxes,int(id*5u+1u)).w);
         if(dot(axis,axis)<.5) axis=vec2(1,0);
         bool intersects=true;

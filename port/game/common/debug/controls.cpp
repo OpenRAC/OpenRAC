@@ -297,6 +297,52 @@ void water_controls() {
         "%.2f units",
         ImGuiSliderFlags_AlwaysClamp
     );
+    ImGui::SeparatorText("Projectiles");
+    changed |= slider_float(
+        "Projectile strength",
+        &options.projectile_strength,
+        0,
+        4,
+        "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    control_tip(
+        "Scales ripples from new shots and thrown bombs. Zero disables their response; "
+        "existing waves continue to settle."
+    );
+    changed |= slider_float(
+        "Projectile radius",
+        &options.projectile_radius,
+        .1f,
+        4,
+        "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    control_tip(
+        "Scales each projectile's water-contact radius. 1x keeps its normal size. "
+        "The resulting radius is limited to 4 world units."
+    );
+    ImGui::SeparatorText("Explosions");
+    changed |= slider_float(
+        "Explosion strength",
+        &options.explosion_strength,
+        0,
+        4,
+        "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    control_tip(
+        "Scales waves from new explosions. Zero disables their response; "
+        "existing waves continue to settle."
+    );
+    changed |= slider_float(
+        "Explosion radius", &options.explosion_radius, .1f, 4, "%.2fx", ImGuiSliderFlags_AlwaysClamp
+    );
+    control_tip(
+        "Scales each explosion's reach across and above the water. 1x keeps its normal size. "
+        "The resulting radius is limited to 4 world units."
+    );
+    ImGui::SeparatorText("Surface");
     changed |= slider_float(
         "Displacement limit",
         &options.displacement_limit,
@@ -308,7 +354,14 @@ void water_controls() {
     changed |= slider_float(
         "Fine ripples", &options.fine_normal_strength, 0, 2, "%.2fx", ImGuiSliderFlags_AlwaysClamp
     );
-    changed |= combo("Water view", &options.view, "Lit\0Height\0Velocity\0Banks\0Flow detail\0");
+    changed |= combo(
+        "Water view",
+        &options.view,
+        "Lit\0Height\0Velocity\0Banks\0Flow detail\0Direct highlights\0Environment "
+        "reflections\0Illumination\0Surface mask\0Captured reflections\0GI fallback\0Cached "
+        "GI\0Reference reflection selection\0Foam off\0Foam mask\0Reference foam\0Shoreline blend "
+        "mask\0Reference shoreline blend\0"
+    );
     ImGui::PopItemWidth();
     if (options.view == 1) {
         ImGui::TextDisabled("Red: raised  Blue: lowered  Gray: rest");

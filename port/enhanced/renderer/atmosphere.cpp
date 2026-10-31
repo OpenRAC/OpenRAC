@@ -401,6 +401,15 @@ public:
         }
     }
 
+    // Preserve the child material's pre-effects scene snapshot.
+    void prepare_scene(
+        const renderer::FrameInput& input, const renderer::RenderTarget& target
+    ) override {
+        if (m_material) {
+            m_material->prepare_scene(input, target);
+        }
+    }
+
     void finish_pass() override {
         if (m_material) {
             m_material->finish_pass();

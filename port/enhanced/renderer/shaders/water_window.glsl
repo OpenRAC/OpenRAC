@@ -3,6 +3,11 @@ uniform int water_sim_local; // zero: full-domain verification fixtures
 uniform int water_sim_body;
 uniform float water_sim_height;
 uniform float water_sim_weight;
+// No curvature estimate is available when a clamped axis has only one neighbour.
+float water_shore_curvature(float lo,float centre,float hi,float lower_step,float upper_step) {
+    if(min(lower_step,upper_step)<1e-5) return 0.;
+    return 2.*((hi-centre)/upper_step-(centre-lo)/lower_step)/(lower_step+upper_step);
+}
 int water_sim_shared_body(int body,float height) {
     return water_sim_body>=0 && abs(height-water_sim_height)<=.5?water_sim_body:body;
 }
@@ -26,12 +31,14 @@ vec4 water_sim_sample(sampler2D field,vec2 p,int body,vec2 legacy_uv,vec2 curren
     vec2 uv=fract(p/(water_sim_window.z*water_sim_window.w));
     return mix(reference,textureLod(field,uv,0.),fade);
 }
-vec4 water_sim_gradients(sampler2D field,vec2 p,int body,vec2 current,out float rotation) {
+vec4 water_sim_gradients(sampler2D field,vec2 p,int body,vec2 current,float height,out float rotation,out float compression,out float curvature) {
     float dx=water_sim_window.z;
     vec4 left=water_sim_sample(field,p-vec2(dx,0),body,vec2(0),current);
     vec4 right=water_sim_sample(field,p+vec2(dx,0),body,vec2(0),current);
     vec4 bottom=water_sim_sample(field,p-vec2(0,dx),body,vec2(0),current);
     vec4 top=water_sim_sample(field,p+vec2(0,dx),body,vec2(0),current);
     rotation=(right.z-left.z-top.y+bottom.y)/(2.*dx);
+    compression=-(right.y-left.y+top.z-bottom.z)/(2.*dx);
+    curvature=(4.*height-left.x-right.x-bottom.x-top.x)/(dx*dx);
     return vec4(right.x-left.x,top.x-bottom.x,right.w-left.w,top.w-bottom.w)/(2.*dx);
 }

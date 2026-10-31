@@ -260,6 +260,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * (draw_dialog_text.c), never 0: the port's main menu rows (Exit, the mods') were never put in. */
 #define RAC1_ADDR_0x0015F690u 0x0015F5B0u
 
+/* Shared explosion capture for enhanced water. */
+#define func_L00_0025F4A8 game_FUN_L00_0025e450
+#define func_L00_0025F4A8__game game_FUN_L00_0025e450__game
+
 /* ---- generated below ---- */
 
 /* Functions: games/rac1's name, this version's. */

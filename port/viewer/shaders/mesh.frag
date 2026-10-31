@@ -125,7 +125,7 @@ bool early_surface(
 // This replaces RGB only. Alpha tests, fading and blend equations stay in
 // the existing path, as do explicitly unlit, additive, metal and glow passes.
 #ifdef OPENRAC_HERO_WETNESS
-// A thin wet coat: less diffuse reflection and a narrow water-like highlight.
+// A thin wet coat: diffuse darkening, direct GGX highlights and local environment reflections.
 vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) {
     float wet = clamp(v_hero_wetness, 0., 1.);
     if (wet <= 0.) return linear_colour;
@@ -138,8 +138,14 @@ vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) 
     float roughness = mix(hero_wetness_material.z, hero_wetness_material.w, wet);
     vec3 radiance = max(mix(light_sets[a].rgb, light_sets[b].rgb, blend), vec3(0.))
         * probe_sunlight_scale;
-    vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0)
-        * visibility * hero_wetness_material.y;
+    vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0) * visibility;
+#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_STATIC_COLOUR)
+    // Captures contain their own lighting; the current sun shadow must not erase them.
+    if (dot(n, eye) > 0.) {
+        shine += environment_specular(v_world_position, n, eye, roughness, hero_wetness_f0, vec3(0.));
+    }
+#endif
+    shine *= hero_wetness_material.y;
     return linear_colour * mix(1., hero_wetness_material.x, wet) + wet * shine;
 }
 #else

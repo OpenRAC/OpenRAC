@@ -151,6 +151,7 @@ void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, con
     m_applied = AppliedState{};
 }
 
+// Collect material meshes before drawing effects so providers can snapshot the untouched scene.
 void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     const bool quads = m_part != EffectPart::Liquids && !input.effects.empty();
     bool any = quads;
@@ -246,6 +247,11 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     if (m_material) {
         m_material->upload_meshes();
+        if (std::any_of(material_meshes.begin(), material_meshes.end(), [](const auto& mesh) {
+                return mesh.has_value();
+            })) {
+            m_material->prepare_scene(input, state.target);
+        }
         m_shader.use();
     }
     const std::size_t quads_from = m_vertices.size();

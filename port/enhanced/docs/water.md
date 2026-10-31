@@ -1,8 +1,41 @@
 # Enhanced Novalis water
 
 Novalis (NTSC-U and PAL) optionally adds Vulkan probe lighting, soft reflections and local GPU shallow-water
-simulation, disturbed by Ratchet's movement/hands. Painted textures, UV animation, GS alpha and draw
-order stay intact. OpenGL, original graphics or invalid/missing resources use original water.
+simulation, disturbed by Ratchet's movement/hands. Enhanced surfaces transmit the actual scene with
+Beer-Lambert absorption and gentle, depth-faded refraction (at most six render pixels). Original art
+supplies the blue/cyan medium tint and stylised ripple detail. One GPU colour/depth snapshot per visible
+water pass avoids attachment feedback; foreground/sky rejection checks the complete filter footprint.
+Scene lighting and fog are retained once, with Fresnel, probe reflections, foam and direct GGX added
+at the surface. Depth copies also resolve multisampling. No snapshot is taken without a replacement
+water mesh. OpenGL, original graphics or invalid/missing bake resources use original water.
+
+`water_gpu` compares scene depth, refraction rejection and composition with CPU values; `effect_material`
+checks real water transmission, deeper absorption, foreground occlusion, resizing and 1x/4x MSAA.
+
+## Projectile and explosion interaction
+
+Blaster shots, thrown bombs and missiles disturb water along their swept path. Explosions send a
+single radial pressure impulse from the original game's explosion routine, scaled by the blast size.
+The Bomb Glove's separate detonation path is observed across its native update, including immediate
+underwater deletion; its expanding damage ring emits only one impulse.
+Impulses change water momentum without creating water mass; gameplay damage and collision stay intact.
+The game thread captures owned positions and events, so the renderer never reads live game memory.
+
+Impacts can wake the local simulation while Ratchet is standing on shore. The existing 32-metre
+simulation window and five-second settling period still apply; swimming takes priority over remote
+impacts outside that window. Up to 16 impulses are processed per tick, with explosions taking priority.
+Surface contact uses FP32 swept tests to catch fast crossings and reject shots above the water.
+Colour/depth/shadow preparation and interpolated display frames never apply an event twice.
+
+Live tuning is under Enhanced graphics > Materials & water > Water simulation. Projectile and
+explosion strength/radius are separate multipliers (default 1x). Strength ranges from 0 to 4x;
+zero disables that source. Radius ranges from 0.1 to 4x, preserving the relative sizes of weapons
+and blasts, with a final radius cap of 4 world units. Changes affect new impulses immediately;
+existing waves keep settling. These controls are session-only and Restore water defaults resets them.
+
+`water_interactions` checks regional class selection, swept capture, slot reuse and coarse contact.
+`water_runtime` checks idle-pond activation, impacts, duplicate prepares, pause, finite bounded waves
+and water mass. `water_host` verifies explosion capture and exact forwarding of all original arguments.
 
 ## Floating lilies
 
@@ -35,7 +68,15 @@ profile selection for both regions.
 
 Water uses the shared [environment reflections](../lighting/README.md#environment-reflections)
 and material controls. Missing capture coverage falls back to local GI. Reflection capture and
-the water simulation bake are independent.
+the water simulation bake are independent. Water selects captures up to 0.5 world units toward
+the camera-facing side of the interface, keeping box-projection rays at the true displaced surface.
+This keeps shallow cave water out of underwater/floor influence fade bands that otherwise mix dark
+ceiling captures with bright diffuse-GI fallback. Opaque receivers keep their original selection;
+GPU tile masks conservatively cover the bounded offset. Reflection strength and BRDF are unchanged.
+
+Water debug views separate direct highlights, environment reflection, illumination, surface mask,
+capture-only reflection, GI fallback and cached GI. `OPENRAC_WATER_VIEW` selects these as 5-11 for
+scripted captures; 0 is normal shading and 12 compares the original reflection selection.
 
 ## Bake local water data
 
@@ -141,9 +182,11 @@ under-resolved detail. These fine waves change shading normals, not geometry or 
 
 Ratchet's class-0 mesh tracks GPU per-vertex wetness against baked wet cells and the latest
 simulated/decorative surface. Contact sets wetness to one; drying takes 20 game seconds. Diffuse
-darkening/specular coating preserve emission, alpha and geometry. Other mobys, attachments and
-original graphics are excluded. Level/hero identity changes or disabling enhanced graphics reset it;
-missing water lets patches dry. Coarse triangles soften waterlines; early mesh preparation may use
+darkening/specular coating preserve emission, alpha and geometry. Wet patches also reflect the
+local, box-projected environment probes, using the wetness roughness, reflectivity and specular
+strength controls. Reflections fade with drying; missing captures retain the direct GGX highlight.
+Other mobys, attachments and original graphics are excluded. Level/hero identity changes or disabling
+enhanced graphics reset it; missing water lets patches dry. Coarse triangles soften waterlines; early mesh preparation may use
 the previous frame's images.
 
 ## Controls
@@ -155,8 +198,8 @@ physics and decorative water time. Reset works while paused. Restore defaults re
 history. Lit, height, velocity, banks and flow-detail views expose the GPU state.
 
 Default interaction strength is 1.4, friction is 0.12/s and fine-ripple strength is 1. Ratchet wetness
-controls default to diffuse scale 0.32, specular strength 4, dry/wet roughness 0.52/0.30 and
-reflectivity 0.02037. Its diagnostic shows wet samples in blue and dry samples in grey. These
+controls default to diffuse scale 0.34, specular strength 1.07, dry/wet roughness 0.51/0.35 and
+reflectivity 0.0633. Its diagnostic shows wet samples in blue and dry samples in grey. These
 controls do not alter contact or drying. `OPENRAC_WATER_OFF=1` selects original water for comparison.
 
 ## Modules and verification
@@ -193,3 +236,18 @@ These describe the mathematics; no source code was copied:
 
 Water and world particles also share the optional [atmosphere transport](atmosphere.md) at their
 own surface depth.
+
+Foam follows sharp positive crest curvature with steep slopes or converging velocity, rather than
+absolute ripple height. Broad swells, raised plateaus and smooth rotating flow retain transmission.
+Curvature and compression reuse the four existing wave taps; no extra wave or depth reads are added.
+Thin shoreline foam remains. Water views 13/14/15 show foam off, foam coverage and the old height-based
+response for native capture comparisons. `water_gpu` checks flat/broad/trough/crest cases, height-offset
+invariance, both wave-sampling paths and clamped atlas borders against CPU values.
+
+Water contacts blend the complete shaded surface into the original scene across a 0.12 world-unit
+normal-depth band. Coverage uses the unshifted scene depth and baked plane normal, so fine ripples
+and refracted floor samples cannot move the shoreline. Refraction fades out with coverage; deeper
+water is unchanged. This reuses the existing depth fetch and adds a scene-colour fetch only within
+contacts (or the existing rejected-refraction path). Water views 16/17 show contact coverage and the
+unblended reference. GPU fixtures check analytic contact depths, projection types, silhouettes,
+refraction rejection, MSAA and unchanged deeper water.
