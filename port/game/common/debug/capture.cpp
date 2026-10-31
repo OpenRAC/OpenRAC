@@ -51,6 +51,8 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
+// One frame in this many has its passes split out to time them on a tile-based GPU.
+constexpr int kPassSampling = 10;
 // The capture lengths the drawer and the menu offer, in seconds; 0 runs until stopped.
 constexpr double kLengths[] = {15.0, 30.0, 60.0, 120.0, 0.0};
 // The simulated slow processor's factors they offer (common/slow_cpu.h); 1 is off.
@@ -73,17 +75,17 @@ struct Capture {
     std::string clocks_at_start, thermal_at_start;
     int level_at_start = -1;
     std::uint64_t tick_at_start = 0;
+    int pass_sampling = 0;  // one frame in this many split to time its passes; 0 none
 };
 
 Capture c;
 
 // The settings sweep: one recording that changes the graphics settings every few seconds, with
 // VSync off so that each step's frame time is the device's own, not a multiple of the refresh.
-// Split pass timing (vkgl) is off in every step but its own, as it slows the frame.
+// Frames split to time their passes (pass sampling) are left out of a step's GPU time.
 struct SweepStep {
     const char* name;
     void (*apply)(settings::Settings&);
-    bool split_timing = false;
 };
 
 void effects_off(settings::Settings& g) {
@@ -122,7 +124,6 @@ constexpr SweepStep kSweep[] = {
          g.enhanced_graphics = false;
          g.render_scale = 50;
      }},
-    {"enhanced, every effect off, GPU passes timed", effects_off, true},
     {"as set, temporal off (native)",
      [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Off; }},
     {"as set, motion blur off", [](settings::Settings& g) { g.motion_blur = false; }},
@@ -144,7 +145,6 @@ struct Sweep {
     bool asked = false;    // the next capture is a sweep
     bool running = false;  // settings changed and not yet given back
     settings::Settings saved;
-    bool saved_split = false;  // split pass timing as it was
     int step = -1;
 
     struct Boundary {
@@ -162,24 +162,6 @@ struct Sweep {
 
 Sweep sweep;
 
-bool split_timing() {
-#if defined(OPENRAC_VULKAN)
-    return vkgl::split_pass_timing();
-#else
-    return false;
-#endif
-}
-
-void set_split_timing(bool on) {
-#if defined(OPENRAC_VULKAN)
-    if (vkgl::split_pass_timing() != on) {
-        vkgl::set_split_pass_timing(on);
-    }
-#else
-    static_cast<void>(on);
-#endif
-}
-
 void sweep_apply(int step) {
     settings::Settings next = sweep.saved;
     next.vsync = settings::VSync::Off;
@@ -187,7 +169,6 @@ void sweep_apply(int step) {
     kSweep[step].apply(next);
     settings::get() = next;
     s.settings_changed = true;
-    set_split_timing(kSweep[step].split_timing);
     sweep.step = step;
     const stats::Frame* last = stats::history(0);
     sweep.starts.push_back(
@@ -217,7 +198,7 @@ void sweep_collect() {
             continue;
         }
         sweep.picture_s[step].push_back(f->start_s);
-        if (f->gpu_frame_ms >= 0.0) {
+        if (f->gpu_frame_ms >= 0.0 && !f->passes_split) {
             sweep.gpu_ms[step].push_back(f->gpu_frame_ms);
         }
     }
@@ -239,7 +220,6 @@ void sweep_end() {
     sweep.running = false;
     settings::get() = sweep.saved;
     s.settings_changed = true;
-    set_split_timing(sweep.saved_split);
     sweep.results.clear();
     for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {
         const std::vector<double>& starts = sweep.picture_s[i];
@@ -326,6 +306,15 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
         return;
     }
     c.path = std::move(path);
+    // On a tile-based GPU (a phone's) a pass's own GPU time needs its render pass ended around it,
+    // which slows the frame: done in one frame of ten (stats::set_pass_sampling), the rest kept true.
+    c.pass_sampling = 0;
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan() && vkgl::tile_based() && !vkgl::split_pass_timing()) {
+        c.pass_sampling = kPassSampling;
+    }
+#endif
+    stats::set_pass_sampling(c.pass_sampling);
     effects_dump::arm(true);  // snapshots of effects and the game's notes (effects_dump.h)
     sampler::start();         // where the window and render threads' time goes (common/sampler.h)
     c.clocks_at_start = system_info::cpu_clocks();
@@ -481,16 +470,25 @@ perf_capture::Context context(const Shown& shown) {
                 "{}tile-based GPU, {}",
                 vkgl::tile_based() ? "" : "not a ",
                 vkgl::split_pass_timing()
-                    ? "each timed pass split out (its GPU times are its own; the frame is slower)"
-                    : "passes not split (on a tile-based GPU their GPU times read about zero)"
+                    ? std::string(
+                          "each timed pass split out in every frame (OPENRAC_GPU_PASS_TIMING: "
+                          "its GPU times are its own; the frame is slower)"
+                      )
+                : c.pass_sampling > 0
+                    ? std::format(
+                          "passes split out in one frame of {} to time them; those frames are left "
+                          "out of the frame's GPU time",
+                          c.pass_sampling
+                      )
+                    : std::string("passes not split (their GPU times are their own here)")
             ));
     }
 #endif
     if (!sweep.results.empty()) {
         add("settings sweep",
             std::format(
-                "VSync off, GPU passes not split but in their own step, {:.0f} s a step, its "
-                "first {:.1f} s not counted; frames tagged by the \"settings sweep step\" gauge",
+                "VSync off, {:.0f} s a step, its first {:.1f} s not counted; frames tagged by the "
+                "\"settings sweep step\" gauge",
                 kSweepStepS,
                 kSweepSettleS
             ));
@@ -532,6 +530,7 @@ std::vector<std::uint8_t> file_bytes(const std::filesystem::path& path) {
 }
 
 void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) {
+    stats::set_pass_sampling(0);
     if (sweep.running) {
         sweep_collect();
         sweep_end();
@@ -617,28 +616,6 @@ const char* capture_length_name() {
     static std::string name;
     name = seconds > 0.0 ? std::format("{:.0f} s", seconds) : std::string("Until stopped");
     return name.c_str();
-}
-
-bool pass_timing_available() {
-#if defined(OPENRAC_VULKAN)
-    return gl::is_vulkan() && stats::gpu_timers();
-#else
-    return false;
-#endif
-}
-
-const char* pass_timing_name() {
-#if defined(OPENRAC_VULKAN)
-    return vkgl::split_pass_timing() ? "On" : "Off";
-#else
-    return "Off";
-#endif
-}
-
-void toggle_pass_timing() {
-#if defined(OPENRAC_VULKAN)
-    vkgl::set_split_pass_timing(!vkgl::split_pass_timing());
-#endif
 }
 
 std::string slow_cpu_name() {
@@ -752,7 +729,6 @@ void capture_frame(const Shown& shown) {
                         sweep.step = -1;
                         sweep.starts.clear();
                         sweep.done_serial = 0;
-                        sweep.saved_split = split_timing();
                         sweep.picture_s.assign(kSweepSteps, {});
                         sweep.gpu_ms.assign(kSweepSteps, {});
                         sweep_apply(0);

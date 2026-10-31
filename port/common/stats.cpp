@@ -4,6 +4,7 @@
 #include "common/stats.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +26,8 @@ std::array<std::uint64_t, kCounterCount> g_counters{};
 bool g_enabled = false;
 
 namespace {
+
+std::atomic<int> g_pass_sampling = 0;  // set_pass_sampling
 #ifdef OPENRAC_TRACY
 thread_local std::optional<profiling::Zone> simulation_zone;
 #endif
@@ -118,6 +121,9 @@ void write_frame(std::FILE* out, const Frame& f) {
         std::format_to(add, ",\"game_ms\":{:.3f}", f.game_ms);
     }
     const double gpu = f.gpu_ms();
+    if (f.passes_split) {
+        std::format_to(add, ",\"passes_split\":true");  // its GPU time is the slower, split one
+    }
     if (gpu >= 0.0) {
         std::format_to(add, ",\"gpu_ms\":{:.3f}", gpu);
     } else {
@@ -379,6 +385,8 @@ void begin_frame(FrameKind kind, std::uint64_t tick, float alpha) {
     f.closed = false;
     f.pending_gpu = 0;
     f.gpu_frame_ms = -1.0;
+    f.passes_sampled = g_pass_sampling.load(std::memory_order_relaxed) > 0;
+    f.passes_split = false;
     f.counters.fill(0);
     f.sections.clear();
     f.gauges.clear();
@@ -451,6 +459,20 @@ std::string gpu_section_name(std::uint64_t serial, int section) {
         ? f->sections[std::size_t(section)].name : std::string{};
 }
 #endif
+
+void set_pass_sampling(int every) {
+    g_pass_sampling.store(std::max(every, 0), std::memory_order_relaxed);
+}
+
+int pass_sampling() {
+    return g_pass_sampling.load(std::memory_order_relaxed);
+}
+
+void gpu_passes_split(std::uint64_t serial) {
+    if (Frame* f = frame_of(serial)) {
+        f->passes_split = true;
+    }
+}
 
 void gpu_result(std::uint64_t serial, int section, double ms) {
     Frame* f = frame_of(serial);

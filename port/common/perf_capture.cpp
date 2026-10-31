@@ -100,8 +100,12 @@ void Recorder::add(const stats::Frame& f) {
     row.start_s = f.start_s;
     row.frame_ms = f.interval_ms;
     row.game_ms = f.kind == stats::FrameKind::Tick ? f.game_ms : -1.0;
-    // A frame still waiting for some of its GPU times would understate the GPU's.
-    row.gpu_ms = f.pending_gpu == 0 ? f.gpu_ms() : -1.0;
+    // A frame still waiting for some of its GPU times would understate the GPU's. With pass
+    // sampling, a frame split to time its passes gives them and not its own (slower) GPU time;
+    // the others give theirs and not their passes' (which read about zero on a tile-based GPU).
+    row.gpu_ms = f.pending_gpu == 0 && !f.passes_split ? f.gpu_ms() : -1.0;
+    const bool pass_times = !f.passes_sampled || f.passes_split;
+    m_split += f.passes_split ? 1 : 0;
     row.counters = f.counters;
     row.top.fill({-1, 0.0});
 
@@ -153,7 +157,7 @@ void Recorder::add(const stats::Frame& f) {
         }
         auto& [cpu, gpu] = in_frame[static_cast<std::size_t>(index)];
         cpu = std::max(cpu, 0.0) + section.cpu_ms;
-        if (section.gpu_ms >= 0.0) {
+        if (pass_times && section.gpu_ms >= 0.0) {
             gpu = std::max(gpu, 0.0) + section.gpu_ms;
         }
         Series& s = m_series[static_cast<std::size_t>(index)];
@@ -407,8 +411,16 @@ std::string Recorder::report(const Context& context) const {
         m_frames.size(),
         ticks,
         between,
-        m_skipped > 0 ? std::format(", {} paused or movie frames left out", m_skipped)
-                      : std::string(),
+        std::format(
+            "{}{}",
+            m_skipped > 0 ? std::format(", {} paused or movie frames left out", m_skipped)
+                          : std::string(),
+            m_split > 0
+                ? std::format(
+                      ", passes timed in {} of them (left out of the frame's GPU time)", m_split
+                  )
+                : std::string()
+        ),
         m_target_ms,
         1000.0 / m_target_ms);
     if (m_frames.empty()) {

@@ -1888,9 +1888,9 @@ entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the 
   GPU; the capture report's `enhanced` line names the one in use.
 - **Pass timing.** Timestamps written inside an open render pass on a tile-based GPU measure
   the binning, not the shading, so the capture's per-pass GPU column reads about zero there.
-  **Time GPU passes** (Developer tools, or `OPENRAC_GPU_PASS_TIMING`) ends the pass around each
-  GPU timer: every timed section's time is then its own, at the cost of extra loads and stores,
-  so only the per-pass split is meaningful in such a recording, not the frame time.
+  A recording ends the pass around each GPU timer in one frame of ten (every frame with
+  `OPENRAC_GPU_PASS_TIMING`): those frames give each section's own time, at the cost of extra
+  loads and stores, and are left out of the frame's GPU time.
 
 The three registry entries are lossless: `render_equivalence_vulkan --opt <name>` compares
 frames with each one on and off with no tolerance. The scrolling static shadow caches above

@@ -269,6 +269,7 @@ struct Frame {
         std::uint64_t serial;
         int section;
         std::uint32_t first;
+        bool split = false;  // its render pass ended around it (split_for)
         bool complete = false, reported = false;
     };
 
@@ -1019,6 +1020,11 @@ struct Context {
     bool shader_float16 = false;     // Actually enabled arithmetic, not 16-bit storage support.
     bool tile_based = false;         // tile_based(): the vendor's guess or OPENRAC_TILE_BASED.
     bool split_pass_timing = false;  // set_split_pass_timing(): timed sections end their pass.
+    // Pass sampling (stats::pass_sampling): the last frame asked about, whether it is split, and
+    // the frames with timed sections counted so far.
+    std::uint64_t split_serial = ~0ull;
+    bool split_now = false;
+    std::uint64_t timed_frames = 0;
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;
     VkQueue queue = VK_NULL_HANDLE;

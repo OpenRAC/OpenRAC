@@ -43,10 +43,11 @@ weak phone. Works on Linux, Android and macOS.
 ### Timing each GPU pass on a phone
 
 On Mali and Adreno the GPU time of a section inside a render pass reads about zero: the GPU
-renders the whole pass later, tile by tile. **Time GPU passes** (Developer tools, Vulkan only)
-splits the pass around each timed section so that its GPU time is its own. It makes the frame
-slower, so record once with it for the per-section split and once without it for the frame
-time. The report's **gpu passes** line says which way a recording was made.
+renders the whole pass later, tile by tile. A recording on such a GPU (Vulkan) therefore splits
+the pass around each timed section in one drawn frame of ten, so that those sections' GPU times
+are their own. Those frames give the per-section GPU times and are left out of the frame's GPU
+time; the other nine give the frame's true GPU time. Nothing needs switching on. The report's
+**gpu passes** line says so, and each split frame has `"passes_split":true` in the frames file.
 
 ### What each graphics setting costs (settings sweep)
 

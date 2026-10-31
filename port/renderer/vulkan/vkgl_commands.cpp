@@ -731,6 +731,23 @@ void begin_buffers() {
     g->recorded.forget();
 }
 
+// Whether that frame's timed sections end their render pass: always while split timing is set,
+// else one frame with timed sections in stats::pass_sampling(), decided at its first.
+bool split_for(std::uint64_t serial) {
+    if (g->split_pass_timing) {
+        return true;
+    }
+    const int every = stats::pass_sampling();
+    if (every <= 0) {
+        return false;
+    }
+    if (serial != g->split_serial) {
+        g->split_serial = serial;
+        g->split_now = ++g->timed_frames % static_cast<std::uint64_t>(every) == 0;
+    }
+    return g->split_now;
+}
+
 bool timing_begin(std::uint64_t serial, int section) {
     if (!g || !g->timestamp_bits) {
         return false;
@@ -742,11 +759,12 @@ bool timing_begin(std::uint64_t serial, int section) {
     }
     // Split, the section's first draw begins a pass of its own (which loads what the last one
     // stored): the timestamp lies between passes, where a tile-based GPU measures it.
-    if (g->split_pass_timing) {
+    const bool split = split_for(serial);
+    if (split) {
         end_rendering(PassEnd::Timing);
     }
     f.active_timing = static_cast<int>(f.timings.size());
-    f.timings.push_back({serial, section, f.timestamp_used});
+    f.timings.push_back({serial, section, f.timestamp_used, split});
 #if defined(OPENRAC_GPU_MARKERS)
     if (env::flag(env::Var::GpuMarkers) && vkCmdBeginDebugUtilsLabelEXT) {
         const auto name = stats::gpu_section_name(serial, section);
@@ -784,10 +802,10 @@ void timing_end() {
     if (f.active_timing < 0) {
         return;
     }
-    if (g->split_pass_timing) {
+    auto& timing = f.timings[static_cast<std::size_t>(f.active_timing)];
+    if (timing.split) {
         end_rendering(PassEnd::Timing);
     }
-    auto& timing = f.timings[static_cast<std::size_t>(f.active_timing)];
     vkCmdWriteTimestamp(
         g->gpu.timing_upload ? f.upload : f.main,
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -851,6 +869,9 @@ void timing_results(Frame& f) {
             )
             == VK_SUCCESS) {
             const double ticks = static_cast<double>((values[1] - values[0]) & mask);
+            if (timing.split) {
+                stats::gpu_passes_split(timing.serial);
+            }
             stats::gpu_result(
                 timing.serial, timing.section, ticks * g->properties.limits.timestampPeriod / 1e6
             );
