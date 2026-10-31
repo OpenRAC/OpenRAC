@@ -289,7 +289,7 @@ std::vector<Binding> pressed_inputs(const PadInputs& inputs, std::uint8_t thresh
 }  // namespace
 
 PadInputs Input::read_device(std::size_t index) const {
-    return index < m_gamepads.size() ? read_gamepad(m_gamepads[index]) : PadInputs{};
+    return index < m_gamepads.size() ? read_gamepad(m_gamepads[index].gamepad) : PadInputs{};
 }
 
 void Input::begin_capture() {
@@ -297,9 +297,9 @@ void Input::begin_capture() {
     // is not what it captures.
     SDL_UpdateGamepads();
     m_capture_held.clear();
-    for (SDL_Gamepad* g : m_gamepads) {
+    for (const Connected& c : m_gamepads) {
         m_capture_held.push_back(
-            pressed_inputs(read_gamepad(g), m_bindings[0].tuning.trigger_threshold)
+            pressed_inputs(read_gamepad(c.gamepad), m_bindings[0].tuning.trigger_threshold)
         );
     }
     m_captured.reset();
@@ -319,7 +319,7 @@ void Input::capture_step() {
     }
     for (std::size_t d = 0; d < m_gamepads.size() && !m_captured; ++d) {
         const std::vector<Binding> now =
-            pressed_inputs(read_gamepad(m_gamepads[d]), m_bindings[0].tuning.trigger_threshold);
+            pressed_inputs(read_gamepad(m_gamepads[d].gamepad), m_bindings[0].tuning.trigger_threshold);
         std::vector<Binding>& held = m_capture_held[d];
         for (const Binding& b : now) {
             if (std::find(held.begin(), held.end(), b) == held.end()) {
