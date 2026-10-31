@@ -693,7 +693,8 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   mode now uses a sparse moby grid across the positive 131,072-unit collision
   world, with 16-unit cells, 262,144 hash slots, and a 14.5 MiB pool of 32-byte
   blocks; vanilla retains the original 1,536-block grid. A single moby's grid
-  bounds must fit the expanded grid's cell capacity. If grid allocation fails,
+  bounds must fit the expanded grid's cell capacity; empty expanded cells release
+  their hash slots for later reuse. If grid allocation fails,
   that moby keeps its previous collision coverage and OpenRAC warns. The
   expanded target pointer table can hold 32,768 entries; vanilla keeps the
   original 511-target limit. Host moby bookkeeping and HUD markers now cover

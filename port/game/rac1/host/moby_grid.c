@@ -31,6 +31,8 @@ enum {
     GRID_USED_BYTES = GRID_BOUNDS + GRID_BOUNDS_COUNT * 8
 };
 
+#define GRID_HASH_TOMBSTONE UINT32_MAX
+
 _Static_assert(GRID_USED_BYTES <= OPENRAC_EXPANDED_MOBY_GRID_RESERVE,
                "expanded moby grid exceeds its guest RAM reservation");
 _Static_assert(GUEST_RAM_EXPANDED_SIZE > OPENRAC_EXPANDED_RAC1_RESERVE,
@@ -135,8 +137,9 @@ static void grid_free(gaddr base, uint32_t first, uint32_t blocks) {
 }
 
 /* Cells in the original 64x64 area retain their compact direct table. The rest of the
- * expanded 8192x8192 world uses a fixed open-addressed hash table stored in guest RAM. Hash
- * slots are never deleted during a level load, so an empty key remains a valid probe terminator. */
+ * expanded 8192x8192 world uses a fixed open-addressed hash table stored in guest RAM. Empty
+ * slots terminate probes; tombstones preserve probe chains while allowing emptied cells to be
+ * reused during a level load. */
 static gaddr grid_cell_address(gaddr base, unsigned x, unsigned y, int create) {
     if (x < 64 && y < 64) {
         return base + GRID_CELLS + (x + y * 64u) * GRID_CELL_SIZE;
@@ -146,6 +149,7 @@ static gaddr grid_cell_address(gaddr base, unsigned x, unsigned y, int create) {
     }
     const uint32_t key = 1u + x + y * 8192u;
     uint32_t slot = (key * 2654435761u) & (GRID_HASH_COUNT - 1u);
+    uint32_t tombstone = GRID_HASH_COUNT;
     for (uint32_t probe = 0; probe < GRID_HASH_COUNT; ++probe) {
         const gaddr cell = base + GRID_HASH + slot * GRID_HASH_CELL_SIZE;
         const uint32_t found = GREF(uint32_t, cell + 12u);
@@ -156,12 +160,29 @@ static gaddr grid_cell_address(gaddr base, unsigned x, unsigned y, int create) {
             if (!create) {
                 return 0;
             }
-            GREF(uint32_t, cell + 12u) = key;
-            return cell;
+            const gaddr insert = base + GRID_HASH
+                                 + (tombstone < GRID_HASH_COUNT ? tombstone : slot)
+                                       * GRID_HASH_CELL_SIZE;
+            GREF(uint32_t, insert + 12u) = key;
+            return insert;
+        }
+        if (found == GRID_HASH_TOMBSTONE) {
+            if (create && tombstone == GRID_HASH_COUNT) {
+                tombstone = slot;
+            }
         }
         slot = (slot + 1u) & (GRID_HASH_COUNT - 1u);
     }
+    if (create && tombstone < GRID_HASH_COUNT) {
+        const gaddr insert = base + GRID_HASH + tombstone * GRID_HASH_CELL_SIZE;
+        GREF(uint32_t, insert + 12u) = key;
+        return insert;
+    }
     return 0;
+}
+
+static int grid_is_hash_cell(gaddr base, gaddr cell) {
+    return cell >= base + GRID_HASH && cell < base + GRID_BOUNDS;
 }
 
 static int grid_add(gaddr base, unsigned x, unsigned y, uint16_t id) {
@@ -176,8 +197,8 @@ static int grid_add(gaddr base, unsigned x, unsigned y, uint16_t id) {
         const uint32_t grown_capacity = capacity ? capacity * 2u : 1u;
         uint32_t grown_first;
         if (!grid_allocate(base, grown_capacity, &grown_first)) {
-            if (count == 0 && cell >= base + GRID_HASH && cell < base + GRID_BOUNDS) {
-                GREF(uint32_t, cell + 12u) = 0;
+            if (count == 0 && grid_is_hash_cell(base, cell)) {
+                GREF(uint32_t, cell + 12u) = GRID_HASH_TOMBSTONE;
             }
             return 0;
         }
@@ -225,6 +246,9 @@ static int grid_remove(gaddr base, unsigned x, unsigned y, uint16_t id) {
         grid_free(base, first, capacity);
         GREF(uint32_t, cell) = 0;
         GREF(uint32_t, cell + 8) = 0;
+        if (grid_is_hash_cell(base, cell)) {
+            GREF(uint32_t, cell + 12u) = GRID_HASH_TOMBSTONE;
+        }
     } else {
         /* Return half of an underused list as it shrinks. Keep four spare entries, as the
          * retail grid does, to avoid reallocating on small count fluctuations. */
