@@ -314,7 +314,7 @@ void drawer_note(const char* line) {
     ImGui::Dummy(ImVec2(0.0f, dp(10.0f)));
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + dp(16.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ui().soft));
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + s.card.width - dp(32.0f));
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - dp(16.0f));
     ImGui::TextUnformatted(line);
     ImGui::PopTextWrapPos();
     ImGui::PopStyleColor();
@@ -701,6 +701,8 @@ void drawer(const Shown& shown) {
                     s.drawer_record = !s.drawer_record;
                 }
                 if (record) {
+                    // Its two kinds set in under it, so they read as its own.
+                    ImGui::Indent(dp(16.0f));
                     if (drawer_row("Gameplay recording")) {
                         toggle_capture(true);
                         set_drawer(false);
@@ -724,6 +726,7 @@ void drawer(const Shown& shown) {
                         "seconds, with VSync off, and measures what each one costs. Use it when "
                         "the game is slow everywhere."
                     );
+                    ImGui::Unindent(dp(16.0f));
                 }
             }
             // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).
