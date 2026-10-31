@@ -56,7 +56,7 @@ def table(mesh: bytes, at: int, entry: str) -> tuple[int, list[int]]:
 
 
 def leaves(mesh: bytes):
-    """Yield ((x, y, z) cell, leaf bytes) for every non-empty cell."""
+    """Yield ((x, y, z) cell, leaf bytes, extended marker) for every non-empty cell."""
     z_base, z_slabs = table(mesh, 0, "H")
     for k, slab in enumerate(z_slabs):
         if not slab:
@@ -68,13 +68,14 @@ def leaves(mesh: bytes):
             x_base, cells = table(mesh, row, "I")
             for i, word in enumerate(cells):
                 if word:
-                    if word & 0xff:
+                    extended = (word & 0xff) == 0
+                    if not extended:
                         size = (word & 0xff) * 16
                     else:
                         magic, size, _, _ = unpack("<4sIII", mesh, word >> 8)
                         if magic != EXT_LEAF_MAGIC or size < 16 or size % 16:
                             raise FormatError("expanded collision leaf has an invalid header")
-                    yield (x_base + i, y_base + j, z_base + k), span(mesh, word >> 8, size)
+                    yield (x_base + i, y_base + j, z_base + k), span(mesh, word >> 8, size), extended
 
 
 def decode(block: bytes) -> Collision:
@@ -89,8 +90,7 @@ def decode(block: bytes) -> Collision:
     tree = span(block, mesh_at, (hero_at or len(block)) - mesh_at)
     result = Collision()
     seen = set()
-    for (x, y, z), leaf in leaves(tree):
-        extended = leaf[:4] == EXT_LEAF_MAGIC
+    for (x, y, z), leaf, extended in leaves(tree):
         if extended:
             _, size, vertices, faces = unpack("<4sIII", leaf)
             quads = 0
@@ -404,7 +404,8 @@ def validate(model: Block) -> None:
         if needs_extended:
             check(len(leaf.vertices) <= EXT_MAX_VERTICES,
                   f"collision: cell {cell} has more than {EXT_MAX_VERTICES} vertices, the expanded query limit")
-            check(16 + 4 * len(leaf.vertices) + 16 * extended_faces <= EXT_MAX_BYTES,
+            check(extended_faces <= 0xffffffff
+                  and _align(16 + 4 * len(leaf.vertices) + 16 * extended_faces, 16) <= EXT_MAX_BYTES,
                   f"collision: expanded cell {cell} exceeds the supported guest RAM size")
         for corners, kind in leaf.faces:
             check(len(set(corners)) == len(corners) and all(0 <= i < len(leaf.vertices) for i in corners)
