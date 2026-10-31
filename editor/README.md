@@ -780,6 +780,10 @@ How it is packed ([moby_collision_scene.py](moby_collision_scene.py),
   keep their byte-indexed faces; when an edit references vertex index 256 or
   higher, OpenRAC marks that blob and stores 16-bit face indices. Vanilla blobs
   keep their original layout and bytes.
+- Class collision is local to a moby and uses signed 16-bit vertex coordinates.
+  For large environment structures or map-scale collision, add the geometry to
+  the level's `Game/Collision` instead; that path uses the level collision
+  format and its mod-only extended coordinates, independently of moby classes.
 - The blob goes back where the class has it when it fits (its place is padded
   to 16 bytes), else to the end of the core data: the class header's
   collision offset is relative to the class and the loader adds the class's
