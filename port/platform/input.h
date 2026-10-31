@@ -3,8 +3,10 @@
 //
 // The keyboard and SDL's gamepads, turned into the two DualShock 2 ports the
 // game reads (pad.h). Port 0 is the keyboard together with the first gamepad;
-// port 1 is the second gamepad. Gamepad buttons are mapped by position, so the
-// bottom face button is Cross on any controller.
+// port 1 is the second gamepad. A gamepad counts from its first press, ahead of
+// those not pressed yet (a dock's or a keyboard's device that SDL also lists as
+// one). Gamepad buttons are mapped by position, so the bottom face button is
+// Cross on any controller.
 //
 // Default keyboard (by key position, whatever the layout):
 //
@@ -91,9 +93,14 @@ public:
 
 private:
     SDL_Gamepad* gamepad(int port) const;
+    // A gamepad's button pressed: the gamepad takes the first port that no used gamepad holds.
+    void used(std::uint32_t which);  // SDL_JoystickID
 
     std::array<Pad, kPadPorts> m_pads{};
+    // The gamepads in port order: first those used so far (the first m_used), in the order they
+    // were first used, then the others in the order they came.
     std::vector<SDL_Gamepad*> m_gamepads;
+    std::size_t m_used = 0;
     // Each port's sticks, left and right, as their gamepad has shown them (pad.h), and the gamepad
     // that showed it: another one on the port starts afresh.
     std::array<std::array<StickGate, 2>, kPadPorts> m_gates{};

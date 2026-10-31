@@ -95,7 +95,13 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_GAMEPAD_ADDED: {
             SDL_Gamepad* g = SDL_OpenGamepad(event.gdevice.which);
             if (g != nullptr) {
-                log::info("gamepad connected: {}", SDL_GetGamepadName(g));
+                const char* name = SDL_GetGamepadName(g);
+                log::info(
+                    "gamepad connected: {} ({:04x}:{:04x})",
+                    name != nullptr ? name : "?",
+                    SDL_GetGamepadVendor(g),
+                    SDL_GetGamepadProduct(g)
+                );
                 m_gamepads.push_back(g);
             }
             break;
@@ -106,6 +112,9 @@ void Input::handle_event(const SDL_Event& event) {
             });
             if (it != m_gamepads.end()) {
                 log::info("gamepad disconnected");
+                if (static_cast<std::size_t>(it - m_gamepads.begin()) < m_used) {
+                    --m_used;
+                }
                 SDL_CloseGamepad(*it);
                 m_gamepads.erase(it);
             }
@@ -134,6 +143,7 @@ void Input::handle_event(const SDL_Event& event) {
             m_touch.hide();
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            used(event.gbutton.which);
             m_touch.hide();
             break;
         // The mouse, for the mods (KeyboardMouse): gathered until the next update(). A touch screen's
@@ -169,6 +179,21 @@ void Input::handle_event(const SDL_Event& event) {
         default:
             break;
     }
+}
+
+void Input::used(std::uint32_t which) {
+    // Moved behind the gamepads used before it and ahead of those never used: a device that only
+    // looks like a gamepad (a USB-C dock's or hub's, a keyboard's arrow keys) and was found before
+    // the controller no longer holds port 0. A button only: such a device may rest off centre.
+    auto it = std::find_if(m_gamepads.begin(), m_gamepads.end(), [&](SDL_Gamepad* g) {
+        return SDL_GetGamepadID(g) == which;
+    });
+    const auto index = static_cast<std::size_t>(it - m_gamepads.begin());
+    if (it == m_gamepads.end() || index < m_used) {
+        return;
+    }
+    std::rotate(m_gamepads.begin() + static_cast<std::ptrdiff_t>(m_used), it, it + 1);
+    ++m_used;
 }
 
 SDL_Gamepad* Input::gamepad(int port) const {
