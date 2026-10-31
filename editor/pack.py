@@ -61,6 +61,9 @@ RAC1_SPAWN_ID_COUNT = 0x800  # RAC1's 64-word per-level killed-state bitset.
 VANILLA_RAM_BYTES = 32 * 1024 * 1024
 EXPANDED_RAM_BYTES = 256 * 1024 * 1024  # The largest guest arena selected for virtual level streams.
 IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
+# The Godot `Game` node turns the editor's Y-up coordinates into RAC1's Z-up game space. Packers
+# convert child transforms with scene_transform and therefore require this extracted frame intact.
+GAME_FRAME = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0)
 
 
 def f32(x: float) -> bytes:
@@ -515,6 +518,14 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         stored = disc.sectors(place["lba"], place["sectors"])
         gameplay = decoded(stored)
         text = scene.read_text()
+        scene_nodes, _ = gamedata.parse_scene(text)
+        game_frame = scene_nodes.get("Game")
+        if game_frame is None or not same(gamedata.transform_of(game_frame), GAME_FRAME):
+            raise FormatError(
+                f"level {info['id']:02}: keep the Game node's extracted transform; it converts Godot's "
+                "coordinates to the game's and cannot be packed as a level edit",
+                code="pack-incomplete"
+            )
         import static_assets
         try:
             static_instances = static_assets.placements(scene.parents[2], text)

@@ -40,6 +40,9 @@ accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 
 The game uses Z up. Surface type **31 / 0x1f** is ordinary ground; type **0** is
 water. The editor's surface selector documents these meanings.
+Keep the extracted **Game** node transform unchanged: it converts Godot's
+coordinate frame to the game's, while Pack reads the child placements in that
+fixed frame.
 
 ### Import static scenery from another level or your own model
 
