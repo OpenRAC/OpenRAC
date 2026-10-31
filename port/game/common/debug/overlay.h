@@ -219,6 +219,7 @@ struct State {
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
     bool drawer_developer = false;  // its developer tools unfolded
+    bool drawer_record = false;     // its diagnostics recordings unfolded
     // The on-screen pad's layout being edited (touch_editing()): Reset asked for, the box of the
     // bar in the middle of the screen as last drawn, whose fingers are ImGui's, not the pad's, and
     // the lines a dragged group snapped to (set_touch_guides()).
@@ -452,9 +453,8 @@ void toggle_capture(bool after_drawer);
 
 // A settings sweep: a capture that changes the graphics settings every few seconds (VSync off) and
 // gives them back at its end, its report listing each step's frame time. Started like
-// toggle_capture(true); pending while its countdown runs. Defined in debug/capture.cpp.
+// toggle_capture(true). Defined in debug/capture.cpp.
 void toggle_settings_sweep();
-bool sweep_pending();
 double settings_sweep_seconds();
 
 // The capture's length as the drawer shows it ("30 s", "Until stopped"), and moved on by `by`.

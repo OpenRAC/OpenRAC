@@ -676,32 +676,54 @@ void drawer(const Shown& shown) {
                 s.shot_when_shut = true;
                 set_drawer(false);
             }
-            // A performance capture: starts a moment after the drawer has gone; opening it again
-            // ends the capture, whose report is copied and saved (debug/capture.cpp).
-            if (const int by =
-                    drawer_choice("Recording length", capture_length_name(), true, true)) {
-                step_capture_length(by);
-            }
-            if (drawer_row(
-                    capture_pending() ? "Cancel recording diagnostics" : "Record diagnostics"
-                )) {
-                const bool starts = !capture_pending();
-                toggle_capture(true);
-                if (starts) {
-                    set_drawer(false);
+            // Diagnostics recordings (debug/capture.cpp): one row that unfolds the two kinds,
+            // each with a line on when to use it. A recording starts a moment after the drawer
+            // has gone; opening the drawer again ends it, and its report is copied and saved.
+            if (capture_pending()) {
+                if (drawer_row("Cancel recording")) {
+                    toggle_capture(true);
                 }
-            }
-            // The graphics settings changed every few seconds while it records: what each costs
-            // on this device, in one recording (debug/capture.cpp).
-            const std::string sweep_label =
-                sweep_pending()
-                    ? std::string("Cancel settings sweep")
-                    : std::format("Record settings sweep ({:.0f} s)", settings_sweep_seconds());
-            if (drawer_row(sweep_label.c_str())) {
-                const bool starts = !capture_pending();
-                toggle_settings_sweep();
-                if (starts) {
-                    set_drawer(false);
+            } else {
+                const bool record = s.drawer_record;
+                if (drawer_row(
+                        "Record diagnostics", ui().text, [record](ImDrawList* list, ImVec2 right) {
+                            const float k = tween(item_part("open"), record ? 1.0f : 0.0f, kMedium);
+                            const float dy = 1.0f - 2.0f * k;
+                            arrow(
+                                list,
+                                ImVec2(right.x - dp(5.0f), right.y + dp(2.5f) * dy),
+                                0.0f,
+                                dy,
+                                ui().soft
+                            );
+                        }
+                    )) {
+                    s.drawer_record = !s.drawer_record;
+                }
+                if (record) {
+                    if (drawer_row("Gameplay recording")) {
+                        toggle_capture(true);
+                        set_drawer(false);
+                    }
+                    drawer_note(
+                        "Records while you play, for the length below. Use it to catch stutters "
+                        "or a slow place or moment."
+                    );
+                    if (const int by =
+                            drawer_choice("Recording length", capture_length_name(), true, true)) {
+                        step_capture_length(by);
+                    }
+                    const std::string sweep_label =
+                        std::format("Graphics settings sweep ({:.0f} s)", settings_sweep_seconds());
+                    if (drawer_row(sweep_label.c_str())) {
+                        toggle_settings_sweep();
+                        set_drawer(false);
+                    }
+                    drawer_note(
+                        "Stand still while it runs: it changes the graphics settings every few "
+                        "seconds, with VSync off, and measures what each one costs. Use it when "
+                        "the game is slow everywhere."
+                    );
                 }
             }
             // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).

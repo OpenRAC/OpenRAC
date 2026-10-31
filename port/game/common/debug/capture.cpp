@@ -661,10 +661,6 @@ void toggle_settings_sweep() {
     sweep.asked = c.start_at.has_value();
 }
 
-bool sweep_pending() {
-    return c.start_at.has_value() && sweep.asked;
-}
-
 double settings_sweep_seconds() {
     return kSweepSteps * kSweepStepS;
 }

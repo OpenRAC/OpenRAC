@@ -140,9 +140,15 @@ void menu_bar() {
         }
         ImGui::Separator();
         if (ImGui::MenuItem(
-                capture_busy() ? "Stop recording diagnostics" : "Record diagnostics", "Ctrl+F3"
+                capture_busy() ? "Stop recording diagnostics" : "Gameplay recording", "Ctrl+F3"
             )) {
             toggle_capture(false);
+        }
+        if (!capture_busy()
+            && ImGui::MenuItem(
+                std::format("Graphics settings sweep ({:.0f} s)", settings_sweep_seconds()).c_str()
+            )) {
+            toggle_settings_sweep();
         }
         if (ImGui::BeginMenu("Recording length")) {
             for (const double seconds : {15.0, 30.0, 60.0, 120.0, 0.0}) {

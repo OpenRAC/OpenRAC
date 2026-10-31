@@ -10,8 +10,8 @@ It works the same on desktop and Android. Nothing runs until you start one.
 
 | Where | How |
 |---|---|
-| Android | Drawer > Developer tools: pick a **Recording length**, then **Record diagnostics**. Recording starts 3 s after the drawer closes. Opening the drawer stops it. |
-| Desktop | Developer menu > **Record diagnostics**, or **Ctrl+F3** to start and stop. |
+| Android | Drawer > Developer tools > **Record diagnostics**: pick a **Recording length**, then **Gameplay recording**. Recording starts 3 s after the drawer closes. Opening the drawer stops it. |
+| Desktop | Developer menu > **Gameplay recording**, or **Ctrl+F3** to start and stop. |
 | Script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that frame. Combine it with `OPENRAC_PRESS` and `--frames` to get repeatable runs. |
 
 While it records, a red `REC` line shows at the top and the debug panel is hidden.
@@ -50,7 +50,7 @@ time. The report's **gpu passes** line says which way a recording was made.
 
 ### What each graphics setting costs (settings sweep)
 
-Developer tools > **Record settings sweep** records 72 seconds and changes the graphics settings
+Developer tools > **Record diagnostics** > **Graphics settings sweep** records 72 seconds and changes the graphics settings
 every 4 seconds: Enhanced graphics off, every Enhanced effect off, then each effect off on its own,
 anisotropic filtering off and render scale 50%. VSync is off while it runs, so a step's frame time
 is the device's own and not a multiple of the display's refresh. Stand still for the whole
