@@ -548,6 +548,7 @@ function mockEditorState(): EditorState {
     broken: [],
     packedAt: null,
     packedLevels: 0,
+    packedExpandedLevels: [],
     packedOtherVersion: false,
     carried: [],
     backups: [],

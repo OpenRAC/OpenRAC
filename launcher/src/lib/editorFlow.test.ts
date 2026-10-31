@@ -10,6 +10,7 @@ const state = (over: Partial<EditorState> = {}): EditorState => ({
   broken: [],
   packedAt: null,
   packedLevels: 0,
+  packedExpandedLevels: [],
   packedOtherVersion: false,
   carried: [],
   backups: [],
@@ -47,6 +48,12 @@ describe("editorStage", () => {
     expect(editorStage(input({ packing: job("editor-pack") })).kind).toBe("packing");
     const packed = editorStage(input({ state: state({ packedAt: 1, packedLevels: 2 }) }));
     expect([packed.kind, packed.primary]).toEqual(["packed", "play"]);
+    const expanded = editorStage(
+      input({ state: state({ packedAt: 1, packedLevels: 2, packedExpandedLevels: [0, 3] }) }),
+    );
+    expect(expanded.detail).toMatch(/2 levels use streams larger than the original disc slots/);
+    expect(expanded.detail).toMatch(/disc stays unchanged/);
+    expect(expanded.detail).toMatch(/32 MiB of RAM/);
   });
 
   it("says an outdated project before anything else, with Update project and what it does", () => {
