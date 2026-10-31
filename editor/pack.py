@@ -278,6 +278,7 @@ def pack_level(level_id: int, gameplay: bytes, scene: str,
     kept: dict[int, bytes] = {}
     added: list[tuple[dict, int | None]] = []          # the new moby's fields, the moby it takes after
     added_names: list[str] = []                         # their nodes' names
+    reclassed: dict[int, dict] = {}                     # kept mobys whose class changed: their fields
     for node in nodes:
         index = index_of(node)
         try:
@@ -285,12 +286,26 @@ def pack_level(level_id: int, gameplay: bytes, scene: str,
                 record = dict(zip(FIELDS, RECORD.unpack(raw[index])))
                 target_class = node["class_id"]
                 if target_class is not None and target_class != record["class_id"]:
-                    problems.append(
-                        f"{node['name']}: changing an existing moby's class does not replace its class-specific "
-                        "pvars and is not safe. Delete this node, then add an instance of a class already "
-                        "present in the level, or import the model as static scenery."
-                    )
-                    kept[index] = raw[index]
+                    # Its pvars are its old class's: it takes a copy of a moby of the new class's
+                    # initialized block (below), keeping its place in the table.
+                    donor = next((m for m in originals
+                                  if m["class_id"] == target_class and m["index"] != index), None)
+                    if donor is None and record["pvar_index"] >= 0:
+                        problems.append(
+                            f"{node['name']}: the level has no moby of class {target_class} to take "
+                            "initialized pvars from, and its own are its old class's; its class is not changed. "
+                            "Use a class already placed in this level, or import the model as static scenery."
+                        )
+                        kept[index] = raw[index]
+                        continue
+                    if donor is None:
+                        problems.append(f"{node['name']}: the level has no moby of class {target_class} to "
+                                        "take after; its class changed with no pvars")
+                    edits = apply(node, record, originals[index], True, problems)
+                    record["pvar_index"] = donor["fields"]["pvar_index"] if donor is not None else -1
+                    reclassed[index] = record
+                    kept[index] = RECORD.pack(*(record[f] for f in FIELDS))
+                    changes.append(f"{node['name']}: {', '.join(edits)}")
                     continue
                 edits = apply(node, record, originals[index], True, problems)
                 kept[index] = RECORD.pack(*(record[f] for f in FIELDS)) if edits else raw[index]
@@ -340,7 +355,7 @@ def pack_level(level_id: int, gameplay: bytes, scene: str,
     for index in deleted:
         changes.append(f"{node_name(originals[index]['class_id'], index, names)}: deleted")
 
-    if not added and not deleted:
+    if not added and not deleted and not reclassed:
         if kept and len(originals) > 0x8000:
             raise FormatError(
                 f"level {level_id:02}: the edited gameplay table has {len(originals)} mobys; "
@@ -374,6 +389,23 @@ def pack_level(level_id: int, gameplay: bytes, scene: str,
     used_spawn_ids = {m["fields"]["spawn_id"] for m in originals
                       if 0 <= m["fields"]["spawn_id"] < RAC1_SPAWN_ID_COUNT}
     free_spawn_ids = [i for i in range(RAC1_SPAWN_ID_COUNT) if i not in used_spawn_ids]
+    # A moby whose class changed: its own copy of the new class's pvar block, its links with it.
+    for old, record in reclassed.items():
+        source = record["pvar_index"]
+        if 0 <= source < len(pvars):
+            at, size = pvars[source]
+            block = bytes(data[at:at + size])
+            data += bytes(-len(data) % 16)
+            new = len(pvars)
+            pvars.append((len(data), size))
+            data += block
+            links += [(new, where) for pvar, where in links if pvar == source]
+            pointers += [(new, where) for pvar, where in pointers if pvar == source]
+            shared_records += [(new, where, into) for pvar, where, into in shared_records if pvar == source]
+            record["pvar_index"] = new
+        else:
+            record["pvar_index"] = -1
+        table[place[old]] = RECORD.pack(*(record[f] for f in FIELDS))
     without_save_id = 0
     for record, model in added:
         if free_spawn_ids:
@@ -534,7 +566,8 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         text = scene.read_text()
         scene_nodes, _ = gamedata.parse_scene(text)
         game_frame = scene_nodes.get("Game")
-        if game_frame is None or not same(gamedata.transform_of(game_frame), GAME_FRAME):
+        # A scene without the node (an older project, or one written by hand) has nothing to keep.
+        if game_frame is not None and not same(gamedata.transform_of(game_frame), GAME_FRAME):
             raise FormatError(
                 f"level {info['id']:02}: keep the Game node's extracted transform; it converts Godot's "
                 "coordinates to the game's and cannot be packed as a level edit",
@@ -546,8 +579,9 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             static_instances = static_assets.placements(scene.parents[2], text)
         except (ValueError, KeyError, IndexError) as error:
             raise FormatError(f'Static import placement: {error}', code="static-import") from None
-        original_classes = {m["class_id"] for m in moby_instances(gameplay)}
         authored_classes = {n["class_id"] for n in scene_mobys(text) if n["class_id"] is not None}
+        # The level's own classes only when the scene has any to check against them.
+        original_classes = {m["class_id"] for m in moby_instances(gameplay)} if authored_classes else set()
         available_classes = None
         if authored_classes - original_classes:
             target_level = load_level(disc, info)

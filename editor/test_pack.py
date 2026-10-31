@@ -118,6 +118,34 @@ class AddAndDelete(unittest.TestCase):
         at, size = gp.pvar_table(data, index + 1)[index]
         return struct.unpack_from(f"<{size // 4}i", data, gp.offset(data, gp.DATA) + at)
 
+    def reclass(self, data: bytes, index: int, class_id: int) -> bytes:
+        out = bytearray(data)
+        at = 0x100 + 0x10 + index * SIZE
+        record = dict(zip(FIELDS, RECORD.unpack_from(out, at)))
+        record["class_id"] = class_id
+        RECORD.pack_into(out, at, *(record[f] for f in FIELDS))
+        return bytes(out)
+
+    def test_a_class_change_takes_a_copy_of_the_new_classes_pvars(self):
+        # Moby 1 is of class 7 with a pvar block; moby 0 becomes class 7 and gets its own copy.
+        data = self.reclass(self.data, 1, 7)
+        def edit(index, node):
+            return [node[0].replace("moby_500", "moby_7")] + node[1:] if index == 0 else node
+        out, changes, problems = pack_level(0, data, scene(data, edit))
+        self.assertEqual(problems, [])
+        after = moby_instances(out)
+        moved = after[0]["fields"]["pvar_index"]
+        self.assertEqual(after[0]["class_id"], 7)
+        self.assertNotIn(moved, (-1, 1))
+        self.assertEqual(self.pvar(out, moved)[1:], self.pvar(out, 1)[1:])
+
+    def test_a_class_change_with_old_pvars_and_no_donor_is_refused(self):
+        def edit(index, node):
+            return [node[0].replace("moby_500", "moby_7")] + node[1:] if index == 1 else node
+        out, changes, problems = pack_level(0, self.data, scene(self.data, edit))
+        self.assertTrue(any("class is not changed" in p for p in problems), problems)
+        self.assertEqual(moby_instances(out)[1]["class_id"], 500)
+
     def test_a_copy_is_a_new_moby_with_a_spawn_number_pvars_and_a_place_in_its_group(self):
         def edit(index, node):
             if index != 1:
