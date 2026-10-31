@@ -81,6 +81,7 @@ int rac1_moby_eyes(const float** xyz);
 int game_rac1_expanded_ram(void);
 void game_rac1_warn_moby_grid_full(void);
 gaddr rac1_expanded_grid_base(void);
+gaddr rac1_expanded_grid_cell(unsigned x, unsigned y, int* count);
 void game_rac1_update_expanded_moby_grid(gaddr moby, uint32_t next);
 /* world.c's calls of play.c's table (game_host.h, openrac_game_play: the same names without
  * rac1_world_). */
