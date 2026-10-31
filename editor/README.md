@@ -296,9 +296,13 @@ scenes dropped under `Game/Mobys`. It takes after the moby it copies (or the
 level's first moby of its class): the same values, a spawn number of its own,
 a copy of that moby's pvars, and a place in its group. A deleted moby leaves
 the table, and the groups and pvar links that name mobys by their place in
-it follow ([gameplay.py](gameplay.py)). A level the game gives more mobys
-than it has room for is not caught yet: the room is what the level's own
-"spare" count and memory allow.
+it follow ([gameplay.py](gameplay.py)). With an expanded stream, OpenRAC can
+raise the runtime spawn pool up to the remaining 32,768 moby-index slots; each
+spare slot reserves 0x180 bytes for a moby and its pvars. The packer cannot
+predict a level's maximum simultaneous scripted spawns or remaining runtime
+heap, so spawn-heavy edits still need in-game stress testing. A full pool can
+make `CreateMoby` fail, and some original game callers do not handle that
+failure safely.
 
 How it stays exact ([pack.py](pack.py), [wadpack.py](wadpack.py)):
 
