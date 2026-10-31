@@ -148,8 +148,11 @@ void use_level(int number) {
         // Said in the picture: the game goes on, its HUD over a black world, and a player takes
         // that for the game being broken.
         debug_overlay::notice(
-            "This level's scenery could not be read, so the world is black.\n"
-            "Close the game and run \"Check the levels\" in the launcher (the log says which file)."
+            std::format(
+                "This level's scenery could not be read, so the world is black.\n{}\n"
+                "Close the game and run \"Check the levels\" in the launcher (the log says which file).",
+                error
+            )
         );
         g->renderer->add(
             std::make_unique<renderer::DirectRenderer>(
