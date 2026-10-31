@@ -327,7 +327,7 @@ bool load_memory(const std::filesystem::path& path, std::vector<std::uint8_t>& o
     out.assign(std::istreambuf_iterator<char>(f), {});
     if (out.size() != GUEST_RAM_SIZE && out.size() != GUEST_RAM_EXPANDED_SIZE) {
         error = std::format(
-            "{}: memory picture is {} bytes; expected {} or {}",
+            "{}: memory picture is {} bytes; expected a 16 MiB multiple from {} through {}",
             path.string(),
             out.size(),
             GUEST_RAM_SIZE,

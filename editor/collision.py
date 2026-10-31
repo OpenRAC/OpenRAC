@@ -20,7 +20,7 @@ EXT_LEAF_MAGIC = b"RLCX"                 # Expanded-mode leaf; size byte 0 in th
 EXT_INDEX_MAGIC = b"RLCI"                # Header extension for 32-bit mesh-relative leaf offsets.
 EXT_SLAB_MAGIC = b"RLCT"                 # Expanded root-to-slab offset directory.
 EXT_MAX_VERTICES = 0x7fffffff             # Runtime query indices are signed 32-bit.
-EXT_MAX_BYTES = 128 * 1024 * 1024         # Largest supported expanded guest RAM arena.
+EXT_MAX_BYTES = 0xfffffff0                # 16-byte-aligned length stored in the 32-bit leaf header.
 SCALE = 64  # World coordinates are held in 1/64 units while decoding.
 DEFAULT_SURFACE = 0x1f  # "No special surface".
 
@@ -512,7 +512,7 @@ def validate(model: Block) -> None:
                   f"collision: cell {cell} has more than {EXT_MAX_VERTICES} vertices, the query index limit")
             check(extended_faces <= 0xffffffff
                   and _align(16 + 4 * len(leaf.vertices) + 16 * extended_faces, 16) <= EXT_MAX_BYTES,
-                  f"collision: expanded cell {cell} exceeds the supported guest RAM size")
+                  f"collision: expanded cell {cell} exceeds the 32-bit leaf byte-length field")
         for corners, kind in leaf.faces:
             check(len(set(corners)) == len(corners) and all(0 <= i < len(leaf.vertices) for i in corners)
                   and 0 <= kind <= 0xff,

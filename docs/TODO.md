@@ -27,7 +27,7 @@ slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
   to 0x1C0000 twice; the port's high-water mark there is not measured, and f4
   also holds the decompressed gameplay file) or from guest memory past
   32 MiB (several port paths mask addresses with `& 0x01FFFFFF`). The expanded
-  128 MiB path has room for the remaining 15-bit moby indices and is separate
+  expanded path has room for the remaining 15-bit moby indices and is separate
   from this vanilla path.
 - **Expanded-mode moby-grid stress.** Expanded RAM now has 32-bit cell
   populations and a 16 MiB block pool; vanilla keeps the original grid.

@@ -238,7 +238,7 @@ sector range, the packer writes a padded file under `level_NN/`, gives it a
 virtual sector range in `virtual.tsv`, and patches that level's header to point
 there. OpenRAC serves those sectors only while this mod stack is active. The
 disc image and no-mod read path stay unchanged. A stack with virtual streams
-uses a 128 MiB guest RAM arena; without virtual streams, the original 32 MiB
+uses a 256 MiB guest RAM arena; without virtual streams, the original 32 MiB
 arena remains. Larger streams can still meet RAC1's own object-table, level
 format and collision limits.
 
@@ -314,7 +314,7 @@ How it stays exact ([pack.py](pack.py), [wadpack.py](wadpack.py)):
   retail's for every level. Edits can make a stream larger than its disc slot;
   the packer then stores it in a virtual sector range in the mod, leaving the
   disc and vanilla read path untouched (see [Pack](#pack-your-edits)). Expanded
-  streams use a bounded 128 MiB guest RAM arena and remain subject to RAC1's
+  streams use a bounded 256 MiB guest RAM arena and remain subject to RAC1's
   game-owned table, address, and heap limits.
 
 Checked on 2026-10-12: all 19 gameplay files round-trip through the
@@ -653,10 +653,11 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   that becomes a line on it is left out (`changes.txt` counts them). A large
   triangle is halved until each cell it touches can hold its corners (a
   vertex is at most 32 units from its cell's centre).
-- Checked before anything is written, or the level's collision is left as
-  the disc has it and `changes.txt` says why: at most 2,147,483,647 unique vertices
-  in an expanded cell (the editor writes a mod-only extended leaf and selects
-  expanded RAM when a retail cell no longer fits), at most 0xFFFFFF indexed
+- Checked against the collision format before anything is written, or the
+  level's collision is left as the disc has it and `changes.txt` says why: at
+  most 2,147,483,647 unique vertices in an expanded cell (the editor writes a
+  mod-only extended leaf and selects expanded RAM when a retail cell no longer
+  fits), an aligned leaf length that fits its 32-bit header, at most 0xFFFFFF indexed
   leaves (their 32-bit directory removes the retail 24-bit leaf-start bound),
   everything inside 0-131,072 units on each positive axis in expanded mod
   collision (vanilla stays at 0-1024 units), and hero walls split into groups of at
@@ -674,19 +675,19 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   triangles both loaded for 1,200 frames on both versions. That collision edit
   grew the compressed core beyond its original slot, so the packer moved the
   collision block to the core tail and expanded the level-data container.
-- The expanded stream path uses a bounded 128 MiB guest RAM arena. RAC1 still
+- The expanded stream path uses a bounded 256 MiB guest RAM arena. RAC1 still
   has format and game-owned limits: vanilla collision is queryable only inside
   the 0-1024-unit world, marked mod collision reaches 131,072 units, each cell
   has bounded vertex/face storage, and
   gameplay objects still depend on their per-level tables and heap. The
-  NTSC-U's old moby-index remap held only 64 entries; when the expanded 128 MiB
+  NTSC-U's old moby-index remap held only 64 entries; when the expanded 256 MiB
   arena is active, both PAL and NTSC-U now allocate remap storage from level
   memory for tables above 64 records. The vanilla 32 MiB path keeps its
   original allocation. Signed-short remap values still limit a source gameplay
   table to 32,768 mobys. RAC1's killed-state bitsets hold 2,048 spawn IDs;
   additions use unused IDs in that range, then become non-persistent (spawn ID
   `-1`, spawn flags `0`) with a note in `changes.txt`. Expanded streams remove
-  the original disc-slot ceiling. With the expanded 128 MiB arena, the larger
+  the original disc-slot ceiling. With the expanded 256 MiB arena, the larger
   pool can use the remaining 15-bit moby indices for spawned objects; the
   vanilla 32 MiB pool size and its three crowded levels are unchanged. Expanded
   mode also uses a separate 64×64 moby grid with 32-bit cell counts and a

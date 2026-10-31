@@ -23,7 +23,7 @@
  *
  * In vanilla mode the loader sees 768 spare slots where the 32 MiB level heap has room: Rilgar,
  * Blarg Station and Quartu keep the disc's count. With an expanded-level mount the heap extends
- * into the 128 MiB arena, so those levels can use the larger pool too. Each spare slot takes
+ * into the expanded arena, so those levels can use the larger pool too. Each spare slot takes
  * 0x180 bytes (the moby and its pvars); the expanded pool uses the remaining 15-bit moby indices,
  * capped so placed plus spare mobys never exceed 32768.
  *

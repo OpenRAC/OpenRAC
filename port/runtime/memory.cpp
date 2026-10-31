@@ -254,7 +254,7 @@ void Memory::map_all() {
 #endif
 
 Memory& Memory::create(std::uint32_t ram_size) {
-    if (ram_size < GUEST_RAM_SIZE || ram_size > GUEST_RAM_EXPANDED_SIZE) {
+    if (ram_size != GUEST_RAM_SIZE && ram_size != GUEST_RAM_EXPANDED_SIZE) {
         log::fatalf("game RAM size {:#x} is outside the supported range", ram_size);
     }
     if (g_memory != nullptr) {

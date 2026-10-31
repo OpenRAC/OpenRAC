@@ -47,7 +47,7 @@ __extension__ typedef unsigned __int128 openrac_u128;
  * reservation is inaccessible, so a stray access stops with its address. */
 #define GUEST_RAM 0x00000000u
 #define GUEST_RAM_SIZE 0x02000000u /* 32 MB */
-#define GUEST_RAM_EXPANDED_SIZE 0x08000000u /* 128 MB, only for levels with virtual streams */
+#define GUEST_RAM_EXPANDED_SIZE 0x10000000u /* modded arena for virtual streams */
 #define GUEST_RAM_UNCACHED 0x20000000u
 #define GUEST_RAM_UNCACHED_ACCEL 0x30000000u
 #define GUEST_EE_REGS 0x10000000u

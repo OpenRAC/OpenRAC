@@ -62,7 +62,7 @@ struct Options {
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
     bool camera_given = false;
     float camera[5] = {};         // x, y, z, yaw and pitch in degrees
-    std::filesystem::path state;  // a 32 MB vanilla or 128 MB expanded memory picture
+    std::filesystem::path state;  // a 32 MB vanilla or up to 256 MB expanded memory picture
 };
 
 constexpr const char* kUsage =
@@ -77,7 +77,7 @@ constexpr const char* kUsage =
     "  --no-vsync  --no-lighting\n"
     "  --medial-axis        show baked centre paths and junctions\n"
     "  --reflection-probes  show reflection spheres and all influence bounds\n"
-    "  --state FILE         the game's main memory at one frame (32 or 128 MB): its camera and live "
+    "  --state FILE         the game's main memory at one frame (32 to 256 MB): its camera and live "
     "mobys\n";
 
 bool parse_floats(std::string_view text, float* out, int count) {

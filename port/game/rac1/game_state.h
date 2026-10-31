@@ -6,7 +6,7 @@
 // host program with these reads; the viewer and its tests call them directly.
 //
 // The memory is the game's active main memory as the native port holds it (32 MB normally, or
-// 128 MB with expanded level streams; it can also be a picture saved to a file for working on the
+// 256 MB with expanded level streams; it can also be a picture saved to a file for working on the
 // renderers without running the game). The addresses are the
 // game's own, documented beside each field in game_state.cpp; they differ by version, so each
 // version has a table. Nothing here draws.
@@ -58,7 +58,7 @@ const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram);
 /**
  * Reads the state from main memory.
  *
- * @param ram The active main memory (32 MB or 128 MB).
+ * @param ram The active main memory (32 MB or up to 256 MB).
  * @param a The version's addresses.
  * @return The state; empty moby list when the table pointers are not inside memory.
  */
@@ -82,7 +82,7 @@ bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& e
 /** The display list of the frame being shown (the buffer VU1_swapChain retired last). */
 std::uint32_t shown_chain(std::span<const std::uint8_t> ram, const GameAddresses& a);
 
-/** Reads a 32 MB vanilla or 128 MB expanded memory picture from a file. */
+/** Reads a 32 MB vanilla or up to 256 MB expanded memory picture from a file. */
 bool load_memory(const std::filesystem::path& path, std::vector<std::uint8_t>& out, std::string& error);
 
 }  // namespace openrac::game::rac1

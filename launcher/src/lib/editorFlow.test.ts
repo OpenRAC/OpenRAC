@@ -53,7 +53,7 @@ describe("editorStage", () => {
     );
     expect(expanded.detail).toMatch(/2 levels use streams larger than the original disc slots/);
     expect(expanded.detail).toMatch(/disc stays unchanged/);
-    expect(expanded.detail).toMatch(/128 MiB RAM arena/);
+    expect(expanded.detail).toMatch(/256 MiB RAM arena/);
     expect(expanded.detail).toMatch(/object-table and level-format limits/);
   });
 
