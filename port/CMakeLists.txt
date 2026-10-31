@@ -364,6 +364,10 @@ if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
 include(Render)
+include(GpuTests)
+openrac_configure_gpu_tests(${openrac_parallel_gpu_tests})
+add_test(NAME gpu_test_config
+         COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/test_gpu_tests.py")
 
 # ---- the games, from their decompilations (port/game/*/hostgen.json) ----
 if(OPENRAC_PORT_GAMES)

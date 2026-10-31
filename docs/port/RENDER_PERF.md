@@ -299,7 +299,8 @@ package's report gives.
 
 **The equivalence test**, `render_equivalence_vulkan`
 ([`port/tests/render_equivalence_test.cpp`](../../port/tests/render_equivalence_test.cpp)), draws
-the scene at a tenth of its size at 320 by 180, eight frames a scenario, under the validation layer.
+the scene at a tenth of its size at 80 by 45, eight frames a scenario, under the validation layer.
+The first and last frame use High shadows and the others Medium, retaining both resize directions.
 It first checks that the scene is drawn at all (more than 5% of its first frame is over the clear colour),
 then draws every scenario twice, Enhanced off and on, and requires identical frames: every later
 proof rests on the driver drawing alike twice. One verified default run is retained per scenario
@@ -310,10 +311,18 @@ retaining every on/off comparison, scene rebuild and discarded-attachment check.
 The self-test entry is compared as well, as the harness's check of itself: its reference path is in
 the fixture (`SceneRenderer::selftest_reference_path`). The validation layer must report nothing.
 
-Its own proof: on both machines every scenario drew identical frames twice in both modes. A
-deliberate one-pixel change in the self-test's reference path (a 1 by 1 scissored clear), run and
-then removed before the commit, made the test fail in all ten comparisons, each reporting one pixel
-of 57,600 different.
+Vulkan tests use private shader/pipeline caches under the build's `test-cache/vulkan`.
+A CTest fixture removes only those cache files before the tests start. Fresh scene instances
+can then reuse compiled shaders without reading a player's cache or another test's manifest.
+Explicit cache overrides remain intact. GPU tests share a CTest resource lock; CI runs two
+test processes so CPU checks can run beside one GPU test without competing software renderers.
+The equivalence matrix runs last in two parallel registry shards. Both check every scenario's
+determinism and discarded attachments; together they compare every registry entry on and off.
+Each matrix shard limits Mesa to two rendering workers to bound CPU oversubscription.
+`ctest --preset enhanced -L render-equivalence --parallel 2` runs both halves.
+Linux CI also retains Mesa's driver-keyed shader cache between runs, capped at 1 GiB per job.
+
+A one-pixel negative-control error at 80 by 45 was rejected in all 14 scenario/mode comparisons.
 
 ## The baseline
 
@@ -841,9 +850,8 @@ measurement: two runs of the game on one build, comparing `vk_shader_compiles` a
   `render_opt_vulkan`, whose check that the counters count a compile met a cache with nothing to
   compile; it now switches the entry (and R-10's pre-warm, which had the same effect on its
   pipeline count) off for its own draws.
-- `render_equivalence_vulkan` runs with the pipeline cache off, so it keeps no SPIR-V cache and its
-  on-against-off comparison of this entry is trivially equal; it passed on the Mac, with the
-  validation layer and with `OPENRAC_GPU_DRIVEN_OFF=1` and `OPENRAC_GPU_MATERIALS_OFF=1` by hand.
+- `render_equivalence_vulkan` uses a private cache, so its `spirv-disk-cache` comparison exercises
+  cache hits against fresh compilation while requiring the same output pixels.
 
 Measured with:
 

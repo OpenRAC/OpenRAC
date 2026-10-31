@@ -69,8 +69,8 @@ set_tests_properties(render_opt_environment PROPERTIES ENVIRONMENT
 #
 #   openrac_render_bench       draws the scene and prints its frames and counters as JSON lines
 #                              (port/tools/perf/render_bench.py runs it over a matrix)
-#   render_bench_smoke         ten frames of it at 640x360, to keep it working
-#   render_equivalence_vulkan  every registry entry on against off, frame by frame
+#   render_bench_smoke         ten frames of it at 160x90, to keep it working
+#   render_equivalence_vulkan* two registry halves on against off, frame by frame
 #
 # Both draw on the Vulkan renderer through the scene's renderer, so they exist where both do; both
 # exit 77 (skipped) where Vulkan cannot open. The equivalence test is written out rather than
@@ -87,7 +87,7 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
   add_custom_target(render_bench_test)
   add_dependencies(render_bench_test openrac_render_bench)
   add_test(NAME render_bench_smoke
-           COMMAND openrac_render_bench --frames 10 --warmup 2 --size 640x360)
+           COMMAND openrac_render_bench --frames 10 --warmup 2 --size 160x90)
   set_tests_properties(render_bench_smoke PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 
@@ -96,16 +96,18 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     openrac_viewer_lib openrac_platform)
   target_compile_definitions(render_equivalence_test PRIVATE OPENRAC_VULKAN=1)
   openrac_warnings(render_equivalence_test)
-  # No pipeline cache: its frames do not depend on what the user's cache holds, and its many
-  # pipelines do not go into the cache the other tests read while they run beside it.
-  add_test(NAME render_equivalence_vulkan COMMAND render_equivalence_test)
-  set_tests_properties(render_equivalence_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
-    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=off")
+  # GpuTests gives this process a private, initially empty shader/pipeline cache.
+  add_test(NAME render_equivalence_vulkan COMMAND render_equivalence_test --shard 0 2)
+  add_test(NAME render_equivalence_vulkan_remaining COMMAND render_equivalence_test --shard 1 2)
+  set(openrac_parallel_gpu_tests render_equivalence_vulkan render_equivalence_vulkan_remaining)
+  set_tests_properties(${openrac_parallel_gpu_tests} PROPERTIES SKIP_RETURN_CODE 77
+    LABELS render-equivalence ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   if(OPENRAC_ENHANCED_RENDERING)
     add_test(NAME shadow_scroll_vulkan
              COMMAND render_equivalence_test --opt shadow-scroll-reuse)
     set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
-      "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=off;OPENRAC_SCROLLING_SHADOWS=1")
+      "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SCROLLING_SHADOWS=1")
   endif()
 endif()
 

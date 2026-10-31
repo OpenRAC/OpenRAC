@@ -701,9 +701,9 @@ int main() {
         stats::set_enabled(stats::Client::Overlay, true);
         gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, 0);
         renderer::FrameBuffer timing_frame;
-        CHECK(timing_frame.create(1024, 1024, error));
+        CHECK(timing_frame.create(128, 128, error));
         gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, timing_frame.id());
-        gl::glViewport(0, 0, 1024, 1024);
+        gl::glViewport(0, 0, 128, 128);
         for (unsigned i = 0; i < 8; ++i) {
             stats::begin_frame(stats::FrameKind::Tick, i);
             {

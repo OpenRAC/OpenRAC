@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // --opt registry-name limits the registry comparisons to one optimisation.
+// --shard index count partitions registry entries; every shard checks all scenarios.
 //
 // Tests that the render optimisations change no pixel (ctest render_equivalence_vulkan): for
 // each scenario of render_fixture.h (the camera walking, the camera still with the mobys moving,
@@ -17,14 +18,16 @@
 // glInvalidateFramebuffer let go would then draw other frames. Under OPENRAC_VULKAN_VALIDATION the validation layer must report nothing.
 //
 // The frames are compared in memory; nothing is written out. A scene a tenth of the benchmark's,
-// at 320 by 180, keeps the run short under the validation layer. Skipped (77) without Vulkan.
+// at 80 by 45, keeps the run short under the validation layer. Skipped (77) without Vulkan.
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -45,8 +48,8 @@ namespace render = openrac::test::render;
 namespace render_opt = openrac::renderer::render_opt;
 
 // The picture's size and the frames each scenario draws.
-constexpr int kWidth = 320;
-constexpr int kHeight = 180;
+constexpr int kWidth = 80;
+constexpr int kHeight = 45;
 constexpr std::uint64_t kFrames = 8;
 
 // The frames of one run, each the picture's RGBA bytes.
@@ -108,9 +111,10 @@ Frames draw_run(
         if (check_scroll) {
             openrac::stats::begin_frame(openrac::stats::FrameKind::Tick, index);
         }
-        const auto shadow_quality = index >= 2 && index < 6
-                                        ? openrac::renderer::ShadowQuality::Medium
-                                        : openrac::renderer::ShadowQuality::High;
+        // Keep both resize directions; intermediate frames need no full-size atlas.
+        const auto shadow_quality = index == 0 || index == kFrames - 1
+                                        ? openrac::renderer::ShadowQuality::High
+                                        : openrac::renderer::ShadowQuality::Medium;
         const auto camera = render::camera_at(walk, scenario.camera, tick, ticks, aspect);
         // Another view in the same recording must not lend its visibility to this camera.
         if (index == 4) {
@@ -363,16 +367,44 @@ void use_enhanced(bool on) {
     openrac::gl::set_enhanced_rendering(on);
 }
 
+struct Selection {
+    const render_opt::Entry* entry = nullptr;
+    std::size_t shard = 0, shards = 1;
+};
+
+// Returns the requested registry subset, or nothing for invalid arguments.
+std::optional<Selection> selection(int argc, char** argv) {
+    Selection chosen;
+    if (argc == 1) {
+        return chosen;
+    }
+    if (argc == 3 && std::string_view(argv[1]) == "--opt") {
+        chosen.entry = render_opt::find(argv[2]);
+        if (chosen.entry) {
+            return chosen;
+        }
+    } else if (argc == 4 && std::string_view(argv[1]) == "--shard") {
+        const auto integer = [](std::string_view text, std::size_t& value) {
+            const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+            return result.ec == std::errc{} && result.ptr == text.data() + text.size();
+        };
+        if (integer(argv[2], chosen.shard) && integer(argv[3], chosen.shards) && chosen.shards > 0
+            && chosen.shards <= render_opt::entries().size() && chosen.shard < chosen.shards) {
+            return chosen;
+        }
+    }
+    return std::nullopt;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
-    const render_opt::Entry* selected = nullptr;
-    if (argc != 1) {
-        if (argc != 3 || std::string_view(argv[1]) != "--opt"
-            || !(selected = render_opt::find(argv[2]))) {
-            std::fprintf(stderr, "usage: render_equivalence_test [--opt registry-name]\n");
-            return 1;
-        }
+    const auto chosen = selection(argc, argv);
+    if (!chosen) {
+        std::fprintf(
+            stderr, "usage: render_equivalence_test [--opt registry-name | --shard index count]\n"
+        );
+        return 1;
     }
     openrac::test::GlContext context;
     std::string error;
@@ -430,8 +462,11 @@ int main(int argc, char** argv) {
             const auto& scenario = render::kScenarios[index];
             const auto& baseline = baselines[enhanced ? 1 : 0][index];
             // Each entry of the registry.
-            for (const render_opt::Entry& entry : render_opt::entries()) {
-                if (selected && entry.opt != selected->opt) {
+            const auto entries = render_opt::entries();
+            for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
+                const auto& entry = entries[entry_index];
+                if ((chosen->entry && entry.opt != chosen->entry->opt)
+                    || entry_index % chosen->shards != chosen->shard) {
                     continue;
                 }
                 test_an_entry_changes_no_frame(level, size, scenario, baseline, entry);

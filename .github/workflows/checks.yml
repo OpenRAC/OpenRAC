@@ -242,6 +242,9 @@ jobs:
   port:
     runs-on: ubuntu-26.04
     timeout-minutes: 60
+    env:
+      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
+      MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -255,6 +258,11 @@ jobs:
         with:
           key: checks-port-release
           max-size: 1G
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/openrac-mesa
+          key: mesa-ubuntu-release-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+          restore-keys: mesa-ubuntu-release-${{ runner.arch }}-
       - name: Compilers and SDL's system libraries
         run: |
           sudo apt-get update
@@ -276,7 +284,7 @@ jobs:
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release --stop-on-failure
+        run: ctest --preset release --parallel 2 --stop-on-failure
 
   # The port without a window (the headless preset, no SDL3): the runtime, the
   # games and their tests. Built here so code that only the window build can
@@ -315,6 +323,9 @@ jobs:
   port-enhanced:
     runs-on: ubuntu-26.04
     timeout-minutes: 45
+    env:
+      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
+      MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -323,6 +334,11 @@ jobs:
         with:
           key: checks-port-enhanced
           max-size: 1G
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/openrac-mesa
+          key: mesa-ubuntu-enhanced-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+          restore-keys: mesa-ubuntu-enhanced-${{ runner.arch }}-
       - name: Compilers, software Vulkan and Embree 4
         run: |
           sudo apt-get update
@@ -340,7 +356,7 @@ jobs:
         env:
           SDL_VIDEO_DRIVER: x11
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: xvfb-run -a ctest --preset enhanced --stop-on-failure --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
+        run: xvfb-run -a ctest --preset enhanced --parallel 2 --stop-on-failure --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
       - name: Enhanced GPU and bake checks must run, not skip
         working-directory: port
         run: |
@@ -365,6 +381,8 @@ jobs:
       # Every compile through ccache, kept between runs as the other port jobs keep theirs.
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
+      MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - name: Compilers and SDL3
         run: |
@@ -380,6 +398,11 @@ jobs:
         with:
           key: checks-port-fedora
           max-size: 500M
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/openrac-mesa
+          key: mesa-fedora-release-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+          restore-keys: mesa-fedora-release-${{ runner.arch }}-
 
       - name: Build openrac-rac1-pal as the launcher builds it
         run: python3 tools/build_port.py rac1-pal
@@ -399,7 +422,7 @@ jobs:
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release --stop-on-failure
+        run: ctest --preset release --parallel 2 --stop-on-failure
 
   # The native port on Windows: rac1/pal's program built as the launcher's
   # "Build the game" builds it (tools/build_port.py: Visual Studio's C++
