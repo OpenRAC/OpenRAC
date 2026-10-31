@@ -93,14 +93,15 @@ resolved leaf offset:
 
 Every record is a triangle; quads from an edited cell are emitted as their
 two game triangles. The runtime checks the marker, length and counts against
-guest RAM before reading it. The host query scratch currently caps one cell at
-1,048,576 vertices. The directory supports up to 0xFFFFFF indexed leaves and
-32-bit mesh-relative leaf offsets, removing the cell word's 16 MiB start
+guest RAM before reading it. Expanded query scratch grows dynamically and the
+signed query-index bound permits up to 2,147,483,647 vertices per cell, subject
+to available host memory. The directory supports up to 0xFFFFFF indexed leaves
+and 32-bit mesh-relative leaf offsets, removing the cell word's 16 MiB start
 limit. Existing tree tables still have their retail widths: root-to-slab
 offsets are u16 quadword offsets and slab/row pointers are u32 byte offsets.
 The directory raises only the cell-to-leaf offset range; it does not remove
-the tree table limits. The packer makes a virtual level-data stream for any block using either
-marker, which selects expanded RAM. Vanilla sessions ignore these markers, and
+the tree table limits. The packer makes a virtual level-data stream for any
+block using either marker, which selects expanded RAM. Vanilla sessions ignore these markers, and
 retail leaves retain their original encoding.
 
 **Vertex**: X in bits 0–9 and Y in 10–19 (signed, 1/16 unit), Z in bits 20–31

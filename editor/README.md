@@ -654,7 +654,7 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   triangle is halved until each cell it touches can hold its corners (a
   vertex is at most 32 units from its cell's centre).
 - Checked before anything is written, or the level's collision is left as
-  the disc has it and `changes.txt` says why: at most 1,048,576 unique vertices
+  the disc has it and `changes.txt` says why: at most 2,147,483,647 unique vertices
   in an expanded cell (the editor writes a mod-only extended leaf and selects
   expanded RAM when a retail cell no longer fits), at most 0xFFFFFF indexed
   leaves (their 32-bit directory removes the retail 24-bit leaf-start bound),

@@ -42,7 +42,7 @@ slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
   support tagged `RLCX` cells with 32-bit counts and indices, and the packer
   selects expanded RAM for those levels. Run a Godot edit that pushes one cell
   past 255 vertices and 4,080 bytes, confirm floors/walls and face filters in
-  gameplay, then exercise the 1,048,576-vertex and 0xFFFFFF-directory-entry
+  gameplay, then exercise allocation failure and 0xFFFFFF-directory-entry
   refusal paths. The expanded directory indexes all leaves and carries 32-bit offsets.
 
 ## 2. Rearrange rac3-uya-decomp like rac1-decomp and rac2-decomp

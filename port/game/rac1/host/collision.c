@@ -371,17 +371,23 @@ static int ensure_verts(size_t count) {
     if (count <= g_verts_capacity) {
         return 1;
     }
-    /* Expanded cells may be much larger than a retail query's 2,048-vertex scratch array.
-     * Bound the host allocation and only grow it when an expanded stream actually needs it. */
-    if (openrac_guest_ram_size <= GUEST_RAM_SIZE || count > 1u << 20) {
+    /* Grow scratch only for expanded sessions; the format and query loops use signed int indices. */
+    if (openrac_guest_ram_size <= GUEST_RAM_SIZE || count > INT32_MAX
+        || count > SIZE_MAX / sizeof(*g_verts)) {
         return 0;
     }
     size_t capacity = g_verts_capacity * 2;
     if (capacity < count) {
         capacity = count;
     }
-    if (capacity > 1u << 20) {
-        capacity = 1u << 20;
+    if (capacity > INT32_MAX) {
+        capacity = count;
+    }
+    if (capacity > SIZE_MAX / sizeof(*g_verts)) {
+        capacity = count;
+    }
+    if (capacity > SIZE_MAX / sizeof(*g_verts)) {
+        return 0;
     }
     Vert* grown = realloc(g_verts_allocated, capacity * sizeof(*grown));
     if (grown == NULL) {
