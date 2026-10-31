@@ -38,6 +38,26 @@ constexpr int kButtonCount = static_cast<int>(std::size(kButtons));
 // pressure byte follows the trigger all the way.
 constexpr std::uint8_t kTriggerThreshold = 0x20;
 
+// A button of the gamepad down, a stick or a trigger well out (a trigger only pressed in: some
+// rest below zero).
+bool held(SDL_Gamepad* g) {
+    for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
+        if (SDL_GetGamepadButton(g, static_cast<SDL_GamepadButton>(b))) {
+            return true;
+        }
+    }
+    for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
+        const auto axis = static_cast<SDL_GamepadAxis>(a);
+        const int value = SDL_GetGamepadAxis(g, axis);
+        const bool trigger =
+            axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
+        if (value > 16000 || (!trigger && value < -16000)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool key(std::span<const bool> keys, SDL_Scancode code) {
     const auto index = static_cast<std::size_t>(code);
     return index < keys.size() && keys[index];
@@ -85,8 +105,8 @@ void apply_keyboard(Pad& pad, std::span<const bool> keys) {
 }
 
 Input::~Input() {
-    for (SDL_Gamepad* g : m_gamepads) {
-        SDL_CloseGamepad(g);
+    for (const Connected& c : m_gamepads) {
+        SDL_CloseGamepad(c.gamepad);
     }
 }
 
@@ -102,20 +122,25 @@ void Input::handle_event(const SDL_Event& event) {
                     SDL_GetGamepadVendor(g),
                     SDL_GetGamepadProduct(g)
                 );
-                m_gamepads.push_back(g);
+                m_gamepads.push_back({g});
             }
             break;
         }
         case SDL_EVENT_GAMEPAD_REMOVED: {
-            auto it = std::find_if(m_gamepads.begin(), m_gamepads.end(), [&](SDL_Gamepad* g) {
-                return SDL_GetGamepadID(g) == event.gdevice.which;
-            });
+            const auto it = find(event.gdevice.which);
             if (it != m_gamepads.end()) {
                 log::info("gamepad disconnected");
                 if (static_cast<std::size_t>(it - m_gamepads.begin()) < m_used) {
                     --m_used;
                 }
-                SDL_CloseGamepad(*it);
+                // A gamepad opened later at the same address is another one: its sticks start afresh.
+                std::replace(
+                    m_gates_of.begin(),
+                    m_gates_of.end(),
+                    it->gamepad,
+                    static_cast<SDL_Gamepad*>(nullptr)
+                );
+                SDL_CloseGamepad(it->gamepad);
                 m_gamepads.erase(it);
             }
             break;
@@ -143,7 +168,7 @@ void Input::handle_event(const SDL_Event& event) {
             m_touch.hide();
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-            used(event.gbutton.which);
+            pressed(event.gbutton.which, event.gbutton.timestamp);
             m_touch.hide();
             break;
         // The mouse, for the mods (KeyboardMouse): gathered until the next update(). A touch screen's
@@ -169,6 +194,9 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_GAMEPAD_AXIS_MOTION:
             // A stick pushed well past its dead zone, not a resting stick's drift.
             if (event.gaxis.value > 16000 || event.gaxis.value < -16000) {
+                if (const auto it = find(event.gaxis.which); it != m_gamepads.end()) {
+                    it->active_ns = event.gaxis.timestamp;
+                }
                 m_touch.hide();
             }
             break;
@@ -181,24 +209,45 @@ void Input::handle_event(const SDL_Event& event) {
     }
 }
 
-void Input::used(std::uint32_t which) {
-    // Moved behind the gamepads used before it and ahead of those never used: a device that only
-    // looks like a gamepad (a USB-C dock's or hub's, a keyboard's arrow keys) and was found before
-    // the controller no longer holds port 0. A button only: such a device may rest off centre.
-    auto it = std::find_if(m_gamepads.begin(), m_gamepads.end(), [&](SDL_Gamepad* g) {
-        return SDL_GetGamepadID(g) == which;
+std::vector<Input::Connected>::iterator Input::find(std::uint32_t which) {
+    return std::find_if(m_gamepads.begin(), m_gamepads.end(), [&](const Connected& c) {
+        return SDL_GetGamepadID(c.gamepad) == which;
     });
-    const auto index = static_cast<std::size_t>(it - m_gamepads.begin());
-    if (it == m_gamepads.end() || index < m_used) {
+}
+
+void Input::pressed(std::uint32_t which, std::uint64_t ns) {
+    auto it = find(which);
+    if (it == m_gamepads.end()) {
         return;
     }
-    std::rotate(m_gamepads.begin() + static_cast<std::ptrdiff_t>(m_used), it, it + 1);
-    ++m_used;
+    // Its first press puts it behind the gamepads used before it and ahead of those never used: a
+    // device that only looks like a gamepad (a USB-C dock's or hub's, a keyboard's arrow keys) and
+    // was found before the controller no longer holds port 0. A button only: such a device may
+    // rest off centre.
+    if (static_cast<std::size_t>(it - m_gamepads.begin()) >= m_used) {
+        const auto to = m_gamepads.begin() + static_cast<std::ptrdiff_t>(m_used);
+        std::rotate(to, it, it + 1);
+        it = to;
+        ++m_used;
+    }
+    // Port 0 changes hands when its gamepad has been left alone a while, nothing on it pressed or
+    // pushed (a stick held all the way sends nothing more): the player has picked up another
+    // controller. Two players playing at once keep their ports.
+    const Connected& front = m_gamepads.front();
+    if (it != m_gamepads.begin() && ns >= front.active_ns + kHandOverNs && !held(front.gamepad)) {
+        std::rotate(m_gamepads.begin(), it, it + 1);
+        it = m_gamepads.begin();
+        log::info(
+            "gamepad on port 0: {}",
+            SDL_GetGamepadName(it->gamepad) ? SDL_GetGamepadName(it->gamepad) : "?"
+        );
+    }
+    it->active_ns = ns;
 }
 
 SDL_Gamepad* Input::gamepad(int port) const {
     const auto index = static_cast<std::size_t>(port);
-    return index < m_gamepads.size() ? m_gamepads[index] : nullptr;
+    return index < m_gamepads.size() ? m_gamepads[index].gamepad : nullptr;
 }
 
 void Input::update() {
