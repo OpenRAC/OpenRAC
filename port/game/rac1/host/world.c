@@ -107,6 +107,9 @@ enum {
 static int16_t key_of[KEYS_MAX];  /* by slot: its key, -1 none */
 static int16_t slot_of[KEYS_MAX]; /* by key: its slot, -1 none */
 static uint32_t keys_load = 0xFFFFFFFFu;
+static uint32_t array_load = 0xFFFFFFFFu;
+static gaddr array_limit_base;
+static int32_t array_limit_slots;
 
 /* The last deletion seen of each slot (DeleteMoby, below): whose update did it, or a mod. */
 static struct {
@@ -151,6 +154,27 @@ static int32_t placed_count(void) {
     return base != 0 && end > base ? (int32_t)((end - base) / MOBY_SIZE) : 0;
 }
 
+/* Cache the active context's actual moby-array length. The end marker is a state byte of 0xFF;
+ * keeping this bound prevents host APIs from treating memory after a short level/pause array as
+ * additional mobys when expanded mode raises the public slot ceiling. */
+static int32_t array_slots(void) {
+    const gaddr base = array_base();
+    const uint32_t load = rac1_program_loads();
+    if (base != array_limit_base || load != array_load) {
+        array_limit_base = base;
+        array_load = load;
+        array_limit_slots = 0;
+        if (base != 0) {
+            while (array_limit_slots < KEYS_MAX
+                   && GREF(uint8_t, base + (gaddr)array_limit_slots * MOBY_SIZE + MOBY_STATE)
+                          != 0xFF) {
+                ++array_limit_slots;
+            }
+        }
+    }
+    return array_limit_slots;
+}
+
 /* The game's moby calls (CreateMoby, DeleteMoby) work on the current context: the level's is put
  * up for them while the pause menu's is (and put back after). */
 static int enter_level_context(void) {
@@ -193,11 +217,12 @@ int32_t rac1_moby_slot(gaddr moby) {
     if (moby < base || base == 0 || (moby - base) % MOBY_SIZE != 0) {
         return -1;
     }
-    return (int32_t)((moby - base) / MOBY_SIZE);
+    const int32_t slot = (int32_t)((moby - base) / MOBY_SIZE);
+    return slot < array_slots() ? slot : -1;
 }
 
 gaddr rac1_world_moby_at(int32_t slot) {
-    if (!in_level() || slot < 0 || slot >= KEYS_MAX) {
+    if (!in_level() || slot < 0 || slot >= array_slots()) {
         return 0;
     }
     const gaddr m = array_base() + (gaddr)slot * MOBY_SIZE;
@@ -212,8 +237,9 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max) {
     read_keys();
     const gaddr base = array_base();
     const int32_t placed = placed_count();
+    const int32_t slots = array_slots();
     int n = 0;
-    for (int32_t slot = 0; slot < KEYS_MAX; ++slot) {
+    for (int32_t slot = 0; slot < slots; ++slot) {
         const gaddr m = base + (gaddr)slot * MOBY_SIZE;
         const uint8_t state = GREF(uint8_t, m + MOBY_STATE);
         /* 0xFF ends the array; other states past 0x80 are free or dead slots, of which a placed
