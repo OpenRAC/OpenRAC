@@ -668,6 +668,42 @@ void optimized_paths(int samples) {
     scene.release();
     renderer.release();
 }
+#if defined(OPENRAC_VULKAN)
+// Building one quality must not compile the unused kernel; switching back reuses it.
+void lazy_quality_programs() {
+    using namespace gl;
+    renderer::FrameBuffer frame;
+    std::string error;
+    CHECK(frame.create(16, 16, error, 1, true));
+    glBindFramebuffer(GL_FRAMEBUFFER, frame.id());
+    glDepthMask(GL_TRUE);
+    glClearDepth(.5);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    renderer::FrameInput input;
+    input.gtao = true;
+    input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
+    renderer::RenderTarget target{frame.id(), 16, 16};
+    target.depth_texture = frame.depth_texture();
+    renderer::Gtao ao;
+    // Count requested kernels, excluding unrelated background graphics warmup on repeat runs.
+    const bool prewarm = renderer::render_opt::enabled(renderer::render_opt::Opt::PipelinePrewarm);
+    renderer::render_opt::set(renderer::render_opt::Opt::PipelinePrewarm, false);
+    const auto before = vkgl::submission_counters().pipelines_created;
+    input.gtao_settings.quality = renderer::GtaoQuality::Quality;
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 1);
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 1);
+    input.gtao_settings.quality = renderer::GtaoQuality::Performance;
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 2);
+    input.gtao_settings.quality = renderer::GtaoQuality::Quality;
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 2);
+    ao.release();
+    renderer::render_opt::set(renderer::render_opt::Opt::PipelinePrewarm, prewarm);
+}
+#endif
 }  // namespace
 
 int main() {
@@ -677,6 +713,11 @@ int main() {
         std::printf("SKIP: %s\n", error.c_str());
         return openrac::test::kSkip;
     }
+#if defined(OPENRAC_VULKAN)
+    if (openrac::gl::is_vulkan()) {
+        lazy_quality_programs();
+    }
+#endif
     // Normal orientation must agree for reversed authored signs and resolved MSAA coverage.
     for (const int samples : {1, 4}) {
         test_grazing_smooth_normals(1, samples);

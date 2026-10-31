@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -13,6 +14,7 @@
 #include <memory>
 #include <numbers>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "common/stats.h"
@@ -78,6 +80,27 @@ scene::LevelData smooth_level(float sign, bool skinned, bool cutout) {
     return level;
 }
 
+// Three separately indexed meshes let normal signs change without rebuilding shaders.
+scene::LevelData normal_variants(bool skinned, bool cutout) {
+    auto level = smooth_level(1, skinned, cutout);
+    for (const float sign : {-1.f, 0.f}) {
+        auto variant = smooth_level(sign, skinned, cutout);
+        const auto vertex_base = static_cast<std::uint32_t>(level.vertices.size());
+        const auto index_base = static_cast<std::uint32_t>(level.indices.size());
+        level.vertices
+            .insert(level.vertices.end(), variant.vertices.begin(), variant.vertices.end());
+        for (const auto index : variant.indices) {
+            level.indices.push_back(vertex_base + index);
+        }
+        auto model = std::move(variant.models.front());
+        for (auto& primitive : model.primitives) {
+            primitive.first_index += index_base;
+        }
+        level.models.push_back(std::move(model));
+    }
+    return level;
+}
+
 // Creates a spatially constant probe field with opposite red/blue directional lobes.
 lighting::ProbeVolume directional_probes() {
     lighting::ProbeGrid grid;
@@ -133,22 +156,11 @@ void check_smooth_colour(const std::vector<std::uint8_t>& pixels, float sign) {
     CHECK(pixels[left + 1] < 5 && pixels[right + 1] < 5);
 }
 
-// Checks colour direction for GI and direct light through the real normal/depth and colour passes.
-void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
-    renderer::Renderer renderer;
-    scene::LevelScene scene;
-    lighting::use_scene_lighting(scene);
-    std::string error;
-    const bool uploaded =
-        scene.upload(smooth_level(sign, skinned, cutout), renderer.textures(), error);
-    CHECK(uploaded);
-    if (!uploaded) {
-        std::fprintf(stderr, "%s\n", error.c_str());
-        return;
-    }
-    CHECK(lighting::scene_lighting(scene)->set_probe_volume(directional_probes(), error));
+// Selects the authored normal mesh and its original nonuniform/skinned transform.
+void set_normal_variant(scene::LevelScene& scene, bool skinned, float sign) {
     const auto layer = skinned ? scene::Layer::Mobys : scene::Layer::Terrain;
     scene::Instance instance;
+    instance.model = sign > 0 ? 0u : sign < 0 ? 1u : 2u;
     // Nonuniform scale must use the same normal transform in both raster passes.
     instance.matrix[0] = .9f;
     instance.matrix[10] = 1.2f;
@@ -167,19 +179,28 @@ void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
     }
 
     scene.set_instances(layer, {instance});
-    if (skinned) {
-        // Terrain owns the shared early-lighting/prepass request, even in a moby-only fixture.
-        CHECK(renderer.add(
-            std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error
-        ));
-    }
-    CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error));
-    auto observer = std::make_unique<test::PrepassCapture>();
-    auto* capture = observer.get();
-    CHECK(renderer.add(std::move(observer), error));
-    CHECK(renderer.init(error));
-    renderer::FrameBuffer frame;
-    CHECK(frame.create(64, 64, error, samples, samples == 1));
+}
+
+// Borrows one shader configuration for its authored-normal variants.
+struct NormalCase {
+    renderer::Renderer& renderer;   // Renderer owned by the fixture driver.
+    scene::LevelScene& scene;       // Uploaded normal-sign meshes.
+    test::PrepassCapture& capture;  // Captures the matching depth/normal prepass.
+    renderer::FrameBuffer& frame;   // Shared colour target.
+    bool skinned;                   // Uses a live joint palette.
+    bool cutout;                    // Uses alpha-tested material coverage.
+    int samples;                    // Colour and prepass sample count.
+};
+
+// Keeps every sign, lighting mode and near-plane check on the same immutable shader setup.
+void check_normal_variant(NormalCase& fixture, float sign) {
+    auto& renderer = fixture.renderer;
+    auto& scene = fixture.scene;
+    auto& frame = fixture.frame;
+    auto* capture = &fixture.capture;
+    const bool skinned = fixture.skinned, cutout = fixture.cutout;
+    const int samples = fixture.samples;
+    set_normal_variant(scene, skinned, sign);
     renderer::FrameInput input;
     input.camera.view = renderer::translation({0, 0, -8});
     input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
@@ -216,6 +237,40 @@ void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
     }
 
     CHECK(gl::glGetError() == gl::GL_NO_ERROR);
+}
+
+// Checks colour direction for GI and direct light through the real normal/depth and colour passes.
+void test_smooth_normals(bool skinned, bool cutout, int samples) {
+    renderer::Renderer renderer;
+    scene::LevelScene scene;
+    lighting::use_scene_lighting(scene);
+    std::string error;
+    const bool uploaded =
+        scene.upload(normal_variants(skinned, cutout), renderer.textures(), error);
+    CHECK(uploaded);
+    if (!uploaded) {
+        std::fprintf(stderr, "%s\n", error.c_str());
+        return;
+    }
+    CHECK(lighting::scene_lighting(scene)->set_probe_volume(directional_probes(), error));
+    const auto layer = skinned ? scene::Layer::Mobys : scene::Layer::Terrain;
+    if (skinned) {
+        // Terrain owns the shared early-lighting/prepass request, even in a moby-only fixture.
+        CHECK(renderer.add(
+            std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error
+        ));
+    }
+    CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error));
+    auto observer = std::make_unique<test::PrepassCapture>();
+    auto* capture = observer.get();
+    CHECK(renderer.add(std::move(observer), error));
+    CHECK(renderer.init(error));
+    renderer::FrameBuffer frame;
+    CHECK(frame.create(64, 64, error, samples, samples == 1));
+    NormalCase fixture{renderer, scene, *capture, frame, skinned, cutout, samples};
+    for (const float sign : {1.f, -1.f, 0.f}) {
+        check_normal_variant(fixture, sign);
+    }
     renderer.release();
     scene.release();
     frame.release();
@@ -225,9 +280,7 @@ void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
 void test_mesh_variants(int samples) {
     for (const bool skinned : {false, true}) {
         for (const bool cutout : {false, true}) {
-            test_smooth_normals(1, skinned, cutout, samples);
-            test_smooth_normals(-1, skinned, cutout, samples);
-            test_smooth_normals(0, skinned, cutout, samples);
+            test_smooth_normals(skinned, cutout, samples);
         }
     }
 }

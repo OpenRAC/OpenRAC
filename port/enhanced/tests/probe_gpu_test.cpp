@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 
 #include "enhanced/lighting/probes.h"
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
+#include "enhanced/tests/probe_receiver_normals.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
@@ -1326,113 +1329,6 @@ void camera_regions(renderer::Shader& shader, renderer::FrameBuffer& frame, unsi
     }
 }
 
-void camera_facing_normals() {
-    // Red illumination from +Z, blue from -Z. Looking at either side must
-    // select that side's direct light and directional GI, for either normal
-    // sign and either triangle winding.
-    for (bool reversed : {false, true}) {
-        for (float sign : {1.0f, -1.0f, 0.0f}) {
-            scene::LevelData level;
-            level.light_sets.resize(256);
-            level.light_sets[0] = 1;
-            level.light_sets[6] = -1;
-            level.light_sets[10] = 1;
-            level.light_sets[14] = 1;
-
-            for (const Float3 p :
-                 {Float3{-1, -1, -0.5f}, Float3{1, -1, -0.5f}, Float3{0, 1, -0.5f}}) {
-                scene::Vertex v{};
-                std::copy(p.begin(), p.end(), v.position);
-                v.normal[2] = sign;
-                // A missing authored normal uses the geometric fallback in the mesh shader.
-                v.colour[3] = 1;
-                v.light_slot = -1;
-                level.vertices.push_back(v);
-            }
-
-            level.indices = reversed ? std::vector<std::uint32_t>{0, 2, 1}
-                                     : std::vector<std::uint32_t>{0, 1, 2};
-            level.materials.push_back({});
-            scene::Model model;
-            model.primitives.push_back({0, 3, 0});
-            level.models.push_back(model);
-            level.instances[static_cast<std::size_t>(scene::Layer::Terrain)].push_back({});
-            renderer::Renderer renderer;
-            renderer.set_ambient_occlusion(std::make_unique<renderer::Gtao>());
-            scene::LevelScene scene;
-            lighting::use_scene_lighting(scene);
-            std::string error;
-            CHECK(scene.upload(level, renderer.textures(), error));
-            CHECK(renderer.add(
-                std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error
-            ));
-            CHECK(renderer.init(error));
-            renderer::FrameBuffer frame;
-            CHECK(frame.create(32, 32, error));
-            lighting::ProbeGrid grid;
-            grid.origin = {-2, -2, -2};
-            grid.spacing = {4, 4, 4};
-            auto volume = lighting::ProbeVolume::allocate(grid);
-
-            for (auto& probe : volume.probes) {
-                probe.valid = true;
-            }
-
-            for (std::size_t i = 0; i < volume.probes.size(); ++i) {
-                for (unsigned y = 0; y < grid.map_resolution; ++y) {
-                    for (unsigned x = 0; x < grid.map_resolution; ++x) {
-                        const auto n = lighting::oct_decode(
-                            {(x + 0.5f) / grid.map_resolution, (y + 0.5f) / grid.map_resolution}
-                        );
-                        volume.irradiance
-                            [i * grid.texels_per_probe() + (y + 1) * (grid.map_resolution + 2) + x
-                             + 1] =
-                            {3.14159265f * std::max(n[2], 0.0f),
-                             0,
-                             3.14159265f * std::max(-n[2], 0.0f)};
-                    }
-                }
-            }
-
-            lighting::update_probe_gutters(volume);
-            CHECK(
-                lighting::scene_lighting(scene)
-                    ->set_probe_volume(openrac::test::gpu_probes(volume), error)
-            );
-
-            for (bool below : {false, true}) {
-                renderer::FrameInput input;
-                input.camera.view = renderer::identity();
-                input.camera.projection = renderer::identity();
-
-                if (below) {
-                    input.camera.view[0] = input.camera.view[10] = -1;
-                    input.camera.view[14] = -1;
-                }
-
-                for (int mode : {2, 3}) {
-                    if (sign == 0 && mode == 3) {
-                        continue;  // authored direct-light shading is unchanged
-                    }
-
-                    scene.set_probe_view(mode);
-                    renderer.render(input, {frame.id(), 32, 32});
-                    const auto pixels = frame.read_rgba();
-                    const unsigned at = (16 * 32 + 16) * 4;
-                    CHECK(pixels[at + (below ? 2 : 0)] > 220);
-                    CHECK(pixels[at + (below ? 0 : 2)] < 10);
-                    CHECK(pixels[at + 1] < 10);
-                }
-            }
-
-            CHECK(glGetError() == GL_NO_ERROR);
-            renderer.clear_renderers();
-            scene.release();
-            frame.release();
-        }
-    }
-}
-
 void dense_sphere_fade() {
     lighting::ProbeGrid grid;
     grid.origin = {-8, -8, -8};
@@ -2043,7 +1939,7 @@ void main() {
     material_path(scene::Layer::Shrubs, 0, false, true);
     sphere_overlay();
     dense_sphere_fade();
-    camera_facing_normals();
+    test::test_probe_receiver_normals();
     rejected_bake_message();
     // Per-material power curve agrees with CPU luminance shaping for colour and grey.
     material_path(

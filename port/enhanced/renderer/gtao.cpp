@@ -16,20 +16,13 @@
 namespace openrac::renderer {
 using namespace openrac::gl;
 
-bool Gtao::prepare(
-    int width, int height, int scale, bool visibility, bool copy_depth, bool normals
-) {
-    if (!enhanced_rendering_available()) {
-        return false;
-    }
-    if (m_failed || !glDispatchCompute || !glMemoryBarrier) {
-        return false;
-    }
+bool Gtao::prepare_program(int scale, bool normals, bool performance) {
     std::string error;
     m_program = render_opt::enabled(render_opt::Opt::ShaderVariants)
                     ? unsigned(scale - 1) + (normals ? 2u : 0u)
                     : 4u;
-    if (!m_evaluate[m_program].id()) {
+    Shader& kernel = performance ? m_evaluate_performance[m_program] : m_evaluate[m_program];
+    if (!kernel.id() || !m_composite[m_program].id()) {
         std::string evaluate(shaders::gtao_evaluate_comp);
         std::string composite(shaders::gtao_composite_frag);
         evaluate.insert(evaluate.find('\n') + 1, shaders::surface_normal_glsl);
@@ -48,12 +41,16 @@ bool Gtao::prepare(
             evaluate = shader_constants(std::move(evaluate), constants);
             composite = shader_constants(std::move(composite), constants);
         }
-        std::string performance = evaluate;
-        performance.insert(performance.find('\n') + 1, "#define GTAO_REFINEMENT_STEPS 3\n");
-        if (!m_evaluate_performance[m_program]
-                 .build_compute("GTAO performance horizons", performance, error)
-            || !m_evaluate[m_program].build_compute("GTAO horizons", evaluate, error)
-            || !m_composite[m_program].build("GTAO filter", shaders::gtao_vert, composite, error)) {
+        if (performance) {
+            evaluate.insert(evaluate.find('\n') + 1, "#define GTAO_REFINEMENT_STEPS 3\n");
+        }
+        if ((!kernel.id()
+             && !kernel.build_compute(
+                 performance ? "GTAO performance horizons" : "GTAO horizons", evaluate, error
+             ))
+            || (!m_composite[m_program].id()
+                && !m_composite[m_program]
+                        .build("GTAO filter", shaders::gtao_vert, composite, error))) {
             log::error("GTAO: {}", error);
             m_failed = true;
             return false;
@@ -62,6 +59,14 @@ bool Gtao::prepare(
             glGenVertexArrays(1, &m_vao);
         }
     }
+    return true;
+}
+
+bool Gtao::prepare(int width, int height, int scale, bool visibility, bool copy_depth) {
+    if (!enhanced_rendering_available() || m_failed || !glDispatchCompute || !glMemoryBarrier) {
+        return false;
+    }
+    std::string error;
     if (copy_depth && (m_depth.width() != width || m_depth.height() != height)
         && !m_depth.create(width, height, error, 1, true)) {
         log::error("GTAO: {}", error);
@@ -121,12 +126,10 @@ bool Gtao::render(
         target.depth_texture != 0
         && (!apply_to_colour || render_opt::enabled(render_opt::Opt::GtaoDirectDepth));
     if (!prepare(
-            target.width,
-            target.height,
-            scale,
-            !apply_to_colour && !evaluate_only,
-            !direct_depth,
-            target.normal_texture != 0
+            target.width, target.height, scale, !apply_to_colour && !evaluate_only, !direct_depth
+        )
+        || !prepare_program(
+            scale, target.normal_texture != 0, options.quality == GtaoQuality::Performance
         )) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);

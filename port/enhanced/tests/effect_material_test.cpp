@@ -110,7 +110,8 @@ int main() {
         level.models.push_back(model);
         level.materials.push_back({});
         level.instances[std::size_t(scene::Layer::Terrain)].push_back({});
-        CHECK(scene.upload(level, renderer.textures(), error));
+        // Effects need the lighting metadata, but never draw this fixture's scene meshes.
+        lighting::scene_lighting(scene)->load(level);
         CHECK(test::shadow_probe_fixture(scene, error));
         scene.set_probe_lighting(true, 1);
         scene.set_probe_view(1);

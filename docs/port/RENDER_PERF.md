@@ -299,7 +299,7 @@ package's report gives.
 
 **The equivalence test**, `render_equivalence_vulkan`
 ([`port/tests/render_equivalence_test.cpp`](../../port/tests/render_equivalence_test.cpp)), draws
-the scene at a tenth of its size at 80 by 45, eight frames a scenario, under the validation layer.
+the reduced scene at 80 by 45, eight frames a scenario, under the validation layer.
 The first and last frame use High shadows and the others Medium, retaining both resize directions.
 It first checks that the scene is drawn at all (more than 5% of its first frame is over the clear colour),
 then draws every scenario twice, Enhanced off and on, and requires identical frames: every later
@@ -307,7 +307,11 @@ proof rests on the driver drawing alike twice. One verified default run is retai
 and mode. Each registry entry then draws the opposite of its default state and compares against
 those frames with the entry's tolerance, byte for byte unless it states one. Default-off entries
 and environment overrides use the same rule. This avoids repeating unchanged default draws while
-retaining every on/off comparison, scene rebuild and discarded-attachment check.
+retaining every on/off comparison and discarded-attachment check. Baseline determinism uses
+fresh scenes. Each registry entry builds its own renderer with the selected shader configuration,
+then reuses it across scenarios; the reupload scenario still replaces its scene resources.
+Discard checks likewise use separate renderers for poisoned and retained attachments, sharing
+each renderer across scenarios while keeping exact frame comparisons.
 The self-test entry is compared as well, as the harness's check of itself: its reference path is in
 the fixture (`SceneRenderer::selftest_reference_path`). The validation layer must report nothing.
 
@@ -321,6 +325,19 @@ determinism and discarded attachments; together they compare every registry entr
 Each matrix shard limits Mesa to two rendering workers to bound CPU oversubscription.
 `ctest --preset enhanced -L render-equivalence --parallel 2` runs both halves.
 Linux CI also retains Mesa's driver-keyed shader cache between runs, capped at 1 GiB per job.
+The enhanced Ubuntu job uses `GALLIVM_PERF=nopt` to reduce Mesa's LLVM compilation cost for
+these short runs. Shaders, geometry, validation and image comparisons still execute. Its cache
+is separate from normal-compiler runs; Fedora retains the default LLVM optimisation coverage.
+The GTAO horizon-reference test clears this override: its long arithmetic matrix benefits from
+optimised shader execution more than shorter compilation.
+
+Surface-normal checks share scene setup across authored normal signs, retaining separate mesh
+data and all skinning, cutout and MSAA cases. Effects-only checks load lighting metadata without
+compiling unused scene meshes. GTAO builds each quality kernel on first use, so tests and games
+that use one quality do not compile the other. The shadow reference test retains production
+reference-filter coverage; standalone kernels unaffected by that switch run in the normal test.
+Probe receiver-normal checks share shaders and probe textures across six separate meshes,
+retaining both windings, all authored normal signs and both camera sides.
 
 A one-pixel negative-control error at 80 by 45 was rejected in all 14 scenario/mode comparisons.
 

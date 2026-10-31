@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstring>
 #include <numbers>
+#include <string_view>
 
 #include "common/stats.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
@@ -1121,7 +1122,12 @@ void test_static_shadow_keys_follow_the_camera() {
     CHECK(same_key == 0);
 }
 
-int main(int argc, char**) {
+int main(int argc, char** argv) {
+    const bool reference_only = argc == 2 && std::string_view(argv[1]) == "--gpu-reference";
+    if (argc > 1 && !reference_only && (argc != 2 || std::string_view(argv[1]) != "--gpu")) {
+        std::fprintf(stderr, "usage: sun_shadow_test [--gpu | --gpu-reference]\n");
+        return 1;
+    }
     test::gpu_draw_reference(true);
     cpu();
     caster_hulls();
@@ -1134,9 +1140,12 @@ int main(int argc, char**) {
             std::printf("SKIP: %s\n", why.c_str());
             return test::kSkip;
         }
-        filter_gpu();
-        far_cascade_self_shadow_gpu();
-        unique_filter_gpu();
+        // Raw kernels compare both filters directly and do not read the production override.
+        if (!reference_only) {
+            filter_gpu();
+            far_cascade_self_shadow_gpu();
+            unique_filter_gpu();
+        }
         gpu();
     }
     return test::result();

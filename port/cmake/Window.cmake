@@ -505,7 +505,8 @@ openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 # add_test on its target. The enhanced renderer's programs below stay written out: their tests are
 # named after the renderer they run on (hero_shadow_cpu, gtao_vulkan) and none is named <subject>,
 # or the program has no test at all without Vulkan, which the helper cannot express.
-add_executable(probe_gpu_test enhanced/tests/probe_gpu_test.cpp)
+add_executable(probe_gpu_test enhanced/tests/probe_gpu_test.cpp
+  enhanced/tests/probe_receiver_normals.cpp)
 add_executable(early_lighting_test enhanced/tests/early_lighting_test.cpp)
 openrac_add_test(surface_normals SOURCES enhanced/tests/surface_normals_test.cpp
   LIBS openrac_viewer_lib openrac_platform)
@@ -558,7 +559,7 @@ openrac_warnings(sun_shadow_test)
 add_test(NAME sun_shadow_cpu COMMAND sun_shadow_test)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME sun_shadow_vulkan COMMAND sun_shadow_test --gpu)
-  add_test(NAME sun_shadow_filter_reference_vulkan COMMAND sun_shadow_test --gpu)
+  add_test(NAME sun_shadow_filter_reference_vulkan COMMAND sun_shadow_test --gpu-reference)
   set_tests_properties(sun_shadow_filter_reference_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SHADOW_FILTER_REFERENCE=1")
   set_tests_properties(sun_shadow_vulkan PROPERTIES SKIP_RETURN_CODE 77
@@ -721,8 +722,9 @@ openrac_warnings(gtao_horizon_test)
 add_test(NAME gtao_horizon_cpu COMMAND gtao_horizon_test --cpu)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME gtao_horizon_vulkan COMMAND gtao_horizon_test)
+  # This long arithmetic matrix amortises LLVM optimisation and benefits from faster shaders.
   set_tests_properties(gtao_horizon_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
-    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;GALLIVM_PERF=")
 endif()
 
 # The feature boundary: OpenGL never has it; Vulkan has it only when it is switched on at start
