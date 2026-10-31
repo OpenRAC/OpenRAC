@@ -122,10 +122,12 @@ void load_level_program(int level);
 // the title's 99) is read as the window reads it, without a window. A level that cannot be read, or
 // that has nothing to draw, is named with the reason; when all are whole, `verified-<format>.json`
 // (the extracted levels' format, scene::kManifestFormat) is written beside them, which the
-// launcher asks for before it offers Play. A game started over levels that are missing or cut short
-// shows its HUD over a black world and says nothing else; levels of an older format fail the check
-// (their manifests are refused), so the launcher reads them from the disc again.
-int check_levels(const fs::path& levels);
+// launcher asks for before it offers Play. With MODS, the same per-level model and texture
+// overrides the game reads are checked too; this does not create or replace the base-level stamp.
+// A game started over levels that are missing or cut short shows its HUD over a black world and
+// says nothing else; levels of an older format fail the check (their manifests are refused), so
+// the launcher reads them from the disc again.
+int check_levels(const fs::path& levels, const fs::path& mods = {});
 #endif
 
 }  // namespace openrac::program

@@ -29,7 +29,7 @@ namespace {
     log::error(
         "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] "
         "[--level N] [--skip-movies] [--mods DIR] [--map] [--ship-map] [--destinations] "
-        "[--settings FILE] "
+        "[--check-levels] [--settings FILE] "
         "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE]",
         program_name(),
         openrac_game.game

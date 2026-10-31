@@ -3,7 +3,7 @@
 //
 // The levels as the program reads them: each level's program, for the runtime's relocation of the
 // functions levels share (load_level_program), and --check-levels, which reads every extracted
-// level as the window would and stamps the folder when all are whole (check_levels).
+// level as the window would, optionally with --mods overrides (check_levels).
 
 #include <cstdint>
 #include <cstdio>
@@ -120,11 +120,13 @@ extern "C" void openrac_game_clear_level_programs(void) {
 }
 
 #ifdef OPENRAC_FRONTEND
-int check_levels(const fs::path& levels) {
+int check_levels(const fs::path& levels, const fs::path& mods) {
     const fs::path stamp = levels / std::format("verified-{}.json", scene::kManifestFormat);
     std::error_code ignored;
-    fs::remove(stamp, ignored);
-    fs::remove(levels / "verified.json", ignored);  // the stamp before formats were named
+    if (mods.empty()) {
+        fs::remove(stamp, ignored);
+        fs::remove(levels / "verified.json", ignored);  // the stamp before formats were named
+    }
     std::vector<int> ids;
 
     for (int i = 0; i < 19; ++i) {
@@ -141,7 +143,10 @@ int check_levels(const fs::path& levels) {
         scene::LevelData level;
         std::string error;
 
-        if (!scene::load_level(dir, level, error)) {
+        const fs::path edited = mods.empty()
+                                    ? fs::path{}
+                                    : mods / std::format("level_{:02d}", id) / "placements.json";
+        if (!scene::load_level(dir, level, error, edited)) {
             log::error("level {:02d}: {}", id, error);
             ++bad;
             newer += error.find("newer than this game") != std::string::npos;
@@ -173,6 +178,14 @@ int check_levels(const fs::path& levels) {
             level.vertices.size(),
             level.images.size()
         );
+        if (level.overridden_models > 0 || level.overridden_images > 0) {
+            log::info(
+                "level {:02d}: loaded {} modded model(s) and {} modded texture(s)",
+                id,
+                level.overridden_models,
+                level.overridden_images
+            );
+        }
     }
 
     if (newer > 0) {
@@ -188,14 +201,28 @@ int check_levels(const fs::path& levels) {
     }
 
     if (bad > 0) {
-        log::error(
-            "{} of {} levels in {} cannot be drawn: read them from the disc again (the launcher's "
-            "\"Get the levels ready\"; editor/extract.py port --replace)",
-            bad,
-            ids.size(),
-            levels.string()
-        );
+        if (mods.empty()) {
+            log::error(
+                "{} of {} levels in {} cannot be drawn: read them from the disc again (the launcher's "
+                "\"Get the levels ready\"; editor/extract.py port --replace)",
+                bad,
+                ids.size(),
+                levels.string()
+            );
+        } else {
+            log::error(
+                "{} of {} modded levels cannot be drawn from {}: repair or remove the named mod files",
+                bad,
+                ids.size(),
+                mods.string()
+            );
+        }
         return 1;
+    }
+
+    if (!mods.empty()) {
+        log::info("all {} levels can be drawn with mod overrides from {}", ids.size(), mods.string());
+        return 0;
     }
 
     if (std::FILE* f = std::fopen(stamp.string().c_str(), "wb")) {

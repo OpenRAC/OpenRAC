@@ -419,7 +419,10 @@ int main(int argc, char** argv) {
 
     if (g_options.check_levels) {
 #ifdef OPENRAC_FRONTEND
-        return check_levels(g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels));
+        return check_levels(
+            g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels),
+            g_options.mods
+        );
 #else
         log::fatalf("--check-levels needs a build with the window (it reads the levels as the window does)");
 #endif
