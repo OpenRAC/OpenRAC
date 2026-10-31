@@ -4,7 +4,7 @@
  * gameplay header it named gets at least 768 spare slots as its decompression ends (but on the
  * three levels whose heap has no room); nothing else
  * that is decompressed changes, nor the header outside a run, and the loader's argument and result
- * pass through. And the tick's run list keeps its target list to 511 mobys, the rest still run.
+ * pass through, and each run is told as a new moby array. And the tick's run list keeps its target list to 511 mobys, the rest still run.
  * With fix_bigger_moby_pool off, the disc's count stays and the list runs on as on a console. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +27,13 @@
 enum {
     RAM = 0x400000
 };
+
+/* Each run of the loader is a new moby array (boot.c's generation). */
+static int rebuilt;
+
+void rac1_mobys_rebuilt(void) {
+    ++rebuilt;
+}
 
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE; /* the console's 32 MiB arena */
@@ -195,7 +202,7 @@ int main(void) {
     /* A level's 256 become 768; a WAD decompressed elsewhere in the run keeps its own. */
     shipped = 256;
     CHECK(func_L00_002422D8(1) == 0x01234560u);
-    CHECK(loads == 1 && last_arg == 1);
+    CHECK(loads == 1 && last_arg == 1 && rebuilt == 1);
     CHECK(seen == 768 && other_seen == 256);
     CHECK(GREF(int, HEADER + SECTION) == 1569);
 

@@ -15,6 +15,7 @@ static int loaded_level = OPENRAC_OVERLAY_EXE;
 
 /* The programs ParseBin loaded since the start (play.c: a figure lives in one). */
 static uint32_t program_loads;
+static uint32_t moby_generation;
 
 /* Frames left in which the flight between planets counts as playing: set by its update. */
 static int flight_frames;
@@ -64,6 +65,7 @@ RAC1_TYPE_func_0012DA38_result func_0012DA38(void) {
     const RAC1_TYPE_func_0012DA38_result entry = func_0012DA38__game();
     loaded_level = GREF(int, CURRENT_LEVEL);
     ++program_loads;
+    ++moby_generation;
     /* No level: Quit Game, whose level's loader read the boot program back from the disc
      * (func_00204BE8). That copy is another build of the executable's program: the same
      * sections at the same addresses, the data the same but for its code pointers, and code
@@ -80,6 +82,14 @@ RAC1_TYPE_func_0012DA38_result func_0012DA38(void) {
 
 uint32_t rac1_program_loads(void) {
     return program_loads;
+}
+
+uint32_t rac1_moby_generation(void) {
+    return moby_generation;
+}
+
+void rac1_mobys_rebuilt(void) {
+    ++moby_generation;
 }
 
 /* hostgen.json: "overlay_hook": true. */

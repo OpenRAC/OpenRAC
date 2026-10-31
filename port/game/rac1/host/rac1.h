@@ -55,6 +55,15 @@ void rac1_scene_actors_unpack(void);
 /* boot.c: the level programs ParseBin loaded since the start. */
 uint32_t rac1_program_loads(void);
 
+/* boot.c: how many moby arrays there have been: one more at each level program, and at each run of
+ * LoadLevelGameplay (moby_pool.c), which is also every death of the hero: the level's loop reloads
+ * the gameplay file within one frame, with no new program (level_runtime_and_menus.c,
+ * fall_fade_pending), making all the mobys again and packing the placed ones anew without the
+ * records killed before the last checkpoint. A record's slot can move and every spawned moby is
+ * gone, so whatever names a slot or a moby holds for one generation only. */
+uint32_t rac1_moby_generation(void);
+void rac1_mobys_rebuilt(void);
+
 /* Whether a level runs: its program loaded and its loop not told to end (play.c). After the end
  * (a travel, the ship's flight out, Quit Game) the level's program is still there while the
  * flight between planets plays (DoSpaceTransition), with the space scene's mobys in place of the

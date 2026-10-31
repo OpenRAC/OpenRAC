@@ -603,8 +603,9 @@ typedef struct openrac_play_status {
     int32_t level;
     /* How many levels the game has (0 .. levels - 1). */
     int32_t levels;
-    /* Counts the level programs loaded since the start: a new value, a new level (or the same one
-     * loaded again), whose figures are gone. */
+    /* Counts the level's moby arrays since the start: a new value, a level loaded (or the same one
+     * again), or the same level made again in place, as a hero's death does within one frame. Every
+     * slot, figure, drive and spawned moby of the last value is gone; a placed moby's key stands. */
     uint32_t loads;
 } openrac_play_status;
 

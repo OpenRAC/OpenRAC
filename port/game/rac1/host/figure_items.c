@@ -191,7 +191,7 @@ static int alive(gaddr moby, int32_t oclass) {
 }
 
 static void buffers_for_load(void) {
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     if (load != buffer_load) {
         buffer_load = load;
         buffer_class[0] = buffer_class[1] = -1;
@@ -291,7 +291,7 @@ static void release_blend_slot(gaddr m) {
 /* Removes record `r`'s moby (when still its own) and frees it; `by_mod`: for the mod's
  * figure_remove (noted as a mod's deletion, moby_kill's way). */
 static void drop_as(Record* r, int by_mod) {
-    if (r->moby != 0 && r->load == rac1_program_loads() && in_level()
+    if (r->moby != 0 && r->load == rac1_moby_generation() && in_level()
         && alive(r->moby, r->piece.oclass)) {
         release_blend_slot(r->moby);
         if (by_mod) {
@@ -353,7 +353,7 @@ static int have_class(int32_t oclass) {
     /* Never over another figure's piece. */
     for (int i = 0; i < RECORDS; ++i) {
         const Record* r = &records[i];
-        if (r->figure != 0 && r->moby != 0 && r->load == rac1_program_loads()
+        if (r->figure != 0 && r->moby != 0 && r->load == rac1_moby_generation()
             && GREF(gaddr, r->moby + MOBY_CLASS) == base) {
             return 0;
         }
@@ -428,7 +428,7 @@ static openrac_game_held_piece wrench_for(const openrac_game_held_piece* p) {
 /* The records of a figure gone, or of an earlier load, are let go (their mobys went with the
  * level, or with the figure). */
 static void forget_stale(void) {
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     for (int i = 0; i < RECORDS; ++i) {
         Record* r = &records[i];
         if (r->figure != 0 && (r->load != load || !rac1_figure_alive(r->figure))) {
@@ -477,7 +477,7 @@ void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
         return;
     }
     forget_stale();
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     int wanted[RECORDS];
     memset(wanted, 0, sizeof wanted);
     for (int k = 0; k < held->count && k < OPENRAC_GAME_HELD_MAX; ++k) {
@@ -569,7 +569,7 @@ void rac1_figure_items_tick(void) {
     if (!in_level() || GREF(int32_t, CONTEXT) != 0) {
         return;
     }
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     GFRAME(joints, JOINTS * JOINT_SIZE);
     gaddr figure_done = 0;
     for (int i = 0; i < RECORDS; ++i) {
@@ -679,9 +679,9 @@ int rac1_hero_held(openrac_game_held* out) {
         static uint32_t told_load;
         const int32_t hand =
             out->count > 0 && out->pieces[0].slot == 0 ? out->pieces[0].oclass : -1;
-        if (hand != told_hand || told_load != rac1_program_loads()) {
+        if (hand != told_hand || told_load != rac1_moby_generation()) {
             told_hand = hand;
-            told_load = rac1_program_loads();
+            told_load = rac1_moby_generation();
             fprintf(
                 stderr,
                 "[debug] figure items: hero holds %d pieces, hand class %d (item %d, "

@@ -11,7 +11,7 @@
  * moby_index_by_file_order (D_L00_001ACB00, an s16 a record, -1 for one skipped), so the same
  * record has the same key on every machine whatever was killed. The placed mobys are the slots
  * below level_mobys_end (D_0016001C); the rest are spawned (CreateMoby) and have no key. The keys
- * are read once a level load (boot.c's count).
+ * are read once a moby array (boot.c's generation): a respawn rebuilds it, and the slots move.
  *
  * The gate. UpdateMobys (crash_state.c) asks rac1_moby_gate before and after each moby's update;
  * the mods' loader answers (openrac_game_moby_update). Before an update, a mod may have the hero
@@ -164,7 +164,7 @@ static int32_t array_slots(void) {
         return 4096;
     }
     const gaddr base = array_base();
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     if (base != array_limit_base || load != array_load) {
         array_limit_base = base;
         array_load = load;
@@ -198,10 +198,10 @@ static void leave_level_context(int entered) {
 
 /* The slots' keys for the level loaded now, read once a load. */
 static void read_keys(void) {
-    if (keys_load == rac1_program_loads() || array_base() == 0) {
+    if (keys_load == rac1_moby_generation() || array_base() == 0) {
         return;
     }
-    keys_load = rac1_program_loads();
+    keys_load = rac1_moby_generation();
     memset(key_of, 0xFF, sizeof key_of);
     memset(slot_of, 0xFF, sizeof slot_of);
     const int32_t placed = placed_count();
@@ -230,9 +230,20 @@ gaddr rac1_world_moby_at(int32_t slot) {
     if (!in_level() || slot < 0 || slot >= array_slots()) {
         return 0;
     }
-    const gaddr m = array_base() + (gaddr)slot * MOBY_SIZE;
-    /* Gone, free, or past the array's end. */
-    return GREF(uint8_t, m + MOBY_STATE) < 0x80 ? m : 0;
+    const gaddr base = array_base();
+    const gaddr m = base + (gaddr)slot * MOBY_SIZE;
+    /* Gone or free. */
+    if (GREF(uint8_t, m + MOBY_STATE) >= 0x80) {
+        return 0;
+    }
+    /* Past the array's end, which is the first 0xFF: a respawn leaves the spawned mobys of before
+     * there as they were, looking alive, their grid cells cleared under them (DeleteMoby traps). */
+    for (int32_t s = placed_count(); s < slot; ++s) {
+        if (GREF(uint8_t, base + (gaddr)s * MOBY_SIZE + MOBY_STATE) == 0xFF) {
+            return 0;
+        }
+    }
+    return m;
 }
 
 int rac1_world_mobys(openrac_game_moby_state* out, int max) {
@@ -332,14 +343,14 @@ void func_0020D678(gaddr moby) {
         deletions[slot].oclass = GREF(int16_t, moby + MOBY_OCLASS);
         deletions[slot].by_mod = (uint8_t)killing;
         deletions[slot].seen = 1;
-        deletions[slot].loads = rac1_program_loads();
+        deletions[slot].loads = rac1_moby_generation();
     }
     func_0020D678__game(moby);
 }
 
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out) {
     if (slot < 0 || slot >= KEYS_MAX || !deletions[slot].seen
-        || deletions[slot].loads != rac1_program_loads()) {
+        || deletions[slot].loads != rac1_moby_generation()) {
         return 0;
     }
     out->by = deletions[slot].by;
@@ -638,7 +649,7 @@ static struct {
 } menu_runs = {0xFFFFFFFFu, 0, 0};
 
 static void note_menu_run(int32_t how) {
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     if (menu_runs.load != load) {
         menu_runs.load = load;
         menu_runs.ticks = 0;
@@ -654,7 +665,7 @@ static void run_world_under_menu(int pause_menu) {
     }
     /* The menu's first tick (it sets itself up in this update): the camera is still the level's. */
     const int first = main_context();
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     int swapped = 0;
     if (pause_menu && first) {
         memcpy(level_view.camera, G(OPENRAC_DATA(CAMERA_BLOCK)), CAMERA_BYTES);
@@ -700,7 +711,7 @@ int rac1_world_camera_position(float out[3]) {
     if (!in_level()) {
         return 0;
     }
-    if (!main_context() && level_view.load == rac1_program_loads()) {
+    if (!main_context() && level_view.load == rac1_moby_generation()) {
         memcpy(out, level_view.camera + 0x140, 3 * sizeof(float));
     } else {
         memcpy(out, G(OPENRAC_DATA(CAMERA_POSITION)), 3 * sizeof(float));
@@ -720,7 +731,7 @@ int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out) {
         return 0;
     }
     out->ran = rac1_moby_run(slot, &out->runs, out->camera);
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     out->menu_ticks = menu_runs.load == load ? menu_runs.ticks : 0;
     out->menu = menu_runs.load == load ? menu_runs.last : 0;
     if (level_view.load == load) {

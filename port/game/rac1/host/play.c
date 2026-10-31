@@ -183,7 +183,7 @@ static int phase(int32_t* level) {
 }
 
 static uint32_t loads(void) {
-    return rac1_program_loads();
+    return rac1_moby_generation();
 }
 
 /* The seq `seq` of a moby's class: its key count, 0 for a seq the class has not. */
@@ -241,7 +241,7 @@ int rac1_figure_alive(gaddr moby) {
     }
     const gaddr pvars = GREF(gaddr, moby + MOBY_PVARS);
     return pvars != 0 && GREF(uint32_t, pvars) == FIGURE_MARK
-           && GREF(uint32_t, pvars + 4u) == rac1_program_loads();
+           && GREF(uint32_t, pvars + 4u) == rac1_moby_generation();
 }
 
 static gaddr figure_spawn(void) {
@@ -275,7 +275,7 @@ static gaddr figure_spawn(void) {
     const gaddr pvars = GREF(gaddr, moby + MOBY_PVARS);
     if (pvars != 0) {
         GREF(uint32_t, pvars) = FIGURE_MARK;
-        GREF(uint32_t, pvars + 4u) = rac1_program_loads();
+        GREF(uint32_t, pvars + 4u) = rac1_moby_generation();
     }
     return moby;
 }

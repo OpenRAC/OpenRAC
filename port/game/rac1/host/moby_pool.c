@@ -148,6 +148,8 @@ gaddr func_L00_002422D8(int skip_read) {
     g_header = GREF(gaddr, OPENRAC_LDATA(0, LOAD) + LOAD_HEADER);
     const gaddr cursor = func_L00_002422D8__hooked(skip_read);
     g_header = outer;
+    /* A new moby array, also at a respawn in the same program: what named a slot or a moby goes. */
+    rac1_mobys_rebuilt();
     return cursor;
 }
 

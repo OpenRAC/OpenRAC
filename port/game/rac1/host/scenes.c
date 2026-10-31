@@ -82,12 +82,12 @@ static int32_t scene_number(void) {
 /* The scene playing is the level's (started by its mobys or a mod) when it is the one noted. */
 static int level_scene_playing(void) {
     return cutscene_playing() && level_scene >= 0 && level_scene == scene_number()
-           && level_scene_load == rac1_program_loads();
+           && level_scene_load == rac1_moby_generation();
 }
 
 static void note_level_scene(void) {
     level_scene = scene_number();
-    level_scene_load = rac1_program_loads();
+    level_scene_load = rac1_moby_generation();
 }
 
 int32_t rac1_scene_playing(int32_t* frame) {
@@ -109,7 +109,7 @@ int rac1_scene_start(int32_t scene) {
         return 0;
     }
     wanted = scene;
-    wanted_load = rac1_program_loads();
+    wanted_load = rac1_moby_generation();
     return 1;
 }
 
@@ -126,7 +126,7 @@ void rac1_scenes_tick(void) {
     if (wanted < 0) {
         return;
     }
-    if (!rac1_level_running() || wanted_load != rac1_program_loads()) {
+    if (!rac1_level_running() || wanted_load != rac1_moby_generation()) {
         wanted = -1;
         return;
     }
