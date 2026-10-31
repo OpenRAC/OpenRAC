@@ -68,7 +68,11 @@ std::size_t ProbeVolume::atlas_capacity() const {
 
 std::span<const std::uint8_t> ProbeVolume::gpu_plane(unsigned plane) const {
     const auto texels = atlas_capacity() * grid.texels_per_probe();
-    const std::size_t sizes[] = {texels * 4, texels * 8, atlas_capacity() * 8};
+    const auto side = grid.map_resolution + 2;
+    const auto colour = probe_texture_bytes(
+        colour_format, kProbeAtlasTilesX * side, static_cast<unsigned>(atlas_rows()) * side
+    );
+    const std::size_t sizes[] = {colour, texels * 8, atlas_capacity() * 8};
     if (plane > 2) {
         throw std::runtime_error("invalid probe texture plane");
     }
@@ -129,6 +133,15 @@ void read_probe_planes(ProbeVolume& v, bool expand) {
     const profiling::Zone timing("Read probe planes");
 
     const auto e = v.gpu_plane(0), m = v.gpu_plane(1), metadata = v.gpu_plane(2);
+    const unsigned width = kProbeAtlasTilesX * (v.grid.map_resolution + 2);
+    const unsigned height = static_cast<unsigned>(v.atlas_rows()) * (v.grid.map_resolution + 2);
+    std::vector<Float3> colour;
+    // Runtime uploads keep compressed bytes; only offline sampling needs expanded colour.
+    if (expand) {
+        colour = decode_probe_texture(v.colour_format, width, height, e);
+    } else {
+        validate_probe_texture(v.colour_format, width, height, e);
+    }
     v.probes.resize(v.grid.probe_count());
     if (expand) {
         v.irradiance.resize(v.grid.probe_count() * v.grid.texels_per_probe());
@@ -151,11 +164,6 @@ void read_probe_planes(ProbeVolume& v, bool expand) {
             for (unsigned x = 0; x < side; ++x) {
                 const auto source = atlas_texel(p, x, y, side);
                 const auto target = p * side * side + y * side + x;
-                const auto packed = get(e, source * 4, 4);
-                if (((packed >> 6) & 31) == 31 || ((packed >> 17) & 31) == 31
-                    || ((packed >> 27) & 31) == 31) {
-                    throw std::runtime_error("nonfinite packed probe irradiance");
-                }
                 const Float2 moments{
                     std::bit_cast<float>(get(m, source * 8, 4)),
                     std::bit_cast<float>(get(m, source * 8 + 4, 4))
@@ -167,10 +175,8 @@ void read_probe_planes(ProbeVolume& v, bool expand) {
                 }
                 if (expand) {
                     for (unsigned c = 0; c < 3; ++c) {
-                        const auto channel =
-                            c == 0 ? packed : (c == 1 ? packed >> 11 : packed >> 22);
                         v.irradiance[target][c] =
-                            std::pow(unpack(channel, c == 2 ? 5 : 6, false), kProbeIrradianceGamma);
+                            std::pow(colour[source][c], kProbeIrradianceGamma);
                     }
                     v.distance_moments[target] = moments;
                 }

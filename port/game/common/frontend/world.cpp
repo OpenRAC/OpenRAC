@@ -237,8 +237,9 @@ void use_level(int number) {
                 renderer::Bucket::Particles,
                 enhanced::atmosphere_material(
                     g->scene,
-                    wanted == 1 && g->game.starts_with("rac1-") ? enhanced::make_water(g->scene, dir)
-                                                          : nullptr
+                    wanted == 1 && g->game.starts_with("rac1-")
+                        ? enhanced::make_water(g->scene, dir)
+                        : nullptr
                 )
             ),
             error

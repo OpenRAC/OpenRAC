@@ -102,7 +102,7 @@ class PlayerActions(unittest.TestCase):
 
     def test_ci_smoke_checks_use_only_packaged_native_bake_entry_points(self):
         workflow = (bundle.ROOT/'.github/workflows/launcher.yml').read_text()
-        self.assertNotIn('$COPY/port/enhanced/tools/probes/',workflow)
+        self.assertNotIn('$COPY/port/enhanced/tools/baker/',workflow)
         self.assertIn('"$baker" --print-water-profile',workflow)
         self.assertIn('"$baker" --print-interior-profile',workflow)
 
@@ -197,9 +197,9 @@ class Bundle(unittest.TestCase):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(list(out.rglob("test_*.py")))
             for name in ('bake_all.py', 'bake_level.py', 'seed_regions.py', 'native_coordinator.py'):
-                self.assertFalse((out / "port/enhanced/tools/probes" / name).exists())
+                self.assertFalse((out / "port/enhanced/tools/baker" / name).exists())
             self.assertFalse((out / "port/enhanced/tools/water").exists())
-            self.assertFalse((out / "port/enhanced/tools/probes").exists())
+            self.assertFalse((out / "port/enhanced/tools/baker").exists())
             self.assertFalse((out / "games/rac1/include/moby_pvars.h").exists())
             layouts = json.loads((out / "editor/pvar_layouts.json").read_text())
             self.assertIn(["moveSpeed", 0xB0, "f32", 0], layouts["classes"]["726"])
@@ -252,7 +252,7 @@ class Bundle(unittest.TestCase):
             copied = json.loads((exported / "probe-emission.json").read_text())
             self.assertEqual(copied.pop('_catalog_defaults'), authored)
             self.assertEqual(copied, authored)
-            self.assertFalse((out / "port/enhanced/tools/probes/moby_seed_whitelist.json").exists())
+            self.assertFalse((out / "port/enhanced/tools/baker/moby_seed_whitelist.json").exists())
             water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
             self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
             self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
@@ -331,7 +331,7 @@ class Bundle(unittest.TestCase):
             # No game program (the APK's libraries); the probe baker's Python half for Enhanced
             # graphics, whose program is a library of the APK too.
             self.assertFalse((out / "port/build").exists())
-            self.assertFalse((out / "port/enhanced/tools/probes").exists())
+            self.assertFalse((out / "port/enhanced/tools/baker").exists())
             self.assertTrue((out / "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json").is_file())
             self.assertIn("Android", (out / "STANDALONE").read_text())
 

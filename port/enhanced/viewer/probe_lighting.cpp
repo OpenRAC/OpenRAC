@@ -15,8 +15,9 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/stats.h"
-#include "enhanced/tools/probes/activation.h"
+#include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/viewer/early_lighting.h"
+#include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 
@@ -29,6 +30,7 @@ namespace openrac::lighting {
 using namespace openrac::gl;
 
 namespace {
+
 struct ProbeTextureFormat {
     GLenum internal, source, type;
 };
@@ -166,7 +168,13 @@ bool ProbeLighting::upload_regions(
         if (limit <= 0) {
             throw std::runtime_error("no probe texture capacity");
         }
+        const auto colour_internal = lighting::probe_texture_internal(volume.colour_format);
         for (const auto& region : regions) {
+            if (region.colour_format != volume.colour_format) {
+                throw std::runtime_error(
+                    "probe volumes use different texture formats; rebake lighting"
+                );
+            }
             lighting::validate_probe_pair(volume, region);
             m_region_capacity = std::max(m_region_capacity, region.atlas_capacity());
         }
@@ -181,7 +189,9 @@ bool ProbeLighting::upload_regions(
         }
         std::string compute_error;
         const auto side = volume.grid.map_resolution + 2;
-        const auto resident_bytes = total_regions * (12ull * side * side + 8);
+        const auto probe_bytes = lighting::probe_texture_bytes(volume.colour_format, side, side)
+                                 + 8ull * side * side + 8;
+        const auto resident_bytes = total_regions * probe_bytes;
         if (resident_bytes <= kDenseResidencyBudget) {
             m_full_residency = m_selection.prepare(m_region_grids, m_region_offsets, compute_error);
         } else {
@@ -232,17 +242,32 @@ bool ProbeLighting::upload_regions(
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-            glTexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                kProbeFormats[i].internal,
-                static_cast<GLsizei>(i == 2 ? m_atlas_tiles_x : width),
-                static_cast<GLsizei>(i == 2 ? rows : rows * side),
-                0,
-                kProbeFormats[i].source,
-                kProbeFormats[i].type,
-                nullptr
-            );
+            if (i == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10) {
+                glCompressedTexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    colour_internal,
+                    static_cast<GLsizei>(width),
+                    static_cast<GLsizei>(rows * side),
+                    0,
+                    static_cast<GLsizei>(lighting::probe_texture_bytes(
+                        volume.colour_format, width, static_cast<unsigned>(rows * side)
+                    )),
+                    nullptr
+                );
+            } else {
+                glTexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    kProbeFormats[i].internal,
+                    static_cast<GLsizei>(i == 2 ? m_atlas_tiles_x : width),
+                    static_cast<GLsizei>(i == 2 ? rows : rows * side),
+                    0,
+                    kProbeFormats[i].source,
+                    kProbeFormats[i].type,
+                    nullptr
+                );
+            }
         }
         glActiveTexture(GL_TEXTURE0);
         if (glGetError() != GL_NO_ERROR) {
@@ -252,11 +277,12 @@ bool ProbeLighting::upload_regions(
         m_sparse_capacity = volume.atlas_capacity();
         upload_volume(volume, 0);
         log::info(
-            "probe textures: R11G11B10F irradiance, RG32F moments, RGBA16F metadata; {}x{}, {} "
+            "probe textures: {} irradiance, RG32F moments, RGBA16F metadata; {}x{}, {} "
             "bytes",
+            lighting::probe_texture_name(volume.colour_format),
             width,
             rows * side,
-            std::size_t{width} * rows * side * 12 + m_atlas_tiles_x * rows * 8
+            (m_atlas_tiles_x * rows) * probe_bytes
         );
         if (m_full_residency) {
             for (unsigned i = 0; i < m_regions.size(); ++i) {
@@ -309,17 +335,31 @@ void ProbeLighting::upload_volume(const lighting::ProbeVolume& volume, std::size
         // Each source row contains complete probe tiles, including their gutters and padding.
         for (std::size_t row = 0; row < volume.atlas_rows(); ++row) {
             const std::size_t tile = offset + row * lighting::kProbeAtlasTilesX;
-            glTexSubImage2D(
-                GL_TEXTURE_2D,
-                0,
-                static_cast<GLint>(tile % m_atlas_tiles_x * scale),
-                static_cast<GLint>(tile / m_atlas_tiles_x * scale),
-                static_cast<GLsizei>(lighting::kProbeAtlasTilesX * scale),
-                static_cast<GLsizei>(scale),
-                kProbeFormats[map].source,
-                kProbeFormats[map].type,
-                plane.data() + row * row_bytes
-            );
+            if (map == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10) {
+                glCompressedTexSubImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    static_cast<GLint>(tile % m_atlas_tiles_x * scale),
+                    static_cast<GLint>(tile / m_atlas_tiles_x * scale),
+                    static_cast<GLsizei>(lighting::kProbeAtlasTilesX * scale),
+                    static_cast<GLsizei>(scale),
+                    lighting::probe_texture_internal(volume.colour_format),
+                    static_cast<GLsizei>(row_bytes),
+                    plane.data() + row * row_bytes
+                );
+            } else {
+                glTexSubImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    static_cast<GLint>(tile % m_atlas_tiles_x * scale),
+                    static_cast<GLint>(tile / m_atlas_tiles_x * scale),
+                    static_cast<GLsizei>(lighting::kProbeAtlasTilesX * scale),
+                    static_cast<GLsizei>(scale),
+                    kProbeFormats[map].source,
+                    kProbeFormats[map].type,
+                    plane.data() + row * row_bytes
+                );
+            }
         }
     }
     glActiveTexture(GL_TEXTURE0);

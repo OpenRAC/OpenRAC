@@ -10,8 +10,8 @@
 
 #include "assets/disc/checksum.h"
 #include "common/profiler.h"
-#include "enhanced/tools/probes/bake_json.h"
-#include "enhanced/tools/probes/coordinator_protocol.h"
+#include "enhanced/tools/baker/pipeline/bake_json.h"
+#include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/water/water_source_internal.h"
 
 namespace openrac::lighting::water {

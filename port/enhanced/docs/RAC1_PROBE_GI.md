@@ -42,7 +42,7 @@ ambiguous. Correcting triangle winding alone cannot resolve them.
 
 ## Probe data and sampling
 
-Format 5, bake revision 4 stores bordered octahedral irradiance/distance-moment maps,
+Format 6, bake revision 5 stores bordered octahedral irradiance/distance-moment maps,
 relocation and validity as directly uploadable planes. Older formats or stale scene/settings
 hashes are rejected.
 
@@ -122,7 +122,7 @@ Android uses Activity for the output rather than a desktop log viewer.
 
 Failures also emit a versioned `openrac-bake-error: {JSON}` line, retained in
 `bake-all-result.json` for each failed level. The error categories and recovery
-text live in [diagnostics.py](../tools/probes/diagnostics.py). Older tools without
+text live in [diagnostics.py](../tools/baker/diagnostics.py). Older tools without
 that record still get an explicit fallback notice and Activity access.
 
 A failed level does not discard a previously verified bake. Partial verified

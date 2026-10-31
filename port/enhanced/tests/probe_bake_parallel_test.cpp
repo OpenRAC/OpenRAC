@@ -19,6 +19,10 @@ BakeScene fixture() {
     scene.environment = {.3f, .2f, .1f};
     scene.suns = {{{.2f, .1f, -1}, {1, 2, 3}}};
     scene.point_emitters = {{{0, 0, 3}, {2, 1, .5f}}};
+    // Transparent emitters exercise deterministic source-order reduction across worker budgets.
+    scene.area_emitters =
+        {{{0, 0, 6}, {5, 0, 0}, {0, -5, 0}, {.4f, .3f, .2f}},
+         {{2, 0, 8}, {3, 1, 0}, {0, -3, 0}, {.1f, .2f, .4f}}};
     scene.textures.push_back({2, 1, {64, 128, 192, 255, 192, 128, 64, 0}});
     // Floor, cutout wall, and a thin closed slab that exercises relocation.
     scene.triangles =

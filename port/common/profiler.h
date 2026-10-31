@@ -4,6 +4,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <source_location>
 #include <string_view>
 
@@ -12,6 +13,11 @@
 #endif
 
 namespace openrac::profiling {
+
+// Explicit RGB zone colours keep blocked threads visually separate from active work.
+enum class ZoneColour : std::uint32_t {
+    Idle = 0x606870,  // Muted blue-grey for idle and synchronization waits.
+};
 
 // Backend hooks are installed before rendering starts and removed after the worker stops.
 struct GpuHooks {
@@ -26,6 +32,12 @@ public:
     explicit Zone(
         std::string_view name,
         bool gpu = false,
+        std::source_location location = std::source_location::current()
+    );
+    // Marks CPU-only idle or wait time with an explicit colour; timing and ownership stay unchanged.
+    explicit Zone(
+        std::string_view name,
+        ZoneColour colour,
         std::source_location location = std::source_location::current()
     );
     ~Zone();
@@ -53,6 +65,11 @@ class Zone {
 public:
     explicit Zone(
         std::string_view, bool = false, std::source_location = std::source_location::current()
+    ) {}
+
+    // Retains the same call sites when profiling is compiled out.
+    explicit Zone(
+        std::string_view, ZoneColour, std::source_location = std::source_location::current()
     ) {}
 
     Zone(const Zone&) = delete;

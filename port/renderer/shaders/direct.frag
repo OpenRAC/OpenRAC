@@ -95,7 +95,12 @@ void main() {
     }
     // COLCLAMP: the chip clamps to 0..255.
     c = clamp(c, 0.0, 255.0);
-    if (fog_enable != 0) {
+    // Active volumetric transport replaces authored strip fog rather than applying it twice.
+    if (fog_enable != 0
+#ifdef OPENRAC_EFFECT_ATMOSPHERE
+        && atmosphere_enabled == 0
+#endif
+    ) {
         // Alpha and alpha-test arithmetic remain FP32.
         c.rgb = vec3(mix(mp_vec3(fog_colour), mp_vec3(c.rgb), mp_float(v_fog)));
     }

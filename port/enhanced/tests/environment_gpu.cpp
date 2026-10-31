@@ -82,6 +82,34 @@ void main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    unsigned brdf_texture = 0;
+    glGenTextures(1, &brdf_texture);
+    glActiveTexture(GL_TEXTURE0 + 24);
+    glBindTexture(GL_TEXTURE_2D, brdf_texture);
+    std::vector<std::uint32_t> lookup(64 * 64);
+    for (unsigned y = 0; y < 64; ++y) {
+        std::copy_n(
+            asset.pixels.begin() + std::size_t(asset.brdf_row() + y) * asset.width(),
+            64,
+            lookup.begin() + y * 64
+        );
+    }
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_R11F_G11F_B10F,
+        64,
+        64,
+        0,
+        GL_RGB,
+        GL_UNSIGNED_INT_10F_11F_11F_REV,
+        lookup.data()
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glUniform1i(shader.uniform("environment_brdf"), 24);
     const auto metadata = lighting::environment_metadata(asset.probes);
 
     glUniform1i(shader.uniform("environment_count"), 2);
@@ -175,6 +203,10 @@ void main() {
     CHECK(probes.upload(gpu_probes(volume), fixture.error));
     chrome.use();
     probes.bind(chrome, scene::Layer::Mobys, false);
+    glUniform1i(chrome.uniform("environment_brdf"), 24);
+    glActiveTexture(GL_TEXTURE0 + 24);
+    glBindTexture(GL_TEXTURE_2D, brdf_texture);
+    glActiveTexture(GL_TEXTURE0);
     const auto view = renderer::identity();
     glUniformMatrix4fv(chrome.uniform("view"), 1, GL_FALSE, view.data());
     glUniform1i(chrome.uniform("metal_pass"), 1);
@@ -227,6 +259,10 @@ void main() {
     CHECK(probes.upload(gpu_probes(volume), fixture.error));
     chrome.use();
     probes.bind(chrome, scene::Layer::Mobys, false);
+    glUniform1i(chrome.uniform("environment_brdf"), 24);
+    glActiveTexture(GL_TEXTURE0 + 24);
+    glBindTexture(GL_TEXTURE_2D, brdf_texture);
+    glActiveTexture(GL_TEXTURE0);
     reference_selection.bind(chrome);
     glUniform1i(chrome.uniform("probe_mode"), 1);
     glUniform1i(chrome.uniform("probe_receiver"), 2);
@@ -291,6 +327,7 @@ void main() {
     glDeleteTextures(1, &original);
     reference_selection.release();
     glDeleteTextures(1, &texture);
+    glDeleteTextures(1, &brdf_texture);
     glActiveTexture(GL_TEXTURE0);
 }
 }  // namespace openrac::test::water

@@ -180,6 +180,7 @@ struct ProbeWork {
         // Explicit emitters use a separate sequence from primary rays and their moments.
         for (auto& light : emission) {
             light = sample_emitter(scene, origin, settings.ray_bias, emission_random, settings);
+            weight_emitter(light, 1 / (4.0 * kPi));
         }
 
         // Preserve primary order so transport random consumption stays independent of worker scheduling.
@@ -380,7 +381,7 @@ private:
 
     // Delivers completion notifications on the caller until all probes finish or a worker fails.
     void report_progress() {
-        const profiling::Zone zone("Bake progress wait");
+        const profiling::Zone zone("Bake progress wait", profiling::ZoneColour::Idle);
         std::size_t reported = 0;
 
         // Completion counts may coalesce while the caller handles a callback.

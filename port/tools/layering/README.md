@@ -45,7 +45,7 @@ checker:
   not another version.
 
 `enhanced/tests/` is read as `tests` (they are test programs);
-`enhanced/tools/probes` (the probe baker) is read as `enhanced`, whose code it
+`enhanced/tools/baker` (the probe baker) is read as `enhanced`, whose code it
 drives. `viewer/` is a program's directory, so its includes of `enhanced/`
 are allowed today; the library files P2-02 moves out of it to `scene/` bring
 those includes with them, and that package lists them as exceptions until

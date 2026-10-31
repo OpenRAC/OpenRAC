@@ -96,7 +96,7 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Posit
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
     // A known atlas separates reflection strength and roughness from direct-light GGX.
-    constexpr unsigned kAtlasSide = 64, kCaptureRows = 13, kAtlasHeight = kCaptureRows + kAtlasSide;
+    constexpr unsigned kAtlasSide = 64, kCaptureRows = 13, kAtlasHeight = kCaptureRows;
     std::vector<float> atlas(kAtlasSide * kAtlasHeight * 4, 0);
     for (unsigned y = 0; y < kAtlasHeight; ++y) {
         for (unsigned x = 0; x < kAtlasSide; ++x) {
@@ -124,12 +124,39 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Posit
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    // The production format stores the BRDF lookup independently of the radiance atlas.
+    std::vector<float> brdf(kAtlasSide * kAtlasSide * 4, 0);
+    for (unsigned pixel = 0; pixel < kAtlasSide * kAtlasSide; ++pixel) {
+        brdf[pixel * 4] = 1;
+    }
+    unsigned lookup = 0;
+    glGenTextures(1, &lookup);
+    glActiveTexture(GL_TEXTURE0 + 23);
+    glBindTexture(GL_TEXTURE_2D, lookup);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        renderer::world::gl::GL_RGBA32F,
+        kAtlasSide,
+        kAtlasSide,
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        brdf.data()
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glActiveTexture(GL_TEXTURE0);
     lighting::EnvironmentSelection selection;
     const std::array<lighting::EnvironmentProbe, 1> probes{{{{0, 0, 0}, {-4, -4, -4}, {4, 4, 4}}}};
     CHECK(selection.prepare(lighting::environment_metadata(probes), error));
     selection.bind(shader);
     glUniform1i(shader.uniform("environment_map"), 20);
+    glUniform1i(shader.uniform("environment_brdf"), 23);
+    glUniform1i(shader.uniform("environment_alignment"), 1);
     glUniform1i(shader.uniform("environment_resolution"), 8);
     glUniform1i(shader.uniform("environment_columns"), 1);
     for (int capture = 0; capture <= 2; ++capture) {
@@ -168,6 +195,7 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Posit
     }
     selection.release();
     glDeleteTextures(1, &environment);
+    glDeleteTextures(1, &lookup);
     glDeleteVertexArrays(1, &vao);
 }
 

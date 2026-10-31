@@ -11,8 +11,8 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "enhanced/tools/probes/density_stage.h"
-#include "enhanced/tools/probes/report.h"
+#include "enhanced/tools/baker/output/density_stage.h"
+#include "enhanced/tools/baker/output/report.h"
 #include "tests/check.h"
 
 namespace {

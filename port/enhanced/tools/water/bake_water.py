@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Bake Novalis NTSC water boundaries from a local initialized game-memory snapshot.
+"""Bake Novalis water boundaries (NTSC-U or PAL) from a local initialized game-memory snapshot.
 
 No captured assets belong in source control. The snapshot is obtained with
 OPENRAC_DUMP_RAM=600 while running Novalis. Output goes beside manifest.json.
@@ -313,7 +313,7 @@ def bake(ram, collision, output, boundaries=None, version=None):
 
 def bake_native(ram, collision, output, baker, boundaries=None, version=None):
     """Decode source tables once, then run numerical water baking in the enhanced baker."""
-    request = native_request(ram, collision, output, boundaries)
+    request = native_request(ram, collision, output, boundaries, version)
     # The request and outputs belong to the caller's unpublished staging area.
     with tempfile.TemporaryDirectory(prefix='.water-input-', dir=output.parent) as temporary:
         path = Path(temporary)/'input.json'

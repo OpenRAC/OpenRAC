@@ -103,6 +103,15 @@ Format format_of(GLenum internal) {
             return {VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8};
         case kGlR11fG11fB10f:
             return {VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT, 4};
+        // Compressed probes are sampled directly; support must also have been enabled on the device.
+        case gl::GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+            return g->features.textureCompressionBC
+                       ? Format{VK_FORMAT_BC6H_UFLOAT_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
+                       : Format{};
+        case gl::GL_COMPRESSED_RGBA_ASTC_8x8_KHR:
+            return g->astc_hdr
+                       ? Format{VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
+                       : Format{};
         case kGlRg32f:
             return {VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8};
         // Temporal reconstruction uses float depth and two-channel half-float motion outputs.

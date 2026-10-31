@@ -68,17 +68,19 @@ class BakeInputs(unittest.TestCase):
 
     def test_novalis_export_retains_water_overlay(self):
         from test_port import synthetic_level
-        from port import PortLevelWriter
-        level = synthetic_level()
-        level.id, level.version = 1, 'ntsc'
-        level.stored = {'overlay': b'authored water tables'}
-        with tempfile.TemporaryDirectory() as temporary:
-            writer = PortLevelWriter(Path(temporary), level)
-            writer.dir.mkdir(parents=True)
-            writer.finish()
-            manifest = json.loads((writer.dir/'manifest.json').read_text())
-            self.assertEqual(manifest['bake_inputs']['water'], 'profile-v1')
-            self.assertEqual((writer.dir/'bake-inputs/overlay.bin').read_bytes(), level.stored['overlay'])
+        for version in ('ntsc', 'pal'):
+            from port import PortLevelWriter
+            level = synthetic_level()
+            level.id, level.version = 1, version
+            level.stored = {'overlay': b'authored water tables'}
+            with tempfile.TemporaryDirectory() as temporary:
+                writer = PortLevelWriter(Path(temporary), level)
+                writer.dir.mkdir(parents=True)
+                writer.finish()
+                manifest = json.loads((writer.dir/'manifest.json').read_text())
+                self.assertEqual(manifest['bake_inputs']['water'], 'profile-v1')
+                self.assertEqual((writer.dir/'bake-inputs/overlay.bin').read_bytes(), level.stored['overlay'])
+
 
     def test_water_profile_retains_overlay_for_any_configured_level(self):
         from enhanced import profiles

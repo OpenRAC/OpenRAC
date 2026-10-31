@@ -997,6 +997,7 @@ struct Context {
     VkPhysicalDeviceProperties properties{};
     std::uint32_t timestamp_bits = 0;
     VkPhysicalDeviceFeatures features{};
+    bool astc_hdr = false;        // Enabled Vulkan 1.3 HDR ASTC sampling.
     bool shader_float16 = false;  // Actually enabled arithmetic, not 16-bit storage support.
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;

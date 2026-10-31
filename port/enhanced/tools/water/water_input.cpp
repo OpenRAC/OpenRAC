@@ -7,8 +7,8 @@
 #include <stdexcept>
 
 #include "common/profiler.h"
-#include "enhanced/tools/probes/bake_json.h"
-#include "enhanced/tools/probes/coordinator_protocol.h"
+#include "enhanced/tools/baker/pipeline/bake_json.h"
+#include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/water/water_internal.h"
 #include "scene/level.h"
 

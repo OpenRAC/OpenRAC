@@ -7,7 +7,7 @@
 #include <stdexcept>
 
 #include "assets/disc/wad.h"
-#include "enhanced/tools/probes/bake_json.h"
+#include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/water/water_source_internal.h"
 
 namespace openrac::lighting::water::source {

@@ -14,7 +14,7 @@ remain checkout-only references for regression comparisons.
 ## Configuration
 
 The existing per-level `probe-bake.json` contains `water_sources`, copied automatically by level
-export. Novalis NTSC supplies the first profile. No source addresses are hardcoded in the decoder.
+export. Novalis supplies NTSC-U and PAL profiles. No source addresses are hardcoded in the decoder.
 Missing profiles on exports declaring water require a fresh export.
 
 | Field | Meaning |

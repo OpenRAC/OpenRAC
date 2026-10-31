@@ -12,7 +12,7 @@
 
 namespace openrac::lighting {
 namespace {
-// Two pending grids bound encoded payloads while the controller bakes its next volume.
+// Two pending grids bound raw maps and encoded payloads while later tracing continues.
 constexpr std::size_t kMaximumPending = 2;
 }  // namespace
 
@@ -30,7 +30,7 @@ BakeOutputQueue::~BakeOutputQueue() {
 }
 
 void BakeOutputQueue::retire() {
-    const profiling::Zone timing("Wait for bake output");
+    const profiling::Zone timing("Wait for bake output", profiling::ZoneColour::Idle);
     auto pending = std::move(m_pending.front());
     m_pending.pop_front();
     pending.done.get();
@@ -79,6 +79,13 @@ Result<void> BakeOutputQueue::make_room() {
     }
 }
 
+std::future<void> BakeOutputQueue::schedule(const std::function<void()>& task, Pending& pending) {
+    std::packaged_task<void()> operation(task);
+    auto done = operation.get_future();
+    pending.controller = JoiningThread(std::move(operation));
+    return done;
+}
+
 Result<void> BakeOutputQueue::submit(std::function<std::string()> task) {
     const auto room = make_room();
 
@@ -98,7 +105,9 @@ Result<void> BakeOutputQueue::submit(std::function<std::string()> task) {
 
         // Build callback storage before scheduling so allocation failure cannot orphan borrowed input work.
         const std::function<void()> callback = [result, task = std::move(task)] {
-            const profiling::Zone timing("Bake output worker");
+            // Dedicated controllers submit compute jobs without occupying a shared worker themselves.
+            profiling::thread_name("Bake output controller");
+            const profiling::Zone timing("Bake output task");
 
             // Reused workers may retain arithmetic state from a preceding stage.
             if (std::fesetenv(&result->environment) != 0) {
@@ -107,16 +116,8 @@ Result<void> BakeOutputQueue::submit(std::function<std::string()> task) {
 
             result->text = task();
         };
-        m_pending.push_back({result, {}});
-        auto submitted = m_workers.submit(callback);
-
-        // No worker owns the placeholder when scheduling fails.
-        if (!submitted) {
-            m_pending.pop_back();
-            return fail(submitted.error());
-        }
-
-        m_pending.back().done = std::move(*submitted);
+        m_pending.push_back({result, {}, {}});
+        m_pending.back().done = schedule(callback, m_pending.back());
         return {};
     } catch (const std::exception& error) {
         // A failed submission has no running task; preallocated bookkeeping must not survive as a bad future.

@@ -57,8 +57,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         && render_opt::enabled(render_opt::Opt::EffectStaticControls)) {
         fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_FIXED 1\n");
         fragment = shader_constants(
-            std::move(fragment),
-            {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
+            std::move(fragment), {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
         );
     }
     const std::string original_fragment = fragment;

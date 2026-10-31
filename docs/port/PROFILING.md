@@ -4,6 +4,9 @@ Tracy optionally profiles the native game and probe baker, independently of enha
 and F3. Ordinary builds neither fetch nor link it. Native water rasterisation, distance fields,
 hydraulics and rest-mesh generation are instrumented; source decoding is instrumented too.
 
+Idle and synchronization wait zones use muted blue-grey bars. Active work retains Tracy's default
+colours. Zone colours are recorded in new captures; existing captures keep their original colours.
+
 ## Build
 
 From the repository root:

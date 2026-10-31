@@ -12,17 +12,16 @@
 #include <ostream>
 #include <string>
 
-#include "enhanced/lighting/bake_workers.h"
+#include "common/joining_thread.h"
+#include "common/result.h"
 
 namespace openrac::lighting {
-// One controller owns this queue. Workers only execute submitted callbacks and write their own result.
-// The pool and every borrowed task input outlive the queue. Destruction drains without throwing.
+// One controller owns this queue. Output callbacks write only their own completion result.
+// Every callback's borrowed input outlives the queue. Destruction drains without throwing.
 class BakeOutputQueue {
 public:
-    // Borrows workers and the controller's diagnostic stream until all output work has drained.
-    BakeOutputQueue(BakeThreadPool& workers, std::ostream& output)
-        : m_workers(workers),
-          m_output(output) {}
+    // Borrows the controller's diagnostic stream until all output work has drained.
+    explicit BakeOutputQueue(std::ostream& output) : m_output(output) {}
 
     // Joins outstanding work even when the controller or an earlier output job failed.
     ~BakeOutputQueue();
@@ -53,15 +52,17 @@ private:
     // One future owns the completion barrier for a copy-free callback payload.
     struct Pending {
         std::shared_ptr<Completion> result;  // Shared only by this queue and its worker callback.
-        std::future<void> done;  // Publishes result text or propagates the task failure.
+        std::future<void> done;    // Publishes result text or propagates the task failure.
+        JoiningThread controller;  // Joined before releasing callback inputs.
     };
 
+    // Starts a bounded controller when compute callbacks need to submit work to the borrowed pool.
+    std::future<void> schedule(const std::function<void()>& task, Pending& pending);
     // Removes the oldest job before propagating failure; all later jobs remain owned for draining.
     void retire();
     // Retains the first error so failed output can never become a publishable completed bake.
     Result<void> fail(Error error);
-    BakeThreadPool& m_workers;  // Borrowed fixed execution budget.
-    std::ostream& m_output;     // Used only by the owning controller.
+    std::ostream& m_output;  // Used only by the owning controller.
     std::optional<Error>
         m_failure;  // Controller-owned sticky failure, absent until the first error.
     std::deque<Pending> m_pending;  // Controller-owned queue, capped at two jobs.

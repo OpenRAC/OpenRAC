@@ -31,7 +31,7 @@ launcher's "Rebuild the game", and what it runs after an update); the
 --source and --disc choices the folder kept are kept.
 
 --probe-baker also builds openrac-enhanced-baker, the offline baker of the
-enhanced rendering's probe lighting (port/enhanced/tools/probes), which the
+enhanced rendering's probe lighting (port/enhanced/tools/baker), which the
 launcher runs on the player's own extracted levels. It needs Embree 4
 (Apache-2.0): a pinned release's source is downloaded once, checked against
 its SHA-256 and built as a static library in port/build/embree/, so the

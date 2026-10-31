@@ -290,8 +290,8 @@ def main() -> int:
             for path in sorted(args.game_build.glob(pattern)):
                 shutil.copy2(path, dest / path.name, follow_symlinks=True)
                 carried.append(path.name)
-        # The licenses of what the carried tools have built in (Embree in the probe baker).
-        if (args.game_build / "licenses").is_dir() and any(name.startswith(TOOLS) for name in carried):
+        # Carry notices for dependencies built into either the game or its optional baking tools.
+        if (args.game_build / "licenses").is_dir():
             shutil.copytree(args.game_build / "licenses", dest / "licenses", dirs_exist_ok=True)
             carried.append("licenses")
         if not any(name.split("/")[-1].startswith(GAMES[0]) for name in carried):

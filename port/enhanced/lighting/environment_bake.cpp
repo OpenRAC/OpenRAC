@@ -211,6 +211,7 @@ EnvironmentAsset bake_environment(
     Scene scene(source, settings.sunlight_direction, threads);
     const CaptureGi field(gi);
     EnvironmentAsset asset;
+    asset.colour_format = settings.texture_format;
     asset.resolution = options.resolution;
     asset.level = gi[0].grid.level;
     asset.scene_hash = gi[0].grid.scene_hash;

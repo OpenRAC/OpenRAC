@@ -54,8 +54,18 @@ const GLubyte* VKGL get_string(GLenum name) {
     }
 }
 
-const GLubyte* VKGL get_stringi(GLenum, GLuint) {
-    return nullptr;  // no extensions: none of the GL ones the renderer looks for applies
+// Reports only enabled HDR compression formats so asset uploads can reject incompatible bakes.
+const GLubyte* VKGL get_stringi(GLenum, GLuint index) {
+    if (g->features.textureCompressionBC) {
+        if (index == 0) {
+            return reinterpret_cast<const GLubyte*>("GL_ARB_texture_compression_bptc");
+        }
+        --index;
+    }
+    if (g->astc_hdr && index == 0) {
+        return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_hdr");
+    }
+    return nullptr;
 }
 
 void VKGL get_integerv(GLenum name, GLint* data) {
@@ -81,7 +91,8 @@ void VKGL get_integerv(GLenum name, GLint* data) {
             return;
         }
         case GL_NUM_EXTENSIONS:
-            *data = 0;
+            *data = static_cast<GLint>(g->features.textureCompressionBC)
+                    + static_cast<GLint>(g->astc_hdr);
             return;
         case GL_MAJOR_VERSION:
             *data = 4;
@@ -509,6 +520,89 @@ void VKGL tex_image_2d(
     VkCommandBuffer cmd = cmd_for(&image);
     copy_to_image(cmd, image, staged, level, 0, 0, w, h);
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+// Validates block dimensions before allocating staging memory or copying compressed bytes.
+std::size_t compressed_bytes(GLenum format, int width, int height) {
+    const int side = format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT ? 4 : 8;
+    return std::size_t((width + side - 1) / side) * ((height + side - 1) / side) * 16;
+}
+
+// Allocates the complete single-level HDR atlas used by baked probe textures.
+void VKGL compressed_tex_image_2d(
+    GLenum target,
+    GLint level,
+    GLenum internal,
+    GLsizei width,
+    GLsizei height,
+    GLint border,
+    GLsizei size,
+    const void* pixels
+) {
+    Texture* texture = bound_texture(target);
+    const Format format = format_of(internal);
+    // This path carries complete probe atlases, not generated GL mip chains.
+    if (!texture || level != 0 || border != 0 || width <= 0 || height <= 0
+        || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR)
+        || format.vk == VK_FORMAT_UNDEFINED || size < 0
+        || static_cast<std::size_t>(size) != compressed_bytes(internal, width, height)) {
+        fail(kGlInvalidEnum);
+        return;
+    }
+    prepare_frame();
+    retire(std::move(texture->image));
+    texture->image = make_image(format, width, height, 1, VK_SAMPLE_COUNT_1_BIT);
+    texture->internal = internal;
+    if (!texture->image || !pixels) {
+        return;
+    }
+    const auto staged = ring_copy(pixels, static_cast<VkDeviceSize>(size));
+    if (!staged.data) {
+        return;
+    }
+    auto& image = *texture->image;
+    const auto command = cmd_for(&image);
+    copy_to_image(command, image, staged, 0, 0, 0, width, height);
+    barrier(command, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    g->submission.texture_upload_bytes += static_cast<std::uint64_t>(size);
+}
+
+// Copies whole compressed block rows directly from the baked file into the resident atlas.
+void VKGL compressed_tex_sub_image_2d(
+    GLenum target,
+    GLint level,
+    GLint x,
+    GLint y,
+    GLsizei width,
+    GLsizei height,
+    GLenum internal,
+    GLsizei size,
+    const void* pixels
+) {
+    Texture* texture = bound_texture(target);
+    const int side = internal == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT ? 4 : 8;
+    if (!texture || !texture->image || !pixels || level != 0 || internal != texture->internal
+        || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR)
+        || x < 0 || y < 0 || width <= 0 || height <= 0 || size < 0 || x % side || y % side
+        || x > texture->image->width || width > texture->image->width - x
+        || y > texture->image->height || height > texture->image->height - y
+        || (width % side && x + width != texture->image->width)
+        || (height % side && y + height != texture->image->height)
+        || static_cast<std::size_t>(size) != compressed_bytes(internal, width, height)) {
+        fail(kGlInvalidEnum);
+        return;
+    }
+    const auto staged = ring_copy(pixels, static_cast<VkDeviceSize>(size));
+    if (!staged.data) {
+        return;
+    }
+    auto& image = *texture->image;
+    const auto command = cmd_for(&image);
+    copy_to_image(command, image, staged, 0, x, y, width, height);
+    barrier(command, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    g->submission.texture_upload_bytes += static_cast<std::uint64_t>(size);
 }
 
 void VKGL tex_sub_image_2d(
@@ -1763,6 +1857,8 @@ const Entry kEntries[] = {
     VKGL_ENTRY(glBindTexture, bind_texture),
     VKGL_ENTRY(glActiveTexture, active_texture),
     VKGL_ENTRY(glTexImage2D, tex_image_2d),
+    VKGL_ENTRY(glCompressedTexImage2D, compressed_tex_image_2d),
+    VKGL_ENTRY(glCompressedTexSubImage2D, compressed_tex_sub_image_2d),
     VKGL_ENTRY(glTexSubImage2D, tex_sub_image_2d),
     VKGL_ENTRY(glTexParameteri, tex_parameter_i),
     VKGL_ENTRY(glTexParameterf, tex_parameter_f),

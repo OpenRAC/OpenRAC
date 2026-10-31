@@ -60,7 +60,7 @@ jobs:
         run: python -m unittest discover -s editor -v
 
       - name: Probe bake planning (synthetic data only)
-        run: python -m unittest discover -s port/enhanced/tools/probes -v
+        run: python -m unittest discover -s port/enhanced/tools/baker -v
 
       - name: Water bake preparation (synthetic data only)
         run: python -m unittest discover -s port/enhanced/tools/water -v

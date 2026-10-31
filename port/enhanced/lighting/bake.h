@@ -107,6 +107,7 @@ struct BakeTraversalSettings {
 };
 
 struct BakeSettings {
+    ProbeTextureFormat texture_format = ProbeTextureFormat::R11G11B10;  // Offline storage policy.
     BakeTraversalSettings traversal{};
     bool use_level_sky = true;
     float sky_intensity = 1.0f;
@@ -117,7 +118,8 @@ struct BakeSettings {
     // Optional world-space light travel direction; absent preserves authored primary directions.
     std::optional<Float3> sunlight_direction;
     bool terrain_vertex_albedo = true;  // preserve authored terrain shading as an artistic tint
-    std::uint32_t rays_per_probe = 1024;
+    // Each probe pairs this many primary directions with independent emitter samples.
+    std::uint32_t rays_per_probe = 256;
     std::uint32_t bounces = 3;
     std::uint32_t seed = 1;
     float ray_bias = 0.002f;  // game world units

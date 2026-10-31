@@ -209,12 +209,15 @@ ProbeVolume read_probe_header(std::vector<std::uint8_t> bytes) {
         invalid("unsupported probe atlas layout; rebake this level");
     }
 
-    // R11G11B10F irradiance plus RG32F moments and RGBA16F probe metadata.
-    constexpr std::size_t kMapTexelBytes = 12;
-    constexpr std::size_t kMetadataBytes = 8;
-    const auto expected = product(
-        volume.atlas_capacity(), product(grid.texels_per_probe(), kMapTexelBytes) + kMetadataBytes
+    volume.colour_format = static_cast<ProbeTextureFormat>(reader.u32());
+    const auto side = grid.map_resolution + 2;
+    const auto colour_size = probe_texture_bytes(
+        volume.colour_format,
+        kProbeAtlasTilesX * side,
+        static_cast<unsigned>(volume.atlas_rows()) * side
     );
+    const auto expected =
+        colour_size + product(volume.atlas_capacity(), product(grid.texels_per_probe(), 8) + 8);
 
     // Reject truncation and trailing bytes before accessing any packed texel.
     if (bytes.size() - reader.offset != expected) {
@@ -701,6 +704,7 @@ std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
     write_float(out, v.grid.max_distance);
     write_u32(out, kProbeAtlasTilesX);
     write_u32(out, static_cast<std::uint32_t>(v.atlas_rows()));
+    write_u32(out, static_cast<std::uint32_t>(v.colour_format));
 
     if (v.gpu_bytes.empty()) {
         const auto planes = pack_probe_planes(v);
@@ -732,6 +736,7 @@ ProbeVolume decode_probes(std::span<const std::uint8_t> bytes) {
     read_probe_planes(volume, true);
     volume.gpu_bytes = std::vector<std::uint8_t>{};
     volume.gpu_offset = 0;
+    volume.colour_format = ProbeTextureFormat::R11G11B10;
     volume.validate();
 
     return volume;

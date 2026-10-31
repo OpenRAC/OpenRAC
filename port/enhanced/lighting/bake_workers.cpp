@@ -15,7 +15,7 @@ namespace openrac::lighting {
 namespace {
 // Drains all submitted work and retains the original failure, even when later tasks also fail.
 void drain(std::vector<std::future<void>>& futures, std::exception_ptr& failure) {
-    const profiling::Zone zone("Bake pool drain");
+    const profiling::Zone zone("Bake pool drain", profiling::ZoneColour::Idle);
 
     for (auto& future : futures) {
         try {
@@ -71,7 +71,7 @@ void BakeThreadPool::worker() {
         std::packaged_task<void()> task;
         {
             std::unique_lock lock(m_mutex);
-            const profiling::Zone zone("Bake pool idle");
+            const profiling::Zone zone("Bake pool idle", profiling::ZoneColour::Idle);
             m_ready.wait(lock, [this] { return m_stopping || !m_tasks.empty(); });
 
             // An empty shutdown queue has no borrowed task data left to access.

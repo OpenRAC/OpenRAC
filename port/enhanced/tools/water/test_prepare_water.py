@@ -11,13 +11,14 @@ import bake_water
 import prepare_water
 
 
-def overlay():
-    base = 0x1cad00
-    tables = bytearray(0x203000-base)
-    struct.pack_into('<3f', tables, 0x1e34c0-base, 0, 0, 1)
-    struct.pack_into('<I', tables, 0x1fa590-base, 1)
+def overlay(version='ntsc'):
+    at = bake_water.ADDRESSES[version]
+    base = at['grid']
+    tables = bytearray(at['layers'][3]+0x280-base)
+    struct.pack_into('<3f', tables, at['tiles']-base, 0, 0, 1)
+    struct.pack_into('<I', tables, at['masks']-base, 1)
     vertices = bytearray()
-    for address, count in ((0x1e2fc0, 8), (0x1e3380, 2), (0x1fbc80, 4), (0x202d80, 3)):
+    for address, count in zip(at['layers'], (8, 2, 4, 3)):
         for layer in range(count):
             struct.pack_into('<I', tables, address+layer*0x60-base, 0x300000+len(vertices))
             struct.pack_into('<I', tables, address+layer*0x60+12-base, 3)

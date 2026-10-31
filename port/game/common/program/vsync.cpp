@@ -507,7 +507,7 @@ int vsync() {
 #endif
         // The render job owns the profiler's section stack while the game can sleep or simulate.
         if (!render_pending) {
-            wait.emplace("wait");
+            wait.emplace("wait", profiling::ZoneColour::Idle);
         }
         precise_wait::until(g_next_frame);
     }

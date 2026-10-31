@@ -77,7 +77,7 @@ struct Fixture {
     renderer::Shader shader;
     renderer::FrameBuffer target;
     lighting::EnvironmentSelection selection;
-    unsigned texture = 0, vao = 0;
+    unsigned texture = 0, vao = 0, brdf_texture = 0;
     unsigned comparisons = 0;
     std::string error;
 
@@ -114,6 +114,7 @@ void main() {
 
         glGenVertexArrays(1, &vao);
         glGenTextures(1, &texture);
+        glGenTextures(1, &brdf_texture);
         glBindVertexArray(vao);
         glBindFramebuffer(GL_FRAMEBUFFER, target.id());
         glDisable(GL_DEPTH_TEST);
@@ -148,6 +149,32 @@ void main() {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+        std::vector<std::uint32_t> lookup(64 * 64);
+        for (unsigned y = 0; y < 64; ++y) {
+            std::copy_n(
+                asset.pixels.begin() + std::size_t(asset.brdf_row() + y) * asset.width(),
+                64,
+                lookup.begin() + y * 64
+            );
+        }
+        glActiveTexture(GL_TEXTURE0 + 24);
+        glBindTexture(GL_TEXTURE_2D, brdf_texture);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_R11F_G11F_B10F,
+            64,
+            64,
+            0,
+            GL_RGB,
+            GL_UNSIGNED_INT_10F_11F_11F_REV,
+            lookup.data()
+        );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glUniform1i(shader.uniform("environment_brdf"), 24);
         glActiveTexture(GL_TEXTURE0);
     }
 
@@ -205,6 +232,7 @@ void main() {
         selection.release();
         shader.release();
         glDeleteTextures(1, &texture);
+        glDeleteTextures(1, &brdf_texture);
         glDeleteVertexArrays(1, &vao);
         target.release();
     }

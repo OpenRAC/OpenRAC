@@ -413,7 +413,7 @@ void render_scene(
 
     // Frame-cost diagnostics deliberately stall the GPU, matching their synchronous reference behaviour.
     if (output.measure_cost) {
-        const profiling::Zone trace("Diagnostic GPU wait");
+        const profiling::Zone trace("Diagnostic GPU wait", profiling::ZoneColour::Idle);
 
         gl::glFinish();
     }

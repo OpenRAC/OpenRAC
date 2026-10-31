@@ -269,3 +269,16 @@ SOFTWARE.
 pinned at `be858f42ab95cf0ba6e224ac2dc3950bdb172080`. Copyright (C) 2021 The Android Open Source
 Project, licensed under Apache-2.0. The shader retains that notice; distributions must include
 [`agx-LICENSE.txt`](port/enhanced/renderer/agx-LICENSE.txt).
+
+## Probe texture codecs
+
+The enhanced baker uses Arm astc-encoder 5.4.0 at
+`3ee54d103ca66a5b1f751ad49a4b8064235e2cf9` (Apache-2.0) and AMD Compressonator
+at `9da0bc2be8d095adfab04ba9262e94842b48dac2` (MIT).
+Only their portable HDR codec sources are built. The ASTC border fitter uses the pinned
+symbolic block interface; codec sources are fetched by `port/cmake/ProbeCompression.cmake`.
+See [Arm's license](port/enhanced/lighting/astc-LICENSE.txt) and
+[AMD's license](port/enhanced/lighting/compressonator-LICENSE.txt).
+
+The Compressonator build copy retains the high blue-Y endpoint bit when decoding BC6H mode 5.
+The upstream source and licence remain intact; a Vulkan comparison covers the corrected mode.

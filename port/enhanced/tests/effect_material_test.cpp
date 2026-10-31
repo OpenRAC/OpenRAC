@@ -246,6 +246,12 @@ int main() {
                 frame == 4 || frame == 5 ? std::span<const renderer::EffectQuad>{} : quads;
             strips[1]
                 .uv_motion = {{.1f, -.2f}, frame % 2 ? -.03f : .03f, frame * 103u, frame % 2 != 0};
+            // Authored fog must survive shader specialisation and per-strip program switches.
+            for (auto& strip : strips) {
+                strip.fogged = frame == 2 || frame == 3 || frame == 4;
+                strip.fog = {-.01f, 200, 0, 255};
+                strip.fog_colour = 0x00a08050;
+            }
             if (frame == 6) {
                 CHECK(target.create(79, 53, error));
                 state.target = {target.id(), 79, 53};

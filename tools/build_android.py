@@ -247,6 +247,9 @@ def bundle(python_home: Path, baker: bool = False) -> Path:
     out = BUILD / "openrac"
     proc.run([sys.executable, ROOT / "tools/bundle_standalone.py", out, "--android", "--python", python_home],
              cwd=ROOT, echo=True)
+    # Runtime HDR decoders also need their notices when the baker is omitted.
+    if (PORT_BUILD / "licenses").is_dir():
+        shutil.copytree(PORT_BUILD / "licenses", out / "port/build/release/licenses", dirs_exist_ok=True)
     if baker:
         # The license of what the baker has built in, beside where the launcher finds it, as a
         # desktop's copy carries it (tools/bundle_standalone.py).

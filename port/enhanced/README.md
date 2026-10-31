@@ -13,7 +13,7 @@ Start with the [lighting guide](lighting/README.md) for builds, bakes and contro
 | `fsr3/` | Temporal world reconstruction, motion and reactive masks |
 | `viewer/` | Probe lighting, probe selection and early lighting of a level, library `openrac_enhanced_viewer`, namespace `openrac::lighting`; `scene_lighting.h` registers them with the scene's lighting hook ([scene/README.md](../scene/README.md)) |
 | `game/` | Authored brightness tracking |
-| `tools/probes/` | Offline baker and bake tools |
+| `tools/baker/` | Offline baker and bake tools |
 | `tests/`, `docs/` | Tests and feature documentation |
 
 ## Integration

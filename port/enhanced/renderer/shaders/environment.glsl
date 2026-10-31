@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Packed cube faces and GGX roughness levels, with smooth spatial blending of two captures.
 uniform sampler2D environment_map;
+uniform sampler2D environment_brdf;
 uniform int environment_count;
 uniform int environment_resolution;
+uniform int environment_alignment;
 uniform samplerBuffer environment_metadata;
 uniform int environment_columns;
 vec4 environment_probe(int i) { return texelFetch(environment_metadata,i); }
@@ -40,18 +42,20 @@ vec3 environment_face(vec3 d) {
     }
     return vec3(uv*.5+.5,face);
 }
+// Every face and GGX level starts on its compression block boundary.
+int environment_pitch(int mip) { int a=max(environment_alignment,1); return (((environment_resolution>>(mip+1))+2+a-1)/a)*a; }
 int environment_row(int mip) {
     int row=0;
-    // The source capture is full resolution; storage omits its sharpest mip (asset version 5).
-    for(int i=0;i<mip;++i) row+=(environment_resolution>>(i+1))+2;
+    // The source capture is full resolution; storage omits its sharpest mip.
+    for(int i=0;i<mip;++i) row+=environment_pitch(i);
     return row;
 }
 vec3 environment_level(int probe,vec3 direction,int mip,int levels) {
     vec3 f=environment_face(direction);
     int size=environment_resolution>>(mip+1);
     int columns=max(environment_columns,1);
-    vec2 origin=vec2((probe%columns)*6*((environment_resolution>>1)+2),(probe/columns)*environment_row(levels));
-    vec2 pixel=origin+vec2(f.z*float(size+2),float(environment_row(mip)))+1.+f.xy*float(size);
+    vec2 origin=vec2((probe%columns)*6*environment_pitch(0),(probe/columns)*environment_row(levels));
+    vec2 pixel=origin+vec2(f.z*float(environment_pitch(mip)),float(environment_row(mip)))+1.+f.xy*float(size);
     return textureLod(environment_map,pixel/vec2(textureSize(environment_map,0)),0.).rgb;
 }
 vec2 environment_axis(int id) { vec2 a=vec2(environment_probe(id*5).w,environment_probe(id*5+1).w);return dot(a,a)>.5?a:vec2(1,0); }
@@ -113,8 +117,7 @@ vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,fl
     }
     radiance/=weights.x+weights.y;
     vec2 coordinate=(vec2(clamp(nv,0.,1.),roughness)*63.+.5);
-    coordinate.y+=float(((environment_count+max(environment_columns,1)-1)/max(environment_columns,1))*environment_row(levels));
-    vec2 brdf=textureLod(environment_map,coordinate/vec2(textureSize(environment_map,0)),0.).rg;
+    vec2 brdf=textureLod(environment_brdf,coordinate/64.,0.).rg;
     return mix(fallback,radiance*(f0*brdf.x+brdf.y),coverage);
 }
 

@@ -9,7 +9,7 @@ infers rooms and builds interior sources before GI in the same process. Generate
 `probe-interiors.json` stays beside the export for runtime fingerprint validation; reports stay
 with the bake. Sources refresh when inputs/tools change. Exported water remains non-walkable.
 
-For manual input preparation, `port/enhanced/tools/probes/prepare_interiors.py` reads the owned
+For manual input preparation, `port/enhanced/tools/baker/prepare_interiors.py` reads the owned
 disc through existing read-only editor readers. It exports deduplicated static collision,
 hero-light environment transitions, game/level identity and a SHA-256 over gameplay and the
 collision-containing core tail. Derived game data stays local in ignored storage.
@@ -40,7 +40,7 @@ Build with `OPENRAC_PROBE_BAKER=ON` and Embree:
 ```sh
 cmake --build port/build/release --target openrac-enhanced-baker interior_inference_test
 ctest --test-dir port/build/release -R '^interior_inference$' --output-on-failure
-python port/enhanced/tools/probes/prepare_interiors.py --disc /path/to/owned-disc.iso --level 1 --output build/probe-gi/novalis-interior-input.json
+python port/enhanced/tools/baker/prepare_interiors.py --disc /path/to/owned-disc.iso --level 1 --output build/probe-gi/novalis-interior-input.json
 port/build/release/openrac-enhanced-baker --infer-interiors build/probe-gi/novalis-interior-input.json build/probe-gi/novalis-interior-regions.json 1
 ```
 
