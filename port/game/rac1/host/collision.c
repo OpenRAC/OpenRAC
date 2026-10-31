@@ -374,9 +374,6 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
         c->extended = 1;
         return c->nv != 0;
     }
-    if ((word & 0xff) == 0) {
-        return 0;
-    }
     c->leaf = mesh + (word >> 8);
     c->nv = U8(c->leaf + 2);
     if (c->nv == 0) {

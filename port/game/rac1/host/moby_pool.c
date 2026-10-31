@@ -171,8 +171,9 @@ gaddr func_L00_002422D8(int skip_read) {
 #define TARGETS RAC1_ADDR(0x001C7C80u)
 
 enum {
-    SLOTS = 0x70000000u, /* 256 byte-indexed class slots: {head, tail} */
-    SLOTS_END = 0x70000800u,
+    SLOTS = 0x70000000u,              /* class slots: {head, tail} */
+    SLOTS_END = 0x70000700u,          /* retail clears and chains 224 slots */
+    EXPANDED_SLOTS_END = 0x70000800u, /* expanded RAM: all 256 byte-indexed slots */
     TARGET_LIST = 0x70000800u,
     TARGET_LIST_END = 0x70000C00u,
     GROUP_FLAGS = 0x70000C80u,
@@ -302,7 +303,10 @@ gaddr func_0020E6B8(void) {
         memset(last_run.ran, -1, sizeof last_run.ran);
         run_slots = last_run.ran;
     }
-    for (gaddr q = SLOTS; q != SLOTS_END; q += 4) {
+    /* The console's arena keeps retail's 224 slots; only an expanded one uses all 256. */
+    const gaddr slots_end =
+        openrac_guest_ram_size > GUEST_RAM_SIZE ? EXPANDED_SLOTS_END : SLOTS_END;
+    for (gaddr q = SLOTS; q != slots_end; q += 4) {
         GREF(int, q) = 0;
     }
     for (gaddr q = TARGET_LIST; q != TARGET_LIST_END; q += 4) {
@@ -414,7 +418,7 @@ gaddr func_0020E6B8(void) {
 
     /* The class slots' lists chained in slot order; the first head is the result. */
     gaddr first = 0, last = 0;
-    for (gaddr sl = SLOTS; sl != SLOTS_END; sl += 8) {
+    for (gaddr sl = SLOTS; sl != slots_end; sl += 8) {
         const gaddr head = GREF(gaddr, sl);
         /* An empty slot adds nothing. */
         if (head == 0) {
