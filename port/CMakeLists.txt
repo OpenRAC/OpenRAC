@@ -325,6 +325,10 @@ openrac_add_c_test(pose_anim MATH)
 openrac_add_c_test(moby_pool NO_STRICT_ALIASING WRAPV
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
+# The mod-only spatial hash: tombstones must keep probe chains intact and recycle emptied cells.
+openrac_add_c_test(expanded_moby_grid NO_STRICT_ALIASING MATH
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+
 # The shared rac1 host C's level world under the pause menu (the mods' mobys made and deleted
 # among the level's, the level's camera), with PAL's table and the same stand-in.
 openrac_add_c_test(world_menu NO_STRICT_ALIASING WRAPV MATH
