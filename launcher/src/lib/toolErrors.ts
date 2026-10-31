@@ -57,6 +57,11 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
     line: "The packed level did not read back as it should, so nothing was written. Please report it, with the details.",
     next: "report",
   },
+  "pack-incomplete": {
+    title: "Some level edits could not be packed",
+    line: "Some changes in your Godot scenes could not be used in the game. Show details lists them; correct or remove those edits, then pack again.",
+    next: "retry",
+  },
   "folder-not-allowed": {
     title: "The editor cannot write there",
     line: "OpenRAC only writes inside its own folders. Check the install folder in Settings.",
