@@ -227,8 +227,18 @@ bool LevelScene::upload(
         }
         static_translucent =
             renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
+        // The default blended static pass reads cheaper probe light and shadows (Enhanced is
+        // allowed to be lossy); the full one stays as the reference.
+        std::string static_fast(static_translucent);
+        static_fast.insert(static_fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
         if (!m_static_translucent
-                 .build("static translucent colour", static_vertex, static_translucent, error)) {
+                 .build("static translucent colour", static_vertex, static_fast, error)
+            || !m_static_translucent_full.build(
+                "static translucent colour, full probe light",
+                static_vertex,
+                static_translucent,
+                error
+            )) {
             return false;
         }
     }
@@ -651,6 +661,7 @@ void LevelScene::release() {
     }
     m_mesh.release();
     m_static_translucent.release();
+    m_static_translucent_full.release();
     m_colour_opaque.release();
     m_early_colour_opaque.release();
     for (auto& shader : m_colour_specialised) {
@@ -1220,7 +1231,11 @@ void LevelScene::draw_layer(
             }
         } else if (static_translucent) {
             // Static blended packets omit moby-only vertex work.
-            selected = &m_static_translucent;
+            static const bool& fast_off = stats::probe(
+                "OPENRAC_PROBE_FAST_OFF", "Reference: full probe light on blended static passes"
+            );
+            selected = fast_off || m_sweep_translucent_full ? &m_static_translucent_full
+                                                            : &m_static_translucent;
         } else if (!specialisation_off && specialised[variant].id()
                    && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
                    && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {

@@ -162,9 +162,10 @@ public:
     // The settings sweep's experiments (debug/capture.cpp): the blended passes of every layer
     // (static translucent texels, the mobys' translucent pass) left out, or drawn without probe
     // light.
-    void set_sweep_translucent(bool off, bool unlit) {
+    void set_sweep_translucent(bool off, bool unlit, bool full) {
         m_sweep_translucent_off = off;
         m_sweep_translucent_unlit = unlit;
+        m_sweep_translucent_full = full;
     }
 
     // Controls the GI-coloured edge light on essential gameplay objects.
@@ -534,6 +535,7 @@ private:
     std::array<float, 64> m_point_lights{};
     bool m_sweep_translucent_off = false;
     bool m_sweep_translucent_unlit = false;
+    bool m_sweep_translucent_full = false;
     std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
     std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.
@@ -546,7 +548,8 @@ private:
     std::vector<JointColumns> m_palette_data;
     renderer::Shader m_mesh;
     renderer::Shader m_early_mesh, m_early_solid;
-    renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent;
+    renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent,
+        m_static_translucent_full;
     // Static solid, static alpha-tested, then opaque mobys (optional skinning).
     std::array<renderer::Shader, 3> m_colour_specialised, m_early_colour_specialised;
     // mesh.frag's opaque path alone, without discard (the static layers' opaque pass; draw_layer).

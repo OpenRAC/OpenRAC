@@ -129,6 +129,11 @@ constexpr SweepStep kSweep[] = {
          effects_off(g);
          g.sweep_translucent_unlit = true;
      }},
+    {"enhanced, every effect off, blended passes with full probe light",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.sweep_translucent_full = true;
+     }},
     {"enhanced off, blended passes left out",
      [](settings::Settings& g) {
          g.enhanced_graphics = false;

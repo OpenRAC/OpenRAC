@@ -160,6 +160,7 @@ bool sample_probe_grid(
             continue;
         }
 #endif
+#ifndef OPENRAC_PROBE_FAST
         if (distance > 1e-6) {
 #ifdef OPENRAC_PROBE_RECEIVER_SETUP
             vec2 moment_pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0
@@ -178,6 +179,7 @@ bool sample_probe_grid(
                 weight *= visibility * visibility * visibility;
             }
         }
+#endif
 #ifndef OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE
         if (weight <= 0.0) {
             continue;
@@ -288,7 +290,13 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
     if (probe_gpu_selection != 0) {
         chosen = probe_choose_regions(p);
     }
-    for (int slot = 0; slot < 3; ++slot) {
+#ifdef OPENRAC_PROBE_FAST
+    // Blended surfaces read only the best volume (Enhanced, lossy).
+    const int slots = 1;
+#else
+    const int slots = 3;
+#endif
+    for (int slot = 0; slot < slots; ++slot) {
         int id = chosen[slot];
         if (probe_gpu_selection != 0 && id < 0) {
             continue;
@@ -460,7 +468,10 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 }
 
 float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bias, vec2 slope, bool tent) {
-#ifdef OPENRAC_SHADOW_FILTER_REFERENCE
+#if defined(OPENRAC_PROBE_FAST)
+    // Blended surfaces: four taps instead of the wide kernel (Enhanced, lossy).
+    return shadow_bilinear_rect(map, rect, position, bias, slope);
+#elif defined(OPENRAC_SHADOW_FILTER_REFERENCE)
     return shadow_pcf_reference_rect(map, rect, position, bias, slope, tent);
 #else
     return shadow_pcf_unique_rect(map, rect, position, bias, slope, tent);
@@ -573,6 +584,9 @@ float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
     float start = cascade == 0 ? sun_shadow_near : sun_shadow_ends[cascade - 1];
     float blend =
         smoothstep(mix(start, sun_shadow_ends[cascade], 0.9), sun_shadow_ends[cascade], distance);
+#ifdef OPENRAC_PROBE_FAST
+    blend = 0.0;
+#endif
     float next =
         blend > 0.0 && cascade < 3 ? sun_cascade_visibility(cascade + 1, p, n, plane_normal) : 1.0;
     return mix(visibility, next, blend);
