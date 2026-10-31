@@ -1124,7 +1124,7 @@ void VKGL link_program(GLuint name) {
         info.layout = p->layout;
         check(
             vkCreateComputePipelines(
-                g->device, VK_NULL_HANDLE, 1, &info, nullptr, &p->compute_pipeline
+                g->device, g->pipeline_cache, 1, &info, nullptr, &p->compute_pipeline
             ),
             "a compute pipeline"
         );

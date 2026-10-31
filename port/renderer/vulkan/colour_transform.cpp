@@ -81,7 +81,7 @@ bool make_transform(std::string_view source) {
     pipeline.layout = transform.layout;
     const bool made = check(
         vkCreateComputePipelines(
-            g->device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &transform.pipeline
+            g->device, g->pipeline_cache, 1, &pipeline, nullptr, &transform.pipeline
         ),
         "colour transform pipeline"
     );

@@ -83,7 +83,7 @@ bool make_combine() {
     pipeline.layout = combine.layout;
     const bool made = check(
         vkCreateComputePipelines(
-            g->device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &combine.pipeline
+            g->device, g->pipeline_cache, 1, &pipeline, nullptr, &combine.pipeline
         ),
         "shadow composition pipeline"
     );
