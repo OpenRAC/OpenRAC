@@ -125,4 +125,27 @@ discChoice: { [key in string]: string },
  * underscores, made up at the first start and changed in Settings. Given to the game as
  * `OPENRAC_PLAYER_NAME`.
  */
-multiplayerName: string, };
+multiplayerName: string, 
+/**
+ * The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
+ */
+modIndexes: Array<string>, 
+/**
+ * Offer pre-release versions of mods. Unset: on for the dev channel, off for releases.
+ */
+prereleaseMods: boolean | null, 
+/**
+ * An install link kept across "Switch to the dev build": its change set opens after the
+ * restart (src/lib/deepLink.svelte.ts), then it is cleared.
+ */
+pendingDeepLink: string | null, 
+/**
+ * Update mods from the index by themselves (mod_updates.rs): patch and minor versions at
+ * start, every 6 hours and before each game start; majors wait for a click (default true).
+ */
+autoUpdateMods: boolean, 
+/**
+ * Removing a mod removes the dependencies the launcher installed for it that nothing else
+ * needs (default true); the player's own are asked about.
+ */
+cleanupUnusedDeps: boolean, };

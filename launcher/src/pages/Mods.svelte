@@ -21,18 +21,21 @@
   import GamesFrame from "$components/GamesFrame.svelte";
   import Icon from "$components/Icon.svelte";
   import PacksPanel from "$components/PacksPanel.svelte";
+  import ModBrowse from "$components/ModBrowse.svelte";
   import ModLoadSummary from "$components/ModLoadSummary.svelte";
+  import ModUpdatesPanel from "$components/ModUpdatesPanel.svelte";
   import PluginsPanel from "$components/PluginsPanel.svelte";
   import { api, onAndroid, type ActionView, type GameView, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, run } from "$lib/app.svelte";
   import type { EntryState } from "$lib/labels";
   import { SITE_URL } from "$lib/links";
-  import { EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
+  import { BROWSE, EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
   import { playerVersion } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
   import { arrive, enter } from "$lib/motion";
   import { followHistory, modFromAddress, modNav, openMod, resetMod } from "$lib/modNav.svelte";
-  import { onMount } from "svelte";
+  import { changeSet } from "$lib/deepLink.svelte";
+  import { onMount, untrack } from "svelte";
   import { tablist } from "$lib/tabs";
   import { themeStyle } from "$lib/themes";
   import { fade, fly } from "svelte/transition";
@@ -138,12 +141,13 @@
   const mine = $derived(onAndroid ? (v ?? played) : null);
 
   /** The page's tab: My mods, the level editor, or models and textures. */
-  type Tab = "mine" | "editor" | "assets";
+  type Tab = "mine" | "browse" | "editor" | "assets";
   // ?tab=editor (or assets) opens that tab at start: handy for screenshots, as ?page= is (App.svelte).
   const askedTab = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("tab");
-  let tab = $state<Tab>(askedTab === "editor" || askedTab === "assets" ? askedTab : "mine");
-  const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" }[] = [
+  let tab = $state<Tab>(askedTab === "editor" || askedTab === "assets" || askedTab === "browse" ? askedTab : "mine");
+  const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" | "globe" }[] = [
     { id: "mine", label: PAGE.tabMine, icon: "library" },
+    { id: "browse", label: BROWSE.tabTitle, icon: "globe" },
     { id: "editor", label: PAGE.tabEditor, icon: "edit" },
     { id: "assets", label: PAGE.tabAssets, icon: "folder" },
   ];
@@ -155,6 +159,15 @@
     if (what.plugin) pluginsReload += 1;
     if (what.pack) reload += 1;
   };
+
+  // A change set applied (DeepLinkInstall): the lists are read again.
+  $effect(() => {
+    if (changeSet.phase !== "done") return;
+    untrack(() => {
+      pluginsReload += 1;
+      reload += 1;
+    });
+  });
 
   // A mod's own page (PluginsPanel shows it in place of My mods' lists): Back and Escape return;
   // another game or tab leaves it. ?mod=<id> opens one at start.
@@ -208,7 +221,9 @@
                or model export: they need Godot and a desktop. -->
           <PluginsPanel version={mine} reload={pluginsReload} onpack={() => (reload += 1)} />
           {#if !onModPage}
+            <ModUpdatesPanel version={mine} onchange={() => (pluginsReload += 1)} />
             <AddMod version={mine} links={playable(mine)} onadded={added} />
+            {#if playable(mine)}<ModBrowse version={mine} />{/if}
             <PacksPanel version={mine} {reload} />
           {/if}
         {:else if !v && played}
@@ -216,6 +231,10 @@
                game plays: its gameplay mods, which load when it is played from its page. -->
           {#if !onModPage}<AddMod version={played} onadded={added} />{/if}
           <PluginsPanel version={played} reload={pluginsReload} onpack={() => (reload += 1)} />
+          {#if !onModPage}
+            <ModUpdatesPanel version={played} onchange={() => (pluginsReload += 1)} />
+            <ModBrowse version={played} />
+          {/if}
         {:else if !v}
           <!-- Every game has this page; one the editor cannot open yet says so. -->
           <section class="panel none">
@@ -266,6 +285,7 @@
                 {#if playable(v)}
                   <!-- Gameplay mods need the game's port: they plug into it (docs/port/MODS.md). -->
                   <PluginsPanel version={v} reload={pluginsReload} onpack={() => (reload += 1)} />
+                  <ModUpdatesPanel version={v} onchange={() => (pluginsReload += 1)} />
                 {/if}
                 <PacksPanel
                   version={v}
@@ -279,6 +299,8 @@
                     ><Icon name="edit" size={14} />{PAGE.makeOwnButton}</button
                   >
                 </p>
+              {:else if tab === "browse"}
+                {#if playable(v)}<ModBrowse version={v} />{/if}
               {:else if tab === "editor"}
                 <EditorFlow game={shown} version={v} onchanged={() => reload++} />
                 {#if v.game === "rac1"}

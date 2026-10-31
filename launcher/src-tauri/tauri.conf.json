@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://openrac.dev https://bytematch.dev https://api.github.com https://github.com https://objects.githubusercontent.com"
+      "csp": "default-src 'self'; img-src 'self' asset: data: https://github.com https://objects.githubusercontent.com https://release-assets.githubusercontent.com https://i.ytimg.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://openrac.dev https://bytematch.dev https://api.github.com https://github.com https://objects.githubusercontent.com"
     }
   },
   "bundle": {
@@ -51,6 +51,10 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": { "schemes": ["openrac"] },
+      "mobile": [{ "scheme": ["openrac"], "appLink": false }]
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNFMTdGQjg0QzA0Q0YwMjMKUldRajhFekFoUHNYUHFmRzV4MFd3SitERElmRU5GendwOWdqTm5UcjliNm5MMllNU2dGQTE2K0gK",
       "endpoints": [

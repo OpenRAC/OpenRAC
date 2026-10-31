@@ -25,6 +25,8 @@ pub const SOURCES: &str = "sources.json";
 pub const INDEX: &str = "openrac-mods.json";
 /// A release's checksums, in `sha256sum`'s format.
 pub const SUMS: &str = "SHA256SUMS";
+/// The tag of the release a mods repository publishes its index in (index.rs).
+pub const INDEX_TAG: &str = "index";
 /// The largest file fetched (a mod's archive, a repository's).
 pub const MAX_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -497,7 +499,8 @@ fn read_github(
                 .ok_or_else(|| format!("github.com/{owner}/{repo} has no release {t}"))?;
             vec![r.clone()]
         }
-        None => releases.iter().filter(|r| !r.draft && !r.prerelease).cloned().collect(),
+        // The mod index's own release (rac1-mods' `index` tag) holds no mod: never a mod's release.
+        None => releases.iter().filter(|r| !r.draft && !r.prerelease && r.tag_name != INDEX_TAG).cloned().collect(),
     };
     // What the manifests are read at: the release named, a branch or commit named, the newest
     // release, or the default branch.
@@ -740,6 +743,23 @@ pub struct ModSource {
     /// Kept at this version: no update is offered.
     #[serde(default)]
     pub pin: bool,
+    /// Installed as another mod's dependency, not asked for (index_apply.rs).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(as = "Option<bool>", optional)]
+    pub auto: bool,
+    /// Why it is kept at its version: `shared` (installed from a shared setup's exact versions) or
+    /// `rollback` (rolled back after a crash, until a version newer than `skip` comes out).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "\"shared\" | \"rollback\"")]
+    pub pin_reason: Option<String>,
+    /// A rolled-back version: not updated to again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub skip: Option<String>,
+    /// A mod pack's mods (index `type: pack`): removing the pack removes the ones it brought.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub members: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ts_rs::TS)]
@@ -787,6 +807,10 @@ pub fn set_pin(dir: &Path, id: &str, pin: bool) -> Result<Sources, String> {
     let mut s = read_sources(dir);
     let entry = s.mods.get_mut(id).ok_or_else(|| format!("{id} was not installed from a repository"))?;
     entry.pin = pin;
+    if !pin {
+        entry.pin_reason = None;
+        entry.skip = None;
+    }
     write_sources(dir, &s)?;
     Ok(s)
 }
@@ -836,6 +860,31 @@ pub enum RemoteInstalled {
 /// the overrides, each from its release's joined archive (checked) or the repository's files. Remembers the
 /// source, keeping its pin.
 pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, String> {
+    install_checked(ctx, url, id, None)
+}
+
+/// The archive the signed mod index names, which must be the one downloaded: a second hash beside
+/// the release's own SHA256SUMS, so an archive swapped on a release after it was indexed is refused.
+fn check_expected(bytes: &[u8], name: &str, expected: Option<&crate::index::Asset>) -> Result<(), String> {
+    let Some(want) = expected else { return Ok(()) };
+    if want.asset != name {
+        return Err(format!("{name} is not the archive the mod list names ({}): it is not installed.", want.asset));
+    }
+    if format!("{:x}", Sha256::digest(bytes)) != want.sha256.to_ascii_lowercase() {
+        return Err(format!(
+            "{name} is not the file the mod list lists (its SHA-256 differs): it was changed after it was listed, and is not installed."
+        ));
+    }
+    Ok(())
+}
+
+/// [`install`], with the archive the mod index names for it (`expected`) checked as well.
+pub fn install_checked(
+    ctx: &Context,
+    url: &str,
+    id: &str,
+    expected: Option<&crate::index::Asset>,
+) -> Result<RemoteInstalled, String> {
     let source = parse_url(url)?;
     std::fs::create_dir_all(ctx.dir).map_err(|e| format!("{}: {e}", ctx.dir.display()))?;
     let (preview, releases, clone) = match &source {
@@ -865,6 +914,7 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
         let name = m.asset.clone().ok_or("no asset")?;
         let bytes = ctx.fetch.get(&r.asset(&name).ok_or("no asset")?.browser_download_url, false)?;
         verify(&bytes, &name, sums_of(&r)?.as_deref())?;
+        check_expected(&bytes, &name, expected)?;
         let inside = manifest_in_zip(&bytes)?;
         let (got_id, got_version) = (
             inside.get("id").and_then(Value::as_str).unwrap_or_default(),
@@ -894,12 +944,15 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
         let folder = if let (Some(name), Some(r)) = (m.asset.clone(), release(&m.tag)) {
             let bytes = ctx.fetch.get(&r.asset(&name).ok_or("no asset")?.browser_download_url, false)?;
             verify(&bytes, &name, sums_of(&r)?.as_deref())?;
+            check_expected(&bytes, &name, expected)?;
             let zip = staging.0.join(&name);
             std::fs::write(&zip, &bytes).map_err(|e| e.to_string())?;
             let out = staging.0.join("unpacked");
             plugins::unzip(&zip, &out)?;
             // package_mod.py's archives hold one top folder, <id>-<version>/.
             plugins::manifest_root(&out)?
+        } else if let Some(want) = expected {
+            return Err(format!("The release has no {}, which the mod list names: it is not installed.", want.asset));
         } else if let Some(scratch) = &clone {
             scratch.0.join("repo").join(&m.path)
         } else {
@@ -952,6 +1005,9 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
     };
     let mut sources = read_sources(ctx.dir);
     let pin = sources.mods.get(&m.id).is_some_and(|s| s.pin);
+    let auto = sources.mods.get(&m.id).is_some_and(|s| s.auto);
+    let (pin_reason, skip) =
+        sources.mods.get(&m.id).filter(|s| s.pin).map_or((None, None), |s| (s.pin_reason.clone(), s.skip.clone()));
     sources.mods.insert(
         m.id.clone(),
         ModSource {
@@ -962,6 +1018,10 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
             commit: preview.commit.clone(),
             kind: m.kind.clone(),
             pin,
+            auto,
+            pin_reason,
+            skip,
+            members: Vec::new(),
         },
     );
     write_sources(ctx.dir, &sources)?;
@@ -1132,6 +1192,24 @@ mod tests {
 
     fn ctx<'a>(dir: &'a Path, fetch: &'a dyn Fetch) -> Context<'a> {
         Context { dir, game: "rac1", version: "pal", platform: Some(PLATFORM), fetch, hosts: hosts() }
+    }
+
+    #[test]
+    fn the_index_release_is_never_a_mods_release() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        // `index` comes first and is not marked pre-release here: skipped by its name all the same.
+        let mut index = release(&mut fx, "index", "m", "9.9.9", Some(String::new()), false);
+        index["assets"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"name": "index.json", "browser_download_url": "x"}));
+        let real = release(&mut fx, "v1.0.0", "m", "1.0.0", Some(String::new()), false);
+        let files = [("openrac-mod.json", manifest("m", "1.0.0"))];
+        repo(&mut fx, &files, serde_json::json!([index, real]), "c1");
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        assert_eq!(p.reference, "v1.0.0");
+        assert_eq!(p.mods[0].tag.as_deref(), Some("v1.0.0"));
     }
 
     #[test]

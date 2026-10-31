@@ -11,6 +11,15 @@ import packageFile from "../../package.json";
 import { onAndroid } from "./api";
 import { mockEnhanced } from "./mockEnhanced";
 import {
+  mockApply,
+  mockAutoUpdate,
+  mockIndexView,
+  mockLastUpdate,
+  mockParse,
+  mockResolve,
+  mockUpdates,
+} from "./mockIndex";
+import {
   mockControlsCopy,
   mockControlsReset,
   mockControlsResetPlayer,
@@ -32,6 +41,7 @@ import type { InstallState } from "./generated/InstallState";
 import type { JobEvent } from "./generated/JobEvent";
 import type { Library } from "./generated/Library";
 import type { ModSources } from "./generated/ModSources";
+import type { WantedMod } from "./generated/WantedMod";
 import type { ModLoadSummary } from "./generated/ModLoadSummary";
 import type { PackView } from "./generated/PackView";
 import type { ResetDone } from "./generated/ResetDone";
@@ -245,6 +255,11 @@ let config: Config = {
   crashesSeen: {},
   discChoice: {},
   multiplayerName: "BraveLombax42",
+  modIndexes: [],
+  prereleaseMods: null,
+  pendingDeepLink: null,
+  autoUpdateMods: true,
+  cleanupUnusedDeps: true,
 };
 
 const query = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
@@ -2375,6 +2390,34 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         enabled: true,
       });
     }
+    case "deeplink_parse":
+      return delay(mockParse(String(args.url)));
+    case "index_fetch":
+      return delay(mockIndexView());
+    case "index_resolve":
+      return delay(mockResolve(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []));
+    case "mods_updates":
+      return delay(mockUpdates());
+    case "mods_auto_update":
+      return delay(mockAutoUpdate((args.ids as string[] | null) ?? null, !!args.running));
+    case "mods_last_update":
+      return delay(mockLastUpdate());
+    case "mods_crash_rollback":
+      return delay<PluginView[]>(structuredClone(mockPlugins));
+    case "plugins_turn_on": {
+      const views = mockPlugins.map((p) => (p.id === args.id ? { ...p, enabled: true, state: "ready" as const } : p));
+      mockPlugins = views;
+      return delay({ views: structuredClone(views), alsoOn: [] });
+    }
+    case "plugins_dependents":
+      return delay<[string, string][]>([]);
+    case "plugins_orphans":
+      return delay([]);
+    case "plugins_remove_with":
+      mockPlugins = mockPlugins.filter((p) => p.id !== args.id && !(args.also as string[]).includes(p.id));
+      return delay<PluginView[]>(structuredClone(mockPlugins));
+    case "index_apply":
+      return mockApply(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []);
     case "plugins_sources":
       return delay<ModSources>(structuredClone(mockSources));
     case "plugins_set_pin": {

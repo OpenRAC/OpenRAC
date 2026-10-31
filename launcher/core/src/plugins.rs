@@ -282,7 +282,7 @@ pub fn parse_api(text: &str) -> Option<(u32, u32)> {
 }
 
 /// Whether `version` meets `wanted` (`>=X.Y.Z`, `=X.Y.Z`, or none). Err: `wanted` is not one.
-fn meets(version: &str, wanted: Option<&str>) -> Result<bool, String> {
+pub fn meets(version: &str, wanted: Option<&str>) -> Result<bool, String> {
     let Some(wanted) = wanted.map(str::trim).filter(|w| !w.is_empty()) else { return Ok(true) };
     let (exact, number) = if let Some(rest) = wanted.strip_prefix(">=") {
         (false, rest)
@@ -664,6 +664,10 @@ pub struct PluginView {
     pub kind: String,
     /// The installed folder (developer tools show it).
     pub path: String,
+    /// The mods it requires that are not installed: the row offers "Fix: install" for them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub missing: Vec<String>,
 }
 
 /// The mods of a game, in load order, for its disc `version` ("pal").
@@ -684,13 +688,16 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
             Ok(m) if m.id != entry.id => Some(format!("Its manifest says it is {:?}.", m.id)),
             Ok(m) => m.runs_on(game, version, platform).err(),
         };
+        let own = why.clone();
         if why.is_none() {
             why = against_others(&m, i, &mods, &manifests, false);
         }
+        // Off: what stops switching it on, counting the dependencies that would be turned on with
+        // it (turn_on).
         let blocked = if entry.enabled {
             String::new()
         } else {
-            why.clone().or_else(|| against_others(&m, i, &mods, &manifests, true)).unwrap_or_default()
+            own.or_else(|| turn_on_order(&mods, &manifests, i, game, version).err()).unwrap_or_default()
         };
         let (mut state, mut reason) = match (&why, entry.enabled) {
             (Some(why), true) => ("refused", why.clone()),
@@ -754,6 +761,7 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
             native: !m.plugin.is_empty(),
             kind: m.kind_name().into(),
             path: folder.display().to_string(),
+            missing: m.requires.iter().filter(|r| !mods.iter().any(|e| e.id == r.id)).map(|r| r.id.clone()).collect(),
         });
     }
     Ok(out)
@@ -835,6 +843,93 @@ pub fn set_enabled(dir: &Path, game: &str, version: &str, id: &str, on: bool) ->
     }
     write_list(dir, &mods)?;
     list(dir, game, version)
+}
+
+/// The mods to switch on, in order, so that mod `at` is on: the dependencies that are off (and
+/// theirs) first, then it. Err: why it cannot be, as `set_enabled` would say.
+fn turn_on_order(
+    mods: &[Entry],
+    manifests: &[Result<Manifest, String>],
+    at: usize,
+    game: &str,
+    version: &str,
+) -> Result<Vec<usize>, String> {
+    fn visit(
+        i: usize,
+        sim: &mut Vec<Entry>,
+        manifests: &[Result<Manifest, String>],
+        order: &mut Vec<usize>,
+        path: &mut Vec<usize>,
+        here: (&str, &str),
+    ) -> Result<(), String> {
+        if sim[i].enabled {
+            return Ok(());
+        }
+        if path.contains(&i) {
+            return Err("Its dependencies need each other.".into());
+        }
+        path.push(i);
+        let m = manifests[i].as_ref().map_err(|e| format!("{} cannot be read: {e}", sim[i].id))?;
+        m.runs_on(here.0, here.1, platform_key())?;
+        for r in &m.requires {
+            let Some(j) = sim.iter().position(|e| e.id == r.id) else { continue };
+            let fits = manifests[j].as_ref().is_ok_and(|o| meets(&o.version, r.version.as_deref()).unwrap_or(false));
+            if fits {
+                visit(j, sim, manifests, order, path, here)?;
+            }
+        }
+        if let Some(why) = against_others(m, i, sim, manifests, true) {
+            return Err(why);
+        }
+        sim[i].enabled = true;
+        order.push(i);
+        path.pop();
+        Ok(())
+    }
+    let mut sim = mods.to_vec();
+    let mut order = Vec::new();
+    visit(at, &mut sim, manifests, &mut order, &mut Vec::new(), (game, version))?;
+    Ok(order)
+}
+
+/// Switches mod `id` on with the dependencies it needs that are off, each placed after what it
+/// needs. The list, and the names of the dependencies turned on with it (for "Also turned on").
+pub fn turn_on(dir: &Path, game: &str, version: &str, id: &str) -> Result<(Vec<PluginView>, Vec<String>), String> {
+    let mods = read_list(dir)?;
+    let at = position(&mods, id)?;
+    let manifests: Vec<Result<Manifest, String>> =
+        mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
+    let order = turn_on_order(&mods, &manifests, at, game, version)?;
+    let mut also = Vec::new();
+    let mut views = list(dir, game, version)?;
+    for i in order {
+        views = set_enabled(dir, game, version, &mods[i].id, true)?;
+        if i != at {
+            also.push(manifests[i].as_ref().map_or(mods[i].id.clone(), |m| m.name.clone()));
+        }
+    }
+    Ok((views, also))
+}
+
+/// The mods that are on and need `id`, directly or through another: what turning it off breaks.
+pub fn dependents(dir: &Path, id: &str) -> Result<Vec<(String, String)>, String> {
+    let mods = read_list(dir)?;
+    let manifests: Vec<Option<Manifest>> = mods.iter().map(|e| read_manifest(&dir.join(&e.id)).ok()).collect();
+    let mut needed: BTreeSet<String> = [id.to_string()].into();
+    let mut out = Vec::new();
+    loop {
+        let before = out.len();
+        for (e, m) in mods.iter().zip(&manifests) {
+            let Some(m) = m else { continue };
+            if e.enabled && !needed.contains(&e.id) && m.requires.iter().any(|r| needed.contains(&r.id)) {
+                needed.insert(e.id.clone());
+                out.push((e.id.clone(), m.name.clone()));
+            }
+        }
+        if out.len() == before {
+            return Ok(out);
+        }
+    }
 }
 
 /// Moves mod `at`, just switched on, after what it must load after and before what it must load
@@ -1085,10 +1180,35 @@ pub(crate) fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Unpacks a .zip into `into`, refusing a path out of it (`..`, an absolute path) and links.
+/// The most a mod's .zip may unpack to, in bytes and in files: far above any real mod (a level
+/// pack is tens of MB), far below what fills a disk. A zip bomb stops here.
+pub const MAX_UNZIP_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+pub const MAX_UNZIP_FILES: usize = 20_000;
+
+/// Unpacks a .zip into `into`, refusing a path out of it (`..`, an absolute path), links, and more
+/// than [`MAX_UNZIP_BYTES`] or [`MAX_UNZIP_FILES`].
 pub(crate) fn unzip(zip_path: &Path, into: &Path) -> Result<(), String> {
+    unzip_capped(zip_path, into, MAX_UNZIP_BYTES, MAX_UNZIP_FILES)
+}
+
+fn unzip_capped(zip_path: &Path, into: &Path, max_bytes: u64, max_files: usize) -> Result<(), String> {
     let file = std::fs::File::open(zip_path).map_err(|e| format!("{}: {e}", zip_path.display()))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("{} is not a .zip ({e})", zip_path.display()))?;
+    let too_big = || format!("the .zip unpacks to more than {} MB: it is not installed", max_bytes / (1024 * 1024));
+    if archive.len() > max_files {
+        return Err(format!("the .zip holds more than {max_files} files: it is not installed"));
+    }
+    // The sizes the archive declares first, so a bomb is refused before anything is written; then
+    // what is really read is counted, as a declared size can lie.
+    let mut declared: u64 = 0;
+    for i in 0..archive.len() {
+        let size = archive.by_index_raw(i).map_err(|e| e.to_string())?.size();
+        declared = declared.saturating_add(size);
+        if declared > max_bytes {
+            return Err(too_big());
+        }
+    }
+    let mut written: u64 = 0;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
         let name = entry.name().to_string();
@@ -1113,7 +1233,12 @@ pub(crate) fn unzip(zip_path: &Path, into: &Path) -> Result<(), String> {
             std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
         }
         let mut bytes = Vec::new();
-        entry.read_to_end(&mut bytes).map_err(|e| format!("{name}: {e}"))?;
+        let left = max_bytes - written;
+        (&mut entry).take(left + 1).read_to_end(&mut bytes).map_err(|e| format!("{name}: {e}"))?;
+        written += bytes.len() as u64;
+        if written > max_bytes {
+            return Err(too_big());
+        }
         std::fs::write(&target, bytes).map_err(|e| format!("{}: {e}", target.display()))?;
     }
     Ok(())
@@ -1131,6 +1256,82 @@ fn unquarantine(folder: &Path) {
             .stderr(std::process::Stdio::null())
             .status();
     }
+}
+
+/// Where an install is unpacked and checked before it is swapped in.
+pub const STAGING: &str = ".staging";
+/// Where the version an install replaced is kept, one per mod, for a rollback.
+pub const PREVIOUS: &str = ".previous";
+
+#[cfg(test)]
+thread_local! {
+    /// Tests only: fail the swap between moving the old copy out and the new one in.
+    pub(crate) static FAIL_SWAP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Puts the folder `staged` in place as mod `id`: the installed one moves to `.previous/<id>`
+/// first. Any failure puts everything back as it was. Whether it replaced an install.
+pub(crate) fn swap_in(dir: &Path, id: &str, staged: &Path) -> Result<bool, String> {
+    let target = dir.join(id);
+    let previous = dir.join(PREVIOUS).join(id);
+    let replaced = target.exists();
+    // The previous copy is moved aside, not deleted, until the swap is done.
+    let older = dir.join(PREVIOUS).join(format!(".{id}.older"));
+    let _ = std::fs::remove_dir_all(&older);
+    if replaced {
+        std::fs::create_dir_all(dir.join(PREVIOUS)).map_err(|e| format!("{}: {e}", dir.display()))?;
+        if previous.exists() {
+            std::fs::rename(&previous, &older).map_err(|e| format!("{}: {e}", previous.display()))?;
+        }
+        if let Err(e) = std::fs::rename(&target, &previous) {
+            let _ = std::fs::rename(&older, &previous);
+            return Err(format!("{}: {e}", target.display()));
+        }
+    }
+    #[cfg(test)]
+    let fail = FAIL_SWAP.with(std::cell::Cell::get);
+    #[cfg(not(test))]
+    let fail = false;
+    let moved = if fail { Err(std::io::Error::other("failed on purpose")) } else { std::fs::rename(staged, &target) };
+    if let Err(e) = moved {
+        if replaced {
+            let _ = std::fs::rename(&previous, &target);
+            let _ = std::fs::rename(&older, &previous);
+        }
+        let _ = std::fs::remove_dir_all(staged);
+        return Err(format!("{}: {e}", target.display()));
+    }
+    let _ = std::fs::remove_dir_all(&older);
+    // Nothing waits in staging once the swap is done (remove_dir only removes it empty).
+    let _ = std::fs::remove_dir(dir.join(STAGING));
+    Ok(replaced)
+}
+
+/// The version of mod `id` kept in `.previous`, if there is one.
+pub fn previous_version(dir: &Path, id: &str) -> Option<String> {
+    if !valid_id(id) {
+        return None;
+    }
+    read_manifest(&dir.join(PREVIOUS).join(id)).ok().map(|m| m.version)
+}
+
+/// Puts back the version of `id` an update replaced: the two swap places, so a rollback can be
+/// undone the same way. Its place in the list, its switch and the settings it takes are kept.
+pub fn roll_back(dir: &Path, game: &str, version: &str, id: &str) -> Result<Vec<PluginView>, String> {
+    let kept = previous_version(dir, id).ok_or_else(|| format!("{id} has no earlier version to go back to"))?;
+    let staged = dir.join(STAGING).join(id);
+    let _ = std::fs::remove_dir_all(&staged);
+    std::fs::create_dir_all(dir.join(STAGING)).map_err(|e| e.to_string())?;
+    std::fs::rename(dir.join(PREVIOUS).join(id), &staged).map_err(|e| format!("{id}: {e}"))?;
+    swap_in(dir, id, &staged)?;
+    let m = read_manifest(&dir.join(id))?;
+    debug_assert_eq!(m.version, kept);
+    let mut mods = read_list(dir)?;
+    if let Some(entry) = mods.iter_mut().find(|e| e.id == id) {
+        entry.settings.retain(|key, value| m.settings.iter().any(|s| s.key == *key && check_value(s, value).is_some()));
+    }
+    write_list(dir, &mods)?;
+    list(dir, game, version)
 }
 
 /// Adds a mod from a .zip or a folder to `game`'s store `dir`. A native mod (format 2) is copied
@@ -1180,23 +1381,13 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
             return Err(format!("{} names a script it does not hold ({path})", m.name));
         }
     }
-    // The copy is made beside the store, then put in place with renames.
-    let staged = Scratch::new(dir, "install")?;
-    let copy = staged.0.join(&m.id);
-    copy_tree(&root, &copy)?;
-    unquarantine(&copy);
-    let target = dir.join(&m.id);
-    let replaced = target.exists();
-    let old = staged.0.join(".old");
-    if replaced {
-        std::fs::rename(&target, &old).map_err(|e| format!("{}: {e}", target.display()))?;
-    }
-    if let Err(e) = std::fs::rename(&copy, &target) {
-        if replaced {
-            let _ = std::fs::rename(&old, &target);
-        }
-        return Err(format!("{}: {e}", target.display()));
-    }
+    // Staged in `.staging/<id>`, then swapped in; an install it replaces waits in `.previous/<id>`
+    // (one kept), so a failure puts it back and a bad update can be rolled back.
+    let staging = dir.join(STAGING).join(&m.id);
+    let _ = std::fs::remove_dir_all(&staging);
+    copy_tree(&root, &staging)?;
+    unquarantine(&staging);
+    let replaced = swap_in(dir, &m.id, &staging)?;
     let mut mods = read_list(dir)?;
     let at = position(&mods, &m.id)?;
     let mut enabled = mods[at].enabled;
@@ -1851,9 +2042,11 @@ mod tests {
         let leftovers: Vec<_> = std::fs::read_dir(&dir)
             .unwrap()
             .filter_map(Result::ok)
-            .filter(|e| e.file_name().to_string_lossy().starts_with('.'))
+            .filter(|e| e.file_name().to_string_lossy().starts_with('.') && e.file_name() != PREVIOUS)
             .collect();
         assert!(leftovers.is_empty(), "no scratch folders left: {leftovers:?}");
+        // The version it replaced is kept for a rollback.
+        assert_eq!(previous_version(&dir, "lock-strafe").as_deref(), Some("1.0.0"));
 
         // Removing deletes the store's copy only.
         let views = remove(&dir, "rac1", "pal", "lock-strafe").unwrap();
@@ -1989,5 +2182,102 @@ mod tests {
         writer.add_symlink("evil", "/etc/hosts", options).unwrap();
         writer.finish().unwrap();
         assert!(install(&dir, "rac1", "pal", &zip).unwrap_err().contains("link"));
+    }
+
+    #[test]
+    fn turning_on_brings_its_dependencies_and_turning_off_names_who_needs_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        installed_mod(dir, "core-lib", json!({}));
+        installed_mod(dir, "middle", json!({"requires": [{"id": "core-lib"}]}));
+        installed_mod(dir, "top", json!({"requires": [{"id": "middle", "version": ">=1.0.0"}]}));
+        installed_mod(dir, "rival", json!({"conflicts": [{"id": "core-lib"}]}));
+        // Off, a mod whose dependencies are only off is not blocked: they go on with it.
+        assert_eq!(view(&list(dir, "rac1", "pal").unwrap(), "top").blocked, "");
+        let (views, also) = turn_on(dir, "rac1", "pal", "top").unwrap();
+        assert_eq!(also, ["Mod core-lib", "Mod middle"]);
+        let on: Vec<&str> = views.iter().filter(|v| v.enabled).map(|v| v.id.as_str()).collect();
+        assert_eq!(on, ["core-lib", "middle", "top"], "in dependency order");
+        let need: Vec<String> = dependents(dir, "core-lib").unwrap().into_iter().map(|(id, _)| id).collect();
+        assert_eq!(need, ["middle", "top"]);
+        // A conflict with a dependency stops it, saying why.
+        assert!(turn_on(dir, "rac1", "pal", "rival").unwrap_err().contains("Conflicts"));
+        // A dependency that is not installed shows on the row.
+        installed_mod(dir, "needy", json!({"requires": [{"id": "elsewhere"}]}));
+        assert_eq!(view(&list(dir, "rac1", "pal").unwrap(), "needy").missing, ["elsewhere"]);
+    }
+
+    #[test]
+    fn an_update_is_staged_kept_and_rolled_back() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("plugins");
+        let source = tmp.path().join("src");
+        write_mod(
+            &source,
+            &manifest(
+                "swap",
+                json!({"version": "1.0.0", "settings": [{"key": "a", "name": "A", "type": "bool", "default": false}]}),
+            ),
+        );
+        install(&dir, "rac1", "pal", &source).unwrap();
+        set_setting(&dir, "rac1", "pal", "swap", "a", json!(true), "").unwrap();
+        write_mod(
+            &source,
+            &manifest(
+                "swap",
+                json!({"version": "2.0.0", "settings": [{"key": "a", "name": "A", "type": "bool", "default": false}]}),
+            ),
+        );
+        install(&dir, "rac1", "pal", &source).unwrap();
+        assert_eq!(previous_version(&dir, "swap").as_deref(), Some("1.0.0"));
+
+        // A failure in the middle of the swap leaves 2.0.0 in place and 1.0.0 kept.
+        write_mod(&source, &manifest("swap", json!({"version": "3.0.0"})));
+        FAIL_SWAP.with(|f| f.set(true));
+        let failed = install(&dir, "rac1", "pal", &source);
+        FAIL_SWAP.with(|f| f.set(false));
+        assert!(failed.is_err());
+        assert_eq!(read_manifest(&dir.join("swap")).unwrap().version, "2.0.0");
+        assert_eq!(previous_version(&dir, "swap").as_deref(), Some("1.0.0"));
+        assert!(!dir.join(STAGING).join("swap").exists());
+
+        // Rolled back: 1.0.0 is in, 2.0.0 kept, the switch, place and setting as they were.
+        let views = roll_back(&dir, "rac1", "pal", "swap").unwrap();
+        let v = view(&views, "swap");
+        assert_eq!((v.version.as_str(), v.enabled), ("1.0.0", true));
+        assert_eq!(v.settings[0].value, json!(true));
+        assert_eq!(previous_version(&dir, "swap").as_deref(), Some("2.0.0"));
+        assert!(roll_back(&dir, "rac1", "pal", "nothing-here").is_err());
+    }
+
+    #[test]
+    fn a_zip_bomb_is_refused_by_size_and_by_file_count() {
+        let tmp = tempfile::tempdir().unwrap();
+        let write = |name: &str, files: usize, each: usize| {
+            let path = tmp.path().join(name);
+            let mut writer = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+            let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+            for i in 0..files {
+                writer.start_file(format!("f{i}.bin"), options).unwrap();
+                writer.write_all(&vec![0u8; each]).unwrap();
+            }
+            writer.finish().unwrap();
+            path
+        };
+        // 4 MB of zeros packs into a few KB: over a 1 MB cap, it is refused before writing.
+        let big = write("big.zip", 1, 4 * 1024 * 1024);
+        assert!(std::fs::metadata(&big).unwrap().len() < 64 * 1024);
+        let out = tmp.path().join("big");
+        assert!(unzip_capped(&big, &out, 1024 * 1024, 100).unwrap_err().contains("more than 1 MB"));
+        assert!(!out.join("f0.bin").exists());
+        let many = write("many.zip", 51, 1);
+        assert!(unzip_capped(&many, &tmp.path().join("many"), 1024 * 1024, 50)
+            .unwrap_err()
+            .contains("more than 50 files"));
+        // Under both caps, it unpacks.
+        unzip_capped(&many, &tmp.path().join("ok"), 1024 * 1024, 51).unwrap();
+        assert!(tmp.path().join("ok/f50.bin").is_file());
+        // A whole download must always fit the unpack cap; checked when compiling.
+        const { assert!(MAX_UNZIP_BYTES > crate::remote::MAX_BYTES) };
     }
 }

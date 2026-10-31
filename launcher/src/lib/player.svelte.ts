@@ -502,6 +502,11 @@ async function play(v: VersionView): Promise<void> {
   const fresh = freshVersion(v);
   const start = action(fresh, "play");
   if (!start?.runnable) return;
+  // Mods load: they are brought up to date first (lib/modAutoUpdate), never holding Play long.
+  if (app.config?.playWithMods) {
+    const { beforePlay } = await import("./modAutoUpdate.svelte");
+    await beforePlay(v.key);
+  }
   showLaunch(v.game, v.title);
   const modded = app.config?.playWithMods ? action(fresh, "play-edited") : undefined;
   if (modded?.runnable) {

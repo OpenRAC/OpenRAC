@@ -8,7 +8,8 @@
   import { app, dismissStopped, guard } from "$lib/app.svelte";
   import { copyText } from "$lib/clipboard";
   import { DISCORD_URL, ISSUES_URL } from "$lib/links";
-  import { crashModsLine } from "$lib/modsText";
+  import { crashAfterUpdate, crashModsLine, rollBackTo, rolledBack } from "$lib/modsText";
+  import type { LastUpdate } from "$lib/api";
   import { place, stopText, type StopNotice } from "$lib/reports";
 
   let { notice, title }: { notice: StopNotice; title: string } = $props();
@@ -41,6 +42,27 @@
       })
       .catch(() => (modsLoaded = []));
   });
+
+  /** The last run of mod updates, when it came before this crash: each can be rolled back. */
+  let lastUpdate = $state<LastUpdate | null>(null);
+  let rolled = $state<string | null>(null);
+  $effect(() => {
+    if (!crash) return;
+    void api
+      .modsLastUpdate(notice.game)
+      .then((last) => {
+        lastUpdate = last && last.at * 1000 <= notice.at && last.mods.length > 0 ? last : null;
+      })
+      .catch(() => (lastUpdate = null));
+  });
+
+  async function rollBack(id: string, name: string, version: string) {
+    const disc = notice.versionKey.split("/")[1] ?? "";
+    const done = await guard(api.modsCrashRollback(notice.game, disc, id));
+    if (!done) return;
+    rolled = rolledBack(name, version);
+    if (lastUpdate) lastUpdate = { ...lastUpdate, mods: lastUpdate.mods.filter((m) => m.id !== id) };
+  }
 
   async function copy() {
     const text = crash
@@ -107,6 +129,17 @@
     {#if crash && modsLoaded.length}
       <p class="say">{crashModsLine(modsLoaded)}</p>
     {/if}
+    {#if crash && lastUpdate && lastUpdate.mods.length > 0}
+      <p class="say">{crashAfterUpdate(lastUpdate.mods.map((m) => m.name))}</p>
+      <div class="actions">
+        {#each lastUpdate.mods as m (m.id)}
+          <button onclick={() => void rollBack(m.id, m.name, m.from)}
+            ><Icon name="reset" size={16} />{rollBackTo(m.name, m.from)}</button
+          >
+        {/each}
+      </div>
+    {/if}
+    {#if rolled}<p class="say" role="status">{rolled}</p>{/if}
 
     <div class="actions">
       <button onclick={() => void copy()}>

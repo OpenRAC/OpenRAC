@@ -194,7 +194,11 @@
         <span>{mod.version}</span>
         {#if mod.author}<span>{mod.author}</span>{/if}
         {#if source}<span
-            >{T.fromSource(sourceLabel(source.url))}{#if source.pin}, {T.keptAt(source.version)}{/if}</span
+            >{T.fromSource(sourceLabel(source.url))}{#if source.pin}, {source.pinReason === "shared"
+                ? T.pinnedShared
+                : source.pinReason === "rollback"
+                  ? T.pinnedRollback
+                  : T.keptAt(source.version)}{/if}</span
           >{/if}
         <span class={`kind ${kind.tone}`} title={modHint(mod.kind)}><span class="dot"></span>{kind.text}</span>
       </p>

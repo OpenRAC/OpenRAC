@@ -24,6 +24,9 @@
 //! - [`window`]: the window's size on a screen too small for it.
 //! - [`overrides`]: a game's overrides packs (replacement textures and models): list, order, on/off.
 //! - [`plugins`]: a game's native mods (docs/port/MODS.md): install, list, order, on/off, settings.
+//! - [`index`]: the signed mod index (rac1-mods), fetched, checked and cached; [`resolver`]: what
+//!   installing mods from it takes; [`index_apply`]: doing it; [`deeplink`]: `openrac://` links;
+//!   [`mod_error`]: their errors, with the fix the page offers.
 //! - [`reset`]: starting the level editor over: what it removes, checked to stay in OpenRAC's folders.
 //! - [`editor_state`]: where a player is with the level editor: outdated projects, edits not packed, the last update's notes.
 //! - [`library`]: all of the above, put together for the UI.
@@ -40,6 +43,7 @@ pub mod catalog;
 pub mod chd;
 pub mod config;
 pub mod controls;
+pub mod deeplink;
 pub mod desktop;
 pub mod detect;
 pub mod differences;
@@ -49,11 +53,15 @@ pub mod discs;
 pub mod editor_state;
 pub mod enhanced;
 pub mod hook_ids;
+pub mod index;
+pub mod index_apply;
 pub mod install;
 pub mod jobs;
 pub mod launcher_log;
 pub mod library;
+pub mod mod_error;
 pub mod mod_summary;
+pub mod mod_updates;
 pub mod multiplayer;
 pub mod overrides;
 pub mod pcsx2_card;
@@ -63,6 +71,7 @@ pub mod progress_sync;
 pub mod remote;
 pub mod reports;
 pub mod reset;
+pub mod resolver;
 pub mod save_edit;
 pub mod saves;
 pub mod status;

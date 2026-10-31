@@ -19,11 +19,13 @@ use openrac_launcher_core::install;
 use openrac_launcher_core::jobs::{Event, Jobs, Started};
 use openrac_launcher_core::launcher_log;
 use openrac_launcher_core::library::{self, Library};
+use openrac_launcher_core::mod_error::{ModError, ModErrorKind};
 use openrac_launcher_core::overrides::{self, PackView};
 use openrac_launcher_core::plugins::{self, Installed, PluginView};
 use openrac_launcher_core::remote;
 use openrac_launcher_core::reports::{self, ReportEntry};
 use openrac_launcher_core::reset;
+use openrac_launcher_core::{deeplink, index, index_apply, resolver};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -35,6 +37,8 @@ struct AppState {
     discord: Arc<Mutex<DiscordState>>,
     /// The copy of OpenRAC this launcher carries, if it was built with one (detect::bundled_root).
     bundled: Option<PathBuf>,
+    /// The mod index last fetched and checked (index_fetch), which index_resolve and index_apply read.
+    mod_index: Mutex<Option<index::ModIndex>>,
 }
 
 struct DiscordState {
@@ -1390,8 +1394,18 @@ async fn plugins_check_updates(
     version: String,
 ) -> Result<UpdateCheck, String> {
     let g = game.clone();
+    // Mods the index lists are updated from it (mods_auto_update): this per-repository look is
+    // for the ones added from a link only.
+    let listed: Vec<String> = state
+        .mod_index
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|i| i.mods.iter().map(|m| m.id.clone()).collect())
+        .unwrap_or_default();
     on_plugins(state, &game, move |dir| {
-        let (updates, errors) = with_remote(&app, dir, &g, &version, remote::check_updates);
+        let (mut updates, errors) = with_remote(&app, dir, &g, &version, remote::check_updates);
+        updates.retain(|u| !listed.contains(&u.id));
         Ok(UpdateCheck { updates, errors })
     })
     .await
@@ -1427,6 +1441,371 @@ async fn plugins_set_pin(
 #[tauri::command]
 async fn plugins_status(state: State<'_, AppState>, game: String) -> Result<Option<plugins::Status>, String> {
     on_plugins(state, &game, |dir| Ok(plugins::read_status(dir))).await
+}
+
+// ---- The mod hub: the signed index, change sets, openrac:// links (core index.rs, resolver.rs,
+// index_apply.rs, deeplink.rs). Their errors are ModError, so the page can offer the exact fix.
+
+/// What fetches for the mod hub: curl, or on Android the Kotlin side's download.
+fn hub_fetch(app: &AppHandle) -> Box<dyn remote::Fetch> {
+    #[cfg(target_os = "android")]
+    return Box::new(android::KotlinFetch { app: app.clone() });
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Box::new(remote::Curl)
+    }
+}
+
+/// Reads an openrac:// link: the mods it asks for. Nothing is installed from a link without a click.
+#[tauri::command]
+fn deeplink_parse(url: String) -> Result<deeplink::Install, ModError> {
+    deeplink::parse(&url)
+}
+
+fn hub_error(e: impl std::fmt::Display) -> ModError {
+    ModError::new(ModErrorKind::Bug, e.to_string())
+}
+
+/// Fetches and checks every mod index (or uses the cached copies), keeps the result for the next
+/// commands, and with a game turns off the installed mods whose version was revoked.
+#[tauri::command]
+async fn index_fetch(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: Option<String>,
+    version: Option<String>,
+) -> Result<index::IndexView, ModError> {
+    let urls = index::urls(&state.config.lock().unwrap().mod_indexes);
+    let cache = state
+        .config_file
+        .as_deref()
+        .and_then(Path::parent)
+        .map(|dir| dir.join(index::CACHE_DIR))
+        .ok_or_else(|| hub_error("no config folder for the mod list's copy"))?;
+    let plugins = match &game {
+        Some(g) => Some(plugins_dir(&state, g).map_err(hub_error)?),
+        None => None,
+    };
+    let handle = app.clone();
+    let mut view = tauri::async_runtime::spawn_blocking(move || {
+        let fetch = hub_fetch(&handle);
+        let mut view = index::fetch(&index::Sources {
+            urls,
+            fetch: fetch.as_ref(),
+            cache,
+            key: index::INDEX_PUBLIC_KEY,
+            now: index::now(),
+        })?;
+        if let (Some(dir), Some(g), Some(v)) = (plugins, game, version) {
+            view.turned_off = index::turn_off_revoked(&dir, &g, &v, &view.index);
+        }
+        Ok::<_, ModError>(view)
+    })
+    .await
+    .map_err(hub_error)??;
+    *state.mod_index.lock().unwrap() = Some(view.index.clone());
+    for m in &mut view.index.mods {
+        let cut = m.readme.floor_char_boundary(64 * 1024);
+        m.readme.truncate(cut);
+    }
+    Ok(view)
+}
+
+/// Pre-release mods: the player's setting, else on for a dev build (or a local `tauri dev` run).
+fn allow_prerelease(app: &AppHandle, state: &State<'_, AppState>) -> bool {
+    use openrac_launcher_core::update::Channel;
+    let dev = cfg!(debug_assertions) || update_source(app).kind() == Channel::Dev;
+    state.config.lock().unwrap().prerelease_mods.unwrap_or(dev)
+}
+
+/// The change set for `wanted` on GAME's disc VERSION, with the mods in `turn_off` counted as off.
+fn plan_for(
+    index: &index::ModIndex,
+    dir: &Path,
+    game: &str,
+    version: &str,
+    wanted: &[deeplink::WantedMod],
+    turn_off: &[String],
+    prerelease: bool,
+) -> resolver::InstallPlan {
+    let mut installed = resolver::installed_mods(dir, game, version);
+    for m in installed.iter_mut().filter(|m| turn_off.contains(&m.id)) {
+        m.enabled = false;
+    }
+    resolver::resolve(&resolver::Request {
+        index,
+        installed: &installed,
+        game,
+        disc: version,
+        platform: plugins::platform_key(),
+        api: (plugins::API_MAJOR, plugins::API_MINOR),
+        allow_prerelease: prerelease,
+        wanted,
+    })
+}
+
+fn current_index(state: &State<'_, AppState>) -> Result<index::ModIndex, ModError> {
+    state.mod_index.lock().unwrap().clone().ok_or_else(|| {
+        ModError::new(ModErrorKind::Transient, "The mod list is not loaded yet.")
+            .with(openrac_launcher_core::mod_error::ModAction::Retry)
+    })
+}
+
+#[tauri::command]
+async fn index_resolve(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    wanted: Vec<deeplink::WantedMod>,
+    turn_off: Vec<String>,
+) -> Result<resolver::InstallPlan, ModError> {
+    if wanted.is_empty() || wanted.len() > deeplink::MAX_MODS {
+        return Err(ModError::new(ModErrorKind::UserFixable, "Pick between 1 and 32 mods."));
+    }
+    let index = current_index(&state)?;
+    let prerelease = allow_prerelease(&app, &state);
+    let dir = plugins_dir(&state, &game).map_err(hub_error)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        plan_for(&index, &dir, &game, &version, &wanted, &turn_off, prerelease)
+    })
+    .await
+    .map_err(hub_error)
+}
+
+/// Resolves `wanted` again from the signed index (the page's copy of a plan is never trusted for
+/// hashes) and applies it: `index-apply` events say how far it got.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn index_apply(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    wanted: Vec<deeplink::WantedMod>,
+    turn_off: Vec<String>,
+    serial: Option<String>,
+    shared: Option<bool>,
+) -> Result<index_apply::ApplyResult, ModError> {
+    // A shared setup's link names exact versions: those mods are kept at them.
+    let pin_shared: Vec<String> = if shared.unwrap_or(false) {
+        wanted.iter().filter(|w| w.version.is_some()).map(|w| w.id.clone()).collect()
+    } else {
+        Vec::new()
+    };
+    let index = current_index(&state)?;
+    let prerelease = allow_prerelease(&app, &state);
+    let dir = plugins_dir(&state, &game).map_err(hub_error)?;
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let plan = plan_for(&index, &dir, &game, &version, &wanted, &turn_off, prerelease);
+        let data_home = openrac_launcher_core::saves::data_home();
+        let options = index_apply::Options {
+            serial: serial.as_deref(),
+            data_home: &data_home,
+            turn_off: &turn_off,
+            pin_shared: &pin_shared,
+            all_or_nothing: false,
+        };
+        with_remote(&handle, &dir, &game, &version, |ctx| {
+            index_apply::apply(ctx, &plan, &options, |p| {
+                let _ = handle.emit("index-apply", p);
+            })
+        })
+    })
+    .await
+    .map_err(hub_error)?
+}
+
+/// The mod index for the commands below: the one fetched this session, else fetched now.
+async fn index_now(app: &AppHandle, state: &State<'_, AppState>, fresh: bool) -> Result<index::ModIndex, ModError> {
+    if !fresh {
+        if let Some(index) = state.mod_index.lock().unwrap().clone() {
+            return Ok(index);
+        }
+    }
+    let urls = index::urls(&state.config.lock().unwrap().mod_indexes);
+    let cache = state
+        .config_file
+        .as_deref()
+        .and_then(Path::parent)
+        .map(|dir| dir.join(index::CACHE_DIR))
+        .ok_or_else(|| hub_error("no config folder for the mod list's copy"))?;
+    let handle = app.clone();
+    let view = tauri::async_runtime::spawn_blocking(move || {
+        let fetch = hub_fetch(&handle);
+        index::fetch(&index::Sources {
+            urls,
+            fetch: fetch.as_ref(),
+            cache,
+            key: index::INDEX_PUBLIC_KEY,
+            now: index::now(),
+        })
+    })
+    .await
+    .map_err(hub_error)??;
+    *state.mod_index.lock().unwrap() = Some(view.index.clone());
+    Ok(view.index)
+}
+
+fn here_for<'a>(game: &'a str, version: &'a str, prerelease: bool) -> openrac_launcher_core::mod_updates::Here<'a> {
+    openrac_launcher_core::mod_updates::Here {
+        game,
+        disc: version,
+        platform: plugins::platform_key(),
+        api: (plugins::API_MAJOR, plugins::API_MINOR),
+        prerelease,
+    }
+}
+
+/// The updates the index offers for a game's mods: in by themselves, waiting, held back.
+#[tauri::command]
+async fn mods_updates(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+) -> Result<openrac_launcher_core::mod_updates::UpdatePlan, ModError> {
+    let index = index_now(&app, &state, false).await?;
+    let prerelease = allow_prerelease(&app, &state);
+    let dir = plugins_dir(&state, &game).map_err(hub_error)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let installed = resolver::installed_mods(&dir, &game, &version);
+        openrac_launcher_core::mod_updates::plan(
+            &index,
+            &installed,
+            &remote::read_sources(&dir),
+            &here_for(&game, &version, prerelease),
+        )
+    })
+    .await
+    .map_err(hub_error)
+}
+
+/// Updates a game's mods from one fresh fetch of the index: the ones that go in by themselves, or
+/// with `ids` the ones the player clicked (waiting ones too). Refused while the game runs.
+#[tauri::command]
+async fn mods_auto_update(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    ids: Option<Vec<String>>,
+    running: bool,
+) -> Result<openrac_launcher_core::mod_updates::UpdateRun, ModError> {
+    use openrac_launcher_core::mod_updates;
+    if running {
+        return Err(ModError::new(ModErrorKind::UserFixable, "Mods are not updated while the game runs.")
+            .with(openrac_launcher_core::mod_error::ModAction::CloseGame));
+    }
+    let index = index_now(&app, &state, ids.is_none()).await?;
+    let prerelease = allow_prerelease(&app, &state);
+    let dir = plugins_dir(&state, &game).map_err(hub_error)?;
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let here = here_for(&game, &version, prerelease);
+        let installed = resolver::installed_mods(&dir, &game, &version);
+        let plan = mod_updates::plan(&index, &installed, &remote::read_sources(&dir), &here);
+        let items: Vec<mod_updates::UpdateItem> = match &ids {
+            None => plan.silent.clone(),
+            Some(ids) => plan.silent.iter().chain(&plan.waiting).filter(|i| ids.contains(&i.id)).cloned().collect(),
+        };
+        let data_home = openrac_launcher_core::saves::data_home();
+        let (updated, result) = with_remote(&handle, &dir, &game, &version, |ctx| {
+            mod_updates::apply(ctx, &index, &installed, &here, &items, false, &data_home)
+        })?;
+        Ok(mod_updates::UpdateRun { updated, plan, result: Some(result) })
+    })
+    .await
+    .map_err(hub_error)?
+}
+
+/// The last run of updates (for the crash notice's "Roll back").
+#[tauri::command]
+async fn mods_last_update(
+    state: State<'_, AppState>,
+    game: String,
+) -> Result<Option<openrac_launcher_core::mod_updates::LastUpdate>, String> {
+    on_plugins(state, &game, |dir| Ok(openrac_launcher_core::mod_updates::last_update(dir))).await
+}
+
+/// After a crash: the mod back at the version its update replaced, kept there.
+#[tauri::command]
+async fn mods_crash_rollback(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    id: String,
+) -> Result<Vec<PluginView>, String> {
+    let g = game.clone();
+    on_plugins(state, &game, move |dir| openrac_launcher_core::mod_updates::crash_rollback(dir, &g, &version, &id))
+        .await
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TurnedOn {
+    views: Vec<PluginView>,
+    /// The dependencies turned on with it, by name.
+    also_on: Vec<String>,
+}
+
+/// Switches a mod on with the dependencies it needs.
+#[tauri::command]
+async fn plugins_turn_on(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    id: String,
+) -> Result<TurnedOn, String> {
+    let g = game.clone();
+    let name = player_name(&state);
+    on_plugins(state, &game, move |dir| {
+        let (mut views, also_on) = plugins::turn_on(dir, &g, &version, &id)?;
+        plugins::show_player_name(&mut views, &name);
+        Ok(TurnedOn { views, also_on })
+    })
+    .await
+}
+
+/// The mods that are on and need this one: turning it off asks about them first.
+#[tauri::command]
+async fn plugins_dependents(
+    state: State<'_, AppState>,
+    game: String,
+    id: String,
+) -> Result<Vec<(String, String)>, String> {
+    on_plugins(state, &game, move |dir| plugins::dependents(dir, &id)).await
+}
+
+/// The dependencies removing this mod (or mod pack) leaves unused.
+#[tauri::command]
+async fn plugins_orphans(
+    state: State<'_, AppState>,
+    game: String,
+    id: String,
+) -> Result<Vec<openrac_launcher_core::mod_updates::Orphan>, String> {
+    on_plugins(state, &game, move |dir| Ok(openrac_launcher_core::mod_updates::orphans(dir, &id))).await
+}
+
+/// Removes a mod (or mod pack) and the unused dependencies in `also`.
+#[tauri::command]
+async fn plugins_remove_with(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    id: String,
+    also: Vec<String>,
+) -> Result<Vec<PluginView>, String> {
+    let g = game.clone();
+    let name = player_name(&state);
+    on_plugins(state, &game, move |dir| {
+        let mut left = openrac_launcher_core::mod_updates::remove_with(dir, &g, &version, &id, &also)?;
+        plugins::show_player_name(&mut left, &name);
+        Ok(left)
+    })
+    .await
 }
 
 /// Opens a folder inside a game's set-up folder (an export, the overrides): folders only, and
@@ -1726,6 +2105,18 @@ pub fn run() {
             plugins_update,
             plugins_sources,
             plugins_set_pin,
+            deeplink_parse,
+            index_fetch,
+            index_resolve,
+            index_apply,
+            mods_updates,
+            mods_auto_update,
+            mods_last_update,
+            mods_crash_rollback,
+            plugins_turn_on,
+            plugins_dependents,
+            plugins_orphans,
+            plugins_remove_with,
             open_game_folder,
             open_output,
             open_bake_log,
@@ -1794,15 +2185,23 @@ fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
     // first, as the plugin asks. Without it, on Linux the GTK application id (enableGTKAppId)
     // handed the second start to the first launcher, which set its window up again and stopped:
     // "a webview with label `main` already exists".
+    //
+    // With its deep-link feature, a second start's lone `openrac://` argument reaches the open
+    // launcher's page (onOpenUrl); a link after `--`, as the launcher's own entries pass it, is
+    // handed on here, by the same rule (forward_link).
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        forward_link(app, &args);
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.unminimize();
             let _ = window.show();
             let _ = window.set_focus();
         }
     }));
-    let builder = builder.plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_opener::init());
+    let builder = builder
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init());
     #[cfg(desktop)]
     let builder = builder.plugin(
         tauri_plugin_updater::Builder::new()
@@ -1840,8 +2239,68 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let discord = start_discord(&config);
     start_log(app, config_file.as_deref());
     migrate_install_saves(&config);
-    app.manage(AppState { config: Mutex::new(config), config_file, jobs: Jobs::default(), discord, bundled });
+    app.manage(AppState {
+        config: Mutex::new(config),
+        config_file,
+        jobs: Jobs::default(),
+        discord,
+        bundled,
+        mod_index: Mutex::new(None),
+    });
+    set_up_deep_links(app);
     Ok(())
+}
+
+/// A link after `--` in a start's arguments (`Exec=… -- %u`), handed to the deep-link plugin as
+/// it takes one: the program, then the link alone. Only the one argument after `--` that starts
+/// with openrac:// is taken (deeplink::link_from_args); any other argument means no link. A lone
+/// link is the plugin's own to read, by the same rule, so it is not handed on twice.
+#[cfg(desktop)]
+fn forward_link<R: tauri::Runtime>(app: &tauri::AppHandle<R>, args: &[String]) {
+    use tauri_plugin_deep_link::DeepLinkExt;
+    if args.get(1).map(String::as_str) != Some("--") {
+        return;
+    }
+    if let Some(link) = deeplink::link_from_args(args) {
+        let program = args.first().cloned().unwrap_or_default();
+        app.deep_link().handle_cli_arguments([program, link].iter());
+    }
+}
+
+/// openrac:// opens this launcher: registered at every start on Linux and Windows, so an
+/// AppImage, a portable copy or a dev run works too (macOS and Android register through the
+/// bundle). A link this start was given after `--` is read. Failures are logged, never fatal.
+#[cfg_attr(mobile, allow(unused_variables))]
+fn set_up_deep_links(app: &tauri::App) {
+    #[cfg(desktop)]
+    {
+        let args: Vec<String> = std::env::args().collect();
+        forward_link(app.handle(), &args);
+    }
+    #[cfg(any(target_os = "linux", windows))]
+    {
+        use tauri_plugin_deep_link::DeepLinkExt;
+        if let Err(e) = app.deep_link().register_all() {
+            launcher_log::line(&format!("openrac:// links could not be registered: {e}"));
+        }
+        // On Linux the launcher's own menu entry (desktop.rs, link after `--`) stays the handler.
+        #[cfg(target_os = "linux")]
+        openrac_launcher_core::desktop::claim_scheme();
+    }
+    // The plugin registers `"…" "%1"`; the launcher's own form puts the link after `--`.
+    #[cfg(windows)]
+    {
+        let fix = || -> Result<(), String> {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let key = windows_registry::CURRENT_USER
+                .create("Software\\Classes\\openrac\\shell\\open\\command")
+                .map_err(|e| e.to_string())?;
+            key.set_string("", format!("\"{}\" -- \"%1\"", exe.display())).map_err(|e| e.to_string())
+        };
+        if let Err(e) = fix() {
+            launcher_log::line(&format!("openrac:// handler could not be set: {e}"));
+        }
+    }
 }
 
 /// The menu entry and icons the desktop finds the launcher by, and Discord's socket where a

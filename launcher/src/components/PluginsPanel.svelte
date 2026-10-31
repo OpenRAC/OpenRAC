@@ -32,6 +32,9 @@
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
+  import { copyText } from "$lib/clipboard";
+  import { openChangeSet } from "$lib/deepLink.svelte";
+  import { shareLink } from "$lib/shareSetup";
 
   let {
     version: v,
@@ -250,10 +253,65 @@
     }
   }
 
+  /** On: with the dependencies it needs, said in a line. Off: the mods that need it are asked
+   *  about first, and turned off with it. */
+  async function setOn(mod: PluginView, on: boolean) {
+    if (on) {
+      try {
+        const turned = await api.pluginsTurnOn(v.game, v.name, mod.id);
+        mods = turned.views;
+        said = turned.alsoOn.length > 0 ? { text: T.alsoTurnedOn(turned.alsoOn), failed: false } : null;
+      } catch (e) {
+        said = { text: typeof e === "string" ? e : String(e), failed: true };
+        await load();
+      }
+      return;
+    }
+    const needers = await api.pluginsDependents(v.game, mod.id).catch(() => []);
+    if (needers.length > 0) {
+      if (
+        !(await ask(
+          T.turnOffAsk(
+            needers.map(([, name]) => name),
+            mod.name,
+          ),
+          T.DEPS.turnOffYes,
+        ))
+      ) {
+        await load();
+        return;
+      }
+      for (const [id] of needers) await api.pluginsSetEnabled(v.game, v.name, id, false).catch(() => undefined);
+    }
+    await change(api.pluginsSetEnabled(v.game, v.name, mod.id, false));
+  }
+
   async function remove(mod: PluginView) {
     if (!(await ask(T.removeConfirm(mod.name), T.PANEL.remove))) return;
     if (modNav.mod === mod.id) closeMod();
-    void change(api.pluginsRemove(v.game, v.name, mod.id));
+    // What only it needed: the launcher's own installs go (Clean up unused dependencies), the
+    // player's own are asked about.
+    const orphans = app.config?.cleanupUnusedDeps ? await api.pluginsOrphans(v.game, mod.id).catch(() => []) : [];
+    const also = orphans.filter((o) => o.auto).map((o) => o.id);
+    const mine = orphans.filter((o) => !o.auto);
+    if (mine.length > 0 && (await ask(T.removeDepsAsk(mine.map((o) => o.name)), T.DEPS.removeYes))) {
+      also.push(...mine.map((o) => o.id));
+    }
+    await change(api.pluginsRemoveWith(v.game, v.name, mod.id, also));
+    if (also.length > 0 && !said?.failed) said = { text: T.removedDeps(also.length), failed: false };
+  }
+
+  /** The mods that are on and in the index, as a link a friend installs the same set from. */
+  async function share() {
+    const index = await api.indexFetch().catch(() => null);
+    const ids = new Set(index?.index.mods.map((m) => m.id) ?? []);
+    const link = shareLink(mods, (id) => ids.has(id), v.game, v.name);
+    if (!link) {
+      said = { text: T.DEPS.shareNone, failed: true };
+      return;
+    }
+    const ok = await copyText(link, T.DEPS.shareRefused);
+    said = ok ? { text: T.DEPS.shareCopied, failed: false } : { text: T.DEPS.shareRefused, failed: true };
   }
 
   /** Saves one setting from the mod's page; the list as the core now has it. */
@@ -284,8 +342,7 @@
     {developer}
     updating={updating === mod.id}
     onsave={(key, value) => saveSetting(mod, key, value)}
-    onenable={(on) =>
-      void (isEnhanced(mod.id) ? setEnhanced(on) : change(api.pluginsSetEnabled(v.game, v.name, mod.id, on)))}
+    onenable={(on) => void (isEnhanced(mod.id) ? setEnhanced(on) : setOn(mod, on))}
     builtIn={isEnhanced(mod.id) && enhanced
       ? { bake: enhanced.bake, job: bakeJob, onbake: bake, ondelete: deleteBakes }
       : null}
@@ -302,6 +359,11 @@
   <section class="panel plugins" aria-label={T.PANEL.title}>
     <div class="head">
       <h2>{T.PANEL.title}</h2>
+      {#if mods.some((m) => m.enabled && !isEnhanced(m.id))}
+        <button class="small ghost" onclick={() => void share()}
+          ><Icon name="globe" size={14} />{T.DEPS.shareSetup}</button
+        >
+      {/if}
       {#if hasSources}
         {#if pending > 1}
           <button class="small" disabled={checking || updating !== null} onclick={() => void updateAll()}
@@ -374,7 +436,7 @@
               checked={mod.enabled}
               disabled={!mod.enabled && mod.blocked !== ""}
               title={!mod.enabled && mod.blocked ? hidePaths(mod.blocked).text : undefined}
-              onchange={(e) => void change(api.pluginsSetEnabled(v.game, v.name, mod.id, e.currentTarget.checked))}
+              onchange={(e) => void setOn(mod, e.currentTarget.checked)}
             />
             <button
               class="open"
@@ -395,6 +457,17 @@
                 >{hasSettings(mod) ? T.PANEL.settings : T.PANEL.details}<Icon name="next" size={16} /></span
               >
             </button>
+            {#if mod.missing?.length}
+              {@const missing = mod.missing}
+              <button
+                class="small"
+                onclick={() =>
+                  void openChangeSet(
+                    missing.map((id) => ({ id, version: null })),
+                    v.game,
+                  )}>{T.fixInstall(missing.join(", "))}</button
+              >
+            {/if}
             {#if update}
               <button
                 class="small update"

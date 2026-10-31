@@ -17,8 +17,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use openrac_launcher_core::{
-    actions, config, controls, detect, differences, disc_choice, discs, editor_state, enhanced, jobs, library,
-    overrides, pcsx2_card, plugins, remote, reports, reset, save_edit, saves, update,
+    actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_state, enhanced, index,
+    index_apply, jobs, library, mod_error, mod_updates, overrides, pcsx2_card, plugins, remote, reports, reset,
+    resolver, save_edit, saves, update,
 };
 use ts_rs::{Config, TS};
 
@@ -33,6 +34,8 @@ fn export_all(cfg: &Config) {
         config::Config,
         controls::ControlsView,
         controls::Scope,
+        deeplink::Install,
+        deeplink::WantedMod,
         detect::Tool,
         detect::Detected,
         detect::Check,
@@ -40,9 +43,18 @@ fn export_all(cfg: &Config) {
         disc_choice::DiscChoice,
         discs::FoundDisc,
         enhanced::EnhancedView,
+        index::IndexView,
+        index::RevokedOff,
+        index_apply::ApplyProgress,
+        index_apply::ApplyResult,
         jobs::Event,
         jobs::Started,
         library::Library,
+        mod_error::ModError,
+        mod_updates::LastUpdate,
+        mod_updates::Orphan,
+        mod_updates::UpdatePlan,
+        mod_updates::UpdateRun,
         overrides::PackView,
         openrac_launcher_core::mod_summary::ModLoadSummary,
         pcsx2_card::ImportedSaves,
@@ -55,6 +67,8 @@ fn export_all(cfg: &Config) {
         remote::Update,
         reports::ReportEntry,
         reset::Reset,
+        resolver::InstallPlan,
+        resolver::InstalledMod,
         editor_state::EditorState,
         reset::ResetDone,
         reset::ResetPreview,

@@ -1,0 +1,1411 @@
+{
+ "format": 1,
+ "serial": 1761904800,
+ "generated": "2026-10-31T10:00:00Z",
+ "expires": "2026-11-07T10:00:00Z",
+ "source": "https://github.com/OpenRAC/rac1-mods",
+ "media": "https://github.com/OpenRAC/rac1-mods/releases/download/index/",
+ "ports": {
+  "stable": {
+   "launcher": "0.10.1",
+   "api": "1.10"
+  },
+  "dev": {
+   "launcher": "0.11.0-dev.42",
+   "api": "1.11"
+  }
+ },
+ "tags": [
+  "gameplay",
+  "controls",
+  "cosmetic",
+  "qol",
+  "speedrun",
+  "randomizer",
+  "multiplayer",
+  "accessibility",
+  "camera",
+  "audio",
+  "ui",
+  "tools"
+ ],
+ "mods": [
+  {
+   "id": "ammo-max",
+   "name": "Ammo max",
+   "author": "OpenRAC contributors",
+   "description": "Raises every weapon's ammo cap. Revoked 1.0.0 broke saves.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/ammo-max",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "ammo-max",
+   "type": "script",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "gameplay"
+   ],
+   "impact": [
+    "gameplay",
+    "touches-saves"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 700,
+   "downloads7d": 20,
+   "created": "2026-10-01T12:00:00Z",
+   "updated": "2026-10-10T12:00:00Z",
+   "featured": false,
+   "recommends": [],
+   "suggests": [],
+   "readme": "# Ammo max\n\nRaises every weapon's ammo cap. Revoked 1.0.0 broke saves.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "a3e5b83a275b",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Ammo max icon"
+    },
+    "banner": {
+     "hash": "3e0b1a645f59",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Ammo max banner"
+    },
+    "screenshots": [
+     {
+      "hash": "3de6735924fc",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Ammo max screenshot 1",
+      "caption": "Ammo max in action 1"
+     },
+     {
+      "hash": "e20fb860ddbd",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Ammo max screenshot 2",
+      "caption": "Ammo max in action 2"
+     }
+    ],
+    "videos": []
+   },
+   "versions": [
+    {
+     "version": "1.0.1",
+     "api": "1.1",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "ammo-max-v1.0.1",
+     "released": "2026-10-10T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.0.1\n\n- Changes for 1.0.1.",
+     "size": 12000,
+     "files": [
+      "openrac-mod.json",
+      "main.luau"
+     ],
+     "platforms": {
+      "any": {
+       "asset": "ammo-max-1.0.1.zip",
+       "sha256": "6175b05b40317a85c4c8eb5e29ff8261319ed2d167255dfa6562757d2a864eb7",
+       "size": 12000
+      }
+     }
+    },
+    {
+     "version": "1.0.0",
+     "api": "1.1",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "ammo-max-v1.0.0",
+     "released": "2026-10-01T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.0.0\n\n- Changes for 1.0.0.",
+     "size": 12000,
+     "files": [
+      "openrac-mod.json",
+      "main.luau"
+     ],
+     "platforms": {
+      "any": {
+       "asset": "ammo-max-1.0.0.zip",
+       "sha256": "d5fa840f310df28f3941fbf2ddadf9f3d3c6d32ba3e2e4b9e8f3ef9bd7d55bed",
+       "size": 12000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "archipelago",
+   "name": "Archipelago",
+   "author": "OpenRAC contributors",
+   "description": "Play Ratchet & Clank in an Archipelago multiworld with other games.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/archipelago",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "archipelago",
+   "type": "native",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "randomizer",
+    "multiplayer"
+   ],
+   "impact": [
+    "gameplay",
+    "online",
+    "touches-saves"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 800,
+   "downloads7d": 400,
+   "created": "2026-10-30T12:00:00Z",
+   "updated": "2026-10-30T12:00:00Z",
+   "featured": false,
+   "recommends": [],
+   "suggests": [],
+   "readme": "# Archipelago\n\nPlay Ratchet & Clank in an Archipelago multiworld with other games.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "7c4840c8bc30",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Archipelago icon"
+    },
+    "banner": {
+     "hash": "25a547872599",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Archipelago banner"
+    },
+    "screenshots": [
+     {
+      "hash": "05e292960885",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Archipelago screenshot 1",
+      "caption": "Archipelago in action 1"
+     },
+     {
+      "hash": "be25f8e054f9",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Archipelago screenshot 2",
+      "caption": "Archipelago in action 2"
+     }
+    ],
+    "videos": []
+   },
+   "versions": [
+    {
+     "version": "0.3.0",
+     "api": "1.11",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [
+      {
+       "id": "item-randomizer",
+       "version": ">=1.4.0"
+      }
+     ],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "archipelago-v0.3.0",
+     "released": "2026-10-30T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 0.3.0\n\n- Changes for 0.3.0.",
+     "size": 814000,
+     "files": [
+      "openrac-mod.json",
+      "lib/linux-x86_64/archipelago.so",
+      "lib/windows-x86_64/archipelago.dll",
+      "lib/macos-arm64/archipelago.dylib"
+     ],
+     "platforms": {
+      "linux-x86_64": {
+       "asset": "archipelago-0.3.0-linux-x86_64.zip",
+       "sha256": "1b57f137e11b3981b14450c73d028bd83c4c77faba73c1948b3014b45782c63c",
+       "size": 812000
+      },
+      "windows-x86_64": {
+       "asset": "archipelago-0.3.0-windows-x86_64.zip",
+       "sha256": "da7c32367bc853abbfa499449d6f1ad77c84a5e89c680c7b9f7de8ac5b1630b1",
+       "size": 814000
+      },
+      "macos-arm64": {
+       "asset": "archipelago-0.3.0-macos-arm64.zip",
+       "sha256": "c0f44bd83a9fbf5d6c03e37955459e6f620a0effaff0fda445d804f5f64ef816",
+       "size": 811000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "camera-base",
+   "name": "Camera base",
+   "author": "OpenRAC contributors",
+   "description": "Shared camera helpers other mods build on.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/camera-base",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "camera-base",
+   "type": "script",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "camera",
+    "tools"
+   ],
+   "impact": [
+    "cosmetic"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 900,
+   "downloads7d": 40,
+   "created": "2026-08-01T12:00:00Z",
+   "updated": "2026-09-10T12:00:00Z",
+   "featured": false,
+   "recommends": [],
+   "suggests": [],
+   "readme": "# Camera base\n\nShared camera helpers other mods build on.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "c6bf3d641933",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Camera base icon"
+    },
+    "banner": {
+     "hash": "a26a765ffc4f",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Camera base banner"
+    },
+    "screenshots": [
+     {
+      "hash": "327741f6d320",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Camera base screenshot 1",
+      "caption": "Camera base in action 1"
+     },
+     {
+      "hash": "bef8bb0e6777",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Camera base screenshot 2",
+      "caption": "Camera base in action 2"
+     }
+    ],
+    "videos": []
+   },
+   "versions": [
+    {
+     "version": "1.2.0",
+     "api": "1.1",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "camera-base-v1.2.0",
+     "released": "2026-09-10T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.2.0\n\n- Changes for 1.2.0.",
+     "size": 12000,
+     "files": [
+      "openrac-mod.json",
+      "main.luau"
+     ],
+     "platforms": {
+      "any": {
+       "asset": "camera-base-1.2.0.zip",
+       "sha256": "207e82b780454f99a1397cd37d0b47f7a7cf19a0aee287e987eac2397373a389",
+       "size": 12000
+      }
+     }
+    },
+    {
+     "version": "1.1.0",
+     "api": "1.1",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "camera-base-v1.1.0",
+     "released": "2026-08-01T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.1.0\n\n- Changes for 1.1.0.",
+     "size": 12000,
+     "files": [
+      "openrac-mod.json",
+      "main.luau"
+     ],
+     "platforms": {
+      "any": {
+       "asset": "camera-base-1.1.0.zip",
+       "sha256": "e936b842d562cd65b68d85c9b150e5e7de0de60ce9553347957e459cabbb2bbe",
+       "size": 12000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "camera-tweaks",
+   "name": "Camera tweaks",
+   "author": "OpenRAC contributors",
+   "description": "Smoother camera with adjustable distance and field of view.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/camera-tweaks",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "camera-tweaks",
+   "type": "script",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "camera",
+    "qol"
+   ],
+   "impact": [
+    "cosmetic",
+    "speedrun-safe"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 1500,
+   "downloads7d": 120,
+   "created": "2026-10-01T12:00:00Z",
+   "updated": "2026-10-01T12:00:00Z",
+   "featured": false,
+   "recommends": [
+    "xbox-icons"
+   ],
+   "suggests": [],
+   "readme": "# Camera tweaks\n\nSmoother camera with adjustable distance and field of view.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "4a4c065fedc7",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Camera tweaks icon"
+    },
+    "banner": {
+     "hash": "4ae75d3b859b",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Camera tweaks banner"
+    },
+    "screenshots": [
+     {
+      "hash": "b6a5ca983ed8",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Camera tweaks screenshot 1",
+      "caption": "Camera tweaks in action 1"
+     },
+     {
+      "hash": "4bf48411e013",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Camera tweaks screenshot 2",
+      "caption": "Camera tweaks in action 2"
+     }
+    ],
+    "videos": []
+   },
+   "versions": [
+    {
+     "version": "2.0.0",
+     "api": "1.2",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [
+      {
+       "id": "camera-base",
+       "version": ">=1.1.0"
+      }
+     ],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "camera-tweaks-v2.0.0",
+     "released": "2026-10-01T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 2.0.0\n\n- Changes for 2.0.0.",
+     "size": 12000,
+     "files": [
+      "openrac-mod.json",
+      "main.luau"
+     ],
+     "platforms": {
+      "any": {
+       "asset": "camera-tweaks-2.0.0.zip",
+       "sha256": "5c817833f6633f7823ae75d60b4663467014d25b62cc3a0848eba28a84375c33",
+       "size": 12000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "classic-controls",
+   "name": "Classic controls",
+   "author": "OpenRAC contributors",
+   "description": "Restores the original strafe-less control scheme with remappable buttons.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/classic-controls",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "classic-controls",
+   "type": "script",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "controls"
+   ],
+   "impact": [
+    "gameplay"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 400,
+   "downloads7d": 5,
+   "created": "2026-07-01T12:00:00Z",
+   "updated": "2026-07-01T12:00:00Z",
+   "featured": false,
+   "recommends": [],
+   "suggests": [],
+   "readme": "# Classic controls\n\nRestores the original strafe-less control scheme with remappable buttons.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "55b89a7ceb29",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Classic controls icon"
+    },
+    "banner": {
+     "hash": "62d2b923079a",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Classic controls banner"
+    },
+    "screenshots": [
+     {
+      "hash": "d41ddca4980c",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Classic controls screenshot 1",
+      "caption": "Classic controls in action 1"
+     },
+     {
+      "hash": "62c0b235f4c0",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Classic controls screenshot 2",
+      "caption": "Classic controls in action 2"
+     }
+    ],
+    "videos": []
+   },
+   "versions": [
+    {
+     "version": "1.0.0",
+     "api": "1.1",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [
+      {
+       "id": "lock-strafe",
+       "reason": "both take L2 and R2"
+      }
+     ],
+     "hooks": [],
+     "tag": "classic-controls-v1.0.0",
+     "released": "2026-07-01T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.0.0\n\n- Changes for 1.0.0.",
+     "size": 12000,
+     "files": [
+      "openrac-mod.json",
+      "main.luau"
+     ],
+     "platforms": {
+      "any": {
+       "asset": "classic-controls-1.0.0.zip",
+       "sha256": "cf4890f858ea2b77a628128f3932ad5c0cb2468a75da2d920b6d5687f6649f3c",
+       "size": 12000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "item-randomizer",
+   "name": "Item randomizer",
+   "author": "OpenRAC contributors",
+   "description": "Shuffles gadgets, weapons and gold bolts with a seed you can share.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/item-randomizer",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "item-randomizer",
+   "type": "native",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "randomizer",
+    "gameplay"
+   ],
+   "impact": [
+    "gameplay",
+    "touches-saves"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 5100,
+   "downloads7d": 640,
+   "created": "2026-09-01T12:00:00Z",
+   "updated": "2026-10-29T12:00:00Z",
+   "featured": true,
+   "recommends": [],
+   "suggests": [],
+   "readme": "# Item randomizer\n\nShuffles gadgets, weapons and gold bolts with a seed you can share.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "713602e4840c",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Item randomizer icon"
+    },
+    "banner": {
+     "hash": "56d25ade977a",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Item randomizer banner"
+    },
+    "screenshots": [
+     {
+      "hash": "180a845b5eed",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Item randomizer screenshot 1",
+      "caption": "Item randomizer in action 1"
+     },
+     {
+      "hash": "366e282681a9",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Item randomizer screenshot 2",
+      "caption": "Item randomizer in action 2"
+     },
+     {
+      "hash": "17ad3b63417f",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Item randomizer screenshot 3",
+      "caption": "Item randomizer in action 3"
+     }
+    ],
+    "videos": [
+     {
+      "youtube": "aqz-KE-bpKQ",
+      "title": "Item randomizer trailer",
+      "caption": "Trailer",
+      "uploaded": "2026-09-01"
+     }
+    ]
+   },
+   "versions": [
+    {
+     "version": "2.0.0-beta.1",
+     "api": "1.11",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "item-randomizer-v2.0.0-beta.1",
+     "released": "2026-10-29T12:00:00Z",
+     "prerelease": true,
+     "changelog": "## 2.0.0-beta.1\n\n- Changes for 2.0.0-beta.1.",
+     "size": 814000,
+     "files": [
+      "openrac-mod.json",
+      "lib/linux-x86_64/item_randomizer.so",
+      "lib/windows-x86_64/item_randomizer.dll",
+      "lib/macos-arm64/item_randomizer.dylib"
+     ],
+     "platforms": {
+      "linux-x86_64": {
+       "asset": "item-randomizer-2.0.0-beta.1-linux-x86_64.zip",
+       "sha256": "120608567d8e59c892bb468fe62ddc56978e6d0a83a9d6747f5d276cf5e81d5c",
+       "size": 812000
+      },
+      "windows-x86_64": {
+       "asset": "item-randomizer-2.0.0-beta.1-windows-x86_64.zip",
+       "sha256": "b9282744eef2afdbfbbaf6e38b7f5538eb3f90868c2c52cf130361c23718955c",
+       "size": 814000
+      },
+      "macos-arm64": {
+       "asset": "item-randomizer-2.0.0-beta.1-macos-arm64.zip",
+       "sha256": "2be906ff849887a59f8a939aa1dacb07614ce2f310bd87473722d423c1e6543c",
+       "size": 811000
+      }
+     }
+    },
+    {
+     "version": "1.4.0",
+     "api": "1.11",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "item-randomizer-v1.4.0",
+     "released": "2026-10-25T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.4.0\n\n- Changes for 1.4.0.",
+     "size": 814000,
+     "files": [
+      "openrac-mod.json",
+      "lib/linux-x86_64/item_randomizer.so",
+      "lib/windows-x86_64/item_randomizer.dll",
+      "lib/macos-arm64/item_randomizer.dylib"
+     ],
+     "platforms": {
+      "linux-x86_64": {
+       "asset": "item-randomizer-1.4.0-linux-x86_64.zip",
+       "sha256": "e973dd45912fff4d09063c07bc80f09f2568e54a35a14877c12b383dc80d5e9b",
+       "size": 812000
+      },
+      "windows-x86_64": {
+       "asset": "item-randomizer-1.4.0-windows-x86_64.zip",
+       "sha256": "1cc0eb4e698e5ca6c229902ce4dc1acef643e8ec3f72d078e324db830647020c",
+       "size": 814000
+      },
+      "macos-arm64": {
+       "asset": "item-randomizer-1.4.0-macos-arm64.zip",
+       "sha256": "43e892c92257cf8561464cae247e143677779128602110ae6cf234e5f3a35d88",
+       "size": 811000
+      }
+     }
+    },
+    {
+     "version": "1.3.0",
+     "api": "1.9",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "item-randomizer-v1.3.0",
+     "released": "2026-09-01T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.3.0\n\n- Changes for 1.3.0.",
+     "size": 814000,
+     "files": [
+      "openrac-mod.json",
+      "lib/linux-x86_64/item_randomizer.so",
+      "lib/windows-x86_64/item_randomizer.dll",
+      "lib/macos-arm64/item_randomizer.dylib"
+     ],
+     "platforms": {
+      "linux-x86_64": {
+       "asset": "item-randomizer-1.3.0-linux-x86_64.zip",
+       "sha256": "aadd9de3ce0a9357102f3571e46aeb6c052867b4c4687fe5f2889aec2112dcb5",
+       "size": 812000
+      },
+      "windows-x86_64": {
+       "asset": "item-randomizer-1.3.0-windows-x86_64.zip",
+       "sha256": "a87cf4494f3bb4bae026939596e30ebb3ccf41c141418f28aa9caefa5a371fcb",
+       "size": 814000
+      },
+      "macos-arm64": {
+       "asset": "item-randomizer-1.3.0-macos-arm64.zip",
+       "sha256": "ec51d1990aa7f681b596d8854d0b2a55e265d4964c9b9dc9baf7ce96f2481c44",
+       "size": 811000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "lock-strafe",
+   "name": "Lock-strafe",
+   "author": "OpenRAC contributors",
+   "description": "Strafe as in the later games: hold L2 or R2 to lock your facing.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/lock-strafe",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "lock-strafe",
+   "type": "native",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "gameplay",
+    "controls"
+   ],
+   "impact": [
+    "gameplay"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 3412,
+   "downloads7d": 210,
+   "created": "2026-09-15T12:00:00Z",
+   "updated": "2026-10-20T12:00:00Z",
+   "featured": true,
+   "recommends": [
+    "camera-tweaks"
+   ],
+   "suggests": [
+    "xbox-icons"
+   ],
+   "readme": "# Lock-strafe\n\nStrafe as in the later games: hold L2 or R2 to lock your facing.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "4865db9e1df4",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Lock-strafe icon"
+    },
+    "banner": {
+     "hash": "58b0e1d2619c",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Lock-strafe banner"
+    },
+    "screenshots": [
+     {
+      "hash": "7d98c6169fe7",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Lock-strafe screenshot 1",
+      "caption": "Lock-strafe in action 1"
+     },
+     {
+      "hash": "b6d33d6b22f2",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Lock-strafe screenshot 2",
+      "caption": "Lock-strafe in action 2"
+     },
+     {
+      "hash": "dd5605ce4759",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Lock-strafe screenshot 3",
+      "caption": "Lock-strafe in action 3"
+     }
+    ],
+    "videos": [
+     {
+      "youtube": "dQw4w9WgXcQ",
+      "title": "Lock-strafe trailer",
+      "caption": "Trailer",
+      "uploaded": "2026-09-01"
+     }
+    ]
+   },
+   "versions": [
+    {
+     "version": "1.2.0",
+     "api": "1.0",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [
+      {
+       "id": "camera-tweaks",
+       "version": ">=2.0.0"
+      }
+     ],
+     "conflicts": [
+      {
+       "id": "classic-controls",
+       "reason": "both take L2 and R2"
+      }
+     ],
+     "hooks": [
+      "rac1.pad.process_report",
+      "rac1.player.turn_to_heading"
+     ],
+     "tag": "lock-strafe-v1.2.0",
+     "released": "2026-10-20T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.2.0\n\n- Changes for 1.2.0.",
+     "size": 814000,
+     "files": [
+      "openrac-mod.json",
+      "lib/linux-x86_64/lock_strafe.so",
+      "lib/windows-x86_64/lock_strafe.dll",
+      "lib/macos-arm64/lock_strafe.dylib"
+     ],
+     "platforms": {
+      "linux-x86_64": {
+       "asset": "lock-strafe-1.2.0-linux-x86_64.zip",
+       "sha256": "80bb3bc7e7d42493b3fd1236918c2ca95c4413e9bf620e949e8b708476f21bc4",
+       "size": 812000
+      },
+      "windows-x86_64": {
+       "asset": "lock-strafe-1.2.0-windows-x86_64.zip",
+       "sha256": "5972338a829d983bd386938e9d9d5d2ddf90faf2b61585599868b6c21c8e8511",
+       "size": 814000
+      },
+      "macos-arm64": {
+       "asset": "lock-strafe-1.2.0-macos-arm64.zip",
+       "sha256": "81555090626882fa6f0d9b4e7366000a946f8fdac5c47d00809f419bc98b6565",
+       "size": 811000
+      }
+     }
+    },
+    {
+     "version": "1.1.0",
+     "api": "1.0",
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "lock-strafe-v1.1.0",
+     "released": "2026-09-15T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.1.0\n\n- Changes for 1.1.0.",
+     "size": 814000,
+     "files": [
+      "openrac-mod.json",
+      "lib/linux-x86_64/lock_strafe.so",
+      "lib/windows-x86_64/lock_strafe.dll",
+      "lib/macos-arm64/lock_strafe.dylib"
+     ],
+     "platforms": {
+      "linux-x86_64": {
+       "asset": "lock-strafe-1.1.0-linux-x86_64.zip",
+       "sha256": "fb54027362aff049624f345e74db3d2c82a399327114036420b0d6ef73dbd087",
+       "size": 812000
+      },
+      "windows-x86_64": {
+       "asset": "lock-strafe-1.1.0-windows-x86_64.zip",
+       "sha256": "f051cb9c9cdf8a4ee670fb72a857d16e7b01a9b471d0e5a4aa398d2191e4f6a4",
+       "size": 814000
+      },
+      "macos-arm64": {
+       "asset": "lock-strafe-1.1.0-macos-arm64.zip",
+       "sha256": "40c825e78c5b97ffb0fb2b87dcadc95387bd2f2290383b7052d634979a697797",
+       "size": 811000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "randomizer-pack",
+   "name": "Randomizer night",
+   "author": "Community",
+   "description": "Everything for a randomizer run: the randomizer, camera tweaks and Xbox icons.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "",
+   "type": "pack",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "randomizer"
+   ],
+   "impact": [
+    "gameplay"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 120,
+   "downloads7d": 90,
+   "created": "2026-10-30T18:00:00Z",
+   "updated": "2026-10-30T18:00:00Z",
+   "featured": false,
+   "recommends": [],
+   "suggests": [],
+   "readme": "# Randomizer night\n\nEverything for a randomizer run: the randomizer, camera tweaks and Xbox icons.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "e87cb058046f",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Randomizer night icon"
+    },
+    "banner": {
+     "hash": "a15af004c1e6",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Randomizer night banner"
+    },
+    "screenshots": [
+     {
+      "hash": "11ef32c54687",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Randomizer night screenshot 1",
+      "caption": "Randomizer night in action 1"
+     },
+     {
+      "hash": "8578843ca5c5",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Randomizer night screenshot 2",
+      "caption": "Randomizer night in action 2"
+     }
+    ],
+    "videos": []
+   },
+   "versions": [
+    {
+     "version": "1.0.0",
+     "api": null,
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [
+      {
+       "id": "item-randomizer",
+       "version": ">=1.4.0"
+      },
+      {
+       "id": "camera-tweaks",
+       "version": ">=2.0.0"
+      },
+      {
+       "id": "xbox-icons"
+      }
+     ],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "",
+     "released": "2026-10-30T18:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.0.0\n\n- Changes for 1.0.0.",
+     "size": 0,
+     "files": [],
+     "platforms": {}
+    }
+   ]
+  },
+  {
+   "id": "xbox-icons",
+   "name": "Xbox icons",
+   "author": "OpenRAC contributors",
+   "description": "Shows Xbox button icons instead of PlayStation ones.",
+   "license": "MIT",
+   "homepage": "https://github.com/OpenRAC/rac1-mods/tree/master/xbox-icons",
+   "repo": "https://github.com/OpenRAC/rac1-mods",
+   "path": "xbox-icons",
+   "type": "data",
+   "games": {
+    "rac1": [
+     "pal",
+     "ntsc"
+    ]
+   },
+   "tags": [
+    "ui",
+    "cosmetic"
+   ],
+   "impact": [
+    "cosmetic",
+    "speedrun-safe"
+   ],
+   "aliases": [],
+   "links": {
+    "bugs": "https://github.com/OpenRAC/rac1-mods/issues"
+   },
+   "downloads": 2200,
+   "downloads7d": 300,
+   "created": "2026-10-28T12:00:00Z",
+   "updated": "2026-10-28T12:00:00Z",
+   "featured": true,
+   "recommends": [],
+   "suggests": [],
+   "readme": "# Xbox icons\n\nShows Xbox button icons instead of PlayStation ones.\n\n## Settings\n\nNone yet.\n",
+   "media": {
+    "icon": {
+     "hash": "738e9b4a38cb",
+     "widths": [
+      256
+     ],
+     "width": 256,
+     "height": 256,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Xbox icons icon"
+    },
+    "banner": {
+     "hash": "971a74aa7507",
+     "widths": [
+      480,
+      960,
+      1600
+     ],
+     "width": 1600,
+     "height": 686,
+     "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+     "alt": "Xbox icons banner"
+    },
+    "screenshots": [
+     {
+      "hash": "4f9e08740bcb",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Xbox icons screenshot 1",
+      "caption": "Xbox icons in action 1"
+     },
+     {
+      "hash": "6d675ea9249e",
+      "widths": [
+       480,
+       960,
+       1600
+      ],
+      "width": 1600,
+      "height": 900,
+      "thumbhash": "3OcRJYB4d3h/iIeHeEh3eIhw+j3A",
+      "alt": "Xbox icons screenshot 2",
+      "caption": "Xbox icons in action 2"
+     }
+    ],
+    "videos": []
+   },
+   "versions": [
+    {
+     "version": "1.0.3",
+     "api": null,
+     "games": {
+      "rac1": [
+       "pal",
+       "ntsc"
+      ]
+     },
+     "requires": [],
+     "conflicts": [],
+     "hooks": [],
+     "tag": "xbox-icons-v1.0.3",
+     "released": "2026-10-28T12:00:00Z",
+     "prerelease": false,
+     "changelog": "## 1.0.3\n\n- Changes for 1.0.3.",
+     "size": 0,
+     "files": [],
+     "platforms": {}
+    }
+   ]
+  }
+ ],
+ "revoked": [
+  {
+   "id": "ammo-max",
+   "versions": [
+    "1.0.0"
+   ],
+   "reason": "1.0.0 could corrupt save files. Use 1.0.1."
+  }
+ ]
+}

@@ -93,6 +93,19 @@ pub struct Config {
     /// Not saved with the settings: the app sets it at every start.
     #[serde(skip)]
     pub progress_cache: Option<PathBuf>,
+    /// The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
+    pub mod_indexes: Vec<String>,
+    /// Offer pre-release versions of mods. Unset: on for the dev channel, off for releases.
+    pub prerelease_mods: Option<bool>,
+    /// An install link kept across "Switch to the dev build": its change set opens after the
+    /// restart (src/lib/deepLink.svelte.ts), then it is cleared.
+    pub pending_deep_link: Option<String>,
+    /// Update mods from the index by themselves (mod_updates.rs): patch and minor versions at
+    /// start, every 6 hours and before each game start; majors wait for a click (default true).
+    pub auto_update_mods: bool,
+    /// Removing a mod removes the dependencies the launcher installed for it that nothing else
+    /// needs (default true); the player's own are asked about.
+    pub cleanup_unused_deps: bool,
 }
 
 impl Default for Config {
@@ -124,6 +137,11 @@ impl Default for Config {
             disc_choice: BTreeMap::new(),
             multiplayer_name: String::new(),
             progress_cache: None,
+            mod_indexes: Vec::new(),
+            prerelease_mods: None,
+            pending_deep_link: None,
+            auto_update_mods: true,
+            cleanup_unused_deps: true,
         }
     }
 }
@@ -204,6 +222,16 @@ mod tests {
         save(&path, &Config { check_mod_updates: false, ..Config::default() }).unwrap();
         assert!(!load(&path).check_mod_updates);
         assert!(std::fs::read_to_string(&path).unwrap().contains("\"checkModUpdates\": false"));
+    }
+
+    /// A settings file from before the mod hub updates mods and cleans up after them.
+    #[test]
+    fn mods_update_and_clean_up_by_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
+        let c = load(&path);
+        assert!(c.auto_update_mods && c.cleanup_unused_deps);
     }
 
     /// A settings file from before the renderer choice draws with OpenGL; Vulkan, chosen, is kept.

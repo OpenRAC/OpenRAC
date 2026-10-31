@@ -400,3 +400,265 @@ export const ASSETS = {
   readStopped: "Reading the levels stopped. The activity log has what it said.",
   exported: (level: string) => `Exported ${level}: the folder is opening.`,
 } as const;
+
+// ---- The mod hub: the change set (DeepLinkInstall.svelte) and Browse (ModBrowse.svelte) ------
+// Each message says what happened, why if known, and what to do, in two short sentences at most,
+// with no code in it (core/src/mod_error.rs gives the kind; `detail` stays in "Copy details").
+
+import type { ModError, PlanNote, Why } from "./api";
+
+const list = (names: string[]) =>
+  names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
+export const CHANGE_SET = {
+  title: "Install mods",
+  loading: "Reading the mod list…",
+  picked: "You picked",
+  alsoInstalls: "Also installs",
+  alreadyHave: "Already installed",
+  recommended: "Recommended",
+  suggested: "You might also like",
+  cancel: "Cancel",
+  backToMods: "Back to mods",
+  play: "Play ▸",
+  switchToDev: "Switch to the dev build",
+  retry: "Try again",
+  useCached: "Use the saved list",
+  report: "Report a problem",
+  copyDetails: "Copy details",
+  working: "Installing…",
+  closeAria: "Close",
+  backedUp: "Your saves were backed up first.",
+  blocked: "Fix what's above to install.",
+} as const;
+
+export const installCount = (n: number) => (n === 1 ? "Install 1 mod" : `Install ${n} mods`);
+export const alsoCount = (n: number) => (n === 1 ? "and 1 it needs" : `and ${n} they need`);
+export const updateFrom = (from: string, to: string) => `${from} → ${to}`;
+export const neededBy = (names: string[]) => `Needed by ${list(names)}`;
+export const offeredBy = (name: string) => `Suggested by ${name}`;
+
+/** The one native-code warning of a change set, naming the mods. */
+export function nativeWarning(names: string[]): string {
+  const verb = names.length === 1 ? "runs" : "run";
+  return `${list(names)} ${verb} code on this computer, outside the game's sandbox. Install only mods you trust.`;
+}
+
+export const STEP_LABEL = {
+  waiting: { text: "Waiting", tone: "off" },
+  installing: { text: "Installing", tone: "warn" },
+  done: { text: "Installed", tone: "ok" },
+  failed: { text: "Failed", tone: "err" },
+} as const satisfies Record<string, Label>;
+
+export function noteText(n: PlanNote): string {
+  switch (n.kind) {
+    case "olderForApi":
+      return `${n.name} ${n.newest} needs the dev build (mod API ${n.api}). Installing ${n.picked}, the latest for your release.`;
+    case "pack":
+      return `${n.name} is a set: it installs ${n.mods.length} mods.`;
+    case "online":
+      return `${n.name} plays online: friends need the same mods to play with you.`;
+    case "touchesSaves":
+      return `${n.name} changes save files. Your saves are backed up before it's first turned on.`;
+    case "revokedSkipped":
+      return `${n.name} ${n.version} was withdrawn (${n.reason}). An earlier version is installed.`;
+  }
+}
+
+/** Why no version of a mod can be installed. */
+export function whyText(name: string, why: Why): string {
+  switch (why.kind) {
+    case "notForGame":
+      return `${name} isn't made for this game.`;
+    case "notForDisc":
+      return `${name} doesn't work with this disc (${why.disc.toUpperCase()}).`;
+    case "notForPlatform":
+      return `${name} isn't built for this system yet.`;
+    case "needsNewerApi":
+      return `${name} needs a newer launcher (mod API ${why.api}).`;
+    case "clash": {
+      const by = why.wants.map((w) => `${w.by || "you"} ${w.version ?? "any"}`);
+      return `Can't install ${name}: no version fits ${list(by)}.`;
+    }
+    case "cycle":
+      return `${list(why.ids)} need each other, so none can install first.`;
+    case "revoked":
+      return `${name} was withdrawn: ${why.reason}`;
+    case "onlyPrerelease":
+      return `${name} has only test versions. Turn on Pre-release mods in Settings to get it.`;
+  }
+}
+
+export const missingText = (id: string, by: string | null) =>
+  by ? `${by} needs ${id}, which isn't in the mod list.` : `${id} isn't in the mod list.`;
+
+export const conflictText = (name: string, withName: string, reason: string) =>
+  `${name} can't be on with ${withName}${reason ? `: ${reason}` : ""}.`;
+export const replaceWith = (withName: string, name: string) => `Replace ${withName} with ${name}`;
+
+/** A mod hub error's headline, by its kind: never its detail. */
+export function modErrorText(e: ModError): string {
+  switch (e.kind) {
+    case "transient":
+      return "Couldn't reach the mod list. Check your connection and try again.";
+    case "upstreamBad":
+      return e.modId
+        ? `${e.modId} couldn't be verified, so it wasn't installed. Nothing else changed.`
+        : "The mod list couldn't be verified, so it isn't used.";
+    case "userFixable":
+      return e.detail;
+    case "notFound":
+      return e.modId ? `${e.modId} isn't there any more.` : "That mod isn't in the mod list.";
+    case "bug":
+      return "Something went wrong in the launcher. Copy the details and tell us.";
+  }
+}
+
+export function appliedText(done: number, total: number, failed: string | null): string {
+  if (failed) return `Installed ${done} of ${total}. ${failed} failed; the others are on.`;
+  return done === 1 ? "Installed 1 mod. It's on." : `Installed ${done} mods. They're on.`;
+}
+
+export const INDEX_STATE = {
+  stale: "The mod list is out of date.",
+  newerFormat: "Update the launcher to see new mods.",
+} as const;
+
+export function offlineText(fetchedAt: number, now = Date.now() / 1000): string {
+  const hours = Math.max(0, Math.round((now - fetchedAt) / 3600));
+  if (fetchedAt === 0) return "Showing the saved mod list.";
+  if (hours < 1) return "Showing the mod list from less than an hour ago.";
+  if (hours < 48) return `Showing the mod list from ${hours} ${hours === 1 ? "hour" : "hours"} ago.`;
+  return `Showing the mod list from ${Math.round(hours / 24)} days ago.`;
+}
+
+export const revokedOffText = (name: string, version: string, reason: string) =>
+  `${name} ${version} was turned off: ${reason}`;
+
+export const BROWSE = {
+  tabTitle: "Browse",
+  search: "Search mods",
+  searchHint: "/",
+  presetsLabel: "Show",
+  name: "Name",
+  author: "Author",
+  version: "Version",
+  downloads: "Downloads",
+  install: "Install",
+  installed: "Installed",
+  notHere: "Doesn't work here",
+  devOnly: "Dev build only",
+  clearFilters: "Clear filters",
+  viewOnSite: "View on openrac.dev",
+  watch: "Watch on YouTube",
+  noReadme: "No description yet.",
+  noVersions: "No versions.",
+  noFiles: "No files listed.",
+  requires: "Needs",
+  conflicts: "Can't be on with",
+  recommends: "Recommends",
+  suggests: "Suggests",
+  nothing: "None",
+  license: "License",
+  tags: "Tags",
+  updated: "Updated",
+  impact: "Impact",
+  detailsAria: "Mod details",
+  failed: "The mod list couldn't be loaded.",
+  empty: "No mods in this list yet.",
+} as const;
+
+export const PRESET_LABEL = {
+  compatible: "Compatible",
+  installed: "Installed",
+  upgradeable: "Upgradeable",
+  notInstalled: "Not installed",
+  all: "All",
+} as const;
+
+export const DETAIL_TAB = {
+  metadata: "Metadata",
+  relationships: "Relationships",
+  versions: "Versions",
+  files: "Files",
+} as const;
+
+export const noMatch = (q: string) => `No mods match "${q}".`;
+export const didYouMean = (name: string) => `Did you mean ${name}?`;
+export const IMPACT_LABEL: Record<string, string> = {
+  cosmetic: "Cosmetic",
+  gameplay: "Gameplay",
+  "speedrun-safe": "Speedrun-safe",
+  "touches-saves": "Changes saves",
+  online: "Online",
+};
+
+// ---- Mods kept current and tidy (lib/modAutoUpdate, ModUpdatesPanel.svelte, PluginsPanel) -----
+
+import type { Hold } from "./api";
+
+export const updatedMods = (n: number) =>
+  n === 1 ? "Updated 1 mod. See what changed on the Mods tab." : `Updated ${n} mods. See what changed on the Mods tab.`;
+
+export const UPDATES = {
+  title: "Mod updates",
+  waitingTitle: "Update available",
+  heldTitle: "Waiting",
+  recentTitle: "Just updated",
+  changelog: "What changed",
+  update: "Update",
+  updating: "Updating…",
+  noChangelog: "No notes for this version.",
+  running: "Close the game to update mods.",
+} as const;
+
+/** Why an update waits or is held, in a line. */
+export function holdText(hold: Hold | null): string {
+  if (!hold) return "";
+  switch (hold.kind) {
+    case "major":
+      return "A new major version: it may change how the game plays or your saves.";
+    case "newHooks":
+      return `It now changes more of the game (${hold.hooks.length} new ${hold.hooks.length === 1 ? "hook" : "hooks"}).`;
+    case "heldBack":
+      return `Held back: ${hold.byName} needs ${hold.wants}.`;
+    case "needs":
+      return `Held back: it needs ${hold.id}${hold.wants ? ` ${hold.wants}` : ""}, which can't update with it.`;
+    case "needsLauncher":
+      return `Needs a newer launcher (mod API ${hold.api}). It updates once the launcher does.`;
+    case "blocked":
+      return "Held back: it doesn't fit with your other mods yet.";
+  }
+}
+
+export const DEPS = {
+  shareSetup: "Share my setup",
+  shareCopied: "Link copied. Friends can install the same mods from it.",
+  shareNone: "No mods from the mod list are on to share.",
+  shareRefused: "The link couldn't be copied.",
+  turnOffYes: "Turn off",
+  removeYes: "Remove",
+  keep: "Keep them",
+} as const;
+
+export const alsoTurnedOn = (names: string[]) => `Also turned on ${list(names)}.`;
+export const turnOffAsk = (needers: string[], name: string) =>
+  `${list(needers)} ${needers.length === 1 ? "needs" : "need"} ${name}. Turn off ${needers.length === 1 ? "it" : "them"} too?`;
+export const fixInstall = (id: string) => `Fix: install ${id}`;
+export const removeDepsAsk = (names: string[]) =>
+  `Also remove ${list(names)}? Nothing else uses ${names.length === 1 ? "it" : "them"}.`;
+export const removedDeps = (n: number) => (n === 1 ? "Also removed 1 unused mod." : `Also removed ${n} unused mods.`);
+export const pinnedShared = "kept at this version by a shared setup";
+export const pinnedRollback = "kept at this version after a crash";
+export const rollBackTo = (name: string, version: string) => `Roll back ${name} to ${version}`;
+export const crashAfterUpdate = (names: string[]) =>
+  `This came after ${list(names)} updated. Rolling back keeps the earlier version until a fixed one is out.`;
+export const rolledBack = (name: string, version: string) => `${name} is back at ${version}.`;
+
+export const SETTINGS_TEXT = {
+  autoUpdate: "Update mods automatically",
+  autoUpdateLine: "Small updates go in by themselves before you play. Big ones wait for you.",
+  cleanUp: "Clean up unused dependencies",
+  cleanUpLine: "Removing a mod also removes what was installed only for it.",
+} as const;

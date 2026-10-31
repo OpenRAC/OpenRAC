@@ -4,6 +4,9 @@
   import LaunchScreen from "$components/LaunchScreen.svelte";
   import Toasts from "$components/Toasts.svelte";
   import ModUpdateModal from "$components/ModUpdateModal.svelte";
+  import DeepLinkInstall from "$components/DeepLinkInstall.svelte";
+  import { startDeepLinks } from "$lib/deepLink.svelte";
+  import { startAutoUpdates } from "$lib/modAutoUpdate.svelte";
   import UpdateModal from "$components/UpdateModal.svelte";
   import { errorText, onAndroid } from "$lib/api";
   import { app, openDevelop, refresh, showLaunch, start, updateDiscordPresence, type Page } from "$lib/app.svelte";
@@ -128,6 +131,10 @@
         // The installed mods are looked at once a day, where they came from a link: what is found
         // is offered in one window and read by the Mods tab, so GitHub is not asked twice.
         if (app.config?.checkModUpdates) void lookForModUpdates().catch(() => undefined);
+        // openrac:// links (the website's Install buttons): the start's own, then each one sent.
+        void startDeepLinks().catch(() => undefined);
+        // Mods from the index kept current: now, then every 6 hours (lib/modAutoUpdate).
+        stopAutoUpdates = startAutoUpdates();
         // ?launch: the version's start (Android's spinning disc), as Play shows it.
         if (params.has("launch") && version) {
           const game = app.library?.games.find((g) => g.id === version.split("/")[0]);
@@ -141,7 +148,9 @@
     // Pick up what changed outside the launcher (a build in a terminal, a new disc).
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
+    let stopAutoUpdates: () => void = () => undefined;
     return () => {
+      stopAutoUpdates();
       window.removeEventListener("focus", onFocus);
     };
   });
@@ -178,6 +187,7 @@
 <Toasts />
 <UpdateModal />
 <ModUpdateModal />
+<DeepLinkInstall />
 
 <style>
   .loading {

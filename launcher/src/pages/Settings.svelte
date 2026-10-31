@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SETTINGS_TEXT } from "$lib/modsText";
   // Three groups: where things are (folders), the programs the launcher uses,
   // and how the launcher itself behaves. Edits stay local until saved; the bar
   // that saves them stays in view at the bottom of the window. With `setup`,
@@ -471,6 +472,20 @@
           <small>Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small>
         </span>
         <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkModUpdates} />
+      </label>
+      <label class="setting">
+        <span class="text">
+          <strong>{SETTINGS_TEXT.autoUpdate}</strong>
+          <small>{SETTINGS_TEXT.autoUpdateLine}</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.autoUpdateMods} />
+      </label>
+      <label class="setting">
+        <span class="text">
+          <strong>{SETTINGS_TEXT.cleanUp}</strong>
+          <small>{SETTINGS_TEXT.cleanUpLine}</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.cleanupUnusedDeps} />
       </label>
       {#if app.info?.updateChannels}
         <div class="setting">

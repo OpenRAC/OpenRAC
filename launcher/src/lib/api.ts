@@ -70,6 +70,27 @@ import type { UpdateChannel } from "./generated/UpdateChannel";
 import type { UpdateSource } from "./generated/UpdateSource";
 import type { VersionView } from "./generated/VersionView";
 import type { WriteResult } from "./generated/WriteResult";
+import type { ApplyProgress } from "./generated/ApplyProgress";
+import type { ApplyResult } from "./generated/ApplyResult";
+import type { DeepLinkInstall } from "./generated/DeepLinkInstall";
+import type { IndexImage } from "./generated/IndexImage";
+import type { IndexMod } from "./generated/IndexMod";
+import type { IndexVersion } from "./generated/IndexVersion";
+import type { IndexView } from "./generated/IndexView";
+import type { InstallPlan } from "./generated/InstallPlan";
+import type { ModAction } from "./generated/ModAction";
+import type { ModError } from "./generated/ModError";
+import type { ModIndex } from "./generated/ModIndex";
+import type { PlanNote } from "./generated/PlanNote";
+import type { PlannedMod } from "./generated/PlannedMod";
+import type { WantedMod } from "./generated/WantedMod";
+import type { Why } from "./generated/Why";
+import type { Hold } from "./generated/Hold";
+import type { LastUpdate } from "./generated/LastUpdate";
+import type { Orphan } from "./generated/Orphan";
+import type { UpdateItem } from "./generated/UpdateItem";
+import type { UpdatePlan } from "./generated/UpdatePlan";
+import type { UpdateRun } from "./generated/UpdateRun";
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -134,6 +155,9 @@ export type { Started };
 export type { UpdateChannel };
 export type { UpdateSource };
 export type { VersionView };
+export type { ApplyProgress, ApplyResult, DeepLinkInstall, IndexImage, IndexMod, IndexVersion, IndexView };
+export type { InstallPlan, ModAction, ModError, ModIndex, PlanNote, PlannedMod, WantedMod, Why };
+export type { Hold, LastUpdate, Orphan, UpdateItem, UpdatePlan, UpdateRun };
 
 // ---- types ------------------------------------------------------------------------
 //
@@ -356,6 +380,41 @@ export const api = {
     call<RemoteInstalled>("plugins_update", { game, version, id }),
   pluginsSources: (game: string) => call<ModSources>("plugins_sources", { game }),
   pluginsSetPin: (game: string, id: string, pin: boolean) => call<ModSources>("plugins_set_pin", { game, id, pin }),
+  /** The mod hub (core/src/index.rs, resolver.rs, index_apply.rs, deeplink.rs): their errors are
+   *  ModError (modErrorOf), with the fix the page offers. */
+  deeplinkParse: (url: string) => call<DeepLinkInstall>("deeplink_parse", { url }),
+  /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
+  indexFetch: (game: string | null = null, version: string | null = null) =>
+    call<IndexView>("index_fetch", { game, version }),
+  /** The change set for `wanted` on that disc, with `turnOff` counted as off. */
+  indexResolve: (game: string, version: string, wanted: WantedMod[], turnOff: string[] = []) =>
+    call<InstallPlan>("index_resolve", { game, version, wanted, turnOff }),
+  /** Resolves again in Rust and installs; `index-apply` events say how far (onIndexApply). */
+  indexApply: (
+    game: string,
+    version: string,
+    wanted: WantedMod[],
+    turnOff: string[],
+    serial: string | null,
+    shared = false,
+  ) => call<ApplyResult>("index_apply", { game, version, wanted, turnOff, serial, shared }),
+  /** The index's updates for a game's mods: silent, waiting for a click, held back (mod_updates.rs). */
+  modsUpdates: (game: string, version: string) => call<UpdatePlan>("mods_updates", { game, version }),
+  /** Updates from a fresh fetch: the silent ones, or `ids` the player clicked. Refused while it runs. */
+  modsAutoUpdate: (game: string, version: string, ids: string[] | null, running: boolean) =>
+    call<UpdateRun>("mods_auto_update", { game, version, ids, running }),
+  modsLastUpdate: (game: string) => call<LastUpdate | null>("mods_last_update", { game }),
+  /** After a crash: the mod back at the version its update replaced, kept there. */
+  modsCrashRollback: (game: string, version: string, id: string) =>
+    call<PluginView[]>("mods_crash_rollback", { game, version, id }),
+  /** On, with the dependencies it needs (`alsoOn`: their names). */
+  pluginsTurnOn: (game: string, version: string, id: string) =>
+    call<{ views: PluginView[]; alsoOn: string[] }>("plugins_turn_on", { game, version, id }),
+  /** The mods that are on and need this one: [id, name]. */
+  pluginsDependents: (game: string, id: string) => call<[string, string][]>("plugins_dependents", { game, id }),
+  pluginsOrphans: (game: string, id: string) => call<Orphan[]>("plugins_orphans", { game, id }),
+  pluginsRemoveWith: (game: string, version: string, id: string, also: string[]) =>
+    call<PluginView[]>("plugins_remove_with", { game, version, id, also }),
   /** A folder inside the game's set-up folder (an export), opened with the system. */
   openGameFolder: (game: string, path: string) => call<null>("open_game_folder", { game, path }),
   /** A folder a job wrote (a job exit's `outputs`), opened with the system; a file opens its folder. */
@@ -623,9 +682,28 @@ export async function onJobEvent(handler: (event: JobEvent) => void): Promise<Un
   };
 }
 
+/** Each mod applied (index_apply's `index-apply` events). */
+export async function onIndexApply(handler: (p: ApplyProgress) => void): Promise<UnlistenFn> {
+  if (!inTauri) {
+    const { mockIndexListen } = await import("./mockIndex");
+    return mockIndexListen(handler);
+  }
+  return listen<ApplyProgress>("index-apply", (e) => {
+    handler(e.payload);
+  });
+}
+
+/** The mod hub's error, when a command rejected with one (its kind decides the fix offered). */
+export function modErrorOf(e: unknown): ModError | null {
+  if (typeof e === "object" && e !== null && "kind" in e && "detail" in e) return e as ModError;
+  return null;
+}
+
 /** A command's error as text: Tauri rejects with the Rust side's String. */
 export function errorText(e: unknown): string {
   if (typeof e === "string") return e;
+  const mod = modErrorOf(e);
+  if (mod) return mod.detail;
   if (e instanceof Error) return e.message;
   return JSON.stringify(e);
 }
