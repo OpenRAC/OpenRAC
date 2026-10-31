@@ -138,7 +138,10 @@ A level whose collision grew past its place on the disc gets it moved to the
 end of the level's core data, which takes more of the level's memory. With an
 expanded level-data stream, the editor can move a larger compressed core into
 virtual sectors while leaving the disc image unchanged. The game still has
-format and memory limits. The expanded leaf decoder builds for PAL and NTSC-U,
+format and memory limits. Exact decoded core, compressed core-stream, original
+disc-slot and expanded level-data container sizes are written to `changes.txt`
+for each collision edit; use that report to see how much the edit adds to the
+modded level. The expanded leaf decoder builds for PAL and NTSC-U,
 but dense-cell behavior in live gameplay has not yet been verified.
 
 ### Advanced: the tiles in Blender

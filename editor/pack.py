@@ -424,8 +424,14 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
     expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress,
                                                    force=force_expanded_ram)
+    core_stream = compress(core, data[struct.unpack_from("<i", data, 10 * 8)[0]:][:16])
+    changes.append(
+        f"level core size: {len(core)} bytes decoded; {len(core_stream)} compressed; "
+        f"disc slot {struct.unpack_from('<i', data, 10 * 8 + 4)[0]} bytes"
+    )
     name = f"level_{info['id']:02}"
     if expanded is not None:
+        changes.append(f"expanded level-data container: {len(expanded)} bytes before sector padding")
         count = -(-len(expanded) // SECTOR)
         first = virtual_range(next_virtual, count)
         file = f"{name}/data_{disc.version.key}.bin"
