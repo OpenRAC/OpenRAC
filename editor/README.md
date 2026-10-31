@@ -686,6 +686,10 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   the original disc-slot ceiling. With the expanded 128 MiB arena, the larger
   pool can use the remaining 15-bit moby indices for spawned objects; the
   vanilla 32 MiB pool size and its three crowded levels are unchanged. RAC1's
+  moby collision grid still has 1,536 storage blocks and a signed-byte count
+  per cell. In expanded mode, the 128th collider is left out of grid collision,
+  warned about once, and retried on its next update; the rest of the moby still
+  updates. Vanilla grid behavior is unchanged. RAC1's
   target pointer table still holds 511 mobys. When more active mobys request
   targeting, the rest continue updating but are left out of lock-on and other
   target scans for that tick. These are game-structure limits, not disc-slot

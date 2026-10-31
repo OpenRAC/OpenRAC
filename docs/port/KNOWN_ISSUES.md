@@ -79,7 +79,11 @@ discs. The pool size is data, not a fixed array:
     spawned colliders near the player cost little. Not raised. The per-cell
     count is the tighter limit: a signed byte to the collision queries, so a
     cell with 128 or more colliding mobys drops out of collision, and it wraps
-    at 256 (Kalebo III's densest cell holds about 117). Open, in docs/TODO.md.
+    at 256 (Kalebo III's densest cell holds about 117). In expanded-stream mode,
+    the updater now leaves an actor out of the grid when adding it would exceed
+    127 in any cell; it retries next update and warns once. Vanilla retains the
+    original behavior. The grid still has 1,536 blocks, so a level using more
+    colliding cells can exhaust the pool. Open, in docs/TODO.md.
   - **The target list** (0x70000800, 512 entries, copied to the pointer
     table D_001C7C80, 512 words with its NULL): build_resident_visibility_list
     (`func_0020E6B8`) bounds neither; past 511 it writes into the next table
