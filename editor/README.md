@@ -492,7 +492,7 @@ and packed back like the mobys ([gamedata.py](gamedata.py); the formats are in
 | `Game/LevelSettings` | `rc1_background`, `rc1_fog_colour` (r, g, b), `rc1_fog_near`, `rc1_fog_far` and their `_intensity`, `rc1_death_height`, `rc1_ship_path`, `rc1_ship_camera_cuboids` (first, last) | values |
 | `Game/LevelSettings/Ship` | where the player's ship lands; turn it about Z only | moved |
 | `Game/MobyGroups` | `rc1_group_<n>`: each group's members, by node name | members |
-| `Game/Cameras/Camera_NNNN` | position and rotation (the game's Euler angles), `rc1_class`, the common camera header and known class-specific pvars | edited in place |
+| `Game/Cameras/Camera_NNNN` | position and rotation (the game's Euler angles), `rc1_class`, the common camera header and known class-specific pvars | edited in place; cameras may be added by copying a same-class record and pvars, up to 48 |
 | `Game/Sounds/Sound_NNNN` | the record's matrix, `rc1_class`, `rc1_m_class`, `rc1_range`, pvars (hidden) | edited in place |
 | `Game/Volumes/Cuboids/Cuboid_NNNN`, `Spheres`, `Cylinders`, `Pills` | the unit shape through the record's matrix, translucent (hidden until you show `Volumes`) | moved, turned, scaled, added |
 | `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added; records cannot be deleted |
@@ -549,7 +549,12 @@ with one of these nodes deleted and explains which index it kept. A new one (a c
 `gameplay/<kind>.tscn` dropped under its group, or a new `Path3D` under
 `Game/Paths`) goes after the table's own; when the section no longer fits
 where it was it moves to the end of the file. Cameras and sound instances
-are edited in place only; adding and deleting those records is not supported.
+are not deleted or renumbered. Duplicate a camera node in Godot to add one. A
+copied camera gets its own pvar block, including
+the loader's pointer, shared-data and moby-link fixups. A camera can use the
+level's existing collision volumes; adding a camera region that needs a newly
+added volume is refused because the camera grid is not rebuilt yet. The game has
+48 camera slots. New sound instances are not supported yet.
 Changing a camera class while it has a pvar block is refused, since the block
 has the original class's layout. An edited volume's inverse matrix and Euler angles
 are computed again; an edited grind path keeps its bounding sphere when it

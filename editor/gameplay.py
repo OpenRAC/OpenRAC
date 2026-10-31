@@ -149,7 +149,12 @@ def replace(g: bytes, sections: dict[int, bytes]) -> bytes:
     for pointer, data in sections.items():
         start, end = extent(g, pointer)
         if start <= 0:
-            raise FormatError(f"the gameplay file has no section at +{pointer:#x} to write")
+            # A newly authored table can introduce an optional section. Append it
+            # just like an expanded section and publish its pointer in the header.
+            out += bytes(-len(out) % 16)
+            struct.pack_into("<i", out, pointer, len(out))
+            out += data
+            continue
         if len(data) <= end - start:
             out[start:end] = data + bytes(end - start - len(data))
             continue

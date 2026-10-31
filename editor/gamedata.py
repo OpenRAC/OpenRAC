@@ -136,6 +136,12 @@ CAMERA_RUNTIME_OFFSETS = {
     18: {0x20, 0x3E, 0x40},  # counters, live yaw
     23: {0x20, 0x26, 0x38, 0x3C, 0x40},  # counter, done, and arrival offsets
 }
+CAMERA_RUNTIME_FIELDS = {
+    3: ((0x34, 2), (0x36, 2)),
+    17: ((0x2E, 2), (0x40, 4), (0x44, 4), (0x4A, 2)),
+    18: ((0x20, 2), (0x3E, 2), (0x40, 4)),
+    23: ((0x20, 4), (0x26, 2), (0x38, 4), (0x3C, 4), (0x40, 4)),
+}
 
 
 def owns(key: str) -> bool:
@@ -986,6 +992,7 @@ def pack_level(original: bytes, edited: bytes, source: str, numbering: dict[str,
     the gameplay data. NUMBERING: each moby node's name -> its place in EDITED's table. Adds to
     CHANGES and PROBLEMS and returns the three."""
     nodes, subresources = parse_scene(source)
+    edited, camera_pvars = clone_camera_pvars(original, edited, nodes, problems)
     out = bytearray(edited)
     names = moby_names(original)
     before, after = Pvars(original), Pvars(edited)
@@ -1025,7 +1032,7 @@ def pack_level(original: bytes, edited: bytes, source: str, numbering: dict[str,
             changes.append(f"{node['name']}: pvars")
 
     pack_groups(original, out, nodes, numbering, sections, changes, problems)
-    pack_cameras(original, out, nodes, pvar_edits, changes, problems)
+    pack_cameras(original, out, nodes, pvar_edits, camera_pvars, sections, changes, problems)
     pack_sounds(original, out, nodes, pvar_edits, changes, problems)
     for kind, pointer, group, prefix in SHAPES:
         pack_shapes(original, nodes, pointer, group, prefix, sections, changes, problems)
@@ -1087,19 +1094,109 @@ def pack_groups(original: bytes, out: bytearray, nodes: dict, numbering: dict[st
         changes.append("moby groups: the lists follow the mobys' groups")
 
 
-def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, changes: list[str], problems: list[str]) -> None:
+def clone_camera_pvars(original: bytes, edited: bytes, nodes: dict, problems: list[str]) -> tuple[bytes, dict]:
+    """Give each added camera its own copy of a same-class camera pvar block and fixups."""
+    if "Game/Cameras" not in nodes:
+        return edited, {}
+    cameras = table(original, CAMERAS, CAMERA_SIZE)
+    _, extra = owners(children(nodes, "Game/Cameras"), len(cameras), "Camera")
+    if not extra:
+        return edited, {}
+
+    after = Pvars(edited)
+    entries = list(after.table)
+    links, pointers = gp.fixups(edited, gp.LINKS), gp.fixups(edited, gp.POINTERS)
+    blob, shared = gp.shared(edited)
+    data_at, data_end = gp.extent(edited, gp.DATA)
+    data = bytearray(edited[data_at:data_end]) if data_at > 0 else bytearray()
+    additions: dict[str, tuple[int, int]] = {}
+    used_cameras = {i for i in range(len(cameras))}
+
+    for node in extra:
+        meta = meta_of(node)
+        index = meta.get("index")
+        if isinstance(index, int) and not isinstance(index, bool) and index in used_cameras:
+            donor_index = index
+        else:
+            wanted_class = meta.get("class", 0)
+            donor_index = next((i for i, record in enumerate(cameras)
+                               if CAMERA.unpack(record)[0] == wanted_class), None)
+        if donor_index is None:
+            problems.append(f"{node['name']}: no camera of this class in the level to copy; not packed")
+            continue
+        class_id, *_, source_pvar = CAMERA.unpack(cameras[donor_index])
+        if meta.get("class", class_id) != class_id:
+            problems.append(f"{node['name']}: changing an added camera's class is not supported; not packed")
+            continue
+        if meta.get("pvar_index", source_pvar) != source_pvar:
+            problems.append(f"{node['name']}: rc1_pvar_index must match its source camera; not packed")
+            continue
+        if source_pvar < 0:
+            additions[node["name"]] = (source_pvar, -1)
+            continue
+        block = after.block(source_pvar)
+        if block is None or source_pvar >= len(entries):
+            problems.append(f"{node['name']}: source camera pvar block {source_pvar} is invalid; not packed")
+            continue
+
+        block = bytearray(block)
+        for offset, size in CAMERA_RUNTIME_FIELDS.get(class_id, ()):
+            if offset + size <= len(block):
+                block[offset:offset + size] = bytes(size)
+        block = bytes(block)
+        data += bytes(-len(data) % 16)
+        target_pvar = len(entries)
+        entries.append((len(data), len(block)))
+        data += block
+        links.extend((target_pvar, offset) for pvar, offset in gp.fixups(edited, gp.LINKS)
+                     if pvar == source_pvar)
+        pointers.extend((target_pvar, offset) for pvar, offset in gp.fixups(edited, gp.POINTERS)
+                        if pvar == source_pvar)
+        shared.extend((target_pvar, offset, into) for pvar, offset, into in gp.shared(edited)[1]
+                      if pvar == source_pvar)
+        additions[node["name"]] = (source_pvar, target_pvar)
+
+    if not any(target >= 0 for _, target in additions.values()):
+        return edited, additions
+    sections = {
+        gp.TABLE: b"".join(struct.pack("<2i", *entry) for entry in entries),
+        gp.DATA: bytes(data),
+        gp.LINKS: gp.write_fixups(links),
+        gp.POINTERS: gp.write_fixups(pointers),
+        gp.SHARED: gp.write_shared(blob, shared),
+    }
+    return gp.replace(edited, sections), additions
+
+
+def camera_grid_references_valid(original: bytes, block: bytes | None, class_id: int) -> bool:
+    """The camera grid indexes the level's original volumes; it is not rebuilt by the editor."""
+    if block is None:
+        return True
+    refs = ((0x08, 0x64, SHAPE_SIZE), (0x0C, 0x60, SHAPE_SIZE), (0x10, 0x68, SHAPE_SIZE))
+    if class_id == 17:
+        refs += ((0x4C, 0x60, SHAPE_SIZE),)
+    for offset, section, record_size in refs:
+        if offset + 4 > len(block):
+            continue
+        index, = struct.unpack_from("<i", block, offset)
+        if index >= len(table(original, section, record_size)):
+            return False
+    return True
+
+
+def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, camera_pvars: dict,
+                 sections: dict, changes: list[str], problems: list[str]) -> None:
     from pack import placement, same, scene_transform
     found = children(nodes, "Game/Cameras")
     if "Game/Cameras" not in nodes:
         return
-    cameras = table(original, CAMERAS, CAMERA_SIZE)
+    cameras = table(bytes(out), CAMERAS, CAMERA_SIZE)
     owner, extra = owners(found, len(cameras), "Camera")
-    for node in extra:
-        problems.append(f"{node['name']}: adding cameras is not supported (other data names them by place); not packed")
     for i in sorted(set(range(len(cameras))) - set(owner)):
         problems.append(f"Camera_{i:04}: deleting cameras is not supported (other data names them by place); kept")
-    at = start(original, CAMERAS) + 0x10
+    at = start(bytes(out), CAMERAS) + 0x10
     count = len(Pvars(original).table)
+    additions = []
     for i, node in owner.items():
         class_id, *place, pvar = CAMERA.unpack(cameras[i])
         original_class = class_id
@@ -1116,7 +1213,9 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, chang
             new = meta.get(key, value)
             if new == value:
                 continue
-            if not isinstance(new, int) or (key == "pvar_index" and not -1 <= new < count) or not -(1 << 31) <= new < (1 << 31):
+            if (not isinstance(new, int) or isinstance(new, bool)
+                    or (key == "pvar_index" and not -1 <= new < count)
+                    or not -(1 << 31) <= new < (1 << 31)):
                 problems.append(f"{node['name']}: rc1_{key} = {new!r} is out of range; not packed")
                 continue
             if key == "class":
@@ -1136,8 +1235,60 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, chang
         if pvar_edits(node, meta, CAMERA.unpack(cameras[i])[7], pvar, camera_layout(original_class),
                       CAMERA_RUNTIME_OFFSETS.get(original_class, set())):
             edits.append("pvars")
+        if pvar >= 0 and not camera_grid_references_valid(original, Pvars(bytes(out)).block(pvar), original_class):
+            problems.append(f"{node['name']}: a camera region uses a newly added volume, but the camera grid "
+                            "cannot be rebuilt yet; not packed")
         if edits:
             changes.append(f"{node['name']}: {', '.join(edits)}")
+
+    # Added camera records take their class-specific state from a same-class
+    # source camera. clone_camera_pvars has given the copy its own pvar index.
+    for node in extra:
+        meta = meta_of(node)
+        source_pvar, pvar = camera_pvars.get(node["name"], (-2, -2))
+        index = meta.get("index")
+        source_index = (index if isinstance(index, int) and not isinstance(index, bool)
+                        and 0 <= index < len(cameras) else None)
+        class_id = meta.get("class", CAMERA.unpack(cameras[source_index])[0] if source_index is not None else 0)
+        if not isinstance(class_id, int) or isinstance(class_id, bool) or not -(1 << 31) <= class_id < (1 << 31):
+            problems.append(f"{node['name']}: rc1_class must be a 32-bit integer; not packed")
+            continue
+        donor = next((record for record in cameras if CAMERA.unpack(record)[0] == class_id), None)
+        if donor is None:
+            problems.append(f"{node['name']}: class {class_id} has no camera in this level to copy; not packed")
+            continue
+        expected_pvar = CAMERA.unpack(donor)[7]
+        if source_pvar != expected_pvar or ("pvar_index" in meta and meta["pvar_index"] != expected_pvar):
+            problems.append(f"{node['name']}: camera pvars could not be copied from the source instance; not packed")
+            continue
+        unknown = sorted(key for key in meta if key not in {"index", "class", "pvar_index"} and not owns(key))
+        if unknown:
+            problems.append(f"{node['name']}: no such value: rc1_{unknown[0]}")
+            continue
+        if len(cameras) + len(additions) >= 48:
+            problems.append(f"{node['name']}: RAC1 supports at most 48 camera records; not packed")
+            continue
+        try:
+            t = placed(nodes, node)
+            position, rotation, _ = placement(t)
+            additions.append(CAMERA.pack(class_id, *position, *rotation, pvar))
+        except FormatError as e:
+            problems.append(f"{node['name']}: {e}; not packed")
+            continue
+        if pvar_edits(node, meta, expected_pvar, pvar, camera_layout(class_id),
+                      CAMERA_RUNTIME_OFFSETS.get(class_id, set())):
+            changes.append(f"{node['name']}: added camera with copied pvars (class {class_id})")
+        else:
+            changes.append(f"{node['name']}: added camera (class {class_id})")
+        if pvar >= 0 and not camera_grid_references_valid(original, Pvars(bytes(out)).block(pvar), class_id):
+            problems.append(f"{node['name']}: a camera region uses a newly added volume, but the camera grid "
+                            "cannot be rebuilt yet; not packed")
+
+    if additions:
+        packed_cameras = table(bytes(out), CAMERAS, CAMERA_SIZE)
+        padding = bytes(out[at - 0x0C:at]) if cameras else bytes(12)
+        sections[CAMERAS] = struct.pack("<i", len(cameras) + len(additions)) + padding + \
+            b"".join(packed_cameras) + b"".join(additions)
 
 
 def pack_sounds(original: bytes, out: bytearray, nodes: dict, pvar_edits, changes: list[str], problems: list[str]) -> None:
