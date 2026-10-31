@@ -50,6 +50,13 @@ must use triangle meshes, PNG textures, and supported glTF materials. Texture
 files must be inside the donor level or creator project; unsupported animation,
 skinning and behavior are refused.
 
+For a model already in the Godot project, open the extracted level scene and
+choose **Add static GLB to map** in the Collision dock. The editor instances it
+under **Game/StaticAssets**, where you can position, rotate and scale it. This
+is undoable and keeps the model linked to its project asset. For a donor model
+outside the project, use the import command below to copy it and its textures
+into the project first.
+
 ```sh
 python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project YOUR_PROJECT --level 2 --name MyDecor --at X Y Z --collision mesh
 python editor/static_assets.py --source YOUR_PROJECT/models/my-building.glb --project YOUR_PROJECT --level 2 --name MyBuilding --at X Y Z --collision mesh

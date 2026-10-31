@@ -63,6 +63,9 @@ var is_committing: bool = false
 ## Waits a moment after other edits before reading the collision again.
 var reload_timer: Timer
 
+## The project-local static model picker.
+var static_model_dialog: EditorFileDialog
+
 # =============================================================================
 # CONSTANTS
 # =============================================================================
@@ -103,6 +106,12 @@ func _enter_tree() -> void:
 	reload_timer.wait_time = 0.4
 	reload_timer.timeout.connect(handle_reload_timeout)
 	add_child(reload_timer)
+	static_model_dialog = EditorFileDialog.new()
+	static_model_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
+	static_model_dialog.access = EditorFileDialog.ACCESS_RESOURCES
+	static_model_dialog.add_filter("*.glb ; glTF Binary model")
+	static_model_dialog.file_selected.connect(handle_static_model_selected)
+	add_child(static_model_dialog)
 	scene_changed.connect(handle_scene_changed)
 	EditorInterface.get_selection().selection_changed.connect(handle_selection_changed)
 	get_undo_redo().version_changed.connect(handle_version_changed)
@@ -127,6 +136,67 @@ func open_scene(root: Node) -> void:
 	refresh_selection()
 	handle_selection_changed()
 	redraw()
+
+
+## Opens the editor's picker at the project's assets.
+func add_static_model() -> void:
+	if scene_root == null or faces == null:
+		dock.show_report("Open an extracted level scene before adding static geometry.")
+		return
+	static_model_dialog.current_dir = "res://"
+	static_model_dialog.popup_file_dialog()
+
+
+## Instances a project GLB below Game/StaticAssets as an undoable scene edit.
+func handle_static_model_selected(path: String) -> void:
+	if not path.begins_with("res://") or path.get_extension().to_lower() != "glb":
+		dock.show_report("Choose a project-local .glb model.")
+		return
+	var packed_scene := ResourceLoader.load(path) as PackedScene
+	if packed_scene == null:
+		dock.show_report("Godot could not import this GLB as a scene.")
+		return
+	var instance := packed_scene.instantiate()
+	if not instance is Node3D:
+		instance.queue_free()
+		dock.show_report("The GLB root must be a 3D node.")
+		return
+	var game := scene_root.get_node_or_null("Game") as Node3D
+	if game == null:
+		instance.queue_free()
+		dock.show_report("This scene has no Game node.")
+		return
+	var group := game.get_node_or_null("StaticAssets") as Node3D
+	var make_group := group == null
+	if make_group:
+		group = Node3D.new()
+		group.name = "StaticAssets"
+	var base_name := path.get_file().get_basename().validate_node_name()
+	if base_name.is_empty():
+		base_name = "StaticModel"
+	var node_name := base_name
+	var suffix := 2
+	while group.has_node(NodePath(node_name)):
+		node_name = "%s_%d" % [base_name, suffix]
+		suffix += 1
+	instance.name = node_name
+	var undo_redo := get_undo_redo()
+	undo_redo.create_action("Add static GLB to map", UndoRedo.MERGE_DISABLE, scene_root)
+	if make_group:
+		undo_redo.add_do_method(game, "add_child", group)
+		undo_redo.add_do_property(group, "owner", scene_root)
+		undo_redo.add_do_reference(group)
+	undo_redo.add_do_method(group, "add_child", instance)
+	undo_redo.add_do_property(instance, "owner", scene_root)
+	undo_redo.add_do_method(instance, "set_meta", "rc1_static_collision", false)
+	undo_redo.add_undo_method(group, "remove_child", instance)
+	undo_redo.add_do_reference(instance)
+	if make_group:
+		undo_redo.add_undo_method(game, "remove_child", group)
+	undo_redo.commit_action()
+	EditorInterface.get_selection().clear()
+	EditorInterface.get_selection().add_node(instance)
+	dock.show_report("Added %s. Move and scale it in the 3D view, then Pack the level." % node_name)
 
 
 ## Removes the overlay from the scene it was in.
@@ -798,6 +868,10 @@ func _forward_3d_force_draw_over_viewport(viewport_control: Control) -> void:
 func _exit_tree() -> void:
 	EditorInterface.get_selection().selection_changed.disconnect(handle_selection_changed)
 	get_undo_redo().version_changed.disconnect(handle_version_changed)
+	if is_instance_valid(static_model_dialog):
+		static_model_dialog.file_selected.disconnect(handle_static_model_selected)
+		static_model_dialog.queue_free()
+		static_model_dialog = null
 	remove_overlay()
 	remove_dock(dock)
 	dock.queue_free()

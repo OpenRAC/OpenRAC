@@ -198,8 +198,10 @@ func build_add(box: VBoxContainer) -> void:
 	needs.place.append(button(box, "Add a floor quad (X by Y) here", handle_quad_pressed))
 	needs.place.append(button(box, "Add a box (X by Y by Z) here", handle_box_pressed))
 	needs.mesh.append(button(box, "Make collision from the selected mesh", handle_mesh_pressed))
+	needs.level.append(button(box, "Add static GLB to map", handle_static_model_pressed))
 	wrapped(box, "New faces take the surface id, sound class and exclusion above. Mesh corners snap to the game's "
-		+ "collision grid; dense cells use OpenRAC's expanded collision format.")
+		+ "collision grid; dense cells use OpenRAC's expanded collision format. Static GLB imports add geometry, "
+		+ "not moby behavior.")
 	needs.level.append(button(box, "Check the limits", handle_check_pressed))
 
 
@@ -524,6 +526,11 @@ func handle_box_pressed() -> void:
 ## Makes collision from the selected mesh.
 func handle_mesh_pressed() -> void:
 	plugin.make_from_mesh(chosen_kind())
+
+
+## Adds a project GLB as static map scenery.
+func handle_static_model_pressed() -> void:
+	plugin.add_static_model()
 
 
 ## Estimates what the packer would refuse.
