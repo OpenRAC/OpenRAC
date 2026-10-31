@@ -667,11 +667,12 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   has format and game-owned limits: collision is queryable only inside the
   0-1024-unit world, each collision cell has bounded vertex/face storage, and
   gameplay objects still depend on their per-level tables and heap. The
-  gameplay loader's old moby-index remap held only 64 entries; expanded levels
-  now allocate that remap from the level arena when needed. Its signed-short
-  values still limit a source gameplay table to 32,768 mobys. Expanded streams
-  remove the original disc-slot ceiling; they do not make those game
-  structures unlimited.
+  gameplay loader's old moby-index remap held only 64 entries; when the
+  expanded 128 MiB arena is active, both PAL and NTSC-U now allocate that remap
+  from level memory for larger tables. The vanilla 32 MiB path keeps the
+  original allocation. Signed-short remap values still limit a source gameplay
+  table to 32,768 mobys. Expanded streams remove the original disc-slot ceiling;
+  they do not make those game structures unlimited.
 
 What the decoded collision misses: the cells' quads are split into triangles
 here, and a face shared by cells appears once, so the tiles show the level's

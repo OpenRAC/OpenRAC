@@ -492,6 +492,7 @@ extern void vu0_load_micro_program(void *) __asm__("func_002334D8");
 void        reset_pad_history(void) __asm__("func_00217020");
 void        srand(int value) __asm__("func_001160C8");
 extern void read_disc_sectors_and_wait(void *, int, int) __asm__("FUN_00216828");
+extern s32 GetMemorySize(void);
 
 char                *load_level_gameplay(int skip_gameplay_read) __asm__("FUN_L00_00241940");
 extern unsigned char l00_moby_load_exclusion_flags_by_uid[] __asm__("D_L00_001BB684");
@@ -932,7 +933,8 @@ char *load_level_gameplay(int skip_gameplay_read) {
         p += 0xC;
         /* The retail overlay reserves 64 entries for this file-order map. Larger modded
          * tables need their own level-arena storage; keep the retail path unchanged otherwise. */
-        if (n > (int)(sizeof(gameplay_moby_index_remap) / sizeof(gameplay_moby_index_remap[0]))) {
+        if (GetMemorySize() > 0x02000000
+            && n > (int)(sizeof(gameplay_moby_index_remap) / sizeof(gameplay_moby_index_remap[0]))) {
             moby_index_remap = (short *)mem;
             mem += n * sizeof(*moby_index_remap);
             mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);

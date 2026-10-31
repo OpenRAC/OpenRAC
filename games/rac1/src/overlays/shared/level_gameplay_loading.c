@@ -541,6 +541,7 @@ extern int level_moby_killed[][64];
 extern int g_current_level_index MACRO_ADDR;
 extern int level_moby_groups[];
 extern int moby_group_count MACRO_ADDR;
+extern s32 get_memory_size(void);
 extern int level_path_count MACRO_ADDR;
 extern char *level_path_data MACRO_ADDR;
 extern char *level_paths[];
@@ -1012,6 +1013,13 @@ char *load_level_gameplay(int arg0) {
         p += 4;
         n2 = *(int *)p;
         p += 0xC;
+        /* Keep the retail overlay buffer in use for the vanilla arena. Expanded
+         * mod streams can give larger file-order maps their own level memory. */
+        if (get_memory_size() > 0x02000000 && n > 64) {
+            idx = (short *)mem;
+            mem += n * sizeof(*idx);
+            mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
+        }
         moby_array_start = (Moby *)mem;
         FastMemSet(mem, 0, (n + n2) << 8);
         for (i = 0; i < n; i++) {
