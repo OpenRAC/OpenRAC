@@ -7,7 +7,7 @@ import unittest
 import gameplay as gp
 from godot import transform
 from mobys import FIELDS, POINTER, RECORD, SIZE, USUAL, moby_instances
-from pack import pack_level, placement, scene_mobys
+from pack import pack_level, placement, scene_mobys, virtual_range
 
 
 def gameplay(records: list[dict]) -> bytes:
@@ -203,6 +203,19 @@ class Names(unittest.TestCase):
         self.assertEqual(pack_level(0, data, text), (data, [], []))
 
 
+class VirtualRanges(unittest.TestCase):
+    def test_reserves_adjacent_non_overlapping_ranges(self):
+        cursor = [0x10000000]
+        first = virtual_range(cursor, 7)
+        second = virtual_range(cursor, 11)
+        self.assertEqual((first, second, cursor[0]), (0x10000000, 0x10000007, 0x10000012))
+
+    def test_rejects_sector_address_space_overflow(self):
+        from formats import FormatError
+        with self.assertRaisesRegex(FormatError, "32-bit sector address space"):
+            virtual_range([0xffffffff], 1)
+
+
 class PackDisc(unittest.TestCase):
     """pack.pack on either disc: the copy its game loads is the one replaced."""
 
@@ -260,6 +273,59 @@ class PackDisc(unittest.TestCase):
                 (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data))
                 self.assertEqual(pack(image, survey, project, Path(tmp) / "untouched"), (0, 0))
                 self.assertEqual(len((Path(tmp) / "untouched/patches.tsv").read_text().splitlines()), 1)
+
+    def test_gameplay_larger_than_its_disc_slot_uses_virtual_sectors_and_a_header_patch(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        import disc
+        import pack as pack_module
+
+        original, edited = b"original gameplay", b"edited gameplay"
+        stored = b"compressed original" + bytes(disc.SECTOR - len(b"compressed original"))
+        expanded_stream = b"WAD" + bytes(2046)
+        header = bytes(disc.LEVEL_HEADER_SIZE)
+
+        class Disc:
+            version = disc.NTSC
+
+            def sectors(self, first, count):
+                testcase.assertEqual((first, count), (100, 1))
+                return stored
+
+            def read(self, offset, size):
+                testcase.assertEqual((offset, size), (50 * disc.SECTOR, disc.LEVEL_HEADER_SIZE))
+                return header
+
+        survey = {"levels": [{"id": 0, "header_lba": 50,
+                              "ranges": {"gameplay_ntsc": {"lba": 100, "sectors": 1},
+                                         "gameplay_pal": {"lba": 200, "sectors": 1}}}]}
+        with tempfile.TemporaryDirectory() as temporary:
+            testcase = self
+            project, out = Path(temporary) / "levels", Path(temporary) / "packed"
+            level_dir = project / "level_00/levels/level_00"
+            level_dir.mkdir(parents=True)
+            (level_dir / "level_00.tscn").write_text("[gd_scene format=3]\n")
+            decode = lambda data: original if data == stored else edited
+            with patch.object(pack_module, "decoded", side_effect=decode), \
+                    patch.object(pack_module, "pack_level", return_value=(edited, ["Moby_0000: edited"], [])), \
+                    patch.object(pack_module, "compress", return_value=expanded_stream), \
+                    patch.object(pack_module, "pack_collision", return_value=([], [], False)), \
+                    patch("scenery.edited", return_value=False), \
+                    patch("static_assets.placements", return_value=[]), \
+                    patch("static_assets.write_packed", return_value=None):
+                self.assertEqual(pack_module.pack(Disc(), survey, project, out), (1, 1))
+            first, count, filename, level, slot, original_first, original_count = \
+                (out / "virtual.tsv").read_text().splitlines()[1].split("\t")
+            self.assertEqual((int(first), int(count), filename, int(level), int(slot),
+                              int(original_first), int(original_count)),
+                             (0x10000000, 2, "level_00/gameplay_ntsc.wad", 0, 1, 100, 1))
+            patched_header = (out / "level_00/header_ntsc.bin").read_bytes()
+            self.assertEqual(struct.unpack_from("<II", patched_header, 8 + int(slot) * 8),
+                             (int(first), int(count)))
+            self.assertEqual((out / "patches.tsv").read_text().splitlines()[1],
+                             "50\t5\tlevel_00/header_ntsc.bin")
+            self.assertEqual((out / filename).stat().st_size, int(count) * disc.SECTOR)
 
 
 if __name__ == "__main__":

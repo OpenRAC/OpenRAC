@@ -3,6 +3,7 @@ order and state file, and stacking them for the port's --mods. Synthetic files."
 
 import io
 import json
+import struct
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import tempfile
@@ -253,6 +254,69 @@ class PackTests(unittest.TestCase):
         out = self.root / "mods"
         overrides.stack(None, out, None)
         self.assertTrue((out / "patches.tsv").read_text().startswith("#"))
+
+    def test_virtual_sector_ranges_have_no_1024_entry_ceiling(self):
+        packed = self.root / "packed"
+        rows = [f"{0x10000000 + i}\t1\tlevel_00/gameplay_pal.wad" for i in range(1025)]
+        write_pack(packed, "Large sector map", {
+            "level_00/gameplay_pal.wad": bytes(2048),
+            "virtual.tsv": ("\n".join(rows) + "\n").encode()})
+        (packed / overrides.PACKED).write_text(json.dumps({"game": "rac1", "version": "pal"}))
+        _, used, _, problems = overrides.check(packed)
+        self.assertIn("virtual.tsv", used)
+        self.assertEqual(problems, [])
+        out = self.root / "mods"
+        overrides.stack(None, out, packed)
+        mapped = [line for line in (out / "virtual.tsv").read_text().splitlines() if line and not line.startswith("#")]
+        self.assertEqual(len(mapped), 1025)
+
+    def test_fixed_core_layer_supersedes_expanded_data_and_restores_header(self):
+        packed = self.root / "packed"
+        packed.mkdir()
+        (packed / overrides.PACKED).write_text(json.dumps({"game": "rac1", "version": "pal"}))
+        header = bytearray(0x2434)
+        struct.pack_into("<II", header, 8, 0x10000000, 2)
+        (packed / "level_00").mkdir()
+        (packed / "level_00/header_pal.bin").write_bytes(header)
+        (packed / "level_00/data_pal.bin").write_bytes(bytes(4096))
+        (packed / "patches.tsv").write_text("10\t5\tlevel_00/header_pal.bin\n")
+        (packed / "virtual.tsv").write_text(
+            f"{0x10000000}\t2\tlevel_00/data_pal.bin\t0\t0\t100\t5\n")
+        later = write_pack(self.root / "fixed", "Fixed collision", {
+            "level_00/core_pal.bin": bytes(2048),
+            "patches.tsv": b"100\t1\tlevel_00/core_pal.bin\n"})
+        overrides.add(later, self.into)
+        out = self.root / "mods"
+        overrides.stack(self.into, out, packed)
+        self.assertEqual((out / "virtual.tsv").read_text().splitlines()[1:], [])
+        self.assertEqual((out / "patches.tsv").read_text().splitlines()[1:],
+                         ["100\t1\tlevel_00/core_pal.bin"])
+        self.assertFalse((out / "level_00/header_pal.bin").exists())
+
+    def test_independent_expanded_levels_are_rebased_to_distinct_stack_ranges(self):
+        packed = self.root / "packed"
+        packed.mkdir()
+        (packed / overrides.PACKED).write_text(json.dumps({"game": "rac1", "version": "pal"}))
+        (packed / "level_00").mkdir()
+        (packed / "level_00/header_pal.bin").write_bytes(bytes(0x2434))
+        (packed / "level_00/data_pal.bin").write_bytes(bytes(4096))
+        (packed / "patches.tsv").write_text("10\t5\tlevel_00/header_pal.bin\n")
+        (packed / "virtual.tsv").write_text(
+            f"{0x10000000}\t2\tlevel_00/data_pal.bin\t0\t0\t100\t5\n")
+        later = write_pack(self.root / "other-level", "Another expanded level", {
+            "level_01/header_pal.bin": bytes(0x2434),
+            "level_01/data_pal.bin": bytes(4096),
+            "patches.tsv": b"20\t5\tlevel_01/header_pal.bin\n",
+            "virtual.tsv": f"{0x10000000}\t2\tlevel_01/data_pal.bin\t1\t0\t200\t5\n".encode()})
+        overrides.add(later, self.into)
+        out = self.root / "mods"
+        overrides.stack(self.into, out, packed)
+        rows = [line.split("\t") for line in (out / "virtual.tsv").read_text().splitlines()
+                if line and not line.startswith("#")]
+        self.assertEqual([int(row[0]) for row in rows], [0x10000000, 0x10000002])
+        for level, first in ((0, 0x10000000), (1, 0x10000002)):
+            header = (out / f"level_{level:02}/header_pal.bin").read_bytes()
+            self.assertEqual(struct.unpack_from("<II", header, 8), (first, 2))
 
     def test_zip_command_round_trips(self):
         overrides.add(write_pack(self.root / "p", "Share me", {"level_00/textures/x.png": rgb_png(2, 2, (3, 3, 3))}),

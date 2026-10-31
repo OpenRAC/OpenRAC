@@ -41,7 +41,30 @@ int main() {
     ++openrac_game_mods_generation;
     CHECK(openrac_lib_sceCdRead(1, 1, 0x10000, 0) == 1);
     CHECK(GREF(char, 0x10000) == 'A');
+    // A read may cross from a patched physical sector into mod-owned sectors.
+    std::ofstream(root / "virtual.bin", std::ios::binary) << std::string(4096, 'V');
+    {
+        std::ofstream virtuals(root / "virtual.tsv");
+        virtuals << "2\t1\tvirtual.bin\n";
+        for (unsigned i = 0; i < 1025; ++i) {
+            virtuals << 0x10000000u + i << "\t1\tvirtual.bin\n";
+        }
+    }
+    openrac_game_mods_dir = folder.c_str();
+    ++openrac_game_mods_generation;
+    CHECK(openrac_lib_sceCdRead(1, 2, 0x10000, 0) == 1);
+    CHECK(GREF(char, 0x10000) == 'B');
+    CHECK(GREF(char, 0x10800) == 'V');
+    // The 1,025th mapping is loaded, and high offsets use 64-bit file seeks.
+    CHECK(openrac_lib_sceCdRead(0x10000400u, 1, 0x10000, 0) == 1);
+    CHECK(GREF(char, 0x10000) == 'V');
+    openrac_game_mods_dir = nullptr;
+    ++openrac_game_mods_generation;
+    CHECK(openrac_lib_sceCdRead(0, 1, 0x10000, 0) == 1);
+    CHECK(GREF(char, 0x10000) == 'A');
     std::error_code ignored;
+    fs::remove(root / "virtual.bin", ignored);
+    fs::remove(root / "virtual.tsv", ignored);
     fs::remove(root / "patch.bin", ignored);
     fs::remove(root / "patches.tsv", ignored);
     fs::remove(root / "disc.bin", ignored);

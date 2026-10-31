@@ -318,7 +318,7 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
                             raise ValueError(f"the line {line!r} is not sector, count, file")
                         first, count = int(fields[0]), int(fields[1])
                         target = fields[2]
-                        if first < 0 or count <= 0 or first + count > 0x7fffffff:
+                        if first < 0 or count <= 0 or first + count > 0xffffffff:
                             raise ValueError(f"the line {line!r} has an invalid virtual sector range")
                         if not FILES.fullmatch(target) or target not in source.files:
                             raise ValueError(f"the line {line!r} names a missing or invalid file")
@@ -337,8 +337,6 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
                                 raise ValueError(f"the line {line!r} has no matching level-header patch")
                         ranges.append((first, first + count))
                     ranges.sort()
-                    if len(ranges) > 1024:
-                        raise ValueError("more than 1024 virtual sector ranges")
                     if any(ranges[i][0] < ranges[i - 1][1] for i in range(1, len(ranges))):
                         raise ValueError("virtual sector ranges overlap")
             except (ValueError, pngio.PngError, gltf_read.GltfError, UnicodeDecodeError, struct.error) as exc:
@@ -802,6 +800,22 @@ def write_layers(layers, target, temporary: Path) -> dict:
     """Compose one isolated world from ordered layers; no destination shares an output folder."""
     temporary.mkdir(parents=True, exist_ok=True)
     owners, patches, virtuals, notes, skipped = {}, {}, {}, [], {}
+    next_virtual = 0x10000000
+
+    def allocate_virtual(count: int) -> int:
+        nonlocal next_virtual
+        first = next_virtual
+        while True:
+            end = first + count
+            if count <= 0 or end > 0xffffffff:
+                raise PackError("stacked virtual sectors exceed the game's 32-bit sector address space")
+            overlaps = [(row[0], row[1]) for row in virtuals.values()
+                        if first < row[0] + row[1] and row[0] < end]
+            if not overlaps:
+                break
+            first = max(old_first + old_count for old_first, old_count in overlaps)
+        next_virtual = first + count
+        return first
 
     def supersede_expanded_stream(rel: str, version: str) -> None:
         found = re.fullmatch(r"level_(\d{2})/(?:gameplay_(?:pal|ntsc)\.wad|(?:core|index)_(?:pal|ntsc)\.bin)", rel)
@@ -884,9 +898,28 @@ def write_layers(layers, target, temporary: Path) -> dict:
                     if line.startswith("#") or len(fields) not in (3, 7):
                         continue
                     first, count = int(fields[0]), int(fields[1])
+                    if first < 0 or count <= 0 or first + count > 0xffffffff:
+                        raise PackError(f"{name}: invalid virtual sector range {fields[:2]}")
+                    if not FILES.fullmatch(fields[2]) or fields[2] not in files:
+                        raise PackError(f"{name}: virtual sector file {fields[2]!r} is missing or invalid")
                     if len(fields) == 7:
                         level, slot, original_first, original_count = map(int, fields[3:])
+                        if not (0 <= level < 19 and 0 <= slot < 4 and original_first >= 0
+                                and original_count > 0):
+                            raise PackError(f"{name}: invalid logical range metadata in virtual.tsv")
                         key = (level, slot)
+                        if key in virtuals:
+                            previous = virtuals.pop(key)
+                            if previous[3] != ident:
+                                notes.append(f"{name} replaces the expanded level {level:02} range from {previous[3]}")
+                        first = allocate_virtual(count)
+                        header_rel = f"level_{level:02}/header_{made}.bin"
+                        header_path = temporary / header_rel
+                        if not header_path.is_file():
+                            raise PackError(f"{name}: virtual range has no {header_rel} header patch")
+                        header = bytearray(header_path.read_bytes())
+                        struct.pack_into("<II", header, 8 + slot * 8, first, count)
+                        header_path.write_bytes(header)
                     else:
                         level = slot = original_first = original_count = None
                         key = ("range", first, count)
@@ -894,6 +927,8 @@ def write_layers(layers, target, temporary: Path) -> dict:
                     for old, previous in list(virtuals.items()):
                         old_first, old_count = previous[0], previous[1]
                         if first < old_first + old_count and old_first < end:
+                            if level is not None or previous[4] is not None:
+                                raise PackError(f"{name}: virtual sector ranges overlap without a safe header remap")
                             if previous[3] != ident:
                                 notes.append(f"{name} replaces overlapping virtual sectors from {previous[3]}")
                             del virtuals[old]
@@ -910,8 +945,6 @@ def write_layers(layers, target, temporary: Path) -> dict:
                 place(source, temporary / rel)
             owners[rel] = ident
         reconcile_headers()
-    if len(patches) > 1024 or len(virtuals) > 1024:
-        raise PackError("the stacked level data exceeds OpenRAC's 1024 patch or virtual-range limit")
     (temporary / "patches.tsv").write_text(
         "# first sector\tsectors\tfile (beside this list)\n"
         + "".join(f"{first}\t{count}\t{file}\n" for (first, count), (file, _) in sorted(patches.items())))

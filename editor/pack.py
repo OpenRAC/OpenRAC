@@ -174,6 +174,16 @@ def set_expanded_range(disc, info: dict, headers: dict[int, bytearray], slot: in
     struct.pack_into("<II", headers[level], 8 + slot * 8, first, count)
 
 
+def virtual_range(next_sector: list[int], count: int) -> int:
+    """Reserve non-overlapping sectors in the game-visible virtual LBA space."""
+    first = next_sector[0]
+    end = first + count
+    if count <= 0 or end > 0xffffffff:
+        raise FormatError("expanded level data exceeds the game's 32-bit sector address space")
+    next_sector[0] = end
+    return first
+
+
 def apply(node: dict, record: dict, original: dict | None, whole: bool, problems: list[str]) -> list[str]:
     """Writes a scene node's placement, class and values into RECORD (a moby's fields). ORIGINAL is
     the moby the node was extracted from, when RECORD is still that moby's: what the scene has
@@ -346,7 +356,8 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
 
 
 def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches: list[str],
-                   virtual: list[str], headers: dict[int, bytearray]) -> tuple[list[str], list[str], bool]:
+                   virtual: list[str], headers: dict[int, bytearray], next_virtual: list[int]
+                   ) -> tuple[list[str], list[str], bool]:
     """The level's collision and its moby classes' collision as the scene and the class scenes
     have them: when they differ from the disc's, the level data's sectors that change (the core
     data stream, and the core index when a block moved or the core grew) go to
@@ -387,8 +398,8 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
     expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress)
     name = f"level_{info['id']:02}"
     if expanded is not None:
-        first = 0x10000000 + info["id"] * 0x01000000 + 0x00800000
         count = -(-len(expanded) // SECTOR)
+        first = virtual_range(next_virtual, count)
         file = f"{name}/data_{disc.version.key}.bin"
         (out / file).parent.mkdir(parents=True, exist_ok=True)
         (out / file).write_bytes(expanded + bytes(count * SECTOR - len(expanded)))
@@ -410,6 +421,7 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
     import scenery          # it reads the scene with this module's reader
     patches, virtual, report, packed, total = [], [], [], 0, 0
     headers: dict[int, bytearray] = {}
+    next_virtual = [0x10000000]
 
     def scene_of(info: dict) -> Path | None:
         """The level's scene: one project with every level, or a project per level (`godot --split`)."""
@@ -448,7 +460,7 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         # Collision, the level's and its moby classes': the level data's core (collision_scene.py,
         # moby_collision_scene.py), only when the scenes' differ.
         collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out,
-                                                                      patches, virtual, headers)
+                                                                      patches, virtual, headers, next_virtual)
         if any(solid for _, _, _, solid in static_instances) and collision_problems:
             raise FormatError('Static import collision could not be packed: ' + '; '.join(collision_problems),
                               code="static-import")
@@ -489,8 +501,8 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         else:
             # Store expanded content in the mod's virtual disc and redirect
             # only this level's header. The user's disc is never rewritten.
-            first = 0x10000000 + info["id"] * 0x01000000
             count = -(-len(stream) // SECTOR)
+            first = virtual_range(next_virtual, count)
             file = f"{name}/gameplay_{disc.version.key}.wad"
             (out / file).parent.mkdir(parents=True, exist_ok=True)
             (out / file).write_bytes(stream + bytes(count * SECTOR - len(stream)))

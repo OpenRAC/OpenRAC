@@ -73,12 +73,12 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
             fields = line.split("\t")
             if len(fields) not in (3, 7):
                 raise overrides.PackError("Packed virtual.tsv has a malformed row")
-            first, count, rel = fields
+            first, count, rel = fields[:3]
             try:
                 valid = int(first) >= 0 and int(count) > 0
             except ValueError:
                 valid = False
-            if not valid or not overrides.FILES.fullmatch(rel):
+            if not valid or int(first) + int(count) > 0xffffffff or not overrides.FILES.fullmatch(rel):
                 raise overrides.PackError("Packed virtual.tsv has an invalid sector range or file")
             if len(fields) == 7:
                 try:
@@ -88,7 +88,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
                     valid_meta = False
                 if not valid_meta:
                     raise overrides.PackError("Packed virtual.tsv has invalid header-range metadata")
-            if rel.startswith(prefix + "/"):
+            if rel.startswith(prefix + "/") and (len(fields) == 3 or level_id == level):
                 if rel not in files:
                     raise overrides.PackError(f"Packed virtual level file {rel} is missing")
                 virtual_rows.append(line)
