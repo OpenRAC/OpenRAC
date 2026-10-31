@@ -123,13 +123,14 @@ class FormatTest(unittest.TestCase):
         crate = mc.parse(crate_bytes())
         crate.vertices += [(i, 0, 0, 0) for i in range(249)]          # 257: the last one unused, as on the disc
         mc.validate(crate, 0)
-        crate.faces.append((0, 1, 256, 0x7f))                          # past what a byte index reaches
-        with self.assertRaises(FormatError):
-            mc.validate(crate, 0)
-        crate.faces.pop()
-        crate.vertices += [(0, 0, 0, 0)] * 2048
-        with self.assertRaises(FormatError):
-            mc.validate(crate, 0)
+        crate.faces.append((0, 1, 256, 0x7f))  # OpenRAC marker selects 16-bit indices
+        mc.validate(crate, 0)
+        extended = mc.parse(mc.write(crate))
+        self.assertTrue(extended.extended)
+        self.assertIn((0, 1, 256, 0x7f), extended.faces)
+        extended.vertices += [(0, 0, 0, 0)] * (mc.MAX_VERTICES - len(extended.vertices) + 1)
+        with self.assertRaisesRegex(FormatError, "vertices, 65536 at most"):
+            mc.validate(extended, 0)
 
     def test_malformed_header(self):
         with self.assertRaises(FormatError):
@@ -173,9 +174,14 @@ class GenerateTest(unittest.TestCase):
         tris = ball(40, 40)
         self.assertGreater(len({p for t in tris for p in t}), 256)
         blob = mc.generate(tris)
-        self.assertLessEqual(len(blob.vertices), 256)
+        self.assertGreater(len(blob.vertices), 256)
+        self.assertLessEqual(len(blob.vertices), mc.MAX_INDEXED)
+        self.assertTrue(blob.extended)
         self.assertGreater(len(blob.faces), 100)
         mc.validate(blob, 0)
+        again = mc.parse(mc.write(blob))
+        self.assertEqual(again.vertices, blob.vertices)
+        self.assertEqual(again.faces, blob.faces)
 
     def test_primitives(self):
         sphere = mc.generate(cube(), "sphere").primitives

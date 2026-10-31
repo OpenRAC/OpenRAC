@@ -121,11 +121,14 @@ class BlockTests(unittest.TestCase):
         model = sample()
         a = (10, 20, 5)
         model.cells[a].vertices += [cell_point(a, i % 20, i // 20, 0) for i in range(260)]
-        with self.assertRaisesRegex(FormatError, "vertices, 255 at most"):
-            col.validate(model)
+        model.cells[a].faces.append(((256, 257, 258), 0x1f))
+        col.validate(model)
+        expanded = col.parse(col.write(model))
+        self.assertTrue(expanded.cells[a].extended)
+        self.assertIn(((256, 257, 258), 0x1f), expanded.cells[a].faces)
         model = sample()
-        model.z = (250, 10)
-        with self.assertRaisesRegex(FormatError, "outside 0-255"):
+        model.z = (32766, 10)
+        with self.assertRaisesRegex(FormatError, "outside the expanded 32768-cell"):
             col.validate(model)
         model = sample()
         model.heroes[0].triangles *= 300
