@@ -29,6 +29,7 @@ enum {
 };
 
 uint8_t* openrac_guest_base;
+uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE; /* the console's 32 MiB arena */
 const struct openrac_map_config* openrac_game_map;
 
 static void map_guest(void) {

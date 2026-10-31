@@ -17,6 +17,7 @@ void game_FUN_L01_002b7fe0(gaddr, int);
 void game_FUN_L00_002a3ec8(gaddr, int, int, float, float, float, float);
 void game_FUN_L01_00262618(gaddr);
 uint8_t* openrac_guest_base;
+uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE; /* the console's 32 MiB arena */
 static int enabled, steps, impulses, builds;
 static float captured_z, captured_w, captured_amplitude, captured_scroll;
 

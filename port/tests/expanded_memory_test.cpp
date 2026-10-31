@@ -13,7 +13,10 @@ int main() {
     CHECK(memory.ram_size() == GUEST_RAM_EXPANDED_SIZE);
     CHECK(openrac_guest_ram_size == GUEST_RAM_EXPANDED_SIZE);
     CHECK(memory.mapped(GUEST_RAM_EXPANDED_SIZE - 4, 4));
-    CHECK(!memory.mapped(GUEST_RAM_EXPANDED_SIZE, 4));
+    // The arena ends where the EE's registers begin (0x10000000): it never runs into them, and an
+    // access across its end is no mapped memory.
+    CHECK(GUEST_RAM_EXPANDED_SIZE <= GUEST_EE_REGS);
+    CHECK(!memory.mapped(GUEST_RAM_EXPANDED_SIZE - 2, 4));
     CHECK(Memory::snapshot_size() > GUEST_RAM_SIZE);
     CHECK(openrac_guest_ram_address_for_size(0x03FFFFFFu, GUEST_RAM_EXPANDED_SIZE)
           == 0x03FFFFFFu);

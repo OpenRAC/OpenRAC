@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../game/rac1-pal/hand/game_moby_bounds.c"
+/* The console's 32 MiB arena: no expanded (modded) memory. */
+int rac1_expanded_ram(void) { return 0; }
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "%d: %s\n", __LINE__, #c); exit(1); } } while (0)
 #if __SIZEOF_POINTER__ == 4
 _Static_assert(offsetof(BoundsModel, sequences) == 0x48, "EE sequences");
