@@ -72,7 +72,7 @@
     window.addEventListener("mousedown", outside);
     window.addEventListener("keydown", key);
     window.addEventListener("resize", resized);
-    // Capturing: the page scrolls inside <main>, and scroll does not bubble.
+    // Capturing: the page scrolls inside <main> or SideFrame's column, and scroll does not bubble.
     window.addEventListener("scroll", moved, true);
     return () => {
       window.removeEventListener("mousedown", outside);
