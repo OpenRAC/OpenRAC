@@ -432,6 +432,10 @@ gaddr light_bank_address();
 // where it was (frontend/world.cpp).
 void use_level(int number);
 
+// Reads level `number`'s files on another thread for use_level to take when the level comes: the
+// flight between planets reads its destination's while it plays (frontend/world.cpp).
+void preload_level(int number);
+
 // The sky sprites the game drew since the last frame, as effect quads seen from `state`'s camera,
 // put first among the frame's effect quads: drawn behind everything (frontend/world.cpp).
 void sky_sprite_quads(const host::GameState& state);

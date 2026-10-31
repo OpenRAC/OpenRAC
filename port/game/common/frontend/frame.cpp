@@ -660,7 +660,16 @@ int world_to_draw(std::span<const std::uint8_t> ram, int level) {
 
 // Uses the requested world after graphics ownership returns.
 void use_world(std::span<const std::uint8_t> ram, int level) {
-    use_level(world_to_draw(ram, level));
+    const int world = world_to_draw(ram, level);
+    use_level(world);
+    // The flight between planets plays while the game reads the next level from the disc; its
+    // number is already the level word's. Its files are read meanwhile, not after the flight.
+    if (world == -2 && openrac_game_front_end != nullptr && openrac_game_front_end->level != 0) {
+        const std::uint32_t next = word_at(ram, openrac_game_front_end->level);
+        if (next < static_cast<std::uint32_t>(openrac_game_front_end->levels)) {
+            preload_level(static_cast<int>(next));
+        }
+    }
 }
 
 // Puts the camera the game's world renderers drew with this tick into `state`, if they ran.

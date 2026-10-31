@@ -17,6 +17,7 @@
 #include <cstring>
 #include <filesystem>
 #include <format>
+#include <future>
 #include <memory>
 #include <span>
 #include <string>
@@ -67,7 +68,84 @@ constexpr std::uint32_t kSkyTextureKey = 0x20000;
 // Where the effect quads' textures are placed (effect_textures), past the particles' (0x30000).
 constexpr std::uint32_t kEffectTextureKey = 0x40000;
 
+// A level's files read on another thread before the level comes (preload_level), for use_level
+// to take instead of reading them itself.
+struct Preload {
+    struct Read {
+        bool ok = false;
+        scene::LevelData level;
+        std::string error;
+    };
+
+    int level = -1;
+    unsigned generation = 0;
+    std::future<Read> read;
+};
+
+Preload g_preload;
+
+// Where a level's files are read from: its folder, a mod's edited placements, the mods' assets.
+struct LevelSources {
+    std::filesystem::path dir;
+    std::filesystem::path edited;
+    std::vector<std::filesystem::path> mod_roots;
+};
+
+LevelSources level_sources(int wanted) {
+    LevelSources sources;
+    sources.dir = g->levels / std::format("level_{:02d}", wanted);
+    // An edited level's scenery (--mods): the editor's pack writes it beside its gameplay file.
+    if (openrac_game_mods_dir != nullptr) {
+        sources.edited = std::filesystem::path(openrac_game_mods_dir)
+                         / std::format("level_{:02d}", wanted) / "placements.json";
+    }
+    // The loaded mods' assets for this level (MODS.md, section 3), searched before its own files.
+    for (const std::filesystem::path& root : mods::asset_roots()) {
+        sources.mod_roots.push_back(root / std::format("level_{:02d}", wanted));
+    }
+    return sources;
+}
+
+// Reads level `wanted` into g->level: the files read ahead for it (preload_level), waited for if
+// they are still being read, or else read now.
+bool read_level(int wanted, const LevelSources& sources, std::string& error) {
+    if (g_preload.read.valid() && g_preload.level == wanted
+        && g_preload.generation == openrac_game_mods_generation) {
+        Preload::Read read = g_preload.read.get();
+        g_preload.level = -1;
+        if (read.level.dir == sources.dir) {
+            g->level = std::move(read.level);
+            error = std::move(read.error);
+            return read.ok;
+        }
+    }
+    return scene::load_level(sources.dir, g->level, error, sources.edited, sources.mod_roots);
+}
+
 }  // namespace
+
+// Starts reading level `number`'s files on another thread, for when the game goes there (the
+// flight between planets, whose few seconds would otherwise be followed by the whole read, the
+// game stopped and its sound running ahead). Nothing for a level drawn or read ahead already.
+void preload_level(int number) {
+    if (!g || number < 0 || number == g->loaded || !g->profile->has_levels()) {
+        return;
+    }
+    if (g_preload.level == number && g_preload.generation == openrac_game_mods_generation) {
+        return;
+    }
+    // A read of another level still under way is waited for here (its future ends with it).
+    g_preload.level = number;
+    g_preload.generation = openrac_game_mods_generation;
+    log::info("reading level {} ahead", number);
+    g_preload.read = std::async(std::launch::async, [sources = level_sources(number)] {
+        Preload::Read read;
+        read.ok = scene::load_level(
+            sources.dir, read.level, read.error, sources.edited, sources.mod_roots
+        );
+        return read;
+    });
+}
 
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy).
 gaddr light_bank_address() {
@@ -114,25 +192,16 @@ void use_level(int number) {
     g->level = scene::LevelData();
     g->picker.clear();
     std::string error;
-    const auto dir = g->levels / std::format("level_{:02d}", wanted);
-    // An edited level's scenery (--mods): the editor's pack writes it beside its gameplay file.
-    std::filesystem::path edited;
-    if (openrac_game_mods_dir != nullptr) {
-        edited = std::filesystem::path(openrac_game_mods_dir) / std::format("level_{:02d}", wanted)
-                 / "placements.json";
-    }
-    // The loaded mods' assets for this level (MODS.md, section 3), searched before its own files.
-    std::vector<std::filesystem::path> mod_roots;
-    for (const std::filesystem::path& root : mods::asset_roots()) {
-        mod_roots.push_back(root / std::format("level_{:02d}", wanted));
-    }
+    const LevelSources sources = level_sources(wanted);
+    const auto& dir = sources.dir;
     debug_overlay::notice({});
     // Only Ratchet & Clank's levels are extracted for the port so far (its profile says so). The
     // other games (Going Commando, Up Your Arsenal, Deadlocked at their menus) have no scenery to
     // read: their whole picture is the 2D path, both its parts, and nothing is missing to tell the
     // player about.
     const bool has_levels = g->profile->has_levels();
-    if (!has_levels && !scene::load_level(dir, g->level, error, edited, mod_roots)) {
+    const bool read = read_level(wanted, sources, error);
+    if (!has_levels && !read) {
         log::info(
             "level {}: no scenery for this game yet ({}); the 2D path is drawn alone", wanted, error
         );
@@ -149,7 +218,7 @@ void use_level(int number) {
         }
         return;
     }
-    if (has_levels && !scene::load_level(dir, g->level, error, edited, mod_roots)) {
+    if (has_levels && !read) {
         log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
         // Said in the picture: the game goes on, its HUD over a black world, and a player takes
         // that for the game being broken.
