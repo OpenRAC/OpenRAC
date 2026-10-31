@@ -160,6 +160,21 @@ standalone map; creators should use format 4 and normal launcher preparation.
 
 - Destination sessions are **card-free**, including while visiting original
   planets. Separate saved progression for added worlds is not implemented.
+- There is no Godot project byte budget. When edited gameplay or level-data
+  streams exceed their original disc allocation, the packer stores the larger
+  stream in the mod's virtual sector container. The disc image and no-mod path
+  remain unchanged. The expanded runtime arena is currently 256 MiB, so very
+  large streams can still exceed available guest memory.
+- RAC1's object tables use signed 16-bit runtime indices. A level's source
+  moby table is therefore limited to 32,768 records including the objects
+  already present. The 2,048 native killed-state IDs are a separate limit:
+  added objects use remaining IDs, and overflow objects are packed with ID
+  `-1` and spawn flags `0`, so the game can use them but does not remember their
+  killed state after a level reload. The packer's `changes.txt` reports this.
+- Collision has separate runtime bounds: expanded mod collision covers the
+  positive 131,072-unit world, and each cell and the total 256 MiB arena must
+  hold its data. **Check the limits** in the Godot Collision dock estimates
+  affected cells and world bounds before packing.
 - Templates supply their own code, object classes and unedited resources. The
   framework does not automatically import behavior from another level or game.
 - Galaxy previews still use template artwork/location; the added world has its

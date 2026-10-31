@@ -292,6 +292,12 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
         changes.append(f"{node_name(originals[index]['class_id'], index, names)}: deleted")
 
     if not added and not deleted:
+        if kept and len(originals) > 0x8000:
+            raise FormatError(
+                f"level {level_id:02}: the edited gameplay table has {len(originals)} mobys; "
+                "RAC1's signed 16-bit runtime indices support at most 32768. Remove mobys or "
+                "split the map across levels before packing."
+            )
         out = bytearray(gameplay)
         start, = unpack("<I", gameplay, POINTER)
         for index, record in kept.items():
@@ -300,6 +306,12 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
         return gamedata.pack_level(gameplay, bytes(out), scene, {owner[i]["name"]: i for i in kept}, changes, problems)
 
     # The table again: the mobys that stay, in their order, then the new ones.
+    if len(kept) + len(added) > 0x8000:
+        raise FormatError(
+            f"level {level_id:02}: the packed gameplay table would have {len(kept) + len(added)} "
+            "mobys; RAC1's signed 16-bit runtime indices support at most 32768. Remove mobys or "
+            "split the map across levels before packing."
+        )
     place = {old: new for new, old in enumerate(sorted(kept))}
     table = [kept[old] for old in sorted(kept)]
     group_lists = gp.groups(gameplay)
@@ -509,6 +521,11 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         if decoded(stream) != edited:
             raise FormatError(f"level {info['id']}: the packed file does not read back", code="pack-internal")
         room = place["sectors"] * SECTOR
+        report.append(
+            f"  gameplay size: {len(edited)} bytes decoded; {len(stream)} compressed, "
+            f"disc slot {room} bytes"
+            + (" (fits disc slot)" if len(stream) <= room else " (stored in expanded virtual sectors)")
+        )
         if len(stream) <= room:
             file = f"{name}/gameplay_{disc.version.key}.wad"
             (out / file).parent.mkdir(parents=True, exist_ok=True)
