@@ -227,7 +227,7 @@ export function editorStage(input: FlowInput): Stage {
       title: "Your changes are packed",
       line: `${plural(state.packedLevels, "level")} changed. Play with your edits starts the game with them; you can turn them off again in Mods, under Play.`,
       detail: state.packedExpandedLevels.length
-        ? `${state.packedExpandedLevels.length === 1 ? "One level uses" : `${state.packedExpandedLevels.length} levels use`} streams larger than the original disc slots. The disc stays unchanged; those streams still have to fit RAC1's 32 MiB of RAM and its level heap.`
+        ? `${state.packedExpandedLevels.length === 1 ? "One level uses" : `${state.packedExpandedLevels.length} levels use`} streams larger than the original disc slots. The disc stays unchanged, and OpenRAC gives these streams a 128 MiB RAM arena. RAC1's own object-table and level-format limits still apply.`
         : undefined,
       primary: "play",
       secondary: ["open"],

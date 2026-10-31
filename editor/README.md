@@ -233,10 +233,10 @@ When an edited gameplay stream or level-data core no longer fits its original
 sector range, the packer writes a padded file under `level_NN/`, gives it a
 virtual sector range in `virtual.tsv`, and patches that level's header to point
 there. OpenRAC serves those sectors only while this mod stack is active. The
-disc image and no-mod read path stay unchanged. This removes the original
-disc-slot ceiling. RAC1 still runs with 32 MiB of guest RAM, so each
-decompressed WAD and level allocation must fit the space left by the loader;
-object indices and collision formats have their own limits too.
+disc image and no-mod read path stay unchanged. A stack with virtual streams
+uses a 128 MiB guest RAM arena; without virtual streams, the original 32 MiB
+arena remains. Larger streams can still meet RAC1's own object-table, level
+format and collision limits.
 
 A PAL project made before this read the 50 Hz copy. The launcher says so
 ("Your levels need an update") and its **Update project** runs **Extract the
