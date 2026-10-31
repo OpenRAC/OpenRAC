@@ -73,7 +73,7 @@ fn made_by(stamp: &Value, profile: &str) -> bool {
     stamp["version"] == 5 && stamp["baker_profile_sha256"].as_str() == Some(digest.as_str())
 }
 
-fn verified_bake(baked: &Path) -> bool {
+fn verified_bake(baked: &Path, reflections: bool) -> bool {
     let Some(result) = std::fs::read_to_string(baked.join("bake-result.json"))
         .ok()
         .and_then(|text| serde_json::from_str::<Value>(&text).ok())
@@ -91,7 +91,11 @@ fn verified_bake(baked: &Path) -> bool {
             && name.ends_with(".orpg")
             && std::fs::metadata(baked.join(name)).is_ok_and(|m| m.is_file() && m.len() > 0)
     };
-    present("sparse.orpg")
+    let environment_ready = !reflections && result.get("environment").is_none()
+        || result["environment"].as_str() == Some("environment.orpe")
+            && std::fs::metadata(baked.join("environment.orpe")).is_ok_and(|m| m.is_file() && m.len() > 0);
+    environment_ready
+        && present("sparse.orpg")
         && match result.get("regions") {
             Some(Value::Array(regions)) => regions.iter().all(|r| r.as_str().is_some_and(present)),
             _ => false,
@@ -170,7 +174,7 @@ fn bake_status_on(
             s["manifest_sha256"].as_str() == sha256(&manifest).as_deref()
                 && s["profile_sha256"].as_str() == sha256(&entry.path().join("probe-bake.json")).as_deref()
                 && has_baker
-                && verified_bake(&baked)
+                && verified_bake(&baked, s["reflections"] == Value::Bool(true))
                 && prepared_water(&entry.path(), &manifest)
                 && profile(&entry.path()).is_some_and(|p| made_by(s, &p))
         });
@@ -291,12 +295,39 @@ mod tests {
         for text in [r#"{"verified":true}"#, r#"{"verified":false}"#, r#"{"verified":true,"regions":["missing.orpg"]}"#]
         {
             std::fs::write(root.join("bake-result.json"), text).unwrap();
-            assert!(!verified_bake(root));
+            assert!(!verified_bake(root, false));
         }
         std::fs::write(root.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
-        assert!(verified_bake(root));
+        assert!(verified_bake(root, false));
         std::fs::write(root.join("sparse.orpg"), "").unwrap();
-        assert!(!verified_bake(root));
+        assert!(!verified_bake(root, false));
+    }
+
+    #[test]
+    fn missing_or_empty_reflections_are_not_ready() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("sparse.orpg"), "probe bytes").unwrap();
+        std::fs::write(root.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
+        assert!(verified_bake(root, false));
+        assert!(!verified_bake(root, true));
+        std::fs::write(
+            root.join("bake-result.json"),
+            r#"{"verified":true,"regions":[],"environment":"environment.orpe"}"#,
+        )
+        .unwrap();
+        assert!(!verified_bake(root, false));
+        assert!(!verified_bake(root, true));
+        std::fs::write(root.join("environment.orpe"), "reflections").unwrap();
+        assert!(verified_bake(root, true));
+        std::fs::write(root.join("environment.orpe"), "").unwrap();
+        assert!(!verified_bake(root, true));
+        std::fs::write(
+            root.join("bake-result.json"),
+            r#"{"verified":true,"regions":[],"environment":"../other.orpe"}"#,
+        )
+        .unwrap();
+        assert!(!verified_bake(root, false));
     }
 
     #[test]
