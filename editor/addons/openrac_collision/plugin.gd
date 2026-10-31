@@ -95,7 +95,7 @@ const OVERLAY_NAME: String = "OpenRACCollisionOverlay"
 const REPORT_LINES: int = 12
 
 ## Must match editor/static_assets.py and port/scene/level.cpp.
-const MAX_ANIMATED_OBJECTS: int = 4096
+const MAX_RENDERED_INSTANCES: int = 2147483647
 
 # =============================================================================
 # METHODS
@@ -571,9 +571,9 @@ func check_limits() -> void:
 	var animated_group := scene_root.get_node_or_null("Game/AnimatedAssets") if scene_root != null else null
 	if animated_group != null:
 		var animated_count := count_animated_instances(animated_group)
-		if animated_count > MAX_ANIMATED_OBJECTS:
-			lines.insert(0, "Game/AnimatedAssets has %d props; the runtime limit is %d." %
-				[animated_count, MAX_ANIMATED_OBJECTS])
+		if animated_count > MAX_RENDERED_INSTANCES:
+			lines.insert(0, "Game/AnimatedAssets has %d props; the renderer limit is %d." %
+				[animated_count, MAX_RENDERED_INSTANCES])
 
 	# Nothing over a limit, as far as the estimate goes.
 	if lines.is_empty():

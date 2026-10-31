@@ -115,8 +115,9 @@ For back-and-forth movement, set `rc1_move_x/y/z` to the axis,
 prop stays in place. Both motion types use the game's Z-up world coordinates.
 These are visual objects with no game collision or native moby behavior. Packing
 places their model bundles and `animated.json` in the mod output; it does not
-change the disc data or vanilla path. A level can currently contain up to 4,096
-animated props; Pack checks this before writing the mod.
+change the disc data or vanilla path. There is no arbitrary 4,096-prop ceiling;
+the packer and runtime enforce the renderer's signed instance-count boundary.
+In practice, memory and frame time become the useful limits well before that.
 
 ## 3. Pack and export an added destination
 

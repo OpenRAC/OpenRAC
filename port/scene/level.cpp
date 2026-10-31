@@ -699,8 +699,9 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                 error = "animated.json must use format 1 and contain an objects array";
                 return false;
             }
-            if (animation["objects"].items().size() > 4096) {
-                error = "animated.json contains more than 4096 objects";
+            if (animation["objects"].items().size()
+                > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+                error = "animated.json exceeds the renderer's signed instance-count limit";
                 return false;
             }
             std::map<std::string, std::uint32_t> model_cache;
