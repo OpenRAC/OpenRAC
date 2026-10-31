@@ -29,6 +29,8 @@ _Static_assert(GUEST_RAM_EXPANDED_SIZE > OPENRAC_EXPANDED_RAC1_RESERVE,
                "expanded RAC1 reservation leaves no heap");
 
 static uint32_t grid_program_load = UINT32_MAX;
+/* Non-authoritative next-fit hints, one for each power-of-two block size. */
+static uint32_t grid_allocator_cursor[20];
 
 /* Host collision queries and the translated updater use the same expanded grid. A new
  * ParseBin load starts with empty cells and an empty pool. Guest RAM snapshots include the grid. */
@@ -41,6 +43,7 @@ gaddr rac1_expanded_grid_base(void) {
     if (grid_program_load != load) {
         memset(G(base), 0, GRID_USED_BYTES);
         GREF(uint32_t, base + GRID_BITMAP) = 1; /* block 0 is the null block index */
+        memset(grid_allocator_cursor, 0, sizeof grid_allocator_cursor);
         grid_program_load = load;
     }
     return base;
@@ -91,11 +94,26 @@ static int grid_allocate(gaddr base, uint32_t blocks, uint32_t* first_out) {
     }
     const gaddr bitmap = grid_bitmap(base);
     const uint32_t aligned_end = GRID_BLOCKS & ~(blocks - 1u);
-    for (uint32_t first = 0; first < aligned_end; first += blocks) {
-        if (grid_range_free(bitmap, first, blocks)) {
-            grid_range_mark(bitmap, first, blocks, 1);
-            *first_out = first;
-            return 1;
+    unsigned order = 0;
+    for (uint32_t size = blocks; size > 1; size >>= 1) {
+        ++order;
+    }
+    const uint32_t start = grid_allocator_cursor[order] < aligned_end
+                               ? grid_allocator_cursor[order]
+                               : 0;
+    for (unsigned pass = 0; pass < 2; ++pass) {
+        const uint32_t from = pass == 0 ? start : 0;
+        const uint32_t to = pass == 0 ? aligned_end : start;
+        for (uint32_t first = from; first < to; first += blocks) {
+            if (grid_range_free(bitmap, first, blocks)) {
+                grid_range_mark(bitmap, first, blocks, 1);
+                *first_out = first;
+                grid_allocator_cursor[order] = first + blocks;
+                if (grid_allocator_cursor[order] >= aligned_end) {
+                    grid_allocator_cursor[order] = 0;
+                }
+                return 1;
+            }
         }
     }
     return 0;

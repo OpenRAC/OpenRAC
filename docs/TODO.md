@@ -35,6 +35,8 @@ slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
   exhaust the pool to verify counts, collision queries and rollback. The pool
   exhaustion path keeps a moby's previous rectangle active and returns
   temporary cell-list growth; ordinary removals also shrink underused lists.
+  Per-size next-fit cursors keep pool allocation from rescanning the used prefix
+  for every cell.
   Dense-cell and allocator-stress gameplay proof is still outstanding.
 
 ## 2. Rearrange rac3-uya-decomp like rac1-decomp and rac2-decomp
