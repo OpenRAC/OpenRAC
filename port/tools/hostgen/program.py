@@ -102,6 +102,7 @@ class Program:
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
+    expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
     code_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_CODE_NAMES])
     data_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_DATA_NAMES])
 

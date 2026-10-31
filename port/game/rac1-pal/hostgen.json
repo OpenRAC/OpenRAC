@@ -27,6 +27,7 @@
   "host_shared": ["../rac1/host"],
   "overlay_hook": true,
   "relocate": [1437696, 2424832],
+  "expanded_target_table_addresses": ["0x001ABD80"],
   "returns_64": ["func_001F4868", "func_001FA8A8", "func_00200248"],
   "spilled_locals": {"func_001FBE80": ["c1"]},
   "ps2_float": ["func_001FA8A8"],

@@ -992,6 +992,9 @@ def new_program(cfg: dict, source: Path) -> Program:
     program = Program()
     program.set_names(cfg["names"].get("code"), cfg["names"].get("data"))
     program.groups = cfg["groups"]
+    program.expanded_target_table_addresses = {
+        int(str(address), 0) for address in cfg.get("expanded_target_table_addresses", [])
+    }
     for table in cfg["symbols"]:
         read_symbols(source / table, program)
     return program

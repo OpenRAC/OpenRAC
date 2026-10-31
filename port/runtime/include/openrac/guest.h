@@ -85,6 +85,17 @@ extern OPENRAC_GUEST_GLOBAL uint8_t* openrac_guest_base;
 /* Active guest RAM size: 32 MiB normally, larger only for an expanded-level mount. */
 extern OPENRAC_GUEST_GLOBAL uint32_t openrac_guest_ram_size;
 
+/* The expanded RAC1 target table lives at the top of guest RAM. Keep a small
+ * gap after it and below the heap; 32,768 moby pointers plus NULL take 0x20004. */
+#define OPENRAC_EXPANDED_TARGET_TABLE_RESERVE 0x00021000u
+static inline gaddr openrac_guest_target_table(gaddr original) {
+    if (openrac_guest_ram_size <= GUEST_RAM_SIZE) {
+        return original;
+    }
+    return GUEST_RAM + openrac_guest_ram_size - OPENRAC_EXPANDED_TARGET_TABLE_RESERVE;
+}
+#define OPENRAC_TARGET_TABLE(a) openrac_guest_target_table((gaddr)(a))
+
 /* Normalize a direct or aliased RAM pointer to the direct RAM view. Other bus addresses retain
  * the console's 25-bit physical-address behavior. */
 static inline gaddr openrac_guest_ram_address_for_size(gaddr address, uint32_t ram_size) {

@@ -1857,10 +1857,11 @@ class Unit:
         if address is None:
             raise Unsupported(f"global {sym} has no known address")
         named_level = self.program.data_level(sym) if hasattr(self.program, "data_level") else None
-        addr = self.global_address(address, self._code_symbol(sym) is not None, named_level)
+        addr = self.global_address(address, self._code_symbol(sym) is not None, named_level, sym)
         return LV(self.gref(t, addr), addr)
 
-    def global_address(self, address: int, code: bool = False, named_level: int | None = None) -> str:
+    def global_address(self, address: int, code: bool = False, named_level: int | None = None,
+                       symbol: str | None = None) -> str:
         """The address of a global at `address` as the running program finds it: in a range the
         levels move (hostgen.json "relocate"), the loaded level's (guest.h). `code`: the address is
         an executable function's code read as data; `named_level`: the level its name gives
@@ -1898,6 +1899,8 @@ class Unit:
                 addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
                 addr = f"OPENRAC_LDATA({level}, {addr})"
+        if address in getattr(self.program, "expanded_target_table_addresses", set()):
+            addr = f"OPENRAC_TARGET_TABLE({addr})"
         return addr
 
     def _variant_call(self, sym: str) -> tuple[int, int, int, int] | None:

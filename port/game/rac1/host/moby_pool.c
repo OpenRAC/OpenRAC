@@ -4,7 +4,8 @@
 /*
  * Ratchet & Clank: more room for spawned mobys than on a PS2. A fix the player can switch back
  * (differences.json, "bigger-moby-pool", fix_bigger_moby_pool): off, every level keeps the disc's
- * spare count and the target list below runs unbounded, as on a console.
+ * spare count. Vanilla RAM uses the retail-sized target list; expanded RAM redirects it to a
+ * reserved 32,768-pointer table so large modded levels can target every moby.
  *
  * The level loader LoadLevelGameplay (func_L00_002422D8; the US disc's FUN_L00_00241940) sizes the
  * level's moby array from its gameplay file: the header's moby section (header +0x44) gives the
@@ -89,7 +90,7 @@ static void map_spawn(gaddr header) {
     }
 }
 
-/* fix_bigger_moby_pool: the bigger pool and the bounded target list, or the console's (off). */
+/* fix_bigger_moby_pool: the bigger spawn pool; target-list capacity follows the active RAM mode. */
 static int bigger_pool(void) {
     static const unsigned char* fix;
     if (!fix) {
@@ -141,16 +142,11 @@ gaddr func_L00_002422D8(int skip_read) {
  * The run list of a tick, with room for the bigger pool: build_resident_visibility_list
  * (func_0020E6B8; the US disc's FUN_0020d868), which UpdateMobys runs first (crash_state.c). It
  * links every active moby into its class slot's run list and writes each with mode bit 0x1000 to
- * the target list in the scratchpad (0x70000800, 0x400 bytes: 512 indices), then copies that list
- * to the pointer table the targeting code reads (D_001C7C80, 0x800 bytes: 512 pointers, the last
- * NULL). Retail counts on fewer than 512: nothing bounds it, and past 511 the table's NULL lands in
- * the next table (D_001C8480) and the scratchpad list runs into the group flags (0x70000C80), which
- * the same run reads. Placed mobys alone come close on some levels (803 of classes with the bit on
- * Rilgar, kept down by the distance test), and a bigger pool lets spawned enemies add to them.
+ * the scratchpad target list (0x70000800, 0x400 bytes) before copying it to the pointer table.
+ * Vanilla RAM preserves that retail-sized 512-pointer table. Expanded RAM writes pointers directly
+ * to the reserved table at the top of guest RAM, which holds all 32,768 moby indices and NULL.
  *
- * Here (fix_bigger_moby_pool on) the list holds at most 511, the rest left out of it (and so out
- * of what targeting looks through that tick) but still run; one warning in the log says it
- * happened. Under 512 it is the
+ * Under 512 targets, this is the
  * decompilation's C as it is (rac1-decomp nonmatching/functional/func_0020E6B8.c, fcheck SAME;
  * the group pass advances the list for mode & 0x1000, as retail does); its own copy stays as
  * func_0020E6B8__game, unused (libraries.tsv, wrap).
@@ -170,6 +166,7 @@ enum {
     GROUP_FLAGS_END = 0x70000D00u,
     GROUPS = 0x70,
     TARGETS_MAX = 511,
+    EXPANDED_TARGETS_MAX = 0x8000,
     MOBY_POS = 0x10,
     MOBY_STATE = 0x20,
     MOBY_GROUP = 0x21,
@@ -196,7 +193,22 @@ static void run_list_append(gaddr m) {
 }
 
 /* Index `idx` written at the target list's end, kept when `mode` has 0x1000 and there is room. */
-static gaddr target_add(gaddr tgt, int idx, unsigned mode) {
+static gaddr target_add(gaddr tgt, int idx, unsigned mode, gaddr base, gaddr expanded_table,
+                        unsigned* expanded_count) {
+    if (openrac_guest_ram_size > GUEST_RAM_SIZE) {
+        if (!(mode & 0x1000)) {
+            return tgt;
+        }
+        if (*expanded_count < EXPANDED_TARGETS_MAX) {
+            GREF(gaddr, expanded_table + 4u * (*expanded_count)) =
+                base + ((gaddr)(unsigned short)idx << 8);
+            ++*expanded_count;
+        } else if (!g_targets_capped) {
+            g_targets_capped = 1;
+            openrac_game_warn("moby target list full: more than 32768 active mobys to target");
+        }
+        return tgt;
+    }
     GREF(short, tgt) = (short)idx;
     /* Without 0x1000 the next moby writes over it, as retail's list does. */
     if (!(mode & 0x1000)) {
@@ -289,6 +301,12 @@ gaddr func_0020E6B8(void) {
     const gaddr base = (gaddr)GREF(int, OPENRAC_DATA(MOBY_ARRAY));
     const gaddr cam = OPENRAC_DATA(CAMERA_BLOCK) + 0x140;
     gaddr tgt = TARGET_LIST;
+    const int expanded = openrac_guest_ram_size > GUEST_RAM_SIZE;
+    const gaddr expanded_targets = expanded ? OPENRAC_TARGET_TABLE(OPENRAC_DATA(TARGETS)) : 0;
+    unsigned expanded_target_count = 0;
+    if (expanded) {
+        GREF(gaddr, expanded_targets) = 0;
+    }
     gaddr cur = base - 0x100;
     int idx = -1;
     for (;;) {
@@ -338,7 +356,7 @@ gaddr func_0020E6B8(void) {
         if (group >= 0) {
             continue;
         }
-        tgt = target_add(tgt, idx, mode);
+        tgt = target_add(tgt, idx, mode, base, expanded_targets, &expanded_target_count);
         run_list_append(m);
     }
 
@@ -357,22 +375,28 @@ gaddr func_0020E6B8(void) {
             const unsigned mode = GREF(unsigned short, m + MOBY_MODE);
             /* A dead member is written but not kept, as retail does. */
             if (GREF(signed char, m + MOBY_STATE) < 0) {
-                GREF(short, tgt) = (short)member;
+                if (!expanded) {
+                    GREF(short, tgt) = (short)member;
+                }
                 continue;
             }
-            tgt = target_add(tgt, member, mode);
+            tgt = target_add(tgt, member, mode, base, expanded_targets, &expanded_target_count);
             run_list_append(m);
             run_note(member, 5); /* OPENRAC_MOBY_RUN_GROUP */
         }
     }
 
     /* The target list as the NULL-terminated pointer table. */
-    gaddr out = OPENRAC_DATA(TARGETS);
-    for (gaddr rp = TARGET_LIST; rp != tgt; rp += 2) {
-        GREF(gaddr, out) = base + ((gaddr)GREF(unsigned short, rp) << 8);
-        out += 4;
+    if (expanded) {
+        GREF(gaddr, expanded_targets + 4u * expanded_target_count) = 0;
+    } else {
+        gaddr out = OPENRAC_DATA(TARGETS);
+        for (gaddr rp = TARGET_LIST; rp != tgt; rp += 2) {
+            GREF(gaddr, out) = base + ((gaddr)GREF(unsigned short, rp) << 8);
+            out += 4;
+        }
+        GREF(gaddr, out) = 0;
     }
-    GREF(gaddr, out) = 0;
 
     /* The class slots' lists chained in slot order; the first head is the result. */
     gaddr first = 0, last = 0;

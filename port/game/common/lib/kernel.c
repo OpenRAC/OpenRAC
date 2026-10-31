@@ -632,10 +632,15 @@ int openrac_lib_SuspendThread(int id) {
 } /* SuspendThread */
 
 /* EndOfHeap (0x3E): the top of the area sbrk may grow into. The game's stack
- * is outside its RAM in the port (GUEST_STACK_TOP), so the heap may reach
- * the end of the 32 MB. */
+ * is outside its RAM in the port (GUEST_STACK_TOP), so the heap reaches the
+ * RAM boundary, except for RAC1's expanded target-table reservation. */
 gaddr openrac_lib_EndOfHeap(void) {
-    return GUEST_RAM + openrac_guest_ram_size;
+    uint32_t reserve = 0;
+    if (openrac_guest_ram_size > GUEST_RAM_SIZE && openrac_game.game != NULL
+        && strcmp(openrac_game.game, "rac1") == 0) {
+        reserve = OPENRAC_EXPANDED_TARGET_TABLE_RESERVE;
+    }
+    return GUEST_RAM + openrac_guest_ram_size - reserve;
 } /* EndOfHeap */
 
 /* PollSema (0x45, and iPollSema): WaitSema without the wait: the semaphore's

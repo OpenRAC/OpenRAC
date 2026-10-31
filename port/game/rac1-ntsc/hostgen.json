@@ -56,6 +56,7 @@
     1437440,
     2424832
   ],
+  "expanded_target_table_addresses": ["0x001ABA00"],
   "returns_64": [
     "FUN_001f44b8"
   ],
