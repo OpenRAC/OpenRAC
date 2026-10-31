@@ -54,7 +54,7 @@ FUN_L00_00257024	level_moby_lighting.c
 FUN_00217b88	game_particle_update.c
 FUN_001f9ff8	game_scale_matrix.c
 FUN_001fa480	game_fastfunc.c
-func_0020DC20	game_moby_grid.c
+FUN_0020dc20	game_moby_grid.c
 FUN_L00_001ff600	level_planar_limit.c
 FUN_001fa400	game_fastfunc.c
 FUN_001fa4f8	game_fastfunc.c
