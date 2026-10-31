@@ -28,6 +28,11 @@ constexpr std::int64_t kFrameFillLines = 400;
 
 // A frame buffer is read back as a texture only in a colour format; an indexed texture (PSMT8,
 // PSMT4) at the same address is a texture of its own that the game pages in there.
+// The first pixel at or after a 12.4 position: the chip samples a pixel at its integer coordinates.
+std::int64_t ceil16(std::int64_t v) {
+    return v >= 0 ? (v + 15) / 16 : -((-v) / 16);
+}
+
 bool is_colour_format(std::uint8_t psm) {
     return psm == 0x00 || psm == 0x01 || psm == 0x02 || psm == 0x0A;
 }
@@ -1152,7 +1157,6 @@ bool GifInterpreter::covers_no_pixel(std::initializer_list<const GsVertex*> corn
         y_hi = std::max(y_hi, y);
     }
     // The samples in [lo, hi) of 16ths of a pixel: from ceil(lo / 16) to ceil(hi / 16) - 1.
-    auto ceil16 = [](std::int64_t v) { return v >= 0 ? (v + 15) / 16 : -((-v) / 16); };
     std::int64_t sx0 = c.scissor.x0;
     std::int64_t sx1 = c.scissor.x1;
     // On a target wider than the picture with the HUD at its sides, a scissor of the screen's whole
@@ -1255,6 +1259,28 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     // (a sprite has no perspective).
     DirectVertex p = convert(a);
     DirectVertex q = convert(b);
+    if (!attributes().tme) {
+        // A plain fill covers the chip's pixels from ceil(x0) to ceil(x1) - 1, so its edges go
+        // on those pixels' edges. The game's fills run from -0.5 to 511.5; drawn there, the last
+        // half pixel of the right and bottom was never filled, and a fade left the old picture
+        // showing in a line along them (before the captions on black).
+        // (Moved on, never back: a corner stays at or past its own position.)
+        auto snapped = [this](GsVertex v) {
+            const std::int64_t ofx = context().xyoffset.ofx;
+            const std::int64_t ofy = context().xyoffset.ofy;
+            v.x =
+                static_cast<decltype(v.x)>(ofx + ceil16(static_cast<std::int64_t>(v.x) - ofx) * 16);
+            v.y =
+                static_cast<decltype(v.y)>(ofy + ceil16(static_cast<std::int64_t>(v.y) - ofy) * 16);
+            return convert(v);
+        };
+        const DirectVertex sp = snapped(a);
+        const DirectVertex sq = snapped(b);
+        p.x = sp.x;
+        p.y = sp.y;
+        q.x = sq.x;
+        q.y = sq.y;
+    }
     const float s0 = p.s / p.q;
     const float t0 = p.t / p.q;
     const float s1 = q.s / q.q;

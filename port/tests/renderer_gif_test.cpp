@@ -296,6 +296,27 @@ void no_sample_no_pixel() {
           == 0);
 }
 
+// A plain fill goes to the edges of the pixels the chip fills: the game's fills run from -0.5 to
+// 511.5, and drawn there they left the right and bottom half pixel unfilled (a line of the old
+// picture along them under a fade).
+void fill_to_the_edges() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    b
+        .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+             {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
+             {gs::kXyz2, xyz2(-0.5, 99.5, 0)},
+             {gs::kXyz2, xyz2(511.5, 223.5, 0)}},
+            true);
+    CHECK(gif.gif(b.bytes));
+    CHECK(gif.vertices().size() == 6);
+    const DirectVertex& first = gif.vertices()[0];
+    const DirectVertex& last = gif.vertices()[4];
+    CHECK(near(first.x, -1.0f) && near(first.y, 1.0f - 100.0f / 224.0f));
+    CHECK(near(last.x, 1.0f) && near(last.y, 0.0f));
+}
+
 void textures_and_vif() {
     TexturePool textures;
     GifInterpreter gif(textures);
@@ -479,6 +500,7 @@ int main() {
     packed_and_reglist();
     draw_groups();
     no_sample_no_pixel();
+    fill_to_the_edges();
     textures_and_vif();
     offscreen_then_upload();
     frame_named_without_draw();
