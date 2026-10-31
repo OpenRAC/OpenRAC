@@ -98,7 +98,7 @@ int main(void) {
     CHECK(GREF(int, PARTS_B + 0x48) == REC + 0x210);
     CHECK(memcmp(low, ram, sizeof low) == 0);
 
-    /* The flight's update: a missing actor left out of the list while it runs, then put back. */
+    /* Flight update: an empty slot is hidden, then restored. */
     const gaddr slots = STATE + 0x178;
     GREF(short, STATE + 0x44) = 3;
     GREF(gaddr, slots) = MOBY_A;
@@ -119,14 +119,14 @@ int main(void) {
     rac1_scene_actors_unpack();
     CHECK(GREF(short, STATE + 0x44) == 3 && GREF(gaddr, slots + 4) == 0);
 
-    /* Every actor there: nothing changes. */
+    /* No empty slot: nothing changes. */
     GREF(gaddr, slots + 4) = MOBY_B;
     rac1_scene_actors_pack();
     CHECK(GREF(short, STATE + 0x44) == 3 && GREF(gaddr, slots + 4) == MOBY_B);
     rac1_scene_actors_unpack();
     CHECK(GREF(short, STATE + 0x44) == 3 && GREF(gaddr, slots + 4) == MOBY_B);
 
-    /* The game cleared the list meanwhile: what it wrote stays. */
+    /* The game cleared the list: keep the game's list. */
     GREF(gaddr, slots + 4) = 0;
     rac1_scene_actors_pack();
     GREF(short, STATE + 0x44) = 0;
@@ -135,8 +135,8 @@ int main(void) {
     rac1_scene_actors_unpack();
     CHECK(GREF(short, STATE + 0x44) == 0 && GREF(gaddr, slots) == 0 && GREF(gaddr, slots + 8) == 0);
 
-    /* A scene chunk inside the update: its parts get their own slots, the missing one tried again
-     * and, the pool still full, left out again. */
+    /* A scene chunk during the update: each part keeps its slot, the missing one is tried again
+     * and hidden again while the pool is still full. */
     GREF(short, STATE + 0x44) = 2;
     GREF(gaddr, slots) = 0;
     GREF(gaddr, slots + 4) = MOBY_B;
@@ -155,12 +155,12 @@ int main(void) {
         && GREF(gaddr, slots + 4) == MOBY_B
     );
 
-    /* Every actor there when the update starts, one of a chunk's parts missing: left out too. */
+    /* No empty slot at the start, but a new chunk's part fails: it is hidden too. */
     GREF(gaddr, slots) = MOBY_A;
     GREF(gaddr, slots + 4) = MOBY_B;
     rac1_scene_actors_pack();
     CHECK(GREF(short, STATE + 0x44) == 2);
-    GREF(gaddr, slots + 4) = 0; /* the part's slot emptied before the chunk */
+    GREF(gaddr, slots + 4) = 0; /* the slot is empty before the chunk */
     next_create = 3;
     func_00204FC0(0);
     CHECK(creates == 5 && warnings == 3);
