@@ -387,10 +387,12 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
         problems.append(f"collision: {e}")
     level = None
     new = None
+    force_expanded_ram = False
     if found is not None:
         level = load_level(disc, info)
         try:
             new, changes, more = collision_scene.pack_block(level.block(unpack("<I", level.index, 0x14)[0]), found)
+            force_expanded_ram = new is not None and collision_scene.has_extended_leaves(new)
             problems += more
         except FormatError as e:
             problems += found["problems"] + [f"{e}; the collision is left as the disc has it"]
@@ -408,7 +410,8 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
         core, index, more = collision_scene.core_with(core, index, at, len(level.block(at)), new)
         notes += more
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
-    expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress)
+    expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress,
+                                                   force=force_expanded_ram)
     name = f"level_{info['id']:02}"
     if expanded is not None:
         count = -(-len(expanded) // SECTOR)

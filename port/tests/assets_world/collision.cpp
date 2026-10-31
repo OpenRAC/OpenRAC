@@ -178,8 +178,8 @@ void check_block() {
     CHECK(c.cells[1].x == 12 && c.cells[1].y == 4 && c.cells[1].z == 6);
     const CollisionCell& c0 = c.cells[0];
     CHECK(c0.leaf_offset() == 0x40 && c0.leaf_qwords() == 2);
-    CHECK((c0.face_indices(0) == std::array<u8, 4>{0, 1, 2, 3}));
-    CHECK((c0.face_indices(1) == std::array<u8, 4>{3, 2, 0, 3}));
+    CHECK((c0.face_indices(0) == std::array<u32, 4>{0, 1, 2, 3}));
+    CHECK((c0.face_indices(1) == std::array<u32, 4>{3, 2, 0, 3}));
     CHECK((c0.vertices[3] == P3{41.0f, 19.0f, 27.0f}));
     // The raw tree walk agrees with the parsed cells and misses outside and on
     // empty entries.

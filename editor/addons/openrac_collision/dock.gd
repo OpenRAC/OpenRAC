@@ -198,8 +198,8 @@ func build_add(box: VBoxContainer) -> void:
 	needs.place.append(button(box, "Add a floor quad (X by Y) here", handle_quad_pressed))
 	needs.place.append(button(box, "Add a box (X by Y by Z) here", handle_box_pressed))
 	needs.mesh.append(button(box, "Make collision from the selected mesh", handle_mesh_pressed))
-	wrapped(box, "New faces take the surface id, sound class and exclusion above. A mesh is simplified until "
-		+ "every 4-unit cell keeps under 255 corners.")
+	wrapped(box, "New faces take the surface id, sound class and exclusion above. Mesh corners snap to the game's "
+		+ "collision grid; dense cells use OpenRAC's expanded collision format.")
 	needs.level.append(button(box, "Check the limits", handle_check_pressed))
 
 

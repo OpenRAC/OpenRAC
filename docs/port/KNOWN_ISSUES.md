@@ -87,6 +87,11 @@ discs. The pool size is data, not a fixed array:
     In expanded mode the port uses a separate 32,768-entry pointer table;
     vanilla uses its original 511-target table. The remaining 15-bit moby
     index range bounds expanded entries.
+  - **Static collision cells.** Godot can now write an `RLCX` extended leaf for a cell that
+    outgrows the retail 255-vertex / 4,080-byte form. The packer forces the level-data stream
+    through virtual sectors so the game selects expanded RAM. The PAL/NTSC-U code builds, but
+    a dense-cell level has not yet been run in the game. Each extended cell is capped at
+    1,048,576 vertices, and the table still limits its leaf start to 24 bits.
   - **The renderer** draws from vectors; the only fixed cap is the port's
     4096-moby guard in render_native.c's mark_drawn_mobys. The game's own VU1
     packet buffers belong to the console renderer, which the port stubs.

@@ -94,12 +94,8 @@ const BUCKET: float = 16.0
 ## A collision cell's side in 1/64 units (4 game units).
 const CELL: int = 256
 
-## The game's limit of vertices in one cell (collision.validate).
-const CELL_LIMIT: int = 255
-
-## What the simplification aims at per cell, below the limit: a large face is cut in pieces at
-## packing, which adds corners.
-const CELL_TARGET: int = 230
+## Expanded collision query scratch limit; retail leaves retain their byte-sized vertex field.
+const CELL_LIMIT: int = 1048576
 
 ## The game answers queries inside 0 to 1024 units on each axis only.
 const WORLD: int = 1024 * UNIT
@@ -894,49 +890,33 @@ func node_triangles(node: Node) -> PackedVector3Array:
 	return out
 
 
-## Triangles (game units) with their corners merged on a coarser grid until no 4-unit cell they
-## reach holds more than CELL_TARGET corners, counting the level's own there; the result and the
-## largest count reached (above the limit when it could not get there).
+## Snap mesh triangles to the game's collision grid without reducing their detail. `most` estimates
+## the largest unique-corner count in a cell, including the existing level collision.
 func simplify(triangles: PackedVector3Array) -> Dictionary:
 	var existing: Dictionary = cell_corners(records, face_count(), bounds_of(triangles))
-	var step: int = 4
+	var out := PackedVector3Array()
+	var cells: Dictionary = {}
 
-	while true:
-		var out := PackedVector3Array()
-		var seen: Dictionary = {}
-		var cells: Dictionary = {}
+	for i in range(0, triangles.size() - 2, 3):
+		var corners: Array[Vector3i] = []
 
-		for i in range(0, triangles.size() - 2, 3):
-			var corners: Array[Vector3i] = []
+		for k in 3:
+			corners.append(grid_point(triangles[i + k]))
 
-			for k in 3:
-				var p: Vector3i = grid_point(triangles[i + k])
-				corners.append(Vector3i(snappedi(p.x, step), snappedi(p.y, step), snappedi(p.z, maxi(step >> 2, 1))))
+		if is_degenerate(corners):
+			continue
 
-			var key: String = key_of(record_of(corners, 0), NO_WALL)
+		count_corners(cells, corners)
 
-			# Merged corners can flatten a triangle or make two the same.
-			if is_degenerate(corners) or seen.has(key):
-				continue
+		for p in corners:
+			out.append(Vector3(p) / UNIT)
 
-			seen[key] = true
-			count_corners(cells, corners)
+	var most: int = 0
 
-			for p in corners:
-				out.append(Vector3(p) / UNIT)
+	for cell in cells:
+		most = maxi(most, cells[cell].size() + existing.get(cell, {}).size())
 
-		var most: int = 0
-
-		for cell in cells:
-			most = maxi(most, cells[cell].size() + existing.get(cell, {}).size())
-
-		# Under the target, or merged as far as it goes (one corner per cell).
-		if most <= CELL_TARGET or step >= CELL:
-			return {"triangles": out, "most": most, "step": step}
-
-		step *= 2
-
-	return {}
+	return {"triangles": out, "most": most, "step": 4}
 
 
 ## The bounds of triangles in 1/64 units, a cell wider on each side.
@@ -1003,7 +983,7 @@ func check_limits() -> PackedStringArray:
 	var cells: Dictionary = cell_corners(flat, level.size(), AABB(Vector3(-1e9, -1e9, -1e9), Vector3(2e9, 2e9, 2e9)))
 
 	for cell in sorted(cells.keys()):
-		# Only the cells over the game's limit matter.
+		# Only cells beyond expanded mode's per-query scratch bound matter.
 		if cells[cell].size() > CELL_LIMIT:
 			out.append("cell %s (at %s units): about %d corners, %d at most" % [cell, Vector3(cell) * 4.0,
 				cells[cell].size(), CELL_LIMIT])

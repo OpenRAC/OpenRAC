@@ -605,8 +605,8 @@ the level with a legend of its surfaces; Pick faces selects faces in the 3D
 view (click, Shift-click, a box, connected faces of one type byte, the faces
 baked inside a selected tie or shrub); the selection is repainted (surface id,
 sound class, exclusion bit), deleted, moved by an offset, or faces are added
-(a quad, a box, the triangles of a selected mesh, simplified to fit the
-cells). Each edit is undoable and saved with the scene. The dock leaves the
+(a quad, a box, or the triangles of a selected mesh snapped to the game's
+collision grid). Each edit is undoable and saved with the scene. The dock leaves the
 tiles alone and keeps its edits as metadata of `Game/Collision`, which
 `collision_scene.scene_collision` applies on top of the nodes' triangles:
 
@@ -654,13 +654,13 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   triangle is halved until each cell it touches can hold its corners (a
   vertex is at most 32 units from its cell's centre).
 - Checked before anything is written, or the level's collision is left as
-  the disc has it and `changes.txt` says why: at most 255 vertices and 255
-  quads in a cell (simplify the mesh there), the cell's 4,080-byte storage,
-  everything inside 0-1024 units on each axis (the game answers no query
-  outside), and hero walls split into groups of at most 255 triangles and 255
-  unique vertices. The face count
-  is a 16-bit field; OpenRAC now reads the full count, so a cell may contain
-  more than 255 triangle faces when they fit its storage.
+  the disc has it and `changes.txt` says why: at most 1,048,576 unique vertices
+  in an expanded cell (the editor writes a mod-only extended leaf and selects
+  expanded RAM when a retail cell no longer fits), each leaf starting within
+  the cell table's 24-bit offset, everything inside 0-1024 units on each axis
+  (the game answers no query outside), and hero walls split into groups of at
+  most 255 triangles and 255 unique vertices. Retail leaves remain byte-for-byte
+  when they fit; their 4,080-byte size and 16-bit face count remain unchanged.
 - The block goes back into the level's core data, in its own place when it
   fits; a larger one moves to the end of the core data (the core index says
   where), and the level's memory after the core moves up by the block's size.

@@ -16,6 +16,9 @@ from mesh import Mesh
 
 CELL = 4
 LEAF_LIMIT = 0x1000
+EXT_LEAF_MAGIC = b"RLCX"                 # Expanded-mode leaf; size byte 0 in the cell word.
+EXT_MAX_VERTICES = 1 << 20                # Runtime query scratch limit.
+EXT_MAX_BYTES = 128 * 1024 * 1024         # Largest supported expanded guest RAM arena.
 SCALE = 64  # World coordinates are held in 1/64 units while decoding.
 DEFAULT_SURFACE = 0x1f  # "No special surface".
 
@@ -65,7 +68,12 @@ def leaves(mesh: bytes):
             x_base, cells = table(mesh, row, "I")
             for i, word in enumerate(cells):
                 if word:
-                    size = (word & 0xff) * 16
+                    if word & 0xff:
+                        size = (word & 0xff) * 16
+                    else:
+                        magic, size, _, _ = unpack("<4sIII", mesh, word >> 8)
+                        if magic != EXT_LEAF_MAGIC or size < 16 or size % 16:
+                            raise FormatError("expanded collision leaf has an invalid header")
                     yield (x_base + i, y_base + j, z_base + k), span(mesh, word >> 8, size)
 
 
@@ -82,13 +90,25 @@ def decode(block: bytes) -> Collision:
     result = Collision()
     seen = set()
     for (x, y, z), leaf in leaves(tree):
-        faces, vertices, quads = unpack("<HBB", leaf)
-        if quads > faces or 4 + 4 * vertices + 4 * faces + quads > len(leaf):
-            raise FormatError(f"collision leaf at cell {(x, y, z)} is inconsistent")
+        extended = leaf[:4] == EXT_LEAF_MAGIC
+        if extended:
+            _, size, vertices, faces = unpack("<4sIII", leaf)
+            quads = 0
+            vertex_at = 16
+            face_at = vertex_at + 4 * vertices
+            if size != len(leaf) or face_at + 16 * faces > size:
+                raise FormatError(f"expanded collision leaf at cell {(x, y, z)} is inconsistent")
+        else:
+            faces, vertices, quads = unpack("<HBB", leaf)
+            vertex_at = 4
+            face_at = vertex_at + 4 * vertices
+            if quads > faces or face_at + 4 * faces + quads > len(leaf):
+                raise FormatError(f"collision leaf at cell {(x, y, z)} is inconsistent")
         centre = tuple((4 * c + 2) * SCALE for c in (x, y, z))
-        points = [vertex(w, centre) for w in unpack(f"<{vertices}I", leaf, 4)]
-        records = [unpack("<4B", leaf, 4 + 4 * vertices + 4 * f) for f in range(faces)]
-        extra = leaf[4 + 4 * vertices + 4 * faces:][:quads]
+        points = [vertex(w, centre) for w in unpack(f"<{vertices}I", leaf, vertex_at)]
+        records = ([unpack("<IIIB", leaf, face_at + 16 * f) for f in range(faces)] if extended else
+                   [unpack("<4B", leaf, face_at + 4 * f) for f in range(faces)])
+        extra = leaf[face_at + 4 * faces:][:quads]
         result.cells += 1
         for f, (a, b, c, kind) in enumerate(records):
             corners = [a, b, c] + ([extra[f]] if f < quads else [])
@@ -160,6 +180,7 @@ class Leaf:
     `quads` faces have four indices, the rest three; all in the game's winding."""
     vertices: list[tuple[int, int, int]]
     faces: list[tuple[tuple[int, ...], int]]
+    extended: bool = False
 
     @property
     def quads(self) -> int:
@@ -217,20 +238,37 @@ def parse(block: bytes) -> Block:
                 if not word:
                     continue
                 cell = (x_base + i, y, z)
-                leaf = span(mesh, word >> 8, (word & 0xff) * 16)
-                faces, count, quads = unpack("<HBB", leaf)
-                check(quads <= faces and 4 + 4 * count + 4 * faces + quads <= len(leaf),
-                       f"collision leaf at cell {cell} is inconsistent")
+                if word & 0xff:
+                    leaf = span(mesh, word >> 8, (word & 0xff) * 16)
+                    faces, count, quads = unpack("<HBB", leaf)
+                    check(quads <= faces and 4 + 4 * count + 4 * faces + quads <= len(leaf),
+                          f"collision leaf at cell {cell} is inconsistent")
+                    extended = False
+                else:
+                    offset = word >> 8
+                    magic, size, count, faces = unpack("<4sIII", mesh, offset)
+                    check(magic == EXT_LEAF_MAGIC and size >= 16 and size % 16 == 0,
+                          f"expanded collision leaf at cell {cell} has an invalid header")
+                    leaf = span(mesh, offset, size)
+                    check(16 + 4 * count + 16 * faces <= size,
+                          f"expanded collision leaf at cell {cell} is inconsistent")
+                    quads = 0
+                    extended = True
                 centre = tuple((4 * c + 2) * SCALE for c in cell)
-                points = [vertex(w, centre) for w in unpack(f"<{count}I", leaf, 4)]
-                extra = leaf[4 + 4 * count + 4 * faces:][:quads]
+                vertex_at = 16 if extended else 4
+                face_at = vertex_at + 4 * count
+                points = [vertex(w, centre) for w in unpack(f"<{count}I", leaf, vertex_at)]
+                extra = leaf[face_at + 4 * faces:][:quads] if not extended else b""
                 records = []
                 for f in range(faces):
-                    a, b, c, kind = unpack("<4B", leaf, 4 + 4 * count + 4 * f)
+                    if extended:
+                        a, b, c, kind = unpack("<IIIB", leaf, face_at + 16 * f)
+                    else:
+                        a, b, c, kind = unpack("<4B", leaf, face_at + 4 * f)
                     corners = (a, b, c, extra[f]) if f < quads else (a, b, c)
                     check(max(corners) < count, f"collision face in cell {cell} uses a missing vertex")
                     records.append((corners, kind))
-                out.cells[cell] = Leaf(points, records)
+                out.cells[cell] = Leaf(points, records, extended)
                 where.append((word >> 8, 2, cell))
     where.sort()
     out.slab_order = [key for _, kind, key in where if kind == 0]
@@ -248,6 +286,11 @@ def parse(block: bytes) -> Block:
     return out
 
 
+def has_extended_leaves(block: bytes) -> bool:
+    """Whether a collision block uses the mod-only leaf encoding."""
+    return any(leaf.extended for leaf in parse(block).cells.values())
+
+
 def encode_leaf(cell: tuple[int, int, int], leaf: Leaf) -> bytes:
     """A leaf's bytes, padded to 16 (faces must already be quads first)."""
     centre = tuple((4 * c + 2) * SCALE for c in cell)
@@ -260,6 +303,21 @@ def encode_leaf(cell: tuple[int, int, int], leaf: Leaf) -> bytes:
         words.append((dx // 4 & 0x3ff) | (dy // 4 & 0x3ff) << 10 | (dz & 0xfff) << 20)
     quads = leaf.quads
     check(all(len(c) == 4 for c, _ in leaf.faces[:quads]), f"cell {cell}: quads must come first")
+    extended = leaf.extended or len(words) > 255 or quads > 255 or len(leaf.faces) > 0xffff \
+        or 4 + 4 * len(words) + 4 * len(leaf.faces) + quads > LEAF_MAX
+    if extended:
+        triangles = [(corners[:3], kind) for corners, kind in leaf.faces]
+        triangles.extend(((corners[0], corners[2], corners[3]), kind)
+                         for corners, kind in leaf.faces[:quads])
+        check(all(0 <= index <= 0xffffffff for corners, _ in triangles for index in corners),
+              f"expanded collision cell {cell} has an out-of-range vertex index")
+        data = bytearray(EXT_LEAF_MAGIC + bytes(12))
+        data += struct.pack(f"<{len(words)}I", *words)
+        for corners, kind in triangles:
+            data += struct.pack("<IIIB3x", *corners, kind)
+        data += bytes(-len(data) % 16)
+        struct.pack_into("<III", data, 4, len(data), len(words), len(triangles))
+        return bytes(data)
     out = bytearray(struct.pack("<HBB", len(leaf.faces), len(leaf.vertices), quads))
     out += struct.pack(f"<{len(words)}I", *words)
     for corners, kind in leaf.faces:
@@ -304,7 +362,8 @@ def write(model: Block) -> bytes:
             cell = (x_base + i, y, z)
             if cell in leaf_at:
                 check(leaf_at[cell] < 1 << 24, "collision: the mesh is larger than a cell word can address")
-                words.append(leaf_at[cell] << 8 | len(leaves[cell]) // 16)
+                size = 0 if leaves[cell].startswith(EXT_LEAF_MAGIC) else len(leaves[cell]) // 16
+                words.append(leaf_at[cell] << 8 | size)
             else:
                 words.append(0)
         struct.pack_into(f"<hH{count}I", mesh, offset, x_base, count, *words)
@@ -339,13 +398,17 @@ def validate(model: Block) -> None:
         x, y, z = cell
         check(model.rows.get((z, y), (0, 0))[0] <= x < sum(model.rows.get((z, y), (0, 0))),
                f"collision: cell {cell} is not in its row")
-        check(len(leaf.faces) <= 0xffff, f"collision: cell {cell} has too many faces")  # the disc has empty leaves too
-        check(len(leaf.vertices) <= 255, f"collision: cell {cell} has {len(leaf.vertices)} vertices, 255 at most: "
-                                          "simplify the mesh there")
-        check(leaf.quads <= 255, f"collision: cell {cell} has more than 255 quads")
-        check(leaf.size() <= LEAF_MAX, f"collision: cell {cell} needs {leaf.size()} bytes, {LEAF_MAX} at most")
+        extended_faces = len(leaf.faces) + leaf.quads
+        needs_extended = (leaf.extended or len(leaf.vertices) > 255 or leaf.quads > 255
+                          or len(leaf.faces) > 0xffff or leaf.size() > LEAF_MAX)
+        if needs_extended:
+            check(len(leaf.vertices) <= EXT_MAX_VERTICES,
+                  f"collision: cell {cell} has more than {EXT_MAX_VERTICES} vertices, the expanded query limit")
+            check(16 + 4 * len(leaf.vertices) + 16 * extended_faces <= EXT_MAX_BYTES,
+                  f"collision: expanded cell {cell} exceeds the supported guest RAM size")
         for corners, kind in leaf.faces:
-            check(len(set(corners)) == len(corners) and max(corners) < len(leaf.vertices) and 0 <= kind <= 0xff,
+            check(len(set(corners)) == len(corners) and all(0 <= i < len(leaf.vertices) for i in corners)
+                  and 0 <= kind <= 0xff,
                    f"collision: a face of cell {cell} is malformed")
     for n, g in enumerate(model.heroes or []):
         check(0 < len(g.triangles) <= 255 and len(g.vertices) <= 255,

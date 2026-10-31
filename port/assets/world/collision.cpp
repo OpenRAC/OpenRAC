@@ -64,6 +64,9 @@ int CollisionFace::sound_class() const {
 
 // Header word, 4 bytes per vertex, 4 per face, 1 per quad's fourth index.
 std::size_t CollisionLeafHeader::payload_size() const {
+    if (extended) {
+        return 16 + 4 * std::size_t{vertex_count} + 16 * std::size_t{face_count};
+    }
     return 4 + 4 * std::size_t{vertex_count} + 4 * std::size_t{face_count} + quad_count;
 }
 
@@ -86,7 +89,7 @@ std::array<float, 3> CollisionCell::low_corner() const {
 }
 
 // Throws (via at()) for a face index past the cell's faces.
-std::array<u8, 4> CollisionCell::face_indices(std::size_t face) const {
+std::array<u32, 4> CollisionCell::face_indices(std::size_t face) const {
     const CollisionFace& f = faces.at(face);
     // Only quads have a fourth index stored; a triangle repeats its first.
     return {f.v[0], f.v[1], f.v[2], is_quad(face) ? quad_v3.at(face) : f.v[0]};
@@ -188,7 +191,30 @@ CollisionCell read_leaf(ByteView mesh, s16 x, s16 y, s16 z, u32 word) {
     cell.y = y;
     cell.z = z;
     cell.leaf_word = word;
-    cell.header = {mesh.u16_at(leaf), mesh.u8_at(leaf + 2), mesh.u8_at(leaf + 3)};
+    const bool extended = (word & 0xff) == 0;
+    std::size_t vertex_at = leaf + 4;
+    std::size_t face_at = 0;
+    std::size_t leaf_bytes = 0;
+    if (extended) {
+        if (mesh.u32_at(leaf) != 0x58434C52u) {
+            fail("collision: cell ({}, {}, {}) has an unknown extended-leaf marker", x, y, z);
+        }
+        leaf_bytes = mesh.u32_at(leaf + 4);
+        cell.header.face_count = mesh.u32_at(leaf + 12);
+        cell.header.vertex_count = mesh.u32_at(leaf + 8);
+        cell.header.quad_count = 0;
+        cell.header.extended = true;
+        vertex_at = leaf + 16;
+        face_at = vertex_at + 4 * std::size_t{cell.header.vertex_count};
+        const std::size_t needed = face_at - leaf + 16 * std::size_t{cell.header.face_count};
+        if (leaf_bytes < 16 || (leaf_bytes & 15) != 0 || needed > leaf_bytes) {
+            fail("collision: cell ({}, {}, {}) has an invalid extended-leaf size", x, y, z);
+        }
+        mesh.check(leaf, leaf_bytes, "extended collision leaf");
+    } else {
+        cell.header = {mesh.u16_at(leaf), mesh.u8_at(leaf + 2), mesh.u8_at(leaf + 3), false};
+        face_at = leaf + 4 + 4 * std::size_t{cell.header.vertex_count};
+    }
     const std::size_t faces = cell.header.face_count;
     const std::size_t vertices = cell.header.vertex_count;
     const std::size_t quads = cell.header.quad_count;
@@ -199,34 +225,46 @@ CollisionCell read_leaf(ByteView mesh, s16 x, s16 y, s16 z, u32 word) {
     }
 
     // The tree word carries the leaf's size in its low byte; a mismatch means a wrong leaf.
-    if (cell.header.size_qwords() != (word & 0xff)) {
+    if (!extended && cell.header.size_qwords() != (word & 0xff)) {
         fail(
             "collision: cell ({}, {}, {}): the leaf size byte does not match its contents", x, y, z
         );
     }
 
-    mesh.check(leaf, cell.header.size_qwords() * kLeafUnitBytes, "collision leaf");
+    if (!extended) {
+        leaf_bytes = cell.header.size_qwords() * kLeafUnitBytes;
+        mesh.check(leaf, leaf_bytes, "collision leaf");
+    }
     const std::array<float, 3> centre = cell.centre();
 
     // Vertices come first, one packed word each, and are also kept as world positions.
     for (std::size_t i = 0; i < vertices; ++i) {
-        const PackedCollisionVertex p{mesh.u32_at(leaf + 4 + 4 * i)};
+        const PackedCollisionVertex p{mesh.u32_at(vertex_at + 4 * i)};
         cell.packed.push_back(p);
         cell.vertices.push_back(p.world(centre));
     }
 
-    const std::size_t face_at = leaf + 4 + 4 * vertices;
-
     // Faces follow: three vertex indices and the type byte each.
     for (std::size_t i = 0; i < faces; ++i) {
-        const std::size_t at = face_at + 4 * i;
-        cell.faces.push_back(
-            {{mesh.u8_at(at), mesh.u8_at(at + 1), mesh.u8_at(at + 2)}, mesh.u8_at(at + 3)}
-        );
+        const std::size_t at = face_at + (extended ? 16 : 4) * i;
+        if (extended) {
+            cell.faces.push_back(
+                {{mesh.u32_at(at), mesh.u32_at(at + 4), mesh.u32_at(at + 8)}, mesh.u8_at(at + 12)}
+            );
+        } else {
+            cell.faces.push_back(
+                {{mesh.u8_at(at), mesh.u8_at(at + 1), mesh.u8_at(at + 2)}, mesh.u8_at(at + 3)}
+            );
+        }
     }
 
-    const ByteView fourth = mesh.sub(face_at + 4 * faces, quads, "collision quad indices");
-    cell.quad_v3 = fourth.to_vector();
+    if (!extended) {
+        const ByteView fourth = mesh.sub(face_at + 4 * faces, quads, "collision quad indices");
+        cell.quad_v3.reserve(quads);
+        for (u8 index : fourth.to_vector()) {
+            cell.quad_v3.push_back(index);
+        }
+    }
 
     // Check every index a face uses, so later reads of `vertices` cannot go out of range.
     for (std::size_t i = 0; i < faces; ++i) {

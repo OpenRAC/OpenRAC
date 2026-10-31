@@ -305,7 +305,7 @@ struct Kernels {
 
     // A triangle to test: three vertex indices and the face's type byte.
     struct Triangle {
-        std::array<u8, 3> v;
+        std::array<u32, 3> v;
         u8 type;
     };
 

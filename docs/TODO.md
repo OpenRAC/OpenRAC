@@ -38,6 +38,11 @@ slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
   Per-size next-fit cursors keep pool allocation from rescanning the used prefix
   for every cell.
   Dense-cell and allocator-stress gameplay proof is still outstanding.
+- **Expanded static collision leaves.** The editor and PAL/NTSC-U runtime now
+  support tagged `RLCX` cells with 32-bit counts and indices, and the packer
+  selects expanded RAM for those levels. Run a Godot edit that pushes one cell
+  past 255 vertices and 4,080 bytes, confirm floors/walls and face filters in
+  gameplay, then exercise the 1,048,576-vertex and 24-bit-offset refusal paths.
 
 ## 2. Rearrange rac3-uya-decomp like rac1-decomp and rac2-decomp
 

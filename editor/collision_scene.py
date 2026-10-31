@@ -482,6 +482,11 @@ def pack_block(block: bytes, scene: dict) -> tuple[bytes | None, list[str], list
     return col.write(model), changes, problems
 
 
+def has_extended_leaves(block: bytes) -> bool:
+    """Whether a packed collision block needs expanded-RAM runtime support."""
+    return col.has_extended_leaves(block)
+
+
 def tile_name(key: tuple) -> str:
     x, y = tile_of(key)
     return f"Tile_{x:02}_{y:02}"
@@ -539,8 +544,9 @@ def level_data_patches(data: bytes, core: bytes, index: bytes, original_index: b
     return out
 
 
-def expanded_level_data(data: bytes, core: bytes, index: bytes, original_index: bytes, compress) -> bytes | None:
-    """Build a larger level-data container when the compressed core outgrows its disc slot.
+def expanded_level_data(data: bytes, core: bytes, index: bytes, original_index: bytes, compress,
+                        force: bool = False) -> bytes | None:
+    """Build a virtual level-data container when the compressed core outgrows its slot or force is set.
 
     Existing sections keep their offsets. The replacement core stream is appended on a 0x40
     boundary and the container's core range is redirected to it. None means the original slot fits.
@@ -548,7 +554,7 @@ def expanded_level_data(data: bytes, core: bytes, index: bytes, original_index: 
     index_at, index_size = struct.unpack_from("<ii", data, 2 * 8)
     core_at, core_size = struct.unpack_from("<ii", data, 10 * 8)
     stream = compress(core, data[core_at:core_at + 16])
-    if len(stream) <= core_size:
+    if len(stream) <= core_size and not force:
         return None
     if len(index) > index_size:
         raise FormatError("the expanded core index no longer fits its level-data section")

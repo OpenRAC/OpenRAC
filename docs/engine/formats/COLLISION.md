@@ -41,10 +41,12 @@ then X. All offsets are from the mesh start.
 | slab | s16 y base, u16 y count, then u32 offsets of rows, 0 empty |
 | row | s16 x base, u16 x count, then u32 cell words, 0 empty |
 
-**Cell word**: bits 8–31 the leaf's offset, bits 0–7 its size in quadwords
-(the DMA count the game uses to copy the leaf to the scratchpad; it equals
-⌈(4 + 4V + 4F + Q) / 16⌉ on all 429,484 NTSC-U cells, so a leaf is under
-0x1000 bytes). The game reads the bases unsigned and only answers queries
+**Cell word**: bits 8–31 the leaf's offset. In retail leaves, bits 0–7 are
+the size in quadwords (the DMA count the game uses to copy the leaf to the
+scratchpad; it equals ⌈(4 + 4V + 4F + Q) / 16⌉ on all 429,484 NTSC-U cells,
+so a leaf is under 0x1000 bytes). OpenRAC's expanded format reserves a zero
+size byte as a marker for the tagged leaf below; the game reads that form only
+in expanded-RAM sessions. The game reads the bases unsigned and only answers queries
 inside [0, 1024)³; all retail coordinates are ≥ 0 (up to cell 200, 220, 111).
 
 **Layout in memory** (all 19 PAL levels): the root, then every slab table,
@@ -69,6 +71,28 @@ edits only the cells an edit touches. Leaves with no faces occur (level 15).
 
 Padded to 16 bytes.
 
+### OpenRAC expanded leaf
+
+Only an expanded-RAM mod session may use this encoding. The cell word keeps
+the same 24-bit offset and sets the size byte to zero. At that offset:
+
+| Field | Content |
+|---|---|
+| 4 bytes | ASCII `RLCX` marker |
+| u32 | total byte size, padded to 16 |
+| u32 | vertex count |
+| u32 | triangle count |
+| u32 × V | packed vertices, as above |
+| 16 bytes × F | u32 vertex indices a, b, c; type byte; 3 zero bytes |
+
+Every record is a triangle; quads from an edited cell are emitted as their
+two game triangles. The runtime checks the marker, length and counts against
+guest RAM before reading it. The host query scratch currently caps one cell at
+1,048,576 vertices. The cell offset remains 24-bit, so a leaf must start in
+the first 16 MiB of its mesh. The packer makes a virtual level-data stream for
+any block using this marker, which selects expanded RAM. Vanilla sessions
+ignore the marker, and retail leaves retain their original encoding.
+
 **Vertex**: X in bits 0–9 and Y in 10–19 (signed, 1/16 unit), Z in bits 20–31
 (signed, 1/64), from the cell centre (4 × cell + 2). The range ±32 units lets a
 large face keep all its vertices in every cell it touches. The game's decode
@@ -92,10 +116,11 @@ two builds' levels differ slightly.
 **Editing.** A face must be in every cell it touches, with all its vertices
 inside the ±32-unit range of each of those cells' centres; OpenRAC's packer
 puts an added triangle into every cell its box test hits (exact, on the
-integer grid) and halves triangles too large for that range. A cell holds at
-most 255 vertices and 255 quads, and at most 0xFF quadwords (4,080 bytes). The
-face count is 16-bit; OpenRAC's game and asset query paths read all of it, so
-triangle face counts may exceed 255 when the encoded cell still fits.
+integer grid) and halves triangles too large for that range. A retail cell
+holds at most 255 vertices and 255 quads, and at most 0xFF quadwords (4,080
+bytes). OpenRAC's expanded leaf lifts those bounds for edited cells while
+keeping unedited retail leaves byte-for-byte. The face count in a retail leaf
+is 16-bit; OpenRAC's game and asset query paths read all of it.
 
 ## 4. Hero groups
 

@@ -440,7 +440,7 @@ func add_box(size: Vector3, kind: int) -> void:
 	commit("Add a collision box", before)
 
 
-## Adds collision made from the selected mesh (custom level geometry), simplified to fit the cells.
+## Adds collision made from the selected mesh (custom level geometry), snapped to the game's grid.
 func make_from_mesh(kind: int) -> void:
 	var triangles: PackedVector3Array = faces.node_triangles(selected_node)
 
@@ -452,12 +452,10 @@ func make_from_mesh(kind: int) -> void:
 	var made: Dictionary = faces.simplify(triangles)
 	var before: Dictionary = faces.stored_edits()
 	var count: int = faces.add_triangles(made.triangles, kind)
-	var merged: String = (" Corners merged on a %.3f-unit grid to fit the cells." % (made.step / 64.0)
-		if int(made.step) > 4 else "")
-	var over: String = (" Some cells still look full (about %d corners, 255 at most): simplify the mesh "
-		+ "there." % made.most) if int(made.most) > LevelFaces.CELL_LIMIT else ""
-	dock.show_report("%d faces added from %s (%d triangles).%s%s" % [count, selected_node.name,
-		int(triangles.size() / 3.0), merged, over])
+	var over: String = (" A cell estimate is %d corners; the expanded query scratch limit is %d." %
+		[made.most, LevelFaces.CELL_LIMIT]) if int(made.most) > LevelFaces.CELL_LIMIT else ""
+	dock.show_report("%d faces added from %s (%d triangles), snapped to the game's collision grid.%s" %
+		[count, selected_node.name, int(triangles.size() / 3.0), over])
 	commit("Make collision from a mesh", before)
 
 

@@ -262,10 +262,13 @@ static uint32_t cell_word(gaddr mesh, int x, int y, int z) {
 
 typedef struct {
     gaddr leaf;
+    gaddr vertices;
+    gaddr faces;
     int nv;    /* vertices (byte +2) */
     int nf;    /* faces (halfword +0) */
     int nq;    /* quads (byte +3) */
     gaddr qv3; /* the quads' fourth indices */
+    int extended;
 } Cell;
 
 /* A cell to test: the leaf of a non-zero word with vertices. */
@@ -274,6 +277,29 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
         return 0;
     }
     c->leaf = mesh + (word >> 8);
+    c->extended = 0;
+    if ((word & 0xff) == 0) {
+        if (openrac_guest_ram_size <= GUEST_RAM_SIZE || U32(c->leaf) != 0x58434C52u) {
+            return 0;
+        }
+        const uint32_t bytes = U32(c->leaf + 4);
+        const uint32_t nv = U32(c->leaf + 8);
+        const uint32_t nf = U32(c->leaf + 12);
+        const uint64_t needed = 16u + 4u * (uint64_t)nv + 16u * (uint64_t)nf;
+        const gaddr leaf_ram = openrac_guest_ram_address(c->leaf);
+        if (bytes < 16 || (bytes & 15) != 0 || needed > bytes || nv > INT32_MAX || nf > INT32_MAX
+            || leaf_ram > openrac_guest_ram_size || bytes > openrac_guest_ram_size - leaf_ram) {
+            return 0;
+        }
+        c->nv = (int)nv;
+        c->nf = (int)nf;
+        c->nq = 0;
+        c->vertices = c->leaf + 16;
+        c->faces = c->vertices + 4u * nv;
+        c->qv3 = 0;
+        c->extended = 1;
+        return c->nv != 0;
+    }
     c->nv = U8(c->leaf + 2);
     if (c->nv == 0) {
         return 0;
@@ -282,7 +308,9 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
      * full field here lets edited cells exceed 255 faces without changing any retail-sized leaf. */
     c->nf = U16(c->leaf);
     c->nq = U8(c->leaf + 3);
-    c->qv3 = c->leaf + 4 + 4 * (gaddr)c->nv + 4 * (gaddr)U16(c->leaf);
+    c->vertices = c->leaf + 4;
+    c->faces = c->vertices + 4 * (gaddr)c->nv;
+    c->qv3 = c->faces + 4 * (gaddr)c->nf;
     return 1;
 }
 
@@ -291,7 +319,36 @@ typedef struct {
     uint32_t code; /* per axis: bit 0 below the query box, bit 1 above */
 } Vert;
 
-static Vert g_verts[2048];
+static Vert g_verts_small[2048];
+static Vert* g_verts = g_verts_small;
+static Vert* g_verts_allocated;
+static size_t g_verts_capacity = 2048;
+
+static int ensure_verts(size_t count) {
+    if (count <= g_verts_capacity) {
+        return 1;
+    }
+    /* Expanded cells may be much larger than a retail query's 2,048-vertex scratch array.
+     * Bound the host allocation and only grow it when an expanded stream actually needs it. */
+    if (openrac_guest_ram_size <= GUEST_RAM_SIZE || count > 1u << 20) {
+        return 0;
+    }
+    size_t capacity = g_verts_capacity * 2;
+    if (capacity < count) {
+        capacity = count;
+    }
+    if (capacity > 1u << 20) {
+        capacity = 1u << 20;
+    }
+    Vert* grown = realloc(g_verts_allocated, capacity * sizeof(*grown));
+    if (grown == NULL) {
+        return 0;
+    }
+    g_verts_allocated = grown;
+    g_verts = grown;
+    g_verts_capacity = capacity;
+    return 1;
+}
 
 /* ---- What the kernels leave in vector registers they do not compute ----
  *
@@ -328,10 +385,13 @@ static void vstw(gaddr a, V3 v, uint32_t w) {
 /* The cell's vertices as halfwords (x << 6, y << 6, z << 4) and their outcodes against [lo, hi]
  * with 16-bit wrapping compares (psubh). The decode loads two vertices at a time into vf1 / vf2, w
  * zero. */
-static void decode_vertices(const Cell* c, const int16_t lo[3], const int16_t hi[3]) {
+static int decode_vertices(const Cell* c, const int16_t lo[3], const int16_t hi[3]) {
+    if (!ensure_verts((size_t)c->nv)) {
+        return 0;
+    }
     g_vf2w = 0;
     for (int i = 0; i < c->nv; ++i) {
-        const uint32_t w = U32(c->leaf + 4 + 4 * (gaddr)i);
+        const uint32_t w = U32(c->vertices + 4 * (gaddr)i);
         const int32_t f[3] =
             {((int32_t)(w << 22)) >> 22, ((int32_t)(w << 12)) >> 22, ((int32_t)w) >> 20};
         const int16_t h[3] = {(int16_t)(f[0] << 6), (int16_t)(f[1] << 6), (int16_t)(f[2] << 4)};
@@ -344,17 +404,30 @@ static void decode_vertices(const Cell* c, const int16_t lo[3], const int16_t hi
         g_verts[i].p = v3((float)h[0], (float)h[1], (float)h[2]);
         g_verts[i].code = code;
     }
+    return 1;
 }
 
 /* Triangle j of the cell walk: the faces as (v0, v1, v2), then the first nq again as (v0, v2, v3). */
 static int cell_triangle(const Cell* c, int j, int v[3], int* type) {
-    const gaddr faces = c->leaf + 4 + 4 * (gaddr)c->nv;
+    const gaddr faces = c->faces;
     if (j < c->nf) {
-        const gaddr f = faces + 4 * (gaddr)j;
-        v[0] = U8(f);
-        v[1] = U8(f + 1);
-        v[2] = U8(f + 2);
-        *type = U8(f + 3);
+        if (c->extended) {
+            const gaddr f = faces + 16 * (gaddr)j;
+            v[0] = (int)U32(f);
+            v[1] = (int)U32(f + 4);
+            v[2] = (int)U32(f + 8);
+            *type = U8(f + 12);
+            if (v[0] < 0 || v[1] < 0 || v[2] < 0 || v[0] >= c->nv || v[1] >= c->nv
+                || v[2] >= c->nv) {
+                return 0;
+            }
+        } else {
+            const gaddr f = faces + 4 * (gaddr)j;
+            v[0] = U8(f);
+            v[1] = U8(f + 1);
+            v[2] = U8(f + 2);
+            *type = U8(f + 3);
+        }
         return 1;
     }
     j -= c->nf;
@@ -552,6 +625,9 @@ static int moby_mesh_verts(const MobyColl* c, V3 lo, V3 hi) {
         rs[r] = vmuls(c->rows[r], c->s);
     }
     const int n = c->nverts < 2048 ? c->nverts : 2048;
+    if (!ensure_verts((size_t)n)) {
+        return 0;
+    }
     for (int i = 0; i < n; ++i) {
         const gaddr v = c->verts + 8 * (gaddr)i;
         const V3 p = rot(rs, v3((float)S16(v), (float)S16(v + 2), (float)S16(v + 4)));
@@ -564,7 +640,7 @@ static int moby_mesh_verts(const MobyColl* c, V3 lo, V3 hi) {
         g_verts[i].p = p;
         g_verts[i].code = code;
     }
-    if (c->nverts > 0) {
+    if (c->nverts > 0 && n > 0) {
         g_vf2w = (uint32_t)(int32_t)S16(c->verts + 16 * (gaddr)((c->nverts + 1) / 2) + 14);
         g_r7 = g_verts[2 * ((n + 1) / 2 - 1)].code & 2;
     }
@@ -1133,7 +1209,9 @@ static void line_world(
         const V3 centre = v3((float)ci[0], (float)ci[1], (float)ci[2]);
         const V3 a_rel = vsub(a1024, centre);
         const V3 b_rel = vsub(b1024, centre);
-        decode_vertices(&cell, lo, hi);
+        if (!decode_vertices(&cell, lo, hi)) {
+            continue;
+        }
         int vi[3], ty;
         for (int j = 0; cell_triangle(&cell, j, vi, &ty); ++j) {
             const Vert* v0 = &g_verts[vi[0]];
@@ -1684,7 +1762,9 @@ static int coll_volume(
                         bhi[k] = (int16_t)ftoi0(fsub(vol.hi1024.v[k], cen.v[k]));
                     }
                     const V3 c_rel = vsub(vol.c1024, cen);
-                    decode_vertices(&cell, blo, bhi);
+                    if (!decode_vertices(&cell, blo, bhi)) {
+                        continue;
+                    }
                     int vi[3], ty;
                     for (int j = 0; cell_triangle(&cell, j, vi, &ty); ++j) {
                         const Vert* v0 = &g_verts[vi[0]];

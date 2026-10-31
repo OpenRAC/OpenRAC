@@ -65,11 +65,12 @@ struct PackedCollisionVertex {
     static PackedCollisionVertex pack(s32 x, s32 y, s32 z);
 };
 
-// One face record: three indices into its cell's vertices and the collision
+// One face record: three 32-bit indices (extended leaves need more than 255)
+// into its cell's vertices and the collision
 // type byte. Bits 0-4 of the type are the surface id (0x1f: none), bits 5-6 the
 // footstep sound class, and bit 7 marks faces queries with flag 0x80 skip.
 struct CollisionFace {
-    std::array<u8, 3> v{};
+    std::array<u32, 3> v{};
     u8 type = 0;
 
     // The game's surface-id getter (NTSC-U level01 0x2151d8): type & 0x1f, -1
@@ -83,15 +84,15 @@ struct CollisionFace {
     bool high_bit() const { return (type & 0x80) != 0; }
 };
 
-// A leaf's header. The leaf goes on with vertex_count packed vertices,
-// face_count faces (quads first), quad_count fourth indices, and zero padding
-// to 16 bytes.
+// Counts for either a retail leaf or an OpenRAC expanded leaf. In retail data
+// the on-disk widths are u16/u8/u8; expanded leaves store three u32 counts.
 struct CollisionLeafHeader {
-    u16 face_count = 0;
-    u8 vertex_count = 0;
-    u8 quad_count = 0;  // the first quad_count faces are quads
+    u32 face_count = 0;
+    u32 vertex_count = 0;
+    u32 quad_count = 0;  // the first quad_count faces are quads
+    bool extended = false;
 
-    // 4 + 4V + 4F + Q.
+    // Retail: 4 + 4V + 4F + Q. Expanded: 16 + 4V + 16F.
     std::size_t payload_size() const;
 
     // The leaf's size in 16-byte units, which the tree word's low byte holds.
@@ -109,7 +110,7 @@ struct CollisionCell {
     std::vector<PackedCollisionVertex> packed;
     std::vector<std::array<float, 3>> vertices;  // world positions of `packed`
     std::vector<CollisionFace> faces;            // quads first, then triangles
-    std::vector<u8> quad_v3;                     // the fourth index of each quad
+    std::vector<u32> quad_v3;                    // the fourth index of each quad
 
     u32 leaf_offset() const { return leaf_word >> 8; }
 
@@ -126,7 +127,7 @@ struct CollisionCell {
     bool is_quad(std::size_t face) const { return face < header.quad_count; }
 
     // The face's four indices; a triangle repeats v0 as the fourth.
-    std::array<u8, 4> face_indices(std::size_t face) const;
+    std::array<u32, 4> face_indices(std::size_t face) const;
 };
 
 // Hero collision: a flat list of groups with bounding spheres.
