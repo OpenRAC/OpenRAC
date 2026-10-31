@@ -78,6 +78,8 @@ int32_t rac1_moby_slot(gaddr moby);
 int rac1_moby_gate(gaddr moby, int phase);
 void rac1_stand_in_end(void);
 int rac1_moby_eyes(const float** xyz);
+int game_rac1_expanded_ram(void);
+void game_rac1_warn_moby_grid_full(void);
 /* world.c's calls of play.c's table (game_host.h, openrac_game_play: the same names without
  * rac1_world_). */
 int rac1_world_mobys(openrac_game_moby_state* out, int max);

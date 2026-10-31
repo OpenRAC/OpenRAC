@@ -7,10 +7,8 @@
 extern unsigned char exe_grid[] __asm__("D_001B7A60");
 extern unsigned int exe_grid_used[] __asm__("D_001C7A60");
 extern void exe_grid_trap(void) __asm__("func_001F9978");
-extern unsigned int openrac_guest_ram_size;
-extern void openrac_game_warn(const char* message);
-
-static int exe_grid_overfull_warned;
+extern int rac1_expanded_ram(void);
+extern void rac1_warn_moby_grid_full(void);
 
 void func_0020E990(int first, int blocks) {
     int i;
@@ -86,7 +84,7 @@ static int exe_grid_valid(unsigned int rect) {
 
 static int exe_grid_would_overflow_cell(unsigned int old, unsigned int next) {
     int x, y;
-    if (openrac_guest_ram_size <= 0x02000000u || (next & 0x80000000u)) return 0;
+    if (!rac1_expanded_ram() || (next & 0x80000000u)) return 0;
     for (y = (next >> 8) & 255; y <= (int)(next >> 24); ++y) {
         for (x = next & 255; x <= (int)((next >> 16) & 255); ++x) {
             unsigned char* cell;
@@ -112,10 +110,7 @@ void func_0020EA70(unsigned char* moby, unsigned int next) {
      * is full, this moby leaves the grid as a whole and will retry on its next update. */
     if (exe_grid_would_overflow_cell(old, next)) {
         next = 0x80807F7Fu;
-        if (!exe_grid_overfull_warned) {
-            exe_grid_overfull_warned = 1;
-            openrac_game_warn("moby collision grid cell full: a moby was left out of collision");
-        }
+        rac1_warn_moby_grid_full();
     }
     if (!(old & 0x80000000u)) {
         for (y = (old >> 8) & 255; y <= (int)(old >> 24); ++y) {

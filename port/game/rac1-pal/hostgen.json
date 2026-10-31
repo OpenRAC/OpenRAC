@@ -38,6 +38,8 @@
     "func_L00_002465F8"
   ],
   "host_functions": [
+    "rac1_expanded_ram",
+    "rac1_warn_moby_grid_full",
     "openrac_game_moby_colour",
     "func_001F7560",
     "func_001F75D0",

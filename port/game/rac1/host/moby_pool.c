@@ -99,6 +99,19 @@ static int bigger_pool(void) {
     return *fix != 0;
 }
 
+/* Hostgen's translated hand routines cannot read runtime-only globals directly. */
+int game_rac1_expanded_ram(void) {
+    return openrac_guest_ram_size > GUEST_RAM_SIZE;
+}
+
+void game_rac1_warn_moby_grid_full(void) {
+    static int warned;
+    if (!warned) {
+        warned = 1;
+        openrac_game_warn("moby collision grid cell full: a moby was left out of collision");
+    }
+}
+
 /* The gameplay header decompressed to `to`, while a loader that named it runs: its spare count raised
  * to the selected arena's spare capacity (once a run; a level that ships more keeps its own). */
 void rac1_wad_decompressed(gaddr to) {

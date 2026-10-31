@@ -81,6 +81,8 @@
     "func_001E9478"
   ],
   "host_functions": [
+    "rac1_expanded_ram",
+    "rac1_warn_moby_grid_full",
     "FUN_00212d68",
     "openrac_game_moby_colour",
     "FUN_001f7580",
