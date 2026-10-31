@@ -133,6 +133,10 @@ struct SpinAnimation {
     Vec3 axis{0.0f, 0.0f, 1.0f};
     float radians_per_second = 0.0f;
     float phase = 0.0f;
+    Vec3 move_axis{0.0f, 0.0f, 0.0f};
+    float move_distance = 0.0f;
+    float move_radians_per_second = 0.0f;
+    float move_phase = 0.0f;
 };
 
 // What the viewer draws, in the game's order.

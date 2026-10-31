@@ -163,14 +163,30 @@ def animated_placements(project: Path, text: str):
                     (('x', 0), ('y', 0), ('z', 1))]
             speed = float(meta.get('spin_speed', 1.0))
             phase = float(meta.get('spin_phase', 0.0))
+            move_axis = [float(meta.get(f'move_{axis}', 0.0)) for axis in ('x', 'y', 'z')]
+            move_distance = float(meta.get('move_distance', 0.0))
+            move_speed = float(meta.get('move_speed', 1.0))
+            move_phase = float(meta.get('move_phase', 0.0))
         except (TypeError, ValueError):
-            raise ValueError(f'{path}: spin axis, speed and phase must be numbers') from None
+            raise ValueError(f'{path}: animation axes, distances, speeds and phases must be numbers') from None
         length = math.sqrt(sum(component * component for component in axis))
-        if not all(math.isfinite(v) for v in (*axis, speed, phase)) or length <= 1e-8:
+        move_length = math.sqrt(sum(component * component for component in move_axis))
+        if not all(math.isfinite(v) for v in (*axis, speed, phase, *move_axis,
+                                               move_distance, move_speed, move_phase)) \
+                or not math.isfinite(length) or length <= 1e-8 \
+                or not math.isfinite(move_length):
             raise ValueError(f'{path}: spin axis must be non-zero and spin values finite')
-        if abs(speed) > 100 or abs(phase) > 1_000_000:
-            raise ValueError(f'{path}: spin speed must be within ±100 rad/s and phase within ±1,000,000 rad')
-        result.append((path, source, matrix, [v / length for v in axis], speed, phase))
+        if abs(speed) > 100 or abs(phase) > 1_000_000 or abs(move_speed) > 100 \
+                or abs(move_phase) > 1_000_000 or abs(move_distance) > 1_000_000:
+            raise ValueError(f'{path}: animation speeds must be within ±100 and distances/phases within ±1,000,000')
+        if move_length <= 1e-8:
+            if move_distance != 0:
+                raise ValueError(f'{path}: a non-zero movement distance needs a non-zero movement axis')
+            move_axis = [0.0, 0.0, 0.0]
+        else:
+            move_axis = [v / move_length for v in move_axis]
+        result.append((path, source, matrix, [v / length for v in axis], speed, phase,
+                       move_axis, move_distance, move_speed, move_phase))
     return result
 
 
@@ -383,7 +399,7 @@ def write_animated(project: Path, text: str, out: Path):
     if not placed:
         return 0
     objects = []
-    for node, source, matrix, axis, speed, phase in placed:
+    for node, source, matrix, axis, speed, phase, move_axis, move_distance, move_speed, move_phase in placed:
         document = read_model(source, project)
         validate(document)
         if not any(order for _, order, _ in triangles(document, gltf_read.trs())):
@@ -407,7 +423,9 @@ def write_animated(project: Path, text: str, out: Path):
                 raise ValueError(f'{node}: animated texture identifier collision; no file was overwritten')
             texture_path.write_bytes(data)
         objects.append({'model': f'animated/{asset_id}/model.glb', 'matrix': matrix,
-                        'spin_axis': axis, 'spin_speed': speed, 'phase': phase})
+                        'spin_axis': axis, 'spin_speed': speed, 'phase': phase,
+                        'move_axis': move_axis, 'move_distance': move_distance,
+                        'move_speed': move_speed, 'move_phase': move_phase})
     out.mkdir(parents=True, exist_ok=True)
     (out / 'animated.json').write_text(json.dumps({'format': 1, 'objects': objects}, indent=2) + '\n')
     return len(objects)

@@ -210,6 +210,12 @@ func handle_static_model_selected(path: String) -> void:
 		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_z", 1.0)
 		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_speed", 1.0)
 		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_phase", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_x", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_y", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_z", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_distance", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_speed", 1.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_phase", 0.0)
 	else:
 		undo_redo.add_do_method(instance, "set_meta", "rc1_static_collision", false)
 	undo_redo.add_undo_method(group, "remove_child", instance)

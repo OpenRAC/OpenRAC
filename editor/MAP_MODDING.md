@@ -98,6 +98,11 @@ rotates around its configured world-space axis through its origin at runtime. In
 `rc1_spin_x`, `rc1_spin_y`, `rc1_spin_z` define the axis, `rc1_spin_speed` is
 radians per second (positive or negative, up to 100), and `rc1_spin_phase` is
 the starting angle in radians. The default is one radian per second around Z.
+For back-and-forth movement, set `rc1_move_x/y/z` to the axis,
+`rc1_move_distance` to the maximum offset in game units,
+`rc1_move_speed` to the angular speed in radians per second, and
+`rc1_move_phase` to the starting phase. The default distance is zero, so the
+prop stays in place. Both motion types use the game's Z-up world coordinates.
 These are visual objects with no game collision or native moby behavior. Packing
 places their model bundles and `animated.json` in the mod output; it does not
 change the disc data or vanilla path.

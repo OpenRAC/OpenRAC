@@ -786,6 +786,41 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                     return false;
                 }
                 spin_axis = renderer::normalize(spin_axis);
+                Vec3 move_axis{};
+                const json::Value& move_axis_json = object["move_axis"];
+                if (!move_axis_json.is_null()
+                    && (!move_axis_json.is_array() || move_axis_json.items().size() != 3)) {
+                    error = "animated object move_axis must contain three numbers";
+                    return false;
+                }
+                for (std::size_t i = 0; i < move_axis.size(); ++i) {
+                    move_axis[i] = move_axis_json.is_array()
+                                       ? static_cast<float>(move_axis_json[i].number(
+                                             std::numeric_limits<double>::quiet_NaN()))
+                                       : 0.0f;
+                    if (!std::isfinite(move_axis[i])) {
+                        error = "animated object move_axis contains an invalid value";
+                        return false;
+                    }
+                }
+                const float move_axis_length = renderer::dot(move_axis, move_axis);
+                if (!std::isfinite(move_axis_length)) {
+                    error = "animated object move_axis contains an invalid value";
+                    return false;
+                }
+                const double move_distance = object["move_distance"].number(0.0);
+                const double move_speed = object["move_speed"].number(1.0);
+                const double move_phase = object["move_phase"].number(0.0);
+                if (!std::isfinite(move_distance) || std::abs(move_distance) > 1000000.0
+                    || !std::isfinite(move_speed) || std::abs(move_speed) > 100.0
+                    || !std::isfinite(move_phase) || std::abs(move_phase) > 1000000.0
+                    || (move_axis_length < 1.0e-8f && move_distance != 0.0)) {
+                    error = "animated object movement values are outside their supported range";
+                    return false;
+                }
+                if (move_axis_length >= 1.0e-8f) {
+                    move_axis = renderer::normalize(move_axis);
+                }
                 const double speed = object["spin_speed"].number();
                 const double phase = object["phase"].number(0.0);
                 if (!std::isfinite(speed) || std::abs(speed) > 100.0
@@ -795,7 +830,10 @@ bool load_level(const fs::path& dir, LevelData& out, std::string& error, const f
                 }
                 auto& instances = out.instances[static_cast<std::size_t>(Layer::Animated)];
                 out.spins.push_back({instances.size(), spin_axis, static_cast<float>(speed),
-                                     static_cast<float>(phase)});
+                                     static_cast<float>(phase), move_axis,
+                                     static_cast<float>(move_distance),
+                                     static_cast<float>(move_speed),
+                                     static_cast<float>(move_phase)});
                 instances.push_back(instance);
             }
         }

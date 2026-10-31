@@ -747,6 +747,16 @@ std::vector<Instance> LevelScene::animated_instances(double seconds) const {
         spun[12] = base[12];
         spun[13] = base[13];
         spun[14] = base[14];
+        if (spin.move_distance != 0.0f) {
+            const double move_angle = std::remainder(
+                static_cast<double>(spin.move_radians_per_second) * seconds + spin.move_phase,
+                tau
+            );
+            const float offset = spin.move_distance * std::sin(static_cast<float>(move_angle));
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                spun[12 + axis] += spin.move_axis[axis] * offset;
+            }
+        }
         result[spin.instance].matrix = spun;
     }
     return result;
