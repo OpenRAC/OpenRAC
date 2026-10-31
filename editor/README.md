@@ -691,7 +691,7 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   pool can use the remaining 15-bit moby indices for spawned objects; the
   vanilla 32 MiB pool size and its three crowded levels are unchanged. Expanded
   mode now uses a sparse moby grid across the positive 131,072-unit collision
-  world, with 16-unit cells, 65,536 hash slots, and a 14.5 MiB pool of 32-byte
+  world, with 16-unit cells, 262,144 hash slots, and a 14.5 MiB pool of 32-byte
   blocks; vanilla retains the original 1,536-block grid. A single moby's grid
   bounds must fit the expanded grid's cell capacity. If grid allocation fails,
   that moby keeps its previous collision coverage and OpenRAC warns. The

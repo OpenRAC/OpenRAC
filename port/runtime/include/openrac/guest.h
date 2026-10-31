@@ -88,7 +88,7 @@ extern OPENRAC_GUEST_GLOBAL uint32_t openrac_guest_ram_size;
 /* The expanded RAC1 target table lives at the top of guest RAM. Keep a small
  * gap after it and below the heap; 32,768 moby pointers plus NULL take 0x20004. */
 #define OPENRAC_EXPANDED_TARGET_TABLE_RESERVE 0x00021000u
-#define OPENRAC_EXPANDED_MOBY_GRID_RESERVE 0x01020000u
+#define OPENRAC_EXPANDED_MOBY_GRID_RESERVE 0x01320000u
 #define OPENRAC_EXPANDED_RAC1_RESERVE \
     (OPENRAC_EXPANDED_TARGET_TABLE_RESERVE + OPENRAC_EXPANDED_MOBY_GRID_RESERVE)
 static inline gaddr openrac_guest_target_table(gaddr original) {
