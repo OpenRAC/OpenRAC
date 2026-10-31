@@ -1671,6 +1671,11 @@ bool resolve_in_pass(Image& src, Image& dst, const std::array<GLint, 8>& r) {
     }
     g->pass.resolve_colour = &dst;
     g->pass.used_colour = true;
+    // The resolve writes only inside the render area: all of the image.
+    touch_area(
+        g->rendering_target,
+        {{0, 0}, {static_cast<std::uint32_t>(src.width), static_cast<std::uint32_t>(src.height)}}
+    );
     end_rendering(PassEnd::Copy);
     return true;
 }

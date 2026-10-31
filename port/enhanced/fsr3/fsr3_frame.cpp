@@ -113,9 +113,11 @@ void Fsr3::State::draw_camera_motion() {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, world.depth_texture());
     glBindFramebuffer(GL_FRAMEBUFFER, depth.framebuffer());
+    fsr3_detail::let_go_colour();
     glUniform1i(camera_motion.uniform("depth_only"), 1);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindFramebuffer(GL_FRAMEBUFFER, motion.framebuffer());
+    fsr3_detail::let_go_colour();
     glUniform1i(camera_motion.uniform("depth_only"), 0);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
@@ -157,6 +159,7 @@ void Fsr3::State::draw_reactive() {
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, reactive.framebuffer());
+    fsr3_detail::let_go_colour();
     glBindVertexArray(vao);
     reactive_mask.use();
     glActiveTexture(GL_TEXTURE0);

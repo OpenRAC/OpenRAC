@@ -89,10 +89,12 @@ enum class Opt : std::uint8_t {
     // motion-blur-adaptive-samples: two blur samples a pixel of trail, not always the most
     MotionBlurAdaptiveSamples,
     AttachmentUntouched,  // attachment-untouched: an attachment a pass leaves alone not loaded
+    PassRenderArea,       // pass-render-area: a pass loads and stores only the rectangle it touched
+    OverwriteDiscard,     // overwrite-discard: a target a full-screen pass overwrites is not loaded
 };
 
-// The number of entries: AttachmentUntouched is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::AttachmentUntouched) + 1;
+// The number of entries: OverwriteDiscard is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::OverwriteDiscard) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

@@ -625,6 +625,15 @@ struct OpenPass {
     // (attachment-untouched): an untouched one is neither loaded nor stored.
     bool used_colour = false;
     bool used_depth = false;
+    // The rectangle the pass's draws and clears touched, from (x0, y0) up to (x1, y1)
+    // (pass-render-area): the pass's render area, outside which nothing is loaded or stored.
+    bool touched = false;
+    int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    // A clear of part of the target that came before anything else in the pass: when it covers
+    // the whole render area, the pass begins with that clear instead of loading.
+    bool first_clear = false;
+    bool first_colour_cleared = false, first_depth_cleared = false, first_stencil_cleared = false;
+    VkRect2D first_rect{};
 };
 
 // A copy into the default framebuffer that waits for present() (present-single-copy,
@@ -1337,7 +1346,9 @@ void flush_and_wait();
 Target target_of(GLuint name);
 
 // Begins rendering into `t`, keeping its contents, unless `main` already renders into it.
-void ensure_rendering(const Target& t);
+void ensure_rendering(const Target& t, bool draw = true);
+// Adds `rect`, clipped to `t`, to what the open pass touched (pass-render-area).
+void touch_area(const Target& t, const VkRect2D& rect);
 
 // The part of `t` drawing may touch: the scissor box clamped to `t`, or all of `t` without the
 // scissor test.

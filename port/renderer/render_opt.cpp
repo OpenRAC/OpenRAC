@@ -197,6 +197,12 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::AttachmentUntouched, "attachment-untouched",
      "a colour or depth attachment no draw or clear of a pass touches is neither loaded nor stored (load/store op none)",
      true, Tolerance{}},
+    {Opt::PassRenderArea, "pass-render-area",
+     "a Vulkan pass's render area is the rectangle its draws and clears touch, cleared rather than loaded when it began so",
+     true, Tolerance{}},
+    {Opt::OverwriteDiscard, "overwrite-discard",
+     "the temporal and blur targets a full-screen draw overwrites whole are let go before it, so not loaded",
+     true, Tolerance{}},
 }};
 // clang-format on
 

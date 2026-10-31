@@ -317,6 +317,14 @@ bool begin_deferred(const Target& t, const Clear& clear) {
     std::memcpy(pass.colour_value.float32, s.clear_colour, sizeof s.clear_colour);
     pass.depth_value = {s.clear_depth, static_cast<std::uint32_t>(s.clear_stencil)};
     pass.commands_at_begin = commands_recorded(g->submission);
+
+    // A clear the pass begins with clears all of the target: its render area is all of it.
+    if (clear.colour || clear.depth || clear.stencil) {
+        touch_area(
+            t, {{0, 0}, {static_cast<std::uint32_t>(t.width), static_cast<std::uint32_t>(t.height)}}
+        );
+    }
+
     f.main = secondary;
     return true;
 }
@@ -344,6 +352,31 @@ void end_deferred(const Target& t) {
     info.renderArea =
         {{0, 0}, {static_cast<std::uint32_t>(t.width), static_cast<std::uint32_t>(t.height)}};
     info.layerCount = 1;
+    bool clear_colour = pass.clear_colour;
+    bool clear_depth = pass.clear_depth;
+    bool clear_stencil = pass.clear_stencil;
+
+    // Only the rectangle the draws and clears touched is loaded and stored (pass-render-area); a
+    // clear that came first and covers all of it makes the pass begin cleared instead of loading.
+    // That clear is still in the pass's buffer, so the value the pass begins with is not seen.
+    if (pass.touched && render_opt::enabled(render_opt::Opt::PassRenderArea)) {
+        info.renderArea =
+            {{pass.x0, pass.y0},
+             {static_cast<std::uint32_t>(pass.x1 - pass.x0),
+              static_cast<std::uint32_t>(pass.y1 - pass.y0)}};
+        const VkRect2D& r = pass.first_rect;
+        const bool covers = pass.first_clear && r.offset.x == pass.x0 && r.offset.y == pass.y0
+                            && r.extent.width == info.renderArea.extent.width
+                            && r.extent.height == info.renderArea.extent.height;
+
+        // The aspects that first clear cleared.
+        if (covers) {
+            clear_colour = clear_colour || pass.first_colour_cleared;
+            clear_depth = clear_depth || pass.first_depth_cleared;
+            clear_stencil = clear_stencil || pass.first_stencil_cleared;
+        }
+    }
+
     const VkExtent2D area = info.renderArea.extent;
 
     // An attachment no draw or clear of the pass touched keeps what it held, unread and unwritten
@@ -351,9 +384,9 @@ void end_deferred(const Target& t) {
     const bool untouched_ops =
         g->load_store_none && render_opt::enabled(render_opt::Opt::AttachmentUntouched);
     const bool colour_untouched =
-        untouched_ops && !pass.clear_colour && !pass.used_colour && pass.resolve_colour == nullptr;
+        untouched_ops && !clear_colour && !pass.used_colour && pass.resolve_colour == nullptr;
     const bool depth_untouched =
-        untouched_ops && !pass.clear_depth && !pass.clear_stencil && !pass.used_depth;
+        untouched_ops && !clear_depth && !clear_stencil && !pass.used_depth;
 
     // The colour attachment: cleared, not loaded or loaded; stored unless let go.
     if (t.colour != nullptr && colour_untouched) {
@@ -366,11 +399,11 @@ void end_deferred(const Target& t) {
     } else if (t.colour != nullptr) {
         colour.imageView = attachment_view(*t.colour);
         colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colour.loadOp = load_op(*t.colour, VK_IMAGE_ASPECT_COLOR_BIT, pass.clear_colour);
+        colour.loadOp = load_op(*t.colour, VK_IMAGE_ASPECT_COLOR_BIT, clear_colour);
         colour.storeOp = store_op(pass.drop_colour, VK_IMAGE_ASPECT_COLOR_BIT);
         // A pass's own clear keeps its value; a load of let-go data under test is the poison.
         colour.clearValue.color =
-            pass.clear_colour || !g->poison_discards ? pass.colour_value : kPoisonColour;
+            clear_colour || !g->poison_discards ? pass.colour_value : kPoisonColour;
         info.colorAttachmentCount = 1;
         info.pColorAttachments = &colour;
         count_attachment(
@@ -408,12 +441,12 @@ void end_deferred(const Target& t) {
     } else if (t.depth != nullptr) {
         depth.imageView = attachment_view(*t.depth);
         depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depth.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_DEPTH_BIT, pass.clear_depth);
+        depth.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_DEPTH_BIT, clear_depth);
         depth.storeOp = store_op(pass.drop_depth, VK_IMAGE_ASPECT_DEPTH_BIT);
         depth.clearValue.depthStencil = pass.depth_value;
 
         // A load of let-go depth under test is cleared to the poison rather than to the value.
-        if (g->poison_discards && !pass.clear_depth) {
+        if (g->poison_discards && !clear_depth) {
             depth.clearValue.depthStencil.depth = kPoisonDepth.depth;
         }
 
@@ -424,11 +457,11 @@ void end_deferred(const Target& t) {
         // The stencil aspect of the same image.
         if (has_stencil(t.depth->format)) {
             stencil = depth;
-            stencil.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_STENCIL_BIT, pass.clear_stencil);
+            stencil.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_STENCIL_BIT, clear_stencil);
             stencil.storeOp = store_op(pass.drop_depth, VK_IMAGE_ASPECT_STENCIL_BIT);
 
             // The same for let-go stencil.
-            if (g->poison_discards && !pass.clear_stencil) {
+            if (g->poison_discards && !clear_stencil) {
                 stencil.clearValue.depthStencil.stencil = kPoisonDepth.stencil;
             }
 
@@ -964,9 +997,52 @@ Target target_of(GLuint name) {
     return t;
 }
 
-void ensure_rendering(const Target& t) {
+void touch_area(const Target& t, const VkRect2D& rect) {
+    const int x0 = std::clamp(rect.offset.x, 0, t.width);
+    const int y0 = std::clamp(rect.offset.y, 0, t.height);
+    const int x1 = std::clamp(rect.offset.x + static_cast<int>(rect.extent.width), x0, t.width);
+    const int y1 = std::clamp(rect.offset.y + static_cast<int>(rect.extent.height), y0, t.height);
+
+    // An empty rectangle touches nothing.
+    if (x0 == x1 || y0 == y1) {
+        return;
+    }
+
+    OpenPass& pass = g->pass;
+
+    // The first rectangle, or the one that holds it and the rest.
+    if (!pass.touched) {
+        pass.touched = true;
+        pass.x0 = x0;
+        pass.y0 = y0;
+        pass.x1 = x1;
+        pass.y1 = y1;
+    } else {
+        pass.x0 = std::min(pass.x0, x0);
+        pass.y0 = std::min(pass.y0, y0);
+        pass.x1 = std::max(pass.x1, x1);
+        pass.y1 = std::max(pass.y1, y1);
+    }
+}
+
+void ensure_rendering(const Target& t, bool draw) {
     if (!g->rendering || !(g->rendering_target == t)) {
         begin_rendering(t, Clear{});
+    }
+
+    // Where a draw may write: each indexed viewport, its own scissor, or else the scissor. A
+    // clear names its own rectangle.
+    if (draw && g->indexed_viewports.empty()) {
+        touch_area(t, scissor_rect(t));
+    } else if (draw) {
+        for (const auto& r : g->indexed_viewports) {
+            touch_area(
+                t,
+                {{r[0], r[1]},
+                 {static_cast<std::uint32_t>(std::max(r[2], 0)),
+                  static_cast<std::uint32_t>(std::max(r[3], 0))}}
+            );
+        }
     }
 
     // A draw or a clear after glInvalidateFramebuffer: what it writes is kept.
@@ -1064,7 +1140,21 @@ void clear(GLbitfield mask) {
         begin_rendering(t, c);  // cleared as the drawing begins: no work of its own on a tiler
         return;
     }
-    ensure_rendering(t);
+    // Nothing drawn or cleared in the pass yet: this clear may stand for loading the area.
+    const bool first = !g->rendering || !(g->rendering_target == t) || !g->pass.touched;
+    ensure_rendering(t, false);
+
+    // Kept for end_deferred, which knows the pass's area only at its end.
+    if (first && g->pass.deferred) {
+        OpenPass& pass = g->pass;
+        pass.first_clear = true;
+        pass.first_colour_cleared = c.colour;
+        pass.first_depth_cleared = c.depth;
+        pass.first_stencil_cleared = c.stencil;
+        pass.first_rect = rect;
+    }
+
+    touch_area(t, rect);
     g->pass.used_colour = g->pass.used_colour || c.colour;
     g->pass.used_depth = g->pass.used_depth || c.depth || c.stencil;
     VkClearAttachment attachments[2]{};

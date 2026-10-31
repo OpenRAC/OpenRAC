@@ -1871,6 +1871,17 @@ entries below is `/mnt/project-files/docs/perf/enhanced-android-perf.md` in the 
   operation NONE (`VK_EXT_load_store_op_none` or `VK_KHR_load_store_op_none`): the attachment
   is neither read in nor written back, and keeps what it held. Before, such a pass loaded and
   stored it anyway, for example the display depth in the copy to the screen. Byte-identical.
+- **`pass-render-area`.** A deferred Vulkan pass's render area is the rectangle its draws
+  (their scissors, or their indexed viewports) and clears touched, so it loads and stores only
+  that rectangle. When the first thing in the pass is a clear of that whole rectangle, the pass
+  begins cleared instead of loading it (the clear stays in the pass, so its value is the one
+  seen). A clear the pass begins with, and an in-pass resolve, make the area the whole target.
+  Byte-identical.
+- **`overwrite-discard`.** The temporal targets a full-screen draw overwrites whole (camera
+  motion, its depth copy, the reactive mask), the blur's velocity and jump flood targets, and
+  the display under the copying blur gather are let go (`glInvalidateFramebuffer`) before the
+  draw, so the pass does not load them. Byte-identical; the equivalence test's poison mode
+  checks that nothing reads what was let go.
 - **Arm ASR.** On a Qualcomm (Snapdragon) GPU the temporal module upscales with Arm Accuracy Super
   Resolution (`port/enhanced/asr/README.md`), whose fragment passes suit these GPUs better than
   FSR 3.1's compute passes. `OPENRAC_TEMPORAL_UPSCALER=asr` or `fsr3` chooses either one on any
