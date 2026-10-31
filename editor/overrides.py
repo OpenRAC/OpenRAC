@@ -108,7 +108,6 @@ TERRAIN = re.compile(r"^level_(\d{2})/terrain\.glb$")
 IMAGE = re.compile(r"((?:\.\./)?textures/)([A-Za-z0-9_.-]+)\.png")  # a port GLB's image: a level texture
 PACKED = "packed.json"  # the level packer's note of the disc it packed (pack.py)
 PEOPLE = re.compile(r"^(?:[^/]+\.(?:txt|md)|(?:README|LICENSE|CREDITS)[^/]*)$", re.IGNORECASE)
-MAX_TOTAL = 4 << 30
 MAX_FILES = 200_000
 
 
@@ -234,8 +233,6 @@ class Source:
                 if name.startswith(("/", "\\")) or "\\" in name or ".." in PurePosixPath(name).parts \
                         or re.match(r"^[A-Za-z]:", name):
                     raise PackError(f"{self.path.name} has a file outside its folder ({name}); not opened")
-            if sum(i.file_size for i in names) > MAX_TOTAL:
-                raise PackError(f"{self.path.name} unpacks to more than 4 GB; not opened")
             prefix = ""
             top = {n.filename for n in names}
             if MANIFEST not in top:
