@@ -73,6 +73,10 @@ def build() -> bytes:
                                                    [(1.0, 2.0, 3.0, 0.0), (4.0, 5.0, 6.0, 1.0), (7.0, 8.0, 9.0, 2.0)]])
     sections[0x74] = gd.write_grind_paths(bytes(probe), [{"sphere": (5.0, 0.0, 1.0, 5.0), "words": (1, 0, 0, 0),
                                                           "points": [(0.0, 0.0, 1.0, 10.0), (10.0, 0.0, 1.0, 10.0)]}])
+    camera_cells = [[] for _ in range(gd.CAMERA_GRID_SIZE * gd.CAMERA_GRID_SIZE)]
+    camera_cells[1 * gd.CAMERA_GRID_SIZE + 1].append(
+        struct.pack("<4f4if3i", 10.0, 20.0, 0.0, 5.0, 3, 0, 2, 7, 1.5, -1, 0, 0))
+    sections[gd.CAMERA_GRID] = gd.write_camera_collision_grid(camera_cells)
     out = bytearray(0xA0)
     for pointer, data in sections.items():
         struct.pack_into("<i", out, pointer, len(out))
@@ -312,10 +316,13 @@ class GameData(unittest.TestCase):
     def test_a_volume_moved(self):
         out, changes, problems = self.pack(edit(self.text, "Cuboid_0000", "transform",
                                                 "Transform3D(0, -2, 0, 2, 0, 0, 0, 0, 1, 11, 21, 31)"))
-        self.assertEqual(changes, ["Cuboid_0000: moved"])
-        self.assertTrue(any("camera grid cannot be rebuilt" in problem for problem in problems))
+        self.assertEqual((changes, problems), (["Cuboid_0000: moved", "camera collision grid: rebuilt"], []))
         at = gp.offset(out, 0x60) + 0x10
-        self.assertTrue(all(at <= i < at + 0x80 for i in changed_bytes(self.g, out)))
+        self.assertTrue(any(at <= i < at + 0x80 for i in changed_bytes(self.g, out)))
+        self.assertEqual(gd.camera_grid_settings(out), {(3, 0): (2, 7, 1.5)})
+        grid_at = gp.offset(out, gd.CAMERA_GRID)
+        cell = struct.unpack_from("<i", out, grid_at + 0x10 + 4 * (1 * gd.CAMERA_GRID_SIZE + 0))[0]
+        self.assertGreater(cell, 0)
         self.assertEqual(struct.unpack_from("<4f", out, at + 0x30), (11.0, 21.0, 31.0, gd.SHAPE_W[3]))
         self.assertAlmostEqual(struct.unpack_from("<f", out, at + 0x78)[0], math.pi / 2, places=6)
 
@@ -404,18 +411,25 @@ class GameData(unittest.TestCase):
         self.assertIn((4, 0x3C), gp.fixups(out, gp.POINTERS))
         self.assertIn((4, 0x40, 0), gp.shared(out)[1])
 
-    def test_added_camera_cannot_reference_a_volume_missing_from_camera_grid(self):
-        match = re.search(r'^\[node name="Camera_0000"[^\n]*\n(?:(?!\[)[^\n]*\n)*', self.text, re.M)
-        duplicate = match.group(0).replace('Camera_0000', 'Camera_Custom', 1)
-        duplicate = duplicate.replace("metadata/rc1_pv_cuboid = 0", "metadata/rc1_pv_cuboid = 2")
-        _, _, problems = self.pack(self.text + "\n" + duplicate)
-        self.assertTrue(any("camera grid cannot be rebuilt" in problem for problem in problems))
+    def test_added_camera_can_use_a_new_grid_volume(self):
+        camera = re.search(r'^\[node name="Camera_0000"[^\n]*\n(?:(?!\[)[^\n]*\n)*', self.text, re.M).group(0)
+        camera = camera.replace('Camera_0000', 'Camera_Custom', 1)
+        camera = edit(camera, "Camera_Custom", "metadata/rc1_pv_cuboid", "2")
+        cuboid = re.search(r'^\[node name="Cuboid_0000"[^\n]*\n(?:(?!\[)[^\n]*\n)*', self.text, re.M).group(0)
+        cuboid = cuboid.replace('Cuboid_0000', 'Cuboid_Custom', 1)
+        cuboid = edit(cuboid, "Cuboid_Custom", "metadata/rc1_camera_collision_enabled", "true")
+        out, _, problems = self.pack(self.text + "\n" + camera + "\n" + cuboid)
+        self.assertEqual(problems, [])
+        camera_records = gd.table(out, gd.CAMERAS, gd.CAMERA_SIZE)
+        added = gd.CAMERA.unpack(camera_records[-1])
+        self.assertEqual(struct.unpack_from("<i", gd.Pvars(out).block(added[7]), 0x0C)[0], 2)
+        self.assertEqual(gd.camera_grid_settings(out)[(3, 2)], (2, 7, 1.5))
 
-    def test_camera_region_volume_cannot_move_until_camera_grid_is_rebuilt(self):
+    def test_camera_region_volume_move_rebuilds_grid(self):
         text = edit(self.text, "Cuboid_0000", "transform",
                     "Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 20, 30)")
-        _, _, problems = self.pack(text)
-        self.assertTrue(any("camera grid cannot be rebuilt" in problem for problem in problems))
+        _, changes, problems = self.pack(text)
+        self.assertEqual((changes, problems), (["Cuboid_0000: moved", "camera collision grid: rebuilt"], []))
 
     def test_camera_additions_stop_at_the_runtime_slot_limit(self):
         match = re.search(r'^\[node name="Camera_0000"[^\n]*\n(?:(?!\[)[^\n]*\n)*', self.text, re.M)

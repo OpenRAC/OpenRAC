@@ -552,9 +552,13 @@ where it was it moves to the end of the file. Cameras and sound instances
 are not deleted or renumbered. Duplicate a camera node in Godot to add one. A
 copied camera gets its own pvar block, including
 the loader's pointer, shared-data and moby-link fixups. A camera can use the
-level's existing collision volumes; moving or adding a camera region volume is
-refused because the camera grid is not rebuilt yet. The game has 48 camera
-slots. New sound instances are not supported yet.
+level's existing collision volumes, and camera-region volumes can be moved or
+added: Pack rebuilds the 64-by-64 camera collision grid. On a volume, edit
+`rc1_camera_collision_enabled` to include it in that grid; its copied
+`rc1_camera_collision_flags`, `rc1_camera_collision_i_value` and
+`rc1_camera_collision_f_value` metadata preserve or set the game's collision
+parameters. The game has 48 camera slots. New sound instances are not
+supported yet.
 Changing a camera class while it has a pvar block is refused, since the block
 has the original class's layout. An edited volume's inverse matrix and Euler angles
 are computed again; an edited grind path keeps its bounding sphere when it
