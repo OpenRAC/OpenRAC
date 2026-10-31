@@ -66,7 +66,8 @@ static int camera_turn(
     *reads = s_reads;
     *radians = 0.0f;
     if (openrac_game_loaded_overlay() < 0 || GREF(int32_t, LEVEL_MODE) != 0 || s_camera == 0
-        || s_camera >= 0x2000000u || (GREF(int32_t, s_camera + 0x1B8u) & 1) != 0) {
+        || openrac_guest_ram_size < 0x1BCu || s_camera > openrac_guest_ram_size - 0x1BCu
+        || (GREF(int32_t, s_camera + 0x1B8u) & 1) != 0) {
         return 0;
     }
     const float target = stick_turn(right_x);
