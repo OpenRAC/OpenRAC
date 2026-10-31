@@ -551,3 +551,22 @@ def hero_group(triangles: list[tuple[tuple, tuple, tuple]]) -> HeroGroup:
     centre = [(low[i] + high[i]) // 2 for i in range(3)]
     radius = max(math.isqrt(sum((p[i] - centre[i]) ** 2 for i in range(3))) + 1 for p in points)
     return HeroGroup((*centre, min(radius, 0xffff)), points, [tuple(index[p] for p in t) for t in triangles])
+
+
+def split_hero_groups(triangles: list[tuple[tuple, tuple, tuple]]) -> list[HeroGroup]:
+    """Split hero wall triangles to fit the byte-sized triangle and vertex fields."""
+    groups = []
+    chunk = []
+    points = set()
+    for triangle in triangles:
+        added = set(triangle) - points
+        if chunk and (len(chunk) == 255 or len(points) + len(added) > 255):
+            groups.append(hero_group(chunk))
+            chunk = []
+            points = set()
+            added = set(triangle)
+        chunk.append(triangle)
+        points.update(added)
+    if chunk:
+        groups.append(hero_group(chunk))
+    return groups

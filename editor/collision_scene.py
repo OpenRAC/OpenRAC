@@ -462,11 +462,15 @@ def pack_block(block: bytes, scene: dict) -> tuple[bytes | None, list[str], list
             if not tris:
                 changes.append(f"collision: hero wall {n} emptied, so deleted")
                 continue
-            heroes += [col.hero_group(tris[i:i + 255]) for i in range(0, len(tris), 255)]
-            changes.append(f"collision: hero wall {n} edited")
+            groups = col.split_hero_groups(tris)
+            heroes += groups
+            changes.append(f"collision: hero wall {n} edited"
+                           + (f" (split into {len(groups)} game groups)" if len(groups) > 1 else ""))
         for tris in scene["added_heroes"]:
-            heroes += [col.hero_group(tris[i:i + 255]) for i in range(0, len(tris), 255)]
-            changes.append(f"collision: a hero wall added ({len(tris)} triangles)")
+            groups = col.split_hero_groups(tris)
+            heroes += groups
+            changes.append(f"collision: a hero wall added ({len(tris)} triangles)"
+                           + (f" (split into {len(groups)} game groups)" if len(groups) > 1 else ""))
         if len(heroes) != len(model.heroes) or any(a is not b for a, b in zip(heroes, model.heroes)):
             model.heroes = heroes
             edited = True

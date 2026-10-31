@@ -635,7 +635,7 @@ hexadecimal: `rc1_surface_1f`, `rc1_surface_0c`). What you can do:
 | Edit a tile's `.glb` in Blender and export it to the same file (keep the materials; give a face another `rc1_surface_XX` material to change its type) | the triangles that differ are taken out and put in |
 | Set `rc1_surface` (an integer, the type byte) on a tile | every face of it takes that byte |
 | Add a node under `Game/Collision`: a `MeshInstance3D` with a `BoxMesh`, `PlaneMesh` or `QuadMesh`, or an instance of any `.glb`/`.gltf`, with `rc1_surface` metadata (0x1f, 31, without it; a material named `rc1_surface_XX` in a glTF wins) | its triangles are added, in the node's place |
-| The same under `Game/HeroWalls` | a new hero wall (255 triangles each; more become several) |
+| The same under `Game/HeroWalls` | a new hero wall (each game group has at most 255 triangles and 255 unique vertices; larger meshes become several groups) |
 
 How it is packed ([collision_scene.py](collision_scene.py), [collision.py](collision.py)):
 
@@ -657,7 +657,8 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   the disc has it and `changes.txt` says why: at most 255 vertices and 255
   quads in a cell (simplify the mesh there), the cell's 4,080-byte storage,
   everything inside 0-1024 units on each axis (the game answers no query
-  outside), and hero walls of at most 255 triangles per group. The face count
+  outside), and hero walls split into groups of at most 255 triangles and 255
+  unique vertices. The face count
   is a 16-bit field; OpenRAC now reads the full count, so a cell may contain
   more than 255 triangle faces when they fit its storage.
 - The block goes back into the level's core data, in its own place when it
