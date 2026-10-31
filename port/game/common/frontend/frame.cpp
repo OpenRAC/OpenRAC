@@ -1624,7 +1624,12 @@ TickPackets capture_2d_path(
     if (before_world == SIZE_MAX && (draws & 0x10u) != 0) {
         before_world = first_offscreen;
     }
-    k.before_world = openrac_game_has_level(level) ? std::min(before_world, k.packets.size()) : 0;
+    // The flight between planets is drawn as the boot program draws it, also when it starts from a
+    // planet whose level program is still loaded (world_to_draw: the flight's world): split there,
+    // the planet's name was taken as coming before the world and the stars hid it.
+    k.before_world = openrac_game_has_level(level) && world_to_draw(ram, level) >= 0
+                         ? std::min(before_world, k.packets.size())
+                         : 0;
     k.named_quads = named_quads;
     return k;
 }
