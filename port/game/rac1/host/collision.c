@@ -400,12 +400,12 @@ static Vert* g_verts = g_verts_small;
 static Vert* g_verts_allocated;
 static size_t g_verts_capacity = 2048;
 
-static int ensure_verts(size_t count) {
+static int ensure_verts(size_t count, int allow_growth) {
     if (count <= g_verts_capacity) {
         return 1;
     }
     /* Grow scratch only for expanded sessions; the format and query loops use signed int indices. */
-    if (openrac_guest_ram_size <= GUEST_RAM_SIZE || count > INT32_MAX
+    if ((!allow_growth && openrac_guest_ram_size <= GUEST_RAM_SIZE) || count > INT32_MAX
         || count > SIZE_MAX / sizeof(*g_verts)) {
         return 0;
     }
@@ -468,7 +468,7 @@ static void vstw(gaddr a, V3 v, uint32_t w) {
  * with 16-bit wrapping compares (psubh). The decode loads two vertices at a time into vf1 / vf2, w
  * zero. */
 static int decode_vertices(const Cell* c, const int16_t lo[3], const int16_t hi[3]) {
-    if (!ensure_verts((size_t)c->nv)) {
+    if (!ensure_verts((size_t)c->nv, openrac_guest_ram_size > GUEST_RAM_SIZE)) {
         return 0;
     }
     g_vf2w = 0;
@@ -639,6 +639,8 @@ typedef struct {
     gaddr m, blob;
     int joints; /* the joint count the query takes (+0 with flag 0x4, else +2) */
     int32_t vb; /* the mesh's vertex bytes (+0xC) */
+    uint32_t primitive_bytes; /* low 31 bits are the size; high bit selects OpenRAC's u16 indices */
+    int extended_indices;
     V3 pos;     /* +0x10 x1024 */
     V3 rows[3]; /* +0xC0, +0xD0, +0xE0 */
     float s;    /* +0x2C */
@@ -654,6 +656,9 @@ static int moby_head(gaddr m, uint32_t fl, MobyColl* c) {
     c->m = m;
     c->blob = U32(m + 0x94);
     c->joints = U16(c->blob + ((fl & 0x4) ? 0 : 2));
+    c->primitive_bytes = U32(c->blob + 4);
+    c->extended_indices = (c->primitive_bytes & 0x80000000u) != 0;
+    c->primitive_bytes &= 0x7fffffffu;
     c->vb = S32(c->blob + 0xC);
     return c->joints == 0 || c->vb != ((fl & 0x2) == 0 ? 1 : 0);
 }
@@ -671,11 +676,10 @@ static void moby_pose(MobyColl* c) {
 /* With a mesh (vb != 0): where its vertices and faces are (the primitives' bytes, +4, before them;
  * the face bytes, +8, after them). */
 static void moby_mesh(MobyColl* c) {
-    const int32_t pb = S32(c->blob + 4);
     c->nverts = c->vb / 8;
-    c->verts = c->blob + 0x10 + (gaddr)pb;
+    c->verts = c->blob + 0x10 + (gaddr)c->primitive_bytes;
     c->faces = c->verts + (gaddr)c->vb;
-    c->nfaces = S32(c->blob + 8) / 4;
+    c->nfaces = S32(c->blob + 8) / (c->extended_indices ? 8 : 4);
 }
 
 /* All of it in the order coll_sphere_mobys reads it. */
@@ -706,8 +710,9 @@ static int moby_mesh_verts(const MobyColl* c, V3 lo, V3 hi) {
     for (int r = 0; r < 3; ++r) {
         rs[r] = vmuls(c->rows[r], c->s);
     }
-    const int n = c->nverts < 2048 ? c->nverts : 2048;
-    if (!ensure_verts((size_t)n)) {
+    const int n = c->nverts;
+    if (n < 0 || !ensure_verts((size_t)n,
+                               c->extended_indices || openrac_guest_ram_size > GUEST_RAM_SIZE)) {
         return 0;
     }
     for (int i = 0; i < n; ++i) {
@@ -732,9 +737,11 @@ static int moby_mesh_verts(const MobyColl* c, V3 lo, V3 hi) {
 /* Face i of the blob, unless culled by its outcodes or the flags (face_excluded, step by step: one
  * past the outcodes has its vertices loaded). */
 static int moby_face(const MobyColl* c, int n, int i, uint32_t fl, Vert* v, int* ty) {
-    const gaddr f = c->faces + 4 * (gaddr)i;
-    const int a = U8(f), b = U8(f + 1), d = U8(f + 2);
-    *ty = U8(f + 3);
+    const gaddr f = c->faces + (c->extended_indices ? 8u : 4u) * (gaddr)i;
+    const int a = c->extended_indices ? U16(f) : U8(f);
+    const int b = c->extended_indices ? U16(f + 2) : U8(f + 1);
+    const int d = c->extended_indices ? U16(f + 4) : U8(f + 2);
+    *ty = U8(f + (c->extended_indices ? 6u : 3u));
     if (a >= n || b >= n || d >= n) {
         return 0;
     }
@@ -760,7 +767,7 @@ static int moby_face(const MobyColl* c, int n, int i, uint32_t fl, Vert* v, int*
 #define PRIMS_MAX 0x400
 
 static gaddr next_prim(const MobyColl* c, uint32_t fl, int* i, int* last) {
-    if (*i == 0 && ((fl & 0x2) != 0 || S32(c->blob + 4) == 0)) {
+    if (*i == 0 && ((fl & 0x2) != 0 || c->primitive_bytes == 0)) {
         return 0;
     }
     const uint32_t disable = U32(c->m + 0x98);

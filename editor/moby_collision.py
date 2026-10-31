@@ -13,8 +13,8 @@ discs (docs/engine/formats/MOBY.md, section 8):
 
     0x00  u16  joints posed for the queries with flag 0x4 (primitive mask bit 0)
     0x02  u16  joints posed for the other queries (mask bit 1)
-    0x04  s32  primitive bytes (0x20 each)
-    0x08  s32  face bytes (4 each)
+    0x04  s32  primitive bytes (0x20 each; bit 31 marks OpenRAC's 16-bit-index form)
+    0x08  s32  face bytes (4 each, or 8 each in that marked form)
     0x0C  s32  vertex bytes (8 each)
     0x10       the primitives, then the vertices, then the faces
 
@@ -23,8 +23,9 @@ u16 mask (bit 0 the flag-0x4 queries, bit 1 the others, bit 15 on the last primi
 kind: 1 a sphere (centre at +0x10, radius at +0x1C); 2 a sphere on a joint (s32 joint at +4,
 radius at +0xC, offset from the joint at +0x10); 3 an upright cylinder (height at +4, centre of
 its base at +0x10, radius at +0x1C); 4 a capsule between two joints (s16 joints at +4 and +6,
-radius at +0xC). A vertex is s16 x, y, z and a zero; a face three u8 vertex indices and a type
-byte (as the level collision's: COLLISION.md). Everything is in the class's packed units: the
+radius at +0xC). A vertex is s16 x, y, z and a zero; retail faces have three u8 vertex indices
+and a type byte. OpenRAC's marked form uses three u16 indices, a type byte and one pad byte.
+Everything is in the class's packed units: the
 game takes a point p of the blob to the world at the moby's position + its rotation of
 p x the moby's scale / 1024, the moby's scale being the class scale times the instance's, so
 the blob shares the units of the class's mesh (model units x 1024).
@@ -50,8 +51,8 @@ MESH = "mesh"                      # the triangle part's kind name in the editor
 POSED_QUERIES, OTHER_QUERIES, END = 0x1, 0x2, 0x8000
 TAG = 4                            # byte 1 of every primitive on both discs
 NO_SURFACE = 0x1f                  # what a primitive hit reports (CollType returns -1 for it)
-MAX_INDEXED = 256                  # the vertices the faces' u8 indices reach
-MAX_VERTICES = 2048                # the kernels transform at most this many (ReRAC's port of them)
+MAX_INDEXED = 0x10000              # 16-bit face indices address vertices 0 through 65,535
+MAX_VERTICES = 0x10000             # kept within the addressable range of the extended face format
 MAX_POSED = 0x7f                   # the kernels pose at most this many joints
 S16 = (-0x8000, 0x7fff)
 # The record bytes each kind leaves unused (zero on both discs), kept as stored.
@@ -89,6 +90,7 @@ class Blob:
     primitives: list[Primitive] = field(default_factory=list)
     vertices: list[tuple[int, int, int, int]] = field(default_factory=list)
     faces: list[tuple[int, int, int, int]] = field(default_factory=list)
+    extended: bool = False          # OpenRAC-only 16-bit face indices; retail blobs remain unchanged.
 
 
 def unused(kind: int) -> tuple:
@@ -137,9 +139,13 @@ def encode_primitive(p: Primitive) -> bytes:
 def extent(data: bytes, at: int = 0) -> int:
     """The bytes of the blob at AT, from its header (it has no size of its own)."""
     check(at + HEADER <= len(data), "moby collision: the header is past the data")
-    _j0, _j1, prims, faces, verts = struct.unpack_from("<HHiii", data, at)
-    check(prims >= 0 and faces >= 0 and verts >= 0 and prims % PRIMITIVE == 0 and faces % FACE == 0
-           and verts % VERTEX == 0, "moby collision: a part's size is not a whole number of records")
+    _j0, _j1, raw_prims, faces, verts = struct.unpack_from("<HHiii", data, at)
+    extended = bool(raw_prims & 0x80000000)
+    prims = raw_prims & 0x7fffffff if extended else raw_prims
+    face_stride = 8 if extended else FACE
+    check(prims >= 0 and faces >= 0 and verts >= 0 and prims % PRIMITIVE == 0
+           and faces % face_stride == 0 and verts % VERTEX == 0,
+           "moby collision: a part's size is not a whole number of records")
     size = HEADER + prims + faces + verts
     check(at + size <= len(data), "moby collision: its parts run past the data")
     return size
@@ -148,27 +154,39 @@ def extent(data: bytes, at: int = 0) -> int:
 def parse(data: bytes, at: int = 0) -> Blob:
     """The model of the blob at AT; write(parse(b)) == b for every class blob of both discs."""
     extent(data, at)
-    j0, j1, prims, faces, verts = struct.unpack_from("<HHiii", data, at)
+    j0, j1, raw_prims, faces, verts = struct.unpack_from("<HHiii", data, at)
+    extended = bool(raw_prims & 0x80000000)
+    prims = raw_prims & 0x7fffffff if extended else raw_prims
     base = at + HEADER
-    blob = Blob((j0, j1))
+    blob = Blob((j0, j1), extended=extended)
     blob.primitives = [parse_primitive(data[base + i:base + i + PRIMITIVE]) for i in range(0, prims, PRIMITIVE)]
     base += prims
     blob.vertices = [struct.unpack_from("<4h", data, base + i) for i in range(0, verts, VERTEX)]
     base += verts
-    blob.faces = [tuple(data[base + i:base + i + FACE]) for i in range(0, faces, FACE)]
+    if extended:
+        blob.faces = [(*struct.unpack_from("<HHH", data, base + i), data[base + i + 6])
+                      for i in range(0, faces, 8)]
+    else:
+        blob.faces = [tuple(data[base + i:base + i + FACE]) for i in range(0, faces, FACE)]
     return blob
 
 
 def write(blob: Blob) -> bytes:
     """The blob's bytes (no padding; it is 16-byte aligned in its class and padded to 16 there)."""
-    out = bytearray(struct.pack("<HHiii", *blob.posed, PRIMITIVE * len(blob.primitives), FACE * len(blob.faces),
+    extended = blob.extended or len(blob.vertices) > 2048 or any(max(f[:3]) >= 256 for f in blob.faces)
+    primitive_bytes = PRIMITIVE * len(blob.primitives)
+    if extended:
+        check(primitive_bytes < 0x80000000, "moby collision: primitive bytes exceed the extended header field")
+        primitive_bytes |= 0x80000000
+    face_stride = 8 if extended else FACE
+    out = bytearray(struct.pack("<HHIii", *blob.posed, primitive_bytes, face_stride * len(blob.faces),
                                 VERTEX * len(blob.vertices)))
     for p in blob.primitives:
         out += encode_primitive(p)
     for v in blob.vertices:
         out += struct.pack("<4h", *v)
     for f in blob.faces:
-        out += bytes(f)
+        out += struct.pack("<HHHBx", *f) if extended else bytes(f)
     return bytes(out)
 
 
@@ -193,6 +211,7 @@ def finish(blob: Blob) -> Blob:
     only, and posed joint counts that cover the primitives (the header's own when they already do)."""
     for i, p in enumerate(blob.primitives):
         p.end = i == len(blob.primitives) - 1
+    blob.extended = blob.extended or len(blob.vertices) > 2048 or any(max(f[:3]) >= 256 for f in blob.faces)
     blob.posed = tuple(max(have, need) for have, need in zip(blob.posed, derived_posed(blob)))
     return blob
 
@@ -203,7 +222,7 @@ def finite(*values: float) -> bool:
 
 def validate(blob: Blob, joint_count: int | None = None) -> None:
     """Raises FormatError for what the game cannot use: kinds, the end bit, radii, joints outside the
-    class's skeleton (JOINT_COUNT: header byte 8) or not posed, vertices past the faces' u8 indices
+    class's skeleton (JOINT_COUNT: header byte 8) or not posed, vertices past the faces' indices
     or the s16 range, faces naming a missing vertex."""
     n = len(blob.primitives)
     for i, p in enumerate(blob.primitives):
@@ -228,15 +247,14 @@ def validate(blob: Blob, joint_count: int | None = None) -> None:
         check(0 <= count <= MAX_POSED and (joint_count is None or count <= max(joint_count, 0)),
                f"moby collision: the header poses {count} joints, more than the class has")
     check(len(blob.vertices) <= MAX_VERTICES,
-           f"moby collision: {len(blob.vertices)} vertices, {MAX_VERTICES} at most (the faces reach the first "
-           f"{MAX_INDEXED})")
+          f"moby collision: {len(blob.vertices)} vertices, {MAX_VERTICES} at most")
     for v in blob.vertices:
         check(len(v) == 4 and all(S16[0] <= c <= S16[1] for c in v),
                "moby collision: a vertex is outside the 16-bit range (32 model units from the class's origin)")
     for f in blob.faces:
         check(len(f) == 4 and len(set(f[:3])) == 3 and max(f[:3]) < min(len(blob.vertices), MAX_INDEXED)
                and min(f) >= 0 and f[3] <= 0xff,
-               "moby collision: a face names a missing vertex (or one past the 256 its byte indices reach), "
+               f"moby collision: a face names a missing vertex (or one past the {MAX_INDEXED} supported), "
                "repeats one, or has no type byte")
 
 
@@ -310,7 +328,7 @@ def generate(tris: list[tuple], mode: str = MESH, surface: int = NO_SURFACE, sca
              queries: int = POSED_QUERIES | OTHER_QUERIES) -> Blob:
     """Collision for a mesh. TRIS: triangles (three points, glTF winding) in the class's model units
     times SCALE (an override model is at the drawn size: SCALE is the class scale), game axes.
-    MODE: "mesh" the triangles themselves, their vertices merged until at most 256 are left;
+    MODE: "mesh" the triangles themselves, their vertices merged until at most 65,536 are left;
     "box" the box around them as triangles; "sphere" one sphere around them; "cylinder" one
     upright cylinder around them. SURFACE: the type byte of the faces. The result passes validate()."""
     points = [p for t in tris for p in t]

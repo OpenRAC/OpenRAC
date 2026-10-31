@@ -768,7 +768,10 @@ How it is packed ([moby_collision_scene.py](moby_collision_scene.py),
 - Checked first, or that class is left as the disc has it and `changes.txt`
   says why: kinds, radii and heights above 0, joints within the class's
   skeleton, vertices within 32 model units of the class's origin (16 bits in
-  1/1024), faces reaching only the first 256 vertices (byte indices).
+  1/1024), and at most 65,536 vertices per class collision mesh. Retail blobs
+  keep their byte-indexed faces; when an edit references vertex index 256 or
+  higher, OpenRAC marks that blob and stores 16-bit face indices. Vanilla blobs
+  keep their original layout and bytes.
 - The blob goes back where the class has it when it fits (its place is padded
   to 16 bytes), else to the end of the core data: the class header's
   collision offset is relative to the class and the loader adds the class's
@@ -788,7 +791,7 @@ python3 editor/moby_collision.py generate my_crate.glb --mode box --surface 0x7f
 ```
 
 `--mode mesh` (the default) takes the triangles themselves, merged until at
-most 256 vertices are left; `box` the box around them; `sphere` and
+most 65,536 vertices are left; `box` the box around them; `sphere` and
 `cylinder` one primitive around them. The model is read as `assets.py`
 exports models (glTF's Y up, at the drawn size: the class scale is taken
 from the class scene); `--axes game` reads one in the game's axes, `--scale`

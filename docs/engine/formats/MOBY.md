@@ -258,6 +258,13 @@ on the disc. Classes have the primitives only (486 blobs), the triangles only
 (each face's type byte filtered as in the level mesh); primitives only by the
 queries whose mask bit they have, and never by one with flag 0x2.
 
+OpenRAC's modded class collision can opt into a host-query extension without
+changing disc blobs: bit 31 of the primitive-byte count marks 16-bit face
+indices, and the face-byte count then describes 8-byte records (three u16
+indices, a type byte, and padding). The host collision query reads the low 31
+bits as the primitive-byte count. Vanilla class blobs keep the retail layout;
+the marked form is for OpenRAC and is not readable by the original game.
+
 **Units**: a blob point p is at the moby's position + its rotation of
 p × the moby's scale / 1024, where the moby's scale (+0x2C) is the class
 scale times the instance's: the class's packed units, like its mesh. A hit on
