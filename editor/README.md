@@ -658,11 +658,10 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   stream to an expanded level-data container and redirects the level header
   through `virtual.tsv`; the original disc image is not changed. The expanded
   gameplay and level-data loading paths have run in the real game on PAL and
-  NTSC-U. A 9,500-moby gameplay stream and an oversized core container each
-  loaded for 1,200 frames on both versions. The oversized-container test grew
-  the decoded core with an unreferenced tail, so a collision edit that itself
-  makes the compressed core exceed the original slot still needs a real-game
-  check.
+  NTSC-U. A 9,500-moby gameplay stream and a Godot collision edit adding 95,000
+  triangles both loaded for 1,200 frames on both versions. That collision edit
+  grew the compressed core beyond its original slot, so the packer moved the
+  collision block to the core tail and expanded the level-data container.
 - The expanded stream path uses a bounded 128 MiB guest RAM arena. RAC1 still
   has format and game-owned limits: collision is queryable only inside the
   0-1024-unit world, each collision cell has bounded vertex/face storage, and
