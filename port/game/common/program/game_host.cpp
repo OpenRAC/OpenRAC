@@ -355,7 +355,10 @@ int openrac_game_mobys_drawn(gaddr first, int count) {
             frontend::mobys_drawn(
                 std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()), first, count
             );
-            return count <= 0xFFFF ? 1 : 0;
+            // The console's arena keeps the retail limit (its marker held a byte); an expanded one
+            // a halfword.
+            const bool expanded = runtime::Memory::get().ram_size() > GUEST_RAM_SIZE;
+            return count <= (expanded ? 0xFFFF : 0xFF) ? 1 : 0;
         }
 #else
         (void)first;

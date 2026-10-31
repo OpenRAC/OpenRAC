@@ -158,6 +158,11 @@ static int32_t placed_count(void) {
  * keeping this bound prevents host APIs from treating memory after a short level/pause array as
  * additional mobys when expanded mode raises the public slot ceiling. */
 static int32_t array_slots(void) {
+    /* The console's arena: the fixed 4096 slots as before, the mobys the game spawns past the end
+     * marker included. */
+    if (openrac_guest_ram_size <= GUEST_RAM_SIZE) {
+        return 4096;
+    }
     const gaddr base = array_base();
     const uint32_t load = rac1_program_loads();
     if (base != array_limit_base || load != array_load) {

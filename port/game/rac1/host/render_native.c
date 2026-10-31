@@ -145,7 +145,8 @@ static void mark_drawn_mobys(gaddr first, int count) {
     const int max_distance = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x00160030u)));
     const uint8_t* groups = G(OPENRAC_DATA(RAC1_ADDR(0x001940C0u)));
     for (gaddr m = first; count < 0 || m != end; m += 0x100) {
-        if (m - first >= 0x100u * 32768u) {
+        /* At most 4096 mobys in the console's arena, as before; an expanded one holds more. */
+        if (m - first >= 0x100u * (openrac_guest_ram_size > GUEST_RAM_SIZE ? 32768u : 4096u)) {
             break;
         }
         uint8_t* b = G(m);

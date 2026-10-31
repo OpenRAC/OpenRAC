@@ -383,13 +383,14 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
     if (c->nv == 0) {
         return 0;
     }
-    /* The leaf stores a halfword face count. Retail's vector loop loaded its low byte; using the
-     * full field here lets edited cells exceed 255 faces without changing any retail-sized leaf. */
-    c->nf = U16(c->leaf);
+    /* The leaf stores a halfword face count. Retail's vector loop walks its low byte (lbu), and
+     * its quads' fourth indices follow every face (the halfword): kept so in the console's arena.
+     * An expanded (modded) arena walks the whole halfword, so an edited cell may exceed 255 faces. */
+    c->nf = openrac_guest_ram_size > GUEST_RAM_SIZE ? U16(c->leaf) : U8(c->leaf);
     c->nq = U8(c->leaf + 3);
     c->vertices = c->leaf + 4;
     c->faces = c->vertices + 4 * (gaddr)c->nv;
-    c->qv3 = c->faces + 4 * (gaddr)c->nf;
+    c->qv3 = c->faces + 4 * (gaddr)U16(c->leaf);
     return 1;
 }
 
@@ -710,9 +711,10 @@ static int moby_mesh_verts(const MobyColl* c, V3 lo, V3 hi) {
     for (int r = 0; r < 3; ++r) {
         rs[r] = vmuls(c->rows[r], c->s);
     }
-    const int n = c->nverts;
-    if (n < 0 || !ensure_verts((size_t)n,
-                               c->extended_indices || openrac_guest_ram_size > GUEST_RAM_SIZE)) {
+    /* The console's arena reads at most 2048 vertices (the retail buffer); an expanded one all. */
+    const int expanded = c->extended_indices || openrac_guest_ram_size > GUEST_RAM_SIZE;
+    const int n = expanded || c->nverts < 2048 ? c->nverts : 2048;
+    if (n < 0 || !ensure_verts((size_t)n, expanded)) {
         return 0;
     }
     for (int i = 0; i < n; ++i) {
@@ -764,13 +766,18 @@ static int moby_face(const MobyColl* c, int n, int i, uint32_t fl, Vert* v, int*
  * from the blob's +0x10 on, up to the one that ends the list (mask bit 15), each unless moby +0x98
  * disables it (bit i, the first 32) or its mask lacks the query's bit (bit 0 with flag 0x4, bit 1
  * without). Returns the next record to test from *i (0 to start), 0 past the last. */
+#define PRIMS_MAX 0x400
+
 static gaddr next_prim(const MobyColl* c, uint32_t fl, int* i, int* last) {
     if (*i == 0 && ((fl & 0x2) != 0 || c->primitive_bytes == 0)) {
         return 0;
     }
     const uint32_t disable = U32(c->m + 0x98);
     const int sel = (fl & 0x4) ? 1 : 2;
-    const uint32_t primitive_count = c->primitive_bytes / 0x20u;
+    /* The console's arena walks up to PRIMS_MAX records, to the one that ends the list; an
+     * expanded one to the end of the blob's records. */
+    const int expanded = c->extended_indices || openrac_guest_ram_size > GUEST_RAM_SIZE;
+    const uint32_t primitive_count = expanded ? c->primitive_bytes / 0x20u : PRIMS_MAX;
     while (!*last && (uint32_t)*i < primitive_count) {
         const int k = (*i)++;
         const gaddr p = c->blob + 0x10 + 0x20 * (gaddr)k;

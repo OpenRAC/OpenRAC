@@ -174,8 +174,11 @@ void func_L01_002635C8(gaddr layer) {
     }
     const gaddr vertices = GREF(gaddr, layer);
     const unsigned count = GREF(unsigned, layer + 0xCu);
+    /* The console's arena keeps the 4096-vertex bound (more goes to the game's own C); an
+     * expanded one is bound by its memory. */
     if (count < 3 || vertices == 0 || vertices > openrac_guest_ram_size
-        || count > (openrac_guest_ram_size - vertices) / 16u) {
+        || count > (openrac_guest_ram_size - vertices) / 16u
+        || (openrac_guest_ram_size <= GUEST_RAM_SIZE && count > 4096)) {
         func_L01_002635C8__game(layer);
         return;
     }

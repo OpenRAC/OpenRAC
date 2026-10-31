@@ -145,8 +145,8 @@ enum class Layer : std::uint8_t {
     Terrain,
     Ties,
     Shrubs,
-    Animated,
     Mobys,
+    Animated,  // last: the layers before it keep their numbers (the picker's ids, saved data)
     Count
 };
 
