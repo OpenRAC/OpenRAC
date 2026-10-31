@@ -64,6 +64,13 @@ IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
 # The Godot `Game` node turns the editor's Y-up coordinates into RAC1's Z-up game space. Packers
 # convert child transforms with scene_transform and therefore require this extracted frame intact.
 GAME_FRAME = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0)
+PACKED_VISIBILITY_GROUPS = (
+    "Game/Ties",
+    "Game/Shrubs",
+    "Game/Mobys",
+    "Game/StaticAssets",
+    "Game/AnimatedAssets",
+)
 
 
 def f32(x: float) -> bytes:
@@ -152,6 +159,20 @@ def same_value(a, b) -> bool:
 
 def same_fields(a: dict, b: dict) -> bool:
     return a.keys() == b.keys() and all(same_value(a[k], b[k]) for k in a)
+
+
+def validate_packed_visibility(nodes: dict, level_id: int) -> None:
+    """Godot visibility is only an editor preview property; the game pack has no such flag."""
+    for path, node in nodes.items():
+        if not any(path.startswith(group + "/") or path == group for group in PACKED_VISIBILITY_GROUPS):
+            continue
+        value = node["props"].get("visible")
+        if value is not None and gamedata.parse_value(value) is False:
+            raise FormatError(
+                f"level {level_id:02}: {path} is hidden in Godot, but visibility changes are not "
+                "packed. Delete the object to remove it from the game.",
+                code="pack-incomplete"
+            )
 
 
 def placement(t: tuple) -> tuple[tuple, tuple, float]:
@@ -526,6 +547,7 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
                 "coordinates to the game's and cannot be packed as a level edit",
                 code="pack-incomplete"
             )
+        validate_packed_visibility(scene_nodes, info["id"])
         import static_assets
         try:
             static_instances = static_assets.placements(scene.parents[2], text)

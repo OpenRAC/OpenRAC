@@ -43,6 +43,10 @@ water. The editor's surface selector documents these meanings.
 Keep the extracted **Game** node transform unchanged: it converts Godot's
 coordinate frame to the game's, while Pack reads the child placements in that
 fixed frame.
+Godot's visibility toggle is only an editor preview setting for ties, shrubs,
+mobys, and imported props; it is not packed. Delete a supported object to remove
+it from the game. Pack reports hidden supported objects instead of silently
+keeping them visible at runtime.
 
 ### Import static scenery from another level or your own model
 
