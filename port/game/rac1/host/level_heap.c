@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 
-#include <stdint.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "openrac/game_host.h"
@@ -20,9 +20,8 @@ void game_rac1_check_level_heap(gaddr cursor, unsigned long long bytes) {
         const unsigned long long available = cursor > heap_end ? 0 : heap_end - cursor;
         const unsigned long long cursor_over = cursor > heap_end ? cursor - heap_end : 0;
         const unsigned long long size_over = bytes > available ? bytes - available : 0;
-        const unsigned long long shortfall = ULLONG_MAX - size_over < cursor_over
-                                                  ? ULLONG_MAX
-                                                  : size_over + cursor_over;
+        const unsigned long long shortfall =
+            ULLONG_MAX - size_over < cursor_over ? ULLONG_MAX : size_over + cursor_over;
         char reason[192];
         snprintf(
             reason,

@@ -4,9 +4,9 @@
  * data. The functions pair by games/rac1's catalogue (config/overlays/functions.tsv): the same
  * fingerprint, or the same size and places where the NTSC decomp's differs. The data are
  * games/rac1's names (include/names.h) of the NTSC decomp's same records. */
-#include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "game_protos.h"
 #include "openrac/game_host.h"

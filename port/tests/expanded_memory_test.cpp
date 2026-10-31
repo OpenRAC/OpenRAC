@@ -18,14 +18,19 @@ int main() {
     CHECK(GUEST_RAM_EXPANDED_SIZE <= GUEST_EE_REGS);
     CHECK(!memory.mapped(GUEST_RAM_EXPANDED_SIZE - 2, 4));
     CHECK(Memory::snapshot_size() > GUEST_RAM_SIZE);
-    CHECK(openrac_guest_ram_address_for_size(0x03FFFFFFu, GUEST_RAM_EXPANDED_SIZE)
-          == 0x03FFFFFFu);
-    CHECK(openrac_guest_ram_address_for_size(
-              GUEST_RAM_UNCACHED + 0x03FFFFFFu, GUEST_RAM_EXPANDED_SIZE
-          ) == 0x03FFFFFFu);
-    CHECK(openrac_guest_ram_address_for_size(
-              GUEST_RAM_UNCACHED_ACCEL + 0x03FFFFFFu, GUEST_RAM_EXPANDED_SIZE
-          ) == 0x03FFFFFFu);
+    CHECK(openrac_guest_ram_address_for_size(0x03FFFFFFu, GUEST_RAM_EXPANDED_SIZE) == 0x03FFFFFFu);
+    CHECK(
+        openrac_guest_ram_address_for_size(
+            GUEST_RAM_UNCACHED + 0x03FFFFFFu, GUEST_RAM_EXPANDED_SIZE
+        )
+        == 0x03FFFFFFu
+    );
+    CHECK(
+        openrac_guest_ram_address_for_size(
+            GUEST_RAM_UNCACHED_ACCEL + 0x03FFFFFFu, GUEST_RAM_EXPANDED_SIZE
+        )
+        == 0x03FFFFFFu
+    );
     GREF(std::uint32_t, 0x03FFFFFCu) = 0xC0DEC0DEu;
     CHECK(GREF(std::uint32_t, 0x03FFFFFCu) == 0xC0DEC0DEu);
     if (memory.has_aliases()) {

@@ -54,10 +54,8 @@ std::optional<rac1::MobyFrame> key_at(
         return std::nullopt;
     }
     try {
-        rac1::MobyFrame f = rac1::parse_frame(
-            assets::ByteView(ram),
-            ram_address(address, ram.size())
-        );
+        rac1::MobyFrame f =
+            rac1::parse_frame(assets::ByteView(ram), ram_address(address, ram.size()));
         if (f.header.quat_bytes == 0 || f.header.quat_bytes > 8 * kMaxJoints || joints == 0) {
             return std::nullopt;
         }

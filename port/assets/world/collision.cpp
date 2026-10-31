@@ -184,8 +184,15 @@ CollisionNode checked_node(
 // Decodes one leaf: header, packed vertices, faces, then the quads' fourth indices. `word` is the
 // tree entry (leaf offset << 8 | size in quadwords). Every face index is checked against the
 // vertex count.
-CollisionCell read_leaf(ByteView mesh, s16 x, s16 y, s16 z, u32 word, bool indexed,
-                        const std::vector<u32>& extended_leaf_offsets) {
+CollisionCell read_leaf(
+    ByteView mesh,
+    s16 x,
+    s16 y,
+    s16 z,
+    u32 word,
+    bool indexed,
+    const std::vector<u32>& extended_leaf_offsets
+) {
     u32 leaf_offset = word >> 8;
     if (indexed) {
         const u32 index = word >> 8;
@@ -385,7 +392,9 @@ CollisionMesh read_collision(Game game, ByteView block) {
         mesh.has_extended_leaf_index = true;
         const std::size_t table_at = block.u32_at(12);
         block.check(table_at, 4, "expanded leaf offset table count");
-        if (table_at < static_cast<std::size_t>(mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset)) {
+        if (table_at < static_cast<std::size_t>(
+                mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset
+            )) {
             fail("collision: expanded leaf offset table overlaps the mesh or hero data");
         }
         const u32 count = block.u32_at(table_at);
@@ -393,7 +402,8 @@ CollisionMesh read_collision(Game game, ByteView block) {
             fail("collision: expanded leaf offset table count is too large");
         }
         block.check(table_at + 4, 4 * std::size_t{count}, "expanded leaf offset table");
-        const ByteView offsets = block.sub(table_at + 4, 4 * std::size_t{count}, "expanded leaf offsets");
+        const ByteView offsets =
+            block.sub(table_at + 4, 4 * std::size_t{count}, "expanded leaf offsets");
         for (u32 i = 0; i < count; ++i) {
             const u32 offset = offsets.u32_at(4 * std::size_t{i});
             if ((offset & 15) != 0) {
@@ -406,7 +416,9 @@ CollisionMesh read_collision(Game game, ByteView block) {
         mesh.has_extended_slab_index = true;
         const std::size_t table_at = block.u32_at(20);
         block.check(table_at, 4, "expanded slab offset table count");
-        if (table_at < static_cast<std::size_t>(mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset)) {
+        if (table_at < static_cast<std::size_t>(
+                mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset
+            )) {
             fail("collision: expanded slab offset table overlaps the mesh or hero data");
         }
         const u32 count = block.u32_at(table_at);
@@ -414,7 +426,8 @@ CollisionMesh read_collision(Game game, ByteView block) {
             fail("collision: expanded slab offset table does not match the root count");
         }
         block.check(table_at + 4, 4 * std::size_t{count}, "expanded slab offset table");
-        const ByteView offsets = block.sub(table_at + 4, 4 * std::size_t{count}, "expanded slab offsets");
+        const ByteView offsets =
+            block.sub(table_at + 4, 4 * std::size_t{count}, "expanded slab offsets");
         for (u32 i = 0; i < count; ++i) {
             const u32 offset = offsets.u32_at(4 * std::size_t{i});
             if (offset != 0 && (offset & 3) != 0) {
@@ -451,7 +464,7 @@ CollisionMesh read_collision(Game game, ByteView block) {
     for (std::size_t zi = 0; zi < mesh.root_entries.size(); ++zi) {
         // A zero entry is a Z with no geometry.
         const u32 slab_offset = mesh.has_extended_slab_index ? mesh.extended_slab_offsets[zi]
-                                                            : u32{mesh.root_entries[zi]} * 4;
+                                                             : u32{mesh.root_entries[zi]} * 4;
         if (slab_offset == 0) {
             continue;
         }
@@ -490,9 +503,15 @@ CollisionMesh read_collision(Game game, ByteView block) {
                 // A zero word is an empty cell.
                 if (row.leaves[xi] != 0) {
                     const auto x = static_cast<s16>(row.node.base + static_cast<s16>(xi));
-                    mesh.cells.push_back(read_leaf(m, x, row.y, z, row.leaves[xi],
-                                                   mesh.has_extended_leaf_index,
-                                                   mesh.extended_leaf_offsets));
+                    mesh.cells.push_back(read_leaf(
+                        m,
+                        x,
+                        row.y,
+                        z,
+                        row.leaves[xi],
+                        mesh.has_extended_leaf_index,
+                        mesh.extended_leaf_offsets
+                    ));
                 }
             }
 

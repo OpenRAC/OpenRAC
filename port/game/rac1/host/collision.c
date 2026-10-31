@@ -58,8 +58,7 @@ typedef struct {
     gaddr
         out; /* CollOutput: +0 the level's collision tree, +0x10 query stamp, +0x14 hit log index */
     gaddr mobys; /* the word holding the moby array's address */
-    gaddr
-        grid; /* retail: 64x64 {u16 block, s8 count, u8 capacity}, lists at +0x4000 */
+    gaddr grid;  /* retail: 64x64 {u16 block, s8 count, u8 capacity}, lists at +0x4000 */
     gaddr hits; /* the moby hit log, 64 records of 0x40 */
     gaddr list; /* coll_sphere_mobys's list of mobys */
     gaddr hero; /* the word holding the hero-collision section's address */
@@ -1637,7 +1636,9 @@ typedef struct {
     int capsule;
 } Volume;
 
-static int volume_new(Volume* v, gaddr centre, float radius, float height, int capsule, int extended) {
+static int volume_new(
+    Volume* v, gaddr centre, float radius, float height, int capsule, int extended
+) {
     const V3 c = vld(centre);
     v->capsule = capsule;
     for (int k = 0; k < 3; ++k) {
@@ -1713,8 +1714,12 @@ static void volume_mobys(
         if (lo[0] >= 8192 || lo[1] >= 8192 || lo[0] > hi[0] || lo[1] > hi[1]) {
             return;
         }
-        if (hi[0] >= 8192) hi[0] = 8191;
-        if (hi[1] >= 8192) hi[1] = 8191;
+        if (hi[0] >= 8192) {
+            hi[0] = 8191;
+        }
+        if (hi[1] >= 8192) {
+            hi[1] = 8191;
+        }
     }
     for (unsigned gy = lo[1]; gy <= hi[1]; ++gy) {
         for (unsigned gx = lo[0]; gx <= hi[0]; ++gx) {
@@ -2124,8 +2129,7 @@ int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
     Volume vol;
     g_joints = 0;
     g_r7 = x->grid;
-    if (stamp >= 0 && volume_new(&vol, a1, a0, 0.0f, 0,
-                                 openrac_guest_ram_size > GUEST_RAM_SIZE)) {
+    if (stamp >= 0 && volume_new(&vol, a1, a0, 0.0f, 0, openrac_guest_ram_size > GUEST_RAM_SIZE)) {
         const V3 c = vol.c1024;
         const float r = vol.r1024;
         const float best = vol.rr;
@@ -2141,8 +2145,12 @@ int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
                 lo[1] = 1;
                 hi[1] = 0;
             }
-            if (hi[0] >= 8192) hi[0] = 8191;
-            if (hi[1] >= 8192) hi[1] = 8191;
+            if (hi[0] >= 8192) {
+                hi[0] = 8191;
+            }
+            if (hi[1] >= 8192) {
+                hi[1] = 8191;
+            }
         }
         for (unsigned gy = lo[1]; gy <= hi[1]; ++gy) {
             for (unsigned gx = lo[0]; gx <= hi[0]; ++gx) {

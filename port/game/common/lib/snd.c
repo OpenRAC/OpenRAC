@@ -54,10 +54,9 @@ unsigned int openrac_lib_snd_BankLoadByLoc(int sector, int offset) { /* snd_Bank
  * callback is told, as the IOP's answer would: callback(handle, argument). */
 void openrac_lib_snd_BankLoadFromEE_CB(int bank, int callback, long long argument) {
     const gaddr at = openrac_guest_ram_address((gaddr)bank);
-    const unsigned int handle =
-        bank != 0 && at < openrac_guest_ram_size
-            ? openrac_sound_load_bank(G(at), openrac_guest_ram_size - at)
-            : 0;
+    const unsigned int handle = bank != 0 && at < openrac_guest_ram_size
+                                    ? openrac_sound_load_bank(G(at), openrac_guest_ram_size - at)
+                                    : 0;
     if (callback != 0) {
         GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);
     }

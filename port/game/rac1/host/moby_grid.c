@@ -2,8 +2,8 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 
 /* Expanded RAC1 collision grid. The retail grid remains untouched for the 32 MiB path. */
-#include <stdint.h>
 #include <math.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "openrac/game_host.h"
@@ -33,10 +33,14 @@ enum {
 
 #define GRID_HASH_TOMBSTONE UINT32_MAX
 
-_Static_assert(GRID_USED_BYTES <= OPENRAC_EXPANDED_MOBY_GRID_RESERVE,
-               "expanded moby grid exceeds its guest RAM reservation");
-_Static_assert(GUEST_RAM_EXPANDED_SIZE > OPENRAC_EXPANDED_RAC1_RESERVE,
-               "expanded RAC1 reservation leaves no heap");
+_Static_assert(
+    GRID_USED_BYTES <= OPENRAC_EXPANDED_MOBY_GRID_RESERVE,
+    "expanded moby grid exceeds its guest RAM reservation"
+);
+_Static_assert(
+    GUEST_RAM_EXPANDED_SIZE > OPENRAC_EXPANDED_RAC1_RESERVE,
+    "expanded RAC1 reservation leaves no heap"
+);
 
 static uint32_t grid_program_load = UINT32_MAX;
 /* Non-authoritative next-fit hints, one for each power-of-two block size. */
@@ -109,9 +113,8 @@ static int grid_allocate(gaddr base, uint32_t blocks, uint32_t* first_out) {
     for (uint32_t size = blocks; size > 1; size >>= 1) {
         ++order;
     }
-    const uint32_t start = grid_allocator_cursor[order] < aligned_end
-                               ? grid_allocator_cursor[order]
-                               : 0;
+    const uint32_t start =
+        grid_allocator_cursor[order] < aligned_end ? grid_allocator_cursor[order] : 0;
     for (unsigned pass = 0; pass < 2; ++pass) {
         const uint32_t from = pass == 0 ? start : 0;
         const uint32_t to = pass == 0 ? aligned_end : start;
@@ -160,9 +163,9 @@ static gaddr grid_cell_address(gaddr base, unsigned x, unsigned y, int create) {
             if (!create) {
                 return 0;
             }
-            const gaddr insert = base + GRID_HASH
-                                 + (tombstone < GRID_HASH_COUNT ? tombstone : slot)
-                                       * GRID_HASH_CELL_SIZE;
+            const gaddr insert =
+                base + GRID_HASH
+                + (tombstone < GRID_HASH_COUNT ? tombstone : slot) * GRID_HASH_CELL_SIZE;
             GREF(uint32_t, insert + 12u) = key;
             return insert;
         }
@@ -203,8 +206,11 @@ static int grid_add(gaddr base, unsigned x, unsigned y, uint16_t id) {
             return 0;
         }
         if (count != 0) {
-            memcpy(G(grid_pool(base) + grown_first * GRID_BLOCK_SIZE),
-                   G(grid_pool(base) + first * GRID_BLOCK_SIZE), count * sizeof(uint16_t));
+            memcpy(
+                G(grid_pool(base) + grown_first * GRID_BLOCK_SIZE),
+                G(grid_pool(base) + first * GRID_BLOCK_SIZE),
+                count * sizeof(uint16_t)
+            );
             grid_free(base, first, capacity);
         }
         first = grown_first;
@@ -283,16 +289,23 @@ static GridRect moby_rect(gaddr moby) {
     int64_t x0, y0, x1, y1;
     const float radius = F32(moby + 0xCu);
     if (!(radius >= 0.0f) || !floor_cell(F32(moby) - radius, &x0)
-        || !floor_cell(F32(moby + 4u) - radius, &y0)
-        || !floor_cell(F32(moby) + radius, &x1)
-        || !floor_cell(F32(moby + 4u) + radius, &y1)
-        || x1 < 0 || y1 < 0 || x0 >= 8192 || y0 >= 8192) {
+        || !floor_cell(F32(moby + 4u) - radius, &y0) || !floor_cell(F32(moby) + radius, &x1)
+        || !floor_cell(F32(moby + 4u) + radius, &y1) || x1 < 0 || y1 < 0 || x0 >= 8192
+        || y0 >= 8192) {
         return rect;
     }
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 >= 8192) x1 = 8191;
-    if (y1 >= 8192) y1 = 8191;
+    if (x0 < 0) {
+        x0 = 0;
+    }
+    if (y0 < 0) {
+        y0 = 0;
+    }
+    if (x1 >= 8192) {
+        x1 = 8191;
+    }
+    if (y1 >= 8192) {
+        y1 = 8191;
+    }
     rect.x0 = (unsigned)x0;
     rect.y0 = (unsigned)y0;
     rect.x1 = (unsigned)x1;
@@ -306,22 +319,21 @@ static int grid_rect_contains(GridRect rect, unsigned x, unsigned y) {
 }
 
 static uint64_t grid_rect_area(GridRect rect) {
-    return rect.valid ? ((uint64_t)rect.x1 - rect.x0 + 1u)
-                          * ((uint64_t)rect.y1 - rect.y0 + 1u)
-                      : 0;
+    return rect.valid ? ((uint64_t)rect.x1 - rect.x0 + 1u) * ((uint64_t)rect.y1 - rect.y0 + 1u) : 0;
 }
 
 static uint32_t grid_rect_packed(GridRect rect) {
-    return rect.valid ? ((rect.x0 & 255u) | ((rect.y0 & 255u) << 8)
-                         | ((rect.x1 & 255u) << 16) | ((rect.y1 & 255u) << 24))
+    return rect.valid ? ((rect.x0 & 255u) | ((rect.y0 & 255u) << 8) | ((rect.x1 & 255u) << 16)
+                         | ((rect.y1 & 255u) << 24))
                       : 0;
 }
 
 static GridRect grid_rect_load(gaddr base, uint16_t id) {
     const gaddr at = base + GRID_BOUNDS + (gaddr)id * 8u;
     const unsigned x0 = GREF(uint16_t, at);
-    GridRect rect = {x0, GREF(uint16_t, at + 2u), GREF(uint16_t, at + 4u),
-                     GREF(uint16_t, at + 6u), x0 != 0xFFFFu};
+    GridRect rect = {
+        x0, GREF(uint16_t, at + 2u), GREF(uint16_t, at + 4u), GREF(uint16_t, at + 6u), x0 != 0xFFFFu
+    };
     return rect;
 }
 
@@ -334,18 +346,25 @@ static void grid_rect_store(gaddr base, uint16_t id, GridRect rect) {
 }
 
 static int grid_add_wide_rect(gaddr base, GridRect rect, GridRect keep, uint16_t id) {
-    if (!rect.valid) return 1;
+    if (!rect.valid) {
+        return 1;
+    }
     for (unsigned y = rect.y0; y <= rect.y1; ++y) {
         for (unsigned x = rect.x0; x <= rect.x1; ++x) {
-            if (!grid_rect_contains(keep, x, y) && !grid_add(base, x, y, id)) return 0;
+            if (!grid_rect_contains(keep, x, y) && !grid_add(base, x, y, id)) {
+                return 0;
+            }
         }
     }
     return 1;
 }
 
-static void grid_remove_wide_rect(gaddr base, GridRect rect, GridRect keep, uint16_t id,
-                                  int require_all) {
-    if (!rect.valid) return;
+static void grid_remove_wide_rect(
+    gaddr base, GridRect rect, GridRect keep, uint16_t id, int require_all
+) {
+    if (!rect.valid) {
+        return;
+    }
     for (unsigned y = rect.y0; y <= rect.y1; ++y) {
         for (unsigned x = rect.x0; x <= rect.x1; ++x) {
             if (!grid_rect_contains(keep, x, y) && !grid_remove(base, x, y, id) && require_all) {
@@ -357,10 +376,14 @@ static void grid_remove_wide_rect(gaddr base, GridRect rect, GridRect keep, uint
 }
 
 static void grid_rollback_wide_rect(gaddr base, GridRect rect, GridRect keep, uint16_t id) {
-    if (!rect.valid) return;
+    if (!rect.valid) {
+        return;
+    }
     for (unsigned y = rect.y0; y <= rect.y1; ++y) {
         for (unsigned x = rect.x0; x <= rect.x1; ++x) {
-            if (!grid_rect_contains(keep, x, y)) grid_remove(base, x, y, id);
+            if (!grid_rect_contains(keep, x, y)) {
+                grid_remove(base, x, y, id);
+            }
         }
     }
 }
@@ -383,8 +406,10 @@ void game_rac1_update_expanded_moby_grid(gaddr moby, uint32_t next) {
     if (next == UINT32_MAX && grid_rect_packed(fresh) != next) {
         fresh.valid = 0;
     }
-    if (old.valid == fresh.valid && (!old.valid || (old.x0 == fresh.x0 && old.y0 == fresh.y0
-        && old.x1 == fresh.x1 && old.y1 == fresh.y1))) {
+    if (old.valid == fresh.valid
+        && (!old.valid
+            || (old.x0 == fresh.x0 && old.y0 == fresh.y0 && old.x1 == fresh.x1
+                && old.y1 == fresh.y1))) {
         return;
     }
     /* A bounding sphere wider than the complete addressable cell table cannot be represented.

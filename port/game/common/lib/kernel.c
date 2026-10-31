@@ -731,9 +731,8 @@ gaddr openrac_lib_GetEntryAddress(int number) { /* GetEntryAddress */
 }
 
 int openrac_lib_Copy(gaddr dest, gaddr src, int size) { /* Copy */
-    if (size > 0 && dest < openrac_guest_ram_size
-        && (uint32_t)size <= openrac_guest_ram_size - dest && src < openrac_guest_ram_size
-        && (uint32_t)size <= openrac_guest_ram_size - src) {
+    if (size > 0 && dest < openrac_guest_ram_size && (uint32_t)size <= openrac_guest_ram_size - dest
+        && src < openrac_guest_ram_size && (uint32_t)size <= openrac_guest_ram_size - src) {
         memmove(G(dest), G(src), (size_t)size);
     }
     return 0;

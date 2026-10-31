@@ -27,6 +27,7 @@ public:
     Memory& operator=(const Memory&) = delete;
 
     std::uint8_t* base() const { return base_; }
+
     std::uint32_t ram_size() const { return ram_size_; }
 
     // True when main RAM is visible at its uncached addresses as well

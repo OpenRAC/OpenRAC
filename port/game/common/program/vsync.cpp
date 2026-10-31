@@ -338,7 +338,9 @@ int vsync() {
             }
         } else if (!keep
                    && !frontend::frame(
-                       std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()), g_chain, draws
+                       std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()),
+                       g_chain,
+                       draws
                    )) {
             leave();
         }

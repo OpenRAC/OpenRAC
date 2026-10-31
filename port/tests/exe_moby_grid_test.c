@@ -4,9 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../game/rac1-pal/hand/game_moby_grid.c"
+
 /* The console's 32 MiB arena: no expanded (modded) memory, so no expanded grid. */
-int rac1_expanded_ram(void) { return 0; }
-void rac1_update_expanded_moby_grid(unsigned int moby, unsigned int next) { (void)moby; (void)next; }
+int rac1_expanded_ram(void) {
+    return 0;
+}
+
+void rac1_update_expanded_moby_grid(unsigned int moby, unsigned int next) {
+    (void)moby;
+    (void)next;
+}
 #define CHECK(c) do { if (!(c)) { fprintf(stderr,"%d: %s\n",__LINE__,#c); exit(1); } } while (0)
 #define TRAPS(call) do { expect_trap=1; if (!setjmp(trap_env)) { call; CHECK(0); } expect_trap=0; } while (0)
 _Alignas(16) unsigned char exe_grid[0x10000];

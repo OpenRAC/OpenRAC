@@ -22,10 +22,10 @@ void game_rac1_warn_moby_grid_full(void) {
     abort();
 }
 
-#define CHECK(condition)                                                                          \
+#define CHECK(condition)                                                                           \
     do {                                                                                           \
         if (!(condition)) {                                                                        \
-            fprintf(stderr, "%d: %s\n", __LINE__, #condition);                                   \
+            fprintf(stderr, "%d: %s\n", __LINE__, #condition);                                     \
             return 1;                                                                              \
         }                                                                                          \
     } while (0)

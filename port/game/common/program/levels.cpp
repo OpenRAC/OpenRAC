@@ -143,9 +143,8 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
         scene::LevelData level;
         std::string error;
 
-        const fs::path edited = mods.empty()
-                                    ? fs::path{}
-                                    : mods / std::format("level_{:02d}", id) / "placements.json";
+        const fs::path edited =
+            mods.empty() ? fs::path{} : mods / std::format("level_{:02d}", id) / "placements.json";
         if (!scene::load_level(dir, level, error, edited)) {
             log::error("level {:02d}: {}", id, error);
             ++bad;
@@ -203,7 +202,8 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
     if (bad > 0) {
         if (mods.empty()) {
             log::error(
-                "{} of {} levels in {} cannot be drawn: read them from the disc again (the launcher's "
+                "{} of {} levels in {} cannot be drawn: read them from the disc again (the "
+                "launcher's "
                 "\"Get the levels ready\"; editor/extract.py port --replace)",
                 bad,
                 ids.size(),
@@ -211,7 +211,8 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
             );
         } else {
             log::error(
-                "{} of {} modded levels cannot be drawn from {}: repair or remove the named mod files",
+                "{} of {} modded levels cannot be drawn from {}: repair or remove the named mod "
+                "files",
                 bad,
                 ids.size(),
                 mods.string()
@@ -237,7 +238,9 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
     if (mods.empty()) {
         log::info("all {} levels can be drawn: {}", ids.size(), stamp.string());
     } else {
-        log::info("all {} levels can be drawn with mod overrides from {}", ids.size(), mods.string());
+        log::info(
+            "all {} levels can be drawn with mod overrides from {}", ids.size(), mods.string()
+        );
     }
     return 0;
 }

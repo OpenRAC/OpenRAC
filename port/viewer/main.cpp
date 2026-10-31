@@ -77,7 +77,8 @@ constexpr const char* kUsage =
     "  --no-vsync  --no-lighting\n"
     "  --medial-axis        show baked centre paths and junctions\n"
     "  --reflection-probes  show reflection spheres and all influence bounds\n"
-    "  --state FILE         the game's main memory at one frame (32 to 256 MB): its camera and live "
+    "  --state FILE         the game's main memory at one frame (32 to 256 MB): its camera and "
+    "live "
     "mobys\n";
 
 bool parse_floats(std::string_view text, float* out, int count) {

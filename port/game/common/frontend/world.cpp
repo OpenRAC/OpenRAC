@@ -156,7 +156,8 @@ void use_level(int number) {
         debug_overlay::notice(
             std::format(
                 "This level's scenery could not be read, so the world is black.\n{}\n"
-                "Close the game and run \"Check the levels\" in the launcher (the log says which file).",
+                "Close the game and run \"Check the levels\" in the launcher (the log says which "
+                "file).",
                 error
             )
         );

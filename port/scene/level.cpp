@@ -818,8 +818,7 @@ bool load_level(
                 for (std::size_t i = 0; i < instance.matrix.size(); ++i) {
                     const json::Value& value = matrix[i];
                     const double number = value.number(std::numeric_limits<double>::quiet_NaN());
-                    if (!value.is_number() || !std::isfinite(number)
-                        || std::abs(number) > 1.0e6) {
+                    if (!value.is_number() || !std::isfinite(number) || std::abs(number) > 1.0e6) {
                         error = "animated object matrix contains an invalid value";
                         return false;
                     }
@@ -833,8 +832,9 @@ bool load_level(
                 }
                 Vec3 spin_axis{};
                 for (std::size_t i = 0; i < spin_axis.size(); ++i) {
-                    spin_axis[i] = static_cast<float>(axis[i].number(
-                        std::numeric_limits<double>::quiet_NaN()));
+                    spin_axis[i] = static_cast<float>(
+                        axis[i].number(std::numeric_limits<double>::quiet_NaN())
+                    );
                     if (!std::isfinite(spin_axis[i])) {
                         error = "animated object spin_axis contains an invalid value";
                         return false;
@@ -854,10 +854,12 @@ bool load_level(
                     return false;
                 }
                 for (std::size_t i = 0; i < move_axis.size(); ++i) {
-                    move_axis[i] = move_axis_json.is_array()
-                                       ? static_cast<float>(move_axis_json[i].number(
-                                             std::numeric_limits<double>::quiet_NaN()))
-                                       : 0.0f;
+                    move_axis[i] =
+                        move_axis_json.is_array()
+                            ? static_cast<float>(
+                                  move_axis_json[i].number(std::numeric_limits<double>::quiet_NaN())
+                              )
+                            : 0.0f;
                     if (!std::isfinite(move_axis[i])) {
                         error = "animated object move_axis contains an invalid value";
                         return false;
@@ -883,17 +885,22 @@ bool load_level(
                 }
                 const double speed = object["spin_speed"].number();
                 const double phase = object["phase"].number(0.0);
-                if (!std::isfinite(speed) || std::abs(speed) > 100.0
-                    || !std::isfinite(phase) || std::abs(phase) > 1000000.0) {
+                if (!std::isfinite(speed) || std::abs(speed) > 100.0 || !std::isfinite(phase)
+                    || std::abs(phase) > 1000000.0) {
                     error = "animated object spin_speed or phase is outside its supported range";
                     return false;
                 }
                 auto& instances = out.instances[static_cast<std::size_t>(Layer::Animated)];
-                out.spins.push_back({instances.size(), spin_axis, static_cast<float>(speed),
-                                     static_cast<float>(phase), move_axis,
-                                     static_cast<float>(move_distance),
-                                     static_cast<float>(move_speed),
-                                     static_cast<float>(move_phase)});
+                out.spins.push_back(
+                    {instances.size(),
+                     spin_axis,
+                     static_cast<float>(speed),
+                     static_cast<float>(phase),
+                     move_axis,
+                     static_cast<float>(move_distance),
+                     static_cast<float>(move_speed),
+                     static_cast<float>(move_phase)}
+                );
                 instances.push_back(instance);
             }
         }

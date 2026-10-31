@@ -206,8 +206,9 @@ static void run_list_append(gaddr m) {
 }
 
 /* Index `idx` written at the target list's end, kept when `mode` has 0x1000 and there is room. */
-static gaddr target_add(gaddr tgt, int idx, unsigned mode, gaddr base, gaddr expanded_table,
-                        unsigned* expanded_count) {
+static gaddr target_add(
+    gaddr tgt, int idx, unsigned mode, gaddr base, gaddr expanded_table, unsigned* expanded_count
+) {
     if (openrac_guest_ram_size > GUEST_RAM_SIZE) {
         if (!(mode & 0x1000)) {
             return tgt;

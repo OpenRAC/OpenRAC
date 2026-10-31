@@ -89,14 +89,16 @@ extern OPENRAC_GUEST_GLOBAL uint32_t openrac_guest_ram_size;
  * gap after it and below the heap; 32,768 moby pointers plus NULL take 0x20004. */
 #define OPENRAC_EXPANDED_TARGET_TABLE_RESERVE 0x00021000u
 #define OPENRAC_EXPANDED_MOBY_GRID_RESERVE 0x01320000u
-#define OPENRAC_EXPANDED_RAC1_RESERVE \
+#define OPENRAC_EXPANDED_RAC1_RESERVE                                                              \
     (OPENRAC_EXPANDED_TARGET_TABLE_RESERVE + OPENRAC_EXPANDED_MOBY_GRID_RESERVE)
+
 static inline gaddr openrac_guest_target_table(gaddr original) {
     if (openrac_guest_ram_size <= GUEST_RAM_SIZE) {
         return original;
     }
     return GUEST_RAM + openrac_guest_ram_size - OPENRAC_EXPANDED_TARGET_TABLE_RESERVE;
 }
+
 #define OPENRAC_TARGET_TABLE(a) openrac_guest_target_table((gaddr)(a))
 
 /* Normalize a direct or aliased RAM pointer to the direct RAM view. Other bus addresses retain
@@ -105,16 +107,15 @@ static inline gaddr openrac_guest_ram_address_for_size(gaddr address, uint32_t r
     if (address < ram_size) {
         return address;
     }
-    if (address >= GUEST_RAM_UNCACHED
-        && address - GUEST_RAM_UNCACHED < ram_size) {
+    if (address >= GUEST_RAM_UNCACHED && address - GUEST_RAM_UNCACHED < ram_size) {
         return address - GUEST_RAM_UNCACHED;
     }
-    if (address >= GUEST_RAM_UNCACHED_ACCEL
-        && address - GUEST_RAM_UNCACHED_ACCEL < ram_size) {
+    if (address >= GUEST_RAM_UNCACHED_ACCEL && address - GUEST_RAM_UNCACHED_ACCEL < ram_size) {
         return address - GUEST_RAM_UNCACHED_ACCEL;
     }
     return address & 0x01FFFFFFu;
 }
+
 static inline gaddr openrac_guest_ram_address(gaddr address) {
     return openrac_guest_ram_address_for_size(address, openrac_guest_ram_size);
 }

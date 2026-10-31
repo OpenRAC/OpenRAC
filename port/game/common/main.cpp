@@ -467,7 +467,8 @@ int main(int argc, char** argv) {
     if (g_options.check_levels) {
 #ifdef OPENRAC_FRONTEND
         return check_levels(
-            g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels),
+            g_options.levels.empty() ? default_levels(g_options.data)
+                                     : levels_or_flat(g_options.levels),
             g_options.mods
         );
 #else

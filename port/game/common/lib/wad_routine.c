@@ -58,8 +58,7 @@ int openrac_wad_routine(int source, int destination, const char* game) {
         crash(game, "header or compressed size is invalid");
     }
 
-    const uint32_t made =
-        openrac_lib_wad_decompress(data, G(to), openrac_guest_ram_size - to);
+    const uint32_t made = openrac_lib_wad_decompress(data, G(to), openrac_guest_ram_size - to);
 
     /* The stream's packets did not decode, or would not fit in RAM after `to`. */
     if (made == 0) {

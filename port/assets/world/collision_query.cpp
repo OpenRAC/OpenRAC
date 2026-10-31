@@ -730,7 +730,9 @@ struct Kernels {
     // The bounds checks: c - r >= 0 and hi - 1024 < 0 on every axis (MAC
     // sign flags), r > +0 (and h > +0 for the capsule) on the bits.
     static std::optional<Volume> volume(
-        const std::array<float, 3>& centre, float radius, std::optional<float> height,
+        const std::array<float, 3>& centre,
+        float radius,
+        std::optional<float> height,
         bool expanded = false
     ) {
         const V3 c = in3(centre);
@@ -1264,7 +1266,10 @@ struct SphereOp {
         const CollisionMesh& mesh, const std::array<float, 3>& centre, float radius, u32 flags
     ) {
         const auto v = Kernels<M>::volume(
-            centre, radius, std::nullopt, mesh.has_extended_leaf_index || mesh.has_extended_slab_index
+            centre,
+            radius,
+            std::nullopt,
+            mesh.has_extended_leaf_index || mesh.has_extended_slab_index
         );
         return v ? Kernels<M>::volume_query(mesh, *v, false, flags) : std::nullopt;
     }

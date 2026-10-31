@@ -7,9 +7,9 @@
  * (iso_data/<game>/disc.iso). A read completes before the call returns, so the
  * game's polling (sceCdSync) finds it done. */
 #define _FILE_OFFSET_BITS 64
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <time.h>
 
@@ -32,11 +32,19 @@ static int seek_file(FILE* file, uint64_t offset) {
 #endif
 }
 
-static int append_sector_file(sector_file** entries, size_t* count, size_t* capacity,
-                              unsigned first, unsigned sectors, const char* path) {
+static int append_sector_file(
+    sector_file** entries,
+    size_t* count,
+    size_t* capacity,
+    unsigned first,
+    unsigned sectors,
+    const char* path
+) {
     size_t path_size = strlen(path) + 1;
     char* copy = (char*)malloc(path_size);
-    if (copy == NULL) return -1;
+    if (copy == NULL) {
+        return -1;
+    }
     memcpy(copy, path, path_size);
     if (*count == *capacity) {
         size_t next = *capacity == 0 ? 16 : *capacity * 2;
@@ -62,17 +70,22 @@ static int append_sector_file(sector_file** entries, size_t* count, size_t* capa
 
 static void clear_sector_files(sector_file** entries, size_t* count, size_t* capacity) {
     size_t i;
-    for (i = 0; i < *count; ++i) free((*entries)[i].path);
+    for (i = 0; i < *count; ++i) {
+        free((*entries)[i].path);
+    }
     free(*entries);
     *entries = NULL;
     *count = 0;
     *capacity = 0;
 }
 
-static FILE* select_sector_file(sector_file* entries, size_t index, FILE** active,
-                                size_t* active_index, int* active_valid) {
+static FILE* select_sector_file(
+    sector_file* entries, size_t index, FILE** active, size_t* active_index, int* active_valid
+) {
     if (!*active_valid || *active_index != index) {
-        if (*active != NULL) fclose(*active);
+        if (*active != NULL) {
+            fclose(*active);
+        }
         *active = fopen(entries[index].path, "rb");
         *active_index = index;
         *active_valid = 1;
@@ -120,11 +133,13 @@ static void load_virtuals(void) {
     }
     while (fgets(line, sizeof line, list) != NULL) {
         unsigned first, count;
-        if (line[0] == '#' || sscanf(line, "%u\t%u\t%2047[^\t\r\n]", &first, &count, name) != 3 || count == 0) {
+        if (line[0] == '#' || sscanf(line, "%u\t%u\t%2047[^\t\r\n]", &first, &count, name) != 3
+            || count == 0) {
             continue;
         }
         snprintf(path, sizeof path, "%s/%s", openrac_game_mods_dir, name);
-        if (append_sector_file(&virtuals, &virtual_count, &virtual_capacity, first, count, path) != 0) {
+        if (append_sector_file(&virtuals, &virtual_count, &virtual_capacity, first, count, path)
+            != 0) {
             fprintf(stderr, "[error] cannot allocate virtual sector mapping\n");
             break;
         }
@@ -134,14 +149,18 @@ static void load_virtuals(void) {
 
 static void refresh_virtuals(void) {
     if (virtual_generation != openrac_game_mods_generation) {
-        if (active_virtual_file != NULL) fclose(active_virtual_file);
+        if (active_virtual_file != NULL) {
+            fclose(active_virtual_file);
+        }
         active_virtual_file = NULL;
         active_virtual_valid = 0;
         clear_sector_files(&virtuals, &virtual_count, &virtual_capacity);
         virtuals_loaded = 0;
         virtual_generation = openrac_game_mods_generation;
     }
-    if (!virtuals_loaded) load_virtuals();
+    if (!virtuals_loaded) {
+        load_virtuals();
+    }
 }
 
 static int virtual_sector(unsigned sector, unsigned char* out) {
@@ -150,10 +169,13 @@ static int virtual_sector(unsigned sector, unsigned char* out) {
     for (i = 0; i < virtual_count; ++i) {
         if (sector >= virtuals[i].first && sector - virtuals[i].first < virtuals[i].count) {
             const unsigned offset = sector - virtuals[i].first;
-            FILE* file = select_sector_file(virtuals, i, &active_virtual_file,
-                                            &active_virtual_index, &active_virtual_valid);
+            FILE* file = select_sector_file(
+                virtuals, i, &active_virtual_file, &active_virtual_index, &active_virtual_valid
+            );
             if (file == NULL || seek_file(file, (uint64_t)offset * SECTOR) != 0
-                || fread(out, 1, SECTOR, file) != SECTOR) return -1;
+                || fread(out, 1, SECTOR, file) != SECTOR) {
+                return -1;
+            }
             return 1;
         }
     }
@@ -194,7 +216,9 @@ static void apply_patches(unsigned sector, unsigned count, unsigned char* out) {
     size_t p;
     unsigned i;
     if (patch_generation != openrac_game_mods_generation) {
-        if (active_patch_file != NULL) fclose(active_patch_file);
+        if (active_patch_file != NULL) {
+            fclose(active_patch_file);
+        }
         active_patch_file = NULL;
         active_patch_valid = 0;
         clear_sector_files(&patches, &patch_count, &patch_capacity);
@@ -210,8 +234,9 @@ static void apply_patches(unsigned sector, unsigned count, unsigned char* out) {
             if (s < patches[p].first || s - patches[p].first >= patches[p].count) {
                 continue;
             }
-            FILE* file = select_sector_file(patches, p, &active_patch_file,
-                                            &active_patch_index, &active_patch_valid);
+            FILE* file = select_sector_file(
+                patches, p, &active_patch_file, &active_patch_index, &active_patch_valid
+            );
             if (file == NULL || seek_file(file, (uint64_t)(s - patches[p].first) * SECTOR) != 0
                 || fread(out + (size_t)i * SECTOR, 1, SECTOR, file) != SECTOR) {
                 fprintf(stderr, "[error] the edited level is too short for sector %u\n", s);
@@ -281,19 +306,24 @@ int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer,
     for (unsigned i = 0; i < count; ++i) {
         unsigned char* dst = (unsigned char*)G(buffer) + (size_t)i * SECTOR;
         int mapped = virtual_sector(sector + i, dst);
-        if (mapped < 0) { last_error = 0x32; return 0; }
-        if (mapped > 0) continue;
-#if defined(_WIN32)
-    /* Windows' C library has no fseeko; _fseeki64 is its 64-bit seek. */
-        if (_fseeki64(f, (long long)(sector + i) * SECTOR, SEEK_SET) != 0
-#else
-        if (fseeko(f, (off_t)(sector + i) * SECTOR, SEEK_SET) != 0
-#endif
-            || fread(dst, SECTOR, 1, f) != 1) {
-            fprintf(stderr, "[error] disc read of sector %u failed\n", sector + i);
+        if (mapped < 0) {
             last_error = 0x32;
             return 0;
         }
+        if (mapped > 0) {
+            continue;
+        }
+#if defined(_WIN32)
+    /* Windows' C library has no fseeko; _fseeki64 is its 64-bit seek. */
+    if (_fseeki64(f, (long long)(sector + i) * SECTOR, SEEK_SET) != 0
+#else
+        if (fseeko(f, (off_t)(sector + i) * SECTOR, SEEK_SET) != 0
+#endif
+        || fread(dst, SECTOR, 1, f) != 1) {
+        fprintf(stderr, "[error] disc read of sector %u failed\n", sector + i);
+        last_error = 0x32;
+        return 0;
+    }
     }
     apply_patches(sector, count, (unsigned char*)G(buffer));
     last_error = 0;

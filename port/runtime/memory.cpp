@@ -116,9 +116,8 @@ bool map_with_placeholders(std::uint8_t** base_out, std::uint32_t ram_size) {
     auto carve = [&](gaddr address, std::uint32_t size) {
         return VirtualFree(base + address, size, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER) != 0;
     };
-    HANDLE ram = CreateFileMappingW(
-        INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, ram_size, nullptr
-    );
+    HANDLE ram =
+        CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, ram_size, nullptr);
     if (ram == nullptr) {
         return false;
     }
@@ -289,8 +288,7 @@ bool Memory::mapped(gaddr address, std::size_t size) const {
         return true;
     }
     if (aliases_
-        && (inside(GUEST_RAM_UNCACHED, ram_size_)
-            || inside(GUEST_RAM_UNCACHED_ACCEL, ram_size_))) {
+        && (inside(GUEST_RAM_UNCACHED, ram_size_) || inside(GUEST_RAM_UNCACHED_ACCEL, ram_size_))) {
         return true;
     }
     for (const Region& r : kPlainRegions) {
