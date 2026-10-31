@@ -115,6 +115,9 @@ private:
     std::vector<FrameRow> m_frames;
     std::size_t m_skipped = 0;  // held and picture frames
     std::size_t m_split = 0;  // frames whose passes were split to time them (stats::pass_sampling)
+    // Frames whose passes' GPU times count (with pass sampling, the split ones alone): the passes'
+    // GPU averages are over these, not over every frame.
+    std::size_t m_pass_frames = 0;
     std::vector<Series> m_series;
     std::unordered_map<std::string, int> m_series_of;
     std::vector<std::pair<std::string, Values>> m_gauges;

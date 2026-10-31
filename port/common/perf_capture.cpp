@@ -106,6 +106,7 @@ void Recorder::add(const stats::Frame& f) {
     row.gpu_ms = f.pending_gpu == 0 && !f.passes_split ? f.gpu_ms() : -1.0;
     const bool pass_times = !f.passes_sampled || f.passes_split;
     m_split += f.passes_split ? 1 : 0;
+    m_pass_frames += pass_times ? 1 : 0;
     row.counters = f.counters;
     row.top.fill({-1, 0.0});
 
@@ -293,6 +294,7 @@ std::string Recorder::verdict() const {
             costliest_ms = v;
         }
     }
+    const double pass_frames = static_cast<double>(std::max<std::size_t>(m_pass_frames, 1));
     const auto pass = [&](bool on_gpu) {
         std::string name;
         double best = 0.0;
@@ -302,7 +304,7 @@ std::string Recorder::verdict() const {
                 continue;
             }
             const double v =
-                (on_gpu ? s.gpu_sum : s.cpu_sum) / static_cast<double>(m_frames.size());
+                on_gpu ? s.gpu_sum / pass_frames : s.cpu_sum / static_cast<double>(m_frames.size());
             if (v > best) {
                 best = v;
                 name = std::format("{} {:.2f} ms", s.name, v);
@@ -317,7 +319,7 @@ std::string Recorder::verdict() const {
     for (const Series& s : m_series) {
         if (s.depth == 1 && s.parent >= 0
             && m_series[static_cast<std::size_t>(s.parent)].name == "render") {
-            passes_gpu += s.gpu_sum / static_cast<double>(m_frames.size());
+            passes_gpu += s.gpu_sum / pass_frames;
         }
     }
     const bool passes_timed = gpu < 0.0 || passes_gpu >= 0.25 * gpu;
@@ -472,8 +474,9 @@ std::string Recorder::report(const Context& context) const {
     // ---- Sections ----
     // In their tree: each after its parent, in the order they were first timed.
     put(out,
-        "\n## Sections (ms a frame over every frame; p95 and max over the frames they ran "
-        "in)\n\n```\n");
+        "\n## Sections (ms a frame over every frame{}; p95 and max over the frames they ran "
+        "in)\n\n```\n",
+        m_split > 0 ? ", the GPU's over the frames that timed their passes" : "");
     put(out,
         "{:<34}{:>7}{:>7}{:>7}{:>8}{:>7}{:>8}{:>8}\n",
         "section",
@@ -485,6 +488,7 @@ std::string Recorder::report(const Context& context) const {
         "draws",
         "tris");
     const double n = static_cast<double>(m_frames.size());
+    const double pass_frames = static_cast<double>(std::max<std::size_t>(m_pass_frames, 1));
     std::vector<int> order;
     const auto visit = [&](auto&& self, int parent) -> void {
         for (std::size_t i = 0; i < m_series.size(); ++i) {
@@ -508,7 +512,7 @@ std::string Recorder::report(const Context& context) const {
             s.cpu_sum / n,
             percentile(s.cpu, 0.95),
             percentile(s.cpu, 1.0),
-            s.gpu.empty() ? "-" : ms(s.gpu_sum / n),
+            s.gpu.empty() ? "-" : ms(s.gpu_sum / pass_frames),
             s.gpu.empty() ? "-" : ms(percentile(s.gpu, 0.95)),
             amount(static_cast<double>(s.draw_calls) / n),
             amount(static_cast<double>(s.triangles) / n));
