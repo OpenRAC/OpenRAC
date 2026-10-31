@@ -12,7 +12,7 @@ Known bugs that are guarded but not properly fixed are in
 
 **Landed** (2026-10-22): the port gives every level at least 768 spare moby
 slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
-(6) and Quartu (15), and caps the tick's target list at 511
+(6) and Quartu (15), and caps the vanilla tick's target list at 511
 (`port/game/rac1/host/moby_pool.c`; the limits checked are in
 [port/KNOWN_ISSUES.md](port/KNOWN_ISSUES.md)). Left:
 
@@ -21,20 +21,20 @@ slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
   well short of its new end, and neither "scene actor skipped" nor "moby
   target list full" should appear. Then a level with many placed mobys
   (Kalebo III) with the difficulty mod's enemy count at 2 or more.
-- **Room on Rilgar, Blarg Station and Quartu.** Their level heap ends within
+- **Vanilla room on Rilgar, Blarg Station and Quartu.** Their level heap ends within
   0 to 65 KiB of 0x1FF8000, so they keep 255. Room would have to come from
   shrinking the per-level VU chain area (f4 to fC of the load state, 0x160000
   to 0x1C0000 twice; the port's high-water mark there is not measured, and f4
   also holds the decompressed gameplay file) or from guest memory past
-  32 MiB (several port paths mask addresses with `& 0x01FFFFFF`).
-- **The moby grid's per-cell count.** Only mobys with collision enter the
-  grid (lava sparks don't). A cell's count is a byte: the collision queries
-  read it signed, so a cell with 128 or more colliding mobys drops out of
-  collision, and at 256 it wraps and the next removal traps
-  (`port/game/rac1-pal/hand/game_moby_grid.c`). Kalebo III's densest cell
-  already holds about 117. Enemy copies piled into one 16-unit cell could
-  reach it; reading the count unsigned and refusing an insert into a full
-  cell would make it degrade instead.
+  32 MiB (several port paths mask addresses with `& 0x01FFFFFF`). The expanded
+  128 MiB path has room for the remaining 15-bit moby indices and is separate
+  from this vanilla path.
+- **Expanded-mode moby-grid stress.** Expanded RAM now has 32-bit cell
+  populations and a 16 MiB block pool; vanilla keeps the original grid.
+  Exercise a deliberately dense cell, move/remove colliders from it, and
+  exhaust the pool to verify counts, collision queries and rollback. The pool
+  exhaustion path is designed to keep a moby's previous rectangle active, but
+  dense-cell and allocator-stress gameplay proof is still outstanding.
 
 ## 2. Rearrange rac3-uya-decomp like rac1-decomp and rac2-decomp
 

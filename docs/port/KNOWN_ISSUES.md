@@ -73,23 +73,20 @@ discs. The pool size is data, not a fixed array:
     287 KiB, Gemlik 278 KiB, Veldin (final) 357 KiB and the other levels more,
     but Rilgar (5), Blarg Station (6) and Quartu (15) end within 0 to 65 KiB
     of the top. **Those three keep the disc's 255.**
-  - **The moby grid** (1536 blocks of 16 ids, game_moby_grid.c): only mobys
-    with collision enter it, and lava sparks (class 417) have none. Retail
-    levels use about 31 to 276 blocks, and blocks are per occupied cell, so
-    spawned colliders near the player cost little. Not raised. The per-cell
-    count is the tighter limit: a signed byte to the collision queries, so a
-    cell with 128 or more colliding mobys drops out of collision, and it wraps
-    at 256 (Kalebo III's densest cell holds about 117). The NTSC-U port does not
-    yet have a verified expanded-mode guard for this. The grid still has 1,536
-    blocks, so a level using more colliding cells can exhaust the pool. Open,
-    in docs/TODO.md.
-  - **The target list** (0x70000800, 512 entries, copied to the pointer
+  - **The moby grid.** Vanilla retains the retail grid (1,536 blocks and a
+    signed-byte per-cell count). Expanded mode uses a separate 64×64 grid with
+    32-bit counts and a 16 MiB pool of 32-byte blocks. If an insertion cannot
+    allocate room, the moby retains its previous rectangle and OpenRAC warns.
+    Both PAL and NTSC-U builds contain the expanded path; dense-cell gameplay
+    and allocator-exhaustion runtime proof remain outstanding (docs/TODO.md).
+  - **The target list** (0x70000800, 512 entries in the retail table, copied to the pointer
     table D_001C7C80, 512 words with its NULL): build_resident_visibility_list
     (`func_0020E6B8`) bounds neither; past 511 it writes into the next table
     and the scratchpad's group flags. Sparks don't count (no mode 0x1000), but
     placed mobys with it reach 803 on Rilgar and spawned enemies add to them.
-    **The port's copy of the builder (moby_pool.c) stops the list at 511** and
-    logs "moby target list full" once; the rest still run.
+    In expanded mode the port uses a separate 32,768-entry pointer table;
+    vanilla uses its original 511-target table. The remaining 15-bit moby
+    index range bounds expanded entries.
   - **The renderer** draws from vectors; the only fixed cap is the port's
     4096-moby guard in render_native.c's mark_drawn_mobys. The game's own VU1
     packet buffers belong to the console renderer, which the port stubs.

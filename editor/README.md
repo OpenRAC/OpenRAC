@@ -685,15 +685,15 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   `-1`, spawn flags `0`) with a note in `changes.txt`. Expanded streams remove
   the original disc-slot ceiling. With the expanded 128 MiB arena, the larger
   pool can use the remaining 15-bit moby indices for spawned objects; the
-  vanilla 32 MiB pool size and its three crowded levels are unchanged. RAC1's
-  moby collision grid still has 1,536 storage blocks and a signed-byte count
-  per cell. At 128 colliders in a cell, collision queries can drop the cell out;
-  the NTSC-U port does not yet have a verified expanded-mode guard for this.
-  RAC1's
-  target pointer table still holds 511 mobys. When more active mobys request
-  targeting, the rest continue updating but are left out of lock-on and other
-  target scans for that tick. These are game-structure limits, not disc-slot
-  limits.
+  vanilla 32 MiB pool size and its three crowded levels are unchanged. Expanded
+  mode also uses a separate 64×64 moby grid with 32-bit cell counts and a
+  16 MiB pool of 32-byte blocks; the original 1,536-block grid remains in use
+  for vanilla sessions. If the expanded pool is exhausted, an updating moby
+  keeps its previous collision coverage and OpenRAC warns. The expanded target
+  pointer table can hold 32,768 entries; vanilla keeps the original 511-target
+  limit. Remaining game-format bounds include 32,768 source mobys, the
+  2,048 persistent spawn IDs, collision's 0–1024-unit world, and per-cell
+  vertex/face storage. These are game-structure limits, not disc-slot limits.
 
 What the decoded collision misses: the cells' quads are split into triangles
 here, and a face shared by cells appears once, so the tiles show the level's

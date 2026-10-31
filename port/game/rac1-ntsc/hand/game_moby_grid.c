@@ -159,3 +159,14 @@ void update_moby_grids(unsigned char* moby, unsigned int next) {
         }
     }
 }
+
+/* The decomp gives this CPU routine two names at the same address. hostgen also sees that
+ * address as the embedded VU0 microprogram, so export both spellings explicitly to keep calls
+ * from mark_moby_for_removal and the per-level moby pass on the native updater above. */
+void FUN_0020dc20(unsigned char* moby, unsigned int next) {
+    update_moby_grids(moby, next);
+}
+
+void func_0020DC20(unsigned char* moby, unsigned int next) {
+    update_moby_grids(moby, next);
+}
