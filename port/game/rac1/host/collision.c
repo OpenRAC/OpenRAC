@@ -336,6 +336,9 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
             c->nv = U8(c->leaf + 2);
             c->nf = U16(c->leaf);
             c->nq = U8(c->leaf + 3);
+            c->vertices = c->leaf + 4;
+            c->faces = c->vertices + 4 * (gaddr)c->nv;
+            c->qv3 = c->faces + 4 * (gaddr)c->nf;
             return c->nv != 0;
         }
         const uint32_t hero_at = U32(block + 4);
