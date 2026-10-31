@@ -272,12 +272,17 @@ def sums(d: dict) -> str:
     return " | ".join(f"`{d[k]}`" if d.get(k) else "–" for k in ("crc32", "md5", "sha1", "sha256"))
 
 
+def size(d: dict) -> str:
+    """The size's table cell; a dash when no one has recorded it yet."""
+    return f"{d['size']:,}" if d.get("size") else "–"
+
+
 def disc_table() -> str:
     out = ["| Game | Version | Serial | Size (bytes) | CRC32 | MD5 | SHA-1 | SHA-256 |",
            "|---|---|---|---:|---|---|---|---|"]
     for game, name, v in games.versions():
         d = v["disc"]
-        out.append(f"| {game['title']} | {v['region']}, disc v{d['version']} | `{v['serial']}` | {d['size']:,} | "
+        out.append(f"| {game['title']} | {v['region']}, disc v{d['version']} | `{v['serial']}` | {size(d)} | "
                    f"{sums(d)} |")
     return "\n".join(out) + "\n"
 
@@ -287,7 +292,7 @@ def boot_table() -> str:
            "|---|---|---|---:|---|---|---|---|"]
     for game, name, v in games.versions():
         b = v["boot"]
-        out.append(f"| {game['title']} | {v['region']} | `{b['file']}` | {b['size']:,} | {sums(b)} |")
+        out.append(f"| {game['title']} | {v['region']} | `{b['file']}` | {size(b)} | {sums(b)} |")
     return "\n".join(out) + "\n"
 
 

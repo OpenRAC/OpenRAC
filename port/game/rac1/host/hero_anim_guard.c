@@ -19,7 +19,8 @@
 #define SWIM_SEQUENCE 0x65
 
 static int has_sequence(gaddr pclass, int seq) {
-    return seq >= 0 && seq < (int)GREF(uint8_t, pclass + 0xCu) && GREF(gaddr, pclass + 0x48u + (gaddr)seq * 4u) != 0;
+    return seq >= 0 && seq < (int)GREF(uint8_t, pclass + 0xCu)
+           && GREF(gaddr, pclass + 0x48u + (gaddr)seq * 4u) != 0;
 }
 
 void func_L00_00232C10(int seq, int frame, float time) {
@@ -30,8 +31,13 @@ void func_L00_00232C10(int seq, int frame, float time) {
         const int fallback = has_sequence(pclass, SWIM_SEQUENCE) ? SWIM_SEQUENCE : -1;
         if (logged != seq) {
             char line[96];
-            snprintf(line, sizeof(line), "Ratchet has no animation sequence %#x in this level; %s", seq,
-                     fallback >= 0 ? "swimming instead" : "kept the current one");
+            snprintf(
+                line,
+                sizeof(line),
+                "Ratchet has no animation sequence %#x in this level; %s",
+                seq,
+                fallback >= 0 ? "swimming instead" : "kept the current one"
+            );
             openrac_game_warn(line);
             logged = seq;
         }

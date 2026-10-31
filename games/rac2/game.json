@@ -77,6 +77,7 @@
       "serial": "SCES_516.07",
       "disc": {
         "file": "SCES_516.07.iso",
+        "version": "1.00",
         "video": "PAL",
         "size": 3548545024,
         "sha256": "519f9fa78b8e821b6bb7fa501fc10e8b10f378e27a6410f68d0dd8952860b41a",
