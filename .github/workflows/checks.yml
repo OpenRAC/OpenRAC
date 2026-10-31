@@ -60,7 +60,10 @@ jobs:
         run: python -m unittest discover -s editor -v
 
       - name: Probe bake planning (synthetic data only)
-        run: python -m unittest discover -s port/enhanced/tools/probes -v
+        run: python -m unittest discover -s port/enhanced/tools/baker -v
+
+      - name: Water bake preparation (synthetic data only)
+        run: python -m unittest discover -s port/enhanced/tools/water -v
 
       # The port's countable conventions (port/docs/CODING_CONVENTIONS.md): the rules for every
       # file, and the new-code rules on what this push or pull request adds. A line it changes that
@@ -234,11 +237,14 @@ jobs:
         run: yarn test:android
 
   # The native port (port/): hostgen's tests, then the whole port built with
-  # Clang (SDL3 fetched by CMake) and its tests, the OpenGL ones on Mesa's
-  # software renderer. The rac1 program is built from games/rac1's C.
+  # Clang (SDL3 fetched by CMake), with enhanced rendering compiled out. Exercise
+  # the compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer.
   port:
     runs-on: ubuntu-26.04
     timeout-minutes: 60
+    env:
+      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
+      MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -252,6 +258,11 @@ jobs:
         with:
           key: checks-port-release
           max-size: 1G
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/openrac-mesa
+          key: mesa-ubuntu-release-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+          restore-keys: mesa-ubuntu-release-${{ runner.arch }}-
       - name: Compilers and SDL's system libraries
         run: |
           sudo apt-get update
@@ -266,14 +277,31 @@ jobs:
       - name: Build
         working-directory: port
         run: |
-          cmake --preset release
+          cmake --preset release -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_PROBE_BAKER=OFF
           cmake --build --preset release
+
+      - name: Verify compatibility build configuration
+        working-directory: port
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess
+          cache = pathlib.Path('build/release/CMakeCache.txt').read_text().splitlines()
+          assert 'OPENRAC_ENHANCED_RENDERING:BOOL=OFF' in cache
+          assert 'OPENRAC_PROBE_BAKER:BOOL=OFF' in cache
+          tests = json.loads(subprocess.check_output(
+              ['ctest', '--preset', 'release', '--show-only=json-v1']))['tests']
+          names = {test['name'] for test in tests}
+          enhanced = {'gtao_vulkan', 'probe_gpu_vulkan', 'early_lighting_vulkan',
+                      'hero_shadow_vulkan', 'sun_shadow_vulkan', 'shadow_scroll_vulkan',
+                      'fsr3_frame', 'probe_bake'}
+          assert not names & enhanced, names & enhanced
+          PY
 
       - name: Tests
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release
+        run: ctest --preset release --parallel 2 --stop-on-failure
 
   # The port without a window (the headless preset, no SDL3): the runtime, the
   # games and their tests. Built here so code that only the window build can
@@ -307,11 +335,14 @@ jobs:
         working-directory: port
         run: ctest --preset headless
 
-  # Experimental Vulkan lighting and the offline Embree baker. Keep the normal
-  # build above so compatibility and enhanced rendering are both exercised.
-  port-enhanced:
+  # Full enhanced Vulkan coverage and the offline Embree baker, separately from
+  # the compatibility build above. The preset explicitly compiles enhanced code in.
+  port-vulkan-enhanced:
     runs-on: ubuntu-26.04
     timeout-minutes: 45
+    env:
+      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
+      MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -320,6 +351,11 @@ jobs:
         with:
           key: checks-port-enhanced
           max-size: 1G
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/openrac-mesa
+          key: mesa-ubuntu-enhanced-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+          restore-keys: mesa-ubuntu-enhanced-${{ runner.arch }}-
       - name: Compilers, software Vulkan and Embree 4
         run: |
           sudo apt-get update
@@ -337,7 +373,7 @@ jobs:
         env:
           SDL_VIDEO_DRIVER: x11
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: xvfb-run -a ctest --preset enhanced --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
+        run: xvfb-run -a ctest --preset enhanced --parallel 2 --stop-on-failure --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
       - name: Enhanced GPU and bake checks must run, not skip
         working-directory: port
         run: |
@@ -362,6 +398,8 @@ jobs:
       # Every compile through ccache, kept between runs as the other port jobs keep theirs.
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
+      MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - name: Compilers and SDL3
         run: |
@@ -377,6 +415,11 @@ jobs:
         with:
           key: checks-port-fedora
           max-size: 500M
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/openrac-mesa
+          key: mesa-fedora-release-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+          restore-keys: mesa-fedora-release-${{ runner.arch }}-
 
       - name: Build openrac-rac1-pal as the launcher builds it
         run: python3 tools/build_port.py rac1-pal
@@ -396,7 +439,7 @@ jobs:
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release
+        run: ctest --preset release --parallel 2 --stop-on-failure
 
   # The native port on Windows: rac1/pal's program built as the launcher's
   # "Build the game" builds it (tools/build_port.py: Visual Studio's C++

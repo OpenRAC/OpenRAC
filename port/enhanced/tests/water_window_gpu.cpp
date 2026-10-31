@@ -357,7 +357,8 @@ uint bits=floatBitsToUint(value);result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)
             + std::string(lighting::shaders::water_swell_glsl)
             + std::string(lighting::shaders::shading_brdf_glsl)
             + std::string(lighting::shaders::probes_glsl)
-            + std::string(lighting::shaders::environment_glsl) + material
+            + std::string(lighting::shaders::environment_glsl)
+            + std::string(lighting::shaders::water_transmission_glsl) + material
     );
     renderer::Shader water_material;
     CHECK(water_material.build("complete water material", water_vertex, water_fragment, error));

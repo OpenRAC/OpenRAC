@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Bake Novalis water boundaries from a local initialized game-memory snapshot (NTSC-U or PAL).
+"""Bake Novalis water boundaries (NTSC-U or PAL) from a local initialized game-memory snapshot.
 
 No captured assets belong in source control. The snapshot is obtained with
 OPENRAC_DUMP_RAM=600 while running Novalis. Output goes beside manifest.json.
@@ -12,31 +12,13 @@ import json
 import math
 from pathlib import Path
 import struct
+import subprocess
+import tempfile
+
+from water_sources import sub, dot, cross, read_surfaces, load_boundaries, native_request, ADDRESSES, disc_version
 
 VERSION = 3
 CELL_SIZE = 0.5
-MAX_BODIES = 64
-# The reviewed Novalis records in each disc's level program: pool_light (the pond grid),
-# pool_tiles, pool_colors (the authored masks), the flowing, bounded and four scroll layers and
-# the three cave pools. PAL's are games/rac1's names (include/names.h) of the NTSC decomp's.
-ADDRESSES = {
-    'ntsc': dict(grid=0x1cad00, tiles=0x1e34c0, masks=0x1fa590,
-                 layers=(0x1e2fc0, 0x1e3380, 0x1fbc80, 0x202d80)),
-    'pal': dict(grid=0x1caf80, tiles=0x1e3780, masks=0x1fa850,
-                layers=(0x1e32a0, 0x1e3660, 0x1fbf40, 0x203040)),
-}
-
-
-def sub(a, b):
-    return tuple(x-y for x, y in zip(a, b))
-
-
-def dot(a, b):
-    return sum(x*y for x, y in zip(a, b))
-
-
-def cross(a, b):
-    return (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
 
 
 def contains(p, a, b, c):
@@ -44,76 +26,6 @@ def contains(p, a, b, c):
         return (b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0])
     e = [edge(a,b,p),edge(b,c,p),edge(c,a,p)]
     return min(e) >= -1e-7 or max(e) <= 1e-7
-
-
-def read_surfaces(ram, version='ntsc'):
-    at = ADDRESSES[version]
-    def read(fmt, address):
-        if address < 0 or address + struct.calcsize(fmt) > len(ram):
-            raise ValueError('water record outside snapshot')
-        return struct.unpack_from('<'+fmt, ram, address)
-    # Reviewed Novalis draw callbacks: pond, flowing strips and the three cave pools.
-    # Each pool patch has sixteen 4x4 sub-blocks, selected by its authored mask table (not the live +0x1e draw mask).
-    grid = read('6f', at['grid'])
-    if not (-64 < grid[2] < 0 and -64 < grid[3] < 0 and 0 < grid[4] < 8 and 0 < grid[5] < 8):
-        raise ValueError('Novalis water is not initialized (or this is a different version)')
-    squares = []
-    for patch in range(21):
-        address = at['tiles'] + patch*0x1190
-        x,y,z = read('3f', address)
-        # The +0x1e draw mask is cleared for off-camera volume groups.
-        # Use the authored table copied into it by the pool update callback.
-        mask, = read('I', at['masks']+patch*4)
-        mask &= 0xffff
-        for bit in range(16):
-            if mask & (1 << bit):
-                x0=x+grid[2]+(bit%4)*4*grid[4]
-                y0=y+grid[3]+(bit//4)*4*grid[5]
-                squares.append([(x0,y0,z),(x0+4*grid[4],y0,z),
-                                (x0,y0+4*grid[5],z),(x0+4*grid[4],y0+4*grid[5],z)])
-    if not squares: raise ValueError('Novalis pond patches have not been initialized')
-    # Connect adjacent squares at the same elevation; never merge overlapping storeys.
-    groups=[]
-    while squares:
-        group=[squares.pop()]
-        changed=True
-        while changed:
-            changed=False
-            for square in squares[:]:
-                if any(abs(square[0][2]-other[0][2]) < .05 and
-                       len(set(square) & set(other)) >= 2 for other in group):
-                    group.append(square); squares.remove(square); changed=True
-        triangles=[t for q in group for t in ((q[0],q[1],q[2]),(q[2],q[1],q[3]))]
-        groups.append((1, triangles, (0.,0.,0.)))
-    flowing,bounded,four,cave=at['layers']
-    for source,address,count in ((2,flowing,8),(3,bounded,2),(4,four,4),
-                                 (5,cave,1),(6,cave+0x60,1),(7,cave+0xc0,1)):
-        for i in range(count):
-            record=address+i*0x60
-            pointer,=read('I',record)
-            n,=read('I',record+0xc)
-            if not 3 <= n <= 4096:
-                raise ValueError('invalid scrolling-water vertex count')
-            points=[]
-            for j in range(n):
-                x,y,z0,z1=read('4f',pointer+j*16)
-                points.append((x,y,(z0+z1)*.5))
-            triangles=[]
-            for a,b,c in zip(points,points[1:],points[2:]):
-                normal=cross(sub(b,a),sub(c,a))
-                if dot(normal,normal)>1e-8:
-                    triangles.append((a,b,c))
-            if triangles:
-                groups.append((source,triangles,(0.,0.,-1.) if source<5 else (0.,0.,0.)))
-    if not groups or len(groups)>MAX_BODIES:
-        raise ValueError('unsupported Novalis water body count')
-    # Multiple painted layers and adjoining strip segments share one physical surface.
-    # Taking the highest rest height avoids simulating a separate wake for every art layer.
-    merged=[g for g in groups if g[0]==1]
-    for source in (2,3,4,5,6,7):
-        triangles=[t for kind,ts,_ in groups if kind==source for t in ts]
-        if triangles: merged.append((source,triangles,(0.,0.,-1.) if source<5 else (0.,0.,0.)))
-    return merged
 
 
 def distance_field(wet, width, height, cell):
@@ -385,32 +297,28 @@ def write_rest_mesh(path, surfaces, pool_spacing=(1.,1.), fingerprint=bytes(32))
             for vertex in vertices: out.write(struct.pack('<2f',*vertex))
 
 
-
-def load_boundaries(output, override=None):
-    """Use the exported level profile unless the caller explicitly overrides it."""
-    path = override if override is not None else output.parent / 'water-boundaries.json'
-    config = json.loads(path.read_text(encoding='utf-8')) if override is not None or path.is_file() else {}
-    if not isinstance(config,dict) or set(config)-{'open_edges'}:
-        raise ValueError('water boundaries only support open_edges')
-    for edge in config.get('open_edges',[]):
-        if not isinstance(edge,dict) or set(edge)-{'a','b','width'}:
-            raise ValueError('invalid water outlet')
-        for key in ('a','b'):
-            if key not in edge or len(edge[key])!=3 or not all(isinstance(v,(int,float)) and math.isfinite(v) for v in edge[key]):
-                raise ValueError('outlet endpoints require three finite coordinates')
-        width=edge.get('width',2.)
-        if not isinstance(width,(int,float)) or not math.isfinite(width) or width<=0:
-            raise ValueError('outlet width must be positive and finite')
-    return config
+def bake(ram, collision, output, boundaries=None, version=None):
+    """Bake the same rest geometry from a snapshot or offline initialized overlay tables."""
+    version=version or disc_version(output)
+    surfaces=read_surfaces(ram,version)
+    config=load_boundaries(output,boundaries)
+    solids,water_collision=collision_triangles(collision)
+    bodies=[bake_body(*surface,open_edges=config.get('open_edges',[]),solids=solids,water_collision=water_collision) for surface in surfaces]
+    fingerprint=hashlib.sha256(json.dumps([VERSION,CELL_SIZE,surfaces,config],sort_keys=True).encode()+collision.read_bytes()).digest()
+    output.parent.mkdir(parents=True,exist_ok=True)
+    count=write_bake(output,bodies,fingerprint,solids)
+    write_rest_mesh(output.with_suffix('.mesh'), surfaces, struct.unpack_from('<2f',ram,ADDRESSES[version]['grid']+0x10),fingerprint)
+    print(f'Baked {len(bodies)} water bodies, {count} cells, {output.stat().st_size} bytes',flush=True)
 
 
-def disc_version(output):
-    """The disc of the export the output sits in (its manifest.json), NTSC-U without one."""
-    manifest = output.parent / 'manifest.json'
-    version = json.loads(manifest.read_text(encoding='utf-8')).get('version') if manifest.is_file() else None
-    if version is not None and version not in ADDRESSES:
-        raise ValueError('Novalis water baking supports the NTSC-U and PAL discs only')
-    return version or 'ntsc'
+def bake_native(ram, collision, output, baker, boundaries=None, version=None):
+    """Decode source tables once, then run numerical water baking in the enhanced baker."""
+    request = native_request(ram, collision, output, boundaries, version)
+    # The request and outputs belong to the caller's unpublished staging area.
+    with tempfile.TemporaryDirectory(prefix='.water-input-', dir=output.parent) as temporary:
+        path = Path(temporary)/'input.json'
+        path.write_text(json.dumps(request, allow_nan=False), encoding='utf-8')
+        subprocess.run([str(baker), '--bake-water', str(path), str(output)], check=True)
 
 
 def main():
@@ -419,18 +327,13 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--collision',type=Path,required=True)
     parser.add_argument('--boundaries',type=Path,help='Override the exported water-boundaries.json: {"open_edges":[{"a":[x,y,z],"b":[x,y,z],"width":2}]}')
-    parser.add_argument('--version',choices=sorted(ADDRESSES),help="The snapshot's disc; default: the export's manifest.json, else ntsc")
+    parser.add_argument('--baker',type=Path,help='Native openrac-enhanced-baker executable')
+    parser.add_argument('--version',choices=sorted(ADDRESSES),help="Snapshot disc; defaults to the exported manifest")
     args=parser.parse_args()
-    version=args.version or disc_version(args.output)
-    surfaces=read_surfaces(args.ram.read_bytes(),version)
-    config=load_boundaries(args.output,args.boundaries)
-    solids,water_collision=collision_triangles(args.collision)
-    bodies=[bake_body(*surface,open_edges=config.get('open_edges',[]),solids=solids,water_collision=water_collision) for surface in surfaces]
-    fingerprint=hashlib.sha256(json.dumps([VERSION,CELL_SIZE,surfaces,config],sort_keys=True).encode()+args.collision.read_bytes()).digest()
-    args.output.parent.mkdir(parents=True,exist_ok=True)
-    count=write_bake(args.output,bodies,fingerprint,solids)
-    write_rest_mesh(args.output.with_suffix('.mesh'), surfaces, struct.unpack_from('<2f',args.ram.read_bytes(),ADDRESSES[version]['grid']+0x10),fingerprint)
-    print(f'Baked {len(bodies)} water bodies, {count} cells, {args.output.stat().st_size} bytes')
+    if args.baker is not None:
+        bake_native(args.ram.read_bytes(),args.collision,args.output,args.baker,args.boundaries,args.version)
+    else:
+        bake(args.ram.read_bytes(),args.collision,args.output,args.boundaries,args.version)
 
 
 if __name__=='__main__': main()

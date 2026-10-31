@@ -3,6 +3,7 @@
 #include "enhanced/renderer/gtao.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "common/log.h"
 #include "common/stats.h"
@@ -15,7 +16,9 @@
 namespace openrac::renderer {
 using namespace openrac::gl;
 
-bool Gtao::prepare(int width, int height, int scale, bool visibility, bool copy_depth) {
+bool Gtao::prepare(
+    int width, int height, int scale, bool visibility, bool copy_depth, bool normals
+) {
     if (!enhanced_rendering_available()) {
         return false;
     }
@@ -23,23 +26,41 @@ bool Gtao::prepare(int width, int height, int scale, bool visibility, bool copy_
         return false;
     }
     std::string error;
-    if (m_vao == 0) {
+    m_program = render_opt::enabled(render_opt::Opt::ShaderVariants)
+                    ? unsigned(scale - 1) + (normals ? 2u : 0u)
+                    : 4u;
+    if (!m_evaluate[m_program].id()) {
         std::string evaluate(shaders::gtao_evaluate_comp);
         std::string composite(shaders::gtao_composite_frag);
         evaluate.insert(evaluate.find('\n') + 1, shaders::surface_normal_glsl);
         composite.insert(composite.find('\n') + 1, shaders::surface_normal_glsl);
         evaluate.insert(evaluate.find('\n') + 1, shaders::gtao_common_glsl);
         composite.insert(composite.find('\n') + 1, shaders::gtao_common_glsl);
+        if (m_program != 4) {
+            const auto definitions = "#define OPENRAC_GTAO_SCALE " + std::to_string(scale)
+                                     + "\n#define OPENRAC_SURFACE_NORMALS "
+                                     + (normals ? "1\n" : "0\n");
+            evaluate.insert(evaluate.find('\n') + 1, definitions);
+            composite.insert(composite.find('\n') + 1, definitions);
+            const auto constants =
+                {ShaderIntConstant{"evaluation_scale", scale},
+                 ShaderIntConstant{"surface_normals_enabled", normals ? 1 : 0}};
+            evaluate = shader_constants(std::move(evaluate), constants);
+            composite = shader_constants(std::move(composite), constants);
+        }
         std::string performance = evaluate;
         performance.insert(performance.find('\n') + 1, "#define GTAO_REFINEMENT_STEPS 3\n");
-        if (!m_evaluate_performance.build_compute("GTAO performance horizons", performance, error)
-            || !m_evaluate.build_compute("GTAO horizons", evaluate, error)
-            || !m_composite.build("GTAO filter", shaders::gtao_vert, composite, error)) {
+        if (!m_evaluate_performance[m_program]
+                 .build_compute("GTAO performance horizons", performance, error)
+            || !m_evaluate[m_program].build_compute("GTAO horizons", evaluate, error)
+            || !m_composite[m_program].build("GTAO filter", shaders::gtao_vert, composite, error)) {
             log::error("GTAO: {}", error);
             m_failed = true;
             return false;
         }
-        glGenVertexArrays(1, &m_vao);
+        if (!m_vao) {
+            glGenVertexArrays(1, &m_vao);
+        }
     }
     if (copy_depth && (m_depth.width() != width || m_depth.height() != height)
         && !m_depth.create(width, height, error, 1, true)) {
@@ -100,7 +121,12 @@ bool Gtao::render(
         target.depth_texture != 0
         && (!apply_to_colour || render_opt::enabled(render_opt::Opt::GtaoDirectDepth));
     if (!prepare(
-            target.width, target.height, scale, !apply_to_colour && !evaluate_only, !direct_depth
+            target.width,
+            target.height,
+            scale,
+            !apply_to_colour && !evaluate_only,
+            !direct_depth,
+            target.normal_texture != 0
         )) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);
@@ -142,7 +168,8 @@ bool Gtao::render(
     {
         const stats::Scope horizons("GTAO horizons", stats::kGpu);
         Shader& evaluate = options.quality == GtaoQuality::Performance
-                               ? m_evaluate_performance : m_evaluate;
+                               ? m_evaluate_performance[m_program]
+                               : m_evaluate[m_program];
         evaluate.use();
         glUniform1i(evaluate.uniform("surface_normals"), 2);
         glUniform1i(
@@ -166,14 +193,15 @@ bool Gtao::render(
         glViewport(0, 0, target.width, target.height);
         {
             const stats::Scope filter("GTAO filter", stats::kGpu);
-            m_composite.use();
-            glUniform1i(m_composite.uniform("surface_normals"), 2);
+            auto& composite = m_composite[m_program];
+            composite.use();
+            glUniform1i(composite.uniform("surface_normals"), 2);
             glUniform1i(
-                m_composite.uniform("surface_normals_enabled"), target.normal_texture != 0 ? 1 : 0
+                composite.uniform("surface_normals_enabled"), target.normal_texture != 0 ? 1 : 0
             );
-            glUniformMatrix4fv(m_composite.uniform("projection"), 1, GL_FALSE, p.data());
-            glUniform1i(m_composite.uniform("evaluation_scale"), scale);
-            glUniform1f(m_composite.uniform("strength"), std::clamp(options.strength, 0.0f, 3.0f));
+            glUniformMatrix4fv(composite.uniform("projection"), 1, GL_FALSE, p.data());
+            glUniform1i(composite.uniform("evaluation_scale"), scale);
+            glUniform1f(composite.uniform("strength"), std::clamp(options.strength, 0.0f, 3.0f));
             if (apply_to_colour) {
                 glEnable(GL_BLEND);
                 // Legacy prelit paths do not expose separate indirect illumination.
@@ -209,9 +237,11 @@ void Gtao::release() {
     m_ao_texture = m_ao_buffer = 0;
     m_ao_width = m_ao_height = 0;
     m_visibility.release();
-    m_evaluate.release();
-    m_evaluate_performance.release();
-    m_composite.release();
+    for (auto* programs : {&m_evaluate, &m_evaluate_performance, &m_composite}) {
+        for (auto& program : *programs) {
+            program.release();
+        }
+    }
     if (m_vao != 0) {
         glDeleteVertexArrays(1, &m_vao);
     }

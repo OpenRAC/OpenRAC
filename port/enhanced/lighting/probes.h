@@ -8,14 +8,16 @@
 #include <string>
 #include <vector>
 
+#include "enhanced/lighting/probe_texture.h"
+
 namespace openrac::lighting {
 
 using Float2 = std::array<float, 2>;
 using Float3 = std::array<float, 3>;
 
 // Only the current GPU-ready layout is accepted. Older assets must be rebaked.
-inline constexpr std::uint32_t kProbeFormatVersion = 5;
-inline constexpr std::uint32_t kProbeBakeVersion = 4;
+inline constexpr std::uint32_t kProbeFormatVersion = 6;
+inline constexpr std::uint32_t kProbeBakeVersion = 5;
 inline constexpr unsigned kProbeAtlasTilesX = 64;
 
 // Upright orthonormal frame, shared by GI grids and reflection influence/projection boxes.
@@ -66,6 +68,8 @@ struct ProbeVolume {
     // Linear maps are only expanded by offline tools/reference tests.
     std::vector<std::uint8_t> gpu_bytes;
     std::size_t gpu_offset = 0;
+    ProbeTextureFormat colour_format =
+        ProbeTextureFormat::R11G11B10;  // Stored colour plane format.
     std::size_t atlas_rows() const;
     std::size_t atlas_capacity() const;
     std::span<const std::uint8_t> gpu_plane(unsigned plane) const;

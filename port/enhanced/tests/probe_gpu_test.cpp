@@ -13,6 +13,7 @@
 #include "enhanced_viewer_shaders.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -656,6 +657,92 @@ void material_path(
     frame.release();
 }
 
+// Actual blended mesh passes must preserve alpha coverage, ordering and GI outside opaque depth.
+void translucent_region_scene(
+    const lighting::ProbeVolume& base, const std::vector<lighting::ProbeVolume>& regions
+) {
+    scene::LevelData level;
+    for (const auto& p : {Float3{-1, -1, 0}, Float3{1, -1, 0}, Float3{0, 1, 0}}) {
+        scene::Vertex v{};
+        std::copy(p.begin(), p.end(), v.position);
+        v.normal[2] = 1;
+        std::fill(std::begin(v.colour), std::end(v.colour), 1.f);
+        v.uv[0] = (p[0] + 1) * .5f;
+        v.uv[1] = (p[1] + 1) * .5f;
+        v.light_slot = -1;
+        level.vertices.push_back(v);
+    }
+    level.indices = {0, 1, 2};
+    level.materials.resize(2);
+    level.materials[1].cutout = true;
+    level.materials[1].image = 0;
+    level.images.emplace_back(2, 2);
+    level.image_paths.push_back("translucent-region-fixture");
+    level.images.back()
+        .pixels = {255, 80, 40, 0, 40, 255, 80, 120, 80, 40, 255, 255, 200, 200, 200, 180};
+    level.translucent_images.push_back(true);
+    for (int material = 0; material < 2; ++material) {
+        scene::Model model;
+        model.min = {-1, -1, 0};
+        model.max = {1, 1, 0};
+        model.primitives.push_back({0, 3, material});
+        level.models.push_back(model);
+    }
+    level.instances[std::size_t(scene::Layer::Terrain)].push_back({});
+    renderer::Renderer renderer;
+    scene::LevelScene scene;
+    lighting::use_scene_lighting(scene);
+    std::string error;
+    CHECK(scene.upload(level, renderer.textures(), error));
+    CHECK(
+        lighting::scene_lighting(scene)->set_probe_regions(
+            openrac::test::gpu_probes(base), openrac::test::gpu_regions(regions), error
+        )
+    );
+    CHECK(scene.compute_probe_selection());
+    for (const auto layer :
+         {scene::Layer::Sky, scene::Layer::Terrain, scene::Layer::Ties, scene::Layer::Mobys}) {
+        CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error));
+    }
+    CHECK(renderer.init(error));
+    renderer::FrameBuffer target;
+    CHECK(target.create(35, 19, error));
+    renderer::FrameInput input;
+    input.camera.projection = renderer::perspective_reversed(1.f, 35.f / 19.f, .1f, 10.f);
+    input.volumetric_quality = renderer::VolumetricQuality::Off;
+    unsigned selections = 0;
+    input.after_world_depth = [&](unsigned depth, int width, int height) {
+        scene.select_visible_probe_regions(depth, input.camera, width, height);
+        ++selections;
+    };
+    for (unsigned tick = 0; tick < 4; ++tick) {
+        input.camera.position = {.1f * float(tick), 0, 2};
+        input.camera.view = renderer::look_along(input.camera.position, {0, 0, -1}, {0, 1, 0});
+        scene::Instance tie;
+        tie.model = 1;
+        tie.matrix[12] = .05f * float(tick);
+        tie.matrix[14] = .75f;
+        scene.set_instances(scene::Layer::Ties, {tie});
+        tie.matrix[12] = -.1f;
+        tie.matrix[14] = 1.1f;
+        tie.tint[3] = .7f;
+        scene.set_instances(scene::Layer::Mobys, {tie});
+        renderer::render_opt::set(renderer::render_opt::Opt::ProbeTranslucentTiles, false);
+        renderer.render(input, {target.id(), 35, 19});
+        const auto reference = target.read_rgba();
+        CHECK(renderer.last_stats().draw_calls > 0);
+        const auto centre = (9 * 35 + 17) * 4;
+        CHECK(reference[centre] || reference[centre + 1] || reference[centre + 2]);
+        renderer::render_opt::set(renderer::render_opt::Opt::ProbeTranslucentTiles, true);
+        renderer.render(input, {target.id(), 35, 19});
+        CHECK(target.read_rgba() == reference);
+    }
+    CHECK(selections == 8);
+    scene.release();
+    renderer.release();
+    renderer::render_opt::reset();
+}
+
 void compute_regions(renderer::Shader&, renderer::FrameBuffer&, unsigned vao) {
     if (!lighting::ProbeSelection::supported()) {
         std::printf("Tiled probe fixture unavailable on this context\n");
@@ -734,12 +821,24 @@ void compute_regions(renderer::Shader&, renderer::FrameBuffer&, unsigned vao) {
     fragment += R"glsl(uniform sampler2D receiver_depth;
 uniform mat4 test_clip;
 uniform vec2 test_extent;
+uniform float receiver_override;
+uniform int test_candidates;
 layout(location = 0) out vec4 result;
 void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
     float d = texelFetch(receiver_depth, pixel, 0).r;
+    if (receiver_override >= 0.) d = receiver_override;
     if (d <= 0.0) {
         result = vec4(0, 0, 0, 1);
+        return;
+    }
+    if (test_candidates != 0) {
+        int count = int(texelFetch(probe_region_masks, 0).r), candidates = 0;
+        for (int slot = 0; slot < count; ++slot) {
+            uint bits = probe_candidate_word(pixel, slot / 32);
+            if ((bits & (1u << uint(slot % 32))) != 0u) ++candidates;
+        }
+        result = vec4(float(candidates) / 255., 0, 0, 1);
         return;
     }
     vec4 h = inverse(test_clip) * vec4(gl_FragCoord.xy / test_extent * 2.0 - 1.0, d * 2.0 - 1.0, 1);
@@ -801,6 +900,8 @@ void main() {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
         probes.select_visible_regions(depth, camera, width, height);
+        float receiver_override = -1;
+        bool count_candidates = false;
         const auto draw = [&](int mode, bool depth_matched = true) {
             glBindFramebuffer(GL_FRAMEBUFFER, target.id());
             glViewport(0, 0, width, height);
@@ -815,6 +916,8 @@ void main() {
             }
 
             glUniform1i(shader.uniform("receiver_depth"), 0);
+            glUniform1f(shader.uniform("receiver_override"), receiver_override);
+            glUniform1i(shader.uniform("test_candidates"), count_candidates ? 1 : 0);
             glUniform2f(shader.uniform("test_extent"), float(width), float(height));
             const auto clip = renderer::multiply(camera.projection, camera.view);
             glUniformMatrix4fv(shader.uniform("test_clip"), 1, GL_FALSE, clip.data());
@@ -825,6 +928,10 @@ void main() {
             return target.read_rgba();
         };
         const auto tiled = draw(1), reference = draw(2);
+        CHECK(draw(0, false) == draw(2, false));
+        renderer::render_opt::set(renderer::render_opt::Opt::ProbeTranslucentTiles, false);
+        CHECK(draw(0, false) == draw(2, false));
+        renderer::render_opt::set(renderer::render_opt::Opt::ProbeTranslucentTiles, true);
         CHECK(tiled.size() == reference.size());
 
         for (std::size_t i = 0; i < tiled.size(); ++i) {
@@ -832,6 +939,17 @@ void main() {
         }
 
         if (width == 35 && iteration == 1) {
+            count_candidates = true;
+            const auto broad_counts = draw(0, false), full_counts = draw(2, false);
+            unsigned broad_total = 0, full_total = 0;
+            for (std::size_t at = 0; at < broad_counts.size(); at += 4) {
+                CHECK(broad_counts[at] <= full_counts[at]);
+                broad_total += broad_counts[at];
+                full_total += full_counts[at];
+            }
+            CHECK(broad_total < full_total);
+            std::printf("Translucent probe candidates: %u -> %u\n", full_total, broad_total);
+            count_candidates = false;
             // Green, blue and yellow locals must coexist in one image.
             CHECK(tiled[(8 * width + 4) * 4 + 1] > 0);
             CHECK(
@@ -892,14 +1010,21 @@ void main() {
         for (std::size_t i = 0; i < empty.size(); i += 4) {
             CHECK(empty[i] == 0 && empty[i + 1] == 0 && empty[i + 2] == 0);
         }
+        // Empty opaque tiles must retain lighting for blended geometry at any depth.
+        for (const float z : {-0.25f, 0.f, .75f}) {
+            receiver_override = depth_at(z);
+            CHECK(draw(0, false) == draw(2, false));
+        }
 
         target.release();
     }
 
+    translucent_region_scene(base, regions);
     CHECK(glGetError() == GL_NO_ERROR);
     probes.release();
     shader.release();
     glDeleteTextures(1, &depth);
+    renderer::render_opt::reset();
 }
 
 // Borrows fixture resources while checking primary and secondary GPU lookup tables.
@@ -909,14 +1034,15 @@ struct RegionLookup {
     renderer::FrameBuffer& target;                  // Owns readback pixels.
     unsigned vao;                                   // Borrowed fullscreen vertex array.
     const std::vector<lighting::ProbeGrid>& grids;  // Authored region bounds.
+    std::vector<std::vector<std::uint8_t>>* captures = nullptr;
 
     // Checks GPU ordering against an independent CPU bounds-distance sort.
-    void check(const renderer::Camera& view, bool masks = false) {
+    void check(const renderer::Camera& view, bool masks = false, bool broad = false) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.id());
         glViewport(0, 0, 133, 1);
         shader.use();
         selection.bind(shader, &view, false);
-        glUniform1i(shader.uniform("read_masks"), masks ? 1 : 0);
+        glUniform1i(shader.uniform("read_masks"), masks ? (broad ? 2 : 1) : 0);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
@@ -964,6 +1090,9 @@ struct RegionLookup {
                 })
             );
         }
+        if (captures) {
+            captures->push_back(pixels);
+        }
     }
 };
 
@@ -978,7 +1107,9 @@ uniform int read_masks;
 layout(location=0) out vec4 result;
 void main() {
     int slot = int(gl_FragCoord.x);
-    uint value = slot < 129 || read_masks != 0 ? texelFetch(probe_region_masks, slot).r : 0u;
+    // This fixture has one tile: the broad mask follows its four opaque words.
+    int at = slot >= 129 && read_masks == 2 ? slot + 4 : slot;
+    uint value = slot < 129 || read_masks != 0 ? texelFetch(probe_region_masks, at).r : 0u;
     result = vec4(float(value & 255u), float((value >> 8u) & 255u),
                   float((value >> 16u) & 255u), float(value >> 24u)) / 255.0;
 }
@@ -1006,7 +1137,7 @@ std::vector<lighting::ProbeGrid> closest_region_grids() {
 }
 
 // Read the actual GPU lookup through the same texture-buffer view as lighting.
-void closest_regions(unsigned vao) {
+void closest_regions(unsigned vao, std::vector<std::vector<std::uint8_t>>* captures = nullptr) {
     if (!lighting::ProbeSelection::supported()) {
         return;
     }
@@ -1036,9 +1167,10 @@ void closest_regions(unsigned vao) {
     renderer::FrameBuffer target;
     CHECK(target.create(133, 1, error));
     renderer::Camera camera;
-    RegionLookup lookup{selection, shader, target, vao, grids};
+    RegionLookup lookup{selection, shader, target, vao, grids, captures};
     selection.dispatch(depth, camera, 1, 1);
     lookup.check(camera, true);  // All four words, including bit 127, must be set.
+    lookup.check(camera, true, true);
     auto secondary = camera;
     secondary.position[0] = 2;
     secondary.view[12] = 0.01f;
@@ -1671,7 +1803,10 @@ void main() {
 )glsl";
     renderer::Shader shader;
     std::string error;
-    CHECK(shader.build("probe CPU/GPU reference", vertex, fragment, error));
+    std::string prepared_fragment(fragment);
+    prepared_fragment
+        .insert(prepared_fragment.find('\n') + 1, "#define OPENRAC_PROBE_RECEIVER_SETUP 1\n");
+    CHECK(shader.build("probe prepared receiver", vertex, prepared_fragment, error));
 
     if (!error.empty()) {
         std::fprintf(stderr, "%s\n", error.c_str());
@@ -1879,7 +2014,13 @@ void main() {
     check(coarse, shader, frame, vao);  // disables the preceding local uniforms
     camera_regions(shader, frame, vao);
     compute_regions(shader, frame, vao);
-    closest_regions(vao);
+    std::vector<std::vector<std::uint8_t>> reference_selection;
+    renderer::render_opt::set(renderer::render_opt::Opt::ProbeSelectionVariants, false);
+    closest_regions(vao, &reference_selection);
+    std::vector<std::vector<std::uint8_t>> split_selection;
+    renderer::render_opt::set(renderer::render_opt::Opt::ProbeSelectionVariants, true);
+    closest_regions(vao, &split_selection);
+    CHECK(!reference_selection.empty() && split_selection == reference_selection);
     glDeleteVertexArrays(1, &vao);
     shader.release();
     reference.release();

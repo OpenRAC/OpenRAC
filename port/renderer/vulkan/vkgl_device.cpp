@@ -526,6 +526,7 @@ bool make_device(std::string& error) {
     features.drawIndirectFirstInstance = g->features.drawIndirectFirstInstance;
     features.multiDrawIndirect = g->features.multiDrawIndirect;
     features.multiViewport = g->features.multiViewport;
+    features.textureCompressionBC = g->features.textureCompressionBC;
 #if OPENRAC_ENHANCED_RENDERING
     // Native enhanced compute providers need these optional storage-image operations.
     features.shaderStorageImageExtendedFormats = g->features.shaderStorageImageExtendedFormats;
@@ -540,8 +541,14 @@ bool make_device(std::string& error) {
     VkPhysicalDeviceVulkan12Features f12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     VkPhysicalDeviceFeatures2 available{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     available.pNext = &f11;
+    VkPhysicalDeviceVulkan13Features supported13{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES
+    };
     f11.pNext = &f12;
+    f12.pNext = &supported13;
     vkGetPhysicalDeviceFeatures2(g->physical, &available);
+    g->astc_hdr = supported13.textureCompressionASTC_HDR;
+    f13.textureCompressionASTC_HDR = supported13.textureCompressionASTC_HDR;
     // shaderFloat16 is core in Vulkan 1.2; storage16BitAccess is a separate feature and is not needed.
     g->shader_float16 = f12.shaderFloat16
                         && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
@@ -806,6 +813,7 @@ void destroy_all() {
         // Teardown drains all slots directly; resource retirement must not begin another recording.
         g->frame_pending = false;
         release_depth_combine();
+        release_colour_transform();
         tracy_gpu_close();
         gpu_release();
         material_release();

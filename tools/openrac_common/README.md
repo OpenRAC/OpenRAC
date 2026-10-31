@@ -108,7 +108,7 @@ The rule, decided in P2-10:
   before the installed packages, so a module of `tools/` (`tools/mips.py`, which
   `port/tools/versionmap` imports) is not shadowed by an installed one.
 
-`port/tools/hostgen`, `versionmap`, `regress` and `port/enhanced/tools/probes` use it (P2-10); `editor/` and `sdk/tools/` move onto it with their own
+`port/tools/hostgen`, `versionmap`, `regress` and `port/enhanced/tools/baker` use it (P2-10); `editor/` and `sdk/tools/` move onto it with their own
 packages.
 
 ## Depends on

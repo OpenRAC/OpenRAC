@@ -9,9 +9,15 @@
 in vec3 v_stq;
 in vec4 v_colour;
 in float v_fog;
+#ifdef OPENRAC_EFFECT_MATERIAL
+#define OPENRAC_EFFECT_WORLD 1
+in vec3 v_world;
+#endif
 
 uniform sampler2D tex_T0;
+#ifndef OPENRAC_EFFECT_FIXED
 uniform sampler2D tex_T1;      // with distance_field: R the glyphs' opacity, A the distance to their edge
+#endif
 uniform int textured;
 uniform int tcc;              // take alpha from the texture
 uniform int tfx;              // 0 modulate, 1 decal, 2 highlight, 3 highlight2
@@ -28,6 +34,7 @@ uniform float source_fix;     // FIX / 128, unclamped
 
 layout(location = 0) out vec4 out_colour;
 
+#ifndef OPENRAC_EFFECT_FIXED
 bool alpha_passes(float a) {
     float value = floor(a + 0.5);
     switch (alpha_test) {
@@ -41,26 +48,34 @@ bool alpha_passes(float a) {
     }
 }
 
+#endif
+
 #ifdef OPENRAC_UPSCALED_TEXTURE_COLOURS
 // OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE
 #endif
 
 void main() {
     vec4 c = v_colour;
-    if (textured != 0) {
+#ifndef OPENRAC_EFFECT_FIXED
+    if (textured != 0)
+#endif
+    {
         // S/Q, T/Q per pixel, as the chip divides.
 #ifdef OPENRAC_UPSCALED_TEXTURE_COLOURS
         vec4 t = sample_upscaled_texture_colours(v_stq.xy / v_stq.z) * 255.0;
 #else
         vec4 t = texture(tex_T0, v_stq.xy / v_stq.z) * 255.0;
 #endif
+#ifndef OPENRAC_EFFECT_FIXED
         if (distance_field != 0) {
             // The edge from the distance field, about a pixel wide at any size; inside it, the
             // glyph's own opacity (the font fades its glyphs downwards), in the chip's units.
             vec4 f = texture(tex_T1, v_stq.xy / v_stq.z);
             float w = max(fwidth(f.a) * 0.75, 1e-4);
             t.a = smoothstep(0.5 - w, 0.5 + w, f.a) * f.r * 128.0;
-        } else {
+        } else
+#endif
+        {
             t.a *= tex_alpha_scale;
         }
         // Byte RGB products are bounded by 255*255=65025 (<65504); alpha remains FP32.
@@ -80,10 +95,16 @@ void main() {
     }
     // COLCLAMP: the chip clamps to 0..255.
     c = clamp(c, 0.0, 255.0);
-    if (fog_enable != 0) {
+    // Active volumetric transport replaces authored strip fog rather than applying it twice.
+    if (fog_enable != 0
+#ifdef OPENRAC_EFFECT_ATMOSPHERE
+        && atmosphere_enabled == 0
+#endif
+    ) {
         // Alpha and alpha-test arithmetic remain FP32.
         c.rgb = vec3(mix(mp_vec3(fog_colour), mp_vec3(c.rgb), mp_float(v_fog)));
     }
+#ifndef OPENRAC_EFFECT_FIXED
     // A pixel that fails the test writes nothing. On a multisampled target its samples are masked
     // out instead of discarded: with discard there, Intel Arc's driver lost whole draws (menu text).
     bool failed = alpha_test != 0 && alpha_passes(c.a) == (alpha_keep_failing != 0);
@@ -91,9 +112,24 @@ void main() {
     if (failed && multisampled == 0) {
         discard;
     }
+#endif
     // Alpha 0x80 is 1.0 for blending.
 #ifdef OPENRAC_EFFECT_MATERIAL
     c.rgb = effect_material(c.rgb / 255.0) * 255.0;
+#endif
+#ifdef OPENRAC_EFFECT_COMPOSITE
+    if (effect_has_composite()) {
+        vec3 medium_transmittance = vec3(1), medium_scatter = vec3(0);
+#ifdef OPENRAC_EFFECT_ATMOSPHERE
+        medium_transmittance = atmosphere_apply(vec3(1), v_world, false);
+        medium_scatter = atmosphere_apply(vec3(0), v_world, atmosphere_inscatter != 0);
+#endif
+        out_colour = effect_composite(medium_transmittance, medium_scatter);
+        return;
+    }
+#endif
+#ifdef OPENRAC_EFFECT_ATMOSPHERE
+    c.rgb = atmosphere_apply(c.rgb / 255.0, v_world, atmosphere_inscatter != 0) * 255.0;
 #endif
     // Weights above 1 (As or FIX up to 0xFF) that GL's blend factors would clamp.
     if (source_scale == 1) {

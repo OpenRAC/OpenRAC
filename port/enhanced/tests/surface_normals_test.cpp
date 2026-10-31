@@ -15,10 +15,13 @@
 #include <string>
 #include <vector>
 
+#include "common/stats.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
+#include "enhanced/tests/prepass_capture.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -43,6 +46,8 @@ scene::LevelData smooth_level(float sign, bool skinned, bool cutout) {
         vertex.normal[2] = .6f * sign;
         std::fill(std::begin(vertex.colour), std::end(vertex.colour), 1.0f);
         vertex.light_slot = -1;
+        vertex.uv[0] = (p[0] + 4.f) * .125f;
+        vertex.uv[1] = (p[1] + 4.f) * .125f;
         vertex.weights[0] = 1;
         level.vertices.push_back(vertex);
     }
@@ -50,6 +55,20 @@ scene::LevelData smooth_level(float sign, bool skinned, bool cutout) {
     level.indices = {0, 1, 2, 0, 2, 3};
     level.materials.push_back({});
     level.materials[0].cutout = cutout;
+    if (cutout) {
+        renderer::Rgba8Image image(4, 4);
+        for (unsigned y = 0; y < 4; ++y) {
+            for (unsigned x = 0; x < 4; ++x) {
+                image.set_texel(
+                    x, y, ((x == 0 && y == 0) || (x == 3 && y == 3)) ? 0x00ffffffu : 0xffffffffu
+                );
+            }
+        }
+        level.images.push_back(std::move(image));
+        level.image_paths.push_back("prepass-cutout.png");
+        level.translucent_images.push_back(true);
+        level.materials[0].image = 0;
+    }
     scene::Model model;
     model.primitives.push_back({0, 6, 0});
     model.min = {-4, -4, 0};
@@ -120,7 +139,13 @@ void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
     scene::LevelScene scene;
     lighting::use_scene_lighting(scene);
     std::string error;
-    CHECK(scene.upload(smooth_level(sign, skinned, cutout), renderer.textures(), error));
+    const bool uploaded =
+        scene.upload(smooth_level(sign, skinned, cutout), renderer.textures(), error);
+    CHECK(uploaded);
+    if (!uploaded) {
+        std::fprintf(stderr, "%s\n", error.c_str());
+        return;
+    }
     CHECK(lighting::scene_lighting(scene)->set_probe_volume(directional_probes(), error));
     const auto layer = skinned ? scene::Layer::Mobys : scene::Layer::Terrain;
     scene::Instance instance;
@@ -128,25 +153,66 @@ void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
     instance.matrix[0] = .9f;
     instance.matrix[10] = 1.2f;
 
-    // The fixture has one identity joint, exercising the skinned depth variant.
+    // A nonidentity joint exercises skinned position and normal transforms.
     if (skinned) {
         instance.palette = 0;
-        scene.set_palette({renderer::identity()});
+        auto pose = renderer::identity();
+        if (sign != 0) {
+            pose[0] = pose[10] = .98f;
+            pose[8] = .15f;
+            pose[2] = -.15f;
+        }
+        pose[14] = .2f;
+        scene.set_palette({pose});
     }
 
     scene.set_instances(layer, {instance});
+    if (skinned) {
+        // Terrain owns the shared early-lighting/prepass request, even in a moby-only fixture.
+        CHECK(renderer.add(
+            std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error
+        ));
+    }
     CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error));
+    auto observer = std::make_unique<test::PrepassCapture>();
+    auto* capture = observer.get();
+    CHECK(renderer.add(std::move(observer), error));
     CHECK(renderer.init(error));
     renderer::FrameBuffer frame;
-    CHECK(frame.create(64, 64, error, samples));
+    CHECK(frame.create(64, 64, error, samples, samples == 1));
     renderer::FrameInput input;
     input.camera.view = renderer::translation({0, 0, -8});
     input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
 
     for (const int mode : {2, 3}) {
         scene.set_probe_view(mode);
+        renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, false);
         renderer.render(input, {frame.id(), 64, 64});
+        const auto reference = frame.read_rgba(), normals = capture->normals,
+                   depth = capture->depths;
+        CHECK(!normals.empty());
+        CHECK(samples != 1 || !depth.empty());
+        renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, true);
+        renderer.render(input, {frame.id(), 64, 64});
+        CHECK(frame.read_rgba() == reference);
+        CHECK(capture->normals == normals && capture->depths == depth);
         check_smooth_colour(frame.read_rgba(), sign);
+    }
+
+    if (sign != 0 && !cutout) {
+        // Close surfaces have tiny position derivatives, especially at gameplay resolutions.
+        // Their smooth normals must remain valid rather than becoming the neutral fallback.
+        for (float distance : {.03f, .1f, 1.f}) {
+            input.camera.view = renderer::translation({0, 0, -(skinned ? .24f : 0.f) - distance});
+            input.camera.projection = renderer::perspective_reversed(1, 1, .001f, 100);
+            renderer.render(input, {frame.id(), 64, 64});
+            CHECK(!capture->normals.empty());
+            if (!capture->normals.empty()) {
+                constexpr std::size_t centre = (32 * 64 + 32) * 4;
+                CHECK(capture->normals[centre + 3] > 250);
+                CHECK(capture->normals[centre + 2] > 220);
+            }
+        }
     }
 
     CHECK(gl::glGetError() == gl::GL_NO_ERROR);
@@ -165,6 +231,76 @@ void test_mesh_variants(int samples) {
         }
     }
 }
+
+// A depth callback requests the plain prepass without GI or a normal attachment.
+void test_depth_only() {
+    stats::set_enabled(stats::Client::Dump, true);
+    std::uint64_t stamp = 0;
+    for (bool cutout : {false, true}) {
+        renderer::Renderer renderer;
+        scene::LevelScene scene;
+        lighting::use_scene_lighting(scene);
+        std::string error;
+        const bool uploaded =
+            scene.upload(smooth_level(1, false, cutout), renderer.textures(), error);
+        CHECK(uploaded);
+        if (!uploaded) {
+            std::fprintf(stderr, "%s\n", error.c_str());
+            return;
+        }
+        scene::Instance instance;
+        instance.matrix[0] = .9f;
+        instance.matrix[10] = 1.2f;
+        scene.set_instances(scene::Layer::Terrain, {instance});
+        CHECK(renderer.add(
+            std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error
+        ));
+        auto observer = std::make_unique<test::PrepassCapture>();
+        auto* capture = observer.get();
+        CHECK(renderer.add(std::move(observer), error));
+        CHECK(renderer.init(error));
+        renderer::FrameBuffer frame;
+        CHECK(frame.create(67, 53, error, 1, true));
+        renderer::RenderTarget target{frame.id(), 67, 53};
+        target.depth_texture = frame.depth_texture();
+        renderer::FrameInput input;
+        input.camera.view = renderer::translation({0, 0, -8});
+        input.camera.projection = renderer::perspective_reversed(1, 67.f / 53.f, .1f, 100);
+        input.camera.projection[8] = .13f;
+        input.after_world_depth = [](unsigned depth, int, int) {
+            CHECK(depth != 0);
+        };
+        std::vector<std::uint8_t> pixels, depths;
+        for (bool rigid : {false, true}) {
+            renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, rigid);
+            stats::begin_frame(stats::FrameKind::Tick, ++stamp);
+            renderer.render(input, target);
+            stats::begin_frame(stats::FrameKind::Tick, ++stamp);
+            const auto actual = frame.read_rgba();
+            CHECK(capture->normals.empty() && !capture->depths.empty());
+            if (!rigid) {
+                pixels = actual;
+                depths = capture->depths;
+            } else {
+                CHECK(actual == pixels && capture->depths == depths);
+            }
+            const auto* measured = stats::history(0);
+            CHECK(measured != nullptr);
+            if (measured) {
+                const auto at = std::find_if(
+                    measured->gauges.begin(), measured->gauges.end(), [](const auto& g) {
+                        return g.first == "prepass rigid draws terrain";
+                    }
+                );
+                CHECK(at != measured->gauges.end() && (rigid ? at->second > 0 : at->second == 0));
+            }
+        }
+        renderer.release();
+        scene.release();
+        frame.release();
+    }
+    stats::set_enabled(stats::Client::Dump, false);
+}
 }  // namespace
 
 // Runs static/skinned, cutout, reversed-normal and MSAA cases on the enhanced backend.
@@ -182,6 +318,7 @@ int main() {
             test_mesh_variants(samples);
         }
 
+        test_depth_only();
         return test::result();
     } catch (const std::exception& failure) {
         std::fprintf(stderr, "%s\n", failure.what());

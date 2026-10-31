@@ -12,12 +12,12 @@
 #include <mutex>
 #include <thread>
 
-#include "common/joining_thread.h"
 #include "common/log.h"
 #include "common/profiler.h"
 #include "enhanced/lighting/bake_alignment.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_transport.h"
+#include "enhanced/lighting/bake_workers.h"
 
 namespace openrac::lighting {
 namespace {
@@ -180,6 +180,7 @@ struct ProbeWork {
         // Explicit emitters use a separate sequence from primary rays and their moments.
         for (auto& light : emission) {
             light = sample_emitter(scene, origin, settings.ray_bias, emission_random, settings);
+            weight_emitter(light, 1 / (4.0 * kPi));
         }
 
         // Preserve primary order so transport random consumption stays independent of worker scheduling.
@@ -256,11 +257,13 @@ public:
     BakeWorkers(
         const ProbeWork& work,
         const std::function<void(std::size_t, std::size_t)>& progress,
-        std::uint32_t thread_count
+        std::uint32_t thread_count,
+        BakeThreadPool* pool
     )
         : m_work(work),
           m_progress(progress),
-          m_thread_count(thread_count) {
+          m_thread_count(thread_count),
+          m_pool(pool) {
         // Workers inherit the caller's arithmetic environment, including directed rounding.
         if (std::fegetenv(&m_environment) != 0) {
             throw std::runtime_error("could not read bake floating-point environment");
@@ -270,8 +273,17 @@ public:
     // Runs serially on the caller or joins a set of workers before propagating their first error.
     void run() {
         // The serial path invokes progress at each probe without a condition-variable handoff.
-        if (m_thread_count == 1) {
-            worker();
+        if (inline_progress()) {
+            // Concurrent level controllers must share even the single-thread execution budget.
+            if (m_pool) {
+                const auto result = m_pool->run(1, [this] { worker(); });
+
+                if (!result) {
+                    throw std::runtime_error(result.error().message);
+                }
+            } else {
+                worker();
+            }
         } else {
             run_parallel();
         }
@@ -283,9 +295,13 @@ public:
     }
 
 private:
+    // Only a direct serial worker may invoke progress from inside the tracing loop.
+    bool inline_progress() const { return m_thread_count == 1 && (!m_pool || m_pool->size() == 1); }
+
     const ProbeWork& m_work;  // Borrowed immutable work descriptor with disjoint output writes.
     const std::function<void(std::size_t, std::size_t)>& m_progress;  // Caller-thread callback.
     std::uint32_t m_thread_count;        // Fixed before any worker starts.
+    BakeThreadPool* m_pool;              // Borrowed optional pool; run() drains its tasks.
     std::fenv_t m_environment;           // Caller arithmetic environment copied to worker threads.
     std::atomic<std::size_t> m_next{0};  // Atomic probe claim shared by workers.
     std::atomic<bool> m_stopped{false};  // Atomic cancellation flag shared by caller and workers.
@@ -297,7 +313,7 @@ private:
     // Reports directly on the serial path or wakes the caller after publishing completion.
     void complete(std::size_t probe) {
         // Serial callbacks already run on the caller's thread.
-        if (m_thread_count == 1) {
+        if (inline_progress()) {
             // An absent callback requires no progress delivery.
             if (m_progress) {
                 m_progress(probe + 1, m_work.out.probes.size());
@@ -329,15 +345,12 @@ private:
 
     // Claims probes until exhausted or cancelled, with private reusable ray buffers.
     void worker() {
-        if (m_thread_count > 1) {
-            profiling::thread_name("Probe worker");
-        }
         const profiling::Zone trace("Bake worker");
 
         // Every exit reports device errors or records an exception for the caller.
         try {
             // The serial path already uses the caller's environment.
-            if (m_thread_count > 1 && std::fesetenv(&m_environment) != 0) {
+            if (!inline_progress() && std::fesetenv(&m_environment) != 0) {
                 throw std::runtime_error("could not set bake floating-point environment");
             }
 
@@ -368,6 +381,7 @@ private:
 
     // Delivers completion notifications on the caller until all probes finish or a worker fails.
     void report_progress() {
+        const profiling::Zone zone("Bake progress wait", profiling::ZoneColour::Idle);
         std::size_t reported = 0;
 
         // Completion counts may coalesce while the caller handles a callback.
@@ -391,24 +405,51 @@ private:
         }
     }
 
-    // Joins on every exit, including thread-creation and callback failures.
+    // Drains borrowed tasks on every exit, including submission and callback failures.
     void run_parallel() {
-        std::vector<JoiningThread> workers;
+        std::unique_ptr<BakeThreadPool> local;
 
-        // Cancellation precedes unwinding the joining owners so outstanding claims can drain.
-        try {
-            // Workers borrow this coordination state only until their joining owners leave scope.
-            for (std::uint32_t i = 0; i < m_thread_count; ++i) {
-                workers.emplace_back([this] { worker(); });
+        // Standalone callers retain their existing worker budget without owning a pool.
+        if (!m_pool) {
+            local = std::make_unique<BakeThreadPool>(m_thread_count);
+        }
+
+        auto& pool = m_pool ? *m_pool : *local;
+        // Pool callbacks borrow this state until run() drains every task.
+        const auto result = pool.run(
+            m_thread_count,
+            [this] { worker(); },
+            [this] {
+                try {
+                    report_progress();
+                } catch (...) {
+                    m_stopped.store(true, std::memory_order_relaxed);
+                    throw;
+                }
             }
+        );
 
-            report_progress();
-        } catch (...) {
-            m_stopped.store(true, std::memory_order_relaxed);
-            throw;
+        if (!result) {
+            throw std::runtime_error(result.error().message);
         }
     }
 };
+
+// Reports the controller-selected alignment after all score queries have drained.
+void report_alignment(const bake_detail::GridAlignment& alignment) {
+    log::verbose(
+        "probe alignment: offset {},{},{} score {} -> {}, near {} -> {}, inside {} -> {}",
+        alignment.offset[0],
+        alignment.offset[1],
+        alignment.offset[2],
+        alignment.before.mean,
+        alignment.after.mean,
+        alignment.before.near,
+        alignment.after.near,
+        alignment.before.inside,
+        alignment.after.inside
+    );
+}
 
 }  // namespace
 
@@ -418,12 +459,19 @@ private:
 struct ProbeBaker::Impl {
     BakeSettings settings;
     Scene scene;
-    std::mutex direction_mutex;  // protects table creation; workers only read immutable entries
+    BakeThreadPool* pool = nullptr;  // Borrowed execution budget, never part of bake identity.
+    std::mutex direction_mutex;      // protects table creation; workers only read immutable entries
     std::map<std::pair<std::uint32_t, int>, std::unique_ptr<const BakeDirections>> direction_cache;
 
-    Impl(const BakeScene& input, const BakeSettings& options, std::uint32_t threads)
+    Impl(
+        const BakeScene& input,
+        const BakeSettings& options,
+        std::uint32_t threads,
+        BakeThreadPool* workers
+    )
         : settings(options),
-          scene(input, options.sunlight_direction, threads) {}
+          scene(input, options.sunlight_direction, threads),
+          pool(workers) {}
 
     // Rounding is part of the key so reuse cannot change a later bake's arithmetic results.
     const BakeDirections& directions(std::uint32_t resolution) {
@@ -438,11 +486,16 @@ struct ProbeBaker::Impl {
     }
 };
 
-ProbeBaker::ProbeBaker(const BakeScene& input, const BakeSettings& settings, std::uint32_t threads) {
+ProbeBaker::ProbeBaker(
+    const BakeScene& input,
+    const BakeSettings& settings,
+    std::uint32_t threads,
+    BakeThreadPool* pool
+) {
     const profiling::Zone trace("Prepare probe scene");
 
     bake_detail::validate_bake_scene(input, settings);
-    m_impl = std::make_unique<Impl>(input, settings, threads);
+    m_impl = std::make_unique<Impl>(input, settings, threads, pool);
 }
 
 ProbeBaker::~ProbeBaker() = default;
@@ -472,30 +525,34 @@ ProbeVolume ProbeBaker::bake(
     }
 
     auto out = ProbeVolume::allocate(grid);
-    const auto alignment = bake_detail::align_probe_grid(scene, settings, out);
-    log::verbose(
-        "probe alignment: offset {},{},{} score {} -> {}, near {} -> {}, inside {} -> {}",
-        alignment.offset[0],
-        alignment.offset[1],
-        alignment.offset[2],
-        alignment.before.mean,
-        alignment.after.mean,
-        alignment.before.near,
-        alignment.after.near,
-        alignment.before.inside,
-        alignment.after.inside
-    );
-
-    const ProbeWork work{scene, settings, m_impl->directions(grid.map_resolution), out};
 
     // Each probe has its own seed and disjoint storage; scheduling cannot change its arithmetic order.
     if (thread_count == 0) {
-        thread_count = std::max(1u, std::thread::hardware_concurrency());
+        thread_count =
+            m_impl->pool ? m_impl->pool->size() : std::max(1u, std::thread::hardware_concurrency());
+    }
+
+    // A shared execution budget limits explicit per-grid requests too.
+    if (m_impl->pool) {
+        thread_count = std::min(thread_count, m_impl->pool->size());
     }
 
     thread_count =
         static_cast<std::uint32_t>(std::min<std::size_t>(thread_count, out.probes.size()));
-    BakeWorkers(work, progress, thread_count).run();
+    std::unique_ptr<BakeThreadPool> local_pool;
+
+    // Standalone alignment and transport share one worker lifetime instead of creating separate pools.
+    if (!m_impl->pool && thread_count > 1) {
+        local_pool = std::make_unique<BakeThreadPool>(thread_count);
+    }
+
+    const BakeExecution execution{thread_count, m_impl->pool ? m_impl->pool : local_pool.get()};
+    const auto alignment = bake_detail::align_probe_grid(scene, settings, out, execution);
+    report_alignment(alignment);
+
+    const ProbeWork work{scene, settings, m_impl->directions(grid.map_resolution), out};
+
+    BakeWorkers(work, progress, thread_count, execution.pool).run();
 
     scene.check_error();
     update_probe_gutters(out);

@@ -55,6 +55,17 @@ public:
 
     virtual std::string vertex_source() const { return {}; }
 
+    // Optional exact specialisation for surface-zero quads using the unextended effect vertex.
+    // Providers opt in only when that vertex and this fragment preserve their full quad behaviour.
+    virtual std::optional<std::string> quad_fragment_source() const { return std::nullopt; }
+
+    // The same specialisation is exact for surface-zero strips with UV animation disabled.
+    virtual bool plain_strips_supported() const { return false; }
+
+    virtual void bind_quads(const Shader& shader, const FrameInput& input) {
+        bind(shader, 0, input, {});
+    }
+
     // Return a mesh handle when the material replaces this strip's triangle stream.
     virtual std::optional<EffectMesh> mesh(const EffectStrip&, std::span<const EffectVertex>) {
         return std::nullopt;
@@ -62,6 +73,12 @@ public:
 
     // Upload the small per-pass instance stream after collecting strips, before any draws.
     virtual void upload_meshes() {}
+
+    // Snapshot the scene before any effects draw, only when a replacement mesh is visible.
+    virtual void prepare_scene(const FrameInput&, const RenderTarget&) {}
+
+    // Publish per-pass counters after drawing, avoiding work on every material bind.
+    virtual void finish_pass() {}
 
     // Draw an earlier mesh handle using the material's resident geometry.
     virtual void draw_mesh(const Shader&, const EffectMesh&) {}
@@ -94,6 +111,7 @@ public:
     void release() override;
 
 private:
+    void use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
     bool apply(
@@ -127,6 +145,8 @@ private:
 
     EffectPart m_part = EffectPart::All;
     Shader m_shader;
+    Shader m_quad_shader;
+    Shader* m_active_shader = nullptr;
     std::unique_ptr<EffectMaterial> m_material;
     TextureFilter m_texture_filter = TextureFilter::Normal;
     int m_view_projection = -1;

@@ -89,7 +89,7 @@ int main(int argc, char**) {
                 CHECK(pixels[2] >= 191 && pixels[2] <= 192);
             }
             {
-                const profiling::Zone wait("Tracy idle");
+                const profiling::Zone wait("Tracy idle", profiling::ZoneColour::Idle);
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
             }
             profiling::frame();

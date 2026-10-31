@@ -100,15 +100,26 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual([need["path"] for need in play["needs"]], [check["makes"]])
         self.assertNotIn("python", play.get("requires", []))
 
+    def test_ci_smoke_checks_use_only_packaged_native_bake_entry_points(self):
+        workflow = (bundle.ROOT/'.github/workflows/launcher.yml').read_text()
+        self.assertNotIn('$COPY/port/enhanced/tools/baker/',workflow)
+        self.assertIn('"$baker" --print-water-profile',workflow)
+        self.assertIn('"$baker" --print-interior-profile',workflow)
+
     def test_the_probe_bake_reads_and_writes_the_data_folder(self):
         for version, actions in (("pal", self.pal), ("ntsc", self.ntsc)):
             bake = actions["probe-bake"]
             args = bake["args"]
+            self.assertEqual(bake["program"], "{artifact}")
+            self.assertIn("--bake-all", args)
+            self.assertNotIn("--source-decoder", args)
+            self.assertNotIn("python", bake.get("requires", []))
+            self.assertNotIn("--baker", args)
             self.assertEqual(args[args.index("--levels-dir") + 1], f"{{data}}/port/{version}")
             self.assertEqual(args[args.index("--output-dir") + 1], f"{{data}}/probes/{version}")
             self.assertIn("--update", args)
             self.assertEqual([need["path"] for need in bake["needs"]], [actions["port-levels-check"]["makes"]])
-            self.assertTrue(bake["artifact"].endswith("openrac-probe-bake.exe"))
+            self.assertTrue(bake["artifact"].endswith("openrac-enhanced-baker.exe"))
 
     def test_ntsc_levels_have_a_folder_of_their_own(self):
         # <data> is the game's, shared by PAL and NTSC-U: each version's levels are <data>/port/<version>.
@@ -179,12 +190,16 @@ class Bundle(unittest.TestCase):
                 sys.argv = argv
             for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "editor/extract.py",
                         "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
-                        "launcher/actions.json", "port/enhanced/tools/probes/bake_all.py",
+                        "launcher/actions.json",
                         "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(list(out.rglob("test_*.py")))
+            for name in ('bake_all.py', 'bake_level.py', 'seed_regions.py', 'native_coordinator.py'):
+                self.assertFalse((out / "port/enhanced/tools/baker" / name).exists())
+            self.assertFalse((out / "port/enhanced/tools/water").exists())
+            self.assertFalse((out / "port/enhanced/tools/baker").exists())
             self.assertFalse((out / "games/rac1/include/moby_pvars.h").exists())
             layouts = json.loads((out / "editor/pvar_layouts.json").read_text())
             self.assertIn(["moveSpeed", 0xB0, "f32", 0], layouts["classes"]["726"])
@@ -237,53 +252,27 @@ class Bundle(unittest.TestCase):
             copied = json.loads((exported / "probe-emission.json").read_text())
             self.assertEqual(copied.pop('_catalog_defaults'), authored)
             self.assertEqual(copied, authored)
-            self.assertFalse((out / "port/enhanced/tools/probes/moby_seed_whitelist.json").exists())
-            script = ("import sys\n"
-                      "from pathlib import Path\n"
-                      "sys.path.insert(0, sys.argv[1])\n"
-                      "import moby_seeds\n"
-                      "path = moby_seeds.default_whitelist_path('rac1')\n"
-                      "assert path == Path(sys.argv[2])\n"
-                      "assert moby_seeds.whitelist(path)[0]['name'] == 'ratchet'\n")
-            subprocess.run([sys.executable, "-I", "-c", script, str(out / bundle.PROBE_TOOLS),
-                            str(out / "port/enhanced/lighting/profiles/rac1/moby-seeds.json")],
-                           cwd=tmp, check=True)
+            self.assertFalse((out / "port/enhanced/tools/baker/moby_seed_whitelist.json").exists())
             water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
             self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
             self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
 
-    def test_probe_baker_carries_its_interior_inference_companion(self):
+    def test_unified_baker_is_packaged_without_companion_executables(self):
         for suffix in ("", ".exe"):
             with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as tmp:
-                build, dest = Path(tmp) / "build", Path(tmp) / "dest"
+                build, dest = Path(tmp)/"build", Path(tmp)/"dest"
                 build.mkdir()
                 dest.mkdir()
-                baker = build / ("openrac-probe-bake" + suffix)
-                infer = build / ("openrac-interior-infer" + suffix)
-                baker.write_bytes(b"baker")
-                infer.write_bytes(b"interior inference")
-                infer.chmod(0o755)
-                (build / "openrac-interior-infer.pdb").write_bytes(b"debug")
+                baker = build/("openrac-enhanced-baker"+suffix)
+                baker.write_bytes(b"enhanced baker")
+                baker.chmod(0o755)
+                (build/"openrac-enhanced-baker.pdb").write_bytes(b"debug")
                 carried = bundle.copy_games(build, dest)
-                self.assertIn(baker.name, carried)
-                self.assertIn(infer.name, carried)
-                self.assertEqual((dest / infer.name).read_bytes(), infer.read_bytes())
-                self.assertFalse((dest / "openrac-interior-infer.pdb").exists())
+                self.assertEqual(carried, [baker.name])
+                self.assertEqual((dest/baker.name).read_bytes(), baker.read_bytes())
+                self.assertFalse((dest/"openrac-enhanced-baker.pdb").exists())
                 if sys.platform != "win32":
-                    self.assertTrue((dest / infer.name).stat().st_mode & 0o111)
-
-    def test_probe_baker_without_matching_inference_companion_is_rejected(self):
-        for suffix in ("", ".exe"):
-            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as tmp:
-                build, dest = Path(tmp) / "build", Path(tmp) / "dest"
-                build.mkdir()
-                dest.mkdir()
-                (build / ("openrac-probe-bake" + suffix)).write_bytes(b"baker")
-                # A different platform's executable must not satisfy the requirement.
-                wrong_suffix = ".exe" if not suffix else ""
-                (build / ("openrac-interior-infer" + wrong_suffix)).write_bytes(b"wrong platform")
-                with self.assertRaisesRegex(ValueError, "openrac-interior-infer"):
-                    bundle.copy_games(build, dest)
+                    self.assertTrue((dest/baker.name).stat().st_mode & 0o111)
 
     def test_games_as_built(self):
         # On macOS a game is its bundle, carried whole; the build folder's link to it is not.
@@ -342,7 +331,7 @@ class Bundle(unittest.TestCase):
             # No game program (the APK's libraries); the probe baker's Python half for Enhanced
             # graphics, whose program is a library of the APK too.
             self.assertFalse((out / "port/build").exists())
-            self.assertTrue((out / "port/enhanced/tools/probes/bake_all.py").is_file())
+            self.assertFalse((out / "port/enhanced/tools/baker").exists())
             self.assertTrue((out / "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json").is_file())
             self.assertIn("Android", (out / "STANDALONE").read_text())
 

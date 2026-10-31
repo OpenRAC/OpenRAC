@@ -394,7 +394,7 @@ double wait_for_previous_frame() {
     if (!last.submitted) {
         return 0.0;
     }
-    const stats::Scope wait("vulkan frame wait");
+    const stats::Scope wait("vulkan frame wait", profiling::ZoneColour::Idle);
     const Clock::time_point start = Clock::now();
     if (!check(
             vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX), "previous frame fence"
@@ -424,7 +424,7 @@ void prepare_frame() {
         wait_for_previous_frame();
     }
     if (f.submitted) {
-        const stats::Scope wait("vulkan frame wait");
+        const stats::Scope wait("vulkan frame wait", profiling::ZoneColour::Idle);
         const Clock::time_point start = Clock::now();
         if (!check(
                 vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "frame-slot fence"

@@ -24,6 +24,7 @@
 #include "renderer/temporal_settings.h"
 #include "renderer/texture_filter.h"
 #include "renderer/ui/fps_counter.h"
+#include "renderer/volumetric_settings.h"
 
 namespace openrac::settings {
 
@@ -97,6 +98,7 @@ struct Settings {
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
     renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
+    renderer::VolumetricQuality volumetric_quality = renderer::VolumetricQuality::Off;
     bool rim_light = true;
     // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
     // effect at the next start.
@@ -130,6 +132,7 @@ struct Settings {
 
     bool motion_blur = true;  // Motion relative to the tracking focus.
     renderer::MotionBlurSettings motion_blur_settings;
+    float lily_momentum = .25f;  // Tilt response time in seconds; zero follows waves immediately.
     float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;

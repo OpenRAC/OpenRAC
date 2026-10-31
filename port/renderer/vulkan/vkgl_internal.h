@@ -231,6 +231,7 @@ struct GpuEngine {
         VkDescriptorSet descriptors = VK_NULL_HANDLE;
         VkDescriptorSet materials = VK_NULL_HANDLE;
         std::uint32_t dynamic_offset = 0, inputs = 0;
+        std::uint32_t draw_uniform = 0;  // Push integer bits, so indirect merging keeps snapshots.
         std::array<VkBuffer, kAttributes> vertices{};
         std::array<VkDeviceSize, kAttributes> offsets{};
         VkBuffer index = VK_NULL_HANDLE;
@@ -574,6 +575,8 @@ struct Program {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     std::vector<std::uint8_t> uniforms;  // the default block, std140
+    // One opted-in vertex draw integer, appended to the CPU shadow but excluded from its UBO.
+    int draw_uniform_offset = -1;
     std::vector<int> units;              // per entry of compiled.uniforms: a sampler's unit
     std::vector<GLuint> block_bindings;  // per entry of compiled.blocks: its GL binding point
     bool uniforms_dirty = true;
@@ -971,6 +974,14 @@ struct Context {
         VkPipeline pipeline = VK_NULL_HANDLE;
     } depth_combine;
 
+    struct ColourTransform {
+        VkDescriptorSetLayout descriptors = VK_NULL_HANDLE;
+        VkPipelineLayout layout = VK_NULL_HANDLE;
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        std::string source;
+        bool failed = false;
+    } colour_transform;
+
     Measures measures;
     SubmissionCounters submission, reported_submission;
     SubmissionCounters published;  // The render counters as the last frame's gauges left them.
@@ -986,6 +997,7 @@ struct Context {
     VkPhysicalDeviceProperties properties{};
     std::uint32_t timestamp_bits = 0;
     VkPhysicalDeviceFeatures features{};
+    bool astc_hdr = false;        // Enabled Vulkan 1.3 HDR ASTC sampling.
     bool shader_float16 = false;  // Actually enabled arithmetic, not 16-bit storage support.
     VkDevice device = VK_NULL_HANDLE;
     std::uint32_t family = 0;
@@ -1104,6 +1116,7 @@ extern Context* g;
 
 // Releases the optional depth-composition pipeline after device idle at context teardown.
 void release_depth_combine();
+void release_colour_transform();
 
 // Records `error` for glGetError, unless an earlier one is still waiting to be read.
 inline void fail(GLenum error) {
@@ -1509,7 +1522,8 @@ void draw(
     GLint first,
     GpuPage* gpu_page = nullptr,
     unsigned gpu_command = 0,
-    unsigned indirect_buffer = 0
+    unsigned indirect_buffer = 0,
+    unsigned gpu_draw_count = 1
 );
 
 // True when the native material path is on: the device can index its textures and
@@ -1556,6 +1570,10 @@ void gpu_release_resident();
 // draw_gpu_instances (vkgl.h) carried out: `count` indices from `first` for each instance of
 // `batch` the culling keeps. False for a batch of another recording, or nothing to draw.
 bool gpu_submit_draw(renderer::GpuInstanceBatch batch, unsigned first, unsigned count);
+
+bool gpu_submit_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
+);
 
 // Records this frame's culling dispatches into `upload`, which runs before `main` draws.
 void gpu_record();

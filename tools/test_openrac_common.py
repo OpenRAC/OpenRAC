@@ -207,8 +207,8 @@ class PathsTests(TempDir):
 # the editor imports nothing of tools/ but the package, and its port.py keeps its name beside
 # tools/port.py because a script's own folder comes before tools/ on the path
 # (test_the_editor_runs_from_the_launchers_bundled_copy).
-BOOTSTRAPPED = ("port/tools", "port/enhanced/tools/probes", "editor")
-NAMES_CHECKED = ("port/tools", "port/enhanced/tools/probes")
+BOOTSTRAPPED = ("port/tools", "port/enhanced/tools/baker", "editor")
+NAMES_CHECKED = ("port/tools", "port/enhanced/tools/baker")
 
 
 class BootstrapTests(TempDir):
@@ -223,7 +223,7 @@ class BootstrapTests(TempDir):
         (top / marker).write_text("")
         shutil.copytree(ROOT / paths.PACKAGE_DIR, top / paths.PACKAGE_DIR,
                         ignore=shutil.ignore_patterns("__pycache__"))
-        script = top / "port/enhanced/tools/probes/probe.py"
+        script = top / "port/enhanced/tools/baker/probe.py"
         script.parent.mkdir(parents=True)
         script.write_text("import sys\nfrom pathlib import Path\n" + paths.BOOTSTRAP + "\n"
                           "from openrac_common import paths\n"
@@ -231,7 +231,7 @@ class BootstrapTests(TempDir):
         return top
 
     def run_script(self, top: Path) -> list[Path]:
-        done = subprocess.run([sys.executable, "-E", str(top / "port/enhanced/tools/probes/probe.py")],
+        done = subprocess.run([sys.executable, "-E", str(top / "port/enhanced/tools/baker/probe.py")],
                               cwd=self.dir, capture_output=True, text=True)
         self.assertEqual(done.returncode, 0, done.stderr)
         return [Path(line) for line in done.stdout.splitlines()]
@@ -501,7 +501,7 @@ class FilesTests(TempDir):
             self.write(f"src/{name}", name)
         keep = lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".pyc", ".tsv")  # noqa: E731
         files.copy_tree(self.dir / "src", self.dir / "ours", keep)
-        copied = sorted((str(p.relative_to(self.dir / "ours")), p.read_bytes())
+        copied = sorted((p.relative_to(self.dir / "ours").as_posix(), p.read_bytes())
                         for p in (self.dir / "ours").rglob("*") if p.is_file())
         self.assertEqual(copied, [(name, name.encode()) for name in ("a.py", "deep/er/d.py", "sub/b.py", "sub/c.tsv")])
 
@@ -608,7 +608,7 @@ class ProcTests(TempDir):
 
     def test_run_captures_text_and_replaces_bad_bytes(self):
         done = proc.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'ok \\xff')"], capture=True)
-        self.assertEqual(done.stdout, "ok �")
+        self.assertEqual(done.stdout, "ok \ufffd")
 
     @unittest.skipUnless(shutil.which("git"), "git is not installed")
     def test_git_reads_and_fcheck_gates_commit(self):
@@ -620,7 +620,7 @@ class ProcTests(TempDir):
                    GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.com")
         subprocess.run(["git", "init", "-q", str(repo)], check=True, env=env)
         (repo / "tools").mkdir()
-        (repo / "tools/fcheck.py").write_text("x = 1\n")
+        (repo / "tools/fcheck.py").write_bytes(b"x = 1\n")
         subprocess.run(["git", "-C", str(repo), "add", "."], check=True, env=env)
         subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "one"], check=True, env=env)
 
@@ -630,7 +630,7 @@ class ProcTests(TempDir):
             proc.git(repo, "rev-parse", "no-such-ref")
 
         # fcheck_gate's own git does not check, and an unknown ref gives nothing.
-        (repo / "tools/fcheck.py").write_text("x = 2\n")
+        (repo / "tools/fcheck.py").write_bytes(b"x = 2\n")
         dirty = proc.git(repo, "status", "--porcelain", "--", "tools/fcheck.py", check=False)
         ours = proc.git(repo, "rev-parse", "--short=8", "HEAD", check=False) + ("+dirty" if dirty else "")
         self.assertEqual(ours, fcheck_gate.fcheck_commit(repo))

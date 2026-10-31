@@ -726,6 +726,127 @@ void main() {
     CHECK(glGetError() == GL_NO_ERROR);
 }
 
+// Many draw integers share a large UBO snapshot; later writes and frames cannot alter earlier draws.
+void test_separate_draw_uniform(unsigned vao) {
+    std::vector<std::uint8_t> reference_pixels;
+    for (const bool separate : {false, true}) {
+        renderer::render_opt::set(renderer::render_opt::Opt::VkDrawUniform, separate);
+        renderer::Shader shader;
+        std::string error;
+        CHECK(shader.build(
+            "separate vertex draw integer",
+            R"(#version 410 core
+#define OPENRAC_DRAW_INT selected
+uniform int selected;
+uniform vec4 palette[4];
+flat out vec4 colour;
+void main() {
+    vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+    gl_Position = vec4(p * 2.0 - 1.0, 0, 1);
+    colour = palette[selected & 3];
+}
+)",
+            R"(#version 410 core
+flat in vec4 colour;
+layout(location=0) out vec4 result;
+void main() { result = colour; }
+)",
+            error
+        ));
+        renderer::FrameBuffer target;
+        CHECK(target.create(8, 1, error));
+        glBindVertexArray(vao);
+        glDisable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_SCISSOR_TEST);
+        const std::array<int, 8> selections = {0, 1, 2, 3, -1, 0, 0x40000002, 1};
+        for (unsigned frame = 0; frame < 2; ++frame) {
+            glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+            shader.use();
+            const std::array<float, 16> palette = {1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1};
+            glUniform4fv(shader.uniform("palette"), 4, palette.data());
+            const auto before = vkgl::submission_counters();
+            for (unsigned i = 0; i < selections.size(); ++i) {
+                if (i == 4) {
+                    glUniform4f(shader.uniform("palette[0]"), 0, 1, 1, 1);
+                }
+                glViewport(static_cast<int>(i), 0, 1, 1);
+                glUniform1i(shader.uniform("selected"), selections[i]);
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+            }
+            const auto after = vkgl::submission_counters();
+            CHECK(after.uniform_uploads - before.uniform_uploads == (separate ? 2u : 8u));
+            const auto pixels = target.read_rgba();
+            const std::vector<std::uint8_t> expected = {255, 0,   0,   255, 0,   255, 0,   255,
+                                                        0,   0,   255, 255, 255, 255, 255, 255,
+                                                        255, 255, 255, 255, 0,   255, 255, 255,
+                                                        0,   0,   255, 255, 0,   255, 0,   255};
+            CHECK(pixels == expected);
+            if (!separate) {
+                reference_pixels = pixels;
+            } else {
+                CHECK(pixels == reference_pixels);
+            }
+            vkgl::present();
+        }
+    }
+    renderer::render_opt::reset();
+    CHECK(vkgl::submission_counters().validation_errors == 0);
+}
+
+// No UBO is needed for a lone draw integer; shared-stage integers and arrays keep the old path.
+void test_draw_uniform_layouts(unsigned vao) {
+    for (unsigned kind = 0; kind < 3; ++kind) {
+        std::vector<std::uint8_t> reference;
+        for (const bool separate : {false, true}) {
+            renderer::render_opt::set(renderer::render_opt::Opt::VkDrawUniform, separate);
+            std::string vertex = "#version 410 core\n#define OPENRAC_DRAW_INT selected\n";
+            vertex += kind == 2 ? "uniform int selected[2];\n" : "uniform int selected;\n";
+            vertex += "flat out int value;\nvoid main() {\n"
+                      "vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);\n"
+                      "gl_Position=vec4(p*2.0-1.0,0,1);\nvalue=";
+            vertex += kind == 2 ? "selected[0];}\n" : "selected;}\n";
+            std::string fragment = "#version 410 core\nflat in int value;\n";
+            if (kind == 1) {
+                fragment += "uniform int selected;\n";
+            }
+            fragment += "layout(location=0) out vec4 result;\nvoid main(){result=vec4(float((value";
+            fragment += kind == 1 ? "+selected)&3)/3.0,0,0,1);}" : ")&3)/3.0,0,0,1);}";
+            renderer::Shader shader;
+            std::string error;
+            CHECK(shader.build("draw uniform layouts", vertex, fragment, error));
+            renderer::FrameBuffer target;
+            CHECK(target.create(4, 1, error));
+            glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+            glBindVertexArray(vao);
+            shader.use();
+            const auto before = vkgl::submission_counters();
+            for (int i = 0; i < 4; ++i) {
+                glViewport(i, 0, 1, 1);
+                glUniform1i(shader.uniform("selected"), i);
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+            }
+            const auto after = vkgl::submission_counters();
+            CHECK(
+                after.uniform_uploads - before.uniform_uploads == (separate && kind == 0 ? 0u : 4u)
+            );
+            const auto pixels = target.read_rgba();
+            for (unsigned i = 0; i < 4; ++i) {
+                CHECK(pixels[i * 4] == ((kind == 1 ? i * 2 : i) & 3) * 85);
+                CHECK(pixels[i * 4 + 3] == 255);
+            }
+            if (!separate) {
+                reference = pixels;
+            } else {
+                CHECK(pixels == reference);
+            }
+            vkgl::present();
+        }
+    }
+    renderer::render_opt::reset();
+    CHECK(vkgl::submission_counters().validation_errors == 0);
+}
+
 int main() {
     test::GlContext context;
     std::string error;
@@ -970,6 +1091,8 @@ void main() {
     CHECK(glGetError() == GL_NO_ERROR);
     test_pipeline_state_changes(vao);
     test_bindless_upscaled_colours(vao, reference);
+    test_separate_draw_uniform(vao);
+    test_draw_uniform_layouts(vao);
     glDeleteTextures(2, textures.data());
     glDeleteVertexArrays(1, &vao);
     texel_buffer_fallbacks();

@@ -120,6 +120,7 @@ class WriterTests(unittest.TestCase):
         """A complete native export carries the exact authored settings for its disc and level."""
         level = synthetic_level()
         level.id, level.version = 1, "ntsc"
+        level.stored['overlay'] = b'authored water overlay'
         source = Path(__file__).resolve().parents[1] / "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"
         with tempfile.TemporaryDirectory() as temp:
             self.export(Path(temp), level)

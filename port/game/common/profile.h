@@ -177,6 +177,11 @@ public:
     // Developer tools: the recording has ended; what diagnostics() watched is let go.
     virtual void diagnostics_off(const DiagnosticsInput& /*input*/) const {}
 
+    // Projectile contact parameters for enhanced water, independent of render visibility.
+    virtual std::optional<std::array<float, 2>> water_projectile(int /*class_id*/) const {
+        return std::nullopt;
+    }
+
     // Visual attachments to enhanced water; collision and gameplay poses stay untouched.
     virtual bool floats_on_water(int /*class_id*/) const { return false; }
 };

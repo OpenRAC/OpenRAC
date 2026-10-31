@@ -675,11 +675,13 @@ public:
 
     // Draws one frame seen by `camera` with `mobys`, as draw_kept draws one: the mobys' palette
     // and instances handed to the scene, then the renderer's passes into the framebuffer.
+    // An optional depth readback tests visibility across a synchronous recording split.
     void draw(
         const renderer::Camera& camera,
         const MobyFrame& mobys,
         std::uint64_t frame,
-        renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High
+        renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High,
+        bool readback_after_depth = false
     ) {
         m_scene.set_palette(mobys.palette);
         m_scene.set_instances(scene::Layer::Mobys, mobys.instances);
@@ -687,10 +689,19 @@ public:
         input.camera = camera;
         input.clear_colour = {0.3f, 0.4f, 0.6f, 1.0f};
         input.gtao = m_options.enhanced;
+        // Keep exercising the experimental transport when enhanced rendering is under test.
+        input.volumetric_quality = m_options.enhanced ? renderer::VolumetricQuality::Medium
+                                                      : renderer::VolumetricQuality::Off;
         // The sun's cascades are drawn when the frame asks for them, as the frontend asks.
         input.shadow_quality = shadow_quality;
         input.sun_pixel_shadow = m_options.enhanced && m_scene.sun_shadow_enabled();
         input.frame = frame;
+        // A synchronous readback splits the recording between depth and colour, expiring batches.
+        if (readback_after_depth) {
+            input.after_world_depth = [&](unsigned, int, int) {
+                (void)m_frame.read_rgba();
+            };
+        }
         renderer::RenderTarget target{m_frame.id(), m_options.width, m_options.height};
         target.resolve_framebuffer = m_frame.resolve_target();
         target.resolves_itself = m_frame.resolves_itself();

@@ -241,6 +241,45 @@ public:
         }
     }
 
+    std::optional<std::array<float, 2>> water_projectile(int class_id) const override {
+        // Shared PAL/NTSC classes (editor/moby_classes.tsv); equipped weapons/ammo are excluded.
+        switch (class_id) {
+            case 305:
+                return std::array{.25f, .45f};  // Blaster's homing shot (CLASS_HOMING_SHOT).
+            case 121:
+            case 230:
+            case 248:
+            case 281:
+            case 425:
+            case 545:
+            case 882:
+            case 938:
+                return std::array{.45f, .7f};  // Thrown bombs.
+            case 41:
+            case 49:
+            case 50:
+            case 82:
+            case 153:
+            case 172:
+            case 295:
+            case 409:
+            case 435:
+            case 457:
+            case 458:
+            case 470:
+            case 564:
+            case 819:
+            case 922:
+            case 1034:
+            case 1233:
+            case 1355:
+            case 1475:
+                return std::array{.3f, .6f};  // Player and enemy missiles.
+            default:
+                return std::nullopt;
+        }
+    }
+
     // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).
     bool floats_on_water(int class_id) const override { return class_id == 695; }
 

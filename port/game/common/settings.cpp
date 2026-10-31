@@ -22,6 +22,7 @@ void Settings::reset_enhanced() {
     enhanced_graphics = defaults.enhanced_graphics;
     enhanced_shadows = defaults.enhanced_shadows;
     shadow_quality = defaults.shadow_quality;
+    volumetric_quality = defaults.volumetric_quality;
     rim_light = defaults.rim_light;
     rim_shadow_lift = defaults.rim_shadow_lift;
     rim_lift_exponent = defaults.rim_lift_exponent;
@@ -45,6 +46,7 @@ void Settings::reset_enhanced() {
     motion_blur = defaults.motion_blur;
     motion_blur_settings = defaults.motion_blur_settings;
     motion_blur_strength = defaults.motion_blur_strength;
+    lily_momentum = defaults.lily_momentum;
     temporal_sharpness = defaults.temporal_sharpness;
     texture_filter = defaults.texture_filter;
 }
@@ -281,6 +283,8 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_rendering);
         } else if (key == "enhanced_graphics") {
             known = parse_bool(value, s.enhanced_graphics);
+        } else if (key == "volumetric_quality") {
+            known = parse(value, renderer::kVolumetricQualityKeys, s.volumetric_quality);
         } else if (key == "shadow_quality") {
             known = parse(value, renderer::kShadowQualityKeys, s.shadow_quality);
         } else if (key == "enhanced_shadows") {
@@ -347,6 +351,8 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 1.0f, s.agx_brightness);
         } else if (key == "motion_blur") {
             known = parse_bool(value, s.motion_blur);
+        } else if (key == "lily_momentum") {
+            known = parse_float(value, 0.0f, 1.0f, s.lily_momentum);
         } else if (key == "motion_blur_strength") {
             known = parse_float(value, 0.0f, 1.0f, s.motion_blur_strength);
         } else if (key == "motion_blur_radius") {
@@ -517,6 +523,8 @@ void save() {
         << "msaa = " << s.msaa << "\n"
         << "enhanced_rendering = " << (s.enhanced_rendering ? 1 : 0) << "\n"
         << "enhanced_graphics = " << (s.enhanced_graphics ? 1 : 0) << "\n"
+        << "volumetric_quality = "
+        << renderer::kVolumetricQualityKeys[static_cast<int>(s.volumetric_quality)] << "\n"
         << "shadow_quality = " << renderer::kShadowQualityKeys[static_cast<int>(s.shadow_quality)]
         << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
@@ -551,6 +559,7 @@ void save() {
         << "agx_exposure = " << s.agx_exposure << "\n"
         << "agx_brightness = " << s.agx_brightness << "\n"
         << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
+        << "lily_momentum = " << s.lily_momentum << "\n"
         << "motion_blur_strength = " << s.motion_blur_strength << "\n"
         << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"
         << "motion_blur_samples = " << s.motion_blur_settings.samples << "\n"

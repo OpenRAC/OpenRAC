@@ -152,6 +152,17 @@ bool gpu_driven_active() {
     return !off && gpu_make_engine();
 }
 
+// Returns the identity a reusable visibility batch must belong to, opening a recording if needed.
+std::uint64_t gpu_instance_recording() {
+    // CPU rendering has no reusable GPU instance batches.
+    if (!gpu_driven_active()) {
+        return 0;
+    }
+
+    prepare_frame();
+    return g->recording;
+}
+
 bool indexed_viewports_supported(unsigned count) {
     return active() && g->viewport_index_supported && count > 0
            && count <= g->properties.limits.maxViewports && material_enabled();
@@ -184,6 +195,12 @@ renderer::GpuInstanceBatch gpu_instances(
 
 bool draw_gpu_instances(renderer::GpuInstanceBatch batch, unsigned first, unsigned count) {
     return active() && gpu_submit_draw(batch, first, count);
+}
+
+bool draw_gpu_instance_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
+) {
+    return active() && gpu_submit_ranges(batch, ranges);
 }
 
 bool draw_indexed_indirect(unsigned arguments, unsigned index_count) {
@@ -242,6 +259,14 @@ GpuMaterialCounters gpu_material_counters() {
 void report_measures() {
     const auto& current = g->submission;
     const auto& previous = g->reported_submission;
+    stats::gauge(
+        "vk_buffer_zero_fill_bytes",
+        double(current.buffer_zero_fill_bytes - previous.buffer_zero_fill_bytes)
+    );
+    stats::gauge(
+        "vk_buffer_mirror_restore_bytes",
+        double(current.buffer_mirror_restore_bytes - previous.buffer_mirror_restore_bytes)
+    );
     stats::gauge("vk_uniform_uploads", double(current.uniform_uploads - previous.uniform_uploads));
     stats::gauge(
         "vk_uniform_upload_kb",

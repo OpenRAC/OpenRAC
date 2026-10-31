@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <numbers>
 
@@ -11,6 +12,7 @@
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -88,6 +90,12 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
         input.gtao = true;
         renderer.render(input, {frame.id(), width, height});
         const auto ao = frame.read_rgba();
+        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
+        renderer.render(input, {frame.id(), width, height});
+        CHECK(frame.read_rgba() == ao);
+        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
+        renderer.render(input, {frame.id(), width, height});
+        CHECK(frame.read_rgba() == ao);
         if (samples == 1) {
             // Both paths must preserve the same pixels, including subsequent
             // depth-tested colour passes and changes to the borrowed depth.
@@ -181,6 +189,28 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
             input.gtao_settings.steps = 6;
             renderer.render(input, {frame.id(), width, height});
             const auto full = frame.read_rgba();
+            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
+            renderer.render(input, {frame.id(), width, height});
+            const auto unspecialized = frame.read_rgba();
+            if (unspecialized != full) {
+                std::size_t different = 0;
+                int maximum = 0;
+                for (std::size_t at = 0; at < full.size(); ++at) {
+                    const int delta = std::abs(int(unspecialized[at]) - int(full[at]));
+                    different += delta != 0;
+                    maximum = std::max(maximum, delta);
+                }
+                std::printf(
+                    "GTAO variant %dx%d quality=%d: %zu differing channels, max %d\n",
+                    width,
+                    height,
+                    int(quality),
+                    different,
+                    maximum
+                );
+            }
+            CHECK(unspecialized == full);
+            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
             CHECK(full.size() == plain.size());
             CHECK(full != plain);
             input.gtao_settings = renderer::GtaoSettings{};
@@ -190,7 +220,9 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
         }
         CHECK(gl::glGetError() == gl::GL_NO_ERROR);
     }
-    if (wall) { CHECK(modes_differ); }
+    if (wall) {
+        CHECK(modes_differ);
+    }
     frame.release();
     scene.release();
     renderer.release();
@@ -423,7 +455,9 @@ void scripted_glow_depth() {
     using namespace gl;
     auto level = corner(true);
     level.instances[static_cast<std::size_t>(scene::Layer::Terrain)].clear();
-    for (auto& vertex : level.vertices) vertex.light_slot = -2;
+    for (auto& vertex : level.vertices) {
+        vertex.light_slot = -2;
+    }
     scene::Instance instance;
     instance.moby_light[3] = -1;  // Explicit gameplay colour, still a lit moby.
     renderer::Renderer renderer;
@@ -435,15 +469,20 @@ void scripted_glow_depth() {
     renderer::FrameBuffer target;
     CHECK(target.create(64, 48, error));
     renderer::Shader sentinel;
-    CHECK(sentinel.build("unoccluded depth sentinel", R"glsl(#version 410 core
+    CHECK(sentinel.build(
+        "unoccluded depth sentinel",
+        R"glsl(#version 410 core
 void main() {
     vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
     gl_Position = vec4(p * 2.0 - 1.0, -1.0, 1.0);
 }
-)glsl", R"glsl(#version 410 core
+)glsl",
+        R"glsl(#version 410 core
 layout(location=0) out vec4 result;
 void main() { result = vec4(0, 1, 0, 1); }
-)glsl", error));
+)glsl",
+        error
+    ));
     GLuint vao = 0;
     glGenVertexArrays(1, &vao);
     renderer::FrameInput input;
@@ -470,7 +509,9 @@ void main() { result = vec4(0, 1, 0, 1); }
         glDrawArrays(GL_TRIANGLES, 0, 3);
         const auto pixels = target.read_rgba();
         unsigned occluded = 0;
-        for (std::size_t i = 0; i < pixels.size(); i += 4) occluded += pixels[i] != 0;
+        for (std::size_t i = 0; i < pixels.size(); i += 4) {
+            occluded += pixels[i] != 0;
+        }
         CHECK(glow ? occluded == 0 : occluded > 0);
     }
     glBindVertexArray(0);
@@ -660,9 +701,9 @@ int main() {
         stats::set_enabled(stats::Client::Overlay, true);
         gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, 0);
         renderer::FrameBuffer timing_frame;
-        CHECK(timing_frame.create(1024, 1024, error));
+        CHECK(timing_frame.create(128, 128, error));
         gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, timing_frame.id());
-        gl::glViewport(0, 0, 1024, 1024);
+        gl::glViewport(0, 0, 128, 128);
         for (unsigned i = 0; i < 8; ++i) {
             stats::begin_frame(stats::FrameKind::Tick, i);
             {
@@ -698,7 +739,9 @@ int main() {
         stats::set_enabled(stats::Client::Overlay, false);
     }
 #if defined(OPENRAC_VULKAN)
-    if (gl::is_vulkan()) CHECK(vkgl::submission_counters().validation_errors == 0);
+    if (gl::is_vulkan()) {
+        CHECK(vkgl::submission_counters().validation_errors == 0);
+    }
 #endif
     return openrac::test::result();
 }

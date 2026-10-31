@@ -110,6 +110,22 @@ public:
         }
     }
 
+    // Colours a CPU wait in Tracy without changing debug-overlay section accounting.
+    explicit Scope(
+        std::string_view name,
+        [[maybe_unused]] profiling::ZoneColour colour,
+        [[maybe_unused]] std::source_location location = std::source_location::current()
+    )
+#ifdef OPENRAC_TRACY
+        : m_trace(name, colour, location)
+#endif
+    {
+        // Overlay timing remains opt-in even when Tracy is connected.
+        if (g_enabled) {
+            begin(name, 0);
+        }
+    }
+
     ~Scope() {
         if (m_index >= 0) {
             end();

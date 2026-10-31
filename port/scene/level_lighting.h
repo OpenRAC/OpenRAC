@@ -17,12 +17,14 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
 #include "scene/level.h"
 
 namespace openrac::scene {
+class LevelScene;
 
 // The probe and early lighting of a level, as the level renderer calls it. Created, used and
 // released on the thread that holds the graphics context.
@@ -41,6 +43,17 @@ public:
     // Enhanced surface history uses the already submitted hero pose and joint palette.
     virtual std::string mesh_vertex(std::string source) const { return source; }
 
+    // Optional prepass specialisation for static, dry groups. Unknown providers retain their
+    // complete vertex shader; approving this source promises identical positions and normals.
+    virtual std::optional<std::string> rigid_depth_vertex(std::string) const {
+        return std::nullopt;
+    }
+
+    // Optional dry-caster specialisation. Providers keep their complete transform by default.
+    virtual std::string dry_shadow_vertex(std::string source) const {
+        return mesh_vertex(std::move(source));
+    }
+
     virtual void prepare_wetness(
         const renderer::FrameInput&, unsigned, const std::optional<Instance>&
     ) {}
@@ -48,13 +61,30 @@ public:
     virtual void bind_wetness(const renderer::Shader&) const {}
 
     // Update optional surface deformation before any depth, shadow or colour consumers.
-    virtual void prepare_deformation(const renderer::FrameInput&) {}
+    virtual void prepare_deformation(const renderer::FrameInput&, const LevelScene&) {}
 
     // Bind per-group deformation resources; false retains original mesh positions.
     virtual void bind_deformation(const renderer::Shader&, bool) const {}
 
     // Temporal history is retained when the optional deformation is inactive.
     virtual bool deformation_active() const { return false; }
+
+    // Optional shared camera-medium transport, prepared once after the current shadows.
+    virtual bool atmosphere_wanted(const renderer::FrameInput&) const { return false; }
+
+    virtual void prepare_atmosphere(
+        const LevelScene&,
+        const renderer::FrameInput&,
+        const renderer::RenderTarget&,
+        const std::array<float, 4>&,
+        const std::array<float, 4>&
+    ) {}
+
+    virtual void draw_atmosphere_sky(const renderer::RenderTarget&) {}
+
+    virtual std::string atmosphere_source() const { return {}; }
+
+    virtual void bind_atmosphere(const renderer::Shader&) const {}
 
     // Optional shading of the authored material on the current model.
     virtual void bind_material(const renderer::Shader&, std::uint32_t, const Material&) const {}

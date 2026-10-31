@@ -112,6 +112,12 @@ bool sample_probe_grid(
     float support = 0.0;
     float valid_support = 0.0;
     float facing_support = 0.0;
+#ifdef OPENRAC_PROBE_RECEIVER_SETUP
+    // These operands are identical for every corner. Preserve the original
+    // tile-origin + 1 + offset, then divide ordering at each atlas lookup.
+    vec2 irradiance_offset = probe_oct(n) * probe_resolution;
+    vec2 atlas_extent = vec2(textureSize(probe_irradiance, 0));
+#endif
     for (int corner = 0; corner < 8; ++corner) {
         ivec3 high = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
         mp_vec3 f = mix(mp_vec3(1) - fraction, fraction, mp_vec3(high));
@@ -155,7 +161,13 @@ bool sample_probe_grid(
         }
 #endif
         if (distance > 1e-6) {
+#ifdef OPENRAC_PROBE_RECEIVER_SETUP
+            vec2 moment_pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0
+                                + probe_oct(delta / distance) * probe_resolution;
+            vec2 moments = texture(probe_moments, moment_pixel / atlas_extent).xy;
+#else
             vec2 moments = texture(probe_moments, probe_map_uv(tile, delta / distance)).xy;
+#endif
             if (distance > moments.x) {
                 // Preserve open-direction fill; reduce sparse uncertainty only behind the mean blocker.
                 float variance = max(0.0, moments.y - moments.x * moments.x)
@@ -172,7 +184,12 @@ bool sample_probe_grid(
         }
 #endif
         // Partially decode to sqrt(E) for interpolation between probes.
+#ifdef OPENRAC_PROBE_RECEIVER_SETUP
+        vec2 irradiance_pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0 + irradiance_offset;
+        vec3 encoded = texture(probe_irradiance, irradiance_pixel / atlas_extent).rgb;
+#else
         vec3 encoded = texture(probe_irradiance, probe_map_uv(tile, n)).rgb;
+#endif
 #ifdef OPENRAC_USE_FP16
         vec3 contribution=pow(max(encoded,vec3(0)),vec3(2.5))*weight;
         // Eight bounded taps fit FP16; preserve exceptional imported HDR in a wide side sum.
@@ -211,9 +228,11 @@ uint probe_candidate_word(ivec2 pixel, int word) {
     }
     ivec2 tile = pixel / 16;
     int tiles_x = (int(probe_tile_extent.x) + 15) / 16;
+    int broad_offset = probe_gpu_selection == 3
+        ? tiles_x * ((int(probe_tile_extent.y) + 15) / 16) * 4 : 0;
     return texelFetch(
                probe_region_masks,
-               129 + (tile.y * tiles_x + tile.x) * 4 + word
+               129 + broad_offset + (tile.y * tiles_x + tile.x) * 4 + word
     )
         .r;
 }

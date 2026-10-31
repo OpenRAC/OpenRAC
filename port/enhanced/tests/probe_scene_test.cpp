@@ -7,11 +7,11 @@
 #include <numbers>
 
 #include "common/json.h"
-#include "enhanced/tools/probes/activation.h"
-#include "enhanced/tools/probes/level_scene.h"
-#include "enhanced/tools/probes/probe_fingerprint.h"
-#include "enhanced/tools/probes/probe_grid.h"
-#include "enhanced/tools/probes/report.h"
+#include "enhanced/tools/baker/output/report.h"
+#include "enhanced/tools/baker/sources/activation.h"
+#include "enhanced/tools/baker/sources/level_scene.h"
+#include "enhanced/tools/baker/sources/probe_fingerprint.h"
+#include "enhanced/tools/baker/sources/probe_grid.h"
 #include "tests/check.h"
 
 using namespace openrac;

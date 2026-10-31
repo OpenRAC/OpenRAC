@@ -45,6 +45,7 @@
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
+#include "game/common/frontend/water_interactions.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
 #include "mods.h"
@@ -1484,6 +1485,7 @@ void keep_tick(
         // A new level's frames cost what they cost: the system forgets the last level's
         // (performance_hint.h).
         platform::workload_reset();
+        g->water_impulses.clear();
     }
     const bool adjacent = g->index == k.frame + 1;
     k.prev_state = k.state;
@@ -1497,6 +1499,11 @@ void keep_tick(
         if (i < k.joints.size() && k.joints[i] > 0 && k.live[i].palette >= 0) {
             k.prev_poses[k.addresses[i]] = {k.live[i].palette, k.joints[i]};
         }
+    }
+    k.water_impulses.swap(g->water_impulses);
+    g->water_impulses.clear();
+    if (adjacent && k.has_state) {
+        water_projectile_impulses(*g->profile, state.mobys, k.state.mobys, k.water_impulses);
     }
     k.prev_palette = std::move(k.palette);
     k.prev_shadows = std::move(k.shadows);

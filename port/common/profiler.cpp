@@ -34,6 +34,11 @@ Zone::Zone(std::string_view name, bool gpu, std::source_location location)
     }
 }
 
+Zone::Zone(std::string_view name, ZoneColour colour, std::source_location location)
+    : Zone(name, false, location) {
+    m_cpu.Color(static_cast<std::uint32_t>(colour));
+}
+
 Zone::~Zone() {
     if (m_gpu) {
         m_gpu_end(m_gpu);

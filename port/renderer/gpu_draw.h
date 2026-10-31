@@ -105,4 +105,8 @@ struct GpuInstanceBatch {
     explicit operator bool() const { return recording != 0; }
 };
 
+struct GpuIndexRange {
+    unsigned first, count;
+};
+
 }  // namespace openrac::renderer

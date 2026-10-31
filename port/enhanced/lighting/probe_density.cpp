@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+//
+// Error-bounded probe-density reduction using packed-map precision and playable receiver checks.
 #include "enhanced/lighting/probe_density.h"
 
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_scene.h"
+#include "enhanced/lighting/probe_texture_encode.h"
 
 namespace openrac::lighting::bake_detail {
 namespace {
@@ -35,6 +39,8 @@ bool inside(const ProbeGrid& grid, Float3 p) {
 
 // Copy only lattice members; interpolating distance moments into new probes would hide blockers.
 ProbeVolume decimate(const ProbeVolume& reference, std::array<unsigned, 3> stride) {
+    const profiling::Zone timing("Decimate probe grid");
+
     auto grid = reference.grid;
 
     for (unsigned a = 0; a < 3; ++a) {
@@ -81,72 +87,64 @@ bool irradiance_matches(
     return probe_density_matches(reference.irradiance, candidate.irradiance, settings, maximum);
 }
 
+// Borrows the two packed fields and ordered error accumulation for one density trial.
+struct DensityComparison {
+    const ProbeVolume& reference;          // Full-density codec result.
+    const ProbeVolume& candidate;          // Proposed reduced codec result.
+    const ProbeVolume& coarse;             // Unchanged coarse fallback.
+    const ProbeDensitySettings& settings;  // Receiver error and support policy.
+    ProbeDensityReport& report;            // Ordered comparison counts.
+    float& maximum;                        // Largest error for the current candidate.
+};
+
 // Wrap weights and receiver-plane weights depend on spacing even in empty space. Compare visible
 // irradiance and validity coverage rather than treating those geometric weights as occlusion.
 bool receiver_matches(
-    const ProbeVolume& reference,
-    const ProbeVolume& candidate,
-    const ProbeVolume& coarse,
-    const ProbeDensityReceiver& receiver,
-    Float3 view,
-    const ProbeDensitySettings& settings,
-    ProbeDensityReport& report,
-    float& maximum
+    const DensityComparison& comparison, const ProbeDensityReceiver& receiver, Float3 view
 ) {
     const auto p = receiver.position, n = receiver.normal;
-    const auto a = sample_local_probes(reference, p, n, .5f, view);
-    const auto b = sample_local_probes(candidate, p, n, .5f, view);
-    ++report.comparisons;
+    const auto a = sample_local_probes(comparison.reference, p, n, .5f, view);
+    const auto b = sample_local_probes(comparison.candidate, p, n, .5f, view);
+    ++comparison.report.comparisons;
 
     if (bool(a) != bool(b)) {
         return false;
     }
 
-    if (a
+    if (a && b
         && (std::abs(a->coverage - b->coverage) > .05f
             || std::abs(a->visibility - b->visibility) > .05f
-            || !irradiance_matches(*a, *b, settings, maximum))) {
+            || !irradiance_matches(*a, *b, comparison.settings, comparison.maximum))) {
         return false;
     }
 
-    const auto full = sample_probe_volumes(coarse, &reference, p, n, .5f, view);
-    const auto reduced = sample_probe_volumes(coarse, &candidate, p, n, .5f, view);
+    const auto full =
+        sample_probe_volumes(comparison.coarse, &comparison.reference, p, n, .5f, view);
+    const auto reduced =
+        sample_probe_volumes(comparison.coarse, &comparison.candidate, p, n, .5f, view);
 
     if (bool(full) != bool(reduced)) {
         return false;
     }
 
-    if (!full) {
+    if (!full || !reduced) {
         return true;
     }
 
-    return irradiance_matches(*full, *reduced, settings, maximum);
+    return irradiance_matches(*full, *reduced, comparison.settings, comparison.maximum);
 }
 
 // Several view biases include grazing views; normal-facing cameras alone miss wall/floor leaks.
 bool acceptable(
-    const ProbeVolume& reference,
-    const ProbeVolume& candidate,
-    const ProbeVolume& coarse,
-    std::span<const ProbeDensityReceiver> receivers,
-    const ProbeDensitySettings& settings,
-    ProbeDensityReport& report,
-    float& maximum
+    const DensityComparison& comparison, std::span<const ProbeDensityReceiver> receivers
 ) {
-    maximum = 0;
+    const profiling::Zone timing("Check density candidate");
+
+    comparison.maximum = 0;
 
     for (const auto& receiver : receivers) {
         for (auto view : probe_density_views(receiver.normal)) {
-            if (!receiver_matches(
-                    reference,
-                    candidate,
-                    coarse,
-                    receiver,
-                    mul(view, .5f),
-                    settings,
-                    report,
-                    maximum
-                )) {
+            if (!receiver_matches(comparison, receiver, mul(view, .5f))) {
                 return false;
             }
         }
@@ -199,6 +197,8 @@ std::vector<ProbeDensityReceiver> probe_density_receivers(
     const BakeSettings& settings,
     unsigned threads
 ) {
+    const profiling::Zone timing("Build density receivers");
+
     if (layout.ceilings.size() != floors.size()) {
         throw std::runtime_error("adaptive probe receivers require matching floor/ceiling data");
     }
@@ -248,70 +248,113 @@ std::vector<ProbeDensityReceiver> probe_density_receivers(
     return result;
 }
 
-ProbeVolume simplify_probe_density(
-    ProbeVolume reference,
-    const ProbeVolume& coarse,
-    std::span<const ProbeDensityReceiver> receivers,
-    const ProbeDensitySettings& settings,
-    ProbeDensityReport& report
+namespace {
+// Selects receiver evidence once without changing its original order.
+std::vector<ProbeDensityReceiver> supported_receivers(
+    const ProbeGrid& grid, std::span<const ProbeDensityReceiver> receivers
 ) {
-    settings.validate();
-    report = {};
-    report.original_probes = report.final_probes = reference.grid.probe_count();
-
-    if (!settings.enabled) {
-        return reference;
-    }
-
-    std::vector<ProbeDensityReceiver> supported;
+    const profiling::Zone timing("Select density receivers");
+    std::vector<ProbeDensityReceiver> result;
 
     for (const auto& receiver : receivers) {
-        if (inside(reference.grid, receiver.position)) {
-            supported.push_back(receiver);
+        // Evidence outside this grid cannot constrain its density.
+        if (inside(grid, receiver.position)) {
+            result.push_back(receiver);
         }
     }
 
-    report.receivers = supported.size();
+    return result;
+}
 
-    // No evidence is never evidence that a region can be simplified.
-    if (supported.empty()) {
-        return reference;
-    }
+// Immutable fine reference and evidence, borrowed until every axis trial has been compared.
+struct DensityTrials {
+    const ProbeVolume& reference;          // Original unquantized lattice.
+    const ProbeVolume& packed_reference;   // The same original after codec quantization.
+    const ProbeDensityInput& input;        // Shared pool, coarse field and identity callback.
+    const ProbeDensitySettings& settings;  // Existing codec and error policy.
+    std::span<const ProbeDensityReceiver> receivers;  // Selected evidence in its original order.
+};
 
+// Tries axes in the original order, retaining only the last accepted lattice and its bytes.
+void choose_density_axes(const DensityTrials& trial, ProbeDensityReduction& result) {
+    auto& report = result.report;
     std::array<unsigned, 3> stride{1, 1, 1};
-    ProbeVolume best;
-    // Compare the GPU's packed irradiance precision, not an unattainable float-only reference.
-    const auto packed_reference = decode_probes(encode_probes(reference));
 
     for (unsigned axis = 0; axis < 3; ++axis) {
-        if (reference.grid.dimensions[axis] < 5 || (reference.grid.dimensions[axis] - 1) % 2) {
+        // Decimation must keep both original lattice endpoints.
+        if (trial.reference.grid.dimensions[axis] < 5
+            || (trial.reference.grid.dimensions[axis] - 1) % 2) {
             continue;
         }
 
         auto next = stride;
         next[axis] = 2;
-        auto candidate = decimate(reference, next);
-        const auto packed_candidate = decode_probes(encode_probes(candidate));
+        auto candidate = decimate(trial.reference, next);
+
+        // Finalize metadata before compression so accepted bytes can become the output unchanged.
+        if (trial.input.settings_hash) {
+            candidate.grid.settings_hash = trial.input.settings_hash(candidate.grid);
+        }
+
+        auto bytes =
+            encode_baked_probes(candidate, trial.settings.texture_format, trial.input.execution);
+        const auto packed_candidate = decode_probes(bytes);
         float maximum = 0;
 
         if (acceptable(
-                packed_reference, packed_candidate, coarse, supported, settings, report, maximum
+                {trial.packed_reference,
+                 packed_candidate,
+                 trial.input.coarse,
+                 trial.settings,
+                 report,
+                 maximum},
+                trial.receivers
             )) {
             stride = next;
-            best = std::move(candidate);
+            result.volume = std::move(candidate);
+            result.bytes = std::move(bytes);
             report.maximum_error = maximum;
             ++report.accepted_axes;
         } else {
             ++report.rejected_axes;
         }
     }
+}
+}  // namespace
 
-    if (!report.accepted_axes) {
-        return reference;
+ProbeDensityReduction simplify_probe_density(
+    ProbeVolume reference, const ProbeDensityInput& input, const ProbeDensitySettings& settings
+) {
+    const profiling::Zone timing("Simplify probe density");
+    settings.validate();
+    ProbeDensityReduction result;
+    auto& report = result.report;
+    report.original_probes = report.final_probes = reference.grid.probe_count();
+    auto original_bytes = encode_baked_probes(reference, settings.texture_format, input.execution);
+    const auto supported = settings.enabled ? supported_receivers(reference.grid, input.receivers)
+                                            : std::vector<ProbeDensityReceiver>{};
+    report.receivers = settings.enabled ? supported.size() : 0;
+
+    // Disabled reduction or missing evidence retains the already encoded original grid.
+    if (!settings.enabled || supported.empty()) {
+        result.volume = std::move(reference);
+        result.bytes = std::move(original_bytes);
+        return result;
     }
 
-    best.validate();
-    report.final_probes = best.grid.probe_count();
-    return best;
+    const auto packed_reference = decode_probes(original_bytes);
+    choose_density_axes({reference, packed_reference, input, settings, supported}, result);
+
+    // Rejected trials retain the original bytes; accepted trials retain their original fallback once.
+    if (!report.accepted_axes) {
+        result.volume = std::move(reference);
+        result.bytes = std::move(original_bytes);
+    } else {
+        result.reference_bytes = std::move(original_bytes);
+    }
+
+    result.volume.validate();
+    report.final_probes = result.volume.grid.probe_count();
+    return result;
 }
 }  // namespace openrac::lighting::bake_detail

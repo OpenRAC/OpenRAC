@@ -4,6 +4,7 @@
 // Static reflection capture after the final diffuse GI assets have been verified.
 #pragma once
 #include "enhanced/lighting/bake.h"
+#include "enhanced/lighting/bake_workers.h"
 #include "enhanced/lighting/environment.h"
 
 namespace openrac::lighting {
@@ -96,7 +97,7 @@ EnvironmentAsset bake_environment(
     std::span<const ProbeVolume> gi,
     std::span<const EnvironmentFloorSample> floors,
     const EnvironmentBakeSettings& options = {},
-    unsigned threads = 0,
+    const BakeExecution& execution = {},
     EnvironmentPlacementReport* placement = nullptr
 );
 }  // namespace openrac::lighting

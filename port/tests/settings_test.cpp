@@ -39,6 +39,23 @@ void test_temporal_settings(const std::filesystem::path& file) {
     CHECK(settings::get().motion_blur_strength == .5f);
 }
 
+void test_lily_momentum(const std::filesystem::path& file) {
+    using namespace openrac;
+    for (const float value : {0.f, .25f, .65f, 1.f}) {
+        std::ofstream(file) << "lily_momentum = " << value << "\n";
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == value);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == value);
+    }
+    for (const char* invalid : {"nan", "inf", "-0.1", "1.1", "bad"}) {
+        std::ofstream(file) << "lily_momentum = " << invalid << "\n";
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == .25f);
+    }
+}
+
 void test_reset_enhanced() {
     using namespace openrac;
     settings::Settings s;
@@ -49,6 +66,7 @@ void test_reset_enhanced() {
     s.frame_cap = 144;
     s.texture_filter = renderer::TextureFilter::Normal;
     s.shadow_quality = renderer::ShadowQuality::Low;
+    s.volumetric_quality = renderer::VolumetricQuality::High;
     s.agx_preview = false;
     s.agx_exposure = 2;
     s.agx_brightness = 1;
@@ -56,14 +74,17 @@ void test_reset_enhanced() {
     s.probe_spheres = true;
     s.motion_blur = false;
     s.motion_blur_settings.samples = 64;
+    s.lily_momentum = .8f;
     s.reset_enhanced();
     CHECK(s.enhanced_rendering && s.enhanced_graphics);
     CHECK(s.volume == 37 && s.render_scale == 75 && s.frame_cap == 144);
     CHECK(s.texture_filter == renderer::TextureFilter::EdgeAware);
     CHECK(s.shadow_quality == renderer::ShadowQuality::High);
+    CHECK(s.volumetric_quality == renderer::VolumetricQuality::Off);
     CHECK(s.agx_preview && s.agx_exposure == .25f && s.agx_brightness == .5f);
     CHECK(!s.sun_direction_override && !s.probe_spheres);
-    CHECK(s.motion_blur && s.motion_blur_settings.samples == 32);
+    CHECK(s.motion_blur && s.motion_blur_settings.samples == 16);
+    CHECK(s.lily_momentum == .25f);
 }
 
 void test_agx_preview(const std::filesystem::path& file) {
@@ -127,12 +148,31 @@ void test_motion_blur_tuning(const std::filesystem::path& file) {
       << "motion_blur_depth_tolerance = -1\nmotion_blur_cutscene_multiplier = inf\n";
     settings::load(file);
     const auto& blur = settings::get().motion_blur_settings;
-    CHECK(blur.max_radius == 128 && blur.samples == 32);
-    CHECK(blur.min_motion == .5f && blur.spread == .5f);
+    CHECK(blur.max_radius == 64 && blur.samples == 16);
+    CHECK(blur.min_motion == 1.f && blur.spread == .5f);
     CHECK(blur.depth_tolerance == .009f && blur.cutscene_multiplier == 1.f);
 }
 
-// Invalid or missing keys keep High; both published choices survive save/load.
+// Missing/invalid keys leave experimental volumetrics off; every tier survives save/load.
+void test_volumetric_quality(const std::filesystem::path& file) {
+    using namespace openrac;
+    for (std::size_t n = 0; n < std::size(renderer::kVolumetricQualityKeys); ++n) {
+        std::ofstream(file) << "volumetric_quality = " << renderer::kVolumetricQualityKeys[n]
+                            << "\n";
+        settings::load(file);
+        CHECK(settings::get().volumetric_quality == static_cast<renderer::VolumetricQuality>(n));
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().volumetric_quality == static_cast<renderer::VolumetricQuality>(n));
+    }
+    std::ofstream(file) << "volumetric_quality = invalid\n";
+    settings::load(file);
+    CHECK(settings::get().volumetric_quality == renderer::VolumetricQuality::Off);
+    std::ofstream(file) << "";
+    settings::load(file);
+    CHECK(settings::get().volumetric_quality == renderer::VolumetricQuality::Off);
+}
+
 void test_shadow_quality(const std::filesystem::path& file) {
     using namespace openrac;
     CHECK(settings::Settings{}.shadow_quality == renderer::ShadowQuality::High);
@@ -287,10 +327,12 @@ int main() {
     CHECK(settings::get().medial_axis_debug);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
+    test_lily_momentum(file);
     test_reset_enhanced();
     test_agx_preview(file);
     test_motion_blur_tuning(file);
     test_shadow_quality(file);
+    test_volumetric_quality(file);
     test_sunlight_settings(file);
     test_frame_counter_modes(file);
     test_game_options_load_from_the_file(file);

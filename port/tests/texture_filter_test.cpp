@@ -14,6 +14,7 @@
 #include "enhanced/renderer/texture_upscale.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "renderer/framebuffer.h"
+#include "renderer/render_opt.h"
 #include "renderer/shader.h"
 #include "renderer/texture_pool.h"
 #include "renderer_gl_context.h"
@@ -232,6 +233,30 @@ public:
         for (const auto& path : kCases) {
             test_material_path(path);
         }
+    }
+
+    void test_variant_wrapping() {
+        if (!m_upscaler) {
+            return;
+        }
+        for (unsigned wrap = 0; wrap < 4; ++wrap) {
+            m_repeat_s = (wrap & 1) != 0;
+            m_repeat_t = (wrap & 2) != 0;
+            std::vector<unsigned char> reference;
+            for (const bool variants : {false, true}) {
+                renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, variants);
+                m_upscaler->forget(m_texture);
+                draw(1, 64, 64);
+                const auto pixels = m_frame.read_rgba();
+                if (!variants) {
+                    reference = pixels;
+                } else {
+                    CHECK(pixels == reference);
+                }
+            }
+        }
+        renderer::render_opt::reset();
+        m_repeat_s = m_repeat_t = true;
     }
 
     // Checks independently reconstructed repeat/clamp border neighbourhoods.
@@ -502,6 +527,7 @@ int main(int argc, char** argv) try {
     if (enhanced_rendering_available()) {
         fixture.test_debanding(argc == 2 ? argv[1] : "");
     }
+    fixture.test_variant_wrapping();
     return test::result();
 } catch (const std::exception& failure) {
     std::fprintf(stderr, "%s\n", failure.what());

@@ -66,7 +66,7 @@ bool RenderWorker::submit(std::function<void()> job, std::string& error) {
 }
 
 bool RenderWorker::finish(std::string& error) {
-    const profiling::Zone trace("Render completion wait");
+    const profiling::Zone trace("Render completion wait", profiling::ZoneColour::Idle);
     std::unique_lock lock(m_mutex);
     m_changed.wait(lock, [this] { return !m_busy; });
     error = m_error;
@@ -74,7 +74,7 @@ bool RenderWorker::finish(std::string& error) {
 }
 
 bool RenderWorker::ready_until(std::chrono::steady_clock::time_point deadline) {
-    const profiling::Zone trace("Render readiness wait");
+    const profiling::Zone trace("Render readiness wait", profiling::ZoneColour::Idle);
     std::unique_lock lock(m_mutex);
     return m_changed.wait_until(lock, deadline, [this] { return !m_busy; });
 }
@@ -88,7 +88,7 @@ void RenderWorker::run() {
     for (;;) {
         std::unique_lock lock(m_mutex);
         {
-            const profiling::Zone trace("Render worker idle");
+            const profiling::Zone trace("Render worker idle", profiling::ZoneColour::Idle);
             m_changed.wait(lock, [this] { return m_stopping || static_cast<bool>(m_job); });
         }
 

@@ -111,6 +111,9 @@ bool active();
 // (including readback flush boundaries), not merely one displayed frame.
 bool gpu_driven_active();
 bool gpu_materials_active();
+// Starts a recording if needed and returns its identity; zero without GPU instance rendering.
+// Cached instance batches must be rebuilt after the identity changes, including readback flushes.
+std::uint64_t gpu_instance_recording();
 // Indexed viewports route shadow draws to atlas rectangles from the vertex
 // shader. Empty rectangles restore the ordinary single-viewport path.
 bool indexed_viewports_supported(unsigned count);
@@ -122,6 +125,11 @@ renderer::GpuInstanceBatch gpu_instances(
 );
 bool draw_gpu_instances(
     renderer::GpuInstanceBatch batch, unsigned first_index, unsigned index_count
+);
+
+// Consecutive ranges sharing all current state and one instance batch. No per-draw materials.
+bool draw_gpu_instance_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
 );
 
 // Draws triangles with uint32 indices from the current vertex array using a compute-written command.
@@ -233,6 +241,9 @@ struct SubmissionCounters {
     // can see (VmaAllocationInfo's memory type), made so far.
     std::uint64_t buffer_static_bytes_host_visible = 0;
     std::uint64_t cpu_mirror_bytes = 0;  // Now: the CPU copies GL's buffers keep (glBufferData).
+    std::uint64_t buffer_zero_fill_bytes =
+        0;  // Cumulative: glBufferData mirror zero initialisation.
+    std::uint64_t buffer_mirror_restore_bytes = 0;  // Cumulative: discarded mirrors recovered.
     // Bytes the CPU writes for the GPU-driven instances: each batch's payload as it is built, and
     // its copy into the mapped input page at the end of the recording.
     std::uint64_t gpu_payload_bytes = 0;

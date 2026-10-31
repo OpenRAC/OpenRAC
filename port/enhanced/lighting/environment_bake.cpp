@@ -4,14 +4,13 @@
 // Embree captures shade visible surfaces from the completed runtime-reference GI field.
 #include "enhanced/lighting/environment_bake.h"
 
+#include <algorithm>
 #include <atomic>
 #include <bit>
-#include <exception>
-#include <map>
-#include <mutex>
-#include <thread>
+#include <cfenv>
+#include <memory>
+#include <stdexcept>
 
-#include "common/joining_thread.h"
 #include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_transport.h"
@@ -23,6 +22,21 @@
 namespace openrac::lighting {
 namespace {
 using namespace bake_detail;
+
+// Caps an explicit stage limit by the borrowed pool's budget.
+unsigned worker_budget(const BakeExecution& execution) {
+    // Without a shared pool, zero retains hardware concurrency selection.
+    if (!execution.pool) {
+        return execution.threads;
+    }
+
+    // Zero requests the full existing pool rather than another hardware-sized set.
+    if (execution.threads == 0) {
+        return execution.pool->size();
+    }
+
+    return std::min(execution.threads, execution.pool->size());
+}
 
 // Immutable inputs borrowed for the lifetime of the capture workers.
 struct Capture {
@@ -96,6 +110,7 @@ Float3 capture(const Capture& context, Float3 origin, Float3 direction) {
 
 // Capture six source faces before integrating any roughness levels.
 std::vector<Float3> capture_faces(const Capture& context, Float3 origin, unsigned size) {
+    const profiling::Zone zone("Capture environment faces");
     std::vector<Float3> faces(std::size_t(6) * size * size);
 
     for (unsigned face = 0; face < 6; ++face) {
@@ -113,41 +128,52 @@ std::vector<Float3> capture_faces(const Capture& context, Float3 origin, unsigne
     return faces;
 }
 
-// Workers write disjoint probe bands; failures are rethrown after every worker joins.
-void capture_parallel(EnvironmentAsset& asset, const Capture& context, unsigned threads) {
+// Workers write disjoint probe bands and inherit the caller's arithmetic environment on each batch.
+void capture_parallel(
+    EnvironmentAsset& asset, const Capture& context, const BakeExecution& execution
+) {
     std::atomic<unsigned> next{0};
-    std::exception_ptr error;
-    std::mutex mutex;
-    const unsigned count = std::min(
-        static_cast<unsigned>(asset.probes.size()),
-        threads ? threads : std::max(1u, std::thread::hardware_concurrency())
-    );
-    {
-        std::vector<JoiningThread> workers;
+    std::unique_ptr<BakeThreadPool> local;
 
-        for (unsigned worker = 0; worker < count; ++worker) {
-            workers.emplace_back([&] {
-                try {
-                    for (unsigned id = next.fetch_add(1); id < asset.probes.size();
-                         id = next.fetch_add(1)) {
-                        const auto faces =
-                            capture_faces(context, asset.probes[id].position, asset.resolution);
-                        filter_environment(asset, id, faces, context.options.filter_samples);
-                    }
-                } catch (...) {
-                    std::lock_guard lock(mutex);
-
-                    if (!error) {
-                        error = std::current_exception();
-                    }
-                    next.store(static_cast<unsigned>(asset.probes.size()));
-                }
-            });
-        }
+    // Standalone captures can run without the batch coordinator's persistent pool.
+    if (!execution.pool) {
+        local = std::make_unique<BakeThreadPool>(execution.threads);
     }
 
-    if (error) {
-        std::rethrow_exception(error);
+    auto& pool = execution.pool ? *execution.pool : *local;
+    const unsigned count = std::min(
+        static_cast<unsigned>(asset.probes.size()),
+        execution.pool ? worker_budget(execution) : pool.size()
+    );
+    std::fenv_t environment;
+
+    // A previous GI batch may have used directed rounding on these same workers.
+    if (std::fegetenv(&environment) != 0) {
+        throw std::runtime_error("cannot read reflection floating-point environment");
+    }
+
+    // Tasks borrow capture state until run() drains them, including failed captures.
+    const auto result = pool.run(count, [&] {
+        try {
+            // Reused workers must not retain a preceding stage's arithmetic mode.
+            if (std::fesetenv(&environment) != 0) {
+                throw std::runtime_error("cannot set reflection floating-point environment");
+            }
+
+            for (unsigned id = next.fetch_add(1); id < asset.probes.size();
+                 id = next.fetch_add(1)) {
+                const auto faces =
+                    capture_faces(context, asset.probes[id].position, asset.resolution);
+                filter_environment(asset, id, faces, context.options.filter_samples);
+            }
+        } catch (...) {
+            next.store(static_cast<unsigned>(asset.probes.size()));
+            throw;
+        }
+    });
+
+    if (!result) {
+        throw std::runtime_error(result.error().message);
     }
 }
 }  // namespace
@@ -158,7 +184,7 @@ EnvironmentAsset bake_environment(
     std::span<const ProbeVolume> gi,
     std::span<const EnvironmentFloorSample> floors,
     const EnvironmentBakeSettings& options,
-    unsigned threads,
+    const BakeExecution& execution,
     EnvironmentPlacementReport* placement
 ) {
     const profiling::Zone trace("Bake environment probes");
@@ -181,9 +207,11 @@ EnvironmentAsset bake_environment(
         throw std::runtime_error("invalid environment bake settings");
     }
 
+    const unsigned threads = worker_budget(execution);
     Scene scene(source, settings.sunlight_direction, threads);
     const CaptureGi field(gi);
     EnvironmentAsset asset;
+    asset.colour_format = settings.texture_format;
     asset.resolution = options.resolution;
     asset.level = gi[0].grid.level;
     asset.scene_hash = gi[0].grid.scene_hash;
@@ -198,7 +226,7 @@ EnvironmentAsset bake_environment(
     }
 
     asset.pixels.resize(std::size_t(asset.width()) * asset.height());
-    capture_parallel(asset, {scene, settings, field, options}, threads);
+    capture_parallel(asset, {scene, settings, field, options}, execution);
     scene.check_error();
     integrate_environment_brdf(asset, options.filter_samples * 2);
     asset.validate();

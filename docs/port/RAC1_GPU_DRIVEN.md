@@ -19,6 +19,10 @@ Shadow views use their own planes and never camera PVS. Terrain also retains
 its CPU-cached PVS index compaction to preserve material runs. Hi-Z geometry
 occlusion is not implemented.
 
+Depth and colour reuse camera visibility batches within the same Vulkan recording.
+Camera/mask changes, instance updates and recording splits invalidate reuse.
+Set `OPENRAC_RENDER_OPT_OFF=camera-visibility-reuse` for fresh batches per pass.
+
 A second dispatch builds indexed indirect arguments from immutable ranges and
 visible-instance counts. Graphics consumes these and the compacted instance
 stream without CPU visibility readback. Compatible adjacent commands merge
@@ -81,8 +85,10 @@ Opaque colour batches across layers when GPU visibility/materials and reusable
 prepass depth are available. It tests `EQUAL` with depth writes off. Runs stop
 at translucent, glow, metal or effect work to preserve pass order. Visibility
 is calculated once per layer. Otherwise original scheduling applies.
-Blended receivers select from all resident probe regions because their surfaces
-can lie outside the opaque depth bounds used to build tile masks.
+Blended receivers use a second conservative probe-region mask built from each tile's four
+side planes, without opaque depth bounds. Their surfaces may occupy any depth, including
+empty opaque tiles. Secondary views and mismatched viewports retain the full selected lookup.
+The `probe-translucent-tiles` registry switch keeps that full lookup as its reference.
 
 Specialised static solid, static cutout, opaque moby and static translucent
 programs reduce unused controls. Solid shaders have no discard; static shaders

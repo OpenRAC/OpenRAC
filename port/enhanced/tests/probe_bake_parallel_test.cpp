@@ -8,6 +8,7 @@
 #include <thread>
 
 #include "enhanced/lighting/bake.h"
+#include "enhanced/lighting/bake_workers.h"
 #include "tests/check.h"
 
 using namespace openrac::lighting;
@@ -18,6 +19,10 @@ BakeScene fixture() {
     scene.environment = {.3f, .2f, .1f};
     scene.suns = {{{.2f, .1f, -1}, {1, 2, 3}}};
     scene.point_emitters = {{{0, 0, 3}, {2, 1, .5f}}};
+    // Transparent emitters exercise deterministic source-order reduction across worker budgets.
+    scene.area_emitters =
+        {{{0, 0, 6}, {5, 0, 0}, {0, -5, 0}, {.4f, .3f, .2f}},
+         {{2, 0, 8}, {3, 1, 0}, {0, -3, 0}, {.1f, .2f, .4f}}};
     scene.textures.push_back({2, 1, {64, 128, 192, 255, 192, 128, 64, 0}});
     // Floor, cutout wall, and a thin closed slab that exercises relocation.
     scene.triangles =
@@ -59,7 +64,8 @@ void test_direction_cache() {
     settings.bounces = 0;
     ProbeGrid grid;
     const int rounding = std::fegetround();
-    ProbeBaker prepared(scene, settings);
+    BakeThreadPool pool(4);
+    ProbeBaker prepared(scene, settings, 4, &pool);
     for (const int mode : {FE_TONEAREST, FE_TOWARDZERO, FE_TONEAREST}) {
         CHECK(std::fesetround(mode) == 0);
         bool matches = true;
@@ -135,8 +141,20 @@ int main(int argc, char** argv) {
     } else {
         test_direction_cache();
         // A prepared level must produce the same grids and recover after callback cancellation.
-        ProbeBaker prepared(scene, settings);
+        BakeThreadPool pool(4);
+        ProbeBaker prepared(scene, settings, 4, &pool);
         CHECK(encode_probes(prepared.bake(grid, {}, 4)) == encoded);
+        // A one-worker request still reports from its controller when borrowing a wider pool.
+        auto single_grid = grid;
+        single_grid.dimensions = {2, 2, 2};
+        const auto single = prepared.bake(
+            single_grid,
+            [&](std::size_t, std::size_t) { CHECK(std::this_thread::get_id() == caller); },
+            1
+        );
+        CHECK(
+            encode_probes(single) == encode_probes(bake_probes(single_grid, scene, settings, {}, 1))
+        );
         auto local_grid = grid;
         local_grid.origin = {1, 2, 3};
         local_grid.dimensions = {2, 3, 2};

@@ -30,8 +30,8 @@ build folder keeps it too.
 launcher's "Rebuild the game", and what it runs after an update); the
 --source and --disc choices the folder kept are kept.
 
---probe-baker also builds openrac-probe-bake, the offline baker of the
-enhanced rendering's probe lighting (port/enhanced/tools/probes), which the
+--probe-baker also builds openrac-enhanced-baker, the offline baker of the
+enhanced rendering's probe lighting (port/enhanced/tools/baker), which the
 launcher runs on the player's own extracted levels. It needs Embree 4
 (Apache-2.0): a pinned release's source is downloaded once, checked against
 its SHA-256 and built as a static library in port/build/embree/, so the
@@ -133,7 +133,7 @@ EMBREE_X86_ISAS = {
     "EMBREE_ISA_AVX512": "OFF",
 }
 EMBREE_DIR = PORT / "build" / "embree"
-BAKER = "openrac-probe-bake"
+BAKER = "openrac-enhanced-baker"
 # Intel Macs ship without the baker (the maintainers' decision): AppleClang builds Embree's static
 # library for one ISA only, and x86-64 needs several (EMBREE_X86_ISAS), so it cannot be built there.
 # A level without a bake keeps the original lighting (port/enhanced/viewer/probe_lighting.cpp), and
@@ -612,7 +612,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target", action="append", default=[], metavar="NAME",
                         help="also build this target of the port (a test program such as runtime_test)")
     parser.add_argument("--probe-baker", action="store_true",
-                        help="also build openrac-probe-bake, the enhanced lighting's baker, with a pinned Embree "
+                        help="also build openrac-enhanced-baker, the enhanced lighting's baker, with a pinned Embree "
                              "built from source (kept for later builds; left out with a warning if it fails)")
     parser.add_argument("--tracy", action="store_true", help="build optional Tracy CPU and Vulkan GPU profiling")
     parser.add_argument("--tracy-system", action="store_true", help="enable Tracy system tracing (implies --tracy)")

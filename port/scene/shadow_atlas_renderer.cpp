@@ -46,6 +46,10 @@ bool LevelScene::make_shadow_atlas(std::string& error) {
             return false;
         }
     }
+    std::string dry_error;
+    if (!make_dry_shadow_programs(true, dry_error)) {
+        log::warn("Dry atlas shadow variants unavailable: {}", dry_error);
+    }
     if (!m_shadow_atlas) {
         m_shadow_atlas = std::make_unique<renderer::FrameBuffer>();
     }

@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from enhanced.bake_inputs import write_bake_inputs
 
@@ -58,9 +59,43 @@ class BakeInputs(unittest.TestCase):
 
     def test_gameplay_retained_for_all_rac1_levels(self):
         for version in ('pal', 'ntsc'):
-            level = SimpleNamespace(game='rac1', version=version, id=1, gameplay=b'authored gameplay')
+            level = SimpleNamespace(game='rac1', version=version, id=2, gameplay=b'authored gameplay')
             with tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 self.assertEqual(write_bake_inputs(level, root), {'gameplay': 'rac1-v1'})
                 self.assertEqual((root/'bake-inputs/gameplay.bin').read_bytes(), level.gameplay)
                 self.assertEqual(len(list((root/'bake-inputs').iterdir())), 1)
+
+    def test_novalis_export_retains_water_overlay(self):
+        from test_port import synthetic_level
+        for version in ('ntsc', 'pal'):
+            from port import PortLevelWriter
+            level = synthetic_level()
+            level.id, level.version = 1, version
+            level.stored = {'overlay': b'authored water tables'}
+            with tempfile.TemporaryDirectory() as temporary:
+                writer = PortLevelWriter(Path(temporary), level)
+                writer.dir.mkdir(parents=True)
+                writer.finish()
+                manifest = json.loads((writer.dir/'manifest.json').read_text())
+                self.assertEqual(manifest['bake_inputs']['water'], 'profile-v1')
+                self.assertEqual((writer.dir/'bake-inputs/overlay.bin').read_bytes(), level.stored['overlay'])
+
+
+    def test_water_profile_retains_overlay_for_any_configured_level(self):
+        from enhanced import profiles
+        level = SimpleNamespace(game='rac1', version='pal', id=12,
+                                gameplay=b'gameplay', stored={'overlay':b'configured tables'})
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile = root/'profiles/rac1-pal/level_12/probe-bake.json'
+            profile.parent.mkdir(parents=True)
+            profile.write_text('{"version":1,"water_sources":{"version":1}}')
+            export = root/'export'
+            export.mkdir()
+            with patch.object(profiles,'PROFILE_ROOT',root/'profiles'):
+                metadata = write_bake_inputs(level,export)
+                profiles.write_bake_profile(level,export)
+            self.assertEqual(metadata['water'],'profile-v1')
+            self.assertEqual((export/'bake-inputs/overlay.bin').read_bytes(),level.stored['overlay'])
+            self.assertEqual((export/'probe-bake.json').read_bytes(),profile.read_bytes())
