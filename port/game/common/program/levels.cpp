@@ -220,11 +220,6 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
         return 1;
     }
 
-    if (!mods.empty()) {
-        log::info("all {} levels can be drawn with mod overrides from {}", ids.size(), mods.string());
-        return 0;
-    }
-
     if (std::FILE* f = std::fopen(stamp.string().c_str(), "wb")) {
         const std::string text = std::format(
             "{{\"format\": {}, \"levels\": {}, \"program\": \"{}\"}}\n",
@@ -239,7 +234,11 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
         return 1;
     }
 
-    log::info("all {} levels can be drawn: {}", ids.size(), stamp.string());
+    if (mods.empty()) {
+        log::info("all {} levels can be drawn: {}", ids.size(), stamp.string());
+    } else {
+        log::info("all {} levels can be drawn with mod overrides from {}", ids.size(), mods.string());
+    }
     return 0;
 }
 #endif

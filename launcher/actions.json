@@ -401,7 +401,7 @@
       {
         "id": "port-levels-check",
         "label": "Check the levels",
-        "description": "The game reads every level as it will when you play, without opening its window, and says which it cannot draw. A few seconds. Play waits for it: a level that is missing or cut short would be a black world.",
+        "description": "The game reads every level and active mod scenery override as it will when you play, without opening its window, and says which file it cannot draw. A few seconds. Play waits for the base level check: a level that is missing or cut short would be a black world.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
@@ -411,6 +411,8 @@
           "{data}",
           "--levels",
           "{root}/assets/port/rac1/pal",
+          "--mods",
+          "{data}/mods/pal",
           "--check-levels"
         ],
         "cwd": ".",
@@ -1059,7 +1061,7 @@
       {
         "id": "port-levels-check",
         "label": "Check the levels",
-        "description": "The game reads every level as it will when you play, without opening its window, and says which it cannot draw. A few seconds. Play waits for it: a level that is missing or cut short would be a black world.",
+        "description": "The game reads every level and active mod scenery override as it will when you play, without opening its window, and says which file it cannot draw. A few seconds. Play waits for the base level check: a level that is missing or cut short would be a black world.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
@@ -1069,6 +1071,8 @@
           "{data}",
           "--levels",
           "{root}/assets/port/rac1/ntsc",
+          "--mods",
+          "{data}/mods/ntsc",
           "--check-levels"
         ],
         "cwd": ".",

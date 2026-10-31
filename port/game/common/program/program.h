@@ -123,7 +123,7 @@ void load_level_program(int level);
 // that has nothing to draw, is named with the reason; when all are whole, `verified-<format>.json`
 // (the extracted levels' format, scene::kManifestFormat) is written beside them, which the
 // launcher asks for before it offers Play. With MODS, the same per-level model and texture
-// overrides the game reads are checked too; this does not create or replace the base-level stamp.
+// overrides the game reads are checked too; a failed mod check leaves the base-level stamp alone.
 // A game started over levels that are missing or cut short shows its HUD over a black world and
 // says nothing else; levels of an older format fail the check (their manifests are refused), so
 // the launcher reads them from the disc again.
