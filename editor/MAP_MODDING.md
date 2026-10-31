@@ -57,6 +57,9 @@ from another level is not supported because its core data and native update code
 level-specific. The packer rejects a class absent from the target level's core. It also
 rejects a class with no existing instance to copy initialized per-object data from.
 Use a class already placed in the target level or add its model as static scenery.
+Do not change an existing moby's class in place: its class-specific pvars would still
+belong to the old class. Delete the old instance and add a target-level class instance
+instead; Pack copies that class's initialized pvars from an existing instance.
 Models must use triangle meshes, PNG or JPEG textures, and supported glTF materials.
 Texture and buffer files must be inside the donor level or creator project; `.gltf`
 buffer files are flattened into the project-local import. Unsupported animation,

@@ -284,21 +284,14 @@ def pack_level(level_id: int, gameplay: bytes, scene: str,
             if index is not None and owner[index] is node:
                 record = dict(zip(FIELDS, RECORD.unpack(raw[index])))
                 target_class = node["class_id"]
-                if (available_classes is not None and target_class is not None
-                        and target_class != record["class_id"]):
-                    if target_class not in available_classes:
-                        problems.append(
-                            f"{node['name']}: class {target_class} is not in this level's core class table; "
-                            "native classes from another level are not supported yet. Use a class available in "
-                            "this level or import the model as static scenery."
-                        )
-                    elif target_class not in {m["class_id"] for m in originals}:
-                        problems.append(
-                            f"{node['name']}: class {target_class} exists in this level's core, but there is "
-                            "no placed instance to copy initialized pvars from; changing to this class cannot "
-                            "be packed safely. Use a class with an existing instance or import the model as "
-                            "static scenery."
-                        )
+                if target_class is not None and target_class != record["class_id"]:
+                    problems.append(
+                        f"{node['name']}: changing an existing moby's class does not replace its class-specific "
+                        "pvars and is not safe. Delete this node, then add an instance of a class already "
+                        "present in the level, or import the model as static scenery."
+                    )
+                    kept[index] = raw[index]
+                    continue
                 edits = apply(node, record, originals[index], True, problems)
                 kept[index] = RECORD.pack(*(record[f] for f in FIELDS)) if edits else raw[index]
                 if edits:
