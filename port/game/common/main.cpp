@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -365,6 +366,23 @@ int run_game_as_the_ee() {
     return openrac_game_run();
 }
 
+// Keep arena selection in step with lib/cdvd.c's virtual.tsv reader: only a usable row
+// actually routes reads outside the disc and needs the expanded guest RAM path.
+bool has_virtual_sector_mappings(const fs::path& mount) {
+    std::ifstream input(mount / "virtual.tsv");
+    std::string line;
+    while (std::getline(input, line)) {
+        unsigned first = 0;
+        unsigned count = 0;
+        char name[2048] = {};
+        if (std::sscanf(line.c_str(), "%u\t%u\t%2047[^\t\r\n]", &first, &count, name) == 3
+            && count != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -453,16 +471,14 @@ int main(int argc, char** argv) {
     }
 
     std::uint32_t ram_size = GUEST_RAM_SIZE;
-    if (!g_options.mods.empty()) {
-        std::ifstream virtual_map(g_options.mods / "virtual.tsv");
-        std::string line;
-        while (std::getline(virtual_map, line)) {
-            const auto first = line.find_first_not_of(" \t\r");
-            if (first != std::string::npos && line[first] != '#') {
-                ram_size = GUEST_RAM_EXPANDED_SIZE;
-                break;
-            }
-        }
+    const bool expanded_streams =
+        (!g_options.ship_map && !g_options.mods.empty()
+         && has_virtual_sector_mappings(g_options.mods))
+        || std::any_of(destination_mounts.begin(), destination_mounts.end(), [](const auto& mount) {
+               return has_virtual_sector_mappings(mount);
+           });
+    if (expanded_streams) {
+        ram_size = GUEST_RAM_EXPANDED_SIZE;
     }
     if (ram_size > GUEST_RAM_SIZE) {
         log::info("expanded level streams enabled: guest RAM is {} MiB", ram_size >> 20);
