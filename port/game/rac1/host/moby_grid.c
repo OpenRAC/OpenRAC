@@ -23,6 +23,11 @@ enum {
     GRID_USED_BYTES = GRID_BITMAP + GRID_BITMAP_WORDS * 4
 };
 
+_Static_assert(GRID_USED_BYTES <= OPENRAC_EXPANDED_MOBY_GRID_RESERVE,
+               "expanded moby grid exceeds its guest RAM reservation");
+_Static_assert(GUEST_RAM_EXPANDED_SIZE > OPENRAC_EXPANDED_RAC1_RESERVE,
+               "expanded RAC1 reservation leaves no heap");
+
 static uint32_t grid_program_load = UINT32_MAX;
 
 /* Host collision queries and the translated updater use the same expanded grid. A new
@@ -164,7 +169,7 @@ static int grid_remove(gaddr base, unsigned x, unsigned y, uint16_t id) {
     const gaddr cell = grid_cell_address(base, x, y);
     const uint32_t first = GREF(uint32_t, cell);
     const uint32_t count = GREF(uint32_t, cell + 4);
-    const uint32_t capacity = GREF(uint32_t, cell + 8);
+    uint32_t capacity = GREF(uint32_t, cell + 8);
     if (count == 0 || capacity == 0) {
         return 0;
     }
@@ -186,8 +191,41 @@ static int grid_remove(gaddr base, unsigned x, unsigned y, uint16_t id) {
         grid_free(base, first, capacity);
         GREF(uint32_t, cell) = 0;
         GREF(uint32_t, cell + 8) = 0;
+    } else {
+        /* Return half of an underused list as it shrinks. Keep four spare entries, as the
+         * retail grid does, to avoid reallocating on small count fluctuations. */
+        while (capacity > 1 && new_count < capacity * 8u - 4u) {
+            capacity >>= 1;
+            grid_free(base, first + capacity, capacity);
+            GREF(uint32_t, cell + 8) = capacity;
+        }
     }
     return 1;
+}
+
+/* Undo an insertion attempt, including any cell-list growth performed before a later cell ran
+ * out of blocks. Allocations are aligned power-of-two ranges, so the unused upper half of each
+ * grown range can be returned without copying the retained entries. */
+static void grid_rollback_add_rect(gaddr base, uint32_t rect, uint32_t keep, uint16_t id) {
+    if (rect & 0x80000000u) {
+        return;
+    }
+    for (unsigned y = (rect >> 8) & 255u; y <= rect >> 24; ++y) {
+        for (unsigned x = rect & 255u; x <= ((rect >> 16) & 255u); ++x) {
+            if (rect_contains(keep, (int)x, (int)y) || !grid_remove(base, x, y, id)) {
+                continue;
+            }
+            const gaddr cell = grid_cell_address(base, x, y);
+            const uint32_t first = GREF(uint32_t, cell);
+            uint32_t capacity = GREF(uint32_t, cell + 8);
+            const uint32_t count = GREF(uint32_t, cell + 4);
+            while (capacity > 1 && count <= capacity * 8u) {
+                capacity >>= 1;
+                grid_free(base, first + capacity, capacity);
+                GREF(uint32_t, cell + 8) = capacity;
+            }
+        }
+    }
 }
 
 static void grid_remove_rect(gaddr base, uint32_t rect, uint32_t keep, uint16_t id,
@@ -224,7 +262,7 @@ void game_rac1_update_expanded_moby_grid(gaddr moby, uint32_t next) {
     /* Add newly covered cells before removing old cells. If pool allocation fails, roll back
      * those additions and retain the previous grid rectangle and its collision coverage. */
     if (!grid_add_rect(base, next, old, id)) {
-        grid_remove_rect(base, next, old, id, 0);
+        grid_rollback_add_rect(base, next, old, id);
         game_rac1_warn_moby_grid_full();
         return;
     }
