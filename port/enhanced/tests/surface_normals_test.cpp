@@ -199,6 +199,22 @@ void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
         check_smooth_colour(frame.read_rgba(), sign);
     }
 
+    if (sign != 0 && !cutout) {
+        // Close surfaces have tiny position derivatives, especially at gameplay resolutions.
+        // Their smooth normals must remain valid rather than becoming the neutral fallback.
+        for (float distance : {.03f, .1f, 1.f}) {
+            input.camera.view = renderer::translation({0, 0, -(skinned ? .24f : 0.f) - distance});
+            input.camera.projection = renderer::perspective_reversed(1, 1, .001f, 100);
+            renderer.render(input, {frame.id(), 64, 64});
+            CHECK(!capture->normals.empty());
+            if (!capture->normals.empty()) {
+                constexpr std::size_t centre = (32 * 64 + 32) * 4;
+                CHECK(capture->normals[centre + 3] > 250);
+                CHECK(capture->normals[centre + 2] > 220);
+            }
+        }
+    }
+
     CHECK(gl::glGetError() == gl::GL_NO_ERROR);
     renderer.release();
     scene.release();
