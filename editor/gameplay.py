@@ -53,6 +53,9 @@ def records(g: bytes) -> list[bytes]:
 
 def write_records(g: bytes, items: list[bytes]) -> bytes:
     """The table with these records; the rest of its header (the spare mobys) as G has it."""
+    if len(items) > 0x8000:
+        raise FormatError(f"RAC1 gameplay has {len(items)} moby records; its runtime index remap supports "
+                          "at most 32768")
     start = offset(g, MOBYS)
     return struct.pack("<i", len(items)) + bytes(g[start + 4:start + 0x10]) + b"".join(items)
 

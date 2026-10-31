@@ -458,7 +458,7 @@ extern int D_L00_00160FCC   MACRO_ADDR;
 extern int   D_L00_001AB840[];
 extern int   D_L00_001BA4D0[];
 extern int   find_or_assign_bolt_source_slot(int, int) __asm__("FUN_L00_00284d90");
-extern short gameplay_moby_index_remap[] __asm__("D_L00_001AC780");
+extern short gameplay_moby_index_remap[64] __asm__("D_L00_001AC780");
 extern short D_L00_001B0770[];
 extern short D_L00_001B07B0[];
 extern short D_L00_001B0830[];
@@ -930,6 +930,13 @@ char *load_level_gameplay(int skip_gameplay_read) {
         p += 4;
         n2 = *(int *)p;
         p += 0xC;
+        /* The retail overlay reserves 64 entries for this file-order map. Larger modded
+         * tables need their own level-arena storage; keep the retail path unchanged otherwise. */
+        if (n > (int)(sizeof(gameplay_moby_index_remap) / sizeof(gameplay_moby_index_remap[0]))) {
+            moby_index_remap = (short *)mem;
+            mem += n * sizeof(*moby_index_remap);
+            mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
+        }
         moby_table = (MobyInst *)mem;
         FillTransferWords(mem, 0, (n + n2) << 8);
         for (i = 0; i < n; i++) {
