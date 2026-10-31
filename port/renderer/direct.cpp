@@ -1152,7 +1152,9 @@ bool GifInterpreter::covers_no_pixel(std::initializer_list<const GsVertex*> corn
         y_hi = std::max(y_hi, y);
     }
     // The samples in [lo, hi) of 16ths of a pixel: from ceil(lo / 16) to ceil(hi / 16) - 1.
-    auto ceil16 = [](std::int64_t v) { return v >= 0 ? (v + 15) / 16 : -((-v) / 16); };
+    auto ceil16 = [](std::int64_t v) {
+        return v >= 0 ? (v + 15) / 16 : -((-v) / 16);
+    };
     std::int64_t sx0 = c.scissor.x0;
     std::int64_t sx1 = c.scissor.x1;
     // On a target wider than the picture with the HUD at its sides, a scissor of the screen's whole
