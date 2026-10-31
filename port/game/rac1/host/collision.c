@@ -263,7 +263,7 @@ static uint32_t cell_word(gaddr mesh, int x, int y, int z) {
 typedef struct {
     gaddr leaf;
     int nv;    /* vertices (byte +2) */
-    int nf;    /* faces walked: the low byte of the count (lbu) */
+    int nf;    /* faces (halfword +0) */
     int nq;    /* quads (byte +3) */
     gaddr qv3; /* the quads' fourth indices */
 } Cell;
@@ -278,7 +278,9 @@ static int cell_open(gaddr mesh, uint32_t word, Cell* c) {
     if (c->nv == 0) {
         return 0;
     }
-    c->nf = U8(c->leaf);
+    /* The leaf stores a halfword face count. Retail's vector loop loaded its low byte; using the
+     * full field here lets edited cells exceed 255 faces without changing any retail-sized leaf. */
+    c->nf = U16(c->leaf);
     c->nq = U8(c->leaf + 3);
     c->qv3 = c->leaf + 4 + 4 * (gaddr)c->nv + 4 * (gaddr)U16(c->leaf);
     return 1;

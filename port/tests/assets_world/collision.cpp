@@ -533,6 +533,19 @@ void check_volumes(FloatModel model) {
     CHECK(h && close(h->point, {9, 9, 12.5f}, 1e-5f));
 }
 
+void check_extended_face_count(FloatModel model) {
+    std::vector<Face> faces(299, Face{{0, 1, 2, 0}, 31});
+    faces.push_back(Face{{3, 4, 5, 0}, 31});
+    const CollisionMesh mesh = make_mesh({make_cell(
+        {2, 2, 2},
+        {{11, 11, 10}, {11, 12, 10}, {12, 11, 10}, {8, 8, 10}, {8, 12, 10}, {12, 8, 10}},
+        faces
+    )});
+    CHECK(mesh.cells[0].header.face_count == 300);
+    // The only face under the ray is record 299; a low-byte count would stop before it.
+    CHECK(collide_line(mesh, {9, 9, 11}, {9, 9, 9}, kNone, model).has_value());
+}
+
 void check_hero_groups(FloatModel model) {
     const float k = std::bit_cast<float>(kCollisionBestShrinkBits);
     auto v = [](float x, float y, float z) {
@@ -569,6 +582,7 @@ int main() {
     check_block();
     for (FloatModel model : {FloatModel::Console, FloatModel::Native}) {
         check_line(model);
+        check_extended_face_count(model);
         check_volumes(model);
         check_hero_groups(model);
     }

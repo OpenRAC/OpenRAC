@@ -655,9 +655,11 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   vertex is at most 32 units from its cell's centre).
 - Checked before anything is written, or the level's collision is left as
   the disc has it and `changes.txt` says why: at most 255 vertices and 255
-  quads in a cell (simplify the mesh there), a cell's size, everything inside
-  0-1024 units on each axis (the game answers no query outside), hero walls
-  of at most 255 triangles.
+  quads in a cell (simplify the mesh there), the cell's 4,080-byte storage,
+  everything inside 0-1024 units on each axis (the game answers no query
+  outside), and hero walls of at most 255 triangles per group. The face count
+  is a 16-bit field; OpenRAC now reads the full count, so a cell may contain
+  more than 255 triangle faces when they fit its storage.
 - The block goes back into the level's core data, in its own place when it
   fits; a larger one moves to the end of the core data (the core index says
   where), and the level's memory after the core moves up by the block's size.

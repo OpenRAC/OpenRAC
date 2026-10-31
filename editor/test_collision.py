@@ -3,7 +3,7 @@
 import struct
 import unittest
 
-from collision import SCALE, colour, collision_mesh, decode, signed, vertex
+from collision import SCALE, colour, collision_mesh, decode, parse, signed, validate, vertex, write
 from formats import FormatError
 from gltf import Gltf
 from test_godot import attribute, read_glb
@@ -81,6 +81,15 @@ class DecodeTests(unittest.TestCase):
         low = (2 * SCALE) - 8 * 4  # cell centre 2.0 minus 8/16.
         corners = {p for t in result.triangles for p in t[:3]}
         self.assertIn((low, low, 2 * SCALE), corners)
+
+    def test_cell_with_more_than_255_faces_round_trips(self):
+        faces = [(0, 1, 2, 0x1f)] * 300
+        original = block({(0, 0, 0): leaf([(0, 0, 0), (16, 0, 0), (0, 16, 0)], faces)})
+        model = parse(original)
+        validate(model)
+        rewritten = write(model)
+        result = decode(rewritten)
+        self.assertEqual(result.faces, 300)
 
     def test_faces_shared_by_cells_are_merged(self):
         # The same world triangle, seen from the cells (0, 0, 0) and (1, 0, 0).

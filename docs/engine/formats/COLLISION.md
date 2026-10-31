@@ -93,7 +93,9 @@ two builds' levels differ slightly.
 inside the ±32-unit range of each of those cells' centres; OpenRAC's packer
 puts an added triangle into every cell its box test hits (exact, on the
 integer grid) and halves triangles too large for that range. A cell holds at
-most 255 vertices and 255 quads, and at most 0xFF quadwords (4,080 bytes).
+most 255 vertices and 255 quads, and at most 0xFF quadwords (4,080 bytes). The
+face count is 16-bit; OpenRAC's game and asset query paths read all of it, so
+triangle face counts may exceed 255 when the encoded cell still fits.
 
 ## 4. Hero groups
 

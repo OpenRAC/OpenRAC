@@ -310,11 +310,10 @@ struct Kernels {
     };
 
     // The triangles the kernels test, in order: every face record as (v0, v1,
-    // v2) (the face count read as a byte, lbu), then the first quad_count
-    // records again as (v0, v2, v3).
+    // v2), then the first quad_count records again as (v0, v2, v3). The on-disk
+    // count is u16; retail-sized leaves stay below 256, while edited leaves may use more.
     static std::vector<Triangle> cell_triangles(const CollisionCell& cell) {
-        const std::size_t faces =
-            std::min<std::size_t>(cell.header.face_count & 0xff, cell.faces.size());
+        const std::size_t faces = std::min<std::size_t>(cell.header.face_count, cell.faces.size());
         const std::size_t quads =
             std::min({std::size_t{cell.header.quad_count}, cell.faces.size(), cell.quad_v3.size()});
         std::vector<Triangle> out;
