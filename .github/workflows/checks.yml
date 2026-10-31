@@ -237,8 +237,8 @@ jobs:
         run: yarn test:android
 
   # The native port (port/): hostgen's tests, then the whole port built with
-  # Clang (SDL3 fetched by CMake) and its tests, the OpenGL ones on Mesa's
-  # software renderer. The rac1 program is built from games/rac1's C.
+  # Clang (SDL3 fetched by CMake), with enhanced rendering compiled out. Exercise
+  # the compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer.
   port:
     runs-on: ubuntu-26.04
     timeout-minutes: 60
@@ -277,8 +277,25 @@ jobs:
       - name: Build
         working-directory: port
         run: |
-          cmake --preset release
+          cmake --preset release -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_PROBE_BAKER=OFF
           cmake --build --preset release
+
+      - name: Verify compatibility build configuration
+        working-directory: port
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess
+          cache = pathlib.Path('build/release/CMakeCache.txt').read_text().splitlines()
+          assert 'OPENRAC_ENHANCED_RENDERING:BOOL=OFF' in cache
+          assert 'OPENRAC_PROBE_BAKER:BOOL=OFF' in cache
+          tests = json.loads(subprocess.check_output(
+              ['ctest', '--preset', 'release', '--show-only=json-v1']))['tests']
+          names = {test['name'] for test in tests}
+          enhanced = {'gtao_vulkan', 'probe_gpu_vulkan', 'early_lighting_vulkan',
+                      'hero_shadow_vulkan', 'sun_shadow_vulkan', 'shadow_scroll_vulkan',
+                      'fsr3_frame', 'probe_bake'}
+          assert not names & enhanced, names & enhanced
+          PY
 
       - name: Tests
         working-directory: port
@@ -318,9 +335,9 @@ jobs:
         working-directory: port
         run: ctest --preset headless
 
-  # Experimental Vulkan lighting and the offline Embree baker. Keep the normal
-  # build above so compatibility and enhanced rendering are both exercised.
-  port-enhanced:
+  # Full enhanced Vulkan coverage and the offline Embree baker, separately from
+  # the compatibility build above. The preset explicitly compiles enhanced code in.
+  port-vulkan-enhanced:
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
