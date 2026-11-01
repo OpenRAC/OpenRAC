@@ -218,7 +218,7 @@ struct SubmissionCounters {
 
     // The vkCmd* recorded, by Command; commands_recorded() adds them up.
     std::array<std::uint64_t, kCommandKinds> commands{};
-    std::uint64_t pipelines_created = 0;  // Graphics and compute pipelines made (each a compile).
+    std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
     std::uint64_t descriptor_sets_allocated = 0;  // Every vkAllocateDescriptorSets set.
@@ -250,6 +250,9 @@ struct SubmissionCounters {
     std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
     double shader_compile_s = 0.0;      // The seconds those compiles took.
+    double pipeline_compile_s = 0.0;    // Driver pipeline creation, including prewarm workers.
+    std::uint64_t pipeline_creation_calls =
+        0;  // Driver calls, including speculative and failed ones.
 };
 
 SubmissionCounters submission_counters();

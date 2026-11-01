@@ -65,6 +65,8 @@ add_test(NAME render_opt_environment COMMAND render_opt_test --environment)
 set_tests_properties(render_opt_environment PROPERTIES ENVIRONMENT
   "OPENRAC_RENDER_OPT_OFF=registry-selftest,no-such-optimisation")
 
+openrac_add_test(render_test_shards INCLUDES .)
+
 # ---- The benchmark and the equivalence harness (tests/render_fixture.h's synthetic scene) ----
 #
 #   openrac_render_bench       draws the scene and prints its frames and counters as JSON lines
@@ -109,6 +111,24 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
       "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SCROLLING_SHADOWS=1")
   endif()
+endif()
+
+# These deterministic image tests can overlap on software Vulkan. Keep cache and
+# presentation tests on the shared lock; CTest --parallel still caps total processes.
+foreach(test sun_shadow_vulkan sun_shadow_filter_reference_vulkan)
+  if(TEST "${test}")
+    list(APPEND openrac_parallel_gpu_tests "${test}")
+  endif()
+endforeach()
+foreach(test probe_gpu_vulkan gtao_vulkan gtao_horizon_vulkan shadow_scroll_vulkan)
+  if(TEST "${test}")
+    # These matrices need memory or CPU throughput; occupy both CI worker slots.
+    set_tests_properties("${test}" PROPERTIES PROCESSORS 2)
+  endif()
+endforeach()
+if(TEST probe_gpu_vulkan)
+  # This material matrix benefits from fewer Mesa workers even while running alone.
+  set_property(TEST probe_gpu_vulkan APPEND PROPERTY ENVIRONMENT "LP_NUM_THREADS=2")
 endif()
 
 # ---- The backend's own behaviour, pinned for the render packages ----

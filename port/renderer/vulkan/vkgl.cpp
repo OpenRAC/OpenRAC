@@ -369,6 +369,8 @@ SubmissionCounters submission_counters() {
     }
     auto counters = g->submission;
     counters.validation_errors = g->validation_errors.load();
+    counters.pipeline_compile_s = g->pipeline_compile_s.load(std::memory_order_relaxed);
+    counters.pipeline_creation_calls = g->pipeline_creation_calls.load(std::memory_order_relaxed);
     return counters;
 }
 

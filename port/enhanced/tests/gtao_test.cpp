@@ -20,6 +20,7 @@
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/gpu_draw_reference.h"
+#include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -60,20 +61,12 @@ scene::LevelData corner(bool wall) {
     return data;
 }
 
-void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
-    auto level = corner(wall);
-    renderer::Renderer renderer;
-    renderer.set_ambient_occlusion(std::make_unique<renderer::Gtao>());
-    scene::LevelScene scene;
-    lighting::use_scene_lighting(scene);
+// Checks every size and image for one quality, borrowing only compatible scene setup.
+void check_scene_quality(
+    renderer::Renderer& renderer, bool wall, int samples, renderer::GtaoQuality quality
+) {
+    test::RenderTestTiming timing("gtao quality");
     std::string error;
-    CHECK(scene.upload(level, renderer.textures(), error));
-    CHECK(test::shadow_probe_fixture(scene, error));
-    CHECK(renderer.add(std::make_unique<BeforeWorld>(), error));
-    CHECK(
-        renderer.add(std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error)
-    );
-    CHECK(renderer.init(error));
     renderer::FrameBuffer frame;
     bool modes_differ = false;
     for (const auto size : {std::pair{128, 96}, std::pair{131, 99}, std::pair{192, 96}}) {
@@ -223,7 +216,30 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
     if (wall) {
         CHECK(modes_differ);
     }
+    timing.lap("draw/readback");
     frame.release();
+}
+
+// Reuses scene and shader setup across qualities while retaining creation and teardown checks.
+void check_scene(bool wall, int samples) {
+    test::RenderTestTiming timing("gtao scene");
+    auto level = corner(wall);
+    renderer::Renderer renderer;
+    renderer.set_ambient_occlusion(std::make_unique<renderer::Gtao>());
+    scene::LevelScene scene;
+    lighting::use_scene_lighting(scene);
+    std::string error;
+    CHECK(scene.upload(level, renderer.textures(), error));
+    CHECK(test::shadow_probe_fixture(scene, error));
+    CHECK(renderer.add(std::make_unique<BeforeWorld>(), error));
+    CHECK(
+        renderer.add(std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error)
+    );
+    CHECK(renderer.init(error));
+    timing.lap("setup");
+    for (auto quality : {renderer::GtaoQuality::Performance, renderer::GtaoQuality::Quality}) {
+        check_scene_quality(renderer, wall, samples, quality);
+    }
     scene.release();
     renderer.release();
 }
@@ -724,11 +740,9 @@ int main() {
         test_grazing_smooth_normals(-1, samples);
     }
 
-    for (auto quality : {renderer::GtaoQuality::Performance, renderer::GtaoQuality::Quality}) {
-        check_scene(false, 1, quality);
-        check_scene(true, 1, quality);
-        check_scene(true, 4, quality);
-    }
+    check_scene(false, 1);
+    check_scene(true, 1);
+    check_scene(true, 4);
     indirect_lighting(1);
     indirect_lighting(4);
     indirect_lighting(1, true);
