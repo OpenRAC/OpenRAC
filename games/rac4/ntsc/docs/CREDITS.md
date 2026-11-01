@@ -3,11 +3,6 @@
 Everything below was consulted while building the project. Move this file with
 the rest into the real repository.
 
-## Community
-
-- **GFI (Game Fuckery Inc.)** Discord: years of research and exploration of the
-  games, which made this decompilation possible.
-
 ## Projects
 
 | Project | Used for |

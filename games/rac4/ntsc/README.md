@@ -217,7 +217,6 @@ step is a small function from `asm/nonmatchings/`, a draft from `m2c`, and
 
 Full list with what each was used for: [`docs/CREDITS.md`](docs/CREDITS.md).
 
-- **GFI (Game Fuckery Inc.)**: Special thanks to the GFI Discord server for the years of time spent researching and exploring these games, which helped make this decompilation possible.
 - [rac1-decomp](https://github.com/Lynder063/rac1-decomp): project layout, workflow, toolchain research, and the assembler passes.
 - [ratchet-uya-decomp](https://github.com/vetusmagnus/ratchet-uya-decomp): compiler flags (`-fopt-stack`, `-G8`) and global-declaration findings.
 - [OpenRAC](https://github.com/OpenRAC/OpenRAC): sibling decompilations of the same engine family.
