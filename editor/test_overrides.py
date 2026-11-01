@@ -194,6 +194,26 @@ class PackTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in out.iterdir()), ["pal"])
         self.assertEqual((out / "pal/level_00/textures/x.png").read_bytes(), red)
 
+    def test_a_layer_says_whether_it_changes_the_game_and_holds_the_same_on_either_disc(self):
+        packed = self.root / "packed"
+        (packed / "level_00").mkdir(parents=True)
+        (packed / "level_00" / "gameplay_pal.wad").write_bytes(b"wad")
+        (packed / "packed.json").write_text('{"version": "pal"}')
+        summary = overrides.stack(None, self.root / "mods", packed)
+        layer = summary["layers"][0]
+        self.assertEqual((layer["id"], layer["gameplay"]), ("packed", True))
+        self.assertEqual(len(layer["digest"]), 64)
+        (packed / "level_00" / "gameplay_pal.wad").write_bytes(b"wa2")
+        other = overrides.stack(None, self.root / "mods2", packed)["layers"][0]
+        self.assertNotEqual(layer["digest"], other["digest"])
+        # A picture alone changes nothing a party shares, and its number stays out of the file.
+        (packed / "level_00" / "gameplay_pal.wad").unlink()
+        (packed / "level_00" / "textures").mkdir()
+        (packed / "level_00" / "textures" / "x.png").write_bytes(b"p")
+        looks = overrides.stack(None, self.root / "mods3", packed)["layers"][0]
+        self.assertEqual(looks["gameplay"], False)
+        self.assertNotIn("digest", looks)
+
     def test_packed_levels_of_the_other_disc_are_left_out(self):
         packed = self.root / "packed"
         (packed / "level_02").mkdir(parents=True)

@@ -181,6 +181,11 @@ def describe(files) -> dict:
     return out
 
 
+def is_map(manifest) -> bool:
+    """Whether a layer's manifest (a dict, or the disc's name for packed levels) is a map's."""
+    return isinstance(manifest, dict) and "map" in manifest
+
+
 def read_manifest(data: bytes, where: str) -> dict:
     try:
         manifest = json.loads(data.decode("utf-8"))
@@ -793,6 +798,29 @@ def cross_disc(root: Path, manifest: dict, target: Target) -> tuple[dict, list[s
     return out, skipped
 
 
+# What a pack changes of the game itself, not only of how it looks: the level's own files, and the
+# lists that put them on the disc. A party has to agree on these (the multiplayer mod compares them);
+# textures, models and terrain draw in the port only, and are each player's own.
+GAMEPLAY_FILES = re.compile(r"(?:level_\d{2}/(?:gameplay_\w+\.wad|(?:core|index|header)_\w+\.bin)|patches\.tsv|virtual\.tsv)")
+
+
+def layer_record(name: str, ident: str, root: Path, manifest, changes_game: bool) -> dict:
+    """A layer as stack.json says it. A digest is of what the pack holds, not of what this disc took
+    of it, so one pack is one number on either disc; only a pack that changes the game has one."""
+    record = {"id": ident, "name": name, "gameplay": changes_game}
+    if isinstance(manifest, dict) and isinstance(manifest.get("pack_version"), str):
+        record["version"] = manifest["pack_version"]
+    if changes_game:
+        hasher = hashlib.sha256()
+        if isinstance(manifest, dict) and "map" in manifest:
+            hasher.update(json.dumps(manifest["map"], sort_keys=True).encode())
+        for rel, path in sorted(layer_files(root).items()):
+            if GAMEPLAY_FILES.fullmatch(rel):
+                hasher.update(f"{rel} {digest.sha256(path)}\n".encode())
+        record["digest"] = hasher.hexdigest()
+    return record
+
+
 def write_layers(layers, target, temporary: Path) -> dict:
     """Compose one isolated world from ordered layers; no destination shares an output folder."""
     temporary.mkdir(parents=True, exist_ok=True)
@@ -951,8 +979,12 @@ def write_layers(layers, target, temporary: Path) -> dict:
                  + (f"\t{level}\t{slot}\t{original_first}\t{original_count}" if level is not None else "") + "\n"
                  for first, count, file, _, level, slot, original_first, original_count in
                  sorted(virtuals.values(), key=lambda row: row[0])))
+    changing = {owner for rel, owner in owners.items() if GAMEPLAY_FILES.fullmatch(rel)}
+    changing |= {owner for _, owner in patches.values()}
+    changing |= {row[3] for row in virtuals.values()}
     summary = {"format": 1, "version": target.version if target else None,
-               "layers": [{"id": ident, "name": name} for name, ident, _, _ in layers],
+               "layers": [layer_record(name, ident, root, manifest, ident in changing or is_map(manifest))
+                          for name, ident, root, manifest in layers],
                "files": dict(sorted(owners.items())), "notes": notes,
                "skipped": {k: v for k, v in skipped.items() if v}}
     (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
@@ -1021,7 +1053,9 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
             registry = {"format": 1, "game": "rac1", "version": "pal", "destinations": entries}
             (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n")
             summary["destinations"] = [{"id": m["id"], "name": m["name"]} for m in entries]
-            summary["layers"] = [{"id": ident, "name": name} for name, ident, _, _ in requested_layers if ident != "packed"]
+            kept = {layer["id"]: layer for layer in summary["layers"]}
+            summary["layers"] = [kept.get(ident) or layer_record(name, ident, root, manifest, True)
+                                 for name, ident, root, manifest in requested_layers if ident != "packed"]
             summary["notes"].append(f"{len(entries)} added ship destination(s) prepared separately from the campaign")
             (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
         (temporary / MARKER).write_text("made by editor/overrides.py stack; it is replaced each time\n")
