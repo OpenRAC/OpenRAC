@@ -14,7 +14,7 @@ func_0028B160	same	2026-11-01	40e53335	c7a7f072246f	12 calls
 func_002933D0	same	2026-11-01	40e53335	b29f92eb02e7	5 calls
 func_00294F10	same	2026-11-01	40e53335	7c8f9938d1c7	1 calls
 func_002B6828	same	2026-11-01	40e53335	9f561a460cb2	1 calls
-func_002BA0E0	unchecked	2026-11-01	40e53335	bf9179e26282	did not build or place: LINK func_002BEE78 has no retail address (level 02)
+func_002BA0E0	unchecked	2026-11-01	6de45bc2	7478e2ba80af	did not build or place: LINK func_002BEE70 has no retail address (level 02)
 func_002CA8A8	same	2026-11-01	40e53335	6828b1c13f82	7 calls
 func_002CBC58	same	2026-11-01	40e53335	0006f9d45de8	16 calls
 func_002D6F38	same	2026-11-01	40e53335	1d390081b6f3	8 calls
@@ -280,7 +280,6 @@ func_002B9180	same	2026-11-01	40e53335	e296bf3ecedf	16 calls
 func_002831B0	same	2026-11-01	40e53335	21ea9153945c	16 calls
 func_002E0BA8	same	2026-11-01	40e53335	e28377189a57	16 calls
 func_00270838	same	2026-11-01	40e53335	dc3a2cfc8dbc	16 calls
-func_002F2758	no-states	2026-11-01	40e53335	5f07c84b9b0a	never called in the capture runs (boot, title, menu pages, New Game, its levels played a while)
 func_00278CE0	same	2026-11-01	40e53335	82cb1e156e79	3 calls
 func_002A1130	same	2026-11-01	40e53335	18f318dabecb	16 calls
 func_002F3300	same	2026-11-01	40e53335	43a4bb1fa160	16 calls
@@ -337,6 +336,11 @@ func_0027A288	same	2026-11-01	40e53335	95e6bde26f33	16 calls
 func_L04_004045E0	same	2026-11-01	40e53335	d2b4359977dd	8 calls
 func_L01_002B5EA0	same	2026-11-01	40e53335	b5b043107e65	4 calls
 func_L06_0041EF08	same	2026-11-01	40e53335	6d4a772bed8c	4 calls
-func_L09_00410200	same	2026-11-01	40e53335	6a1af560bff0	9 calls
 func_L09_0037FCE8	same	2026-11-01	40e53335	f6575cf7cae5	4 calls
 func_L15_004307E0	same	2026-11-01	40e53335	9a1a5e14b839	4 calls
+func_L00_002A4928	same	2026-11-01	6de45bc2	43393c716981	8 calls
+func_L01_00394240	same	2026-11-01	6de45bc2	ba6337dd4157	12 calls
+func_L00_00424F98	same	2026-11-01	6de45bc2	59ad0cf0a099	16 calls
+func_L04_003A21F8	same	2026-11-01	6de45bc2	9ba942bae735	12 calls
+func_L06_00443A38	same	2026-11-01	6de45bc2	9c1088b41369	4 calls
+func_L06_003E5D30	same	2026-11-01	6de45bc2	f63a7b5011b3	4 calls

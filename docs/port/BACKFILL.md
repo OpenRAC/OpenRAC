@@ -340,6 +340,20 @@ bytes, moved to 0x000A0000, can stand in for the C (`tools/fcheck.py check
 NAME --retail`): a DIFFERS on them is the harness's or the states', never the
 C's.
 
+**A translation through the gate.** A function hostgen translates from assembly has no row, but
+the same check answers for it: `hostgen.py --asm-console DIR --asm-console-names FILE` writes each
+named function in the console's form, and `tools/fcheck.py check NAME DIR/NAME.c` runs that
+against retail. `port/game/rac2-ntsc/fcheck_asm.tsv` keeps those verdicts (columns: name, status,
+level, calls, note). It proves the console form: the host build is the same text with hostgen's
+host macros, which only play proves. Three things to know: a whole kernel needs
+`RAC2_FCHECK_OPT=-O1`, since cc1 runs out of address space at -O2, and the driver sends a branch
+out of the assembler's range through a jump of its own; the console form holds the addresses of
+the copy it was written from, so a boot function checked on a level's states needs that level's
+data and call addresses put in (rac2's level copies differ from the boot's in those words); and
+the translation's registers start at 0, so a word that only saves a caller's register (`sd ra`,
+`sq t8` into memory the callee reads back) differs at the gate and nowhere else. Such a
+difference is noted in the file, never counted as `same`.
+
 **How a worker reports.** A backfill worker hands a function on as one of:
 
 - `SAME`, with the call count from `tools/fcheck.py FUNC FILE` (or the row the

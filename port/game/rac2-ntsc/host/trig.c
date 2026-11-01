@@ -40,6 +40,16 @@ float func_00283198(float angle) {
     return openrac_vu0_sine(&program, angle);
 }
 
+/* The same microprogram started directly by hand-written code (func_L02_00364A18): the angle in
+ * vf1.x, the result in vf1.x. */
+void rac2_vu0_cosine(void) {
+    OPENRAC_VU0->vf[1][0] = func_00283180(OPENRAC_VU0->vf[1][0]);
+}
+
+void rac2_vu0_sine(void) {
+    OPENRAC_VU0->vf[1][0] = func_00283198(OPENRAC_VU0->vf[1][0]);
+}
+
 /*
  * The microprogram at 0xD18, which euler_to_matrix (0x00283410) and the moby matrices (0x002A0F48)
  * start: the Euler angles in vf1 (x, y, z), rotation rows out in vf20 to vf22 and (0, 0, 0, 1) in
