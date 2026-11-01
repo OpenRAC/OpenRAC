@@ -1895,12 +1895,6 @@ class Unit:
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             if placed is not None and low <= placed < high:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
-        # A function levels share, its C written with another level's name for the datum
-        # (func_L00_002A5368's D_L24_0025B710): the name's level's address, as the level loaded has it.
-        if named and not code and getattr(self.program, "level_short_names", None) is not None:
-            shared = self._shared_level()
-            if shared is not None and shared != int(named.group(1)):
-                return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         formed = getattr(self.program, "formed_as", {}).get(symbol or "")
         if formed is not None:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
