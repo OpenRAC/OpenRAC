@@ -255,7 +255,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * D_L00_0015FA74 (the NTSC decomp's ui/hud/00234fd0.c); the pause menu's tick, PAL
  * func_L00_00277A88, is FUN_L00_00276bd0, and update_mode_freeze, PAL func_001FD3E8, FUN_001fce28
  * (its rendering/00245c28.c, the level loop). */
-#define func_L00_001F3958 game_FUN_L00_001f35d8
+#define func_L00_001F3958 game_FUN_001f0b58
 #define func_L00_00217718 game_FUN_L00_00216f90
 #define func_L00_00235FF8 game_FUN_L00_00235668
 #define func_L00_00277A88 game_FUN_L00_00276bd0

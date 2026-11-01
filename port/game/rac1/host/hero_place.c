@@ -37,9 +37,11 @@
 #define COLL_OUTPUT OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00173F40u))
 #define COLL_POINT 0x20u
 /* A line query for what stands on anything (the hero's ground probe's flags), and CollType's
- * surfaces that are no ground: water (0) and quicksand (0xD). */
+ * surfaces that are no ground: the two the mobys that float take for water (0 and 8), and what the
+ * hero sinks in (0xD). */
 #define LINE_GROUND 2
 #define SURFACE_WATER 0
+#define SURFACE_WATER_DEEP 8
 #define SURFACE_SINK 0xD
 
 /* The hero (include/hero.h; the same fields on both discs): his moby, state, health, ride, and the
@@ -117,7 +119,7 @@ static int ground_under(void* user, const float at[3], float* z) {
         return 0;
     }
     const int surface = func_L00_001F3958();
-    if (surface == SURFACE_WATER || surface == SURFACE_SINK) {
+    if (surface == SURFACE_WATER || surface == SURFACE_WATER_DEEP || surface == SURFACE_SINK) {
         return 0;
     }
     *z = GREF(float, COLL_OUTPUT + COLL_POINT + 8u);
