@@ -19,7 +19,7 @@ binds?: number,
  */
 group?: string, 
 /**
- * What it is to a multiplayer party (interface 1.11): `own` (each player's), `host` (the
+ * What it is to a multiplayer party (interface 1.12): `own` (each player's), `host` (the
  * host's rules bring it); absent: it must match the host's.
  */
 multiplayer?: string, };

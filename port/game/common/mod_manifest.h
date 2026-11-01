@@ -93,7 +93,7 @@ struct Manifest {
     // (openrac_api.setup_vulkan), so the mods load before the window opens. Ignored on a script
     // mod or one of an older interface.
     bool vulkan_device = false;
-    // "multiplayer" (interface 1.11): an OPENRAC_PARTY_MOD_* value, gameplay when it says nothing.
+    // "multiplayer" (interface 1.12): an OPENRAC_PARTY_MOD_* value, gameplay when it says nothing.
     int party = 0;
 };
 

@@ -580,7 +580,10 @@ int host_camera_position(float out[3]) {
     return OPENRAC_HOOK_OK;
 }
 
-// A fake host's mods (interface 1.11): one mod with one setting, rules kept and handed back.
+// The published 1.11 calls keep their place before anything of 1.12.
+static_assert(offsetof(openrac_api, save_slot_current) < offsetof(openrac_api, mod_count));
+
+// A fake host's mods (interface 1.12): one mod with one setting, rules kept and handed back.
 int host_mod_count() {
     return 1;
 }
@@ -1640,7 +1643,7 @@ int main() {
         api.size = size;
     }
     {
-        // The mods a party agrees on (interface 1.11), and a port without them.
+        // The mods a party agrees on (interface 1.12), and a port without them.
         openrac::Mod mod(&api, handle);
         CHECK(mod.has_party_rules());
         const std::vector<openrac::ModEntry> mods = mod.mods();
@@ -1660,7 +1663,7 @@ int main() {
         mod.party_replay(true);
         CHECK(mod.party_replaying());
         mod.party_replay(false);
-        api.api_minor = 10;
+        api.api_minor = 11;
         CHECK(!mod.has_party_rules() && mod.mods().empty() && !mod.party_rules_publish({1}, ""));
         api.api_minor = OPENRAC_MOD_API_MINOR;
     }

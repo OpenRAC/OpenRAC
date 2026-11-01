@@ -499,7 +499,7 @@ void assets() {
     }
 }
 
-// What a mod and a setting are to a party (interface 1.11): gameplay and shared unless they say.
+// What a mod and a setting are to a party (interface 1.12): gameplay and shared unless they say.
 void party() {
     const auto of = [](const std::string& fields) {
         return R"({"format": 2, "id": "a", "name": "A", "version": "1.0.0", "games": {"rac1": ["pal"]},)" + fields

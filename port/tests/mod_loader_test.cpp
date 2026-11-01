@@ -606,7 +606,7 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::menu_entry_count() == 0);
 }
 
-// The mods a party has to agree on (interface 1.11): the mods loaded and their settings as read this
+// The mods a party has to agree on (interface 1.12): the mods loaded and their settings as read this
 // run, the rules a mod publishes and the host's it takes, the replay switch.
 void a_party_reads_the_mods(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
@@ -615,7 +615,7 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     g_records.clear();
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
     const openrac_api& api = mods::api_for_tests();
-    CHECK(api.api_minor >= 11 && api.mod_count() == 2);
+    CHECK(api.api_minor >= 12 && api.mod_count() == 2);
     openrac_mod_entry entry{};
     entry.size = sizeof entry;
     CHECK(api.mod_entry(0, &entry) == OPENRAC_HOOK_OK);
@@ -798,16 +798,26 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "play"}}]})");
     write(dir / "cards" / "SAVES" / "save0.bin", std::string("S\x01xyz"));
     mods::Host h = host(plugins);
-    h.play = &kPlay;
+    // The game saves into slot 3 (1.12), and the mods' folders go in mod-data.
+    static openrac_game_play play = kPlay;
+    play.save_slot_current = [] {
+        return 3;
+    };
+    h.play = &play;
     h.cards = dir / "cards";
+    h.mod_data = dir / "mod-data";
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
     g_loads = 1;
     g_played.clear();
     CHECK(mods::load(h) == "test-a 1.0.0");
     g_records.clear();
-    // The front end: no figure, save 0 read and started with, one request at a time.
+    // The front end: no figure, save 0 read and started with, one request at a time; the slot the
+    // game saves into, and the mod's folder, made.
     mods::frame();
-    CHECK((g_records == std::vector<int>{7001, 7101, 7211, 7210, 7305, 7400, 7404, 7404}));
+    CHECK(
+        (g_records == std::vector<int>{7001, 7101, 7211, 7210, 7305, 7400, 7404, 7404, 7503, 7601})
+    );
+    CHECK(fs::is_directory(dir / "mod-data" / "test-a"));
     CHECK(g_played.empty());
     mods::play_update();
     CHECK((g_played == std::vector<std::string>{"start -1 5"}));

@@ -136,6 +136,13 @@ static void play_frame(void) {
         s_record(7400 + -s_api->play_start(s_mod, -1, save, size));
         s_record(7400 + -s_api->play_start(s_mod, 2, NULL, 0));
         s_record(7400 + -s_api->play_travel(s_mod, 2));
+        if (s_api->api_minor >= 11) {
+            /* 1.11: the slot the game saves into, and the mod's own folder (named for its id). */
+            const char* dir = s_api->data_dir(s_mod);
+            const size_t n = dir != NULL ? strlen(dir) : 0;
+            s_record(7500 + s_api->save_slot_current());
+            s_record(7600 + (n >= 6 && strcmp(dir + n - 6, "test-a") == 0));
+        }
     } else if (s_frames == 2) {
         s_figure = s_api->figure_create(s_mod);
         s_record(7500 + s_figure);
@@ -374,7 +381,7 @@ static void on_pad(void* user, int port, uint8_t* report, int size) {
     }
 }
 
-/* The host's rules heard (interface 1.11): its bytes as a number, 0 for none any more. */
+/* The host's rules heard (interface 1.12): its bytes as a number, 0 for none any more. */
 static char s_big[OPENRAC_PARTY_RULES_MAX + 1];
 
 static void on_party_rules(void* user, const void* data, uint32_t size) {
@@ -462,7 +469,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
     }
     if (behaviour[0] == 'r') { /* rules */
-        if (api->api_minor < 11 || s_record == NULL
+        if (api->api_minor < 12 || s_record == NULL
             || api->on_party_rules(mod, on_party_rules, NULL) != 0
             || api->party_rules_publish(mod, "abc", 3, "Bolts x2") != OPENRAC_HOOK_OK
             || api->party_rules_publish(mod, s_big, sizeof s_big, "") == OPENRAC_HOOK_OK) {

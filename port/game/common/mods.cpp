@@ -53,8 +53,9 @@ struct openrac_mod {
     bool hook_refused = false;
     std::vector<std::pair<void**, void*>> taken;  // each slot it filled, and what was there before
     std::vector<std::string> hooks;               // the hook points it took
+    std::string data_dir;                         // data_dir's answer, once made (1.11)
     openrac_mod_unload_fn unload = nullptr;
-    // What a party needs of it (interface 1.11): its settings as text, made when first asked and
+    // What a party needs of it (interface 1.12): its settings as text, made when first asked and
     // kept for the life of the mod (the table hands out their strings), the rules it published
     // (none yet: not published), how often, and who takes the host's rules.
     struct PartySetting {
@@ -561,6 +562,27 @@ std::uint32_t api_take_developer_menu_action(openrac_mod* mod) {
     return action;
 }
 
+// The mod's own folder (1.12): <mod data>/<its id>, made on the first ask. An id that is not a plain
+// name (a separator, "." or "..") has none.
+const char* api_data_dir(openrac_mod* mod) {
+    if (mod == nullptr || g_host == nullptr || g_host->mod_data.empty() || mod->id.empty()
+        || mod->id == "." || mod->id == ".."
+        || mod->id.find_first_of("/\\:") != std::string::npos) {
+        return nullptr;
+    }
+    if (mod->data_dir.empty()) {
+        const std::filesystem::path dir = g_host->mod_data / mod->id;
+        std::error_code e;
+        std::filesystem::create_directories(dir, e);
+        if (e || !std::filesystem::is_directory(dir, e)) {
+            return nullptr;
+        }
+        const std::u8string path = dir.u8string();
+        mod->data_dir.assign(path.begin(), path.end());
+    }
+    return mod->data_dir.c_str();
+}
+
 int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const char* label) {
     if (mod == nullptr || mod != g_tick_mod || !g_in_tick_boundary || label == nullptr) {
         return OPENRAC_HOOK_TOO_LATE;
@@ -936,7 +958,7 @@ int api_ui_sound(openrac_mod* mod, int sound) {
     return OPENRAC_HOOK_OK;
 }
 
-// ---- The mods a party has to agree on (interface 1.11) ----
+// ---- The mods a party has to agree on (interface 1.12) ----
 
 // While on, what the mods make the game do is another player's doing passed on.
 bool g_party_replay = false;
@@ -1260,6 +1282,7 @@ void fill_api(const Host& host) {
     g_api.developer_menu = api_developer_menu;
     g_api.take_developer_menu_action = api_take_developer_menu_action;
     g_api.developer_menu_set_label = api_developer_menu_set_label;
+    g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
     g_api.savestate_load = snapshot_load;
