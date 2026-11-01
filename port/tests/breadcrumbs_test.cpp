@@ -117,6 +117,10 @@ void test_pass_context() {
     CHECK(breadcrumbs().snapshot(entries) == before + 5);
     CHECK(entries[before + 4].kind == BreadcrumbValue::Level);
     CHECK(entries[before + 4].value == 9);
+    breadcrumb(BreadcrumbThread::Main, "game tick resumed", 42, BreadcrumbValue::Tick);
+    CHECK(breadcrumbs().snapshot(entries) == before + 6);
+    CHECK(entries[before + 5].kind == BreadcrumbValue::Tick);
+    CHECK(entries[before + 5].value == 42);
 }
 
 // Payload text, frame and clock must remain one complete event while writers wrap both rings.

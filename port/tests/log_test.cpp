@@ -123,6 +123,9 @@ void report_has_every_section(const fs::path& dir) {
     crash::breadcrumbs().record(
         crash::BreadcrumbThread::Main, "test level load", 9, 400, crash::BreadcrumbValue::Level
     );
+    crash::breadcrumbs().record(
+        crash::BreadcrumbThread::Main, "test game tick", 1236, 500, crash::BreadcrumbValue::Tick
+    );
     crash::GameState s;
     s.frame = 1234;
     s.level = 3;
@@ -180,6 +183,8 @@ void report_has_every_section(const fs::path& dir) {
     CHECK(queued < started && started < resumed && resumed != std::string::npos);
     CHECK(text.find("us [main] test level load level=9") != std::string::npos);
     CHECK(text.find("test level load frame=") == std::string::npos);
+    CHECK(text.find("us [main] test game tick tick=1236") != std::string::npos);
+    CHECK(text.find("test game tick frame=") == std::string::npos);
     // The full two-thread history adds under 8 KiB even with every message at its text cap.
     CHECK(text.find("The log's last lines") - trail < 8192);
 #if defined(_WIN32)

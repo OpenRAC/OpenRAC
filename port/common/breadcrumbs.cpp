@@ -13,7 +13,7 @@ namespace {
 // Constant-initialised thread-local state; render passes never consult mutable game-thread data.
 struct Context {
     BreadcrumbThread thread = BreadcrumbThread::Main;  // Main is also the synchronous-render path.
-    std::int64_t frame = -1;                           // Captured game frame, never a live global.
+    std::int64_t frame = -1;                           // Captured snapshot ID, never a live global.
     bool active = false;                               // Explicit scope enables pass recording.
 };
 
@@ -100,8 +100,10 @@ Breadcrumbs& breadcrumbs() noexcept {
     return history;
 }
 
-void breadcrumb(BreadcrumbThread thread, std::string_view message, std::int64_t frame) noexcept {
-    breadcrumbs().record(thread, message, frame, tick());
+void breadcrumb(
+    BreadcrumbThread thread, std::string_view message, std::int64_t value, BreadcrumbValue kind
+) noexcept {
+    breadcrumbs().record(thread, message, value, tick(), kind);
 }
 
 void level_breadcrumb(std::string_view message, int level) noexcept {

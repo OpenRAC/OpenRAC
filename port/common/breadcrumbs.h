@@ -18,10 +18,11 @@ enum class BreadcrumbThread {
     Render
 };
 
-// The optional numeric value is a captured frame or a level ID, never a formatted string.
+// Render snapshots, game ticks and level IDs use distinct labels, never formatted strings.
 enum class BreadcrumbValue {
     Frame,
-    Level
+    Level,
+    Tick
 };
 
 // Two independent rings. Neither copied nor moved; slots use nonblocking claims so a snapshot
@@ -37,7 +38,7 @@ public:
     struct Entry {
         std::uint64_t tick = 0;      // Monotonic microseconds, not wall-clock time.
         std::uint64_t sequence = 0;  // Process-local tie-breaker for equal timestamps; 0 is empty.
-        std::int64_t value = -1;     // Frame or level ID; -1 means unspecified.
+        std::int64_t value = -1;     // Render snapshot, tick or level ID; -1 means unspecified.
         BreadcrumbThread thread{};   // Logical owner of the event.
         BreadcrumbValue kind{};      // Label of the numeric value.
         char message[kMessageSize]{};  // Truncated text, with controls replaced by spaces.
@@ -75,7 +76,10 @@ private:
 Breadcrumbs& breadcrumbs() noexcept;
 // Records a short event with the monotonic clock; no log output, heap use or blocking.
 void breadcrumb(
-    BreadcrumbThread thread, std::string_view message, std::int64_t frame = -1
+    BreadcrumbThread thread,
+    std::string_view message,
+    std::int64_t value = -1,
+    BreadcrumbValue kind = BreadcrumbValue::Frame
 ) noexcept;
 
 // Records level-loading activity on the main/game trail without formatting its numeric ID.

@@ -414,6 +414,19 @@ void write_tail(Out& out) {
     out.str("==== end of the report ====\n");
 }
 
+// Names the counter behind an event; game ticks need not match the frontend's snapshot index.
+const char* breadcrumb_value_label(BreadcrumbValue kind) {
+    switch (kind) {
+        case BreadcrumbValue::Frame:
+            return " frame=";
+        case BreadcrumbValue::Level:
+            return " level=";
+        case BreadcrumbValue::Tick:
+            return " tick=";
+    }
+    return " value=";
+}
+
 // Emits the same captured timeline to the crash file, session log and stderr without allocating.
 void write_breadcrumbs(Out& out) {
     // An early crash may precede the first instrumented game or render operation.
@@ -431,7 +444,7 @@ void write_breadcrumbs(Out& out) {
             .str(entry.message);
         // A loading level ID must not be mistaken for a captured render frame.
         if (entry.value >= 0) {
-            text.str(entry.kind == BreadcrumbValue::Level ? " level=" : " frame=").dec(entry.value);
+            text.str(breadcrumb_value_label(entry.kind)).dec(entry.value);
         }
         text.str("\n");
         out.text(text);

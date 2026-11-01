@@ -51,8 +51,9 @@ never the PDB itself. Missing or mismatched symbols leave module offsets as the 
   a signal handler using fixed formatting buffers. Windows DbgHelp symbol lookup is best-effort,
   not async-signal-safe; its session and executable symbols are prepared at startup. Each thread
   that runs game code calls `crash::prepare_thread()` once.
-- Breadcrumbs retain 32 entries per trail, each with at most 63 message bytes and a frame or
-  level ID. Tick/handoff/presentation, level program/data loading and upload, and major render
+- Breadcrumbs retain 32 entries per trail, each with at most 63 message bytes and an optional
+  numeric ID. Game-tick events use `tick=`; render snapshots use `frame=`; level loads use `level=`.
+  Tick/handoff/presentation, level program/data loading and upload, and major render
   passes appear chronologically in the crash file and session log. Passes include scene upload,
   depth, shadows, lighting, GTAO, world/liquids/effects/HUD, temporal resolve, motion blur and tone
   mapping. The section adds under 8 KiB. Recording and snapshotting allocate nothing and never

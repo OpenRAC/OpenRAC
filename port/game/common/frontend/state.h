@@ -134,7 +134,7 @@ struct PreparedTick {
 // Presentation metadata produced with a snapshot and consumed on the window thread after finish().
 struct FramePresentation {
     std::int64_t source_frame =
-        -1;  // Captured game frame, correlating handoff and presentation breadcrumbs.
+        -1;  // Captured render snapshot, correlating handoff and presentation breadcrumbs.
     std::chrono::steady_clock::time_point started{};  // Beginning of this displayed frame's work.
     std::chrono::steady_clock::time_point
         finished{};           // Worker completion, excluding handoff idle time.

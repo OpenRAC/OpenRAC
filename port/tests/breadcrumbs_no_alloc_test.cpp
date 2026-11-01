@@ -59,6 +59,7 @@ int main() {
         breadcrumb("restored main pass");
     }
     level_breadcrumb("level data read", 1);
+    breadcrumb(BreadcrumbThread::Main, "game tick resumed", 42, BreadcrumbValue::Tick);
     for (std::size_t i = 0; i < Breadcrumbs::kPerThread * 4; ++i) {
         breadcrumb(BreadcrumbThread::Main, "main event", static_cast<std::int64_t>(i));
         breadcrumb(BreadcrumbThread::Render, "render event", static_cast<std::int64_t>(i));
