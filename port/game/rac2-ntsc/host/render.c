@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "game/common/lib/effect_texture.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
 
@@ -30,6 +31,10 @@
 #define PARTICLE_POOL 0x001B1D90u
 #define PARTICLE_COUNT 0x001B1D98u
 #define PARTICLE_TEXTURES 0x001F1F40u
+/* The effect textures' uploads this frame: their count and the records GetEffectTex (func_0027C878)
+ * writes. */
+#define TEXTURE_UPLOADS 0x001B15FCu
+#define TEXTURE_RECORDS 0x001B9340u
 /* The matrix a sky shell is drawn with (func_002E3548 builds it). */
 #define SKY_MATRIX 0x001B20F0u
 
@@ -203,6 +208,12 @@ void func_002E10B8(void) {
 void func_0029FEE0(void) {
 }
 
+static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
+    return openrac_effect_texture(
+        tex0, GREF(int, OPENRAC_DATA(TEXTURE_UPLOADS)), OPENRAC_DATA(TEXTURE_RECORDS), pixels, clut
+    );
+}
+
 /*
  * The world's quad routine (hand-written, it runs a loop from the scratchpad): a0 a quad record, the
  * same as Ratchet & Clank's (host/effect_quad.c): four corners (+0x00), four RGBA words (+0x40), four
@@ -230,6 +241,7 @@ static void world_quad(gaddr a0, gaddr a1) {
     memcpy(&q.tex0, r + 0x78, 8);
     memcpy(&q.tex1, r + 0x80, 8);
     memcpy(&q.alpha, r + 0x88, 8);
+    q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
     openrac_game_effect_quad(&q);
 }
 

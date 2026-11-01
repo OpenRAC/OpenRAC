@@ -55,6 +55,15 @@ from ties import tie_classes, tie_instances, tie_slot_normals
 # gadget classes whose bind pose collapses a joint (the Blaster, the Pyrocitor). 4: the textures the
 # game clamps (terrain, ties, shrubs, the sky) have clamping samplers.
 FORMAT = 4
+# A game whose export moved on alone: a bump here reads only that game's levels again, as the other
+# games' files are the same. The layout is the shared one. Going Commando, 5: Ratchet's mesh and
+# textures from the disc's hero pack.
+GAME_FORMATS = {"rac2": 5}
+
+
+def levels_format(game: str) -> int:
+    """The format of GAME's exported levels."""
+    return GAME_FORMATS.get(game, FORMAT)
 
 
 def sky_glb(data: Sky, texture_uri) -> bytes:
@@ -125,7 +134,7 @@ class PortLevelWriter(LevelWriter):
         # The executable's (cos, sin) table: with it the terrain is lit as the game lights it.
         self.normals = normals
         self.classes = {"tie": {}, "shrub": {}, "moby": {}}
-        self.placements = {"format": FORMAT, "ties": [], "shrubs": [], "mobys": []}
+        self.placements = {"format": levels_format(self.fmt.game), "ties": [], "shrubs": [], "mobys": []}
         self.sky = None
 
     def write(self, lod: int) -> dict:
@@ -240,7 +249,7 @@ class PortLevelWriter(LevelWriter):
         self.stats["bounds"] = [list(bounds[0]), list(bounds[1])]
         if self.fmt.lenient:
             self.stats["problems"] = problem_summary(self.level.problems)
-        manifest = {"format": FORMAT, "game": self.fmt.game, "version": self.level.version, "level": self.level.id,
+        manifest = {"format": levels_format(self.fmt.game), "game": self.fmt.game, "version": self.level.version, "level": self.level.id,
                     "axes": "game units, Z up; matrices column-major",
                     "terrain": "terrain.glb" if (self.dir / "terrain.glb").exists() else None,
                     "collision": "collision.glb" if (self.dir / "collision.glb").exists() else None,

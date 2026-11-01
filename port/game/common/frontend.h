@@ -47,6 +47,9 @@ void moby_colour(std::uint32_t object, unsigned colour, int level);
 // objects, drawn with the menu's camera): they are drawn as that camera saw them.
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count);
 
+// The block of the buffer the game draws its frame in, when its profile names one (0 otherwise).
+std::uint32_t draw_buffer_block();
+
 // One-shot world explosion, captured on the game thread for enhanced water.
 void water_explosion(const float* position, float radius, float strength);
 

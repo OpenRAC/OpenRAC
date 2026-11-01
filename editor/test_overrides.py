@@ -11,6 +11,7 @@ import unittest
 import zipfile
 
 import overrides
+from port import levels_format
 from formats import png
 from gltf import Gltf
 from mesh import Mesh
@@ -65,7 +66,7 @@ def levels(root: Path, version: str = "pal", game: str = "rac1") -> Path:
     """A levels folder the stack is for: one level of GAME's from VERSION's disc, with nothing in it."""
     (root / "level_00").mkdir(parents=True)
     (root / "level_00/manifest.json").write_text(json.dumps(
-        {"format": overrides.LEVELS_FORMAT, "game": game, "version": version, "level": 0,
+        {"format": levels_format(game), "game": game, "version": version, "level": 0,
          "classes": {"moby": {}, "tie": {}, "shrub": {}}, "textures": []}))
     return root
 

@@ -25,10 +25,12 @@ class LevelsStamp(unittest.TestCase):
         self.assertEqual(stamps, {str(expected)})
         # The levels are ready by a stamp of their own, named after the format too, so a bump
         # reads them again before the check runs.
-        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected)})
+        # Going Commando's export moved on alone, so its bump reads only its levels again.
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected), "5"})
+        self.assertEqual(set(re.findall(r"rac2/ntsc/levels-(\d+)\.json", actions)), {"5"})
         self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
         extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
-        self.assertIn('f"levels-{PORT_FORMAT}.json"', extract)
+        self.assertIn('f"levels-{levels_format(game)}.json"', extract)
         self.assertNotIn("level_99/manifest.json", actions)
 
 
@@ -49,13 +51,13 @@ class PlayerActions(unittest.TestCase):
     def test_the_later_games_levels_are_read_for_packs_in_the_data_folder(self):
         # Going Commando, Up Your Arsenal and Deadlocked: early access, so no play and no packing
         # back; their levels are read into the data folder for texture and model packs.
-        for key, first in (("rac2/ntsc", "00"), ("rac3/ntsc", "01"), ("rac4/ntsc", "00")):
+        for key, stamp in (("rac2/ntsc", 5), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
                 self.assertNotIn("editor-pack", actions)
                 levels = actions["port-levels"]
                 self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
-                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-4.json")
+                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-{stamp}.json")
                 self.assertEqual(actions["editor-extract"]["args"][-3:], ["{data}/levels/ntsc", "--split", "--anywhere"])
                 self.assertEqual([n["path"] for n in actions["assets-export"]["needs"]], [levels["artifact"]])
 

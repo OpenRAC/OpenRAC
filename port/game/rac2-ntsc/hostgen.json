@@ -51,6 +51,8 @@
     "table": "derived_names.json"
   },
   "places": "config/levels/functions.tsv",
+  "split_places": "split_places.tsv",
+  "splits_keep_names": true,
   "candidates": "nonmatching/functional.tsv",
   "names": {
     "code": [

@@ -21,6 +21,7 @@ import struct
 
 from formats import wad, FormatError, Texture, span, unpack
 import games
+from level import HERO_TEXTURES
 from mesh import Mesh, spherical_normal as normal
 from moby_anim import Skeleton, class_sequences, ratchet_sequences, skeleton
 
@@ -325,17 +326,23 @@ def orient(mesh: Mesh, a: int, b: int, c: int) -> tuple[int, int, int]:
     return (c, b, a) if dot < 0 else (a, b, c)
 
 
-def moby_class(data: bytes, remap: bytes, name: str, sequences: list | None = None,
-               fmt: games.Format = games.RAC1, joints: bool = True) -> MobyClass:
+def moby_class(data: bytes, remap: bytes | list[int], name: str, sequences: list | None = None,
+               fmt: games.Format = games.RAC1, joints: bool = True, mesh_file: bytes | None = None) -> MobyClass:
     """Decode a class blob's header, high-LOD packets (low LOD and metal are
     not read), skeleton and sequences: the class's own unless sequences
     lists others, as moby_anim.skeleton takes them. FMT: the game's format (games.py): the
     packets' vertex table header, Deadlocked's 3x4 skeleton, and whether its animations are
     read (games.Format.moby_animations; without them the class keeps its skeleton only).
-    JOINTS: False leaves the skeleton out (the mesh in its bind pose, unskinned)."""
+    JOINTS: False leaves the skeleton out (the mesh in its bind pose, unskinned). MESH_FILE: the
+    file the class's packets are in, when they are not in its blob: it starts with the four packet
+    counts and the offset of the packet table, which func_002934B8 copies over the class's."""
     header = span(data, 0, HEADER_SIZE)
     packet_table, = unpack("<i", header)
     high, low, metal, metal_begin, joint_count = header[4:9]
+    packets = data
+    if mesh_file is not None:
+        packets, (high, low, metal, metal_begin) = mesh_file, mesh_file[:4]
+        packet_table, = unpack("<i", mesh_file, 4)
     scale, = unpack("<f", header, 0x24)
     if not math.isfinite(scale) or scale <= 0:
         raise FormatError("invalid moby class scale")
@@ -351,8 +358,8 @@ def moby_class(data: bytes, remap: bytes, name: str, sequences: list | None = No
     glow_from = header[0xa] if fmt.moby_glow else high
     for i in range(high):
         try:
-            packet(data, span(data, packet_table + i * 16, 16), state, mesh, remap, skins, i >= glow_from, compact,
-                   fmt.moby_empty_slots)
+            packet(packets, span(packets, packet_table + i * 16, 16), state, mesh, remap, skins, i >= glow_from,
+                   compact, fmt.moby_empty_slots)
         except FormatError as exc:
             raise FormatError(f"packet {i}: {exc}") from exc
     if not mesh.triangles:
@@ -360,7 +367,7 @@ def moby_class(data: bytes, remap: bytes, name: str, sequences: list | None = No
     metal_mesh, metal_skins, metal_state = Mesh(f"{name}_metal", normals=[]), [], ListState()
     for i in range(metal):
         try:
-            metal_packet(data, span(data, packet_table + (metal_begin + i) * 16, 16), metal_state, metal_mesh,
+            metal_packet(packets, span(packets, packet_table + (metal_begin + i) * 16, 16), metal_state, metal_mesh,
                          metal_skins)
         except FormatError as exc:
             raise FormatError(f"metal packet {i}: {exc}") from exc
@@ -404,24 +411,29 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         if not start:
             result[class_id] = None
             continue
+        hero = class_id == 0 and level.hero_mesh is not None
+        # The hero pack's packets name its own textures, in order.
+        remap = [HERO_TEXTURES + i for i in range(16)] if hero else entry[16:32]
+        mesh_file = level.hero_mesh if hero else None
         try:
-            result[class_id] = moby_class(level.block(start), entry[16:32], f"moby_{class_id}",
+            result[class_id] = moby_class(level.block(start), remap, f"moby_{class_id}",
                                           ratchet_sequences(level) if class_id == 0 and fmt.moby_animations else None,
-                                          fmt)
+                                          fmt, mesh_file=mesh_file)
         except FormatError as exc:
             if not fmt.lenient:
                 raise FormatError(f"moby class {class_id}: {exc}") from exc
-            result[class_id] = fallback(level, start, entry, class_id, fmt, exc)
+            result[class_id] = fallback(level, start, remap, class_id, fmt, exc, mesh_file)
     return result
 
 
-def fallback(level, start: int, entry: bytes, class_id: int, fmt: games.Format, exc: FormatError) -> MobyClass | None:
+def fallback(level, start: int, remap: bytes | list[int], class_id: int, fmt: games.Format, exc: FormatError,
+             mesh_file: bytes | None = None) -> MobyClass | None:
     """A later game's class that did not decode whole (games.Format.lenient): its mesh and
     skeleton without the animations, else its mesh alone, else nothing; what was left out goes
     into level.problems, which the export lists."""
     for what, kwargs in (("animations", {"sequences": []}), ("skeleton", {"sequences": [], "joints": False})):
         try:
-            moby = moby_class(level.block(start), entry[16:32], f"moby_{class_id}", fmt=fmt, **kwargs)
+            moby = moby_class(level.block(start), remap, f"moby_{class_id}", fmt=fmt, mesh_file=mesh_file, **kwargs)
         except FormatError:
             continue
         level.problems.append(f"moby class {class_id}: {what} left out ({exc})")

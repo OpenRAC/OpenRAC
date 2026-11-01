@@ -252,9 +252,11 @@ void openrac_game_set_display(const openrac_game_display* d) {
 #ifdef OPENRAC_FRONTEND
             // Display changes replace globals read by the pending snapshot, so drain it first.
             if (d->frame_width > 0 && d->height > 0 && frontend::finish_render()) {
+                const std::uint32_t named = frontend::draw_buffer_block();
                 renderer::set_draw_buffer_block(
-                    static_cast<std::uint32_t>(d->frame_base) * 32
-                        + static_cast<std::uint32_t>(d->height * d->frame_width),
+                    named != 0 ? named
+                               : static_cast<std::uint32_t>(d->frame_base) * 32
+                                     + static_cast<std::uint32_t>(d->height * d->frame_width),
                     d->height >= 512 ? 448 : 416
                 );
             }

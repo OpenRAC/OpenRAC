@@ -313,6 +313,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g = std::make_unique<State>();
     g->game = game_id;
     g->profile = &host::game_profile(game_id);
+    scene::set_moby_anim_fields(g->profile->moby_anim_fields());
     const auto [inner, span] = g->profile->stick_dead_zone();
     g->input.set_stick_dead_zone({inner, span});
     g->levels = levels;
@@ -410,6 +411,10 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
               : g->swap == platform::SwapInterval::Adaptive ? "waits for the display (adaptive)"
                                                             : "waits for the display");
     return true;
+}
+
+std::uint32_t draw_buffer_block() {
+    return g != nullptr && g->profile != nullptr ? g->profile->draw_buffer_block() : 0;
 }
 
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count) {

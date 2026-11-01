@@ -41,7 +41,7 @@ from level import decoded, load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
 from lighting import normal_table
 from pack import pack
-from port import FORMAT as PORT_FORMAT, PortLevelWriter
+from port import PortLevelWriter, levels_format
 from util import sha256
 import wads
 
@@ -446,8 +446,8 @@ def export_port_flight(iso: Path, survey: dict, out: Path, lod: int) -> dict:
         return PortLevelWriter(out, load_flight(disc, survey), normals(disc)).write(lod)
 
 
-def levels_stamp_name() -> str:
-    return f"levels-{PORT_FORMAT}.json"
+def levels_stamp_name(game: str = "rac1") -> str:
+    return f"levels-{levels_format(game)}.json"
 
 
 def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path, game: str = "rac1") -> None:
@@ -476,7 +476,7 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
         write_pvs_stamp(out)
     # Last: every level is whole. The launcher counts the levels as ready by this stamp, named
     # after the export format, so a format bump reads them again before they are checked.
-    (out / levels_stamp_name()).write_text(json.dumps({"format": PORT_FORMAT}) + "\n")
+    (out / levels_stamp_name(game)).write_text(json.dumps({"format": levels_format(game)}) + "\n")
 
 
 def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:
