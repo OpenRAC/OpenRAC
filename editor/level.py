@@ -334,7 +334,21 @@ FLIGHT_ID = 98
 def load_flight(disc: Disc, survey: dict) -> Level:
     ref = next(r for r in survey["global_references"] if r["group"] == "transition")
     lump = decoded(disc.sectors(ref["lba"], (ref["bytes"] + SECTOR - 1) // SECTOR))
+    return flight_level(lump, FLIGHT_ID, disc.version.key)
 
+
+def load_wad_flight(source, number: int) -> Level:
+    """Going Commando's flights to a planet: the same lump, four of them (wads.WadDisc.flight), which
+    its transition loader (func_002EAB18) reads as Ratchet & Clank's does. Levels 98 down to 95."""
+    level = flight_level(decoded(source.flight(number)), FLIGHT_ID - number, source.version.key)
+    level.game = source.version.game
+    level.hero_mesh, pack = source.hero_pack()
+    for i, texture in enumerate(hero_textures(pack)):
+        level.textures[("moby", HERO_TEXTURES + i)] = texture
+    return level
+
+
+def flight_level(lump: bytes, number: int, version: str) -> Level:
     def h(i: int) -> int:
         return unpack("<i", lump, i * 4)[0]
 
@@ -360,8 +374,8 @@ def load_flight(disc: Disc, survey: dict) -> Level:
     data = lump[base:]
     put(0x8c, len(data))
     index = bytes(header) + lump[:base]
-    level = Level(FLIGHT_ID, b"", {}, index, data, bytes(0x100), {"entry_point": 0, "sections": []})
-    level.version = disc.version.key
+    level = Level(number, b"", {}, index, data, bytes(0x100), {"entry_point": 0, "sections": []})
+    level.version = version
     level.boundaries = core_boundaries(level)
     level.textures = textures(level, lump[h(0):base])
     level.no_terrain = True

@@ -37,6 +37,7 @@ ROOT_SECTORS = 16
 # before +0x72000 on these discs.
 TOC_LIMIT = 0x200000
 MAX_LEVELS = 100
+FLIGHT_BASE = 0x3e24        # Going Commando: the sector the flights' ranges start from
 LEVEL_PAIR = 24              # three (sector, sector count) pairs
 
 # A header's kind by its size (Wrench's WAD_FILE_TYPES, for these games' NTSC-U discs).
@@ -58,10 +59,12 @@ class Version:
     executable_sha1: str
     level_header: int       # the level header's size: 0x60 (Going Commando, Up Your Arsenal) or 0xc68 (Deadlocked)
     hero_packs: int = 0     # where the table of contents keeps the packs of Ratchet's mesh and textures, if it does
+    flights: int = 0        # where it keeps the flights' (sector, sector count) pairs, after their base sector
+    flight_count: int = 0
 
 
 RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60,
-                    hero_packs=0x4f04)
+                    hero_packs=0x4f04, flights=0x3e58, flight_count=4)
 RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
 VERSIONS = (RAC2_NTSC, RAC3_NTSC, RAC4_NTSC)
@@ -193,6 +196,13 @@ class WadDisc:
         mesh, mesh_sectors, textures, texture_sectors = unpack(
             "<4i", self.toc, self.version.hero_packs + 4 + pack * 16)
         return self.disc.sectors(base + mesh, mesh_sectors), self.disc.sectors(base + textures, texture_sectors)
+
+    def flight(self, number: int) -> bytes:
+        """A flight's lump as stored: the sector ranges at `flights`, relative to the sector the
+        word at 0x3e24 holds (the transition loader, func_002EAB18, reads them so)."""
+        base, = unpack("<I", self.toc, FLIGHT_BASE)
+        sector, count = unpack("<II", self.toc, self.version.flights + number * 8)
+        return self.disc.sectors(base + sector, count)
 
     def survey(self) -> dict:
         """The disc's levels, as JSON (headers left out)."""

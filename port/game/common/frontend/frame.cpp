@@ -639,6 +639,11 @@ bool read_window_events() {
 // Uses the world the game draws now: the level loaded (`level`, -1 the boot program), or one of
 // the boot program's worlds.
 int world_to_draw(std::span<const std::uint8_t> ram, int level) {
+    if (openrac_game_flight != nullptr) {
+        if (const int flight = openrac_game_flight(); flight >= 0) {
+            return -2 - flight;
+        }
+    }
     // The boot program's worlds: the flight between planets (game mode 6), else the title world.
     // A flight between planets also plays inside a planet's program. The game draws it by the ship's
     // state (dispatch_game_state_update): the planet in the take-off (0), the landing (8) and while

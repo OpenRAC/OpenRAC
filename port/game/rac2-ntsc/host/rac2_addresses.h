@@ -23,6 +23,8 @@
 #define RAC2_g_inventoryOwned 0x001A7AF8u    /* whether he has the item, a byte by item number */
 #define RAC2_g_inventoryNewFlag 0x001A7B30u  /* the same, shown as new */
 #define RAC2_g_inventoryOrder 0x001A7B68u    /* the 32 slots of the weapon lists: item | flag, 0xFF */
+#define RAC2_g_exitSceneMode 0x00152C20u      /* a short: how a program's load is drawn, 2 the flight */
+#define RAC2_g_loadingSceneVariant 0x00152C2Eu /* a short: which of the four flights' lumps is loaded */
 
 /* The boot program's; a level's copy through OPENRAC_DATA. */
 #define RAC2_g_nLevelExitRequested 0x001A8B84u  /* the loop ends and the next program loads */
