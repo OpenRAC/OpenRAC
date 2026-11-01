@@ -64,6 +64,13 @@ void openrac_stream_set_volume(uint32_t stream, int32_t volume);
 /* Interleaved stereo, 48 kHz: the sounds and the streams. */
 void openrac_sound_render(int16_t* interleaved, size_t frames);
 
+/* An output that mixes ahead of its device (platform/audio.h) says how many of the frames rendered
+ * the device has not taken yet. The game then reads the sound back as it is heard, as it does from
+ * an output that plays each frame as it is rendered: a sound or stream that ended in frames not
+ * heard yet still plays, and a stream's time left counts them. NULL (the default): every frame is
+ * heard as it is rendered. Called from the game's thread; `unheard` may be called from any. */
+void openrac_sound_set_unheard(size_t (*unheard)(void* user), void* user);
+
 /* Nonzero: a stream's file is read before openrac_stream_play returns, not on a thread of its own,
  * so it is ready at the same tick on every run (OPENRAC_AUDIO_TICKED, main.cpp). */
 void openrac_stream_read_at_once(int at_once);

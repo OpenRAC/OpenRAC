@@ -117,6 +117,13 @@ public:
 
     VoiceMixer& mixer() { return m_mixer; }
 
+    // With `on`, the sounds that end by themselves (their script done and their voices released)
+    // are kept for take_ended(); stop() and the others that end a sound at the caller's word keep
+    // none. Off by default, so a caller that never takes them keeps nothing.
+    void keep_ended(bool on);
+    // The sounds that ended by themselves since the last take, in order.
+    std::vector<SoundHandle> take_ended();
+
     std::size_t sounds_playing() const;
 
     // Grain types and tone kinds met but not played, with counts.
@@ -159,6 +166,9 @@ private:
     std::uint32_t m_random = 1;
     // Frames rendered since the last script tick.
     int m_frame_in_tick = 0;
+    // keep_ended's switch and the sounds kept.
+    bool m_keep_ended = false;
+    std::vector<SoundHandle> m_ended;
 };
 
 }  // namespace openrac::audio

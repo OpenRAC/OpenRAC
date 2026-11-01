@@ -53,6 +53,7 @@ enum class Var : std::uint16_t {
     AdpfOff,
     Anim,
     AnimTrace,
+    AudioBufferMs,
     AudioTicked,
     Camera,
     CameraInstanceCullOff,
