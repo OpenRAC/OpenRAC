@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "renderer/gl.h"
+#include "renderer/program_cache.h"
 #include "renderer/shader_precision.h"
 #include "renderer/texture_filter.h"
 #include "renderer_shaders.h"
@@ -82,7 +83,9 @@ std::string es_source(std::string_view source, bool noperspective, bool clip_dis
 
 namespace {
 
-GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
+// The source handed to the driver for a stage written for the desktop's GL: in ES's words on an ES
+// context, with the enhanced rendering's switch, and the precision aliases.
+std::string stage_source(std::string_view desktop_source) {
     std::string translated;
     std::string_view source = desktop_source;
     if (is_es()) {
@@ -100,16 +103,25 @@ GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
         source = translated;
     }
     // Desktop GL and ES retain the same arithmetic sources with ordinary FP32 aliases.
-    std::string precision;
     if (!is_vulkan()) {
-        precision = renderer::shader_precision_source(source, false);
-        source = precision;
+        return renderer::shader_precision_source(source, false);
     }
+    return std::string(source);
+}
+
+// Hands a stage to the driver to compile. Its status is not asked yet: with parallel compiles
+// (gl::parallel_shader_compile) the driver works on it while the next stage is handed over.
+GLuint start_compile(GLenum type, const std::string& source) {
     const GLuint shader = glCreateShader(type);
     const GLchar* text = source.data();
     const auto length = static_cast<GLint>(source.size());
     glShaderSource(shader, 1, &text, &length);
     glCompileShader(shader);
+    return shader;
+}
+
+// Waits for the stage's compile: the shader, or 0 (deleted) with the compiler's log.
+GLuint finish_compile(GLuint shader, std::string& log) {
     GLint ok = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
     if (ok == 0) {
@@ -121,6 +133,54 @@ GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
         return 0;
     }
     return shader;
+}
+
+GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
+    return finish_compile(start_compile(type, stage_source(desktop_source)), log);
+}
+
+// Compiles and links a program from final stage sources: the program, or 0 with `error`.
+GLuint compile_program(
+    std::string_view name,
+    const std::string& vertex,
+    const std::string& fragment,
+    std::string& error
+) {
+    // Both stages handed over before either is waited for.
+    const GLuint vs_started = start_compile(GL_VERTEX_SHADER, vertex);
+    const GLuint fs_started = start_compile(GL_FRAGMENT_SHADER, fragment);
+    std::string log;
+    const GLuint vs = finish_compile(vs_started, log);
+    if (vs == 0) {
+        glDeleteShader(fs_started);
+        error = std::format("{}: vertex shader: {}", name, log);
+        return 0;
+    }
+    const GLuint fs = finish_compile(fs_started, log);
+    if (fs == 0) {
+        glDeleteShader(vs);
+        error = std::format("{}: fragment shader: {}", name, log);
+        return 0;
+    }
+    const GLuint program = glCreateProgram();
+    program_cache::prepare(program);
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    glLinkProgram(program);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+    GLint ok = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &ok);
+    if (ok == 0) {
+        GLint size = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
+        log.assign(static_cast<std::size_t>(size > 0 ? size : 1), '\0');
+        glGetProgramInfoLog(program, size, nullptr, log.data());
+        glDeleteProgram(program);
+        error = std::format("{}: link: {}", name, log);
+        return 0;
+    }
+    return program;
 }
 
 }  // namespace
@@ -160,34 +220,18 @@ bool Shader::build(
         );
         fragment = assembled;
     }
-    std::string log;
-    const GLuint vs = compile(GL_VERTEX_SHADER, vertex, log);
-    if (vs == 0) {
-        error = std::format("{}: vertex shader: {}", name, log);
-        return false;
-    }
-    const GLuint fs = compile(GL_FRAGMENT_SHADER, fragment, log);
-    if (fs == 0) {
-        glDeleteShader(vs);
-        error = std::format("{}: fragment shader: {}", name, log);
-        return false;
-    }
-    const GLuint program = glCreateProgram();
-    glAttachShader(program, vs);
-    glAttachShader(program, fs);
-    glLinkProgram(program);
-    glDeleteShader(vs);
-    glDeleteShader(fs);
-    GLint ok = 0;
-    glGetProgramiv(program, GL_LINK_STATUS, &ok);
-    if (ok == 0) {
-        GLint size = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
-        log.assign(static_cast<std::size_t>(size > 0 ? size : 1), '\0');
-        glGetProgramInfoLog(program, size, nullptr, log.data());
-        glDeleteProgram(program);
-        error = std::format("{}: link: {}", name, log);
-        return false;
+    // The same sources as a program built before (this run, or an earlier one): the driver's
+    // binary of it, without a compile (renderer/program_cache.h).
+    const std::string vertex_source = stage_source(vertex);
+    const std::string fragment_source = stage_source(fragment);
+    const program_cache::Key key = program_cache::key(vertex_source, fragment_source);
+    GLuint program = program_cache::load(key);
+    if (program == 0) {
+        program = compile_program(name, vertex_source, fragment_source, error);
+        if (program == 0) {
+            return false;
+        }
+        program_cache::store(key, program);
     }
     release();
     m_program = program;

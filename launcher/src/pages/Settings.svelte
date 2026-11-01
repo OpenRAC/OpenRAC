@@ -595,21 +595,21 @@
               <strong>Renderer</strong>
               <small>
                 {draft.renderer === "vulkan"
-                  ? "Experimental: needs Vulkan 1.3, else the game draws with OpenGL."
-                  : "OpenGL 4.1, the default."}
+                  ? "Vulkan 1.3, the default; without it the game draws with OpenGL."
+                  : "OpenGL 4.1."}
                 From the game's next start: a running game keeps its renderer.
               </small>
             </span>
             <div class="segmented" role="radiogroup" aria-label="Renderer">
               <button
                 role="radio"
-                aria-checked={draft.renderer !== "vulkan"}
-                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
+                aria-checked={draft.renderer === "vulkan"}
+                onclick={() => (draft.renderer = "vulkan")}>Vulkan</button
               >
               <button
                 role="radio"
-                aria-checked={draft.renderer === "vulkan"}
-                onclick={() => (draft.renderer = "vulkan")}>Vulkan</button
+                aria-checked={draft.renderer !== "vulkan"}
+                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
               >
             </div>
           </div>

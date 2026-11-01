@@ -3,7 +3,8 @@
 //
 // The VAG streams of the game's sound engine (port/game/common/lib/sound_engine.cpp) on a disc
 // image made here: the time a stream has left, from the frame it starts on, which RAC1's music
-// crossfade measures its fade against (games/rac1/src/game/music.c, music_Update).
+// crossfade measures its fade against (games/rac1/src/game/music.c, music_Update). And what the
+// game reads back while the output mixes ahead of its device: the sound as it is heard.
 
 #include <algorithm>
 #include <chrono>
@@ -44,6 +45,13 @@ void put_vag(std::vector<std::uint8_t>& disc, std::uint32_t sector, std::uint32_
     put_be32(disc, at + 4, 0x20);
     put_be32(disc, at + 12, kFrames * 16);
     put_be32(disc, at + 16, kRate);
+}
+
+// The output's frames not heard yet (openrac_sound_set_unheard).
+std::size_t g_unheard = 0;
+
+std::size_t test_unheard(void*) {
+    return g_unheard;
 }
 
 void render_ms(int ms) {
@@ -148,6 +156,54 @@ int main() {
     CHECK(openrac_sound_snapshot_load(audio_snapshot.data(), audio_snapshot.size()) == 0);
     CHECK(openrac_sound_play(bank, 0, 0x400, -1, 0, 0) != 0);
     CHECK(!openrac_stream_live(broken));
+
+    // The test bank's sound ends by itself within half a second.
+    openrac_sound_stop_all();
+    const std::uint32_t heard_at_once = openrac_sound_play(bank, 0, 0x400, -1, 0, 0);
+    CHECK(heard_at_once != 0);
+    render_ms(500);
+    CHECK(!openrac_sound_playing(heard_at_once));
+
+    // Mixed ahead: a sound that ended in frames not heard yet still plays for the game, and still
+    // takes its parameters, until those frames are heard.
+    openrac_sound_set_unheard(&test_unheard, nullptr);
+    const std::uint32_t ahead = openrac_sound_play(bank, 0, 0x400, -1, 0, 0);
+    CHECK(ahead != 0);
+    g_unheard = kRate;  // a second: everything rendered below
+    render_ms(500);
+    CHECK(openrac_sound_playing(ahead));
+    CHECK(openrac_sound_set_params(ahead, 1, 0x200, 0, 0, 0) == ahead);
+    g_unheard = 0;
+    CHECK(!openrac_sound_playing(ahead));
+    CHECK(openrac_sound_set_params(ahead, 1, 0x200, 0, 0, 0) == 0);
+
+    // A sound the game stops ends for it at once, heard or not.
+    const std::uint32_t stopped = openrac_sound_play(bank, 0, 0x400, -1, 0, 0);
+    g_unheard = kRate;
+    render_ms(500);
+    CHECK(openrac_sound_playing(stopped));
+    openrac_sound_stop(stopped);
+    CHECK(!openrac_sound_playing(stopped));
+
+    // A stream's time left counts the frames it moved on in that are not heard yet: here all of
+    // them, so it is the whole track still; and once they are heard, what is left after them.
+    openrac_stream_read_at_once(1);
+    const std::uint32_t music = openrac_stream_play(4, 0x400, 1, 0, 0x20);
+    CHECK(openrac_stream_buffered(music));
+    g_unheard = kRate;
+    render_ms(200);
+    CHECK(openrac_stream_remaining_ms(music) == kWholeMs);
+    g_unheard = 0;
+    const std::int32_t heard = openrac_stream_remaining_ms(music);
+    CHECK(heard <= kWholeMs - 199 && heard >= kWholeMs - 201);
+    // Ended in frames not heard yet: still live, with what is left of them.
+    g_unheard = kRate;
+    render_ms(kWholeMs);
+    CHECK(openrac_stream_live(music));
+    CHECK(openrac_stream_remaining_ms(music) > 0);
+    g_unheard = 0;
+    CHECK(!openrac_stream_live(music));
+    openrac_sound_set_unheard(nullptr, nullptr);
 
     // The program is leaving: the readers are stopped and waited for, and no track is read
     // after that (a reader that is still working when the program exits is a crash at quit).

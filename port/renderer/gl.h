@@ -181,6 +181,9 @@ inline constexpr GLbitfield GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT = 0x0001;
 inline constexpr GLbitfield GL_COMMAND_BARRIER_BIT = 0x0040;
 inline constexpr GLenum GL_COMPILE_STATUS = 0x8B81;
 inline constexpr GLenum GL_LINK_STATUS = 0x8B82;
+inline constexpr GLenum GL_PROGRAM_BINARY_LENGTH = 0x8741;
+inline constexpr GLenum GL_NUM_PROGRAM_BINARY_FORMATS = 0x87FE;
+inline constexpr GLenum GL_PROGRAM_BINARY_RETRIEVABLE_HINT = 0x8257;
 inline constexpr GLenum GL_INFO_LOG_LENGTH = 0x8B84;
 
 inline constexpr GLenum GL_FRAMEBUFFER = 0x8D40;
@@ -198,6 +201,17 @@ inline constexpr GLenum GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
 #define OPENRAC_GL_COMPUTE_FUNCTIONS(X)                                                            \
     X(void, glDispatchCompute, (GLuint x, GLuint y, GLuint z))                                     \
     X(void, glMemoryBarrier, (GLbitfield barriers))
+
+// Program binaries (OpenGL 4.1, OpenGL ES 3.0): renderer/program_cache.h keeps the driver's compiled
+// programs with them. Loaded on OpenGL and OpenGL ES, not on the Vulkan backend, which has caches of
+// its own; a context without them keeps no binaries.
+// clang-format off
+#define OPENRAC_GL_PROGRAM_BINARY_FUNCTIONS(X)                                                     \
+    X(void, glGetProgramBinary, (GLuint program, GLsizei size, GLsizei *length, GLenum *format,    \
+                                 void *binary))                                                    \
+    X(void, glProgramBinary, (GLuint program, GLenum format, const void *binary, GLsizei length))  \
+    X(void, glProgramParameteri, (GLuint program, GLenum pname, GLint value))
+// clang-format on
 
 // The functions: return type, name, parameters.
 // clang-format off
@@ -351,6 +365,7 @@ OPENRAC_GL_FUNCTIONS(OPENRAC_GL_DECLARE)
 OPENRAC_GL_DESKTOP_FUNCTIONS(OPENRAC_GL_DECLARE)
 OPENRAC_GL_ES_OPTIONAL_FUNCTIONS(OPENRAC_GL_DECLARE)
 OPENRAC_GL_COMPUTE_FUNCTIONS(OPENRAC_GL_DECLARE)
+OPENRAC_GL_PROGRAM_BINARY_FUNCTIONS(OPENRAC_GL_DECLARE)
 #undef OPENRAC_GL_DECLARE
 
 // The context's loader, in SDL_GL_GetProcAddress's shape.
@@ -397,5 +412,10 @@ inline bool is_es() {
 
 // True when the context lists the extension (GL_EXTENSIONS, read once by load()).
 bool has_extension(const char* name);
+
+// True when the context compiles shaders on threads of its own (KHR_ or ARB_parallel_shader_compile,
+// told by load() to use as many as it likes): a shader's compile then runs while the next one is
+// handed over, until its status is asked for.
+bool parallel_shader_compile();
 
 }  // namespace openrac::gl

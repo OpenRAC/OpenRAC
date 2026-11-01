@@ -933,9 +933,10 @@ mod tests {
         );
         let unnamed = Config { multiplayer_name: "no spaces".into(), ..installed.clone() };
         assert!(!play.plan(&ctx(&unnamed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_PLAYER_NAME"));
-        // Settings, "Renderer": Vulkan on the desktops; OpenGL, the default, sets nothing.
-        assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
-        let vulkan = Config { renderer: "vulkan".into(), ..installed.clone() };
+        // Settings, "Renderer": Vulkan, the default, on the desktops; OpenGL sets nothing.
+        let opengl = Config { renderer: "opengl".into(), ..installed.clone() };
+        assert!(!play.plan(&ctx(&opengl)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
+        let vulkan = installed.clone();
         let plan = play.plan(&ctx(&vulkan)).unwrap();
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         // macOS as well: the game's bundle carries MoltenVK.
