@@ -250,6 +250,7 @@ let config: Config = {
   crashesSeen: {},
   discChoice: {},
   multiplayerName: "BraveLombax42",
+  multiplayerKey: "0123456789abcdef0123456789abcdef",
 };
 
 const query = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
