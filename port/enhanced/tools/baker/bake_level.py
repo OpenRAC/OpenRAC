@@ -380,7 +380,7 @@ def main():
             raise ValueError('bake outputs must be outside the source level directory')
         if args.output_dir.exists():
             raise ValueError('choose a new output directory; previous bakes are preserved')
-        with diagnostics.transcript(args.output_dir) as log:
+        with diagnostics.transcript(args.output_dir, baker=args.baker) as log:
             try:
                 bake_level(args.level_dir, args.output_dir, args.baker, disc=args.disc, options=options, resume=True)
             except Exception as error:

@@ -229,6 +229,10 @@ def copy_games(build: Path, dest: Path) -> list[str]:
                 shutil.copy2(path, dest / path.name)
                 strip_debug(dest / path.name)
                 carried.append(path.name)
+    # Preserve the compiled port identity for probe diagnostics outside a source checkout.
+    stamp = build / "openrac-build.json"
+    if stamp.is_file():
+        shutil.copy2(stamp, dest / stamp.name)
     return carried
 
 
@@ -311,9 +315,10 @@ def main() -> int:
         carried.append("python")
 
     commit = proc.git(ROOT, "rev-parse", "HEAD", check=False)
+    version = json.loads((ROOT / "launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
     (out / "STANDALONE").write_text(
         "The copy of OpenRAC an installed launcher carries (tools/bundle_standalone.py).\n"
-        f"commit: {commit or 'unknown'}\ncarries: {', '.join(carried) or 'no game, no Python'}\n"
+        f"version: {version}\ncommit: {commit or 'unknown'}\ncarries: {', '.join(carried) or 'no game, no Python'}\n"
         + ("for: Android (the games and Python are the APK's libraries)\n" if args.android else ""))
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     print(f"{out}: {size / 1e6:.0f} MB; carries {', '.join(carried) or 'no game, no Python'}")
