@@ -208,6 +208,9 @@ public:
 
     bool has_levels() const override { return true; }
 
+    // The pad's read (func_002B88F0): |byte - 0x7F| from 0x30, over 0x4C, as Ratchet & Clank's.
+    std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
+
 private:
     static const Addresses& addresses(int level) {
         return level >= 0 && static_cast<std::size_t>(level) < std::size(kLevels)
