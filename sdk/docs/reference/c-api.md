@@ -121,6 +121,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_PLAY_SCENE` | `4` | A level, a scene playing: a cutscene, a movie, a slideshow, the ship's landing or take-off. |
 | `OPENRAC_PLAY_MENU` | `5` | A level, a menu over it: paused, a vendor, a dialog. |
 | `OPENRAC_POSE_BLENDING` | `0x1u` | The animation is blending into `seq` from another: `frame` is where it arrives. |
+| `OPENRAC_POSE_STEADY` | `0x2u` | The hero's pose only: he stands still enough on the level's own ground, on foot and unhurt, for another to be put beside him (hero_place). Since 1.12. |
 | `OPENRAC_MOBY_UPDATES` | `0x1u` | It has an update of its own (the game runs it near the camera). |
 | `OPENRAC_MOBY_DRIVEN` | `0x2u` | A mod drives it (moby_drive): its update does not run. |
 | `OPENRAC_MOBY_PLACED` | `0x4u` | The level placed it: it has a key. |
@@ -164,6 +165,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_CARD_REDIRECT` | `2` | they go to the card folder the mod names |
 | `OPENRAC_PLACE_INVULNERABLE` | `0x1u` | the hero takes no damage for a few seconds |
 | `OPENRAC_PLACE_GROUND` | `0x2u` | the position is dropped to the ground below it |
+| `OPENRAC_PLACE_BESIDE` | `0x4u` | a spot beside the position, behind `yaw` and looking at it |
 | `OPENRAC_MISSION_STATE_SIZE` | `16` | The bytes of one level's mission state (mission_state_read, mission_state_write). Since 1.12. |
 | `OPENRAC_SHOT_START` | `0x1u` | openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a track, and each of its shots says where in it this one is; aux[0] tells a player's tracks apart. Each may be lost: a MOVE stands in for a lost START, a track that goes silent ends by itself. No flag: one shot, fired once. Since 1.12. |
 | `OPENRAC_SHOT_MOVE` | `0x2u` |  |
@@ -866,7 +868,7 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*shared_give)(int tag, const void* data, uint32_t size)` |  |
 | `int (*mission_state_read)(int level, uint8_t* out)` | The 16 bytes (OPENRAC_MISSION_STATE_SIZE) of the mission state of level `level`, and the same written back. Since 1.12. |
 | `int (*mission_state_write)(int level, const uint8_t* in)` |  |
-| `int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags)` | Puts the hero at `position` (x, y, z) facing `yaw`, its speed cleared, with OPENRAC_PLACE_* `flags`; only in a level, with the player in control. Since 1.12. |
+| `int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags)` | Puts the hero at `position` (x, y, z) facing `yaw`, its speed cleared, with OPENRAC_PLACE_* `flags`, in a level; a place asked for in a menu, a scene or on a ride waits until the player is in control, on foot, and goes with the level. OPENRAC_HOOK_OK says it was asked, not done: the hero's pose says when he is there, and with OPENRAC_PLACE_BESIDE, where no spot beside the position has ground, he never goes. Since 1.12. |
 | `int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags)` | Holds the hero as a grab does, playing animation `animation`, controls locked, until hero_release or the game's own end of it; and lets go. Since 1.12. |
 | `int (*hero_release)(openrac_mod* mod)` |  |
 | `int (*hero_revive)(openrac_mod* mod, const float position[3], uint32_t flags)` | Brings a dead hero back where it fell, or at `position` when not null. Since 1.12. |
