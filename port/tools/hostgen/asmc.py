@@ -125,6 +125,10 @@ class Translator:
     # asm.in_place in hostgen.json: hand-written routines called in their own register convention,
     # whose code a translation runs in place whatever C they have (rac1's collision cell lookup).
     in_place: frozenset = frozenset()
+    # asm.dma_stores in hostgen.json: the kernels that start the scratchpad's DMA channels by writing
+    # their registers (lui 0x1000), which no DMA controller answers: their word stores go through
+    # openrac_ee_sw_dma, which does the transfer (openrac/ee_ops.h).
+    dma_stores = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -190,6 +194,8 @@ class Translator:
         # cost every vector operation a few more for nothing.
         self.vu_flags = any((i := self.at(a)) is not None and i.op == "cfc2" and i.rd in (16, 17)
                             for a in self.reach)
+        self.starts_dma = self.dma_stores and any((i := self.at(a)) is not None and i.op == "lui"
+                                                  and i.imm & 0xFFFF == 0x1000 for a in self.reach)
         self._check_inputs()
 
     _inline_cache: dict = {}
@@ -212,6 +218,7 @@ class Translator:
         sub = Translator(self.program, self.index, self.gp, self.mode, self.source)
         sub.forward_unprototyped = self.forward_unprototyped
         sub.in_place = self.in_place
+        sub.dma_stores = self.dma_stores
         sub.ps2 = self.ps2
         try:
             sub._load(Function(f"sub_{target:08X}", Signature(ctype.Base("int"), (), False, False)),
@@ -955,7 +962,8 @@ class Translator:
         if op in ("lwl", "lwr", "ldl", "ldr"):
             return W(rt, f"openrac_ee_{op}({self.addr(ins)}, {R(rt)})")
         if op in ("sb", "sh", "sw", "sd", "swl", "swr", "sdl", "sdr"):
-            return [f"openrac_ee_{op}({self.addr(ins)}, {R(rt)});"]
+            store = "sw_dma" if op == "sw" and self.starts_dma else op
+            return [f"openrac_ee_{store}({self.addr(ins)}, {R(rt)});"]
         if op == "lq":
             if rt == 0:
                 return []
@@ -1553,6 +1561,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr = Translator(program, None, gp, "host", base)
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))
+    tr.dma_stores = bool(a.get("dma_stores"))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
     tr.index = index
