@@ -197,11 +197,13 @@ std::uint64_t returns_nothing() {
     return 0;
 }
 
+// The calls to code addresses no function has, by address (the reach file reports them).
+std::mutex g_unknown_lock;
+std::map<gaddr, int> g_unknown_calls;
+
 void unknown_function() {
-    static std::mutex lock;
-    static std::map<gaddr, int> seen;
-    std::scoped_lock hold(lock);
-    const int calls = ++seen[g_unknown_target];
+    std::scoped_lock hold(g_unknown_lock);
+    const int calls = ++g_unknown_calls[g_unknown_target];
     // [verbose log] It goes on being called: said again at 10, 100, 1000... calls.
     if (calls >= 10 && openrac::log::verbose_on()) {
         int n = calls;
@@ -937,6 +939,33 @@ int openrac_guest_write_reach(const char* path, const char* game, long frames) {
         first = false;
         json_string(f, name.c_str());
         std::fprintf(f, ", \"kind\": \"missing\", \"calls\": %lu}", count);
+    }
+    {
+        std::scoped_lock unknown(g_unknown_lock);
+        for (const auto& [address, calls] : g_unknown_calls) {
+            std::fputs(first ? "\n  {\"name\": " : ",\n  {\"name\": ", f);
+            first = false;
+            std::fprintf(f, "\"0x%08X\", \"kind\": \"unknown-call\", \"calls\": %d}", address, calls);
+        }
+    }
+    // Accesses to memory that is not there (OPENRAC_SOFT_FAULTS).
+    std::fputs("\n], \"faults\": [", f);
+    first = true;
+    for (unsigned i = 0;; ++i) {
+        const openrac::runtime::SoftFault* fault = openrac::runtime::soft_fault_at(i);
+        if (fault == nullptr) {
+            break;
+        }
+        std::fprintf(
+            f,
+            "%s\n  {\"page\": \"0x%08X\", \"write\": %s, \"name\": ",
+            first ? "" : ",",
+            fault->page,
+            fault->write ? "true" : "false"
+        );
+        first = false;
+        json_string(f, fault->function != nullptr ? fault->function : "(unnamed)");
+        std::fprintf(f, ", \"hits\": %lu}", fault->hits);
     }
     std::fputs("\n]}\n", f);
     const bool ok = std::fclose(f) == 0;

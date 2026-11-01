@@ -363,6 +363,12 @@ struct Route {
 // Where a scripted run is, as frame() last read it (frontend.cpp).
 extern Route g_route;
 
+// The pad of a scripted run from a file, or written to one (OPENRAC_RECORD, OPENRAC_REPLAY and
+// OPENRAC_WALK, record.cpp): called with pad 0 as each tick reads it, and with the camera's forward
+// row, which the walk steers by.
+void scripted_pad(std::uint16_t& buttons, std::uint8_t analog[4]);
+void scripted_view(const float forward[3]);
+
 // OPENRAC_SHOT=EVERY:PATH: a PNG of every EVERY-th frame, written to PATH<frame>.png.
 struct Shots {
     std::uint64_t every = 0;  // 0: no shots (unset, no ':', or EVERY not above 0)

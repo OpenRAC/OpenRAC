@@ -245,9 +245,33 @@ typedef struct openrac_front_end {
      * signed byte 3, which the game's string width sums), for the width of a mod's page; 0 for
      * none. */
     gaddr fonts[3];
+    /* Whether start_level works from inside a level too, not only over the title: the developer
+     * menu then opens over a level as well (with F1, the pad's Select being the game's). */
+    int start_level_anywhere;
 } openrac_front_end;
 
 extern const openrac_front_end* openrac_game_front_end;
+
+/* What the developer tools need of a game (docs/port/DEBUGGING.md, Going anywhere, game/common/
+ * program/tools.cpp), when a game installs it (rac2: port/game/rac2-ntsc/host/tools.c). NULL: the
+ * tools' switches do nothing. Every call on the game's thread, at a vertical blank; a member a game
+ * has not got is NULL. */
+typedef struct openrac_game_tools {
+    /* Gives the hero what `what` names: all, weapons, gadgets, bolts:N, or an item's number.
+     * Returns how many things changed, -1 when the word means nothing to this game. */
+    int (*give)(const char* what);
+    /* Puts the hero back at full health (each tick while OPENRAC_INVINCIBLE is on). */
+    void (*heal)(void);
+    /* Puts the hero at `xyz`, in game units. Returns 0 when no level runs. */
+    int (*teleport)(const float xyz[3]);
+    /* Ends the in-game scene playing, the way the game's own skip does. Returns 0 when none plays. */
+    int (*end_scene)(void);
+    /* The game's state as JSON members (no braces), at most `size` bytes with the end: what the
+     * hero holds and where he is, for OPENRAC_STATE_DUMP. Returns the length written. */
+    int (*state_json)(char* out, int size);
+} openrac_game_tools;
+
+extern const openrac_game_tools* openrac_game_tools_host;
 
 /* What the mods' play calls need of a game (sdk/include/openrac/openrac_mod.h, interface 1.8:
  * multiplayer), when a game installs it (rac1: port/game/rac1/host/play.c, with each disc's
