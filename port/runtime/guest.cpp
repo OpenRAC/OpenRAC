@@ -1361,7 +1361,16 @@ void pair_programs(WordReader reference, int program, const Functions& own,
             continue;
         }
         const std::vector<gaddr>& places = copy->second;
-        const auto [size, first] = piece_bytes(reference, program, own, k);
+        auto [size, first] = piece_bytes(reference, program, own, k);
+        // A piece with no copy here pairs nothing, so its bytes are the function's before it (rac2:
+        // a level's function its C names by address, listed in the middle of an executable one).
+        for (std::size_t j = k + 1; j < own.size() && first < size; ++j) {
+            const auto next = copies.find(own[j].second);
+            if (next != copies.end() && !next->second.empty()) {
+                break;
+            }
+            first = j + 1 < own.size() ? own[j + 1].first - own[k].first : size;
+        }
         const gaddr at = own[k].first;
         if (places.size() == 1 || places.size() == own_count[own[k].second]) {
             const gaddr place = places.size() == 1 ? places[0] : places[rank];
