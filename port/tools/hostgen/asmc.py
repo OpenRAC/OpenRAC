@@ -120,6 +120,9 @@ def is_control(i: asm.Insn) -> bool:
     return i.op in asm.BRANCHES
 
 
+LEVEL_DATUM = re.compile(r"D_L(\d\d)_([0-9A-Fa-f]{8})")
+
+
 class Translator:
     forward_unprototyped = False  # asm.forward_unprototyped in hostgen.json
     # asm.in_place in hostgen.json: hand-written routines called in their own register convention,
@@ -544,7 +547,15 @@ class Translator:
                 address = own[0]
                 expr = self._code(self.program.canonical(sym), address)
         else:
-            address = self.program.data_address(sym)
+            # This level's own datum, named by retail.py for the address the code forms. The
+            # decompilation's build may give the name another value (hostgen.json "derived": Going
+            # Commando's, the boot program's address, for C that lands in both), but that is not
+            # where this function's copy looks.
+            own_name = LEVEL_DATUM.fullmatch(sym)
+            if own_name and int(own_name.group(1)) == self.home:
+                address = int(own_name.group(2), 16)
+            else:
+                address = self.program.data_address(sym)
             if address is not None:
                 expr = self._data(sym, address)
         if address is None or expr is None or expr == hexaddr(address):
