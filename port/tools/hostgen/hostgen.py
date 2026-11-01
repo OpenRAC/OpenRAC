@@ -1127,7 +1127,7 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
                      if l.strip() and not l.startswith("#")]
         for name, why in sorted(asmc.write_console(asm_stage, args.asm_console.resolve(), names).items()):
             print(f"hostgen: {name}: no console form: {why}", file=sys.stderr)
-    inherited = inherited_early + inherit_results(program)
+    inherited = inherited_early + asm_stage.inherited + inherit_results(program)
     return asm_stage, asm_results, inherited
 
 

@@ -56,7 +56,7 @@ import asm
 import ctype
 import retail
 from lower import FnReport, Unit, UnitReport, Unsupported, _Fn, hexaddr, LEVEL_NAME
-from program import Function, Program, Signature, canon, cname, prototype
+from program import Function, Program, Signature, canon, cname, inherit_results, prototype
 
 ARG_REGS = list(range(4, 12))     # $a0-$a3, $t0-$t3 (the EE's eight integer argument registers)
 FARG_REGS = list(range(12, 20))   # $f12-$f19
@@ -1661,6 +1661,7 @@ class Stage:
     retail: str = ""                           # the retail program read for instructions, if any
     shadows: dict = field(default_factory=dict)   # alias -> its translation's C (or None), "shadows"
     shadow_why: dict = field(default_factory=dict)  # alias -> why it has none
+    inherited: list[str] = field(default_factory=list)  # results_before_calls's names
 
 
 def asm_config(cfg: dict) -> dict | None:
@@ -1806,6 +1807,10 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     for sym in found:
         program.functions[sym].unit = "<asm>"
     program.index_places()
+    # A C wrapper's result from a translated callee, known now, for the translations that read it
+    # after their calls (asm.results_before_calls; hostgen.py does this again for the C).
+    if a.get("results_before_calls"):
+        stage.inherited = inherit_results(program)
     results: dict[str, Result] = {}
     for sym, hit in sorted(found.items()):
         r = tr.translate(program.functions[sym], hit)
