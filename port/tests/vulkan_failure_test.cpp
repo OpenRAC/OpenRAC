@@ -222,7 +222,9 @@ void test_single_sample_colour_expands_into_msaa() {
     openrac::renderer::FrameBuffer target;
     std::string error;
     CHECK(source.create(2, 2, error));
-    CHECK(target.create(2, 2, error, 2));
+    // Some software drivers support 4x but not 2x; use an advertised count, not a downgraded 1x.
+    CHECK(target.create(2, 2, error, openrac::renderer::FrameBuffer::max_samples()));
+    CHECK(detail::target_of(target.id()).samples != VK_SAMPLE_COUNT_1_BIT);
     glBindTexture(GL_TEXTURE_2D, source.colour_texture());
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, kPattern.data());
     const auto expected = source.read_rgba();
