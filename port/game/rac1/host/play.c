@@ -39,6 +39,14 @@
  *
  * Both discs' saves have this one layout, so a save of either loads in the other: one disc's
  * save folder, not its save, is the disc's own (rac1_version.h, RAC1_SAVE_FOLDER).
+ *
+ * A party's saves. memcard_Save (func_0020BFC8) does nothing unless a card is in use, a save number
+ * chosen and saving on (its record's +0xC8, +0x14 and +0xFC), which the load menu and the pause
+ * menu's Save set and a game started from code does not. It holds nothing a respawn needs: the
+ * clock, the map's coverage, the level objects' positions and the slot's record, then the two
+ * parts serialised for the card (the checkpoint's level state is its own, level_state globals).
+ * card_session sets those words for as long as a party plays, so the game's own saves happen and
+ * the card filter (lib/mc.c) takes them, and puts them back after.
  */
 #include <stdio.h>
 #include <string.h>
@@ -46,6 +54,7 @@
 #include "openrac/host_env.h"
 #include "pose_anim.h"
 #include "rac1.h"
+#include "openrac/games/rac1_save.h"
 
 #define LEVELS 19
 
@@ -415,6 +424,60 @@ static int save_info(
     return ok && *level >= 0 && *level < LEVELS;
 }
 
+/* Whether a save from elsewhere can be handed to the game (the SDK's rac1_save.h: the one check,
+ * which the mods run too). */
+static int save_check(const uint8_t* save, uint32_t size) {
+    return size <= SAVE_ROOM && openrac_rac1_save_check(save, size) == OPENRAC_RAC1_SAVE_OK;
+}
+
+/* The words of the game's card record a party's game sets, as the title left them. */
+static struct {
+    int held;
+    int active, number, errors, saving;
+} card_kept;
+
+#define CARD_WORD(offset) GREF(int, RAC1_CARD_STATE + (offset))
+#define CARD_NUMBER 0x14
+/* The operation that checks the card and reads its saves' records again (MEMCARD_REQUEST_CHDIR). */
+#define CARD_CHECK 7
+
+static int card_session(int on) {
+    if (on) {
+        if (!card_kept.held) {
+            card_kept.held = 1;
+            card_kept.active = CARD_WORD(RAC1_CARD_ACTIVE);
+            card_kept.number = CARD_WORD(CARD_NUMBER);
+            card_kept.errors = CARD_WORD(RAC1_CARD_ERRORS);
+            card_kept.saving = CARD_WORD(RAC1_CARD_SAVING);
+        }
+        if (in_level()) {
+            CARD_WORD(RAC1_CARD_ACTIVE) = 0;
+            CARD_WORD(RAC1_CARD_ERRORS) = 0;
+            CARD_WORD(RAC1_CARD_SAVING) = 1;
+            if (CARD_WORD(CARD_NUMBER) < 0) {
+                CARD_WORD(CARD_NUMBER) = 0;
+            }
+        }
+        return 1;
+    }
+    if (!card_kept.held) {
+        return 1;
+    }
+    /* A write under way finishes first; one only asked for never starts (it holds the party's game). */
+    if (CARD_WORD(RAC1_CARD_OPERATION) >= 3) {
+        return 0;
+    }
+    CARD_WORD(RAC1_CARD_ACTIVE) = card_kept.active;
+    CARD_WORD(CARD_NUMBER) = card_kept.number;
+    CARD_WORD(RAC1_CARD_ERRORS) = card_kept.errors;
+    CARD_WORD(RAC1_CARD_SAVING) = card_kept.saving;
+    /* The party's saves left their mark on the save list the game keeps: it reads the card again. */
+    CARD_WORD(RAC1_CARD_PENDING) = CARD_CHECK;
+    CARD_WORD(RAC1_CARD_PENDING_CARD) = 0;
+    card_kept.held = 0;
+    return 1;
+}
+
 static int start(int level, const uint8_t* save, uint32_t size) {
     if (level >= LEVELS || in_level()) {
         return 0;
@@ -423,8 +486,7 @@ static int start(int level, const uint8_t* save, uint32_t size) {
         rac1_start_level(level < 0 ? 0 : level);
         return 1;
     }
-    int32_t saved_level, bolts, gold, seconds;
-    if (size > SAVE_ROOM || !save_info(save, size, &saved_level, &bolts, &gold, &seconds)) {
+    if (!save_check(save, size)) {
         return 0;
     }
     const gaddr room = save_room();
@@ -489,6 +551,12 @@ const openrac_game_play rac1_play = {
     .save_file = "save%d.bin",
     .save_slots = 5,
     .save_info = save_info,
+    .card_session = card_session,
+    .save_check = save_check,
+    .card_filter = openrac_game_card_filter,
+    .card_slot = openrac_game_card_slot,
+    .card_write = openrac_game_card_write,
+    .card_saves = openrac_game_card_saves,
     .mobys = rac1_world_mobys,
     .moby_slot = rac1_world_moby_slot,
     .moby_at = rac1_world_moby_at,

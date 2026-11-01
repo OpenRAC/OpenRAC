@@ -682,6 +682,14 @@ void fill_12(openrac_api& api) {
         }
         return 5;
     };
+    api.card_saves = []() -> uint32_t { return 4; };
+    api.card_note_write = [](openrac_mod*, int slot, const char* text) {
+        g_12 = "note " + std::to_string(slot) + " " + text;
+        return OPENRAC_HOOK_OK;
+    };
+    api.card_note_read = [](const char*, int slot, char* out, uint32_t size) {
+        return slot == 0 ? std::snprintf(out, size, "key") : 0;
+    };
     api.shared_read = [](int tag, void* out, uint32_t size) {
         if (tag != 1) {
             return -1;
@@ -1640,6 +1648,9 @@ int main() {
         openrac_save_info info{};
         CHECK(mod.save_slot2("Game-coop", 0, info) == 1 && info.level == 3);
         CHECK(mod.save_read2("Game-coop", 0).size() == 5);
+        CHECK(mod.has_card_notes() && mod.card_saves() == 4);
+        CHECK(mod.card_note_write(2, "hello") && g_12 == "note 2 hello");
+        CHECK(mod.card_note_read("coop", 0) == "key" && mod.card_note_read("coop", 1).empty());
         std::vector<std::uint8_t> section;
         CHECK(mod.shared_read(1, section) && section.size() == 2 && !mod.shared_read(2, section));
         CHECK(mod.shared_give(4, {1, 2, 3}) && g_12 == "give 4 3");

@@ -356,6 +356,10 @@ openrac_add_c_test(hero_vertical NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(particle53 NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(planar_limit NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(checkpoint_restore NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
+openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
+# The card filter against the game's calls on a real folder: a party never writes a player's saves.
+openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
+                   INCLUDES game/common/include runtime/include)
 
 if(OPENRAC_PORT_WINDOW)
   include(Window)

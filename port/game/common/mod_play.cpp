@@ -7,10 +7,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -122,6 +124,14 @@ std::vector<Drive> g_drives(kSlots);
 Gate g_gate;
 HitWatch g_hits;
 int g_before_slot = -1;
+
+// The mod that holds the card filter, what it asked, and the card folder its writes go to.
+const openrac_mod* g_card_mod = nullptr;
+int g_card_mode = OPENRAC_CARD_PASS;
+std::string g_card_folder;
+// A mod's own card folder's name at most, and the note beside a save (card_note_write).
+constexpr std::size_t kCardFolderMost = 16;
+constexpr std::size_t kCardNoteMost = 1024;
 const openrac_mod* g_loading_mod = nullptr;
 
 int phase_now(std::int32_t* level) {
@@ -156,15 +166,36 @@ Figure* own_figure(const openrac_mod* mod, int id) {
     return &f;
 }
 
-// The bytes of the memory card's save `slot`; empty for none there (or past the last slot).
-std::vector<std::uint8_t> read_save(int slot) {
-    if (g_play == nullptr || g_play->save_folder == nullptr || g_play->save_file == nullptr
-        || slot < 0 || slot >= g_play->save_slots) {
+// The card folder a mod's folder name means: the game's own for "", else the game's own with the
+// name after it ("coop": BESCES-50916RATCHET-coop). Empty for a name that is not one word, so a mod
+// reaches nothing outside the card.
+std::string card_folder(const char* name) {
+    if (g_play == nullptr || g_play->save_folder == nullptr || name == nullptr) {
+        return {};
+    }
+    const std::string word = name;
+    if (word.size() > kCardFolderMost
+        || !std::all_of(word.begin(), word.end(), [](unsigned char c) {
+               return std::isalnum(c) != 0 || c == '_';
+           })) {
+        return {};
+    }
+    return word.empty() ? std::string(g_play->save_folder) : g_play->save_folder + ("-" + word);
+}
+
+// The path of save `slot` in the card folder `folder`; empty past the last slot.
+std::filesystem::path save_path(const std::string& folder, int slot) {
+    if (g_play == nullptr || g_play->save_file == nullptr || folder.empty() || slot < 0
+        || slot >= g_play->save_slots) {
         return {};
     }
     char name[64];
     std::snprintf(name, sizeof name, g_play->save_file, slot);
-    const std::filesystem::path path = g_cards / g_play->save_folder / name;
+    return g_cards / folder / name;
+}
+
+// The bytes of the file at `path`; empty for none.
+std::vector<std::uint8_t> read_file(const std::filesystem::path& path) {
     std::error_code e;
     const std::uintmax_t size = std::filesystem::file_size(path, e);
     if (e || size == 0 || size > kSaveMax) {
@@ -176,6 +207,36 @@ std::vector<std::uint8_t> read_save(int slot) {
         return {};
     }
     return bytes;
+}
+
+// The bytes of save `slot` of the card folder `folder`; empty for none there. A write stopped
+// between its two renames (lib/mc.c) leaves the save before it beside it.
+std::vector<std::uint8_t> read_save(const std::string& folder, int slot) {
+    const std::filesystem::path path = save_path(folder, slot);
+    if (path.empty()) {
+        return {};
+    }
+    std::vector<std::uint8_t> bytes = read_file(path);
+    if (bytes.empty() && folder != g_play->save_folder) {
+        std::filesystem::path previous = path;
+        previous += ".bak";
+        bytes = read_file(previous);
+    }
+    return bytes;
+}
+
+std::vector<std::uint8_t> read_save(int slot) {
+    return g_play != nullptr && g_play->save_folder != nullptr ? read_save(g_play->save_folder, slot)
+                                                               : std::vector<std::uint8_t>{};
+}
+
+// The note beside a save in a mod's folder (card_note_write).
+std::filesystem::path note_path(const std::string& folder, int slot) {
+    std::filesystem::path path = save_path(folder, slot);
+    if (!path.empty()) {
+        path += ".party";
+    }
+    return path;
 }
 
 // What a save's bytes hold; false for one the game would not load.
@@ -675,24 +736,119 @@ int api_moby_run(int slot, openrac_moby_run* out) {
 // ---- Interface 1.12: the calls a shared game needs. Each answers "unknown" until its package fills
 // it in, so a mod that tests for it before using it works against this port and a later one. ----
 
-int api_card_filter(openrac_mod*, int, const char*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_card_filter(openrac_mod* mod, int mode, const char* folder) {
+    if (mod == nullptr || g_play == nullptr || g_play->card_session == nullptr
+        || g_play->card_filter == nullptr || (g_card_mod != nullptr && g_card_mod != mod)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (mode == OPENRAC_CARD_PASS) {
+        // Only once no write of the party's can reach the player's saves: the mod asks again.
+        if (g_card_mode != OPENRAC_CARD_PASS && g_play->card_session(0) == 0) {
+            return OPENRAC_HOOK_TAKEN;
+        }
+        g_play->card_filter(OPENRAC_CARD_PASS, "");
+        g_card_mod = nullptr;
+        g_card_mode = OPENRAC_CARD_PASS;
+        g_card_folder.clear();
+        return OPENRAC_HOOK_OK;
+    }
+    const std::string named = mode == OPENRAC_CARD_REDIRECT ? card_folder(folder) : std::string();
+    if ((mode == OPENRAC_CARD_REDIRECT && (named.empty() || named == g_play->save_folder))
+        || g_play->card_filter(mode, named.c_str()) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_card_mod = mod;
+    g_card_mode = mode;
+    g_card_folder = named;
+    g_play->card_session(1);
+    log::info("mods: {} keeps the game's saves off the player's card", mod_id(mod));
+    return OPENRAC_HOOK_OK;
 }
 
-int api_card_slot_hint(openrac_mod*, int) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_card_slot_hint(openrac_mod* mod, int slot) {
+    if (g_play == nullptr || mod != g_card_mod || slot < -1 || slot >= g_play->save_slots) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->card_slot(slot);
+    return OPENRAC_HOOK_OK;
 }
 
-int api_coop_save_write(openrac_mod*, int, const void*, std::uint32_t) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_coop_save_write(openrac_mod* mod, int slot, const void* bytes, std::uint32_t size) {
+    // Bytes from anywhere, another player's game among them: only what the game would read.
+    if (g_play == nullptr || g_play->save_check == nullptr || mod != g_card_mod
+        || g_card_mode != OPENRAC_CARD_REDIRECT || slot < 0 || slot >= g_play->save_slots
+        || bytes == nullptr || size == 0 || size > kSaveMax
+        || g_play->save_check(static_cast<const std::uint8_t*>(bytes), size) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->card_write(slot, static_cast<const std::uint8_t*>(bytes), size) != 0
+               ? OPENRAC_HOOK_OK
+               : OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_save_slot2(const char*, int, openrac_save_info*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_save_slot2(const char* folder, int slot, openrac_save_info* out) {
+    if (g_play == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (slot < 0 || slot >= g_play->save_slots) {
+        return -1;
+    }
+    if (out == nullptr || out->size < sizeof(openrac_save_info)) {
+        return 0;
+    }
+    const std::vector<std::uint8_t> bytes = read_save(card_folder(folder), slot);
+    return save_info(bytes.data(), bytes.size(), out) ? 1 : 0;
 }
 
-std::size_t api_save_read2(const char*, int, void*, std::size_t) {
-    return 0;
+std::size_t api_save_read2(const char* folder, int slot, void* out, std::size_t size) {
+    const std::vector<std::uint8_t> bytes = read_save(card_folder(folder), slot);
+    if (bytes.empty() || !save_info(bytes.data(), bytes.size(), nullptr)) {
+        return 0;
+    }
+    if (out != nullptr && size >= bytes.size()) {
+        std::memcpy(out, bytes.data(), bytes.size());
+    }
+    return bytes.size();
+}
+
+std::uint32_t api_card_saves() {
+    return g_play != nullptr && g_play->card_saves != nullptr ? g_play->card_saves() : 0;
+}
+
+int api_card_note_write(openrac_mod* mod, int slot, const char* text) {
+    const std::filesystem::path path =
+        mod != nullptr && mod == g_card_mod ? note_path(g_card_folder, slot) : std::filesystem::path{};
+    if (path.empty() || text == nullptr || std::strlen(text) >= kCardNoteMost) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    // A note half written would lose a party its slot: a whole one or the one before.
+    std::error_code e;
+    std::filesystem::create_directories(path.parent_path(), e);
+    std::filesystem::path temp = path;
+    temp += ".tmp";
+    {
+        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+        if (!(out << text)) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    std::filesystem::rename(temp, path, e);
+    return e ? OPENRAC_HOOK_UNKNOWN : OPENRAC_HOOK_OK;
+}
+
+int api_card_note_read(const char* folder, int slot, char* out, std::uint32_t size) {
+    const std::string named = card_folder(folder);
+    if (out == nullptr || size == 0 || named.empty() || named == g_play->save_folder) {
+        return 0;
+    }
+    // (card_folder is empty without a game, so g_play is there.)
+    std::ifstream in(note_path(named, slot), std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (text.empty() || text.size() >= size) {
+        return 0;
+    }
+    std::memcpy(out, text.c_str(), text.size() + 1);
+    return static_cast<int>(text.size());
 }
 
 int api_shared_read(int, void*, std::uint32_t) {
@@ -899,6 +1055,9 @@ void fill_play_api(
     api.coop_save_write = api_coop_save_write;
     api.save_slot2 = api_save_slot2;
     api.save_read2 = api_save_read2;
+    api.card_saves = api_card_saves;
+    api.card_note_write = api_card_note_write;
+    api.card_note_read = api_card_note_read;
     api.shared_read = api_shared_read;
     api.shared_give = api_shared_give;
     api.mission_state_read = api_mission_state_read;
@@ -925,6 +1084,10 @@ void play_loading(const openrac_mod* mod) {
 }
 
 void play_update() {
+    // The game's card words, kept as a party's game needs them whatever its menus did.
+    if (g_card_mode != OPENRAC_CARD_PASS && g_play != nullptr) {
+        g_play->card_session(1);
+    }
     if (g_request.kind == Request::Kind::kNone || g_play == nullptr) {
         return;
     }

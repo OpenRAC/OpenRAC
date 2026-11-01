@@ -1565,9 +1565,12 @@ typedef struct openrac_api {
      * does not have it yet; a mod tests the feature before it depends on it. ---- */
 
     /* What the game's memory card writes do while a party plays (OPENRAC_CARD_*): in a mode that
-     * discards or redirects, a player's own saves stay as they were. `folder` names the card
-     * folder of mode OPENRAC_CARD_REDIRECT, ignored otherwise. Returns OPENRAC_HOOK_OK, or
-     * OPENRAC_HOOK_UNKNOWN for a mode or folder the port refuses. Since 1.12. */
+     * discards or redirects, a player's own saves stay as they were, and the game saves as it does
+     * when loaded from the card. `folder`, one word of letters, digits or '_', names the card
+     * folder of mode OPENRAC_CARD_REDIRECT beside the game's own ("coop": <game's folder>-coop),
+     * ignored otherwise. One mod holds the filter. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN
+     * for a mode or folder the port refuses, or for OPENRAC_CARD_PASS OPENRAC_HOOK_TAKEN while a
+     * write of the party's still runs: ask again, the filter stays on till then. Since 1.12. */
     int (*card_filter)(openrac_mod* mod, int mode, const char* folder);
 
     /* The slot the game's next card write goes to in the folder card_filter redirects to, in place
@@ -1575,7 +1578,8 @@ typedef struct openrac_api {
     int (*card_slot_hint)(openrac_mod* mod, int slot);
 
     /* Writes `size` bytes (a save as save_capture gives it) as slot `slot` of the redirect folder,
-     * as the game would have written it. Since 1.12. */
+     * as the game would have written it, the save before it kept; refused for bytes the game would
+     * not read, wherever they came from. Since 1.12. */
     int (*coop_save_write)(openrac_mod* mod, int slot, const void* bytes, uint32_t size);
 
     /* save_slot and save_read for the saves in the card folder `folder` ("" is the game's own).
@@ -1659,6 +1663,16 @@ typedef struct openrac_api {
      * world_family with another number cannot share that level. Returns OPENRAC_HOOK_OK, or
      * OPENRAC_HOOK_UNKNOWN for a level not loaded or a game that does not say. Since 1.12. */
     int (*sim_digest)(int32_t level, uint32_t* out);
+
+    /* How many of the game's own saves have reached the redirect folder since the program
+     * started: it moving says the game has just saved. Since 1.12. */
+    uint32_t (*card_saves)(void);
+
+    /* A short text kept beside slot `slot` of the redirect folder (under 1024 bytes), and read back
+     * from the card folder `folder` into `out`, its length returned, 0 for none: what a mod has to
+     * remember of a slot; the launcher shows nothing of it but what is documented there. Since 1.12. */
+    int (*card_note_write)(openrac_mod* mod, int slot, const char* text);
+    int (*card_note_read)(const char* folder, int slot, char* out, uint32_t size);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

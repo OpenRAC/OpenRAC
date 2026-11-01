@@ -1523,6 +1523,33 @@ public:
         return bytes;
     }
 
+    // Since 1.12: whether this port says when the game saved, and keeps a note beside a slot.
+    bool has_card_notes() const {
+        return has_slot12(offsetof(openrac_api, card_note_read));
+    }
+
+    // Since 1.12: how many of the game's own saves reached the redirect folder this run.
+    std::uint32_t card_saves() const {
+        return has_card_notes() ? m_api->card_saves() : 0;
+    }
+
+    // Since 1.12: a short text kept beside slot `slot` of the redirect folder.
+    bool card_note_write(int slot, const std::string& text) const {
+        return has_card_notes()
+               && m_api->card_note_write(m_handle, slot, text.c_str()) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the text beside slot `slot` of the card folder `folder`; empty for none.
+    std::string card_note_read(const std::string& folder, int slot) const {
+        if (!has_card_notes()) {
+            return {};
+        }
+
+        char text[1024];
+        const int n = m_api->card_note_read(folder.c_str(), slot, text, sizeof text);
+        return n > 0 ? std::string(text, static_cast<std::size_t>(n)) : std::string();
+    }
+
     // Since 1.12: whether this port reads and merges the progress players share.
     bool has_shared_progress() const {
         return has_slot12(offsetof(openrac_api, mission_state_write));

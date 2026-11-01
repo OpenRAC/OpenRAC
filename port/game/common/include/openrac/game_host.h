@@ -478,6 +478,20 @@ typedef struct openrac_game_play {
     /* The sim digest of `level` as loaded (openrac_api.sim_digest): two games with the same one
      * can share that level; 0 for a level not loaded or not known. NULL for a game without it. */
     uint32_t (*sim_digest)(int level);
+    /* A party's game saves as a game loaded from the card does, whatever the title did (`on` 1,
+     * asked each frame while it lasts), and the card's state is put back after (`on` 0: 1 when
+     * done, 0 while a write still runs: ask again). NULL for a game without it. */
+    int (*card_session)(int on);
+    /* Whether a save's bytes can be handed to the game, whole, for saves from elsewhere: save_info
+     * reads only the head (for rac1 the SDK's openrac/games/rac1_save.h). NULL for a game without
+     * it. */
+    int (*save_check)(const uint8_t* save, uint32_t size);
+    /* The card filter, for the mods' calls: openrac_game_card_filter and its fellows (lib/mc.c).
+     * NULL for a game without it. */
+    int (*card_filter)(int mode, const char* folder);
+    void (*card_slot)(int slot);
+    int (*card_write)(int slot, const uint8_t* bytes, uint32_t size);
+    uint32_t (*card_saves)(void);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;
@@ -689,6 +703,17 @@ extern int openrac_game_no_card;
  * the library's state as on the console. Called by the game's host C at start-up (rac1/pal: boot.c,
  * the addresses in rac1_version.h); without a call they are lib/mc.c's own. */
 void openrac_game_mc_state(gaddr command, gaddr result);
+
+/* The card filter (lib/mc.c says how it works): what the game's writes to its saves do while a
+ * party plays: 0 reach the card, 1 are dropped, 2 go to the card folder `folder`, into the slot
+ * openrac_game_card_slot named (-1: the game's). The game is told they worked. 0 for a mode or
+ * folder that cannot be. */
+int openrac_game_card_filter(int mode, const char* folder);
+void openrac_game_card_slot(int slot);
+/* Writes a whole save as `slot` of the folder redirected to; 1 when it is in place. */
+int openrac_game_card_write(int slot, const uint8_t* bytes, uint32_t size);
+/* How many of the game's own saves have reached that folder. */
+uint32_t openrac_game_card_saves(void);
 
 /* --level N: the level a new game starts in (the game's own number), or -1 for the game's own
  * first level. For getting to a level directly, as the behaviour checker's level write does. */

@@ -472,6 +472,9 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->coop_save_write(mod, 0, text, 1) != OPENRAC_HOOK_UNKNOWN
             || api->save_slot2("", 0, &info) != OPENRAC_HOOK_UNKNOWN
             || api->save_read2("", 0, text, sizeof text) != 0
+            || api->card_saves() != 0
+            || api->card_note_write(mod, 0, "x") != OPENRAC_HOOK_UNKNOWN
+            || api->card_note_read("coop", 0, text, sizeof text) != 0
             || api->shared_read(1, text, sizeof text) != OPENRAC_HOOK_UNKNOWN
             || api->shared_give(1, text, 1) != OPENRAC_HOOK_UNKNOWN
             || api->mission_state_read(0, missions) != OPENRAC_HOOK_UNKNOWN

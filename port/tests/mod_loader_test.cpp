@@ -594,7 +594,7 @@ void the_1_12_slots_answer_unknown(const fs::path& plugins) {
         {"id": "test-b", "enabled": false}]})");
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
     const openrac_api& api = mods::api_for_tests();
-    CHECK(api.api_minor >= 12 && api.size >= offsetof(openrac_api, identity_key) + sizeof(void*));
+    CHECK(api.api_minor >= 12 && api.size >= offsetof(openrac_api, card_note_read) + sizeof(void*));
     mods::reset();
 }
 
