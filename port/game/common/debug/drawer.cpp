@@ -412,7 +412,7 @@ void drawer_enhanced() {
                 changed = true;
             }
         }
-        // Texture upscaling: Normal or Edge-aware (2x), the world's textures enlarged at load.
+        // Texture upscaling: Normal, or Edge-aware (2x), the world's textures enlarged with sharp edges.
         {
             const int filter = static_cast<int>(set.texture_filter);
             const int last = static_cast<int>(renderer::TextureFilter::Count) - 1;
@@ -457,7 +457,7 @@ void drawer_enhanced() {
                     changed = true;
                 }
             }
-            // Motion blur needs the upscaler's motion vectors, as the desktop window has it.
+            // Motion blur runs in the upscaler's module (enhanced/fsr3), even with upscaling off.
             if (drawer_switch("Motion blur", set.motion_blur)) {
                 set.motion_blur = !set.motion_blur;
                 changed = true;
@@ -485,9 +485,13 @@ void drawer_enhanced() {
             }
         }
     }
-    if (drawer_row("Reset to defaults")) {
-        reset_enhanced();
-        changed = true;
+    // Asked twice, as the controls window's reset, so a stray touch keeps the player's choices.
+    if (drawer_row(s.drawer_confirm_reset ? "Press again to reset" : "Reset to defaults")) {
+        if (s.drawer_confirm_reset) {
+            reset_enhanced();
+            changed = true;
+        }
+        s.drawer_confirm_reset = !s.drawer_confirm_reset;
     }
     card_end();
     if (changed) {
@@ -507,6 +511,7 @@ void drawer(const Shown& shown) {
     s.drawer_at = s.drawer_at < target ? std::min(s.drawer_at + move, target)
                                        : std::max(s.drawer_at - move, target);
     if (s.drawer_at <= 0.0f) {
+        s.drawer_confirm_reset = false;
         if (s.shot_when_shut) {
             s.shot_when_shut = false;
             s.shot_path = shot_name(s.tick);
