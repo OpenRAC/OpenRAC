@@ -52,6 +52,8 @@ before loading, after planning or after baking abort the batch.
 
 Failures retain logs without registering partial results; existing batches stay intact. Restart
 running games to load new data. `batch.log` contains diagnostics; each probe file has a `.txt` report.
+Automatic bakes record the launcher version and compiled baker version/commit in `probe-bake.log`
+and each level's `batch.log`. CLI runs without a launcher report its version as unknown.
 
 Outputs include `sparse.orpg`, `region-NNN.orpg`, `sparse.orpg.regions.json`,
 planning reports, logs and `bake-result.json` with format/bake versions.

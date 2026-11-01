@@ -108,6 +108,7 @@ enum class Var : std::uint16_t {
     Invincible,
     ItemsDebug,
     Keys,
+    LauncherVersion,
     Log,
     MenuBar,
     MobyLog,

@@ -196,6 +196,8 @@ class Bundle(unittest.TestCase):
                 self.assertEqual(bundle.main(), 0)
             finally:
                 sys.argv = argv
+            self.assertIn("version: " + json.loads((bundle.ROOT/"launcher/src-tauri/tauri.conf.json").read_text())["version"],
+                          (out/"STANDALONE").read_text())
             for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "editor/extract.py",
                         "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
                         "launcher/actions.json",
@@ -279,7 +281,10 @@ class Bundle(unittest.TestCase):
                 baker.write_bytes(b"enhanced baker")
                 baker.chmod(0o755)
                 (build/"openrac-enhanced-baker.pdb").write_bytes(b"debug")
+                stamp = build/"openrac-build.json"
+                stamp.write_text('{"version":"0.10.1","commit":"built-commit","games":[]}', encoding="utf-8")
                 carried = bundle.copy_games(build, dest)
+                self.assertEqual((dest/stamp.name).read_bytes(), stamp.read_bytes())
                 self.assertEqual(carried, [baker.name])
                 self.assertEqual((dest/baker.name).read_bytes(), baker.read_bytes())
                 self.assertFalse((dest/"openrac-enhanced-baker.pdb").exists())

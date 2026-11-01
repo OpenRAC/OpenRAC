@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import contextlib
 import errno
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -16,6 +17,60 @@ import diagnostics
 
 
 class BakeDiagnostics(unittest.TestCase):
+    def test_packaged_build_context_distinguishes_launcher_tools_and_binary(self):
+        """Installed diagnostics need no Git and keep differing component versions visible."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root/'STANDALONE').write_text('version: 0.10.2\ncommit: packaged-tools-commit\n', encoding='utf-8')
+            baker = root/'native/baker.exe'
+            baker.parent.mkdir()
+            baker.write_bytes(b'synthetic baker')
+            (baker.parent/'openrac-build.json').write_text(json.dumps(
+                {'version': '0.10.0', 'commit': 'native-build-commit'}), encoding='utf-8')
+            with patch.dict(diagnostics.os.environ, {'OPENRAC_LAUNCHER_VERSION': '0.10.1'}), \
+                    patch.object(diagnostics.subprocess, 'run', side_effect=AssertionError('no Git needed')):
+                context = diagnostics.build_context(baker, root=root)
+            self.assertEqual(context['launcher_version'], '0.10.1')
+            self.assertEqual(context['tools_version'], '0.10.2')
+            self.assertEqual(context['tools_commit'], 'packaged-tools-commit')
+            self.assertEqual(context['port_build_version'], '0.10.0')
+            self.assertEqual(context['port_build_commit'], 'native-build-commit')
+            self.assertEqual(context['baker'], str(baker.resolve()))
+            self.assertEqual(context['baker_sha256'], hashlib.sha256(b'synthetic baker').hexdigest())
+
+    def test_missing_or_malformed_build_metadata_does_not_block_baking(self):
+        """Older packages and unavailable Git are reported explicitly instead of causing failure."""
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(diagnostics.os.environ, {}, clear=True):
+            root = Path(tmp)
+            (root/'.git').write_text('worktree', encoding='utf-8')
+            (root/'launcher/src-tauri').mkdir(parents=True)
+            conf = root/'launcher/src-tauri/tauri.conf.json'
+            stamp = root/'openrac-build.json'
+            for text in ('not JSON', '[]', '{"version": null}'):
+                conf.write_text(text, encoding='utf-8')
+                stamp.write_text(text, encoding='utf-8')
+                with patch.object(diagnostics.subprocess, 'run', side_effect=FileNotFoundError('git')):
+                    context = diagnostics.build_context(root/'missing-baker', root=root)
+                self.assertEqual(context['launcher_version'], 'unknown (CLI)')
+                self.assertEqual(context['tools_version'], 'unknown')
+                self.assertEqual(context['tools_commit'], 'unknown')
+                self.assertEqual(context['port_build_version'], 'unknown')
+                self.assertEqual(context['baker_sha256'], 'unavailable')
+
+    def test_each_appended_session_records_current_build_context_in_file_and_console(self):
+        """A retry after an update keeps its own identity alongside older failures."""
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()) as console:
+            for version in ('0.9', '0.10'):
+                with patch.object(diagnostics, 'build_context', return_value={'launcher_version': version}), \
+                        diagnostics.transcript(Path(tmp)):
+                    print('synthetic bake')
+            text = (Path(tmp)/'probe-bake.log').read_text(encoding='utf-8')
+            for version in ('0.9', '0.10'):
+                record = 'Probe build context: ' + json.dumps({'launcher_version': version})
+                self.assertIn(record, text)
+                self.assertIn(record, console.getvalue())
+            self.assertEqual(text.count('Bake command:'), 2)
+
     def test_classifies_known_failures_without_claiming_unknown_crashes_are_memory(self):
         cases = [(MemoryError(), 'memory'), (OSError(errno.ENOSPC, 'full'), 'space'),
                  (PermissionError('locked'), 'permission'),
