@@ -280,6 +280,7 @@ class RetailCode:
         self._blocks: dict[tuple[int, int], asm.Block] = {}
         self._pairs: dict[tuple[int, int], tuple[dict, dict]] = {}
         self._lines: dict[tuple[int, int], tuple[asm.Line, asm.Block]] = {}
+        self.follow_far = False                   # _follow's `far`
 
     def __contains__(self, key) -> bool:
         return self.get(key) is not None
@@ -411,7 +412,7 @@ class RetailCode:
         # the half at the branch's target): follow the branches a short way.
         for k, w in enumerate(words):
             if w >> 26 == 0x0F and start + 4 * k not in uses:
-                s = self._follow(insns, writes, k, (w >> 16) & 31, (w & 0xFFFF) << 16)
+                s = self._follow(insns, writes, k, (w >> 16) & 31, (w & 0xFFFF) << 16, far=self.follow_far)
                 if s is not None:
                     uses[start + 4 * k] = [s]
         relocs = {}
@@ -425,9 +426,13 @@ class RetailCode:
 
 
     @staticmethod
-    def _follow(insns: list, writes: list, k: int, reg: int, value: int, limit: int = 48) -> int | None:
+    def _follow(insns: list, writes: list, k: int, reg: int, value: int, limit: int = 48,
+                far: bool = False) -> int | None:
         """The address the lui at insns[k] forms, along the code's branches: the first addiu, ori,
-        load or store through `reg` before something writes it, a jr or j ends the way."""
+        load or store through `reg` before something writes it, a jr or j ends the way. `far`
+        (hostgen.json asm.follow_saved_registers): a j goes on at its target, and a call keeps a
+        register it must save, so a base set once for a whole function (rac2's level loop has
+        `lui $s6, %hi(table)` and the %lo two calls later) is still a base."""
         start = insns[0].addr
 
         def formed(d):
@@ -457,6 +462,11 @@ class RetailCode:
                     s = formed(insns[i + 1])
                     if s is not None:
                         return s
+                    if far and reg not in writes[i + 1]:
+                        if ins.op == "j":
+                            todo.append(((ins.target - start) // 4, n + 1))
+                        elif ins.op in ("jal", "jalr") and (16 <= reg <= 23 or reg == 30):
+                            todo.append((i + 2, n + 1))
                 continue
             if ins.is_branch:
                 todo.append(((ins.target - start) // 4, n + 1))

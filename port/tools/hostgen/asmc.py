@@ -1744,8 +1744,9 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
                     program.functions.setdefault(name, Function(name,
                         Signature(ctype.Base("int"), (), False, False), asm=True))
             program.index_places()
-        index.code = retail.CombinedCode(index.code, retail.RetailCode(source_of, retail.starts_of(program),
-                                                                       source_of.low))
+        from_retail = retail.RetailCode(source_of, retail.starts_of(program), source_of.low)
+        from_retail.follow_far = bool(a.get("follow_saved_registers"))
+        index.code = retail.CombinedCode(index.code, from_retail)
         index.called |= source_of.called()
         stage.retail = source_of.label
     elif not index.blocks:
