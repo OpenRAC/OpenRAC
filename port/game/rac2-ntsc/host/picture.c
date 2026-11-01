@@ -70,7 +70,7 @@ void func_002FC8D0(gaddr a0, int a1, int a2) {
 }
 
 /* Writes the saved frame back: the picture, a sprite over the 416 lines of the draw buffer. */
-void func_002FC990(gaddr a0, int a1, int a2) {
+void func_002FC990(int a0, int a1, int a2) {
     (void)a0;
     (void)a1;
     (void)a2;
