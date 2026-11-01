@@ -34,6 +34,7 @@ enum {
 static gaddr picture;
 static int picture_lines;
 static int picture_new;
+static int picture_in_frame;
 
 static uint8_t* picture_pixels(void) {
     if (picture == 0) {
@@ -42,13 +43,16 @@ static uint8_t* picture_pixels(void) {
     return (uint8_t*)G(picture);
 }
 
-/* The picture to the frame buffer's pages, 32 lines at a time on the console: here one upload to the
- * same block, which the game's blit to the screen (func_0027B858) reads, and the picture kept. */
+/* The picture to the frame buffer's pages, 32 lines at a time on the console. Nothing draws it there:
+ * the splash and the no-card notice (func_0026EAC8) are the frame buffer's own contents. The window has
+ * no frame buffer to write into, so the picture is kept and drawn as a sprite once the frame's set-up
+ * has gone out (func_0027B858). */
 long long func_002FCB00(int data, int destination, int width, int height) {
     if (width == PICTURE_WIDTH && height > 0 && height <= PICTURE_HEIGHT) {
         memcpy(picture_pixels(), G((gaddr)data), (size_t)width * (size_t)height * 4);
         picture_lines = height;
         picture_new = 1;
+        picture_in_frame = 1;
     }
     const openrac_game_image image = {destination >> 8, width >> 6, 0, 0, 0, width, height, (gaddr)data};
     openrac_game_load_image(&image);
@@ -94,4 +98,15 @@ void func_002FC990(int a0, int a1, int a2) {
     func_002FC560(REG_XYZ2, left | top << 16);
     func_002FC560(REG_UV, (uint64_t)(PICTURE_WIDTH << 4) | (uint64_t)(picture_lines << 4) << 16);
     func_002FC560(REG_XYZ2, right | bottom << 16);
+}
+
+void func_0027B858__game(void);
+
+/* The frame's set-up; then the picture the frame buffer holds, if one was just written. */
+void func_0027B858(void) {
+    func_0027B858__game();
+    if (picture_in_frame) {
+        picture_in_frame = 0;
+        func_002FC990(0, 0, 0);
+    }
 }
