@@ -33,7 +33,7 @@
       "source": {
         "name": "rac2-decomp",
         "repo": "https://github.com/OpenRAC/rac2-decomp",
-        "branch": "port/collision",
+        "branch": "port/levels",
         "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
         "exclude": [
@@ -142,7 +142,7 @@
             "extern char D_001C4FA0[];       /* Q: the selection state */\nextern char D_0025E680[], D_0025A498[];\n"
           ]
         ],
-        "commit": "588f8f05f38b2b57426ef33e981d226185ae2c20",
+        "commit": "bf09a61b31b6adb4d43f645edd5a3585a2dfa82e",
         "date": "2026-11-01",
         "imported": "2026-11-01"
       },
