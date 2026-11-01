@@ -544,9 +544,13 @@ impl Action {
             Some(v) => format!("{} · {} ({})", self.label, v.title, v.region),
             None => self.label.clone(),
         };
+        let mut env = Vec::new();
+        // The bake transcript identifies the running launcher even when it uses another checkout.
+        if self.id == crate::enhanced::BAKE_ACTION {
+            env.push(("OPENRAC_LAUNCHER_VERSION".to_string(), env!("CARGO_PKG_VERSION").to_string()));
+        }
         // Developer tools on: the native port offers its developer features (a level select in the
         // front end's Options).
-        let mut env = Vec::new();
         if self.kind == Kind::Play && ctx.config.developer {
             env.push(("OPENRAC_DEVELOPER".to_string(), "1".to_string()));
         }
@@ -766,6 +770,30 @@ mod tests {
         }
         assert!(parse(r#"{"format": 2}"#).is_err());
         assert!(parse(r#"{"format": 1, "extra": true}"#).is_err());
+    }
+
+    /// A bake using a different checkout still reports this launcher's actual compiled version.
+    #[test]
+    fn bake_plan_passes_running_launcher_version() {
+        let root = checkout();
+        let config = Config::default();
+        let ctx = Context {
+            root: &root,
+            config: &config,
+            version: None,
+            status: None,
+            toolchains: false,
+            platform: Platform::current(),
+            level: None,
+            path: None,
+            option: None,
+        };
+        let action: Action = serde_json::from_str(
+            r#"{"id": "probe-bake", "label": "Bake", "kind": "build", "state": "unverified", "program": "python"}"#,
+        )
+        .unwrap();
+        let plan = action.plan(&ctx).unwrap();
+        assert!(plan.env.contains(&("OPENRAC_LAUNCHER_VERSION".to_string(), env!("CARGO_PKG_VERSION").to_string())));
     }
 
     #[test]

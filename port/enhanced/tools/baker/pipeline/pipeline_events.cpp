@@ -7,11 +7,24 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "common/build_info.h"
+#include "common/env.h"
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
 
 namespace openrac::lighting::pipeline {
+namespace {
+// Compiled identity stays accurate when an installer has neither Git nor a build stamp.
+std::string build_context() {
+    return "Probe build context: {\"baker_version\":" + coordinator_string(build_info::version())
+           + ",\"baker_commit\":" + coordinator_string(build_info::commit())
+           + ",\"launcher_version\":"
+           + coordinator_string(env::value(env::Var::LauncherVersion).value_or("unknown (CLI)"))
+           + "}";
+}
+}  // namespace
+
 Events::Events(const Options& options, const std::vector<Level>& levels, std::ostream& output)
     : m_options(options),
       m_levels(levels),
@@ -32,6 +45,7 @@ Events::Events(const Options& options, const std::vector<Level>& levels, std::os
     }
 
     write("Native enhanced bake started");
+    write(build_context());
     summary();
     progress();
 }
@@ -149,6 +163,8 @@ Output::Output(Events& events, unsigned id, const std::filesystem::path& directo
     if (!m_log) {
         throw std::runtime_error("cannot write native batch.log");
     }
+
+    m_log << build_context() << '\n' << std::flush;
 }
 
 void Output::finish() {

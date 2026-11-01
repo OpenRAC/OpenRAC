@@ -105,6 +105,7 @@ enum class Var : std::uint16_t {
     HitLog,
     ItemsDebug,
     Keys,
+    LauncherVersion,
     Log,
     MenuBar,
     MobyLog,
