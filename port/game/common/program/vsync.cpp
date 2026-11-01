@@ -333,6 +333,10 @@ int vsync() {
         const bool keep = undrawn.keep(g_reports_draws, draws, in_level);
         g_draws = 0;
 
+        // Before the frame's measurements go to the render thread: the sound's health is a gauge of
+        // this frame.
+        watch_sound();
+
         if (!sent && sent_once) {
             if (!frontend::keep_picture()) {
                 leave();
@@ -345,8 +349,6 @@ int vsync() {
                    )) {
             leave();
         }
-
-        watch_sound();
     }
 #endif
     g_frame++;

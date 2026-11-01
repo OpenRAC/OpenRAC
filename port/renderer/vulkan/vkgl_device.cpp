@@ -22,6 +22,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include "common/cache_folder.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "renderer/render_opt.h"
@@ -72,25 +73,7 @@ std::filesystem::path pipeline_cache_file() {
             return std::filesystem::path(*chosen);
         }
     }
-    std::filesystem::path base;
-#if defined(__APPLE__)
-    const std::string home = env::system_variable("HOME").value_or(".");
-    base = std::filesystem::path(home) / "Library/Caches/OpenRAC";
-#elif defined(__ANDROID__)
-    const std::string home = env::system_variable("HOME").value_or(".");
-    base = std::filesystem::path(home) / "cache";
-#else
-    if (const std::optional<std::string> xdg = env::system_variable("XDG_CACHE_HOME");
-        xdg.has_value() && !xdg->empty()) {
-        base = std::filesystem::path(*xdg) / "openrac";
-    } else {
-        std::optional<std::string> home = env::system_variable("USERPROFILE");
-        if (!home.has_value() || home->empty()) {
-            home = env::system_variable("HOME");
-        }
-        base = std::filesystem::path(home.value_or(".")) / ".cache/openrac";
-    }
-#endif
+    const std::filesystem::path base = cache_folder();
     return base
            / std::format(
                "vulkan_pipelines_{:04x}_{:04x}_{}.bin",

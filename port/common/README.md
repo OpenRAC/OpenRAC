@@ -37,12 +37,19 @@ system's own interfaces (`dladdr` and the backtrace on Unix, `dbghelp` on Window
 compatibility library for the backtrace below API 33).
 `OPENRAC_TRACY=ON` links the pinned Tracy client; ordinary builds omit it.
 
+On Windows, startup checks the executable's local PDB by resolving a known function and source
+line. Keep the matching build's `.pdb` beside its `.exe`, including after moving the build. The
+working directory does not need to be the build folder. A short `Windows symbols` log entry and
+`Symbols` crash-report line say whether lookup succeeded; reports contain names and source lines,
+never the PDB itself. Missing or mismatched symbols leave module offsets as the fallback.
+
 ## State and threads
 
 - The log is one per process, guarded by its own lock: any thread may write to it.
 - The crash report's buffers are set up once by `crash::configure()`; `crash::report()` then runs in
-  a signal handler without allocating or locking. Each thread that runs game code calls
-  `crash::prepare_thread()` once.
+  a signal handler using fixed formatting buffers. Windows DbgHelp symbol lookup is best-effort,
+  not async-signal-safe; its session and executable symbols are prepared at startup. Each thread
+  that runs game code calls `crash::prepare_thread()` once.
 - Statistics have one frame/section owner at a time. The frontend can transfer that ownership to
   its render worker, then drains it before closing or reading the frame. Game timing fields stay
   on the game thread; lazy probe registration is locked.

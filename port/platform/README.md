@@ -11,7 +11,8 @@ the screen, the pads, sound and time, replaced at the game's library calls
 | `window.h` | `Platform` (SDL for the life of the program) and `Window`: an OpenGL 4.1 core context, windowed, fullscreen at a resolution or borderless, on a chosen display, vsync on, off or adaptive; the graphics card named in the log, the fast one of two asked for, a software rasteriser refused when the program says so; a message box when OpenGL 4.1 is missing; SDL's offscreen driver for headless checks |
 | `pad.h` | `Pad`: one DualShock 2 as the game's pad library reports it, and the 32-byte read buffer |
 | `input.h` | keyboard and SDL gamepads into two pad ports, rumble |
-| `audio.h` | `AudioOutput`: one SDL audio stream, 48 kHz stereo signed 16-bit, pulled by a callback or pushed by `queue()` |
+| `audio.h` | `AudioOutput`: one SDL audio stream, 48 kHz stereo signed 16-bit, pulled by a callback (on SDL's thread, or on a mixer thread of its own that keeps frames ready ahead of the device) or pushed by `queue()`; the health of the device's requests |
+| `audio_ring.h` | `AudioRing`: the frames mixed ahead, between the mixer and SDL's thread, without a lock |
 | `clock.h` | a monotonic clock and `FramePacer`, which holds the loop to the rate it is given (the games run at 60 Hz) |
 | `pump.h` | `run_pumped` and `poll_event`: the program beside the window's event pump on one thread (a fiber on Windows), so it goes on drawing while Windows holds the pump in its own loop (the window dragged by its title bar, sized, a menu open) |
 

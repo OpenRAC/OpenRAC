@@ -61,9 +61,9 @@ pub struct Config {
     /// The game writes a detailed log (OPENRAC_LOG=verbose): level loads, controller changes,
     /// what the port is missing. Off by default, so a log stays small.
     pub detailed_game_log: bool,
-    /// What the game draws with on Windows, Linux and macOS: "opengl" (OpenGL 4.1, the default)
-    /// or "vulkan", the port's experimental Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the
-    /// MoltenVK its bundle carries). Where Vulkan cannot start, the game draws with OpenGL
+    /// What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
+    /// Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
+    /// "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
     /// (port/platform/window.cpp). Not used on Android, which keeps its own choice
     /// (src-tauri/src/android.rs).
     #[ts(type = "\"opengl\" | \"vulkan\"")]
@@ -130,7 +130,7 @@ impl Default for Config {
             layout: "compact".into(),
             theme: "openrac".into(),
             detailed_game_log: false,
-            renderer: "opengl".into(),
+            renderer: "vulkan".into(),
             safe_rendering: false,
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
@@ -236,12 +236,12 @@ mod tests {
 
     /// A settings file from before the renderer choice draws with OpenGL; Vulkan, chosen, is kept.
     #[test]
-    fn renderer_defaults_to_opengl() {
+    fn renderer_defaults_to_vulkan() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("launcher.json");
         std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
-        assert_eq!(load(&path).renderer, "opengl");
-        save(&path, &Config { renderer: "vulkan".into(), ..Config::default() }).unwrap();
         assert_eq!(load(&path).renderer, "vulkan");
+        save(&path, &Config { renderer: "opengl".into(), ..Config::default() }).unwrap();
+        assert_eq!(load(&path).renderer, "opengl");
     }
 }

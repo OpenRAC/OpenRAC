@@ -469,11 +469,11 @@ jobs:
           max-size: 1G
       - uses: ./.github/actions/clang-windows
 
-      - name: Build openrac-rac1-pal and the runtime's tests
-        run: python tools/build_port.py rac1-pal --target runtime_test
+      - name: Build openrac-rac1-pal and the runtime and symbol tests
+        run: python tools/build_port.py rac1-pal --target runtime_test --target log_test --target crash_symbols_test
 
-      - name: The runtime's tests
-        run: port\build\release\runtime_test.exe
+      - name: The runtime and local Windows symbol tests
+        run: ctest --test-dir port/build/release -R "^(runtime|log|crash_symbols|crash_symbols_local)$" --output-on-failure
 
       - name: hostgen's tests
         run: python -m unittest discover -s port/tools/hostgen -v

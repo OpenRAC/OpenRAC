@@ -21,6 +21,7 @@ a renderer that draws its kind of thing on the GPU.
 | `ambient_occlusion.h` | `AmbientOcclusion`, the frame's post-process hook for ambient occlusion: `Renderer` runs the one registered with `set_ambient_occlusion` after the world's depth prepass (for the world's lighting) or after its last pass (composited), when the frame asks (`FrameInput::gtao`). The enhanced renderer's GTAO implements it (`enhanced/renderer/gtao.h`) and the game programs register it, so the renderer includes nothing of `enhanced/` | |
 | `gtao_settings.h` | `GtaoSettings`, the ambient occlusion's settings the frame carries and the player's settings keep | |
 | `shader.h`, `framebuffer.h`, `math.h` | GLSL programs (`#version 410 core`, samplers `tex_T<n>` bound to unit n), off-screen targets, column-major matrices with a reversed-depth projection | `Shader`, `FramebufferTexturePair` |
+| `program_cache.h` | the driver's binaries of the programs `Shader` built (OpenGL and ES), in memory and on disk, so that a program built again from the same sources (each level, each run) is loaded instead of compiled | |
 
 Shaders are in `shaders/` and compiled into the library
 ([cmake/Window.cmake](../cmake/Window.cmake)).

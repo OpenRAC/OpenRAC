@@ -12,6 +12,8 @@
 #include <cstring>
 #include <format>
 #include <functional>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 #include <volk.h>
 
@@ -25,6 +27,14 @@
 namespace openrac::vkgl::detail {
 
 using namespace openrac::gl;
+
+// Reports a terminal recording failure at the renderer's existing exception boundary.
+void require_success(VkResult result, const char* operation) {
+    // Continuing could submit invalid handles or wait for work that was never queued.
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error(std::format("vulkan: {} failed ({})", operation, int(result)));
+    }
+}
 
 namespace {
 
@@ -574,12 +584,16 @@ void retire(ImagePtr image) {
 Slice ring(VkDeviceSize size) {
     Frame& f = frame();
     const VkDeviceSize align = ring_alignment();
+    // Leave room for alignment without wrapping either the request or its end offset.
+    if (size > std::numeric_limits<VkDeviceSize>::max() - align) {
+        throw std::length_error("Vulkan upload request exceeds addressable size");
+    }
     size = std::max<VkDeviceSize>(size, 4);
     while (true) {
         if (f.chunk_at < f.chunks.size()) {
             Chunk& c = f.chunks[f.chunk_at];
             const VkDeviceSize at = (f.chunk_used + align - 1) / align * align;
-            if (at + size <= c.size) {
+            if (at <= c.size && size <= c.size - at) {
                 f.chunk_used = at + size;
                 g->measures.ring_bytes += size;
                 g->submission.ring_bytes += size;
@@ -590,7 +604,7 @@ Slice ring(VkDeviceSize size) {
             continue;
         }
         if (!new_chunk(f, size)) {
-            return {};
+            throw std::runtime_error("cannot allocate Vulkan upload ring");
         }
     }
 }
@@ -703,8 +717,8 @@ void begin_buffers() {
     material_reset(f);
     VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(f.upload, &begin);
-    vkBeginCommandBuffer(f.main, &begin);
+    require_success(vkBeginCommandBuffer(f.upload, &begin), "begin upload commands");
+    require_success(vkBeginCommandBuffer(f.main, &begin), "begin frame commands");
     tracy_gpu_collect();
     const bool reset = f.timestamps != VK_NULL_HANDLE && f.timestamp_used == 0;
     if (reset) {
@@ -921,8 +935,8 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
         f.frame_timing = Frame::FrameTiming::Ended;
         f.frame_serial = stats::gpu_frame_begin();
     }
-    vkEndCommandBuffer(f.upload);
-    vkEndCommandBuffer(f.main);
+    require_success(vkEndCommandBuffer(f.upload), "end upload commands");
+    require_success(vkEndCommandBuffer(f.main), "end frame commands");
     const VkCommandBuffer buffers[] = {f.upload, f.main};
     // Two batches in one submit when the copy to the screen has a buffer of its own: only that
     // one waits for the screen's image, at the transfer stage where it first touches it.
@@ -937,7 +951,7 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
 
     // The present's own buffer, ended and run after the frame's.
     if (present != VK_NULL_HANDLE) {
-        vkEndCommandBuffer(present);
+        require_success(vkEndCommandBuffer(present), "end present commands");
         batches[1].commandBufferCount = 1;
         batches[1].pCommandBuffers = &present;
     }
@@ -956,17 +970,21 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
     }
 
     const std::uint32_t count = present != VK_NULL_HANDLE ? 2 : 1;
-    vkResetFences(g->device, 1, &f.fence);
+    require_success(vkResetFences(g->device, 1, &f.fence), "reset frame fence");
     {
         const profiling::Zone queue_trace("Queue submit");
-        check(vkQueueSubmit(g->queue, count, batches.data(), f.fence), "a submit");
+        require_success(vkQueueSubmit(g->queue, count, batches.data(), f.fence), "submit frame");
     }
     ++g->submission.submits;
     f.submitted = true;
     if (wait) {
-        vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX);
+        require_success(
+            vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "wait for submitted frame"
+        );
+        // Counter collection still needs the completed submission's marker and signalled fence.
         timing_results(f);
-        vkResetCommandPool(g->device, f.pool, 0);
+        f.submitted = false;
+        require_success(vkResetCommandPool(g->device, f.pool, 0), "reset completed frame pool");
         begin_buffers();
     }
 }
@@ -990,7 +1008,7 @@ VkCommandBuffer present_cmd() {
 
     VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(f.present, &begin);
+    require_success(vkBeginCommandBuffer(f.present, &begin), "begin present commands");
     return f.present;
 }
 

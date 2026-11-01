@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <memory>
@@ -18,6 +19,7 @@
 
 #include "check.h"
 #include "platform/audio.h"
+#include "platform/audio_ring.h"
 #include "platform/clock.h"
 #include "platform/input.h"
 #include "platform/pad.h"
@@ -234,6 +236,69 @@ void audio() {
     CHECK(pulled != nullptr);
 }
 
+// The frames ahead come out in the order they went in, across the ring's end, and a read past the
+// last one is silence for the rest.
+void audio_ring() {
+    AudioRing ring(5);
+    CHECK(ring.capacity() == 5 && ring.ready() == 0 && ring.room() == 5);
+    std::int16_t next = 1;
+    std::int16_t expect = 1;
+    for (int round = 0; round < 7; ++round) {
+        std::vector<std::int16_t> in(3 * 2);
+        for (auto& v : in) {
+            v = next++;
+        }
+        CHECK(ring.write(in));
+        CHECK(!ring.write(in));  // 3 more do not fit beside 3
+        std::vector<std::int16_t> out(2 * 2, -1);
+        CHECK(ring.read(out) == 2);
+        for (const std::int16_t v : out) {
+            CHECK(v == expect++);
+        }
+        out.assign(2 * 2, -1);
+        CHECK(ring.read(out) == 1);
+        CHECK(out[0] == expect++ && out[1] == expect++);
+        CHECK(out[2] == 0 && out[3] == 0);
+    }
+    CHECK(ring.read_count() == 7 * 3);
+}
+
+// Mixed ahead: the callback runs on the output's mixer in chunks and keeps frames ready for the
+// device, which the output counts as not heard; closing stops the mixer.
+void audio_ahead() {
+    Platform sdl(kAudio);
+    if (!sdl.ok()) {
+        std::printf("audio ahead skipped: %s\n", sdl.error().c_str());
+        return;
+    }
+    std::string error;
+    std::atomic<int> calls{0};
+    std::atomic<bool> chunks{true};
+    auto out = AudioOutput::open(
+        error,
+        [&](std::span<std::int16_t> buffer) {
+            ++calls;
+            chunks = chunks && buffer.size() == AudioOutput::kChunkFrames * 2;
+        },
+        960
+    );
+    if (!out) {
+        std::printf("audio ahead skipped: %s\n", error.c_str());
+        return;
+    }
+    // Ready before the device's first request.
+    CHECK(calls >= 960 / AudioOutput::kChunkFrames);
+    CHECK(out->unheard_frames() >= 960);
+    std::uint32_t requests = 0;
+    for (int i = 0; i < 100 && requests == 0; ++i) {
+        SDL_Delay(10);
+        requests += out->take_health().requests;
+    }
+    CHECK(requests > 0);
+    CHECK(chunks);
+    out.reset();
+}
+
 void audio_outlives_sdl() {
     // An output destroyed after SDL quit (a static or an exit handler outliving the Platform)
     // must not destroy its stream into SDL's freed state.
@@ -320,6 +385,8 @@ int main() {
     keyboard();
     pacer();
     audio();
+    audio_ring();
+    audio_ahead();
     audio_outlives_sdl();
     return openrac::test::result();
 }
