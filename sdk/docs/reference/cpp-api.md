@@ -229,6 +229,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `int prop_create(const std::string& mesh_path) const` | Since 1.12: a prop of the mesh `mesh_path` (a .glb in the mod's folder) in the level: its id, or -1 (no level, no such file, no room). |
 | `bool prop_pose(int id, const float position[3], const float rotation[4], float scale = 1.0f) const` | Since 1.12: places prop `id` at `position`, turned by the unit quaternion `rotation` (x, y, z, w) and scaled by `scale`; false for a prop gone with its level (make another). |
 | `bool prop_pose(int id, const float matrix[16]) const` | Since 1.12: places prop `id` by a 4 by 4 matrix, column-major. |
+| `bool prop_pose(int id, const float matrix[16], const float tint[4], uint32_t blend) const` | Since 1.12: places prop `id` by a matrix, its colour times `tint` (RGBA) and drawn as `blend` says (OPENRAC_PROP_OPAQUE, _ALPHA or _ADD): a glow or a spark. |
 | `bool prop_hide(int id, bool hidden = true) const` | Since 1.12: hides prop `id` or shows it again; takes it out of the level. |
 | `bool prop_remove(int id) const` |  |
 | `int sound_load(const std::string& path) const` | Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1. |

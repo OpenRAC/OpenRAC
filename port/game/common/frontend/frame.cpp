@@ -1451,9 +1451,17 @@ TickMobys pose_mobys(
             if (model == g->prop_models.end()) {
                 continue;
             }
-            scene::Instance instance{model->second, props[i].matrix, {1, 1, 1, 1}};
+            scene::Instance instance{model->second, props[i].matrix, props[i].tint};
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
             instance.occlusion = scene::Pvs::always;
+            instance.blend = props[i].blend;
+            if (instance.blend != 0) {
+                // A glow or a spark: drawn with the mobys' blended groups, no shadow.
+                live.push_back(instance);
+                live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
+                live_joints.push_back(0);
+                continue;
+            }
             // A prop casts the hero's kind of shadow (a board under his feet goes with his): in the
             // Enhanced shadow map as his equipment does, and, while the game draws his shadow, as
             // one capsule along the mesh's longer side, half its shorter side thick.

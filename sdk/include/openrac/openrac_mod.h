@@ -899,8 +899,9 @@ typedef struct openrac_collision_triangle {
     int32_t moby;
 } openrac_collision_triangle;
 
-/* The most props the mods together have at once (openrac_api.prop_create). Since 1.12. */
-#define OPENRAC_PROPS_MAX 8
+/* The most props the mods together have at once (openrac_api.prop_create): enough for a few meshes
+ * and the sprites of a mod's particles. Since 1.12. */
+#define OPENRAC_PROPS_MAX 256
 
 /* Where a prop is (openrac_api.prop_pose), in the game's units and axes. With `matrix` set
  * (OPENRAC_PROP_MATRIX in flags) the 4 by 4 matrix, column-major (matrix[12..14] the place), takes
@@ -914,10 +915,23 @@ typedef struct openrac_prop_pose {
     float rotation[4];
     float scale;
     float matrix[16];
+    /* With OPENRAC_PROP_TINT: the mesh's colour multiplied by `tint` (RGBA, 1 as the mesh is), and
+     * drawn as `blend` says (OPENRAC_PROP_OPAQUE, _ALPHA or _ADD): a glow, a spark or a fading
+     * flash, as the game draws its explosions. A blended prop casts no shadow. Since 1.12. */
+    float tint[4];
+    uint32_t blend;
 } openrac_prop_pose;
 
 /* openrac_prop_pose.flags: the pose is `matrix`. Since 1.12. */
 #define OPENRAC_PROP_MATRIX 0x1u
+/* openrac_prop_pose.flags: `tint` and `blend` are set. Since 1.12. */
+#define OPENRAC_PROP_TINT 0x2u
+
+/* openrac_prop_pose.blend: drawn as it is, blended at its alpha (the tint's alpha times the
+ * texture's), or added to what is behind it (its colour times its alpha). Since 1.12. */
+#define OPENRAC_PROP_OPAQUE 0u
+#define OPENRAC_PROP_ALPHA 1u
+#define OPENRAC_PROP_ADD 2u
 
 /* One joint of the hero turned and moved by a mod (openrac_api.hero_set_joints): `joint` his
  * skeleton's joint, turned by the unit quaternion `rotation` (x, y, z, w) after his animation's

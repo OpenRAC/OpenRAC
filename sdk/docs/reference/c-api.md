@@ -152,8 +152,12 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_HELD_LOOSE` | `0x4u` | Off the body (a thrown wrench): at `position` and `rotation`, not on its joint. |
 | `OPENRAC_SHOTS_MAX` | `16` | The most shots kept for hero_shots between two calls. Since 1.9. |
 | `OPENRAC_COLLISION_LEVEL` | `(-1)` | openrac_collision_triangle.moby for a triangle of the level's own collision. Since 1.12. |
-| `OPENRAC_PROPS_MAX` | `8` | The most props the mods together have at once (openrac_api.prop_create). Since 1.12. |
+| `OPENRAC_PROPS_MAX` | `256` | The most props the mods together have at once (openrac_api.prop_create): enough for a few meshes and the sprites of a mod's particles. Since 1.12. |
 | `OPENRAC_PROP_MATRIX` | `0x1u` | openrac_prop_pose.flags: the pose is `matrix`. Since 1.12. |
+| `OPENRAC_PROP_TINT` | `0x2u` | openrac_prop_pose.flags: `tint` and `blend` are set. Since 1.12. |
+| `OPENRAC_PROP_OPAQUE` | `0u` | openrac_prop_pose.blend: drawn as it is, blended at its alpha (the tint's alpha times the texture's), or added to what is behind it (its colour times its alpha). Since 1.12. |
+| `OPENRAC_PROP_ALPHA` | `1u` |  |
+| `OPENRAC_PROP_ADD` | `2u` |  |
 | `OPENRAC_JOINT_OFFSETS_MAX` | `128` | The most joints one hero_set_joints call turns. Since 1.12. |
 | `OPENRAC_SOUNDS_MAX` | `64` | The most sounds a mod loads (openrac_api.sound_load), and the most voices the mods play at once (openrac_api.sound_play). Since 1.12. |
 | `OPENRAC_SOUND_VOICES_MAX` | `16` |  |
@@ -625,6 +629,8 @@ quaternion (x, y, z, w) and one scale for all three axes. Since 1.12.
 | `float rotation[4]` |  |
 | `float scale` |  |
 | `float matrix[16]` |  |
+| `float tint[4]` | With OPENRAC_PROP_TINT: the mesh's colour multiplied by `tint` (RGBA, 1 as the mesh is), and drawn as `blend` says (OPENRAC_PROP_OPAQUE, _ALPHA or _ADD): a glow, a spark or a fading flash, as the game draws its explosions. A blended prop casts no shadow. Since 1.12. |
+| `uint32_t blend` |  |
 
 ## `openrac_joint_offset`
 

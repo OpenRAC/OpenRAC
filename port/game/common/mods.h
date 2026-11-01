@@ -178,6 +178,8 @@ struct PropDraw {
     int id = 0;  // its id (openrac_api.prop_create's)
     std::filesystem::path mesh;
     std::array<float, 16> matrix{};
+    std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
+    int blend = 0;  // OPENRAC_PROP_OPAQUE, _ALPHA or _ADD
 };
 
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.

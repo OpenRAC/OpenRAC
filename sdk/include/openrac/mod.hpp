@@ -1208,6 +1208,18 @@ public:
         return has_api_12() && m_api->prop_pose(m_handle, id, &p) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.12: places prop `id` by a matrix, its colour times `tint` (RGBA) and drawn as `blend`
+    // says (OPENRAC_PROP_OPAQUE, _ALPHA or _ADD): a glow or a spark.
+    bool prop_pose(int id, const float matrix[16], const float tint[4], uint32_t blend) const {
+        openrac_prop_pose p{};
+        p.size = sizeof p;
+        p.flags = OPENRAC_PROP_MATRIX | OPENRAC_PROP_TINT;
+        std::copy(matrix, matrix + 16, p.matrix);
+        std::copy(tint, tint + 4, p.tint);
+        p.blend = blend;
+        return has_api_12() && m_api->prop_pose(m_handle, id, &p) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.12: hides prop `id` or shows it again; takes it out of the level.
     bool prop_hide(int id, bool hidden = true) const {
         return has_api_12() && m_api->prop_hide(m_handle, id, hidden ? 1 : 0) == OPENRAC_HOOK_OK;

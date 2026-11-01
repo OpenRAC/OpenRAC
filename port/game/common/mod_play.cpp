@@ -735,6 +735,8 @@ struct Prop {
     bool posed = false;
     bool hidden = false;
     std::array<float, 16> matrix{};
+    std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
+    int blend = 0;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
@@ -879,6 +881,13 @@ int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose) {
         p->matrix[13] = pose->position[1];
         p->matrix[14] = pose->position[2];
         p->matrix[15] = 1.0f;
+    }
+    if ((pose->flags & OPENRAC_PROP_TINT) != 0) {
+        std::copy(pose->tint, pose->tint + 4, p->tint.begin());
+        p->blend = pose->blend <= OPENRAC_PROP_ADD ? static_cast<int>(pose->blend) : 0;
+    } else {
+        p->tint = {1.0f, 1.0f, 1.0f, 1.0f};
+        p->blend = 0;
     }
     p->posed = true;
     return OPENRAC_HOOK_OK;
@@ -1043,7 +1052,7 @@ std::vector<PropDraw> props_drawn() {
     for (std::size_t i = 0; i < g_props.size(); ++i) {
         const Prop& p = g_props[i];
         if (p.mod != nullptr && p.posed && !p.hidden && p.loads == loads) {
-            out.push_back({static_cast<int>(i), p.mesh, p.matrix});
+            out.push_back({static_cast<int>(i), p.mesh, p.matrix, p.tint, p.blend});
         }
     }
     return out;
