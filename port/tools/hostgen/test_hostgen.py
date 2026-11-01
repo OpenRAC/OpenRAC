@@ -3019,6 +3019,28 @@ class FromAssembly(unittest.TestCase):
             extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source)})
         self.assertEqual(out, ["6"])
 
+    def test_a_return_through_a_copy_of_ra(self):
+        # A leaf that calls helpers keeps $ra in a temporary and ends with jr on it: a return, not a
+        # call to that value (Going Commando's rotation builder, func_00283898).
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int x);
+            INCLUDE_ASM("asm", func_00100100);
+            extern int func_00100100(int x);
+            int test_main(void) { test_print(func_00100000(20)); return 0; }
+        """, {"func_00100000": (0x00100000, """
+                addi $11, $31, 0
+                jal func_00100100
+                nop
+                jr $11
+                addiu $2, $2, 1
+            """), "func_00100100": (0x00100100, """
+                jr $31
+                sll $2, $4, 1
+            """)}, symbols={"func_00100100": 0x00100100})
+        self.assertEqual(out, ["41"])
+        self.assertEqual(self.last_report["functions_from_assembly"], 2)
+
     def test_console_form(self):
         # The form for the console's compiler (rac1-decomp's tools/fcheck.py): the function under a
         # name of its own with the function's symbol, calls by retail address with every argument

@@ -769,10 +769,23 @@ class Translator:
                 lines = [f"{self._jt} = (openrac_u32)r31;", *delay, f"switch ({self._jt}) {{"]
                 lines += [f"case {hx(r)}: goto L_{r:08X};" for r in sorted(self.returns)]
                 return lines + ["default: break;", "}", *self.leave()]
+            if self._holds_return_address(ins.rs):
+                return delay + self.leave()
             if a in self.jtables:
                 return [f"{self._jt} = (openrac_u32){R(ins.rs)};"] + delay + self.dispatch(self._jt, self.jtables[a])
             return [f"{self._jt} = (openrac_u32){R(ins.rs)};"] + delay + self.indirect(self._jt, a) + self.leave()
         raise AsmUnsupported(f"{op} at {a:08X}")
+
+    def _holds_return_address(self, reg: int) -> bool:
+        """Whether a register only ever holds the $ra the function came in with: a leaf that calls
+        hand-written helpers keeps it in a temporary (addi $t3, $ra, 0) and ends with jr $t3."""
+        writes = [a for a in self.reach if reg in rw(self.at(a))[1]]
+        for a in writes:
+            ins = self.at(a)
+            if ins.op not in ("addi", "addiu", "daddi", "daddiu") or ins.rs != 31 or ins.imm != 0:
+                return False
+        first_call = min((a for a in self.reach if 31 in rw(self.at(a))[1]), default=None)
+        return bool(writes) and (first_call is None or max(writes) < first_call)
 
     @property
     def _jt(self) -> str:
