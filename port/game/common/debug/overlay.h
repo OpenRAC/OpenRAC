@@ -223,6 +223,7 @@ struct State {
         false;  // a screenshot asked for in it, taken once it is out of the picture
     bool drawer_developer = false;  // its developer tools unfolded
     bool drawer_record = false;     // its diagnostics recordings unfolded
+    bool drawer_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
     // The on-screen pad's layout being edited (touch_editing()): Reset asked for, the box of the
     // bar in the middle of the screen as last drawn, whose fingers are ImGui's, not the pad's, and
     // the lines a dragged group snapped to (set_touch_guides()).
@@ -448,6 +449,10 @@ void menu_bar();
 // the window to apply (take_settings_changed). A picture shape of the player's own is the settings
 // file's, so moving the aspect skips it. Defined in debug/controls.cpp.
 void change_setting(int row, int by);
+
+// Puts the Enhanced graphics settings and the session's material, water and fog tuning back to
+// their defaults, for the Enhanced Settings window and the drawer. Defined in debug/controls.cpp.
+void reset_enhanced();
 
 // Draws the independent Enhanced Settings window with launcher-ordered main choices and advanced
 // tuning, diagnostics and water sections; disabled
