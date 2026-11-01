@@ -1755,7 +1755,7 @@
         "kind": "play",
         "area": "port",
         "state": "planned",
-        "docs": "games/rac2/ntsc/docs/REGIONS.md",
+        "docs": "games/rac2/ntsc/docs/VERSIONS.md",
         "todo": "Needs rac2/ntsc to get past the first level load, then a PAL function map (tools/versions.py) and port/game/rac2-pal, as rac1 has for its PAL release."
       }
     ],

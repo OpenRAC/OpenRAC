@@ -28,7 +28,7 @@ release (`SCES_516.07`) as C with SDL2 and OpenGL. It builds with CMake on its o
 part of the matching sources or the progress.
 
 Only v1.01 is built; the Greatest Hits release (v2.00) and the PAL release are identified in
-[ntsc/docs/REGIONS.md](ntsc/docs/REGIONS.md). Disc checksums are in
+[ntsc/docs/VERSIONS.md](ntsc/docs/VERSIONS.md). Disc checksums are in
 [baserom/README.md](../../baserom/README.md); progress in [progress/](../../progress/README.md).
 
 ## Getting started
