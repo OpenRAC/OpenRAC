@@ -159,6 +159,7 @@ class Translator:
         self.program = program
         self.index = index
         self.gp = gp
+        self.gp_addresses = False  # hostgen.json asm.gp_addresses
         self.mode = mode
         self.source = source
         self._decoded: dict = {}
@@ -238,6 +239,7 @@ class Translator:
             return False
         cache[key] = False                   # while it is looked at: a call back to it is a call
         sub = Translator(self.program, self.index, self.gp, self.mode, self.source)
+        sub.gp_addresses = self.gp_addresses
         sub.forward_unprototyped = self.forward_unprototyped
         sub.in_place = self.in_place
         sub.dma_stores = self.dma_stores
@@ -1017,6 +1019,10 @@ class Translator:
         if op in ("addiu", "addi"):
             if ins.reloc and ins.reloc[0] == "hi":
                 raise AsmUnsupported(f"%hi in {op} at {ins.addr:08X}")
+            if rs == 28 and self.gp is not None and self.gp_addresses:
+                # A datum's address formed from $gp: it moves between programs as a load through
+                # $gp does (func_L01_003801B8's gp-0x110 in level 18's copy is another variable).
+                return W(rt, S32(self.addr(ins)))
             return W(rt, S32(f"{u32(R(rs))} + {hx(imm)}"))
         if op in ("daddu", "dadd"):
             return W(rd, f"{R(rs)} + {R(rt)}")
@@ -1724,6 +1730,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     dirs = [base / d for d in a.get("dirs", [])]
     gp = int(str(a["gp"]), 0) if a.get("gp") is not None else None
     tr = Translator(program, None, gp, "host", base)
+    tr.gp_addresses = bool(a.get("gp_addresses"))
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))
     tr.dma_stores = bool(a.get("dma_stores"))
@@ -1941,6 +1948,7 @@ def write_console(stage: Stage, out: Path, names: list[str] | None = None) -> di
         return problems
     out.mkdir(parents=True, exist_ok=True)
     console = Translator(tr.program, tr.index, tr.gp, "console", tr.source)
+    console.gp_addresses = tr.gp_addresses
     console.forward_unprototyped = tr.forward_unprototyped
     # Named functions are written whether or not they have C (the check of the translator on
     # more of the program than its stubs); otherwise every one translated for the port.
