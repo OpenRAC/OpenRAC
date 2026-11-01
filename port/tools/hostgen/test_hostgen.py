@@ -2231,6 +2231,10 @@ class Preparation(unittest.TestCase):
         self.assertNotIn("FLD", line)
         self.assertEqual(line.count("struct {"), 3)
 
+    def test_candidate_keeps_its_records_to_itself(self):
+        out = prep.own_records('typedef struct { float x; } V;\nV v; char *s = "V";\n', "_hc1")
+        self.assertEqual(out, 'typedef struct { float x; } V_hc1;\nV_hc1 v; char *s = "V";\n')
+
     def test_lvalue_cast_stores_through_a_pointer(self):
         src = "    ((u8 *)((V *)(s))->p[9]) = NULL;\n    ((V *)x)->y = 1;\n"
         self.assertEqual(prep.name_lvalue_casts(src),

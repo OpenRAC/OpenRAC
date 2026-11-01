@@ -543,6 +543,29 @@ def own_declarations(text: str, tag: str) -> str:
     return text
 
 
+_TYPEDEF_RECORD = re.compile(r"\btypedef\s+(?:struct|union)\b[^{;]*\{")
+
+
+def own_records(text: str, tag: str) -> str:
+    """The candidate's typedefs of records, under names of its own.
+
+    Two definitions of one record are two types to C however alike they read, so a candidate
+    that defines what its file also defines (`typedef struct { ... } V4;`) cannot sit beside it."""
+    names = []
+    for m in _TYPEDEF_RECORD.finditer(text):
+        depth, at = 1, m.end()
+        while at < len(text) and depth:
+            depth += (text[at] == "{") - (text[at] == "}")
+            at += 1
+        name = re.match(r"\s*(\w+)\s*;", text[at:])
+        if name:
+            names.append(name.group(1))
+    for name in names:
+        text = re.sub(r'"(?:\\.|[^"\\\n])*"|\b' + name + r'\b',
+                      lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
+    return text
+
+
 def own_statics(text: str, tag: str) -> str:
     """The candidate's own file-scope statics (helpers and tables), under names of its own.
 
@@ -692,7 +715,7 @@ def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str
             added.add(id(text))
             suffix = f'_hc{len(added)}'
             tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n"
-                        f"{own_statics(own_declarations(without_definitions(prepare(text), matched), suffix), suffix)}")
+                        f"{own_records(own_statics(own_declarations(without_definitions(prepare(text), matched), suffix), suffix), suffix)}")
         return "\n" * m.group(0).count("\n")   # a stub over several lines: the lines stay
 
     text = _INCLUDE_ASM.sub(blank, text)

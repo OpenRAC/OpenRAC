@@ -12,6 +12,13 @@
   "skip": [
     "src/pal",
     "src/us2",
+    "src/core/0011FC68.c",
+    "src/core/00120528-eh.c",
+    "src/core/00120F00-unwind.c",
+    "src/core/001210E0-unwind.c",
+    "src/core/00121450.c",
+    "src/core/00121AB8.c",
+    "src/levels/shared/L08_003CDB38.c",
     "src/core/00121B20.c",
     "src/core/001220F0.c",
     "src/core/001232F0.c"
