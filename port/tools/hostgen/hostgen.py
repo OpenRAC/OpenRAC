@@ -1037,6 +1037,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.entries = {sym: int(str(off), 0) for sym, off in cfg.get("entries", {}).items()}
     # Stubs of the executable that every level program fills with a function of its own.
     program.level_hooks = set(cfg.get("level_hooks", []))
+    program.level_hooks_by_registers = cfg.get("level_hooks_by_registers", False)
     # Functions whose float arithmetic is the EE's, computed in software (hostgen.json "ps2_float";
     # openrac/ps2float.h): lower.py.
     program.ps2_float = set(cfg.get("ps2_float", []))

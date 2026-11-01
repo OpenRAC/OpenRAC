@@ -79,8 +79,7 @@ What the translation reads (`hostgen.json`):
 - `skip`: the other releases' C (`src/pal`, `src/us2`); libgcc's `__udivdi3`,
   `__umoddi3` (host rows), fp-bit's `__pack_f` file, whose `mode` typedefs Clang
   reads but hostgen cannot prototype, and libgcc's other units, whose macros and
-  `__builtin_setjmp` it cannot read; `L08_003CDB38.c`, whose `extern void
-  func_002A0F48(p);` Clang refuses. All translated from assembly instead.
+  `__builtin_setjmp` it cannot read. All translated from assembly instead.
 - `from_assembly`: 15 wrappers whose C omits registers they forward
   (`arguments_filled_with_zero` in the report), translated from assembly.
 
@@ -105,6 +104,14 @@ names in the symbol table, the kernel's system-call wrappers by the number
 each loads into `$v1`, and the SDK functions whose instructions (relocations
 masked) are those of rac1-pal's or rac4's bound ones. Several of the latter
 start four bytes after their catalogue place, at the linker's fill word.
+
+## Level hooks
+
+`level_hooks`: 31 empty functions of the executable from `0x0026F710` to `0x0026F808`. Each level's
+program fills them with hero code of its own, which the engine calls from the code it carries in
+every level: state changes, the update in a scene. Rac1 has the same pattern. Assembly calls one
+with all its registers (`level_hooks_by_registers`): the stub's C declaration says nothing of what
+the level's function takes.
 
 ## What differs from Ratchet & Clank's layouts
 

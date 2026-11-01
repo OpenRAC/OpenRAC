@@ -50,6 +50,10 @@
             "docs/port/BACKFILL.md"
           ],
           [
+            "extern void func_002A0F48(p);",
+            "extern void func_002A0F48(u8 *p);"
+          ],
+          [
             "ref_L00_00370408_00",
             "func_0027CFD0"
           ],

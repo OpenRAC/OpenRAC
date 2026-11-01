@@ -751,7 +751,7 @@ class Translator:
             if a in self.inline_calls:
                 taken = [f"goto L_{ins.target:08X};"]
             else:
-                taken = self.call(ins.target, self._operand_name(a))
+                taken = self.call(ins.target, self._operand_name(a), a)
             if ins.likely:
                 return [f"c_ = {cond};", link, "if (c_) {", *["    " + s for s in delay + taken], "}"]
             return [f"c_ = {cond};", *delay, link, "if (c_) {", *["    " + s for s in taken], "}"]
@@ -762,7 +762,7 @@ class Translator:
         if op == "jal":
             if a in self.inline_calls:
                 return delay + [f"r31 = {S32(hx(a + 8))};", f"goto L_{ins.target:08X};"]
-            return delay + [f"r31 = {S32(hx(a + 8))};"] + self.call(ins.target, self._operand_name(a))
+            return delay + [f"r31 = {S32(hx(a + 8))};"] + self.call(ins.target, self._operand_name(a), a)
         if op == "jalr":
             # The target register is read before the delay slot runs.
             return ([f"{self._jt} = (openrac_u32){R(ins.rs)};"] + delay + self.W(ins.rd, S32(hx(a + 8)))
@@ -831,7 +831,7 @@ class Translator:
                 return sym
         return None
 
-    def call(self, target: int, name: str | None) -> list[str]:
+    def call(self, target: int, name: str | None, at: int | None = None) -> list[str]:
         sym = self._callee(target, name)
         f = self.program.functions.get(sym) if sym else None
         if f is None or prototype(f, self.program.typedefs) is None:
@@ -861,8 +861,13 @@ class Translator:
             exe_fn, size, home, home_fn, stub = self.unit._level_hook(sym)
             k = self.calls_k.get(sym, 0)
             self.calls_k[sym] = k + 1
-            callee = (f"GFN({fn_type}, openrac_hook_in_copy({hx(exe_fn)}, {size}u, {home}, {hx(home_fn)}, "
-                      f"{hx(stub)}, {k}u))")
+            hook = f"openrac_hook_in_copy({hx(exe_fn)}, {size}u, {home}, {hx(home_fn)}, {hx(stub)}, {k}u)"
+            if getattr(self.program, "level_hooks_by_registers", False):
+                # A hook stub's own declaration says nothing of what the level's function takes
+                # (func_0026F808 is `void (void)`, Going Commando's level 0 fills it with a
+                # function of three pointers): the registers, as for a call through an address.
+                return self.indirect(hook, target if at is None else at)
+            callee = f"GFN({fn_type}, {hook})"
         elif self.unit._folded_places(sym):
             # One name for several places (folded by the catalogue): the place this call goes to.
             callee = f"GFN({fn_type}, {self._code_literal(target)})"
