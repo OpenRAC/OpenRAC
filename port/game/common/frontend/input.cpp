@@ -208,7 +208,9 @@ void menus_after_mods(int port, std::uint16_t& buttons) {
 void skip_after_mods(int port, std::uint16_t& buttons) {
     // A mod's skip (openrac_api.play_skip: a party's scenes ending together) presses as a map's
     // own skip does.
-    const bool asked = port == 0 && mods::play_skipping();
+    // OPENRAC_SKIP_SCENES presses it too.
+    static const bool skip_scenes = env::flag(env::Var::SkipScenes);
+    const bool asked = port == 0 && (mods::play_skipping() || skip_scenes);
     if (asked && openrac_game_skip != nullptr) {
         openrac_game_skip();
     }
