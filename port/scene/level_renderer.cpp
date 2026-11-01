@@ -137,6 +137,15 @@ bool LevelScene::upload(
             return false;
         }
     }
+    // Disabling specialisation must retain the enhanced blended pass's lighting quality.
+    if (m_lighting && enhanced_rendering_available()) {
+        std::string fast(fragment);
+        fast.insert(fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
+        if (!m_translucent_reference
+                 .build("translucent colour, dynamic controls", mesh_vertex, fast, error)) {
+            return false;
+        }
+    }
 #if defined(OPENRAC_VULKAN)
     if (vkgl::gpu_materials_active()) {
         const auto opaque_source = [](std::string source) {
@@ -660,6 +669,7 @@ void LevelScene::release() {
         m_lights = 0;
     }
     m_mesh.release();
+    m_translucent_reference.release();
     m_static_translucent.release();
     m_static_translucent_full.release();
     m_colour_opaque.release();
@@ -1236,6 +1246,12 @@ void LevelScene::draw_layer(
             );
             selected = fast_off || m_sweep_translucent_full ? &m_static_translucent_full
                                                             : &m_static_translucent;
+        } else if (!mobys && pass == 2 && m_translucent_reference.id()) {
+            // General controls retain fast probes unless full lighting was explicitly requested.
+            static const bool& fast_off = stats::probe(
+                "OPENRAC_PROBE_FAST_OFF", "Reference: full probe light on blended static passes"
+            );
+            selected = fast_off || m_sweep_translucent_full ? &m_mesh : &m_translucent_reference;
         } else if (!specialisation_off && specialised[variant].id()
                    && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
                    && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {
