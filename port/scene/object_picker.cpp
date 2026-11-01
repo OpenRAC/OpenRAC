@@ -319,8 +319,8 @@ std::optional<PickHit> ObjectPicker::cast(
                              : std::span<const Instance>(level.instances[layer]);
         for (unsigned index = 0; index < instances.size(); ++index) {
             const auto& instance = instances[index];
-            if (instance.model >= m_meshes.size() || instance.moby_light[3] > 1.5f
-                || instance.tint[3] <= 0) {
+            if (instance.lighting_only || instance.model >= m_meshes.size()
+                || instance.moby_light[3] > 1.5f || instance.tint[3] <= 0) {
                 continue;
             }
             const auto& mesh = m_meshes[instance.model];

@@ -434,6 +434,49 @@ int main() {
                 transmitted_difference[1]
             );
         }
+        // Authored point/spot lights must reach the real water material, even over cleared sky depth.
+        CHECK(target.create(64, 64, error));
+        state.target = {target.id(), 64, 64};
+        auto saved_water_debug = enhanced::water_debug_settings();
+        auto paused_water_debug = saved_water_debug;
+        paused_water_debug.paused = true;
+        enhanced::set_water_debug_settings(paused_water_debug);
+        auto* provider = lighting::scene_lighting(scene);
+        const auto draw_water = [&] {
+            glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glDepthMask(GL_TRUE);
+            glDisable(GL_SCISSOR_TEST);
+            glClearColor(.05f, .05f, .05f, 1);
+            glClearDepth(0);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            effects.render(input, state);
+            return target.read_rgba();
+        };
+        provider->prepare_deformation(input, scene);
+        const auto unlit_water = draw_water();
+        std::vector<enhanced::LocalLight> authored(64);
+        for (std::size_t i = 0; i < authored.size(); ++i) {
+            auto& light = authored[i];
+            light.position = {.4f, .4f, 2};
+            light.range = 4;
+            light.colour = {.01f, .003f, .001f};
+            light.spot = i % 2 != 0;
+        }
+        CHECK(provider->set_local_lights(authored));
+        ++input.frame;
+        provider->prepare_deformation(input, scene);
+        provider->set_local_light_reference(true);
+        const auto all_light_water = draw_water();
+        CHECK(all_light_water != unlit_water);
+        provider->set_local_light_reference(false);
+        provider->select_visible_regions(target.depth_texture(), input.camera, 64, 64);
+        CHECK(draw_water() == all_light_water);
+        CHECK(provider->set_local_lights({}));
+        ++input.frame;
+        provider->prepare_deformation(input, scene);
+        CHECK(draw_water() == unlit_water);
+        enhanced::set_water_debug_settings(saved_water_debug);
         CHECK(target.create(79, 53, error));
         state.target = {target.id(), 79, 53};
         glClearDepth(0);

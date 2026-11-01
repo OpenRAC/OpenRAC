@@ -40,6 +40,9 @@
 #include "common/stats.h"
 #include "debug_menu.h"
 #include "debug_overlay.h"
+#ifdef OPENRAC_LIGHT_AUTHORING
+#include "enhanced/lighting/object_lights.h"
+#endif
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
@@ -1142,7 +1145,16 @@ TickMobys pose_mobys(
         );
     }
 
+    const bool inspect_bones = debug_overlay::picker_snapshot_needed();
+#ifdef OPENRAC_LIGHT_AUTHORING
+    auto attached_catalog =
+        enhanced_graphics_available() ? enhanced::current_object_lights(g->level.game) : nullptr;
+    if (attached_catalog && attached_catalog->objects.empty()) {
+        attached_catalog.reset();
+    }
+#endif
     for (std::size_t index = 0; index < state.mobys.size(); ++index) {
+        bool light_only = false;
         const host::LiveMoby& m = state.mobys[index];
         const bool extra = index >= listed;
         // Hidden (mode bits 0x81): MobyProc does not draw it (the parked ship while the landing one
@@ -1172,7 +1184,27 @@ TickMobys pose_mobys(
             && g->profile->beyond_draw_distance(
                 ram.data() + m.address, state.camera_position, state.forward
             )) {
+#ifdef OPENRAC_LIGHT_AUTHORING
+            // An unseen mesh may still carry a light whose sphere reaches visible receivers.
+            const auto model = g->level.moby_classes.find(m.class_id);
+            if (!attached_catalog || model == g->level.moby_classes.end()) {
+                continue;
+            }
+            const auto key =
+                enhanced::object_light_key(g->level, scene::Layer::Mobys, model->second.first);
+            const auto lights = attached_catalog->objects.find(key);
+            if (lights == attached_catalog->objects.end()
+                || std::none_of(
+                    lights->second.begin(), lights->second.end(), [](const auto& light) {
+                        return light.enabled;
+                    }
+                )) {
+                continue;
+            }
+            light_only = true;
+#else
             continue;
+#endif
         }
         if (only_own_camera
             && std::none_of(g->moby_cameras.begin(), g->moby_cameras.end(), [&](const auto& c) {
@@ -1185,6 +1217,7 @@ TickMobys pose_mobys(
             continue;
         }
         scene::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
+        instance.lighting_only = light_only;
         instance.gameplay_essential = g->profile->gameplay_essential(m.class_id);
         instance.occlusion = m.occlusion;
         if (extra || into_texture.contains(m.address)) {
@@ -1271,7 +1304,24 @@ TickMobys pose_mobys(
                 break;
             }
         }
-        const int joints = g->level.models[instance.model].joints;
+        bool attached_bones = false;
+#ifdef OPENRAC_LIGHT_AUTHORING
+        if (attached_catalog && !attached_catalog->objects.empty()) {
+            const auto lights = attached_catalog->objects.find(
+                enhanced::object_light_key(g->level, scene::Layer::Mobys, instance.model)
+            );
+            attached_bones =
+                lights != attached_catalog->objects.end()
+                && std::any_of(lights->second.begin(), lights->second.end(), [](const auto& light) {
+                       return light.enabled && !light.bone.empty();
+                   });
+        }
+#endif
+
+        // Unweighted joints are needed only by bone attachments or explicit developer inspection.
+        const auto& model = g->level.models[instance.model];
+        const int joints =
+            std::max(model.joints, (inspect_bones || attached_bones) ? int(model.bones.size()) : 0);
         if (debug && g->index % 100 == 0 && m.class_id == 0) {
             // The hero, for bring-up: where he is and what his animation fields and pose say.
             const auto pose = scene::moby_palette(ram, m.address);

@@ -59,6 +59,14 @@ uniform vec4 shadow_atlas_rects[5];
 uniform vec4 light_sets[64];
 uniform vec4 probe_point_position[8];
 uniform vec4 probe_point_colour[8];
+// Default local lights retain the standalone shader's original eight-light interface.
+#ifndef OPENRAC_FORWARD_PLUS
+#define LOCAL_LIGHT_LOOP(i) for(int i=0;i<8;++i)
+#define LOCAL_POSITION(i) probe_point_position[i]
+#define LOCAL_COLOUR(i) probe_point_colour[i]
+#define LOCAL_CONE(i,d) 1.
+#define LOCAL_ATTENUATION(d,r) (1.0-(d)/(r))
+#endif
 
 vec2 probe_oct(vec3 n) {
     n /= abs(n.x) + abs(n.y) + abs(n.z);
@@ -616,18 +624,27 @@ vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
             * mp_float(response) * mp_float(mix(0.1, 1.0, visibility));
         direct += vec3(contribution);
     }
-    for (int i = 0; i < 8; ++i) {
-        vec3 delta = probe_point_position[i].xyz - p;
-        float radius = probe_point_position[i].w;
+    LOCAL_LIGHT_LOOP(i) {
+        vec3 delta = LOCAL_POSITION(i).xyz - p;
+        float radius = LOCAL_POSITION(i).w;
         float distance = length(delta);
         if (radius <= 0.0 || distance >= radius || distance <= 1e-6) {
             continue;
         }
         float d = float(dot(mp_vec3(delta / distance), mp_vec3(n)));
         float response =
-            probe_backlight != 0 ? max(d, -abs(probe_point_colour[i].w) * d) : max(d, 0.0);
-        mp_vec3 contribution = max(mp_vec3(probe_point_colour[i].rgb), mp_vec3(0))
-            * mp_float(response) * mp_float(1.0 - distance / radius);
+            probe_backlight != 0 ? max(d, -abs(LOCAL_COLOUR(i).w) * d) : max(d, 0.0);
+#ifdef OPENRAC_FORWARD_PLUS
+        // Authored radiance can exceed FP16; narrow only the bounded angular/range weights.
+        if(i>=8) {
+            mp_float weight=mp_float(response)*mp_float(LOCAL_ATTENUATION(distance,radius))
+                            *mp_float(LOCAL_CONE(i,delta/distance));
+            direct+=max(LOCAL_COLOUR(i).rgb,vec3(0))*float(weight);
+            continue;
+        }
+#endif
+        mp_vec3 contribution = max(mp_vec3(LOCAL_COLOUR(i).rgb), mp_vec3(0))
+            * mp_float(response) * mp_float(LOCAL_ATTENUATION(distance,radius)) * mp_float(LOCAL_CONE(i,delta/distance));
         direct += vec3(contribution);
     }
     return direct;

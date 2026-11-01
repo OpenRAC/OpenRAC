@@ -246,6 +246,13 @@ void menu_bar() {
         if (ImGui::MenuItem("Moby picker", nullptr, &picker)) {
             set_picker_enabled(picker);
         }
+        if (s.developer) {
+            if (ImGui::MenuItem("Object Viewer", nullptr, &s.object_viewer.open)) {
+                if (s.object_viewer.open) {
+                    set_picker_enabled(true);
+                }
+            }
+        }
         ImGui::Separator();
         if (ImGui::MenuItem("Pause", "F5", s.paused)) {
             press(SDLK_F5);

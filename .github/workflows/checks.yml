@@ -366,7 +366,7 @@ jobs:
       - name: Build enhanced lighting and baker
         working-directory: port
         run: |
-          cmake --preset enhanced -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_PROBE_BAKER=ON
+          cmake --preset enhanced -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_PROBE_BAKER=ON -DOPENRAC_LIGHT_AUTHORING=ON
           cmake --build --preset enhanced
       - name: CPU, Vulkan and Embree tests
         working-directory: port
@@ -383,7 +383,9 @@ jobs:
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
           required = {'probe_gpu_vulkan', 'early_lighting_vulkan', 'hero_shadow_vulkan',
-                      'sun_shadow_vulkan', 'gtao_vulkan', 'probe_bake', 'bake_liquids'}
+                      'sun_shadow_vulkan', 'gtao_vulkan', 'probe_bake', 'bake_liquids',
+                      'object_lights', 'object_preview', 'object_preview_opengl',
+                      'object_preview_es', 'local_lights'}
           cases = {case.attrib['name']: case for case in ET.parse('build/enhanced/enhanced-tests.xml').iter('testcase')}
           missing = required - cases.keys()
           skipped = {name for name in required & cases.keys() if cases[name].find('skipped') is not None}

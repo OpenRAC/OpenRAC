@@ -125,3 +125,16 @@ checked by the maintainers' regression comparison of the game programs
   visibility, which `pvs.h` reads.
 - [viewer/README.md](../viewer/README.md): the export the level comes from and how the viewer draws
   it.
+
+## Developer Object Viewer
+
+**Developer > Object Viewer** uses the click picker to isolate an object without changing the
+live level. Its camera follows Unity Scene-view controls: Alt+LMB orbit, MMB pan, Alt+RMB dolly,
+RMB look with WASD/QE fly (Shift speeds up), wheel zoom and F to frame. RMB+wheel changes fly speed.
+See the [Unity navigation reference](https://docs.unity3d.com/Manual/SceneViewNavigation.html).
+
+Freeze the displayed pose, follow gameplay, or use **Default / bind pose** to restore the model's
+original rest mesh and bone frames. The rest pose is not necessarily a T-pose. Existing animation
+sequences are not exported into preview models yet, so independent sequence playback is unavailable.
+Bone overlays work with classic graphics; optional enhanced light authoring stays in a separate
+foldout (see [enhanced](../enhanced/README.md#object-light-authoring)).

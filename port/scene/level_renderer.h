@@ -137,6 +137,9 @@ public:
     // Replaces the joint palettes the mobys' instances index (Instance::palette), each frame.
     void set_palette(const std::vector<JointColumns>& matrices);
 
+    // The owned displayed palette, shared read-only with registered attachment providers.
+    std::span<const renderer::Mat4> joint_palette() const { return m_palette_data; }
+
     bool lighting = true;
 
     bool probes_active() const { return m_lighting && m_lighting->active(); }
@@ -245,6 +248,9 @@ public:
 
     // Eight point lights after the 16 directional sets: colour, position/radius.
     void set_point_lights(const std::array<float, 64>& lights) { m_point_lights = lights; }
+
+    // Immutable frame light bank for registered lighting providers.
+    const std::array<float, 64>& point_lights() const { return m_point_lights; }
 
     // The game's fog for this frame (GameState): FOGCOL 0..1, the depths in raw units (game
     // units x 1024) and the GS F at them (255 = none). The world layers are fogged as the GS

@@ -192,6 +192,7 @@ class Bundle(unittest.TestCase):
                         "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
                         "launcher/actions.json",
                         "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
+                        "port/enhanced/lighting/profiles/rac1/object-lights.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
@@ -246,6 +247,9 @@ class Bundle(unittest.TestCase):
                             str(out / "editor"), str(exported)], cwd=tmp, check=True)
             profile = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"
             self.assertEqual((exported / "probe-bake.json").read_bytes(), (bundle.ROOT / profile).read_bytes())
+            lights = "port/enhanced/lighting/profiles/rac1/object-lights.json"
+            self.assertEqual((exported / "object-lights.json").read_bytes(),
+                             (out / lights).read_bytes())
             emission = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-emission.json"
             authored = json.loads((bundle.ROOT / emission).read_text())
             authored['textures/lamp.png'] = definition

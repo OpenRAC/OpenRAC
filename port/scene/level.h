@@ -91,11 +91,19 @@ struct Primitive {
     std::uint32_t glow_count = 0;
 };
 
+// Original joint identity and bind frame, retained for bone attachments and viewer diagnostics.
+struct ModelJoint {
+    std::string name;
+    Mat4 bind = renderer::identity();
+    int parent = -1;
+};
+
 struct Model {
     std::string name;
     std::vector<Primitive> primitives;
     Vec3 min{};
     Vec3 max{};
+    std::vector<ModelJoint> bones;  // Indexed by the same joint number as skin weights.
     int joints = 0;  // a skinned mesh: one past the highest joint its vertices use
 };
 
@@ -127,6 +135,7 @@ struct Instance {
     std::uint64_t temporal_id = 0;    // Stable live-object identity; zero has no temporal history.
     bool hero_shadow_anchor = false;  // Body transform centres the shared map, never an attachment.
     bool floats_on_water = false;     // Visual rigid attachment to the local water height.
+    bool lighting_only = false;       // An offscreen emitter captured for lighting, never geometry.
     bool gameplay_essential = false;  // Eligible for enhanced lighting's subtle GI-coloured rim.
 };
 
