@@ -110,12 +110,6 @@
     "retail": {
       "exe": "baserom/SCUS_972.68",
       "dump": "baserom/levels"
-    },
-    "signatures": {
-      "func_0027E1A0": "int (int, int, int, int, int, unsigned long long, float, float, float, float)",
-      "func_0027F2A8": "void (int, int, int, int, int, unsigned long long, int)",
-      "func_0027FC70": "void (int, int, int, int, unsigned long long, int)",
-      "func_0027F640": "void (float, float, float, int, int, int, unsigned long long, int)"
     }
   },
   "returns_64": [
