@@ -466,6 +466,10 @@ void step_capture_length(int by);
 std::string slow_cpu_name();
 void step_slow_cpu(int by);
 
+// Opens the folder the recordings are saved in (capture.cpp's capture_dir) in the system's file
+// manager.
+void open_capture_folder();
+
 // Says whether a capture runs or is about to start (or one is due by script), so that the
 // overlay is drawn for its badge; and whether one is counting down to its start.
 bool capture_busy();

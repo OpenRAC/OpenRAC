@@ -11,7 +11,7 @@ It works the same on desktop and Android. Nothing runs until you start one.
 | Where | How |
 |---|---|
 | Android | Drawer > Developer tools > **Record diagnostics**: pick a **Recording length**, then **Gameplay recording**. Recording starts 3 s after the drawer closes. Opening the drawer stops it. |
-| Desktop | Developer menu > **Gameplay recording**, or **Ctrl+F3** to start and stop. |
+| Desktop | Developer menu > **Record diagnostics**: pick a **Recording length**, then **Gameplay recording**, or **Ctrl+F3** to start and stop. |
 | Script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that frame. Combine it with `OPENRAC_PRESS` and `--frames` to get repeatable runs. |
 
 While it records, a red `REC` line shows at the top and the debug panel is hidden.
@@ -22,7 +22,10 @@ When it finishes, the report is **copied to the clipboard** and saved as
 and snapshots of the game's state (`_effects.json`, below). Send the whole zip.
 
 - Android: the **Diagnostics recordings** folder in the Files app.
-- Desktop: `perf/` next to the game.
+- Desktop: `perf/` in OpenRAC's data folder, beside the memory cards: `%LOCALAPPDATA%\openrac\perf`
+  on Windows, `~/Library/Application Support/OpenRAC/perf` on macOS,
+  `~/.local/share/openrac/perf` on Linux. Developer > **Record diagnostics** >
+  **Open recordings folder** opens it, and the message after a recording names the file.
 
 **Tips:** keep it short and repeatable. Stay in one place in one level, keep the same
 settings and record for 30 s. Record the same scene before and after a change.

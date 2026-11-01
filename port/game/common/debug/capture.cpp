@@ -37,6 +37,7 @@
 #include "openrac/game_host.h"
 #include "options_menu.h"
 #include "platform/performance_hint.h"
+#include "program/options.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
 #include "scene/stb_extra.h"
@@ -291,19 +292,23 @@ void configure_capture() {
     }
 }
 
-// The folder the captures go to: the working folder's perf/; on Android, whose apps run in "/",
-// the app's own files (HOME), which the Files app shows as "Diagnostics recordings".
+// The folder the captures go to: perf/ in OpenRAC's data folder, beside the cards and settings
+// (%LOCALAPPDATA%\openrac\perf on Windows); on Android the app's own files (HOME), which the
+// Files app shows as "Diagnostics recordings". Absolute, so the toast says where it is.
 std::filesystem::path capture_dir() {
-    std::filesystem::path dir = "perf";
 #if defined(__ANDROID__)
+    std::filesystem::path dir = "perf";
     if (const std::optional<std::string> home = env::system_variable("HOME");
         home && !home->empty()) {
         dir = std::filesystem::path(*home) / "perf";
     }
+#else
+    std::filesystem::path dir = program::data_home() / "perf";
 #endif
     std::error_code ignored;
     std::filesystem::create_directories(dir, ignored);
-    return dir;
+    const std::filesystem::path absolute = std::filesystem::absolute(dir, ignored);
+    return absolute.empty() ? dir : absolute;
 }
 
 std::string level_name(int level) {
@@ -609,18 +614,26 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
         }
     }
     const bool copied = SDL_SetClipboardText(report.c_str());
-    log::info(
-        "performance capture: {} frames, report {}{}",
-        recorder.frames(),
-        written ? path.string() : "not written",
-        copied ? ", copied to the clipboard" : ""
-    );
+    // UTF-8 whatever the user's name: path.string() throws on Windows for a letter outside the
+    // system's code page.
+    const std::u8string where8 = path.u8string();
+    const std::string where(where8.begin(), where8.end());
+    if (written) {
+        log::info(
+            "performance capture: {} frames, report {}{}",
+            recorder.frames(),
+            where,
+            copied ? ", copied to the clipboard" : ""
+        );
+    } else {
+        log::warn("performance capture: could not write {}", where);
+    }
     s.toast = std::format(
         "Diagnostics report {}{}",
         copied ? "copied to the clipboard" : "ready",
-        written ? " · saved to " + path.string() : std::string(" (could not be saved)")
+        written ? " · saved to " + where : " · could not be saved to " + where
     );
-    s.toast_until = ImGui::GetTime() + 8.0;
+    s.toast_until = ImGui::GetTime() + (written ? 8.0 : 15.0);
     s.message = s.toast;
     if (c.hid_panel) {
         set_visible(true);
@@ -686,6 +699,27 @@ void toggle_settings_sweep() {
 
 double settings_sweep_seconds() {
     return kSweepSteps * kSweepStepS;
+}
+
+void open_capture_folder() {
+    std::string url = "file://";
+    const std::u8string path8 = capture_dir().generic_u8string();
+    const std::string path(path8.begin(), path8.end());
+    if (!path.starts_with('/')) {
+        url += '/';  // file:///C:/...
+    }
+    for (const char ch : path) {
+        // Spaces and the URL's own marks, as %XX; the rest as it is.
+        if (ch == ' ' || ch == '%' || ch == '#' || ch == '?') {
+            url += std::format("%{:02X}", static_cast<unsigned char>(ch));
+        } else {
+            url += ch;
+        }
+    }
+    if (!SDL_OpenURL(url.c_str())) {
+        s.toast = std::format("Could not open {}", path);
+        s.toast_until = ImGui::GetTime() + 6.0;
+    }
 }
 
 bool capture_busy() {
