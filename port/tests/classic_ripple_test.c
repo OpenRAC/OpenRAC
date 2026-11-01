@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-float D_L01_001CAD00[9];
+float D_L01_001CAD00[9] __asm__("D_L01_001CAD00"); /* as the kernel names it: no underscore of Mach-O's */
 void FUN_L01_00262038(char*, int, int, char*);
 #define CHECK(c)                                                                                   \
     do {                                                                                           \
