@@ -525,7 +525,8 @@ def own_declarations(text: str, tag: str) -> str:
     symbol for hostgen, a separate declaration for Clang. Names the candidate
     defines keep theirs."""
     # An assembler name after the symbol's first use is an error, and a host has no small data.
-    text = split_declarators(re.sub(r"[ \t]+SDATA\(\w+\)", "", text))
+    text = split_declarators(re.sub(r"^(?![ \t]*#).*\bSDATA\(\w+\).*$",
+                                    lambda m: re.sub(r"[ \t]+SDATA\(\w+\)", "", m.group(0)), text, flags=re.M))
     defined = set(_DEFINED.findall(text))
     names = []
     for m in _GAME_DECL.finditer(text):
@@ -539,7 +540,7 @@ def own_declarations(text: str, tag: str) -> str:
                       lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
         # The assembler name goes after the declarator, before attribute macros (MACRO_ADDR).
         text = re.sub(r'(?:^|(?<=; /\*hc\*/ ))((?:extern[ \t]+)?[A-Za-z_][\w \t\*]*?[ \t\*]' + name + tag
-                      + r'\b[^;{}=]*?)((?:[ \t]+[A-Z][A-Z0-9_]*(?:\([^;()]*\))?)*)[ \t]*;',
+                      + r'\b[^;{}=]*?)((?:[ \t]+(?:[A-Z][A-Z0-9_]*(?:\([^;()]*\))?|__attribute__\(\([^;]*?\)\)))*)[ \t]*;',
                       lambda m: f'{m.group(1)} __asm__("{name}"){m.group(2)};', text, flags=re.M)
     return text
 
@@ -569,7 +570,7 @@ def own_records(text: str, tag: str) -> str:
     names += [m.group(1) for m in _TYPEDEF_MODE.finditer(text)]
     names = list(dict.fromkeys(names))
     for name in names:
-        text = re.sub(r'"(?:\\.|[^"\\\n])*"|\b' + name + r'\b',
+        text = re.sub(r'"(?:\\.|[^"\\\n])*"|(?<!mode\()\b' + name + r'\b',
                       lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
     return text
 

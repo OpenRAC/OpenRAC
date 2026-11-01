@@ -3003,5 +3003,42 @@ class Decoding(unittest.TestCase):
         self.assertEqual(block.labels, {0x00100008: ".L00100008"})
 
 
+class CandidateNames(unittest.TestCase):
+    def test_tags_and_mode_typedefs_are_the_candidates_own(self):
+        import prep
+        text = prep.own_records("typedef int TI __attribute__((mode(TI)));\nstruct Slot { TI w; };\n", "_hc1")
+        self.assertIn("typedef int TI_hc1 __attribute__((mode(TI)));", text)
+        self.assertIn("struct Slot_hc1 { TI_hc1 w; };", text)
+
+    def test_a_guarded_typedef_is_the_files(self):
+        import prep
+        text = "#ifndef G\n#define G\ntypedef int V __attribute__((mode(TI)));\n#endif\nV v;\n"
+        self.assertEqual(prep.own_records(text, "_hc1"), text)
+
+    def test_small_data_declarations_lose_their_label_but_not_the_macro(self):
+        import prep
+        text = prep.own_declarations("#define SDATA(s) __asm__(#s)\nextern float D_00123456 SDATA(D_00123456);\n", "_hc1")
+        self.assertIn("#define SDATA(s) __asm__(#s)", text)
+        self.assertIn('extern float D_00123456_hc1 __asm__("D_00123456");', text)
+
+    def test_an_assembler_name_goes_before_attributes(self):
+        import prep
+        text = prep.own_declarations("extern int D_00123456;\nextern int D_00123456 __attribute__((sda));\n", "_hc1")
+        self.assertIn('D_00123456_hc1 __asm__("D_00123456") __attribute__((sda));', text)
+
+
+class LevelNames(unittest.TestCase):
+    def test_the_named_levels_value_and_no_short_names(self):
+        import derived
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for level, value in (("00_a", "0x00200000"), ("01_b", "0x00300000")):
+                (root / "build" / level).mkdir(parents=True)
+                (root / "build" / level / "placed.json").write_text(json.dumps({"values": {
+                    "ref_L01_00400000_00": value, "r1_func_00123456": value, "func_2EDE88": value, "D_L00_00100000": value}}))
+            self.assertEqual(derived.level_values(root, {}), {"r1_func_00123456": [0, "0x00200000"],
+                                                              "ref_L01_00400000_00": [1, "0x00300000"]})
+
+
 if __name__ == "__main__":
     unittest.main()
