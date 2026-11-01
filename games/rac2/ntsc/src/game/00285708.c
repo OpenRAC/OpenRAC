@@ -49,14 +49,3 @@ extern int D_001A8A5C __attribute__((sda));
 int func_002857B0(void) {
     return D_001A8A5C;
 }
-
-/* Calls one callee with 1 and a second with no argument, then tests an absolute global word: when it is set it calls a callee with (512, 416, 640, 448, 0, 0), otherwise (512, 416, 512, 448, 0, 0). */
-void func_002857B8(void)
-{
-    func_002FC3C0(1);
-    func_00284000_1();
-    if (*(int *)0x001A7BB8 != 0)
-        func_00284268(512, 416, 640, 448, 0, 0);
-    else
-        func_00284268(512, 416, 512, 448, 0, 0);
-}

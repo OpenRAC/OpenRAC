@@ -1,6 +1,6 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/levels", func_L13_002D5ED8);
+/* func_L13_002D5ED8 is in the sibling file L13_002D5ED8-decider.c (its own profile). */
 
 #ifndef RAC2_T_TABLE_389848
 #define RAC2_T_TABLE_389848
@@ -110,10 +110,167 @@ void func_L13_0038C1B8(Obj_38C1B8 *a0)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L13_003C5908);
+/* Read at +0xC0: a symbol-plus-offset address stays one two-instruction macro load, which reorg
+ * cannot move into a branch delay slot. */
+extern unsigned char D_001A7A40[] __attribute__((sda));
+extern int func_00283CF0(float);
+extern float func_00283198(float);
+extern void func_002A7750(char *, int, int);
+extern int func_002B3868(char *);
+extern void func_L00_00429020(int);
+extern int func_002B0CE0(int, int, int);
+extern void ref_L13_003C5908_00(int, int);
+extern float func_00283B98(float, float);
 
-INCLUDE_ASM("asm/levels", func_L13_003ECD48);
+/* State 0 opens the trigger; state 1 reacts to the hero being on the object, or being in state
+ * 0x82 inside its cuboid. Then pulses the object's colour, in the channel the flag selects. */
+void func_L13_003C5908(char *obj)
+{
+    char *rig = *(char **)(obj + 0x68);
+    char *hero, *other;
+    int word, level, glow;
+    float turn, pulse;
 
-INCLUDE_ASM("asm/levels", func_L13_003ECEA8);
+    switch (*(unsigned char *)(obj + 0x20)) {
+    case 0:
+        *(unsigned short *)(obj + 0x34) |= 0x10;
+        func_002A7750(obj, 1, -1);
+        break;
+    case 1:
+        if (func_002B3868(obj) != 0) {
+            word = *(int *)rig;
+            if (word != -1) {
+                func_L00_00429020(word);
+                *(int *)rig = -1;
+            }
+        }
+        hero = D_00189E20;
+        if (*(char **)(hero + 0x33C) == obj && *(int *)(hero + 0x340) != 0) {
+            if (D_001A7A40[0xC0] != 0) {
+                func_002B0CE0(0xC, 0x27F7, 1);
+                *(short *)(hero + 0x1F2) = 0xA;
+                turn = *(float *)(rig + 0xC);
+                if (turn != 0.0f)
+                    *(float *)(hero + 0x5B8) = turn;
+            }
+        } else {
+            other = D_00189E20;
+            if (*(int *)(other + 0x2294) == 0x82) {
+                level = *(int *)(rig + 8);
+                if (level >= 0 && func_002ACBC8(other + 0x80, level) != 0)
+                    ref_L13_003C5908_00(6, 1);
+            }
+        }
+        break;
+    }
+    if (*(unsigned char *)(obj + 0x31) != 0) {
+        pulse = func_00283B98(*(float *)(rig + 4), 0.10471977f);
+        *(float *)(rig + 4) = pulse;
+        glow = func_00283CF0(func_00283198(pulse) * 128.0f);
+        if (glow > 0x80)
+            glow = 0x80;
+        else if (glow < 0x20)
+            glow = 0x20;
+        if (D_001A7A40[0xC0] != 0)
+            *(int *)(obj + 0x78) = (glow << 8) | 0x80000000;
+        else
+            *(int *)(obj + 0x78) = glow | 0x80000000;
+    }
+}
 
-INCLUDE_ASM("asm/levels", func_L13_00406E30);
+static __inline__ void qcopy(void *dst, const void *src) {
+    __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)"
+                         : : "r"(dst), "r"(src) : "$2", "memory");
+}
+
+extern int func_002B0ED8(void *, void *, int);
+extern int func_002E5CF8(int, int, char *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void *func_0032C700(void *, int, int, int, int, int, int, int, float, float, int, int, int, int);
+extern void func_0029F338(void *);
+
+typedef struct {
+    unsigned char pad0[0x20];
+    float f20;
+    unsigned char pad24[0x50 - 0x24];
+    unsigned char sub50[0x11];
+    unsigned char b61;
+    unsigned char b62;
+    unsigned char pad63[0x6A - 0x63];
+    unsigned char b6A;
+    unsigned char pad6B[0xA8 - 0x6B];
+    float fA8;
+} L13_CD48Vars;
+
+void func_L13_003ECD48(unsigned char *m)
+{
+    L13_CD48Vars *v = *(L13_CD48Vars **)(m + 0x68);
+    float p[4] __attribute__((aligned(16)));
+    float b[4] __attribute__((aligned(16)));
+    float a[4] __attribute__((aligned(16)));
+
+    if (m[0x20] == 0) {
+        func_L13_00389848((Obj_389848 *)m);
+        m[0x20] = 1;
+    }
+    v->b6A = 2;
+    v->fA8 = 0.01f;
+    v->b61 = 0xFF;
+    v->b62 = 0xFF;
+    if (func_002B0ED8(m, v->sub50, 0) != 0) {
+        func_002E5CF8(0, 0, (char *)m);
+    }
+    if (v->f20 <= 0.0f) {
+        qcopy(p, m + 0x10);
+        func_00282F20(a, m + 0xD0, -2.0f);
+        func_00282CC0(p, a, p);
+        func_00282F20(b, m + 0xC0, 1.5f);
+        func_00282CC0(p, b, p);
+        func_0032C700(p, 0, 0x19, 0x14, 0x14, 0x14, 0x2D, 1, 0.75f, 20.0f, 1, 0, 0, 0);
+        func_0029F338(m);
+    }
+}
+
+
+/* The level's entity table: 0x100 bytes an entry. */
+extern char *D_L13_001B291C __attribute__((section(".sdata")));
+
+/* Compares the choice (0, 1 or 2) at +0x2CC of the object's state with its opponent's:
+ * the entity the state names at +0x2C8 decides the opponent by its kind at +0xAA (0xEA3
+ * reads the partner state's +0x2CC, 0xEA4 its +0x2C4; any other kind is a draw). Returns
+ * 2 for a draw, 1 when the object's choice wins (0 over 1, 1 over 2, 2 over 0), else 0. */
+int func_L13_00406E30(char *object)
+{
+    char *state = *(char **)(object + 0x68);
+    char *entity = D_L13_001B291C + (*(int *)(state + 0x2C8) << 8);
+    int mine;
+    int other;
+
+    if (*(short *)(entity + 0xAA) == 0xEA3) {
+        mine = *(int *)(state + 0x2CC);
+        other = *(int *)(*(char **)(entity + 0x68) + 0x2CC);
+    } else if (*(short *)(entity + 0xAA) == 0xEA4) {
+        mine = *(int *)(state + 0x2CC);
+        other = *(int *)(*(char **)(entity + 0x68) + 0x2C4);
+    } else {
+        other = *(int *)(state + 0x2CC);
+        mine = other;
+    }
+
+    if (mine == other)
+        return 2;
+    if (mine == 0 && other == 1)
+        return 1;
+    if (mine == 1 && other == 2)
+        return 1;
+    if (mine == 2 && other == 0)
+        return 1;
+    if (mine == 0 && other == 2)
+        return 0;
+    if (mine == 1 && other == 0)
+        return 0;
+    if (mine == 2 && other == 1)
+        return 0;
+    return 2;
+}

@@ -1,0 +1,205 @@
+#include "common.h"
+
+extern unsigned int D_L16_001B0C9C __attribute__((sda));
+extern unsigned int D_L16_001B0CA0 __attribute__((sda));
+extern unsigned int D_L16_001B0C98 __attribute__((sda));
+extern unsigned int D_L16_001B0CB0 __attribute__((sda));
+extern unsigned int D_L16_001B0CB4 __attribute__((sda));
+extern unsigned int D_L16_001B0CB8 __attribute__((sda));
+extern unsigned int D_L16_001B0CBC __attribute__((sda));
+extern unsigned int D_L16_001B0CC0 __attribute__((sda));
+extern unsigned int D_L16_001B0CC4 __attribute__((sda));
+extern unsigned int D_L16_001B0CC8 __attribute__((sda));
+extern unsigned int D_L16_001B0CCC __attribute__((sda));
+extern unsigned int D_L16_001B0CD0 __attribute__((sda));
+extern unsigned int D_L16_001B0CD4 __attribute__((sda));
+extern unsigned int D_L16_001B0CD8 __attribute__((sda));
+extern unsigned int D_L16_001B0CDC __attribute__((sda));
+extern unsigned int D_L16_001B0CE0 __attribute__((sda));
+extern unsigned int D_L16_001B0CE4 __attribute__((sda));
+extern unsigned int D_L16_001B0CE8 __attribute__((sda));
+extern unsigned int D_L16_001B0CEC __attribute__((sda));
+extern unsigned int D_L16_001B0CF0 __attribute__((sda));
+extern float D_L16_001B0C88 __attribute__((sda));
+extern float D_L16_001B0C7C __attribute__((sda));
+extern float D_L16_001B0C80 __attribute__((sda));
+extern float D_L16_001B0C8C __attribute__((sda));
+extern float D_L16_001B9B00[];
+extern void func_L00_003F1DC8(void *);
+extern void func_00281DE8(void *, int, int, int);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282DD8(void *, void *, void *);
+extern void func_00280B90(void *, int, int);
+extern float func_002A7940(void);
+extern void func_00281EB8(void *, int, int, int, float, float, float);
+
+/* Draws layered beam quads with scrolling texture coordinates and an end glow. */
+void func_L16_003E7248(u8 *unused, int ua, float uf, int ub, int uc,
+                       float ug, float uh, int ud, u8 *object) {
+    struct {
+        float v[4][4];
+        unsigned color[4];
+        float uv[8];
+        char pad[32];
+    } packet __attribute__((aligned(16)));
+    float nearPoint[4], viewDelta[4], beamStep[4], farPoint[4], side[4];
+    float *position;
+    float *state = *(float **)(object + 0x68);
+    int i;
+    float *uv;
+    float random;
+
+    func_L00_003F1DC8(&packet);
+    func_00281DE8(&packet, D_L16_001B0C9C, 0, 128);
+    /* Separate packing stages preserve the left-associated color operations. */
+    {
+        unsigned alpha = (D_L16_001B0CC0 << 24);
+        unsigned alphaBlue = alpha | (D_L16_001B0CBC << 16);
+        unsigned alphaBlueGreen = alphaBlue | (D_L16_001B0CB8 << 8);
+        unsigned rgba = alphaBlueGreen | D_L16_001B0CB4;
+        packet.color[0] = packet.color[1] = rgba;
+    }
+    {
+        unsigned alpha = (D_L16_001B0CD0 << 24);
+        unsigned alphaBlue = alpha | (D_L16_001B0CCC << 16);
+        unsigned alphaBlueGreen = alphaBlue | (D_L16_001B0CC8 << 8);
+        unsigned rgba = alphaBlueGreen | D_L16_001B0CC4;
+        packet.color[2] = packet.color[3] = rgba;
+    }
+    packet.uv[0] = 0;
+    packet.uv[1] = 0;
+    packet.uv[2] = 0;
+    packet.uv[3] = 1;
+    packet.uv[4] = 1;
+    packet.uv[5] = 0;
+    packet.uv[6] = 1;
+    packet.uv[7] = 1;
+    for (uv = packet.uv, i = 3; i >= 0; --i, uv += 2) {
+        *uv -= state[10];
+        if (*uv <= 7.0f)
+            *uv += 7.0f;
+    }
+    state[10] += 0.1f;
+    if (state[10] >= 4.0f)
+        state[10] -= 4.0f;
+
+    func_00282F20(nearPoint, state, -0.17f);
+    position = (float *)(object + 0x10);
+    func_00282CC0(nearPoint, position, nearPoint);
+    func_00282CF0(viewDelta, position, D_L16_001B9B00);
+    func_00282F20(beamStep, state, -4.0f);
+    func_00282CC0(farPoint, nearPoint, beamStep);
+    func_00282DD8(side, viewDelta, beamStep);
+    func_00282F20(side, side, D_L16_001B0C88);
+    func_00282CC0(packet.v[0], position, side);
+    func_00282CF0(packet.v[1], position, side);
+    func_00282CC0(packet.v[2], farPoint, side);
+    func_00282CF0(packet.v[3], farPoint, side);
+    func_00280B90(&packet, 0, 0);
+    packet.color[0] = packet.color[2];
+    packet.color[1] = packet.color[3];
+    packet.color[2] = packet.color[3] = 0x801010;
+    qcopy(packet.v[0], packet.v[2]);
+    qcopy(packet.v[1], packet.v[3]);
+    func_00282CC0(packet.v[2], packet.v[2], beamStep);
+    func_00282CC0(packet.v[3], packet.v[3], beamStep);
+    func_00280B90(&packet, 0, 0);
+    func_00281DE8(&packet, D_L16_001B0CA0, 1, 128);
+    {
+        unsigned alpha = (D_L16_001B0CE0 << 24);
+        unsigned alphaBlue = alpha | (D_L16_001B0CDC << 16);
+        unsigned alphaBlueGreen = alphaBlue | (D_L16_001B0CD8 << 8);
+        unsigned rgba = alphaBlueGreen | D_L16_001B0CD4;
+        packet.color[1] = rgba;
+        packet.color[0] = packet.color[1];
+    }
+    packet.uv[0] = 0;
+    packet.uv[1] = 0;
+    packet.uv[2] = 0;
+    packet.uv[3] = 1;
+    packet.uv[4] = 1;
+    packet.uv[5] = 0;
+    packet.uv[6] = 1;
+    packet.uv[7] = 1;
+    {
+        unsigned blue = (D_L16_001B0CDC << 16);
+        unsigned blueGreen = blue | (D_L16_001B0CD8 << 8);
+        unsigned rgb = blueGreen | D_L16_001B0CD4;
+        packet.color[3] = rgb;
+        packet.color[2] = packet.color[3];
+    }
+    func_00282F20(side, side, D_L16_001B0C7C);
+    func_00282CC0(packet.v[0], position, side);
+    func_00282CF0(packet.v[1], position, side);
+    func_00282CC0(farPoint, position, beamStep);
+    func_00282CC0(farPoint, farPoint, beamStep);
+    func_00282CC0(packet.v[2], farPoint, side);
+    func_00282CF0(packet.v[3], farPoint, side);
+    func_00280B90(&packet, 0, 0);
+    {
+        unsigned alpha = (D_L16_001B0CE0 << 24);
+        unsigned alphaBlue = alpha | (D_L16_001B0CDC << 16);
+        unsigned alphaBlueGreen = alphaBlue | (D_L16_001B0CD8 << 8);
+        unsigned rgba = alphaBlueGreen | D_L16_001B0CD4;
+        packet.color[0] = packet.color[1] = rgba;
+    }
+    {
+        unsigned blue = (D_L16_001B0CDC << 16);
+        unsigned blueGreen = blue | (D_L16_001B0CD8 << 8);
+        unsigned rgb = blueGreen | D_L16_001B0CD4;
+        packet.color[2] = packet.color[3] = rgb;
+    }
+    func_00282F20(side, side, D_L16_001B0C80);
+    func_00282F20(nearPoint, state, -0.1f);
+    func_00282CC0(nearPoint, position, nearPoint);
+    func_00282CC0(packet.v[0], nearPoint, side);
+    func_00282CF0(packet.v[1], nearPoint, side);
+    func_00282CC0(farPoint, nearPoint, beamStep);
+    func_00282CC0(farPoint, farPoint, beamStep);
+    func_00282CC0(packet.v[2], farPoint, side);
+    func_00282CF0(packet.v[3], farPoint, side);
+    func_00280B90(&packet, 0, 0);
+    {
+        unsigned alpha = (D_L16_001B0CF0 << 24);
+        unsigned alphaBlue = alpha | (D_L16_001B0CEC << 16);
+        unsigned alphaBlueGreen = alphaBlue | (D_L16_001B0CE8 << 8);
+        unsigned rgba = alphaBlueGreen | D_L16_001B0CD4;
+        packet.color[0] = packet.color[1] = rgba;
+    }
+    {
+        unsigned blue = (D_L16_001B0CEC << 16);
+        unsigned blueGreen = blue | (D_L16_001B0CE8 << 8);
+        unsigned rgb = blueGreen | D_L16_001B0CE4;
+        packet.color[2] = packet.color[3] = rgb;
+    }
+    func_00282F20(side, side, D_L16_001B0C80);
+    func_00282F20(nearPoint, state, -0.1f);
+    func_00282CC0(nearPoint, position, nearPoint);
+    func_00282CC0(packet.v[0], nearPoint, side);
+    func_00282CF0(packet.v[1], nearPoint, side);
+    func_00282CC0(farPoint, nearPoint, beamStep);
+    func_00282CC0(farPoint, farPoint, beamStep);
+    func_00282CC0(packet.v[2], farPoint, side);
+    func_00282CF0(packet.v[3], farPoint, side);
+    func_00280B90(&packet, 0, 0);
+    packet.color[0] = packet.color[1] = 0x40FFFFFF;
+    {
+        unsigned blue = (D_L16_001B0CDC << 16);
+        unsigned blueGreen = blue | (D_L16_001B0CD8 << 8);
+        unsigned rgb = blueGreen | D_L16_001B0CD4;
+        packet.color[2] = packet.color[3] = rgb;
+    }
+    func_00282F20(side, side, D_L16_001B0C7C);
+    func_00282CC0(packet.v[0], position, side);
+    func_00282CF0(packet.v[1], position, side);
+    func_00282F20(beamStep, state, -0.6f);
+    func_00282CC0(farPoint, position, beamStep);
+    func_00282CC0(farPoint, farPoint, beamStep);
+    func_00282CC0(packet.v[2], farPoint, side);
+    func_00282CF0(packet.v[3], farPoint, side);
+    func_00280B90(&packet, 0, 0);
+    random = func_002A7940();
+    func_00281EB8(position, D_L16_001B0C98, D_L16_001B0CB0, 1, D_L16_001B0C8C, 0.08f, random);
+}

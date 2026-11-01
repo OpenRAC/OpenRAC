@@ -38,3 +38,15 @@ int func_0027F1D8(u8 *text, int length, u8 *table, float scale) {
     }
     return func_00283CF0(total);
 }
+
+extern s32 D_001A7BB8;
+extern s32 D_001A7B90;
+extern s32 func_00124418(void);
+extern s32 func_001257D0(s32,s32,s32,s32);
+
+void func_00284000(void) {
+    func_00124418();
+    if (D_001A7B90 != 0) D_001A7BB8 = 0;
+    if (D_001A7BB8 != 0) func_001257D0(0,0,0x50,1);
+    else func_001257D0(0,1,D_001A7B90 != 0 ? 3 : 2,0);
+}

@@ -18,11 +18,6 @@ extern void func_002FDBD8_6(float scale, Rac2Native_9cdc323a4d0c2fbd_AnalysisCon
 
 extern int func_002A77E0_3(int x);
 
-INCLUDE_ASM("asm/levels", func_L00_003F8E08);
-
-INCLUDE_ASM("asm/levels", func_L00_003F9040);
-
-INCLUDE_ASM("asm/levels", func_L00_003F9368);
 
 extern void func_31D8A0(void *, float, float);
 extern void func_2E6CF0(void *, void *);
@@ -43,23 +38,20 @@ void func_L00_003F94F8(char *self)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003F9570);
 
-INCLUDE_ASM("asm/levels", func_L00_003F9A30);
+
 
 INCLUDE_ASM("asm/levels", func_L00_003FA858);
 
-INCLUDE_ASM("asm/levels", func_L00_003FBF78);
+
+
 
 void func_L00_003FC100(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003FC108);
 
-INCLUDE_ASM("asm/levels", func_L00_003FC228);
 
-INCLUDE_ASM("asm/levels", func_L00_003FC468);
 
 extern char D_L00_001B8DC0[];
 
@@ -109,13 +101,8 @@ void func_L00_003FC820(float *pos)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003FCA40);
 
-INCLUDE_ASM("asm/levels", func_L00_003FCB70);
 
-INCLUDE_ASM("asm/levels", func_L00_003FCDB0);
-
-INCLUDE_ASM("asm/levels", func_L00_003FD178);
 
 extern int func_2EDD48(void *);
 extern void func_310440(void *);
@@ -131,11 +118,81 @@ void func_L00_003FD6B0(char *self)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003FD700);
 
-INCLUDE_ASM("asm/levels", func_L00_003FDB20);
+extern void func_0029F338(void *);
+extern int func_002ACBC8(void *, int);
+extern int func_L00_00329520(void *, int);
 
-INCLUDE_ASM("asm/levels", func_L00_003FDE48);
+/* The table of id lists (halfwords whose low 15 bits index the 32-byte records at the second
+   pointer, the last one with its sign bit set) and the base of those records; both are read
+   bare (`lui`/`lw`), the table's first read of each list in a branch delay slot, where the
+   assembler gives it the $gp form. */
+extern unsigned short **D_L00_001A9014 __attribute__((sda));
+extern unsigned char *D_L00_001B2514 __attribute__((sda));
+
+/* Applies OP to the flag byte at +0x1E of every record of the 14 id lists named by the first 14
+   words of the object's state (-1: no list). */
+#define MARK_LISTS(op)                                                                  \
+    for (i = 0; i < 14; i++) {                                                          \
+        id = *(int *)(priv + (i << 2));                                                 \
+        if (id != -1) {                                                                 \
+            for (p = D_L00_001A9014[id];                                                \
+                 p != 0 && ((short)p[-1] >= 0 || p == D_L00_001A9014[id]); p++) {       \
+                e = D_L00_001B2514 + ((*p & 0x7FFF) << 5);                              \
+                if (e == 0)                                                             \
+                    break;                                                              \
+                e[0x1E] op;                                                             \
+            }                                                                           \
+        }                                                                               \
+    }
+
+/* A three-state switch on the object's state byte (+0x20) over its private state (+0x68), whose
+   words at +0x38 and +0x3C are two optional trigger ids (-1: none) tested against the resident
+   D_L00_001B8DC0 by func_002ACBC8 and func_L00_00329520. State 0: with no trigger at all it
+   hands the object to func_0029F338 and returns; otherwise it stamps +0x30 with 0xFF and moves to
+   state 1. State 1: once a trigger holds it sets bit 2 of the flag byte of every listed record
+   (MARK_LISTS) and moves to state 2. State 2: while a trigger holds the bit is set again; when
+   none does it is cleared and the object goes back to state 1. Then the halfword counter at
+   +0x96 counts up. The state-2 test is written as "no trigger holds": that is retail's block
+   order (clearing loop first, setting loop last), which also keeps the two `sb` of the state from
+   being cross-jumped into one. */
+void func_L00_003FDB20(unsigned char *self)
+{
+    unsigned char *priv = *(unsigned char **)(self + 0x68);
+    unsigned short *p;
+    unsigned char *e;
+    int id;
+    int i;
+
+    switch (self[0x20]) {
+    case 0:
+        if (*(int *)(priv + 0x38) == -1 && *(int *)(priv + 0x3C) == -1) {
+            func_0029F338(self);
+            return;
+        }
+        self[0x30] = 0xFF;
+        self[0x20] = 1;
+        break;
+    case 1:
+        if ((*(int *)(priv + 0x38) != -1 && func_002ACBC8(D_L00_001B8DC0, *(int *)(priv + 0x38))) ||
+            (*(int *)(priv + 0x3C) != -1 && func_L00_00329520(D_L00_001B8DC0, *(int *)(priv + 0x3C)))) {
+            MARK_LISTS(|= 4)
+            self[0x20] = 2;
+        }
+        break;
+    case 2:
+        if ((*(int *)(priv + 0x38) == -1 || func_002ACBC8(D_L00_001B8DC0, *(int *)(priv + 0x38)) == 0) &&
+            (*(int *)(priv + 0x3C) == -1 || func_L00_00329520(D_L00_001B8DC0, *(int *)(priv + 0x3C)) == 0)) {
+            MARK_LISTS(&= 0xFB)
+            self[0x20] = 1;
+        } else {
+            MARK_LISTS(|= 4)
+        }
+        break;
+    }
+    *(unsigned short *)(self + 0x96) += 1;
+}
+
 
 extern int func_L00_003FED60(int, int, int);
 
@@ -206,21 +263,16 @@ void func_L00_003FE490(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003FE4C8);
 
-INCLUDE_ASM("asm/levels", func_L00_003FE8D0);
 
-INCLUDE_ASM("asm/levels", func_L00_003FE920);
+
 
 INCLUDE_ASM("asm/levels", func_L00_003FEAC8);
 
-INCLUDE_ASM("asm/levels", func_L00_003FEBA0);
 
-INCLUDE_ASM("asm/levels", func_L00_003FED60);
 
-INCLUDE_ASM("asm/levels", func_L00_003FEEA0);
 
-INCLUDE_ASM("asm/levels", func_L00_003FF530);
+
 
 /* takes the float array at +104 and writes four values returned by a call with argument 255, then four float constants (-1.0, -2.25, 1.25, 2.5) at +16..+28, a descending count 255/191/127/63 into the ints at +44..+32 and 2.5/3.0 pairs at +48..+60 */
 void func_L00_003FF7B8(char *self)
@@ -259,4 +311,3 @@ void func_L00_003FF7B8(char *self)
     p[14] = 3.0000000000000000000000e+00f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003FF890);

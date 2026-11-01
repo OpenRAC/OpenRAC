@@ -253,3 +253,104 @@ s32 func_L16_00404A60(u8 *arg0)
     *(s32 *)(s1 + 0x2B4) = func_002B3BA8(arg0, *(s32 *)(s1 + 0x2B0), f20, f20, 0, 0);
     return 0;
 }
+
+extern void func_L16_00411368(void *);
+extern float D_L16_00189EA8 __attribute__((nosda));
+extern u8 *D_L16_001B9B50 __attribute__((nosda));
+extern float D_L16_001B16FC __attribute__((sda));
+extern float D_L16_001B1700 __attribute__((sda));
+extern void func_L00_00424A08(s32, float, float);
+extern void func_L00_00424A50(float, float);
+extern float func_00283CE0(s32);
+extern void func_L01_002F14E8(s32, s32, float);
+extern s32 D_L16_001B2648[] __attribute__((sda));
+extern void func_L16_004130B0(void *, s32);
+extern s32 func_L02_003272D8(void *);
+extern void func_002AEC18(void *, s32);
+extern void func_002B0990(void *, void *, s32, s32, float);
+extern void func_0029FC20(void *, s32, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_L13_0040DC20(void *, void *, void *, s32, float);
+extern float func_002A7878(float, float);
+extern float func_00283180(float);
+extern float func_00283198(float);
+extern float D_L16_001B16E0 __attribute__((sda));
+extern u8 D_L16_00189EF0[] __attribute__((nosda));
+extern void func_00282D30(void *, void *, float);
+extern void func_0029FCC0(void *, s32, void *);
+extern float func_00282E20(void *);
+extern float func_00283248(float, float);
+extern float func_00283BE0(float, float);
+extern float func_00283B98(float, float);
+extern void func_002AEC48(void *, void *, s32, float, float);
+extern u8 D_L16_00189F30[] __attribute__((nosda));
+extern float D_L16_001B1640 __attribute__((sda));
+extern float D_L16_001B1644 __attribute__((sda));
+
+void func_L16_00411480(u8 *arg)
+{
+    u8 *state;
+    s32 v;
+    float speed;
+    state = *(u8 **)(arg + 0x68);
+    if (*(s32 *)(state + 0x26C) != 0)
+        func_L16_00411368(arg);
+    if (arg[0x95] != 0) {
+        if (D_L16_00189EA8 > 118.0f && *(s16 *)(D_L16_001B9B50 + 0x86) == 0) {
+            speed = 0.003f;
+            func_L00_00424A08(0, D_L16_001B16FC, speed);
+            func_L00_00424A50(D_L16_001B1700, speed);
+        }
+        func_L01_002F14E8(11, 0, *(float *)(state + 0x20) / func_00283CE0(*(s16 *)(state + 0x24)));
+        if ((D_L16_001B2648[0] & 31) == (((s32)arg >> 8) & 31))
+            func_L16_004130B0(arg, 0);
+        func_002A93B0(arg);
+    }
+    func_002AB8C0(arg, state + 0x50);
+    v = func_L02_003272D8(arg);
+    if (*(void **)(state + 0x1F0)) func_002AEC18(*(void **)(state + 0x1F0), v);
+    if (*(void **)(state + 0x238)) func_002AEC18(*(void **)(state + 0x238), v);
+    if (*(void **)(state + 0x23C)) func_002AEC18(*(void **)(state + 0x23C), v);
+    if (*(u16 *)(arg + 0x96) < 0xFFFF) ++*(u16 *)(arg + 0x96);
+    func_002B0990(*(void **)(state + 0x1F0), state + 0x390, 2, 1, 4.0f);
+}
+
+
+
+void func_L16_0040CF98(u8 *arg)
+{
+    float temp[4];
+    float target[4];
+    u8 *state;
+    u8 *origin;
+    float value;
+    float scale;
+    state = *(u8 **)(arg + 0x68);
+    func_00282948(state + 0x238);
+    func_00282978(state + 0x23C);
+    if (*(u16 *)(arg + 0x96) < 0xFFFF) ++*(u16 *)(arg + 0x96);
+    func_0029FCC0(arg, 0, temp);
+    if (arg[0x20] != 4) {
+        origin = state + 0x1F0;
+        value = func_00282E48(temp, origin) - 1.0f;
+        func_00282D30(target, D_L16_00189F30, value + value);
+        target[2] = 0.0f;
+        func_00282CC0(target, target, origin);
+        func_00282CF0(temp, target, temp);
+        *(float *)(state + 0x2B8) = func_00283BE0(func_00283248(temp[0], temp[1]), *(float *)(arg + 0xF8));
+        func_0029FCC0(arg, 1, temp);
+        func_00282CF0(temp, target, temp);
+        value = func_00283BE0(-func_00283248(func_00282E20(temp), temp[2]), *(float *)(arg + 0xF4));
+        if (value > 0.523598849773407f) value = 0.523598849773407f;
+        else if (value < -0.523598849773407f) value = -0.523598849773407f;
+        *(float *)(state + 0x334) = value;
+        scale = 0.5f;
+    } else {
+        scale = 0.085f;
+        *(float *)(state + 0x2B8) = func_00283B98(*(float *)(state + 0x298), 0.523598849773407f);
+    }
+    func_002AEC48(arg, state + 0x250, 0, D_L16_001B1640 * scale, D_L16_001B1644 * scale);
+    func_002AEC48(arg, state + 0x2D0, 1, D_L16_001B1640 * scale, D_L16_001B1644 * scale);
+}

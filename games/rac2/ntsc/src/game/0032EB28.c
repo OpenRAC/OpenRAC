@@ -1,4 +1,4 @@
-#include "include_asm.h"
+#include "common.h"
 
 #define RAC2_T_OBJ_F7B2F1854
 
@@ -16,10 +16,6 @@ typedef struct {
 
 typedef int TI128 __attribute__((mode(TI)));
 
-typedef float f32;
-
-typedef int s32;
-
 typedef struct Rac2Native_81be3b52930eb806_FallbackInterleavedFloat4Layout {
     unsigned char unknown_00[8];
     float first_0;
@@ -31,8 +27,6 @@ typedef struct Rac2Native_81be3b52930eb806_FallbackInterleavedFloat4Layout {
     float first_3;
     float second_3;
 } Rac2Native_81be3b52930eb806_FallbackInterleavedFloat4Layout;
-
-typedef unsigned char u8;
 
 typedef struct Obj_F7b2f1854 {
     int *f0;
@@ -49,8 +43,6 @@ typedef struct Obj_F7b2f1854 {
     int f44;
 } Obj_F7b2f1854;
 
-typedef unsigned int u32;
-
 typedef struct {
     char reserved[0x30];
     void *table;
@@ -65,6 +57,34 @@ extern float D_00189EA0[];
 extern void F7242f0a4_FUN_00282D30(char *out, void *source, float value);
 
 extern void F7242f0a4_FUN_00334730(char *buffer, int mode);
+
+extern f32 func_002A78D8(f32 low, f32 high);
+extern f32 D_001A8BD0[] __attribute__((sda));
+
+typedef union { TI128 quad; float v[4]; } EffectVector;
+
+extern unsigned char *D_001F2540[];                     /* the texture table */
+extern void func_00282D30(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern int func_002A77E0(int);
+extern unsigned char *func_002C65A0(void *, void *, int, unsigned int, int, int, int, float, float, float, int);
+
+typedef struct {
+    TI128 position;
+    int f10;
+    int f14;
+    int f18;
+    int f1C;
+    int f20;
+} State_332440;
+
+/* The EE assigns the integer and FP banks independently: this is func_002FED90(obj, src, x, y, z)
+   with its FP arguments set up first, as retail does. */
+extern int func_002FED90(void *obj, f32 x, f32 y, f32 z, void *src);
+extern void func_00282DD8(void *, void *, void *);
+extern void func_00282F20(void *, void *, f32);
+extern void func_002AFFD8(void *, void *, int);
+extern char *func_0029EFD0(int);
 
 extern void F7242f0a4_FUN_00334710(int value, char *buffer);
 
@@ -163,11 +183,10 @@ extern char D_001ADA38[] __attribute__((sda));
 #ifndef RAC2_T_OBJ_F7B2F1854
 #endif
 
-INCLUDE_ASM("asm/game", func_0032EB28);
+/* func_0032EB28 uses small data in 0032EB28-update-g8.c. */
 
 INCLUDE_ASM("asm/game", func_0032F3D0);
 
-INCLUDE_ASM("asm/game", func_0032F590);
 
 INCLUDE_ASM("asm/game", func_0032F598);
 
@@ -176,33 +195,78 @@ INCLUDE_ASM("asm/game", func_0032FDC0);
 
 /* func_0032FEA8 uses small data in 0032EB28-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0032FFD8);
+
+/* func_0032FFD8 is defined in its own sibling unit. */
 
 INCLUDE_ASM("asm/game", func_00330150);
 
-INCLUDE_ASM("asm/game", func_003304D8);
+/* func_003304D8 is defined in 0032EB28-ground-g8.c. */
 
-INCLUDE_ASM("asm/game", func_003309A0);
 
 /* func_00330BC0 uses small data in 0032EB28-g8.c. */
 
-INCLUDE_ASM("asm/game", func_00330CA0);
+/* func_00330CA0 is in 0032EB28-damage-g8.c. */
+
 
 /* func_00330E48 is in 0032EB28-g8.c. */
 
-INCLUDE_ASM("asm/game", func_00330EC0);
+/* func_00330EC0 is in 0032EB28-ring-g8.c. */
 
-INCLUDE_ASM("asm/game", func_00331238);
+/* func_00331238 is in 0032EB28-spark.c. */
 
-INCLUDE_ASM("asm/game", func_003313E0);
 
-INCLUDE_ASM("asm/game", func_00331580);
+void func_003313E0(TI128 *a0, void *dir)
+{
+    EffectVector base;
+    float vel[4];
+    float pos[3];
+    float size = 84000.0f;
+    int i;
+    int rnd;
+    unsigned char *p;
 
-INCLUDE_ASM("asm/game", func_00331718);
+    qcopy(&base, a0);
+    func_00282D30(vel, dir, 0.5f);
+    func_00282CC0(&base, &base, vel);
+    i = 8;
+    do {
+        i--;
+        pos[0] = base.v[0] + func_002A78D8(0.0f, 0.1f);
+        pos[1] = base.v[1] + func_002A78D8(0.0f, 0.1f);
+        pos[2] = base.v[2] + func_002A78D8(0.0f, 0.1f);
+        rnd = func_002A77E0(0xFF);
+        p = func_002C65A0(pos, D_001A8BD0, 10, 0x407FFF, rnd, 0x7F, 0, size, size, 0.0f, 1);
+        if (p != 0)
+            p[2] = D_001F2540[92][5];
+        p = func_002C65A0(pos, D_001A8BD0, 10, 0x406080, rnd, 0x7F, 0, size, size, 0.0f, 1);
+        if (p != 0)
+            p[2] = D_001F2540[53][0];
+    } while (i >= 0);
+}
 
-INCLUDE_ASM("asm/game", func_00331800);
+extern s32 func_00283CF0(f32 value);
+extern u8 *func_002C16C0(f32 *pos, f32 *sym, s32 a2, s32 a3, u32 color, s32 alpha, f32 f12, f32 f13, f32 f14, f32 f15, f32 f16);
+extern u8 *D_001F26B0;
+void func_00331580(f32 *pos, f32 scale)
+{
+    f32 v[3];
+    f32 size = scale * 6300.0f;
+    u8 *effect;
+    s32 i;
+    for (i = 1; i >= 0; i--) {
+    v[0] = pos[0] + func_002A78D8(0.0f, 0.04f);
+    v[1] = pos[1] + func_002A78D8(0.0f, 0.04f);
+    v[2] = pos[2] + func_002A78D8(0.0f, 0.04f);
+    func_002C16C0(v, D_001A8BD0, 15, 0x5F, 0x7F7F7F, func_00283CF0(func_002A78D8(1.0f, 3.0f)), size, 500.0f, 1.0f, 0.0f, 0.0f);
+    }
+    effect = func_002C16C0(v, D_001A8BD0, 15, 0x7F, 0x407FFF, func_00283CF0(func_002A78D8(1.0f, -1.0f)), size * 0.8f, 500.0f, 1.0f, 0.0f, 0.0f);
+    if (effect != 0) {
+        effect[2] = D_001F26B0[5];
+    }
+}
 
-INCLUDE_ASM("asm/game", func_003320E8);
+/* func_00331718 uses small data in 0032EB28-g8.c. */
+
 
 
 void func_003323F0(int a0) {
@@ -217,19 +281,47 @@ void func_003323F0(int a0) {
     func_0026FEB8(D_001B0A88);
 }
 
-INCLUDE_ASM("asm/game", func_00332440);
+char *func_00332440(void *a0, void *a1, void *a2)
+{
+    TI128 localA;
+    TI128 localB;
+    char *object;
+    State_332440 *state;
+    int result;
 
-INCLUDE_ASM("asm/game", func_00332588);
+    func_002AFFD8(a1, &localA, 1);
+    object = func_0029EFD0(0xEAA);
+    if (object != 0) {
+        state = *(State_332440 **)(object + 0x68);
+        state->f10 = 0x50;
+        *(unsigned char *)(object + 0x30) = 0xFF;
+        *(short *)(object + 0x32) = 0xFF;
+        *(unsigned char *)(object + 0x20) = 0;
+        qcopy(object + 0x10, a1);
+        qcopy(state, a2);
+        state->f18 = 0;
+        state->f14 = 0;
+        func_00282F20(&localB, a2, 1.0f);
+        qcopy(object + 0xC0, &localB);
+        func_00282DD8(object + 0xD0, object + 0xC0, &localA);
+        func_00282F20(object + 0xD0, object + 0xD0, 1.0f);
+        func_00282DD8(object + 0xE0, object + 0xD0, object + 0xC0);
+        *(float *)(object + 0xCC) = *(float *)(object + 0xDC) = *(float *)(object + 0xEC) = 0.0f;
+        result = func_002FED90(object, 1.0f, 1.0f, 1.0f, 0);
+        state->f1C = result;
+        state->f20 = (int)a0;
+    }
+    return object;
+}
 
-INCLUDE_ASM("asm/game", func_00332590);
 
-INCLUDE_ASM("asm/game", func_00332658);
 
 INCLUDE_ASM("asm/game", func_00333048);
 
 INCLUDE_ASM("asm/game", func_003334B0);
 
-INCLUDE_ASM("asm/game", func_00333AF8);
+/* func_00333AF8 is in 0032EB28-beam.c. */
+
 
 void func_00334050(int index, int value)
 {
@@ -253,9 +345,31 @@ void func_003340A8(char *object)
         func_002FDBD8(data + 0x10, data + 0x20, 0, 1.0f);
 }
 
-INCLUDE_ASM("asm/game", func_003340F0);
 
-INCLUDE_ASM("asm/game", func_00334100);
+/* The table func_00334100 walks: 0x30-byte entries with the searched id at +0x18.
+   Its address differs from level to level, so the symbol carries no address. */
+typedef struct {
+    unsigned char pad_34100[0x18];
+    int id_34100;
+    unsigned char pad2_34100[0x14];
+} Entry_34100;
+
+extern Entry_34100 ref_L00_00334100_00[30];
+
+s32 func_00334100(s32 a0)
+{
+    s32 i;
+    s32 r;
+
+    r = -1;
+    for (i = 0; i < 30; i++) {
+        if (ref_L00_00334100_00[i].id_34100 == a0) {
+            r = i;
+            break;
+        }
+    }
+    return r;
+}
 
 INCLUDE_ASM("asm/game", func_00334160);
 
@@ -264,13 +378,51 @@ INCLUDE_ASM("asm/game", func_00334550);
 /* func_00334710 is matched in 00334710-rc2.c. */
 
 
-INCLUDE_ASM("asm/game", func_00334728);
 
-INCLUDE_ASM("asm/game", func_00334730);
 
-INCLUDE_ASM("asm/game", func_00334898);
+typedef int L_34730TI __attribute__((mode(TI)));
+typedef union { unsigned char b[0x2600]; short h[0x1300]; int i[0x980]; float f[0x980]; } L_34730Hero;
+extern L_34730TI func_00334710(int, L_34730TI *);
+extern int func_002761F8(void *, void *, int, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282D30(void *, void *, float);
+extern char D_001B53A0[];
+extern float D_001BAFA0[];
 
-INCLUDE_ASM("asm/game", func_003348A8);
+int func_00334730(float *out, int flag)
+{
+    float base[4] __attribute__((aligned(16)));
+    float near[4] __attribute__((aligned(16)));
+    float far[4] __attribute__((aligned(16)));
+    float ofs[4] __attribute__((aligned(16)));
+    L_34730Hero *hero = (L_34730Hero *)&D_00189E20;
+    float f;
+    char *cam = D_001B53A0;
+
+    if (hero->h[0x34C / 2] == 0) {
+        func_00334710(((int *)cam)[-4], (L_34730TI *)out);
+        return 1;
+    }
+    func_00334710(((int *)cam)[-4], (L_34730TI *)base);
+    f = hero->f[0x31C / 4];
+    if (f >= 30.0f || flag == 0) {
+        func_00282D30(ofs, cam + 0x30, 0.2f);
+        func_00282CC0(near, base, ofs);
+        func_00282D30(ofs, cam + 0x30, -30.0f);
+        func_00282CC0(far, base, ofs);
+        if (func_002761F8(near, far, 0x12, (void *)hero->i[0x2290 / 4], 0) != 0) {
+            qcopy(out, D_001BAFA0);
+            return 0;
+        }
+        qcopy(out, base);
+        return -1;
+    }
+    func_00282D30(near, cam + 0x30, -f);
+    func_00282CC0(out, base, near);
+    return 1;
+}
+
+
 
 void func_003349E8(void *owner, int flag, float value)
 {
@@ -286,19 +438,45 @@ void func_003349E8(void *owner, int flag, float value)
     F7242f0a4_FUN_00282D30(owner, root + 12, F7242f0a4_FUN_00282DB0(root + 12, buffer));
 }
 
-INCLUDE_ASM("asm/game", func_00334A88);
 
-INCLUDE_ASM("asm/game", func_003351B0);
+typedef int TI __attribute__((mode(TI)));
+extern void *D_0026E810[7];
+extern TI func_00334710(int, TI *);
+extern void func_00282CC0(void *, void *, void *);
+
+int func_003351B0(char *self, void *src, void *dst, int mode)
+{
+    static void *arms[7] = {&&transformed, &&direct, &&zero, &&zero, &&zero, &&zero, &&zero};
+    TI local;
+    int ret = 1;
+    char *vector = *(char **)(self + 0x70) + 0x60;
+    if ((unsigned int)(mode - 1) >= 7) goto direct;
+    goto *D_0026E810[mode - 1];
+zero:
+    func_00282CC0(dst, src, vector);
+    ret = 0;
+    goto done;
+transformed:
+    func_00334710((int)self, &local);
+    func_00282CC0(dst, src, &local);
+    goto done;
+direct:
+    func_00282CC0(dst, src, vector);
+done:
+    return ret;
+}
 
 INCLUDE_ASM("asm/game", func_00335270);
 
-INCLUDE_ASM("asm/game", func_00335370);
+/* func_00335370 is defined in 00335370-copy.c. */
 
-INCLUDE_ASM("asm/game", func_003353C8);
+/* func_003353C8 uses the quadword-copy profile in 0032EB28-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_00335420);
 
-INCLUDE_ASM("asm/game", func_00335438);
+
+/* Moves camera 5 to a new position/rotation; mode 3 starts a transition back from the
+   previous pose, modes 2 and 3 store the transition duration. */
+/* func_00335438 is defined in its own sibling unit. */
 
 void func_003355A8(int mode)
 {
@@ -332,13 +510,10 @@ void func_003355A8(int mode)
 
 INCLUDE_ASM("asm/game", func_003356E8);
 
-INCLUDE_ASM("asm/game", func_00335798);
-
 void func_00335840(void) {
     func_002704D0();
 }
 
-INCLUDE_ASM("asm/game", func_00335860);
 
 void func_00335870(void *object, int flags) {
     *(void **)((char *)object + 4) = D_001AD9C8;
@@ -355,9 +530,8 @@ void func_003358A0(void *unused, char *out, float factor) {
     *(float *)(out + 0xC) = (1.0f - factor) * 0.5f;
 }
 
-INCLUDE_ASM("asm/game", func_00335918);
 
-INCLUDE_ASM("asm/game", func_00335960);
+/* func_00335960 is defined in its own sibling unit. */
 
 void *func_00335AC8(void *object) {
     *(void **)object = D_001AD9A8;
@@ -390,9 +564,7 @@ void func_00335B80(s32 *unused, s32 *dst, s32 *left, s32 *right, f32 scale) {
     dst[3] = func_00283D38(left[3], right[3], scale);
 }
 
-INCLUDE_ASM("asm/game", func_00335C10);
 
-INCLUDE_ASM("asm/game", func_00335C60);
 
 /* Interpolate four scalar float components from interleaved endpoint pairs at source offsets 0x08 through 0x24 using (1.0f - factor) * first + factor * second, writing each component to the destination. */
 void func_00335CC0(float factor,
@@ -406,13 +578,12 @@ void func_00335CC0(float factor,
     destination[3] = complement * source->first_3 + factor * source->second_3;
 }
 
-INCLUDE_ASM("asm/game", func_00335D30);
 
 void func_00335D60(void *object, int flags) {
     func_00335870(object, flags);
 }
 
-INCLUDE_ASM("asm/game", func_00335DC0);
+/* func_00335DC0 uses small data in 0032EB28-g8.c. */
 
 int func_00335E08(void) {
     return D_001B23A0;
@@ -427,14 +598,11 @@ s32 func_00335E18(u8 *a0) { return *(s32 *)(a0 + 0x4); }
 /* Measured target: byte-identical across all 27 levels. */
 s32 func_00335E20(u8 *a0) { return *(s32 *)(a0 + 0xc); }
 
-INCLUDE_ASM("asm/game", func_00335E28);
-
 void func_00335E38(u8 *a0,f32 f0,f32 f1,f32 f2,f32 f3) {
  (*(f32 **)a0)[0]=f0;(*(f32 **)a0)[1]=f1;
  (*(f32 **)a0)[2]=f2;(*(f32 **)a0)[3]=f3;
 }
 
-INCLUDE_ASM("asm/game", func_00335E60);
 
 void func_00335E68(u8 *a0, s32 a1) {
  f32 *p=*(f32 **)(a0+0x10);
@@ -457,7 +625,6 @@ void func_00335EB0(char *a0, int a1)
     }
 }
 
-INCLUDE_ASM("asm/game", func_00335F18);
 
 void func_00335F20(char *object, int value) {
     if (value != *(int *)(object + 0x10)) {
@@ -534,7 +701,6 @@ void func_00335FC8(Obj_F7b2f1854 *o, int a1, int count)
     F7b2f1854_FUN_00335E68(o, 1);
 }
 
-INCLUDE_ASM("asm/game", func_003360F0);
 
 void func_003360F8(char *object, int flags)
 {
@@ -586,9 +752,7 @@ void func_003361E0(char *obj)
     *(int *)(obj + 72) = 0;
 }
 
-INCLUDE_ASM("asm/game", func_00336288);
 
-INCLUDE_ASM("asm/game", func_00336308);
 
 /* Measured target: byte-identical across all 27 levels. */
 s32 func_00336318(u8 *a0) { return *(s32 *)(a0 + 0x38); }
@@ -613,7 +777,6 @@ void func_00336408(char *object, int a1, int a2, int a3, int a4) {
     *(int *)(object + 0x44) = 0x80000000;
 }
 
-INCLUDE_ASM("asm/game", func_00336468);
 
 /* lot12 -- measured bodies with sizes recorded in the catalogue. */
 void func_00336498(u8 *a0, s32 a1, s32 a2) {
@@ -638,7 +801,7 @@ void func_00336508(u8 *a0, s32 a1, s32 a2) {
     *((u32 *)*(u8 **)(o + 0xC) + 3) = (*((u32 *)*(u8 **)(o + 0xC) + 3) & 0x00FFFFFF) | (u32)(a2 << 24);
 }
 
-INCLUDE_ASM("asm/game", func_00336548);
+/* func_00336548 is defined in 0032EB28-math-g8.c. */
 
 Constructor_3361A8 *func_003366D0(Constructor_3361A8 *object) {
     func_00335FB0(object);
@@ -646,7 +809,6 @@ Constructor_3361A8 *func_003366D0(Constructor_3361A8 *object) {
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_00336708);
 
 void func_00336710(char *s1, int a1, char *a2)
 {
@@ -671,5 +833,3 @@ void func_00336710(char *s1, int a1, char *a2)
 
 /* Measured target: byte-identical across all 27 levels. */
 s32 func_003367B8(u8 *a0) { return *(s32 *)(a0 + 0x34); }
-
-INCLUDE_ASM("asm/game", func_003367C0);

@@ -1,0 +1,22 @@
+#include "include_asm.h"
+extern void *D_L00_0029FF70[76];
+extern float D_0018AA58;
+/* Uses the level's existing kind table to choose a vertical adjustment. */
+int func_L00_002ADFE8(int kind, float *out)
+{
+    /* These legitimate arm addresses keep labels in discarded object data. */
+    static void *arms[] = {&&constant, &&yes, &&threshold, &&no};
+    *out = 0.0f;
+    if ((unsigned int)(kind - 28) >= 76) goto no;
+    goto *D_L00_0029FF70[kind - 28];
+constant:
+    *out = -0.9599311947822571f;
+    return 1;
+yes:
+    return 1;
+threshold:
+    if (D_0018AA58 > 25.0f) *out = -1.3089970350265503f;
+    goto yes;
+no:
+    return 0;
+}

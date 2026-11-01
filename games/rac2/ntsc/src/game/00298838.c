@@ -251,7 +251,6 @@ void func_00298D28(int *a0)
     func_0029B628();
 }
 
-INCLUDE_ASM("asm/game", func_00298F00);
 
 extern int D_00256138[];
 extern char D_00250000[];

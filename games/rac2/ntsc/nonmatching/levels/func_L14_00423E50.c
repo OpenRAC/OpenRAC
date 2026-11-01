@@ -45,3 +45,22 @@ int func_L14_00423E50(char *a0)
     } while (c >= 0);
     return 0;
 }
+
+/* --- wave 24, worker 04 (2026-10-21) --------------------------------------------
+   Re-measured: the walk itself matches word for word; the head does not.  With
+   the goto spelling (the main path is the branch TARGET of both guards, which
+   is retail's shape) the body is 160 bytes: retail copies the parameter into
+   $a1, keeps the table's %hi in $a2 across the whole function and re-reads the
+   table entry for the walk, while ours keeps the parameter in $a0, re-materialises
+   the table's %hi in the walk block and reuses the first table load.
+   What I added to the measurements:
+   - the main path must be the branch target of both guards (retail's `bne` and
+     `bnel` both jump to it): the plain if/else-if chain puts the main path in
+     the fall-through and inverts both branches.
+   - the table is read twice (the null check and the walk pointer) and the index
+     is re-read from the object; the base D_001B259C is read absolutely here
+     (lui %hi ; lw %lo) while func_L14_004286F8 reads the same global through
+     $gp, so the two need different names in one unit.
+   - with the index in a local the address folds to `lw $v1,0x3FC($v0)` and the
+     index is lost (that is the 0x3FC of the earlier note).
+   Last check.py line: "14_aranos_prison: 160 bytes, expected 144". */

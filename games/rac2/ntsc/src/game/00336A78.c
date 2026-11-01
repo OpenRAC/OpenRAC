@@ -143,7 +143,6 @@ void func_00336DB8(int *p, unsigned int a1, int a2, int a3)
     p[0] = a2;
 }
 
-INCLUDE_ASM("asm/game", func_00336E38);
 
 /* a bump/free-list allocator. `p` (the parameter, moved to `$a1`) is a six-word */
 void *func_00336E40(T *p)
@@ -186,8 +185,6 @@ int func_00336EF0(void) {
 
 
 
-INCLUDE_ASM("asm/game", func_00336F20);
-
 INCLUDE_ASM("asm/game", func_00337210);
 
 extern void *func_003361A8(void *);
@@ -198,9 +195,83 @@ void *func_00337BD8(char *object) {
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_00337C10);
+extern int *func_00335E20(void *);
+extern void func_00335E68(void *, int);
+extern void func_003361E0(void *, void *, void *);
+extern void func_00336390(void *, int, int);
+extern void func_003363C0(void *, float);
+extern void *func_00115484(void *, int, unsigned int); /* memset */
+extern char D_001ADB40[]; /* "aTxBrack" */
+extern char D_001ADB50[]; /* "aTxTop" */
+extern char *D_001A8CFC[] __attribute__((sda));
 
-INCLUDE_ASM("asm/game", func_00337E28);
+/* Initialises a text panel: clears its state and, when a pool is given, takes four 16-byte
+   cells from it with func_00336E40/func_00336DA8 (255,108 / colour 0x60442D00 / two cleared
+   cells), then sets up the "aTxBrack" and "aTxTop" widgets at +0x10 and +0x5C with
+   D_001A8CFC[0] + 0x8710 and colour 0x55F0C070. The cleared cells store word 0 last, as in
+   func_00339078; the colour cell is cleared as floats before its integer colour is stored. */
+void func_00337C10(char *obj, void *pool)
+{
+    char *top;
+    char *bracket;
+
+    obj[0xA8] = 0;
+    *(int *)(obj + 0x1AC) = 0;
+    *(int *)(obj + 0x1A8) = 0;
+    *(int *)(obj + 0x1C8) = 0;
+    *(int *)(obj + 0x1CC) = 0;
+    *(int *)(obj + 0x1D4) = 0x28;
+    *(int *)(obj + 0x1C4) = 1;
+    *(int *)(obj + 0x1B0) = 1;
+    func_00115484(obj + 0x1D8, 0, 0x78);
+    if (pool != 0) {
+        float *xy;
+        float *colour;
+        int *cell4;
+        int *cellC;
+
+        xy = func_00336DA8((void *)16, func_00336E40(pool));
+        xy[0] = 255.0f;
+        xy[1] = 108.0f;
+        ((int *)xy)[2] = 0;
+        ((int *)xy)[3] = 0;
+        *(float **)(obj + 0) = xy;
+        colour = func_00336DA8((void *)16, func_00336E40(pool));
+        colour[0] = 0.0f;
+        colour[1] = 0.0f;
+        *(int *)colour = 0x60442D00;
+        ((int *)colour)[2] = 0;
+        ((int *)colour)[3] = 0;
+        *(float **)(obj + 8) = colour;
+        cell4 = func_00336DA8((void *)16, func_00336E40(pool));
+        *(int **)(obj + 4) = cell4;
+        cell4[1] = 0;
+        cell4[2] = 0;
+        cell4[3] = 0;
+        cell4[0] = 0;
+        cellC = func_00336DA8((void *)16, func_00336E40(pool));
+        *(int **)(obj + 12) = cellC;
+        cellC[1] = 0;
+        cellC[2] = 0;
+        cellC[3] = 0;
+        cellC[0] = 0;
+    }
+    bracket = obj + 0x10;
+    top = obj + 0x5C;
+    func_003361E0(bracket, D_001ADB40, pool);
+    func_00336390(bracket, (int)(D_001A8CFC[0] + 0x8710), 0x57);
+    func_003363C0(bracket, 0.02f);
+    func_00335E68(bracket, 1);
+    *func_00335E20(bracket) = 0x55F0C070;
+    func_003361E0(top, D_001ADB50, pool);
+    func_00336390(top, (int)(D_001A8CFC[0] + 0x8710), 0x58);
+    func_00335E68(top, 1);
+    *func_00335E20(top) = 0x55F0C070;
+    **(int **)(obj + 12) = 0x80F0F0F0;
+    *(int *)(obj + 0x1B8) = 0;
+    **(int **)(obj + 4) = 0;
+}
+
 
 /* Initialises an object: two float stores through the pointer at +0, clears byte +423, stores an int at +440, calls a callee with (this+168, -1) storing its result at +468 and the address at +472, sets +432 to 1 and writes 1.0f through the pointer at +4. */
 void func_00337E30(char *p, int a1, int a2, float f12, float f13)

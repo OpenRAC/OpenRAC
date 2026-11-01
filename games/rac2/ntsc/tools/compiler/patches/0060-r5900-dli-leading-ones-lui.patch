@@ -1,0 +1,57 @@
+--- a/gas/config/tc-mips.c
++++ b/gas/config/tc-mips.c
+@@ -3381,17 +3381,38 @@
+                       & ((wide & ~(1ULL << 63)) + 1)) == 0))
+           {
+             expressionS field;
+-            int top, cur, next, amount;
++            int top, cur, next, amount, lui_adj = 0;
+             unsigned long long rest;
+ 
+             top = 63;
+-            while (((wide >> top) & 1) == 0)
+-              top--;
++            if (mips_cpu == 5900 && dbl && (wide >> 48) == 0xffff
++                && wide != (0ULL - (wide & (0ULL - wide))))
++              {
++                /* A negative value whose top 16 bits are all ones: the
++                   first field is a lui anchored at the lowest bit of the
++                   leading run of ones, so that it sign-extends. lui has
++                   already shifted the field left by 16. */
++                while (((wide >> (top - 1)) & 1) != 0)
++                  top--;
++                lui_adj = 16;
++              }
++            else
++              while (((wide >> top) & 1) == 0)
++                top--;
+             cur = top - 15;
+             field.X_op = O_constant;
+-            field.X_add_number = (valueT) (offsetT) (wide >> cur);
+-            macro_build ((char *) NULL, counter, &field, "ori", "t,r,i",
+-                         reg, 0, (int) BFD_RELOC_LO16);
++            if (lui_adj)
++              {
++                field.X_add_number = (valueT) (offsetT) (((wide >> cur) & 0xffff) << 16);
++                macro_build ((char *) NULL, counter, &field, "lui", "t,u",
++                             reg, (int) BFD_RELOC_HI16);
++              }
++            else
++              {
++                field.X_add_number = (valueT) (offsetT) (wide >> cur);
++                macro_build ((char *) NULL, counter, &field, "ori", "t,r,i",
++                             reg, 0, (int) BFD_RELOC_LO16);
++              }
+             for (;;)
+               {
+                 rest = wide & ((1ULL << cur) - 1);
+@@ -3404,7 +3425,8 @@
+                       top--;
+                     next = (top < 16) ? 0 : top - 15;
+                   }
+-                amount = cur - next;
++                amount = cur - next - lui_adj;
++                lui_adj = 0;
+                 if (amount != 0)
+                   macro_build ((char *) NULL, counter, NULL,
+                                (amount >= 32) ? "dsll32" : "dsll", "d,w,<",

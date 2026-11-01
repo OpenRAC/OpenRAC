@@ -1,46 +1,70 @@
+#include "common.h"
 #include "include_asm.h"
 
-typedef unsigned char u8;
-
-typedef unsigned short u16;
-
-typedef int s32;
+extern void func_002AFFD8(void *, void *, int);
+extern char *func_0029EFD0(int);
+extern void func_00282F20(float *, float *, float);
+extern void func_00282DD8(float *, float *, float *);
 
 /* func_L23_0041E418 is defined in L23_0041E418-g8.c (this unit has no $gp access for it). */
 
 INCLUDE_ASM("asm/levels", func_L23_0041E538);
 
-INCLUDE_ASM("asm/levels", func_L23_0041E5B0);
+/* func_L23_0041E5B0 is defined in its dedicated source unit. */
 
-INCLUDE_ASM("asm/levels", func_L23_00422540);
+char *func_L23_00422540(char *pos, char *dir, float *damage) {
+    char axis[16];
+    char scaled[16];
+    char *obj;
+    char *state;
+    func_002AFFD8(pos, axis, 1);
+    obj = func_0029EFD0(0x118E);
+    if (obj) {
+        state = *(char **)(obj + 0x68);
+        *(float *)(state + 0x1C) = *damage;
+        *(int *)(state + 0x10) = 0x3C;
+        *(u8 *)(obj + 0x30) = 0xFF;
+        *(u16 *)(obj + 0x32) = 0xFF;
+        *(u8 *)(obj + 0x20) = 0;
+        qcopy(obj + 0x10, pos);
+        qcopy(state, dir);
+        *(int *)(state + 0x18) = 0;
+        *(int *)(state + 0x14) = 0;
+        func_00282F20((float *)scaled, (float *)dir, 1.0f);
+        qcopy(obj + 0xC0, scaled);
+        func_00282DD8((float *)(obj + 0xD0), (float *)(obj + 0xC0), (float *)axis);
+        func_00282F20((float *)(obj + 0xD0), (float *)(obj + 0xD0), 1.0f);
+        func_00282DD8((float *)(obj + 0xE0), (float *)(obj + 0xD0), (float *)(obj + 0xC0));
+        *(float *)(obj + 0xCC) = *(float *)(obj + 0xDC) = *(float *)(obj + 0xEC) = 0.0f;
+    }
+    return obj;
+}
 
-INCLUDE_ASM("asm/levels", func_L23_00422668);
 
-INCLUDE_ASM("asm/levels", func_L23_00422798);
+/* func_L23_00422668 is matched in L23_00422668.c (built with -frac2-qcopy -frac2-no-annulled-wide-stores). */
 
-INCLUDE_ASM("asm/levels", func_L23_00422A30);
+/* func_L23_00422798 is matched in L23_00422798-g8.c (built with -frac2-zero-ti-por). */
 
-INCLUDE_ASM("asm/levels", func_L23_00422E08);
+/* func_L23_00422A30 is defined in L23_00422A30-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L23_00423378);
+/* func_L23_00422E08 is defined in L23_00422E08-g8.c. */
+
 
 /* func_L23_00423380 is defined in L23_0041E418-g8.c (this unit has no $gp access for it). */
 
 /* func_L23_004234C0 is defined in L23_0041E418-g8.c (this unit has no $gp access for it). */
 
-INCLUDE_ASM("asm/levels", func_L23_004236B8);
+/* func_L23_004236B8 is matched in L23_004236B8-g8.c (built with -ffast-math). */
 
-INCLUDE_ASM("asm/levels", func_L23_00425568);
+/* func_L23_00425568 is matched in L23_00425568.c (built with -frac2-qcopy). */
 
-INCLUDE_ASM("asm/levels", func_L23_004256F0);
+/* func_L23_004256F0 is matched in L23_004256F0.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L23_00425848);
+/* func_L23_00425848 is matched in L23_00425848.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L23_00425AF8);
+/* func_L23_00425AF8 is defined in L23_00425AF8-g8.c. */
 
 typedef int TI16 __attribute__((mode(TI)));
-
-typedef short s16;
 
 extern void func_00282CF0(float *, float *, float *);
 
@@ -89,11 +113,16 @@ void func_L23_004260F0(u8 *obj, float *dst, TI16 *src1, TI16 *src2, float scale)
     func_00282CC0(dst, (float *)&loc[0], (float *)&loc[5]);
 }
 
-INCLUDE_ASM("asm/levels", func_L23_00426248);
+/* func_L23_00426248 is defined in L23_00426248-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L23_004265D0);
+/* func_L23_004265D0 is defined in L23_004265D0-g8.c. */
+extern void func_L23_004277E8(u8 *);
+extern void func_L23_004278B0(u8 *);
 
-INCLUDE_ASM("asm/levels", func_L23_004277B0);
+void func_L23_004277B8(u8 *arg0) {
+    func_L23_004277E8(arg0);
+    func_L23_004278B0(arg0);
+}
 
 /* func_L23_004277E8 is matched in L23_0041E418-g8.c */
 
@@ -108,22 +137,20 @@ void func_L23_004278B0(u8 *arg0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L23_004278D8);
+/* func_L23_004278D8 is matched in L23_004278D8-g8.c (built with -g). */
 
-INCLUDE_ASM("asm/levels", func_L23_00427CE8);
+/* func_L23_00427CE8 is matched in L23_00427CE8-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L23_004280D8);
+/* func_L23_00428490 is defined in L23_00428490-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L23_00428490);
+/* func_L23_00428CF8 is matched in L23_00428CF8-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier -frac2-no-annulled-wide-stores). */
 
-INCLUDE_ASM("asm/levels", func_L23_00428CF8);
+/* func_L23_00429098 is defined in L23_00429098-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L23_00429098);
-
-INCLUDE_ASM("asm/levels", func_L23_00429430);
+/* func_L23_00429430 is defined in its dedicated source unit. */
 
 
-INCLUDE_ASM("asm/levels", func_L23_00429DC8);
+/* func_L23_00429DC8 is matched in L23_00429DC8-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier -frac2-zero-ti-por). */
 
 /* increments the 16-bit counter at object + 0x96 while it stays below 0xFFFF */
 void func_L23_00429FF8(u8 *arg0) {
@@ -139,9 +166,9 @@ INCLUDE_ASM("asm/levels", func_L23_0042A018);
 
 INCLUDE_ASM("asm/levels", func_L23_0042A438);
 
-INCLUDE_ASM("asm/levels", func_L23_0042A8C0);
+/* func_L23_0042A8C0 is defined in L23_0042A8C0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L23_0042AD10);
+/* Defined in L23_0042AD10.c. */
 
 /* increments the 16-bit counter at object + 0x96 while it stays below 0xFFFF */
 void func_L23_0042AD90(u8 *arg0) {
@@ -153,7 +180,7 @@ void func_L23_0042AD90(u8 *arg0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L23_0042ADB0);
+/* func_L23_0042ADB0 is defined in L23_0042ADB0-g8.c. */
 
 extern void func_L00_004287E8(void);
 

@@ -1,0 +1,54 @@
+typedef int Quadword __attribute__((mode(TI)));
+typedef union { Quadword q; float f[4]; } Vector;
+extern void func_00282CF0(void *, const void *, const void *);
+extern void func_00282F70(void *, const void *, float);
+extern float func_00282DB0(const void *, const void *);
+extern float func_00282E80(const void *, const void *);
+
+float func_L00_00341B18(float *out, const float *point, const float *start, const float *end) {
+    Vector delta;
+    Vector normal;
+    Vector base;
+    float distance;
+    float endpointDistance;
+    int axis;
+    const float *a, *b;
+    float *projection;
+    func_00282CF0(&delta, start, end);
+    normal.f[0] = -delta.f[1];
+    normal.f[1] = delta.f[0];
+    normal.f[2] = 0.0f;
+    base.q = *(const Quadword *)start;
+    base.f[2] = 0.0f;
+    func_00282F70(&normal, &normal, 1.0f);
+    distance = func_00282DB0(&normal, &base);
+    distance = normal.f[0] * point[0] + normal.f[1] * point[1] - distance;
+    out[0] = point[0] - distance * normal.f[0];
+    out[1] = point[1] - distance * normal.f[1];
+    out[2] = 0.0f;
+    axis = 0;
+    b = end;
+    projection = out;
+    a = start;
+    do {
+        if (*a + 0.001f < *projection && *b + 0.001f < *projection)
+            break;
+        if (*projection < *a - 0.001f && *projection < *b - 0.001f)
+            break;
+        ++axis;
+        ++b;
+        ++projection;
+        ++a;
+    } while (axis < 2);
+    if (axis < 2) {
+        endpointDistance = func_00282E80(out, start);
+        if (endpointDistance < func_00282E80(out, end)) {
+            *(Quadword *)out = *(const Quadword *)start;
+            out[2] = 0.0f;
+        } else {
+            *(Quadword *)out = *(const Quadword *)end;
+            out[2] = 0.0f;
+        }
+    }
+    return func_00282E80(point, out);
+}

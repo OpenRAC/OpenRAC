@@ -1,35 +1,56 @@
+/* Opus 5.5 xhigh (opus-1), 31 October 2026: 3436/3436 bytes, 0/28 USA v1.01 places, first difference
+ * +0xA50. 32 instruction rows differ once relocated operands are masked (diagnostic count; cdiff.py
+ * shows 182 of 859 rows, the rest relocations). PAL and v2.00 not checked; no linked build was run.
+ * Replaces the 36-row draft: sharing `a` between case 11's inner cases 1 and 3 fixes its sprintf
+ * argument order and text register. Every remaining row is the scheduling of the three panel calls.
+ * Build it as its own unit, src/game/00285840-panel-g8.c: it needs -G8, its D_001BAC80 type differs from
+ * 00285840-g8.c, and its two jump tables (0x26C590, 0x26C5C0) still need checking at link time.
+ */
 #include "include_asm.h"
 
 /* Near miss: func_002859C8 (boot 0x2859C8, 3436 bytes, in every level too).
 
-   This C compiles to 3436 bytes, the same size as retail, with the same frame
-   (0x4D0, s0-s5/ra and f20-f22 saved). 843 of the 859 instructions align with
-   retail once relocated operands are masked; `tools/check.py` stops at +0xA50.
-   It has to be compiled with -G8 (as src/game/00285840-g8.c): the $gp loads at
-   +0x8D8 and +0xA90.. are in ordinary flow.
+   What still differs: cases 9, 10 and 11, the func_002802E0 setup only.
+     retail 9, 10: f1=100 v0=3 f0=D_001B23A4 f2=0.5 | mul.s sw &box a1 a0=&box a2 add.s a3 t0 t1 cvt jal
+     retail 11:    f1=100 f0=D_001B23A4 f2=0.5 &box | mul.s s1=3 sw a0=&box a1 a2 add.s a3 ...
+     this C:       &box and a0 are issued in the free ALU slots of the first cycles.
 
-   What still differs (scheduling and allocation only):
-   - Cases 9, 10 and 11 (the three identical func_002802E0 panel calls):
-     retail leaves the ALU idle in the first cycles and computes `&box` (and its
-     copy to $a0) after the stack-argument store, with the add.s two slots
-     earlier; here sched2 issues `&box` in cycle 2. Tried with no change: the
-     rounded alpha in a separate int or float variable, a local MenuBox pointer,
-     both operand orders, and four inline-helper shapes (those shrink the body).
-   - Case 11: retail compares S.f58 against 1 held in $s0 (set in the delay slot
-     of the func_002802E0 call), which also puts `&S` ($s4) before the call; here
-     the 1 is a fresh $v0 after the load. Retail behaves as if a pseudo holding 1
-     already crossed that call; no natural source for it was found. In the same
-     case, the S.f58 == 3 path orders `a2 = s2` before `a1 = s0` for sprintf and
-     keeps text(0x113B) in $s2 (here $s0).
+   What the sched2 dump (x.i.sched2 from tools/regalloc.py) shows. The r5900 issues 2 insns per cycle;
+   a1..t1 are ready from cycle 1 and fill any free ALU slot, so retail's idle slots cannot come from
+   priorities or operand order. Something holds the ALU work back: either a scheduling barrier in the
+   block, or two insns that take issue slots and later vanish. add.s still has to follow mul.s by its
+   latency in the same block, so a real block boundary between them is ruled out. A helper whose return
+   value ends a block does not fit either: it moves cvt ahead of the arguments.
 
-   Even once exact it cannot land yet: the outer switch (11 entries, 0x26C590)
-   and the inner one in case 1 (23 entries, 0x26C5C0) are jump tables, and
-   tools/build.py refuses a body that needs .rodata at its place (see
-   func_00123D30 in nonmatching/README.md).
+   Measured, all with this C otherwise unchanged. Rows are the same masked count as above:
+   - Empty volatile asm (FORBIDDEN, diagnostic only): k = 100.0f; n = 3; sc = D_001B23A4; h = 0.5f;
+     then the asm, then f = sc * k + h; and (int)f as the argument. Cases 9 and 10 become exact. Case 11,
+     with k, sc, h, the asm, then enabled = 1 and (int)(sc * k + h), leaves 9 rows, first difference
+     +0xBB0, so the model holds but no exact-bytes form was reached. Moving case 11's asm between sc and
+     h gives 14 rows. Retail's order there fits a barrier between f0 and f2, which this source does not
+     reproduce.
+   - do { } while (0) around the same loads, or around the call (FORBIDDEN): 3444 bytes. The loop notes
+     add a padding nop at a later label that retail lacks, and around the call they also change
+     allocation across the function. A loop in these two positions does not fit retail.
+   - No change, 36 rows before the case 11 fix or 32 after: const or volatile on D_001B23A4; an inline
+     helper returning float; -fno-sched-interblock, -fno-sched-spec, -fno-rerun-loop-opt, -fno-force-mem,
+     -frac2-qcopy, -frac2-keep-block-order; a dead-arm test before the call (it folds or dies before
+     sched1).
+   - Worse: the whole call as an inline helper (frame 0x4C0, &box no longer kept in a register, as
+     FIXED_BASE_PLUS_P arguments are substituted); the (int) in a helper with a vanishing test (61 rows);
+     separate statements for the sprintf text calls (53 rows).
+   - Not found: a USE, CLOBBER or no-op move that survives to sched2 here. The dump has no no-op moves,
+     and its only USE insns are the scheduler's own, after calls that end a block. The compiler's USE and
+     CLOBBER emission sites were read; none was found to apply.
+
+   Next: find the original construct that gives a barrier without an instruction or a loop note. The
+   same rounding of D_001B23A4 needs a barrier in func_0033A520 too, so a shared macro is possible.
 
    What made the difference while matching, for the next attempt:
    - every case keeps its own block-scoped variables (one shared `id` or `text`
-     becomes one pseudo and drags every case into callee-saved registers);
+     becomes one pseudo and drags every case into callee-saved registers), except
+     case 11's `a`, which retail does share between its inner cases 1 and 3;
+   - case 11's `enabled` gives the saved 1 in $s0 and the state-base ordering;
    - memset (func_00115484) must return void *, strncpy (func_00115AC0) char *
      and sprintf (func_00115DA8) int: the call setting $v0 steers the next value
      to $v1 (local-alloc's anti-false-dependency rule), which fixed the box
@@ -414,19 +435,22 @@ void func_002859C8(void)
         func_0029B888(&box, 0x80F0F0F0, c, 1, 1, -1, 0, a, 0, D_001A8A58);
         break;
     }
-    case 11:
+    case 11: {
+        int enabled = 1;
+        char *a;
+
         func_002802E0(&box, 0xF0, 0x1E0, 0x60, 0x1A0, 0x100,
                       (int)(D_001B23A4 * 100.0f + 0.5f), 0x10, 3);
         switch (D_001BAC80.f58) {
         case 0:
             break;
         case 1: {
-            char *a, *b;
+            char *b;
 
             a = func_00288FB8(0x1137);
             b = func_00288FB8(0x2805);
             func_00115DA8(buf2, func_00288FB8(0x31E6), 15);
-            func_0029B888(&box, 0x80F0F0F0, buf2, 1, 1, -1, 0, a, b, 0);
+            func_0029B888(&box, 0x80F0F0F0, buf2, enabled, enabled, -1, 0, a, b, 0);
             break;
         }
         case 2:
@@ -435,11 +459,13 @@ void func_002859C8(void)
             D_001BAC80.f60 = D_001BAC80.f5C / 60 + 1;
             func_00115DA8(buf2, D_001A8AD0, func_00288FB8(0x31ED), func_00288FB8(0x31EE),
                           D_001BAC80.f60, func_00288FB8(0x31EF));
-            func_0029B888(&box, 0x80F0F0F0, buf2, 1, 1, -1, 0, func_00288FB8(0x113B),
+            a = func_00288FB8(0x113B);
+            func_0029B888(&box, 0x80F0F0F0, buf2, enabled, enabled, -1, 0, a,
                           func_00288FB8(0x1138), 0);
             break;
         }
         break;
+    }
     }
     func_0027C660();
 }

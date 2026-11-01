@@ -4,12 +4,13 @@
    `sq $fp,0x10($sp)`) and spills every named argument to the frame, so it is
    built with the -mastra-quad-saves profile at -O0: the three arguments live
    at 0, 4 and 8 of the frame, the global is re-read for the call, and the
-   32-bit result of func_00117278 is widened to the long return. */
+   callee's long result is forwarded without an explicit truncation. */
 
 extern void *D_00133E74;
 
-extern int func_00117278(void *arg0, int arg1, int arg2, int arg3);
+struct _reent;
+extern long func_00117278(struct _reent *, const char *, char **, int);
 
 long func_001175F0(int arg0, int arg1, int arg2) {
-    return func_00117278(D_00133E74, arg0, arg1, arg2);
+    return func_00117278(D_00133E74, (const char *)arg0, (char **)arg1, arg2);
 }

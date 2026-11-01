@@ -57,7 +57,95 @@ int func_0011C8B0(int arg0) {
 
 INCLUDE_ASM("asm/core", func_0011C8C8);
 
-INCLUDE_ASM("asm/core", func_0011C8D8);
+extern int r1_D_00155080[];
+extern int r1_D_0012FD04;
+extern int r1_D_00154F54;
+typedef struct { void (*f)(void *, void *); void *arg; } Hnd;
+typedef struct {
+    void *a0;
+    void *a1;
+    int a2;
+    void *a3;
+    int a4;
+    int a5;
+    int a6;
+    int *a7;
+} CmdData;
+typedef struct { char pad[0xC]; int pad2; void *u10; } CmdPkt;
+extern int r1_func_0011D960(void);
+extern void r1_func_0011D9A8(void);
+extern void r1_func_00118D80(int);
+extern void r1_func_00118E40(void);
+extern int r1_func_00118AB0(int, void *, int);
+extern void r1_func_00119460(int);
+extern void r1_func_0011AC48(void);
+extern unsigned char r1_D_00154E80[];
+extern unsigned char r1_D_00154F00[];
+extern CmdData r1_D_00154F58;
+extern Hnd r1_D_00154F80[];
+extern CmdPkt r1_D_00154F40;
+extern int r1_func_00118E60(int, int);
+extern int r1_func_00118E70(int);
+extern void r1_func_0011A728(void *arg0, void *arg1);
+extern int r1_func_0011A748(void *arg0, void *arg1);
+extern s32_1B4C8 r1_func_0011ABC8();
+
+/* rac1-decomp src/core/00119D88.c: func_0011C8D8 */
+void func_0011C8D8(void) {
+    int i;
+    unsigned t5, t6;
+    r1_func_0011D960();
+    if (r1_D_0012FD04 != 0) {
+        r1_func_0011D9A8();
+        return;
+    }
+    r1_D_0012FD04 = 1;
+    t6 = (unsigned)r1_D_00154E80 | 0x20000000;
+    t5 = (unsigned)r1_D_00154F00 | 0x20000000;
+    r1_D_00154F58.a0 = (void *)t6;
+    r1_D_00154F58.a1 = (void *)t5;
+    r1_D_00154F58.a2 = 0;
+    r1_D_00154F58.a3 = r1_D_00154F80;
+    r1_D_00154F58.a4 = 0x20;
+    r1_D_00154F58.a5 = 0;
+    r1_D_00154F58.a6 = 0;
+    r1_D_00154F58.a7 = r1_D_00155080;
+    for (i = 0; i < 32; i++) {
+        r1_D_00154F80[i].f = 0;
+        r1_D_00154F80[i].arg = 0;
+    }
+    for (i = 0; i < 32; i++) {
+        r1_D_00155080[i] = 0;
+    }
+    r1_D_00154F80[0].f = (void (*)(void *, void *))r1_func_0011A748;
+    r1_D_00154F80[1].f = (void (*)(void *, void *))r1_func_0011A728;
+    r1_D_00154F80[0].arg = &r1_D_00154F58;
+    r1_D_00154F80[1].arg = &r1_D_00154F58;
+    r1_func_0011D9A8();
+    r1_func_00118D80(0);
+    if (*(volatile unsigned *)0x1000E010 & 0x20) {
+        *(volatile unsigned *)0x1000E010 = 0x20;
+    }
+    if (!(*(volatile unsigned *)0x1000C000 & 0x100)) {
+        r1_func_00118E40();
+    }
+    r1_D_00154F54 = r1_func_00118AB0(5, r1_func_0011AC48, 0);
+    r1_func_00119460(5);
+    r1_D_00154F58.a2 = ((int (*)(unsigned))r1_func_00118E70)(0x80000000);
+    if (r1_D_00154F58.a2 != 0) {
+        r1_D_00154F40.u10 = r1_D_00154E80;
+        r1_func_0011ABC8(0x80000000, (int)&r1_D_00154F40, 0x14, 0, 0, 0);
+        return;
+    }
+    do {
+    } while (!(r1_func_00118E70(4) & 0x20000));
+    r1_D_00154F58.a2 = r1_func_00118E70(2);
+    r1_func_00118E60(0x80000000, r1_D_00154F58.a2);
+    r1_func_00118E60(0x80000001, (int)&r1_D_00154F58);
+    r1_D_00154F40.u10 = r1_D_00154E80;
+    r1_D_00154F40.pad2 = 0;
+    r1_func_0011ABC8(0x80000002, (int)&r1_D_00154F40, 0x14, 0, 0, 0);
+}
 
 /* rac1-decomp src/core/00119D88.c: func_0011AA00 */
 /* r1_func_001193F8 and r1_func_00118AD0 both return int; their results decide
@@ -163,4 +251,3 @@ ASM_FUNC("asm/core", func_0011CDA0);
 
 ASM_FUNC("asm/core", func_0011CEC8);
 
-INCLUDE_ASM("asm/core", func_0011CF74);

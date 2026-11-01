@@ -82,3 +82,74 @@ void func_L20_00443CF0(char *arg0) {
     func_L20_00443B60(arg0, (char *)&v1, (char *)&v2, &f);
     func_L20_00440198(*(int *)(state + 0x21C), (char *)&v1, (char *)&v2, f);
 }
+
+/* ---- wave 4 (20_yeedil, 2026-10-20, worker 01): the word pair, re-measured -------
+ *
+ * The attempt is in src/levels/20_yeedil/L20_00443CF0.c (a file of its own, because
+ * every flag measured changes the other bodies of a shared unit).  It is 100 bytes,
+ * retail's size, and 23 of the 25 words match: the residue is the pair at +0x24/+0x28,
+ * where retail sets `$a1 = $sp+0` (the first call's second argument) BEFORE the
+ * prologue's `sd $s0,0x30($sp)` and this cc1 after it.
+ *
+ * Measured here, each in a file of its own, with the word-level differ:
+ *
+ *  - the per-file flags `-fno-schedule-insns`, `-fno-schedule-insns2`,
+ *    `-mastra-keep-frame-order`, `-fno-schedule-insns2 -mastra-keep-frame-order`,
+ *    `-fno-schedule-insns -fno-schedule-insns2` and `-fno-schedule-insns2
+ *    -fno-sched-interblock` all give the SAME two words; the third wave's measurement
+ *    that `-fno-schedule-insns2` moves the pair does not reproduce.
+ *  - the source shapes: the locals as `TI128` or as `char[16]`, the arguments as
+ *    `TI128 *` or `char *`, the float initialised in the declaration or in a separate
+ *    statement, the state read before or after the first call, the state assigned
+ *    between the two calls - all give the same two words.
+ *
+ * The wall is the scheduler's priority between the argument set-up (a move) and the
+ * prologue's save of `$s0` (a frame-related store): the project's compiler prefers the
+ * frame store (the frame-save-first patch, tools/compiler/patches/0026), the retail
+ * does not.
+ */
+
+/* ---- wave 5 (20_yeedil, 2026-10-21, worker 03): the word pair, re-measured -------
+ *
+ * The candidate above is the wave-4 one.  This wave re-measured it with the
+ * word-level differ and adds the following.
+ *
+ *  - The candidate is 100 bytes, the retail's size, and 23 of the 25 words match.
+ *    The residue is exactly the pair at +0x24/+0x28: the retail sets the first
+ *    call's second argument up BEFORE the prologue's `sd $s0,0x30($sp)`, this
+ *    cc1 after it.  Nothing else differs.
+ *  - The frame and the layout are the retail's and are recovered: the frame is
+ *    0x50, the two 16-byte locals are at sp+0 and sp+0x10, the float is at
+ *    sp+0x20, the first call gets (arg0, sp+0, sp+0x10, sp+0x20) and the
+ *    second one (the word at state+0x21C, sp+0, sp+0x10, the float).  The
+ *    constant is 1.0471977f (0x3F860A93) and is materialised in the entry
+ *    block, before the frame adjust, exactly as retail has it.
+ *  - The prototype of the first callee is fixed by the retail: its fourth
+ *    argument is a FLOAT pointer (`lwc1 $f0,0x0($s5)` / `swc1 $f0,0x0($s5)`),
+ *    so `void func_L20_00443B60(char *, char *, char *, float *)`.
+ *  - The per-file flags, measured one at a time in a file of their own:
+ *      - `-fno-sched-interblock` leaves the pair where it is and changes
+ *        nothing else (still the same two words).
+ *      - `-fno-schedule-insns2` puts the pair RIGHT - the retail's
+ *        `daddu $a1,$sp,$zero` comes before the prologue's `sd $s0,0x30($sp)` -
+ *        but sinks the lui/ori/mtc1 of 1.0471977f below the frame adjust
+ *        (the retail has it in the entry block): 11 words differ then.
+ *      - `-fno-schedule-insns2 -fno-sched-interblock` gives the same 11.
+ *      - `-fno-schedule-insns`, `-mastra-keep-frame-order` and
+ *        `-fno-schedule-insns2 -mastra-keep-frame-order` reorder the whole
+ *        body (18 words and more).
+ *    So the two effects the retail shows are separate: the constant's
+ *    materialisation in the entry block wants the second scheduling pass, and
+ *    the pair wants it off.
+ *  - The source shapes, all giving the same 100 bytes with the same pair
+ *    swapped: the locals as `char[16]` (the retail's), as one 32-byte array
+ *    used as b1 and b1+16, as a 48-byte struct holding all three objects, as
+ *    `float[4]` and as `int[4]`; the `&b1[0]` spellings; the state as `char *`
+ *    and as `void *`; the index in a variable of its own; the float
+ *    initialised in the declaration and in a separate statement; the
+ *    declarations exchanged; the return type `void`, `char *` and `int`; a
+ *    `char *p = b1` temporary for the second call's second argument.
+ *
+ * The wall is the scheduler's choice between the argument set-up (a move) and
+ * the prologue's save of `$s0` (a frame-related store).
+ */

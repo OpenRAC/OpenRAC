@@ -54,3 +54,24 @@ void func_L08_00425568(char *a0)
         *(u8 *)(s0 + 0xBD) = 0;
     }
 }
+
+Wave 24 (worker 01) measured five more spellings of the 0x1BC block.  The retail's
+`sh $zero,0x1BC($s1)` sits in the delay slot of the `bnel $v0,$zero` that skips the
+increment, and because a branch-likely annuls its delay slot on the taken path the
+store runs only when byte31 == 0 - so the source holds BOTH statements under
+`if (byte31 == 0)`:
+    if (*(u8 *)(s0 + 0x31) == 0) {
+        *(u16 *)(s1 + 0x1BC) = 0;
+        *(u16 *)(s1 + 0x1BC) = *(u16 *)(s1 + 0x1BC) + 1;
+    }
+That form gives "08_tabora: 184 bytes, expected 192": cc1 forwards the store into the
+load and drops the `lhu`/`addiu` pair (eight bytes).  The store-first form
+(`*(u16 *)(s1 + 0x1BC) = 0;` before the test) gives 188 bytes with the same fold.  A
+`u32 c = *(u16 *)(s1 + 0x1BC);` temporary before the store gives 188 bytes with the
+right `lhu`/`addiu`/`sh` sequence, but cc1 then deletes the now-dead `sh $zero` (the
+value it holds is not the one retail loads, so the semantics differ).  A `volatile`
+load gives 196 bytes and turns the annulled `bnel` into a plain `bnez`.  So the fold
+of the store into the load is unavoidable here, and with it the delay slot cannot hold
+the store.  The other differences (the `lw $s1,0x68($s0)` in the 0x96 guard's delay
+slot, the 0x20 byte in $v1 against $v0, the 2.0f constant in $f2 against $f0) are
+allocation.

@@ -1,5 +1,43 @@
 #include "include_asm.h"
 
+/* Sound fields measured at 0x38/0x3A in the 0xE0-byte resource entries. */
+typedef struct {
+    char pad_00[0x38];
+    short multiple_sound;
+    short single_sound;
+    char pad_3C[0xA4];
+} L00PickupSoundEntry;
+
+typedef struct {
+    char pad_00[0x60];
+    int limit;
+    char pad_64[4];
+    int item;
+    char pad_6C[8];
+    float fade_rate;
+    char pad_78[0x14];
+} L00PickupState;
+
+typedef struct {
+    char pad_00[0x20];
+    unsigned char phase;
+    char pad_21[0xB];
+    float scale;
+    char pad_30[0x38];
+    L00PickupState *state;
+} L00PickupObject;
+
+extern int func_L00_002D3FB0(int);
+extern int func_L00_002D3FB8(int, int);
+extern int D_00139688[];
+extern unsigned char D_00139568[];
+extern L00PickupSoundEntry D_L00_00262570[];
+extern void func_L00_00326200(int, int, int);
+extern void func_00282C88(void *);
+extern int func_00282C30(int);
+extern int D_L00_001B19C8[] __attribute__((sda));
+extern int ref_L00_003D1B50_00[] __attribute__((sda));
+
 #define RAC2_T_VEC16_FC936841D
 
 typedef struct {
@@ -55,6 +93,16 @@ extern int func_002E5CF8(int index, int value, void *object);
 
 extern char D_00189EA0[];
 
+extern int func_0027C878(int);
+
+extern float func_00283248(float, float);
+
+extern void func_00283410(void *, void *);
+
+extern void func_00280B90(void *, void *, int);
+
+extern void ref_L00_003CC030_00(char *);
+
 /* Measured partial layouts; original type and game roles are unknown. */
 
 #ifndef RAC2_T_VEC16_FC936841D
@@ -64,19 +112,18 @@ extern char D_00189EA0[];
 
 INCLUDE_ASM("asm/levels", func_L00_003C6298);
 
-INCLUDE_ASM("asm/levels", func_L00_003C6A88);
+/* Defined in L00_003C6A88-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003C6B98);
 
-INCLUDE_ASM("asm/levels", func_L00_003C79F8);
+/* Defined in L00_003C79F8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003C7DF0);
+/* func_L00_003C7DF0 is defined in L00_003C6298-ribbon-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003C83E0);
+/* func_L00_003C83E0 is defined in L00_003C8608-g64.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003C8608);
+/* Defined in L00_003C8608-g64.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003C8828);
+/* Defined in L00_003C8828-input.c. */
 
 /* When the context flag at offset 0x24 is nonzero, pass scale 1.0, the context, its vector at offset 0x10 and mode zero to the bound helper; original game role is unknown. */
 void func_L00_003C8A58(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
@@ -102,17 +149,11 @@ void func_L00_003CA470(void)
         D_L00_00241500[i].field_48 = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003CA650);
+/* func_L00_003CA730 is defined in L00_003C6298-shot-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003CA688);
 
-INCLUDE_ASM("asm/levels", func_L00_003CA730);
 
-INCLUDE_ASM("asm/levels", func_L00_003CADA0);
-
-INCLUDE_ASM("asm/levels", func_L00_003CB538);
-
-INCLUDE_ASM("asm/levels", func_L00_003CB980);
+/* func_L00_003CB980 is defined in L00_003C6298-pool-g8.c. */
 
 /* resets a state record: zero words, plus/minus one float flags and two 64-bit fields in the retail store order */
 void func_L00_003CBC80(char *p)
@@ -145,7 +186,7 @@ void func_L00_003CBC80(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003CBD08);
+/* func_L00_003CBD08 is defined in L00_003CBD08-curve.c. */
 
 /* Scales four consecutive 16-byte XYZ vectors in place by one scalar through a vector helper. */
 void func_L00_003CBE28(char *p, float scale)
@@ -156,7 +197,51 @@ void func_L00_003CBE28(char *p, float scale)
     func_00282D30_2(p + 48, p + 48, scale);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003CC030);
+/* Sets the render state of a position: resets a work record, takes the two aim angles from the
+   level's float table, copies the position and the scale into the record and hands it to the
+   level's draw helper. The first call goes to a neighbour that has two identical copies in
+   some levels, so its target is a per-level name. */
+void func_L00_003CC030(char *position, int color, float scale, char *resource, float alpha, int mode, int flag)
+{
+    unsigned char work[0xE0];
+    unsigned int rgba;
+    unsigned long long mode_bits;
+    float first_angle;
+    float second_angle;
+    float distance;
+
+    ref_L00_003CC030_00((char *)work);
+    *(long long *)(work + 0x78) = func_0027C878(mode);
+
+    mode_bits = ((unsigned long long)flag << 2) | 0x0000008000000040ULL;
+    *(long long *)(work + 0x88) = mode_bits;
+    *(long long *)(work + 0x80) = 0x0000FF9000000260ULL;
+
+    rgba = (unsigned int)color + ((unsigned int)resource << 24);
+    *(int *)(work + 0x4C) = rgba;
+    *(int *)(work + 0x48) = rgba;
+    *(int *)(work + 0x44) = rgba;
+    *(int *)(work + 0x40) = rgba;
+    *(long long *)(work + 0x70) = 0;
+
+    *(int *)(work + 0xDC) = 0;
+    first_angle = func_00283248(D_L00_001B8C80.x_140 - *(float *)(position + 0),
+                                D_L00_001B8C80.y_144 - *(float *)(position + 4));
+    *(float *)(work + 0xD8) = first_angle;
+
+    distance = func_00282E80(position, &D_L00_001B8C80.x_140);
+    second_angle = func_00283248(distance, D_L00_001B8C80.z_148 - *(float *)(position + 8));
+    *(float *)(work + 0xD0) = alpha;
+    *(float *)(work + 0xD4) = -second_angle;
+
+    func_00283410(work + 0x90, work + 0xD0);
+    *(float *)(work + 0xC0) = *(float *)(position + 0);
+    *(float *)(work + 0xC4) = *(float *)(position + 4);
+    *(float *)(work + 0xC8) = *(float *)(position + 8);
+    *(float *)(work + 0xCC) = 1.0f;
+    func_L00_003CBE28((char *)work, scale);
+    func_00280B90(work, work + 0x90, 0);
+}
 
 /* Derives a 16-byte element at index-1 from its index-2 and index-3 neighbours through two bound helpers; original game role is unknown. */
 void func_L00_003CC6D8(Vec16_Fc936841d *object, int index)
@@ -198,20 +283,61 @@ void func_L00_003CEC50(char *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003CED50);
+/* Defined in L00_003D1258-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003D1258);
 
-INCLUDE_ASM("asm/levels", func_L00_003D1B48);
+/* Checks whether a pickup object has just added to the stock counter of its item kind: plays the
+   single or multiple pickup sound, and when the amount exceeds the limit marks the object as
+   used up. Returns 1 if the counter grew. */
+int func_L00_003D1B50(L00PickupObject *object)
+{
+    L00PickupState *state = object->state;
+    int old_count;
+    int delta;
+    int sound;
+    int result;
+    float overflow;
 
-INCLUDE_ASM("asm/levels", func_L00_003D1B50);
+    if (object->phase == 2)
+        return 0;
+
+    old_count = D_00139688[func_L00_002D3FB0(state->item)];
+    overflow = func_L00_002D3FB8(state->item, state->limit);
+    if (old_count < D_00139688[func_L00_002D3FB0(state->item)]) {
+        delta = D_00139688[func_L00_002D3FB0(state->item)] - old_count;
+        if (delta == 1) {
+            sound = ((L00PickupSoundEntry *)(D_00139568[func_L00_002D3FB0(state->item)] * 224 +
+                                             (unsigned int)D_L00_00262570))->single_sound;
+        } else {
+            sound = ((L00PickupSoundEntry *)(D_00139568[func_L00_002D3FB0(state->item)] * 224 +
+                                             (unsigned int)D_L00_00262570))->multiple_sound;
+        }
+        func_L00_00326200(sound, delta, -1);
+        if (overflow < state->limit) {
+            int elapsed;
+
+            object->phase = 2;
+            object->scale *= 1.2f;
+            func_00282C88(state);
+            elapsed = D_L00_001B19C8[0] - ref_L00_003D1B50_00[0];
+            state->fade_rate = 0.13333334f;
+            if (func_00282C30(elapsed) >= 11) {
+                func_002E5CF8(0, 0, object);
+                ref_L00_003D1B50_00[0] = D_L00_001B19C8[0];
+            }
+        }
+        result = 1;
+    } else {
+        result = 0;
+    }
+    return result;
+}
 
 INCLUDE_ASM("asm/levels", func_L00_003D1D28);
 
-INCLUDE_ASM("asm/levels", func_L00_003D2A00);
 
-INCLUDE_ASM("asm/levels", func_L00_003D2C00);
+/* func_L00_003D2C00 is defined in L00_003C6298-strip.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003D2ED0);
+/* func_L00_003D2ED0 is defined in L00_003D2ED0-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L00_003D3388);

@@ -1,4 +1,13 @@
-#include "include_asm.h"
+#include "common.h"
+
+extern int func_L01_003165E8(void *, int, int, int, int);
+extern int func_001163B0(void);
+extern float func_00282E80(void *, void *);
+extern int func_002A77E0(int);
+extern void func_L01_00337A60(void *, void *,void *,int);
+extern int func_002761F8(void *, void *, int, void *, int);
+extern char *D_L01_001FE180[];
+extern char D_L01_001BF920[];
 
 typedef int TI128 __attribute__((mode(TI)));
 
@@ -97,17 +106,15 @@ void func_L01_003BDF28(char *a0)
 
 INCLUDE_ASM("asm/levels", func_L01_003BB9D0);
 
-INCLUDE_ASM("asm/levels", func_L01_003BBF68);
+/* func_L01_003BBF68 is in L01_003BBF68-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003BC490);
 
 INCLUDE_ASM("asm/levels", func_L01_003BC540);
 
-INCLUDE_ASM("asm/levels", func_L01_003BCA38);
+/* func_L01_003BCA38 is in L01_003BCA38.c. */
 
 INCLUDE_ASM("asm/levels", func_L01_003BCEC8);
 
-INCLUDE_ASM("asm/levels", func_L01_003BD150);
 
 /* func_L01_003BD410 */
 void func_L01_003BD410(char *object)
@@ -133,13 +140,33 @@ void func_L01_003BD410(char *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L01_003BD560);
 
-INCLUDE_ASM("asm/levels", func_L01_003BD5E8);
 
-INCLUDE_ASM("asm/levels", func_L01_003BD6B0);
+/* func_L01_003BD6B0 is in L01_003BD6B0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003BDB28);
+typedef struct {
+    char pad0[0x280];
+    int f280;
+    int f284;
+} L01_003BDB28_STATE;
+
+extern void func_002A8598(int, int);
+
+void func_L01_003BDB28(char *obj)
+{
+    L01_003BDB28_STATE *s0 = *(L01_003BDB28_STATE **)(obj + 0x68);
+
+    if (*(unsigned char *)(obj + 0x21) != 0xFF) {
+        func_002A8598(*(unsigned char *)(obj + 0x21), 1);
+    }
+    if (s0->f280 != -1) {
+        func_002A8598(s0->f280, 1);
+    }
+    if (s0->f284 != -1) {
+        func_002A8598(s0->f280, 1);
+    }
+    *(unsigned char *)(obj + 0xBC) = 1;
+}
 
 /* func_L01_003BDBB0 */
 
@@ -153,7 +180,49 @@ void func_L01_003BDBB0(L01_003BDBB0_OBJ *a0)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L01_003BDBE8);
+void func_L01_003BDBE8(void *object)
+{
+    char *obj = object;
+    char *s = *(char **)(obj + 0x68);
+    int index = -1;
+    float offset, coordinate;
+
+    if (*(unsigned char *)(obj + 0x20) < 7) {
+        index = (*(int *)(s + 0x214) != -1) ? *(int *)(s + 0x214) : *(int *)(s + 0x210);
+    } else {
+        index = *(int *)(s + 0x210);
+    }
+    *(int *)(s + 0xCC) = index;
+    if (!func_L01_003165E8(s + 0x1E0, index, *(int *)(s + 0x218), *(int *)(s + 0x21C), -1)) {
+        if ((func_001163B0() & 1) || *(int *)(s + 0x114) != 1 || *(int *)(s + 0x23C)) {
+            if (func_00282E80(s + 0x1E0, obj + 0x10) < 0.5f || !func_002A77E0(1)) {
+                qcopy(s + 0x1E0, s + 0x1D0);
+                *(float *)(s + 0x1E8) += 1.7f;
+            }
+            func_L01_00337A60(s + 0x1E0, s + 0x1E0, D_L01_001FE180[index] + 0x10, *(int *)D_L01_001FE180[index]);
+        } else {
+            *(float *)(s + 0x1E0) = func_00283180(func_002A7878(-3.1415927f, 3.1415927f)) * 1.2f;
+            *(float *)(s + 0x1E4) = func_00283198(func_002A7878(-3.1415927f, 3.1415927f)) * 1.2f;
+            *(int *)(s + 0x1E8) = 0;
+            func_00282CC0(s + 0x1E0, s + 0x1E0, D_00189EA0);
+            *(float *)(s + 0x1E8) += 1.7f;
+            func_L01_00337A60(s + 0x1E0, s + 0x1E0, D_L01_001FE180[index] + 0x10, *(int *)D_L01_001FE180[index]);
+        }
+        if ((*(int *)(s + 0x23C) && func_00282E80(s + 0x1E0, D_00189EA0) < 3.0f) || func_00282E80(s + 0x1E0, obj + 0x10) < 0.5f) {
+            offset = func_002A7878(3.0f, 5.0f);
+            coordinate = *(float *)(s + 0x1E0);
+            *(float *)(s + 0x1E0) = (func_001163B0() & 1) ? coordinate - offset : coordinate + offset;
+            offset = func_002A7878(3.0f, 5.0f);
+            coordinate = *(float *)(s + 0x1E4);
+            *(float *)(s + 0x1E4) = (func_001163B0() & 1) ? coordinate - offset : coordinate + offset;
+        }
+    }
+    if (func_002761F8(obj + 0x10, s + 0x1E0, 2, obj, 0)) {
+        func_00282CF0(s + 0x1E0, D_L01_001BF920, s + 0x1E0);
+        func_00282F20(s + 0x1E0, s + 0x1E0, 2.0f);
+        func_00282CC0(s + 0x1E0, s + 0x1E0, D_L01_001BF920);
+    }
+}
 
 INCLUDE_ASM("asm/levels", func_L01_003BE058);
 
@@ -170,11 +239,75 @@ void func_L01_003BE488(L01_003BE488_OBJ *a0)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L01_003BE4D0);
+typedef struct L01_003BE4D0_OBJ {
+    char pad0[0x20];
+    unsigned char f20;
+    char pad21[0x68 - 0x21];
+    struct L01_003BE4D0_STATE *f68;
+    char pad6C[0x96 - 0x6C];
+    unsigned short f96;
+    char pad98[0xBC - 0x98];
+    unsigned char fBC;
+} L01_003BE4D0_OBJ;
 
-INCLUDE_ASM("asm/levels", func_L01_003BE628);
+typedef struct L01_003BE4D0_STATE {
+    char pad0[0x114];
+    int f114;
+    char pad118[0x230 - 0x118];
+    int timer230;
+    char pad234[0x238 - 0x234];
+    int timer238;
+    int timer23C;
+    char pad240[0x290 - 0x240];
+    int f290;
+} L01_003BE4D0_STATE;
 
-INCLUDE_ASM("asm/levels", func_L01_003BEA08);
+extern void func_002A04B8(void *, int *, int *, int *);
+extern void func_002A0488(void *, int, int, int);
+extern int func_002E4600(unsigned int, unsigned int, float);
+
+void func_L01_003BE4D0(L01_003BE4D0_OBJ *obj)
+{
+    L01_003BE4D0_STATE *s = obj->f68;
+    int red, green, blue;
+    unsigned int target;
+    int color;
+
+    if (obj->fBC != 0) {
+        obj->fBC = 0;
+        if (s->timer238 < 200) {
+            s->timer238 = func_002A7820(300, 360);
+        }
+    }
+    if (s->f114 != 1) {
+        func_00282948(&s->timer238);
+    }
+    if (obj->f96 <= 0xFFFD) {
+        obj->f96 = obj->f96 + 1;
+    }
+    func_00282948(&s->timer230);
+    func_00282948(&s->timer23C);
+    /* Pack the current colour as 0x80BBGGRR, then blend it towards the target. */
+    func_002A04B8(obj, &red, &green, &blue);
+    {
+        unsigned int alpha_green = (green << 8) | 0x80000000u;
+        unsigned int alpha_blue_green = (blue << 16) | alpha_green;
+        color = alpha_blue_green | red;
+    }
+    if (s->f290 != 0 && obj->f20 < 9) {
+        target = 0x8040E0F0;
+        color = func_002E4600(color, target, 0.05f);
+    } else {
+        target = 0x00404040;
+        color = func_002E4600(color, target, 0.08f);
+    }
+    red = color & 0xFF;
+    green = (color >> 8) & 0xFF;
+    blue = (color >> 16) & 0xFF;
+    func_002A0488(obj, red, green, blue);
+}
+
+/* func_L01_003BE628 is in L01_003BE628.c. */
 
 /* func_L01_003BFDC8 */
 
@@ -193,20 +326,18 @@ void func_L01_003BFDC8(L01_003BFDC8_OBJ *a0, int a1, int a2, int a3)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L01_003BFE48);
+/* func_L01_003BFE48 is in L01_003BFE48-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003C01C0);
+/* func_L01_003C01C0 is in L01_003C01C0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003C0408);
+/* func_L01_003C0408 is in L01_003C0408-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003C08A0);
+/* func_L01_003C08A0 is in L01_003C08A0.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003C09C0);
 
-INCLUDE_ASM("asm/levels", func_L01_003C2680);
+/* func_L01_003C2680 is in L01_003C2680-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003C53D8);
 
-INCLUDE_ASM("asm/levels", func_L01_003C97D8);
+/* func_L01_003C97D8 is in L01_003C97D8-draw.c. */
 
-INCLUDE_ASM("asm/levels", func_L01_003C9D00);
+/* func_L01_003C9D00 is in L01_003C9D00.c. */

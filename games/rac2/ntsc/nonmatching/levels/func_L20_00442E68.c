@@ -99,3 +99,68 @@ cond:
 out:
     ;
 }
+
+/* ---- wave 4 (20_yeedil, 2026-10-20, worker 01): the entry block, re-measured ----
+ *
+ * The attempt is in src/levels/20_yeedil/L20_00442E68-g8.c (a unit of its own: the
+ * body reaches D_L20_001B2FB8 through $gp) and it is 200 bytes, retail's size.  The
+ * body - the walk at 0x00442EA0, the condition block and the epilogue - matches byte
+ * for byte; the entry block is 10 words off.
+ *
+ * What the fourth wave measured (all in a file of its own, so the flags are per file):
+ *
+ *  - `-fno-schedule-insns2` is the best flag: it keeps retail's size (200 bytes) and
+ *    puts the table's absolute address in `$a0` (retail's register) and the split copy
+ *    `daddu $s2,$v0,$zero` in the branch's delay slot (retail's place) - the two things
+ *    the third wave called the wall.  What is left is the `%hi`'s register ($v1 here,
+ *    $v0 in retail), the prologue's save order ($s0, $s1, $s2, $ra here; $s0, $s2, $ra,
+ *    $s1 in retail) and the position of the `lui` (after the saves here, before them
+ *    in retail).  With the default flags the entry block is 18 words off and the
+ *    `%hi` is coalesced with the absolute address (`addiu $v1,$v1,%lo`), so the split
+ *    copy has to be scheduled early.
+ *  - `-fno-schedule-insns` gives 196 bytes; `-mastra-keep-frame-order` changes nothing
+ *    here (the retail's save order is not the ascending one, so the retail's compiler
+ *    reordered the saves - the scheduler's own order, not the emission order).
+ *  - The "second C name" recipe of the wave-3 note (two variables for the table's
+ *    address) was measured again: with the table in a `char **` variable used in both
+ *    places the whole 64-bit address is kept in `$s2` and the condition block's
+ *    `addiu $v1,$s2,%lo` shape is lost (192 bytes); with the second name in a nested
+ *    block the compiler folds the variable away and the result is the baseline.
+ *  - The state read after the table lookup (the state is then read twice) puts the
+ *    `lui` before the prologue's saves, as in retail, but the `%hi` lands in `$v1` and
+ *    the absolute address in `$v1` as well.
+ *
+ * The residue is one register-allocation decision: retail materialises the table's
+ * address into `$a0`, a register that is NOT the `%hi`'s, so the `%hi` survives until
+ * the branch's delay slot; this cc1 reuses the `%hi`'s register, so the copy into
+ * `$s2` has to be scheduled early.  No source shape and no per-file flag tried
+ * separates the two.
+ */
+
+/* ---- wave 5 (20_yeedil, 2026-10-21, worker 02): the split address, measured -----
+ *
+ * The split address of D_L20_001FBB20 DOES come out with the corrected recipe of the
+ * common note ("a second assignment of the same symbol with a use after it, and the
+ * global used more than once"): with
+ *
+ *     char *tbl = D_L20_001FBB20;      /* the first use, before the loop *\/
+ *     s0 = tbl[*(int *)(state + 0x218)];
+ *     for (;;) {
+ *         ... the body ...
+ *         tbl = D_L20_001FBB20;         /* the re-assignment, after the nested block *\/
+ *         if (s0 == tbl[idx]) continue;  /* the second use *\/
+ *     }
+ *
+ * the compiler emits retail's `daddu $sN, $vN, $zero` (the copy of the %hi) and
+ * `addiu $vN, $sN, %lo(D_L20_001FBB20)` at the use - with the DEFAULT flags, which
+ * coalesce the %hi with the absolute address and lose the shape.  Without the
+ * re-assignment the compiler materialises the whole address in a register instead.
+ *
+ * With the default flags this spelling is 212 bytes against retail's 200: the register
+ * pressure is higher than retail's (the loop-invariant motion hoists the two constants
+ * 0xFF and 0x7F80 out of the loop into callee-saved registers where retail
+ * rematerialises them inside the loop), so five registers are saved instead of three.
+ * The `-fno-schedule-insns2` measurement of the fourth wave (200 bytes, ten words of the
+ * entry block still off) is the better one; this note only adds the re-assignment
+ * recipe for the split address, which the fourth wave did not record for this
+ * function. */

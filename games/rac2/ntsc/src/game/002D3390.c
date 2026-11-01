@@ -152,11 +152,78 @@ int func_002D3538(void)
 }
 
 
-INCLUDE_ASM("asm/game", func_002D35B8);
 
-INCLUDE_ASM("asm/game", func_002D36A0);
+/* func_002D36A0 is in its -G8 sibling. */
 
-INCLUDE_ASM("asm/game", func_002D3D88);
+extern int func_0028E588(int, int);
+extern double func_001234F0(float);
+extern int func_00123028(double, double);
+extern double func_00122A98(double, double);
+extern double func_00122B00(double, double);
+extern int func_00123130(double);
+extern int func_0028EA58(int, int, int, int, int, int *);
+typedef struct {
+    int value, displayChoice, selectionMask, requiredBits, icon;
+} PreviewChoice;
+extern PreviewChoice D_0026CFD0[];
+extern int D_001B23A0[] __attribute__((sda));
+extern float D_001B23A4[] __attribute__((sda));
+/* A screen coordinate scaled for the display; mode 1 also takes an offset in unscaled pixels. */
+static __inline__ int scaled_screen_coord(int mode, float value, float offset)
+{
+    float scaled = value * D_001B23A4[0] + 0.5f;
+    if (mode == 1)
+        return (int)(scaled + offset);
+    return (int)scaled;
+}
+/* A size scaled for the display; any mode but 0 also takes a whole-pixel adjustment. */
+static __inline__ int scaled_screen_size(int mode, float value, int adjust)
+{
+    if (mode != 0)
+        return (int)(value * D_001B23A4[0] + 0.5f) + adjust;
+    return (int)(value * D_001B23A4[0] + 0.5f);
+}
+
+/* Draws the icon of preview choice `index` at column `x`, fading its left and right edges by their
+   distance from the middle of the 512-wide screen. */
+int func_002D3D88(int index, int x)
+{
+    int colors[4];
+    int leftAlpha;
+    int rightAlpha;
+    int right;
+    int texture;
+    int y;
+    int height;
+    int left = x + 2;
+    int baseColor = 0xf0f0b0;
+    double distance;
+    int mode;
+
+    texture = func_0028E588(0xea97, D_0026CFD0[index].icon);
+    distance = func_001234F0(256.0f - (float)left);
+    if (func_00123028(distance, 0.0) < 0)
+        distance = func_00122A98(0.0, distance);
+    leftAlpha = 128 - func_00123130(func_00122B00(distance, 0.75));
+    distance = func_001234F0(256.0f - (float)(x + 40));
+    if (func_00123028(distance, 0.0) < 0)
+        distance = func_00122A98(0.0, distance);
+    rightAlpha = 128 - func_00123130(func_00122B00(distance, 0.75));
+    if (leftAlpha < 0)
+        leftAlpha = 0;
+    if (rightAlpha < 0)
+        right = 0;
+    else
+        right = rightAlpha;
+    leftAlpha <<= 24;
+    right <<= 24;
+    colors[2] = colors[0] = leftAlpha | baseColor;
+    colors[3] = colors[1] = right | baseColor;
+    mode = D_001B23A0[0];
+    y = scaled_screen_coord(mode, 334.0f, 4.0f);
+    height = scaled_screen_size(mode, 40.0f, 0);
+    return func_0028EA58(texture, left, y, 40, height, colors);
+}
 
 INCLUDE_ASM("asm/game", func_002D3FA0);
 
@@ -180,7 +247,6 @@ int func_002D5038(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D5048);
 
 
 extern char *D_001A8CFC[] __attribute__((sda));

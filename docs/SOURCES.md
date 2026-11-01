@@ -14,7 +14,7 @@ each project.
 |---|---|---|---|---|---|---|
 | [`games/rac1`](../games/rac1) | rac1-decomp | https://github.com/OpenRAC/rac1-decomp | main | `693667f24057` | 2026-10-31 | GPL-3.0 (third-party parts keep theirs) |
 | [`games/rac1/ntsc`](../games/rac1/ntsc) | Lombyte | https://github.com/lombyte-project/Lombyte | main | `d29807486aeb` | 2026-10-31 | GPL-3.0 (GPL-2.0 and newlib parts keep theirs) |
-| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/OpenRAC/rac2-gc-decomp | master | `8bc9d785bfec` | 2026-10-20 | GPL-3.0 |
+| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/OpenRAC/rac2-decomp | master | `9097768da54e` | 2026-11-01 | GPL-3.0 |
 | [`games/rac3/ntsc`](../games/rac3/ntsc) | rac3-uya-decomp | https://github.com/OpenRAC/rac3-uya-decomp | main | `bfd8278e8c73` | 2026-10-07 | GPL-3.0 |
 | [`games/rac4/ntsc`](../games/rac4/ntsc) | rac-deadlocked-decomp | https://github.com/OpenRAC/rac-deadlocked-decomp | main | `dedfcd416a1b` | 2026-10-05 | MIT (GPL libgcc, newlib libm) |
 | [`games/rac5/ntsc`](../games/rac5/ntsc) | rac5-sm-decomp | https://github.com/OpenRAC/rac5-sm-decomp | master | `57b025248ac0` | 2026-10-18 | GPL-3.0 |
@@ -81,7 +81,10 @@ Everything else is exactly as it was at that commit.
   they are to be offered to the project.
 
 **rac2/ntsc**
-- Nothing changed. Since 2026-10-11 the project carries the sourcing edits OpenRAC used to make
+- Mirrored: `sources.py sync` takes the commit's whole tree (`"mirror"` in game.json), so it can be
+  rerun without rejects. Only the `"rewrites"` there differ: Lombyte's licence in comments and the
+  path of BACKFILL.md.
+- Since 2026-10-11 the project carries the sourcing edits OpenRAC used to make
   itself (no `include/moby.h`, the leaked-material passages gone from its docs) and states the
   sourcing rule in its own CONTRIBUTING.md and AGENTS.md. Its history was squashed when it was
   rebuilt to rac1-decomp's structure, so it was imported afresh at that commit.

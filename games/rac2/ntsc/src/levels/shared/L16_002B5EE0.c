@@ -9,15 +9,13 @@ typedef float f32;
 
 typedef int TI128 __attribute__((mode(TI)));
 
-INCLUDE_ASM("asm/levels", func_L16_002B5EE0);
+/* func_L16_002B5EE0 is in L16_002B5EE0-motion.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_002E5440);
 
-INCLUDE_ASM("asm/levels", func_L16_00395250);
 
-INCLUDE_ASM("asm/levels", func_L16_00395858);
+/* func_L16_00395858 is in L16_00395858-state.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_003959B8);
+/* func_L16_003959B8 is in L16_003959B8.c. */
 
 extern char D_00189E20[];
 extern void func_002AFDD8(char *object, void *out, void *table, int a3);
@@ -30,11 +28,11 @@ extern void func_00283958(char *a, char *b);
 extern void func_00283738(char *a, char *b, char *c);
 
 /* steers the object along the ground normal the terrain query returns */
-INCLUDE_ASM("asm/levels", func_L16_00395C00);
+/* func_L16_00395C00 uses its dedicated compiler profile. */
 
-INCLUDE_ASM("asm/levels", func_L16_00395D30);
+/* func_L16_00395D30 is defined in L16_00395D30-g16.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00395ED0);
+/* func_L16_00395ED0 is in L16_00395ED0-blend-g8.c. */
 
 /* Read and return the float at linked offset 0x 34 through the pointer stored at owner+0x 68. */
 float func_L16_003960E8(const unsigned char *owner)
@@ -47,43 +45,37 @@ extern int func_002DA3C8(void *v, int a1, char *object, int a3, float f);
 extern char *D_L16_001C3FC0[];
 
 /* reports whether the first live marker in the run still carries the kind byte it looks for */
-INCLUDE_ASM("asm/levels", func_L16_003960F8);
+/* func_L16_003960F8 uses its dedicated compiler profile. */
 
-INCLUDE_ASM("asm/levels", func_L16_003A8D58);
+/* func_L16_003A8D58 is in L16_002B5EE0-shot.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_003A90E0);
 
 INCLUDE_ASM("asm/levels", func_L16_003C2C08);
 
-INCLUDE_ASM("asm/levels", func_L16_003C32F8);
+/* func_L16_003C32F8 is in L16_003C32F8-render-g64.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_003C3870);
+/* func_L16_003C3870 uses its dedicated compiler profile. */
 
-INCLUDE_ASM("asm/levels", func_L16_003C3A10);
+/* func_L16_003C3A10 uses its dedicated compiler profile. */
 
-INCLUDE_ASM("asm/levels", func_L16_004051A8);
+/* func_L16_004051A8 is in L16_004051A8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00405818);
 
-INCLUDE_ASM("asm/levels", func_L16_00406080);
 
-INCLUDE_ASM("asm/levels", func_L16_00406550);
 
-INCLUDE_ASM("asm/levels", func_L16_0040BED0);
+/* func_L16_0040BED0 is in L16_0040BED0.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_0040C5F0);
+/* func_L16_0040C5F0 is defined in L16_0040C5F0-g8.c. */
 
 extern char *D_L16_001B2C0C __attribute__((sda));
 extern char *D_L16_001B2B1C __attribute__((sda));
 
 /* copies the 16-byte record the object's two indices pick out of the chosen table into dst */
-INCLUDE_ASM("asm/levels", func_L16_0040C7E8);
+/* Defined in L16_0040C7E8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00413850);
+/* func_L16_00413850 is in L16_00413850.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00414038);
 
-INCLUDE_ASM("asm/levels", func_L16_0041F950);
 
 extern char *D_L16_001B9B50;
 

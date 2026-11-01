@@ -118,21 +118,19 @@ void func_002E10B8(void)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002E11C0);
+/* func_002E11C0 is matched in its own unit, src/game/002E11C0.c (default flags). */
 
-INCLUDE_ASM("asm/game", func_002E1228);
+ASM_FUNC("asm/game", func_002E1228);
 
 ASM_FUNC("asm/game", func_002E2988);
 
-INCLUDE_ASM("asm/game", func_002E2C38);
+ASM_FUNC("asm/game", func_002E2C38);
 
 INCLUDE_ASM("asm/game", func_002E31E8);
 
 INCLUDE_ASM("asm/game", func_002E3360);
 
-INCLUDE_ASM("asm/game", func_002E3468);
 
-INCLUDE_ASM("asm/game", func_002E3478);
 
 extern char *ref_L00_002E3548_00 __attribute__((sda));
 extern float ref_L00_002E3548_01[16] __attribute__((sda));
@@ -151,9 +149,8 @@ void func_002E3548(void)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002E35D0);
 
-INCLUDE_ASM("asm/game", func_002E35E0);
+/* func_002E35E0 is in 002E35E0-g8.c. */
 
 /* shared native body of family 060b9f2017649e67 */
 void func_002E37B0(void)
@@ -171,7 +168,6 @@ void func_002E37B0(void)
 }
 
 
-INCLUDE_ASM("asm/game", func_002E3938);
 
 typedef struct {
     int field0;
@@ -208,8 +204,6 @@ void func_002E3940(int index)
 INCLUDE_ASM("asm/game", func_002E3998);
 
 INCLUDE_ASM("asm/game", func_002E3BD8);
-
-INCLUDE_ASM("asm/game", func_002E3E50);
 
 ASM_FUNC("asm/game", func_002E3E54);
 
@@ -282,20 +276,7 @@ void func_002E4708(void *self, void *other)
     func_00283CF0(w * 57.2957763671875f);
 }
 
-void func_002E4860(void)
-{
-    struct Layout { char reserved[0x48]; int a,b,c,d,e,f; };
-    struct Layout *layout = (struct Layout *)D_00188660;
-    int width = *(int *)0x1A7BA0;
-    layout->a = width * 7 / 10;
-    layout->b = *(int *)0x1A7B9C;
-    layout->c = width;
-    layout->d = width * 6 / 10;
-    layout->e = 614;
-    layout->f = width * 25 / 32;
-}
-
-INCLUDE_ASM("asm/game", func_002E48E8);
+/* func_002E48E8 is defined in 002E10B8-sound.c. */
 
 extern int D_001507E4;
 extern int D_001A79F0 __attribute__((sda));
@@ -311,7 +292,6 @@ void func_002E4A68(void)
     func_0026FEB8(D_001ABE10, D_001A79F0, func_001337F0(), func_00133820());
 }
 
-INCLUDE_ASM("asm/game", func_002E4AC8);
 
 s32 func_002E59B0(s32 a0,s32 a1) {
     if(a1>=0) {
@@ -363,7 +343,7 @@ s32 func_002E5A50(s32 id)
     return (id != limit) ? id : 52;
 }
 
-INCLUDE_ASM("asm/game", func_002E5AD0);
+/* func_002E5AD0 is defined in 002E5AD0.c. */
 
 int func_002E5CF8(int index, int a1, char *a2)
 {
@@ -441,11 +421,9 @@ int func_002E5E58(int index, int value, void *object)
     return result;
 }
 
-INCLUDE_ASM("asm/game", func_002E5EF0);
 
-INCLUDE_ASM("asm/game", func_002E5F00);
+/* func_002E5F00 is matched in its own unit, src/game/002E5F00-qcopy.c (-frac2-qcopy). */
 
-INCLUDE_ASM("asm/game", func_002E5F38);
 
 s32 func_002E5F40(s32 index, s32 callback) {
     u8 *p = D_00188660 + index * 0x70;
@@ -516,7 +494,6 @@ void func_002E60E8(int arg0, long arg1) {
     }
 }
 
-INCLUDE_ASM("asm/game", func_002E6118);
 
 extern void *D_00214920[];
 extern void func_0029F338(void *);
@@ -533,14 +510,13 @@ void func_002E6120(void)
     } while (count >= 0);
 }
 
-INCLUDE_ASM("asm/game", func_002E6178);
+/* func_002E6178 is in 002E6178.c. */
 
-INCLUDE_ASM("asm/game", func_002E64A0);
+/* func_002E64A0 is in 002E64A0.c. */
 
-INCLUDE_ASM("asm/game", func_002E6A58);
 
-INCLUDE_ASM("asm/game", func_002E6A60);
+/* func_002E6A60 is in 002E6A60.c. */
 
-INCLUDE_ASM("asm/game", func_002E6B78);
+/* func_002E6B78 is in 002E6B78-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002E6D88);
+/* func_002E6D88 is in 002E10B8-transition-g8.c. */

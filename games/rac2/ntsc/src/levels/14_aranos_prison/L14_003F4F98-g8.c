@@ -26,14 +26,42 @@ extern float D_L14_001B17BC __attribute__((sda));
 
 extern char D_00189EA0[];
 
-extern int func_00282948(void *table);
-
 extern void *func_L00_002D70A0(int size);
 
 extern void func_L00_002D7140(void *block);
 
-/* Rewinds the step timer, then respawns the effect the first live slot names, or frees it. */
-INCLUDE_ASM("asm/levels", func_L14_00426E60);
+extern int func_002ACBC8(void *, int);
+
+typedef struct {
+    float x;
+    float y;
+} EffectPair;
+
+/* Scans the four slot words at state+0x20; at the first one that is set and passes func_002ACBC8,
+   makes sure the pool record at state+0x14 exists and writes D_L14_001B17B8/BC into its first two
+   floats. If none passes, frees the record. */
+void func_L14_00426E60(char *a0)
+{
+    char *state = *(char **)(a0 + 0x68);
+    int *slot = (int *)(state + 0x20);
+    int i;
+
+    for (i = 0; i < 4; i++, slot++) {
+        if (*slot != -1 && func_002ACBC8(D_00189EA0, *slot) != 0) {
+            if (*(EffectPair **)(state + 0x14) == 0) {
+                *(EffectPair **)(state + 0x14) = func_L00_002D70A0(5);
+            }
+            (*(EffectPair **)(state + 0x14))->x = D_L14_001B17B8;
+            (*(EffectPair **)(state + 0x14))->y = D_L14_001B17BC;
+            return;
+        }
+    }
+
+    if (*(EffectPair **)(state + 0x14) != 0) {
+        func_L00_002D7140(*(EffectPair **)(state + 0x14));
+        *(EffectPair **)(state + 0x14) = 0;
+    }
+}
 
 extern float D_L14_001B16B0 __attribute__((sda));
 extern int func_002A9640(char *a0, int a1, int a2);
@@ -142,4 +170,167 @@ void func_L14_00409B20(char *self)
     *(float *)(v + 4) = f;
     r = func_00283D38(c1, c2, func_00283198(f) * 0.5f + 0.5f);
     *(int *)(self + 0x78) = func_00283D38(*(int *)(self + 0x78), r, 0.15f);
+}
+
+/* The id-list walks below (func_L14_00426D18, func_L14_00428A08, func_L14_00428BA0) read
+   D_L14_001B259C as a bare symbol, while the `sda` int above reaches the same word through $gp.
+   The assembler takes the last `.extern` size it has seen: the second name's 12 bytes (bare
+   `lui`/`lw`) must come after the 4 bytes of the int's, so these functions follow
+   func_L14_00409B20. D_L14_001B25B8 is a plain int: its `.extern` comes last in the file, which
+   leaves a load in a branch delay slot on $gp and every other load on `lui`/`lw`. */
+extern unsigned short *D_L14_001FB060[];
+extern int D_L14_001B25B8;
+extern unsigned char *D_L14_001B259C_base[3] __asm__("D_L14_001B259C") __attribute__((sda));
+
+/* Sets the flag bit (+0xBE, 4) of every entity in the id list the state's group word names,
+   unless the word is -1. */
+void func_L14_00426D18(char *a0)
+{
+    char *state = *(char **)(a0 + 0x68);
+    unsigned short *p;
+    unsigned char *e;
+
+    if (state != 0 && *(int *)(state + 0x38) != -1) {
+        for (p = D_L14_001FB060[*(int *)(state + 0x38)];
+             (*(int *)(state + 0x38) & 0xFF) != 0xFF && *(int *)(state + 0x38) <= D_L14_001B25B8 &&
+             p != 0 && ((p != 0 && (short)p[-1] >= 0) || p == D_L14_001FB060[*(int *)(state + 0x38)]);
+             p++) {
+            e = D_L14_001B259C_base[0] + ((*p & 0x7FFF) << 8);
+            if (e == 0)
+                break;
+            func_L00_003294F0((int)e, 1);
+        }
+    }
+}
+
+/* Overlays for an owner (L14Obj) and the state block it points to (L14Cfg); only the fields the
+   next two functions touch are named. Typed member accesses are what give retail's order of the
+   compare's two loads (the scalar global first): with `*(int *)(p + off)` casts the field load
+   is scheduled ahead of it. */
+typedef struct {
+    char pad0[0x220];
+    float vec[4];
+    char pad1[0x324 - 0x230];
+    float scale;
+    float angle;
+    float blend;
+    int stamp;
+} L14Cfg;
+
+typedef struct {
+    char pad0[0x20];
+    unsigned char kind;
+    unsigned char group;
+    char pad1[0x31 - 0x22];
+    unsigned char live;
+    char pad2[0x68 - 0x32];
+    L14Cfg *cfg;
+    char pad3[0x78 - 0x6C];
+    int tint;
+    char pad4[0xAA - 0x7C];
+    short cls;
+} L14Obj;
+
+typedef struct {
+    int a;
+    int b;
+} L14ColorPair;
+
+extern void func_L14_00428BA0(L14Obj *);
+extern L14ColorPair D_L14_001B18C0[];
+extern int D_L14_001B20C8;
+extern void func_0029FC20(void *moby, int joint, void *out);
+extern void func_L00_002E6CF0(void *, void *);
+
+/* Advances the owner's pulse (the angle, then the blend it gives), tints the owner with the
+   first colour pair and, when its stamp is not the current one, refreshes every live class-0x112B
+   entity of its group (joint 0 position into +0x220, then the stamp) and queues
+   func_L14_00428BA0 for the owner. */
+void func_L14_00428A08(L14Obj *self)
+{
+    L14Cfg *state = self->cfg;
+    L14ColorPair colors = D_L14_001B18C0[0];
+    unsigned short *p;
+    L14Obj *e;
+    L14Cfg *s0;
+    float angle;
+    float blend;
+
+    angle = func_00283B98(state->angle, 0.20943954f);
+    state->angle = angle;
+    blend = func_00283198(angle) * 0.5f + 0.5f;
+    state->blend = blend;
+    self->tint = func_00283D38(colors.a, colors.b, blend);
+    if (state->stamp != D_L14_001B20C8) {
+        for (p = D_L14_001FB060[self->group];
+             self->group != 0xFF && self->group <= D_L14_001B25B8 && p != 0 &&
+             ((p != 0 && (short)p[-1] >= 0) || p == D_L14_001FB060[self->group]);
+             p++) {
+            e = (L14Obj *)(D_L14_001B259C_base[0] + ((*p & 0x7FFF) << 8));
+            if (e == 0)
+                break;
+            if (e->live != 0) {
+                if (e->cls == 0x112B) {
+                    /* two tests, as retail has them: `!= 0xFE && != 0xFD` is folded into one */
+                    if (e->kind != 0xFE) {
+                        if (e->kind != 0xFD) {
+                            s0 = e->cfg;
+                            func_0029FC20(e, 0, &s0->vec);
+                            s0->stamp = D_L14_001B20C8;
+                        }
+                    }
+                }
+            }
+        }
+        func_L00_002E6CF0((void *)func_L14_00428BA0, self);
+    }
+}
+
+/* D_L14_001B18D0 is only used for its address, taken through $gp. D_L14_001B18E0 is one 8-byte
+   object: its first word is loaded in a branch delay slot (so on $gp), its second as a bare
+   symbol, which is how retail loads the two colours. */
+extern int D_L14_001B18D0 __attribute__((sda));
+extern int D_L14_001B18E0[2];
+extern void func_00282D30(void *out, void *in, float scale);
+extern void func_002830C0(void *a, void *b, void *c);
+extern void func_L00_00325AE8(void *buf, int color, float f12, float f13);
+
+/* For every live class-0x112B entity in the owner's group, builds the marker's vector from the
+   entity's size and stored position and hands it to func_L00_00325AE8 with the second colour
+   pair blended by the entity's pulse. */
+void func_L14_00428BA0(L14Obj *self)
+{
+    unsigned short *p;
+    unsigned short *q;
+    L14Obj *e;
+    L14Cfg *s0;
+    float buf[4];
+
+    if (self->group == 0xFF)
+        return;
+    q = D_L14_001FB060[self->group];
+    if (q == 0)
+        return;
+    for (p = q; self->group != 0xFF && self->group <= D_L14_001B25B8 && p != 0 &&
+                ((p != 0 && (short)p[-1] >= 0) || p == D_L14_001FB060[self->group]);
+         p++) {
+        e = (L14Obj *)(D_L14_001B259C_base[0] + ((*p & 0x7FFF) << 8));
+        if (e == 0)
+            break;
+        if (e->live != 0) {
+            if (e->cls == 0x112B) {
+                if (e->kind != 0xFE) {
+                    if (e->kind != 0xFD) {
+                        s0 = e->cfg;
+                        func_00282D30(buf, &D_L14_001B18D0, s0->scale);
+                        func_002830C0(buf, buf, &s0->vec);
+                        func_L00_00325AE8(buf,
+                                          func_00283D38(D_L14_001B18E0[0], D_L14_001B18E0[1],
+                                                        s0->blend),
+                                          s0->scale * 0.2f, 0.08f);
+                    }
+                }
+            }
+        }
+    }
 }

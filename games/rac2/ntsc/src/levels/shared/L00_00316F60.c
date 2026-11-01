@@ -121,13 +121,13 @@ extern void func_00283D38_2(s32, s32, f32);
 
 extern void func_002A93B0(void);
 
-extern void func_00283D38(void);
+extern int func_00283D38(int from, int to, float fraction);
 
 extern int func_002EF250(float);
 
 extern int func_002ABB78(char *);
 
-extern void func_002AF000(void *);
+extern void func_002AF000(float *, float, float, float);
 
 extern void func_00282CC0(void *, void *, void *);
 
@@ -145,7 +145,7 @@ extern void func_00283098(char *, char *, char *);
 
 extern void func_00282D30(void *, void *, float);
 
-extern void func_002AFFD8_1(u8 *) __asm__("func_002AFFD8");
+extern void func_002AFFD8(char *, char *, int);
 
 extern int D_001A8FF0;
 
@@ -153,7 +153,7 @@ extern void func_00282C98(void *);
 
 extern void func_L00_003252C8_1(u8 *) __asm__("func_L00_003252C8");
 
-extern void func_002B00D8(u8 *);
+extern void func_002B00D8(void *, float *, float *, float);
 
 extern void func_002B0408(void *, void *, void *);
 
@@ -184,7 +184,7 @@ extern void func_00282D30(void *, void *, float);
 
 extern float func_00282C48(float);
 
-INCLUDE_ASM("asm/levels", func_L00_00316F60);
+ASM_FUNC("asm/levels", func_L00_00316F60);
 
 /* computes a scalar complement-power curve by repeated multiplication */
 f32 func_L00_0031A6C8(f32 value, s32 count) {
@@ -197,9 +197,7 @@ f32 func_L00_0031A6C8(f32 value, s32 count) {
 
 INCLUDE_ASM("asm/levels", func_L00_0031A710);
 
-/* func_L00_0031AA28 (cubic curve through four control vectors) is a near miss:
-   nonmatching/levels/func_L00_0031AA28.c */
-INCLUDE_ASM("asm/levels", func_L00_0031AA28);
+/* func_L00_0031AA28 is defined in L00_0031AA28-curve.c. */
 
 /* Blends a value toward a target: helper(second,first) halved, scaled by (1 - helper(third*pi)); the first argument and that product go to a two-float helper whose float result is returned. */
 float func_L00_0031ABE0(float a, float b, float c)
@@ -243,17 +241,13 @@ void func_L00_0031AD40(float *a0, float *a1, float *a2, float t)
     a0[2] = func_00283B98_5(a1[2], func_00283BE0_2(a2[2], a1[2]) * k);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0031AFF0);
 
-INCLUDE_ASM("asm/levels", func_L00_0031B398);
 
-INCLUDE_ASM("asm/levels", func_L00_0031B750);
 
 /* func_L00_0031B9F8 is matched in L00_0031B9F8.c (built with -g). */
 
-INCLUDE_ASM("asm/levels", func_L00_0031BC48);
 
-INCLUDE_ASM("asm/levels", func_L00_0031BDC0);
+/* func_L00_0031BDC0 is defined in L00_0031BDC0.c. */
 
 /* True only when the pending object exists and its inner flag is set. */
 s32 func_L00_0031BE88(char *a0) {
@@ -262,33 +256,28 @@ s32 func_L00_0031BE88(char *a0) {
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0031C0F8);
 
-INCLUDE_ASM("asm/levels", func_L00_0031C3D0);
+/* func_L00_0031C3D0 is built in its own unit. */
 
 void func_L00_0031C978(void)
 {
     func_002A93B0();
 }
 
-void func_L00_0031C998(void)
+int func_L00_0031C998(int from, int to, float fraction)
 {
-    func_00283D38();
+    return func_00283D38(from, to, fraction);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0031CAC8);
 
-INCLUDE_ASM("asm/levels", func_L00_0031CDD0);
 
-INCLUDE_ASM("asm/levels", func_L00_0031D618);
 
 int func_L00_0031D620(int a0, int a1, float x) {
     return a0 + func_002EF250((float)(a1 - a0) * x);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0031D670);
+/* func_L00_0031D670 is defined in L00_0031D670.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0031D958);
 
 /* Blends three components of a vector into a second one: for every component that is
    negative the two vectors are mixed through a helper, scaled by the angle between them
@@ -318,7 +307,6 @@ void func_L00_0031EC88(V4TI_F36d8a248 *a0, V4TI_F36d8a248 *a1)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0031F1C0);
 
 int func_L00_0031F220(const unsigned char *entity) {
     if (entity == 0)
@@ -334,22 +322,17 @@ int func_L00_0031F2B0(const unsigned char *entity) {
     return *(const signed short *)(entity + 0xAA) == 0x0CDB;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003200F8);
+/* func_L00_003200F8 is defined in L00_003200F8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00320460);
 
 /* func_L00_003206B8 only matches when this unit is built -G8 (its object table load comes
    out of $gp there), so its body lives in L00_00316F60-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003207F8);
 
-INCLUDE_ASM("asm/levels", func_L00_00320B70);
+/* Defined in L00_00320B70.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00321878);
+/* func_L00_00321878 is defined in L00_00321878-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00322428);
-
-INCLUDE_ASM("asm/levels", func_L00_00322A10);
 
 /* builds two 64-byte blocks from a 3-float vector and from a vector inside the caller object, combines them, then scales one block again from the same source vector */
 void func_L00_00322A18(u8 *a0, f32 a1, f32 a2, f32 a3) {
@@ -412,7 +395,9 @@ void func_L00_00322AC0(List_F66766f2b *obj, int a1, int a2, float v)
     obj->count = obj->count + 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00322BE0);
+/* func_L00_00322428 is defined in L00_00322428-g8.c. */
+
+/* func_L00_00322BE0 is defined in L00_00322BE0.c. */
 
 /* When active field 0x14C is nonzero, iterate the slots beginning at 0x120 using count 0x148, call the bound helper for each non-null slot, clear each processed slot, and reset the active field. Original game role is unknown. */
 void func_L00_00322EC8(Rac2Native_5b4b17178a13f443_SmallSlotReset128Owner *owner)
@@ -429,11 +414,8 @@ void func_L00_00322EC8(Rac2Native_5b4b17178a13f443_SmallSlotReset128Owner *owner
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00322F48);
 
-INCLUDE_ASM("asm/levels", func_L00_00323338);
-
-INCLUDE_ASM("asm/levels", func_L00_00323448);
+/* func_L00_00323448 is defined in L00_00323448-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L00_00323958);
 
@@ -454,9 +436,9 @@ void func_L00_00323E48(GornRecordWrite64 *record, u32 selector,
     }
 }
 
-void func_L00_00323F28(void *a0, void *a1) {
-    int buf[4];
-    func_002AF000(buf);
+void func_L00_00323F28(void *a0, void *a1, float a, float b, float c) {
+    float buf[4];
+    func_002AF000(buf, a, b, c);
     func_00282CC0(a0, buf, a1);
 }
 
@@ -486,11 +468,9 @@ Lzero:
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00324D18);
 
 INCLUDE_ASM("asm/levels", func_L00_00324E48);
 
-INCLUDE_ASM("asm/levels", func_L00_00324F10);
 
 void func_L00_00324F18(char *a0, char *a1, float f12, float f13, float f14) {
     *(float *)(a1 + 0) = f12;
@@ -501,9 +481,9 @@ void func_L00_00324F18(char *a0, char *a1, float f12, float f13, float f14) {
     func_00282CC0(a1, a1, a0 + 0x10);
 }
 
-void func_L00_003252A8(u8 *a0)
+void func_L00_003252A8(void *object, void *output, int mode)
 {
-    func_002AFFD8_1(a0 + 0x10);
+    func_002AFFD8((char *)object + 0x10, (char *)output, mode);
 }
 
 /* func_L00_003252C8 (flag-routed handler, reads the caller's a1) is a near miss:
@@ -515,12 +495,11 @@ void func_L00_00325300(u8 *a0)
     func_L00_003252C8_1(a0 + 0x10);
 }
 
-void func_L00_003253A0(u8 *a0)
+void func_L00_003253A0(u8 *a0, float *first, float *second, float amount)
 {
-    func_002B00D8(a0 + 0x10);
+    func_002B00D8(a0 + 0x10, first, second, amount);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003255A0);
 
 void func_L00_00325600(void *a0, void *a1, void *a2) {
     int buf[4];
@@ -528,13 +507,8 @@ void func_L00_00325600(void *a0, void *a1, void *a2) {
     func_002B0408(a0, buf, a2);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00325760);
 
-INCLUDE_ASM("asm/levels", func_L00_00325AE8);
 
-INCLUDE_ASM("asm/levels", func_L00_00325CC0);
-
-INCLUDE_ASM("asm/levels", func_L00_00325FC0);
 
 /* stores a wrapped angle back into the caller field and forwards its [0,1] rescaled value (x*0.5+0.5) with two pointer arguments to a second callee */
 int func_L00_00325FC8(f32 *a0, s32 a1, s32 a2, f32 a3) {
@@ -548,22 +522,19 @@ void func_L00_00326048(char *a0, f32 *a1, s32 a2, s32 a3, f32 f) {
     *(int *)(a0 + 0x78) = func_L00_00325FC8(a1, a2, a3, f);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00326080);
 
-INCLUDE_ASM("asm/levels", func_L00_00326108);
 
-INCLUDE_ASM("asm/levels", func_L00_00326110);
 
 void func_L00_00326200(void)
 {
     func_0029CC50();
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003263D0);
+/* func_L00_003263D0 is in L00_003263D0.c: its qcopy needs common.h. */
 
-INCLUDE_ASM("asm/levels", func_L00_00326620);
+/* Defined in L00_00326620.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003266D8);
+/* func_L00_003266D8 is built in its own unit. */
 
 int func_L00_00326950(int a0) {
     unsigned char *base;
@@ -585,17 +556,14 @@ void func_L00_003294F0(unsigned char *entity, int enabled) {
         entity[0xBE] &= 0xFB;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00329520);
+/* func_L00_00329520 is in L00_00329520.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003296C0);
 
-INCLUDE_ASM("asm/levels", func_L00_00329E90);
+/* func_L00_00329E90 is in L00_00329E90.c: its counter is declared differently there. */
 
-INCLUDE_ASM("asm/levels", func_L00_00329FF0);
+/* func_L00_00329FF0 is defined in L00_00329FF0-g.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0032A088);
 
-INCLUDE_ASM("asm/levels", func_L00_0032A0B8);
 
 void func_L00_0032A0E8(void) {
     u8 *current = &D_L00_00268E20;
@@ -609,12 +577,8 @@ void func_L00_0032A0E8(void) {
     } while ((s32)current < (s32)end);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0032A1A8);
+/* func_L00_0032A1A8 is matched in L00_0032A1A8.c (built with -frac2-qcopy). */
 
-INCLUDE_ASM("asm/levels", func_L00_0032A258);
+/* func_L00_0032A258 is matched in L00_0032A258-g8.c (built with -G8). */
 
-INCLUDE_ASM("asm/levels", func_L00_0032A530);
-
-INCLUDE_ASM("asm/levels", func_L00_0032AA68);
-
-INCLUDE_ASM("asm/levels", func_L00_0032B268);
+/* func_L00_0032A530 is matched in L00_0032A530-g.c (built with -g; its qcopy needs common.h). */

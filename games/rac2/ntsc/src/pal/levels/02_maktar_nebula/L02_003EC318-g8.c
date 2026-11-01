@@ -1,0 +1,60 @@
+#include "include_asm.h"
+extern void func_002A7750(char *, int, int);
+extern int D_L02_001CAA80[3];
+extern int D_L02_001AEC78;
+extern int D_L02_001B41DC;
+extern int D_L02_001B30C8;
+extern int D_L02_001B0A60 __attribute__((sda));
+extern float D_L02_001B0A20 __attribute__((sda));
+extern float D_L02_001B0A28 __attribute__((sda));
+extern float D_L02_001B0A30 __attribute__((sda));
+extern void func_002A7750();
+extern void *func_002A9640(void *, int, int);
+extern void func_L00_002E6CF0(void *, void *);
+extern void func_L02_003E80F8();
+extern void func_L00_0032A258(void *, void *, void *, void *, int, int, int, int, int, int, int);
+extern void func_L00_00326110(void *, int, float);
+extern void func_0032C700(void *, int, int, int, int, int, int, int, float, float, int, int, int, int);
+
+/* One step of an actor, by its state byte (+0x20). State 0 marks the actor (+0x30), moves it to
+   state 1 and lowers the counter D_L02_001AEC78 when its private word is set. Unless
+   D_L02_001CAA80 is 1, state 1 registers the callback func_L02_003E80F8 once per value of
+   D_L02_001B30C8 and, when func_002A9640 finds something and the private word is clear, lowers
+   the counter and moves to state 2; it always ends by setting the byte at +0xA8. State 2 starts
+   the effects and moves to state 3, which sets the half-word at +0x7C. */
+void func_PAL_L02_003EC318(unsigned char *a0) {
+    int state = a0[0x20];
+    int *s = *(int **)(a0 + 0x68);
+
+    switch (state) {
+    case 0:
+        a0[0x30] = 0xFF;
+        func_002A7750(a0, 1, -1);
+        if (*s != 0)
+            D_L02_001AEC78--;
+        break;
+    case 1:
+        if (D_L02_001CAA80[0] != 1) {
+            if (D_L02_001B41DC != D_L02_001B30C8) {
+                D_L02_001B41DC = D_L02_001B30C8;
+                func_L00_002E6CF0(func_L02_003E80F8, a0);
+            }
+            if (func_002A9640(a0, 0x4010000, 0) != 0 && *s == 0) {
+                D_L02_001AEC78--;
+                func_002A7750(a0, 2, -1);
+            }
+            a0[0xA8] = 0xFF;
+        }
+        break;
+    case 2:
+        func_L00_0032A258(a0, &D_L02_001B0A30, &D_L02_001B0A28, &D_L02_001B0A20, 0xFFFF, 0,
+                          D_L02_001B0A60, 1, 0xFFFF, 0xFF, 0);
+        func_L00_00326110(a0, 5, 0.5f);
+        func_0032C700(a0 + 0x10, 1, 0x19, 0x14, 0x14, 0x14, 0x2D, 1, 1.0f, 20.0f, 1, 1, 0, 0);
+        func_002A7750(a0, 3, -1);
+        break;
+    case 3:
+        *(unsigned short *)(a0 + 0x7C) = 0x8020;
+        break;
+    }
+}

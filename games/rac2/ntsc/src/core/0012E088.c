@@ -26,4 +26,3 @@ void func_0012E088(void *arg0, int arg1) {
     }
 }
 
-INCLUDE_ASM("asm/core", func_0012E10C);

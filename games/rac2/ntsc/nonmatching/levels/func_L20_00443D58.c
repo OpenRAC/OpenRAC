@@ -95,3 +95,50 @@ void func_L20_00443D58(char *arg0)
  * its own (the flag changes the other bodies of a shared unit) - the row would be
  * `src/levels/20_yeedil/L20_00443D58.c <flags>`.
  */
+
+/* ---- wave 4 (20_yeedil, 2026-10-20, worker 01): the pair, re-measured -------------
+ *
+ * The attempt is in src/levels/20_yeedil/L20_00443D58.c (a file of its own).  It is
+ * 152 bytes, retail's size, and 36 of the 38 words match: the residue is the pair at
+ * +0x28/+0x30, where retail sets `$a3 = $sp+0x20` (the first call's fourth argument)
+ * before the store of `f` and `$a2 = $s2` after it, and this cc1 the other way round.
+ *
+ * Measured here, with the word-level differ:
+ *
+ *  - the per-file flags `-fno-schedule-insns`, `-fno-schedule-insns2` and
+ *    `-mastra-keep-frame-order` change nothing: the pair stays.
+ *  - the source shapes: the float written through a cast, the float initialised in the
+ *    declaration, the `g = f` re-read before the first call (worse: 34 words), the
+ *    byte read as `u8` or as `unsigned char`, the argument types permuted, the state
+ *    read late (worse) - all keep the pair.
+ *
+ * The wall is the order of the call's argument set-ups around the store of `f`: this
+ * cc1 emits the set-ups in the order of the call's operands and the store lands
+ * between the third and the fourth argument; the retail has the fourth argument's
+ * set-up before the store and the third's after it.  No source shape and no per-file
+ * flag tried moves it.
+ */
+
+/* ---- wave 5 (20_yeedil, 2026-10-21, worker 02): the pair, confirmed ---------------
+ *
+ * Re-measured with a word-level differ (the retail's words are little-endian, the
+ * disassembly listing prints them big-endian).  The attempt reaches retail's exact
+ * 0x60 frame and 36 of the 38 words; the residue is the same pair at +0x2C/+0x34:
+ * retail sets `$a3 = $sp+0x20` before the store of `f` and `$a2 = $s2` after it,
+ * this cc1 the other way round.
+ *
+ * Measured here and not enough (all keep the pair):
+ *  - the two 16-byte stack objects as `float v[4]` arrays instead of TI128 locals,
+ *    with the float as a separate `float fv` local: the same 36 of 38 words, the
+ *    same pair.  A TI128 local with a type-punned store is much worse (188 bytes:
+ *    the store comes out as `dsll32/dsrl32` and `and`/`or`).
+ *  - the fourth argument as `&fv`, as `(float *)v` and the third as a named pointer
+ *    variable: the pair stays.
+ *  - `-fno-schedule-insns`, `-fno-schedule-insns2` and `-fno-sched-interblock` leave
+ *    the order unchanged.
+ *  - the byte at state+0x36 must be read unsigned (`lbu`); a signed read is a third
+ *    difference, but it is easy to get right.
+ *
+ * The wall is unchanged: one scheduling pair, the store of `f` between the two
+ * argument set-ups.
+ */

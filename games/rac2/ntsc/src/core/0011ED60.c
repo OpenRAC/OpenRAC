@@ -168,7 +168,6 @@ int func_0011EED8(char *img) {
     return func_0011ED60(param, 0);
 }
 
-INCLUDE_ASM("asm/core", func_0011EFE8);
 
 ASM_FUNC("asm/core", func_0011EFF0);
 

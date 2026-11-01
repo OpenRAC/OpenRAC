@@ -76,7 +76,39 @@ short func_0012C508(int arg0, int tbl) {
     return (short)r;
 }
 extern int func_0012C680(void *arg, int count);
-INCLUDE_ASM("asm/core", func_0012C680);
+extern int func_0012C680(void *, int);
+extern int r1_D_00132F70[];
+extern void r1_func_0012BCC8(int);
+extern long r1_func_00128638(void *arg0);
+
+/* rac1-decomp src/core/00125630.c: func_0012C680 */
+/* _peepBit: return the next count bits of the IPU bit stream without
+   consuming them, refilling the 32-bit window from the IPU (FDEC) when
+   it runs short and nudging the callback while the IPU stays busy.
+   Adapted from Lombyte's project (GPL-3.0) for PAL. */
+int func_0012C680(void *arg, int count) {
+    char *ctx = arg;
+    int counter;
+
+    if (*(int *)(ctx + 0x818) == 0 && *(int *)(ctx + 0x83C) >= count) {
+        goto done;
+    }
+    counter = 0;
+    if ((*(volatile unsigned int *)0x10002010 & 0x80004000) == 0x80000000) {
+        do {
+            if (counter++ >= 0x1389) {
+                r1_func_0012BCC8(*(void **)(ctx + 0x858));
+                counter = 0;
+            }
+        } while ((*(volatile unsigned int *)0x10002010 & 0x80004000) == 0x80000000);
+    }
+    *(volatile unsigned int *)0x10002000 = 0x40000000;
+    *(int *)(ctx + 0x818) = r1_D_00132F70[4];
+    *(int *)(ctx + 0x838) = r1_func_00128638(ctx);
+    *(int *)(ctx + 0x83C) = 0x20;
+done:
+    return (unsigned int)*(int *)(ctx + 0x838) >> (0x20 - count);
+}
 
 extern void func_0012C788(void *arg0, int arg1);
 extern long r1_func_00128638();

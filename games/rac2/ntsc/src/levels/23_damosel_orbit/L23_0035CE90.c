@@ -1,4 +1,25 @@
 #include "include_asm.h"
+#include "common.h"
+
+typedef int TI16 __attribute__((mode(TI)));
+
+extern int func_419CA0(int);
+
+extern char D_00189EA0[];
+
+extern const int D_L23_001B1684 __attribute__((sda));
+
+extern int *D_L23_001B36A8 __attribute__((sda));
+
+extern int *D_L23_001FF300[];
+
+extern void func_00282CF0(void *, void *, void *);
+
+extern void func_00282F20(void *, void *, float);
+
+extern float func_00282E48(void *, void *);
+
+extern void func_L23_003C0F48(char *arg0, int arg1);
 
 extern void func_3242D0(int, int, int);
 
@@ -8,17 +29,140 @@ extern int D_L23_001B36B0 __attribute__((sda));
 
 INCLUDE_ASM("asm/levels", func_L23_0035CE90);
 
-INCLUDE_ASM("asm/levels", func_L23_00394218);
+/* func_L23_00394218 is defined in L23_00394218.c. */
 
-INCLUDE_ASM("asm/levels", func_L23_00394630);
+typedef unsigned int Quad __attribute__((mode(TI)));
+typedef union { Quad q; float f[4]; } Vec;
+typedef struct { char pad[0x18]; char *hit; int count; Vec point; char gap[0x10]; Vec normal; } Collision;
+typedef struct { char pad[0x70]; float material; char tail[0x6C]; } Material;
 
-INCLUDE_ASM("asm/levels", func_L23_00399C10);
+extern unsigned char D_00139574;
 
-INCLUDE_ASM("asm/levels", func_L23_003AAC30);
+extern char *D_0018C0B0;
 
-INCLUDE_ASM("asm/levels", func_L23_003BDA20);
+extern int D_L23_001AC790 __attribute__((sda));
 
-INCLUDE_ASM("asm/levels", func_L23_003BEA00);
+extern Collision D_L23_001C0A80;
+
+extern Material D_L23_00266A70[];
+
+extern int func_002761F8(void *, void *, int, void *, void *);
+
+extern int func_00282948(char *);
+
+extern void func_00282CC0(char *, char *, char *);
+
+extern void func_00282D30(void *, void *, float);
+
+extern void func_00282F20(void *, void *, float);
+
+extern void func_00282F70(void *, void *, float);
+
+extern void func_00283028(void *, void *, void *);
+
+extern void func_002AFFD8(void *, void *, int);
+
+extern void func_002FEE50(int);
+
+extern void func_L00_0038DE70(void *, void *, void *);
+
+extern void func_L00_0038E880(void *, void *, void *);
+
+extern void func_L00_0038F3D8(void *);
+
+
+void func_L23_00394630(char *obj) {
+    struct {
+        Vec velocity, normal, old, surface;
+        struct {
+            Vec vector;
+            char *moby;
+            int flags;
+            unsigned char kind, active;
+            unsigned short class_id;
+            float material;
+            int enabled;
+        } packet;
+    } frame;
+    char *ctx = *(char **)(obj + 0x68);
+    char *position = obj + 0x10;
+    char *hit;
+    Collision *collision;
+
+    frame.velocity.q = 0;
+    frame.velocity.f[2] = 0.033333335f;
+    frame.normal.q = 0;
+    frame.normal.f[2] = 1.0f;
+    qcopy(&frame.old, position);
+    func_00282CC0(position, position, ctx);
+    func_002AFFD8(position, &frame.surface, 0);
+    func_00282D30(&frame.surface, &frame.surface, 0.0003055556f);
+    func_L00_0038F3D8(obj);
+    frame.packet.moby = obj;
+    frame.packet.flags = 0x830000;
+    if (*(int *)(ctx + 0x18) < 0x122)
+        frame.packet.flags = 0x830001;
+    frame.packet.enabled = 1;
+    frame.packet.material = (D_00139574 + D_L23_00266A70)->material;
+    qcopy(&frame.packet.vector, ctx);
+    func_00282F70(&frame.packet.vector, &frame.packet.vector, 1.0f);
+    frame.packet.kind = 2;
+    frame.packet.vector.f[3] = 5627.925f;
+    frame.packet.class_id = *(unsigned short *)(obj + 0xAA);
+    frame.packet.vector.f[2] = 1.0f;
+    frame.packet.active = 1;
+    (*(int *)(ctx + 0x14))++;
+    if (func_002761F8(&frame.old, position, 0x10, obj, &frame.packet)) {
+        collision = &D_L23_001C0A80;
+        hit = collision->hit;
+        if (hit) {
+            Collision *reread;
+            char *model;
+            if ((hit == D_0018C0B0 || *(short *)(hit + 0xAA) == 0xC0) && *(int *)(ctx + 0x18) >= 0x122)
+                goto finish;
+            reread = &D_L23_001C0A80;
+            model = reread->hit;
+            if (*(int *)(model + 0x64) == D_L23_001AC790 && *(short *)(model + 0xAA) != 0x336)
+                goto finish;
+            obj[0xBC] = 1;
+            {
+                void *source = &reread->point;
+                void *dest = obj + 0x10;
+                qcopy(dest, source);
+            }
+            func_00283028(&frame.velocity, ctx, &reread->normal);
+            func_00282F20(&frame.velocity, &frame.velocity, 0.033333335f);
+            func_00282F20(&frame.normal, &reread->normal, 1.0f);
+        } else {
+            collision = &D_L23_001C0A80;
+            if (collision->count <= 0)
+                goto finish;
+            obj[0xBC] = 1;
+            qcopy(position, &collision->point);
+            func_00283028(&frame.velocity, ctx, &collision->normal);
+            func_00282F20(&frame.velocity, &frame.velocity, 0.033333335f);
+            func_00282F20(&frame.normal, &collision->normal, 1.0f);
+        }
+    } else if (func_00282948(ctx + 0x18)) {
+        obj[0xBC] = 1;
+        func_00282CC0((char *)&frame.velocity, (char *)&frame.velocity, ctx);
+    }
+finish:
+    if (*(unsigned char *)(obj + 0xBC)) {
+        func_002FEE50(*(int *)(ctx + 0x1C));
+        if (*(int *)(ctx + 0x14) < 20)
+            func_L00_0038DE70(obj, &frame.velocity, &frame.normal);
+        else
+            func_L00_0038E880(obj, &frame.velocity, &frame.normal);
+    }
+}
+
+
+
+
+/* func_L23_003BDA20 is defined in L23_003BDA20-g8.c ($gp, -ffast-math). */
+
+/* func_L23_003BEA00 is defined in L23_003BEA00-g8.c ($gp). */
 
 /* func_L23_003BF9B0 is defined in L23_003BF9B0-g8.c ($gp, and -g for its division padding). */
 
@@ -35,7 +179,7 @@ void func_L23_003BFE38(char *arg0) {
         *(unsigned short *)(arg0 + 0x96) += 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L23_003BFE90);
+/* func_L23_003BFE90 is matched in L23_003BFE90.c (built with -frac2-zero-ti-barrier). */
 
 extern void func_323FF0(char *, int, int, int);
 
@@ -71,13 +215,47 @@ void func_L23_003C0028(char *arg0) {
 
 /* func_L23_003C00D0 is matched in L23_003C00D0.c (built with -g). */
 
-INCLUDE_ASM("asm/levels", func_L23_003C01F8);
+/* func_L23_003C01F8 is matched in L23_003C01F8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L23_003C02C8);
+/* func_L23_003C02C8 is defined in L23_003C02C8-g8.c ($gp). */
 
-INCLUDE_ASM("asm/levels", func_L23_003C0A60);
+/* func_L23_003C0A60 is defined in L23_003C0A60-g8.c ($gp). */
 
-INCLUDE_ASM("asm/levels", func_L23_003C0C78);
+/* picks the nearest entry of the objects the index table names, and stores its index */
+void func_L23_003C0C78(char *arg0, int arg1) {
+    struct {
+        TI16 a;
+        float b[4];
+    } loc;
+    char *src = arg0 + 0x10;
+    char *state;
+    float best;
+    int i;
+
+    state = *(char **)(arg0 + 0x68);
+    qcopy(&loc.a, src);
+    func_00282CF0(loc.b, src, D_00189EA0);
+    best = 30000.0f;
+    func_00282F20(loc.b, loc.b, 4.0f);
+    func_00282CC0((char *)&loc.a, (char *)&loc.a, (char *)loc.b);
+    for (i = 0; i < D_L23_001B1684; i++) {
+        int *obj;
+        int k;
+
+        if (arg1 != 0 && func_419CA0(i) == 0)
+            continue;
+        obj = D_L23_001FF300[D_L23_001B36A8[i]];
+        for (k = 0; k < *obj; k++) {
+            float d = func_00282E48((char *)obj + 0x10 + k * 0x10, &loc.a);
+
+            if (d < best) {
+                best = d;
+                func_L23_003C0F48(arg0, i);
+                *(short *)(state + 0x2B6) = k;
+            }
+        }
+    }
+}
 
 extern int func_419CA0(int);
 
@@ -283,9 +461,7 @@ void func_L23_003C0F88(char *arg0, unsigned long long mask, int mode, int check)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L23_003C1420);
 
-INCLUDE_ASM("asm/levels", func_L23_003C16D8);
 
 void func_L23_003C1960(char *arg0) {
     D_L23_001B36B0 = 0;
@@ -317,13 +493,11 @@ void func_L23_003C1AB0(int arg0) {
 }
 
 
-INCLUDE_ASM("asm/levels", func_L23_003C1B58);
+/* func_L23_003C1B58 is matched in L23_003C1B58.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L23_003C1E88);
+/* func_L23_003C1E88 is defined in L23_003C1E88-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L23_003D4140);
 
-INCLUDE_ASM("asm/levels", func_L23_00404BA8);
 
 INCLUDE_ASM("asm/levels", func_L23_00415988);
 

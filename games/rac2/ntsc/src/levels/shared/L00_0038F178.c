@@ -72,7 +72,43 @@ typedef struct {
 
 extern void func_0029F338(NativeUpdate775View *object);
 
-INCLUDE_ASM("asm/levels", func_L00_0038F178);
+typedef struct {
+    char prefix[0x760];
+    float aimAxis[4];
+    char pad770[0xAC0];
+    unsigned int buttons;
+    char pad1234[0xC];
+    int resource;
+    char pad1244[0x1050];
+    int level;
+    char pad2298[0x24];
+    unsigned char busy;
+    char pad22BD[0x277];
+    int cooldown;
+} LaunchHero;
+extern LaunchHero D_00189E20;
+extern unsigned int D_00138320;
+extern void func_0029FCC0(char *, int, char *);
+/* Interleaved declarations preserve the EE ABI's independent GPR and FP argument order. */
+extern void func_002FDF40(void *, void *, void *, float, float, float, float, void *);
+extern int func_002FE5A0(void *, void *, void *, void *, void *, int, int, float);
+extern int func_00282948(int *), func_L00_002D3F30(int, int);
+extern void func_L00_002AF7D0(void), func_L00_002AF568(void);
+extern int func_002E5CF8(int, int, char *);
+extern char *func_L00_00398810(char *, char *);
+extern void ref_L00_0039D110_00(void *, void *);
+extern void func_L00_0039D340(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *);
+
+typedef struct { float value[3]; } QuerySettings;
+extern QuerySettings D_L00_001AF410;
+typedef struct { char prefix[0x1A0]; unsigned int held, pressed; } LaunchInput;
+extern LaunchInput D_00138180;
+extern char *func_002AF580(void *, void *, int *, void *, int, int, float, float, float, float, float, int, void *);
+extern char *func_L00_0038D530(char *, char *);
+extern void ref_L00_00397E60_00(void *, void *);
+extern void func_L00_00398118(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *);
+
+/* func_L00_0038F178 is defined in L00_0038F178-effects.c. */
 
 /* Family 6eb4f363e5305bed: seed body at func_L00_00387408. */
 void func_L00_0038F3D8(char *object)
@@ -88,11 +124,69 @@ void func_L00_0038F3D8(char *object)
     func_002BF728(object + 16, local, func_002A7878_1(0.05f, 0.1f) * 210000.0f, base);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038F5F0);
+typedef union { TI128 quad; float f[4]; } ParticleUpdateVector;
+typedef struct { int color[4]; } ParticleUpdateColors;
+extern ParticleUpdateColors D_L00_001AF010;
+extern float func_002A7878(float, float);
+extern void func_00282F20(void *, void *, float);
+extern int func_002AAFA0(int, int);
+extern void func_002BAE50(void *, void *, int, int, int, int, int, int);
+extern float func_00283B98(float, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_L00_003253A0(void *, void *, void *, float);
+extern float func_00283CE0(int);
+extern int func_00282978(short *);
 
-INCLUDE_ASM("asm/levels", func_L00_0038F8B8);
+void func_L00_0038F5F0(char *object)
+{
+    ParticleUpdateColors colors;
+    ParticleUpdateVector direction, random;
+    char *state = *(char **)(object + 0x68);
+    int enabled = 1;
+    if (*(int *)(state + 0x20) != 0)
+        if (func_002A77E0(2))
+            enabled = 0;
+    if ((*(unsigned char *)(object + 0xBC) & 1) && enabled) {
+        int color;
+        colors = D_L00_001AF010;
+        random.quad = 0;
+        random.f[0] = func_002A7878(-1.0f, 1.0f);
+        random.f[1] = func_002A7878(-1.0f, 1.0f);
+        random.f[2] = func_002A7878(-1.0f, 1.0f);
+        direction.quad = random.quad;
+        func_00282F20(&direction, &direction, 1.0f / 60.0f);
+        if (*(unsigned char *)(object + 0xBC) & 0xFE) {
+            color = func_002AAFA0(colors.color[func_002A77E0(4)],
+                                *(unsigned char *)(object + 0xBC) >> 1);
+            func_002BAE50(object + 0x10, &direction, color,
+                         func_002AAFA0(0x4FFF, *(unsigned char *)(object + 0xBC) >> 1),
+                         45, 50, 120, 1);
+        } else {
+            func_002BAE50(object + 0x10, &direction, colors.color[func_002A77E0(4)],
+                         0x4FFF, 45, 50, 120, 1);
+        }
+    }
+    *(float *)(object + 0xF0) = func_00283B98(*(float *)(object + 0xF0), *(float *)(state + 0x10));
+    *(float *)(object + 0xF4) = func_00283B98(*(float *)(object + 0xF4), *(float *)(state + 0x14));
+    func_00282CC0(object + 0x10, object + 0x10, state);
+    func_L00_003253A0(object, state, state, 0.0040555559f);
+    if (*(float *)(object + 0x10) < 0.0f || *(float *)(object + 0x14) < 0.0f ||
+        *(float *)(object + 0x18) < 0.0f) {
+        func_0029F338((NativeUpdate775View *)object);
+        return;
+    }
+    if (*(short *)(state + 0x18) < *(short *)(state + 0x1A) / 4) {
+        float amount = func_00283CE0(*(short *)(state + 0x18));
+        *(float *)(object + 0x2C) = *(float *)(state + 0x1C) * amount /
+                                  func_00283CE0(*(short *)(state + 0x1A) / 4);
+    }
+    if (func_00282978((short *)(state + 0x18)))
+        func_0029F338((NativeUpdate775View *)object);
+}
 
-INCLUDE_ASM("asm/levels", func_L00_0038FC48);
+/* func_L00_0038F8B8 is defined in L00_0038F8B8.c. */
+
+/* func_L00_0038FC48 is defined in L00_0038FC48-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L00_0038FE10);
 
@@ -118,7 +212,6 @@ char *func_L00_00390938(char *p)
 
 INCLUDE_ASM("asm/levels", func_L00_00390E10);
 
-INCLUDE_ASM("asm/levels", func_L00_00390F28);
 
 INCLUDE_ASM("asm/levels", func_L00_00390FF8);
 
@@ -145,13 +238,9 @@ void func_L00_00391310(char *arg0, char *arg1)
     D_L00_001B9080 = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00391398);
 
-INCLUDE_ASM("asm/levels", func_L00_003914E0);
 
-INCLUDE_ASM("asm/levels", func_L00_003918C8);
 
-INCLUDE_ASM("asm/levels", func_L00_00392530);
 
 /* Gates on the sub-object's tag byte, mirrors one status bit from that object into its own
  * halfword, clamps the wrapped value at +4 against a signed window and finishes with the
@@ -242,17 +331,64 @@ char *func_L00_00395240(char *arg)
 
 INCLUDE_ASM("asm/levels", func_L00_00395428);
 
-INCLUDE_ASM("asm/levels", func_L00_003959C0);
+/* func_L00_003959C0 is defined in L00_003959C0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00395A88);
+/* func_L00_00395A88 is defined in L00_00395A88-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00396078);
+/* func_L00_00396078 is defined in L00_00396078-g64.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00396288);
 
-INCLUDE_ASM("asm/levels", func_L00_003973E8);
+/* func_L00_003973E8 is defined in L00_003973E8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00397E60);
+/* Selects an aim target before advancing the projectile launcher state. */
+void func_L00_00397E60(char *actor)
+{
+    char *state = *(char **)(actor + 0x68);
+    char position[16];
+    QuerySettings settings;
+    char direction[16];
+    int foundCount;
+    char *target;
+    int ready;
+    func_0029FCC0(actor, 0, position);
+    settings = D_L00_001AF410;
+    target = func_002AF580(actor + 0x10, D_00189E20.aimAxis, &foundCount, 0, 0, 0,
+                          0.3926991f, 0.7853982f, 11.1f, 0.0f, 0.0f, 0, &settings);
+    func_002FDF40(direction, position, target, 1.5f, D_00189E20.level == 29 ? 11.0f : 10.0f, 0.16666667f, 0.003055555745959282f, 0);
+    ready = 1;
+    *(int *)(state + 0x24) = func_002FE5A0(position, direction, state, state + 0x10, actor, 0, 0, 0.003055555745959282f);
+    if (D_00189E20.level == 29) {
+        if (!func_00282948(&D_00189E20.cooldown)) ready = 0;
+    }
+    else D_00189E20.cooldown = 40;
+    switch (*(unsigned char *)(actor + 0x20)) {
+    case 0:
+        *(unsigned char *)(actor + 0x20) = 1;
+        *(int *)(state + 0x24) = 0;
+    case 1:
+        if ((D_00138180.held & D_00189E20.buttons) == 0 || D_00189E20.busy || D_00189E20.resource < 23 || !ready) break;
+        if (func_L00_002D3F30(-1, 1)) {
+            func_L00_002AF568();
+            *(unsigned char *)(actor + 0x20) = 2;
+            *(int *)(state + 0x20) = 20;
+            break;
+        }
+        if (D_00138180.pressed & D_00189E20.buttons) func_002E5CF8(2, 0, actor);
+        break;
+    case 2:
+        if (!func_00282948((int *)(state + 0x20))) break;
+        *(char **)(func_L00_0038D530(position, direction) + 0xB8) = actor;
+        func_L00_002AF7D0();
+        *(unsigned char *)(actor + 0x20) = 3;
+        *(int *)(state + 0x20) = 10;
+        break;
+    case 3:
+        if (func_00282948((int *)(state + 0x20))) *(unsigned char *)(actor + 0x20) = 1;
+        break;
+    }
+    ref_L00_00397E60_00(func_L00_00398118, actor);
+}
+
 
 /* When the context flag at offset 0x24 is nonzero, pass scale 1.0, the context, its vector at offset 0x10 and mode zero to the bound helper; original game role is unknown. */
 void func_L00_00398118(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
@@ -263,17 +399,54 @@ void func_L00_00398118(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00398150);
 
 INCLUDE_ASM("asm/levels", func_L00_00398810);
 
-INCLUDE_ASM("asm/levels", func_L00_0039B160);
 
-INCLUDE_ASM("asm/levels", func_L00_0039B288);
+/* func_L00_0039B288 is defined in L00_0039B288-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0039CBA0);
 
-INCLUDE_ASM("asm/levels", func_L00_0039D110);
+/* Aims and launches the actor's projectile in response to the shared input gate. */
+void func_L00_0039D110(char *actor)
+{
+    char *state = *(char **)(actor + 0x68);
+    char position[16], direction[16];
+    int ready;
+    func_0029FCC0(actor, 0, position);
+    func_002FDF40(direction, position, 0, 1.5f, D_00189E20.level == 29 ? 11.0f : 5.0f, 0.16666667f, 0.003055555745959282f, 0);
+    ready = 1;
+    *(int *)(state + 0x24) = func_002FE5A0(position, direction, state, state + 0x10, actor, 0, 0, 0.003055555745959282f);
+    if (D_00189E20.level == 29) {
+        if (!func_00282948(&D_00189E20.cooldown)) ready = 0;
+    }
+    else D_00189E20.cooldown = 40;
+    switch (*(unsigned char *)(actor + 0x20)) {
+    case 0:
+        *(unsigned char *)(actor + 0x20) = 1;
+        *(int *)(state + 0x24) = 0;
+    case 1:
+        if ((D_00138320 & D_00189E20.buttons) == 0 || D_00189E20.busy || D_00189E20.resource < 9 || !ready) break;
+        if (func_L00_002D3F30(-1, 1)) {
+            func_L00_002AF568();
+            *(unsigned char *)(actor + 0x20) = 2;
+            *(int *)(state + 0x20) = 20;
+            break;
+        }
+        func_002E5CF8(2, 0, actor);
+        break;
+    case 2:
+        if (!func_00282948((int *)(state + 0x20))) break;
+        *(char **)(func_L00_00398810(position, direction) + 0xB8) = actor;
+        func_L00_002AF7D0();
+        *(unsigned char *)(actor + 0x20) = 3;
+        *(int *)(state + 0x20) = 10;
+        break;
+    case 3:
+        if (func_00282948((int *)(state + 0x20))) *(unsigned char *)(actor + 0x20) = 1;
+        break;
+    }
+    ref_L00_0039D110_00(func_L00_0039D340, actor);
+}
 
 /* When the context flag at offset 0x24 is nonzero, pass scale 1.0, the context, its vector at offset 0x10 and mode zero to the bound helper; original game role is unknown. */
 void func_L00_0039D340(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
@@ -294,9 +467,7 @@ void func_L00_0039D378(char *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0039D598);
-
-INCLUDE_ASM("asm/levels", func_L00_0039E158);
+/* func_L00_0039E158 is defined in L00_0038F178-rail.c. */
 
 /* multiply binary32 field2C by exact1.025f then subtract3 modulo256 from byte23; call original pointer helper if updated byte below4; no original semantic field names recovered */
 void func_L00_0039E5B0(NativeUpdate775View *object)
@@ -307,16 +478,10 @@ void func_L00_0039E5B0(NativeUpdate775View *object)
         func_0029F338(object);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0039E600);
+/* func_L00_0039E600 is defined in L00_0039E600.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0039E7A8);
 
-INCLUDE_ASM("asm/levels", func_L00_0039EBA8);
+/* func_L00_003A09F8 is defined in L00_0038F178-tile.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0039F300);
+/* func_L00_003A0C00 is in L00_003A0C00.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003A09F8);
-
-INCLUDE_ASM("asm/levels", func_L00_003A0C00);
-
-INCLUDE_ASM("asm/levels", func_L00_003A0DA0);

@@ -49,7 +49,84 @@ unsigned int func_0012FB80(void *arg0, char *r, unsigned int size,
     return 0;
 }
 
-INCLUDE_ASM("asm/core", func_0012FBF0);
+extern int func_0012FBF0(void *);
+extern int r1_func_00128C90(void *);
+extern int r1_func_0012C200(void *);
+extern int r1_func_0012C058(void *, int, int);
+extern void r1_func_0012C430();
+extern char r1_D_00153B58[];
+
+/* rac1-decomp src/core/0012AC80.c: func_0012FBF0 */
+/*
+ * _getpic (libmpeg.a:mpeg.o): fetch and start decoding one picture.
+ * The image buffer (inner +0xD8) must be 64-byte aligned; if not, it is
+ * reported through _errMessage with the address and the call fails with
+ * -1. Otherwise loop: fetch headers (r1_func_00128C90) until one yields no
+ * picture (0), the picture counter reaches its target (+0x174 == +0xD4)
+ * or the fault flag (+0x848) clears, skipping the fetch when the last
+ * decode returned -1. picture_coding_type 1/2/3 call r1_func_0012C058 with
+ * that type's running index (+0xA0/+0xA4/+0xA8, I resetting all three)
+ * and slot (+0x94/+0x98/+0x9C) and bump the index; type 4 shares the B
+ * arm (retail's jump table maps 3 and 4 to one handler); 0 ends the
+ * stream through r1_func_0012C200 and sets inner->0; anything above 4 does
+ * nothing. Returns 1 once +0x820 or inner->0 is set.
+ *
+ * pictureType's initializer and lastResult declared first put both in
+ * retail's saved registers and hoist lastResult's 0 into the prologue.
+ */
+int func_0012FBF0(void *arg0) {
+    int pictureType = 1;
+    int lastResult = 0;
+    char *w = (char *)arg0;
+    char *inner = *(char **)(w + 0x40);
+
+    *(int *)inner = 0;
+    if ((*(int *)(inner + 0xD8) & 0x3F) != 0) {
+        r1_func_0012C430(inner, r1_D_00153B58, *(int *)(inner + 0xD8));
+        return -1;
+    }
+    *(int *)(inner + 0x820) = 0;
+
+    do {
+        if (lastResult != -1) {
+            for (;;) {
+                pictureType = r1_func_00128C90(inner);
+                if (pictureType == 0) break;
+                if (*(int *)(inner + 0x174) == *(int *)(inner + 0xD4)) break;
+                if (*(int *)(inner + 0x848) == 0) break;
+            }
+        }
+
+        switch (pictureType) {
+        case 0:
+            r1_func_0012C200(w);
+            *(int *)inner = 1;
+            break;
+        case 1:
+            *(int *)(inner + 0xA8) = 0;
+            *(int *)(inner + 0xA4) = 0;
+            *(int *)(inner + 0xA0) = 0;
+            lastResult = r1_func_0012C058(w, 0, *(int *)(inner + 0x94));
+            *(int *)(inner + 0xA0) = *(int *)(inner + 0xA0) + 1;
+            break;
+        case 2:
+            lastResult = r1_func_0012C058(w, *(int *)(inner + 0xA4), *(int *)(inner + 0x98));
+            *(int *)(inner + 0xA4) = *(int *)(inner + 0xA4) + 1;
+            break;
+        case 3:
+        case 4:
+            lastResult = r1_func_0012C058(w, *(int *)(inner + 0xA8), *(int *)(inner + 0x9C));
+            *(int *)(inner + 0xA8) = *(int *)(inner + 0xA8) + 1;
+            break;
+        }
+
+        if (*(int *)(inner + 0x820) != 0) {
+            return 1;
+        }
+    } while (*(int *)inner == 0);
+
+    return 1;
+}
 
 /* rac1-decomp src/core/0012AC80.c: func_0012BF40 */
 /* _decodeOrSkipFrame (libmpeg): sibling of func_0012FEC0

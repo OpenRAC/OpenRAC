@@ -32,14 +32,27 @@
       "target": "The boot executable SCUS_972.68 and its 27 level programs: every program rebuilds byte for byte from splat's assembly, with the C in src/ linked in place of its functions (one definition per function, at every place it has).",
       "source": {
         "name": "rac2-decomp",
-        "repo": "https://github.com/OpenRAC/rac2-gc-decomp",
+        "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
         "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
-        "exclude": [],
-        "commit": "8bc9d785bfec96fbc41c608ce625427912813ca5",
-        "date": "2026-10-20",
-        "imported": "2026-10-20"
+        "exclude": [
+          "toolchain"
+        ],
+        "mirror": true,
+        "rewrites": [
+          [
+            "Lombyte (MIT)",
+            "Lombyte (GPL-3.0)"
+          ],
+          [
+            "docs/workflow/BACKFILL.md",
+            "docs/port/BACKFILL.md"
+          ]
+        ],
+        "commit": "9097768da54e58d26ae7119dcfbc3135ba11004a",
+        "date": "2026-11-01",
+        "imported": "2026-11-01"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",

@@ -27,9 +27,20 @@ int func_001315E0(void) {
     return r1_D_001331D8[4] == 0x54;
 }
 
-INCLUDE_ASM("asm/core", func_00131620);
+extern unsigned char D_00138152 NOT_SDA;
 
-INCLUDE_ASM("asm/core", func_00131668);
+extern void func_0011ACD0(unsigned int *);
+
+int func_00131620(void) {
+    unsigned int local;
+
+    if (func_001315E0() != 0) {
+        return D_00138152;
+    }
+    func_0011ACD0(&local);
+    return (local >> 1) & 3;
+}
+
 
 /* rac1-decomp src/core/0012CC90.c: func_0012D3F0 */
 /* `r` assigned in both arms and returned once: a direct `return
@@ -53,7 +64,6 @@ int func_00131670(void) {
     return r;
 }
 
-INCLUDE_ASM("asm/core", func_001316C0);
 
 /* rac1-decomp src/core/0012CC90.c: func_0012D448 */
 /* One return, and r1_func_00118DC0 returns int. */

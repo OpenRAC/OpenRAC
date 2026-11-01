@@ -69,7 +69,6 @@ int *func_0011F6C0(int *p, int *end, int val) {
 
 ASM_FUNC("asm/core", func_0011F700);
 
-INCLUDE_ASM("asm/core", func_0011F710);
 
 /* rac1-decomp src/core/0011D960.c: func_0011DA98 */
 /* InitSystemCallTableAddress (libkernl.a:initsys.o): patches two kernel

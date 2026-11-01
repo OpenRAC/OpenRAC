@@ -1,12 +1,5 @@
-#include "include_asm.h"
+#include "common.h"
 
-typedef int s32;
-typedef unsigned int u32;
-typedef unsigned short u16;
-typedef unsigned char u8;
-typedef short s16;
-typedef char s8;
-typedef float f32;
 
 extern s32 D_L17_001FE880[];
 
@@ -19,7 +12,7 @@ extern f32 func_2EF0B0(s32, s32);
 
 extern s32 D_L17_001B2748 __attribute__((sda));
 extern s32 func_2F0108(u32, u32, f32);
-extern f32 func_2EF4E0(f32);
+extern f32 func_00283198(f32);
 
 extern s32 D_L17_001B2C1C __attribute__((sda));
 
@@ -36,22 +29,168 @@ void func_L17_003C8248(s32 a0)
     if (ang > 3.1415927f)
         ang = ang - 6.2831855f;
     *(s32 *)(a0 + 0x78) = func_2F0108(0x80464646u, 0x80828282u,
-                                      (func_2EF4E0(ang) + 1.0f) * 0.5f);
+                                      (func_00283198(ang) + 1.0f) * 0.5f);
 }
 
-INCLUDE_ASM("asm/levels", func_L17_003CC798);
+typedef int TI128 __attribute__((mode(TI)));
 
-INCLUDE_ASM("asm/levels", func_L17_003CC850);
+/* A 16-byte vector: the engine's helpers take and return these, and the copies between
+   them are quadword moves. */
+typedef union {
+    TI128 q;
+    struct {
+        f32 x;
+        f32 y;
+        f32 z;
+        f32 w;
+    } f;
+} Vec4;
 
-INCLUDE_ASM("asm/levels", func_L17_003D0620);
+extern void func_00283698(void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_002830C0(void *, void *, void *);
+extern f32 func_00282C48(f32);
 
-INCLUDE_ASM("asm/levels", func_L17_003E3148);
+/* Turns the vector at a1 into the object's frame, then into the world with the matrix at
+   a0 + 0xC0, and reports whether both of the first two coordinates stay below the two
+   bounds. */
+s32 func_L17_003CC798(u8 *a0, TI128 *a1, f32 f1, f32 f2) {
+    Vec4 v[1];
+    Vec4 mat[4];
+    Vec4 w[1];
+    Vec4 out[1];
 
-INCLUDE_ASM("asm/levels", func_L17_003E31E8);
+    v[0].q = *a1;
+    func_00283698(mat, a0 + 0xC0);
+    func_00282CF0(&out[0].q, &v[0].q, a0 + 0x10);
+    w[0].q = out[0].q;
+    func_002830C0(&w[0].q, &w[0].q, mat);
+    if (func_00282C48(w[0].f.x) < f2) {
+        if (func_00282C48(w[0].f.y) < f1)
+            return 1;
+    }
+    return 0;
+}
 
-INCLUDE_ASM("asm/levels", func_L17_003E41A8);
+typedef struct {
+    u8 pad00[0x80];
+    f32 x;
+    f32 y;
+    f32 z;
+    u8 pad8C[0x340 - 0x8C];
+    s32 w340;
+} L17Player;
 
-INCLUDE_ASM("asm/levels", func_L17_003E4560);
+extern L17Player D_00189E20;
+extern f32 D_L17_001B04BC SDATA(D_L17_001B04BC);
+extern f32 func_00283248(f32, f32);
+extern f32 func_00283C80(f32, f32);
+extern f32 func_00283180(f32);
+extern f32 func_002AA2E8(void *, f32, f32);
+extern void func_00282CD8(void *, void *, void *);
+
+void func_L17_003CC850(u8 *a0)
+{
+    f32 *st = *(f32 **)(a0 + 0x68);
+    TI128 here __attribute__((aligned(16)));
+    f32 dir[4] __attribute__((aligned(16)));
+
+    st[2] = D_L17_001B04BC;
+    switch (a0[0x20]) {
+    case 0:
+        *(f32 *)(a0 + 0x18) = *(f32 *)(a0 + 0x18) - 0.05f;
+        a0[0x20] = 1;
+        *(u16 *)(a0 + 0x34) |= 0x41;
+        break;
+    case 1:
+        break;
+    case 2:
+        if (!(D_00189E20.z < *(f32 *)(a0 + 0x18))) {
+            break;
+        }
+        if (!(func_00283C80(*(f32 *)(a0 + 0xF8),
+                          func_00283248(D_00189E20.x - *(f32 *)(a0 + 0x10),
+                                      D_00189E20.y - *(f32 *)(a0 + 0x14))) < 1.5707965f)) {
+            break;
+        }
+        if (D_00189E20.w340 != 0) {
+            break;
+        }
+        a0[0x20] = 3;
+        st[3] = 0;
+        /* fall through */
+    case 3:
+        if (D_00189E20.w340 != 0) {
+            a0[0x20] = 1;
+            break;
+        }
+        here = *(TI128 *)&D_00189E20.x;
+        if (func_L17_003CC798(a0, &here, 60.0f, 2.5f)) {
+            func_002AA2E8(st + 3, st[2] * (1.0f / 60.0f), st[2] * 0.0011111112544313073f);
+        } else {
+            func_002AA2E8(st + 3, 0.0f, st[2] * 0.0005555556272156537f);
+        }
+        dir[0] = func_00283180(*(f32 *)(a0 + 0xF8)) * st[3];
+        dir[1] = func_00283198(*(f32 *)(a0 + 0xF8)) * st[3];
+        dir[2] = 0;
+        func_00282CD8(&here, (u8 *)&D_00189E20 + 0x100, dir);
+        break;
+    }
+    if (a0[0x20] != 3) {
+        if (*(f32 *)(a0 + 0x18) <= D_00189E20.z) {
+            *(TI128 *)dir = *(TI128 *)&D_00189E20.x;
+            if (func_L17_003CC798(a0, (TI128 *)dir, st[0], st[1])) {
+                a0[0x20] = 2;
+                return;
+            }
+        }
+        if (a0[0x20] != 3) {
+            a0[0x20] = 1;
+        }
+    }
+}
+
+
+
+extern u16 *D_L17_001FB720[];
+
+/* `sda` on an array of unknown size: cc1 emits the one-instruction load, which the assembler
+   expands absolute (`lui $r` / `lw $r,%lo($r)`), as retail has it in this -G0 unit; the limit
+   word is loaded in a branch delay slot, so there it becomes the `$gp` form. The pool base is
+   the word D_L17_001B2C1C declared above as an int, reached here as a pointer under a second
+   name. */
+extern u8 *D_L17_001B2C1C_base[] __asm__("D_L17_001B2C1C") __attribute__((sda));
+extern s32 D_L17_001B2C38[] __attribute__((sda));
+
+/* The object's state record up to the group word and the word stored beside it. */
+typedef struct {
+    u8 pad[0x43C];
+    s32 group;
+    s32 mode;
+} L17GroupState;
+
+/* Walks the id list of the state's group and sets the state's mode word to 0x57 for every id
+   that has an entity, stopping at the first that has none. */
+void func_L17_003E3148(u8 *a0)
+{
+    L17GroupState *state = *(L17GroupState **)(a0 + 0x68);
+    u16 *p;
+    u8 *e;
+
+    for (p = D_L17_001FB720[state->group];
+         (state->group & 0xFF) != 0xFF && state->group <= D_L17_001B2C38[0] && p != 0 &&
+         ((p != 0 && (s16)p[-1] >= 0) || p == D_L17_001FB720[state->group]);
+         p++) {
+        e = D_L17_001B2C1C_base[0] + ((*p & 0x7FFF) << 8);
+        if (e == 0)
+            break;
+        state->mode = 0x57;
+    }
+}
+
+
+
+
 
 void func_L17_003E47E8(s32 a0) {
     s32 s1 = *(s32 *)(a0 + 0x68);
@@ -65,12 +204,54 @@ void func_L17_003E47E8(s32 a0) {
     func_327E68(a0, s1 + 0x350, 1, 1, 2.5f);
 }
 
-/* func_L17_003E4860 is a near miss: nonmatching/levels/func_L17_003E4860.c */
-INCLUDE_ASM("asm/levels", func_L17_003E4860);
 
-INCLUDE_ASM("asm/levels", func_L17_003E48E0);
 
-INCLUDE_ASM("asm/levels", func_L17_003E6DE8);
+
+/* Claims the shared slot at state+0x720 for this object (index into the object array):
+   taken when free or when its holder is in state 0xFE/0xFD, then in mode 1 handed to the
+   nearest candidate; returns 1 once this object holds it in mode 2. func_L17_003E6F20
+   releases it. */
+extern float func_00282E48(void *, void *);
+
+int func_L17_003E6DE8(char *object)
+{
+    char *base = (char *)D_L17_001B2C1C;
+    int index = (object - base) >> 8;
+    char *state = *(char **)(object + 0x68);
+    int other;
+    char *target;
+    float *nearest;
+    float *best;
+    float distance;
+
+    if (*(u8 *)(object + 0x21) == 0xFF)
+        return 1;
+    other = **(int **)(state + 0x720);
+    if (other == -1 || (target = base + (other << 8)) == 0
+        || *(u8 *)(target + 0x20) == 0xFE || *(u8 *)(target + 0x20) == 0xFD) {
+        **(int **)(state + 0x720) = index;
+        **(int **)(state + 0x748) = 1;
+        nearest = *(float **)(state + 0x74C);
+        *nearest = func_00282E48(object + 0x10, state + 0x240);
+        return 0;
+    }
+    if (**(int **)(state + 0x748) == 1) {
+        if (index == other) {
+            **(int **)(state + 0x748) = 2;
+            return 1;
+        }
+        distance = func_00282E48(object + 0x10, state + 0x240);
+        best = *(float **)(state + 0x74C);
+        if (distance < *best) {
+            **(int **)(state + 0x720) = index;
+            *best = distance;
+            return 0;
+        }
+    }
+    if (**(int **)(state + 0x748) == 2 && **(int **)(state + 0x720) == index)
+        return 1;
+    return 0;
+}
 
 void func_L17_003E6F20(s32 a0)
 {
@@ -109,30 +290,25 @@ s32 func_L17_003E7010(s32 a0) {
     return D_L17_001C0018 == *(s32 *)(s0 + 0x250);
 }
 
-INCLUDE_ASM("asm/levels", func_L17_003E7068);
-
 INCLUDE_ASM("asm/levels", func_L17_003E8A58);
 
 INCLUDE_ASM("asm/levels", func_L17_00417DB0);
 
-INCLUDE_ASM("asm/levels", func_L17_00418A68);
 
-INCLUDE_ASM("asm/levels", func_L17_0041A4C0);
 
-INCLUDE_ASM("asm/levels", func_L17_0041E208);
+/* func_L17_0041E208 is defined in L17_0041E208-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L17_0041EAA8);
+/* func_L17_0041EAA8 is defined in L17_003C7C70-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L17_0041ED58);
 
-INCLUDE_ASM("asm/levels", func_L17_0041F180);
+/* func_L17_0041F180 is defined in L17_collision.c. */
 
 INCLUDE_ASM("asm/levels", func_L17_0041F478);
 
-INCLUDE_ASM("asm/levels", func_L17_0041F8F0);
 
-INCLUDE_ASM("asm/levels", func_L17_00420758);
+/* func_L17_00420758 is defined in L17_collision.c. */
 
-INCLUDE_ASM("asm/levels", func_L17_00420A50);
+/* func_L17_00420A50 is defined in L17_00420A50-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L17_00420E08);
+/* func_L17_00420E08 is defined in L17_003C7C70-g8.c. */

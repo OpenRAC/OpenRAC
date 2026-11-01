@@ -1,4 +1,4 @@
-#include "include_asm.h"
+#include "common.h"
 
 extern char D_00189E20[];
 
@@ -26,4 +26,31 @@ int func_L00_002D64B8(float *a0, float *a1, float *a2)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D6588);
+extern void func_0031DB00(void *, void *, float, float, float, float);
+extern void func_L00_002EE3D0(void *, void *, float);
+extern void func_L00_002EE108(void *, void *, void *);
+extern void func_L00_002EE220(void *, void *, void *);
+extern char D_L00_001B8DC0[];
+extern char D_0018B2F0[];
+void func_L00_002D6588(void) {
+    char *player = D_00189E20;
+    char *camera;
+    float target;
+    if (*(float *)(player + 0x151C) == 0.0f) *(float *)(player + 0x151C) = 1.5f;
+    target = 1.5f;
+    if (*(int *)(player + 0x2294) == 4) target = 0.75f;
+    func_0031DB00(player + 0x151C, player + 0x1520, target, 0.004444444552063942f, 0.004444444552063942f, 0.5333333611488342f);
+    func_L00_002EE3D0(player + 0x14D0, player + 0x20, *(float *)(player + 0x151C));
+    func_L00_002EE108(player + 0x14D0, player + 0x14D0, player + 0x80);
+    if (*(int *)(player + 0x229C) == 25 || *(int *)(player + 0x2294) == 102) {
+        float height = *(float *)(player + 0x334) + 0.75f;
+        if (*(float *)(player + 0x14D8) < height) *(float *)(player + 0x14D8) = height;
+    }
+    camera = D_L00_001B8DC0;
+    qcopy(camera, D_0018B2F0);
+    qcopy(camera + 0x230, D_0018B2F0 + 0x10);
+    func_L00_002EE220(camera + 0x240, camera + 0x230, D_0018B2F0 - 0x14B0);
+    func_L00_002EE3D0(camera + 0x240, camera + 0x240, 1.0f);
+    func_L00_002EE220(camera + 0x250, camera + 0x240, camera + 0x230);
+    func_L00_002EE3D0(camera + 0x250, camera + 0x250, 1.0f);
+}

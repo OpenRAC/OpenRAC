@@ -1,0 +1,67 @@
+#include "common.h"
+
+/* The four-vector template uses GP addressing; the camera position is absolute. */
+typedef struct {
+    float x, y, z, w;
+} Vec;
+typedef struct {
+    char pad[0x30];
+    int mode, count;
+    char pad38[0x18];
+    char *dest;
+    char pad54[0x138];
+    int values[3];
+    char *object;
+} Context;
+
+extern int D_001A79F0[] __attribute__((sda));
+extern Context D_L09_001BD700;
+extern char D_L09_00281210[];
+extern Vec D_L09_001B9A00 __attribute__((nosda));
+extern float D_L09_001A93E0 __attribute__((sda));
+extern Vec D_L09_001A93F0[4] __attribute__((sda));
+extern void func_002833F0(void *, void *);
+extern void func_00283098(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+
+void func_L09_002F89F8(void) {
+    char matrix[0x30] __attribute__((aligned(16)));
+    Vec rotation, temp;
+    int minimum, index, i;
+    int maximum = 9999;
+    char *object;
+    if (D_001A79F0[0] != 9)
+        return;
+    minimum = -1;
+    index = 0;
+    if (D_L09_001BD700.mode == 3) {
+        minimum = 1;
+        index = 2;
+    }
+    object = D_L09_001BD700.object;
+    if (minimum != -1) {
+        if (D_L09_001BD700.count < minimum)
+            goto fail;
+        if (maximum < D_L09_001BD700.count)
+            goto fail;
+        {
+            D_L09_001BD700.dest = D_L09_00281210;
+            qzero_nc(&rotation);
+            rotation.z = D_L09_001A93E0;
+            func_002833F0(matrix, &rotation);
+            for (i = 0; i < 4; i++) {
+                func_00283098(D_L09_001BD700.dest + 0x20 + i * 16, &D_L09_001A93F0[i], matrix);
+                func_00282CC0(D_L09_001BD700.dest + 0x20 + i * 16, D_L09_001BD700.dest + 0x20 + i * 16, object + 0x10);
+                func_00282CF0(&temp, &D_L09_001B9A00, D_L09_001BD700.dest + 0x20 + i * 16);
+                func_00282F20(&temp, &temp, 0.05f);
+                func_00282CC0(D_L09_001BD700.dest + 0x20 + i * 16, D_L09_001BD700.dest + 0x20 + i * 16, &temp);
+            }
+            *(int *)(D_L09_001BD700.dest + 0x68) = D_L09_001BD700.values[index];
+        }
+        return;
+fail:
+        D_L09_001BD700.dest = 0;
+    }
+}

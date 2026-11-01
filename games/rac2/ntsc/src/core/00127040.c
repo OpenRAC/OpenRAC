@@ -99,9 +99,21 @@ int func_00127040(void *arg0) {
     return 0;
 }
 
-INCLUDE_ASM("asm/core", func_00127218);
+extern int func_00126ED8(int);
 
-INCLUDE_ASM("asm/core", func_00127288);
+extern void func_00126E60(void *);
+
+void func_00127218(int *p, int arg1) {
+    int r = func_00126ED8(arg1);
+
+    func_00126E60(p);
+    if ((unsigned int)p[12] != 0xFFFFFFFFU) {
+        p[12] = r;
+    }
+    p[8] = 0;
+    p[0] = (p[0] & ~0xC) | 0x105;
+}
+
 
 /* rac1-decomp src/core/00123168.c: func_00123650 */
 /*
@@ -133,9 +145,73 @@ int func_001272A8(void *arg0) {
     return old;
 }
 
-INCLUDE_ASM("asm/core", func_00127340);
+typedef struct {
+    char pad[0x24];
+    void *serve;
+} SifRpcClientData;
 
-INCLUDE_ASM("asm/core", func_00127500);
+extern int r1_func_00118C70(void *);
+extern int r1_func_00123F30(int, int *, int *);
+extern int r1_func_00118CB0(int);
+extern int r1_func_0011AE20(int);
+extern int r1_func_0011B2F8(void *, int, int);
+extern void r1_func_0011A6C8(char *);
+extern char r1_D_00159B80[];
+extern char r1_D_00153550[];
+extern char r1_D_00153568[];
+extern char r1_D_00153590[];
+
+/* rac1-decomp src/core/001236F0.c: func_001236F0 */
+/* sceMcInit (libmc): one-shot init. Creates the module semaphore if not yet
+   valid, resets any pending command (sceMcSync), takes the semaphore, brings up
+   the SIF RPC layer and loops binding the IOP memory-card RPC server (0x80000400)
+   until the client data's serve pointer is set, busy-waiting between binds; a
+   bind failure prints and hangs forever. Once bound, issues RPC 0xFE (a
+   handshake/version query) and validates the two version words in the reply,
+   printing and clearing serve on any failure. */
+int func_00127340(void) {
+    int buf[8];
+    int *rbuf;
+    int i;
+    int r;
+
+    if (r1_D_00132EAC < 0) {
+        buf[5] = 0;
+        buf[2] = 1;
+        buf[1] = 1;
+        r1_D_00132EAC = r1_func_00118C70(buf);
+    }
+    r1_func_00123F30(0, 0, 0);
+    r1_func_00118CB0(r1_D_00132EAC);
+    r1_func_0011AE20(0);
+    for (;;) {
+        if (r1_func_0011B2F8(r1_D_00159B00, 0x80000400, 0) < 0) {
+            r1_func_0011A6C8(r1_D_00153550);
+            for (;;) ;
+        }
+        if (((SifRpcClientData *)r1_D_00159B00)->serve != 0) break;
+        for (i = 0x100000; i != 0; i--) ;
+    }
+    r = r1_func_0011B4C8(r1_D_00159B00, 0xFE, 0, r1_D_00159B80, 0x30, r1_D_0015B0C0, 0xC, 0, 0);
+    r1_func_00118C90(r1_D_00132EAC);
+    if (r < 0) {
+        ((SifRpcClientData *)r1_D_00159B00)->serve = 0;
+        return r - 100;
+    }
+    rbuf = (int *)r1_D_0015B0C0;
+    if (rbuf[1] < 0x20A) {
+        r1_func_0011A6C8(r1_D_00153568);
+        ((SifRpcClientData *)r1_D_00159B00)->serve = 0;
+        return -0x78;
+    }
+    if (rbuf[2] < 0x20E) {
+        r1_func_0011A6C8(r1_D_00153590);
+        ((SifRpcClientData *)r1_D_00159B00)->serve = 0;
+        return -0x79;
+    }
+    return *(int *)r1_D_0015B0C0;
+}
+
 
 /* rac1-decomp src/core/001236F0.c: func_001238B0 */
 /* sceMcOpen(port, slot, fname, mode) (libmc): same RPC-wrapper shape as

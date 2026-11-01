@@ -57,7 +57,6 @@ char *func_0033E480(char *object) {
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033E4B8);
 
 
 
@@ -95,9 +94,3 @@ char *func_0033E640(char *object)
     func_L00_0042C290(object + 1400);
     return object;
 }
-
-INCLUDE_ASM("asm/game", func_0033E6C8);
-
-INCLUDE_ASM("asm/game", func_0033E6D0);
-
-INCLUDE_ASM("asm/game", func_0033EA60);

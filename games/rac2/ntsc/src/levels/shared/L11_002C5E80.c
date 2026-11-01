@@ -1,4 +1,4 @@
-#include "include_asm.h"
+#include "common.h"
 
 typedef struct {
     float b0[4];
@@ -58,24 +58,55 @@ extern void func_002829D8(void *a);
 
 extern unsigned char D_L11_00189EA0[];
 
-INCLUDE_ASM("asm/levels", func_L11_002C5E80);
+/* func_L11_002C5E80 lives in L11_002C5E80-nearby-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_002CDE10);
+/* func_L11_002CDE10 lives in L11_002CDE10-motion.c. */
 
 void func_L11_003404E0(char *a0)
 {
     func_L02_00333480(a0, a0 + 0x10, a0 + 0xC0);
 }
 
-INCLUDE_ASM("asm/levels", func_L11_00397C08);
+/* func_L11_00397C08 lives in L11_00397C08-helpers.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_00397E68);
+/* func_L11_00397E68 lives in L11_00397E68-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_003CF250);
+/* func_L11_003CF250 lives in L11_003CF250-trigger.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_003F4198);
+/* func_L11_003F4198 lives in L11_003F4198-helpers.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_00414660);
+/* Component-wise cubic interpolation, with exact endpoint vector copies. */
+void func_L11_00414660(float *out, float *b, float *c, float *a, float *d, float t)
+{
+    float t2, t3, p, q, r;
+
+    if (t == 0.0f) {
+        qcopy(out, b);
+        return;
+    }
+    if (t == 1.0f) {
+        qcopy(out, c);
+        return;
+    }
+    t2 = t * t;
+    t3 = t2 * t;
+
+    p = (d[0] - c[0]) - (a[0] - b[0]);
+    q = (a[0] - b[0]) - p;
+    r = c[0] - a[0];
+    out[0] = p * t3 + q * t2 + r * t + b[0];
+
+    p = (d[1] - c[1]) - (a[1] - b[1]);
+    q = (a[1] - b[1]) - p;
+    r = c[1] - a[1];
+    out[1] = p * t3 + q * t2 + r * t + b[1];
+
+    p = (d[2] - c[2]) - (a[2] - b[2]);
+    q = (a[2] - b[2]) - p;
+    r = c[2] - a[2];
+    out[2] = p * t3 + q * t2 + r * t + b[2];
+    out[3] = 0.0f;
+}
 
 /* Scales four consecutive 16-byte XYZ vectors in place by one scalar through a vector helper. */
 void func_L11_0041E460(char *p, float scale)
@@ -93,7 +124,7 @@ void func_L11_00439D78(float a, float b, float c, float d)
     func_00283CF0((c + func_00282C10(c * c + v)) / d);
 }
 
-INCLUDE_ASM("asm/levels", func_L11_0044FFA0);
+/* func_L11_0044FFA0 lives in L11_0044FFA0-g8.c. */
 
 /* Draws the record's two markers, the scaled radius and the two colours, for each of the
    two record kinds the byte at 0x20 selects. */
@@ -146,7 +177,7 @@ void func_L11_004506C0(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L11_004507B0);
+/* func_L11_004507B0 lives in L11_004507B0-g8.c. */
 
 /* resets a state record: zero words, plus/minus one float flags and two 64-bit fields in the retail store order */
 void func_L11_00458D00(char *p)
@@ -218,7 +249,29 @@ void func_L11_00458DF0(char *a0, void *a1, void *a2, int a3, int t0, float f12, 
     func_00280B90(&local, &local.m00, 0);
 }
 
-INCLUDE_ASM("asm/levels", func_L11_0045FEF8);
+/* Emits two effects at the object's position with independently sampled
+ * intensities and the two colour/scale presets. */
+extern int func_002A7820(int, int);
+
+extern float func_002A7940(void);
+
+extern void func_L11_004600A0(void *, int, int, int, int, float, float, float);
+
+void func_L11_0045FEF8(void *a0)
+{
+  float new_var;
+  char *p = ((char *) a0) + 0x10;
+  int v = func_002A7820(0x2F, 0x3F);
+  int new_var2;
+  float f;
+  func_L11_004600A0(p, (float) 0x103080, v, 0xB, 2, 2.0f, func_002A7940(), 1.0f);
+  new_var = 1.0f;
+  new_var2 = func_002A7820(0x1F, 0x3F);
+  v = new_var2;
+  f = func_002A7940();
+  func_L11_004600A0(p, 0x606060, v, 0xB, 2, new_var, f, new_var);
+}
+
 
 /* resets a state record: zero words, plus/minus one float flags and two 64-bit fields in the retail store order */
 void func_L11_0045FFB0(char *p)
@@ -251,15 +304,15 @@ void func_L11_0045FFB0(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L11_00460258);
+/* func_L11_00460258 is defined in L11_00460258-g32.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_0046B9F0);
+/* func_L11_0046B9F0 lives in L11_0046B9F0-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L11_0046BC08);
 
-INCLUDE_ASM("asm/levels", func_L11_0046BD18);
+/* func_L11_0046BD18 is defined in L11_0046BD18-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_0046C1E0);
+/* func_L11_0046C1E0 lives in L11_002C5E80-trail-g8.c. */
 
 /* resets a state record: zero words, plus/minus one float flags and two 64-bit fields in the retail store order */
 void func_L11_00472008(char *p)

@@ -156,9 +156,7 @@ int func_00127CC0(int port, int slot, int *type, int *free, int *format) {
     return r;
 }
 
-INCLUDE_ASM("asm/core", func_00127E40);
 
-INCLUDE_ASM("asm/core", func_00127F90);
 
 /* rac1-decomp src/core/001236F0.c: func_00124410 */
 /* sceMcDelete(port, slot, fname): rejects a null/empty fname (SignalSema,

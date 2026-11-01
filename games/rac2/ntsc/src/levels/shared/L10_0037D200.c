@@ -1,12 +1,23 @@
 #include "include_asm.h"
 
-typedef unsigned char u8;
+#include "common.h"
+
+extern void *func_0029EFD0(s32);
+extern short D_L10_001B2DB8[4];
+extern short D_L10_001B2DC0[4];
+extern char D_L10_00234600[];
+extern int func_00282978(short *);
+extern f32 func_002A7878(f32, f32);
+extern f32 func_002A78D8(f32, f32);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, f32);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_L00_0031AA28(void *, void *, void *, void *, void *, f32);
 
 typedef struct { int status; u8 reserved[36]; } GornStatusRecord156;
 
 extern GornStatusRecord156 D_L10_002A3C70[];
 
-INCLUDE_ASM("asm/levels", func_L10_0037D200);
 
 /* Report whether any configured status in the selected eleven records is nonzero */
 int func_L10_0037F510(void)
@@ -26,19 +37,82 @@ int func_L10_0037F510(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L10_0039D5E0);
+/* Creates a strip-effect object with its supplied vectors and rendering parameters. */
+void *func_L10_0039D5E0(void *position, void *direction, s32 duration, s32 kind,
+                       s32 first, s32 second, float jitter, s32 third, s32 texture,
+                       float width, float height, float fade) {
+    u8 *object = func_0029EFD0(0x133E);
+    char *state;
+    int i;
+    if (object) {
+        state = *(char **)(object + 0x68);
+        object[0x30] = 255;
+        *(u16 *)(object + 0x32) = 255;
+        object[0x31] = 1;
+        object[0x20] = 0;
+        *(s32 *)(state + 0x2C) = kind;
+        *(s32 *)(state + 0x10) = duration;
+        *(s32 *)(state + 0x14) = first;
+        *(s32 *)(state + 0x18) = second;
+        *(s32 *)(state + 0x1C) = third;
+        *(float *)(state + 0x20) = width;
+        *(float *)(state + 0x24) = height;
+        *(float *)(state + 0x28) = fade;
+        *(s32 *)(state + 0x30) = texture;
+        *(float *)(state + 0x34) = jitter;
+        qcopy(state, direction);
+        qcopy((object + 0x10), position);
+        for (i = 2; i >= 0; i--) D_L10_001B2DB8[i] = -1;
+    }
+    return object;
+}
 
-extern void func_L10_0039D760(void);
+extern void func_L10_0039D760(void *);
 extern void func_L00_002E6EF8(void *, void *);
 extern u8 D_L10_0039D9C0[];
 
 /* Refreshes and then hands the constructor at 0x0039D9C0 to the callback list. */
 void func_L10_0039D728(void *a0) {
-    func_L10_0039D760();
+    func_L10_0039D760(a0);
     func_L00_002E6EF8(D_L10_0039D9C0, a0);
 }
 
-INCLUDE_ASM("asm/levels", func_L10_0039D760);
+/* Rebuilds each expired lightning strip and jitters its interior control points. */
+void func_L10_0039D760(void *object) {
+    f32 point[4];
+    f32 direction[4];
+    f32 result[4];
+    char *self = object;
+    char *state = *(char **)(self + 0x68);
+    f32 t;
+    int strip, i, j;
+    for (strip = 0; strip < 4; strip++) {
+        if (func_00282978(&D_L10_001B2DB8[strip])) {
+            D_L10_001B2DB8[strip] = 2;
+            D_L10_001B2DC0[strip] = 0;
+            qcopy(point, state);
+            point[0] += func_002A7878(0.0f, 0.0f);
+            point[1] += func_002A7878(0.0f, 0.0f);
+            point[2] += func_002A7878(0.0f, 0.0f);
+            func_00282CF0(direction, point, self + 0x10);
+            func_00282F20(direction, direction, 0.5f);
+            func_00282CC0(direction, point, direction);
+            for (i = 0; i < 8; i++) {
+                t = (f32)i * 0.1f;
+                if (i == 7) t = 1.0f;
+                func_L00_0031AA28(result, self + 0x10, point, direction, direction, t);
+                qcopy(((f32 (*)[8][4])D_L10_00234600)[strip][i], result);
+            }
+            for (j = 1; j < 7; j++) {
+                qcopy(result, ((f32 (*)[8][4])D_L10_00234600)[0][j]);
+                result[0] += func_002A78D8(0.0f, *(f32 *)(state + 0x34));
+                result[1] += func_002A78D8(0.0f, *(f32 *)(state + 0x34));
+                result[2] += func_002A78D8(0.0f, *(f32 *)(state + 0x34));
+                qcopy(((f32 (*)[8][4])D_L10_00234600)[0][j], result);
+            }
+        }
+    }
+}
 
 extern int D_L10_001AEEC0 __attribute__((sda));
 
@@ -69,9 +143,8 @@ void func_L10_0039D9C0(void *a0) {
 
 INCLUDE_ASM("asm/levels", func_L10_0039DA48);
 
-INCLUDE_ASM("asm/levels", func_L10_00418D88);
 
-INCLUDE_ASM("asm/levels", func_L10_004190F0);
+/* func_L10_004190F0 lives in L10_004190F0.c. */
 
 extern int func_002ED688(void *);
 
@@ -111,8 +184,6 @@ void func_L10_004191E8(void *a0)
     *(int *)((char *)s1 + 0x268) = 0x19;
 }
 
-INCLUDE_ASM("asm/levels", func_L10_00419348);
 
-INCLUDE_ASM("asm/levels", func_L10_004235A0);
+/* func_L10_004235A0 lives in L10_004235A0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_00423698);

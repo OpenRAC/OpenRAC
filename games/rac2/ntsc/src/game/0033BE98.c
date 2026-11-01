@@ -61,7 +61,7 @@ int func_0033BE98(char *object, int mask)
     return (mask >> 6) & 1;
 }
 
-INCLUDE_ASM("asm/game", func_0033C028);
+/* func_0033C028 is matched in its own unit, src/game/0033C028-qcopy.c (-frac2-qcopy -frac2-qcopy-barrier). */
 
 char *func_0033C178(char *object)
 {
@@ -69,7 +69,6 @@ char *func_0033C178(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033C1A8);
 
 
 typedef struct { int ids[2]; } SolTextPair;
@@ -103,4 +102,3 @@ char *func_0033C430(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033C460);

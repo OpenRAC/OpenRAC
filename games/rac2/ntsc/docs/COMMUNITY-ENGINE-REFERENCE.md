@@ -137,6 +137,60 @@ The game uses dynamic level overlays loaded over the high memory region:
   - `Camera_CollPrimTest`: Camera-to-world collision boundary check (`0x001E7A50`).
   - PVS Occlusion grid validation runs per-frame across `mobys`, `tfrag`, and `ties`.
 
+#### Measured retail impact queue
+
+The following is measured from the USA v1.01 retail boot and the Aranos tutorial
+overlay, using the qualified R5900 analysis. It is independent of the prototype
+names above. `QueueMobyImpact` in `include/names.h` is a **descriptive** alias for
+catalogue function `func_002A8E20` (332 bytes), not a recovered original name.
+
+The function receives a target moby and a payload. It keeps a circular queue of
+64 entries, each 0x40 bytes. The boot's queue starts at `0x001BF200`, with its next
+index at `0x001BAF94`; these are overlay-region addresses and must not be reused
+as fixed addresses in a different level. The target's byte at `+0xA8` stores the
+slot index, and `0xFF` means that the function must not reuse a previous slot.
+Before reuse, it also checks that the slot's target pointer still equals the
+current target. If a new payload's strength is lower than the stored strength,
+it ORs the flags into the existing entry and returns. Otherwise it allocates the
+next slot, carries over those flags, copies the payload, and advances modulo 64.
+
+`Rac2Impact32` in `include/engine.h` describes the 0x28-byte input payload:
+
+| Payload offset | Width | Observed use | Queue-entry offset |
+| --- | ---: | --- | --- |
+| `0x00` | 16 | Four-component vector, copied together | `0x10` |
+| `0x10` | 4 | Source object address in the inspected caller | `0x20` |
+| `0x14` | 4 | Flags combined with the previous entry | `0x24` |
+| `0x18`, `0x19` | 1 each | Copied metadata bytes; meanings unconfirmed | `0x28`, `0x29` |
+| `0x1A` | 2 | Caller copies its object-class halfword here | `0x2A` |
+| `0x1C` | 4 | Float used to compare impact strength | `0x2C` |
+| `0x20`, `0x24` | 4 each | Copied words; meanings unconfirmed | `0x30`, `0x34` |
+
+The queue also stores the **target** pointer at `+0x38` and clears `+0x3C`.
+It is not interchangeable with the payload structure. The caller at
+`func_L00_004096B0` supplies its object pointer, class and a normalised vector;
+the consumer at `func_002A8E20` independently confirms the copy widths and offsets.
+Neither function is claimed as a new matching-C result by this documentation.
+
+Only three moby fields are needed for this investigation: a pointer at `+0x68`
+used as instance data, the impact-slot byte at `+0xA8`, and the class halfword at
+`+0xAA`, alongside the position vector at `+0x10`. They are represented by
+`Rac2MobyCollisionView32`, a **0xAC-byte prefix**, not a complete moby layout or
+array stride. The legacy `MobyInstance` in `include/structs.h` assigns incompatible
+fields to these locations and is explicitly not qualified for this retail build.
+
+Both memory views keep PS2 addresses as `u32`, so their offsets do not change on
+a 64-bit host. A PC port must resolve those addresses through its memory/object
+mapping; it must not cast them directly to host pointers. Unknown fields keep
+offset names. The layout checks compile the actual headers on the host, and the
+same checks were compiled with the qualified EE compiler. An isolated PCSX2 run
+identified `SCUS-97268` version `1.01`; its loaded 332-byte impact function equalled
+the retail reference. No call or memory-write effect was observed, so this does
+not validate the queue behavior dynamically. The owned session was stopped after
+the read-only observation. A useful runtime follow-up is to observe two impacts on
+one target and confirm the slot
+ownership and lower-strength flag-merge path, using the current level's address.
+
 ### 4.7 Memory Card State Machine (`include/card.h`)
 - The complete 25-state finite state machine (`CardState` / `CS_*`) discovered in string tables and `libmc.a` handlers:
   - `CS_INIT` (0), `CS_GOOD_SAVE` (1), `CS_WARNING` (2), `CS_NOCARD` (3), `CS_WAIT_FOR_CARD` (4), `CS_UNFORMATTED` (5), `CS_PROMPT_FORMAT` (6), `CS_FORMAT_PENDING` (7), `CS_FORMATTING` (8), `CS_FORMATTED` (9), `CS_CHECK_SAVE` (10), `CS_CHECKING_SAVE` (11), `CS_NOSAVE` (12), `CS_PROMPT_CREATE_SAVE` (13), `CS_CREATE_SAVE_PENDING` (14), `CS_CREATING_SAVE` (15), `CS_NEWCARD` (16), `CS_FORMAT_FAILED` (17), `CS_CREATE_FAILED` (18), `CS_NO_ROOM` (19), `CS_LOAD_FAILED` (20), `CS_SAVE_FAILED` (21), `CS_SAVING` (22), `CS_PROMPT_BEGIN_UNFORMATTED` (23), `CS_PROMPT_BEGIN_NOSAVE` (24).

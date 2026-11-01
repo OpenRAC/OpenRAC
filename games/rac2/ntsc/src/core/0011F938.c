@@ -44,4 +44,17 @@ void func_0011F938(void) {
     }
 }
 
-INCLUDE_ASM("asm/core", func_0011F9E4);
+/* rac1-decomp src/core/0011DD68.c: func_0011F9E4 */
+/*
+ * exit.o's kCopy: a byte copy loop returning 0. Exact under 2.9-ee, which
+ * pads the short loop itself and leaves the branch's delay slot empty,
+ * with `dst++` before the branch as retail has it. (Under 2.95.3 reorg
+ * sinks `dst++` into the slot, 44 bytes against 48: the old revert.)
+ */
+int func_0011F9E4(char *dst, char *src, unsigned int n) {
+    unsigned int i;
+    for (i = 0; i < n; i++) {
+        *dst++ = *src++;
+    }
+    return 0;
+}

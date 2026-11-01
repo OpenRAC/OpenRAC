@@ -200,7 +200,7 @@ void func_L00_0037F7E8(void)
     func_002F52B8();
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0037FA90);
+/* func_L00_0037FA90 is defined in L00_0037FA90-qcopy.c. */
 
 typedef struct {
     char *entry[64][4];
@@ -234,7 +234,6 @@ void func_L00_0037FE08(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0037FF98);
 
 extern int func_00303E20(int object, char *name, int first, int second);
 
@@ -269,7 +268,7 @@ void func_L00_00381F78(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003825C8);
+/* func_L00_003825C8 is defined in L00_003825C8.c. */
 
 extern void ref_L00_003827C0_00(void);
 
@@ -278,19 +277,14 @@ void func_L00_003827C0(void)
     ref_L00_003827C0_00();
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00382910);
+/* func_L00_00382910 is defined in L00_00382910.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00382AE8);
 
-INCLUDE_ASM("asm/levels", func_L00_00382BF0);
-
-INCLUDE_ASM("asm/levels", func_L00_00382CE8);
 
 INCLUDE_ASM("asm/levels", func_L00_00382F28);
 
 INCLUDE_ASM("asm/levels", func_L00_00383B90);
 
-INCLUDE_ASM("asm/levels", func_L00_00384070);
 
 INCLUDE_ASM("asm/levels", func_L00_00384248);
 
@@ -298,23 +292,12 @@ INCLUDE_ASM("asm/levels", func_L00_00384678);
 
 /* func_L00_00384C20 is matched in L00_00384C20.c (built with -fno-strength-reduce). */
 
-INCLUDE_ASM("asm/levels", func_L00_00384CA8);
+/* func_L00_00384CA8 is defined in L00_00384CA8-qcopy.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00384D40);
 
-INCLUDE_ASM("asm/levels", func_L00_00384E08);
 
-INCLUDE_ASM("asm/levels", func_L00_00384F28);
 
-INCLUDE_ASM("asm/levels", func_L00_00385040);
-
-INCLUDE_ASM("asm/levels", func_L00_003851A0);
-
-INCLUDE_ASM("asm/levels", func_L00_003852A0);
-
-INCLUDE_ASM("asm/levels", func_L00_00385370);
-
-INCLUDE_ASM("asm/levels", func_L00_00387370);
+/* func_L00_00387370 is defined in L00_00387370-g8-qcopy.c. */
 
 /* Family 6eb4f363e5305bed: seed body at func_L00_00387408. */
 void func_L00_00387408(char *object)
@@ -386,10 +369,6 @@ void func_L00_00387AC8(Owner_F9e2cd219 *self)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00387BB0);
-
-INCLUDE_ASM("asm/levels", func_L00_00387CA8);
-
 /* Clear the selected word in 100 records, reset 136 state words, and set the three trailing state words. */
 void func_L00_00387EF0(void)
 {
@@ -445,11 +424,9 @@ void func_L00_003883B8(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00388490);
+/* func_L00_00388490 is defined in L00_00388490.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00388790);
-
-INCLUDE_ASM("asm/levels", func_L00_00389E18);
+/* func_L00_00388790 is defined in L00_00388790-qcopy.c. */
 
 /* Family 6eb4f363e5305bed: seed body at func_L00_00387408. */
 void func_L00_00389EB0(char *object)
@@ -521,10 +498,6 @@ void func_L00_0038A568(Owner_F9e2cd219 *self)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038A650);
-
-INCLUDE_ASM("asm/levels", func_L00_0038A748);
-
 /* Reset two 64-word banks, eight trailing words, and three state words. The original game role is unknown. */
 void func_L00_0038A968(void)
 {
@@ -578,13 +551,10 @@ void func_L00_0038AA40(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038AAD0);
+/* func_L00_0038AAD0 is defined in L00_0038AAD0.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0038ADD0);
 
 INCLUDE_ASM("asm/levels", func_L00_0038B208);
-
-INCLUDE_ASM("asm/levels", func_L00_0038B6F8);
 
 extern void *D_L00_001BF218;
 
@@ -618,9 +588,7 @@ int func_L00_0038B848(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038B888);
 
-INCLUDE_ASM("asm/levels", func_L00_0038BA80);
 
 extern unsigned char D_001A7B2A __attribute__((sda));
 
@@ -739,9 +707,6 @@ void func_L00_0038BE70(char *object)
         angle * ((limit - scaled) * 0.1637022197246551513671875f + 0.699999988079071044921875f));
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038BF18);
-
-INCLUDE_ASM("asm/levels", func_L00_0038D368);
 
 /* Dispatches on a byte mode at object+32: mode 0 updates two float angles from a linked node and runs a follow-up call; mode 1 refreshes a 16-byte block and a node copy then calls a final update. */
 void func_L00_0038D468(char *object)
@@ -772,12 +737,7 @@ void func_L00_0038D468(char *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038D530);
-
-INCLUDE_ASM("asm/levels", func_L00_0038D650);
 
 INCLUDE_ASM("asm/levels", func_L00_0038DE70);
 
 INCLUDE_ASM("asm/levels", func_L00_0038E880);
-
-INCLUDE_ASM("asm/levels", func_L00_0038F020);

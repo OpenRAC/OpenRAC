@@ -75,7 +75,6 @@ void func_0011FAB8(void) {
     }
 }
 
-INCLUDE_ASM("asm/core", func_0011FB8C);
 
 /* The object's last row. The real body of the func_0011FB8C row starts at
    0x11FB98 (see nonmatching/core/func_0011FB8C.c): a teardown that walks the
@@ -94,6 +93,5 @@ void func_0011FC48(void) {
     }
 }
 
-INCLUDE_ASM("asm/core", func_0011FC68);
+/* func_0011FC68 is in 0011FC68.c, its own public libgcc module. */
 
-INCLUDE_ASM("asm/core", func_00120354);

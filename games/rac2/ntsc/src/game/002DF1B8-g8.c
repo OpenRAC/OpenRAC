@@ -110,3 +110,34 @@ void func_002E0F98(void)
     *(int *)(saved + 8) = 0;
     *(int *)(saved + 12) = 0;
 }
+
+extern char *func_00288FB8(int);
+extern int func_00115DA8(char *, const char *, ...);
+extern const char D_001AB998[];
+extern const char D_001AB9F8[];
+extern struct { int text; int pad; } D_00258D70[];
+
+char *func_002DF1F8(char *buf, int kind) {
+    int flag;
+
+    switch (kind) {
+    case 2:
+    case 5:
+    case 10:
+    case 23:
+    case 24:
+    case 25:
+    case 26:
+        flag = 0;
+        break;
+    default:
+        flag = 1;
+        break;
+    }
+    if (flag) {
+        func_00115DA8(buf, D_001AB998, func_00288FB8(0xB44), func_00288FB8(D_00258D70[kind].text));
+    } else {
+        func_00115DA8(buf, D_001AB9F8, func_00288FB8(D_00258D70[kind].text));
+    }
+    return buf;
+}

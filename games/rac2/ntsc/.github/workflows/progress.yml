@@ -1,11 +1,19 @@
-# decomp.dev progress report, as rac1-decomp publishes its own.
+# ByteMatch progress reports (https://bytematch.dev/OpenRAC/rac2-decomp), as rac1-decomp
+# publishes its own. One per release (docs/VERSIONS.md):
 #
-# decomp.dev reads objdiff's report.json from an artifact named "<VERSION>_report" on the
-# default branch. This job does NOT build the game: SN ProDG's tools and the retail programs
-# cannot be redistributed. The report is generated locally after a full build (tools/build.py
-# all, then tools/progress.py) and committed as progress/report.json; this job proves it is
-# current, validates it and uploads it. It holds names, addresses, sizes and percentages: no
-# retail bytes. The repository must be registered once at https://decomp.dev/manage/new.
+#   SCUS_972.68     USA v1.01 (the primary target)  progress/report.json      -> SCUS_972.68_report
+#   SCES_516.07     Europe/Australia v1.00          progress/pal/report.json  -> SCES_516.07_report
+#   SCUS_972.68_v2  USA v2.00 (Greatest Hits)       progress/us2/report.json  -> SCUS_972.68_v2_report
+#
+# Both US discs have the serial SCUS_972.68, so v2.00's version is SCUS_972.68_v2.
+#
+# ByteMatch reads objdiff's report.json from an artifact named "<VERSION>_report", from
+# successful push runs on the default branch. This job does NOT build the game: SN ProDG's
+# tools and the retail programs cannot be redistributed. The report is generated locally after
+# a full build (tools/build.py all, then tools/progress.py) and committed as
+# progress/report.json; this job proves it is current, validates it and uploads it. It holds
+# names, addresses, sizes and percentages: no retail bytes. The repository must be registered
+# once on https://bytematch.dev (sign in with GitHub, Manage, Add project).
 name: Progress report
 
 on:
@@ -27,38 +35,62 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Fails if C was added to src/ or removed from it without regenerating the report.
-      - name: Check the committed report is current
-        run: python tools/progress.py --check
+      # Each fails if C was added to src/ or removed from it without regenerating the reports,
+      # or if two releases' reports disagree on a function they share (the same code, one C).
+      - name: Check the committed reports are current and agree
+        run: |
+          python tools/progress.py --check
+          python tools/progress.py --check --version pal
+          python tools/progress.py --check --version us2
 
-      - name: Validate the report with objdiff
+      - name: Validate the reports with objdiff
         run: |
           curl --fail --location --retry 3 -o "$RUNNER_TEMP/objdiff-cli" \
             https://github.com/encounter/objdiff/releases/download/v3.8.1/objdiff-cli-linux-x86_64
           echo "c8290281e82114bcc1a06ff73061110d3902a177822e750337de2537188e358f  $RUNNER_TEMP/objdiff-cli" | sha256sum --check
           chmod +x "$RUNNER_TEMP/objdiff-cli"
-          "$RUNNER_TEMP/objdiff-cli" report changes progress/report.json progress/report.json \
-            -o "$RUNNER_TEMP/validation.json"
+          for r in progress/report.json progress/pal/report.json progress/us2/report.json; do
+            "$RUNNER_TEMP/objdiff-cli" report changes "$r" "$r" -o "$RUNNER_TEMP/validation.json"
+          done
 
       - name: Summarise
         run: |
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
-          r = json.load(open("progress/report.json"))
-          m = r["measures"]
-          print("| Measure | Value |")
-          print("| --- | --- |")
-          print("| Code matched | %.2f%% (%s / %s bytes) |" % (m["matched_code_percent"], m["matched_code"], m["total_code"]))
-          print("| Functions matched | %s / %s |" % (m["matched_functions"], m["total_functions"]))
-          print("| Units complete | %s / %s |" % (m["complete_units"], m["total_units"]))
-          for c in r["categories"]:
-              cm = c["measures"]
-              print("| %s | %.2f%% code, %s functions |" % (c["name"], cm["matched_code_percent"], cm["matched_functions"]))
+          for version, path in (("SCUS_972.68", "progress/report.json"), ("SCES_516.07", "progress/pal/report.json"),
+                                ("SCUS_972.68_v2", "progress/us2/report.json")):
+              r = json.load(open(path))
+              m = r["measures"]
+              print("### %s\n" % version)
+              print("| Measure | Value |")
+              print("| --- | --- |")
+              print("| Code matched | %.2f%% (%s / %s bytes), fuzzy %.2f%% |"
+                    % (m["matched_code_percent"], m["matched_code"], m["total_code"], m["fuzzy_match_percent"]))
+              print("| Functions matched | %s / %s |" % (m["matched_functions"], m["total_functions"]))
+              print("| Units complete | %s / %s |" % (m["complete_units"], m["total_units"]))
+              for c in r["categories"]:
+                  cm = c["measures"]
+                  print("| %s | %.2f%% code, %s functions |" % (c["name"], cm["matched_code_percent"], cm["matched_functions"]))
+              print()
           PY
 
-      - name: Upload the progress report
+      - name: Upload the USA v1.01 report
         uses: actions/upload-artifact@v4
         with:
           name: SCUS_972.68_report
           path: progress/report.json
+          if-no-files-found: error
+
+      - name: Upload the PAL report
+        uses: actions/upload-artifact@v4
+        with:
+          name: SCES_516.07_report
+          path: progress/pal/report.json
+          if-no-files-found: error
+
+      - name: Upload the USA v2.00 report
+        uses: actions/upload-artifact@v4
+        with:
+          name: SCUS_972.68_v2_report
+          path: progress/us2/report.json
           if-no-files-found: error

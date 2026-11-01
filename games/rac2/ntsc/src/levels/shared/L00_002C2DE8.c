@@ -75,9 +75,7 @@ struct S {
     unsigned short flags;
 };
 
-INCLUDE_ASM("asm/levels", func_L00_002C2DE8);
 
-INCLUDE_ASM("asm/levels", func_L00_002C30B0);
 
 /* Walks the resident player block: when the player is moving, has a short range and a
  * small health, the state word selects a new sub-state. The sub-state then drives a turn
@@ -133,7 +131,7 @@ void func_L00_002C3838(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002C3A40);
+/* func_L00_002C3A40 is built in its dedicated block-order-profile unit. */
 
 /* reads a 16-bit state word out of a fixed global block and, when it is non-zero, maps a second byte of that block onto a return code 0/1/2/3; otherwise it runs a reset call, builds a float either from a query on a sub-object of the block or from two floats stored in the block, and classifies it against a stored angle */
 int func_L00_002C3A78(void)
@@ -170,13 +168,12 @@ int func_L00_002C3A78(void)
     return result;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002C3BB0);
+/* func_L00_002C3BB0 is built in its dedicated copy-profile unit. */
 
-INCLUDE_ASM("asm/levels", func_L00_002C3E18);
+/* func_L00_002C3E18 is built in its dedicated G8/copy-profile unit. */
 
 INCLUDE_ASM("asm/levels", func_L00_002C40C0);
 
-INCLUDE_ASM("asm/levels", func_L00_002C42E0);
 
 extern unsigned char D_0018C0D4[];
 
@@ -223,9 +220,9 @@ int func_L00_002C8C00(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002C8CB0);
+/* func_L00_002C8CB0 is built in its dedicated unit. */
 
-INCLUDE_ASM("asm/levels", func_L00_002C8E10);
+/* func_L00_002C8E10 is built in its dedicated G8 unit. */
 
 /* Drives one effect state: branches on several resource fields, decays and integrates two float components through three float helpers, and writes back the summed value. */
 void func_L00_002C9228(void)
@@ -277,8 +274,6 @@ void func_L00_002C9228(void)
         + ((Res_F458c670e *)D_00189E20_7)->f790;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002C9448);
-
 extern int func_L00_0032EF10(int, int, int *);
 
 extern int func_L00_002C3A40(void);
@@ -321,7 +316,7 @@ int func_L00_002C9FC8(int arg0, int arg1)
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002CA0B0);
+/* func_L00_002CA0B0 is built in its dedicated unit. */
 
 /* On a byte-addressable root base: if the word at +6228 is set, calls a helper with it and clears it, then clears bits 0 and 6 of the 16-bit field at +52 of each object pointed to by the base words at +4880 and +4884. */
 void func_L00_002CA478(void)
@@ -346,6 +341,6 @@ void func_L00_002CA478(void)
 
 INCLUDE_ASM("asm/levels", func_L00_002CA4E0);
 
-INCLUDE_ASM("asm/levels", func_L00_002CA898);
+/* func_L00_002CA898 is built in its dedicated block-order-profile unit. */
 
-INCLUDE_ASM("asm/levels", func_L00_002CAB08);
+/* func_L00_002CAB08 is built in its dedicated unit. */

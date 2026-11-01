@@ -1,5 +1,19 @@
 #include "include_asm.h"
 
+typedef struct {
+    int first, second, third, fourth;
+    char stamp[8];
+    int invalid;
+} SaveInfoEntry;
+
+typedef struct {
+    char header[0x30];
+    SaveInfoEntry entries[4];
+} SaveInfoSlot;
+
+extern SaveInfoSlot D_001393E0[];
+extern void *memcpy(void *, const void *, unsigned int);
+
 typedef int s32;
 
 extern void F2d5993bb_FUN_00282A60(char *p, int a1, int a2);
@@ -98,11 +112,23 @@ int func_0029AF98(char *out, int mult, int *recs)
     return off + 8;
 }
 
-INCLUDE_ASM("asm/game", func_0029B0B0);
+/* Slot indexing follows RAC1 memcard_RestoreInfo (src/game/memcard.c). */
+void func_0029B0B0(char *src, int slot, int entry)
+{
+    D_001393E0[slot].entries[entry].invalid = func_0029AF58(src) == 0;
+    src += 0x10;
+    D_001393E0[slot].entries[entry].first = *(int *)src;
+    src += 0xC;
+    D_001393E0[slot].entries[entry].second = *(int *)src;
+    D_001393E0[slot].entries[entry].third = *(unsigned char *)(src + 0x12);
+    src += 0x48;
+    D_001393E0[slot].entries[entry].fourth = *(int *)src;
+    memcpy(D_001393E0[slot].entries[entry].stamp, src + 0xC, 8);
+}
 
-INCLUDE_ASM("asm/game", func_0029B168);
 
-INCLUDE_ASM("asm/game", func_0029B3E0);
+
+
 
 
 /* The existing implementation is in 0029B658-rc2.c. */
@@ -122,7 +148,6 @@ void func_0029B6D0(int first, int second) {
         func_0034CAE8(D_001A8CFC[0] + 0x376C8, first, second);
 }
 
-INCLUDE_ASM("asm/game", func_0029B710);
 
 extern void func_0034B000(void *, int);
 
@@ -151,9 +176,7 @@ int func_0029B780(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_0029B7C0);
 
-INCLUDE_ASM("asm/game", func_0029B810);
 
 INCLUDE_ASM("asm/game", func_0029B848);
 
@@ -174,5 +197,3 @@ void func_0029B888(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a
 }
 
 INCLUDE_ASM("asm/game", func_0029B910);
-
-INCLUDE_ASM("asm/game", func_0029BB30);

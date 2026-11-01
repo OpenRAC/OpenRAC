@@ -1,0 +1,66 @@
+#include "common.h"
+typedef int Quadword __attribute__((mode(TI)));
+typedef union { Quadword bits; float f[4]; } Vector4;
+#define FIELD(type,p,off) (*(type *)((char *)(p)+(off)))
+extern void func_00282CF0(void *,void *,void *);
+extern void func_00282D30(void *,void *,float);
+extern float func_002A7878(float,float);
+extern float func_002A7940(void);
+extern void func_00282F20(void *,void *,float);
+extern int func_002A7820(int,int);
+extern float func_00283248(float,float);
+extern float func_00282E80(void *,void *);
+extern unsigned long func_0027C878(int);
+extern void func_00283410(void *,void *);
+extern void func_00280B90(void *,void *,int);
+typedef struct { unsigned char prefix[0x140]; Vector4 position; } CameraPositionView;
+/* A partial external view, not a complete camera allocation. */
+extern CameraPositionView D_001B8C80;
+extern void func_L00_003883B8(char *);
+void func_L00_00388490(void *unused,Vector4 *position)
+{
+    union { Quadword alignment; unsigned char bytes[144]; } packet;
+    Vector4 transform[4],angles,delta;
+    unsigned int color;
+    float scale;
+    func_L00_003883B8((char *)packet.bytes);
+    FIELD(unsigned long,packet.bytes,0x78)=func_0027C878(44);
+    FIELD(unsigned long,packet.bytes,0x80)=0xFF9000000260UL;
+    FIELD(unsigned long,packet.bytes,0x88)=0x8000000048UL;
+    FIELD(unsigned long,packet.bytes,0x70)=0;
+    color=((unsigned int)func_002A7820(48,64)<<24)+0x8183F;
+    FIELD(unsigned int,packet.bytes,0x40)=FIELD(unsigned int,packet.bytes,0x44)=
+        FIELD(unsigned int,packet.bytes,0x48)=FIELD(unsigned int,packet.bytes,0x4C)=color;
+    angles.f[3]=0;
+    angles.f[2]=func_00283248(D_001B8C80.position.f[0]-position->f[0],D_001B8C80.position.f[1]-position->f[1]);
+    angles.f[1]=-func_00283248(func_00282E80(position,&D_001B8C80.position),D_001B8C80.position.f[2]-position->f[2]);
+    angles.f[0]=func_002A7940();
+    func_00283410(transform,&angles);
+    func_00282CF0(&delta,&D_001B8C80.position,position);
+    func_00282F20(&delta,&delta,0.25f);
+    transform[3].f[0]=position->f[0]+delta.f[0];
+    transform[3].f[1]=position->f[1]+delta.f[1];
+    transform[3].f[2]=position->f[2]+delta.f[2]; transform[3].f[3]=1;
+    scale=func_002A7878(0.3f,0.4f);
+    func_00282D30(packet.bytes,packet.bytes,scale);
+    func_00282D30(packet.bytes+16,packet.bytes+16,scale);
+    func_00282D30(packet.bytes+32,packet.bytes+32,scale);
+    func_00282D30(packet.bytes+48,packet.bytes+48,scale);
+    func_00280B90(packet.bytes,transform,0);
+    func_00282D30(packet.bytes,packet.bytes,0.5f);
+    func_00282D30(packet.bytes+16,packet.bytes+16,0.5f);
+    func_00282D30(packet.bytes+32,packet.bytes+32,0.5f);
+    func_00282D30(packet.bytes+48,packet.bytes+48,0.5f);
+    color=((unsigned int)func_002A7820(64,127)<<24)+0x103080;
+    FIELD(unsigned int,packet.bytes,0x40)=FIELD(unsigned int,packet.bytes,0x44)=
+        FIELD(unsigned int,packet.bytes,0x48)=FIELD(unsigned int,packet.bytes,0x4C)=color;
+    func_00280B90(packet.bytes,transform,0);
+    func_00282D30(packet.bytes,packet.bytes,0.5f);
+    func_00282D30(packet.bytes+16,packet.bytes+16,0.5f);
+    func_00282D30(packet.bytes+32,packet.bytes+32,0.5f);
+    func_00282D30(packet.bytes+48,packet.bytes+48,0.5f);
+    color=((unsigned int)func_002A7820(64,127)<<24)+0x7F7F7F;
+    FIELD(unsigned int,packet.bytes,0x40)=FIELD(unsigned int,packet.bytes,0x44)=
+        FIELD(unsigned int,packet.bytes,0x48)=FIELD(unsigned int,packet.bytes,0x4C)=color;
+    func_00280B90(packet.bytes,transform,0);
+}

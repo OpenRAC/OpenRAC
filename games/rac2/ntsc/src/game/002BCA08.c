@@ -1,0 +1,35 @@
+#include "common.h"
+typedef struct {
+    unsigned char b0, b1, b2, b3;
+    int color;
+    unsigned char seed, alpha;
+    short size;
+    float life;
+    float position[4];
+    float payload[8];
+} Particle;
+extern char D_001B5340[];
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern int func_00282978(void *);
+extern void func_002B9180(void *);
+extern int func_00283CF0(float);
+
+/* Particle tick: drift the position along its anchor, or fade out. */
+void func_002BCA08(Particle *p)
+{
+    float *pl = p->payload;
+    p->seed += *(unsigned char *)pl;
+    if (((int *)pl)[1] == 0) {
+        float v[4] __attribute__((aligned(16)));
+        qcopy(p->position, ((Particle *)((void **)pl)[2])->position);
+        func_00282CF0(v, D_001B5340, p->position);
+        func_00282F20(v, v, 0.01f);
+        func_00282CC0(p->position, p->position, v);
+    } else if (func_00282978(&p->size)) {
+        func_002B9180(p);
+    } else {
+        p->color = (func_00283CF0(p->size * 21.166668f) << 24) | 0xFFFFFF;
+    }
+}

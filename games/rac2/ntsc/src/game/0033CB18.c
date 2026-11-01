@@ -1,4 +1,17 @@
 #include "include_asm.h"
+typedef struct { int ids[2]; } SolTextPair;
+
+extern SolTextPair D_L00_001AE1A8;
+extern char D_L00_001AE1B0[];
+extern void func_00336548(void *);
+extern void func_0027FA10(int, int, unsigned long, char *, int);
+extern int func_0027FB40(int, int, unsigned long, char *, int);
+
+extern char D_L00_001AE118[];
+extern int DrawOptionText(int, int, unsigned long, char *, int) __asm__("func_0027FAA8");
+extern void func_0033AF48(void *);
+extern char *func_00288FB8(int);
+extern int func_00115DA8(char *, const char *, ...);
 
 extern void Fc558ca70_FUN_0033AE28(char *p);
 
@@ -75,8 +88,6 @@ int func_0033CB18(char *a0, int a1)
     return (a1 >> 6) & 1;
 }
 
-INCLUDE_ASM("asm/game", func_0033CC20);
-
 char *func_0033CD80(char *object)
 {
     extern void func_003363D0(void *);
@@ -86,13 +97,38 @@ char *func_0033CD80(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033CDC0);
 
 
 
-INCLUDE_ASM("asm/game", func_0033D028);
+/* func_0033D028 uses small data in 0033D028-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0033D2C0);
+void func_0033D2C0(char *object)
+{
+    char buffer[128];
+    SolTextPair pair;
+    char *format, *first, *second;
+    char *format2, *middle, *last;
+    int color;
+    func_0033AF48(object + 8);
+    color = *(int *)(object + 0x2A8) == 0 ? (int)0x80D0D0D0 : 0x70808080;
+    pair = D_L00_001AE1A8;
+    format = D_L00_001AE1B0;
+    first = func_00288FB8(0x2F0F);
+    func_00115DA8(buffer, format, first);
+    func_0027FA10(0x100, 0x91, color, buffer, -1);
+    func_00336548(object + 0x2AC);
+    color = *(int *)(object + 0x2A8) == 1 ? (int)0x80D0D0D0 : 0x70808080;
+    middle = func_00288FB8(0x2F10);
+    func_00115DA8(buffer, format, middle);
+    func_0027FA10(0x100, 0xBE, color, buffer, -1);
+    func_00336548(object + 0x2F4);
+    color = *(int *)(object + 0x2A8) == 2 ? (int)0x80D0D0D0 : 0x70808080;
+    format2 = D_L00_001AE118;
+    last = func_00288FB8(0x2F11);
+    second = func_00288FB8(pair.ids[*(int *)0x001A7B98 != 0]);
+    func_00115DA8(buffer, format2, last, second);
+    func_0027FB40(0x100, 0xE1, color, buffer, -1);
+}
 
 char *func_0033D440(char *object)
 {
@@ -100,7 +136,6 @@ char *func_0033D440(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033D470);
 
 
 
@@ -124,7 +159,7 @@ int func_0033D5A0 (char *object, int flags)
   return (flags >> 6) & 1;
 }
 
-typedef struct { int ids[2]; } SolTextPair;
+
 extern SolTextPair D_L00_001AE110;
 extern char D_L00_001AE118[];
 /* Resident byte at 0x001A7BB2 is shared by all programs. */
@@ -158,7 +193,6 @@ char *func_0033D708(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033D738);
 
 
 
@@ -193,7 +227,6 @@ int func_0033D868(char *a0, int a1)
     return (a1 >> 6) & 1;
 }
 
-INCLUDE_ASM("asm/game", func_0033D970);
 
 char *func_0033DAD0(char *object)
 {
@@ -201,7 +234,6 @@ char *func_0033DAD0(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033DB00);
 
 
 
@@ -247,7 +279,6 @@ char *func_0033DD80(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033DDB0);
 
 
 
@@ -274,7 +305,6 @@ char *func_0033DF78(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033DFA8);
 
 
 
@@ -302,7 +332,6 @@ void* func_0033E170(void* param_1)
   return param_1;
 }
 
-INCLUDE_ASM("asm/game", func_0033E1A8);
 
 
 

@@ -13,4 +13,69 @@ extern void func_3558E0(int, int, int);
 extern void func_31BEC0(int, int);
 
 /* Fires the Oozla intro once the level's mode and counter allow it. */
-INCLUDE_ASM("asm/levels", func_L01_00378A80);
+
+extern int D_L01_001A79F0;
+
+extern void *func_L01_002F1FD0(float, float, float);
+
+extern void func_00283098(void *, void *, void *);
+
+extern void func_00282D30(void *, void *, float);
+
+extern void func_00282CC0(void *, void *, void *);
+
+extern char D_L01_0027F810[];
+
+extern int D_001A9420 __attribute__((sda));
+
+typedef struct {
+    char pad0[0x30];
+    int mode;
+    int count;
+    char pad1[0x18];
+    int mesh;
+    char pad2[0x138];
+    int *entries[4];
+} L01_002F2098_STATE;
+
+extern L01_002F2098_STATE D_L01_001BD1C0;
+
+/* Builds the ship's four trail slices for the level's current colour. */
+void func_L01_002F2098(void)
+{
+    int index;
+    void *obj;
+    float scale;
+    char *p;
+    char *q;
+    int i;
+
+    if (D_L01_001A79F0 != 1)
+        return;
+
+    index = -1;
+    obj = func_L01_002F1FD0(0.0f, 0.0f, 0.0f);
+    if (D_L01_001BD1C0.mode == 3)
+        index = 1;
+    if (index != -1 && obj != 0) {
+        if (D_L01_001BD1C0.entries[index] != 0) {
+            char *d = obj + 0x10;
+            char *c = obj + 0xC0;
+            D_L01_001BD1C0.mesh = (int)D_L01_0027F810;
+            p = (char *)D_L01_0027F810 + 0x20;
+            q = (char *)&D_001A9420;
+            i = 3;
+            scale = *(float *)(obj + 0x2C) / *(float *)(*(int *)(obj + 0x24) + 0x24);
+            for (; i >= 0; i--) {
+                func_00283098(p, q, c);
+                func_00282D30(p, p, scale);
+                func_00282CC0(p, p, d);
+                p += 0x10;
+                q += 0x10;
+            }
+            *(int *)(D_L01_001BD1C0.mesh + 0x68) = D_L01_001BD1C0.entries[index];
+        }
+    }
+    if (D_L01_001BD1C0.count >= 0x5D7)
+        D_L01_001BD1C0.mesh = 0;
+}

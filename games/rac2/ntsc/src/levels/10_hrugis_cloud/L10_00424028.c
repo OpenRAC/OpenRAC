@@ -1,12 +1,6 @@
 #include "include_asm.h"
+#include "common.h"
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef signed char s8;
-typedef signed short s16;
-typedef signed int s32;
-typedef float f32;
 
 typedef int TI128 __attribute__((mode(TI)));
 
@@ -48,34 +42,80 @@ extern char *D_L10_001B2528;
 extern void func_32AF78(void *a0);
 
 
-INCLUDE_ASM("asm/levels", func_L10_00425798);
+/* func_L10_00425798 is defined in L10_00425798-flags.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_00424028);
+/* func_L10_00424028 is defined in L10_00424028-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_00424290);
 
-INCLUDE_ASM("asm/levels", func_L10_00424528);
+/* func_L10_00424528 is defined in L10_00424528-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L10_00424CD0);
 
-INCLUDE_ASM("asm/levels", func_L10_00425508);
+/* func_L10_00425508 is defined in L10_00424028-reward-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_00425888);
 
-INCLUDE_ASM("asm/levels", func_L10_00424448);
+/* func_L10_00424448 is defined in L10_00424448-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_0042B500);
+/* func_L10_0042B500 is defined in L10_00424028-cloud-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_0042BCA0);
+extern u8 *func_0029EFD0(s32);
+extern f32 func_00283B98(f32, f32);
+extern f32 func_00283BE0(f32, f32);
+
+#define L10_PARTNER(state) (*(u8 **)((state) + 4))
+
+/* Two-state update of a cloud body with a kind-0x11CD partner. State 0 sets the body up
+   (size 512, alpha 0xFF/0x1FF, scale from its class), spawns the partner the same way and
+   moves the body up 6 (facing pi) or down 6 by the state flag; both states then ease the
+   +0xF8 value with one of two helpers and copy the angle, that value and the position to
+   the partner. */
+void func_L10_0042BCA0(u8 *object)
+{
+    u8 *state = *(u8 **)(object + 0x68);
+
+    switch (object[0x20]) {
+    case 0:
+        object[0x20] = 1;
+        *(u16 *)(object + 0x32) = 0x1FF;
+        object[0x30] = 0xFF;
+        *(f32 *)(object + 0x10) = 512.0f;
+        *(f32 *)(object + 0x14) = 512.0f;
+        *(f32 *)(object + 0x18) = 512.0f;
+        *(s32 *)(object + 0x1C) = 0;
+        *(f32 *)(object + 0x2C) = *(f32 *)(*(u8 **)(object + 0x24) + 0x24) * 4.0f;
+        L10_PARTNER(state) = func_0029EFD0(0x11CD);
+        L10_PARTNER(state)[0x30] = 0xFF;
+        *(u16 *)(L10_PARTNER(state) + 0x32) = 0x1FF;
+        *(f32 *)(L10_PARTNER(state) + 0x2C) =
+            *(f32 *)(*(u8 **)(L10_PARTNER(state) + 0x24) + 0x24) * 4.0f;
+        if (*(s32 *)state != 0) {
+            *(f32 *)(object + 0x18) += 6.0f;
+            *(f32 *)(object + 0xF0) = 3.1415927f;
+        } else {
+            *(f32 *)(object + 0x18) -= 6.0f;
+        }
+    case 1:
+        if (*(s32 *)state != 0)
+            *(f32 *)(object + 0xF8) = func_00283B98(*(f32 *)(object + 0xF8), 0.0049087391f);
+        else
+            *(f32 *)(object + 0xF8) = func_00283BE0(*(f32 *)(object + 0xF8), 0.0049087391f);
+        *(f32 *)(L10_PARTNER(state) + 0xF0) = *(f32 *)(object + 0xF0);
+        *(f32 *)(L10_PARTNER(state) + 0xF8) = *(f32 *)(object + 0xF8);
+        qcopy(L10_PARTNER(state) + 0x10, object + 0x10);
+        break;
+    }
+}
+
+#undef L10_PARTNER
 
 /* func_L10_0042BE20 is defined in L10_00424028-g8.c (this unit has no $gp access for it). */
 
-INCLUDE_ASM("asm/levels", func_L10_0042BEE0);
+/* func_L10_0042BEE0 is in the sibling file L10_00424028-g8.c (it reads $gp data). */
 
-INCLUDE_ASM("asm/levels", func_L10_0042DF10);
+/* func_L10_0042DF10 is defined in L10_0042DF10-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_0042E100);
+/* func_L10_0042E100 is defined in L10_0042E100-g16.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_0042E4D0);
+/* Defined in L10_0042E4D0.c. */
 
-INCLUDE_ASM("asm/levels", func_L10_0042E660);
+/* func_L10_0042E660 is defined in L10_0042E660-g8.c. */

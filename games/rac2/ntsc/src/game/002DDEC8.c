@@ -10,9 +10,9 @@ extern u32 D_L24_001B1B74[] __attribute__((sda));
 
 typedef unsigned char u8;
 
-INCLUDE_ASM("asm/game", func_002DDEC8);
+/* func_002DDEC8 is in 002DDEC8-g8.c (-G8 small data). */
 
-INCLUDE_ASM("asm/game", func_002DE0D0);
+/* func_002DE0D0 is in 002DDEC8-animation.c. */
 
 /* The chunk table: a key and its flags, one pair per chunk. */
 typedef struct {
@@ -84,9 +84,44 @@ void func_002DE3A0(s32 param)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002DE550);
 
-INCLUDE_ASM("asm/game", func_002DE618);
+extern void func_002B7AD0(void);
+
+/* The chunk table again, as signed (key, flags) pairs indexed directly: read
+   through a Chunk cast of the int array, the loop compiles to another shape. */
+typedef struct {
+    int key;
+    int flags;
+} ChunkSlot;
+extern ChunkSlot D_001B1F50_slots[] __asm__("D_001B1F50") __attribute__((sda));
+
+/* rac1-decomp src/game/pause.c: release_menu_stream_buffer */
+/* Releases the chunk whose key matches. Bit 1 means taken; bit 2 on top of it
+   means the chunk also holds the latch at byte 0xDB of D_001F2840, which is
+   handed back through func_002B7AD0 first. Always returns 0. */
+int func_002DE618(int key)
+{
+    int i;
+    unsigned char *state;
+
+    for (i = 0; i < 5; i++) {
+        if (D_001B1F50_slots[i].key == key) {
+            if ((D_001B1F50_slots[i].flags & 2) != 0) {
+                if ((D_001B1F50_slots[i].flags & 4) != 0) {
+                    state = (unsigned char *)D_001F2840;
+                    D_001B1F50_slots[i].flags ^= 4;
+                    if (state[0xDB] != 0) {
+                        func_002B7AD0();
+                        state[0xDB] = 0;
+                    }
+                }
+                D_001B1F50_slots[i].flags &= ~2;
+                return 0;
+            }
+        }
+    }
+    return 0;
+}
 
 extern int D_001B1F50[] __attribute__((sda));
 extern int D_001B1F54[] __attribute__((sda));
@@ -139,8 +174,6 @@ int func_002DE7A0(int key)
     return 1;
 }
 
-INCLUDE_ASM("asm/game", func_002DE7F0);
-
 void func_002DE810(unsigned short *a0,u8 *a1) {
  a0[0]=0;
  a0[1]=*(unsigned short *)(a1+0x24);
@@ -151,7 +184,6 @@ void func_002DE810(unsigned short *a0,u8 *a1) {
  a0[8]=0x10;a0[9]=0;
 }
 
-INCLUDE_ASM("asm/game", func_002DE850);
 
 typedef struct {
     char b[8];
@@ -203,9 +235,7 @@ void func_002DE900(int value, int mode)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002DE990);
 
-INCLUDE_ASM("asm/game", func_002DF050);
 
 void func_002DF158(s32 object, s32 amount)
 {

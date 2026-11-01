@@ -74,11 +74,9 @@ char *func_00339A38(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_00339AC8);
 
 /* func_00339AD0 is matched in 003399B0-g8.c (-G8 small data). */
 
-INCLUDE_ASM("asm/game", func_00339F20);
 
 typedef struct {
     float x, y;
@@ -198,7 +196,6 @@ void *func_0033A4A0(char *p)
     return p;
 }
 
-INCLUDE_ASM("asm/game", func_0033A518);
 
 INCLUDE_ASM("asm/game", func_0033A520);
 
@@ -233,7 +230,6 @@ int func_0033AB50(int a0)
 	return a0;
 }
 
-INCLUDE_ASM("asm/game", func_0033ABD0);
 
 /* func_0033ABD8 is matched in 003399B0-g8.c (-G8 small data). */
 

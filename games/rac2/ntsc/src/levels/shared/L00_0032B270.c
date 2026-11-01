@@ -51,9 +51,7 @@ void func_L00_0032B500(int value)
     D_L00_001AA444 = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0032B9E8);
 
-INCLUDE_ASM("asm/levels", func_L00_0032BBA8);
 
 /* The record at 0x88 of the second argument decides: arm it with the four
    sub-addresses and light bit 0x40 on the record's 0x94 word when it takes. */

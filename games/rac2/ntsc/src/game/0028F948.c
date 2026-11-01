@@ -135,7 +135,7 @@ void func_0028FAB8(int a0, int a1, int a2, int a3, int p4, int p5)
 }
 
 /* shared native body of family 5e27257c03e3aebd */
-void func_0028FC48(int a0, int a1, int a2, int a3, int p4, int p5)
+void func_0028FC48(int a0, int a1, int a2, int a3, unsigned long p4, int p5)
 {
     long long *q;
 
@@ -203,9 +203,7 @@ void func_0028FDD8(int a0, int a1, int a2, int a3, long long a4, int a5, int a6)
     D_L02_001B3D08 = (int *)((char *)D_L02_001B3D08 + 48);
 }
 
-INCLUDE_ASM("asm/game", func_0028FF50);
 
-INCLUDE_ASM("asm/game", func_00290008);
 
 /* func_00290010 is in the -G8 sibling. */
 
@@ -213,4 +211,3 @@ INCLUDE_ASM("asm/game", func_002900B8);
 
 
 
-INCLUDE_ASM("asm/game", func_00290668);

@@ -1,3 +1,13 @@
+/* Nonmatching: 276 bytes versus 276; USA 0/27 placements.
+ * Profile: -O2 -G0 -ffunction-sections -mno-split-addresses.
+ * +0x1C: constant-register allocation and independent global store scheduling. The final zero belongs before the helper call; an sda declaration restores its GP delay-slot store. Reopen with an alias/store-order hypothesis. */
+extern int D_L00_001A8A44;
+extern float D_L00_001B1984, D_L00_001B1988, D_L00_001B198C, D_L00_001B1990 __attribute__((sda));
+extern unsigned char D_L00_001B1980, D_L00_001B1981, D_L00_001B1982 __attribute__((sda));
+extern float D_L00_001B2500, D_L00_001B2408;
+extern int D_L00_001B1EB4, D_L00_001B20C0, D_L00_001B255C;
+extern int D_L00_001BD2C0[];
+extern void func_00284E18(int,int,int);
 /* Restores the third-level object's transform and flags from the level's own globals, marks
  * the level as initialised, publishes the default geometry constants and calls the boot
  * helper with the three default words. */
@@ -28,6 +38,6 @@ void func_L00_00390E10(char *object)
     D_L00_001B1980 = 0x40;
     D_L00_001B255C = 144;
     D_L00_001B1984 = 0.0f;
-    func_00284E18(0x40, 0x60, 0x40);
     D_L00_001B1990 = 0.0f;
+    func_00284E18(0x40, 0x60, 0x40);
 }

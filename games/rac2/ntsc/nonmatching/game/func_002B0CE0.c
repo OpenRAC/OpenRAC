@@ -1,4 +1,9 @@
-/* func_002B0CE0 (124 bytes, all 27 levels): same body as the deposit of func_002B0C28 and the
+/* func_002B0CE0: 28 October 2026 current-master check is 132 bytes vs 124,
+   0/28 USA v1.01 placements. A 29 October replay in a dedicated temporary
+   `-O2 -G8 -ffunction-sections -mno-split-addresses` unit also remains 132/124,
+   0/28; the address sequences change but control flow, calls and return
+   placement remain different.
+   The retained logic is the same body as the deposit of func_002B0C28 and the
    same first blocker - this cc1 splits the %hi/%lo pair of the globals' addresses where retail
    keeps them together:
      retail: lui $at,0x1B ; sw $s0,-0x7050($at) ; lui $at,0x1B ; sw $s2,-0x704C($at) ;

@@ -58,5 +58,3 @@ void func_L18_004412F0(u8 *s0) {
     }
     }
 }
-
-INCLUDE_ASM("asm/levels", func_L18_00437AA0);
