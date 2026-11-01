@@ -1671,6 +1671,41 @@ class SharedLibraries(unittest.TestCase):
         self.assertEqual(len(re.findall(r" openrac_lib_\w+\(", header)), len(names))
 
 
+class VariantCalls(unittest.TestCase):
+    def unit(self, places: dict, shared_level=None):
+        from lower import Unit
+        from program import Program
+        program = Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.places.update(places)
+        program.relocate = (0x0015F000, 0x00400000)
+        program.sizes = {"func_L04_00419918": 0x40}
+        unit = Unit.__new__(Unit)
+        unit.program = program
+        unit.fn = type("Fn", (), {"code": "func_L04_00419918"})()
+        unit._shared_level = lambda: shared_level
+        return unit
+
+    def test_a_callee_only_some_levels_list_is_reached_through_the_callers_copy(self):
+        unit = self.unit({"func_L04_00419918": [(4, 0x00419918), (11, 0x00420000)],
+                          "func_L04_0043ABE0": [(4, 0x0043ABE0)]})
+        self.assertEqual(unit._variant_call("func_L04_0043ABE0"), (4, 0x00419918, 0x40, 0x0043ABE0))
+
+    def test_a_callee_in_every_level_of_the_caller_is_an_ordinary_call(self):
+        unit = self.unit({"func_L04_00419918": [(4, 0x00419918), (11, 0x00420000)],
+                          "func_L04_0043ABE0": [(4, 0x0043ABE0), (11, 0x00440000)]})
+        self.assertIsNone(unit._variant_call("func_L04_0043ABE0"))
+
+    def test_a_caller_in_one_level_is_an_ordinary_call(self):
+        unit = self.unit({"func_L04_00419918": [(4, 0x00419918)], "func_L04_0043ABE0": [(4, 0x0043ABE0)]})
+        self.assertIsNone(unit._variant_call("func_L04_0043ABE0"))
+
+    def test_no_copy_to_measure_from_in_the_callers_own_level(self):
+        unit = self.unit({"func_L04_00419918": [(4, 0x00419918), (11, 0x00420000)],
+                          "func_L04_0043ABE0": [(11, 0x0043ABE0)]}, shared_level=4)
+        self.assertIsNone(unit._variant_call("func_L04_0043ABE0"))
+
+
 class Places(unittest.TestCase):
     def test_an_executable_function_the_levels_carry_keeps_its_address(self):
         import re

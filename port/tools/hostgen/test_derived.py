@@ -25,6 +25,28 @@ CFG = {"id": "test", "sources": ["src"], "includes": ["include", "src"],
        "derived": {"build": "build/boot/placed.json", "table": "derived_names.json"}}
 
 
+class LevelData(unittest.TestCase):
+    def write_level(self, root: Path, name: str, values: dict) -> None:
+        (root / "build" / name).mkdir(parents=True)
+        (root / "build" / name / "placed.json").write_text(json.dumps({"values": values}))
+
+    def test_a_name_that_spells_its_address_is_only_kept_where_it_moved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_level(root, "02_x", {"D_001FEAC0": "0x001FF1C0", "D_00200000": "0x00200000"})
+            self.write_level(root, "03_y", {"D_00200000": "0x00200000"})
+            self.assertEqual(derived.level_data(root), {"2": {"D_001FEAC0": "0x001FF1C0"}})
+
+    def test_other_spellings_are_measured_against_the_executable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_level(root, "06_z", {"r1_D_0019E7D8": "0x001B2688", "D_001B19C8_1": "0x001B2688",
+                                            "r1_D_00100000": "0x00100000", "r1_D_00110000": "0x00110010"})
+            boot = {"r1_D_0019E7D8": "0x0019E7D8", "D_001B19C8_1": "0x001B19C8", "r1_D_00100000": "0x00100000"}
+            self.assertEqual(derived.level_data(root, boot),
+                             {"6": {"D_001B19C8_1": "0x001B2688", "r1_D_0019E7D8": "0x001B2688"}})
+
+
 class Fixture:
     def __init__(self, d: Path):
         self.source = d / "decomp"
