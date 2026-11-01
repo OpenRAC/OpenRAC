@@ -132,6 +132,8 @@ jobs:
       - name: rac2 tools, layout and progress report
         working-directory: games/rac2/ntsc
         run: |
+          # tools/check.py disassembles with it, at the version the decomp pins.
+          python -m pip install "$(grep '^rabbitizer==' requirements.txt)"
           python -m unittest discover -s tests -v
           python tests/check_repository.py
           python tools/progress.py --check
