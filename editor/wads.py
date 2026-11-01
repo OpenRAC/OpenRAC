@@ -57,9 +57,11 @@ class Version:
     executable_size: int
     executable_sha1: str
     level_header: int       # the level header's size: 0x60 (Going Commando, Up Your Arsenal) or 0xc68 (Deadlocked)
+    hero_packs: int = 0     # where the table of contents keeps the packs of Ratchet's mesh and textures, if it does
 
 
-RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60)
+RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60,
+                    hero_packs=0x4f04)
 RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
 VERSIONS = (RAC2_NTSC, RAC3_NTSC, RAC4_NTSC)
@@ -181,6 +183,16 @@ class WadDisc:
         if found is None:
             raise FormatError(f"{self.version.game} has no level {number}")
         return found
+
+    def hero_pack(self, pack: int = 0) -> tuple[bytes, bytes]:
+        """Ratchet's mesh and textures: pack PACK of the table the game's LoadPlayerDisplayTextures
+        (0x00292078) reads, (mesh sector, sectors, textures sector, sectors) each, sectors relative
+        to the word before the table. Going Commando's level holds only his skeleton: the game
+        picks a pack by his armour, 0 the one he starts in."""
+        base, = unpack("<i", self.toc, self.version.hero_packs)
+        mesh, mesh_sectors, textures, texture_sectors = unpack(
+            "<4i", self.toc, self.version.hero_packs + 4 + pack * 16)
+        return self.disc.sectors(base + mesh, mesh_sectors), self.disc.sectors(base + textures, texture_sectors)
 
     def survey(self) -> dict:
         """The disc's levels, as JSON (headers left out)."""

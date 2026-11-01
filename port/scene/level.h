@@ -37,6 +37,10 @@ using renderer::Vec3;
 // which the launcher waits for, so older exports are read from the disc again before Play. 4: the
 // textures the game clamps carry clamping samplers.
 inline constexpr int kManifestFormat = 4;
+// The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
+// layout, so the reader takes both; which levels are read again is the launcher's stamps' doing.
+// 5: Going Commando's, with Ratchet's mesh.
+inline constexpr int kManifestFormatNewest = 5;
 
 struct Vertex {
     float position[3];

@@ -14,7 +14,7 @@ from unittest import mock
 
 from disc import SECTOR, Disc
 from formats import FormatError
-from level import load_wad_level
+from level import hero_textures, load_wad_level
 import wads
 from test_disc import cnf, record
 
@@ -94,6 +94,18 @@ def image(version: wads.Version, levels: list[tuple[int, int]], swap: bool = Fal
         out[header_lba * SECTOR:header_lba * SECTOR + len(header)] = header
         struct.pack_into("<ii", out, audio_lba * SECTOR, 0x1018, file_lba)
     return bytes(out)
+
+
+class HeroPackTests(unittest.TestCase):
+    def test_textures_of_a_hero_pack(self):
+        record_at = 0x10
+        pack = bytearray(record_at + 0x420 + 4 * 2)
+        struct.pack_into("<2i", pack, 0, 1, record_at)
+        struct.pack_into("<2i", pack, record_at + 8, 4, 2)
+        pack[record_at + 0x20] = 0x7f
+        pack[record_at + 0x420:record_at + 0x428] = bytes(range(8))
+        texture, = hero_textures(bytes(pack))
+        self.assertEqual((texture.width, texture.height, texture.pixels, texture.palette[0]), (4, 2, bytes(range(8)), 0x7f))
 
 
 class WadDiscTests(unittest.TestCase):

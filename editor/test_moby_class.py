@@ -1,5 +1,6 @@
 """Synthetic moby class blobs, their GLB and class scene; no disc data."""
 
+from dataclasses import replace
 from pathlib import Path
 import struct
 import tempfile
@@ -198,6 +199,20 @@ class MobySceneTests(unittest.TestCase):
         view = doc["bufferViews"][accessor["bufferView"]]
         self.assertEqual((accessor["componentType"], accessor["type"], view["target"]), (5125, "SCALAR", 34963))
         self.assertEqual(struct.unpack_from("<6I", binary, view["byteOffset"]), (0, 1, 2, 1, 2, 0))
+
+    def test_packets_in_a_file_of_their_own(self):
+        # Going Commando's Ratchet: the class's blob names no packets, a hero pack holds them, with
+        # the counts and the packet table's offset at its start.
+        data = fixture(compact=True)
+        pack = bytearray(data)
+        struct.pack_into("<4BI", pack, 0, 2, 0, 0, 0, 0x50)
+        struct.pack_into("<i4B", data, 0, 0, 0, 0, 0, 0)
+        data[0x50:0x70] = bytes(0x20)
+        data[0x80:] = bytes(len(data) - 0x80)
+        fmt = replace(games.RAC2, moby_animations=False)
+        hero = moby_class(data, [1000 + i for i in range(16)], "moby_0", fmt=fmt, mesh_file=bytes(pack))
+        self.assertEqual(moby_class(data, REMAP, "moby_0", fmt=fmt).mesh, None)
+        self.assertEqual(set(hero.mesh.faces), {("moby", 1001)})
 
     def test_class_scene_with_model(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -20,6 +20,10 @@ SECTION_NAMES = ("overlay", "sound_bank", "core_index", "gs_ram", "hud_header",
                  "hud_bank_4", "core_data")
 # Core index texture tables: (count, offset) pairs of 16-byte entries.
 TEXTURE_TABLES = {"terrain": 0x30, "moby": 0x38, "tie": 0x40, "shrub": 0x48}
+# Where the textures of the hero pack start among a level's "moby" ones: past any table's end.
+HERO_TEXTURES = 1000
+# A hero pack's texture record: its width and height, CLUT and 8-bit pixels (func_00292078).
+RECORD_SIZE, RECORD_CLUT, RECORD_PIXELS = 0x08, 0x20, 0x420
 # Class tables: (count, offset) pairs; each entry starts with a core offset.
 CLASS_TABLES = {"moby": (0x18, 32), "tie": (0x20, 32), "shrub": (0x28, 48)}
 
@@ -49,6 +53,9 @@ class Level:
     # A later game's streamed chunks past the core's (wads.chunk_ranges): (chunk, tfrag block,
     # collision block), each decoded, or None where the chunk has none.
     chunks: list[tuple[int, bytes | None, bytes | None]] = field(default_factory=list)
+    # Going Commando's Ratchet: the file his class's packets are in (wads.WadDisc.hero_pack), which
+    # the game loads over the class at run time. His textures are "moby" ones from HERO_TEXTURES.
+    hero_mesh: bytes | None = None
 
     @property
     def instances(self) -> bytes:
@@ -169,6 +176,17 @@ def textures(level: Level, gs: bytes) -> dict[tuple[str, int], Texture]:
     return result
 
 
+def hero_textures(data: bytes) -> list[Texture]:
+    """A hero pack's textures: a count, then the offset of each record."""
+    count, = unpack("<i", data)
+    result = []
+    for at in unpack(f"<{count}i", data, 4):
+        width, height = unpack("<2i", data, at + RECORD_SIZE)
+        result.append(Texture(width, height, span(data, at + RECORD_PIXELS, width * height),
+                              span(data, at + RECORD_CLUT, 1024)))
+    return result
+
+
 def unswizzle(pixels: bytes, width: int, inverse: bool = False) -> bytes:
     """Deadlocked's 8-bit textures in row order. They are stored as the GS lays a PSMT8 texture
     out in its memory: each 32-byte run of a pair of rows holds blocks of four columns by four
@@ -240,6 +258,10 @@ def load_wad_level(source, entry: dict) -> Level:
                              decoded(data[collision:]) if collision > 0 else None))
     level.boundaries = core_boundaries(level)
     level.textures = textures(level, sections["gs_ram"])
+    if version.hero_packs:
+        level.hero_mesh, pack = source.hero_pack()
+        for i, texture in enumerate(hero_textures(pack)):
+            level.textures[("moby", HERO_TEXTURES + i)] = texture
     return level
 
 
