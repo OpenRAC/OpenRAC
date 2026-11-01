@@ -448,7 +448,7 @@
     "func_00131D98"
   ],
   "asm": {
-    "vu0_programs": {"0xD18": "rac2_vu0_rotation_rows"},
+    "vu0_programs": {"0xC80": "rac2_vu0_cosine", "0xC90": "rac2_vu0_sine", "0xD18": "rac2_vu0_rotation_rows"},
     "enabled": true,
     "discover_entries": true,
     "dma_stores": true,
