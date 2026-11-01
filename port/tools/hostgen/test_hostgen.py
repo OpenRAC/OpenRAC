@@ -2966,6 +2966,26 @@ class FromAssembly(unittest.TestCase):
             extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)})
         self.assertEqual(out, ["7", "6", "4"])
 
+    def test_the_declaration_the_code_agrees_with(self):
+        # One file declares a float where the register is an integer's and adds a parameter: its
+        # length must not win over what the code reads ($4, $5 and $f12).
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int, float);
+            int test_main(void) { test_print(func_00100000(1, 2, 4.0f)); return 0; }
+        """, "b.c": """
+            extern int func_00100000(int *, int *, int *, float);
+            int other(void) { return func_00100000(0, 0, 0, 1.0f); }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], fit_declarations=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, """
+                mfc1 $8, $f12
+                addu $2, $4, $5
+                srl $8, $8, 23
+                jr $31
+                addu $2, $2, $8
+            """)})
+        self.assertEqual(out, ["132"])
+
     def test_console_form(self):
         # The form for the console's compiler (rac1-decomp's tools/fcheck.py): the function under a
         # name of its own with the function's symbol, calls by retail address with every argument

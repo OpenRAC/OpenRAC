@@ -457,6 +457,7 @@
     "enabled": true,
     "discover_entries": true,
     "dma_stores": true,
+    "fit_declarations": true,
     "register_jumps": true,
     "forward_unprototyped": true,
     "dirs": [],

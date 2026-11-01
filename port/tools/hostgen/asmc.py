@@ -48,6 +48,7 @@ retail (tests/asmc_console.h).
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -132,6 +133,10 @@ class Translator:
     # their registers (lui 0x1000), which no DMA controller answers: their word stores go through
     # openrac_ee_sw_dma, which does the transfer (openrac/ee_ops.h).
     dma_stores = False
+    # asm.fit_declarations in hostgen.json: of the declarations of a function that has no C, the one
+    # its code agrees with, not the longest (fitting_declaration).
+    fit_declarations = False
+    verified_signatures: frozenset = frozenset()  # asm.signatures in hostgen.json
     # asm.register_jumps in hostgen.json: a jump through a register keeps its target in j_, as a VU load
     # in the delay slot uses t_, and a computed jump into the function's own code stays in it (_computed_targets).
     register_jumps = False
@@ -225,7 +230,9 @@ class Translator:
         sub.forward_unprototyped = self.forward_unprototyped
         sub.in_place = self.in_place
         sub.dma_stores = self.dma_stores
+        sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
+        sub.verified_signatures = self.verified_signatures
         sub.ps2 = self.ps2
         try:
             sub._load(Function(f"sub_{target:08X}", Signature(ctype.Base("int"), (), False, False)),
@@ -263,6 +270,8 @@ class Translator:
     def prepare_signature(self, f: Function, found: tuple[int, int]) -> None:
         """Gives f the signature its translation is written with (_signature)."""
         self._load(f, found)
+        if self.fit_declarations and f.symbol not in self.verified_signatures:
+            f.sig = self._fitting_declaration(f)
         sig = self._signature(f)
         if re.search(r"\b" + re.escape(cname(f.symbol)) + r"\b", self.host_text):
             return  # the port's own C calls it by the signature it has
@@ -274,6 +283,40 @@ class Translator:
         # parameters, so lower._match_args can forward incoming registers omitted from the
         # decompilation's call expression (rac4).
         f.sig = sig
+
+    def _fitting_declaration(self, f: Function) -> Signature:
+        """The declaration of a function with no C that its own code agrees with. Files declare a
+        callee as each saw it, and the longest of those can be one file's mistake: one `(char *,
+        char *, char *, float)` for Vec4Scale gave a 3-argument function a fourth, and all its
+        callers a zero in place of the scale register. Registers decide: the declarations that cover
+        what the code reads, the fewest extra parameters (a register it never reads is no parameter),
+        then the most common. Any declaration's result that the code sets is kept, whatever `void`s
+        the other files wrote."""
+        proto = [s for s in f.declared if s.prototyped and not s.variadic]
+        if not proto or any(s.variadic for s in f.declared) or f.symbol in getattr(self.program, "returns_64", ()):
+            return f.sig
+        ints, floats, sets_v0, sets_f0 = self._entry_reads(frame_saves=True)
+        c = lambda t: canon(t, self.program.typedefs)
+        def kinds(s):
+            nf = sum(1 for p in s.params if c(p) == "float")
+            return len(s.params) - nf, nf
+        count = Counter(kinds(s) for s in proto)
+        def rank(k):
+            short = max(0, ints - k[0]) + max(0, floats - k[1])
+            extra = max(0, k[0] - ints) + max(0, k[1] - floats)
+            return short, extra, -count[k], k
+        shape = min(count, key=rank)
+        same = [s for s in proto if kinds(s) == shape]
+        params = Counter(tuple(s.params) for s in same).most_common(1)[0][0]
+        def result_fits(s):
+            r = c(s.ret)
+            return r == "void" or (r == "float" and sets_f0) or (r != "float" and sets_v0)
+        results = Counter(s.ret for s in proto if result_fits(s) and c(s.ret) != "void")
+        if results:
+            ret = results.most_common(1)[0][0]  # a caller that ignores it loses nothing; one that reads it gets it
+        else:
+            ret = next((s.ret for s in proto if c(s.ret) == "void"), same[0].ret)
+        return Signature(ret, params, False, True)
 
     def _compatible(self, sig: Signature, unprototyped: Signature) -> bool:
         """Whether a definition of sig may stand for a declaration `T f()` (unprototyped): the same
@@ -485,9 +528,10 @@ class Translator:
             ret = ctype.Base("float")
         return Signature(ret, tuple(params), False, True)
 
-    def _entry_reads(self):
+    def _entry_reads(self, frame_saves: bool = False):
         """The argument registers read before they are written, along the code from the entry up
-        to its first call or return, in address order (a parameter is used early)."""
+        to its first call or return, in address order (a parameter is used early). With frame_saves,
+        one saved to the frame counts: the function keeps it for after a call."""
         written_g, written_f = set(), set()
         read_g, read_f = set(), set()
         stop = None
@@ -497,7 +541,7 @@ class Translator:
                 break
             ins = self.at(a)
             rg, wg, rf, wf = rw(ins)
-            if ins.op in ("sw", "sd", "sq", "swc1") and ins.rs == 29:
+            if ins.op in ("sw", "sd", "sq", "swc1") and ins.rs == 29 and not frame_saves:
                 # A register saved to the frame is not a use of it: a variadic routine saves every
                 # argument register so, whatever its callers pass.
                 rg, rf = rg - {ins.rt}, rf - {ins.ft}
@@ -1629,7 +1673,9 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))
     tr.dma_stores = bool(a.get("dma_stores"))
+    tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
+    tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
     tr.index = index
