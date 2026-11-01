@@ -2986,6 +2986,21 @@ class FromAssembly(unittest.TestCase):
             """)})
         self.assertEqual(out, ["132"])
 
+    def test_a_register_taken_from_itself_is_no_input(self):
+        # $f0 - $f0 is zero whatever $f0 held; refused as an input, the routine had no translation.
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(5)); return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], input_idioms=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, """
+                sub.s $f0, $f0, $f0
+                mfc1 $2, $f0
+                jr $31
+                addu $2, $2, $4
+            """)})
+        self.assertEqual(out, ["5"])
+
     def test_console_form(self):
         # The form for the console's compiler (rac1-decomp's tools/fcheck.py): the function under a
         # name of its own with the function's symbol, calls by retail address with every argument

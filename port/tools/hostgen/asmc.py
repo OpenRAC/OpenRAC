@@ -140,6 +140,9 @@ class Translator:
     # asm.register_jumps in hostgen.json: a jump through a register keeps its target in j_, as a VU load
     # in the delay slot uses t_, and a computed jump into the function's own code stays in it (_computed_targets).
     register_jumps = False
+    # asm.input_idioms in hostgen.json: reads that are no inputs (_no_input): func_002A05A8's
+    # `sub.s $f0, $f0, $f0`, func_002A3110 saving $t8 and $t9 to the scratchpad.
+    input_idioms = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -232,6 +235,7 @@ class Translator:
         sub.dma_stores = self.dma_stores
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
+        sub.input_idioms = self.input_idioms
         sub.verified_signatures = self.verified_signatures
         sub.ps2 = self.ps2
         try:
@@ -256,6 +260,8 @@ class Translator:
                 break
             ins = self.at(a)
             rg, wg, rf, wf = rw(ins)
+            if self.input_idioms:
+                rg, rf = self._no_input(ins, rg, rf)
             bad = (rg & self.SCRATCH) - written_g
             fbad = (rf & self.FSCRATCH) - written_f
             if bad or fbad:
@@ -266,6 +272,23 @@ class Translator:
             written_f |= wf
             if is_control(ins) and stop is None:
                 stop = a + 4
+
+    def _no_input(self, ins: asm.Insn, rg: set, rf: set) -> tuple[set, set]:
+        """The registers an instruction reads, without those whose value cannot matter: an operand
+        taken from itself is zero whatever it held, and a register put away in the scratchpad is
+        one a hand-written routine saves to use and puts back."""
+        if ins.op in ("sub.s",) and ins.fs == ins.ft:
+            return rg, rf - {ins.fs}
+        if ins.op in ("subu", "sub", "dsubu", "dsub", "xor") and ins.rs == ins.rt:
+            return rg - {ins.rs}, rf
+        if ins.op == "sq":
+            for k in range(1, 5):
+                i = self.at(ins.addr - 4 * k)
+                if i is not None and i.op == "lui" and i.rt == ins.rs:
+                    if i.imm & 0xFFFF == 0x7000:
+                        return rg - {ins.rt}, rf
+                    break
+        return rg, rf
 
     def prepare_signature(self, f: Function, found: tuple[int, int]) -> None:
         """Gives f the signature its translation is written with (_signature)."""
@@ -1675,6 +1698,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.dma_stores = bool(a.get("dma_stores"))
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
+    tr.input_idioms = bool(a.get("input_idioms"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)

@@ -459,6 +459,7 @@
     "dma_stores": true,
     "fit_declarations": true,
     "register_jumps": true,
+    "input_idioms": true,
     "forward_unprototyped": true,
     "dirs": [],
     "gp": "0x001AEFF0",
