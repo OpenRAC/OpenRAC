@@ -69,6 +69,14 @@
   ],
   "libraries": "libraries.tsv",
   "overlay_hook": true,
+  "unit_aliases": {
+    "src/levels/04_barlow/L04_002E04A8.c": {"func_L00_002ACF88": "func_L01_002AE128", "func_L00_002B6BC8": "func_L04_002DCE78"},
+    "src/levels/08_tabora/L08_002CB6E8.c": {"func_L00_002ACF88": "func_L01_002AE128", "func_L00_002B6BC8": "func_L04_002DCE78"},
+    "src/levels/12_todano/L12_002CF7B0-decider.c": {"func_L00_002B2CC8": "func_L12_002B85E0"},
+    "src/levels/18_damosel/L18_003FB708.c": {"func_L08_002F2D10": "func_L00_002E6EF8"},
+    "src/levels/shared/L00_002BA7D8.c": {"func_L20_002C7588": "func_L00_002B4458", "func_L20_002B7A48": "func_L00_002A4E48"},
+    "src/levels/shared/L13_002C5760.c": {"func_L20_002C7588": "func_L00_002B4458", "func_L20_002B7A48": "func_L00_002A4E48"}
+  },
   "level_hooks_by_registers": true,
   "level_hooks": ["func_0026F710", "func_0026F718", "func_0026F720", "func_0026F728", "func_0026F730", "func_0026F738", "func_0026F740", "func_0026F748", "func_0026F750", "func_0026F758", "func_0026F760", "func_0026F768", "func_0026F770", "func_0026F778", "func_0026F780", "func_0026F788", "func_0026F790", "func_0026F798", "func_0026F7A0", "func_0026F7B0", "func_0026F7B8", "func_0026F7C0", "func_0026F7C8", "func_0026F7D0", "func_0026F7D8", "func_0026F7E0", "func_0026F7E8", "func_0026F7F0", "func_0026F7F8", "func_0026F800", "func_0026F808"],
   "keep_spent_arguments": true,
