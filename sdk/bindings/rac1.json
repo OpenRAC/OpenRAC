@@ -101,6 +101,27 @@
       "about": "Ratchet's animation moved on by his animation speed, once a tick after his state's update."
     },
     {
+      "id": "rac1.player.update",
+      "name": "Hero_Update",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_002076E8",
+        "ntsc": "FUN_L00_002070d0"
+      },
+      "copies": {
+        "pal": [
+          "func_L01_00228E08",
+          "func_L03_00200890"
+        ],
+        "ntsc": [
+          "FUN_L01_00228870",
+          "FUN_L03_002002f8"
+        ]
+      },
+      "about": "The hero's whole update, once a tick from the level loop (coordinate_hero_frame_update, and its copies update_hero_frame and HeroL03_FrameUpdate in the other families of levels: one hook point): his animation's advance, the stick, his state machine and movement (Hero_UpdateMotionInput), ledges and rails, his state's transitions, his body's easing, his moby and matrices, what he holds and his drawing; it fades out when he leaves the world's bounds. A replacement that does not call the original moves him by itself and shows him with openrac_api.hero_set_pose."
+    },
+    {
       "id": "rac1.item.give",
       "name": "Item_Give",
       "signature": "void(i32,i32)",

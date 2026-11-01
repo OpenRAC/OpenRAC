@@ -14,6 +14,7 @@ type HookPoint =
     | "rac1.player.set_planar_velocity"
     | "rac1.camera.follow.apply_overrides"
     | "rac1.player.advance_animation"
+    | "rac1.player.update"
     | "rac1.item.give"
     | "rac1.planet.unlock"
     | "rac1.vendor.init_level_stock"
@@ -702,6 +703,7 @@ type HookPoint =
     | "Hero_SetPlanarVelocity"
     | "Hero_TakeDamage"
     | "Hero_TurnToHeading"
+    | "Hero_Update"
     | "Hero_UpdateMotionInput"
     | "Hud_QuickSelect_Draw"
     | "Hud_QuickSelect_Init"
@@ -1406,6 +1408,8 @@ type Hero_SetPlanarVelocityFn = (angle: number) -> ()
 type FollowCamera_ApplyOverridesFn = (camera: number) -> ()
 -- rac1.player.advance_animation (Hero_AdvanceAnimation) void(): Ratchet's animation moved on by his animation speed, once a tick after his state's update.
 type Hero_AdvanceAnimationFn = () -> ()
+-- rac1.player.update (Hero_Update) void(): The hero's whole update, once a tick from the level loop (coordinate_hero_frame_update, and its copies update_hero_frame and HeroL03_FrameUpdate in the other families of levels: one hook point): his animation's advance, the stick, his state machine and movement (Hero_UpdateMotionInput), ledges and rails, his state's transitions, his body's easing, his moby and matrices, what he holds and his drawing; it fades out when he leaves the world's bounds. A replacement that does not call the original moves him by itself and shows him with openrac_api.hero_set_pose.
+type Hero_UpdateFn = () -> ()
 -- rac1.item.give (Item_Give) void(i32,i32): Gives the player item id (GiveItem): sets its owned and obtained bytes, shows its banner, gives its starting ammo, marks it bought in the vendor's stock and adds it to the quick select; equip non-zero also puts it in hand. Every item the game gives goes through it but the Persuader's.
 type Item_GiveFn = (id: number, equip: number) -> ()
 -- rac1.planet.unlock (Planet_Unlock) void(i32): Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on.

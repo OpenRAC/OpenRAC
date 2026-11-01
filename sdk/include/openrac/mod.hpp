@@ -1143,6 +1143,100 @@ public:
     // or last saved to), -1 for none.
     int save_slot_current() const { return has_api_11() ? m_api->save_slot_current() : -1; }
 
+    // Whether the port has interface 1.12's calls: the hero moved by the mod (hero_set_pose), the
+    // collision triangles, props and sounds. has_hero_drive(), has_collision(), has_props() and
+    // has_sounds() say the same for each part.
+    bool has_api_12() const {
+        return m_api->api_minor >= 12
+               && m_api->size >= offsetof(openrac_api, sound_stop) + sizeof(void*);
+    }
+    bool has_hero_drive() const { return has_api_12(); }
+    bool has_collision() const { return has_api_12(); }
+    bool has_props() const { return has_api_12(); }
+    bool has_sounds() const { return has_api_12(); }
+
+    // Since 1.12: puts the hero in `pose` (its size set here), from the mod's replacement of the
+    // hero's update (rac1.player.update), which then does not call the original: his place,
+    // rotation, velocity and animation, and what the update does after his movement to show him.
+    // False outside a level, or for a mod that has not taken that hook point.
+    bool hero_set_pose(const openrac_pose& pose) const {
+        openrac_pose p = pose;
+        p.size = sizeof p;
+        return has_api_12() && m_api->hero_set_pose(m_handle, &p) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the collision triangles inside the box [lo, hi] (the level's, then the mobys'
+    // with collision, in a stable order), all of them (more than `max` are left out).
+    std::vector<openrac_collision_triangle> collision_triangles(
+        const float lo[3], const float hi[3], int max = 4096
+    ) const {
+        std::vector<openrac_collision_triangle> out;
+        if (!has_api_12() || max <= 0) {
+            return out;
+        }
+        out.resize(static_cast<std::size_t>(max));
+        const int n = m_api->collision_triangles(lo, hi, out.data(), max);
+        out.resize(static_cast<std::size_t>(std::clamp(n, 0, max)));
+        return out;
+    }
+
+    // Since 1.12: a prop of the mesh `mesh_path` (a .glb in the mod's folder) in the level: its
+    // id, or -1 (no level, no such file, no room).
+    int prop_create(const std::string& mesh_path) const {
+        const int id = has_api_12() ? m_api->prop_create(m_handle, mesh_path.c_str())
+                                    : OPENRAC_HOOK_UNKNOWN;
+        return id >= 0 ? id : -1;
+    }
+
+    // Since 1.12: places prop `id` at `position`, turned by the unit quaternion `rotation` (x, y, z,
+    // w) and scaled by `scale`; false for a prop gone with its level (make another).
+    bool prop_pose(int id, const float position[3], const float rotation[4], float scale = 1.0f) const {
+        openrac_prop_pose p{};
+        p.size = sizeof p;
+        std::copy(position, position + 3, p.position);
+        std::copy(rotation, rotation + 4, p.rotation);
+        p.scale = scale;
+        return has_api_12() && m_api->prop_pose(m_handle, id, &p) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: places prop `id` by a 4 by 4 matrix, column-major.
+    bool prop_pose(int id, const float matrix[16]) const {
+        openrac_prop_pose p{};
+        p.size = sizeof p;
+        p.flags = OPENRAC_PROP_MATRIX;
+        std::copy(matrix, matrix + 16, p.matrix);
+        return has_api_12() && m_api->prop_pose(m_handle, id, &p) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: hides prop `id` or shows it again; takes it out of the level.
+    bool prop_hide(int id, bool hidden = true) const {
+        return has_api_12() && m_api->prop_hide(m_handle, id, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+    bool prop_remove(int id) const {
+        return has_api_12() && m_api->prop_remove(m_handle, id) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1.
+    int sound_load(const std::string& path) const {
+        const int id = has_api_12() ? m_api->sound_load(m_handle, path.c_str()) : OPENRAC_HOOK_UNKNOWN;
+        return id >= 0 ? id : -1;
+    }
+
+    // Since 1.12: plays sound `sound` at the game's sound volume: its voice, 0 for none.
+    std::uint32_t sound_play(int sound, float volume = 1.0f, float pitch = 1.0f, bool loop = false) const {
+        return has_api_12() ? m_api->sound_play(m_handle, sound, volume, pitch, loop ? 1 : 0) : 0;
+    }
+
+    // Since 1.12: a voice's volume and pitch (false once it has ended); stops a voice.
+    bool sound_set(std::uint32_t voice, float volume, float pitch) const {
+        return has_api_12() && m_api->sound_set(voice, volume, pitch) == OPENRAC_HOOK_OK;
+    }
+    void sound_stop(std::uint32_t voice) const {
+        if (has_api_12()) {
+            m_api->sound_stop(voice);
+        }
+    }
+
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
         return m_api->api_minor >= 9

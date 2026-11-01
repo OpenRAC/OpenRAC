@@ -39,6 +39,11 @@ share an id, each gets `_<lowest class number>`. A function several classes shar
 point (its replacement filters by the moby's class). The other discs' symbols come from the
 table's "catalogue_symbols" (one TSV per disc, made with port/tools/versionmap/carry.py names).
 
+**Copies.** A hook point of the table may have "copies": per disc, the symbols of the level copies
+of its function (the same job, each family of levels its own C: the hero's update), each a hook
+row of the same name in that disc's libraries.tsv; the port makes them one hook point (hostgen's
+write_hook_copies). Their symbols are aliases; the anchor stays the first symbol's.
+
 --check writes nothing: it fails when an output differs from what the table gives, or when the
 hook points are not exactly the hook rows of every disc's libraries.tsv. Stdlib only.
 """
@@ -324,6 +329,8 @@ def load(game: str, catalogue: Path | None = None, table_path: Path | None = Non
     aliases: dict[str, str] = {}
     for h in hooks:
         al = {h["name"], *h["symbols"].values(), *h.get("aliases", [])}
+        for more in h.get("copies", {}).values():
+            al |= set(more)
         if h["id"] in lock:
             al |= lock[h["id"]][1]
         al.discard(h["id"])
@@ -696,17 +703,18 @@ def outputs(b: dict) -> dict[Path, str]:
     return out
 
 
-def hook_rows(game: str, discs: list[str], texts: dict[Path, str] | None = None) -> dict[str, dict[str, str]]:
-    """disc -> {name: symbol} of the hook rows of port/game/<game>-<disc>/libraries.tsv."""
+def hook_rows(game: str, discs: list[str], texts: dict[Path, str] | None = None) -> dict[str, dict[str, set[str]]]:
+    """disc -> {name: its symbols} of the hook rows of port/game/<game>-<disc>/libraries.tsv (several
+    for a hook point with copies)."""
     out = {}
     for d in discs:
-        rows = {}
+        rows: dict[str, set[str]] = {}
         path = ROOT / "port" / "game" / f"{game}-{d}" / "libraries.tsv"
         text = (texts or {}).get(path) or path.read_text()
         for line in text.splitlines():
             cols = line.split("\t")
             if not line.startswith("#") and len(cols) >= 4 and cols[3].strip() == "hook":
-                rows[cols[2].strip()] = cols[0].strip()
+                rows.setdefault(cols[2].strip(), set()).add(cols[0].strip())
         out[d] = rows
     return out
 
@@ -715,13 +723,14 @@ def check_rows(b: dict, texts: dict[Path, str] | None = None) -> list[str]:
     problems = []
     rows = hook_rows(b["game"], b["discs"], texts)
     for d in b["discs"]:
-        want = {h["name"]: h["symbols"].get(d) for h in b["hooks"] if h["symbols"].get(d)}
+        want = {h["name"]: {h["symbols"][d], *h.get("copies", {}).get(d, [])}
+                for h in b["hooks"] if h["symbols"].get(d)}
         have = rows[d]
-        for name, sym in sorted(want.items()):
-            if have.get(name) != sym:
+        for name, syms in sorted(want.items()):
+            for sym in sorted(syms - have.get(name, set())):
                 problems.append(f"{b['game']}-{d}/libraries.tsv: no hook row {sym} {name}")
-        for name, sym in sorted(have.items()):
-            if name not in want:
+        for name, syms in sorted(have.items()):
+            for sym in sorted(syms - want.get(name, set())):
                 problems.append(f"{b['game']}-{d}/libraries.tsv: hook row {sym} {name} is not in sdk/bindings/{b['game']}.json")
     return problems
 
