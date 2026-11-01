@@ -106,7 +106,8 @@
     "dirs": [],
     "gp": "0x001AEFF0",
     "retail": {
-      "exe": "baserom/SCUS_972.68"
+      "exe": "baserom/SCUS_972.68",
+      "dump": "baserom/levels"
     },
     "signatures": {
       "func_0027E1A0": "int (int, int, int, int, int, unsigned long long, float, float, float, float)",

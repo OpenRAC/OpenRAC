@@ -9,8 +9,8 @@ port is built from the player's disc:
 
 - the executable (an ELF: its code sections, and its data for jump tables), and
 - each level's program (the records ParseBin loads over the executable from `relocate`'s low end
-  up: lit, data, the class tables, text), from level dumps (level_NN/manifest.json and its
-  records, as rac1-decomp's tools/overlays.py writes them) or from the disc image itself (the
+  up: lit, data, the class tables, text), from level dumps (a folder per level with its
+  manifest.json and records: rac1-decomp's level_NN, rac2-decomp's NN_name) or from the disc image itself (the
   level's overlay section, through the editor's own reader, editor/disc.py and formats.py).
 
 What the assembly's text says beyond the words, this works out the way spimdisasm does:
@@ -149,15 +149,32 @@ def elf_parts(b: bytes) -> list[Part]:
     return out
 
 
+def manifest_records(manifest: dict) -> list[dict]:
+    """A level manifest's records: "records" in rac1-decomp's dumps, "sections" in rac2-decomp's."""
+    return manifest.get("records") or manifest["sections"]
+
+
+def level_dump_dir(dump: Path, level: int) -> Path | None:
+    """The folder of LEVEL's dump: level_NN, else the one whose manifest names the level."""
+    named = dump / f"level_{level:02d}"
+    if named.is_dir():
+        return named
+    for d in sorted(dump.iterdir()):
+        man = d / "manifest.json"
+        if man.is_file() and json.loads(man.read_text()).get("level") == level:
+            return d
+    return None
+
+
 def read_dump(dump: Path) -> dict[int, list[Part]]:
     levels = {}
-    for d in sorted(dump.glob("level_*")):
+    for d in sorted(dump.iterdir()) if dump.is_dir() else ():
         man = d / "manifest.json"
         if not man.is_file():
             continue
         m = json.loads(man.read_text())
         parts = []
-        for r in m["records"]:
+        for r in manifest_records(m):
             f = d / f"{r['name']}.bin"
             if r.get("type") == 1 and f.is_file():
                 parts.append(Part(r["name"], r["address"], f.read_bytes(), r["name"] == "text"))
