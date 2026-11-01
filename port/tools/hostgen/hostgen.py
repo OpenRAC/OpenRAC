@@ -1116,8 +1116,8 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
                         for p in sorted(d.glob("*.c")))
     # The results C wrappers pass on from their tail calls, before the assembly stage: a translated
     # caller reads such a wrapper's result in $v0 as the EE's did (Going Commando's menu read its
-    # selection through a `void` wrapper and lost it). Only C callees count, so the assembly stage
-    # changes nothing of this.
+    # selection through a `void` wrapper and lost it). Only callees with C count, a function whose C
+    # is left out for its assembly among them, so the assembly stage changes nothing of this.
     inherited_early = inherit_results(program)
     asm_stage, asm_results = asmc.run(program, cfg, source, host_text)
     if args.asm_console:

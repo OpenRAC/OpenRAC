@@ -1019,7 +1019,7 @@ class Translator:
         if op in ("addiu", "addi"):
             if ins.reloc and ins.reloc[0] == "hi":
                 raise AsmUnsupported(f"%hi in {op} at {ins.addr:08X}")
-            if rs == 28 and self.gp is not None and self.gp_addresses:
+            if rs == 28 and rt != 28 and self.gp is not None and self.gp_addresses:
                 # A datum's address formed from $gp: it moves between programs as a load through
                 # $gp does (func_L01_003801B8's gp-0x110 in level 18's copy is another variable).
                 return W(rt, S32(self.addr(ins)))

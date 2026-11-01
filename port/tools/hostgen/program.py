@@ -677,7 +677,8 @@ def inherit_results(program: Program) -> list[str]:
                 g = program.functions.get(own) if own != sym else None
             if g is None:
                 g = program.functions.get(program.canonical(sym))
-            if g is None or g is f or (g.unit is None and g.symbol not in program.host):
+            if g is None or g is f or (g.unit is None and g.symbol not in program.host
+                                       and g.symbol not in program.from_assembly):
                 continue
             ret = canon(g.sig.ret, program.typedefs)
             if ret in (None, "void", "va_list"):
