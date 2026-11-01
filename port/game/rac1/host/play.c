@@ -36,6 +36,9 @@
  * of its game part and of each of its 20 level parts, then the game part, whose first blocks are
  * {id, size, value}: id 0 the level, 1 the bolts, 2 the gold bolts, 3 the play time in ticks (60 a
  * second: the Load page's hh:mm), as memcard_RestoreInfo reads them. An empty slot's level is -1.
+ *
+ * Both discs' saves have this one layout, so a save of either loads in the other: one disc's
+ * save folder, not its save, is the disc's own (rac1_version.h, RAC1_SAVE_FOLDER).
  */
 #include <stdio.h>
 #include <string.h>
@@ -511,4 +514,8 @@ const openrac_game_play rac1_play = {
     .figure_shot2 = rac1_figure_shot2,
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
+    /* Both discs: the port ticks them alike, and their levels, classes, items, scenes and saves
+     * mean the same. A disc or a change of this code that breaks that takes a new number. */
+    .world_family = "rac1-60-1",
+    .sim_digest = rac1_sim_digest,
 };
