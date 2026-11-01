@@ -141,7 +141,10 @@ squaring that makes a round stick reach the DualShock 2's corners
 
 The game's dead zone is per axis (a cross on the stick), so on a diagonal
 each axis loses 0x30 of only 0.71 of the push, and Ratchet crawls where a
-straight push of the same length runs. Last of all, the port pushes each axis
+straight push of the same length runs. He has two speeds: he runs once the
+stick's length as the game reads it reaches 0.819 (`hero_speed_steps[0]`,
+an axis pushed about 86% of the way), and below that walks at about a sixth
+of the speed (0.9 against 5.7 units a second). Last of all, the port pushes each axis
 out past that dead zone (`stick_pair_bytes`), so the game reads a diagonal in
 its own direction and as long as a straight push. Straight pushes and the
 corners give the same bytes as before.
