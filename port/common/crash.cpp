@@ -16,6 +16,7 @@
 #include <ctime>
 #include <string>
 
+#include "common/breadcrumbs.h"
 #include "common/build_info.h"
 #include "common/crash_symbols.h"
 #include "common/log.h"
@@ -275,8 +276,12 @@ void write_state(Out& out) {
 // The frames, taken once by capture() and written to each file from there.
 void* g_frames[64];
 int g_frame_count = 0;
+// Captured once into process storage, keeping crash-stack use and every report copy bounded.
+Breadcrumbs::Snapshot g_breadcrumbs;
+std::size_t g_breadcrumb_count = 0;
 
 void capture() {
+    g_breadcrumb_count = breadcrumbs().snapshot(g_breadcrumbs);
 #if defined(_WIN32)
     g_frame_count = CaptureStackBackTrace(0, 62, g_frames, nullptr);
 #else
@@ -407,6 +412,30 @@ void write_tail(Out& out) {
     const std::string_view header = log::header_for_crash();
     out.put(header.data(), header.size());
     out.str("==== end of the report ====\n");
+}
+
+// Emits the same captured timeline to the crash file, session log and stderr without allocating.
+void write_breadcrumbs(Out& out) {
+    // An early crash may precede the first instrumented game or render operation.
+    if (g_breadcrumb_count == 0) {
+        return;
+    }
+    out.str("\nRecent activity (oldest first; us since first retained event):\n");
+    const auto first = g_breadcrumbs[0].tick;
+    for (std::size_t i = 0; i < g_breadcrumb_count; ++i) {
+        const auto& entry = g_breadcrumbs[i];
+        Text text;
+        text.str("  +")
+            .dec(static_cast<long long>(entry.tick - first))
+            .str(entry.thread == BreadcrumbThread::Render ? " us [render] " : " us [main] ")
+            .str(entry.message);
+        // A loading level ID must not be mistaken for a captured render frame.
+        if (entry.value >= 0) {
+            text.str(entry.kind == BreadcrumbValue::Level ? " level=" : " frame=").dec(entry.value);
+        }
+        text.str("\n");
+        out.text(text);
+    }
 }
 
 }  // namespace
@@ -598,6 +627,7 @@ void write_report(int fd, const char* reason, Kind kind, long long now) {
     write_head(out, reason, kind, now);
     capture();
     write_backtrace(out);
+    write_breadcrumbs(out);
     write_tail(out);
 }
 
@@ -639,6 +669,7 @@ const char* report(const char* reason, Kind kind) {
         out.str("[error] ==== the program stopped: ").str(kind_name(kind)).str(" ====\n");
         write_head(out, reason, kind, now);
         write_backtrace(out);
+        write_breadcrumbs(out);
         if (file >= 0) {
             const char* slash = std::strrchr(g_written, '/');
             out.str("Crash report: ").str(g_folder_shown).str(slash != nullptr ? slash : "").str("\n");
@@ -654,6 +685,7 @@ const char* report(const char* reason, Kind kind) {
         out.str("==== OpenRAC crash report ====\n");
         write_head(out, reason, kind, now);
         write_backtrace(out);
+        write_breadcrumbs(out);
         write_tail(out);
     }
     close_fd(file);

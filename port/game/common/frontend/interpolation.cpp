@@ -27,6 +27,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/breadcrumbs.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
@@ -405,7 +406,8 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
                     .count()
             );
         },
-        error
+        error,
+        output->source_frame
     );
     // Job rejection means a previous failure, never an unbounded queue.
     if (!queued) {
@@ -488,6 +490,7 @@ void present_frame(FramePresentation& output) {
         capture_frame(output);
         slow_frame();
     }
+    crash::breadcrumb(crash::BreadcrumbThread::Main, "presenting frame", output.source_frame);
     present(shown, width, height, window_width, window_height, false, aspect);
     {
         const stats::Scope touch("touch pad");
@@ -564,6 +567,7 @@ void draw_kept(bool first) try {
         g->window->latency_begin(std::exchange(g_latency_slept, 0.0));
     }
     auto output = std::make_shared<FramePresentation>();
+    output->source_frame = static_cast<std::int64_t>(g->kept->frame);
     output->started = std::chrono::steady_clock::now();
     output->first = first;
     output->dump_draws = renderer::g_dump_draws;
@@ -583,7 +587,13 @@ void draw_kept(bool first) try {
     log_pacing(*output);
     // OpenGL contexts retain the original window-thread path.
     if (!threaded_rendering()) {
+        crash::breadcrumb(
+            crash::BreadcrumbThread::Main, "synchronous render started", output->source_frame
+        );
         render_scene(*g, *g->kept, settings::get(), *output);
+        crash::breadcrumb(
+            crash::BreadcrumbThread::Main, "synchronous render finished", output->source_frame
+        );
         present_frame(*output);
         return;
     }

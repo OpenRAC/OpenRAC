@@ -85,8 +85,10 @@ GETENV_EXCEPTIONS = {
 
 # The files that may allocate raw memory, each with why it has to: a program that counts the heap
 # replaces operator new and delete, which cannot take their memory from the heap they count.
+# Allocation-rejection tests replace those same functions to fail any accidental heap use.
 ALLOCATION_EXCEPTIONS = {
     "port/tests/render_bench.cpp": "replaces operator new and delete to count a frame's allocations",
+    "port/tests/breadcrumbs_no_alloc_test.cpp": "replaces allocation functions to reject all heap use",
 }
 
 

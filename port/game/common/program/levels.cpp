@@ -15,6 +15,7 @@
 #include <system_error>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "openrac/elf.h"
 #include "openrac/game_host.h"
@@ -78,6 +79,7 @@ bool level_program_from_disc(int level, std::vector<std::uint8_t>* bytes) {
 }  // namespace
 
 void load_level_program(int level) {
+    crash::level_breadcrumb("level program load", level);
     char name[8];
     std::snprintf(name, sizeof(name), "%02d", level);
     const fs::path path =
@@ -85,6 +87,7 @@ void load_level_program(int level) {
     std::vector<std::uint8_t> bytes;
 
     if (!runtime::read_file(path, &bytes) && !level_program_from_disc(level, &bytes)) {
+        crash::level_breadcrumb("level program missing", level);
         log::error(
             "level {}'s program is in neither {} nor the disc image: the functions levels share "
             "are not "
@@ -96,6 +99,7 @@ void load_level_program(int level) {
     }
 
     log::verbose("level {}'s program: {} bytes", level, bytes.size());
+    crash::level_breadcrumb("level program relocation", level);
     std::uint32_t entry = 0;
 
     for (std::size_t at = 0; at + 16 <= bytes.size();) {
@@ -113,6 +117,7 @@ void load_level_program(int level) {
         openrac_guest_add_level_program(level, head[0], bytes.data() + at + 16, head[1]);
         at += 16 + head[1];
     }
+    crash::level_breadcrumb("level program ready", level);
 }
 
 extern "C" void openrac_game_clear_level_programs(void) {
