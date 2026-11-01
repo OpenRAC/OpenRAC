@@ -1886,6 +1886,15 @@ class Unit:
         named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})", symbol or "")
         if named and not code and int(named.group(2), 16) != address and self._shared_level() is not None:
             return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
+        # A level file's bare name its level's build placed elsewhere (D_001FEAC0 is level 2's
+        # 0x001FF1C0): that address, as the level loaded has it.
+        unit_level = UNIT_LEVEL.search(self.unit)
+        if unit_level and not code and symbol:
+            level = int(unit_level.group(1))
+            placed = self.program.level_data.get(level, {}).get(symbol)
+            low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
+            if placed is not None and low <= placed < high:
+                return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
             # A function's code declared as data: where that code is in the program loaded.

@@ -109,6 +109,7 @@ class Program:
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
+    level_data: dict = field(default_factory=dict)  # level -> {data name in its files: address there}
     bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
     executable_starts: set = field(default_factory=set)  # hostgen.json "executable_functions"
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
@@ -925,6 +926,8 @@ def read_symbols(path: Path, program: Program) -> int:
                 count += 1
         for name, (level, value) in table.get("levels", {}).items():
             program.level_names[name] = (level, int(value, 0))
+        for level, names in table.get("level_data", {}).items():
+            program.level_data[int(level)] = {name: int(value, 0) for name, value in names.items()}
         return count
     for line in path.read_text(errors="replace").splitlines():
         m = _SPLAT_SYMBOL.match(line)

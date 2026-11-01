@@ -112,6 +112,24 @@ def level_values(source: Path, boot: dict) -> dict[str, list]:
     return dict(sorted(out.items()))
 
 
+LEVEL_DATA_NAME = re.compile(r"D_([0-9A-Fa-f]{8})")
+
+
+def level_data(source: Path) -> dict[str, dict[str, str]]:
+    """Level -> {name: address} for data names a level's build gave another address than the one
+    they spell: `D_001FEAC0` in a level 2 file is 0x001FF1C0 there."""
+    out: dict[str, dict[str, str]] = {}
+    for path in sorted(source.glob("build/[0-9][0-9]_*/placed.json")):
+        moved = {}
+        for name, value in json.loads(path.read_text()).get("values", {}).items():
+            m = LEVEL_DATA_NAME.fullmatch(name)
+            if m and isinstance(value, str) and int(value, 0) != int(m.group(1), 16):
+                moved[name] = value
+        if moved:
+            out[str(int(path.parent.name[:2]))] = dict(sorted(moved.items()))
+    return out
+
+
 def make_table(source: Path, cfg: dict, build: dict, commit: str | None) -> dict:
     """The committed form of a build's table: its values, where they come from, and the names
     the C uses that it has no value for."""
@@ -123,6 +141,7 @@ def make_table(source: Path, cfg: dict, build: dict, commit: str | None) -> dict
         "source": {"commit": commit, "program": build.get("program"), "table": cfg["derived"]["build"]},
         "values": values,
         "levels": levels,
+        "level_data": level_data(source),
         "unresolved": sorted(used_names(source, cfg) - set(values) - set(levels)),
     }
 
