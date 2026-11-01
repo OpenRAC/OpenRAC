@@ -1454,6 +1454,45 @@ TickMobys pose_mobys(
             scene::Instance instance{model->second, props[i].matrix, {1, 1, 1, 1}};
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
             instance.occlusion = scene::Pvs::always;
+            // A prop casts the hero's kind of shadow (a board under his feet goes with his): in the
+            // Enhanced shadow map as his equipment does, and, while the game draws his shadow, as
+            // one capsule along the mesh's longer side, half its shorter side thick.
+            instance.hero_shadow_caster = openrac_game_has_level(g->loaded);
+            if (shadow_moby != 0 && model->second < g->level.models.size()) {
+                const scene::Model& mesh = g->level.models[model->second];
+                const renderer::Vec3 size{mesh.max[0] - mesh.min[0], mesh.max[1] - mesh.min[1],
+                                          mesh.max[2] - mesh.min[2]};
+                // The mesh's up is its shortest side; the capsule runs along the longest.
+                int along = 0, across = 0;
+                for (int k = 1; k < 3; ++k) {
+                    along = size[k] > size[along] ? k : along;
+                }
+                int up = along == 0 ? 1 : 0;
+                for (int k = 0; k < 3; ++k) {
+                    up = k != along && size[k] < size[up] ? k : up;
+                }
+                across = 3 - along - up;
+                renderer::Vec3 a{}, b{};
+                for (int k = 0; k < 3; ++k) {
+                    a[k] = b[k] = 0.5f * (mesh.min[k] + mesh.max[k]);
+                }
+                const float radius = 0.5f * size[across];
+                a[along] = mesh.min[along] + radius;
+                b[along] = mesh.max[along] - radius;
+                renderer::ShadowCapsule capsule;
+                capsule.a = renderer::transform_point(props[i].matrix, a);
+                capsule.b = renderer::transform_point(props[i].matrix, b);
+                // The matrix's scale along the side the radius was measured on.
+                const renderer::Vec3 o = renderer::transform_point(props[i].matrix, renderer::Vec3{});
+                renderer::Vec3 unit{};
+                unit[across] = 1.0f;
+                const renderer::Vec3 u = renderer::transform_point(props[i].matrix, unit);
+                const float scale = std::sqrt((u[0] - o[0]) * (u[0] - o[0]) + (u[1] - o[1]) * (u[1] - o[1])
+                                              + (u[2] - o[2]) * (u[2] - o[2]));
+                capsule.radius_a = capsule.radius_b = radius * scale;
+                capsule.segments_a = capsule.segments_b = 8;
+                shadows.push_back(capsule);
+            }
             live.push_back(instance);
             live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
             live_joints.push_back(0);
