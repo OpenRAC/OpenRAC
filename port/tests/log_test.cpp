@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -21,6 +22,7 @@
 #endif
 
 #include "check.h"
+#include "common/breadcrumbs.h"
 #include "common/crash.h"
 #include "common/line_ring.h"
 #include "common/log.h"
@@ -101,6 +103,29 @@ void report_has_every_section(const fs::path& dir) {
         log::info("line {}", i);
     }
     crash::configure(dir / "crashes", "openrac-test", "2026-10-17 14:00:00 +0200");
+    // Large timestamps and frame IDs exercise the report's byte cap, not only short test values.
+    constexpr auto kLargestFrame = std::numeric_limits<std::int64_t>::max();
+    constexpr auto kClockStep =
+        static_cast<std::uint64_t>(kLargestFrame) / crash::Breadcrumbs::kPerThread;
+    for (std::size_t i = 0; i < crash::Breadcrumbs::kPerThread; ++i) {
+        for (const auto thread : {crash::BreadcrumbThread::Main, crash::BreadcrumbThread::Render}) {
+            crash::breadcrumbs().record(
+                thread,
+                "a deliberately long breadcrumb message that must remain bounded in the report",
+                kLargestFrame,
+                i * kClockStep
+            );
+        }
+    }
+    crash::breadcrumbs().record(crash::BreadcrumbThread::Main, "test queued", 1234, 100);
+    crash::breadcrumbs().record(crash::BreadcrumbThread::Render, "test started", 1234, 200);
+    crash::breadcrumbs().record(crash::BreadcrumbThread::Main, "test resumed", 1235, 300);
+    crash::breadcrumbs().record(
+        crash::BreadcrumbThread::Main, "test level load", 9, 400, crash::BreadcrumbValue::Level
+    );
+    crash::breadcrumbs().record(
+        crash::BreadcrumbThread::Main, "test game tick", 1236, 500, crash::BreadcrumbValue::Tick
+    );
     crash::GameState s;
     s.frame = 1234;
     s.level = 3;
@@ -150,6 +175,18 @@ void report_has_every_section(const fs::path& dir) {
                     "uid 57 at 12.30 45.60 7.80 (0x00A1B200), camera at 95.50 -12.00 40.25\n")
           != std::string::npos);
     CHECK(text.find("Backtrace") != std::string::npos);
+    const auto trail = text.find("Recent activity");
+    const auto queued = text.find("us [main] test queued frame=1234");
+    const auto started = text.find("us [render] test started frame=1234");
+    const auto resumed = text.find("us [main] test resumed frame=1235");
+    CHECK(trail != std::string::npos);
+    CHECK(queued < started && started < resumed && resumed != std::string::npos);
+    CHECK(text.find("us [main] test level load level=9") != std::string::npos);
+    CHECK(text.find("test level load frame=") == std::string::npos);
+    CHECK(text.find("us [main] test game tick tick=1236") != std::string::npos);
+    CHECK(text.find("test game tick frame=") == std::string::npos);
+    // The full two-thread history adds under 8 KiB even with every message at its text cap.
+    CHECK(text.find("The log's last lines") - trail < 8192);
 #if defined(_WIN32)
     CHECK(text.find("Symbols:  ") != std::string::npos);
     if (text.find("function and source-line lookup verified") != std::string::npos) {
@@ -186,6 +223,11 @@ void report_has_every_section(const fs::path& dir) {
     CHECK(crash::report("again", crash::Kind::Trap) == nullptr);
     log::set_file(nullptr);
     CHECK(read(log::session_file(dir, "openrac-report", 0)).find("Crash report: ") != std::string::npos);
+    CHECK(
+        read(log::session_file(dir, "openrac-report", 0))
+            .find("us [render] test started frame=1234")
+        != std::string::npos
+    );
 }
 
 void capped_says_it_so_many_times() {

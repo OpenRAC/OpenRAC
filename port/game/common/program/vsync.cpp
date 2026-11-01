@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 
+#include "common/breadcrumbs.h"
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
@@ -265,6 +266,9 @@ void finish() {
 // ---- The vertical blank ----
 
 int vsync() {
+    crash::breadcrumb(
+        crash::BreadcrumbThread::Main, "game tick yielded", g_frame, crash::BreadcrumbValue::Tick
+    );
     // [debug tools] The game's own code stops here and goes on when this returns: its time is the
     // tick's (common/stats.h). The tick's frame of measurements begins.
     stats::game_yielded();
@@ -528,6 +532,9 @@ int vsync() {
     }
 #endif
     g_tick_resumed = steady_clock::now();
+    crash::breadcrumb(
+        crash::BreadcrumbThread::Main, "game tick resumed", g_frame, crash::BreadcrumbValue::Tick
+    );
     return static_cast<int>(g_frame & 1);
 }
 

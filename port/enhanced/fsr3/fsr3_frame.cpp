@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "enhanced/fsr3/fsr3_internal.h"
@@ -230,6 +231,7 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
             world.blit_to(display.framebuffer, display.width, display.height);
             return true;
         }
+        crash::breadcrumb("temporal upscaling");
         return dispatch_upscaler(inputs, error);
     }();
 

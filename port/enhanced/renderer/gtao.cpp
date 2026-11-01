@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
@@ -122,6 +123,7 @@ bool Gtao::render(
     // Sampling an attachment while drawing back into it would be framebuffer
     // feedback. target.depth_texture is the prepass's own depth, never the colour
     // target's attachment, so the colour composite may sample it too (gtao-direct-depth).
+    crash::breadcrumb("GTAO");
     const bool direct_depth =
         target.depth_texture != 0
         && (!apply_to_colour || render_opt::enabled(render_opt::Opt::GtaoDirectDepth));
