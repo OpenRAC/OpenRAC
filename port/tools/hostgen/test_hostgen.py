@@ -2221,6 +2221,21 @@ class Preparation(unittest.TestCase):
         self.assertEqual(lines[7], "#define PEEK(p) ((struct { int x; } *)(p))")  # no function: as it was
         self.assertEqual(prep.name_cast_records("int a;\n"), "int a;\n")
 
+    def test_nested_cast_macros_are_written_out(self):
+        src = ("#define FLD(p, T, o) (((struct { char pad[o]; T v; } *)(p))->v)\n"
+               "int f(char *g)\n"
+               "{\n"
+               "    return FLD(FLD(g, char *, 8), int, 4) + FLD(g, int, 2);\n"
+               "}\n")
+        line = prep.expand_cast_macros(src).split("\n")[3]
+        self.assertNotIn("FLD", line)
+        self.assertEqual(line.count("struct {"), 3)
+
+    def test_lvalue_cast_stores_through_a_pointer(self):
+        src = "    ((u8 *)((V *)(s))->p[9]) = NULL;\n    ((V *)x)->y = 1;\n"
+        self.assertEqual(prep.name_lvalue_casts(src),
+                         "    *(u8 * *)&(((V *)(s))->p[9]) = NULL;\n    ((V *)x)->y = 1;\n")
+
     def test_an_override_replaces_a_definition_with_cast_records_ahead(self):
         # name_cast_records puts the records ahead of the function's first line: the matched
         # definition is still found, blanked with them, and the override goes at the end.

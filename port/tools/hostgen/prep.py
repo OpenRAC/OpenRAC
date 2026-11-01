@@ -262,7 +262,7 @@ def _expand_line(line: str, name: str, params: list[str] | None, body: str) -> s
     arguments do not close on this line, or are not as many as the parameters, stays."""
     out, pos = [], 0
     for m in re.finditer(r'"(?:\\.|[^"\\\n])*"|\b' + re.escape(name) + r"\b", line):
-        if m.group(0).startswith('"'):
+        if m.group(0).startswith('"') or m.start() < pos:  # a use inside a use just written out
             continue
         if params is None:
             out.append(line[pos:m.start()] + body)
@@ -297,6 +297,9 @@ def _expand_line(line: str, name: str, params: list[str] | None, body: str) -> s
     return "".join(out) + line[pos:]
 
 
+_MACRO_NESTING = 8
+
+
 def expand_cast_macros(text: str) -> str:
     """A one-line macro of the unit whose body defines a record inside a cast is written out where
     it is used, so name_cast_records finds the record in each function (Clang's JSON leaves a
@@ -320,7 +323,12 @@ def expand_cast_macros(text: str) -> str:
                 break
             if lines[j].lstrip().startswith("#") or name not in lines[j]:
                 continue
-            lines[j] = _expand_line(lines[j], name, params, body)
+            # Again for a use in another's arguments: FLD(FLD(p, char *, 8), int, 4).
+            for _ in range(_MACRO_NESTING):
+                written = _expand_line(lines[j], name, params, body)
+                if written == lines[j]:
+                    break
+                lines[j] = written
     return "\n".join(lines)
 
 
@@ -336,6 +344,23 @@ def name_wide_casts(text: str) -> str:
     long __attribute__((mode(TI)))`). The type is written as openrac_ti / openrac_uti
     (openrac_hostgen.h), which carry the attribute in their typedefs."""
     return _WIDE_CAST.sub(lambda m: "openrac_uti" if m.group(1) == "unsigned" else "openrac_ti", text)
+
+
+# GCC's cast as an lvalue, written at a statement's start: "((u8 *)q->p[9]) = 0;".
+_LVALUE_CAST = re.compile(r"^(\s*)\(\(([\w ]+\*+)\)(.+)\) = (.*;)\s*$", re.M)
+
+
+def name_lvalue_casts(text: str) -> str:
+    """Clang refuses GCC's lvalue cast. It stores in the operand as the cast's type, which C says
+    with a pointer to that type."""
+    def write(m: re.Match) -> str:
+        operand, depth = m.group(3), 0
+        for c in operand:
+            depth += (c == "(") - (c == ")")
+            if depth < 0:
+                return m.group(0)  # the closing parenthesis was not the cast's
+        return f"{m.group(1)}*({m.group(2)} *)&({operand}) = {m.group(4)}"
+    return _LVALUE_CAST.sub(write, text)
 
 
 _VA_BUILTINS = ("vfprintf", "vprintf", "vsprintf", "vsnprintf", "vfscanf", "vscanf", "vsscanf")
@@ -438,7 +463,7 @@ def unalias(text: str, aliases: dict[str, str]) -> str:
 
 
 def prepare(text: str) -> str:
-    return rename_va_builtins(own_va_list(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text))))))))
+    return rename_va_builtins(own_va_list(name_lvalue_casts(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text)))))))))
 
 
 # The path may be several adjacent strings over as many lines (the NTSC decomp's long paths).
