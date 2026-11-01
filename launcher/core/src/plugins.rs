@@ -66,6 +66,8 @@ pub const MANIFEST: &str = "openrac-mod.json";
 pub const LIST: &str = "plugins.json";
 /// The port's answer at its last start.
 pub const STATUS: &str = "status.json";
+/// The mod code of the set in place, for the game to show (modset.rs).
+pub const CODE_FILE: &str = "modset.json";
 
 /// `<data>/plugins` for a game set up in `install_dir`.
 pub fn dir(install_dir: &Path, game: &str) -> PathBuf {
@@ -851,6 +853,9 @@ pub fn set_enabled(dir: &Path, game: &str, version: &str, id: &str, on: bool) ->
         mods[at].enabled = false;
     }
     write_list(dir, &mods)?;
+    if read_manifest(&dir.join(id)).is_ok_and(|m| matches!(party_kind(&m), "gameplay" | "solo")) {
+        forget_code(dir);
+    }
     list(dir, game, version)
 }
 
@@ -938,6 +943,9 @@ pub fn set_setting(
     let m = read_manifest(&dir.join(id))?;
     let spec = m.settings.iter().find(|s| s.key == key).ok_or_else(|| format!("{id} has no setting {key}"))?;
     let mut value = check_value(spec, &value).ok_or_else(|| format!("{value} is not a value of {}", spec.name))?;
+    if shared_setting(spec) && party_kind(&m) == "gameplay" {
+        forget_code(dir);
+    }
     if spec.kind == "string" && spec.default == PLAYER_NAME && value == player_name {
         value = Value::String(PLAYER_NAME.into());
     }
@@ -958,6 +966,11 @@ pub fn party_kind(m: &Manifest) -> &str {
 /// that is not a keybind and is not the player's name.
 pub fn shared_setting(spec: &SettingSpec) -> bool {
     spec.multiplayer.is_none() && spec.kind != "keybind" && spec.default != PLAYER_NAME
+}
+
+/// The set a code names is no longer the one in place: its code must not be shown any more.
+fn forget_code(dir: &Path) {
+    let _ = std::fs::remove_file(dir.join(CODE_FILE));
 }
 
 /// Each mod's id and whether it is on, in load order.
@@ -1023,6 +1036,7 @@ pub fn remove(dir: &Path, game: &str, version: &str, id: &str) -> Result<Vec<Plu
         std::fs::remove_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     }
     write_list(dir, &mods)?;
+    forget_code(dir);
     list(dir, game, version)
 }
 
@@ -1313,6 +1327,9 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         entry.settings.retain(|key, value| m.settings.iter().any(|s| s.key == *key && check_value(s, value).is_some()));
     }
     write_list(dir, &mods)?;
+    if matches!(party_kind(&m), "gameplay" | "solo") {
+        forget_code(dir);
+    }
     Ok(Installed::Plugin { id: m.id.clone(), name: m.name.clone(), version: m.version.clone(), replaced, enabled })
 }
 

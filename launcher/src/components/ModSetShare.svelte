@@ -230,4 +230,8 @@
   .grow {
     margin-right: auto;
   }
+
+  :global(html[data-platform="android"]) .ticks label {
+    min-height: 44px;
+  }
 </style>

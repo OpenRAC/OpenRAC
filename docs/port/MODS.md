@@ -837,10 +837,11 @@ back. The last ten saved sets stay under the gameplay mods' **Earlier mods**.
   "created": "2026-10-31T12:00:00Z", "mods": [ { "id": "difficulty-mod", "version": "1.4.0" } ] }
 ```
 
-`code` is null when the server could not be reached: `link` then holds the full code. It says what
-the set was, not what is running: a game shows the code only while its gameplay mods match `mods`.
-Removed when a saved set is restored. `OPENRAC_MODSET_SERVER=host:port` points the launcher at
-another store.
+`code` is null when the server could not be reached: `link` then holds the full code. `mods` lists
+what a party's check lists, Multiplayer left out. The launcher removes the file when what a party
+compares changes (a gameplay mod on, off, added or removed, a compared setting) and when a saved set
+is restored; it says what the set was, not what is running, so a game shows the code only while its
+gameplay mods match `mods`. `OPENRAC_MODSET_SERVER=host:port` points the launcher at another store.
 
 ## 11. Three ways to write a mod: C, C++ and Luau scripts
 

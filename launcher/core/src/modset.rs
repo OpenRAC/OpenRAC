@@ -42,7 +42,7 @@ pub const MAX_JSON: usize = 64 * 1024;
 /// The most entries in each of a set's lists.
 pub const MAX_MODS: usize = 40;
 /// Where the game finds the code of the set it plays (the Rules and Refused pages).
-pub const GAME_FILE: &str = "modset.json";
+pub const GAME_FILE: &str = plugins::CODE_FILE;
 /// The sources the player said yes to.
 pub const TRUSTED: &str = "trusted_sources.json";
 /// The public server's mod sets.
@@ -589,6 +589,11 @@ fn plain_settable(value: &Value) -> bool {
     }
 }
 
+/// A name as a set carries it: short, one line, no address.
+fn carried_name(name: &str) -> String {
+    name.replace("://", " ").chars().filter(|c| !c.is_control()).take(MAX_TEXT).collect()
+}
+
 /// The OpenRAC that last ran these mods, from the port's `status.json`; "" before its first start.
 pub fn port_version(dir: &Path) -> String {
     std::fs::read(dir.join(plugins::STATUS))
@@ -612,7 +617,7 @@ pub fn build(
     let sources = remote::read_sources(ctx.dir);
     let mut set = ModSet {
         format: FORMAT,
-        name: name.chars().filter(|c| !c.is_control()).take(MAX_TEXT).collect::<String>().replace("://", ""),
+        name: carried_name(name),
         created: now.to_string(),
         game: ctx.game.to_string(),
         discs: Vec::new(),
@@ -632,7 +637,7 @@ pub fn build(
         }
         let Some(source) = shareable(&sources, &e.manifest) else {
             if !optional {
-                let name = e.manifest.name.chars().take(MAX_TEXT).collect::<String>();
+                let name = carried_name(&e.manifest.name);
                 set.manual.push(SetManual { id: e.manifest.id.clone(), version: e.manifest.version.clone(), name });
             }
             continue;
@@ -670,16 +675,22 @@ pub fn build(
         }
     }
     set.discs = discs.map_or_else(|| vec![ctx.version.to_string()], |d| d.into_iter().collect());
+    if set.mods.len().max(set.extras.len()).max(set.manual.len()) > MAX_MODS {
+        return Err(format!("A code holds at most {MAX_MODS} mods. Turn some off and try again."));
+    }
     set.validate()?;
     Ok(set)
 }
 
 /// What the game reads to show the code on its Rules and Refused pages (`<plugins>/modset.json`).
-/// It shows the code only while its running mods match `mods`.
+/// It shows the code only while its running mods match `mods`. A change to what a party compares
+/// takes the file away ([`plugins::forget_code`]).
 pub fn write_game_file(dir: &Path, set: &ModSet, code: Option<&str>, long: &str) -> Result<(), String> {
+    // As the game lists its mods for a party: Multiplayer's own left out.
     let mods: Vec<Value> = set
         .mods
         .iter()
+        .filter(|m| m.id != "multiplayer")
         .map(|m| serde_json::json!({"id": m.id, "version": m.version}))
         .chain(set.manual.iter().map(|m| serde_json::json!({"id": m.id, "version": m.version})))
         .collect();
@@ -1847,6 +1858,7 @@ mod tests {
         let file: Value = serde_json::from_slice(&std::fs::read(dir.join(GAME_FILE)).unwrap()).unwrap();
         assert_eq!(file["code"], "K7M2-9QXR");
         assert_eq!(file["mods"][0], json!({"id": "ammo-max", "version": "1.0.0"}));
+        assert!(!file["mods"].to_string().contains("multiplayer"));
     }
 
     #[test]
@@ -2141,6 +2153,38 @@ mod tests {
         remote::write_sources(dir, &sources).unwrap();
         let set = build(&ctx(dir, &fx), &[], "Ada", "", Vec::new(), NOW).unwrap();
         assert_eq!(set.mods[0].sums, m.sums);
+    }
+
+    #[test]
+    fn a_code_goes_stale_when_what_a_party_compares_changes() {
+        let t = tempfile::tempdir().unwrap();
+        let dir = t.path();
+        let spec = json!({"settings": [
+            {"key": "enemies", "name": "Enemies", "type": "int", "default": 1},
+            {"key": "mine", "name": "Mine", "type": "int", "default": 1, "multiplayer": "own"},
+        ]});
+        have_local(dir, "difficulty-mod", "1.0.0", &spec);
+        have_local(dir, "mouse", "1.0.0", &json!({"multiplayer": "input"}));
+        let code = || std::fs::write(dir.join(GAME_FILE), "{}").unwrap();
+        let there = || dir.join(GAME_FILE).exists();
+        code();
+        plugins::set_setting(dir, "rac1", "pal", "difficulty-mod", "mine", json!(2), "Ada").unwrap();
+        plugins::set_enabled(dir, "rac1", "pal", "mouse", false).unwrap();
+        assert!(there(), "a player's own setting and an input mod change nothing a party compares");
+        plugins::set_setting(dir, "rac1", "pal", "difficulty-mod", "enemies", json!(2), "Ada").unwrap();
+        assert!(!there(), "a compared setting does");
+        code();
+        plugins::set_enabled(dir, "rac1", "pal", "difficulty-mod", false).unwrap();
+        assert!(!there(), "so does turning a gameplay mod off");
+        code();
+        plugins::remove(dir, "rac1", "pal", "difficulty-mod").unwrap();
+        assert!(!there(), "and removing it");
+    }
+
+    #[test]
+    fn a_strange_name_never_stops_a_share() {
+        assert_eq!(carried_name("see https://x\n"), "see https x");
+        assert_eq!(carried_name(&"a".repeat(200)).len(), MAX_TEXT);
     }
 
     #[test]

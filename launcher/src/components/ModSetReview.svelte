@@ -395,6 +395,12 @@
     cursor: pointer;
   }
 
+  :global(html[data-platform="android"]) .trust label,
+  :global(html[data-platform="android"]) .tick {
+    min-height: 44px;
+    align-items: center;
+  }
+
   .saved {
     font-size: 0.75rem;
     color: var(--soft);
