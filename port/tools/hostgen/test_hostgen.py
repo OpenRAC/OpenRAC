@@ -2937,6 +2937,110 @@ class FromAssembly(unittest.TestCase):
             """)}, symbols={"func_00100100": 0x00100100})
         self.assertEqual(out, ["36", "60"])
 
+    def test_a_computed_jump_stays_in_the_function(self):
+        # The vertex count picks where a run of instructions is entered (func_00280B90), and the delay
+        # slot's VU load must not take the target from the jump.
+        source = """
+                sll $4, $4, 2
+                lui $8, %hi(run)
+                addiu $8, $8, %lo(run)
+                addu $9, $8, $4
+                lui $10, 0x20
+                addiu $2, $0, 0
+                jr $9
+                lqc2 $vf1, 0($10)
+            run:
+                addiu $2, $2, 1
+                addiu $2, $2, 2
+                addiu $2, $2, 4
+                jr $31
+                nop
+        """
+        symbols = {"run": assembler.label_addresses(0x00100000, source)["run"]}
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(0)); test_print(func_00100000(1));
+                                  test_print(func_00100000(2)); return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], register_jumps=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)})
+        self.assertEqual(out, ["7", "6", "4"])
+
+    def test_the_declaration_the_code_agrees_with(self):
+        # One file declares a float where the register is an integer's and adds a parameter: its
+        # length must not win over what the code reads ($4, $5 and $f12).
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int, float);
+            int test_main(void) { test_print(func_00100000(1, 2, 4.0f)); return 0; }
+        """, "b.c": """
+            extern int func_00100000(int *, int *, int *, float);
+            int other(void) { return func_00100000(0, 0, 0, 1.0f); }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], fit_declarations=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, """
+                mfc1 $8, $f12
+                addu $2, $4, $5
+                srl $8, $8, 23
+                jr $31
+                addu $2, $2, $8
+            """)})
+        self.assertEqual(out, ["132"])
+
+    def test_a_register_taken_from_itself_is_no_input(self):
+        # $f0 - $f0 is zero whatever $f0 held; refused as an input, the routine had no translation.
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(5)); return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], input_idioms=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, """
+                sub.s $f0, $f0, $f0
+                mfc1 $2, $f0
+                jr $31
+                addu $2, $2, $4
+            """)})
+        self.assertEqual(out, ["5"])
+
+    def test_a_dma_wait_is_over(self):
+        # bc0f back to itself: the wait for a transfer that has already finished here.
+        source = """
+            wait:
+                nop
+                bc0f wait
+                nop
+                jr $31
+                addiu $2, $4, 1
+        """
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(5)); return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], dma_done=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source)})
+        self.assertEqual(out, ["6"])
+
+    def test_a_return_through_a_copy_of_ra(self):
+        # A leaf that calls helpers keeps $ra in a temporary and ends with jr on it: a return, not a
+        # call to that value (Going Commando's rotation builder, func_00283898).
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int x);
+            INCLUDE_ASM("asm", func_00100100);
+            extern int func_00100100(int x);
+            int test_main(void) { test_print(func_00100000(20)); return 0; }
+        """, {"func_00100000": (0x00100000, """
+                addi $11, $31, 0
+                jal func_00100100
+                nop
+                jr $11
+                addiu $2, $2, 1
+            """), "func_00100100": (0x00100100, """
+                jr $31
+                sll $2, $4, 1
+            """)}, symbols={"func_00100100": 0x00100100})
+        self.assertEqual(out, ["41"])
+        self.assertEqual(self.last_report["functions_from_assembly"], 2)
+
     def test_console_form(self):
         # The form for the console's compiler (rac1-decomp's tools/fcheck.py): the function under a
         # name of its own with the function's symbol, calls by retail address with every argument

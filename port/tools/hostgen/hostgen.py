@@ -1021,6 +1021,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.relocate = cfg.get("relocate")
     program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
     program.returns_64 = set(cfg.get("returns_64", []))
+    program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
+    short_names = cfg.get("level_short_names")
+    program.level_short_names = re.compile(short_names) if short_names else None
     program.vu0_programs = {int(k, 0): v for k, v in cfg.get("asm", {}).get("vu0_programs", {}).items()}
     # Locals that receive a "returns_64" call's result but which the original keeps in a stack slot across calls,
     # where its 32-bit store and load leave the low half sign-extended (hostgen.json "spilled_locals": function ->

@@ -148,6 +148,15 @@ def _inner(n: dict) -> list:
     return n.get("inner", [])
 
 
+def _does_something(n: dict) -> bool:
+    """An expression with an effect of its own: a call, an assignment, an increment."""
+    k = n.get("kind")
+    if (k in ("CallExpr", "CompoundAssignOperator") or (k == "BinaryOperator" and n.get("opcode") == "=")
+            or (k == "UnaryOperator" and n.get("opcode") in ("++", "--"))):
+        return True
+    return any(isinstance(c, dict) and _does_something(c) for c in _inner(n))
+
+
 def _strip_parens(n: dict) -> dict:
     while n.get("kind") == "ParenExpr":
         n = _inner(n)[0]
@@ -1607,12 +1616,16 @@ class Unit:
             stack.extend(c for c in n.get("inner", ()) if isinstance(c, dict))
         return out
 
+    def _level_short_name(self, sym: str) -> str:
+        return self.program.level_short_name(self.unit, sym, self.fn.code if self.fn is not None else "")
+
     def _callee_symbol(self, ref: dict) -> str:
         d = self.decls.get(ref["referencedDecl"]["id"])
         sym = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         sym = self.program.aliases.get((self.unit, sym), sym)
         if (self.unit, sym) in self.program.statics:
             return sym
+        sym = self._level_short_name(sym)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own
@@ -2603,10 +2616,13 @@ class Unit:
         sig = f.sig
         result_cls = self.cls(result_t)
         values = self._match_args(sym, sig, args)
+        spent = self._spent_arguments(sig, args)
         # A static helper the console's compiler inlined here: its copy for this call site (after the
         # arguments, whose calls come first in the caller's code too).
         copy = self._inline_copy(sym)
         text = f"{cname(copy or sym)}({', '.join(values)})"
+        if spent:
+            text = f"({', '.join(spent)}, {text})"
         ret_cls = self.sig_cls(sig.ret)
         self._note_mismatch(sym, sig, args, result_cls, ret_cls)
         if result_cls == "void":
@@ -2640,6 +2656,22 @@ class Unit:
             what.append(f"reads a {result_cls} result, returns {ret_cls}")
         if what:
             self.fn.report.mismatches.append(f"{sym}: {'; '.join(what)}")
+
+    def _spent_arguments(self, sig, args: list) -> list[str]:
+        """hostgen.json "keep_spent_arguments": the arguments past what the callee takes that do something
+        (`f(g())` where f takes nothing): the call passes them to no one, but the EE ran them. _match_args
+        leaves them out, and the C of the call would never run. As statements before the call."""
+        if not getattr(self.program, "keep_spent_arguments", False) or not sig.prototyped or sig.variadic:
+            return []
+        classes = [self._arg_class(a) for a in args]
+        pcls = [("agg" if self.sig_cls(p) == "rec" else self._reg_class(self.sig_cls(p))) for p in sig.params]
+        if "agg" in classes or "agg" in pcls:
+            return []
+        out = []
+        for kind in ("i", "f"):
+            given = [a for a, c in zip(args, classes) if c == kind]
+            out += [f"(void)({self.rv(a)})" for a in given[pcls.count(kind):] if _does_something(a)]
+        return out
 
     def _arg_class(self, a: dict) -> str:
         """Which register file the call site put the argument in."""
