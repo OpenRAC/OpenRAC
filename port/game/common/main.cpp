@@ -567,9 +567,12 @@ int main(int argc, char** argv) {
             log::info("the settings ask for the detailed log (verbose_log = 1)");
         }
         // Enhanced rendering is chosen now, before the window makes its first shader: the
-        // setting (the launcher's Mods entry), else OPENRAC_ENHANCED. Off, none of it is made.
-        if (settings::get().enhanced_rendering) {
+        // setting (the launcher's Mods entry, so --no-mods leaves it off), else OPENRAC_ENHANCED.
+        // Off, none of it is made.
+        if (settings::get().enhanced_rendering && !g_options.no_mods) {
             gl::set_enhanced_rendering(true);
+        } else if (settings::get().enhanced_rendering) {
+            log::info("enhanced rendering off: no mods are loaded (--no-mods)");
         }
         if (gl::enhanced_rendering_enabled()) {
             lighting::set_probe_root(g_options.probes);

@@ -1,9 +1,7 @@
-//! The launcher's colours for the game: the theme picked in Settings (and on Android the picked
-//! game's accent, as the launcher wears it) handed to the game's options drawer, so that it looks
+//! The launcher's colours for the game: the theme picked in Settings and the picked game's accent,
+//! as the launcher wears them, handed to the game's options drawer, so that it looks
 //! like the launcher it was started from (port/game/common/ui_colors.h). The colours
 //! are src/lib/palettes.json's, the file the launcher's pages read.
-
-use crate::actions::Platform;
 
 const PALETTES: &str = include_str!("../../src/lib/palettes.json");
 
@@ -30,16 +28,13 @@ const DRAWER: &[&str] = &[
 /// app.css's without its leading dashes ("panel-hi=#22222f,line=#9ca1d438,...").
 pub const ENV: &str = "OPENRAC_UI_COLORS";
 
-/// The drawer's colours for theme `theme` (an unknown one is the launcher's own) and, on Android,
-/// the accent of `game`.
-pub fn ui_colors(theme: &str, game: Option<&str>, platform: Platform) -> String {
+/// The drawer's colours for theme `theme` (an unknown one is the launcher's own) and the accent of
+/// `game`.
+pub fn ui_colors(theme: &str, game: Option<&str>) -> String {
     let data: serde_json::Value = serde_json::from_str(PALETTES).unwrap_or_default();
     let palette =
         data["palettes"].as_array().and_then(|all| all.iter().find(|p| p["id"] == theme)).map(|p| &p["colors"]);
-    let accent = match (platform, game) {
-        (Platform::Android, Some(game)) => Some(&data["accents"][game]),
-        _ => None,
-    };
+    let accent = game.map(|game| &data["accents"][game]);
     DRAWER
         .iter()
         .filter_map(|token| {
@@ -80,21 +75,21 @@ mod tests {
 
     #[test]
     fn hands_the_game_the_theme_and_the_accent() {
-        let own = ui_colors("openrac", None, Platform::Linux);
+        let own = ui_colors("openrac", None);
         assert_eq!(own.split(',').count(), DRAWER.len(), "{own}");
         assert_eq!(color(&own, "panel"), Some("#1d1d28"));
         assert_eq!(color(&own, "line"), Some("#9ca1d438"));
         assert_eq!(color(&own, "amber"), Some("#ffb443"));
         // A theme sets its own; what it leaves is the launcher's.
-        let nord = ui_colors("nord", Some("rac3"), Platform::Linux);
+        let nord = ui_colors("nord", None);
         assert_eq!(color(&nord, "panel"), Some("#3b4252"));
-        assert_eq!(color(&nord, "amber"), Some("#ffb443"), "a desktop keeps the orange");
-        assert_eq!(ui_colors("no-such", None, Platform::Linux), own);
-        // Android wears the game's accent; Ratchet & Clank's is the launcher's own.
-        let rac3 = ui_colors("nord", Some("rac3"), Platform::Android);
+        assert_eq!(color(&nord, "amber"), Some("#ffb443"));
+        assert_eq!(ui_colors("no-such", None), own);
+        // The game's accent; Ratchet & Clank's is the launcher's own.
+        let rac3 = ui_colors("nord", Some("rac3"));
         assert_eq!(color(&rac3, "amber"), Some("#ffd23f"));
         assert_eq!(color(&rac3, "panel"), Some("#3b4252"));
-        assert_eq!(ui_colors("openrac", Some("rac1"), Platform::Android), own);
+        assert_eq!(ui_colors("openrac", Some("rac1")), own);
     }
 
     #[test]

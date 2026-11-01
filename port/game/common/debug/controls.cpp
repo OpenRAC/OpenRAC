@@ -433,6 +433,18 @@ void change_setting(int row, int by) {
     s.settings_changed = true;
 }
 
+// The saved Enhanced choices and this session's tuning back to their defaults; the caller saves.
+void reset_enhanced() {
+    settings::get().reset_enhanced();
+    enhanced::set_wetness_material_settings({});
+    enhanced::set_wetness_debug_view(false);
+    enhanced::set_fur_debug_view(enhanced::FurDebug::Off);
+    enhanced::set_fur_material_settings({});
+    enhanced::set_water_debug_settings({});
+    enhanced::set_atmosphere_settings({});
+    enhanced::reset_water_simulation();
+}
+
 void enhanced_settings_window() {
     if (!s.enhanced_settings) {
         return;
@@ -463,14 +475,7 @@ void enhanced_settings_window() {
     ImGui::BeginDisabled(!available);
     bool changed = checkbox("Enhanced graphics (F4)", &graphics.enhanced_graphics);
     if (ImGui::Button("Reset to Defaults##enhanced")) {
-        graphics.reset_enhanced();
-        enhanced::set_wetness_material_settings({});
-        enhanced::set_wetness_debug_view(false);
-        enhanced::set_fur_debug_view(enhanced::FurDebug::Off);
-        enhanced::set_fur_material_settings({});
-        enhanced::set_water_debug_settings({});
-        enhanced::set_atmosphere_settings({});
-        enhanced::reset_water_simulation();
+        reset_enhanced();
         changed = true;
     }
     if (ImGui::IsItemHovered()) {

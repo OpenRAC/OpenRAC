@@ -34,11 +34,13 @@ paused or slowed, a line at the top of the picture says so and names the keys
 that undo it; a screenshot says where it went.
 
 The same keys are menus. On Windows and Linux a bar along the window's top
-has View, Graphics, Enhanced, Sound and Developer, with a tick beside what is on
+has Game, Graphics, Enhanced, Sound and Developer, with a tick beside what is on
 (Graphics lists the picture's settings with their values; a click moves one
-to its next value, and the menu stays open); Alt by itself
-hides it and shows it again, and View > "Hide these menus" hides it (the
-`menu_bar` setting keeps the choice). On macOS the system's menu bar has
+to its next value, and the menu stays open); its key (`menu_bar_key`, `` ` ``
+by default) and controller button (`menu_bar_button`, R4) hide it and show it
+again, and Game > "Hide these menus" hides it (the
+`menu_bar` setting keeps the choice). Game > "Exit game" closes the game as the
+window's close button does. On macOS the system's menu bar has
 View, Sound and Developer instead (the game's own Video options page has the
 picture's settings there); `OPENRAC_MENU_BAR=1` shows the in-window bar too.
 On Android they are a drawer that slides in from the left (docs/port/ANDROID.md);
@@ -411,7 +413,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_SHADOW_ATLAS_OFF` | any (set; unset for default) | Uses separate shadow targets instead of the indexed-viewport atlas; retains batching across layers. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_OPAQUE_COLOUR_BATCH_OFF` | any (set; unset for default) | Restores opaque colour in per-layer order. The default Vulkan material path groups solid and alpha-capable opaque colour across enabled layers when reusing the world depth prepass. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_OPAQUE_SPECIALISE_OFF` | any (set; unset for default) | Restores the combined opaque and general static translucent shaders. The specialised Vulkan material path separates static solid, static cutout, opaque moby and static translucent programs, retaining layer-uniform skinning and probe controls. | `port/scene/level_renderer.cpp` |
-| `OPENRAC_PROBE_FAST_OFF` | any (set; unset for default) | Enhanced: the blended static passes (glass, water, foliage) read full probe light again. By default they read one probe volume without the depth test of each probe and filter shadows with four taps, which is much cheaper where they cover the screen several times. | `port/scene/level_renderer.cpp` |
+| `OPENRAC_PROBE_FAST_OFF` | any (set; unset for default) | Enhanced: the blended static passes (glass, water, foliage) read full probe light again. By default they read one probe volume without the depth test of each probe and filter shadows with four taps, which is much cheaper where they cover the screen several times. Same as `OPENRAC_RENDER_OPT_OFF=probe-fast-blended`. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_SHADOW_LAYER_REFERENCE` | any (set; unset for default) | Uses per-layer shadow buckets and separate targets. Detailed sun timing also uses separate targets. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_SHADOW_GATHER_OFF` | any (set) | Reference: 16 individual shadow texel fetches in place of gathers; takes effect when the level is loaded again. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_SUN_RECEIVER_CULL_OFF` | any (set) | Reference: square shadow-map caster bounds for the sun's cascades. | `port/scene/level_renderer.cpp` |

@@ -32,6 +32,7 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "debug/overlay.h"
+#include "debug/ui_scale.h"
 #include "frontend.h"
 #include "mods.h"
 #include "openrac/game_host.h"
@@ -184,39 +185,63 @@ void configure() {
     }
 }
 
-// On a phone: everything as large as the screen's density asks, in the system's own typeface
-// (ImGui's built-in one is a bitmap for a desktop's pixels).
-void initialise_touch(SDL_Window* window) {
-#if defined(__ANDROID__)
+// The overlay's scale for the window now (debug/ui_scale.h): 1 on a 1080p desktop, 2 on 4K.
+float window_ui_scale(SDL_Window* window) {
+    int height = 0;
+#if !defined(__ANDROID__)
+    if (const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(window))) {
+        height = mode->h;
+    }
+    constexpr bool desktop = true;
+#else
+    constexpr bool desktop = false;
+#endif
+    return ui_scale(
+        SDL_GetWindowDisplayScale(window), SDL_GetWindowPixelDensity(window), height, desktop
+    );
+}
+
+// The style and the font at s.ui_scale, from ImGui's defaults each time (a scale change rebuilds
+// them). At scale 1 on a desktop nothing is scaled and ImGui adds its own font, as before.
+void style_and_font() {
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
-    const float density = SDL_GetWindowPixelDensity(window);
-    const float display = SDL_GetWindowDisplayScale(window);
-    s.ui_scale = density > 0.0f && display > 0.0f ? std::max(display / density, 1.0f) : 1.0f;
-    // The panel's buttons, boxes and headers roomier for a finger, and reached a little beyond.
     ImGuiStyle& style = ImGui::GetStyle();
+    style = ImGuiStyle();
+    ImGui::StyleColorsDark();
+    style.WindowRounding = 3.0f;
+    style.WindowBorderSize = 0.0f;
+    style.FramePadding = ImVec2(4.0f, 2.0f);
+    style.ItemSpacing = ImVec2(6.0f, 3.0f);
+    io.Fonts->Clear();
+#if defined(__ANDROID__)
+    // On a phone: everything as large as the screen's density asks, in the system's own typeface
+    // (ImGui's built-in one is a bitmap for a desktop's pixels).
+    io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
+    // The panel's buttons, boxes and headers roomier for a finger, and reached a little beyond.
     style.FramePadding = ImVec2(8.0f, 5.0f);
     style.ItemSpacing = ImVec2(8.0f, 6.0f);
     style.TouchExtraPadding = ImVec2(4.0f, 4.0f);
     style.ScrollbarSize = 18.0f;
     style.GrabMinSize = 18.0f;
     style.ScaleAllSizes(s.ui_scale);
-    bool font = false;
     for (const char* path : {"/system/fonts/Roboto-Regular.ttf", "/system/fonts/DroidSans.ttf"}) {
         if (std::FILE* f = std::fopen(path, "rb")) {
             std::fclose(f);
-            font = io.Fonts->AddFontFromFileTTF(path, std::round(15.0f * s.ui_scale)) != nullptr;
+            if (io.Fonts->AddFontFromFileTTF(path, std::round(15.0f * s.ui_scale)) != nullptr) {
+                return;
+            }
             break;
         }
     }
-    if (!font) {
-        ImFontConfig config;
-        config.SizePixels = std::round(13.0f * s.ui_scale);
-        io.Fonts->AddFontDefault(&config);
-    }
 #else
-    (void)window;
+    if (s.ui_scale == 1.0f) {
+        return;
+    }
+    style.ScaleAllSizes(s.ui_scale);
 #endif
+    ImFontConfig config;
+    config.SizePixels = std::round(13.0f * s.ui_scale);
+    io.Fonts->AddFontDefault(&config);
 }
 
 // The logo for the drawer's header, drawn once into ImGui's font atlas before the atlas goes to
@@ -258,13 +283,8 @@ bool initialise(SDL_Window* window) {
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;  // nothing of the overlay is written beside the game
     io.LogFilename = nullptr;
-    ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 3.0f;
-    style.WindowBorderSize = 0.0f;
-    style.FramePadding = ImVec2(4.0f, 2.0f);
-    style.ItemSpacing = ImVec2(6.0f, 3.0f);
-    initialise_touch(window);
+    s.ui_scale = window_ui_scale(window);
+    style_and_font();
     add_logo();
     std::string error;
     const bool started =
@@ -280,6 +300,25 @@ bool initialise(SDL_Window* window) {
     }
     s.initialised = true;
     return true;
+}
+
+// The window moved to another display, or the display changed its mode or scale: the style, the
+// font and the logo again at the new scale, and the font's texture with them.
+void follow_scale(SDL_Window* window) {
+    const float scale = window_ui_scale(window);
+    if (std::abs(scale - s.ui_scale) < 0.01f) {
+        return;
+    }
+    log::info("debug overlay: drawn at {:.2f}x (was {:.2f}x)", scale, s.ui_scale);
+    s.ui_scale = scale;
+    style_and_font();
+    add_logo();
+    if (s.gl_subset) {
+        renderer::ui::imgui_gl::reload_font();
+    } else {
+        ImGui_ImplOpenGL3_DestroyFontsTexture();
+        ImGui_ImplOpenGL3_CreateFontsTexture();
+    }
 }
 
 // The scripted keys and clicks due at this picture, put in SDL's queue as the system would.
@@ -507,6 +546,65 @@ bool event(const SDL_Event& e) {
     if (drawer_possible() && drawer_event(e)) {
         return true;
     }
+    if (menu_bar_possible()) {
+        // The controls window waits for the menu bar's new controller button or key: the next one
+        // pressed (Escape keeps the old one).
+        if (s.menu_button_capture) {
+            if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                s.menu_button_capture = false;
+                settings::get().menu_bar_button =
+                    SDL_GetGamepadStringForButton(static_cast<SDL_GamepadButton>(e.gbutton.button));
+                settings::save();
+                return true;
+            }
+            if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) {
+                s.menu_button_capture = false;
+                return true;
+            }
+        }
+        if (s.menu_key_capture && e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
+            s.menu_key_capture = false;
+            if (e.key.key != SDLK_ESCAPE) {
+                const bool alt = e.key.key == SDLK_LALT || e.key.key == SDLK_RALT;
+                settings::get().menu_bar_key = alt ? "Alt" : SDL_GetScancodeName(e.key.scancode);
+                settings::save();
+            }
+            return true;
+        }
+        // Alt+Tab: the system takes the Tab, and SDL reports the Alt still held when the window
+        // has the focus again. An Alt that comes with the focus is not one by itself.
+        if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED || e.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            s.alt_alone = false;
+            s.focus_ns = e.window.timestamp;
+        }
+        const SDL_Scancode key = menu_bar_scancode();
+        if (key == SDL_SCANCODE_UNKNOWN) {
+            // Alt by itself hides and shows the menus (Alt+Return is fullscreen: another key in
+            // between makes it not by itself).
+            const bool alt = e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP
+                                 ? e.key.key == SDLK_LALT || e.key.key == SDLK_RALT
+                                 : false;
+            constexpr Uint64 kFocusSettleNs = 300'000'000;
+            if (e.type == SDL_EVENT_KEY_DOWN) {
+                s.alt_alone = alt && e.key.timestamp - s.focus_ns > kFocusSettleNs;
+            } else if (e.type == SDL_EVENT_KEY_UP && alt && s.alt_alone) {
+                s.alt_alone = false;
+                toggle_menu_bar();
+            }
+        } else if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat && e.key.scancode == key
+                   && (e.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT)) == 0) {
+            toggle_menu_bar();
+            return true;
+        }
+        // The menu bar's controller button (menu_bar_button; by default R4, the Steam Controller's
+        // upper right back button) does the same, while the game's window has the focus. Not
+        // "...": a running Steam client opens its own panel on it.
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
+            && menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID
+            && e.gbutton.button == menu_bar_button() && SDL_GetKeyboardFocus() != nullptr) {
+            toggle_menu_bar();
+        }
+    }
     if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
         if (e.key.key == SDLK_F3 && (e.key.mod & SDL_KMOD_CTRL) != 0) {
             toggle_capture(false);
@@ -543,20 +641,6 @@ bool event(const SDL_Event& e) {
                 return true;
             default:
                 break;
-        }
-    }
-    if (menu_bar_possible()) {
-        // Alt by itself hides and shows the menus (Alt+Return is fullscreen: another key in between
-        // makes it not by itself).
-        const bool alt = e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP
-                             ? e.key.key == SDLK_LALT || e.key.key == SDLK_RALT
-                             : false;
-        if (e.type == SDL_EVENT_KEY_DOWN) {
-            s.alt_alone = alt;
-        } else if (e.type == SDL_EVENT_KEY_UP && alt && s.alt_alone) {
-            s.alt_alone = false;
-            settings::get().menu_bar = !settings::get().menu_bar;
-            settings::save();
         }
     }
     if (!(s.visible || s.enhanced_settings || s.controls_window || picker_enabled()
@@ -705,6 +789,7 @@ void draw(const Shown& shown) {
         io.ConfigFlags = pad_moves ? io.ConfigFlags | ImGuiConfigFlags_NavEnableGamepad
                                    : io.ConfigFlags & ~ImGuiConfigFlags_NavEnableGamepad;
     }
+    follow_scale(shown.window);
     if (!s.gl_subset) {
         ImGui_ImplOpenGL3_NewFrame();
     }

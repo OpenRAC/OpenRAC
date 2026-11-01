@@ -66,6 +66,11 @@ std::int64_t nanoseconds(double seconds) {
     return static_cast<std::int64_t>(seconds * 1e9);
 }
 
+// The share of a frame's time the session is asked to finish its work in. The system lowers the
+// clocks until the work nearly fills the target, so a target of the whole frame leaves no room for
+// a slower frame or the compositor's own time: frames came late. This keeps some in hand.
+constexpr double kHeadroom = 0.85;
+
 template <typename F>
 F look_up(void* library, const char* name) {
     return reinterpret_cast<F>(dlsym(library, name));
@@ -156,7 +161,7 @@ void take_in_threads() {
 }  // namespace
 
 void set_frame_target(double seconds) {
-    const std::int64_t target = nanoseconds(seconds);
+    const std::int64_t target = nanoseconds(seconds * kHeadroom);
     if (target <= 0) {
         return;
     }

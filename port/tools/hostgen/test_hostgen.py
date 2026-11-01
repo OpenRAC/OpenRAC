@@ -1877,6 +1877,29 @@ class Places(unittest.TestCase):
             self.assertIn("0x00238128u", text)
             self.assertIn("0x00237B70u", text)
 
+    def test_a_call_through_a_folded_wrapper_that_passes_a_float_goes_by_kind(self):
+        # rac1's Batalia bomber tank calls the colour tween through its level's place of the folded
+        # wrapper func_L00_00237B70, declared (float, int, int); the tween there takes (unsigned,
+        # unsigned, float). Through the call site's type Windows x64 passed the float first and the
+        # colours came out wrong: the call goes with the EE's registers, each kind in its order.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "void func_L00_00237B70(void) {}\n"
+                "extern int tween(float, int, int) __asm__(\"func_L08_00264930\");\n"
+                "extern void keep(int) __asm__(\"func_L08_00264378\");\n"
+                "int func_L08_002DC9A8(float t) { keep(5); return tween(t, 0x7f000000, 0x7f182030); }\n",
+                "func_L00_00237B70\tshared\t28\tfp\t3\t00:00237B70,08:00264378,08:00264930\n"
+                "func_L08_002DC9A8\tlevel\t64\tfp2\t1\t08:002DC9A8\n",
+                {"relocate": [0x15F000, 0x500000]})
+            text = (out / "a.c").read_text()
+            self.assertIn("openrac_guest_call_regs(openrac_folded_call(", text)
+            self.assertIn("float a0_ = (float)(t); uint64_t a1_ = (uint64_t)(2130706432); "
+                          "uint64_t a2_ = (uint64_t)(2132287536);", text)
+            self.assertIn("(const uint64_t[8]){a1_, a2_, 0,", text)
+            self.assertIn("(const float[8]){a0_, 0.0f,", text)
+            # Integers alone keep the call site's type.
+            self.assertRegex(text, r"GFN\(void \(\*\)\(int\), openrac_folded_call\(")
+
     def test_the_address_of_a_folded_wrapper_is_the_one_the_code_forms(self):
         # rac1's Umbris sea classes register func_00216270 as their draw callback: the catalogue
         # folds 32-byte wrappers that each call another function into that name, and each class's

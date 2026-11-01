@@ -71,7 +71,8 @@ Status words as in [DESIGN.md](DESIGN.md): **decided**, **proposed**, **open**.
    loaded, and a crash report lists them and names the one whose code was
    running where the address lets the port tell (section 7).
 8. **Purist mode loads no mods**: `--no-mods`, which the launcher passes while
-   the Mods switch under Play is off.
+   the Mods switch under Play is off. Enhanced graphics, listed in the Mods
+   tab, stays off too (its `enhanced_rendering` setting is kept).
 
 ## 2. Where things are
 
@@ -622,8 +623,8 @@ level editor's steps and the packs:
   packs below. A mod for another game is refused;
 - **Remove**, in the row's menu, set apart in `--err`;
 - **The Mods switch** under Play on the game's page (off by default): off, Play
-  passes `--no-mods` (Purist mode); on, Play puts the packs together and passes
-  `--plugins` and `--mods`. The Mods tab says when it is off.
+  passes `--no-mods` (Purist mode, Enhanced graphics off as well); on, Play
+  puts the packs together and passes `--plugins` and `--mods`. The Mods tab says when it is off.
 
 Play passes nothing more: the port reads `plugins.json` from the data folder
 it is given. The Rust side is `core/src/plugins.rs`, with tests on mods made

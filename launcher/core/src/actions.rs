@@ -553,7 +553,7 @@ impl Action {
         // Settings, "Theme": the game's options drawer wears the launcher's colours (theme.rs).
         if self.kind == Kind::Play {
             let game = ctx.version.map(|v| v.game.as_str());
-            env.push((crate::theme::ENV.to_string(), crate::theme::ui_colors(&ctx.config.theme, game, ctx.platform)));
+            env.push((crate::theme::ENV.to_string(), crate::theme::ui_colors(&ctx.config.theme, game)));
         }
         // Settings, "Multiplayer name": the name online mods show the other players
         // (multiplayer.rs); one that is not valid is left out, and the mod uses its own.

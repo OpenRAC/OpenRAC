@@ -1908,7 +1908,15 @@ run the same paths. The capture report's `gpu passes` line records it.
   `OPENRAC_GPU_PASS_TIMING`): those frames give each section's own time, at the cost of extra
   loads and stores, and are left out of the frame's GPU time.
 
-The registry entries above, except `motion-blur-adaptive-samples`, are lossless:
+- **`probe-fast-blended`.** Blended static passes (glass, water, foliage) read probe light from
+  the best volume alone, without each probe's depth test, and filter shadows with four taps.
+  Not byte-identical (Enhanced may be lossy here): in the equivalence test at most 0.28% of a
+  frame's pixels differ, by up to 26 of 255. The cheaper light exists only in the static
+  blended shader variant, which these passes use whenever the entry is on, so `shader-variants`
+  on against off stays byte-identical. `OPENRAC_PROBE_FAST_OFF` turns it off too.
+
+The registry entries above, except `motion-blur-adaptive-samples` and `probe-fast-blended`, are
+lossless:
 `render_equivalence_vulkan --opt <name>` compares frames with each one on and off with no
 tolerance. The scrolling static shadow caches above
 would save the most binning on these GPUs, but they are not the default there: their texel-snapped

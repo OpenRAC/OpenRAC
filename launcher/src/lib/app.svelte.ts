@@ -72,7 +72,7 @@ interface AppState {
   stopped: StopNotice | null;
   /** Bumped when the logs may have changed (the game ended): the logs list reads them again. */
   reportsChanged: number;
-  /** Bumped when saves were brought onto a card from elsewhere (a PCSX2 import): the saves list reads them again. */
+  /** Bumped when a card may have changed (a PCSX2 import, the game ended): the saves list reads it again. */
   savesChanged: number;
   /** Each set-up game's crash reports: how many, and how many in the last three days (the tiles' mark). */
   crashes: Record<string, { total: number; recent: number }>;
@@ -125,10 +125,11 @@ export async function readGame() {
   } catch {
     app.game = null;
   }
-  // The game's activity ended since (its own process: no job ends with it): its log and any crash
-  // report are new, so the lists read them again.
+  // The game's activity ended since (its own process: no job ends with it): its log, any crash
+  // report and its saves are new, so the lists read them again.
   if (wasRunning && !app.game?.running) {
     app.reportsChanged++;
+    app.savesChanged++;
     void countCrashes();
   }
 }
@@ -374,6 +375,8 @@ function handleExit(job: Job) {
   const played = version !== null && PLAY_ACTIONS.includes(job.actionId);
   if (played) {
     app.reportsChanged++;
+    // The game may have saved: the Saves list reads the card again, without leaving the page.
+    app.savesChanged++;
     void countCrashes();
   }
   // The game stopping on its own is not a failed task: the Play page says what happened.

@@ -348,6 +348,19 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     // display's, the frames between ticks moving the scene on (between), each shown at a refresh
     // when the player's vsync is on (wanted_swap).
     config.vsync = false;  // set below, as asked
+#if !defined(__ANDROID__)
+    // A first start covers the screen; checks and tools (a hidden window, no real display) keep
+    // their window.
+    {
+        const char* driver = SDL_GetCurrentVideoDriver();
+        const bool no_display =
+            driver != nullptr
+            && (std::strcmp(driver, "offscreen") == 0 || std::strcmp(driver, "dummy") == 0);
+        if (settings::first_start_display(env::flag(env::Var::Hidden) || no_display)) {
+            log::info("first start: the game covers the screen (display_mode = borderless)");
+        }
+    }
+#endif
     const settings::Settings& chosen = settings::get();
     if (chosen.window_width >= 320 && chosen.window_height >= 240) {
         // The window as the player left it.

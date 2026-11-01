@@ -3,7 +3,7 @@
     "The launcher's colours, read by the launcher (palettes.ts, themes.ts) and by its core, which",
     "hands them to the game for its drawer (core/src/theme.rs, OPENRAC_UI_COLORS). base: app.css's own",
     "(:root, a test keeps them equal); palettes: the themes of Settings, General; accents: a game's own",
-    "accent, which Android's launcher wears while the game is picked (Ratchet & Clank keeps base's)."
+    "accent, which the launcher wears while the game is picked (Ratchet & Clank keeps base's)."
   ],
   "base": {
     "--ink": "#181820",
@@ -120,6 +120,8 @@
     "rac2": {
       "--bar-top": "#7fcdf5",
       "--bar-bottom": "#43a3de",
+      "--bar-stripe": "#7ec5ea",
+      "--bar-stripe-alt": "#5ca3ce",
       "--bar-ink": "#06233a",
       "--bar-ink-deep": "#03141f",
       "--amber": "#7fcff5",
@@ -129,6 +131,8 @@
     "rac3": {
       "--bar-top": "#ffd84a",
       "--bar-bottom": "#e9b30c",
+      "--bar-stripe": "#efcc4d",
+      "--bar-stripe-alt": "#d7ac27",
       "--bar-ink": "#2a2000",
       "--bar-ink-deep": "#1c1500",
       "--amber": "#ffd23f",
@@ -138,6 +142,8 @@
     "rac4": {
       "--bar-top": "#f25a5a",
       "--bar-bottom": "#e23c3c",
+      "--bar-stripe": "#e45b5b",
+      "--bar-stripe-alt": "#d15757",
       "--bar-ink": "#2a0606",
       "--bar-ink-deep": "#1f0303",
       "--amber": "#ff6b61",
@@ -147,6 +153,8 @@
     "rac5": {
       "--bar-top": "#6aa0ff",
       "--bar-bottom": "#3f78f0",
+      "--bar-stripe": "#6a9bf2",
+      "--bar-stripe-alt": "#5b85dd",
       "--bar-ink": "#06173a",
       "--bar-ink-deep": "#020c24",
       "--amber": "#7aa8ff",
@@ -156,6 +164,8 @@
     "rac6": {
       "--bar-top": "#38bdf8",
       "--bar-bottom": "#0ea5e9",
+      "--bar-stripe": "#3cb3e7",
+      "--bar-stripe-alt": "#2aa1d6",
       "--bar-ink": "#032233",
       "--bar-ink-deep": "#01131f",
       "--amber": "#5cc8fa",

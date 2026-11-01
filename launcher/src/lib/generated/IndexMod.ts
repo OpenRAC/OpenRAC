@@ -10,7 +10,11 @@ type: "script" | "native" | "data" | "pack", games: { [key in string]: Array<str
 /**
  * Some of: cosmetic, gameplay, speedrun-safe, touches-saves, online.
  */
-impact: Array<string>, aliases: Array<string>, links: { [key in string]: string }, downloads: number, downloads7d: number, created: string, updated: string, featured: boolean, recommends: Array<string>, suggests: Array<string>, readme: string, 
+impact: Array<string>, aliases: Array<string>, links: { [key in string]: string }, downloads: number, downloads7d: number, 
+/**
+ * The author says AI helped make it. Older indexes leave it out.
+ */
+aiAssisted: boolean, created: string, updated: string, featured: boolean, recommends: Array<string>, suggests: Array<string>, readme: string, 
 /**
  * The GitHub Discussion for this mod in the index repository, once the bot made it.
  */
