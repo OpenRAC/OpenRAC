@@ -70,6 +70,9 @@
   "libraries": "libraries.tsv",
   "overlay_hook": true,
   "unit_aliases": {
+    "src/levels/12_todano/L12_00388090-flags-g8.c": {"func_3248E0": "func_002A7750"},
+    "src/levels/12_todano/L12_00420838-flags-g8.c": {"func_3248E0": "func_002A7750"},
+    "src/levels/12_todano/L12_00402B48-g16.c": {"func_00282E70": "func_00283098"},
     "src/levels/04_barlow/L04_002E04A8.c": {"func_L00_002ACF88": "func_L01_002AE128", "func_L00_002B6BC8": "func_L04_002DCE78"},
     "src/levels/08_tabora/L08_002CB6E8.c": {"func_L00_002ACF88": "func_L01_002AE128", "func_L00_002B6BC8": "func_L04_002DCE78"},
     "src/levels/12_todano/L12_002CF7B0-decider.c": {"func_L00_002B2CC8": "func_L12_002B85E0"},
