@@ -39,7 +39,7 @@
       "matched_functions": 7605,
       "total_functions": 8578,
       "fuzzy_percent": 78.72,
-      "date": "2026-10-20",
+      "date": "2026-11-01",
       "percent": 78.72
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."

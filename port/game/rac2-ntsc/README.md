@@ -23,7 +23,7 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10,1300:40
 ## Building and running
 
 The default build reads OpenRAC's own `games/rac2/ntsc` (synced at
-9097768d, 2026-11-01). It needs the boot executable, which
+99fd7cc7, 2026-11-01). It needs the boot executable, which
 `python3 tools/build_port.py rac2-ntsc --disc <your disc image>` has hostgen read
 straight from the image (`OPENRAC_RAC2_NTSC_RETAIL_IMAGE`; no copy is made).
 Without `--disc` the build falls back to `games/rac2/ntsc/baserom/SCUS_972.68`
