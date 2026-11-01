@@ -81,6 +81,12 @@ does what the EE did:
   known address whose type differs from the function there by position or
   by the kind of its result; the port's ctest runs it for each game
   (`<id>_call_abi`).
+- A call through a place of a folded wrapper that passes a float goes with
+  the EE's registers (`openrac_guest_call_regs`): the runtime resolves the
+  wrapper to the function it calls, whose type hostgen does not know, and
+  that function's thunk gives each kind to its parameters. rac1/ntsc's
+  Batalia bomber tank called the colour tween `(unsigned, unsigned, float)`
+  as `(float, int, int)`, and on Windows its explosion debris came out blue.
 - A static helper with no place of its own in the catalogue (the console's
   compiler inlined it) whose calls of a folded name go where the caller's
   own `jal` goes is translated once per call site from a function that has
