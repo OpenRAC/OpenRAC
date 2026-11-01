@@ -1378,7 +1378,8 @@ struct Chunk {
 void (*g_level_program_source)(int level) = nullptr;
 std::map<int, std::vector<Chunk>> g_level_programs;
 std::map<std::pair<int, int>, LevelMap> g_level_pair_maps;  // (from, loaded)
-constexpr gaddr kLevelLow = 0x0015F000u, kLevelHigh = 0x00400000u;
+// The addresses a level's program can name (openrac_guest_set_level_range).
+gaddr g_level_low = 0x0015F000u, g_level_high = 0x00400000u;
 
 const std::vector<Chunk>& level_program(int level) {
     auto found = g_level_programs.find(level);
@@ -1426,7 +1427,7 @@ LevelMap& level_pair_map(int from, int loaded) {
         copies[entry.fn].push_back(address);
     }
     std::map<gaddr, std::int32_t> pairs;
-    pair_programs(level_reader, from, own, std::move(copies), kLevelLow, kLevelHigh, false, map.code, pairs);
+    pair_programs(level_reader, from, own, std::move(copies), g_level_low, g_level_high, false, map.code, pairs);
     map.data.assign(pairs.begin(), pairs.end());
     info("level program {} for level {}'s functions: {} functions and {} global addresses relocated",
          loaded, from, map.code.size(), map.data.size());
@@ -1643,6 +1644,12 @@ static gaddr relocate_code(gaddr address) {
     return address;
 }
 
+void openrac_guest_set_level_range(gaddr low, gaddr high) {
+    forget_answers();
+    g_level_low = low;
+    g_level_high = high;
+}
+
 void openrac_guest_set_level_programs(void (*load)(int level)) {
     forget_answers();
     g_level_program_source = load;
@@ -1685,7 +1692,7 @@ void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes
 
 gaddr openrac_relocate_level_data(int from, gaddr address) {
     const int overlay = current_overlay();
-    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE || address - kLevelLow >= kLevelHigh - kLevelLow) {
+    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE || address - g_level_low >= g_level_high - g_level_low) {
         return address;
     }
     thread_local AnswerCache<int, int, gaddr> answers;

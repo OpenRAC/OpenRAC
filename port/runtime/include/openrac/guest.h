@@ -328,6 +328,9 @@ gaddr openrac_folded_address(const uint32_t* places, int count, gaddr caller, ui
  * program is (openrac_guest_set_level_programs: called with a level, it hands each piece of the
  * program over with openrac_guest_add_level_program, at the address the piece is loaded to). */
 void openrac_guest_set_level_programs(void (*load)(int level));
+/* The addresses level programs use, for the level-to-level pairs: rac1's unless a game says. Going
+ * Commando's programs run past 0x400000. */
+void openrac_guest_set_level_range(gaddr low, gaddr high);
 void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes, uint32_t size);
 int openrac_guest_prepare_level_program(int level);
 int openrac_guest_restore_level_program(int level);
