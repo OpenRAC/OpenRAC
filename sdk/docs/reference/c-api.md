@@ -166,6 +166,9 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_PLACE_INVULNERABLE` | `0x1u` | the hero takes no damage for a few seconds |
 | `OPENRAC_PLACE_GROUND` | `0x2u` | the position is dropped to the ground below it |
 | `OPENRAC_PLACE_BESIDE` | `0x4u` | a spot beside the position, behind `yaw` and looking at it |
+| `OPENRAC_REVIVE_HOLD` | `0x1u` | hero_revive flags: with none, a dead hero is brought back. HOLD and LET_GO say what comes of a hero who dies on his feet from now on: he stays down, or goes to his checkpoint as always. RESPAWN sends the hero to his checkpoint now, dead or not. Since 1.12. |
+| `OPENRAC_REVIVE_LET_GO` | `0x2u` |  |
+| `OPENRAC_REVIVE_RESPAWN` | `0x4u` |  |
 | `OPENRAC_MISSION_STATE_SIZE` | `16` | The bytes of one level's mission state (mission_state_read, mission_state_write): 0 not done, 0xFF done. Since 1.12. |
 | `OPENRAC_SHOT_START` | `0x1u` | openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a track, and each of its shots says where in it this one is; aux[0] tells a player's tracks apart. Each may be lost: a MOVE stands in for a lost START, a track that goes silent ends by itself. No flag: one shot, fired once. Since 1.12. |
 | `OPENRAC_SHOT_MOVE` | `0x2u` |  |
@@ -878,7 +881,7 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags)` | Puts the hero at `position` (x, y, z) facing `yaw`, its speed cleared, with OPENRAC_PLACE_* `flags`, in a level; a place asked for in a menu, a scene or on a ride waits until the player is in control, on foot, and goes with the level. OPENRAC_HOOK_OK says it was asked, not done: the hero's pose says when he is there, and with OPENRAC_PLACE_BESIDE, where no spot beside the position has ground, he never goes. Since 1.12. |
 | `int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags)` | Holds the hero as a grab does, playing animation `animation`, controls locked, until hero_release or the game's own end of it; and lets go. Since 1.12. |
 | `int (*hero_release)(openrac_mod* mod)` |  |
-| `int (*hero_revive)(openrac_mod* mod, const float position[3], uint32_t flags)` | Brings a dead hero back where it fell, or at `position` when not null. Since 1.12. |
+| `int (*hero_revive)(openrac_mod* mod, const float position[3], uint32_t flags)` | Brings a dead hero back where it fell, or at `position` when not null, or does what OPENRAC_REVIVE_* `flags` say. Since 1.12. |
 | `int (*on_overlay)(openrac_mod* mod, openrac_overlay_fn fn, void* user)` | Calls `fn(user, overlay)` once a frame to draw over the game (openrac_overlay). One a mod. Only during openrac_mod_load. Since 1.12. |
 | `int (*hero_shots2)(openrac_shot2* out, int max)` | hero_shots and figure_shot with openrac_shot2. Since 1.12. |
 | `int (*figure_shot2)(openrac_mod* mod, int id, const openrac_shot2* shot)` |  |

@@ -80,11 +80,13 @@ void func_00213C78(void) {
     }
     /* The figures' pieces on their joints, now that the figures are posed (figure_items.c); a
      * scene the loop's mobys started noted, and one a mod asked for started where a trigger's
-     * update would start it (scenes.c); the hero put where a mod asked (hero_place.c). */
+     * update would start it (scenes.c); the hero put where a mod asked (hero_place.c), and
+     * brought back or sent to his checkpoint (hero_down.c). */
     if (outer == 0) {
         rac1_figure_items_tick();
         rac1_scenes_tick();
         rac1_hero_place_tick();
+        rac1_hero_down_tick();
     }
 }
 

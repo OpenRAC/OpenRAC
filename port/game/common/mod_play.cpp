@@ -26,6 +26,7 @@
 
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
 int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
+int (*openrac_game_metal_detect)(std::int32_t slot, std::int32_t key) = nullptr;
 int (*openrac_game_moby_hit)(
     std::int32_t victim,
     std::int32_t attacker,
@@ -127,6 +128,15 @@ struct HitWatch {
 
 std::vector<Drive> g_drives(kSlots);
 Gate g_gate;
+
+// The mod told of the metal detector's digs.
+struct MetalWatch {
+    openrac_mod* mod = nullptr;
+    openrac_metal_detect_fn fn = nullptr;
+    void* user = nullptr;
+};
+
+MetalWatch g_metal;
 HitWatch g_hits;
 int g_before_slot = -1;
 
@@ -906,8 +916,14 @@ int api_hero_release(openrac_mod*) {
     return OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_hero_revive(openrac_mod*, const float[3], std::uint32_t) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_hero_revive(openrac_mod* mod, const float position[3], std::uint32_t flags) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_revive == nullptr
+        || (position != nullptr
+            && (!std::isfinite(position[0]) || !std::isfinite(position[1])
+                || !std::isfinite(position[2])))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->hero_revive(position, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 int api_hero_shots2(openrac_shot2* out, int max) {
@@ -934,8 +950,32 @@ int api_figure_shot2(openrac_mod* mod, int id, const openrac_shot2* shot) {
     return g_play->figure_shot2(f->moby, &s) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_moby_list2(openrac_moby2*, int) {
-    return 0;
+int api_moby_list2(openrac_moby2* out, int max) {
+    if (g_play == nullptr || g_play->mobys == nullptr || max < 0) {
+        return 0;
+    }
+    std::vector<openrac_game_moby_state> states(static_cast<std::size_t>(max));
+    const int n = g_play->mobys(states.data(), max);
+    for (int i = 0; i < std::min(n, max) && out != nullptr; ++i) {
+        const openrac_game_moby_state& s = states[static_cast<std::size_t>(i)];
+        openrac_moby2& m = out[i];
+        m.size = sizeof(openrac_moby2);
+        m.slot = s.slot;
+        m.key = s.key;
+        m.oclass = s.oclass;
+        m.flags = s.flags | (driver(s.slot) != nullptr ? OPENRAC_MOBY_DRIVEN : 0u);
+        m.state = s.state;
+        m.mission = g_play->moby_mission != nullptr ? g_play->moby_mission(s.slot) : -1;
+        std::copy(std::begin(s.position), std::end(s.position), m.position);
+        std::copy(std::begin(s.rotation), std::end(s.rotation), m.rotation);
+        m.scale = s.scale;
+        m.seq = s.seq;
+        m.frame = s.frame;
+        m.next_frame = s.next_frame;
+        m.anim_time = s.anim_time;
+        m.anim_speed = s.anim_speed;
+    }
+    return n;
 }
 
 int api_on_camera_script(openrac_mod*, openrac_camera_script_fn, void*) {
@@ -958,8 +998,20 @@ int api_play_live_picture(openrac_mod* mod, int on) {
     return OPENRAC_HOOK_OK;
 }
 
-int api_on_metal_detect(openrac_mod*, openrac_metal_detect_fn, void*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int game_metal_detect(std::int32_t slot, std::int32_t key) {
+    return g_metal.fn != nullptr ? g_metal.fn(g_metal.user, slot, key) : 1;
+}
+
+int api_on_metal_detect(openrac_mod* mod, openrac_metal_detect_fn fn, void* user) {
+    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (g_metal.mod != nullptr) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    g_metal = {mod, fn, user};
+    openrac_game_metal_detect = game_metal_detect;
+    return OPENRAC_HOOK_OK;
 }
 
 int api_camera_position(float out[3]) {
@@ -1191,6 +1243,7 @@ void reset_play() {
     std::fill(g_drives.begin(), g_drives.end(), Drive{});
     g_gate = Gate{};
     g_hits = HitWatch{};
+    g_metal = MetalWatch{};
     g_before_slot = -1;
     g_loading_mod = nullptr;
     if (g_play != nullptr && g_play->keep_running != nullptr) {
@@ -1198,6 +1251,7 @@ void reset_play() {
     }
     openrac_game_moby_update = nullptr;
     openrac_game_moby_hit = nullptr;
+    openrac_game_metal_detect = nullptr;
 }
 
 void drop_figures(const openrac_mod* mod) {

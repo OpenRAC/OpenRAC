@@ -512,6 +512,11 @@ typedef struct openrac_game_play {
     int (*shared_give)(int tag, const void* data, uint32_t size);
     int (*mission_state_read)(int level, uint8_t* out);
     int (*mission_state_write)(int level, const uint8_t* in);
+    /* A dead hero kept down, brought back or sent to his checkpoint (openrac_api.hero_revive and
+     * its OPENRAC_REVIVE_* flags): 1 asked, 0 refused. NULL for a game without it. */
+    int (*hero_revive)(const float position[3], uint32_t flags);
+    /* The mission a moby of the level goes with, -1 for none. NULL for a game without it. */
+    int32_t (*moby_mission)(int32_t slot);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;
@@ -521,6 +526,9 @@ extern const openrac_game_play* openrac_game_play_host;
  * moby (victim and attacker by slot, -1 for none): 1 takes it back, as if never posted. NULL: no
  * mod asked. */
 extern int (*openrac_game_moby_update)(int32_t slot, int phase);
+/* The metal detector is about to give a buried moby's bolts (rac1/host/metal_detect.c): 0 holds it
+ * back. NULL while no mod asked. */
+extern int (*openrac_game_metal_detect)(int32_t slot, int32_t key);
 extern int (*openrac_game_moby_hit)(
     int32_t victim,
     int32_t attacker,

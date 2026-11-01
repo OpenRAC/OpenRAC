@@ -974,6 +974,13 @@ typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t si
 #define OPENRAC_PLACE_GROUND 0x2u       /* the position is dropped to the ground below it */
 #define OPENRAC_PLACE_BESIDE 0x4u       /* a spot beside the position, behind `yaw` and looking at it */
 
+/* hero_revive flags: with none, a dead hero is brought back. HOLD and LET_GO say what comes of a
+ * hero who dies on his feet from now on: he stays down, or goes to his checkpoint as always. RESPAWN
+ * sends the hero to his checkpoint now, dead or not. Since 1.12. */
+#define OPENRAC_REVIVE_HOLD 0x1u
+#define OPENRAC_REVIVE_LET_GO 0x2u
+#define OPENRAC_REVIVE_RESPAWN 0x4u
+
 /* The bytes of one level's mission state (mission_state_read, mission_state_write): 0 not done,
  * 0xFF done. Since 1.12. */
 #define OPENRAC_MISSION_STATE_SIZE 16
@@ -1629,7 +1636,8 @@ typedef struct openrac_api {
     int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags);
     int (*hero_release)(openrac_mod* mod);
 
-    /* Brings a dead hero back where it fell, or at `position` when not null. Since 1.12. */
+    /* Brings a dead hero back where it fell, or at `position` when not null, or does what
+     * OPENRAC_REVIVE_* `flags` say. Since 1.12. */
     int (*hero_revive)(openrac_mod* mod, const float position[3], uint32_t flags);
 
     /* Calls `fn(user, overlay)` once a frame to draw over the game (openrac_overlay). One a mod.

@@ -503,7 +503,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->camera_script_play(mod, 0) != OPENRAC_HOOK_UNKNOWN
             || api->play_scene_from(mod, 0, 0) != OPENRAC_HOOK_UNKNOWN
             || api->play_live_picture(mod, 1) != OPENRAC_HOOK_UNKNOWN
-            || api->on_metal_detect(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->on_metal_detect(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE
             || api->packs_info(&packs) != OPENRAC_HOOK_OK || packs.count != 0
             || api->packs_entry(0, &pack) != OPENRAC_HOOK_UNKNOWN
             || api->clipboard_set("x") != OPENRAC_HOOK_UNKNOWN

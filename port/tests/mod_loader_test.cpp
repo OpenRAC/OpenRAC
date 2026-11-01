@@ -158,6 +158,8 @@ std::int32_t slot_at(gaddr moby) {
 
 // What the game was asked of hero_place: the position's x, the yaw, the flags.
 std::array<float, 3> g_placed{};
+// What the game was asked of hero_revive: the position's x (-1 none), the flags.
+std::array<float, 2> g_revived{};
 
 const openrac_game_play kPlay = {
     5,
@@ -333,6 +335,11 @@ const openrac_game_play kPlay = {
     nullptr,
     nullptr,
     nullptr,
+    [](const float position[3], std::uint32_t flags) {
+        g_revived = {position != nullptr ? position[0] : -1.0f, static_cast<float>(flags)};
+        return flags != OPENRAC_REVIVE_HOLD + 8u ? 1 : 0;
+    },
+    [](std::int32_t slot) { return slot == 7 ? 3 : -1; },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -958,6 +965,22 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         CHECK(api.hero_place(mod, nowhere, 0.0f, 0) == OPENRAC_HOOK_UNKNOWN);
         CHECK(api.hero_place(mod, place, INFINITY, 0) == OPENRAC_HOOK_UNKNOWN);
         CHECK(g_placed[0] == 0.0f);
+        // The hero brought back: passed on, a place no game could use not asked, a refusal said.
+        CHECK(api.hero_revive(mod, nullptr, 0) == OPENRAC_HOOK_OK && g_revived[0] == -1.0f);
+        CHECK(api.hero_revive(mod, place, OPENRAC_REVIVE_RESPAWN) == OPENRAC_HOOK_OK);
+        CHECK(g_revived[0] == 3.0f && g_revived[1] == OPENRAC_REVIVE_RESPAWN);
+        g_revived = {};
+        CHECK(api.hero_revive(mod, nowhere, 0) == OPENRAC_HOOK_UNKNOWN && g_revived[0] == 0.0f);
+        CHECK(api.hero_revive(mod, nullptr, OPENRAC_REVIVE_HOLD + 8u) == OPENRAC_HOOK_UNKNOWN);
+        // A mod's call to a dig outside its load comes too late.
+        CHECK(api.on_metal_detect(mod, [](void*, int, int) { return 1; }, nullptr) == OPENRAC_HOOK_TOO_LATE);
+        // A moby's mission beside what moby_list says.
+        std::vector<openrac_moby2> mobys(8);
+        const int listed = api.moby_list2(mobys.data(), 8);
+        for (int i = 0; i < std::min(listed, 8); ++i) {
+            CHECK(mobys[static_cast<std::size_t>(i)].size == sizeof(openrac_moby2));
+            CHECK(mobys[static_cast<std::size_t>(i)].mission == (mobys[static_cast<std::size_t>(i)].slot == 7 ? 3 : -1));
+        }
         g_phase = OPENRAC_GAME_PHASE_SCENE;
         g_scene = 3;
         CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);

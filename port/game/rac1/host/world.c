@@ -77,6 +77,7 @@ enum {
     MOBY_UPDATE = 0x74,
     MOBY_HIT = 0xA4,
     MOBY_OCLASS = 0xA6,
+    MOBY_MISSION = 0xB0,
     MOBY_SIZE = 0x100,
     CLASS_TYPE = 0x46,
     HIT_SIZE = 0x40,
@@ -312,6 +313,15 @@ int32_t rac1_world_moby_key(gaddr moby) {
     return key_of[slot];
 }
 
+/* The mission a live moby of the level goes with (its byte at +0xB0), -1 for none. */
+int32_t rac1_world_moby_mission(int32_t slot) {
+    if (!in_level() || slot < 0 || slot >= array_slots()) {
+        return -1;
+    }
+    const uint8_t mission = GREF(uint8_t, array_base() + (gaddr)slot * MOBY_SIZE + MOBY_MISSION);
+    return mission != 0xFFu ? mission : -1;
+}
+
 int32_t rac1_world_moby_slot(int32_t key) {
     if (!in_level() || key < 0 || key >= KEYS_MAX) {
         return -1;
@@ -462,6 +472,9 @@ int rac1_moby_gate(gaddr moby, int phase) {
     /* The pause menu's own mobys are none of the mods'. */
     if (openrac_game_moby_update == NULL || !main_context()) {
         return 0;
+    }
+    if (phase == 0) {
+        rac1_metal_detect(moby);
     }
     return openrac_game_moby_update(rac1_moby_slot(moby), phase);
 }

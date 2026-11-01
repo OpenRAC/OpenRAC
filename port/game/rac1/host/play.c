@@ -595,4 +595,6 @@ const openrac_game_play rac1_play = {
     .sim_digest = rac1_sim_digest,
     .live_picture = rac1_world_live_picture,
     .hero_place = rac1_hero_place,
+    .hero_revive = rac1_hero_revive,
+    .moby_mission = rac1_world_moby_mission,
 };

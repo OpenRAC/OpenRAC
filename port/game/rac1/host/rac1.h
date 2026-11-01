@@ -78,6 +78,12 @@ int rac1_level_running(void);
 int rac1_hero_place(const float position[3], float yaw, uint32_t flags);
 void rac1_hero_place_tick(void);
 int rac1_hero_steady(void);
+/* hero_down.c: a dead hero kept down, brought back or sent to his checkpoint by a mod, from the end
+ * of the tick's moby loop (asked by hero_revive). */
+int rac1_hero_revive(const float position[3], uint32_t flags);
+void rac1_hero_down_tick(void);
+/* metal_detect.c: the metal detector's dig told to the mods, ahead of its update. */
+void rac1_metal_detect(gaddr moby);
 
 /* front_end.c: what the window's menus need of the game (game_host.h), and the levels' names. */
 extern const openrac_front_end rac1_front_end;
@@ -112,6 +118,7 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max);
 int32_t rac1_world_moby_slot(int32_t key);
 /* A placed moby's key, -1 for a spawned one. */
 int32_t rac1_world_moby_key(gaddr moby);
+int32_t rac1_world_moby_mission(int32_t slot);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
 /* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the
