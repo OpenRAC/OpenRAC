@@ -42,6 +42,30 @@
         "mirror": true,
         "rewrites": [
           [
+            "extern AreaVector D_L06_001B3260 SDATA(D_L06_001B3260);",
+            "extern AreaVector D_L06_001B3260;\n#define D_L06_001B3260 D_L06_001B3260"
+          ],
+          [
+            "extern int levelIndexGP SDATA(D_001A79F0);",
+            "extern int D_001A79F0;\n#define levelIndexGP D_001A79F0"
+          ],
+          [
+            "extern int rewardScoreGP SDATA(D_001B1A80);",
+            "extern int D_001B1A80;\n#define rewardScoreGP D_001B1A80"
+          ],
+          [
+            "extern float baselineGP SDATA(D_L06_001B3284);",
+            "extern float D_L06_001B3284;\n#define baselineGP D_L06_001B3284"
+          ],
+          [
+            "extern u32 colorFirst SDATA(D_L16_001B02C0);",
+            "#define colorFirst D_L16_001B02C0[0]"
+          ],
+          [
+            "extern u8 *actorTable SDATA(D_L12_001B2E9C);",
+            "extern u8 *D_L12_001B2E9C;\n#define actorTable D_L12_001B2E9C"
+          ],
+          [
             "D_001B8FB4",
             "D_001A8C64"
           ],

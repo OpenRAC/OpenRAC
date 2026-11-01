@@ -80,7 +80,7 @@
   "level_hooks_by_registers": true,
   "level_hooks": ["func_0026F710", "func_0026F718", "func_0026F720", "func_0026F728", "func_0026F730", "func_0026F738", "func_0026F740", "func_0026F748", "func_0026F750", "func_0026F758", "func_0026F760", "func_0026F768", "func_0026F770", "func_0026F778", "func_0026F780", "func_0026F788", "func_0026F790", "func_0026F798", "func_0026F7A0", "func_0026F7B0", "func_0026F7B8", "func_0026F7C0", "func_0026F7C8", "func_0026F7D0", "func_0026F7D8", "func_0026F7E0", "func_0026F7E8", "func_0026F7F0", "func_0026F7F8", "func_0026F800", "func_0026F808"],
   "keep_spent_arguments": true,
-  "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
+  "level_short_names": "^func_(?:80(?=[0-9A-F]{6}$))?(?P<addr>[0-9A-F]{6,8})$",
   "executable_functions": "config/boot/functions.tsv",
   "host_functions": ["func_00280B90", "func_00280B90_1", "func_00280B90_7", "func_002FCB00", "func_002FC8D0", "func_002FC990", "func_002EF3B0", "func_002F0EF8", "func_002E11C0", "func_002E3940", "func_002A4E68", "func_002A4AD8", "func_002A4D88", "func_002A4078", "func_002B9420", "func_002F0468", "func_002E2C38", "func_002F3E78", "func_002EF310", "func_002F0E38", "func_002E10B8", "func_0029FEE0", 
     "func_0011F718",

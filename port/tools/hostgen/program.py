@@ -305,7 +305,12 @@ class Program:
         found = _UNIT_LEVEL.search(unit) or _LEVEL_NAME.match(function)
         if found is None:
             return sym
-        return self.by_place.get((int(found.group(1)), int(m.group("addr"), 16)), sym)
+        address = int(m.group("addr"), 16)
+        own = self.by_place.get((int(found.group(1)), address))
+        if own is None and len(sym) == 13 and sym.startswith("func_80") and address in self.executable_starts:
+            # An uncached spelling of the address (func_80122B00, the double helpers L14 calls).
+            return self.by_place.get((-1, address), f"func_{address:08X}")
+        return own or sym
 
     def canonical(self, symbol: str) -> str:
         """The symbol with C at the same place as symbol, or symbol: the port's own function
