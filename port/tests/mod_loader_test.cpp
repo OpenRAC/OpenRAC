@@ -161,6 +161,14 @@ std::array<float, 3> g_placed{};
 // What the game was asked of hero_revive: the position's x (-1 none), the flags.
 std::array<float, 2> g_revived{};
 
+// The game's camera scripts: starts and ends still to tell, a script running, what was asked, and
+// what a mod heard.
+int g_script_events = 0;
+int g_script_on = 0;
+std::int32_t g_script_asked = -9;
+float g_script_shown = 0.0f;
+std::vector<std::pair<int, int>> g_script_heard;
+
 const openrac_game_play kPlay = {
     5,
     kLevelNames,
@@ -340,6 +348,27 @@ const openrac_game_play kPlay = {
         return flags != OPENRAC_REVIVE_HOLD + 8u ? 1 : 0;
     },
     [](std::int32_t slot) { return slot == 7 ? 3 : -1; },
+    [](std::int32_t* id, std::int32_t* started) {
+        if (g_script_events == 0) {
+            return 0;
+        }
+        *id = 737;
+        *started = --g_script_events;
+        return 1;
+    },
+    [](float eye[3], float rotation[3], float where[3], std::int32_t* stand_in) {
+        eye[0] = rotation[0] = where[0] = 2.0f;
+        *stand_in = 1;
+        return g_script_on;
+    },
+    [](std::int32_t id) {
+        g_script_asked = id;
+        return id != 0 ? 1 : 0;
+    },
+    [](const float eye[3], const float[3]) {
+        g_script_shown = eye[0];
+        return 1;
+    },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -981,6 +1010,34 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
             CHECK(mobys[static_cast<std::size_t>(i)].size == sizeof(openrac_moby2));
             CHECK(mobys[static_cast<std::size_t>(i)].mission == (mobys[static_cast<std::size_t>(i)].slot == 7 ? 3 : -1));
         }
+        // Camera scripts: heard once a tick, one a mod and only at load; a view only with one
+        // running; a script shown only by the mod that asked, and no bad number passed on.
+        const auto heard = [](void*, int id, int started) { g_script_heard.emplace_back(id, started); };
+        CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_TOO_LATE);
+        mods::play_loading(reinterpret_cast<const openrac_mod*>(mod));
+        CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_OK);
+        CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_TAKEN);
+        mods::play_loading(nullptr);
+        g_script_events = 2;
+        mods::play_update();
+        CHECK((g_script_heard == std::vector<std::pair<int, int>>{{737, 1}, {737, 0}}));
+        float eye[3], turned[3], moby[3];
+        int standing = 0;
+        CHECK(api.camera_script_view(eye, turned, moby, &standing) == OPENRAC_HOOK_UNKNOWN);
+        g_script_on = 1;
+        CHECK(api.camera_script_view(eye, turned, moby, &standing) == OPENRAC_HOOK_OK);
+        CHECK(eye[0] == 2.0f && moby[0] == 2.0f && standing == 1);
+        const float seen[3] = {7.0f, 0.0f, 0.0f};
+        const float none[3] = {NAN, 0.0f, 0.0f};
+        CHECK(api.camera_script_show(mod, seen, seen) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.camera_script_play(mod, -3) == OPENRAC_HOOK_UNKNOWN && g_script_asked == -9);
+        CHECK(api.camera_script_play(mod, 0) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.camera_script_play(mod, 737) == OPENRAC_HOOK_OK && g_script_asked == 737);
+        CHECK(api.camera_script_show(mod, none, seen) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.camera_script_show(mod, seen, seen) == OPENRAC_HOOK_OK && g_script_shown == 7.0f);
+        CHECK(api.camera_script_play(mod, OPENRAC_CAMERA_SCRIPT_CUT) == OPENRAC_HOOK_OK);
+        CHECK(g_script_asked == OPENRAC_GAME_CAMERA_END_CUT);
+        CHECK(api.camera_script_show(mod, seen, seen) == OPENRAC_HOOK_UNKNOWN);
         g_phase = OPENRAC_GAME_PHASE_SCENE;
         g_scene = 3;
         CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);

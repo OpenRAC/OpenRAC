@@ -1062,9 +1062,14 @@ typedef struct openrac_overlay {
  * shows a level (not in a menu or a scene). Since 1.12. */
 typedef void (*openrac_overlay_fn)(void* user, const openrac_overlay* overlay);
 
-/* A camera script (a door, a lift) started (`started` 1) or ended (0) in this game, `id` its number
- * in the level (the same in every game of that level). Since 1.12. */
+/* A camera script (a level's shot, a door's, a lift's: any moby's) started (`started` 1) or ended
+ * (0) in this game. The game has no list of them: `id` is the class of the moby that runs it, the
+ * same on every disc, -1 for none. Since 1.12. */
 typedef void (*openrac_camera_script_fn)(void* user, int id, int started);
+
+/* What openrac_api.camera_script_play takes to end a script shown here. Since 1.12. */
+#define OPENRAC_CAMERA_SCRIPT_END (-1)
+#define OPENRAC_CAMERA_SCRIPT_CUT (-2)
 
 /* The metal detector found a buried moby (`slot`, `key`) as the game was about to give its bolts.
  * Return non-zero to let the game go on, 0 to hold it back (the mod has asked someone else, and
@@ -1652,7 +1657,12 @@ typedef struct openrac_api {
     int (*moby_list2)(openrac_moby2* out, int max);
 
     /* Calls `fn(user, id, started)` when a camera script starts or ends in this game (one a mod,
-     * only during openrac_mod_load), and starts the level's camera script `id` here. Since 1.12. */
+     * only during openrac_mod_load, once a tick). And shows a script of another game here: from
+     * the end of this tick, only the camera, the player's control stays his; `id` as `fn` had it,
+     * camera_script_show gives its views. OPENRAC_CAMERA_SCRIPT_END hands the camera back eased,
+     * OPENRAC_CAMERA_SCRIPT_CUT behind the hero at once. Asked in first person or with a script of
+     * this game's playing it does not start: camera_script_show then answers
+     * OPENRAC_HOOK_UNKNOWN, as it does once the game has taken the camera away. Since 1.12. */
     int (*on_camera_script)(openrac_mod* mod, openrac_camera_script_fn fn, void* user);
     int (*camera_script_play)(openrac_mod* mod, int id);
 
@@ -1712,6 +1722,17 @@ typedef struct openrac_api {
      * zero): the launcher's file for the game, modset.json, is there. Returns its length, or 0 when
      * there is none or it does not fit. Since 1.12. */
     int (*plugins_folder)(char* out, uint32_t size);
+
+    /* The view of the camera script running in this game: where the camera is and its rotation
+     * (radians, x y z, as the game's), into `eye` and `rotation`, and where its moby is into
+     * `where`; `stand_in`, when not null, says it runs for another player standing in
+     * (hero_stand_in): this game's camera is not in it, and these are the views it would have
+     * shown. OPENRAC_HOOK_UNKNOWN with none. Since 1.12. */
+    int (*camera_script_view)(float eye[3], float rotation[3], float where[3], int* stand_in);
+
+    /* The view of the script shown here by camera_script_play, each tick. Returns
+     * OPENRAC_HOOK_OK while it is asked for or up, else OPENRAC_HOOK_UNKNOWN. Since 1.12. */
+    int (*camera_script_show)(openrac_mod* mod, const float eye[3], const float rotation[3]);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

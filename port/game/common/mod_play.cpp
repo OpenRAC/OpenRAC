@@ -978,12 +978,69 @@ int api_moby_list2(openrac_moby2* out, int max) {
     return n;
 }
 
-int api_on_camera_script(openrac_mod*, openrac_camera_script_fn, void*) {
-    return OPENRAC_HOOK_UNKNOWN;
+// Who hears of the game's camera scripts (on_camera_script), and the one showing one here.
+struct CameraScriptWatch {
+    const openrac_mod* mod = nullptr;
+    openrac_camera_script_fn fn = nullptr;
+    void* user = nullptr;
+};
+CameraScriptWatch g_camera_scripts;
+const openrac_mod* g_camera_shower = nullptr;
+
+bool has_camera_scripts() {
+    return g_play != nullptr && g_play->camera_script_next != nullptr
+           && g_play->camera_script_view != nullptr && g_play->camera_script_play != nullptr
+           && g_play->camera_script_show != nullptr;
 }
 
-int api_camera_script_play(openrac_mod*, int) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_on_camera_script(openrac_mod* mod, openrac_camera_script_fn fn, void* user) {
+    if (!has_camera_scripts()) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (g_camera_scripts.mod != nullptr) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    g_camera_scripts = {mod, fn, user};
+    return OPENRAC_HOOK_OK;
+}
+
+int api_camera_script_play(openrac_mod* mod, int id) {
+    if (mod == nullptr || !has_camera_scripts()
+        || id < OPENRAC_CAMERA_SCRIPT_CUT
+        || (g_camera_shower != nullptr && g_camera_shower != mod)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (g_play->camera_script_play(id) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_camera_shower = id >= 0 ? mod : nullptr;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_camera_script_view(float eye[3], float rotation[3], float where[3], int* stand_in) {
+    if (eye == nullptr || rotation == nullptr || where == nullptr || !has_camera_scripts()) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::int32_t standing = 0;
+    if (g_play->camera_script_view(eye, rotation, where, &standing) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (stand_in != nullptr) {
+        *stand_in = standing;
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_camera_script_show(openrac_mod* mod, const float eye[3], const float rotation[3]) {
+    if (mod == nullptr || mod != g_camera_shower || eye == nullptr || rotation == nullptr
+        || !has_camera_scripts() || !std::isfinite(eye[0] + eye[1] + eye[2])
+        || !std::isfinite(rotation[0] + rotation[1] + rotation[2])) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->camera_script_show(eye, rotation) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 int api_play_scene_from(openrac_mod*, int, int) {
@@ -1154,6 +1211,8 @@ void fill_play_api(
     api.moby_list2 = api_moby_list2;
     api.on_camera_script = api_on_camera_script;
     api.camera_script_play = api_camera_script_play;
+    api.camera_script_view = api_camera_script_view;
+    api.camera_script_show = api_camera_script_show;
     api.play_scene_from = api_play_scene_from;
     api.play_live_picture = api_play_live_picture;
     api.on_metal_detect = api_on_metal_detect;
@@ -1167,6 +1226,16 @@ void play_loading(const openrac_mod* mod) {
 }
 
 void play_update() {
+    // The game's camera scripts, as they went.
+    if (has_camera_scripts()) {
+        std::int32_t id = 0;
+        std::int32_t started = 0;
+        while (g_play->camera_script_next(&id, &started) != 0) {
+            if (g_camera_scripts.fn != nullptr) {
+                g_camera_scripts.fn(g_camera_scripts.user, id, started);
+            }
+        }
+    }
     // The game's card words, kept as a party's game needs them whatever its menus did.
     if (g_card_mode != OPENRAC_CARD_PASS && g_play != nullptr) {
         g_play->card_session(1);
@@ -1244,6 +1313,8 @@ void reset_play() {
     g_gate = Gate{};
     g_hits = HitWatch{};
     g_metal = MetalWatch{};
+    g_camera_scripts = {};
+    g_camera_shower = nullptr;
     g_before_slot = -1;
     g_loading_mod = nullptr;
     if (g_play != nullptr && g_play->keep_running != nullptr) {

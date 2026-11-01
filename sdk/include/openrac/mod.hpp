@@ -1670,7 +1670,7 @@ public:
 
     // Since 1.12: whether this port sees camera scripts and starts them.
     bool has_camera_scripts() const {
-        return has_slot12(offsetof(openrac_api, camera_script_play));
+        return has_slot12(offsetof(openrac_api, camera_script_show));
     }
 
     // Since 1.12: `fn(user, id, started)` when a camera script starts or ends. During load.
@@ -1679,9 +1679,30 @@ public:
                && m_api->on_camera_script(m_handle, fn, user) == OPENRAC_HOOK_OK;
     }
 
-    // Since 1.12: starts the level's camera script `id` here.
+    // Since 1.12: shows another game's camera script here (only the camera moves), or ends it
+    // (OPENRAC_CAMERA_SCRIPT_END, OPENRAC_CAMERA_SCRIPT_CUT).
     bool camera_script_play(int id) const {
         return has_camera_scripts() && m_api->camera_script_play(m_handle, id) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the view of the camera script running in this game, where its moby is, and
+    // whether it runs for a player standing in.
+    bool camera_script_view(
+        float eye[3], float rotation[3], float where[3], bool* stand_in = nullptr
+    ) const {
+        int standing = 0;
+        const bool ok = has_slot12(offsetof(openrac_api, camera_script_view))
+                        && m_api->camera_script_view(eye, rotation, where, &standing) == OPENRAC_HOOK_OK;
+        if (stand_in != nullptr) {
+            *stand_in = standing != 0;
+        }
+        return ok;
+    }
+
+    // Since 1.12: the view of the script shown here; false once it is not up.
+    bool camera_script_show(const float eye[3], const float rotation[3]) const {
+        return has_slot12(offsetof(openrac_api, camera_script_show))
+               && m_api->camera_script_show(m_handle, eye, rotation) == OPENRAC_HOOK_OK;
     }
 
     // Since 1.12: play_scene, from frame `start_frame` of the scene.

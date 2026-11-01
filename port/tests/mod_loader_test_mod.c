@@ -499,8 +499,11 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->hero_shots2(&shot, 1) != 0
             || api->figure_shot2(mod, 0, &shot) != OPENRAC_HOOK_UNKNOWN
             || api->moby_list2(&moby, 1) != 0
-            || api->on_camera_script(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+            || (api->on_camera_script(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+                && api->on_camera_script(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE)
             || api->camera_script_play(mod, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->camera_script_view(where, where, where, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->camera_script_show(mod, where, where) != OPENRAC_HOOK_UNKNOWN
             || api->play_scene_from(mod, 0, 0) != OPENRAC_HOOK_UNKNOWN
             || api->play_live_picture(mod, 1) != OPENRAC_HOOK_UNKNOWN
             || api->on_metal_detect(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE

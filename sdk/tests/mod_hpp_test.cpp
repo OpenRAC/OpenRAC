@@ -749,6 +749,17 @@ void fill_12(openrac_api& api) {
         g_12 = "camera " + std::to_string(id);
         return OPENRAC_HOOK_OK;
     };
+    api.camera_script_view = [](float eye[3], float rotation[3], float where[3], int* stand_in) {
+        eye[0] = 1.0f;
+        rotation[2] = 2.0f;
+        where[1] = 3.0f;
+        *stand_in = 1;
+        return OPENRAC_HOOK_OK;
+    };
+    api.camera_script_show = [](openrac_mod*, const float eye[3], const float rotation[3]) {
+        g_12 = "show " + std::to_string(static_cast<int>(eye[0] + rotation[2]));
+        return OPENRAC_HOOK_OK;
+    };
     api.play_scene_from = [](openrac_mod*, int scene, int frame) {
         g_12 = "scene " + std::to_string(scene) + " " + std::to_string(frame);
         return OPENRAC_HOOK_OK;
@@ -1670,6 +1681,13 @@ int main() {
         const std::vector<openrac_moby2> mobys = mod.moby_list2();
         CHECK(mobys.size() == 1 && mobys[0].slot == 4 && mobys[0].mission == 7);
         CHECK(mod.camera_script_play(6) && g_12 == "camera 6");
+        float eye[3] = {0.0f, 0.0f, 0.0f};
+        float rotation[3] = {0.0f, 0.0f, 0.0f};
+        float moby[3] = {0.0f, 0.0f, 0.0f};
+        bool stand_in = false;
+        CHECK(mod.camera_script_view(eye, rotation, moby, &stand_in) && stand_in);
+        CHECK(eye[0] == 1.0f && rotation[2] == 2.0f && moby[1] == 3.0f);
+        CHECK(mod.camera_script_show(eye, rotation) && g_12 == "show 3");
         CHECK(mod.play_scene_from(2, 90) && g_12 == "scene 2 90");
         CHECK(mod.play_live_picture(true) && g_12 == "picture 1");
         openrac_packs_info packs{};
