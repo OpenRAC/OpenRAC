@@ -447,6 +447,7 @@
     "func_00131D98"
   ],
   "asm": {
+    "vu0_programs": {"0xD18": "rac2_vu0_rotation_rows"},
     "enabled": true,
     "discover_entries": true,
     "forward_unprototyped": true,
