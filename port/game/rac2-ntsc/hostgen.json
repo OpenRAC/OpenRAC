@@ -451,6 +451,7 @@
     "vu0_programs": {"0xD18": "rac2_vu0_rotation_rows"},
     "enabled": true,
     "discover_entries": true,
+    "dma_stores": true,
     "forward_unprototyped": true,
     "dirs": [],
     "gp": "0x001AEFF0",
