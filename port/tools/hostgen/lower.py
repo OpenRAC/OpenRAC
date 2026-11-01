@@ -1909,10 +1909,11 @@ class Unit:
         # A level function written with another level's name for the datum (func_L16_00435CE8 was
         # matched from level 23's copy and says D_L23_001B2144, which level 16 has at 0x001B24C4;
         # func_L00_002A53B8 says D_L24_0025B710): the name's level's address, as the level loaded
-        # has it.
+        # has it. So too one level's own function whose name the derived table holds as the
+        # executable's copy (func_L00_003CD8E0's D_L00_001B8C80, the camera, as 0x001B5200).
         if named and not code and getattr(self.program, "level_short_names", None) is not None:
             own = LEVEL_NAME.match(self.fn.code) if self.fn is not None else None
-            if own and int(own.group(1)) != int(named.group(1)):
+            if own and (int(own.group(1)) != int(named.group(1)) or int(named.group(2), 16) != address):
                 return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
