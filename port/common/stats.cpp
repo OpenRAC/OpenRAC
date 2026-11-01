@@ -103,8 +103,8 @@ void write_json_string(std::string& out, std::string_view text) {
 // One frame as a line of JSON, made in memory and written at once: hundreds of small writes, each
 // taking the file's lock, cost a phone's window thread more than the frame's own counting.
 void write_frame(std::FILE* out, const Frame& f) {
-    thread_local std::string line;
-    line.clear();
+    // Not thread_local: close_dump runs at exit, after the main thread's thread_locals are gone.
+    std::string line;
     const auto add = std::back_inserter(line);
     std::format_to(
         add,
