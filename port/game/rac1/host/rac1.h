@@ -73,6 +73,12 @@ uint32_t rac1_sim_digest(int level);
  * level's: nothing of the level may be read or written then. */
 int rac1_level_running(void);
 
+/* hero_place.c: the hero put somewhere by a mod, from the end of the tick's moby loop (asked by
+ * play.c's table), and whether he stands where another could be put beside him. */
+int rac1_hero_place(const float position[3], float yaw, uint32_t flags);
+void rac1_hero_place_tick(void);
+int rac1_hero_steady(void);
+
 /* front_end.c: what the window's menus need of the game (game_host.h), and the levels' names. */
 extern const openrac_front_end rac1_front_end;
 extern const char* const rac1_level_names[];

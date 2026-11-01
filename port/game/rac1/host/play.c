@@ -242,6 +242,9 @@ static int hero_pose(openrac_game_pose* out) {
         out->anim_time = GREF(float, moby + MOBY_ANIM_TIME);
         out->flags = 0;
     }
+    if (rac1_hero_steady()) {
+        out->flags |= 2u; /* OPENRAC_POSE_STEADY */
+    }
     out->anim_speed = GREF(float, HERO_ANIM_SPEED);
     return 1;
 }
@@ -587,4 +590,5 @@ const openrac_game_play rac1_play = {
     .world_family = "rac1-60-1",
     .sim_digest = rac1_sim_digest,
     .live_picture = rac1_world_live_picture,
+    .hero_place = rac1_hero_place,
 };

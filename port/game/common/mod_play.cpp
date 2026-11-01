@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -867,8 +868,13 @@ int api_mission_state_write(int, const std::uint8_t*) {
     return OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_hero_place(openrac_mod*, const float[3], float, std::uint32_t) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_hero_place(openrac_mod* mod, const float position[3], float yaw, std::uint32_t flags) {
+    if (mod == nullptr || position == nullptr || g_play == nullptr || g_play->hero_place == nullptr
+        || !std::isfinite(position[0]) || !std::isfinite(position[1]) || !std::isfinite(position[2])
+        || !std::isfinite(yaw)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->hero_place(position, yaw, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 int api_hero_grab(openrac_mod*, int, std::uint32_t) {

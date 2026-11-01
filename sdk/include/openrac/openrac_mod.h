@@ -618,6 +618,9 @@ typedef struct openrac_play_status {
 /* openrac_pose.flags. Since 1.8. */
 /* The animation is blending into `seq` from another: `frame` is where it arrives. */
 #define OPENRAC_POSE_BLENDING 0x1u
+/* The hero's pose only: he stands still enough on the level's own ground, on foot and unhurt, for
+ * another to be put beside him (hero_place). Since 1.12. */
+#define OPENRAC_POSE_STEADY 0x2u
 
 /* A pose of the hero, or of a figure (openrac_api.hero_pose, figure_pose). Units are the game's.
  * Since 1.8. */
@@ -969,6 +972,7 @@ typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t si
 /* hero_place flags. Since 1.12. */
 #define OPENRAC_PLACE_INVULNERABLE 0x1u /* the hero takes no damage for a few seconds */
 #define OPENRAC_PLACE_GROUND 0x2u       /* the position is dropped to the ground below it */
+#define OPENRAC_PLACE_BESIDE 0x4u       /* a spot beside the position, behind `yaw` and looking at it */
 
 /* The bytes of one level's mission state (mission_state_read, mission_state_write). Since 1.12. */
 #define OPENRAC_MISSION_STATE_SIZE 16
@@ -1602,7 +1606,10 @@ typedef struct openrac_api {
     int (*mission_state_write)(int level, const uint8_t* in);
 
     /* Puts the hero at `position` (x, y, z) facing `yaw`, its speed cleared, with OPENRAC_PLACE_*
-     * `flags`; only in a level, with the player in control. Since 1.12. */
+     * `flags`, in a level; a place asked for in a menu, a scene or on a ride waits until the player
+     * is in control, on foot, and goes with the level. OPENRAC_HOOK_OK says it was asked, not done:
+     * the hero's pose says when he is there, and with OPENRAC_PLACE_BESIDE, where no spot beside
+     * the position has ground, he never goes. Since 1.12. */
     int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags);
 
     /* Holds the hero as a grab does, playing animation `animation`, controls locked, until

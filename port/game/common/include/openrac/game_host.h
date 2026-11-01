@@ -495,6 +495,10 @@ typedef struct openrac_game_play {
     /* Whether the world is drawn under the pause menu while it keeps running (1, the start) or the
      * picture stands (0): openrac_api.play_live_picture. NULL for a game without it. */
     void (*live_picture)(int on);
+    /* The hero put at `position` facing `yaw` with OPENRAC_PLACE_* `flags` once the player is in
+     * control (openrac_api.hero_place): 1 asked, 0 refused (no level, no hero). NULL for a game
+     * without it. */
+    int (*hero_place)(const float position[3], float yaw, uint32_t flags);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;
