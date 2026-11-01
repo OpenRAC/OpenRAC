@@ -172,3 +172,4 @@ func_00133580	989snd	snd_StreamSafeCdSync	host	symbol_addrs.txt snd_CheckLoadInP
 func_00133640	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; queues the stream stop, then sceCdBreak (0x00125620)
 func_00133688	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
 func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
+func_0029D4D0	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
