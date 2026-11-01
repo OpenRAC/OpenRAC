@@ -1869,7 +1869,7 @@ class Unit:
         same path."""
         # A level function's datum by its name, where the build's derived table holds the address of
         # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
-        named = re.search(r"_L(\d\d)_([0-9A-Fa-f]{8})", symbol or "")
+        named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})", symbol or "")
         if named and not code and int(named.group(2), 16) != address and self._shared_level() is not None:
             return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
@@ -1913,7 +1913,7 @@ class Unit:
         """Whether a level-named datum resolved to the address its name states. A build's derived
         value can be the executable's instead (rac2: D_L06_001B2180 in func_00270210, a boot function
         whose C took a level's spelling, is 0x001B14C0): that one is the executable's global."""
-        m = re.search(r"_L\d\d_([0-9A-Fa-f]{8})", symbol or "")
+        m = re.fullmatch(r"D_L\d\d_([0-9A-Fa-f]{8})", symbol or "")
         return m is None or int(m.group(1), 16) == address
 
     def _variant_call(self, sym: str) -> tuple[int, int, int, int] | None:
