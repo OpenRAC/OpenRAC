@@ -209,6 +209,46 @@ void test_upload_size_overflow_is_rejected() {
     CHECK(rejected);
 }
 
+// Loading/menu backgrounds copied into MSAA targets must populate every sample without Vulkan blits.
+void test_single_sample_colour_expands_into_msaa() {
+    // A device without multisampling has no single-to-multisample transition to exercise.
+    if (openrac::renderer::FrameBuffer::max_samples() == 1) {
+        return;
+    }
+    constexpr std::array<std::uint8_t, 16> kPattern{
+        255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255
+    };
+    openrac::renderer::FrameBuffer source;
+    openrac::renderer::FrameBuffer target;
+    std::string error;
+    CHECK(source.create(2, 2, error));
+    CHECK(target.create(2, 2, error, 2));
+    glBindTexture(GL_TEXTURE_2D, source.colour_texture());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, kPattern.data());
+    const auto expected = source.read_rgba();
+    CHECK(expected.size() == kPattern.size());
+    source.blit_to(target.id(), 2, 2);
+    CHECK(target.read_rgba() == expected);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, source.id());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.id());
+    const auto state = detail::g->state;
+    glBlitFramebuffer(0, 0, 2, 2, 2, 2, 0, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    CHECK(detail::g->state.program == state.program);
+    CHECK(detail::g->state.unit_2d == state.unit_2d);
+    CHECK(
+        std::equal(std::begin(state.viewport), std::end(state.viewport), detail::g->state.viewport)
+    );
+    const auto flipped = target.read_rgba();
+    CHECK(flipped.size() == expected.size());
+    // Both axes reverse the four texels while preserving their RGBA channel order.
+    for (std::size_t byte = 0; byte < flipped.size() && flipped.size() == expected.size(); ++byte) {
+        const auto source_byte = (expected.size() / 4 - 1 - byte / 4) * 4 + byte % 4;
+        CHECK(flipped[byte] == expected[source_byte]);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 // Conflicting imports must be rejected before any layout change or callback records GPU work.
 void test_native_compute_rejects_conflicting_images() {
     GLuint texture = 0;
@@ -305,6 +345,7 @@ int run_tests() {
     test_shader_layout_failure_stops_linking();
     test_framebuffer_rejects_unallocated_attachment();
     test_upload_size_overflow_is_rejected();
+    test_single_sample_colour_expands_into_msaa();
     test_native_compute_rejects_conflicting_images();
     test_rejects_oversized_dispatch();
     test_descriptor_failure_is_not_retried();

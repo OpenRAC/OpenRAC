@@ -124,6 +124,7 @@ if(OPENRAC_VULKAN)
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/native_shader_compiler.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/shader_compiler_internal.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_draw.inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/multisample_blit.inc"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_materials.inc")
   # And every file holding a shader's text, wherever it is (a C++ file's own GLSL too): two builds
   # whose shaders differ must not read each other's cache, which MoltenVK has taken for the same

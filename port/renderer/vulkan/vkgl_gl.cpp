@@ -15,6 +15,7 @@
 #include <format>
 #include <limits>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -1781,6 +1782,8 @@ bool resolve_in_pass(Image& src, Image& dst, const std::array<GLint, 8>& r) {
     return true;
 }
 
+#include "renderer/vulkan/multisample_blit.inc"
+
 void VKGL blit_framebuffer(
     GLint sx0,
     GLint sy0,
@@ -1797,6 +1800,27 @@ void VKGL blit_framebuffer(
     const Target to = target_of(g->state.draw_framebuffer);
     auto blit_one = [&](Image* src, Image* dst, VkImageAspectFlags aspect, VkFilter f) {
         if (src == nullptr || dst == nullptr || src == dst) {
+            return;
+        }
+        // Vulkan transfer blits cannot write multisampled images; colour is broadcast by a draw.
+        if (dst->samples != VK_SAMPLE_COUNT_1_BIT && src->samples == VK_SAMPLE_COUNT_1_BIT) {
+            VkImageBlit region{};
+            if (aspect != VK_IMAGE_ASPECT_COLOR_BIT || src->format == VK_FORMAT_R32_UINT
+                || src->format == VK_FORMAT_R32G32B32A32_UINT || dst->format == VK_FORMAT_R32_UINT
+                || dst->format == VK_FORMAT_R32G32B32A32_UINT) {
+                fail(0x0502);  // GL_INVALID_OPERATION: depth/integer copies need different shaders.
+                return;
+            }
+            if (blit_region(*src, *dst, aspect, {sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1}, region)) {
+                blit_into_multisample(*src, *dst, region, f);
+            }
+            return;
+        }
+        // Equal-sample copies cannot scale, flip or change sample count.
+        if (dst->samples != VK_SAMPLE_COUNT_1_BIT
+            && (src->samples != dst->samples || sx1 <= sx0 || sy1 <= sy0 || sx1 - sx0 != dx1 - dx0
+                || sy1 - sy0 != dy1 - dy0)) {
+            fail(0x0502);  // GL_INVALID_OPERATION: unsupported multisample copy.
             return;
         }
         // The whole of the open pass's multisampled colour resolved into an image of its size:
@@ -1850,13 +1874,17 @@ void VKGL blit_framebuffer(
         }
         barrier(cmd, *src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         barrier(cmd, *dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        if ((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 && sx1 - sx0 == dx1 - dx0
-            && sy1 - sy0 == dy1 - dy0 && sx1 > sx0 && sy1 > sy0) {
+        if (((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 || src->samples != VK_SAMPLE_COUNT_1_BIT)
+            && src->samples == dst->samples && sx1 - sx0 == dx1 - dx0 && sy1 - sy0 == dy1 - dy0
+            && sx1 > sx0 && sy1 > sy0) {
             // Depth/stencil formats need not support BLIT_DST. An unscaled
             // copy has no such requirement; each aspect is copied separately.
             VkImageCopy copies[2]{};
             std::uint32_t count = 0;
-            for (const auto bit : {VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_ASPECT_STENCIL_BIT}) {
+            for (const auto bit :
+                 {VK_IMAGE_ASPECT_COLOR_BIT,
+                  VK_IMAGE_ASPECT_DEPTH_BIT,
+                  VK_IMAGE_ASPECT_STENCIL_BIT}) {
                 if ((aspect & bit) == 0) {
                     continue;
                 }

@@ -1016,7 +1016,7 @@ struct Context {
     VkPhysicalDeviceProperties properties{};
     std::uint32_t timestamp_bits = 0;
     VkPhysicalDeviceFeatures features{};
-    bool astc_hdr = false;        // Enabled Vulkan 1.3 HDR ASTC sampling.
+    bool astc_hdr = false;                 // Enabled Vulkan 1.3 HDR ASTC sampling.
     bool subgroup_extended_types = false;  // Subgroup operations on 16-bit values, enabled.
     bool shader_float16 = false;     // Actually enabled arithmetic, not 16-bit storage support.
     bool tile_based = false;         // tile_based(): the vendor's guess or OPENRAC_TILE_BASED.
@@ -1105,6 +1105,9 @@ struct Context {
     Names<Texture> textures;
     Names<Buffer> buffers;
     Names<VertexArray> vertex_arrays;
+    // Internal fullscreen copy resources live in the ordinary owned program and texture tables.
+    GLuint multisample_blit_program = 0;
+    GLuint multisample_blit_texture = 0;
     Names<Framebuffer> framebuffers;
     Names<Renderbuffer> renderbuffers;
     Names<SamplerParams> samplers;
