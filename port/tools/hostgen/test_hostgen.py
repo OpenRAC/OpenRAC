@@ -2076,6 +2076,28 @@ class Places(unittest.TestCase):
             self.assertIn("openrac_guest_entry((openrac_host_fn)func_L02_002D75F8)", text)
             self.assertIn("func_00300000((gaddr)(a))", text)
 
+    def test_a_small_copy_reads_what_it_forms_itself(self):
+        # Going Commando's func_L00_00367720 is a fingerprint, not one field: word 15 of a struct in
+        # level 0, word 9 in level 25, so a pair of the two levels' globals cannot give it.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "extern int D_L00_00221440;\n"
+                "int func_L00_00367720(void) { return D_L00_00221440; }\n",
+                "func_L00_00367720\tshared\t12\tfg\t2\t00:00367720,25:003738A0\n",
+                {"relocate": [0x15F000, 0x500000], "small_copies_own_data": 32})
+            text = (out / "a.c").read_text()
+            self.assertIn("openrac_data_in_copy(0, 0x00367720u, 12u, openrac_self_, 0x00221440u)", text)
+
+    def test_a_files_name_for_another_function(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "extern void func_00300000(void);\n"
+                "extern void func_00300100(void);\n"
+                "void func_00300200(void) { func_00300000(); }\n",
+                "",
+                {"unit_aliases": {"src/a.c": {"func_00300000": "func_00300100"}}})
+            self.assertIn("func_00300100();", (out / "a.c").read_text())
+
     def test_a_call_to_another_levels_function_follows_the_definition(self):
         # rac1/ntsc's Rilgar creature (FUN_L05_002d1688) declared level 0's vector scale as
         # (float, void *, void *) and called it through its level 0 address with that type: right

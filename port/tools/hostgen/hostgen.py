@@ -1021,6 +1021,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # relocation): [low, high), or none.
     program.relocate = cfg.get("relocate")
     program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
+    program.small_copies_own_data = cfg.get("small_copies_own_data", 0)
     # hostgen.json "unit_aliases": a name in one file that is another function there (a twin written
     # from another level's copy, with that level's names): unit -> {name: the function}.
     program.aliases.update({(unit, name): symbol for unit, names in cfg.get("unit_aliases", {}).items()
