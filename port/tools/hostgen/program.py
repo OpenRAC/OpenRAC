@@ -37,6 +37,7 @@ BUILTINS = {
     "qcopy": "openrac_qcopy",
     "qcopy_nc": "openrac_qcopy",
     "qzero": "openrac_qzero",
+    "qzero_nc": "openrac_qzero",
 }
 
 

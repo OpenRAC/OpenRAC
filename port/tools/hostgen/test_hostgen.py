@@ -52,6 +52,9 @@ extern void test_print_str(char *);
 static __inline__ void qcopy(void *dst, void *src) {
     __asm__ __volatile__("lq $2,0x0(%1)\\n\\tsq $2,0x0(%0)" : : "r"(dst), "r"(src) : "$2", "memory");
 }
+static __inline__ void qzero_nc(void *dst) {
+    __asm__ __volatile__("sq $0,0x0(%0)" : : "r"(dst));
+}
 #endif
 """
 
@@ -917,10 +920,12 @@ class Translate(unittest.TestCase):
                 v <<= 40;
                 test_print((int)(v >> 38));
                 test_print(sizeof(long));
+                qzero_nc(D_00200010);
+                test_print(D_00200010[0] + D_00200010[3]);
                 return 0;
             }
         """})
-        self.assertEqual(out, ["13", "4", "8"])
+        self.assertEqual(out, ["13", "4", "8", "0"])
 
     def test_call_before_declaration(self):
         # GCC 2.95 took a call made before the callee's declaration as int f().
