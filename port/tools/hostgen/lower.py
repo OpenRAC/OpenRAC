@@ -1884,7 +1884,8 @@ class Unit:
         # A level function's datum by its name, where the build's derived table holds the address of
         # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
         named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})(?:_\d+)?", symbol or "")
-        if named and not code and int(named.group(2), 16) != address and self._shared_level() is not None:
+        if (named and not code and int(named.group(2), 16) != address
+                and (self._shared_level() is not None or UNIT_LEVEL.search(self.unit))):
             return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         # A level file's bare name its level's build placed elsewhere (D_001FEAC0 is level 2's
         # 0x001FF1C0): that address, as the level loaded has it.
