@@ -55,6 +55,7 @@ struct NativeImageUse {
 
 // Ends drawing, transitions the textures, then records the callback on the current graphics queue.
 // The callback restores each image to its requested layout before returning and retains no handles.
+// Duplicate read-only imports are allowed; aliases involving a write are rejected before recording.
 [[nodiscard]] bool record_native_compute(
     std::span<const NativeImageUse> textures,
     const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record

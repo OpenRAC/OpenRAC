@@ -190,6 +190,31 @@ void test_upload_size_overflow_is_rejected() {
     CHECK(rejected);
 }
 
+// Conflicting imports must be rejected before any layout change or callback records GPU work.
+void test_native_compute_rejects_conflicting_images() {
+    GLuint texture = 0;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    CHECK(vkgl::allocate_storage_texture(texture, GL_RGBA8, 1, 1));
+    const auto image = detail::g->textures.find(texture)->image;
+    const auto layout = image->layout;
+    const std::array<vkgl::NativeImageUse, 2> uses{{{texture, false}, {texture, true}}};
+    bool called = false;
+    const auto record = [&called](VkCommandBuffer, std::span<const vkgl::NativeImage>) {
+        called = true;
+        return true;
+    };
+    // Both the small stack-backed path and the reference vector path enforce the same contract.
+    for (const bool streamlined : {false, true}) {
+        render_opt::set(render_opt::Opt::NativeComputeSetup, streamlined);
+        CHECK(!vkgl::record_native_compute(uses, record));
+        CHECK(!called);
+        CHECK(image->layout == layout);
+    }
+    render_opt::reset();
+    glDeleteTextures(1, &texture);
+}
+
 // Enhanced passes cannot dispatch outside the workgroup counts reported by the device.
 void test_rejects_oversized_dispatch() {
     const auto before = vkgl::submission_counters().commands;
@@ -260,6 +285,7 @@ int run_tests() {
     test_shader_module_failure_is_reported();
     test_shader_layout_failure_stops_linking();
     test_upload_size_overflow_is_rejected();
+    test_native_compute_rejects_conflicting_images();
     test_rejects_oversized_dispatch();
     test_descriptor_failure_is_not_retried();
     test_failed_submit_never_waits();
