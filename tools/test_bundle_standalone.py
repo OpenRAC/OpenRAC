@@ -12,6 +12,12 @@ from pathlib import Path
 import bundle_standalone as bundle
 
 
+def going_commando_format() -> str:
+    """The format of Going Commando's export, which moves on alone (editor/port.py GAME_FORMATS)."""
+    text = (bundle.ROOT / "editor" / "port.py").read_text(encoding="utf-8")
+    return re.search(r'^GAME_FORMATS = \{"rac2": (\d+)\}$', text, re.MULTILINE).group(1)
+
+
 class LevelsStamp(unittest.TestCase):
     """The check's stamp names the export's format in every place that reads or writes it: an old
     name leaves Play waiting for a stamp the game never writes, the check run again and again."""
@@ -26,8 +32,8 @@ class LevelsStamp(unittest.TestCase):
         # The levels are ready by a stamp of their own, named after the format too, so a bump
         # reads them again before the check runs.
         # Going Commando's export moved on alone, so its bump reads only its levels again.
-        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected), "5"})
-        self.assertEqual(set(re.findall(r"rac2/ntsc/levels-(\d+)\.json", actions)), {"5"})
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected), going_commando_format()})
+        self.assertEqual(set(re.findall(r"rac2/ntsc/levels-(\d+)\.json", actions)), {going_commando_format()})
         self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
         extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
         self.assertIn('f"levels-{levels_format(game)}.json"', extract)
@@ -51,7 +57,7 @@ class PlayerActions(unittest.TestCase):
     def test_the_later_games_levels_are_read_for_packs_in_the_data_folder(self):
         # Going Commando, Up Your Arsenal and Deadlocked: early access, so no play and no packing
         # back; their levels are read into the data folder for texture and model packs.
-        for key, stamp in (("rac2/ntsc", 5), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
+        for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
                 self.assertNotIn("editor-pack", actions)
