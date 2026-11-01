@@ -125,12 +125,12 @@ static void mark_drawn_mobys(gaddr first, int count) {
 }
 
 /* MobyProc: the moby list `a0`, `a2` mobys of it (-1 the whole list, the world's draw). */
-int func_002A4E68(int a0, int a1, int a2, int a3) {
+int func_002A4E68(gaddr a0, gaddr a1, int a2, int a3) {
     (void)a1;
     (void)a3;
-    mark_drawn_mobys((gaddr)a0, a2);
+    mark_drawn_mobys(a0, a2);
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
-    if (openrac_game_mobys_drawn((gaddr)a0, a2)) {
+    if (openrac_game_mobys_drawn(a0, a2)) {
         put_marker((0x4D42ull << 48) | ((uint64_t)(a2 & 0xFFFF) << 32) | (uint32_t)a0);
     }
     return 0;
@@ -141,14 +141,15 @@ void func_002A4AD8(int a0) {
     (void)a0;
 }
 
-void func_002A4D88(int a0, int a1) {
+void func_002A4D88(gaddr a0, int a1) {
     (void)a0;
     (void)a1;
 }
 
 /* moby_anim_eval_chain: the pose of the joints marked in a1, into the scratchpad. */
-void func_002A4078(gaddr a0, gaddr a1) {
+int func_002A4078(gaddr a0, gaddr a1) {
     openrac_game_moby_chain(a0, a1);
+    return 0;
 }
 
 /*
