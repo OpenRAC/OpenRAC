@@ -7,6 +7,8 @@
 // settings, frame and pad callbacks, a mod's own refusal, an unknown hook point and a wrong
 // signature, status.json, and the slots left null when nothing loads.
 
+#include <array>
+#include <cmath>
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
@@ -153,6 +155,9 @@ void reset_world() {
 std::int32_t slot_at(gaddr moby) {
     return static_cast<std::int32_t>((moby - 0x3000) / 0x100);
 }
+
+// What the game was asked of hero_place: the position's x, the yaw, the flags.
+std::array<float, 3> g_placed{};
 
 const openrac_game_play kPlay = {
     5,
@@ -320,6 +325,10 @@ const openrac_game_play kPlay = {
     nullptr,
     nullptr,
     [](int on) { g_live_picture = on; },
+    [](const float position[3], float yaw, std::uint32_t flags) {
+        g_placed = {position[0], yaw, static_cast<float>(flags)};
+        return position[0] < 100.0f ? 1 : 0;
+    },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -844,6 +853,17 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         std::uint32_t digest = 0;
         CHECK(api.sim_digest(4, &digest) == OPENRAC_HOOK_OK && digest == 0xABCDu);
         CHECK(api.sim_digest(5, &digest) == OPENRAC_HOOK_UNKNOWN);
+        // The hero placed: passed on, a refusal said, and a place no game could use not asked.
+        const float place[3] = {3.0f, 4.0f, 5.0f}, far_away[3] = {200.0f, 0.0f, 0.0f};
+        const float nowhere[3] = {NAN, 0.0f, 0.0f};
+        auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+        CHECK(api.hero_place(mod, place, 1.5f, OPENRAC_PLACE_BESIDE) == OPENRAC_HOOK_OK);
+        CHECK(g_placed[0] == 3.0f && g_placed[1] == 1.5f && g_placed[2] == OPENRAC_PLACE_BESIDE);
+        CHECK(api.hero_place(mod, far_away, 0.0f, 0) == OPENRAC_HOOK_UNKNOWN);
+        g_placed = {};
+        CHECK(api.hero_place(mod, nowhere, 0.0f, 0) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.hero_place(mod, place, INFINITY, 0) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(g_placed[0] == 0.0f);
         g_phase = OPENRAC_GAME_PHASE_SCENE;
         g_scene = 3;
         CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);
