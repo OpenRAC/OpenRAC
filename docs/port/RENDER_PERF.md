@@ -1910,7 +1910,8 @@ run the same paths. The capture report's `gpu passes` line records it.
 
 - **`probe-fast-blended`.** Blended static passes (glass, water, foliage) read probe light from
   the best volume alone, without each probe's depth test, and filter shadows with four taps.
-  Not byte-identical (Enhanced may be lossy here). The cheaper light exists only in the static
+  Not byte-identical (Enhanced may be lossy here): in the equivalence test at most 0.28% of a
+  frame's pixels differ, by up to 26 of 255. The cheaper light exists only in the static
   blended shader variant, which these passes use whenever the entry is on, so `shader-variants`
   on against off stays byte-identical. `OPENRAC_PROBE_FAST_OFF` turns it off too.
 

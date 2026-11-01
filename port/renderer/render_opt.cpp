@@ -203,9 +203,10 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::OverwriteDiscard, "overwrite-discard",
      "the temporal and blur targets a full-screen draw overwrites whole are let go before it, so not loaded",
      true, Tolerance{}},
+    // Accepted Enhanced difference: on lavapipe at most 0.28% of a frame's pixels, by up to 26/255.
     {Opt::ProbeFastBlended, "probe-fast-blended",
      "blended static passes read the best probe volume without its depth test and filter shadows with four taps",
-     true, Tolerance{1.0, 255}},
+     true, Tolerance{0.005, 32}},
 }};
 // clang-format on
 
