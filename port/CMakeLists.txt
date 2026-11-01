@@ -132,6 +132,9 @@ openrac_add_test(ui_colors SOURCES tests/ui_colors_test.cpp game/common/ui_color
                            INCLUDES . LIBS openrac_common)
 # The CPU picture of the developer menu and the mods' menu pages (renderer/ui/canvas.h).
 openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.cpp INCLUDES .)
+# What mods draw over the game, gathered on the CPU, and a point of the level found on the picture.
+openrac_add_test(ui_overlay_list SOURCES tests/ui_overlay_list_test.cpp renderer/ui/overlay_list.cpp
+                 renderer/ui/canvas.cpp INCLUDES .)
 openrac_add_test(scripted_moby_colour SOURCES enhanced/tests/scripted_moby_colour_test.cpp
                                       INCLUDES .)
 openrac_add_test(pause_options INCLUDES .)
