@@ -33,7 +33,7 @@
       "source": {
         "name": "rac2-decomp",
         "repo": "https://github.com/OpenRAC/rac2-decomp",
-        "branch": "port/backfill",
+        "branch": "port/collision",
         "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
         "exclude": [
