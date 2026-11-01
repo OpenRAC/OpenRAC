@@ -10,6 +10,9 @@
 #include "assets/sound/adpcm.h"
 
 #include <array>
+#include <cmath>
+#include <cstdlib>
+#include <optional>
 #include <vector>
 
 #include "tests/check.h"
@@ -22,9 +25,11 @@ std::array<u8, 16> frame(u8 shift, u8 filter, u8 flags, const std::array<u8, 28>
     std::array<u8, 16> f{};
     f[0] = static_cast<u8>(shift | filter << 4);
     f[1] = flags;
+
     for (std::size_t i = 0; i < 28; ++i) {
         f[2 + i / 2] = static_cast<u8>(f[2 + i / 2] | (nibbles[i] & 15) << ((i & 1) * 4));
     }
+
     return f;
 }
 
@@ -41,9 +46,11 @@ int main() {
         const std::vector<s16> pcm = decode_adpcm(ByteView(zero.data(), zero.size()));
         CHECK(pcm.size() == 28);
         bool all_zero = true;
+
         for (const s16 v : pcm) {
             all_zero = all_zero && v == 0;
         }
+
         CHECK(all_zero);
 
         std::array<u8, 28> n{};
@@ -75,9 +82,11 @@ int main() {
 
         // Filter 0 frames never read the history: both forms agree.
         std::array<u8, 28> n{};
+
         for (std::size_t i = 0; i < 28; ++i) {
             n[i] = static_cast<u8>((i * 7 + 3) & 15);
         }
+
         const auto g = frame(2, 0, 0, n);
         CHECK(
             decode_adpcm(ByteView(g.data(), g.size()))
@@ -97,9 +106,11 @@ int main() {
     // then a loop (6, 2, 3).
     {
         std::vector<u8> blob;
+
         for (const int flags : {0, 0, 1, 7, 6, 2, 3}) {
             append(blob, frame(0, 0, static_cast<u8>(flags), {}));
         }
+
         const ByteView v(blob);
         const SampleExtent one = sample_extent(v, 0);
         CHECK(one.frames == 3 && !one.looped && one.next_flags == u8{7} && !one.loop_points());
@@ -110,19 +121,88 @@ int main() {
         CHECK(!loop.next_flags);
         CHECK(decode_extent(v, one).size() == 84);
         bool threw = false;
+
         try {
             sample_extent(v, 5);
         } catch (const AssetError&) {
             threw = true;
         }
+
         CHECK(threw);
         threw = false;
+
         try {
             sample_extent(v.sub(0, 32), 0);
         } catch (const AssetError&) {
             threw = true;
         }
+
         CHECK(threw);
     }
+    // The encoder: what it writes decodes close to what went in, with a voice's flags.
+    {
+        std::vector<s16> wave(1000);
+
+        // A low tone with some of a high one on it, as loud as a sample gets.
+        for (std::size_t i = 0; i < wave.size(); ++i) {
+            const double t = static_cast<double>(i);
+            wave[i] = static_cast<s16>(20000.0 * std::sin(t * 0.05) + 8000.0 * std::sin(t * 0.7));
+        }
+
+        const std::vector<u8> shot = encode_adpcm(wave, false);
+        CHECK(shot.size() == 36 * kAdpcmFrameBytes);
+        const SampleExtent extent = sample_extent(shot, 0);
+        CHECK(extent.frames == 36);
+        CHECK(!extent.looped);
+        CHECK(!extent.loop_start.has_value());
+        const std::vector<s16> decoded = decode_extent(shot, extent);
+        CHECK(decoded.size() == 36 * kAdpcmFrameSamples);
+        double error = 0.0;
+        double signal = 0.0;
+
+        // Signal against noise over the samples that went in.
+        for (std::size_t i = 0; i < wave.size(); ++i) {
+            const double off = static_cast<double>(wave[i]) - static_cast<double>(decoded[i]);
+            error += off * off;
+            signal += static_cast<double>(wave[i]) * static_cast<double>(wave[i]);
+        }
+
+        CHECK(signal / error > 1000.0);  // better than 30 dB
+
+        // Past the last sample the frame is padded with silence, near enough.
+        CHECK(std::abs(static_cast<int>(decoded.back())) < 2000);
+
+        const std::vector<u8> loop = encode_adpcm(wave, true);
+        const SampleExtent loop_extent = sample_extent(loop, 0);
+        CHECK(loop_extent.looped);
+        CHECK(loop_extent.loop_start == std::optional<std::size_t>{0});
+
+        // A voice comes back with the history of the loop's end: each pass must decode the same.
+        AdpcmHistory history;
+        std::vector<s16> passes[2];
+
+        // Twice round, as Voice::next_block plays it.
+        for (std::vector<s16>& pass : passes) {
+            // A frame at a time, the history going on.
+            for (std::size_t at = 0; at < loop.size(); at += kAdpcmFrameBytes) {
+                const auto pcm = decode_adpcm_frame(loop.data() + at, history);
+                pass.insert(pass.end(), pcm.begin(), pcm.end());
+            }
+        }
+
+        CHECK(passes[0] == passes[1]);
+
+        // No samples at all: one silent frame, and it ends.
+        const std::vector<u8> none = encode_adpcm({}, false);
+        CHECK(none.size() == kAdpcmFrameBytes);
+        CHECK(sample_extent(none, 0).frames == 1);
+
+        // A full-scale square wave stays in range and does not wrap.
+        const std::vector<s16> square{32767, 32767, -32768, -32768, 32767, 32767, -32768, -32768};
+        const std::vector<s16> hard = decode_adpcm(encode_adpcm(square, false));
+        CHECK(hard[0] > 16000);
+        CHECK(hard[2] < 0 || hard[3] < 0);
+    }
+
     return openrac::test::result();
 }

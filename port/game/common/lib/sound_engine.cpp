@@ -12,6 +12,9 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -21,7 +24,9 @@
 
 #include "assets/sound/adpcm.h"
 #include "assets/sound/vag.h"
+#include "assets/sound/wav.h"
 #include "audio/sound_player.h"
+#include "audio/sound_replacements.h"
 #include "common/log.h"
 #include "openrac/game_host.h"
 
@@ -32,6 +37,7 @@ using namespace openrac;
 std::mutex g_lock;
 // openrac_stream_read_at_once: streams read on the caller's thread.
 bool g_read_at_once = false;
+
 // The threads reading a track, and the flag that tells them the program is leaving. A track of
 // minutes is read on a thread of its own, and the player may close the window while one is
 // reading: the program then waits for them (openrac_sound_stop_readers), so that the globals
@@ -42,6 +48,7 @@ struct Reader {
     std::thread thread;
     std::shared_ptr<std::atomic<bool>> done;
 };
+
 std::vector<Reader> g_readers;
 bool g_stopping = false;
 
@@ -69,6 +76,53 @@ std::array<std::int32_t, audio::kVolumeGroups> g_master = [] {
 }();
 std::map<audio::BankHandle, std::vector<std::uint8_t>> g_bank_files;
 
+// The sounds packs replace (audio/sound_replacements.h), read again when the mods folder changes
+// (a ship destination has its own). Encoding a new sample takes a moment: this has its own lock, so
+// that the output's thread never waits for it.
+std::mutex g_replacements_lock;
+audio::SoundReplacements g_replacements;
+bool g_replacements_read = false;
+unsigned g_replacements_generation = 0;
+
+// The replacements of the mods folder in use; g_replacements_lock held.
+const audio::SoundReplacements& current_replacements() {
+    // Read once for each mods folder.
+    if (!g_replacements_read || g_replacements_generation != openrac_game_mods_generation) {
+        g_replacements_read = true;
+        g_replacements_generation = openrac_game_mods_generation;
+        g_replacements = openrac_game_mods_dir != nullptr
+                             ? audio::SoundReplacements::read(openrac_game_mods_dir)
+                             : audio::SoundReplacements{};
+    }
+
+    return g_replacements;
+}
+
+// The new samples for the sounds of a bank file. Before g_lock: a new sample takes a moment.
+audio::BankReplacements replacements_of_bank(std::span<const std::uint8_t> file) {
+    std::lock_guard lock(g_replacements_lock);
+    const audio::SoundReplacements& replacements = current_replacements();
+
+    // Nothing to read the bank for.
+    if (replacements.empty()) {
+        return {};
+    }
+
+    try {
+        audio::BankReplacements found = replacements.bank(assets::parse_sound_bank(file));
+
+        // Said once a bank, for whoever wonders whether a pack reached this disc's sounds.
+        if (!found.empty()) {
+            log::info("audio mods: {} sounds of this bank replaced", found.size());
+        }
+
+        return found;
+    } catch (const std::exception& e) {
+        log::warn("audio mods: a bank left as it is: {}", e.what());
+        return {};
+    }
+}
+
 struct SoundSnapshotHeader {
     char magic[8];
     std::uint32_t version;
@@ -89,13 +143,17 @@ struct SoundSnapshotBank {
 // A track read from the disc and decoded on a thread of its own; `ready` (or `failed`) is set
 // under g_lock.
 struct Track {
-    std::vector<std::int16_t> samples;
+    std::vector<std::int16_t> samples;  // interleaved: a pack's may be stereo, the disc's are mono
+    int channels = 1;
     std::uint32_t rate = 44100;
-    // The samples the header announces (28 per 16-byte frame), known when the stream starts: the
+    // The frames the header announces (28 per 16-byte frame), known when the stream starts: the
     // time left before the decode has ended (openrac_stream_remaining_ms).
     std::size_t length = 0;
+    std::filesystem::path replacement;  // a pack's WAV file to play instead; empty for its own
     bool ready = false;
     bool failed = false;
+
+    std::size_t frames() const { return samples.size() / static_cast<std::size_t>(channels); }
 };
 
 struct Part {
@@ -120,11 +178,13 @@ Stream* find_stream(std::uint32_t handle) {
     if ((handle & 0xFF000000u) != OPENRAC_STREAM_TAG) {
         return nullptr;
     }
+
     for (auto& s : g_streams) {
         if (std::find(s->handles.begin(), s->handles.end(), handle) != s->handles.end()) {
             return s.get();
         }
     }
+
     return nullptr;
 }
 
@@ -132,13 +192,17 @@ Stream* find_stream(std::uint32_t handle) {
 constexpr std::size_t kVagHeader = 0x30;
 
 // The body's size and the rate from the header at `sector`, or false.
-bool read_vag_header(std::FILE* disc, std::uint32_t sector, std::uint32_t& size, std::uint32_t& rate) {
+bool read_vag_header(
+    std::FILE* disc, std::uint32_t sector, std::uint32_t& size, std::uint32_t& rate
+) {
     std::uint8_t header[kVagHeader];
+
     if (!seek_disc(disc, static_cast<std::uint64_t>(sector) * 2048)
         || std::fread(header, 1, sizeof header, disc) != sizeof header
         || std::memcmp(header, "VAGp", 4) != 0) {
         return false;
     }
+
     const auto be32 = [&](int at) {
         return static_cast<std::uint32_t>(header[at]) << 24
                | static_cast<std::uint32_t>(header[at + 1]) << 16
@@ -149,10 +213,38 @@ bool read_vag_header(std::FILE* disc, std::uint32_t sector, std::uint32_t& size,
     return true;
 }
 
+// A pack's WAV file in place of a track, or false: the track is then read from the disc after all.
+bool read_replacement(
+    const std::filesystem::path& path,
+    std::vector<std::int16_t>& samples,
+    std::uint32_t& rate,
+    int& channels
+) {
+    try {
+        std::ifstream file(path, std::ios::binary);
+        const std::vector<std::uint8_t> bytes{
+            std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()
+        };
+        assets::WavAudio audio = assets::parse_wav(bytes);
+        samples = std::move(audio.samples);
+        rate = audio.sample_rate;
+        channels = audio.channels;
+        return true;
+    } catch (const std::exception& e) {
+        log::warn(
+            "audio mods: {}: {}; the stream stays the game's own",
+            path.filename().string(),
+            e.what()
+        );
+        return false;
+    }
+}
+
 void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
     // The program is leaving: nothing to read for.
     {
         std::lock_guard lock(g_lock);
+
         if (g_stopping) {
             track->failed = true;
             return;
@@ -160,13 +252,20 @@ void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
     }
     std::vector<std::int16_t> samples;
     std::uint32_t rate = 0;
-    if (std::FILE* disc =
-            openrac_game_disc_image ? std::fopen(openrac_game_disc_image, "rb") : nullptr) {
+    int channels = 1;
+    const bool replaced = !track->replacement.empty()
+                          && read_replacement(track->replacement, samples, rate, channels);
+
+    if (std::FILE* disc = replaced || !openrac_game_disc_image
+                              ? nullptr
+                              : std::fopen(openrac_game_disc_image, "rb")) {
         const std::uint64_t at = static_cast<std::uint64_t>(sector) * 2048;
         std::uint32_t size = 0;
         std::uint32_t header_rate = 0;
+
         if (read_vag_header(disc, sector, size, header_rate)) {
             std::vector<std::uint8_t> file(kVagHeader + size);
+
             if (size > 0 && size < 64u * 1024 * 1024 && seek_disc(disc, at)
                 && std::fread(file.data(), 1, file.size(), disc) == file.size()) {
                 try {
@@ -178,15 +277,20 @@ void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
                 }
             }
         }
+
         std::fclose(disc);
     }
+
     std::lock_guard lock(g_lock);
+
     if (samples.empty() || rate == 0) {
         log::warn("music: no VAG stream at sector {}", sector);
         track->failed = true;
         return;
     }
+
     track->samples = std::move(samples);
+    track->channels = channels;
     track->rate = rate;
     track->ready = true;
 }
@@ -195,47 +299,123 @@ void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
 // way to the next, the position's fraction carried over.
 void mix_streams(std::span<std::int16_t> out) {
     const std::size_t frames = out.size() / 2;
+
     for (auto it = g_streams.begin(); it != g_streams.end();) {
         Stream& s = **it;
         const double master =
             static_cast<double>(g_master[static_cast<std::size_t>(s.group)]) / audio::kFullVolume;
         const double gain = static_cast<double>(s.volume) / audio::kFullVolume * master * master;
+
         for (std::size_t f = 0; f < frames && !s.parts.empty() && !s.paused;) {
             const Track& t = *s.parts.front().track;
+
             if (t.failed) {
                 s.parts.pop_front();
                 s.position = 0.0;
                 continue;
             }
+
             if (!t.ready) {
                 break;
             }
-            const std::size_t n = t.samples.size();
+
+            const std::size_t n = t.frames();
+            const auto channels = static_cast<std::size_t>(t.channels);
             const double step = static_cast<double>(t.rate) / audio::kOutputRate;
+
             for (; f < frames; ++f) {
                 auto i = static_cast<std::size_t>(s.position);
+
                 if (i >= n) {
                     break;
                 }
+
                 const double frac = s.position - static_cast<double>(i);
-                const double a = t.samples[i];
-                const double b = i + 1 < n ? t.samples[i + 1] : a;
-                const double v = (a + (b - a) * frac) * gain;
-                for (int c = 0; c < 2; ++c) {
-                    const double mixed = out[f * 2 + c] + v;
+
+                for (std::size_t c = 0; c < 2; ++c) {
+                    // The disc's streams are mono, heard on both sides.
+                    const std::size_t from = channels == 2 ? c : 0;
+                    const double a = t.samples[i * channels + from];
+                    const double b = i + 1 < n ? t.samples[(i + 1) * channels + from] : a;
+                    const double mixed = out[f * 2 + c] + (a + (b - a) * frac) * gain;
                     out[f * 2 + c] =
                         static_cast<std::int16_t>(std::clamp(mixed, -32768.0, 32767.0));
                 }
+
                 s.position += step;
             }
+
             if (static_cast<std::size_t>(s.position) >= n) {
                 s.position -= static_cast<double>(n);
+
                 if (!s.parts.front().loop || s.parts.size() > 1) {
                     s.parts.pop_front();
                 }
             }
         }
+
         it = s.parts.empty() ? g_streams.erase(it) : it + 1;
+    }
+}
+
+// A pack's file in place of the stream at `sector`, into its track: its own length and rate are then
+// the header's answer. read_track reads it whole, or else the disc's.
+void apply_stream_replacement(std::FILE* disc, std::uint32_t sector, Track& track) {
+    std::filesystem::path file;
+    {
+        std::lock_guard lock(g_replacements_lock);
+        const audio::SoundReplacements& replacements = current_replacements();
+
+        // The game's sound, as the disc has it: no sector to read.
+        if (replacements.empty()) {
+            return;
+        }
+
+        std::vector<std::uint8_t> start(audio::kStreamKeyBytes);
+
+        // Nothing to go by: the stream is not one of the disc's. Near the disc's end there is less.
+        if (!seek_disc(disc, static_cast<std::uint64_t>(sector) * 2048)) {
+            return;
+        }
+
+        start.resize(std::fread(start.data(), 1, start.size(), disc));
+        file = replacements.stream(start);
+    }
+
+    // Most streams are not replaced.
+    if (file.empty()) {
+        return;
+    }
+
+    track.replacement = file;
+    log::info("audio mods: the stream at sector {} plays {}", sector, file.filename().string());
+
+    // What the first `most` bytes of it say it is.
+    const auto format_in = [&](std::uintmax_t most) {
+        std::ifstream input(file, std::ios::binary);
+        std::vector<char> head(most);
+        input.read(head.data(), static_cast<std::streamsize>(most));
+        const auto got = static_cast<std::size_t>(input.gcount());
+        return assets::parse_wav_format(
+            assets::ByteView(reinterpret_cast<const std::uint8_t*>(head.data()), got)
+        );
+    };
+
+    try {
+        assets::WavFormat format;
+
+        // A file says so at its start, unless a long chunk comes before its sound.
+        try {
+            format = format_in(65536);
+        } catch (const assets::AssetError&) {
+            format = format_in(std::filesystem::file_size(file));
+        }
+
+        track.channels = format.channels;
+        track.rate = format.sample_rate;
+        track.length = format.data_bytes / 2 / format.channels;
+    } catch (const std::exception&) {
+        // No sound in it: the disc's answers, and read_track says why.
     }
 }
 
@@ -250,18 +430,23 @@ std::size_t bank_size(const std::uint8_t* header, std::size_t available) {
     if (available < 8) {
         return 0;
     }
+
     std::uint32_t count;
     std::memcpy(&count, header + 4, 4);
+
     if (count == 0 || count > 8 || available < 8 + count * 8) {
         return 0;
     }
+
     std::size_t end = 0;
+
     for (std::uint32_t i = 0; i < count; ++i) {
         std::uint32_t offset, size;
         std::memcpy(&offset, header + 8 + i * 8, 4);
         std::memcpy(&size, header + 12 + i * 8, 4);
         end = std::max<std::size_t>(end, std::size_t{offset} + size);
     }
+
     return end;
 }
 
@@ -272,20 +457,26 @@ extern "C" {
 uint32_t openrac_sound_load_bank(const void* bytes, size_t size) {
     const auto* p = static_cast<const std::uint8_t*>(bytes);
     const std::size_t whole = bank_size(p, size);
+
     if (whole == 0 || whole > size) {
         log::warn("sound: a bank with a bad header");
         return 0;
     }
+
+    const audio::BankReplacements replaced = replacements_of_bank(std::span(p, whole));
     std::lock_guard lock(g_lock);
+
     try {
         std::vector<std::uint8_t> saved_file(p, p + whole);
-        const audio::BankHandle bank = player().load_bank(std::span(p, whole));
+        const audio::BankHandle bank = player().load_bank(std::span(p, whole), replaced);
+
         try {
             g_bank_files.emplace(bank, std::move(saved_file));
         } catch (...) {
             player().unload_bank(bank);
             throw;
         }
+
         log::info("sound: bank {} loaded, {} sounds", bank, player().bank(bank)->sounds.size());
         return bank;
     } catch (const std::exception& e) {
@@ -298,27 +489,33 @@ uint32_t openrac_sound_load_bank_from_disc(uint32_t sector, uint32_t offset) {
     if (openrac_game_disc_image == nullptr) {
         return 0;
     }
+
     std::FILE* disc = std::fopen(openrac_game_disc_image, "rb");
+
     if (disc == nullptr) {
         return 0;
     }
+
     const std::uint64_t at = static_cast<std::uint64_t>(sector) * 2048 + offset;
     std::uint8_t header[72];
     std::vector<std::uint8_t> file;
-    if (seek_disc(disc, at)
-        && std::fread(header, 1, sizeof header, disc) == sizeof header) {
+
+    if (seek_disc(disc, at) && std::fread(header, 1, sizeof header, disc) == sizeof header) {
         const std::size_t size = bank_size(header, sizeof header);
         file.resize(size);
-        if (size == 0 || !seek_disc(disc, at)
-            || std::fread(file.data(), 1, size, disc) != size) {
+
+        if (size == 0 || !seek_disc(disc, at) || std::fread(file.data(), 1, size, disc) != size) {
             file.clear();
         }
     }
+
     std::fclose(disc);
+
     if (file.empty()) {
         log::warn("sound: no bank at sector {} + {}", sector, offset);
         return 0;
     }
+
     return openrac_sound_load_bank(file.data(), file.size());
 }
 
@@ -336,6 +533,7 @@ int openrac_sound_snapshot_save(void* output, size_t capacity) {
     if (output == nullptr || capacity != OPENRAC_SOUND_SNAPSHOT_SIZE) {
         return -1;
     }
+
     std::lock_guard lock(g_lock);
     auto* bytes = static_cast<std::uint8_t*>(output);
     std::memset(bytes, 0, capacity);
@@ -347,6 +545,7 @@ int openrac_sound_snapshot_save(void* output, size_t capacity) {
     header.next_sound = player().next_sound_handle();
     header.master = g_master;
     std::size_t at = sizeof(header);
+
     for (const auto& [handle, file] : g_bank_files) {
         if (file.size() > UINT32_MAX || at + sizeof(SoundSnapshotBank) + file.size() > capacity) {
             log::warn(
@@ -355,12 +554,14 @@ int openrac_sound_snapshot_save(void* output, size_t capacity) {
             );
             return -1;
         }
+
         const SoundSnapshotBank bank{handle, static_cast<std::uint32_t>(file.size())};
         std::memcpy(bytes + at, &bank, sizeof(bank));
         at += sizeof(bank);
         std::memcpy(bytes + at, file.data(), file.size());
         at += file.size();
     }
+
     header.used = static_cast<std::uint32_t>(at);
     std::memcpy(bytes, &header, sizeof(header));
     return 0;
@@ -370,29 +571,37 @@ int openrac_sound_snapshot_load(const void* input, size_t size) {
     if (input == nullptr || size != OPENRAC_SOUND_SNAPSHOT_SIZE) {
         return -1;
     }
+
     try {
         const auto* bytes = static_cast<const std::uint8_t*>(input);
         SoundSnapshotHeader header{};
         std::memcpy(&header, bytes, sizeof(header));
+
         if (std::memcmp(header.magic, "ORACSND1", sizeof(header.magic)) != 0 || header.version != 1
             || header.used < sizeof(header) || header.used > size || header.next_bank == 0
             || header.next_sound == 0) {
             return -1;
         }
+
         std::map<audio::BankHandle, std::vector<std::uint8_t>> banks;
         audio::BankHandle highest_bank = 0;
         std::size_t at = sizeof(header);
+
         for (std::uint32_t i = 0; i < header.bank_count; ++i) {
             if (at + sizeof(SoundSnapshotBank) > header.used) {
                 return -1;
             }
+
             SoundSnapshotBank bank{};
             std::memcpy(&bank, bytes + at, sizeof(bank));
             at += sizeof(bank);
+
             if (bank.handle == 0 || bank.size == 0 || at + bank.size > header.used) {
                 return -1;
             }
+
             highest_bank = std::max(highest_bank, bank.handle);
+
             if (!banks
                      .emplace(
                          bank.handle, std::vector<std::uint8_t>(bytes + at, bytes + at + bank.size)
@@ -400,21 +609,28 @@ int openrac_sound_snapshot_load(const void* input, size_t size) {
                      .second) {
                 return -1;
             }
+
             at += bank.size;
         }
+
         if (at != header.used || header.next_bank <= highest_bank) {
             return -1;
         }
+
         // Parse the full bank set before replacing live audio, so invalid saved
         // data cannot leave the game with only some banks installed.
         audio::SoundPlayer checked;
+
         for (const auto& [handle, file] : banks) {
-            checked.load_bank_at(handle, file);
+            checked.load_bank_at(handle, file, replacements_of_bank(file));
         }
+
         checked.set_next_handles(header.next_bank, header.next_sound);
+
         for (std::size_t group = 0; group < header.master.size(); ++group) {
             checked.set_master_volume(group, header.master[group]);
         }
+
         std::lock_guard lock(g_lock);
         player().swap_snapshot_state(checked);
         g_bank_files.swap(banks);
@@ -435,9 +651,11 @@ uint32_t openrac_sound_play(
     request.pitch_mod = pitch_mod;
     request.pitch_bend = pitch_bend;
     std::lock_guard lock(g_lock);
+
     if (player().bank(bank) == nullptr || sound < 0) {
         return 0;
     }
+
     return player().play(bank, static_cast<std::uint32_t>(sound), request);
 }
 
@@ -445,16 +663,21 @@ uint32_t openrac_sound_set_params(
     uint32_t sound, int32_t mask, int32_t volume, int32_t pan, int32_t pitch_mod, int32_t pitch_bend
 ) {
     std::lock_guard lock(g_lock);
+
     if (Stream* stream = find_stream(sound)) {
         if ((mask & 1) != 0) {
             stream->volume = volume;
         }
+
         return sound;
     }
+
     audio::SoundPlayer& p = player();
+
     if (sound == 0 || !p.playing(sound)) {
         return 0;
     }
+
     if ((mask & 7) != 0) {
         p.set_volume_pan(
             sound,
@@ -462,12 +685,15 @@ uint32_t openrac_sound_set_params(
             (mask & 6) != 0 ? pan : audio::kPanKeep
         );
     }
+
     if ((mask & 8) != 0) {
         p.set_pitch_mod(sound, pitch_mod);
     }
+
     if ((mask & 0x10) != 0) {
         p.set_pitch_bend(sound, pitch_bend);
     }
+
     return sound;
 }
 
@@ -490,6 +716,7 @@ void openrac_sound_set_master_volume(int32_t group, int32_t volume) {
     if (group < 0 || static_cast<std::size_t>(group) >= audio::kVolumeGroups) {
         return;
     }
+
     std::lock_guard lock(g_lock);
     g_master[static_cast<std::size_t>(group)] = volume;
     player().set_master_volume(static_cast<std::size_t>(group), volume);
@@ -507,6 +734,7 @@ void openrac_sound_continue_groups(uint32_t mask) {
 
 uint32_t openrac_sound_command(uint32_t command, const void* data, uint32_t size) {
     const auto* d = static_cast<const std::uint8_t*>(data);
+
     switch (command) {
         case OPENRAC_SND_PLAY_VOL_PAN_PMPB:  // bank, sound, volume, pan, pitch mod, pitch bend
             if (size >= 24) {
@@ -519,6 +747,7 @@ uint32_t openrac_sound_command(uint32_t command, const void* data, uint32_t size
                     word(d, 5)
                 );
             }
+
             return 0;
         case OPENRAC_SND_SET_SOUND_PARAMS:  // handle, mask, volume, pan, pitch mod, pitch bend
             if (size >= 24) {
@@ -531,6 +760,7 @@ uint32_t openrac_sound_command(uint32_t command, const void* data, uint32_t size
                     word(d, 5)
                 );
             }
+
             return 0;
         default:
             return 0;
@@ -543,24 +773,31 @@ uint32_t openrac_stream_play(
     if (sector == 0) {
         return 0;
     }
+
     auto track = std::make_shared<Track>();
+
     // The header now, the body on the reader's thread: the game asks how long the stream has left
     // from the next frame on, long before a track of minutes is read and decoded.
     if (std::FILE* disc =
             openrac_game_disc_image ? std::fopen(openrac_game_disc_image, "rb") : nullptr) {
         std::uint32_t size = 0;
         std::uint32_t rate = 0;
+
         if (read_vag_header(disc, sector, size, rate) && rate != 0) {
             track->length = static_cast<std::size_t>(size / 16) * 28;
             track->rate = rate;
         }
+
+        apply_stream_replacement(disc, sector, *track);
         std::fclose(disc);
     }
+
     std::uint32_t handle;
     {
         std::lock_guard lock(g_lock);
         handle = OPENRAC_STREAM_TAG | (g_next_stream++ & 0x00FFFFFFu);
         Stream* stream = find_stream(queue_on);
+
         if (stream == nullptr) {
             g_streams.push_back(std::make_unique<Stream>());
             stream = g_streams.back().get();
@@ -568,22 +805,27 @@ uint32_t openrac_stream_play(
             stream->group = std::clamp<std::int32_t>(group, 0, audio::kVolumeGroups - 1);
             stream->paused = (flags & 1) != 0;
         }
+
         // A part queued behind a loop replaces the loop when the loop ends its pass.
         if (!stream->parts.empty() && stream->parts.back().loop) {
             stream->parts.back().loop = false;
         }
+
         stream->parts.push_back({track, (flags & 4) != 0});
         stream->handles.push_back(handle);
     }
+
     if (g_read_at_once) {
         read_track(sector, track);
     } else {
         std::lock_guard lock(g_lock);
+
         if (g_stopping) {
             // The program is leaving: the track is not read, and no thread is left behind.
             track->failed = true;
             return handle;
         }
+
         // The readers that have finished are joined (their work is done: the join only waits for
         // the thread to end); the others are kept.
         std::erase_if(g_readers, [](Reader& reader) {
@@ -594,12 +836,15 @@ uint32_t openrac_stream_play(
             return true;
         });
         auto done = std::make_shared<std::atomic<bool>>(false);
-        g_readers.push_back({std::thread([sector, track, done] {
-                                 read_track(sector, track);
-                                 done->store(true);
-                             }),
-                             done});
+        g_readers.push_back(
+            {std::thread([sector, track, done] {
+                 read_track(sector, track);
+                 done->store(true);
+             }),
+             done}
+        );
     }
+
     return handle;
 }
 
@@ -613,6 +858,7 @@ void openrac_sound_stop_readers() {
         g_stopping = true;
         readers.swap(g_readers);
     }
+
     // Outside the lock: a reader that is waiting for it must be able to take it and end.
     for (auto& reader : readers) {
         if (reader.thread.joinable()) {
@@ -639,28 +885,34 @@ int openrac_stream_buffered(uint32_t stream) {
 int32_t openrac_stream_remaining_ms(uint32_t stream) {
     std::lock_guard lock(g_lock);
     const Stream* s = find_stream(stream);
+
     if (s == nullptr || s->parts.empty()) {
         return 0;
     }
+
     const Track& t = *s->parts.front().track;
     // Not decoded yet: all of it is left, as its header gives it (the stream holds silent at its
     // start until then). RAC1's crossfade measures the old music's fade against the first answer
     // it gets for the transition (music_Update, case 2), so a made-up length there cut the old
     // music at once and started the next track with it.
-    const std::size_t length = t.ready ? t.samples.size() : t.length;
+    const std::size_t length = t.ready ? t.frames() : t.length;
+
     if (!t.ready && length == 0) {
         return 60000;  // no header either: the game only needs it to be playing
     }
+
     const double left = static_cast<double>(length) - s->position;
     return static_cast<int32_t>(std::max(0.0, left) * 1000.0 / t.rate);
 }
 
 void openrac_stream_stop(uint32_t stream) {
     std::lock_guard lock(g_lock);
+
     if (stream == 0) {
         g_streams.clear();
         return;
     }
+
     std::erase_if(g_streams, [&](const std::unique_ptr<Stream>& s) {
         return std::find(s->handles.begin(), s->handles.end(), stream) != s->handles.end();
     });
@@ -668,6 +920,7 @@ void openrac_stream_stop(uint32_t stream) {
 
 void openrac_stream_pause(uint32_t stream, int paused) {
     std::lock_guard lock(g_lock);
+
     if (Stream* s = find_stream(stream)) {
         s->paused = paused != 0;
     }
@@ -675,6 +928,7 @@ void openrac_stream_pause(uint32_t stream, int paused) {
 
 void openrac_stream_set_volume(uint32_t stream, int32_t volume) {
     std::lock_guard lock(g_lock);
+
     if (Stream* s = find_stream(stream)) {
         s->volume = volume;
     }
