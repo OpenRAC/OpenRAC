@@ -37,8 +37,8 @@ matters for two reasons:
    version-differences note says the PS2 at 50 Hz cannot do the Orxon 1 Clank
    proxy, while 60 Hz can; the port always behaves as 60 Hz.
 
-> **A stale document.** `docs/port/SETTINGS.md` §2 and §3 still describe the
-> port as ticking 50 times a second for PAL, and as taking the tick rate from
+> **An older document.** The figures in `docs/port/SETTINGS.md` §2 and §3 are of
+> the port ticking 50 times a second for PAL, and taking the tick rate from
 > the video mode the game last set. Both were true before commit `14e72695`
 > ("feat(port): run every game at 60 Hz, PAL in its own 60 Hz mode",
 > 2026-10-15); that commit changed the code and `port/game/rac1-pal/README.md`
