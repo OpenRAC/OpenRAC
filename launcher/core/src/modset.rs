@@ -1448,6 +1448,23 @@ mod tests {
         let bytes = e.finish().unwrap();
         assert!(bytes.len() < MAX_COMPRESSED);
         assert!(decompress(&bytes).is_err());
+        // Valid JSON all the way: only the size refuses it.
+        let padded = format!("{}{}", json_of(&set_of(vec![])), " ".repeat(10 * MAX_JSON));
+        let mut e = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+        e.write_all(padded.as_bytes()).unwrap();
+        assert!(decompress(&e.finish().unwrap()).is_err());
+    }
+
+    #[test]
+    fn a_manifest_that_is_not_the_version_named_is_refused() {
+        let t = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let m = publish(&mut fx, "ammo-max", "1.0.0", &json!({}));
+        let raw = format!("{RAW}/OpenRAC/rac1-mods/ammo-max-v1.0.0/ammo-max/openrac-mod.json");
+        fx.put(&raw, manifest("ammo-max", "1.0.1", &json!({})).to_string());
+        let r = review(&ctx(t.path(), &fx), &set_of(vec![m]), None, "").unwrap();
+        assert_eq!(r.mods[0].action, "unavailable");
+        assert!(r.mods[0].why.as_ref().unwrap().contains("changed"));
     }
 
     #[test]

@@ -307,6 +307,10 @@ mod tests {
         assert!(restore(t.path(), "../../etc", false).is_err());
         assert!(restore(t.path(), "a/b", false).is_err());
         assert!(restore(t.path(), "missing", false).is_err());
+        // A real saved file outside the folder is not reached either.
+        let id = create(t.path(), "", &[], "2026-10-31T12:00:00Z").unwrap();
+        std::fs::copy(root(t.path()).join(format!("{id}.json")), t.path().join("outside.json")).unwrap();
+        assert!(restore(t.path(), "../outside", false).is_err());
         std::fs::write(t.path().join("victim"), "x").unwrap();
         discard(t.path(), "../victim");
         assert!(t.path().join("victim").exists());
