@@ -524,7 +524,8 @@ def own_declarations(text: str, tag: str) -> str:
     declared name becomes NAME<tag> with the assembler name NAME: the same
     symbol for hostgen, a separate declaration for Clang. Names the candidate
     defines keep theirs."""
-    text = split_declarators(text)
+    # An assembler name after the symbol's first use is an error, and a host has no small data.
+    text = split_declarators(re.sub(r"[ \t]+SDATA\(\w+\)", "", text))
     defined = set(_DEFINED.findall(text))
     names = []
     for m in _GAME_DECL.finditer(text):
@@ -544,13 +545,17 @@ def own_declarations(text: str, tag: str) -> str:
 
 
 _TYPEDEF_RECORD = re.compile(r"\btypedef\s+(?:struct|union)\b[^{;]*\{")
+_RECORD_TAG = re.compile(r"^(?:struct|union)[ \t]+(\w+)[ \t]*\{", re.M)
+_TYPEDEF_MODE = re.compile(r"(?<![\w ]\n)^typedef\b[^;{(\n]*?\b(\w+)[ \t]+__attribute__\b[^;\n]*;", re.M)
 
 
 def own_records(text: str, tag: str) -> str:
     """The candidate's typedefs of records, under names of its own.
 
     Two definitions of one record are two types to C however alike they read, so a candidate
-    that defines what its file also defines (`typedef struct { ... } V4;`) cannot sit beside it."""
+    that defines what its file also defines (`typedef struct { ... } V4;`) cannot sit beside it.
+    The same for a record's tag (`struct Slot { ... };`) and a typedef of a mode (`typedef int
+    Quad __attribute__((mode(TI)));`). One under a `#define` is its own guard, shared with the file."""
     names = []
     for m in _TYPEDEF_RECORD.finditer(text):
         depth, at = 1, m.end()
@@ -560,6 +565,9 @@ def own_records(text: str, tag: str) -> str:
         name = re.match(r"\s*(\w+)\s*;", text[at:])
         if name:
             names.append(name.group(1))
+    names += [m.group(1) for m in _RECORD_TAG.finditer(text)]
+    names += [m.group(1) for m in _TYPEDEF_MODE.finditer(text)]
+    names = list(dict.fromkeys(names))
     for name in names:
         text = re.sub(r'"(?:\\.|[^"\\\n])*"|\b' + name + r'\b',
                       lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)

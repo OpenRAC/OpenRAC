@@ -214,8 +214,10 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
     "name<TAB>file" line each, the file relative to the decompilation; lines
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
-    function does without matching its bytes; the matching build never sees it."""
+    function does without matching its bytes; the matching build never sees it.
+    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet."""
     table = cfg.get("candidates")
+    left_out = cfg.get("candidates_left_out", {})
     if not table or not (source / table).is_file():
         return {}
     out: dict[str, str] = {}
@@ -225,7 +227,7 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
             continue
         name, _, rel = line.partition("\t")
         path = source / rel.strip()
-        if path.is_file():
+        if path.is_file() and name.strip() not in left_out:
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
             out[name.strip()] = texts[path]
