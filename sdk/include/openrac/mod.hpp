@@ -1688,6 +1688,18 @@ public:
         return out;
     }
 
+    // Since 1.12: whether the level's walls and ground stand between two points, into `blocked`;
+    // false outside a level or for a port without it. Mobys do not count.
+    bool level_line(const float from[3], const float to[3], bool& blocked) const {
+        int answer = 0;
+        if (!has_slot12(offsetof(openrac_api, level_line))
+            || m_api->level_line(from, to, &answer) != OPENRAC_HOOK_OK) {
+            return false;
+        }
+        blocked = answer != 0;
+        return true;
+    }
+
     // Since 1.12: whether this port sees camera scripts and starts them.
     bool has_camera_scripts() const {
         return has_slot12(offsetof(openrac_api, camera_script_show));

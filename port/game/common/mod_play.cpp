@@ -1113,6 +1113,14 @@ int api_camera_position(float out[3]) {
     return g_play->camera_position(out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+int api_level_line(const float from[3], const float to[3], int* blocked) {
+    if (from == nullptr || to == nullptr || blocked == nullptr || g_play == nullptr
+        || g_play->level_line == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->level_line(from, to, blocked) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // The game's calls (game_host.h): the gate around an update, and a hit posted.
 int game_moby_update(std::int32_t slot, int phase) {
     // A driven moby's update does not run, and the gate is not asked.
@@ -1248,6 +1256,7 @@ void fill_play_api(
     api.camera_script_play = api_camera_script_play;
     api.camera_script_view = api_camera_script_view;
     api.camera_script_show = api_camera_script_show;
+    api.level_line = api_level_line;
     api.play_scene_from = api_play_scene_from;
     api.play_live_picture = api_play_live_picture;
     api.on_metal_detect = api_on_metal_detect;

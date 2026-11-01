@@ -541,6 +541,9 @@ typedef struct openrac_game_play {
     int (*hero_grab)(int animation, uint32_t flags);
     int (*hero_hold_at)(const float position[3], float yaw);
     int (*hero_let_go)(void);
+    /* Into `blocked`, whether the level's walls and ground stand on the line (1, or 0 outside a
+     * level: openrac_api.level_line). NULL for a game without it. */
+    int (*level_line)(const float from[3], const float to[3], int* blocked);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

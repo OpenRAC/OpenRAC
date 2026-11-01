@@ -472,6 +472,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     }
     if (behaviour[0] == 't') { /* twelve: every call of interface 1.12 not filled in yet answers unknown; with no stack, no packs */
         float where[3] = {0, 0, 0};
+        int blocked = 0;
         openrac_stand_in stand_in = {{0, 0, 0}, 0, 0, 0, 0};
         uint8_t missions[OPENRAC_MISSION_STATE_SIZE] = {0};
         char text[16] = {0};
@@ -508,6 +509,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->camera_script_play(mod, 0) != OPENRAC_HOOK_UNKNOWN
             || api->camera_script_view(where, where, where, NULL) != OPENRAC_HOOK_UNKNOWN
             || api->camera_script_show(mod, where, where) != OPENRAC_HOOK_UNKNOWN
+            || api->level_line(where, where, &blocked) != OPENRAC_HOOK_UNKNOWN
             || api->play_scene_from(mod, 0, 0) != OPENRAC_HOOK_UNKNOWN
             || api->play_live_picture(mod, 1) != OPENRAC_HOOK_UNKNOWN
             || api->on_metal_detect(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE

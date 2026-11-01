@@ -369,6 +369,15 @@ const openrac_game_play kPlay = {
         g_script_shown = eye[0];
         return 1;
     },
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    [](const float from[3], const float to[3], int* blocked) {
+        *blocked = from[0] < to[0] ? 1 : 0;
+        return from[1] != 0.0f ? 0 : 1;
+    },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -1038,6 +1047,13 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         CHECK(api.camera_script_play(mod, OPENRAC_CAMERA_SCRIPT_CUT) == OPENRAC_HOOK_OK);
         CHECK(g_script_asked == OPENRAC_GAME_CAMERA_END_CUT);
         CHECK(api.camera_script_show(mod, seen, seen) == OPENRAC_HOOK_UNKNOWN);
+        const float line_at[3] = {0.0f, 0.0f, 0.0f};
+        const float line_out[3] = {0.0f, 1.0f, 0.0f};
+        int blocked = 0;
+        CHECK(api.level_line(line_at, seen, &blocked) == OPENRAC_HOOK_OK && blocked == 1);
+        CHECK(api.level_line(seen, line_at, &blocked) == OPENRAC_HOOK_OK && blocked == 0);
+        CHECK(api.level_line(line_out, seen, &blocked) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.level_line(line_at, seen, nullptr) == OPENRAC_HOOK_UNKNOWN);
         g_phase = OPENRAC_GAME_PHASE_SCENE;
         g_scene = 3;
         CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);

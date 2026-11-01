@@ -1777,6 +1777,12 @@ typedef struct openrac_api {
      * stood in. A stand-in's hero is never this game's: what an update does to him, its state, its
      * health, a kill, a place, stays there and ends here. Since 1.12. */
     int (*hero_stand_in_read)(openrac_mod* mod, openrac_stand_in* out);
+
+    /* Writes into `blocked` whether the level's own walls and ground stand on the straight line
+     * between two points (the level's units): 1 for blocked, 0 for clear. Mobys do not count, a
+     * door among them. The game sees no query, so it may be asked at any time. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.12. */
+    int (*level_line)(const float from[3], const float to[3], int* blocked);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

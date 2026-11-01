@@ -302,6 +302,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool on_camera_script(openrac_camera_script_fn fn, void* user = nullptr) const` | Since 1.12: `fn(user, id, started)` when a camera script starts or ends. During load. |
 | `bool camera_script_play(int id) const` | Since 1.12: shows another game's camera script here (only the camera moves), or ends it (OPENRAC_CAMERA_SCRIPT_END, OPENRAC_CAMERA_SCRIPT_CUT). |
 | `bool camera_script_view( float eye[3], float rotation[3], float where[3], bool* stand_in = nullptr ) const` | Since 1.12: the view of the camera script running in this game, where its moby is, and whether it runs for a player standing in. |
+| `bool level_line(const float from[3], const float to[3], bool& blocked) const` | Since 1.12: whether the level's walls and ground stand between two points, into `blocked`; false outside a level or for a port without it. Mobys do not count. |
 | `bool camera_script_show(const float eye[3], const float rotation[3]) const` | Since 1.12: the view of the script shown here; false once it is not up. |
 | `bool play_scene_from(int scene, int start_frame) const` | Since 1.12: reserved for play_scene from frame `start_frame` of the scene. No port does this: a scene is read from the disc as it plays and cannot start part way, so it answers false. |
 | `bool play_live_picture(bool on) const` | Since 1.12: the picture behind the pause menus is the world still running, while `on`. |

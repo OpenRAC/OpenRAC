@@ -768,6 +768,10 @@ void fill_12(openrac_api& api) {
         *stand_in = 1;
         return OPENRAC_HOOK_OK;
     };
+    api.level_line = [](const float from[3], const float to[3], int* blocked) {
+        *blocked = from[0] < to[0];
+        return from[1] != 0.0f ? OPENRAC_HOOK_UNKNOWN : OPENRAC_HOOK_OK;
+    };
     api.camera_script_show = [](openrac_mod*, const float eye[3], const float rotation[3]) {
         g_12 = "show " + std::to_string(static_cast<int>(eye[0] + rotation[2]));
         return OPENRAC_HOOK_OK;
@@ -1705,6 +1709,11 @@ int main() {
         CHECK(mod.camera_script_view(eye, rotation, moby, &stand_in) && stand_in);
         CHECK(eye[0] == 1.0f && rotation[2] == 2.0f && moby[1] == 3.0f);
         CHECK(mod.camera_script_show(eye, rotation) && g_12 == "show 3");
+        const float near_point[3] = {0, 0, 0}, far_point[3] = {1, 0, 0}, outside[3] = {0, 1, 0};
+        bool blocked = false;
+        CHECK(mod.level_line(near_point, far_point, blocked) && blocked);
+        CHECK(mod.level_line(far_point, near_point, blocked) && !blocked);
+        CHECK(!mod.level_line(outside, far_point, blocked));
         CHECK(mod.play_scene_from(2, 90) && g_12 == "scene 2 90");
         CHECK(mod.play_live_picture(true) && g_12 == "picture 1");
         openrac_packs_info packs{};
