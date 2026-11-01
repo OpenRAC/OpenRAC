@@ -132,6 +132,9 @@ class Translator:
     # their registers (lui 0x1000), which no DMA controller answers: their word stores go through
     # openrac_ee_sw_dma, which does the transfer (openrac/ee_ops.h).
     dma_stores = False
+    # asm.register_jumps in hostgen.json: a jump through a register keeps its target in j_, as a VU load
+    # in the delay slot uses t_, and a computed jump into the function's own code stays in it (_computed_targets).
+    register_jumps = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -222,6 +225,7 @@ class Translator:
         sub.forward_unprototyped = self.forward_unprototyped
         sub.in_place = self.in_place
         sub.dma_stores = self.dma_stores
+        sub.register_jumps = self.register_jumps
         sub.ps2 = self.ps2
         try:
             sub._load(Function(f"sub_{target:08X}", Signature(ctype.Base("int"), (), False, False)),
@@ -354,6 +358,52 @@ class Translator:
             targets.update(t)
         return sorted(a for a in targets if self.at(a) is not None)
 
+    def _constant_before(self, at: int, reg: int, limit: int = 96) -> int | None:
+        """The address REG was given by the lui and addiu before `at` in the code's straight line."""
+        low = None
+        for a in range(at - 4, at - 4 * limit, -4):
+            i = self.at(a)
+            if i is None:
+                return None
+            if i.op == "addiu" and i.rt == reg and i.rs == reg and low is None:
+                low = i.imm
+            elif i.op == "lui" and i.rt == reg:
+                return ((i.imm & 0xFFFF) << 16) + (low or 0) & 0xFFFFFFFF
+            elif reg in rw(i)[1]:
+                return None
+        return None
+
+    def _computed_targets(self, at: int) -> list[int]:
+        """A jump to a label of the function plus a computed offset (`la t0, L; addu t1, t0, t9; jr t1`):
+        into a run of instructions, as func_00280B90 enters the middle of its loads for the vertices
+        it has. Every instruction of that run, up to its first jump, is a target; the code's own
+        arithmetic says which. Nothing for a jump through a pointer, a call the C would make."""
+        rs = self.at(at).rs
+        for a in range(at, at - 4 * 96, -4):
+            i = self.at(a - 4)
+            if i is None:
+                return []
+            if i.op in ("add", "addu", "dadd", "daddu") and i.rd == rs:
+                base = self._constant_before(a - 4, i.rs)
+                if base is None:
+                    base = self._constant_before(a - 4, i.rt)
+                break
+            if rs in rw(i)[1]:
+                return []
+        else:
+            return []
+        if base is None or not 0 < base - self.entry_addr < 0x10000 or self._is_other_entry(base):
+            return []
+        targets = []
+        for t in range(base, base + 4 * 256, 4):
+            i = self.at(t)
+            if i is None:
+                return []
+            targets.append(t)
+            if is_control(i):
+                break
+        return targets
+
     def _flow(self):
         """The instructions reachable from the entry; those reached only as a delay slot; and
         each jump through a register that is a jump table, with its targets."""
@@ -391,6 +441,8 @@ class Translator:
             elif op == "jr":
                 if ins.rs != 31:
                     targets = self._table_targets(a)
+                    if not targets and self.register_jumps:
+                        targets = self._computed_targets(a)
                     if targets:
                         tables[a] = targets
                         todo.extend(targets)
@@ -627,20 +679,24 @@ class Translator:
             return delay + [f"r31 = {S32(hx(a + 8))};"] + self.call(ins.target, self._operand_name(a))
         if op == "jalr":
             # The target register is read before the delay slot runs.
-            return ([f"t_ = (openrac_u32){R(ins.rs)};"] + delay + self.W(ins.rd, S32(hx(a + 8)))
-                    + self.indirect("t_", a))
+            return ([f"{self._jt} = (openrac_u32){R(ins.rs)};"] + delay + self.W(ins.rd, S32(hx(a + 8)))
+                    + self.indirect(self._jt, a))
         if op == "jr":
             if ins.rs == 31:
                 if not self.returns:
                     return delay + self.leave()
                 # Back from a routine run in place, to its call; else this function returns.
-                lines = ["t_ = (openrac_u32)r31;", *delay, "switch (t_) {"]
+                lines = [f"{self._jt} = (openrac_u32)r31;", *delay, f"switch ({self._jt}) {{"]
                 lines += [f"case {hx(r)}: goto L_{r:08X};" for r in sorted(self.returns)]
                 return lines + ["default: break;", "}", *self.leave()]
             if a in self.jtables:
-                return [f"t_ = (openrac_u32){R(ins.rs)};"] + delay + self.dispatch("t_", self.jtables[a])
-            return [f"t_ = (openrac_u32){R(ins.rs)};"] + delay + self.indirect("t_", a) + self.leave()
+                return [f"{self._jt} = (openrac_u32){R(ins.rs)};"] + delay + self.dispatch(self._jt, self.jtables[a])
+            return [f"{self._jt} = (openrac_u32){R(ins.rs)};"] + delay + self.indirect(self._jt, a) + self.leave()
         raise AsmUnsupported(f"{op} at {a:08X}")
+
+    @property
+    def _jt(self) -> str:
+        return "j_" if self.register_jumps else "t_"
 
     def _operand_name(self, addr: int) -> str | None:
         parts = self.text_at(addr).split()
@@ -1346,7 +1402,7 @@ class Translator:
         if fprs:
             decl.append("    openrac_f32 " + ", ".join(f"f{n} = 0.0f" for n in fprs) + ";")
         extras = [("openrac_u64", "lo_"), ("openrac_u64", "hi_"), ("openrac_u64", "lo1_"), ("openrac_u64", "hi1_"),
-                  ("int", "c_"), ("int", "fcc_"), ("openrac_f32", "facc_"), ("openrac_u32", "t_"),
+                  ("int", "c_"), ("int", "fcc_"), ("openrac_f32", "facc_"), ("openrac_u32", "t_"), ("openrac_u32", "j_"),
                   ("openrac_u32", "sa_"), ("openrac_ee_q", "q_"), ("openrac_ee_q", "qlo_"), ("openrac_ee_q", "qhi_"),
                   ("openrac_f32", "v_[4]"), ("openrac_u32", "m_")]
         for t, name in extras:
@@ -1573,6 +1629,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))
     tr.dma_stores = bool(a.get("dma_stores"))
+    tr.register_jumps = bool(a.get("register_jumps"))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
     tr.index = index

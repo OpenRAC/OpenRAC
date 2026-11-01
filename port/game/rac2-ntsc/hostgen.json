@@ -457,6 +457,7 @@
     "enabled": true,
     "discover_entries": true,
     "dma_stores": true,
+    "register_jumps": true,
     "forward_unprototyped": true,
     "dirs": [],
     "gp": "0x001AEFF0",

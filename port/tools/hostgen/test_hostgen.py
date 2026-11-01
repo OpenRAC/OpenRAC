@@ -2937,6 +2937,35 @@ class FromAssembly(unittest.TestCase):
             """)}, symbols={"func_00100100": 0x00100100})
         self.assertEqual(out, ["36", "60"])
 
+    def test_a_computed_jump_stays_in_the_function(self):
+        # The vertex count picks where a run of instructions is entered (func_00280B90), and the delay
+        # slot's VU load must not take the target from the jump.
+        source = """
+                sll $4, $4, 2
+                lui $8, %hi(run)
+                addiu $8, $8, %lo(run)
+                addu $9, $8, $4
+                lui $10, 0x20
+                addiu $2, $0, 0
+                jr $9
+                lqc2 $vf1, 0($10)
+            run:
+                addiu $2, $2, 1
+                addiu $2, $2, 2
+                addiu $2, $2, 4
+                jr $31
+                nop
+        """
+        symbols = {"run": assembler.label_addresses(0x00100000, source)["run"]}
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(0)); test_print(func_00100000(1));
+                                  test_print(func_00100000(2)); return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], register_jumps=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)})
+        self.assertEqual(out, ["7", "6", "4"])
+
     def test_console_form(self):
         # The form for the console's compiler (rac1-decomp's tools/fcheck.py): the function under a
         # name of its own with the function's symbol, calls by retail address with every argument
