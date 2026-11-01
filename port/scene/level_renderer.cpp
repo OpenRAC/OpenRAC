@@ -573,6 +573,8 @@ void LevelScene::draw_mobys(
 }
 
 void LevelScene::release() {
+    m_culling_lines.reset();
+    m_culling_lines_failed = false;
 #if defined(OPENRAC_VULKAN)
     // The registered static instances go with the level (once the frames reading them retire).
     vkgl::gpu_release_instances();
@@ -886,8 +888,12 @@ void LevelScene::draw_layer(
         return;
     }
     std::optional<stats::Scope> visibility_scope(std::in_place, "camera visibility");
+    const auto& cull_camera = input.culling_camera ? *input.culling_camera : input.camera;
+    const auto preview = inspection_clip(input);
     const renderer::Mat4 view_projection =
-        renderer::multiply(input.camera.projection, input.camera.view);
+        preview.value_or(renderer::multiply(cull_camera.projection, cull_camera.view));
+    const bool inspection = preview.has_value();
+    const bool shadow_inspection = inspection && *input.culling_inspection != 0;
     // The static groups the camera does not see are left out: a level's ties and shrubs are
     // hundreds of draws, most of them behind or beside the camera.
     const auto sides = frustum_sides(view_projection);
@@ -897,14 +903,18 @@ void LevelScene::draw_layer(
         camera_planes[4][k] = view_projection[k * 4 + 3] + view_projection[k * 4 + 2];
         camera_planes[5][k] = view_projection[k * 4 + 3] - view_projection[k * 4 + 2];
     }
-    static const bool& camera_culling_off = stats::probe(
+    static const bool& camera_culling_disabled = stats::probe(
         "OPENRAC_CAMERA_INSTANCE_CULL_OFF", "Profiling reference: aggregate-group camera culling"
     );
+    // Inspection must show frustum rejection even if a profiling override disables normal culling.
+    const bool camera_culling_off = camera_culling_disabled && !inspection;
     auto& visible = m_colour_visible[static_cast<std::size_t>(layer)];
     static const bool& pvs_off =
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
-    const auto pvs_mask = pvs_off ? Pvs::all_visible() : m_pvs.follow(input.camera.position);
-    const bool use_pvs = !pvs_off && !m_pvs.grid.empty();
+    // Shadow casters can lie outside the gameplay camera's baked visibility set.
+    const bool skip_pvs = pvs_off || shadow_inspection;
+    const auto pvs_mask = skip_pvs ? Pvs::all_visible() : m_pvs.follow(cull_camera.position);
+    const bool use_pvs = !skip_pvs && !m_pvs.grid.empty();
     const bool gpu = gpu_driven();
     const bool cache_visibility =
         gpu && (state.depth_prepass || state.reuse_prepass_depth)
@@ -938,7 +948,11 @@ void LevelScene::draw_layer(
     std::uint64_t pvs_rejected = 0, pvs_primitives_rejected = 0;
     if (!reuse_camera) {
         for (std::size_t i = 0; i < groups.size(); ++i) {
-            visible[i] = !groups[i].bounded || !outside(sides, groups[i].low, groups[i].high);
+            visible[i] = !groups[i].bounded
+                         || !(
+                             inspection ? outside(camera_planes, groups[i].low, groups[i].high)
+                                        : outside(sides, groups[i].low, groups[i].high)
+                         );
             auto& group = groups[i];
             group.gpu_camera = group.gpu_pvs = {};
             if (gpu && !visible[i]) {
@@ -1063,7 +1077,8 @@ void LevelScene::draw_layer(
     // layers' opaque materials without a cutout (mesh.frag, OPENRAC_SOLID), the general one else.
     const auto use = [&](const renderer::Shader& shader, bool depth_matched) {
         shader.use();
-        glUniformMatrix4fv(shader.uniform("view_projection"), 1, GL_FALSE, view_projection.data());
+        const auto drawn_clip = renderer::multiply(input.camera.projection, input.camera.view);
+        glUniformMatrix4fv(shader.uniform("view_projection"), 1, GL_FALSE, drawn_clip.data());
         glUniform1f(shader.uniform("picture_scale"), state.target.picture_scale_x);
         if (state.depth_prepass) {
             glUniformMatrix4fv(shader.uniform("view"), 1, GL_FALSE, input.camera.view.data());
@@ -1319,7 +1334,8 @@ void LevelScene::draw_layer(
             if (!visible[gi] || (!metal && (g.blend != 0) != effects)) {
                 continue;
             }
-            const bool culled = !camera_culling_off && (mobys ? !metal : pass <= 1);
+            // Inspection includes blended and chrome geometry in the selected frustum filter.
+            const bool culled = !camera_culling_off && (inspection || (mobys ? !metal : pass <= 1));
             const int instances = culled ? g.camera_count : g.pvs_count;
             if (!instances) {
                 continue;
@@ -1589,6 +1605,7 @@ void LayerRenderer::render(const renderer::FrameInput& input, renderer::RenderSt
     m_scene.draw_layer(m_layer, input, state);
     if (m_layer == Layer::Mobys) {
         m_scene.draw_probe_spheres(input, state);
+        m_scene.draw_culling_debug(input, state);
     }
 }
 

@@ -564,3 +564,33 @@ Set `--sky-intensity` to match the supplied bake. The tool checks bake activatio
 PVS, depth reuse and timing availability. Use the same warmup/sample window for
 both paths and keep generated output untracked. For backend switches, counters
 and resource lifetime, see [GPU rendering](RAC1_GPU_DRIVEN.md).
+
+## Freecam
+
+Open **Developer > Freecam**, or the **Freecam** section under **Renderer** in F3,
+and select **Enable Freecam**. **Free look** is the default mode: renderer culling,
+PVS, scenery draw distances and sun cascades follow the free camera.
+
+Use W/S to move along the view direction, A/D to strafe, E up, Q down, and Shift
+for four times the selected speed. Ctrl reduces speed to one-quarter and takes
+precedence over Shift. Hold Alt or right-click to look with the mouse:
+the cursor stays hidden while either is held.
+Alt does not toggle the menu bar while freecam is enabled. The game receives
+neutral controller input; F5 pauses gameplay while freecam still moves.
+
+**Culling inspection** is an alternative mode. Renderer visibility and sun cascades
+follow the live gameplay or cutscene camera while you fly aside to inspect the
+result. Choose **Inspect > Main camera** for the yellow camera frustum, or select
+one of the four shadow cascades. Red, green, blue and purple identify the actual
+shadow maps from nearest to farthest when enhanced shadows are active.
+The preview hides mesh instances outside the selected frustum, including blended
+and chrome passes. Cascade previews skip camera PVS so off-camera casters remain
+inspectable; they show frustum inclusion, not every shadow material or receiver rejection.
+Hidden edges are faint and neither overlay writes scene depth.
+These are shadow-map bounds, not the unbounded sun caster extrusion. Switching
+back to **Free look** makes culling follow the camera again.
+
+**Reset to game camera** reseeds the freecam. **Exit Freecam**
+restores ordinary camera behavior. Poses reset on level travel and these developer
+settings are not saved. Freecam can show only geometry the game has submitted;
+it cannot revive inactive mobys or effects already culled by the game.

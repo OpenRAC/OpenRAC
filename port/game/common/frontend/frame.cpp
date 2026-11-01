@@ -608,8 +608,10 @@ bool read_window_events() {
         if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
-        if (window_key(event) || debug_overlay::event(event)
-            || debug_menu::event(event, openrac_game_loaded_overlay())) {
+        const bool consumed = window_key(event) || debug_overlay::event(event)
+                              || debug_menu::event(event, openrac_game_loaded_overlay());
+        debug_overlay::camera_debug_event(event);
+        if (consumed) {
             continue;  // the window's own keys; the debug overlay's; the port's debug menu (debug_menu.h)
         }
         g->input.handle_event(event);

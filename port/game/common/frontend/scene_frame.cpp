@@ -305,8 +305,12 @@ void set_camera(SceneFrame& frame) {
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    if (has_camera) {
+        owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
+    }
+    const auto& visibility_camera = input.culling_camera ? *input.culling_camera : input.camera;
     owner.scene.choose_scenery(
-        frame.graphics.original_lod, input.camera.position, input.camera.projection
+        frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
     );
     owner.scene.update_probe_regions(input.camera);
     input.after_world_depth =

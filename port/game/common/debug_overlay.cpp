@@ -516,7 +516,11 @@ bool event(const SDL_Event& e) {
             s.focus_ns = e.window.timestamp;
         }
         const SDL_Scancode key = menu_bar_scancode();
-        if (key == SDL_SCANCODE_UNKNOWN) {
+        // Freecam owns Alt for mouse look instead of toggling the menu bar.
+        if (s.camera_tools.enabled) {
+            s.alt_alone = false;
+        }
+        if (key == SDL_SCANCODE_UNKNOWN && !s.camera_tools.enabled) {
             // Alt by itself hides and shows the menus (Alt+Return is fullscreen: another key in
             // between makes it not by itself).
             const bool alt = e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP

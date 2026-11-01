@@ -570,6 +570,7 @@ void draw_kept(bool first) try {
     output->source_frame = static_cast<std::int64_t>(g->kept->frame);
     output->started = std::chrono::steady_clock::now();
     output->first = first;
+    output->camera_debug = debug_overlay::camera_debug_frame();
     output->dump_draws = renderer::g_dump_draws;
     const auto display = next_display(output->started);
     output->alpha = interpolating() ? alpha_at(display) : 1.0f;

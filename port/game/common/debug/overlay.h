@@ -58,6 +58,9 @@ enum Section : std::size_t {
 constexpr std::array<const char*, kSectionCount> kSectionNames =
     {"frame", "renderer", "memory", "mobys", "game", "shaders"};
 
+// Developer menu and renderer-panel controls share the same opt-in camera settings.
+void camera_tools_controls();
+
 // The pad's buttons by bit (active low in the report).
 constexpr std::array<const char*, 16> kButtonNames =
     {"select",
@@ -153,6 +156,14 @@ struct ControlsWindow {
 // Everything the overlay keeps between frames: what the environment asked for, what the last
 // tick gave it, and what its panels, windows, menus and drawer were set to. One exists (s).
 struct State {
+    CameraDebugSettings
+        camera_tools;           // Window-thread developer settings, never shared with worker.
+    bool camera_reset = false;  // Pending reseed from the game camera.
+    unsigned camera_alt = 0;    // Left/right Alt bits; releasing one must not release the other.
+    bool camera_right_mouse = false;  // Right-click is an alternative mouse-look hold.
+    float camera_look_x = 0,
+          camera_look_y = 0;        // Mouse deltas consumed once per displayed snapshot.
+    std::uint64_t camera_time = 0;  // SDL nanoseconds of the last input snapshot.
     std::vector<ScriptedInput> script;
     std::optional<ImVec2> script_pointer;  // App-local pointer held by explicit input scripts.
     SDL_Keymod script_modifiers = SDL_KMOD_NONE;

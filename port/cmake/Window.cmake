@@ -184,6 +184,8 @@ endif()
 
 # ---- renderer ----
 add_library(openrac_renderer STATIC
+  renderer/debug_lines.cpp
+  renderer/debug_geometry.cpp
   renderer/direct.cpp
   renderer/effects.cpp
   renderer/framebuffer.cpp
@@ -202,6 +204,8 @@ add_library(openrac_renderer STATIC
   renderer/texture_pool.cpp
 )
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/debug_lines.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/debug_lines.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shading_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/surface_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/upscaled_texture_colours.glsl"
@@ -291,6 +295,7 @@ add_library(openrac_scene STATIC
   scene/moby_shadow.cpp
   scene/screenshot.cpp
   scene/sun_shadow.cpp
+  scene/fly_camera.cpp
   scene/shadow_draws.cpp
   scene/shadow_scroll.cpp
 )
@@ -317,6 +322,7 @@ openrac_warnings(openrac_probe_scene)
 # enhanced/; the scene module's two libraries are its CPU half (openrac_scene, which the probe tools
 # link without a graphics context) and this.
 add_library(openrac_scene_renderer STATIC
+  scene/culling_debug.cpp
   scene/level_renderer.cpp
   scene/object_preview.cpp
   scene/depth_prepass.cpp
@@ -354,7 +360,6 @@ openrac_warnings(openrac_scene_renderer)
 add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/area_light_overlay.cpp
   enhanced/viewer/medial_axis_overlay.cpp
-  enhanced/viewer/debug_lines.cpp
   enhanced/viewer/probe_volume_overlay.cpp
   enhanced/renderer/atmosphere.cpp
   enhanced/renderer/water.cpp
@@ -390,8 +395,6 @@ if(OPENRAC_LIGHT_AUTHORING)
   )
 endif()
 openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
-  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.vert"
-  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/area_light_overlay.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_selection.comp"
@@ -534,14 +537,10 @@ if(OPENRAC_VULKAN)
 endif()
 
 # ---- the level viewer ----
-# The viewer program's own code: its free camera. The programs and the tests that draw a level link
-# this, and the scene with it.
-add_library(openrac_viewer_lib STATIC
-  viewer/camera.cpp
-)
-target_link_libraries(openrac_viewer_lib PUBLIC openrac_scene_renderer openrac_enhanced_viewer
+# The viewer compatibility target exposes the shared scene camera and optional lighting.
+add_library(openrac_viewer_lib INTERFACE)
+target_link_libraries(openrac_viewer_lib INTERFACE openrac_scene_renderer openrac_enhanced_viewer
   openrac_enhanced_textures)
-openrac_warnings(openrac_viewer_lib)
 
 # Ratchet & Clank's profile (game/common/profile.h): what the renderers read of the running game
 # from its memory (game/rac1/game_state.h), for rac1's programs (cmake/Games.cmake links it as
@@ -640,6 +639,10 @@ openrac_add_test(platform LIBS openrac_platform)
 set_tests_properties(platform PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=dummy")
 
 openrac_add_test(touch_pad LIBS openrac_platform)
+
+openrac_add_test(camera_debug SOURCES tests/camera_debug_test.cpp
+                 game/common/frontend/debug_camera.cpp scene/fly_camera.cpp
+                 renderer/debug_geometry.cpp scene/sun_shadow.cpp INCLUDES .)
 
 # The frontend's pure helpers (game/common/frontend/), built from their own sources: the game
 # programs compile them through cmake/Games.cmake's glob.
