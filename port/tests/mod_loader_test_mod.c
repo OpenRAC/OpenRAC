@@ -374,6 +374,27 @@ static void on_pad(void* user, int port, uint8_t* report, int size) {
     }
 }
 
+/* The host's rules heard (interface 1.11): its bytes as a number, 0 for none any more. */
+static char s_big[OPENRAC_PARTY_RULES_MAX + 1];
+
+static void on_party_rules(void* user, const void* data, uint32_t size) {
+    (void)user;
+    s_record(data == NULL ? 7000 : 7000 + (int)size * 10 + ((const char*)data)[0] - 'a');
+}
+
+/* Over the game: a rectangle where the middle of the level's camera is, with its user data seen. */
+static int overlay_user = 7;
+
+static void on_overlay(void* user, const openrac_overlay* overlay) {
+    const float world[3] = {1.0f, 2.0f, 3.0f};
+    float x = 0.0f;
+    float y = 0.0f;
+    if (user == &overlay_user && overlay->size >= sizeof(openrac_overlay)
+        && overlay->project(overlay->context, world, &x, &y)) {
+        overlay->rect(overlay->context, x, y, overlay->text_width(overlay->context, 8.0f, "A"), 8.0f, 0xFF0000FFu);
+    }
+}
+
 OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod) {
     s_api = api;
     s_frames = 0;
@@ -438,6 +459,75 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         if (api->menu_entry(mod, "", menu_page, NULL) != OPENRAC_HOOK_UNKNOWN
             || api->menu_entry(mod, "No page", NULL, NULL) != OPENRAC_HOOK_UNKNOWN) {
             return 9;
+        }
+    }
+    if (behaviour[0] == 'r') { /* rules */
+        if (api->api_minor < 11 || s_record == NULL
+            || api->on_party_rules(mod, on_party_rules, NULL) != 0
+            || api->party_rules_publish(mod, "abc", 3, "Bolts x2") != OPENRAC_HOOK_OK
+            || api->party_rules_publish(mod, s_big, sizeof s_big, "") == OPENRAC_HOOK_OK) {
+            return 16;
+        }
+        s_api = api;
+    }
+    if (behaviour[0] == 't') { /* twelve: every call of interface 1.12 not filled in yet answers unknown; with no stack, no packs */
+        float where[3] = {0, 0, 0};
+        int blocked = 0;
+        openrac_stand_in stand_in = {{0, 0, 0}, 0, 0, 0, 0};
+        uint8_t missions[OPENRAC_MISSION_STATE_SIZE] = {0};
+        char text[16] = {0};
+        uint32_t digest = 0;
+        openrac_save_info info = {sizeof info, 0, 0, 0, 0};
+        openrac_shot2 shot = {sizeof shot};
+        openrac_moby2 moby = {sizeof moby};
+        openrac_packs_info packs = {sizeof packs, 0, 0};
+        openrac_pack_entry pack = {sizeof pack, NULL, NULL, 0, NULL};
+        if (api->api_minor < 12 || api->card_filter(mod, OPENRAC_CARD_PASS, "") != OPENRAC_HOOK_UNKNOWN
+            || api->card_slot_hint(mod, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->coop_save_write(mod, 0, text, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->save_slot2("", 0, &info) != OPENRAC_HOOK_UNKNOWN
+            || api->save_read2("", 0, text, sizeof text) != 0
+            || api->card_saves() != 0
+            || api->card_note_write(mod, 0, "x") != OPENRAC_HOOK_UNKNOWN
+            || api->card_note_read("coop", 0, text, sizeof text) != 0
+            || api->shared_read(1, text, sizeof text) != OPENRAC_HOOK_UNKNOWN
+            || api->shared_give(1, text, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->mission_state_read(0, missions) != OPENRAC_HOOK_UNKNOWN
+            || api->mission_state_write(0, missions) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_place(mod, where, 0.0f, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_grab(mod, 1, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_release(mod) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_hold_at(mod, where, 0.0f) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_stand_in_as(mod, &stand_in, -1) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_stand_in_read(mod, &stand_in) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_revive(mod, NULL, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_shots2(&shot, 1) != 0
+            || api->figure_shot2(mod, 0, &shot) != OPENRAC_HOOK_UNKNOWN
+            || api->moby_list2(&moby, 1) != 0
+            || (api->on_camera_script(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+                && api->on_camera_script(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE)
+            || api->camera_script_play(mod, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->camera_script_view(where, where, where, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->camera_script_show(mod, where, where) != OPENRAC_HOOK_UNKNOWN
+            || api->level_line(where, where, &blocked) != OPENRAC_HOOK_UNKNOWN
+            || api->play_scene_from(mod, 0, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->play_live_picture(mod, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->on_metal_detect(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE
+            || api->packs_info(&packs) != OPENRAC_HOOK_OK || packs.count != 0
+            || api->packs_entry(0, &pack) != OPENRAC_HOOK_UNKNOWN
+            || api->clipboard_set("x") != OPENRAC_HOOK_UNKNOWN
+            || api->open_link("openrac://x") != OPENRAC_HOOK_UNKNOWN
+            || api->world_family(text, sizeof text) != 0
+            || api->sim_digest(0, &digest) != OPENRAC_HOOK_UNKNOWN
+            || api->identity_key(text, sizeof text) != 0) {
+            return 17;
+        }
+    }
+    if (behaviour[0] == 'h') { /* hud: draws over the game */
+        if (api->on_overlay(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE
+            || api->on_overlay(mod, on_overlay, &overlay_user) != OPENRAC_HOOK_OK
+            || api->play_live_picture(mod, 0) != OPENRAC_HOOK_OK) {
+            return 18;
         }
     }
     if (behaviour[0] == 's') { /* savestate */

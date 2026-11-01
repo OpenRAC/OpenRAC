@@ -80,6 +80,30 @@ texture and model pack to the packs.
 | A mod in the preview: does not fit      | its name dimmed, `T.COMPATIBLE_LABEL.no` in place of the button, the reason under it                                                                          |                                                                                                                                                                                                                                                     |
 | **Installing**                          | spinner on that mod's button, all install buttons off; then the preview closes, or stays for a repository of several mods with that one's button at Reinstall | then `T.installedFrom.on` / `.off` / `.replaced`, or `T.withName(name, error)`                                                                                                                                                                      |
 
+## Mod codes
+
+Friends match their mods (`T.MOD_CODES`; how it works: MODS.md, section 10, Mod codes). The field
+of Add a mod takes a code as well as a link, and a code pasted anywhere on the page opens the same
+review (`lib/modCodes.ts`, `looksLikeCode`). So does `openrac://modset/CODE`, from any page.
+
+| Part             | Component                                  | Shown when                                                                                       |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Share these mods | a button in `PluginsPanel.svelte`'s head   | a gameplay mod is on                                                                             |
+| The Share window | `ModSetShare.svelte` on `ModSetDialog`     | that button: what the code holds, suggestions to tick, Make code, then the code to copy          |
+| The review       | `ModSetReview.svelte`, at the app's top    | a code was entered: every change grouped, Apply. Done: what came of it, and Put my old mods back |
+| Earlier mods     | `ModSetSaved.svelte`, in the gameplay mods | a code was applied before: the last ten, each with Restore                                       |
+
+| Review state                                       | Words                               | Apply          |
+| -------------------------------------------------- | ----------------------------------- | -------------- |
+| Everything matches                                 | `T.already`                         | none, Close    |
+| A source neither OpenRAC's nor used before         | `T.trustTitle`, `trustLine`, a tick | after the tick |
+| The game is running                                | `T.running`                         | when it closes |
+| Some of it cannot be had (gone, changed, no build) | `T.partial`, each with its reason   | does the rest  |
+| Another OpenRAC                                    | `T.otherOpenrac`                    | yes            |
+| Another game, and that game is not set up          | `T.otherGame`                       | none, Close    |
+
+The Share window with no server gives no short code: `T.offline`, and the full code to send.
+
 ## Gameplay mods (PluginsPanel.svelte)
 
 An overview: a row per mod, and each mod's settings on a page of its own

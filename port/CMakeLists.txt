@@ -132,6 +132,9 @@ openrac_add_test(ui_colors SOURCES tests/ui_colors_test.cpp game/common/ui_color
                            INCLUDES . LIBS openrac_common)
 # The CPU picture of the developer menu and the mods' menu pages (renderer/ui/canvas.h).
 openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.cpp INCLUDES .)
+# What mods draw over the game, gathered on the CPU, and a point of the level found on the picture.
+openrac_add_test(ui_overlay_list SOURCES tests/ui_overlay_list_test.cpp renderer/ui/overlay_list.cpp
+                 renderer/ui/canvas.cpp INCLUDES .)
 openrac_add_test(scripted_moby_colour SOURCES enhanced/tests/scripted_moby_colour_test.cpp
                                       INCLUDES .)
 openrac_add_test(pause_options INCLUDES .)
@@ -220,6 +223,10 @@ openrac_warnings(openrac_mods)
 openrac_add_test(mod_manifest LIBS openrac_mods)
 # When the mods' pages of the game's menus take the pad (mod_ui.h): only while the title stays.
 openrac_add_test(mod_ui_menus INCLUDES game/common)
+# The shared progress of rac1 (game/rac1/host/shared.c) on an array in place of game memory.
+add_executable(rac1_shared_test tests/rac1_shared_test.c)
+target_include_directories(rac1_shared_test PRIVATE tests/rac1_shared_stub)
+add_test(NAME rac1_shared COMMAND rac1_shared_test)
 
 # A mod built as a mod is (a shared library against the SDK's header alone), loaded by the real
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made
@@ -303,9 +310,13 @@ openrac_add_c_test(classic_ripple NO_STRICT_ALIASING NO_FP_CONTRACT MATH
 openrac_add_c_test(hero_animation NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(hero_effects NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(hero_items NO_STRICT_ALIASING NO_FP_CONTRACT)
+openrac_add_c_test(figure_tracks INCLUDES . game/common/include runtime/include)
 openrac_add_c_test(hero_attach NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(moby_bounds NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(moby_view NO_FP_CONTRACT MATH)
+openrac_add_c_test(hero_place NO_FP_CONTRACT MATH)
+openrac_add_c_test(camera_script NO_FP_CONTRACT)
+openrac_add_c_test(hero_grab NO_FP_CONTRACT MATH)
 openrac_add_c_test(wide_view NO_FP_CONTRACT MATH)
 openrac_add_c_test(hero_manipulators NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(map_reveal NO_STRICT_ALIASING NO_FP_CONTRACT)
@@ -324,8 +335,16 @@ openrac_add_c_test(scene_actors NO_STRICT_ALIASING WRAPV
 # The shared rac1 host C's posed mobys' animation (a co-op figure, a moby the host drives).
 openrac_add_c_test(pose_anim MATH)
 
+# The shared rac1 host C's level digest, what two games sharing a level must agree on.
+openrac_add_c_test(sim_digest)
+
 # The shared rac1 host C's bigger moby pool, with PAL's table and the same stand-in.
 openrac_add_c_test(moby_pool NO_STRICT_ALIASING WRAPV
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+
+# The shared rac1 host C's figures' shots: each weapon noted, replayed or tracked, with PAL's table
+# and the same stand-in.
+openrac_add_c_test(figure_shots NO_STRICT_ALIASING WRAPV MATH
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
 # The mod-only spatial hash: tombstones must keep probe chains intact and recycle emptied cells.
@@ -335,6 +354,11 @@ openrac_add_c_test(expanded_moby_grid NO_STRICT_ALIASING MATH
 # The shared rac1 host C's level world under the pause menu (the mods' mobys made and deleted
 # among the level's, the level's camera), with PAL's table and the same stand-in.
 openrac_add_c_test(world_menu NO_STRICT_ALIASING WRAPV MATH
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+# A moby's update under a stand-in, and this game's hero held (rac1/host/hero_grab.c, PAL's table).
+openrac_add_c_test(hero_guard NO_STRICT_ALIASING WRAPV MATH
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+openrac_add_c_test(hero_killed NO_STRICT_ALIASING WRAPV MATH
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
 openrac_add_c_test(resource_bank NO_STRICT_ALIASING)
@@ -347,6 +371,10 @@ openrac_add_c_test(hero_vertical NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(particle53 NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(planar_limit NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(checkpoint_restore NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
+openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
+# The card filter against the game's calls on a real folder: a party never writes a player's saves.
+openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
+                   INCLUDES game/common/include runtime/include)
 
 if(OPENRAC_PORT_WINDOW)
   include(Window)
@@ -377,4 +405,6 @@ if(OPENRAC_PORT_GAMES)
   set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME xcheck_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_xcheck.py")
+  add_test(NAME ntsc_twins_tool
+           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_ntsc_twins.py")
 endif()

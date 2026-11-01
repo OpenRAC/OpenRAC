@@ -255,6 +255,12 @@ extern const openrac_front_end* openrac_game_front_end;
 #define OPENRAC_GAME_PHASE_SCENE 4
 #define OPENRAC_GAME_PHASE_MENU 5
 
+/* A shared progress section: openrac_mod.h's OPENRAC_SHARED_* values (mod_play.cpp checks they agree). */
+#define OPENRAC_GAME_SHARED_GOLD_WEAPONS 1
+#define OPENRAC_GAME_SHARED_SKILL_POINTS 2
+#define OPENRAC_GAME_SHARED_LEVEL_FLAGS 3
+#define OPENRAC_GAME_SHARED_SPECIAL_ITEMS 4
+
 /* A pose of the hero or of a figure: openrac_pose's fields after its size, the same meanings. */
 typedef struct openrac_game_pose {
     int32_t level;
@@ -348,6 +354,24 @@ typedef struct openrac_game_shot {
     float velocity[3];
     float aim[4];
 } openrac_game_shot;
+
+/* A shot with more to say (openrac_shot2, after its size). A weapon that is no single shot is a
+ * track: the flags say where in it this one is, aux[0] which of the player's tracks it is. */
+#define OPENRAC_GAME_SHOT_START 0x1u
+#define OPENRAC_GAME_SHOT_MOVE 0x2u
+#define OPENRAC_GAME_SHOT_STOP 0x4u
+#define OPENRAC_GAME_SHOT_BURST 0x8u
+
+typedef struct openrac_game_shot2 {
+    int32_t item;
+    float position[3];
+    float velocity[3];
+    float aim[4];
+    uint32_t flags;
+    int32_t target_key;
+    float velocity2[3];
+    float aux[4];
+} openrac_game_shot2;
 
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
@@ -450,7 +474,80 @@ typedef struct openrac_game_play {
     /* How the last tick ran the level's mobys and the moby in `slot` (-1 none) into `out` (1, or 0
      * outside a level: openrac_api.moby_run). NULL for a game without it. */
     int (*moby_run)(int32_t slot, openrac_game_moby_run* out);
+    /* hero_shots and figure_shot with more to say (openrac_api.hero_shots2, figure_shot2). NULL for
+     * a game without them. */
+    int (*hero_shots2)(openrac_game_shot2* out, int max);
+    int (*figure_shot2)(gaddr figure, const openrac_game_shot2* shot);
+    /* The world this game's discs belong to (openrac_api.world_family): two with the same text
+     * can share a game. NULL for a game that does not say. */
+    const char* world_family;
+    /* The sim digest of `level` as loaded (openrac_api.sim_digest): two games with the same one
+     * can share that level; 0 for a level not loaded or not known. NULL for a game without it. */
+    uint32_t (*sim_digest)(int level);
+    /* A party's game saves as a game loaded from the card does, whatever the title did (`on` 1,
+     * asked each frame while it lasts), and the card's state is put back after (`on` 0: 1 when
+     * done, 0 while a write still runs: ask again). NULL for a game without it. */
+    int (*card_session)(int on);
+    /* Whether a save's bytes can be handed to the game, whole, for saves from elsewhere: save_info
+     * reads only the head (for rac1 the SDK's openrac/games/rac1_save.h). NULL for a game without
+     * it. */
+    int (*save_check)(const uint8_t* save, uint32_t size);
+    /* The card filter, for the mods' calls: openrac_game_card_filter and its fellows (lib/mc.c).
+     * NULL for a game without it. */
+    int (*card_filter)(int mode, const char* folder);
+    void (*card_slot)(int slot);
+    int (*card_write)(int slot, const uint8_t* bytes, uint32_t size);
+    uint32_t (*card_saves)(void);
+    /* Whether the world is drawn under the pause menu while it keeps running (1, the start) or the
+     * picture stands (0): openrac_api.play_live_picture. NULL for a game without it. */
+    void (*live_picture)(int on);
+    /* The hero put at `position` facing `yaw` with OPENRAC_PLACE_* `flags` once the player is in
+     * control (openrac_api.hero_place): 1 asked, 0 refused (no level, no hero). NULL for a game
+     * without it. */
+    int (*hero_place)(const float position[3], float yaw, uint32_t flags);
+    /* The shared progress (openrac_api.shared_read, shared_give, mission_state_read and write;
+     * rac1/host/shared.c): a section's size or -1, 1 merged or 0, 1 read or 0, 1 merged or 0. NULL
+     * for a game without it. */
+    int (*shared_read)(int tag, void* out, uint32_t size);
+    int (*shared_give)(int tag, const void* data, uint32_t size);
+    int (*mission_state_read)(int level, uint8_t* out);
+    int (*mission_state_write)(int level, const uint8_t* in);
+    /* A dead hero kept down, brought back or sent to his checkpoint (openrac_api.hero_revive and
+     * its OPENRAC_REVIVE_* flags): 1 asked, 0 refused. NULL for a game without it. */
+    int (*hero_revive)(const float position[3], uint32_t flags);
+    /* The mission a moby of the level goes with, -1 for none. NULL for a game without it. */
+    int32_t (*moby_mission)(int32_t slot);
+    /* The game's camera scripts (openrac_api.on_camera_script and its fellows; rac1/host/
+     * camera_script.c): the next start or end not yet told (1, or 0 for none), the view of the one
+     * running (1, or 0 for none), one shown here (id >= 0; OPENRAC_GAME_CAMERA_END_EASED or _CUT
+     * ends it; 1 asked, 0 refused) and its view (1 while it is asked or up). NULL for a game without
+     * them. */
+    int (*camera_script_next)(int32_t* id, int32_t* started);
+    int (*camera_script_view)(float eye[3], float rotation[3], float where[3], int32_t* stand_in);
+    int (*camera_script_play)(int32_t id);
+    int (*camera_script_show)(const float eye[3], const float rotation[3]);
+    /* stand_in, and the update also sees the player's hero `state`, his `health` and
+     * OPENRAC_STAND_IN_* `flags` (openrac_api.hero_stand_in_as). NULL for a game without it. */
+    void (*stand_in_as)(
+        const float position[3], gaddr moby, int32_t state, int32_t health, uint32_t flags
+    );
+    /* In the gate's call after an update under a stand-in, what it did to the hero: 1, or 0 with no
+     * stand-in on. NULL for a game without it. */
+    int (*stand_in_read)(
+        float position[3], float* yaw, int32_t* state, int32_t* health, uint32_t* flags
+    );
+    /* The hero held as a grab holds him, on his way to the place asked, and let go (openrac_api
+     * hero_grab, hero_hold_at, hero_release): 1 asked, 0 refused. NULL for a game without it. */
+    int (*hero_grab)(int animation, uint32_t flags);
+    int (*hero_hold_at)(const float position[3], float yaw);
+    int (*hero_let_go)(void);
+    /* Into `blocked`, whether the level's walls and ground stand on the line (1, or 0 outside a
+     * level: openrac_api.level_line). NULL for a game without it. */
+    int (*level_line)(const float from[3], const float to[3], int* blocked);
 } openrac_game_play;
+
+#define OPENRAC_GAME_CAMERA_END_EASED (-1)
+#define OPENRAC_GAME_CAMERA_END_CUT (-2)
 
 extern const openrac_game_play* openrac_game_play_host;
 
@@ -459,6 +556,9 @@ extern const openrac_game_play* openrac_game_play_host;
  * moby (victim and attacker by slot, -1 for none): 1 takes it back, as if never posted. NULL: no
  * mod asked. */
 extern int (*openrac_game_moby_update)(int32_t slot, int phase);
+/* The metal detector is about to give a buried moby's bolts (rac1/host/metal_detect.c): 0 holds it
+ * back. NULL while no mod asked. */
+extern int (*openrac_game_metal_detect)(int32_t slot, int32_t key);
 extern int (*openrac_game_moby_hit)(
     int32_t victim,
     int32_t attacker,
@@ -661,6 +761,17 @@ extern int openrac_game_no_card;
  * the library's state as on the console. Called by the game's host C at start-up (rac1/pal: boot.c,
  * the addresses in rac1_version.h); without a call they are lib/mc.c's own. */
 void openrac_game_mc_state(gaddr command, gaddr result);
+
+/* The card filter (lib/mc.c says how it works): what the game's writes to its saves do while a
+ * party plays: 0 reach the card, 1 are dropped, 2 go to the card folder `folder`, into the slot
+ * openrac_game_card_slot named (-1: the game's). The game is told they worked. 0 for a mode or
+ * folder that cannot be. */
+int openrac_game_card_filter(int mode, const char* folder);
+void openrac_game_card_slot(int slot);
+/* Writes a whole save as `slot` of the folder redirected to; 1 when it is in place. */
+int openrac_game_card_write(int slot, const uint8_t* bytes, uint32_t size);
+/* How many of the game's own saves have reached that folder. */
+uint32_t openrac_game_card_saves(void);
 
 /* --level N: the level a new game starts in (the game's own number), or -1 for the game's own
  * first level. For getting to a level directly, as the behaviour checker's level write does. */

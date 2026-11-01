@@ -12,7 +12,10 @@
  * the game's own library kept them, when its host C says where
  * (openrac_game_mc_state). The structures and codes are the
  * library's public interface as the game uses them
- * (docs/port/RAC1_PAL_SURVEY.md, section 7). */
+ * (docs/port/RAC1_PAL_SURVEY.md, section 7).
+ *
+ * While a party plays, a filter stands between the game and its saves (the end of "The save mark"
+ * below says how): whatever the game believes it writes, a player's own saves stay as they were. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -171,6 +174,8 @@ static FILE* files[MAX_FILES];
 /* Each open file's path and whether the game wrote to it, for the save mark below. */
 static char file_paths[MAX_FILES][1024];
 static int file_written[MAX_FILES];
+/* What the card filter made of the open (below): 0 as asked. */
+static int file_fate[MAX_FILES];
 
 /* ---- The save mark ---- */
 
@@ -181,21 +186,25 @@ static int file_written[MAX_FILES];
  * overwritten save never keeps the one before it. The launcher reads it (core/src/saves.rs) and
  * so does the game's own memory card page. */
 
-/* Whether `name` (a file name without its folder) is one of the game's save files. The host says
- * what they are called (openrac_game_play_host->save_file, "save%d.bin"). */
-static int is_save_file(const char* name) {
+/* Which of the game's save files `name` is (a file name without its folder), -1 for none. The host
+ * says what they are called (openrac_game_play_host->save_file, "save%d.bin"). */
+static int save_slot_of(const char* name) {
     if (openrac_game_play_host == NULL || openrac_game_play_host->save_file == NULL) {
-        return 0;
+        return -1;
     }
     for (int slot = 0; slot < openrac_game_play_host->save_slots; slot++) {
         char expected[64];
         if (snprintf(expected, sizeof expected, openrac_game_play_host->save_file, slot)
                 < (int)sizeof expected
             && strcmp(expected, name) == 0) {
-            return 1;
+            return slot;
         }
     }
-    return 0;
+    return -1;
+}
+
+static int is_save_file(const char* name) {
+    return save_slot_of(name) >= 0;
 }
 
 /* The mark's own name for a save's path, "" when it does not fit. */
@@ -276,6 +285,215 @@ static void mark_save(const char* path) {
     fclose(f);
 }
 
+
+/* ---- The card filter ---- */
+
+/* A party's game must never reach a player's own saves. The game writes its saves two ways, and a
+ * filter has to take both as they are (memcard_update_state):
+ *   - a save of the game's own (a gold bolt, a story moment, leaving by ship) opens save<N>.bin for
+ *     writing without creating it and writes only the game part and its level's part, in place;
+ *   - the pause menu's Save opens it the same way and writes the whole file.
+ * So a redirected write needs the whole save underneath. It goes to a private copy, `<save>.tmp`,
+ * of the folder's save (the party's, which the mod wrote there first: openrac_game_card_write),
+ * and only a close that leaves a save the game would load puts it in place. A crash or a lost
+ * party in the middle of a write leaves the save as it was: the copy is only ever replaced, the
+ * previous save stays as `<save>.bak` (read_save in common/mod_play.cpp falls back to it), and a
+ * write without a save under it (a new game's, before the first copy) comes to nothing.
+ *
+ * What a write becomes is settled at the open and stays with its file, so the filter going off in
+ * the middle of a write cannot send the rest of it to the player's save. The game is always told
+ * it worked: its state machine and its menus go on as they do with a card.
+ *
+ * Besides a save: making the folder on a fresh card creates files that are not there, which takes
+ * nothing from anyone and passes (the game finds its folder later); a file that is there is left
+ * alone, and sceMcDelete (the game clearing a folder it finds damaged) deletes nothing. */
+
+#define CARD_PASS 0
+#define CARD_DISCARD 1
+#define CARD_REDIRECT 2
+
+#define FATE_ASKED 0
+#define FATE_DROPPED 1
+#define FATE_REDIRECTED 2
+
+static int card_mode = CARD_PASS;
+static char card_folder[256];
+static int card_slot = -1;
+static uint32_t card_saves;
+
+int openrac_game_card_filter(int mode, const char* folder) {
+    if (mode != CARD_PASS && mode != CARD_DISCARD && mode != CARD_REDIRECT) {
+        return 0;
+    }
+    if (mode == CARD_REDIRECT
+        && (folder == NULL || *folder == '\0' || strlen(folder) >= sizeof card_folder)) {
+        return 0;
+    }
+    card_mode = mode;
+    snprintf(card_folder, sizeof card_folder, "%s", mode == CARD_REDIRECT ? folder : "");
+    if (mode == CARD_PASS) {
+        card_slot = -1;
+    }
+    return 1;
+}
+
+void openrac_game_card_slot(int slot) {
+    card_slot = slot;
+}
+
+uint32_t openrac_game_card_saves(void) {
+    return card_saves;
+}
+
+/* The file of `slot` in the redirect folder, the folder made; 0 when it does not fit or there is
+ * no host to name it. */
+static int redirect_path(int slot, char* out, size_t size) {
+    const char* root = openrac_game_card_dir != NULL ? openrac_game_card_dir : "memcard";
+    char name[64];
+    if (openrac_game_play_host == NULL || openrac_game_play_host->save_file == NULL
+        || snprintf(name, sizeof name, openrac_game_play_host->save_file, slot)
+               >= (int)sizeof name) {
+        return 0;
+    }
+    if (snprintf(out, size, "%s/%s", root, card_folder) >= (int)size) {
+        return 0;
+    }
+    make_dir(out);
+    return snprintf(out, size, "%s/%s/%s", root, card_folder, name) < (int)size;
+}
+
+/* A sibling of `path`: `path` with `suffix` after it. */
+static int sibling(const char* path, const char* suffix, char* out, size_t size) {
+    return snprintf(out, size, "%s%s", path, suffix) < (int)size;
+}
+
+/* Copies the file at `from` to `to`; 0 when it cannot be read or written. */
+static int copy_file(const char* from, const char* to) {
+    FILE* in = fopen(from, "rb");
+    if (in == NULL) {
+        return 0;
+    }
+    FILE* out = fopen(to, "wb");
+    if (out == NULL) {
+        fclose(in);
+        return 0;
+    }
+    char block[4096];
+    size_t n;
+    int ok = 1;
+    while ((n = fread(block, 1, sizeof block, in)) > 0) {
+        if (fwrite(block, 1, n, out) != n) {
+            ok = 0;
+        }
+    }
+    if (ferror(in) || fclose(out) != 0) {
+        ok = 0;
+    }
+    fclose(in);
+    return ok;
+}
+
+/* The bytes on their way to the disk before anything counts on them. */
+static void settle(FILE* f) {
+    fflush(f);
+#if defined(_WIN32)
+    _commit(_fileno(f));
+#else
+    fsync(fileno(f));
+#endif
+}
+
+/* Puts the finished copy `temp` in place of the save `target`, which stays as `<target>.bak`; 0
+ * (and the save as it was) for a copy the game would not load. */
+static int put_in_place(const char* temp, const char* target) {
+    char previous[1100];
+    if (!sibling(target, ".bak", previous, sizeof previous) || !is_a_players_save(temp)) {
+        remove(temp);
+        return 0;
+    }
+    FILE* there = fopen(target, "rb");
+    if (there != NULL) {
+        fclose(there);
+        remove(previous);
+        rename(target, previous);
+    }
+    if (rename(temp, target) != 0) {
+        rename(previous, target);
+        remove(temp);
+        return 0;
+    }
+    return 1;
+}
+
+/* Writes a whole save as `slot` of the redirect folder (coop_save_write), in place at once. */
+int openrac_game_card_write(int slot, const uint8_t* bytes, uint32_t size) {
+    char target[1024], temp[1100];
+    if (card_mode != CARD_REDIRECT || bytes == NULL || size == 0
+        || !redirect_path(slot, target, sizeof target)
+        || !sibling(target, ".tmp", temp, sizeof temp)) {
+        return 0;
+    }
+    FILE* f = fopen(temp, "wb");
+    if (f == NULL) {
+        return 0;
+    }
+    const int written = fwrite(bytes, 1, size, f) == size;
+    settle(f);
+    fclose(f);
+    if (!written || !put_in_place(temp, target)) {
+        remove(temp);
+        return 0;
+    }
+    mark_save(target);
+    return 1;
+}
+
+/* Starts the private copy of the redirect folder's save the game's write goes to; the game's own
+ * `slot` unless the mod named one. Fills `target` and `temp`; 0 when there can be no copy. */
+static int start_redirect(int slot, char* target, size_t target_size, char* temp, size_t temp_size) {
+    char previous[1100];
+    if (!redirect_path(card_slot >= 0 ? card_slot : slot, target, target_size)
+        || !sibling(target, ".tmp", temp, temp_size)
+        || !sibling(target, ".bak", previous, sizeof previous)) {
+        return 0;
+    }
+    if (copy_file(target, temp) || copy_file(previous, temp)) {
+        return 1;
+    }
+    /* Nothing yet: a whole save written over it is a save, a part of one comes to nothing. */
+    FILE* f = fopen(temp, "wb");
+    if (f == NULL) {
+        return 0;
+    }
+    fclose(f);
+    return 1;
+}
+
+/* Whether a file is at `path`. */
+static int is_there(const char* path) {
+    FILE* f = fopen(path, "rb");
+    if (f == NULL) {
+        return 0;
+    }
+    fclose(f);
+    return 1;
+}
+
+/* What the filter makes of opening `path` with `mode`. */
+static int fate_of(const char* path, int mode) {
+    if (card_mode == CARD_PASS || (mode & (2 | 0x200)) == 0) {
+        return FATE_ASKED;
+    }
+    if ((mode & 0x200) != 0) {
+        return is_there(path) ? FATE_DROPPED : FATE_ASKED;
+    }
+    const char* slash = strrchr(path, '/');
+    if (save_slot_of(slash != NULL ? slash + 1 : path) < 0) {
+        return is_there(path) ? FATE_DROPPED : FATE_ASKED;
+    }
+    return card_mode == CARD_REDIRECT ? FATE_REDIRECTED : FATE_DROPPED;
+}
+
 /* sceMcOpen(port, slot, name, mode): mode 1 read, 2 write, 3 both, 0x200 create. */
 int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     (void)slot;
@@ -297,7 +515,23 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
         return finish(MC_OPEN, -7);
     }
     FILE* f = NULL;
-    if (mode & 0x200) {
+    int fate = fate_of(path, mode);
+    if (fate == FATE_REDIRECTED) {
+        const char* slash = strrchr(path, '/');
+        char temp[1100];
+        if (start_redirect(
+                save_slot_of(slash != NULL ? slash + 1 : path), path, sizeof path, temp, sizeof temp
+            )) {
+            f = fopen(temp, "r+b");
+        }
+        if (f == NULL) {
+            /* No copy can be made (a full disk): the write comes to nothing, never to the save. */
+            fate = FATE_DROPPED;
+            f = fopen(path, "rb");
+        }
+    } else if (fate == FATE_DROPPED) {
+        f = fopen(path, "rb");
+    } else if (mode & 0x200) {
         f = fopen(path, "r+b");
         if (f == NULL) {
             f = fopen(path, "w+b");
@@ -313,6 +547,7 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     files[fd] = f;
     snprintf(file_paths[fd], sizeof file_paths[fd], "%s", path);
     file_written[fd] = 0;
+    file_fate[fd] = fate;
     return finish(MC_OPEN, fd);
 }
 
@@ -321,8 +556,26 @@ int openrac_lib_sceMcClose(int fd) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_CLOSE, MC_FAILED);
     }
+    if (file_fate[fd] == FATE_REDIRECTED) {
+        settle(files[fd]);
+    }
     fclose(files[fd]);
     files[fd] = NULL;
+    /* The party's save just written: in place now, whole, or not at all. */
+    if (file_fate[fd] == FATE_REDIRECTED) {
+        char temp[1100];
+        if (sibling(file_paths[fd], ".tmp", temp, sizeof temp)) {
+            if (!file_written[fd]) {
+                remove(temp);
+            } else if (put_in_place(temp, file_paths[fd])) {
+                mark_save(file_paths[fd]);
+                card_saves++;
+            }
+        }
+        file_written[fd] = 0;
+        file_fate[fd] = FATE_ASKED;
+        return finish(MC_CLOSE, MC_OK);
+    }
     /* A save just written: its mark is set or removed now, never half way through the write. */
     if (file_written[fd]) {
         const char* slash = strrchr(file_paths[fd], '/');
@@ -354,6 +607,10 @@ int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
 int openrac_lib_sceMcWrite(int fd, gaddr buffer, int size) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_WRITE, MC_FAILED);
+    }
+    if (file_fate[fd] == FATE_DROPPED) {
+        fseek(files[fd], size, SEEK_CUR);
+        return finish(MC_WRITE, size);
     }
     const size_t n = fwrite(G(buffer), 1, (size_t)size, files[fd]);
     fflush(files[fd]);
@@ -387,6 +644,9 @@ int openrac_lib_sceMcDelete(int port, int slot, gaddr name) {
     }
     if (!card_present(port) || !card_path(port, (const char*)G(name), path, sizeof path)) {
         return finish(MC_DELETE, MC_NO_CARD);
+    }
+    if (card_mode != CARD_PASS) {
+        return finish(MC_DELETE, MC_OK);
     }
     if (remove(path) == 0) {
         return finish(MC_DELETE, MC_OK);

@@ -616,6 +616,12 @@ function taskOf(actionId: string): string | null {
   return null;
 }
 
+/** Whether a game runs now: mods load at its start, so changing them waits for it to close. */
+export function gameRunning(): boolean {
+  if (onAndroid) return !!app.game?.running;
+  return jobs.list.some((j) => PLAY_ACTIONS.includes(j.actionId) && j.state === "running");
+}
+
 export function updateDiscordPresence(page: Page = app.page, version: string | null = app.version) {
   // While the game (the native port) runs, the status stays PlayingGame. The game with
   // the player's mods is the same program, so it counts too.

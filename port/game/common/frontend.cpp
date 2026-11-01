@@ -41,6 +41,7 @@
 #include "game/common/particle_texture_cache.h"
 #include "game/common/profile.h"
 #include "mod_menu.h"
+#include "mod_overlay.h"
 #include "mod_ui.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -526,6 +527,7 @@ void close() {
         renderer::ui::touch_overlay::release();
         debug_menu::release();
         mod_menu::release();
+        mod_overlay::release();
         // A mod's views: it lets go of what it made with the context, while the context is there.
         release_views(*g);
         // Temporal histories reference the target and scene, so retire them before either owner.

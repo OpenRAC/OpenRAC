@@ -42,6 +42,17 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_MC_COMMAND 0x00132EA8u
 #define RAC1_MC_RESULT 0x0015B0C0u
 
+/* The game's memory card record (memory_card_state) and its words play.c reads: which card is in
+ * use, the card's header mismatches, whether saving is on, the operation running and the one
+ * waiting. The card's save number is at +0x14 on every disc. */
+#define RAC1_CARD_STATE 0x0013D390u
+#define RAC1_CARD_ERRORS 0xB4
+#define RAC1_CARD_ACTIVE 0xC8
+#define RAC1_CARD_OPERATION 0xDC
+#define RAC1_CARD_PENDING 0xE4
+#define RAC1_CARD_PENDING_CARD 0xE8
+#define RAC1_CARD_SAVING 0xFC
+
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
 /* The pause menu mobys' update at 0x0023B578: the decompilation has C for it (func_0023B578) since the
  * remnant in front of it was split off. */

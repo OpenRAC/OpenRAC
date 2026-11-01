@@ -19,6 +19,11 @@ import {
   mockControlsView,
 } from "./mockControls";
 import type { ActionView } from "./generated/ActionView";
+import type { Applied } from "./generated/Applied";
+import type { ModProfile } from "./generated/ModProfile";
+import type { Review } from "./generated/Review";
+import type { SharePreview } from "./generated/SharePreview";
+import type { Shared } from "./generated/Shared";
 import type { BuildInfo } from "./generated/BuildInfo";
 import type { Check } from "./generated/Check";
 import type { Config } from "./generated/Config";
@@ -245,6 +250,7 @@ let config: Config = {
   crashesSeen: {},
   discChoice: {},
   multiplayerName: "BraveLombax42",
+  multiplayerKey: "0123456789abcdef0123456789abcdef",
 };
 
 const query = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
@@ -535,6 +541,94 @@ function findAction(scope: Scope, id: string): RawAction | undefined {
 // ?editor=reading has no levels yet; with ?progress=<step>:<done>/<total>[:<level>] the next
 // editor job (read, export again, pack, read the game's levels) stops at that count and runs on,
 // e.g. ?editor=reading&progress=read:3/18:4 then "Read the levels and open".
+/** Mod codes in the browser: a saved set exists once one was applied. */
+let mockCodeApplied = false;
+
+function mockSharePreview(): SharePreview {
+  const m = (id: string, name: string, version: string) => ({ id, name, version });
+  return {
+    mods: [m("multiplayer", "Multiplayer", "0.9.0"), m("difficulty-mod", "Difficulty", "1.4.0")],
+    optional: [m("keyboard-mouse", "Keyboard and mouse", "2.0.1"), m("xbox-icons", "Xbox icons", "1.0.1")],
+    manual: [m("my-tweak", "My tweak", "0.1.0")],
+    solo: [],
+  };
+}
+
+/** A code's review: an entry starting with A already matches, with B asks to trust a source, with
+ *  C is for another game, with D has parts that cannot be applied; any other has a bit of it all. */
+function mockReview(text: string): Review {
+  const line = (id: string, name: string, version: string, action: string, more: Partial<Review["mods"][0]> = {}) => ({
+    id,
+    name,
+    version,
+    action: action as Review["mods"][0]["action"],
+    from: null,
+    source: "OpenRAC/rac1-mods",
+    native: true,
+    optional: false,
+    why: null,
+    nearest: null,
+    fresh: false,
+    published: "2026-10-20T10:00:00Z",
+    ...more,
+  });
+  const base: Review = {
+    set: "{}",
+    code: text.startsWith("ORMS1.") ? null : "K7M2-9QXR",
+    name: "SwiftLombax427's mods",
+    created: "2026-10-31T12:00:00Z",
+    game: "rac1",
+    wrongGame: false,
+    mods: [
+      line("multiplayer", "Multiplayer", "0.9.0", "keep", { from: "0.9.0" }),
+      line("difficulty-mod", "Difficulty", "1.4.0", "update", { from: "1.3.0" }),
+      line("ammo-max", "Ammo max", "1.0.0", "install"),
+      line("keyboard-mouse", "Keyboard and mouse", "2.0.1", "install", { optional: true }),
+    ],
+    disable: [{ id: "lock-strafe", name: "Lock-strafe", version: "1.0.3" }],
+    settings: [{ modName: "Difficulty", name: "Enemy count", from: 1, to: 2 }],
+    manual: [],
+    packs: [],
+    ask: [],
+    otherOpenrac: null,
+    partial: false,
+    nothing: false,
+  };
+  const first = text.trim().toUpperCase()[0];
+  if (first === "A") {
+    return {
+      ...base,
+      mods: [line("multiplayer", "Multiplayer", "0.9.0", "keep", { from: "0.9.0" })],
+      disable: [],
+      settings: [],
+      nothing: true,
+    };
+  }
+  if (first === "B") {
+    const mods = [line("gravity", "Low gravity", "2.1.0", "install", { source: "someone/rac-mods", fresh: true })];
+    return { ...base, mods, ask: [{ url: "https://github.com/someone/rac-mods", label: "someone/rac-mods" }] };
+  }
+  if (first === "C")
+    return { ...base, mods: [], disable: [], settings: [], game: "rac2", wrongGame: true, partial: true };
+  if (first === "D") {
+    return {
+      ...base,
+      mods: [
+        ...base.mods,
+        line("old-thing", "Old thing", "1.2.0", "unavailable", {
+          why: "Version 1.2.0 is gone from its repository.",
+          nearest: "1.3.0",
+        }),
+      ],
+      manual: [{ id: "my-tweak", name: "My tweak", version: "0.1.0" }],
+      packs: ["hd-textures"],
+      otherOpenrac: "0.9.9",
+      partial: true,
+    };
+  }
+  return base;
+}
+
 let mockEditor = query.get("editor") ?? "ready";
 const mockHold = /^([a-z]+):(\d+)\/(\d+)(?::(\d+))?$/.exec(query.get("progress") ?? "");
 
@@ -2299,6 +2393,37 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         mod: { ...mockEnhanced.mod, state: mockEnhanced.mod.enabled ? "ready" : "off" },
       });
     }
+    case "modset_share_preview":
+      return delay<SharePreview>(mockSharePreview());
+    case "modset_share":
+      return delay<Shared>({
+        code: "K7M2-9QXR",
+        long: "ORMS1.eNplkLtuwzAMRX-l4NIlfshR_NAW9AMKFJ0aZKAlyjFiW4YlBygC_3upJktRQAsvr3gueQfrlhEDKLGDCUcCBUeDr_5ldMbDDvRCGMiwXORFmQiR5OIzF0pW6rD_YkP3-LSgFlyZ3msP6gRT8JrrGQc478DNNLGDfXkq-HHnd7463aGPwwenr4kPC1ri3o0W37uJdZHm6Z6Vaz9FW4TNA36z4t26aCbfYV0Gbl1CmL3Ksq4Pl7VNtRuzd6Z-",
+        link: "openrac://modset/K7M2-9QXR",
+      });
+    case "modset_review":
+      return delay<Review>(mockReview(String(args.text)));
+    case "modset_apply":
+      mockCodeApplied = true;
+      return delay<Applied>({
+        profile: "20261031T120000Z",
+        installed: 2,
+        enabled: 2,
+        disabled: 1,
+        skipped: ["by-hand"],
+        ignored: [],
+      });
+    case "modset_profiles":
+      return delay<ModProfile[]>(
+        mockCodeApplied
+          ? [{ id: "20261031T120000Z", code: "K7M2-9QXR", created: "2026-10-31T12:00:00Z", mods: 3 }]
+          : [],
+      );
+    case "modset_restore":
+      mockCodeApplied = false;
+      return delay(null);
+    case "modset_take_link":
+      return delay<string | null>(null);
     case "plugins_list":
       return delay<PluginView[]>(mockPlugins.map((p) => ({ ...p })));
     case "plugins_status":
@@ -2421,6 +2546,16 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         exists: true,
         gameFolderName: "BESCES-50916RATCHET",
         title: "Ratchet & Clank",
+        coopSaves: [
+          {
+            slotIndex: 0,
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET-coop/save0.bin`,
+            bolts: 4200,
+            planetName: "Novalis",
+            timestamp: "2026-10-30 21:14:02",
+            host: "Kero",
+          },
+        ],
         slots: [
           {
             slotIndex: 0,

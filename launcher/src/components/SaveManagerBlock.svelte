@@ -177,6 +177,24 @@
       <p class="muted">No saves on this card yet: they show here once you have saved in the game.</p>
     {/if}
 
+    {#if status.coopSaves.length}
+      <!-- A party's saves: never the player's own slots. They are hosted from the game's Multiplayer page. -->
+      <h4 class="coop-title">Co-op saves</h4>
+      <p class="muted">From your parties. Your own saves above are left as they are.</p>
+      <ul class="slots">
+        {#each status.coopSaves as slot (slot.slotIndex)}
+          <li>
+            <span class="slot">Co-op {slot.slotIndex + 1}</span>
+            <span class="planet">{slot.planetName ?? "Unknown planet"}</span>
+            <span class="bolts"><Icon name="bolt" size={14} />{grouped(slot.bolts ?? 0)}</span>
+            <span class="when">{saved(slot.timestamp)}</span>
+            <span class="modded" title="Whose party this was">{slot.host ?? ""}</span>
+            <span></span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
     <div class="backups">
       <div class="row">
         <button
@@ -265,6 +283,11 @@
   }
 
   /* One used slot per row, the columns aligned down the list. */
+  .coop-title {
+    margin: 16px 0 2px;
+    font-size: inherit;
+  }
+
   .slots li {
     display: grid;
     grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, auto) auto auto;

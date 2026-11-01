@@ -7,7 +7,10 @@
 // settings, frame and pad callbacks, a mod's own refusal, an unknown hook point and a wrong
 // signature, status.json, and the slots left null when nothing loads.
 
+#include <array>
+#include <cmath>
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
@@ -79,7 +82,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.10",
+    const std::string& api = "1.12",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -102,6 +105,9 @@ void install(
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
                                   {"value": "developer_menu", "name": "Developer menu"},
+                                  {"value": "rules", "name": "Rules"},
+                                  {"value": "twelve", "name": "Twelve"},
+                                  {"value": "hud", "name": "Hud"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"}]},
@@ -126,6 +132,7 @@ mods::Host host(const fs::path& plugins) {
 // five levels, a hero in state 7, figures alive until the next load (the loader checks), saves in
 // <cards>/SAVES whose first byte is 'S' and second the level, and what the game was asked to do.
 int g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+int g_live_picture = -1;
 std::uint32_t g_loads = 1;
 std::vector<std::string> g_played;
 const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eudora"};
@@ -148,6 +155,19 @@ void reset_world() {
 std::int32_t slot_at(gaddr moby) {
     return static_cast<std::int32_t>((moby - 0x3000) / 0x100);
 }
+
+// What the game was asked of hero_place: the position's x, the yaw, the flags.
+std::array<float, 3> g_placed{};
+// What the game was asked of hero_revive: the position's x (-1 none), the flags.
+std::array<float, 2> g_revived{};
+
+// The game's camera scripts: starts and ends still to tell, a script running, what was asked, and
+// what a mod heard.
+int g_script_events = 0;
+int g_script_on = 0;
+std::int32_t g_script_asked = -9;
+float g_script_shown = 0.0f;
+std::vector<std::pair<int, int>> g_script_heard;
 
 const openrac_game_play kPlay = {
     5,
@@ -303,6 +323,61 @@ const openrac_game_play kPlay = {
         out[1] = out[2] = 0.0f;
         return 1;
     },
+    nullptr,
+    nullptr,
+    nullptr,
+    "test-world-1",
+    [](int level) { return level == 4 ? 0xABCDu : 0u; },
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    [](int on) { g_live_picture = on; },
+    [](const float position[3], float yaw, std::uint32_t flags) {
+        g_placed = {position[0], yaw, static_cast<float>(flags)};
+        return position[0] < 100.0f ? 1 : 0;
+    },
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    [](const float position[3], std::uint32_t flags) {
+        g_revived = {position != nullptr ? position[0] : -1.0f, static_cast<float>(flags)};
+        return flags != OPENRAC_REVIVE_HOLD + 8u ? 1 : 0;
+    },
+    [](std::int32_t slot) { return slot == 7 ? 3 : -1; },
+    [](std::int32_t* id, std::int32_t* started) {
+        if (g_script_events == 0) {
+            return 0;
+        }
+        *id = 737;
+        *started = --g_script_events;
+        return 1;
+    },
+    [](float eye[3], float rotation[3], float where[3], std::int32_t* stand_in) {
+        eye[0] = rotation[0] = where[0] = 2.0f;
+        *stand_in = 1;
+        return g_script_on;
+    },
+    [](std::int32_t id) {
+        g_script_asked = id;
+        return id != 0 ? 1 : 0;
+    },
+    [](const float eye[3], const float[3]) {
+        g_script_shown = eye[0];
+        return 1;
+    },
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    [](const float from[3], const float to[3], int* blocked) {
+        *blocked = from[0] < to[0] ? 1 : 0;
+        return from[1] != 0.0f ? 0 : 1;
+    },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -420,7 +495,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.10", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.12", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -529,6 +604,157 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::run_menu_page(1, frame));  // no such page: closed
     mods::reset();
     CHECK(mods::menu_entry_count() == 0);
+}
+
+// The mods a party has to agree on (interface 1.11): the mods loaded and their settings as read this
+// run, the rules a mod publishes and the host's it takes, the replay switch.
+void a_party_reads_the_mods(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "rules", "tag": 7}},
+        {"id": "test-b", "enabled": true}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.api_minor >= 11 && api.mod_count() == 2);
+    openrac_mod_entry entry{};
+    entry.size = sizeof entry;
+    CHECK(api.mod_entry(0, &entry) == OPENRAC_HOOK_OK);
+    CHECK(std::string(entry.id) == "test-a" && std::string(entry.version) == "1.0.0");
+    CHECK(entry.party == OPENRAC_PARTY_MOD_GAMEPLAY && entry.settings == 3);
+    CHECK(api.mod_entry(2, &entry) == OPENRAC_HOOK_UNKNOWN);
+    openrac_mod_setting setting{};
+    setting.size = sizeof setting;
+    CHECK(api.mod_setting(0, 0, &setting) == OPENRAC_HOOK_OK);
+    CHECK(std::string(setting.key) == "tag" && std::string(setting.value) == "7" && !setting.is_default);
+    CHECK(api.mod_setting(0, 1, &setting) == OPENRAC_HOOK_OK);
+    CHECK(std::string(setting.value) == "rules" && std::string(setting.shown) == "Rules");
+    CHECK(api.mod_setting(1, 0, &setting) == OPENRAC_HOOK_OK);
+    CHECK(std::string(setting.value) == "0" && setting.is_default);
+    CHECK(api.mod_setting(0, 3, &setting) == OPENRAC_HOOK_UNKNOWN);
+
+    // What it published (a blob too big is refused, what was there stays); nothing from the other.
+    char blob[8] = {};
+    std::uint32_t version = 0;
+    CHECK(api.party_rules_read(0, blob, sizeof blob, &version) == 3);
+    CHECK(std::string(blob) == "abc" && version == 1);
+    CHECK(std::string(api.party_rules_text(0)) == "Bolts x2");
+    CHECK(api.party_rules_read(1, blob, sizeof blob, &version) == -1);
+
+    // The host's reach the one that listens, and only it.
+    CHECK(api.party_rules_deliver(0, "xy", 2) == OPENRAC_HOOK_OK);
+    CHECK(api.party_rules_deliver(0, nullptr, 0) == OPENRAC_HOOK_OK);
+    CHECK(api.party_rules_deliver(1, "xy", 2) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.party_rules_deliver(7, "xy", 2) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(std::count(g_records.begin(), g_records.end(), 7000 + 20 + ('x' - 'a')) == 1);
+    CHECK(std::count(g_records.begin(), g_records.end(), 7000) == 1);
+
+    CHECK(api.party_replaying() == 0);
+    api.party_replay(1);
+    CHECK(api.party_replaying() == 1);
+    api.party_replay(0);
+    mods::reset();
+}
+
+// The calls of interface 1.12 are in the table, and each answers "unknown" for now, to a mod that
+// loads against the real table (the test mod's "twelve" checks every one).
+void the_1_12_slots_answer_unknown(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "twelve"}},
+        {"id": "test-b", "enabled": false}]})");
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.api_minor >= 12 && api.size >= offsetof(openrac_api, card_note_read) + sizeof(void*));
+    mods::reset();
+}
+
+std::vector<std::string> g_copied;
+
+void set_key(const char* key) {
+#ifdef _WIN32
+    _putenv_s("OPENRAC_IDENTITY_KEY", key);
+#else
+    setenv("OPENRAC_IDENTITY_KEY", key, 1);
+#endif
+}
+
+// A party's check of data packs (interface 1.12): only those stack.json says change the game, the
+// strings kept, one number for the same packs; a stack that is gone or broken lists none.
+void a_party_reads_the_data_packs(const fs::path& plugins) {
+    const fs::path stack = plugins / "stack.json";
+    write(stack, R"({"format": 1, "version": "pal", "layers": [
+        {"id": "packed", "name": "your packed levels", "gameplay": true, "digest": "00000002ffff"},
+        {"id": "looks", "name": "HD textures", "gameplay": false},
+        {"id": "walls", "name": "New walls", "gameplay": true, "version": "1.2", "digest": "abcdef01aa"}],
+        "files": {}})");
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    h.stack = stack;
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    openrac_packs_info info{};
+    info.size = sizeof info;
+    CHECK(api.packs_info(&info) == OPENRAC_HOOK_OK && info.count == 2);
+    const std::uint32_t digest = info.digest;
+    openrac_pack_entry entry{};
+    entry.size = sizeof entry;
+    CHECK(api.packs_entry(0, &entry) == OPENRAC_HOOK_OK);
+    CHECK(std::string(entry.id) == "packed" && std::string(entry.name) == "your packed levels" && entry.digest == 2);
+    CHECK(api.packs_entry(1, &entry) == OPENRAC_HOOK_OK);
+    CHECK(std::string(entry.id) == "walls" && std::string(entry.version) == "1.2" && entry.digest == 0xABCDEF01u);
+    CHECK(api.packs_entry(2, &entry) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.packs_entry(-1, &entry) == OPENRAC_HOOK_UNKNOWN);
+    // A caller from before `name` still gets the rest.
+    entry = {};
+    entry.size = offsetof(openrac_pack_entry, name);
+    CHECK(api.packs_entry(1, &entry) == OPENRAC_HOOK_OK && entry.name == nullptr && entry.digest == 0xABCDEF01u);
+    mods::reset();
+
+    mods::Host other = host(plugins);
+    write(plugins / "stack2.json", R"({"layers": [{"id": "walls", "name": "New walls", "gameplay": true,
+        "version": "1.2", "digest": "abcdef01aa"}]})");
+    other.stack = plugins / "stack2.json";
+    CHECK(mods::load(other) == "test-a 1.0.0");
+    info = {};
+    info.size = sizeof info;
+    CHECK(mods::api_for_tests().packs_info(&info) == OPENRAC_HOOK_OK && info.count == 1 && info.digest != digest);
+    mods::reset();
+
+    write(plugins / "stack3.json", "{ not json");
+    other.stack = plugins / "stack3.json";
+    CHECK(mods::load(other) == "test-a 1.0.0");
+    info = {};
+    info.size = sizeof info;
+    CHECK(mods::api_for_tests().packs_info(&info) == OPENRAC_HOOK_OK && info.count == 0);
+    mods::reset();
+}
+
+// The clipboard and the launcher's key (interface 1.12).
+void a_mod_copies_and_knows_the_key(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(mods::api_for_tests().clipboard_set("K7M2-9QXR") == OPENRAC_HOOK_UNKNOWN);
+    mods::reset();
+
+    h.set_clipboard = [](const char* text) {
+        g_copied.emplace_back(text);
+        return true;
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.clipboard_set(nullptr) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.clipboard_set("K7M2-9QXR") == OPENRAC_HOOK_OK);
+    CHECK(g_copied.size() == 1 && g_copied[0] == "K7M2-9QXR");
+
+    char key[33] = {};
+    set_key("");
+    CHECK(api.identity_key(key, sizeof key) == 0);
+    set_key("0123456789abcdef0123456789abcdef");
+    CHECK(api.identity_key(key, sizeof key) == 32 && std::string(key) == "0123456789abcdef0123456789abcdef");
+    // Cut short it would be another key.
+    CHECK(api.identity_key(key, 8) == 0);
+    set_key("");
+    mods::reset();
 }
 
 // A mod-provided desktop menu (interface 1.10): copied strings, queued actions handled at the
@@ -759,6 +985,75 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         openrac_api api{};
         int owner = 0;
         mods::fill_play_api(api, &kPlay, dir / "cards");
+        // The world the disc belongs to, and what a level's games must agree on.
+        char family[32] = {};
+        CHECK(api.world_family(family, sizeof family) == 12 && std::string(family) == "test-world-1");
+        CHECK(api.world_family(family, 12) == 0);
+        std::uint32_t digest = 0;
+        CHECK(api.sim_digest(4, &digest) == OPENRAC_HOOK_OK && digest == 0xABCDu);
+        CHECK(api.sim_digest(5, &digest) == OPENRAC_HOOK_UNKNOWN);
+        // The hero placed: passed on, a refusal said, and a place no game could use not asked.
+        const float place[3] = {3.0f, 4.0f, 5.0f}, far_away[3] = {200.0f, 0.0f, 0.0f};
+        const float nowhere[3] = {NAN, 0.0f, 0.0f};
+        auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+        CHECK(api.hero_place(mod, place, 1.5f, OPENRAC_PLACE_BESIDE) == OPENRAC_HOOK_OK);
+        CHECK(g_placed[0] == 3.0f && g_placed[1] == 1.5f && g_placed[2] == OPENRAC_PLACE_BESIDE);
+        CHECK(api.hero_place(mod, far_away, 0.0f, 0) == OPENRAC_HOOK_UNKNOWN);
+        g_placed = {};
+        CHECK(api.hero_place(mod, nowhere, 0.0f, 0) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.hero_place(mod, place, INFINITY, 0) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(g_placed[0] == 0.0f);
+        // The hero brought back: passed on, a place no game could use not asked, a refusal said.
+        CHECK(api.hero_revive(mod, nullptr, 0) == OPENRAC_HOOK_OK && g_revived[0] == -1.0f);
+        CHECK(api.hero_revive(mod, place, OPENRAC_REVIVE_RESPAWN) == OPENRAC_HOOK_OK);
+        CHECK(g_revived[0] == 3.0f && g_revived[1] == OPENRAC_REVIVE_RESPAWN);
+        g_revived = {};
+        CHECK(api.hero_revive(mod, nowhere, 0) == OPENRAC_HOOK_UNKNOWN && g_revived[0] == 0.0f);
+        CHECK(api.hero_revive(mod, nullptr, OPENRAC_REVIVE_HOLD + 8u) == OPENRAC_HOOK_UNKNOWN);
+        // A mod's call to a dig outside its load comes too late.
+        CHECK(api.on_metal_detect(mod, [](void*, int, int) { return 1; }, nullptr) == OPENRAC_HOOK_TOO_LATE);
+        // A moby's mission beside what moby_list says.
+        std::vector<openrac_moby2> mobys(8);
+        const int listed = api.moby_list2(mobys.data(), 8);
+        for (int i = 0; i < std::min(listed, 8); ++i) {
+            CHECK(mobys[static_cast<std::size_t>(i)].size == sizeof(openrac_moby2));
+            CHECK(mobys[static_cast<std::size_t>(i)].mission == (mobys[static_cast<std::size_t>(i)].slot == 7 ? 3 : -1));
+        }
+        // Camera scripts: heard once a tick, one a mod and only at load; a view only with one
+        // running; a script shown only by the mod that asked, and no bad number passed on.
+        const auto heard = [](void*, int id, int started) { g_script_heard.emplace_back(id, started); };
+        CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_TOO_LATE);
+        mods::play_loading(reinterpret_cast<const openrac_mod*>(mod));
+        CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_OK);
+        CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_TAKEN);
+        mods::play_loading(nullptr);
+        g_script_events = 2;
+        mods::play_update();
+        CHECK((g_script_heard == std::vector<std::pair<int, int>>{{737, 1}, {737, 0}}));
+        float eye[3], turned[3], moby[3];
+        int standing = 0;
+        CHECK(api.camera_script_view(eye, turned, moby, &standing) == OPENRAC_HOOK_UNKNOWN);
+        g_script_on = 1;
+        CHECK(api.camera_script_view(eye, turned, moby, &standing) == OPENRAC_HOOK_OK);
+        CHECK(eye[0] == 2.0f && moby[0] == 2.0f && standing == 1);
+        const float seen[3] = {7.0f, 0.0f, 0.0f};
+        const float none[3] = {NAN, 0.0f, 0.0f};
+        CHECK(api.camera_script_show(mod, seen, seen) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.camera_script_play(mod, -3) == OPENRAC_HOOK_UNKNOWN && g_script_asked == -9);
+        CHECK(api.camera_script_play(mod, 0) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.camera_script_play(mod, 737) == OPENRAC_HOOK_OK && g_script_asked == 737);
+        CHECK(api.camera_script_show(mod, none, seen) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.camera_script_show(mod, seen, seen) == OPENRAC_HOOK_OK && g_script_shown == 7.0f);
+        CHECK(api.camera_script_play(mod, OPENRAC_CAMERA_SCRIPT_CUT) == OPENRAC_HOOK_OK);
+        CHECK(g_script_asked == OPENRAC_GAME_CAMERA_END_CUT);
+        CHECK(api.camera_script_show(mod, seen, seen) == OPENRAC_HOOK_UNKNOWN);
+        const float line_at[3] = {0.0f, 0.0f, 0.0f};
+        const float line_out[3] = {0.0f, 1.0f, 0.0f};
+        int blocked = 0;
+        CHECK(api.level_line(line_at, seen, &blocked) == OPENRAC_HOOK_OK && blocked == 1);
+        CHECK(api.level_line(seen, line_at, &blocked) == OPENRAC_HOOK_OK && blocked == 0);
+        CHECK(api.level_line(line_out, seen, &blocked) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(api.level_line(line_at, seen, nullptr) == OPENRAC_HOOK_UNKNOWN);
         g_phase = OPENRAC_GAME_PHASE_SCENE;
         g_scene = 3;
         CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);
@@ -959,7 +1254,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.10", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.12", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1000,6 +1295,84 @@ void an_old_name_still_binds(const fs::path& plugins) {
     mods::reset();
 }
 
+// Drawing over the game (interface 1.12): the mod's callback only with a level in play, through
+// what the port hands it, and none from a mod taken back. A mod's link: a code's, nothing else.
+std::vector<std::string> g_opened;
+float g_overlay_rect[4];
+
+void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"behaviour": "hud"}}]})");
+    mods::Host h = host(plugins);
+    h.play = &kPlay;
+    h.cards = dir / "cards";
+    CHECK(!mods::overlay_wanted());  // nobody asked yet
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(g_live_picture == 0);  // play_live_picture reaches the game
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    CHECK(!mods::overlay_wanted());
+    g_phase = OPENRAC_GAME_PHASE_MENU;
+    CHECK(!mods::overlay_wanted());
+    g_phase = OPENRAC_GAME_PHASE_SCENE;
+    CHECK(!mods::overlay_wanted());
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(mods::overlay_wanted());
+    openrac_overlay overlay{};
+    overlay.size = sizeof overlay;
+    overlay.project = [](void*, const float world[3], float* x, float* y) {
+        *x = world[0] * 10.0f;
+        *y = world[1] * 10.0f;
+        return 1;
+    };
+    overlay.rect = [](void*, float x, float y, float w, float h, std::uint32_t) {
+        g_overlay_rect[0] = x;
+        g_overlay_rect[1] = y;
+        g_overlay_rect[2] = w;
+        g_overlay_rect[3] = h;
+    };
+    overlay.text_width = [](void*, float height, const char*) { return height / 2.0f; };
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
+    CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
+    mods::reset();
+    CHECK(!mods::overlay_wanted());  // gone with the mods
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+}
+
+void only_a_mod_codes_link_opens(const fs::path& plugins) {
+    CHECK(mods::is_mod_code_link("openrac://modset/K7M2-9QXR"));
+    CHECK(mods::is_mod_code_link("openrac://modset/ORMS1.eJxLTEpOAQAE_Qc-"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/"));
+    CHECK(!mods::is_mod_code_link("openrac://join/K7M29QXR"));
+    CHECK(!mods::is_mod_code_link("https://example.com/"));
+    CHECK(!mods::is_mod_code_link("file:///etc/passwd"));
+    CHECK(!mods::is_mod_code_link("OPENRAC://modset/K7M2-9QXR"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/../../x"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/K7M2 9QXR"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/K7M2?x=y"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/K7M2\n"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/" + std::string(17 * 1024, 'A')));
+
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    h.open_url = [](const char* url) {
+        g_opened.emplace_back(url);
+        return true;
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.open_link("https://example.com/") == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.open_link(nullptr) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_opened.empty());
+    CHECK(api.open_link("openrac://modset/K7M2-9QXR") == OPENRAC_HOOK_OK);
+    CHECK(g_opened.size() == 1 && g_opened[0] == "openrac://modset/K7M2-9QXR");
+    char folder[1024] = {};
+    CHECK(api.plugins_folder(folder, sizeof folder) == static_cast<int>(plugins.string().size()));
+    CHECK(plugins.string() == folder);
+    char small[2] = {};
+    CHECK(api.plugins_folder(small, sizeof small) == 0);
+    mods::reset();
+}
+
 int main() {
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
@@ -1021,6 +1394,12 @@ int main() {
     views_reach_the_host(plugins);
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
+    a_party_reads_the_mods(plugins);
+    the_1_12_slots_answer_unknown(plugins);
+    a_party_reads_the_data_packs(plugins);
+    a_mod_copies_and_knows_the_key(plugins);
+    a_mod_draws_over_the_level(plugins, dir);
+    only_a_mod_codes_link_opens(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);

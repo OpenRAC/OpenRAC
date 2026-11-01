@@ -24,6 +24,8 @@
 //! - [`window`]: the window's size on a screen too small for it.
 //! - [`overrides`]: a game's overrides packs (replacement textures and models): list, order, on/off.
 //! - [`plugins`]: a game's native mods (docs/port/MODS.md): install, list, order, on/off, settings.
+//! - [`modset`]: mod codes, a host's mods at exact versions as a short or long code: review, apply.
+//! - [`profile`]: the way back from a mod code: what the mods were, kept to restore.
 //! - [`reset`]: starting the level editor over: what it removes, checked to stay in OpenRAC's folders.
 //! - [`editor_state`]: where a player is with the level editor: outdated projects, edits not packed, the last update's notes.
 //! - [`library`]: all of the above, put together for the UI.
@@ -54,11 +56,13 @@ pub mod jobs;
 pub mod launcher_log;
 pub mod library;
 pub mod mod_summary;
+pub mod modset;
 pub mod multiplayer;
 pub mod overrides;
 pub mod pcsx2_card;
 pub mod plugins;
 pub mod port_build;
+pub mod profile;
 pub mod progress_sync;
 pub mod remote;
 pub mod reports;

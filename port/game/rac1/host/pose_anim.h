@@ -28,6 +28,15 @@ enum {
     POSE_ANIM_SET       /* is put at the pose's key and time (MobySetAnimation), runs at *speed */
 };
 
+/* The game's ticks a second. The port ticks every disc at 60, whatever the disc's video mode, so a
+ * tick's move means the same on every disc. */
+#define POSE_TICKS_A_SECOND 60
+
+/* A hero's move in a tick (HERO_VELOCITY), a pose's velocity in units a second. */
+static inline float pose_velocity(float move_a_tick) {
+    return move_a_tick * (float)POSE_TICKS_A_SECOND;
+}
+
 typedef struct {
     int frames;   /* the pose's seq's keys */
     int moby_seq; /* the moby's seq, its blend's target seq, key and time to the next key */

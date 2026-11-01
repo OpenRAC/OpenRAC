@@ -87,6 +87,11 @@ pub struct Config {
     /// underscores, made up at the first start and changed in Settings. Given to the game as
     /// `OPENRAC_PLAYER_NAME`.
     pub multiplayer_name: String,
+    /// This installation's key (multiplayer.rs): random, made at the first start and never shown.
+    /// What a host's ban holds on to, so a new name gets round none. Given to the game as
+    /// `OPENRAC_IDENTITY_KEY`.
+    #[serde(default)]
+    pub multiplayer_key: String,
     /// Where the launcher keeps its own copy of the figures it fetched from bytematch.dev: in
     /// the per-user folder beside its settings, which the launcher can always write (a
     /// checkout it does not own, as an installed launcher carries one, is read-only).
@@ -123,6 +128,7 @@ impl Default for Config {
             crashes_seen: BTreeMap::new(),
             disc_choice: BTreeMap::new(),
             multiplayer_name: String::new(),
+            multiplayer_key: String::new(),
             progress_cache: None,
         }
     }

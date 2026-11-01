@@ -14,6 +14,7 @@
 #include <deque>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "openrac/game_host.h"
@@ -66,6 +67,7 @@ struct Host {
     const HookPoint* hooks = nullptr;
     int hook_count = 0;
     std::filesystem::path list;  // plugins.json; the mods' folders are beside it
+    std::filesystem::path stack;  // the stacked data packs' stack.json; empty: none in this run
     bool purist = false;         // --no-mods: nothing is read or loaded
     int (*loaded_level)(void) = nullptr;
     // Where the pad library looks for a callback on each report (game_host.h,
@@ -92,6 +94,11 @@ struct Host {
     // (null: a test's, or no window, and then nothing is drawn).
     void (*menu_rect)(int x, int y, int width, int height, std::uint32_t rgba) = nullptr;
     void (*menu_text)(int x, int y, int size, std::uint32_t rgba, const char* text) = nullptr;
+    // A link handed to the system (interface 1.12; null: a test's, or no window). True when it
+    // went.
+    bool (*open_url)(const char* url) = nullptr;
+    // Puts text on the system clipboard (interface 1.12; null: a test's, or no window).
+    bool (*set_clipboard)(const char* text) = nullptr;
     // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
     bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
     void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;
@@ -138,6 +145,8 @@ void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
 
 // How many mods are loaded.
 int loaded_count();
+// The table the mods are given, for the tests' direct calls.
+const openrac_api& api_for_tests();
 
 // The loaded mods' assets folders (MODS.md, section 3), the last loaded first: a file in one takes
 // the place of the same path in those after it and in the extracted levels.
@@ -163,6 +172,16 @@ std::string play_notice();
 // entry's label ("" past the list).
 int menu_entry_count();
 std::string menu_entry_label(int index);
+
+// Whether `url` is a mod code's link, the only link a mod may have opened: openrac://modset/ and a
+// code, in the characters a code has.
+bool is_mod_code_link(std::string_view url);
+
+// Drawing over the game (interface 1.12): whether a mod draws now (one took on_overlay and the game
+// shows a level, not a menu or a scene), and each such mod's callback with `overlay`. On the window
+// thread, with the frame finished.
+bool overlay_wanted();
+void run_overlays(const openrac_overlay& overlay);
 
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
 // menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).

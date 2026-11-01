@@ -32,6 +32,9 @@
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
+  import { modCode } from "$lib/modCodes.svelte";
+  import ModSetSaved from "./ModSetSaved.svelte";
+  import ModSetShare from "./ModSetShare.svelte";
 
   let {
     version: v,
@@ -239,6 +242,17 @@
     if (reload >= 0 && v.key) void load();
   });
 
+  /** The Share window is open. */
+  let sharing = $state(false);
+
+  // A code applied or a saved set restored (they live above this panel): the list is read again.
+  let seen = modCode.revision;
+  $effect(() => {
+    if (modCode.revision === seen) return;
+    seen = modCode.revision;
+    void load();
+  });
+
   /** A change to the list: the list as it now is, or the reason it was refused, said under the head. */
   async function change(work: Promise<PluginView[]>) {
     try {
@@ -302,6 +316,11 @@
   <section class="panel plugins" aria-label={T.PANEL.title}>
     <div class="head">
       <h2>{T.PANEL.title}</h2>
+      {#if mods.some((m) => m.enabled)}
+        <button class="small share" title={T.MOD_CODES.shareHint} onclick={() => (sharing = true)}
+          ><Icon name="share" size={14} />{T.MOD_CODES.share}</button
+        >
+      {/if}
       {#if hasSources}
         {#if pending > 1}
           <button class="small" disabled={checking || updating !== null} onclick={() => void updateAll()}
@@ -450,8 +469,10 @@
       </ul>
       {#if mods.length > 1}<p class="order" title={T.PANEL.orderTitle}>{T.PANEL.orderTitle}</p>{/if}
     {/if}
+    <ModSetSaved version={v} />
   </section>
 {/if}
+{#if sharing}<ModSetShare version={v} onclose={() => (sharing = false)} />{/if}
 
 <style>
   .plugins {
@@ -468,12 +489,14 @@
     display: flex;
     flex-direction: row;
     align-items: center;
+    flex-wrap: wrap;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px 12px;
   }
 
   h2 {
     font-size: 1rem;
+    margin-right: auto;
   }
 
   /* The Mods switch off: says so above the list, with the way to turn it on. */

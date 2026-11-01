@@ -160,7 +160,11 @@ void openrac_game_draw(unsigned layers) {
     (void)layers;
 }
 
-void openrac_game_world_under_menu(void) {}
+static int worlds_drawn;
+
+void openrac_game_world_under_menu(void) {
+    ++worlds_drawn;
+}
 
 /* No mod hooks the moby loop here. */
 int (*openrac_game_moby_update)(int32_t slot, int phase);
@@ -173,6 +177,22 @@ int (*openrac_game_moby_hit)(
     const float velocity[3]
 );
 
+int rac1_hero_guarded(void) {
+    return 0;
+}
+
+void rac1_hero_guard_begin(void) {}
+
+void rac1_hero_guard_show(int32_t state, int32_t health, uint32_t flags) {
+    (void)state;
+    (void)health;
+    (void)flags;
+}
+
+void rac1_hero_guard_end(gaddr moby) {
+    (void)moby;
+}
+
 void rac1_figure_hit_dropped(const char* what) {
     (void)what;
 }
@@ -180,6 +200,18 @@ void rac1_figure_hit_dropped(const char* what) {
 int rac1_figure_owned(gaddr moby) {
     (void)moby;
     return 0;
+}
+
+/* The metal detector's word: nothing digs here. */
+void rac1_metal_detect(gaddr moby) {
+    (void)moby;
+}
+
+/* The hero let go of a hold a stand-in's script put on him. */
+static int heroes_freed;
+
+void rac1_camera_script_free_hero(void) {
+    ++heroes_freed;
 }
 
 int rac1_level_running(void) {
@@ -195,6 +227,11 @@ int rac1_moby_run(int32_t slot, uint32_t* runs, float camera[3]) {
 
 uint32_t rac1_program_loads(void) {
     return 1;
+}
+
+/* A new moby array comes with a load here (world.c reads the keys once one). */
+uint32_t rac1_moby_generation(void) {
+    return rac1_program_loads();
 }
 
 int rac1_scene_actor(gaddr moby) {
@@ -252,6 +289,20 @@ int main(void) {
     }
     CHECK(level_updates == 265 && queries_off == 0);
 
+    /* The world was drawn under the menu each tick: the live picture behind it. */
+    CHECK(worlds_drawn == 265);
+
+    /* A mod that wants the picture to stand: not drawn, and the mobys go on all the same, under
+     * the level's camera. On again, it is drawn again. */
+    rac1_world_live_picture(0);
+    func_L00_00277A88();
+    CHECK(worlds_drawn == 265 && level_updates == 266);
+    CHECK(GREF(float, OPENRAC_DATA(CAMERA_POSITION)) == 256.0f);
+    rac1_world_live_picture(1);
+    func_L00_00277A88();
+    CHECK(worlds_drawn == 266 && level_updates == 267);
+    level_updates = 265;
+
     /* A freeze dialog the menu opens: the same. */
     func_001FD3E8();
     CHECK(level_updates == 266 && queries_off == 0);
@@ -292,6 +343,33 @@ int main(void) {
     );
     /* A class the level has not: none. */
     CHECK(rac1_world_moby_spawn(14) == -1);
+
+    /* A script's hold put on the hero for a player standing in: let go when the stand-in ends. The
+     * hero who was held already keeps it (his own script's), a state that is no hold is left alone,
+     * and a hero at no health stays down whatever was asked of him. */
+    GREF(int, CONTEXT) = 0;
+    const float there[3] = {1.0f, 2.0f, 3.0f};
+    GREF(int32_t, HERO_HEALTH) = 8;
+    GREF(int32_t, HERO_STATE) = 0;
+    rac1_world_stand_in(there, 0);
+    CHECK(rac1_stand_in_on());
+    GREF(int32_t, HERO_STATE) = 0x72;
+    rac1_stand_in_end(0);
+    CHECK(!rac1_stand_in_on());
+    CHECK(heroes_freed == 1);
+    rac1_world_stand_in(there, 0);
+    rac1_stand_in_end(0); /* held before it, and still */
+    CHECK(heroes_freed == 1);
+    GREF(int32_t, HERO_STATE) = 3;
+    rac1_world_stand_in(there, 0);
+    GREF(int32_t, HERO_STATE) = 0x3D;
+    rac1_stand_in_end(0);
+    CHECK(heroes_freed == 1);
+    GREF(int32_t, HERO_HEALTH) = 0;
+    rac1_world_stand_in(there, 0);
+    GREF(int32_t, HERO_STATE) = 0x72;
+    rac1_stand_in_end(0);
+    CHECK(heroes_freed == 1);
 
     printf("world_menu ok\n");
     return 0;

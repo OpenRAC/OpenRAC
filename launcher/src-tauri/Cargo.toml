@@ -20,11 +20,14 @@ openrac-launcher-core = { path = "../core" }
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2", features = [] }
+# Mod codes from a link (openrac://modset/CODE), on every system.
+tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 
 # Android installs the launcher from the APK, and updates it with its own updater (src/android.rs).
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2.14"
-# One launcher at a time: a second start shows the first one's window (src/lib.rs, run).
-tauri-plugin-single-instance = "2"
+# One launcher at a time: a second start shows the first one's window (src/lib.rs, run), and hands
+# it the link it was started with.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

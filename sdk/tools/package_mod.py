@@ -361,6 +361,11 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         if dup:
             errors.append(f"settings: a key twice ({', '.join(sorted(map(str, dup)))})")
         _check_presets(m.get("presets"), {s["key"]: s for s in settings if isinstance(s, dict) and "key" in s}, errors)
+    if m.get("multiplayer", "gameplay") not in ("gameplay", "input", "cosmetic", "solo"):
+        errors.append("multiplayer: gameplay, input, cosmetic or solo")
+    for s in settings if isinstance(settings, list) else []:
+        if isinstance(s, dict) and s.get("multiplayer", "own") not in ("own", "host"):
+            errors.append(f"setting {s.get('key')}: multiplayer is own or host")
     _check_refs("requires", m.get("requires", []), errors, True)
     _check_refs("conflicts", m.get("conflicts", []), errors, False)
     load = m.get("load", {})

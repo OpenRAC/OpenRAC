@@ -19,8 +19,10 @@ use openrac_launcher_core::install;
 use openrac_launcher_core::jobs::{Event, Jobs, Started};
 use openrac_launcher_core::launcher_log;
 use openrac_launcher_core::library::{self, Library};
+use openrac_launcher_core::modset;
 use openrac_launcher_core::overrides::{self, PackView};
 use openrac_launcher_core::plugins::{self, Installed, PluginView};
+use openrac_launcher_core::profile;
 use openrac_launcher_core::remote;
 use openrac_launcher_core::reports::{self, ReportEntry};
 use openrac_launcher_core::reset;
@@ -35,6 +37,8 @@ struct AppState {
     discord: Arc<Mutex<DiscordState>>,
     /// The copy of OpenRAC this launcher carries, if it was built with one (detect::bundled_root).
     bundled: Option<PathBuf>,
+    /// A mod code's link that came before the page could listen (modset_take_link).
+    modset_link: Arc<Mutex<Option<String>>>,
 }
 
 struct DiscordState {
@@ -1382,6 +1386,101 @@ struct UpdateCheck {
     errors: Vec<String>,
 }
 
+/// A game's mod codes (core/src/modset.rs): what sharing would hold, making a code, what a code would
+/// change, applying it, and the saved sets to go back to.
+#[tauri::command]
+async fn modset_share_preview(state: State<'_, AppState>, game: String) -> Result<modset::SharePreview, String> {
+    on_plugins(state, &game, modset::share_preview).await
+}
+
+#[tauri::command]
+async fn modset_share(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    extras: Vec<String>,
+) -> Result<modset::Shared, String> {
+    let (player, install) = {
+        let config = state.config.lock().unwrap();
+        (config.multiplayer_name.clone(), config.install_dir.clone())
+    };
+    let name = if openrac_launcher_core::multiplayer::is_valid(&player) {
+        format!("{player}'s mods")
+    } else {
+        "Shared mods".to_string()
+    };
+    let packs_dir = install.map(|i| overrides::dir(&i, &game));
+    let g = game.clone();
+    on_plugins(state, &game, move |dir| {
+        // Packs a code names and cannot fetch: the ones that are on, by a name it can carry.
+        let packs = packs_dir
+            .and_then(|d| overrides::list(&d).ok())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| p.enabled && plugins::valid_id(&p.id))
+            .take(modset::MAX_MODS)
+            .map(|p| modset::SetPack { id: p.id, digest: None })
+            .collect();
+        let set = with_remote(&app, dir, &g, &version, |c| {
+            modset::build(c, &extras, &name, &modset::port_version(dir), packs, &modset::now_utc())
+        })?;
+        modset::share(dir, &modset::HttpStore::default(), &set)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn modset_review(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    text: String,
+) -> Result<modset::Review, String> {
+    let g = game.clone();
+    on_plugins(state, &game, move |dir| {
+        let (set, code) = modset::resolve(&modset::HttpStore::default(), &text)?;
+        with_remote(&app, dir, &g, &version, |c| modset::review(c, &set, code, &modset::port_version(dir)))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn modset_apply(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    set: String,
+    code: Option<String>,
+    choices: modset::Choices,
+) -> Result<modset::Applied, String> {
+    let g = game.clone();
+    on_plugins(state, &game, move |dir| {
+        with_remote(&app, dir, &g, &version, |c| {
+            modset::apply(c, &set, code.as_deref(), &choices, &modset::port_version(dir), &modset::now_utc())
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+async fn modset_profiles(state: State<'_, AppState>, game: String) -> Result<Vec<profile::View>, String> {
+    on_plugins(state, &game, |dir| Ok(profile::list(dir))).await
+}
+
+#[tauri::command]
+async fn modset_restore(state: State<'_, AppState>, game: String, id: String) -> Result<(), String> {
+    on_plugins(state, &game, move |dir| modset::restore(dir, &id)).await
+}
+
+/// The link that opened the launcher, once: the page asks when it is ready for it.
+#[tauri::command]
+fn modset_take_link(state: State<'_, AppState>) -> Option<String> {
+    state.modset_link.lock().unwrap().take()
+}
+
 #[tauri::command]
 async fn plugins_check_updates(
     app: AppHandle,
@@ -1720,6 +1819,13 @@ pub fn run() {
             plugins_install,
             plugins_mod_folders,
             plugins_status,
+            modset_share_preview,
+            modset_share,
+            modset_review,
+            modset_apply,
+            modset_profiles,
+            modset_restore,
+            modset_take_link,
             plugins_preview,
             plugins_install_remote,
             plugins_check_updates,
@@ -1786,8 +1892,8 @@ fn prepare_environment() {
     }
 }
 
-/// The launcher's plugins, registered in this order: one instance, the file dialogs, the system's
-/// opener, the launcher's own updates on a desktop, and on Android the app's own plugin
+/// The launcher's plugins, registered in this order: one instance, links, the file dialogs, the
+/// system's opener, the launcher's own updates on a desktop, and on Android the app's own plugin
 /// (android.rs).
 fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     // A second start while the launcher is open shows the open one's window and goes. Registered
@@ -1802,7 +1908,10 @@ fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             let _ = window.set_focus();
         }
     }));
-    let builder = builder.plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_opener::init());
+    let builder = builder
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init());
     #[cfg(desktop)]
     let builder = builder.plugin(
         tauri_plugin_updater::Builder::new()
@@ -1840,8 +1949,45 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let discord = start_discord(&config);
     start_log(app, config_file.as_deref());
     migrate_install_saves(&config);
-    app.manage(AppState { config: Mutex::new(config), config_file, jobs: Jobs::default(), discord, bundled });
+    let modset_link = Arc::new(Mutex::new(None));
+    listen_for_links(app, &modset_link);
+    app.manage(AppState {
+        config: Mutex::new(config),
+        config_file,
+        jobs: Jobs::default(),
+        discord,
+        bundled,
+        modset_link,
+    });
     Ok(())
+}
+
+/// A mod code's link (openrac://modset/CODE) goes to the page, which opens the review: never more
+/// than that. One that came with the launcher's start waits for the page to ask (modset_take_link).
+/// On Linux and Windows a build outside the installers' reach (an AppImage, a portable copy) tells
+/// the system of the scheme here; macOS and Android take it from the app's bundle.
+fn listen_for_links(app: &tauri::App, pending: &Arc<Mutex<Option<String>>>) {
+    use tauri_plugin_deep_link::DeepLinkExt;
+    #[cfg(any(target_os = "linux", windows))]
+    let _ = app.deep_link().register_all();
+    let keep = |urls: Vec<String>| urls.into_iter().find(|u| u.starts_with(modset::LINK_PREFIX));
+    if let Some(link) =
+        app.deep_link().get_current().ok().flatten().and_then(|u| keep(u.iter().map(ToString::to_string).collect()))
+    {
+        *pending.lock().unwrap() = Some(link);
+    }
+    let (handle, pending) = (app.handle().clone(), pending.clone());
+    app.deep_link().on_open_url(move |event| {
+        let Some(link) = keep(event.urls().iter().map(ToString::to_string).collect()) else { return };
+        *pending.lock().unwrap() = Some(link);
+        let _ = handle.emit("modset-link", ());
+        #[cfg(desktop)]
+        if let Some(window) = handle.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    });
 }
 
 /// The menu entry and icons the desktop finds the launcher by, and Discord's socket where a

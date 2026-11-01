@@ -4,7 +4,7 @@
  * gameplay header it named gets at least 768 spare slots as its decompression ends (but on the
  * three levels whose heap has no room); nothing else
  * that is decompressed changes, nor the header outside a run, and the loader's argument and result
- * pass through. And the tick's run list keeps its target list to 511 mobys, the rest still run.
+ * pass through, and each run is told as a new moby array. And the tick's run list keeps its target list to 511 mobys, the rest still run.
  * With fix_bigger_moby_pool off, the disc's count stays and the list runs on as on a console. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +27,13 @@
 enum {
     RAM = 0x400000
 };
+
+/* Each run of the loader is a new moby array (boot.c's generation). */
+static int rebuilt;
+
+void rac1_mobys_rebuilt(void) {
+    ++rebuilt;
+}
 
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE; /* the console's 32 MiB arena */
@@ -116,6 +123,8 @@ static void check_map_spawn(void) {
     const gaddr hero = first + 0x78;
     header(HEADER, 2, 256);
     memset(G(first), 0, 2 * 0x78);
+    GREF(int, first) = 0x78;
+    GREF(int, hero) = 0x78;
     GREF(int, first + 0x18) = 500;
     GREF(float, first + 0x30) = 99.0f;
     GREF(float, hero + 0x30) = 132.0f;
@@ -124,9 +133,14 @@ static void check_map_spawn(void) {
     g_header = HEADER;
     rac1_wad_decompressed(HEADER);
     CHECK(GREF(float, hero + 0x30) == 132.0f); /* another level is untouched */
+    /* The level's sim digest, of the records as they came, for that level alone. */
+    const uint32_t digest = rac1_sim_digest(8);
+    CHECK(digest != 0 && rac1_sim_digest(map.level) == 0);
     GREF(int, 0x0015EE84u) = map.level;
     g_header = HEADER;
     rac1_wad_decompressed(HEADER);
+    /* Read before a map's spawn moves the hero's record. */
+    CHECK(rac1_sim_digest(map.level) == digest && rac1_sim_digest(8) == 0);
     CHECK(GREF(float, first + 0x30) == 99.0f); /* other classes are untouched */
     for (unsigned axis = 0; axis < 3; ++axis) {
         CHECK(GREF(float, hero + 0x30 + axis * 4) == map.spawn[axis]);
@@ -195,7 +209,7 @@ int main(void) {
     /* A level's 256 become 768; a WAD decompressed elsewhere in the run keeps its own. */
     shipped = 256;
     CHECK(func_L00_002422D8(1) == 0x01234560u);
-    CHECK(loads == 1 && last_arg == 1);
+    CHECK(loads == 1 && last_arg == 1 && rebuilt == 1);
     CHECK(seen == 768 && other_seen == 256);
     CHECK(GREF(int, HEADER + SECTION) == 1569);
 

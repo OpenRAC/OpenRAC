@@ -43,6 +43,7 @@
 #include "game/common/frontend/scene_frame_internal.h"
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
+#include "mod_overlay.h"
 #include "openrac/game_host.h"
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
@@ -477,6 +478,7 @@ void present_frame(FramePresentation& output) {
     // The window thread's own parts of a frame, measured apart (performance captures).
     {
         const stats::Scope menus("menus");
+        mod_overlay::draw(output.camera, output.has_camera, shown, width, height, aspect);
         debug_menu::draw(shown, width, height);
         mod_menu::draw(shown, width, height);
         if (settings::get().show_fps != settings::FrameCounter::Off) {

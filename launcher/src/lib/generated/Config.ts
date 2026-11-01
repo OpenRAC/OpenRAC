@@ -125,4 +125,10 @@ discChoice: { [key in string]: string },
  * underscores, made up at the first start and changed in Settings. Given to the game as
  * `OPENRAC_PLAYER_NAME`.
  */
-multiplayerName: string, };
+multiplayerName: string, 
+/**
+ * This installation's key (multiplayer.rs): random, made at the first start and never shown.
+ * What a host's ban holds on to, so a new name gets round none. Given to the game as
+ * `OPENRAC_IDENTITY_KEY`.
+ */
+multiplayerKey: string, };

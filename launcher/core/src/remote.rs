@@ -208,6 +208,9 @@ struct Release {
     prerelease: bool,
     #[serde(default)]
     assets: Vec<Asset>,
+    /// When it was published: what a mod code's review shows.
+    #[serde(default)]
+    published_at: Option<String>,
 }
 
 impl Release {
@@ -740,6 +743,10 @@ pub struct ModSource {
     /// Kept at this version: no update is offered.
     #[serde(default)]
     pub pin: bool,
+    /// The SHA-256 of its release's `SHA256SUMS`, when a mod code installed it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub sums: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ts_rs::TS)]
@@ -962,6 +969,7 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
             commit: preview.commit.clone(),
             kind: m.kind.clone(),
             pin,
+            sums: None,
         },
     );
     write_sources(ctx.dir, &sources)?;
@@ -1035,6 +1043,294 @@ pub fn update(ctx: &Context, id: &str) -> Result<RemoteInstalled, String> {
         return Err(format!("{id} is kept at {}: let it update first", s.version));
     }
     install(ctx, &s.url, id)
+}
+
+// ---- A mod at an exact version ----------------------------------------------------------------
+
+/// The newest archives kept in the cache, in bytes, before the oldest go.
+const CACHE_BYTES: u64 = 512 * 1024 * 1024;
+
+/// One mod a mod code names (modset.rs): never "the newest", always this version of it, from a
+/// release's `tag` whose `SHA256SUMS` hashes to `sums`, or from a `commit`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pin {
+    pub url: String,
+    pub path: String,
+    pub id: String,
+    pub version: String,
+    pub tag: Option<String>,
+    pub commit: Option<String>,
+    pub sums: Option<String>,
+}
+
+/// Why a pinned mod cannot be had.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PinError {
+    /// The release or the commit is not there any more.
+    Gone,
+    /// It is there, and is not what the code was made from: a retag, a rebuilt release.
+    Changed,
+    /// It is what the code names, and cannot run here: the words say why.
+    Unfit(String),
+    /// It could not be read now (no network, GitHub's limit).
+    Failed(String),
+}
+
+/// A pinned mod as read, nothing downloaded yet: what the review shows and the install needs.
+#[derive(Debug, Clone)]
+pub struct Pinned {
+    pub pin: Pin,
+    pub name: String,
+    /// "native" or "script".
+    pub kind: String,
+    pub manifest: Manifest,
+    /// When its release was published.
+    pub published: Option<String>,
+    /// The archive to fetch: its name, its address and, from the release's `SHA256SUMS`, its hash.
+    asset: Option<(String, String, String)>,
+    /// The address of the repository's archive, when there is no release to fetch from.
+    zipball: Option<String>,
+}
+
+/// What the download of a pinned mod left: checked, not installed yet.
+pub struct Staged {
+    _scratch: plugins::Scratch,
+    path: std::path::PathBuf,
+}
+
+fn github_parts(url: &str) -> Result<(String, String), String> {
+    match parse_url(url)? {
+        Source::GitHub { owner, repo, reference: None, tag: None } => Ok((owner, repo)),
+        _ => Err(format!("{url} is not a repository on GitHub")),
+    }
+}
+
+/// An error of the fetcher: "not found" and every other failure are different stories to tell.
+fn pin_fetch_error(e: String) -> PinError {
+    if e.ends_with("not found") {
+        PinError::Gone
+    } else {
+        PinError::Failed(e)
+    }
+}
+
+/// Reads what `pin` names with as few of GitHub's requests as can be: one to the API for its
+/// release, which the anonymous limit (60 an hour) counts, and raw files, which it does not. No
+/// list of releases and no tree: a code of ten mods from one repository must not read it ten times.
+pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
+    let (owner, repo) = github_parts(&pin.url).map_err(PinError::Failed)?;
+    let (at, release) = match (&pin.tag, &pin.commit) {
+        (Some(tag), _) => {
+            let bytes = ctx
+                .fetch
+                .get(&format!("{}/repos/{owner}/{repo}/releases/tags/{tag}", ctx.hosts.api), true)
+                .map_err(pin_fetch_error)?;
+            let release: Release = json(&bytes, "the release").map_err(PinError::Failed)?;
+            (tag.clone(), Some(release))
+        }
+        (None, Some(commit)) => (commit.clone(), None),
+        (None, None) => return Err(PinError::Failed(format!("{} names no version to fetch", pin.id))),
+    };
+    let manifest_path = if pin.path.is_empty() { MANIFEST.to_string() } else { format!("{}/{MANIFEST}", pin.path) };
+    let raw_url = format!("{}/{owner}/{repo}/{at}/{manifest_path}", ctx.hosts.raw);
+    let raw: Value =
+        json(&ctx.fetch.get(&raw_url, false).map_err(pin_fetch_error)?, MANIFEST).map_err(PinError::Failed)?;
+    let described = describe(&raw, &manifest_path, &repo, ctx.game, ctx.version, ctx.platform, &BTreeMap::new())
+        .map_err(|_| PinError::Changed)?;
+    if described.id != pin.id || described.version != pin.version || described.kind == "pack" {
+        return Err(PinError::Changed);
+    }
+    let manifest: Manifest = serde_json::from_value(raw).map_err(|_| PinError::Changed)?;
+    if !described.compatible {
+        return Err(PinError::Unfit(described.why.unwrap_or_default()));
+    }
+    let mut asset = None;
+    let mut published = None;
+    if let Some(release) = &release {
+        published = release.published_at.clone();
+        let sums_asset = release.asset(SUMS).ok_or(PinError::Changed)?;
+        let text = ctx.fetch.get(&sums_asset.browser_download_url, false).map_err(pin_fetch_error)?;
+        if pin.sums.as_deref() != Some(format!("{:x}", Sha256::digest(&text)).as_str()) {
+            return Err(PinError::Changed);
+        }
+        let listed = parse_sums(&String::from_utf8_lossy(&text));
+        let wanted = if described.kind == "native" {
+            let Some(platform) = ctx.platform else {
+                return Err(PinError::Unfit("Native mods are not loaded on this system.".into()));
+            };
+            asset_name(&pin.id, &pin.version, platform)
+        } else {
+            format!("{}-{}.zip", pin.id, pin.version)
+        };
+        match (release.asset(&wanted), listed.get(&wanted)) {
+            (Some(a), Some(hash)) => asset = Some((wanted, a.browser_download_url.clone(), hash.clone())),
+            (Some(_), None) => return Err(PinError::Changed),
+            (None, _) if described.kind == "native" => {
+                return Err(PinError::Unfit("Not built for this computer.".into()))
+            }
+            (None, _) => {}
+        }
+    } else if described.kind == "native" {
+        return Err(PinError::Unfit("A native mod is installed built, from a release.".into()));
+    }
+    let zipball = asset.is_none().then(|| format!("{}/repos/{owner}/{repo}/zipball/{at}", ctx.hosts.api));
+    Ok(Pinned { pin: pin.clone(), name: described.name, kind: described.kind, manifest, published, asset, zipball })
+}
+
+/// The newest version of mod `id` a repository's releases have an archive of, for "ask the host to
+/// update": a release's assets are `<id>-<version>[-<platform>].zip`.
+pub fn newest_release(ctx: &Context, url: &str, id: &str) -> Option<String> {
+    let (owner, repo) = github_parts(url).ok()?;
+    let releases: Vec<Release> =
+        json(&ctx.fetch.get(&format!("{}/repos/{owner}/{repo}/releases?per_page=100", ctx.hosts.api), true).ok()?, "")
+            .ok()?;
+    let prefix = format!("{id}-");
+    let mut best: Option<(String, (u64, u64, u64, bool))> = None;
+    for release in releases.iter().filter(|r| !r.draft && !r.prerelease) {
+        for asset in &release.assets {
+            let Some(rest) = asset.name.strip_prefix(&prefix).and_then(|r| r.strip_suffix(".zip")) else { continue };
+            let version = plugins::PLATFORMS.iter().find_map(|p| rest.strip_suffix(&format!("-{p}"))).unwrap_or(rest);
+            let Some(parsed) = plugins::parse_version(version) else { continue };
+            if best.as_ref().is_none_or(|(_, b)| plugins::compare_versions(parsed, *b).is_gt()) {
+                best = Some((version.to_string(), parsed));
+            }
+        }
+    }
+    best.map(|(version, _)| version)
+}
+
+/// The SHA-256 of a release's `SHA256SUMS`: what a mod code pins a release by. It holds every
+/// platform's hash, so one code serves them all, and a rebuilt release changes it.
+pub fn sums_hash(ctx: &Context, url: &str, tag: &str) -> Result<String, String> {
+    let (owner, repo) = github_parts(url)?;
+    let bytes = ctx.fetch.get(&format!("{}/repos/{owner}/{repo}/releases/tags/{tag}", ctx.hosts.api), true)?;
+    let release: Release = json(&bytes, "the release")?;
+    let asset = release.asset(SUMS).ok_or_else(|| format!("{tag} has no {SUMS}"))?;
+    Ok(format!("{:x}", Sha256::digest(ctx.fetch.get(&asset.browser_download_url, false)?)))
+}
+
+/// `<plugins>/.cache/<sha256>.zip`: an archive a code fetched, kept under its own hash. A file
+/// there is read back only if it still hashes to its name.
+fn cache_file(dir: &Path, hash: &str) -> std::path::PathBuf {
+    dir.join(".cache").join(format!("{hash}.zip"))
+}
+
+fn from_cache(dir: &Path, hash: &str) -> Option<Vec<u8>> {
+    let bytes = std::fs::read(cache_file(dir, hash)).ok()?;
+    (format!("{:x}", Sha256::digest(&bytes)) == hash).then_some(bytes)
+}
+
+/// Keeps an archive by its hash, then takes the least recently written ones away past the limit.
+/// The cache only saves downloads: failing to keep one is no failure.
+fn to_cache(dir: &Path, hash: &str, bytes: &[u8]) {
+    let file = cache_file(dir, hash);
+    let Some(parent) = file.parent() else { return };
+    if std::fs::create_dir_all(parent).is_err() || std::fs::write(&file, bytes).is_err() {
+        return;
+    }
+    let mut kept: Vec<(std::time::SystemTime, u64, std::path::PathBuf)> = std::fs::read_dir(parent)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let meta = e.metadata().ok()?;
+            Some((meta.modified().ok()?, meta.len(), e.path()))
+        })
+        .collect();
+    kept.sort();
+    let mut total: u64 = kept.iter().map(|k| k.1).sum();
+    for (_, size, path) in kept {
+        if total <= CACHE_BYTES || path == file {
+            break;
+        }
+        if std::fs::remove_file(&path).is_ok() {
+            total -= size;
+        }
+    }
+}
+
+/// Downloads a pinned mod (or takes it from the cache) and checks it, without touching the store:
+/// a code's mods are all fetched before the first is installed, so that a failure changes nothing.
+pub fn stage_pinned(ctx: &Context, pinned: &Pinned) -> Result<Staged, String> {
+    std::fs::create_dir_all(ctx.dir).map_err(|e| format!("{}: {e}", ctx.dir.display()))?;
+    let scratch = plugins::Scratch::new(ctx.dir, "code")?;
+    let path = if let Some((name, url, hash)) = &pinned.asset {
+        let bytes = match from_cache(ctx.dir, hash) {
+            Some(bytes) => bytes,
+            None => {
+                let bytes = ctx.fetch.get(url, false)?;
+                if format!("{:x}", Sha256::digest(&bytes)) != *hash {
+                    return Err(format!(
+                        "{name} is not the file the release lists (its SHA-256 differs): it was damaged or changed, and is not installed."
+                    ));
+                }
+                to_cache(ctx.dir, hash, &bytes);
+                bytes
+            }
+        };
+        let inside = manifest_in_zip(&bytes)?;
+        check_inside(&inside, &pinned.pin)?;
+        let file = scratch.0.join(name);
+        std::fs::write(&file, &bytes).map_err(|e| format!("{}: {e}", file.display()))?;
+        file
+    } else {
+        let url = pinned.zipball.as_deref().ok_or("nothing to download")?;
+        let zip = scratch.0.join("repo.zip");
+        std::fs::write(&zip, ctx.fetch.get(url, false)?).map_err(|e| e.to_string())?;
+        let out = scratch.0.join("repo");
+        plugins::unzip(&zip, &out)?;
+        let top = std::fs::read_dir(&out)
+            .map_err(|e| e.to_string())?
+            .flatten()
+            .find(|e| e.path().is_dir())
+            .ok_or("the repository's archive is empty")?
+            .path();
+        let folder = top.join(&pinned.pin.path);
+        let inside: Value =
+            json(&std::fs::read(folder.join(MANIFEST)).map_err(|e| format!("{}: {e}", pinned.name))?, MANIFEST)?;
+        check_inside(&inside, &pinned.pin)?;
+        folder
+    };
+    Ok(Staged { _scratch: scratch, path })
+}
+
+/// A download must hold the mod its manifest in the repository described.
+fn check_inside(manifest: &Value, pin: &Pin) -> Result<(), String> {
+    let text = |k: &str| manifest.get(k).and_then(Value::as_str).unwrap_or_default();
+    if text("id") != pin.id || text("version") != pin.version {
+        return Err(format!(
+            "The download holds {} {}, not {} {}: it is not installed.",
+            text("id"),
+            text("version"),
+            pin.id,
+            pin.version
+        ));
+    }
+    Ok(())
+}
+
+/// Puts a staged mod in the store and remembers exactly what it is.
+pub fn install_staged(ctx: &Context, pinned: &Pinned, staged: &Staged) -> Result<(), String> {
+    match plugins::install(ctx.dir, ctx.game, ctx.version, &staged.path)? {
+        Installed::Plugin { .. } => {}
+        Installed::Pack => return Err(format!("{} is a data pack, not the mod described", pinned.name)),
+    }
+    let mut sources = read_sources(ctx.dir);
+    let pin = sources.mods.get(&pinned.pin.id).is_some_and(|s| s.pin);
+    sources.mods.insert(
+        pinned.pin.id.clone(),
+        ModSource {
+            url: pinned.pin.url.clone(),
+            path: pinned.pin.path.clone(),
+            version: pinned.pin.version.clone(),
+            tag: pinned.pin.tag.clone(),
+            commit: pinned.pin.commit.clone(),
+            kind: pinned.kind.clone(),
+            pin,
+            sums: pinned.pin.sums.clone(),
+        },
+    );
+    write_sources(ctx.dir, &sources)
 }
 
 #[cfg(test)]
@@ -1496,12 +1792,12 @@ mod tests {
         let mut fx3 = Fixture::default();
         repo(
             &mut fx3,
-            &[("openrac-mod.json", script_manifest("swap", "1.0.0").replace("\"1.1\"", "\"1.11\""))],
+            &[("openrac-mod.json", script_manifest("swap", "1.0.0").replace("\"1.1\"", "\"1.13\""))],
             serde_json::json!([]),
             "c1",
         );
         let p = preview(&ctx(dir.path(), &fx3), "https://github.com/o/r").unwrap();
-        assert!(!p.mods[0].compatible && p.mods[0].why.as_deref().unwrap().contains("interface 1.11"));
+        assert!(!p.mods[0].compatible && p.mods[0].why.as_deref().unwrap().contains("interface 1.13"));
     }
 
     #[test]

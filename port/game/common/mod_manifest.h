@@ -52,6 +52,8 @@ struct Setting {
     std::vector<std::string> choices;  // the values of a choice
     std::size_t max_length = 0;        // a string's (0: no limit)
     int binds = 2;                     // a keybind's most binds
+    std::vector<std::string> choice_names;  // the names of a choice's values, in their order
+    int party = 0;                     // "multiplayer": an OPENRAC_PARTY_SETTING_* value
 };
 
 // A keybind's text as names of openrac/keys.h, split at commas or spaces: false when one is no
@@ -91,6 +93,8 @@ struct Manifest {
     // (openrac_api.setup_vulkan), so the mods load before the window opens. Ignored on a script
     // mod or one of an older interface.
     bool vulkan_device = false;
+    // "multiplayer" (interface 1.11): an OPENRAC_PARTY_MOD_* value, gameplay when it says nothing.
+    int party = 0;
 };
 
 // A manifest's text checked by the rules of MODS.md section 3. False, and why, when one is broken.

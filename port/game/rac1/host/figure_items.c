@@ -40,35 +40,29 @@
  * (libraries.tsv): it notes which class each buffer holds, and before a buffer is decoded over, the
  * figures' pieces drawn from it go (the hero's own pieces are the game's). A figure's class not
  * loaded is decoded into the buffer the hero's hand item is not in, and only in play (never under a
- * menu, whose previews and vendor use the buffers), never over another figure's piece; a hand item
- * that cannot be had falls back to the wrench.
+ * menu, whose previews and vendor use the buffers), over another figure's piece only for a figure
+ * nearer the hero (figure_tracks.h); a hand item that cannot be had falls back to the wrench.
  *
- * Shots. The hero's Blaster shots are spawn_homing_shot (func_L00_002CC3C0) with the hero's moby
- * as their owner, his bombs launch_bomb (func_L00_002AE278) of a bomb the glove holds; both wrapped
- * and noted for hero_shots. A figure's shot is the same call with the figure as the owner. A moby
- * whose owner is a figure (a shot's pvars +0x20, a bomb's +0x50) is a figure's: while its update
- * runs (rac1_figure_owned of the moby being updated), the collision queries post no hit records
- * (collision.c), its blast sends no radial message (SendRadialMessageToMobys, func_L00_0025BA50,
- * wrapped) and the hits posted are dropped (world.c).
+ * So one weapon class besides the hero's. More buffers cannot be had: moby_class_resources takes any
+ * address, but a buffer must be in game memory, the heap has no 0x18000 to spare on every level
+ * (moby_pool.c: no room for a bigger pool on levels 5, 6 and 15), and only expanded levels have more
+ * memory than the disc's.
+ *
+ * Shots: figure_shots.c.
  *
  * OPENRAC_ITEMS_DEBUG=1 says on stderr what the hero holds, the pieces made, the classes decoded
  * for figures and the figures' shots.
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "figure_items.h"
+#include "figure_tracks.h"
 #include "openrac/host_env.h"
 #include "rac1.h"
 
-/* The hero (play.c), his item slots, his attach matrices. */
-#define HERO RAC1_ADDR(0x0013F450u)
-#define HERO_MOBY (HERO + 0x2080u)
-#define HERO_SLOTS (HERO + 0x1090u)
-#define SLOT_SIZE 0x50u
-#define SLOT_THROWN 0x1Au
-#define SLOT_ITEM 0x28u
-#define SLOTS 7
 /* The item table, the joint list, the gloves' source joints (level data, level 0's addresses). */
 #define ITEM_DEFS OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00179BC0u))
 #define ITEM_DEF_SIZE 0x4Cu
@@ -80,10 +74,11 @@
 #define JOINT_SIZE 0x40u
 /* A level's game mode (play.c: 0 play) and its moby context (world.c: 0 the level's own). */
 #define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
-#define CONTEXT OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F808u))
 /* The class tables (executable data). */
 #define CLASS_RESOURCES OPENRAC_DATA(RAC1_ADDR(0x001B3580u))
 #define CLASS_SLOT_BY_ID OPENRAC_DATA(RAC1_ADDR(0x001B3E40u))
+#define CLASS_SLOTS 0x800
+#define CLASS_SLOT_NONE 0xFFu
 #define SWAP_IDS OPENRAC_DATA(RAC1_ADDR(0x001CBE40u))
 #define SWAP_COUNT OPENRAC_DATA(RAC1_ADDR(0x00160048u))
 #define DECODE_BUFFER OPENRAC_DATA(RAC1_ADDR(0x00160050u))
@@ -92,40 +87,9 @@
 /* The most classes the swap list has that are looked through. */
 #define SWAP_MAX 64
 
-/* The wrench, the Blaster and the Bomb Glove, their classes and the classes of their shots. */
+/* The wrench and its class (the shots' are in figure_shots.c). */
 #define ITEM_WRENCH 8
-#define ITEM_BOMB_GLOVE 0x0A
-#define ITEM_BLASTER 0x0F
 #define CLASS_WRENCH 0x47
-#define CLASS_HOMING_SHOT 0x131
-#define CLASS_BOMB 0x79
-#define SHOT_OWNER 0x20u
-#define BOMB_OWNER 0x50u
-
-enum {
-    MOBY_POS = 0x10,
-    MOBY_STATE = 0x20,
-    MOBY_CLASS = 0x24,
-    MOBY_UPDATE_DIST = 0x30,
-    MOBY_VISIBLE = 0x31,
-    MOBY_DRAW_DIST = 0x32,
-    MOBY_FLAGS = 0x34,
-    MOBY_COLOUR = 0x38,
-    MOBY_ROT = 0x40,
-    MOBY_FRAME = 0x50,
-    MOBY_SEQ = 0x52,
-    MOBY_ANIM_TIME = 0x54,
-    MOBY_CUR_FRAME = 0x68,
-    MOBY_PREV_FRAME = 0x6C,
-    MOBY_UNK73 = 0x73,
-    MOBY_UPDATE = 0x74,
-    MOBY_PVARS = 0x78,
-    MOBY_LIGHT = 0x80,
-    MOBY_COLLISION = 0x94,
-    MOBY_COLLISION_OFF = 0x98,
-    MOBY_OCLASS = 0xA6,
-    MOBY_MATRIX = 0xC0
-};
 
 /* Moby flags: hidden, not run by the moby loop, matrix not rebuilt, animation not advanced, in the
  * target list. */
@@ -165,14 +129,11 @@ static Record records[RECORDS];
 /* The class each decode buffer holds, as noted by the wrapper (-1 not known), for the load. */
 static int32_t buffer_class[2] = {-1, -1};
 static uint32_t buffer_load = 0xFFFFFFFFu;
+/* The tick each was last decoded for a figure, to keep one from changing hands too often. */
+static uint32_t buffer_taken[2];
+static uint32_t ticks;
 
-/* The shots the hero fired since hero_shots last took them. */
-static openrac_game_shot shots[16];
-static int shot_count;
-/* Set while a figure's shot is made: not the hero's. */
-static int firing_for_figure;
-
-static int debug_items(void) {
+int rac1_figure_items_debug(void) {
     static int on = -1;
     if (on < 0) {
         const char* v = openrac_env_string("OPENRAC_ITEMS_DEBUG");
@@ -191,7 +152,7 @@ static int alive(gaddr moby, int32_t oclass) {
 }
 
 static void buffers_for_load(void) {
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     if (load != buffer_load) {
         buffer_load = load;
         buffer_class[0] = buffer_class[1] = -1;
@@ -291,7 +252,7 @@ static void release_blend_slot(gaddr m) {
 /* Removes record `r`'s moby (when still its own) and frees it; `by_mod`: for the mod's
  * figure_remove (noted as a mod's deletion, moby_kill's way). */
 static void drop_as(Record* r, int by_mod) {
-    if (r->moby != 0 && r->load == rac1_program_loads() && in_level()
+    if (r->moby != 0 && r->load == rac1_moby_generation() && in_level()
         && alive(r->moby, r->piece.oclass)) {
         release_blend_slot(r->moby);
         if (by_mod) {
@@ -334,8 +295,50 @@ void func_00205270(int class_id, int buffer_index) {
     }
 }
 
-/* Whether `oclass` can be drawn now, decoding it when it may be (above). */
-static int have_class(int32_t oclass) {
+static float distance_to_hero(gaddr moby) {
+    const gaddr hero = GREF(gaddr, HERO_MOBY);
+    float sum = 0.0f;
+    for (unsigned c = 0; c < 3; ++c) {
+        const float d = GREF(float, moby + MOBY_POS + 4u * c) - GREF(float, hero + MOBY_POS + 4u * c);
+        sum += d * d;
+    }
+    return sqrtf(sum);
+}
+
+/* Whether `figure` may decode its class over the pieces of another figure in buffer `b`: only one
+ * nearer the hero, so of the players the buffers cannot all hold the nearest keeps its weapon. Those
+ * pieces go, and their figure holds the wrench until it can have its own. */
+static int buffer_free_for(gaddr figure, int b) {
+    const uint32_t load = rac1_moby_generation();
+    const gaddr base = buffer_base(b);
+    gaddr holder = 0;
+    for (int i = 0; i < RECORDS && holder == 0; ++i) {
+        const Record* r = &records[i];
+        if (r->figure != 0 && r->moby != 0 && r->load == load
+            && GREF(gaddr, r->moby + MOBY_CLASS) == base) {
+            holder = r->figure;
+        }
+    }
+    if (holder == 0 || holder == figure) {
+        return holder == 0;
+    }
+    if (!figure_takes_buffer(
+            distance_to_hero(figure), distance_to_hero(holder), ticks - buffer_taken[b]
+        )) {
+        return 0;
+    }
+    for (int i = 0; i < RECORDS; ++i) {
+        Record* r = &records[i];
+        if (r->figure != 0 && r->moby != 0 && r->load == load
+            && GREF(gaddr, r->moby + MOBY_CLASS) == base) {
+            drop(r);
+        }
+    }
+    return 1;
+}
+
+/* Whether `oclass` can be drawn now for `figure`, decoding it when it may be (above). */
+static int have_class(gaddr figure, int32_t oclass) {
     if (!swapped(oclass)) {
         return 1; /* CreateMoby tells (no resources: no class) */
     }
@@ -349,17 +352,13 @@ static int have_class(int32_t oclass) {
         return 0;
     }
     const int b = hb == 0 ? 1 : 0;
-    const gaddr base = buffer_base(b);
-    /* Never over another figure's piece. */
-    for (int i = 0; i < RECORDS; ++i) {
-        const Record* r = &records[i];
-        if (r->figure != 0 && r->moby != 0 && r->load == rac1_program_loads()
-            && GREF(gaddr, r->moby + MOBY_CLASS) == base) {
-            return 0;
-        }
+    /* Never over the piece of a figure that keeps it. */
+    if (!buffer_free_for(figure, b)) {
+        return 0;
     }
+    buffer_taken[b] = ticks;
     func_00205270(oclass, b);
-    if (debug_items()) {
+    if (rac1_figure_items_debug()) {
         fprintf(stderr, "[debug] figure items: class %d decoded into buffer %d\n", oclass, b);
     }
     return swapped_loaded(oclass);
@@ -367,7 +366,7 @@ static int have_class(int32_t oclass) {
 
 /* A piece's moby for `figure`: the figure's look, never run, colliding with nothing; 0 for none. */
 static gaddr make_piece(gaddr figure, const openrac_game_held_piece* p) {
-    if (!have_class(p->oclass)) {
+    if (!have_class(figure, p->oclass)) {
         return 0;
     }
     const int entered = enter_level_context();
@@ -428,7 +427,7 @@ static openrac_game_held_piece wrench_for(const openrac_game_held_piece* p) {
 /* The records of a figure gone, or of an earlier load, are let go (their mobys went with the
  * level, or with the figure). */
 static void forget_stale(void) {
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     for (int i = 0; i < RECORDS; ++i) {
         Record* r = &records[i];
         if (r->figure != 0 && (r->load != load || !rac1_figure_alive(r->figure))) {
@@ -472,12 +471,54 @@ static void animate(gaddr m, const openrac_game_held_piece* p) {
     GREF(uint16_t, m + MOBY_FLAGS) = flags;
 }
 
+int rac1_figure_class_ready(int32_t oclass) {
+    if (oclass <= 0 || oclass >= CLASS_SLOTS
+        || GREF(uint8_t, CLASS_SLOT_BY_ID + (uint32_t)oclass) == CLASS_SLOT_NONE) {
+        return 0;
+    }
+    if (swapped(oclass)) {
+        buffers_for_load();
+        return swapped_loaded(oclass);
+    }
+    return class_resources(oclass) != 0;
+}
+
+gaddr rac1_figure_track_moby(gaddr figure, int32_t oclass) {
+    openrac_game_held_piece p;
+    memset(&p, 0, sizeof p);
+    p.item = -1;
+    p.oclass = oclass;
+    return rac1_figure_class_ready(oclass) ? make_piece(figure, &p) : 0;
+}
+
+/* A moby on no joint: where it is said to be, its matrix built from that. */
+static void place_loose(gaddr m) {
+    func_L00_002514B8(m);
+    func_L00_00251E30(m);
+    func_0020EEE8(m);
+}
+
+void rac1_figure_track_moby_place(gaddr moby, const float* position) {
+    for (unsigned c = 0; c < 3; ++c) {
+        GREF(float, moby + MOBY_POS + 4u * c) = position[c];
+    }
+    place_loose(moby);
+}
+
+void rac1_figure_track_moby_drop(gaddr moby, int32_t oclass) {
+    if (alive(moby, oclass)) {
+        const int entered = enter_level_context();
+        func_0020D678(moby);
+        leave_level_context(entered);
+    }
+}
+
 void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
     if (!in_level() || !rac1_figure_alive(figure)) {
         return;
     }
     forget_stale();
-    const uint32_t load = rac1_program_loads();
+    const uint32_t load = rac1_moby_generation();
     int wanted[RECORDS];
     memset(wanted, 0, sizeof wanted);
     for (int k = 0; k < held->count && k < OPENRAC_GAME_HELD_MAX; ++k) {
@@ -528,7 +569,7 @@ void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
                 r->load = load;
                 r->moby = m;
                 at = free_at;
-                if (debug_items()) {
+                if (rac1_figure_items_debug()) {
                     fprintf(
                         stderr,
                         "[debug] figure items: slot %d part %d item %d class %d on\n",
@@ -557,6 +598,7 @@ void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
 }
 
 void rac1_figure_items_remove(gaddr figure) {
+    rac1_figure_shots_remove(figure);
     for (int i = 0; i < RECORDS; ++i) {
         if (records[i].figure == figure) {
             drop_as(&records[i], 1);
@@ -569,7 +611,9 @@ void rac1_figure_items_tick(void) {
     if (!in_level() || GREF(int32_t, CONTEXT) != 0) {
         return;
     }
-    const uint32_t load = rac1_program_loads();
+    ++ticks;
+    rac1_figure_shots_tick();
+    const uint32_t load = rac1_moby_generation();
     GFRAME(joints, JOINTS * JOINT_SIZE);
     gaddr figure_done = 0;
     for (int i = 0; i < RECORDS; ++i) {
@@ -584,9 +628,7 @@ void rac1_figure_items_tick(void) {
                 GREF(float, m + MOBY_POS + 4u * c) = r->piece.position[c];
                 GREF(float, m + MOBY_ROT + 4u * c) = r->piece.rotation[c];
             }
-            func_L00_002514B8(m);
-            func_L00_00251E30(m);
-            func_0020EEE8(m);
+            place_loose(m);
             continue;
         }
         if (r->figure != figure_done) {
@@ -674,14 +716,14 @@ int rac1_hero_held(openrac_game_held* out) {
             p->anim_speed = GREF(float, m + 0x58);
         }
     }
-    if (debug_items()) {
+    if (rac1_figure_items_debug()) {
         static int32_t told_hand = -2;
         static uint32_t told_load;
         const int32_t hand =
             out->count > 0 && out->pieces[0].slot == 0 ? out->pieces[0].oclass : -1;
-        if (hand != told_hand || told_load != rac1_program_loads()) {
+        if (hand != told_hand || told_load != rac1_moby_generation()) {
             told_hand = hand;
-            told_load = rac1_program_loads();
+            told_load = rac1_moby_generation();
             fprintf(
                 stderr,
                 "[debug] figure items: hero holds %d pieces, hand class %d (item %d, "
@@ -704,159 +746,4 @@ int rac1_hero_held(openrac_game_held* out) {
         }
     }
     return 1;
-}
-
-/* ---- Shots ---- */
-
-static void note_shot(const openrac_game_shot* s) {
-    const int max = (int)(sizeof shots / sizeof shots[0]);
-    if (shot_count == max) {
-        memmove(&shots[0], &shots[1], sizeof shots[0] * (size_t)(max - 1));
-        --shot_count;
-    }
-    shots[shot_count++] = *s;
-}
-
-int rac1_hero_shots(openrac_game_shot* out, int max) {
-    const int n = shot_count < max ? shot_count : max;
-    memcpy(out, shots, sizeof shots[0] * (size_t)n);
-    memmove(&shots[0], &shots[n], sizeof shots[0] * (size_t)(shot_count - n));
-    shot_count -= n;
-    return n;
-}
-
-/* spawn_homing_shot (the Blaster's): the hero's noted. */
-gaddr func_L00_002CC3C0(
-    gaddr owner, gaddr start, gaddr target, float yaw, float pitch, float yaw0, float pitch0
-) {
-    if (!firing_for_figure && owner != 0 && owner == GREF(gaddr, HERO_MOBY)) {
-        openrac_game_shot s;
-        memset(&s, 0, sizeof s);
-        s.item = ITEM_BLASTER;
-        for (unsigned c = 0; c < 3; ++c) {
-            s.position[c] = GREF(float, start + 4u * c);
-        }
-        s.aim[0] = yaw;
-        s.aim[1] = pitch;
-        s.aim[2] = yaw0;
-        s.aim[3] = pitch0;
-        note_shot(&s);
-    }
-    return func_L00_002CC3C0__game(owner, start, target, yaw, pitch, yaw0, pitch0);
-}
-
-/* launch_bomb: a bomb the hero's glove throws noted, with its velocity as launched. */
-void func_L00_002AE278(gaddr pos, gaddr bomb, gaddr velocity) {
-    func_L00_002AE278__game(pos, bomb, velocity);
-    if (firing_for_figure || bomb == 0) {
-        return;
-    }
-    const gaddr pvars = GREF(gaddr, bomb + MOBY_PVARS);
-    const gaddr hand = GREF(gaddr, HERO_SLOTS);
-    if (pvars == 0 || hand == 0 || GREF(gaddr, pvars + BOMB_OWNER) != hand) {
-        return;
-    }
-    openrac_game_shot s;
-    memset(&s, 0, sizeof s);
-    s.item = ITEM_BOMB_GLOVE;
-    for (unsigned c = 0; c < 3; ++c) {
-        s.position[c] = GREF(float, bomb + MOBY_POS + 4u * c);
-        s.velocity[c] = GREF(float, pvars + 4u * c);
-    }
-    note_shot(&s);
-}
-
-int rac1_figure_shot(gaddr figure, const openrac_game_shot* shot) {
-    if (!in_level() || !rac1_figure_alive(figure) || GREF(int32_t, CONTEXT) != 0) {
-        return 0;
-    }
-    GFRAME(v, 32);
-    for (unsigned c = 0; c < 4; ++c) {
-        GREF(float, v + 4u * c) = c < 3 ? shot->position[c] : 1.0f;
-        GREF(float, v + 0x10u + 4u * c) = c < 3 ? shot->velocity[c] : 0.0f;
-    }
-    int made = 0;
-    firing_for_figure = 1;
-    switch (shot->item) {
-        case ITEM_BLASTER:
-            made = func_L00_002CC3C0(
-                       figure, v, 0, shot->aim[0], shot->aim[1], shot->aim[2], shot->aim[3]
-                   )
-                   != 0;
-            break;
-        case ITEM_BOMB_GLOVE: {
-            const gaddr bomb = func_L00_002AE110((int)figure, v);
-            if (bomb != 0) {
-                func_L00_002AE278(v, bomb, v + 0x10u);
-                /* As the shooter's game launched it (launch_bomb adds this hero's motion). */
-                const gaddr pvars = GREF(gaddr, bomb + MOBY_PVARS);
-                if (pvars != 0) {
-                    for (unsigned c = 0; c < 3; ++c) {
-                        GREF(float, pvars + 4u * c) = shot->velocity[c];
-                    }
-                }
-                made = 1;
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    firing_for_figure = 0;
-    if (debug_items()) {
-        fprintf(
-            stderr,
-            "[debug] figure items: shot of item %d %s\n",
-            shot->item,
-            made ? "made" : "refused"
-        );
-    }
-    return made;
-}
-
-/* A figure's moby's hit or blast not let through, said with OPENRAC_ITEMS_DEBUG. */
-void rac1_figure_hit_dropped(const char* what) {
-    if (debug_items()) {
-        fprintf(stderr, "[debug] figure items: a figure's %s dropped\n", what);
-    }
-}
-
-/* Whether `moby` is a figure's (its owner a figure): what it does hits nothing here. */
-int rac1_figure_owned(gaddr moby) {
-    if (moby == 0 || !in_level()) {
-        return 0;
-    }
-    const gaddr pvars = GREF(gaddr, moby + MOBY_PVARS);
-    if (pvars == 0) {
-        return 0;
-    }
-    switch (GREF(int16_t, moby + MOBY_OCLASS)) {
-        case CLASS_HOMING_SHOT:
-            return rac1_figure_alive(GREF(gaddr, pvars + SHOT_OWNER));
-        case CLASS_BOMB:
-            return rac1_figure_alive(GREF(gaddr, pvars + BOMB_OWNER));
-        default:
-            return 0;
-    }
-}
-
-/* SendRadialMessageToMobys: a figure's blast sends none. */
-void func_L00_0025BA50(
-    gaddr source,
-    gaddr centre,
-    gaddr list,
-    int count,
-    gaddr template_,
-    int mask,
-    int a6,
-    int a7,
-    float a8,
-    float a9,
-    float a10
-) {
-    if (rac1_figure_owned(rac1_updating_moby()) || rac1_figure_owned(source)) {
-        rac1_figure_hit_dropped("blast");
-        return;
-    }
-    func_L00_0025BA50__game(source, centre, list, count, template_, mask, a6, a7, a8, a9, a10);
 }

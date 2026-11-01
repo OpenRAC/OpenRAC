@@ -112,8 +112,10 @@ shown, `OPENRAC_FRAME_COST=N` where a frame's time goes (section 5),
 ## 2. The tick and the frames
 
 The game's logic counts ticks, not time: a tick is one field of the
-television it was written for, 50 a second for a PAL game. The port never
-changes that. What it draws is its own business:
+television it was written for. Since 2026-10-15 the port runs every disc in the
+game's own 60 Hz mode, PAL too, so both discs tick alike (`tick_rate()`,
+[speedrun/TIMING.md](speedrun/TIMING.md)); the 50 Hz figures in this section and
+section 3 are from before that. What it draws is its own business:
 
 - `original`: one frame a tick.
 - anything else: frames **between** ticks as well, the camera, the mobys and

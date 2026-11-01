@@ -12,9 +12,7 @@ namespace openrac::renderer::ui {
 
 namespace {
 
-// The glyphs' size in pixels, and the bytes a pixel has.
-constexpr int kGlyphColumns = 5;
-constexpr int kGlyphRows = 7;
+// The bytes a pixel has.
 constexpr std::size_t kBytesPerPixel = 4;
 constexpr int kOpaque = 255;
 
@@ -56,8 +54,16 @@ constexpr Glyph kFont[] = {
     {']', " ###    #    #    #    #    #  ### "}, {'"', " # #  # #                          "},
 };
 
-// Returns the rows of the glyph for `c` (its capital for a letter), or nullptr for none.
-const char* glyph(char c) {
+// Returns the byte `channel` (0 red, 1 green, 2 blue, 3 alpha) of a colour 0xRRGGBBAA.
+std::uint8_t channel(std::uint32_t colour, int channel) {
+    constexpr int kBitsPerChannel = 8;
+    constexpr int kLastChannel = 3;
+    return static_cast<std::uint8_t>(colour >> (kBitsPerChannel * (kLastChannel - channel)));
+}
+
+}  // namespace
+
+const char* glyph_rows(char c) {
     const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
     for (const Glyph& g : kFont) {
@@ -70,15 +76,6 @@ const char* glyph(char c) {
 
     return nullptr;
 }
-
-// Returns the byte `channel` (0 red, 1 green, 2 blue, 3 alpha) of a colour 0xRRGGBBAA.
-std::uint8_t channel(std::uint32_t colour, int channel) {
-    constexpr int kBitsPerChannel = 8;
-    constexpr int kLastChannel = 3;
-    return static_cast<std::uint8_t>(colour >> (kBitsPerChannel * (kLastChannel - channel)));
-}
-
-}  // namespace
 
 Canvas::Canvas(int width, int height, std::uint32_t colour)
     : m_width(std::max(0, width)),
@@ -148,7 +145,7 @@ int Canvas::draw_text(int x, int y, std::string_view text, std::uint32_t colour,
         }
 
         // A character the font has is drawn pixel by lit pixel; any other leaves its cell blank.
-        if (const char* rows = glyph(c)) {
+        if (const char* rows = glyph_rows(c)) {
             for (int r = 0; r < kGlyphRows; ++r) {
                 for (int col = 0; col < kGlyphColumns; ++col) {
                     // Only the glyph's lit pixels are drawn.

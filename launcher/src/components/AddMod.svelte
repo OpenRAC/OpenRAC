@@ -4,6 +4,8 @@
   // script mod goes to the gameplay mods, a texture and model pack to the packs (lib/addMods.ts).
   // A link is read first (core/src/remote.rs): what it holds shows under the field, each mod with
   // whether it fits this computer's game and its Install button, before anything is installed.
+  // The field takes a friend's mod code too, and so does a paste anywhere on the page: the code's
+  // review opens (lib/modCodes), which changes nothing before its Apply.
   // With developer tools on, the preview adds the commit read and each mod's folder, asset and discs.
   import { onMount } from "svelte";
   import {
@@ -19,6 +21,8 @@
   } from "$lib/api";
   import { addMods, type Added } from "$lib/addMods";
   import { app, guardShown } from "$lib/app.svelte";
+  import { looksLikeCode } from "$lib/modCodes";
+  import { openCode } from "$lib/modCodes.svelte";
   import { modHint, modKind } from "$lib/plugins";
   import * as T from "$lib/modsText";
   import Icon from "./Icon.svelte";
@@ -92,6 +96,11 @@
   async function readLink(e: SubmitEvent) {
     e.preventDefault();
     if (!link.trim()) return;
+    if (looksLikeCode(link)) {
+      openCode(link, v);
+      link = "";
+      return;
+    }
     reading = true;
     preview = null;
     previewError = null;
@@ -158,6 +167,14 @@
     if (folder) await add([folder]);
   }
 
+  /** A code pasted anywhere but in a field: there is only one thing it can mean. */
+  function pasted(e: ClipboardEvent) {
+    const target = e.target as HTMLElement | null;
+    if (!links || target?.closest("input, textarea, [contenteditable]")) return;
+    const text = e.clipboardData?.getData("text") ?? "";
+    if (looksLikeCode(text)) openCode(text, v);
+  }
+
   onMount(() => {
     if (!files) return;
     let stop: (() => void) | undefined;
@@ -181,6 +198,8 @@
     };
   });
 </script>
+
+<svelte:document onpaste={pasted} />
 
 <section class="panel add" class:dropping aria-label={T.ADD.title}>
   <div class="row head">

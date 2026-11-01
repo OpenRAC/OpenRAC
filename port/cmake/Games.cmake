@@ -242,7 +242,8 @@ function(openrac_add_game config)
   endif()
   add_library(openrac_${target_id}_game STATIC ${sources} ${host} ${binding})
   target_include_directories(openrac_${target_id}_game PUBLIC "${gen}")
-  target_include_directories(openrac_${target_id}_game PRIVATE "${config_dir}/host" ${shared_includes})
+  target_include_directories(openrac_${target_id}_game PRIVATE "${config_dir}/host" ${shared_includes}
+                             "${PROJECT_SOURCE_DIR}/../sdk/include")
   target_link_libraries(openrac_${target_id}_game PUBLIC openrac_game_common)
   if(UNIX)
     target_link_libraries(openrac_${target_id}_game PUBLIC m)  # host maths the games call (fabsf...)
@@ -306,6 +307,7 @@ function(openrac_add_game config)
                                        "${OPENRAC_GAME_DIR}/common/debug_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/exit_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_menu.cpp"
+                                       "${OPENRAC_GAME_DIR}/common/mod_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_ui.cpp"
                                        "${OPENRAC_GAME_DIR}/common/options_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/settings.cpp"

@@ -36,6 +36,17 @@
  * of its game part and of each of its 20 level parts, then the game part, whose first blocks are
  * {id, size, value}: id 0 the level, 1 the bolts, 2 the gold bolts, 3 the play time in ticks (60 a
  * second: the Load page's hh:mm), as memcard_RestoreInfo reads them. An empty slot's level is -1.
+ *
+ * Both discs' saves have this one layout, so a save of either loads in the other: one disc's
+ * save folder, not its save, is the disc's own (rac1_version.h, RAC1_SAVE_FOLDER).
+ *
+ * A party's saves. memcard_Save (func_0020BFC8) does nothing unless a card is in use, a save number
+ * chosen and saving on (its record's +0xC8, +0x14 and +0xFC), which the load menu and the pause
+ * menu's Save set and a game started from code does not. It holds nothing a respawn needs: the
+ * clock, the map's coverage, the level objects' positions and the slot's record, then the two
+ * parts serialised for the card (the checkpoint's level state is its own, level_state globals).
+ * card_session sets those words for as long as a party plays, so the game's own saves happen and
+ * the card filter (lib/mc.c) takes them, and puts them back after.
  */
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +54,7 @@
 #include "openrac/host_env.h"
 #include "pose_anim.h"
 #include "rac1.h"
+#include "openrac/games/rac1_save.h"
 
 #define LEVELS 19
 
@@ -67,6 +79,7 @@
 #define HERO_VELOCITY (HERO + 0xE0u)
 #define HERO_STATE (HERO + 0x2084u)
 #define HERO_HEALTH (HERO + 0x22A8u)
+#define HERO_FRAMES_OFF_GROUND (HERO + 0x30Cu)
 #define HERO_ITEM_MOBY (HERO + 0x1090u)
 #define HERO_ITEM_ID (HERO + 0x10B8u)
 #define HERO_ANIM_SPEED (HERO + 0xA90u)
@@ -119,7 +132,7 @@ enum {
 #define SAVE_HEADER 8u
 #define SAVE_LEVEL_PARTS 20u
 #define SAVE_ROOM 0x10000u
-#define TICKS_A_SECOND 60
+#define TICKS_A_SECOND POSE_TICKS_A_SECOND
 
 /* Room in game memory for a save on its way in or out, made at its first use (a static of the
  * port's: a warm savestate taken before it refuses to restore after, as for any new static). */
@@ -183,7 +196,7 @@ static int phase(int32_t* level) {
 }
 
 static uint32_t loads(void) {
-    return rac1_program_loads();
+    return rac1_moby_generation();
 }
 
 /* The seq `seq` of a moby's class: its key count, 0 for a seq the class has not. */
@@ -208,8 +221,8 @@ static int hero_pose(openrac_game_pose* out) {
     for (unsigned i = 0; i < 3; ++i) {
         out->position[i] = GREF(float, moby + MOBY_POS + 4u * i);
         out->rotation[i] = GREF(float, moby + MOBY_ROT + 4u * i);
-        /* A tick's move, by the ticks a second. */
-        out->velocity[i] = GREF(float, HERO_VELOCITY + 4u * i) * (float)openrac_game.frame_rate;
+        /* A tick's move, by the ticks a second (the port's, not the disc's video rate). */
+        out->velocity[i] = pose_velocity(GREF(float, HERO_VELOCITY + 4u * i));
     }
     out->scale = GREF(float, moby + MOBY_SCALE);
     out->state = GREF(int32_t, HERO_STATE);
@@ -230,6 +243,12 @@ static int hero_pose(openrac_game_pose* out) {
         out->anim_time = GREF(float, moby + MOBY_ANIM_TIME);
         out->flags = 0;
     }
+    if (rac1_hero_steady()) {
+        out->flags |= 2u; /* OPENRAC_POSE_STEADY */
+    }
+    if (GREF(int16_t, HERO_FRAMES_OFF_GROUND) != 0) {
+        out->flags |= 4u; /* OPENRAC_POSE_AIRBORNE */
+    }
     out->anim_speed = GREF(float, HERO_ANIM_SPEED);
     return 1;
 }
@@ -241,7 +260,7 @@ int rac1_figure_alive(gaddr moby) {
     }
     const gaddr pvars = GREF(gaddr, moby + MOBY_PVARS);
     return pvars != 0 && GREF(uint32_t, pvars) == FIGURE_MARK
-           && GREF(uint32_t, pvars + 4u) == rac1_program_loads();
+           && GREF(uint32_t, pvars + 4u) == rac1_moby_generation();
 }
 
 static gaddr figure_spawn(void) {
@@ -275,7 +294,7 @@ static gaddr figure_spawn(void) {
     const gaddr pvars = GREF(gaddr, moby + MOBY_PVARS);
     if (pvars != 0) {
         GREF(uint32_t, pvars) = FIGURE_MARK;
-        GREF(uint32_t, pvars + 4u) = rac1_program_loads();
+        GREF(uint32_t, pvars + 4u) = rac1_moby_generation();
     }
     return moby;
 }
@@ -412,6 +431,60 @@ static int save_info(
     return ok && *level >= 0 && *level < LEVELS;
 }
 
+/* Whether a save from elsewhere can be handed to the game (the SDK's rac1_save.h: the one check,
+ * which the mods run too). */
+static int save_check(const uint8_t* save, uint32_t size) {
+    return size <= SAVE_ROOM && openrac_rac1_save_check(save, size) == OPENRAC_RAC1_SAVE_OK;
+}
+
+/* The words of the game's card record a party's game sets, as the title left them. */
+static struct {
+    int held;
+    int active, number, errors, saving;
+} card_kept;
+
+#define CARD_WORD(offset) GREF(int, RAC1_CARD_STATE + (offset))
+#define CARD_NUMBER 0x14
+/* The operation that checks the card and reads its saves' records again (MEMCARD_REQUEST_CHDIR). */
+#define CARD_CHECK 7
+
+static int card_session(int on) {
+    if (on) {
+        if (!card_kept.held) {
+            card_kept.held = 1;
+            card_kept.active = CARD_WORD(RAC1_CARD_ACTIVE);
+            card_kept.number = CARD_WORD(CARD_NUMBER);
+            card_kept.errors = CARD_WORD(RAC1_CARD_ERRORS);
+            card_kept.saving = CARD_WORD(RAC1_CARD_SAVING);
+        }
+        if (in_level()) {
+            CARD_WORD(RAC1_CARD_ACTIVE) = 0;
+            CARD_WORD(RAC1_CARD_ERRORS) = 0;
+            CARD_WORD(RAC1_CARD_SAVING) = 1;
+            if (CARD_WORD(CARD_NUMBER) < 0) {
+                CARD_WORD(CARD_NUMBER) = 0;
+            }
+        }
+        return 1;
+    }
+    if (!card_kept.held) {
+        return 1;
+    }
+    /* A write under way finishes first; one only asked for never starts (it holds the party's game). */
+    if (CARD_WORD(RAC1_CARD_OPERATION) >= 3) {
+        return 0;
+    }
+    CARD_WORD(RAC1_CARD_ACTIVE) = card_kept.active;
+    CARD_WORD(CARD_NUMBER) = card_kept.number;
+    CARD_WORD(RAC1_CARD_ERRORS) = card_kept.errors;
+    CARD_WORD(RAC1_CARD_SAVING) = card_kept.saving;
+    /* The party's saves left their mark on the save list the game keeps: it reads the card again. */
+    CARD_WORD(RAC1_CARD_PENDING) = CARD_CHECK;
+    CARD_WORD(RAC1_CARD_PENDING_CARD) = 0;
+    card_kept.held = 0;
+    return 1;
+}
+
 static int start(int level, const uint8_t* save, uint32_t size) {
     if (level >= LEVELS || in_level()) {
         return 0;
@@ -420,8 +493,7 @@ static int start(int level, const uint8_t* save, uint32_t size) {
         rac1_start_level(level < 0 ? 0 : level);
         return 1;
     }
-    int32_t saved_level, bolts, gold, seconds;
-    if (size > SAVE_ROOM || !save_info(save, size, &saved_level, &bolts, &gold, &seconds)) {
+    if (!save_check(save, size)) {
         return 0;
     }
     const gaddr room = save_room();
@@ -486,6 +558,12 @@ const openrac_game_play rac1_play = {
     .save_file = "save%d.bin",
     .save_slots = 5,
     .save_info = save_info,
+    .card_session = card_session,
+    .save_check = save_check,
+    .card_filter = openrac_game_card_filter,
+    .card_slot = openrac_game_card_slot,
+    .card_write = openrac_game_card_write,
+    .card_saves = openrac_game_card_saves,
     .mobys = rac1_world_mobys,
     .moby_slot = rac1_world_moby_slot,
     .moby_at = rac1_world_moby_at,
@@ -495,7 +573,12 @@ const openrac_game_play rac1_play = {
     .moby_hide = rac1_world_moby_hide,
     .moby_deletion = rac1_world_moby_deletion,
     .camera_position = rac1_world_camera_position,
+    .level_line = rac1_level_line,
     .moby_run = rac1_world_moby_run,
+    .shared_read = rac1_shared_read,
+    .shared_give = rac1_shared_give,
+    .mission_state_read = rac1_mission_state_read,
+    .mission_state_write = rac1_mission_state_write,
     .moby_spawn = rac1_world_moby_spawn,
     .hero_slot = rac1_world_hero_slot,
     .stand_in = rac1_world_stand_in,
@@ -507,6 +590,25 @@ const openrac_game_play rac1_play = {
     .figure_held = rac1_figure_held,
     .hero_shots = rac1_hero_shots,
     .figure_shot = rac1_figure_shot,
+    .hero_shots2 = rac1_hero_shots2,
+    .figure_shot2 = rac1_figure_shot2,
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
+    /* Both discs: the port ticks them alike, and their levels, classes, items, scenes and saves
+     * mean the same. A disc or a change of this code that breaks that takes a new number. */
+    .world_family = "rac1-60-1",
+    .sim_digest = rac1_sim_digest,
+    .live_picture = rac1_world_live_picture,
+    .hero_place = rac1_hero_place,
+    .hero_revive = rac1_hero_revive,
+    .stand_in_as = rac1_world_stand_in_as,
+    .stand_in_read = rac1_hero_guard_read,
+    .hero_grab = rac1_hero_grab,
+    .hero_hold_at = rac1_hero_hold_at,
+    .hero_let_go = rac1_hero_let_go,
+    .moby_mission = rac1_world_moby_mission,
+    .camera_script_next = rac1_camera_script_next,
+    .camera_script_view = rac1_camera_script_view,
+    .camera_script_play = rac1_camera_script_play,
+    .camera_script_show = rac1_camera_script_show,
 };
