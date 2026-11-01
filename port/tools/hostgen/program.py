@@ -184,6 +184,16 @@ class Program:
                         overlay = m.groupdict().get("overlay")
                         owner.setdefault((int(overlay) if overlay is not None else -1, int(m.group("addr"), 16)), sym)
                         break
+            # A catalogue name that gave all its places to another function (split_places.tsv): a
+            # level's name for that address is that function.
+            for variant, parent in self.split_parent.items():
+                if not self.places.get(parent):
+                    for pattern in self.code_names:
+                        m = pattern.match(parent)
+                        if m:
+                            overlay = m.groupdict().get("overlay")
+                            owner[(int(overlay) if overlay is not None else -1, int(m.group("addr"), 16))] = variant
+                            break
             self._owner_cache = owner
         return owner
 
