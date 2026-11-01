@@ -189,3 +189,9 @@ func_002F57A8	0x002F57A8	function	Ends a cutscene: restores hero, frees actors	C
 func_00288CB0	0x00288CB0	function	Requests a level exit: flag 0x1A8B84, destination 0x1B1680	RequestLevelExit	traced in level 25	proven	P17
 func_L25_0040CDA0	0x0040CDA0	function	Wupash mission controller; ctx 0x221850: +0xC wave, +0x10 enemies left, +0x14 waves done; exits to level 2 when done	WupashMission	retail states, watch in port	read	P17
 D_L25_00221850	0x00221850	data	Ship mission context, level 25's place: HUD counters at +0xC and +0x10 read by func_L25_0040D208	g_shipMission	func_L25_0040CDA0, func_L25_0040D208	read	P17
+D_001A79FC	0x001A79FC	data	Raritanium count	g_raritanium	shop buy 1000 to 980	proven	P14
+D_001A73B8	0x001A73B8	data	Quick select ring, ints, 0 up then clockwise by two; writing it does not change the held item	g_equippedItemSlots	Quick Select by stick after writing	proven	P14
+hero state 22	0x0018C0B4	field	Hit: health down by the blow	HERO_STATE_HIT	level 8 health 4 to 2	read	P14
+hero state 57	0x0018C0B4	field	Dead, before the respawn	HERO_STATE_DEAD	level 8 health 0	read	P14
+moby class 4873	0x00379A48	system	Ship Shack terminal in level 24: within 3.0 and facing, Triangle, state 5, func_L24_00379A48	ShipShack	level 24 shop opens	proven	P14
+func_002B49E0	0x002B49E0	function	Asks for game mode index (a stack when mode 1); 4 quick select from func_L00_0036F488, 5 vendor and shop	GameMode_Request	C; lldb	proven	P14
