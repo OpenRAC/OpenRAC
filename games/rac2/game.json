@@ -66,6 +66,10 @@
             "D_00256368"
           ],
           [
+            "    STATE->channel[1].slot = func_002E5A50(object);\n",
+            "    STATE->channel[1].slot = func_002E5A50(object);\n    if (STATE->channel[1].slot >= 52) /* no free slot: retail would write past the 52 rows */\n        STATE->channel[1].slot = -1;\n"
+          ],
+          [
             "extern char D_001F2840[];       /* C: the menu block */\nextern char D_00138180[];       /* P: the pad block */\n",
             "extern char D_001F2840[];       /* C: the menu block */\nextern char D_00138180[];       /* P: the pad block */\nextern char D_00259018[], D_0025A738[], D_0025A498[], D_0025A190[], D_00259EE0[];\nextern int func_002DBAD0(), func_002DA118(), func_002D84B0(), func_002DA9A8();\n"
           ],
