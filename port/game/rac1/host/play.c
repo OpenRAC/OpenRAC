@@ -541,6 +541,22 @@ static uint32_t save_capture(uint8_t* out, uint32_t size) {
     return (uint32_t)total;
 }
 
+/* The slot the game in progress saves into: the save it was loaded from or last saved to (lib/mc.c),
+ * as long as it is still that game. A new game started after has played fewer seconds than that
+ * save; at the title or while a level loads there is no game to compare, and none is said. */
+static int save_slot_current(void) {
+    static uint8_t now[SAVE_ROOM];
+    int32_t level = -1, bolts, gold, seconds = 0;
+    if (openrac_game_save_in_use < 0 || phase(&level) == OPENRAC_GAME_PHASE_FRONT_END) {
+        return -1;
+    }
+    const uint32_t size = save_capture(now, sizeof now);
+    if (size == 0 || !save_info(now, size, &level, &bolts, &gold, &seconds)) {
+        return -1;
+    }
+    return seconds >= openrac_game_save_in_use_seconds ? openrac_game_save_in_use : -1;
+}
+
 const openrac_game_play rac1_play = {
     .levels = LEVELS,
     .level_names = rac1_level_names,
@@ -611,4 +627,5 @@ const openrac_game_play rac1_play = {
     .camera_script_view = rac1_camera_script_view,
     .camera_script_play = rac1_camera_script_play,
     .camera_script_show = rac1_camera_script_show,
+    .save_slot_current = save_slot_current,
 };

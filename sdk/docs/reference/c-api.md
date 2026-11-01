@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `12` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 the mods a party has to agree on: each loaded mod and its settings listed, and rules a mod publishes for the host's game that the same mod takes in the members' games, 1.12 what a shared game needs of the port: a party's own save slot, progress shared between players' games, a hero placed, held and revived, shots with more to say, the level's mobys with their mission, a picture drawn over the game, camera scripts and metal detector digs seen, the data packs applied, the clipboard and a link, and which world a game's disc belongs to. |
+| `OPENRAC_MOD_API_MINOR` | `12` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a folder of the mod's own for its files and the memory card slot the game in progress saves into, 1.12 the mods a party has to agree on: each loaded mod and its settings listed, and rules a mod publishes for the host's game that the same mod takes in the members' games, and what a shared game needs of the port: a party's own save slot, progress shared between players' games, a hero placed, held and revived, shots with more to say, the level's mobys with their mission, a picture drawn over the game, camera scripts and metal detector digs seen, the data packs applied, the clipboard and a link, and which world a game's disc belongs to. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -153,14 +153,14 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_HELD_BLENDING` | `0x2u` | Its animation is blending into `seq`, as OPENRAC_POSE_BLENDING. |
 | `OPENRAC_HELD_LOOSE` | `0x4u` | Off the body (a thrown wrench): at `position` and `rotation`, not on its joint. |
 | `OPENRAC_SHOTS_MAX` | `16` | The most shots kept for hero_shots between two calls. Since 1.9. |
-| `OPENRAC_PARTY_MOD_GAMEPLAY` | `0` | What a loaded mod is to a multiplayer party: its manifest's "multiplayer". A mod that does not say is gameplay, the safe choice. Gameplay mods must be the same in every game of a party; input and cosmetic mods are each player's own; a solo mod cannot be played in a party at all. Since 1.11. |
+| `OPENRAC_PARTY_MOD_GAMEPLAY` | `0` | What a loaded mod is to a multiplayer party: its manifest's "multiplayer". A mod that does not say is gameplay, the safe choice. Gameplay mods must be the same in every game of a party; input and cosmetic mods are each player's own; a solo mod cannot be played in a party at all. Since 1.12. |
 | `OPENRAC_PARTY_MOD_INPUT` | `1` |  |
 | `OPENRAC_PARTY_MOD_COSMETIC` | `2` |  |
 | `OPENRAC_PARTY_MOD_SOLO` | `3` |  |
-| `OPENRAC_PARTY_SETTING_SHARED` | `0` | What a setting of a gameplay mod is to a party: its manifest's "multiplayer". Shared (the default) must be the same in every game; own is each player's; host is the host's, the mod takes it through the party's rules. Since 1.11. |
+| `OPENRAC_PARTY_SETTING_SHARED` | `0` | What a setting of a gameplay mod is to a party: its manifest's "multiplayer". Shared (the default) must be the same in every game; own is each player's; host is the host's, the mod takes it through the party's rules. Since 1.12. |
 | `OPENRAC_PARTY_SETTING_OWN` | `1` |  |
 | `OPENRAC_PARTY_SETTING_HOST` | `2` |  |
-| `OPENRAC_PARTY_RULES_MAX` | `1024` | The most bytes of a mod's party rules. Since 1.11. |
+| `OPENRAC_PARTY_RULES_MAX` | `1024` | The most bytes of a mod's party rules. Since 1.12. |
 | `OPENRAC_CARD_PASS` | `0` | the game's writes reach the card as always |
 | `OPENRAC_CARD_DISCARD` | `1` | they are dropped, the game told they succeeded |
 | `OPENRAC_CARD_REDIRECT` | `2` | they go to the card folder the mod names |
@@ -269,7 +269,7 @@ typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t si
 
 The host's rules for this mod reached this game (openrac_api.party_rules_deliver), `size` bytes
 as the same mod published them in the host's game; null and 0 when there are none any more (the
-party went): the mod's own settings count again. Since 1.11.
+party went): the mod's own settings count again. Since 1.12.
 
 ```c
 typedef void (*openrac_overlay_fn)(void* user, const openrac_overlay* overlay);
@@ -668,7 +668,7 @@ a nonzero mod-defined id. Since 1.10.
 ## `openrac_mod_entry`
 
 One loaded mod (openrac_api.mod_entry). The strings stay valid for the life of the program.
-Since 1.11.
+Since 1.12.
 
 | Member | |
 |---|---|
@@ -682,7 +682,7 @@ Since 1.11.
 ## `openrac_mod_setting`
 
 One setting of a loaded mod (openrac_api.mod_setting), as that mod reads it this run. The strings
-stay valid for the life of the program. Since 1.11.
+stay valid for the life of the program. Since 1.12.
 
 | Member | |
 |---|---|
@@ -880,15 +880,17 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*developer_menu)( openrac_mod* mod, const char* title, const openrac_developer_menu_item* items, uint32_t item_count )` | Adds a top-level menu beside View, Graphics, Sound and Developer to the in-window desktop menu bar. `title`, item labels, shortcuts and groups are copied. Selections are queued for the mod and retrieved from its tick-boundary callback; this never calls mod code from UI drawing. Items may be placed in groups (submenus), and use nonzero mod-defined action ids. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN for a duplicate title or action, OPENRAC_HOOK_UNKNOWN for invalid items, or OPENRAC_HOOK_TOO_LATE unless called during openrac_mod_load. Since 1.10. |
 | `uint32_t (*take_developer_menu_action)(openrac_mod* mod)` | Returns and removes the next queued action for this mod, or 0 if none. Only from its on_tick_boundary callback. Since 1.10. |
 | `int (*developer_menu_set_label)(openrac_mod* mod, uint32_t action, const char* label)` | Changes a registered item's label, copying `label`. Only from this mod's tick-boundary callback. Since 1.10. |
-| `int (*mod_count)(void)` | The mods loaded this run, in load order: how many, and mod `index` (0 up) into `out`, whose `size` the caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.11. |
+| `const char* (*data_dir)(openrac_mod* mod)` | A folder of the mod's own for the files it keeps (a seed, a list of games played): in the player's data folder beside the memory cards, made by the port, kept across runs and the mod's updates, and never shared with another mod. Its path in UTF-8, valid until the mod is unloaded; null when there is none (a session without a data folder, or it cannot be made). Since 1.12. |
+| `int (*save_slot_current)(void)` | The memory card slot of the game in progress (openrac_api.save_slot's numbers): the save it was loaded from (Load Game) or last saved to. -1 for none: at the title, while a level loads, a new game not saved yet, a game started by play_start, or a game without slots. Since 1.12. |
+| `int (*mod_count)(void)` | The mods loaded this run, in load order: how many, and mod `index` (0 up) into `out`, whose `size` the caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.12. |
 | `int (*mod_entry)(int index, openrac_mod_entry* out)` |  |
-| `int (*mod_setting)(int index, int setting, openrac_mod_setting* out)` | Setting `setting` (0 up, in its manifest's order) of mod `index` into `out`, whose `size` the caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.11. |
-| `int (*party_rules_publish)(openrac_mod* mod, const void* data, uint32_t size, const char* text)` | The rules this mod plays by in this game, for a party whose host this game is: at most OPENRAC_PARTY_RULES_MAX bytes of the mod's own format, and `text`, a line or more (\n between them) saying them to a player ("Bolts x2\nChaos on"). Publish again when they change. Nothing reads them but a mod that carries them to other games, and with no party they change nothing. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no data or too much. Since 1.11. |
-| `int (*party_rules_read)(int index, void* out, uint32_t size, uint32_t* version)` | The rules mod `index` published: copies up to `size` bytes to `out` and returns how many there are, -1 for none published. `*version` (when not null) grows with each publish. Since 1.11. |
-| `const char* (*party_rules_text)(int index)` | The words mod `index` published with its rules, "" for none. Valid until it publishes again. Since 1.11. |
-| `int (*on_party_rules)(openrac_mod* mod, openrac_party_rules_fn fn, void* user)` | Calls `fn(user, data, size)` when the host's rules for this mod reach this game. One a mod. Returns 0, or non-zero when refused (after openrac_mod_load). Only during openrac_mod_load. Since 1.11. |
-| `int (*party_rules_deliver)(int index, const void* data, uint32_t size)` | Hands mod `index` the host's rules, as it published them there (null and 0: there are none any more). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a mod past the last, one that takes no rules, or too much. Since 1.11. |
-| `void (*party_replay)(int on)` | While on, what a mod makes the game do is another player's doing passed on, already decided in that player's game (an item that player got, given here too): a mod that changes what the game gives lets it through as it is. `party_replaying` reads it. Since 1.11. |
+| `int (*mod_setting)(int index, int setting, openrac_mod_setting* out)` | Setting `setting` (0 up, in its manifest's order) of mod `index` into `out`, whose `size` the caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.12. |
+| `int (*party_rules_publish)(openrac_mod* mod, const void* data, uint32_t size, const char* text)` | The rules this mod plays by in this game, for a party whose host this game is: at most OPENRAC_PARTY_RULES_MAX bytes of the mod's own format, and `text`, a line or more (\n between them) saying them to a player ("Bolts x2\nChaos on"). Publish again when they change. Nothing reads them but a mod that carries them to other games, and with no party they change nothing. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no data or too much. Since 1.12. |
+| `int (*party_rules_read)(int index, void* out, uint32_t size, uint32_t* version)` | The rules mod `index` published: copies up to `size` bytes to `out` and returns how many there are, -1 for none published. `*version` (when not null) grows with each publish. Since 1.12. |
+| `const char* (*party_rules_text)(int index)` | The words mod `index` published with its rules, "" for none. Valid until it publishes again. Since 1.12. |
+| `int (*on_party_rules)(openrac_mod* mod, openrac_party_rules_fn fn, void* user)` | Calls `fn(user, data, size)` when the host's rules for this mod reach this game. One a mod. Returns 0, or non-zero when refused (after openrac_mod_load). Only during openrac_mod_load. Since 1.12. |
+| `int (*party_rules_deliver)(int index, const void* data, uint32_t size)` | Hands mod `index` the host's rules, as it published them there (null and 0: there are none any more). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a mod past the last, one that takes no rules, or too much. Since 1.12. |
+| `void (*party_replay)(int on)` | While on, what a mod makes the game do is another player's doing passed on, already decided in that player's game (an item that player got, given here too): a mod that changes what the game gives lets it through as it is. `party_replaying` reads it. Since 1.12. |
 | `int (*party_replaying)(void)` |  |
 | `int (*card_filter)(openrac_mod* mod, int mode, const char* folder)` | What the game's memory card writes do while a party plays (OPENRAC_CARD_*): in a mode that discards or redirects, a player's own saves stay as they were, and the game saves as it does when loaded from the card. `folder`, one word of letters, digits or '_', names the card folder of mode OPENRAC_CARD_REDIRECT beside the game's own ("coop": <game's folder>-coop), ignored otherwise. One mod holds the filter. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for a mode or folder the port refuses, or for OPENRAC_CARD_PASS OPENRAC_HOOK_TAKEN while a write of the party's still runs: ask again, the filter stays on till then. Since 1.12. |
 | `int (*card_slot_hint)(openrac_mod* mod, int slot)` | The slot the game's next card write goes to in the folder card_filter redirects to, in place of the one the game chose (-1: the game's). Since 1.12. |

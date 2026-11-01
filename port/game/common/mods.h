@@ -110,6 +110,9 @@ struct Host {
     // memory card's folder its saves are in (openrac_game_card_dir).
     const openrac_game_play* play = nullptr;
     std::filesystem::path cards;
+    // Where each mod's own folder goes (interface 1.11, openrac_api.data_dir): <this>/<mod id>.
+    // Empty: none, and data_dir gives null.
+    std::filesystem::path mod_data;
 };
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",

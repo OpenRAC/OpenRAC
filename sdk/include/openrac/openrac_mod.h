@@ -51,13 +51,14 @@ extern "C" {
  * hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world:
  * the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's
  * update with the hero standing in for another player, hits watched and posted, eyes that keep
- * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 the mods
- * a party has to agree on: each loaded mod and its settings listed, and rules a mod publishes for
- * the host's game that the same mod takes in the members' games, 1.12 what a shared game needs of
- * the port: a party's own save slot, progress shared between players' games, a hero placed, held and
- * revived, shots with more to say, the level's mobys with their mission, a picture drawn over the
- * game, camera scripts and metal detector digs seen, the data packs applied, the clipboard and a
- * link, and which world a game's disc belongs to.
+ * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a
+ * folder of the mod's own for its files and the memory card slot the game in progress saves into,
+ * 1.12 the mods a party has to agree on: each loaded mod and its settings listed, and rules a mod
+ * publishes for the host's game that the same mod takes in the members' games, and what a shared
+ * game needs of the port: a party's own save slot, progress shared between players' games, a hero
+ * placed, held and revived, shots with more to say, the level's mobys with their mission, a picture
+ * drawn over the game, camera scripts and metal detector digs seen, the data packs applied, the
+ * clipboard and a link, and which world a game's disc belongs to.
  */
 #define OPENRAC_MOD_API_MINOR 12
 
@@ -912,7 +913,7 @@ typedef void (*openrac_pad_fn)(void* user, int port, uint8_t* report, int size);
 
 /* What a loaded mod is to a multiplayer party: its manifest's "multiplayer". A mod that does not say
  * is gameplay, the safe choice. Gameplay mods must be the same in every game of a party; input and
- * cosmetic mods are each player's own; a solo mod cannot be played in a party at all. Since 1.11. */
+ * cosmetic mods are each player's own; a solo mod cannot be played in a party at all. Since 1.12. */
 #define OPENRAC_PARTY_MOD_GAMEPLAY 0
 #define OPENRAC_PARTY_MOD_INPUT 1
 #define OPENRAC_PARTY_MOD_COSMETIC 2
@@ -920,16 +921,16 @@ typedef void (*openrac_pad_fn)(void* user, int port, uint8_t* report, int size);
 
 /* What a setting of a gameplay mod is to a party: its manifest's "multiplayer". Shared (the default)
  * must be the same in every game; own is each player's; host is the host's, the mod takes it through
- * the party's rules. Since 1.11. */
+ * the party's rules. Since 1.12. */
 #define OPENRAC_PARTY_SETTING_SHARED 0
 #define OPENRAC_PARTY_SETTING_OWN 1
 #define OPENRAC_PARTY_SETTING_HOST 2
 
-/* The most bytes of a mod's party rules. Since 1.11. */
+/* The most bytes of a mod's party rules. Since 1.12. */
 #define OPENRAC_PARTY_RULES_MAX 1024
 
 /* One loaded mod (openrac_api.mod_entry). The strings stay valid for the life of the program.
- * Since 1.11. */
+ * Since 1.12. */
 typedef struct openrac_mod_entry {
     /* sizeof(openrac_mod_entry), set by the caller. */
     uint32_t size;
@@ -943,7 +944,7 @@ typedef struct openrac_mod_entry {
 } openrac_mod_entry;
 
 /* One setting of a loaded mod (openrac_api.mod_setting), as that mod reads it this run. The strings
- * stay valid for the life of the program. Since 1.11. */
+ * stay valid for the life of the program. Since 1.12. */
 typedef struct openrac_mod_setting {
     /* sizeof(openrac_mod_setting), set by the caller. */
     uint32_t size;
@@ -962,7 +963,7 @@ typedef struct openrac_mod_setting {
 
 /* The host's rules for this mod reached this game (openrac_api.party_rules_deliver), `size` bytes
  * as the same mod published them in the host's game; null and 0 when there are none any more (the
- * party went): the mod's own settings count again. Since 1.11. */
+ * party went): the mod's own settings count again. Since 1.12. */
 typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t size);
 
 /* ---- Interface 1.12: what a shared game needs of the port ---- */
@@ -1578,44 +1579,56 @@ typedef struct openrac_api {
      * callback. Since 1.10. */
     int (*developer_menu_set_label)(openrac_mod* mod, uint32_t action, const char* label);
 
+    /* A folder of the mod's own for the files it keeps (a seed, a list of games played): in the
+     * player's data folder beside the memory cards, made by the port, kept across runs and the
+     * mod's updates, and never shared with another mod. Its path in UTF-8, valid until the mod is
+     * unloaded; null when there is none (a session without a data folder, or it cannot be made).
+     * Since 1.12. */
+    const char* (*data_dir)(openrac_mod* mod);
+
+    /* The memory card slot of the game in progress (openrac_api.save_slot's numbers): the save it
+     * was loaded from (Load Game) or last saved to. -1 for none: at the title, while a level loads,
+     * a new game not saved yet, a game started by play_start, or a game without slots. Since 1.12. */
+    int (*save_slot_current)(void);
+
     /* The mods loaded this run, in load order: how many, and mod `index` (0 up) into `out`, whose
      * `size` the caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last.
-     * Since 1.11. */
+     * Since 1.12. */
     int (*mod_count)(void);
     int (*mod_entry)(int index, openrac_mod_entry* out);
 
     /* Setting `setting` (0 up, in its manifest's order) of mod `index` into `out`, whose `size` the
-     * caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.11. */
+     * caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.12. */
     int (*mod_setting)(int index, int setting, openrac_mod_setting* out);
 
     /* The rules this mod plays by in this game, for a party whose host this game is: at most
      * OPENRAC_PARTY_RULES_MAX bytes of the mod's own format, and `text`, a line or more (\n between
      * them) saying them to a player ("Bolts x2\nChaos on"). Publish again when they change. Nothing
      * reads them but a mod that carries them to other games, and with no party they change nothing.
-     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no data or too much. Since 1.11. */
+     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no data or too much. Since 1.12. */
     int (*party_rules_publish)(openrac_mod* mod, const void* data, uint32_t size, const char* text);
 
     /* The rules mod `index` published: copies up to `size` bytes to `out` and returns how many there
-     * are, -1 for none published. `*version` (when not null) grows with each publish. Since 1.11. */
+     * are, -1 for none published. `*version` (when not null) grows with each publish. Since 1.12. */
     int (*party_rules_read)(int index, void* out, uint32_t size, uint32_t* version);
 
     /* The words mod `index` published with its rules, "" for none. Valid until it publishes again.
-     * Since 1.11. */
+     * Since 1.12. */
     const char* (*party_rules_text)(int index);
 
     /* Calls `fn(user, data, size)` when the host's rules for this mod reach this game. One a mod.
      * Returns 0, or non-zero when refused (after openrac_mod_load). Only during openrac_mod_load.
-     * Since 1.11. */
+     * Since 1.12. */
     int (*on_party_rules)(openrac_mod* mod, openrac_party_rules_fn fn, void* user);
 
     /* Hands mod `index` the host's rules, as it published them there (null and 0: there are none any
      * more). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a mod past the last, one that takes
-     * no rules, or too much. Since 1.11. */
+     * no rules, or too much. Since 1.12. */
     int (*party_rules_deliver)(int index, const void* data, uint32_t size);
 
     /* While on, what a mod makes the game do is another player's doing passed on, already decided in
      * that player's game (an item that player got, given here too): a mod that changes what the game
-     * gives lets it through as it is. `party_replaying` reads it. Since 1.11. */
+     * gives lets it through as it is. `party_replaying` reads it. Since 1.12. */
     void (*party_replay)(int on);
     int (*party_replaying)(void);
 

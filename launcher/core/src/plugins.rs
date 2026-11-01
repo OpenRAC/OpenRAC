@@ -152,7 +152,7 @@ pub struct SettingSpec {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     #[ts(as = "Option<String>", optional)]
     pub group: String,
-    /// What it is to a multiplayer party (interface 1.11): `own` (each player's), `host` (the
+    /// What it is to a multiplayer party (interface 1.12): `own` (each player's), `host` (the
     /// host's rules bring it); absent: it must match the host's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -248,7 +248,7 @@ pub struct Manifest {
     pub conflicts: Vec<Conflict>,
     #[serde(default)]
     pub load: LoadHints,
-    /// What the mod is to a multiplayer party (interface 1.11): `gameplay` (also when absent),
+    /// What the mod is to a multiplayer party (interface 1.12): `gameplay` (also when absent),
     /// `input`, `cosmetic` or `solo`.
     #[serde(default)]
     pub multiplayer: Option<String>,
