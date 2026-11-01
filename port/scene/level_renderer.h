@@ -547,8 +547,6 @@ private:
     std::array<float, 4> m_fog_params{0, 255, 255, 255};  // slope, offset, lower, upper clamp
     std::vector<JointColumns> m_palette_data;
     renderer::Shader m_mesh;
-    // Dynamic controls with the same probe quality as the specialised blended pass.
-    renderer::Shader m_translucent_reference;
     renderer::Shader m_early_mesh, m_early_solid;
     renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent,
         m_static_translucent_full;
