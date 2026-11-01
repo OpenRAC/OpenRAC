@@ -123,7 +123,7 @@ void write_object_viewer_report() {
         << ",\"selection\":" << scene::picker_report_json(p.selection, p.selected, s.game);
 #ifdef OPENRAC_LIGHT_AUTHORING
     out << ",\"object_key\":" << quote(p.key)
-        << ",\"profile\":" << quote(p.profile_path.generic_string())
+        << ",\"profile\":" << quote(enhanced::object_light_path_text(p.profile_path))
         << ",\"dirty_objects\":" << dirty << ",\"selected_light\":" << p.selected_light
         << ",\"lights\":";
     light_report(out);

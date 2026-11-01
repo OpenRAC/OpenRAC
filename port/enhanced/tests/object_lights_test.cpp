@@ -260,6 +260,20 @@ void test_authoring_destination(Fixture& fixture) {
     CHECK(loaded && loaded.value().objects.at(key).front().name == light.name);
 }
 
+// Native paths and error text must survive characters outside the Windows ANSI code page.
+void test_unicode_profile_path(Fixture& fixture) {
+    const auto path = fixture.dir / fs::path(u8"lights-\u6c34") / "object-lights.json";
+    enhanced::ObjectLightCatalog catalog;
+    catalog.objects["mobys/example.glb"] = {enhanced::AttachedLight{}};
+    CHECK(enhanced::write_object_lights(path, catalog));
+    auto loaded = enhanced::read_object_lights(path);
+    CHECK(loaded && loaded.value().objects == catalog.objects);
+    std::ofstream(path) << "{invalid JSON";
+    loaded = enhanced::read_object_lights(path);
+    CHECK(!loaded);
+    CHECK(!loaded && loaded.error().message.starts_with(enhanced::object_light_path_text(path)));
+}
+
 // Fly look preserves the eye, orbit preserves the focus, and tiny uniform scales remain invertible.
 void check_camera() {
     scene::PreviewOrbit camera;
@@ -299,6 +313,7 @@ int main() {
         check_instances(fixture);
         check_camera();
         test_authoring_destination(fixture);
+        test_unicode_profile_path(fixture);
         return test::result();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "object lights: %s\n", error.what());

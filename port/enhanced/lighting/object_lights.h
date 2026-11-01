@@ -31,6 +31,8 @@ std::filesystem::path object_light_author_path(const scene::LevelData&);
 Result<ObjectLightCatalog> read_object_lights(const std::filesystem::path&);
 // Writes a complete catalog atomically, preserving the previous file on every failed publication.
 Result<void> write_object_lights(const std::filesystem::path&, const ObjectLightCatalog&);
+// UTF-8 display form keeps profile diagnostics and viewer metadata independent of Windows code pages.
+std::string object_light_path_text(const std::filesystem::path&);
 // Merge exported defaults, developer source and mod overrides in the same precedence as geometry.
 Result<ObjectLightCatalog> load_object_lights(const scene::LevelData&);
 // A single immutable snapshot crosses the UI/render/capture boundaries.

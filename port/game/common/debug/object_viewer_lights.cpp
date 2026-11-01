@@ -360,7 +360,7 @@ void object_light_controls(const Shown& shown) {
         ImGui::TextWrapped(
             "Saved per object type, for every instance. These are additive unshadowed lights."
         );
-        ImGui::TextWrapped("%s", p.profile_path.string().c_str());
+        ImGui::TextWrapped("%s", enhanced::object_light_path_text(p.profile_path).c_str());
     }
 }
 }  // namespace openrac::frontend::debug_overlay

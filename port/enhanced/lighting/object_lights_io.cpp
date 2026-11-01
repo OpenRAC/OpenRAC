@@ -13,6 +13,12 @@
 #include "enhanced/lighting/object_lights.h"
 
 namespace openrac::enhanced {
+// Keep diagnostics readable even when Windows cannot represent a folder in its ANSI code page.
+std::string object_light_path_text(const std::filesystem::path& path) {
+    const auto text = path.generic_u8string();
+    return {text.begin(), text.end()};
+}
+
 namespace {
 // Keep limits identical to the production authored-light table, including finite HDR radiance.
 Result<void> validate_light(const AttachedLight& light) {
@@ -249,6 +255,67 @@ std::string catalog_text(const ObjectLightCatalog& catalog) {
     return out.str();
 }
 
+// Read native filesystem paths without narrowing through the active Windows code page.
+Result<json::Value> read_profile_root(const std::filesystem::path& path, std::uintmax_t size) {
+    std::ifstream file(path, std::ios::binary);
+    std::string text(std::size_t(size), '\0');
+    // Reading the exact checked size also detects replacement or truncation during the load.
+    if (!file || !file.read(text.data(), std::streamsize(text.size()))
+        || file.peek() != std::char_traits<char>::eof()) {
+        return unexpected(Error{object_light_path_text(path) + ": cannot read complete profile"});
+    }
+    json::Value root;
+    std::string why;
+    if (!json::parse(text, root, why)) {
+        return unexpected(Error{object_light_path_text(path) + ": " + why});
+    }
+    return root;
+}
+
+// Validate a complete profile independently from filesystem reads and publication.
+Result<ObjectLightCatalog> parse_catalog(
+    const json::Value& root, const std::filesystem::path& path
+) {
+    if (!root.is_object() || root["version"].number(-1) != 1 || !root["objects"].is_object()) {
+        return unexpected(
+            Error{object_light_path_text(path) + ": expected version 1 and an objects dictionary"}
+        );
+    }
+
+    ObjectLightCatalog out;
+    std::size_t count = 0;
+
+    for (const auto& [key, value] : root["objects"].members()) {
+        if (key.empty() || key.size() > 512 || !value.is_array()) {
+            return unexpected(
+                Error{object_light_path_text(path) + ": invalid object key or light array"}
+            );
+        }
+
+        auto& lights = out.objects[key];
+
+        for (const auto& entry : value.items()) {
+            if (++count > 4096) {
+                return unexpected(
+                    Error{object_light_path_text(path) + ": profile exceeds 4096 authored lights"}
+                );
+            }
+
+            auto light = parse_light(entry);
+
+            if (!light) {
+                return unexpected(
+                    Error{object_light_path_text(path) + ": " + key + ": " + light.error().message}
+                );
+            }
+
+            lights.push_back(std::move(light.value()));
+        }
+    }
+
+    return out;
+}
+
 // Validate before creating any staging file, preserving previous data for malformed edits.
 Result<void> validate_catalog(const ObjectLightCatalog& catalog) {
     std::size_t count = 0;
@@ -303,7 +370,7 @@ Result<ObjectLightCatalog> read_object_lights(const std::filesystem::path& path)
     const bool exists = std::filesystem::exists(path, error);
 
     if (error) {
-        return unexpected(Error{path.string() + ": " + error.message()});
+        return unexpected(Error{object_light_path_text(path) + ": " + error.message()});
     }
 
     if (!exists) {
@@ -314,46 +381,16 @@ Result<ObjectLightCatalog> read_object_lights(const std::filesystem::path& path)
     const auto size = std::filesystem::file_size(path, error);
 
     if (error || size > 16ull * 1024 * 1024) {
-        return unexpected(Error{path.string() + ": profile is unreadable or larger than 16 MiB"});
+        return unexpected(
+            Error{object_light_path_text(path) + ": profile is unreadable or larger than 16 MiB"}
+        );
     }
 
-    json::Value root;
-    std::string why;
-
-    if (!json::parse_file(path.string(), root, why)) {
-        return unexpected(Error{why});
+    auto parsed = read_profile_root(path, size);
+    if (!parsed) {
+        return unexpected(parsed.error());
     }
-
-    if (!root.is_object() || root["version"].number(-1) != 1 || !root["objects"].is_object()) {
-        return unexpected(Error{path.string() + ": expected version 1 and an objects dictionary"});
-    }
-
-    ObjectLightCatalog out;
-    std::size_t count = 0;
-
-    for (const auto& [key, value] : root["objects"].members()) {
-        if (key.empty() || key.size() > 512 || !value.is_array()) {
-            return unexpected(Error{path.string() + ": invalid object key or light array"});
-        }
-
-        auto& lights = out.objects[key];
-
-        for (const auto& entry : value.items()) {
-            if (++count > 4096) {
-                return unexpected(Error{path.string() + ": profile exceeds 4096 authored lights"});
-            }
-
-            auto light = parse_light(entry);
-
-            if (!light) {
-                return unexpected(Error{path.string() + ": " + key + ": " + light.error().message});
-            }
-
-            lights.push_back(std::move(light.value()));
-        }
-    }
-
-    return out;
+    return parse_catalog(parsed.value(), path);
 }
 
 Result<void> write_object_lights(
@@ -369,7 +406,7 @@ Result<void> write_object_lights(
     std::filesystem::create_directories(path.parent_path(), error);
 
     if (error) {
-        return unexpected(Error{path.string() + ": " + error.message()});
+        return unexpected(Error{object_light_path_text(path) + ": " + error.message()});
     }
 
     // Exclusive staging directories prevent two editor windows sharing a temporary filename.
@@ -377,7 +414,9 @@ Result<void> write_object_lights(
     auto staging = path.parent_path() / (".object-lights-" + std::to_string(stamp));
 
     if (!std::filesystem::create_directory(staging, error)) {
-        return unexpected(Error{path.string() + ": cannot create private save staging"});
+        return unexpected(
+            Error{object_light_path_text(path) + ": cannot create private save staging"}
+        );
     }
 
     const auto fresh = staging / "profile.json";
@@ -391,7 +430,10 @@ Result<void> write_object_lights(
 
     if (!written || !out) {
         return unexpected(
-            Error{path.string() + ": cannot write staged profile; previous file retained"}
+            Error{
+                object_light_path_text(path)
+                + ": cannot write staged profile; previous file retained"
+            }
         );
     }
 
@@ -400,7 +442,7 @@ Result<void> write_object_lights(
     if (error) {
         return unexpected(
             Error{
-                path.string()
+                object_light_path_text(path)
                 + ": cannot replace profile; previous file retained: " + error.message()
             }
         );
