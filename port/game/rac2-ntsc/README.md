@@ -106,6 +106,19 @@ each loads into `$v1`, and the SDK functions whose instructions (relocations
 masked) are those of rac1-pal's or rac4's bound ones. Several of the latter
 start four bytes after their catalogue place, at the linker's fill word.
 
+## What differs from Ratchet & Clank's layouts
+
+- Ratchet's class has no packets in a level: the game loads his mesh and textures from a pack of
+  RC2.HDR (`packs[]` at +0x4F08, by armour) over the class at run time. The export reads pack 0
+  (`editor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Levels of this
+  game are format 5 (`editor/port.py`, `GAME_FORMATS`); the other armours are not exported yet, and
+  his sequences are compressed on the disc, so the glTF has none: the game draws him from its memory.
+- A moby's animation fields start at +0x40 (`profile.cpp`, `moby_anim_fields`).
+- The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
+  the display as in Ratchet & Clank.
+- `split_places.tsv`: the catalogue names the levels' copies of the draw callback lists apart from
+  the executable's routines, which then would not find their tables in a level.
+
 ## The texture word (TEX0)
 
 `0x0027C878` (rac1's GetEffectTex) returns a texture's whole TEX0 from its
