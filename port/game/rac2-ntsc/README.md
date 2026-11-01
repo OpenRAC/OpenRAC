@@ -113,6 +113,16 @@ every level: state changes, the update in a scene. Rac1 has the same pattern. As
 with all its registers (`level_hooks_by_registers`): the stub's C declaration says nothing of what
 the level's function takes.
 
+## Names the C has from somewhere else
+
+`unit_aliases`: a file's name for another function. Twins matched beside another level's copy keep
+that level's names (`func_L20_002C7588` in level 13's hero update is `func_L00_002B4458` there),
+and some calls are spelled with another level's addresses or a kseg0 one (`func_80338398`). Each row
+comes from comparing the function's calls with retail's jals.
+
+`small_copies_own_data`: the catalogue's fingerprint leaves operands out, so a leaf of up to this
+many bytes can be another field in another level: it reads what the running copy forms.
+
 ## What differs from Ratchet & Clank's layouts
 
 - Ratchet's class has no packets in a level: the game loads his mesh and textures from a pack of
