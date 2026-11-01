@@ -49,7 +49,17 @@ private:
 };
 
 // Injection counters are accessed only by the test thread during synchronous Vulkan calls.
+unsigned g_allocations = 0;
 unsigned g_waits = 0;
+PFN_vkAllocateDescriptorSets g_allocate = nullptr;
+
+// Fails once so a regression that retries incorrectly fails a count check instead of hanging CI.
+VKAPI_ATTR VkResult VKAPI_CALL fail_descriptor_allocation(
+    VkDevice device, const VkDescriptorSetAllocateInfo* info, VkDescriptorSet* sets
+) {
+    ++g_allocations;
+    return g_allocations == 1 ? VK_ERROR_OUT_OF_DEVICE_MEMORY : g_allocate(device, info, sets);
+}
 
 // A rejected submit has no work or signalled fence for the host to wait on.
 VKAPI_ATTR VkResult VKAPI_CALL fail_submit(VkQueue, std::uint32_t, const VkSubmitInfo*, VkFence) {
@@ -63,6 +73,15 @@ count_waits(VkDevice, std::uint32_t, const VkFence*, VkBool32, std::uint64_t) {
     return VK_TIMEOUT;
 }
 
+// Uses one workgroup and no textures, so descriptor fault coverage needs no rendered scene.
+bool build_compute(openrac::renderer::Shader& shader, std::string& error) {
+    return shader.build_compute(
+        "Vulkan failure fixture",
+        "#version 430 core\nlayout(local_size_x=1) in; void main() {}",
+        error
+    );
+}
+
 // Impossible upload sizes fail before staging allocation or pointer arithmetic.
 void test_upload_size_overflow_is_rejected() {
     bool rejected = false;
@@ -72,6 +91,28 @@ void test_upload_size_overflow_is_rejected() {
         rejected = true;
     }
     CHECK(rejected);
+}
+
+// Descriptor OOM is fatal for this recording rather than an instruction to allocate more pools.
+void test_descriptor_failure_is_not_retried() {
+    openrac::renderer::Shader shader;
+    std::string error;
+    CHECK(build_compute(shader, error));
+    shader.use();
+    render_opt::set(render_opt::Opt::VkPersistentDescriptors, false);
+    g_allocate = vkAllocateDescriptorSets;
+    g_allocations = 0;
+    const FunctionOverride injected(vkAllocateDescriptorSets, fail_descriptor_allocation);
+    bool rejected = false;
+    try {
+        openrac::renderer::world::gl::glDispatchCompute(1, 1, 1);
+    } catch (const std::runtime_error& failure) {
+        rejected =
+            std::string(failure.what()).find("allocate frame descriptors") != std::string::npos;
+    }
+    CHECK(rejected);
+    CHECK(g_allocations == 1);
+    render_opt::reset();
 }
 
 // A failed queue submit leaves the slot unsubmitted and does not enter its fence wait.
@@ -106,6 +147,7 @@ int run_tests() {
 
     CHECK(openrac::gl::load(vkgl::get_proc, error));
     test_upload_size_overflow_is_rejected();
+    test_descriptor_failure_is_not_retried();
     test_failed_submit_never_waits();
     CHECK(vkgl::submission_counters().validation_errors == 0);
     vkgl::close();
