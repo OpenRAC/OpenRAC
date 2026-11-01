@@ -135,6 +135,7 @@ Opaque receivers use the prepass depth range. Transparent and MSAA receivers use
 depth-independent masks; secondary cameras and offscreen compute receivers evaluate all lights
 when masks do not match. Light tables below 16 entries bypass compute culling. Directional and
 Ratchet shadows are unchanged; local lights do not cast shadows or contribute to baked GI.
+Native point lights remain available to enhanced material fallbacks without probe data.
 Volumetric lighting still uses the original point-light bank.
 
 The authoring entry point is

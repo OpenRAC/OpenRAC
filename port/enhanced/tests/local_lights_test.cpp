@@ -14,11 +14,13 @@
 #include "common/stats.h"
 #include "enhanced/renderer/local_lights.h"
 #include "enhanced/viewer/probe_lighting.h"
+#include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
+#include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 
@@ -149,12 +151,21 @@ struct Fixture {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
 
-    void draw(const renderer::Camera& camera, Receiver receiver, std::array<int, 4> viewport) {
+    void draw(
+        const renderer::Camera& camera,
+        Receiver receiver,
+        std::array<int, 4> viewport,
+        lighting::SceneLighting* scene_lights = nullptr
+    ) {
         local.reference = !receiver.tiled;
         glBindFramebuffer(GL_FRAMEBUFFER, target.id());
         glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
         shader.use();
-        local.bind(shader, &camera, receiver.matched);
+        if (scene_lights) {
+            scene_lights->bind(shader, scene::Layer::Terrain, false, &camera, receiver.matched);
+        } else {
+            local.bind(shader, &camera, receiver.matched);
+        }
         glUniform3f(
             shader.uniform("receiver_eye"),
             camera.position[0],
@@ -359,6 +370,30 @@ void main(){
     target.release();
 }
 
+// Missing probe data must not remove the native point lights used by material fallbacks.
+void test_native_lights_without_probes(Fixture& f, const renderer::Camera& camera) {
+    scene::LevelScene scene;
+    auto& provider = lighting::use_scene_lighting(scene);
+    CHECK(!provider.active());
+    std::array<float, 64> native{};
+    native[0] = .25f;
+    native[6] = -2;
+    native[7] = 4;
+    scene.set_point_lights(native);
+    CHECK(f.local.set_lights({}));
+    f.local.prepare(++f.frame, native, true);
+    f.shader.use();
+    glUniform1i(f.shader.uniform("benchmark_brdf"), 0);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height});
+    const auto expected = f.target.read_rgba();
+    CHECK(std::any_of(expected.begin(), expected.end(), [](auto value) { return value != 0; }));
+    renderer::FrameInput input;
+    input.frame = 1;
+    provider.prepare_deformation(input, scene);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
+    CHECK(f.target.read_rgba() == expected);
+}
+
 // GPU section times are read only after completion, excluding swap/presentation from lighting cost.
 std::array<double, 2> gpu_times(const stats::Frame& frame) {
     std::array<double, 2> result{-1, 0};
@@ -503,6 +538,7 @@ int run(int argc) {
     snapshots(f, camera);
     hdr_diffuse(f);
     built_in_lights(f, camera);
+    test_native_lights_without_probes(f, camera);
     for (unsigned count : {0u, 1u, 24u, 25u, 56u, 257u, 4096u}) {
         f.shader.use();
         glUniform1i(f.shader.uniform("benchmark_brdf"), count >= 56 ? 1 : 0);
