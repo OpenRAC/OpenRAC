@@ -8,6 +8,7 @@
  * The port owns the thread, the stack and the memory, and the loader has
  * zeroed .bss, so only the user-mode steps are kept here.
  */
+#include "openrac/game_host.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -35,6 +36,9 @@ int func_0011B800(void) {
 }
 
 int func_00131AE8(void) {
+    /* The game reports what it draws (host/render.c), so the window draws no world until a pass
+     * of DrawWorld runs: none at the title and the main menu, which are the 2D path alone. */
+    openrac_game_draw(0);
     uint32_t argc;
 
     func_0011F828(); /* _InitSys */
