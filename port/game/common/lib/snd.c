@@ -148,8 +148,16 @@ void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
     (void)f;
     const uint32_t handle = openrac_stream_play((uint32_t)a, e, g, (uint32_t)h, (uint32_t)i);
     if (sound_log()) {
-        fprintf(stderr, "[debug] sound stream %#x: sector %#x volume %#x group %d after %#x flags %#x\n", handle,
-                (unsigned)a, (unsigned)e, g, (unsigned)h, (unsigned)i);
+        fprintf(
+            stderr,
+            "[debug] sound stream %#x: sector %#x volume %#x group %d after %#x flags %#x\n",
+            handle,
+            (unsigned)a,
+            (unsigned)e,
+            g,
+            (unsigned)h,
+            (unsigned)i
+        );
     }
     if (j != 0) {
         GFN(void (*)(int, long long), (gaddr)j)((int)handle, k);
@@ -157,13 +165,31 @@ void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
 } /* snd_PlayVAGStreamByLocEx_CB */
 
 /* A stream of two mono files: the right channel's and the left's (Going Commando's music). */
-void openrac_lib_snd_PlayVAGStreamStereo_CB(int right, int left, int volume, int group, int queue_on, int flags,
-                                            int callback, long long argument) {
-    const uint32_t handle = openrac_stream_play_stereo((uint32_t)right, (uint32_t)left, volume, group,
-                                                       (uint32_t)queue_on, (uint32_t)flags);
+void openrac_lib_snd_PlayVAGStreamStereo_CB(
+    int right,
+    int left,
+    int volume,
+    int group,
+    int queue_on,
+    int flags,
+    int callback,
+    long long argument
+) {
+    const uint32_t handle = openrac_stream_play_stereo(
+        (uint32_t)right, (uint32_t)left, volume, group, (uint32_t)queue_on, (uint32_t)flags
+    );
     if (sound_log()) {
-        fprintf(stderr, "[debug] sound stream %#x: sectors %#x %#x volume %#x group %d after %#x flags %#x\n", handle,
-                (unsigned)right, (unsigned)left, (unsigned)volume, group, (unsigned)queue_on, (unsigned)flags);
+        fprintf(
+            stderr,
+            "[debug] sound stream %#x: sectors %#x %#x volume %#x group %d after %#x flags %#x\n",
+            handle,
+            (unsigned)right,
+            (unsigned)left,
+            (unsigned)volume,
+            group,
+            (unsigned)queue_on,
+            (unsigned)flags
+        );
     }
     if (callback != 0) {
         GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);

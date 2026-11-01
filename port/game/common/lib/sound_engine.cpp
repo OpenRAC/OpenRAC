@@ -630,11 +630,13 @@ void start_reading(std::uint32_t sector, const std::shared_ptr<Track>& track) {
         return true;
     });
     auto done = std::make_shared<std::atomic<bool>>(false);
-    g_readers.push_back({std::thread([sector, track, done] {
-                             read_track(sector, track);
-                             done->store(true);
-                         }),
-                         done});
+    g_readers.push_back(
+        {std::thread([sector, track, done] {
+             read_track(sector, track);
+             done->store(true);
+         }),
+         done}
+    );
 }
 
 // The header now, the body on the reader's thread: the game asks how long the stream has left
@@ -657,7 +659,11 @@ std::shared_ptr<Track> new_track(std::uint32_t sector) {
 }  // namespace
 
 uint32_t openrac_stream_play_stereo(
-    uint32_t sector, uint32_t left_sector, int32_t volume, int32_t group, uint32_t queue_on,
+    uint32_t sector,
+    uint32_t left_sector,
+    int32_t volume,
+    int32_t group,
+    uint32_t queue_on,
     uint32_t flags
 ) {
     if (sector == 0) {

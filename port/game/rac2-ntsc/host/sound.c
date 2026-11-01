@@ -13,8 +13,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "openrac/guest.h"
 #include "openrac/game_lib.h"
+#include "openrac/guest.h"
 #include "openrac/host_env.h"
 #include "openrac/sound_engine.h"
 
@@ -62,7 +62,9 @@ static int mixer_only(unsigned int command) {
  * several wrappers is not their address (func_00133340 is at 0x00133350), and their C is what the
  * callers get. So the commands are taken here, where every wrapper ends. Replies go to the callback,
  * as the IOP's answer would. Returns 0 for a command it does not know. */
-static int stream_or_sound_command(unsigned int command, gaddr data, long long callback, int callback_data) {
+static int stream_or_sound_command(
+    unsigned int command, gaddr data, long long callback, int callback_data
+) {
 #define WORD(i) ((int)GREF(uint32_t, data + (i) * 4u))
     const int cb = (int)callback;
     switch (command) {
@@ -88,8 +90,16 @@ static int stream_or_sound_command(unsigned int command, gaddr data, long long c
             openrac_lib_snd_SoundIsStillPlaying_CB(WORD(0), cb, callback_data);
             return 1;
         case 0x2C: /* right, left (rc2_l00_main_br, _bl), volume << 16, pan << 16, group, queue on, 0, flags */
-            openrac_lib_snd_PlayVAGStreamStereo_CB(WORD(0), WORD(1), (short)(WORD(2) >> 16), WORD(4), WORD(5),
-                                                   WORD(7), cb, (long long)(unsigned int)callback_data);
+            openrac_lib_snd_PlayVAGStreamStereo_CB(
+                WORD(0),
+                WORD(1),
+                (short)(WORD(2) >> 16),
+                WORD(4),
+                WORD(5),
+                WORD(7),
+                cb,
+                (long long)(unsigned int)callback_data
+            );
             return 1;
         case 0x2D:
             openrac_lib_snd_PauseVAGStream(WORD(0));
@@ -119,11 +129,19 @@ int func_00132DF0(int command_arg, int bytes, int data_arg, long long callback, 
         return 0;
     }
     if (openrac_env_string("OPENRAC_SOUND_LOG") != NULL) {
-        fprintf(stderr, "[debug] sound command %#x: %#x %#x %#x %#x %#x %#x %#x %#x\n", command,
-                bytes > 0 ? (unsigned)GREF(uint32_t, data) : 0, bytes > 4 ? (unsigned)GREF(uint32_t, data + 4u) : 0,
-                bytes > 8 ? (unsigned)GREF(uint32_t, data + 8u) : 0, bytes > 12 ? (unsigned)GREF(uint32_t, data + 12u) : 0,
-                bytes > 16 ? (unsigned)GREF(uint32_t, data + 16u) : 0, bytes > 20 ? (unsigned)GREF(uint32_t, data + 20u) : 0,
-                bytes > 24 ? (unsigned)GREF(uint32_t, data + 24u) : 0, bytes > 28 ? (unsigned)GREF(uint32_t, data + 28u) : 0);
+        fprintf(
+            stderr,
+            "[debug] sound command %#x: %#x %#x %#x %#x %#x %#x %#x %#x\n",
+            command,
+            bytes > 0 ? (unsigned)GREF(uint32_t, data) : 0,
+            bytes > 4 ? (unsigned)GREF(uint32_t, data + 4u) : 0,
+            bytes > 8 ? (unsigned)GREF(uint32_t, data + 8u) : 0,
+            bytes > 12 ? (unsigned)GREF(uint32_t, data + 12u) : 0,
+            bytes > 16 ? (unsigned)GREF(uint32_t, data + 16u) : 0,
+            bytes > 20 ? (unsigned)GREF(uint32_t, data + 20u) : 0,
+            bytes > 24 ? (unsigned)GREF(uint32_t, data + 24u) : 0,
+            bytes > 28 ? (unsigned)GREF(uint32_t, data + 28u) : 0
+        );
     }
     if (command == OPENRAC_SND_PLAY_VOL_PAN_PMPB || command == OPENRAC_SND_SET_SOUND_PARAMS) {
         const int answer = (int)openrac_sound_command(command, G(data), (uint32_t)bytes);
@@ -132,7 +150,8 @@ int func_00132DF0(int command_arg, int bytes, int data_arg, long long callback, 
          * sound's parameters answers its handle while it plays and 0 once it has ended, and that 0
          * is what frees the slot (func_002E60E8). */
         if (callback != 0) {
-            GFN(void (*)(int, long long), (gaddr)callback)(answer, (long long)(unsigned int)callback_data);
+            GFN(void (*)(int, long long),
+                (gaddr)callback)(answer, (long long)(unsigned int)callback_data);
         }
         return 1;
     }
@@ -171,12 +190,26 @@ int func_001326D8(int bank) {
  * speech has no left. Flags as rac1's: 1 paused until snd_ContinueVAGStream, 4 loop. The callback is told
  * the handle, as the IOP's answer would, and the game's wait for a buffered stream (func_002E6D88) ends
  * through snd_IsVAGStreamBuffered_CB. */
-int func_00133350(int right, int left, int a2, int a3, int volume, int pan, int group, int queue_on, int a8,
-                  int flags, int callback, long long argument) {
+int func_00133350(
+    int right,
+    int left,
+    int a2,
+    int a3,
+    int volume,
+    int pan,
+    int group,
+    int queue_on,
+    int a8,
+    int flags,
+    int callback,
+    long long argument
+) {
     (void)a2;
     (void)a3;
     (void)a8;
     (void)pan;
-    openrac_lib_snd_PlayVAGStreamStereo_CB(right, left, volume, group, queue_on, flags, callback, argument);
+    openrac_lib_snd_PlayVAGStreamStereo_CB(
+        right, left, volume, group, queue_on, flags, callback, argument
+    );
     return 0;
 }
