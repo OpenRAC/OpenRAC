@@ -156,6 +156,14 @@ const Host* g_host = nullptr;
 const char* hook_id(const Host& host, const char* name) {
     return openrac_script_hook_id(host.scripts, name);
 }
+// Who draws over the game (on_overlay), in load order.
+struct OverlayCallback {
+    openrac_mod* mod;
+    openrac_overlay_fn fn;
+    void* user;
+};
+std::vector<OverlayCallback> g_overlays;
+
 openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks are taken then only
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<fs::path> g_asset_roots;  // the loaded mods' assets folders, the last loaded first
@@ -1068,8 +1076,19 @@ int api_party_replaying() {
 // ---- Interface 1.12: calls of the port as a whole that a shared game needs. Each answers
 // "unknown" until its package fills it in. ----
 
-int api_on_overlay(openrac_mod*, openrac_overlay_fn, void*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    // One a mod: the last it gave.
+    for (OverlayCallback& c : g_overlays) {
+        if (c.mod == mod) {
+            c = {mod, fn, user};
+            return OPENRAC_HOOK_OK;
+        }
+    }
+    g_overlays.push_back({mod, fn, user});
+    return OPENRAC_HOOK_OK;
 }
 
 int api_packs_info(openrac_packs_info*) {
@@ -1084,8 +1103,24 @@ int api_clipboard_set(const char*) {
     return OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_open_link(const char*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_open_link(const char* url) {
+    if (url == nullptr || !is_mod_code_link(url) || g_host == nullptr || g_host->open_url == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_host->open_url(url) ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_plugins_folder(char* out, std::uint32_t size) {
+    if (out == nullptr || size == 0 || g_host == nullptr) {
+        return 0;
+    }
+    const std::string folder = g_host->list.parent_path().string();
+    // A path cut short is another path: none rather than that.
+    if (folder.empty() || folder.size() >= size) {
+        return 0;
+    }
+    std::memcpy(out, folder.c_str(), folder.size() + 1);
+    return static_cast<int>(folder.size());
 }
 
 int api_identity_key(char*, std::uint32_t) {
@@ -1161,6 +1196,7 @@ void fill_api(const Host& host) {
     g_api.packs_entry = api_packs_entry;
     g_api.clipboard_set = api_clipboard_set;
     g_api.open_link = api_open_link;
+    g_api.plugins_folder = api_plugins_folder;
     g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
 }
@@ -1316,6 +1352,7 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
+    std::erase_if(g_overlays, [&](const OverlayCallback& c) { return c.mod == mod; });
     std::erase_if(g_developer_menus, [&](const DeveloperMenu& menu) { return menu.mod == mod; });
     // Its main-menu and pause items, then its pages (the last made: no other mod's id moves).
     std::erase_if(g_ui_main, [&](const UiMainItem& m) { return mod_page(mod, m.page) != nullptr; });
@@ -1614,6 +1651,33 @@ std::string menu_entry_label(int index) {
     return g_menus[static_cast<std::size_t>(index)].label;
 }
 
+bool is_mod_code_link(std::string_view url) {
+    constexpr std::string_view kPrefix = "openrac://modset/";
+    // A long code in a link: what the launcher's own limit on a set makes of it, and some room.
+    constexpr std::size_t kLinkMax = 16 * 1024;
+    if (!url.starts_with(kPrefix) || url.size() == kPrefix.size() || url.size() > kLinkMax) {
+        return false;
+    }
+    // A short code (K7M2-9QXR) or a long one (ORMS1. and base64url): nothing a handler could read
+    // as more than a code.
+    const std::string_view code = url.substr(kPrefix.size());
+    return std::all_of(code.begin(), code.end(), [](char c) {
+        const bool letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        const bool digit = c >= '0' && c <= '9';
+        return letter || digit || c == '-' || c == '_' || c == '.';
+    });
+}
+
+bool overlay_wanted() {
+    return !g_overlays.empty() && overlay_shows_level();
+}
+
+void run_overlays(const openrac_overlay& overlay) {
+    for (const OverlayCallback& c : g_overlays) {
+        c.fn(c.user, &overlay);
+    }
+}
+
 bool run_menu_page(int index, const openrac_menu_frame& frame) {
     // A page that is no longer there (its mod was taken back) is closed.
     if (index < 0 || index >= menu_entry_count()) {
@@ -1780,6 +1844,7 @@ void reset() {
     g_frames.clear();
     g_pads.clear();
     g_menus.clear();
+    g_overlays.clear();
     g_developer_menus.clear();
     g_ui_pages.clear();
     g_ui_main.clear();

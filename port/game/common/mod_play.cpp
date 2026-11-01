@@ -923,8 +923,12 @@ int api_play_scene_from(openrac_mod*, int, int) {
     return OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_play_live_picture(openrac_mod*, int) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_play_live_picture(openrac_mod* mod, int on) {
+    if (mod == nullptr || g_play == nullptr || g_play->live_picture == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_play->live_picture(on != 0 ? 1 : 0);
+    return OPENRAC_HOOK_OK;
 }
 
 int api_on_metal_detect(openrac_mod*, openrac_metal_detect_fn, void*) {
@@ -1138,6 +1142,11 @@ bool play_skipping() {
 std::string play_notice() {
     const std::lock_guard<std::mutex> lock(g_notice_lock);
     return g_notice;
+}
+
+bool overlay_shows_level() {
+    std::int32_t level = -1;
+    return phase_now(&level) == OPENRAC_PLAY_PLAYING;
 }
 
 void reset_play() {

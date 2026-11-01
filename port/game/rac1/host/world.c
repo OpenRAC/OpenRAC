@@ -616,6 +616,14 @@ void rac1_world_keep_running(int on) {
     keep_running = on != 0;
 }
 
+/* Whether the world keeps being drawn under the pause menu (interface 1.12, play_live_picture).
+ * Off, the menu's picture of the frame stands as it opened on, and the mobys still go on. */
+static int live_picture = 1;
+
+void rac1_world_live_picture(int on) {
+    live_picture = on != 0;
+}
+
 /* The collision queries' stamp (CollOutput +0x10) and its bit for "off". */
 #define COLL_STAMP (OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00173F40u)) + 0x10u)
 #define COLL_OFF 0x80000000u
@@ -691,7 +699,7 @@ static void run_world_under_menu(int pause_menu) {
     GREF(uint32_t, COLL_STAMP) &= ~COLL_OFF;
     func_00213C78();
     GREF(uint32_t, COLL_STAMP) |= coll_off;
-    if (pause_menu && (first || swapped)) {
+    if (pause_menu && live_picture && (first || swapped)) {
         openrac_game_world_under_menu();
         openrac_game_draw(OPENRAC_DRAW_SKY);
         func_002352C8();

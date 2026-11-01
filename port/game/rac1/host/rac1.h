@@ -129,6 +129,7 @@ void rac1_world_post_hit(
 void rac1_world_eyes(const float* xyz, int count);
 int32_t rac1_world_bolts(int32_t add);
 void rac1_world_keep_running(int on);
+void rac1_world_live_picture(int on);
 
 /* play.c: whether `moby` is a figure made in this level load. figure_items.c: what a figure wears
  * and holds and the shots it fires (interface 1.9; play.c's table), its pieces put on its joints

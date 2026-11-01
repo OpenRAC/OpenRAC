@@ -586,4 +586,5 @@ const openrac_game_play rac1_play = {
      * mean the same. A disc or a change of this code that breaks that takes a new number. */
     .world_family = "rac1-60-1",
     .sim_digest = rac1_sim_digest,
+    .live_picture = rac1_world_live_picture,
 };

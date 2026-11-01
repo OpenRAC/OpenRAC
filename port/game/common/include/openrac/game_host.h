@@ -492,6 +492,9 @@ typedef struct openrac_game_play {
     void (*card_slot)(int slot);
     int (*card_write)(int slot, const uint8_t* bytes, uint32_t size);
     uint32_t (*card_saves)(void);
+    /* Whether the world is drawn under the pause menu while it keeps running (1, the start) or the
+     * picture stands (0): openrac_api.play_live_picture. NULL for a game without it. */
+    void (*live_picture)(int on);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

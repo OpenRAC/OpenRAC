@@ -307,6 +307,7 @@ function(openrac_add_game config)
                                        "${OPENRAC_GAME_DIR}/common/debug_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/exit_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_menu.cpp"
+                                       "${OPENRAC_GAME_DIR}/common/mod_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_ui.cpp"
                                        "${OPENRAC_GAME_DIR}/common/options_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/settings.cpp"

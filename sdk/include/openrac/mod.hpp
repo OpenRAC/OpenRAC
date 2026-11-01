@@ -1761,6 +1761,14 @@ public:
         return says ? out : 0;
     }
 
+    // Since 1.12: the folder the mods are in, <data>/plugins; "" when the port does not say.
+    std::string plugins_folder() const {
+        char text[1024] = {};
+        const bool says = has_slot12(offsetof(openrac_api, plugins_folder))
+                          && m_api->plugins_folder(text, sizeof text) > 0;
+        return says ? text : "";
+    }
+
     // Since 1.12: a key that stays the same for this installation; "" when the port has none.
     std::string identity_key() const {
         char text[128] = {};

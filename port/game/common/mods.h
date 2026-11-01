@@ -14,6 +14,7 @@
 #include <deque>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "openrac/game_host.h"
@@ -92,6 +93,9 @@ struct Host {
     // (null: a test's, or no window, and then nothing is drawn).
     void (*menu_rect)(int x, int y, int width, int height, std::uint32_t rgba) = nullptr;
     void (*menu_text)(int x, int y, int size, std::uint32_t rgba, const char* text) = nullptr;
+    // A link handed to the system (interface 1.12; null: a test's, or no window). True when it
+    // went.
+    bool (*open_url)(const char* url) = nullptr;
     // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
     bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
     void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;
@@ -165,6 +169,16 @@ std::string play_notice();
 // entry's label ("" past the list).
 int menu_entry_count();
 std::string menu_entry_label(int index);
+
+// Whether `url` is a mod code's link, the only link a mod may have opened: openrac://modset/ and a
+// code, in the characters a code has.
+bool is_mod_code_link(std::string_view url);
+
+// Drawing over the game (interface 1.12): whether a mod draws now (one took on_overlay and the game
+// shows a level, not a menu or a scene), and each such mod's callback with `overlay`. On the window
+// thread, with the frame finished.
+bool overlay_wanted();
+void run_overlays(const openrac_overlay& overlay);
 
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
 // menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).

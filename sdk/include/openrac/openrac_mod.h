@@ -1034,6 +1034,9 @@ typedef struct openrac_overlay {
     void (*text)(void* context, float x, float y, float height, uint32_t rgba, const char* text);
     /* 1 up close to `near_distance` away, falling to 0 at `far_distance` (the level's units). */
     float (*fade)(void* context, float distance, float near_distance, float far_distance);
+    /* How wide `text` is at `height`, on the picture: text keeps its shape on a wide picture, so a
+     * mod that centres a line asks. */
+    float (*text_width)(void* context, float height, const char* text);
 } openrac_overlay;
 
 /* Called once a frame, after the world is drawn and before the port's own overlay, while the game
@@ -1629,8 +1632,10 @@ typedef struct openrac_api {
     /* play_scene, from frame `start_frame` of the scene. Since 1.12. */
     int (*play_scene_from)(openrac_mod* mod, int scene, int start_frame);
 
-    /* Whether the picture behind the game's pause menus is the world still running (`on` 1), when
-     * play_overlay_pause is on. Since 1.12. */
+    /* Whether the picture behind the game's pause menus is the world still running (`on` 1, as it
+     * is until asked otherwise) or stands as the menu found it (0), when play_overlay_pause is on:
+     * the mobys go on either way. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game
+     * without it. Since 1.12. */
     int (*play_live_picture)(openrac_mod* mod, int on);
 
     /* Calls `fn(user, slot, key)` when the metal detector finds a buried moby (one a mod, only
@@ -1645,8 +1650,9 @@ typedef struct openrac_api {
     /* Puts `text` (UTF-8) on the system clipboard. Since 1.12. */
     int (*clipboard_set)(const char* text);
 
-    /* Opens `url` in the system's handler once the player agrees; only an openrac:// link is
-     * accepted. Since 1.12. */
+    /* Opens `url` in the system's handler; only a mod code's link (openrac://modset/...) is
+     * accepted. Ask the player first: a button of the mod's own page is that asking. Returns
+     * OPENRAC_HOOK_OK when it went to the system. Since 1.12. */
     int (*open_link)(const char* url);
 
     /* The world this game's disc belongs to, as text into `out` (`size` bytes, ending in a zero):
@@ -1673,6 +1679,11 @@ typedef struct openrac_api {
      * remember of a slot; the launcher shows nothing of it but what is documented there. Since 1.12. */
     int (*card_note_write)(openrac_mod* mod, int slot, const char* text);
     int (*card_note_read)(const char* folder, int slot, char* out, uint32_t size);
+
+    /* The folder the mods are in, <data>/plugins, as text into `out` (`size` bytes, ending in a
+     * zero): the launcher's file for the game, modset.json, is there. Returns its length, or 0 when
+     * there is none or it does not fit. Since 1.12. */
+    int (*plugins_folder)(char* out, uint32_t size);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

@@ -105,6 +105,7 @@ void install(
                                   {"value": "developer_menu", "name": "Developer menu"},
                                   {"value": "rules", "name": "Rules"},
                                   {"value": "twelve", "name": "Twelve"},
+                                  {"value": "hud", "name": "Hud"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"}]},
@@ -129,6 +130,7 @@ mods::Host host(const fs::path& plugins) {
 // five levels, a hero in state 7, figures alive until the next load (the loader checks), saves in
 // <cards>/SAVES whose first byte is 'S' and second the level, and what the game was asked to do.
 int g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+int g_live_picture = -1;
 std::uint32_t g_loads = 1;
 std::vector<std::string> g_played;
 const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eudora"};
@@ -311,6 +313,13 @@ const openrac_game_play kPlay = {
     nullptr,
     "test-world-1",
     [](int level) { return level == 4 ? 0xABCDu : 0u; },
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    [](int on) { g_live_picture = on; },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -1076,6 +1085,84 @@ void an_old_name_still_binds(const fs::path& plugins) {
     mods::reset();
 }
 
+// Drawing over the game (interface 1.12): the mod's callback only with a level in play, through
+// what the port hands it, and none from a mod taken back. A mod's link: a code's, nothing else.
+std::vector<std::string> g_opened;
+float g_overlay_rect[4];
+
+void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"behaviour": "hud"}}]})");
+    mods::Host h = host(plugins);
+    h.play = &kPlay;
+    h.cards = dir / "cards";
+    CHECK(!mods::overlay_wanted());  // nobody asked yet
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(g_live_picture == 0);  // play_live_picture reaches the game
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    CHECK(!mods::overlay_wanted());
+    g_phase = OPENRAC_GAME_PHASE_MENU;
+    CHECK(!mods::overlay_wanted());
+    g_phase = OPENRAC_GAME_PHASE_SCENE;
+    CHECK(!mods::overlay_wanted());
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(mods::overlay_wanted());
+    openrac_overlay overlay{};
+    overlay.size = sizeof overlay;
+    overlay.project = [](void*, const float world[3], float* x, float* y) {
+        *x = world[0] * 10.0f;
+        *y = world[1] * 10.0f;
+        return 1;
+    };
+    overlay.rect = [](void*, float x, float y, float w, float h, std::uint32_t) {
+        g_overlay_rect[0] = x;
+        g_overlay_rect[1] = y;
+        g_overlay_rect[2] = w;
+        g_overlay_rect[3] = h;
+    };
+    overlay.text_width = [](void*, float height, const char*) { return height / 2.0f; };
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
+    CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
+    mods::reset();
+    CHECK(!mods::overlay_wanted());  // gone with the mods
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+}
+
+void only_a_mod_codes_link_opens(const fs::path& plugins) {
+    CHECK(mods::is_mod_code_link("openrac://modset/K7M2-9QXR"));
+    CHECK(mods::is_mod_code_link("openrac://modset/ORMS1.eJxLTEpOAQAE_Qc-"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/"));
+    CHECK(!mods::is_mod_code_link("openrac://join/K7M29QXR"));
+    CHECK(!mods::is_mod_code_link("https://example.com/"));
+    CHECK(!mods::is_mod_code_link("file:///etc/passwd"));
+    CHECK(!mods::is_mod_code_link("OPENRAC://modset/K7M2-9QXR"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/../../x"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/K7M2 9QXR"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/K7M2?x=y"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/K7M2\n"));
+    CHECK(!mods::is_mod_code_link("openrac://modset/" + std::string(17 * 1024, 'A')));
+
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    h.open_url = [](const char* url) {
+        g_opened.emplace_back(url);
+        return true;
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.open_link("https://example.com/") == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.open_link(nullptr) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_opened.empty());
+    CHECK(api.open_link("openrac://modset/K7M2-9QXR") == OPENRAC_HOOK_OK);
+    CHECK(g_opened.size() == 1 && g_opened[0] == "openrac://modset/K7M2-9QXR");
+    char folder[1024] = {};
+    CHECK(api.plugins_folder(folder, sizeof folder) == static_cast<int>(plugins.string().size()));
+    CHECK(plugins.string() == folder);
+    char small[2] = {};
+    CHECK(api.plugins_folder(small, sizeof small) == 0);
+    mods::reset();
+}
+
 int main() {
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
@@ -1099,6 +1186,8 @@ int main() {
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
     the_1_12_slots_answer_unknown(plugins);
+    a_mod_draws_over_the_level(plugins, dir);
+    only_a_mod_codes_link_opens(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);

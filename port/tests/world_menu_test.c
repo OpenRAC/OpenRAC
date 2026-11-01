@@ -160,7 +160,11 @@ void openrac_game_draw(unsigned layers) {
     (void)layers;
 }
 
-void openrac_game_world_under_menu(void) {}
+static int worlds_drawn;
+
+void openrac_game_world_under_menu(void) {
+    ++worlds_drawn;
+}
 
 /* No mod hooks the moby loop here. */
 int (*openrac_game_moby_update)(int32_t slot, int phase);
@@ -256,6 +260,20 @@ int main(void) {
         CHECK(GREF(uint32_t, COLL_STAMP) == ((1006u + 3u * (uint32_t)tick) | COLL_OFF));
     }
     CHECK(level_updates == 265 && queries_off == 0);
+
+    /* The world was drawn under the menu each tick: the live picture behind it. */
+    CHECK(worlds_drawn == 265);
+
+    /* A mod that wants the picture to stand: not drawn, and the mobys go on all the same, under
+     * the level's camera. On again, it is drawn again. */
+    rac1_world_live_picture(0);
+    func_L00_00277A88();
+    CHECK(worlds_drawn == 265 && level_updates == 266);
+    CHECK(GREF(float, OPENRAC_DATA(CAMERA_POSITION)) == 256.0f);
+    rac1_world_live_picture(1);
+    func_L00_00277A88();
+    CHECK(worlds_drawn == 266 && level_updates == 267);
+    level_updates = 265;
 
     /* A freeze dialog the menu opens: the same. */
     func_001FD3E8();

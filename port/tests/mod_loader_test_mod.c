@@ -382,6 +382,19 @@ static void on_party_rules(void* user, const void* data, uint32_t size) {
     s_record(data == NULL ? 7000 : 7000 + (int)size * 10 + ((const char*)data)[0] - 'a');
 }
 
+/* Over the game: a rectangle where the middle of the level's camera is, with its user data seen. */
+static int overlay_user = 7;
+
+static void on_overlay(void* user, const openrac_overlay* overlay) {
+    const float world[3] = {1.0f, 2.0f, 3.0f};
+    float x = 0.0f;
+    float y = 0.0f;
+    if (user == &overlay_user && overlay->size >= sizeof(openrac_overlay)
+        && overlay->project(overlay->context, world, &x, &y)) {
+        overlay->rect(overlay->context, x, y, overlay->text_width(overlay->context, 8.0f, "A"), 8.0f, 0xFF0000FFu);
+    }
+}
+
 OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod) {
     s_api = api;
     s_frames = 0;
@@ -483,7 +496,6 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->hero_grab(mod, 1, 0) != OPENRAC_HOOK_UNKNOWN
             || api->hero_release(mod) != OPENRAC_HOOK_UNKNOWN
             || api->hero_revive(mod, NULL, 0) != OPENRAC_HOOK_UNKNOWN
-            || api->on_overlay(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
             || api->hero_shots2(&shot, 1) != 0
             || api->figure_shot2(mod, 0, &shot) != OPENRAC_HOOK_UNKNOWN
             || api->moby_list2(&moby, 1) != 0
@@ -500,6 +512,13 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->sim_digest(0, &digest) != OPENRAC_HOOK_UNKNOWN
             || api->identity_key(text, sizeof text) != 0) {
             return 17;
+        }
+    }
+    if (behaviour[0] == 'h') { /* hud: draws over the game */
+        if (api->on_overlay(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE
+            || api->on_overlay(mod, on_overlay, &overlay_user) != OPENRAC_HOOK_OK
+            || api->play_live_picture(mod, 0) != OPENRAC_HOOK_OK) {
+            return 18;
         }
     }
     if (behaviour[0] == 's') { /* savestate */

@@ -419,6 +419,7 @@ void render_scene(
 
     output.shown = owner.frame.resolved();
     output.camera = frame.input.camera;
+    output.has_camera = frame.has_camera;
     output.tick = frame.input.frame;
     output.finished = std::chrono::steady_clock::now();
     output.scene_seconds = std::chrono::duration<double>(scene_done - output.started).count();
