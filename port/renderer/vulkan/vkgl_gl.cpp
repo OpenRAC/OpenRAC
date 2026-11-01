@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
+#include <limits>
 #include <regex>
 #include <string>
 #include <string_view>
@@ -481,6 +482,11 @@ void VKGL tex_image_2d(
     if (t == nullptr || w <= 0 || h <= 0 || level < 0) {
         return;
     }
+    // Shifting an int by its width is undefined, even when the requested mip does not exist.
+    if (level >= std::numeric_limits<unsigned>::digits || !image_extent_valid(w, h)) {
+        fail(kGlInvalidValue);
+        return;
+    }
     const Format f = format_of(static_cast<GLenum>(internal));
     if (f.vk == VK_FORMAT_UNDEFINED) {
         fail(kGlInvalidEnum);
@@ -542,6 +548,11 @@ void VKGL compressed_tex_image_2d(
 ) {
     Texture* texture = bound_texture(target);
     const Format format = format_of(internal);
+    // Bounds also make the compressed block-count arithmetic safe.
+    if (!image_extent_valid(width, height)) {
+        fail(kGlInvalidValue);
+        return;
+    }
     // This path carries complete probe atlases, not generated GL mip chains.
     if (!texture || level != 0 || border != 0 || width <= 0 || height <= 0
         || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
@@ -781,8 +792,15 @@ void VKGL buffer_data(GLenum target, GLsizeiptr size, const void* data, GLenum u
 void VKGL buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, const void* data) {
     GLuint* binding = buffer_binding(target);
     Buffer* b = binding != nullptr ? g->buffers.find(*binding) : nullptr;
-    if (b == nullptr || offset < 0 || size <= 0
-        || static_cast<std::size_t>(offset + size) > b->size) {
+    // An empty update needs no source bytes and preserves the buffer.
+    if (size == 0) {
+        return;
+    }
+    // Subtraction checks the range without overflowing offset + size on malformed input.
+    if (b == nullptr || offset < 0 || size <= 0 || data == nullptr
+        || static_cast<std::size_t>(offset) > b->size
+        || static_cast<std::size_t>(size) > b->size - static_cast<std::size_t>(offset)) {
+        fail(kGlInvalidValue);
         return;
     }
 

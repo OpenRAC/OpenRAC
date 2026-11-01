@@ -1823,6 +1823,12 @@ VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers) {
 }
 
 void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
+    const auto& limits = g->properties.limits.maxComputeWorkGroupCount;
+    // Reject oversized grids before recording an invalid dispatch for any enhanced pass.
+    if (x > limits[0] || y > limits[1] || z > limits[2]) {
+        fail(kGlInvalidValue);
+        return;
+    }
     prepare_frame();
     auto* p = g->programs.find(g->state.program);
     if (!p || !p->linked || !p->compute_pipeline || !x || !y || !z) {

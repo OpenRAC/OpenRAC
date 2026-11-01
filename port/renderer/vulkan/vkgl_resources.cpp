@@ -160,6 +160,12 @@ int texel_bytes(VkFormat f) {
     }
 }
 
+bool image_extent_valid(int width, int height) {
+    const auto maximum = g->properties.limits.maxImageDimension2D;
+    return width > 0 && height > 0 && static_cast<unsigned>(width) <= maximum
+           && static_cast<unsigned>(height) <= maximum;
+}
+
 ImagePtr make_image(
     const Format& format,
     int width,
@@ -168,6 +174,12 @@ ImagePtr make_image(
     VkSampleCountFlagBits samples,
     VkImageUsageFlags extra_usage
 ) {
+    // Reject impossible attachments before driver allocation and before signed size arithmetic.
+    if (!image_extent_valid(width, height) || levels <= 0 || levels > full_chain(width, height)) {
+        fail(kGlInvalidValue);
+        return nullptr;
+    }
+
     // Called by the last owner to let go: the image's Vulkan objects go first, while the device
     // is open, then the Image itself.
     auto image = std::shared_ptr<Image>(std::make_unique<Image>().release(), [](Image* i) {

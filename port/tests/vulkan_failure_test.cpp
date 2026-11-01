@@ -108,6 +108,55 @@ bool build_compute(openrac::renderer::Shader& shader, std::string& error) {
     );
 }
 
+// Invalid upload ranges and mip levels must not wrap arithmetic or discard the previous texture.
+void test_rejects_invalid_resource_ranges() {
+    constexpr std::array<std::uint8_t, 4> kBytes{1, 2, 3, 4};
+    GLuint buffer = 0;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, kBytes.size(), kBytes.data(), GL_STATIC_DRAW);
+    const auto maximum = std::numeric_limits<GLintptr>::max();
+    glBufferSubData(GL_ARRAY_BUFFER, maximum, maximum, kBytes.data());
+    CHECK(glGetError() == detail::kGlInvalidValue);
+    CHECK(detail::g->buffers.find(buffer)->data.size() == kBytes.size());
+    CHECK(std::equal(kBytes.begin(), kBytes.end(), detail::g->buffers.find(buffer)->data.begin()));
+    glBufferSubData(GL_ARRAY_BUFFER, 0, kBytes.size(), nullptr);
+    CHECK(glGetError() == detail::kGlInvalidValue);
+    glDeleteBuffers(1, &buffer);
+
+    GLuint texture = 0;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, kBytes.data());
+    const auto image = detail::g->textures.find(texture)->image;
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        std::numeric_limits<unsigned>::digits,
+        GL_RGBA8,
+        1,
+        1,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        nullptr
+    );
+    CHECK(glGetError() == detail::kGlInvalidValue);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA8,
+        std::numeric_limits<int>::max(),
+        1,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        nullptr
+    );
+    CHECK(glGetError() == detail::kGlInvalidValue);
+    CHECK(detail::g->textures.find(texture)->image == image);
+    glDeleteTextures(1, &texture);
+}
+
 // Shader module allocation errors surface through the normal build result and diagnostic log.
 void test_shader_module_failure_is_reported() {
     openrac::renderer::Shader shader;
@@ -139,6 +188,19 @@ void test_upload_size_overflow_is_rejected() {
         rejected = true;
     }
     CHECK(rejected);
+}
+
+// Enhanced passes cannot dispatch outside the workgroup counts reported by the device.
+void test_rejects_oversized_dispatch() {
+    const auto before = vkgl::submission_counters().commands;
+    auto& maximum = detail::g->properties.limits.maxComputeWorkGroupCount[0];
+    const auto original = maximum;
+    // Some drivers allow UINT32_MAX groups; use a smaller cached limit to avoid a wrapping test input.
+    maximum = 1;
+    openrac::renderer::world::gl::glDispatchCompute(2, 1, 1);
+    maximum = original;
+    CHECK(glGetError() == detail::kGlInvalidValue);
+    CHECK(vkgl::submission_counters().commands == before);
 }
 
 // Descriptor OOM is fatal for this recording rather than an instruction to allocate more pools.
@@ -194,9 +256,11 @@ int run_tests() {
     }
 
     CHECK(openrac::gl::load(vkgl::get_proc, error));
+    test_rejects_invalid_resource_ranges();
     test_shader_module_failure_is_reported();
     test_shader_layout_failure_stops_linking();
     test_upload_size_overflow_is_rejected();
+    test_rejects_oversized_dispatch();
     test_descriptor_failure_is_not_retried();
     test_failed_submit_never_waits();
     CHECK(vkgl::submission_counters().validation_errors == 0);

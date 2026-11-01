@@ -88,6 +88,7 @@ inline constexpr std::uint32_t kFrameTimestamp = kTimestamps - 2;
 // GL enums the headers do not list, which the functions below are asked about.
 inline constexpr GLenum kGlActiveUniforms = 0x8B86;
 inline constexpr GLenum kGlInvalidEnum = 0x0500;
+inline constexpr GLenum kGlInvalidValue = 0x0501;
 inline constexpr GLenum kGlUniformBufferOffsetAlignment = 0x8A34;
 inline constexpr GLenum kGlMaxCombinedTextureUnits = 0x8B4D;
 inline constexpr GLenum kGlMaxTextureBufferSize = 0x8C2B;
@@ -1166,6 +1167,8 @@ inline bool check(VkResult result, const char* what) {
 // Stops recording on a failed Vulkan operation; the owning frame boundary reports the exception.
 void require_success(VkResult result, const char* operation);
 
+// Whether a 2D extent fits this device, before allocation or upload-size arithmetic.
+bool image_extent_valid(int width, int height);
 
 // Reclaims the selected slot before its first resource or command-buffer use.
 void prepare_frame();
