@@ -307,6 +307,8 @@ const openrac_game_play kPlay = {
         return 1;
     },
     nullptr,
+    nullptr,
+    nullptr,
     "test-world-1",
     [](int level) { return level == 4 ? 0xABCDu : 0u; },
 };
