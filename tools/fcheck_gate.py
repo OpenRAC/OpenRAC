@@ -15,8 +15,8 @@ fcheck says SAME on real calls of the retail game; one fcheck cannot reach is
   /opt/homebrew/bin/python3 tools/fcheck_gate.py calibrate [--mutants N]   rac2: the harness's acceptance test on matched C
 
 rac2 ("Game profiles" below) drives rac2-decomp's own tools/fcheck.py over the boot (the boot, title,
-menu pages and New Game up to the first level's load) and level 00 (New Game into Aranos, the
-tutorial, played a while): other levels' functions are not checked yet; its states and work files are in the
+menu pages and New Game up to the first level's load) and every level (New Game into the level,
+played a while: a function is captured in its own levels, three at most); its states and work files are in the
 ignored build/fcheck/rac2-ntsc/; the compiler runs through $RAC2_LINUX; the checkout is
 $OPENRAC_SOURCE_RAC2_NTSC, else games/rac2/game.json's.
 
@@ -84,7 +84,7 @@ PAL_VERDICTS = ROOT / "port/game/rac1-pal/fcheck.tsv"
 # Functions whose DIFFERS is known not to be a difference of the C (name<TAB>reason), recorded by hand.
 PAL_ARTEFACTS = ROOT / "port/game/rac1-pal/fcheck_artefacts.tsv"
 US_VERDICTS = ROOT / "port/game/rac1-ntsc/hand/fcheck.tsv"
-PYTHON = "/opt/homebrew/bin/python3"
+PYTHON = "/opt/homebrew/bin/python3" if Path("/opt/homebrew/bin/python3").exists() else sys.executable
 HEADER = "name\tstatus\tdate\tfcheck\tcsum\tnote"
 HEAD_COMMENT = ("# fcheck verdicts for the rows of {table} (tools/fcheck_gate.py writes this; "
                 "docs/port/BACKFILL.md, \"The gate\"). Only status same is done.")
@@ -745,13 +745,14 @@ RAC2 = Profile(
     boot_catalogue="config/boot/functions.tsv",                 # name, address, size
     level_catalogue="config/levels/functions.tsv",              # name, kind, size, fp, levels, NN:ADDR places
     gp=0x1AEFF0, resident_max=0x1A7C80,                         # a level's program replaces memory from here
-    scripts=("menu", "newgame", "level00"),                     # the driver's press scripts (fcheck.py scripts)
-    levels_checked={0},                                         # levels with a capture script (func_LNN_ checked)
+    scripts=("menu", "newgame", "level00"),                     # the driver's scripts every function runs through
+    levels_checked=frozenset({*range(21), *range(22, 27), 30}), # levels with a capture script (fcheck.py's levelNN)
+    level_runs=3,                                               # levels a function is captured in, at most
     work=ROOT / "build/fcheck/rac2-ntsc",                       # ignored: test copies, logs, work dirs
     states=ROOT / "build/fcheck/rac2-ntsc/states",              # ignored: the capture runs' call states
     level_fn=re.compile(r"func_L(\d{2})_([0-9A-F]{8})"),
-    not_called="never called in the capture runs (boot, title, menu pages, New Game, level 00 played a while)",
-    levels_pending="level function: rac2's captures cover level 00 only (boot, title, menus, New Game, level 00)",
+    not_called="never called in the capture runs (boot, title, menu pages, New Game, its levels played a while)",
+    levels_pending="level function of a level with no capture script",
     libm={"sqrtf": "__gate_sqrtf", "__builtin_sqrtf": "__gate_sqrtf", "openrac_sqrt": "__gate_sqrtf",
           "fabsf": "__gate_fabsf", "__builtin_fabsf": "__gate_fabsf",
           "memcpy": "func_001153D4", "__builtin_memcpy": "func_001153D4",
@@ -782,22 +783,57 @@ def rac2_driver(decomp: Path, *args: str, timeout: int = BUILD_TIMEOUT) -> subpr
                           text=True, env=rac2_env(), timeout=timeout)
 
 
-def rac2_capture(decomp: Path, names: list[str], jobs: int, force: bool = False,
-                 per_phase: int | None = None) -> None:
-    """One headless run per press script (at once), each taking states of NAMES it has not
-    run for yet (the driver's capture: states into RAC2.states/<script>/), PER_PHASE states in
-    each phase of a run when given (else the driver's)."""
-    RAC2.states.mkdir(parents=True, exist_ok=True)
-    lst = RAC2.work / "capture.txt"
-    lst.write_text("".join(f"{n} {per_phase}\n" if per_phase else f"{n}\n" for n in dict.fromkeys(names)))
-    print(f"capturing call states of {len(names)} functions in {len(RAC2.scripts)} runs ...", flush=True)
+def rac2_places(decomp: Path) -> dict[str, list[int]]:
+    """Function name -> the levels it has a place in (the catalogue's NN:ADDR places)."""
+    out: dict[str, list[int]] = {}
+    for c in tables.read_tsv(decomp / RAC2.level_catalogue):
+        if len(c) >= 6:
+            out[c[0]] = sorted(int(p.split(":")[0]) for p in c[5].split(","))
+    return out
 
-    def one(script: str) -> str:
-        r = rac2_driver(decomp, "capture", str(lst), "--script", script, *(["--force"] if force else []),
+
+def rac2_level_lists(names: list[str], places: dict[str, list[int]]) -> dict[int, list[str]]:
+    """Level -> the names to capture in it, past level 00 (which RAC2.scripts has): a name is
+    taken in its own level first (func_LNN_), then in its lowest places, RAC2.level_runs levels
+    at most, level 00 counted when it has a place there; a name with no place in a level is not
+    a level run's (a resident boot function is called in the runs of RAC2.scripts or in none)."""
+    out: dict[int, list[str]] = {}
+    for n in dict.fromkeys(names):
+        m = RAC2.level_fn.fullmatch(n)
+        own = int(m.group(1)) if m else None
+        where = [k for k in places.get(n, []) if k in RAC2.levels_checked]
+        where = sorted(where, key=lambda k: (k != own, k))[:RAC2.level_runs]
+        for k in where:
+            if k != 0:
+                out.setdefault(k, []).append(n)
+    return out
+
+
+def rac2_capture(decomp: Path, names: list[str], jobs: int, force: bool = False,
+                 per_phase: int | None = None, levels: set[int] | None = None) -> None:
+    """One headless run per script (at once, JOBS at most), each taking states of the names it
+    has not run for yet (the driver's capture: states into RAC2.states/<script>/), PER_PHASE
+    states in each phase of a run when given (else the driver's). Past RAC2.scripts, each level
+    of LEVELS (default: all) runs for the names rac2_level_lists gives it."""
+    RAC2.states.mkdir(parents=True, exist_ok=True)
+
+    def listing(tag: str, ns: list[str]) -> Path:
+        f = RAC2.work / f"capture-{tag}.txt"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("".join(f"{n} {per_phase}\n" if per_phase else f"{n}\n" for n in dict.fromkeys(ns)))
+        return f
+    runs = [(s, listing("base", names)) for s in RAC2.scripts]
+    for k, ns in sorted(rac2_level_lists(names, rac2_places(decomp)).items()):
+        if levels is None or k in levels:
+            runs.append((f"level{k:02d}", listing(f"level{k:02d}", ns)))
+    print(f"capturing call states of {len(names)} functions in {len(runs)} runs ...", flush=True)
+
+    def one(run: tuple[str, Path]) -> str:
+        r = rac2_driver(decomp, "capture", str(run[1]), "--script", run[0], *(["--force"] if force else []),
                         timeout=6 * 3600)
         return (r.stdout + r.stderr).strip()
-    with concurrent.futures.ThreadPoolExecutor(max(1, min(jobs, len(RAC2.scripts)))) as pool:
-        for out in pool.map(one, RAC2.scripts):
+    with concurrent.futures.ThreadPoolExecutor(max(1, jobs)) as pool:
+        for out in pool.map(one, runs):
             print("  " + out.replace("\n", "\n  "), flush=True)
 
 
@@ -838,6 +874,8 @@ def cmd_run_rac2(args: argparse.Namespace) -> int:
     if trial:
         args.dry_run = True
         args.only = sorted(set(args.only or []) | set(trial))
+        for n, f in trial.items():
+            back.files.setdefault(n, str(f))      # a function with no row yet
     work: list[Row] = []
     for n in [n for n in back.files if not args.only or n in args.only]:
         r = table.row(n)
@@ -852,7 +890,7 @@ def cmd_run_rac2(args: argparse.Namespace) -> int:
             r.status, r.note = "unchecked", f"file {back.files[n]} is missing"
         else:
             work.append(r)
-    if work:
+    if work and not args.no_capture:
         rac2_capture(decomp, [r.name for r in work], args.capture_jobs)
     known = artefacts(RAC2.artefacts)
     print(f"checking {len(work)} functions with {args.jobs} workers ...", flush=True)
@@ -919,9 +957,10 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
     placed = json.loads((decomp / "build/boot/placed.json").read_text())["functions"]
     boot = {c[0] for c in tables.read_tsv(decomp / RAC2.boot_catalogue) if len(c) >= 3}
     names = {n for n in placed if n in boot}
-    # Level 00's matched C too (its build's placed.json, `tools/build.py level 00`), checked at
-    # its places there from the level00 run's states.
-    for level in sorted(RAC2.levels_checked):
+    # The matched C of the levels asked for too (their builds' placed.json, `tools/build.py level
+    # NN`), checked at their places there from the levels' runs' states.
+    chosen = {0} | {int(k) for k in args.levels}
+    for level in sorted(chosen):
         f = next(iter((decomp / "build").glob(f"{level:02d}_*/placed.json")), None)
         if f is None:
             print(f"no build of level {level:02d} (tools/build.py level {level:02d}): its matched C is left out")
@@ -929,9 +968,9 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
             names |= set(json.loads(f.read_text())["functions"])
     names = sorted(n for n in names if not args.only or n in args.only)
     if not args.no_capture:
-        rac2_capture(decomp, names, args.capture_jobs, per_phase=1)
+        rac2_capture(decomp, names, args.capture_jobs, per_phase=1, levels=chosen)
     reached = [n for n in names if rac2_states(n)]
-    print(f"{len(names)} matched functions (boot, levels {sorted(RAC2.levels_checked)}), "
+    print(f"{len(names)} matched functions (boot, levels {sorted(chosen)}), "
           f"{len(reached)} called in the capture runs", flush=True)
     results: dict[str, tuple[str, str]] = {}
     out = RAC2.work / "calibration.tsv"
@@ -1129,6 +1168,7 @@ def main() -> int:
                    help="check FILE as NAME's C instead of the table's (implies --dry-run)")
     p.add_argument("-j", "--jobs", type=int, default=max(2, (os.cpu_count() or 4) // 2))
     p.add_argument("--dry-run", action="store_true", help="do not write the table")
+    p.add_argument("--no-capture", action="store_true", help="rac2: use the states already captured")
     p.add_argument("--no-levels", dest="levels", action="store_false",
                    help="the boot run's states only (no level captures, level functions not checked)")
     p.add_argument("--frames", type=int, default=7000, help="frames of each capture run (default 7000)")
@@ -1148,6 +1188,7 @@ def main() -> int:
     p.add_argument("--only", nargs="*")
     p.add_argument("-j", "--jobs", type=int, default=16)
     p.add_argument("--capture-jobs", type=int, default=2)
+    p.add_argument("--levels", nargs="*", default=[], help="levels past 00 whose matched C to take too")
     p.add_argument("--no-capture", action="store_true", help="use the states already captured")
     p.add_argument("--mutants", type=int, default=0, help="also check this many wrong variants")
     p.add_argument("--mutants-only", action="store_true", help="reuse calibration.tsv, run only the mutants")
