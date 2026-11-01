@@ -469,6 +469,9 @@ typedef struct openrac_game_play {
      * layout: corners, normal, type, moby slot), up to `max` into `out`: how many there are, 0
      * outside a level. Reads the game's memory only. NULL for a game without it. */
     int (*collision_triangles)(const float lo[3], const float hi[3], void* out, int max);
+    /* The hero's moby (its address), 0 outside a level (openrac_api.hero_set_joints). NULL for a
+     * game without it. */
+    uint32_t (*hero_moby)(void);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

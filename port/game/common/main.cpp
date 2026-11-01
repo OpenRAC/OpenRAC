@@ -68,6 +68,7 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "frontend/mod_media.h"
+#include "scene/moby_pose.h"
 #include "mod_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
@@ -299,6 +300,24 @@ void load_mods() {
     host.sound_play = frontend::mod_sound_play;
     host.sound_set = frontend::mod_sound_set;
     host.sound_stop = frontend::mod_sound_stop;
+    host.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
+        std::vector<assets::rac1::JointModifier> mods;
+        mods.reserve(static_cast<std::size_t>(count));
+        for (int i = 0; i < count; ++i) {
+            assets::rac1::JointModifier m;
+            m.joint = static_cast<std::uint8_t>(std::min<std::uint32_t>(joints[i].joint, 0xFF));
+            m.mode = 0;  // composed with the pose: q * rotation, translation added
+            for (int k = 0; k < 4; ++k) {
+                m.quat[k] = joints[i].rotation[k];
+            }
+            // The model's units to the skeleton's packed ones (1/1024).
+            for (int k = 0; k < 3; ++k) {
+                m.trans[k] = joints[i].translation[k] * 1024.0f;
+            }
+            mods.push_back(m);
+        }
+        scene::set_extra_joint_modifiers(moby, std::move(mods));
+    };
 #endif
     host.capture_savestate_runtime = [](mods::SavestateRuntime* state) {
         if (state == nullptr) {

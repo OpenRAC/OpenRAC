@@ -115,6 +115,10 @@ struct Host {
     std::uint32_t (*sound_play)(int sound, float volume, float pitch, bool loop) = nullptr;
     int (*sound_set)(std::uint32_t voice, float volume, float pitch) = nullptr;
     void (*sound_stop)(std::uint32_t voice) = nullptr;
+    // The hero's joints turned by a mod (interface 1.12, openrac_api.hero_set_joints): the offsets
+    // put on moby `moby`'s pose wherever it is evaluated (count 0: taken off). Null: no drawing (a
+    // test's), and the call says so.
+    void (*joint_offsets)(std::uint32_t moby, const openrac_joint_offset* joints, int count) = nullptr;
 };
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",

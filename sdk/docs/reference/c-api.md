@@ -154,6 +154,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_COLLISION_LEVEL` | `(-1)` | openrac_collision_triangle.moby for a triangle of the level's own collision. Since 1.12. |
 | `OPENRAC_PROPS_MAX` | `8` | The most props the mods together have at once (openrac_api.prop_create). Since 1.12. |
 | `OPENRAC_PROP_MATRIX` | `0x1u` | openrac_prop_pose.flags: the pose is `matrix`. Since 1.12. |
+| `OPENRAC_JOINT_OFFSETS_MAX` | `128` | The most joints one hero_set_joints call turns. Since 1.12. |
 | `OPENRAC_SOUNDS_MAX` | `64` | The most sounds a mod loads (openrac_api.sound_load), and the most voices the mods play at once (openrac_api.sound_play). Since 1.12. |
 | `OPENRAC_SOUND_VOICES_MAX` | `16` |  |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
@@ -625,6 +626,20 @@ quaternion (x, y, z, w) and one scale for all three axes. Since 1.12.
 | `float scale` |  |
 | `float matrix[16]` |  |
 
+## `openrac_joint_offset`
+
+One joint of the hero turned and moved by a mod (openrac_api.hero_set_joints): `joint` his
+skeleton's joint, turned by the unit quaternion `rotation` (x, y, z, w) after his animation's
+own turn of it, in the joint's own frame, and moved by `translation` (in its parent's frame, in
+his model's units: his mesh's, before his moby's scale), as the game's joint modifiers compose.
+Since 1.12.
+
+| Member | |
+|---|---|
+| `uint32_t joint` |  |
+| `float rotation[4]` |  |
+| `float translation[3]` |  |
+
 ## `openrac_developer_menu_item`
 
 One entry in a mod's top-level desktop menu. `group` is an optional submenu label; `action` is
@@ -743,3 +758,4 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `uint32_t (*sound_play)(openrac_mod* mod, int sound, float volume, float pitch, int loop)` | Plays a loaded sound, mixed with the game's at the game's sound volume (its effects' group: the Options page's Sound volume, as the game lowers it in its menus): `volume` 0 to 1 (more is louder still), `pitch` the speed it plays at (1 its own, 2 an octave up), `loop` non-zero to play it over and over until sound_stop. Returns the voice (above 0), or 0 when no voice is free (OPENRAC_SOUND_VOICES_MAX for all mods) or the sound is not the mod's. Since 1.12. |
 | `int (*sound_set)(uint32_t voice, float volume, float pitch)` | A voice's volume and pitch from now on. OPENRAC_HOOK_UNKNOWN for a voice that has ended. |
 | `void (*sound_stop)(uint32_t voice)` | Stops a voice (a voice that has ended: nothing). Since 1.12. |
+| `int (*hero_set_joints)(openrac_mod* mod, const openrac_joint_offset* joints, int count)` | Turns and moves joints of the hero on top of his animation (openrac_joint_offset), from the holder of the hero's update hook (as hero_set_pose): the `count` offsets replace the last ones and stay until the next call; 0 (or `joints` null) takes them off. His drawing, shadow and what he carries follow. OPENRAC_HOOK_UNKNOWN outside a level, for a mod without the hook, or past OPENRAC_JOINT_OFFSETS_MAX. Since 1.12. |

@@ -755,6 +755,7 @@ int (*g_sound_load)(const std::filesystem::path&) = nullptr;
 std::uint32_t (*g_sound_play)(int, float, float, bool) = nullptr;
 int (*g_sound_set)(std::uint32_t, float, float) = nullptr;
 void (*g_sound_stop)(std::uint32_t) = nullptr;
+void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullptr;
 
 std::uint32_t loads_now() {
     return g_play != nullptr ? g_play->loads() : 0;
@@ -768,6 +769,20 @@ int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose) {
     openrac_game_pose p{};
     std::memcpy(&p, &pose->level, sizeof p);
     return g_play->hero_set_pose(&p) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, int count) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_moby == nullptr || g_joint_offsets == nullptr
+        || !holds_hook(mod, g_play->hero_update_hook) || count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX
+        || (count > 0 && joints == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t moby = g_play->hero_moby();
+    if (moby == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_joint_offsets(moby, joints, count);
+    return OPENRAC_HOOK_OK;
 }
 
 int api_collision_triangles(
@@ -1007,7 +1022,9 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     g_sound_play = host.sound_play;
     g_sound_set = host.sound_set;
     g_sound_stop = host.sound_stop;
+    g_joint_offsets = host.joint_offsets;
     api.hero_set_pose = api_hero_set_pose;
+    api.hero_set_joints = api_hero_set_joints;
     api.collision_triangles = api_collision_triangles;
     api.prop_create = api_prop_create;
     api.prop_pose = api_prop_pose;

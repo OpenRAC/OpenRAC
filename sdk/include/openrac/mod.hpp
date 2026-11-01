@@ -1237,6 +1237,16 @@ public:
         }
     }
 
+    // Since 1.12: turns and moves the hero's joints on top of his animation (openrac_joint_offset)
+    // until the next call; an empty list takes them off. False outside a level, for a mod without
+    // the hero's update hook, or on a port without the call.
+    bool hero_set_joints(const std::vector<openrac_joint_offset>& joints) const {
+        return has_api_12() && m_api->size >= offsetof(openrac_api, hero_set_joints) + sizeof(void*)
+               && m_api->hero_set_joints(m_handle, joints.empty() ? nullptr : joints.data(),
+                                         static_cast<int>(joints.size()))
+                      == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
         return m_api->api_minor >= 9

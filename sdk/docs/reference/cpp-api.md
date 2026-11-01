@@ -235,6 +235,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `std::uint32_t sound_play(int sound, float volume = 1.0f, float pitch = 1.0f, bool loop = false) const` | Since 1.12: plays sound `sound` at the game's sound volume: its voice, 0 for none. |
 | `bool sound_set(std::uint32_t voice, float volume, float pitch) const` | Since 1.12: a voice's volume and pitch (false once it has ended); stops a voice. |
 | `void sound_stop(std::uint32_t voice) const` |  |
+| `bool hero_set_joints(const std::vector<openrac_joint_offset>& joints) const` | Since 1.12: turns and moves the hero's joints on top of his animation (openrac_joint_offset) until the next call; an empty list takes them off. False outside a level, for a mod without the hero's update hook, or on a port without the call. |
 | `bool has_world() const` | Since 1.9: whether the port offers the world calls (moby_list() ... bolts()). |
 | `std::vector<openrac_moby> moby_list() const` | Since 1.9: the level's live mobys (each's size set), all of them. |
 | `int moby_slot(int key) const` | Since 1.9: the slot of placed moby `key`, -1 for none. |

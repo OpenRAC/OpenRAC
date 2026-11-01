@@ -919,6 +919,20 @@ typedef struct openrac_prop_pose {
 /* openrac_prop_pose.flags: the pose is `matrix`. Since 1.12. */
 #define OPENRAC_PROP_MATRIX 0x1u
 
+/* One joint of the hero turned and moved by a mod (openrac_api.hero_set_joints): `joint` his
+ * skeleton's joint, turned by the unit quaternion `rotation` (x, y, z, w) after his animation's
+ * own turn of it, in the joint's own frame, and moved by `translation` (in its parent's frame, in
+ * his model's units: his mesh's, before his moby's scale), as the game's joint modifiers compose.
+ * Since 1.12. */
+typedef struct openrac_joint_offset {
+    uint32_t joint;
+    float rotation[4];
+    float translation[3];
+} openrac_joint_offset;
+
+/* The most joints one hero_set_joints call turns. Since 1.12. */
+#define OPENRAC_JOINT_OFFSETS_MAX 128
+
 /* The most sounds a mod loads (openrac_api.sound_load), and the most voices the mods play at once
  * (openrac_api.sound_play). Since 1.12. */
 #define OPENRAC_SOUNDS_MAX 64
@@ -1470,6 +1484,13 @@ typedef struct openrac_api {
     int (*sound_set)(uint32_t voice, float volume, float pitch);
     /* Stops a voice (a voice that has ended: nothing). Since 1.12. */
     void (*sound_stop)(uint32_t voice);
+
+    /* Turns and moves joints of the hero on top of his animation (openrac_joint_offset), from the
+     * holder of the hero's update hook (as hero_set_pose): the `count` offsets replace the last ones
+     * and stay until the next call; 0 (or `joints` null) takes them off. His drawing, shadow and
+     * what he carries follow. OPENRAC_HOOK_UNKNOWN outside a level, for a mod without the hook, or
+     * past OPENRAC_JOINT_OFFSETS_MAX. Since 1.12. */
+    int (*hero_set_joints)(openrac_mod* mod, const openrac_joint_offset* joints, int count);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

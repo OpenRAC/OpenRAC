@@ -297,6 +297,10 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     return 1;
 }
 
+static uint32_t hero_moby(void) {
+    return in_level() ? GREF(gaddr, HERO_MOBY) : 0;
+}
+
 int rac1_figure_alive(gaddr moby) {
     if (moby == 0 || !in_level() || GREF(uint8_t, moby + MOBY_STATE) >= 0x80
         || GREF(int16_t, moby + MOBY_OCLASS) != HERO_CLASS) {
@@ -591,5 +595,6 @@ const openrac_game_play rac1_play = {
     .save_slot_current = save_slot_current,
     .hero_update_hook = "Hero_Update",
     .hero_set_pose = hero_set_pose,
+    .hero_moby = hero_moby,
     .collision_triangles = rac1_collision_triangles,
 };

@@ -4,6 +4,7 @@
 #include "scene/moby_pose.h"
 
 #include <cstring>
+#include <mutex>
 #include <optional>
 
 namespace openrac::scene {
@@ -14,6 +15,11 @@ namespace {
 
 // More joints than the scratchpad holds (0x6f) is not a class.
 constexpr std::size_t kMaxJoints = 0x70;
+
+// set_extra_joint_modifiers: the moby and its modifiers.
+std::mutex g_extra_lock;
+std::uint32_t g_extra_moby = 0;
+std::vector<rac1::JointModifier> g_extra_mods;
 
 std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
     constexpr std::uint32_t uncached = 0x20000000u;
@@ -196,9 +202,21 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
         }
         layers.push_back(std::move(l));
     }
+    {
+        const std::lock_guard<std::mutex> lock(g_extra_lock);
+        if (g_extra_moby != 0 && g_extra_moby == moby) {
+            mods.insert(mods.end(), g_extra_mods.begin(), g_extra_mods.end());
+        }
+    }
     return rac1::evaluate_keys(anim, &*a, b ? &*b : nullptr, t, plain, mods, layers);
 }
 
 }  // namespace
+
+void set_extra_joint_modifiers(std::uint32_t moby, std::vector<rac1::JointModifier> mods) {
+    const std::lock_guard<std::mutex> lock(g_extra_lock);
+    g_extra_moby = mods.empty() ? 0 : moby;
+    g_extra_mods = std::move(mods);
+}
 
 }  // namespace openrac::scene
