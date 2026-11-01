@@ -41,13 +41,18 @@ int func_00132C48(int command_arg, int bytes, int data_arg) {
 int func_00132DF0(int command_arg, int bytes, int data_arg, long long callback, int callback_data) {
     const unsigned int command = (unsigned int)command_arg;
     const gaddr data = (gaddr)data_arg;
-    (void)callback;
-    (void)callback_data;
     if (bytes < 0 || bytes > 0xFFC || (bytes != 0 && data == 0)) {
         return 0;
     }
     if (command == OPENRAC_SND_PLAY_VOL_PAN_PMPB || command == OPENRAC_SND_SET_SOUND_PARAMS) {
-        (void)openrac_sound_command(command, G(data), (uint32_t)bytes);
+        const int handle = (int)openrac_sound_command(command, G(data), (uint32_t)bytes);
+        /* The IOP's answer: a voice slot stays pending (func_002E5A50 finds none free, and 42 slots
+         * in, the game writes past the table) until its callback is told the handle. Setting a
+         * sound's parameters answers with the handle it was given. */
+        if (callback != 0) {
+            const int answer = command == OPENRAC_SND_PLAY_VOL_PAN_PMPB ? handle : (int)GREF(uint32_t, data);
+            GFN(void (*)(int, long long), (gaddr)callback)(answer, (long long)(unsigned int)callback_data);
+        }
         return 1;
     }
     static unsigned int last_reported = 0xFFFFFFFFu;
