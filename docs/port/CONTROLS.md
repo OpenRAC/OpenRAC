@@ -139,6 +139,13 @@ so a stick bound to another stick or to a button is tuned the same way. The
 squaring that makes a round stick reach the DualShock 2's corners
 ([pad.h](../../port/platform/pad.h)) comes after them.
 
+The game's dead zone is per axis (a cross on the stick), so on a diagonal
+each axis loses 0x30 of only 0.71 of the push, and Ratchet crawls where a
+straight push of the same length runs. Last of all, the port pushes each axis
+out past that dead zone (`stick_pair_bytes`), so the game reads a diagonal in
+its own direction and as long as a straight push. Straight pushes and the
+corners give the same bytes as before.
+
 ## 5. Players
 
 ```text

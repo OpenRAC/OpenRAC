@@ -482,7 +482,7 @@ void Input::refresh_pads() {
                 m_bindings[static_cast<std::size_t>(port)].tuning.trigger_threshold,
                 m_latch[static_cast<std::size_t>(port)]
             );
-            apply_pad(m_bindings[static_cast<std::size_t>(port)], inputs, gates, pad);
+            apply_pad(m_bindings[static_cast<std::size_t>(port)], inputs, gates, pad, m_dead_zone);
         } else {
             // Gone, or not read: nothing of it is held, so nothing is held back either.
             m_last[static_cast<std::size_t>(port)] = {};
@@ -493,7 +493,7 @@ void Input::refresh_pads() {
         }
         if (port == 0) {
             m_touch.idle(SDL_GetTicks());
-            m_touch.apply(pad);
+            m_touch.apply(pad, m_dead_zone);
         }
     }
 }

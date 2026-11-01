@@ -303,13 +303,6 @@ int pressure_of(const Binding& b, const PadInputs& inputs, const Reading& readin
     );
 }
 
-// A stick's axis, -1..1, as the console's byte, rounded as stick_bytes rounds it.
-std::uint8_t axis_byte(float v) {
-    return stick_byte(
-        static_cast<std::int16_t>(std::clamp(std::lround(v * 32768.0f), -32768L, 32767L))
-    );
-}
-
 // One pad_* key's place in PadTuning: an int in a range, or a switch.
 struct TuningKey {
     const char* key;
@@ -769,7 +762,11 @@ void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad) 
 }
 
 void apply_pad(
-    const Bindings& bindings, const PadInputs& inputs, std::array<StickGate, 2>& gates, Pad& pad
+    const Bindings& bindings,
+    const PadInputs& inputs,
+    std::array<StickGate, 2>& gates,
+    Pad& pad,
+    const StickDeadZone& dead_zone
 ) {
     // The gamepad's own sticks, squared as the DualShock 2's (pad.h): a round stick pushed to a
     // diagonal runs. Everything below reads them from here.
@@ -829,14 +826,22 @@ void apply_pad(
 
     // Each stick's axis: how far it is pushed one way less how far the other.
     const auto axis = [&push](Target negative, Target positive) {
-        return axis_byte(
-            push[static_cast<std::size_t>(positive)] - push[static_cast<std::size_t>(negative)]
-        );
+        return push[static_cast<std::size_t>(positive)] - push[static_cast<std::size_t>(negative)];
     };
-    pad.left_x = axis(Target::LeftStickLeft, Target::LeftStickRight);
-    pad.left_y = axis(Target::LeftStickUp, Target::LeftStickDown);
-    pad.right_x = axis(Target::RightStickLeft, Target::RightStickRight);
-    pad.right_y = axis(Target::RightStickUp, Target::RightStickDown);
+    stick_pair_bytes(
+        axis(Target::LeftStickLeft, Target::LeftStickRight),
+        axis(Target::LeftStickUp, Target::LeftStickDown),
+        dead_zone,
+        pad.left_x,
+        pad.left_y
+    );
+    stick_pair_bytes(
+        axis(Target::RightStickLeft, Target::RightStickRight),
+        axis(Target::RightStickUp, Target::RightStickDown),
+        dead_zone,
+        pad.right_x,
+        pad.right_y
+    );
 }
 
 }  // namespace openrac::platform

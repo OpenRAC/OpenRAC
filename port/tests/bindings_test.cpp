@@ -274,6 +274,13 @@ void test_defaults_press_as_before() {
     CHECK(pad.left_x == 0xAD && pad.left_y == 0xAD);
     CHECK(pad.right_x == 0x00 && pad.right_y == 0x80);
     CHECK(pad.buttons == 0xFFFF);
+
+    // Past the game's dead zone: the same diagonal reaches further out, a straight push does not.
+    std::array<StickGate, 2> gates{};
+    Pad past;
+    openrac::platform::apply_pad(defaults, sticks, gates, past, {0x30, 0x4C});
+    CHECK(past.left_x > 0xAD && past.left_x == past.left_y);
+    CHECK(past.right_x == 0x00 && past.right_y == 0x80);
 }
 
 // A rebound pad button presses its new button and no longer its old one.

@@ -148,6 +148,24 @@ void stick_bytes(
     std::int16_t x, std::int16_t y, StickGate& gate, std::uint8_t& out_x, std::uint8_t& out_y
 );
 
+// The game's own dead zone on each stick axis, in bytes from 0x7F: an axis reads as nothing until
+// it is `inner` from the centre, and as fully pushed `span` beyond that (rac1: 0x30 and 0x4C). It is
+// a square around the centre, a cross on the stick: pushed to a diagonal, each axis is only 0.71 of
+// the push, so a diagonal short of the corner loses most of its length to it. A DualShock 2 hides
+// it (its diagonals reach the corners); a round stick does not. span 0: no dead zone known.
+struct StickDeadZone {
+    int inner = 0;
+    int span = 0;
+};
+
+// A stick's two axes (-1..1, positive right or down, shaped already) to the console's bytes. With a
+// dead zone known, each axis is pushed out past it so the game reads the stick's own direction, and
+// the length an axis pushed as far would give: a diagonal moves Ratchet as fast as a straight push.
+// Where the game reads nothing, and along an axis, the bytes are those of stick_byte().
+void stick_pair_bytes(
+    float x, float y, const StickDeadZone& dead_zone, std::uint8_t& out_x, std::uint8_t& out_y
+);
+
 // A trigger, 0..32767, to a pressure byte.
 std::uint8_t trigger_byte(std::int16_t axis);
 

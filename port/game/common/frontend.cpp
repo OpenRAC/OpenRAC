@@ -313,6 +313,8 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g = std::make_unique<State>();
     g->game = game_id;
     g->profile = &host::game_profile(game_id);
+    const auto [inner, span] = g->profile->stick_dead_zone();
+    g->input.set_stick_dead_zone({inner, span});
     g->levels = levels;
     // Before SDL starts: on Wayland the app id names the program to the desktop, and a machine
     // with two graphics cards is asked for the fast one.

@@ -5,6 +5,7 @@
 // buffer, the keyboard table, the conversions from SDL's ranges, the frame
 // pacer on a fake clock, and the audio output on SDL's dummy driver.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -255,11 +256,67 @@ void audio_outlives_sdl() {
 
 }  // namespace
 
+// Through rac1's dead zone (process_pad_input: |byte - 0x7F| from 0x30, over 0x4C, per axis) a
+// diagonal reads as long as a straight push of the same length, in the stick's own direction;
+// without a dead zone, and where the game reads nothing, the bytes are stick_byte()'s.
+void sticks_past_the_dead_zone() {
+    const StickDeadZone rac1{0x30, 0x4C};
+    const auto game = [](std::uint8_t byte) {
+        const int d = std::abs(static_cast<int>(byte) - 0x7F);
+        const float f = d >= 0x30 ? std::min(static_cast<float>(d - 0x30) / 76.0f, 1.0f) : 0.0f;
+        return byte < 0x7F ? -f : f;
+    };
+    const auto read = [&](float x, float y, const StickDeadZone& zone) {
+        std::uint8_t bx = 0;
+        std::uint8_t by = 0;
+        stick_pair_bytes(x, y, zone, bx, by);
+        return std::pair(game(bx), game(by));
+    };
+    for (float length = 0.45f; length <= 1.0f; length += 0.05f) {
+        const auto [ax, ay] = read(length, 0.0f, rac1);
+        const float straight = std::hypot(ax, ay);
+        for (const float angle : {0.3f, 0.7854f, 1.2f, 2.5f, -2.0f}) {
+            const float x = length * std::cos(angle);
+            const float y = length * std::sin(angle);
+            const auto [gx, gy] = read(x, y, rac1);
+            CHECK(std::abs(std::hypot(gx, gy) - straight) < 0.03f);
+            // The direction within the game's steps of 1/76 an axis.
+            CHECK(std::abs(std::atan2(gy, gx) - std::atan2(y, x)) < 0.6f / (76.0f * straight));
+            // Before, the cross-shaped dead zone took most of a diagonal.
+            const auto [ox, oy] = read(x, y, StickDeadZone{});
+            CHECK(std::hypot(gx, gy) + 1e-4f >= std::hypot(ox, oy));
+        }
+    }
+    // A diagonal at 0.7: was a crawl (each axis 0.49, just past the dead zone), now a walk.
+    const auto [ox, oy] = read(0.495f, 0.495f, StickDeadZone{});
+    const auto [nx, ny] = read(0.495f, 0.495f, rac1);
+    CHECK(std::hypot(ox, oy) < 0.3f && std::hypot(nx, ny) > 0.5f);
+    // The same bytes as before along an axis, inside the dead zone, and in the corner; left and
+    // up a step or two further out, as far as right and down are.
+    const auto same = [&](float x, float y, int further = 0) {
+        std::uint8_t a = 0, b = 0, c = 0, d = 0;
+        stick_pair_bytes(x, y, rac1, a, b);
+        stick_pair_bytes(x, y, StickDeadZone{}, c, d);
+        const auto out = [](std::uint8_t v) {
+            return std::abs(static_cast<int>(v) - 0x7F);
+        };
+        return out(a) - out(c) >= 0 && out(a) - out(c) <= further && out(b) - out(d) >= 0
+               && out(b) - out(d) <= further;
+    };
+    CHECK(same(0.8f, 0.0f));
+    CHECK(same(0.0f, -0.6f, 2));
+    CHECK(same(-1.0f, 0.0f));
+    CHECK(same(0.2f, 0.2f));
+    CHECK(same(1.0f, -1.0f));
+    CHECK(same(0.0f, 0.0f));
+}
+
 int main() {
     pad_bits();
     read_buffer();
     conversions();
     squared_sticks();
+    sticks_past_the_dead_zone();
     keyboard();
     pacer();
     audio();

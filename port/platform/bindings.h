@@ -278,9 +278,13 @@ void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad);
 // Presses `pad`'s buttons and sets its sticks from one gamepad. The gamepad's sticks are shaped as
 // the DualShock 2's are (pad.h) before anything reads them: `gates` is what its left and right
 // sticks have shown. A chord that presses takes its input from the bindings of that input alone, so
-// one press does not do both.
+// one press does not do both. The sticks reach the console past the game's `dead_zone` (pad.h).
 void apply_pad(
-    const Bindings& bindings, const PadInputs& inputs, std::array<StickGate, 2>& gates, Pad& pad
+    const Bindings& bindings,
+    const PadInputs& inputs,
+    std::array<StickGate, 2>& gates,
+    Pad& pad,
+    const StickDeadZone& dead_zone = {}
 );
 
 }  // namespace openrac::platform

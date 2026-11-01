@@ -11,6 +11,7 @@
 
 #include "game/common/profile.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -219,6 +220,9 @@ public:
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
     std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
+
+    // process_pad_input (games/rac1's func_002181F0): |byte - 0x7F| from 0x30, over 0x4C.
+    std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
 
     std::string diagnostics(
         std::span<const std::uint8_t> ram,

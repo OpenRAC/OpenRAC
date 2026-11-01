@@ -128,8 +128,8 @@ public:
     bool take_menu_press();
 
     // Adds what the fingers hold to `pad`: buttons pressed, the left stick's axes and the camera's
-    // (the right stick) replacing the pad's while they are held.
-    void apply(Pad& pad) const;
+    // (the right stick) replacing the pad's while they are held, past the game's `dead_zone` (pad.h).
+    void apply(Pad& pad, const StickDeadZone& dead_zone = {}) const;
 
     // Hidden at first; shown once the screen has been touched, until another device is used
     // (hide()) or no finger has touched it for kIdleHideMs (idle()).
