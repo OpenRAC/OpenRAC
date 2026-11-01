@@ -141,6 +141,9 @@ class Translator:
     # asm.register_jumps in hostgen.json: a jump through a register keeps its target in j_, as a VU load
     # in the delay slot uses t_, and a computed jump into the function's own code stays in it (_computed_targets).
     register_jumps = False
+    # asm.vu_flush in hostgen.json: an FMAC result too small for VU0 is zero of its sign, as in
+    # func_L00_00316F60's joints, where the host's denormal was the only difference from retail.
+    vu_flush = False
     # asm.dma_done in hostgen.json: a transfer here is over when the store that starts it returns
     # (asm.dma_stores), so a wait on COP0's condition has nothing to wait for: bc0t is always taken and
     # bc0f never (func_002A2450's copy back from the scratchpad).
@@ -242,6 +245,7 @@ class Translator:
         sub.register_jumps = self.register_jumps
         sub.input_idioms = self.input_idioms
         sub.dma_done = self.dma_done
+        sub.vu_flush = self.vu_flush
         sub.verified_signatures = self.verified_signatures
         sub.ps2 = self.ps2
         try:
@@ -1378,11 +1382,12 @@ class Translator:
                 # An FMAC operation: MAC from the fields it wrote (the others' flags are clear).
                 lines.append("m_ = " + " | ".join(f"openrac_vu0_mac(v_[{c}], {c})" for c in values) + ";")
                 lines.append(f"openrac_vu0_set_mac({V[:-2]}, m_);")
+            result = (lambda c: f"openrac_ee_vu_flush(v_[{c}])") if flags and self.vu_flush else (lambda c: f"v_[{c}]")
             for c in values:
                 if dst == "acc":
-                    lines.append(f"{V}acc[{c}] = v_[{c}];")
+                    lines.append(f"{V}acc[{c}] = {result(c)};")
                 elif dst != 0:
-                    lines.append(f"{vf(dst, c)} = v_[{c}];")
+                    lines.append(f"{vf(dst, c)} = {result(c)};")
             return lines
 
         acc = lambda c: f"{V}acc[{c}]"
@@ -1726,6 +1731,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
     tr.dma_done = bool(a.get("dma_done"))
+    tr.vu_flush = bool(a.get("vu_flush"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)

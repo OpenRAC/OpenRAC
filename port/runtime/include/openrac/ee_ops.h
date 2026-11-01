@@ -253,6 +253,13 @@ OPENRAC_EE_INLINE openrac_f32 openrac_ee_fneg(openrac_f32 a) {
     return openrac_ee_f(openrac_ee_bits(a) ^ 0x80000000u);
 }
 
+/* What a VU0 FMAC operation leaves: a result too small for the unit is zero, of its sign. The host keeps
+ * denormals (hostgen.json asm.vu_flush). */
+OPENRAC_EE_INLINE openrac_f32 openrac_ee_vu_flush(openrac_f32 a) {
+    const openrac_u32 bits = openrac_ee_bits(a);
+    return (bits & 0x7F800000u) ? a : openrac_ee_f(bits & 0x80000000u);
+}
+
 /* ---- Multimedia (MMI): 128-bit registers as lanes ---- */
 
 typedef struct {
