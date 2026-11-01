@@ -195,7 +195,7 @@ def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
         with Disc(image) as disc:
             disc.identify()
     except FormatError:
-        return read_boot_executable(image), levels
+        return read_boot_executable(image), read_wad_levels(image)
     with Disc(image) as disc:
         exe = disc.executable()
         for info in disc.survey()["levels"]:
@@ -204,25 +204,58 @@ def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
             offset, size = unpack("<ii", disc.sectors(r["lba"], 1), 0)
             if not size or offset < 0 or offset + size > r["sectors"] * 2048:
                 continue
-            overlay = decoded(disc.read(r["lba"] * 2048 + offset, size))
-            sections = overlay_sections(overlay)
-            parts = []
-            recs = sections["sections"]
-            names = RECORD_NAMES if len(recs) == len(RECORD_NAMES) else [f"record{k}" for k in range(len(recs))]
-            for name, rec in zip(names, recs):
-                if rec["type"] != 1:
-                    continue
-                body = overlay[rec["offset"]:rec["offset"] + rec["bytes"]]
-                code = rec["address"] <= sections["entry_point"] < rec["address"] + rec["bytes"]
-                parts.append(Part("text" if code else name, rec["address"], body, code))
+            parts = overlay_parts(decoded(disc.read(r["lba"] * 2048 + offset, size)))
             levels[int(info["id"])] = parts
     return exe, levels
+
+
+def overlay_parts(overlay: bytes) -> list[Part]:
+    """The parts of a level's program, as ParseBin's records hold them."""
+    from formats import overlay_sections  # noqa: E402
+    sections = overlay_sections(overlay)
+    recs = sections["sections"]
+    names = RECORD_NAMES if len(recs) == len(RECORD_NAMES) else [f"record{k}" for k in range(len(recs))]
+    parts = []
+    for name, rec in zip(names, recs):
+        if rec["type"] != 1:
+            continue
+        body = overlay[rec["offset"]:rec["offset"] + rec["bytes"]]
+        code = rec["address"] <= sections["entry_point"] < rec["address"] + rec["bytes"]
+        parts.append(Part("text" if code else name, rec["address"], body, code))
+    return parts
+
+
+def read_wad_levels(image: Path) -> dict[int, list[Part]]:
+    """Each level's program from Going Commando's disc, through the editor's reader of the later
+    games' discs. Their other games' ports read no level programs yet."""
+    from disc import Disc, FormatError  # noqa: E402
+    from formats import unpack  # noqa: E402
+    from level import decoded  # noqa: E402
+    import wads  # noqa: E402
+    levels: dict[int, list[Part]] = {}
+    try:
+        with Disc(image) as disc:
+            version = wads.identify(disc)
+            if version is None or version.game != "rac2":
+                return levels
+            for entry in wads.WadDisc(disc, version).levels():
+                part = entry.get(wads.LEVEL)
+                if part is None:
+                    continue
+                r = wads.level_ranges(part["header"], version)["data"]
+                start = part["lba"] + r["sector"]
+                offset, size = unpack("<ii", disc.sectors(start, 1), 0)
+                if size > 0:
+                    levels[int(entry["id"])] = overlay_parts(decoded(disc.read(start * 2048 + offset, size)))
+    except FormatError as e:
+        print(f"hostgen: {image}: its level programs cannot be read: {e}", file=sys.stderr)
+    return levels
 
 
 def read_boot_executable(image: Path) -> bytes:
     """The executable SYSTEM.CNF boots, read from a disc image of a game the editor's reader does not
     know (Going Commando's), through the generic ISO 9660 reader: only that file, never a copy of
-    the image. Such a game's levels are not read (no levels)."""
+    the image."""
     from openrac_common import iso9660
     serial = iso9660.boot_serial(image)
     if serial is None:
