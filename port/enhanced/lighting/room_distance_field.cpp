@@ -227,9 +227,16 @@ bool floor_step_clear(
 
     for (float height : {body_height * .5f, body_height}) {
         auto body = add(a, mul(direction, -kRayOverlap));
+        auto reverse_body = add(b, mul(direction, kRayOverlap));
         body[2] += height;
+        reverse_body[2] += height;
 
-        if (scene.occluded(body, direction, settings.ray_bias, length + kRayOverlap * 2)) {
+        // Near-ray bias can hide an obstacle next to one padded endpoint. The medial graph
+        // stores undirected edges, so both traversal directions must agree on body clearance.
+        if (scene.occluded(body, direction, settings.ray_bias, length + kRayOverlap * 2)
+            || scene.occluded(
+                reverse_body, mul(direction, -1), settings.ray_bias, length + kRayOverlap * 2
+            )) {
             return false;
         }
     }
