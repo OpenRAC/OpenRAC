@@ -175,3 +175,17 @@ class_3412	0x00000D54	data	The hero's ship: the level has the packets, picture f
 func_002CB950	0x002CB950	function	Read func_002D5B38's result through a void definition; same family as func_002E45C8, fixed by results_before_calls	-	audit of callers	read	P15
 D_L00_001B8C80	0x001B8C80	data	Level 0 camera block; derived table held the executable's 0x1B5200, so a shot at the lift button read its +0x190 at the boot address (crash at f1596)	-	lldb stop in func_L00_003CD8E0	proven	P15
 func_L00_003CD8E0	0x003CD8E0	function	Lift, its button child class 0xC16, a shot or hero triggers it	UpdateLift	C	read	P15
+func_L17_003BD310	0x003BD310	function	Update of the path-linked hazard classes 0x8AD, 0x8D8, 0x878: state 0 init, 1 ChainReset, 2 leader moves along the path, 3 follower	ChainHazardUpdate	source; level 17 states	read	P17
+pose_layer	0x001D1740	system	Hero pose layer node (0x40 bytes, list at moby +0x50, next +0x1C): +2 count, +8 weight, +0xC joint list, +0x10 buffer of count records of 0x30 bytes (quat, scale, trans, +0x2C scratchpad record it blends into). Not rac1's keys at +0x38; hero's weapon arm is joints 52 to 71, hand 56	PoseLayer	joints within 4 mm of the game's attach matrices on one frame (cmpj)	proven	P15
+class_joint_lists	+0x1C	field	Class +0x1C: per index, a chain (u16 count, bytes from +4); func_002A3F10 takes the last joint. D_L00_001A7F68 lists the nine attach points: 0 right hand 56, 1 joint 55, 2 foot 99, 3 foot 93, 4 head 7, 5 joint 5, 6 joint 54, 7 joint 3, 8 joint 5	-	func_002A3F10 translation, RAM dump	proven	P15
+class_1490	0x000005D2	data	The hand item hero starts with in level 0 (HUD shows 200/200): bank row 15, item 30, joint 0	-	moby log, drawn	read	P15
+func_002E8190	0x002E8190	function	Flight quad through func_00280B90 with TEX0 D_001B2160, drawn when D_00152C00+0x64 is 4; scale by level from D_00261EC0	-	C	read	P15
+func_0026F710..func_0026F808	0x0026F710	system	31 empty stubs in the executable that every level program fills with hero code: engine code carried in levels calls them by jal; hostgen.json level_hooks	HeroHooks	jal scan of 27 levels against the executable	proven	P17
+func_0026F748	0x0026F748	function	Hook: hero state change (state, argument); level 0 func_L00_002C42E0	HeroSetState	C call sites, level 8 hero state 97	proven	P17
+func_0026F718	0x0026F718	function	Hook: hero update in a scene; level 0 func_L00_002A6DD0, others func_L01_002A8C48 and variants	HeroUpdateHook	jal scan	read	P17
+func_0026F808	0x0026F808	function	Hook: nanotech steps (level 0 func_L00_002D5E30: three int pointers)	HeroNanotechSteps	C of the level function	read	P17
+func_002F53C8	0x002F53C8	function	Starts cutscene n: marks it seen, clears state, sets hero state 0x61 and game state 2	CutsceneStart	source; level 8 retail calls	read	P17
+func_002F57A8	0x002F57A8	function	Ends a cutscene: restores hero, frees actors	CutsceneEnd	source; level 8 and 14 capture frames	read	P17
+func_00288CB0	0x00288CB0	function	Requests a level exit: flag 0x1A8B84, destination 0x1B1680	RequestLevelExit	traced in level 25	proven	P17
+func_L25_0040CDA0	0x0040CDA0	function	Wupash mission controller; ctx 0x221850: +0xC wave, +0x10 enemies left, +0x14 waves done; exits to level 2 when done	WupashMission	retail states, watch in port	read	P17
+D_L25_00221850	0x00221850	data	Ship mission context, level 25's place: HUD counters at +0xC and +0x10 read by func_L25_0040D208	g_shipMission	func_L25_0040CDA0, func_L25_0040D208	read	P17
