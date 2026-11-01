@@ -23,7 +23,7 @@ void Fsr3::State::build_velocities() {
     // Map by stable identity, never by draw order; disappearing objects cannot shift another object's history.
     for (const auto& instance : instances) {
         // Blended mobys have no opaque depth and belong in the reactive colour difference.
-        if (instance.blend) {
+        if (instance.blend || instance.lighting_only) {
             continue;
         }
 

@@ -21,6 +21,9 @@
 namespace openrac::frontend::debug_overlay {
 
 void renderer_section(const Shown& shown) {
+    if (ImGui::CollapsingHeader("Freecam")) {
+        camera_tools_controls();
+    }
     const renderer::gl_stats::Info& info = renderer::gl_stats::info();
     text("{}", info.renderer);
     text_coloured(kDim, "{} | OpenGL {} | GLSL {}", info.vendor, info.version, info.glsl);

@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cmath>
+#include <optional>
 
 namespace openrac::renderer {
 
@@ -59,6 +60,37 @@ inline float dot(const Vec3& a, const Vec3& b) {
 inline Vec3 normalize(const Vec3& v) {
     const float length = std::sqrt(dot(v, v));
     return length > 0.0f ? Vec3{v[0] / length, v[1] / length, v[2] / length} : v;
+}
+
+// Inverts an affine transform, preserving nonuniform scale; singular frames cannot host gizmos.
+inline std::optional<Mat4> inverse_affine(const Mat4& m) {
+    const Vec3 a{m[0], m[1], m[2]}, b{m[4], m[5], m[6]}, c{m[8], m[9], m[10]};
+    const auto x = cross(b, c), y = cross(c, a), z = cross(a, b);
+    const float determinant = dot(a, x);
+    // A zero scale has no inverse and must not yield NaN light positions.
+    if (!std::isfinite(determinant) || determinant == 0) {
+        return std::nullopt;
+    }
+    Mat4 out = identity();
+    for (std::size_t i = 0; i < 3; ++i) {
+        out[i * 4] = x[i] / determinant;
+        out[i * 4 + 1] = y[i] / determinant;
+        out[i * 4 + 2] = z[i] / determinant;
+    }
+    const Vec3 offset = transform_point(out, {m[12], m[13], m[14]});
+    for (std::size_t i = 0; i < 3; ++i) {
+        out[12 + i] = -offset[i];
+    }
+    return out;
+}
+
+// Transforms a direction without translating or normalizing it.
+inline Vec3 transform_vector(const Mat4& m, const Vec3& v) {
+    return {
+        m[0] * v[0] + m[4] * v[1] + m[8] * v[2],
+        m[1] * v[0] + m[5] * v[1] + m[9] * v[2],
+        m[2] * v[0] + m[6] * v[1] + m[10] * v[2]
+    };
 }
 
 // A camera at `eye` looking along `forward`, with `up` roughly up: world to

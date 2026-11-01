@@ -28,6 +28,7 @@
 #include "enhanced/game/scripted_moby_colour.h"
 #include "enhanced/renderer/agx.h"
 #include "game/common/controls_store.h"
+#include "game/common/debug_camera.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
 #include "game/common/frontend/tick_picture.h"
@@ -139,6 +140,8 @@ struct FramePresentation {
     std::chrono::steady_clock::time_point
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
+    CameraDebugFrame
+        camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;
     std::vector<renderer::Mat4> picker_palette;
     int picker_level = -1;
@@ -207,7 +210,8 @@ struct State {
     scene::LevelData level;
     scene::ObjectPicker picker;
     scene::LevelScene scene;
-    int loaded = -2;  // the level whose geometry is uploaded; -2 none
+    DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.
+    int loaded = -2;           // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;
     // Every image the game sent outside the display list, oldest first, the latest per
     // rectangle: given again to each renderer made (use_level makes a new one per level).

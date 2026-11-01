@@ -126,3 +126,71 @@ Novalis (NTSC-U and PAL) [enhanced water](docs/water.md) prepares `water.bin` an
 beside the manifest during lighting preparation. The bake stores banks, rest heights,
 dense mesh and outlets. Compute adds Ratchet's ripples and bank reflections; cached
 lighting preserves the painted blue textures.
+
+## Unshadowed local lights
+
+Enhanced Vulkan uses Forward+ for point and spot lights. The original eight game slots and up to
+4096 authored lights share a table; each 16x16 tile stores complete bitmasks without truncation.
+Opaque receivers use the prepass depth range. Transparent and MSAA receivers use
+depth-independent masks; secondary cameras and offscreen compute receivers evaluate all lights
+when masks do not match. Light tables below 16 entries bypass compute culling. Directional and
+Ratchet shadows are unchanged; local lights do not cast shadows or contribute to baked GI.
+Native point lights remain available to enhanced material fallbacks without probe data.
+Volumetric lighting still uses the original point-light bank.
+
+The authoring entry point is
+`lighting::SceneLighting::set_local_lights(span<enhanced::LocalLight>)`. It copies a complete
+level-local snapshot safely from the authoring thread, applied at a frame boundary. Positions
+and ranges use game world units, RGB is nonnegative linear radiance, intensity multiplies RGB,
+and spot angles are inner/outer half-angles in radians (`0 <= inner <= outer < pi/2`). Direction
+points outward from the spotlight and is normalized on upload. Built-in and authored surface
+lights share a soft inverse-square-shaped attenuation with a fourth-power range window. It
+retains the original brightness at half range and fades to zero with zero slope at the original
+radius. Spots add a smooth cosine transition between their cones; equal angles select a hard
+cone. Invalid snapshots return a descriptive error and preserve the previous lights. Level
+release clears authored lights.
+
+FP16 remains enabled for bounded shading weights and material responses. Do not narrow authored
+HDR radiance to FP16: values above 65504 overflow, and an infinite colour multiplied by a zero
+lighting weight can produce NaNs. Authored radiance, accumulation, positions and culling stay
+FP32; the GPU regression includes an extreme HDR light and a back-facing receiver to guard this
+boundary. Very bright lights may still expose FP16 weight quantisation or loss of tiny
+contributions. If banding appears, investigate those bounded weights before widening the whole
+renderer to FP32.
+
+`set_local_light_reference(true)` selects the all-light reference for tests and profiling; it
+defaults off.
+
+`local_lights` checks CPU/GPU attenuation, full masks, overlap, transparent receivers and view
+changes. Run `local_lights_test --benchmark` for warmed all-light versus tiled GPU timings at
+several counts. These synthetic scenes measure culling/shading cost, not a full gameplay frame.
+
+### Object light authoring
+
+This work-in-progress feature is compiled out by default. Configure with
+`-DOPENRAC_LIGHT_AUTHORING=ON` for the **Enhanced graphics** foldout in
+**Developer > Object Viewer** and runtime attached-light profiles. The general viewer and
+existing Forward+ lighting remain available without it.
+
+Add point/spot lights and edit colour, intensity, range, cones and move/rotate/range gizmos.
+Lights can attach to the object root or a named bone. Reparenting preserves placement;
+**Move to bone origin** clears the local offset. Attachments follow the displayed bone pose.
+The preview uses production Forward+ with neutral fill, original textures, alpha and emission;
+it omits level GI, reflections and per-light shadows. Unsaved edits affect only the preview.
+
+**Save profile** applies additive lights to every instance of that object type, including
+emitters outside the camera. Shared definitions live in
+`lighting/profiles/<game>/object-lights.json`, copied into every level export and standalone
+bundle. Export-root and traditional level overrides can supply the same file; active mod roots
+have highest priority. The viewer displays its save destination. Drafts are per destination and
+object type; Reload discards only the selected object's draft. Save merges other definitions
+and atomically replaces the file; failure retains the previous file.
+
+Version-1 JSON contains an `objects` map keyed by scene layer and model name, such as
+`mobys/<model>.glb`; terrain keys also include the level. Each light has `name`, `type`
+(`point`/`spot`), `bone` (empty for root), `enabled`, `position`, `direction`, `colour`, `intensity`,
+`range`, `inner_angle` and `outer_angle`. Position/direction are object/bone local, range is in
+game world units, and cone angles are radians. Only authored metadata is saved.
+
+`object-viewer.json` in the working folder exposes the selection, pose, camera, visible controls
+and optional lights to diagnostic tools. `OPENRAC_OVERLAY=object-viewer` opens it in developer mode.

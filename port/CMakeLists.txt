@@ -44,6 +44,12 @@ if(OPENRAC_ENHANCED_RENDERING)
   add_compile_definitions(OPENRAC_ENHANCED_RENDERING=1)
 endif()
 
+# The general Object Viewer is ready; additive object-light authoring remains opt-in work in progress.
+option(OPENRAC_LIGHT_AUTHORING "Compile experimental object-light authoring and attached light profiles" OFF)
+if(OPENRAC_LIGHT_AUTHORING)
+  add_compile_definitions(OPENRAC_LIGHT_AUTHORING=1)
+endif()
+
 option(OPENRAC_PORT_WINDOW "Build the programs that open a window (needs SDL3)" ON)
 option(OPENRAC_GPU_MARKERS "Compile opt-in Vulkan GPU profiler labels" OFF)
 option(OPENRAC_PORT_GAMES "Build the games from their decompilations (needs Clang and Python 3)" ON)

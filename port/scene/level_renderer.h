@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "renderer/debug_lines.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gpu_draw.h"
 #include "renderer/renderer.h"
@@ -137,6 +138,12 @@ public:
     // Replaces the joint palettes the mobys' instances index (Instance::palette), each frame.
     void set_palette(const std::vector<JointColumns>& matrices);
 
+    // The owned displayed palette, shared read-only with registered attachment providers.
+    std::span<const renderer::Mat4> joint_palette() const { return m_palette_data; }
+
+    // Draws requested visibility diagnostics using the displayed camera, never the culling camera.
+    void draw_culling_debug(const renderer::FrameInput& input, renderer::RenderState& state);
+
     bool lighting = true;
 
     bool probes_active() const { return m_lighting && m_lighting->active(); }
@@ -246,6 +253,9 @@ public:
     // Eight point lights after the 16 directional sets: colour, position/radius.
     void set_point_lights(const std::array<float, 64>& lights) { m_point_lights = lights; }
 
+    // Immutable frame light bank for registered lighting providers.
+    const std::array<float, 64>& point_lights() const { return m_point_lights; }
+
     // The game's fog for this frame (GameState): FOGCOL 0..1, the depths in raw units (game
     // units x 1024) and the GS F at them (255 = none). The world layers are fogged as the GS
     // fogs them: C = FOGCOL + (C - FOGCOL) x F / 255, F linear in camera depth, clamped.
@@ -273,6 +283,10 @@ public:
     }
 
 private:
+    // Returns the selected preview clip matrix, or no value when its shadow maps are unavailable.
+    [[nodiscard]] std::optional<renderer::Mat4> inspection_clip(
+        const renderer::FrameInput& input
+    ) const;
     // One consecutive run of compatible motion instances, preserving draw order.
     struct MotionBatch {
         std::uint32_t model = 0;       // Shared geometry and material runs.
@@ -608,6 +622,10 @@ private:
     std::optional<bool> m_hero_logged_airborne;
     std::array<std::unique_ptr<renderer::FrameBuffer>, kSunCascades> m_sun_maps;
     SunCascades m_sun_cascades;
+    renderer::Camera m_sun_camera;        // View whose splits produced the current shadow maps.
+    bool m_culling_lines_failed = false;  // Retry failed diagnostic shaders after scene release.
+    std::unique_ptr<renderer::DebugLines>
+        m_culling_lines;  // Allocated only for inspection; the scene retains move ownership.
     bool m_sun_enabled = false, m_sun_ready = false;
 };
 

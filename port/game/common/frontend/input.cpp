@@ -88,8 +88,10 @@ void apply_mouse_capture() {
     }
     SDL_Window* w = g->window->sdl();
     const bool focused = (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS) != 0;
-    const bool capture =
-        g->capture_wanted && focused && !debug_overlay::visible() && !debug_menu::is_open();
+    const bool capture = focused && !debug_menu::is_open()
+                         && (debug_overlay::camera_debug_capturing()
+                             || (g->capture_wanted && !debug_overlay::free_camera_enabled()
+                                 && !debug_overlay::visible()));
     if (SDL_GetWindowRelativeMouseMode(w) != capture) {
         SDL_SetWindowRelativeMouseMode(w, capture);
     }
@@ -101,7 +103,8 @@ KeyboardMouseView keyboard_mouse() {
         return {};
     }
     KeyboardMouseView view{
-        &g->input.keyboard_mouse(), debug_overlay::visible() || debug_menu::is_open()
+        &g->input.keyboard_mouse(),
+        debug_overlay::visible() || debug_menu::is_open() || debug_overlay::free_camera_enabled()
     };
     SDL_Window* w = g->window ? g->window->sdl() : nullptr;
     if (w == nullptr) {
@@ -326,6 +329,11 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     if (openrac_game_pad_report_hook == nullptr) {
         skip_after_mods(port, *buttons);
         menus_after_mods(port, *buttons);
+    }
+    // Keep the game at its own camera/player pose while the developer flies independently.
+    if (debug_overlay::free_camera_enabled()) {
+        *buttons = 0xffff;
+        std::fill_n(analog, 4, std::uint8_t{128});
     }
     if (port == 0) {
         debug_overlay::pad(*buttons, analog);  // [debug tools]

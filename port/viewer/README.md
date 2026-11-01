@@ -35,12 +35,13 @@ module's ([scene/README.md](../scene/README.md)), which the game programs draw w
 | File | |
 |---|---|
 | `main.cpp` | the program: options, the window, the free camera's controls, the frame loop |
-| `camera.h` | the free camera |
+| `camera.h` | compatibility names for the shared `scene/fly_camera.h` |
 | `third_party.c` | cgltf and stb, compiled once as C (`openrac_viewer_third_party`), for the scene |
 | `shaders/` | the level renderer's shaders, embedded into `openrac_scene_renderer` |
 
-The library `openrac_viewer_lib` is `camera.cpp`; it links the scene, so the tests that draw a
-level link it alone. The program and `viewer_test` also link `openrac_game_rac1_profile`, rac1's
+The interface target `openrac_viewer_lib` links the scene and optional lighting, so tests that
+draw a level link it alone. The free camera also serves the in-game developer tools. The program
+and `viewer_test` also link `openrac_game_rac1_profile`, rac1's
 reads of a running game's memory ([game/rac1](../game/rac1/README.md#the-games-profile)), for
 `--state`'s memory picture.
 

@@ -15,6 +15,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/local_lights.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
@@ -43,7 +44,7 @@ std::string Water::fragment_source() const {
     std::string source = std::string(lighting::shaders::water_window_glsl) + "\n"
                          + std::string(lighting::shaders::water_swell_glsl) + "\n"
                          + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
-                         + std::string(lighting::shaders::probes_glsl) + "\n"
+                         + local_light_shader_source() + "\n"
                          + std::string(lighting::shaders::environment_glsl) + "\n"
                          + std::string(lighting::shaders::water_transmission_glsl) + "\n"
                          + std::string(lighting::shaders::water_glsl);

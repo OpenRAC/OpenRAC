@@ -166,6 +166,10 @@ struct FrameInput {
     // the frame they opened over, darkened). Drawn before the world (DirectBackground).
     std::span<const std::uint8_t> direct_before_world{};
     Camera camera;
+    // Opt-in developer inspection: render from camera, but retain visibility from this camera.
+    std::optional<Camera> culling_camera;
+    // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
+    std::optional<unsigned> culling_inspection;
     // The frame's world effect quads, in the order the game drew them.
     std::span<const EffectQuad> effects{};
     std::span<const ImageUpload> effect_uploads{};

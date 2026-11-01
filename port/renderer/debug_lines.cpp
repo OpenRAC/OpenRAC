@@ -3,17 +3,17 @@
 //
 // DebugLines: shared line upload and reversed-depth wireframe drawing for lighting diagnostics.
 
-#include "enhanced/viewer/debug_lines.h"
+#include "renderer/debug_lines.h"
 
 #include <array>
 #include <cstddef>
 #include <utility>
 
-#include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
+#include "renderer_shaders.h"
 
-namespace openrac::lighting {
+namespace openrac::renderer {
 namespace {
 // Hidden edges remain legible without competing with visible edges.
 constexpr float kHiddenAlpha = .18f;
@@ -55,10 +55,7 @@ bool DebugLines::prepare(std::string& error) {
     }
 
     if (!m_shader.build(
-            "lighting debug lines",
-            shaders::area_light_overlay_vert,
-            shaders::area_light_overlay_frag,
-            error
+            "world debug lines", shaders::debug_lines_vert, shaders::debug_lines_frag, error
         )) {
         return false;
     }
@@ -88,8 +85,8 @@ bool DebugLines::draw(
 ) {
     using namespace openrac::gl;
 
-    // No GPU state is created on compatibility backends or for empty diagnostic meshes.
-    if (!enhanced_rendering_available() || m_vertices.empty()) {
+    // Empty diagnostics create no GPU objects or draw calls.
+    if (m_vertices.empty()) {
         return true;
     }
 
@@ -123,31 +120,6 @@ bool DebugLines::draw(
     return true;
 }
 
-void append_debug_box(
-    std::vector<DebugLineVertex>& vertices,
-    renderer::Vec3 minimum,
-    renderer::Vec3 maximum,
-    renderer::Vec3 colour
-) {
-    constexpr unsigned kCorners = 8;
-    std::array<renderer::Vec3, kCorners> corners{};
-    for (unsigned corner = 0; corner < kCorners; ++corner) {
-        for (unsigned axis = 0; axis < 3; ++axis) {
-            corners[corner][axis] = (corner & (1u << axis)) ? maximum[axis] : minimum[axis];
-        }
-    }
-    // Only the low endpoint emits each undirected edge.
-    for (unsigned corner = 0; corner < kCorners; ++corner) {
-        for (unsigned axis = 0; axis < 3; ++axis) {
-            const unsigned bit = 1u << axis;
-            if ((corner & bit) == 0) {
-                vertices.push_back({corners[corner], colour});
-                vertices.push_back({corners[corner | bit], colour});
-            }
-        }
-    }
-}
-
 void DebugLines::release() {
     using namespace openrac::gl;
     m_shader.release();
@@ -166,4 +138,4 @@ void DebugLines::release() {
     m_vertices.clear();
     m_uploaded = false;
 }
-}  // namespace openrac::lighting
+}  // namespace openrac::renderer

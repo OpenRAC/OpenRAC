@@ -98,7 +98,8 @@ void configure() {
             s.open_at_start = open;
         }
         s.labels = has("labels");
-        set_picker_enabled(has("picker"));
+        s.object_viewer.open = s.developer && has("object-viewer");
+        set_picker_enabled(has("picker") || s.object_viewer.open);
         s.wireframe = has("wireframe");
         s.memory_viewer = has("memview");
         if (has("inspect")) {
@@ -128,30 +129,8 @@ void configure() {
     // OPENRAC_PRESS presses pad buttons: KEY is SDL's name of a key (F3, F5, Return, ...), or
     // click@X,Y for a left click at that place of the window (in its own units, not pixels).
     // +HELD: that many pictures later while the game is paused at FRAME, where frames do not count.
-    if (const std::optional<std::string> v = env_string(env::Var::Keys)) {
-        for (const char* at = v->c_str(); at != nullptr && *at != '\0';) {
-            ScriptedInput in;
-            char* end = nullptr;
-            in.frame = std::strtoull(at, &end, 10);
-            if (*end == '+') {
-                in.held = static_cast<int>(std::strtol(end + 1, &end, 10));
-            }
-            const char* comma = std::strchr(end, ',');
-            if (*end == ':') {
-                std::string name(end + 1, comma != nullptr ? static_cast<std::size_t>(comma - end - 1) : std::strlen(end + 1));
-                if (name.rfind("click@", 0) == 0) {
-                    // The click's two numbers are parted by a comma of their own.
-                    comma = comma != nullptr ? std::strchr(comma + 1, ',') : nullptr;
-                    std::sscanf(end + 1, "click@%f,%f", &in.x, &in.y);
-                    s.script.push_back(in);
-                } else if ((in.key = SDL_GetKeyFromName(name.c_str())) != 0) {
-                    s.script.push_back(in);
-                } else {
-                    log::warn("OPENRAC_KEYS: no key is named {}", name);
-                }
-            }
-            at = comma != nullptr ? comma + 1 : nullptr;
-        }
+    if (const auto value = env::value(env::Var::Keys)) {
+        configure_scripted_input(*value);
     }
     // OPENRAC_OVERLAY_SHOT=N:PREFIX: every N ticks the window, overlay included, to PREFIX<tick>.png
     // (from OPENRAC_SHOT_FROM on, as OPENRAC_SHOT's).
@@ -318,47 +297,6 @@ void follow_scale(SDL_Window* window) {
     } else {
         ImGui_ImplOpenGL3_DestroyFontsTexture();
         ImGui_ImplOpenGL3_CreateFontsTexture();
-    }
-}
-
-// The scripted keys and clicks due at this picture, put in SDL's queue as the system would.
-void run_script(std::uint64_t frame, int held) {
-    for (ScriptedInput& in : s.script) {
-        if (in.done || in.frame != frame || in.held != held) {
-            continue;
-        }
-        in.done = true;
-        const SDL_WindowID window = s.window != nullptr ? SDL_GetWindowID(s.window) : 0;
-        SDL_Event e{};
-        if (in.key != 0) {
-            e.type = SDL_EVENT_KEY_DOWN;
-            e.key.windowID = window;
-            e.key.key = in.key;
-            e.key.scancode = SDL_GetScancodeFromKey(in.key, nullptr);
-            e.key.down = true;
-            SDL_PushEvent(&e);
-            e.type = SDL_EVENT_KEY_UP;
-            e.key.down = false;
-            SDL_PushEvent(&e);
-        } else {
-            e.type = SDL_EVENT_MOUSE_MOTION;
-            e.motion.windowID = window;
-            e.motion.x = in.x;
-            e.motion.y = in.y;
-            SDL_PushEvent(&e);
-            e = SDL_Event{};
-            e.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
-            e.button.windowID = window;
-            e.button.button = SDL_BUTTON_LEFT;
-            e.button.down = true;
-            e.button.clicks = 1;
-            e.button.x = in.x;
-            e.button.y = in.y;
-            SDL_PushEvent(&e);
-            e.type = SDL_EVENT_MOUSE_BUTTON_UP;
-            e.button.down = false;
-            SDL_PushEvent(&e);
-        }
     }
 }
 
@@ -578,14 +516,20 @@ bool event(const SDL_Event& e) {
             s.focus_ns = e.window.timestamp;
         }
         const SDL_Scancode key = menu_bar_scancode();
-        if (key == SDL_SCANCODE_UNKNOWN) {
+        // Freecam owns Alt for mouse look instead of toggling the menu bar.
+        if (s.camera_tools.enabled) {
+            s.alt_alone = false;
+        }
+        if (key == SDL_SCANCODE_UNKNOWN && !s.camera_tools.enabled) {
             // Alt by itself hides and shows the menus (Alt+Return is fullscreen: another key in
             // between makes it not by itself).
             const bool alt = e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP
                                  ? e.key.key == SDLK_LALT || e.key.key == SDLK_RALT
                                  : false;
             constexpr Uint64 kFocusSettleNs = 300'000'000;
-            if (e.type == SDL_EVENT_KEY_DOWN) {
+            if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                s.alt_alone = false;  // Alt-drag navigation is not an Alt-only menu toggle.
+            } else if (e.type == SDL_EVENT_KEY_DOWN) {
                 s.alt_alone = alt && e.key.timestamp - s.focus_ns > kFocusSettleNs;
             } else if (e.type == SDL_EVENT_KEY_UP && alt && s.alt_alone) {
                 s.alt_alone = false;
@@ -643,8 +587,8 @@ bool event(const SDL_Event& e) {
                 break;
         }
     }
-    if (!(s.visible || s.enhanced_settings || s.controls_window || picker_enabled()
-          || menu_bar_shown() || s.drawer_open)
+    if (!(s.visible || s.enhanced_settings || s.controls_window || s.object_viewer.open
+          || picker_enabled() || menu_bar_shown() || s.drawer_open)
         || !s.initialised) {
         return false;
     }
@@ -663,7 +607,7 @@ bool event(const SDL_Event& e) {
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
         case SDL_EVENT_TEXT_INPUT:
-            return io.WantTextInput;  // typing in one of the overlay's fields
+            return io.WantTextInput || (s.object_viewer.open && io.WantCaptureKeyboard);
         default:
             return false;
     }
@@ -716,7 +660,7 @@ void tick(const Tick& t) {
 }
 
 void begin(bool first, bool held, float alpha, std::uint64_t tick_number) {
-    if (!s.script.empty() && (first || held)) {
+    if ((!s.script.empty() || !s.script_file.empty()) && (first || held)) {
         s.held_pictures = held ? s.held_pictures + 1 : 0;
         run_script(tick_number, s.held_pictures);
     }
@@ -794,6 +738,7 @@ void draw(const Shown& shown) {
         ImGui_ImplOpenGL3_NewFrame();
     }
     ImGui_ImplSDL3_NewFrame();
+    refresh_scripted_pointer();
     ImGui::NewFrame();
     if (menu_bar_shown()) {
         menu_bar();
@@ -813,6 +758,7 @@ void draw(const Shown& shown) {
         touch_edit_bar();
     }
     picker_overlay(shown);
+    object_viewer_window(shown);
     status_badge();
     ImGui::Render();
     if (s.gl_subset) {
@@ -879,6 +825,7 @@ bool take_settings_changed() {
 }
 
 void release() {
+    release_object_viewer();
     if (s.initialised) {
         if (s.gl_subset) {
             renderer::ui::imgui_gl::shutdown();
