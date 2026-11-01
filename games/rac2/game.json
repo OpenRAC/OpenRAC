@@ -64,6 +64,46 @@
           [
             "(D_00250000 + 0x6368)",
             "D_00256368"
+          ],
+          [
+            "extern char D_001F2840[];       /* C: the menu block */\nextern char D_00138180[];       /* P: the pad block */\n",
+            "extern char D_001F2840[];       /* C: the menu block */\nextern char D_00138180[];       /* P: the pad block */\nextern char D_00259018[], D_0025A738[], D_0025A498[], D_0025A190[], D_00259EE0[];\nextern int func_002DBAD0(), func_002DA118(), func_002D84B0(), func_002DA9A8();\n"
+          ],
+          [
+            "if (s1 == 0x259018)",
+            "if (s1 == (int)D_00259018)"
+          ],
+          [
+            "if (s1 == 0x25A738)",
+            "if (s1 == (int)D_0025A738)"
+          ],
+          [
+            "if (s1 == 0x25A498)",
+            "if (s1 == (int)D_0025A498)"
+          ],
+          [
+            "CW(0x14) == 0x25A190",
+            "CW(0x14) == (int)D_0025A190"
+          ],
+          [
+            "if (widget == 0x259EE0)",
+            "if (widget == (int)D_00259EE0)"
+          ],
+          [
+            "(cb == 0x2DBAD0 || cb == 0x2DA118 || cb == 0x2D84B0 || cb == 0x2DA9A8)",
+            "(cb == (int)func_002DBAD0 || cb == (int)func_002DA118 || cb == (int)func_002D84B0 || cb == (int)func_002DA9A8)"
+          ],
+          [
+            "CW(0x14) == 0x25E680",
+            "CW(0x14) == (int)D_0025E680"
+          ],
+          [
+            "CW(0x18) = 0x25A498;",
+            "CW(0x18) = (int)D_0025A498;"
+          ],
+          [
+            "extern char D_001C4FA0[];       /* Q: the selection state */\n",
+            "extern char D_001C4FA0[];       /* Q: the selection state */\nextern char D_0025E680[], D_0025A498[];\n"
           ]
         ],
         "commit": "588f8f05f38b2b57426ef33e981d226185ae2c20",
