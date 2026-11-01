@@ -349,6 +349,24 @@ typedef struct openrac_game_shot {
     float aim[4];
 } openrac_game_shot;
 
+/* A shot with more to say (openrac_shot2, after its size). A weapon that is no single shot is a
+ * track: the flags say where in it this one is, aux[0] which of the player's tracks it is. */
+#define OPENRAC_GAME_SHOT_START 0x1u
+#define OPENRAC_GAME_SHOT_MOVE 0x2u
+#define OPENRAC_GAME_SHOT_STOP 0x4u
+#define OPENRAC_GAME_SHOT_BURST 0x8u
+
+typedef struct openrac_game_shot2 {
+    int32_t item;
+    float position[3];
+    float velocity[3];
+    float aim[4];
+    uint32_t flags;
+    int32_t target_key;
+    float velocity2[3];
+    float aux[4];
+} openrac_game_shot2;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -450,6 +468,10 @@ typedef struct openrac_game_play {
     /* How the last tick ran the level's mobys and the moby in `slot` (-1 none) into `out` (1, or 0
      * outside a level: openrac_api.moby_run). NULL for a game without it. */
     int (*moby_run)(int32_t slot, openrac_game_moby_run* out);
+    /* hero_shots and figure_shot with more to say (openrac_api.hero_shots2, figure_shot2). NULL for
+     * a game without them. */
+    int (*hero_shots2)(openrac_game_shot2* out, int max);
+    int (*figure_shot2)(gaddr figure, const openrac_game_shot2* shot);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

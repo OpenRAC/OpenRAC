@@ -973,10 +973,18 @@ typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t si
 /* The bytes of one level's mission state (mission_state_read, mission_state_write). Since 1.12. */
 #define OPENRAC_MISSION_STATE_SIZE 16
 
+/* openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a
+ * track, and each of its shots says where in it this one is; aux[0] tells a player's tracks apart.
+ * Each may be lost: a MOVE stands in for a lost START, a track that goes silent ends by itself. No
+ * flag: one shot, fired once. Since 1.12. */
+#define OPENRAC_SHOT_START 0x1u
+#define OPENRAC_SHOT_MOVE 0x2u
+#define OPENRAC_SHOT_STOP 0x4u
+#define OPENRAC_SHOT_BURST 0x8u /* with STOP: it ended in a blast */
+
 /* A shot with more to say than openrac_shot (hero_shots2, figure_shot2): the same fields, then the
- * shot's flags (the mod's own bits, carried as they are), the key of the moby it homes on (-1 for
- * none), a second velocity (a weapon that throws two things) and four more values of the weapon's
- * own. Since 1.12. */
+ * shot's flags (OPENRAC_SHOT_*), the key of the moby it homes on (-1 for none), a second velocity
+ * (a weapon that throws two things) and four more values of the weapon's own. Since 1.12. */
 typedef struct openrac_shot2 {
     /* sizeof(openrac_shot2), set by whoever fills it. */
     uint32_t size;

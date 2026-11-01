@@ -165,6 +165,10 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_PLACE_INVULNERABLE` | `0x1u` | the hero takes no damage for a few seconds |
 | `OPENRAC_PLACE_GROUND` | `0x2u` | the position is dropped to the ground below it |
 | `OPENRAC_MISSION_STATE_SIZE` | `16` | The bytes of one level's mission state (mission_state_read, mission_state_write). Since 1.12. |
+| `OPENRAC_SHOT_START` | `0x1u` | openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a track, and each of its shots says where in it this one is; aux[0] tells a player's tracks apart. Each may be lost: a MOVE stands in for a lost START, a track that goes silent ends by itself. No flag: one shot, fired once. Since 1.12. |
+| `OPENRAC_SHOT_MOVE` | `0x2u` |  |
+| `OPENRAC_SHOT_STOP` | `0x4u` |  |
+| `OPENRAC_SHOT_BURST` | `0x8u` | with STOP: it ended in a blast |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
 | `OPENRAC_MOD_UNLOAD` | `"openrac_mod_unload"` |  |
@@ -676,9 +680,8 @@ stay valid for the life of the program. Since 1.11.
 ## `openrac_shot2`
 
 A shot with more to say than openrac_shot (hero_shots2, figure_shot2): the same fields, then the
-shot's flags (the mod's own bits, carried as they are), the key of the moby it homes on (-1 for
-none), a second velocity (a weapon that throws two things) and four more values of the weapon's
-own. Since 1.12.
+shot's flags (OPENRAC_SHOT_*), the key of the moby it homes on (-1 for none), a second velocity
+(a weapon that throws two things) and four more values of the weapon's own. Since 1.12.
 
 | Member | |
 |---|---|

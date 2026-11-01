@@ -50,6 +50,12 @@ static_assert(offsetof(openrac_held, count) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_held) == sizeof(std::uint32_t) + sizeof(openrac_game_held));
 static_assert(offsetof(openrac_shot, item) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_shot) == sizeof(std::uint32_t) + sizeof(openrac_game_shot));
+static_assert(offsetof(openrac_shot2, item) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_shot2) == sizeof(std::uint32_t) + sizeof(openrac_game_shot2));
+static_assert(OPENRAC_SHOT_START == OPENRAC_GAME_SHOT_START);
+static_assert(OPENRAC_SHOT_MOVE == OPENRAC_GAME_SHOT_MOVE);
+static_assert(OPENRAC_SHOT_STOP == OPENRAC_GAME_SHOT_STOP);
+static_assert(OPENRAC_SHOT_BURST == OPENRAC_GAME_SHOT_BURST);
 // So is a moby (interface 1.9).
 static_assert(offsetof(openrac_moby, slot) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_moby) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_state));
@@ -721,12 +727,28 @@ int api_hero_revive(openrac_mod*, const float[3], std::uint32_t) {
     return OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_hero_shots2(openrac_shot2*, int) {
-    return 0;
+int api_hero_shots2(openrac_shot2* out, int max) {
+    if (out == nullptr || max <= 0 || g_play == nullptr || g_play->hero_shots2 == nullptr) {
+        return 0;
+    }
+    std::array<openrac_game_shot2, OPENRAC_SHOTS_MAX> shots{};
+    const int n = g_play->hero_shots2(shots.data(), std::min(max, OPENRAC_SHOTS_MAX));
+    for (int i = 0; i < n; ++i) {
+        out[i].size = sizeof(openrac_shot2);
+        std::memcpy(&out[i].item, &shots[static_cast<std::size_t>(i)], sizeof(openrac_game_shot2));
+    }
+    return n;
 }
 
-int api_figure_shot2(openrac_mod*, int, const openrac_shot2*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_figure_shot2(openrac_mod* mod, int id, const openrac_shot2* shot) {
+    Figure* f = own_figure(mod, id);
+    if (f == nullptr || shot == nullptr || shot->size < sizeof(openrac_shot2)
+        || g_play->figure_shot2 == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_shot2 s{};
+    std::memcpy(&s, &shot->item, sizeof s);
+    return g_play->figure_shot2(f->moby, &s) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 int api_moby_list2(openrac_moby2*, int) {
