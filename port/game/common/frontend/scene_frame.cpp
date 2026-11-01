@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/profiler.h"
 #include "common/stats.h"
@@ -375,6 +376,7 @@ bool draw_world(SceneFrame& frame) {
             input.before_hud = [&owner,
                                 exposure = graphics.adjusted_agx_exposure(),
                                 before_hud = std::move(before_hud)] {
+                crash::breadcrumb("tone mapping");
                 owner.agx.apply(owner.frame, exposure);
                 if (before_hud) {
                     before_hud();
@@ -395,13 +397,17 @@ void render_scene(
     const settings::Settings& graphics,
     FramePresentation& output
 ) {
+    const crash::BreadcrumbScope breadcrumbs(output.source_frame);
+    crash::breadcrumb("scene setup");
     SceneFrame frame{owner, snapshot, graphics, output, {}, {}, false, 1};
     frame.temporal = prepare_temporal(frame);
     {
         const profiling::Zone trace("Upload scene");
+        crash::breadcrumb("scene upload");
         upload_instances(frame);
     }
     const auto scene_done = std::chrono::steady_clock::now();
+    crash::breadcrumb("render target setup");
     frame.picture_scale = prepare_target(frame);
     set_lighting(frame);
     blend_shadows(frame);

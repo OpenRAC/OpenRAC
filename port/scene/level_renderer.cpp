@@ -344,7 +344,7 @@ bool LevelScene::upload(
         );
     }
 
-    m_pvs = gl::is_vulkan() ? level.pvs : Pvs{};
+    m_pvs = level.pvs;
     m_camera_visibility = {};
     // The static layers' models again, their primitives in material order, for the opaque pass:
     // the level's terrain is one model of a primitive per fragment and material, two thousand
@@ -416,10 +416,8 @@ bool LevelScene::upload(
         }
     }
 
-    if (gl::is_vulkan()) {
-        m_cpu_indices = indices;
-        m_pvs_models.resize(m_models.size());
-    }
+    m_cpu_indices = indices;
+    m_pvs_models.resize(m_models.size());
     // A material's opaque flag alone does not guarantee coverage: vertex alpha
     // may still cut holes. Sorted copies use the same vertices and their new indices.
     m_shadow_solid_primitives.clear();
@@ -905,7 +903,7 @@ void LevelScene::draw_layer(
     auto& visible = m_colour_visible[static_cast<std::size_t>(layer)];
     static const bool& pvs_off =
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
-    const auto pvs_mask = pvs_off ? Pvs::all_visible() : m_pvs.select(input.camera.position);
+    const auto pvs_mask = pvs_off ? Pvs::all_visible() : m_pvs.follow(input.camera.position);
     const bool use_pvs = !pvs_off && !m_pvs.grid.empty();
     const bool gpu = gpu_driven();
     const bool cache_visibility =

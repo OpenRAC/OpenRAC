@@ -7,6 +7,7 @@
 #include <iterator>
 #include <stdexcept>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
@@ -120,6 +121,7 @@ void LevelScene::set_shadow_quality(renderer::ShadowQuality quality) {
 }
 
 void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state) {
+    crash::breadcrumb("shadow maps");
     m_shadow_geometry_indices = {};
     set_shadow_quality(input.shadow_quality);
     m_shadow_atlas_active = false;

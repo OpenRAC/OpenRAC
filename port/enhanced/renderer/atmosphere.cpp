@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "enhanced_viewer_shaders.h"
@@ -192,6 +193,7 @@ void Atmosphere::prepare(
         }
     }
     const stats::Scope timing("atmosphere transport", stats::kGpu);
+    crash::breadcrumb("atmosphere transport");
     const int width = grid.width, height = grid.height;
     if (width != m_width || height != m_height || grid.slices != m_slices) {
         // A clipped texel-buffer view would silently lose the far slices. Keep original fog

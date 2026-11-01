@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
@@ -63,6 +64,7 @@ bool MotionBlur::apply(const BlurFrame& frame) {
     const stats::Scope timing(
         frame.camera_relative ? "Camera motion blur" : "Target-relative motion blur", stats::kGpu
     );
+    crash::breadcrumb("motion blur");
     const auto& display = frame.display;
     const auto [rw, rh] = frame.render_size;
     std::string error;

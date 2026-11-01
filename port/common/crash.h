@@ -5,7 +5,8 @@
 // handlers), a fatal error (log::fatal) or a trap the game raises on purpose, a text file
 // `<data>/crashes/crash-<date>_<time>.txt` says why, with the native backtrace, what the game was
 // doing (the level, its game mode, the frame, where the hero and the camera were, the moby whose
-// update was running), the log's last lines and the session's header (common/log.h). The reason, the backtrace and the state also go to the session
+// update was running), recent main/render activity (common/breadcrumbs.h), the log's last lines
+// and the session's header (common/log.h). The reason, the backtrace, activity and state also go to the session
 // log and to stderr, so the log alone is enough.
 //
 // report() can run inside a signal handler: it writes with write() from buffers allocated before

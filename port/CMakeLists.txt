@@ -71,6 +71,7 @@ add_custom_target(openrac_build_info
   COMMENT "OpenRAC's version and commit"
   VERBATIM)
 add_library(openrac_common STATIC
+  common/breadcrumbs.cpp
   common/cache_folder.cpp
   common/crash.cpp
   common/crash_symbols.cpp
@@ -111,6 +112,8 @@ if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
 endif()
 find_package(Threads REQUIRED)
 target_link_libraries(openrac_common PUBLIC Threads::Threads)  # common/parallel.cpp
+openrac_add_test(breadcrumbs LIBS openrac_common Threads::Threads)
+openrac_add_test(breadcrumbs_no_alloc LIBS openrac_common)
 openrac_add_test(joining_thread LIBS openrac_common Threads::Threads)
 openrac_add_test(env LIBS openrac_common)
 openrac_add_test(stats LIBS openrac_common)
