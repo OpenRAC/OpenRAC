@@ -23,11 +23,11 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#include <windows.h>
-
 #include <direct.h>
 #include <fcntl.h>
 #include <io.h>
+#include <windows.h>
+
 #include <sys/stat.h>
 #else
 #include <dlfcn.h>
