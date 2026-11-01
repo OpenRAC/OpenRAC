@@ -77,7 +77,8 @@ export const PAGE = {
 export const ADD = {
   title: "Add a mod",
   linkLabel: "A mod's link",
-  linkPlaceholder: "Paste a mod's link, like github.com/OpenRAC/openrac-mods",
+  linkPlaceholder: "Paste a mod's link, like openrac.dev/mods/lock-strafe",
+  notModPage: "That page isn't a mod. Open a mod's page on openrac.dev and copy its link.",
   go: "Find",
   file: "File…",
   folder: "Folder…",
@@ -86,7 +87,9 @@ export const ADD = {
   drop: "or drop a .zip or folder on this page",
   dropHere: "Drop to add it",
   browse: "Browse mods",
-  modsUrl: "https://github.com/OpenRAC/openrac-mods",
+  modsUrl: "https://openrac.dev/mods",
+  publish: "Publish your mod",
+  publishUrl: "https://openrac.dev/mods/submit",
   close: "Close",
 } as const;
 
@@ -564,6 +567,9 @@ export const BROWSE = {
   tags: "Tags",
   updated: "Updated",
   impact: "Impact",
+  aiAssisted: "AI-assisted",
+  yes: "Yes",
+  no: "No",
   detailsAria: "Mod details",
   failed: "The mod list couldn't be loaded.",
   empty: "No mods in this list yet.",
@@ -587,8 +593,8 @@ export const DETAIL_TAB = {
 export const noMatch = (q: string) => `No mods match "${q}".`;
 export const didYouMean = (name: string) => `Did you mean ${name}?`;
 export const IMPACT_LABEL: Record<string, string> = {
-  cosmetic: "Cosmetic",
-  gameplay: "Gameplay",
+  cosmetic: "Cosmetic only",
+  gameplay: "Changes gameplay",
   "speedrun-safe": "Speedrun-safe",
   "touches-saves": "Changes saves",
   online: "Online",
