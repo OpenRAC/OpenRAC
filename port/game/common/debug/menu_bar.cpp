@@ -56,6 +56,56 @@ void press(SDL_Keycode key) {
     SDL_PushEvent(&event);
 }
 
+namespace {
+
+// A line under a menu item on when to use it, as the drawer's notes (drawer_note).
+void menu_note(const char* line) {
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetFontSize() * 20.0f);
+    ImGui::TextDisabled("%s", line);
+    ImGui::PopTextWrapPos();
+}
+
+// Developer > Record diagnostics: the drawer's rows (debug/drawer.cpp) in the same order.
+void record_menu() {
+    if (capture_pending()) {
+        if (ImGui::MenuItem("Cancel recording", "Ctrl+F3")) {
+            toggle_capture(false);
+        }
+        return;
+    }
+    if (capture_busy()) {
+        if (ImGui::MenuItem("Stop recording", "Ctrl+F3")) {
+            toggle_capture(false);
+        }
+        return;
+    }
+    if (ImGui::MenuItem("Gameplay recording", "Ctrl+F3")) {
+        toggle_capture(false);
+    }
+    menu_note(
+        "Records while you play, for the length below. Use it to catch stutters or a slow place "
+        "or moment."
+    );
+    // Moves the length on, its value beside it, and leaves the menu open (as Graphics does).
+    ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
+    if (ImGui::MenuItem("Recording length", capture_length_name())) {
+        step_capture_length(1);
+    }
+    ImGui::PopItemFlag();
+    ImGui::Separator();
+    if (ImGui::MenuItem(
+            std::format("Graphics settings sweep ({:.0f} s)", settings_sweep_seconds()).c_str()
+        )) {
+        toggle_settings_sweep();
+    }
+    menu_note(
+        "Stand still while it runs: it changes the graphics settings every few seconds, with "
+        "VSync off, and measures what each one costs. Use it when the game is slow everywhere."
+    );
+}
+
+}  // namespace
+
 void menu_bar() {
     if (!ImGui::BeginMainMenuBar()) {
         return;
@@ -139,25 +189,10 @@ void menu_bar() {
             press(SDLK_F12);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem(
-                capture_busy() ? "Stop recording diagnostics" : "Gameplay recording", "Ctrl+F3"
-            )) {
-            toggle_capture(false);
-        }
-        if (!capture_busy()
-            && ImGui::MenuItem(
-                std::format("Graphics settings sweep ({:.0f} s)", settings_sweep_seconds()).c_str()
-            )) {
-            toggle_settings_sweep();
-        }
-        if (ImGui::BeginMenu("Recording length")) {
-            for (const double seconds : {15.0, 30.0, 60.0, 120.0, 0.0}) {
-                const std::string name =
-                    seconds > 0.0 ? std::format("{:.0f} s", seconds) : std::string("Until stopped");
-                if (ImGui::MenuItem(name.c_str(), nullptr, s.capture_seconds == seconds)) {
-                    s.capture_seconds = seconds;
-                }
-            }
+        // Diagnostics recordings (debug/capture.cpp) as the drawer has them: one entry that holds
+        // the two kinds, each with its line on when to use it.
+        if (ImGui::BeginMenu("Record diagnostics")) {
+            record_menu();
             ImGui::EndMenu();
         }
         // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).
