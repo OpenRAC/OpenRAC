@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import ctype
@@ -47,6 +47,9 @@ def cname(symbol: str) -> str:
     if symbol.startswith("func_"):
         return symbol
     return f"game_{symbol}"
+
+
+VA_LIST_NAMES = ("va_list", "__builtin_va_list", "__gnuc_va_list")
 
 
 @dataclass
@@ -640,6 +643,19 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
     """Adds one unit's definitions and declarations. Returns problems found."""
     problems = []
     by_id = {d.get("id"): d for d in ast.get("inner", ()) if d.get("kind") == "FunctionDecl"}
+    # This unit's meaning of a typedef's name: units disagree on short ones (V is void * here, a
+    # vector elsewhere), and Clang leaves a function type's parameters sugared.
+    own_typedefs: dict[str, str] = {}
+
+    def own_type(t: ctype.Type) -> ctype.Type:
+        text = own_typedefs.get(t.name) if isinstance(t, ctype.Base) else None
+        if text is None or text.split()[0] in ("struct", "union", "enum") or t.name in VA_LIST_NAMES:
+            return t
+        try:
+            return ctype.parse(text)
+        except ctype.TypeError_:
+            return t
+
     for decl in ast.get("inner", ()):
         kind = decl.get("kind")
         if kind == "TypedefDecl":
@@ -652,6 +668,7 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
                     # itself; what matters for a signature is which it is.
                     text = ("enum " if owned.get("kind") == "EnumDecl" else "struct ") + decl["name"]
             program.typedefs.setdefault(decl["name"], set()).add(text)
+            own_typedefs[decl["name"]] = text
             continue
         if kind == "VarDecl" and decl.get("name", "").startswith(ASM_MARK):
             name = program.grouped(unit, decl["name"][len(ASM_MARK):])
@@ -676,6 +693,7 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
         except ctype.TypeError_ as e:
             problems.append(f"{sym}: {e}")
             continue
+        sig = replace(sig, ret=own_type(sig.ret), params=tuple(own_type(p) for p in sig.params))
         static = decl.get("storageClass") == "static"
         if has_body(decl) and not static:
             sym = program.grouped(unit, sym)
@@ -814,7 +832,7 @@ def canon(t: ctype.Type, typedefs: dict | None = None, depth: int = 0) -> str | 
     if not isinstance(t, ctype.Base):
         return None
     name = t.name
-    if name in ("va_list", "__builtin_va_list", "__gnuc_va_list"):
+    if name in VA_LIST_NAMES:
         return "va_list"
     if name.startswith("enum "):
         return "int"

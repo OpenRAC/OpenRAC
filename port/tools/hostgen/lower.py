@@ -2581,7 +2581,9 @@ class Unit:
         if sym in HOST_MATH and (f is None or (f.unit is None and sym not in self.program.host)):
             # A C library maths function the game calls without defining it (declared or
             # not): the host's, on values.
-            return f"{sym}({', '.join(self.rv(a) for a in args)})"
+            # abs and labs are in stdlib.h, which would declare the game's own names (free, rand).
+            name = "__builtin_abs" if sym in ("abs", "labs") else sym
+            return f"{name}({', '.join(self.rv(a) for a in args)})"
         if f is None:
             raise Unsupported(f"call to {sym}, which the program does not know")
         self.fn.report.calls.add(sym)
