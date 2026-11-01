@@ -541,6 +541,7 @@
     "forward_unprototyped": true,
     "dirs": [],
     "gp": "0x001AEFF0",
+    "gp_addresses": true,
     "retail": {
       "exe": "baserom/SCUS_972.68",
       "dump": "baserom/levels"

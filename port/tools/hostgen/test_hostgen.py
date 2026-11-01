@@ -2463,10 +2463,10 @@ class FromAssembly(unittest.TestCase):
     translated, built with the C that calls it, run, and its output checked."""
     run_program = Translate.run_program
 
-    def run_asm(self, c: str, functions: dict[str, tuple[int, str]], symbols=None, tables=None) -> list[str]:
+    def run_asm(self, c: str, functions: dict[str, tuple[int, str]], symbols=None, tables=None, config=None) -> list[str]:
         files = {f"game/asm/{name}.s": assembler.assemble(name, start, text, symbols, (tables or {}).get(name))
                  for name, (start, text) in functions.items()}
-        return self.run_program({"a.c": c}, config=ASM_CONFIG, extra_files=files)
+        return self.run_program({"a.c": c}, config=config or ASM_CONFIG, extra_files=files)
 
     def test_branches_and_delay_slots(self):
         # sum of n..1, the counter decremented in the delay slot after the test read it; a likely
@@ -2653,6 +2653,25 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(out[0], str(226 + 0x3121 + (0xF1E1D1C1 - (1 << 32))))
         self.assertEqual(out[1:5], ["17", "33", "49", "65"])          # bytes 1..4 stored at 16..19
         self.assertEqual(out[5:], [str((i * 16 + 1) & 0xFF) for i in range(4, 16)])
+
+    def test_address_of_a_global_through_gp(self):
+        # A small global's address formed from $gp goes through the same relocation as a load
+        # through $gp: a level's copy of the global sits elsewhere.
+        out = self.run_asm("""
+            extern int D_0017FFF0;
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(void);
+            int test_main(void) {
+                D_0017FFF0 = 20;
+                test_print(func_00100000());
+                return 0;
+            }
+        """, {"func_00100000": (0x00100000, """
+                addiu $3, $28, -0x10
+                jr $31
+                lw $2, 0($3)
+        """)}, config={"asm": {"enabled": True, "dirs": ["asm"], "gp": "0x00180000", "gp_addresses": True}})
+        self.assertEqual(out, ["20"])
 
     def test_jump_table_and_globals(self):
         # A switch through a table of code addresses in the game's data, the table's address

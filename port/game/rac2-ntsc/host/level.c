@@ -45,9 +45,11 @@ gaddr func_00131CB8(void) {
     const int level = GREF(int, PLAYER_PROGRESS);
     if (entry == TITLE_LOOP || level < 0 || level >= LEVELS) {
         /* Back to the title: the port runs the executable's C, so its own program is what has to be
-         * in memory, as on rac1 (openrac_guest_restore_executable). */
+         * in memory, as on rac1 (openrac_guest_restore_executable). The copy on the disc Quit Game
+         * reads is another build of it, its loop at 0x0026AD20, so the entry is the executable's. */
         loaded_level = OPENRAC_OVERLAY_EXE;
         openrac_guest_restore_executable(RELOCATE_LOW, RELOCATE_HIGH);
+        return TITLE_LOOP;
     } else {
         loaded_level = level;
     }
