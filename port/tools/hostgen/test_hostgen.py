@@ -19,6 +19,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 
@@ -825,6 +826,24 @@ class Translate(unittest.TestCase):
             (src / "assembly" / "f.c").rename(src / "f.c")
             prep.copy_tree(src, dst)
             self.assertEqual(sorted(p.relative_to(dst).as_posix() for p in dst.rglob("*.c")), ["f.c"])
+
+    def test_prepared_copies_have_lf_line_ends_as_on_windows(self):
+        """Windows writes text with CRLF: Clang's byte offsets in the prepared copy then ran ahead
+        of the text read back, name_vla_lengths found nothing, and rac1-pal's func_L10_002DBA50
+        (the Orxon barriers' strands) stayed untranslated. The copies are LF on every system."""
+        real = Path.write_text
+
+        def as_on_windows(self, data, encoding=None, errors=None, newline=None):
+            return real(self, data, encoding=encoding, errors=errors, newline="\r\n" if newline is None else newline)
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(Path, "write_text", as_on_windows):
+            src, dst = Path(tmp) / "src", Path(tmp) / "prep"
+            src.mkdir()
+            (src / "f.c").write_bytes(b"void f(int n) {\r\n    char s[n * 4];\r\n}\r\n")
+            prep.copy_tree(src, dst)
+            self.assertNotIn(b"\r", (dst / "f.c").read_bytes())
+            clangast._write(dst / "f.c", "void f(int n) {\n    unsigned int s__vlan = (n * 4); char s[s__vlan];\n}\n")
+            self.assertNotIn(b"\r", (dst / "f.c").read_bytes())
 
     def test_function_pointers_by_code_address(self):
         out = self.run_program({"a.c": """

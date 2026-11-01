@@ -802,7 +802,8 @@ def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
             text = apply_decomp_workarounds(rel, text)
             if not out.exists() or out.read_text(encoding="utf-8", errors="surrogateescape") != text:
                 out.parent.mkdir(parents=True, exist_ok=True)
-                out.write_text(text, encoding="utf-8", errors="surrogateescape")
+                # LF on every system: Clang's byte offsets must match the text hostgen reads back.
+                out.write_text(text, encoding="utf-8", errors="surrogateescape", newline="\n")
             count += 1
     # A file the decompilation moved or removed leaves its old copy behind, which would define
     # its functions a second time.
