@@ -202,3 +202,48 @@ void func_002E10B8(void) {
 
 void func_0029FEE0(void) {
 }
+
+/*
+ * The world's quad routine (hand-written, it runs a loop from the scratchpad): a0 a quad record, the
+ * same as Ratchet & Clank's (host/effect_quad.c): four corners (+0x00), four RGBA words (+0x40), four
+ * ST pairs (+0x50), then CLAMP_1, TEX0_1, TEX1_1 and ALPHA_1 (+0x70..+0x88); a1, when set, a matrix
+ * the corners go through first. The window draws it in the world.
+ */
+static void world_quad(gaddr a0, gaddr a1) {
+    const uint8_t* r = G(a0);
+    openrac_game_quad q;
+    memset(&q, 0, sizeof(q));
+    memcpy(q.corner, r, sizeof(q.corner));
+    if (a1 != 0) {
+        float m[16];
+        memcpy(m, G(a1), sizeof(m));
+        for (int k = 0; k < 4; ++k) {
+            const float x = q.corner[k][0], y = q.corner[k][1], z = q.corner[k][2], w = q.corner[k][3];
+            for (int i = 0; i < 4; ++i) {
+                q.corner[k][i] = x * m[i] + y * m[4 + i] + z * m[8 + i] + w * m[12 + i];
+            }
+        }
+    }
+    memcpy(q.rgba, r + 0x40, sizeof(q.rgba));
+    memcpy(q.st, r + 0x50, sizeof(q.st));
+    memcpy(&q.clamp, r + 0x70, 8);
+    memcpy(&q.tex0, r + 0x78, 8);
+    memcpy(&q.tex1, r + 0x80, 8);
+    memcpy(&q.alpha, r + 0x88, 8);
+    openrac_game_effect_quad(&q);
+}
+
+void func_00280B90(gaddr a0, int a1, int a2) {
+    (void)a2;
+    world_quad(a0, (gaddr)a1);
+}
+
+void func_00280B90_1(gaddr a0, gaddr a1, int a2) {
+    (void)a2;
+    world_quad(a0, a1);
+}
+
+void func_00280B90_7(gaddr a0, gaddr a1, int a2) {
+    (void)a2;
+    world_quad(a0, a1);
+}

@@ -273,8 +273,15 @@ class Program:
         f = self.functions.get(symbol)
         if f is not None and (f.unit is not None or symbol in self.host):
             return symbol
-        for place in self.code_places(symbol):
+        places = self.code_places(symbol)
+        for place in places:
             other = self.by_place.get(place)
+            if other is not None:
+                return other
+        # A function of level 0's program spelled without its level (rac2's C calls func_003100D8,
+        # level 0's CreateMoby): no such address in the executable, so level 0's place.
+        for overlay, address in places:
+            other = self.by_place.get((0, address)) if overlay == -1 else None
             if other is not None:
                 return other
         return symbol
