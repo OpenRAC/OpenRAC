@@ -597,4 +597,8 @@ const openrac_game_play rac1_play = {
     .hero_place = rac1_hero_place,
     .hero_revive = rac1_hero_revive,
     .moby_mission = rac1_world_moby_mission,
+    .camera_script_next = rac1_camera_script_next,
+    .camera_script_view = rac1_camera_script_view,
+    .camera_script_play = rac1_camera_script_play,
+    .camera_script_show = rac1_camera_script_show,
 };

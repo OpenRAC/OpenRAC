@@ -517,7 +517,19 @@ typedef struct openrac_game_play {
     int (*hero_revive)(const float position[3], uint32_t flags);
     /* The mission a moby of the level goes with, -1 for none. NULL for a game without it. */
     int32_t (*moby_mission)(int32_t slot);
+    /* The game's camera scripts (openrac_api.on_camera_script and its fellows; rac1/host/
+     * camera_script.c): the next start or end not yet told (1, or 0 for none), the view of the one
+     * running (1, or 0 for none), one shown here (id >= 0; OPENRAC_GAME_CAMERA_END_EASED or _CUT
+     * ends it; 1 asked, 0 refused) and its view (1 while it is asked or up). NULL for a game without
+     * them. */
+    int (*camera_script_next)(int32_t* id, int32_t* started);
+    int (*camera_script_view)(float eye[3], float rotation[3], float where[3], int32_t* stand_in);
+    int (*camera_script_play)(int32_t id);
+    int (*camera_script_show)(const float eye[3], const float rotation[3]);
 } openrac_game_play;
+
+#define OPENRAC_GAME_CAMERA_END_EASED (-1)
+#define OPENRAC_GAME_CAMERA_END_CUT (-2)
 
 extern const openrac_game_play* openrac_game_play_host;
 

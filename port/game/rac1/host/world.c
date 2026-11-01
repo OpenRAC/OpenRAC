@@ -35,6 +35,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "camera_script.h"
 #include "rac1.h"
 
 /* The moby array and the end of its placed part (each level's copy), the file-order table. */
@@ -52,6 +53,8 @@
 /* The hero (play.c): his motion's position, ground point and body centre, his moby; the bolts. */
 #define HERO RAC1_ADDR(0x0013F450u)
 #define HERO_MOBY (HERO + 0x2080u)
+#define HERO_STATE (HERO + 0x2084u)
+#define HERO_HEALTH (HERO + 0x22A8u)
 #define BOLTS RAC1_ADDR(0x0015EE98u)
 /* The camera's position (the renderer's, render_native.c). */
 #define CAMERA_POSITION RAC1_ADDR(0x00187180u)
@@ -132,6 +135,7 @@ static struct {
     int on;
     uint8_t motion[3][16];
     gaddr moby;
+    int32_t state;
 } stand;
 
 static int in_level(void) {
@@ -444,6 +448,7 @@ void rac1_world_stand_in(const float position[3], gaddr moby) {
         }
     }
     stand.moby = GREF(gaddr, HERO_MOBY);
+    stand.state = GREF(int32_t, HERO_STATE);
     if (moby != 0) {
         GREF(gaddr, HERO_MOBY) = moby;
     }
@@ -459,6 +464,18 @@ void rac1_stand_in_end(void) {
     }
     GREF(gaddr, HERO_MOBY) = stand.moby;
     stand.on = 0;
+    /* A script's hold that was for the player standing in: this game's hero goes on. Not a hero at
+     * no health, whom the game keeps down (a dying state refuses a new one, hero_down.c): nothing
+     * here may stand him up. */
+    const int32_t state = GREF(int32_t, HERO_STATE);
+    if (state != stand.state && rac1_camera_hold_state(state)
+        && GREF(int32_t, HERO_HEALTH) > 0) {
+        rac1_camera_script_free_hero();
+    }
+}
+
+int rac1_stand_in_on(void) {
+    return stand.on;
 }
 
 /* The player's bolts after adding `add` (a mod moves the bolts a stand-in's update gave to the

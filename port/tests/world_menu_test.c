@@ -186,6 +186,18 @@ int rac1_figure_owned(gaddr moby) {
     return 0;
 }
 
+/* The metal detector's word: nothing digs here. */
+void rac1_metal_detect(gaddr moby) {
+    (void)moby;
+}
+
+/* The hero let go of a hold a stand-in's script put on him. */
+static int heroes_freed;
+
+void rac1_camera_script_free_hero(void) {
+    ++heroes_freed;
+}
+
 int rac1_level_running(void) {
     return 1;
 }
@@ -315,6 +327,33 @@ int main(void) {
     );
     /* A class the level has not: none. */
     CHECK(rac1_world_moby_spawn(14) == -1);
+
+    /* A script's hold put on the hero for a player standing in: let go when the stand-in ends. The
+     * hero who was held already keeps it (his own script's), a state that is no hold is left alone,
+     * and a hero at no health stays down whatever was asked of him. */
+    GREF(int, CONTEXT) = 0;
+    const float there[3] = {1.0f, 2.0f, 3.0f};
+    GREF(int32_t, HERO_HEALTH) = 8;
+    GREF(int32_t, HERO_STATE) = 0;
+    rac1_world_stand_in(there, 0);
+    CHECK(rac1_stand_in_on());
+    GREF(int32_t, HERO_STATE) = 0x72;
+    rac1_stand_in_end();
+    CHECK(!rac1_stand_in_on());
+    CHECK(heroes_freed == 1);
+    rac1_world_stand_in(there, 0);
+    rac1_stand_in_end(); /* held before it, and still */
+    CHECK(heroes_freed == 1);
+    GREF(int32_t, HERO_STATE) = 3;
+    rac1_world_stand_in(there, 0);
+    GREF(int32_t, HERO_STATE) = 0x3D;
+    rac1_stand_in_end();
+    CHECK(heroes_freed == 1);
+    GREF(int32_t, HERO_HEALTH) = 0;
+    rac1_world_stand_in(there, 0);
+    GREF(int32_t, HERO_STATE) = 0x72;
+    rac1_stand_in_end();
+    CHECK(heroes_freed == 1);
 
     printf("world_menu ok\n");
     return 0;

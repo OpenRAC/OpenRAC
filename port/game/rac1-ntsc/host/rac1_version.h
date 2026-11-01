@@ -159,8 +159,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_0029AB38 game_FUN_L00_002997c8
 #define func_L00_0029AB38__game game_FUN_L00_002997c8__game
 /* The level's scenes (scenes.c): PAL StartCutscene func_L00_00299B68 is FUN_L00_00298840 here,
- * the port's host C (rac1-ntsc/host/scene_start.c); its block, PAL cutscene_state
- * D_L00_0016C960, is D_L00_0016C860 (the address scene_start.c clears and numbers). */
+ * its block, PAL cutscene_state D_L00_0016C960, is D_L00_0016C860. */
 #define func_L00_00299B68 game_FUN_L00_00298840
 #define RAC1_ADDR_L00_0x0016C960u 0x0016C860u
 /* The follow camera's stick read and turn (camera_latch.c): PAL FollowCamera_ReadStickInput
@@ -181,6 +180,22 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x00161D7Cu 0x00161CACu
 #define RAC1_ADDR_L00_0x00161D80u 0x00161CB0u
 #define RAC1_ADDR_L00_0x00166F10u 0x00166E10u
+
+/* The camera scripts (camera_script.c): CameraScript, CameraScript2, set_camera_position and
+ * set_camera_rotation are the NTSC decomp's jet_mount, jet_end_mount and its own two names, by their
+ * labels in scripted_camera.h; the camera up now, PAL's g_current_follow_cam, keeps the 0x100 of
+ * the block it lies in. HeroEnterMoveState is its shared hero_set_state. */
+#define func_L00_002EBF50 game_FUN_L00_002eaaa0
+#define func_L00_002EBF50__game game_FUN_L00_002eaaa0__game
+#define func_L00_002EC0C8 game_FUN_L00_002eac18
+#define func_L00_002EC0C8__game game_FUN_L00_002eac18__game
+#define func_L00_002EBE88 game_FUN_L00_002ea9d8
+#define func_L00_002EBE88__game game_FUN_L00_002ea9d8__game
+#define func_L00_002EBEE0 game_FUN_L00_002eaa30
+#define func_L00_002EBEE0__game game_FUN_L00_002eaa30__game
+#define func_L00_00222B80 game_FUN_L00_002223f8
+#define func_L00_00217718__game game_FUN_L00_00216f90__game
+#define RAC1_ADDR_L00_0x00166F00u 0x00166E00u
 
 /* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
  * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its

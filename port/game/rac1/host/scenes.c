@@ -7,8 +7,8 @@
  * host's plays.
  *
  * How the game starts one. StartCutscene (func_L00_00299B68, src/overlays/shared/
- * cutscene_and_movie_playback.c; the US disc's FUN_L00_00298840, host C there:
- * rac1-ntsc/host/scene_start.c) takes the scene's number in the level: it clears the scene's
+ * cutscene_and_movie_playback.c; the US disc's FUN_L00_00298840) takes the scene's number in the
+ * level: it clears the scene's
  * block (cutscene_state, D_L00_0016C960: +0x30 the number, +0x34 the frames played, +0x40 the
  * last frame, +0x44 the actors' count, +0x178 the actors), sets the game mode (D_L00_0015F6A8) to
  * 2, takes the hero over (HeroEnterMoveState 0x64), reads the scene's chunk from the disc and makes

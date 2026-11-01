@@ -106,6 +106,7 @@ void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 int32_t rac1_moby_slot(gaddr moby);
 int rac1_moby_gate(gaddr moby, int phase);
 void rac1_stand_in_end(void);
+int rac1_stand_in_on(void);
 int rac1_moby_eyes(const float** xyz);
 int game_rac1_expanded_ram(void);
 void game_rac1_warn_moby_grid_full(void);
@@ -174,6 +175,14 @@ gaddr rac1_updating_moby(void);
  * whether a moby is an actor of the scene playing (world.c's listing). */
 int32_t rac1_scene_playing(int32_t* frame);
 int rac1_scene_start(int32_t scene);
+/* camera_script.c: the game's camera scripts for the mods (interface 1.12; play.c's table), and
+ * what ends or shows one at the end of the tick's moby loop. */
+void rac1_camera_script_tick(void);
+void rac1_camera_script_free_hero(void);
+int rac1_camera_script_next(int32_t* id, int32_t* started);
+int rac1_camera_script_view(float eye[3], float rotation[3], float where[3], int32_t* stand_in);
+int rac1_camera_script_play(int32_t id);
+int rac1_camera_script_show(const float eye[3], const float rotation[3]);
 void rac1_scenes_loop_begin(void);
 void rac1_scenes_tick(void);
 int rac1_scene_actor(gaddr moby);
