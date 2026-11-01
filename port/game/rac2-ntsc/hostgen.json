@@ -533,6 +533,7 @@
     "register_jumps": true,
     "input_idioms": true,
     "dma_done": true,
+    "vu_flush": true,
     "forward_unprototyped": true,
     "dirs": [],
     "gp": "0x001AEFF0",
