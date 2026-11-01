@@ -206,6 +206,15 @@ public:
 
     bool sends_display_list() const override { return true; }
 
+    // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line
+    // buffers, where the world's passes set FRAME (func_002DF1B8: FBP 0xF4).
+    std::uint32_t draw_buffer_block() const override { return 0x1E80; }
+
+    // 0x10 before Ratchet & Clank's: ResolveMobyAnimFramePtrs (func_0029F390) reads the frames at
+    // +0x40, the sequences at +0x42 and writes the keys at +0x58, and the pose layer slots
+    // (func_L00_00310BC8) link at +0x50.
+    std::uint32_t moby_anim_fields() const override { return 0x40; }
+
     bool has_levels() const override { return true; }
 
     // The pad's read (func_002B88F0): |byte - 0x7F| from 0x30, over 0x4C, as Ratchet & Clank's.

@@ -33,6 +33,12 @@
 namespace openrac::scene {
 
 /**
+ * Where a moby's animation fields start: the frames here, the keys at +0x18, as above. The game's
+ * profile says it once, before any pose is asked for; 0x50 until then, Ratchet & Clank's.
+ */
+void set_moby_anim_fields(std::uint32_t first);
+
+/**
  * The joint palette of the moby at `moby` (a game address): one matrix per joint of the class's
  * high LOD, F_j = P_j S_j in packed model units (rows: the images of the axes, then the
  * translation). Empty when the moby has no class, no joints or no readable key: draw it as stored.

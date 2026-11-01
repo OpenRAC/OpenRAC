@@ -138,6 +138,13 @@ public:
         return 0;
     }
 
+    // Returns the GS block of the buffer the game draws its frame in; 0 for one right after the
+    // display buffer, where the display's size puts it.
+    virtual std::uint32_t draw_buffer_block() const { return 0; }
+
+    // Returns where a moby keeps its animation fields (scene::set_moby_anim_fields).
+    virtual std::uint32_t moby_anim_fields() const { return 0x50; }
+
     // Whether the frame shown is the display list the game sends each tick, rather than one of
     // two list buffers it alternates (shown_chain()).
     virtual bool sends_display_list() const { return false; }

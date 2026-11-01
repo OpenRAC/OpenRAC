@@ -65,6 +65,9 @@ std::optional<rac1::MobyFrame> key_at(
     }
 }
 
+// Where a moby's animation fields start (set_moby_anim_fields).
+std::uint32_t g_anim_fields = 0x50;
+
 }  // namespace
 
 namespace {
@@ -72,6 +75,10 @@ namespace {
 std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind);
 
 }  // namespace
+
+void set_moby_anim_fields(std::uint32_t first) {
+    g_anim_fields = first;
+}
 
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
     return evaluate_moby(ram, moby, true);
@@ -96,14 +103,15 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
         return {};
     }
 
-    // The keys and the blend (moby +0x50..+0x6c).
-    const auto frame_a = at<std::uint8_t>(ram, moby + 0x50);
-    const auto frame_b = at<std::uint8_t>(ram, moby + 0x51);
-    const auto seq_a = at<std::uint8_t>(ram, moby + 0x52);
-    const auto seq_b = at<std::uint8_t>(ram, moby + 0x53);
-    float t = at<float>(ram, moby + 0x54);
-    std::optional<rac1::MobyFrame> a = key_at(ram, at<std::uint32_t>(ram, moby + 0x68), joints);
-    std::optional<rac1::MobyFrame> b = key_at(ram, at<std::uint32_t>(ram, moby + 0x6c), joints);
+    // The keys and the blend (moby +0x50..+0x6c, as Ratchet & Clank keeps them).
+    const std::uint32_t fields = moby + g_anim_fields;
+    const auto frame_a = at<std::uint8_t>(ram, fields);
+    const auto frame_b = at<std::uint8_t>(ram, fields + 1);
+    const auto seq_a = at<std::uint8_t>(ram, fields + 2);
+    const auto seq_b = at<std::uint8_t>(ram, fields + 3);
+    float t = at<float>(ram, fields + 4);
+    std::optional<rac1::MobyFrame> a = key_at(ram, at<std::uint32_t>(ram, fields + 0x18), joints);
+    std::optional<rac1::MobyFrame> b = key_at(ram, at<std::uint32_t>(ram, fields + 0x1C), joints);
     bool plain = seq_a == seq_b && frame_b == frame_a + 1;
     if (!a && b) {
         // Key A missing (a snapshot the port has not written): the target key alone.
@@ -142,7 +150,7 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     // The joint-modifier list (moby +0x64, each node's next at +8): what spins a vendor's
     // hologram and its logo's text, turns an NPC's head. Its order is the game's, head first.
     std::vector<rac1::JointModifier> mods;
-    for (std::uint32_t node = at<std::uint32_t>(ram, moby + 0x64); inside(ram, node, 0x40) && mods.size() < 32;
+    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x14); inside(ram, node, 0x40) && mods.size() < 32;
          node = at<std::uint32_t>(ram, node + 8)) {
         const std::uint32_t record = at<std::uint32_t>(ram, node + 4);
         if (record < 0x70000000u || ((record - 0x70000000u) & 0x3F) != 0) {
@@ -167,7 +175,7 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     std::vector<rac1::MobyFrame> layer_keys;
     layer_keys.reserve(16);
     std::vector<rac1::PoseLayer> layers;
-    for (std::uint32_t node = at<std::uint32_t>(ram, moby + 0x60); inside(ram, node, 0x40) && layers.size() < 6;
+    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x10); inside(ram, node, 0x40) && layers.size() < 6;
          node = at<std::uint32_t>(ram, node + 0x1C)) {
         const auto count = at<std::uint16_t>(ram, node + 2);
         const auto list = at<std::uint32_t>(ram, node + 0x0C);
