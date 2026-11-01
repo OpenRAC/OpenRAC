@@ -397,7 +397,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_STRIP_FOG_OFF` | any (set) | Reference: draws the effect strips (the seas, Oltanis's ice) without their GS fog. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_VK_PARTICLE_TEXTURE_REUSE_OFF` | any (set) | Reference (Vulkan): the texture of every visible particle is hashed, and none is reused. | `port/game/common/frontend.cpp` |
 | `OPENRAC_RENDER_OPT_OFF` | `NAME,...` or `all` | Switches the listed render optimisations of the registry off (`all`: every one), so their reference paths draw; an unknown name is warned of and ignored. Read once, at the first question the draw code asks. The names, what each lowers and how its frames are compared are in [RENDER_PERF.md](RENDER_PERF.md). | `port/renderer/render_opt.cpp` |
-| `OPENRAC_PVS_OFF` | any (set) | Profiling reference (Vulkan): no baked camera visibility; the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs-vulkan-only). | `port/scene/level_renderer.cpp` |
+| `OPENRAC_PVS_OFF` | any (set) | Profiling reference: no baked camera visibility (rooms the game hides then show); the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs). | `port/scene/level_renderer.cpp` |
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |
 | `OPENRAC_RENDER_THREAD` | `0` disables | Vulkan world-recording worker with one owned snapshot in flight, enabled by default. Set to `0` for synchronous rendering. UI and presentation stay on the window thread; OpenGL stays synchronous. | `port/game/common/frontend/interpolation.cpp` |
 | `OPENRAC_ADPF_OFF` | any (set) | Android: turns off the performance hint (ADPF) so a diagnostics recording can be compared with and without it. | `port/platform/performance_hint.cpp` |
@@ -515,10 +515,11 @@ stretch, including nonuniform scale/shear. Missing endpoints or singular
 transforms retain the instance. `OPENRAC_MOBY_SPHERE_CULL_OFF` selects unbounded
 animated instances for comparison.
 
-### Baked camera PVS (Vulkan only)
+### Baked camera PVS
 
 `OPENRAC_PVS_OFF=1` disables baked camera occlusion; F3 also exposes the switch.
-OpenGL/ES do not use it. RAC1 exports contain optional `pvs.json` / `pvs.bin`;
+Vulkan and OpenGL/ES both use it: it is part of the picture, not only a speed-up
+(Pokitaru's rooms under the sea floor show from the water without it). RAC1 exports contain optional `pvs.json` / `pvs.bin`;
 add them to an existing export with:
 
 ```sh
@@ -530,7 +531,9 @@ keys; live mobys use +0x36, with invalid keys/spawned objects visible. Shrubs ha
 no mapping. Geometry overrides and edited tie/moby placements disable baked PVS.
 
 Each camera selects a 128-byte mask for its 4-unit cell, conservatively unioning
-adjacent cells when the exact cell is absent. Missing/invalid data keeps objects
+adjacent cells when the exact cell is absent. With no cell or neighbour (deep under
+water, out of bounds) the last mask found stays, as in retail; before any, everything
+shows. Missing/invalid data keeps objects
 visible; no mask carries across levels. UI/render-to-texture mobys use their own
 camera. PVS does not affect gameplay, animation or shadow-caster submission.
 
