@@ -323,10 +323,11 @@ void drawer_note(const char* line) {
 }
 
 // Enhanced graphics (port/enhanced, the launcher's Mods entry) as the drawer's own rows: the
-// switches and the two values a player changes, large enough for a thumb and moved through by a
-// gamepad. The diagnostics (probe spheres, receiver biases, GTAO's directions and steps) are the
-// debug overlay's and the desktop's Enhanced Settings window's. When the game cannot have it, the card says
-// why and what to do instead of leaving the player to guess.
+// switches and values a player changes (the launcher's choices among them) and a reset, large
+// enough for a thumb and moved through by a gamepad. The tuning and diagnostics (probe spheres,
+// receiver biases, GTAO's directions and steps, materials, water) are the debug overlay's and the
+// desktop's Enhanced Settings window's. When the game cannot have it, the card says why and what
+// to do instead of leaving the player to guess.
 void drawer_enhanced() {
 #if defined(OPENRAC_ENHANCED_RENDERING) && OPENRAC_ENHANCED_RENDERING
     auto& set = settings::get();
@@ -411,6 +412,20 @@ void drawer_enhanced() {
                 changed = true;
             }
         }
+        // Texture upscaling: Normal or Edge-aware (2x), the world's textures enlarged at load.
+        {
+            const int filter = static_cast<int>(set.texture_filter);
+            const int last = static_cast<int>(renderer::TextureFilter::Count) - 1;
+            if (const int by = drawer_choice(
+                    "Texture upscaling",
+                    settings::name(set.texture_filter),
+                    filter > 0,
+                    filter < last
+                )) {
+                set.texture_filter = static_cast<renderer::TextureFilter>(filter + by);
+                changed = true;
+            }
+        }
         // Temporal upscaling (enhanced/fsr3, with Arm ASR or AMD FSR 3.1, the one in use named):
         // its preset, and its sharpening while on (the launcher's steps of 0.05).
         if (enhanced::Fsr3::available()) {
@@ -442,7 +457,37 @@ void drawer_enhanced() {
                     changed = true;
                 }
             }
+            // Motion blur needs the upscaler's motion vectors, as the desktop window has it.
+            if (drawer_switch("Motion blur", set.motion_blur)) {
+                set.motion_blur = !set.motion_blur;
+                changed = true;
+            }
         }
+        // Colour correction (AgX) and its brightness, in the launcher's words and steps of 5%.
+        if (drawer_switch("Color correction", set.agx_preview)) {
+            set.agx_preview = !set.agx_preview;
+            changed = true;
+        }
+        if (set.agx_preview) {
+            const float bright = set.agx_brightness;
+            if (const int by = drawer_choice(
+                    "Brightness",
+                    std::format("{:.0f}%", bright * 100.0f),
+                    bright > 0.025f,
+                    bright < 0.975f
+                )) {
+                set.agx_brightness = std::clamp(
+                    std::round((bright + 0.05f * static_cast<float>(by)) * 20.0f) / 20.0f,
+                    0.0f,
+                    1.0f
+                );
+                changed = true;
+            }
+        }
+    }
+    if (drawer_row("Reset to defaults")) {
+        reset_enhanced();
+        changed = true;
     }
     card_end();
     if (changed) {
