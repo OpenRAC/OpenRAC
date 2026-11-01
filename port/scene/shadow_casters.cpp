@@ -261,11 +261,13 @@ void LevelScene::draw_shadow_map(
             continue;
         }
 
-        static constexpr const char* kNames[kSunCascades][4] =
-            {{"sun0 terrain", "sun0 ties", "sun0 shrubs", "sun0 mobys"},
-             {"sun1 terrain", "sun1 ties", "sun1 shrubs", "sun1 mobys"},
-             {"sun2 terrain", "sun2 ties", "sun2 shrubs", "sun2 mobys"},
-             {"sun3 terrain", "sun3 ties", "sun3 shrubs", "sun3 mobys"}};
+        static constexpr const char* kNames[kSunCascades][5] =
+            {{"sun0 terrain", "sun0 ties", "sun0 shrubs", "sun0 mobys", "sun0 animated"},
+             {"sun1 terrain", "sun1 ties", "sun1 shrubs", "sun1 mobys", "sun1 animated"},
+             {"sun2 terrain", "sun2 ties", "sun2 shrubs", "sun2 mobys", "sun2 animated"},
+             {"sun3 terrain", "sun3 ties", "sun3 shrubs", "sun3 mobys", "sun3 animated"}};
+        // One name for each layer this loop visits: a new layer must add its name here.
+        static_assert(std::size(kNames[0]) == kLayerCount - 1);
         std::optional<stats::Scope> layer_pass;
         if (!hero && cascade < kSunCascades) {
             layer_pass.emplace(
