@@ -234,6 +234,7 @@ int tick_rate() {
 
 void finish() {
     write_reach();
+    write_state_dump();
     openrac_guest_report_missing();
     log::info("{} frames", g_frame);
 }
@@ -381,8 +382,11 @@ int vsync() {
         openrac_game_on_frame(static_cast<unsigned>(g_frame));
     }
 
+    run_tools();
+
     if (g_frame % 600 == 0) {
         write_reach();
+        write_state_dump();
     }
 
     if (g_options.frames >= 0 && g_frame >= g_options.frames) {

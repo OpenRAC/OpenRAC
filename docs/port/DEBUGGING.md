@@ -193,6 +193,49 @@ values are put back by name. A uniform whose location changed, because
 uniforms were added or removed, is found again only by renderers that look
 locations up each frame.
 
+## Going anywhere
+
+The tools that put a run where the bug is, without playing there. A game offers them through
+`openrac_game_tools` and its front end ([game_host.h](../../port/game/common/include/openrac/game_host.h));
+Going Commando has them all ([host/tools.c](../../port/game/rac2-ntsc/host/tools.c)). Ratchet & Clank
+has the level start (below) and its own words for the rest ([RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md)).
+Frames count from control: the first tick of 30 in a row with the game in play.
+
+```sh
+OPENRAC_HIDDEN=1 OPENRAC_DIRECT=1 OPENRAC_PRESS=300:4000:10 OPENRAC_GIVE=all,bolts:500000 OPENRAC_INVINCIBLE=1 \
+OPENRAC_TELEPORT=30:120:85:40 OPENRAC_SKIP_SCENES=1 OPENRAC_STATE_DUMP=state.json \
+  port/build/release/openrac-rac2-ntsc --data <data> --levels <levels> --window --no-card \
+  --skip-movies --level 4 --frames 4000
+```
+
+- **A level**: `--level N` with `OPENRAC_DIRECT`. Going Commando's numbers are its own: 0 to 20 and 22
+  to 26 (and 30, not yet seen to run its own code); 21 and 27 to 29 do not exist. Its splash screen
+  waits for a press, so the run needs one too (`OPENRAC_PRESS=300:4000:10`); the level starts 30
+  ticks into the front end's state loop. With
+  `OPENRAC_DEVELOPER=1`, F1 opens the developer menu with the same list, over the title and, in
+  Going Commando, inside a level.
+- **What the hero holds**: `OPENRAC_GIVE`. **Health**: `OPENRAC_INVINCIBLE`. **A place**:
+  `OPENRAC_TELEPORT`. **Scenes**: `OPENRAC_SKIP_SCENES`. The overlay's Game section has buttons for
+  the first three while the game runs.
+- **The state at the end**: `OPENRAC_STATE_DUMP`: the level, the mode, the hero, what he holds and
+  how far a walk came, as JSON, every 600 frames and at the end.
+- **A path**: `OPENRAC_RECORD=FILE` writes the pad's changes and the hero's path (every 15 frames).
+  `OPENRAC_REPLAY=FILE` plays the same pad at the same frames, which repeats where the run repeats
+  (`OPENRAC_AUDIO_TICKED`). `OPENRAC_WALK=FILE` walks through the file's points instead, steering
+  at each in turn, jumping when he stops getting nearer and giving a point up after 300 frames, so
+  a path survives a change of timing. The file's format is at the top of
+  [record.cpp](../../port/game/common/frontend/record.cpp); a walk needs only its `p` lines.
+- **What stops the game**: `OPENRAC_STUCK=SECONDS[:FRAMES]` ends a run with a crash report, whose
+  backtrace names the function, when no vertical blank comes for SECONDS, or FRAMES frames pass with
+  no control and no new level. `OPENRAC_SOFT_FAULTS=1` keeps a run going past game memory that is not
+  mapped: the page is opened for the tick, and the reach file counts the ticks per page and function.
+  The reach file also counts calls to code addresses no function has.
+
+`port/tools/regress/regress.py run --game rac2-ntsc --set rac2-tour` plays every level with those on
+(walk, jump, wrench, fire, pause pages, map, quick select), and `regress.py report RUN --tsv FILE`
+ranks what they met: what stopped a run first, then stubs, zero-filled calls, unknown calls and
+unmapped accesses by routes and hits, each by function: the list for the backfill.
+
 ## Pause, single step, slow motion
 
 The game calls the port once a tick, at its vertical blank. Paused, the
@@ -314,6 +357,16 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_DIRECT` | any (set) | Together with `--level N`, goes straight into level N from the title world, as the save page's "continue without saving" starts a new game, skipping the title wait and menus. Without `--level` it does nothing. | `port/game/rac1/host/boot.c` |
 | `OPENRAC_PRESS` | `FRAME:MASK:FRAMES[:LX:LY[:RX:RY]],...` | Holds pad buttons on port 0 for scripted runs. `FRAME` is the window frame to start at (world, 2D and movie frames all count), `MASK` is hexadecimal in the pad's own bit values (0x4000 cross, 0x8 start), `FRAMES` the number of frames (default 5). The optional sticks are 0-255, 128 centred, 0 left or up; left stick `LX:LY`, right stick `RX:RY`. | `port/game/common/frontend.cpp` |
 | `OPENRAC_WRITE` | `FRAME:ADDRESS:VALUE[:FRAMES],...` | Writes a 32-bit word into the game's memory at each vertical blank from `FRAME` for `FRAMES` blanks (default 1). `ADDRESS` and `VALUE` are hexadecimal; `FRAME` and `FRAMES` decimal. | `port/game/common/main.cpp` |
+| `OPENRAC_GIVE` | `WHAT[@FRAME],...` | Gives the hero `all`, `weapons`, `gadgets`, `bolts:N` or an item's number, once, `FRAME` frames after control (default 0). Needs a game with `openrac_game_tools`. | `port/game/common/program/tools.cpp` |
+| `OPENRAC_INVINCIBLE` | `1` | The hero is put back at full health each tick. Needs a game with `openrac_game_tools`. | `port/game/common/program/tools.cpp` |
+| `OPENRAC_TELEPORT` | `FRAME:X:Y:Z,...` | Puts the hero there, held 10 frames, from `FRAME` frames after control. Needs a game with `openrac_game_tools`. | `port/game/common/program/tools.cpp` |
+| `OPENRAC_SKIP_SCENES` | `1` | In-game scenes end by the game's own skip as soon as they can. Needs a game with `openrac_game_tools`. | `port/game/common/program/tools.cpp` |
+| `OPENRAC_STATE_DUMP` | `FILE` | The game's state as JSON, written every 600 frames and at the end: level, mode, hero, what he holds, a walk's progress. | `port/game/common/program/tools.cpp` |
+| `OPENRAC_STUCK` | `SECONDS[:FRAMES]` | Ends the run with a crash report when no vertical blank comes for `SECONDS`, or when `FRAMES` window frames pass with no control and no new level (exit code 4 for the first). | `port/game/common/program/tools.cpp` |
+| `OPENRAC_SOFT_FAULTS` | `1` | An access to game memory that is not mapped opens the page for the tick instead of ending the program, and `OPENRAC_REACH`'s file counts it by page and function. POSIX. | `port/runtime/crash.cpp` |
+| `OPENRAC_RECORD` | `FILE` | Writes the run's pad and the hero's path ([record.cpp](../../port/game/common/frontend/record.cpp)). | `port/game/common/frontend/record.cpp` |
+| `OPENRAC_REPLAY` | `FILE` | Plays the pad of a file `OPENRAC_RECORD` wrote, at the same frames. | `port/game/common/frontend/record.cpp` |
+| `OPENRAC_WALK` | `FILE` | The hero walks through the `p` points of such a file, steering the left stick. | `port/game/common/frontend/record.cpp` |
 | `OPENRAC_HIDDEN` | any (set) | With `--window`: the window is made and drawn as always but never shown, so scripted runs open nothing on the screen and several can run at once. Screenshots still work. Without `--window` the game has no pad, terrain collision or disc movies, so it cannot be played by script. | `port/game/common/frontend.cpp` |
 | `OPENRAC_SOFTWARE_GL` | any (set) | Runs on a software OpenGL rasteriser instead of refusing it. Such a renderer shows a level at a few frames a second, which looks like a broken port, so without this the game stops with a message. | `port/game/common/frontend.cpp` |
 | `OPENRAC_AUDIO_TICKED` | any (set) | No sound device: the game's sounds advance by one tick's samples each tick (rendered and dropped) and streams are read when they start, so what the game gets back from the sound engine lands on the same tick however fast the run goes, and `port/tools/regress`'s runs repeat. | `port/game/common/main.cpp` |

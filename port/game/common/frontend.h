@@ -145,6 +145,9 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black);
 // c entries), -1 before.
 std::int64_t since_control();
 
+// How far OPENRAC_WALK has come, as a JSON value (null with no walk): for OPENRAC_STATE_DUMP.
+std::string walk_state();
+
 // The pad of a port as the game's pad library reads it: buttons active low, then the right and
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);

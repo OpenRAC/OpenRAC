@@ -76,4 +76,20 @@ void install_crash_handler();
 // disarm it until it is called again (once a frame). POSIX only.
 void guard_writes(gaddr address, std::uint32_t bytes, std::uint32_t skip = 0);
 
+// OPENRAC_SOFT_FAULTS: an access to a game address that is not mapped does not end the program. The
+// page is mapped, zero at first, for the rest of the tick, and the access counted against it and the
+// game function that made it. POSIX only.
+struct SoftFault {
+    gaddr page = 0;
+    bool write = false;
+    const char* function = nullptr;  // the innermost translated function, or null when none is named
+    unsigned long hits = 0;          // ticks in which that function touched that page
+};
+
+// Closes the pages opened since the last call, so the next tick's accesses count too: once a tick.
+void rearm_soft_faults();
+
+// The pair at `index` (a pair is a page and the function), or null past the last.
+const SoftFault* soft_fault_at(unsigned index);
+
 }  // namespace openrac::runtime
