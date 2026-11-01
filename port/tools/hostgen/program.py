@@ -104,6 +104,7 @@ class Program:
     hook: dict = field(default_factory=dict)  # hook points (in wrap too): symbol -> its name for mods
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
+    level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
     code_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_CODE_NAMES])
@@ -144,6 +145,9 @@ class Program:
                 overlay = m.groupdict().get("overlay")
                 named = [(int(overlay) if overlay is not None else -1, int(m.group("addr"), 16))]
                 break
+        if symbol in self.level_names:
+            # A level's build knows this name: its pattern's address may be another game's.
+            named = [self.level_names[symbol]]
         if not named and symbol in self.symbols:
             named = [(-1, self.symbols[symbol])]
         if symbol not in self.places and named:
@@ -891,10 +895,13 @@ def read_symbols(path: Path, program: Program) -> int:
         return 0
     count = 0
     if path.suffix == ".json":
-        for name, value in json.loads(path.read_text(errors="replace")).get("values", {}).items():
+        table = json.loads(path.read_text(errors="replace"))
+        for name, value in table.get("values", {}).items():
             if isinstance(value, str) and re.fullmatch(r"[A-Za-z_]\w*", name):
                 program.symbols.setdefault(name, int(value, 0))
                 count += 1
+        for name, (level, value) in table.get("levels", {}).items():
+            program.level_names[name] = (level, int(value, 0))
         return count
     for line in path.read_text(errors="replace").splitlines():
         m = _SPLAT_SYMBOL.match(line)
