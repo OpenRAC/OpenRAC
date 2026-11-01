@@ -75,6 +75,7 @@ UNSUPPORTED = {
 }
 # bltzal and bgezal (and their likely forms): a call when the 64-bit register's sign says so; $ra
 # is written either way (hand-written code calls its helpers so: bgezal $t0, ...).
+COP0_BRANCHES = {"bc0f", "bc0t", "bc0fl", "bc0tl"}
 COND_CALLS = {"bltzal", "bgezal", "bltzall", "bgezall"}
 # The parallel multiplies and divides on LO and HI (openrac_ee_pmul, ee_ops.h).
 PMUL_OPS = {"pmultw", "pmultuw", "pmaddw", "pmadduw", "pmsubw", "pmaddh", "pmsubh", "phmadh", "phmsbh",
@@ -140,6 +141,10 @@ class Translator:
     # asm.register_jumps in hostgen.json: a jump through a register keeps its target in j_, as a VU load
     # in the delay slot uses t_, and a computed jump into the function's own code stays in it (_computed_targets).
     register_jumps = False
+    # asm.dma_done in hostgen.json: a transfer here is over when the store that starts it returns
+    # (asm.dma_stores), so a wait on COP0's condition has nothing to wait for: bc0t is always taken and
+    # bc0f never (func_002A2450's copy back from the scratchpad).
+    dma_done = False
     # asm.input_idioms in hostgen.json: reads that are no inputs (_no_input): func_002A05A8's
     # `sub.s $f0, $f0, $f0`, func_002A3110 saving $t8 and $t9 to the scratchpad.
     input_idioms = False
@@ -236,6 +241,7 @@ class Translator:
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
         sub.input_idioms = self.input_idioms
+        sub.dma_done = self.dma_done
         sub.verified_signatures = self.verified_signatures
         sub.ps2 = self.ps2
         try:
@@ -485,7 +491,8 @@ class Translator:
             ins = self._need(a, "it")
             heads.add(a)
             reach.add(a)
-            if ins.op in UNSUPPORTED and self.microprogram(ins) is None:
+            done_wait = self.dma_done and ins.op in COP0_BRANCHES
+            if ins.op in UNSUPPORTED and self.microprogram(ins) is None and not done_wait:
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
                 todo.append(a + 4)
@@ -496,7 +503,9 @@ class Translator:
             reach.add(a + 4)
             delay.add(a + 4)
             op = ins.op
-            if op in ("jal", *COND_CALLS) and self._inline_target(ins.target):
+            if done_wait:
+                todo.append(ins.target if op.startswith("bc0t") else a + 8)
+            elif op in ("jal", *COND_CALLS) and self._inline_target(ins.target):
                 # A hand-written routine that takes its inputs in registers no prototype names:
                 # run in place, as the EE does, and back to the call through $ra (control).
                 self.inline_calls.add(a)
@@ -712,6 +721,10 @@ class Translator:
         op = ins.op
         R = self.R
         a = ins.addr
+        if op in COP0_BRANCHES:
+            if op.startswith("bc0t"):
+                return delay + [f"goto L_{ins.target & 0xFFFFFFFF:08X};"]
+            return [] if ins.likely else delay
         if op in CONDITIONAL:
             cond = {
                 "beq": f"{R(ins.rs)} == {R(ins.rt)}", "bne": f"{R(ins.rs)} != {R(ins.rt)}",
@@ -1699,6 +1712,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
+    tr.dma_done = bool(a.get("dma_done"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)

@@ -3001,6 +3001,24 @@ class FromAssembly(unittest.TestCase):
             """)})
         self.assertEqual(out, ["5"])
 
+    def test_a_dma_wait_is_over(self):
+        # bc0f back to itself: the wait for a transfer that has already finished here.
+        source = """
+            wait:
+                nop
+                bc0f wait
+                nop
+                jr $31
+                addiu $2, $4, 1
+        """
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(5)); return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], dma_done=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source)})
+        self.assertEqual(out, ["6"])
+
     def test_console_form(self):
         # The form for the console's compiler (rac1-decomp's tools/fcheck.py): the function under a
         # name of its own with the function's symbol, calls by retail address with every argument
