@@ -101,6 +101,12 @@ extern const char* openrac_game_card_dir;
  * (launcher/core/src/saves.rs). */
 extern const char* openrac_game_loaded_mods;
 
+/* The memory card slot of the save the game last read whole (Load Game) or wrote (a save), and that
+ * save's seconds played; -1 for none since the start. lib/mc.c keeps them; a game's
+ * save_slot_current reads them (openrac_api.save_slot_current). */
+extern int openrac_game_save_in_use;
+extern int32_t openrac_game_save_in_use_seconds;
+
 /* The console's language setting (sceScfGetLanguage): 1 English, 2 French,
  * 3 Spanish, 4 German, 5 Italian. */
 extern int openrac_game_language;

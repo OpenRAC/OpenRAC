@@ -68,8 +68,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * resident_moby_class_data) are the US decomp's D_001B3580, which init_moby_instance copies into a
  * moby's update at +0x74; the US 0x1B3900 is the s16 class ids register_moby_class writes. */
 #define RAC1_ADDR_0x00160000u 0x0015FF00u
-/* memory_card_state (play.c's save slot). */
-#define RAC1_ADDR_0x0013D390u 0x0013D290u
 #define RAC1_ADDR_0x001B3580u 0x001B3200u
 #define RAC1_ADDR_0x001B3900u 0x001B3580u
 #define RAC1_ADDR_0x001E8F00u 0x001E8B80u

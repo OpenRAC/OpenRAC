@@ -171,6 +171,12 @@ static FILE* files[MAX_FILES];
 /* Each open file's path and whether the game wrote to it, for the save mark below. */
 static char file_paths[MAX_FILES][1024];
 static int file_written[MAX_FILES];
+/* The bytes the game read from each open file: a save read whole is a save loaded. */
+static long file_read[MAX_FILES];
+
+/* The save the game in progress came from or last went to (game_host.h). */
+int openrac_game_save_in_use = -1;
+int32_t openrac_game_save_in_use_seconds;
 
 /* ---- The save mark ---- */
 
@@ -183,19 +189,23 @@ static int file_written[MAX_FILES];
 
 /* Whether `name` (a file name without its folder) is one of the game's save files. The host says
  * what they are called (openrac_game_play_host->save_file, "save%d.bin"). */
-static int is_save_file(const char* name) {
+static int save_slot_of(const char* name) {
     if (openrac_game_play_host == NULL || openrac_game_play_host->save_file == NULL) {
-        return 0;
+        return -1;
     }
     for (int slot = 0; slot < openrac_game_play_host->save_slots; slot++) {
         char expected[64];
         if (snprintf(expected, sizeof expected, openrac_game_play_host->save_file, slot)
                 < (int)sizeof expected
             && strcmp(expected, name) == 0) {
-            return 1;
+            return slot;
         }
     }
-    return 0;
+    return -1;
+}
+
+static int is_save_file(const char* name) {
+    return save_slot_of(name) >= 0;
 }
 
 /* The mark's own name for a save's path, "" when it does not fit. */
@@ -209,7 +219,7 @@ static void mark_path(const char* save_path, char* out, size_t size) {
  * game writes when it makes its folder on a fresh card. The host answers it: save_info reads the
  * save and says whether it is one the game would load (game_host.h, rac1/host/play.c). Without a
  * host answer nothing is marked, which leaves a save plain rather than marking every slot. */
-static int is_a_players_save(const char* path) {
+static int players_save(const char* path, long* size_out, int32_t* seconds_out) {
     if (openrac_game_play_host == NULL || openrac_game_play_host->save_info == NULL) {
         return 0;
     }
@@ -239,7 +249,17 @@ static int is_a_players_save(const char* path) {
                             bytes, (uint32_t)size, &level, &bolts, &gold_bolts, &seconds
                         ) != 0;
     free(bytes);
+    if (size_out != NULL) {
+        *size_out = size;
+    }
+    if (seconds_out != NULL) {
+        *seconds_out = seconds;
+    }
     return real;
+}
+
+static int is_a_players_save(const char* path) {
+    return players_save(path, NULL, NULL);
 }
 
 /* Writes or removes the mark beside the save at `path`, which the game has just written. An empty
@@ -313,6 +333,7 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     files[fd] = f;
     snprintf(file_paths[fd], sizeof file_paths[fd], "%s", path);
     file_written[fd] = 0;
+    file_read[fd] = 0;
     return finish(MC_OPEN, fd);
 }
 
@@ -323,14 +344,25 @@ int openrac_lib_sceMcClose(int fd) {
     }
     fclose(files[fd]);
     files[fd] = NULL;
+    const char* slash = strrchr(file_paths[fd], '/');
+    const int slot = save_slot_of(slash != NULL ? slash + 1 : file_paths[fd]);
     /* A save just written: its mark is set or removed now, never half way through the write. */
-    if (file_written[fd]) {
-        const char* slash = strrchr(file_paths[fd], '/');
-        if (is_save_file(slash != NULL ? slash + 1 : file_paths[fd])) {
-            mark_save(file_paths[fd]);
+    if (file_written[fd] && slot >= 0) {
+        mark_save(file_paths[fd]);
+    }
+    /* A game saved, or a save read whole (Load Game: the slot list reads only each save's head):
+     * the game in progress is that slot's. */
+    if (slot >= 0 && (file_written[fd] || file_read[fd] > 0)) {
+        long size = 0;
+        int32_t seconds = 0;
+        if (players_save(file_paths[fd], &size, &seconds)
+            && (file_written[fd] || file_read[fd] >= size)) {
+            openrac_game_save_in_use = slot;
+            openrac_game_save_in_use_seconds = seconds;
         }
     }
     file_written[fd] = 0;
+    file_read[fd] = 0;
     return finish(MC_CLOSE, MC_OK);
 }
 
@@ -347,7 +379,9 @@ int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_READ, MC_FAILED);
     }
-    return finish(MC_READ, (int)fread(G(buffer), 1, (size_t)size, files[fd]));
+    const size_t n = fread(G(buffer), 1, (size_t)size, files[fd]);
+    file_read[fd] += (long)n;
+    return finish(MC_READ, (int)n);
 }
 
 /* sceMcWrite(fd, buffer, size) */

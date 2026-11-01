@@ -1358,9 +1358,9 @@ typedef struct openrac_api {
      * Since 1.11. */
     const char* (*data_dir)(openrac_mod* mod);
 
-    /* The memory card slot the game in progress saves into (openrac_api.save_slot's numbers): the
-     * one it was loaded from or last saved to, which the game's own save menus and autosaves use.
-     * -1 for none: at the title, a new game not saved yet, or a game without slots. Since 1.11. */
+    /* The memory card slot of the game in progress (openrac_api.save_slot's numbers): the save it
+     * was loaded from (Load Game) or last saved to. -1 for none: at the title, while a level loads,
+     * a new game not saved yet, a game started by play_start, or a game without slots. Since 1.11. */
     int (*save_slot_current)(void);
 } openrac_api;
 
