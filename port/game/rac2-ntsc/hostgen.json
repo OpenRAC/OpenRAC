@@ -61,6 +61,7 @@
     5242880
   ],
   "libraries": "libraries.tsv",
+  "overlay_hook": true,
   "host_functions": [
     "func_0011F718",
     "func_0011B800",

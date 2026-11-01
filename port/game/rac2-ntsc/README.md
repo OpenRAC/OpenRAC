@@ -89,6 +89,7 @@ What the translation reads (`hostgen.json`):
 | File | Replaces |
 |---|---|
 | `font.c` | the font prints (`0x0027F538` and nine siblings) and the GUI text element's draw (`0x00336A78`), passing the font's TEX0 from `0x0027C878` whole, as rac1's port does for FontPrintWindow (`rac1/host/hand.c`) |
+| `level.c` | wraps ParseBin (`0x00131CB8`): sets the per-level relocation once and says which program is loaded (`overlay_hook`), as `rac1/host/boot.c` does |
 | `entry.c` | crt0 (`0x00131AE8`): `_InitSys`, `FlushCache(0)`, `main(argc, argv)` with the block at `0x00146B40`, without the thread and heap system calls; `_InitSys`'s scan of kernel memory (`0x0011F718`) and its Deci2 console thread (`0x0011B800`) |
 | `dma.c` | `sceDmaSend` (`0x00127220`), leaving CHCR as after an end tag so the game's VIF1 handler (`0x002FCE18`) retires the whole frame wait mask (`0x001AD520`); `KickVif0Chain` (`0x002FC070`) |
 | `io.c` | `sceOpen` (`0x0011E0D8`), declared variadic |
