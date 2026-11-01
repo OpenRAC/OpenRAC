@@ -15,4 +15,8 @@ kind: string,
 /**
  * Kept at this version: no update is offered.
  */
-pin: boolean, };
+pin: boolean, 
+/**
+ * The SHA-256 of its release's `SHA256SUMS`, when a mod code installed it.
+ */
+sums?: string, };

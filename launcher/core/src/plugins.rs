@@ -91,7 +91,7 @@ fn platform_key_for(os: &str, arch: &str) -> Option<&'static str> {
     })
 }
 
-const PLATFORMS: [&str; 7] = [
+pub(crate) const PLATFORMS: [&str; 7] = [
     "macos-arm64",
     "macos-x86_64",
     "linux-x86_64",
@@ -948,6 +948,68 @@ pub fn set_setting(
     Ok(views)
 }
 
+/// What a mod is to a party: `gameplay`, `input`, `cosmetic` or `solo` (the manifest's
+/// `multiplayer`, `gameplay` when it has none).
+pub fn party_kind(m: &Manifest) -> &str {
+    m.multiplayer.as_deref().unwrap_or("gameplay")
+}
+
+/// Whether a mod code carries this setting: one a party compares (no `multiplayer` of its own),
+/// that is not a keybind and is not the player's name.
+pub fn shared_setting(spec: &SettingSpec) -> bool {
+    spec.multiplayer.is_none() && spec.kind != "keybind" && spec.default != PLAYER_NAME
+}
+
+/// Each mod's id and whether it is on, in load order.
+pub(crate) fn load_order(dir: &Path) -> Result<Vec<(String, bool)>, String> {
+    Ok(read_list(dir)?.into_iter().map(|e| (e.id, e.enabled)).collect())
+}
+
+/// Whether a mod is on, and its settings as stored.
+pub(crate) type Stored = (bool, Map<String, Value>);
+
+/// Each mod's state as stored, by id.
+pub(crate) fn stored(dir: &Path) -> Result<BTreeMap<String, Stored>, String> {
+    Ok(read_list(dir)?.into_iter().map(|e| (e.id, (e.enabled, e.settings))).collect())
+}
+
+/// Sets values of a mod's settings, each one checked against its manifest. The keys it does not
+/// know and the values it does not take are left out: their names come back.
+pub(crate) fn set_values(dir: &Path, id: &str, values: &BTreeMap<String, Value>) -> Result<Vec<String>, String> {
+    let mut mods = read_list(dir)?;
+    let at = position(&mods, id)?;
+    let m = read_manifest(&dir.join(id))?;
+    let mut skipped = Vec::new();
+    for (key, value) in values {
+        match m
+            .settings
+            .iter()
+            .find(|s| s.key == *key)
+            .filter(|s| shared_setting(s))
+            .and_then(|s| check_value(s, value))
+        {
+            Some(value) => {
+                mods[at].settings.insert(key.clone(), value);
+            }
+            None => skipped.push(key.clone()),
+        }
+    }
+    write_list(dir, &mods)?;
+    Ok(skipped)
+}
+
+/// Puts the mods of `order` in that order among themselves, on the places they hold now: the others
+/// stay where they are.
+pub(crate) fn arrange(dir: &Path, order: &[String]) -> Result<(), String> {
+    let mut mods = read_list(dir)?;
+    let places: Vec<usize> = mods.iter().enumerate().filter(|(_, e)| order.contains(&e.id)).map(|(i, _)| i).collect();
+    let mut wanted: Vec<Entry> = order.iter().filter_map(|id| mods.iter().find(|e| e.id == *id).cloned()).collect();
+    for (place, entry) in places.into_iter().zip(wanted.drain(..)) {
+        mods[place] = entry;
+    }
+    write_list(dir, &mods)
+}
+
 /// Removes a mod: its folder in the store and its line in the list.
 pub fn remove(dir: &Path, game: &str, version: &str, id: &str) -> Result<Vec<PluginView>, String> {
     if !valid_id(id) {
@@ -1102,10 +1164,24 @@ pub(crate) fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Unpacks a .zip into `into`, refusing a path out of it (`..`, an absolute path) and links.
+/// The most files a .zip may hold, and the most bytes it may unpack to: a small archive must not
+/// fill the disk. A texture pack is large; nothing a player would add is near these.
+const MAX_ZIP_ENTRIES: usize = 200_000;
+const MAX_UNPACKED: u64 = 8 * 1024 * 1024 * 1024;
+
+/// Unpacks a .zip into `into`, refusing a path out of it (`..`, an absolute path), links, and an
+/// archive past the limits above.
 pub(crate) fn unzip(zip_path: &Path, into: &Path) -> Result<(), String> {
+    unzip_within(zip_path, into, MAX_UNPACKED)
+}
+
+fn unzip_within(zip_path: &Path, into: &Path, limit: u64) -> Result<(), String> {
     let file = std::fs::File::open(zip_path).map_err(|e| format!("{}: {e}", zip_path.display()))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("{} is not a .zip ({e})", zip_path.display()))?;
+    if archive.len() > MAX_ZIP_ENTRIES {
+        return Err(format!("{} holds too many files to be a mod", zip_path.display()));
+    }
+    let mut left = limit;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
         let name = entry.name().to_string();
@@ -1129,8 +1205,12 @@ pub(crate) fn unzip(zip_path: &Path, into: &Path) -> Result<(), String> {
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
         }
+        // What the archive says of a size is not trusted: reading stops at what is left.
         let mut bytes = Vec::new();
-        entry.read_to_end(&mut bytes).map_err(|e| format!("{name}: {e}"))?;
+        (&mut entry).take(left.saturating_add(1)).read_to_end(&mut bytes).map_err(|e| format!("{name}: {e}"))?;
+        left = left
+            .checked_sub(bytes.len() as u64)
+            .ok_or_else(|| "the .zip unpacks to too much to be a mod".to_string())?;
         std::fs::write(&target, bytes).map_err(|e| format!("{}: {e}", target.display()))?;
     }
     Ok(())
@@ -1242,6 +1322,24 @@ mod tests {
     use serde_json::json;
     use std::io::Write;
 
+    #[test]
+    fn a_zip_past_the_limit_stops_unpacking() {
+        let t = tempfile::tempdir().unwrap();
+        let zip_path = t.path().join("bomb.zip");
+        let mut w = zip::ZipWriter::new(std::fs::File::create(&zip_path).unwrap());
+        let o = zip::write::SimpleFileOptions::default();
+        for name in ["a", "b", "c"] {
+            w.start_file(name, o).unwrap();
+            w.write_all(&[0u8; 1000]).unwrap();
+        }
+        w.finish().unwrap();
+        assert!(unzip_within(&zip_path, &t.path().join("ok"), 3000).is_ok());
+        let err = unzip_within(&zip_path, &t.path().join("no"), 2500).unwrap_err();
+        assert!(err.contains("too much"), "{err}");
+        // What was left of the limit is what stopped it: the third file never landed.
+        assert!(!t.path().join("no/c").exists());
+    }
+
     /// This system's platform, or one to stand for it where no native mod runs.
     fn here() -> &'static str {
         platform_key().unwrap_or("linux-x86_64")
@@ -1333,7 +1431,9 @@ mod tests {
             let m: Manifest = serde_json::from_value(manifest("x", json!({"multiplayer": word}))).unwrap();
             m.validate()
         };
-        assert!(party("gameplay").is_ok() && party("input").is_ok() && party("cosmetic").is_ok() && party("solo").is_ok());
+        assert!(
+            party("gameplay").is_ok() && party("input").is_ok() && party("cosmetic").is_ok() && party("solo").is_ok()
+        );
         assert!(broken(json!({"settings": [
             {"key": "a", "name": "A", "type": "bool", "default": true, "multiplayer": "mine"}
         ]}))
