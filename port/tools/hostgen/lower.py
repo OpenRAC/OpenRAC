@@ -1871,7 +1871,7 @@ class Unit:
         if self._relocated(address) and code:
             # A function's code declared as data: where that code is in the program loaded.
             addr = f"OPENRAC_CODE({addr})"
-        elif self._relocated(address) and named_level is not None:
+        elif self._relocated(address) and named_level is not None and self._named_at(symbol, address):
             # A level's datum by its name (D_L00_...) in a function that is not a level's (a
             # static helper of a level file): that level's, looked up for the level loaded, as in
             # the level functions beside it; OPENRAC_DATA would take it for the executable's.
@@ -1902,6 +1902,14 @@ class Unit:
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
         return addr
+
+    @staticmethod
+    def _named_at(symbol: str | None, address: int) -> bool:
+        """Whether a level-named datum resolved to the address its name states. A build's derived
+        value can be the executable's instead (rac2: D_L06_001B2180 in func_00270210, a boot function
+        whose C took a level's spelling, is 0x001B14C0): that one is the executable's global."""
+        m = re.search(r"_L\d\d_([0-9A-Fa-f]{8})", symbol or "")
+        return m is None or int(m.group(1), 16) == address
 
     def _variant_call(self, sym: str) -> tuple[int, int, int, int] | None:
         """For a call from a level function placed in several levels to a level function missing
