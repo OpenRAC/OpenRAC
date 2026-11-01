@@ -150,6 +150,12 @@ void report_has_every_section(const fs::path& dir) {
                     "uid 57 at 12.30 45.60 7.80 (0x00A1B200), camera at 95.50 -12.00 40.25\n")
           != std::string::npos);
     CHECK(text.find("Backtrace") != std::string::npos);
+#if defined(_WIN32)
+    CHECK(text.find("Symbols:  ") != std::string::npos);
+    if (text.find("function and source-line lookup verified") != std::string::npos) {
+        CHECK(text.find("log_test.cpp:") != std::string::npos);
+    }
+#endif
     CHECK(text.find("[info] line 249") != std::string::npos);
     // No moby being updated (or no uid), no camera: only what is known.
     crash::set_moby_source([](crash::Moby& m) {
