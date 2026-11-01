@@ -293,6 +293,11 @@ Platform::Platform(unsigned subsystems) {
         // ...and the controller still plays it. The keyboard counts only while the window has the
         // focus (Input::update), so typing elsewhere never moves Ratchet.
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+#if !defined(__ANDROID__)
+        // A Steam Controller (2015 or 2026) is read by SDL's own driver, so it plays a game started
+        // outside Steam as a gamepad. An SDL_JOYSTICK_HIDAPI_STEAM=0 in the environment still wins.
+        SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
+#endif
     }
     if ((subsystems & kAudio) != 0) {
         flags |= SDL_INIT_AUDIO;

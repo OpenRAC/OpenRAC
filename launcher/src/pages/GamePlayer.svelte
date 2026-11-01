@@ -159,7 +159,8 @@
     if (app.config) await saveConfig({ ...app.config, playWithMods: on });
   }
 
-  /** How many mods the Mods tab has switched on for this game: its gameplay mods and its packs.
+  /** How many mods the Mods tab has switched on for this game: its gameplay mods, its packs and
+   *  Enhanced graphics (which the switch turns off as well).
    *  Read again when the game shown changes; null until read (or where they cannot be). */
   let modsOn = $state<number | null>(null);
   $effect(() => {
@@ -170,8 +171,13 @@
     void Promise.all([
       api.pluginsList(shown.game, shown.name).catch(() => []),
       api.overridesList(shown.game).catch(() => []),
-    ]).then(([mods, packs]) => {
-      if (current) modsOn = mods.filter((m) => m.enabled).length + packs.filter((p) => p.enabled).length;
+      api.enhancedView(shown.game, shown.name).catch(() => null),
+    ]).then(([mods, packs, enhanced]) => {
+      if (current)
+        modsOn =
+          mods.filter((m) => m.enabled).length +
+          packs.filter((p) => p.enabled).length +
+          (enhanced?.mod.enabled ? 1 : 0);
     });
     return () => {
       current = false;

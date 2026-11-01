@@ -471,8 +471,8 @@ int api_developer_menu(
     if (title == nullptr || title[0] == '\0' || (count != 0 && items == nullptr)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    constexpr std::array<const char*, 4> built_in_titles =
-        {"View", "Graphics", "Sound", "Developer"};
+    constexpr std::array<const char*, 5> built_in_titles =
+        {"Game", "View", "Graphics", "Sound", "Developer"};
     if (std::find(built_in_titles.begin(), built_in_titles.end(), std::string_view(title))
         != built_in_titles.end()) {
         return OPENRAC_HOOK_TAKEN;

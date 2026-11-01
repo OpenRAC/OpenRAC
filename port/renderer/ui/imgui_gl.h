@@ -17,6 +17,9 @@ namespace openrac::renderer::ui::imgui_gl {
 bool init(std::string& error);
 
 // The frame's lists into the default framebuffer.
+// The font's texture again, after the overlay rebuilt ImGui's font atlas (a new scale).
+void reload_font();
+
 void render(const ImDrawData* data);
 
 void shutdown();

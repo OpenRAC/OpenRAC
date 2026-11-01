@@ -597,6 +597,8 @@ openrac_add_test(frontend_latch_fade SOURCES tests/frontend_latch_fade_test.cpp
                  game/common/frontend/latch_fade.cpp INCLUDES .)
 
 openrac_add_test(logo SOURCES tests/logo_test.cpp renderer/ui/logo.cpp INCLUDES .)
+# The debug overlay's scale on large and dense displays (game/common/debug/ui_scale.h).
+openrac_add_test(ui_scale INCLUDES .)
 openrac_add_test(touch_overlay LIBS openrac_renderer_ui openrac_platform)
 set_tests_properties(touch_overlay PROPERTIES SKIP_RETURN_CODE 77)
 
