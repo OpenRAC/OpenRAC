@@ -146,6 +146,9 @@ public:
     // Returns where a moby keeps its animation fields (scene::set_moby_anim_fields).
     virtual std::uint32_t moby_anim_fields() const { return 0x50; }
 
+    // Returns whether a moby's pose layers keep records (scene::set_moby_layer_records).
+    virtual bool moby_layer_records() const { return false; }
+
     // Whether the frame shown is the display list the game sends each tick, rather than one of
     // two list buffers it alternates (shown_chain()).
     virtual bool sends_display_list() const { return false; }

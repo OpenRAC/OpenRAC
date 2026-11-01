@@ -104,8 +104,13 @@ constexpr std::array<std::pair<std::uint32_t, std::int32_t>, 4> kLookFlags{
     {{0x001A7A49, 6}, {0x001A7A42, 8}, {0x001A7A4B, 7}, {0x001A7A4A, 5}}
 };
 
+// The wrench is loaded the same way, by the form the game has (func_00292408).
+constexpr std::int32_t kWrenchClass = 71;
+constexpr std::int32_t kWrenchFormClasses = 6020;
+constexpr std::uint32_t kWrenchForm = 0x001A72C0;
+
 std::int32_t hero_class(std::span<const std::uint8_t> ram) {
-    std::int32_t look = at<std::int32_t>(ram, kArmour);
+    std::int32_t look = at<std::int16_t>(ram, kArmour);
     for (const auto& [flag, pack] : kLookFlags) {
         if (at<std::uint8_t>(ram, flag) != 0) {
             look = pack;
@@ -129,6 +134,9 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     live.class_id = at<std::int16_t>(ram, m + kMobyClass);
     if (live.class_id == 0) {
         live.model_class = hero_class(ram);
+    } else if (live.class_id == kWrenchClass) {
+        const auto form = at<std::int32_t>(ram, kWrenchForm);
+        live.model_class = form > 0 && form < 3 ? kWrenchFormClasses + form : -1;
     }
     live.occlusion = at<std::uint16_t>(ram, m + 0x36);
     std::array<float, 4> sphere;
@@ -255,6 +263,9 @@ public:
     // +0x40, the sequences at +0x42 and writes the keys at +0x58, and the pose layer slots
     // (func_L00_00310BC8) link at +0x50.
     std::uint32_t moby_anim_fields() const override { return 0x40; }
+
+    // func_L00_00316F60 blends a layer's buffer (+0x10), not keys: his weapon arm.
+    bool moby_layer_records() const override { return true; }
 
     bool has_levels() const override { return true; }
 
