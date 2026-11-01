@@ -662,6 +662,19 @@ export const crashAfterUpdate = (names: string[]) =>
   `This came after ${list(names)} updated. Rolling back keeps the earlier version until a fixed one is out.`;
 export const rolledBack = (name: string, version: string) => `${name} is back at ${version}.`;
 
+/** Settings: the launcher in Steam's library (AddToSteam.svelte). */
+export const STEAM_TEXT = {
+  title: "Steam",
+  line: "Add OpenRAC to your Steam library, with its name and pictures.",
+  inLibrary: "In your Steam library.",
+  noUser: "Sign in to Steam once to add OpenRAC to it.",
+  flatpak: "Flatpak Steam can't start OpenRAC. Use Steam's normal package to add it.",
+  add: "Add to Steam",
+  update: "Update in Steam",
+  inSteam: "In Steam",
+  added: "Added. Open Steam to see it.",
+} as const;
+
 export const SETTINGS_TEXT = {
   autoUpdate: "Update mods automatically",
   autoUpdateLine: "Small updates go in by themselves before you play. Big ones wait for you.",

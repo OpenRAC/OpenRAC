@@ -10,6 +10,9 @@ and `Cargo.lock`.
 The colours, type, header bar, game cards and progress bar follow
 [OpenRAC/openrac-site](https://github.com/OpenRAC/openrac-site) (`src/app/globals.css`,
 `src/components/Header.tsx`, `src/components/Progress.tsx`, `src/lib/projects.ts`).
+Steam's pictures (`src-tauri/steam/`, `scripts/steam_art.mjs`) are cut from
+`public/img/rac1-bg.webp`, with OpenRAC's logo. That picture's source is not recorded
+yet (docs/STYLE.md, "A game's picture").
 The app icons are
 OpenRAC's own: the logo's mark (`src/components/Logo.svelte`) in `--ink-deep` on
 the bar's orange, drawn at 1024 px and made into `src-tauri/icons/` and

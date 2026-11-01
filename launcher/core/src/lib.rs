@@ -75,6 +75,7 @@ pub mod resolver;
 pub mod save_edit;
 pub mod saves;
 pub mod status;
+pub mod steam;
 pub mod theme;
 pub mod update;
 pub mod webkit;

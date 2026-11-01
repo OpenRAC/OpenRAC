@@ -1463,6 +1463,54 @@ fn deeplink_parse(url: String) -> Result<deeplink::Install, ModError> {
     deeplink::parse(&url)
 }
 
+/// The Steam folders to look in; Windows keeps its own in the registry.
+#[cfg(not(target_os = "android"))]
+fn steam_roots() -> Vec<std::path::PathBuf> {
+    #[cfg(windows)]
+    let registry = windows_registry::CURRENT_USER
+        .open("Software\\Valve\\Steam")
+        .and_then(|key| key.get_string("SteamPath"))
+        .ok()
+        .map(std::path::PathBuf::from);
+    #[cfg(not(windows))]
+    let registry = None;
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    openrac_launcher_core::steam::roots(home.as_deref(), registry)
+}
+
+/// Where the launcher stands in the player's Steam library. Android has no Steam.
+#[tauri::command]
+fn steam_state() -> openrac_launcher_core::steam::State {
+    #[cfg(target_os = "android")]
+    return openrac_launcher_core::steam::State::NoSteam;
+    #[cfg(not(target_os = "android"))]
+    {
+        let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
+        openrac_launcher_core::steam::state(&steam_roots(), &program)
+    }
+}
+
+/// Adds the launcher to Steam's library, with its pictures (scripts/steam_art.mjs), or updates it.
+/// Nothing is written while Steam runs.
+#[tauri::command]
+fn steam_add() -> Result<openrac_launcher_core::steam::State, String> {
+    #[cfg(target_os = "android")]
+    return Err("Steam isn't on Android.".into());
+    #[cfg(not(target_os = "android"))]
+    {
+        use openrac_launcher_core::steam;
+        let art = steam::Art {
+            cover: include_bytes!("../steam/cover.jpg"),
+            wide: include_bytes!("../steam/wide.jpg"),
+            hero: include_bytes!("../steam/hero.jpg"),
+            logo: include_bytes!("../steam/logo.png"),
+            icon: include_bytes!("../icons/icon.png"),
+        };
+        let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
+        steam::add(&steam_roots(), &program, &art, steam::running())
+    }
+}
+
 fn hub_error(e: impl std::fmt::Display) -> ModError {
     ModError::new(ModErrorKind::Bug, e.to_string())
 }
@@ -2106,6 +2154,8 @@ pub fn run() {
             plugins_sources,
             plugins_set_pin,
             deeplink_parse,
+            steam_state,
+            steam_add,
             index_fetch,
             index_resolve,
             index_apply,

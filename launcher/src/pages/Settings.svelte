@@ -4,6 +4,7 @@
   // and how the launcher itself behaves. Edits stay local until saved; the bar
   // that saves them stays in view at the bottom of the window. With `setup`,
   // the first-run screen: one question (the games folder), and what was found by itself, folded.
+  import AddToSteam from "$components/AddToSteam.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
   import Logo from "$components/Logo.svelte";
   import PathField from "$components/PathField.svelte";
@@ -416,6 +417,7 @@
       <!-- Android has neither: its games are tiles, and no Discord app on the device reads a
            desktop's rich presence. -->
       {#if !onAndroid}
+        <AddToSteam />
         <label class="setting">
           <span class="text">
             <strong>Compact layout</strong>

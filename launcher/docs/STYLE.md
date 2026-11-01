@@ -124,7 +124,8 @@ game's full picture; Android's game tiles show `<name>-tile.webp`, the picture
 1280 wide, for the same reason. `python3 scripts/media.py thumbs` makes both
 again after a picture is added or replaced. `python3 scripts/media.py still RECORDING GAME
 --at S` writes a picture and its thumbnail from a frame of a recording of
-your own play.
+your own play. `node scripts/steam_art.mjs` makes Steam's pictures of the launcher
+(`src-tauri/steam/`) again after `rac1-bg.webp` or the logo changes.
 
 The band shows no moving clip: one was planned (an animated WebP under the
 picture), and taken out on 2026-10-20 with the old `*-gameplay.gif` files,
