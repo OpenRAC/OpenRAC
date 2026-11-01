@@ -2173,6 +2173,17 @@ class Places(unittest.TestCase):
             for addr in ("0x0024A080u", "0x0024A0A0u", "0x00262970u", "0x00262990u"):
                 self.assertIn(f"{{{addr}, (openrac_host_fn)func_L06_0024A080", text)
 
+    def test_more_places_give_a_function_copies_the_catalogue_named_otherwise(self):
+        # hostgen.json "more_places": rac2's Galactic Map list, 16 bytes into another row.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "int func_L00_00354DF8(char *p) { return p[0]; }\n",
+                "func_L00_00354DF8\tlevel\t272\tfp\t1\t00:00354DF8\n",
+                {"more_places": {"func_L00_00354DF8": "03:003564D0,19:00352E28"}})
+            text = (out / "functions.c").read_text()
+            for addr in ("0x00354DF8u", "0x003564D0u", "0x00352E28u"):
+                self.assertIn(f"{{{addr}, (openrac_host_fn)func_L00_00354DF8", text)
+
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_copys_call_keeps_a_returns_64_result_whole(self):
         # rac1's EnvMapA_Draw (Kalebo, two copies) passes GetEffectTex's 64-bit TEX0 to
