@@ -67,6 +67,7 @@ struct Host {
     const HookPoint* hooks = nullptr;
     int hook_count = 0;
     std::filesystem::path list;  // plugins.json; the mods' folders are beside it
+    std::filesystem::path stack;  // the stacked data packs' stack.json; empty: none in this run
     bool purist = false;         // --no-mods: nothing is read or loaded
     int (*loaded_level)(void) = nullptr;
     // Where the pad library looks for a callback on each report (game_host.h,
@@ -96,6 +97,8 @@ struct Host {
     // A link handed to the system (interface 1.12; null: a test's, or no window). True when it
     // went.
     bool (*open_url)(const char* url) = nullptr;
+    // Puts text on the system clipboard (interface 1.12; null: a test's, or no window).
+    bool (*set_clipboard)(const char* text) = nullptr;
     // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
     bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
     void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;

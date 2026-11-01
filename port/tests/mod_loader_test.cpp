@@ -622,6 +622,96 @@ void the_1_12_slots_answer_unknown(const fs::path& plugins) {
     mods::reset();
 }
 
+std::vector<std::string> g_copied;
+
+void set_key(const char* key) {
+#ifdef _WIN32
+    _putenv_s("OPENRAC_IDENTITY_KEY", key);
+#else
+    setenv("OPENRAC_IDENTITY_KEY", key, 1);
+#endif
+}
+
+// A party's check of data packs (interface 1.12): only those stack.json says change the game, the
+// strings kept, one number for the same packs; a stack that is gone or broken lists none.
+void a_party_reads_the_data_packs(const fs::path& plugins) {
+    const fs::path stack = plugins / "stack.json";
+    write(stack, R"({"format": 1, "version": "pal", "layers": [
+        {"id": "packed", "name": "your packed levels", "gameplay": true, "digest": "00000002ffff"},
+        {"id": "looks", "name": "HD textures", "gameplay": false},
+        {"id": "walls", "name": "New walls", "gameplay": true, "version": "1.2", "digest": "abcdef01aa"}],
+        "files": {}})");
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    h.stack = stack;
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    openrac_packs_info info{};
+    info.size = sizeof info;
+    CHECK(api.packs_info(&info) == OPENRAC_HOOK_OK && info.count == 2);
+    const std::uint32_t digest = info.digest;
+    openrac_pack_entry entry{};
+    entry.size = sizeof entry;
+    CHECK(api.packs_entry(0, &entry) == OPENRAC_HOOK_OK);
+    CHECK(std::string(entry.id) == "packed" && std::string(entry.name) == "your packed levels" && entry.digest == 2);
+    CHECK(api.packs_entry(1, &entry) == OPENRAC_HOOK_OK);
+    CHECK(std::string(entry.id) == "walls" && std::string(entry.version) == "1.2" && entry.digest == 0xABCDEF01u);
+    CHECK(api.packs_entry(2, &entry) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.packs_entry(-1, &entry) == OPENRAC_HOOK_UNKNOWN);
+    // A caller from before `name` still gets the rest.
+    entry = {};
+    entry.size = offsetof(openrac_pack_entry, name);
+    CHECK(api.packs_entry(1, &entry) == OPENRAC_HOOK_OK && entry.name == nullptr && entry.digest == 0xABCDEF01u);
+    mods::reset();
+
+    mods::Host other = host(plugins);
+    write(plugins / "stack2.json", R"({"layers": [{"id": "walls", "name": "New walls", "gameplay": true,
+        "version": "1.2", "digest": "abcdef01aa"}]})");
+    other.stack = plugins / "stack2.json";
+    CHECK(mods::load(other) == "test-a 1.0.0");
+    info = {};
+    info.size = sizeof info;
+    CHECK(mods::api_for_tests().packs_info(&info) == OPENRAC_HOOK_OK && info.count == 1 && info.digest != digest);
+    mods::reset();
+
+    write(plugins / "stack3.json", "{ not json");
+    other.stack = plugins / "stack3.json";
+    CHECK(mods::load(other) == "test-a 1.0.0");
+    info = {};
+    info.size = sizeof info;
+    CHECK(mods::api_for_tests().packs_info(&info) == OPENRAC_HOOK_OK && info.count == 0);
+    mods::reset();
+}
+
+// The clipboard and the launcher's key (interface 1.12).
+void a_mod_copies_and_knows_the_key(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(mods::api_for_tests().clipboard_set("K7M2-9QXR") == OPENRAC_HOOK_UNKNOWN);
+    mods::reset();
+
+    h.set_clipboard = [](const char* text) {
+        g_copied.emplace_back(text);
+        return true;
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.clipboard_set(nullptr) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.clipboard_set("K7M2-9QXR") == OPENRAC_HOOK_OK);
+    CHECK(g_copied.size() == 1 && g_copied[0] == "K7M2-9QXR");
+
+    char key[33] = {};
+    set_key("");
+    CHECK(api.identity_key(key, sizeof key) == 0);
+    set_key("0123456789abcdef0123456789abcdef");
+    CHECK(api.identity_key(key, sizeof key) == 32 && std::string(key) == "0123456789abcdef0123456789abcdef");
+    // Cut short it would be another key.
+    CHECK(api.identity_key(key, 8) == 0);
+    set_key("");
+    mods::reset();
+}
+
 // A mod-provided desktop menu (interface 1.10): copied strings, queued actions handled at the
 // owning mod's tick boundary, labels changed there, and cleanup when mods reset.
 void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
@@ -1210,6 +1300,8 @@ int main() {
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
     the_1_12_slots_answer_unknown(plugins);
+    a_party_reads_the_data_packs(plugins);
+    a_mod_copies_and_knows_the_key(plugins);
     a_mod_draws_over_the_level(plugins, dir);
     only_a_mod_codes_link_opens(plugins);
     the_tick_boundary_reaches_the_mod(plugins);

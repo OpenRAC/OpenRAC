@@ -1064,7 +1064,8 @@ typedef void (*openrac_camera_script_fn)(void* user, int id, int started);
  * tells the game of the outcome with moby_kill and bolts). Since 1.12. */
 typedef int (*openrac_metal_detect_fn)(void* user, int slot, int key);
 
-/* The data packs applied to this run (packs_info). Since 1.12. */
+/* The data packs that change the game in this run (packs_info): gameplay data, collision, a map. A
+ * pack of looks alone is each player's own and is not counted. Since 1.12. */
 typedef struct openrac_packs_info {
     /* sizeof(openrac_packs_info), set by the caller. */
     uint32_t size;
@@ -1080,6 +1081,8 @@ typedef struct openrac_pack_entry {
     const char* id;
     const char* version;
     uint32_t digest;
+    /* The name a player knows it by. Past `size` in an older caller. */
+    const char* name;
 } openrac_pack_entry;
 
 /* ------------------------------------------------------------------------------------------ *
@@ -1658,7 +1661,8 @@ typedef struct openrac_api {
      * during openrac_mod_load). Since 1.12. */
     int (*on_metal_detect)(openrac_mod* mod, openrac_metal_detect_fn fn, void* user);
 
-    /* The data packs applied this run: how many and their digest, and entry `index` (0 up).
+    /* The data packs that change the game this run, in the order they apply: how many and their
+     * digest, and entry `index` (0 up). A pack holding the same has the same digest on any disc.
      * Since 1.12. */
     int (*packs_info)(openrac_packs_info* out);
     int (*packs_entry)(int index, openrac_pack_entry* out);

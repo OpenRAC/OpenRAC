@@ -1706,7 +1706,7 @@ public:
         return has_metal_detect() && m_api->on_metal_detect(m_handle, fn, user) == OPENRAC_HOOK_OK;
     }
 
-    // Since 1.12: the data packs applied this run; false for a port without them.
+    // Since 1.12: the data packs that change the game this run; false for a port without them.
     bool packs_info(openrac_packs_info& out) const {
         out = {};
         out.size = sizeof out;
@@ -1725,6 +1725,23 @@ public:
         }
 
         id = e.id != nullptr ? e.id : "";
+        version = e.version != nullptr ? e.version : "";
+        digest = e.digest;
+        return true;
+    }
+
+    // Since 1.12: as above, with the name a player knows it by (the id, when the port gives none).
+    bool packs_entry(int index, std::string& id, std::string& name, std::string& version, std::uint32_t& digest) const {
+        openrac_pack_entry e{};
+        e.size = sizeof e;
+
+        if (!has_slot12(offsetof(openrac_api, packs_entry))
+            || m_api->packs_entry(index, &e) != OPENRAC_HOOK_OK) {
+            return false;
+        }
+
+        id = e.id != nullptr ? e.id : "";
+        name = e.name != nullptr ? e.name : id;
         version = e.version != nullptr ? e.version : "";
         digest = e.digest;
         return true;

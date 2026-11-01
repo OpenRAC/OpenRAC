@@ -741,7 +741,8 @@ Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text
 
 ## `openrac_packs_info`
 
-The data packs applied to this run (packs_info). Since 1.12.
+The data packs that change the game in this run (packs_info): gameplay data, collision, a map. A
+pack of looks alone is each player's own and is not counted. Since 1.12.
 
 | Member | |
 |---|---|
@@ -759,6 +760,7 @@ One data pack (packs_entry). The strings stay valid for the life of the program.
 | `const char* id` |  |
 | `const char* version` |  |
 | `uint32_t digest` |  |
+| `const char* name` | The name a player knows it by. Past `size` in an older caller. |
 
 ## `openrac_api`
 
@@ -886,7 +888,7 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*play_scene_from)(openrac_mod* mod, int scene, int start_frame)` | play_scene, from frame `start_frame` of the scene. Since 1.12. |
 | `int (*play_live_picture)(openrac_mod* mod, int on)` | Whether the picture behind the game's pause menus is the world still running (`on` 1, as it is until asked otherwise) or stands as the menu found it (0), when play_overlay_pause is on: the mobys go on either way. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game without it. Since 1.12. |
 | `int (*on_metal_detect)(openrac_mod* mod, openrac_metal_detect_fn fn, void* user)` | Calls `fn(user, slot, key)` when the metal detector finds a buried moby (one a mod, only during openrac_mod_load). Since 1.12. |
-| `int (*packs_info)(openrac_packs_info* out)` | The data packs applied this run: how many and their digest, and entry `index` (0 up). Since 1.12. |
+| `int (*packs_info)(openrac_packs_info* out)` | The data packs that change the game this run, in the order they apply: how many and their digest, and entry `index` (0 up). A pack holding the same has the same digest on any disc. Since 1.12. |
 | `int (*packs_entry)(int index, openrac_pack_entry* out)` |  |
 | `int (*clipboard_set)(const char* text)` | Puts `text` (UTF-8) on the system clipboard. Since 1.12. |
 | `int (*open_link)(const char* url)` | Opens `url` in the system's handler; only a mod code's link (openrac://modset/...) is accepted. Ask the player first: a button of the mod's own page is that asking. Returns OPENRAC_HOOK_OK when it went to the system. Since 1.12. |

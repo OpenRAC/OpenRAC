@@ -223,10 +223,22 @@ The launcher adds a Default button of its own, unless a preset's id is
 
 A setting of a gameplay mod may say `"multiplayer": "own"`, each player's (a trace, a
 spoiler log), or `"multiplayer": "host"`, not compared because the host's rules bring it (a
-seed). The others must match the host's for a player to join.
+seed). The others must match the host's for a player to join, but for a `keybind` and a string
+that defaults to `${player_name}`: those are each player's own without saying so. A mod code leaves
+out what a party does not compare, the same list, so applying one always makes two games match.
 
 A value that is missing, of the wrong type or out of range is the default
 (the port logs it). Settings count from the game's next start.
+
+### Data packs in a party
+
+`stack.json` in a stacked folder (`--mods`) says of each layer whether it
+changes the game (`"gameplay"`: gameplay data, collision or a level's sectors, or
+a map) and, if it does, its `"digest"`: a SHA-256 of those files of the pack, so
+the same pack is the same number on either disc. `packs_info` and `packs_entry`
+(interface 1.12) list those layers, and a party compares them as it does gameplay
+mods. A pack of looks alone (textures, models, terrain) draws in the port only, is
+each player's own, and is not listed.
 
 ### Assets
 
@@ -667,6 +679,12 @@ mod shows the same one. Play starts the game with it in the environment as
 native mod reads it with `getenv` (rac1-mods' `multiplayer` does, with a
 name of its own when there is none). The port itself does not read it. The
 Rust side is `core/src/multiplayer.rs`.
+
+Beside the name the launcher keeps a key: 128 random bits, made once and never
+shown, given to the game as `OPENRAC_IDENTITY_KEY`, which a mod reads with
+`identity_key()` (interface 1.12). It is what a host bans, so a new name gets
+round no ban. It proves nothing: it is a player's own word for who it is. A game
+started without the launcher has none.
 
 Above the installed mods, Ratchet & Clank's panel has one **built-in** entry,
 **Enhanced graphics** (experimental): not a mod in `plugins/`, but the port's

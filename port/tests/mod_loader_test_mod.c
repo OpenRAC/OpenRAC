@@ -470,7 +470,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
         s_api = api;
     }
-    if (behaviour[0] == 't') { /* twelve: every call of interface 1.12 answers unknown for now */
+    if (behaviour[0] == 't') { /* twelve: every call of interface 1.12 not filled in yet answers unknown; with no stack, no packs */
         float where[3] = {0, 0, 0};
         uint8_t missions[OPENRAC_MISSION_STATE_SIZE] = {0};
         char text[16] = {0};
@@ -479,7 +479,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         openrac_shot2 shot = {sizeof shot};
         openrac_moby2 moby = {sizeof moby};
         openrac_packs_info packs = {sizeof packs, 0, 0};
-        openrac_pack_entry pack = {sizeof pack, NULL, NULL, 0};
+        openrac_pack_entry pack = {sizeof pack, NULL, NULL, 0, NULL};
         if (api->api_minor < 12 || api->card_filter(mod, OPENRAC_CARD_PASS, "") != OPENRAC_HOOK_UNKNOWN
             || api->card_slot_hint(mod, 0) != OPENRAC_HOOK_UNKNOWN
             || api->coop_save_write(mod, 0, text, 1) != OPENRAC_HOOK_UNKNOWN
@@ -504,7 +504,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->play_scene_from(mod, 0, 0) != OPENRAC_HOOK_UNKNOWN
             || api->play_live_picture(mod, 1) != OPENRAC_HOOK_UNKNOWN
             || api->on_metal_detect(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
-            || api->packs_info(&packs) != OPENRAC_HOOK_UNKNOWN
+            || api->packs_info(&packs) != OPENRAC_HOOK_OK || packs.count != 0
             || api->packs_entry(0, &pack) != OPENRAC_HOOK_UNKNOWN
             || api->clipboard_set("x") != OPENRAC_HOOK_UNKNOWN
             || api->open_link("openrac://x") != OPENRAC_HOOK_UNKNOWN

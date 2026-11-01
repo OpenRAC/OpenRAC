@@ -301,8 +301,9 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool play_live_picture(bool on) const` | Since 1.12: the picture behind the pause menus is the world still running, while `on`. |
 | `bool has_metal_detect() const` | Since 1.12: whether this port tells a mod of the metal detector's finds. |
 | `bool on_metal_detect(openrac_metal_detect_fn fn, void* user = nullptr) const` | Since 1.12: `fn(user, slot, key)` when the metal detector finds a buried moby. During load. |
-| `bool packs_info(openrac_packs_info& out) const` | Since 1.12: the data packs applied this run; false for a port without them. |
+| `bool packs_info(openrac_packs_info& out) const` | Since 1.12: the data packs that change the game this run; false for a port without them. |
 | `bool packs_entry(int index, std::string& id, std::string& version, std::uint32_t& digest) const` | Since 1.12: pack `index` (0 up) as id, version and digest; false past the last. |
+| `bool packs_entry(int index, std::string& id, std::string& name, std::string& version, std::uint32_t& digest) const` | Since 1.12: as above, with the name a player knows it by (the id, when the port gives none). |
 | `bool clipboard_set(const std::string& text) const` | Since 1.12: puts `text` on the system clipboard. |
 | `bool open_link(const std::string& url) const` | Since 1.12: offers an openrac:// link to the system once the player agrees. |
 | `std::string world_family() const` | Since 1.12: the world this game's disc belongs to; "" when the port does not say (then the mod falls back to version()). |

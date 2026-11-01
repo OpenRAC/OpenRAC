@@ -770,6 +770,7 @@ void fill_12(openrac_api& api) {
         out->id = "maps";
         out->version = "2.0.0";
         out->digest = 5;
+        out->name = "Maps";
         return OPENRAC_HOOK_OK;
     };
     api.clipboard_set = [](const char* text) {
@@ -1677,6 +1678,8 @@ int main() {
         CHECK(mod.packs_info(packs) && packs.count == 1 && packs.digest == 77);
         CHECK(mod.packs_entry(0, id, pack_version, digest) && id == "maps" && digest == 5);
         CHECK(!mod.packs_entry(1, id, pack_version, digest));
+        std::string pack_name;
+        CHECK(mod.packs_entry(0, id, pack_name, pack_version, digest) && pack_name == "Maps" && pack_version == "2.0.0");
         CHECK(mod.clipboard_set("K7M2-9QXR") && g_12 == "clip K7M2-9QXR");
         CHECK(mod.open_link("openrac://modset/K7M2-9QXR") && g_12 == "link openrac://modset/K7M2-9QXR");
         CHECK(mod.world_family() == "rac1-60-1" && mod.identity_key() == "key-1");
