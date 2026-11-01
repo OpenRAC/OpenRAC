@@ -10,6 +10,8 @@
     "src"
   ],
   "skip": [
+    "src/pal",
+    "src/us2",
     "src/core/00121B20.c",
     "src/core/001220F0.c",
     "src/core/001232F0.c"
