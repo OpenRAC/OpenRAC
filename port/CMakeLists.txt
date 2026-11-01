@@ -71,6 +71,7 @@ add_custom_target(openrac_build_info
   COMMENT "OpenRAC's version and commit"
   VERBATIM)
 add_library(openrac_common STATIC
+  common/cache_folder.cpp
   common/crash.cpp
   common/env.cpp
   common/json.cpp

@@ -88,6 +88,7 @@ enum class Var : std::uint16_t {
     FxDump,
     GlApi,
     GlHideExtensions,
+    GlProgramCache,
     Gpu,
     GpuDrivenOff,
     GpuDriverDir,
