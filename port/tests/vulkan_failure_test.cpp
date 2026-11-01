@@ -179,6 +179,25 @@ void test_shader_layout_failure_stops_linking() {
     CHECK(g_layouts == 0);
 }
 
+// A depth-only surviving allocation must not conceal an explicitly attached but missing colour image.
+void test_framebuffer_rejects_unallocated_attachment() {
+    std::array<GLuint, 2> textures{};
+    glGenTextures(static_cast<GLsizei>(textures.size()), textures.data());
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, 1, 1, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr
+    );
+    GLuint framebuffer = 0;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[0], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textures[1], 0);
+    CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDeleteFramebuffers(1, &framebuffer);
+    glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
+}
+
 // Impossible upload sizes fail before staging allocation or pointer arithmetic.
 void test_upload_size_overflow_is_rejected() {
     bool rejected = false;
@@ -284,6 +303,7 @@ int run_tests() {
     test_rejects_invalid_resource_ranges();
     test_shader_module_failure_is_reported();
     test_shader_layout_failure_stops_linking();
+    test_framebuffer_rejects_unallocated_attachment();
     test_upload_size_overflow_is_rejected();
     test_native_compute_rejects_conflicting_images();
     test_rejects_oversized_dispatch();

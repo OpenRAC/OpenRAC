@@ -1582,11 +1582,24 @@ void VKGL framebuffer_renderbuffer(GLenum target, GLenum attachment, GLenum, GLu
 }
 
 GLenum VKGL check_framebuffer_status(GLenum target) {
+    constexpr GLenum kIncompleteAttachment = 0x8CD6;
+    constexpr GLenum kMissingAttachment = 0x8CD7;
+    constexpr GLenum kIncompleteMultisample = 0x8D56;
     const Target t = target_of(
         target == GL_READ_FRAMEBUFFER ? g->state.read_framebuffer : g->state.draw_framebuffer
     );
-    return t.colour != nullptr || t.depth != nullptr ? GL_FRAMEBUFFER_COMPLETE
-                                                     : 0x8CD7;  // INCOMPLETE_MISSING_ATTACHMENT
+    const auto* framebuffer = bound_framebuffer(target);
+    // An allocated depth attachment must not conceal a failed colour allocation, or vice versa.
+    if (framebuffer
+        && (((framebuffer->colour_texture || framebuffer->colour_renderbuffer) && !t.colour)
+            || ((framebuffer->depth_texture || framebuffer->depth_renderbuffer) && !t.depth))) {
+        return kIncompleteAttachment;
+    }
+    // Vulkan requires all attachments in this renderer's pass to use the same sample count.
+    if (t.colour && t.depth && t.colour->samples != t.depth->samples) {
+        return kIncompleteMultisample;
+    }
+    return t.colour != nullptr || t.depth != nullptr ? GL_FRAMEBUFFER_COMPLETE : kMissingAttachment;
 }
 
 void VKGL gen_renderbuffers(GLsizei n, GLuint* names) {
