@@ -1,0 +1,70 @@
+# Going Commando: what bugs and bring-up have identified, for naming and refactoring later (USA v1.01 addresses).
+# kind: function, data, field, system. confidence: proven (run or gate), read (from code), guess.
+# name	address	kind	what_it_is	suggested_name	evidence	confidence	found_by
+func_002B4C18	0x002B4C18	function	Game-mode change; computed goto	ChangeGameMode	title never advanced while stubbed	proven	P4
+func_002FCB00	0x002FCB00	function	Writes the title picture straight to frame-buffer pages	DrawPictureToFrameBuffer	menu background fix, host/picture.c	proven	P4
+func_002FC8D0	0x002FC8D0	function	Saves frame-buffer pages for the menu	SaveMenuBackground	menu background fix	read	P4
+func_002FC990	0x002FC990	function	Rewrites saved frame-buffer pages for the menu	RestoreMenuBackground	menu background fix	read	P4
+func_0026EA00	0x0026EA00	function	Title's picture, a 512x416 image	LoadTitlePicture	host/picture.c comment	read	P4
+func_0027B858	0x0027B858	function	Game's blit of the picture to the screen	BlitPicture	host/picture.c comment	read	P4
+func_002E8368	0x002E8368	function	Loading scene phase end; both retail paths return 1	LoadingScenePhaseEnd	gate SAME on 4 calls	proven	P3
+func_0026EDE8	0x0026EDE8	function	No-card notice loop; leaves on a pad press after 60 frames	NoCardNotice	P7 read of retail	read	P7
+func_002A2450	0x002A2450	function	Hero frame packer; starts DMA channel 8 in normal mode	PackHeroFrame	freeze fixed when translated	proven	P7/P6
+func_L00_00316F60	0x00316F60	function	Polls the scratchpad for a hero pose; spun on an empty pose	WaitHeroPose	lldb sample of the freeze	proven	P7
+func_002FC220	0x002FC220	function	Writes the frame list cursor through D_L06_001B22A8	ResetFrameListCursor	list grew 13,072 bytes a frame until crash	proven	P7
+func_00283898	0x00283898	function	Keeps $ra in $t3 and ends with jr $t3	(unknown)	0xe00fffXX call errors gone	proven	P7
+func_00276158	0x00276158	function	Collision cell lookup, reads $t8; a piece run in place	CollCellLookup	generated C goto L_00276158	proven	P3/P6/P8
+func_002761F8	0x002761F8	function	CollLine	CollLine	gate SAME on 32 calls	proven	P3/P8
+func_00277258	0x00277258	function	CollSphere	CollSphere	gate SAME on 32 calls	proven	P3/P8
+func_00274D90	0x00274D90	function	Runs VU0 microprogram 0 on the moby draw side, not collision	(unknown)	only caller func_002A4D88	read	P8
+func_002A4D88	0x002A4D88	function	Moby draw routine, replaced by a host function	DrawMoby	rac2-ntsc/host/render.c	read	P8
+func_00293A60	0x00293A60	function	Level staging state machine; state 3 and 5 wait on sound bank handles	UpdateLevelStagingMachine	forcing handles advanced it	proven	P2
+g_soundBankHandles	0x00189E00	data	Sound bank handles, -1 until loaded	g_soundBankHandles	P2 forced writes	proven	P2
+func_002A3110	0x002A3110	function	Saves t8/t9 to the scratchpad at entry	(unknown)	asm.input_idioms	read	P8/P6
+func_002A05A8	0x002A05A8	function	29 C callers; sub.s f0,f0,f0 is just zero	(unknown)	asm.input_idioms	read	P6
+func_00282D30	0x00282D30	function	Exit-scene math taking a scale argument	(unknown)	best_declaration fix	read	P6
+func_00280B90	0x00280B90	function	Computed jump inside itself	(unknown)	delay-slot fix	read	P6
+func_002F2758	0x002F2758	function	Piece with register inputs v1, s5, a1	(unknown)	wrong row removed	read	P8
+func_00131CB8	0x00131CB8	function	ParseBin, wrapped by the overlay hook	ParseBin	host/level.c	proven	P1
+func_002E5F60	0x002E5F60	function	Runs the callback list at 0x189D90	(unknown)	crash when overwritten	proven	P10
+func_002E5A50	0x002E5A50	function	Finds a free voice slot; returns 52 when full	FindFreeVoiceSlot	wrote row 52 over 0x189D90	proven	P10
+system-memory-plan	0x355FBF	system	Level arena relocates by this formed sum; level data decompressed over level code if not	(n/a)	hero froze outside level 0	proven	P11/P10
+field-moby-class	+0xAA	field	Moby class, not rac1's +0xA6	(n/a)	profile	proven	P9
+field-moby-anim	+0x40	field	Moby anim fields, 0x10 earlier than rac1's	(n/a)	Ratchet animates	proven	P9
+system-draw-buffer	FBP 0xF4	system	Draw buffer at block 0x1E80, not right after the display	(n/a)	HUD fix	proven	P9
+system-hero-pack	RC2.HDR +0x4F08	system	packs[] of armor packs, sectors relative to the base at +0x4F04; class 0's mesh in pack 0, textures in sector2	(n/a)	moby_0.glb export	proven	P9
+system-next-level-word	0x001B1680	data	Next level; exit flag at 0x001A8B84	(n/a)	fcheck capture	proven	P3
+func_00290B48	0x00290B48	function	Lays out the memory map: arena table at 0x1BAEC0, starting at the program's end rounded up to 16 KB (the code only forms end + 0x3FFF)	SetupMemoryArenas	with the end unrelocated, level buffers overwrote level code from 0x354000	proven	P12
+func_0027CE18	0x0027CE18	function	Runs a callback list: functions at 0x1B9E40, arguments at 0x1B9F40, count 0x1B1608. In every level, in no catalogue row	RunCallbackListA	level 18 and 20 crash here until paired through neighbours	proven	P12
+func_0027D020	0x0027D020	function	Twin of func_0027CE18: functions at 0x1BA040, arguments at 0x1BA140, count 0x1B160C	RunCallbackListB	same as func_0027CE18	proven	P12
+D_001B1B5C	0x001B1B5C	data	Moby table base (gp+0x2B6C); moved per level (level 1 0x1B255C, level 2 0x1B359C, level 9 0x1B285C, level 18 0x1B281C). Also spelled r1_D_L01_00160058 and D_L02_001B359C	g_mobyTableBase	levels 2 and 9 crashed reading the executable's address	proven	P12
+func_L16_004364B0	0x004364B0	function	Level start-up wrapper: forwards a0 to func_L16_00435CE8 although its C has no parameter	LevelStartupWrapper	a0 was host garbage until translated from assembly; carried by levels 16, 22, 23, 26	proven	P12
+func_L16_00435CE8	0x00435CE8	function	Level one-shot start-up taking a moby; same body as func_L23_004402D8	LevelStartup	levels 16, 22, 23, 26 at spawn	read	P12
+func_0028B2B8	0x0028B2B8	function	Bump allocator: cursor 0x1B1880, end 0x1B1884	AllocBump	level 11's cursor overwritten gave its address as a float	read	P12
+func_L04_0043ABE0	0x0043ABE0	function	Calls func_L04_0040A090 seven times on level 4's tables; level 11 has its own twin the catalogue does not list	InitPointTablesL04	called by name in level 11 its addresses overwrote the allocator	proven	P12
+func_L04_0040A090	0x0040A090	function	Builds a table from n points and directions (count, points, dirs, out, ...); calls func_00282D30	BuildPointTable	stack in the level 11 watchpoint	read	P12
+func_L01_003115E8	0x003115E8	function	Walks a u16 moby-index list from table 0x1FB020 and sets each live moby's state byte (+0x20); list index is moby+0x21	SetMobyGroupState	source and level 9 crash	read	P12
+func_L01_003801B8	0x003801B8	function	Moby draw callback with heavy GIF packet building; uses a gp-relative table at gp-0x110	unknown	gp-formed address fix, levels 4, 17, 18	read	P12
+func_002A0C68	0x002A0C68	function	Removes a moby from its sector cell list (hand-written); +0xA4/+0xA5 are its cell, list heads at 0x1D24E0, blocks at +0x4000; traps at 0x2A0F40 when the moby is not in the list	MobyCellRemove	disassembly	read	P12
+func_002A0F48	0x002A0F48	function	Recomputes a moby's cell after it moves, then calls func_002A0C68	MobyUpdateCell	stack in level 17	read	P12
+func_L00_0032CF60	0x0032CF60	function	Moby update loop: links live mobys through +0x28, calls +0x64 update for each	UpdateMobys	generated C	read	P12
+func_L00_00300618	0x00300618	function	Level moby spawn: copies each moby's pvars into an arena, table of (offset,size) by index, pvar pointer at +0x68	SpawnLevelMobys	disassembly	read	P12
+field_moby_0x68	+0x68	field	Moby pvars pointer	pVars	spawn code	read	P12
+field_moby_0x64	+0x64	field	Moby update function	pUpdate	func_L00_0032CF60	read	P12
+field_moby_0x21	+0x21	field	Moby group list index, 255 none	groupIndex	func_L01_003980D0 and func_L01_003115E8	read	P12
+level_21_30	21 / 30	system	Insomniac Museum: game and disc table number 21, archive word, program and catalogue number 30	-	progress 30 read sector 0xA5A5A5A5 from an empty table entry	read	P12
+g_memoryArenaTable	0x001BAEC0	data	Arena table: [1] 0x100000, [2] and [3] the start after the program, then the level's areas; level 0's copy at 0x001BF140, level 1's at 0x001BF840	g_memoryArenaTable	func_00290B48, func_L00_00300618 reads +12 as the decompress target	proven	P11
+ref_L00_00290B48_00	0x00351FC0	data	End of the loaded program, only ever formed as end + 0x3FFF	__program_end	hostgen formed_as; levels 1 and 3 walked after	proven	P11
+func_L00_00300618	0x00300618	function	Level data load: reads the data and decompresses its parts to arena table addresses	LoadLevelData	write-protected level code caught its WadDecompress	proven	P11
+func_L00_0036F488	0x0036F488	function	Gameplay tick of game state 0; calls the player update at +0x568	GameplayTick	stack in level 1; call_in_copy trace	proven	P11
+func_L00_002A3B88	0x002A3B88	function	A level's main loop: switch on the game state	LevelMainLoop	level runs, state switch in the translated assembly	read	P11
+func_L00_002A6DD0	0x002A6DD0	function	Player frame update in 13 levels (0, 2, 5, 6, 10, 14, 15, 22-26, 30)	HeroUpdate	functions.tsv places; moved the hero in level 0	proven	P11
+func_L01_002A8C48	0x002A8C48	function	Player frame update, other variant, in 1, 4, 7, 8, 9, 19 at least	HeroUpdate_variant	jal at +0x568 of level 1's func_L00_0036F488 copy; hero walked in level 1	proven	P11
+func_L00_002A5368	0x002A5368	function	Runs func_L00_002A5048 over 40 records of 176 bytes at D_L24_0025B710	UpdateHeroPoseModifiers	list cycle traced with watchpoints in level 1	proven	P11
+func_L00_002A5048	0x002A5048	function	One pose modifier record: adds it to or removes it from its owner moby's list at +84	UpdatePoseModifier	watchpoint stacks	proven	P11
+func_0029F978	0x0029F978	function	Adds a node to a moby's list at +84; byte +1 is the in-list flag, +8 next	MobyAddPoseModifier	watchpoint stacks, C	read	P11
+func_0029F9F0	0x0029F9F0	function	Removes a node from a moby's list at +84 and clears its first 64 bytes	MobyRemovePoseModifier	watchpoint stacks, C	read	P11
+func_L00_00316F60	0x00316F60	function	Moby joint pose build; walks the lists at moby +80 (next +28) and +84 (next +8)	MobyBuildPose	hung on a cycle in the +84 list in level 1	proven	P11
+func_L01_002BE0E0	0x002BE0E0	function	Hero per-frame timers; ends with four timer records of 112 bytes from 0x0025CF60 (level 1)	UpdateHeroTimers	watchpoint on 0x25CFD0 hit func_00282948 from it	proven	P11
+func_0027BD70	0x0027BD70	function	The frame's draw pass, ordered by the mask at 0x001B1594	DrawFrame	read in src/game/0027BD70-g8.c	read	P11
+func_0027D020	0x0027D020	function	Runs the draw callback list at 0x001BA040, count at 0x001B160C	RunDrawCallbacks	C, crash stacks	read	P11
