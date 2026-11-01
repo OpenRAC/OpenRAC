@@ -457,6 +457,46 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
         s_api = api;
     }
+    if (behaviour[0] == 't') { /* twelve: every call of interface 1.12 answers unknown for now */
+        float where[3] = {0, 0, 0};
+        uint8_t missions[OPENRAC_MISSION_STATE_SIZE] = {0};
+        char text[16] = {0};
+        openrac_save_info info = {sizeof info, 0, 0, 0, 0};
+        openrac_shot2 shot = {sizeof shot};
+        openrac_moby2 moby = {sizeof moby};
+        openrac_packs_info packs = {sizeof packs, 0, 0};
+        openrac_pack_entry pack = {sizeof pack, NULL, NULL, 0};
+        if (api->api_minor < 12 || api->card_filter(mod, OPENRAC_CARD_PASS, "") != OPENRAC_HOOK_UNKNOWN
+            || api->card_slot_hint(mod, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->coop_save_write(mod, 0, text, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->save_slot2("", 0, &info) != OPENRAC_HOOK_UNKNOWN
+            || api->save_read2("", 0, text, sizeof text) != 0
+            || api->shared_read(1, text, sizeof text) != OPENRAC_HOOK_UNKNOWN
+            || api->shared_give(1, text, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->mission_state_read(0, missions) != OPENRAC_HOOK_UNKNOWN
+            || api->mission_state_write(0, missions) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_place(mod, where, 0.0f, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_grab(mod, 1, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_release(mod) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_revive(mod, NULL, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_shots2(&shot, 1) != 0
+            || api->figure_shot2(mod, 0, &shot) != OPENRAC_HOOK_UNKNOWN
+            || api->moby_list2(&moby, 1) != 0
+            || api->on_camera_script(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->camera_script_play(mod, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->play_scene_from(mod, 0, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->play_live_picture(mod, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->on_metal_detect(mod, NULL, NULL) != OPENRAC_HOOK_UNKNOWN
+            || api->packs_info(&packs) != OPENRAC_HOOK_UNKNOWN
+            || api->packs_entry(0, &pack) != OPENRAC_HOOK_UNKNOWN
+            || api->clipboard_set("x") != OPENRAC_HOOK_UNKNOWN
+            || api->open_link("openrac://x") != OPENRAC_HOOK_UNKNOWN
+            || api->world_family(text, sizeof text) != 0
+            || api->identity_key(text, sizeof text) != 0) {
+            return 17;
+        }
+    }
     if (behaviour[0] == 's') { /* savestate */
         s_savestate = 1;
         if (api->api_minor < 6 || s_record == NULL

@@ -1468,6 +1468,272 @@ public:
 
     bool party_replaying() const { return has_party_rules() && m_api->party_replaying() != 0; }
 
+    // ---- Since 1.12. Each call below does nothing, and answers false, empty or -1, in a port that
+    // has not got it (the has_*() tests say), and in one that has the slot but not yet the work.
+
+    // Since 1.12: whether the port's table reaches `slot` (a member of openrac_api).
+    bool has_slot12(std::size_t slot_offset) const {
+        return m_api->api_minor >= 12 && m_api->size >= slot_offset + sizeof(void*);
+    }
+
+    // Since 1.12: whether this port filters the card's writes and reads the party's own saves.
+    bool has_save_filter() const {
+        return has_slot12(offsetof(openrac_api, save_read2));
+    }
+
+    // Since 1.12: what the game's card writes do (OPENRAC_CARD_*); `folder` is mode redirect's.
+    bool card_filter(int mode, const std::string& folder = "") const {
+        return has_save_filter()
+               && m_api->card_filter(m_handle, mode, folder.c_str()) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the slot of the redirect folder the game's next card write goes to; -1: the game's.
+    bool card_slot_hint(int slot) const {
+        return has_save_filter() && m_api->card_slot_hint(m_handle, slot) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: writes a save (as save_capture gives it) as slot `slot` of the redirect folder.
+    bool coop_save_write(int slot, const std::vector<std::uint8_t>& bytes) const {
+        return has_save_filter()
+               && m_api->coop_save_write(
+                      m_handle, slot, bytes.data(), static_cast<std::uint32_t>(bytes.size())
+                  ) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: save_slot for the card folder `folder`; -1 for a port without it.
+    int save_slot2(const std::string& folder, int slot, openrac_save_info& out) const {
+        out = {};
+        out.size = sizeof out;
+        return has_save_filter() ? m_api->save_slot2(folder.c_str(), slot, &out) : -1;
+    }
+
+    // Since 1.12: save_read for the card folder `folder`; empty for none.
+    std::vector<std::uint8_t> save_read2(const std::string& folder, int slot) const {
+        if (!has_save_filter()) {
+            return {};
+        }
+
+        std::vector<std::uint8_t> bytes(m_api->save_read2(folder.c_str(), slot, nullptr, 0));
+
+        if (!bytes.empty()
+            && m_api->save_read2(folder.c_str(), slot, bytes.data(), bytes.size()) != bytes.size()) {
+            bytes.clear();
+        }
+
+        return bytes;
+    }
+
+    // Since 1.12: whether this port reads and merges the progress players share.
+    bool has_shared_progress() const {
+        return has_slot12(offsetof(openrac_api, mission_state_write));
+    }
+
+    // Since 1.12: shared progress section `tag` into `out`; false for none or a port without it.
+    bool shared_read(int tag, std::vector<std::uint8_t>& out, std::uint32_t max = 4096) const {
+        out.assign(max, 0);
+        const int n = has_shared_progress() ? m_api->shared_read(tag, out.data(), max) : -1;
+        out.resize(n > 0 ? static_cast<std::size_t>(n) : 0);
+        return n >= 0;
+    }
+
+    // Since 1.12: merges other players' section `tag` into this game's, upward only.
+    bool shared_give(int tag, const std::vector<std::uint8_t>& data) const {
+        return has_shared_progress()
+               && m_api->shared_give(tag, data.data(), static_cast<std::uint32_t>(data.size()))
+                      == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the mission state of level `level` into `out`; false for a port without it.
+    bool mission_state_read(int level, std::uint8_t (&out)[OPENRAC_MISSION_STATE_SIZE]) const {
+        return has_shared_progress() && m_api->mission_state_read(level, out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: writes the mission state of level `level`.
+    bool mission_state_write(int level, const std::uint8_t (&in)[OPENRAC_MISSION_STATE_SIZE]) const {
+        return has_shared_progress() && m_api->mission_state_write(level, in) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: whether this port places, holds and revives the hero.
+    bool has_hero_place() const {
+        return has_slot12(offsetof(openrac_api, hero_revive));
+    }
+
+    // Since 1.12: puts the hero at `position` facing `yaw` (OPENRAC_PLACE_* `flags`).
+    bool hero_place(const float (&position)[3], float yaw, std::uint32_t flags = 0) const {
+        return has_hero_place()
+               && m_api->hero_place(m_handle, position, yaw, flags) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: holds the hero as a grab does, playing `animation`; hero_release lets go.
+    bool hero_grab(int animation, std::uint32_t flags = 0) const {
+        return has_hero_place() && m_api->hero_grab(m_handle, animation, flags) == OPENRAC_HOOK_OK;
+    }
+
+    bool hero_release() const {
+        return has_hero_place() && m_api->hero_release(m_handle) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: brings a dead hero back where it fell, or at `position`.
+    bool hero_revive(const float (*position)[3] = nullptr, std::uint32_t flags = 0) const {
+        return has_hero_place()
+               && m_api->hero_revive(m_handle, position != nullptr ? *position : nullptr, flags)
+                      == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: whether this port draws what a mod asks over the game.
+    bool has_overlay() const {
+        return has_slot12(offsetof(openrac_api, on_overlay));
+    }
+
+    // Since 1.12: `fn(user, overlay)` once a frame to draw over the game. During load.
+    bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const {
+        return has_overlay() && m_api->on_overlay(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: whether this port has the shots with more to say.
+    bool has_shots2() const {
+        return has_slot12(offsetof(openrac_api, figure_shot2));
+    }
+
+    // Since 1.12: the hero's shots since the last call, as openrac_shot2.
+    std::vector<openrac_shot2> hero_shots2(int max = OPENRAC_SHOTS_MAX) const {
+        std::vector<openrac_shot2> shots;
+
+        if (has_shots2() && max > 0) {
+            shots.assign(static_cast<std::size_t>(max), openrac_shot2{});
+
+            for (openrac_shot2& shot : shots) {
+                shot.size = sizeof shot;
+            }
+
+            const int n = m_api->hero_shots2(shots.data(), max);
+            shots.resize(n > 0 ? static_cast<std::size_t>(std::min(n, max)) : 0);
+        }
+
+        return shots;
+    }
+
+    // Since 1.12: has the mod's figure `id` fire `shot`.
+    bool figure_shot2(int id, const openrac_shot2& shot) const {
+        return has_shots2() && m_api->figure_shot2(m_handle, id, &shot) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: whether this port lists the level's mobys with their mission.
+    bool has_moby_list2() const {
+        return has_slot12(offsetof(openrac_api, moby_list2));
+    }
+
+    // Since 1.12: the level's mobys with their mission; empty outside a level.
+    std::vector<openrac_moby2> moby_list2(int max = 4096) const {
+        std::vector<openrac_moby2> out;
+
+        if (has_moby_list2() && max > 0) {
+            out.assign(static_cast<std::size_t>(max), openrac_moby2{});
+
+            for (openrac_moby2& moby : out) {
+                moby.size = sizeof moby;
+            }
+
+            const int n = m_api->moby_list2(out.data(), max);
+            out.resize(n > 0 ? static_cast<std::size_t>(std::min(n, max)) : 0);
+        }
+
+        return out;
+    }
+
+    // Since 1.12: whether this port sees camera scripts and starts them.
+    bool has_camera_scripts() const {
+        return has_slot12(offsetof(openrac_api, camera_script_play));
+    }
+
+    // Since 1.12: `fn(user, id, started)` when a camera script starts or ends. During load.
+    bool on_camera_script(openrac_camera_script_fn fn, void* user = nullptr) const {
+        return has_camera_scripts()
+               && m_api->on_camera_script(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: starts the level's camera script `id` here.
+    bool camera_script_play(int id) const {
+        return has_camera_scripts() && m_api->camera_script_play(m_handle, id) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: play_scene, from frame `start_frame` of the scene.
+    bool play_scene_from(int scene, int start_frame) const {
+        return has_slot12(offsetof(openrac_api, play_scene_from))
+               && m_api->play_scene_from(m_handle, scene, start_frame) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the picture behind the pause menus is the world still running, while `on`.
+    bool play_live_picture(bool on) const {
+        return has_slot12(offsetof(openrac_api, play_live_picture))
+               && m_api->play_live_picture(m_handle, on ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: whether this port tells a mod of the metal detector's finds.
+    bool has_metal_detect() const {
+        return has_slot12(offsetof(openrac_api, on_metal_detect));
+    }
+
+    // Since 1.12: `fn(user, slot, key)` when the metal detector finds a buried moby. During load.
+    bool on_metal_detect(openrac_metal_detect_fn fn, void* user = nullptr) const {
+        return has_metal_detect() && m_api->on_metal_detect(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the data packs applied this run; false for a port without them.
+    bool packs_info(openrac_packs_info& out) const {
+        out = {};
+        out.size = sizeof out;
+        return has_slot12(offsetof(openrac_api, packs_entry))
+               && m_api->packs_info(&out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: pack `index` (0 up) as id, version and digest; false past the last.
+    bool packs_entry(int index, std::string& id, std::string& version, std::uint32_t& digest) const {
+        openrac_pack_entry e{};
+        e.size = sizeof e;
+
+        if (!has_slot12(offsetof(openrac_api, packs_entry))
+            || m_api->packs_entry(index, &e) != OPENRAC_HOOK_OK) {
+            return false;
+        }
+
+        id = e.id != nullptr ? e.id : "";
+        version = e.version != nullptr ? e.version : "";
+        digest = e.digest;
+        return true;
+    }
+
+    // Since 1.12: puts `text` on the system clipboard.
+    bool clipboard_set(const std::string& text) const {
+        return has_slot12(offsetof(openrac_api, clipboard_set))
+               && m_api->clipboard_set(text.c_str()) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: offers an openrac:// link to the system once the player agrees.
+    bool open_link(const std::string& url) const {
+        return has_slot12(offsetof(openrac_api, open_link))
+               && m_api->open_link(url.c_str()) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the world this game's disc belongs to; "" when the port does not say (then the
+    // mod falls back to version()).
+    std::string world_family() const {
+        char text[64] = {};
+        const bool says = has_slot12(offsetof(openrac_api, world_family))
+                          && m_api->world_family(text, sizeof text) > 0;
+        text[sizeof text - 1] = 0;
+        return says ? text : "";
+    }
+
+    // Since 1.12: a key that stays the same for this installation; "" when the port has none.
+    std::string identity_key() const {
+        char text[128] = {};
+        const bool says = has_slot12(offsetof(openrac_api, identity_key))
+                          && m_api->identity_key(text, sizeof text) > 0;
+        text[sizeof text - 1] = 0;
+        return says ? text : "";
+    }
+
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
     // none) in it, into `out`; false outside a level or for a port without it.
     bool moby_run(int slot, openrac_moby_run& out) const {

@@ -492,6 +492,15 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `party_rules_publish(mod, data, size, text)`, `party_rules_read(index, out, size, &version)`, `party_rules_text(index)` (1.11) | the rules a mod plays by in this game, for a party this game hosts: up to `OPENRAC_PARTY_RULES_MAX` (1,024) bytes of the mod's own format and words for a player, published again when they change (`version` grows), read by the mod that carries them. With no party they change nothing |
 | `on_party_rules(mod, fn, user)`, `party_rules_deliver(index, data, size)` (1.11) | `fn(user, data, size)` hears the host's rules for this mod (during load, one a mod); `party_rules_deliver` hands them to the same mod of this game, null and 0 when there are none any more and the mod's own settings count again |
 | `party_replay(on)`, `party_replaying()` (1.11) | while on, what mods make the game do is another player's doing passed on, already decided in that player's game: a mod that changes what the game gives (a randomizer) lets it through as it is |
+| `card_filter(mod, mode, folder)`, `card_slot_hint(mod, slot)`, `coop_save_write(mod, slot, bytes, size)`, `save_slot2(folder, slot, &out)`, `save_read2(folder, slot, out, size)` (1.12) | what the game's memory card writes do while a party plays (`OPENRAC_CARD_PASS`, `_DISCARD`, `_REDIRECT` into a card folder), the party's own save slot written and read there |
+| `shared_read(tag, out, size)`, `shared_give(tag, data, size)`, `mission_state_read(level, out)`, `mission_state_write(level, in)` (1.12) | the progress players share (gold weapons, skill points, a level's flags: a section per `tag`, merged upward only) and a level's 16 bytes of mission state |
+| `hero_place(mod, position, yaw, flags)`, `hero_grab(mod, animation, flags)`, `hero_release(mod)`, `hero_revive(mod, position, flags)` (1.12) | the hero placed (`OPENRAC_PLACE_INVULNERABLE`, `_GROUND`), held as a grab holds it, let go, and brought back |
+| `on_overlay(mod, fn, user)` (1.12) | `fn(user, overlay)` once a frame to draw over the game: `project` a point of the level to the picture, `rect`, `text` and `fade` in the 512 x 448 picture |
+| `hero_shots2(out, max)`, `figure_shot2(mod, id, shot)`, `moby_list2(out, max)` (1.12) | shots with flags, a target's key, a second velocity and four values of the weapon's own (`openrac_shot2`); the level's mobys with the mission that deletes them (`openrac_moby2`) |
+| `on_camera_script(mod, fn, user)`, `camera_script_play(mod, id)`, `play_scene_from(mod, scene, frame)`, `play_live_picture(mod, on)`, `on_metal_detect(mod, fn, user)` (1.12) | camera scripts seen and started, a scene started from a later frame, the world kept running behind the pause menus, and the metal detector's finds |
+| `packs_info(&out)`, `packs_entry(index, &out)`, `clipboard_set(text)`, `open_link(url)`, `world_family(out, size)`, `identity_key(out, size)` (1.12) | the data packs applied and their digest, the clipboard, an `openrac://` link offered once the player agrees, the world the disc belongs to (two discs with the same text are played together) and a key for the installation. |
+
+All of these are stubs in the port for now: each answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) until the work behind it lands, and the C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -552,7 +561,13 @@ loaded mods and their settings listed (`mod_count`, `mod_entry`, `mod_setting`; 
 `mods()`, `mod_settings()`), rules a mod publishes for the host's game and the same mod takes in the
 members' games (`party_rules_publish`, `party_rules_read`, `party_rules_text`, `on_party_rules`,
 `party_rules_deliver`; `has_party_rules()`), `party_replay`, and the manifest's `multiplayer`, for
-a mod and for a setting.
+a mod and for a setting. 1.12 (SDK 1.12.0) what a shared game needs of the port, additive and
+answering "unknown" until its work lands: the card's writes filtered and a party's own save slot
+(`card_filter`, `coop_save_write`, `save_slot2`, `save_read2`), shared progress and mission state,
+the hero placed, held and revived, a picture drawn over the game (`on_overlay`), shots with more to
+say (`hero_shots2`, `figure_shot2`), `moby_list2`, camera scripts, `play_scene_from`,
+`play_live_picture`, `on_metal_detect`, the data packs (`packs_info`, `packs_entry`), `clipboard_set`,
+`open_link`, `world_family` and `identity_key`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

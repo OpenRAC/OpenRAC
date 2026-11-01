@@ -266,6 +266,43 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool party_rules_deliver(int index, const std::vector<std::uint8_t>& data) const` | Since 1.11: hands mod `index` the host's rules; empty: there are none any more. |
 | `void party_replay(bool on) const` | Since 1.11: what mods make the game do is another player's doing passed on, while on. |
 | `bool party_replaying() const` |  |
+| `bool has_slot12(std::size_t slot_offset) const` | ---- Since 1.12. Each call below does nothing, and answers false, empty or -1, in a port that has not got it (the has_*() tests say), and in one that has the slot but not yet the work. Since 1.12: whether the port's table reaches `slot` (a member of openrac_api). |
+| `bool has_save_filter() const` | Since 1.12: whether this port filters the card's writes and reads the party's own saves. |
+| `bool card_filter(int mode, const std::string& folder = "") const` | Since 1.12: what the game's card writes do (OPENRAC_CARD_*); `folder` is mode redirect's. |
+| `bool card_slot_hint(int slot) const` | Since 1.12: the slot of the redirect folder the game's next card write goes to; -1: the game's. |
+| `bool coop_save_write(int slot, const std::vector<std::uint8_t>& bytes) const` | Since 1.12: writes a save (as save_capture gives it) as slot `slot` of the redirect folder. |
+| `int save_slot2(const std::string& folder, int slot, openrac_save_info& out) const` | Since 1.12: save_slot for the card folder `folder`; -1 for a port without it. |
+| `std::vector<std::uint8_t> save_read2(const std::string& folder, int slot) const` | Since 1.12: save_read for the card folder `folder`; empty for none. |
+| `bool has_shared_progress() const` | Since 1.12: whether this port reads and merges the progress players share. |
+| `bool shared_read(int tag, std::vector<std::uint8_t>& out, std::uint32_t max = 4096) const` | Since 1.12: shared progress section `tag` into `out`; false for none or a port without it. |
+| `bool shared_give(int tag, const std::vector<std::uint8_t>& data) const` | Since 1.12: merges other players' section `tag` into this game's, upward only. |
+| `bool mission_state_read(int level, std::uint8_t (&out)[OPENRAC_MISSION_STATE_SIZE]) const` | Since 1.12: the mission state of level `level` into `out`; false for a port without it. |
+| `bool mission_state_write(int level, const std::uint8_t (&in)[OPENRAC_MISSION_STATE_SIZE]) const` | Since 1.12: writes the mission state of level `level`. |
+| `bool has_hero_place() const` | Since 1.12: whether this port places, holds and revives the hero. |
+| `bool hero_place(const float (&position)[3], float yaw, std::uint32_t flags = 0) const` | Since 1.12: puts the hero at `position` facing `yaw` (OPENRAC_PLACE_* `flags`). |
+| `bool hero_grab(int animation, std::uint32_t flags = 0) const` | Since 1.12: holds the hero as a grab does, playing `animation`; hero_release lets go. |
+| `bool hero_release() const` |  |
+| `bool hero_revive(const float (*position)[3] = nullptr, std::uint32_t flags = 0) const` | Since 1.12: brings a dead hero back where it fell, or at `position`. |
+| `bool has_overlay() const` | Since 1.12: whether this port draws what a mod asks over the game. |
+| `bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const` | Since 1.12: `fn(user, overlay)` once a frame to draw over the game. During load. |
+| `bool has_shots2() const` | Since 1.12: whether this port has the shots with more to say. |
+| `std::vector<openrac_shot2> hero_shots2(int max = OPENRAC_SHOTS_MAX) const` | Since 1.12: the hero's shots since the last call, as openrac_shot2. |
+| `bool figure_shot2(int id, const openrac_shot2& shot) const` | Since 1.12: has the mod's figure `id` fire `shot`. |
+| `bool has_moby_list2() const` | Since 1.12: whether this port lists the level's mobys with their mission. |
+| `std::vector<openrac_moby2> moby_list2(int max = 4096) const` | Since 1.12: the level's mobys with their mission; empty outside a level. |
+| `bool has_camera_scripts() const` | Since 1.12: whether this port sees camera scripts and starts them. |
+| `bool on_camera_script(openrac_camera_script_fn fn, void* user = nullptr) const` | Since 1.12: `fn(user, id, started)` when a camera script starts or ends. During load. |
+| `bool camera_script_play(int id) const` | Since 1.12: starts the level's camera script `id` here. |
+| `bool play_scene_from(int scene, int start_frame) const` | Since 1.12: play_scene, from frame `start_frame` of the scene. |
+| `bool play_live_picture(bool on) const` | Since 1.12: the picture behind the pause menus is the world still running, while `on`. |
+| `bool has_metal_detect() const` | Since 1.12: whether this port tells a mod of the metal detector's finds. |
+| `bool on_metal_detect(openrac_metal_detect_fn fn, void* user = nullptr) const` | Since 1.12: `fn(user, slot, key)` when the metal detector finds a buried moby. During load. |
+| `bool packs_info(openrac_packs_info& out) const` | Since 1.12: the data packs applied this run; false for a port without them. |
+| `bool packs_entry(int index, std::string& id, std::string& version, std::uint32_t& digest) const` | Since 1.12: pack `index` (0 up) as id, version and digest; false past the last. |
+| `bool clipboard_set(const std::string& text) const` | Since 1.12: puts `text` on the system clipboard. |
+| `bool open_link(const std::string& url) const` | Since 1.12: offers an openrac:// link to the system once the player agrees. |
+| `std::string world_family() const` | Since 1.12: the world this game's disc belongs to; "" when the port does not say (then the mod falls back to version()). |
+| `std::string identity_key() const` | Since 1.12: a key that stays the same for this installation; "" when the port has none. |
 | `bool moby_run(int slot, openrac_moby_run& out) const` | Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1: none) in it, into `out`; false outside a level or for a port without it. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |

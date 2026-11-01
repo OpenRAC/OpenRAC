@@ -8,6 +8,7 @@
 // signature, status.json, and the slots left null when nothing loads.
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
@@ -79,7 +80,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.11",
+    const std::string& api = "1.12",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -103,6 +104,7 @@ void install(
                                   {"value": "savestate", "name": "Savestate"},
                                   {"value": "developer_menu", "name": "Developer menu"},
                                   {"value": "rules", "name": "Rules"},
+                                  {"value": "twelve", "name": "Twelve"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"}]},
@@ -421,7 +423,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.11", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.12", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -578,6 +580,18 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     api.party_replay(1);
     CHECK(api.party_replaying() == 1);
     api.party_replay(0);
+    mods::reset();
+}
+
+// The calls of interface 1.12 are in the table, and each answers "unknown" for now, to a mod that
+// loads against the real table (the test mod's "twelve" checks every one).
+void the_1_12_slots_answer_unknown(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "twelve"}},
+        {"id": "test-b", "enabled": false}]})");
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.api_minor >= 12 && api.size >= offsetof(openrac_api, identity_key) + sizeof(void*));
     mods::reset();
 }
 
@@ -1009,7 +1023,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.11", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.12", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1072,6 +1086,7 @@ int main() {
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
+    the_1_12_slots_answer_unknown(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);

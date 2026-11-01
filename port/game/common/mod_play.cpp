@@ -666,6 +666,93 @@ int api_moby_run(int slot, openrac_moby_run* out) {
     return OPENRAC_HOOK_OK;
 }
 
+// ---- Interface 1.12: the calls a shared game needs. Each answers "unknown" until its package fills
+// it in, so a mod that tests for it before using it works against this port and a later one. ----
+
+int api_card_filter(openrac_mod*, int, const char*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_card_slot_hint(openrac_mod*, int) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_coop_save_write(openrac_mod*, int, const void*, std::uint32_t) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_save_slot2(const char*, int, openrac_save_info*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+std::size_t api_save_read2(const char*, int, void*, std::size_t) {
+    return 0;
+}
+
+int api_shared_read(int, void*, std::uint32_t) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_shared_give(int, const void*, std::uint32_t) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_mission_state_read(int, std::uint8_t*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_mission_state_write(int, const std::uint8_t*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_place(openrac_mod*, const float[3], float, std::uint32_t) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_grab(openrac_mod*, int, std::uint32_t) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_release(openrac_mod*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_revive(openrac_mod*, const float[3], std::uint32_t) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_shots2(openrac_shot2*, int) {
+    return 0;
+}
+
+int api_figure_shot2(openrac_mod*, int, const openrac_shot2*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_moby_list2(openrac_moby2*, int) {
+    return 0;
+}
+
+int api_on_camera_script(openrac_mod*, openrac_camera_script_fn, void*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_camera_script_play(openrac_mod*, int) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_play_scene_from(openrac_mod*, int, int) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_play_live_picture(openrac_mod*, int) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_on_metal_detect(openrac_mod*, openrac_metal_detect_fn, void*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
 int api_camera_position(float out[3]) {
     if (out == nullptr || g_play == nullptr || g_play->camera_position == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -759,6 +846,27 @@ void fill_play_api(
     api.moby_deletion = api_moby_deletion;
     api.camera_position = api_camera_position;
     api.moby_run = api_moby_run;
+    api.card_filter = api_card_filter;
+    api.card_slot_hint = api_card_slot_hint;
+    api.coop_save_write = api_coop_save_write;
+    api.save_slot2 = api_save_slot2;
+    api.save_read2 = api_save_read2;
+    api.shared_read = api_shared_read;
+    api.shared_give = api_shared_give;
+    api.mission_state_read = api_mission_state_read;
+    api.mission_state_write = api_mission_state_write;
+    api.hero_place = api_hero_place;
+    api.hero_grab = api_hero_grab;
+    api.hero_release = api_hero_release;
+    api.hero_revive = api_hero_revive;
+    api.hero_shots2 = api_hero_shots2;
+    api.figure_shot2 = api_figure_shot2;
+    api.moby_list2 = api_moby_list2;
+    api.on_camera_script = api_on_camera_script;
+    api.camera_script_play = api_camera_script_play;
+    api.play_scene_from = api_play_scene_from;
+    api.play_live_picture = api_play_live_picture;
+    api.on_metal_detect = api_on_metal_detect;
 }
 
 void play_loading(const openrac_mod* mod) {

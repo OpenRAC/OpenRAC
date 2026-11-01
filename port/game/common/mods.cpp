@@ -1065,6 +1065,37 @@ int api_party_replaying() {
     return g_party_replay ? 1 : 0;
 }
 
+// ---- Interface 1.12: calls of the port as a whole that a shared game needs. Each answers
+// "unknown" until its package fills it in. ----
+
+int api_on_overlay(openrac_mod*, openrac_overlay_fn, void*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_packs_info(openrac_packs_info*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_packs_entry(int, openrac_pack_entry*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_clipboard_set(const char*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_open_link(const char*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_world_family(char*, std::uint32_t) {
+    return 0;
+}
+
+int api_identity_key(char*, std::uint32_t) {
+    return 0;
+}
+
 void fill_api(const Host& host) {
     static std::string game, version, openrac_version;
     game = host.game;
@@ -1129,6 +1160,13 @@ void fill_api(const Host& host) {
     g_api.party_rules_deliver = api_party_rules_deliver;
     g_api.party_replay = api_party_replay;
     g_api.party_replaying = api_party_replaying;
+    g_api.on_overlay = api_on_overlay;
+    g_api.packs_info = api_packs_info;
+    g_api.packs_entry = api_packs_entry;
+    g_api.clipboard_set = api_clipboard_set;
+    g_api.open_link = api_open_link;
+    g_api.world_family = api_world_family;
+    g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
 }
 
