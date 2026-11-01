@@ -298,6 +298,17 @@ A new hook point (a hand-written `hook` row, for the item randomizer's item
 grants for example) is a row in each disc's `libraries.tsv` and an entry in
 the table with its id, as the six are; the generator adds it to the lock.
 
+**One hook point over a function's level copies.** Some jobs are a function
+of their own in each family of levels: the hero's whole update is
+`coordinate_hero_frame_update` in levels 0, 4, 7, 9, 10, 13 and 17,
+`update_hero_frame` in 1, 2, 5, 11, 12 and 15 and `HeroL03_FrameUpdate` in 3, 6,
+8, 14, 16 and 18 (the same steps, each family's own calls). Each copy has a
+`hook` row of the same name (`Hero_Update`), and the table's entry lists the
+others under `"copies"` (per disc; their symbols are aliases, the anchor the
+first's). hostgen writes them one slot: a mod's replacement runs whichever copy
+the game calls, and its `original` runs that copy (hooks.c notes the copy for
+the call). The copies must share a signature.
+
 **Signatures** are written the same way on both sides: the return type, then
 the parameters, from `void`, `i32`, `u32` (a game address too), `i64`,
 `u64`, `f32`, `i16`, `u16`, `i8`, `u8` (`void(i32,f32,f32,f32)`). The SDK's
@@ -484,6 +495,11 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `moby_run(slot, &out)` (1.9) | how the game ran the level's mobys in the last tick, for a report of why one stopped or left: the run list's camera, what the last menu update did with the world (`OPENRAC_RUN_MENU_*`: held, the pause menu's first tick, the level's camera put up, the menu's own left up, a freeze dialog) and the level's camera it puts up, the level's game mode and moby context, and the moby in `slot`: its update and draw distances, drawn or not, and how the run list treated it (`OPENRAC_MOBY_RUN_*`: left out by distance, run as drawn, always, near, near an eye, or by its group) |
 | `developer_menu(mod, title, items, count)`, `take_developer_menu_action(mod)` (1.10) | register a top-level desktop menu beside Developer; grouped items become submenus, and selections are queued for the mod's tick-boundary callback |
 | `developer_menu_set_label(mod, action, label)` (1.10) | update an item's label from the owning mod's tick-boundary callback |
+| `data_dir(mod)`, `save_slot_current()` (1.11) | a folder of the mod's own for its files, beside the memory cards (`mod-data/<id>/`); the memory card slot the game in progress saves into, -1 for none |
+| `hero_set_pose(mod, &pose)` (1.12) | for the mod that has taken the hero's whole update (Ratchet & Clank: `rac1.player.update`, `Hero_Update`, `void()`), from its replacement, which does not call the original: the hero put in `pose` (an `openrac_pose`, as `hero_pose` gives it): his place, rotation (all three, z the yaw) and velocity (units a second) into his motion record and his matrices; a new `seq` started through the game's own `set_hero_animation` (the pose's `frame` its first key, blended in over 4 ticks), `anim_speed` his animation's speed; then what the update does after his movement to show him (his animation moved on, `update_hero_moby`, `update_hero_world_matrices`, `update_hero_equipped_items`, `begin_draw_frame`). The state machine, ledges, rails, the voice and the body's easing do not run: the mod moves him by its own rules. Another mod, or outside a level: `OPENRAC_HOOK_UNKNOWN` |
+| `collision_triangles(lo, hi, out, max)` (1.12) | the collision triangles in the box [lo, hi] (`openrac_collision_triangle`: corners, unit normal, the face's collision byte, `OPENRAC_COLLISION_LEVEL` or the moby's slot): the level's collision tree as port/game/rac1/host/collision.c decodes it, cell by cell (z, y, x), each cell's faces in the game's order, then the collision meshes of the mobys on the moby grid under the box whose bounding sphere meets it, by slot, where they are now; how many there are (more than `max`: the rest left out). It reads the game's memory only: no query of the game's runs, nothing the kernels keep (the stamp, the hit log, the vector registers) changes. A box is cut to 1024 units each way; the mobys' primitives (spheres and capsules on joints) are not triangles and are left out |
+| `prop_create(mod, mesh_path)`, `prop_pose(mod, id, &pose)`, `prop_hide(mod, id, hidden)`, `prop_remove(mod, id)` (1.12) | a prop: a `.glb` of the mod's folder, read as an assets `classes.json` mesh is (`scene::load_model`), drawn by the renderer each frame among the level's mobys (OpenGL and Vulkan alike), lit as a moby, at a pose of a 4 by 4 matrix (`OPENRAC_PROP_MATRIX`) or a place, unit quaternion and scale; not a moby: the game never sees it. At most `OPENRAC_PROPS_MAX` (8) for all mods, hidden until posed, gone with its level (`prop_pose` then answers `OPENRAC_HOOK_UNKNOWN`). The first prop of a mesh the level was read without has the front end read the level's scenery again with it (a hitch, once); the meshes asked for are read with every level after |
+| `sound_load(mod, path)`, `sound_play(mod, sound, volume, pitch, loop)`, `sound_set(voice, volume, pitch)`, `sound_stop(voice)` (1.12) | a `.wav` (PCM 8 to 32 bits or float, mono or stereo, read by the port) or `.ogg` (Vorbis, through stb_vorbis, which the port already has with stb_image) of the mod's folder, decoded whole (`OPENRAC_SOUNDS_MAX`, 64, a mod); a voice of it (`OPENRAC_SOUND_VOICES_MAX`, 16, for all mods; 0 for none) mixed after the game's sounds and streams at the sound effects' master volume (group 0: the Options page's Sound volume, as the game lowers it under its menus), its volume and pitch (its speed: 2 an octave up) changed while it plays, looped or once, stopped. No sound output (no window): `sound_load` answers `OPENRAC_HOOK_UNKNOWN` |
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -539,7 +555,17 @@ figure wear and hold and the shots they fire (`hero_held`, `figure_held`,
 `has_notice()`), and items of the pause menu's Options page opening the mod's pages
 there (`ui_pause_item`; `has_pause_items()`). 1.10 (SDK 1.10.0) optional top-level desktop
 menus (`developer_menu`, `take_developer_menu_action`, and `developer_menu_set_label`), whose
-selections are handled at tick boundaries.
+selections are handled at tick boundaries. 1.11 (SDK 1.11.0) a folder of the mod's own for its files
+(`data_dir`) and the memory card slot the game in progress saves into (`save_slot_current`;
+`has_api_11()`). 1.12 (SDK 1.12.0) the calls a mod needs that replaces how the hero moves (a
+hoverboard), for Ratchet & Clank PAL and NTSC-U: the hook point of the hero's whole update
+(`rac1.player.update`, one over its three level copies), the hero put in a pose from it
+(`hero_set_pose`), the collision triangles in a box (`collision_triangles`), props drawn by the
+renderer (`prop_create`, `prop_pose`, `prop_hide`, `prop_remove`) and sounds of the mod's own
+(`sound_load`, `sound_play`, `sound_set`, `sound_stop`); the C++ layer's methods of the same names,
+and `has_api_12()` (`has_hero_drive()`, `has_collision()`, `has_props()`, `has_sounds()`). A game
+where no mod takes the hook point or calls them runs as before: the hook point's slot stays null,
+the triangles only read memory, a prop or a sound is only made when a mod asks.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -794,6 +820,13 @@ into the port: nothing of it crosses the boundary.
   and `mod.camera_position(out)`: false on a port whose table ends before them.
 - `mod.has_moby_run()` (1.9) and `mod.moby_run(slot, out)`: false on a port whose table ends
   before it.
+- `mod.has_api_12()` (1.12; `has_hero_drive()`, `has_collision()`, `has_props()`,
+  `has_sounds()`), `mod.hero_set_pose(pose)`, `mod.collision_triangles(lo, hi, max)` (a vector),
+  `mod.prop_create(path)` (-1 for none), `mod.prop_pose(id, position, rotation, scale)` or
+  `mod.prop_pose(id, matrix)`, `mod.prop_hide(id, hidden)`, `mod.prop_remove(id)`,
+  `mod.sound_load(path)` (-1 for none), `mod.sound_play(sound, volume, pitch, loop)` (the voice, 0
+  for none), `mod.sound_set(voice, volume, pitch)` and `mod.sound_stop(voice)`: false, empty or 0
+  on a port whose table ends before them.
 - `mod.on_frame(fn)`, `mod.on_pad(fn)`, `openrac::Memory` (typed reads and
   writes at game addresses), `openrac::StackFrame` (RAII over `stack_push` and
   `stack_pop`).

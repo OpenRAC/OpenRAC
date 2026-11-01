@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `11` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a folder of the mod's own for its files and the memory card slot the game in progress saves into. |
+| `OPENRAC_MOD_API_MINOR` | `12` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a folder of the mod's own for its files and the memory card slot the game in progress saves into, 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles around a place, props (meshes of the mod's drawn in the level) and sounds of the mod's own. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -151,6 +151,11 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_HELD_BLENDING` | `0x2u` | Its animation is blending into `seq`, as OPENRAC_POSE_BLENDING. |
 | `OPENRAC_HELD_LOOSE` | `0x4u` | Off the body (a thrown wrench): at `position` and `rotation`, not on its joint. |
 | `OPENRAC_SHOTS_MAX` | `16` | The most shots kept for hero_shots between two calls. Since 1.9. |
+| `OPENRAC_COLLISION_LEVEL` | `(-1)` | openrac_collision_triangle.moby for a triangle of the level's own collision. Since 1.12. |
+| `OPENRAC_PROPS_MAX` | `8` | The most props the mods together have at once (openrac_api.prop_create). Since 1.12. |
+| `OPENRAC_PROP_MATRIX` | `0x1u` | openrac_prop_pose.flags: the pose is `matrix`. Since 1.12. |
+| `OPENRAC_SOUNDS_MAX` | `64` | The most sounds a mod loads (openrac_api.sound_load), and the most voices the mods play at once (openrac_api.sound_play). Since 1.12. |
+| `OPENRAC_SOUND_VOICES_MAX` | `16` |  |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
 | `OPENRAC_MOD_UNLOAD` | `"openrac_mod_unload"` |  |
@@ -588,6 +593,38 @@ memory card. Since 1.8.
 | `int32_t gold_bolts` |  |
 | `int32_t seconds` |  |
 
+## `openrac_collision_triangle`
+
+One collision triangle (openrac_api.collision_triangles), in the game's units and axes (z up). Its
+corners in the order the game's data has them, its unit normal (the corners' (b - a) x (c - a)),
+the face's collision byte as the game's collision queries read it (Ratchet & Clank: the low 5 bits
+its surface, the material the hero's footsteps and the game's states read; bit 7 a face the
+queries with flag 0x80 leave out), and whose it is: OPENRAC_COLLISION_LEVEL, or the slot of the
+moby it moves with (openrac_moby.slot), in the place the moby is now. Since 1.12.
+
+| Member | |
+|---|---|
+| `float corners[3][3]` |  |
+| `float normal[3]` |  |
+| `uint32_t type` |  |
+| `int32_t moby` |  |
+
+## `openrac_prop_pose`
+
+Where a prop is (openrac_api.prop_pose), in the game's units and axes. With `matrix` set
+(OPENRAC_PROP_MATRIX in flags) the 4 by 4 matrix, column-major (matrix[12..14] the place), takes
+the mesh's own coordinates to the world's; otherwise the place, the rotation as a unit
+quaternion (x, y, z, w) and one scale for all three axes. Since 1.12.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_prop_pose), set by the mod. |
+| `uint32_t flags` |  |
+| `float position[3]` |  |
+| `float rotation[4]` |  |
+| `float scale` |  |
+| `float matrix[16]` |  |
+
 ## `openrac_developer_menu_item`
 
 One entry in a mod's top-level desktop menu. `group` is an optional submenu label; `action` is
@@ -696,3 +733,13 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*developer_menu_set_label)(openrac_mod* mod, uint32_t action, const char* label)` | Changes a registered item's label, copying `label`. Only from this mod's tick-boundary callback. Since 1.10. |
 | `const char* (*data_dir)(openrac_mod* mod)` | A folder of the mod's own for the files it keeps (a seed, a list of games played): in the player's data folder beside the memory cards, made by the port, kept across runs and the mod's updates, and never shared with another mod. Its path in UTF-8, valid until the mod is unloaded; null when there is none (a session without a data folder, or it cannot be made). Since 1.11. |
 | `int (*save_slot_current)(void)` | The memory card slot of the game in progress (openrac_api.save_slot's numbers): the save it was loaded from (Load Game) or last saved to. -1 for none: at the title, while a level loads, a new game not saved yet, a game started by play_start, or a game without slots. Since 1.11. |
+| `int (*hero_set_pose)(openrac_mod* mod, const openrac_pose* pose)` | The hero put in a pose by the mod that has taken his update (Ratchet & Clank: the hook point rac1.player.update), from its replacement, which then does not call the original: his place, rotation (radians, z the yaw; all three) and velocity (units a second, as hero_pose gives it); his animation, a new `seq` started through the game's own (Ratchet: set_hero_animation, the pose's `frame` its first key, blending in over 4 ticks) and `anim_speed` his animation's speed (0 holds it); then what the game's update does after his movement to show him: his animation moved on, his moby and its matrices from the pose, what he holds, his drawing. The pose's state, health, item, scale and flags are not read. In a level with the hero there, and only the mod holding that hook point: else OPENRAC_HOOK_UNKNOWN. Since 1.12. |
+| `int (*collision_triangles)( const float lo[3], const float hi[3], openrac_collision_triangle* out, int max )` | The collision triangles inside the box [lo, hi] (the game's units): the level's collision whose triangle's bounds meet the box, cell by cell (z, y, x, each from low to high), each cell's faces in the game's order, then the meshes of the mobys with collision whose bounding sphere meets it, by slot, as they are placed now. The same box in the same world gives the same triangles in the same order. Up to `max` into `out`; returns how many there are (more than `max`: the rest left out), 0 outside a level. Reads the game's data only: no query of the game's is made, nothing of its state changes. Moby primitives (spheres and capsules on a creature's joints) are not triangles and are left out. Since 1.12. |
+| `int (*prop_create)(openrac_mod* mod, const char* mesh_path)` | A prop: a mesh of the mod's (`mesh_path`, a .glb inside the mod's folder, read as the meshes of an assets classes.json are) drawn in the level loaded, by the renderer each frame (OpenGL and Vulkan), at the pose prop_pose last gave it; not a moby of the game's: nothing collides with it and the game never sees it. Hidden until it is first posed. At most OPENRAC_PROPS_MAX for all mods; it goes with its level (prop_pose then answers OPENRAC_HOOK_UNKNOWN, and the mod makes another). The first prop of a mesh the level loaded has not read makes the port read the level's scenery again (a hitch, once a mesh and level; a mesh read before goes with every level loaded after). Returns its id (0 or more), or OPENRAC_HOOK_UNKNOWN outside a level, for a path outside the mod's folder or a file that is not there, or past OPENRAC_PROPS_MAX. Since 1.12. |
+| `int (*prop_pose)(openrac_mod* mod, int id, const openrac_prop_pose* pose)` |  |
+| `int (*prop_hide)(openrac_mod* mod, int id, int hidden)` | Hides the prop (hidden 1) or shows it again at its pose (0). Since 1.12. |
+| `int (*prop_remove)(openrac_mod* mod, int id)` |  |
+| `int (*sound_load)(openrac_mod* mod, const char* path)` | A sound of the mod's: `path`, a .wav (PCM, 8, 16, 24 or 32 bits, or float; mono or stereo) or .ogg (Vorbis) inside the mod's folder, read whole. Returns its id (0 or more), or OPENRAC_HOOK_UNKNOWN for a path outside the folder, a file it cannot read, without a sound output, or past OPENRAC_SOUNDS_MAX. Kept until the program ends. Since 1.12. |
+| `uint32_t (*sound_play)(openrac_mod* mod, int sound, float volume, float pitch, int loop)` | Plays a loaded sound, mixed with the game's at the game's sound volume (its effects' group: the Options page's Sound volume, as the game lowers it in its menus): `volume` 0 to 1 (more is louder still), `pitch` the speed it plays at (1 its own, 2 an octave up), `loop` non-zero to play it over and over until sound_stop. Returns the voice (above 0), or 0 when no voice is free (OPENRAC_SOUND_VOICES_MAX for all mods) or the sound is not the mod's. Since 1.12. |
+| `int (*sound_set)(uint32_t voice, float volume, float pitch)` | A voice's volume and pitch from now on. OPENRAC_HOOK_UNKNOWN for a voice that has ended. |
+| `void (*sound_stop)(uint32_t voice)` | Stops a voice (a voice that has ended: nothing). Since 1.12. |
