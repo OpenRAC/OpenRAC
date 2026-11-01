@@ -1404,8 +1404,8 @@ typedef struct openrac_api {
     int (*bolts)(int add);
 
     /* While `on` (1), the level's mobys keep being updated under the game's pause menu and its
-     * freeze dialogs, in the level's own mobys (the hero and the picture stay as the menu left
-     * them): a game that plays with others never stops their world for a menu. 0: as the game
+     * freeze dialogs, in the level's own mobys (the hero stays as the menu left it, and the picture
+     * goes on as play_live_picture says): a game that plays with others never stops their world for a menu. 0: as the game
      * does. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game without it. Since 1.9. */
     int (*play_overlay_pause)(openrac_mod* mod, int on);
 
