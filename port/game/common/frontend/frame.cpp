@@ -2004,6 +2004,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     log_camera(state, world_ran);
     follow_route(ram, level);
     trace_tick(state, draws);
+    scripted_view(state.forward.data());
     // The run's frames are done.
     if (run_over()) {
         return false;

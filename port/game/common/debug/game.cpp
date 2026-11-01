@@ -22,7 +22,20 @@ void game_section() {
                                   ? std::format("{} {}", s.level, openrac_game_level_name(s.level))
                                   : std::string("none (the boot program: title, menus)");
     text("{}   level {}", s.game, level);
-    text("tick {}   game mode {}", s.tick, read<std::int32_t>(0x0015F6E8));
+    std::uint32_t mode = 0;
+
+    if (openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0) {
+        text("tick {}   game mode {}", s.tick, mode);
+    } else if (const openrac_front_end* fe = openrac_game_front_end;
+               fe != nullptr && fe->game_mode != 0) {
+        text("tick {}   game mode {}", s.tick, read<std::int32_t>(fe->game_mode));
+    } else {
+        text("tick {}", s.tick);
+    }
+
+    if (openrac_game_bolts != nullptr && openrac_game_has_level(s.level)) {
+        text("bolts {}", openrac_game_bolts());
+    }
 
     if (const host::LiveMoby* h = hero()) {
         text(
@@ -97,6 +110,31 @@ void game_section() {
     }
 
     text_coloured(kDim, "a fault in the game's code ends the program: its report is in the log");
+
+    if (const openrac_game_tools* tools = openrac_game_tools_host; tools != nullptr) {
+        if (tools->give != nullptr && ImGui::Button("give everything")) {
+            tools->give("all");
+        }
+
+        if (tools->heal != nullptr) {
+            ImGui::SameLine();
+
+            if (ImGui::Button("full health")) {
+                tools->heal();
+            }
+        }
+
+        static float place[3]{};
+
+        if (tools->teleport != nullptr) {
+            ImGui::InputFloat3("place", place);
+            ImGui::SameLine();
+
+            if (ImGui::Button("go there")) {
+                tools->teleport(place);
+            }
+        }
+    }
 
     if (ImGui::TreeNode("probes (the OPENRAC_* switches)")) {
         for (stats::Probe* p : stats::probes()) {
