@@ -1927,6 +1927,8 @@ class Unit:
         """Whether this file is a level's. A matched file of the executable can spell a global with
         a level's name and it still compiled to the executable's address: Going Commando's frame
         list cursor 0x001B22A8 as D_L06_001B22A8, which level 6 uses for something else."""
+        if getattr(self.program, "level_short_names", None) is None:
+            return True     # a game whose files aren't named for their level: rac1's overlays
         return UNIT_LEVEL.search(self.unit) is not None
 
     @staticmethod
