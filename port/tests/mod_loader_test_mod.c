@@ -461,6 +461,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         float where[3] = {0, 0, 0};
         uint8_t missions[OPENRAC_MISSION_STATE_SIZE] = {0};
         char text[16] = {0};
+        uint32_t digest = 0;
         openrac_save_info info = {sizeof info, 0, 0, 0, 0};
         openrac_shot2 shot = {sizeof shot};
         openrac_moby2 moby = {sizeof moby};
@@ -493,6 +494,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->clipboard_set("x") != OPENRAC_HOOK_UNKNOWN
             || api->open_link("openrac://x") != OPENRAC_HOOK_UNKNOWN
             || api->world_family(text, sizeof text) != 0
+            || api->sim_digest(0, &digest) != OPENRAC_HOOK_UNKNOWN
             || api->identity_key(text, sizeof text) != 0) {
             return 17;
         }

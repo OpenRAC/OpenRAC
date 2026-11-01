@@ -772,6 +772,13 @@ void fill_12(openrac_api& api) {
         g_12 = std::string("link ") + url;
         return OPENRAC_HOOK_OK;
     };
+    api.sim_digest = [](int32_t level, uint32_t* out) {
+        if (level != 3) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        *out = 0x1234u;
+        return OPENRAC_HOOK_OK;
+    };
     api.world_family = [](char* out, uint32_t size) {
         std::snprintf(out, size, "rac1-60-1");
         return 9;
@@ -1662,6 +1669,7 @@ int main() {
         CHECK(mod.clipboard_set("K7M2-9QXR") && g_12 == "clip K7M2-9QXR");
         CHECK(mod.open_link("openrac://modset/K7M2-9QXR") && g_12 == "link openrac://modset/K7M2-9QXR");
         CHECK(mod.world_family() == "rac1-60-1" && mod.identity_key() == "key-1");
+        CHECK(mod.sim_digest(3) == 0x1234u && mod.sim_digest(4) == 0);
 
         // A port of 1.11 has none of it: every call answers no and touches nothing.
         g_12.clear();
@@ -1669,6 +1677,7 @@ int main() {
         CHECK(!mod.has_save_filter() && !mod.has_hero_place() && !mod.has_overlay());
         CHECK(!mod.card_filter(OPENRAC_CARD_DISCARD) && !mod.hero_place(where, 0) && !mod.clipboard_set("x"));
         CHECK(mod.hero_shots2().empty() && mod.moby_list2().empty() && mod.world_family().empty());
+        CHECK(mod.sim_digest(3) == 0);
         CHECK(mod.save_slot2("", 0, info) == -1 && mod.save_read2("", 0).empty() && g_12.empty());
         api.api_minor = OPENRAC_MOD_API_MINOR;
 

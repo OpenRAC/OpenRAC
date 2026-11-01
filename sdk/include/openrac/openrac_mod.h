@@ -1653,6 +1653,12 @@ typedef struct openrac_api {
     /* A key that stays the same for this installation across runs and is not its owner's name, as
      * text into `out` (as world_family): for a host that bans a player. Since 1.12. */
     int (*identity_key)(char* out, uint32_t size);
+
+    /* What must agree for two games to share `level`, as a number into `out`: its placed things,
+     * their order and places, and none of what each game runs by itself. Two games of one
+     * world_family with another number cannot share that level. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a level not loaded or a game that does not say. Since 1.12. */
+    int (*sim_digest)(int32_t level, uint32_t* out);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

@@ -119,7 +119,7 @@ enum {
 #define SAVE_HEADER 8u
 #define SAVE_LEVEL_PARTS 20u
 #define SAVE_ROOM 0x10000u
-#define TICKS_A_SECOND 60
+#define TICKS_A_SECOND POSE_TICKS_A_SECOND
 
 /* Room in game memory for a save on its way in or out, made at its first use (a static of the
  * port's: a warm savestate taken before it refuses to restore after, as for any new static). */
@@ -208,8 +208,8 @@ static int hero_pose(openrac_game_pose* out) {
     for (unsigned i = 0; i < 3; ++i) {
         out->position[i] = GREF(float, moby + MOBY_POS + 4u * i);
         out->rotation[i] = GREF(float, moby + MOBY_ROT + 4u * i);
-        /* A tick's move, by the ticks a second. */
-        out->velocity[i] = GREF(float, HERO_VELOCITY + 4u * i) * (float)openrac_game.frame_rate;
+        /* A tick's move, by the ticks a second (the port's, not the disc's video rate). */
+        out->velocity[i] = pose_velocity(GREF(float, HERO_VELOCITY + 4u * i));
     }
     out->scale = GREF(float, moby + MOBY_SCALE);
     out->state = GREF(int32_t, HERO_STATE);

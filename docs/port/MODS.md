@@ -498,9 +498,9 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `on_overlay(mod, fn, user)` (1.12) | `fn(user, overlay)` once a frame to draw over the game: `project` a point of the level to the picture, `rect`, `text` and `fade` in the 512 x 448 picture |
 | `hero_shots2(out, max)`, `figure_shot2(mod, id, shot)`, `moby_list2(out, max)` (1.12) | shots with flags, a target's key, a second velocity and four values of the weapon's own (`openrac_shot2`: every weapon's, both discs; a weapon that is no single shot is a track, `OPENRAC_SHOT_START`, `MOVE`, `STOP`, each of which may be lost); the level's mobys with the mission that deletes them (`openrac_moby2`) |
 | `on_camera_script(mod, fn, user)`, `camera_script_play(mod, id)`, `play_scene_from(mod, scene, frame)`, `play_live_picture(mod, on)`, `on_metal_detect(mod, fn, user)` (1.12) | camera scripts seen and started, a scene started from a later frame, the world kept running behind the pause menus, and the metal detector's finds |
-| `packs_info(&out)`, `packs_entry(index, &out)`, `clipboard_set(text)`, `open_link(url)`, `world_family(out, size)`, `identity_key(out, size)` (1.12) | the data packs applied and their digest, the clipboard, an `openrac://` link offered once the player agrees, the world the disc belongs to (two discs with the same text are played together) and a key for the installation. |
+| `packs_info(&out)`, `packs_entry(index, &out)`, `clipboard_set(text)`, `open_link(url)`, `world_family(out, size)`, `sim_digest(level, &out)`, `identity_key(out, size)` (1.12) | the data packs applied and their digest, the clipboard, an `openrac://` link offered once the player agrees, the world the disc belongs to (two discs with the same text are played together), a number for what a loaded level's games must agree on, and a key for the installation. |
 
-All of these are stubs in the port for now: each answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) until the work behind it lands, and the C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
+Besides `world_family` and `sim_digest`, all of these are stubs in the port for now: each answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) until the work behind it lands, and the C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -567,7 +567,7 @@ answering "unknown" until its work lands: the card's writes filtered and a party
 the hero placed, held and revived, a picture drawn over the game (`on_overlay`), shots with more to
 say (`hero_shots2`, `figure_shot2`), `moby_list2`, camera scripts, `play_scene_from`,
 `play_live_picture`, `on_metal_detect`, the data packs (`packs_info`, `packs_entry`), `clipboard_set`,
-`open_link`, `world_family` and `identity_key`.
+`open_link`, `world_family`, `sim_digest` and `identity_key`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

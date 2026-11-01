@@ -63,6 +63,9 @@ uint32_t rac1_program_loads(void);
  * gone, so whatever names a slot or a moby holds for one generation only. */
 uint32_t rac1_moby_generation(void);
 void rac1_mobys_rebuilt(void);
+/* The sim digest of `level` as its gameplay file was last loaded (sim_digest.h), 0 for another
+ * level or none (moby_pool.c). */
+uint32_t rac1_sim_digest(int level);
 
 /* Whether a level runs: its program loaded and its loop not told to end (play.c). After the end
  * (a travel, the ship's flight out, Quit Game) the level's program is still there while the

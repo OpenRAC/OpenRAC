@@ -306,6 +306,9 @@ const openrac_game_play kPlay = {
         out[1] = out[2] = 0.0f;
         return 1;
     },
+    nullptr,
+    "test-world-1",
+    [](int level) { return level == 4 ? 0xABCDu : 0u; },
 };
 
 // The state status.json gives a mod, and its reason.
@@ -823,6 +826,13 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         openrac_api api{};
         int owner = 0;
         mods::fill_play_api(api, &kPlay, dir / "cards");
+        // The world the disc belongs to, and what a level's games must agree on.
+        char family[32] = {};
+        CHECK(api.world_family(family, sizeof family) == 12 && std::string(family) == "test-world-1");
+        CHECK(api.world_family(family, 12) == 0);
+        std::uint32_t digest = 0;
+        CHECK(api.sim_digest(4, &digest) == OPENRAC_HOOK_OK && digest == 0xABCDu);
+        CHECK(api.sim_digest(5, &digest) == OPENRAC_HOOK_UNKNOWN);
         g_phase = OPENRAC_GAME_PHASE_SCENE;
         g_scene = 3;
         CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);

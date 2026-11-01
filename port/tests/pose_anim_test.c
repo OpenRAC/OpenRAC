@@ -9,7 +9,8 @@
  * - at the end of a seq that plays once, the moby ahead of the poses (as it comes out of its
  *   blend) does not run round into the seq's start;
  * - while the sender blends, the moby waits on the key the blend goes to;
- * - running with the poses, it keeps to them within a fraction of a key. */
+ * - running with the poses, it keeps to them within a fraction of a key;
+ * - a pose's velocity is a tick's move by the port's 60 ticks a second on every disc. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,7 +154,15 @@ static void the_sender_blends(void) {
     CHECK(m.speed > 0.0f);
 }
 
+/* A tick's move at 60 ticks a second, whichever disc's video rate. */
+static void a_velocity(void) {
+    CHECK(POSE_TICKS_A_SECOND == 60);
+    CHECK(pose_velocity(0.25f) == 15.0f);
+    CHECK(pose_velocity(-0.1f) == -0.1f * 60.0f);
+}
+
 int main(void) {
+    a_velocity();
     the_actions();
     a_stall();
     the_end_of_a_seq_that_plays_once();

@@ -1088,10 +1088,6 @@ int api_open_link(const char*) {
     return OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_world_family(char*, std::uint32_t) {
-    return 0;
-}
-
 int api_identity_key(char*, std::uint32_t) {
     return 0;
 }
@@ -1165,7 +1161,6 @@ void fill_api(const Host& host) {
     g_api.packs_entry = api_packs_entry;
     g_api.clipboard_set = api_clipboard_set;
     g_api.open_link = api_open_link;
-    g_api.world_family = api_world_family;
     g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
 }

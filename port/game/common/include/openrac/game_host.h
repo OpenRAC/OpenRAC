@@ -472,6 +472,12 @@ typedef struct openrac_game_play {
      * a game without them. */
     int (*hero_shots2)(openrac_game_shot2* out, int max);
     int (*figure_shot2)(gaddr figure, const openrac_game_shot2* shot);
+    /* The world this game's discs belong to (openrac_api.world_family): two with the same text
+     * can share a game. NULL for a game that does not say. */
+    const char* world_family;
+    /* The sim digest of `level` as loaded (openrac_api.sim_digest): two games with the same one
+     * can share that level; 0 for a level not loaded or not known. NULL for a game without it. */
+    uint32_t (*sim_digest)(int level);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

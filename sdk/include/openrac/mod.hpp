@@ -1725,6 +1725,15 @@ public:
         return says ? text : "";
     }
 
+    // Since 1.12: what must agree for two games to share `level`; 0 when it is not loaded or the
+    // port does not say.
+    std::uint32_t sim_digest(int level) const {
+        std::uint32_t out = 0;
+        const bool says = has_slot12(offsetof(openrac_api, sim_digest))
+                          && m_api->sim_digest(level, &out) == OPENRAC_HOOK_OK;
+        return says ? out : 0;
+    }
+
     // Since 1.12: a key that stays the same for this installation; "" when the port has none.
     std::string identity_key() const {
         char text[128] = {};

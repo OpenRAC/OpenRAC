@@ -302,6 +302,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool clipboard_set(const std::string& text) const` | Since 1.12: puts `text` on the system clipboard. |
 | `bool open_link(const std::string& url) const` | Since 1.12: offers an openrac:// link to the system once the player agrees. |
 | `std::string world_family() const` | Since 1.12: the world this game's disc belongs to; "" when the port does not say (then the mod falls back to version()). |
+| `std::uint32_t sim_digest(int level) const` | Since 1.12: what must agree for two games to share `level`; 0 when it is not loaded or the port does not say. |
 | `std::string identity_key() const` | Since 1.12: a key that stays the same for this installation; "" when the port has none. |
 | `bool moby_run(int slot, openrac_moby_run& out) const` | Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1: none) in it, into `out`; false outside a level or for a port without it. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |

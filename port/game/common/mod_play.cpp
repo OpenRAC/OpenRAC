@@ -823,6 +823,30 @@ int game_moby_hit(
     return g_hits.fn(g_hits.user, &hit) != 0 ? 1 : 0;
 }
 
+int api_world_family(char* out, std::uint32_t size) {
+    if (g_play == nullptr || g_play->world_family == nullptr || out == nullptr || size == 0) {
+        return 0;
+    }
+
+    const std::size_t length = std::strlen(g_play->world_family);
+
+    if (length >= size) {
+        return 0;
+    }
+
+    std::memcpy(out, g_play->world_family, length + 1);
+    return static_cast<int>(length);
+}
+
+int api_sim_digest(std::int32_t level, std::uint32_t* out) {
+    if (g_play == nullptr || g_play->sim_digest == nullptr || out == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    *out = g_play->sim_digest(level);
+    return *out != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 }  // namespace
 
 void fill_play_api(
@@ -831,6 +855,8 @@ void fill_play_api(
     g_play = play;
     g_cards = cards;
     api.play_status = api_play_status;
+    api.world_family = api_world_family;
+    api.sim_digest = api_sim_digest;
     api.level_name = api_level_name;
     api.hero_pose = api_hero_pose;
     api.figure_create = api_figure_create;

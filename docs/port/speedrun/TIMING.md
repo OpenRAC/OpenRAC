@@ -44,8 +44,11 @@ matters for two reasons:
 > 2026-10-15); that commit changed the code and `port/game/rac1-pal/README.md`
 > but not `SETTINGS.md`. The code is authoritative. The generated
 > `openrac_game.frame_rate` is still 50 for PAL
-> (`port/game/rac1-pal/hostgen.json:7`) but nothing reads it — grep for
-> `openrac_game.frame_rate` in `port/` returns no consumer.
+> (`port/game/rac1-pal/hostgen.json:7`): it is the disc's video rate, and
+> nothing that runs reads it. Until 2026-10-31 the hero's pose did
+> (`hero_pose`, `port/game/rac1/host/play.c`), so a PAL player's velocity went
+> out 16.7% low to the mods; it now uses `POSE_TICKS_A_SECOND`, 60 on every
+> disc.
 
 ## 2. The tick is on the wall clock
 
