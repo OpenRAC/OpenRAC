@@ -68,6 +68,7 @@
   "libraries": "libraries.tsv",
   "overlay_hook": true,
   "keep_spent_arguments": true,
+  "level_short_names": "^func_(?P<addr>[0-9A-F]{6})$",
   "host_functions": ["func_00280B90", "func_00280B90_1", "func_00280B90_7", "func_002FCB00", "func_002FC8D0", "func_002FC990", "func_002EF3B0", "func_002F0EF8", "func_002E11C0", "func_002E3940", "func_002A4E68", "func_002A4AD8", "func_002A4D88", "func_002A4078", "func_002B9420", "func_002F0468", "func_002E2C38", "func_002F3E78", "func_002EF310", "func_002F0E38", "func_002E10B8", "func_0029FEE0", 
     "func_0011F718",
     "func_0011B800",

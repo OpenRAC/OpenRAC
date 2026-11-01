@@ -1616,12 +1616,16 @@ class Unit:
             stack.extend(c for c in n.get("inner", ()) if isinstance(c, dict))
         return out
 
+    def _level_short_name(self, sym: str) -> str:
+        return self.program.level_short_name(self.unit, sym, self.fn.code if self.fn is not None else "")
+
     def _callee_symbol(self, ref: dict) -> str:
         d = self.decls.get(ref["referencedDecl"]["id"])
         sym = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         sym = self.program.aliases.get((self.unit, sym), sym)
         if (self.unit, sym) in self.program.statics:
             return sym
+        sym = self._level_short_name(sym)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own

@@ -52,6 +52,10 @@ def cname(symbol: str) -> str:
 VA_LIST_NAMES = ("va_list", "__builtin_va_list", "__gnuc_va_list")
 
 
+_UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
+_LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
+
+
 @dataclass
 class Signature:
     ret: ctype.Type
@@ -265,6 +269,20 @@ class Program:
                     index.setdefault((o, addr), sym)
             self._function_at = index
         return index.get((overlay, address))
+
+    def level_short_name(self, unit: str, sym: str, function: str = "") -> str:
+        """hostgen.json "level_short_names": a name of six digits in a level's file is an address in
+        that level's program, whose function the catalogue knows: Going Commando's func_2F15C8 is
+        func_00282978 in level 12 and func_0028FAB8 in level 7. Read as an address in the executable
+        it is a stub in the middle of something else, and every such call returned 0."""
+        pattern = getattr(self, "level_short_names", None)
+        m = pattern.match(sym) if pattern else None
+        if m is None:
+            return sym
+        found = _UNIT_LEVEL.search(unit) or _LEVEL_NAME.match(function)
+        if found is None:
+            return sym
+        return self.by_place.get((int(found.group(1)), int(m.group("addr"), 16)), sym)
 
     def canonical(self, symbol: str) -> str:
         """The symbol with C at the same place as symbol, or symbol: the port's own function
@@ -631,6 +649,7 @@ def inherit_results(program: Program) -> list[str]:
             if f.symbol in program.wrap_host or f.symbol in program.host:
                 continue
             sym = program.aliases.get((f.unit, f.tail), f.tail)
+            sym = program.level_short_name(f.unit, sym, f.symbol)
             g = program.statics.get((f.unit, sym))
             if g is None:
                 own = program.grouped(f.unit, sym)
