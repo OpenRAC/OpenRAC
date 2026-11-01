@@ -13,11 +13,10 @@
  * the port's own order of operations, not a matching claim
  * (common/lib/vu0_sine.h).
  */
-#include "game/common/lib/vu0_sine.h"
-
 #include <stdint.h>
 #include <string.h>
 
+#include "game/common/lib/vu0_sine.h"
 #include "openrac/ee.h"
 
 /* The microprogram's constants: pi/2 at 0xC80, pi at 0xC90, -pi at 0xC98 and

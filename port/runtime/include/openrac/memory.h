@@ -82,8 +82,9 @@ void guard_writes(gaddr address, std::uint32_t bytes, std::uint32_t skip = 0);
 struct SoftFault {
     gaddr page = 0;
     bool write = false;
-    const char* function = nullptr;  // the innermost translated function, or null when none is named
-    unsigned long hits = 0;          // ticks in which that function touched that page
+    const char* function =
+        nullptr;             // the innermost translated function, or null when none is named
+    unsigned long hits = 0;  // ticks in which that function touched that page
 };
 
 // Closes the pages opened since the last call, so the next tick's accesses count too: once a tick.

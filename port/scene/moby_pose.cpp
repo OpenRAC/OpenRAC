@@ -150,7 +150,8 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     // The joint-modifier list (moby +0x64, each node's next at +8): what spins a vendor's
     // hologram and its logo's text, turns an NPC's head. Its order is the game's, head first.
     std::vector<rac1::JointModifier> mods;
-    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x14); inside(ram, node, 0x40) && mods.size() < 32;
+    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x14);
+         inside(ram, node, 0x40) && mods.size() < 32;
          node = at<std::uint32_t>(ram, node + 8)) {
         const std::uint32_t record = at<std::uint32_t>(ram, node + 4);
         if (record < 0x70000000u || ((record - 0x70000000u) & 0x3F) != 0) {
@@ -175,7 +176,8 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     std::vector<rac1::MobyFrame> layer_keys;
     layer_keys.reserve(16);
     std::vector<rac1::PoseLayer> layers;
-    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x10); inside(ram, node, 0x40) && layers.size() < 6;
+    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x10);
+         inside(ram, node, 0x40) && layers.size() < 6;
          node = at<std::uint32_t>(ram, node + 0x1C)) {
         const auto count = at<std::uint16_t>(ram, node + 2);
         const auto list = at<std::uint32_t>(ram, node + 0x0C);

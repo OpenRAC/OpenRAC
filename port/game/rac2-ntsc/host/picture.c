@@ -54,7 +54,8 @@ long long func_002FCB00(int data, int destination, int width, int height) {
         picture_new = 1;
         picture_in_frame = 1;
     }
-    const openrac_game_image image = {destination >> 8, width >> 6, 0, 0, 0, width, height, (gaddr)data};
+    const openrac_game_image image =
+        {destination >> 8, width >> 6, 0, 0, 0, width, height, (gaddr)data};
     openrac_game_load_image(&image);
     return 0;
 }
@@ -66,8 +67,15 @@ void func_002FC8D0(gaddr a0, int a1, int a2) {
     if (openrac_guest_overlay() < 0) {
         return;
     }
-    const openrac_game_image image = {a1 >> 8, PICTURE_WIDTH_UNITS, 0, 0, 0, PICTURE_WIDTH, PICTURE_HEIGHT - 32,
-                                      (picture_pixels(), picture)};
+    const openrac_game_image image =
+        {a1 >> 8,
+         PICTURE_WIDTH_UNITS,
+         0,
+         0,
+         0,
+         PICTURE_WIDTH,
+         PICTURE_HEIGHT - 32,
+         (picture_pixels(), picture)};
     openrac_game_store_image(&image);
     picture_lines = PICTURE_HEIGHT - 32;
     picture_new = 1;
@@ -83,13 +91,14 @@ void func_002FC990(int a0, int a1, int a2) {
     }
     if (picture_new) {
         picture_new = 0;
-        const openrac_game_image image = {PICTURE_BLOCK, PICTURE_WIDTH_UNITS, 0, 0, 0, PICTURE_WIDTH, picture_lines,
-                                          picture};
+        const openrac_game_image image =
+            {PICTURE_BLOCK, PICTURE_WIDTH_UNITS, 0, 0, 0, PICTURE_WIDTH, picture_lines, picture};
         openrac_game_load_image(&image);
     }
-    const uint64_t tex0 = (uint64_t)(PICTURE_BLOCK) | (uint64_t)PICTURE_WIDTH_UNITS << 14 | 9ull << 26 | 9ull << 30
-                          | 1ull << 35;
-    const uint64_t left = 0x7000, top = 0x7300, right = left + (PICTURE_WIDTH << 4), bottom = top + (416 << 4);
+    const uint64_t tex0 = (uint64_t)(PICTURE_BLOCK) | (uint64_t)PICTURE_WIDTH_UNITS << 14
+                          | 9ull << 26 | 9ull << 30 | 1ull << 35;
+    const uint64_t left = 0x7000, top = 0x7300, right = left + (PICTURE_WIDTH << 4),
+                   bottom = top + (416 << 4);
     func_002FC560(REG_TEX0_1, tex0);
     func_002FC560(REG_TEX1_1, 0x60);
     func_002FC560(REG_PRIM, 0x116);

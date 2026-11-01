@@ -50,8 +50,10 @@ int func_00132DF0(int command_arg, int bytes, int data_arg, long long callback, 
          * in, the game writes past the table) until its callback is told the handle. Setting a
          * sound's parameters answers with the handle it was given. */
         if (callback != 0) {
-            const int answer = command == OPENRAC_SND_PLAY_VOL_PAN_PMPB ? handle : (int)GREF(uint32_t, data);
-            GFN(void (*)(int, long long), (gaddr)callback)(answer, (long long)(unsigned int)callback_data);
+            const int answer =
+                command == OPENRAC_SND_PLAY_VOL_PAN_PMPB ? handle : (int)GREF(uint32_t, data);
+            GFN(void (*)(int, long long),
+                (gaddr)callback)(answer, (long long)(unsigned int)callback_data);
         }
         return 1;
     }
@@ -87,12 +89,26 @@ int func_001326D8(int bank) {
  * paused until snd_ContinueVAGStream, 4 loop. The location is all the common stream player needs;
  * the callback is told the handle, as the IOP's answer would, and the game's wait for a buffered
  * stream (func_002E6D88) ends through snd_IsVAGStreamBuffered_CB. */
-int func_00133350(int first, int next, int a2, int a3, int volume, int pan, int group, int queue_on, int a8,
-                  int flags, int callback, long long argument) {
+int func_00133350(
+    int first,
+    int next,
+    int a2,
+    int a3,
+    int volume,
+    int pan,
+    int group,
+    int queue_on,
+    int a8,
+    int flags,
+    int callback,
+    long long argument
+) {
     (void)a2;
     (void)a3;
     (void)a8;
     (void)next;
-    openrac_lib_snd_PlayVAGStreamByLocEx_CB(first, 0, 0, 0, volume, pan, group, queue_on, flags, callback, argument);
+    openrac_lib_snd_PlayVAGStreamByLocEx_CB(
+        first, 0, 0, 0, volume, pan, group, queue_on, flags, callback, argument
+    );
     return 0;
 }

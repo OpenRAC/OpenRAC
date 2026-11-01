@@ -8,10 +8,10 @@
  * The port owns the thread, the stack and the memory, and the loader has
  * zeroed .bss, so only the user-mode steps are kept here.
  */
-#include "openrac/game_host.h"
 #include <stdint.h>
 #include <string.h>
 
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 
 void func_0011F828(void);

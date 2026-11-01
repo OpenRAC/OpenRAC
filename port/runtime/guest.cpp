@@ -945,7 +945,9 @@ int openrac_guest_write_reach(const char* path, const char* game, long frames) {
         for (const auto& [address, calls] : g_unknown_calls) {
             std::fputs(first ? "\n  {\"name\": " : ",\n  {\"name\": ", f);
             first = false;
-            std::fprintf(f, "\"0x%08X\", \"kind\": \"unknown-call\", \"calls\": %d}", address, calls);
+            std::fprintf(
+                f, "\"0x%08X\", \"kind\": \"unknown-call\", \"calls\": %d}", address, calls
+            );
         }
     }
     // Accesses to memory that is not there (OPENRAC_SOFT_FAULTS).
@@ -1277,8 +1279,8 @@ std::pair<std::uint32_t, std::uint32_t> piece_bytes(WordReader reader, int progr
 // stores; the targets of j and jal), for comparing the same code in two programs.
 std::uint32_t without_addresses(std::uint32_t w) {
     const std::uint32_t op = w >> 26;
-    if (op == 0x0F || op == 0x09 || op == 0x0D || op == 0x19 || (op >= 0x20 && op <= 0x2F) || op == 0x31
-        || op == 0x39 || op == 0x37 || op == 0x3F || op == 0x1E || op == 0x1F) {
+    if (op == 0x0F || op == 0x09 || op == 0x0D || op == 0x19 || (op >= 0x20 && op <= 0x2F)
+        || op == 0x31 || op == 0x39 || op == 0x37 || op == 0x3F || op == 0x1E || op == 0x1F) {
         return w & 0xFFFF0000u;
     }
     if (op == 0x02 || op == 0x03) {
@@ -1292,10 +1294,17 @@ std::uint32_t without_addresses(std::uint32_t w) {
 // programs are linked from the same objects, so that is its copy. Going Commando's two callback lists
 // (func_0027CE18 and its twin) are in every level and in no row of the catalogue, and search_pair
 // finds each twice. Without this their tables stayed at the executable's address, over level data.
-void pair_neighbours(WordReader reference, int program, const Functions& own,
-                     const std::unordered_map<openrac_host_fn, std::vector<gaddr>>& copies, gaddr low, gaddr high,
-                     bool skip_same_place, std::unordered_map<gaddr, gaddr>& code,
-                     std::map<gaddr, std::int32_t>& out) {
+void pair_neighbours(
+    WordReader reference,
+    int program,
+    const Functions& own,
+    const std::unordered_map<openrac_host_fn, std::vector<gaddr>>& copies,
+    gaddr low,
+    gaddr high,
+    bool skip_same_place,
+    std::unordered_map<gaddr, gaddr>& code,
+    std::map<gaddr, std::int32_t>& out
+) {
     gaddr from = 0, to = 0;
     for (std::size_t k = 0; k < own.size(); ++k) {
         const gaddr at = own[k].first;
@@ -1316,7 +1325,8 @@ void pair_neighbours(WordReader reference, int program, const Functions& own,
         }
         bool same = true;
         for (std::uint32_t i = 0; i < size && same; i += 4) {
-            same = without_addresses(reference(program, at + i)) == without_addresses(game_word(place + i));
+            same = without_addresses(reference(program, at + i))
+                   == without_addresses(game_word(place + i));
         }
         if (!same) {
             continue;
@@ -1488,7 +1498,17 @@ LevelMap& level_pair_map(int from, int loaded) {
         copies[entry.fn].push_back(address);
     }
     std::map<gaddr, std::int32_t> pairs;
-    pair_programs(level_reader, from, own, std::move(copies), g_level_low, g_level_high, false, map.code, pairs);
+    pair_programs(
+        level_reader,
+        from,
+        own,
+        std::move(copies),
+        g_level_low,
+        g_level_high,
+        false,
+        map.code,
+        pairs
+    );
     map.data.assign(pairs.begin(), pairs.end());
     info("level program {} for level {}'s functions: {} functions and {} global addresses relocated",
          loaded, from, map.code.size(), map.data.size());
@@ -1740,7 +1760,8 @@ void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes
 
 gaddr openrac_relocate_level_data(int from, gaddr address) {
     const int overlay = current_overlay();
-    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE || address - g_level_low >= g_level_high - g_level_low) {
+    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE
+        || address - g_level_low >= g_level_high - g_level_low) {
         return address;
     }
     thread_local AnswerCache<int, int, gaddr> answers;

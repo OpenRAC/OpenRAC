@@ -104,6 +104,7 @@ OPENRAC_EE_INLINE void openrac_ee_sh(openrac_u32 a, openrac_u64 v) {
 OPENRAC_EE_INLINE void openrac_ee_sw(openrac_u32 a, openrac_u64 v) {
     *(OPENRAC_EE_MEM openrac_u32 *)OPENRAC_EE_PTR(a & ~3u) = (openrac_u32)v;
 }
+
 /* A word store of a hand-written kernel that starts DMA by writing the channel's registers
  * (hostgen.json's asm.dma_stores); the game's host C defines it. */
 void openrac_ee_sw_dma(openrac_u32 a, openrac_u64 v);

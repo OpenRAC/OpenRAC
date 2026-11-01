@@ -23,12 +23,36 @@ void func_00298E08(void);
  * program on the disc. */
 #define LEVELS 31
 static const char* const level_names[LEVELS] = {
-    "Aranos (tutorial)", "Oozla",        "Maktar Nebula", "Endako",          "Barlow",
-    "Feltzin System",    "Notak",        "Siberius",      "Tabora",          "Dobbo",
-    "Hrugis Cloud",      "Joba",         "Todano",        "Boldan",          "Aranos Prison",
-    "Gorn",              "Snivelak",     "Smolg",         "Damosel",         "Grelbin",
-    "Yeedil",            NULL,           "Dobbo Orbit",   "Damosel Orbit",   "Ship Shack",
-    "Wupash Nebula",     "Jamming Array", NULL,           NULL,              NULL,
+    "Aranos (tutorial)",
+    "Oozla",
+    "Maktar Nebula",
+    "Endako",
+    "Barlow",
+    "Feltzin System",
+    "Notak",
+    "Siberius",
+    "Tabora",
+    "Dobbo",
+    "Hrugis Cloud",
+    "Joba",
+    "Todano",
+    "Boldan",
+    "Aranos Prison",
+    "Gorn",
+    "Snivelak",
+    "Smolg",
+    "Damosel",
+    "Grelbin",
+    "Yeedil",
+    NULL,
+    "Dobbo Orbit",
+    "Damosel Orbit",
+    "Ship Shack",
+    "Wupash Nebula",
+    "Jamming Array",
+    NULL,
+    NULL,
+    NULL,
     "Insomniac Museum",
 };
 
@@ -39,9 +63,11 @@ static const char* const level_names[LEVELS] = {
 #define STATE_SCENE 2
 
 /* An item's record, of the loaded program. */
-#define ITEM(id) (OPENRAC_DATA(RAC2_g_weaponTable) + ITEM_SIZE * GREF(uint8_t, RAC2_g_itemEquippedSlot + (unsigned)(id)))
-#define ITEM_WEAPON(r) GREF(int32_t, (r) + 0x00u)  /* set for a weapon, whatever else it is */
-#define ITEM_KIND(r) GREF(int32_t, (r) + 0x0Cu)    /* 1 to 4 a gadget's or an item's group, -1 none */
+#define ITEM(id)                                                                                   \
+    (OPENRAC_DATA(RAC2_g_weaponTable)                                                              \
+     + ITEM_SIZE * GREF(uint8_t, RAC2_g_itemEquippedSlot + (unsigned)(id)))
+#define ITEM_WEAPON(r) GREF(int32_t, (r) + 0x00u) /* set for a weapon, whatever else it is */
+#define ITEM_KIND(r) GREF(int32_t, (r) + 0x0Cu) /* 1 to 4 a gadget's or an item's group, -1 none */
 #define ITEM_AMMO_PRICE(r) GREF(uint16_t, (r) + 0x88u)
 #define ITEM_AMMO_FULL(r) GREF(uint16_t, (r) + 0x8Eu)
 
@@ -245,13 +271,15 @@ static int end_scene(void) {
 }
 
 static int state_json(char* out, int size) {
-    int at = snprintf(out,
-                      (size_t)size,
-                      "\"bolts\":%d,\"health\":%d,\"game_state\":%d,\"progress_level\":%d,\"owned\":[",
-                      (int)GREF(int32_t, RAC2_g_boltCount),
-                      (int)GREF(int32_t, RAC2_g_health),
-                      game_state(),
-                      (int)GREF(int32_t, RAC2_g_playerProgress));
+    int at = snprintf(
+        out,
+        (size_t)size,
+        "\"bolts\":%d,\"health\":%d,\"game_state\":%d,\"progress_level\":%d,\"owned\":[",
+        (int)GREF(int32_t, RAC2_g_boltCount),
+        (int)GREF(int32_t, RAC2_g_health),
+        game_state(),
+        (int)GREF(int32_t, RAC2_g_playerProgress)
+    );
     int first = 1;
     for (int id = 1; id < ITEMS && at < size - 16; ++id) {
         if (GREF(uint8_t, RAC2_g_inventoryOwned + (unsigned)id) != 0) {
@@ -264,7 +292,8 @@ static int state_json(char* out, int size) {
     for (int id = 1; id < ITEMS && at < size - 24; ++id) {
         const int ammo = GREF(int32_t, RAC2_g_weaponAmmo + 4u * (unsigned)id);
         if (ammo != 0) {
-            at += snprintf(out + at, (size_t)(size - at), "%s\"%d\":%d", first ? "" : ",", id, ammo);
+            at +=
+                snprintf(out + at, (size_t)(size - at), "%s\"%d\":%d", first ? "" : ",", id, ammo);
             first = 0;
         }
     }

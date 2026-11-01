@@ -38,7 +38,12 @@ void openrac_ee_sw_dma(openrac_u32 address, openrac_u64 value) {
 
         if (!warned) {
             warned = 1;
-            fprintf(stderr, "[warning] DMA channel at %08X started in mode %u: not transferred\n", address, MODE(chcr));
+            fprintf(
+                stderr,
+                "[warning] DMA channel at %08X started in mode %u: not transferred\n",
+                address,
+                MODE(chcr)
+            );
         }
     } else {
         const uint32_t madr = GREF(volatile uint32_t, MADR(address));

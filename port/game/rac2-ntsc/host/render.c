@@ -38,7 +38,9 @@
 /* The matrix a sky shell is drawn with (func_002E3548 builds it). */
 #define SKY_MATRIX 0x001B20F0u
 
-enum { NOP_REGISTER = 0x7F };
+enum {
+    NOP_REGISTER = 0x7F
+};
 
 /* A marker in the display list: the A+D write of `value` to the chip's NOP register. The chip ignores
  * it; the window reads its top 16 bits (renderer::GifInterpreter's kMobyMarker and kWorldMarker). */
@@ -113,8 +115,10 @@ static void mark_drawn_mobys(gaddr first, int count) {
             float sphere[4];
             memcpy(sphere, b, sizeof(sphere));
             const float r = sphere[3] / 1024.0f;
-            const float d[3] = {sphere[0] / 1024.0f - eye[0], sphere[1] / 1024.0f - eye[1],
-                                sphere[2] / 1024.0f - eye[2]};
+            const float d[3] =
+                {sphere[0] / 1024.0f - eye[0],
+                 sphere[1] / 1024.0f - eye[1],
+                 sphere[2] / 1024.0f - eye[2]};
             int distance = *(int16_t*)(b + 0x32);
             if (distance > max_distance) {
                 distance = max_distance;
@@ -193,20 +197,15 @@ void func_002E2C38(gaddr a0) {
     (void)a0;
 }
 
-void func_002F3E78(void) {
-}
+void func_002F3E78(void) {}
 
-void func_002EF310(void) {
-}
+void func_002EF310(void) {}
 
-void func_002F0E38(void) {
-}
+void func_002F0E38(void) {}
 
-void func_002E10B8(void) {
-}
+void func_002E10B8(void) {}
 
-void func_0029FEE0(void) {
-}
+void func_0029FEE0(void) {}
 
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
     return openrac_effect_texture(
@@ -229,7 +228,8 @@ static void world_quad(gaddr a0, gaddr a1) {
         float m[16];
         memcpy(m, G(a1), sizeof(m));
         for (int k = 0; k < 4; ++k) {
-            const float x = q.corner[k][0], y = q.corner[k][1], z = q.corner[k][2], w = q.corner[k][3];
+            const float x = q.corner[k][0], y = q.corner[k][1], z = q.corner[k][2],
+                        w = q.corner[k][3];
             for (int i = 0; i < 4; ++i) {
                 q.corner[k][i] = x * m[i] + y * m[4 + i] + z * m[8 + i] + w * m[12 + i];
             }

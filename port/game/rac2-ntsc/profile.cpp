@@ -63,15 +63,15 @@ const Addresses kLevels[31] = {
     {0x001B99F0, 0x001BDCC0, 0x001B2820, 0x001B2824},  // 18
     {0x001B9C70, 0x001BDF40, 0x001B2A20, 0x001B2A24},  // 19
     {0x001BA1F0, 0x001BE4C0, 0x001B2FA0, 0x001B2FA4},  // 20
-    {},  // 21: no level
+    {},                                                // 21: no level
     {0x001B9EB0, 0x001BE180, 0x001B2120, 0x001B2124},  // 22
     {0x001BA870, 0x001BEB40, 0x001B27A0, 0x001B27A4},  // 23
     {0x001B88F0, 0x001BCBC0, 0x001B17A0, 0x001B17A4},  // 24
     {0x001B9430, 0x001BD700, 0x001B20A0, 0x001B20A4},  // 25
     {0x001B8DB0, 0x001BD080, 0x001B1C20, 0x001B1C24},  // 26
-    {},  // 27: no level
-    {},  // 28: no level
-    {},  // 29: no level
+    {},                                                // 27: no level
+    {},                                                // 28: no level
+    {},                                                // 29: no level
     {0x001B9FF0, 0x001BE2C0, 0x001B2D20, 0x001B2D24},  // 30
 };
 
@@ -115,18 +115,32 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
             live.world_sphere[i] = sphere[i] / 1024.0f;
         }
     }
-    const renderer::Vec3 r0 = vec3(ram, m + 0xC0), r1 = vec3(ram, m + 0xD0), r2 = vec3(ram, m + 0xE0);
+    const renderer::Vec3 r0 = vec3(ram, m + 0xC0), r1 = vec3(ram, m + 0xD0),
+                         r2 = vec3(ram, m + 0xE0);
     const auto usable = [](const renderer::Vec3& r) {
         return std::isfinite(r[0]) && std::isfinite(r[1]) && std::isfinite(r[2])
-            && r[0] * r[0] + r[1] * r[1] + r[2] * r[2] > 1.0e-6f;
+               && r[0] * r[0] + r[1] * r[1] + r[2] * r[2] > 1.0e-6f;
     };
     if (!usable(r0) || !usable(r1) || !usable(r2)) {
         return std::nullopt;  // Not built since it was made: nothing to place it by.
     }
-    live.matrix = {r0[0] * scale, r0[1] * scale, r0[2] * scale, 0,
-                   r1[0] * scale, r1[1] * scale, r1[2] * scale, 0,
-                   r2[0] * scale, r2[1] * scale, r2[2] * scale, 0,
-                   pos[0], pos[1], pos[2], 1};
+    live.matrix =
+        {r0[0] * scale,
+         r0[1] * scale,
+         r0[2] * scale,
+         0,
+         r1[0] * scale,
+         r1[1] * scale,
+         r1[2] * scale,
+         0,
+         r2[0] * scale,
+         r2[1] * scale,
+         r2[2] * scale,
+         0,
+         pos[0],
+         pos[1],
+         pos[2],
+         1};
     return live;
 }
 
@@ -153,7 +167,8 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
     }
     for (int c = 0; c < 3; ++c) {
         s.fog_colour[c] =
-            static_cast<float>(at<std::uint32_t>(ram, a.view_context + 0x230 + 4 * c) & 0xFF) / 255.0f;
+            static_cast<float>(at<std::uint32_t>(ram, a.view_context + 0x230 + 4 * c) & 0xFF)
+            / 255.0f;
     }
     s.fog_near = at<float>(ram, a.view_context + 0x218);
     s.fog_far = at<float>(ram, a.view_context + 0x21C);
@@ -162,7 +177,8 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
     std::array<float, 3> background{};
     for (int c = 0; c < 3; ++c) {
         background[c] =
-            static_cast<float>(at<std::uint32_t>(ram, a.view_context + 0x23C + 4 * c) & 0xFF) / 255.0f;
+            static_cast<float>(at<std::uint32_t>(ram, a.view_context + 0x23C + 4 * c) & 0xFF)
+            / 255.0f;
     }
     s.background_colour = background;
 
@@ -170,7 +186,8 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
     // where the spawned ones begin, as in Ratchet & Clank.
     const auto ram_size = static_cast<std::uint32_t>(ram.size());
     auto first = openrac_guest_ram_address_for_size(at<std::uint32_t>(ram, a.moby_first), ram_size);
-    const auto end = openrac_guest_ram_address_for_size(at<std::uint32_t>(ram, a.moby_end), ram_size);
+    const auto end =
+        openrac_guest_ram_address_for_size(at<std::uint32_t>(ram, a.moby_end), ram_size);
     const auto start =
         openrac_guest_ram_address_for_size(at<std::uint32_t>(ram, a.moby_first - 4), ram_size);
     if (start != 0 && start < first && (first - start) % 0x100 == 0) {

@@ -527,19 +527,20 @@ bool load_level(
     if (format != kManifestFormat && format != kManifestFormatNewest) {
         // Newer levels than the game: the game is the old part, and reading the levels again
         // would not help.
-        error = format > kManifestFormatNewest ? std::format(
-                                                     "{}: manifest format {}, newer than this game "
-                                                     "reads ({}): build the game again",
-                                                     dir.string(),
-                                                     format,
-                                                     kManifestFormatNewest
-                                                 )
-                                               : std::format(
-                                                     "{}: manifest format {} (this viewer reads {})",
-                                                     dir.string(),
-                                                     format,
-                                                     kManifestFormatNewest
-                                                 );
+        error = format > kManifestFormatNewest
+                    ? std::format(
+                          "{}: manifest format {}, newer than this game "
+                          "reads ({}): build the game again",
+                          dir.string(),
+                          format,
+                          kManifestFormatNewest
+                      )
+                    : std::format(
+                          "{}: manifest format {} (this viewer reads {})",
+                          dir.string(),
+                          format,
+                          kManifestFormatNewest
+                      );
         return false;
     }
     out.level = static_cast<int>(manifest["level"].number(-1));

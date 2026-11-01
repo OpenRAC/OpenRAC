@@ -14,12 +14,14 @@
 
 #include "openrac/guest.h"
 
-static inline uint32_t openrac_effect_texture(uint64_t tex0, int count, gaddr records, uint32_t* pixels,
-                                              uint32_t* clut) {
+static inline uint32_t openrac_effect_texture(
+    uint64_t tex0, int count, gaddr records, uint32_t* pixels, uint32_t* clut
+) {
     static struct {
         uint64_t tex0;
         uint32_t pixels, clut;
     } known[256];
+
     static int next = 0;
     const uint32_t tbp = (uint32_t)(tex0 & 0x3FFF);
     const uint32_t cbp = (uint32_t)((tex0 >> 37) & 0x3FFF);

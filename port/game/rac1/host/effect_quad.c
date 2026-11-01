@@ -8,7 +8,11 @@
 
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
     return openrac_effect_texture(
-        tex0, GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F558u))), OPENRAC_DATA(RAC1_ADDR(0x0018D140u)), pixels, clut
+        tex0,
+        GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F558u))),
+        OPENRAC_DATA(RAC1_ADDR(0x0018D140u)),
+        pixels,
+        clut
     );
 }
 
