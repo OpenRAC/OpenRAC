@@ -197,6 +197,11 @@ uint32_t rac1_program_loads(void) {
     return 1;
 }
 
+/* A new moby array comes with a load here (world.c reads the keys once one). */
+uint32_t rac1_moby_generation(void) {
+    return rac1_program_loads();
+}
+
 int rac1_scene_actor(gaddr moby) {
     (void)moby;
     return 0;
