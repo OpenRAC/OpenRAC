@@ -866,6 +866,13 @@ class Translator:
         elif self.unit._folded_places(sym):
             # One name for several places (folded by the catalogue): the place this call goes to.
             callee = f"GFN({fn_type}, {self._code_literal(target)})"
+        elif self.gp_addresses and (variant := self.unit._variant_call(sym)) is not None:
+            # Code several levels carry, calling a function only some of them list: what this copy's
+            # own call reaches (func_L04_00419918 in level 11 calls its own twin of func_L04_0043ABE0,
+            # whose level 4 addresses are over the allocator there).
+            home, start, size, own = variant
+            self.unit.fn.uses_self = True
+            callee = f"GFN({fn_type}, openrac_call_in_copy({home}, {hx(start)}, {size}u, openrac_self_, {hx(own)}))"
         else:
             callee = cname(sym)
         if self.forward_unprototyped and not f.sig.prototyped:
