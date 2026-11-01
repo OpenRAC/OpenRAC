@@ -1229,7 +1229,12 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
             continue;
         }
         if (ae - low < high - low) {
-            out.emplace(ae, static_cast<std::int32_t>(al - ae));
+            const auto delta = static_cast<std::int32_t>(al - ae);
+            const auto [pair, added] = out.emplace(ae, delta);
+            // OPENRAC_TRACE_RELOCATION: two functions the catalogue calls copies disagree on a global.
+            if (!added && pair->second != delta && openrac::env::flag(openrac::env::Var::TraceRelocation)) {
+                warn("{:#x} pairs to {:#x} and to {:#x} (at {:#x})", ae, ae + pair->second, al, level + i);
+            }
         }
     }
 }

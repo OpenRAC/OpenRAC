@@ -1955,6 +1955,13 @@ class Unit:
                 home, canon, size = copies
                 self.fn.uses_self = True
                 addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+            elif (level is not None and low <= address < high and (size := self._small_copy_size()) is not None):
+                # A leaf the catalogue fingerprints without its operands may be another field in
+                # another level (Going Commando's func_L00_00367720 reads word 15 of the ship
+                # mission in level 0 and word 9 in level 25): what the running copy forms itself.
+                self.fn.uses_self = True
+                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
+                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
                 addr = f"OPENRAC_LDATA({level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
@@ -1996,6 +2003,12 @@ class Unit:
         canon = next(a for o, a in caller if o == home)
         own = next(a for o, a in callee if o == home)
         return home, canon, getattr(self.program, "sizes", {}).get(fn.code) or 0x400, own
+
+    def _small_copy_size(self) -> int | None:
+        """This function's size, when hostgen.json's "small_copies_own_data" covers it."""
+        limit = getattr(self.program, "small_copies_own_data", 0)
+        size = getattr(self.program, "sizes", {}).get(self.fn.code) if self.fn is not None else None
+        return size if size and size <= limit else None
 
     def _copies_in_one_program(self) -> tuple[int, int, int] | None:
         """For a level function the catalogue places more than once in one program (the same code
