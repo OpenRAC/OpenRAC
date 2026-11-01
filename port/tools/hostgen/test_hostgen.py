@@ -3296,6 +3296,12 @@ class CandidateNames(unittest.TestCase):
         self.assertIn("#define SDATA(s) __asm__(#s)", text)
         self.assertIn('extern float D_00123456_hc1 __asm__("D_00123456");', text)
 
+    def test_a_gp_view_with_its_own_name_keeps_the_global(self):
+        text = prep.own_declarations("extern float view SDATA(D_00123456);\nextern int a[] SDATA(D_00123460);\n", "_hc1")
+        self.assertIn('view __asm__("D_00123456")', text)
+        self.assertIn('a[] __asm__("D_00123460")', text)
+        self.assertNotIn("SDATA", text)
+
     def test_an_assembler_name_goes_before_attributes(self):
         import prep
         text = prep.own_declarations("extern int D_00123456;\nextern int D_00123456 __attribute__((sda));\n", "_hc1")

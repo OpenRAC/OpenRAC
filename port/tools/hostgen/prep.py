@@ -525,8 +525,15 @@ def own_declarations(text: str, tag: str) -> str:
     symbol for hostgen, a separate declaration for Clang. Names the candidate
     defines keep theirs."""
     # An assembler name after the symbol's first use is an error, and a host has no small data.
+    # `T x SDATA(D_...)` under a name of its own keeps the global through the assembler name
+    # (func_L06_00403130's `baselineGP SDATA(D_L06_001B3284)`).
     text = split_declarators(re.sub(r"^(?![ \t]*#).*\bSDATA\(\w+\).*$",
-                                    lambda m: re.sub(r"[ \t]+SDATA\(\w+\)", "", m.group(0)), text, flags=re.M))
+                                    lambda m: re.sub(r"(?<=\b)(?P<n>\w+)(?P<d>(?:\[[^\]]*\])*)[ \t]+SDATA\((\w+)\)",
+                                                     lambda k: k.group("n") + k.group("d") + (
+                                                         "" if k.group("n") == k.group(3)
+                                                         else f' __asm__("{k.group(3)}")'),
+                                                     m.group(0)),
+                                    text, flags=re.M))
     defined = set(_DEFINED.findall(text))
     names = []
     for m in _GAME_DECL.finditer(text):
