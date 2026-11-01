@@ -97,6 +97,7 @@ if(OPENRAC_VULKAN)
     renderer/vulkan/vkgl_device.cpp
     renderer/vulkan/vkgl_draw.cpp
     renderer/vulkan/vkgl_gl.cpp
+    renderer/vulkan/gl_program.cpp
     renderer/vulkan/vkgl_pipelines.cpp
     renderer/vulkan/vkgl_present.cpp
     renderer/vulkan/vkgl_resources.cpp
@@ -116,6 +117,8 @@ if(OPENRAC_VULKAN)
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_device.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_draw.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_gl.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gl_program.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gl_program.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_internal.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_pipelines.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_present.cpp"

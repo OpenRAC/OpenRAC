@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Included by vkgl_gl.cpp after its shader/uniform entry points. Vulkan image blits cannot
-// populate multisampled targets; a fullscreen draw broadcasts a single-sample source instead.
+// Included by vkgl_gl.cpp, using the private gl_program.h shader/uniform entry points.
+// A fullscreen draw broadcasts a single-sample source into every sample of the target.
 
 // Restores the caller's complete GL state even if shader creation or recording fails.
 class BlitState {
