@@ -68,3 +68,70 @@ func_L00_00316F60	0x00316F60	function	Moby joint pose build; walks the lists at 
 func_L01_002BE0E0	0x002BE0E0	function	Hero per-frame timers; ends with four timer records of 112 bytes from 0x0025CF60 (level 1)	UpdateHeroTimers	watchpoint on 0x25CFD0 hit func_00282948 from it	proven	P11
 func_0027BD70	0x0027BD70	function	The frame's draw pass, ordered by the mask at 0x001B1594	DrawFrame	read in src/game/0027BD70-g8.c	read	P11
 func_0027D020	0x0027D020	function	Runs the draw callback list at 0x001BA040, count at 0x001B160C	RunDrawCallbacks	C, crash stacks	read	P11
+func_002B49E0	0x002B49E0	function	Request a game state (a0 state, a1 mode 1 push 2 replace, a2 argument, a3 screen)	RequestGameState	C read; traced: 3 pause, 4 dialog, 5 vendor, 6 program load	proven	P10
+func_002B4B70	0x002B4B70	function	Pop the game-state stack	PopGameState	traced closing the pause menu	proven	P10
+func_L00_0036F488	0x0036F488	function	Play-state tick (level 0 place): pause, map, quick select requests, then the world update	PlayStateTick	retail read at 36F6A0, Start and Select traced	proven	P10
+func_002D5B58	0x002D5B58	function	Menu action by type: 3 next screen, 4 and 5 card pages, 6 to 11 transitions	MenuDoAction	traced type 3 with a screen address	proven	P10
+func_002D5E70	0x002D5E70	function	Menu entry's action: type at +2, value at +4; passes the result on	MenuEntryAction	stale $v0 closed the pause menu when void	proven	P10
+func_002CB8A0	0x002CB8A0	function	Pause list: entry 0 to 6 to its action through the sda entries	PauseListSelect	traced	proven	P10
+func_002CD0E8	0x002CD0E8	function	Pause list update	PauseListUpdate	in the Cross backtrace	proven	P10
+func_002CA8A8	0x002CA8A8	function	Pause menu tick, a switch on the block's mode	PauseMenuTick	traced	proven	P10
+func_002CAB00	0x002CAB00	function	Screen tick: open, update, close widgets, then install the destination	MenuScreenTick	C read and traced	proven	P10
+func_002CADB0	0x002CADB0	function	Menu exit: pops or requests the next state by mode	MenuExit	traced	proven	P10
+func_002CBC58	0x002CBC58	function	Draws a screen's widgets; four draws go through a render target	RenderMenuScreenWidgets	literal addresses in functional C put a picture at 0,0 in levels	proven	P10
+func_002CD950	0x002CD950	function	Help topic list update; level 0's copy is func_L00_00346DB0	HelpTopicUpdate	Cross opens topics after the name fix	proven	P10
+func_002DCB58	0x002DCB58	function	Save page update	SavePageUpdate	C read; slot, overwrite prompt screen D_0025E870	proven	P10
+func_002DA9A8	0x002DA9A8	function	Save and load picture panel draw	MenuPicturePanelDraw	C read	read	P10
+func_002DC900	0x002DC900	function	Slot's planet line; real entry 0x002DC908	SavePlanetLineDraw	widget 0x25DC98 calls 0x2DC908; planet line drew after it was registered	proven	P10
+func_002DDA10	0x002DDA10	function	Save page's slot rows: time, bolts, date or EMPTY	SaveSlotRowsDraw	translation read	read	P10
+func_002DB988	0x002DB998	function	Galactic Map widget function: real entry 0x002DB998, called from data	GalacticMapOpen	call to 0x2DB998 unmapped (level 3 at 0x3564D0); purpose from the page it belongs to	guess	P10
+func_0029B3E0	0x0029B3E0	function	Save to memory card: stamps, packs both tables	MemcardSave	C read; saves written and loaded	proven	P10
+func_0029ADA0	0x0029ADA0	function	Packs the whole save: header sizes, global table, 28 per-level records	SavePack	C read; save header word differed when its table was wrong	proven	P10
+func_00298D28	0x00298D28	function	Unpacks a loaded save; a size mismatch fails the load	SaveUnpack	"Load failed" traced to it	proven	P10
+func_0029AF98	0x0029AF98	function	Writes one table of blocks into the save packet	SaveWriteBlocks	C read	read	P10
+func_0029B168	0x0029B168	function	Restores one table from a save packet, checking sizes	SaveRestoreBlocks	C read	read	P10
+func_0029AEB0	0x0029AEB0	function	Save packet checksum (CRC)	SaveChecksum	C read	read	P10
+func_00294988	0x00294988	function	Loads an item's bank into one of three cache slots at 0x152CD0	LoadItemBank	traced on a hero update	proven	P10
+func_002E5A50	0x002E5A50	function	Finds a free voice row: limit 52 for the hero, else 42; returns 52 when full	FindFreeVoiceSlot	retail read; 41 rows busy in level 3	proven	P10
+func_002E5F60	0x002E5F60	function	Runs the list of callbacks at 0x189D90 each play frame	RunSoundCallbacks	crash site	proven	P10
+func_002E4AC8	0x002E4AC8	function	Voice tick: volumes, distance, stop, status poll	SoundVoicesTick	C read	read	P10
+func_002E59F8	0x002E59F8	function	Asks a voice row to stop	StopVoiceSlot	C read	read	P10
+func_00286738	0x00286738	function	Game state 4's dialogs, switched on the dialog's mode	ModalDialogTick	traced: level card, Load failed	proven	P10
+func_00290B48	0x00290B48	function	Plans level memory from the program's end	InitMemSlots	its use of the executable's end put assets on level code	proven	P10
+func_00294F10	0x00294F10	function	Level start step that writes the callback list	LevelStartSetup	watch showed it writing 0x189D90 at load	read	P10
+func_00131CB8	0x00131CB8	function	ParseBin; Quit Game's disc copy of the boot program has its loop at 0x0026AD20	ParseBin	Quit Game traced	proven	P10
+D_00188660	0x00188660	data	Sound state: header 0x70, 52 voice rows of 0x70, callback list right after	g_soundState	C read, dump	proven	P10
+D_00189D90	0x00189D90	data	Callback list count, then its table pointer; right after voice row 51	g_soundCallbackCount	overwritten by row 52	proven	P10
+voice row +0x70	0x00188660	field	Voice handle; -1 none; +0x74 state byte, +0x88 moby	voice.handle	dump, C read	proven	P10
+D_001F2840	0x001F2840	data	Menu block: +0 mode, +0x14 current screen, +0x18 next screen, +0x1C status, +0xE4	g_menuScreenBlock	OPENRAC_WATCH on it	proven	P10
+screen +0xE8	0x0025DA38	field	Menu screen: +0xE0 back screen, +0xE8 focus widget, +0xEC 14 widgets, +0x128 next focus	screen.focus	C read, dumps	proven	P10
+widget record	0x0025DCF0	field	Menu widget: +0 update, +4 draw, +8 open, +0xC close, +0x10 flags (8: no render target)	MenuWidget	dumps; C read	read	P10
+D_0025DA38	0x0025DA38	data	Pause Save screen	g_MenuScreen_PauseSave	screen 2647160 in level 0, Save opens	proven	P10
+D_0025DB68	0x0025DB68	data	Pause Load screen	g_MenuScreen_PauseLoad	screen 2647464 in level 0, Load opens	proven	P10
+D_00260EE8	0x00260EE8	data	Front-end Save Game screen	g_MenuScreen_SaveGame	traced	proven	P10
+D_00260DB8	0x00260DB8	data	Front-end Load Game screen	g_MenuScreen_LoadGame	traced	proven	P10
+D_0025E870	0x0025E870	data	Overwrite prompt screen	g_MenuScreen_OverwriteSave	prompt shows; was unrelocated	proven	P10
+D_0025A868	0x0025A868	data	Pause Help screen	g_MenuScreen_Help	offset from level 0's 0x2832A8	read	P10
+D_00256368	0x00256368	data	Per-level save table: pointer, size, id	g_savePerLevelTable	save broken when reached through a fake base	proven	P10
+D_00256138	0x00256138	data	Global save table	g_saveGlobalTable	dump: 0x1A79F0 size 4 id 0, ...	proven	P10
+D_00355FBF	0x00355FBF	data	Program end + 0x3FFF, as the code forms it; a level's copy has its own	g_programEndRounded	retail 00290B7C area read	proven	P10
+D_00263B50	0x00263B50	data	Large font glyph table; D_00263EF0 small, D_00264290 third; each has a level copy	g_fontGlyphs	'A' for every glyph in levels before relocating	proven	P10
+D_00138180	0x00138180	data	Pad block: +0x1A4 pressed (0x800 Start, 0x500 quick select or map), +0x1C4 menu flags (0x40 Cross, 0x10 Triangle, 0x1000 Up, 0x4000 Down)	g_pad	C read and pressed	read	P10
+D_001A8BB0	0x001A8BB0	data	Game state: 0 play, 2 scene, 3 pause, 4 dialog, 5 vendor, 6 loading, +8 pending	g_nGameState	traced	proven	P10
+g_heroState 0x31	0x0018C0B4	field	Hero states blocking Start: 0x31 and 0x6F (111, held after a scene until about frame +260)	HERO_STATE_PAUSE_LOCK	retail read; Start at control+200 lost	proven	P10
+moby class 11	0x00390AB8	system	Vendor: needs hero within 4.0 and facing it; Triangle then state 5	Vendor	level 3 (300,245.23,125.5), bought items	proven	P10
+hero pose list	0x00316F60	system	func_L00_00316F60 walks a list from moby +0x54; hangs or faults in some levels	HeroPoseList	seen in level 1 and tour; cause open	guess	P10
+func_002E45C8	0x002E45C8	function	Distance to sound volume: lerp between a sound definition's +8 and +0xC volumes over its near/far range; returns int in v0, so C's `extern float F391de845_FUN_002E45C8` is wrong	snd_DistanceVolume	asm: returns lw 8/12(s0) in v0, called by func_002E46C0; before the signature fix volumes were 0 or 0x1b3a80 in OPENRAC_SOUND_LOG	proven	P13
+func_002E46C0	0x002E46C0	function	Volume of a voice at a position: distance to the listener (0x001B5340 copy) through func_002E45C8	snd_VoiceDistanceVolume	asm and func_002E10B8-voices caller	read	P13
+func_002E60A0	0x002E60A0	function	Play callback: stores the handle in the voice slot, state 1 to 2; handle 0 frees the slot	snd_OnVoicePlayed	C	read	P13
+func_002E60E8	0x002E60E8	function	Set-params and still-playing callback: stores the handle; 0 frees the slot, so an IOP answer of 0 is what releases a finished voice	snd_OnVoiceAnswer	C; port always answered the handle, slots stayed full	read	P13
+func_0027CFD0	0x0027CFD0	function	Adds (function, argument) to a list of 64 run later in the frame by func_002E6F48-like walker; level copy L00 0x002E6EF8; ref_L00_00370408_00 in the scene update is this	frame_DeferCall	asm of 0x002E6EF8	read	P13
+func_002EAB18	0x002EAB18	function	The flight's load (transition_load_wad): reads lump g_loadingSceneVariant from TOC +0x3E58 (base word +0x3E24), decompresses, GS upload, binds its sky through func_00291EC0, classes, textures	transition_load_wad	asm	read	P13
+func_002E8BA8	0x002E8BA8	function	Draws the flight: func_002E35E0's sky, its mobys, func_002ECB70 on the first actor, loading ring, fade	DrawSpaceFlightFrame	C	read	P13
+func_002E35E0	0x002E35E0	function	The flight's sky: shells of the bound sky with fixed rotation per shell, no level sky	DrawFlightSky	C	read	P13
+func_002EA8E8	0x002EA8E8	function	Draws a program load by g_exitSceneMode: 0, 3 func_0027C480; 1 the world (func_0027BD70, flags 127); 2 the flight	DrawLoadingFrame	C	read	P13
+g_exitSceneMode	0x00152C20	data	short: how a load is drawn, 2 the flight	-	func_002EA8E8	read	P13
+g_loadingSceneVariant	0x00152C2E	data	short: which of four flight lumps; func_002EAB18 indexes the TOC table with it	-	asm 0x002EAC34	read	P13
+toc_flights	0x00003E58	system	RC2.HDR +0x3E24 base sector, +0x3E58 four (sector, sectors) flight lumps: WAD with the header of rac1's transition lump (words 2-7, 0xC, 0x12)	-	asm plus exported 4 flights with sky	proven	P13
+snd_commands	0x00132DF0	system	989snd command numbers in this game: 6 unload, 8 resolve, 9 master, 0xB playback, 0xD mixer, 0x10 auto reverb, 0x11 play, 0x15 stop, 0x16 pause, 0x17 continue, 0x18 stop all, 0x19 still playing, 0x21 set params, 0x2C stream, 0x2D, 0x2E pause, continue stream, 0x32 time left, 0x34 stop streams, 0x37, 0x38 disc, 0x4E voice range, 0x4F buffered, 0x50, 0x51 reverb, 0x60 reverb settings	-	wrappers scanned in the executable	read	P13
+func_00133340	0x00133350	function	catalogue name differs from address, so a libraries.tsv row at 0x00133350 is not what C callers get; same for func_00132818, A58, AA0, 300, 3C0, 5E0	snd_PlayVAGStreamTwoParts_CB	config/boot/functions.tsv	read	P13
