@@ -6,6 +6,7 @@
 #include "enhanced/lighting/environment_floor_map.h"
 #include "enhanced/lighting/environment_placement.h"
 #include "enhanced/lighting/environment_placement_internal.h"
+#include "enhanced/lighting/room_distance_field.h"
 #include "enhanced/lighting/room_layout.h"
 #include "tests/check.h"
 
@@ -83,6 +84,34 @@ std::vector<GameplayTriangle> basin(BakeScene& source) {
     triangles.push_back({{Float3{0, 0, 0}, Float3{8, 0, 0}, Float3{8, 8, 0}}, true});
     triangles.push_back({{Float3{0, 0, 0}, Float3{8, 8, 0}, Float3{0, 8, 0}}, true});
     return triangles;
+}
+
+// Undirected medial edges must keep the same body clearance in either traversal direction.
+void test_body_path_is_bidirectional() {
+    BakeSettings settings;
+    BakeScene source;
+    quad(source, {-3, -3, 0}, {3, -3, 0}, {3, 3, 0}, {-3, 3, 0});
+    const Float3 a{0, 0, 0}, b{1, 0, 0};
+
+    {
+        Scene clear(source);
+
+        for (bool swimming : {false, true}) {
+            CHECK(room_body_path_clear(clear, a, b, settings, swimming));
+            CHECK(room_body_path_clear(clear, b, a, settings, swimming));
+        }
+    }
+
+    // A wall in the endpoint overlap is closer than ray_bias to the reverse ray's origin.
+    // It must block the undirected field edge, whichever end the skeleton traverses first.
+    const float wall = b[0] + .05f - settings.ray_bias * .5f;
+    quad(source, {wall, -2, 0}, {wall, 2, 0}, {wall, 2, 4}, {wall, -2, 4});
+    Scene blocked(source);
+
+    for (bool swimming : {false, true}) {
+        CHECK(!room_body_path_clear(blocked, a, b, settings, swimming));
+        CHECK(!room_body_path_clear(blocked, b, a, settings, swimming));
+    }
 }
 
 // Above-water and submerged reflection captures remain separate even with identical GI signatures.
@@ -298,6 +327,7 @@ void test_refined_waterline() {
 
 int main() {
     test_jumpable_platforms();
+    test_body_path_is_bidirectional();
     test_swimming_reflection_layers();
     test_only_authored_water_is_gameplay();
     test_wading_uses_the_basin_floor();
