@@ -1627,6 +1627,10 @@ class Unit:
         sym = self.program.aliases.get((self.unit, sym), sym)
         if (self.unit, sym) in self.program.statics:
             return sym
+        # hostgen.json "calls_as": a level's C names a routine its level has only as a variant of
+        # another name, which its own jal reaches (rac2: func_L04_002E04A8's func_L00_002B6BC8).
+        if self.fn is not None:
+            sym = getattr(self.program, "calls_as", {}).get(self.fn.code, {}).get(sym, sym)
         sym = self._level_short_name(sym)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:

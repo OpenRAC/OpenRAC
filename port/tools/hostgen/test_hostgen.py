@@ -2178,6 +2178,19 @@ class Places(unittest.TestCase):
             for addr in ("0x0024A080u", "0x0024A0A0u", "0x00262970u", "0x00262990u"):
                 self.assertIn(f"{{{addr}, (openrac_host_fn)func_L06_0024A080", text)
 
+    def test_calls_as_takes_a_levels_own_variant(self):
+        # hostgen.json "calls_as": the C says one name, the level's jal goes to another.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "void func_L00_002B6BC8(void) {}\nvoid func_L04_002DCE78(void) {}\n"
+                "void func_L04_002E04A8(void) { func_L00_002B6BC8(); }\n",
+                "func_L00_002B6BC8\tshared\t8\tfp\t1\t00:002B6BC8\n"
+                "func_L04_002DCE78\tshared\t8\tfp\t1\t04:002DCE78\n"
+                "func_L04_002E04A8\tlevel\t8\tfp\t1\t04:002E04A8\n",
+                {"calls_as": {"func_L04_002E04A8": {"func_L00_002B6BC8": "func_L04_002DCE78"}}})
+            text = "".join(f.read_text() for f in out.rglob("*.c"))
+            self.assertIn("func_L04_002DCE78();", text)
+
     def test_more_places_give_a_function_copies_the_catalogue_named_otherwise(self):
         # hostgen.json "more_places": rac2's Galactic Map list, 16 bytes into another row.
         with tempfile.TemporaryDirectory() as tmp:

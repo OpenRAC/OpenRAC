@@ -1018,6 +1018,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         program.places.setdefault(sym, []).extend(
             (int(level), int(address, 16)) for level, address in (item.split(":") for item in text.split(",")))
     program.splits_keep_names = bool(cfg.get("splits_keep_names"))
+    program.calls_as = cfg.get("calls_as", {})
     host_rows = host_table(args.game.parent, cfg)
     program.host = set(cfg.get("host_functions", [])) | set(host_rows)
     program.wrap = wrapped(args.game.parent, cfg)
