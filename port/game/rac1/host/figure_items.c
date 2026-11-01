@@ -40,19 +40,26 @@
  * (libraries.tsv): it notes which class each buffer holds, and before a buffer is decoded over, the
  * figures' pieces drawn from it go (the hero's own pieces are the game's). A figure's class not
  * loaded is decoded into the buffer the hero's hand item is not in, and only in play (never under a
- * menu, whose previews and vendor use the buffers), never over another figure's piece; a hand item
- * that cannot be had falls back to the wrench.
+ * menu, whose previews and vendor use the buffers), over another figure's piece only for a figure
+ * nearer the hero (figure_tracks.h); a hand item that cannot be had falls back to the wrench.
+ *
+ * So one weapon class besides the hero's. More buffers cannot be had: moby_class_resources takes any
+ * address, but a buffer must be in game memory, the heap has no 0x18000 to spare on every level
+ * (moby_pool.c: no room for a bigger pool on levels 5, 6 and 15), and only expanded levels have more
+ * memory than the disc's.
  *
  * Shots: figure_shots.c.
  *
  * OPENRAC_ITEMS_DEBUG=1 says on stderr what the hero holds, the pieces made, the classes decoded
  * for figures and the figures' shots.
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "figure_items.h"
+#include "figure_tracks.h"
 #include "openrac/host_env.h"
 #include "rac1.h"
 
@@ -70,6 +77,8 @@
 /* The class tables (executable data). */
 #define CLASS_RESOURCES OPENRAC_DATA(RAC1_ADDR(0x001B3580u))
 #define CLASS_SLOT_BY_ID OPENRAC_DATA(RAC1_ADDR(0x001B3E40u))
+#define CLASS_SLOTS 0x800
+#define CLASS_SLOT_NONE 0xFFu
 #define SWAP_IDS OPENRAC_DATA(RAC1_ADDR(0x001CBE40u))
 #define SWAP_COUNT OPENRAC_DATA(RAC1_ADDR(0x00160048u))
 #define DECODE_BUFFER OPENRAC_DATA(RAC1_ADDR(0x00160050u))
@@ -120,6 +129,9 @@ static Record records[RECORDS];
 /* The class each decode buffer holds, as noted by the wrapper (-1 not known), for the load. */
 static int32_t buffer_class[2] = {-1, -1};
 static uint32_t buffer_load = 0xFFFFFFFFu;
+/* The tick each was last decoded for a figure, to keep one from changing hands too often. */
+static uint32_t buffer_taken[2];
+static uint32_t ticks;
 
 int rac1_figure_items_debug(void) {
     static int on = -1;
@@ -283,8 +295,50 @@ void func_00205270(int class_id, int buffer_index) {
     }
 }
 
-/* Whether `oclass` can be drawn now, decoding it when it may be (above). */
-static int have_class(int32_t oclass) {
+static float distance_to_hero(gaddr moby) {
+    const gaddr hero = GREF(gaddr, HERO_MOBY);
+    float sum = 0.0f;
+    for (unsigned c = 0; c < 3; ++c) {
+        const float d = GREF(float, moby + MOBY_POS + 4u * c) - GREF(float, hero + MOBY_POS + 4u * c);
+        sum += d * d;
+    }
+    return sqrtf(sum);
+}
+
+/* Whether `figure` may decode its class over the pieces of another figure in buffer `b`: only one
+ * nearer the hero, so of the players the buffers cannot all hold the nearest keeps its weapon. Those
+ * pieces go, and their figure holds the wrench until it can have its own. */
+static int buffer_free_for(gaddr figure, int b) {
+    const uint32_t load = rac1_moby_generation();
+    const gaddr base = buffer_base(b);
+    gaddr holder = 0;
+    for (int i = 0; i < RECORDS && holder == 0; ++i) {
+        const Record* r = &records[i];
+        if (r->figure != 0 && r->moby != 0 && r->load == load
+            && GREF(gaddr, r->moby + MOBY_CLASS) == base) {
+            holder = r->figure;
+        }
+    }
+    if (holder == 0 || holder == figure) {
+        return holder == 0;
+    }
+    if (!figure_takes_buffer(
+            distance_to_hero(figure), distance_to_hero(holder), ticks - buffer_taken[b]
+        )) {
+        return 0;
+    }
+    for (int i = 0; i < RECORDS; ++i) {
+        Record* r = &records[i];
+        if (r->figure != 0 && r->moby != 0 && r->load == load
+            && GREF(gaddr, r->moby + MOBY_CLASS) == base) {
+            drop(r);
+        }
+    }
+    return 1;
+}
+
+/* Whether `oclass` can be drawn now for `figure`, decoding it when it may be (above). */
+static int have_class(gaddr figure, int32_t oclass) {
     if (!swapped(oclass)) {
         return 1; /* CreateMoby tells (no resources: no class) */
     }
@@ -298,15 +352,11 @@ static int have_class(int32_t oclass) {
         return 0;
     }
     const int b = hb == 0 ? 1 : 0;
-    const gaddr base = buffer_base(b);
-    /* Never over another figure's piece. */
-    for (int i = 0; i < RECORDS; ++i) {
-        const Record* r = &records[i];
-        if (r->figure != 0 && r->moby != 0 && r->load == rac1_moby_generation()
-            && GREF(gaddr, r->moby + MOBY_CLASS) == base) {
-            return 0;
-        }
+    /* Never over the piece of a figure that keeps it. */
+    if (!buffer_free_for(figure, b)) {
+        return 0;
     }
+    buffer_taken[b] = ticks;
     func_00205270(oclass, b);
     if (rac1_figure_items_debug()) {
         fprintf(stderr, "[debug] figure items: class %d decoded into buffer %d\n", oclass, b);
@@ -316,7 +366,7 @@ static int have_class(int32_t oclass) {
 
 /* A piece's moby for `figure`: the figure's look, never run, colliding with nothing; 0 for none. */
 static gaddr make_piece(gaddr figure, const openrac_game_held_piece* p) {
-    if (!have_class(p->oclass)) {
+    if (!have_class(figure, p->oclass)) {
         return 0;
     }
     const int entered = enter_level_context();
@@ -421,6 +471,48 @@ static void animate(gaddr m, const openrac_game_held_piece* p) {
     GREF(uint16_t, m + MOBY_FLAGS) = flags;
 }
 
+int rac1_figure_class_ready(int32_t oclass) {
+    if (oclass <= 0 || oclass >= CLASS_SLOTS
+        || GREF(uint8_t, CLASS_SLOT_BY_ID + (uint32_t)oclass) == CLASS_SLOT_NONE) {
+        return 0;
+    }
+    if (swapped(oclass)) {
+        buffers_for_load();
+        return swapped_loaded(oclass);
+    }
+    return class_resources(oclass) != 0;
+}
+
+gaddr rac1_figure_track_moby(gaddr figure, int32_t oclass) {
+    openrac_game_held_piece p;
+    memset(&p, 0, sizeof p);
+    p.item = -1;
+    p.oclass = oclass;
+    return rac1_figure_class_ready(oclass) ? make_piece(figure, &p) : 0;
+}
+
+/* A moby on no joint: where it is said to be, its matrix built from that. */
+static void place_loose(gaddr m) {
+    func_L00_002514B8(m);
+    func_L00_00251E30(m);
+    func_0020EEE8(m);
+}
+
+void rac1_figure_track_moby_place(gaddr moby, const float* position) {
+    for (unsigned c = 0; c < 3; ++c) {
+        GREF(float, moby + MOBY_POS + 4u * c) = position[c];
+    }
+    place_loose(moby);
+}
+
+void rac1_figure_track_moby_drop(gaddr moby, int32_t oclass) {
+    if (alive(moby, oclass)) {
+        const int entered = enter_level_context();
+        func_0020D678(moby);
+        leave_level_context(entered);
+    }
+}
+
 void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
     if (!in_level() || !rac1_figure_alive(figure)) {
         return;
@@ -506,6 +598,7 @@ void rac1_figure_held(gaddr figure, const openrac_game_held* held) {
 }
 
 void rac1_figure_items_remove(gaddr figure) {
+    rac1_figure_shots_remove(figure);
     for (int i = 0; i < RECORDS; ++i) {
         if (records[i].figure == figure) {
             drop_as(&records[i], 1);
@@ -518,6 +611,8 @@ void rac1_figure_items_tick(void) {
     if (!in_level() || GREF(int32_t, CONTEXT) != 0) {
         return;
     }
+    ++ticks;
+    rac1_figure_shots_tick();
     const uint32_t load = rac1_moby_generation();
     GFRAME(joints, JOINTS * JOINT_SIZE);
     gaddr figure_done = 0;
@@ -533,9 +628,7 @@ void rac1_figure_items_tick(void) {
                 GREF(float, m + MOBY_POS + 4u * c) = r->piece.position[c];
                 GREF(float, m + MOBY_ROT + 4u * c) = r->piece.rotation[c];
             }
-            func_L00_002514B8(m);
-            func_L00_00251E30(m);
-            func_0020EEE8(m);
+            place_loose(m);
             continue;
         }
         if (r->figure != figure_done) {

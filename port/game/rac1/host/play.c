@@ -507,6 +507,8 @@ const openrac_game_play rac1_play = {
     .figure_held = rac1_figure_held,
     .hero_shots = rac1_hero_shots,
     .figure_shot = rac1_figure_shot,
+    .hero_shots2 = rac1_hero_shots2,
+    .figure_shot2 = rac1_figure_shot2,
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
 };

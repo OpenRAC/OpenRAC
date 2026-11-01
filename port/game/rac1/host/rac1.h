@@ -96,6 +96,8 @@ void game_rac1_update_expanded_moby_grid(gaddr moby, uint32_t next);
  * rac1_world_). */
 int rac1_world_mobys(openrac_game_moby_state* out, int max);
 int32_t rac1_world_moby_slot(int32_t key);
+/* A placed moby's key, -1 for a spawned one. */
+int32_t rac1_world_moby_key(gaddr moby);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
 /* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the
@@ -134,6 +136,10 @@ int rac1_hero_held(openrac_game_held* out);
 void rac1_figure_held(gaddr figure, const openrac_game_held* held);
 int rac1_hero_shots(openrac_game_shot* out, int max);
 int rac1_figure_shot(gaddr figure, const openrac_game_shot* shot);
+int rac1_hero_shots2(openrac_game_shot2* out, int max);
+int rac1_figure_shot2(gaddr figure, const openrac_game_shot2* shot);
+void rac1_figure_shots_tick(void);
+void rac1_figure_shots_remove(gaddr figure);
 void rac1_figure_items_tick(void);
 void rac1_figure_items_remove(gaddr figure);
 int rac1_figure_owned(gaddr moby);

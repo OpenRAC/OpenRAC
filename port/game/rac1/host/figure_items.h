@@ -27,6 +27,7 @@ enum {
     MOBY_POS = 0x10,
     MOBY_STATE = 0x20,
     MOBY_CLASS = 0x24,
+    MOBY_SCALE = 0x2C,
     MOBY_UPDATE_DIST = 0x30,
     MOBY_VISIBLE = 0x31,
     MOBY_DRAW_DIST = 0x32,
@@ -47,6 +48,14 @@ enum {
     MOBY_OCLASS = 0xA6,
     MOBY_MATRIX = 0xC0
 };
+
+/* A moby of `oclass` to show a figure's shot with: its look, never run, colliding with nothing; 0
+ * when the class cannot be had or the level has no room. */
+gaddr rac1_figure_track_moby(gaddr figure, int32_t oclass);
+void rac1_figure_track_moby_place(gaddr moby, const float* position);
+void rac1_figure_track_moby_drop(gaddr moby, int32_t oclass);
+/* Whether the game can make a moby of `oclass` now, with nothing decoded for it. */
+int rac1_figure_class_ready(int32_t oclass);
 
 /* Whether OPENRAC_ITEMS_DEBUG says what the hero holds, the pieces and the shots on stderr. */
 int rac1_figure_items_debug(void);

@@ -303,6 +303,7 @@ openrac_add_c_test(classic_ripple NO_STRICT_ALIASING NO_FP_CONTRACT MATH
 openrac_add_c_test(hero_animation NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(hero_effects NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(hero_items NO_STRICT_ALIASING NO_FP_CONTRACT)
+openrac_add_c_test(figure_tracks INCLUDES . game/common/include runtime/include)
 openrac_add_c_test(hero_attach NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(moby_bounds NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(moby_view NO_FP_CONTRACT MATH)
@@ -326,6 +327,11 @@ openrac_add_c_test(pose_anim MATH)
 
 # The shared rac1 host C's bigger moby pool, with PAL's table and the same stand-in.
 openrac_add_c_test(moby_pool NO_STRICT_ALIASING WRAPV
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+
+# The shared rac1 host C's figures' shots: each weapon noted, replayed or tracked, with PAL's table
+# and the same stand-in.
+openrac_add_c_test(figure_shots NO_STRICT_ALIASING WRAPV MATH
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
 # The mod-only spatial hash: tombstones must keep probe chains intact and recycle emptied cells.

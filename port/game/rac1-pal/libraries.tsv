@@ -1079,3 +1079,8 @@ func_L01_002B9198	render	NovalisPoolStep	wrap	Bypass original pool displacement 
 func_L00_002A5158	render	NovalisPoolImpulse	wrap	Bypass original Novalis pool impulses when enhanced water is active; NTSC FUN_L00_002a3ec8	void(gaddr,int,int,float,float,float,float)
 func_L01_002635C8	render	NovalisWaterVertices	wrap	Use static rest heights instead of original scrolling-water displacement; NTSC FUN_L01_00262618	void(gaddr)
 func_L01_0030AFD0	render	NovalisCaveWater_0030AFD0	wrap	Tag the three cave water surfaces for enhanced materials; NTSC FUN_L01_00309bf8	void(gaddr)
+func_L00_002B0F58	moby	spawn_devastator_missile	wrap	a Devastator missile: the hero's noted for the mods (hero_shots2), a figure's made with it (rac1/host/figure_shots.c, interface 1.12)	unsigned int (unsigned int, unsigned int, unsigned int, float, float, float, float, float)
+func_L00_002CE390	moby	spawn_ryno_rocket	wrap	an R.Y.N.O. rocket: the hero's noted for the mods (hero_shots2), a figure's made with it (rac1/host/figure_shots.c, interface 1.12)	unsigned int (int, unsigned int, unsigned int, float, float, float)
+func_L00_002C96D0	moby	release_glove_of_doom_held_moby	wrap	the Glove of Doom's throw: the hero's noted for the mods (hero_shots2) (rac1/host/figure_shots.c, interface 1.12)	void (unsigned int, unsigned int, unsigned int)
+func_L00_002AB2A8	moby	initialize_moby_motion_at_position	wrap	the Mine Glove's throw: the hero's noted for the mods (hero_shots2) (rac1/host/figure_shots.c, interface 1.12)	void (unsigned int, unsigned int, unsigned int)
+func_L00_002C4B90	moby	release_moby_with_collision_check	wrap	the Decoy Glove's throw: the hero's noted for the mods (hero_shots2) (rac1/host/figure_shots.c, interface 1.12)	void (unsigned int, unsigned int, unsigned int)

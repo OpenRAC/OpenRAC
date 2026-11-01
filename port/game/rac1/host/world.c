@@ -303,6 +303,15 @@ int rac1_world_mobys(openrac_game_moby_state* out, int max) {
     return n;
 }
 
+int32_t rac1_world_moby_key(gaddr moby) {
+    const int32_t slot = in_level() ? rac1_moby_slot(moby) : -1;
+    if (slot < 0 || slot >= KEYS_MAX) {
+        return -1;
+    }
+    read_keys();
+    return key_of[slot];
+}
+
 int32_t rac1_world_moby_slot(int32_t key) {
     if (!in_level() || key < 0 || key >= KEYS_MAX) {
         return -1;

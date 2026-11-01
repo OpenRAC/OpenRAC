@@ -507,6 +507,22 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * here (the NTSC decomp's gameplay/animation/blend_moby_animation), and the blend slots' owners,
  * PAL moby_render_slots D_001B2F40, are 0x001B2BC0. */
 #define func_0020DA68 game_FUN_0020cc18
+#define func_L00_0026C0D0 game_FUN_L00_0026b230
+#define func_L00_0026E438 game_FUN_L00_0026d598
+#define func_L00_002AB170 game_FUN_L00_002a9ed0
+#define func_L00_002AB2A8 game_FUN_L00_002aa008
+#define func_L00_002AB2A8__game game_FUN_L00_002aa008__game
+#define func_L00_002B0F58 game_FUN_L00_002afc70
+#define func_L00_002B0F58__game game_FUN_L00_002afc70__game
+#define func_L00_002B6FF0 game_FUN_L00_002b5d00
+#define func_L00_002C48C8 game_FUN_L00_002c35c0
+#define func_L00_002C4B90 game_FUN_L00_002c3888
+#define func_L00_002C4B90__game game_FUN_L00_002c3888__game
+#define func_L00_002C9578 game_FUN_L00_002c8218
+#define func_L00_002C96D0 game_FUN_L00_002c82f0
+#define func_L00_002C96D0__game game_FUN_L00_002c82f0__game
+#define func_L00_002CE390 game_FUN_L00_002ccee0
+#define func_L00_002CE390__game game_FUN_L00_002ccee0__game
 #define RAC1_ADDR_0x001B2F40u 0x001B2BC0u
 #define RAC1_ADDR_0x001B3E40u 0x001B3AC0u
 #define RAC1_ADDR_0x001B7A60u 0x001B76E0u
@@ -553,5 +569,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L08_0x001D7320u 0x001D7060u
 #define RAC1_ADDR_L14_0x001E9FA0u 0x001E9C60u
 #define RAC1_ADDR_L18_0x001DFED0u 0x001DFC10u
+#define RAC1_ADDR_0x00160020u 0x0015FF20u
 
 #endif /* OPENRAC_RAC1_VERSION_H */
