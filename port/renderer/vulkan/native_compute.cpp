@@ -110,6 +110,15 @@ bool record_native_compute(
             return false;
         }
 
+        // One image cannot simultaneously have sampled-read and storage-write layouts.
+        for (std::size_t previous = 0; previous < i; ++previous) {
+            const auto& earlier = textures[previous];
+            const auto& alias = local ? local_owners[previous] : owners[previous];
+            if ((use.write || earlier.write) && alias == texture->image) {
+                return false;
+            }
+        }
+
         const auto& image = *texture->image;
         const NativeImage native{
             image.image,

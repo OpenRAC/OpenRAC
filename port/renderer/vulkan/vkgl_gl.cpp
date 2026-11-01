@@ -2,17 +2,17 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The GL functions renderer/gl.h's table holds (vkgl_internal.h): state, textures, buffers, vertex
-// arrays, draws, shaders and programs, uniforms, samplers and framebuffers, each carried out with
-// the rest of the backend; and get_proc (vkgl.h), which hands the table its entries by name.
+// arrays, draws, samplers and framebuffers. Shader/program entry points live in gl_program.cpp.
+// get_proc (vkgl.h) hands the shared GL table its entries by name.
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
-#include <regex>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,7 +21,7 @@
 
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
-#include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/gl_program.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
@@ -480,6 +480,11 @@ void VKGL tex_image_2d(
     if (t == nullptr || w <= 0 || h <= 0 || level < 0) {
         return;
     }
+    // Shifting an int by its width is undefined, even when the requested mip does not exist.
+    if (level >= std::numeric_limits<unsigned>::digits || !image_extent_valid(w, h)) {
+        fail(kGlInvalidValue);
+        return;
+    }
     const Format f = format_of(static_cast<GLenum>(internal));
     if (f.vk == VK_FORMAT_UNDEFINED) {
         fail(kGlInvalidEnum);
@@ -541,6 +546,11 @@ void VKGL compressed_tex_image_2d(
 ) {
     Texture* texture = bound_texture(target);
     const Format format = format_of(internal);
+    // Bounds also make the compressed block-count arithmetic safe.
+    if (!image_extent_valid(width, height)) {
+        fail(kGlInvalidValue);
+        return;
+    }
     // This path carries complete probe atlases, not generated GL mip chains.
     if (!texture || level != 0 || border != 0 || width <= 0 || height <= 0
         || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
@@ -780,8 +790,15 @@ void VKGL buffer_data(GLenum target, GLsizeiptr size, const void* data, GLenum u
 void VKGL buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, const void* data) {
     GLuint* binding = buffer_binding(target);
     Buffer* b = binding != nullptr ? g->buffers.find(*binding) : nullptr;
-    if (b == nullptr || offset < 0 || size <= 0
-        || static_cast<std::size_t>(offset + size) > b->size) {
+    // An empty update needs no source bytes and preserves the buffer.
+    if (size == 0) {
+        return;
+    }
+    // Subtraction checks the range without overflowing offset + size on malformed input.
+    if (b == nullptr || offset < 0 || size <= 0 || data == nullptr
+        || static_cast<std::size_t>(offset) > b->size
+        || static_cast<std::size_t>(size) > b->size - static_cast<std::size_t>(offset)) {
+        fail(kGlInvalidValue);
         return;
     }
 
@@ -879,474 +896,6 @@ void VKGL draw_elements_instanced(
     GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instances
 ) {
     draw(mode, count, instances, true, type, reinterpret_cast<std::uintptr_t>(indices), 0);
-}
-
-// ---- Shaders and programs ----
-
-GLuint VKGL create_shader(GLenum type) {
-    const GLuint name = g->shaders.add();
-    g->shaders.find(name)->type = type;
-    return name;
-}
-
-void VKGL
-shader_source(GLuint name, GLsizei count, const GLchar* const* strings, const GLint* lengths) {
-    Shader* sh = g->shaders.find(name);
-    if (sh == nullptr) {
-        return;
-    }
-    sh->source.clear();
-    for (GLsizei i = 0; i < count; ++i) {
-        if (lengths != nullptr && lengths[i] >= 0) {
-            sh->source.append(strings[i], static_cast<std::size_t>(lengths[i]));
-        } else {
-            sh->source.append(strings[i]);
-        }
-    }
-}
-
-void VKGL compile_shader(GLuint name) {
-    if (Shader* sh = g->shaders.find(name)) {
-        sh->log.clear();
-        sh->compiled = sh->type == GL_COMPUTE_SHADER
-                           ? check_compute_stage(sh->source, sh->log)
-                           : check_stage(sh->type == GL_VERTEX_SHADER, sh->source, sh->log);
-    }
-}
-
-void write_log(const std::string& log, GLsizei size, GLsizei* length, GLchar* out) {
-    const GLsizei n = size > 0 ? std::min<GLsizei>(size - 1, static_cast<GLsizei>(log.size())) : 0;
-    if (out != nullptr && size > 0) {
-        std::memcpy(out, log.data(), static_cast<std::size_t>(n));
-        out[n] = '\0';
-    }
-    if (length != nullptr) {
-        *length = n;
-    }
-}
-
-void VKGL get_shader_iv(GLuint name, GLenum what, GLint* out) {
-    Shader* sh = g->shaders.find(name);
-    *out = 0;
-    if (sh == nullptr) {
-        return;
-    }
-    if (what == GL_COMPILE_STATUS) {
-        *out = sh->compiled ? GL_TRUE : GL_FALSE;
-    } else if (what == GL_INFO_LOG_LENGTH) {
-        *out = sh->log.empty() ? 0 : static_cast<GLint>(sh->log.size() + 1);
-    }
-}
-
-void VKGL get_shader_info_log(GLuint name, GLsizei size, GLsizei* length, GLchar* log) {
-    Shader* sh = g->shaders.find(name);
-    write_log(sh != nullptr ? sh->log : std::string(), size, length, log);
-}
-
-void VKGL delete_shader(GLuint name) {
-    g->shaders.objects.erase(name);
-}
-
-GLuint VKGL create_program() {
-    return g->programs.add();
-}
-
-void VKGL attach_shader(GLuint program, GLuint shader) {
-    if (Program* p = g->programs.find(program)) {
-        p->shaders.push_back(shader);
-    }
-}
-
-void VKGL bind_attrib_location(GLuint, GLuint, const GLchar*) {
-    // The renderer's shaders give their inputs locations of their own.
-}
-
-VkShaderModule module_of(const std::vector<std::uint32_t>& code) {
-    VkShaderModuleCreateInfo info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    info.codeSize = code.size() * sizeof(std::uint32_t);
-    info.pCode = code.data();
-    VkShaderModule module = VK_NULL_HANDLE;
-    check(vkCreateShaderModule(g->device, &info, nullptr, &module), "a shader module");
-    return module;
-}
-
-// An explicit source marker opts one scalar int into the ordinary graphics draw's push constant.
-// No shader arithmetic changes; unmarked, compute and native material programs keep their layouts.
-void separate_draw_uniform(Program& p, const std::string& vertex, const std::string& fragment) {
-    p.draw_uniform_offset = -1;
-    if (p.gpu_materials || !p.compiled.compute.empty()
-        || vertex.find("#define OPENRAC_DRAW_INT") == std::string::npos
-        || !renderer::render_opt::enabled(renderer::render_opt::Opt::VkDrawUniform)) {
-        return;
-    }
-    static const std::regex marker(R"(#define\s+OPENRAC_DRAW_INT\s+([A-Za-z_][A-Za-z_0-9]*))");
-    std::smatch match;
-    if (!std::regex_search(vertex, match, marker)) {
-        return;
-    }
-    const std::string name = match[1];
-    const auto uniform =
-        std::find_if(p.compiled.uniforms.begin(), p.compiled.uniforms.end(), [&](const auto& u) {
-            return u.name == name;
-        });
-    if (uniform == p.compiled.uniforms.end() || uniform->sampler || uniform->gl_type != GL_INT
-        || uniform->array_size != 1) {
-        return;
-    }
-    // A cross-stage uniform must retain its shared UBO. This opt-in is vertex-only.
-    const std::regex declaration("uniform\\s+int\\s+" + name + R"(\s*;)");
-    if (std::regex_search(fragment, declaration) || !std::regex_search(vertex, declaration)) {
-        return;
-    }
-    const auto source = std::regex_replace(
-        vertex, declaration, "layout(push_constant) uniform OpenracDrawInt { int " + name + "; };"
-    );
-    CompiledProgram compiled;
-    std::string error;
-    if (!compile_program(source, fragment, compiled, error)) {
-        return;  // An optional optimisation never prevents the original program from linking.
-    }
-    if (std::any_of(compiled.uniforms.begin(), compiled.uniforms.end(), [&](const auto& u) {
-            return u.name == name;
-        })) {
-        return;  // A surviving loose uniform means another stage also uses this name.
-    }
-    auto draw = *uniform;
-    draw.offset = std::max(compiled.default_size, 0);
-    p.draw_uniform_offset = draw.offset;
-    compiled.uniforms.push_back(std::move(draw));
-    std::erase_if(compiled.blocks, [](const auto& b) { return b.name == "OpenracDrawInt"; });
-    p.compiled = std::move(compiled);
-}
-
-void VKGL link_program(GLuint name) {
-    Program* p = g->programs.find(name);
-    if (p == nullptr) {
-        return;
-    }
-    std::string vs, fs, cs;
-    for (GLuint s : p->shaders) {
-        if (Shader* sh = g->shaders.find(s)) {
-            (sh->type == GL_VERTEX_SHADER    ? vs
-             : sh->type == GL_COMPUTE_SHADER ? cs
-                                             : fs) = sh->source;
-        }
-    }
-    if (p->serial != 0) {
-        release_program(*p);
-    }
-    p->log.clear();
-    p->linked = false;
-    p->serial = ++g->program_serial;
-    if (!compile_program(vs, fs, p->compiled, p->log, cs)) {
-        return;
-    }
-    if (!material_program(*p, vs, fs)) {
-        return;
-    }
-    separate_draw_uniform(*p, vs, fs);
-    const CompiledProgram& c = p->compiled;
-    if (!c.compute.empty()) {
-        p->compute = module_of(c.compute);
-    } else {
-        p->vertex = module_of(c.vertex);
-        p->fragment = module_of(c.fragment);
-    }
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    auto add = [&](int binding, VkDescriptorType type) {
-        if (binding < 0) {
-            return;
-        }
-        bindings.push_back(
-            {static_cast<std::uint32_t>(binding),
-             type,
-             1,
-             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-                 | VK_SHADER_STAGE_COMPUTE_BIT,
-             nullptr}
-        );
-    };
-    p->dynamic_uniforms = c.default_binding >= 0 && reuse_uniforms();
-    add(c.default_binding,
-        p->dynamic_uniforms ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
-                            : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    for (const ProgramBlock& b : c.blocks) {
-        add(b.binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    }
-    for (const auto& b : c.storage) {
-        add(b.binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    }
-    for (const ProgramUniform& u : c.uniforms) {
-        if (u.sampler && u.binding >= 0) {
-            add(u.binding,
-                u.kind == SamplerKind::Buffer ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER
-                                              : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        }
-    }
-    VkDescriptorSetLayoutCreateInfo set_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    set_info.bindingCount = static_cast<std::uint32_t>(bindings.size());
-    set_info.pBindings = bindings.data();
-    check(
-        vkCreateDescriptorSetLayout(g->device, &set_info, nullptr, &p->set_layout),
-        "a descriptor set layout"
-    );
-    VkPipelineLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    const VkDescriptorSetLayout layouts[] = {p->set_layout, g->material_layout};
-    const VkPushConstantRange draw_push{VK_SHADER_STAGE_VERTEX_BIT, 0, 4};
-    layout_info.setLayoutCount = p->gpu_materials ? 2u : 1u;
-    layout_info.pSetLayouts = layouts;
-    if (p->gpu_materials || p->draw_uniform_offset >= 0) {
-        layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges = &draw_push;
-    }
-    check(
-        vkCreatePipelineLayout(g->device, &layout_info, nullptr, &p->layout), "a pipeline layout"
-    );
-    // Uniforms start at zero, as GL's do; a relink keeps nothing, as GL's does.
-    p->uniforms.assign(
-        p->gpu_materials ? p->material_start + kMaterialBytes
-                         : static_cast<unsigned>(std::max(c.default_size, 0))
-                               + (p->draw_uniform_offset >= 0 ? 4u : 0u),
-        0
-    );
-    p->units.assign(c.uniforms.size(), 0);
-    p->block_bindings.assign(c.blocks.size(), 0);
-    p->uniforms_dirty = true;
-    p->last_set = VK_NULL_HANDLE;
-    p->last_key.clear();
-    p->descriptor_sets.clear();
-    if (p->compute) {
-        VkComputePipelineCreateInfo info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-        info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-        info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        info.stage.module = p->compute;
-        info.stage.pName = "main";
-        info.layout = p->layout;
-        check(
-            vkCreateComputePipelines(
-                g->device, g->pipeline_cache, 1, &info, nullptr, &p->compute_pipeline
-            ),
-            "a compute pipeline"
-        );
-        count_pipeline();
-    }
-    p->linked = p->layout && ((p->vertex && p->fragment) || p->compute_pipeline);
-
-    // Its pipelines of earlier runs are made on the pre-warm worker before its first draw.
-    prewarm_program(*p);
-}
-
-void VKGL get_program_iv(GLuint name, GLenum what, GLint* out) {
-    Program* p = g->programs.find(name);
-    *out = 0;
-    if (p == nullptr) {
-        return;
-    }
-    if (what == GL_LINK_STATUS) {
-        *out = p->linked ? GL_TRUE : GL_FALSE;
-    } else if (what == GL_INFO_LOG_LENGTH) {
-        *out = p->log.empty() ? 0 : static_cast<GLint>(p->log.size() + 1);
-    } else if (what == kGlActiveUniforms) {
-        *out = 0;  // not listed (gl_stats' uniform listing and shader reloading are GL's alone)
-    }
-}
-
-void VKGL get_program_info_log(GLuint name, GLsizei size, GLsizei* length, GLchar* log) {
-    Program* p = g->programs.find(name);
-    write_log(p != nullptr ? p->log : std::string(), size, length, log);
-}
-
-void VKGL delete_program(GLuint name) {
-    auto it = g->programs.objects.find(name);
-    if (it == g->programs.objects.end()) {
-        return;
-    }
-    if (it->second.serial != 0) {
-        release_program(it->second);
-    }
-    g->programs.objects.erase(it);
-    if (g->state.program == name) {
-        g->state.program = 0;
-    }
-}
-
-void VKGL use_program(GLuint name) {
-    g->state.program = name;
-}
-
-// A uniform's location: its entry in the program's list, and the element of an array.
-constexpr int kElementBits = 12;
-
-GLint VKGL get_uniform_location(GLuint program, const GLchar* name) {
-    Program* p = g->programs.find(program);
-    if (p == nullptr || !p->linked || name == nullptr) {
-        return -1;
-    }
-    std::string_view n(name);
-    int element = 0;
-    if (const std::size_t bracket = n.find('['); bracket != std::string_view::npos) {
-        element = std::atoi(std::string(n.substr(bracket + 1)).c_str());
-        n = n.substr(0, bracket);
-    }
-    const auto& list = p->compiled.uniforms;
-    for (std::size_t i = 0; i < list.size(); ++i) {
-        if (list[i].name == n && element >= 0 && element < list[i].array_size) {
-            return static_cast<GLint>(i << kElementBits | static_cast<std::size_t>(element));
-        }
-    }
-    return -1;
-}
-
-// Where a location's value goes in the current program's default block; null for none.
-std::uint8_t* uniform_at(
-    GLint location,
-    int count_bytes,
-    const ProgramUniform** out_uniform = nullptr,
-    int* out_index = nullptr
-) {
-    Program* p = g->programs.find(g->state.program);
-    if (p == nullptr || !p->linked || location < 0) {
-        return nullptr;
-    }
-    const std::size_t index = static_cast<std::size_t>(location) >> kElementBits;
-    const int element = location & ((1 << kElementBits) - 1);
-    if (index >= p->compiled.uniforms.size()) {
-        return nullptr;
-    }
-    const ProgramUniform& u = p->compiled.uniforms[index];
-    if (out_uniform != nullptr) {
-        *out_uniform = &u;
-    }
-    if (out_index != nullptr) {
-        *out_index = static_cast<int>(index);
-    }
-    if (u.sampler || u.offset < 0) {
-        return nullptr;
-    }
-    const std::size_t at =
-        static_cast<std::size_t>(u.offset)
-        + static_cast<std::size_t>(element) * static_cast<std::size_t>(u.array_stride);
-    if (at + static_cast<std::size_t>(count_bytes) > p->uniforms.size()) {
-        return nullptr;
-    }
-    if (element >= u.array_size) {
-        return nullptr;
-    }
-    return p->uniforms.data() + at;
-}
-
-void write_uniform(std::uint8_t* destination, const void* source, std::size_t bytes) {
-    ++g->submission.uniform_writes;
-    // Compare bytes, preserving signed zero and NaN payloads exactly.
-    if (reuse_uniforms() && std::memcmp(destination, source, bytes) == 0) {
-        ++g->submission.uniform_writes_skipped;
-        return;
-    }
-    std::memcpy(destination, source, bytes);
-    auto* p = g->programs.find(g->state.program);
-    const auto offset = static_cast<std::size_t>(destination - p->uniforms.data());
-    if ((!p->gpu_materials || offset < p->material_start)
-        && (p->draw_uniform_offset < 0 || offset < static_cast<unsigned>(p->draw_uniform_offset))) {
-        p->uniforms_dirty = true;
-    }
-}
-
-void VKGL uniform_1i(GLint location, GLint v) {
-    const ProgramUniform* u = nullptr;
-    int index = -1;
-    if (std::uint8_t* at = uniform_at(location, 4, &u, &index)) {
-        write_uniform(at, &v, 4);
-    } else if (u != nullptr && u->sampler) {
-        g->programs.find(g->state.program)->units[static_cast<std::size_t>(index)] = v;
-    }
-}
-
-void VKGL uniform_1ui(GLint location, GLuint v) {
-    if (std::uint8_t* at = uniform_at(location, 4)) {
-        write_uniform(at, &v, 4);
-    }
-}
-
-void VKGL uniform_1f(GLint location, GLfloat v) {
-    if (std::uint8_t* at = uniform_at(location, 4)) {
-        write_uniform(at, &v, 4);
-    }
-}
-
-void VKGL uniform_2f(GLint location, GLfloat a, GLfloat b) {
-    const float v[] = {a, b};
-    if (std::uint8_t* at = uniform_at(location, 8)) {
-        write_uniform(at, v, 8);
-    }
-}
-
-void VKGL uniform_3f(GLint location, GLfloat a, GLfloat b, GLfloat c) {
-    const float v[] = {a, b, c};
-    if (std::uint8_t* at = uniform_at(location, 12)) {
-        write_uniform(at, v, 12);
-    }
-}
-
-void VKGL uniform_4f(GLint location, GLfloat a, GLfloat b, GLfloat c, GLfloat d) {
-    const float v[] = {a, b, c, d};
-    if (std::uint8_t* at = uniform_at(location, 16)) {
-        write_uniform(at, v, 16);
-    }
-}
-
-void VKGL uniform_4fv(GLint location, GLsizei count, const GLfloat* v) {
-    if (location < 0 || count <= 0 || !v) {
-        return;
-    }
-    for (GLsizei i = 0; i < count; ++i) {
-        if (std::uint8_t* at = uniform_at(location + i, 16)) {
-            write_uniform(at, v + i * 4, 16);
-        }
-    }
-}
-
-void VKGL uniform_matrix_4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* v) {
-    if (location < 0 || count <= 0 || !v) {
-        return;
-    }
-    for (GLsizei i = 0; i < count; ++i) {
-        std::uint8_t* at = uniform_at(location + i, 64);
-        if (at == nullptr) {
-            continue;
-        }
-        const GLfloat* m = v + i * 16;
-        if (transpose == GL_FALSE) {
-            write_uniform(at, m, 64);
-        } else {
-            float t[16];
-            for (int r = 0; r < 4; ++r) {
-                for (int c = 0; c < 4; ++c) {
-                    t[c * 4 + r] = m[r * 4 + c];
-                }
-            }
-            write_uniform(at, t, 64);
-        }
-    }
-}
-
-GLuint VKGL get_uniform_block_index(GLuint program, const GLchar* name) {
-    Program* p = g->programs.find(program);
-    if (p == nullptr || !p->linked || name == nullptr) {
-        return wgl::GL_INVALID_INDEX;
-    }
-    for (std::size_t i = 0; i < p->compiled.blocks.size(); ++i) {
-        if (p->compiled.blocks[i].name == name) {
-            return static_cast<GLuint>(i);
-        }
-    }
-    return wgl::GL_INVALID_INDEX;
-}
-
-void VKGL uniform_block_binding(GLuint program, GLuint block, GLuint binding) {
-    Program* p = g->programs.find(program);
-    if (p != nullptr && block < p->block_bindings.size()) {
-        p->block_bindings[block] = binding;
-    }
 }
 
 void VKGL bind_buffer_base(GLenum target, GLuint index, GLuint buffer) {
@@ -1494,11 +1043,24 @@ void VKGL framebuffer_renderbuffer(GLenum target, GLenum attachment, GLenum, GLu
 }
 
 GLenum VKGL check_framebuffer_status(GLenum target) {
+    constexpr GLenum kIncompleteAttachment = 0x8CD6;
+    constexpr GLenum kMissingAttachment = 0x8CD7;
+    constexpr GLenum kIncompleteMultisample = 0x8D56;
     const Target t = target_of(
         target == GL_READ_FRAMEBUFFER ? g->state.read_framebuffer : g->state.draw_framebuffer
     );
-    return t.colour != nullptr || t.depth != nullptr ? GL_FRAMEBUFFER_COMPLETE
-                                                     : 0x8CD7;  // INCOMPLETE_MISSING_ATTACHMENT
+    const auto* framebuffer = bound_framebuffer(target);
+    // An allocated depth attachment must not conceal a failed colour allocation, or vice versa.
+    if (framebuffer
+        && (((framebuffer->colour_texture || framebuffer->colour_renderbuffer) && !t.colour)
+            || ((framebuffer->depth_texture || framebuffer->depth_renderbuffer) && !t.depth))) {
+        return kIncompleteAttachment;
+    }
+    // Vulkan requires all attachments in this renderer's pass to use the same sample count.
+    if (t.colour && t.depth && t.colour->samples != t.depth->samples) {
+        return kIncompleteMultisample;
+    }
+    return t.colour != nullptr || t.depth != nullptr ? GL_FRAMEBUFFER_COMPLETE : kMissingAttachment;
 }
 
 void VKGL gen_renderbuffers(GLsizei n, GLuint* names) {
@@ -1680,6 +1242,8 @@ bool resolve_in_pass(Image& src, Image& dst, const std::array<GLint, 8>& r) {
     return true;
 }
 
+#include "renderer/vulkan/multisample_blit.inc"
+
 void VKGL blit_framebuffer(
     GLint sx0,
     GLint sy0,
@@ -1696,6 +1260,27 @@ void VKGL blit_framebuffer(
     const Target to = target_of(g->state.draw_framebuffer);
     auto blit_one = [&](Image* src, Image* dst, VkImageAspectFlags aspect, VkFilter f) {
         if (src == nullptr || dst == nullptr || src == dst) {
+            return;
+        }
+        // Vulkan transfer blits cannot write multisampled images; colour is broadcast by a draw.
+        if (dst->samples != VK_SAMPLE_COUNT_1_BIT && src->samples == VK_SAMPLE_COUNT_1_BIT) {
+            VkImageBlit region{};
+            if (aspect != VK_IMAGE_ASPECT_COLOR_BIT || src->format == VK_FORMAT_R32_UINT
+                || src->format == VK_FORMAT_R32G32B32A32_UINT || dst->format == VK_FORMAT_R32_UINT
+                || dst->format == VK_FORMAT_R32G32B32A32_UINT) {
+                fail(0x0502);  // GL_INVALID_OPERATION: depth/integer copies need different shaders.
+                return;
+            }
+            if (blit_region(*src, *dst, aspect, {sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1}, region)) {
+                blit_into_multisample(*src, *dst, region, f);
+            }
+            return;
+        }
+        // Equal-sample copies cannot scale, flip or change sample count.
+        if (dst->samples != VK_SAMPLE_COUNT_1_BIT
+            && (src->samples != dst->samples || sx1 <= sx0 || sy1 <= sy0 || sx1 - sx0 != dx1 - dx0
+                || sy1 - sy0 != dy1 - dy0)) {
+            fail(0x0502);  // GL_INVALID_OPERATION: unsupported multisample copy.
             return;
         }
         // The whole of the open pass's multisampled colour resolved into an image of its size:
@@ -1749,13 +1334,17 @@ void VKGL blit_framebuffer(
         }
         barrier(cmd, *src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         barrier(cmd, *dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        if ((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 && sx1 - sx0 == dx1 - dx0
-            && sy1 - sy0 == dy1 - dy0 && sx1 > sx0 && sy1 > sy0) {
+        if (((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 || src->samples != VK_SAMPLE_COUNT_1_BIT)
+            && src->samples == dst->samples && sx1 - sx0 == dx1 - dx0 && sy1 - sy0 == dy1 - dy0
+            && sx1 > sx0 && sy1 > sy0) {
             // Depth/stencil formats need not support BLIT_DST. An unscaled
             // copy has no such requirement; each aspect is copied separately.
             VkImageCopy copies[2]{};
             std::uint32_t count = 0;
-            for (const auto bit : {VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_ASPECT_STENCIL_BIT}) {
+            for (const auto bit :
+                 {VK_IMAGE_ASPECT_COLOR_BIT,
+                  VK_IMAGE_ASPECT_DEPTH_BIT,
+                  VK_IMAGE_ASPECT_STENCIL_BIT}) {
                 if ((aspect & bit) == 0) {
                     continue;
                 }
@@ -2019,40 +1608,6 @@ void destroy_buffer(Buffer& b) {
     }
     b.own = VK_NULL_HANDLE;
     b.own_mapped = nullptr;
-}
-
-// ---- Shaders and programs ----
-
-void release_program(Program& p) {
-    // No pre-warm job may use its modules or layout once they are handed to defer.
-    prewarm_forget(p.serial);
-    // Relinking and deletion retire every pipeline referenced by the program's fast lookup.
-    p.last_pipeline = VK_NULL_HANDLE;
-    p.last_pipeline_key.clear();
-    defer([vertex = p.vertex,
-           fragment = p.fragment,
-           compute = p.compute,
-           pipeline = p.compute_pipeline,
-           set_layout = p.set_layout,
-           layout = p.layout] {
-        vkDestroyShaderModule(g->device, vertex, nullptr);
-        vkDestroyShaderModule(g->device, fragment, nullptr);
-        vkDestroyShaderModule(g->device, compute, nullptr);
-        vkDestroyPipeline(g->device, pipeline, nullptr);
-        vkDestroyPipelineLayout(g->device, layout, nullptr);
-        vkDestroyDescriptorSetLayout(g->device, set_layout, nullptr);
-    });
-    // Its pipelines go with it.
-    // Called by erase_program, on this thread, for each pipeline of the program: destroyed once
-    // the frames that may still draw with it are done.
-    g->pipelines.erase_program(p.serial, [](VkPipeline pipeline) {
-        defer([pipeline] { vkDestroyPipeline(g->device, pipeline, nullptr); });
-    });
-    p.vertex = p.fragment = VK_NULL_HANDLE;
-    p.compute = VK_NULL_HANDLE;
-    p.compute_pipeline = VK_NULL_HANDLE;
-    p.set_layout = VK_NULL_HANDLE;
-    p.layout = VK_NULL_HANDLE;
 }
 
 }  // namespace openrac::vkgl::detail

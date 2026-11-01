@@ -97,6 +97,7 @@ if(OPENRAC_VULKAN)
     renderer/vulkan/vkgl_device.cpp
     renderer/vulkan/vkgl_draw.cpp
     renderer/vulkan/vkgl_gl.cpp
+    renderer/vulkan/gl_program.cpp
     renderer/vulkan/vkgl_pipelines.cpp
     renderer/vulkan/vkgl_present.cpp
     renderer/vulkan/vkgl_resources.cpp
@@ -116,6 +117,8 @@ if(OPENRAC_VULKAN)
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_device.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_draw.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_gl.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gl_program.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gl_program.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_internal.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_pipelines.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_present.cpp"
@@ -124,6 +127,7 @@ if(OPENRAC_VULKAN)
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/native_shader_compiler.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/shader_compiler_internal.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_draw.inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/multisample_blit.inc"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_materials.inc")
   # And every file holding a shader's text, wherever it is (a C++ file's own GLSL too): two builds
   # whose shaders differ must not read each other's cache, which MoltenVK has taken for the same
@@ -681,6 +685,9 @@ set_tests_properties(${openrac_es_bare_tests} PROPERTIES SKIP_RETURN_CODE 77 ENV
 # installed: every GL call the renderers make, carried out on Vulkan (Mesa's lavapipe in CI). Where
 # Vulkan cannot open, the window falls back to OpenGL and these repeat the tests above.
 if(OPENRAC_VULKAN)
+  openrac_add_test(vulkan_failure LIBS openrac_renderer openrac_renderer_vulkan)
+  set_tests_properties(vulkan_failure PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   openrac_add_test(vulkan_uniform LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
   # The pipeline cache's file, saved by writers in parallel; no GPU needed.
   find_package(Threads REQUIRED)

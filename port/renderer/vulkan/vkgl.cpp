@@ -65,6 +65,37 @@ bool guess_tile_based(std::uint32_t vendor) {
     return std::find(kTiled.begin(), kTiled.end(), vendor) != kTiled.end();
 }
 
+namespace {
+
+// Startup reports recording/allocation failures through open()'s existing error return.
+bool begin_initial_frame(const Config& config, std::string& error) {
+    try {
+        int width = config.width;
+        int height = config.height;
+
+        // A window's actual pixel dimensions can differ from its requested dimensions.
+        if (config.window != nullptr) {
+            SDL_GetWindowSizeInPixels(config.window, &width, &height);
+        }
+
+        tracy_gpu_open();
+        begin_buffers();
+
+        // The initial attachments and dummy descriptors must exist before recording any draw.
+        if (!make_dummies() || !make_default_framebuffer(std::max(width, 1), std::max(height, 1))) {
+            error = "could not make the default framebuffer";
+            return false;
+        }
+
+        return true;
+    } catch (const std::exception& failure) {
+        error = failure.what();
+        return false;
+    }
+}
+
+}  // namespace
+
 bool open(const Config& config, std::string& error) {
     if (g != nullptr) {
         error = "a Vulkan context is open already";
@@ -92,16 +123,7 @@ bool open(const Config& config, std::string& error) {
     }
     ok = ok && pick_device(error) && make_device(error) && make_frames();
     if (ok) {
-        int w = config.width, h = config.height;
-        if (config.window != nullptr) {
-            SDL_GetWindowSizeInPixels(config.window, &w, &h);
-        }
-        tracy_gpu_open();
-        begin_buffers();
-        ok = make_dummies() && make_default_framebuffer(std::max(w, 1), std::max(h, 1));
-        if (!ok) {
-            error = "could not make the default framebuffer";
-        }
+        ok = begin_initial_frame(config, error);
     }
     if (ok && config.window != nullptr && !make_swapchain()) {
         // Minimised at the start: the swapchain comes with the first frame shown.

@@ -26,10 +26,12 @@ The rest is the backend's own, which nothing outside this directory includes:
 | [vkgl_commands.cpp](vkgl_commands.cpp) | Work deferred to the frame's end, the frame's ring, the two command buffers (`upload`, `main`, and `present` for the copy to the screen under `vk-tight-sync`) and the order between them (each barrier's stages: RENDER_PERF.md, "R-08"), GPU timing, submission, render targets, the passes (under `attachment-discard` recorded into a secondary buffer, so that their load and store operations follow `glInvalidateFramebuffer`) and `glClear` |
 | [vkgl_resources.cpp](vkgl_resources.cpp) | Images, views, pixel uploads and mip chains, samplers, buffers on the GPU and their texel views |
 | [vkgl_pipelines.cpp](vkgl_pipelines.cpp) | Vertex formats, fixed-function state, pipelines by key, descriptor sets, `glDispatchCompute` and `glMemoryBarrier` |
-| [vkgl_draw.cpp](vkgl_draw.cpp) | One draw recorded with the current state; includes the two files below |
+| [vkgl_draw.cpp](vkgl_draw.cpp) | One draw recorded with the current state; includes `gpu_draw.inc` and `gpu_materials.inc` |
 | [gpu_materials.inc](gpu_materials.inc) | The native material path: material records and textures indexed by the draw |
+| [gl_program.cpp](gl_program.cpp), [gl_program.h](gl_program.h) | Private GL shader/program entry points, linking and reflected uniform writes |
+| [multisample_blit.inc](multisample_blit.inc) | Single-sample colour copied into MSAA targets by a fullscreen draw, with caller state restored |
 | [gpu_draw.inc](gpu_draw.inc) | GPU-driven instances: culling on the GPU and indirect draws |
-| [vkgl_gl.cpp](vkgl_gl.cpp) | The GL functions themselves (state, textures, buffers, vertex arrays, shaders and programs, uniforms, samplers, framebuffers) and their table |
+| [vkgl_gl.cpp](vkgl_gl.cpp) | The GL functions themselves (state, textures, buffers, vertex arrays, samplers, framebuffers) and their table |
 | [vkgl_present.cpp](vkgl_present.cpp) | The default framebuffer, the swapchain and its present mode, moving on to the next frame, presenting (the picture's waiting copy composed straight into the screen under `present-single-copy`) |
 | [vkgl_device.cpp](vkgl_device.cpp) | The instance and the validation layer, the physical and logical device, the pipeline cache on disk, the frames' objects, the dummy resources, the surface, and teardown |
 | [cache_file.h](cache_file.h), [.cpp](cache_file.cpp) | The envelope of the backend's cache files: a magic, the data's length and hash, read back only when whole, saved through a temporary file of each save's own and renamed into place |
@@ -113,9 +115,19 @@ dynamic state, through the same tracker.
 ## Errors
 
 `open()` returns false with a message when Vulkan cannot start (the window then falls back to
-OpenGL and logs why). After that, a failing Vulkan call is logged (`check()`, `vulkan: <what>
-failed`) and the work that needed it is skipped; GL errors are recorded for `glGetError` as GL
-would. The GPU-driven path throws `std::runtime_error` when a page's fixed capacity is exceeded.
+OpenGL and logs why). Recording, submission, fence and pool-reset failures stop the frame through
+its existing exception boundary. A failed submit is never marked submitted or waited on. Shader
+object failures leave the program unlinked with a diagnostic log. Descriptor allocation retries
+only exhausted or fragmented existing pools; other failures and failures in a fresh pool stop
+recording. Upload allocation failures cannot return null staging memory to callers.
+
+Invalid texture extents, mip shifts, buffer update ranges and compute dispatch sizes are rejected
+before unsafe arithmetic or driver calls. Native compute rejects image aliases involving a write
+before changing layouts; duplicate read-only imports remain valid. GL input errors are recorded
+for `glGetError`. Optional resource operations still return their documented failure values.
+Single-sample colour copied into MSAA targets uses a fullscreen draw rather than an invalid
+Vulkan image blit, including retained loading/menu backgrounds and flipped copies.
+The GPU-driven path throws `std::runtime_error` when a page's fixed capacity is exceeded.
 With the validation layer on, its messages go to the log and its errors are counted.
 The pipeline cache's file reports a damaged file in its `SavedCache` and a failed save as false
 with a message (`pipeline_cache_file.h`); `vkgl_device.cpp` logs both as warnings, and the run goes
@@ -152,6 +164,8 @@ CI). Where Vulkan cannot open, the window falls back to OpenGL and they repeat t
   and set again, deleting one program's pipelines leaves the others' usable, and cull and front
   face toggled in one pass draw alike as dynamic and as baked state, and a texture deleted and
   replaced never draws through the old one's set.
+- `vulkan_failure`: injected shader, descriptor and submit failures, bounded upload sizes,
+  framebuffer completeness and conflicting native-compute image imports, on an 8x8 offscreen target.
 - `render_opt_vulkan`: the render counters of `SubmissionCounters` follow a fixed scene's draws
   (every draw a draw command, one submit a frame), printed for the reports of
   [RENDER_PERF.md](../../../docs/port/RENDER_PERF.md).

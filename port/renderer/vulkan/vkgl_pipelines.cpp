@@ -18,6 +18,7 @@
 #include <mutex>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -1200,10 +1201,11 @@ VkPipeline pipeline_for(
 VkDescriptorSet allocate_set(VkDescriptorSetLayout layout) {
     Frame& f = frame();
     while (true) {
+        const bool fresh = f.pool_at >= f.pools.size();
         if (f.pool_at >= f.pools.size()) {
             const VkDescriptorPool pool = new_pool();
             if (pool == VK_NULL_HANDLE) {
-                return VK_NULL_HANDLE;
+                throw std::runtime_error("cannot allocate Vulkan descriptor pool");
             }
             f.pools.push_back(pool);
         }
@@ -1212,9 +1214,15 @@ VkDescriptorSet allocate_set(VkDescriptorSetLayout layout) {
         info.descriptorSetCount = 1;
         info.pSetLayouts = &layout;
         VkDescriptorSet set = VK_NULL_HANDLE;
-        if (vkAllocateDescriptorSets(g->device, &info, &set) == VK_SUCCESS) {
+        const VkResult result = vkAllocateDescriptorSets(g->device, &info, &set);
+        if (result == VK_SUCCESS) {
             ++g->submission.descriptor_sets_allocated;
             return set;
+        }
+        // Only exhausted/fragmented existing pools justify retrying with a fresh pool.
+        if (fresh
+            || (result != VK_ERROR_OUT_OF_POOL_MEMORY && result != VK_ERROR_FRAGMENTED_POOL)) {
+            require_success(result, "allocate frame descriptors");
         }
         ++f.pool_at;
     }
@@ -1815,6 +1823,12 @@ VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers) {
 }
 
 void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
+    const auto& limits = g->properties.limits.maxComputeWorkGroupCount;
+    // Reject oversized grids before recording an invalid dispatch for any enhanced pass.
+    if (x > limits[0] || y > limits[1] || z > limits[2]) {
+        fail(kGlInvalidValue);
+        return;
+    }
     prepare_frame();
     auto* p = g->programs.find(g->state.program);
     if (!p || !p->linked || !p->compute_pipeline || !x || !y || !z) {
