@@ -517,7 +517,7 @@ export interface GpuDrivers {
   /** The package the game loads; absent or null: the system's driver (Android's JSON drops a
    *  null value). */
   selected?: string | null;
-  /** What the game draws with: OpenGL ES (the default) or its Vulkan renderer. */
+  /** What the game draws with: its Vulkan renderer (the default) or OpenGL ES. */
   renderer: Renderer;
   device: {
     model: string;

@@ -90,9 +90,9 @@ theme: string,
  */
 detailedGameLog: boolean, 
 /**
- * What the game draws with on Windows, Linux and macOS: "opengl" (OpenGL 4.1, the default)
- * or "vulkan", the port's experimental Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the
- * MoltenVK its bundle carries). Where Vulkan cannot start, the game draws with OpenGL
+ * What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
+ * Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
+ * "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
  * (port/platform/window.cpp). Not used on Android, which keeps its own choice
  * (src-tauri/src/android.rs).
  */

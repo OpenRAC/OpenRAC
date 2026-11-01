@@ -10,12 +10,12 @@
   let busy = $state(false);
   // The radios show the choice, then what is saved (load): one that failed to save goes back
   // ("" is the system's driver).
-  let rendererPick = $state<Renderer>("gles");
+  let rendererPick = $state<Renderer>("vulkan");
   let driverPick = $state("");
 
   async function load() {
     info = (await guard(api.gpuDrivers())) ?? null;
-    rendererPick = info?.renderer === "vulkan" ? "vulkan" : "gles";
+    rendererPick = info?.renderer === "gles" ? "gles" : "vulkan";
     driverPick = info?.selected ?? "";
   }
 
@@ -81,22 +81,22 @@
     <span class="text">
       <strong>Renderer</strong>
       <small>
-        {rendererPick === "vulkan" ? "Experimental: needs Vulkan 1.3, else OpenGL ES." : "OpenGL ES 3.2, the default."}
+        {rendererPick === "vulkan" ? "Vulkan 1.3, the default; without it OpenGL ES." : "OpenGL ES 3.2."}
         From the game's next start.
       </small>
     </span>
     <div class="segmented" role="radiogroup" aria-label="Renderer">
       <button
         role="radio"
-        aria-checked={rendererPick === "gles"}
-        disabled={busy || !info}
-        onclick={() => void renderer("gles")}>OpenGL ES</button
-      >
-      <button
-        role="radio"
         aria-checked={rendererPick === "vulkan"}
         disabled={busy || !info}
         onclick={() => void renderer("vulkan")}>Vulkan</button
+      >
+      <button
+        role="radio"
+        aria-checked={rendererPick === "gles"}
+        disabled={busy || !info}
+        onclick={() => void renderer("gles")}>OpenGL ES</button
       >
     </div>
   </div>
