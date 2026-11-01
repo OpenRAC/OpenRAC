@@ -1867,6 +1867,11 @@ class Unit:
         an executable function's code read as data; `named_level`: the level its name gives
         (D_L00_...). A global's name and a literal address of it (`*(s32 *)0x1610A8`) take the
         same path."""
+        # A level function's datum by its name, where the build's derived table holds the address of
+        # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
+        named = re.search(r"_L(\d\d)_([0-9A-Fa-f]{8})", symbol or "")
+        if named and not code and int(named.group(2), 16) != address and self._shared_level() is not None:
+            return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
             # A function's code declared as data: where that code is in the program loaded.

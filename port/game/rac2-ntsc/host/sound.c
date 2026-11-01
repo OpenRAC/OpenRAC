@@ -67,3 +67,12 @@ void func_00132498(int sector, int offset, int callback, long long argument) {
         GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);
     }
 }
+
+/* snd_BankLoadFromEE (0x001326D8): a bank in EE memory, loaded at once, its handle the result. A level
+ * swaps its dialogue banks so (func_00294988); the console's version waits for the IOP. */
+int func_001326D8(int bank) {
+    const gaddr at = openrac_guest_ram_address((gaddr)bank);
+    return bank != 0 && at < openrac_guest_ram_size
+               ? (int)openrac_sound_load_bank(G(at), openrac_guest_ram_size - at)
+               : 0;
+}
