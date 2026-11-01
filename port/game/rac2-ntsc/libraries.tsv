@@ -174,7 +174,7 @@ func_00133688	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadSta
 func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
 func_0029D4D0	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
 # The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
-func_00132498	989snd	snd_BankLoadByLoc	host	a bank by sector and offset; rac1's size, and func_002B6788 calls it so
+func_00132498	game	snd_BankLoadByLoc_CB	host	a bank by sector and offset, its handle told to the callback: host/sound.c	void (int, int, int, long long)
 func_001325E8	989snd	snd_BankLoadFromEE_CB	host	a bank in EE memory; the level loader waits for its callback (func_002EAAA8)
 func_00132828	989snd	snd_ResolveBankXREFS	host	command 8
 func_00132858	989snd	snd_UnloadBank	host	command 6

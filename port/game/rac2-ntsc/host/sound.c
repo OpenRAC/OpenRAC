@@ -57,3 +57,13 @@ int func_00132DF0(int command_arg, int bytes, int data_arg, long long callback, 
     }
     return 0;
 }
+
+/* snd_BankLoadByLoc with a callback (0x00132498): the bank at a sector and offset of the disc, loaded
+ * at once; the callback is told its handle, as the IOP's answer would. The level loader waits for it
+ * (func_00293A60, stages 3 and 5). */
+void func_00132498(int sector, int offset, int callback, long long argument) {
+    const unsigned int handle = openrac_lib_snd_BankLoadByLoc(sector, offset);
+    if (callback != 0) {
+        GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);
+    }
+}
