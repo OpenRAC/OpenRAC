@@ -166,11 +166,15 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_PLACE_INVULNERABLE` | `0x1u` | the hero takes no damage for a few seconds |
 | `OPENRAC_PLACE_GROUND` | `0x2u` | the position is dropped to the ground below it |
 | `OPENRAC_PLACE_BESIDE` | `0x4u` | a spot beside the position, behind `yaw` and looking at it |
-| `OPENRAC_MISSION_STATE_SIZE` | `16` | The bytes of one level's mission state (mission_state_read, mission_state_write). Since 1.12. |
+| `OPENRAC_MISSION_STATE_SIZE` | `16` | The bytes of one level's mission state (mission_state_read, mission_state_write): 0 not done, 0xFF done. Since 1.12. |
 | `OPENRAC_SHOT_START` | `0x1u` | openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a track, and each of its shots says where in it this one is; aux[0] tells a player's tracks apart. Each may be lost: a MOVE stands in for a lost START, a track that goes silent ends by itself. No flag: one shot, fired once. Since 1.12. |
 | `OPENRAC_SHOT_MOVE` | `0x2u` |  |
 | `OPENRAC_SHOT_STOP` | `0x4u` |  |
 | `OPENRAC_SHOT_BURST` | `0x8u` | with STOP: it ended in a blast |
+| `OPENRAC_SHARED_GOLD_WEAPONS` | `1` | by item id, 40 bytes |
+| `OPENRAC_SHARED_SKILL_POINTS` | `2` | 32 bytes |
+| `OPENRAC_SHARED_LEVEL_FLAGS` | `3` | every level's mission state, 20 x 16 bytes |
+| `OPENRAC_SHARED_SPECIAL_ITEMS` | `4` | the game's other things had, 128 bytes |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
 | `OPENRAC_MOD_UNLOAD` | `"openrac_mod_unload"` |  |
@@ -865,9 +869,9 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*coop_save_write)(openrac_mod* mod, int slot, const void* bytes, uint32_t size)` | Writes `size` bytes (a save as save_capture gives it) as slot `slot` of the redirect folder, as the game would have written it, the save before it kept; refused for bytes the game would not read, wherever they came from. Since 1.12. |
 | `int (*save_slot2)(const char* folder, int slot, openrac_save_info* out)` | save_slot and save_read for the saves in the card folder `folder` ("" is the game's own). Since 1.12. |
 | `size_t (*save_read2)(const char* folder, int slot, void* out, size_t size)` |  |
-| `int (*shared_read)(int tag, void* out, uint32_t size)` | The game's shared progress section `tag` (a mod-chosen number for gold weapons, skill points, a level's flags) read into `out`, returning its size, or -1 for none; and given from other players' games: `data` merged in, upward only. Since 1.12. |
+| `int (*shared_read)(int tag, void* out, uint32_t size)` | The game's shared progress section `tag` (OPENRAC_SHARED_*: gold weapons, skill points, the levels' flags) read into `out`, returning its size, or -1 for none; and given from other players' games: `data` merged in, upward only and without a sound or a banner. Since 1.12. |
 | `int (*shared_give)(int tag, const void* data, uint32_t size)` |  |
-| `int (*mission_state_read)(int level, uint8_t* out)` | The 16 bytes (OPENRAC_MISSION_STATE_SIZE) of the mission state of level `level`, and the same written back. Since 1.12. |
+| `int (*mission_state_read)(int level, uint8_t* out)` | The 16 bytes (OPENRAC_MISSION_STATE_SIZE) of the mission state the game keeps for level `level`, and the same merged back, upward only (a byte done stays done). The copy the level took when it loaded is left as it is: the game reads it as "not done on arrival". Since 1.12. |
 | `int (*mission_state_write)(int level, const uint8_t* in)` |  |
 | `int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags)` | Puts the hero at `position` (x, y, z) facing `yaw`, its speed cleared, with OPENRAC_PLACE_* `flags`, in a level; a place asked for in a menu, a scene or on a ride waits until the player is in control, on foot, and goes with the level. OPENRAC_HOOK_OK says it was asked, not done: the hero's pose says when he is there, and with OPENRAC_PLACE_BESIDE, where no spot beside the position has ground, he never goes. Since 1.12. |
 | `int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags)` | Holds the hero as a grab does, playing animation `animation`, controls locked, until hero_release or the game's own end of it; and lets go. Since 1.12. |

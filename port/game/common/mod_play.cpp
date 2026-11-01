@@ -43,6 +43,10 @@ static_assert(OPENRAC_PLAY_LOADING == OPENRAC_GAME_PHASE_LOADING);
 static_assert(OPENRAC_PLAY_PLAYING == OPENRAC_GAME_PHASE_PLAYING);
 static_assert(OPENRAC_PLAY_SCENE == OPENRAC_GAME_PHASE_SCENE);
 static_assert(OPENRAC_PLAY_MENU == OPENRAC_GAME_PHASE_MENU);
+static_assert(OPENRAC_SHARED_GOLD_WEAPONS == OPENRAC_GAME_SHARED_GOLD_WEAPONS);
+static_assert(OPENRAC_SHARED_SKILL_POINTS == OPENRAC_GAME_SHARED_SKILL_POINTS);
+static_assert(OPENRAC_SHARED_LEVEL_FLAGS == OPENRAC_GAME_SHARED_LEVEL_FLAGS);
+static_assert(OPENRAC_SHARED_SPECIAL_ITEMS == OPENRAC_GAME_SHARED_SPECIAL_ITEMS);
 // A pose is the game's after its size: copied as one block.
 static_assert(offsetof(openrac_pose, level) == sizeof(std::uint32_t));
 static_assert(sizeof(openrac_pose) == sizeof(std::uint32_t) + sizeof(openrac_game_pose));
@@ -852,20 +856,37 @@ int api_card_note_read(const char* folder, int slot, char* out, std::uint32_t si
     return static_cast<int>(text.size());
 }
 
-int api_shared_read(int, void*, std::uint32_t) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_shared_read(int tag, void* out, std::uint32_t size) {
+    if (g_play == nullptr || g_play->shared_read == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    return out != nullptr ? g_play->shared_read(tag, out, size) : -1;
 }
 
-int api_shared_give(int, const void*, std::uint32_t) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_shared_give(int tag, const void* data, std::uint32_t size) {
+    if (g_play == nullptr || g_play->shared_give == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    return data != nullptr && g_play->shared_give(tag, data, size) != 0 ? OPENRAC_HOOK_OK
+                                                                        : OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_mission_state_read(int, std::uint8_t*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_mission_state_read(int level, std::uint8_t* out) {
+    if (g_play == nullptr || g_play->mission_state_read == nullptr || out == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    return g_play->mission_state_read(level, out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_mission_state_write(int, const std::uint8_t*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_mission_state_write(int level, const std::uint8_t* in) {
+    if (g_play == nullptr || g_play->mission_state_write == nullptr || in == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    return g_play->mission_state_write(level, in) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 int api_hero_place(openrac_mod* mod, const float position[3], float yaw, std::uint32_t flags) {

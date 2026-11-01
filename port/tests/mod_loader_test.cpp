@@ -329,6 +329,10 @@ const openrac_game_play kPlay = {
         g_placed = {position[0], yaw, static_cast<float>(flags)};
         return position[0] < 100.0f ? 1 : 0;
     },
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
 };
 
 // The state status.json gives a mod, and its reason.

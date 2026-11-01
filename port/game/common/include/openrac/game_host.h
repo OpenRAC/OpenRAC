@@ -255,6 +255,12 @@ extern const openrac_front_end* openrac_game_front_end;
 #define OPENRAC_GAME_PHASE_SCENE 4
 #define OPENRAC_GAME_PHASE_MENU 5
 
+/* A shared progress section: openrac_mod.h's OPENRAC_SHARED_* values (mod_play.cpp checks they agree). */
+#define OPENRAC_GAME_SHARED_GOLD_WEAPONS 1
+#define OPENRAC_GAME_SHARED_SKILL_POINTS 2
+#define OPENRAC_GAME_SHARED_LEVEL_FLAGS 3
+#define OPENRAC_GAME_SHARED_SPECIAL_ITEMS 4
+
 /* A pose of the hero or of a figure: openrac_pose's fields after its size, the same meanings. */
 typedef struct openrac_game_pose {
     int32_t level;
@@ -499,6 +505,13 @@ typedef struct openrac_game_play {
      * control (openrac_api.hero_place): 1 asked, 0 refused (no level, no hero). NULL for a game
      * without it. */
     int (*hero_place)(const float position[3], float yaw, uint32_t flags);
+    /* The shared progress (openrac_api.shared_read, shared_give, mission_state_read and write;
+     * rac1/host/shared.c): a section's size or -1, 1 merged or 0, 1 read or 0, 1 merged or 0. NULL
+     * for a game without it. */
+    int (*shared_read)(int tag, void* out, uint32_t size);
+    int (*shared_give)(int tag, const void* data, uint32_t size);
+    int (*mission_state_read)(int level, uint8_t* out);
+    int (*mission_state_write)(int level, const uint8_t* in);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

@@ -223,6 +223,10 @@ openrac_warnings(openrac_mods)
 openrac_add_test(mod_manifest LIBS openrac_mods)
 # When the mods' pages of the game's menus take the pad (mod_ui.h): only while the title stays.
 openrac_add_test(mod_ui_menus INCLUDES game/common)
+# The shared progress of rac1 (game/rac1/host/shared.c) on an array in place of game memory.
+add_executable(rac1_shared_test tests/rac1_shared_test.c)
+target_include_directories(rac1_shared_test PRIVATE tests/rac1_shared_stub)
+add_test(NAME rac1_shared COMMAND rac1_shared_test)
 
 # A mod built as a mod is (a shared library against the SDK's header alone), loaded by the real
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made

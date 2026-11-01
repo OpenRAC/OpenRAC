@@ -974,7 +974,8 @@ typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t si
 #define OPENRAC_PLACE_GROUND 0x2u       /* the position is dropped to the ground below it */
 #define OPENRAC_PLACE_BESIDE 0x4u       /* a spot beside the position, behind `yaw` and looking at it */
 
-/* The bytes of one level's mission state (mission_state_read, mission_state_write). Since 1.12. */
+/* The bytes of one level's mission state (mission_state_read, mission_state_write): 0 not done,
+ * 0xFF done. Since 1.12. */
 #define OPENRAC_MISSION_STATE_SIZE 16
 
 /* openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a
@@ -985,6 +986,13 @@ typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t si
 #define OPENRAC_SHOT_MOVE 0x2u
 #define OPENRAC_SHOT_STOP 0x4u
 #define OPENRAC_SHOT_BURST 0x8u /* with STOP: it ended in a blast */
+
+/* shared_read and shared_give's sections, a byte each, non-zero had; numbers both discs share.
+ * Since 1.12. */
+#define OPENRAC_SHARED_GOLD_WEAPONS 1  /* by item id, 40 bytes */
+#define OPENRAC_SHARED_SKILL_POINTS 2  /* 32 bytes */
+#define OPENRAC_SHARED_LEVEL_FLAGS 3   /* every level's mission state, 20 x 16 bytes */
+#define OPENRAC_SHARED_SPECIAL_ITEMS 4 /* the game's other things had, 128 bytes */
 
 /* A shot with more to say than openrac_shot (hero_shots2, figure_shot2): the same fields, then the
  * shot's flags (OPENRAC_SHOT_*), the key of the moby it homes on (-1 for none), a second velocity
@@ -1594,14 +1602,15 @@ typedef struct openrac_api {
     int (*save_slot2)(const char* folder, int slot, openrac_save_info* out);
     size_t (*save_read2)(const char* folder, int slot, void* out, size_t size);
 
-    /* The game's shared progress section `tag` (a mod-chosen number for gold weapons, skill points,
-     * a level's flags) read into `out`, returning its size, or -1 for none; and given from other
-     * players' games: `data` merged in, upward only. Since 1.12. */
+    /* The game's shared progress section `tag` (OPENRAC_SHARED_*: gold weapons, skill points, the
+     * levels' flags) read into `out`, returning its size, or -1 for none; and given from other
+     * players' games: `data` merged in, upward only and without a sound or a banner. Since 1.12. */
     int (*shared_read)(int tag, void* out, uint32_t size);
     int (*shared_give)(int tag, const void* data, uint32_t size);
 
-    /* The 16 bytes (OPENRAC_MISSION_STATE_SIZE) of the mission state of level `level`, and the same
-     * written back. Since 1.12. */
+    /* The 16 bytes (OPENRAC_MISSION_STATE_SIZE) of the mission state the game keeps for level
+     * `level`, and the same merged back, upward only (a byte done stays done). The copy the level
+     * took when it loaded is left as it is: the game reads it as "not done on arrival". Since 1.12. */
     int (*mission_state_read)(int level, uint8_t* out);
     int (*mission_state_write)(int level, const uint8_t* in);
 

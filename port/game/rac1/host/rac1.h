@@ -86,6 +86,11 @@ extern const char* const rac1_level_names[];
 /* play.c: what the mods' play calls need of the game (game_host.h, interfaces 1.8 and 1.9), and a
  * moby put in a pose (a figure, or a moby of the world a mod drives). */
 extern const openrac_game_play rac1_play;
+/* shared.c: the progress a party shares. */
+int rac1_shared_read(int tag, void* out, uint32_t size);
+int rac1_shared_give(int tag, const void* data, uint32_t size);
+int rac1_mission_state_read(int level, uint8_t* out);
+int rac1_mission_state_write(int level, const uint8_t* in);
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 
 /* world.c: the level's mobys for the mods (interface 1.9): a moby's slot in the array (-1 none),
