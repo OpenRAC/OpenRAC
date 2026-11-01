@@ -203,6 +203,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::OverwriteDiscard, "overwrite-discard",
      "the temporal and blur targets a full-screen draw overwrites whole are let go before it, so not loaded",
      true, Tolerance{}},
+    {Opt::ProbeFastBlended, "probe-fast-blended",
+     "blended static passes read the best probe volume without its depth test and filter shadows with four taps",
+     true, Tolerance{1.0, 255}},
 }};
 // clang-format on
 

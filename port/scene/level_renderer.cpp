@@ -166,7 +166,8 @@ bool LevelScene::upload(
     // The same small pass shaders also serve OpenGL and direct/CPU draws. No
     // material-buffer or batching capability is required to fix these controls.
     if (m_colour_opaque.id()
-        || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)) {
+        || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+        || renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeFastBlended)) {
         // Keep opaque features constant per native program. In particular,
         // static geometry never needs the joint-palette path, and solid
         // geometry must not inherit the alpha shader's discard instructions.
@@ -228,7 +229,7 @@ bool LevelScene::upload(
         static_translucent =
             renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
         // The default blended static pass reads cheaper probe light and shadows (Enhanced is
-        // allowed to be lossy); the full one stays as the reference.
+        // allowed to be lossy, probe-fast-blended); the full one stays as the reference.
         std::string static_fast(static_translucent);
         static_fast.insert(static_fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
         if (!m_static_translucent
@@ -1216,10 +1217,19 @@ void LevelScene::draw_layer(
         );
         const unsigned variant = solid ? 0 : mobys ? 2 : 1;
         const auto& specialised = early ? m_early_colour_specialised : m_colour_specialised;
+        static const bool& fast_off = stats::probe(
+            "OPENRAC_PROBE_FAST_OFF", "Reference: full probe light on blended static passes"
+        );
+        // The cheaper probe light exists only in the static variant, so it takes that variant
+        // with shader-variants off too: shader-variants alone stays byte-identical.
+        const bool fast_blended =
+            !fast_off && !m_sweep_translucent_full
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeFastBlended);
         const bool static_translucent =
             !state.depth_prepass && !mobys && pass == 2 && m_static_translucent.id()
             && !specialisation_off
-            && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants);
+            && (fast_blended
+                || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants));
         const renderer::Shader* selected = &m_mesh;
         // Both depth variants retain identical positions and alpha coverage.
         if (state.depth_prepass) {
@@ -1231,11 +1241,7 @@ void LevelScene::draw_layer(
             }
         } else if (static_translucent) {
             // Static blended packets omit moby-only vertex work.
-            static const bool& fast_off = stats::probe(
-                "OPENRAC_PROBE_FAST_OFF", "Reference: full probe light on blended static passes"
-            );
-            selected = fast_off || m_sweep_translucent_full ? &m_static_translucent_full
-                                                            : &m_static_translucent;
+            selected = fast_blended ? &m_static_translucent : &m_static_translucent_full;
         } else if (!specialisation_off && specialised[variant].id()
                    && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
                    && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {
