@@ -39,8 +39,8 @@ using renderer::Vec3;
 inline constexpr int kManifestFormat = 4;
 // The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
 // layout, so the reader takes both; which levels are read again is the launcher's stamps' doing.
-// 5: Going Commando's, with Ratchet's mesh.
-inline constexpr int kManifestFormatNewest = 5;
+// 5: Going Commando's, with Ratchet's mesh. 6: and its flights to a planet.
+inline constexpr int kManifestFormatNewest = 6;
 
 struct Vertex {
     float position[3];
