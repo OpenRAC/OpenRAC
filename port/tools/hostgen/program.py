@@ -110,6 +110,7 @@ class Program:
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
     bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
+    executable_starts: set = field(default_factory=set)  # hostgen.json "executable_functions"
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
     code_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_CODE_NAMES])
@@ -275,10 +276,12 @@ class Program:
         """hostgen.json "level_short_names": a name of six digits in a level's file is an address in
         that level's program, whose function the catalogue knows: Going Commando's func_2F15C8 is
         func_00282978 in level 12 and func_0028FAB8 in level 7. Read as an address in the executable
-        it is a stub in the middle of something else, and every such call returned 0."""
+        it is a stub in the middle of something else, and every such call returned 0. Eight digits
+        (func_00310580, func_002A7878 in level 1) the same, unless a function of the executable
+        starts there: that is the executable's."""
         pattern = getattr(self, "level_short_names", None)
         m = pattern.match(sym) if pattern else None
-        if m is None:
+        if m is None or int(m.group("addr"), 16) in self.executable_starts:
             return sym
         found = _UNIT_LEVEL.search(unit) or _LEVEL_NAME.match(function)
         if found is None:

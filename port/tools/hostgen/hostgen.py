@@ -1022,6 +1022,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
     program.returns_64 = set(cfg.get("returns_64", []))
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
+    if cfg.get("executable_functions"):
+        program.executable_starts = {int(row[1], 16) for row in tables.read_tsv(source / cfg["executable_functions"],
+                                                                                strip=True) if len(row) >= 2}
     short_names = cfg.get("level_short_names")
     program.level_short_names = re.compile(short_names) if short_names else None
     program.vu0_programs = {int(k, 0): v for k, v in cfg.get("asm", {}).get("vu0_programs", {}).items()}
