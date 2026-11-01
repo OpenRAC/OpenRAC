@@ -103,6 +103,7 @@
   "from_assembly": [
         "func_00335D30",
     "func_L00_002F7568",
+    "func_L16_004364B0",
     "func_L00_003827C0",
     "func_L00_003E4948",
     "func_L01_002A8C48",
@@ -531,7 +532,7 @@
     "vu0_programs": {"0xC80": "rac2_vu0_cosine", "0xC90": "rac2_vu0_sine", "0xD18": "rac2_vu0_rotation_rows"},
     "enabled": true,
     "discover_entries": true,
-    "dma_stores": true, "follow_saved_registers": true,
+    "dma_stores": true, "follow_saved_registers": true, "gp_addresses": true,
     "fit_declarations": true,
     "register_jumps": true,
     "input_idioms": true,

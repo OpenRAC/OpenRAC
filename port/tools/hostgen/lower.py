@@ -1906,6 +1906,14 @@ class Unit:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
             # the programs finds the sum, so the name is that, relocated, less what was added.
             return f"(OPENRAC_DATA({hexaddr(formed)}) - {hexaddr(formed - address)})"
+        # A level function written with another level's name for the datum (func_L16_00435CE8 was
+        # matched from level 23's copy and says D_L23_001B2144, which level 16 has at 0x001B24C4;
+        # func_L00_002A53B8 says D_L24_0025B710): the name's level's address, as the level loaded
+        # has it.
+        if named and not code and getattr(self.program, "level_short_names", None) is not None:
+            own = LEVEL_NAME.match(self.fn.code) if self.fn is not None else None
+            if own and int(own.group(1)) != int(named.group(1)):
+                return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
             # A function's code declared as data: where that code is in the program loaded.

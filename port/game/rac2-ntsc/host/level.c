@@ -37,6 +37,7 @@ gaddr func_00131CB8(void) {
     if (!relocation_set) {
         relocation_set = 1;
         openrac_guest_set_relocation(RELOCATE_LOW, RELOCATE_HIGH, GP, (const uint8_t*)G(EXE_BASE), EXE_BASE, EXE_SIZE);
+        openrac_guest_set_level_range(RELOCATE_LOW, RELOCATE_HIGH);
     }
     const gaddr entry = func_00131CB8__game();
     const int level = GREF(int, PLAYER_PROGRESS);

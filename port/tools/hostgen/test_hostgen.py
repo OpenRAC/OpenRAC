@@ -1727,6 +1727,61 @@ class Places(unittest.TestCase):
             self.assertIn("OPENRAC_DATA(0x001B22A8u)", (out / "game" / "a.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_function_of_one_level_with_another_levels_datum_looks_it_up(self):
+        # Going Commando's func_L16_00435CE8 was matched from level 23's copy and says D_L23_001B2144.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "16_x").mkdir(parents=True)
+            (src / "src" / "levels" / "16_x" / "L16_00435CE8.c").write_text(
+                "extern int D_L23_001B2144;\n"
+                "int func_L16_00435CE8(void) { return D_L23_001B2144; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L16_00435CE8\tlevel\t4\tfingerprint\t1\t16:00435CE8\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "relocate": [0x1A7C80, 0x500000],
+                "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            self.assertIn("OPENRAC_LDATA(23, 0x001B2144u)",
+                          (out / "levels" / "16_x" / "L16_00435CE8.c").read_text())
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_six_digits_in_a_level_are_the_levels_even_on_an_executable_function(self):
+        # func_31C970 in level 7's file is the level's function there; func_0031C970 is the
+        # executable's, at the same number.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "07_x").mkdir(parents=True)
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "b.c").write_text("int func_0031C970(void) { return 1; }\n")
+            (src / "src" / "levels" / "07_x" / "L07_003F59C0.c").write_text(
+                "int func_L01_0031BC68(void) { return 2; }\n"
+                "extern int func_31C970(void);\n"
+                "int func_L07_003F59C0(void) { return func_31C970(); }\n")
+            (src / "functions.tsv").write_text(
+                "func_L01_0031BC68\tshared\t4\tfingerprint\t2\t01:0031BC68,07:0031C970\n"
+                "func_L07_003F59C0\tlevel\t4\tfingerprint\t1\t07:003F59C0\n")
+            (src / "boot.tsv").write_text("func_0031C970\t0031C970\t4\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "executable_functions": "boot.tsv", "relocate": [0x1A7C80, 0x500000],
+                "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "07_x" / "L07_003F59C0.c").read_text()
+            self.assertIn("func_L01_0031BC68()", text)
+            self.assertNotIn("func_0031C970", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_data_label_with_an_offset_is_the_symbol_plus_it(self):
         # rac1/ntsc's l16 00214598.c: extern f32 D_L16_0017C224[] __asm__("D_L16_0017C218+12").
         with tempfile.TemporaryDirectory() as tmp:
