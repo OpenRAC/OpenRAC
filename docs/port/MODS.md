@@ -13,7 +13,7 @@ switches them on and off, orders them and shows why one was not loaded. A
 player who wants the game as the console plays it leaves the **Mods** switch
 under Play off (the default) and nothing is loaded (Purist mode).
 
-Mods live outside OpenRAC: [OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods)
+Mods live outside OpenRAC: [OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods)
 holds Ratchet & Clank's, starting with the lock-strafe that was an option of
 the port's own until 2026-10-21. The SDK to write one is [sdk/](../../sdk/README.md).
 
@@ -149,7 +149,7 @@ files. Script mods and data packs work there as elsewhere.
   "author": "OpenRAC contributors",
   "description": "Strafe as in the later games: ...",
   "license": "GPL-3.0-or-later",
-  "homepage": "https://github.com/OpenRAC/rac1-mods",
+  "homepage": "https://github.com/OpenRAC/openrac-mods",
   "api": "1.0",                          // the interface it was built for (section 6)
   "games": { "rac1": ["pal", "ntsc"] },  // game id: the discs (game.json versions)
   "plugin": {                            // the library for each platform it was built for
@@ -515,7 +515,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `play_scene_from(mod, scene, frame)`, `play_live_picture(mod, on)`, `on_metal_detect(mod, fn, user)` (1.12) | a slot kept for a scene started from a later frame, which no port does yet (it answers `OPENRAC_HOOK_UNKNOWN`: a scene is read from the disc as it plays), whether the world is drawn behind the pause menu while `play_overlay_pause` keeps it running (on until asked otherwise; off, the picture stands and the mobys go on), and the metal detector's finds |
 | `packs_info(&out)`, `packs_entry(index, &out)`, `clipboard_set(text)`, `open_link(url)`, `world_family(out, size)`, `sim_digest(level, &out)`, `identity_key(out, size)`, `plugins_folder(out, size)` (1.12) | the data packs applied and their digest, the clipboard, a mod code's link handed to the system (only `openrac://modset/` and a code: the mod asks the player first, with a button of its own page), the world the disc belongs to (two discs with the same text are played together), a number for what a loaded level's games must agree on, and a key for the installation, and the folder the mods are in, where the launcher leaves `modset.json` for the game |
 
-Besides `world_family`, `sim_digest`, the shared progress, `hero_place`, `hero_grab` and the stand-in's calls above, `hero_revive`, `moby_list2`, `on_metal_detect` and the camera scripts, all of these are stubs in the port for now: each answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) until the work behind it lands, and the C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
+A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -527,7 +527,7 @@ uses on each, as the port's `rac1_version.h` does, and picks it by
 `openrac.key(name)`, `pressed(name)`, `mouse()`, `window()`, `take_input(...)`
 and `capture_mouse(on)`. The game's own state (in play, paused, the Quick
 Select open) is the game's: a mod reads it from game memory as it reads
-anything else of the game (rac1-mods' keyboard-mouse reads the game mode).
+anything else of the game (openrac-mods' keyboard-mouse reads the game mode).
 
 **Compatibility.** The major version changes when something in the table
 changes or goes; a mod built for another major is refused. The minor version
@@ -627,7 +627,7 @@ of OpenRAC/OpenRAC, with its SHA-256 ([sdk.yml](../../.github/workflows/sdk.yml)
 interface's, `MAJOR.MINOR`, and a patch number for fixes to the SDK itself
 (`sdk/VERSION`): the SDK 1.0.x builds mods for interface 1.0. The archive is
 the same bytes wherever it is made, so a mod's build can pin the version and
-its hash (rac1-mods does: `sdk.lock`).
+its hash (openrac-mods does: `sdk.lock`).
 
 ```sh
 unzip openrac-mod-sdk-1.0.0.zip
@@ -678,7 +678,7 @@ first start (an adjective, a noun and 2 or 3 digits: `SwiftLombax427`) and
 changed there. It is the launcher's, not a mod's setting, since every online
 mod shows the same one. Play starts the game with it in the environment as
 `OPENRAC_PLAYER_NAME` (only a valid one: otherwise it is left out), and a
-native mod reads it with `getenv` (rac1-mods' `multiplayer` does, with a
+native mod reads it with `getenv` (openrac-mods' `multiplayer` does, with a
 name of its own when there is none). The port itself does not read it. The
 Rust side is `core/src/multiplayer.rs`.
 
@@ -729,11 +729,11 @@ link**), and the launcher finds the mods in it, shows them, and installs the
 one chosen, built: players have no compilers, and nothing is ever built on
 their machine. For that, a repository keeps to these conventions; the SDK's
 template ([sdk/template](../../sdk/template)) and
-[rac1-mods](https://github.com/OpenRAC/rac1-mods) follow them.
+[openrac-mods](https://github.com/OpenRAC/openrac-mods) follow them.
 
 **Where the manifests are.** One mod: `openrac-mod.json` at the top of the
 repository. Several: one folder per mod at the top, each with its
-`openrac-mod.json` (rac1-mods: `lock-strafe/openrac-mod.json`). A top-level
+`openrac-mod.json` (openrac-mods: `lock-strafe/openrac-mod.json`). A top-level
 `openrac-mods.json`, `{"format": 1, "mods": ["lock-strafe", ...]}`, may list
 the folders instead, and then only those are read. In a mod's folder:
 
@@ -758,7 +758,7 @@ with, for each mod:
 The SDK's template carries the workflow that makes them
 ([template/.github/workflows/build.yml](../../sdk/template/.github/workflows/build.yml):
 build and test on macOS, Linux and Windows, package, join, publish on a tag),
-so a modder pushes a tag and nothing else; rac1-mods uses the same file.
+so a modder pushes a tag and nothing else; openrac-mods uses the same file.
 
 **What the launcher does** (`launcher/core/src/remote.rs`):
 
@@ -786,7 +786,7 @@ so a modder pushes a tag and nothing else; rac1-mods uses the same file.
 
 ```json
 { "format": 1,
-  "mods": { "lock-strafe": { "url": "https://github.com/OpenRAC/rac1-mods",
+  "mods": { "lock-strafe": { "url": "https://github.com/OpenRAC/openrac-mods",
                              "path": "lock-strafe", "version": "1.0.0",
                              "tag": "v1.0.0", "commit": null, "pin": false } } }
 ```
@@ -818,7 +818,7 @@ characters are the party codes': no 0, O, 1 or I.
 { "format": 1, "name": "Ada's mods", "created": "2026-10-31T12:00:00Z",
   "game": "rac1", "discs": ["ntsc", "pal"], "openrac": "0.20.0",
   "mods": [ { "id": "difficulty-mod", "version": "1.4.0", "kind": "gameplay",
-              "source": { "url": "https://github.com/OpenRAC/rac1-mods", "path": "difficulty-mod",
+              "source": { "url": "https://github.com/OpenRAC/openrac-mods", "path": "difficulty-mod",
                           "tag": "difficulty-mod-v1.4.0" },
               "sums": "<sha256 of the release's SHA256SUMS>",
               "settings": { "enemy_count": 2 } } ],
@@ -916,7 +916,7 @@ into the port: nothing of it crosses the boundary.
   an exception out of `load` into `fail()`.
 
 The SDK template is C++ (`template/src/mod.cpp`); the lock-strafe in
-rac1-mods is the reference C++ mod.
+openrac-mods is the reference C++ mod.
 
 ### Luau scripts
 
@@ -1088,7 +1088,7 @@ without releases: its own files). Its row and its preview say **Runs scripts
 
 `sdk/template-script/` is a script mod's repository (manifest, `main.luau`,
 the type definitions, the same workflow, which packages script mods without
-building them), and rac1-mods' `button-swap` is the example: one `on_pad`
+building them), and openrac-mods' `button-swap` is the example: one `on_pad`
 callback that swaps two buttons, chosen in its settings.
 
 ## 12. What is proposed or open
@@ -1105,7 +1105,7 @@ callback that swaps two buttons, chosen in its settings.
   headers, the CMake package, the templates, the tools, the guides) is under
   the MIT license ([sdk/LICENSE](../../sdk/LICENSE)), so mods can be under any
   license their authors choose; the port and the rest of OpenRAC stay
-  GPL-3.0-or-later. rac1-mods is GPL-3.0-or-later.
+  GPL-3.0-or-later. openrac-mods is GPL-3.0-or-later.
 - **Decided (2026-10-21): SDK releases stay in OpenRAC's release list**, as
   `sdk-v<version>`, never marked Latest (the workflow passes `--latest=false`,
   and the launcher reads only its own `launcher-v` releases). A repository of

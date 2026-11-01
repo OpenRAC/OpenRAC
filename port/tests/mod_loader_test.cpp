@@ -655,9 +655,9 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     mods::reset();
 }
 
-// The calls of interface 1.12 are in the table, and each answers "unknown" for now, to a mod that
-// loads against the real table (the test mod's "twelve" checks every one).
-void the_1_12_slots_answer_unknown(const fs::path& plugins) {
+// The calls of interface 1.12 are in the table, and with no game behind them each answers "unknown"
+// to a mod that loads against the real table (the test mod's "twelve" checks every one).
+void the_1_12_calls_answer_unknown_without_a_game(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "twelve"}},
         {"id": "test-b", "enabled": false}]})");
@@ -1405,7 +1405,7 @@ int main() {
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
-    the_1_12_slots_answer_unknown(plugins);
+    the_1_12_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);
     a_mod_draws_over_the_level(plugins, dir);

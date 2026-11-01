@@ -753,8 +753,8 @@ int api_moby_run(int slot, openrac_moby_run* out) {
     return OPENRAC_HOOK_OK;
 }
 
-// ---- Interface 1.12: the calls a shared game needs. Each answers "unknown" until its package fills
-// it in, so a mod that tests for it before using it works against this port and a later one. ----
+// ---- Interface 1.12: the calls a shared game needs. Each answers "unknown" in a game that has not
+// got it (play_scene_from always, for now), so a mod tests for it before using it. ----
 
 int api_card_filter(openrac_mod* mod, int mode, const char* folder) {
     if (mod == nullptr || g_play == nullptr || g_play->card_session == nullptr

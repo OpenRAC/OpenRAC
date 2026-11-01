@@ -477,7 +477,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
         s_api = api;
     }
-    if (behaviour[0] == 't') { /* twelve: every call of interface 1.12 not filled in yet answers unknown; with no stack, no packs */
+    if (behaviour[0] == 't') { /* twelve: with no game behind them, the calls of interface 1.12 answer unknown; with no stack, no packs */
         float where[3] = {0, 0, 0};
         int blocked = 0;
         openrac_stand_in stand_in = {{0, 0, 0}, 0, 0, 0, 0};
