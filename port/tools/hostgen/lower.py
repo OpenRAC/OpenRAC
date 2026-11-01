@@ -50,6 +50,7 @@ HW_RANGES = [(0x10000000, 0x12002000)]  # EE registers, VU memory, GS registers
 LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 # A level function's name, with its level: rac1/pal's func_L05_..., the NTSC decomp's FUN_L05_....
 LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
+UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 
 
 # Type names the host's standard headers (included by guest.h) define.
@@ -1889,7 +1890,8 @@ class Unit:
         if self._relocated(address) and code:
             # A function's code declared as data: where that code is in the program loaded.
             addr = f"OPENRAC_CODE({addr})"
-        elif self._relocated(address) and named_level is not None and self._named_at(symbol, address):
+        elif (self._relocated(address) and named_level is not None and self._named_at(symbol, address)
+              and self._in_a_level_file()):
             # A level's datum by its name (D_L00_...) in a function that is not a level's (a
             # static helper of a level file): that level's, looked up for the level loaded, as in
             # the level functions beside it; OPENRAC_DATA would take it for the executable's.
@@ -1920,6 +1922,12 @@ class Unit:
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
         return addr
+
+    def _in_a_level_file(self) -> bool:
+        """Whether this file is a level's. A matched file of the executable can spell a global with
+        a level's name and it still compiled to the executable's address: Going Commando's frame
+        list cursor 0x001B22A8 as D_L06_001B22A8, which level 6 uses for something else."""
+        return UNIT_LEVEL.search(self.unit) is not None
 
     @staticmethod
     def _named_at(symbol: str | None, address: int) -> bool:

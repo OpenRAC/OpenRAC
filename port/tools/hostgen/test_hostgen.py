@@ -1706,6 +1706,26 @@ class Places(unittest.TestCase):
             self.assertIn("OPENRAC_LDATA(0, 0x00410000u)", (out / "a.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_name_in_the_executables_file_is_the_executables_address(self):
+        # Going Commando's func_002FC220, matched C of the executable, spells the frame list cursor
+        # D_L06_001B22A8: the executable's word, which each level moves, and not level 6's word there.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "a.c").write_text(
+                "extern int D_L06_001B22A8;\n"
+                "void func_002FC220(void) { D_L06_001B22A8 = 1; }\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            self.assertIn("OPENRAC_DATA(0x001B22A8u)", (out / "game" / "a.c").read_text())
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_data_label_with_an_offset_is_the_symbol_plus_it(self):
         # rac1/ntsc's l16 00214598.c: extern f32 D_L16_0017C224[] __asm__("D_L16_0017C218+12").
         with tempfile.TemporaryDirectory() as tmp:
