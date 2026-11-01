@@ -1,11 +1,11 @@
 <script lang="ts">
   // Mods, one game at a time, with the game list on the left as in Games: every game gets the
   // same page. Its head: the game's name (the game starts
-  // with its mods from the game's page: the Mods switch under Play). Then three tabs, so that each of the player's jobs has a place of
+  // with its mods from the game's page: the Mods switch under Play). Then its tabs, so that each of the player's jobs has a place of
   // its own that can be seen from the top: My mods (AddMod: a link, a file or a folder; the
   // gameplay mods, PluginsPanel; the texture, model and level packs,
-  // PacksPanel), Level editor (open a level in Godot, pack the changes) and Models and textures
-  // (AssetsPanel). A game the editor cannot open but that plays has My mods alone; one the editor
+  // PacksPanel), Level editor (open a level in Godot, pack the changes), Models and textures
+  // (AssetsPanel) and, for a game whose sound can be changed, Audio (AudioPanel). A game the editor cannot open but that plays has My mods alone; one the editor
   // cannot open yet says so, and where to follow it. A game it reads in early access (Going
   // Commando, Up Your Arsenal, Deadlocked: no pack or play action of theirs yet) says so in a line.
   // The words are lib/modsText.ts's. The disc image is never changed.
@@ -15,6 +15,7 @@
   // its folders, and the command behind each step under a "Show command" toggle.
   import AddMod from "$components/AddMod.svelte";
   import AssetsPanel from "$components/AssetsPanel.svelte";
+  import AudioPanel from "$components/AudioPanel.svelte";
   import CommandBox from "$components/CommandBox.svelte";
   import EditorFlow from "$components/EditorFlow.svelte";
   import GameChip from "$components/GameChip.svelte";
@@ -103,11 +104,30 @@
     if (
       early(v) &&
       v.status.disc.state === "found" &&
-      !running(v, ["editor-extract", "assets-export", "assets-import", "port-levels"])
+      !running(v, [
+        "editor-extract",
+        "assets-export",
+        "assets-import",
+        "port-levels",
+        "audio-export",
+        "audio-export-all",
+        "audio-import",
+      ])
     ) {
       return { text: GAME_LIST.early, tone: "info" };
     }
-    if (running(v, ["editor-extract", "editor-import", "editor-pack", "assets-export", "assets-import"])) {
+    if (
+      running(v, [
+        "editor-extract",
+        "editor-import",
+        "editor-pack",
+        "assets-export",
+        "assets-import",
+        "audio-export",
+        "audio-export-all",
+        "audio-import",
+      ])
+    ) {
       return { text: GAME_LIST.working, tone: "warn", busy: true };
     }
     if (v.status.disc.state !== "found") return { text: GAME_LIST.setUp, tone: "warn" };
@@ -140,17 +160,24 @@
   /** Android's one page of mods (no level editor there): the version they are for. */
   const mine = $derived(onAndroid ? (v ?? played) : null);
 
-  /** The page's tab: My mods, the level editor, or models and textures. */
-  type Tab = "mine" | "browse" | "editor" | "assets";
-  // ?tab=editor (or assets) opens that tab at start: handy for screenshots, as ?page= is (App.svelte).
+  /** The page's tab: My mods, Browse, the level editor, models and textures, or audio. */
+  type Tab = "mine" | "browse" | "editor" | "assets" | "audio";
+  // ?tab=editor (or assets, browse, audio) opens that tab at start: handy for screenshots, as ?page= is (App.svelte).
   const askedTab = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("tab");
-  let tab = $state<Tab>(askedTab === "editor" || askedTab === "assets" || askedTab === "browse" ? askedTab : "mine");
-  const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" | "globe" }[] = [
+  let tab = $state<Tab>(
+    askedTab === "editor" || askedTab === "assets" || askedTab === "browse" || askedTab === "audio" ? askedTab : "mine",
+  );
+  const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" | "globe" | "sound" }[] = [
     { id: "mine", label: PAGE.tabMine, icon: "library" },
     { id: "browse", label: BROWSE.tabTitle, icon: "globe" },
     { id: "editor", label: PAGE.tabEditor, icon: "edit" },
     { id: "assets", label: PAGE.tabAssets, icon: "folder" },
+    { id: "audio", label: PAGE.tabAudio, icon: "sound" },
   ];
+  /** The tabs of a version: Audio only where its sounds can be exported (Ratchet & Clank's two discs). */
+  const tabsOf = (version: VersionView) => TABS.filter((t) => t.id !== "audio" || !!action(version, "audio-export"));
+  /** The tab shown: one the game does not have (Audio, another game picked) is My mods. */
+  const shownTab = (version: VersionView): Tab => (tabsOf(version).some((t) => t.id === tab) ? tab : "mine");
   /** Bumped when a pack was added or imported: the packs' list is read again. */
   let reload = $state(0);
   /** Bumped when a gameplay mod was added: their list is read again. */
@@ -250,6 +277,7 @@
           {@const scope = { kind: "version" as const, key: v.key }}
           {@const adder = action(v, "overrides-add")}
           {@const dirs = folders(v)}
+          {@const current = shownTab(v)}
 
           {#if early(v)}
             <!-- Honest about early access, in a line: what works, what comes later. -->
@@ -257,30 +285,30 @@
           {/if}
 
           {#if !onModPage}<div class="tabs" role="tablist" aria-label={PAGE.tabsLabel} use:tablist>
-              {#each TABS as t (t.id)}
+              {#each tabsOf(v) as t (t.id)}
                 <button
                   role="tab"
                   id={`mods-tab-${t.id}`}
                   aria-controls="mods-panel"
-                  aria-selected={tab === t.id}
-                  tabindex={tab === t.id ? 0 : -1}
-                  class:on={tab === t.id}
+                  aria-selected={current === t.id}
+                  tabindex={current === t.id ? 0 : -1}
+                  class:on={current === t.id}
                   onclick={() => (tab = t.id)}><Icon name={t.icon} size={16} />{t.label}</button
                 >
               {/each}
             </div>{/if}
 
-          {#key tab}
+          {#key current}
             <div
               id="mods-panel"
               class="tabpanel"
               role="tabpanel"
-              aria-labelledby={`mods-tab-${tab}`}
+              aria-labelledby={`mods-tab-${current}`}
               in:fade={{ duration: enter().duration ?? 0 }}
             >
-              {#if tab === "mine" && onModPage && playable(v)}
+              {#if current === "mine" && onModPage && playable(v)}
                 <PluginsPanel version={v} reload={pluginsReload} onpack={() => (reload += 1)} />
-              {:else if tab === "mine"}
+              {:else if current === "mine"}
                 <AddMod version={v} links={playable(v)} files={playable(v) || !!adder?.runnable} onadded={added} />
                 {#if playable(v)}
                   <!-- Gameplay mods need the game's port: they plug into it (docs/port/MODS.md). -->
@@ -299,9 +327,9 @@
                     ><Icon name="edit" size={14} />{PAGE.makeOwnButton}</button
                   >
                 </p>
-              {:else if tab === "browse"}
+              {:else if current === "browse"}
                 {#if playable(v)}<ModBrowse version={v} />{/if}
-              {:else if tab === "editor"}
+              {:else if current === "editor"}
                 <EditorFlow game={shown} version={v} onchanged={() => reload++} />
                 {#if v.game === "rac1"}
                   <ModLoadSummary
@@ -317,6 +345,10 @@
                     }}
                   />
                 {/if}
+              {:else if current === "audio"}
+                <section class="panel">
+                  <AudioPanel version={v} onimported={() => reload++} />
+                </section>
               {:else}
                 <section class="panel">
                   <AssetsPanel version={v} onimported={() => reload++} />
@@ -325,7 +357,7 @@
             </div>
           {/key}
 
-          {#if developer && tab !== "assets" && !onModPage}
+          {#if developer && current !== "assets" && current !== "audio" && !onModPage}
             <!-- The developer view: kept apart from the player's, under the tabs, folded (its folders
                  name the user's). -->
             <details class="panel sdk more">
@@ -336,7 +368,7 @@
               </p>
               <CommandBox
                 lines={[
-                  ...(tab === "editor"
+                  ...(current === "editor"
                     ? [
                         `python3 editor/extract.py godot <disc.iso> ${dirs.projects} --split`,
                         `python3 editor/extract.py pack <disc.iso> ${dirs.projects} ${dirs.packed}`,

@@ -17,6 +17,7 @@ only a contributor reads under developer tools (the last section).
 | The game list on the left                                | `pages/Mods.svelte` (`modState`) on `GamesFrame.svelte` | always                                                                    |
 | The head: the game's name, a lead line, Play with mods   | `pages/Mods.svelte`                                     | a game is picked; Play with mods when the level editor can open the game  |
 | The tabs: My mods, Level editor, Models and textures     | `pages/Mods.svelte`                                     | the level editor can open the game                                        |
+| The tab Audio, after them                                | `pages/Mods.svelte`                                     | the version has the `audio-export` action (Ratchet & Clank's two discs)   |
 | My mods → Add a mod (a link, a file, a folder, a drop)   | `components/AddMod.svelte`                              | My mods; the link field when the game has a port that plays               |
 | My mods → Gameplay mods (native and script mods, Purist) | `components/PluginsPanel.svelte`                        | the game has a port that plays (its `play` action is not `planned`)       |
 | A gameplay mod's own page (its settings)                 | `components/ModPage.svelte`, `ModSetting.svelte`        | its row opened (`lib/modNav.svelte.ts`), in place of My mods' lists       |
@@ -24,6 +25,7 @@ only a contributor reads under developer tools (the last section).
 | My mods → "Want to make your own?" (to the Level editor) | `pages/Mods.svelte`                                     | under the lists                                                           |
 | Level editor: Open a level in Godot, Pack your changes   | `pages/Mods.svelte` (tab `editor`)                      | the level editor can open the game                                        |
 | Models and textures: Export, Import your edits           | `components/AssetsPanel.svelte` (tab `assets`)          | the level editor can open the game                                        |
+| Audio: Export, Import your edits                         | `components/AudioPanel.svelte` (tab `audio`)            | as the tab                                                                |
 | For developers                                           | `pages/Mods.svelte`                                     | developer tools on, under My mods and Level editor                        |
 | The crash notice's mods line                             | `components/CrashNotice.svelte`                         | on a game's page, after a crash, when the last start loaded gameplay mods |
 | Purist mode in Settings                                  | `pages/Settings.svelte` (General)                       | desktop only                                                              |
@@ -43,7 +45,7 @@ only a contributor reads under developer tools (the last section).
 
 | Kind of game                                                           | What shows                                                                                                                                                |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Playable, editor available (Ratchet & Clank in a checkout)             | the head with Play with mods, the three tabs; My mods has Add a mod (link, file, folder), Gameplay mods and the packs                                     |
+| Playable, editor available (Ratchet & Clank in a checkout)             | the head with Play with mods, the four tabs; My mods has Add a mod (link, file, folder), Gameplay mods and the packs                                      |
 | Playable, no editor (an installed launcher without the editor's tools) | the head without Play with mods (the game page plays with the gameplay mods), Add a mod and Gameplay mods; no tabs                                        |
 | Early access (Going Commando, Up Your Arsenal, Deadlocked)             | the head (Play with mods off, `T.PAGE.playEarly`), a dashed line `T.PAGE.earlyTitle` / `earlyLine`, the tabs; My mods adds by file only, no Gameplay mods |
 | Neither                                                                | `T.PAGE.noneTitle`, `noneLine` and a link to openrac.dev                                                                                                  |
@@ -204,6 +206,18 @@ level, what, Export; Read the levels first for a game in early access; Open
 folder for the last export, `api.openOutput`) and Import your edits
 (`T.ASSETS.importLine`; the result `imported`, `importedRefused`, or the error).
 
+## Audio (AudioPanel.svelte)
+
+As Models and textures, for sound ([editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)). A lead
+line with How it works (`T.AUDIO.lead`, `howItWorks`), then Export (a level or `T.AUDIO.allLevels`, what,
+Export; `T.AUDIO.large` beside the line for a large whole-game choice; `T.AUDIO.readyFirst` with no disc;
+the job's progress while it writes; Open folder for the last export) and Import your edits
+(`T.AUDIO.importLine`; the result `imported`, `importedRefused`, `importRefused`, `nothing`, or the error).
+A partial import confirms the pack was made, in `--warn`; a refusal leaving nothing to import is in
+`--err`. Open activity log beside the result selects that import and opens its output in Activity
+(Develop's console with developer tools on). The pack it
+makes is listed with the others under Textures, models, levels and sound (`T.PACKS.title`).
+
 ## The mod hub: Browse and the change set
 
 Mods from the signed index (`core/src/index.rs`; openrac-mods `INDEX_FORMAT.md`), installed from
@@ -253,7 +267,8 @@ anything by itself. "Switch to the dev build" saves the dev channel and the link
 On Android the tab is one page with no tabs (Mods.svelte, `mine`): Gameplay
 mods, with Enhanced graphics and its switch first; Add a mod; then the
 texture and model packs. The level editor, Models and textures, and the game
-page's "Edit its levels" need Godot and a desktop, so they are left out.
+page's "Edit its levels" need Godot and a desktop, so they are left out; Audio is
+too, though a pack of sound added from a link or a .zip plays there as anywhere.
 
 - **Enhanced graphics** bakes the lighting on the device, with the probe
   baker `tools/build_android.py` puts in the APK.

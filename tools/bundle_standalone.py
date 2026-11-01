@@ -71,7 +71,7 @@ PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
 # models and textures, packs, and playing with them. In a checkout they work in its assets/; the
 # carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
 MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "editor-pack",
-        "assets-export", "assets-import", "overrides-add", "overrides-stack", "editor-show-packs",
+        "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
         "editor-hide-packs", "play-edited")
 KEEP = PLAY + MODS
 # Where a checkout's folders for version <game>/<version> go in the carried copy, longest first:
@@ -194,8 +194,8 @@ def editor_file(rel: Path) -> bool:
     """Whether the copy takes editor/REL: the tools and what a level's Godot project gets
     (editor/godot.py copies rc1/ and the Collision dock's addon, plugin.cfg included), and the
     project format the editor and the launcher both read (project_format.json)."""
-    if rel.as_posix() == "project_format.json":
-        return True
+    if rel.as_posix() in ("project_format.json", "AUDIO_MODDING.md"):
+        return True  # AUDIO_MODDING.md: the Audio tab's "How it works" opens it
     return not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv", ".gd", ".cfg", "")
 
 

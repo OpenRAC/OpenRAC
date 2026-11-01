@@ -62,6 +62,7 @@ export const PAGE = {
   tabMine: "My mods",
   tabEditor: "Level editor",
   tabAssets: "Models and textures",
+  tabAudio: "Audio",
   earlyTitle: "Early access",
   earlyLine:
     "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
@@ -221,9 +222,9 @@ export const alsoBound = (names: string[]) =>
 
 /** The packs' list (PacksPanel.svelte). */
 export const PACKS = {
-  title: "Textures, models and levels",
-  sub: "Change how the game looks",
-  empty: "None yet. Add one above, or make your own in the Level editor or Models and textures.",
+  title: "Textures, models, levels and sound",
+  sub: "Change how the game looks and sounds",
+  empty: "None yet. Add one above, or make your own in the Level editor, Models and textures, or Audio.",
   orderHint: "Lower in the list wins",
   moveUpTitle: "Move up: the packs under it win where they change the same thing",
   moveDownTitle: "Move down: it wins over the packs above it",
@@ -399,6 +400,41 @@ export const ASSETS = {
   exportStopped: "The export stopped. The activity log has what it said.",
   readStopped: "Reading the levels stopped. The activity log has what it said.",
   exported: (level: string) => `Exported ${level}: the folder is opening.`,
+} as const;
+
+/** Audio (AudioPanel.svelte). */
+export const AUDIO = {
+  lead: "Export the game's sounds as WAV files, edit or replace them, then import them back as a pack.",
+  howItWorks: "How it works",
+  exportTitle: "Export",
+  exportLine: "Opens a folder of WAV files.",
+  exporting: "Writing the files…",
+  readyFirst: "Set the game up from your disc first, on its page.",
+  levelLabel: "Level to export",
+  allLevels: "The whole game",
+  whatLabel: "What to export",
+  what: { effects: "Effects", music: "Music", speech: "Speech", all: "Everything" },
+  /** How much the whole game's takes, measured on both discs. */
+  large: {
+    music: "All the music is about 475 MB.",
+    speech: "All the speech is about 1.6 GB.",
+    all: "Everything is about 2.1 GB.",
+  },
+  export: "Export",
+  openFolder: "Open folder",
+  exportStopped: "The export stopped. The activity log has what it said.",
+  exported: "Exported: the folder is opening.",
+  importTitle: "Import your edits",
+  importLine: "Choose the folder you edited: the files you changed become a pack in My mods.",
+  importing: "Checking what you changed…",
+  import: "Import…",
+  pickImport: "Choose the audio export you edited",
+  imported: "Imported: your sounds are a pack in My mods.",
+  importedRefused: (n: number) =>
+    `Imported: your sounds are a pack in My mods. ${n} file${n === 1 ? " was" : "s were"} refused.`,
+  importRefused: (n: number) => `Nothing imported: ${n} file${n === 1 ? " was" : "s were"} refused.`,
+  openActivityLog: "Open activity log",
+  nothing: "No file in that folder differs from what was exported, so no pack is left from it.",
 } as const;
 
 // ---- The mod hub: the change set (DeepLinkInstall.svelte) and Browse (ModBrowse.svelte) ------
