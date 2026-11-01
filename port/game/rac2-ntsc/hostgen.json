@@ -42,7 +42,6 @@
   "bare_names_in_level_0": true,
   "formed_as": {"ref_L00_00290B48_00": "0x00355FBF"},
   "candidates_left_out": {
-    "func_002B9380": "a computed goto with no labels in its file: a tail jump C cannot say",
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
     "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"
   },
@@ -52,6 +51,7 @@
   },
   "places": "config/levels/functions.tsv",
   "split_places": "split_places.tsv",
+  "more_places": {"func_L00_00354DF8": "01:0034B1D0,02:0035BD70,03:003564D0,04:00378848,05:00367350,06:00396278,07:0034AED8,08:00363330,09:00352160,10:00369160,11:00369710,12:0035A848,13:0035E8A0,14:0035F520,15:0036DAC0,16:0034CCD8,17:00358408,18:00371100,19:00352E28,20:0036AE78,22:00358788,23:0035CEA0,24:0034C460,25:00361390,26:003547E8,30:00355800"},
   "splits_keep_names": true,
   "candidates": "nonmatching/functional.tsv",
   "names": {
