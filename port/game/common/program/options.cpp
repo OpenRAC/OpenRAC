@@ -37,6 +37,8 @@ namespace {
     std::exit(64);
 }
 
+}  // namespace
+
 // OpenRAC's folder in the player's data home, as the launcher finds it
 // (launcher/core/src/saves.rs, data_home).
 fs::path data_home() {
@@ -68,6 +70,8 @@ fs::path data_home() {
 #endif
     return base;
 }
+
+namespace {
 
 #if defined(_WIN32)
 // Moves the cards and settings of the folder Windows used before %LOCALAPPDATA% into `base`, the

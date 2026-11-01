@@ -102,6 +102,11 @@ void record_menu() {
         "Stand still while it runs: it changes the graphics settings every few seconds, with "
         "VSync off, and measures what each one costs. Use it when the game is slow everywhere."
     );
+    ImGui::Separator();
+    // Where they are saved (capture.cpp's capture_dir), which the toast also names.
+    if (ImGui::MenuItem("Open recordings folder")) {
+        open_capture_folder();
+    }
 }
 
 }  // namespace

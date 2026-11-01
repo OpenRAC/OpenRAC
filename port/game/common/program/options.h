@@ -47,6 +47,10 @@ struct Options {
         false;  // read every extracted level as the window would, say what is wrong, and stop
 };
 
+// OpenRAC's folder in the player's data home, where the launcher keeps cards and settings:
+// %LOCALAPPDATA%\openrac on Windows (launcher/core/src/saves.rs, data_home).
+fs::path data_home();
+
 // Returns this program's name, openrac-<id> (openrac-rac1-pal).
 std::string program_name();
 
