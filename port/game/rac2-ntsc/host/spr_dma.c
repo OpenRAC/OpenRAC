@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "openrac/ee_ops.h"
+#include "openrac/ee.h"
 #include "openrac/guest.h"
 
 #define D8_CHCR 0x1000D000u /* fromSPR */
