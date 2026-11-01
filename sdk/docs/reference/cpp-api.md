@@ -273,6 +273,10 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool coop_save_write(int slot, const std::vector<std::uint8_t>& bytes) const` | Since 1.12: writes a save (as save_capture gives it) as slot `slot` of the redirect folder. |
 | `int save_slot2(const std::string& folder, int slot, openrac_save_info& out) const` | Since 1.12: save_slot for the card folder `folder`; -1 for a port without it. |
 | `std::vector<std::uint8_t> save_read2(const std::string& folder, int slot) const` | Since 1.12: save_read for the card folder `folder`; empty for none. |
+| `bool has_card_notes() const` | Since 1.12: whether this port says when the game saved, and keeps a note beside a slot. |
+| `std::uint32_t card_saves() const` | Since 1.12: how many of the game's own saves reached the redirect folder this run. |
+| `bool card_note_write(int slot, const std::string& text) const` | Since 1.12: a short text kept beside slot `slot` of the redirect folder. |
+| `std::string card_note_read(const std::string& folder, int slot) const` | Since 1.12: the text beside slot `slot` of the card folder `folder`; empty for none. |
 | `bool has_shared_progress() const` | Since 1.12: whether this port reads and merges the progress players share. |
 | `bool shared_read(int tag, std::vector<std::uint8_t>& out, std::uint32_t max = 4096) const` | Since 1.12: shared progress section `tag` into `out`; false for none or a port without it. |
 | `bool shared_give(int tag, const std::vector<std::uint8_t>& data) const` | Since 1.12: merges other players' section `tag` into this game's, upward only. |
