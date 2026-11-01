@@ -123,6 +123,8 @@ static void check_map_spawn(void) {
     const gaddr hero = first + 0x78;
     header(HEADER, 2, 256);
     memset(G(first), 0, 2 * 0x78);
+    GREF(int, first) = 0x78;
+    GREF(int, hero) = 0x78;
     GREF(int, first + 0x18) = 500;
     GREF(float, first + 0x30) = 99.0f;
     GREF(float, hero + 0x30) = 132.0f;
@@ -131,9 +133,14 @@ static void check_map_spawn(void) {
     g_header = HEADER;
     rac1_wad_decompressed(HEADER);
     CHECK(GREF(float, hero + 0x30) == 132.0f); /* another level is untouched */
+    /* The level's sim digest, of the records as they came, for that level alone. */
+    const uint32_t digest = rac1_sim_digest(8);
+    CHECK(digest != 0 && rac1_sim_digest(map.level) == 0);
     GREF(int, 0x0015EE84u) = map.level;
     g_header = HEADER;
     rac1_wad_decompressed(HEADER);
+    /* Read before a map's spawn moves the hero's record. */
+    CHECK(rac1_sim_digest(map.level) == digest && rac1_sim_digest(8) == 0);
     CHECK(GREF(float, first + 0x30) == 99.0f); /* other classes are untouched */
     for (unsigned axis = 0; axis < 3; ++axis) {
         CHECK(GREF(float, hero + 0x30 + axis * 4) == map.spawn[axis]);
