@@ -638,6 +638,21 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
         "refused: level 00 texture tie_0004.png is 300 x 200, but the game's tie_0004 is 64 x 64 (1:1); keep that shape, for example 128 x 128, 256 x 256",
         `Imported 19 model file(s) and 80 texture file(s) into ${data}/overrides as ${name}; 1 refused (see above)`,
       ];
+    case "audio-export":
+    case "audio-export-all":
+      return [
+        ...progressLines("audio", 20),
+        `Exported 290 sounds: ${data}/exports/audio-${id === "audio-export" ? `level_${level}-` : ""}${String(args.option)}-20261101T0900`,
+      ];
+    case "audio-import":
+      mockPacks.push({
+        ...samplePack(name),
+        id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        textures: 0,
+        models: 0,
+        sounds: 3,
+      });
+      return [`Imported 3 sound(s) into ${data}/overrides as ${name}`];
     case "overrides-add":
       mockPacks.push({ ...samplePack(name), id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") });
       return [`Added ${name} as ${name.toLowerCase()}, on, last in the order.`];
@@ -1699,6 +1714,7 @@ function samplePack(name: string): PackView {
     textures: 80,
     models: 19,
     levelFiles: 0,
+    sounds: 0,
   };
 }
 
@@ -1812,11 +1828,13 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
   const outputs =
     id === "editor-pack"
       ? [`/home/you/OpenRAC/assets/packed/${scope.kind === "version" ? scope.key : ""}`]
-      : id === "assets-export"
-        ? [
-            `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
-          ]
-        : [];
+      : id === "audio-export" || id === "audio-export-all"
+        ? [`/home/you/exports/audio-${String(args.option)}-20261101T0900`]
+        : id === "assets-export"
+          ? [
+              `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
+            ]
+          : [];
   const moved = () => {
     if (id === "editor-extract") mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
     if (id === "editor-reexport") mockEditor = "carried";

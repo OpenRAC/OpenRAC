@@ -51,6 +51,18 @@ inline constexpr int kFramesPerTick = kOutputRate / kTicksPerSecond;
 inline constexpr std::size_t kVolumeGroups = 16;
 inline constexpr std::int32_t kFullVolume = 0x400;
 
+// New samples for a bank's sounds, by the sound's number, at the console's rate; their loop flags
+// are the encoder's (assets/sound/adpcm.h). sound_replacements.h finds them.
+using BankReplacements = std::map<std::size_t, SampleData>;
+
+// Plays SAMPLE in place of the sound's tones' own, at the console's rate and the tones' other
+// settings: every tone where the script picks one or plays them in turn, the first of those that
+// start together otherwise, the others silent so that the new sound does not play over itself. A
+// tone that loops where SAMPLE does not, or the reverse, stays silent on its own sample.
+void replace_sound_sample(
+    assets::SoundBank& bank, std::size_t sound, const std::vector<std::uint8_t>& sample
+);
+
 // How a play starts: the caller's volume, pan, pitch and the sound's four registers.
 struct PlayRequest {
     std::int32_t volume = kVolumeKeep;  // 1024 = the sound's own volume
@@ -77,9 +89,12 @@ public:
     SoundPlayer(const SoundPlayer&) = delete;
     SoundPlayer& operator=(const SoundPlayer&) = delete;
 
-    // A bank file (assets/sound/sound_bank.h); throws assets::AssetError.
-    BankHandle load_bank(std::span<const std::uint8_t> file);
-    BankHandle load_bank_at(BankHandle handle, std::span<const std::uint8_t> file);
+    // A bank file (assets/sound/sound_bank.h), with the sounds packs replace; throws
+    // assets::AssetError.
+    BankHandle load_bank(std::span<const std::uint8_t> file, const BankReplacements& replaced = {});
+    BankHandle load_bank_at(
+        BankHandle handle, std::span<const std::uint8_t> file, const BankReplacements& replaced = {}
+    );
     void reset_for_snapshot();
     void set_next_handles(BankHandle bank, SoundHandle sound);
     void swap_snapshot_state(SoundPlayer& other) noexcept;
@@ -87,6 +102,7 @@ public:
     BankHandle next_bank_handle() const { return m_next_bank; }
 
     SoundHandle next_sound_handle() const { return m_next_sound; }
+
     // Stops the bank's sounds first.
     void unload_bank(BankHandle bank);
     const assets::SoundBank* bank(BankHandle bank) const;

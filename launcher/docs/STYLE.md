@@ -153,7 +153,7 @@ release, and a new file adds its line there when it is added.
   `app.css`: the Mods tab's level editor, models and textures): each step a
   row, its name and one line on the left, its controls on the right.
 - A page with several jobs gives each a tab of its own (the Mods tab: My
-  mods, Level editor, Models and textures), so every one can be seen from the
+  mods, Level editor, Models and textures, Audio), so every one can be seen from the
   top; the main action stays in the page's head, above the tabs.
 - A setting is a row: its name and at most one short line on the left, its
   control on the right (`.setting` in `app.css`). On/off is a switch

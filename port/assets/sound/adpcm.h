@@ -19,6 +19,7 @@
 #include <array>
 #include <cstddef>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -62,6 +63,12 @@ std::array<s16, kAdpcmFrameSamples> decode_adpcm_frame(
 // Decodes every whole frame of `adpcm` from zero history. Flags are not
 // interpreted: this is the raw signal, not what a voice plays.
 std::vector<s16> decode_adpcm(ByteView adpcm, AdpcmRounding rounding = AdpcmRounding::Rounded);
+
+// Encodes `samples` as frames a voice plays: for each frame the filter and shift that the decoder
+// above brings closest to them, the last frame padded with silence and flagged as the end. `loop`:
+// the voice goes back to the first frame instead of stopping. Never empty: no samples are one silent
+// frame.
+std::vector<u8> encode_adpcm(std::span<const s16> samples, bool loop);
 
 // Where one sample lives in a run of ADPCM and how a voice plays it.
 struct SampleExtent {

@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <numbers>
 
@@ -85,6 +86,60 @@ std::int16_t group_volume(std::int16_t volume, std::int32_t master) {
     return static_cast<std::int16_t>(v * v / 0x7ffe * sign);
 }
 
+void replace_sound_sample(
+    assets::SoundBank& bank, std::size_t sound, const std::vector<std::uint8_t>& sample
+) {
+    // Samples start on frame boundaries, and the chunk need not end on one.
+    const std::size_t at = (bank.samples.size() + assets::kAdpcmFrameBytes - 1)
+                           / assets::kAdpcmFrameBytes * assets::kAdpcmFrameBytes;
+    bank.samples.resize(at);
+    bank.samples.insert(bank.samples.end(), sample.begin(), sample.end());
+    const assets::SfxSound& sfx = bank.sounds.at(sound);
+    const std::span<assets::Grain> grains(bank.grains.data() + sfx.first_grain, sfx.grain_count);
+
+    // A script that picks one tone, or plays them in turn, needs them all to play the new sample.
+    const bool picks = std::any_of(grains.begin(), grains.end(), [](const assets::Grain& g) {
+        return g.type == GrainType::RandPlay || g.type == GrainType::GotoRandomMarker
+               || g.type == GrainType::PlayCycle;
+    });
+    const bool loops = assets::sample_extent(sample, 0).looped;
+    std::int64_t time = 0;
+    std::int64_t last_tone = -1;
+
+    // Each tone is pointed at the new sample; one that starts with the tone before it goes silent.
+    for (assets::Grain& g : grains) {
+        time += g.delay;
+
+        // Other grains have no sample. After these two the tones before are over, whatever the time.
+        if (!g.is_tone()) {
+            if (g.type == GrainType::KeyOffVoices || g.type == GrainType::OnStopMarker) {
+                last_tone = -1;
+            }
+
+            continue;
+        }
+
+        // One that loops where the new sample does not, or the reverse, stays on its own sample,
+        // silent: it lasts as long as it did, and nothing loops on past the sound's end.
+        if (assets::sample_extent(bank.samples, g.tone().sample_offset).looped != loops) {
+            g.data[1] = 0;
+            continue;
+        }
+
+        const auto offset = static_cast<std::uint32_t>(at);
+        g.data[2] = static_cast<std::uint8_t>(static_cast<std::int8_t>(-60));
+        g.data[3] = 0;
+        std::memcpy(g.data.data() + 16, &offset, sizeof offset);
+
+        // Tones of one moment would all play the same sample: only the first one is heard.
+        if (!picks && time == last_tone) {
+            g.data[1] = 0;
+        }
+
+        last_tone = time;
+    }
+}
+
 struct SoundPlayer::Bank {
     assets::SoundBank bank;
     SampleData samples;
@@ -151,17 +206,31 @@ SoundPlayer::~SoundPlayer() = default;
 
 // ---- Banks and sound control ----
 
-BankHandle SoundPlayer::load_bank(std::span<const std::uint8_t> file) {
-    return load_bank_at(m_next_bank, file);
+BankHandle SoundPlayer::load_bank(
+    std::span<const std::uint8_t> file, const BankReplacements& replaced
+) {
+    return load_bank_at(m_next_bank, file, replaced);
 }
 
-BankHandle SoundPlayer::load_bank_at(BankHandle handle, std::span<const std::uint8_t> file) {
+BankHandle SoundPlayer::load_bank_at(
+    BankHandle handle, std::span<const std::uint8_t> file, const BankReplacements& replaced
+) {
     if (handle == 0 || handle == std::numeric_limits<BankHandle>::max()
         || m_banks.contains(handle)) {
         throw assets::AssetError("invalid or duplicate sound bank handle");
     }
+
     auto b = std::make_unique<Bank>();
     b->bank = assets::parse_sound_bank(file);
+
+    // New samples go in before the voices' copy of the samples is made.
+    for (const auto& [sound, sample] : replaced) {
+        // A sound past the bank's end is no sound of it.
+        if (sample && sound < b->bank.sounds.size()) {
+            replace_sound_sample(b->bank, sound, *sample);
+        }
+    }
+
     b->samples = std::make_shared<const std::vector<std::uint8_t>>(b->bank.samples);
     b->grain_state.assign(b->bank.grains.size(), 0);
     m_banks.emplace(handle, std::move(b));

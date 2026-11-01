@@ -20,6 +20,7 @@ processors' memory or registers.
 | `envelope.h` | the ADSR envelope |
 | `pitch.h` | notes to pitch words (the note table computed), pitch bend |
 | `reverb.h` | a native stereo reverb with the character of each of the library's effect types (measured results, not the library's tables) |
+| `sound_replacements.h` | the sounds packs replace (`audio/<key>.wav` of the mods folder, [editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)): each sound's key, a hash of what it is, and its new sample |
 
 The games drive it through `port/game/common/lib/sound_engine.cpp`: `snd.c`
 loads banks and sets volumes, each game's command flush passes the sounds the
@@ -34,4 +35,5 @@ engine.
 
 `tests/audio/`: banks built by the test: volume and pan, a tone keyed on a
 voice and released, register and skipping grains, instance limits, pausing,
-group volumes, unloading.
+group volumes, unloading; sounds packs replace, and the keys, with the same
+answers as `editor/test_audio.py`.

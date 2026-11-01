@@ -6,9 +6,9 @@ packs; a map session uses a fresh game with campaign saves disabled.
 
 How a mod changes what the native port does without being built into it: a
 **native mod** is a shared library the port loads at start, through a small
-versioned C interface; a **data mod** is a pack of textures, models or level
-edits, which the level editor and the overrides packs already cover
-([editor/MODDING.md](../../editor/MODDING.md)). The launcher installs both,
+versioned C interface; a **data mod** is a pack of textures, models, level
+edits or sound, which the level editor and the overrides packs already cover ([editor/MODDING.md](../../editor/MODDING.md),
+[editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)). The launcher installs both,
 switches them on and off, orders them and shows why one was not loaded. A
 player who wants the game as the console plays it leaves the **Mods** switch
 under Play off (the default) and nothing is loaded (Purist mode).

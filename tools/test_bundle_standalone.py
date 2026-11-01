@@ -59,6 +59,14 @@ class PlayerActions(unittest.TestCase):
                 self.assertEqual(actions["editor-extract"]["args"][-3:], ["{data}/levels/ntsc", "--split", "--anywhere"])
                 self.assertEqual([n["path"] for n in actions["assets-export"]["needs"]], [levels["artifact"]])
 
+    def test_audio_exports_to_the_data_folder_on_each_disc(self):
+        for actions in (self.pal, self.ntsc):
+            self.assertEqual(actions["audio-export"]["args"][3], "{data}/exports/audio-level_{level}-{option}")
+            self.assertEqual(actions["audio-export-all"]["args"][3], "{data}/exports/audio-{option}")
+            self.assertIn("--timestamp", actions["audio-export"]["args"])
+            self.assertIn("--timestamp", actions["audio-export-all"]["args"])
+            self.assertEqual(actions["audio-import"]["args"][-1], "{data}/overrides")
+
     def test_mods_work_in_the_data_folder(self):
         extract, pack = self.pal["editor-extract"], self.pal["editor-pack"]
         self.assertEqual(extract["args"][-3:], ["{data}/levels/pal", "--split", "--anywhere"])
@@ -178,6 +186,8 @@ class Bundle(unittest.TestCase):
                     self.assertTrue(bundle.editor_file(path.relative_to(editor)), path)
         # godot.py reads it, and so does the launcher, to tell an outdated project.
         self.assertTrue(bundle.editor_file(Path("project_format.json")))
+        # The guide the Audio tab's "How it works" opens.
+        self.assertTrue(bundle.editor_file(Path("AUDIO_MODDING.md")))
 
     def test_a_copy_without_game_or_python(self):
         with tempfile.TemporaryDirectory() as tmp:
