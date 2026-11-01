@@ -1185,7 +1185,10 @@ TickMobys pose_mobys(
                })) {
             continue;
         }
-        auto cls = g->level.moby_classes.find(m.class_id);
+        auto cls = g->level.moby_classes.find(m.model_class);
+        if (cls == g->level.moby_classes.end()) {
+            cls = g->level.moby_classes.find(m.class_id);
+        }
         if (cls == g->level.moby_classes.end()) {
             continue;
         }

@@ -524,7 +524,7 @@ bool load_level(
     }
     out.game = manifest["game"].string();
     const int format = static_cast<int>(manifest["format"].number(-1));
-    if (format != kManifestFormat && format != kManifestFormatNewest) {
+    if (format < kManifestFormat || format > kManifestFormatNewest) {
         // Newer levels than the game: the game is the old part, and reading the levels again
         // would not help.
         error = format > kManifestFormatNewest

@@ -17,6 +17,7 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <utility>
 
 #include "openrac/guest.h"
 #include "renderer/math.h"
@@ -94,6 +95,26 @@ renderer::Vec3 vec3(std::span<const std::uint8_t> ram, std::uint32_t address) {
 // (+0x32), occlusion (+0x36) and rotation rows (+0xC0) are where they were.
 constexpr std::uint32_t kMobyClass = 0xAA;
 
+// Ratchet's class holds only his skeleton: the game loads his packets and textures over it from a
+// pack of the disc, the armour's unless one of four flags names another (func_00292078). The export
+// has each pack past the first as a class of its own (editor/moby_class.py, HERO_LOOK_CLASSES).
+constexpr std::int32_t kHeroLookClasses = 6000;
+constexpr std::uint32_t kArmour = 0x001A7A18;
+constexpr std::array<std::pair<std::uint32_t, std::int32_t>, 4> kLookFlags{
+    {{0x001A7A49, 6}, {0x001A7A42, 8}, {0x001A7A4B, 7}, {0x001A7A4A, 5}}
+};
+
+std::int32_t hero_class(std::span<const std::uint8_t> ram) {
+    std::int32_t look = at<std::int32_t>(ram, kArmour);
+    for (const auto& [flag, pack] : kLookFlags) {
+        if (at<std::uint8_t>(ram, flag) != 0) {
+            look = pack;
+            break;
+        }
+    }
+    return look > 0 && look <= 8 ? kHeroLookClasses + look : -1;
+}
+
 std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, std::uint32_t m) {
     if (m == 0 || m + 0x100 > ram.size()) {
         return std::nullopt;
@@ -106,6 +127,9 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     host::LiveMoby live;
     live.address = m;
     live.class_id = at<std::int16_t>(ram, m + kMobyClass);
+    if (live.class_id == 0) {
+        live.model_class = hero_class(ram);
+    }
     live.occlusion = at<std::uint16_t>(ram, m + 0x36);
     std::array<float, 4> sphere;
     std::memcpy(sphere.data(), ram.data() + m, sizeof(sphere));
