@@ -109,6 +109,7 @@ class Program:
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
+    splits_keep_names: bool = False  # hostgen.json: a level's name of a split place is the variant
     level_data: dict = field(default_factory=dict)  # level -> {data name in its files: address there}
     bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
     executable_starts: set = field(default_factory=set)  # hostgen.json "executable_functions"
@@ -187,7 +188,7 @@ class Program:
             # A catalogue name that gave all its places to another function (split_places.tsv): a
             # level's name for that address is that function.
             for variant, parent in self.split_parent.items():
-                if not self.places.get(parent):
+                if self.splits_keep_names and not self.places.get(parent):
                     for pattern in self.code_names:
                         m = pattern.match(parent)
                         if m:

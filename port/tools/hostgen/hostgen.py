@@ -1011,6 +1011,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         read_places(source / cfg["places"], program)
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
+    program.splits_keep_names = bool(cfg.get("splits_keep_names"))
     host_rows = host_table(args.game.parent, cfg)
     program.host = set(cfg.get("host_functions", [])) | set(host_rows)
     program.wrap = wrapped(args.game.parent, cfg)
