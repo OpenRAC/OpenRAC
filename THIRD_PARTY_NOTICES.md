@@ -177,7 +177,7 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 
 | Library | Version | License | Used by |
 |---|---|---|---|
-| [SDL](https://github.com/libsdl-org/SDL) | 3.2.24 | zlib | the platform layer: window, OpenGL context, input, audio |
+| [SDL](https://github.com/libsdl-org/SDL) | 3.4.18 (Android: 3.2.24) | zlib | the platform layer: window, OpenGL context, input, audio |
 | [cgltf](https://github.com/jkuhlmann/cgltf) | 1.15 | MIT | the level viewer: reading the editor's glTF meshes |
 | [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.91.9b | MIT | the games' debug overlay ([docs/port/DEBUGGING.md](docs/port/DEBUGGING.md)) |

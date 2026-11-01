@@ -153,7 +153,7 @@ unknown *value* warns in the log and falls back to the default; an unknown
 
 | Key | Values | Default | Note |
 |---|---|---|---|
-| `display_mode` | `windowed`, `borderless`, `fullscreen` | `windowed` | |
+| `display_mode` | `windowed`, `borderless`, `fullscreen` | `windowed` | Absent on a first start: `borderless`. |
 | `fullscreen` | `0`/`1` | — | Legacy: `1` means `borderless`. |
 | `monitor` | `0`–`64` | `0` | |
 | `resolution` | `desktop` or `WIDTHxHEIGHT` | desktop | Fullscreen mode. |
@@ -200,7 +200,7 @@ A file with `frame_rate` but no `vsync` gets `vsync = on` when
 | **F9** / **F10** | Volume down / up |
 | **F11** | Full screen |
 | **F12** | Screenshot |
-| **Alt** | Hide and show the in-window menus (on its own) |
+| **`** (key under Escape) | Hide and show the in-window menus (`menu_bar_key`, pad: R4, `menu_bar_button`; Controller bindings, Menu bar tab) |
 | **Alt+Return** | Fullscreen |
 
 ## 5. The input map

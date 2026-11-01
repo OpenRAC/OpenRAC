@@ -241,7 +241,7 @@ export const PREVIEW = {
  *  the default, the game starts with no mods at all; the Mods tab says so above its list. */
 export const WITH_MODS = {
   label: "Mods",
-  hint: "Play with your gameplay mods, packs and packed levels from the Mods tab.",
+  hint: "Play with your gameplay mods, packs, packed levels and Enhanced graphics from the Mods tab.",
   /** Beside the switch when it is on: how many are switched on, a way to the Mods tab. */
   count: (n: number | null) => (n === null ? "Mods tab" : n === 0 ? "none on yet" : `${n} on`),
   /** Beside the switch when it is off. */

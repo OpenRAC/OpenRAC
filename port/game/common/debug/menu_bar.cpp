@@ -13,6 +13,7 @@
 #include <SDL3/SDL.h>
 
 #include "common/env.h"
+#include "common/log.h"
 #include "common/slow_cpu.h"
 #include "debug/overlay.h"
 #include "mods.h"
@@ -111,11 +112,73 @@ void record_menu() {
 
 }  // namespace
 
+SDL_Scancode menu_bar_scancode() {
+    const std::string& name = settings::get().menu_bar_key;
+    const SDL_Scancode key =
+        name == "Alt" ? SDL_SCANCODE_LALT : SDL_GetScancodeFromName(name.c_str());
+    if (key == SDL_SCANCODE_LALT || key == SDL_SCANCODE_RALT) {
+        return SDL_SCANCODE_UNKNOWN;
+    }
+    // A name SDL does not know: the default, the key under Escape.
+    return key == SDL_SCANCODE_UNKNOWN ? SDL_SCANCODE_GRAVE : key;
+}
+
+std::string menu_bar_key_label() {
+    const SDL_Scancode key = menu_bar_scancode();
+    if (key == SDL_SCANCODE_UNKNOWN) {
+        return "Alt";
+    }
+    // What the key prints on the player's own layout, else its place's name.
+    const char* name = SDL_GetKeyName(SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false));
+    return name != nullptr && *name != '\0' ? std::string(name)
+                                            : std::string(SDL_GetScancodeName(key));
+}
+
+SDL_GamepadButton menu_bar_button() {
+    const std::string& name = settings::get().menu_bar_button;
+    if (name == "none") {
+        return SDL_GAMEPAD_BUTTON_INVALID;
+    }
+    const SDL_GamepadButton button = SDL_GetGamepadButtonFromString(name.c_str());
+    // A name SDL does not know: the default, R4.
+    return button == SDL_GAMEPAD_BUTTON_INVALID ? SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1 : button;
+}
+
+std::string menu_bar_button_label() {
+    switch (const SDL_GamepadButton button = menu_bar_button()) {
+        case SDL_GAMEPAD_BUTTON_INVALID:
+            return "none";
+        // The back buttons by the names on Valve's pads (the Steam Controller, the Steam Deck).
+        case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1:
+            return "R4";
+        case SDL_GAMEPAD_BUTTON_LEFT_PADDLE1:
+            return "L4";
+        case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2:
+            return "R5";
+        case SDL_GAMEPAD_BUTTON_LEFT_PADDLE2:
+            return "L5";
+        default: {
+            const char* name = SDL_GetGamepadStringForButton(button);
+            return name != nullptr ? std::string(name) : std::string("?");
+        }
+    }
+}
+
+void toggle_menu_bar() {
+    settings::get().menu_bar = !settings::get().menu_bar;
+    settings::save();
+    if (!settings::get().menu_bar) {
+        s.toast = menu_bar_key_label() + " shows the menus again";
+        s.toast_until = ImGui::GetTime() + 4.0;
+    }
+}
+
 void menu_bar() {
     if (!ImGui::BeginMainMenuBar()) {
         return;
     }
-    if (ImGui::BeginMenu("View")) {
+    const std::string key = menu_bar_key_label();
+    if (ImGui::BeginMenu("Game")) {
         if (ImGui::MenuItem("Full screen", "F11")) {
             press(SDLK_F11);
         }
@@ -125,11 +188,18 @@ void menu_bar() {
             press(SDLK_F2);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Hide these menus", "Alt")) {
-            settings::get().menu_bar = false;
-            settings::save();
-            s.toast = "Alt shows the menus again";
-            s.toast_until = ImGui::GetTime() + 4.0;
+        if (ImGui::MenuItem("Hide these menus", key.c_str())) {
+            toggle_menu_bar();
+        }
+        ImGui::Separator();
+        // Closes the game as the window's close button does: the frame loop ends the program
+        // normally, so the launcher sees an ordinary exit.
+        if (ImGui::MenuItem("Exit game", "Alt+F4")) {
+            log::info("exit: chosen in the menu bar, closing the game");
+            SDL_Event event;
+            SDL_zero(event);
+            event.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&event);
         }
         ImGui::EndMenu();
     }
@@ -256,6 +326,13 @@ void menu_bar() {
             ImGui::EndMenu();
         }
         ImGui::EndMenu();
+    }
+    // At the right, greyed: the key that hides the bar (and brings it back).
+    const std::string hint = key + ": hide or show the menus";
+    const float width = ImGui::CalcTextSize(hint.c_str()).x + ImGui::GetStyle().ItemSpacing.x;
+    if (ImGui::GetContentRegionAvail().x > width) {
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - width - ImGui::GetStyle().WindowPadding.x);
+        ImGui::TextDisabled("%s", hint.c_str());
     }
     ImGui::EndMainMenuBar();
 }

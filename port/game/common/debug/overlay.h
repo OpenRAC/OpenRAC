@@ -207,6 +207,9 @@ struct State {
     std::string toast;         // the same for an action taken with the panel hidden, shown a moment
     double toast_until = 0.0;  // the ImGui time the toast goes at
     bool alt_alone = false;  // Alt went down and no other key since: its release toggles the menus
+    bool menu_key_capture = false;  // the next key pressed becomes the menu bar's (controls window)
+    bool menu_button_capture = false;  // the next pad button becomes the menu bar's
+    std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)
     bool developer = false;  // the launcher's developer tools (OPENRAC_DEVELOPER): the level select
     std::string dump_path = "openrac_frames.jsonl";  // where the frames' measurements are written
 
@@ -276,8 +279,8 @@ extern const ImVec4 kGreen;
 extern const ImVec4 kDim;
 extern const ImVec4 kYellow;
 
-// Returns `v`, a length in the overlay's units, in pixels: `v` on a desktop's screen, more on a
-// dense one (s.ui_scale).
+// Returns `v`, a length in the overlay's units, in pixels: `v` on a 1080p screen, more on a
+// dense or large one (s.ui_scale).
 float dp(float v);
 
 // Says whether the `size` bytes at `address` (a game address, its segment bits ignored) are all in
@@ -421,6 +424,21 @@ bool menu_bar_shown();
 // Presses and releases `key` through SDL's queue, as the macOS menus do: a menu item does what the
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
+
+// The key that hides and shows the menu bar, as the player reads it ("`", "Alt", "F4"), and its
+// place on the keyboard (SDL_SCANCODE_UNKNOWN for Alt, which counts only pressed by itself).
+// Defined in debug/menu_bar.cpp.
+std::string menu_bar_key_label();
+SDL_Scancode menu_bar_scancode();
+
+// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none), and its name
+// as the player reads it ("R4", "none"). Defined in debug/menu_bar.cpp.
+SDL_GamepadButton menu_bar_button();
+std::string menu_bar_button_label();
+
+// Hides or shows the menu bar and saves it, with a toast when it hides. Defined in
+// debug/menu_bar.cpp.
+void toggle_menu_bar();
 
 // Draws the menu bar: View, Controls, Graphics, Sound and Developer.
 // Defined in debug/menu_bar.cpp.

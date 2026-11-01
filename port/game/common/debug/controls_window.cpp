@@ -22,6 +22,7 @@
 #include "platform/bindings.h"
 #include "platform/input.h"
 #include "platform/players.h"
+#include "settings.h"
 
 namespace openrac::frontend::debug_overlay {
 namespace {
@@ -666,6 +667,67 @@ void players_tab(controls::Store& store, platform::Input& input) {
     ImGui::TextDisabled("Players are the same in every game.");
 }
 
+// What hides and shows the menu bar: a key and a controller button (settings.ini's menu_bar_key
+// and menu_bar_button, read in debug_overlay.cpp).
+void menu_bar_tab() {
+    ImGui::SeparatorText("Keyboard");
+    ImGui::TextUnformatted("Hide or show the menus:");
+    ImGui::SameLine();
+    if (s.menu_key_capture) {
+        ImGui::TextColored(kGreen, "press a key (Escape keeps %s)", menu_bar_key_label().c_str());
+    } else {
+        ImGui::TextUnformatted(menu_bar_key_label().c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Change")) {
+            s.menu_key_capture = true;
+        }
+        if (settings::get().menu_bar_key != settings::Settings{}.menu_bar_key) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Default")) {
+                settings::get().menu_bar_key = settings::Settings{}.menu_bar_key;
+                settings::save();
+            }
+        }
+    }
+    ImGui::TextDisabled(
+        "The key is kept by its place on the keyboard (the default is the one under Escape). Alt "
+        "counts pressed by itself, so Alt+Return still goes fullscreen."
+    );
+
+    ImGui::SeparatorText("Controller");
+    ImGui::TextUnformatted("Hide or show the menus:");
+    ImGui::SameLine();
+    if (s.menu_button_capture) {
+        ImGui::TextColored(
+            kGreen, "press a controller button (Escape keeps %s)", menu_bar_button_label().c_str()
+        );
+    } else {
+        ImGui::TextUnformatted(menu_bar_button_label().c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Change##button")) {
+            s.menu_button_capture = true;
+        }
+        if (menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("None##button")) {
+                settings::get().menu_bar_button = "none";
+                settings::save();
+            }
+        }
+        if (settings::get().menu_bar_button != settings::Settings{}.menu_bar_button) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Default##button")) {
+                settings::get().menu_bar_button = settings::Settings{}.menu_bar_button;
+                settings::save();
+            }
+        }
+    }
+    ImGui::TextDisabled(
+        "The default is R4, the upper right back button of the Steam Controller. Not \"...\": a "
+        "running Steam opens its own panel on it."
+    );
+}
+
 }  // namespace
 
 void controls_window() {
@@ -678,6 +740,8 @@ void controls_window() {
         }
         s.controls.capture_target = -1;
         s.controls.confirm_reset = false;
+        s.menu_key_capture = false;
+        s.menu_button_capture = false;
         return;
     }
     ImGui::SetNextWindowSize(ImVec2(dp(720), dp(560)), ImGuiCond_FirstUseEver);
@@ -752,6 +816,10 @@ void controls_window() {
         }
         if (ImGui::BeginTabItem("Players")) {
             players_tab(*store, *input);
+            ImGui::EndTabItem();
+        }
+        if (menu_bar_possible() && ImGui::BeginTabItem("Menu bar")) {
+            menu_bar_tab();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
