@@ -38,8 +38,10 @@ NO_STORE = 0xf4  # VU0 address meaning "do not keep this matrix".
 # this key and the writer pairs it with GREY.
 UNTEXTURED = ("moby", -1)
 # Going Commando: the wrench's class, whose packets are in a pack as Ratchet's are, and the classes
-# his other looks are exported as, by pack number: no level's class table goes this high.
+# his other looks and the wrench's other forms are exported as, by number: no level's class table
+# goes this high.
 WRENCH_CLASS = 71
+WRENCH_FORM_CLASSES = 6020
 SHIP_CLASS = 3412           # his ship: the level has the mesh, the disc the picture on it
 HERO_LOOK_CLASSES = 6000
 GREY = Texture(8, 8, bytes(64), bytes((0x80,) * 4) + bytes(1020))
@@ -416,11 +418,11 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         if not start:
             result[class_id] = None
             continue
-        hero, wrench = class_id == 0 and level.hero_mesh is not None, class_id == WRENCH_CLASS and level.wrench_mesh
+        hero, wrench = class_id == 0 and level.hero_mesh is not None, class_id == WRENCH_CLASS and level.wrench_meshes
         # The hero pack's packets name its own textures, in order. The wrench's pack has one.
         remap = ([HERO_TEXTURES + i for i in range(16)] if hero else [ITEM_TEXTURES] * 16 if wrench
                  else [SHIP_TEXTURE] * 16 if class_id == SHIP_CLASS and level.hero_looks else entry[16:32])
-        mesh_file = level.hero_mesh if hero else level.wrench_mesh if wrench else None
+        mesh_file = level.hero_mesh if hero else level.wrench_meshes[0] if wrench else None
         try:
             result[class_id] = moby_class(level.block(start), remap, f"moby_{class_id}",
                                           ratchet_sequences(level) if class_id == 0 and fmt.moby_animations else None,
@@ -431,12 +433,15 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
             result[class_id] = fallback(level, level.block(start), remap, class_id, fmt, exc, mesh_file)
     # His looks past the first are classes of their own: his skeleton with another pack's packets.
     # The port asks for the class of the pack the game loaded (rac2-ntsc/profile.cpp).
-    if level.hero_looks:
-        start = next(s for s, c in (unpack("<ii", e) for e in level.table(0x18, 32)) if c == 0)
-        for number, mesh_file in level.hero_looks:
-            remap = [HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i for i in range(16)]
-            result[HERO_LOOK_CLASSES + number] = lenient(level, level.block(start), remap, HERO_LOOK_CLASSES + number,
-                                                         fmt, mesh_file)
+    starts = {c: s for s, c in (unpack("<ii", e) for e in level.table(0x18, 32))}
+    for number, mesh_file in level.hero_looks:
+        remap = [HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i for i in range(16)]
+        result[HERO_LOOK_CLASSES + number] = lenient(level, level.block(starts[0]), remap, HERO_LOOK_CLASSES + number,
+                                                     fmt, mesh_file)
+    for number, mesh_file in enumerate(level.wrench_meshes[1:] if WRENCH_CLASS in starts else (), 1):
+        result[WRENCH_FORM_CLASSES + number] = lenient(level, level.block(starts[WRENCH_CLASS]),
+                                                       [ITEM_TEXTURES + number] * 16, WRENCH_FORM_CLASSES + number,
+                                                       fmt, mesh_file)
     for class_id, (blob, place) in level.items.items():
         result[class_id] = lenient(level, blob, [ITEM_TEXTURES + place] * 16, class_id, fmt)
     return result

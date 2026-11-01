@@ -2496,6 +2496,38 @@ class FromAssembly(unittest.TestCase):
                  for name, (start, text) in functions.items()}
         return self.run_program({"a.c": c}, config=config or ASM_CONFIG, extra_files=files)
 
+    def test_a_translated_caller_reads_a_result_a_c_wrapper_passes_on(self):
+        # A wrapper matched `void` that ends in an assembly function: its caller, in assembly, reads
+        # the result in $v0 (results_before_calls: Going Commando's func_L00_002B5590, func_002D5B38).
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int x);
+            void func_00100200(int x) { func_00100000(x); }
+            INCLUDE_ASM("asm", func_00100100);
+            extern int func_00100100(int x);
+            int test_main(void) {
+                test_print(func_00100100(3));
+                return 0;
+            }
+        """, {
+            "func_00100000": (0x100000, """
+                addiu $2, $4, 4
+                jr $31
+                nop
+            """),
+            "func_00100100": (0x100100, """
+                addiu $29, $29, -16
+                sq $31, 0($29)
+                jal func_00100200
+                nop
+                addiu $2, $2, 1
+                lq $31, 0($29)
+                jr $31
+                addiu $29, $29, 16
+            """),
+        }, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], results_before_calls=True)))
+        self.assertEqual(out, ["8"])
+
     def test_branches_and_delay_slots(self):
         # sum of n..1, the counter decremented in the delay slot after the test read it; a likely
         # branch whose delay slot runs only when it is taken.

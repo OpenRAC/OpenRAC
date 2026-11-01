@@ -26,6 +26,8 @@ HERO_TEXTURES = 1000
 HERO_LOOK_TEXTURES = 16
 # And those of the items he holds, one each, past all his looks'.
 ITEM_TEXTURES = 1200
+# The forms of his wrench, each a pack with one texture (the first of those places).
+WRENCHES = 3
 # The picture on his ship, past those.
 SHIP_TEXTURE = 1300
 # A hero pack's texture record: its width and height, CLUT and 8-bit pixels (func_00292078).
@@ -62,9 +64,9 @@ class Level:
     # Going Commando's Ratchet: the file his class's packets are in (wads.WadDisc.hero_pack), which
     # the game loads over the class at run time. His textures are "moby" ones from HERO_TEXTURES.
     hero_mesh: bytes | None = None
-    # His other looks, as (pack number, mesh file), and the wrench's.
+    # His other looks, as (pack number, mesh file), and the wrench's mesh file in each of its forms.
     hero_looks: list[tuple[int, bytes]] = field(default_factory=list)
-    wrench_mesh: bytes | None = None
+    wrench_meshes: list[bytes] = field(default_factory=list)
     # The items he holds, which the level's class table only names or leaves out: class number to
     # (decoded class, place among the textures from ITEM_TEXTURES).
     items: dict[int, tuple[bytes, int]] = field(default_factory=dict)
@@ -350,7 +352,7 @@ def load_flight(disc: Disc, survey: dict) -> Level:
 
 def hero_files(level: Level, source) -> None:
     """What a later game loads over Ratchet's class and his hand at run time: his packs, the wrench's
-    (the next pack, func_00292408) and the banks of what he holds."""
+    (the next packs, func_00292408) and the banks of what he holds."""
     level.hero_mesh, pack = source.hero_pack()
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture
@@ -359,10 +361,11 @@ def hero_files(level: Level, source) -> None:
         level.hero_looks.append((number, mesh))
         for i, texture in enumerate(hero_textures(pack)):
             level.textures[("moby", HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i)] = texture
-    level.wrench_mesh, pack = source.hero_pack(source.version.hero_armours)
     place = 0
-    for texture in hero_textures(pack):
-        level.textures[("moby", ITEM_TEXTURES + place)] = texture
+    for number in range(WRENCHES):
+        mesh, pack = source.hero_pack(source.version.hero_armours + number)
+        level.wrench_meshes.append(mesh)
+        level.textures[("moby", ITEM_TEXTURES + place)] = hero_textures(pack)[0]
         place += 1
     for class_id, item, texture in source.item_banks():
         level.items[class_id] = (decoded(item), place)
