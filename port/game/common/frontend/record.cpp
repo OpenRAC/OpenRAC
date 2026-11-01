@@ -113,6 +113,10 @@ void read_play(const std::string& path, std::vector<Held>* pad, std::vector<Poin
 }
 
 // OPENRAC_RECORD: the pad's changes and the hero's path, as they happen.
+void write_line(std::FILE* file, const std::string& line) {
+    std::fwrite(line.data(), 1, line.size(), file);
+}
+
 void record(const PadState& now) {
     static const std::optional<std::string> path = env_string(env::Var::Record);
     static std::FILE* file = nullptr;
@@ -142,23 +146,25 @@ void record(const PadState& now) {
 
     if (!header && g_route.level >= 0) {
         header = true;
-        std::fprintf(file, "openrac-play 1 %s %d\n", openrac_game.id, g_route.level);
+        write_line(file, std::format("openrac-play 1 {} {}\n", openrac_game.id, g_route.level));
     }
 
     const std::int64_t since = since_control();
 
     if (!(now == last)) {
         last = now;
-        std::fprintf(
+        write_line(
             file,
-            "%c %lld %04x %u %u %u %u\n",
-            since >= 0 ? 'c' : 'f',
-            static_cast<long long>(since >= 0 ? since : static_cast<std::int64_t>(g->index)),
-            now.buttons,
-            now.analog[0],
-            now.analog[1],
-            now.analog[2],
-            now.analog[3]
+            std::format(
+                "{} {} {:04x} {} {} {} {}\n",
+                since >= 0 ? 'c' : 'f',
+                since >= 0 ? since : static_cast<std::int64_t>(g->index),
+                static_cast<unsigned>(now.buttons),
+                static_cast<unsigned>(now.analog[0]),
+                static_cast<unsigned>(now.analog[1]),
+                static_cast<unsigned>(now.analog[2]),
+                static_cast<unsigned>(now.analog[3])
+            )
         );
     }
 
@@ -167,9 +173,7 @@ void record(const PadState& now) {
 
     if (since >= 0 && since % kPointEvery == 0 && openrac_game_hero != nullptr
         && openrac_game_hero(p, r, &state) != 0) {
-        std::fprintf(
-            file, "p %lld %.2f %.2f %.2f\n", static_cast<long long>(since), p[0], p[1], p[2]
-        );
+        write_line(file, std::format("p {} {:.2f} {:.2f} {:.2f}\n", since, p[0], p[1], p[2]));
     }
 
     std::fflush(file);  // a crash keeps every frame before it
