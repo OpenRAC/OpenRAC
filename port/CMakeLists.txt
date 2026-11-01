@@ -386,4 +386,6 @@ if(OPENRAC_PORT_GAMES)
   set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME xcheck_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_xcheck.py")
+  add_test(NAME ntsc_twins_tool
+           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_ntsc_twins.py")
 endif()
