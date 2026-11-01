@@ -23,7 +23,7 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10,1300:40
 ## Building and running
 
 The default build reads OpenRAC's own `games/rac2/ntsc` (synced at
-8bc9d785, 2026-10-20). It needs the boot executable, which
+9097768d, 2026-11-01). It needs the boot executable, which
 `python3 tools/build_port.py rac2-ntsc --disc <your disc image>` has hostgen read
 straight from the image (`OPENRAC_RAC2_NTSC_RETAIL_IMAGE`; no copy is made).
 Without `--disc` the build falls back to `games/rac2/ntsc/baserom/SCUS_972.68`
@@ -71,14 +71,16 @@ What the translation reads (`hostgen.json`):
   ```sh
   python3 port/tools/hostgen/derived.py --game port/game/rac2-ntsc/hostgen.json --source <built rac2-decomp at the synced commit>
   ```
-- `baserom/SCUS_972.68` (`asm.retail`): every function still in assembly is
-  translated from the retail executable's instructions, entries found by
-  their calls (`discover_entries`). Its `include_asm.h` defines the markers
+- `baserom/SCUS_972.68` and `baserom/levels` (`asm.retail`): every function
+  still in assembly is translated from the retail executable's and the level
+  programs' instructions, entries found by their calls (`discover_entries`). Its `include_asm.h` defines the markers
   to nothing, so `defines` sets `INCLUDE_ASM_H` and gives `ASM_FUNC` the
   marker hostgen reads.
-- `skip`: libgcc's `__udivdi3`, `__umoddi3` (host rows) and fp-bit's
-  `__pack_f` file, whose `mode` typedefs Clang reads but hostgen cannot
-  prototype; translated from assembly instead.
+- `skip`: the other releases' C (`src/pal`, `src/us2`); libgcc's `__udivdi3`,
+  `__umoddi3` (host rows), fp-bit's `__pack_f` file, whose `mode` typedefs Clang
+  reads but hostgen cannot prototype, and libgcc's other units, whose macros and
+  `__builtin_setjmp` it cannot read; `L08_003CDB38.c`, whose `extern void
+  func_002A0F48(p);` Clang refuses. All translated from assembly instead.
 - `from_assembly`: 15 wrappers whose C omits registers they forward
   (`arguments_filled_with_zero` in the report), translated from assembly.
 
