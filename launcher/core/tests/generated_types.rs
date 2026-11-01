@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use openrac_launcher_core::{
     actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_state, enhanced, index,
     index_apply, jobs, library, mod_error, mod_updates, overrides, pcsx2_card, plugins, remote, reports, reset,
-    resolver, save_edit, saves, update,
+    resolver, save_edit, saves, steam, update,
 };
 use ts_rs::{Config, TS};
 
@@ -36,6 +36,7 @@ fn export_all(cfg: &Config) {
         controls::Scope,
         deeplink::Install,
         deeplink::WantedMod,
+        steam::State,
         detect::Tool,
         detect::Detected,
         detect::Check,

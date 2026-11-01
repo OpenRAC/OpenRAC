@@ -73,6 +73,7 @@ import type { WriteResult } from "./generated/WriteResult";
 import type { ApplyProgress } from "./generated/ApplyProgress";
 import type { ApplyResult } from "./generated/ApplyResult";
 import type { DeepLinkInstall } from "./generated/DeepLinkInstall";
+import type { SteamState } from "./generated/SteamState";
 import type { IndexImage } from "./generated/IndexImage";
 import type { IndexMod } from "./generated/IndexMod";
 import type { IndexVersion } from "./generated/IndexVersion";
@@ -156,6 +157,7 @@ export type { UpdateChannel };
 export type { UpdateSource };
 export type { VersionView };
 export type { ApplyProgress, ApplyResult, DeepLinkInstall, IndexImage, IndexMod, IndexVersion, IndexView };
+export type { SteamState };
 export type { InstallPlan, ModAction, ModError, ModIndex, PlanNote, PlannedMod, WantedMod, Why };
 export type { Hold, LastUpdate, Orphan, UpdateItem, UpdatePlan, UpdateRun };
 
@@ -383,6 +385,10 @@ export const api = {
   /** The mod hub (core/src/index.rs, resolver.rs, index_apply.rs, deeplink.rs): their errors are
    *  ModError (modErrorOf), with the fix the page offers. */
   deeplinkParse: (url: string) => call<DeepLinkInstall>("deeplink_parse", { url }),
+  /** Where the launcher stands in the player's Steam library. */
+  steamState: () => call<SteamState>("steam_state"),
+  /** Adds the launcher to Steam's library, or updates it. Rejected while Steam runs. */
+  steamAdd: () => call<SteamState>("steam_add"),
   /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
   indexFetch: (game: string | null = null, version: string | null = null) =>
     call<IndexView>("index_fetch", { game, version }),

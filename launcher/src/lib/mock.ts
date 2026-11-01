@@ -2093,6 +2093,8 @@ const delay = <T>(value: T) =>
     }, 120),
   );
 
+const steamAsked = () => new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("steam");
+
 export async function mockCall(command: string, args: Record<string, unknown> = {}): Promise<unknown> {
   switch (command) {
     case "app_info":
@@ -2392,6 +2394,12 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     }
     case "deeplink_parse":
       return delay(mockParse(String(args.url)));
+    // `?steam=noSteam`, `noUser`, `added`, `outdated`, or `open` for a Steam that is running.
+    case "steam_state":
+      return delay(steamAsked() === "open" ? "notAdded" : (steamAsked() ?? "notAdded"));
+    case "steam_add":
+      if (steamAsked() === "open") throw new Error("Close Steam, then try again.");
+      return delay("added");
     case "index_fetch":
       return delay(mockIndexView());
     case "index_resolve":
