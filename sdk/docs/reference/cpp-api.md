@@ -303,7 +303,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool camera_script_play(int id) const` | Since 1.12: shows another game's camera script here (only the camera moves), or ends it (OPENRAC_CAMERA_SCRIPT_END, OPENRAC_CAMERA_SCRIPT_CUT). |
 | `bool camera_script_view( float eye[3], float rotation[3], float where[3], bool* stand_in = nullptr ) const` | Since 1.12: the view of the camera script running in this game, where its moby is, and whether it runs for a player standing in. |
 | `bool camera_script_show(const float eye[3], const float rotation[3]) const` | Since 1.12: the view of the script shown here; false once it is not up. |
-| `bool play_scene_from(int scene, int start_frame) const` | Since 1.12: play_scene, from frame `start_frame` of the scene. |
+| `bool play_scene_from(int scene, int start_frame) const` | Since 1.12: reserved for play_scene from frame `start_frame` of the scene. No port does this: a scene is read from the disc as it plays and cannot start part way, so it answers false. |
 | `bool play_live_picture(bool on) const` | Since 1.12: the picture behind the pause menus is the world still running, while `on`. |
 | `bool has_metal_detect() const` | Since 1.12: whether this port tells a mod of the metal detector's finds. |
 | `bool on_metal_detect(openrac_metal_detect_fn fn, void* user = nullptr) const` | Since 1.12: `fn(user, slot, key)` when the metal detector finds a buried moby. During load. |

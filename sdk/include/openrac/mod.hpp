@@ -1725,7 +1725,8 @@ public:
                && m_api->camera_script_show(m_handle, eye, rotation) == OPENRAC_HOOK_OK;
     }
 
-    // Since 1.12: play_scene, from frame `start_frame` of the scene.
+    // Since 1.12: reserved for play_scene from frame `start_frame` of the scene. No port does this: a
+    // scene is read from the disc as it plays and cannot start part way, so it answers false.
     bool play_scene_from(int scene, int start_frame) const {
         return has_slot12(offsetof(openrac_api, play_scene_from))
                && m_api->play_scene_from(m_handle, scene, start_frame) == OPENRAC_HOOK_OK;

@@ -1696,7 +1696,9 @@ typedef struct openrac_api {
     int (*on_camera_script)(openrac_mod* mod, openrac_camera_script_fn fn, void* user);
     int (*camera_script_play)(openrac_mod* mod, int id);
 
-    /* play_scene, from frame `start_frame` of the scene. Since 1.12. */
+    /* Reserved for play_scene from frame `start_frame` of the scene. No port does this: a scene is read
+     * from the disc as it plays and cannot start part way, so it answers OPENRAC_HOOK_UNKNOWN.
+     * Since 1.12. */
     int (*play_scene_from)(openrac_mod* mod, int scene, int start_frame);
 
     /* Whether the picture behind the game's pause menus is the world still running (`on` 1, as it
