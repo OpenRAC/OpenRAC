@@ -63,9 +63,11 @@ export const THEMES: Record<string, Theme> = {
   },
   rac5: {
     box: "#1b2936",
-    border: "#eab308",
+    // Blue, not the site's yellow (#eab308, #facc15): the frame and the year follow the game's
+    // accent (palettes.json), as every other game's do.
+    border: "#3f78f0",
     text: "#f8fafc",
-    text2: "#facc15",
+    text2: "#7aa8ff",
     from: "#223342",
     to: "#131d26",
     font: "head",
