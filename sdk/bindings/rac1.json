@@ -128,6 +128,33 @@
       "about": "Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on."
     },
     {
+      "id": "rac1.help.request",
+      "name": "Help_Request",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "message",
+        "slot"
+      ],
+      "symbols": {
+        "pal": "func_L00_00203F20",
+        "ntsc": "FUN_L00_00203908"
+      },
+      "about": "Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it."
+    },
+    {
+      "id": "rac1.ship.init_transition",
+      "name": "Ship_InitTransition",
+      "signature": "void(i32)",
+      "params": [
+        "mode"
+      ],
+      "symbols": {
+        "pal": "func_L00_0028FCA0",
+        "ntsc": "FUN_L00_0028e9c8"
+      },
+      "about": "Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned."
+    },
+    {
       "id": "rac1.vendor.init_level_stock",
       "name": "Vendor_InitLevelStock",
       "signature": "void()",
