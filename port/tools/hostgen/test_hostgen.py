@@ -1718,6 +1718,7 @@ class Places(unittest.TestCase):
                 "void func_002FC220(void) { D_L06_001B22A8 = 1; }\n")
             (root / "hostgen.json").write_text(json.dumps({
                 "sources": ["src"], "includes": [], "relocate": [0x1A7C80, 0x500000],
+                "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
             }))
             out = root / "gen"
             self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
