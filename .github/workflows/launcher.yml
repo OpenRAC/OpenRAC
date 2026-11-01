@@ -439,7 +439,7 @@ jobs:
           echo "LAUNCHER_VERSION=$version" >> "$GITHUB_ENV"
           config=$(VERSION="$version" ENDPOINT="$endpoint" CREATE="$create_updater" node -e '
             const c = { version: process.env.VERSION,
-                        // RPM's release is the run: rpm -U refuses the same X.Y.Z-1 again.
+                        // The RPM release is the run: rpm -U refuses the same X.Y.Z-1 again.
                         bundle: { createUpdaterArtifacts: process.env.CREATE === "true",
                                   linux: { rpm: { release: process.env.GITHUB_RUN_NUMBER } } },
                         plugins: { updater: { endpoints: [process.env.ENDPOINT] } } };
