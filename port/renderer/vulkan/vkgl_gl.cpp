@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <format>
 #include <regex>
 #include <string>
 #include <string_view>
@@ -961,12 +962,28 @@ void VKGL bind_attrib_location(GLuint, GLuint, const GLchar*) {
     // The renderer's shaders give their inputs locations of their own.
 }
 
-VkShaderModule module_of(const std::vector<std::uint32_t>& code) {
+// Leaves a readable program log when the driver cannot create one of its objects.
+bool link_step(Program& program, VkResult result, const char* operation) {
+    // A failed step must not feed null handles to subsequent Vulkan calls.
+    if (!check(result, operation)) {
+        program.log = std::format("vulkan: {} failed ({})", operation, int(result));
+        return false;
+    }
+
+    return true;
+}
+
+// Makes one stage; partial programs retain ownership until relink or deletion.
+VkShaderModule module_of(Program& program, const std::vector<std::uint32_t>& code) {
     VkShaderModuleCreateInfo info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     info.codeSize = code.size() * sizeof(std::uint32_t);
     info.pCode = code.data();
     VkShaderModule module = VK_NULL_HANDLE;
-    check(vkCreateShaderModule(g->device, &info, nullptr, &module), "a shader module");
+    if (!link_step(
+            program, vkCreateShaderModule(g->device, &info, nullptr, &module), "a shader module"
+        )) {
+        return VK_NULL_HANDLE;
+    }
     return module;
 }
 
@@ -1019,6 +1036,132 @@ void separate_draw_uniform(Program& p, const std::string& vertex, const std::str
     p.compiled = std::move(compiled);
 }
 
+// Keeps successfully created modules owned by the program until deletion or relinking.
+bool make_program_modules(Program& program) {
+    const auto& compiled = program.compiled;
+    // Compute programs have no graphics stages.
+    if (!compiled.compute.empty()) {
+        program.compute = module_of(program, compiled.compute);
+        return program.compute != VK_NULL_HANDLE;
+    }
+    program.vertex = module_of(program, compiled.vertex);
+    // The fragment module cannot rescue a failed vertex stage.
+    if (!program.vertex) {
+        return false;
+    }
+    program.fragment = module_of(program, compiled.fragment);
+    return program.fragment != VK_NULL_HANDLE;
+}
+
+// Reflects the program's complete descriptor interface before creating its layouts.
+std::vector<VkDescriptorSetLayoutBinding> program_bindings(Program& program) {
+    const auto& c = program.compiled;
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    auto add = [&](int binding, VkDescriptorType type) {
+        if (binding < 0) {
+            return;
+        }
+        bindings.push_back(
+            {static_cast<std::uint32_t>(binding),
+             type,
+             1,
+             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+                 | VK_SHADER_STAGE_COMPUTE_BIT,
+             nullptr}
+        );
+    };
+    program.dynamic_uniforms = c.default_binding >= 0 && reuse_uniforms();
+    add(c.default_binding,
+        program.dynamic_uniforms ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
+                                 : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    for (const ProgramBlock& b : c.blocks) {
+        add(b.binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    }
+    for (const auto& b : c.storage) {
+        add(b.binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    }
+    for (const ProgramUniform& u : c.uniforms) {
+        if (u.sampler && u.binding >= 0) {
+            add(u.binding,
+                u.kind == SamplerKind::Buffer ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER
+                                              : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        }
+    }
+    return bindings;
+}
+
+// A failed descriptor layout must never be passed into pipeline layout creation.
+bool make_program_layouts(Program& program) {
+    const auto bindings = program_bindings(program);
+    VkDescriptorSetLayoutCreateInfo set_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    set_info.bindingCount = static_cast<std::uint32_t>(bindings.size());
+    set_info.pBindings = bindings.data();
+    if (!link_step(
+            program,
+            vkCreateDescriptorSetLayout(g->device, &set_info, nullptr, &program.set_layout),
+            "a descriptor set layout"
+        )) {
+        return false;
+    }
+    VkPipelineLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    const VkDescriptorSetLayout layouts[] = {program.set_layout, g->material_layout};
+    const VkPushConstantRange draw_push{VK_SHADER_STAGE_VERTEX_BIT, 0, 4};
+    layout_info.setLayoutCount = program.gpu_materials ? 2u : 1u;
+    layout_info.pSetLayouts = layouts;
+    if (program.gpu_materials || program.draw_uniform_offset >= 0) {
+        layout_info.pushConstantRangeCount = 1;
+        layout_info.pPushConstantRanges = &draw_push;
+    }
+    if (!link_step(
+            program,
+            vkCreatePipelineLayout(g->device, &layout_info, nullptr, &program.layout),
+            "a pipeline layout"
+        )) {
+        return false;
+    }
+    return true;
+}
+
+// Initialises GL uniforms and creates the compute pipeline after every prerequisite exists.
+bool finish_program_link(Program& program) {
+    const auto& c = program.compiled;
+    // Uniforms start at zero, as GL's do; a relink keeps nothing, as GL's does.
+    program.uniforms.assign(
+        program.gpu_materials ? program.material_start + kMaterialBytes
+                              : static_cast<unsigned>(std::max(c.default_size, 0))
+                                    + (program.draw_uniform_offset >= 0 ? 4u : 0u),
+        0
+    );
+    program.units.assign(c.uniforms.size(), 0);
+    program.block_bindings.assign(c.blocks.size(), 0);
+    program.uniforms_dirty = true;
+    program.last_set = VK_NULL_HANDLE;
+    program.last_key.clear();
+    program.descriptor_sets.clear();
+    if (program.compute) {
+        VkComputePipelineCreateInfo info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+        info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+        info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        info.stage.module = program.compute;
+        info.stage.pName = "main";
+        info.layout = program.layout;
+        if (!link_step(
+                program,
+                vkCreateComputePipelines(
+                    g->device, g->pipeline_cache, 1, &info, nullptr, &program.compute_pipeline
+                ),
+                "a compute pipeline"
+            )) {
+            return false;
+        }
+        count_pipeline();
+    }
+    program.linked =
+        program.layout && ((program.vertex && program.fragment) || program.compute_pipeline);
+
+    return program.linked;
+}
+
 void VKGL link_program(GLuint name) {
     Program* p = g->programs.find(name);
     if (p == nullptr) {
@@ -1027,9 +1170,18 @@ void VKGL link_program(GLuint name) {
     std::string vs, fs, cs;
     for (GLuint s : p->shaders) {
         if (Shader* sh = g->shaders.find(s)) {
-            (sh->type == GL_VERTEX_SHADER    ? vs
-             : sh->type == GL_COMPUTE_SHADER ? cs
-                                             : fs) = sh->source;
+            // The attached stage determines which source the compiler receives.
+            switch (sh->type) {
+                case GL_VERTEX_SHADER:
+                    vs = sh->source;
+                    break;
+                case GL_COMPUTE_SHADER:
+                    cs = sh->source;
+                    break;
+                default:
+                    fs = sh->source;
+                    break;
+            }
         }
     }
     if (p->serial != 0) {
@@ -1045,92 +1197,10 @@ void VKGL link_program(GLuint name) {
         return;
     }
     separate_draw_uniform(*p, vs, fs);
-    const CompiledProgram& c = p->compiled;
-    if (!c.compute.empty()) {
-        p->compute = module_of(c.compute);
-    } else {
-        p->vertex = module_of(c.vertex);
-        p->fragment = module_of(c.fragment);
+    // Partial driver objects stay owned, but cannot become a linked executable.
+    if (!make_program_modules(*p) || !make_program_layouts(*p) || !finish_program_link(*p)) {
+        return;
     }
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    auto add = [&](int binding, VkDescriptorType type) {
-        if (binding < 0) {
-            return;
-        }
-        bindings.push_back(
-            {static_cast<std::uint32_t>(binding),
-             type,
-             1,
-             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-                 | VK_SHADER_STAGE_COMPUTE_BIT,
-             nullptr}
-        );
-    };
-    p->dynamic_uniforms = c.default_binding >= 0 && reuse_uniforms();
-    add(c.default_binding,
-        p->dynamic_uniforms ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
-                            : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    for (const ProgramBlock& b : c.blocks) {
-        add(b.binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    }
-    for (const auto& b : c.storage) {
-        add(b.binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    }
-    for (const ProgramUniform& u : c.uniforms) {
-        if (u.sampler && u.binding >= 0) {
-            add(u.binding,
-                u.kind == SamplerKind::Buffer ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER
-                                              : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        }
-    }
-    VkDescriptorSetLayoutCreateInfo set_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    set_info.bindingCount = static_cast<std::uint32_t>(bindings.size());
-    set_info.pBindings = bindings.data();
-    check(
-        vkCreateDescriptorSetLayout(g->device, &set_info, nullptr, &p->set_layout),
-        "a descriptor set layout"
-    );
-    VkPipelineLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    const VkDescriptorSetLayout layouts[] = {p->set_layout, g->material_layout};
-    const VkPushConstantRange draw_push{VK_SHADER_STAGE_VERTEX_BIT, 0, 4};
-    layout_info.setLayoutCount = p->gpu_materials ? 2u : 1u;
-    layout_info.pSetLayouts = layouts;
-    if (p->gpu_materials || p->draw_uniform_offset >= 0) {
-        layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges = &draw_push;
-    }
-    check(
-        vkCreatePipelineLayout(g->device, &layout_info, nullptr, &p->layout), "a pipeline layout"
-    );
-    // Uniforms start at zero, as GL's do; a relink keeps nothing, as GL's does.
-    p->uniforms.assign(
-        p->gpu_materials ? p->material_start + kMaterialBytes
-                         : static_cast<unsigned>(std::max(c.default_size, 0))
-                               + (p->draw_uniform_offset >= 0 ? 4u : 0u),
-        0
-    );
-    p->units.assign(c.uniforms.size(), 0);
-    p->block_bindings.assign(c.blocks.size(), 0);
-    p->uniforms_dirty = true;
-    p->last_set = VK_NULL_HANDLE;
-    p->last_key.clear();
-    p->descriptor_sets.clear();
-    if (p->compute) {
-        VkComputePipelineCreateInfo info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-        info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-        info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        info.stage.module = p->compute;
-        info.stage.pName = "main";
-        info.layout = p->layout;
-        check(
-            vkCreateComputePipelines(
-                g->device, g->pipeline_cache, 1, &info, nullptr, &p->compute_pipeline
-            ),
-            "a compute pipeline"
-        );
-        count_pipeline();
-    }
-    p->linked = p->layout && ((p->vertex && p->fragment) || p->compute_pipeline);
 
     // Its pipelines of earlier runs are made on the pre-warm worker before its first draw.
     prewarm_program(*p);

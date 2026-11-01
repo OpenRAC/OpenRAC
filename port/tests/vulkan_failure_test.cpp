@@ -51,6 +51,7 @@ private:
 // Injection counters are accessed only by the test thread during synchronous Vulkan calls.
 unsigned g_allocations = 0;
 unsigned g_waits = 0;
+unsigned g_layouts = 0;
 PFN_vkAllocateDescriptorSets g_allocate = nullptr;
 
 // Fails once so a regression that retries incorrectly fails a count check instead of hanging CI.
@@ -73,6 +74,31 @@ count_waits(VkDevice, std::uint32_t, const VkFence*, VkBool32, std::uint64_t) {
     return VK_TIMEOUT;
 }
 
+// Stops shader module creation before any dependent layout/pipeline can be created.
+VKAPI_ATTR VkResult VKAPI_CALL fail_module(
+    VkDevice, const VkShaderModuleCreateInfo*, const VkAllocationCallbacks*, VkShaderModule*
+) {
+    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+}
+
+// Descriptor layout failure must stop linking before the pipeline layout is attempted.
+VKAPI_ATTR VkResult VKAPI_CALL fail_set_layout(
+    VkDevice,
+    const VkDescriptorSetLayoutCreateInfo*,
+    const VkAllocationCallbacks*,
+    VkDescriptorSetLayout*
+) {
+    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+}
+
+// Counts an illegal continuation without handing an invalid descriptor layout to the real driver.
+VKAPI_ATTR VkResult VKAPI_CALL count_pipeline_layouts(
+    VkDevice, const VkPipelineLayoutCreateInfo*, const VkAllocationCallbacks*, VkPipelineLayout*
+) {
+    ++g_layouts;
+    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+}
+
 // Uses one workgroup and no textures, so descriptor fault coverage needs no rendered scene.
 bool build_compute(openrac::renderer::Shader& shader, std::string& error) {
     return shader.build_compute(
@@ -80,6 +106,28 @@ bool build_compute(openrac::renderer::Shader& shader, std::string& error) {
         "#version 430 core\nlayout(local_size_x=1) in; void main() {}",
         error
     );
+}
+
+// Shader module allocation errors surface through the normal build result and diagnostic log.
+void test_shader_module_failure_is_reported() {
+    openrac::renderer::Shader shader;
+    std::string error;
+    const FunctionOverride injected(vkCreateShaderModule, fail_module);
+    CHECK(!build_compute(shader, error));
+    CHECK(error.find("shader module") != std::string::npos);
+    CHECK(error.find(std::to_string(VK_ERROR_OUT_OF_DEVICE_MEMORY)) != std::string::npos);
+}
+
+// Failed descriptor layouts neither leak null handles downstream nor lose their driver diagnostic.
+void test_shader_layout_failure_stops_linking() {
+    openrac::renderer::Shader shader;
+    std::string error;
+    g_layouts = 0;
+    const FunctionOverride descriptor(vkCreateDescriptorSetLayout, fail_set_layout);
+    const FunctionOverride pipeline(vkCreatePipelineLayout, count_pipeline_layouts);
+    CHECK(!build_compute(shader, error));
+    CHECK(error.find("descriptor set layout") != std::string::npos);
+    CHECK(g_layouts == 0);
 }
 
 // Impossible upload sizes fail before staging allocation or pointer arithmetic.
@@ -146,6 +194,8 @@ int run_tests() {
     }
 
     CHECK(openrac::gl::load(vkgl::get_proc, error));
+    test_shader_module_failure_is_reported();
+    test_shader_layout_failure_stops_linking();
     test_upload_size_overflow_is_rejected();
     test_descriptor_failure_is_not_retried();
     test_failed_submit_never_waits();
