@@ -2086,6 +2086,28 @@ class Places(unittest.TestCase):
             self.assertIn("GFN(unsigned long long (*)(int", text)
             self.assertNotIn("GFN(int (*)(int", text)
 
+    def test_a_shared_function_reads_another_levels_name_from_that_level(self):
+        # func_L00_002A5368 says D_L24_0025B710: read as level 0's, the hero's nodes landed on another
+        # table in level 1 and the two lists ran into each other.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src").mkdir(parents=True)
+            (src / "src" / "a.c").write_text(
+                "extern char D_L24_0025B710[];\n"
+                "char *func_L00_00300000(void) { return D_L24_0025B710; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_00300000\tshared\t8\tfingerprint\t2\t00:00300000,24:00310000\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "relocate": [0x1A7C80, 0x500000], "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            self.assertIn("OPENRAC_LDATA(24, 0x0025B710u)", (out / "a.c").read_text())
+
     def test_formed_as_relocates_the_address_the_code_forms(self):
         # Going Commando's arena table starts at the program's end rounded up: its code forms only
         # end + 0x3FFF, so that sum is what pairing the programs finds, and the end alone never moves.
