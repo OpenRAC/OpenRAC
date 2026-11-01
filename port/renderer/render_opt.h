@@ -91,10 +91,11 @@ enum class Opt : std::uint8_t {
     AttachmentUntouched,  // attachment-untouched: an attachment a pass leaves alone not loaded
     PassRenderArea,       // pass-render-area: a pass loads and stores only the rectangle it touched
     OverwriteDiscard,     // overwrite-discard: a target a full-screen pass overwrites is not loaded
+    ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended static passes
 };
 
-// The number of entries: OverwriteDiscard is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::OverwriteDiscard) + 1;
+// The number of entries: ProbeFastBlended is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ProbeFastBlended) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

@@ -700,6 +700,79 @@ def _ir_layout(t: str, types: dict, depth: int = 0) -> tuple[int, int] | None:
     return None
 
 
+def _ir_offset(t: str, indices: list[int], types: dict) -> int | None:
+    """The byte offset a constant getelementptr over type T with INDICES reaches."""
+    lay = _ir_layout(t, types)
+    if lay is None:
+        return None
+    offset = indices[0] * lay[0]
+    for index in indices[1:]:
+        t = t.strip()
+        t = types.get(t, t)
+        m = re.fullmatch(r"\[(\d+) x (.+)\]", t) or re.fullmatch(r"<(\d+) x (.+)>", t)
+        if m:
+            lay = _ir_layout(m.group(2), types)
+            if lay is None:
+                return None
+            offset += index * lay[0]
+            t = m.group(2)
+            continue
+        m = re.fullmatch(r"<?\{(.*)\}>?", t)
+        if not m:
+            return None
+        packed = t.startswith("<{")
+        parts = _split_types(m.group(1))
+        if not 0 <= index < len(parts):
+            return None
+        at = 0
+        for i, part in enumerate(parts):
+            lay = _ir_layout(part, types)
+            if lay is None:
+                return None
+            if not packed:
+                at = (at + lay[1] - 1) // lay[1] * lay[1]
+            if i == index:
+                break
+            at += lay[0]
+        offset += at
+        t = parts[index]
+    return offset
+
+
+TYPED_GEP = re.compile(r"getelementptr ((?:inbounds |nuw |nusw |inrange\(-?\d+, ?-?\d+\) )*)\(")
+
+
+def _fold_typed_geps(ir: str, types: dict) -> str:
+    """Clang before 19 leaves a constant offset from a global as a typed getelementptr (a struct's
+    field by its index); later ones fold it into bytes (i8). Rewrites the first into the second, so
+    both read alike."""
+    out, pos = [], 0
+    for m in TYPED_GEP.finditer(ir):
+        if m.start() < pos:
+            continue
+        # The source type, up to the comma outside every bracket.
+        i, depth = m.end(), 0
+        while i < len(ir) and not (ir[i] == "," and depth == 0) and ir[i] != "\n":
+            depth += ir[i] in "[{<"
+            depth -= ir[i] in "]}>"
+            i += 1
+        t = ir[m.end():i]
+        if t == "i8":
+            continue
+        rest = re.match(r", ptr (" + GLOBAL_REF + r")((?:, i(?:32|64) -?\d+)+)\)", ir[i:])
+        if not rest:
+            continue
+        offset = _ir_offset(t, [int(x) for x in re.findall(r"i(?:32|64) (-?\d+)", rest.group(4))], types)
+        if offset is None:
+            continue
+        name = rest.group(1)
+        out.append(ir[pos:m.start()])
+        out.append(f"getelementptr {m.group(1)}(i8, ptr {name}, i32 {offset})")
+        pos = i + rest.end()
+    out.append(ir[pos:])
+    return "".join(out)
+
+
 def _split_types(body: str) -> list[str]:
     parts, depth, cur = [], 0, ""
     for ch in body:
@@ -761,6 +834,7 @@ def compile_ir(path: Path, flags: list[str], clang: str) -> Module:
         return mod
     ir = r.stdout
     types = {m.group(1): m.group(2) for m in TYPE_DEF.finditer(ir)}
+    ir = _fold_typed_geps(ir, types)
     for m in GLOBAL_ARRAY.finditer(ir):
         lay = _ir_layout(m.group(3), types)
         if lay and lay[0] > 1 and not re.match(rf"\[{UNSIZED_ELEMENTS} x ", m.group(3)):
