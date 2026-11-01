@@ -84,7 +84,7 @@ PAL_VERDICTS = ROOT / "port/game/rac1-pal/fcheck.tsv"
 # Functions whose DIFFERS is known not to be a difference of the C (name<TAB>reason), recorded by hand.
 PAL_ARTEFACTS = ROOT / "port/game/rac1-pal/fcheck_artefacts.tsv"
 US_VERDICTS = ROOT / "port/game/rac1-ntsc/hand/fcheck.tsv"
-PYTHON = "/opt/homebrew/bin/python3"
+PYTHON = "/opt/homebrew/bin/python3" if Path("/opt/homebrew/bin/python3").exists() else sys.executable
 HEADER = "name\tstatus\tdate\tfcheck\tcsum\tnote"
 HEAD_COMMENT = ("# fcheck verdicts for the rows of {table} (tools/fcheck_gate.py writes this; "
                 "docs/port/BACKFILL.md, \"The gate\"). Only status same is done.")
@@ -874,6 +874,8 @@ def cmd_run_rac2(args: argparse.Namespace) -> int:
     if trial:
         args.dry_run = True
         args.only = sorted(set(args.only or []) | set(trial))
+        for n, f in trial.items():
+            back.files.setdefault(n, str(f))      # a function with no row yet
     work: list[Row] = []
     for n in [n for n in back.files if not args.only or n in args.only]:
         r = table.row(n)
@@ -888,7 +890,7 @@ def cmd_run_rac2(args: argparse.Namespace) -> int:
             r.status, r.note = "unchecked", f"file {back.files[n]} is missing"
         else:
             work.append(r)
-    if work:
+    if work and not args.no_capture:
         rac2_capture(decomp, [r.name for r in work], args.capture_jobs)
     known = artefacts(RAC2.artefacts)
     print(f"checking {len(work)} functions with {args.jobs} workers ...", flush=True)
@@ -1166,6 +1168,7 @@ def main() -> int:
                    help="check FILE as NAME's C instead of the table's (implies --dry-run)")
     p.add_argument("-j", "--jobs", type=int, default=max(2, (os.cpu_count() or 4) // 2))
     p.add_argument("--dry-run", action="store_true", help="do not write the table")
+    p.add_argument("--no-capture", action="store_true", help="rac2: use the states already captured")
     p.add_argument("--no-levels", dest="levels", action="store_false",
                    help="the boot run's states only (no level captures, level functions not checked)")
     p.add_argument("--frames", type=int, default=7000, help="frames of each capture run (default 7000)")
