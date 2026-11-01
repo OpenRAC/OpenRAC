@@ -52,6 +52,10 @@ uint32_t openrac_sound_command(uint32_t command, const void* data, uint32_t size
 #define OPENRAC_STREAM_TAG 0x40000000u
 uint32_t openrac_stream_play(uint32_t sector, int32_t volume, int32_t group, uint32_t queue_on,
                              uint32_t flags);
+/* The same in stereo from two mono VAG files of one length, the right channel's and the left's;
+ * a left sector of 0 is openrac_stream_play. */
+uint32_t openrac_stream_play_stereo(uint32_t sector, uint32_t left_sector, int32_t volume,
+                                    int32_t group, uint32_t queue_on, uint32_t flags);
 int openrac_stream_live(uint32_t stream);
 int openrac_stream_buffered(uint32_t stream);
 /* Milliseconds left in the part playing (a loop: in this pass), 0 once ended; while the part is

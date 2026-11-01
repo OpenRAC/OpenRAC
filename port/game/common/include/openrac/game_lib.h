@@ -208,6 +208,7 @@ void openrac_lib_snd_StopAllStreams(void);
 void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
     int, int, int, int, int, int, int, int, int, int, long long
 );
+void openrac_lib_snd_PlayVAGStreamStereo_CB(int, int, int, int, int, int, int, long long);
 void openrac_lib_snd_PauseVAGStream(int);
 void openrac_lib_snd_ContinueVAGStream(int);
 void openrac_lib_snd_GetVAGStreamTimeRemaining_CB(int, int, int);

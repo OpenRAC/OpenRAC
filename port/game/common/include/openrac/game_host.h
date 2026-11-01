@@ -192,6 +192,10 @@ void openrac_game_warn(const char* message);
  * lets the port skip besides its own cutscenes (rac1/pal: the flight between planets, boot.c). */
 extern void (*openrac_game_skip)(void);
 
+/* A game whose flights between planets the window cannot tell from the front end's words: the flight
+ * being drawn now (0 the first of its worlds, levels 98 down), or -1. NULL: the words decide. */
+extern int (*openrac_game_flight)(void);
+
 /* What the window's own menus and drawing need of a game's front end, when a game installs it
  * (rac1: port/game/rac1/host/front_end.c, with each disc's addresses). NULL: the window adds
  * nothing to the game's menus. */

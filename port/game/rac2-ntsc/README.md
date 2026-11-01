@@ -96,7 +96,7 @@ What the translation reads (`hostgen.json`):
 | `io.c` | `sceOpen` (`0x0011E0D8`), declared variadic |
 | `movie.c` | `PlayFmvMovie` (`0x0034EF58`: first sector, size, ...): the shared native player |
 | `print.c` | `printf`, `sprintf`, `kprintf`, `scePrintf`: formatted by the port |
-| `sound.c` | `snd_SendCommandSync` (`0x00132C48`) and `snd_QueueCommandToRing` (`0x00132DF0`): commands the native engine knows, the others answered 0 without an IOP |
+| `sound.c` | `snd_SendCommandSync` (`0x00132C48`) and `snd_QueueCommandToRing` (`0x00132DF0`): every command, as all wrappers end there; a set-parameters reply of 0 is what frees a finished voice's slot, and music is two mono VAG files, right and left |
 | `trig.c` | the VU0 sine and cosine (`0x00283198`, `0x00283180`), from the microprogram the game loads at `0xC80`: where its constants are, for the shared body ([common/lib/vu0_sine.h](../common/lib/vu0_sine.h)) |
 | `wad.c` | the WAD decompressor (`0x0029D4D0`), through the shared body ([common/lib/wad_routine.h](../common/lib/wad_routine.h)) |
 
@@ -118,6 +118,13 @@ start four bytes after their catalogue place, at the linker's fill word.
   the display as in Ratchet & Clank.
 - `split_places.tsv`: the catalogue names the levels' copies of the draw callback lists apart from
   the executable's routines, which then would not find their tables in a level.
+
+## The flights
+
+The flight to a planet is not the level's: `func_002EAB18` loads one of four lumps (RC2.HDR +0x3E58, by
+`g_loadingSceneVariant`) with a sky, mobys and textures of its own, and `func_002E8BA8` draws it while
+`g_exitSceneMode` is 2 and the game state 6. They export as levels 98 down to 95, read as rac1's lump, and
+`openrac_game_flight` (host/tools.c) makes the window draw that world.
 
 ## The texture word (TEX0)
 
@@ -142,6 +149,4 @@ its two C callers in `0x002D5E98.c` still pass it on as an `int`.
   programs and the overlay hook, the level-copy functions (`func_..._N`)
   that register at one address in overlay 30 (logged at start), and the
   world renderer.
-- Sound: only play and parameter commands reach the native engine; the
-  banks, the master volume and the streams are dropped with a warning.
 - `rom0:ROMVER` cannot be opened (the game logs it and goes on).

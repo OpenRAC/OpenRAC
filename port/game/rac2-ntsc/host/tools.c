@@ -154,6 +154,15 @@ static int game_mode(uint32_t* mode) {
     return 1;
 }
 
+/* While a program loads, func_002EA8E8 draws by g_exitSceneMode: 2 is the flight (func_002E8BA8), whose
+ * sky and mobys are the lump func_002EAB18 loaded, not the level's. */
+static int flight(void) {
+    if (game_state() != 6 || GREF(int16_t, RAC2_g_exitSceneMode) != 2) {
+        return -1;
+    }
+    return GREF(int16_t, RAC2_g_loadingSceneVariant);
+}
+
 static int hero_position(float xyz[3]) {
     if (!in_level()) {
         return 0;
@@ -323,6 +332,7 @@ void rac2_install_tools(void) {
     openrac_game_on_frame = on_frame;
     openrac_game_bolts = bolts;
     openrac_game_mode = game_mode;
+    openrac_game_flight = flight;
     openrac_game_hero_position = hero_position;
     openrac_game_hero = hero;
     openrac_game_skip_buttons = skip_buttons;

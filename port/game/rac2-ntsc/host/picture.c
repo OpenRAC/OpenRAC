@@ -94,6 +94,9 @@ void func_002FC990(int a0, int a1, int a2) {
         const openrac_game_image image =
             {PICTURE_BLOCK, PICTURE_WIDTH_UNITS, 0, 0, 0, PICTURE_WIDTH, picture_lines, picture};
         openrac_game_load_image(&image);
+        /* It reaches the texture pool after this frame's list: drawn now, the frame shows the pool's
+         * missing-texture checkers for a tick, at the client's first picture. */
+        return;
     }
     const uint64_t tex0 = (uint64_t)(PICTURE_BLOCK) | (uint64_t)PICTURE_WIDTH_UNITS << 14
                           | 9ull << 26 | 9ull << 30 | 1ull << 35;

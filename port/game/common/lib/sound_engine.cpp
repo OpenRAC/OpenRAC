@@ -142,6 +142,8 @@ struct Track {
 
 struct Part {
     std::shared_ptr<Track> track;
+    // Stereo in two mono files (Going Commando's music): `track` the right channel, this the left.
+    std::shared_ptr<Track> left;
     bool loop = false;
 };
 
@@ -246,13 +248,17 @@ void mix_streams(std::span<std::int16_t> out) {
         const double gain = static_cast<double>(s.volume) / audio::kFullVolume * master * master;
         for (std::size_t f = 0; f < frames && !s.parts.empty() && !s.paused;) {
             const Track& t = *s.parts.front().track;
+            const Track* left = s.parts.front().left.get();
             if (t.failed) {
                 s.parts.pop_front();
                 s.position = 0.0;
                 continue;
             }
-            if (!t.ready) {
+            if (!t.ready || (left != nullptr && !left->ready && !left->failed)) {
                 break;
+            }
+            if (left != nullptr && left->failed) {
+                left = nullptr;  // The file that is there on both sides.
             }
             const std::size_t n = t.samples.size();
             const double step = static_cast<double>(t.rate) / audio::kOutputRate;
@@ -266,8 +272,14 @@ void mix_streams(std::span<std::int16_t> out) {
                 const double a = t.samples[i];
                 const double b = i + 1 < n ? t.samples[i + 1] : a;
                 const double v = (a + (b - a) * frac) * gain;
+                double left_v = v;
+                if (left != nullptr && i < left->samples.size()) {
+                    const double la = left->samples[i];
+                    const double lb = i + 1 < left->samples.size() ? left->samples[i + 1] : la;
+                    left_v = (la + (lb - la) * frac) * gain;
+                }
                 for (int c = 0; c < 2; ++c) {
-                    const double mixed = out[f * 2 + c] + v;
+                    const double mixed = out[f * 2 + c] + (c == 0 ? left_v : v);
                     out[f * 2 + c] =
                         static_cast<std::int16_t>(std::clamp(mixed, -32768.0, 32767.0));
                 }
@@ -594,15 +606,41 @@ uint32_t openrac_sound_command(uint32_t command, const void* data, uint32_t size
     }
 }
 
-uint32_t openrac_stream_play(
-    uint32_t sector, int32_t volume, int32_t group, uint32_t queue_on, uint32_t flags
-) {
-    if (sector == 0) {
-        return 0;
+namespace {
+
+// A track's read, at once or on a thread of its own.
+void start_reading(std::uint32_t sector, const std::shared_ptr<Track>& track) {
+    if (g_read_at_once) {
+        read_track(sector, track);
+        return;
     }
+    std::lock_guard lock(g_lock);
+    if (g_stopping) {
+        // The program is leaving: the track is not read, and no thread is left behind.
+        track->failed = true;
+        return;
+    }
+    // The readers that have finished are joined (their work is done: the join only waits for
+    // the thread to end); the others are kept.
+    std::erase_if(g_readers, [](Reader& reader) {
+        if (!reader.done->load()) {
+            return false;
+        }
+        reader.thread.join();
+        return true;
+    });
+    auto done = std::make_shared<std::atomic<bool>>(false);
+    g_readers.push_back({std::thread([sector, track, done] {
+                             read_track(sector, track);
+                             done->store(true);
+                         }),
+                         done});
+}
+
+// The header now, the body on the reader's thread: the game asks how long the stream has left
+// from the next frame on, long before a track of minutes is read and decoded.
+std::shared_ptr<Track> new_track(std::uint32_t sector) {
     auto track = std::make_shared<Track>();
-    // The header now, the body on the reader's thread: the game asks how long the stream has left
-    // from the next frame on, long before a track of minutes is read and decoded.
     if (std::FILE* disc =
             openrac_game_disc_image ? std::fopen(openrac_game_disc_image, "rb") : nullptr) {
         std::uint32_t size = 0;
@@ -613,6 +651,20 @@ uint32_t openrac_stream_play(
         }
         std::fclose(disc);
     }
+    return track;
+}
+
+}  // namespace
+
+uint32_t openrac_stream_play_stereo(
+    uint32_t sector, uint32_t left_sector, int32_t volume, int32_t group, uint32_t queue_on,
+    uint32_t flags
+) {
+    if (sector == 0) {
+        return 0;
+    }
+    auto track = new_track(sector);
+    auto left = left_sector != 0 ? new_track(left_sector) : nullptr;
     std::uint32_t handle;
     {
         std::lock_guard lock(g_lock);
@@ -629,35 +681,20 @@ uint32_t openrac_stream_play(
         if (!stream->parts.empty() && stream->parts.back().loop) {
             stream->parts.back().loop = false;
         }
-        stream->parts.push_back({track, (flags & 4) != 0});
+        stream->parts.push_back({track, left, (flags & 4) != 0});
         stream->handles.push_back(handle);
     }
-    if (g_read_at_once) {
-        read_track(sector, track);
-    } else {
-        std::lock_guard lock(g_lock);
-        if (g_stopping) {
-            // The program is leaving: the track is not read, and no thread is left behind.
-            track->failed = true;
-            return handle;
-        }
-        // The readers that have finished are joined (their work is done: the join only waits for
-        // the thread to end); the others are kept.
-        std::erase_if(g_readers, [](Reader& reader) {
-            if (!reader.done->load()) {
-                return false;
-            }
-            reader.thread.join();
-            return true;
-        });
-        auto done = std::make_shared<std::atomic<bool>>(false);
-        g_readers.push_back({std::thread([sector, track, done] {
-                                 read_track(sector, track);
-                                 done->store(true);
-                             }),
-                             done});
+    start_reading(sector, track);
+    if (left != nullptr) {
+        start_reading(left_sector, left);
     }
     return handle;
+}
+
+uint32_t openrac_stream_play(
+    uint32_t sector, int32_t volume, int32_t group, uint32_t queue_on, uint32_t flags
+) {
+    return openrac_stream_play_stereo(sector, 0, volume, group, queue_on, flags);
 }
 
 // Stops the threads reading a track and waits for them: the program calls this before it

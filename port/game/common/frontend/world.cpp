@@ -174,9 +174,11 @@ gaddr light_bank_address() {
 void use_level(int number) {
     static unsigned loaded_generation;
     int wanted = number;
-    if (number == -2
-        && std::filesystem::exists(g->levels / std::format("level_{:02d}", kFlightWorld))) {
-        wanted = kFlightWorld;
+    if (number <= -2
+        && std::filesystem::exists(
+            g->levels / std::format("level_{:02d}", kFlightWorld + 2 + number)
+        )) {
+        wanted = kFlightWorld + 2 + number;
     } else if (number < 0) {
         wanted = std::filesystem::exists(g->levels / std::format("level_{:02d}", kTitleWorld))
                      ? kTitleWorld
