@@ -52,6 +52,9 @@ extern void test_print_str(char *);
 static __inline__ void qcopy(void *dst, void *src) {
     __asm__ __volatile__("lq $2,0x0(%1)\\n\\tsq $2,0x0(%0)" : : "r"(dst), "r"(src) : "$2", "memory");
 }
+static __inline__ void qzero_nc(void *dst) {
+    __asm__ __volatile__("sq $0,0x0(%0)" : : "r"(dst));
+}
 #endif
 """
 
@@ -917,10 +920,12 @@ class Translate(unittest.TestCase):
                 v <<= 40;
                 test_print((int)(v >> 38));
                 test_print(sizeof(long));
+                qzero_nc(D_00200010);
+                test_print(D_00200010[0] + D_00200010[3]);
                 return 0;
             }
         """})
-        self.assertEqual(out, ["13", "4", "8"])
+        self.assertEqual(out, ["13", "4", "8", "0"])
 
     def test_call_before_declaration(self):
         # GCC 2.95 took a call made before the callee's declaration as int f().
@@ -3336,6 +3341,12 @@ class CandidateNames(unittest.TestCase):
         text = prep.own_declarations("#define SDATA(s) __asm__(#s)\nextern float D_00123456 SDATA(D_00123456);\n", "_hc1")
         self.assertIn("#define SDATA(s) __asm__(#s)", text)
         self.assertIn('extern float D_00123456_hc1 __asm__("D_00123456");', text)
+
+    def test_a_gp_view_with_its_own_name_keeps_the_global(self):
+        text = prep.own_declarations("extern float view SDATA(D_00123456);\nextern int a[] SDATA(D_00123460);\n", "_hc1")
+        self.assertIn('view __asm__("D_00123456")', text)
+        self.assertIn('a[] __asm__("D_00123460")', text)
+        self.assertNotIn("SDATA", text)
 
     def test_an_assembler_name_goes_before_attributes(self):
         import prep

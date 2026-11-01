@@ -1517,7 +1517,8 @@ class Unit:
         gaddr: the copy in the program loaded. The assembly's translation (asmc.py) asks here too."""
         if self.fn is not None:
             self.fn.report.calls.add(sym)
-        places = self.program.code_places(sym)
+        # A name whose places all went to a variant (split_places.tsv) is still where it sits.
+        places = self.program.code_places(sym) or list(getattr(self.program, "splits", {}).get(sym, []))
         if not places:
             raise Unsupported(f"the address of {sym}, which has none")
         if getattr(self.program, "relocate", None) and self.fn is not None                     and not LEVEL_NAME.match(self.fn.code) and places[0][0] < 0:
@@ -1881,6 +1882,8 @@ class Unit:
         an executable function's code read as data; `named_level`: the level its name gives
         (D_L00_...). A global's name and a literal address of it (`*(s32 *)0x1610A8`) take the
         same path."""
+        # A $gp view of a global (common.h's SDATA) is the global.
+        symbol = symbol.removesuffix("__gp") if symbol else symbol
         # A level function's datum by its name, where the build's derived table holds the address of
         # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
         named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})(?:_\d+)?", symbol or "")
