@@ -160,6 +160,13 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
     if (!text(v, "type", true, type, error)) {
         return false;
     }
+    // A key is its player's, and so is its name: never the party's to agree on. The launcher's mod
+    // codes leave the same ones out (launcher/core/src/plugins.rs, shared_setting), so a code can
+    // always make two games match.
+    if (v["multiplayer"].is_null()
+        && (type == "keybind" || (type == "string" && v["default"].string() == "${player_name}"))) {
+        s.party = 1;
+    }
     if (type == "bool") {
         s.type = SettingType::Bool;
     } else if (type == "int") {

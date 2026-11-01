@@ -531,6 +531,20 @@ void party() {
     CHECK(!parse_manifest(of(R"("settings": [
         {"key": "a", "name": "A", "type": "bool", "default": false, "multiplayer": "mine"}])"),
                           bad_setting, error));
+
+    // A key and the player's name are each player's own unless the manifest says otherwise: a mod
+    // code leaves them out, so a party must not compare them.
+    Manifest own;
+    CHECK(parse_manifest(of(R"("settings": [
+        {"key": "jump", "name": "Jump", "type": "keybind", "default": "KeyA"},
+        {"key": "who", "name": "Who", "type": "string", "default": "${player_name}"},
+        {"key": "pinned", "name": "Pinned", "type": "keybind", "default": "KeyA", "multiplayer": "host"},
+        {"key": "word", "name": "Word", "type": "string", "default": "x"}])"),
+        own, error));
+    CHECK(own.settings[0].party == OPENRAC_PARTY_SETTING_OWN);
+    CHECK(own.settings[1].party == OPENRAC_PARTY_SETTING_OWN);
+    CHECK(own.settings[2].party == OPENRAC_PARTY_SETTING_HOST);
+    CHECK(own.settings[3].party == OPENRAC_PARTY_SETTING_SHARED);
 }
 
 int main() {
