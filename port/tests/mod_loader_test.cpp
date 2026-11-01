@@ -574,7 +574,9 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     // The game saves into slot 3 (1.11), and the mods' folders go in mod-data.
     static openrac_game_play play = kPlay;
-    play.save_slot_current = [] { return 3; };
+    play.save_slot_current = [] {
+        return 3;
+    };
     h.play = &play;
     h.cards = dir / "cards";
     h.mod_data = dir / "mod-data";
@@ -586,8 +588,9 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     // The front end: no figure, save 0 read and started with, one request at a time; the slot the
     // game saves into, and the mod's folder, made.
     mods::frame();
-    CHECK((g_records
-           == std::vector<int>{7001, 7101, 7211, 7210, 7305, 7400, 7404, 7404, 7503, 7601}));
+    CHECK(
+        (g_records == std::vector<int>{7001, 7101, 7211, 7210, 7305, 7400, 7404, 7404, 7503, 7601})
+    );
     CHECK(fs::is_directory(dir / "mod-data" / "test-a"));
     CHECK(g_played.empty());
     mods::play_update();
