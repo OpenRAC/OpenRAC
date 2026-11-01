@@ -981,8 +981,9 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
         require_success(
             vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "wait for submitted frame"
         );
-        f.submitted = false;
+        // Counter collection still needs the completed submission's marker and signalled fence.
         timing_results(f);
+        f.submitted = false;
         require_success(vkResetCommandPool(g->device, f.pool, 0), "reset completed frame pool");
         begin_buffers();
     }
