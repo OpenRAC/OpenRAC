@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "renderer/debug_lines.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gpu_draw.h"
 #include "renderer/renderer.h"
@@ -139,6 +140,9 @@ public:
 
     // The owned displayed palette, shared read-only with registered attachment providers.
     std::span<const renderer::Mat4> joint_palette() const { return m_palette_data; }
+
+    // Draws requested visibility diagnostics using the displayed camera, never the culling camera.
+    void draw_culling_debug(const renderer::FrameInput& input, renderer::RenderState& state);
 
     bool lighting = true;
 
@@ -279,6 +283,10 @@ public:
     }
 
 private:
+    // Returns the selected preview clip matrix, or no value when its shadow maps are unavailable.
+    [[nodiscard]] std::optional<renderer::Mat4> inspection_clip(
+        const renderer::FrameInput& input
+    ) const;
     // One consecutive run of compatible motion instances, preserving draw order.
     struct MotionBatch {
         std::uint32_t model = 0;       // Shared geometry and material runs.
@@ -614,6 +622,10 @@ private:
     std::optional<bool> m_hero_logged_airborne;
     std::array<std::unique_ptr<renderer::FrameBuffer>, kSunCascades> m_sun_maps;
     SunCascades m_sun_cascades;
+    renderer::Camera m_sun_camera;        // View whose splits produced the current shadow maps.
+    bool m_culling_lines_failed = false;  // Retry failed diagnostic shaders after scene release.
+    std::unique_ptr<renderer::DebugLines>
+        m_culling_lines;  // Allocated only for inspection; the scene retains move ownership.
     bool m_sun_enabled = false, m_sun_ready = false;
 };
 

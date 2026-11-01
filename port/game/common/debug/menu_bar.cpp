@@ -239,6 +239,10 @@ void menu_bar() {
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Developer")) {
+        if (ImGui::BeginMenu("Freecam")) {
+            camera_tools_controls();
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem("Debug overlay", "F3", s.visible)) {
             press(SDLK_F3);
         }

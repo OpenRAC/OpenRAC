@@ -597,6 +597,35 @@ int draw(scene::LevelData& level) {
     renderer.render(input, {frame.id(), 128, 128});
     CHECK(renderer.last_stats().draw_calls == 2);  // camera cache refresh
 
+    // Inspect the x=4 view while preserving x=0 visibility, then restore ordinary camera selection.
+    input.culling_camera = input.camera;
+    camera.position[0] = 4;
+    input.camera.position = camera.position;
+    input.camera.view = camera.view();
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 2);
+    // The same frozen clip volume is drawable from the observer, on both backends.
+    input.culling_inspection = 0;
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 4);
+    CHECK(gl::glGetError() == gl::GL_NO_ERROR);
+    // A distant inspected camera rejects the scene, leaving only the two debug-line passes.
+    const auto inspected = *input.culling_camera;
+    auto distant = camera;
+    distant.position[2] += 100000;
+    input.culling_camera->position = distant.position;
+    input.culling_camera->view = distant.view();
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 2);
+    input.culling_camera = inspected;
+    input.culling_inspection.reset();
+    input.culling_camera.reset();
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 3);
+    camera.position[0] = 0;
+    input.camera.position = camera.position;
+    input.camera.view = camera.view();
+
     if (gl::is_vulkan()) {
         stats::set_enabled(stats::Client::Overlay, true);
         // Exercise multiple compaction chunks and order-sensitive blended objects.
@@ -640,6 +669,33 @@ int draw(scene::LevelData& level) {
             CHECK(completed.triangles == cpu_triangles);
 #endif
         }
+        // An independently inspected frustum must reject the same blended instances on CPU and GPU.
+        input.culling_inspection = 0;
+        for (float x : {0.f, 50000.f}) {
+            auto inspected_camera = camera;
+            inspected_camera.position[0] = x;
+            input.culling_camera = input.camera;
+            input.culling_camera->position = inspected_camera.position;
+            input.culling_camera->view = inspected_camera.view();
+            test::gpu_draw_reference(true);
+            renderer.render(input, {frame.id(), 128, 128});
+            const auto expected = frame.read_rgba();
+            const auto expected_draws = renderer.last_stats().draw_calls;
+            const auto expected_triangles = renderer.last_stats().triangles;
+            test::gpu_draw_reference(false);
+            CHECK(test::gpu_draw_active());
+            renderer.render(input, {frame.id(), 128, 128});
+            CHECK(frame.read_rgba() == expected);
+#if defined(OPENRAC_VULKAN)
+            // Mesh counters exclude the two direct line-overlay draws.
+            CHECK(
+                vkgl::gpu_completed_draws().draws == static_cast<std::uint64_t>(expected_draws - 2)
+            );
+            CHECK(vkgl::gpu_completed_draws().triangles == expected_triangles);
+#endif
+        }
+        input.culling_inspection.reset();
+        input.culling_camera.reset();
 #if defined(OPENRAC_VULKAN)
         // Counters arrive when a slot is reused, now deferred until its first GPU
         // operation. Match recording IDs rather than assuming collection at present.
