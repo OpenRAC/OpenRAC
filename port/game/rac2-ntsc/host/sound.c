@@ -76,3 +76,18 @@ int func_001326D8(int bank) {
                ? (int)openrac_sound_load_bank(G(at), openrac_guest_ram_size - at)
                : 0;
 }
+
+/* snd_PlayVAGStreamByLocEx_CB's form here (0x00133350, command 0x2C): (location, the next entry's
+ * location, 0, 0, volume, pan, group, queue on, 0, flags, callback, argument). Flags as rac1's: 1
+ * paused until snd_ContinueVAGStream, 4 loop. The location is all the common stream player needs;
+ * the callback is told the handle, as the IOP's answer would, and the game's wait for a buffered
+ * stream (func_002E6D88) ends through snd_IsVAGStreamBuffered_CB. */
+int func_00133350(int first, int next, int a2, int a3, int volume, int pan, int group, int queue_on, int a8,
+                  int flags, int callback, long long argument) {
+    (void)a2;
+    (void)a3;
+    (void)a8;
+    (void)next;
+    openrac_lib_snd_PlayVAGStreamByLocEx_CB(first, 0, 0, 0, volume, pan, group, queue_on, flags, callback, argument);
+    return 0;
+}

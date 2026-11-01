@@ -175,6 +175,7 @@ func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; insta
 func_00131CB8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
 func_0029D4D0	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
 # The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
+func_00133350	game	snd_PlayVAGStreamTwoParts_CB	host	command 0x2C: a stream, its handle told to the callback: host/sound.c	int (int, int, int, int, int, int, int, int, int, int, int, long long)
 func_00132498	game	snd_BankLoadByLoc_CB	host	a bank by sector and offset, its handle told to the callback: host/sound.c	void (int, int, int, long long)
 func_001325E8	989snd	snd_BankLoadFromEE_CB	host	a bank in EE memory; the level loader waits for its callback (func_002EAAA8)
 func_00132828	989snd	snd_ResolveBankXREFS	host	command 8
