@@ -111,6 +111,9 @@ class Program:
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
     level_data: dict = field(default_factory=dict)  # level -> {data name in its files: address there}
     bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
+    # hostgen.json "formed_as": a name to the address its code really forms, for an address no
+    # instruction forms itself (the program's end, formed only rounded up). Relocated by that one.
+    formed_as: dict[str, int] = field(default_factory=dict)
     executable_starts: set = field(default_factory=set)  # hostgen.json "executable_functions"
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM

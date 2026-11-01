@@ -2086,6 +2086,27 @@ class Places(unittest.TestCase):
             self.assertIn("GFN(unsigned long long (*)(int", text)
             self.assertNotIn("GFN(int (*)(int", text)
 
+    def test_formed_as_relocates_the_address_the_code_forms(self):
+        # Going Commando's arena table starts at the program's end rounded up: its code forms only
+        # end + 0x3FFF, so that sum is what pairing the programs finds, and the end alone never moves.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src").mkdir(parents=True)
+            (src / "src" / "a.c").write_text(
+                "extern char program_end[];\n"
+                "unsigned int func_00290000(void) { return (unsigned int)program_end + 0x3FFF; }\n")
+            (src / "symbols.txt").write_text("program_end = 0x00351FC0;\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "symbols": ["symbols.txt"],
+                "relocate": [0x1A7C80, 0x500000], "formed_as": {"program_end": "0x00355FBF"},
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            self.assertIn("(OPENRAC_DATA(0x00355FBFu) - 0x00003FFFu)", (out / "a.c").read_text())
+
 
 class TypeStrings(unittest.TestCase):
     def test_declarators(self):

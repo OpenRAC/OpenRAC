@@ -40,6 +40,7 @@
     "symbol_addrs/usa/symbol_addrs.txt"
   ],
   "bare_names_in_level_0": true,
+  "formed_as": {"ref_L00_00290B48_00": "0x00355FBF"},
   "candidates_left_out": {
     "func_002B9380": "a computed goto with no labels in its file: a tail jump C cannot say",
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",

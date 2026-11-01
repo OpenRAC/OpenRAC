@@ -1020,6 +1020,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # relocation): [low, high), or none.
     program.relocate = cfg.get("relocate")
     program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
+    program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
     program.returns_64 = set(cfg.get("returns_64", []))
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     if cfg.get("executable_functions"):

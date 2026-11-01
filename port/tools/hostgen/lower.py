@@ -1895,6 +1895,11 @@ class Unit:
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             if placed is not None and low <= placed < high:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
+        formed = getattr(self.program, "formed_as", {}).get(symbol or "")
+        if formed is not None:
+            # An address the code only forms with something added (hostgen.json "formed_as"): pairing
+            # the programs finds the sum, so the name is that, relocated, less what was added.
+            return f"(OPENRAC_DATA({hexaddr(formed)}) - {hexaddr(formed - address)})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
             # A function's code declared as data: where that code is in the program loaded.
