@@ -2478,3 +2478,234 @@ int func_L00_001F34F0(float a0, gaddr a1) {
     const RacCollArgs a = {{a0, 0.0f}, {a1, 0, 0, 0, 0}};
     return coll_run(RAC_COLL_HERO_GROUPS, &a);
 }
+
+/* ---- The collision triangles in a box, for the mods (interface 1.12) ----
+ *
+ * What the queries above test, read out as triangles for a mod's own physics (a hoverboard's): the
+ * level's cells and the collision meshes of the mobys on the moby grid, decoded as the kernels
+ * decode them, in world units. Nothing here is a query of the game's: no stamp, no hit log, no
+ * vector register and no scratch the kernels use is touched, so the game's next query sees what it
+ * would have seen. Host floats throughout: the triangles are for the mod, not for the game. */
+
+typedef struct {
+    float corners[3][3];
+    float normal[3];
+    uint32_t type;
+    int32_t moby;
+} CollTriangle; /* openrac_collision_triangle's layout */
+
+typedef struct {
+    float lo[3], hi[3];
+    CollTriangle* out;
+    int max;
+    int count;
+} TriangleSink;
+
+/* Adds the triangle when its bounds meet the box; its normal from its corners, unit length (0 for
+ * a degenerate one). */
+static void sink_triangle(TriangleSink* s, const float p[3][3], uint32_t type, int32_t moby) {
+    for (int k = 0; k < 3; ++k) {
+        const float lo = fminf(p[0][k], fminf(p[1][k], p[2][k]));
+        const float hi = fmaxf(p[0][k], fmaxf(p[1][k], p[2][k]));
+        if (hi < s->lo[k] || lo > s->hi[k]) {
+            return;
+        }
+    }
+    if (s->count < s->max) {
+        CollTriangle* t = &s->out[s->count];
+        float e1[3], e2[3];
+        for (int k = 0; k < 3; ++k) {
+            for (int c = 0; c < 3; ++c) {
+                t->corners[c][k] = p[c][k];
+            }
+            e1[k] = p[1][k] - p[0][k];
+            e2[k] = p[2][k] - p[0][k];
+        }
+        const float n[3] =
+            {e1[1] * e2[2] - e1[2] * e2[1],
+             e1[2] * e2[0] - e1[0] * e2[2],
+             e1[0] * e2[1] - e1[1] * e2[0]};
+        const float len = sqrtf(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        for (int k = 0; k < 3; ++k) {
+            t->normal[k] = len > 0.0f ? n[k] / len : 0.0f;
+        }
+        t->type = type;
+        t->moby = moby;
+    }
+    ++s->count;
+}
+
+/* A cell's vertex as decode_vertices reads it (x << 6, y << 6, z << 4, in 1/1024 of a unit from
+ * the cell's centre), in world units. */
+static void cell_vertex(const Cell* c, int i, const float centre[3], float out[3]) {
+    const uint32_t w = U32(c->vertices + 4 * (gaddr)i);
+    const int32_t f[3] =
+        {((int32_t)(w << 22)) >> 22, ((int32_t)(w << 12)) >> 22, ((int32_t)w) >> 20};
+    const int16_t h[3] = {(int16_t)(f[0] << 6), (int16_t)(f[1] << 6), (int16_t)(f[2] << 4)};
+    for (int k = 0; k < 3; ++k) {
+        out[k] = centre[k] + (float)h[k] / 1024.0f;
+    }
+}
+
+/* The cells of a box are at most this many each way (a cell is 4 units): a box larger than 1024
+ * units is cut to its low corner's 1024. */
+#define TRIANGLE_CELLS_MAX 256
+
+static void level_triangles(gaddr mesh, TriangleSink* s) {
+    const int extended = collision_has_extended_tree(mesh);
+    const int top = (extended ? 131072 : 1024) / 4 - 1;
+    int lo[3], hi[3];
+    for (int k = 0; k < 3; ++k) {
+        lo[k] = s->lo[k] <= 0.0f ? 0 : (int)(s->lo[k] / 4.0f);
+        hi[k] = s->hi[k] <= 0.0f ? -1 : (int)(s->hi[k] / 4.0f);
+        if (hi[k] > top) {
+            hi[k] = top;
+        }
+        if (hi[k] - lo[k] >= TRIANGLE_CELLS_MAX) {
+            hi[k] = lo[k] + TRIANGLE_CELLS_MAX - 1;
+        }
+    }
+    for (int z = lo[2]; z <= hi[2]; ++z) {
+        for (int y = lo[1]; y <= hi[1]; ++y) {
+            for (int x = lo[0]; x <= hi[0]; ++x) {
+                Cell cell;
+                if (!cell_open(mesh, cell_word(mesh, x, y, z), &cell)) {
+                    continue;
+                }
+                const float centre[3] =
+                    {(float)(x * 4) + 2.0f, (float)(y * 4) + 2.0f, (float)(z * 4) + 2.0f};
+                int vi[3], ty;
+                for (int j = 0; cell_triangle(&cell, j, vi, &ty); ++j) {
+                    if (vi[0] >= cell.nv || vi[1] >= cell.nv || vi[2] >= cell.nv) {
+                        continue;
+                    }
+                    float p[3][3];
+                    for (int c = 0; c < 3; ++c) {
+                        cell_vertex(&cell, vi[c], centre, p[c]);
+                    }
+                    sink_triangle(s, p, (uint32_t)ty, -1);
+                }
+            }
+        }
+    }
+}
+
+static int slot_order(const void* a, const void* b) {
+    const uint16_t x = *(const uint16_t*)a, y = *(const uint16_t*)b;
+    return (x > y) - (x < y);
+}
+
+/* The mobys with collision on the grid's cells under the box, each once, by slot; their meshes as
+ * moby_mesh_verts places them (the rows times the scale, from the moby's position). */
+static void moby_triangles(const Ctx* x, TriangleSink* s) {
+    const int expanded = openrac_guest_ram_size > GUEST_RAM_SIZE;
+    const int top = expanded ? 8191 : 63;
+    int lo[2], hi[2];
+    for (int k = 0; k < 2; ++k) {
+        lo[k] = s->lo[k] <= 0.0f ? 0 : (int)(s->lo[k] / 16.0f);
+        hi[k] = s->hi[k] <= 0.0f ? -1 : (int)(s->hi[k] / 16.0f);
+        if (hi[k] > top) {
+            hi[k] = top;
+        }
+        if (hi[k] - lo[k] >= TRIANGLE_CELLS_MAX / 4) {
+            hi[k] = lo[k] + TRIANGLE_CELLS_MAX / 4 - 1;
+        }
+    }
+    static uint16_t slots[4096];
+    int n = 0;
+    for (int gy = lo[1]; gy <= hi[1]; ++gy) {
+        for (int gx = lo[0]; gx <= hi[0]; ++gx) {
+            int count;
+            const gaddr list = grid_cell(x, (unsigned)gx, (unsigned)gy, &count);
+            for (int i = 0; i < count && n < (int)(sizeof slots / sizeof slots[0]); ++i) {
+                slots[n++] = U16(list + 2 * (gaddr)i);
+            }
+        }
+    }
+    qsort(slots, (size_t)n, sizeof slots[0], slot_order);
+    for (int i = 0; i < n; ++i) {
+        if (i > 0 && slots[i] == slots[i - 1]) {
+            continue;
+        }
+        const gaddr m = moby_at(x, slots[i]);
+        if (U8(m + 0x20) >= 0x80 || U32(m + 0x94) == 0 || unbounded(m)) {
+            continue;
+        }
+        /* Its bounding sphere (+0, radius +0xC) against the box. */
+        float d2 = 0.0f;
+        for (int k = 0; k < 3; ++k) {
+            const float c = F32(m + 4 * (gaddr)k);
+            const float e = c < s->lo[k] ? s->lo[k] - c : (c > s->hi[k] ? c - s->hi[k] : 0.0f);
+            d2 += e * e;
+        }
+        if (d2 > F32(m + 0xC) * F32(m + 0xC)) {
+            continue;
+        }
+        MobyColl mc;
+        moby_head(m, 0, &mc);
+        if (mc.vb <= 0) {
+            continue;
+        }
+        moby_mesh(&mc);
+        float rows[3][3];
+        for (int r = 0; r < 3; ++r) {
+            for (int k = 0; k < 3; ++k) {
+                rows[r][k] = F32(m + 0xC0 + 0x10 * (gaddr)r + 4 * (gaddr)k) * F32(m + 0x2C);
+            }
+        }
+        const float pos[3] = {F32(m + 0x10), F32(m + 0x14), F32(m + 0x18)};
+        for (int fi = 0; fi < mc.nfaces; ++fi) {
+            const gaddr f = mc.faces + (mc.extended_indices ? 8u : 4u) * (gaddr)fi;
+            const int vi[3] = {
+                mc.extended_indices ? U16(f) : U8(f),
+                mc.extended_indices ? U16(f + 2) : U8(f + 1),
+                mc.extended_indices ? U16(f + 4) : U8(f + 2),
+            };
+            const uint32_t ty = U8(f + (mc.extended_indices ? 6u : 3u));
+            float p[3][3];
+            int ok = 1;
+            for (int c = 0; c < 3 && ok; ++c) {
+                ok = vi[c] < mc.nverts;
+                if (!ok) {
+                    break;
+                }
+                const gaddr v = mc.verts + 8 * (gaddr)vi[c];
+                const float l[3] = {(float)S16(v), (float)S16(v + 2), (float)S16(v + 4)};
+                for (int k = 0; k < 3; ++k) {
+                    p[c][k] =
+                        pos[k]
+                        + (rows[0][k] * l[0] + rows[1][k] * l[1] + rows[2][k] * l[2]) / 1024.0f;
+                }
+            }
+            if (ok) {
+                sink_triangle(s, p, ty, (int32_t)slots[i]);
+            }
+        }
+    }
+}
+
+int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, int max) {
+    if (lo == NULL || hi == NULL || !rac1_level_running()) {
+        return 0;
+    }
+    TriangleSink s;
+    for (int k = 0; k < 3; ++k) {
+        if (!isfinite(lo[k]) || !isfinite(hi[k]) || hi[k] < lo[k]) {
+            return 0;
+        }
+        s.lo[k] = lo[k];
+        s.hi[k] = hi[k];
+    }
+    s.out = (CollTriangle*)out;
+    s.max = out != NULL && max > 0 ? max : 0;
+    s.count = 0;
+    const Ctx* x = level_ctx();
+    const gaddr mesh = U32(x->out);
+    if (mesh != 0) {
+        level_triangles(mesh, &s);
+    }
+    if (U32(x->mobys) != 0) {
+        moby_triangles(x, &s);
+    }
+    return s.count;
+}

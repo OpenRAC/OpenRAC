@@ -67,6 +67,7 @@
 #include "debug_overlay.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
+#include "frontend/mod_media.h"
 #include "mod_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
@@ -292,6 +293,13 @@ void load_mods() {
     host.play = openrac_game_play_host;
     host.cards = openrac_game_card_dir != nullptr ? openrac_game_card_dir : "memcard";
     host.mod_data = g_options.mod_data;
+#ifdef OPENRAC_FRONTEND
+    // The mods' own sounds (interface 1.12), on the window's sound output.
+    host.sound_load = frontend::mod_sound_load;
+    host.sound_play = frontend::mod_sound_play;
+    host.sound_set = frontend::mod_sound_set;
+    host.sound_stop = frontend::mod_sound_stop;
+#endif
     host.capture_savestate_runtime = [](mods::SavestateRuntime* state) {
         if (state == nullptr) {
             return false;

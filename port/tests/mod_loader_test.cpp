@@ -79,7 +79,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.11",
+    const std::string& api = "1.12",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -104,7 +104,8 @@ void install(
                                   {"value": "developer_menu", "name": "Developer menu"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
-                                  {"value": "world", "name": "World"}]},
+                                  {"value": "world", "name": "World"},
+                                  {"value": "hoverboard", "name": "Hoverboard"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -420,7 +421,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.11", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.12", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -969,7 +970,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.11", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.12", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1010,6 +1011,92 @@ void an_old_name_still_binds(const fs::path& plugins) {
     mods::reset();
 }
 
+// Interface 1.12 on the test's game: the hero's pose set only by the mod holding the hook point the
+// game names for his update, the collision triangles as the game gives them, a prop of a .glb in the
+// mod's folder (none outside it, none missing) drawn at its pose and gone with its level, and a
+// sound of the mod's through the host's sound calls.
+std::vector<std::string> g_motion;
+
+void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "hoverboard"}}]})");
+    write(plugins / "test-a" / "board.glb", "glTF");
+    write(plugins / "test-a" / "beep.wav", "RIFF");
+    write(plugins / "test-b" / "board.glb", "glTF");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.hero_update_hook = "Test_Add";
+    play.hero_set_pose = [](const openrac_game_pose* pose) {
+        g_motion.push_back("hero " + std::to_string(static_cast<int>(pose->position[0])));
+        return 1;
+    };
+    play.collision_triangles = [](const float*, const float*, void* out, int max) {
+        auto* t = static_cast<openrac_collision_triangle*>(out);
+        for (int i = 0; i < max && i < 3; ++i) {
+            t[i] = {};
+            t[i].type = static_cast<std::uint32_t>(i);
+            t[i].moby = -1;
+        }
+        return 3;
+    };
+    h.play = &play;
+    h.cards = dir / "cards";
+    h.sound_load = [](const fs::path& file) {
+        g_motion.push_back("load " + file.filename().string());
+        return 4;
+    };
+    h.sound_play = [](int sound, float volume, float pitch, bool loop) {
+        g_motion.push_back(
+            "play " + std::to_string(sound) + " " + std::to_string(static_cast<int>(volume * 10))
+            + " " + std::to_string(static_cast<int>(pitch)) + " " + std::to_string(loop)
+        );
+        return std::uint32_t{7};
+    };
+    static bool playing = false;
+    playing = true;
+    h.sound_set = [](std::uint32_t voice, float, float) {
+        return voice == 7 && playing ? 1 : 0;
+    };
+    h.sound_stop = [](std::uint32_t voice) {
+        g_motion.push_back("stop " + std::to_string(voice));
+        playing = false;
+    };
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_loads = 1;
+    g_motion.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    g_records.clear();
+    CHECK(mods::prop_meshes().empty());
+    const unsigned generation = mods::prop_meshes_generation();
+    mods::frame();
+    CHECK(
+        (g_records
+         == std::vector<int>{
+             9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560, 9561, 9577, 9580, 9581
+         })
+    );
+    CHECK(
+        (g_motion == std::vector<std::string>{"hero 5", "load beep.wav", "play 4 5 2 1", "stop 7"})
+    );
+    // The prop: its mesh asked for once (the level read again with it), drawn where it was posed.
+    CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
+    CHECK(mods::prop_meshes_generation() == generation + 1);
+    const std::vector<mods::PropDraw> drawn = mods::props_drawn();
+    CHECK(drawn.size() == 1);
+    CHECK(
+        drawn.size() == 1 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
+        && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
+    );
+    // Another hook point is the hero's update now, and the level was loaded again.
+    play.hero_update_hook = "Test_Other";
+    g_loads = 2;
+    g_records.clear();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{9501, 9551}));
+    CHECK(mods::props_drawn().empty());
+    mods::reset();
+}
+
 int main() {
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
@@ -1035,6 +1122,7 @@ int main() {
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);
     the_world_reaches_the_game(plugins, dir);
+    motion_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

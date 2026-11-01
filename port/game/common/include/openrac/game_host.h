@@ -459,6 +459,16 @@ typedef struct openrac_game_play {
     /* The memory card slot the game in progress saves into (the one it was loaded from or last
      * saved to), -1 for none (openrac_api.save_slot_current). NULL for a game without it. */
     int (*save_slot_current)(void);
+    /* The hero moved by a mod (interface 1.12): the hook point of his whole update, whose holder
+     * may set his pose (its name or id, as a mod asks for it: Ratchet & Clank's Hero_Update), and
+     * the pose put on him with what his update does after his movement to show him: 1, or 0 with
+     * no hero now (openrac_api.hero_set_pose). NULL for a game without it. */
+    const char* hero_update_hook;
+    int (*hero_set_pose)(const openrac_game_pose* pose);
+    /* The collision triangles in the box [lo, hi] (openrac_api.collision_triangles, the same
+     * layout: corners, normal, type, moby slot), up to `max` into `out`: how many there are, 0
+     * outside a level. Reads the game's memory only. NULL for a game without it. */
+    int (*collision_triangles)(const float lo[3], const float hi[3], void* out, int max);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

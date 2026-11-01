@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -106,6 +107,14 @@ struct Host {
     // Where each mod's own folder goes (interface 1.11, openrac_api.data_dir): <this>/<mod id>.
     // Empty: none, and data_dir gives null.
     std::filesystem::path mod_data;
+    // The mods' sounds (interface 1.12, openrac_api.sound_*): a file decoded and kept (its id, -1
+    // when it cannot be read), a voice of it played (0 for none), changed (0: it has ended; a
+    // volume below 0 changes nothing, only asks whether it still plays) and stopped. Null: no
+    // sound output (a test's, or no window), and the sound calls say so.
+    int (*sound_load)(const std::filesystem::path& file) = nullptr;
+    std::uint32_t (*sound_play)(int sound, float volume, float pitch, bool loop) = nullptr;
+    int (*sound_set)(std::uint32_t voice, float volume, float pitch) = nullptr;
+    void (*sound_stop)(std::uint32_t voice) = nullptr;
 };
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
@@ -148,6 +157,33 @@ const std::vector<std::filesystem::path>& asset_roots();
 
 // A loaded mod's id ("multiplayer"), for the log; "a mod" for none.
 const char* mod_id(const openrac_mod* mod);
+
+// Whether `mod` has taken the hook point `name` (its id or any alias), for the calls only the
+// holder of a hook point may make (interface 1.12, hero_set_pose).
+bool holds_hook(const openrac_mod* mod, const char* name);
+
+// A file inside `mod`'s folder by its path there (relative, with /, no "." or ".." part), when it
+// is a file; empty otherwise (interface 1.12: a prop's mesh, a sound).
+std::filesystem::path mod_file(const openrac_mod* mod, const char* path);
+
+// ---- Props (interface 1.12, mod_play.cpp) ----
+
+// A prop to draw this frame: its mesh (a file of a mod's) and the matrix that places it,
+// column-major, in the game's world.
+struct PropDraw {
+    int id = 0;  // its id (openrac_api.prop_create's)
+    std::filesystem::path mesh;
+    std::array<float, 16> matrix{};
+};
+
+// The props shown in the level now (posed, not hidden, of this level load). From any thread.
+std::vector<PropDraw> props_drawn();
+
+// Every mesh a prop was made of in this run, in the order first asked for, and a count that grows
+// when one is added: the front end reads them with each level's scenery, and reads the level's
+// again when the count has grown. From any thread.
+std::vector<std::filesystem::path> prop_meshes();
+unsigned prop_meshes_generation();
 
 // Play (interface 1.8, mod_play.h): the start or travel a mod asked for, done now, on the game's
 // thread after the frame's menus (frontend/frame.cpp, beside the developer menu's start); nothing

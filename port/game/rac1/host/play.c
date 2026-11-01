@@ -234,6 +234,69 @@ static int hero_pose(openrac_game_pose* out) {
     return 1;
 }
 
+/* ---- The hero moved by a mod (interface 1.12) ----
+ *
+ * A mod that has taken the hero's whole update (the hook point Hero_Update: the level loop's
+ * coordinate_hero_frame_update, or its copy in the level, update_hero_frame or HeroL03_FrameUpdate)
+ * and does not run it puts him in its pose here, in place of what the update did with the stick:
+ * his animation first, as the update starts with advance_hero_animation; then where he is, his
+ * rotation and his velocity (Hero.motion), his matrices from the rotation as hero_update makes
+ * them; then the part of the update after his movement that shows him (update_hero_moby,
+ * update_hero_world_matrices, update_hero_equipped_items, begin_draw_frame), in the update's order.
+ * The rest of it (the state machine and its transitions, ledges and rails, the voice, the easing of
+ * his body, item rewards, the map's reveal, the lighting zone) is the mod's to leave out: it moves
+ * him by its own rules. */
+#define HERO_MOTION_POS (HERO + 0x80u)
+#define HERO_MOTION_ROT (HERO + 0x90u)
+#define HERO_INV_ROT_MATRIX (HERO + 0x40u)
+/* The ticks a new seq blends in over (set_hero_animation's time), as a figure's do. */
+#define HERO_SET_BLEND 4
+
+static int hero_set_pose(const openrac_game_pose* pose) {
+    if (!in_level()) {
+        return 0;
+    }
+    const gaddr moby = GREF(gaddr, HERO_MOBY);
+    if (moby == 0) {
+        return 0;
+    }
+    /* A new seq through the game's own start of one (the port's guard of it keeps a seq this
+     * level's class lacks out), its first key the pose's; the same seq runs on by itself. */
+    if (seq_frames(moby, pose->seq) > 0 && pose->seq != GREF(uint8_t, moby + MOBY_TARGET_SEQ)) {
+        const int frames = seq_frames(moby, pose->seq);
+        func_L00_00232C10(
+            (int)pose->seq,
+            (int)pose->frame < frames ? (int)pose->frame : frames - 1,
+            (float)HERO_SET_BLEND
+        );
+    }
+    func_L00_00232EF0();
+    /* set_hero_animation sets the speed back to 1: the pose's from here on (the game's advance
+     * reads it next tick, as it reads the speed his states set). */
+    GREF(float, HERO_ANIM_SPEED) = pose->anim_speed;
+    for (unsigned i = 0; i < 3; ++i) {
+        GREF(float, HERO_MOTION_POS + 4u * i) = pose->position[i];
+        GREF(float, HERO_MOTION_ROT + 4u * i) = pose->rotation[i];
+        /* Units a second to a tick's move, as hero_pose divides. */
+        GREF(float, HERO_VELOCITY + 4u * i) = pose->velocity[i] / (float)openrac_game.frame_rate;
+    }
+    /* hero_update's matrices: the rotation's (euler_to_matrix), and its inverse, the identity with
+     * the rotation's rows as its columns (set_identity_matrix, matrix_from_basis_rows: a copy). */
+    func_001FA218(HERO, HERO_MOTION_ROT);
+    for (unsigned r = 0; r < 4; ++r) {
+        for (unsigned c = 0; c < 4; ++c) {
+            const float v =
+                r < 3 && c < 3 ? GREF(float, HERO + 16u * c + 4u * r) : (r == c ? 1.0f : 0.0f);
+            GREF(float, HERO_INV_ROT_MATRIX + 16u * r + 4u * c) = v;
+        }
+    }
+    func_L00_00208E98();
+    func_L00_002098B8(0);
+    func_L00_00210FE0();
+    func_001F7B40();
+    return 1;
+}
+
 int rac1_figure_alive(gaddr moby) {
     if (moby == 0 || !in_level() || GREF(uint8_t, moby + MOBY_STATE) >= 0x80
         || GREF(int16_t, moby + MOBY_OCLASS) != HERO_CLASS) {
@@ -526,4 +589,7 @@ const openrac_game_play rac1_play = {
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
     .save_slot_current = save_slot_current,
+    .hero_update_hook = "Hero_Update",
+    .hero_set_pose = hero_set_pose,
+    .collision_triangles = rac1_collision_triangles,
 };

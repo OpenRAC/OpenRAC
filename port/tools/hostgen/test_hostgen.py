@@ -1469,12 +1469,50 @@ class Translate(unittest.TestCase):
         """)
         self.assertEqual(out, ["11", "111"])
 
-    def test_two_hook_points_of_one_name_are_refused(self):
+    def test_one_symbol_under_two_hook_names_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             table = Path(tmp) / "libraries.tsv"
-            table.write_text("func_00100000\tx\tSame\thook\nfunc_00100100\tx\tSame\thook\n")
+            table.write_text("func_00100000\tx\tOne\thook\nfunc_00100000\tx\tOther\thook\n")
             with self.assertRaises(ValueError):
                 hostgen.hooked(Path(tmp), {"libraries": "libraries.tsv"})
+
+    def test_copies_of_one_function_are_one_hook_point(self):
+        # Two rows of one name (the hero's update in each family of levels): one slot, one row in
+        # the table; the mod's original runs the copy the game called.
+        out = self.run_program({"a.c": """
+            extern void test_take(void);
+            int func_00100000(int x) { return x + 1; }
+            int func_00100100(int x) { return x + 2; }
+            int test_main(void) {
+                test_print(func_00100000(10));
+                test_print(func_00100100(10));
+                test_take();
+                test_print(func_00100000(10));
+                test_print(func_00100100(10));
+                return 0;
+            }
+        """}, places="func_00100000\t0x00100000\t0x40\nfunc_00100100\t0x00100100\t0x40\n",
+            config={"libraries": "libraries.tsv", "host_functions": HOST_FUNCTIONS + ["test_take"]},
+            extra_files={"libraries.tsv": "# symbol\tlibrary\tname\tport\n"
+                                          "func_00100000\tgame\tSame\thook\n"
+                                          "func_00100100\tgame\tSame\thook\n"},
+            host_c="""
+            #include <string.h>
+            typedef struct { const char* name; const char* symbol; const char* signature; void** slot; void* original; } point;
+            extern const point openrac_game_hook_points[];
+            extern const int openrac_game_hook_point_count;
+            void game_test_print(int v);
+            static int (*s_original)(int);
+            static int replacement(int x) { return 100 + s_original(x); }
+            void game_test_take(void) {
+                const point* p = &openrac_game_hook_points[0];
+                game_test_print(openrac_game_hook_point_count);
+                game_test_print(strcmp(p->name, "Same") == 0 && strcmp(p->signature, "i32(i32)") == 0);
+                s_original = (int (*)(int))p->original;
+                *p->slot = (void*)replacement;
+            }
+        """)
+        self.assertEqual(out, ["11", "12", "1", "1", "111", "112"])
 
 
     def test_literal_addresses_reach_the_loaded_levels_globals(self):

@@ -1439,6 +1439,26 @@ TickMobys pose_mobys(
         live.push_back(instance);
         live_addresses.push_back(m.address);
     }
+    // The mods' props (interface 1.12): their meshes where the mods posed them, lit as a moby of the
+    // level is, identified across frames by a key no game address takes.
+    if (!only_own_camera && !under_menu) {
+        const std::vector<mods::PropDraw> props = mods::props_drawn();
+        for (std::size_t i = 0; i < props.size(); ++i) {
+            const auto model =
+                std::find_if(g->prop_models.begin(), g->prop_models.end(), [&](const auto& m) {
+                    return m.first == props[i].mesh;
+                });
+            if (model == g->prop_models.end()) {
+                continue;
+            }
+            scene::Instance instance{model->second, props[i].matrix, {1, 1, 1, 1}};
+            instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
+            instance.occlusion = scene::Pvs::always;
+            live.push_back(instance);
+            live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
+            live_joints.push_back(0);
+        }
+    }
     // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
     // part of reading the scene, about 1.5 ms a tick for 180 mobys on a phone's fast core), then
     // given palette slots in the loop's order, as one thread gave them.

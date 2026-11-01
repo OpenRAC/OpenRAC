@@ -208,6 +208,9 @@ struct State {
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;  // the mod's texture, its framebuffer
     scene::LevelData level;
+    // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
+    // model in `level`.
+    std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
     scene::ObjectPicker picker;
     scene::LevelScene scene;
     DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.

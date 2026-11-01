@@ -264,6 +264,19 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_0025F4A8 game_FUN_L00_0025e450
 #define func_L00_0025F4A8__game game_FUN_L00_0025e450__game
 
+/* The hero moved by a mod (play.c, interface 1.12): PAL advance_hero_animation func_L00_00232EF0
+ * is FUN_L00_00232670 here (a hook point, Hero_AdvanceAnimation), update_hero_moby
+ * func_L00_00208E98 FUN_L00_00208820, update_hero_world_matrices func_L00_002098B8
+ * FUN_L00_00209240, update_hero_equipped_items func_L00_00210FE0 FUN_L00_00210928 (the NTSC
+ * decomp's gameplay/hero/air_accel.c), begin_draw_frame func_001F7B40 FUN_001f7978 and
+ * euler_rotation_matrix func_001FA218 FUN_001fa050, as games/rac1's names_ntsc.tsv pairs them. */
+#define func_L00_00232EF0 game_FUN_L00_00232670
+#define func_L00_00208E98 game_FUN_L00_00208820
+#define func_L00_002098B8 game_FUN_L00_00209240
+#define func_L00_00210FE0 game_FUN_L00_00210928
+#define func_001F7B40 game_FUN_001f7978
+#define func_001FA218 game_FUN_001fa050
+
 /* ---- generated below ---- */
 
 /* Functions: games/rac1's name, this version's. */

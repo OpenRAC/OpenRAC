@@ -23,7 +23,9 @@
  * "play" it uses the play calls on the test's game, a step a frame (play_frame: 7000s), and
  * starts a game with save 0 and later travels (interface 1.8). With "world" it takes the gate and
  * the hit watcher and uses the world calls on the test's fake level (world_frame: 8000s, and the
- * gate's and the watcher's 8700s and 8800s) (interface 1.9). It reports the interface it is
+ * gate's and the watcher's 8700s and 8800s) (interface 1.9). With "hoverboard" it uses the calls of
+ * a mod that moves the hero (motion_frame: 9500s): his pose set, the collision triangles, a prop
+ * and a sound (interface 1.12). It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <stddef.h>
@@ -51,6 +53,8 @@ static int s_ui;
 static int s_ui_second = -1;
 static int s_play;
 static int s_world;
+static int s_motion;
+static int s_prop = -1;
 static int s_figure = -1;
 
 /* The menu page: a white rectangle and "HELLO" each frame; Cross closes it. */
@@ -280,6 +284,53 @@ static void world_frame(void) {
     }
 }
 
+/* Interface 1.12, a step a frame. Frame 1 (in a level): the hero's pose set (the test's game
+ * names Test_Add, which the mod holds, as the hero's update), the collision triangles (3, two
+ * read), a prop made (one outside the mod's folder and one missing refused) and posed at (1, 2, 3)
+ * at scale 2, a sound loaded (a missing one refused) and played, its voice changed and stopped.
+ * Frame 2 (another hook point named, the level loaded again): the pose refused, the prop gone. */
+static void motion_frame(void) {
+    openrac_pose pose;
+    openrac_collision_triangle tris[2];
+    openrac_prop_pose where;
+    const float lo[3] = {0.0f, 0.0f, 0.0f};
+    const float hi[3] = {8.0f, 8.0f, 8.0f};
+    uint32_t voice;
+    int sound;
+    memset(&pose, 0, sizeof pose);
+    pose.size = sizeof pose;
+    memset(tris, 0, sizeof tris);
+    memset(&where, 0, sizeof where);
+    where.size = sizeof where;
+    where.position[0] = 1.0f;
+    where.position[1] = 2.0f;
+    where.position[2] = 3.0f;
+    where.rotation[3] = 1.0f;
+    where.scale = 2.0f;
+    if (s_frames == 1) {
+        pose.position[0] = 5.0f;
+        s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
+        s_record(9510 + s_api->collision_triangles(lo, hi, tris, 2) + 10 * (int)tris[1].type);
+        s_prop = s_api->prop_create(s_mod, "board.glb");
+        s_record(9540 + s_prop);
+        s_record(9540 + -s_api->prop_create(s_mod, "../test-b/board.glb"));
+        s_record(9540 + -s_api->prop_create(s_mod, "missing.glb"));
+        s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
+        s_record(9550 + -s_api->prop_pose(s_mod, s_prop + 1, &where));
+        sound = s_api->sound_load(s_mod, "beep.wav");
+        s_record(9560 + sound);
+        s_record(9560 + -s_api->sound_load(s_mod, "missing.wav"));
+        voice = s_api->sound_play(s_mod, sound, 0.5f, 2.0f, 1);
+        s_record(9570 + (int)voice);
+        s_record(9580 + -s_api->sound_set(voice, 1.0f, 1.0f));
+        s_api->sound_stop(voice);
+        s_record(9580 + -s_api->sound_set(voice, 1.0f, 1.0f));
+    } else if (s_frames == 2) {
+        s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
+        s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
+    }
+}
+
 static void on_frame(void* user) {
     (void)user;
     s_frames++;
@@ -289,6 +340,10 @@ static void on_frame(void* user) {
     }
     if (s_play && s_record != NULL) {
         play_frame();
+        return;
+    }
+    if (s_motion && s_record != NULL) {
+        motion_frame();
         return;
     }
     if (s_record != NULL) {
@@ -472,6 +527,12 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
         /* The host copies its strings, so the caller's stack storage can go away. */
         items[0].label = "Changed after registration";
+    }
+    if (behaviour[0] == 'h') { /* hoverboard */
+        s_motion = 1;
+        if (api->api_minor < 12 || s_record == NULL) {
+            return 17;
+        }
     }
     if (behaviour[0] == 'p') { /* play */
         s_play = 1;

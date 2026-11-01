@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -60,10 +61,15 @@ static_assert(
     sizeof(openrac_moby_deletion) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_deletion)
 );
 
+// The collision triangles are the game's records as they are (interface 1.12).
+static_assert(sizeof(openrac_collision_triangle) == 14 * sizeof(float));
+
 namespace {
 
 // A save file is read whole: none of a game's is larger.
 constexpr std::uintmax_t kSaveMax = 1u << 20;
+// The most sounds the mods load together (OPENRAC_SOUNDS_MAX each).
+constexpr std::size_t kSoundsMax = 4 * OPENRAC_SOUNDS_MAX;
 
 // A figure a mod made: whose, its moby, the level load it was made in.
 struct Figure {
@@ -719,6 +725,235 @@ int game_moby_hit(
     return g_hits.fn(g_hits.user, &hit) != 0 ? 1 : 0;
 }
 
+// ---- Interface 1.12: the hero moved by a mod, the collision triangles, props and sounds ----
+
+// A prop a mod made: whose, its mesh, the level load it was made in, its matrix once posed.
+struct Prop {
+    const openrac_mod* mod = nullptr;
+    std::filesystem::path mesh;
+    std::uint32_t loads = 0;
+    bool posed = false;
+    bool hidden = false;
+    std::array<float, 16> matrix{};
+};
+
+// A sound a mod loaded: whose, and the host's id of it.
+struct Sound {
+    const openrac_mod* mod = nullptr;
+    int host = -1;
+};
+
+// The props, the meshes asked for (and their count's generation), behind a lock: the front end
+// reads them on its own thread.
+std::mutex g_props_lock;
+std::array<Prop, OPENRAC_PROPS_MAX> g_props;
+std::vector<std::filesystem::path> g_prop_meshes;
+unsigned g_prop_generation = 0;
+std::vector<Sound> g_sounds;
+std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_voices;
+int (*g_sound_load)(const std::filesystem::path&) = nullptr;
+std::uint32_t (*g_sound_play)(int, float, float, bool) = nullptr;
+int (*g_sound_set)(std::uint32_t, float, float) = nullptr;
+void (*g_sound_stop)(std::uint32_t) = nullptr;
+
+std::uint32_t loads_now() {
+    return g_play != nullptr ? g_play->loads() : 0;
+}
+
+int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose) {
+    if (mod == nullptr || pose == nullptr || pose->size < sizeof(openrac_pose) || g_play == nullptr
+        || g_play->hero_set_pose == nullptr || !holds_hook(mod, g_play->hero_update_hook)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_pose p{};
+    std::memcpy(&p, &pose->level, sizeof p);
+    return g_play->hero_set_pose(&p) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_collision_triangles(
+    const float lo[3], const float hi[3], openrac_collision_triangle* out, int max
+) {
+    if (g_play == nullptr || g_play->collision_triangles == nullptr || lo == nullptr
+        || hi == nullptr) {
+        return 0;
+    }
+    return g_play->collision_triangles(lo, hi, out, out != nullptr ? std::max(max, 0) : 0);
+}
+
+// The mod's prop `id` of this level load, null for one that is not; one gone with its level is let
+// go. Under g_props_lock.
+Prop* own_prop(const openrac_mod* mod, int id) {
+    if (mod == nullptr || id < 0 || id >= static_cast<int>(g_props.size())) {
+        return nullptr;
+    }
+    Prop& p = g_props[static_cast<std::size_t>(id)];
+    if (p.mod != mod) {
+        return nullptr;
+    }
+    if (p.loads != loads_now()) {
+        p = Prop{};
+        return nullptr;
+    }
+    return &p;
+}
+
+int api_prop_create(openrac_mod* mod, const char* mesh_path) {
+    std::int32_t level = -1;
+    if (mod == nullptr || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::filesystem::path mesh = mod_file(mod, mesh_path);
+    if (mesh.empty() || mesh.extension() != ".glb") {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    for (Prop& p : g_props) {
+        if (p.mod != nullptr && p.loads != loads) {
+            p = Prop{};
+        }
+    }
+    for (std::size_t i = 0; i < g_props.size(); ++i) {
+        if (g_props[i].mod != nullptr) {
+            continue;
+        }
+        g_props[i] = Prop{mod, mesh, loads};
+        // A mesh no level has read yet: the scenery is read again with it.
+        if (std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) == g_prop_meshes.end()) {
+            g_prop_meshes.push_back(mesh);
+            ++g_prop_generation;
+        }
+        return static_cast<int>(i);
+    }
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose) {
+    if (pose == nullptr || pose->size < sizeof(openrac_prop_pose)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if ((pose->flags & OPENRAC_PROP_MATRIX) != 0) {
+        std::copy(pose->matrix, pose->matrix + 16, p->matrix.begin());
+    } else {
+        // The rotation's matrix (a unit quaternion), each axis scaled, then the place.
+        const float x = pose->rotation[0], y = pose->rotation[1], z = pose->rotation[2],
+                    w = pose->rotation[3], s = pose->scale;
+        const float m[9] = {
+            1 - 2 * (y * y + z * z),
+            2 * (x * y + z * w),
+            2 * (x * z - y * w),
+            2 * (x * y - z * w),
+            1 - 2 * (x * x + z * z),
+            2 * (y * z + x * w),
+            2 * (x * z + y * w),
+            2 * (y * z - x * w),
+            1 - 2 * (x * x + y * y),
+        };
+        for (int c = 0; c < 3; ++c) {
+            for (int r = 0; r < 3; ++r) {
+                p->matrix[static_cast<std::size_t>(4 * c + r)] = m[3 * c + r] * s;
+            }
+            p->matrix[static_cast<std::size_t>(4 * c + 3)] = 0.0f;
+        }
+        p->matrix[12] = pose->position[0];
+        p->matrix[13] = pose->position[1];
+        p->matrix[14] = pose->position[2];
+        p->matrix[15] = 1.0f;
+    }
+    p->posed = true;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_prop_hide(openrac_mod* mod, int id, int hidden) {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    p->hidden = hidden != 0;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_prop_remove(openrac_mod* mod, int id) {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    *p = Prop{};
+    return OPENRAC_HOOK_OK;
+}
+
+int api_sound_load(openrac_mod* mod, const char* path) {
+    if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto own = std::count_if(g_sounds.begin(), g_sounds.end(), [&](const Sound& s) {
+        return s.mod == mod;
+    });
+    const std::filesystem::path file = mod_file(mod, path);
+    const std::filesystem::path ext = file.extension();
+    if (own >= OPENRAC_SOUNDS_MAX || file.empty() || (ext != ".wav" && ext != ".ogg")) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int host = g_sound_load(file);
+    if (host < 0) {
+        log::warn("mods: {} could not read the sound {}", mod_id(mod), path);
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_sounds.push_back({mod, host});
+    return static_cast<int>(g_sounds.size() - 1);
+}
+
+// Voices that ended (the host's sound_set answers no more) are forgotten as new ones are asked for.
+void forget_ended_voices() {
+    std::erase_if(g_voices, [](const auto& v) {
+        return g_sound_set == nullptr || g_sound_set(v.second, -1.0f, -1.0f) == 0;
+    });
+}
+
+std::uint32_t api_sound_play(openrac_mod* mod, int sound, float volume, float pitch, int loop) {
+    if (mod == nullptr || g_sound_play == nullptr || sound < 0
+        || sound >= static_cast<int>(g_sounds.size())
+        || g_sounds[static_cast<std::size_t>(sound)].mod != mod || !std::isfinite(volume)
+        || !std::isfinite(pitch)) {
+        return 0;
+    }
+    forget_ended_voices();
+    if (g_voices.size() >= OPENRAC_SOUND_VOICES_MAX) {
+        return 0;
+    }
+    const std::uint32_t voice = g_sound_play(
+        g_sounds[static_cast<std::size_t>(sound)].host,
+        std::max(volume, 0.0f),
+        std::max(pitch, 0.0f),
+        loop != 0
+    );
+    if (voice != 0) {
+        g_voices.emplace_back(mod, voice);
+    }
+    return voice;
+}
+
+int api_sound_set(std::uint32_t voice, float volume, float pitch) {
+    if (g_sound_set == nullptr || voice == 0 || !std::isfinite(volume) || !std::isfinite(pitch)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_sound_set(voice, std::max(volume, 0.0f), std::max(pitch, 0.0f)) != 0
+               ? OPENRAC_HOOK_OK
+               : OPENRAC_HOOK_UNKNOWN;
+}
+
+void api_sound_stop(std::uint32_t voice) {
+    if (g_sound_stop != nullptr && voice != 0) {
+        g_sound_stop(voice);
+    }
+}
 }  // namespace
 
 void fill_play_api(
@@ -765,6 +1000,46 @@ void fill_play_api(
     api.moby_deletion = api_moby_deletion;
     api.camera_position = api_camera_position;
     api.moby_run = api_moby_run;
+}
+
+void fill_motion_api(openrac_api& api, const Host& host) {
+    g_sound_load = host.sound_load;
+    g_sound_play = host.sound_play;
+    g_sound_set = host.sound_set;
+    g_sound_stop = host.sound_stop;
+    api.hero_set_pose = api_hero_set_pose;
+    api.collision_triangles = api_collision_triangles;
+    api.prop_create = api_prop_create;
+    api.prop_pose = api_prop_pose;
+    api.prop_hide = api_prop_hide;
+    api.prop_remove = api_prop_remove;
+    api.sound_load = api_sound_load;
+    api.sound_play = api_sound_play;
+    api.sound_set = api_sound_set;
+    api.sound_stop = api_sound_stop;
+}
+
+std::vector<PropDraw> props_drawn() {
+    std::vector<PropDraw> out;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    for (std::size_t i = 0; i < g_props.size(); ++i) {
+        const Prop& p = g_props[i];
+        if (p.mod != nullptr && p.posed && !p.hidden && p.loads == loads) {
+            out.push_back({static_cast<int>(i), p.mesh, p.matrix});
+        }
+    }
+    return out;
+}
+
+std::vector<std::filesystem::path> prop_meshes() {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    return g_prop_meshes;
+}
+
+unsigned prop_meshes_generation() {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    return g_prop_generation;
 }
 
 void play_loading(const openrac_mod* mod) {
@@ -838,6 +1113,17 @@ void reset_play() {
         g_play->scene_start(-1);
     }
     g_figures.fill(Figure{});
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        g_props.fill(Prop{});
+    }
+    for (const auto& v : g_voices) {
+        if (g_sound_stop != nullptr) {
+            g_sound_stop(v.second);
+        }
+    }
+    g_voices.clear();
+    g_sounds.clear();
     g_request = Request{};
     std::fill(g_drives.begin(), g_drives.end(), Drive{});
     g_gate = Gate{};
@@ -863,6 +1149,20 @@ void drop_figures(const openrac_mod* mod) {
     if (g_request.mod == mod) {
         g_request = Request{};
     }
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        for (Prop& p : g_props) {
+            if (p.mod == mod) {
+                p = Prop{};
+            }
+        }
+    }
+    std::erase_if(g_voices, [&](const auto& v) {
+        if (v.first == mod && g_sound_stop != nullptr) {
+            g_sound_stop(v.second);
+        }
+        return v.first == mod;
+    });
     for (Drive& d : g_drives) {
         if (d.mod == mod) {
             d = Drive{};

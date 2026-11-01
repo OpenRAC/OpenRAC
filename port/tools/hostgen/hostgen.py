@@ -281,20 +281,20 @@ def wrapped_by_host(config_dir: Path, cfg: dict) -> set[str]:
 
 def hooked(config_dir: Path, cfg: dict) -> dict[str, str]:
     """The hook points mods may take (docs/port/MODS.md): libraries.tsv rows with port = hook,
-    symbol -> the hook point's name (the third column), the same for every disc of a game."""
+    symbol -> the hook point's name (the third column), the same for every disc of a game. Several
+    rows may give one name: the level copies of one function (each level's own C, the same job),
+    which are one hook point (write_hooks)."""
     out: dict[str, str] = {}
     table = cfg.get("libraries")
     if not table:
         return out
-    names: dict[str, str] = {}
     for row in tables.read_tsv(config_dir / table, strip=True, required=True):
         if len(row) >= 4 and row[3] == "hook":
             sym, name = row[0], row[2]
             if not re.fullmatch(r"[A-Za-z_]\w*", name):
                 raise ValueError(f"{table}: hook point {sym} has no name a mod can ask for ({name!r})")
-            if name in names:
-                raise ValueError(f"{table}: hook point {name} is both {names[name]} and {sym}")
-            names[name] = sym
+            if sym in out and out[sym] != name:
+                raise ValueError(f"{table}: {sym} is both hook point {out[sym]} and {name}")
             out[sym] = name
     return out
 
@@ -330,6 +330,52 @@ def hook_signature(f: Function, typedefs: dict) -> tuple[str, list[str], str] | 
     return text, params, ret
 
 
+def write_hook_copies(program: Program, name: str, syms: list[str], lines: list[str],
+                      rows: list[str]) -> list[str]:
+    """One hook point over several functions, the level copies of one job (the hero's update in
+    each family of levels): one slot, whichever copy the game calls. The mod's replacement is told
+    nothing of the copy; its original runs the copy that called it (the host's <name>__original,
+    through the copy noted for the call, restored after it, so a nested call sees its own). One row
+    in the table, under the first copy's symbol. Returns the copies with no hook signature, or that
+    a wrap of the port's covers (none is then written); the signature must be the same for all."""
+    shapes = []
+    for sym in syms:
+        f = program.functions.get(sym)
+        shape = hook_signature(f, program.typedefs) if f is not None else None
+        if shape is None or f.inherits or sym in program.wrap_host:
+            return list(syms)
+        shapes.append(shape)
+    if any(sh[0] != shapes[0][0] for sh in shapes):
+        raise ValueError(f"hook point {name}: its copies have other signatures "
+                         f"({', '.join(f'{s} {sh[0]}' for s, sh in zip(syms, shapes))})")
+    text, params, ret = shapes[0]
+    slot, game = f"hook_{name}", f"hook_{name}__copy"
+    decl = ", ".join(f"{t} a{i}" for i, t in enumerate(params)) or "void"
+    args = ", ".join(f"a{i}" for i in range(len(params)))
+    fptr = f"{ret} (*)({', '.join(params) or 'void'})"
+    give = "" if ret == "void" else "return "
+    lines += [f"static void* {slot};",
+              f"static void* {game};",
+              f"static {ret} {name}__original({decl}) {{ {give}(({fptr}){game})({args}); }}"]
+    for sym in syms:
+        c = cname(sym)
+        lines += [f"{ret} {c}({decl}) {{",
+                  f"    if ({slot} != 0) {{",
+                  f"        void* was = {game};",
+                  f"        {game} = (void*){c}__game;"]
+        if ret == "void":
+            lines += [f"        (({fptr}){slot})({args});",
+                      f"        {game} = was;",
+                      "        return;"]
+        else:
+            lines += [f"        {ret} r = (({fptr}){slot})({args});",
+                      f"        {game} = was;",
+                      "        return r;"]
+        lines += ["    }", f"    {give}{c}__game({args});", "}", ""]
+    rows.append(f"    {{\"{name}\", \"{syms[0]}\", \"{text}\", &{slot}, (void*){name}__original}},")
+    return []
+
+
 def write_hooks(program: Program, out: Path, game: str) -> list[str]:
     """hooks.c: for each hook point, the host function of its name, which calls the replacement a
     mod hooked there (a slot the mod loader fills, port/game/common/mods.cpp) or else the game's C
@@ -347,7 +393,15 @@ def write_hooks(program: Program, out: Path, game: str) -> list[str]:
              "    void* original;        /* the game's C */",
              "} openrac_hook_point;", ""]
     rows, skipped = [], []
+    copies: dict[str, list[str]] = {}
+    for sym in sorted(program.hook, key=lambda s: (program.hook[s], s)):
+        copies.setdefault(program.hook[sym], []).append(sym)
+    for name, syms in copies.items():
+        if len(syms) > 1:
+            skipped += write_hook_copies(program, name, syms, lines, rows)
     for sym in sorted(program.hook, key=lambda s: program.hook[s]):
+        if len(copies[program.hook[sym]]) > 1:
+            continue
         f = program.functions.get(sym)
         shape = hook_signature(f, program.typedefs) if f is not None else None
         if shape is None:
