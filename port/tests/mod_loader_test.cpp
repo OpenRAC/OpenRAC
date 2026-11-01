@@ -79,7 +79,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.10",
+    const std::string& api = "1.11",
     const std::string& extra = ""
 ) {
     const fs::path dir = plugins / ("test-" + which);
@@ -420,7 +420,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.10", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.11", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -572,16 +572,23 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "play"}}]})");
     write(dir / "cards" / "SAVES" / "save0.bin", std::string("S\x01xyz"));
     mods::Host h = host(plugins);
-    h.play = &kPlay;
+    // The game saves into slot 3 (1.11), and the mods' folders go in mod-data.
+    static openrac_game_play play = kPlay;
+    play.save_slot_current = [] { return 3; };
+    h.play = &play;
     h.cards = dir / "cards";
+    h.mod_data = dir / "mod-data";
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
     g_loads = 1;
     g_played.clear();
     CHECK(mods::load(h) == "test-a 1.0.0");
     g_records.clear();
-    // The front end: no figure, save 0 read and started with, one request at a time.
+    // The front end: no figure, save 0 read and started with, one request at a time; the slot the
+    // game saves into, and the mod's folder, made.
     mods::frame();
-    CHECK((g_records == std::vector<int>{7001, 7101, 7211, 7210, 7305, 7400, 7404, 7404}));
+    CHECK((g_records
+           == std::vector<int>{7001, 7101, 7211, 7210, 7305, 7400, 7404, 7404, 7503, 7601}));
+    CHECK(fs::is_directory(dir / "mod-data" / "test-a"));
     CHECK(g_played.empty());
     mods::play_update();
     CHECK((g_played == std::vector<std::string>{"start -1 5"}));
@@ -959,7 +966,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.10", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.11", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));

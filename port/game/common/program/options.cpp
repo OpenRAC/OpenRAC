@@ -262,6 +262,11 @@ Options parse(int argc, char** argv) {
         o.controls = data_home() / "controls";
     }
 
+    // The mods' own files, a folder per mod's id, beside the cards (openrac_api.data_dir).
+    if (o.mod_data.empty()) {
+        o.mod_data = data_home() / "mod-data";
+    }
+
     if (o.plugins.empty()) {
         o.plugins = o.data / "plugins" / "plugins.json";
     }

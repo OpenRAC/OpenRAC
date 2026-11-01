@@ -136,6 +136,13 @@ static void play_frame(void) {
         s_record(7400 + -s_api->play_start(s_mod, -1, save, size));
         s_record(7400 + -s_api->play_start(s_mod, 2, NULL, 0));
         s_record(7400 + -s_api->play_travel(s_mod, 2));
+        if (s_api->api_minor >= 11) {
+            /* 1.11: the slot the game saves into, and the mod's own folder (named for its id). */
+            const char* dir = s_api->data_dir(s_mod);
+            const size_t n = dir != NULL ? strlen(dir) : 0;
+            s_record(7500 + s_api->save_slot_current());
+            s_record(7600 + (n >= 6 && strcmp(dir + n - 6, "test-a") == 0));
+        }
     } else if (s_frames == 2) {
         s_figure = s_api->figure_create(s_mod);
         s_record(7500 + s_figure);

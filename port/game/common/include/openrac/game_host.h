@@ -450,6 +450,9 @@ typedef struct openrac_game_play {
     /* How the last tick ran the level's mobys and the moby in `slot` (-1 none) into `out` (1, or 0
      * outside a level: openrac_api.moby_run). NULL for a game without it. */
     int (*moby_run)(int32_t slot, openrac_game_moby_run* out);
+    /* The memory card slot the game in progress saves into (the one it was loaded from or last
+     * saved to), -1 for none (openrac_api.save_slot_current). NULL for a game without it. */
+    int (*save_slot_current)(void);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

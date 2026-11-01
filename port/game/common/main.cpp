@@ -291,6 +291,7 @@ void load_mods() {
     host.input = mod_input;
     host.play = openrac_game_play_host;
     host.cards = openrac_game_card_dir != nullptr ? openrac_game_card_dir : "memcard";
+    host.mod_data = g_options.mod_data;
     host.capture_savestate_runtime = [](mods::SavestateRuntime* state) {
         if (state == nullptr) {
             return false;

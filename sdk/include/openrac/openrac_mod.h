@@ -51,9 +51,10 @@ extern "C" {
  * hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world:
  * the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's
  * update with the hero standing in for another player, hits watched and posted, eyes that keep
- * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods.
+ * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a
+ * folder of the mod's own for its files and the memory card slot the game in progress saves into.
  */
-#define OPENRAC_MOD_API_MINOR 10
+#define OPENRAC_MOD_API_MINOR 11
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -1349,6 +1350,18 @@ typedef struct openrac_api {
     /* Changes a registered item's label, copying `label`. Only from this mod's tick-boundary
      * callback. Since 1.10. */
     int (*developer_menu_set_label)(openrac_mod* mod, uint32_t action, const char* label);
+
+    /* A folder of the mod's own for the files it keeps (a seed, a list of games played): in the
+     * player's data folder beside the memory cards, made by the port, kept across runs and the
+     * mod's updates, and never shared with another mod. Its path in UTF-8, valid until the mod is
+     * unloaded; null when there is none (a session without a data folder, or it cannot be made).
+     * Since 1.11. */
+    const char* (*data_dir)(openrac_mod* mod);
+
+    /* The memory card slot the game in progress saves into (openrac_api.save_slot's numbers): the
+     * one it was loaded from or last saved to, which the game's own save menus and autosaves use.
+     * -1 for none: at the title, a new game not saved yet, or a game without slots. Since 1.11. */
+    int (*save_slot_current)(void);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

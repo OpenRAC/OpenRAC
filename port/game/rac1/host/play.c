@@ -59,6 +59,13 @@
 #define LEVEL_EXIT OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F650u))
 /* The flag that starts the loaded new game (boot.c). */
 #define START_GAME RAC1_ADDR(0x0013E15Au)
+/* The memory card's state (the NTSC decomp's memory_card_state, memcard_save_data.c): the card in
+ * use at +0xC0 (-1 none), a record of 0xB8 bytes per card, the slot the game saves into at its
+ * +0x14 (-1 none). */
+#define MC_STATE RAC1_ADDR(0x0013D390u)
+#define MC_ACTIVE_CARD 0xC0u
+#define MC_CARD_SIZE 0xB8u
+#define MC_CARD_SLOT 0x14u
 
 /* The hero (include/hero.h): his moby, his velocity a tick, his state, his health, his first item
  * slot (its moby, its item's id), his animation's speed. */
@@ -469,6 +476,20 @@ static uint32_t save_capture(uint8_t* out, uint32_t size) {
     return (uint32_t)total;
 }
 
+/* The slot the game in progress saves into: the card in use's, -1 at the title or for none. */
+static int save_slot_current(void) {
+    int32_t level = -1;
+    if (phase(&level) == OPENRAC_GAME_PHASE_FRONT_END) {
+        return -1;
+    }
+    const int card = GREF(int, MC_STATE + MC_ACTIVE_CARD);
+    if (card < 0 || card > 1) {
+        return -1;
+    }
+    const int slot = GREF(int, MC_STATE + (uint32_t)card * MC_CARD_SIZE + MC_CARD_SLOT);
+    return slot >= 0 && slot < 5 ? slot : -1;
+}
+
 const openrac_game_play rac1_play = {
     .levels = LEVELS,
     .level_names = rac1_level_names,
@@ -509,4 +530,5 @@ const openrac_game_play rac1_play = {
     .figure_shot = rac1_figure_shot,
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
+    .save_slot_current = save_slot_current,
 };
