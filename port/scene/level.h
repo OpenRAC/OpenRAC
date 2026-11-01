@@ -33,12 +33,13 @@ namespace openrac::scene {
 using renderer::Mat4;
 using renderer::Vec3;
 
-// The extracted levels' format (editor/port.py FORMAT); --check-levels writes verified-<format>.json,
-// which the launcher waits for, so older exports are read from the disc again before Play. 4: the
+// The extracted levels' format (editor/port.py FORMAT). Every game's Play needs levels-<format>.json
+// from editor/extract.py, so older exports are read from the disc again; a rac1 version also has
+// --check-levels, whose verified-<format>.json its Play needs too (launcher/actions.json). 4: the
 // textures the game clamps carry clamping samplers.
 inline constexpr int kManifestFormat = 4;
 // The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
-// layout, so the reader takes both; which levels are read again is the launcher's stamps' doing.
+// layout, so the reader takes both; which levels are read again is the stamps' doing.
 // 5: Going Commando's, with Ratchet's mesh. 6: and its flights to a planet.
 inline constexpr int kManifestFormatNewest = 6;
 
