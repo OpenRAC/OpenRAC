@@ -93,7 +93,7 @@ static void start_level(int level) {
         return;
     }
     if (level == 30) {
-        openrac_game_warn("level 30: probes did not see it run its own code");
+        level = 21;  /* The museum: 30 is its archive's number, 21 the game's and its disc table's. */
     }
     if (!in_level()) {
         func_00298E08();

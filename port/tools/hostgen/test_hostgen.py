@@ -1782,6 +1782,34 @@ class Places(unittest.TestCase):
             self.assertNotIn("func_0031C970", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_another_name_of_a_moved_datum_is_where_the_levels_build_put_it(self):
+        # Going Commando's r1_D_L01_00160058 is the moby table's base, 0x001B1B5C in the executable
+        # and 0x001B255C in level 1, which the table keeps under D_001B1B5C.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L01_002A7248.c").write_text(
+                "extern int r1_D_L01_00160058;\n"
+                "int func_L01_003115E8(void) { return r1_D_L01_00160058; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L01_003115E8\tshared\t4\tfingerprint\t2\t01:003115E8,09:00317A48\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {"r1_D_L01_00160058": "0x001b1b5c"},
+                "level_data": {"1": {"D_001B1B5C": "0x001b255c"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            self.assertIn("OPENRAC_LDATA(1, 0x001B255Cu)",
+                          (out / "levels" / "shared" / "L01_002A7248.c").read_text())
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_data_label_with_an_offset_is_the_symbol_plus_it(self):
         # rac1/ntsc's l16 00214598.c: extern f32 D_L16_0017C224[] __asm__("D_L16_0017C218+12").
         with tempfile.TemporaryDirectory() as tmp:

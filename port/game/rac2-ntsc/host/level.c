@@ -25,6 +25,8 @@
 
 /* The levels, by the game's own numbers: 0 to 30, some unused (games/rac2/ntsc/docs/LEVELS.md). */
 #define LEVELS 31
+#define MUSEUM 21
+#define MUSEUM_PROGRAM 30
 
 gaddr func_00131CB8__game(void);
 
@@ -51,7 +53,9 @@ gaddr func_00131CB8(void) {
         openrac_guest_restore_executable(RELOCATE_LOW, RELOCATE_HIGH);
         return TITLE_LOOP;
     } else {
-        loaded_level = level;
+        /* The Insomniac Museum is level 21 to the game and to the disc's table, and its program, the
+         * catalogue's and the export's numbers are the 30 its archive says. */
+        loaded_level = level == MUSEUM ? MUSEUM_PROGRAM : level;
     }
     return entry;
 }

@@ -1892,7 +1892,12 @@ class Unit:
         unit_level = UNIT_LEVEL.search(self.unit)
         if unit_level and not code and symbol:
             level = int(unit_level.group(1))
-            placed = self.program.level_data.get(level, {}).get(symbol)
+            moved = self.program.level_data.get(level, {})
+            placed = moved.get(symbol)
+            if placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol):
+                # Another name of the executable's datum (r1_D_L01_00160058 and D_L02_001B359C are
+                # 0x001B1B5C, the moby table's base): where this level's build put that datum.
+                placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             if placed is not None and low <= placed < high:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
