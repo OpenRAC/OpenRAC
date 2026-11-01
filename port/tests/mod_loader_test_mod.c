@@ -472,6 +472,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     }
     if (behaviour[0] == 't') { /* twelve: every call of interface 1.12 not filled in yet answers unknown; with no stack, no packs */
         float where[3] = {0, 0, 0};
+        openrac_stand_in stand_in = {{0, 0, 0}, 0, 0, 0, 0};
         uint8_t missions[OPENRAC_MISSION_STATE_SIZE] = {0};
         char text[16] = {0};
         uint32_t digest = 0;
@@ -495,6 +496,9 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->hero_place(mod, where, 0.0f, 0) != OPENRAC_HOOK_UNKNOWN
             || api->hero_grab(mod, 1, 0) != OPENRAC_HOOK_UNKNOWN
             || api->hero_release(mod) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_hold_at(mod, where, 0.0f) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_stand_in_as(mod, &stand_in, -1) != OPENRAC_HOOK_UNKNOWN
+            || api->hero_stand_in_read(mod, &stand_in) != OPENRAC_HOOK_UNKNOWN
             || api->hero_revive(mod, NULL, 0) != OPENRAC_HOOK_UNKNOWN
             || api->hero_shots2(&shot, 1) != 0
             || api->figure_shot2(mod, 0, &shot) != OPENRAC_HOOK_UNKNOWN

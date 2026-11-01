@@ -621,6 +621,9 @@ typedef struct openrac_play_status {
 /* The hero's pose only: he stands still enough on the level's own ground, on foot and unhurt, for
  * another to be put beside him (hero_place). Since 1.12. */
 #define OPENRAC_POSE_STEADY 0x2u
+/* The hero's pose only: his feet are off the ground (a jump, a fall, water with no floor under him).
+ * Since 1.12. */
+#define OPENRAC_POSE_AIRBORNE 0x4u
 
 /* A pose of the hero, or of a figure (openrac_api.hero_pose, figure_pose). Units are the game's.
  * Since 1.8. */
@@ -980,6 +983,31 @@ typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t si
 #define OPENRAC_REVIVE_HOLD 0x1u
 #define OPENRAC_REVIVE_LET_GO 0x2u
 #define OPENRAC_REVIVE_RESPAWN 0x4u
+
+/* openrac_api.hero_grab's flags. Since 1.12. */
+/* The grab kills him: he dies as the holder holds him. */
+#define OPENRAC_GRAB_FATAL 0x1u
+/* He turns on the spot while held, whatever yaw hero_hold_at asks. */
+#define OPENRAC_GRAB_SPIN 0x2u
+
+/* openrac_stand_in.flags. Since 1.12. */
+/* In: the player's feet are off the ground. */
+#define OPENRAC_STAND_IN_AIRBORNE 0x1u
+/* Out: the update ended the hero the way a kill volume does, whatever his health says. */
+#define OPENRAC_STAND_IN_KILLED 0x2u
+
+/* A player a moby's update takes the hero for (openrac_api.hero_stand_in_as), and what the update
+ * did to him (hero_stand_in_read), none of which reaches this game's hero. Since 1.12. */
+typedef struct openrac_stand_in {
+    float position[3];
+    /* Out only. */
+    float yaw;
+    /* The hero's state (openrac_pose.state), and his health. */
+    int32_t state;
+    int32_t health;
+    /* OPENRAC_STAND_IN_*. */
+    uint32_t flags;
+} openrac_stand_in;
 
 /* The bytes of one level's mission state (mission_state_read, mission_state_write): 0 not done,
  * 0xFF done. Since 1.12. */
@@ -1636,8 +1664,10 @@ typedef struct openrac_api {
      * the position has ground, he never goes. Since 1.12. */
     int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags);
 
-    /* Holds the hero as a grab does, playing animation `animation`, controls locked, until
-     * hero_release or the game's own end of it; and lets go. Since 1.12. */
+    /* Holds the hero as a grab does, controls locked, playing animation `animation` (below 0: the
+     * hold's own), with OPENRAC_GRAB_* `flags`, once the player is in control and on foot, until
+     * hero_release or the game's own end of it (he dies, or the level goes); and lets go. Asked, not
+     * done: the hero's pose says when he is held. Since 1.12. */
     int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags);
     int (*hero_release)(openrac_mod* mod);
 
@@ -1733,6 +1763,18 @@ typedef struct openrac_api {
     /* The view of the script shown here by camera_script_play, each tick. Returns
      * OPENRAC_HOOK_OK while it is asked for or up, else OPENRAC_HOOK_UNKNOWN. Since 1.12. */
     int (*camera_script_show)(openrac_mod* mod, const float eye[3], const float rotation[3]);
+    /* While the hero is held (hero_grab), he goes on towards `position`, a share of the way a tick,
+     * facing `yaw`. Since 1.12. */
+    int (*hero_hold_at)(openrac_mod* mod, const float position[3], float yaw);
+
+    /* hero_stand_in, for the update of a moby that looks at more of the hero than where he is: it
+     * also sees `as`'s state, health and flags. Since 1.12. */
+    int (*hero_stand_in_as)(openrac_mod* mod, const openrac_stand_in* as, int figure);
+
+    /* Only in the gate's call after an update under a stand-in: what the update did to the hero who
+     * stood in. A stand-in's hero is never this game's: what an update does to him, its state, its
+     * health, a kill, a place, stays there and ends here. Since 1.12. */
+    int (*hero_stand_in_read)(openrac_mod* mod, openrac_stand_in* out);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

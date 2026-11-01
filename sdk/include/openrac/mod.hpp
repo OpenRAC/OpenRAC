@@ -1600,6 +1600,26 @@ public:
         return has_hero_place() && m_api->hero_release(m_handle) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.12: whether this port shows a moby's update another player and holds the hero.
+    bool has_hero_hold() const {
+        return has_slot12(offsetof(openrac_api, hero_stand_in_read));
+    }
+
+    // Since 1.12: while held, the hero goes on towards `position`, facing `yaw`.
+    bool hero_hold_at(const float (&position)[3], float yaw) const {
+        return has_hero_hold() && m_api->hero_hold_at(m_handle, position, yaw) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: hero_stand_in, and the update also sees the player's state, health and flags.
+    bool hero_stand_in_as(const openrac_stand_in& as, int figure) const {
+        return has_hero_hold() && m_api->hero_stand_in_as(m_handle, &as, figure) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: in the gate's call after an update, what it did to the hero who stood in.
+    bool hero_stand_in_read(openrac_stand_in& out) const {
+        return has_hero_hold() && m_api->hero_stand_in_read(m_handle, &out) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.12: brings a dead hero back where it fell, or at `position`.
     bool hero_revive(const float (*position)[3] = nullptr, std::uint32_t flags = 0) const {
         return has_hero_place()

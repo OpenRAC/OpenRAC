@@ -908,12 +908,47 @@ int api_hero_place(openrac_mod* mod, const float position[3], float yaw, std::ui
     return g_play->hero_place(position, yaw, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_hero_grab(openrac_mod*, int, std::uint32_t) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_hero_grab(openrac_mod* mod, int animation, std::uint32_t flags) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_grab == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->hero_grab(animation, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
-int api_hero_release(openrac_mod*) {
-    return OPENRAC_HOOK_UNKNOWN;
+int api_hero_release(openrac_mod* mod) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_let_go == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->hero_let_go() != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_hold_at(openrac_mod* mod, const float position[3], float yaw) {
+    if (mod == nullptr || position == nullptr || g_play == nullptr
+        || g_play->hero_hold_at == nullptr || !std::isfinite(position[0])
+        || !std::isfinite(position[1]) || !std::isfinite(position[2]) || !std::isfinite(yaw)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->hero_hold_at(position, yaw) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_stand_in_as(openrac_mod* mod, const openrac_stand_in* as, int figure) {
+    if (mod == nullptr || mod != g_gate.mod || g_before_slot < 0 || as == nullptr
+        || g_play == nullptr || g_play->stand_in_as == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const Figure* f = figure >= 0 ? own_figure(mod, figure) : nullptr;
+    g_play->stand_in_as(as->position, f != nullptr ? f->moby : 0, as->state, as->health, as->flags);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_hero_stand_in_read(openrac_mod* mod, openrac_stand_in* out) {
+    if (mod == nullptr || mod != g_gate.mod || out == nullptr || g_play == nullptr
+        || g_play->stand_in_read == nullptr
+        || g_play->stand_in_read(out->position, &out->yaw, &out->state, &out->health, &out->flags)
+               == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return OPENRAC_HOOK_OK;
 }
 
 int api_hero_revive(openrac_mod* mod, const float position[3], std::uint32_t flags) {
@@ -1216,6 +1251,9 @@ void fill_play_api(
     api.play_scene_from = api_play_scene_from;
     api.play_live_picture = api_play_live_picture;
     api.on_metal_detect = api_on_metal_detect;
+    api.hero_hold_at = api_hero_hold_at;
+    api.hero_stand_in_as = api_hero_stand_in_as;
+    api.hero_stand_in_read = api_hero_stand_in_read;
 }
 
 void play_loading(const openrac_mod* mod) {

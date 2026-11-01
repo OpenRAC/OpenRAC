@@ -286,6 +286,10 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool hero_place(const float (&position)[3], float yaw, std::uint32_t flags = 0) const` | Since 1.12: puts the hero at `position` facing `yaw` (OPENRAC_PLACE_* `flags`). |
 | `bool hero_grab(int animation, std::uint32_t flags = 0) const` | Since 1.12: holds the hero as a grab does, playing `animation`; hero_release lets go. |
 | `bool hero_release() const` |  |
+| `bool has_hero_hold() const` | Since 1.12: whether this port shows a moby's update another player and holds the hero. |
+| `bool hero_hold_at(const float (&position)[3], float yaw) const` | Since 1.12: while held, the hero goes on towards `position`, facing `yaw`. |
+| `bool hero_stand_in_as(const openrac_stand_in& as, int figure) const` | Since 1.12: hero_stand_in, and the update also sees the player's state, health and flags. |
+| `bool hero_stand_in_read(openrac_stand_in& out) const` | Since 1.12: in the gate's call after an update, what it did to the hero who stood in. |
 | `bool hero_revive(const float (*position)[3] = nullptr, std::uint32_t flags = 0) const` | Since 1.12: brings a dead hero back where it fell, or at `position`. |
 | `bool has_overlay() const` | Since 1.12: whether this port draws what a mod asks over the game. |
 | `bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const` | Since 1.12: `fn(user, overlay)` once a frame to draw over the game. During load. |

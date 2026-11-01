@@ -18,7 +18,8 @@
  * stand in elsewhere for it (stand_in): his position (Hero.motion.pos at +0x80, the ground point
  * at +0xC0 and the body's centre at +0xD0 moved by the same step) and his moby (+0x2080) are
  * another player's for that update, and put back after it, with the bolts it gave (gBolts): an
- * enemy then chases, aims at and hits that player's figure, and a bolt flies to it.
+ * enemy then chases, aims at and hits that player's figure, and a bolt flies to it. Whatever else
+ * the update does to the hero stays off this game's (hero_grab.c).
  *
  * Hits. The game posts a hit to a moby in a ring of 64 records (D_L00_00178200, 0x40 bytes: the
  * position, the velocity, the attacker at +0x20, the mask at +0x24, the damage at +0x2C, the victim
@@ -452,12 +453,23 @@ void rac1_world_stand_in(const float position[3], gaddr moby) {
     if (moby != 0) {
         GREF(gaddr, HERO_MOBY) = moby;
     }
+    rac1_hero_guard_begin();
 }
 
-void rac1_stand_in_end(void) {
+void rac1_world_stand_in_as(
+    const float position[3], gaddr moby, int32_t state, int32_t health, uint32_t flags
+) {
+    rac1_world_stand_in(position, moby);
+    if (rac1_hero_guarded()) {
+        rac1_hero_guard_show(state, health, flags);
+    }
+}
+
+void rac1_stand_in_end(gaddr updated) {
     if (!stand.on) {
         return;
     }
+    rac1_hero_guard_end(updated);
     static const unsigned offsets[3] = {0x80u, 0xC0u, 0xD0u};
     for (unsigned i = 0; i < 3; ++i) {
         memcpy(G(HERO + offsets[i]), stand.motion[i], 16);

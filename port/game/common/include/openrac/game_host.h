@@ -526,6 +526,21 @@ typedef struct openrac_game_play {
     int (*camera_script_view)(float eye[3], float rotation[3], float where[3], int32_t* stand_in);
     int (*camera_script_play)(int32_t id);
     int (*camera_script_show)(const float eye[3], const float rotation[3]);
+    /* stand_in, and the update also sees the player's hero `state`, his `health` and
+     * OPENRAC_STAND_IN_* `flags` (openrac_api.hero_stand_in_as). NULL for a game without it. */
+    void (*stand_in_as)(
+        const float position[3], gaddr moby, int32_t state, int32_t health, uint32_t flags
+    );
+    /* In the gate's call after an update under a stand-in, what it did to the hero: 1, or 0 with no
+     * stand-in on. NULL for a game without it. */
+    int (*stand_in_read)(
+        float position[3], float* yaw, int32_t* state, int32_t* health, uint32_t* flags
+    );
+    /* The hero held as a grab holds him, on his way to the place asked, and let go (openrac_api
+     * hero_grab, hero_hold_at, hero_release): 1 asked, 0 refused. NULL for a game without it. */
+    int (*hero_grab)(int animation, uint32_t flags);
+    int (*hero_hold_at)(const float position[3], float yaw);
+    int (*hero_let_go)(void);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

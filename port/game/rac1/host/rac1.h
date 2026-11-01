@@ -82,6 +82,20 @@ int rac1_hero_steady(void);
  * of the tick's moby loop (asked by hero_revive). */
 int rac1_hero_revive(const float position[3], uint32_t flags);
 void rac1_hero_down_tick(void);
+/* hero_grab.c: what a moby's update does to the hero while another player stands in for him is kept
+ * from this game's hero (begin and end with the stand-in, world.c; killed from Hero_OnKilled,
+ * hero_down.c), what it sees of that player, and what it did; and the hero of this game held by a
+ * mod, from the end of the tick's moby loop. */
+int rac1_hero_guarded(void);
+void rac1_hero_guard_killed(void);
+void rac1_hero_guard_begin(void);
+void rac1_hero_guard_show(int32_t state, int32_t health, uint32_t flags);
+int rac1_hero_guard_read(float position[3], float* yaw, int32_t* state, int32_t* health, uint32_t* flags);
+void rac1_hero_guard_end(gaddr moby);
+int rac1_hero_grab(int animation, uint32_t flags);
+int rac1_hero_hold_at(const float position[3], float yaw);
+int rac1_hero_let_go(void);
+void rac1_hero_grab_tick(void);
 /* metal_detect.c: the metal detector's dig told to the mods, ahead of its update. */
 void rac1_metal_detect(gaddr moby);
 
@@ -105,7 +119,7 @@ void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
  * running (moby_pool.c's run list). */
 int32_t rac1_moby_slot(gaddr moby);
 int rac1_moby_gate(gaddr moby, int phase);
-void rac1_stand_in_end(void);
+void rac1_stand_in_end(gaddr moby);
 int rac1_stand_in_on(void);
 int rac1_moby_eyes(const float** xyz);
 int game_rac1_expanded_ram(void);
@@ -137,6 +151,9 @@ int rac1_level_mobys_current(void);
 int32_t rac1_world_moby_spawn(int32_t oclass);
 int32_t rac1_world_hero_slot(void);
 void rac1_world_stand_in(const float position[3], gaddr moby);
+void rac1_world_stand_in_as(
+    const float position[3], gaddr moby, int32_t state, int32_t health, uint32_t flags
+);
 void rac1_world_post_hit(
     gaddr victim,
     gaddr attacker,

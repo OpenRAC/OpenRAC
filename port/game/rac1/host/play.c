@@ -79,6 +79,7 @@
 #define HERO_VELOCITY (HERO + 0xE0u)
 #define HERO_STATE (HERO + 0x2084u)
 #define HERO_HEALTH (HERO + 0x22A8u)
+#define HERO_FRAMES_OFF_GROUND (HERO + 0x30Cu)
 #define HERO_ITEM_MOBY (HERO + 0x1090u)
 #define HERO_ITEM_ID (HERO + 0x10B8u)
 #define HERO_ANIM_SPEED (HERO + 0xA90u)
@@ -244,6 +245,9 @@ static int hero_pose(openrac_game_pose* out) {
     }
     if (rac1_hero_steady()) {
         out->flags |= 2u; /* OPENRAC_POSE_STEADY */
+    }
+    if (GREF(int16_t, HERO_FRAMES_OFF_GROUND) != 0) {
+        out->flags |= 4u; /* OPENRAC_POSE_AIRBORNE */
     }
     out->anim_speed = GREF(float, HERO_ANIM_SPEED);
     return 1;
@@ -596,6 +600,11 @@ const openrac_game_play rac1_play = {
     .live_picture = rac1_world_live_picture,
     .hero_place = rac1_hero_place,
     .hero_revive = rac1_hero_revive,
+    .stand_in_as = rac1_world_stand_in_as,
+    .stand_in_read = rac1_hero_guard_read,
+    .hero_grab = rac1_hero_grab,
+    .hero_hold_at = rac1_hero_hold_at,
+    .hero_let_go = rac1_hero_let_go,
     .moby_mission = rac1_world_moby_mission,
     .camera_script_next = rac1_camera_script_next,
     .camera_script_view = rac1_camera_script_view,

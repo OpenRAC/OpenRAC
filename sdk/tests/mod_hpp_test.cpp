@@ -722,6 +722,18 @@ void fill_12(openrac_api& api) {
         g_12 = "release";
         return OPENRAC_HOOK_OK;
     };
+    api.hero_hold_at = [](openrac_mod*, const float p[3], float yaw) {
+        g_12 = "hold " + std::to_string(static_cast<int>(p[0])) + " " + std::to_string(static_cast<int>(yaw));
+        return OPENRAC_HOOK_OK;
+    };
+    api.hero_stand_in_as = [](openrac_mod*, const openrac_stand_in* as, int figure) {
+        g_12 = "as " + std::to_string(as->state) + " " + std::to_string(figure);
+        return OPENRAC_HOOK_OK;
+    };
+    api.hero_stand_in_read = [](openrac_mod*, openrac_stand_in* out) {
+        out->state = 120;
+        return OPENRAC_HOOK_OK;
+    };
     api.hero_revive = [](openrac_mod*, const float p[3], uint32_t) {
         g_12 = p != nullptr ? "revive here" : "revive";
         return OPENRAC_HOOK_OK;
@@ -1673,6 +1685,11 @@ int main() {
         const float where[3] = {6, 0, 0};
         CHECK(mod.hero_place(where, 90, OPENRAC_PLACE_INVULNERABLE) && g_12 == "place 6 90 1");
         CHECK(mod.hero_grab(12) && g_12 == "grab 12" && mod.hero_release() && g_12 == "release");
+        CHECK(mod.hero_hold_at(where, 2) && g_12 == "hold 6 2");
+        openrac_stand_in as{};
+        as.state = 7;
+        CHECK(mod.hero_stand_in_as(as, 3) && g_12 == "as 7 3");
+        CHECK(mod.hero_stand_in_read(as) && as.state == 120);
         CHECK(mod.hero_revive() && g_12 == "revive" && mod.hero_revive(&where) && g_12 == "revive here");
         CHECK(mod.on_overlay([](void*, const openrac_overlay*) {}) && g_12 == "overlay");
         const std::vector<openrac_shot2> shots = mod.hero_shots2();

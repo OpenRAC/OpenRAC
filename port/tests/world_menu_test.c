@@ -177,6 +177,22 @@ int (*openrac_game_moby_hit)(
     const float velocity[3]
 );
 
+int rac1_hero_guarded(void) {
+    return 0;
+}
+
+void rac1_hero_guard_begin(void) {}
+
+void rac1_hero_guard_show(int32_t state, int32_t health, uint32_t flags) {
+    (void)state;
+    (void)health;
+    (void)flags;
+}
+
+void rac1_hero_guard_end(gaddr moby) {
+    (void)moby;
+}
+
 void rac1_figure_hit_dropped(const char* what) {
     (void)what;
 }
@@ -338,21 +354,21 @@ int main(void) {
     rac1_world_stand_in(there, 0);
     CHECK(rac1_stand_in_on());
     GREF(int32_t, HERO_STATE) = 0x72;
-    rac1_stand_in_end();
+    rac1_stand_in_end(0);
     CHECK(!rac1_stand_in_on());
     CHECK(heroes_freed == 1);
     rac1_world_stand_in(there, 0);
-    rac1_stand_in_end(); /* held before it, and still */
+    rac1_stand_in_end(0); /* held before it, and still */
     CHECK(heroes_freed == 1);
     GREF(int32_t, HERO_STATE) = 3;
     rac1_world_stand_in(there, 0);
     GREF(int32_t, HERO_STATE) = 0x3D;
-    rac1_stand_in_end();
+    rac1_stand_in_end(0);
     CHECK(heroes_freed == 1);
     GREF(int32_t, HERO_HEALTH) = 0;
     rac1_world_stand_in(there, 0);
     GREF(int32_t, HERO_STATE) = 0x72;
-    rac1_stand_in_end();
+    rac1_stand_in_end(0);
     CHECK(heroes_freed == 1);
 
     printf("world_menu ok\n");

@@ -59,8 +59,13 @@ static struct {
     float position[3];
 } down;
 
-/* Hero_OnKilled: left out while the hero stays down. */
+/* Hero_OnKilled: left out while the hero stays down, and for a player standing in, who is not this
+ * game's hero (hero_grab.c). */
 void func_L00_00211908(void) {
+    if (rac1_hero_guarded()) {
+        rac1_hero_guard_killed();
+        return;
+    }
     if (down.hold && GREF(uint8_t, HERO_VEHICLE) == 0) {
         switch (GREF(int32_t, HERO_STATE)) {
             case STATE_DYING:

@@ -122,6 +122,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_PLAY_MENU` | `5` | A level, a menu over it: paused, a vendor, a dialog. |
 | `OPENRAC_POSE_BLENDING` | `0x1u` | The animation is blending into `seq` from another: `frame` is where it arrives. |
 | `OPENRAC_POSE_STEADY` | `0x2u` | The hero's pose only: he stands still enough on the level's own ground, on foot and unhurt, for another to be put beside him (hero_place). Since 1.12. |
+| `OPENRAC_POSE_AIRBORNE` | `0x4u` | The hero's pose only: his feet are off the ground (a jump, a fall, water with no floor under him). Since 1.12. |
 | `OPENRAC_MOBY_UPDATES` | `0x1u` | It has an update of its own (the game runs it near the camera). |
 | `OPENRAC_MOBY_DRIVEN` | `0x2u` | A mod drives it (moby_drive): its update does not run. |
 | `OPENRAC_MOBY_PLACED` | `0x4u` | The level placed it: it has a key. |
@@ -169,6 +170,10 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_REVIVE_HOLD` | `0x1u` | hero_revive flags: with none, a dead hero is brought back. HOLD and LET_GO say what comes of a hero who dies on his feet from now on: he stays down, or goes to his checkpoint as always. RESPAWN sends the hero to his checkpoint now, dead or not. Since 1.12. |
 | `OPENRAC_REVIVE_LET_GO` | `0x2u` |  |
 | `OPENRAC_REVIVE_RESPAWN` | `0x4u` |  |
+| `OPENRAC_GRAB_FATAL` | `0x1u` | The grab kills him: he dies as the holder holds him. |
+| `OPENRAC_GRAB_SPIN` | `0x2u` | He turns on the spot while held, whatever yaw hero_hold_at asks. |
+| `OPENRAC_STAND_IN_AIRBORNE` | `0x1u` | In: the player's feet are off the ground. |
+| `OPENRAC_STAND_IN_KILLED` | `0x2u` | Out: the update ended the hero the way a kill volume does, whatever his health says. |
 | `OPENRAC_MISSION_STATE_SIZE` | `16` | The bytes of one level's mission state (mission_state_read, mission_state_write): 0 not done, 0xFF done. Since 1.12. |
 | `OPENRAC_SHOT_START` | `0x1u` | openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a track, and each of its shots says where in it this one is; aux[0] tells a player's tracks apart. Each may be lost: a MOVE stands in for a lost START, a track that goes silent ends by itself. No flag: one shot, fired once. Since 1.12. |
 | `OPENRAC_SHOT_MOVE` | `0x2u` |  |
@@ -689,6 +694,19 @@ stay valid for the life of the program. Since 1.11.
 | `int32_t party` | An OPENRAC_PARTY_SETTING_* value. |
 | `int32_t is_default` | Non-zero while it is the manifest's default. |
 
+## `openrac_stand_in`
+
+A player a moby's update takes the hero for (openrac_api.hero_stand_in_as), and what the update
+did to him (hero_stand_in_read), none of which reaches this game's hero. Since 1.12.
+
+| Member | |
+|---|---|
+| `float position[3]` |  |
+| `float yaw` | Out only. |
+| `int32_t state` | The hero's state (openrac_pose.state), and his health. |
+| `int32_t health` |  |
+| `uint32_t flags` | OPENRAC_STAND_IN_*. |
+
 ## `openrac_shot2`
 
 A shot with more to say than openrac_shot (hero_shots2, figure_shot2): the same fields, then the
@@ -882,7 +900,7 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*mission_state_read)(int level, uint8_t* out)` | The 16 bytes (OPENRAC_MISSION_STATE_SIZE) of the mission state the game keeps for level `level`, and the same merged back, upward only (a byte done stays done). The copy the level took when it loaded is left as it is: the game reads it as "not done on arrival". Since 1.12. |
 | `int (*mission_state_write)(int level, const uint8_t* in)` |  |
 | `int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags)` | Puts the hero at `position` (x, y, z) facing `yaw`, its speed cleared, with OPENRAC_PLACE_* `flags`, in a level; a place asked for in a menu, a scene or on a ride waits until the player is in control, on foot, and goes with the level. OPENRAC_HOOK_OK says it was asked, not done: the hero's pose says when he is there, and with OPENRAC_PLACE_BESIDE, where no spot beside the position has ground, he never goes. Since 1.12. |
-| `int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags)` | Holds the hero as a grab does, playing animation `animation`, controls locked, until hero_release or the game's own end of it; and lets go. Since 1.12. |
+| `int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags)` | Holds the hero as a grab does, controls locked, playing animation `animation` (below 0: the hold's own), with OPENRAC_GRAB_* `flags`, once the player is in control and on foot, until hero_release or the game's own end of it (he dies, or the level goes); and lets go. Asked, not done: the hero's pose says when he is held. Since 1.12. |
 | `int (*hero_release)(openrac_mod* mod)` |  |
 | `int (*hero_revive)(openrac_mod* mod, const float position[3], uint32_t flags)` | Brings a dead hero back where it fell, or at `position` when not null, or does what OPENRAC_REVIVE_* `flags` say. Since 1.12. |
 | `int (*on_overlay)(openrac_mod* mod, openrac_overlay_fn fn, void* user)` | Calls `fn(user, overlay)` once a frame to draw over the game (openrac_overlay). One a mod. Only during openrac_mod_load. Since 1.12. |
@@ -907,3 +925,6 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*plugins_folder)(char* out, uint32_t size)` | The folder the mods are in, <data>/plugins, as text into `out` (`size` bytes, ending in a zero): the launcher's file for the game, modset.json, is there. Returns its length, or 0 when there is none or it does not fit. Since 1.12. |
 | `int (*camera_script_view)(float eye[3], float rotation[3], float where[3], int* stand_in)` | The view of the camera script running in this game: where the camera is and its rotation (radians, x y z, as the game's), into `eye` and `rotation`, and where its moby is into `where`; `stand_in`, when not null, says it runs for another player standing in (hero_stand_in): this game's camera is not in it, and these are the views it would have shown. OPENRAC_HOOK_UNKNOWN with none. Since 1.12. |
 | `int (*camera_script_show)(openrac_mod* mod, const float eye[3], const float rotation[3])` | The view of the script shown here by camera_script_play, each tick. Returns OPENRAC_HOOK_OK while it is asked for or up, else OPENRAC_HOOK_UNKNOWN. Since 1.12. |
+| `int (*hero_hold_at)(openrac_mod* mod, const float position[3], float yaw)` | While the hero is held (hero_grab), he goes on towards `position`, a share of the way a tick, facing `yaw`. Since 1.12. |
+| `int (*hero_stand_in_as)(openrac_mod* mod, const openrac_stand_in* as, int figure)` | hero_stand_in, for the update of a moby that looks at more of the hero than where he is: it also sees `as`'s state, health and flags. Since 1.12. |
+| `int (*hero_stand_in_read)(openrac_mod* mod, openrac_stand_in* out)` | Only in the gate's call after an update under a stand-in: what the update did to the hero who stood in. A stand-in's hero is never this game's: what an update does to him, its state, its health, a kill, a place, stays there and ends here. Since 1.12. |

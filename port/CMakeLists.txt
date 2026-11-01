@@ -316,6 +316,7 @@ openrac_add_c_test(moby_bounds NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(moby_view NO_FP_CONTRACT MATH)
 openrac_add_c_test(hero_place NO_FP_CONTRACT MATH)
 openrac_add_c_test(camera_script NO_FP_CONTRACT)
+openrac_add_c_test(hero_grab NO_FP_CONTRACT MATH)
 openrac_add_c_test(wide_view NO_FP_CONTRACT MATH)
 openrac_add_c_test(hero_manipulators NO_STRICT_ALIASING NO_FP_CONTRACT)
 openrac_add_c_test(map_reveal NO_STRICT_ALIASING NO_FP_CONTRACT)
@@ -353,6 +354,11 @@ openrac_add_c_test(expanded_moby_grid NO_STRICT_ALIASING MATH
 # The shared rac1 host C's level world under the pause menu (the mods' mobys made and deleted
 # among the level's, the level's camera), with PAL's table and the same stand-in.
 openrac_add_c_test(world_menu NO_STRICT_ALIASING WRAPV MATH
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+# A moby's update under a stand-in, and this game's hero held (rac1/host/hero_grab.c, PAL's table).
+openrac_add_c_test(hero_guard NO_STRICT_ALIASING WRAPV MATH
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+openrac_add_c_test(hero_killed NO_STRICT_ALIASING WRAPV MATH
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
 openrac_add_c_test(resource_bank NO_STRICT_ALIASING)
