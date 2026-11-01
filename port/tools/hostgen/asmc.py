@@ -359,7 +359,7 @@ class Translator:
             ins = self._need(a, "it")
             heads.add(a)
             reach.add(a)
-            if ins.op in UNSUPPORTED:
+            if ins.op in UNSUPPORTED and self.microprogram(ins) is None:
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
                 todo.append(a + 4)
@@ -482,6 +482,14 @@ class Translator:
 
     def W(self, n: int, value: str) -> list[str]:
         return [] if n == 0 else [f"r{n} = {value};"]
+
+    def microprogram(self, ins: asm.Insn) -> str | None:
+        """The port's C for the VU0 microprogram a vcallms starts (hostgen.json asm.vu0_programs: the
+        address in VU0's memory, as a string, to a function working on OPENRAC_VU0), or None."""
+        if ins.op != "vcallms":
+            return None
+        programs = getattr(self.program, "vu0_programs", {})
+        return programs.get((ins.word >> 6 & 0x7FFF) * 8)
 
     def vf(self, n: int, c: int) -> str:
         if n == 0:
@@ -825,6 +833,8 @@ class Translator:
         rs, rt, rd, sa, imm = ins.rs, ins.rt, ins.rd, ins.sa, ins.imm
         if op in SKIP:
             return []
+        if self.microprogram(ins) is not None:
+            return [f"{{ extern void {self.microprogram(ins)}(void); {self.microprogram(ins)}(); }}"]
         if op in UNSUPPORTED:
             raise AsmUnsupported(f"{UNSUPPORTED[op]} at {ins.addr:08X}")
         u32 = lambda x: f"(openrac_u32){x}"

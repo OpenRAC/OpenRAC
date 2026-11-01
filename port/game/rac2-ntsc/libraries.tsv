@@ -173,3 +173,28 @@ func_00133640	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; que
 func_00133688	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
 func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
 func_00131CB8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
+func_0029D4D0	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
+# The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
+func_00132498	game	snd_BankLoadByLoc_CB	host	a bank by sector and offset, its handle told to the callback: host/sound.c	void (int, int, int, long long)
+func_001325E8	989snd	snd_BankLoadFromEE_CB	host	a bank in EE memory; the level loader waits for its callback (func_002EAAA8)
+func_00132828	989snd	snd_ResolveBankXREFS	host	command 8
+func_00132858	989snd	snd_UnloadBank	host	command 6
+func_00132888	989snd	snd_SetMasterVolume	host	command 9
+func_00132938	989snd	snd_SetPlaybackMode	host	command 0xB
+func_00132A70	989snd	snd_StopSound	host	command 0x15
+func_00132AC8	989snd	snd_StopAllSounds	host	command 0x18
+func_00132AF8	989snd	snd_PauseAllSoundsInGroup	host	command 0x16
+func_00132B28	989snd	snd_ContinueAllSoundsInGroup	host	command 0x17
+func_00132B58	989snd	snd_SoundIsStillPlaying_CB	host	command 0x19
+func_00133310	989snd	snd_StopAllStreams	host	command 0x34
+func_001333D0	989snd	snd_PauseVAGStream	host	command 0x2D
+func_00133400	989snd	snd_ContinueVAGStream	host	command 0x2E
+func_00133430	989snd	snd_GetVAGStreamTimeRemaining_CB	host	command 0x32
+func_00133460	989snd	snd_IsVAGStreamBuffered_CB	host	command 0x4F
+func_00133490	989snd	snd_StreamSafeCheckCDIdle	host	command 0x36
+func_00133750	989snd	snd_PreAllocReverbWorkArea	host	command 0x51
+func_00133788	989snd	snd_AutoReverb	host	command 0x10
+func_00133890	989snd	snd_ResetMovieSound	host	command 0x3D
+func_001338F0	989snd	snd_StartMovieSound	host	command 0x3E
+func_00133930	989snd	snd_UpdateMovieADPCM	host	command 0x5A
+func_00133960	989snd	snd_GetMovieNAX	host	command 0x5B

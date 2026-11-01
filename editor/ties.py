@@ -40,8 +40,10 @@ def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC
     normal_offset, = unpack("<I", header, layout.normals)
     normal_table = None
     if normal_offset:
+        # Up to 64 entries: a small class of Going Commando's ends its block with fewer.
+        size = min(64 * 8, (len(data) - normal_offset) // 8 * 8)
         normal_table = [unit_normal(values[:3])
-                        for values in struct.iter_unpack("<4h", span(data, normal_offset, 64 * 8))]
+                        for values in struct.iter_unpack("<4h", span(data, normal_offset, size))]
         mesh.normals = []
     for packet_id in range(packet_count):
         entry = table[packet_id * 16:(packet_id + 1) * 16]
