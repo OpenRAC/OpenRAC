@@ -364,6 +364,11 @@ void publish_counters() {
     }
 
     stats::gauge("shader_compile_s", now.shader_compile_s);
+    stats::gauge("pipeline_compile_s", g->pipeline_compile_s.load(std::memory_order_relaxed));
+    stats::gauge(
+        "pipeline_creation_calls",
+        static_cast<double>(g->pipeline_creation_calls.load(std::memory_order_relaxed))
+    );
     stats::gauge("vk_gpu_timestamps", g->timestamp_bits != 0 ? 1.0 : 0.0);
     // The presentation's timing (R-09): whether presents can be waited on, whether one has been
     // seen finished, and how long the frame waited for a free swapchain image.

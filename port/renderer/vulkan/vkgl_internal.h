@@ -1033,6 +1033,8 @@ struct Context {
     void* tracy_state = nullptr;
 #endif
     std::atomic_uint64_t validation_errors = 0;
+    std::atomic<double> pipeline_compile_s = 0.0;      // Shared with the pipeline prewarm worker.
+    std::atomic_uint64_t pipeline_creation_calls = 0;  // Every timed driver creation attempt.
     VmaAllocator allocator = nullptr;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -1146,6 +1148,16 @@ struct Context {
 // The backend's state: made by open() and destroyed by close() (vkgl.cpp), null while closed.
 // The thread that draws uses it; on_event, from SDL's event thread, only sets `surface_lost`.
 extern Context* g;
+
+// Measures only the driver's pipeline creation call; worker durations may overlap host work.
+template <typename Create>
+VkResult timed_pipeline_creation(Create&& create) {
+    const auto start = Clock::now();
+    const VkResult result = std::forward<Create>(create)();
+    g->pipeline_compile_s.fetch_add(seconds_since(start), std::memory_order_relaxed);
+    g->pipeline_creation_calls.fetch_add(1, std::memory_order_relaxed);
+    return result;
+}
 
 // Releases the optional depth-composition pipeline after device idle at context teardown.
 void release_depth_combine();

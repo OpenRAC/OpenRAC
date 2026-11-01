@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // --opt registry-name limits the registry comparisons to one optimisation.
-// --shard index count partitions registry entries; every shard checks all scenarios.
+// --shard index count balances registry entries by measured cost; all scenarios stay in each shard.
 //
 // Tests that the render optimisations change no pixel (ctest render_equivalence_vulkan): for
 // each scenario of render_fixture.h (the camera walking, the camera still with the mobys moving,
@@ -39,7 +39,10 @@
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/render_equivalence_costs.h"
 #include "tests/render_fixture.h"
+#include "tests/render_test_shards.h"
+#include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -313,6 +316,7 @@ void test_an_entry_changes_no_frame(
     const std::array<Frames, render::kScenarios.size()>& baselines,
     const render_opt::Entry& entry
 ) {
+    openrac::test::RenderTestTiming timing(entry.name);
     std::string error;
     const bool baseline_on = render_opt::enabled(entry.opt);
     render_opt::set(entry.opt, !baseline_on);
@@ -325,6 +329,7 @@ void test_an_entry_changes_no_frame(
         return;
     }
     const RunSetup reused{setup.level, setup.size, setup.enhanced, &scene};
+    timing.lap(setup.enhanced ? "enhanced setup" : "compatibility setup");
     for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
         const auto& scenario = render::kScenarios[index];
         const auto& baseline = baselines[index];
@@ -345,6 +350,7 @@ void test_an_entry_changes_no_frame(
         );
         CHECK(equivalent);
     }
+    timing.lap(setup.enhanced ? "enhanced draw/readback" : "compatibility draw/readback");
     scene.release();
     render_opt::reset();
 }
@@ -365,12 +371,14 @@ std::vector<Frames> draw_scenarios(const RunSetup& setup, std::string& error) {
 
 // Compares poisoned discards with retained attachments in every scenario and the same mode.
 void test_no_pass_reads_what_it_discards(const RunSetup& setup) {
+    openrac::test::RenderTestTiming timing("discard comparisons");
     std::string error;
     CHECK(openrac::vkgl::test_poison_discards(true));
     const auto poisoned_frames = draw_scenarios(setup, error);
     openrac::vkgl::test_poison_discards(false);
     render_opt::set(render_opt::Opt::AttachmentDiscard, false);
     const auto kept_frames = draw_scenarios(setup, error);
+    timing.lap(setup.enhanced ? "enhanced draw/readback" : "compatibility draw/readback");
     render_opt::reset();
     CHECK(poisoned_frames.size() == render::kScenarios.size());
     CHECK(kept_frames.size() == render::kScenarios.size());
@@ -463,7 +471,9 @@ int main(int argc, char** argv) {
     }
 
     use_enhanced(false);
+    openrac::test::RenderTestTiming baseline_timing("equivalence baselines");
     test_the_scene_is_drawn(level, size);
+    baseline_timing.lap("scene witness");
     bool deterministic = true;
     std::array<std::array<Frames, render::kScenarios.size()>, 2> baselines;
 
@@ -482,6 +492,7 @@ int main(int argc, char** argv) {
                             )
                             && deterministic;
         }
+        baseline_timing.lap(enhanced ? "enhanced determinism" : "compatibility determinism");
     }
 
     // A driver that does not draw alike twice: the noise floor is printed above, and no entry can
@@ -490,16 +501,19 @@ int main(int argc, char** argv) {
         return openrac::test::result();
     }
 
+    const auto entries = render_opt::entries();
+    const auto costs = openrac::test::equivalence_entry_costs();
+    const auto assignments = openrac::test::balanced_test_shards(costs, chosen->shards);
+
     // Each entry, the self-test included, on against off in every scenario.
     for (const bool enhanced : modes) {
         use_enhanced(enhanced);
 
         // Each entry keeps its own initialisation and shader configuration.
-        const auto entries = render_opt::entries();
         for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
             const auto& entry = entries[entry_index];
             if ((chosen->entry && entry.opt != chosen->entry->opt)
-                || entry_index % chosen->shards != chosen->shard) {
+                || assignments[entry_index] != chosen->shard) {
                 continue;
             }
             test_an_entry_changes_no_frame(
