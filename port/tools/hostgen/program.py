@@ -105,6 +105,7 @@ class Program:
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
+    bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
     code_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_CODE_NAMES])
@@ -284,7 +285,7 @@ class Program:
                 return other
         # A function of level 0's program spelled without its level (rac2's C calls func_003100D8,
         # level 0's CreateMoby): no such address in the executable, so level 0's place.
-        for overlay, address in places:
+        for overlay, address in places if self.bare_names_in_level_0 else ():
             other = self.by_place.get((0, address)) if overlay == -1 else None
             if other is not None:
                 return other

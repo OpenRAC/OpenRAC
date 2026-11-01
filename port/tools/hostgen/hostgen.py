@@ -1019,6 +1019,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # The executable's data that level programs carry at other addresses (guest.h, per-level
     # relocation): [low, high), or none.
     program.relocate = cfg.get("relocate")
+    program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
     program.returns_64 = set(cfg.get("returns_64", []))
     program.vu0_programs = {int(k, 0): v for k, v in cfg.get("asm", {}).get("vu0_programs", {}).items()}
     # Locals that receive a "returns_64" call's result but which the original keeps in a stack slot across calls,
