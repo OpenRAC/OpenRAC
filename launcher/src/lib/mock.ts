@@ -2545,6 +2545,16 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         exists: true,
         gameFolderName: "BESCES-50916RATCHET",
         title: "Ratchet & Clank",
+        coopSaves: [
+          {
+            slotIndex: 0,
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET-coop/save0.bin`,
+            bolts: 4200,
+            planetName: "Novalis",
+            timestamp: "2026-10-30 21:14:02",
+            host: "Kero",
+          },
+        ],
         slots: [
           {
             slotIndex: 0,
