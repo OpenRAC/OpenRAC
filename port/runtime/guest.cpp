@@ -1065,6 +1065,7 @@ struct LevelMap {
 };
 
 gaddr g_relocate_gp = 0;
+bool g_pair_neighbours = false;  // openrac_guest_set_level_range
 std::vector<std::uint8_t> g_exe_code;
 gaddr g_exe_base = 0;
 std::map<int, LevelMap> g_level_maps;
@@ -1272,6 +1273,63 @@ std::pair<std::uint32_t, std::uint32_t> piece_bytes(WordReader reader, int progr
     return {size, own};
 }
 
+// An instruction with its address fields cleared (the immediates of lui, addiu, ori, the loads and
+// stores; the targets of j and jal), for comparing the same code in two programs.
+std::uint32_t without_addresses(std::uint32_t w) {
+    const std::uint32_t op = w >> 26;
+    if (op == 0x0F || op == 0x09 || op == 0x0D || op == 0x19 || (op >= 0x20 && op <= 0x2F) || op == 0x31
+        || op == 0x39 || op == 0x37 || op == 0x3F || op == 0x1E || op == 0x1F) {
+        return w & 0xFFFF0000u;
+    }
+    if (op == 0x02 || op == 0x03) {
+        return w & 0xFC000000u;
+    }
+    return w;
+}
+
+// A function of the reference the catalogue has no copy of, where it sits the same distance after a
+// neighbour that has one and its instructions, addresses aside, are that neighbour's copy's next ones:
+// programs are linked from the same objects, so that is its copy. Going Commando's two callback lists
+// (func_0027CE18 and its twin) are in every level and in no row of the catalogue, and search_pair
+// finds each twice. Without this their tables stayed at the executable's address, over level data.
+void pair_neighbours(WordReader reference, int program, const Functions& own,
+                     const std::unordered_map<openrac_host_fn, std::vector<gaddr>>& copies, gaddr low, gaddr high,
+                     bool skip_same_place, std::unordered_map<gaddr, gaddr>& code,
+                     std::map<gaddr, std::int32_t>& out) {
+    gaddr from = 0, to = 0;
+    for (std::size_t k = 0; k < own.size(); ++k) {
+        const gaddr at = own[k].first;
+        if (auto copy = copies.find(own[k].second); copy != copies.end()) {
+            if (copy->second.size() == 1) {
+                from = at;
+                to = copy->second[0];
+            }
+            continue;
+        }
+        if (from == 0) {
+            continue;
+        }
+        const std::uint32_t size = piece_size(own, k);
+        const gaddr place = to + (at - from);
+        if (size < 16 || size >= 0x8000 || !openrac::runtime::Memory::get().mapped(place, size)) {
+            continue;
+        }
+        bool same = true;
+        for (std::uint32_t i = 0; i < size && same; i += 4) {
+            same = without_addresses(reference(program, at + i)) == without_addresses(game_word(place + i));
+        }
+        if (!same) {
+            continue;
+        }
+        if (!(skip_same_place && place == at)) {
+            code.emplace(at, place);
+        }
+        pair_code(reference, program, at, place, size, low, high, out);
+        from = at;
+        to = place;
+    }
+}
+
 // Pairs each function of a reference program (`own`: its places and host functions, in address
 // order) with its copies in the loaded program: code addresses into `code`, globals into `out`
 // (the first pair of an address kept). A function the catalogue folded has several copies in one
@@ -1329,6 +1387,9 @@ void pair_programs(WordReader reference, int program, const Functions& own,
         for (const auto& pair : agreed) {
             out.emplace(pair);
         }
+    }
+    if (g_pair_neighbours) {
+        pair_neighbours(reference, program, own, copies, low, high, skip_same_place, code, out);
     }
 }
 
@@ -1459,20 +1520,6 @@ gaddr relocate_by(const LevelMap& map, gaddr address) {
     }
     --it;
     return address + static_cast<gaddr>(it->second);
-}
-
-// An instruction with its address fields cleared (the immediates of lui, addiu, ori, the loads and
-// stores; the targets of j and jal), for comparing the same code in two programs.
-std::uint32_t without_addresses(std::uint32_t w) {
-    const std::uint32_t op = w >> 26;
-    if (op == 0x0F || op == 0x09 || op == 0x0D || op == 0x19 || (op >= 0x20 && op <= 0x2F) || op == 0x31
-        || op == 0x39 || op == 0x37 || op == 0x3F || op == 0x1E || op == 0x1F) {
-        return w & 0xFFFF0000u;
-    }
-    if (op == 0x02 || op == 0x03) {
-        return w & 0xFC000000u;
-    }
-    return w;
 }
 
 // An executable address no paired function reaches (code the catalogue does not list in the level,
@@ -1648,6 +1695,7 @@ void openrac_guest_set_level_range(gaddr low, gaddr high) {
     forget_answers();
     g_level_low = low;
     g_level_high = high;
+    g_pair_neighbours = true;
 }
 
 void openrac_guest_set_level_programs(void (*load)(int level)) {
