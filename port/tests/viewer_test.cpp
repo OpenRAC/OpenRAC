@@ -77,6 +77,13 @@ void pvs_lookup() {
     CHECK(pvs.select({400, 0, 0}) == scene::Pvs::all_visible());
     CHECK(pvs.select({NAN, 0, 0}) == scene::Pvs::all_visible());
     CHECK(pvs.select({INFINITY, 0, 0}) == scene::Pvs::all_visible());
+    // Retail keeps the last mask outside the grid; before any cell, everything shows.
+    auto follow = pvs_fixture();
+    CHECK(follow.follow({400, 0, 0}) == scene::Pvs::all_visible());
+    CHECK(follow.follow({4, 0, 0}) == b);
+    CHECK(follow.follow({400, 0, 0}) == b);
+    CHECK(follow.follow({NAN, 0, 0}) == b);
+    CHECK(follow.follow({0, 0, 0}) == a);
     for (const unsigned size : {0u, 7u, 31u, 33u}) {
         auto broken = pvs;
         broken.grid.resize(size);
@@ -576,13 +583,9 @@ int draw(scene::LevelData& level) {
     input.camera.view = camera.view();
     input.camera.position = camera.position;
     renderer.render(input, {frame.id(), 128, 128});
-    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 3));
+    CHECK(renderer.last_stats().draw_calls == 2);
     auto pvs_pixels = frame.read_rgba();
-    if (gl::is_vulkan()) {
-        CHECK(pvs_pixels[(64 * 128 + 64) * 4] > 150);  // hidden blue tie exposes red terrain
-    } else {
-        CHECK(pvs_pixels[(64 * 128 + 64) * 4 + 2] > 150);  // GL/ES keep drawing the blue tie
-    }
+    CHECK(pvs_pixels[(64 * 128 + 64) * 4] > 150);  // hidden blue tie exposes red terrain
     camera.position[0] = 4;
     input.camera.position = camera.position;
     input.camera.view = camera.view();
@@ -592,7 +595,7 @@ int draw(scene::LevelData& level) {
     input.camera.position = camera.position;
     input.camera.view = camera.view();
     renderer.render(input, {frame.id(), 128, 128});
-    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 3));  // camera cache refresh
+    CHECK(renderer.last_stats().draw_calls == 2);  // camera cache refresh
 
     if (gl::is_vulkan()) {
         stats::set_enabled(stats::Client::Overlay, true);
