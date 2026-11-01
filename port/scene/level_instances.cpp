@@ -425,7 +425,23 @@ void LevelScene::submit_instances(
     );
 }
 
-void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instances) {
+void LevelScene::set_instances(Layer layer, const std::vector<Instance>& source) {
+#ifdef OPENRAC_LIGHT_AUTHORING
+    if (m_lighting) {
+        m_lighting->prepare_instances(layer, source);
+    }
+    std::vector<Instance> drawable;
+    const bool has_emitters =
+        std::any_of(source.begin(), source.end(), [](const auto& i) { return i.lighting_only; });
+    if (has_emitters) {
+        std::copy_if(source.begin(), source.end(), std::back_inserter(drawable), [](const auto& i) {
+            return !i.lighting_only;
+        });
+    }
+    const auto& instances = has_emitters ? drawable : source;
+#else
+    const auto& instances = source;
+#endif
     // The CPU time of handing the scene a layer's instances (the moby layer's, every frame).
     const stats::Scope pass(layer == Layer::Mobys ? "moby instances" : "layer instances");
     m_camera_visibility[static_cast<std::size_t>(layer)].recording = 0;

@@ -11,6 +11,20 @@ from enhanced import profiles
 
 
 class ProfileTests(unittest.TestCase):
+    def test_object_lights_shared_by_pal_and_ntsc(self):
+        """Model-attached lights share definitions across revisions and reach standalone exports."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root/'profiles/rac1/object-lights.json'
+            source.parent.mkdir(parents=True)
+            source.write_text('{"version":1,"objects":{"mobys/moby_601.glb":[]}}')
+            for version in ('ntsc', 'pal'):
+                output = root/version
+                output.mkdir()
+                with mock.patch.object(profiles,'PROFILE_ROOT',root/'profiles'):
+                    profiles.write_bake_profile(SimpleNamespace(game='rac1',version=version,id=1),output)
+                self.assertEqual((output/'object-lights.json').read_bytes(),source.read_bytes())
+
     def test_background_scene_strategies_are_exported(self):
         """Each tracked background profile reaches exports without a gameplay dependency."""
         for number in (98, 99):

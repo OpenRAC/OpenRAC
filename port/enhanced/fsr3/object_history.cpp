@@ -19,6 +19,9 @@ ObjectHistory::Changes ObjectHistory::update(
         m_entries.clear();
     }
     for (const auto& instance : instances) {
+        if (instance.lighting_only) {
+            continue;
+        }
         const auto [it, inserted] =
             m_entries.try_emplace(instance.temporal_id, instance, deformation_active);
         if (inserted) {

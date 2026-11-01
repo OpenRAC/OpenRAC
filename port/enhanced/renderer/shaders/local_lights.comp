@@ -1,0 +1,61 @@
+#version 430 core
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Complete masks preserve every survivor; transparent receivers never use opaque depth bounds.
+layout(local_size_x=16,local_size_y=16) in;
+layout(std430,binding=11) buffer Masks { uint masks[]; };
+uniform sampler2D scene_depth;
+uniform samplerBuffer lights;
+uniform mat4 world_to_clip;
+uniform vec2 scene_extent;
+uniform int light_count;
+shared uint minimum_depth,maximum_depth;
+shared vec4 planes[8];
+void main() {
+    ivec2 extent=ivec2(scene_extent);
+    uint lane=gl_LocalInvocationIndex;
+    ivec2 pixel=ivec2(gl_WorkGroupID.xy)*16+ivec2(gl_LocalInvocationID.xy);
+    int words=(light_count+31)/32;
+    int tile=int(gl_WorkGroupID.y)*((extent.x+15)/16)+int(gl_WorkGroupID.x);
+    int base=tile*words*2;
+    if(lane==0u) {minimum_depth=floatBitsToUint(1.);maximum_depth=0u;}
+    for(int i=int(lane);i<words*2;i+=256) masks[base+i]=0u;
+    memoryBarrierBuffer();
+    barrier();
+    if(all(lessThan(pixel,extent))) {
+        float d=texelFetch(scene_depth,pixel,0).r;
+        if(d>0.) {atomicMin(minimum_depth,floatBitsToUint(d));atomicMax(maximum_depth,floatBitsToUint(d));}
+    }
+    barrier();
+    if(lane<8u) {
+        vec2 start=vec2(gl_WorkGroupID.xy*16u)/vec2(extent)*2.-1.;
+        vec2 end=vec2(min(ivec2(gl_WorkGroupID.xy)*16+16,extent))/vec2(extent)*2.-1.;
+        float low=uintBitsToFloat(minimum_depth)*2.-1.;
+        float high=uintBitsToFloat(maximum_depth)*2.-1.;
+        vec4 clip_planes[8]=vec4[8](vec4(1,0,0,-start.x),vec4(-1,0,0,end.x),
+            vec4(0,1,0,-start.y),vec4(0,-1,0,end.y),vec4(0,0,1,1),vec4(0,0,-1,1),vec4(0,0,1,-low),vec4(0,0,-1,high));
+        vec4 p=transpose(world_to_clip)*clip_planes[lane];
+        planes[lane]=p/max(length(p.xyz),1e-20);
+    }
+    barrier();
+    for(int i=int(lane);i<light_count;i+=256) {
+        vec4 sphere=texelFetch(lights,i*4);
+        if(sphere.w<=0.) continue;
+        vec4 parameters=texelFetch(lights,i*4+3);
+        // A tighter conservative sphere encloses the spot's spherical sector, including its apex.
+        if(parameters.y!=0.) {
+            vec4 axis=texelFetch(lights,i*4+2);
+            float c=axis.w,offset=c>=.70710678?sphere.w/(2.*c):sphere.w*c;
+            sphere.xyz+=axis.xyz*offset;
+            sphere.w=c>=.70710678?offset:sphere.w*sqrt(max(0.,1.-c*c));
+        }
+        bool visible=true;
+        for(int p=0;p<6;++p) visible=visible && dot(planes[p],vec4(sphere.xyz,1))>=-sphere.w-.002;
+        if(!visible) continue;
+        uint bit=1u<<uint(i%32);int word=i/32;
+        atomicOr(masks[base+words+word],bit);
+        if(maximum_depth==0u) continue;
+        bool opaque=dot(planes[6],vec4(sphere.xyz,1))>=-sphere.w-.002
+                    && dot(planes[7],vec4(sphere.xyz,1))>=-sphere.w-.002;
+        if(opaque) atomicOr(masks[base+word],bit);
+    }
+}

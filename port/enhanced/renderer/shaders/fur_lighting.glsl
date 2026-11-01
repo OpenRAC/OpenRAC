@@ -64,11 +64,11 @@ vec3 fur_direct_lighting(FurSurfaceData surface, vec3 p, vec4 selector, float vi
         // Added sheen/scattering has no legacy 10% floor: occluded directional lights cannot glow.
         result += colour * correction * clamp(visibility, 0., 1.) * fur_light_response(surface, eye, -direction, albedo);
     }
-    for (int i = 0; i < 8; ++i) {
-        vec3 delta = probe_point_position[i].xyz - p;
-        float radius = probe_point_position[i].w, distance = length(delta);
+    LOCAL_LIGHT_LOOP(i) {
+        vec3 delta = LOCAL_POSITION(i).xyz - p;
+        float radius = LOCAL_POSITION(i).w, distance = length(delta);
         if (radius <= 0. || distance >= radius || distance <= 1e-6) continue;
-        result += max(probe_point_colour[i].rgb, vec3(0.)) * (1. - distance / radius)
+        result += max(LOCAL_COLOUR(i).rgb, vec3(0.)) * LOCAL_ATTENUATION(distance,radius) * LOCAL_CONE(i,delta/distance)
             * fur_light_response(surface, eye, delta / distance, albedo);
     }
     return result * surface.coverage;

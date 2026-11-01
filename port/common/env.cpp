@@ -190,7 +190,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "what the hero and each co-op figure hold and the shots they fire, on stderr"},
     {Var::Keys, "OPENRAC_KEYS",
      Kind::Text, Truth::NotAFlag, "none",
-     "FRAME[+HELD]:KEY,...: keys and clicks by script"},
+     "FRAME[+HELD]:ACTION,... or @FILE: scripted keys, held keys, pointer movement and wheel"},
     {Var::Log, "OPENRAC_LOG",
      Kind::Text, Truth::NotAFlag, "info",
      "the log's level: verbose or debug"},

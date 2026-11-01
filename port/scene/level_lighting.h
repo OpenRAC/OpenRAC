@@ -60,6 +60,9 @@ public:
 
     virtual void bind_wetness(const renderer::Shader&) const {}
 
+    // Optional class-bound effects receive complete instances, including offscreen light-only captures.
+    virtual void prepare_instances(Layer, std::span<const Instance>) {}
+
     // Update optional surface deformation before any depth, shadow or colour consumers.
     virtual void prepare_deformation(const renderer::FrameInput&, const LevelScene&) {}
 

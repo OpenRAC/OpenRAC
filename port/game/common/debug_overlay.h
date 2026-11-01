@@ -35,6 +35,8 @@ void request();
 
 // Capturing picker geometry is opt-in; pose capture reads this on the render worker.
 bool picker_enabled();
+// The isolated studio may still need displayed poses after click picking is turned off.
+bool picker_snapshot_needed();
 void set_picker_enabled(bool enabled);
 
 // Any desktop overlay window holding the mouse, including Enhanced Settings.
