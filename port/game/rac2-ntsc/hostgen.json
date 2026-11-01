@@ -51,6 +51,9 @@
   "places": "config/levels/functions.tsv",
   "split_places": "split_places.tsv",
   "calls_as": {
+    "L22": {"func_002F3A80": "func_00282CC0", "func_002F3AF0": "func_00282D30", "func_002F3AB0": "func_00282CF0", "func_002F3BB0": "func_00282DD8", "func_0032A1C8": "func_002AFFD8"},
+    "L23": {"func_002F3A80": "func_00282CC0", "func_002F3AF0": "func_00282D30", "func_002F3AB0": "func_00282CF0", "func_002F3BB0": "func_00282DD8", "func_0032A1C8": "func_002AFFD8"},
+    "L12": {"func_3248E0": "func_002A7750"},
     "func_L04_002E04A8": {"func_L00_002B6BC8": "func_L04_002DCE78", "func_L00_002ACF88": "func_L01_002AE128"},
     "func_L08_002CB6E8": {"func_L00_002B6BC8": "func_L04_002DCE78", "func_L00_002ACF88": "func_L01_002AE128"},
     "func_L09_00404B90": {"func_L08_00316678": "func_002A7470"},
