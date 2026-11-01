@@ -239,6 +239,27 @@ void check_instances(Fixture& fixture) {
     runtime.release();
 }
 
+// Save and Reload must agree on the highest-priority mod destination.
+void test_authoring_destination(Fixture& fixture) {
+    auto level = fixture.level;
+    CHECK(
+        enhanced::object_light_author_path(level) == level.dir.parent_path() / "object-lights.json"
+    );
+    level.overrides = fixture.dir / "edited";
+    CHECK(enhanced::object_light_author_path(level) == level.overrides / "object-lights.json");
+    level.mod_roots = {fixture.dir / "first-mod", fixture.dir / "second-mod"};
+    const auto destination = level.mod_roots.front() / "object-lights.json";
+    CHECK(enhanced::object_light_author_path(level) == destination);
+    enhanced::ObjectLightCatalog catalog;
+    enhanced::AttachedLight light;
+    light.name = "Saved to active mod";
+    const auto key = enhanced::object_light_key(level, scene::Layer::Mobys, 0);
+    catalog.objects[key] = {light};
+    CHECK(enhanced::write_object_lights(destination, catalog));
+    auto loaded = enhanced::load_object_lights(level);
+    CHECK(loaded && loaded.value().objects.at(key).front().name == light.name);
+}
+
 // Fly look preserves the eye, orbit preserves the focus, and tiny uniform scales remain invertible.
 void check_camera() {
     scene::PreviewOrbit camera;
@@ -277,6 +298,7 @@ int main() {
         check_invalid(fixture);
         check_instances(fixture);
         check_camera();
+        test_authoring_destination(fixture);
         return test::result();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "object lights: %s\n", error.what());

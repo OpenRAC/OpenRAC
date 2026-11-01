@@ -63,6 +63,11 @@ std::string object_light_key(const scene::LevelData& level, scene::Layer layer, 
 }
 
 std::filesystem::path object_light_author_path(const scene::LevelData& level) {
+    // Save into the same highest-priority override that the runtime will read back.
+    if (!level.mod_roots.empty()) {
+        return level.mod_roots.front() / "object-lights.json";
+    }
+
     if (!level.overrides.empty()) {
         return level.overrides / "object-lights.json";
     }
