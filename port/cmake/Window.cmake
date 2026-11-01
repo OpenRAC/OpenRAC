@@ -677,6 +677,9 @@ set_tests_properties(${openrac_es_bare_tests} PROPERTIES SKIP_RETURN_CODE 77 ENV
 # installed: every GL call the renderers make, carried out on Vulkan (Mesa's lavapipe in CI). Where
 # Vulkan cannot open, the window falls back to OpenGL and these repeat the tests above.
 if(OPENRAC_VULKAN)
+  openrac_add_test(vulkan_failure LIBS openrac_renderer openrac_renderer_vulkan)
+  set_tests_properties(vulkan_failure PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   openrac_add_test(vulkan_uniform LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
   # The pipeline cache's file, saved by writers in parallel; no GPU needed.
   find_package(Threads REQUIRED)

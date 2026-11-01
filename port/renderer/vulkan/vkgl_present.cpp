@@ -441,9 +441,9 @@ void prepare_frame() {
     f.timings.clear();
     f.timestamp_used = 0;
     f.active_timing = -1;
-    vkResetCommandPool(g->device, f.pool, 0);
+    require_success(vkResetCommandPool(g->device, f.pool, 0), "reset frame pool");
     for (VkDescriptorPool pool : f.pools) {
-        vkResetDescriptorPool(g->device, pool, 0);
+        require_success(vkResetDescriptorPool(g->device, pool, 0), "reset frame descriptors");
     }
     f.pool_at = 0;
     f.chunk_at = 0;

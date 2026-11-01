@@ -1163,6 +1163,10 @@ inline bool check(VkResult result, const char* what) {
     return false;
 }
 
+// Stops recording on a failed Vulkan operation; the owning frame boundary reports the exception.
+void require_success(VkResult result, const char* operation);
+
+
 // Reclaims the selected slot before its first resource or command-buffer use.
 void prepare_frame();
 // Low-latency frames, as the frame is queued (present): the wait for the frame before it that
