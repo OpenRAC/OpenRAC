@@ -731,7 +731,11 @@ VkPipeline create_graphics_pipeline(
 
     // A pipeline the driver refuses is null: its draws are skipped, as before a cache existed.
     if (!check(
-            vkCreateGraphicsPipelines(g->device, g->pipeline_cache, 1, &info, nullptr, &pipeline),
+            timed_pipeline_creation([&] {
+                return vkCreateGraphicsPipelines(
+                    g->device, g->pipeline_cache, 1, &info, nullptr, &pipeline
+                );
+            }),
             "a pipeline"
         )) {
         pipeline = VK_NULL_HANDLE;

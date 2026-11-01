@@ -376,7 +376,8 @@ jobs:
           # Compile Mesa's shaders faster; retain execution, validation and all comparisons.
           # Fedora below retains the default LLVM optimisation coverage.
           GALLIVM_PERF: nopt
-        run: xvfb-run -a ctest --preset enhanced --parallel 2 --stop-on-failure --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
+        # Retain up to 1 MiB per passed test so JUnit keeps its phase timings.
+        run: xvfb-run -a ctest --preset enhanced --parallel 2 --stop-on-failure --test-output-size-passed 1048576 --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
       - name: Enhanced GPU and bake checks must run, not skip
         working-directory: port
         run: |
@@ -390,11 +391,17 @@ jobs:
           missing = required - cases.keys()
           skipped = {name for name in required & cases.keys() if cases[name].find('skipped') is not None}
           assert not missing and not skipped, (missing, skipped)
+          # Show compact phase timings for successful tests without verbose renderer logs.
+          for name, case in cases.items():
+              for line in (case.findtext('system-out') or '').splitlines():
+                  if 'test timing ' in line:
+                      print(f'{name}: {line}')
           PY
 
   # The native port on Fedora (the release players run): the program built as the launcher's
   # "Build the game" builds it (tools/build_port.py), against the system's SDL3, Clang and CMake,
-  # then hostgen's tests and every test of the port on Mesa's software renderer.
+  # then hostgen, all non-Vulkan tests and a small Vulkan smoke set. The full Vulkan
+  # suite runs in port-vulkan-enhanced; this set retains Fedora's optimised Mesa coverage.
   port-fedora:
     runs-on: ubuntu-26.04
     container: registry.fedoraproject.org/fedora:44
@@ -440,11 +447,17 @@ jobs:
           targets=$(ninja -C build/release -t targets all | sed -n 's/^\([A-Za-z0-9_]*_test\): .*/\1/p' | sort -u)
           cmake --build --preset release --target $targets
 
-      - name: Tests
+      - name: Non-Vulkan tests and Vulkan smoke coverage
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release --parallel 2 --stop-on-failure
+        run: |
+          # GPU labels include Vulkan tests whose names do not mention Vulkan.
+          ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -LE '^gpu$'
+          # Keep backend, shader, scene and enhanced-lighting smoke coverage, without
+          # repeating the expensive equivalence, probe, GTAO and shadow matrices.
+          vulkan_smoke='^(vulkan_(buffer|failure|uniform|present|present_timing|prewarm)|renderer_(direct|shader)_vulkan|world_gl_smoke_vulkan|enhanced_rendering(_off)?_vulkan|early_lighting_vulkan|hero_shadow_vulkan)$'
+          ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -R "$vulkan_smoke"
 
   # The native port on Windows: rac1/pal's program built as the launcher's
   # "Build the game" builds it (tools/build_port.py: Visual Studio's C++

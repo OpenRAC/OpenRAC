@@ -19,6 +19,7 @@
 #include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
+#include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
 using namespace openrac::gl;
@@ -1678,6 +1679,7 @@ int main() {
         return test::kSkip;
     }
 
+    test::RenderTestTiming timing("probes");
     compact_texture_uploads();
     std::string fragment = "#version 410 core\n";
     fragment += lighting::shaders::probes_glsl;
@@ -1720,6 +1722,7 @@ void main() {
     CHECK(frame.create(8, 1, error));
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
+    timing.lap("receiver shader setup");
     test_wide_probe_atlas(shader, frame, vao);
     lighting::ProbeGrid grid;
     auto volume = lighting::ProbeVolume::allocate(grid);
@@ -1922,6 +1925,7 @@ void main() {
     reference.release();
     zero_weight_reference = nullptr;
     frame.release();
+    timing.lap("sampling and region comparisons");
     material_path(scene::Layer::Terrain, 0, false);
     material_path(scene::Layer::Mobys, 0, false);
     material_path(scene::Layer::Mobys, 0, false, false, true);
@@ -1952,5 +1956,6 @@ void main() {
         scene::Layer::Mobys, 0, false, false, false, true, true, false, true, false, 1.5f
     );
     sunlight_rgb_correction();
+    timing.lap("material and receiver comparisons");
     return test::result();
 }
