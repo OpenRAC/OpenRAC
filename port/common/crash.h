@@ -9,7 +9,8 @@
 // log and to stderr, so the log alone is enough.
 //
 // report() can run inside a signal handler: it writes with write() from buffers allocated before
-// (configure()), and never allocates or takes a lock.
+// (configure()). Its own formatting never allocates or takes a lock; Windows symbol lookup
+// uses DbgHelp and remains best-effort rather than async-signal-safe.
 
 #pragma once
 

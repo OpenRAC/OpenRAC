@@ -17,6 +17,7 @@
 #include <string>
 
 #include "common/build_info.h"
+#include "common/crash_symbols.h"
 #include "common/log.h"
 
 #if defined(_WIN32)
@@ -24,12 +25,10 @@
 #define NOMINMAX
 #include <windows.h>
 
-#include <dbghelp.h>
 #include <direct.h>
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
-#pragma comment(lib, "dbghelp.lib")
 #else
 #include <dlfcn.h>
 #include <execinfo.h>
@@ -332,8 +331,6 @@ void write_backtrace(Out& out) {
     void** frames = g_frames;
 #if defined(_WIN32)
     const USHORT count = static_cast<USHORT>(g_frame_count);
-    HANDLE process = GetCurrentProcess();
-    alignas(SYMBOL_INFO) char storage[sizeof(SYMBOL_INFO) + 256];
     for (USHORT i = 0; i < count; ++i) {
         Text t;
         t.dec(i).str("  ");
@@ -349,19 +346,16 @@ void write_backtrace(Out& out) {
         } else {
             t.hex(address);
         }
-        auto* symbol = reinterpret_cast<SYMBOL_INFO*>(storage);
-        std::memset(storage, 0, sizeof(storage));
-        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        symbol->MaxNameLen = 255;
-        DWORD64 displacement = 0;
-        if (SymFromAddr(process, address, &displacement, symbol)) {
-            t.str(" ").str(symbol->Name).str(" + ").dec(static_cast<long long>(displacement));
-            IMAGEHLP_LINE64 line{};
-            line.SizeOfStruct = sizeof(line);
-            DWORD column = 0;
-            if (SymGetLineFromAddr64(process, address, &column, &line)) {
-                const char* file = std::strrchr(line.FileName, '\\');
-                t.str(" (").str(file != nullptr ? file + 1 : line.FileName).str(":").dec(line.LineNumber).str(")");
+        symbols::Location location;
+        if (symbols::locate(static_cast<std::uintptr_t>(address), location)) {
+            if (location.function[0]) {
+                t.str(" ")
+                    .str(location.function)
+                    .str(" + ")
+                    .dec(static_cast<long long>(location.displacement));
+            }
+            if (location.line) {
+                t.str(" (").str(location.file).str(":").dec(location.line).str(")");
             }
         }
         t.str("\n");
@@ -395,6 +389,9 @@ void write_head(Out& out, const char* reason, Kind kind, long long now) {
     }
     out.str("\n");
     out.str("Program:  ").str(g_program).str(", ").str(g_version).str("\n");
+#if defined(_WIN32)
+    out.str("Symbols:  ").str(symbols::status()).str("\n");
+#endif
     write_state(out);
 }
 
@@ -539,8 +536,7 @@ void configure(const std::filesystem::path& folder, const std::string& program, 
     copy(g_session, sizeof(g_session), session);
     g_offset = local_offset();
 #if defined(_WIN32)
-    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
-    SymInitialize(GetCurrentProcess(), nullptr, TRUE);
+    symbols::initialize();
     g_base = reinterpret_cast<std::uintptr_t>(GetModuleHandleA(nullptr));
 #else
     // The first backtrace() loads what it unwinds with (glibc: libgcc_s), which allocates: here,

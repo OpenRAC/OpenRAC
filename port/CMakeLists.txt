@@ -72,6 +72,7 @@ add_custom_target(openrac_build_info
   VERBATIM)
 add_library(openrac_common STATIC
   common/crash.cpp
+  common/crash_symbols.cpp
   common/env.cpp
   common/json.cpp
   common/log.cpp
@@ -103,6 +104,10 @@ endif()
 openrac_warnings(openrac_common)
 
 openrac_add_test(log LIBS openrac_common)
+if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
+  openrac_add_test(crash_symbols LIBS openrac_common)
+  add_dependencies(crash_symbols_test log_test)
+endif()
 find_package(Threads REQUIRED)
 target_link_libraries(openrac_common PUBLIC Threads::Threads)  # common/parallel.cpp
 openrac_add_test(joining_thread LIBS openrac_common Threads::Threads)
@@ -176,7 +181,7 @@ add_library(openrac_runtime STATIC
 )
 target_include_directories(openrac_runtime PUBLIC runtime/include)
 target_link_libraries(openrac_runtime PUBLIC openrac_common)
-if(MINGW)
+if(WIN32)
   target_link_libraries(openrac_common PUBLIC dbghelp advapi32)
 endif()
 openrac_warnings(openrac_runtime)
@@ -261,6 +266,11 @@ find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)
   add_test(NAME mod_binding COMMAND "${Python3_EXECUTABLE}" -m unittest discover
            -s "${PROJECT_SOURCE_DIR}/../sdk/tools" -p "test_gen_binding.py")
+  if(TARGET crash_symbols_test)
+    add_test(NAME crash_symbols_local COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crash_symbols.py"
+      "$<TARGET_FILE:crash_symbols_test>" "$<TARGET_FILE:log_test>")
+  endif()
 endif()
 
 openrac_add_c_test(rac4_io
