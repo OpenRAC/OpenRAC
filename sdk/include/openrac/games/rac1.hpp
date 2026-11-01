@@ -75,6 +75,22 @@ struct Planet_Unlock {
     using fn = void (*)(int32_t);
 };
 
+// Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it.
+struct Help_Request {
+    static constexpr const char* id = "rac1.help.request";
+    static constexpr const char* name = "Help_Request";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned.
+struct Ship_InitTransition {
+    static constexpr const char* id = "rac1.ship.init_transition";
+    static constexpr const char* name = "Ship_InitTransition";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
 // The vendor's stock at each level start (VendorStockLevelInit): gives the Bomb Glove while the player has none, keeps the stock's known items and adds the level's new weapon.
 struct Vendor_InitLevelStock {
     static constexpr const char* id = "rac1.vendor.init_level_stock";
@@ -5507,6 +5523,9 @@ namespace hooks {
     namespace gold_bolt {
         using count_collected = rac1::GoldBolts_CountCollected;
     }  // namespace gold_bolt
+    namespace help {
+        using request = rac1::Help_Request;
+    }  // namespace help
     namespace hud {
         namespace quick_select {
             using draw = rac1::Hud_QuickSelect_Draw;
@@ -7490,6 +7509,7 @@ namespace hooks {
         using update_state = rac1::Save_UpdateState;
     }  // namespace save
     namespace ship {
+        using init_transition = rac1::Ship_InitTransition;
         using travel_to = rac1::Ship_TravelTo;
     }  // namespace ship
     namespace vendor {

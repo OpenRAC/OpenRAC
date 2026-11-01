@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[685];
+static const openrac_script_point k_points[687];
 
 /* Shape S0: void(u32,u32,i32) (pad, report, size). */
 typedef void (*S0_fn)(uint32_t, uint32_t, int32_t);
@@ -149,278 +149,280 @@ static void S6_call(void* original, const openrac_script_value* v, openrac_scrip
 }
 #define S6_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S6_THUNK(N, I, 0) S6_THUNK(N, I, 1) S6_THUNK(N, I, 2) S6_THUNK(N, I, 3) S6_THUNK(N, I, 4) S6_THUNK(N, I, 5) S6_THUNK(N, I, 6) S6_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S7: void(i32) (skip_unflagged). */
-typedef void (*S7_fn)(int32_t);
-static const uint8_t k_S7_kinds[] = {OPENRAC_SV_I32};
-static const char* const k_S7_names[] = {"skip_unflagged"};
+/* Shape S7: i32(i32,i32) (message, slot). */
+typedef int32_t (*S7_fn)(int32_t, int32_t);
+static const uint8_t k_S7_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S7_names[] = {"message", "slot"};
 static void S7_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S7_fn)original)((int32_t)v[0].i);
+    r->i = ((S7_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
 }
-#define S7_THUNK(N, I, K) static void N##_##K(int32_t skip_unflagged) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)skip_unflagged; \
+#define S7_THUNK(N, I, K) static int32_t N##_##K(int32_t message, int32_t slot) { \
+    openrac_script_value v[2] = {{0, 0.0}}; \
+    v[0].i = (int64_t)message; \
+    v[1].i = (int64_t)slot; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S7_fn)k_##N##_links[K].original)(skip_unflagged); \
-        return; \
-    } \
-}
-#define S7_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S7_THUNK(N, I, 0) S7_THUNK(N, I, 1) S7_THUNK(N, I, 2) S7_THUNK(N, I, 3) S7_THUNK(N, I, 4) S7_THUNK(N, I, 5) S7_THUNK(N, I, 6) S7_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S8: i32() (no parameters). */
-typedef int32_t (*S8_fn)(void);
-static const uint8_t k_S8_kinds[] = {OPENRAC_SV_VOID};
-static const char* const k_S8_names[] = {NULL};
-static void S8_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)v;
-    r->i = ((S8_fn)original)();
-}
-#define S8_THUNK(N, I, K) static int32_t N##_##K(void) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S8_fn)k_##N##_links[K].original)(); \
+        return ((S7_fn)k_##N##_links[K].original)(message, slot); \
     } \
     return (int32_t)r.i; \
 }
+#define S7_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S7_THUNK(N, I, 0) S7_THUNK(N, I, 1) S7_THUNK(N, I, 2) S7_THUNK(N, I, 3) S7_THUNK(N, I, 4) S7_THUNK(N, I, 5) S7_THUNK(N, I, 6) S7_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S8: void(i32) (mode). */
+typedef void (*S8_fn)(int32_t);
+static const uint8_t k_S8_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S8_names[] = {"mode"};
+static void S8_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S8_fn)original)((int32_t)v[0].i);
+}
+#define S8_THUNK(N, I, K) static void N##_##K(int32_t mode) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)mode; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S8_fn)k_##N##_links[K].original)(mode); \
+        return; \
+    } \
+}
 #define S8_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S8_THUNK(N, I, 0) S8_THUNK(N, I, 1) S8_THUNK(N, I, 2) S8_THUNK(N, I, 3) S8_THUNK(N, I, 4) S8_THUNK(N, I, 5) S8_THUNK(N, I, 6) S8_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S9: void(i32) (amount). */
+/* Shape S9: void(i32) (skip_unflagged). */
 typedef void (*S9_fn)(int32_t);
 static const uint8_t k_S9_kinds[] = {OPENRAC_SV_I32};
-static const char* const k_S9_names[] = {"amount"};
+static const char* const k_S9_names[] = {"skip_unflagged"};
 static void S9_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     (void)r;
     ((S9_fn)original)((int32_t)v[0].i);
 }
-#define S9_THUNK(N, I, K) static void N##_##K(int32_t amount) { \
+#define S9_THUNK(N, I, K) static void N##_##K(int32_t skip_unflagged) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)amount; \
+    v[0].i = (int64_t)skip_unflagged; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S9_fn)k_##N##_links[K].original)(amount); \
+        ((S9_fn)k_##N##_links[K].original)(skip_unflagged); \
         return; \
     } \
 }
 #define S9_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S9_THUNK(N, I, 0) S9_THUNK(N, I, 1) S9_THUNK(N, I, 2) S9_THUNK(N, I, 3) S9_THUNK(N, I, 4) S9_THUNK(N, I, 5) S9_THUNK(N, I, 6) S9_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S10: u32(u32,i32,i32) (moby, mask, keep). */
-typedef uint32_t (*S10_fn)(uint32_t, int32_t, int32_t);
-static const uint8_t k_S10_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_I32};
-static const char* const k_S10_names[] = {"moby", "mask", "keep"};
+/* Shape S10: i32() (no parameters). */
+typedef int32_t (*S10_fn)(void);
+static const uint8_t k_S10_kinds[] = {OPENRAC_SV_VOID};
+static const char* const k_S10_names[] = {NULL};
 static void S10_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S10_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (int32_t)v[2].i);
+    (void)v;
+    r->i = ((S10_fn)original)();
 }
-#define S10_THUNK(N, I, K) static uint32_t N##_##K(uint32_t moby, int32_t mask, int32_t keep) { \
+#define S10_THUNK(N, I, K) static int32_t N##_##K(void) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        return ((S10_fn)k_##N##_links[K].original)(); \
+    } \
+    return (int32_t)r.i; \
+}
+#define S10_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S10_THUNK(N, I, 0) S10_THUNK(N, I, 1) S10_THUNK(N, I, 2) S10_THUNK(N, I, 3) S10_THUNK(N, I, 4) S10_THUNK(N, I, 5) S10_THUNK(N, I, 6) S10_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S11: void(i32) (amount). */
+typedef void (*S11_fn)(int32_t);
+static const uint8_t k_S11_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S11_names[] = {"amount"};
+static void S11_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S11_fn)original)((int32_t)v[0].i);
+}
+#define S11_THUNK(N, I, K) static void N##_##K(int32_t amount) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)amount; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S11_fn)k_##N##_links[K].original)(amount); \
+        return; \
+    } \
+}
+#define S11_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S11_THUNK(N, I, 0) S11_THUNK(N, I, 1) S11_THUNK(N, I, 2) S11_THUNK(N, I, 3) S11_THUNK(N, I, 4) S11_THUNK(N, I, 5) S11_THUNK(N, I, 6) S11_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S12: u32(u32,i32,i32) (moby, mask, keep). */
+typedef uint32_t (*S12_fn)(uint32_t, int32_t, int32_t);
+static const uint8_t k_S12_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S12_names[] = {"moby", "mask", "keep"};
+static void S12_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S12_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (int32_t)v[2].i);
+}
+#define S12_THUNK(N, I, K) static uint32_t N##_##K(uint32_t moby, int32_t mask, int32_t keep) { \
     openrac_script_value v[3] = {{0, 0.0}}; \
     v[0].i = (int64_t)moby; \
     v[1].i = (int64_t)mask; \
     v[2].i = (int64_t)keep; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S10_fn)k_##N##_links[K].original)(moby, mask, keep); \
+        return ((S12_fn)k_##N##_links[K].original)(moby, mask, keep); \
     } \
     return (uint32_t)r.i; \
 }
-#define S10_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S10_THUNK(N, I, 0) S10_THUNK(N, I, 1) S10_THUNK(N, I, 2) S10_THUNK(N, I, 3) S10_THUNK(N, I, 4) S10_THUNK(N, I, 5) S10_THUNK(N, I, 6) S10_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+#define S12_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S12_THUNK(N, I, 0) S12_THUNK(N, I, 1) S12_THUNK(N, I, 2) S12_THUNK(N, I, 3) S12_THUNK(N, I, 4) S12_THUNK(N, I, 5) S12_THUNK(N, I, 6) S12_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S11: i32(i32,i32) (item, amount). */
-typedef int32_t (*S11_fn)(int32_t, int32_t);
-static const uint8_t k_S11_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
-static const char* const k_S11_names[] = {"item", "amount"};
-static void S11_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S11_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
+/* Shape S13: i32(i32,i32) (item, amount). */
+typedef int32_t (*S13_fn)(int32_t, int32_t);
+static const uint8_t k_S13_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S13_names[] = {"item", "amount"};
+static void S13_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S13_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
 }
-#define S11_THUNK(N, I, K) static int32_t N##_##K(int32_t item, int32_t amount) { \
+#define S13_THUNK(N, I, K) static int32_t N##_##K(int32_t item, int32_t amount) { \
     openrac_script_value v[2] = {{0, 0.0}}; \
     v[0].i = (int64_t)item; \
     v[1].i = (int64_t)amount; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S11_fn)k_##N##_links[K].original)(item, amount); \
+        return ((S13_fn)k_##N##_links[K].original)(item, amount); \
     } \
     return (int32_t)r.i; \
 }
-#define S11_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S11_THUNK(N, I, 0) S11_THUNK(N, I, 1) S11_THUNK(N, I, 2) S11_THUNK(N, I, 3) S11_THUNK(N, I, 4) S11_THUNK(N, I, 5) S11_THUNK(N, I, 6) S11_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+#define S13_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S13_THUNK(N, I, 0) S13_THUNK(N, I, 1) S13_THUNK(N, I, 2) S13_THUNK(N, I, 3) S13_THUNK(N, I, 4) S13_THUNK(N, I, 5) S13_THUNK(N, I, 6) S13_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S12: void(u32,i32,i32) (moby, flags, index). */
-typedef void (*S12_fn)(uint32_t, int32_t, int32_t);
-static const uint8_t k_S12_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_I32};
-static const char* const k_S12_names[] = {"moby", "flags", "index"};
-static void S12_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+/* Shape S14: void(u32,i32,i32) (moby, flags, index). */
+typedef void (*S14_fn)(uint32_t, int32_t, int32_t);
+static const uint8_t k_S14_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S14_names[] = {"moby", "flags", "index"};
+static void S14_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     (void)r;
-    ((S12_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (int32_t)v[2].i);
+    ((S14_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (int32_t)v[2].i);
 }
-#define S12_THUNK(N, I, K) static void N##_##K(uint32_t moby, int32_t flags, int32_t index) { \
+#define S14_THUNK(N, I, K) static void N##_##K(uint32_t moby, int32_t flags, int32_t index) { \
     openrac_script_value v[3] = {{0, 0.0}}; \
     v[0].i = (int64_t)moby; \
     v[1].i = (int64_t)flags; \
     v[2].i = (int64_t)index; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S12_fn)k_##N##_links[K].original)(moby, flags, index); \
-        return; \
-    } \
-}
-#define S12_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S12_THUNK(N, I, 0) S12_THUNK(N, I, 1) S12_THUNK(N, I, 2) S12_THUNK(N, I, 3) S12_THUNK(N, I, 4) S12_THUNK(N, I, 5) S12_THUNK(N, I, 6) S12_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S13: u32(i32) (full). */
-typedef uint32_t (*S13_fn)(int32_t);
-static const uint8_t k_S13_kinds[] = {OPENRAC_SV_I32};
-static const char* const k_S13_names[] = {"full"};
-static void S13_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S13_fn)original)((int32_t)v[0].i);
-}
-#define S13_THUNK(N, I, K) static uint32_t N##_##K(int32_t full) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)full; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S13_fn)k_##N##_links[K].original)(full); \
-    } \
-    return (uint32_t)r.i; \
-}
-#define S13_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S13_THUNK(N, I, 0) S13_THUNK(N, I, 1) S13_THUNK(N, I, 2) S13_THUNK(N, I, 3) S13_THUNK(N, I, 4) S13_THUNK(N, I, 5) S13_THUNK(N, I, 6) S13_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S14: void(f32,f32) (up, down). */
-typedef void (*S14_fn)(float, float);
-static const uint8_t k_S14_kinds[] = {OPENRAC_SV_F32, OPENRAC_SV_F32};
-static const char* const k_S14_names[] = {"up", "down"};
-static void S14_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S14_fn)original)((float)v[0].f, (float)v[1].f);
-}
-#define S14_THUNK(N, I, K) static void N##_##K(float up, float down) { \
-    openrac_script_value v[2] = {{0, 0.0}}; \
-    v[0].f = (double)up; \
-    v[1].f = (double)down; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S14_fn)k_##N##_links[K].original)(up, down); \
+        ((S14_fn)k_##N##_links[K].original)(moby, flags, index); \
         return; \
     } \
 }
 #define S14_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S14_THUNK(N, I, 0) S14_THUNK(N, I, 1) S14_THUNK(N, I, 2) S14_THUNK(N, I, 3) S14_THUNK(N, I, 4) S14_THUNK(N, I, 5) S14_THUNK(N, I, 6) S14_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S15: void(i32) (dest). */
-typedef void (*S15_fn)(int32_t);
+/* Shape S15: u32(i32) (full). */
+typedef uint32_t (*S15_fn)(int32_t);
 static const uint8_t k_S15_kinds[] = {OPENRAC_SV_I32};
-static const char* const k_S15_names[] = {"dest"};
+static const char* const k_S15_names[] = {"full"};
 static void S15_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S15_fn)original)((int32_t)v[0].i);
+    r->i = ((S15_fn)original)((int32_t)v[0].i);
 }
-#define S15_THUNK(N, I, K) static void N##_##K(int32_t dest) { \
+#define S15_THUNK(N, I, K) static uint32_t N##_##K(int32_t full) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)dest; \
+    v[0].i = (int64_t)full; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S15_fn)k_##N##_links[K].original)(dest); \
-        return; \
+        return ((S15_fn)k_##N##_links[K].original)(full); \
     } \
+    return (uint32_t)r.i; \
 }
 #define S15_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S15_THUNK(N, I, 0) S15_THUNK(N, I, 1) S15_THUNK(N, I, 2) S15_THUNK(N, I, 3) S15_THUNK(N, I, 4) S15_THUNK(N, I, 5) S15_THUNK(N, I, 6) S15_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S16: void(u32) (bolt). */
-typedef void (*S16_fn)(uint32_t);
-static const uint8_t k_S16_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S16_names[] = {"bolt"};
+/* Shape S16: void(f32,f32) (up, down). */
+typedef void (*S16_fn)(float, float);
+static const uint8_t k_S16_kinds[] = {OPENRAC_SV_F32, OPENRAC_SV_F32};
+static const char* const k_S16_names[] = {"up", "down"};
 static void S16_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     (void)r;
-    ((S16_fn)original)((uint32_t)v[0].i);
+    ((S16_fn)original)((float)v[0].f, (float)v[1].f);
 }
-#define S16_THUNK(N, I, K) static void N##_##K(uint32_t bolt) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)bolt; \
+#define S16_THUNK(N, I, K) static void N##_##K(float up, float down) { \
+    openrac_script_value v[2] = {{0, 0.0}}; \
+    v[0].f = (double)up; \
+    v[1].f = (double)down; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S16_fn)k_##N##_links[K].original)(bolt); \
+        ((S16_fn)k_##N##_links[K].original)(up, down); \
         return; \
     } \
 }
 #define S16_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S16_THUNK(N, I, 0) S16_THUNK(N, I, 1) S16_THUNK(N, I, 2) S16_THUNK(N, I, 3) S16_THUNK(N, I, 4) S16_THUNK(N, I, 5) S16_THUNK(N, I, 6) S16_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S17: i32(u32) (grid). */
-typedef int32_t (*S17_fn)(uint32_t);
-static const uint8_t k_S17_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S17_names[] = {"grid"};
+/* Shape S17: void(i32) (dest). */
+typedef void (*S17_fn)(int32_t);
+static const uint8_t k_S17_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S17_names[] = {"dest"};
 static void S17_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S17_fn)original)((uint32_t)v[0].i);
+    (void)r;
+    ((S17_fn)original)((int32_t)v[0].i);
 }
-#define S17_THUNK(N, I, K) static int32_t N##_##K(uint32_t grid) { \
+#define S17_THUNK(N, I, K) static void N##_##K(int32_t dest) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)dest; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S17_fn)k_##N##_links[K].original)(dest); \
+        return; \
+    } \
+}
+#define S17_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S17_THUNK(N, I, 0) S17_THUNK(N, I, 1) S17_THUNK(N, I, 2) S17_THUNK(N, I, 3) S17_THUNK(N, I, 4) S17_THUNK(N, I, 5) S17_THUNK(N, I, 6) S17_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S18: void(u32) (bolt). */
+typedef void (*S18_fn)(uint32_t);
+static const uint8_t k_S18_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S18_names[] = {"bolt"};
+static void S18_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S18_fn)original)((uint32_t)v[0].i);
+}
+#define S18_THUNK(N, I, K) static void N##_##K(uint32_t bolt) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)bolt; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S18_fn)k_##N##_links[K].original)(bolt); \
+        return; \
+    } \
+}
+#define S18_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S18_THUNK(N, I, 0) S18_THUNK(N, I, 1) S18_THUNK(N, I, 2) S18_THUNK(N, I, 3) S18_THUNK(N, I, 4) S18_THUNK(N, I, 5) S18_THUNK(N, I, 6) S18_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S19: i32(u32) (grid). */
+typedef int32_t (*S19_fn)(uint32_t);
+static const uint8_t k_S19_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S19_names[] = {"grid"};
+static void S19_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S19_fn)original)((uint32_t)v[0].i);
+}
+#define S19_THUNK(N, I, K) static int32_t N##_##K(uint32_t grid) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
     v[0].i = (int64_t)grid; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S17_fn)k_##N##_links[K].original)(grid); \
-    } \
-    return (int32_t)r.i; \
-}
-#define S17_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S17_THUNK(N, I, 0) S17_THUNK(N, I, 1) S17_THUNK(N, I, 2) S17_THUNK(N, I, 3) S17_THUNK(N, I, 4) S17_THUNK(N, I, 5) S17_THUNK(N, I, 6) S17_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S18: i32(u32) (list). */
-typedef int32_t (*S18_fn)(uint32_t);
-static const uint8_t k_S18_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S18_names[] = {"list"};
-static void S18_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S18_fn)original)((uint32_t)v[0].i);
-}
-#define S18_THUNK(N, I, K) static int32_t N##_##K(uint32_t list) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)list; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S18_fn)k_##N##_links[K].original)(list); \
-    } \
-    return (int32_t)r.i; \
-}
-#define S18_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S18_THUNK(N, I, 0) S18_THUNK(N, I, 1) S18_THUNK(N, I, 2) S18_THUNK(N, I, 3) S18_THUNK(N, I, 4) S18_THUNK(N, I, 5) S18_THUNK(N, I, 6) S18_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S19: i32(u32) (screen). */
-typedef int32_t (*S19_fn)(uint32_t);
-static const uint8_t k_S19_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S19_names[] = {"screen"};
-static void S19_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S19_fn)original)((uint32_t)v[0].i);
-}
-#define S19_THUNK(N, I, K) static int32_t N##_##K(uint32_t screen) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)screen; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S19_fn)k_##N##_links[K].original)(screen); \
+        return ((S19_fn)k_##N##_links[K].original)(grid); \
     } \
     return (int32_t)r.i; \
 }
 #define S19_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S19_THUNK(N, I, 0) S19_THUNK(N, I, 1) S19_THUNK(N, I, 2) S19_THUNK(N, I, 3) S19_THUNK(N, I, 4) S19_THUNK(N, I, 5) S19_THUNK(N, I, 6) S19_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S20: i32(u32) (label). */
+/* Shape S20: i32(u32) (list). */
 typedef int32_t (*S20_fn)(uint32_t);
 static const uint8_t k_S20_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S20_names[] = {"label"};
+static const char* const k_S20_names[] = {"list"};
 static void S20_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     r->i = ((S20_fn)original)((uint32_t)v[0].i);
 }
-#define S20_THUNK(N, I, K) static int32_t N##_##K(uint32_t label) { \
+#define S20_THUNK(N, I, K) static int32_t N##_##K(uint32_t list) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)label; \
+    v[0].i = (int64_t)list; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S20_fn)k_##N##_links[K].original)(label); \
+        return ((S20_fn)k_##N##_links[K].original)(list); \
     } \
     return (int32_t)r.i; \
 }
 #define S20_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S20_THUNK(N, I, 0) S20_THUNK(N, I, 1) S20_THUNK(N, I, 2) S20_THUNK(N, I, 3) S20_THUNK(N, I, 4) S20_THUNK(N, I, 5) S20_THUNK(N, I, 6) S20_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S21: i32(i32) (screen). */
-typedef int32_t (*S21_fn)(int32_t);
-static const uint8_t k_S21_kinds[] = {OPENRAC_SV_I32};
+/* Shape S21: i32(u32) (screen). */
+typedef int32_t (*S21_fn)(uint32_t);
+static const uint8_t k_S21_kinds[] = {OPENRAC_SV_U32};
 static const char* const k_S21_names[] = {"screen"};
 static void S21_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S21_fn)original)((int32_t)v[0].i);
+    r->i = ((S21_fn)original)((uint32_t)v[0].i);
 }
-#define S21_THUNK(N, I, K) static int32_t N##_##K(int32_t screen) { \
+#define S21_THUNK(N, I, K) static int32_t N##_##K(uint32_t screen) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
     v[0].i = (int64_t)screen; \
     openrac_script_value r = {0, 0.0}; \
@@ -431,106 +433,142 @@ static void S21_call(void* original, const openrac_script_value* v, openrac_scri
 }
 #define S21_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S21_THUNK(N, I, 0) S21_THUNK(N, I, 1) S21_THUNK(N, I, 2) S21_THUNK(N, I, 3) S21_THUNK(N, I, 4) S21_THUNK(N, I, 5) S21_THUNK(N, I, 6) S21_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S22: i32(u32) (preview). */
+/* Shape S22: i32(u32) (label). */
 typedef int32_t (*S22_fn)(uint32_t);
 static const uint8_t k_S22_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S22_names[] = {"preview"};
+static const char* const k_S22_names[] = {"label"};
 static void S22_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     r->i = ((S22_fn)original)((uint32_t)v[0].i);
 }
-#define S22_THUNK(N, I, K) static int32_t N##_##K(uint32_t preview) { \
+#define S22_THUNK(N, I, K) static int32_t N##_##K(uint32_t label) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)preview; \
+    v[0].i = (int64_t)label; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S22_fn)k_##N##_links[K].original)(preview); \
+        return ((S22_fn)k_##N##_links[K].original)(label); \
     } \
     return (int32_t)r.i; \
 }
 #define S22_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S22_THUNK(N, I, 0) S22_THUNK(N, I, 1) S22_THUNK(N, I, 2) S22_THUNK(N, I, 3) S22_THUNK(N, I, 4) S22_THUNK(N, I, 5) S22_THUNK(N, I, 6) S22_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S23: i32(u32) (hand). */
-typedef int32_t (*S23_fn)(uint32_t);
-static const uint8_t k_S23_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S23_names[] = {"hand"};
+/* Shape S23: i32(i32) (screen). */
+typedef int32_t (*S23_fn)(int32_t);
+static const uint8_t k_S23_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S23_names[] = {"screen"};
 static void S23_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S23_fn)original)((uint32_t)v[0].i);
+    r->i = ((S23_fn)original)((int32_t)v[0].i);
 }
-#define S23_THUNK(N, I, K) static int32_t N##_##K(uint32_t hand) { \
+#define S23_THUNK(N, I, K) static int32_t N##_##K(int32_t screen) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)hand; \
+    v[0].i = (int64_t)screen; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S23_fn)k_##N##_links[K].original)(hand); \
+        return ((S23_fn)k_##N##_links[K].original)(screen); \
     } \
     return (int32_t)r.i; \
 }
 #define S23_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S23_THUNK(N, I, 0) S23_THUNK(N, I, 1) S23_THUNK(N, I, 2) S23_THUNK(N, I, 3) S23_THUNK(N, I, 4) S23_THUNK(N, I, 5) S23_THUNK(N, I, 6) S23_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S24: void(u32) (selector). */
-typedef void (*S24_fn)(uint32_t);
+/* Shape S24: i32(u32) (preview). */
+typedef int32_t (*S24_fn)(uint32_t);
 static const uint8_t k_S24_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S24_names[] = {"selector"};
+static const char* const k_S24_names[] = {"preview"};
 static void S24_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S24_fn)original)((uint32_t)v[0].i);
+    r->i = ((S24_fn)original)((uint32_t)v[0].i);
 }
-#define S24_THUNK(N, I, K) static void N##_##K(uint32_t selector) { \
+#define S24_THUNK(N, I, K) static int32_t N##_##K(uint32_t preview) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)selector; \
+    v[0].i = (int64_t)preview; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S24_fn)k_##N##_links[K].original)(selector); \
-        return; \
+        return ((S24_fn)k_##N##_links[K].original)(preview); \
     } \
+    return (int32_t)r.i; \
 }
 #define S24_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S24_THUNK(N, I, 0) S24_THUNK(N, I, 1) S24_THUNK(N, I, 2) S24_THUNK(N, I, 3) S24_THUNK(N, I, 4) S24_THUNK(N, I, 5) S24_THUNK(N, I, 6) S24_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S25: i32(u32) (panel). */
+/* Shape S25: i32(u32) (hand). */
 typedef int32_t (*S25_fn)(uint32_t);
 static const uint8_t k_S25_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S25_names[] = {"panel"};
+static const char* const k_S25_names[] = {"hand"};
 static void S25_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     r->i = ((S25_fn)original)((uint32_t)v[0].i);
 }
-#define S25_THUNK(N, I, K) static int32_t N##_##K(uint32_t panel) { \
+#define S25_THUNK(N, I, K) static int32_t N##_##K(uint32_t hand) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)panel; \
+    v[0].i = (int64_t)hand; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S25_fn)k_##N##_links[K].original)(panel); \
+        return ((S25_fn)k_##N##_links[K].original)(hand); \
     } \
     return (int32_t)r.i; \
 }
 #define S25_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S25_THUNK(N, I, 0) S25_THUNK(N, I, 1) S25_THUNK(N, I, 2) S25_THUNK(N, I, 3) S25_THUNK(N, I, 4) S25_THUNK(N, I, 5) S25_THUNK(N, I, 6) S25_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S26: i32(u32,u32) (moby, out_item). */
-typedef int32_t (*S26_fn)(uint32_t, uint32_t);
-static const uint8_t k_S26_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_U32};
-static const char* const k_S26_names[] = {"moby", "out_item"};
+/* Shape S26: void(u32) (selector). */
+typedef void (*S26_fn)(uint32_t);
+static const uint8_t k_S26_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S26_names[] = {"selector"};
 static void S26_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S26_fn)original)((uint32_t)v[0].i, (uint32_t)v[1].i);
+    (void)r;
+    ((S26_fn)original)((uint32_t)v[0].i);
 }
-#define S26_THUNK(N, I, K) static int32_t N##_##K(uint32_t moby, uint32_t out_item) { \
+#define S26_THUNK(N, I, K) static void N##_##K(uint32_t selector) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)selector; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S26_fn)k_##N##_links[K].original)(selector); \
+        return; \
+    } \
+}
+#define S26_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S26_THUNK(N, I, 0) S26_THUNK(N, I, 1) S26_THUNK(N, I, 2) S26_THUNK(N, I, 3) S26_THUNK(N, I, 4) S26_THUNK(N, I, 5) S26_THUNK(N, I, 6) S26_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S27: i32(u32) (panel). */
+typedef int32_t (*S27_fn)(uint32_t);
+static const uint8_t k_S27_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S27_names[] = {"panel"};
+static void S27_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S27_fn)original)((uint32_t)v[0].i);
+}
+#define S27_THUNK(N, I, K) static int32_t N##_##K(uint32_t panel) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)panel; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        return ((S27_fn)k_##N##_links[K].original)(panel); \
+    } \
+    return (int32_t)r.i; \
+}
+#define S27_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S27_THUNK(N, I, 0) S27_THUNK(N, I, 1) S27_THUNK(N, I, 2) S27_THUNK(N, I, 3) S27_THUNK(N, I, 4) S27_THUNK(N, I, 5) S27_THUNK(N, I, 6) S27_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S28: i32(u32,u32) (moby, out_item). */
+typedef int32_t (*S28_fn)(uint32_t, uint32_t);
+static const uint8_t k_S28_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_U32};
+static const char* const k_S28_names[] = {"moby", "out_item"};
+static void S28_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S28_fn)original)((uint32_t)v[0].i, (uint32_t)v[1].i);
+}
+#define S28_THUNK(N, I, K) static int32_t N##_##K(uint32_t moby, uint32_t out_item) { \
     openrac_script_value v[2] = {{0, 0.0}}; \
     v[0].i = (int64_t)moby; \
     v[1].i = (int64_t)out_item; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S26_fn)k_##N##_links[K].original)(moby, out_item); \
+        return ((S28_fn)k_##N##_links[K].original)(moby, out_item); \
     } \
     return (int32_t)r.i; \
 }
-#define S26_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S26_THUNK(N, I, 0) S26_THUNK(N, I, 1) S26_THUNK(N, I, 2) S26_THUNK(N, I, 3) S26_THUNK(N, I, 4) S26_THUNK(N, I, 5) S26_THUNK(N, I, 6) S26_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+#define S28_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S28_THUNK(N, I, 0) S28_THUNK(N, I, 1) S28_THUNK(N, I, 2) S28_THUNK(N, I, 3) S28_THUNK(N, I, 4) S28_THUNK(N, I, 5) S28_THUNK(N, I, 6) S28_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S27: u32(u32,i32,i32,i32) (pos, item, amount, flags). */
-typedef uint32_t (*S27_fn)(uint32_t, int32_t, int32_t, int32_t);
-static const uint8_t k_S27_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_I32, OPENRAC_SV_I32};
-static const char* const k_S27_names[] = {"pos", "item", "amount", "flags"};
-static void S27_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S27_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (int32_t)v[2].i, (int32_t)v[3].i);
+/* Shape S29: u32(u32,i32,i32,i32) (pos, item, amount, flags). */
+typedef uint32_t (*S29_fn)(uint32_t, int32_t, int32_t, int32_t);
+static const uint8_t k_S29_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S29_names[] = {"pos", "item", "amount", "flags"};
+static void S29_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S29_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (int32_t)v[2].i, (int32_t)v[3].i);
 }
-#define S27_THUNK(N, I, K) static uint32_t N##_##K(uint32_t pos, int32_t item, int32_t amount, int32_t flags) { \
+#define S29_THUNK(N, I, K) static uint32_t N##_##K(uint32_t pos, int32_t item, int32_t amount, int32_t flags) { \
     openrac_script_value v[4] = {{0, 0.0}}; \
     v[0].i = (int64_t)pos; \
     v[1].i = (int64_t)item; \
@@ -538,146 +576,146 @@ static void S27_call(void* original, const openrac_script_value* v, openrac_scri
     v[3].i = (int64_t)flags; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S27_fn)k_##N##_links[K].original)(pos, item, amount, flags); \
+        return ((S29_fn)k_##N##_links[K].original)(pos, item, amount, flags); \
     } \
     return (uint32_t)r.i; \
 }
-#define S27_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S27_THUNK(N, I, 0) S27_THUNK(N, I, 1) S27_THUNK(N, I, 2) S27_THUNK(N, I, 3) S27_THUNK(N, I, 4) S27_THUNK(N, I, 5) S27_THUNK(N, I, 6) S27_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+#define S29_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S29_THUNK(N, I, 0) S29_THUNK(N, I, 1) S29_THUNK(N, I, 2) S29_THUNK(N, I, 3) S29_THUNK(N, I, 4) S29_THUNK(N, I, 5) S29_THUNK(N, I, 6) S29_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S28: void(i32,i32) (buffer, slot). */
-typedef void (*S28_fn)(int32_t, int32_t);
-static const uint8_t k_S28_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
-static const char* const k_S28_names[] = {"buffer", "slot"};
-static void S28_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+/* Shape S30: void(i32,i32) (buffer, slot). */
+typedef void (*S30_fn)(int32_t, int32_t);
+static const uint8_t k_S30_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S30_names[] = {"buffer", "slot"};
+static void S30_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     (void)r;
-    ((S28_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
+    ((S30_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
 }
-#define S28_THUNK(N, I, K) static void N##_##K(int32_t buffer, int32_t slot) { \
+#define S30_THUNK(N, I, K) static void N##_##K(int32_t buffer, int32_t slot) { \
     openrac_script_value v[2] = {{0, 0.0}}; \
     v[0].i = (int64_t)buffer; \
     v[1].i = (int64_t)slot; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S28_fn)k_##N##_links[K].original)(buffer, slot); \
-        return; \
-    } \
-}
-#define S28_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S28_THUNK(N, I, 0) S28_THUNK(N, I, 1) S28_THUNK(N, I, 2) S28_THUNK(N, I, 3) S28_THUNK(N, I, 4) S28_THUNK(N, I, 5) S28_THUNK(N, I, 6) S28_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S29: i32(i32,i32) (slot, flags). */
-typedef int32_t (*S29_fn)(int32_t, int32_t);
-static const uint8_t k_S29_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
-static const char* const k_S29_names[] = {"slot", "flags"};
-static void S29_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S29_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
-}
-#define S29_THUNK(N, I, K) static int32_t N##_##K(int32_t slot, int32_t flags) { \
-    openrac_script_value v[2] = {{0, 0.0}}; \
-    v[0].i = (int64_t)slot; \
-    v[1].i = (int64_t)flags; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S29_fn)k_##N##_links[K].original)(slot, flags); \
-    } \
-    return (int32_t)r.i; \
-}
-#define S29_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S29_THUNK(N, I, 0) S29_THUNK(N, I, 1) S29_THUNK(N, I, 2) S29_THUNK(N, I, 3) S29_THUNK(N, I, 4) S29_THUNK(N, I, 5) S29_THUNK(N, I, 6) S29_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S30: void(u32) (save). */
-typedef void (*S30_fn)(uint32_t);
-static const uint8_t k_S30_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S30_names[] = {"save"};
-static void S30_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S30_fn)original)((uint32_t)v[0].i);
-}
-#define S30_THUNK(N, I, K) static void N##_##K(uint32_t save) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)save; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S30_fn)k_##N##_links[K].original)(save); \
+        ((S30_fn)k_##N##_links[K].original)(buffer, slot); \
         return; \
     } \
 }
 #define S30_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S30_THUNK(N, I, 0) S30_THUNK(N, I, 1) S30_THUNK(N, I, 2) S30_THUNK(N, I, 3) S30_THUNK(N, I, 4) S30_THUNK(N, I, 5) S30_THUNK(N, I, 6) S30_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S31: i32(u32,i32,u32) (src, slot, table). */
-typedef int32_t (*S31_fn)(uint32_t, int32_t, uint32_t);
-static const uint8_t k_S31_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_U32};
-static const char* const k_S31_names[] = {"src", "slot", "table"};
+/* Shape S31: i32(i32,i32) (slot, flags). */
+typedef int32_t (*S31_fn)(int32_t, int32_t);
+static const uint8_t k_S31_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S31_names[] = {"slot", "flags"};
 static void S31_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S31_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (uint32_t)v[2].i);
+    r->i = ((S31_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
 }
-#define S31_THUNK(N, I, K) static int32_t N##_##K(uint32_t src, int32_t slot, uint32_t table) { \
+#define S31_THUNK(N, I, K) static int32_t N##_##K(int32_t slot, int32_t flags) { \
+    openrac_script_value v[2] = {{0, 0.0}}; \
+    v[0].i = (int64_t)slot; \
+    v[1].i = (int64_t)flags; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        return ((S31_fn)k_##N##_links[K].original)(slot, flags); \
+    } \
+    return (int32_t)r.i; \
+}
+#define S31_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S31_THUNK(N, I, 0) S31_THUNK(N, I, 1) S31_THUNK(N, I, 2) S31_THUNK(N, I, 3) S31_THUNK(N, I, 4) S31_THUNK(N, I, 5) S31_THUNK(N, I, 6) S31_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S32: void(u32) (save). */
+typedef void (*S32_fn)(uint32_t);
+static const uint8_t k_S32_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S32_names[] = {"save"};
+static void S32_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S32_fn)original)((uint32_t)v[0].i);
+}
+#define S32_THUNK(N, I, K) static void N##_##K(uint32_t save) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)save; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S32_fn)k_##N##_links[K].original)(save); \
+        return; \
+    } \
+}
+#define S32_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S32_THUNK(N, I, 0) S32_THUNK(N, I, 1) S32_THUNK(N, I, 2) S32_THUNK(N, I, 3) S32_THUNK(N, I, 4) S32_THUNK(N, I, 5) S32_THUNK(N, I, 6) S32_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S33: i32(u32,i32,u32) (src, slot, table). */
+typedef int32_t (*S33_fn)(uint32_t, int32_t, uint32_t);
+static const uint8_t k_S33_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32, OPENRAC_SV_U32};
+static const char* const k_S33_names[] = {"src", "slot", "table"};
+static void S33_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S33_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i, (uint32_t)v[2].i);
+}
+#define S33_THUNK(N, I, K) static int32_t N##_##K(uint32_t src, int32_t slot, uint32_t table) { \
     openrac_script_value v[3] = {{0, 0.0}}; \
     v[0].i = (int64_t)src; \
     v[1].i = (int64_t)slot; \
     v[2].i = (int64_t)table; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S31_fn)k_##N##_links[K].original)(src, slot, table); \
+        return ((S33_fn)k_##N##_links[K].original)(src, slot, table); \
     } \
     return (int32_t)r.i; \
 }
-#define S31_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S31_THUNK(N, I, 0) S31_THUNK(N, I, 1) S31_THUNK(N, I, 2) S31_THUNK(N, I, 3) S31_THUNK(N, I, 4) S31_THUNK(N, I, 5) S31_THUNK(N, I, 6) S31_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+#define S33_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S33_THUNK(N, I, 0) S33_THUNK(N, I, 1) S33_THUNK(N, I, 2) S33_THUNK(N, I, 3) S33_THUNK(N, I, 4) S33_THUNK(N, I, 5) S33_THUNK(N, I, 6) S33_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S32: void(i32) (slot). */
-typedef void (*S32_fn)(int32_t);
-static const uint8_t k_S32_kinds[] = {OPENRAC_SV_I32};
-static const char* const k_S32_names[] = {"slot"};
-static void S32_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+/* Shape S34: void(i32) (slot). */
+typedef void (*S34_fn)(int32_t);
+static const uint8_t k_S34_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S34_names[] = {"slot"};
+static void S34_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     (void)r;
-    ((S32_fn)original)((int32_t)v[0].i);
+    ((S34_fn)original)((int32_t)v[0].i);
 }
-#define S32_THUNK(N, I, K) static void N##_##K(int32_t slot) { \
+#define S34_THUNK(N, I, K) static void N##_##K(int32_t slot) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
     v[0].i = (int64_t)slot; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S32_fn)k_##N##_links[K].original)(slot); \
-        return; \
-    } \
-}
-#define S32_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S32_THUNK(N, I, 0) S32_THUNK(N, I, 1) S32_THUNK(N, I, 2) S32_THUNK(N, I, 3) S32_THUNK(N, I, 4) S32_THUNK(N, I, 5) S32_THUNK(N, I, 6) S32_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S33: void(u32) (out). */
-typedef void (*S33_fn)(uint32_t);
-static const uint8_t k_S33_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S33_names[] = {"out"};
-static void S33_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S33_fn)original)((uint32_t)v[0].i);
-}
-#define S33_THUNK(N, I, K) static void N##_##K(uint32_t out) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)out; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S33_fn)k_##N##_links[K].original)(out); \
-        return; \
-    } \
-}
-#define S33_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S33_THUNK(N, I, 0) S33_THUNK(N, I, 1) S33_THUNK(N, I, 2) S33_THUNK(N, I, 3) S33_THUNK(N, I, 4) S33_THUNK(N, I, 5) S33_THUNK(N, I, 6) S33_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
-/* Shape S34: void(u32) (moby). */
-typedef void (*S34_fn)(uint32_t);
-static const uint8_t k_S34_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S34_names[] = {"moby"};
-static void S34_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S34_fn)original)((uint32_t)v[0].i);
-}
-#define S34_THUNK(N, I, K) static void N##_##K(uint32_t moby) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)moby; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S34_fn)k_##N##_links[K].original)(moby); \
+        ((S34_fn)k_##N##_links[K].original)(slot); \
         return; \
     } \
 }
 #define S34_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S34_THUNK(N, I, 0) S34_THUNK(N, I, 1) S34_THUNK(N, I, 2) S34_THUNK(N, I, 3) S34_THUNK(N, I, 4) S34_THUNK(N, I, 5) S34_THUNK(N, I, 6) S34_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S35: void(u32) (out). */
+typedef void (*S35_fn)(uint32_t);
+static const uint8_t k_S35_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S35_names[] = {"out"};
+static void S35_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S35_fn)original)((uint32_t)v[0].i);
+}
+#define S35_THUNK(N, I, K) static void N##_##K(uint32_t out) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)out; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S35_fn)k_##N##_links[K].original)(out); \
+        return; \
+    } \
+}
+#define S35_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S35_THUNK(N, I, 0) S35_THUNK(N, I, 1) S35_THUNK(N, I, 2) S35_THUNK(N, I, 3) S35_THUNK(N, I, 4) S35_THUNK(N, I, 5) S35_THUNK(N, I, 6) S35_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S36: void(u32) (moby). */
+typedef void (*S36_fn)(uint32_t);
+static const uint8_t k_S36_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S36_names[] = {"moby"};
+static void S36_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S36_fn)original)((uint32_t)v[0].i);
+}
+#define S36_THUNK(N, I, K) static void N##_##K(uint32_t moby) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)moby; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S36_fn)k_##N##_links[K].original)(moby); \
+        return; \
+    } \
+}
+#define S36_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S36_THUNK(N, I, 0) S36_THUNK(N, I, 1) S36_THUNK(N, I, 2) S36_THUNK(N, I, 3) S36_THUNK(N, I, 4) S36_THUNK(N, I, 5) S36_THUNK(N, I, 6) S36_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
 S0_POINT(Pad_ProcessReport, 0) /* rac1.pad.process_report */
 S1_POINT(Hero_UpdateMotionInput, 1) /* rac1.player.update_motion_input */
@@ -687,685 +725,687 @@ S4_POINT(FollowCamera_ApplyOverrides, 4) /* rac1.camera.follow.apply_overrides *
 S1_POINT(Hero_AdvanceAnimation, 5) /* rac1.player.advance_animation */
 S5_POINT(Item_Give, 6) /* rac1.item.give */
 S6_POINT(Planet_Unlock, 7) /* rac1.planet.unlock */
-S1_POINT(Vendor_InitLevelStock, 8) /* rac1.vendor.init_level_stock */
-S7_POINT(Vendor_BuildItemList, 9) /* rac1.vendor.build_item_list */
-S8_POINT(GoldBolts_CountCollected, 10) /* rac1.gold_bolt.count_collected */
-S9_POINT(Hero_TakeDamage, 11) /* rac1.player.take_damage */
-S10_POINT(Moby_GetHitMessage, 12) /* rac1.combat.get_hit */
-S11_POINT(Weapon_TakeAmmo, 13) /* rac1.weapon.take_ammo */
-S12_POINT(Moby_RecordDeath, 14) /* rac1.moby.record_death */
-S13_POINT(Level_LoadGameplay, 15) /* rac1.level.load_gameplay */
-S14_POINT(Hero_ApproachSpeed, 16) /* rac1.player.approach_speed */
-S15_POINT(Ship_TravelTo, 17) /* rac1.ship.travel_to */
-S16_POINT(Moby_CollectBolt, 18) /* rac1.moby.collect_bolt */
-S17_POINT(Menu_ItemGrid_Update, 19) /* rac1.menu.item_grid.update */
-S17_POINT(Menu_ItemGrid_Draw, 20) /* rac1.menu.item_grid.draw */
-S18_POINT(Menu_ItemSlots_Update, 21) /* rac1.menu.item_slots.update */
-S19_POINT(Menu_QuickSelect_Draw, 22) /* rac1.menu.quick_select.draw */
-S18_POINT(Menu_QuickSelect_Load, 23) /* rac1.menu.quick_select.load */
-S19_POINT(Menu_QuickSelect_Store, 24) /* rac1.menu.quick_select.store */
-S20_POINT(Menu_ItemText_Draw, 25) /* rac1.menu.item_text.draw */
-S21_POINT(Menu_ItemAmmo_Draw, 26) /* rac1.menu.item_ammo.draw */
-S22_POINT(Menu_Preview_Bind, 27) /* rac1.menu.preview.bind */
-S19_POINT(Menu_Preview_Update, 28) /* rac1.menu.preview.update */
-S19_POINT(Menu_Preview_DrawAvailable, 29) /* rac1.menu.preview.draw_available */
-S19_POINT(Menu_Preview_DrawSelected, 30) /* rac1.menu.preview.draw_selected */
-S23_POINT(Menu_EquippedPreview_Update, 31) /* rac1.menu.equipped_preview.update */
-S19_POINT(Menu_EquippedPreview_Draw, 32) /* rac1.menu.equipped_preview.draw */
-S24_POINT(Hud_QuickSelect_Init, 33) /* rac1.hud.quick_select.init */
-S24_POINT(Hud_QuickSelect_Update, 34) /* rac1.hud.quick_select.update */
-S25_POINT(Hud_QuickSelect_Draw, 35) /* rac1.hud.quick_select.draw */
-S1_POINT(Vendor_MenuUpdate, 36) /* rac1.vendor.menu_update */
-S1_POINT(Vendor_InitializeSelected, 37) /* rac1.vendor.initialize_selected */
-S26_POINT(Ammo_ChooseDrop, 38) /* rac1.ammo.choose_drop */
-S27_POINT(Ammo_SpawnDrop, 39) /* rac1.ammo.spawn_drop */
-S28_POINT(Save_Prepare, 40) /* rac1.save.prepare */
-S29_POINT(Save_RequestAutosave, 41) /* rac1.save.request_autosave */
-S30_POINT(Save_Restore, 42) /* rac1.save.restore */
-S31_POINT(Save_RestoreData, 43) /* rac1.save.restore_data */
-S1_POINT(Save_NewGame, 44) /* rac1.save.new_game */
-S32_POINT(Save_NewGamePlus, 45) /* rac1.save.new_game_plus */
-S33_POINT(Save_Serialize, 46) /* rac1.save.serialize */
-S1_POINT(Save_UpdateState, 47) /* rac1.save.update_state */
-S1_POINT(Moby_Class1750_Update, 48) /* rac1.moby.class_1750.update */
-S34_POINT(Moby_Class676_Update, 49) /* rac1.moby.class_676.update */
-S34_POINT(Moby_Class482_Update, 50) /* rac1.moby.class_482.update */
-S34_POINT(Moby_Class809_Update, 51) /* rac1.moby.texture_scroll.update */
-S34_POINT(Moby_CameraObject_Update, 52) /* rac1.moby.camera_object.update */
-S34_POINT(Moby_Vendor_Update, 53) /* rac1.moby.light_beam.update */
-S34_POINT(Moby_Bolt_Update, 54) /* rac1.moby.bolt.update */
-S34_POINT(Moby_Wrench_Update, 55) /* rac1.moby.wrench.update */
-S34_POINT(Moby_Mine_Update, 56) /* rac1.moby.mine.update */
-S34_POINT(Moby_Class112_Update, 57) /* rac1.moby.spin_fade_out.update */
-S34_POINT(Moby_Class121_Update, 58) /* rac1.moby.hero_bomb.update */
-S34_POINT(Moby_Class122_Update, 59) /* rac1.moby.falling_spark.update */
-S34_POINT(Moby_NanotechCrateFragment_Update, 60) /* rac1.moby.debris_bounce.update */
-S34_POINT(Moby_GoldDevastatorMissile_Update, 61) /* rac1.moby.missile.update */
-S34_POINT(Moby_Visibomb_Update, 62) /* rac1.moby.moby163.update */
-S34_POINT(Moby_Class166_Update, 63) /* rac1.moby.moby166.update */
-S34_POINT(Moby_Class167_Update, 64) /* rac1.moby.moby167.update */
-S34_POINT(Moby_VisibombMissile_Update, 65) /* rac1.moby.visibomb_missile.update */
-S34_POINT(Moby_Taunter_Update, 66) /* rac1.moby.moby175.update */
-S34_POINT(Moby_Pyrocitor_Update, 67) /* rac1.moby.pyrocitor.update */
-S34_POINT(Moby_Class179_Update, 68) /* rac1.moby.moby179.update */
-S34_POINT(Moby_Walloper_Update, 69) /* rac1.moby.moby180.update */
-S34_POINT(Moby_Morphoray_Update, 70) /* rac1.moby.morphoray.update */
-S34_POINT(Moby_DoomBot_Update, 71) /* rac1.moby.doom_bot.update */
-S34_POINT(Moby_Trespasser_Update, 72) /* rac1.moby.moby188.update */
-S34_POINT(Moby_MineGlove_Update, 73) /* rac1.moby.mine_glove.update */
-S34_POINT(Moby_BombGlove_Update, 74) /* rac1.moby.moby192.update */
-S34_POINT(Moby_Decoy_Update, 75) /* rac1.moby.thrown_object.update */
-S34_POINT(Moby_DevestatorAmmo_Update, 76) /* rac1.moby.ammo_pickup.update */
-S34_POINT(Moby_SwingshotHook_Update, 77) /* rac1.moby.moby209.update */
-S34_POINT(Moby_GloveOfDoom_Update, 78) /* rac1.moby.carrier.update */
-S34_POINT(Moby_Bomb_Update, 79) /* rac1.moby.bomb_230.update */
-S34_POINT(Moby_MorphorayChicken_Update, 80) /* rac1.moby.morphoray_chicken.update */
-S34_POINT(Moby_Class305_Update, 81) /* rac1.moby.moby305.update */
-S34_POINT(Moby_Class428_Update, 82) /* rac1.moby.moby428.update */
-S34_POINT(Moby_Ryno_Update, 83) /* rac1.moby.ryno.update */
-S34_POINT(Moby_Rocket_Update, 84) /* rac1.moby.rocket_steer.update */
-S34_POINT(Moby_Drone_Update, 85) /* rac1.moby.drone.update */
-S34_POINT(Moby_BoltCrate_Update, 86) /* rac1.moby.crate.update */
-S34_POINT(Moby_VeldinShip_Update, 87) /* rac1.moby.veldin_ship.update */
-S34_POINT(Moby_DecoyGlove_Update, 88) /* rac1.moby.decoy_glove.update */
-S34_POINT(Moby_MetalDetector_Update, 89) /* rac1.moby.target_tracker.update */
-S34_POINT(Moby_Helipack_Update, 90) /* rac1.moby.clank_pack.update */
-S34_POINT(Moby_Class639_Update, 91) /* rac1.moby.moby639.update */
-S34_POINT(Moby_HornyToad_Update, 92) /* rac1.moby.horny_toad.update */
-S34_POINT(Moby_Infobot_Update, 93) /* rac1.moby.infobot.update */
-S34_POINT(Moby_ParticleSpawnerSmokeFire_Update, 94) /* rac1.moby.particle_field.update */
-S34_POINT(Moby_Class775_Update, 95) /* rac1.moby.grow_and_fade_out.update */
-S34_POINT(Moby_Class804_Update, 96) /* rac1.moby.trail_moby.update */
-S34_POINT(Moby_NanotechBall_Update, 97) /* rac1.moby.nanotech_ball.update */
-S34_POINT(Moby_ClankCutsceneTrigger_Update, 98) /* rac1.moby.moby834.update */
-S34_POINT(Moby_Suckcannon_Update, 99) /* rac1.moby.suck_cannon.update */
-S34_POINT(Moby_RedOrb_Update, 100) /* rac1.moby.pulsing_color_moby.update */
-S34_POINT(Moby_Class1138_Update, 101) /* rac1.moby.quad_moby.update */
-S34_POINT(Moby_VendorOrb_Update, 102) /* rac1.moby.moby1143.update */
-S34_POINT(Moby_Hydrodisplacer_Update, 103) /* rac1.moby.hydrodisplacer_pad.update */
-S34_POINT(Moby_PilotsHelmet_Update, 104) /* rac1.moby.moby1290.update */
-S34_POINT(Moby_Class1413_Update, 105) /* rac1.moby.moby1413.update */
-S34_POINT(Moby_VeldinRobotEnemy_Update, 106) /* rac1.moby.vendor.update */
-S34_POINT(Moby_Class1471_Update, 107) /* rac1.moby.beam_slot_manager.update */
-S34_POINT(Moby_Class1545_Update, 108) /* rac1.moby.moby1545.update */
-S34_POINT(Moby_Pterodactyl_Update, 109) /* rac1.moby.path_follow_moby.update */
-S34_POINT(Moby_BombthrowerGrass_Update, 110) /* rac1.moby.grass.update */
-S34_POINT(Moby_Hoverboard_Update, 111) /* rac1.moby.fx_group.update */
-S34_POINT(Moby_NovalisElevator_Update, 112) /* rac1.moby.path_platform.update */
-S34_POINT(Moby_Class27_Update, 113) /* rac1.moby.particle_emitter.update */
-S34_POINT(Moby_Class156_Update, 114) /* rac1.moby.moby156.update */
-S34_POINT(Moby_BoltCrank_Update, 115) /* rac1.moby.bolt_crank.update */
-S34_POINT(Moby_GoldWeaponCase_Update, 116) /* rac1.moby.item_offer.update */
-S34_POINT(Moby_SandMouse_Update, 117) /* rac1.moby.sand_mouse.update */
-S34_POINT(Moby_Birdbot_Update, 118) /* rac1.moby.birdbot.update */
-S34_POINT(Moby_Class567_Update, 119) /* rac1.moby.burning_debris.update */
-S34_POINT(Moby_LargeAmoeboid_Update, 120) /* rac1.moby.amoeboid.update */
-S34_POINT(Moby_Peckbot_Update, 121) /* rac1.moby.peckbot.update */
-S34_POINT(Moby_SandmouseHouse_Update, 122) /* rac1.moby.moby604.update */
-S34_POINT(Moby_Class605_Update, 123) /* rac1.moby.moby605.update */
-S34_POINT(Moby_WaterCurrent_Update, 124) /* rac1.moby.path_carrier.update */
-S34_POINT(Moby_CaveDoor_Update, 125) /* rac1.moby.crank_rotator.update */
-S34_POINT(Moby_FighterJet_Update, 126) /* rac1.moby.tethered_mine.update */
-S34_POINT(Moby_DoorHalf_Update, 127) /* rac1.moby.crank_slider.update */
-S34_POINT(Moby_StationaryShip_Update, 128) /* rac1.moby.rider_carrier.update */
-S34_POINT(Moby_Class845_Update, 129) /* rac1.moby.class_845.update */
-S34_POINT(Moby_Class678_Update, 130) /* rac1.moby.scrolling_layers2.update */
-S34_POINT(Moby_Class679_Update, 131) /* rac1.moby.grind_rail.update */
-S34_POINT(Moby_Class686_Update, 132) /* rac1.moby.flying_burst.update */
-S34_POINT(Moby_BomberJet_Update, 133) /* rac1.moby.gunship.update */
-S34_POINT(Moby_WaterLily_Update, 134) /* rac1.moby.hover_enemy.update */
-S34_POINT(Moby_Rock_Update, 135) /* rac1.moby.debris_moby.update */
-S34_POINT(Moby_Class700_Update, 136) /* rac1.moby.steam_vent.update */
-S34_POINT(Moby_FallingRock_Update, 137) /* rac1.moby.collapsing_platform.update */
-S34_POINT(Moby_PistonPlatform_Update, 138) /* rac1.moby.lift_move.update */
-S34_POINT(Moby_RockFormation_Update, 139) /* rac1.moby.breakable_rock.update */
-S34_POINT(Moby_Fan_Update, 140) /* rac1.moby.oscillating_spinner.update */
-S34_POINT(Moby_BridgePiece1_Update, 141) /* rac1.moby.projectile_breakable.update */
-S34_POINT(Moby_Class722_Update, 142) /* rac1.moby.falling_drop.update */
-S34_POINT(Moby_DestroyableCaveWall_Update, 143) /* rac1.moby.breakable_wall.update */
-S34_POINT(Moby_AgnoggShipFront_Update, 144) /* rac1.moby.agnogg_ship.update */
-S34_POINT(Moby_Class737_Update, 145) /* rac1.moby.cutscene_trigger.update */
-S34_POINT(Moby_BridgeHalf_Update, 146) /* rac1.moby.hinged_bridge.update */
-S34_POINT(Moby_Class751_Update, 147) /* rac1.moby.water_surface_fx.update */
-S34_POINT(Moby_GreenMushroom_Update, 148) /* rac1.moby.breakable_pot.update */
-S34_POINT(Moby_Class761_Update, 149) /* rac1.moby.pulsing_mesh.update */
-S34_POINT(Moby_DoorLeft_Update, 150) /* rac1.moby.sliding_door.update */
-S34_POINT(Moby_ThePlumber_Update, 151) /* rac1.moby.talking_npc.update */
-S34_POINT(Moby_Pipe_Update, 152) /* rac1.moby.moby778.update */
-S34_POINT(Moby_Class779_Update, 153) /* rac1.moby.smoke_emitter.update */
-S34_POINT(Moby_Class787_Update, 154) /* rac1.moby.falling_chunk.update */
-S34_POINT(Moby_SpawnPoint_Update, 155) /* rac1.moby.checkpoint_trigger.update */
-S34_POINT(Moby_Beehive_Update, 156) /* rac1.moby.enemy_spawner.update */
-S34_POINT(Moby_Class832_Update, 157) /* rac1.moby.rc_range_limiter.update */
-S34_POINT(Moby_MushroomUnderside_Update, 158) /* rac1.moby.moby1042.update */
-S34_POINT(Moby_GoldBolt_Update, 159) /* rac1.moby.gold_bolt.update */
-S34_POINT(Moby_Teleporter_Update, 160) /* rac1.moby.teleporter_pad.update */
-S34_POINT(Moby_Class1225_Update, 161) /* rac1.moby.moby1225.update */
-S34_POINT(Moby_Class1341_Update, 162) /* rac1.moby.help_hint_director.update */
-S34_POINT(Moby_Class1504_Update, 163) /* rac1.moby.wandering_light.update */
-S34_POINT(Moby_Class1510_Update, 164) /* rac1.moby.moby1510.update */
-S34_POINT(Moby_Class1546_Update, 165) /* rac1.moby.moby1546.update */
-S34_POINT(Moby_Class1633_Update, 166) /* rac1.moby.class_1633.update */
-S34_POINT(Moby_TallShroom_Update, 167) /* rac1.moby.moby1813.update */
-S34_POINT(Moby_Sandmouse_Update, 168) /* rac1.moby.mouse_critter.update */
-S34_POINT(Moby_Class1848_Update, 169) /* rac1.moby.moby1848.update */
-S34_POINT(Moby_TrackdriveLeft_Update, 170) /* rac1.moby.trackdrive_left.update */
-S34_POINT(Moby_SandShark_Update, 171) /* rac1.moby.sand_shark.update */
-S34_POINT(Moby_Constructorbot_Update, 172) /* rac1.moby.moby612.update */
-S34_POINT(Moby_TresspasserPad_Update, 173) /* rac1.moby.trespasser_puzzle.update */
-S34_POINT(Moby_Elevator_Update, 174) /* rac1.moby.elevator_651.update */
-S34_POINT(Moby_ConveyorBelt_Update, 175) /* rac1.moby.pusher.update */
-S34_POINT(Moby_Bulldozer_Update, 176) /* rac1.moby.moby656.update */
-S34_POINT(Moby_SandSharkNest_Update, 177) /* rac1.moby.sand_shark_nest.update */
-S34_POINT(Moby_GrabCrane_Update, 178) /* rac1.moby.moby675.update */
-S34_POINT(Moby_Platform_Update, 179) /* rac1.moby.rotate_platform.update */
-S34_POINT(Moby_TransportPod_Update, 180) /* rac1.moby.moby713.update */
-S34_POINT(Moby_Crane_Update, 181) /* rac1.moby.moby732.update */
-S34_POINT(Moby_RocketLauncher_Update, 182) /* rac1.moby.rocket_launcher.update */
-S34_POINT(Moby_RocketDoor1_Update, 183) /* rac1.moby.rocket_door1.update */
-S34_POINT(Moby_TresspasserDoor1_Update, 184) /* rac1.moby.moby743.update */
-S34_POINT(Moby_TresspasserDoor2_Update, 185) /* rac1.moby.moby744.update */
-S34_POINT(Moby_SandsharkEgg_Update, 186) /* rac1.moby.moby755.update */
-S34_POINT(Moby_SwingshotVersatarget_Update, 187) /* rac1.moby.hideable_flower.update */
-S34_POINT(Moby_Rocks_Update, 188) /* rac1.moby.moby762.update */
-S34_POINT(Moby_SkidsAgent_Update, 189) /* rac1.moby.skids_agent.update */
-S34_POINT(Moby_SkidMcmarx_Update, 190) /* rac1.moby.skid_mc_marx_aridia.update */
-S34_POINT(Moby_LiftcarPlatform_Update, 191) /* rac1.moby.driver_lift.update */
-S34_POINT(Moby_OceanAridia_Update, 192) /* rac1.moby.moby854.update */
-S34_POINT(Moby_Tresspasser_Update, 193) /* rac1.moby.moby1005.update */
-S34_POINT(Moby_Constructorbot1208_Update, 194) /* rac1.moby.shard_debris.update */
-S34_POINT(Moby_BackgroundShip1_Update, 195) /* rac1.moby.background_ship.update */
-S34_POINT(Moby_BackgroundShip2_Update, 196) /* rac1.moby.ship_path.update */
-S34_POINT(Moby_Class1324_Update, 197) /* rac1.moby.tutorial_hint.update */
-S34_POINT(Moby_Class1479_Update, 198) /* rac1.moby.moby1479.update */
-S34_POINT(Moby_WhiteFlower_Update, 199) /* rac1.moby.break_on_hit_l02.update */
-S34_POINT(Moby_MetropolisTrainLocomotive_Update, 200) /* rac1.moby.metropolis_train.update */
-S34_POINT(Moby_MovingPlatformSmall_Update, 201) /* rac1.moby.moving_platform.update */
-S34_POINT(Moby_MetropolisTrainCarriage_Update, 202) /* rac1.moby.metropolis_train_carriage.update */
-S34_POINT(Moby_RedShip1_Update, 203) /* rac1.moby.train_car.update */
-S34_POINT(Moby_Class235_Update, 204) /* rac1.moby.parent_follow_fade.update */
-S34_POINT(Moby_Spawner_Update, 205) /* rac1.moby.child_spawner.update */
-S34_POINT(Moby_Bomb545_Update, 206) /* rac1.moby.moby545.update */
-S34_POINT(Moby_RobotDog_Update, 207) /* rac1.moby.moby573.update */
-S34_POINT(Moby_Class574_Update, 208) /* rac1.moby.moby574.update */
-S34_POINT(Moby_MineLayer_Update, 209) /* rac1.moby.trooper.update */
-S34_POINT(Moby_Mine627_Update, 210) /* rac1.moby.kerwan_mine.update */
-S34_POINT(Moby_BlargHelicopter_Update, 211) /* rac1.moby.helicopter_gunship.update */
-S34_POINT(Moby_Taxi_Update, 212) /* rac1.moby.rail_taxi.update */
-S34_POINT(Moby_Statue_Update, 213) /* rac1.moby.moby817.update */
-S34_POINT(Moby_RoboShackSign_Update, 214) /* rac1.moby.spinner.update */
-S34_POINT(Moby_Class833_Update, 215) /* rac1.moby.kerwan_homing_rocket.update */
-S34_POINT(Moby_Class848_Update, 216) /* rac1.moby.moby848.update */
-S34_POINT(Moby_Helga_Update, 217) /* rac1.moby.quest_giver.update */
-S34_POINT(Moby_Class898_Update, 218) /* rac1.moby.rail_moby.update */
-S34_POINT(Moby_Class899_Update, 219) /* rac1.moby.rail_spawner.update */
-S34_POINT(Moby_BigAl_Update, 220) /* rac1.moby.guide.update */
-S34_POINT(Moby_RobotQwark_Update, 221) /* rac1.moby.moby914.update */
-S34_POINT(Moby_Fred1_Update, 222) /* rac1.moby.fred_1.update */
-S34_POINT(Moby_QwarkUmbris_Update, 223) /* rac1.moby.qwark_watch.update */
-S34_POINT(Moby_Class994_Update, 224) /* rac1.moby.ambient_stream_l03.update */
-S34_POINT(Moby_Gate_Update, 225) /* rac1.moby.rise_when_collected.update */
-S34_POINT(Moby_Taxi1012_Update, 226) /* rac1.moby.rail_lift.update */
-S34_POINT(Moby_Class1221_Update, 227) /* rac1.moby.falling_moby.update */
-S34_POINT(Moby_Class1342_Update, 228) /* rac1.moby.tutorial_hint_trigger.update */
-S34_POINT(Moby_Class1548_Update, 229) /* rac1.moby.cutscene_beams.update */
-S34_POINT(Moby_Class86_Update, 230) /* rac1.moby.swarm.update */
-S34_POINT(Moby_Class161_Update, 231) /* rac1.moby.class_161.update */
-S34_POINT(Moby_Class184_Update, 232) /* rac1.moby.moby184_shot.update */
-S34_POINT(Moby_BigAxebot_Update, 233) /* rac1.moby.big_axebot.update */
-S34_POINT(Moby_CircularSawEnemy_Update, 234) /* rac1.moby.circular_saw.update */
-S34_POINT(Moby_BlargTrooper_Update, 235) /* rac1.moby.blarg_trooper.update */
-S34_POINT(Moby_EudoraBridge_Update, 236) /* rac1.moby.switch_follower.update */
-S34_POINT(Moby_PlatformBooster_Update, 237) /* rac1.moby.lever_door.update */
-S34_POINT(Moby_SnowPlow_Update, 238) /* rac1.moby.path_vehicle.update */
-S34_POINT(Moby_FloatingPlatform_Update, 239) /* rac1.moby.floating_platform_481.update */
-S34_POINT(Moby_TransportShip_Update, 240) /* rac1.moby.delete_moby.update */
-S34_POINT(Moby_WoodcutBot_Update, 241) /* rac1.moby.wb_moby.update */
-S34_POINT(Moby_Class584_Update, 242) /* rac1.moby.moby584.update */
-S34_POINT(Moby_Class617_Update, 243) /* rac1.moby.path_keyframe_blend.update */
-S34_POINT(Moby_Leaf_Update, 244) /* rac1.moby.drift_spark_moby.update */
-S34_POINT(Moby_UpperDoor_Update, 245) /* rac1.moby.collectable.update */
-S34_POINT(Moby_SuckCannon_Update, 246) /* rac1.moby.warp_portal.update */
-S34_POINT(Moby_Lieutenant_Update, 247) /* rac1.moby.unlock_planet_pad.update */
-S34_POINT(Moby_Class1343_Update, 248) /* rac1.moby.moby1343.update */
-S34_POINT(Moby_Class1516_Update, 249) /* rac1.moby.bouncing_debris.update */
-S34_POINT(Moby_Class1549_Update, 250) /* rac1.moby.sparks_trigger_l04.update */
-S34_POINT(Moby_Sharkigator_Update, 251) /* rac1.moby.sharkigator_35.update */
-S34_POINT(Moby_SceneryShip_Update, 252) /* rac1.moby.scenery_ship.update */
-S34_POINT(Moby_Amoeboid_Update, 253) /* rac1.moby.grazing_critter.update */
-S34_POINT(Moby_Class258_Update, 254) /* rac1.moby.moby258.update */
-S34_POINT(Moby_HydrodisplacerFaucet_Update, 255) /* rac1.moby.moby341.update */
-S34_POINT(Moby_Hoverboard439_Update, 256) /* rac1.moby.hoverboard.update */
-S34_POINT(Moby_Extermibot_Update, 257) /* rac1.moby.extermibot.update */
-S34_POINT(Moby_Extermitank_Update, 258) /* rac1.moby.extermitank.update */
-S34_POINT(Moby_SkidMcmarx717_Update, 259) /* rac1.moby.skid_mc_marx.update */
-S34_POINT(Moby_FloatingPlatform810_Update, 260) /* rac1.moby.floating_platform_810.update */
-S34_POINT(Moby_Box_Update, 261) /* rac1.moby.moby812.update */
-S34_POINT(Moby_Lamp_Update, 262) /* rac1.moby.moby823.update */
-S34_POINT(Moby_FloorButton_Update, 263) /* rac1.moby.floor_button.update */
-S34_POINT(Moby_Water_Update, 264) /* rac1.moby.water_surface.update */
-S34_POINT(Moby_ElectricGate_Update, 265) /* rac1.moby.electric_gate.update */
-S34_POINT(Moby_Class841_Update, 266) /* rac1.moby.fog_zone.update */
-S34_POINT(Moby_Class843_Update, 267) /* rac1.moby.pose_slide_out.update */
-S34_POINT(Moby_DrainCover_Update, 268) /* rac1.moby.drain_cover.update */
-S34_POINT(Moby_PipeMountedGrating_Update, 269) /* rac1.moby.pipe_mounted_grating.update */
-S34_POINT(Moby_Class852_Update, 270) /* rac1.moby.gate_rise.update */
-S34_POINT(Moby_Class855_Update, 271) /* rac1.moby.emitter_l05.update */
-S34_POINT(Moby_ElevatorWithButton_Update, 272) /* rac1.moby.lift_l05.update */
-S34_POINT(Moby_OceanRilgar_Update, 273) /* rac1.moby.pulsing_marker.update */
-S34_POINT(Moby_Class893_Update, 274) /* rac1.moby.class_893.update */
-S34_POINT(Moby_Class895_Update, 275) /* rac1.moby.triggered_rotor.update */
-S34_POINT(Moby_HoverboardGirl_Update, 276) /* rac1.moby.hoverboard_girl.update */
-S34_POINT(Moby_QwarksBouncer_Update, 277) /* rac1.moby.bouncer.update */
-S34_POINT(Moby_ShadySalesman_Update, 278) /* rac1.moby.shady_salesman.update */
-S34_POINT(Moby_BlargGun_Update, 279) /* rac1.moby.blarg_gun.update */
-S34_POINT(Moby_Class982_Update, 280) /* rac1.moby.water_plane_marker.update */
-S34_POINT(Moby_Television_Update, 281) /* rac1.moby.bobbing_moby_l05.update */
-S34_POINT(Moby_Taxi998_Update, 282) /* rac1.moby.pickup_l05.update */
-S34_POINT(Moby_QwarksTrailer_Update, 283) /* rac1.moby.qwarks_trailer.update */
-S34_POINT(Moby_HoverboardRing_Update, 284) /* rac1.moby.moby1139.update */
-S34_POINT(Moby_Class1347_Update, 285) /* rac1.moby.challenge.update */
-S34_POINT(Moby_Lamp1511_Update, 286) /* rac1.moby.mine_moby.update */
-S34_POINT(Moby_Class1550_Update, 287) /* rac1.moby.moby1550.update */
-S34_POINT(Moby_HangarDoor_Update, 288) /* rac1.moby.orbiting_platform.update */
-S34_POINT(Moby_GadgebotSpawnContainer_Update, 289) /* rac1.moby.moby302.update */
-S34_POINT(Moby_GadgebotSpawnPad_Update, 290) /* rac1.moby.moby303.update */
-S34_POINT(Moby_Class367_Update, 291) /* rac1.moby.moby367.update */
-S34_POINT(Moby_Frog_Update, 292) /* rac1.moby.frog.update */
-S34_POINT(Moby_Gadgebot_Update, 293) /* rac1.moby.gadgebot.update */
-S34_POINT(Moby_ToxicGasVent_Update, 294) /* rac1.moby.swinging_hazard.update */
-S34_POINT(Moby_Class1021_Update, 295) /* rac1.moby.door_ring.update */
-S34_POINT(Moby_Class1028_Update, 296) /* rac1.moby.drawbridge.update */
-S34_POINT(Moby_Class1035_Update, 297) /* rac1.moby.class_1035.update */
-S34_POINT(Moby_EnergySphereHolder_Update, 298) /* rac1.moby.collectible_spawner.update */
-S34_POINT(Moby_Class1039_Update, 299) /* rac1.moby.trigger_lists.update */
-S34_POINT(Moby_EnergySphere_Update, 300) /* rac1.moby.moby1040.update */
-S34_POINT(Moby_AlienSnapper_Update, 301) /* rac1.moby.moby1048.update */
-S34_POINT(Moby_AlienQueen_Update, 302) /* rac1.moby.alien_queen.update */
-S34_POINT(Moby_Class1054_Update, 303) /* rac1.moby.moby1054.update */
-S34_POINT(Moby_Class1061_Update, 304) /* rac1.moby.callable_lift.update */
-S34_POINT(Moby_Class1062_Update, 305) /* rac1.moby.class_1062.update */
-S34_POINT(Moby_Class1066_Update, 306) /* rac1.moby.launch_trigger.update */
-S34_POINT(Moby_BlargSpaceCommando_Update, 307) /* rac1.moby.moby1068.update */
-S34_POINT(Moby_Class1083_Update, 308) /* rac1.moby.camera_takeover_trigger.update */
-S34_POINT(Moby_Class1085_Update, 309) /* rac1.moby.spinning_debris.update */
-S34_POINT(Moby_Class1091_Update, 310) /* rac1.moby.bobbing_moby.update */
-S34_POINT(Moby_Fred_Update, 311) /* rac1.moby.moby1105.update */
-S34_POINT(Moby_Class1108_Update, 312) /* rac1.moby.moby1108.update */
-S34_POINT(Moby_Shuttle_Update, 313) /* rac1.moby.shuttle.update */
-S34_POINT(Moby_RedButton_Update, 314) /* rac1.moby.red_button.update */
-S34_POINT(Moby_Class1123_Update, 315) /* rac1.moby.moby1123.update */
-S34_POINT(Moby_BotDoorLock_Update, 316) /* rac1.moby.moby1302.update */
-S34_POINT(Moby_Class1348_Update, 317) /* rac1.moby.class_1348.update */
-S34_POINT(Moby_Class1512_Update, 318) /* rac1.moby.spark_emitter.update */
-S34_POINT(Moby_Class1551_Update, 319) /* rac1.moby.sparks_trigger_l06.update */
-S34_POINT(Moby_Mushroom_Update, 320) /* rac1.moby.spawn_child_and_delete.update */
-S34_POINT(Moby_Class1660_Update, 321) /* rac1.moby.break_on_hit_blarg.update */
-S34_POINT(Moby_Class1898_Update, 322) /* rac1.moby.moby1898.update */
-S34_POINT(Moby_TaxiPlatform_Update, 323) /* rac1.moby.taxi_platform_38.update */
-S34_POINT(Moby_TaxiPlatform1474_Update, 324) /* rac1.moby.taxi_platform_1474.update */
-S34_POINT(Moby_Class436_Update, 325) /* rac1.moby.moby436.update */
-S34_POINT(Moby_Class317_Update, 326) /* rac1.moby.ambient_stream_l07.update */
-S34_POINT(Moby_PurpleShip_Update, 327) /* rac1.moby.purple_ship_529.update */
-S34_POINT(Moby_BoltcratePossiblyForMetalDetector_Update, 328) /* rac1.moby.path_train.update */
-S34_POINT(Moby_Class880_Update, 329) /* rac1.moby.bolt_projectile.update */
-S34_POINT(Moby_Bomb882_Update, 330) /* rac1.moby.gravity_debris.update */
-S34_POINT(Moby_TimedActivationPads_Update, 331) /* rac1.moby.timed_pad.update */
-S34_POINT(Moby_Water902_Update, 332) /* rac1.moby.water_plate.update */
-S34_POINT(Moby_Class1013_Update, 333) /* rac1.moby.target_driven_slider.update */
-S34_POINT(Moby_OceanUmbris_Update, 334) /* rac1.moby.audio_stream_trigger.update */
-S34_POINT(Moby_Bombomatic_Update, 335) /* rac1.moby.lobber_enemy.update */
-S34_POINT(Moby_Class1046_Update, 336) /* rac1.moby.shockwave.update */
-S34_POINT(Moby_Class1049_Update, 337) /* rac1.moby.lobbed_bomb.update */
-S34_POINT(Moby_Sharkigator1059_Update, 338) /* rac1.moby.sharkigator_1059.update */
-S34_POINT(Moby_Door_Update, 339) /* rac1.moby.door.update */
-S34_POINT(Moby_Class1069_Update, 340) /* rac1.moby.moby1069.update */
-S34_POINT(Moby_Class1080_Update, 341) /* rac1.moby.falling_leaf.update */
-S34_POINT(Moby_Snagglebeast_Update, 342) /* rac1.moby.snagglebeast.update */
-S34_POINT(Moby_Mine1112_Update, 343) /* rac1.moby.swooper.update */
-S34_POINT(Moby_Class1113_Update, 344) /* rac1.moby.breakable_prop.update */
-S34_POINT(Moby_MachinegunTurret_Update, 345) /* rac1.moby.machinegun_turret_1126.update */
-S34_POINT(Moby_Class1128_Update, 346) /* rac1.moby.moving_moby_l07.update */
-S34_POINT(Moby_Bridge_Update, 347) /* rac1.moby.bridge.update */
-S34_POINT(Moby_Class1133_Update, 348) /* rac1.moby.moby1133.update */
-S34_POINT(Moby_Class1142_Update, 349) /* rac1.moby.moby1142.update */
-S34_POINT(Moby_Class1552_Update, 350) /* rac1.moby.spark_burst_spawner.update */
-S34_POINT(Moby_Class1789_Update, 351) /* rac1.moby.moby1789.update */
-S34_POINT(Moby_Class152_Update, 352) /* rac1.moby.moby152.update */
-S34_POINT(Moby_Bomb248_Update, 353) /* rac1.moby.bomb_248.update */
-S34_POINT(Moby_Scoutbot_Update, 354) /* rac1.moby.scoutbot.update */
-S34_POINT(Moby_BomberTank_Update, 355) /* rac1.moby.bomber_tank.update */
-S34_POINT(Moby_Class327_Update, 356) /* rac1.moby.moby327.update */
-S34_POINT(Moby_BlargBombthrower_Update, 357) /* rac1.moby.blarg_bomb_thrower.update */
-S34_POINT(Moby_Shuttle424_Update, 358) /* rac1.moby.route_platform.update */
-S34_POINT(Moby_Bomb425_Update, 359) /* rac1.moby.moby425.update */
-S34_POINT(Moby_Rocket435_Update, 360) /* rac1.moby.guided_rocket.update */
-S34_POINT(Moby_Class438_Update, 361) /* rac1.moby.moby438.update */
-S34_POINT(Moby_Class440_Update, 362) /* rac1.moby.cannon.update */
-S34_POINT(Moby_Class441_Update, 363) /* rac1.moby.falling_debris.update */
-S34_POINT(Moby_Class444_Update, 364) /* rac1.moby.moby444.update */
-S34_POINT(Moby_BoltThief_Update, 365) /* rac1.moby.batalia_bolt_thief.update */
-S34_POINT(Moby_Rocket458_Update, 366) /* rac1.moby.moby458.update */
-S34_POINT(Moby_Shrub_Update, 367) /* rac1.moby.moby462.update */
-S34_POINT(Moby_Class463_Update, 368) /* rac1.moby.swarm_leader.update */
-S34_POINT(Moby_Class467_Update, 369) /* rac1.moby.group_clear.update */
-S34_POINT(Moby_Class468_Update, 370) /* rac1.moby.gate_swing.update */
-S34_POINT(Moby_Class600_Update, 371) /* rac1.moby.moby600.update */
-S34_POINT(Moby_Class621_Update, 372) /* rac1.moby.moby621.update */
-S34_POINT(Moby_Class648_Update, 373) /* rac1.moby.moby648.update */
-S34_POINT(Moby_Class671_Update, 374) /* rac1.moby.flicker_light.update */
-S34_POINT(Moby_BlargParatrooper_Update, 375) /* rac1.moby.paratrooper.update */
-S34_POINT(Moby_Commando_Update, 376) /* rac1.moby.commando.update */
-S34_POINT(Moby_BataliaDeserter_Update, 377) /* rac1.moby.deserter.update */
-S34_POINT(Moby_ThePlumberBatalia_Update, 378) /* rac1.moby.moby1283.update */
-S34_POINT(Moby_Class1292_Update, 379) /* rac1.moby.fire_bolt.update */
-S34_POINT(Moby_Class1349_Update, 380) /* rac1.moby.moby1349.update */
-S34_POINT(Moby_Class1400_Update, 381) /* rac1.moby.moby1400.update */
-S34_POINT(Moby_Class1553_Update, 382) /* rac1.moby.moby1553.update */
-S34_POINT(Moby_Class1629_Update, 383) /* rac1.moby.moby1629.update */
-S34_POINT(Moby_Class1641_Update, 384) /* rac1.moby.moby1641.update */
-S34_POINT(Moby_Class1649_Update, 385) /* rac1.moby.moby1649.update */
-S34_POINT(Moby_AirshipPart_Update, 386) /* rac1.moby.airship_part.update */
-S34_POINT(Moby_Seeker_Update, 387) /* rac1.moby.moby52.update */
-S34_POINT(Moby_Class193_Update, 388) /* rac1.moby.ground_enemy.update */
-S34_POINT(Moby_Asteroid_Update, 389) /* rac1.moby.asteroid_belt.update */
-S34_POINT(Moby_Display_Update, 390) /* rac1.moby.breakable_stack.update */
-S34_POINT(Moby_Class279_Update, 391) /* rac1.moby.moby279.update */
-S34_POINT(Moby_Class313_Update, 392) /* rac1.moby.tumbling_debris.update */
-S34_POINT(Moby_Class320_Update, 393) /* rac1.moby.heavy_tumbling_debris.update */
-S34_POINT(Moby_Class417_Update, 394) /* rac1.moby.moby417.update */
-S34_POINT(Moby_Platform664_Update, 395) /* rac1.moby.moby664.update */
-S34_POINT(Moby_Class1000_Update, 396) /* rac1.moby.moby1000.update */
-S34_POINT(Moby_Elevator1150_Update, 397) /* rac1.moby.path_platform_l09.update */
-S34_POINT(Moby_RefuelingStation_Update, 398) /* rac1.moby.pressure_plate.update */
-S34_POINT(Moby_AirshipPart1181_Update, 399) /* rac1.moby.airship_chain_link.update */
-S34_POINT(Moby_Turret_Update, 400) /* rac1.moby.mountable_turret.update */
-S34_POINT(Moby_Class1206_Update, 401) /* rac1.moby.moby1206.update */
-S34_POINT(Moby_Class1258_Update, 402) /* rac1.moby.enemy_shot.update */
-S34_POINT(Moby_Barrier_Update, 403) /* rac1.moby.barrier.update */
-S34_POINT(Moby_Class1293_Update, 404) /* rac1.moby.linked_riser.update */
-S34_POINT(Moby_Shuttle1766_Update, 405) /* rac1.moby.moby1766.update */
-S34_POINT(Moby_Spawner1885_Update, 406) /* rac1.moby.moby1885.update */
-S34_POINT(Moby_SpawnerEgg_Update, 407) /* rac1.moby.moby1886.update */
-S34_POINT(Moby_Platform1033_Update, 408) /* rac1.moby.moby1033.update */
-S34_POINT(Moby_Platform1117_Update, 409) /* rac1.moby.bobbing_platform.update */
-S34_POINT(Moby_Magnetboots_Update, 410) /* rac1.moby.spinning_pickup.update */
-S34_POINT(Moby_Class22_Update, 411) /* rac1.moby.moby22.update */
-S34_POINT(Moby_GadgebotTelepotPad_Update, 412) /* rac1.moby.near_hero_sparkle.update */
-S34_POINT(Moby_Class702_Update, 413) /* rac1.moby.moby702.update */
-S34_POINT(Moby_Class794_Update, 414) /* rac1.moby.moby794.update */
-S34_POINT(Moby_Rocket819_Update, 415) /* rac1.moby.moby819.update */
-S34_POINT(Moby_Class859_Update, 416) /* rac1.moby.moby859.update */
-S34_POINT(Moby_Bomb938_Update, 417) /* rac1.moby.moby938.update */
-S34_POINT(Moby_BombthrowerGrass939_Update, 418) /* rac1.moby.timed_shooter.update */
-S34_POINT(Moby_Class947_Update, 419) /* rac1.moby.electric_spark.update */
-S34_POINT(Moby_LabDoor_Update, 420) /* rac1.moby.height_glide.update */
-S34_POINT(Moby_Button_Update, 421) /* rac1.moby.moby1031.update */
-S34_POINT(Moby_Class1047_Update, 422) /* rac1.moby.moby1047.update */
-S34_POINT(Moby_Class1067_Update, 423) /* rac1.moby.sound_prop.update */
-S34_POINT(Moby_Class1090_Update, 424) /* rac1.moby.moby1090.update */
-S34_POINT(Moby_BlockCave_Update, 425) /* rac1.moby.collectible_trigger.update */
-S34_POINT(Moby_Screamer_Update, 426) /* rac1.moby.moby1196.update */
-S34_POINT(Moby_Class1199_Update, 427) /* rac1.moby.moby1199.update */
-S34_POINT(Moby_ToxicCrab_Update, 428) /* rac1.moby.toxic_crab.update */
-S34_POINT(Moby_BlargShip_Update, 429) /* rac1.moby.blarg_ship.update */
-S34_POINT(Moby_Class1240_Update, 430) /* rac1.moby.exhaust_vent.update */
-S34_POINT(Moby_NanotechUpgradeVendor_Update, 431) /* rac1.moby.nanotech_vendor.update */
-S34_POINT(Moby_Class1344_Update, 432) /* rac1.moby.moby1344.update */
-S34_POINT(Moby_Gun_Update, 433) /* rac1.moby.linked_turret.update */
-S34_POINT(Moby_Class1378_Update, 434) /* rac1.moby.moby1378.update */
-S34_POINT(Moby_Gate1_Update, 435) /* rac1.moby.swing_door.update */
-S34_POINT(Moby_Gate2_Update, 436) /* rac1.moby.moby1424.update */
-S34_POINT(Moby_Class1544_Update, 437) /* rac1.moby.effect_emitter.update */
-S34_POINT(Moby_Class1555_Update, 438) /* rac1.moby.moby1555.update */
-S34_POINT(Moby_Class1855_Update, 439) /* rac1.moby.moby1855.update */
-S34_POINT(Moby_Class1856_Update, 440) /* rac1.moby.moby1856.update */
-S34_POINT(Moby_Class23_Update, 441) /* rac1.moby.pickup.update */
-S34_POINT(Moby_Class37_Update, 442) /* rac1.moby.moby37.update */
-S34_POINT(Moby_Class65_Update, 443) /* rac1.moby.moby65.update */
-S34_POINT(Moby_Bob_Update, 444) /* rac1.moby.moby90.update */
-S34_POINT(Moby_ResortOwner_Update, 445) /* rac1.moby.moby114.update */
-S34_POINT(Moby_FredPokitaru_Update, 446) /* rac1.moby.pokitaru_vendor.update */
-S34_POINT(Moby_Teleporter318_Update, 447) /* rac1.moby.moby318.update */
-S34_POINT(Moby_Class361_Update, 448) /* rac1.moby.moby361.update */
-S34_POINT(Moby_Class1009_Update, 449) /* rac1.moby.class_1009.update */
-S34_POINT(Moby_Class1017_Update, 450) /* rac1.moby.fireball.update */
-S34_POINT(Moby_Rocket1034_Update, 451) /* rac1.moby.moby1034.update */
-S34_POINT(Moby_PokitaruBoat_Update, 452) /* rac1.moby.pokitaru_boat.update */
-S34_POINT(Moby_OceanPokitaru_Update, 453) /* rac1.moby.ocean.update */
-S34_POINT(Moby_Class1156_Update, 454) /* rac1.moby.cutscene_controller.update */
-S34_POINT(Moby_Class1157_Update, 455) /* rac1.moby.moby1157.update */
-S34_POINT(Moby_Class1158_Update, 456) /* rac1.moby.moby1158.update */
-S34_POINT(Moby_Class1159_Update, 457) /* rac1.moby.moby1159.update */
-S34_POINT(Moby_SeesawPlatform_Update, 458) /* rac1.moby.moby1178.update */
-S34_POINT(Moby_ThrusterPackLock_Update, 459) /* rac1.moby.moby1179.update */
-S34_POINT(Moby_Class1180_Update, 460) /* rac1.moby.moby1180.update */
-S34_POINT(Moby_Ammocrate_Update, 461) /* rac1.moby.ship_collider.update */
-S34_POINT(Moby_Class1219_Update, 462) /* rac1.moby.moby1219.update */
-S34_POINT(Moby_Psytcopus_Update, 463) /* rac1.moby.psytcopus.update */
-S34_POINT(Moby_JetFighter_Update, 464) /* rac1.moby.jet_fighter.update */
-S34_POINT(Moby_Puffoid_Update, 465) /* rac1.moby.moby1246.update */
-S34_POINT(Moby_Class1248_Update, 466) /* rac1.moby.gate.update */
-S34_POINT(Moby_OilTankerFront_Update, 467) /* rac1.moby.moby1264.update */
-S34_POINT(Moby_Class1265_Update, 468) /* rac1.moby.bubbling_vent.update */
-S34_POINT(Moby_EnergySphere1297_Update, 469) /* rac1.moby.moby1297.update */
-S34_POINT(Moby_BlargShip1319_Update, 470) /* rac1.moby.flying_craft.update */
-S34_POINT(Moby_Class1350_Update, 471) /* rac1.moby.moby1350.update */
-S34_POINT(Moby_Class1524_Update, 472) /* rac1.moby.bubble.update */
-S34_POINT(Moby_Class1903_Update, 473) /* rac1.moby.pokitaru_surface_near.update */
-S34_POINT(Moby_Class1919_Update, 474) /* rac1.moby.pokitaru_surface_far.update */
-S34_POINT(Moby_Class19_Update, 475) /* rac1.moby.moby19.update */
-S34_POINT(Moby_Class238_Update, 476) /* rac1.moby.hoven_troll.update */
-S34_POINT(Moby_Platform240_Update, 477) /* rac1.moby.hoven_platform.update */
-S34_POINT(Moby_Miner_Update, 478) /* rac1.moby.miner.update */
-S34_POINT(Moby_Class293_Update, 479) /* rac1.moby.moby293.update */
-S34_POINT(Moby_BlargTrooper294_Update, 480) /* rac1.moby.moby294.update */
-S34_POINT(Moby_BlargHelicopter326_Update, 481) /* rac1.moby.moby326.update */
-S34_POINT(Moby_Edwina_Update, 482) /* rac1.moby.edwina.update */
-S34_POINT(Moby_Helicopter_Update, 483) /* rac1.moby.moby336.update */
-S34_POINT(Moby_CraneArm_Update, 484) /* rac1.moby.moby339.update */
-S34_POINT(Moby_WaterReservoir_Update, 485) /* rac1.moby.water_reservoir.update */
-S34_POINT(Moby_Rocket409_Update, 486) /* rac1.moby.hoven_shot.update */
-S34_POINT(Moby_Class422_Update, 487) /* rac1.moby.hoven_challenge.update */
-S34_POINT(Moby_Class1259_Update, 488) /* rac1.moby.moby1259.update */
-S34_POINT(Moby_HovenTurret_Update, 489) /* rac1.moby.moby1267.update */
-S34_POINT(Moby_Mine1269_Update, 490) /* rac1.moby.hoven_homing_mine.update */
-S34_POINT(Moby_PlanetbusterMaximusPart_Update, 491) /* rac1.moby.planetbuster_part.update */
-S34_POINT(Moby_HomingMineSpawner_Update, 492) /* rac1.moby.door_switch.update */
-S34_POINT(Moby_Class1345_Update, 493) /* rac1.moby.moby1345.update */
-S34_POINT(Moby_BlargCommander_Update, 494) /* rac1.moby.blarg_commander.update */
-S34_POINT(Moby_Class1404_Update, 495) /* rac1.moby.cutscene_volume_trigger.update */
-S34_POINT(Moby_Class1557_Update, 496) /* rac1.moby.class_1557.update */
-S34_POINT(Moby_Class1901_Update, 497) /* rac1.moby.moby1901.update */
-S34_POINT(Moby_Class6_Update, 498) /* rac1.moby.clip_volume_trigger.update */
-S34_POINT(Moby_Elevator21_Update, 499) /* rac1.moby.elevator_21.update */
-S34_POINT(Moby_BlargTurret_Update, 500) /* rac1.moby.blarg_turret.update */
-S34_POINT(Moby_BlargGunner_Update, 501) /* rac1.moby.gem_lock_turret.update */
-S34_POINT(Moby_Robosquawker_Update, 502) /* rac1.moby.robosquawker.update */
-S34_POINT(Moby_FighterJet69_Update, 503) /* rac1.moby.fighter_jet_69.update */
-S34_POINT(Moby_Rocket82_Update, 504) /* rac1.moby.homing_rocket82.update */
-S34_POINT(Moby_Mine83_Update, 505) /* rac1.moby.moby83.update */
-S34_POINT(Moby_BlargSpaceFighter_Update, 506) /* rac1.moby.blarg_space_fighter.update */
-S34_POINT(Moby_BlargSpaceFighter111_Update, 507) /* rac1.moby.blarg_fighter111.update */
-S34_POINT(Moby_Class127_Update, 508) /* rac1.moby.rotating_door.update */
-S34_POINT(Moby_ForcefieldTower_Update, 509) /* rac1.moby.forcefield_tower.update */
-S34_POINT(Moby_Asteroid212_Update, 510) /* rac1.moby.drifting_blob.update */
-S34_POINT(Moby_Ammocrate224_Update, 511) /* rac1.moby.ship_pickup.update */
-S34_POINT(Moby_Class231_Update, 512) /* rac1.moby.switch.update */
-S34_POINT(Moby_Rocket295_Update, 513) /* rac1.moby.rocket295.update */
-S34_POINT(Moby_Class352_Update, 514) /* rac1.moby.fade_in_hold_out.update */
-S34_POINT(Moby_QwarksStarfighterPart_Update, 515) /* rac1.moby.qwark_starfighter_part.update */
-S34_POINT(Moby_QwarksStarfighterPart389_Update, 516) /* rac1.moby.starfighter_part.update */
-S34_POINT(Moby_Forcefield_Update, 517) /* rac1.moby.gem_lock_pickup.update */
-S34_POINT(Moby_PurpleShip533_Update, 518) /* rac1.moby.purple_ship_533.update */
-S34_POINT(Moby_Class558_Update, 519) /* rac1.moby.help_volume.update */
-S34_POINT(Moby_Class667_Update, 520) /* rac1.moby.moby_state_relay.update */
-S34_POINT(Moby_Class674_Update, 521) /* rac1.moby.controlled_gate.update */
-S34_POINT(Moby_Class1238_Update, 522) /* rac1.moby.projectile_l13.update */
-S34_POINT(Moby_PoisonVessel_Update, 523) /* rac1.moby.moby1261.update */
-S34_POINT(Moby_BlargSpaceCommando1262_Update, 524) /* rac1.moby.blarg_space_commando.update */
-S34_POINT(Moby_Class1263_Update, 525) /* rac1.moby.bobbing_lights.update */
-S34_POINT(Moby_Class1270_Update, 526) /* rac1.moby.lift1270.update */
-S34_POINT(Moby_Class1271_Update, 527) /* rac1.moby.class_1271.update */
-S34_POINT(Moby_Class1353_Update, 528) /* rac1.moby.moby1353.update */
-S34_POINT(Moby_Class1403_Update, 529) /* rac1.moby.class_1403.update */
-S34_POINT(Moby_Class1558_Update, 530) /* rac1.moby.sparks_trigger_l13.update */
-S34_POINT(Moby_Class1577_Update, 531) /* rac1.moby.watch_mobys.update */
-S34_POINT(Moby_Class1632_Update, 532) /* rac1.moby.moby1632.update */
-S34_POINT(Moby_Class1634_Update, 533) /* rac1.moby.moby1634.update */
-S34_POINT(Moby_BlargShip1805_Update, 534) /* rac1.moby.moby1805.update */
-S34_POINT(Moby_Platform903_Update, 535) /* rac1.moby.keyframe_platform.update */
-S34_POINT(Moby_BlargHeavyInterceptor_Update, 536) /* rac1.moby.moby8.update */
-S34_POINT(Moby_Plasmabot_Update, 537) /* rac1.moby.plasmabot.update */
-S34_POINT(Moby_MachinegunTurret30_Update, 538) /* rac1.moby.machinegun_turret_30.update */
-S34_POINT(Moby_Minibomber_Update, 539) /* rac1.moby.minibomber.update */
-S34_POINT(Moby_Class81_Update, 540) /* rac1.moby.moby81.update */
-S34_POINT(Moby_Plasmabot211_Update, 541) /* rac1.moby.moby211.update */
-S34_POINT(Moby_PlasmabotHatch_Update, 542) /* rac1.moby.moby250.update */
-S34_POINT(Moby_Platform309_Update, 543) /* rac1.moby.moby309.update */
-S34_POINT(Moby_Class325_Update, 544) /* rac1.moby.debris_particle.update */
-S34_POINT(Moby_Class386_Update, 545) /* rac1.moby.gem_lock_sentry.update */
-S34_POINT(Moby_Class403_Update, 546) /* rac1.moby.race_debris.update */
-S34_POINT(Moby_Shuttle557_Update, 547) /* rac1.moby.path_lift.update */
-S34_POINT(Moby_Class610_Update, 548) /* rac1.moby.moby610.update */
-S34_POINT(Moby_Mine643_Update, 549) /* rac1.moby.mine_l14.update */
-S34_POINT(Moby_Class681_Update, 550) /* rac1.moby.sweeping_bolt.update */
-S34_POINT(Moby_Class684_Update, 551) /* rac1.moby.class_684.update */
-S34_POINT(Moby_Elevator685_Update, 552) /* rac1.moby.moby685.update */
-S34_POINT(Moby_Taxi712_Update, 553) /* rac1.moby.taxi.update */
-S34_POINT(Moby_QwarkOltanis_Update, 554) /* rac1.moby.moby851.update */
-S34_POINT(Moby_Jet_Update, 555) /* rac1.moby.moby908.update */
-S34_POINT(Moby_Jet921_Update, 556) /* rac1.moby.oltanis_jet.update */
-S34_POINT(Moby_Rocket922_Update, 557) /* rac1.moby.flyer.update */
-S34_POINT(Moby_BoltThief923_Update, 558) /* rac1.moby.bolt_thief.update */
-S34_POINT(Moby_Sam_Update, 559) /* rac1.moby.moby924.update */
-S34_POINT(Moby_Mine933_Update, 560) /* rac1.moby.floating_mine.update */
-S34_POINT(Moby_Class1193_Update, 561) /* rac1.moby.bouncing_spark.update */
-S34_POINT(Moby_Class1224_Update, 562) /* rac1.moby.moby1224.update */
-S34_POINT(Moby_Class1331_Update, 563) /* rac1.moby.moby1331.update */
-S34_POINT(Moby_Class1352_Update, 564) /* rac1.moby.triggered_unlock.update */
-S34_POINT(Moby_Morphoray1354_Update, 565) /* rac1.moby.collectible_pickup.update */
-S34_POINT(Moby_Class1395_Update, 566) /* rac1.moby.moby1395.update */
-S34_POINT(Moby_Class1397_Update, 567) /* rac1.moby.moby1397.update */
-S34_POINT(Moby_Button1416_Update, 568) /* rac1.moby.step_on_switch.update */
-S34_POINT(Moby_BlargHeavyInterceptor1417_Update, 569) /* rac1.moby.blarg_interceptor.update */
-S34_POINT(Moby_Class1418_Update, 570) /* rac1.moby.queue_effect_draw.update */
-S34_POINT(Moby_Class1559_Update, 571) /* rac1.moby.skill_point.update */
-S34_POINT(Moby_Sentrybot_Update, 572) /* rac1.moby.sentrybot.update */
-S34_POINT(Moby_Rocket49_Update, 573) /* rac1.moby.projectile.update */
-S34_POINT(Moby_Class67_Update, 574) /* rac1.moby.moby67.update */
-S34_POINT(Moby_Class256_Update, 575) /* rac1.moby.class_256.update */
-S34_POINT(Moby_Class1427_Update, 576) /* rac1.moby.scale_fade_and_delete.update */
-S34_POINT(Moby_Class1523_Update, 577) /* rac1.moby.moby1523.update */
-S34_POINT(Moby_Mine77_Update, 578) /* rac1.moby.moby77.update */
-S34_POINT(Moby_Class78_Update, 579) /* rac1.moby.moby78.update */
-S34_POINT(Moby_Gate92_Update, 580) /* rac1.moby.sliding_gate.update */
-S34_POINT(Moby_Gate93_Update, 581) /* rac1.moby.clip_volume_door.update */
-S34_POINT(Moby_Spiderbot_Update, 582) /* rac1.moby.spiderbot.update */
-S34_POINT(Moby_Class148_Update, 583) /* rac1.moby.class_148.update */
-S34_POINT(Moby_Class154_Update, 584) /* rac1.moby.hit_reaction_effect_alt.update */
-S34_POINT(Moby_Door196_Update, 585) /* rac1.moby.moving_moby.update */
-S34_POINT(Moby_ConstructionArm_Update, 586) /* rac1.moby.construction_arm.update */
-S34_POINT(Moby_Helicopter233_Update, 587) /* rac1.moby.helicopter.update */
-S34_POINT(Moby_SentrybotAlarm_Update, 588) /* rac1.moby.sentrybot_alarm.update */
-S34_POINT(Moby_UltramechUnlimited_Update, 589) /* rac1.moby.ultramech.update */
-S34_POINT(Moby_Class655_Update, 590) /* rac1.moby.class_655.update */
-S34_POINT(Moby_Class934_Update, 591) /* rac1.moby.moby934.update */
-S34_POINT(Moby_Class937_Update, 592) /* rac1.moby.class_937.update */
-S34_POINT(Moby_UnderwaterRing_Update, 593) /* rac1.moby.underwater_ring.update */
-S34_POINT(Moby_ConveyorBelt1250_Update, 594) /* rac1.moby.side_drift.update */
-S34_POINT(Moby_PoisonVessel1257_Update, 595) /* rac1.moby.poison_vessel.update */
-S34_POINT(Moby_BoltGrabber_Update, 596) /* rac1.moby.moby1388.update */
-S34_POINT(Moby_Class1394_Update, 597) /* rac1.moby.moby1257_spawner.update */
-S34_POINT(Moby_Class1405_Update, 598) /* rac1.moby.ripple_strips_moby.update */
-S34_POINT(Moby_Class1419_Update, 599) /* rac1.moby.moby1419.update */
-S34_POINT(Moby_Class1425_Update, 600) /* rac1.moby.class_1425.update */
-S34_POINT(Moby_Codebot_Update, 601) /* rac1.moby.moby1428.update */
-S34_POINT(Moby_CodebotSlot_Update, 602) /* rac1.moby.codebot_slot.update */
-S34_POINT(Moby_UltramechScientist_Update, 603) /* rac1.moby.ultramech_scientist.update */
-S34_POINT(Moby_GiantClankPad_Update, 604) /* rac1.moby.giant_clank_pad.update */
-S34_POINT(Moby_Class1469_Update, 605) /* rac1.moby.moby1469.update */
-S34_POINT(Moby_Class1560_Update, 606) /* rac1.moby.boss_slot_effect.update */
-S34_POINT(Moby_Rocket50_Update, 607) /* rac1.moby.homing_projectile.update */
-S34_POINT(Moby_Rocket1475_Update, 608) /* rac1.moby.homing_spark_1475.update */
-S34_POINT(Moby_Class257_Update, 609) /* rac1.moby.moby257.update */
-S34_POINT(Moby_Bomb281_Update, 610) /* rac1.moby.thrown_bomb.update */
-S34_POINT(Moby_Rocket470_Update, 611) /* rac1.moby.moby470.update */
-S34_POINT(Moby_ConveyorBelt471_Update, 612) /* rac1.moby.moby471.update */
-S34_POINT(Moby_TestDummy_Update, 613) /* rac1.moby.test_dummy.update */
-S34_POINT(Moby_WallButton_Update, 614) /* rac1.moby.moby546.update */
-S34_POINT(Moby_Class552_Update, 615) /* rac1.moby.moby552.update */
-S34_POINT(Moby_TestDummyOnHoverboard_Update, 616) /* rac1.moby.hoverboard_racer.update */
-S34_POINT(Moby_BlargEliteCommando_Update, 617) /* rac1.moby.floating_enemy.update */
-S34_POINT(Moby_Door647_Update, 618) /* rac1.moby.moby647.update */
-S34_POINT(Moby_TestDummyDoor_Update, 619) /* rac1.moby.moby650.update */
-S34_POINT(Moby_Class654_Update, 620) /* rac1.moby.moby654.update */
-S34_POINT(Moby_Class800_Update, 621) /* rac1.moby.moby800.update */
-S34_POINT(Moby_ArmedTransport_Update, 622) /* rac1.moby.armed_transport.update */
-S34_POINT(Moby_HelpDeskLady_Update, 623) /* rac1.moby.watcher.update */
-S34_POINT(Moby_Class1387_Update, 624) /* rac1.moby.moby1387.update */
-S34_POINT(Moby_BoltThief1401_Update, 625) /* rac1.moby.crate_platform.update */
-S34_POINT(Moby_Taxi1410_Update, 626) /* rac1.moby.path_pickup.update */
-S34_POINT(Moby_GrindrailGate_Update, 627) /* rac1.moby.moby1439.update */
-S34_POINT(Moby_GrindrailGate1441_Update, 628) /* rac1.moby.moby1441.update */
-S34_POINT(Moby_GrindrailButton_Update, 629) /* rac1.moby.moby1442.update */
-S34_POINT(Moby_GrindrailBarrier_Update, 630) /* rac1.moby.ring_effect.update */
-S34_POINT(Moby_Chomper_Update, 631) /* rac1.moby.wandering_helper.update */
-S34_POINT(Moby_GadgetronCeo_Update, 632) /* rac1.moby.challenge_npc.update */
-S34_POINT(Moby_Class1561_Update, 633) /* rac1.moby.banner_trigger.update */
-S34_POINT(Moby_Class1667_Update, 634) /* rac1.moby.path_walker.update */
-S34_POINT(Moby_Class1812_Update, 635) /* rac1.moby.spark_ring_emitter.update */
-S34_POINT(Moby_Elevator1826_Update, 636) /* rac1.moby.elevator_platform.update */
-S34_POINT(Moby_GadgetronSign_Update, 637) /* rac1.moby.spinning_object.update */
-S34_POINT(Moby_Class1923_Update, 638) /* rac1.moby.target_activator.update */
-S34_POINT(Moby_Class1943_Update, 639) /* rac1.moby.env_map_a.update */
-S34_POINT(Moby_Class1947_Update, 640) /* rac1.moby.class_1947.update */
-S34_POINT(Moby_Class1948_Update, 641) /* rac1.moby.env_map_b.update */
-S34_POINT(Moby_Class1907_Update, 642) /* rac1.moby.class_1907.update */
-S34_POINT(Moby_Class1953_Update, 643) /* rac1.moby.env_map_c.update */
-S34_POINT(Moby_Class99_Update, 644) /* rac1.moby.moby99.update */
-S34_POINT(Moby_DreksFleetTurret_Update, 645) /* rac1.moby.fleet_turret.update */
-S34_POINT(Moby_Class669_Update, 646) /* rac1.moby.moby669.update */
-S34_POINT(Moby_Class835_Update, 647) /* rac1.moby.moby835.update */
-S34_POINT(Moby_Door1359_Update, 648) /* rac1.moby.stops_platform.update */
-S34_POINT(Moby_Class1368_Update, 649) /* rac1.moby.moby1368.update */
-S34_POINT(Moby_FighterJet1379_Update, 650) /* rac1.moby.fighter_jet_1379.update */
-S34_POINT(Moby_MagnetElevator_Update, 651) /* rac1.moby.moby1380.update */
-S34_POINT(Moby_RobotDog1382_Update, 652) /* rac1.moby.moby1382.update */
-S34_POINT(Moby_Shuttle1448_Update, 653) /* rac1.moby.moby1448.update */
-S34_POINT(Moby_Class1470_Update, 654) /* rac1.moby.moby1470.update */
-S34_POINT(Moby_Class1562_Update, 655) /* rac1.moby.moby750_spark_trigger.update */
-S34_POINT(Moby_Class1772_Update, 656) /* rac1.moby.fleet_reflection.update */
-S34_POINT(Moby_BlargShip1843_Update, 657) /* rac1.moby.moby1843.update */
-S34_POINT(Moby_Class1873_Update, 658) /* rac1.moby.moby1873.update */
-S34_POINT(Moby_Class1876_Update, 659) /* rac1.moby.moby1876.update */
-S34_POINT(Moby_Rocket41_Update, 660) /* rac1.moby.moby41.update */
-S34_POINT(Moby_Rocket564_Update, 661) /* rac1.moby.moby564.update */
-S34_POINT(Moby_Mine568_Update, 662) /* rac1.moby.moby568.update */
-S34_POINT(Moby_Class582_Update, 663) /* rac1.moby.path_junction.update */
-S34_POINT(Moby_ThrusterPackLockGreen_Update, 664) /* rac1.moby.energy_field_emitter.update */
-S34_POINT(Moby_ThrusterPackLockRed_Update, 665) /* rac1.moby.timed_lift.update */
-S34_POINT(Moby_FloatingPlatform587_Update, 666) /* rac1.moby.sinking_platform.update */
-S34_POINT(Moby_Class624_Update, 667) /* rac1.moby.falling_fireball.update */
-S34_POINT(Moby_Class628_Update, 668) /* rac1.moby.moby628.update */
-S34_POINT(Moby_Class644_Update, 669) /* rac1.moby.vendor_moby.update */
-S34_POINT(Moby_Class885_Update, 670) /* rac1.moby.hit_trigger.update */
-S34_POINT(Moby_Class983_Update, 671) /* rac1.moby.homing_spark_983.update */
-S34_POINT(Moby_DrekFightMissile_Update, 672) /* rac1.moby.moby1355.update */
-S34_POINT(Moby_Class1381_Update, 673) /* rac1.moby.moby1381.update */
-S34_POINT(Moby_Class1392_Update, 674) /* rac1.moby.moby1392.update */
-S34_POINT(Moby_Class1402_Update, 675) /* rac1.moby.moby1402.update */
-S34_POINT(Moby_DrekFinalBossRobot_Update, 676) /* rac1.moby.final_boss.update */
-S34_POINT(Moby_Class1432_Update, 677) /* rac1.moby.class_1432.update */
-S34_POINT(Moby_DeplanetizerGun_Update, 678) /* rac1.moby.moby1434.update */
-S34_POINT(Moby_RocketTank_Update, 679) /* rac1.moby.moby1454.update */
-S34_POINT(Moby_Class1563_Update, 680) /* rac1.moby.moby1563.update */
-S34_POINT(Moby_DeplanetizerGun1568_Update, 681) /* rac1.moby.moby1568.update */
-S34_POINT(Moby_Class1584_Update, 682) /* rac1.moby.moby1584.update */
-S34_POINT(Moby_Class1799_Update, 683) /* rac1.moby.moby1799.update */
-S34_POINT(Moby_Gadgebot1906_Update, 684) /* rac1.moby.moby1906.update */
+S7_POINT(Help_Request, 8) /* rac1.help.request */
+S8_POINT(Ship_InitTransition, 9) /* rac1.ship.init_transition */
+S1_POINT(Vendor_InitLevelStock, 10) /* rac1.vendor.init_level_stock */
+S9_POINT(Vendor_BuildItemList, 11) /* rac1.vendor.build_item_list */
+S10_POINT(GoldBolts_CountCollected, 12) /* rac1.gold_bolt.count_collected */
+S11_POINT(Hero_TakeDamage, 13) /* rac1.player.take_damage */
+S12_POINT(Moby_GetHitMessage, 14) /* rac1.combat.get_hit */
+S13_POINT(Weapon_TakeAmmo, 15) /* rac1.weapon.take_ammo */
+S14_POINT(Moby_RecordDeath, 16) /* rac1.moby.record_death */
+S15_POINT(Level_LoadGameplay, 17) /* rac1.level.load_gameplay */
+S16_POINT(Hero_ApproachSpeed, 18) /* rac1.player.approach_speed */
+S17_POINT(Ship_TravelTo, 19) /* rac1.ship.travel_to */
+S18_POINT(Moby_CollectBolt, 20) /* rac1.moby.collect_bolt */
+S19_POINT(Menu_ItemGrid_Update, 21) /* rac1.menu.item_grid.update */
+S19_POINT(Menu_ItemGrid_Draw, 22) /* rac1.menu.item_grid.draw */
+S20_POINT(Menu_ItemSlots_Update, 23) /* rac1.menu.item_slots.update */
+S21_POINT(Menu_QuickSelect_Draw, 24) /* rac1.menu.quick_select.draw */
+S20_POINT(Menu_QuickSelect_Load, 25) /* rac1.menu.quick_select.load */
+S21_POINT(Menu_QuickSelect_Store, 26) /* rac1.menu.quick_select.store */
+S22_POINT(Menu_ItemText_Draw, 27) /* rac1.menu.item_text.draw */
+S23_POINT(Menu_ItemAmmo_Draw, 28) /* rac1.menu.item_ammo.draw */
+S24_POINT(Menu_Preview_Bind, 29) /* rac1.menu.preview.bind */
+S21_POINT(Menu_Preview_Update, 30) /* rac1.menu.preview.update */
+S21_POINT(Menu_Preview_DrawAvailable, 31) /* rac1.menu.preview.draw_available */
+S21_POINT(Menu_Preview_DrawSelected, 32) /* rac1.menu.preview.draw_selected */
+S25_POINT(Menu_EquippedPreview_Update, 33) /* rac1.menu.equipped_preview.update */
+S21_POINT(Menu_EquippedPreview_Draw, 34) /* rac1.menu.equipped_preview.draw */
+S26_POINT(Hud_QuickSelect_Init, 35) /* rac1.hud.quick_select.init */
+S26_POINT(Hud_QuickSelect_Update, 36) /* rac1.hud.quick_select.update */
+S27_POINT(Hud_QuickSelect_Draw, 37) /* rac1.hud.quick_select.draw */
+S1_POINT(Vendor_MenuUpdate, 38) /* rac1.vendor.menu_update */
+S1_POINT(Vendor_InitializeSelected, 39) /* rac1.vendor.initialize_selected */
+S28_POINT(Ammo_ChooseDrop, 40) /* rac1.ammo.choose_drop */
+S29_POINT(Ammo_SpawnDrop, 41) /* rac1.ammo.spawn_drop */
+S30_POINT(Save_Prepare, 42) /* rac1.save.prepare */
+S31_POINT(Save_RequestAutosave, 43) /* rac1.save.request_autosave */
+S32_POINT(Save_Restore, 44) /* rac1.save.restore */
+S33_POINT(Save_RestoreData, 45) /* rac1.save.restore_data */
+S1_POINT(Save_NewGame, 46) /* rac1.save.new_game */
+S34_POINT(Save_NewGamePlus, 47) /* rac1.save.new_game_plus */
+S35_POINT(Save_Serialize, 48) /* rac1.save.serialize */
+S1_POINT(Save_UpdateState, 49) /* rac1.save.update_state */
+S1_POINT(Moby_Class1750_Update, 50) /* rac1.moby.class_1750.update */
+S36_POINT(Moby_Class676_Update, 51) /* rac1.moby.class_676.update */
+S36_POINT(Moby_Class482_Update, 52) /* rac1.moby.class_482.update */
+S36_POINT(Moby_Class809_Update, 53) /* rac1.moby.texture_scroll.update */
+S36_POINT(Moby_CameraObject_Update, 54) /* rac1.moby.camera_object.update */
+S36_POINT(Moby_Vendor_Update, 55) /* rac1.moby.light_beam.update */
+S36_POINT(Moby_Bolt_Update, 56) /* rac1.moby.bolt.update */
+S36_POINT(Moby_Wrench_Update, 57) /* rac1.moby.wrench.update */
+S36_POINT(Moby_Mine_Update, 58) /* rac1.moby.mine.update */
+S36_POINT(Moby_Class112_Update, 59) /* rac1.moby.spin_fade_out.update */
+S36_POINT(Moby_Class121_Update, 60) /* rac1.moby.hero_bomb.update */
+S36_POINT(Moby_Class122_Update, 61) /* rac1.moby.falling_spark.update */
+S36_POINT(Moby_NanotechCrateFragment_Update, 62) /* rac1.moby.debris_bounce.update */
+S36_POINT(Moby_GoldDevastatorMissile_Update, 63) /* rac1.moby.missile.update */
+S36_POINT(Moby_Visibomb_Update, 64) /* rac1.moby.moby163.update */
+S36_POINT(Moby_Class166_Update, 65) /* rac1.moby.moby166.update */
+S36_POINT(Moby_Class167_Update, 66) /* rac1.moby.moby167.update */
+S36_POINT(Moby_VisibombMissile_Update, 67) /* rac1.moby.visibomb_missile.update */
+S36_POINT(Moby_Taunter_Update, 68) /* rac1.moby.moby175.update */
+S36_POINT(Moby_Pyrocitor_Update, 69) /* rac1.moby.pyrocitor.update */
+S36_POINT(Moby_Class179_Update, 70) /* rac1.moby.moby179.update */
+S36_POINT(Moby_Walloper_Update, 71) /* rac1.moby.moby180.update */
+S36_POINT(Moby_Morphoray_Update, 72) /* rac1.moby.morphoray.update */
+S36_POINT(Moby_DoomBot_Update, 73) /* rac1.moby.doom_bot.update */
+S36_POINT(Moby_Trespasser_Update, 74) /* rac1.moby.moby188.update */
+S36_POINT(Moby_MineGlove_Update, 75) /* rac1.moby.mine_glove.update */
+S36_POINT(Moby_BombGlove_Update, 76) /* rac1.moby.moby192.update */
+S36_POINT(Moby_Decoy_Update, 77) /* rac1.moby.thrown_object.update */
+S36_POINT(Moby_DevestatorAmmo_Update, 78) /* rac1.moby.ammo_pickup.update */
+S36_POINT(Moby_SwingshotHook_Update, 79) /* rac1.moby.moby209.update */
+S36_POINT(Moby_GloveOfDoom_Update, 80) /* rac1.moby.carrier.update */
+S36_POINT(Moby_Bomb_Update, 81) /* rac1.moby.bomb_230.update */
+S36_POINT(Moby_MorphorayChicken_Update, 82) /* rac1.moby.morphoray_chicken.update */
+S36_POINT(Moby_Class305_Update, 83) /* rac1.moby.moby305.update */
+S36_POINT(Moby_Class428_Update, 84) /* rac1.moby.moby428.update */
+S36_POINT(Moby_Ryno_Update, 85) /* rac1.moby.ryno.update */
+S36_POINT(Moby_Rocket_Update, 86) /* rac1.moby.rocket_steer.update */
+S36_POINT(Moby_Drone_Update, 87) /* rac1.moby.drone.update */
+S36_POINT(Moby_BoltCrate_Update, 88) /* rac1.moby.crate.update */
+S36_POINT(Moby_VeldinShip_Update, 89) /* rac1.moby.veldin_ship.update */
+S36_POINT(Moby_DecoyGlove_Update, 90) /* rac1.moby.decoy_glove.update */
+S36_POINT(Moby_MetalDetector_Update, 91) /* rac1.moby.target_tracker.update */
+S36_POINT(Moby_Helipack_Update, 92) /* rac1.moby.clank_pack.update */
+S36_POINT(Moby_Class639_Update, 93) /* rac1.moby.moby639.update */
+S36_POINT(Moby_HornyToad_Update, 94) /* rac1.moby.horny_toad.update */
+S36_POINT(Moby_Infobot_Update, 95) /* rac1.moby.infobot.update */
+S36_POINT(Moby_ParticleSpawnerSmokeFire_Update, 96) /* rac1.moby.particle_field.update */
+S36_POINT(Moby_Class775_Update, 97) /* rac1.moby.grow_and_fade_out.update */
+S36_POINT(Moby_Class804_Update, 98) /* rac1.moby.trail_moby.update */
+S36_POINT(Moby_NanotechBall_Update, 99) /* rac1.moby.nanotech_ball.update */
+S36_POINT(Moby_ClankCutsceneTrigger_Update, 100) /* rac1.moby.moby834.update */
+S36_POINT(Moby_Suckcannon_Update, 101) /* rac1.moby.suck_cannon.update */
+S36_POINT(Moby_RedOrb_Update, 102) /* rac1.moby.pulsing_color_moby.update */
+S36_POINT(Moby_Class1138_Update, 103) /* rac1.moby.quad_moby.update */
+S36_POINT(Moby_VendorOrb_Update, 104) /* rac1.moby.moby1143.update */
+S36_POINT(Moby_Hydrodisplacer_Update, 105) /* rac1.moby.hydrodisplacer_pad.update */
+S36_POINT(Moby_PilotsHelmet_Update, 106) /* rac1.moby.moby1290.update */
+S36_POINT(Moby_Class1413_Update, 107) /* rac1.moby.moby1413.update */
+S36_POINT(Moby_VeldinRobotEnemy_Update, 108) /* rac1.moby.vendor.update */
+S36_POINT(Moby_Class1471_Update, 109) /* rac1.moby.beam_slot_manager.update */
+S36_POINT(Moby_Class1545_Update, 110) /* rac1.moby.moby1545.update */
+S36_POINT(Moby_Pterodactyl_Update, 111) /* rac1.moby.path_follow_moby.update */
+S36_POINT(Moby_BombthrowerGrass_Update, 112) /* rac1.moby.grass.update */
+S36_POINT(Moby_Hoverboard_Update, 113) /* rac1.moby.fx_group.update */
+S36_POINT(Moby_NovalisElevator_Update, 114) /* rac1.moby.path_platform.update */
+S36_POINT(Moby_Class27_Update, 115) /* rac1.moby.particle_emitter.update */
+S36_POINT(Moby_Class156_Update, 116) /* rac1.moby.moby156.update */
+S36_POINT(Moby_BoltCrank_Update, 117) /* rac1.moby.bolt_crank.update */
+S36_POINT(Moby_GoldWeaponCase_Update, 118) /* rac1.moby.item_offer.update */
+S36_POINT(Moby_SandMouse_Update, 119) /* rac1.moby.sand_mouse.update */
+S36_POINT(Moby_Birdbot_Update, 120) /* rac1.moby.birdbot.update */
+S36_POINT(Moby_Class567_Update, 121) /* rac1.moby.burning_debris.update */
+S36_POINT(Moby_LargeAmoeboid_Update, 122) /* rac1.moby.amoeboid.update */
+S36_POINT(Moby_Peckbot_Update, 123) /* rac1.moby.peckbot.update */
+S36_POINT(Moby_SandmouseHouse_Update, 124) /* rac1.moby.moby604.update */
+S36_POINT(Moby_Class605_Update, 125) /* rac1.moby.moby605.update */
+S36_POINT(Moby_WaterCurrent_Update, 126) /* rac1.moby.path_carrier.update */
+S36_POINT(Moby_CaveDoor_Update, 127) /* rac1.moby.crank_rotator.update */
+S36_POINT(Moby_FighterJet_Update, 128) /* rac1.moby.tethered_mine.update */
+S36_POINT(Moby_DoorHalf_Update, 129) /* rac1.moby.crank_slider.update */
+S36_POINT(Moby_StationaryShip_Update, 130) /* rac1.moby.rider_carrier.update */
+S36_POINT(Moby_Class845_Update, 131) /* rac1.moby.class_845.update */
+S36_POINT(Moby_Class678_Update, 132) /* rac1.moby.scrolling_layers2.update */
+S36_POINT(Moby_Class679_Update, 133) /* rac1.moby.grind_rail.update */
+S36_POINT(Moby_Class686_Update, 134) /* rac1.moby.flying_burst.update */
+S36_POINT(Moby_BomberJet_Update, 135) /* rac1.moby.gunship.update */
+S36_POINT(Moby_WaterLily_Update, 136) /* rac1.moby.hover_enemy.update */
+S36_POINT(Moby_Rock_Update, 137) /* rac1.moby.debris_moby.update */
+S36_POINT(Moby_Class700_Update, 138) /* rac1.moby.steam_vent.update */
+S36_POINT(Moby_FallingRock_Update, 139) /* rac1.moby.collapsing_platform.update */
+S36_POINT(Moby_PistonPlatform_Update, 140) /* rac1.moby.lift_move.update */
+S36_POINT(Moby_RockFormation_Update, 141) /* rac1.moby.breakable_rock.update */
+S36_POINT(Moby_Fan_Update, 142) /* rac1.moby.oscillating_spinner.update */
+S36_POINT(Moby_BridgePiece1_Update, 143) /* rac1.moby.projectile_breakable.update */
+S36_POINT(Moby_Class722_Update, 144) /* rac1.moby.falling_drop.update */
+S36_POINT(Moby_DestroyableCaveWall_Update, 145) /* rac1.moby.breakable_wall.update */
+S36_POINT(Moby_AgnoggShipFront_Update, 146) /* rac1.moby.agnogg_ship.update */
+S36_POINT(Moby_Class737_Update, 147) /* rac1.moby.cutscene_trigger.update */
+S36_POINT(Moby_BridgeHalf_Update, 148) /* rac1.moby.hinged_bridge.update */
+S36_POINT(Moby_Class751_Update, 149) /* rac1.moby.water_surface_fx.update */
+S36_POINT(Moby_GreenMushroom_Update, 150) /* rac1.moby.breakable_pot.update */
+S36_POINT(Moby_Class761_Update, 151) /* rac1.moby.pulsing_mesh.update */
+S36_POINT(Moby_DoorLeft_Update, 152) /* rac1.moby.sliding_door.update */
+S36_POINT(Moby_ThePlumber_Update, 153) /* rac1.moby.talking_npc.update */
+S36_POINT(Moby_Pipe_Update, 154) /* rac1.moby.moby778.update */
+S36_POINT(Moby_Class779_Update, 155) /* rac1.moby.smoke_emitter.update */
+S36_POINT(Moby_Class787_Update, 156) /* rac1.moby.falling_chunk.update */
+S36_POINT(Moby_SpawnPoint_Update, 157) /* rac1.moby.checkpoint_trigger.update */
+S36_POINT(Moby_Beehive_Update, 158) /* rac1.moby.enemy_spawner.update */
+S36_POINT(Moby_Class832_Update, 159) /* rac1.moby.rc_range_limiter.update */
+S36_POINT(Moby_MushroomUnderside_Update, 160) /* rac1.moby.moby1042.update */
+S36_POINT(Moby_GoldBolt_Update, 161) /* rac1.moby.gold_bolt.update */
+S36_POINT(Moby_Teleporter_Update, 162) /* rac1.moby.teleporter_pad.update */
+S36_POINT(Moby_Class1225_Update, 163) /* rac1.moby.moby1225.update */
+S36_POINT(Moby_Class1341_Update, 164) /* rac1.moby.help_hint_director.update */
+S36_POINT(Moby_Class1504_Update, 165) /* rac1.moby.wandering_light.update */
+S36_POINT(Moby_Class1510_Update, 166) /* rac1.moby.moby1510.update */
+S36_POINT(Moby_Class1546_Update, 167) /* rac1.moby.moby1546.update */
+S36_POINT(Moby_Class1633_Update, 168) /* rac1.moby.class_1633.update */
+S36_POINT(Moby_TallShroom_Update, 169) /* rac1.moby.moby1813.update */
+S36_POINT(Moby_Sandmouse_Update, 170) /* rac1.moby.mouse_critter.update */
+S36_POINT(Moby_Class1848_Update, 171) /* rac1.moby.moby1848.update */
+S36_POINT(Moby_TrackdriveLeft_Update, 172) /* rac1.moby.trackdrive_left.update */
+S36_POINT(Moby_SandShark_Update, 173) /* rac1.moby.sand_shark.update */
+S36_POINT(Moby_Constructorbot_Update, 174) /* rac1.moby.moby612.update */
+S36_POINT(Moby_TresspasserPad_Update, 175) /* rac1.moby.trespasser_puzzle.update */
+S36_POINT(Moby_Elevator_Update, 176) /* rac1.moby.elevator_651.update */
+S36_POINT(Moby_ConveyorBelt_Update, 177) /* rac1.moby.pusher.update */
+S36_POINT(Moby_Bulldozer_Update, 178) /* rac1.moby.moby656.update */
+S36_POINT(Moby_SandSharkNest_Update, 179) /* rac1.moby.sand_shark_nest.update */
+S36_POINT(Moby_GrabCrane_Update, 180) /* rac1.moby.moby675.update */
+S36_POINT(Moby_Platform_Update, 181) /* rac1.moby.rotate_platform.update */
+S36_POINT(Moby_TransportPod_Update, 182) /* rac1.moby.moby713.update */
+S36_POINT(Moby_Crane_Update, 183) /* rac1.moby.moby732.update */
+S36_POINT(Moby_RocketLauncher_Update, 184) /* rac1.moby.rocket_launcher.update */
+S36_POINT(Moby_RocketDoor1_Update, 185) /* rac1.moby.rocket_door1.update */
+S36_POINT(Moby_TresspasserDoor1_Update, 186) /* rac1.moby.moby743.update */
+S36_POINT(Moby_TresspasserDoor2_Update, 187) /* rac1.moby.moby744.update */
+S36_POINT(Moby_SandsharkEgg_Update, 188) /* rac1.moby.moby755.update */
+S36_POINT(Moby_SwingshotVersatarget_Update, 189) /* rac1.moby.hideable_flower.update */
+S36_POINT(Moby_Rocks_Update, 190) /* rac1.moby.moby762.update */
+S36_POINT(Moby_SkidsAgent_Update, 191) /* rac1.moby.skids_agent.update */
+S36_POINT(Moby_SkidMcmarx_Update, 192) /* rac1.moby.skid_mc_marx_aridia.update */
+S36_POINT(Moby_LiftcarPlatform_Update, 193) /* rac1.moby.driver_lift.update */
+S36_POINT(Moby_OceanAridia_Update, 194) /* rac1.moby.moby854.update */
+S36_POINT(Moby_Tresspasser_Update, 195) /* rac1.moby.moby1005.update */
+S36_POINT(Moby_Constructorbot1208_Update, 196) /* rac1.moby.shard_debris.update */
+S36_POINT(Moby_BackgroundShip1_Update, 197) /* rac1.moby.background_ship.update */
+S36_POINT(Moby_BackgroundShip2_Update, 198) /* rac1.moby.ship_path.update */
+S36_POINT(Moby_Class1324_Update, 199) /* rac1.moby.tutorial_hint.update */
+S36_POINT(Moby_Class1479_Update, 200) /* rac1.moby.moby1479.update */
+S36_POINT(Moby_WhiteFlower_Update, 201) /* rac1.moby.break_on_hit_l02.update */
+S36_POINT(Moby_MetropolisTrainLocomotive_Update, 202) /* rac1.moby.metropolis_train.update */
+S36_POINT(Moby_MovingPlatformSmall_Update, 203) /* rac1.moby.moving_platform.update */
+S36_POINT(Moby_MetropolisTrainCarriage_Update, 204) /* rac1.moby.metropolis_train_carriage.update */
+S36_POINT(Moby_RedShip1_Update, 205) /* rac1.moby.train_car.update */
+S36_POINT(Moby_Class235_Update, 206) /* rac1.moby.parent_follow_fade.update */
+S36_POINT(Moby_Spawner_Update, 207) /* rac1.moby.child_spawner.update */
+S36_POINT(Moby_Bomb545_Update, 208) /* rac1.moby.moby545.update */
+S36_POINT(Moby_RobotDog_Update, 209) /* rac1.moby.moby573.update */
+S36_POINT(Moby_Class574_Update, 210) /* rac1.moby.moby574.update */
+S36_POINT(Moby_MineLayer_Update, 211) /* rac1.moby.trooper.update */
+S36_POINT(Moby_Mine627_Update, 212) /* rac1.moby.kerwan_mine.update */
+S36_POINT(Moby_BlargHelicopter_Update, 213) /* rac1.moby.helicopter_gunship.update */
+S36_POINT(Moby_Taxi_Update, 214) /* rac1.moby.rail_taxi.update */
+S36_POINT(Moby_Statue_Update, 215) /* rac1.moby.moby817.update */
+S36_POINT(Moby_RoboShackSign_Update, 216) /* rac1.moby.spinner.update */
+S36_POINT(Moby_Class833_Update, 217) /* rac1.moby.kerwan_homing_rocket.update */
+S36_POINT(Moby_Class848_Update, 218) /* rac1.moby.moby848.update */
+S36_POINT(Moby_Helga_Update, 219) /* rac1.moby.quest_giver.update */
+S36_POINT(Moby_Class898_Update, 220) /* rac1.moby.rail_moby.update */
+S36_POINT(Moby_Class899_Update, 221) /* rac1.moby.rail_spawner.update */
+S36_POINT(Moby_BigAl_Update, 222) /* rac1.moby.guide.update */
+S36_POINT(Moby_RobotQwark_Update, 223) /* rac1.moby.moby914.update */
+S36_POINT(Moby_Fred1_Update, 224) /* rac1.moby.fred_1.update */
+S36_POINT(Moby_QwarkUmbris_Update, 225) /* rac1.moby.qwark_watch.update */
+S36_POINT(Moby_Class994_Update, 226) /* rac1.moby.ambient_stream_l03.update */
+S36_POINT(Moby_Gate_Update, 227) /* rac1.moby.rise_when_collected.update */
+S36_POINT(Moby_Taxi1012_Update, 228) /* rac1.moby.rail_lift.update */
+S36_POINT(Moby_Class1221_Update, 229) /* rac1.moby.falling_moby.update */
+S36_POINT(Moby_Class1342_Update, 230) /* rac1.moby.tutorial_hint_trigger.update */
+S36_POINT(Moby_Class1548_Update, 231) /* rac1.moby.cutscene_beams.update */
+S36_POINT(Moby_Class86_Update, 232) /* rac1.moby.swarm.update */
+S36_POINT(Moby_Class161_Update, 233) /* rac1.moby.class_161.update */
+S36_POINT(Moby_Class184_Update, 234) /* rac1.moby.moby184_shot.update */
+S36_POINT(Moby_BigAxebot_Update, 235) /* rac1.moby.big_axebot.update */
+S36_POINT(Moby_CircularSawEnemy_Update, 236) /* rac1.moby.circular_saw.update */
+S36_POINT(Moby_BlargTrooper_Update, 237) /* rac1.moby.blarg_trooper.update */
+S36_POINT(Moby_EudoraBridge_Update, 238) /* rac1.moby.switch_follower.update */
+S36_POINT(Moby_PlatformBooster_Update, 239) /* rac1.moby.lever_door.update */
+S36_POINT(Moby_SnowPlow_Update, 240) /* rac1.moby.path_vehicle.update */
+S36_POINT(Moby_FloatingPlatform_Update, 241) /* rac1.moby.floating_platform_481.update */
+S36_POINT(Moby_TransportShip_Update, 242) /* rac1.moby.delete_moby.update */
+S36_POINT(Moby_WoodcutBot_Update, 243) /* rac1.moby.wb_moby.update */
+S36_POINT(Moby_Class584_Update, 244) /* rac1.moby.moby584.update */
+S36_POINT(Moby_Class617_Update, 245) /* rac1.moby.path_keyframe_blend.update */
+S36_POINT(Moby_Leaf_Update, 246) /* rac1.moby.drift_spark_moby.update */
+S36_POINT(Moby_UpperDoor_Update, 247) /* rac1.moby.collectable.update */
+S36_POINT(Moby_SuckCannon_Update, 248) /* rac1.moby.warp_portal.update */
+S36_POINT(Moby_Lieutenant_Update, 249) /* rac1.moby.unlock_planet_pad.update */
+S36_POINT(Moby_Class1343_Update, 250) /* rac1.moby.moby1343.update */
+S36_POINT(Moby_Class1516_Update, 251) /* rac1.moby.bouncing_debris.update */
+S36_POINT(Moby_Class1549_Update, 252) /* rac1.moby.sparks_trigger_l04.update */
+S36_POINT(Moby_Sharkigator_Update, 253) /* rac1.moby.sharkigator_35.update */
+S36_POINT(Moby_SceneryShip_Update, 254) /* rac1.moby.scenery_ship.update */
+S36_POINT(Moby_Amoeboid_Update, 255) /* rac1.moby.grazing_critter.update */
+S36_POINT(Moby_Class258_Update, 256) /* rac1.moby.moby258.update */
+S36_POINT(Moby_HydrodisplacerFaucet_Update, 257) /* rac1.moby.moby341.update */
+S36_POINT(Moby_Hoverboard439_Update, 258) /* rac1.moby.hoverboard.update */
+S36_POINT(Moby_Extermibot_Update, 259) /* rac1.moby.extermibot.update */
+S36_POINT(Moby_Extermitank_Update, 260) /* rac1.moby.extermitank.update */
+S36_POINT(Moby_SkidMcmarx717_Update, 261) /* rac1.moby.skid_mc_marx.update */
+S36_POINT(Moby_FloatingPlatform810_Update, 262) /* rac1.moby.floating_platform_810.update */
+S36_POINT(Moby_Box_Update, 263) /* rac1.moby.moby812.update */
+S36_POINT(Moby_Lamp_Update, 264) /* rac1.moby.moby823.update */
+S36_POINT(Moby_FloorButton_Update, 265) /* rac1.moby.floor_button.update */
+S36_POINT(Moby_Water_Update, 266) /* rac1.moby.water_surface.update */
+S36_POINT(Moby_ElectricGate_Update, 267) /* rac1.moby.electric_gate.update */
+S36_POINT(Moby_Class841_Update, 268) /* rac1.moby.fog_zone.update */
+S36_POINT(Moby_Class843_Update, 269) /* rac1.moby.pose_slide_out.update */
+S36_POINT(Moby_DrainCover_Update, 270) /* rac1.moby.drain_cover.update */
+S36_POINT(Moby_PipeMountedGrating_Update, 271) /* rac1.moby.pipe_mounted_grating.update */
+S36_POINT(Moby_Class852_Update, 272) /* rac1.moby.gate_rise.update */
+S36_POINT(Moby_Class855_Update, 273) /* rac1.moby.emitter_l05.update */
+S36_POINT(Moby_ElevatorWithButton_Update, 274) /* rac1.moby.lift_l05.update */
+S36_POINT(Moby_OceanRilgar_Update, 275) /* rac1.moby.pulsing_marker.update */
+S36_POINT(Moby_Class893_Update, 276) /* rac1.moby.class_893.update */
+S36_POINT(Moby_Class895_Update, 277) /* rac1.moby.triggered_rotor.update */
+S36_POINT(Moby_HoverboardGirl_Update, 278) /* rac1.moby.hoverboard_girl.update */
+S36_POINT(Moby_QwarksBouncer_Update, 279) /* rac1.moby.bouncer.update */
+S36_POINT(Moby_ShadySalesman_Update, 280) /* rac1.moby.shady_salesman.update */
+S36_POINT(Moby_BlargGun_Update, 281) /* rac1.moby.blarg_gun.update */
+S36_POINT(Moby_Class982_Update, 282) /* rac1.moby.water_plane_marker.update */
+S36_POINT(Moby_Television_Update, 283) /* rac1.moby.bobbing_moby_l05.update */
+S36_POINT(Moby_Taxi998_Update, 284) /* rac1.moby.pickup_l05.update */
+S36_POINT(Moby_QwarksTrailer_Update, 285) /* rac1.moby.qwarks_trailer.update */
+S36_POINT(Moby_HoverboardRing_Update, 286) /* rac1.moby.moby1139.update */
+S36_POINT(Moby_Class1347_Update, 287) /* rac1.moby.challenge.update */
+S36_POINT(Moby_Lamp1511_Update, 288) /* rac1.moby.mine_moby.update */
+S36_POINT(Moby_Class1550_Update, 289) /* rac1.moby.moby1550.update */
+S36_POINT(Moby_HangarDoor_Update, 290) /* rac1.moby.orbiting_platform.update */
+S36_POINT(Moby_GadgebotSpawnContainer_Update, 291) /* rac1.moby.moby302.update */
+S36_POINT(Moby_GadgebotSpawnPad_Update, 292) /* rac1.moby.moby303.update */
+S36_POINT(Moby_Class367_Update, 293) /* rac1.moby.moby367.update */
+S36_POINT(Moby_Frog_Update, 294) /* rac1.moby.frog.update */
+S36_POINT(Moby_Gadgebot_Update, 295) /* rac1.moby.gadgebot.update */
+S36_POINT(Moby_ToxicGasVent_Update, 296) /* rac1.moby.swinging_hazard.update */
+S36_POINT(Moby_Class1021_Update, 297) /* rac1.moby.door_ring.update */
+S36_POINT(Moby_Class1028_Update, 298) /* rac1.moby.drawbridge.update */
+S36_POINT(Moby_Class1035_Update, 299) /* rac1.moby.class_1035.update */
+S36_POINT(Moby_EnergySphereHolder_Update, 300) /* rac1.moby.collectible_spawner.update */
+S36_POINT(Moby_Class1039_Update, 301) /* rac1.moby.trigger_lists.update */
+S36_POINT(Moby_EnergySphere_Update, 302) /* rac1.moby.moby1040.update */
+S36_POINT(Moby_AlienSnapper_Update, 303) /* rac1.moby.moby1048.update */
+S36_POINT(Moby_AlienQueen_Update, 304) /* rac1.moby.alien_queen.update */
+S36_POINT(Moby_Class1054_Update, 305) /* rac1.moby.moby1054.update */
+S36_POINT(Moby_Class1061_Update, 306) /* rac1.moby.callable_lift.update */
+S36_POINT(Moby_Class1062_Update, 307) /* rac1.moby.class_1062.update */
+S36_POINT(Moby_Class1066_Update, 308) /* rac1.moby.launch_trigger.update */
+S36_POINT(Moby_BlargSpaceCommando_Update, 309) /* rac1.moby.moby1068.update */
+S36_POINT(Moby_Class1083_Update, 310) /* rac1.moby.camera_takeover_trigger.update */
+S36_POINT(Moby_Class1085_Update, 311) /* rac1.moby.spinning_debris.update */
+S36_POINT(Moby_Class1091_Update, 312) /* rac1.moby.bobbing_moby.update */
+S36_POINT(Moby_Fred_Update, 313) /* rac1.moby.moby1105.update */
+S36_POINT(Moby_Class1108_Update, 314) /* rac1.moby.moby1108.update */
+S36_POINT(Moby_Shuttle_Update, 315) /* rac1.moby.shuttle.update */
+S36_POINT(Moby_RedButton_Update, 316) /* rac1.moby.red_button.update */
+S36_POINT(Moby_Class1123_Update, 317) /* rac1.moby.moby1123.update */
+S36_POINT(Moby_BotDoorLock_Update, 318) /* rac1.moby.moby1302.update */
+S36_POINT(Moby_Class1348_Update, 319) /* rac1.moby.class_1348.update */
+S36_POINT(Moby_Class1512_Update, 320) /* rac1.moby.spark_emitter.update */
+S36_POINT(Moby_Class1551_Update, 321) /* rac1.moby.sparks_trigger_l06.update */
+S36_POINT(Moby_Mushroom_Update, 322) /* rac1.moby.spawn_child_and_delete.update */
+S36_POINT(Moby_Class1660_Update, 323) /* rac1.moby.break_on_hit_blarg.update */
+S36_POINT(Moby_Class1898_Update, 324) /* rac1.moby.moby1898.update */
+S36_POINT(Moby_TaxiPlatform_Update, 325) /* rac1.moby.taxi_platform_38.update */
+S36_POINT(Moby_TaxiPlatform1474_Update, 326) /* rac1.moby.taxi_platform_1474.update */
+S36_POINT(Moby_Class436_Update, 327) /* rac1.moby.moby436.update */
+S36_POINT(Moby_Class317_Update, 328) /* rac1.moby.ambient_stream_l07.update */
+S36_POINT(Moby_PurpleShip_Update, 329) /* rac1.moby.purple_ship_529.update */
+S36_POINT(Moby_BoltcratePossiblyForMetalDetector_Update, 330) /* rac1.moby.path_train.update */
+S36_POINT(Moby_Class880_Update, 331) /* rac1.moby.bolt_projectile.update */
+S36_POINT(Moby_Bomb882_Update, 332) /* rac1.moby.gravity_debris.update */
+S36_POINT(Moby_TimedActivationPads_Update, 333) /* rac1.moby.timed_pad.update */
+S36_POINT(Moby_Water902_Update, 334) /* rac1.moby.water_plate.update */
+S36_POINT(Moby_Class1013_Update, 335) /* rac1.moby.target_driven_slider.update */
+S36_POINT(Moby_OceanUmbris_Update, 336) /* rac1.moby.audio_stream_trigger.update */
+S36_POINT(Moby_Bombomatic_Update, 337) /* rac1.moby.lobber_enemy.update */
+S36_POINT(Moby_Class1046_Update, 338) /* rac1.moby.shockwave.update */
+S36_POINT(Moby_Class1049_Update, 339) /* rac1.moby.lobbed_bomb.update */
+S36_POINT(Moby_Sharkigator1059_Update, 340) /* rac1.moby.sharkigator_1059.update */
+S36_POINT(Moby_Door_Update, 341) /* rac1.moby.door.update */
+S36_POINT(Moby_Class1069_Update, 342) /* rac1.moby.moby1069.update */
+S36_POINT(Moby_Class1080_Update, 343) /* rac1.moby.falling_leaf.update */
+S36_POINT(Moby_Snagglebeast_Update, 344) /* rac1.moby.snagglebeast.update */
+S36_POINT(Moby_Mine1112_Update, 345) /* rac1.moby.swooper.update */
+S36_POINT(Moby_Class1113_Update, 346) /* rac1.moby.breakable_prop.update */
+S36_POINT(Moby_MachinegunTurret_Update, 347) /* rac1.moby.machinegun_turret_1126.update */
+S36_POINT(Moby_Class1128_Update, 348) /* rac1.moby.moving_moby_l07.update */
+S36_POINT(Moby_Bridge_Update, 349) /* rac1.moby.bridge.update */
+S36_POINT(Moby_Class1133_Update, 350) /* rac1.moby.moby1133.update */
+S36_POINT(Moby_Class1142_Update, 351) /* rac1.moby.moby1142.update */
+S36_POINT(Moby_Class1552_Update, 352) /* rac1.moby.spark_burst_spawner.update */
+S36_POINT(Moby_Class1789_Update, 353) /* rac1.moby.moby1789.update */
+S36_POINT(Moby_Class152_Update, 354) /* rac1.moby.moby152.update */
+S36_POINT(Moby_Bomb248_Update, 355) /* rac1.moby.bomb_248.update */
+S36_POINT(Moby_Scoutbot_Update, 356) /* rac1.moby.scoutbot.update */
+S36_POINT(Moby_BomberTank_Update, 357) /* rac1.moby.bomber_tank.update */
+S36_POINT(Moby_Class327_Update, 358) /* rac1.moby.moby327.update */
+S36_POINT(Moby_BlargBombthrower_Update, 359) /* rac1.moby.blarg_bomb_thrower.update */
+S36_POINT(Moby_Shuttle424_Update, 360) /* rac1.moby.route_platform.update */
+S36_POINT(Moby_Bomb425_Update, 361) /* rac1.moby.moby425.update */
+S36_POINT(Moby_Rocket435_Update, 362) /* rac1.moby.guided_rocket.update */
+S36_POINT(Moby_Class438_Update, 363) /* rac1.moby.moby438.update */
+S36_POINT(Moby_Class440_Update, 364) /* rac1.moby.cannon.update */
+S36_POINT(Moby_Class441_Update, 365) /* rac1.moby.falling_debris.update */
+S36_POINT(Moby_Class444_Update, 366) /* rac1.moby.moby444.update */
+S36_POINT(Moby_BoltThief_Update, 367) /* rac1.moby.batalia_bolt_thief.update */
+S36_POINT(Moby_Rocket458_Update, 368) /* rac1.moby.moby458.update */
+S36_POINT(Moby_Shrub_Update, 369) /* rac1.moby.moby462.update */
+S36_POINT(Moby_Class463_Update, 370) /* rac1.moby.swarm_leader.update */
+S36_POINT(Moby_Class467_Update, 371) /* rac1.moby.group_clear.update */
+S36_POINT(Moby_Class468_Update, 372) /* rac1.moby.gate_swing.update */
+S36_POINT(Moby_Class600_Update, 373) /* rac1.moby.moby600.update */
+S36_POINT(Moby_Class621_Update, 374) /* rac1.moby.moby621.update */
+S36_POINT(Moby_Class648_Update, 375) /* rac1.moby.moby648.update */
+S36_POINT(Moby_Class671_Update, 376) /* rac1.moby.flicker_light.update */
+S36_POINT(Moby_BlargParatrooper_Update, 377) /* rac1.moby.paratrooper.update */
+S36_POINT(Moby_Commando_Update, 378) /* rac1.moby.commando.update */
+S36_POINT(Moby_BataliaDeserter_Update, 379) /* rac1.moby.deserter.update */
+S36_POINT(Moby_ThePlumberBatalia_Update, 380) /* rac1.moby.moby1283.update */
+S36_POINT(Moby_Class1292_Update, 381) /* rac1.moby.fire_bolt.update */
+S36_POINT(Moby_Class1349_Update, 382) /* rac1.moby.moby1349.update */
+S36_POINT(Moby_Class1400_Update, 383) /* rac1.moby.moby1400.update */
+S36_POINT(Moby_Class1553_Update, 384) /* rac1.moby.moby1553.update */
+S36_POINT(Moby_Class1629_Update, 385) /* rac1.moby.moby1629.update */
+S36_POINT(Moby_Class1641_Update, 386) /* rac1.moby.moby1641.update */
+S36_POINT(Moby_Class1649_Update, 387) /* rac1.moby.moby1649.update */
+S36_POINT(Moby_AirshipPart_Update, 388) /* rac1.moby.airship_part.update */
+S36_POINT(Moby_Seeker_Update, 389) /* rac1.moby.moby52.update */
+S36_POINT(Moby_Class193_Update, 390) /* rac1.moby.ground_enemy.update */
+S36_POINT(Moby_Asteroid_Update, 391) /* rac1.moby.asteroid_belt.update */
+S36_POINT(Moby_Display_Update, 392) /* rac1.moby.breakable_stack.update */
+S36_POINT(Moby_Class279_Update, 393) /* rac1.moby.moby279.update */
+S36_POINT(Moby_Class313_Update, 394) /* rac1.moby.tumbling_debris.update */
+S36_POINT(Moby_Class320_Update, 395) /* rac1.moby.heavy_tumbling_debris.update */
+S36_POINT(Moby_Class417_Update, 396) /* rac1.moby.moby417.update */
+S36_POINT(Moby_Platform664_Update, 397) /* rac1.moby.moby664.update */
+S36_POINT(Moby_Class1000_Update, 398) /* rac1.moby.moby1000.update */
+S36_POINT(Moby_Elevator1150_Update, 399) /* rac1.moby.path_platform_l09.update */
+S36_POINT(Moby_RefuelingStation_Update, 400) /* rac1.moby.pressure_plate.update */
+S36_POINT(Moby_AirshipPart1181_Update, 401) /* rac1.moby.airship_chain_link.update */
+S36_POINT(Moby_Turret_Update, 402) /* rac1.moby.mountable_turret.update */
+S36_POINT(Moby_Class1206_Update, 403) /* rac1.moby.moby1206.update */
+S36_POINT(Moby_Class1258_Update, 404) /* rac1.moby.enemy_shot.update */
+S36_POINT(Moby_Barrier_Update, 405) /* rac1.moby.barrier.update */
+S36_POINT(Moby_Class1293_Update, 406) /* rac1.moby.linked_riser.update */
+S36_POINT(Moby_Shuttle1766_Update, 407) /* rac1.moby.moby1766.update */
+S36_POINT(Moby_Spawner1885_Update, 408) /* rac1.moby.moby1885.update */
+S36_POINT(Moby_SpawnerEgg_Update, 409) /* rac1.moby.moby1886.update */
+S36_POINT(Moby_Platform1033_Update, 410) /* rac1.moby.moby1033.update */
+S36_POINT(Moby_Platform1117_Update, 411) /* rac1.moby.bobbing_platform.update */
+S36_POINT(Moby_Magnetboots_Update, 412) /* rac1.moby.spinning_pickup.update */
+S36_POINT(Moby_Class22_Update, 413) /* rac1.moby.moby22.update */
+S36_POINT(Moby_GadgebotTelepotPad_Update, 414) /* rac1.moby.near_hero_sparkle.update */
+S36_POINT(Moby_Class702_Update, 415) /* rac1.moby.moby702.update */
+S36_POINT(Moby_Class794_Update, 416) /* rac1.moby.moby794.update */
+S36_POINT(Moby_Rocket819_Update, 417) /* rac1.moby.moby819.update */
+S36_POINT(Moby_Class859_Update, 418) /* rac1.moby.moby859.update */
+S36_POINT(Moby_Bomb938_Update, 419) /* rac1.moby.moby938.update */
+S36_POINT(Moby_BombthrowerGrass939_Update, 420) /* rac1.moby.timed_shooter.update */
+S36_POINT(Moby_Class947_Update, 421) /* rac1.moby.electric_spark.update */
+S36_POINT(Moby_LabDoor_Update, 422) /* rac1.moby.height_glide.update */
+S36_POINT(Moby_Button_Update, 423) /* rac1.moby.moby1031.update */
+S36_POINT(Moby_Class1047_Update, 424) /* rac1.moby.moby1047.update */
+S36_POINT(Moby_Class1067_Update, 425) /* rac1.moby.sound_prop.update */
+S36_POINT(Moby_Class1090_Update, 426) /* rac1.moby.moby1090.update */
+S36_POINT(Moby_BlockCave_Update, 427) /* rac1.moby.collectible_trigger.update */
+S36_POINT(Moby_Screamer_Update, 428) /* rac1.moby.moby1196.update */
+S36_POINT(Moby_Class1199_Update, 429) /* rac1.moby.moby1199.update */
+S36_POINT(Moby_ToxicCrab_Update, 430) /* rac1.moby.toxic_crab.update */
+S36_POINT(Moby_BlargShip_Update, 431) /* rac1.moby.blarg_ship.update */
+S36_POINT(Moby_Class1240_Update, 432) /* rac1.moby.exhaust_vent.update */
+S36_POINT(Moby_NanotechUpgradeVendor_Update, 433) /* rac1.moby.nanotech_vendor.update */
+S36_POINT(Moby_Class1344_Update, 434) /* rac1.moby.moby1344.update */
+S36_POINT(Moby_Gun_Update, 435) /* rac1.moby.linked_turret.update */
+S36_POINT(Moby_Class1378_Update, 436) /* rac1.moby.moby1378.update */
+S36_POINT(Moby_Gate1_Update, 437) /* rac1.moby.swing_door.update */
+S36_POINT(Moby_Gate2_Update, 438) /* rac1.moby.moby1424.update */
+S36_POINT(Moby_Class1544_Update, 439) /* rac1.moby.effect_emitter.update */
+S36_POINT(Moby_Class1555_Update, 440) /* rac1.moby.moby1555.update */
+S36_POINT(Moby_Class1855_Update, 441) /* rac1.moby.moby1855.update */
+S36_POINT(Moby_Class1856_Update, 442) /* rac1.moby.moby1856.update */
+S36_POINT(Moby_Class23_Update, 443) /* rac1.moby.pickup.update */
+S36_POINT(Moby_Class37_Update, 444) /* rac1.moby.moby37.update */
+S36_POINT(Moby_Class65_Update, 445) /* rac1.moby.moby65.update */
+S36_POINT(Moby_Bob_Update, 446) /* rac1.moby.moby90.update */
+S36_POINT(Moby_ResortOwner_Update, 447) /* rac1.moby.moby114.update */
+S36_POINT(Moby_FredPokitaru_Update, 448) /* rac1.moby.pokitaru_vendor.update */
+S36_POINT(Moby_Teleporter318_Update, 449) /* rac1.moby.moby318.update */
+S36_POINT(Moby_Class361_Update, 450) /* rac1.moby.moby361.update */
+S36_POINT(Moby_Class1009_Update, 451) /* rac1.moby.class_1009.update */
+S36_POINT(Moby_Class1017_Update, 452) /* rac1.moby.fireball.update */
+S36_POINT(Moby_Rocket1034_Update, 453) /* rac1.moby.moby1034.update */
+S36_POINT(Moby_PokitaruBoat_Update, 454) /* rac1.moby.pokitaru_boat.update */
+S36_POINT(Moby_OceanPokitaru_Update, 455) /* rac1.moby.ocean.update */
+S36_POINT(Moby_Class1156_Update, 456) /* rac1.moby.cutscene_controller.update */
+S36_POINT(Moby_Class1157_Update, 457) /* rac1.moby.moby1157.update */
+S36_POINT(Moby_Class1158_Update, 458) /* rac1.moby.moby1158.update */
+S36_POINT(Moby_Class1159_Update, 459) /* rac1.moby.moby1159.update */
+S36_POINT(Moby_SeesawPlatform_Update, 460) /* rac1.moby.moby1178.update */
+S36_POINT(Moby_ThrusterPackLock_Update, 461) /* rac1.moby.moby1179.update */
+S36_POINT(Moby_Class1180_Update, 462) /* rac1.moby.moby1180.update */
+S36_POINT(Moby_Ammocrate_Update, 463) /* rac1.moby.ship_collider.update */
+S36_POINT(Moby_Class1219_Update, 464) /* rac1.moby.moby1219.update */
+S36_POINT(Moby_Psytcopus_Update, 465) /* rac1.moby.psytcopus.update */
+S36_POINT(Moby_JetFighter_Update, 466) /* rac1.moby.jet_fighter.update */
+S36_POINT(Moby_Puffoid_Update, 467) /* rac1.moby.moby1246.update */
+S36_POINT(Moby_Class1248_Update, 468) /* rac1.moby.gate.update */
+S36_POINT(Moby_OilTankerFront_Update, 469) /* rac1.moby.moby1264.update */
+S36_POINT(Moby_Class1265_Update, 470) /* rac1.moby.bubbling_vent.update */
+S36_POINT(Moby_EnergySphere1297_Update, 471) /* rac1.moby.moby1297.update */
+S36_POINT(Moby_BlargShip1319_Update, 472) /* rac1.moby.flying_craft.update */
+S36_POINT(Moby_Class1350_Update, 473) /* rac1.moby.moby1350.update */
+S36_POINT(Moby_Class1524_Update, 474) /* rac1.moby.bubble.update */
+S36_POINT(Moby_Class1903_Update, 475) /* rac1.moby.pokitaru_surface_near.update */
+S36_POINT(Moby_Class1919_Update, 476) /* rac1.moby.pokitaru_surface_far.update */
+S36_POINT(Moby_Class19_Update, 477) /* rac1.moby.moby19.update */
+S36_POINT(Moby_Class238_Update, 478) /* rac1.moby.hoven_troll.update */
+S36_POINT(Moby_Platform240_Update, 479) /* rac1.moby.hoven_platform.update */
+S36_POINT(Moby_Miner_Update, 480) /* rac1.moby.miner.update */
+S36_POINT(Moby_Class293_Update, 481) /* rac1.moby.moby293.update */
+S36_POINT(Moby_BlargTrooper294_Update, 482) /* rac1.moby.moby294.update */
+S36_POINT(Moby_BlargHelicopter326_Update, 483) /* rac1.moby.moby326.update */
+S36_POINT(Moby_Edwina_Update, 484) /* rac1.moby.edwina.update */
+S36_POINT(Moby_Helicopter_Update, 485) /* rac1.moby.moby336.update */
+S36_POINT(Moby_CraneArm_Update, 486) /* rac1.moby.moby339.update */
+S36_POINT(Moby_WaterReservoir_Update, 487) /* rac1.moby.water_reservoir.update */
+S36_POINT(Moby_Rocket409_Update, 488) /* rac1.moby.hoven_shot.update */
+S36_POINT(Moby_Class422_Update, 489) /* rac1.moby.hoven_challenge.update */
+S36_POINT(Moby_Class1259_Update, 490) /* rac1.moby.moby1259.update */
+S36_POINT(Moby_HovenTurret_Update, 491) /* rac1.moby.moby1267.update */
+S36_POINT(Moby_Mine1269_Update, 492) /* rac1.moby.hoven_homing_mine.update */
+S36_POINT(Moby_PlanetbusterMaximusPart_Update, 493) /* rac1.moby.planetbuster_part.update */
+S36_POINT(Moby_HomingMineSpawner_Update, 494) /* rac1.moby.door_switch.update */
+S36_POINT(Moby_Class1345_Update, 495) /* rac1.moby.moby1345.update */
+S36_POINT(Moby_BlargCommander_Update, 496) /* rac1.moby.blarg_commander.update */
+S36_POINT(Moby_Class1404_Update, 497) /* rac1.moby.cutscene_volume_trigger.update */
+S36_POINT(Moby_Class1557_Update, 498) /* rac1.moby.class_1557.update */
+S36_POINT(Moby_Class1901_Update, 499) /* rac1.moby.moby1901.update */
+S36_POINT(Moby_Class6_Update, 500) /* rac1.moby.clip_volume_trigger.update */
+S36_POINT(Moby_Elevator21_Update, 501) /* rac1.moby.elevator_21.update */
+S36_POINT(Moby_BlargTurret_Update, 502) /* rac1.moby.blarg_turret.update */
+S36_POINT(Moby_BlargGunner_Update, 503) /* rac1.moby.gem_lock_turret.update */
+S36_POINT(Moby_Robosquawker_Update, 504) /* rac1.moby.robosquawker.update */
+S36_POINT(Moby_FighterJet69_Update, 505) /* rac1.moby.fighter_jet_69.update */
+S36_POINT(Moby_Rocket82_Update, 506) /* rac1.moby.homing_rocket82.update */
+S36_POINT(Moby_Mine83_Update, 507) /* rac1.moby.moby83.update */
+S36_POINT(Moby_BlargSpaceFighter_Update, 508) /* rac1.moby.blarg_space_fighter.update */
+S36_POINT(Moby_BlargSpaceFighter111_Update, 509) /* rac1.moby.blarg_fighter111.update */
+S36_POINT(Moby_Class127_Update, 510) /* rac1.moby.rotating_door.update */
+S36_POINT(Moby_ForcefieldTower_Update, 511) /* rac1.moby.forcefield_tower.update */
+S36_POINT(Moby_Asteroid212_Update, 512) /* rac1.moby.drifting_blob.update */
+S36_POINT(Moby_Ammocrate224_Update, 513) /* rac1.moby.ship_pickup.update */
+S36_POINT(Moby_Class231_Update, 514) /* rac1.moby.switch.update */
+S36_POINT(Moby_Rocket295_Update, 515) /* rac1.moby.rocket295.update */
+S36_POINT(Moby_Class352_Update, 516) /* rac1.moby.fade_in_hold_out.update */
+S36_POINT(Moby_QwarksStarfighterPart_Update, 517) /* rac1.moby.qwark_starfighter_part.update */
+S36_POINT(Moby_QwarksStarfighterPart389_Update, 518) /* rac1.moby.starfighter_part.update */
+S36_POINT(Moby_Forcefield_Update, 519) /* rac1.moby.gem_lock_pickup.update */
+S36_POINT(Moby_PurpleShip533_Update, 520) /* rac1.moby.purple_ship_533.update */
+S36_POINT(Moby_Class558_Update, 521) /* rac1.moby.help_volume.update */
+S36_POINT(Moby_Class667_Update, 522) /* rac1.moby.moby_state_relay.update */
+S36_POINT(Moby_Class674_Update, 523) /* rac1.moby.controlled_gate.update */
+S36_POINT(Moby_Class1238_Update, 524) /* rac1.moby.projectile_l13.update */
+S36_POINT(Moby_PoisonVessel_Update, 525) /* rac1.moby.moby1261.update */
+S36_POINT(Moby_BlargSpaceCommando1262_Update, 526) /* rac1.moby.blarg_space_commando.update */
+S36_POINT(Moby_Class1263_Update, 527) /* rac1.moby.bobbing_lights.update */
+S36_POINT(Moby_Class1270_Update, 528) /* rac1.moby.lift1270.update */
+S36_POINT(Moby_Class1271_Update, 529) /* rac1.moby.class_1271.update */
+S36_POINT(Moby_Class1353_Update, 530) /* rac1.moby.moby1353.update */
+S36_POINT(Moby_Class1403_Update, 531) /* rac1.moby.class_1403.update */
+S36_POINT(Moby_Class1558_Update, 532) /* rac1.moby.sparks_trigger_l13.update */
+S36_POINT(Moby_Class1577_Update, 533) /* rac1.moby.watch_mobys.update */
+S36_POINT(Moby_Class1632_Update, 534) /* rac1.moby.moby1632.update */
+S36_POINT(Moby_Class1634_Update, 535) /* rac1.moby.moby1634.update */
+S36_POINT(Moby_BlargShip1805_Update, 536) /* rac1.moby.moby1805.update */
+S36_POINT(Moby_Platform903_Update, 537) /* rac1.moby.keyframe_platform.update */
+S36_POINT(Moby_BlargHeavyInterceptor_Update, 538) /* rac1.moby.moby8.update */
+S36_POINT(Moby_Plasmabot_Update, 539) /* rac1.moby.plasmabot.update */
+S36_POINT(Moby_MachinegunTurret30_Update, 540) /* rac1.moby.machinegun_turret_30.update */
+S36_POINT(Moby_Minibomber_Update, 541) /* rac1.moby.minibomber.update */
+S36_POINT(Moby_Class81_Update, 542) /* rac1.moby.moby81.update */
+S36_POINT(Moby_Plasmabot211_Update, 543) /* rac1.moby.moby211.update */
+S36_POINT(Moby_PlasmabotHatch_Update, 544) /* rac1.moby.moby250.update */
+S36_POINT(Moby_Platform309_Update, 545) /* rac1.moby.moby309.update */
+S36_POINT(Moby_Class325_Update, 546) /* rac1.moby.debris_particle.update */
+S36_POINT(Moby_Class386_Update, 547) /* rac1.moby.gem_lock_sentry.update */
+S36_POINT(Moby_Class403_Update, 548) /* rac1.moby.race_debris.update */
+S36_POINT(Moby_Shuttle557_Update, 549) /* rac1.moby.path_lift.update */
+S36_POINT(Moby_Class610_Update, 550) /* rac1.moby.moby610.update */
+S36_POINT(Moby_Mine643_Update, 551) /* rac1.moby.mine_l14.update */
+S36_POINT(Moby_Class681_Update, 552) /* rac1.moby.sweeping_bolt.update */
+S36_POINT(Moby_Class684_Update, 553) /* rac1.moby.class_684.update */
+S36_POINT(Moby_Elevator685_Update, 554) /* rac1.moby.moby685.update */
+S36_POINT(Moby_Taxi712_Update, 555) /* rac1.moby.taxi.update */
+S36_POINT(Moby_QwarkOltanis_Update, 556) /* rac1.moby.moby851.update */
+S36_POINT(Moby_Jet_Update, 557) /* rac1.moby.moby908.update */
+S36_POINT(Moby_Jet921_Update, 558) /* rac1.moby.oltanis_jet.update */
+S36_POINT(Moby_Rocket922_Update, 559) /* rac1.moby.flyer.update */
+S36_POINT(Moby_BoltThief923_Update, 560) /* rac1.moby.bolt_thief.update */
+S36_POINT(Moby_Sam_Update, 561) /* rac1.moby.moby924.update */
+S36_POINT(Moby_Mine933_Update, 562) /* rac1.moby.floating_mine.update */
+S36_POINT(Moby_Class1193_Update, 563) /* rac1.moby.bouncing_spark.update */
+S36_POINT(Moby_Class1224_Update, 564) /* rac1.moby.moby1224.update */
+S36_POINT(Moby_Class1331_Update, 565) /* rac1.moby.moby1331.update */
+S36_POINT(Moby_Class1352_Update, 566) /* rac1.moby.triggered_unlock.update */
+S36_POINT(Moby_Morphoray1354_Update, 567) /* rac1.moby.collectible_pickup.update */
+S36_POINT(Moby_Class1395_Update, 568) /* rac1.moby.moby1395.update */
+S36_POINT(Moby_Class1397_Update, 569) /* rac1.moby.moby1397.update */
+S36_POINT(Moby_Button1416_Update, 570) /* rac1.moby.step_on_switch.update */
+S36_POINT(Moby_BlargHeavyInterceptor1417_Update, 571) /* rac1.moby.blarg_interceptor.update */
+S36_POINT(Moby_Class1418_Update, 572) /* rac1.moby.queue_effect_draw.update */
+S36_POINT(Moby_Class1559_Update, 573) /* rac1.moby.skill_point.update */
+S36_POINT(Moby_Sentrybot_Update, 574) /* rac1.moby.sentrybot.update */
+S36_POINT(Moby_Rocket49_Update, 575) /* rac1.moby.projectile.update */
+S36_POINT(Moby_Class67_Update, 576) /* rac1.moby.moby67.update */
+S36_POINT(Moby_Class256_Update, 577) /* rac1.moby.class_256.update */
+S36_POINT(Moby_Class1427_Update, 578) /* rac1.moby.scale_fade_and_delete.update */
+S36_POINT(Moby_Class1523_Update, 579) /* rac1.moby.moby1523.update */
+S36_POINT(Moby_Mine77_Update, 580) /* rac1.moby.moby77.update */
+S36_POINT(Moby_Class78_Update, 581) /* rac1.moby.moby78.update */
+S36_POINT(Moby_Gate92_Update, 582) /* rac1.moby.sliding_gate.update */
+S36_POINT(Moby_Gate93_Update, 583) /* rac1.moby.clip_volume_door.update */
+S36_POINT(Moby_Spiderbot_Update, 584) /* rac1.moby.spiderbot.update */
+S36_POINT(Moby_Class148_Update, 585) /* rac1.moby.class_148.update */
+S36_POINT(Moby_Class154_Update, 586) /* rac1.moby.hit_reaction_effect_alt.update */
+S36_POINT(Moby_Door196_Update, 587) /* rac1.moby.moving_moby.update */
+S36_POINT(Moby_ConstructionArm_Update, 588) /* rac1.moby.construction_arm.update */
+S36_POINT(Moby_Helicopter233_Update, 589) /* rac1.moby.helicopter.update */
+S36_POINT(Moby_SentrybotAlarm_Update, 590) /* rac1.moby.sentrybot_alarm.update */
+S36_POINT(Moby_UltramechUnlimited_Update, 591) /* rac1.moby.ultramech.update */
+S36_POINT(Moby_Class655_Update, 592) /* rac1.moby.class_655.update */
+S36_POINT(Moby_Class934_Update, 593) /* rac1.moby.moby934.update */
+S36_POINT(Moby_Class937_Update, 594) /* rac1.moby.class_937.update */
+S36_POINT(Moby_UnderwaterRing_Update, 595) /* rac1.moby.underwater_ring.update */
+S36_POINT(Moby_ConveyorBelt1250_Update, 596) /* rac1.moby.side_drift.update */
+S36_POINT(Moby_PoisonVessel1257_Update, 597) /* rac1.moby.poison_vessel.update */
+S36_POINT(Moby_BoltGrabber_Update, 598) /* rac1.moby.moby1388.update */
+S36_POINT(Moby_Class1394_Update, 599) /* rac1.moby.moby1257_spawner.update */
+S36_POINT(Moby_Class1405_Update, 600) /* rac1.moby.ripple_strips_moby.update */
+S36_POINT(Moby_Class1419_Update, 601) /* rac1.moby.moby1419.update */
+S36_POINT(Moby_Class1425_Update, 602) /* rac1.moby.class_1425.update */
+S36_POINT(Moby_Codebot_Update, 603) /* rac1.moby.moby1428.update */
+S36_POINT(Moby_CodebotSlot_Update, 604) /* rac1.moby.codebot_slot.update */
+S36_POINT(Moby_UltramechScientist_Update, 605) /* rac1.moby.ultramech_scientist.update */
+S36_POINT(Moby_GiantClankPad_Update, 606) /* rac1.moby.giant_clank_pad.update */
+S36_POINT(Moby_Class1469_Update, 607) /* rac1.moby.moby1469.update */
+S36_POINT(Moby_Class1560_Update, 608) /* rac1.moby.boss_slot_effect.update */
+S36_POINT(Moby_Rocket50_Update, 609) /* rac1.moby.homing_projectile.update */
+S36_POINT(Moby_Rocket1475_Update, 610) /* rac1.moby.homing_spark_1475.update */
+S36_POINT(Moby_Class257_Update, 611) /* rac1.moby.moby257.update */
+S36_POINT(Moby_Bomb281_Update, 612) /* rac1.moby.thrown_bomb.update */
+S36_POINT(Moby_Rocket470_Update, 613) /* rac1.moby.moby470.update */
+S36_POINT(Moby_ConveyorBelt471_Update, 614) /* rac1.moby.moby471.update */
+S36_POINT(Moby_TestDummy_Update, 615) /* rac1.moby.test_dummy.update */
+S36_POINT(Moby_WallButton_Update, 616) /* rac1.moby.moby546.update */
+S36_POINT(Moby_Class552_Update, 617) /* rac1.moby.moby552.update */
+S36_POINT(Moby_TestDummyOnHoverboard_Update, 618) /* rac1.moby.hoverboard_racer.update */
+S36_POINT(Moby_BlargEliteCommando_Update, 619) /* rac1.moby.floating_enemy.update */
+S36_POINT(Moby_Door647_Update, 620) /* rac1.moby.moby647.update */
+S36_POINT(Moby_TestDummyDoor_Update, 621) /* rac1.moby.moby650.update */
+S36_POINT(Moby_Class654_Update, 622) /* rac1.moby.moby654.update */
+S36_POINT(Moby_Class800_Update, 623) /* rac1.moby.moby800.update */
+S36_POINT(Moby_ArmedTransport_Update, 624) /* rac1.moby.armed_transport.update */
+S36_POINT(Moby_HelpDeskLady_Update, 625) /* rac1.moby.watcher.update */
+S36_POINT(Moby_Class1387_Update, 626) /* rac1.moby.moby1387.update */
+S36_POINT(Moby_BoltThief1401_Update, 627) /* rac1.moby.crate_platform.update */
+S36_POINT(Moby_Taxi1410_Update, 628) /* rac1.moby.path_pickup.update */
+S36_POINT(Moby_GrindrailGate_Update, 629) /* rac1.moby.moby1439.update */
+S36_POINT(Moby_GrindrailGate1441_Update, 630) /* rac1.moby.moby1441.update */
+S36_POINT(Moby_GrindrailButton_Update, 631) /* rac1.moby.moby1442.update */
+S36_POINT(Moby_GrindrailBarrier_Update, 632) /* rac1.moby.ring_effect.update */
+S36_POINT(Moby_Chomper_Update, 633) /* rac1.moby.wandering_helper.update */
+S36_POINT(Moby_GadgetronCeo_Update, 634) /* rac1.moby.challenge_npc.update */
+S36_POINT(Moby_Class1561_Update, 635) /* rac1.moby.banner_trigger.update */
+S36_POINT(Moby_Class1667_Update, 636) /* rac1.moby.path_walker.update */
+S36_POINT(Moby_Class1812_Update, 637) /* rac1.moby.spark_ring_emitter.update */
+S36_POINT(Moby_Elevator1826_Update, 638) /* rac1.moby.elevator_platform.update */
+S36_POINT(Moby_GadgetronSign_Update, 639) /* rac1.moby.spinning_object.update */
+S36_POINT(Moby_Class1923_Update, 640) /* rac1.moby.target_activator.update */
+S36_POINT(Moby_Class1943_Update, 641) /* rac1.moby.env_map_a.update */
+S36_POINT(Moby_Class1947_Update, 642) /* rac1.moby.class_1947.update */
+S36_POINT(Moby_Class1948_Update, 643) /* rac1.moby.env_map_b.update */
+S36_POINT(Moby_Class1907_Update, 644) /* rac1.moby.class_1907.update */
+S36_POINT(Moby_Class1953_Update, 645) /* rac1.moby.env_map_c.update */
+S36_POINT(Moby_Class99_Update, 646) /* rac1.moby.moby99.update */
+S36_POINT(Moby_DreksFleetTurret_Update, 647) /* rac1.moby.fleet_turret.update */
+S36_POINT(Moby_Class669_Update, 648) /* rac1.moby.moby669.update */
+S36_POINT(Moby_Class835_Update, 649) /* rac1.moby.moby835.update */
+S36_POINT(Moby_Door1359_Update, 650) /* rac1.moby.stops_platform.update */
+S36_POINT(Moby_Class1368_Update, 651) /* rac1.moby.moby1368.update */
+S36_POINT(Moby_FighterJet1379_Update, 652) /* rac1.moby.fighter_jet_1379.update */
+S36_POINT(Moby_MagnetElevator_Update, 653) /* rac1.moby.moby1380.update */
+S36_POINT(Moby_RobotDog1382_Update, 654) /* rac1.moby.moby1382.update */
+S36_POINT(Moby_Shuttle1448_Update, 655) /* rac1.moby.moby1448.update */
+S36_POINT(Moby_Class1470_Update, 656) /* rac1.moby.moby1470.update */
+S36_POINT(Moby_Class1562_Update, 657) /* rac1.moby.moby750_spark_trigger.update */
+S36_POINT(Moby_Class1772_Update, 658) /* rac1.moby.fleet_reflection.update */
+S36_POINT(Moby_BlargShip1843_Update, 659) /* rac1.moby.moby1843.update */
+S36_POINT(Moby_Class1873_Update, 660) /* rac1.moby.moby1873.update */
+S36_POINT(Moby_Class1876_Update, 661) /* rac1.moby.moby1876.update */
+S36_POINT(Moby_Rocket41_Update, 662) /* rac1.moby.moby41.update */
+S36_POINT(Moby_Rocket564_Update, 663) /* rac1.moby.moby564.update */
+S36_POINT(Moby_Mine568_Update, 664) /* rac1.moby.moby568.update */
+S36_POINT(Moby_Class582_Update, 665) /* rac1.moby.path_junction.update */
+S36_POINT(Moby_ThrusterPackLockGreen_Update, 666) /* rac1.moby.energy_field_emitter.update */
+S36_POINT(Moby_ThrusterPackLockRed_Update, 667) /* rac1.moby.timed_lift.update */
+S36_POINT(Moby_FloatingPlatform587_Update, 668) /* rac1.moby.sinking_platform.update */
+S36_POINT(Moby_Class624_Update, 669) /* rac1.moby.falling_fireball.update */
+S36_POINT(Moby_Class628_Update, 670) /* rac1.moby.moby628.update */
+S36_POINT(Moby_Class644_Update, 671) /* rac1.moby.vendor_moby.update */
+S36_POINT(Moby_Class885_Update, 672) /* rac1.moby.hit_trigger.update */
+S36_POINT(Moby_Class983_Update, 673) /* rac1.moby.homing_spark_983.update */
+S36_POINT(Moby_DrekFightMissile_Update, 674) /* rac1.moby.moby1355.update */
+S36_POINT(Moby_Class1381_Update, 675) /* rac1.moby.moby1381.update */
+S36_POINT(Moby_Class1392_Update, 676) /* rac1.moby.moby1392.update */
+S36_POINT(Moby_Class1402_Update, 677) /* rac1.moby.moby1402.update */
+S36_POINT(Moby_DrekFinalBossRobot_Update, 678) /* rac1.moby.final_boss.update */
+S36_POINT(Moby_Class1432_Update, 679) /* rac1.moby.class_1432.update */
+S36_POINT(Moby_DeplanetizerGun_Update, 680) /* rac1.moby.moby1434.update */
+S36_POINT(Moby_RocketTank_Update, 681) /* rac1.moby.moby1454.update */
+S36_POINT(Moby_Class1563_Update, 682) /* rac1.moby.moby1563.update */
+S36_POINT(Moby_DeplanetizerGun1568_Update, 683) /* rac1.moby.moby1568.update */
+S36_POINT(Moby_Class1584_Update, 684) /* rac1.moby.moby1584.update */
+S36_POINT(Moby_Class1799_Update, 685) /* rac1.moby.moby1799.update */
+S36_POINT(Moby_Gadgebot1906_Update, 686) /* rac1.moby.moby1906.update */
 
-static const openrac_script_point k_points[685] = {
+static const openrac_script_point k_points[687] = {
     {"rac1.pad.process_report", "void(u32,u32,i32)", 3, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Pad_ProcessReport_links, k_Pad_ProcessReport_thunks, S0_call},
     {"rac1.player.update_motion_input", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Hero_UpdateMotionInput_links, k_Hero_UpdateMotionInput_thunks, S1_call},
     {"rac1.player.turn_to_heading", "void(i32,f32,f32,f32)", 4, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Hero_TurnToHeading_links, k_Hero_TurnToHeading_thunks, S2_call},
@@ -1374,686 +1414,688 @@ static const openrac_script_point k_points[685] = {
     {"rac1.player.advance_animation", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Hero_AdvanceAnimation_links, k_Hero_AdvanceAnimation_thunks, S1_call},
     {"rac1.item.give", "void(i32,i32)", 2, k_S5_kinds, k_S5_names, OPENRAC_SV_VOID, k_Item_Give_links, k_Item_Give_thunks, S5_call},
     {"rac1.planet.unlock", "void(i32)", 1, k_S6_kinds, k_S6_names, OPENRAC_SV_VOID, k_Planet_Unlock_links, k_Planet_Unlock_thunks, S6_call},
+    {"rac1.help.request", "i32(i32,i32)", 2, k_S7_kinds, k_S7_names, OPENRAC_SV_I32, k_Help_Request_links, k_Help_Request_thunks, S7_call},
+    {"rac1.ship.init_transition", "void(i32)", 1, k_S8_kinds, k_S8_names, OPENRAC_SV_VOID, k_Ship_InitTransition_links, k_Ship_InitTransition_thunks, S8_call},
     {"rac1.vendor.init_level_stock", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_InitLevelStock_links, k_Vendor_InitLevelStock_thunks, S1_call},
-    {"rac1.vendor.build_item_list", "void(i32)", 1, k_S7_kinds, k_S7_names, OPENRAC_SV_VOID, k_Vendor_BuildItemList_links, k_Vendor_BuildItemList_thunks, S7_call},
-    {"rac1.gold_bolt.count_collected", "i32()", 0, k_S8_kinds, k_S8_names, OPENRAC_SV_I32, k_GoldBolts_CountCollected_links, k_GoldBolts_CountCollected_thunks, S8_call},
-    {"rac1.player.take_damage", "void(i32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S9_call},
-    {"rac1.combat.get_hit", "u32(u32,i32,i32)", 3, k_S10_kinds, k_S10_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S10_call},
-    {"rac1.weapon.take_ammo", "i32(i32,i32)", 2, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_Weapon_TakeAmmo_links, k_Weapon_TakeAmmo_thunks, S11_call},
-    {"rac1.moby.record_death", "void(u32,i32,i32)", 3, k_S12_kinds, k_S12_names, OPENRAC_SV_VOID, k_Moby_RecordDeath_links, k_Moby_RecordDeath_thunks, S12_call},
-    {"rac1.level.load_gameplay", "u32(i32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_U32, k_Level_LoadGameplay_links, k_Level_LoadGameplay_thunks, S13_call},
-    {"rac1.player.approach_speed", "void(f32,f32)", 2, k_S14_kinds, k_S14_names, OPENRAC_SV_VOID, k_Hero_ApproachSpeed_links, k_Hero_ApproachSpeed_thunks, S14_call},
-    {"rac1.ship.travel_to", "void(i32)", 1, k_S15_kinds, k_S15_names, OPENRAC_SV_VOID, k_Ship_TravelTo_links, k_Ship_TravelTo_thunks, S15_call},
-    {"rac1.moby.collect_bolt", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_CollectBolt_links, k_Moby_CollectBolt_thunks, S16_call},
-    {"rac1.menu.item_grid.update", "i32(u32)", 1, k_S17_kinds, k_S17_names, OPENRAC_SV_I32, k_Menu_ItemGrid_Update_links, k_Menu_ItemGrid_Update_thunks, S17_call},
-    {"rac1.menu.item_grid.draw", "i32(u32)", 1, k_S17_kinds, k_S17_names, OPENRAC_SV_I32, k_Menu_ItemGrid_Draw_links, k_Menu_ItemGrid_Draw_thunks, S17_call},
-    {"rac1.menu.item_slots.update", "i32(u32)", 1, k_S18_kinds, k_S18_names, OPENRAC_SV_I32, k_Menu_ItemSlots_Update_links, k_Menu_ItemSlots_Update_thunks, S18_call},
-    {"rac1.menu.quick_select.draw", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_QuickSelect_Draw_links, k_Menu_QuickSelect_Draw_thunks, S19_call},
-    {"rac1.menu.quick_select.load", "i32(u32)", 1, k_S18_kinds, k_S18_names, OPENRAC_SV_I32, k_Menu_QuickSelect_Load_links, k_Menu_QuickSelect_Load_thunks, S18_call},
-    {"rac1.menu.quick_select.store", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_QuickSelect_Store_links, k_Menu_QuickSelect_Store_thunks, S19_call},
-    {"rac1.menu.item_text.draw", "i32(u32)", 1, k_S20_kinds, k_S20_names, OPENRAC_SV_I32, k_Menu_ItemText_Draw_links, k_Menu_ItemText_Draw_thunks, S20_call},
-    {"rac1.menu.item_ammo.draw", "i32(i32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_I32, k_Menu_ItemAmmo_Draw_links, k_Menu_ItemAmmo_Draw_thunks, S21_call},
-    {"rac1.menu.preview.bind", "i32(u32)", 1, k_S22_kinds, k_S22_names, OPENRAC_SV_I32, k_Menu_Preview_Bind_links, k_Menu_Preview_Bind_thunks, S22_call},
-    {"rac1.menu.preview.update", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_Preview_Update_links, k_Menu_Preview_Update_thunks, S19_call},
-    {"rac1.menu.preview.draw_available", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_Preview_DrawAvailable_links, k_Menu_Preview_DrawAvailable_thunks, S19_call},
-    {"rac1.menu.preview.draw_selected", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_Preview_DrawSelected_links, k_Menu_Preview_DrawSelected_thunks, S19_call},
-    {"rac1.menu.equipped_preview.update", "i32(u32)", 1, k_S23_kinds, k_S23_names, OPENRAC_SV_I32, k_Menu_EquippedPreview_Update_links, k_Menu_EquippedPreview_Update_thunks, S23_call},
-    {"rac1.menu.equipped_preview.draw", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_EquippedPreview_Draw_links, k_Menu_EquippedPreview_Draw_thunks, S19_call},
-    {"rac1.hud.quick_select.init", "void(u32)", 1, k_S24_kinds, k_S24_names, OPENRAC_SV_VOID, k_Hud_QuickSelect_Init_links, k_Hud_QuickSelect_Init_thunks, S24_call},
-    {"rac1.hud.quick_select.update", "void(u32)", 1, k_S24_kinds, k_S24_names, OPENRAC_SV_VOID, k_Hud_QuickSelect_Update_links, k_Hud_QuickSelect_Update_thunks, S24_call},
-    {"rac1.hud.quick_select.draw", "i32(u32)", 1, k_S25_kinds, k_S25_names, OPENRAC_SV_I32, k_Hud_QuickSelect_Draw_links, k_Hud_QuickSelect_Draw_thunks, S25_call},
+    {"rac1.vendor.build_item_list", "void(i32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Vendor_BuildItemList_links, k_Vendor_BuildItemList_thunks, S9_call},
+    {"rac1.gold_bolt.count_collected", "i32()", 0, k_S10_kinds, k_S10_names, OPENRAC_SV_I32, k_GoldBolts_CountCollected_links, k_GoldBolts_CountCollected_thunks, S10_call},
+    {"rac1.player.take_damage", "void(i32)", 1, k_S11_kinds, k_S11_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S11_call},
+    {"rac1.combat.get_hit", "u32(u32,i32,i32)", 3, k_S12_kinds, k_S12_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S12_call},
+    {"rac1.weapon.take_ammo", "i32(i32,i32)", 2, k_S13_kinds, k_S13_names, OPENRAC_SV_I32, k_Weapon_TakeAmmo_links, k_Weapon_TakeAmmo_thunks, S13_call},
+    {"rac1.moby.record_death", "void(u32,i32,i32)", 3, k_S14_kinds, k_S14_names, OPENRAC_SV_VOID, k_Moby_RecordDeath_links, k_Moby_RecordDeath_thunks, S14_call},
+    {"rac1.level.load_gameplay", "u32(i32)", 1, k_S15_kinds, k_S15_names, OPENRAC_SV_U32, k_Level_LoadGameplay_links, k_Level_LoadGameplay_thunks, S15_call},
+    {"rac1.player.approach_speed", "void(f32,f32)", 2, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Hero_ApproachSpeed_links, k_Hero_ApproachSpeed_thunks, S16_call},
+    {"rac1.ship.travel_to", "void(i32)", 1, k_S17_kinds, k_S17_names, OPENRAC_SV_VOID, k_Ship_TravelTo_links, k_Ship_TravelTo_thunks, S17_call},
+    {"rac1.moby.collect_bolt", "void(u32)", 1, k_S18_kinds, k_S18_names, OPENRAC_SV_VOID, k_Moby_CollectBolt_links, k_Moby_CollectBolt_thunks, S18_call},
+    {"rac1.menu.item_grid.update", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_ItemGrid_Update_links, k_Menu_ItemGrid_Update_thunks, S19_call},
+    {"rac1.menu.item_grid.draw", "i32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Menu_ItemGrid_Draw_links, k_Menu_ItemGrid_Draw_thunks, S19_call},
+    {"rac1.menu.item_slots.update", "i32(u32)", 1, k_S20_kinds, k_S20_names, OPENRAC_SV_I32, k_Menu_ItemSlots_Update_links, k_Menu_ItemSlots_Update_thunks, S20_call},
+    {"rac1.menu.quick_select.draw", "i32(u32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_I32, k_Menu_QuickSelect_Draw_links, k_Menu_QuickSelect_Draw_thunks, S21_call},
+    {"rac1.menu.quick_select.load", "i32(u32)", 1, k_S20_kinds, k_S20_names, OPENRAC_SV_I32, k_Menu_QuickSelect_Load_links, k_Menu_QuickSelect_Load_thunks, S20_call},
+    {"rac1.menu.quick_select.store", "i32(u32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_I32, k_Menu_QuickSelect_Store_links, k_Menu_QuickSelect_Store_thunks, S21_call},
+    {"rac1.menu.item_text.draw", "i32(u32)", 1, k_S22_kinds, k_S22_names, OPENRAC_SV_I32, k_Menu_ItemText_Draw_links, k_Menu_ItemText_Draw_thunks, S22_call},
+    {"rac1.menu.item_ammo.draw", "i32(i32)", 1, k_S23_kinds, k_S23_names, OPENRAC_SV_I32, k_Menu_ItemAmmo_Draw_links, k_Menu_ItemAmmo_Draw_thunks, S23_call},
+    {"rac1.menu.preview.bind", "i32(u32)", 1, k_S24_kinds, k_S24_names, OPENRAC_SV_I32, k_Menu_Preview_Bind_links, k_Menu_Preview_Bind_thunks, S24_call},
+    {"rac1.menu.preview.update", "i32(u32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_I32, k_Menu_Preview_Update_links, k_Menu_Preview_Update_thunks, S21_call},
+    {"rac1.menu.preview.draw_available", "i32(u32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_I32, k_Menu_Preview_DrawAvailable_links, k_Menu_Preview_DrawAvailable_thunks, S21_call},
+    {"rac1.menu.preview.draw_selected", "i32(u32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_I32, k_Menu_Preview_DrawSelected_links, k_Menu_Preview_DrawSelected_thunks, S21_call},
+    {"rac1.menu.equipped_preview.update", "i32(u32)", 1, k_S25_kinds, k_S25_names, OPENRAC_SV_I32, k_Menu_EquippedPreview_Update_links, k_Menu_EquippedPreview_Update_thunks, S25_call},
+    {"rac1.menu.equipped_preview.draw", "i32(u32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_I32, k_Menu_EquippedPreview_Draw_links, k_Menu_EquippedPreview_Draw_thunks, S21_call},
+    {"rac1.hud.quick_select.init", "void(u32)", 1, k_S26_kinds, k_S26_names, OPENRAC_SV_VOID, k_Hud_QuickSelect_Init_links, k_Hud_QuickSelect_Init_thunks, S26_call},
+    {"rac1.hud.quick_select.update", "void(u32)", 1, k_S26_kinds, k_S26_names, OPENRAC_SV_VOID, k_Hud_QuickSelect_Update_links, k_Hud_QuickSelect_Update_thunks, S26_call},
+    {"rac1.hud.quick_select.draw", "i32(u32)", 1, k_S27_kinds, k_S27_names, OPENRAC_SV_I32, k_Hud_QuickSelect_Draw_links, k_Hud_QuickSelect_Draw_thunks, S27_call},
     {"rac1.vendor.menu_update", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_MenuUpdate_links, k_Vendor_MenuUpdate_thunks, S1_call},
     {"rac1.vendor.initialize_selected", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_InitializeSelected_links, k_Vendor_InitializeSelected_thunks, S1_call},
-    {"rac1.ammo.choose_drop", "i32(u32,u32)", 2, k_S26_kinds, k_S26_names, OPENRAC_SV_I32, k_Ammo_ChooseDrop_links, k_Ammo_ChooseDrop_thunks, S26_call},
-    {"rac1.ammo.spawn_drop", "u32(u32,i32,i32,i32)", 4, k_S27_kinds, k_S27_names, OPENRAC_SV_U32, k_Ammo_SpawnDrop_links, k_Ammo_SpawnDrop_thunks, S27_call},
-    {"rac1.save.prepare", "void(i32,i32)", 2, k_S28_kinds, k_S28_names, OPENRAC_SV_VOID, k_Save_Prepare_links, k_Save_Prepare_thunks, S28_call},
-    {"rac1.save.request_autosave", "i32(i32,i32)", 2, k_S29_kinds, k_S29_names, OPENRAC_SV_I32, k_Save_RequestAutosave_links, k_Save_RequestAutosave_thunks, S29_call},
-    {"rac1.save.restore", "void(u32)", 1, k_S30_kinds, k_S30_names, OPENRAC_SV_VOID, k_Save_Restore_links, k_Save_Restore_thunks, S30_call},
-    {"rac1.save.restore_data", "i32(u32,i32,u32)", 3, k_S31_kinds, k_S31_names, OPENRAC_SV_I32, k_Save_RestoreData_links, k_Save_RestoreData_thunks, S31_call},
+    {"rac1.ammo.choose_drop", "i32(u32,u32)", 2, k_S28_kinds, k_S28_names, OPENRAC_SV_I32, k_Ammo_ChooseDrop_links, k_Ammo_ChooseDrop_thunks, S28_call},
+    {"rac1.ammo.spawn_drop", "u32(u32,i32,i32,i32)", 4, k_S29_kinds, k_S29_names, OPENRAC_SV_U32, k_Ammo_SpawnDrop_links, k_Ammo_SpawnDrop_thunks, S29_call},
+    {"rac1.save.prepare", "void(i32,i32)", 2, k_S30_kinds, k_S30_names, OPENRAC_SV_VOID, k_Save_Prepare_links, k_Save_Prepare_thunks, S30_call},
+    {"rac1.save.request_autosave", "i32(i32,i32)", 2, k_S31_kinds, k_S31_names, OPENRAC_SV_I32, k_Save_RequestAutosave_links, k_Save_RequestAutosave_thunks, S31_call},
+    {"rac1.save.restore", "void(u32)", 1, k_S32_kinds, k_S32_names, OPENRAC_SV_VOID, k_Save_Restore_links, k_Save_Restore_thunks, S32_call},
+    {"rac1.save.restore_data", "i32(u32,i32,u32)", 3, k_S33_kinds, k_S33_names, OPENRAC_SV_I32, k_Save_RestoreData_links, k_Save_RestoreData_thunks, S33_call},
     {"rac1.save.new_game", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Save_NewGame_links, k_Save_NewGame_thunks, S1_call},
-    {"rac1.save.new_game_plus", "void(i32)", 1, k_S32_kinds, k_S32_names, OPENRAC_SV_VOID, k_Save_NewGamePlus_links, k_Save_NewGamePlus_thunks, S32_call},
-    {"rac1.save.serialize", "void(u32)", 1, k_S33_kinds, k_S33_names, OPENRAC_SV_VOID, k_Save_Serialize_links, k_Save_Serialize_thunks, S33_call},
+    {"rac1.save.new_game_plus", "void(i32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Save_NewGamePlus_links, k_Save_NewGamePlus_thunks, S34_call},
+    {"rac1.save.serialize", "void(u32)", 1, k_S35_kinds, k_S35_names, OPENRAC_SV_VOID, k_Save_Serialize_links, k_Save_Serialize_thunks, S35_call},
     {"rac1.save.update_state", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Save_UpdateState_links, k_Save_UpdateState_thunks, S1_call},
     {"rac1.moby.class_1750.update", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Moby_Class1750_Update_links, k_Moby_Class1750_Update_thunks, S1_call},
-    {"rac1.moby.class_676.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class676_Update_links, k_Moby_Class676_Update_thunks, S34_call},
-    {"rac1.moby.class_482.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class482_Update_links, k_Moby_Class482_Update_thunks, S34_call},
-    {"rac1.moby.texture_scroll.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class809_Update_links, k_Moby_Class809_Update_thunks, S34_call},
-    {"rac1.moby.camera_object.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_CameraObject_Update_links, k_Moby_CameraObject_Update_thunks, S34_call},
-    {"rac1.moby.light_beam.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Vendor_Update_links, k_Moby_Vendor_Update_thunks, S34_call},
-    {"rac1.moby.bolt.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bolt_Update_links, k_Moby_Bolt_Update_thunks, S34_call},
-    {"rac1.moby.wrench.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Wrench_Update_links, k_Moby_Wrench_Update_thunks, S34_call},
-    {"rac1.moby.mine.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine_Update_links, k_Moby_Mine_Update_thunks, S34_call},
-    {"rac1.moby.spin_fade_out.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class112_Update_links, k_Moby_Class112_Update_thunks, S34_call},
-    {"rac1.moby.hero_bomb.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class121_Update_links, k_Moby_Class121_Update_thunks, S34_call},
-    {"rac1.moby.falling_spark.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class122_Update_links, k_Moby_Class122_Update_thunks, S34_call},
-    {"rac1.moby.debris_bounce.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_NanotechCrateFragment_Update_links, k_Moby_NanotechCrateFragment_Update_thunks, S34_call},
-    {"rac1.moby.missile.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GoldDevastatorMissile_Update_links, k_Moby_GoldDevastatorMissile_Update_thunks, S34_call},
-    {"rac1.moby.moby163.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Visibomb_Update_links, k_Moby_Visibomb_Update_thunks, S34_call},
-    {"rac1.moby.moby166.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class166_Update_links, k_Moby_Class166_Update_thunks, S34_call},
-    {"rac1.moby.moby167.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class167_Update_links, k_Moby_Class167_Update_thunks, S34_call},
-    {"rac1.moby.visibomb_missile.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_VisibombMissile_Update_links, k_Moby_VisibombMissile_Update_thunks, S34_call},
-    {"rac1.moby.moby175.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Taunter_Update_links, k_Moby_Taunter_Update_thunks, S34_call},
-    {"rac1.moby.pyrocitor.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Pyrocitor_Update_links, k_Moby_Pyrocitor_Update_thunks, S34_call},
-    {"rac1.moby.moby179.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class179_Update_links, k_Moby_Class179_Update_thunks, S34_call},
-    {"rac1.moby.moby180.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Walloper_Update_links, k_Moby_Walloper_Update_thunks, S34_call},
-    {"rac1.moby.morphoray.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Morphoray_Update_links, k_Moby_Morphoray_Update_thunks, S34_call},
-    {"rac1.moby.doom_bot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DoomBot_Update_links, k_Moby_DoomBot_Update_thunks, S34_call},
-    {"rac1.moby.moby188.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Trespasser_Update_links, k_Moby_Trespasser_Update_thunks, S34_call},
-    {"rac1.moby.mine_glove.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MineGlove_Update_links, k_Moby_MineGlove_Update_thunks, S34_call},
-    {"rac1.moby.moby192.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BombGlove_Update_links, k_Moby_BombGlove_Update_thunks, S34_call},
-    {"rac1.moby.thrown_object.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Decoy_Update_links, k_Moby_Decoy_Update_thunks, S34_call},
-    {"rac1.moby.ammo_pickup.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DevestatorAmmo_Update_links, k_Moby_DevestatorAmmo_Update_thunks, S34_call},
-    {"rac1.moby.moby209.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SwingshotHook_Update_links, k_Moby_SwingshotHook_Update_thunks, S34_call},
-    {"rac1.moby.carrier.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GloveOfDoom_Update_links, k_Moby_GloveOfDoom_Update_thunks, S34_call},
-    {"rac1.moby.bomb_230.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bomb_Update_links, k_Moby_Bomb_Update_thunks, S34_call},
-    {"rac1.moby.morphoray_chicken.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MorphorayChicken_Update_links, k_Moby_MorphorayChicken_Update_thunks, S34_call},
-    {"rac1.moby.moby305.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class305_Update_links, k_Moby_Class305_Update_thunks, S34_call},
-    {"rac1.moby.moby428.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class428_Update_links, k_Moby_Class428_Update_thunks, S34_call},
-    {"rac1.moby.ryno.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Ryno_Update_links, k_Moby_Ryno_Update_thunks, S34_call},
-    {"rac1.moby.rocket_steer.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket_Update_links, k_Moby_Rocket_Update_thunks, S34_call},
-    {"rac1.moby.drone.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Drone_Update_links, k_Moby_Drone_Update_thunks, S34_call},
-    {"rac1.moby.crate.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BoltCrate_Update_links, k_Moby_BoltCrate_Update_thunks, S34_call},
-    {"rac1.moby.veldin_ship.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_VeldinShip_Update_links, k_Moby_VeldinShip_Update_thunks, S34_call},
-    {"rac1.moby.decoy_glove.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DecoyGlove_Update_links, k_Moby_DecoyGlove_Update_thunks, S34_call},
-    {"rac1.moby.target_tracker.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MetalDetector_Update_links, k_Moby_MetalDetector_Update_thunks, S34_call},
-    {"rac1.moby.clank_pack.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Helipack_Update_links, k_Moby_Helipack_Update_thunks, S34_call},
-    {"rac1.moby.moby639.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class639_Update_links, k_Moby_Class639_Update_thunks, S34_call},
-    {"rac1.moby.horny_toad.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HornyToad_Update_links, k_Moby_HornyToad_Update_thunks, S34_call},
-    {"rac1.moby.infobot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Infobot_Update_links, k_Moby_Infobot_Update_thunks, S34_call},
-    {"rac1.moby.particle_field.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ParticleSpawnerSmokeFire_Update_links, k_Moby_ParticleSpawnerSmokeFire_Update_thunks, S34_call},
-    {"rac1.moby.grow_and_fade_out.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class775_Update_links, k_Moby_Class775_Update_thunks, S34_call},
-    {"rac1.moby.trail_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class804_Update_links, k_Moby_Class804_Update_thunks, S34_call},
-    {"rac1.moby.nanotech_ball.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S34_call},
-    {"rac1.moby.moby834.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ClankCutsceneTrigger_Update_links, k_Moby_ClankCutsceneTrigger_Update_thunks, S34_call},
-    {"rac1.moby.suck_cannon.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Suckcannon_Update_links, k_Moby_Suckcannon_Update_thunks, S34_call},
-    {"rac1.moby.pulsing_color_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RedOrb_Update_links, k_Moby_RedOrb_Update_thunks, S34_call},
-    {"rac1.moby.quad_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1138_Update_links, k_Moby_Class1138_Update_thunks, S34_call},
-    {"rac1.moby.moby1143.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_VendorOrb_Update_links, k_Moby_VendorOrb_Update_thunks, S34_call},
-    {"rac1.moby.hydrodisplacer_pad.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Hydrodisplacer_Update_links, k_Moby_Hydrodisplacer_Update_thunks, S34_call},
-    {"rac1.moby.moby1290.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PilotsHelmet_Update_links, k_Moby_PilotsHelmet_Update_thunks, S34_call},
-    {"rac1.moby.moby1413.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1413_Update_links, k_Moby_Class1413_Update_thunks, S34_call},
-    {"rac1.moby.vendor.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_VeldinRobotEnemy_Update_links, k_Moby_VeldinRobotEnemy_Update_thunks, S34_call},
-    {"rac1.moby.beam_slot_manager.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1471_Update_links, k_Moby_Class1471_Update_thunks, S34_call},
-    {"rac1.moby.moby1545.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1545_Update_links, k_Moby_Class1545_Update_thunks, S34_call},
-    {"rac1.moby.path_follow_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Pterodactyl_Update_links, k_Moby_Pterodactyl_Update_thunks, S34_call},
-    {"rac1.moby.grass.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BombthrowerGrass_Update_links, k_Moby_BombthrowerGrass_Update_thunks, S34_call},
-    {"rac1.moby.fx_group.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Hoverboard_Update_links, k_Moby_Hoverboard_Update_thunks, S34_call},
-    {"rac1.moby.path_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_NovalisElevator_Update_links, k_Moby_NovalisElevator_Update_thunks, S34_call},
-    {"rac1.moby.particle_emitter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class27_Update_links, k_Moby_Class27_Update_thunks, S34_call},
-    {"rac1.moby.moby156.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class156_Update_links, k_Moby_Class156_Update_thunks, S34_call},
-    {"rac1.moby.bolt_crank.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BoltCrank_Update_links, k_Moby_BoltCrank_Update_thunks, S34_call},
-    {"rac1.moby.item_offer.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GoldWeaponCase_Update_links, k_Moby_GoldWeaponCase_Update_thunks, S34_call},
-    {"rac1.moby.sand_mouse.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SandMouse_Update_links, k_Moby_SandMouse_Update_thunks, S34_call},
-    {"rac1.moby.birdbot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Birdbot_Update_links, k_Moby_Birdbot_Update_thunks, S34_call},
-    {"rac1.moby.burning_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class567_Update_links, k_Moby_Class567_Update_thunks, S34_call},
-    {"rac1.moby.amoeboid.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_LargeAmoeboid_Update_links, k_Moby_LargeAmoeboid_Update_thunks, S34_call},
-    {"rac1.moby.peckbot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Peckbot_Update_links, k_Moby_Peckbot_Update_thunks, S34_call},
-    {"rac1.moby.moby604.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SandmouseHouse_Update_links, k_Moby_SandmouseHouse_Update_thunks, S34_call},
-    {"rac1.moby.moby605.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class605_Update_links, k_Moby_Class605_Update_thunks, S34_call},
-    {"rac1.moby.path_carrier.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_WaterCurrent_Update_links, k_Moby_WaterCurrent_Update_thunks, S34_call},
-    {"rac1.moby.crank_rotator.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_CaveDoor_Update_links, k_Moby_CaveDoor_Update_thunks, S34_call},
-    {"rac1.moby.tethered_mine.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FighterJet_Update_links, k_Moby_FighterJet_Update_thunks, S34_call},
-    {"rac1.moby.crank_slider.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DoorHalf_Update_links, k_Moby_DoorHalf_Update_thunks, S34_call},
-    {"rac1.moby.rider_carrier.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_StationaryShip_Update_links, k_Moby_StationaryShip_Update_thunks, S34_call},
-    {"rac1.moby.class_845.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class845_Update_links, k_Moby_Class845_Update_thunks, S34_call},
-    {"rac1.moby.scrolling_layers2.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class678_Update_links, k_Moby_Class678_Update_thunks, S34_call},
-    {"rac1.moby.grind_rail.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class679_Update_links, k_Moby_Class679_Update_thunks, S34_call},
-    {"rac1.moby.flying_burst.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class686_Update_links, k_Moby_Class686_Update_thunks, S34_call},
-    {"rac1.moby.gunship.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BomberJet_Update_links, k_Moby_BomberJet_Update_thunks, S34_call},
-    {"rac1.moby.hover_enemy.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_WaterLily_Update_links, k_Moby_WaterLily_Update_thunks, S34_call},
-    {"rac1.moby.debris_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rock_Update_links, k_Moby_Rock_Update_thunks, S34_call},
-    {"rac1.moby.steam_vent.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class700_Update_links, k_Moby_Class700_Update_thunks, S34_call},
-    {"rac1.moby.collapsing_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FallingRock_Update_links, k_Moby_FallingRock_Update_thunks, S34_call},
-    {"rac1.moby.lift_move.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PistonPlatform_Update_links, k_Moby_PistonPlatform_Update_thunks, S34_call},
-    {"rac1.moby.breakable_rock.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RockFormation_Update_links, k_Moby_RockFormation_Update_thunks, S34_call},
-    {"rac1.moby.oscillating_spinner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Fan_Update_links, k_Moby_Fan_Update_thunks, S34_call},
-    {"rac1.moby.projectile_breakable.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BridgePiece1_Update_links, k_Moby_BridgePiece1_Update_thunks, S34_call},
-    {"rac1.moby.falling_drop.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class722_Update_links, k_Moby_Class722_Update_thunks, S34_call},
-    {"rac1.moby.breakable_wall.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DestroyableCaveWall_Update_links, k_Moby_DestroyableCaveWall_Update_thunks, S34_call},
-    {"rac1.moby.agnogg_ship.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_AgnoggShipFront_Update_links, k_Moby_AgnoggShipFront_Update_thunks, S34_call},
-    {"rac1.moby.cutscene_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class737_Update_links, k_Moby_Class737_Update_thunks, S34_call},
-    {"rac1.moby.hinged_bridge.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BridgeHalf_Update_links, k_Moby_BridgeHalf_Update_thunks, S34_call},
-    {"rac1.moby.water_surface_fx.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class751_Update_links, k_Moby_Class751_Update_thunks, S34_call},
-    {"rac1.moby.breakable_pot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GreenMushroom_Update_links, k_Moby_GreenMushroom_Update_thunks, S34_call},
-    {"rac1.moby.pulsing_mesh.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class761_Update_links, k_Moby_Class761_Update_thunks, S34_call},
-    {"rac1.moby.sliding_door.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DoorLeft_Update_links, k_Moby_DoorLeft_Update_thunks, S34_call},
-    {"rac1.moby.talking_npc.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ThePlumber_Update_links, k_Moby_ThePlumber_Update_thunks, S34_call},
-    {"rac1.moby.moby778.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Pipe_Update_links, k_Moby_Pipe_Update_thunks, S34_call},
-    {"rac1.moby.smoke_emitter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class779_Update_links, k_Moby_Class779_Update_thunks, S34_call},
-    {"rac1.moby.falling_chunk.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class787_Update_links, k_Moby_Class787_Update_thunks, S34_call},
-    {"rac1.moby.checkpoint_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SpawnPoint_Update_links, k_Moby_SpawnPoint_Update_thunks, S34_call},
-    {"rac1.moby.enemy_spawner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Beehive_Update_links, k_Moby_Beehive_Update_thunks, S34_call},
-    {"rac1.moby.rc_range_limiter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class832_Update_links, k_Moby_Class832_Update_thunks, S34_call},
-    {"rac1.moby.moby1042.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MushroomUnderside_Update_links, k_Moby_MushroomUnderside_Update_thunks, S34_call},
-    {"rac1.moby.gold_bolt.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GoldBolt_Update_links, k_Moby_GoldBolt_Update_thunks, S34_call},
-    {"rac1.moby.teleporter_pad.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Teleporter_Update_links, k_Moby_Teleporter_Update_thunks, S34_call},
-    {"rac1.moby.moby1225.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1225_Update_links, k_Moby_Class1225_Update_thunks, S34_call},
-    {"rac1.moby.help_hint_director.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1341_Update_links, k_Moby_Class1341_Update_thunks, S34_call},
-    {"rac1.moby.wandering_light.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1504_Update_links, k_Moby_Class1504_Update_thunks, S34_call},
-    {"rac1.moby.moby1510.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1510_Update_links, k_Moby_Class1510_Update_thunks, S34_call},
-    {"rac1.moby.moby1546.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1546_Update_links, k_Moby_Class1546_Update_thunks, S34_call},
-    {"rac1.moby.class_1633.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1633_Update_links, k_Moby_Class1633_Update_thunks, S34_call},
-    {"rac1.moby.moby1813.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TallShroom_Update_links, k_Moby_TallShroom_Update_thunks, S34_call},
-    {"rac1.moby.mouse_critter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Sandmouse_Update_links, k_Moby_Sandmouse_Update_thunks, S34_call},
-    {"rac1.moby.moby1848.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1848_Update_links, k_Moby_Class1848_Update_thunks, S34_call},
-    {"rac1.moby.trackdrive_left.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TrackdriveLeft_Update_links, k_Moby_TrackdriveLeft_Update_thunks, S34_call},
-    {"rac1.moby.sand_shark.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SandShark_Update_links, k_Moby_SandShark_Update_thunks, S34_call},
-    {"rac1.moby.moby612.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Constructorbot_Update_links, k_Moby_Constructorbot_Update_thunks, S34_call},
-    {"rac1.moby.trespasser_puzzle.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TresspasserPad_Update_links, k_Moby_TresspasserPad_Update_thunks, S34_call},
-    {"rac1.moby.elevator_651.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Elevator_Update_links, k_Moby_Elevator_Update_thunks, S34_call},
-    {"rac1.moby.pusher.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ConveyorBelt_Update_links, k_Moby_ConveyorBelt_Update_thunks, S34_call},
-    {"rac1.moby.moby656.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bulldozer_Update_links, k_Moby_Bulldozer_Update_thunks, S34_call},
-    {"rac1.moby.sand_shark_nest.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SandSharkNest_Update_links, k_Moby_SandSharkNest_Update_thunks, S34_call},
-    {"rac1.moby.moby675.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GrabCrane_Update_links, k_Moby_GrabCrane_Update_thunks, S34_call},
-    {"rac1.moby.rotate_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Platform_Update_links, k_Moby_Platform_Update_thunks, S34_call},
-    {"rac1.moby.moby713.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TransportPod_Update_links, k_Moby_TransportPod_Update_thunks, S34_call},
-    {"rac1.moby.moby732.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Crane_Update_links, k_Moby_Crane_Update_thunks, S34_call},
-    {"rac1.moby.rocket_launcher.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RocketLauncher_Update_links, k_Moby_RocketLauncher_Update_thunks, S34_call},
-    {"rac1.moby.rocket_door1.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RocketDoor1_Update_links, k_Moby_RocketDoor1_Update_thunks, S34_call},
-    {"rac1.moby.moby743.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TresspasserDoor1_Update_links, k_Moby_TresspasserDoor1_Update_thunks, S34_call},
-    {"rac1.moby.moby744.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TresspasserDoor2_Update_links, k_Moby_TresspasserDoor2_Update_thunks, S34_call},
-    {"rac1.moby.moby755.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SandsharkEgg_Update_links, k_Moby_SandsharkEgg_Update_thunks, S34_call},
-    {"rac1.moby.hideable_flower.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SwingshotVersatarget_Update_links, k_Moby_SwingshotVersatarget_Update_thunks, S34_call},
-    {"rac1.moby.moby762.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocks_Update_links, k_Moby_Rocks_Update_thunks, S34_call},
-    {"rac1.moby.skids_agent.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SkidsAgent_Update_links, k_Moby_SkidsAgent_Update_thunks, S34_call},
-    {"rac1.moby.skid_mc_marx_aridia.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SkidMcmarx_Update_links, k_Moby_SkidMcmarx_Update_thunks, S34_call},
-    {"rac1.moby.driver_lift.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_LiftcarPlatform_Update_links, k_Moby_LiftcarPlatform_Update_thunks, S34_call},
-    {"rac1.moby.moby854.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_OceanAridia_Update_links, k_Moby_OceanAridia_Update_thunks, S34_call},
-    {"rac1.moby.moby1005.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Tresspasser_Update_links, k_Moby_Tresspasser_Update_thunks, S34_call},
-    {"rac1.moby.shard_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Constructorbot1208_Update_links, k_Moby_Constructorbot1208_Update_thunks, S34_call},
-    {"rac1.moby.background_ship.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BackgroundShip1_Update_links, k_Moby_BackgroundShip1_Update_thunks, S34_call},
-    {"rac1.moby.ship_path.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BackgroundShip2_Update_links, k_Moby_BackgroundShip2_Update_thunks, S34_call},
-    {"rac1.moby.tutorial_hint.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1324_Update_links, k_Moby_Class1324_Update_thunks, S34_call},
-    {"rac1.moby.moby1479.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1479_Update_links, k_Moby_Class1479_Update_thunks, S34_call},
-    {"rac1.moby.break_on_hit_l02.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_WhiteFlower_Update_links, k_Moby_WhiteFlower_Update_thunks, S34_call},
-    {"rac1.moby.metropolis_train.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MetropolisTrainLocomotive_Update_links, k_Moby_MetropolisTrainLocomotive_Update_thunks, S34_call},
-    {"rac1.moby.moving_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MovingPlatformSmall_Update_links, k_Moby_MovingPlatformSmall_Update_thunks, S34_call},
-    {"rac1.moby.metropolis_train_carriage.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MetropolisTrainCarriage_Update_links, k_Moby_MetropolisTrainCarriage_Update_thunks, S34_call},
-    {"rac1.moby.train_car.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RedShip1_Update_links, k_Moby_RedShip1_Update_thunks, S34_call},
-    {"rac1.moby.parent_follow_fade.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class235_Update_links, k_Moby_Class235_Update_thunks, S34_call},
-    {"rac1.moby.child_spawner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Spawner_Update_links, k_Moby_Spawner_Update_thunks, S34_call},
-    {"rac1.moby.moby545.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bomb545_Update_links, k_Moby_Bomb545_Update_thunks, S34_call},
-    {"rac1.moby.moby573.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RobotDog_Update_links, k_Moby_RobotDog_Update_thunks, S34_call},
-    {"rac1.moby.moby574.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class574_Update_links, k_Moby_Class574_Update_thunks, S34_call},
-    {"rac1.moby.trooper.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MineLayer_Update_links, k_Moby_MineLayer_Update_thunks, S34_call},
-    {"rac1.moby.kerwan_mine.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine627_Update_links, k_Moby_Mine627_Update_thunks, S34_call},
-    {"rac1.moby.helicopter_gunship.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargHelicopter_Update_links, k_Moby_BlargHelicopter_Update_thunks, S34_call},
-    {"rac1.moby.rail_taxi.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Taxi_Update_links, k_Moby_Taxi_Update_thunks, S34_call},
-    {"rac1.moby.moby817.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Statue_Update_links, k_Moby_Statue_Update_thunks, S34_call},
-    {"rac1.moby.spinner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RoboShackSign_Update_links, k_Moby_RoboShackSign_Update_thunks, S34_call},
-    {"rac1.moby.kerwan_homing_rocket.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class833_Update_links, k_Moby_Class833_Update_thunks, S34_call},
-    {"rac1.moby.moby848.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class848_Update_links, k_Moby_Class848_Update_thunks, S34_call},
-    {"rac1.moby.quest_giver.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Helga_Update_links, k_Moby_Helga_Update_thunks, S34_call},
-    {"rac1.moby.rail_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class898_Update_links, k_Moby_Class898_Update_thunks, S34_call},
-    {"rac1.moby.rail_spawner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class899_Update_links, k_Moby_Class899_Update_thunks, S34_call},
-    {"rac1.moby.guide.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BigAl_Update_links, k_Moby_BigAl_Update_thunks, S34_call},
-    {"rac1.moby.moby914.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RobotQwark_Update_links, k_Moby_RobotQwark_Update_thunks, S34_call},
-    {"rac1.moby.fred_1.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Fred1_Update_links, k_Moby_Fred1_Update_thunks, S34_call},
-    {"rac1.moby.qwark_watch.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_QwarkUmbris_Update_links, k_Moby_QwarkUmbris_Update_thunks, S34_call},
-    {"rac1.moby.ambient_stream_l03.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class994_Update_links, k_Moby_Class994_Update_thunks, S34_call},
-    {"rac1.moby.rise_when_collected.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gate_Update_links, k_Moby_Gate_Update_thunks, S34_call},
-    {"rac1.moby.rail_lift.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Taxi1012_Update_links, k_Moby_Taxi1012_Update_thunks, S34_call},
-    {"rac1.moby.falling_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1221_Update_links, k_Moby_Class1221_Update_thunks, S34_call},
-    {"rac1.moby.tutorial_hint_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1342_Update_links, k_Moby_Class1342_Update_thunks, S34_call},
-    {"rac1.moby.cutscene_beams.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1548_Update_links, k_Moby_Class1548_Update_thunks, S34_call},
-    {"rac1.moby.swarm.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class86_Update_links, k_Moby_Class86_Update_thunks, S34_call},
-    {"rac1.moby.class_161.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class161_Update_links, k_Moby_Class161_Update_thunks, S34_call},
-    {"rac1.moby.moby184_shot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class184_Update_links, k_Moby_Class184_Update_thunks, S34_call},
-    {"rac1.moby.big_axebot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BigAxebot_Update_links, k_Moby_BigAxebot_Update_thunks, S34_call},
-    {"rac1.moby.circular_saw.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_CircularSawEnemy_Update_links, k_Moby_CircularSawEnemy_Update_thunks, S34_call},
-    {"rac1.moby.blarg_trooper.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargTrooper_Update_links, k_Moby_BlargTrooper_Update_thunks, S34_call},
-    {"rac1.moby.switch_follower.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_EudoraBridge_Update_links, k_Moby_EudoraBridge_Update_thunks, S34_call},
-    {"rac1.moby.lever_door.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PlatformBooster_Update_links, k_Moby_PlatformBooster_Update_thunks, S34_call},
-    {"rac1.moby.path_vehicle.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SnowPlow_Update_links, k_Moby_SnowPlow_Update_thunks, S34_call},
-    {"rac1.moby.floating_platform_481.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FloatingPlatform_Update_links, k_Moby_FloatingPlatform_Update_thunks, S34_call},
-    {"rac1.moby.delete_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TransportShip_Update_links, k_Moby_TransportShip_Update_thunks, S34_call},
-    {"rac1.moby.wb_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_WoodcutBot_Update_links, k_Moby_WoodcutBot_Update_thunks, S34_call},
-    {"rac1.moby.moby584.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class584_Update_links, k_Moby_Class584_Update_thunks, S34_call},
-    {"rac1.moby.path_keyframe_blend.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class617_Update_links, k_Moby_Class617_Update_thunks, S34_call},
-    {"rac1.moby.drift_spark_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Leaf_Update_links, k_Moby_Leaf_Update_thunks, S34_call},
-    {"rac1.moby.collectable.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_UpperDoor_Update_links, k_Moby_UpperDoor_Update_thunks, S34_call},
-    {"rac1.moby.warp_portal.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SuckCannon_Update_links, k_Moby_SuckCannon_Update_thunks, S34_call},
-    {"rac1.moby.unlock_planet_pad.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Lieutenant_Update_links, k_Moby_Lieutenant_Update_thunks, S34_call},
-    {"rac1.moby.moby1343.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1343_Update_links, k_Moby_Class1343_Update_thunks, S34_call},
-    {"rac1.moby.bouncing_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1516_Update_links, k_Moby_Class1516_Update_thunks, S34_call},
-    {"rac1.moby.sparks_trigger_l04.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1549_Update_links, k_Moby_Class1549_Update_thunks, S34_call},
-    {"rac1.moby.sharkigator_35.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Sharkigator_Update_links, k_Moby_Sharkigator_Update_thunks, S34_call},
-    {"rac1.moby.scenery_ship.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SceneryShip_Update_links, k_Moby_SceneryShip_Update_thunks, S34_call},
-    {"rac1.moby.grazing_critter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Amoeboid_Update_links, k_Moby_Amoeboid_Update_thunks, S34_call},
-    {"rac1.moby.moby258.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class258_Update_links, k_Moby_Class258_Update_thunks, S34_call},
-    {"rac1.moby.moby341.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HydrodisplacerFaucet_Update_links, k_Moby_HydrodisplacerFaucet_Update_thunks, S34_call},
-    {"rac1.moby.hoverboard.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Hoverboard439_Update_links, k_Moby_Hoverboard439_Update_thunks, S34_call},
-    {"rac1.moby.extermibot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Extermibot_Update_links, k_Moby_Extermibot_Update_thunks, S34_call},
-    {"rac1.moby.extermitank.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Extermitank_Update_links, k_Moby_Extermitank_Update_thunks, S34_call},
-    {"rac1.moby.skid_mc_marx.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SkidMcmarx717_Update_links, k_Moby_SkidMcmarx717_Update_thunks, S34_call},
-    {"rac1.moby.floating_platform_810.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FloatingPlatform810_Update_links, k_Moby_FloatingPlatform810_Update_thunks, S34_call},
-    {"rac1.moby.moby812.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Box_Update_links, k_Moby_Box_Update_thunks, S34_call},
-    {"rac1.moby.moby823.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Lamp_Update_links, k_Moby_Lamp_Update_thunks, S34_call},
-    {"rac1.moby.floor_button.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FloorButton_Update_links, k_Moby_FloorButton_Update_thunks, S34_call},
-    {"rac1.moby.water_surface.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Water_Update_links, k_Moby_Water_Update_thunks, S34_call},
-    {"rac1.moby.electric_gate.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ElectricGate_Update_links, k_Moby_ElectricGate_Update_thunks, S34_call},
-    {"rac1.moby.fog_zone.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class841_Update_links, k_Moby_Class841_Update_thunks, S34_call},
-    {"rac1.moby.pose_slide_out.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class843_Update_links, k_Moby_Class843_Update_thunks, S34_call},
-    {"rac1.moby.drain_cover.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DrainCover_Update_links, k_Moby_DrainCover_Update_thunks, S34_call},
-    {"rac1.moby.pipe_mounted_grating.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PipeMountedGrating_Update_links, k_Moby_PipeMountedGrating_Update_thunks, S34_call},
-    {"rac1.moby.gate_rise.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class852_Update_links, k_Moby_Class852_Update_thunks, S34_call},
-    {"rac1.moby.emitter_l05.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class855_Update_links, k_Moby_Class855_Update_thunks, S34_call},
-    {"rac1.moby.lift_l05.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ElevatorWithButton_Update_links, k_Moby_ElevatorWithButton_Update_thunks, S34_call},
-    {"rac1.moby.pulsing_marker.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_OceanRilgar_Update_links, k_Moby_OceanRilgar_Update_thunks, S34_call},
-    {"rac1.moby.class_893.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class893_Update_links, k_Moby_Class893_Update_thunks, S34_call},
-    {"rac1.moby.triggered_rotor.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class895_Update_links, k_Moby_Class895_Update_thunks, S34_call},
-    {"rac1.moby.hoverboard_girl.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HoverboardGirl_Update_links, k_Moby_HoverboardGirl_Update_thunks, S34_call},
-    {"rac1.moby.bouncer.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_QwarksBouncer_Update_links, k_Moby_QwarksBouncer_Update_thunks, S34_call},
-    {"rac1.moby.shady_salesman.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ShadySalesman_Update_links, k_Moby_ShadySalesman_Update_thunks, S34_call},
-    {"rac1.moby.blarg_gun.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargGun_Update_links, k_Moby_BlargGun_Update_thunks, S34_call},
-    {"rac1.moby.water_plane_marker.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class982_Update_links, k_Moby_Class982_Update_thunks, S34_call},
-    {"rac1.moby.bobbing_moby_l05.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Television_Update_links, k_Moby_Television_Update_thunks, S34_call},
-    {"rac1.moby.pickup_l05.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Taxi998_Update_links, k_Moby_Taxi998_Update_thunks, S34_call},
-    {"rac1.moby.qwarks_trailer.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_QwarksTrailer_Update_links, k_Moby_QwarksTrailer_Update_thunks, S34_call},
-    {"rac1.moby.moby1139.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HoverboardRing_Update_links, k_Moby_HoverboardRing_Update_thunks, S34_call},
-    {"rac1.moby.challenge.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1347_Update_links, k_Moby_Class1347_Update_thunks, S34_call},
-    {"rac1.moby.mine_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Lamp1511_Update_links, k_Moby_Lamp1511_Update_thunks, S34_call},
-    {"rac1.moby.moby1550.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1550_Update_links, k_Moby_Class1550_Update_thunks, S34_call},
-    {"rac1.moby.orbiting_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HangarDoor_Update_links, k_Moby_HangarDoor_Update_thunks, S34_call},
-    {"rac1.moby.moby302.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GadgebotSpawnContainer_Update_links, k_Moby_GadgebotSpawnContainer_Update_thunks, S34_call},
-    {"rac1.moby.moby303.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GadgebotSpawnPad_Update_links, k_Moby_GadgebotSpawnPad_Update_thunks, S34_call},
-    {"rac1.moby.moby367.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class367_Update_links, k_Moby_Class367_Update_thunks, S34_call},
-    {"rac1.moby.frog.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Frog_Update_links, k_Moby_Frog_Update_thunks, S34_call},
-    {"rac1.moby.gadgebot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gadgebot_Update_links, k_Moby_Gadgebot_Update_thunks, S34_call},
-    {"rac1.moby.swinging_hazard.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ToxicGasVent_Update_links, k_Moby_ToxicGasVent_Update_thunks, S34_call},
-    {"rac1.moby.door_ring.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1021_Update_links, k_Moby_Class1021_Update_thunks, S34_call},
-    {"rac1.moby.drawbridge.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1028_Update_links, k_Moby_Class1028_Update_thunks, S34_call},
-    {"rac1.moby.class_1035.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1035_Update_links, k_Moby_Class1035_Update_thunks, S34_call},
-    {"rac1.moby.collectible_spawner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_EnergySphereHolder_Update_links, k_Moby_EnergySphereHolder_Update_thunks, S34_call},
-    {"rac1.moby.trigger_lists.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1039_Update_links, k_Moby_Class1039_Update_thunks, S34_call},
-    {"rac1.moby.moby1040.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_EnergySphere_Update_links, k_Moby_EnergySphere_Update_thunks, S34_call},
-    {"rac1.moby.moby1048.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_AlienSnapper_Update_links, k_Moby_AlienSnapper_Update_thunks, S34_call},
-    {"rac1.moby.alien_queen.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_AlienQueen_Update_links, k_Moby_AlienQueen_Update_thunks, S34_call},
-    {"rac1.moby.moby1054.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1054_Update_links, k_Moby_Class1054_Update_thunks, S34_call},
-    {"rac1.moby.callable_lift.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1061_Update_links, k_Moby_Class1061_Update_thunks, S34_call},
-    {"rac1.moby.class_1062.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1062_Update_links, k_Moby_Class1062_Update_thunks, S34_call},
-    {"rac1.moby.launch_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1066_Update_links, k_Moby_Class1066_Update_thunks, S34_call},
-    {"rac1.moby.moby1068.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceCommando_Update_links, k_Moby_BlargSpaceCommando_Update_thunks, S34_call},
-    {"rac1.moby.camera_takeover_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1083_Update_links, k_Moby_Class1083_Update_thunks, S34_call},
-    {"rac1.moby.spinning_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1085_Update_links, k_Moby_Class1085_Update_thunks, S34_call},
-    {"rac1.moby.bobbing_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1091_Update_links, k_Moby_Class1091_Update_thunks, S34_call},
-    {"rac1.moby.moby1105.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Fred_Update_links, k_Moby_Fred_Update_thunks, S34_call},
-    {"rac1.moby.moby1108.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1108_Update_links, k_Moby_Class1108_Update_thunks, S34_call},
-    {"rac1.moby.shuttle.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Shuttle_Update_links, k_Moby_Shuttle_Update_thunks, S34_call},
-    {"rac1.moby.red_button.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RedButton_Update_links, k_Moby_RedButton_Update_thunks, S34_call},
-    {"rac1.moby.moby1123.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1123_Update_links, k_Moby_Class1123_Update_thunks, S34_call},
-    {"rac1.moby.moby1302.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BotDoorLock_Update_links, k_Moby_BotDoorLock_Update_thunks, S34_call},
-    {"rac1.moby.class_1348.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1348_Update_links, k_Moby_Class1348_Update_thunks, S34_call},
-    {"rac1.moby.spark_emitter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1512_Update_links, k_Moby_Class1512_Update_thunks, S34_call},
-    {"rac1.moby.sparks_trigger_l06.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1551_Update_links, k_Moby_Class1551_Update_thunks, S34_call},
-    {"rac1.moby.spawn_child_and_delete.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mushroom_Update_links, k_Moby_Mushroom_Update_thunks, S34_call},
-    {"rac1.moby.break_on_hit_blarg.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1660_Update_links, k_Moby_Class1660_Update_thunks, S34_call},
-    {"rac1.moby.moby1898.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1898_Update_links, k_Moby_Class1898_Update_thunks, S34_call},
-    {"rac1.moby.taxi_platform_38.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TaxiPlatform_Update_links, k_Moby_TaxiPlatform_Update_thunks, S34_call},
-    {"rac1.moby.taxi_platform_1474.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TaxiPlatform1474_Update_links, k_Moby_TaxiPlatform1474_Update_thunks, S34_call},
-    {"rac1.moby.moby436.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class436_Update_links, k_Moby_Class436_Update_thunks, S34_call},
-    {"rac1.moby.ambient_stream_l07.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class317_Update_links, k_Moby_Class317_Update_thunks, S34_call},
-    {"rac1.moby.purple_ship_529.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PurpleShip_Update_links, k_Moby_PurpleShip_Update_thunks, S34_call},
-    {"rac1.moby.path_train.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BoltcratePossiblyForMetalDetector_Update_links, k_Moby_BoltcratePossiblyForMetalDetector_Update_thunks, S34_call},
-    {"rac1.moby.bolt_projectile.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class880_Update_links, k_Moby_Class880_Update_thunks, S34_call},
-    {"rac1.moby.gravity_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bomb882_Update_links, k_Moby_Bomb882_Update_thunks, S34_call},
-    {"rac1.moby.timed_pad.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TimedActivationPads_Update_links, k_Moby_TimedActivationPads_Update_thunks, S34_call},
-    {"rac1.moby.water_plate.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Water902_Update_links, k_Moby_Water902_Update_thunks, S34_call},
-    {"rac1.moby.target_driven_slider.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1013_Update_links, k_Moby_Class1013_Update_thunks, S34_call},
-    {"rac1.moby.audio_stream_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_OceanUmbris_Update_links, k_Moby_OceanUmbris_Update_thunks, S34_call},
-    {"rac1.moby.lobber_enemy.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bombomatic_Update_links, k_Moby_Bombomatic_Update_thunks, S34_call},
-    {"rac1.moby.shockwave.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1046_Update_links, k_Moby_Class1046_Update_thunks, S34_call},
-    {"rac1.moby.lobbed_bomb.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1049_Update_links, k_Moby_Class1049_Update_thunks, S34_call},
-    {"rac1.moby.sharkigator_1059.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Sharkigator1059_Update_links, k_Moby_Sharkigator1059_Update_thunks, S34_call},
-    {"rac1.moby.door.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Door_Update_links, k_Moby_Door_Update_thunks, S34_call},
-    {"rac1.moby.moby1069.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1069_Update_links, k_Moby_Class1069_Update_thunks, S34_call},
-    {"rac1.moby.falling_leaf.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1080_Update_links, k_Moby_Class1080_Update_thunks, S34_call},
-    {"rac1.moby.snagglebeast.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Snagglebeast_Update_links, k_Moby_Snagglebeast_Update_thunks, S34_call},
-    {"rac1.moby.swooper.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine1112_Update_links, k_Moby_Mine1112_Update_thunks, S34_call},
-    {"rac1.moby.breakable_prop.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1113_Update_links, k_Moby_Class1113_Update_thunks, S34_call},
-    {"rac1.moby.machinegun_turret_1126.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MachinegunTurret_Update_links, k_Moby_MachinegunTurret_Update_thunks, S34_call},
-    {"rac1.moby.moving_moby_l07.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1128_Update_links, k_Moby_Class1128_Update_thunks, S34_call},
-    {"rac1.moby.bridge.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bridge_Update_links, k_Moby_Bridge_Update_thunks, S34_call},
-    {"rac1.moby.moby1133.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1133_Update_links, k_Moby_Class1133_Update_thunks, S34_call},
-    {"rac1.moby.moby1142.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1142_Update_links, k_Moby_Class1142_Update_thunks, S34_call},
-    {"rac1.moby.spark_burst_spawner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1552_Update_links, k_Moby_Class1552_Update_thunks, S34_call},
-    {"rac1.moby.moby1789.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1789_Update_links, k_Moby_Class1789_Update_thunks, S34_call},
-    {"rac1.moby.moby152.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class152_Update_links, k_Moby_Class152_Update_thunks, S34_call},
-    {"rac1.moby.bomb_248.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bomb248_Update_links, k_Moby_Bomb248_Update_thunks, S34_call},
-    {"rac1.moby.scoutbot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Scoutbot_Update_links, k_Moby_Scoutbot_Update_thunks, S34_call},
-    {"rac1.moby.bomber_tank.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BomberTank_Update_links, k_Moby_BomberTank_Update_thunks, S34_call},
-    {"rac1.moby.moby327.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class327_Update_links, k_Moby_Class327_Update_thunks, S34_call},
-    {"rac1.moby.blarg_bomb_thrower.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargBombthrower_Update_links, k_Moby_BlargBombthrower_Update_thunks, S34_call},
-    {"rac1.moby.route_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Shuttle424_Update_links, k_Moby_Shuttle424_Update_thunks, S34_call},
-    {"rac1.moby.moby425.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bomb425_Update_links, k_Moby_Bomb425_Update_thunks, S34_call},
-    {"rac1.moby.guided_rocket.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket435_Update_links, k_Moby_Rocket435_Update_thunks, S34_call},
-    {"rac1.moby.moby438.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class438_Update_links, k_Moby_Class438_Update_thunks, S34_call},
-    {"rac1.moby.cannon.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class440_Update_links, k_Moby_Class440_Update_thunks, S34_call},
-    {"rac1.moby.falling_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class441_Update_links, k_Moby_Class441_Update_thunks, S34_call},
-    {"rac1.moby.moby444.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class444_Update_links, k_Moby_Class444_Update_thunks, S34_call},
-    {"rac1.moby.batalia_bolt_thief.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BoltThief_Update_links, k_Moby_BoltThief_Update_thunks, S34_call},
-    {"rac1.moby.moby458.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket458_Update_links, k_Moby_Rocket458_Update_thunks, S34_call},
-    {"rac1.moby.moby462.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Shrub_Update_links, k_Moby_Shrub_Update_thunks, S34_call},
-    {"rac1.moby.swarm_leader.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class463_Update_links, k_Moby_Class463_Update_thunks, S34_call},
-    {"rac1.moby.group_clear.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class467_Update_links, k_Moby_Class467_Update_thunks, S34_call},
-    {"rac1.moby.gate_swing.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class468_Update_links, k_Moby_Class468_Update_thunks, S34_call},
-    {"rac1.moby.moby600.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class600_Update_links, k_Moby_Class600_Update_thunks, S34_call},
-    {"rac1.moby.moby621.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class621_Update_links, k_Moby_Class621_Update_thunks, S34_call},
-    {"rac1.moby.moby648.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class648_Update_links, k_Moby_Class648_Update_thunks, S34_call},
-    {"rac1.moby.flicker_light.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class671_Update_links, k_Moby_Class671_Update_thunks, S34_call},
-    {"rac1.moby.paratrooper.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargParatrooper_Update_links, k_Moby_BlargParatrooper_Update_thunks, S34_call},
-    {"rac1.moby.commando.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Commando_Update_links, k_Moby_Commando_Update_thunks, S34_call},
-    {"rac1.moby.deserter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BataliaDeserter_Update_links, k_Moby_BataliaDeserter_Update_thunks, S34_call},
-    {"rac1.moby.moby1283.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ThePlumberBatalia_Update_links, k_Moby_ThePlumberBatalia_Update_thunks, S34_call},
-    {"rac1.moby.fire_bolt.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1292_Update_links, k_Moby_Class1292_Update_thunks, S34_call},
-    {"rac1.moby.moby1349.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1349_Update_links, k_Moby_Class1349_Update_thunks, S34_call},
-    {"rac1.moby.moby1400.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1400_Update_links, k_Moby_Class1400_Update_thunks, S34_call},
-    {"rac1.moby.moby1553.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1553_Update_links, k_Moby_Class1553_Update_thunks, S34_call},
-    {"rac1.moby.moby1629.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1629_Update_links, k_Moby_Class1629_Update_thunks, S34_call},
-    {"rac1.moby.moby1641.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1641_Update_links, k_Moby_Class1641_Update_thunks, S34_call},
-    {"rac1.moby.moby1649.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1649_Update_links, k_Moby_Class1649_Update_thunks, S34_call},
-    {"rac1.moby.airship_part.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_AirshipPart_Update_links, k_Moby_AirshipPart_Update_thunks, S34_call},
-    {"rac1.moby.moby52.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Seeker_Update_links, k_Moby_Seeker_Update_thunks, S34_call},
-    {"rac1.moby.ground_enemy.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class193_Update_links, k_Moby_Class193_Update_thunks, S34_call},
-    {"rac1.moby.asteroid_belt.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Asteroid_Update_links, k_Moby_Asteroid_Update_thunks, S34_call},
-    {"rac1.moby.breakable_stack.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Display_Update_links, k_Moby_Display_Update_thunks, S34_call},
-    {"rac1.moby.moby279.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class279_Update_links, k_Moby_Class279_Update_thunks, S34_call},
-    {"rac1.moby.tumbling_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class313_Update_links, k_Moby_Class313_Update_thunks, S34_call},
-    {"rac1.moby.heavy_tumbling_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class320_Update_links, k_Moby_Class320_Update_thunks, S34_call},
-    {"rac1.moby.moby417.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class417_Update_links, k_Moby_Class417_Update_thunks, S34_call},
-    {"rac1.moby.moby664.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Platform664_Update_links, k_Moby_Platform664_Update_thunks, S34_call},
-    {"rac1.moby.moby1000.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1000_Update_links, k_Moby_Class1000_Update_thunks, S34_call},
-    {"rac1.moby.path_platform_l09.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Elevator1150_Update_links, k_Moby_Elevator1150_Update_thunks, S34_call},
-    {"rac1.moby.pressure_plate.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RefuelingStation_Update_links, k_Moby_RefuelingStation_Update_thunks, S34_call},
-    {"rac1.moby.airship_chain_link.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_AirshipPart1181_Update_links, k_Moby_AirshipPart1181_Update_thunks, S34_call},
-    {"rac1.moby.mountable_turret.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Turret_Update_links, k_Moby_Turret_Update_thunks, S34_call},
-    {"rac1.moby.moby1206.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1206_Update_links, k_Moby_Class1206_Update_thunks, S34_call},
-    {"rac1.moby.enemy_shot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1258_Update_links, k_Moby_Class1258_Update_thunks, S34_call},
-    {"rac1.moby.barrier.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Barrier_Update_links, k_Moby_Barrier_Update_thunks, S34_call},
-    {"rac1.moby.linked_riser.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1293_Update_links, k_Moby_Class1293_Update_thunks, S34_call},
-    {"rac1.moby.moby1766.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Shuttle1766_Update_links, k_Moby_Shuttle1766_Update_thunks, S34_call},
-    {"rac1.moby.moby1885.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Spawner1885_Update_links, k_Moby_Spawner1885_Update_thunks, S34_call},
-    {"rac1.moby.moby1886.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SpawnerEgg_Update_links, k_Moby_SpawnerEgg_Update_thunks, S34_call},
-    {"rac1.moby.moby1033.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Platform1033_Update_links, k_Moby_Platform1033_Update_thunks, S34_call},
-    {"rac1.moby.bobbing_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Platform1117_Update_links, k_Moby_Platform1117_Update_thunks, S34_call},
-    {"rac1.moby.spinning_pickup.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Magnetboots_Update_links, k_Moby_Magnetboots_Update_thunks, S34_call},
-    {"rac1.moby.moby22.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class22_Update_links, k_Moby_Class22_Update_thunks, S34_call},
-    {"rac1.moby.near_hero_sparkle.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GadgebotTelepotPad_Update_links, k_Moby_GadgebotTelepotPad_Update_thunks, S34_call},
-    {"rac1.moby.moby702.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class702_Update_links, k_Moby_Class702_Update_thunks, S34_call},
-    {"rac1.moby.moby794.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class794_Update_links, k_Moby_Class794_Update_thunks, S34_call},
-    {"rac1.moby.moby819.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket819_Update_links, k_Moby_Rocket819_Update_thunks, S34_call},
-    {"rac1.moby.moby859.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class859_Update_links, k_Moby_Class859_Update_thunks, S34_call},
-    {"rac1.moby.moby938.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bomb938_Update_links, k_Moby_Bomb938_Update_thunks, S34_call},
-    {"rac1.moby.timed_shooter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BombthrowerGrass939_Update_links, k_Moby_BombthrowerGrass939_Update_thunks, S34_call},
-    {"rac1.moby.electric_spark.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class947_Update_links, k_Moby_Class947_Update_thunks, S34_call},
-    {"rac1.moby.height_glide.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_LabDoor_Update_links, k_Moby_LabDoor_Update_thunks, S34_call},
-    {"rac1.moby.moby1031.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Button_Update_links, k_Moby_Button_Update_thunks, S34_call},
-    {"rac1.moby.moby1047.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1047_Update_links, k_Moby_Class1047_Update_thunks, S34_call},
-    {"rac1.moby.sound_prop.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1067_Update_links, k_Moby_Class1067_Update_thunks, S34_call},
-    {"rac1.moby.moby1090.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1090_Update_links, k_Moby_Class1090_Update_thunks, S34_call},
-    {"rac1.moby.collectible_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlockCave_Update_links, k_Moby_BlockCave_Update_thunks, S34_call},
-    {"rac1.moby.moby1196.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Screamer_Update_links, k_Moby_Screamer_Update_thunks, S34_call},
-    {"rac1.moby.moby1199.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1199_Update_links, k_Moby_Class1199_Update_thunks, S34_call},
-    {"rac1.moby.toxic_crab.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ToxicCrab_Update_links, k_Moby_ToxicCrab_Update_thunks, S34_call},
-    {"rac1.moby.blarg_ship.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargShip_Update_links, k_Moby_BlargShip_Update_thunks, S34_call},
-    {"rac1.moby.exhaust_vent.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1240_Update_links, k_Moby_Class1240_Update_thunks, S34_call},
-    {"rac1.moby.nanotech_vendor.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_NanotechUpgradeVendor_Update_links, k_Moby_NanotechUpgradeVendor_Update_thunks, S34_call},
-    {"rac1.moby.moby1344.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1344_Update_links, k_Moby_Class1344_Update_thunks, S34_call},
-    {"rac1.moby.linked_turret.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gun_Update_links, k_Moby_Gun_Update_thunks, S34_call},
-    {"rac1.moby.moby1378.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1378_Update_links, k_Moby_Class1378_Update_thunks, S34_call},
-    {"rac1.moby.swing_door.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gate1_Update_links, k_Moby_Gate1_Update_thunks, S34_call},
-    {"rac1.moby.moby1424.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gate2_Update_links, k_Moby_Gate2_Update_thunks, S34_call},
-    {"rac1.moby.effect_emitter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1544_Update_links, k_Moby_Class1544_Update_thunks, S34_call},
-    {"rac1.moby.moby1555.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1555_Update_links, k_Moby_Class1555_Update_thunks, S34_call},
-    {"rac1.moby.moby1855.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1855_Update_links, k_Moby_Class1855_Update_thunks, S34_call},
-    {"rac1.moby.moby1856.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1856_Update_links, k_Moby_Class1856_Update_thunks, S34_call},
-    {"rac1.moby.pickup.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class23_Update_links, k_Moby_Class23_Update_thunks, S34_call},
-    {"rac1.moby.moby37.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class37_Update_links, k_Moby_Class37_Update_thunks, S34_call},
-    {"rac1.moby.moby65.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class65_Update_links, k_Moby_Class65_Update_thunks, S34_call},
-    {"rac1.moby.moby90.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bob_Update_links, k_Moby_Bob_Update_thunks, S34_call},
-    {"rac1.moby.moby114.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ResortOwner_Update_links, k_Moby_ResortOwner_Update_thunks, S34_call},
-    {"rac1.moby.pokitaru_vendor.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FredPokitaru_Update_links, k_Moby_FredPokitaru_Update_thunks, S34_call},
-    {"rac1.moby.moby318.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Teleporter318_Update_links, k_Moby_Teleporter318_Update_thunks, S34_call},
-    {"rac1.moby.moby361.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class361_Update_links, k_Moby_Class361_Update_thunks, S34_call},
-    {"rac1.moby.class_1009.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1009_Update_links, k_Moby_Class1009_Update_thunks, S34_call},
-    {"rac1.moby.fireball.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1017_Update_links, k_Moby_Class1017_Update_thunks, S34_call},
-    {"rac1.moby.moby1034.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket1034_Update_links, k_Moby_Rocket1034_Update_thunks, S34_call},
-    {"rac1.moby.pokitaru_boat.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PokitaruBoat_Update_links, k_Moby_PokitaruBoat_Update_thunks, S34_call},
-    {"rac1.moby.ocean.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_OceanPokitaru_Update_links, k_Moby_OceanPokitaru_Update_thunks, S34_call},
-    {"rac1.moby.cutscene_controller.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1156_Update_links, k_Moby_Class1156_Update_thunks, S34_call},
-    {"rac1.moby.moby1157.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1157_Update_links, k_Moby_Class1157_Update_thunks, S34_call},
-    {"rac1.moby.moby1158.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1158_Update_links, k_Moby_Class1158_Update_thunks, S34_call},
-    {"rac1.moby.moby1159.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1159_Update_links, k_Moby_Class1159_Update_thunks, S34_call},
-    {"rac1.moby.moby1178.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SeesawPlatform_Update_links, k_Moby_SeesawPlatform_Update_thunks, S34_call},
-    {"rac1.moby.moby1179.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ThrusterPackLock_Update_links, k_Moby_ThrusterPackLock_Update_thunks, S34_call},
-    {"rac1.moby.moby1180.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1180_Update_links, k_Moby_Class1180_Update_thunks, S34_call},
-    {"rac1.moby.ship_collider.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Ammocrate_Update_links, k_Moby_Ammocrate_Update_thunks, S34_call},
-    {"rac1.moby.moby1219.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1219_Update_links, k_Moby_Class1219_Update_thunks, S34_call},
-    {"rac1.moby.psytcopus.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Psytcopus_Update_links, k_Moby_Psytcopus_Update_thunks, S34_call},
-    {"rac1.moby.jet_fighter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_JetFighter_Update_links, k_Moby_JetFighter_Update_thunks, S34_call},
-    {"rac1.moby.moby1246.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Puffoid_Update_links, k_Moby_Puffoid_Update_thunks, S34_call},
-    {"rac1.moby.gate.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1248_Update_links, k_Moby_Class1248_Update_thunks, S34_call},
-    {"rac1.moby.moby1264.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_OilTankerFront_Update_links, k_Moby_OilTankerFront_Update_thunks, S34_call},
-    {"rac1.moby.bubbling_vent.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1265_Update_links, k_Moby_Class1265_Update_thunks, S34_call},
-    {"rac1.moby.moby1297.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_EnergySphere1297_Update_links, k_Moby_EnergySphere1297_Update_thunks, S34_call},
-    {"rac1.moby.flying_craft.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargShip1319_Update_links, k_Moby_BlargShip1319_Update_thunks, S34_call},
-    {"rac1.moby.moby1350.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1350_Update_links, k_Moby_Class1350_Update_thunks, S34_call},
-    {"rac1.moby.bubble.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1524_Update_links, k_Moby_Class1524_Update_thunks, S34_call},
-    {"rac1.moby.pokitaru_surface_near.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1903_Update_links, k_Moby_Class1903_Update_thunks, S34_call},
-    {"rac1.moby.pokitaru_surface_far.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1919_Update_links, k_Moby_Class1919_Update_thunks, S34_call},
-    {"rac1.moby.moby19.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class19_Update_links, k_Moby_Class19_Update_thunks, S34_call},
-    {"rac1.moby.hoven_troll.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class238_Update_links, k_Moby_Class238_Update_thunks, S34_call},
-    {"rac1.moby.hoven_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Platform240_Update_links, k_Moby_Platform240_Update_thunks, S34_call},
-    {"rac1.moby.miner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Miner_Update_links, k_Moby_Miner_Update_thunks, S34_call},
-    {"rac1.moby.moby293.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class293_Update_links, k_Moby_Class293_Update_thunks, S34_call},
-    {"rac1.moby.moby294.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargTrooper294_Update_links, k_Moby_BlargTrooper294_Update_thunks, S34_call},
-    {"rac1.moby.moby326.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargHelicopter326_Update_links, k_Moby_BlargHelicopter326_Update_thunks, S34_call},
-    {"rac1.moby.edwina.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Edwina_Update_links, k_Moby_Edwina_Update_thunks, S34_call},
-    {"rac1.moby.moby336.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Helicopter_Update_links, k_Moby_Helicopter_Update_thunks, S34_call},
-    {"rac1.moby.moby339.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_CraneArm_Update_links, k_Moby_CraneArm_Update_thunks, S34_call},
-    {"rac1.moby.water_reservoir.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_WaterReservoir_Update_links, k_Moby_WaterReservoir_Update_thunks, S34_call},
-    {"rac1.moby.hoven_shot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket409_Update_links, k_Moby_Rocket409_Update_thunks, S34_call},
-    {"rac1.moby.hoven_challenge.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class422_Update_links, k_Moby_Class422_Update_thunks, S34_call},
-    {"rac1.moby.moby1259.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1259_Update_links, k_Moby_Class1259_Update_thunks, S34_call},
-    {"rac1.moby.moby1267.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HovenTurret_Update_links, k_Moby_HovenTurret_Update_thunks, S34_call},
-    {"rac1.moby.hoven_homing_mine.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine1269_Update_links, k_Moby_Mine1269_Update_thunks, S34_call},
-    {"rac1.moby.planetbuster_part.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PlanetbusterMaximusPart_Update_links, k_Moby_PlanetbusterMaximusPart_Update_thunks, S34_call},
-    {"rac1.moby.door_switch.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HomingMineSpawner_Update_links, k_Moby_HomingMineSpawner_Update_thunks, S34_call},
-    {"rac1.moby.moby1345.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1345_Update_links, k_Moby_Class1345_Update_thunks, S34_call},
-    {"rac1.moby.blarg_commander.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargCommander_Update_links, k_Moby_BlargCommander_Update_thunks, S34_call},
-    {"rac1.moby.cutscene_volume_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1404_Update_links, k_Moby_Class1404_Update_thunks, S34_call},
-    {"rac1.moby.class_1557.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1557_Update_links, k_Moby_Class1557_Update_thunks, S34_call},
-    {"rac1.moby.moby1901.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1901_Update_links, k_Moby_Class1901_Update_thunks, S34_call},
-    {"rac1.moby.clip_volume_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class6_Update_links, k_Moby_Class6_Update_thunks, S34_call},
-    {"rac1.moby.elevator_21.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Elevator21_Update_links, k_Moby_Elevator21_Update_thunks, S34_call},
-    {"rac1.moby.blarg_turret.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargTurret_Update_links, k_Moby_BlargTurret_Update_thunks, S34_call},
-    {"rac1.moby.gem_lock_turret.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargGunner_Update_links, k_Moby_BlargGunner_Update_thunks, S34_call},
-    {"rac1.moby.robosquawker.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Robosquawker_Update_links, k_Moby_Robosquawker_Update_thunks, S34_call},
-    {"rac1.moby.fighter_jet_69.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FighterJet69_Update_links, k_Moby_FighterJet69_Update_thunks, S34_call},
-    {"rac1.moby.homing_rocket82.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket82_Update_links, k_Moby_Rocket82_Update_thunks, S34_call},
-    {"rac1.moby.moby83.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine83_Update_links, k_Moby_Mine83_Update_thunks, S34_call},
-    {"rac1.moby.blarg_space_fighter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceFighter_Update_links, k_Moby_BlargSpaceFighter_Update_thunks, S34_call},
-    {"rac1.moby.blarg_fighter111.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceFighter111_Update_links, k_Moby_BlargSpaceFighter111_Update_thunks, S34_call},
-    {"rac1.moby.rotating_door.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class127_Update_links, k_Moby_Class127_Update_thunks, S34_call},
-    {"rac1.moby.forcefield_tower.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ForcefieldTower_Update_links, k_Moby_ForcefieldTower_Update_thunks, S34_call},
-    {"rac1.moby.drifting_blob.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Asteroid212_Update_links, k_Moby_Asteroid212_Update_thunks, S34_call},
-    {"rac1.moby.ship_pickup.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Ammocrate224_Update_links, k_Moby_Ammocrate224_Update_thunks, S34_call},
-    {"rac1.moby.switch.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class231_Update_links, k_Moby_Class231_Update_thunks, S34_call},
-    {"rac1.moby.rocket295.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket295_Update_links, k_Moby_Rocket295_Update_thunks, S34_call},
-    {"rac1.moby.fade_in_hold_out.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class352_Update_links, k_Moby_Class352_Update_thunks, S34_call},
-    {"rac1.moby.qwark_starfighter_part.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_QwarksStarfighterPart_Update_links, k_Moby_QwarksStarfighterPart_Update_thunks, S34_call},
-    {"rac1.moby.starfighter_part.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_QwarksStarfighterPart389_Update_links, k_Moby_QwarksStarfighterPart389_Update_thunks, S34_call},
-    {"rac1.moby.gem_lock_pickup.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Forcefield_Update_links, k_Moby_Forcefield_Update_thunks, S34_call},
-    {"rac1.moby.purple_ship_533.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PurpleShip533_Update_links, k_Moby_PurpleShip533_Update_thunks, S34_call},
-    {"rac1.moby.help_volume.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class558_Update_links, k_Moby_Class558_Update_thunks, S34_call},
-    {"rac1.moby.moby_state_relay.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class667_Update_links, k_Moby_Class667_Update_thunks, S34_call},
-    {"rac1.moby.controlled_gate.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class674_Update_links, k_Moby_Class674_Update_thunks, S34_call},
-    {"rac1.moby.projectile_l13.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1238_Update_links, k_Moby_Class1238_Update_thunks, S34_call},
-    {"rac1.moby.moby1261.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PoisonVessel_Update_links, k_Moby_PoisonVessel_Update_thunks, S34_call},
-    {"rac1.moby.blarg_space_commando.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceCommando1262_Update_links, k_Moby_BlargSpaceCommando1262_Update_thunks, S34_call},
-    {"rac1.moby.bobbing_lights.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1263_Update_links, k_Moby_Class1263_Update_thunks, S34_call},
-    {"rac1.moby.lift1270.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1270_Update_links, k_Moby_Class1270_Update_thunks, S34_call},
-    {"rac1.moby.class_1271.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1271_Update_links, k_Moby_Class1271_Update_thunks, S34_call},
-    {"rac1.moby.moby1353.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1353_Update_links, k_Moby_Class1353_Update_thunks, S34_call},
-    {"rac1.moby.class_1403.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1403_Update_links, k_Moby_Class1403_Update_thunks, S34_call},
-    {"rac1.moby.sparks_trigger_l13.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1558_Update_links, k_Moby_Class1558_Update_thunks, S34_call},
-    {"rac1.moby.watch_mobys.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1577_Update_links, k_Moby_Class1577_Update_thunks, S34_call},
-    {"rac1.moby.moby1632.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1632_Update_links, k_Moby_Class1632_Update_thunks, S34_call},
-    {"rac1.moby.moby1634.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1634_Update_links, k_Moby_Class1634_Update_thunks, S34_call},
-    {"rac1.moby.moby1805.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargShip1805_Update_links, k_Moby_BlargShip1805_Update_thunks, S34_call},
-    {"rac1.moby.keyframe_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Platform903_Update_links, k_Moby_Platform903_Update_thunks, S34_call},
-    {"rac1.moby.moby8.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargHeavyInterceptor_Update_links, k_Moby_BlargHeavyInterceptor_Update_thunks, S34_call},
-    {"rac1.moby.plasmabot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Plasmabot_Update_links, k_Moby_Plasmabot_Update_thunks, S34_call},
-    {"rac1.moby.machinegun_turret_30.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MachinegunTurret30_Update_links, k_Moby_MachinegunTurret30_Update_thunks, S34_call},
-    {"rac1.moby.minibomber.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Minibomber_Update_links, k_Moby_Minibomber_Update_thunks, S34_call},
-    {"rac1.moby.moby81.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class81_Update_links, k_Moby_Class81_Update_thunks, S34_call},
-    {"rac1.moby.moby211.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Plasmabot211_Update_links, k_Moby_Plasmabot211_Update_thunks, S34_call},
-    {"rac1.moby.moby250.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PlasmabotHatch_Update_links, k_Moby_PlasmabotHatch_Update_thunks, S34_call},
-    {"rac1.moby.moby309.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Platform309_Update_links, k_Moby_Platform309_Update_thunks, S34_call},
-    {"rac1.moby.debris_particle.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class325_Update_links, k_Moby_Class325_Update_thunks, S34_call},
-    {"rac1.moby.gem_lock_sentry.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class386_Update_links, k_Moby_Class386_Update_thunks, S34_call},
-    {"rac1.moby.race_debris.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class403_Update_links, k_Moby_Class403_Update_thunks, S34_call},
-    {"rac1.moby.path_lift.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Shuttle557_Update_links, k_Moby_Shuttle557_Update_thunks, S34_call},
-    {"rac1.moby.moby610.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class610_Update_links, k_Moby_Class610_Update_thunks, S34_call},
-    {"rac1.moby.mine_l14.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine643_Update_links, k_Moby_Mine643_Update_thunks, S34_call},
-    {"rac1.moby.sweeping_bolt.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class681_Update_links, k_Moby_Class681_Update_thunks, S34_call},
-    {"rac1.moby.class_684.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class684_Update_links, k_Moby_Class684_Update_thunks, S34_call},
-    {"rac1.moby.moby685.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Elevator685_Update_links, k_Moby_Elevator685_Update_thunks, S34_call},
-    {"rac1.moby.taxi.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Taxi712_Update_links, k_Moby_Taxi712_Update_thunks, S34_call},
-    {"rac1.moby.moby851.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_QwarkOltanis_Update_links, k_Moby_QwarkOltanis_Update_thunks, S34_call},
-    {"rac1.moby.moby908.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Jet_Update_links, k_Moby_Jet_Update_thunks, S34_call},
-    {"rac1.moby.oltanis_jet.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Jet921_Update_links, k_Moby_Jet921_Update_thunks, S34_call},
-    {"rac1.moby.flyer.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket922_Update_links, k_Moby_Rocket922_Update_thunks, S34_call},
-    {"rac1.moby.bolt_thief.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BoltThief923_Update_links, k_Moby_BoltThief923_Update_thunks, S34_call},
-    {"rac1.moby.moby924.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Sam_Update_links, k_Moby_Sam_Update_thunks, S34_call},
-    {"rac1.moby.floating_mine.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine933_Update_links, k_Moby_Mine933_Update_thunks, S34_call},
-    {"rac1.moby.bouncing_spark.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1193_Update_links, k_Moby_Class1193_Update_thunks, S34_call},
-    {"rac1.moby.moby1224.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1224_Update_links, k_Moby_Class1224_Update_thunks, S34_call},
-    {"rac1.moby.moby1331.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1331_Update_links, k_Moby_Class1331_Update_thunks, S34_call},
-    {"rac1.moby.triggered_unlock.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1352_Update_links, k_Moby_Class1352_Update_thunks, S34_call},
-    {"rac1.moby.collectible_pickup.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Morphoray1354_Update_links, k_Moby_Morphoray1354_Update_thunks, S34_call},
-    {"rac1.moby.moby1395.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1395_Update_links, k_Moby_Class1395_Update_thunks, S34_call},
-    {"rac1.moby.moby1397.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1397_Update_links, k_Moby_Class1397_Update_thunks, S34_call},
-    {"rac1.moby.step_on_switch.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Button1416_Update_links, k_Moby_Button1416_Update_thunks, S34_call},
-    {"rac1.moby.blarg_interceptor.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargHeavyInterceptor1417_Update_links, k_Moby_BlargHeavyInterceptor1417_Update_thunks, S34_call},
-    {"rac1.moby.queue_effect_draw.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1418_Update_links, k_Moby_Class1418_Update_thunks, S34_call},
-    {"rac1.moby.skill_point.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1559_Update_links, k_Moby_Class1559_Update_thunks, S34_call},
-    {"rac1.moby.sentrybot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Sentrybot_Update_links, k_Moby_Sentrybot_Update_thunks, S34_call},
-    {"rac1.moby.projectile.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket49_Update_links, k_Moby_Rocket49_Update_thunks, S34_call},
-    {"rac1.moby.moby67.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class67_Update_links, k_Moby_Class67_Update_thunks, S34_call},
-    {"rac1.moby.class_256.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class256_Update_links, k_Moby_Class256_Update_thunks, S34_call},
-    {"rac1.moby.scale_fade_and_delete.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1427_Update_links, k_Moby_Class1427_Update_thunks, S34_call},
-    {"rac1.moby.moby1523.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1523_Update_links, k_Moby_Class1523_Update_thunks, S34_call},
-    {"rac1.moby.moby77.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine77_Update_links, k_Moby_Mine77_Update_thunks, S34_call},
-    {"rac1.moby.moby78.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class78_Update_links, k_Moby_Class78_Update_thunks, S34_call},
-    {"rac1.moby.sliding_gate.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gate92_Update_links, k_Moby_Gate92_Update_thunks, S34_call},
-    {"rac1.moby.clip_volume_door.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gate93_Update_links, k_Moby_Gate93_Update_thunks, S34_call},
-    {"rac1.moby.spiderbot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Spiderbot_Update_links, k_Moby_Spiderbot_Update_thunks, S34_call},
-    {"rac1.moby.class_148.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class148_Update_links, k_Moby_Class148_Update_thunks, S34_call},
-    {"rac1.moby.hit_reaction_effect_alt.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class154_Update_links, k_Moby_Class154_Update_thunks, S34_call},
-    {"rac1.moby.moving_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Door196_Update_links, k_Moby_Door196_Update_thunks, S34_call},
-    {"rac1.moby.construction_arm.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ConstructionArm_Update_links, k_Moby_ConstructionArm_Update_thunks, S34_call},
-    {"rac1.moby.helicopter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Helicopter233_Update_links, k_Moby_Helicopter233_Update_thunks, S34_call},
-    {"rac1.moby.sentrybot_alarm.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_SentrybotAlarm_Update_links, k_Moby_SentrybotAlarm_Update_thunks, S34_call},
-    {"rac1.moby.ultramech.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_UltramechUnlimited_Update_links, k_Moby_UltramechUnlimited_Update_thunks, S34_call},
-    {"rac1.moby.class_655.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class655_Update_links, k_Moby_Class655_Update_thunks, S34_call},
-    {"rac1.moby.moby934.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class934_Update_links, k_Moby_Class934_Update_thunks, S34_call},
-    {"rac1.moby.class_937.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class937_Update_links, k_Moby_Class937_Update_thunks, S34_call},
-    {"rac1.moby.underwater_ring.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_UnderwaterRing_Update_links, k_Moby_UnderwaterRing_Update_thunks, S34_call},
-    {"rac1.moby.side_drift.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ConveyorBelt1250_Update_links, k_Moby_ConveyorBelt1250_Update_thunks, S34_call},
-    {"rac1.moby.poison_vessel.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_PoisonVessel1257_Update_links, k_Moby_PoisonVessel1257_Update_thunks, S34_call},
-    {"rac1.moby.moby1388.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BoltGrabber_Update_links, k_Moby_BoltGrabber_Update_thunks, S34_call},
-    {"rac1.moby.moby1257_spawner.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1394_Update_links, k_Moby_Class1394_Update_thunks, S34_call},
-    {"rac1.moby.ripple_strips_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1405_Update_links, k_Moby_Class1405_Update_thunks, S34_call},
-    {"rac1.moby.moby1419.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1419_Update_links, k_Moby_Class1419_Update_thunks, S34_call},
-    {"rac1.moby.class_1425.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1425_Update_links, k_Moby_Class1425_Update_thunks, S34_call},
-    {"rac1.moby.moby1428.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Codebot_Update_links, k_Moby_Codebot_Update_thunks, S34_call},
-    {"rac1.moby.codebot_slot.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_CodebotSlot_Update_links, k_Moby_CodebotSlot_Update_thunks, S34_call},
-    {"rac1.moby.ultramech_scientist.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_UltramechScientist_Update_links, k_Moby_UltramechScientist_Update_thunks, S34_call},
-    {"rac1.moby.giant_clank_pad.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GiantClankPad_Update_links, k_Moby_GiantClankPad_Update_thunks, S34_call},
-    {"rac1.moby.moby1469.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1469_Update_links, k_Moby_Class1469_Update_thunks, S34_call},
-    {"rac1.moby.boss_slot_effect.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1560_Update_links, k_Moby_Class1560_Update_thunks, S34_call},
-    {"rac1.moby.homing_projectile.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket50_Update_links, k_Moby_Rocket50_Update_thunks, S34_call},
-    {"rac1.moby.homing_spark_1475.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket1475_Update_links, k_Moby_Rocket1475_Update_thunks, S34_call},
-    {"rac1.moby.moby257.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class257_Update_links, k_Moby_Class257_Update_thunks, S34_call},
-    {"rac1.moby.thrown_bomb.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Bomb281_Update_links, k_Moby_Bomb281_Update_thunks, S34_call},
-    {"rac1.moby.moby470.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket470_Update_links, k_Moby_Rocket470_Update_thunks, S34_call},
-    {"rac1.moby.moby471.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ConveyorBelt471_Update_links, k_Moby_ConveyorBelt471_Update_thunks, S34_call},
-    {"rac1.moby.test_dummy.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TestDummy_Update_links, k_Moby_TestDummy_Update_thunks, S34_call},
-    {"rac1.moby.moby546.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_WallButton_Update_links, k_Moby_WallButton_Update_thunks, S34_call},
-    {"rac1.moby.moby552.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class552_Update_links, k_Moby_Class552_Update_thunks, S34_call},
-    {"rac1.moby.hoverboard_racer.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TestDummyOnHoverboard_Update_links, k_Moby_TestDummyOnHoverboard_Update_thunks, S34_call},
-    {"rac1.moby.floating_enemy.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargEliteCommando_Update_links, k_Moby_BlargEliteCommando_Update_thunks, S34_call},
-    {"rac1.moby.moby647.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Door647_Update_links, k_Moby_Door647_Update_thunks, S34_call},
-    {"rac1.moby.moby650.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_TestDummyDoor_Update_links, k_Moby_TestDummyDoor_Update_thunks, S34_call},
-    {"rac1.moby.moby654.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class654_Update_links, k_Moby_Class654_Update_thunks, S34_call},
-    {"rac1.moby.moby800.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class800_Update_links, k_Moby_Class800_Update_thunks, S34_call},
-    {"rac1.moby.armed_transport.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ArmedTransport_Update_links, k_Moby_ArmedTransport_Update_thunks, S34_call},
-    {"rac1.moby.watcher.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_HelpDeskLady_Update_links, k_Moby_HelpDeskLady_Update_thunks, S34_call},
-    {"rac1.moby.moby1387.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1387_Update_links, k_Moby_Class1387_Update_thunks, S34_call},
-    {"rac1.moby.crate_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BoltThief1401_Update_links, k_Moby_BoltThief1401_Update_thunks, S34_call},
-    {"rac1.moby.path_pickup.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Taxi1410_Update_links, k_Moby_Taxi1410_Update_thunks, S34_call},
-    {"rac1.moby.moby1439.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GrindrailGate_Update_links, k_Moby_GrindrailGate_Update_thunks, S34_call},
-    {"rac1.moby.moby1441.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GrindrailGate1441_Update_links, k_Moby_GrindrailGate1441_Update_thunks, S34_call},
-    {"rac1.moby.moby1442.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GrindrailButton_Update_links, k_Moby_GrindrailButton_Update_thunks, S34_call},
-    {"rac1.moby.ring_effect.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GrindrailBarrier_Update_links, k_Moby_GrindrailBarrier_Update_thunks, S34_call},
-    {"rac1.moby.wandering_helper.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Chomper_Update_links, k_Moby_Chomper_Update_thunks, S34_call},
-    {"rac1.moby.challenge_npc.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GadgetronCeo_Update_links, k_Moby_GadgetronCeo_Update_thunks, S34_call},
-    {"rac1.moby.banner_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1561_Update_links, k_Moby_Class1561_Update_thunks, S34_call},
-    {"rac1.moby.path_walker.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1667_Update_links, k_Moby_Class1667_Update_thunks, S34_call},
-    {"rac1.moby.spark_ring_emitter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1812_Update_links, k_Moby_Class1812_Update_thunks, S34_call},
-    {"rac1.moby.elevator_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Elevator1826_Update_links, k_Moby_Elevator1826_Update_thunks, S34_call},
-    {"rac1.moby.spinning_object.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_GadgetronSign_Update_links, k_Moby_GadgetronSign_Update_thunks, S34_call},
-    {"rac1.moby.target_activator.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1923_Update_links, k_Moby_Class1923_Update_thunks, S34_call},
-    {"rac1.moby.env_map_a.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1943_Update_links, k_Moby_Class1943_Update_thunks, S34_call},
-    {"rac1.moby.class_1947.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1947_Update_links, k_Moby_Class1947_Update_thunks, S34_call},
-    {"rac1.moby.env_map_b.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1948_Update_links, k_Moby_Class1948_Update_thunks, S34_call},
-    {"rac1.moby.class_1907.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1907_Update_links, k_Moby_Class1907_Update_thunks, S34_call},
-    {"rac1.moby.env_map_c.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1953_Update_links, k_Moby_Class1953_Update_thunks, S34_call},
-    {"rac1.moby.moby99.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class99_Update_links, k_Moby_Class99_Update_thunks, S34_call},
-    {"rac1.moby.fleet_turret.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DreksFleetTurret_Update_links, k_Moby_DreksFleetTurret_Update_thunks, S34_call},
-    {"rac1.moby.moby669.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class669_Update_links, k_Moby_Class669_Update_thunks, S34_call},
-    {"rac1.moby.moby835.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class835_Update_links, k_Moby_Class835_Update_thunks, S34_call},
-    {"rac1.moby.stops_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Door1359_Update_links, k_Moby_Door1359_Update_thunks, S34_call},
-    {"rac1.moby.moby1368.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1368_Update_links, k_Moby_Class1368_Update_thunks, S34_call},
-    {"rac1.moby.fighter_jet_1379.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FighterJet1379_Update_links, k_Moby_FighterJet1379_Update_thunks, S34_call},
-    {"rac1.moby.moby1380.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_MagnetElevator_Update_links, k_Moby_MagnetElevator_Update_thunks, S34_call},
-    {"rac1.moby.moby1382.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RobotDog1382_Update_links, k_Moby_RobotDog1382_Update_thunks, S34_call},
-    {"rac1.moby.moby1448.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Shuttle1448_Update_links, k_Moby_Shuttle1448_Update_thunks, S34_call},
-    {"rac1.moby.moby1470.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1470_Update_links, k_Moby_Class1470_Update_thunks, S34_call},
-    {"rac1.moby.moby750_spark_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1562_Update_links, k_Moby_Class1562_Update_thunks, S34_call},
-    {"rac1.moby.fleet_reflection.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1772_Update_links, k_Moby_Class1772_Update_thunks, S34_call},
-    {"rac1.moby.moby1843.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_BlargShip1843_Update_links, k_Moby_BlargShip1843_Update_thunks, S34_call},
-    {"rac1.moby.moby1873.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1873_Update_links, k_Moby_Class1873_Update_thunks, S34_call},
-    {"rac1.moby.moby1876.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1876_Update_links, k_Moby_Class1876_Update_thunks, S34_call},
-    {"rac1.moby.moby41.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket41_Update_links, k_Moby_Rocket41_Update_thunks, S34_call},
-    {"rac1.moby.moby564.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Rocket564_Update_links, k_Moby_Rocket564_Update_thunks, S34_call},
-    {"rac1.moby.moby568.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Mine568_Update_links, k_Moby_Mine568_Update_thunks, S34_call},
-    {"rac1.moby.path_junction.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class582_Update_links, k_Moby_Class582_Update_thunks, S34_call},
-    {"rac1.moby.energy_field_emitter.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ThrusterPackLockGreen_Update_links, k_Moby_ThrusterPackLockGreen_Update_thunks, S34_call},
-    {"rac1.moby.timed_lift.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_ThrusterPackLockRed_Update_links, k_Moby_ThrusterPackLockRed_Update_thunks, S34_call},
-    {"rac1.moby.sinking_platform.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_FloatingPlatform587_Update_links, k_Moby_FloatingPlatform587_Update_thunks, S34_call},
-    {"rac1.moby.falling_fireball.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class624_Update_links, k_Moby_Class624_Update_thunks, S34_call},
-    {"rac1.moby.moby628.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class628_Update_links, k_Moby_Class628_Update_thunks, S34_call},
-    {"rac1.moby.vendor_moby.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class644_Update_links, k_Moby_Class644_Update_thunks, S34_call},
-    {"rac1.moby.hit_trigger.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class885_Update_links, k_Moby_Class885_Update_thunks, S34_call},
-    {"rac1.moby.homing_spark_983.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class983_Update_links, k_Moby_Class983_Update_thunks, S34_call},
-    {"rac1.moby.moby1355.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DrekFightMissile_Update_links, k_Moby_DrekFightMissile_Update_thunks, S34_call},
-    {"rac1.moby.moby1381.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1381_Update_links, k_Moby_Class1381_Update_thunks, S34_call},
-    {"rac1.moby.moby1392.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1392_Update_links, k_Moby_Class1392_Update_thunks, S34_call},
-    {"rac1.moby.moby1402.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1402_Update_links, k_Moby_Class1402_Update_thunks, S34_call},
-    {"rac1.moby.final_boss.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DrekFinalBossRobot_Update_links, k_Moby_DrekFinalBossRobot_Update_thunks, S34_call},
-    {"rac1.moby.class_1432.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1432_Update_links, k_Moby_Class1432_Update_thunks, S34_call},
-    {"rac1.moby.moby1434.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DeplanetizerGun_Update_links, k_Moby_DeplanetizerGun_Update_thunks, S34_call},
-    {"rac1.moby.moby1454.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_RocketTank_Update_links, k_Moby_RocketTank_Update_thunks, S34_call},
-    {"rac1.moby.moby1563.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1563_Update_links, k_Moby_Class1563_Update_thunks, S34_call},
-    {"rac1.moby.moby1568.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_DeplanetizerGun1568_Update_links, k_Moby_DeplanetizerGun1568_Update_thunks, S34_call},
-    {"rac1.moby.moby1584.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1584_Update_links, k_Moby_Class1584_Update_thunks, S34_call},
-    {"rac1.moby.moby1799.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Class1799_Update_links, k_Moby_Class1799_Update_thunks, S34_call},
-    {"rac1.moby.moby1906.update", "void(u32)", 1, k_S34_kinds, k_S34_names, OPENRAC_SV_VOID, k_Moby_Gadgebot1906_Update_links, k_Moby_Gadgebot1906_Update_thunks, S34_call},
+    {"rac1.moby.class_676.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class676_Update_links, k_Moby_Class676_Update_thunks, S36_call},
+    {"rac1.moby.class_482.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class482_Update_links, k_Moby_Class482_Update_thunks, S36_call},
+    {"rac1.moby.texture_scroll.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class809_Update_links, k_Moby_Class809_Update_thunks, S36_call},
+    {"rac1.moby.camera_object.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_CameraObject_Update_links, k_Moby_CameraObject_Update_thunks, S36_call},
+    {"rac1.moby.light_beam.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Vendor_Update_links, k_Moby_Vendor_Update_thunks, S36_call},
+    {"rac1.moby.bolt.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bolt_Update_links, k_Moby_Bolt_Update_thunks, S36_call},
+    {"rac1.moby.wrench.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Wrench_Update_links, k_Moby_Wrench_Update_thunks, S36_call},
+    {"rac1.moby.mine.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine_Update_links, k_Moby_Mine_Update_thunks, S36_call},
+    {"rac1.moby.spin_fade_out.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class112_Update_links, k_Moby_Class112_Update_thunks, S36_call},
+    {"rac1.moby.hero_bomb.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class121_Update_links, k_Moby_Class121_Update_thunks, S36_call},
+    {"rac1.moby.falling_spark.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class122_Update_links, k_Moby_Class122_Update_thunks, S36_call},
+    {"rac1.moby.debris_bounce.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_NanotechCrateFragment_Update_links, k_Moby_NanotechCrateFragment_Update_thunks, S36_call},
+    {"rac1.moby.missile.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GoldDevastatorMissile_Update_links, k_Moby_GoldDevastatorMissile_Update_thunks, S36_call},
+    {"rac1.moby.moby163.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Visibomb_Update_links, k_Moby_Visibomb_Update_thunks, S36_call},
+    {"rac1.moby.moby166.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class166_Update_links, k_Moby_Class166_Update_thunks, S36_call},
+    {"rac1.moby.moby167.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class167_Update_links, k_Moby_Class167_Update_thunks, S36_call},
+    {"rac1.moby.visibomb_missile.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_VisibombMissile_Update_links, k_Moby_VisibombMissile_Update_thunks, S36_call},
+    {"rac1.moby.moby175.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Taunter_Update_links, k_Moby_Taunter_Update_thunks, S36_call},
+    {"rac1.moby.pyrocitor.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Pyrocitor_Update_links, k_Moby_Pyrocitor_Update_thunks, S36_call},
+    {"rac1.moby.moby179.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class179_Update_links, k_Moby_Class179_Update_thunks, S36_call},
+    {"rac1.moby.moby180.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Walloper_Update_links, k_Moby_Walloper_Update_thunks, S36_call},
+    {"rac1.moby.morphoray.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Morphoray_Update_links, k_Moby_Morphoray_Update_thunks, S36_call},
+    {"rac1.moby.doom_bot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DoomBot_Update_links, k_Moby_DoomBot_Update_thunks, S36_call},
+    {"rac1.moby.moby188.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Trespasser_Update_links, k_Moby_Trespasser_Update_thunks, S36_call},
+    {"rac1.moby.mine_glove.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MineGlove_Update_links, k_Moby_MineGlove_Update_thunks, S36_call},
+    {"rac1.moby.moby192.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BombGlove_Update_links, k_Moby_BombGlove_Update_thunks, S36_call},
+    {"rac1.moby.thrown_object.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Decoy_Update_links, k_Moby_Decoy_Update_thunks, S36_call},
+    {"rac1.moby.ammo_pickup.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DevestatorAmmo_Update_links, k_Moby_DevestatorAmmo_Update_thunks, S36_call},
+    {"rac1.moby.moby209.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SwingshotHook_Update_links, k_Moby_SwingshotHook_Update_thunks, S36_call},
+    {"rac1.moby.carrier.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GloveOfDoom_Update_links, k_Moby_GloveOfDoom_Update_thunks, S36_call},
+    {"rac1.moby.bomb_230.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bomb_Update_links, k_Moby_Bomb_Update_thunks, S36_call},
+    {"rac1.moby.morphoray_chicken.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MorphorayChicken_Update_links, k_Moby_MorphorayChicken_Update_thunks, S36_call},
+    {"rac1.moby.moby305.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class305_Update_links, k_Moby_Class305_Update_thunks, S36_call},
+    {"rac1.moby.moby428.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class428_Update_links, k_Moby_Class428_Update_thunks, S36_call},
+    {"rac1.moby.ryno.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Ryno_Update_links, k_Moby_Ryno_Update_thunks, S36_call},
+    {"rac1.moby.rocket_steer.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket_Update_links, k_Moby_Rocket_Update_thunks, S36_call},
+    {"rac1.moby.drone.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Drone_Update_links, k_Moby_Drone_Update_thunks, S36_call},
+    {"rac1.moby.crate.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BoltCrate_Update_links, k_Moby_BoltCrate_Update_thunks, S36_call},
+    {"rac1.moby.veldin_ship.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_VeldinShip_Update_links, k_Moby_VeldinShip_Update_thunks, S36_call},
+    {"rac1.moby.decoy_glove.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DecoyGlove_Update_links, k_Moby_DecoyGlove_Update_thunks, S36_call},
+    {"rac1.moby.target_tracker.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MetalDetector_Update_links, k_Moby_MetalDetector_Update_thunks, S36_call},
+    {"rac1.moby.clank_pack.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Helipack_Update_links, k_Moby_Helipack_Update_thunks, S36_call},
+    {"rac1.moby.moby639.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class639_Update_links, k_Moby_Class639_Update_thunks, S36_call},
+    {"rac1.moby.horny_toad.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HornyToad_Update_links, k_Moby_HornyToad_Update_thunks, S36_call},
+    {"rac1.moby.infobot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Infobot_Update_links, k_Moby_Infobot_Update_thunks, S36_call},
+    {"rac1.moby.particle_field.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ParticleSpawnerSmokeFire_Update_links, k_Moby_ParticleSpawnerSmokeFire_Update_thunks, S36_call},
+    {"rac1.moby.grow_and_fade_out.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class775_Update_links, k_Moby_Class775_Update_thunks, S36_call},
+    {"rac1.moby.trail_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class804_Update_links, k_Moby_Class804_Update_thunks, S36_call},
+    {"rac1.moby.nanotech_ball.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S36_call},
+    {"rac1.moby.moby834.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ClankCutsceneTrigger_Update_links, k_Moby_ClankCutsceneTrigger_Update_thunks, S36_call},
+    {"rac1.moby.suck_cannon.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Suckcannon_Update_links, k_Moby_Suckcannon_Update_thunks, S36_call},
+    {"rac1.moby.pulsing_color_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RedOrb_Update_links, k_Moby_RedOrb_Update_thunks, S36_call},
+    {"rac1.moby.quad_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1138_Update_links, k_Moby_Class1138_Update_thunks, S36_call},
+    {"rac1.moby.moby1143.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_VendorOrb_Update_links, k_Moby_VendorOrb_Update_thunks, S36_call},
+    {"rac1.moby.hydrodisplacer_pad.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Hydrodisplacer_Update_links, k_Moby_Hydrodisplacer_Update_thunks, S36_call},
+    {"rac1.moby.moby1290.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PilotsHelmet_Update_links, k_Moby_PilotsHelmet_Update_thunks, S36_call},
+    {"rac1.moby.moby1413.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1413_Update_links, k_Moby_Class1413_Update_thunks, S36_call},
+    {"rac1.moby.vendor.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_VeldinRobotEnemy_Update_links, k_Moby_VeldinRobotEnemy_Update_thunks, S36_call},
+    {"rac1.moby.beam_slot_manager.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1471_Update_links, k_Moby_Class1471_Update_thunks, S36_call},
+    {"rac1.moby.moby1545.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1545_Update_links, k_Moby_Class1545_Update_thunks, S36_call},
+    {"rac1.moby.path_follow_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Pterodactyl_Update_links, k_Moby_Pterodactyl_Update_thunks, S36_call},
+    {"rac1.moby.grass.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BombthrowerGrass_Update_links, k_Moby_BombthrowerGrass_Update_thunks, S36_call},
+    {"rac1.moby.fx_group.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Hoverboard_Update_links, k_Moby_Hoverboard_Update_thunks, S36_call},
+    {"rac1.moby.path_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_NovalisElevator_Update_links, k_Moby_NovalisElevator_Update_thunks, S36_call},
+    {"rac1.moby.particle_emitter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class27_Update_links, k_Moby_Class27_Update_thunks, S36_call},
+    {"rac1.moby.moby156.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class156_Update_links, k_Moby_Class156_Update_thunks, S36_call},
+    {"rac1.moby.bolt_crank.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BoltCrank_Update_links, k_Moby_BoltCrank_Update_thunks, S36_call},
+    {"rac1.moby.item_offer.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GoldWeaponCase_Update_links, k_Moby_GoldWeaponCase_Update_thunks, S36_call},
+    {"rac1.moby.sand_mouse.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SandMouse_Update_links, k_Moby_SandMouse_Update_thunks, S36_call},
+    {"rac1.moby.birdbot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Birdbot_Update_links, k_Moby_Birdbot_Update_thunks, S36_call},
+    {"rac1.moby.burning_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class567_Update_links, k_Moby_Class567_Update_thunks, S36_call},
+    {"rac1.moby.amoeboid.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_LargeAmoeboid_Update_links, k_Moby_LargeAmoeboid_Update_thunks, S36_call},
+    {"rac1.moby.peckbot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Peckbot_Update_links, k_Moby_Peckbot_Update_thunks, S36_call},
+    {"rac1.moby.moby604.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SandmouseHouse_Update_links, k_Moby_SandmouseHouse_Update_thunks, S36_call},
+    {"rac1.moby.moby605.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class605_Update_links, k_Moby_Class605_Update_thunks, S36_call},
+    {"rac1.moby.path_carrier.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_WaterCurrent_Update_links, k_Moby_WaterCurrent_Update_thunks, S36_call},
+    {"rac1.moby.crank_rotator.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_CaveDoor_Update_links, k_Moby_CaveDoor_Update_thunks, S36_call},
+    {"rac1.moby.tethered_mine.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FighterJet_Update_links, k_Moby_FighterJet_Update_thunks, S36_call},
+    {"rac1.moby.crank_slider.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DoorHalf_Update_links, k_Moby_DoorHalf_Update_thunks, S36_call},
+    {"rac1.moby.rider_carrier.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_StationaryShip_Update_links, k_Moby_StationaryShip_Update_thunks, S36_call},
+    {"rac1.moby.class_845.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class845_Update_links, k_Moby_Class845_Update_thunks, S36_call},
+    {"rac1.moby.scrolling_layers2.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class678_Update_links, k_Moby_Class678_Update_thunks, S36_call},
+    {"rac1.moby.grind_rail.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class679_Update_links, k_Moby_Class679_Update_thunks, S36_call},
+    {"rac1.moby.flying_burst.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class686_Update_links, k_Moby_Class686_Update_thunks, S36_call},
+    {"rac1.moby.gunship.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BomberJet_Update_links, k_Moby_BomberJet_Update_thunks, S36_call},
+    {"rac1.moby.hover_enemy.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_WaterLily_Update_links, k_Moby_WaterLily_Update_thunks, S36_call},
+    {"rac1.moby.debris_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rock_Update_links, k_Moby_Rock_Update_thunks, S36_call},
+    {"rac1.moby.steam_vent.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class700_Update_links, k_Moby_Class700_Update_thunks, S36_call},
+    {"rac1.moby.collapsing_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FallingRock_Update_links, k_Moby_FallingRock_Update_thunks, S36_call},
+    {"rac1.moby.lift_move.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PistonPlatform_Update_links, k_Moby_PistonPlatform_Update_thunks, S36_call},
+    {"rac1.moby.breakable_rock.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RockFormation_Update_links, k_Moby_RockFormation_Update_thunks, S36_call},
+    {"rac1.moby.oscillating_spinner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Fan_Update_links, k_Moby_Fan_Update_thunks, S36_call},
+    {"rac1.moby.projectile_breakable.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BridgePiece1_Update_links, k_Moby_BridgePiece1_Update_thunks, S36_call},
+    {"rac1.moby.falling_drop.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class722_Update_links, k_Moby_Class722_Update_thunks, S36_call},
+    {"rac1.moby.breakable_wall.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DestroyableCaveWall_Update_links, k_Moby_DestroyableCaveWall_Update_thunks, S36_call},
+    {"rac1.moby.agnogg_ship.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_AgnoggShipFront_Update_links, k_Moby_AgnoggShipFront_Update_thunks, S36_call},
+    {"rac1.moby.cutscene_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class737_Update_links, k_Moby_Class737_Update_thunks, S36_call},
+    {"rac1.moby.hinged_bridge.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BridgeHalf_Update_links, k_Moby_BridgeHalf_Update_thunks, S36_call},
+    {"rac1.moby.water_surface_fx.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class751_Update_links, k_Moby_Class751_Update_thunks, S36_call},
+    {"rac1.moby.breakable_pot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GreenMushroom_Update_links, k_Moby_GreenMushroom_Update_thunks, S36_call},
+    {"rac1.moby.pulsing_mesh.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class761_Update_links, k_Moby_Class761_Update_thunks, S36_call},
+    {"rac1.moby.sliding_door.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DoorLeft_Update_links, k_Moby_DoorLeft_Update_thunks, S36_call},
+    {"rac1.moby.talking_npc.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ThePlumber_Update_links, k_Moby_ThePlumber_Update_thunks, S36_call},
+    {"rac1.moby.moby778.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Pipe_Update_links, k_Moby_Pipe_Update_thunks, S36_call},
+    {"rac1.moby.smoke_emitter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class779_Update_links, k_Moby_Class779_Update_thunks, S36_call},
+    {"rac1.moby.falling_chunk.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class787_Update_links, k_Moby_Class787_Update_thunks, S36_call},
+    {"rac1.moby.checkpoint_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SpawnPoint_Update_links, k_Moby_SpawnPoint_Update_thunks, S36_call},
+    {"rac1.moby.enemy_spawner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Beehive_Update_links, k_Moby_Beehive_Update_thunks, S36_call},
+    {"rac1.moby.rc_range_limiter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class832_Update_links, k_Moby_Class832_Update_thunks, S36_call},
+    {"rac1.moby.moby1042.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MushroomUnderside_Update_links, k_Moby_MushroomUnderside_Update_thunks, S36_call},
+    {"rac1.moby.gold_bolt.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GoldBolt_Update_links, k_Moby_GoldBolt_Update_thunks, S36_call},
+    {"rac1.moby.teleporter_pad.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Teleporter_Update_links, k_Moby_Teleporter_Update_thunks, S36_call},
+    {"rac1.moby.moby1225.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1225_Update_links, k_Moby_Class1225_Update_thunks, S36_call},
+    {"rac1.moby.help_hint_director.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1341_Update_links, k_Moby_Class1341_Update_thunks, S36_call},
+    {"rac1.moby.wandering_light.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1504_Update_links, k_Moby_Class1504_Update_thunks, S36_call},
+    {"rac1.moby.moby1510.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1510_Update_links, k_Moby_Class1510_Update_thunks, S36_call},
+    {"rac1.moby.moby1546.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1546_Update_links, k_Moby_Class1546_Update_thunks, S36_call},
+    {"rac1.moby.class_1633.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1633_Update_links, k_Moby_Class1633_Update_thunks, S36_call},
+    {"rac1.moby.moby1813.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TallShroom_Update_links, k_Moby_TallShroom_Update_thunks, S36_call},
+    {"rac1.moby.mouse_critter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Sandmouse_Update_links, k_Moby_Sandmouse_Update_thunks, S36_call},
+    {"rac1.moby.moby1848.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1848_Update_links, k_Moby_Class1848_Update_thunks, S36_call},
+    {"rac1.moby.trackdrive_left.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TrackdriveLeft_Update_links, k_Moby_TrackdriveLeft_Update_thunks, S36_call},
+    {"rac1.moby.sand_shark.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SandShark_Update_links, k_Moby_SandShark_Update_thunks, S36_call},
+    {"rac1.moby.moby612.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Constructorbot_Update_links, k_Moby_Constructorbot_Update_thunks, S36_call},
+    {"rac1.moby.trespasser_puzzle.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TresspasserPad_Update_links, k_Moby_TresspasserPad_Update_thunks, S36_call},
+    {"rac1.moby.elevator_651.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Elevator_Update_links, k_Moby_Elevator_Update_thunks, S36_call},
+    {"rac1.moby.pusher.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ConveyorBelt_Update_links, k_Moby_ConveyorBelt_Update_thunks, S36_call},
+    {"rac1.moby.moby656.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bulldozer_Update_links, k_Moby_Bulldozer_Update_thunks, S36_call},
+    {"rac1.moby.sand_shark_nest.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SandSharkNest_Update_links, k_Moby_SandSharkNest_Update_thunks, S36_call},
+    {"rac1.moby.moby675.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GrabCrane_Update_links, k_Moby_GrabCrane_Update_thunks, S36_call},
+    {"rac1.moby.rotate_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Platform_Update_links, k_Moby_Platform_Update_thunks, S36_call},
+    {"rac1.moby.moby713.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TransportPod_Update_links, k_Moby_TransportPod_Update_thunks, S36_call},
+    {"rac1.moby.moby732.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Crane_Update_links, k_Moby_Crane_Update_thunks, S36_call},
+    {"rac1.moby.rocket_launcher.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RocketLauncher_Update_links, k_Moby_RocketLauncher_Update_thunks, S36_call},
+    {"rac1.moby.rocket_door1.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RocketDoor1_Update_links, k_Moby_RocketDoor1_Update_thunks, S36_call},
+    {"rac1.moby.moby743.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TresspasserDoor1_Update_links, k_Moby_TresspasserDoor1_Update_thunks, S36_call},
+    {"rac1.moby.moby744.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TresspasserDoor2_Update_links, k_Moby_TresspasserDoor2_Update_thunks, S36_call},
+    {"rac1.moby.moby755.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SandsharkEgg_Update_links, k_Moby_SandsharkEgg_Update_thunks, S36_call},
+    {"rac1.moby.hideable_flower.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SwingshotVersatarget_Update_links, k_Moby_SwingshotVersatarget_Update_thunks, S36_call},
+    {"rac1.moby.moby762.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocks_Update_links, k_Moby_Rocks_Update_thunks, S36_call},
+    {"rac1.moby.skids_agent.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SkidsAgent_Update_links, k_Moby_SkidsAgent_Update_thunks, S36_call},
+    {"rac1.moby.skid_mc_marx_aridia.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SkidMcmarx_Update_links, k_Moby_SkidMcmarx_Update_thunks, S36_call},
+    {"rac1.moby.driver_lift.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_LiftcarPlatform_Update_links, k_Moby_LiftcarPlatform_Update_thunks, S36_call},
+    {"rac1.moby.moby854.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_OceanAridia_Update_links, k_Moby_OceanAridia_Update_thunks, S36_call},
+    {"rac1.moby.moby1005.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Tresspasser_Update_links, k_Moby_Tresspasser_Update_thunks, S36_call},
+    {"rac1.moby.shard_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Constructorbot1208_Update_links, k_Moby_Constructorbot1208_Update_thunks, S36_call},
+    {"rac1.moby.background_ship.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BackgroundShip1_Update_links, k_Moby_BackgroundShip1_Update_thunks, S36_call},
+    {"rac1.moby.ship_path.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BackgroundShip2_Update_links, k_Moby_BackgroundShip2_Update_thunks, S36_call},
+    {"rac1.moby.tutorial_hint.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1324_Update_links, k_Moby_Class1324_Update_thunks, S36_call},
+    {"rac1.moby.moby1479.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1479_Update_links, k_Moby_Class1479_Update_thunks, S36_call},
+    {"rac1.moby.break_on_hit_l02.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_WhiteFlower_Update_links, k_Moby_WhiteFlower_Update_thunks, S36_call},
+    {"rac1.moby.metropolis_train.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MetropolisTrainLocomotive_Update_links, k_Moby_MetropolisTrainLocomotive_Update_thunks, S36_call},
+    {"rac1.moby.moving_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MovingPlatformSmall_Update_links, k_Moby_MovingPlatformSmall_Update_thunks, S36_call},
+    {"rac1.moby.metropolis_train_carriage.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MetropolisTrainCarriage_Update_links, k_Moby_MetropolisTrainCarriage_Update_thunks, S36_call},
+    {"rac1.moby.train_car.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RedShip1_Update_links, k_Moby_RedShip1_Update_thunks, S36_call},
+    {"rac1.moby.parent_follow_fade.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class235_Update_links, k_Moby_Class235_Update_thunks, S36_call},
+    {"rac1.moby.child_spawner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Spawner_Update_links, k_Moby_Spawner_Update_thunks, S36_call},
+    {"rac1.moby.moby545.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bomb545_Update_links, k_Moby_Bomb545_Update_thunks, S36_call},
+    {"rac1.moby.moby573.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RobotDog_Update_links, k_Moby_RobotDog_Update_thunks, S36_call},
+    {"rac1.moby.moby574.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class574_Update_links, k_Moby_Class574_Update_thunks, S36_call},
+    {"rac1.moby.trooper.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MineLayer_Update_links, k_Moby_MineLayer_Update_thunks, S36_call},
+    {"rac1.moby.kerwan_mine.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine627_Update_links, k_Moby_Mine627_Update_thunks, S36_call},
+    {"rac1.moby.helicopter_gunship.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargHelicopter_Update_links, k_Moby_BlargHelicopter_Update_thunks, S36_call},
+    {"rac1.moby.rail_taxi.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Taxi_Update_links, k_Moby_Taxi_Update_thunks, S36_call},
+    {"rac1.moby.moby817.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Statue_Update_links, k_Moby_Statue_Update_thunks, S36_call},
+    {"rac1.moby.spinner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RoboShackSign_Update_links, k_Moby_RoboShackSign_Update_thunks, S36_call},
+    {"rac1.moby.kerwan_homing_rocket.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class833_Update_links, k_Moby_Class833_Update_thunks, S36_call},
+    {"rac1.moby.moby848.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class848_Update_links, k_Moby_Class848_Update_thunks, S36_call},
+    {"rac1.moby.quest_giver.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Helga_Update_links, k_Moby_Helga_Update_thunks, S36_call},
+    {"rac1.moby.rail_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class898_Update_links, k_Moby_Class898_Update_thunks, S36_call},
+    {"rac1.moby.rail_spawner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class899_Update_links, k_Moby_Class899_Update_thunks, S36_call},
+    {"rac1.moby.guide.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BigAl_Update_links, k_Moby_BigAl_Update_thunks, S36_call},
+    {"rac1.moby.moby914.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RobotQwark_Update_links, k_Moby_RobotQwark_Update_thunks, S36_call},
+    {"rac1.moby.fred_1.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Fred1_Update_links, k_Moby_Fred1_Update_thunks, S36_call},
+    {"rac1.moby.qwark_watch.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_QwarkUmbris_Update_links, k_Moby_QwarkUmbris_Update_thunks, S36_call},
+    {"rac1.moby.ambient_stream_l03.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class994_Update_links, k_Moby_Class994_Update_thunks, S36_call},
+    {"rac1.moby.rise_when_collected.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gate_Update_links, k_Moby_Gate_Update_thunks, S36_call},
+    {"rac1.moby.rail_lift.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Taxi1012_Update_links, k_Moby_Taxi1012_Update_thunks, S36_call},
+    {"rac1.moby.falling_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1221_Update_links, k_Moby_Class1221_Update_thunks, S36_call},
+    {"rac1.moby.tutorial_hint_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1342_Update_links, k_Moby_Class1342_Update_thunks, S36_call},
+    {"rac1.moby.cutscene_beams.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1548_Update_links, k_Moby_Class1548_Update_thunks, S36_call},
+    {"rac1.moby.swarm.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class86_Update_links, k_Moby_Class86_Update_thunks, S36_call},
+    {"rac1.moby.class_161.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class161_Update_links, k_Moby_Class161_Update_thunks, S36_call},
+    {"rac1.moby.moby184_shot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class184_Update_links, k_Moby_Class184_Update_thunks, S36_call},
+    {"rac1.moby.big_axebot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BigAxebot_Update_links, k_Moby_BigAxebot_Update_thunks, S36_call},
+    {"rac1.moby.circular_saw.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_CircularSawEnemy_Update_links, k_Moby_CircularSawEnemy_Update_thunks, S36_call},
+    {"rac1.moby.blarg_trooper.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargTrooper_Update_links, k_Moby_BlargTrooper_Update_thunks, S36_call},
+    {"rac1.moby.switch_follower.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_EudoraBridge_Update_links, k_Moby_EudoraBridge_Update_thunks, S36_call},
+    {"rac1.moby.lever_door.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PlatformBooster_Update_links, k_Moby_PlatformBooster_Update_thunks, S36_call},
+    {"rac1.moby.path_vehicle.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SnowPlow_Update_links, k_Moby_SnowPlow_Update_thunks, S36_call},
+    {"rac1.moby.floating_platform_481.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FloatingPlatform_Update_links, k_Moby_FloatingPlatform_Update_thunks, S36_call},
+    {"rac1.moby.delete_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TransportShip_Update_links, k_Moby_TransportShip_Update_thunks, S36_call},
+    {"rac1.moby.wb_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_WoodcutBot_Update_links, k_Moby_WoodcutBot_Update_thunks, S36_call},
+    {"rac1.moby.moby584.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class584_Update_links, k_Moby_Class584_Update_thunks, S36_call},
+    {"rac1.moby.path_keyframe_blend.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class617_Update_links, k_Moby_Class617_Update_thunks, S36_call},
+    {"rac1.moby.drift_spark_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Leaf_Update_links, k_Moby_Leaf_Update_thunks, S36_call},
+    {"rac1.moby.collectable.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_UpperDoor_Update_links, k_Moby_UpperDoor_Update_thunks, S36_call},
+    {"rac1.moby.warp_portal.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SuckCannon_Update_links, k_Moby_SuckCannon_Update_thunks, S36_call},
+    {"rac1.moby.unlock_planet_pad.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Lieutenant_Update_links, k_Moby_Lieutenant_Update_thunks, S36_call},
+    {"rac1.moby.moby1343.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1343_Update_links, k_Moby_Class1343_Update_thunks, S36_call},
+    {"rac1.moby.bouncing_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1516_Update_links, k_Moby_Class1516_Update_thunks, S36_call},
+    {"rac1.moby.sparks_trigger_l04.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1549_Update_links, k_Moby_Class1549_Update_thunks, S36_call},
+    {"rac1.moby.sharkigator_35.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Sharkigator_Update_links, k_Moby_Sharkigator_Update_thunks, S36_call},
+    {"rac1.moby.scenery_ship.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SceneryShip_Update_links, k_Moby_SceneryShip_Update_thunks, S36_call},
+    {"rac1.moby.grazing_critter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Amoeboid_Update_links, k_Moby_Amoeboid_Update_thunks, S36_call},
+    {"rac1.moby.moby258.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class258_Update_links, k_Moby_Class258_Update_thunks, S36_call},
+    {"rac1.moby.moby341.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HydrodisplacerFaucet_Update_links, k_Moby_HydrodisplacerFaucet_Update_thunks, S36_call},
+    {"rac1.moby.hoverboard.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Hoverboard439_Update_links, k_Moby_Hoverboard439_Update_thunks, S36_call},
+    {"rac1.moby.extermibot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Extermibot_Update_links, k_Moby_Extermibot_Update_thunks, S36_call},
+    {"rac1.moby.extermitank.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Extermitank_Update_links, k_Moby_Extermitank_Update_thunks, S36_call},
+    {"rac1.moby.skid_mc_marx.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SkidMcmarx717_Update_links, k_Moby_SkidMcmarx717_Update_thunks, S36_call},
+    {"rac1.moby.floating_platform_810.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FloatingPlatform810_Update_links, k_Moby_FloatingPlatform810_Update_thunks, S36_call},
+    {"rac1.moby.moby812.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Box_Update_links, k_Moby_Box_Update_thunks, S36_call},
+    {"rac1.moby.moby823.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Lamp_Update_links, k_Moby_Lamp_Update_thunks, S36_call},
+    {"rac1.moby.floor_button.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FloorButton_Update_links, k_Moby_FloorButton_Update_thunks, S36_call},
+    {"rac1.moby.water_surface.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Water_Update_links, k_Moby_Water_Update_thunks, S36_call},
+    {"rac1.moby.electric_gate.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ElectricGate_Update_links, k_Moby_ElectricGate_Update_thunks, S36_call},
+    {"rac1.moby.fog_zone.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class841_Update_links, k_Moby_Class841_Update_thunks, S36_call},
+    {"rac1.moby.pose_slide_out.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class843_Update_links, k_Moby_Class843_Update_thunks, S36_call},
+    {"rac1.moby.drain_cover.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DrainCover_Update_links, k_Moby_DrainCover_Update_thunks, S36_call},
+    {"rac1.moby.pipe_mounted_grating.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PipeMountedGrating_Update_links, k_Moby_PipeMountedGrating_Update_thunks, S36_call},
+    {"rac1.moby.gate_rise.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class852_Update_links, k_Moby_Class852_Update_thunks, S36_call},
+    {"rac1.moby.emitter_l05.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class855_Update_links, k_Moby_Class855_Update_thunks, S36_call},
+    {"rac1.moby.lift_l05.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ElevatorWithButton_Update_links, k_Moby_ElevatorWithButton_Update_thunks, S36_call},
+    {"rac1.moby.pulsing_marker.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_OceanRilgar_Update_links, k_Moby_OceanRilgar_Update_thunks, S36_call},
+    {"rac1.moby.class_893.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class893_Update_links, k_Moby_Class893_Update_thunks, S36_call},
+    {"rac1.moby.triggered_rotor.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class895_Update_links, k_Moby_Class895_Update_thunks, S36_call},
+    {"rac1.moby.hoverboard_girl.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HoverboardGirl_Update_links, k_Moby_HoverboardGirl_Update_thunks, S36_call},
+    {"rac1.moby.bouncer.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_QwarksBouncer_Update_links, k_Moby_QwarksBouncer_Update_thunks, S36_call},
+    {"rac1.moby.shady_salesman.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ShadySalesman_Update_links, k_Moby_ShadySalesman_Update_thunks, S36_call},
+    {"rac1.moby.blarg_gun.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargGun_Update_links, k_Moby_BlargGun_Update_thunks, S36_call},
+    {"rac1.moby.water_plane_marker.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class982_Update_links, k_Moby_Class982_Update_thunks, S36_call},
+    {"rac1.moby.bobbing_moby_l05.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Television_Update_links, k_Moby_Television_Update_thunks, S36_call},
+    {"rac1.moby.pickup_l05.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Taxi998_Update_links, k_Moby_Taxi998_Update_thunks, S36_call},
+    {"rac1.moby.qwarks_trailer.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_QwarksTrailer_Update_links, k_Moby_QwarksTrailer_Update_thunks, S36_call},
+    {"rac1.moby.moby1139.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HoverboardRing_Update_links, k_Moby_HoverboardRing_Update_thunks, S36_call},
+    {"rac1.moby.challenge.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1347_Update_links, k_Moby_Class1347_Update_thunks, S36_call},
+    {"rac1.moby.mine_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Lamp1511_Update_links, k_Moby_Lamp1511_Update_thunks, S36_call},
+    {"rac1.moby.moby1550.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1550_Update_links, k_Moby_Class1550_Update_thunks, S36_call},
+    {"rac1.moby.orbiting_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HangarDoor_Update_links, k_Moby_HangarDoor_Update_thunks, S36_call},
+    {"rac1.moby.moby302.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GadgebotSpawnContainer_Update_links, k_Moby_GadgebotSpawnContainer_Update_thunks, S36_call},
+    {"rac1.moby.moby303.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GadgebotSpawnPad_Update_links, k_Moby_GadgebotSpawnPad_Update_thunks, S36_call},
+    {"rac1.moby.moby367.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class367_Update_links, k_Moby_Class367_Update_thunks, S36_call},
+    {"rac1.moby.frog.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Frog_Update_links, k_Moby_Frog_Update_thunks, S36_call},
+    {"rac1.moby.gadgebot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gadgebot_Update_links, k_Moby_Gadgebot_Update_thunks, S36_call},
+    {"rac1.moby.swinging_hazard.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ToxicGasVent_Update_links, k_Moby_ToxicGasVent_Update_thunks, S36_call},
+    {"rac1.moby.door_ring.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1021_Update_links, k_Moby_Class1021_Update_thunks, S36_call},
+    {"rac1.moby.drawbridge.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1028_Update_links, k_Moby_Class1028_Update_thunks, S36_call},
+    {"rac1.moby.class_1035.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1035_Update_links, k_Moby_Class1035_Update_thunks, S36_call},
+    {"rac1.moby.collectible_spawner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_EnergySphereHolder_Update_links, k_Moby_EnergySphereHolder_Update_thunks, S36_call},
+    {"rac1.moby.trigger_lists.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1039_Update_links, k_Moby_Class1039_Update_thunks, S36_call},
+    {"rac1.moby.moby1040.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_EnergySphere_Update_links, k_Moby_EnergySphere_Update_thunks, S36_call},
+    {"rac1.moby.moby1048.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_AlienSnapper_Update_links, k_Moby_AlienSnapper_Update_thunks, S36_call},
+    {"rac1.moby.alien_queen.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_AlienQueen_Update_links, k_Moby_AlienQueen_Update_thunks, S36_call},
+    {"rac1.moby.moby1054.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1054_Update_links, k_Moby_Class1054_Update_thunks, S36_call},
+    {"rac1.moby.callable_lift.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1061_Update_links, k_Moby_Class1061_Update_thunks, S36_call},
+    {"rac1.moby.class_1062.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1062_Update_links, k_Moby_Class1062_Update_thunks, S36_call},
+    {"rac1.moby.launch_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1066_Update_links, k_Moby_Class1066_Update_thunks, S36_call},
+    {"rac1.moby.moby1068.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceCommando_Update_links, k_Moby_BlargSpaceCommando_Update_thunks, S36_call},
+    {"rac1.moby.camera_takeover_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1083_Update_links, k_Moby_Class1083_Update_thunks, S36_call},
+    {"rac1.moby.spinning_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1085_Update_links, k_Moby_Class1085_Update_thunks, S36_call},
+    {"rac1.moby.bobbing_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1091_Update_links, k_Moby_Class1091_Update_thunks, S36_call},
+    {"rac1.moby.moby1105.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Fred_Update_links, k_Moby_Fred_Update_thunks, S36_call},
+    {"rac1.moby.moby1108.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1108_Update_links, k_Moby_Class1108_Update_thunks, S36_call},
+    {"rac1.moby.shuttle.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Shuttle_Update_links, k_Moby_Shuttle_Update_thunks, S36_call},
+    {"rac1.moby.red_button.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RedButton_Update_links, k_Moby_RedButton_Update_thunks, S36_call},
+    {"rac1.moby.moby1123.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1123_Update_links, k_Moby_Class1123_Update_thunks, S36_call},
+    {"rac1.moby.moby1302.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BotDoorLock_Update_links, k_Moby_BotDoorLock_Update_thunks, S36_call},
+    {"rac1.moby.class_1348.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1348_Update_links, k_Moby_Class1348_Update_thunks, S36_call},
+    {"rac1.moby.spark_emitter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1512_Update_links, k_Moby_Class1512_Update_thunks, S36_call},
+    {"rac1.moby.sparks_trigger_l06.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1551_Update_links, k_Moby_Class1551_Update_thunks, S36_call},
+    {"rac1.moby.spawn_child_and_delete.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mushroom_Update_links, k_Moby_Mushroom_Update_thunks, S36_call},
+    {"rac1.moby.break_on_hit_blarg.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1660_Update_links, k_Moby_Class1660_Update_thunks, S36_call},
+    {"rac1.moby.moby1898.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1898_Update_links, k_Moby_Class1898_Update_thunks, S36_call},
+    {"rac1.moby.taxi_platform_38.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TaxiPlatform_Update_links, k_Moby_TaxiPlatform_Update_thunks, S36_call},
+    {"rac1.moby.taxi_platform_1474.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TaxiPlatform1474_Update_links, k_Moby_TaxiPlatform1474_Update_thunks, S36_call},
+    {"rac1.moby.moby436.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class436_Update_links, k_Moby_Class436_Update_thunks, S36_call},
+    {"rac1.moby.ambient_stream_l07.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class317_Update_links, k_Moby_Class317_Update_thunks, S36_call},
+    {"rac1.moby.purple_ship_529.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PurpleShip_Update_links, k_Moby_PurpleShip_Update_thunks, S36_call},
+    {"rac1.moby.path_train.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BoltcratePossiblyForMetalDetector_Update_links, k_Moby_BoltcratePossiblyForMetalDetector_Update_thunks, S36_call},
+    {"rac1.moby.bolt_projectile.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class880_Update_links, k_Moby_Class880_Update_thunks, S36_call},
+    {"rac1.moby.gravity_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bomb882_Update_links, k_Moby_Bomb882_Update_thunks, S36_call},
+    {"rac1.moby.timed_pad.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TimedActivationPads_Update_links, k_Moby_TimedActivationPads_Update_thunks, S36_call},
+    {"rac1.moby.water_plate.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Water902_Update_links, k_Moby_Water902_Update_thunks, S36_call},
+    {"rac1.moby.target_driven_slider.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1013_Update_links, k_Moby_Class1013_Update_thunks, S36_call},
+    {"rac1.moby.audio_stream_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_OceanUmbris_Update_links, k_Moby_OceanUmbris_Update_thunks, S36_call},
+    {"rac1.moby.lobber_enemy.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bombomatic_Update_links, k_Moby_Bombomatic_Update_thunks, S36_call},
+    {"rac1.moby.shockwave.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1046_Update_links, k_Moby_Class1046_Update_thunks, S36_call},
+    {"rac1.moby.lobbed_bomb.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1049_Update_links, k_Moby_Class1049_Update_thunks, S36_call},
+    {"rac1.moby.sharkigator_1059.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Sharkigator1059_Update_links, k_Moby_Sharkigator1059_Update_thunks, S36_call},
+    {"rac1.moby.door.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Door_Update_links, k_Moby_Door_Update_thunks, S36_call},
+    {"rac1.moby.moby1069.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1069_Update_links, k_Moby_Class1069_Update_thunks, S36_call},
+    {"rac1.moby.falling_leaf.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1080_Update_links, k_Moby_Class1080_Update_thunks, S36_call},
+    {"rac1.moby.snagglebeast.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Snagglebeast_Update_links, k_Moby_Snagglebeast_Update_thunks, S36_call},
+    {"rac1.moby.swooper.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine1112_Update_links, k_Moby_Mine1112_Update_thunks, S36_call},
+    {"rac1.moby.breakable_prop.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1113_Update_links, k_Moby_Class1113_Update_thunks, S36_call},
+    {"rac1.moby.machinegun_turret_1126.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MachinegunTurret_Update_links, k_Moby_MachinegunTurret_Update_thunks, S36_call},
+    {"rac1.moby.moving_moby_l07.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1128_Update_links, k_Moby_Class1128_Update_thunks, S36_call},
+    {"rac1.moby.bridge.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bridge_Update_links, k_Moby_Bridge_Update_thunks, S36_call},
+    {"rac1.moby.moby1133.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1133_Update_links, k_Moby_Class1133_Update_thunks, S36_call},
+    {"rac1.moby.moby1142.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1142_Update_links, k_Moby_Class1142_Update_thunks, S36_call},
+    {"rac1.moby.spark_burst_spawner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1552_Update_links, k_Moby_Class1552_Update_thunks, S36_call},
+    {"rac1.moby.moby1789.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1789_Update_links, k_Moby_Class1789_Update_thunks, S36_call},
+    {"rac1.moby.moby152.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class152_Update_links, k_Moby_Class152_Update_thunks, S36_call},
+    {"rac1.moby.bomb_248.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bomb248_Update_links, k_Moby_Bomb248_Update_thunks, S36_call},
+    {"rac1.moby.scoutbot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Scoutbot_Update_links, k_Moby_Scoutbot_Update_thunks, S36_call},
+    {"rac1.moby.bomber_tank.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BomberTank_Update_links, k_Moby_BomberTank_Update_thunks, S36_call},
+    {"rac1.moby.moby327.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class327_Update_links, k_Moby_Class327_Update_thunks, S36_call},
+    {"rac1.moby.blarg_bomb_thrower.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargBombthrower_Update_links, k_Moby_BlargBombthrower_Update_thunks, S36_call},
+    {"rac1.moby.route_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Shuttle424_Update_links, k_Moby_Shuttle424_Update_thunks, S36_call},
+    {"rac1.moby.moby425.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bomb425_Update_links, k_Moby_Bomb425_Update_thunks, S36_call},
+    {"rac1.moby.guided_rocket.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket435_Update_links, k_Moby_Rocket435_Update_thunks, S36_call},
+    {"rac1.moby.moby438.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class438_Update_links, k_Moby_Class438_Update_thunks, S36_call},
+    {"rac1.moby.cannon.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class440_Update_links, k_Moby_Class440_Update_thunks, S36_call},
+    {"rac1.moby.falling_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class441_Update_links, k_Moby_Class441_Update_thunks, S36_call},
+    {"rac1.moby.moby444.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class444_Update_links, k_Moby_Class444_Update_thunks, S36_call},
+    {"rac1.moby.batalia_bolt_thief.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BoltThief_Update_links, k_Moby_BoltThief_Update_thunks, S36_call},
+    {"rac1.moby.moby458.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket458_Update_links, k_Moby_Rocket458_Update_thunks, S36_call},
+    {"rac1.moby.moby462.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Shrub_Update_links, k_Moby_Shrub_Update_thunks, S36_call},
+    {"rac1.moby.swarm_leader.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class463_Update_links, k_Moby_Class463_Update_thunks, S36_call},
+    {"rac1.moby.group_clear.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class467_Update_links, k_Moby_Class467_Update_thunks, S36_call},
+    {"rac1.moby.gate_swing.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class468_Update_links, k_Moby_Class468_Update_thunks, S36_call},
+    {"rac1.moby.moby600.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class600_Update_links, k_Moby_Class600_Update_thunks, S36_call},
+    {"rac1.moby.moby621.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class621_Update_links, k_Moby_Class621_Update_thunks, S36_call},
+    {"rac1.moby.moby648.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class648_Update_links, k_Moby_Class648_Update_thunks, S36_call},
+    {"rac1.moby.flicker_light.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class671_Update_links, k_Moby_Class671_Update_thunks, S36_call},
+    {"rac1.moby.paratrooper.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargParatrooper_Update_links, k_Moby_BlargParatrooper_Update_thunks, S36_call},
+    {"rac1.moby.commando.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Commando_Update_links, k_Moby_Commando_Update_thunks, S36_call},
+    {"rac1.moby.deserter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BataliaDeserter_Update_links, k_Moby_BataliaDeserter_Update_thunks, S36_call},
+    {"rac1.moby.moby1283.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ThePlumberBatalia_Update_links, k_Moby_ThePlumberBatalia_Update_thunks, S36_call},
+    {"rac1.moby.fire_bolt.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1292_Update_links, k_Moby_Class1292_Update_thunks, S36_call},
+    {"rac1.moby.moby1349.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1349_Update_links, k_Moby_Class1349_Update_thunks, S36_call},
+    {"rac1.moby.moby1400.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1400_Update_links, k_Moby_Class1400_Update_thunks, S36_call},
+    {"rac1.moby.moby1553.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1553_Update_links, k_Moby_Class1553_Update_thunks, S36_call},
+    {"rac1.moby.moby1629.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1629_Update_links, k_Moby_Class1629_Update_thunks, S36_call},
+    {"rac1.moby.moby1641.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1641_Update_links, k_Moby_Class1641_Update_thunks, S36_call},
+    {"rac1.moby.moby1649.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1649_Update_links, k_Moby_Class1649_Update_thunks, S36_call},
+    {"rac1.moby.airship_part.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_AirshipPart_Update_links, k_Moby_AirshipPart_Update_thunks, S36_call},
+    {"rac1.moby.moby52.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Seeker_Update_links, k_Moby_Seeker_Update_thunks, S36_call},
+    {"rac1.moby.ground_enemy.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class193_Update_links, k_Moby_Class193_Update_thunks, S36_call},
+    {"rac1.moby.asteroid_belt.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Asteroid_Update_links, k_Moby_Asteroid_Update_thunks, S36_call},
+    {"rac1.moby.breakable_stack.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Display_Update_links, k_Moby_Display_Update_thunks, S36_call},
+    {"rac1.moby.moby279.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class279_Update_links, k_Moby_Class279_Update_thunks, S36_call},
+    {"rac1.moby.tumbling_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class313_Update_links, k_Moby_Class313_Update_thunks, S36_call},
+    {"rac1.moby.heavy_tumbling_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class320_Update_links, k_Moby_Class320_Update_thunks, S36_call},
+    {"rac1.moby.moby417.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class417_Update_links, k_Moby_Class417_Update_thunks, S36_call},
+    {"rac1.moby.moby664.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Platform664_Update_links, k_Moby_Platform664_Update_thunks, S36_call},
+    {"rac1.moby.moby1000.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1000_Update_links, k_Moby_Class1000_Update_thunks, S36_call},
+    {"rac1.moby.path_platform_l09.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Elevator1150_Update_links, k_Moby_Elevator1150_Update_thunks, S36_call},
+    {"rac1.moby.pressure_plate.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RefuelingStation_Update_links, k_Moby_RefuelingStation_Update_thunks, S36_call},
+    {"rac1.moby.airship_chain_link.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_AirshipPart1181_Update_links, k_Moby_AirshipPart1181_Update_thunks, S36_call},
+    {"rac1.moby.mountable_turret.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Turret_Update_links, k_Moby_Turret_Update_thunks, S36_call},
+    {"rac1.moby.moby1206.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1206_Update_links, k_Moby_Class1206_Update_thunks, S36_call},
+    {"rac1.moby.enemy_shot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1258_Update_links, k_Moby_Class1258_Update_thunks, S36_call},
+    {"rac1.moby.barrier.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Barrier_Update_links, k_Moby_Barrier_Update_thunks, S36_call},
+    {"rac1.moby.linked_riser.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1293_Update_links, k_Moby_Class1293_Update_thunks, S36_call},
+    {"rac1.moby.moby1766.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Shuttle1766_Update_links, k_Moby_Shuttle1766_Update_thunks, S36_call},
+    {"rac1.moby.moby1885.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Spawner1885_Update_links, k_Moby_Spawner1885_Update_thunks, S36_call},
+    {"rac1.moby.moby1886.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SpawnerEgg_Update_links, k_Moby_SpawnerEgg_Update_thunks, S36_call},
+    {"rac1.moby.moby1033.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Platform1033_Update_links, k_Moby_Platform1033_Update_thunks, S36_call},
+    {"rac1.moby.bobbing_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Platform1117_Update_links, k_Moby_Platform1117_Update_thunks, S36_call},
+    {"rac1.moby.spinning_pickup.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Magnetboots_Update_links, k_Moby_Magnetboots_Update_thunks, S36_call},
+    {"rac1.moby.moby22.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class22_Update_links, k_Moby_Class22_Update_thunks, S36_call},
+    {"rac1.moby.near_hero_sparkle.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GadgebotTelepotPad_Update_links, k_Moby_GadgebotTelepotPad_Update_thunks, S36_call},
+    {"rac1.moby.moby702.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class702_Update_links, k_Moby_Class702_Update_thunks, S36_call},
+    {"rac1.moby.moby794.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class794_Update_links, k_Moby_Class794_Update_thunks, S36_call},
+    {"rac1.moby.moby819.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket819_Update_links, k_Moby_Rocket819_Update_thunks, S36_call},
+    {"rac1.moby.moby859.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class859_Update_links, k_Moby_Class859_Update_thunks, S36_call},
+    {"rac1.moby.moby938.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bomb938_Update_links, k_Moby_Bomb938_Update_thunks, S36_call},
+    {"rac1.moby.timed_shooter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BombthrowerGrass939_Update_links, k_Moby_BombthrowerGrass939_Update_thunks, S36_call},
+    {"rac1.moby.electric_spark.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class947_Update_links, k_Moby_Class947_Update_thunks, S36_call},
+    {"rac1.moby.height_glide.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_LabDoor_Update_links, k_Moby_LabDoor_Update_thunks, S36_call},
+    {"rac1.moby.moby1031.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Button_Update_links, k_Moby_Button_Update_thunks, S36_call},
+    {"rac1.moby.moby1047.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1047_Update_links, k_Moby_Class1047_Update_thunks, S36_call},
+    {"rac1.moby.sound_prop.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1067_Update_links, k_Moby_Class1067_Update_thunks, S36_call},
+    {"rac1.moby.moby1090.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1090_Update_links, k_Moby_Class1090_Update_thunks, S36_call},
+    {"rac1.moby.collectible_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlockCave_Update_links, k_Moby_BlockCave_Update_thunks, S36_call},
+    {"rac1.moby.moby1196.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Screamer_Update_links, k_Moby_Screamer_Update_thunks, S36_call},
+    {"rac1.moby.moby1199.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1199_Update_links, k_Moby_Class1199_Update_thunks, S36_call},
+    {"rac1.moby.toxic_crab.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ToxicCrab_Update_links, k_Moby_ToxicCrab_Update_thunks, S36_call},
+    {"rac1.moby.blarg_ship.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargShip_Update_links, k_Moby_BlargShip_Update_thunks, S36_call},
+    {"rac1.moby.exhaust_vent.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1240_Update_links, k_Moby_Class1240_Update_thunks, S36_call},
+    {"rac1.moby.nanotech_vendor.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_NanotechUpgradeVendor_Update_links, k_Moby_NanotechUpgradeVendor_Update_thunks, S36_call},
+    {"rac1.moby.moby1344.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1344_Update_links, k_Moby_Class1344_Update_thunks, S36_call},
+    {"rac1.moby.linked_turret.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gun_Update_links, k_Moby_Gun_Update_thunks, S36_call},
+    {"rac1.moby.moby1378.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1378_Update_links, k_Moby_Class1378_Update_thunks, S36_call},
+    {"rac1.moby.swing_door.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gate1_Update_links, k_Moby_Gate1_Update_thunks, S36_call},
+    {"rac1.moby.moby1424.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gate2_Update_links, k_Moby_Gate2_Update_thunks, S36_call},
+    {"rac1.moby.effect_emitter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1544_Update_links, k_Moby_Class1544_Update_thunks, S36_call},
+    {"rac1.moby.moby1555.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1555_Update_links, k_Moby_Class1555_Update_thunks, S36_call},
+    {"rac1.moby.moby1855.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1855_Update_links, k_Moby_Class1855_Update_thunks, S36_call},
+    {"rac1.moby.moby1856.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1856_Update_links, k_Moby_Class1856_Update_thunks, S36_call},
+    {"rac1.moby.pickup.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class23_Update_links, k_Moby_Class23_Update_thunks, S36_call},
+    {"rac1.moby.moby37.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class37_Update_links, k_Moby_Class37_Update_thunks, S36_call},
+    {"rac1.moby.moby65.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class65_Update_links, k_Moby_Class65_Update_thunks, S36_call},
+    {"rac1.moby.moby90.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bob_Update_links, k_Moby_Bob_Update_thunks, S36_call},
+    {"rac1.moby.moby114.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ResortOwner_Update_links, k_Moby_ResortOwner_Update_thunks, S36_call},
+    {"rac1.moby.pokitaru_vendor.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FredPokitaru_Update_links, k_Moby_FredPokitaru_Update_thunks, S36_call},
+    {"rac1.moby.moby318.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Teleporter318_Update_links, k_Moby_Teleporter318_Update_thunks, S36_call},
+    {"rac1.moby.moby361.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class361_Update_links, k_Moby_Class361_Update_thunks, S36_call},
+    {"rac1.moby.class_1009.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1009_Update_links, k_Moby_Class1009_Update_thunks, S36_call},
+    {"rac1.moby.fireball.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1017_Update_links, k_Moby_Class1017_Update_thunks, S36_call},
+    {"rac1.moby.moby1034.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket1034_Update_links, k_Moby_Rocket1034_Update_thunks, S36_call},
+    {"rac1.moby.pokitaru_boat.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PokitaruBoat_Update_links, k_Moby_PokitaruBoat_Update_thunks, S36_call},
+    {"rac1.moby.ocean.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_OceanPokitaru_Update_links, k_Moby_OceanPokitaru_Update_thunks, S36_call},
+    {"rac1.moby.cutscene_controller.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1156_Update_links, k_Moby_Class1156_Update_thunks, S36_call},
+    {"rac1.moby.moby1157.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1157_Update_links, k_Moby_Class1157_Update_thunks, S36_call},
+    {"rac1.moby.moby1158.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1158_Update_links, k_Moby_Class1158_Update_thunks, S36_call},
+    {"rac1.moby.moby1159.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1159_Update_links, k_Moby_Class1159_Update_thunks, S36_call},
+    {"rac1.moby.moby1178.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SeesawPlatform_Update_links, k_Moby_SeesawPlatform_Update_thunks, S36_call},
+    {"rac1.moby.moby1179.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ThrusterPackLock_Update_links, k_Moby_ThrusterPackLock_Update_thunks, S36_call},
+    {"rac1.moby.moby1180.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1180_Update_links, k_Moby_Class1180_Update_thunks, S36_call},
+    {"rac1.moby.ship_collider.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Ammocrate_Update_links, k_Moby_Ammocrate_Update_thunks, S36_call},
+    {"rac1.moby.moby1219.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1219_Update_links, k_Moby_Class1219_Update_thunks, S36_call},
+    {"rac1.moby.psytcopus.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Psytcopus_Update_links, k_Moby_Psytcopus_Update_thunks, S36_call},
+    {"rac1.moby.jet_fighter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_JetFighter_Update_links, k_Moby_JetFighter_Update_thunks, S36_call},
+    {"rac1.moby.moby1246.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Puffoid_Update_links, k_Moby_Puffoid_Update_thunks, S36_call},
+    {"rac1.moby.gate.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1248_Update_links, k_Moby_Class1248_Update_thunks, S36_call},
+    {"rac1.moby.moby1264.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_OilTankerFront_Update_links, k_Moby_OilTankerFront_Update_thunks, S36_call},
+    {"rac1.moby.bubbling_vent.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1265_Update_links, k_Moby_Class1265_Update_thunks, S36_call},
+    {"rac1.moby.moby1297.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_EnergySphere1297_Update_links, k_Moby_EnergySphere1297_Update_thunks, S36_call},
+    {"rac1.moby.flying_craft.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargShip1319_Update_links, k_Moby_BlargShip1319_Update_thunks, S36_call},
+    {"rac1.moby.moby1350.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1350_Update_links, k_Moby_Class1350_Update_thunks, S36_call},
+    {"rac1.moby.bubble.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1524_Update_links, k_Moby_Class1524_Update_thunks, S36_call},
+    {"rac1.moby.pokitaru_surface_near.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1903_Update_links, k_Moby_Class1903_Update_thunks, S36_call},
+    {"rac1.moby.pokitaru_surface_far.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1919_Update_links, k_Moby_Class1919_Update_thunks, S36_call},
+    {"rac1.moby.moby19.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class19_Update_links, k_Moby_Class19_Update_thunks, S36_call},
+    {"rac1.moby.hoven_troll.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class238_Update_links, k_Moby_Class238_Update_thunks, S36_call},
+    {"rac1.moby.hoven_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Platform240_Update_links, k_Moby_Platform240_Update_thunks, S36_call},
+    {"rac1.moby.miner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Miner_Update_links, k_Moby_Miner_Update_thunks, S36_call},
+    {"rac1.moby.moby293.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class293_Update_links, k_Moby_Class293_Update_thunks, S36_call},
+    {"rac1.moby.moby294.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargTrooper294_Update_links, k_Moby_BlargTrooper294_Update_thunks, S36_call},
+    {"rac1.moby.moby326.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargHelicopter326_Update_links, k_Moby_BlargHelicopter326_Update_thunks, S36_call},
+    {"rac1.moby.edwina.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Edwina_Update_links, k_Moby_Edwina_Update_thunks, S36_call},
+    {"rac1.moby.moby336.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Helicopter_Update_links, k_Moby_Helicopter_Update_thunks, S36_call},
+    {"rac1.moby.moby339.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_CraneArm_Update_links, k_Moby_CraneArm_Update_thunks, S36_call},
+    {"rac1.moby.water_reservoir.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_WaterReservoir_Update_links, k_Moby_WaterReservoir_Update_thunks, S36_call},
+    {"rac1.moby.hoven_shot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket409_Update_links, k_Moby_Rocket409_Update_thunks, S36_call},
+    {"rac1.moby.hoven_challenge.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class422_Update_links, k_Moby_Class422_Update_thunks, S36_call},
+    {"rac1.moby.moby1259.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1259_Update_links, k_Moby_Class1259_Update_thunks, S36_call},
+    {"rac1.moby.moby1267.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HovenTurret_Update_links, k_Moby_HovenTurret_Update_thunks, S36_call},
+    {"rac1.moby.hoven_homing_mine.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine1269_Update_links, k_Moby_Mine1269_Update_thunks, S36_call},
+    {"rac1.moby.planetbuster_part.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PlanetbusterMaximusPart_Update_links, k_Moby_PlanetbusterMaximusPart_Update_thunks, S36_call},
+    {"rac1.moby.door_switch.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HomingMineSpawner_Update_links, k_Moby_HomingMineSpawner_Update_thunks, S36_call},
+    {"rac1.moby.moby1345.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1345_Update_links, k_Moby_Class1345_Update_thunks, S36_call},
+    {"rac1.moby.blarg_commander.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargCommander_Update_links, k_Moby_BlargCommander_Update_thunks, S36_call},
+    {"rac1.moby.cutscene_volume_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1404_Update_links, k_Moby_Class1404_Update_thunks, S36_call},
+    {"rac1.moby.class_1557.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1557_Update_links, k_Moby_Class1557_Update_thunks, S36_call},
+    {"rac1.moby.moby1901.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1901_Update_links, k_Moby_Class1901_Update_thunks, S36_call},
+    {"rac1.moby.clip_volume_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class6_Update_links, k_Moby_Class6_Update_thunks, S36_call},
+    {"rac1.moby.elevator_21.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Elevator21_Update_links, k_Moby_Elevator21_Update_thunks, S36_call},
+    {"rac1.moby.blarg_turret.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargTurret_Update_links, k_Moby_BlargTurret_Update_thunks, S36_call},
+    {"rac1.moby.gem_lock_turret.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargGunner_Update_links, k_Moby_BlargGunner_Update_thunks, S36_call},
+    {"rac1.moby.robosquawker.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Robosquawker_Update_links, k_Moby_Robosquawker_Update_thunks, S36_call},
+    {"rac1.moby.fighter_jet_69.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FighterJet69_Update_links, k_Moby_FighterJet69_Update_thunks, S36_call},
+    {"rac1.moby.homing_rocket82.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket82_Update_links, k_Moby_Rocket82_Update_thunks, S36_call},
+    {"rac1.moby.moby83.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine83_Update_links, k_Moby_Mine83_Update_thunks, S36_call},
+    {"rac1.moby.blarg_space_fighter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceFighter_Update_links, k_Moby_BlargSpaceFighter_Update_thunks, S36_call},
+    {"rac1.moby.blarg_fighter111.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceFighter111_Update_links, k_Moby_BlargSpaceFighter111_Update_thunks, S36_call},
+    {"rac1.moby.rotating_door.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class127_Update_links, k_Moby_Class127_Update_thunks, S36_call},
+    {"rac1.moby.forcefield_tower.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ForcefieldTower_Update_links, k_Moby_ForcefieldTower_Update_thunks, S36_call},
+    {"rac1.moby.drifting_blob.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Asteroid212_Update_links, k_Moby_Asteroid212_Update_thunks, S36_call},
+    {"rac1.moby.ship_pickup.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Ammocrate224_Update_links, k_Moby_Ammocrate224_Update_thunks, S36_call},
+    {"rac1.moby.switch.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class231_Update_links, k_Moby_Class231_Update_thunks, S36_call},
+    {"rac1.moby.rocket295.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket295_Update_links, k_Moby_Rocket295_Update_thunks, S36_call},
+    {"rac1.moby.fade_in_hold_out.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class352_Update_links, k_Moby_Class352_Update_thunks, S36_call},
+    {"rac1.moby.qwark_starfighter_part.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_QwarksStarfighterPart_Update_links, k_Moby_QwarksStarfighterPart_Update_thunks, S36_call},
+    {"rac1.moby.starfighter_part.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_QwarksStarfighterPart389_Update_links, k_Moby_QwarksStarfighterPart389_Update_thunks, S36_call},
+    {"rac1.moby.gem_lock_pickup.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Forcefield_Update_links, k_Moby_Forcefield_Update_thunks, S36_call},
+    {"rac1.moby.purple_ship_533.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PurpleShip533_Update_links, k_Moby_PurpleShip533_Update_thunks, S36_call},
+    {"rac1.moby.help_volume.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class558_Update_links, k_Moby_Class558_Update_thunks, S36_call},
+    {"rac1.moby.moby_state_relay.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class667_Update_links, k_Moby_Class667_Update_thunks, S36_call},
+    {"rac1.moby.controlled_gate.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class674_Update_links, k_Moby_Class674_Update_thunks, S36_call},
+    {"rac1.moby.projectile_l13.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1238_Update_links, k_Moby_Class1238_Update_thunks, S36_call},
+    {"rac1.moby.moby1261.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PoisonVessel_Update_links, k_Moby_PoisonVessel_Update_thunks, S36_call},
+    {"rac1.moby.blarg_space_commando.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargSpaceCommando1262_Update_links, k_Moby_BlargSpaceCommando1262_Update_thunks, S36_call},
+    {"rac1.moby.bobbing_lights.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1263_Update_links, k_Moby_Class1263_Update_thunks, S36_call},
+    {"rac1.moby.lift1270.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1270_Update_links, k_Moby_Class1270_Update_thunks, S36_call},
+    {"rac1.moby.class_1271.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1271_Update_links, k_Moby_Class1271_Update_thunks, S36_call},
+    {"rac1.moby.moby1353.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1353_Update_links, k_Moby_Class1353_Update_thunks, S36_call},
+    {"rac1.moby.class_1403.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1403_Update_links, k_Moby_Class1403_Update_thunks, S36_call},
+    {"rac1.moby.sparks_trigger_l13.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1558_Update_links, k_Moby_Class1558_Update_thunks, S36_call},
+    {"rac1.moby.watch_mobys.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1577_Update_links, k_Moby_Class1577_Update_thunks, S36_call},
+    {"rac1.moby.moby1632.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1632_Update_links, k_Moby_Class1632_Update_thunks, S36_call},
+    {"rac1.moby.moby1634.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1634_Update_links, k_Moby_Class1634_Update_thunks, S36_call},
+    {"rac1.moby.moby1805.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargShip1805_Update_links, k_Moby_BlargShip1805_Update_thunks, S36_call},
+    {"rac1.moby.keyframe_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Platform903_Update_links, k_Moby_Platform903_Update_thunks, S36_call},
+    {"rac1.moby.moby8.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargHeavyInterceptor_Update_links, k_Moby_BlargHeavyInterceptor_Update_thunks, S36_call},
+    {"rac1.moby.plasmabot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Plasmabot_Update_links, k_Moby_Plasmabot_Update_thunks, S36_call},
+    {"rac1.moby.machinegun_turret_30.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MachinegunTurret30_Update_links, k_Moby_MachinegunTurret30_Update_thunks, S36_call},
+    {"rac1.moby.minibomber.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Minibomber_Update_links, k_Moby_Minibomber_Update_thunks, S36_call},
+    {"rac1.moby.moby81.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class81_Update_links, k_Moby_Class81_Update_thunks, S36_call},
+    {"rac1.moby.moby211.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Plasmabot211_Update_links, k_Moby_Plasmabot211_Update_thunks, S36_call},
+    {"rac1.moby.moby250.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PlasmabotHatch_Update_links, k_Moby_PlasmabotHatch_Update_thunks, S36_call},
+    {"rac1.moby.moby309.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Platform309_Update_links, k_Moby_Platform309_Update_thunks, S36_call},
+    {"rac1.moby.debris_particle.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class325_Update_links, k_Moby_Class325_Update_thunks, S36_call},
+    {"rac1.moby.gem_lock_sentry.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class386_Update_links, k_Moby_Class386_Update_thunks, S36_call},
+    {"rac1.moby.race_debris.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class403_Update_links, k_Moby_Class403_Update_thunks, S36_call},
+    {"rac1.moby.path_lift.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Shuttle557_Update_links, k_Moby_Shuttle557_Update_thunks, S36_call},
+    {"rac1.moby.moby610.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class610_Update_links, k_Moby_Class610_Update_thunks, S36_call},
+    {"rac1.moby.mine_l14.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine643_Update_links, k_Moby_Mine643_Update_thunks, S36_call},
+    {"rac1.moby.sweeping_bolt.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class681_Update_links, k_Moby_Class681_Update_thunks, S36_call},
+    {"rac1.moby.class_684.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class684_Update_links, k_Moby_Class684_Update_thunks, S36_call},
+    {"rac1.moby.moby685.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Elevator685_Update_links, k_Moby_Elevator685_Update_thunks, S36_call},
+    {"rac1.moby.taxi.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Taxi712_Update_links, k_Moby_Taxi712_Update_thunks, S36_call},
+    {"rac1.moby.moby851.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_QwarkOltanis_Update_links, k_Moby_QwarkOltanis_Update_thunks, S36_call},
+    {"rac1.moby.moby908.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Jet_Update_links, k_Moby_Jet_Update_thunks, S36_call},
+    {"rac1.moby.oltanis_jet.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Jet921_Update_links, k_Moby_Jet921_Update_thunks, S36_call},
+    {"rac1.moby.flyer.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket922_Update_links, k_Moby_Rocket922_Update_thunks, S36_call},
+    {"rac1.moby.bolt_thief.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BoltThief923_Update_links, k_Moby_BoltThief923_Update_thunks, S36_call},
+    {"rac1.moby.moby924.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Sam_Update_links, k_Moby_Sam_Update_thunks, S36_call},
+    {"rac1.moby.floating_mine.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine933_Update_links, k_Moby_Mine933_Update_thunks, S36_call},
+    {"rac1.moby.bouncing_spark.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1193_Update_links, k_Moby_Class1193_Update_thunks, S36_call},
+    {"rac1.moby.moby1224.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1224_Update_links, k_Moby_Class1224_Update_thunks, S36_call},
+    {"rac1.moby.moby1331.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1331_Update_links, k_Moby_Class1331_Update_thunks, S36_call},
+    {"rac1.moby.triggered_unlock.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1352_Update_links, k_Moby_Class1352_Update_thunks, S36_call},
+    {"rac1.moby.collectible_pickup.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Morphoray1354_Update_links, k_Moby_Morphoray1354_Update_thunks, S36_call},
+    {"rac1.moby.moby1395.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1395_Update_links, k_Moby_Class1395_Update_thunks, S36_call},
+    {"rac1.moby.moby1397.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1397_Update_links, k_Moby_Class1397_Update_thunks, S36_call},
+    {"rac1.moby.step_on_switch.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Button1416_Update_links, k_Moby_Button1416_Update_thunks, S36_call},
+    {"rac1.moby.blarg_interceptor.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargHeavyInterceptor1417_Update_links, k_Moby_BlargHeavyInterceptor1417_Update_thunks, S36_call},
+    {"rac1.moby.queue_effect_draw.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1418_Update_links, k_Moby_Class1418_Update_thunks, S36_call},
+    {"rac1.moby.skill_point.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1559_Update_links, k_Moby_Class1559_Update_thunks, S36_call},
+    {"rac1.moby.sentrybot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Sentrybot_Update_links, k_Moby_Sentrybot_Update_thunks, S36_call},
+    {"rac1.moby.projectile.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket49_Update_links, k_Moby_Rocket49_Update_thunks, S36_call},
+    {"rac1.moby.moby67.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class67_Update_links, k_Moby_Class67_Update_thunks, S36_call},
+    {"rac1.moby.class_256.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class256_Update_links, k_Moby_Class256_Update_thunks, S36_call},
+    {"rac1.moby.scale_fade_and_delete.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1427_Update_links, k_Moby_Class1427_Update_thunks, S36_call},
+    {"rac1.moby.moby1523.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1523_Update_links, k_Moby_Class1523_Update_thunks, S36_call},
+    {"rac1.moby.moby77.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine77_Update_links, k_Moby_Mine77_Update_thunks, S36_call},
+    {"rac1.moby.moby78.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class78_Update_links, k_Moby_Class78_Update_thunks, S36_call},
+    {"rac1.moby.sliding_gate.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gate92_Update_links, k_Moby_Gate92_Update_thunks, S36_call},
+    {"rac1.moby.clip_volume_door.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gate93_Update_links, k_Moby_Gate93_Update_thunks, S36_call},
+    {"rac1.moby.spiderbot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Spiderbot_Update_links, k_Moby_Spiderbot_Update_thunks, S36_call},
+    {"rac1.moby.class_148.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class148_Update_links, k_Moby_Class148_Update_thunks, S36_call},
+    {"rac1.moby.hit_reaction_effect_alt.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class154_Update_links, k_Moby_Class154_Update_thunks, S36_call},
+    {"rac1.moby.moving_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Door196_Update_links, k_Moby_Door196_Update_thunks, S36_call},
+    {"rac1.moby.construction_arm.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ConstructionArm_Update_links, k_Moby_ConstructionArm_Update_thunks, S36_call},
+    {"rac1.moby.helicopter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Helicopter233_Update_links, k_Moby_Helicopter233_Update_thunks, S36_call},
+    {"rac1.moby.sentrybot_alarm.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_SentrybotAlarm_Update_links, k_Moby_SentrybotAlarm_Update_thunks, S36_call},
+    {"rac1.moby.ultramech.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_UltramechUnlimited_Update_links, k_Moby_UltramechUnlimited_Update_thunks, S36_call},
+    {"rac1.moby.class_655.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class655_Update_links, k_Moby_Class655_Update_thunks, S36_call},
+    {"rac1.moby.moby934.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class934_Update_links, k_Moby_Class934_Update_thunks, S36_call},
+    {"rac1.moby.class_937.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class937_Update_links, k_Moby_Class937_Update_thunks, S36_call},
+    {"rac1.moby.underwater_ring.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_UnderwaterRing_Update_links, k_Moby_UnderwaterRing_Update_thunks, S36_call},
+    {"rac1.moby.side_drift.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ConveyorBelt1250_Update_links, k_Moby_ConveyorBelt1250_Update_thunks, S36_call},
+    {"rac1.moby.poison_vessel.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_PoisonVessel1257_Update_links, k_Moby_PoisonVessel1257_Update_thunks, S36_call},
+    {"rac1.moby.moby1388.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BoltGrabber_Update_links, k_Moby_BoltGrabber_Update_thunks, S36_call},
+    {"rac1.moby.moby1257_spawner.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1394_Update_links, k_Moby_Class1394_Update_thunks, S36_call},
+    {"rac1.moby.ripple_strips_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1405_Update_links, k_Moby_Class1405_Update_thunks, S36_call},
+    {"rac1.moby.moby1419.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1419_Update_links, k_Moby_Class1419_Update_thunks, S36_call},
+    {"rac1.moby.class_1425.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1425_Update_links, k_Moby_Class1425_Update_thunks, S36_call},
+    {"rac1.moby.moby1428.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Codebot_Update_links, k_Moby_Codebot_Update_thunks, S36_call},
+    {"rac1.moby.codebot_slot.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_CodebotSlot_Update_links, k_Moby_CodebotSlot_Update_thunks, S36_call},
+    {"rac1.moby.ultramech_scientist.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_UltramechScientist_Update_links, k_Moby_UltramechScientist_Update_thunks, S36_call},
+    {"rac1.moby.giant_clank_pad.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GiantClankPad_Update_links, k_Moby_GiantClankPad_Update_thunks, S36_call},
+    {"rac1.moby.moby1469.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1469_Update_links, k_Moby_Class1469_Update_thunks, S36_call},
+    {"rac1.moby.boss_slot_effect.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1560_Update_links, k_Moby_Class1560_Update_thunks, S36_call},
+    {"rac1.moby.homing_projectile.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket50_Update_links, k_Moby_Rocket50_Update_thunks, S36_call},
+    {"rac1.moby.homing_spark_1475.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket1475_Update_links, k_Moby_Rocket1475_Update_thunks, S36_call},
+    {"rac1.moby.moby257.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class257_Update_links, k_Moby_Class257_Update_thunks, S36_call},
+    {"rac1.moby.thrown_bomb.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Bomb281_Update_links, k_Moby_Bomb281_Update_thunks, S36_call},
+    {"rac1.moby.moby470.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket470_Update_links, k_Moby_Rocket470_Update_thunks, S36_call},
+    {"rac1.moby.moby471.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ConveyorBelt471_Update_links, k_Moby_ConveyorBelt471_Update_thunks, S36_call},
+    {"rac1.moby.test_dummy.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TestDummy_Update_links, k_Moby_TestDummy_Update_thunks, S36_call},
+    {"rac1.moby.moby546.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_WallButton_Update_links, k_Moby_WallButton_Update_thunks, S36_call},
+    {"rac1.moby.moby552.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class552_Update_links, k_Moby_Class552_Update_thunks, S36_call},
+    {"rac1.moby.hoverboard_racer.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TestDummyOnHoverboard_Update_links, k_Moby_TestDummyOnHoverboard_Update_thunks, S36_call},
+    {"rac1.moby.floating_enemy.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargEliteCommando_Update_links, k_Moby_BlargEliteCommando_Update_thunks, S36_call},
+    {"rac1.moby.moby647.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Door647_Update_links, k_Moby_Door647_Update_thunks, S36_call},
+    {"rac1.moby.moby650.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_TestDummyDoor_Update_links, k_Moby_TestDummyDoor_Update_thunks, S36_call},
+    {"rac1.moby.moby654.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class654_Update_links, k_Moby_Class654_Update_thunks, S36_call},
+    {"rac1.moby.moby800.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class800_Update_links, k_Moby_Class800_Update_thunks, S36_call},
+    {"rac1.moby.armed_transport.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ArmedTransport_Update_links, k_Moby_ArmedTransport_Update_thunks, S36_call},
+    {"rac1.moby.watcher.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_HelpDeskLady_Update_links, k_Moby_HelpDeskLady_Update_thunks, S36_call},
+    {"rac1.moby.moby1387.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1387_Update_links, k_Moby_Class1387_Update_thunks, S36_call},
+    {"rac1.moby.crate_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BoltThief1401_Update_links, k_Moby_BoltThief1401_Update_thunks, S36_call},
+    {"rac1.moby.path_pickup.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Taxi1410_Update_links, k_Moby_Taxi1410_Update_thunks, S36_call},
+    {"rac1.moby.moby1439.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GrindrailGate_Update_links, k_Moby_GrindrailGate_Update_thunks, S36_call},
+    {"rac1.moby.moby1441.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GrindrailGate1441_Update_links, k_Moby_GrindrailGate1441_Update_thunks, S36_call},
+    {"rac1.moby.moby1442.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GrindrailButton_Update_links, k_Moby_GrindrailButton_Update_thunks, S36_call},
+    {"rac1.moby.ring_effect.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GrindrailBarrier_Update_links, k_Moby_GrindrailBarrier_Update_thunks, S36_call},
+    {"rac1.moby.wandering_helper.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Chomper_Update_links, k_Moby_Chomper_Update_thunks, S36_call},
+    {"rac1.moby.challenge_npc.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GadgetronCeo_Update_links, k_Moby_GadgetronCeo_Update_thunks, S36_call},
+    {"rac1.moby.banner_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1561_Update_links, k_Moby_Class1561_Update_thunks, S36_call},
+    {"rac1.moby.path_walker.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1667_Update_links, k_Moby_Class1667_Update_thunks, S36_call},
+    {"rac1.moby.spark_ring_emitter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1812_Update_links, k_Moby_Class1812_Update_thunks, S36_call},
+    {"rac1.moby.elevator_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Elevator1826_Update_links, k_Moby_Elevator1826_Update_thunks, S36_call},
+    {"rac1.moby.spinning_object.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_GadgetronSign_Update_links, k_Moby_GadgetronSign_Update_thunks, S36_call},
+    {"rac1.moby.target_activator.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1923_Update_links, k_Moby_Class1923_Update_thunks, S36_call},
+    {"rac1.moby.env_map_a.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1943_Update_links, k_Moby_Class1943_Update_thunks, S36_call},
+    {"rac1.moby.class_1947.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1947_Update_links, k_Moby_Class1947_Update_thunks, S36_call},
+    {"rac1.moby.env_map_b.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1948_Update_links, k_Moby_Class1948_Update_thunks, S36_call},
+    {"rac1.moby.class_1907.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1907_Update_links, k_Moby_Class1907_Update_thunks, S36_call},
+    {"rac1.moby.env_map_c.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1953_Update_links, k_Moby_Class1953_Update_thunks, S36_call},
+    {"rac1.moby.moby99.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class99_Update_links, k_Moby_Class99_Update_thunks, S36_call},
+    {"rac1.moby.fleet_turret.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DreksFleetTurret_Update_links, k_Moby_DreksFleetTurret_Update_thunks, S36_call},
+    {"rac1.moby.moby669.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class669_Update_links, k_Moby_Class669_Update_thunks, S36_call},
+    {"rac1.moby.moby835.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class835_Update_links, k_Moby_Class835_Update_thunks, S36_call},
+    {"rac1.moby.stops_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Door1359_Update_links, k_Moby_Door1359_Update_thunks, S36_call},
+    {"rac1.moby.moby1368.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1368_Update_links, k_Moby_Class1368_Update_thunks, S36_call},
+    {"rac1.moby.fighter_jet_1379.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FighterJet1379_Update_links, k_Moby_FighterJet1379_Update_thunks, S36_call},
+    {"rac1.moby.moby1380.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_MagnetElevator_Update_links, k_Moby_MagnetElevator_Update_thunks, S36_call},
+    {"rac1.moby.moby1382.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RobotDog1382_Update_links, k_Moby_RobotDog1382_Update_thunks, S36_call},
+    {"rac1.moby.moby1448.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Shuttle1448_Update_links, k_Moby_Shuttle1448_Update_thunks, S36_call},
+    {"rac1.moby.moby1470.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1470_Update_links, k_Moby_Class1470_Update_thunks, S36_call},
+    {"rac1.moby.moby750_spark_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1562_Update_links, k_Moby_Class1562_Update_thunks, S36_call},
+    {"rac1.moby.fleet_reflection.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1772_Update_links, k_Moby_Class1772_Update_thunks, S36_call},
+    {"rac1.moby.moby1843.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_BlargShip1843_Update_links, k_Moby_BlargShip1843_Update_thunks, S36_call},
+    {"rac1.moby.moby1873.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1873_Update_links, k_Moby_Class1873_Update_thunks, S36_call},
+    {"rac1.moby.moby1876.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1876_Update_links, k_Moby_Class1876_Update_thunks, S36_call},
+    {"rac1.moby.moby41.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket41_Update_links, k_Moby_Rocket41_Update_thunks, S36_call},
+    {"rac1.moby.moby564.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Rocket564_Update_links, k_Moby_Rocket564_Update_thunks, S36_call},
+    {"rac1.moby.moby568.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Mine568_Update_links, k_Moby_Mine568_Update_thunks, S36_call},
+    {"rac1.moby.path_junction.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class582_Update_links, k_Moby_Class582_Update_thunks, S36_call},
+    {"rac1.moby.energy_field_emitter.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ThrusterPackLockGreen_Update_links, k_Moby_ThrusterPackLockGreen_Update_thunks, S36_call},
+    {"rac1.moby.timed_lift.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_ThrusterPackLockRed_Update_links, k_Moby_ThrusterPackLockRed_Update_thunks, S36_call},
+    {"rac1.moby.sinking_platform.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_FloatingPlatform587_Update_links, k_Moby_FloatingPlatform587_Update_thunks, S36_call},
+    {"rac1.moby.falling_fireball.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class624_Update_links, k_Moby_Class624_Update_thunks, S36_call},
+    {"rac1.moby.moby628.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class628_Update_links, k_Moby_Class628_Update_thunks, S36_call},
+    {"rac1.moby.vendor_moby.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class644_Update_links, k_Moby_Class644_Update_thunks, S36_call},
+    {"rac1.moby.hit_trigger.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class885_Update_links, k_Moby_Class885_Update_thunks, S36_call},
+    {"rac1.moby.homing_spark_983.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class983_Update_links, k_Moby_Class983_Update_thunks, S36_call},
+    {"rac1.moby.moby1355.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DrekFightMissile_Update_links, k_Moby_DrekFightMissile_Update_thunks, S36_call},
+    {"rac1.moby.moby1381.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1381_Update_links, k_Moby_Class1381_Update_thunks, S36_call},
+    {"rac1.moby.moby1392.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1392_Update_links, k_Moby_Class1392_Update_thunks, S36_call},
+    {"rac1.moby.moby1402.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1402_Update_links, k_Moby_Class1402_Update_thunks, S36_call},
+    {"rac1.moby.final_boss.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DrekFinalBossRobot_Update_links, k_Moby_DrekFinalBossRobot_Update_thunks, S36_call},
+    {"rac1.moby.class_1432.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1432_Update_links, k_Moby_Class1432_Update_thunks, S36_call},
+    {"rac1.moby.moby1434.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DeplanetizerGun_Update_links, k_Moby_DeplanetizerGun_Update_thunks, S36_call},
+    {"rac1.moby.moby1454.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_RocketTank_Update_links, k_Moby_RocketTank_Update_thunks, S36_call},
+    {"rac1.moby.moby1563.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1563_Update_links, k_Moby_Class1563_Update_thunks, S36_call},
+    {"rac1.moby.moby1568.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_DeplanetizerGun1568_Update_links, k_Moby_DeplanetizerGun1568_Update_thunks, S36_call},
+    {"rac1.moby.moby1584.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1584_Update_links, k_Moby_Class1584_Update_thunks, S36_call},
+    {"rac1.moby.moby1799.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Class1799_Update_links, k_Moby_Class1799_Update_thunks, S36_call},
+    {"rac1.moby.moby1906.update", "void(u32)", 1, k_S36_kinds, k_S36_names, OPENRAC_SV_VOID, k_Moby_Gadgebot1906_Update_links, k_Moby_Gadgebot1906_Update_thunks, S36_call},
 };
 
-static const openrac_script_alias k_aliases[2055] = {
+static const openrac_script_alias k_aliases[2061] = {
     {"Ammo_ChooseDrop", "rac1.ammo.choose_drop"},
     {"Ammo_SpawnDrop", "rac1.ammo.spawn_drop"},
     {"FUN_00209298", "rac1.save.restore"},
@@ -2083,6 +2125,7 @@ static const openrac_script_alias k_aliases[2055] = {
     {"FUN_00226b08", "rac1.save.new_game_plus"},
     {"FUN_0023a2c0", "rac1.moby.quad_moby.update"},
     {"FUN_0023ab78", "rac1.moby.class_676.update"},
+    {"FUN_L00_00203908", "rac1.help.request"},
     {"FUN_L00_002050c0", "rac1.player.take_damage"},
     {"FUN_L00_00211670", "rac1.player.update_motion_input"},
     {"FUN_L00_00211e30", "rac1.player.turn_to_heading"},
@@ -2101,6 +2144,7 @@ static const openrac_script_alias k_aliases[2055] = {
     {"FUN_L00_0025a420", "rac1.combat.get_hit"},
     {"FUN_L00_002607d0", "rac1.planet.unlock"},
     {"FUN_L00_00260860", "rac1.item.give"},
+    {"FUN_L00_0028e9c8", "rac1.ship.init_transition"},
     {"FUN_L00_0028ed58", "rac1.ship.travel_to"},
     {"FUN_L00_0029a400", "rac1.vendor.build_item_list"},
     {"FUN_L00_0029b680", "rac1.vendor.initialize_selected"},
@@ -2743,6 +2787,7 @@ static const openrac_script_alias k_aliases[2055] = {
     {"FUN_L18_002fbb98", "rac1.moby.moby1906.update"},
     {"FollowCamera_ApplyOverrides", "rac1.camera.follow.apply_overrides"},
     {"GoldBolts_CountCollected", "rac1.gold_bolt.count_collected"},
+    {"Help_Request", "rac1.help.request"},
     {"Hero_AdvanceAnimation", "rac1.player.advance_animation"},
     {"Hero_ApproachSpeed", "rac1.player.approach_speed"},
     {"Hero_SetPlanarVelocity", "rac1.player.set_planar_velocity"},
@@ -3418,6 +3463,7 @@ static const openrac_script_alias k_aliases[2055] = {
     {"Save_RestoreData", "rac1.save.restore_data"},
     {"Save_Serialize", "rac1.save.serialize"},
     {"Save_UpdateState", "rac1.save.update_state"},
+    {"Ship_InitTransition", "rac1.ship.init_transition"},
     {"Ship_TravelTo", "rac1.ship.travel_to"},
     {"Vendor_BuildItemList", "rac1.vendor.build_item_list"},
     {"Vendor_InitLevelStock", "rac1.vendor.init_level_stock"},
@@ -3450,6 +3496,7 @@ static const openrac_script_alias k_aliases[2055] = {
     {"func_00227C78", "rac1.save.prepare"},
     {"func_00227DB0", "rac1.save.new_game_plus"},
     {"func_0023BF48", "rac1.moby.class_676.update"},
+    {"func_L00_00203F20", "rac1.help.request"},
     {"func_L00_002056D8", "rac1.player.take_damage"},
     {"func_L00_00211D28", "rac1.player.update_motion_input"},
     {"func_L00_002124E8", "rac1.player.turn_to_heading"},
@@ -3468,6 +3515,7 @@ static const openrac_script_alias k_aliases[2055] = {
     {"func_L00_0025B478", "rac1.combat.get_hit"},
     {"func_L00_00261848", "rac1.planet.unlock"},
     {"func_L00_002618D8", "rac1.item.give"},
+    {"func_L00_0028FCA0", "rac1.ship.init_transition"},
     {"func_L00_00290030", "rac1.ship.travel_to"},
     {"func_L00_0029B770", "rac1.vendor.build_item_list"},
     {"func_L00_0029C9E8", "rac1.vendor.initialize_selected"},
@@ -8171,8 +8219,8 @@ static const openrac_script_class k_classes[224] = {
 };
 static const openrac_script_moby k_moby = {0xA6u, OPENRAC_SV_I16, 0x78u, 224, k_classes};
 static const openrac_script_binding k_binding = {
-    "rac1", 2, k_discs, 685, k_points, 7, k_fields, &k_moby,
-    2055, k_aliases,
+    "rac1", 2, k_discs, 687, k_points, 7, k_fields, &k_moby,
+    2061, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {
