@@ -405,8 +405,8 @@ impl HttpStore {
             body.len(),
             env!("CARGO_PKG_VERSION"),
         );
-        stream.write_all(head.as_bytes()).map_err(unreachable)?;
-        stream.write_all(body).map_err(unreachable)?;
+        // In one write: a short request needs no two packets.
+        stream.write_all(&[head.as_bytes(), body].concat()).map_err(unreachable)?;
         let mut answer = Vec::new();
         stream.take(1 << 20).read_to_end(&mut answer).map_err(unreachable)?;
         parse_response(&answer).ok_or(StoreError::Unreachable)
