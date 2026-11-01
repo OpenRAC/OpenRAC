@@ -643,13 +643,11 @@ pub fn build(
             None => here,
         });
         let sums = match &source.tag {
-            Some(tag) => Some(
-                source
-                    .sums
-                    .clone()
-                    .map_or_else(|| remote::sums_hash(ctx, &source.url, tag), Ok)
-                    .map_err(|why| format!("The release of {} can't be read now: {why}", e.manifest.name))?,
-            ),
+            Some(tag) => {
+                Some(source.sums.clone().map_or_else(|| remote::sums_hash(ctx, &source.url, tag), Ok).map_err(
+                    |_| format!("The release of {} can't be read now. Check your connection.", e.manifest.name),
+                )?)
+            }
             None => None,
         };
         let entry = SetMod {
@@ -771,7 +769,9 @@ pub struct Review {
     pub code: Option<String>,
     pub name: String,
     pub created: String,
-    /// It is for another game.
+    /// The game it is for.
+    pub game: String,
+    /// That is not the game it was reviewed for.
     pub wrong_game: bool,
     pub mods: Vec<ReviewMod>,
     /// Gameplay mods that are on and that the set does not list: Apply turns them off.
@@ -1048,6 +1048,7 @@ fn make_plan(ctx: &Context, set: &ModSet, code: Option<String>, openrac: &str) -
         code,
         name: set.name.clone(),
         created: set.created.clone(),
+        game: set.game.clone(),
         wrong_game,
         mods,
         disable: disable_views,
@@ -1128,7 +1129,15 @@ pub fn apply(
     let mut staged = Vec::new();
     for p in &to_install {
         let pinned = p.pinned.as_ref().expect("filtered above");
-        staged.push((pinned, remote::stage_pinned(ctx, pinned).map_err(|e| format!("{}: {e}", p.line.name))?));
+        let stage = remote::stage_pinned(ctx, pinned).map_err(|e| {
+            // A bad file is said as it is; anything else is the network's, in a player's words.
+            if e.contains("SHA-256") || e.contains("The download holds") {
+                e
+            } else {
+                format!("{} couldn't be downloaded. Check your connection and try again.", p.line.name)
+            }
+        })?;
+        staged.push((pinned, stage));
     }
     let replaced: Vec<String> = to_install.iter().map(|p| p.entry.id.clone()).collect();
     let label = code.unwrap_or_default();
@@ -1870,7 +1879,7 @@ mod tests {
         let before = snapshot(dir);
         let c = ctx(dir, &fx);
         let err = apply(&c, &json_of(&set_of(vec![first, second])), None, &Choices::default(), "", NOW).unwrap_err();
-        assert!(err.contains("not found"), "{err}");
+        assert!(err.contains("couldn't be downloaded"), "{err}");
         assert_eq!(snapshot(dir), before);
         assert!(profile::list(dir).is_empty(), "nothing started, so nothing to go back to");
     }

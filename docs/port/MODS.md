@@ -778,6 +778,70 @@ releases, a newer commit on its branch), and offers **Update** on the mod's
 row. A pinned mod (**Keep this version**) is never offered one. An update
 installs as a reinstall does: the mod's place, on/off and settings are kept.
 
+### Mod codes
+
+Friends match their mods in one step (`launcher/core/src/modset.rs`, `profile.rs`). The Mods tab's
+**Share these mods** turns the mods that are on into a *set*: each at its exact version, with the
+settings a party compares. A friend enters the code in the Add a mod field, or pastes it on the
+page, or follows `openrac://modset/CODE`, sees what would change, and applies it.
+
+| | Short code | Full code |
+|---|---|---|
+| Looks like | `K7M2-9QXR` | `ORMS1.` + base64url of the zlib-compressed JSON |
+| Lives | on the Server's HTTP side-port (7771), 30 days from its last read | in itself |
+| Needs | that server | nothing but GitHub for the downloads |
+
+One parser reads both. The same set gets the same short code, whenever it is made. A short code's
+characters are the party codes': no 0, O, 1 or I.
+
+```json
+{ "format": 1, "name": "Ada's mods", "created": "2026-10-31T12:00:00Z",
+  "game": "rac1", "discs": ["ntsc", "pal"], "openrac": "0.20.0",
+  "mods": [ { "id": "difficulty-mod", "version": "1.4.0", "kind": "gameplay",
+              "source": { "url": "https://github.com/OpenRAC/rac1-mods", "path": "difficulty-mod",
+                          "tag": "difficulty-mod-v1.4.0" },
+              "sums": "<sha256 of the release's SHA256SUMS>",
+              "settings": { "enemy_count": 2 } } ],
+  "extras": [ ], "manual": [ { "id": "my-tweak", "version": "0.1.0", "name": "My tweak" } ],
+  "packs": [ { "id": "hd-textures" } ] }
+```
+
+- `mods`: every gameplay and solo mod that is on, in load order. `settings`: the ones a party
+  compares: no `multiplayer` of their own, no keybinds, not the player's name. The multiplayer mod
+  brings none, for a party leaves it out of the check.
+- `extras`: input and cosmetic mods the sharer suggests. Off until the receiver ticks them, and the
+  receiver's own are never touched.
+- `manual`: mods no catalogue holds. Named only: the review says to ask for the file.
+- `packs`: data packs that are on, named as "also needed". A code never fetches one.
+
+**What keeps it safe.** A code carries no address to download from. `source.url` is only which
+repository: `https://github.com/<owner>/<repo>`, nothing else. OpenRAC's own need no asking, nor does
+one the player installed from or said yes to; any other asks first, per repository
+(`plugins/trusted_sources.json`). A mod is pinned by the hash of its release's `SHA256SUMS`, which
+holds every platform's archive, so one code serves all of them and both discs, and a retagged or
+rebuilt release is refused; one with no release is pinned to a commit. Nothing is replaced by a newer
+version: a version that is gone is reported with the newest there is. Archives are checked after
+download and kept by hash in `plugins/.cache` (512 MB), checked again when reused. Everything a set
+holds is parsed strictly, unknown keys refused, 8 KB compressed, 64 KB inflated, 40 mods a list.
+
+**Apply.** Nothing changes before it. All downloads come first and are checked; then what the mods
+looked like is saved to `plugins/profiles/<id>.json`, with a copy of each mod it replaces; then mods
+are installed, gameplay mods the set does not list are turned off (input, cosmetic and Multiplayer
+are left alone), settings are set and the set's order taken. A failure from there puts everything
+back. The last ten saved sets stay under the gameplay mods' **Earlier mods**.
+
+**The game.** `plugins/modset.json`, written when a code is made or applied, tells it the code:
+
+```json
+{ "format": 1, "code": "K7M2-9QXR", "link": "openrac://modset/K7M2-9QXR",
+  "created": "2026-10-31T12:00:00Z", "mods": [ { "id": "difficulty-mod", "version": "1.4.0" } ] }
+```
+
+`code` is null when the server could not be reached: `link` then holds the full code. It says what
+the set was, not what is running: a game shows the code only while its gameplay mods match `mods`.
+Removed when a saved set is restored. `OPENRAC_MODSET_SERVER=host:port` points the launcher at
+another store.
+
 ## 11. Three ways to write a mod: C, C++ and Luau scripts
 
 Decided 2026-10-21. The C interface (section 6) is the boundary that lasts:

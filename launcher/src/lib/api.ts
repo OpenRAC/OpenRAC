@@ -29,6 +29,14 @@ import type { DiscChoice } from "./generated/DiscChoice";
 import type { DiscState } from "./generated/DiscState";
 import type { EnhancedView } from "./generated/EnhancedView";
 import type { FoundDisc } from "./generated/FoundDisc";
+import type { Applied } from "./generated/Applied";
+import type { Choices } from "./generated/Choices";
+import type { ModProfile } from "./generated/ModProfile";
+import type { Review } from "./generated/Review";
+import type { ReviewMod } from "./generated/ReviewMod";
+import type { ShareMod } from "./generated/ShareMod";
+import type { SharePreview } from "./generated/SharePreview";
+import type { Shared } from "./generated/Shared";
 import type { GameSaveStatus } from "./generated/GameSaveStatus";
 import type { GameView } from "./generated/GameView";
 import type { ImportedSaves } from "./generated/ImportedSaves";
@@ -107,6 +115,7 @@ export type { DiscChoice };
 export type { DiscState };
 export type { EnhancedView };
 export type { FoundDisc };
+export type { Applied, Choices, ModProfile, Review, ReviewMod, ShareMod, SharePreview, Shared };
 export type { GameSaveStatus };
 export type { GameView };
 export type { JobEvent };
@@ -356,6 +365,18 @@ export const api = {
     call<RemoteInstalled>("plugins_update", { game, version, id }),
   pluginsSources: (game: string) => call<ModSources>("plugins_sources", { game }),
   pluginsSetPin: (game: string, id: string, pin: boolean) => call<ModSources>("plugins_set_pin", { game, id, pin }),
+  /** Mod codes (core/src/modset.rs): what a code of this game's mods would hold, and making one. */
+  modsetSharePreview: (game: string) => call<SharePreview>("modset_share_preview", { game }),
+  modsetShare: (game: string, version: string, extras: string[]) =>
+    call<Shared>("modset_share", { game, version, extras }),
+  /** What a code would change, with nothing changed. `text`: a code, short or long, or its link. */
+  modsetReview: (game: string, version: string, text: string) => call<Review>("modset_review", { game, version, text }),
+  modsetApply: (game: string, version: string, set: string, code: string | null, choices: Choices) =>
+    call<Applied>("modset_apply", { game, version, set, code, choices }),
+  modsetProfiles: (game: string) => call<ModProfile[]>("modset_profiles", { game }),
+  modsetRestore: (game: string, id: string) => call<null>("modset_restore", { game, id }),
+  /** The link that opened the launcher, once. */
+  modsetTakeLink: () => call<string | null>("modset_take_link"),
   /** A folder inside the game's set-up folder (an export), opened with the system. */
   openGameFolder: (game: string, path: string) => call<null>("open_game_folder", { game, path }),
   /** A folder a job wrote (a job exit's `outputs`), opened with the system; a file opens its folder. */
@@ -588,6 +609,12 @@ export async function pickIso(title: string, copying?: (progress: DiscCopy) => v
 }
 
 /** `disc-copy` events: a picked image's copy (Android) or a .chd's unpacking. */
+/** A mod code's link came in (modsetTakeLink has it). */
+export async function onModsetLink(handler: () => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => undefined;
+  return listen("modset-link", handler);
+}
+
 export async function onDiscCopy(handler: (progress: DiscCopy) => void): Promise<UnlistenFn> {
   if (!inTauri) return () => undefined;
   return listen<DiscCopy>("disc-copy", (e) => {

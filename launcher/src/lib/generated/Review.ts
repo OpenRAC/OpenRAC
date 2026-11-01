@@ -17,7 +17,11 @@ set: string,
  */
 code: string | null, name: string, created: string, 
 /**
- * It is for another game.
+ * The game it is for.
+ */
+game: string, 
+/**
+ * That is not the game it was reviewed for.
  */
 wrongGame: boolean, mods: Array<ReviewMod>, 
 /**

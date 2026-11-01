@@ -3,10 +3,12 @@
   import Header from "$components/Header.svelte";
   import LaunchScreen from "$components/LaunchScreen.svelte";
   import Toasts from "$components/Toasts.svelte";
+  import ModSetReview from "$components/ModSetReview.svelte";
   import ModUpdateModal from "$components/ModUpdateModal.svelte";
   import UpdateModal from "$components/UpdateModal.svelte";
   import { errorText, onAndroid } from "$lib/api";
   import { app, openDevelop, refresh, showLaunch, start, updateDiscordPresence, type Page } from "$lib/app.svelte";
+  import { followCodeLinks } from "$lib/modCodes.svelte";
   import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
   import { slide, slides } from "$lib/motion";
@@ -40,6 +42,14 @@
     return () => {
       clearTimeout(later);
     };
+  });
+
+  // A mod code's link: listened for once the library knows the games it can apply to.
+  let linksFollowed = false;
+  $effect(() => {
+    if (linksFollowed || !app.library || !app.config?.setupComplete) return;
+    linksFollowed = true;
+    void followCodeLinks();
   });
 
   // Android: the Games tab's pictures ready before it is first shown (media.ts).
@@ -178,6 +188,7 @@
 <Toasts />
 <UpdateModal />
 <ModUpdateModal />
+<ModSetReview />
 
 <style>
   .loading {
