@@ -189,12 +189,18 @@ void upload_instances(SceneFrame& frame) {
     frame.owner.scene.set_shrub_draws(
         frame.graphics.original_lod ? frame.scene.shrubs : std::vector<scene::ShrubDraw>{}
     );
+    // The ties and shrubs the game moved this tick (a moby's group) or removed, with the mobys.
+    frame.owner.scene.move_scenery(frame.scene.scenery);
+    const bool more = frame.graphics.original_lod || frame.owner.scene.has_moved_scenery();
     std::vector<scene::Instance> with_shrubs;
-    if (frame.graphics.original_lod) {
+    if (more) {
         with_shrubs = live;
-        frame.owner.scene.add_shrub_effects(with_shrubs);
+        if (frame.graphics.original_lod) {
+            frame.owner.scene.add_shrub_effects(with_shrubs);
+        }
+        frame.owner.scene.add_moved_scenery(with_shrubs);
     }
-    const auto& drawn = frame.graphics.original_lod ? with_shrubs : live;
+    const auto& drawn = more ? with_shrubs : live;
     frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
     if (debug_overlay::picker_snapshot_needed()) {

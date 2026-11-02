@@ -528,7 +528,7 @@ void LevelScene::choose_scenery(
         if (!original) {
             if (!scenery.drawn.empty()) {
                 scenery.drawn.clear();
-                set_instances(layer, scenery.source);
+                set_instances(layer, resident_scenery(k));
             }
             continue;
         }
@@ -560,20 +560,208 @@ void LevelScene::choose_scenery(
         if (!changed) {
             continue;
         }
-        std::vector<Instance> chosen;
-        chosen.reserve(scenery.source.size());
-        for (std::size_t i = 0; i < scenery.source.size(); ++i) {
-            if (scenery.drawn[i] == 0) {
-                continue;
-            }
-            chosen.push_back(scenery.source[i]);
-        }
-        set_instances(layer, chosen);
+        set_instances(layer, resident_scenery(k));
         rebuilt = true;
     }
     // How often the layers are grouped again (a frame's average: the share of frames).
     if (stats::enabled()) {
         stats::gauge("scenery regroups", rebuilt ? 1 : 0);
+    }
+}
+
+std::vector<Instance> LevelScene::resident_scenery(std::size_t k) const {
+    const Scenery& scenery = m_scenery[k];
+    const MovedScenery& moved = m_moved[k];
+    std::vector<Instance> resident;
+    resident.reserve(scenery.source.size());
+    for (std::size_t i = 0; i < scenery.source.size(); ++i) {
+        if ((!scenery.drawn.empty() && scenery.drawn[i] == 0)
+            || (i < moved.state.size() && moved.state[i] != 0)) {
+            continue;
+        }
+        resident.push_back(scenery.source[i]);
+    }
+    return resident;
+}
+
+void LevelScene::move_scenery(const GameScenery& game) {
+    // How far a matrix entry may be from the loaded one and still be taken for it: the export
+    // writes the game's floats, so only a move changes them.
+    constexpr float kSame = 1.0e-3f;
+    m_moved_count = 0;
+    for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+        const Scenery& scenery = m_scenery[k];
+        MovedScenery& moved = m_moved[k];
+        const auto& now = game.matrices[k];
+        const std::size_t count = scenery.source.size();
+        if (count == 0 || now.size() != count) {
+            continue;
+        }
+        // The first time: the game's matrices must be the loaded instances', or the layer is
+        // drawn as loaded (an edited level, another export's order).
+        if (moved.checked < 0) {
+            std::size_t same = 0;
+            for (std::size_t i = 0; i < count; ++i) {
+                const Mat4& m = scenery.source[i].matrix;
+                same += std::abs(now[i][9] - m[12]) < 0.01f && std::abs(now[i][10] - m[13]) < 0.01f
+                        && std::abs(now[i][11] - m[14]) < 0.01f;
+            }
+            moved.checked = same * 10 >= count * 9 ? 1 : 0;
+            if (moved.checked == 0) {
+                log::warn(
+                    "{}: {} of {} game matrices are the loaded instances'; drawn as loaded",
+                    layer_name(kSceneryLayers[k]),
+                    same,
+                    count
+                );
+            }
+            moved.state.assign(count, 0);
+            moved.matrix.assign(count, renderer::identity());
+            moved.lit.assign(count, renderer::identity());
+            moved.lit_set.assign(count, 0xFF);
+            moved.lit_points.assign(count, {});
+        }
+        if (moved.checked == 0) {
+            continue;
+        }
+        const bool ties = kSceneryLayers[k] == Layer::Ties;
+        const bool listed = ties && game.tie_lights.size() == count && game.tie_spheres.size() == count;
+        bool changed = false;
+        for (std::size_t i = 0; i < count; ++i) {
+            const Mat4& m = scenery.source[i].matrix;
+            const auto& g = now[i];
+            bool zero = true, same = true;
+            for (std::size_t c = 0; c < 4; ++c) {
+                for (std::size_t r = 0; r < 3; ++r) {
+                    const float v = g[c * 3 + r];
+                    zero = zero && (c == 3 || v == 0.0f);
+                    same = same && std::abs(v - m[c * 4 + r]) < kSame;
+                }
+            }
+            const std::uint8_t state = zero ? 2 : same ? 0 : 1;
+            m_moved_count += state == 1;
+            changed = changed || state != moved.state[i];
+            moved.state[i] = state;
+            Mat4& w = moved.matrix[i];
+            if (state == 1) {
+                for (std::size_t c = 0; c < 4; ++c) {
+                    for (std::size_t r = 0; r < 3; ++r) {
+                        w[c * 4 + r] = g[c * 3 + r];
+                    }
+                    w[c * 4 + 3] = c == 3 ? 1.0f : 0.0f;
+                }
+            }
+            if (!ties || i >= m_tie_relight.size() || state == 2) {
+                continue;
+            }
+            // A tie the game moved is lit again by where it is now, one a point light reaches
+            // with it too; one neither moved nor reached, as loaded.
+            std::array<TiePointLight, 4> points{};
+            std::array<float, 32> key{};
+            std::size_t lights = 0;
+            for (std::uint16_t list = listed ? game.tie_lights[i] : 0xFFFF; lights < 4; list >>= 4) {
+                const std::size_t slot = list & 0xF;
+                if (slot == 0xF) {
+                    break;
+                }
+                TiePointLight& p = points[lights];
+                const float* bank = m_point_lights.data() + 8 * (slot & 7);
+                p.colour = {bank[0], bank[1], bank[2]};
+                p.falloff = bank[3];
+                p.position = {bank[4], bank[5], bank[6]};
+                p.reach = bank[7];
+                std::copy_n(bank, 8, key.data() + 8 * lights);
+                ++lights;
+            }
+            const std::uint8_t set = state == 1 || lights > 0 ? m_tie_relight[i].light_set : 0xFF;
+            const Mat4& where = state == 1 ? w : m;
+            if (moved.lit_set[i] == set && (set == 0xFF || (moved.lit[i] == where && moved.lit_points[i] == key))) {
+                continue;
+            }
+            if (set == 0xFF) {
+                relight_moved_tie(i, nullptr);
+            } else {
+                relight_moved_tie(
+                    i, &where, std::span<const TiePointLight>(points.data(), lights),
+                    listed ? game.tie_spheres[i] : std::array<float, 4>{}
+                );
+            }
+            moved.lit[i] = where;
+            moved.lit_set[i] = set;
+            moved.lit_points[i] = key;
+        }
+        if (changed) {
+            set_instances(kSceneryLayers[k], resident_scenery(k));
+        }
+    }
+}
+
+void LevelScene::relight_moved_tie(
+    std::size_t i, const Mat4* matrix, std::span<const TiePointLight> points,
+    const std::array<float, 4>& sphere
+) {
+    const Instance& instance = m_scenery[0].source[i];
+    const TieRelight& relight = m_tie_relight[i];
+    if (m_lights == 0 || instance.lights < 0 || relight.cls < 0
+        || static_cast<std::size_t>(relight.cls) >= m_tie_relight_classes.size()
+        || static_cast<std::size_t>(relight.first) + relight.count > m_tie_slots.size()) {
+        return;
+    }
+    const TieRelightClass& cls = m_tie_relight_classes[static_cast<std::size_t>(relight.cls)];
+    const std::size_t first = static_cast<std::size_t>(instance.lights);
+    const std::size_t count = cls.vertices.size() / 5;
+    if (first + count > m_light_colours.size()) {
+        return;
+    }
+    std::vector<std::uint32_t> colours;
+    if (matrix != nullptr && m_light_sets.size() == std::size_t{16} * 16) {
+        relight_tie(
+            cls,
+            std::span(m_tie_slots).subspan(relight.first, relight.count),
+            *matrix,
+            std::span<const float, 16>(m_light_sets.data() + 16 * relight.light_set, 16),
+            colours,
+            points,
+            sphere
+        );
+    } else {
+        colours.assign(m_light_colours.begin() + first, m_light_colours.begin() + first + count);
+    }
+    // The texture's rows of 1024 colours that the instance's run crosses.
+    constexpr std::size_t width = kLightWidth;
+    glBindTexture(GL_TEXTURE_2D, m_lights);
+    for (std::size_t at = 0; at < colours.size();) {
+        const std::size_t texel = first + at;
+        const std::size_t run = std::min(colours.size() - at, width - texel % width);
+        glTexSubImage2D(
+            GL_TEXTURE_2D,
+            0,
+            static_cast<GLint>(texel % width),
+            static_cast<GLint>(texel / width),
+            static_cast<GLsizei>(run),
+            1,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            colours.data() + at
+        );
+        at += run;
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void LevelScene::add_moved_scenery(std::vector<Instance>& live) const {
+    for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+        const Scenery& scenery = m_scenery[k];
+        const MovedScenery& moved = m_moved[k];
+        for (std::size_t i = 0; i < moved.state.size() && i < scenery.source.size(); ++i) {
+            if (moved.state[i] != 1 || (!scenery.drawn.empty() && scenery.drawn[i] == 0)) {
+                continue;
+            }
+            Instance instance = scenery.source[i];
+            instance.matrix = moved.matrix[i];
+            instance.occlusion = Pvs::always;
+            live.push_back(instance);
+        }
     }
 }
 

@@ -296,6 +296,7 @@ endif()
 add_library(openrac_scene STATIC
   scene/hero_shadow.cpp
   scene/level.cpp
+  scene/tie_relight.cpp
   scene/object_picker.cpp
   scene/object_preview_mesh.cpp
   scene/moby_pose.cpp

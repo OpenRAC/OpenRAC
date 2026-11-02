@@ -296,6 +296,7 @@ bool LevelScene::upload(
             );
         }
         scenery.drawn.clear();
+        m_moved[k] = {};
     }
     // The shrubs' billboards and, for those that have one, their colour: their 24 lit colours'
     // average, channel by channel, truncated (LightShrubs' word at the instance's +0x1C).
@@ -535,6 +536,10 @@ bool LevelScene::upload(
         GL_STATIC_DRAW
     );
 
+    m_tie_relight_classes = level.tie_relight_classes;
+    m_tie_relight = level.tie_relight;
+    m_tie_slots = level.tie_slots;
+    m_light_colours = level.light_colours;
     if (!level.light_colours.empty()) {
         const std::size_t rows = (level.light_colours.size() + kLightWidth - 1) / kLightWidth;
         std::vector<std::uint32_t> texels(rows * kLightWidth, 0u);
@@ -724,6 +729,8 @@ void LevelScene::release() {
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
+    m_moved = {};
+    m_moved_count = 0;
     m_shrub_draws.clear();
     m_shrub_billboards.clear();
     m_shrub_colours.clear();

@@ -222,6 +222,15 @@ public:
     // rather than not at all.
     virtual bool terrain_takes_point_lights() const { return false; }
 
+    // Returns the executable's addresses of the words that point at the ties' and the shrubs'
+    // class-to-world matrices (64 bytes an instance, in the game's instance order; relocated to the
+    // loaded program's copy when read), for a game that moves or removes them at run time: Going
+    // Commando's mobys carry tie and shrub groups (the Maktar lamps' heads turn,
+    // func_L00_00323958) and zero the matrices of the ones they remove. 0: drawn as loaded. The
+    // third: the word that points at the ties' 32-byte records (bounding sphere at +0, the point
+    // lights' list at +0x1A), for the ties a point light reaches; 0 for none.
+    virtual std::array<std::uint32_t, 3> scenery_matrices() const { return {0, 0, 0}; }
+
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }
