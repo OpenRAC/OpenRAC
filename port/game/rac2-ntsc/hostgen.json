@@ -6,6 +6,7 @@
   "source": "games/rac2/ntsc",
   "frame_rate": 60,
   "entry": "func_00131AE8",
+  "ps2_float": ["func_00283248", "func_00283410", "func_002AB6D8"],
   "sources": [
     "src"
   ],
