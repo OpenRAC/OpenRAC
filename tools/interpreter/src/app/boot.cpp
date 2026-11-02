@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     std::string iso, hooks, ppm, vif_file, card, wav, native, native_calls;
     bool card_wanted = true;
     int vif_frame = -1;
-    int frames = -1, report = 60, states_frame = -1;
+    int frames = -1, report = 60, states_frame = -1, ppm_from = -1;
 
     /*
      * Threads that draw: by default most of the fast cores, leaving one for the program itself.
@@ -139,13 +139,16 @@ int main(int argc, char** argv) {
 
     std::vector<Press> presses;
 
-    /** Scripted left stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
+    /** Scripted stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
     struct Stick {
         /** The first field and how many fields it lasts. */
         int frame, length;
 
         /** The axes. */
         unsigned x, y;
+
+        /** The right stick (--rstick) rather than the left. */
+        bool right = false;
     };
 
     std::vector<Stick> sticks;
@@ -325,6 +328,14 @@ int main(int argc, char** argv) {
             Stick s{0, 4, 0x80, 0x80};
             std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
             sticks.push_back(s);
+        } else if (arg == "--rstick" && i + 1 < argc) {
+            // FRAME:X:Y[:FRAMES], the right stick (the camera's) as --stick has the left.
+            Stick s{0, 4, 0x80, 0x80, true};
+            std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
+            sticks.push_back(s);
+        } else if (arg == "--ppm-from" && i + 1 < argc) {
+            // FIELD: with --ppm FILE, also every field's picture from FIELD on, as FILE_<field>.ppm.
+            ppm_from = std::atoi(argv[++i]);
         } else if (arg == "--write" && i + 1 < argc) {
             // FRAME:ADDRESS:VALUE[:FRAMES], address and value in hexadecimal; one field by default.
             Write w{0, 1, 0, 0};
@@ -407,7 +418,8 @@ int main(int argc, char** argv) {
                 stderr,
                 "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose "
                 "N] "
-                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--stick "
+                "[--ntsc] [--window] [--ppm FILE] [--ppm-from FIELD] [--press "
+                "FRAME:BUTTONS[:FRAMES]] [--rstick FRAME:X:Y[:FRAMES]] [--stick "
                 "FRAME:X:Y[:FRAMES]] [--gs-states "
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
@@ -740,12 +752,13 @@ int main(int argc, char** argv) {
             }
         }
 
-        // The left stick for this field: centred, or the last scripted position that covers it.
+        // The sticks for this field: centred, or the last scripted position that covers it.
         machine.pad.left_x = machine.pad.left_y = 0x80;
+        machine.pad.right_x = machine.pad.right_y = 0x80;
         for (const Stick& s : sticks) {
             if (frame >= s.frame && frame < s.frame + s.length) {
-                machine.pad.left_x = static_cast<u8>(s.x);
-                machine.pad.left_y = static_cast<u8>(s.y);
+                (s.right ? machine.pad.right_x : machine.pad.left_x) = static_cast<u8>(s.x);
+                (s.right ? machine.pad.right_y : machine.pad.left_y) = static_cast<u8>(s.y);
             }
         }
 
@@ -857,6 +870,11 @@ int main(int argc, char** argv) {
         }
 
         bool shown = machine.drawing.picture(image);
+
+        // Every field's picture from --ppm-from on.
+        if (shown && !ppm.empty() && ppm_from >= 0 && frame >= ppm_from) {
+            write_ppm(ppm + "_" + std::to_string(frame) + ".ppm", image);
+        }
 
 #ifndef OPENRAC_NO_WINDOW
         // The picture is shown at the games' 4:3 shape, if the display was on.
