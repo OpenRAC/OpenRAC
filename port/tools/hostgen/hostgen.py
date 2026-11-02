@@ -1098,7 +1098,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
             program.functions[sym] = Function(sym, f.sig, None, asm=True, declared=f.declared)
     # A "ps2_float" name with no C hostgen translates (none, or the port's host C) changes nothing.
     problems = [f"ps2_float: {sym} has no C here to translate" for sym in sorted(program.ps2_float)
-                if getattr(program.functions.get(sym), "unit", None) is None or sym in program.host]
+                if (getattr(program.functions.get(sym), "unit", None) is None
+                    and not getattr(program.functions.get(sym), "asm", False)) or sym in program.host]
     for table in cfg.get("catalogues", []):
         read_catalogue(source / table, program)
     # A verified indirect entry can be absent even from the catalogue.
