@@ -204,6 +204,15 @@ CameraTurn latch_camera(
 
     CameraTurn result;
     result.yaw = wanted + latch.fade.carry();
+    if (log_on && !new_tick) {
+        // A frame between ticks: how far the latch turns it from the interpolated camera.
+        log::info(
+            "camera latch: frame between ticks {} alpha {:.2f} yaw {:.4f}",
+            scene.frame,
+            alpha,
+            result.yaw
+        );
+    }
     if (result.yaw == 0.0f) {
         return result;
     }
