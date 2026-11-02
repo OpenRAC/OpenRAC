@@ -195,3 +195,5 @@ hero state 22	0x0018C0B4	field	Hit: health down by the blow	HERO_STATE_HIT	level
 hero state 57	0x0018C0B4	field	Dead, before the respawn	HERO_STATE_DEAD	level 8 health 0	read	P14
 moby class 4873	0x00379A48	system	Ship Shack terminal in level 24: within 3.0 and facing, Triangle, state 5, func_L24_00379A48	ShipShack	level 24 shop opens	proven	P14
 func_002B49E0	0x002B49E0	function	Asks for game mode index (a stack when mode 1); 4 quick select from func_L00_0036F488, 5 vendor and shop	GameMode_Request	C; lldb	proven	P14
+func_0027D020	0x0027D020	function	Runs the draw callback list at 0x1BA040, count 0x1B160C; level 9 has a null entry once per run, no null seen entering func_0027CFD0	DrawCallbacks	lldb level 9	read	P17
+class_0x957	0x00000957	data	Ship enemy of the Wupash mission: state 0 waits for mission word +0x24 of the context, then registers with func_L05_003D0320	WupashEnemy	retail level 25 states	read	P17
