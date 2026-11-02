@@ -344,3 +344,15 @@ func_L00_00424F98	same	2026-11-01	d47584d0+dirty	59ad0cf0a099	16 calls
 func_L04_003A21F8	same	2026-11-01	d47584d0+dirty	9ba942bae735	12 calls
 func_L06_00443A38	same	2026-11-01	d47584d0+dirty	9c1088b41369	4 calls
 func_L06_003E5D30	same	2026-11-01	d47584d0+dirty	f63a7b5011b3	4 calls
+func_L02_00439CD8	same	2026-11-01	5bb51a7e	61b55eb84ff0	4 calls (box2's own capture of its level, P20)
+func_L05_00414F90	same	2026-11-01	5bb51a7e	bce9fdc483b0	4 calls (box2's own capture of its level, P20)
+func_L10_00415A50	same	2026-11-01	5bb51a7e	84073194ebd6	4 calls (box2's own capture of its level, P20)
+func_L11_0046D660	same	2026-11-01	5bb51a7e	e4d9815560ef	4 calls (box2's own capture of its level, P20)
+func_L12_00417690	same	2026-11-01	5bb51a7e	7af25c33c8dc	4 calls (box2's own capture of its level, P20)
+func_L13_0041CD18	same	2026-11-01	5bb51a7e	3153716c1f17	4 calls (box2's own capture of its level, P20)
+func_L15_0041F2F8	same	2026-11-01	5bb51a7e	9dac702aa36f	4 calls (box2's own capture of its level, P20)
+func_L15_00431590	same	2026-11-01	5bb51a7e	cf2a8029af1b	4 calls (box2's own capture of its level, P20)
+func_L18_00436B80	same	2026-11-01	5bb51a7e	c5ebd8c62ce9	4 calls (box2's own capture of its level, P20)
+func_L22_0040F1C0	same	2026-11-01	5bb51a7e	31cbcc269749	1 calls (box2's own capture of its level, P20)
+func_L23_00415988	same	2026-11-01	5bb51a7e	f4925d0db98c	4 calls (box2's own capture of its level, P20)
+func_L25_0040DE40	same	2026-11-01	5bb51a7e	e42705869a1c	4 calls (box2's own capture of its level, P20)
