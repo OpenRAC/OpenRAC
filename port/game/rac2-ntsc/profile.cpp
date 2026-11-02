@@ -254,6 +254,7 @@ public:
     }
 
     bool sends_display_list() const override { return true; }
+    bool own_mobys_split_the_2d() const override { return true; }
 
     bool images_outlast_list() const override { return true; }
 

@@ -228,3 +228,4 @@ func_003136D0	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sp
 func_L00_00424F98	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
 func_002E48E8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
+func_L08_002F2C48	game	func_L08_002F2C48	host	the fourth draw callback list's register, only in levels 8, 9, 19 and 30, folded with func_0027CFD0 by the catalogue (split_places.tsv, host/callback_lists.c)	void (unsigned int, unsigned int)
