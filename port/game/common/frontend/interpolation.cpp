@@ -304,9 +304,11 @@ void capture_frame(const FramePresentation& output) {
     static bool told_none_between = false;
     if (shot_between && !told_none_between && one_frame_a_tick()) {
         told_none_between = true;
-        log::warn("OPENRAC_SHOT_BETWEEN: no frames between ticks to write while OPENRAC_UNCAPPED or "
-                  "OPENRAC_NO_BLEND is set (one frame a tick); run in real time with a frame rate above "
-                  "Original");
+        log::warn(
+            "OPENRAC_SHOT_BETWEEN: no frames between ticks to write while OPENRAC_UNCAPPED or "
+            "OPENRAC_NO_BLEND is set (one frame a tick); run in real time with a frame rate above "
+            "Original"
+        );
     }
     // OPENRAC_SHOT_FROM=FRAME: no shots before that frame.
     static const std::uint64_t shot_from = env_frame(env::Var::ShotFrom).value_or(0);

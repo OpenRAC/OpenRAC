@@ -17,7 +17,7 @@
 void func_0011F828(void);
 void func_0011AEA0(int cache);
 int func_00131D98(int argc, int argv);
-void rac2_install_tools(void); /* tools.c */
+void rac2_install_tools(void);        /* tools.c */
 void rac2_install_camera_latch(void); /* camera_latch.c */
 
 /* InitSystemCallTableAddress (libkernl's initsys, called from _InitSys): it patches
