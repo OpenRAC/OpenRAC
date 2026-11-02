@@ -25,6 +25,47 @@ namespace openrac::scene {
 
 namespace fs = std::filesystem;
 
+namespace {
+// The importer already maps exported joint_NNN names to the game's stable joint numbers.
+int bone_number(const cgltf_node* node, int fallback) {
+    if (node && node->name && std::strncmp(node->name, "joint_", 6) == 0) {
+        return std::clamp(std::atoi(node->name + 6), 0, 255);
+    }
+    return fallback;
+}
+
+// Retain bind frames so P*S skinning palettes can recover the attachment frame P.
+void retain_bones(Model& model, const cgltf_skin& skin) {
+    for (cgltf_size j = 0; j < skin.joints_count; ++j) {
+        const auto* joint = skin.joints[j];
+        const int number = bone_number(joint, int(j));
+        model.bones.resize(std::max(model.bones.size(), std::size_t(number + 1)));
+        auto& bone = model.bones[std::size_t(number)];
+        bone.name = joint && joint->name ? joint->name : "joint_" + std::to_string(number);
+        Mat4 inverse{};
+        // A glTF without inverse binds defines identity, not a guessed vertex-space pivot.
+        if (skin.inverse_bind_matrices) {
+            if (!cgltf_accessor_read_float(skin.inverse_bind_matrices, j, inverse.data(), 16)) {
+                bone.name.clear();
+                continue;
+            }
+            const auto bind = renderer::inverse_affine(inverse);
+            if (bind) {
+                bone.bind = *bind;
+            } else {
+                bone.name.clear();
+            }
+        }
+        for (cgltf_size p = 0; p < skin.joints_count; ++p) {
+            if (joint && joint->parent == skin.joints[p]) {
+                bone.parent = bone_number(skin.joints[p], int(p));
+                break;
+            }
+        }
+    }
+}
+}  // namespace
+
 const char* layer_name(Layer layer) {
     switch (layer) {
         case Layer::Sky:
@@ -292,6 +333,7 @@ std::optional<std::uint32_t> load_model(
         // The skin's joints as the game numbers them (the exporter names them joint_NNN).
         std::vector<std::uint8_t> skin_joints;
         if (node.skin != nullptr) {
+            retain_bones(model, *node.skin);
             for (cgltf_size j = 0; j < node.skin->joints_count; ++j) {
                 const cgltf_node* joint = node.skin->joints[j];
                 int number = static_cast<int>(j);

@@ -3,6 +3,7 @@
 //
 // Fsr3 setup keeps optional SDK resources in enhanced Vulkan rendering and preserves HUD resolution.
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <utility>
 
@@ -11,6 +12,7 @@
 #include "enhanced/fsr3/temporal_math.h"
 #include "fsr3_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
 
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
@@ -19,6 +21,17 @@ namespace openrac::enhanced {
 using namespace openrac::gl;
 
 namespace {
+// The reactive mask's format: one channel (fsr-reactive-r8), or RGBA8 as before it.
+GLenum reactive_format() {
+    return renderer::render_opt::enabled(renderer::render_opt::Opt::FsrReactiveR8)
+               ? 0x8229 /* GL_R8 */
+               : GL_RGBA8;
+}
+
+// Diagnostics only (the capture report and the drawer, on the window thread); written on the
+// render thread by configure_upscaler.
+std::atomic<const char*> g_active_upscaler{"none"};
+
 // Camera discontinuities need fresh accumulation; ordinary movement retains temporal history.
 bool camera_cut(const renderer::Camera& current, const renderer::Camera& previous) {
     float distance_squared = 0;
@@ -47,6 +60,88 @@ Fsr3::~Fsr3() {
 bool Fsr3::available() {
     vkgl::NativeDevice device;
     return enhanced_rendering_available() && vkgl::native_device(device) && device.storage_formats;
+}
+
+const char* Fsr3::active_upscaler() {
+    return g_active_upscaler.load(std::memory_order_relaxed);
+}
+
+#if defined(__ANDROID__)
+constexpr bool kFsrAllowed = false;  // too slow on phones' GPUs: ASR or nothing
+#else
+constexpr bool kFsrAllowed = true;
+#endif
+
+bool Fsr3::State::asr_possible() const {
+    return !asr_refused && asr_detail::preferred();
+}
+
+bool Fsr3::State::configure_upscaler(
+    std::array<int, 2> size, std::array<int, 2> display_size, std::string& error
+) {
+    plain = plain_wanted || (!kFsrAllowed && !(asr_possible() && asr_detail::supports(size)));
+    if (plain) {
+        sdk.release();
+        asr.release();
+        valid = valid && !use_asr;
+        use_asr = false;
+        g_active_upscaler = "none";
+        return true;
+    }
+
+    // ASR is tried until it fails once; a device it cannot start on keeps FSR 3.1, and so do
+    // frames too small for it.
+    if (!asr_refused && asr_detail::preferred() && asr_detail::supports(size)) {
+        std::string reason;
+
+        if (asr.configure(size, display_size, reason)) {
+            sdk.release();
+            // The other upscaler's history does not carry over: the first frame starts afresh.
+            valid = valid && use_asr;
+            use_asr = true;
+            g_active_upscaler = "Arm ASR";
+            return true;
+        }
+
+        log::warn("Arm ASR unavailable: {}", reason);
+        asr.release();
+        asr_refused = true;
+        if (!kFsrAllowed) {
+            plain = true;
+            valid = false;
+            use_asr = false;
+            g_active_upscaler = "none";
+            return true;
+        }
+    }
+
+    if (use_asr) {
+        asr.release();
+        use_asr = false;
+        valid = false;
+    }
+
+    if (!sdk.configure(size, display_size, error)) {
+        return false;
+    }
+
+    g_active_upscaler = "FSR 3.1";
+    return true;
+}
+
+bool Fsr3::State::dispatch_upscaler(std::array<unsigned, 5> inputs, std::string& error) {
+    if (!use_asr) {
+        return sdk.dispatch(inputs, dispatch, error);
+    }
+
+    if (asr.dispatch(inputs, dispatch, error)) {
+        return true;
+    }
+
+    // A device that cannot run ASR's passes upscales with FSR 3.1 from the next frame on.
+    asr_refused = true;
+    asr_dispatch_failed = true;
+    return false;
 }
 
 void Fsr3::set_scene(
@@ -93,11 +188,13 @@ bool Fsr3::State::configure(
     if (world.width() != size[0] || world.height() != size[1]) {
         valid = false;
 
-        // RGBA16F preserves signed velocity; R32F stores depth without a stencil aspect.
+        // RGBA16F preserves signed velocity and its history flag; R32F stores depth without a
+        // stencil aspect. Reactivity is one channel, which R8 holds in a quarter of RGBA8's bytes
+        // (the upscaler reads its red alone either way).
         if (!world.create(size[0], size[1], error, 1, true)
             || !motion.create(size[0], size[1], 0x881A, 0, error)
             || !depth.create(size[0], size[1], 0x822E, 0, error)
-            || !reactive.create(size[0], size[1], GL_RGBA8, 0, error)
+            || !reactive.create(size[0], size[1], reactive_format(), 0, error)
             || !opaque.create(size[0], size[1], GL_RGBA8, 0, error)) {
             return false;
         }
@@ -120,14 +217,16 @@ bool Fsr3::State::configure(
     }
 
     // Only complete setups are reported as active temporal rendering.
-    if (!build_shaders(error) || !sdk.configure(size, {output.width(), output.height()}, error)) {
+    if (!build_shaders(error)
+        || !configure_upscaler(size, {output.width(), output.height()}, error)) {
         return false;
     }
 
     // Resolution changes are useful diagnostics without a message on every displayed frame.
     if (resized) {
         log::info(
-            "FSR temporal upscaling: {}x{} to {}x{}",
+            "{} temporal upscaling: {}x{} to {}x{}",
+            g_active_upscaler.load(std::memory_order_relaxed),
             size[0],
             size[1],
             output.width(),
@@ -149,9 +248,16 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     last_time = now;
     dispatch.sharpness = std::clamp(sharpness, 0.0f, 1.0f);
     dispatch.vertical_fov = 2 * std::atan(1 / camera.projection[5]);
-    const int phases = ffxFsr3UpscalerGetJitterPhaseCount(size[0], frame.display.width());
-    ffxFsr3UpscalerGetJitterOffset(&dispatch.jitter[0], &dispatch.jitter[1], jitter_index, phases);
-    jitter_index = (jitter_index + 1) % phases;
+    // Without an upscaler nothing gathers jittered frames: the camera stays still.
+    if (plain) {
+        dispatch.jitter = {0.0f, 0.0f};
+    } else {
+        const int phases = ffxFsr3UpscalerGetJitterPhaseCount(size[0], frame.display.width());
+        ffxFsr3UpscalerGetJitterOffset(
+            &dispatch.jitter[0], &dispatch.jitter[1], jitter_index, phases
+        );
+        jitter_index = (jitter_index + 1) % phases;
+    }
     renderer::Mat4 offset = renderer::identity();
     offset[12] = 2 * dispatch.jitter[0] / static_cast<float>(size[0]);
     offset[13] = 2 * dispatch.jitter[1] / static_cast<float>(size[1]);
@@ -205,10 +311,13 @@ bool Fsr3::begin(
 ) {
     State& state = *m_state;
 
-    if (quality == renderer::TemporalQuality::Off && frame.motion_blur
-        && frame.motion_blur_strength > 0) {
+    // Motion blur with temporal upscaling off: its motion is drawn, no upscaler runs.
+    const bool blur_only = quality == renderer::TemporalQuality::Off && frame.motion_blur
+                           && frame.motion_blur_strength > 0;
+    if (blur_only) {
         quality = renderer::TemporalQuality::NativeAA;
     }
+    state.plain_wanted = blur_only || (!kFsrAllowed && !state.asr_possible());
     state.blur_strength = frame.motion_blur ? frame.motion_blur_strength : 0.0f;
     state.blur_settings = frame.blur_settings;
     state.blur_mode_changed = state.camera_blur != frame.camera_motion_blur;
@@ -226,8 +335,11 @@ bool Fsr3::begin(
         return false;
     }
 
-    const auto size =
-        fsr3_detail::render_extent({frame.display.width(), frame.display.height()}, quality);
+    // Without an upscaler the world is drawn at the picture's own size.
+    const auto size = fsr3_detail::render_extent(
+        {frame.display.width(), frame.display.height()},
+        state.plain_wanted ? renderer::TemporalQuality::NativeAA : quality
+    );
 
     state.scene = &frame.scene;
     // A failed setup cannot install callbacks or leave a jittered native fallback.
@@ -253,6 +365,8 @@ void Fsr3::reset() {
 void Fsr3::release() {
     auto& state = *m_state;
     state.sdk.release();
+    state.asr.release();
+    state.use_asr = false;
     state.blur.release();
     state.motion.release();
     state.depth.release();

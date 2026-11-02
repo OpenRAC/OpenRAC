@@ -58,6 +58,7 @@ s32  is_value_within_interpolated_window(struct InterpolatedStateEntry *arg0,
 short D_L16_00161E48 = 0;
 void  chomper_update(struct Moby *m) __asm__("FUN_L16_002e5e08");
 
+/* Moby class 1445 */
 void chomper_update(struct Moby *chomper_moby) {
     enum {
         CHOMPER_INITIALIZE = 0,
@@ -227,7 +228,8 @@ void update_chomper_hit_reaction_and_target(void *chomper_instance) {
     char           *hit;
     int             reaction_kind_or_path_address; /* the reaction kind, later the path */
     int reaction_flags_or_path_entry_address; /* the reaction flags, later the path's slot in the table */
-    float scratch[8]; /* [0..3] where the hit came from, [4] the heading that gives */
+    float knockback_vector_and_heading
+        [8]; /* [0..3] where the hit came from, [4] the heading that gives */
 
     if (chomper_moby->state == 0) {
         return;
@@ -247,10 +249,13 @@ void update_chomper_hit_reaction_and_target(void *chomper_instance) {
         pursuit_data->pending = 0;
         pursuit_data->timer = frame_time * 2.0f;
         chomper_moby->flags &= ~0x1000;
-        *(OvlQuad *)scratch = *(OvlQuad *)(hit + 0x10);
-        trooper_knockback_arc(
-            scratch, scratch + 4, &pursuit_data->jump_speed, &pursuit_data->turn_speed);
-        trooper_start_knockback(chomper_moby, pursuit_data->knock, 5, 1, 0, scratch[4]);
+        *(OvlQuad *)knockback_vector_and_heading = *(OvlQuad *)(hit + 0x10);
+        trooper_knockback_arc(knockback_vector_and_heading,
+                              knockback_vector_and_heading + 4,
+                              &pursuit_data->jump_speed,
+                              &pursuit_data->turn_speed);
+        trooper_start_knockback(
+            chomper_moby, pursuit_data->knock, 5, 1, 0, knockback_vector_and_heading[4]);
         pursuit_data->f170 = 8.0f;
         pursuit_data->f174 = 16.0f;
         chomper_moby->state = 8;

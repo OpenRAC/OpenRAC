@@ -139,6 +139,18 @@ vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) 
     vec3 radiance = max(mix(light_sets[a].rgb, light_sets[b].rgb, blend), vec3(0.))
         * probe_sunlight_scale;
     vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0) * visibility;
+#ifdef OPENRAC_FORWARD_PLUS
+    // Local lights are unshadowed; a directional shadow must not erase wet point/spot highlights.
+    LOCAL_LIGHT_LOOP(i) {
+        vec4 position = LOCAL_POSITION(i);
+        vec3 delta = position.xyz - v_world_position;
+        float distance = length(delta);
+        if (position.w <= 0. || distance >= position.w || distance <= 1e-6) continue;
+        vec3 local_radiance = max(LOCAL_COLOUR(i).rgb, vec3(0.))
+            * LOCAL_ATTENUATION(distance,position.w) * LOCAL_CONE(i, delta / distance);
+        shine += local_radiance * ggx_specular(n, eye, delta / distance, roughness, hero_wetness_f0);
+    }
+#endif
 #if !defined(OPENRAC_SOLID) && !defined(OPENRAC_STATIC_COLOUR)
     // Captures contain their own lighting; the current sun shadow must not erase them.
     if (dot(n, eye) > 0.) {

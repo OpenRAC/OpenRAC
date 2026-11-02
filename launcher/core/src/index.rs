@@ -204,6 +204,9 @@ pub struct IndexMod {
     pub downloads: u64,
     #[serde(default)]
     pub downloads7d: u64,
+    /// The author says AI helped make it. Older indexes leave it out.
+    #[serde(default)]
+    pub ai_assisted: bool,
     #[serde(default)]
     pub created: String,
     #[serde(default)]
@@ -688,6 +691,14 @@ pub(crate) mod tests {
         let b64 = base64::engine::general_purpose::STANDARD.encode(FIXTURE_SIG);
         let net = Net::serving(FIXTURE.as_bytes(), &b64);
         assert!(fetch(&sources(&net, cache.path(), BEFORE_EXPIRY)).is_ok());
+    }
+
+    #[test]
+    fn ai_assisted_is_read_and_off_when_left_out() {
+        let on: IndexMod = serde_json::from_str(r#"{"id":"a","aiAssisted":true}"#).unwrap();
+        let old: IndexMod = serde_json::from_str(r#"{"id":"a"}"#).unwrap();
+        assert!(on.ai_assisted);
+        assert!(!old.ai_assisted);
     }
 
     #[test]

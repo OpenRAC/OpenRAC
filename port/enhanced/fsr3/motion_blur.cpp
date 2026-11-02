@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
@@ -63,6 +64,7 @@ bool MotionBlur::apply(const BlurFrame& frame) {
     const stats::Scope timing(
         frame.camera_relative ? "Camera motion blur" : "Target-relative motion blur", stats::kGpu
     );
+    crash::breadcrumb("motion blur");
     const auto& display = frame.display;
     const auto [rw, rh] = frame.render_size;
     std::string error;
@@ -141,6 +143,7 @@ void MotionBlur::extract_velocity(const Passes& passes) {
     glUniform1f(extract.uniform("exposure"), intensity * 16.666667f / std::max(milliseconds, 1.f));
     glBindFramebuffer(GL_FRAMEBUFFER, m_velocity.framebuffer());
     glViewport(0, 0, rw, rh);
+    let_go_colour();
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
@@ -208,6 +211,7 @@ int MotionBlur::jump_flood(const Passes& passes) {
         bind(0, m_seeds[source].texture());
         glUniform1i(program.uniform("jump_pixels"), jump);
         glBindFramebuffer(GL_FRAMEBUFFER, m_seeds[1 - source].framebuffer());
+        let_go_colour();
         glDrawArrays(GL_TRIANGLES, 0, 3);
         source = 1 - source;
         ++pass_count;
@@ -237,6 +241,10 @@ void MotionBlur::gather(const Passes& passes, int source) {
     bind(2, m_seeds[source].texture());
     glUniform1i(resolve.uniform("colour_texture"), 0);
     glUniform1i(resolve.uniform("sample_count"), samples);
+    glUniform1i(
+        resolve.uniform("adaptive_samples"),
+        renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurAdaptiveSamples) ? 1 : 0
+    );
     glUniform1f(resolve.uniform("min_motion"), min_motion);
     glUniform1f(
         resolve.uniform("depth_tolerance"), std::clamp(tuning.depth_tolerance, .001f, .05f)
@@ -246,7 +254,22 @@ void MotionBlur::gather(const Passes& passes, int source) {
     glUniform2f(resolve.uniform("jitter"), jitter[0], jitter[1]);
     glBindFramebuffer(GL_FRAMEBUFFER, display.framebuffer);
     glViewport(0, 0, display.width, display.height);
+
+    // The copying gather writes every pixel of the display; the other keeps those that hold still.
+    if (reconstructed_colour && display.framebuffer != 0) {
+        let_go_colour();
+    }
+
     glDrawArrays(GL_TRIANGLES, 0, 3);
+}
+
+void let_go_colour() {
+    // Only where the backend can let an attachment go (the Vulkan backend, OpenGL ES).
+    if (glInvalidateFramebuffer != nullptr
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::OverwriteDiscard)) {
+        const GLenum colour = GL_COLOR_ATTACHMENT0;
+        glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &colour);
+    }
 }
 
 }  // namespace openrac::enhanced::fsr3_detail

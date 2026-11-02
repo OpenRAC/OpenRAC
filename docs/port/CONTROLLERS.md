@@ -266,11 +266,11 @@ For the other games this is a real gap:
 
 ### 5.1 What SDL3 exposes
 
-The port builds against **SDL 3.2.24** when the system has none
-(`port/cmake/Dependencies.cmake:59`, `GIT_TAG release-3.2.24`). Every gamepad
-and HID API below is present in that version — checked against
-`include/SDL3/SDL_gamepad.h` and `include/SDL3/SDL_hidapi.h` at tag
-`release-3.2.24`.
+The port builds against **SDL 3.4.18** on a desktop and **SDL 3.2.24** on
+Android when the system has none (`port/cmake/Dependencies.cmake`,
+`openrac_sdl_tag`). Every gamepad and HID API below is present in 3.2.24, and
+so in both — checked against `include/SDL3/SDL_gamepad.h` and
+`include/SDL3/SDL_hidapi.h` at tag `release-3.2.24`.
 
 | DualSense feature | SDL3 API | In 3.2.24? | What it does on a DualSense |
 |---|---|---|---|
@@ -432,7 +432,33 @@ The community's advice for a game that wants the advanced features is to
 **disable Steam Input for that title**. On Linux, a native game also needs the
 hidraw path visible.
 
-### 6.6 Linux permissions
+### 6.6 Steam Controller without Steam
+
+SDL reads a Steam Controller itself through its HIDAPI drivers: the 2015 one
+(`SDL_hidapi_steam.c`, wired, its dongle or Bluetooth) and, from SDL 3.4, the
+2026 one, "Triton" (`SDL_hidapi_steam_triton.c`: wired `28de:1302`, the puck
+`28de:1304`). The driver turns off the controller's own mouse-and-keyboard
+mode while the game has it, and the controller plays as any gamepad: face
+buttons, bumpers, analogue triggers, both sticks, the d-pad, View and Menu, and
+its grip buttons as paddles (bindable in the controls). So a game started from
+the launcher or a shortcut needs no "non-Steam game" entry in Steam. The port
+asks for the driver on every desktop (`SDL_JOYSTICK_HIDAPI_STEAM=1`,
+`platform/window.cpp`); `SDL_JOYSTICK_HIDAPI_STEAM=0` in the environment turns
+it off. Android keeps SDL's default (off: it would ask for Bluetooth rights).
+On PC the Steam Controller's upper right back button (R4, SDL's right paddle
+1; the 2015 controller's right grip) hides and shows the menu bar by default,
+as its key does, while the game's window has the focus (`menu_bar_button`,
+changed in Controller bindings, Menu bar). Not "...": the port cannot keep a
+running Steam client from reading the same controller, and Steam opens its own
+panel on "..." whatever window has the focus.
+
+With the Steam client open, Steam's desktop layout may still move the mouse
+from the controller while the game plays; Steam's "desktop configuration"
+decides that, not the game. On Linux the controller's hidraw nodes need
+Valve's udev rules (`steam-devices`, 6.7). A Linux build against a system SDL
+older than 3.4 knows only the 2015 controller.
+
+### 6.7 Linux permissions
 
 SDL talks to a DualSense over **hidraw** through its bundled HIDAPI driver,
 not over `/dev/input/event*`. That needs a udev rule:
@@ -448,7 +474,7 @@ KERNEL=="hidraw*", KERNELS=="*054C:0CE6*", MODE="0660", TAG+="uaccess"
 `pydualsense`, `dualsensectl` and `hhd`. SDL itself ships only a sample rule
 with a placeholder VID/PID.
 
-### 6.7 Bluetooth is harder
+### 6.8 Bluetooth is harder
 
 - The output report is **78 bytes** with a **CRC32** trailer, against USB's
   48 bytes with none.

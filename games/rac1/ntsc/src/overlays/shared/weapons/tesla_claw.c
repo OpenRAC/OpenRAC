@@ -91,25 +91,25 @@ extern s32            D_0015EEA4;
 extern unsigned char  D_0013E533_2b2100[] __asm__("D_0013E533");
 extern unsigned short D_00141D70_2b2100[] __asm__("D_00141D70");
 extern unsigned short D_00141918_2b2100[] __asm__("D_00141918");
-extern int            D_L00_00161590 __asm__("D_L00_00161590");
+extern int            tesla_beam_restart_pending __asm__("D_L00_00161590");
 extern float          D_L00_001615AC_gp __asm__("D_L00_001615AC") __attribute__((sda));
 extern float          D_L00_001615B4_gp __asm__("D_L00_001615B4") __attribute__((sda));
 extern float          D_L00_001615C8_gp __asm__("D_L00_001615C8") __attribute__((sda));
-extern int            D_L00_00161590_gp __asm__("D_L00_00161590") __attribute__((sda));
+int                   tesla_beam_restart_pending_gp __asm__("D_L00_00161590") = 1;
 extern int            D_L00_0016167C __attribute__((sda));
-extern int     tesla_beam_initial_frame_count_gp __asm__("D_L00_00161624") __attribute__((sda));
-extern float   D_L00_00161594 __attribute__((sda));
-extern short   D_L00_00161658[] MACRO_ADDR;
-extern short   D_L00_00161668[] MACRO_ADDR;
-extern short   D_L00_0016166A;
-extern short   D_L00_0016166C;
-extern short   D_L00_0016166E;
-extern short   D_L00_00161670[] MACRO_ADDR;
-extern short   D_L00_00161672;
-extern short   D_L00_00161674;
-extern short   D_L00_00161676;
-extern V2b9310 l00_tesla_beam_previous_point_window[] __asm__("D_L00_001DB5B0");
-extern V2b9310 D_L00_001DB5C0[];
+int                   tesla_beam_initial_frame_count_gp __asm__("D_L00_00161624") = 90;
+extern float          D_L00_00161594 __attribute__((sda));
+extern short          D_L00_00161658[] MACRO_ADDR;
+extern short          D_L00_00161668[] MACRO_ADDR;
+extern short          D_L00_0016166A;
+extern short          D_L00_0016166C;
+extern short          D_L00_0016166E;
+extern short          D_L00_00161670[] MACRO_ADDR;
+extern short          D_L00_00161672;
+extern short          D_L00_00161674;
+extern short          D_L00_00161676;
+extern V2b9310        l00_tesla_beam_previous_point_window[] __asm__("D_L00_001DB5B0");
+extern V2b9310        D_L00_001DB5C0[];
 
 int     D_L01_001615C0 = 1;
 float   D_L01_001615DC = 0;
@@ -493,6 +493,7 @@ Vec4 D_L00_001DBA10[4][5] = {0};
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002B33E8.c: func_L00_002B9AD8), where it is exact; names translated to the US level program. */
 void tesla_claw_update(struct Moby *m) __asm__("FUN_L00_002b87e0");
 
+/* Moby class 177 */
 void tesla_claw_update(struct Moby *tesla_claw_moby) {
     enum {
         TESLA_CLAW_STATE_INITIALIZE = 0,
@@ -646,7 +647,7 @@ void tesla_claw_update(struct Moby *tesla_claw_moby) {
         tesla_claw_vars->lock2 = 0;
     }
     if (!active) {
-        D_L00_00161590 = 1;
+        tesla_beam_restart_pending = 1;
         if (tesla_claw_vars->glow > 0)
             tesla_claw_vars->glow--;
         if (tesla_claw_vars->sound != -1) {
@@ -669,7 +670,7 @@ void tesla_claw_update(struct Moby *tesla_claw_moby) {
     case TESLA_CLAW_STATE_INITIALIZE:
         tesla_claw_vars->timer = scale_game_frames(16);
         tesla_claw_vars->light = FUN_L00_0023e5e0_2b2100(&tesla_claw_vars->pos, 0.0f, 0.0f, 0);
-        D_L00_00161590 = 1;
+        tesla_beam_restart_pending = 1;
         tesla_claw_moby->state = 1;
         tesla_claw_vars->f3E = 20;
         tesla_claw_vars->sound = -1;
@@ -775,21 +776,21 @@ void initialize_tesla_claw_beam(struct Moby *moby) __asm__("FUN_L00_002b9310");
 void initialize_tesla_claw_beam(struct Moby *moby) {
     V2b9310 beam_endpoint_delta;
     V2b9310 step;
-    char   *data;
+    char   *tesla_claw_beam_vars;
     int     i;
     int     j;
 
-    data = ((char *)moby->pvars);
-    if (D_L00_00161590_gp == 0) {
+    tesla_claw_beam_vars = ((char *)moby->pvars);
+    if (tesla_beam_restart_pending_gp == 0) {
         return;
     }
-    D_L00_00161590_gp = 0;
+    tesla_beam_restart_pending_gp = 0;
     D_L00_0016167C = 0;
     tesla_beam_scaled_initial_frame_count = scale_game_frames(tesla_beam_initial_frame_count_gp);
     D_L00_001615F8 = 0x7F2020;
-    fast_vec_sub(&beam_endpoint_delta, data + 0x10, data);
+    fast_vec_sub(&beam_endpoint_delta, tesla_claw_beam_vars + 0x10, tesla_claw_beam_vars);
     fast_vec_normalize(&step, &beam_endpoint_delta, D_L00_00161594 / 20.0f);
-    qcopy(D_L00_001DB5C0, data);
+    qcopy(D_L00_001DB5C0, tesla_claw_beam_vars);
     for (i = 1; i < 20; i++) {
         fast_vec_add(&D_L00_001DB5C0[i], &l00_tesla_beam_previous_point_window[i], &step);
         D_L00_001DB840[i] = 0;

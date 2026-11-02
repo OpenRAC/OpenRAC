@@ -1,7 +1,7 @@
 #include "types.h"
 
 extern void *help_msgs __asm__("D_0015F6A0");
-extern u8    s_paradox_this_message_does_not[] __asm__("D_00199968");
+extern char  s_paradox_this_message_does_not[] __asm__("D_00199968");
 extern s32   find_help_message_index(s32 id) __asm__("func_001fdca0");
 
 s32 get_help_message_text(s32 id) __asm__("FUN_001fdd10");
@@ -14,5 +14,9 @@ s32 get_help_message_text(s32 id) {
     }
     return (s32)s_paradox_this_message_does_not;
 }
+
+/* Returned when no help message has the requested id. */
+char s_paradox_this_message_does_not[] __asm__("D_00199968") =
+    "Paradox: This message does not exist";
 
 extern s32 func_001FDD10(s32 id) __attribute__((alias("FUN_001fdd10")));

@@ -6,11 +6,12 @@ are comparable within a game, not between games.
 
 | Game | Version | Code matched | Functions | Fuzzy | Report date |
 |---|---|---:|---:|---:|---|
-| Ratchet & Clank | SCES_509.16 ([`games/rac1`](../games/rac1)) | 100.00% (3,713,096 / 3,713,096 bytes) | 5,116 / 5,116 | 100.00% | 2026-10-27 |
-| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 98.72% (3,502,500 / 3,547,932 bytes) | 4,218 / 4,244 | 98.86% | 2026-10-20 |
+| Ratchet & Clank | SCES_509.16 ([`games/rac1`](../games/rac1)) | 100.00% (3,713,096 / 3,713,096 bytes) | 5,116 / 5,116 | 100.00% | 2026-10-28 |
+| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 100.00% (3,547,932 / 3,547,932 bytes) | 4,244 / 4,244 | 100.00% | 2026-10-31 |
 | Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 8.95% (495,320 / 5,533,600 bytes) | 3,761 / 9,100 | 8.95% | 2026-10-20 |
+| Ratchet & Clank: Going Commando | SCES_516.07 (not started) | – | – | – | – |
 | Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/ntsc`](../games/rac3/ntsc)) | 1.28% (164,764 / 12,838,776 bytes) | 1,292 / 31,316 | 1.28% | 2026-10-03 |
-| Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/ntsc`](../games/rac4/ntsc)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-04 |
+| Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/ntsc`](../games/rac4/ntsc)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-05 |
 | Ratchet & Clank: Size Matters | SCUS_976.15 ([`games/rac5/ntsc`](../games/rac5/ntsc)) | – | – | – | – |
 | Ratchet & Clank: Secret Agent Clank | SCUS_976.23 ([`games/rac6/ntsc`](../games/rac6/ntsc)) | – | – | – | – |
 

@@ -118,7 +118,8 @@ bool write(
         );
     }
     if (!out) {
-        error = "could not write " + path.string();
+        const std::u8string name = path.u8string();  // string() throws on Windows off the code page
+        error = "could not write " + std::string(name.begin(), name.end());
         return false;
     }
     return true;

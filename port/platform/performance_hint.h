@@ -21,8 +21,9 @@
 namespace openrac::platform {
 
 // The time a frame may take, in seconds: the game's tick, or the display's refresh (or the
-// player's frame cap) when frames are drawn between ticks. Starts the hint session the first time
-// it is called, from the window thread, which it covers.
+// player's frame cap) when frames are drawn between ticks. The session is asked for a part of it
+// (kHeadroom), so the clocks keep some time in hand. Starts the hint session the first time it is
+// called, from the window thread, which it covers.
 void set_frame_target(double seconds);
 
 // The calling thread does frame work as well (the render thread): the session takes it in.

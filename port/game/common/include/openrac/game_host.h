@@ -101,6 +101,12 @@ extern const char* openrac_game_card_dir;
  * (launcher/core/src/saves.rs). */
 extern const char* openrac_game_loaded_mods;
 
+/* The memory card slot of the save the game last read whole (Load Game) or wrote (a save), and that
+ * save's seconds played; -1 for none since the start. lib/mc.c keeps them; a game's
+ * save_slot_current reads them (openrac_api.save_slot_current). */
+extern int openrac_game_save_in_use;
+extern int32_t openrac_game_save_in_use_seconds;
+
 /* The console's language setting (sceScfGetLanguage): 1 English, 2 French,
  * 3 Spanish, 4 German, 5 Italian. */
 extern int openrac_game_language;
@@ -450,6 +456,9 @@ typedef struct openrac_game_play {
     /* How the last tick ran the level's mobys and the moby in `slot` (-1 none) into `out` (1, or 0
      * outside a level: openrac_api.moby_run). NULL for a game without it. */
     int (*moby_run)(int32_t slot, openrac_game_moby_run* out);
+    /* The memory card slot the game in progress saves into (the one it was loaded from or last
+     * saved to), -1 for none (openrac_api.save_slot_current). NULL for a game without it. */
+    int (*save_slot_current)(void);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

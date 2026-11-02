@@ -55,9 +55,9 @@ extern int D_L14_0015FFD8_c __asm__("D_L14_0015FFD8");
 extern float unfolding_column_initial_position_offset_scale __asm__("D_L14_001621F4")
     __attribute__((sda));
 
-extern float unfolding_column_piece_spacing __asm__("D_L14_001621F8") __attribute__((sda));
+float unfolding_column_piece_spacing __asm__("D_L14_001621F8") = 1.05f;
 
-extern float unfolding_column_first_piece_offset __asm__("D_L14_001621FC") __attribute__((sda));
+float unfolding_column_first_piece_offset __asm__("D_L14_001621FC") = 0;
 
 extern float unfolding_column_pivot_final_angle_degrees __asm__("D_L14_00162200")
     __attribute__((sda));
@@ -74,9 +74,10 @@ int trooper_play_sound(int i, int a1, int v, int k) __asm__("FUN_L00_0028dc90");
 
 extern float interpolate_scalar_linear(float, float, float) __asm__("FUN_L00_0025b6a8");
 
-void update_unfolding_column(UnfoldingColumnMoby *moby) __asm__("FUN_L14_00305d28");
+void unfolding_column_update(UnfoldingColumnMoby *moby) __asm__("FUN_L14_00305d28");
 
-void update_unfolding_column(UnfoldingColumnMoby *moby) {
+/* Moby class 1395 */
+void unfolding_column_update(UnfoldingColumnMoby *moby) {
     enum {
         UNFOLDING_COLUMN_INITIALIZE = 0,
         UNFOLDING_COLUMN_WAIT_FOR_TRIGGER = 1,
@@ -181,12 +182,12 @@ void update_unfolding_column(UnfoldingColumnMoby *moby) {
     }
 }
 
-u8 *create_unfolding_column_pivot(u8 *self) {
+u8 *create_unfolding_column_pivot(u8 *source_moby) {
     u8 *created_moby = create_moby(0x574);
 
     if (created_moby != 0) {
-        qcopy(created_moby + 0x10, self + 0x10);
-        qcopy(created_moby + 0x40, self + 0x40);
+        qcopy(created_moby + 0x10, source_moby + 0x10);
+        qcopy(created_moby + 0x40, source_moby + 0x40);
         created_moby[0x30] = 0x40;
         created_moby[0x20] = 0;
         MOBY(created_moby)->draw_dist = 0x40;
@@ -199,3 +200,7 @@ u8 *create_unfolding_column_pivot(u8 *self) {
 int unfolding_column_piece_unfold_frames __asm__("D_L14_00162204") = 0xf;
 
 int unfolding_column_pivot_swing_frames __asm__("D_L14_0016220C") = 0x78;
+
+float unfolding_column_initial_position_offset_scale __asm__("D_L14_001621F4") = 0.48f;
+
+float unfolding_column_pivot_final_angle_degrees __asm__("D_L14_00162200") = 182.0f;

@@ -65,6 +65,7 @@ extern float thruster_pack_lock_green_rest_height_offset_gp __asm__("D_L18_00161
     __attribute__((sda));
 void thruster_pack_lock_green_update(char *moby) __asm__("FUN_L18_002d6600");
 
+/* Moby class 583 */
 void thruster_pack_lock_green_update(char *moby) {
     enum {
         STATE_INITIALIZE = 0,
@@ -296,14 +297,14 @@ void set_thruster_pack_lock_green_list_fields(int moby_list_index) __asm__("FUN_
 void set_thruster_pack_lock_green_list_fields(int moby_list_index) {
     short *moby_list_entry = (short *)D_L18_001AC240_u[moby_list_index];
     if (moby_list_entry != 0) {
-        char *base = *(char **)&D_L18_0015FFD8_d;
+        char *moby_array_base = *(char **)&D_L18_0015FFD8_d;
         do {
             int   moby_byte_offset = (*moby_list_entry & 0x7FFF) << 8;
-            char *moby = (char *)moby_byte_offset + (int)base;
+            char *moby = (char *)moby_byte_offset + (int)moby_array_base;
             if (MOBY(moby)->oclass == 0x247) {
-                char *data = ((char *)MOBY(moby)->pvars);
-                *(int *)(data + 0x30) = 1;
-                *(float *)(data + 0x24) = 1.5f;
+                char *class_247_private_vars = ((char *)MOBY(moby)->pvars);
+                *(int *)(class_247_private_vars + 0x30) = 1;
+                *(float *)(class_247_private_vars + 0x24) = 1.5f;
             }
         } while (*moby_list_entry++ >= 0);
     }

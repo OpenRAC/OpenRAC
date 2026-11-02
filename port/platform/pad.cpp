@@ -121,6 +121,60 @@ void stick_bytes(
     out_y = stick_byte(axis(fy));
 }
 
+namespace {
+
+std::uint8_t float_axis_byte(float v) {
+    return stick_byte(
+        static_cast<std::int16_t>(std::clamp(std::lround(v * 32768.0f), -32768L, 32767L))
+    );
+}
+
+}  // namespace
+
+void stick_pair_bytes(
+    float x, float y, const StickDeadZone& dead_zone, std::uint8_t& out_x, std::uint8_t& out_y
+) {
+    out_x = float_axis_byte(x);
+    out_y = float_axis_byte(y);
+    const float length = std::sqrt(x * x + y * y);
+    if (dead_zone.span <= 0 || length <= 0.0f) {
+        return;
+    }
+    // What the game reads for an axis pushed right as far as the stick is: none inside its dead
+    // zone. Each axis gets its share of it, both ways alike (a squared stick's corner keeps
+    // reaching past 1).
+    const float reach_length = std::min(length, 1.0f);
+    const int reach = float_axis_byte(reach_length) - 0x7F;
+    if (reach <= dead_zone.inner) {
+        return;
+    }
+    const float read = std::min(
+        static_cast<float>(reach - dead_zone.inner) / static_cast<float>(dead_zone.span), 1.0f
+    );
+    const auto out = [&](float v, std::uint8_t& byte) {
+        const float wanted = std::abs(v) * read / reach_length;
+        const long steps = std::lround(wanted * static_cast<float>(dead_zone.span));
+        if (steps <= 0) {
+            return;  // the game reads nothing on this axis either way
+        }
+        std::uint8_t pushed = 0;
+        if (wanted >= 1.0f) {
+            pushed = v > 0.0f ? 0xFF : 0x00;
+        } else {
+            const int distance = dead_zone.inner + static_cast<int>(steps);
+            pushed = static_cast<std::uint8_t>(
+                v > 0.0f ? std::min(0x7F + distance, 0xFF) : std::max(0x7F - distance, 0x00)
+            );
+        }
+        // Never less far out than the stick itself is.
+        if (std::abs(pushed - 0x7F) > std::abs(byte - 0x7F)) {
+            byte = pushed;
+        }
+    };
+    out(x, out_x);
+    out(y, out_y);
+}
+
 std::uint8_t trigger_byte(std::int16_t axis) {
     const int value = std::clamp(static_cast<int>(axis), 0, 32767);
     return static_cast<std::uint8_t>((value * 255 + 16383) / 32767);

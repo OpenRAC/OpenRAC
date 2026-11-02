@@ -58,7 +58,7 @@ extern int ballistic_ring_trail_second_color_start_gp __asm__("D_L18_00161C38")
 extern int ballistic_ring_trail_second_color_end_gp __asm__("D_L18_00161C3C") __attribute__((sda));
 extern int ballistic_ring_trail_sparks_per_update_gp __asm__("D_L18_00161C40") __attribute__((sda));
 
-#include "rnc/overlay/l18/mobys/drek_boss_ring_projectile_data/update_drek_boss_ring_projectile.h"
+#include "rnc/overlay/l18/mobys/drek_boss_ring_projectile_data/drek_boss_ring_projectile_update.h"
 
 extern void jet_animate(unsigned char *m, float s) __asm__("FUN_L00_00259fe8");
 extern void draw_expanding_projectile_ring() __asm__("FUN_L18_002dba20");
@@ -66,9 +66,10 @@ void        process_expanding_ring_collisions(struct Moby *moby) __asm__("FUN_L1
 
 extern void mark_moby_for_removal(void *) __asm__("FUN_0020c828");
 
-void update_drek_boss_ring_projectile(struct Moby *moby) __asm__("FUN_L18_002db460");
+void drek_boss_ring_projectile_update(struct Moby *moby) __asm__("FUN_L18_002db460");
 
-void update_drek_boss_ring_projectile(struct Moby *moby) {
+/* Moby class 624 */
+void drek_boss_ring_projectile_update(struct Moby *moby) {
     enum {
         STATE_BALLISTIC_FLIGHT = 0,
         STATE_GROUND_IMPACT_DELAY = 1,
@@ -284,7 +285,9 @@ extern int   tween_color_dba20(int, int, float) __asm__("FUN_001fa6e0");
 extern float scale_time(float) __asm__("FUN_001f96b0");
 extern void  draw_quad_dba20(void *, void *, int) __asm__("FUN_001f7d30");
 
-extern float expanding_projectile_ring_quad_uvs[] __asm__("D_L18_001D4310");
+/* One (u, v) pair for each of the 4 quad corners. */
+float expanding_projectile_ring_quad_uvs[8] __asm__("D_L18_001D4310") = {
+    0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f};
 
 #include "rnc/overlay/l18/mobys/drek_boss_ring_projectile_data/draw_expanding_projectile_ring_2.h"
 

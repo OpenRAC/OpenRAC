@@ -18,9 +18,10 @@
 
 extern void draw_moby_animated_quad_layers(unsigned char *m) __asm__("FUN_L10_002e91b8");
 
-void update_hero_flag_from_moby_local_box(unsigned char *moby) __asm__("FUN_L10_002e9028");
+void updraft_vent_update(unsigned char *moby) __asm__("FUN_L10_002e9028");
 
-void update_hero_flag_from_moby_local_box(unsigned char *moby) {
+/* Moby class 1378 */
+void updraft_vent_update(unsigned char *moby) {
     enum {
         MOBY_UPDATE_INITIALIZE = 0,
         MOBY_UPDATE_ACTIVE = 1
@@ -75,14 +76,18 @@ extern QuadCorner l10_animated_quad_first_base_corners[] __asm__("D_L10_001DA350
 extern float      quad_layer_uv_phase_divisors[][2] __asm__("D_L10_001DA270");
 extern float      quad_corner_base_uvs[][2] __asm__("D_L10_001DA2F0");
 
-extern int  quad_layer_colors[] __asm__("D_L10_001DA250");
-extern int  quad_layer_uv_cosine_selectors[][2] __asm__("D_L10_001DA2B0");
-extern s64  get_effect_texture(s32) __asm__("func_001F44B8");
-extern int  quad_layer_count_gp __asm__("D_L10_00161F40") __attribute__((sda));
-extern int  quad_layer_alpha_a_selectors[2] __asm__("D_L10_00161F48") __attribute__((sda));
-extern int  quad_layer_alpha_b_selectors[2] __asm__("D_L10_00161F50") __attribute__((sda));
-extern int  quad_layer_alpha_c_selectors[2] __asm__("D_L10_00161F58") __attribute__((sda));
-extern int  quad_layer_alpha_d_selectors[2] __asm__("D_L10_00161F60") __attribute__((sda));
+extern int quad_layer_colors[] __asm__("D_L10_001DA250");
+extern int quad_layer_uv_cosine_selectors[][2] __asm__("D_L10_001DA2B0");
+extern s64 get_effect_texture(s32) __asm__("func_001F44B8");
+int        quad_layer_count_gp __asm__("D_L10_00161F40") = 6;
+int        quad_layer_alpha_a_selectors[2] __asm__("D_L10_00161F48") = {0, 1};
+
+int quad_layer_alpha_b_selectors[2] __asm__("D_L10_00161F50") = {2, 0};
+
+int quad_layer_alpha_c_selectors[2] __asm__("D_L10_00161F58") = {2, 2};
+
+int quad_layer_alpha_d_selectors[2] __asm__("D_L10_00161F60") = {1, 2};
+
 extern void draw_geometry_quad(void *, void *, int) __asm__("FUN_001f7d30");
 
 #define GS_ALPHA(a, b, k, d, fix)                                                 \
@@ -90,7 +95,7 @@ extern void draw_geometry_quad(void *, void *, int) __asm__("FUN_001f7d30");
      ((unsigned long)(d) << 6) | ((unsigned long)(fix) << 32))
 
 void draw_moby_animated_quad_layers(unsigned char *moby) {
-    TrailQuad   first, second;
+    TrailQuad   uniform_color_quad, alternating_color_quad;
     float       transform[12] __attribute__((aligned(16)));
     float       position[4] __attribute__((aligned(16)));
     float      *scale;
@@ -103,18 +108,18 @@ void draw_moby_animated_quad_layers(unsigned char *moby) {
     copy_matrix_rotation(transform, moby + 0xC0);
     qcopy(position, moby + 0x10);
     position[3] = 1.0f;
-    first.tex = get_effect_texture(0x2C);
-    first.unk80 = 0xFF9000000260L;
-    first.unk70 = 0;
-    second.tex = get_effect_texture(0x2C);
-    second.unk80 = 0xFF9000000260L;
-    second.unk70 = 0;
-    second.color[3] = 0;
-    second.color[1] = 0;
-    second_quad = &second;
+    uniform_color_quad.tex = get_effect_texture(0x2C);
+    uniform_color_quad.unk80 = 0xFF9000000260L;
+    uniform_color_quad.unk70 = 0;
+    alternating_color_quad.tex = get_effect_texture(0x2C);
+    alternating_color_quad.unk80 = 0xFF9000000260L;
+    alternating_color_quad.unk70 = 0;
+    alternating_color_quad.color[3] = 0;
+    alternating_color_quad.color[1] = 0;
+    second_quad = &alternating_color_quad;
     second_corner = (float *)second_quad;
     second_dst = (float *)second_quad;
-    first_corner = (float *)&first;
+    first_corner = (float *)&uniform_color_quad;
     first_src = l10_animated_quad_first_base_corners;
     second_src = l10_animated_quad_second_base_corners;
     for (i = 0; i < 4; i++) {
@@ -132,23 +137,23 @@ void draw_moby_animated_quad_layers(unsigned char *moby) {
     for (pass = 0; pass < quad_layer_count_gp; pass++) {
         int parity = pass & 1;
         int shade;
-        first.alpha = GS_ALPHA(quad_layer_alpha_a_selectors[parity],
-                               quad_layer_alpha_b_selectors[parity],
-                               quad_layer_alpha_c_selectors[parity],
-                               quad_layer_alpha_d_selectors[parity],
-                               0x80);
-        second.alpha = GS_ALPHA(quad_layer_alpha_a_selectors[parity],
-                                quad_layer_alpha_b_selectors[parity],
-                                quad_layer_alpha_c_selectors[parity],
-                                quad_layer_alpha_d_selectors[parity],
-                                0x80);
+        uniform_color_quad.alpha = GS_ALPHA(quad_layer_alpha_a_selectors[parity],
+                                            quad_layer_alpha_b_selectors[parity],
+                                            quad_layer_alpha_c_selectors[parity],
+                                            quad_layer_alpha_d_selectors[parity],
+                                            0x80);
+        alternating_color_quad.alpha = GS_ALPHA(quad_layer_alpha_a_selectors[parity],
+                                                quad_layer_alpha_b_selectors[parity],
+                                                quad_layer_alpha_c_selectors[parity],
+                                                quad_layer_alpha_d_selectors[parity],
+                                                0x80);
         shade = quad_layer_colors[pass];
-        second.color[2] = shade;
-        second.color[0] = shade;
-        first.color[3] = shade;
-        first.color[2] = shade;
-        first.color[1] = shade;
-        first.color[0] = shade;
+        alternating_color_quad.color[2] = shade;
+        alternating_color_quad.color[0] = shade;
+        uniform_color_quad.color[3] = shade;
+        uniform_color_quad.color[2] = shade;
+        uniform_color_quad.color[1] = shade;
+        uniform_color_quad.color[0] = shade;
         for (i = 0; i < 4; i++) {
             for (axis = 0; axis < 2; axis++) {
                 int limit =
@@ -162,21 +167,21 @@ void draw_moby_animated_quad_layers(unsigned char *moby) {
                 } else {
                     wave = fast_sin(angle * 0.017453292f);
                 }
-                first.uv[i][axis] = quad_corner_base_uvs[i][axis] + wave * 0.125f;
+                uniform_color_quad.uv[i][axis] = quad_corner_base_uvs[i][axis] + wave * 0.125f;
             }
         }
         for (k = 0; k < 2; k++) {
             float step = (float)k * 0.125f;
-            second.uv[0][k] = first.uv[1][k];
-            second.uv[1][k] = first.uv[1][k] + step;
-            second.uv[2][k] = first.uv[3][k];
-            second.uv[3][k] = first.uv[3][k] + step;
+            alternating_color_quad.uv[0][k] = uniform_color_quad.uv[1][k];
+            alternating_color_quad.uv[1][k] = uniform_color_quad.uv[1][k] + step;
+            alternating_color_quad.uv[2][k] = uniform_color_quad.uv[3][k];
+            alternating_color_quad.uv[3][k] = uniform_color_quad.uv[3][k] + step;
         }
-        draw_geometry_quad(&first, transform, 0);
+        draw_geometry_quad(&uniform_color_quad, transform, 0);
         draw_geometry_quad(second_quad, transform, 0);
         {
             float *second_corner_cursor = (float *)second_quad;
-            float *first_corner_cursor = (float *)&first;
+            float *first_corner_cursor = (float *)&uniform_color_quad;
             for (i = 0; i < 4; i++) {
                 first_corner_cursor[1] += 0.1f;
                 second_corner_cursor[1] += 0.1f;

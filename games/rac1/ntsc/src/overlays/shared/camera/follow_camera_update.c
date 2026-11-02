@@ -1,6 +1,7 @@
 /* Camera type 0, the follow camera: builds its view, pulls back and orbits behind the hero. */
 
 #include "types.h"
+#include "rnc/game/options.h"
 #include "sda.h"
 #include "rnc/math/asm_helpers.h"
 #include "rnc/math/fast_math.h"
@@ -54,20 +55,20 @@ extern u8            D_L00_00166E30[];
 extern C_2e9518      D_L00_00166E10_lui __asm__("D_L00_00166E10") NOT_SDA;
 extern char         *D_001413D0_lui __asm__("D_001413D0") NOT_SDA;
 extern unsigned char D_001413F4_lui __asm__("D_001413F4") NOT_SDA;
-extern float orbit_distance_default_stiffness_gp __asm__("D_L00_00161CEC") __attribute__((sda));
-extern float orbit_distance_default_damping_gp __asm__("D_L00_00161CF0") __attribute__((sda));
-extern float orbit_distance_pull_back_stiffness_gp __asm__("D_L00_00161D14") __attribute__((sda));
-extern float orbit_distance_pull_back_damping_gp __asm__("D_L00_00161D18") __attribute__((sda));
-extern char  D_L00_00166E10[];
-extern short orbit_yaw_spring_stiffness_gp __asm__("D_L00_00161CF4") __attribute__((sda));
-extern short orbit_yaw_spring_damping_gp __asm__("D_L00_00161CF8") __attribute__((sda));
-extern short orbit_pitch_spring_stiffness_gp __asm__("D_L00_00161CFC") __attribute__((sda));
-extern short orbit_pitch_spring_damping_gp __asm__("D_L00_00161D00") __attribute__((sda));
-extern int  *D_L00_0015EF80_9aa0 __asm__("D_L00_0015EF80");
-extern char *D_L00_001600F4_9aa0 __asm__("D_L00_001600F4");
-extern s32   opt_cam_yaw_rate __asm__("D_0015EDE4");
-extern f32   follow_camera_yaw_rate_table[2] __asm__("D_L00_00161DB0") __attribute__((sda));
-extern f32   D_L00_0015EF44_gp __asm__("D_L00_0015EF44") __attribute__((sda));
+float                orbit_distance_default_stiffness_gp __asm__("D_L00_00161CEC") = 0.02f;
+float                orbit_distance_default_damping_gp __asm__("D_L00_00161CF0") = 0.2f;
+float                orbit_distance_pull_back_stiffness_gp __asm__("D_L00_00161D14") = 0.04f;
+float                orbit_distance_pull_back_damping_gp __asm__("D_L00_00161D18") = 0.3f;
+extern char          D_L00_00166E10[];
+extern short         orbit_yaw_spring_stiffness_gp __asm__("D_L00_00161CF4") __attribute__((sda));
+extern short         orbit_yaw_spring_damping_gp __asm__("D_L00_00161CF8") __attribute__((sda));
+extern short         orbit_pitch_spring_stiffness_gp __asm__("D_L00_00161CFC") __attribute__((sda));
+extern short         orbit_pitch_spring_damping_gp __asm__("D_L00_00161D00") __attribute__((sda));
+extern int          *D_L00_0015EF80_9aa0 __asm__("D_L00_0015EF80");
+extern char         *D_L00_001600F4_9aa0 __asm__("D_L00_001600F4");
+f32 follow_camera_yaw_rate_table[2] __asm__("D_L00_00161DB0") = {0.017453292f, 0.02268928f};
+
+extern f32 D_L00_0015EF44_gp __asm__("D_L00_0015EF44") __attribute__((sda));
 
 float D_L01_00162164 = 0.02f;
 float D_L01_00162168 = 0.2f;
@@ -312,7 +313,7 @@ void follow_camera_build_view(u8 *camera) {
     u8 *view_blend_and_smoothing_state;
     u8 *reference_orbit_offset;
     u8 *tb;
-    u8 *base;
+    u8 *camera_reference_basis;
     u8 *side_axis;
     u8 *view_up_axis;
     u8 *side_axis_or_aim_position; /* scratch vector pointer: p + 0x10, later v4 */
@@ -328,7 +329,7 @@ void follow_camera_build_view(u8 *camera) {
     f32 view_direction[4];
     f32 adjusted_aim_position[4];
 
-    base = camera_view;
+    camera_reference_basis = camera_view;
     camera_state = *(u8 **)(camera + 0x70);
     follow_state_block = camera_state + 0x40;
     view_blend_and_smoothing_state = camera_state + 0x20;
@@ -341,7 +342,7 @@ void follow_camera_build_view(u8 *camera) {
         up = D_L00_00166E30;
     } else {
         up = D_L00_00166E30;
-        tb = base + 0x20;
+        tb = camera_reference_basis + 0x20;
         position_up_component = FUN_001f9ab0_2e9010(camera_state + 0x80, tb);
         FUN_001f9a68_2e9010(vector_scratch, tb, position_up_component);
         fast_vec_sub(projected_reference_position, camera_state + 0x80, vector_scratch);
@@ -500,9 +501,9 @@ void follow_camera_orbit(int camera_moby) {
     float tb[4];
     float x, bc, dot_product, reference_up_component, y, current_up_component, orbit_angle_scratch,
         i, yaw_rotation_sign, current_orbit_length;
-    char *base = D_L00_00166E10;
-    char *up = base + 0x20;
-    char *base2;
+    char *orbit_reference_basis = D_L00_00166E10;
+    char *up = orbit_reference_basis + 0x20;
+    char *clamp_reference_basis;
     char *fw;
     char *reference_orbit_offset = camera_state + 0x130;
     char *current_orbit_offset = camera_state + 0x140;
@@ -541,8 +542,8 @@ void follow_camera_orbit(int camera_moby) {
     fast_vec_cross(orbit_cross_scratch, projected_current_offset, up);
     yaw_rotation_sign =
         (fast_vec_dot(orbit_cross_scratch, projected_reference_offset) >= 0.0f) ? 1.0f : -1.0f;
-    base2 = D_L00_00166E10;
-    fw = base2 + 0x30;
+    clamp_reference_basis = D_L00_00166E10;
+    fw = clamp_reference_basis + 0x30;
     build_look_at_matrix(rotated_orbit_offset, projected_current_offset, up, x * yaw_rotation_sign);
     fast_vec_cross(orbit_cross_scratch, up, rotated_orbit_offset);
     build_look_at_matrix(rotated_orbit_offset, rotated_orbit_offset, orbit_cross_scratch, i);

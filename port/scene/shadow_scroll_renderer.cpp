@@ -5,6 +5,7 @@
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
+#include "scene/level_renderer_internal.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
@@ -55,7 +56,8 @@ bool LevelScene::make_scrolling_target(unsigned cascade) {
     }
     const bool fresh = !scroll.statics->id() || !scroll.combined;
     std::string error;
-    if (!scroll.statics->id() && !scroll.statics->create(size, size, error, 1, true)) {
+    if (!scroll.statics->id()
+        && !render_detail::create_shadow_target(*scroll.statics, size, error)) {
         log::warn("scrolling shadow cache {} unavailable: {}", cascade, error);
         scroll.grid.invalidate();
         return false;

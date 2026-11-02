@@ -14,23 +14,23 @@
 void initialize_moby_path_state(char *moby) __asm__("FUN_L14_002fe900");
 
 void initialize_moby_path_state(char *moby) {
-    char *data = ((char *)MOBY(moby)->pvars);
+    char *moby_path_state = ((char *)MOBY(moby)->pvars);
     char *path;
     int   i;
-    path = ((int *)l14_paths[*(int *)(data + 0xD8)]);
+    path = ((int *)l14_paths[*(int *)(moby_path_state + 0xD8)]);
     for (i = 0; i < *(int *)path - 1; i++) {
         *(float *)(path + 0x1C + i * 0x10) =
             fast_vec_dist(path + 0x10 + i * 0x10, path + 0x20 + i * 0x10);
     }
-    *(int *)(data + 0xD0) = 0;
-    *(int *)(data + 0xD4) = 0;
+    *(int *)(moby_path_state + 0xD0) = 0;
+    *(int *)(moby_path_state + 0xD4) = 0;
     qcopy(moby + 0x10, path + 0x10);
     MOBY(moby)->rot.z = fast_arc_tan(*(float *)(path + 0x20) - *(float *)(path + 0x10),
                                      *(float *)(path + 0x24) - *(float *)(path + 0x14));
-    *(float *)(data + 0xF0) = *(float *)(data + 0xE4) = *(float *)(data + 0xE8) =
-        *(float *)(data + 0xEC) = 0.0f;
-    if (*(int *)(data + 0xFC) != 1) {
-        path = ((int *)l14_paths[*(int *)(data + 0xDC)]);
+    *(float *)(moby_path_state + 0xF0) = *(float *)(moby_path_state + 0xE4) =
+        *(float *)(moby_path_state + 0xE8) = *(float *)(moby_path_state + 0xEC) = 0.0f;
+    if (*(int *)(moby_path_state + 0xFC) != 1) {
+        path = ((int *)l14_paths[*(int *)(moby_path_state + 0xDC)]);
         for (i = 0; i < *(int *)path - 1; i++) {
             *(float *)(path + 0x1C + i * 0x10) =
                 fast_vec_dist(path + 0x10 + i * 0x10, path + 0x20 + i * 0x10);
@@ -40,19 +40,19 @@ void initialize_moby_path_state(char *moby) {
 /* rebuilds two vectors from the moby's transform and applies them to its linked object */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002B2A28.c: func_L14_003000B0), where it is exact; names translated to the US level program. */
 
-extern float linked_moby_initial_offset_length_gp __asm__("D_L14_00161FC4") __attribute__((sda));
-extern float linked_moby_additional_offset_length_gp __asm__("D_L14_00161FC8") __attribute__((sda));
-void         update_linked_moby_position(char *moby) __asm__("FUN_L14_002fec28");
+float linked_moby_initial_offset_length_gp __asm__("D_L14_00161FC4") = 0.1f;
+float linked_moby_additional_offset_length_gp __asm__("D_L14_00161FC8") = 0.1f;
+void  update_linked_moby_position(char *moby) __asm__("FUN_L14_002fec28");
 
 void update_linked_moby_position(char *moby) {
-    char *data = ((char *)MOBY(moby)->pvars);
+    char *moby_private_vars = ((char *)MOBY(moby)->pvars);
     float position_offset[4];
-    if (*(char **)(data + 0xF4) != 0) {
+    if (*(char **)(moby_private_vars + 0xF4) != 0) {
         char *linked_position;
         fast_vec_normalize(position_offset, moby + 0xC0, linked_moby_initial_offset_length_gp);
-        fast_vec_add(*(char **)(data + 0xF4) + 0x10, moby + 0x10, position_offset);
+        fast_vec_add(*(char **)(moby_private_vars + 0xF4) + 0x10, moby + 0x10, position_offset);
         fast_vec_normalize(position_offset, moby + 0xE0, linked_moby_additional_offset_length_gp);
-        linked_position = *(char **)(data + 0xF4) + 0x10;
+        linked_position = *(char **)(moby_private_vars + 0xF4) + 0x10;
         fast_vec_add(linked_position, linked_position, position_offset);
     }
 }
@@ -81,12 +81,12 @@ extern P_eca8 *
 spawn_puff(void *, float, float, float, int, void *, float, int) __asm__("FUN_L00_0026d000");
 extern float D_L14_0015F580_macro[] __asm__("D_L14_0015F580") MACRO_ADDR;
 
-extern float particle_pair_moby_c0_offset_scale_gp __asm__("D_L14_00161FCC") __attribute__((sda));
-extern float particle_pair_moby_e0_offset_scale_gp __asm__("D_L14_00161FD0") __attribute__((sda));
-extern float particle_trio_moby_c0_offset_scale_gp __asm__("D_L14_00161FD4") __attribute__((sda));
-extern float particle_trio_moby_e0_offset_scale_gp __asm__("D_L14_00161FD8") __attribute__((sda));
-extern int   particle_pair_color_gp __asm__("D_L14_00161FE4") __attribute__((sda));
-void         emit_moby_offset_particles(unsigned char *moby) __asm__("FUN_L14_002feca8");
+float      particle_pair_moby_c0_offset_scale_gp __asm__("D_L14_00161FCC") = -0.5f;
+float      particle_pair_moby_e0_offset_scale_gp __asm__("D_L14_00161FD0") = 0.6f;
+float      particle_trio_moby_c0_offset_scale_gp __asm__("D_L14_00161FD4") = -0.4f;
+float      particle_trio_moby_e0_offset_scale_gp __asm__("D_L14_00161FD8") = 0.7f;
+extern int particle_pair_color_gp __asm__("D_L14_00161FE4") __attribute__((sda));
+void       emit_moby_offset_particles(unsigned char *moby) __asm__("FUN_L14_002feca8");
 
 void emit_moby_offset_particles(unsigned char *moby) {
     float emission_position_offset[4];

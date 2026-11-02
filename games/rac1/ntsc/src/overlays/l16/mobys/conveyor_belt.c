@@ -35,9 +35,10 @@ void        draw_conveyor_belt_strips(struct Moby *m) __asm__("FUN_L16_002c9cd0"
 
 #include "rnc/overlay/l16/mobys/conveyor_belt_globals.h"
 
-extern float conveyor_belt_base_speed_gp __asm__("D_L16_0016198C") __attribute__((sda));
-void         conveyor_belt_update(struct Moby *m) __asm__("FUN_L16_002c9878");
+float conveyor_belt_base_speed_gp __asm__("D_L16_0016198C") = 4.0f;
+void  conveyor_belt_update(struct Moby *m) __asm__("FUN_L16_002c9878");
 
+/* Moby class 471 */
 void conveyor_belt_update(struct Moby *moby) {
     enum {
         CONVEYOR_BELT_STATE_INITIALIZE = 0,
@@ -103,11 +104,13 @@ void update_conveyor_group_voice(struct Moby *moby) {
     if (group_entry == 0)
         return;
     do {
-        char *other = D_L16_00160098_c9a50 + (((unsigned short)*group_entry & 0x7FFF) << 8);
-        if (*(short *)(other + 0xA6) == 0x1D7) {
-            float candidate_distance = fast_vec_dist(D_L16_001671C0, other + 0x10);
+        char *voice_target_candidate_moby =
+            D_L16_00160098_c9a50 + (((unsigned short)*group_entry & 0x7FFF) << 8);
+        if (*(short *)(voice_target_candidate_moby + 0xA6) == 0x1D7) {
+            float candidate_distance =
+                fast_vec_dist(D_L16_001671C0, voice_target_candidate_moby + 0x10);
             if (candidate_distance < best) {
-                nearest = other;
+                nearest = voice_target_candidate_moby;
                 best = candidate_distance;
             }
         }
@@ -179,13 +182,14 @@ typedef struct {
 extern float D_L16_001D2FF0[][2], D_L16_001D32E0[][2], D_L16_001D3300[][4];
 extern float D_L16_001D32C0[][2], D_L16_001D3010[][2], D_L16_001D3300[][4];
 extern float D_L16_001D32C0[][2], D_L16_001D32E0[][2], D_L16_001D3030[][4];
-extern int   conveyor_belt_pulse_texture_id_gp __asm__("D_L16_00161990") __attribute__((sda));
-extern int   conveyor_belt_scrolling_texture_id_gp __asm__("D_L16_00161994") __attribute__((sda));
+int          conveyor_belt_pulse_texture_id_gp __asm__("D_L16_00161990") = 19;
+int          conveyor_belt_scrolling_texture_id_gp __asm__("D_L16_00161994") = 16;
 
 #include "rnc/overlay/l16/mobys/conveyor_belt_data/draw_conveyor_belt_strips.h"
 
-extern int  conveyor_belt_pulse_color_start_gp __asm__("D_L16_001619A8") __attribute__((sda));
-extern int  conveyor_belt_pulse_color_end_gp __asm__("D_L16_001619AC") __attribute__((sda));
+int conveyor_belt_pulse_color_start_gp __asm__("D_L16_001619A8") =
+    0x10e08020;                                                              /* RGBA, 0xAABBGGRR */
+int conveyor_belt_pulse_color_end_gp __asm__("D_L16_001619AC") = 0x30e08020; /* RGBA, 0xAABBGGRR */
 extern int  conveyor_belt_scrolling_vertex_color_gp __asm__("D_L16_001619B0") __attribute__((sda));
 extern int  D_L16_001600EC_m __asm__("D_L16_001600EC");
 extern s64  get_effect_texture(s32) __asm__("func_001F44B8");

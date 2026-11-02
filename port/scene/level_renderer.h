@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "renderer/debug_lines.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gpu_draw.h"
 #include "renderer/renderer.h"
@@ -137,6 +138,12 @@ public:
     // Replaces the joint palettes the mobys' instances index (Instance::palette), each frame.
     void set_palette(const std::vector<JointColumns>& matrices);
 
+    // The owned displayed palette, shared read-only with registered attachment providers.
+    std::span<const renderer::Mat4> joint_palette() const { return m_palette_data; }
+
+    // Draws requested visibility diagnostics using the displayed camera, never the culling camera.
+    void draw_culling_debug(const renderer::FrameInput& input, renderer::RenderState& state);
+
     bool lighting = true;
 
     bool probes_active() const { return m_lighting && m_lighting->active(); }
@@ -157,6 +164,15 @@ public:
         if (m_lighting) {
             m_lighting->set_lighting(enabled, multiplier);
         }
+    }
+
+    // The settings sweep's experiments (debug/capture.cpp): the blended passes of every layer
+    // (static translucent texels, the mobys' translucent pass) left out, drawn without probe
+    // light, or drawn with the full (not the cheaper) probe light.
+    void set_sweep_translucent(bool off, bool unlit, bool full) {
+        m_sweep_translucent_off = off;
+        m_sweep_translucent_unlit = unlit;
+        m_sweep_translucent_full = full;
     }
 
     // Controls the GI-coloured edge light on essential gameplay objects.
@@ -237,6 +253,9 @@ public:
     // Eight point lights after the 16 directional sets: colour, position/radius.
     void set_point_lights(const std::array<float, 64>& lights) { m_point_lights = lights; }
 
+    // Immutable frame light bank for registered lighting providers.
+    const std::array<float, 64>& point_lights() const { return m_point_lights; }
+
     // The game's fog for this frame (GameState): FOGCOL 0..1, the depths in raw units (game
     // units x 1024) and the GS F at them (255 = none). The world layers are fogged as the GS
     // fogs them: C = FOGCOL + (C - FOGCOL) x F / 255, F linear in camera depth, clamped.
@@ -264,6 +283,10 @@ public:
     }
 
 private:
+    // Returns the selected preview clip matrix, or no value when its shadow maps are unavailable.
+    [[nodiscard]] std::optional<renderer::Mat4> inspection_clip(
+        const renderer::FrameInput& input
+    ) const;
     // One consecutive run of compatible motion instances, preserving draw order.
     struct MotionBatch {
         std::uint32_t model = 0;       // Shared geometry and material runs.
@@ -524,6 +547,9 @@ private:
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
+    bool m_sweep_translucent_off = false;
+    bool m_sweep_translucent_unlit = false;
+    bool m_sweep_translucent_full = false;
     std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
     std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.
@@ -536,7 +562,8 @@ private:
     std::vector<JointColumns> m_palette_data;
     renderer::Shader m_mesh;
     renderer::Shader m_early_mesh, m_early_solid;
-    renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent;
+    renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent,
+        m_static_translucent_full;
     // Static solid, static alpha-tested, then opaque mobys (optional skinning).
     std::array<renderer::Shader, 3> m_colour_specialised, m_early_colour_specialised;
     // mesh.frag's opaque path alone, without discard (the static layers' opaque pass; draw_layer).
@@ -595,6 +622,10 @@ private:
     std::optional<bool> m_hero_logged_airborne;
     std::array<std::unique_ptr<renderer::FrameBuffer>, kSunCascades> m_sun_maps;
     SunCascades m_sun_cascades;
+    renderer::Camera m_sun_camera;        // View whose splits produced the current shadow maps.
+    bool m_culling_lines_failed = false;  // Retry failed diagnostic shaders after scene release.
+    std::unique_ptr<renderer::DebugLines>
+        m_culling_lines;  // Allocated only for inspection; the scene retains move ownership.
     bool m_sun_enabled = false, m_sun_ready = false;
 };
 

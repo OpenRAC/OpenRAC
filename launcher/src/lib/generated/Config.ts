@@ -81,7 +81,7 @@ discordClientId: string | null,
 layout: "compact" | "classic", 
 /**
  * The launcher's theme (src/lib/palettes.json): "openrac" (default), "gruvbox", "oled", "nord"
- * or "mocha". The accent is not a theme's: on Android it is the picked game's.
+ * or "mocha". The accent is not a theme's: it is the picked game's.
  */
 theme: string, 
 /**
@@ -90,9 +90,9 @@ theme: string,
  */
 detailedGameLog: boolean, 
 /**
- * What the game draws with on Windows, Linux and macOS: "opengl" (OpenGL 4.1, the default)
- * or "vulkan", the port's experimental Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the
- * MoltenVK its bundle carries). Where Vulkan cannot start, the game draws with OpenGL
+ * What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
+ * Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
+ * "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
  * (port/platform/window.cpp). Not used on Android, which keeps its own choice
  * (src-tauri/src/android.rs).
  */

@@ -94,11 +94,11 @@ vec3 water_direct_specular(vec3 p,vec3 n,vec3 eye,float roughness,float shadow,o
         irradiance+=radiance*float(max(dot(mp_vec3(n),mp_vec3(light_direction)),mp_float(0)));
         result+=radiance*water_specular(n,eye,light_direction,roughness);
     }
-    for(int i=0;i<8;++i) {
-        vec3 delta=probe_point_position[i].xyz-p;
-        float radius=probe_point_position[i].w,distance=length(delta);
+    LOCAL_LIGHT_LOOP(i) {
+        vec3 delta=LOCAL_POSITION(i).xyz-p;
+        float radius=LOCAL_POSITION(i).w,distance=length(delta);
         if(radius<=0. || distance>=radius || distance<1e-6) continue;
-        vec3 radiance=max(probe_point_colour[i].rgb,vec3(0))*(1.-distance/radius);
+        vec3 radiance=max(LOCAL_COLOUR(i).rgb,vec3(0))*LOCAL_ATTENUATION(distance,radius)*LOCAL_CONE(i,delta/distance);
         irradiance+=radiance*float(max(dot(mp_vec3(n),mp_vec3(delta/distance)),mp_float(0)));
         result+=radiance*water_specular(n,eye,delta/distance,roughness);
     }

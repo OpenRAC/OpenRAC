@@ -25,14 +25,15 @@ extern char *FUN_L00_0026dd20(char *pos, char *vel, int c, int d, float f);
 extern char *
 spawn_destructible_prop_wreck(char *owner, void *position, float angle) __asm__("FUN_L09_002ee380");
 extern void          trooper_anim_update(void *m, short *p) __asm__("FUN_L00_0025d458");
-void                 update_destructible_prop(struct Moby *moby) __asm__("FUN_L09_002ee110");
+void                 destructible_prop_update(struct Moby *moby) __asm__("FUN_L09_002ee110");
 typedef unsigned int u128_ee380 __attribute__((mode(TI)));
 
 /* Ported from rac1-decomp (src/overlays/l09_gaspar/vendor_002C2B08.c: func_L09_002EF6D0), where it is exact; names translated to the US level program. */
 char *
 spawn_destructible_prop_wreck(char *owner, void *position, float angle) __asm__("FUN_L09_002ee380");
 
-void update_destructible_prop(struct Moby *moby) {
+/* Moby class 279 */
+void destructible_prop_update(struct Moby *moby) {
     char *moby_vars_or_random_frames = (char *)moby->pvars;
     char *hit_record = find_moby_hit(moby, 0x10000, 0);
     Vx    v;
@@ -84,7 +85,7 @@ void update_destructible_prop(struct Moby *moby) {
     moby->hit_slot = 0xFF;
 }
 
-char *spawn_destructible_prop_wreck(char *owner, void *position, float angle) {
+char *spawn_destructible_prop_wreck(char *source_moby, void *position, float angle) {
     u128_ee380 position_copy;
     void      *copy = &position_copy;
     char      *moby;
@@ -92,14 +93,14 @@ char *spawn_destructible_prop_wreck(char *owner, void *position, float angle) {
     moby = create_moby(0x11C);
     if (moby != 0) {
         unsigned char state;
-        ((unsigned char *)moby)[0x30] = ((unsigned char *)owner)[0x30];
-        state = ((unsigned char *)owner)[0x30];
+        ((unsigned char *)moby)[0x30] = ((unsigned char *)source_moby)[0x30];
+        state = ((unsigned char *)source_moby)[0x30];
         moby[0x31] = 1;
         MOBY(moby)->draw_dist = state;
         qcopy(moby + 0x10, copy);
-        qcopy(moby + 0x40, owner + 0x40);
+        qcopy(moby + 0x40, source_moby + 0x40);
         MOBY(moby)->rot.z = angle;
-        MOBY(moby)->spawn_frame = *(long *)(owner + 0x38);
+        MOBY(moby)->spawn_frame = *(long *)(source_moby + 0x38);
         update_entity(moby);
     }
     return moby;

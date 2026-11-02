@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/direct.h"
@@ -154,6 +155,7 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
     // is recorded with the first pass that draws.
     {
         const stats::Scope clear("frame clear");
+        crash::breadcrumb("frame clear");
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);
         glDisable(GL_SCISSOR_TEST);
@@ -202,6 +204,7 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         "Profiling reference: discard GTAO prepass depth before world colour"
     );
     const auto world_prepass = [&] {
+        crash::breadcrumb("world depth prepass");
         // Early background/UI and sky have already drawn. Depth now belongs
         // exclusively to the world and remains intact through its colour passes.
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
@@ -248,6 +251,7 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             resolved_depth = m_ambient_occlusion->depth_texture();
         }
         if (input.after_world_depth || early_lighting) {
+            crash::breadcrumb("probe coverage selection");
             const stats::Scope selection("probe coverage selection", stats::kGpu);
             std::string error;
             if (!resolved_depth
@@ -275,6 +279,7 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             }
         }
         if (resolved_depth && early_lighting) {
+            crash::breadcrumb("early lighting");
             for (const auto& r : m_renderers) {
                 if (r->enabled && r->needs_early_lighting(input)) {
                     r->render_early_lighting(resolved_depth, input, state);
@@ -342,6 +347,7 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
                 }
             }
             const stats::Scope opaque("world opaque colour", stats::kGpu);
+            crash::breadcrumb("world opaque colour");
             for (unsigned phase = 0; phase < 2; ++phase) {
                 for (std::size_t n = i; n < end; ++n) {
                     const auto& next = m_renderers[n];
@@ -372,6 +378,7 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
 
         // Temporal reconstruction finishes before any HUD geometry uses display-resolution coordinates.
         if (i == hud && input.on_resolve_world) {
+            crash::breadcrumb("temporal resolve");
             input.on_resolve_world(target);
             state.target = target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
@@ -389,6 +396,8 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         }
         auto& r = m_renderers[i];
         if (r->enabled) {
+            // One marker per subsystem pass, never per mesh, draw or particle.
+            crash::breadcrumb(r->name());
             // [debug tools] The pass, timed and counted for the overlay and the dump (common/stats.h).
             const stats::Scope pass(r->name(), r->owns_gpu_timing() ? 0 : stats::kGpu);
             r->render(input, state);

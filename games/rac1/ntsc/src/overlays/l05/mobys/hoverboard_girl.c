@@ -19,7 +19,7 @@
 #include "rnc/mobys/attach_manipulator.h"
 #include "rnc/mobys/moby.h"
 
-/* Class 918 (hoverboard_girl), Rilgar / Blackwater City.
+/* Hoverboard girl (class record hoverboard_girl), Rilgar / Blackwater City.
  * The update counts player action 11 at frame 15 when she faces the player.
  * Its two breast manipulators also carry the effect into cutscene instances. */
 typedef union {
@@ -91,7 +91,7 @@ typedef struct {
     f32 movement_sampling_scale;
 } FrameTiming;
 
-extern s32                  breast_growth_count_gp __asm__("D_L05_00161ED0") __attribute__((sda));
+s32                         breast_growth_count_gp __asm__("D_L05_00161ED0") = 0;
 extern s32                  game_mode __asm__("D_L05_0015F5C4");
 extern s32                  game_mode __asm__("D_L05_0015F5C4");
 extern s32                  frame_number __asm__("D_L05_0015F5CC");
@@ -116,7 +116,7 @@ extern void update_joint_animation(
 void update_hoverboard_girl_cutscene_instances(HoverboardGirlMoby *) __asm__("FUN_L05_00316990");
 void update_hoverboard_girl_boobs_animation(HoverboardGirlMoby *,
                                             HoverboardGirlState *) __asm__("FUN_L05_00316810");
-void update_hoverboard_girl(HoverboardGirlMoby *) __asm__("FUN_L05_00316ab8");
+void hoverboard_girl_update(HoverboardGirlMoby *) __asm__("FUN_L05_00316ab8");
 
 extern f32 frame_scale_sq __asm__("D_0015ED64");
 
@@ -190,9 +190,10 @@ void update_hoverboard_girl_cutscene_instances(HoverboardGirlMoby *girl) {
     }
 }
 
-void update_hoverboard_girl(HoverboardGirlMoby *moby) __asm__("FUN_L05_00316ab8");
+void hoverboard_girl_update(HoverboardGirlMoby *moby) __asm__("FUN_L05_00316ab8");
 
-void update_hoverboard_girl(HoverboardGirlMoby *moby) {
+/* Moby class 918 */
+void hoverboard_girl_update(HoverboardGirlMoby *moby) {
     enum {
         HOVERBOARD_GIRL_STATE_INITIALIZE = 0,
         HOVERBOARD_GIRL_STATE_UPDATE_DIALOGUE = 1,
@@ -220,8 +221,8 @@ void update_hoverboard_girl(HoverboardGirlMoby *moby) {
         moby->position.component[2] = probe_ground_height(0.5f, &moby->position, 0);
         if (level_object_states[16].state == 0 || level_object_states[17].state == 0) {
             HoverboardRaceEntry **entries = race_entries;
-            s32                   entry = get_dialogue_entry(moby);
-            entries[entry]->state = 13;
+            s32                   dialogue_entry_index = get_dialogue_entry(moby);
+            entries[dialogue_entry_index]->state = 13;
         }
         state->dialogue_name = race_girl_name;
         moby->state = 1;

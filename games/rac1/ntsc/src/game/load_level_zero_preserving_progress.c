@@ -34,8 +34,9 @@ extern Checkpoints D_0013D290;
 
 #include "rnc/game/item_state.h"
 
-extern u8  D_0015EE98[] MACRO_ADDR;
-extern s32 item_availability_restore_indices[] __asm__("D_001D5BA0");
+extern u8 D_0015EE98[] MACRO_ADDR;
+/* Item ids whose availability survives the reload; -1 ends the list. */
+extern s32 item_availability_restore_indices[20] __asm__("D_001D5BA0");
 
 extern void copy_memory_aligned(void *dst, void *src, s32 size) __asm__("func_001F9838");
 extern void load_and_initialize_level_chunk(void) __asm__("func_00209370");
@@ -77,8 +78,8 @@ void load_level_zero_preserving_progress(s32 slot) {
     copy_memory_aligned(weapon_ammo_counts, (void *)0x70000060, 0x94);
     copy_memory_aligned(D_0014BEC0, (void *)0x70000100, 0x50);
     for (i = 0; i < 8; i++) {
-        s32 item = items[i];
-        pause_iop_sprite_lists[i] = item_available[item] ? item : 0;
+        s32 saved_item_index = items[i];
+        pause_iop_sprite_lists[i] = item_available[saved_item_index] ? saved_item_index : 0;
     }
     copy_memory_aligned(D_0015EDD0_macro, (void *)0x70000170, 0xC);
     copy_memory_aligned(item_unlocked, (void *)0x70000180, 0x20);
@@ -113,3 +114,8 @@ extern __typeof__(load_level_zero_preserving_progress) func_00226B08
     __attribute__((alias("FUN_00226b08")));
 
 s32 hero_max_health = 4;
+
+s32 item_availability_restore_indices[20] = {
+    0x9,  0xA,  0xB,  0xD,  0xE,  0xF,  0x10, 0x11, 0x12, 0x13,
+    0x14, 0x15, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, -1,
+};

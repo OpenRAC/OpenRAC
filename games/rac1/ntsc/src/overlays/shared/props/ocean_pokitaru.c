@@ -81,15 +81,16 @@ extern void  draw_geometry_quad(void *, void *, int) __asm__("FUN_001f7d30");
 extern float D_L11_001677C0_30a908[] __asm__("D_L11_001677C0");
 extern UV    wave_offset[] __asm__("D_L11_00161E08") MACRO_ADDR;
 
-extern char  render_fog_context[] __asm__("D_L11_0016D440");
-extern char  ocean_strip_orientation_basis[] __asm__("D_L11_001679D0");
-extern Pos   l11_ocean_strip_vertex_positions[] __asm__("D_L11_001D9B08");
-extern int   ocean_strip_vertex_colors[] __asm__("D_L11_001D9E08");
-extern UV    l11_ocean_strip_vertex_uvs[] __asm__("D_L11_001DA310");
-extern Pos   l11_ocean_wave_grid_vertex_positions[] __asm__("D_L11_001D9F08");
-extern int   D_L11_001DA208[];
-extern UV    l11_ocean_wave_grid_vertex_uvs[] __asm__("D_L11_001DA510");
-extern float wave_speed[2] __asm__("D_L11_00161DF8") __attribute__((sda));
+extern char render_fog_context[] __asm__("D_L11_0016D440");
+extern char ocean_strip_orientation_basis[] __asm__("D_L11_001679D0");
+extern Pos  l11_ocean_strip_vertex_positions[] __asm__("D_L11_001D9B08");
+extern int  ocean_strip_vertex_colors[] __asm__("D_L11_001D9E08");
+extern UV   l11_ocean_strip_vertex_uvs[] __asm__("D_L11_001DA310");
+extern Pos  l11_ocean_wave_grid_vertex_positions[] __asm__("D_L11_001D9F08");
+extern int  D_L11_001DA208[];
+extern UV   l11_ocean_wave_grid_vertex_uvs[] __asm__("D_L11_001DA510");
+float       wave_speed[2] __asm__("D_L11_00161DF8") = {2.0f, 3.0f};
+
 extern float tide_level_macro __asm__("D_L11_00161E18") MACRO_ADDR;
 
 extern float camera_pos_b358[] __asm__("D_L11_001677C0");
@@ -318,10 +319,11 @@ void draw_pokitaru_ocean(struct Moby *moby) {
 
 void ocean_pokitaru_update(OceanMoby *moby) __asm__("FUN_L11_0030b358");
 
+/* Moby class 1111 */
 void ocean_pokitaru_update(OceanMoby *moby) {
     OceanVars *ocean_vars = moby->vars;
     float      camera_displacement[4];
-    float      out[4];
+    float      camera_wave_uv_delta[4];
     int        k;
 
     if (moby->state == 0) {
@@ -341,16 +343,21 @@ void ocean_pokitaru_update(OceanMoby *moby) {
         return;
     }
     for (k = 0; k < 2; k++) {
-        fast_vec_scale(
-            out, camera_displacement, (wave_speed[k] + wave_speed[k]) / (ocean_vars->scale * 5.0f));
-        if (1.0f < out[0] || out[0] < 1.0f) {
-            out[0] = out[0] - convert_integer_to_float(truncate_float_to_s32(out[0]));
+        fast_vec_scale(camera_wave_uv_delta,
+                       camera_displacement,
+                       (wave_speed[k] + wave_speed[k]) / (ocean_vars->scale * 5.0f));
+        if (1.0f < camera_wave_uv_delta[0] || camera_wave_uv_delta[0] < 1.0f) {
+            camera_wave_uv_delta[0] =
+                camera_wave_uv_delta[0] -
+                convert_integer_to_float(truncate_float_to_s32(camera_wave_uv_delta[0]));
         }
-        if (1.0f < out[1] || out[1] < 1.0f) {
-            out[1] = out[1] - convert_integer_to_float(truncate_float_to_s32(out[1]));
+        if (1.0f < camera_wave_uv_delta[1] || camera_wave_uv_delta[1] < 1.0f) {
+            camera_wave_uv_delta[1] =
+                camera_wave_uv_delta[1] -
+                convert_integer_to_float(truncate_float_to_s32(camera_wave_uv_delta[1]));
         }
-        wave_offset[k].u = wave_offset[k].u + out[0];
-        wave_offset[k].v = wave_offset[k].v + out[1];
+        wave_offset[k].u = wave_offset[k].u + camera_wave_uv_delta[0];
+        wave_offset[k].v = wave_offset[k].v + camera_wave_uv_delta[1];
         if (1.0f < wave_offset[k].u) {
             wave_offset[k].u = wave_offset[k].u - 1.0f;
         }

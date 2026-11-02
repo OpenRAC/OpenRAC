@@ -11,6 +11,7 @@ export default defineConfig(
   {
     ignores: [
       "dist/",
+      "scripts/",
       "src/lib/generated/",
       "src-tauri/",
       "core/",

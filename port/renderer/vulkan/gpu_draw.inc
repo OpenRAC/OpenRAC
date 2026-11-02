@@ -226,7 +226,11 @@ bool gpu_make_engine() {
                        : pass == 1 ? &engine.arguments
                                    : &engine.compact;
         const bool ok = check(
-            vkCreateComputePipelines(g->device, g->pipeline_cache, 1, &pipeline, nullptr, result),
+            timed_pipeline_creation([&] {
+                return vkCreateComputePipelines(
+                    g->device, g->pipeline_cache, 1, &pipeline, nullptr, result
+                );
+            }),
             "GPU instance pipeline"
         );
         count_pipeline();

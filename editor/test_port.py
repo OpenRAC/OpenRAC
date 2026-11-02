@@ -136,12 +136,14 @@ class WriterTests(unittest.TestCase):
             stats = self.export(Path(temp))
             level = Path(temp) / "level_03"
             files = sorted(p.relative_to(level).as_posix() for p in level.rglob("*") if p.is_file())
-            self.assertEqual(files, ["bake-inputs/gameplay.bin", "manifest.json", "mobys/moby_7.glb", "placements.json", "shrubs/shrub_6.glb",
+            self.assertEqual(files, ["bake-inputs/gameplay.bin", "manifest.json", "mobys/moby_7.glb", "object-lights.json", "placements.json", "shrubs/shrub_6.glb",
                                      "sky.glb", "sky.png", "terrain.glb", "textures/moby_0004.png",
                                      "textures/shrub_0002.png", "textures/sky_0000.png",
                                      "textures/terrain_0000.png", "textures/tie_0001.png", "ties/tie_5.glb"])
             manifest = json.loads((level / "manifest.json").read_text())
             self.assertEqual((manifest["format"], manifest["level"], manifest["game"]), (4, 3, "rac1"))
+            lights_source = Path(__file__).resolve().parents[1] / "port/enhanced/lighting/profiles/rac1/object-lights.json"
+            self.assertEqual((level / "object-lights.json").read_bytes(), lights_source.read_bytes())
             self.assertEqual(manifest["terrain"], "terrain.glb")
             self.assertIsNone(manifest["collision"])
             self.assertEqual(manifest["sky"], {"mesh": "sky.glb", "panorama": "sky.png", "background": [10, 20, 30]})

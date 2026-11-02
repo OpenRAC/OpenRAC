@@ -49,6 +49,7 @@ extern void update_entity_matrix(void *, void *, void *, void *) __asm__("FUN_L0
 
 void piston_platform_update(LiftMoby *m) __asm__("FUN_L01_002f95c0");
 
+/* Moby classes 703, 715 */
 void piston_platform_update(LiftMoby *piston_platform) {
     enum {
         PISTON_PLATFORM_MODE_WAIT_BEFORE_SUBTRACT_TRAVEL = 0,
@@ -56,12 +57,12 @@ void piston_platform_update(LiftMoby *piston_platform) {
         PISTON_PLATFORM_MODE_MOVING = 2
     };
     LiftVars *piston_platform_vars;
-    u128      old;
+    u128      previous_position;
     u128      delta;
     u128     *dp;
 
     piston_platform_vars = piston_platform->pvars;
-    qcopy(&old, &piston_platform->pos);
+    qcopy(&previous_position, &piston_platform->pos);
     fast_dec_timer_s16(&piston_platform_vars->timer);
     if (piston_platform->state == 0) {
         piston_platform_vars->x28 = 4;
@@ -117,6 +118,6 @@ void piston_platform_update(LiftMoby *piston_platform) {
         break;
     }
     dp = &delta;
-    fast_vec_sub(dp, &piston_platform->pos, &old);
+    fast_vec_sub(dp, &piston_platform->pos, &previous_position);
     update_entity_matrix(piston_platform_vars->x60, dp, piston_platform->x40, piston_platform->x40);
 }

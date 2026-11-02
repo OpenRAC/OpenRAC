@@ -74,7 +74,7 @@ void reposition_moby_with_collision_check(struct Moby *moby, void *new_position)
     float origin[4];
     float pos[4];
     float effect_velocity[4];
-    float out[4];
+    float effect_spawn_position[4];
     float effect_position_angle, random_effect_angle, radius, speed;
     int   i;
     char *moby_data;
@@ -86,7 +86,7 @@ void reposition_moby_with_collision_check(struct Moby *moby, void *new_position)
     }
     origin[2] += 0.3f;
     if (FUN_L00_001f0d60_q(0.2f, pos, 0, moby)) {
-        float *effectPosition = out;
+        float *effectPosition = effect_spawn_position;
         float *effectVelocity = effect_velocity;
         i = 3;
         do {
@@ -96,7 +96,7 @@ void reposition_moby_with_collision_check(struct Moby *moby, void *new_position)
             random_effect_angle = random_angle_radians();
             build_spherical_offset(
                 radius, effect_position_angle, random_effect_angle, effectPosition);
-            out[2] += reposition_effect_spawn_z_offset_gp;
+            effect_spawn_position[2] += reposition_effect_spawn_z_offset_gp;
             fast_vec_add(effectPosition, effectPosition, &moby->pos);
             speed =
                 random_float_between(reposition_effect_velocity_scale_range_start_gp * D_0015ED6C,
@@ -178,9 +178,10 @@ char *find_group_chicken_in_state_6(int idx) __asm__("FUN_L16_002e8b08");
 f32   probe_ground_height(void *arg0, s32 arg1, f32 arg2) __asm__("FUN_00213508");
 s32   is_point_inside_clip_volume(s32 arg0, s32 arg1) __asm__("FUN_00214720");
 
-void update_chicken_relocator(struct Moby *moby) __asm__("FUN_L16_002e8970");
+void chicken_relocator_update(struct Moby *moby) __asm__("FUN_L16_002e8970");
 
-void update_chicken_relocator(struct Moby *moby) {
+/* Moby class 1923 */
+void chicken_relocator_update(struct Moby *moby) {
     enum {
         TARGET_CYCLE_INITIALIZE_DELAY = 0,
         TARGET_CYCLE_WAIT_TO_TRIGGER = 1,
@@ -191,25 +192,26 @@ void update_chicken_relocator(struct Moby *moby) {
         TARGET_STATUS_REPOSITION_READY = 2
     };
     char *hero_position = (char *)&hero.motion.pos;
-    char *data = (char *)moby->pvars;
+    char *target_cycle_data = (char *)moby->pvars;
     char *target;
     int   target_status;
     float pos[4];
-    if (!is_point_inside_clip_volume(hero_position, *(int *)(data + 8)))
+    if (!is_point_inside_clip_volume(hero_position, *(int *)(target_cycle_data + 8)))
         return;
-    target = D_L16_0015FFD8 + (*(int *)(data + 4) << 8);
+    target = D_L16_0015FFD8 + (*(int *)(target_cycle_data + 4) << 8);
     switch (moby->state) {
     case TARGET_CYCLE_INITIALIZE_DELAY:
         moby->state = 1;
-        *(int *)(data + 0xC) = scale_game_frames(random_int_between(0xB4, 0x168));
+        *(int *)(target_cycle_data + 0xC) = scale_game_frames(random_int_between(0xB4, 0x168));
         break;
     case TARGET_CYCLE_WAIT_TO_TRIGGER:
         if (vector_distance_xy(hero_position, target + 0x10) > 3.0f) {
-            if (find_group_chicken_in_state_6(*(int *)data) != 0) {
-                if (fast_dec_timer(data + 0xC)) {
+            if (find_group_chicken_in_state_6(*(int *)target_cycle_data) != 0) {
+                if (fast_dec_timer(target_cycle_data + 0xC)) {
                     moby->state = 2;
                     request_target_reposition(target);
-                    *(int *)(data + 0xC) = scale_game_frames(random_int_between(0xB4, 0x168));
+                    *(int *)(target_cycle_data + 0xC) =
+                        scale_game_frames(random_int_between(0xB4, 0x168));
                 }
             }
         }
@@ -223,12 +225,12 @@ void update_chicken_relocator(struct Moby *moby) {
         case TARGET_STATUS_REPOSITION_READY:
             moby->state = 1;
             {
-                char *other = find_group_chicken_in_state_6(*(int *)data);
-                if (other != 0) {
+                char *moby_to_reposition = find_group_chicken_in_state_6(*(int *)target_cycle_data);
+                if (moby_to_reposition != 0) {
                     qcopy(pos, target + 0x10);
                     pos[2] += 1.0f;
                     pos[2] = probe_ground_height(pos, 0, 0.5f);
-                    reposition_moby_with_collision_check(other, pos);
+                    reposition_moby_with_collision_check(moby_to_reposition, pos);
                 }
             }
             break;

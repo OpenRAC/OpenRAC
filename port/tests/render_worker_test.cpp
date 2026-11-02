@@ -11,8 +11,10 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "game/common/frontend/render_worker.h"
 #include "renderer/direct.h"
 #include "tests/check.h"
@@ -123,6 +125,49 @@ void test_inherits_rounding_mode() {
     CHECK(observed == FE_TOWARDZERO);
 }
 
+// Handoff markers keep the same submitted frame on separate main and render trails.
+void test_breadcrumb_handoff() {
+    using namespace openrac::crash;
+    RenderWorker worker;
+    std::string error;
+    CHECK(worker.submit([] { breadcrumb("test worker pass"); }, error, 777));
+    CHECK(worker.finish(error));
+    Breadcrumbs::Snapshot entries{};
+    const auto count = breadcrumbs().snapshot(entries);
+    int queued = -1, started = -1, finished = -1;
+    bool worker_pass = false;
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& entry = entries[i];
+        // Earlier tests leave their own history; only this submission uses frame 777.
+        if (entry.value != 777) {
+            continue;
+        }
+        const std::string_view message(entry.message);
+        worker_pass |= message == "test worker pass" && entry.thread == BreadcrumbThread::Render;
+        if (message == "render job queued") {
+            queued = static_cast<int>(i);
+            CHECK(entry.thread == BreadcrumbThread::Main);
+        } else if (message == "render job started") {
+            started = static_cast<int>(i);
+            CHECK(entry.thread == BreadcrumbThread::Render);
+        } else if (message == "render job finished") {
+            finished = static_cast<int>(i);
+            CHECK(entry.thread == BreadcrumbThread::Render);
+        }
+    }
+    CHECK(queued >= 0 && started > queued && finished > started);
+    CHECK(worker_pass);
+    CHECK(worker.submit([] { throw std::runtime_error("breadcrumb failure"); }, error, 778));
+    CHECK(!worker.finish(error));
+    const auto failed_count = breadcrumbs().snapshot(entries);
+    bool failed = false;
+    for (std::size_t i = 0; i < failed_count; ++i) {
+        failed |= entries[i].value == 778 && entries[i].thread == BreadcrumbThread::Render
+                  && std::string_view(entries[i].message) == "render job failed";
+    }
+    CHECK(failed);
+}
+
 // Runs every worker contract check; unexpected startup exceptions fail the test program.
 bool run_tests() {
     // Startup and allocation errors must produce a failing test result.
@@ -133,6 +178,7 @@ bool run_tests() {
         test_worker_failure_stops_submission();
         test_shutdown_finishes_the_last_job();
         test_inherits_rounding_mode();
+        test_breadcrumb_handoff();
         return true;
     } catch (const std::exception& failure) {
         std::fprintf(stderr, "render_worker: %s\n", failure.what());

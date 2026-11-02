@@ -22,6 +22,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include "common/cache_folder.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "renderer/render_opt.h"
@@ -72,25 +73,7 @@ std::filesystem::path pipeline_cache_file() {
             return std::filesystem::path(*chosen);
         }
     }
-    std::filesystem::path base;
-#if defined(__APPLE__)
-    const std::string home = env::system_variable("HOME").value_or(".");
-    base = std::filesystem::path(home) / "Library/Caches/OpenRAC";
-#elif defined(__ANDROID__)
-    const std::string home = env::system_variable("HOME").value_or(".");
-    base = std::filesystem::path(home) / "cache";
-#else
-    if (const std::optional<std::string> xdg = env::system_variable("XDG_CACHE_HOME");
-        xdg.has_value() && !xdg->empty()) {
-        base = std::filesystem::path(*xdg) / "openrac";
-    } else {
-        std::optional<std::string> home = env::system_variable("USERPROFILE");
-        if (!home.has_value() || home->empty()) {
-            home = env::system_variable("HOME");
-        }
-        base = std::filesystem::path(home.value_or(".")) / ".cache/openrac";
-    }
-#endif
+    const std::filesystem::path base = cache_folder();
     return base
            / std::format(
                "vulkan_pipelines_{:04x}_{:04x}_{}.bin",
@@ -533,6 +516,8 @@ bool make_device(std::string& error) {
     features.shaderStorageImageWriteWithoutFormat =
         g->features.shaderStorageImageWriteWithoutFormat;
     features.shaderStorageImageReadWithoutFormat = g->features.shaderStorageImageReadWithoutFormat;
+    // Arm ASR's fragment passes also write storage images.
+    features.fragmentStoresAndAtomics = g->features.fragmentStoresAndAtomics;
 #endif
     g->features = features;
     VkPhysicalDeviceVulkan13Features f13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
@@ -555,6 +540,8 @@ bool make_device(std::string& error) {
     // The vendor FSR half path also uses native 16-bit integer indexing. No 16-bit storage is enabled.
     features.shaderInt16 = g->shader_float16 && available.features.shaderInt16;
     g->features.shaderInt16 = features.shaderInt16;
+    // Arm ASR's prebuilt shaders also use subgroup operations on their 16-bit values.
+    g->subgroup_extended_types = g->shader_float16 && f12.shaderSubgroupExtendedTypes;
     g->viewport_index_supported = features.multiViewport && f12.shaderOutputViewportIndex;
     // Vulkan 1.3 made extended dynamic state core, with no feature to ask for (documented: the
     // Vulkan 1.3 promotion of VK_EXT_extended_dynamic_state); the device was chosen for 1.3.
@@ -579,6 +566,7 @@ bool make_device(std::string& error) {
     f11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
     f12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     f12.shaderFloat16 = g->shader_float16 ? VK_TRUE : VK_FALSE;
+    f12.shaderSubgroupExtendedTypes = g->subgroup_extended_types ? VK_TRUE : VK_FALSE;
     f12.shaderOutputViewportIndex = g->viewport_index_supported ? VK_TRUE : VK_FALSE;
     f13.pNext = &f11;
     f11.pNext = &f12;
@@ -606,6 +594,18 @@ bool make_device(std::string& error) {
         for (const VkExtensionProperties& e : offered) {
             if (std::strcmp(e.extensionName, kPortabilitySubset) == 0) {
                 extensions.push_back(kPortabilitySubset);
+            }
+        }
+
+        // The same operations under two names: the EXT one where offered, which more tools know.
+        for (const char* name :
+             {VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME, VK_KHR_LOAD_STORE_OP_NONE_EXTENSION_NAME}) {
+            const bool offers = std::any_of(offered.begin(), offered.end(), [&](const auto& e) {
+                return std::strcmp(e.extensionName, name) == 0;
+            });
+            if (offers && !g->load_store_none) {
+                extensions.push_back(name);
+                g->load_store_none = true;
             }
         }
     }
@@ -841,6 +841,7 @@ void destroy_all() {
         for (auto& [name, b] : g->buffers.objects) {
             destroy_buffer(b);
         }
+        clear_test_programs();
         for (auto& [name, p] : g->programs.objects) {
             if (p.serial != 0) {
                 release_program(p);

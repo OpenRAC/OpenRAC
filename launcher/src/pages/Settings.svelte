@@ -4,6 +4,7 @@
   // and how the launcher itself behaves. Edits stay local until saved; the bar
   // that saves them stays in view at the bottom of the window. With `setup`,
   // the first-run screen: one question (the games folder), and what was found by itself, folded.
+  import AddToSteam from "$components/AddToSteam.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
   import Logo from "$components/Logo.svelte";
   import PathField from "$components/PathField.svelte";
@@ -416,6 +417,7 @@
       <!-- Android has neither: its games are tiles, and no Discord app on the device reads a
            desktop's rich presence. -->
       {#if !onAndroid}
+        <AddToSteam />
         <label class="setting">
           <span class="text">
             <strong>Compact layout</strong>
@@ -593,21 +595,21 @@
               <strong>Renderer</strong>
               <small>
                 {draft.renderer === "vulkan"
-                  ? "Experimental: needs Vulkan 1.3, else the game draws with OpenGL."
-                  : "OpenGL 4.1, the default."}
+                  ? "Vulkan 1.3, the default; without it the game draws with OpenGL."
+                  : "OpenGL 4.1."}
                 From the game's next start: a running game keeps its renderer.
               </small>
             </span>
             <div class="segmented" role="radiogroup" aria-label="Renderer">
               <button
                 role="radio"
-                aria-checked={draft.renderer !== "vulkan"}
-                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
+                aria-checked={draft.renderer === "vulkan"}
+                onclick={() => (draft.renderer = "vulkan")}>Vulkan</button
               >
               <button
                 role="radio"
-                aria-checked={draft.renderer === "vulkan"}
-                onclick={() => (draft.renderer = "vulkan")}>Vulkan</button
+                aria-checked={draft.renderer !== "vulkan"}
+                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
               >
             </div>
           </div>

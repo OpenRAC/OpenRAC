@@ -364,6 +364,11 @@ void publish_counters() {
     }
 
     stats::gauge("shader_compile_s", now.shader_compile_s);
+    stats::gauge("pipeline_compile_s", g->pipeline_compile_s.load(std::memory_order_relaxed));
+    stats::gauge(
+        "pipeline_creation_calls",
+        static_cast<double>(g->pipeline_creation_calls.load(std::memory_order_relaxed))
+    );
     stats::gauge("vk_gpu_timestamps", g->timestamp_bits != 0 ? 1.0 : 0.0);
     // The presentation's timing (R-09): whether presents can be waited on, whether one has been
     // seen finished, and how long the frame waited for a free swapchain image.
@@ -441,9 +446,9 @@ void prepare_frame() {
     f.timings.clear();
     f.timestamp_used = 0;
     f.active_timing = -1;
-    vkResetCommandPool(g->device, f.pool, 0);
+    require_success(vkResetCommandPool(g->device, f.pool, 0), "reset frame pool");
     for (VkDescriptorPool pool : f.pools) {
-        vkResetDescriptorPool(g->device, pool, 0);
+        require_success(vkResetDescriptorPool(g->device, pool, 0), "reset frame descriptors");
     }
     f.pool_at = 0;
     f.chunk_at = 0;

@@ -29,6 +29,7 @@ extern float frame_time_sq;
 
 void door_update(unsigned char *moby) __asm__("FUN_L16_002d59e0");
 
+/* Moby class 647 */
 void door_update(unsigned char *moby) {
     enum {
         DOOR_STATE_INITIALIZE = 0,
@@ -74,7 +75,7 @@ extern int *D_L16_001ABCC0[];
 /* Activate the linked mobys and return the one nearest the challenge target. */
 /* Ported from rac1-decomp (src/overlays/l16_kalebo3/vendor_002A50F0.c: func_L16_002D6E98), where it is exact; names translated to the US level program. */
 
-extern float class_0287_group_activation_value_gp __asm__("D_L16_00161A80") __attribute__((sda));
+float class_0287_group_activation_value_gp __asm__("D_L16_00161A80") = 1.5f;
 
 #include "rnc/overlay/l16/mobys/door.h"
 
@@ -86,7 +87,7 @@ void *set_class_0287_group_activation_and_find_nearest(int index, int secondary)
     char  *nearest = 0;
     float  distance = 1000.0f;
     char  *moby;
-    float *data;
+    float *class_0287_group_member_data;
     float  candidate_distance;
     float  activation_value;
     if (!group_entry)
@@ -100,12 +101,12 @@ void *set_class_0287_group_activation_and_find_nearest(int index, int secondary)
             distance = candidate_distance;
             nearest = moby;
         }
-        data = ((float *)MOBY(moby)->pvars);
+        class_0287_group_member_data = ((float *)MOBY(moby)->pvars);
         moby[0x20] = 1;
         activation_value = class_0287_group_activation_value_gp;
-        data[5] = activation_value;
+        class_0287_group_member_data[5] = activation_value;
         if (secondary)
-            data[6] = activation_value;
+            class_0287_group_member_data[6] = activation_value;
         if (*group_entry++ < 0)
             return nearest;
     }
@@ -122,7 +123,7 @@ void *activate_class_0287_group_and_find_nearest(int index, int secondary) {
     char  *nearest = 0;
     float  distance = 1000.0f;
     char  *moby;
-    int   *data;
+    int   *class_0287_moby_data;
     float  candidate_distance;
     if (!group_entry)
         return 0;
@@ -131,15 +132,15 @@ void *activate_class_0287_group_and_find_nearest(int index, int secondary) {
         if (MOBY(moby)->oclass != 0x287)
             continue;
         candidate_distance = fast_vec_dist(D_L16_001671C0, moby + 0x10);
-        data = ((int *)MOBY(moby)->pvars);
+        class_0287_moby_data = ((int *)MOBY(moby)->pvars);
         if (candidate_distance < distance) {
             distance = candidate_distance;
             nearest = moby;
         }
         moby[0x20] = 1;
-        data[5] = 0;
+        class_0287_moby_data[5] = 0;
         if (secondary)
-            data[6] = 0;
+            class_0287_moby_data[6] = 0;
         if (*group_entry++ < 0)
             return nearest;
     }

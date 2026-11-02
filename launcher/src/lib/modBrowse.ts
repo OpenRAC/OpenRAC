@@ -90,3 +90,37 @@ export function youtube(id: string): { thumb: string; watch: string } | null {
 
 /** The mod's page on the website. */
 export const siteUrl = (id: string) => `https://openrac.dev/mods/${encodeURIComponent(id)}`;
+
+const SITE_LINK = /^(?:https?:\/\/)?(?:www\.)?openrac\.dev(?:[/?#]|$)/i;
+const MOD_PAGE = /^(?:https?:\/\/)?(?:www\.)?openrac\.dev\/mods\/([A-Za-z0-9._-]+)\/?(?:[?#].*)?$/i;
+/** The site's pages under /mods/ that are not a mod. */
+const NOT_MODS = new Set(["submit", "set"]);
+
+/** Any link to the website, mod page or not. */
+export const isSiteLink = (text: string) => SITE_LINK.test(text.trim());
+
+/** A pasted link the change set can open: openrac:// as it is, a mod's page as its install link. */
+export function hubLink(text: string): string | null {
+  const link = text.trim();
+  if (/^openrac:\/\//i.test(link)) return link;
+  const id = MOD_PAGE.exec(link)?.[1];
+  if (!id || id.includes("..") || NOT_MODS.has(id.toLowerCase())) return null;
+  return `openrac://install/${id}`;
+}
+
+const REGION_LABEL: Record<string, string> = { pal: "PAL", ntsc: "NTSC-U" };
+
+/** The discs the mod is for in this game, in the site's words. */
+export const regions = (mod: IndexMod, game: string): string[] =>
+  (mod.games[game] ?? []).map((disc) => REGION_LABEL[disc] ?? disc.toUpperCase());
+
+/** How long ago `updated` was, as the site says it. Empty for a date that can't be read. */
+export function age(updated: string, now: number): string {
+  const then = Date.parse(updated);
+  if (Number.isNaN(then)) return "";
+  const days = Math.floor((now - then) / 86_400_000);
+  if (days < 1) return "today";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}

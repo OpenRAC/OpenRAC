@@ -27,6 +27,12 @@ vec4 light_sets[64];
 vec3 probe_sunlight_scale=vec3(1);
 vec4 probe_sunlight_direction=vec4(0);
 vec4 probe_point_position[8],probe_point_colour[8];
+#define LOCAL_LIGHT_LOOP(i) for(int i=0;i<8;++i)
+#define LOCAL_POSITION(i) probe_point_position[i]
+#define LOCAL_COLOUR(i) probe_point_colour[i]
+#define LOCAL_CONE(i,d) 1.
+#define LOCAL_ATTENUATION(d,r) (1.0-(d)/(r))
+
 vec3 probe_unit(vec3 v){return v*inversesqrt(max(dot(v,v),1e-12));}
 )";
 

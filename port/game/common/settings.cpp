@@ -71,6 +71,7 @@ Settings g_settings;
 std::atomic<float> g_gain{1.0f};  // g_settings.volume, read by the sound's thread
 std::atomic<bool> g_muted{false};
 std::filesystem::path g_file;
+bool g_display_mode_in_file = false;  // the file load() read said display_mode or fullscreen
 
 // How far from 0 a game's option in the file may be (game_option): no option a game keeps comes
 // near it (rac1's volumes go to 0x400), and a hand-edited number past it is reported.
@@ -229,6 +230,7 @@ Settings& get() {
 
 void load(const std::filesystem::path& file) {
     g_file = file;
+    g_display_mode_in_file = false;
     g_settings = Settings{};
     fixes::reset();
     Settings& s = g_settings;
@@ -249,6 +251,10 @@ void load(const std::filesystem::path& file) {
         const std::string key = trimmed(line.substr(0, eq));
         const std::string value = trimmed(line.substr(eq + 1));
         bool known = true;
+        if (key == "display_mode" || key == "fullscreen") {
+            // Even a value the port does not know: the player chose something.
+            g_display_mode_in_file = true;
+        }
         if (key == "display_mode") {
             known = parse(value, kDisplayMode, s.display_mode);
         } else if (key == "fullscreen") {
@@ -395,6 +401,18 @@ void load(const std::filesystem::path& file) {
             }
         } else if (key == "menu_bar") {
             known = parse_bool(value, s.menu_bar);
+        } else if (key == "menu_bar_key") {
+            // Any key name SDL knows; the overlay uses the default for one it does not.
+            known = !value.empty();
+            if (known) {
+                s.menu_bar_key = value;
+            }
+        } else if (key == "menu_bar_button") {
+            // Any button name SDL knows, or "none"; the overlay uses the default for another.
+            known = !value.empty();
+            if (known) {
+                s.menu_bar_button = value;
+            }
         } else if (key == "mute_unfocused") {
             known = parse_bool(value, s.mute_unfocused);
         } else if (key == "original_lod") {
@@ -461,6 +479,14 @@ void load(const std::filesystem::path& file) {
     }
     g_gain = gain_now();
     log::info("settings from {}: {}", file.string(), summary());
+}
+
+bool first_start_display(bool scripted) {
+    if (g_display_mode_in_file || scripted) {
+        return false;
+    }
+    g_settings.display_mode = DisplayMode::Borderless;
+    return true;
 }
 
 std::string summary() {
@@ -574,6 +600,8 @@ void save() {
         << "frame_rate = " << frame_rate_value(s) << "\n"
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
         << "menu_bar = " << (s.menu_bar ? 1 : 0) << "\n"
+        << "menu_bar_key = " << s.menu_bar_key << "\n"
+        << "menu_bar_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
         << "original_lod = " << (s.original_lod ? 1 : 0) << "\n"
         << "responsive_controls = " << (s.responsive_controls ? 1 : 0) << "\n"

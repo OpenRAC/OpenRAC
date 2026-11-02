@@ -8,10 +8,12 @@
 #include <format>
 #include <imgui.h>
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL.h>
 
 #include "common/env.h"
+#include "common/log.h"
 #include "common/slow_cpu.h"
 #include "debug/overlay.h"
 #include "mods.h"
@@ -55,11 +57,128 @@ void press(SDL_Keycode key) {
     SDL_PushEvent(&event);
 }
 
+namespace {
+
+// A line under a menu item on when to use it, as the drawer's notes (drawer_note).
+void menu_note(const char* line) {
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetFontSize() * 20.0f);
+    ImGui::TextDisabled("%s", line);
+    ImGui::PopTextWrapPos();
+}
+
+// Developer > Record diagnostics: the drawer's rows (debug/drawer.cpp) in the same order.
+void record_menu() {
+    if (capture_pending()) {
+        if (ImGui::MenuItem("Cancel recording", "Ctrl+F3")) {
+            toggle_capture(false);
+        }
+        return;
+    }
+    if (capture_busy()) {
+        if (ImGui::MenuItem("Stop recording", "Ctrl+F3")) {
+            toggle_capture(false);
+        }
+        return;
+    }
+    if (ImGui::MenuItem("Gameplay recording", "Ctrl+F3")) {
+        toggle_capture(false);
+    }
+    menu_note(
+        "Records while you play, for the length below. Use it to catch stutters or a slow place "
+        "or moment."
+    );
+    // Moves the length on, its value beside it, and leaves the menu open (as Graphics does).
+    ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
+    if (ImGui::MenuItem("Recording length", capture_length_name())) {
+        step_capture_length(1);
+    }
+    ImGui::PopItemFlag();
+    ImGui::Separator();
+    if (ImGui::MenuItem(
+            std::format("Graphics settings sweep ({:.0f} s)", settings_sweep_seconds()).c_str()
+        )) {
+        toggle_settings_sweep();
+    }
+    menu_note(
+        "Stand still while it runs: it changes the graphics settings every few seconds, with "
+        "VSync off, and measures what each one costs. Use it when the game is slow everywhere."
+    );
+    ImGui::Separator();
+    // Where they are saved (capture.cpp's capture_dir), which the toast also names.
+    if (ImGui::MenuItem("Open recordings folder")) {
+        open_capture_folder();
+    }
+}
+
+}  // namespace
+
+SDL_Scancode menu_bar_scancode() {
+    const std::string& name = settings::get().menu_bar_key;
+    const SDL_Scancode key =
+        name == "Alt" ? SDL_SCANCODE_LALT : SDL_GetScancodeFromName(name.c_str());
+    if (key == SDL_SCANCODE_LALT || key == SDL_SCANCODE_RALT) {
+        return SDL_SCANCODE_UNKNOWN;
+    }
+    // A name SDL does not know: the default, the key under Escape.
+    return key == SDL_SCANCODE_UNKNOWN ? SDL_SCANCODE_GRAVE : key;
+}
+
+std::string menu_bar_key_label() {
+    const SDL_Scancode key = menu_bar_scancode();
+    if (key == SDL_SCANCODE_UNKNOWN) {
+        return "Alt";
+    }
+    // What the key prints on the player's own layout, else its place's name.
+    const char* name = SDL_GetKeyName(SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false));
+    return name != nullptr && *name != '\0' ? std::string(name)
+                                            : std::string(SDL_GetScancodeName(key));
+}
+
+SDL_GamepadButton menu_bar_button() {
+    const std::string& name = settings::get().menu_bar_button;
+    if (name == "none") {
+        return SDL_GAMEPAD_BUTTON_INVALID;
+    }
+    const SDL_GamepadButton button = SDL_GetGamepadButtonFromString(name.c_str());
+    // A name SDL does not know: the default, R4.
+    return button == SDL_GAMEPAD_BUTTON_INVALID ? SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1 : button;
+}
+
+std::string menu_bar_button_label() {
+    switch (const SDL_GamepadButton button = menu_bar_button()) {
+        case SDL_GAMEPAD_BUTTON_INVALID:
+            return "none";
+        // The back buttons by the names on Valve's pads (the Steam Controller, the Steam Deck).
+        case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1:
+            return "R4";
+        case SDL_GAMEPAD_BUTTON_LEFT_PADDLE1:
+            return "L4";
+        case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2:
+            return "R5";
+        case SDL_GAMEPAD_BUTTON_LEFT_PADDLE2:
+            return "L5";
+        default: {
+            const char* name = SDL_GetGamepadStringForButton(button);
+            return name != nullptr ? std::string(name) : std::string("?");
+        }
+    }
+}
+
+void toggle_menu_bar() {
+    settings::get().menu_bar = !settings::get().menu_bar;
+    settings::save();
+    if (!settings::get().menu_bar) {
+        s.toast = menu_bar_key_label() + " shows the menus again";
+        s.toast_until = ImGui::GetTime() + 4.0;
+    }
+}
+
 void menu_bar() {
     if (!ImGui::BeginMainMenuBar()) {
         return;
     }
-    if (ImGui::BeginMenu("View")) {
+    const std::string key = menu_bar_key_label();
+    if (ImGui::BeginMenu("Game")) {
         if (ImGui::MenuItem("Full screen", "F11")) {
             press(SDLK_F11);
         }
@@ -69,11 +188,18 @@ void menu_bar() {
             press(SDLK_F2);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Hide these menus", "Alt")) {
-            settings::get().menu_bar = false;
-            settings::save();
-            s.toast = "Alt shows the menus again";
-            s.toast_until = ImGui::GetTime() + 4.0;
+        if (ImGui::MenuItem("Hide these menus", key.c_str())) {
+            toggle_menu_bar();
+        }
+        ImGui::Separator();
+        // Closes the game as the window's close button does: the frame loop ends the program
+        // normally, so the launcher sees an ordinary exit.
+        if (ImGui::MenuItem("Exit game", "Alt+F4")) {
+            log::info("exit: chosen in the menu bar, closing the game");
+            SDL_Event event;
+            SDL_zero(event);
+            event.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&event);
         }
         ImGui::EndMenu();
     }
@@ -113,12 +239,23 @@ void menu_bar() {
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Developer")) {
+        if (ImGui::BeginMenu("Freecam")) {
+            camera_tools_controls();
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem("Debug overlay", "F3", s.visible)) {
             press(SDLK_F3);
         }
         bool picker = picker_enabled();
         if (ImGui::MenuItem("Moby picker", nullptr, &picker)) {
             set_picker_enabled(picker);
+        }
+        if (s.developer) {
+            if (ImGui::MenuItem("Object Viewer", nullptr, &s.object_viewer.open)) {
+                if (s.object_viewer.open) {
+                    set_picker_enabled(true);
+                }
+            }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Pause", "F5", s.paused)) {
@@ -138,19 +275,10 @@ void menu_bar() {
             press(SDLK_F12);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem(
-                capture_busy() ? "Stop recording diagnostics" : "Record diagnostics", "Ctrl+F3"
-            )) {
-            toggle_capture(false);
-        }
-        if (ImGui::BeginMenu("Recording length")) {
-            for (const double seconds : {15.0, 30.0, 60.0, 120.0, 0.0}) {
-                const std::string name =
-                    seconds > 0.0 ? std::format("{:.0f} s", seconds) : std::string("Until stopped");
-                if (ImGui::MenuItem(name.c_str(), nullptr, s.capture_seconds == seconds)) {
-                    s.capture_seconds = seconds;
-                }
-            }
+        // Diagnostics recordings (debug/capture.cpp) as the drawer has them: one entry that holds
+        // the two kinds, each with its line on when to use it.
+        if (ImGui::BeginMenu("Record diagnostics")) {
+            record_menu();
             ImGui::EndMenu();
         }
         // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).
@@ -209,6 +337,13 @@ void menu_bar() {
             ImGui::EndMenu();
         }
         ImGui::EndMenu();
+    }
+    // At the right, greyed: the key that hides the bar (and brings it back).
+    const std::string hint = key + ": hide or show the menus";
+    const float width = ImGui::CalcTextSize(hint.c_str()).x + ImGui::GetStyle().ItemSpacing.x;
+    if (ImGui::GetContentRegionAvail().x > width) {
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - width - ImGui::GetStyle().WindowPadding.x);
+        ImGui::TextDisabled("%s", hint.c_str());
     }
     ImGui::EndMainMenuBar();
 }

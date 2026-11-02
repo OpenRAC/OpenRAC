@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/c_boundary.h"
 #include "common/env.h"
 #include "common/log.h"
@@ -112,15 +113,28 @@ LevelSources level_sources(int wanted) {
 bool read_level(int wanted, const LevelSources& sources, std::string& error) {
     if (g_preload.read.valid() && g_preload.level == wanted
         && g_preload.generation == openrac_game_mods_generation) {
+        crash::level_breadcrumb("level data wait", wanted);
         Preload::Read read = g_preload.read.get();
         g_preload.level = -1;
         if (read.level.dir == sources.dir) {
             g->level = std::move(read.level);
             error = std::move(read.error);
+            crash::level_breadcrumb(read.ok ? "level data ready" : "level data failed", wanted);
             return read.ok;
         }
     }
-    return scene::load_level(sources.dir, g->level, error, sources.edited, sources.mod_roots);
+    crash::level_breadcrumb("level data read", wanted);
+    const bool read =
+        scene::load_level(sources.dir, g->level, error, sources.edited, sources.mod_roots);
+    crash::level_breadcrumb(read ? "level data ready" : "level data failed", wanted);
+    return read;
+}
+
+// Marks renderer initialisation without changing the existing caller's fallback handling.
+void init_level_renderer(int level, std::string& error) {
+    crash::level_breadcrumb("level renderer init", level);
+    const bool ready = g->renderer->init(error);
+    crash::level_breadcrumb(ready ? "level renderer ready" : "level renderer init failed", level);
 }
 
 }  // namespace
@@ -136,6 +150,7 @@ void preload_level(int number) {
         return;
     }
     // A read of another level still under way is waited for here (its future ends with it).
+    crash::level_breadcrumb("level preload requested", number);
     g_preload.level = number;
     g_preload.generation = openrac_game_mods_generation;
     log::info("reading level {} ahead", number);
@@ -146,6 +161,7 @@ void preload_level(int number) {
         );
         return read;
     });
+    crash::level_breadcrumb("level preload queued", number);
 }
 
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy).
@@ -169,6 +185,7 @@ void use_level(int number) {
     if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation) {
         return;
     }
+    crash::level_breadcrumb("level load started", wanted);
     loaded_generation = openrac_game_mods_generation;
     g->loaded = wanted;
     // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
@@ -186,6 +203,7 @@ void use_level(int number) {
     } else {
         g->renderer->clear_renderers();
     }
+    crash::level_breadcrumb("level scene reset", wanted);
     g->scene.release();
     g->scene = scene::LevelScene();
     // The enhanced renderer's probe and early lighting, drawn when the player's settings ask.
@@ -203,6 +221,7 @@ void use_level(int number) {
     const bool has_levels = g->profile->has_levels();
     const bool read = read_level(wanted, sources, error);
     if (!has_levels && !read) {
+        crash::level_breadcrumb("level scenery unavailable", wanted);
         log::info(
             "level {}: no scenery for this game yet ({}); the 2D path is drawn alone", wanted, error
         );
@@ -215,11 +234,12 @@ void use_level(int number) {
         g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
         g->renderer->add(std::move(hud), error);
         if (fresh) {
-            g->renderer->init(error);
+            init_level_renderer(wanted, error);
         }
         return;
     }
     if (has_levels && !read) {
+        crash::level_breadcrumb("level load failed", wanted);
         log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
         // Said in the picture: the game goes on, its HUD over a black world, and a player takes
         // that for the game being broken.
@@ -241,16 +261,19 @@ void use_level(int number) {
             error
         );
         if (fresh) {
-            g->renderer->init(error);
+            init_level_renderer(wanted, error);
         }
         return;
     }
     enhanced::install_texture_upscaler(g->renderer->textures());
+    crash::level_breadcrumb("level scene upload", wanted);
     if (!g->scene.upload(g->level, g->renderer->textures(), error)) {
+        crash::level_breadcrumb("level upload failed", wanted);
         log::error("level {}: {}", wanted, error);
         return;
     }
     // The 2D path: its part before the world first, the rest after the world renderers.
+    crash::level_breadcrumb("level renderers setup", wanted);
     auto hud = std::make_unique<renderer::DirectRenderer>(
         "hud", renderer::Bucket::Hud, renderer::DirectConfig{}, renderer::DirectRenderer::Input::Vif
     );
@@ -318,9 +341,10 @@ void use_level(int number) {
     }
     g->renderer->add(std::move(hud), error);
     if (fresh) {
-        g->renderer->init(error);
+        init_level_renderer(wanted, error);
     }
     // The sky's textures at pool keys of their own (kSkyTextureKey + number), for its sprites.
+    crash::level_breadcrumb("level sky upload", wanted);
     const auto sky = scene::load_sky_textures(dir, g->level.overrides);
     for (std::size_t i = 0; i < sky.size(); ++i) {
         if (sky[i].width > 0) {
@@ -330,6 +354,7 @@ void use_level(int number) {
             g->renderer->textures().place(kSkyTextureKey + static_cast<std::uint32_t>(i), h);
         }
     }
+    crash::level_breadcrumb("level load finished", wanted);
     log::info("drawing level {} natively ({} models)", wanted, g->level.models.size());
 }
 

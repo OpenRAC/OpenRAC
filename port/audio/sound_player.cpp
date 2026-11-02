@@ -18,6 +18,7 @@
 #include <cstring>
 #include <limits>
 #include <numbers>
+#include <utility>
 
 #include "audio/pitch.h"
 
@@ -561,6 +562,10 @@ void SoundPlayer::tick() {
         if (s.done) {
             // Voices are still releasing: keep the sound until they are done.
             if (voices_of(s).empty()) {
+                if (m_keep_ended) {
+                    m_ended.push_back(s.handle);
+                }
+
                 it = m_scripts.erase(it);
                 continue;
             }
@@ -575,6 +580,18 @@ void SoundPlayer::tick() {
 
         ++it;
     }
+}
+
+void SoundPlayer::keep_ended(bool on) {
+    m_keep_ended = on;
+
+    if (!on) {
+        m_ended.clear();
+    }
+}
+
+std::vector<SoundHandle> SoundPlayer::take_ended() {
+    return std::exchange(m_ended, {});
 }
 
 std::size_t SoundPlayer::sounds_playing() const {

@@ -88,14 +88,14 @@ void remove_giant_clank_charged_blast(void) {
     struct Moby *tracked_moby = *(char **)&D_L00_001613C8_gp;
     if (tracked_moby != 0) {
         if (tracked_moby->oclass == 0x5F3) {
-            char *data;
+            char *tracked_moby_vars;
             int   point_light_slot_index;
             if (tracked_moby->state != 0)
                 return;
-            data = ((char *)tracked_moby->pvars);
+            tracked_moby_vars = ((char *)tracked_moby->pvars);
             D_L00_0015F320 = 0;
             D_L00_0015F330 = 0;
-            point_light_slot_index = *(short *)(data + 0x2C);
+            point_light_slot_index = *(short *)(tracked_moby_vars + 0x2C);
             if (point_light_slot_index != -1)
                 release_point_light_slot(point_light_slot_index);
             mark_moby_for_removal(*(char **)&D_L00_001613C8_gp);
@@ -252,9 +252,10 @@ extern f32 frame_scale_macro __asm__("D_0015ED60") MACRO_ADDR;
 /* update of moby class 1523: charges up a screen fade and a light, then bursts into particles and deletes itself */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_00298BB8.c: func_L15_0029FF90), where it is exact; names translated to the US level program. */
 
-void update_giant_clank_charged_blast(Moby29FF90 *moby) __asm__("FUN_L15_0029edb0");
+void giant_clank_charged_blast_update(Moby29FF90 *moby) __asm__("FUN_L15_0029edb0");
 
-void update_giant_clank_charged_blast(Moby29FF90 *moby) {
+/* Moby class 1523 */
+void giant_clank_charged_blast_update(Moby29FF90 *moby) {
     enum {
         CHARGING = 0,
         EXPANDING_BLAST = 1
@@ -461,3 +462,5 @@ void update_giant_clank_charged_blast(Moby29FF90 *moby) {
 }
 
 unsigned char *D_L18_001B2AAC NOT_SDA = 0;
+
+int charged_blast_removal_target __asm__("D_L15_00161484") = 0;

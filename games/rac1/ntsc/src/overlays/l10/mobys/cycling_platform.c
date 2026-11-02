@@ -10,11 +10,15 @@
 
 extern int   debug_print() __asm__("FUN_001e93b0");
 extern float scale_time(float) __asm__("FUN_001f96b0");
-extern char  cycling_platform_missing_pvars_message[] __asm__("D_L10_001DC510");
-void         update_cycling_platform(char *platform_moby) __asm__("FUN_L10_00295a38");
-extern f32   scale_time(f32) __asm__("FUN_001f96b0");
 
-void update_cycling_platform(char *platform_moby) {
+char cycling_platform_missing_pvars_message[79] __asm__("D_L10_001DC510") =
+    "Moby Class %d Instance %d has no pVars!  May be in the art file.\n\tMobyDeleted\n";
+
+void       cycling_platform_update(char *platform_moby) __asm__("FUN_L10_00295a38");
+extern f32 scale_time(f32) __asm__("FUN_001f96b0");
+
+/* Moby class 1033 */
+void cycling_platform_update(char *platform_moby) {
     enum {
         PLATFORM_STATE_INITIALIZE = 0,
         PLATFORM_STATE_RISING = 1,

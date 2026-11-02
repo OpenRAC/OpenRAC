@@ -24,6 +24,7 @@ extern u32 D_0013CAE4 NOT_SDA;
 
 void giant_clank_pad_update(struct Moby *moby) __asm__("FUN_L15_002ed068");
 
+/* Moby classes 1451, 1899 */
 void giant_clank_pad_update(struct Moby *moby) {
     enum {
         GIANT_CLANK_PAD_INITIALIZE = 0,
@@ -31,7 +32,7 @@ void giant_clank_pad_update(struct Moby *moby) {
         GIANT_CLANK_PAD_CHECK_ACTIVATION = 2
     };
     struct Moby *linked = moby->pvars;
-    struct Moby *entry;
+    struct Moby *linked_vehicle_moby;
     struct Moby *pad;
     u8           state = moby->state;
     u8           position[16] __attribute__((aligned(16)));
@@ -43,10 +44,11 @@ void giant_clank_pad_update(struct Moby *moby) {
             mark_moby_for_removal(moby);
             return;
         }
-        entry = (struct Moby *)((char *)l15_moby_array + (*(int *)((u8 *)linked + 0x60) << 8));
-        entry->flags |= 1;
-        entry->collision = 0;
-        entry->visible = 0;
+        linked_vehicle_moby =
+            (struct Moby *)((char *)l15_moby_array + (*(int *)((u8 *)linked + 0x60) << 8));
+        linked_vehicle_moby->flags |= 1;
+        linked_vehicle_moby->collision = 0;
+        linked_vehicle_moby->visible = 0;
         level = current_level_index;
         moby->state = (level != 0x12 || D_0014C050[0x120 + moby->mission] != 0xff) ? 1 : 3;
         break;

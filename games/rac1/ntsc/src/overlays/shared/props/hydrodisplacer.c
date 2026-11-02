@@ -69,15 +69,15 @@ void         spawn_debris_chunk(V_2e01b0 *, V_2e01b0 *, int, int) __asm__("FUN_L
 int          FUN_001f96f8_2e01b0(int) __asm__("FUN_001f96f8");
 
 extern int   D_L00_0015F5C4_macro __asm__("D_L00_0015F5C4") MACRO_ADDR;
-extern int   D_L00_0015F404_macro __asm__("D_L00_0015F404") MACRO_ADDR;
+extern int   hydrodisplacer_camera_active_macro __asm__("D_L00_0015F404") MACRO_ADDR;
 extern char *moby_table_macro __asm__("D_L00_0015FFD8") MACRO_ADDR;
 extern char *D_L00_001600EC_macro __asm__("D_L00_001600EC") MACRO_ADDR;
 extern float fade_level_macro __asm__("D_L00_0015F3FC") MACRO_ADDR;
-extern float D_L00_00161BB4_macro __asm__("D_L00_00161BB4") MACRO_ADDR;
+extern float hydrodisplacer_tank_fill_time_macro __asm__("D_L00_00161BB4") MACRO_ADDR;
 extern float frame_time_macro __asm__("D_0015ED6C") MACRO_ADDR;
 extern float frame_scale_sq_macro __asm__("D_0015ED64") MACRO_ADDR;
 extern float frame_time_sq_macro __asm__("D_0015ED70") MACRO_ADDR;
-extern int   D_L00_0015F404;
+extern int   hydrodisplacer_camera_active __asm__("D_L00_0015F404");
 extern short D_L00_0015F3FC;
 
 float D_L01_00162040 = 1e+02f;
@@ -102,6 +102,7 @@ float D_L18_001621F4 = 1e+02f;
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002D9438.c: func_L00_002E0E50), where it is exact; names translated to the US level program. */
 void hydrodisplacer_update(Moby *moby) __asm__("FUN_L00_002df9a0");
 
+/* Moby class 1251 */
 void hydrodisplacer_update(Moby *moby) {
     enum {
         HYDRODISPLACER_INITIALIZE = 0,
@@ -117,7 +118,7 @@ void hydrodisplacer_update(Moby *moby) {
         HYDRODISPLACER_CAMERA_RETURN_TO_ACTIVATION = 2
     };
     Vec_2E0E50 camera_pos, camera_rot;
-    Data      *data = (void *)moby->pvars;
+    Data      *hydrodisplacer_interaction_state = (void *)moby->pvars;
 
     if (hero.items[0].state == 3) {
         end_hydrodisplacer_interaction(moby);
@@ -207,19 +208,20 @@ void hydrodisplacer_update(Moby *moby) {
         if (platform[1] != -1 && platform[2] != -1) {
             moby->command = 0;
             moby->state = 4;
-            data->f10 = 0.0f;
+            hydrodisplacer_interaction_state->f10 = 0.0f;
             jet_mount(g_debug_camera.position, g_debug_camera.angles, 1, 0, 0);
             if (hero.hydro_tank_full != 0) {
-                data->i8 = platform[1];
-                data->iC = platform[2];
+                hydrodisplacer_interaction_state->i8 = platform[1];
+                hydrodisplacer_interaction_state->iC = platform[2];
             } else {
-                data->iC = platform[1];
-                data->i8 = platform[2];
+                hydrodisplacer_interaction_state->iC = platform[1];
+                hydrodisplacer_interaction_state->i8 = platform[2];
             }
             break;
         }
         moby->state = 5;
-        data->i0 = func_001FA898_2E0E50(scale_time(D_L00_00161BB4_macro));
+        hydrodisplacer_interaction_state->i0 =
+            func_001FA898_2E0E50(scale_time(hydrodisplacer_tank_fill_time_macro));
         if (hero.hydro_tank_full == 0) {
             ((Moby *)linked)->command = 8;
             hero.hydro_tank_full = 1;
@@ -244,9 +246,11 @@ void hydrodisplacer_update(Moby *moby) {
             }
             linked = moby_table_macro + (*(int *)hero.ground_moby->pvars << 8);
             moby->command = 1;
-            set_camera_position(D_L00_001600EC_macro + (data->i8 << 7) + 0x30);
-            set_camera_rotation(D_L00_001600EC_macro + (data->i8 << 7) + 0x70);
-            D_L00_0015F404_macro = 1;
+            set_camera_position(D_L00_001600EC_macro + (hydrodisplacer_interaction_state->i8 << 7) +
+                                0x30);
+            set_camera_rotation(D_L00_001600EC_macro + (hydrodisplacer_interaction_state->i8 << 7) +
+                                0x70);
+            hydrodisplacer_camera_active_macro = 1;
             if (hero.hydro_tank_full == 0) {
                 ((Moby *)linked)->command = 8;
                 hero.hydro_tank_full = 1;
@@ -257,34 +261,41 @@ void hydrodisplacer_update(Moby *moby) {
             break;
         }
         case HYDRODISPLACER_CAMERA_INTERPOLATE:
-            if (data->f10 == 0.0f && 0.0f < fade_level_macro) {
+            if (hydrodisplacer_interaction_state->f10 == 0.0f && 0.0f < fade_level_macro) {
                 approach_value(&fade_level_macro, 0.0f, 1.0f / func_001F9850_2E0E50(15));
                 return;
             }
-            if (data->f10 < 1.0f) {
-                advance_accelerated_scalar(&data->f10,
-                                           &data->f14,
+            if (hydrodisplacer_interaction_state->f10 < 1.0f) {
+                advance_accelerated_scalar(&hydrodisplacer_interaction_state->f10,
+                                           &hydrodisplacer_interaction_state->f14,
                                            1.0f,
                                            frame_time_sq_macro * 0.666f,
                                            frame_time_sq_macro * 0.666f,
                                            frame_time_macro * 0.5f);
-                func_001F9C08_2E0E50(&camera_pos,
-                                     D_L00_001600EC_macro + (data->i8 << 7) + 0x30,
-                                     D_L00_001600EC_macro + (data->iC << 7) + 0x30,
-                                     data->f10);
+                func_001F9C08_2E0E50(
+                    &camera_pos,
+                    D_L00_001600EC_macro + (hydrodisplacer_interaction_state->i8 << 7) + 0x30,
+                    D_L00_001600EC_macro + (hydrodisplacer_interaction_state->iC << 7) + 0x30,
+                    hydrodisplacer_interaction_state->f10);
                 clear_u64_value(&camera_rot);
                 camera_rot.y =
-                    func_001FA790_2E0E50(((Node *)D_L00_001600EC_macro)[data->iC].v70.y,
-                                         ((Node *)D_L00_001600EC_macro)[data->i8].v70.y) *
-                    data->f10;
-                camera_rot.y = func_001FA748_2E0E50(((Node *)D_L00_001600EC_macro)[data->i8].v70.y,
-                                                    camera_rot.y);
+                    func_001FA790_2E0E50(
+                        ((Node *)D_L00_001600EC_macro)[hydrodisplacer_interaction_state->iC].v70.y,
+                        ((Node *)D_L00_001600EC_macro)[hydrodisplacer_interaction_state->i8]
+                            .v70.y) *
+                    hydrodisplacer_interaction_state->f10;
+                camera_rot.y = func_001FA748_2E0E50(
+                    ((Node *)D_L00_001600EC_macro)[hydrodisplacer_interaction_state->i8].v70.y,
+                    camera_rot.y);
                 camera_rot.z =
-                    func_001FA790_2E0E50(((Node *)D_L00_001600EC_macro)[data->iC].v70.z,
-                                         ((Node *)D_L00_001600EC_macro)[data->i8].v70.z) *
-                    data->f10;
-                camera_rot.z = func_001FA748_2E0E50(((Node *)D_L00_001600EC_macro)[data->i8].v70.z,
-                                                    camera_rot.z);
+                    func_001FA790_2E0E50(
+                        ((Node *)D_L00_001600EC_macro)[hydrodisplacer_interaction_state->iC].v70.z,
+                        ((Node *)D_L00_001600EC_macro)[hydrodisplacer_interaction_state->i8]
+                            .v70.z) *
+                    hydrodisplacer_interaction_state->f10;
+                camera_rot.z = func_001FA748_2E0E50(
+                    ((Node *)D_L00_001600EC_macro)[hydrodisplacer_interaction_state->i8].v70.z,
+                    camera_rot.z);
                 set_camera_position(&camera_pos);
                 set_camera_rotation(&camera_rot);
                 return;
@@ -294,7 +305,7 @@ void hydrodisplacer_update(Moby *moby) {
                 return;
             }
             moby->command = 2;
-            D_L00_0015F404_macro = 0;
+            hydrodisplacer_camera_active_macro = 0;
             jet_end_mount(3);
             return;
         case HYDRODISPLACER_CAMERA_RETURN_TO_ACTIVATION:
@@ -314,7 +325,7 @@ void hydrodisplacer_update(Moby *moby) {
         break;
     case HYDRODISPLACER_WAIT_FOR_TIMER:
         if (hero.ground_moby != 0 && hero.ground_moby->oclass == 0x155 &&
-            func_001F9908_2E0E50(data) == 0) {
+            func_001F9908_2E0E50(hydrodisplacer_interaction_state) == 0) {
             break;
         }
         end_hydrodisplacer_interaction(moby);
@@ -348,15 +359,15 @@ void emit_hydrodisplacer_effect(char *moby) {
 s32 test_hydrodisplacer_activation_flag(void) __asm__("FUN_L00_002e02e0");
 
 s32 test_hydrodisplacer_activation_flag(void) {
-    struct Hero *base;
+    struct Hero *activation_hero;
     u8          *linked_moby;
     s32          ground_moby_address;
     s32          idx;
     u8           flags;
-    base = &hero;
+    activation_hero = &hero;
     linked_moby = moby_table;
-    ground_moby_address = ((s32)base->ground_moby);
-    flags = (u8)base->hydro_tank_full;
+    ground_moby_address = ((s32)activation_hero->ground_moby);
+    flags = (u8)activation_hero->hydro_tank_full;
     linked_moby += *(s32 *)*(s32 *)((u8 *)ground_moby_address + 0x78) << 8;
     if (!flags) {
         if (linked_moby[0xBC] & 2)
@@ -373,7 +384,7 @@ s32 test_hydrodisplacer_activation_flag(void) {
 /* Moby state 4: clears two globals, calls 002eac18(3); control mode 0x13: calls 002223f8(0, 1). */
 void end_hydrodisplacer_interaction(char *moby) {
     if (MOBY(moby)->state == 4) {
-        D_L00_0015F404 = 0;
+        hydrodisplacer_camera_active = 0;
         *(int *)&D_L00_0015F3FC = 0;
         jet_end_mount(3);
     }
@@ -381,3 +392,5 @@ void end_hydrodisplacer_interaction(char *moby) {
         hero_set_state(HERO_STATE_IDLE, 1);
     }
 }
+
+float hydrodisplacer_tank_fill_time __asm__("D_L00_00161BB4") = 1e+02f;

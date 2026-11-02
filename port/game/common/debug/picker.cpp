@@ -9,6 +9,7 @@
 #include <string>
 
 #include "debug/overlay.h"
+#include "renderer/gl.h"
 #include "scene/object_picker.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -128,7 +129,7 @@ void picker_overlay(const Shown& shown) {
             hit && hit->layer == scene::Layer::Mobys && hit->identity) {
             s.selected = std::uint32_t(hit->identity);
             s.follow_hero = false;
-            s.inspector = true;
+            s.inspector = !s.object_viewer.open;
         } else {
             s.selected = 0;
             s.inspector = false;
@@ -202,6 +203,11 @@ void picker_overlay(const Shown& shown) {
             );
             if (!hit->texture.empty()) {
                 text("Texture: {}", hit->texture);
+            }
+            if (s.developer) {
+                if (ImGui::Button("Inspect in isolation")) {
+                    select_object_viewer(shown);
+                }
             }
             if (ImGui::Button("Copy details")) {
                 const auto report = scene::picker_report_json(s.picker_result, true, s.game, name);

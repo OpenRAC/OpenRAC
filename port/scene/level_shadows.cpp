@@ -7,6 +7,7 @@
 #include <iterator>
 #include <stdexcept>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
@@ -120,6 +121,7 @@ void LevelScene::set_shadow_quality(renderer::ShadowQuality quality) {
 }
 
 void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state) {
+    crash::breadcrumb("shadow maps");
     m_shadow_geometry_indices = {};
     set_shadow_quality(input.shadow_quality);
     m_shadow_atlas_active = false;
@@ -287,8 +289,9 @@ void LevelScene::prepare_sun_shadow(
     }
     try {
         direction = m_lighting->sunlight_direction(direction);
+        m_sun_camera = input.culling_camera ? *input.culling_camera : input.camera;
         m_sun_cascades =
-            sun_cascades(input.camera, direction, low, high, 256, input.shadow_quality);
+            sun_cascades(m_sun_camera, direction, low, high, 256, input.shadow_quality);
 #if defined(OPENRAC_VULKAN)
         static const bool& scrolling = stats::probe(
             "OPENRAC_SCROLLING_SHADOWS", "Experimental toroidal static caches for the sun cascades"

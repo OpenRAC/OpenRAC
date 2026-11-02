@@ -5,6 +5,8 @@ from __future__ import annotations
 import contextlib
 from datetime import datetime, timezone
 import errno
+import hashlib
+import os
 import json
 from pathlib import Path
 import platform
@@ -220,8 +222,53 @@ class Tee:
             self.stream.flush()
 
 
+def metadata_json(path):
+    """Build metadata is optional and must never prevent lighting preparation."""
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def build_context(baker=None, *, root=None):
+    """Separate the running launcher, tool sources and selected executable's identity."""
+    root = Path(root) if root is not None else Path(__file__).resolve().parents[4]
+    context = {'launcher_version': os.environ.get('OPENRAC_LAUNCHER_VERSION', 'unknown (CLI)'),
+               'tools_version': metadata_json(root/'launcher/src-tauri/tauri.conf.json').get('version') or 'unknown',
+               'tools_commit': 'unknown'}
+    try:
+        if (root/'STANDALONE').is_file():
+            lines = (root/'STANDALONE').read_text(encoding='utf-8').splitlines()
+            context['tools_commit'] = next((s.removeprefix('commit: ').strip() for s in lines
+                                            if s.startswith('commit: ')), 'unknown')
+            context['tools_version'] = next((s.removeprefix('version: ').strip() for s in lines
+                                             if s.startswith('version: ')), context['tools_version'])
+        elif (root/'.git').exists():
+            result = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True,
+                                    text=True, encoding='utf-8', errors='replace', timeout=2)
+            if result.returncode == 0:
+                context['tools_commit'] = result.stdout.strip() or 'unknown'
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        pass
+    if baker is not None:
+        baker = Path(baker).resolve()
+        stamp = metadata_json(baker.parent/'openrac-build.json')
+        context.update(baker=str(baker), port_build_version=stamp.get('version') or 'unknown',
+                       port_build_commit=stamp.get('commit') or 'unknown', baker_sha256='unavailable')
+        try:
+            digest = hashlib.sha256()
+            with baker.open('rb') as source:
+                for block in iter(lambda: source.read(1 << 20), b''):
+                    digest.update(block)
+            context['baker_sha256'] = digest.hexdigest()
+        except OSError:
+            pass
+    return context
+
+
 @contextlib.contextmanager
-def transcript(directory):
+def transcript(directory, *, baker=None):
     directory.mkdir(parents=True, exist_ok=True)
     path = directory/'probe-bake.log'
     with cache_lock(directory), path.open('a', encoding='utf-8', errors='replace') as log:
@@ -229,6 +276,8 @@ def transcript(directory):
         state = {'error': None}
         with contextlib.redirect_stdout(Tee(sys.stdout, log, lock, state)), contextlib.redirect_stderr(Tee(sys.stderr, log, lock, state)):
             print(f'\nProbe bake started {datetime.now(timezone.utc).isoformat()} | {platform.platform()} | Python {platform.python_version()}', flush=True)
+            print('Probe build context: ' + json.dumps(build_context(baker), ensure_ascii=True), flush=True)
+            print('Bake command: ' + json.dumps(sys.argv, ensure_ascii=True), flush=True)
             print(f'Bake log: {path.resolve()}', flush=True)
             yield path
         if state['error'] is not None:

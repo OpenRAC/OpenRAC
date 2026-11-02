@@ -34,11 +34,13 @@ paused or slowed, a line at the top of the picture says so and names the keys
 that undo it; a screenshot says where it went.
 
 The same keys are menus. On Windows and Linux a bar along the window's top
-has View, Graphics, Enhanced, Sound and Developer, with a tick beside what is on
+has Game, Graphics, Enhanced, Sound and Developer, with a tick beside what is on
 (Graphics lists the picture's settings with their values; a click moves one
-to its next value, and the menu stays open); Alt by itself
-hides it and shows it again, and View > "Hide these menus" hides it (the
-`menu_bar` setting keeps the choice). On macOS the system's menu bar has
+to its next value, and the menu stays open); its key (`menu_bar_key`, `` ` ``
+by default) and controller button (`menu_bar_button`, R4) hide it and show it
+again, and Game > "Hide these menus" hides it (the
+`menu_bar` setting keeps the choice). Game > "Exit game" closes the game as the
+window's close button does. On macOS the system's menu bar has
 View, Sound and Developer instead (the game's own Video options page has the
 picture's settings there); `OPENRAC_MENU_BAR=1` shows the in-window bar too.
 On Android they are a drawer that slides in from the left (docs/port/ANDROID.md);
@@ -282,6 +284,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_OVERLAY` | `1`, or a list of `frame`, `renderer`, `memory`, `mobys`, `game`, `shaders`, `all`, `inspect`, `labels`, `memview`, `wireframe`, `picker` | Shows the overlay from the start (`0`: not). The section names open those sections; `inspect` selects the hero and opens the moby inspector, `labels` names the mobys in the picture, `memview` opens the memory viewer, `wireframe` draws the frame in lines, `picker` enables click selection and its JSON report. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_OVERLAY_SHOT` | `N:PREFIX` | With the overlay shown: every `N` ticks, the window with the overlay to `PREFIX<tick>.png`, from `OPENRAC_SHOT_FROM` on; while paused one more, `PREFIX<tick>_held.png`. (`OPENRAC_SHOT` writes the game's frame without the overlay.) | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_KEYS` | `FRAME[+HELD]:KEY,...` | Keys and clicks by script, put in the window's event queue at those window frames, as `OPENRAC_PRESS` presses pad buttons. `KEY` is SDL's name of a key (`F3`, `F5`, `Return`) or `click@X,Y`, a left click at that place of the window (in the window's own units, not pixels). `+HELD`: that many pictures later while the game is paused at `FRAME`, where frames do not count. An event is read on the frame after it was put. | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_LAUNCHER_VERSION` | text | Set by the launcher for bake tasks; records the running launcher's version in probe logs. Unset CLI runs report unknown. | `port/enhanced/tools/baker/pipeline/pipeline_events.cpp` |
 | `OPENRAC_MENU_BAR` | any (set) | macOS: the overlay's menus in a bar along the window's top as well, as on Windows and Linux (macOS has them in its own menu bar). | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_DRAWER` | any (set) | The overlay's menus in the drawer, as on Android, in place of the menu bar. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_GL_API` | `es`, `desktop`, `vulkan` | The kind of OpenGL context: `es` asks for OpenGL ES 3.2, what Android draws with (the default there), and runs the renderer's ES path on a desktop driver; `desktop` the 4.1 core profile (the default elsewhere); `vulkan` the renderer's GL carried out on Vulkan 1.3 (`port/renderer/vulkan`; on macOS through MoltenVK). Where Vulkan cannot start, the log says why and the game draws with OpenGL. | `port/platform/window.cpp` |
@@ -289,6 +292,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_VULKAN_PIPELINE_CACHE` | path, or `0` / `off` / `none` | With `OPENRAC_GL_API=vulkan`: where graphics pipelines are cached to disk between runs; defaults to `.cache/openrac/vulkan_pipelines_<vendor>_<device>_<key>.bin` (or macOS / Android equivalent), `<key>` naming the code that makes the pipelines so that a changed build starts afresh and removes the older files. `0`, `off` or `none` turns caching off. A file that is not one whole save (cut short, mixed from two programs, or of an older format) is logged and dropped, and the next save replaces it. Beside it, `<file>.manifest` lists the pipelines made, which the next run makes again ahead on a worker thread (`pipeline-prewarm`), and `<file>.spirv` what glslang made, so a warm start compiles nothing (`spirv-disk-cache`, [RENDER_PERF.md](RENDER_PERF.md)); with caching off there is neither. | `port/renderer/vulkan/vkgl_device.cpp`, `pipeline_cache_file.cpp` |
 | `OPENRAC_VULKAN_LIBRARY` | path | macOS: the Vulkan library to open (a loader or MoltenVK) in place of the one the application bundle carries. | `port/platform/window.cpp` |
 | `OPENRAC_GL_HIDE_EXTENSIONS` | `NAME,...` | The renderer acts as if the driver lacked these GL extensions, to try the fallbacks a phone's driver needs on one that has them (`GL_NV_shader_noperspective_interpolation`, `GL_EXT_clip_cull_distance`). | `port/renderer/gl.cpp` |
+| `OPENRAC_GL_PROGRAM_CACHE` | path, or `0` / `off` / `none` | OpenGL and OpenGL ES: where the driver's compiled programs (`glGetProgramBinary`) are kept between runs; defaults to `.cache/openrac/gl_programs` (or the macOS / Android cache folder), a folder per driver and a file per program. A program built again from the same sources, at every level's load and in every later run, is loaded from its binary instead of compiled. A binary the driver refuses, or a file that is not one whole save, is dropped and the program compiled again; files unused for 30 days go. `0`, `off` or `none` keeps no binaries, in memory or on disk. | `port/renderer/program_cache.cpp` |
 | `OPENRAC_HIDE_PASSES` | `NAME,...` | The renderer's passes of those names are not drawn: the names of the Renderer section's rows (`sky`, `terrain`, `ties`, `shrubs`, `mobys`, `effects`, `hud`). | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_HIDE_PASSES_EVERY` | `N` | `OPENRAC_HIDE_PASSES` hides its passes only in every other block of N frames, so one run shoots a place with and without them (`port/tools/regress/survey.py`). | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_DEBUG_DUMP` | `FILE` | The frame dump, as `--debug-dump FILE`. | `port/game/common/main.cpp` |
@@ -314,6 +318,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_WRITE` | `FRAME:ADDRESS:VALUE[:FRAMES],...` | Writes a 32-bit word into the game's memory at each vertical blank from `FRAME` for `FRAMES` blanks (default 1). `ADDRESS` and `VALUE` are hexadecimal; `FRAME` and `FRAMES` decimal. | `port/game/common/main.cpp` |
 | `OPENRAC_HIDDEN` | any (set) | With `--window`: the window is made and drawn as always but never shown, so scripted runs open nothing on the screen and several can run at once. Screenshots still work. Without `--window` the game has no pad, terrain collision or disc movies, so it cannot be played by script. | `port/game/common/frontend.cpp` |
 | `OPENRAC_SOFTWARE_GL` | any (set) | Runs on a software OpenGL rasteriser instead of refusing it. Such a renderer shows a level at a few frames a second, which looks like a broken port, so without this the game stops with a message. | `port/game/common/frontend.cpp` |
+| `OPENRAC_AUDIO_BUFFER_MS` | milliseconds, `0` to `200` | How much sound is mixed ahead of the device, on a mixer thread of the output's own (`platform/audio.h`); `20` on Windows, Linux and macOS, `0` on Android. The device's requests (every 10 ms on Windows) are then answered from what is ready, so a mix that waits for the game's lock or for the processor no longer leaves a gap; the sound is heard that much later, and the game reads it back as it is heard (`openrac_sound_set_unheard`), so nothing the game does with it changes. `0` mixes on each request, as before. Gaps the device still got are logged as `audio: ... ms of silence` (at most every 10 s) and are the `audio short frames` gauge of a performance capture, beside `audio mix ms` and `audio request gap ms`. | `port/game/common/program/sound.cpp` |
 | `OPENRAC_AUDIO_TICKED` | any (set) | No sound device: the game's sounds advance by one tick's samples each tick (rendered and dropped) and streams are read when they start, so what the game gets back from the sound engine lands on the same tick however fast the run goes, and `port/tools/regress`'s runs repeat. | `port/game/common/main.cpp` |
 | `OPENRAC_CONTROL_FRAMES` | `N` (decimal) | The run ends `N` window frames after the player gets control (a route's length in `port/tools/regress`). Unset means never. | `port/game/common/frontend.cpp` |
 | `OPENRAC_DEBUG_MENU` | `N` (decimal frame) | Opens the developer menu by script at window frame `N` (or later), if the menu is available: `OPENRAC_DEVELOPER` on, and the boot program (title and main menu) loaded. Unset means never. | `port/game/common/debug_menu.cpp` |
@@ -386,13 +391,14 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_PROBE_SKY_INTENSITY` | a number, 0 or more | The sky intensity the probe bake must have been made with, in place of the bake profile's. A value that is not wholly a finite number of 0 or more leaves the GI off, with the reason in the log. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_VK_UNIFORM_REUSE_OFF` | any (set; unset for the optimised path) | Vulkan profiling reference: redundant uniform writes dirty the default block; ordinary uniform descriptors include each upload offset. Default uses byte comparisons, dynamic uniform offsets and bounded per-frame descriptor reuse. Set before startup. | `port/renderer/vulkan/vkgl_internal.h` |
 | `OPENRAC_GPU_MARKERS` | any (set; unset for off) | Names timed GPU passes in AMD RGP and other Vulkan profilers. Requires configuring with `-DOPENRAC_GPU_MARKERS=ON` (default OFF) and active stats collection, such as `--debug-dump`. Label lookup and Vulkan label calls are compiled out otherwise. | `port/renderer/vulkan/vkgl_commands.cpp`, `port/renderer/vulkan/vkgl_device.cpp` |
+| `OPENRAC_GPU_PASS_TIMING` | any (set; unset for off) | Vulkan: every section timed on the GPU ends the render pass it falls in, at its start and its end, so that a tile-based GPU (Mali, Adreno, Apple) times it; otherwise its timestamps lie inside one pass and read about zero. Each split stores and loads the attachments again, so the frame is slower while it is on. Without it, a recording splits one frame in ten on a tile-based GPU by itself (stats::set_pass_sampling). | `port/renderer/vulkan/vkgl_commands.cpp` |
 | `OPENRAC_GPU_DRIVEN_OFF` | any (set) | Reference (Vulkan): instance visibility on the CPU and direct mesh draws, in place of the GPU-driven path. See [GPU rendering](RAC1_GPU_DRIVEN.md). | `port/renderer/vulkan/vkgl.cpp` |
 | `OPENRAC_GPU_MATERIALS_OFF` | any (set) | Reference (Vulkan): each mesh's material uniforms and textures bound one by one; takes effect at the next shader reload. | `port/renderer/vulkan/gpu_materials.inc` |
 | `OPENRAC_VK_EFFECT_UPLOAD_REUSE_OFF` | any (set) | Reference (Vulkan): every effect texture upload is copied and hashed, and identical ones are not reused. | `port/renderer/effects.cpp` |
 | `OPENRAC_STRIP_FOG_OFF` | any (set) | Reference: draws the effect strips (the seas, Oltanis's ice) without their GS fog. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_VK_PARTICLE_TEXTURE_REUSE_OFF` | any (set) | Reference (Vulkan): the texture of every visible particle is hashed, and none is reused. | `port/game/common/frontend.cpp` |
 | `OPENRAC_RENDER_OPT_OFF` | `NAME,...` or `all` | Switches the listed render optimisations of the registry off (`all`: every one), so their reference paths draw; an unknown name is warned of and ignored. Read once, at the first question the draw code asks. The names, what each lowers and how its frames are compared are in [RENDER_PERF.md](RENDER_PERF.md). | `port/renderer/render_opt.cpp` |
-| `OPENRAC_PVS_OFF` | any (set) | Profiling reference (Vulkan): no baked camera visibility; the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs-vulkan-only). | `port/scene/level_renderer.cpp` |
+| `OPENRAC_PVS_OFF` | any (set) | Profiling reference: no baked camera visibility (rooms the game hides then show); the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs). | `port/scene/level_renderer.cpp` |
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |
 | `OPENRAC_RENDER_THREAD` | `0` disables | Vulkan world-recording worker with one owned snapshot in flight, enabled by default. Set to `0` for synchronous rendering. UI and presentation stay on the window thread; OpenGL stays synchronous. | `port/game/common/frontend/interpolation.cpp` |
 | `OPENRAC_ADPF_OFF` | any (set) | Android: turns off the performance hint (ADPF) so a diagnostics recording can be compared with and without it. | `port/platform/performance_hint.cpp` |
@@ -410,11 +416,14 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_SHADOW_ATLAS_OFF` | any (set; unset for default) | Uses separate shadow targets instead of the indexed-viewport atlas; retains batching across layers. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_OPAQUE_COLOUR_BATCH_OFF` | any (set; unset for default) | Restores opaque colour in per-layer order. The default Vulkan material path groups solid and alpha-capable opaque colour across enabled layers when reusing the world depth prepass. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_OPAQUE_SPECIALISE_OFF` | any (set; unset for default) | Restores the combined opaque and general static translucent shaders. The specialised Vulkan material path separates static solid, static cutout, opaque moby and static translucent programs, retaining layer-uniform skinning and probe controls. | `port/scene/level_renderer.cpp` |
+| `OPENRAC_PROBE_FAST_OFF` | any (set; unset for default) | Enhanced: the blended static passes (glass, water, foliage) read full probe light again. By default they read one probe volume without the depth test of each probe and filter shadows with four taps, which is much cheaper where they cover the screen several times. Same as `OPENRAC_RENDER_OPT_OFF=probe-fast-blended`. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_SHADOW_LAYER_REFERENCE` | any (set; unset for default) | Uses per-layer shadow buckets and separate targets. Detailed sun timing also uses separate targets. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_SHADOW_GATHER_OFF` | any (set) | Reference: 16 individual shadow texel fetches in place of gathers; takes effect when the level is loaded again. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_SUN_RECEIVER_CULL_OFF` | any (set) | Reference: square shadow-map caster bounds for the sun's cascades. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_SUN_INSTANCE_CULL_OFF` | any (set) | Profiling reference: every instance of a cascade group that survives culling is kept. | `port/scene/level_renderer.cpp` |
 | `OPENRAC_SUN_TIMING_DETAIL` | any (set) | GPU timers per cascade and per layer for the sun's shadows, at a higher profiling cost; otherwise the four whole-map timers, which include the clears. | `port/scene/level_renderer.cpp` |
+| `OPENRAC_TEMPORAL_UPSCALER` | `asr` or `fsr3` | The temporal upscaler behind Enhanced temporal reconstruction: Arm Accuracy Super Resolution (fragment passes, made for phone GPUs; needs 16-bit shader arithmetic) or AMD FSR 3.1. Unset, ASR on a Qualcomm (Snapdragon) GPU and FSR 3.1 elsewhere; ASR falls back to FSR 3.1 when it cannot start. | `port/enhanced/asr/asr_context.cpp` |
+| `OPENRAC_TILE_BASED` | `1` or `0` | Vulkan: whether the device is treated as tile-based, where the optimisations that save attachment traffic and vertex binning default on; unset, Arm, Qualcomm, Apple and Imagination GPUs are. | `port/renderer/vulkan/vkgl.cpp` |
 | `OPENRAC_EARLY_LIGHTING_OFF` | any (set) | Reference: full-resolution GI and cascades; takes effect when the level is loaded again. | `port/enhanced/viewer/early_lighting.cpp` |
 | `OPENRAC_SUN_SHADOWS` | `0`: off; otherwise on in gameplay | Four sun cascades (nearest 2048, others 1024), 256-unit range, filtered comparisons. Fully shadowed primary and directional fill retain 10%; GI stays independent. Suppresses stencil shadows. See [sun shadows](../../port/enhanced/docs/RAC1_SUN_SHADOW.md). | `port/game/common/frontend.cpp` |
 | `OPENRAC_PROBE_RAYS` | integer, default `1024` | Expected bake ray budget for activation. Must match the ray budget used by the bake. | `port/enhanced/viewer/probe_lighting.cpp` |
@@ -507,10 +516,11 @@ stretch, including nonuniform scale/shear. Missing endpoints or singular
 transforms retain the instance. `OPENRAC_MOBY_SPHERE_CULL_OFF` selects unbounded
 animated instances for comparison.
 
-### Baked camera PVS (Vulkan only)
+### Baked camera PVS
 
 `OPENRAC_PVS_OFF=1` disables baked camera occlusion; F3 also exposes the switch.
-OpenGL/ES do not use it. RAC1 exports contain optional `pvs.json` / `pvs.bin`;
+Vulkan and OpenGL/ES both use it: it is part of the picture, not only a speed-up
+(Pokitaru's rooms under the sea floor show from the water without it). RAC1 exports contain optional `pvs.json` / `pvs.bin`;
 add them to an existing export with:
 
 ```sh
@@ -522,7 +532,9 @@ keys; live mobys use +0x36, with invalid keys/spawned objects visible. Shrubs ha
 no mapping. Geometry overrides and edited tie/moby placements disable baked PVS.
 
 Each camera selects a 128-byte mask for its 4-unit cell, conservatively unioning
-adjacent cells when the exact cell is absent. Missing/invalid data keeps objects
+adjacent cells when the exact cell is absent. With no cell or neighbour (deep under
+water, out of bounds) the last mask found stays, as in retail; before any, everything
+shows. Missing/invalid data keeps objects
 visible; no mask carries across levels. UI/render-to-texture mobys use their own
 camera. PVS does not affect gameplay, animation or shadow-caster submission.
 
@@ -553,3 +565,33 @@ Set `--sky-intensity` to match the supplied bake. The tool checks bake activatio
 PVS, depth reuse and timing availability. Use the same warmup/sample window for
 both paths and keep generated output untracked. For backend switches, counters
 and resource lifetime, see [GPU rendering](RAC1_GPU_DRIVEN.md).
+
+## Freecam
+
+Open **Developer > Freecam**, or the **Freecam** section under **Renderer** in F3,
+and select **Enable Freecam**. **Free look** is the default mode: renderer culling,
+PVS, scenery draw distances and sun cascades follow the free camera.
+
+Use W/S to move along the view direction, A/D to strafe, E up, Q down, and Shift
+for four times the selected speed. Ctrl reduces speed to one-quarter and takes
+precedence over Shift. Hold Alt or right-click to look with the mouse:
+the cursor stays hidden while either is held.
+Alt does not toggle the menu bar while freecam is enabled. The game receives
+neutral controller input; F5 pauses gameplay while freecam still moves.
+
+**Culling inspection** is an alternative mode. Renderer visibility and sun cascades
+follow the live gameplay or cutscene camera while you fly aside to inspect the
+result. Choose **Inspect > Main camera** for the yellow camera frustum, or select
+one of the four shadow cascades. Red, green, blue and purple identify the actual
+shadow maps from nearest to farthest when enhanced shadows are active.
+The preview hides mesh instances outside the selected frustum, including blended
+and chrome passes. Cascade previews skip camera PVS so off-camera casters remain
+inspectable; they show frustum inclusion, not every shadow material or receiver rejection.
+Hidden edges are faint and neither overlay writes scene depth.
+These are shadow-map bounds, not the unbounded sun caster extrusion. Switching
+back to **Free look** makes culling follow the camera again.
+
+**Reset to game camera** reseeds the freecam. **Exit Freecam**
+restores ordinary camera behavior. Poses reset on level travel and these developer
+settings are not saved. Freecam can show only geometry the game has submitted;
+it cannot revive inactive mobys or effects already culled by the game.

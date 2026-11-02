@@ -63,9 +63,11 @@ export const THEMES: Record<string, Theme> = {
   },
   rac5: {
     box: "#1b2936",
-    border: "#eab308",
+    // Blue, not the site's yellow (#eab308, #facc15): the frame and the year follow the game's
+    // accent (palettes.json), as every other game's do.
+    border: "#3f78f0",
     text: "#f8fafc",
-    text2: "#facc15",
+    text2: "#7aa8ff",
     from: "#223342",
     to: "#131d26",
     font: "head",
@@ -115,8 +117,8 @@ export function themeStyle(game: string): string {
   ].join("; ");
 }
 
-/** The launcher's accent while a game is the one picked (Android), from palettes.json: its bar
- *  gradient and the ink on it, its amber (headings, the focus ring, what is on) and gold, in that
+/** The launcher's accent while a game is the one picked, from palettes.json: its bar gradient,
+ *  the desktop bar's two stripes and the ink on them, its amber (headings, the focus ring, what is on) and gold, in that
  *  game's colour, as the games' own menus have it: Going Commando's pale blue, Up Your Arsenal's
  *  yellow, Deadlocked's red, Size Matters' blue. Ratchet & Clank keeps the launcher's own orange
  *  (app.css). The warning colour is not an accent's (app.css), so a warning still reads as one. */

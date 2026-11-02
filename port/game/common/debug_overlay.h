@@ -23,6 +23,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "game/common/debug_camera.h"
 #include "game/common/profile.h"
 #include "renderer/math.h"
 #include "renderer/renderer.h"
@@ -30,11 +31,22 @@
 
 namespace openrac::frontend::debug_overlay {
 
+// Samples window-thread controls into an owned render job; tools remain active while paused.
+CameraDebugFrame camera_debug_frame();
+// Observes pointer input after UI routing, including releases and focus loss.
+void camera_debug_event(const SDL_Event& event);
+// Freecam takes gameplay input but leaves developer shortcuts available.
+bool free_camera_enabled();
+// Alt or right-click requests hidden-cursor freecam look while the window is focused.
+bool camera_debug_capturing();
+
 // Shown from the start (--debug-overlay), as OPENRAC_OVERLAY does.
 void request();
 
 // Capturing picker geometry is opt-in; pose capture reads this on the render worker.
 bool picker_enabled();
+// The isolated studio may still need displayed poses after click picking is turned off.
+bool picker_snapshot_needed();
 void set_picker_enabled(bool enabled);
 
 // Any desktop overlay window holding the mouse, including Enhanced Settings.

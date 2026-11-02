@@ -125,7 +125,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_cmds_render_pass` | frame | `vkCmdBeginRendering` and `vkCmdEndRendering` | `vkgl_commands.cpp`, `vkgl_gl.cpp` | R-06 |
 | `vk_cmds_query` | frame | `vkCmdWriteTimestamp`, `vkCmdResetQueryPool` (the GPU timers) | `vkgl_commands.cpp` | |
 | `vk_cmds_other` | frame | `vkCmdClearAttachments` and the debug labels | `vkgl_commands.cpp` | |
-| `vk_pipelines_created` | total | Graphics and compute pipelines made, each a compile in the driver | `vkgl_pipelines.cpp`, `vkgl_gl.cpp`, `gpu_draw.inc` | R-10, R-11 |
+| `vk_pipelines_created` | total | Graphics and compute creations on the drawing thread; excludes prewarm workers | `vkgl_internal.h` | R-10, R-11 |
 | `vk_pipelines_created_after_warmup` | total | Of those, the ones made after the warm-up `vkgl::begin_pipeline_warmup(N)` started (N frames after the benchmark's level upload); 0 until it is called | the same | R-10 |
 | `vk_descriptor_sets_allocated` | frame | Descriptor sets allocated, the material pages' included | `vkgl_pipelines.cpp`, `gpu_materials.inc` | R-14 |
 | `vk_descriptor_writes` | frame | `VkWriteDescriptorSet` entries written | `vkgl_pipelines.cpp`, `gpu_materials.inc`, `gpu_draw.inc` | R-14 |
@@ -149,6 +149,8 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_gpu_payload_bytes` | frame | Bytes the CPU writes for the GPU-driven instances: each batch's view and instances as `gpu_make_batch` builds them, and the page header, groups, commands and payload `gpu_record` copies into the mapped input page | `gpu_draw.inc` | R-15 |
 | `vk_shader_compiles` | total | glslang runs: each shader checked at `glCompileShader`, each program compiled at `glLinkProgram`, the GPU-driven and material programs | `shader_compiler.cpp` | R-12 |
 | `shader_compile_s` | total | The seconds those runs took | `shader_compiler.cpp` | R-12 (informs) |
+| `pipeline_compile_s` | total | Driver pipeline creation seconds, including overlapping prewarm work | `vkgl_internal.h` | informs |
+| `pipeline_creation_calls` | total | Backend driver creation attempts, including speculative and failed calls | `vkgl_internal.h` | informs |
 
 The gauges the backend published before (`vk_draws`, `vk_draw_api_calls`, `vk_pipelines_made`,
 `vk_ring_kb`, `vk_uniform_*`, `vk_descriptor_sets`, `vk_gpu_*`, `vk_draw_ms`, `vk_present_ms`,
@@ -299,7 +301,7 @@ package's report gives.
 
 **The equivalence test**, `render_equivalence_vulkan`
 ([`port/tests/render_equivalence_test.cpp`](../../port/tests/render_equivalence_test.cpp)), draws
-the scene at a tenth of its size at 80 by 45, eight frames a scenario, under the validation layer.
+the reduced scene at 80 by 45, eight frames a scenario, under the validation layer.
 The first and last frame use High shadows and the others Medium, retaining both resize directions.
 It first checks that the scene is drawn at all (more than 5% of its first frame is over the clear colour),
 then draws every scenario twice, Enhanced off and on, and requires identical frames: every later
@@ -307,20 +309,83 @@ proof rests on the driver drawing alike twice. One verified default run is retai
 and mode. Each registry entry then draws the opposite of its default state and compares against
 those frames with the entry's tolerance, byte for byte unless it states one. Default-off entries
 and environment overrides use the same rule. This avoids repeating unchanged default draws while
-retaining every on/off comparison, scene rebuild and discarded-attachment check.
+retaining every on/off comparison and discarded-attachment check. Baseline determinism uses
+fresh scenes. Each registry entry builds its own renderer with the selected shader configuration,
+then reuses it across scenarios; the reupload scenario still replaces its scene resources.
+Discard checks likewise use separate renderers for poisoned and retained attachments, sharing
+each renderer across scenarios while keeping exact frame comparisons.
 The self-test entry is compared as well, as the harness's check of itself: its reference path is in
 the fixture (`SceneRenderer::selftest_reference_path`). The validation layer must report nothing.
 
 Vulkan tests use private shader/pipeline caches under the build's `test-cache/vulkan`.
 A CTest fixture removes only those cache files before the tests start. Fresh scene instances
 can then reuse compiled shaders without reading a player's cache or another test's manifest.
-Explicit cache overrides remain intact. GPU tests share a CTest resource lock; CI runs two
-test processes so CPU checks can run beside one GPU test without competing software renderers.
-The equivalence matrix runs last in two parallel registry shards. Both check every scenario's
-determinism and discarded attachments; together they compare every registry entry on and off.
-Each matrix shard limits Mesa to two rendering workers to bound CPU oversubscription.
-`ctest --preset enhanced -L render-equivalence --parallel 2` runs both halves.
+Explicit cache overrides remain intact. Cache and presentation tests share a CTest resource lock;
+equivalence and sun-shadow image tests may overlap other work, with two Mesa rendering workers
+per process. CI runs at most two test processes. Probe, GTAO, horizon-reference and scrolling-shadow
+matrices occupy both worker slots to bound memory use or retain CPU throughput.
+Only the probe matrix also limits Mesa to two workers while running alone; the other exclusive
+matrices retain Mesa's default worker count.
+The equivalence scene uses two registry shards. A required setup fixture verifies fresh-scene
+determinism, synchronous versus batched capture, and poisoned versus retained attachments once
+for both shards. Reference draws create fresh driver objects; paired draws may reuse immutable
+objects and must match those independent pixels. It writes ephemeral RGBA8 baselines under the
+build's `test-cache`. Readers check executable identity, device/driver, initial optimisation
+settings, shape and checksum; a failed setup prevents consumers running.
+Baselines are regenerated each CTest run, not checked-in
+goldens or a persistent cross-device cache.
+
+Optimisations absent from the generic scene have explicit owners in
+[`render_equivalence_policy.h`](../../port/tests/render_equivalence_policy.h). Required focused
+tests exercise temporal motion/history, blur, water simulation/effects, presentation and MSAA.
+The scene shards retain both enhanced and compatibility runs, every scenario and every frame
+for the remaining entries. `ctest --preset enhanced -L render-equivalence --parallel 2` includes
+the setup, focused fixtures and both halves. `--opt NAME` remains available for scene-owned
+entries; feature-owned names report the CTest command that exercises their implementation.
+
+Scene comparisons opt into a bounded, context-local pool of immutable Vulkan program objects.
+Reused bytecode and layout modes must match exactly; each GL link still resets uniforms and
+descriptors. Cache/compilation/lifecycle comparisons bypass the pool, and player launches never
+enable it. Ordinary frames are copied exactly into an RGBA8 snapshot atlas, then read back once
+per scenario. The deliberate depth-pass readback remains to exercise recording splits.
+
+Rendering test logs report phase wall time, glslang time, driver pipeline creation time,
+compile counts and test program reuse. Drawing includes readback; it is not a GPU-only timing.
+Driver compilation may overlap on prewarm workers, so its durations need not add up to wall time.
+Driver calls include speculative prewarming; `pipelines` counts drawing-thread creations.
+Enhanced CI prints these timings from its JUnit report, including successful tests.
+
+Local WSL software Vulkan (Mesa 26.0.8/LLVM 21.1.8), cold Mesa caches, validation,
+`GALLIVM_PERF=nopt` and two CTest slots: the equivalence command took 1,351.09 s before and
+765.63 s after. The latter includes the shared setup and required feature fixtures, replacing
+scene runs that did not exercise those features. The longest scene shard fell from 1,350.32 s
+to 222.31 s; its partner took 205.20 s. These are single samples of test wall time, not game GPU
+timings or a cross-driver guarantee. Scene-owned entries keep all seven scenarios, eight frames
+and both rendering modes, with their existing tolerances.
+
+The spatial GTAO matrix also opts into immutable program retention after its fresh-driver
+lazy-quality compilation assertions. `gtao_test --fresh-programs` runs the same rendering checks
+without retention for paired timings. Two alternating cold-cache software Vulkan pairs with
+validation, `GALLIVM_PERF=nopt` and two Mesa workers averaged 107.62 s fresh versus 66.11 s
+retained. Driver creation calls fell from 253-254 to 49; all scene assertions were preserved.
+These local test timings varied with host load and are not game GPU measurements.
+
 Linux CI also retains Mesa's driver-keyed shader cache between runs, capped at 1 GiB per job.
+The enhanced Ubuntu job uses `GALLIVM_PERF=nopt` to reduce Mesa's LLVM compilation cost for
+these short runs. Shaders, geometry, validation and image comparisons still execute. Its cache
+is separate from normal-compiler runs; Fedora retains the default LLVM optimisation coverage.
+The GTAO horizon-reference test clears this override: its long arithmetic matrix benefits from
+optimised shader execution more than shorter compilation.
+
+Surface-normal checks share scene setup across authored normal signs, retaining separate mesh
+data and all skinning, cutout and MSAA cases. Effects-only checks load lighting metadata without
+compiling unused scene meshes. GTAO builds each quality kernel on first use, so tests and games
+that use one quality do not compile the other. Its image tests retain compatible scene setup
+across qualities, keeping every size, MSAA case and quality-switch comparison.
+The shadow reference test retains production reference-filter coverage; standalone kernels
+unaffected by that switch run in the normal test.
+Probe receiver-normal checks share shaders and probe textures across six separate meshes,
+retaining both windings, all authored normal signs and both camera sides.
 
 A one-pixel negative-control error at 80 by 45 was rejected in all 14 scenario/mode comparisons.
 
@@ -1842,3 +1907,66 @@ pairs, while the separate integer improved in four raw pairs. Total effects CPU 
 unchanged. These support pass-specific savings, not an overall FPS promise. Other levels,
 GPUs and drivers can differ. Native Windows Vulkan was exercised; Android/macOS hardware and
 OpenGL execution require their own validation.
+
+## Tile-based GPUs
+
+Phone GPUs (Arm Mali, Qualcomm Adreno, Apple, Imagination) bin each pass's geometry and keep its
+attachments in tile memory; what they pay for is vertex binning and the bytes a pass loads from
+and stores to memory, not the pixels it shades. `vkgl::tile_based()` says whether the device is
+one: the vendor ID decides, and `OPENRAC_TILE_BASED=1` or `0` overrides it, so a desktop GPU can
+run the same paths. The capture report's `gpu passes` line records it.
+
+- **`shadow-depth-only`.** The shadow atlas, the static shadow cache and the scrolling caches
+  are a float depth image alone. Before, each also had an RGBA8 colour and a stencil attachment
+  that nothing read, which a tile-based GPU cleared and stored every frame.
+- **`msaa-pass-resolve`.** A blit that resolves a whole multisampled colour image into a
+  single-sampled one of the same size and format, while the multisampled image's pass is still
+  open, becomes that pass's resolve attachment. The samples never leave tile memory; before,
+  the pass stored them and a separate resolve read them back.
+- **`fsr-reactive-r8`.** The upscaler's reactive mask is one R8 channel instead of RGBA8; the
+  upscaler reads only its red channel.
+- **`motion-blur-adaptive-samples`.** The blur's gather takes two samples a display pixel of
+  each trail's length (at least 8) instead of always `motion_blur_samples` (two thirds of it
+  along the receiver's own trail): a short trail no longer samples the same texels many times.
+  Not byte-identical: on Novalis while turning, up to about 20% of pixels differ, under 0.2% by
+  more than 4 of 255 and none by more than 32; the trails look the same.
+- **`attachment-untouched`.** A deferred Vulkan pass whose draws and clears never touch an
+  attachment (no colour write, no depth or stencil test, no clear) gives it the load and store
+  operation NONE (`VK_EXT_load_store_op_none` or `VK_KHR_load_store_op_none`): the attachment
+  is neither read in nor written back, and keeps what it held. Before, such a pass loaded and
+  stored it anyway, for example the display depth in the copy to the screen. Byte-identical.
+- **`pass-render-area`.** A deferred Vulkan pass's render area is the rectangle its draws
+  (their scissors, or their indexed viewports) and clears touched, so it loads and stores only
+  that rectangle. When the first thing in the pass is a clear of that whole rectangle, the pass
+  begins cleared instead of loading it (the clear stays in the pass, so its value is the one
+  seen). A clear the pass begins with, and an in-pass resolve, make the area the whole target.
+  Byte-identical.
+- **`overwrite-discard`.** The temporal targets a full-screen draw overwrites whole (camera
+  motion, its depth copy, the reactive mask), the blur's velocity and jump flood targets, and
+  the display under the copying blur gather are let go (`glInvalidateFramebuffer`) before the
+  draw, so the pass does not load them. Byte-identical; the equivalence test's poison mode
+  checks that nothing reads what was let go.
+- **Arm ASR.** On a Qualcomm (Snapdragon) GPU the temporal module upscales with Arm Accuracy Super
+  Resolution (`port/enhanced/asr/README.md`), whose fragment passes suit these GPUs better than
+  FSR 3.1's compute passes. `OPENRAC_TEMPORAL_UPSCALER=asr` or `fsr3` chooses either one on any
+  GPU; the capture report's `enhanced` line names the one in use.
+- **Pass timing.** Timestamps written inside an open render pass on a tile-based GPU measure
+  the binning, not the shading, so the capture's per-pass GPU column reads about zero there.
+  A recording ends the pass around each GPU timer in one frame of ten (every frame with
+  `OPENRAC_GPU_PASS_TIMING`): those frames give each section's own time, at the cost of extra
+  loads and stores, and are left out of the frame's GPU time.
+
+- **`probe-fast-blended`.** Blended static passes (glass, water, foliage) read probe light from
+  the best volume alone, without each probe's depth test, and filter shadows with four taps.
+  Not byte-identical (Enhanced may be lossy here): in the equivalence test at most 0.28% of a
+  frame's pixels differ, by up to 26 of 255. The cheaper light exists only in the static
+  blended shader variant, which these passes use whenever the entry is on, so `shader-variants`
+  on against off stays byte-identical. `OPENRAC_PROBE_FAST_OFF` turns it off too.
+
+The registry entries above, except `motion-blur-adaptive-samples` and `probe-fast-blended`, are
+lossless:
+`render_equivalence_vulkan --opt <name>` compares frames with each one on and off with no
+tolerance. The scrolling static shadow caches above
+would save the most binning on these GPUs, but they are not the default there: their texel-snapped
+cascades and unfitted caster bounds change the shadows' pixels (`sun_shadow_vulkan` with
+`OPENRAC_TILE_BASED=1`), so they stay behind `OPENRAC_SCROLLING_SHADOWS`.

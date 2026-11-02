@@ -23,8 +23,8 @@ and device tests are in [port/android/README.md](../../port/android/README.md).
 - A controller works everywhere; touch controls appear when you touch the
   screen.
 - The launcher updates itself from GitHub releases.
-- The game draws with OpenGL ES by default. A Vulkan renderer can use a
-  custom Adreno driver (Turnip).
+- The game draws with its Vulkan renderer by default, else OpenGL ES. The
+  Vulkan renderer can use a custom Adreno driver (Turnip).
 
 ## One APK, two parts
 
@@ -256,7 +256,7 @@ Citron, Winlator Bionic) use, and what they mean here:
 
 | Driver | GPUs | How you get it | In OpenRAC |
 |---|---|---|---|
-| The system's OpenGL ES driver | Mali, Adreno | every app has it | the default |
+| The system's OpenGL ES driver | Mali, Adreno | every app has it | with OpenGL ES |
 | An updated system driver | the vendor's | Android's updatable graphics drivers | works as is |
 | ANGLE (OpenGL ES on Vulkan) | both | Developer options, "ANGLE preferences" | works as is; helps where the GLES driver is broken |
 | A custom Vulkan driver (Mesa Turnip, newer Qualcomm drivers) | Adreno | a zip with a `meta.json` (`name`, `author`, `vendor`, `driverVersion`, `minApi`, `libraryName`: Eden's format), loaded by [libadrenotools](https://github.com/bylaws/libadrenotools) (BSD-2-Clause) | needs the Vulkan renderer |
@@ -282,7 +282,8 @@ path has three parts:
    set of OpenGL calls the renderers use (`renderer/gl.h`,
    `renderer/world/gl_world.h`) on Vulkan 1.3: shaders through glslang,
    pipelines cached by state, buffers streamed through a per-frame ring.
-   "Renderer" in Settings selects it (`OPENRAC_GL_API=vulkan`); if Vulkan 1.3
+   It is the default; "Renderer" in Settings can pick OpenGL ES instead
+   (the launcher sets `OPENRAC_GL_API=vulkan` otherwise); if Vulkan 1.3
    cannot start, the game falls back to OpenGL ES.
 
 **Decided:** the Vulkan renderer stays a translation layer, measured before

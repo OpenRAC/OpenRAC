@@ -3,6 +3,7 @@
 #include "rnc/math/fast_math.h"
 #include "rnc/math/asm_helpers.h"
 #include "rnc/mobys/get_moby_target_info.h"
+#include "rnc/mobys/hit_response_tables.h"
 
 typedef unsigned int u128_25a478 __attribute__((mode(TI), aligned(16)));
 
@@ -51,8 +52,6 @@ typedef struct {
 
 extern u8        D_0013E533[];
 extern f32       hit_damage_override_table[2] __asm__("D_0015FFC8") __attribute__((sda));
-extern f32       hit_vector_scale_table[][8] __asm__("D_001CC0C8");
-extern u8        hit_response_code_table[][4] __asm__("D_001CC080");
 extern Q_25a478 *get_moby_hit_state(void *);
 extern s32       scale_game_frames(s32) __asm__("func_001F96F8");
 extern f32       fast_arc_tan(f32, f32) __asm__("func_001F9E90");
@@ -72,7 +71,7 @@ s32 resolve_moby_hit_response(O_25a478 *hit_recipient_moby,
                               P_25a478 *hit_record,
                               Q_25a478 *q,
                               u32       flags,
-                              s32      *out,
+                              s32      *hit_status_output,
                               f32      *fp,
                               s32      *kp,
 
@@ -100,7 +99,7 @@ s32 resolve_moby_hit_response(O_25a478 *hit_recipient_moby,
     s32       hit_response_code;
     Q_25a478 *object_state;
 
-    *out = 0;
+    *hit_status_output = 0;
     if (kp)
         *kp = -1;
     if (hit_record && hit_record->tgt &&
@@ -113,13 +112,13 @@ s32 resolve_moby_hit_response(O_25a478 *hit_recipient_moby,
             q->h14 = -1;
         }
         q->h16 = -1;
-        *out = 0;
+        *hit_status_output = 0;
         return 0;
     }
     if (!q) {
         q = get_moby_target_info(hit_recipient_moby);
         if (!q) {
-            *out = 0;
+            *hit_status_output = 0;
             return 0;
         }
     }
@@ -130,7 +129,7 @@ s32 resolve_moby_hit_response(O_25a478 *hit_recipient_moby,
             fast_dec_timer_s16(&q->h1C);
             q->h16 = -1;
         }
-        *out = 1;
+        *hit_status_output = 1;
         if (fp)
             *fp = 0;
         return 0xB;
@@ -169,75 +168,75 @@ s32 resolve_moby_hit_response(O_25a478 *hit_recipient_moby,
     switch (hit_record->state) {
     case KIND_GATED_HIT_STATE:
         if (hit_record->kind == 1 || hit_record->kind == 2) {
-            *out = 2;
+            *hit_status_output = 2;
             hit_response_index = 0;
             break;
         }
         goto dflt;
     case SUBSTATE_GATED_DAMAGE_PRESERVING_HIT_STATE:
         if (hit_record->sub < 2) {
-            *out = 2;
+            *hit_status_output = 2;
             hit_response_index = 0xB;
             break;
         }
         if (hit_record->sub == 2) {
-            *out = 2;
+            *hit_status_output = 2;
             hit_response_index = 5;
             break;
         }
-        *out = 2;
+        *hit_status_output = 2;
         hit_response_index = 9;
         break;
     case SUBSTATE_GATED_HIT_STATE:
         if (hit_record->sub < 2) {
-            *out = 2;
+            *hit_status_output = 2;
             hit_response_index = 8;
             break;
         }
-        *out = 2;
+        *hit_status_output = 2;
         hit_response_index = 0xD;
         break;
     case COOLDOWN_RESETTING_HIT_STATE:
         if (hit_record->sub < 2) {
-            *out = 2;
+            *hit_status_output = 2;
             hit_response_index = 0xA;
             break;
         }
         if (hit_record->sub < 3) {
-            *out = 2;
+            *hit_status_output = 2;
             hit_response_index = 0xF;
             break;
         }
-        *out = 2;
+        *hit_status_output = 2;
         hit_response_index = 0x10;
         q->h14 = -1;
         q->h1C = 0;
         break;
     case FIXED_RESPONSE_HIT_STATE:
-        *out = 2;
+        *hit_status_output = 2;
         hit_response_index = 0xE;
         break;
     case SUBSTATE_GATED_AUXILIARY_FLAG_HIT_STATE:
         if (hit_record->sub < 2) {
-            *out = 3;
+            *hit_status_output = 3;
             hit_response_index = 4;
             break;
         }
-        *out = 4;
+        *hit_status_output = 4;
         hit_response_index = 7;
         break;
     case SUBSTATE_GATED_COOLDOWN_DAMAGE_CLEARING_HIT_STATE:
         if (hit_record->sub < 2) {
-            *out = 2;
+            *hit_status_output = 2;
             hit_response_index = 0xC;
             break;
         }
-        *out = 2;
+        *hit_status_output = 2;
         hit_response_index = 0x11;
         break;
     default:
     dflt:
-        *out = 2;
+        *hit_status_output = 2;
         hit_response_index = 1;
         break;
     }
@@ -277,19 +276,19 @@ s32 resolve_moby_hit_response(O_25a478 *hit_recipient_moby,
             if (!(flags & 0x10))
                 hit_response_code = 0xB;
             if (!(flags & 0x20))
-                *out = 1;
+                *hit_status_output = 1;
             goto z;
         case AUXILIARY_FLAG_SETTING_HIT_RESPONSE:
             if (!(flags & 1))
                 hit_response_code = 0xB;
             if (!(flags & 2))
-                *out = 1;
+                *hit_status_output = 1;
             goto z;
         case CONDITIONAL_DURATION_HIT_RESPONSE:
             if (!(flags & 4))
                 hit_response_code = 0xB;
             if (!(flags & 8))
-                *out = 1;
+                *hit_status_output = 1;
         z:
             hit_record->f2C = 0;
             break;
@@ -319,3 +318,31 @@ s32 resolve_moby_hit_response(O_25a478 *hit_recipient_moby,
 }
 
 extern __typeof__(resolve_moby_hit_response) func_00213928 __attribute__((alias("FUN_00213928")));
+
+HitResponseCode hit_response_code_table[18][4] = {
+    {1, 3, 7,   9},
+    {1, 3, 7,   9},
+    {1, 3, 7,   9},
+    {1, 3, 7,   9},
+    {1, 4, 8,   9},
+    {1, 5, 3,   9},
+    {1, 1, 5,   9},
+    {1, 1, 4,   9},
+    {1, 1, 5,   8},
+    {1, 1, 5,   8},
+    {1, 1, 1,   5},
+    {2, 6, 6, 0xa},
+    {1, 1, 1,   5},
+    {1, 1, 1,   5},
+    {1, 1, 1,   5},
+    {1, 1, 1,   1},
+    {1, 1, 1,   1},
+    {1, 1, 1,   1},
+};
+
+f32 hit_vector_scale_table[4][8] = {
+    {1.0f, 0.95f, 1.2f, 1.4f, 1.4f, 1.15f, 1.0f,  2.0f},
+    {1.0f, 0.85f, 1.1f, 1.2f, 1.2f,  1.0f, 1.0f,  1.5f},
+    {1.0f, 0.75f, 1.0f, 1.0f, 1.1f, 0.85f, 1.0f, 1.25f},
+    {1.0f, 0.65f, 0.9f, 1.0f, 1.0f, 0.75f, 1.0f,  1.0f},
+};

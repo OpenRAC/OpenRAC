@@ -581,8 +581,12 @@ fn read_github(
                         }
                         None if m.compatible => {
                             m.compatible = false;
+                            // The usual slip: the tag's "v" in the file's name.
+                            let with_v = asset_name(&m.id, &format!("v{}", m.version), p);
                             m.why = Some(if eligible.is_empty() {
                                 "No release yet: a native mod is installed built, from a release.".to_string()
+                            } else if eligible.iter().any(|r| r.asset(&with_v).is_some()) {
+                                format!("Its release has {with_v}, which must be named {name}: no \"v\" before the version.")
                             } else {
                                 format!("No release has it built for this computer ({name}).")
                             });
@@ -1399,6 +1403,22 @@ mod tests {
         assert_eq!(p.reference, "HEAD");
         assert!(p.mods[0].why.as_deref().unwrap().starts_with("No release yet"));
         assert!(install(&ctx(dir.path(), &fx), "https://github.com/o/r", "m").is_err());
+    }
+
+    #[test]
+    fn a_v_in_the_archives_name_is_named() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let with_v = asset_name("m", "v1.0.0", PLATFORM);
+        let rel = serde_json::json!({"tag_name": "v1.0.0", "draft": false, "prerelease": false,
+            "assets": [{"name": with_v, "browser_download_url": format!("{DL}/v1.0.0/{with_v}")}]});
+        repo(&mut fx, &[("openrac-mod.json", manifest("m", "1.0.0"))], serde_json::json!([rel]), "c1");
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        let why = p.mods[0].why.as_deref().unwrap();
+        assert!(why.contains(&with_v), "{why}");
+        assert!(why.contains(&asset_name("m", "1.0.0", PLATFORM)), "{why}");
+        assert!(why.contains("no \"v\" before the version"), "{why}");
+        assert!(!p.mods[0].compatible);
     }
 
     #[test]

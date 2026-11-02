@@ -377,7 +377,7 @@
       {/if}
     </div>
 
-    {#if purist && mods.length}
+    {#if purist && (mods.length || enhanced?.mod.enabled)}
       <div class="notice" role="status">
         <Icon name="info" size={16} /><span class="grow">{T.WITH_MODS.offNotice}</span>
         <button class="small" onclick={() => void playWithMods()}>{T.WITH_MODS.turnOn}</button>
@@ -388,7 +388,7 @@
 
     {#if enhanced}
       {@const entry = enhanced.mod}
-      {@const badge = modBadge(entry, null, false)}
+      {@const badge = modBadge(entry, null, purist)}
       <ul class="built-in">
         <li class="mod" class:off={!entry.enabled}>
           <input

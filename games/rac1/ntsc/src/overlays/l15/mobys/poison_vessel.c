@@ -19,15 +19,15 @@ char *spawn_poison_vessel(void *unused, void *vector) __asm__("FUN_L15_002e7ed8"
 char *spawn_poison_vessel(void *unused, void *vector) {
     char *moby = create_moby(0x4E9);
     if (moby != 0) {
-        char *data = ((char *)MOBY(moby)->pvars);
+        char *poison_vessel_private_data = ((char *)MOBY(moby)->pvars);
         char *field;
         ((unsigned char *)moby)[0x30] = 0xFF;
         MOBY(moby)->draw_dist = 0x7F;
         moby[0x31] = 1;
         moby[0x20] = 0;
         moby[0xBC] = 0;
-        *(int *)(data + 0x10) = 0;
-        clear_u64_value(data);
+        *(int *)(poison_vessel_private_data + 0x10) = 0;
+        clear_u64_value(poison_vessel_private_data);
         qcopy(moby + 0x10, vector);
         field = ((char *)MOBY(moby)->pclass);
         MOBY(moby)->collision = *(int *)(field + 0x10);
@@ -83,7 +83,7 @@ extern float probe_ground_height(void *, int, float) __asm__("func_00213508");
 
 extern float D_0015ED6C;
 
-extern float poison_vessel_gravity_gp __asm__("D_L15_00161FBC") __attribute__((sda));
+float poison_vessel_gravity_gp __asm__("D_L15_00161FBC") = 2e+01f;
 
 extern int collision_line(void *, void *, int, void *, void *) __asm__("FUN_001efa68");
 
@@ -136,6 +136,7 @@ mine_blast_mobys(void *, void *, void *, int, int, int, int, int, float, float, 
 
 void poison_vessel_update(Moby_2E9358 *moby) __asm__("FUN_L15_002e7f68");
 
+/* Moby class 1257 */
 void poison_vessel_update(Moby_2E9358 *moby) {
     enum {
         POISON_VESSEL_FREE_FLIGHT = 0,

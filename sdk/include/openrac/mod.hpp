@@ -1126,6 +1126,23 @@ public:
         return bytes;
     }
 
+    // Whether the port has interface 1.11's calls (data_dir, save_slot_current).
+    bool has_api_11() const {
+        return m_api->api_minor >= 11
+               && m_api->size >= offsetof(openrac_api, save_slot_current) + sizeof(void*);
+    }
+
+    // Since 1.11: the mod's own folder for the files it keeps (beside the memory cards, made by the
+    // port), empty for none.
+    std::string data_dir() const {
+        const char* dir = has_api_11() ? m_api->data_dir(m_handle) : nullptr;
+        return dir != nullptr ? dir : "";
+    }
+
+    // Since 1.11: the memory card slot the game in progress saves into (the one it was loaded from
+    // or last saved to), -1 for none.
+    int save_slot_current() const { return has_api_11() ? m_api->save_slot_current() : -1; }
+
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
         return m_api->api_minor >= 9

@@ -123,6 +123,50 @@ audio::BankReplacements replacements_of_bank(std::span<const std::uint8_t> file)
     }
 }
 
+// ---- What is heard ----
+
+// The frames openrac_sound_render has rendered, and the output's count of those it has not played
+// yet (openrac_sound_set_unheard; none: every frame is played as it is rendered).
+std::uint64_t g_rendered = 0;
+std::size_t (*g_unheard)(void*) = nullptr;
+void* g_unheard_user = nullptr;
+
+// Sounds and streams that ended in frames rendered and not heard yet, with the frame count after
+// which they are heard to have ended. Kept only while the output mixes ahead.
+struct Ended {
+    std::uint32_t handle;
+    std::uint64_t at;
+};
+
+std::vector<Ended> g_ended;
+
+// The frames rendered that the output has played; under g_lock.
+std::uint64_t heard_frames() {
+    if (g_unheard == nullptr) {
+        return g_rendered;
+    }
+
+    return g_rendered - std::min<std::uint64_t>(g_unheard(g_unheard_user), g_rendered);
+}
+
+// Whether `handle` ended in frames not heard yet; forgets the ones heard. Under g_lock.
+const Ended* ended_unheard(std::uint32_t handle) {
+    if (g_ended.empty()) {
+        return nullptr;
+    }
+
+    const std::uint64_t heard = heard_frames();
+    std::erase_if(g_ended, [heard](const Ended& e) { return e.at <= heard; });
+    const auto found = std::find_if(g_ended.begin(), g_ended.end(), [handle](const Ended& e) {
+        return e.handle == handle;
+    });
+    return found == g_ended.end() ? nullptr : &*found;
+}
+
+void forget_ended(std::uint32_t handle) {
+    std::erase_if(g_ended, [handle](const Ended& e) { return e.handle == handle; });
+}
+
 struct SoundSnapshotHeader {
     char magic[8];
     std::uint32_t version;
@@ -169,6 +213,8 @@ struct Stream {
     std::int32_t volume = audio::kFullVolume;
     std::int32_t group = 1;
     bool paused = false;
+    // The output frames in which it has moved on (to count its share of the frames not heard).
+    std::uint64_t mixed = 0;
 };
 
 std::vector<std::unique_ptr<Stream>> g_streams;
@@ -330,6 +376,7 @@ void mix_streams(std::span<std::int16_t> out) {
                     break;
                 }
 
+                ++s.mixed;
                 const double frac = s.position - static_cast<double>(i);
 
                 for (std::size_t c = 0; c < 2; ++c) {
@@ -351,6 +398,12 @@ void mix_streams(std::span<std::int16_t> out) {
                 if (!s.parts.front().loop || s.parts.size() > 1) {
                     s.parts.pop_front();
                 }
+            }
+        }
+
+        if (s.parts.empty() && g_unheard != nullptr) {
+            for (const std::uint32_t handle : s.handles) {
+                g_ended.push_back({handle, g_rendered + frames});
             }
         }
 
@@ -636,6 +689,8 @@ int openrac_sound_snapshot_load(const void* input, size_t size) {
         g_bank_files.swap(banks);
         g_master = header.master;
         g_streams.clear();
+        g_ended.clear();
+        player().take_ended();
         return 0;
     } catch (const std::exception&) {
         return -1;
@@ -675,7 +730,8 @@ uint32_t openrac_sound_set_params(
     audio::SoundPlayer& p = player();
 
     if (sound == 0 || !p.playing(sound)) {
-        return 0;
+        // Ended, but not heard to yet: still the sound's handle, with nothing left to change.
+        return sound != 0 && ended_unheard(sound) != nullptr ? sound : 0;
     }
 
     if ((mask & 7) != 0) {
@@ -699,17 +755,21 @@ uint32_t openrac_sound_set_params(
 
 int openrac_sound_playing(uint32_t sound) {
     std::lock_guard lock(g_lock);
-    return sound != 0 && player().playing(sound);
+    return sound != 0 && (player().playing(sound) || ended_unheard(sound) != nullptr);
 }
 
 void openrac_sound_stop(uint32_t sound) {
     std::lock_guard lock(g_lock);
     player().stop(sound);
+    forget_ended(sound);
 }
 
 void openrac_sound_stop_all(void) {
     std::lock_guard lock(g_lock);
     player().stop_all();
+    std::erase_if(g_ended, [](const Ended& e) {
+        return (e.handle & 0xFF000000u) != OPENRAC_STREAM_TAG;
+    });
 }
 
 void openrac_sound_set_master_volume(int32_t group, int32_t volume) {
@@ -873,7 +933,7 @@ void openrac_stream_read_at_once(int at_once) {
 
 int openrac_stream_live(uint32_t stream) {
     std::lock_guard lock(g_lock);
-    return find_stream(stream) != nullptr;
+    return find_stream(stream) != nullptr || ended_unheard(stream) != nullptr;
 }
 
 int openrac_stream_buffered(uint32_t stream) {
@@ -887,6 +947,11 @@ int32_t openrac_stream_remaining_ms(uint32_t stream) {
     const Stream* s = find_stream(stream);
 
     if (s == nullptr || s->parts.empty()) {
+        // Ended in frames not heard yet: what is left of them.
+        if (const Ended* e = ended_unheard(stream)) {
+            return static_cast<int32_t>((e->at - heard_frames()) * 1000 / audio::kOutputRate);
+        }
+
         return 0;
     }
 
@@ -902,7 +967,12 @@ int32_t openrac_stream_remaining_ms(uint32_t stream) {
     }
 
     const double left = static_cast<double>(length) - s->position;
-    return static_cast<int32_t>(std::max(0.0, left) * 1000.0 / t.rate);
+    // The frames rendered and not heard yet in which it moved on are still to come.
+    const std::uint64_t unheard = g_rendered - heard_frames();
+    const double ahead_ms = t.ready && !s->paused ? static_cast<double>(std::min(unheard, s->mixed))
+                                                        * 1000.0 / audio::kOutputRate
+                                                  : 0.0;
+    return static_cast<int32_t>(std::max(0.0, left) * 1000.0 / t.rate + ahead_ms);
 }
 
 void openrac_stream_stop(uint32_t stream) {
@@ -910,9 +980,13 @@ void openrac_stream_stop(uint32_t stream) {
 
     if (stream == 0) {
         g_streams.clear();
+        std::erase_if(g_ended, [](const Ended& e) {
+            return (e.handle & 0xFF000000u) == OPENRAC_STREAM_TAG;
+        });
         return;
     }
 
+    forget_ended(stream);
     std::erase_if(g_streams, [&](const std::unique_ptr<Stream>& s) {
         return std::find(s->handles.begin(), s->handles.end(), stream) != s->handles.end();
     });
@@ -938,6 +1012,28 @@ void openrac_sound_render(int16_t* interleaved, size_t frames) {
     std::lock_guard lock(g_lock);
     player().render(std::span(interleaved, frames * 2));
     mix_streams(std::span(interleaved, frames * 2));
+    g_rendered += frames;
+
+    if (g_unheard != nullptr) {
+        for (const audio::SoundHandle sound : player().take_ended()) {
+            g_ended.push_back({sound, g_rendered});
+        }
+
+        // Those heard by now go; the game's reads forget the rest as they are heard.
+        const std::uint64_t heard = heard_frames();
+        std::erase_if(g_ended, [heard](const Ended& e) { return e.at <= heard; });
+    }
+}
+
+void openrac_sound_set_unheard(size_t (*unheard)(void* user), void* user) {
+    std::lock_guard lock(g_lock);
+    g_unheard = unheard;
+    g_unheard_user = user;
+    player().keep_ended(unheard != nullptr);
+
+    if (unheard == nullptr) {
+        g_ended.clear();
+    }
 }
 
 }  // extern "C"

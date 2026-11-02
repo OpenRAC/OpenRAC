@@ -444,6 +444,13 @@ Android has no shell, Python, Godot or compiler: there an action that names no
 platform runs only if it is a `play` action (`runs_on`), and the others are not
 listed.
 
+**Steam.** Settings' Add to Steam (Linux, macOS, Windows) adds the launcher as one
+non-Steam game with its pictures (`core/src/steam.rs`). Steam reads
+`shortcuts.vdf` when it starts and may write over it, so nothing is written
+while Steam runs: the player closes it and clicks again. Other entries stay
+byte for byte, and the first write keeps `shortcuts.vdf.openrac-bak`. Flathub's
+Steam is refused: its sandbox has no way to start a program outside it.
+
 ### What Linux gets
 
 **The AppImage's environment.** Every AppImage carries AppImageKit's `AppRun`,

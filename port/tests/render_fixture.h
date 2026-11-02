@@ -709,8 +709,11 @@ public:
         selftest_reference_path();
     }
 
-    // Returns the last frame's pixels, RGBA, bottom row first (a read-back: it waits for the GPU).
+    // Returns the last frame's pixels, RGBA, top row first (a read-back: it waits for the GPU).
     [[nodiscard]] std::vector<std::uint8_t> read_rgba() const { return m_frame.read_rgba(); }
+
+    // The single-sample RGBA8 framebuffer, borrowed for test snapshot copies.
+    [[nodiscard]] unsigned framebuffer() const { return m_frame.id(); }
 
     // The renderer, for its stats and its textures.
     [[nodiscard]] renderer::Renderer& renderer() { return m_renderer; }

@@ -455,6 +455,8 @@ int main() {
                     renderer::render_opt::Opt::FsrObjectHistoryReuse, tone || direct
                 );
                 renderer::render_opt::set(renderer::render_opt::Opt::AgxDirectOutput, direct);
+                renderer::render_opt::set(renderer::render_opt::Opt::FsrReactiveR8, direct);
+                renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
                 compare_direct = direct;
                 test_world_resolve_and_native_hud();
             }

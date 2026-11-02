@@ -50,6 +50,8 @@ public:
     Fsr3& operator=(const Fsr3&) = delete;
     // Returns whether this build and backend can offer enhanced temporal reconstruction.
     static bool available();
+    // The upscaler the last successful setup chose ("Arm ASR" or "FSR 3.1"), "none" before one.
+    static const char* active_upscaler();
     // Captures the current displayed world poses; inactive callers do not copy any data.
     void set_scene(
         std::span<const scene::Instance> instances, std::span<const renderer::Mat4> palette

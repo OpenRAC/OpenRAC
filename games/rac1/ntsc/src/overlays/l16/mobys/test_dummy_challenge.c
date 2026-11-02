@@ -50,9 +50,10 @@ extern void FUN_L16_002d6260_q(char *, void *, float *) __asm__("FUN_L16_002d626
 void        mark_moby_for_removal(struct Obj *obj) __asm__("FUN_0020c828");
 
 extern char D_0013F3D0[] NOT_SDA;
-void        update_test_dummy_challenge(struct Moby *moby) __asm__("FUN_L16_002d5ef8");
+void        test_dummy_challenge_update(struct Moby *moby) __asm__("FUN_L16_002d5ef8");
 
-void update_test_dummy_challenge(struct Moby *moby) {
+/* Moby class 654 */
+void test_dummy_challenge_update(struct Moby *moby) {
     enum {
         SCENE_STATE_INITIALIZE = 0,
         SCENE_STATE_WAIT_FOR_TRIGGER = 1,
@@ -182,27 +183,33 @@ extern int D_L16_001600EC;
 
 /* no foreign declaration */
 
-extern float triggered_scene_rotation_y_gp __asm__("D_L16_00161A8C") __attribute__((sda));
-void         compute_triggered_scene_path_pose(struct Moby *moby,
-                                               void        *out1,
-                                               float       *out2) __asm__("FUN_L16_002d6260");
+float triggered_scene_rotation_y_gp __asm__("D_L16_00161A8C") = 0.35f;
+void  compute_triggered_scene_path_pose(struct Moby *moby,
+                                        void        *out1,
+                                        float       *out2) __asm__("FUN_L16_002d6260");
 
-void compute_triggered_scene_path_pose(struct Moby *moby, void *out1, float *out2) {
-    char *data = (char *)moby->pvars;
+void compute_triggered_scene_path_pose(struct Moby *moby,
+                                       void        *position_output,
+
+                                       float *rotation_output) {
+    char *triggered_scene_path_data = (char *)moby->pvars;
     float hero_offset[4];
-    char *entry = D_L16_001600EC + (*(int *)data << 7);
-    char *position_path = D_L16_001B0930[*(int *)(data + 0xC)];
-    fast_vec_sub(hero_offset, &hero.motion.pos, entry + 0x30);
+    char *scene_reference_pose = D_L16_001600EC + (*(int *)triggered_scene_path_data << 7);
+    char *position_path = D_L16_001B0930[*(int *)(triggered_scene_path_data + 0xC)];
+    fast_vec_sub(hero_offset, &hero.motion.pos, scene_reference_pose + 0x30);
     hero_offset[3] = 0;
-    transform_vector_by_basis(hero_offset, hero_offset, entry + 0x40);
+    transform_vector_by_basis(hero_offset, hero_offset, scene_reference_pose + 0x40);
     advance_accelerated_scalar((hero_offset[1] + 1.0f) * 0.5f,
                                frame_time_sq,
                                frame_time_sq,
                                D_0015ED6C + D_0015ED6C,
-                               (float *)(data + 0x1C),
-                               (float *)(data + 0x20));
-    lerp_vector(out1, position_path + 0x10, position_path + 0x20, *(float *)(data + 0x1C));
-    clear_u64_value(out2);
-    out2[1] = triggered_scene_rotation_y_gp;
-    out2[2] = moby->rot.z;
+                               (float *)(triggered_scene_path_data + 0x1C),
+                               (float *)(triggered_scene_path_data + 0x20));
+    lerp_vector(position_output,
+                position_path + 0x10,
+                position_path + 0x20,
+                *(float *)(triggered_scene_path_data + 0x1C));
+    clear_u64_value(rotation_output);
+    rotation_output[1] = triggered_scene_rotation_y_gp;
+    rotation_output[2] = moby->rot.z;
 }

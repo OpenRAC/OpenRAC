@@ -92,7 +92,7 @@ class RendererArgs {
 class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
   private val drivers: File get() = File(activity.filesDir, "gpu_drivers")
   private val selectedFile: File get() = File(drivers, "selected")
-  // "vulkan" when the game draws with its Vulkan renderer; absent: OpenGL ES.
+  // "gles" when the game draws with OpenGL ES; absent or anything else: its Vulkan renderer.
   private val rendererFile: File get() = File(activity.filesDir, "renderer")
   // The library of the game started last, while it runs.
   @Volatile private var playing: String? = null
@@ -480,8 +480,8 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun selectRenderer(invoke: Invoke) {
     when (invoke.parseArgs(RendererArgs::class.java).renderer) {
-      "vulkan" -> rendererFile.writeText("vulkan")
-      "gles" -> rendererFile.delete()
+      "vulkan" -> rendererFile.delete()
+      "gles" -> rendererFile.writeText("gles")
       else -> return invoke.reject("no such renderer")
     }
     invoke.resolve()
@@ -533,7 +533,7 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   private fun renderer(): String =
-    if (rendererFile.isFile && rendererFile.readText().trim() == "vulkan") "vulkan" else "gles"
+    if (rendererFile.isFile && rendererFile.readText().trim() == "gles") "gles" else "vulkan"
 
   private fun selectedDriver(): Pair<File, JSONObject>? {
     if (!selectedFile.isFile) return null

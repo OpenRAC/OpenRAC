@@ -12,23 +12,24 @@
 
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002FF000.c: func_L06_00301FE8), where it is exact; names translated to the US level program. */
 
-extern f32 D_L06_00162080_gp __asm__("D_L06_00162080") __attribute__((sda));
+f32 spinning_fragment_scale_factor_gp __asm__("D_L06_00162080") = 0.1f;
 
 extern float scale_time(float) __asm__("FUN_001f96b0");
 
-void update_falling_spinning_moby(struct Moby *moby) __asm__("FUN_L06_00300b90");
+void falling_spinning_moby_update(struct Moby *moby) __asm__("FUN_L06_00300b90");
 
-void update_falling_spinning_moby(struct Moby *moby) {
-    char *data;
+/* Moby classes 1085-1089 */
+void falling_spinning_moby_update(struct Moby *moby) {
+    char *velocity_and_spin;
     float vertical_velocity_decrement = frame_time_sq * 15.0f;
-    moby->scale = moby->pclass->scale * *(float *)&D_L06_00162080_gp;
-    data = (char *)moby->pvars;
-    *(float *)(data + 8) -= vertical_velocity_decrement;
-    fast_vec_add(&moby->pos.x, &moby->pos.x, (float *)data);
-    fast_vec_add(&moby->rot.x, &moby->rot.x, (float *)(data + 0x10));
-    moby->rot.x = fast_add_rotations(moby->rot.x, *(float *)(data + 0x10));
-    moby->rot.y = fast_add_rotations(moby->rot.y, *(float *)(data + 0x14));
-    moby->rot.z = fast_add_rotations(moby->rot.z, *(float *)(data + 0x18));
+    moby->scale = moby->pclass->scale * *(float *)&spinning_fragment_scale_factor_gp;
+    velocity_and_spin = (char *)moby->pvars;
+    *(float *)(velocity_and_spin + 8) -= vertical_velocity_decrement;
+    fast_vec_add(&moby->pos.x, &moby->pos.x, (float *)velocity_and_spin);
+    fast_vec_add(&moby->rot.x, &moby->rot.x, (float *)(velocity_and_spin + 0x10));
+    moby->rot.x = fast_add_rotations(moby->rot.x, *(float *)(velocity_and_spin + 0x10));
+    moby->rot.y = fast_add_rotations(moby->rot.y, *(float *)(velocity_and_spin + 0x14));
+    moby->rot.z = fast_add_rotations(moby->rot.z, *(float *)(velocity_and_spin + 0x18));
     if (--moby->command == 0) {
         mark_moby_for_removal(moby);
     }
@@ -57,8 +58,8 @@ unsigned char *spawn_spinning_moby_fragment(char  *unused_source_moby,
 
     if (fragment_moby != 0) {
         fragment_vars = ((char *)MOBY(fragment_moby)->pvars);
-        MOBY(fragment_moby)->scale =
-            *(float *)(((char *)MOBY(fragment_moby)->pclass) + 0x24) * D_L06_00162080_gp;
+        MOBY(fragment_moby)->scale = *(float *)(((char *)MOBY(fragment_moby)->pclass) + 0x24) *
+                                     spinning_fragment_scale_factor_gp;
         fragment_moby[0x30] = 0xFF;
         MOBY(fragment_moby)->draw_dist = 0x7E;
         fragment_moby[0x31] = 1;

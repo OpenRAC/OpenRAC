@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <format>
 #include <imgui.h>
 #include <set>
@@ -33,6 +34,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "debug/object_viewer.h"
 #include "debug_overlay.h"
 #include "openrac/guest.h"
 #include "platform/bindings.h"
@@ -55,6 +57,9 @@ enum Section : std::size_t {
 
 constexpr std::array<const char*, kSectionCount> kSectionNames =
     {"frame", "renderer", "memory", "mobys", "game", "shaders"};
+
+// Developer menu and renderer-panel controls share the same opt-in camera settings.
+void camera_tools_controls();
 
 // The pad's buttons by bit (active low in the report).
 constexpr std::array<const char*, 16> kButtonNames =
@@ -86,10 +91,23 @@ struct RamCell {
 };
 
 // A scripted key or click (OPENRAC_KEYS).
+// Explicit held actions let native diagnostics exercise scene-camera and gizmo drags safely.
+enum class ScriptedAction {
+    Stroke,
+    Click,
+    Move,
+    ButtonDown,
+    ButtonUp,
+    Wheel,
+    KeyDown,
+    KeyUp
+};
 struct ScriptedInput {
     std::uint64_t frame = 0;  // the window frame it happens at
     int held = 0;             // and that many held pictures later, while paused there
-    SDL_Keycode key = 0;      // 0: a click
+    ScriptedAction action = ScriptedAction::Stroke;
+    std::uint8_t button = SDL_BUTTON_LEFT;
+    SDL_Keycode key = 0;      // 0: a pointer or wheel action
     float x = 0.0f;           // a click's place in the window, in ImGui's coordinates
     float y = 0.0f;
     bool done = false;  // put in the event queue already
@@ -138,7 +156,20 @@ struct ControlsWindow {
 // Everything the overlay keeps between frames: what the environment asked for, what the last
 // tick gave it, and what its panels, windows, menus and drawer were set to. One exists (s).
 struct State {
-    std::vector<ScriptedInput> script;  // OPENRAC_KEYS, in order
+    CameraDebugSettings
+        camera_tools;           // Window-thread developer settings, never shared with worker.
+    bool camera_reset = false;  // Pending reseed from the game camera.
+    unsigned camera_alt = 0;    // Left/right Alt bits; releasing one must not release the other.
+    bool camera_right_mouse = false;  // Right-click is an alternative mouse-look hold.
+    float camera_look_x = 0,
+          camera_look_y = 0;        // Mouse deltas consumed once per displayed snapshot.
+    std::uint64_t camera_time = 0;  // SDL nanoseconds of the last input snapshot.
+    std::vector<ScriptedInput> script;
+    std::optional<ImVec2> script_pointer;  // App-local pointer held by explicit input scripts.
+    SDL_Keymod script_modifiers = SDL_KMOD_NONE;
+    std::filesystem::path script_file;
+    std::filesystem::file_time_type script_file_time{};
+    std::uint64_t script_poll_at = 0;   // OPENRAC_KEYS, in order
     SDL_Window* window = nullptr;       // as last drawn into
     int held_pictures = 0;              // pictures of the tick held now
     bool wanted = false;                // shown from the start
@@ -207,6 +238,10 @@ struct State {
     std::string toast;         // the same for an action taken with the panel hidden, shown a moment
     double toast_until = 0.0;  // the ImGui time the toast goes at
     bool alt_alone = false;  // Alt went down and no other key since: its release toggles the menus
+    bool menu_key_capture = false;  // the next key pressed becomes the menu bar's (controls window)
+    bool menu_button_capture = false;  // the next pad button becomes the menu bar's
+    std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)
+    ObjectViewerState object_viewer;  // Session-only developer object studio.
     bool developer = false;  // the launcher's developer tools (OPENRAC_DEVELOPER): the level select
     std::string dump_path = "openrac_frames.jsonl";  // where the frames' measurements are written
 
@@ -219,6 +254,8 @@ struct State {
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
     bool drawer_developer = false;  // its developer tools unfolded
+    bool drawer_record = false;     // its diagnostics recordings unfolded
+    bool drawer_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
     // The on-screen pad's layout being edited (touch_editing()): Reset asked for, the box of the
     // bar in the middle of the screen as last drawn, whose fingers are ImGui's, not the pad's, and
     // the lines a dragged group snapped to (set_touch_guides()).
@@ -275,8 +312,8 @@ extern const ImVec4 kGreen;
 extern const ImVec4 kDim;
 extern const ImVec4 kYellow;
 
-// Returns `v`, a length in the overlay's units, in pixels: `v` on a desktop's screen, more on a
-// dense one (s.ui_scale).
+// Returns `v`, a length in the overlay's units, in pixels: `v` on a 1080p screen, more on a
+// dense or large one (s.ui_scale).
 float dp(float v);
 
 // Says whether the `size` bytes at `address` (a game address, its segment bits ignored) are all in
@@ -421,6 +458,21 @@ bool menu_bar_shown();
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
 
+// The key that hides and shows the menu bar, as the player reads it ("`", "Alt", "F4"), and its
+// place on the keyboard (SDL_SCANCODE_UNKNOWN for Alt, which counts only pressed by itself).
+// Defined in debug/menu_bar.cpp.
+std::string menu_bar_key_label();
+SDL_Scancode menu_bar_scancode();
+
+// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none), and its name
+// as the player reads it ("R4", "none"). Defined in debug/menu_bar.cpp.
+SDL_GamepadButton menu_bar_button();
+std::string menu_bar_button_label();
+
+// Hides or shows the menu bar and saves it, with a toast when it hides. Defined in
+// debug/menu_bar.cpp.
+void toggle_menu_bar();
+
 // Draws the menu bar: View, Controls, Graphics, Sound and Developer.
 // Defined in debug/menu_bar.cpp.
 void menu_bar();
@@ -429,6 +481,10 @@ void menu_bar();
 // the window to apply (take_settings_changed). A picture shape of the player's own is the settings
 // file's, so moving the aspect skips it. Defined in debug/controls.cpp.
 void change_setting(int row, int by);
+
+// Puts the Enhanced graphics settings and the session's material, water and fog tuning back to
+// their defaults, for the Enhanced Settings window and the drawer. Defined in debug/controls.cpp.
+void reset_enhanced();
 
 // Draws the independent Enhanced Settings window with launcher-ordered main choices and advanced
 // tuning, diagnostics and water sections; disabled
@@ -450,6 +506,12 @@ void controls_window();
 // debug/capture.cpp.
 void toggle_capture(bool after_drawer);
 
+// A settings sweep: a capture that changes the graphics settings every few seconds (VSync off) and
+// gives them back at its end, its report listing each step's frame time. Started like
+// toggle_capture(true). Defined in debug/capture.cpp.
+void toggle_settings_sweep();
+double settings_sweep_seconds();
+
 // The capture's length as the drawer shows it ("30 s", "Until stopped"), and moved on by `by`.
 const char* capture_length_name();
 void step_capture_length(int by);
@@ -458,6 +520,10 @@ void step_capture_length(int by);
 // on by `by` (common/slow_cpu.h; only where slow_cpu::available()).
 std::string slow_cpu_name();
 void step_slow_cpu(int by);
+
+// Opens the folder the recordings are saved in (capture.cpp's capture_dir) in the system's file
+// manager.
+void open_capture_folder();
 
 // Says whether a capture runs or is about to start (or one is due by script), so that the
 // overlay is drawn for its badge; and whether one is counting down to its start.
@@ -478,6 +544,19 @@ void capture_frame(const Shown& shown);
 // details are separate in debug/picker.cpp.
 void picture_marks(const Shown& shown);
 void picker_overlay(const Shown& shown);
+// Reads one native input action; the returned comma begins the next frame/action pair.
+Result<const char*> read_scripted_action(const char*, ScriptedInput&);
+// Delivers due held/drag actions only inside the game, without moving the operating system cursor.
+void refresh_scripted_pointer();
+void run_script(std::uint64_t frame, int held);
+// Initial inline actions, or an explicit @file whose append-only actions are polled only in diagnostics.
+void configure_scripted_input(std::string_view text);
+// Inspect the click selection without borrowing game graphics objects or moving its camera.
+void select_object_viewer(const Shown& shown);
+// Draw the developer-only studio after the picker has updated its selection.
+void object_viewer_window(const Shown& shown);
+// Release private studio resources while the graphics context and ImGui are still alive.
+void release_object_viewer();
 
 // Draws the status badge at the top of the picture, whether the panel is shown or not: the pause
 // and the speed the keys have set, the toast while it lasts and the notice. Hidden while the

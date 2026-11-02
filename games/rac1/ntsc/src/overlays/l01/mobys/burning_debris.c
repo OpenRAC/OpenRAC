@@ -27,8 +27,8 @@ typedef struct {
     Vec4f normal; /* 0x40 */
 } BlobHitInfo;
 
-extern f32 burning_debris_gravity_coefficient_gp __asm__("D_L01_00162058") __attribute__((sda));
-extern f32 burning_debris_velocity_multiplier_gp __asm__("D_L01_0016205C") __attribute__((sda));
+f32        burning_debris_gravity_coefficient_gp __asm__("D_L01_00162058") = 1e+01f;
+f32        burning_debris_velocity_multiplier_gp __asm__("D_L01_0016205C") = 0.995f;
 extern f32 burning_debris_horizontal_damping_threshold_gp __asm__("D_L01_00162060")
     __attribute__((sda));
 extern BlobHitInfo collision_hit __asm__("D_L01_001742C0");
@@ -58,9 +58,10 @@ extern void        spawn_burst(void *, void *, s32, s32, f32, s32, s32) __asm__(
 extern int         FUN_L00_00257b90(int lo, int hi);
 extern u8 *spawn_puff(void *, f32, f32, f32, s32, void *, f32, s32) __asm__("FUN_L00_0026d000");
 
-void update_burning_debris(struct Moby *moby) __asm__("FUN_L01_0030ba18");
+void burning_debris_update(struct Moby *moby) __asm__("FUN_L01_0030ba18");
 
-void update_burning_debris(struct Moby *moby) {
+/* Moby class 1510 */
+void burning_debris_update(struct Moby *moby) {
     BlobVars *blob_vars;
     s32       hit;
     s32       i;
@@ -218,3 +219,5 @@ DebrisMoby *spawn_debris(DebrisMoby *parent_moby, void *debris_vector_source, f3
     }
     return spawned_moby;
 }
+
+f32 burning_debris_horizontal_damping_threshold_gp __asm__("D_L01_00162060") = 0;

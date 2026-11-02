@@ -83,10 +83,19 @@ enum class Opt : std::uint8_t {
     ShaderVariants,          // shader-variants: compile fixed pass controls out of local shaders
     ShaderFloat16,           // shader-float16: audited local mixed-precision arithmetic
     CameraVisibilityReuse,   // camera-visibility-reuse: depth and colour share GPU visibility
+    ShadowDepthOnly,  // shadow-depth-only: the shadow maps hold depth alone, no colour or stencil
+    FsrReactiveR8,    // fsr-reactive-r8: the upscaler's reactive mask is one R8 channel
+    MsaaPassResolve,  // msaa-pass-resolve: a multisampled colour resolved by its own pass
+    // motion-blur-adaptive-samples: two blur samples a pixel of trail, not always the most
+    MotionBlurAdaptiveSamples,
+    AttachmentUntouched,  // attachment-untouched: an attachment a pass leaves alone not loaded
+    PassRenderArea,       // pass-render-area: a pass loads and stores only the rectangle it touched
+    OverwriteDiscard,     // overwrite-discard: a target a full-screen pass overwrites is not loaded
+    ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended static passes
 };
 
-// The number of entries: CameraVisibilityReuse is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::CameraVisibilityReuse) + 1;
+// The number of entries: ProbeFastBlended is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ProbeFastBlended) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

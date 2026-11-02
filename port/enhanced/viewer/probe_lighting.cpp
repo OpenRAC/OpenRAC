@@ -15,6 +15,7 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/local_lights.h"
 #include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_texture_upload.h"
@@ -69,7 +70,7 @@ std::string probe_shader_source(std::string source) {
     if (!enhanced_rendering_available()) {
         return source;
     }
-    source.insert(source.find('\n') + 1, shaders::probes_glsl);
+    source.insert(source.find('\n') + 1, enhanced::local_light_shader_source());
     source.insert(source.find('\n') + 1, shaders::shading_brdf_glsl);
     source.insert(source.find('\n') + 1, renderer::shaders::shading_normal_glsl);
     static const bool& gather_off = stats::probe(

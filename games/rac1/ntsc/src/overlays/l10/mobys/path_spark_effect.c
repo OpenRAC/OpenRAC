@@ -28,12 +28,14 @@ send_blast_hits(void *, void *, void *, int, int, int, int, int, float, float, f
 extern void
 FUN_L00_00262360_c(int, float *, float *, void *, float, float) __asm__("FUN_L00_00262360");
 
-void update_path_spark_effect(char *moby) __asm__("FUN_L10_002dd3d8");
+void path_spark_effect_update(char *moby) __asm__("FUN_L10_002dd3d8");
 
-void update_path_spark_effect(char *moby) {
-    float old[4], blast_hit_position[4], path_segment_index, path_segment_remainder;
+/* Moby class 1090 */
+void path_spark_effect_update(char *moby) {
+    float spark_position_before_path_update[4], blast_hit_position[4], path_segment_index,
+        path_segment_remainder;
     char *effect_data = ((char *)MOBY(moby)->pvars);
-    *(OvlQuad *)old = *(OvlQuad *)&MOBY(moby)->pos;
+    *(OvlQuad *)spark_position_before_path_update = *(OvlQuad *)&MOBY(moby)->pos;
     ((EffectData *)effect_data)->phase += ((EffectData *)effect_data)->speed;
     ((EffectData *)effect_data)->speed *=
         (((EffectData *)effect_data)->growth - 1.0f) * frame_scale + 1.0f;

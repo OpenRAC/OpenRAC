@@ -103,6 +103,7 @@ extern char D_0013CAE4[];
 
 void shuttle_update(struct Moby *m) __asm__("FUN_L17_002f1940");
 
+/* Moby class 1448 */
 void shuttle_update(struct Moby *shuttle_moby) {
     enum {
         SHUTTLE_STATE_INITIALIZE = 0,
@@ -286,17 +287,17 @@ void shuttle_update(struct Moby *shuttle_moby) {
 s32 try_set_help_message(s32 arg0, s32 arg1) __asm__("FUN_00215130");
 
 void update_shuttle_help_message(struct Moby *moby) {
-    char *data = (char *)moby->pvars;
-    int   mode = *(int *)(data + 0x94);
+    char *shuttle_private_vars = (char *)moby->pvars;
+    int   mode = *(int *)(shuttle_private_vars + 0x94);
     switch (mode) {
     case SHUTTLE_STOP_FIRST:
-        *(int *)(data + 0x80) = 0;
+        *(int *)(shuttle_private_vars + 0x80) = 0;
         break;
     case SHUTTLE_STOP_SECOND:
-        *(int *)(data + 0x80) = mode;
+        *(int *)(shuttle_private_vars + 0x80) = mode;
         break;
     }
-    switch (*(int *)(data + 0x80)) {
+    switch (*(int *)(shuttle_private_vars + 0x80)) {
     case SHUTTLE_STOP_FIRST:
         try_set_help_message(0xA, 0x426C);
         break;
@@ -377,8 +378,8 @@ int update_shuttle_travel_and_camera(char *moby, int route_index) {
                 moby_path_blend);
     set_camera_position(camera_position);
     {
-        char *base = D_L17_001600EC + (shuttle_vars->e84 << 7);
-        set_race_camera(base + 0x30, base + 0x70, 0x72, 0);
+        char *hero_placement_record = D_L17_001600EC + (shuttle_vars->e84 << 7);
+        set_race_camera(hero_placement_record + 0x30, hero_placement_record + 0x70, 0x72, 0);
     }
     if (i3 > 0) {
         interpolation_start_angle =
@@ -448,13 +449,3 @@ int update_shuttle_travel_and_camera(char *moby, int route_index) {
     }
     return shuttle_vars->fA4 == 1.0f;
 }
-
-f32 D_L17_001DD100[1] __attribute__((section(".data"))) = {0};
-
-f32 D_L17_001DD104[1] __attribute__((section(".data"))) = {0};
-
-f32 D_L17_001DD320[1] __attribute__((section(".data"))) = {0};
-
-f32 D_L17_001DD328[1] __attribute__((section(".data"))) = {0};
-
-s32 D_L17_001DD6A8[1] __attribute__((section(".data"))) = {0};

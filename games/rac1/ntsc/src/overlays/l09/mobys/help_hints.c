@@ -18,10 +18,11 @@ extern int           D_0015EEA4;
 extern unsigned char D_0013D4C2_q[] __asm__("D_0013D4C2");
 extern unsigned char D_0013F3D0_lui[] __asm__("D_0013F3D0") NOT_SDA;
 extern unsigned char D_00141968_lui[] __asm__("D_00141968") NOT_SDA;
-void                 update_help_hints(struct Moby *moby) __asm__("FUN_L09_00300888");
+void                 help_hints_update(struct Moby *moby) __asm__("FUN_L09_00300888");
 
-void update_help_hints(struct Moby *moby) {
-    int            *data = (int *)moby->pvars;
+/* Moby class 1000 */
+void help_hints_update(struct Moby *moby) {
+    int            *clip_volume_index_ptr = (int *)moby->pvars;
     unsigned char  *item_unlock_flags;
     unsigned char  *frame_and_level_record;
     unsigned short *tp;
@@ -54,7 +55,7 @@ void update_help_hints(struct Moby *moby) {
         }
         *(int *)(frame_and_level_record + 0x2DC) =
             *(int *)(frame_and_level_record + 0x2DC) | (1 << current_level_index) | 0x80000000;
-        if (is_point_inside_clip_volume(D_0013F3D0_lui, *data) != 0) {
+        if (is_point_inside_clip_volume(D_0013F3D0_lui, *clip_volume_index_ptr) != 0) {
             help_request(0x2329, 0x5B);
         }
     }

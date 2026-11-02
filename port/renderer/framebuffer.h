@@ -35,6 +35,10 @@ public:
     bool create(
         int width, int height, std::string& error, int samples = 1, bool texture_depth = false
     );
+    // A depth-only target: a sampleable depth texture and no colour or stencil at all, for a map
+    // that only depth is drawn into (the shadow atlas). A tile-based GPU then gives the pass's
+    // tiles no colour storage and has no stencil to keep. colour_texture() is 0.
+    bool create_depth(int width, int height, std::string& error);
     void release();
 
     // The framebuffer to draw into.

@@ -216,6 +216,9 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `std::vector<std::uint8_t> save_capture() const` | Since 1.8: the game's progress now as a save, empty for none. |
 | `int save_slot(int slot, openrac_save_info& out) const` | Since 1.8: what the memory card's save `slot` holds, into `out`: 1 a save, 0 an empty slot, -1 past the last. |
 | `std::vector<std::uint8_t> save_read(int slot) const` | Since 1.8: the bytes of the memory card's save `slot`, for play_start; empty for none. |
+| `bool has_api_11() const` | Whether the port has interface 1.11's calls (data_dir, save_slot_current). |
+| `std::string data_dir() const` | Since 1.11: the mod's own folder for the files it keeps (beside the memory cards, made by the port), empty for none. |
+| `int save_slot_current() const` | Since 1.11: the memory card slot the game in progress saves into (the one it was loaded from or last saved to), -1 for none. |
 | `bool has_world() const` | Since 1.9: whether the port offers the world calls (moby_list() ... bolts()). |
 | `std::vector<openrac_moby> moby_list() const` | Since 1.9: the level's live mobys (each's size set), all of them. |
 | `int moby_slot(int key) const` | Since 1.9: the slot of placed moby `key`, -1 for none. |

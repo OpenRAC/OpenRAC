@@ -116,7 +116,9 @@ void LevelScene::bind_sun_shadow(
     bind_shadow_atlas(shader);
     glUniform4fv(shader.uniform("sun_shadow_ends"), 1, m_sun_cascades.ends.data());
     glUniform1f(shader.uniform("sun_shadow_near"), m_sun_cascades.near_distance);
-    glUniformMatrix4fv(shader.uniform("sun_shadow_view"), 1, GL_FALSE, camera.view.data());
+    // Cascade selection follows the gameplay view during inspection, independently of the observer.
+    const auto& shadow_camera = m_sun_ready ? m_sun_camera : camera;
+    glUniformMatrix4fv(shader.uniform("sun_shadow_view"), 1, GL_FALSE, shadow_camera.view.data());
     const char* map_names[] =
         {"sun_shadow_map0", "sun_shadow_map1", "sun_shadow_map2", "sun_shadow_map3"};
     const char* matrix_names[] =

@@ -1,4 +1,5 @@
 #include "types.h"
+#include "rnc/rendering/effects/space_effect_tables.h"
 #include "rnc/globals.h"
 #include "eetypes.h"
 #include "sda.h"
@@ -107,11 +108,6 @@ typedef struct {
     RenderArchiveTable *archive_table; /* 0x14 */
 } LevelRenderArchive;
 
-typedef struct {
-    u32 w0;
-    u32 w1;
-} ColorPair;
-
 #include "rnc/game/level_state.h"
 
 extern LevelRenderState level_render_state __asm__("D_0013E030");
@@ -138,10 +134,6 @@ extern LevelGameplayState   render_sequence_lui __asm__("D_0018CB20");
 extern LevelRenderObject   *D_0018CC98[];
 extern LevelProjectionState view_context __asm__("D_0018CD00");
 extern LevelRenderArchive   D_001940C0;
-extern ColorPair            warp_trail_colors[] __asm__("D_001D9A30");
-extern u128                 level_render_motion_vectors_by_mode[] __asm__("D_001D9AE0");
-extern f32                  level_render_depth_by_mode[] __asm__("D_001D9B30");
-extern f32                  cam_mode_min_fov[] __asm__("D_001D9B48");
 
 extern void fill_transfer_words(void *, s32, s32) __asm__("FUN_001f97e8");
 extern void snd_flush_sound_commands(void) __asm__("func_0012DC80");
@@ -170,7 +162,7 @@ void update_level_gameplay_frame(void) {
     Matrix4x4           first_transform;
     Matrix4x4           second_transform;
     u16                 transform_count;
-    LevelRenderObject  *object;
+    LevelRenderObject  *interpolated_object;
     LevelRenderObject  *expired_object;
     s32                 mode_advance;
     RenderModel        *model;
@@ -286,40 +278,44 @@ void update_level_gameplay_frame(void) {
                  (f32)(render_sequence.time - scale_game_frames(0x78)) * 20.0f * scale);
     D_00160404 = level_render_depth_by_mode[level_render_state.mode];
     for (object_index = 0; object_index < render_sequence.count; object_index++) {
-        object = D_0018CC98[object_index];
+        interpolated_object = D_0018CC98[object_index];
         for (subframe = 0; subframe < 2; subframe++) {
             frame = render_sequence.frame;
             current_frame = frame >> 1;
             next_frame = current_frame + 1;
-            model = object->model;
+            model = interpolated_object->model;
             frame_offsets = (u8 *)model->frames[model->count - 1] + 0x1C;
             current_frame_pointer = (s32 *)(frame_offsets + current_frame * 4);
             next_frame_pointer = (s32 *)(frame_offsets + next_frame * 4);
             current_frame_payload = *current_frame_pointer + 0x10;
             next_frame_payload = *next_frame_pointer + 0x10;
             blend = convert_integer_to_float(frame & 1) * 0.5f + (f32)subframe * 0.25f;
-            object->blend = blend;
-            animation_positions = object->animation_positions;
+            interpolated_object->blend = blend;
+            animation_positions = interpolated_object->animation_positions;
             scale_vector(&first_position, animation_positions + current_frame * 16, 1.0f - blend);
-            scale_vector(&second_position, animation_positions + next_frame * 16, object->blend);
+            scale_vector(&second_position,
+                         animation_positions + next_frame * 16,
+                         interpolated_object->blend);
             /* Fakematch: the u16 copy gives the second 2 its own register. */
             transform_count = 2;
-            fast_vec_add(object->position, &first_position, &second_position);
-            object->selected_a = 2;
-            object->selected_b = transform_count;
-            object->state_a = 0;
-            object->state_b = 0;
-            update_moby_animation_state(object);
-            fast_mem_copy(object->frame_data_a + 0x10, (void *)current_frame_payload, 0x20);
-            fast_mem_copy(object->frame_data_b + 0x10, (void *)next_frame_payload, 0x20);
-            object->opacity = 0xFF;
-            object->selected_index = 0x1FF;
-            object->cached_selector = 0xFF;
-            refresh_moby_spatial_bounds(object);
-            object->selected_a = object->model->count - 1;
-            object->selected_b = object->model->count - 1;
-            build_moby_bone_transform(object, 1, &first_transform);
-            build_moby_bone_transform(object, 2, &second_transform);
+            fast_vec_add(interpolated_object->position, &first_position, &second_position);
+            interpolated_object->selected_a = 2;
+            interpolated_object->selected_b = transform_count;
+            interpolated_object->state_a = 0;
+            interpolated_object->state_b = 0;
+            update_moby_animation_state(interpolated_object);
+            fast_mem_copy(
+                interpolated_object->frame_data_a + 0x10, (void *)current_frame_payload, 0x20);
+            fast_mem_copy(
+                interpolated_object->frame_data_b + 0x10, (void *)next_frame_payload, 0x20);
+            interpolated_object->opacity = 0xFF;
+            interpolated_object->selected_index = 0x1FF;
+            interpolated_object->cached_selector = 0xFF;
+            refresh_moby_spatial_bounds(interpolated_object);
+            interpolated_object->selected_a = interpolated_object->model->count - 1;
+            interpolated_object->selected_b = interpolated_object->model->count - 1;
+            build_moby_bone_transform(interpolated_object, 1, &first_transform);
+            build_moby_bone_transform(interpolated_object, 2, &second_transform);
             level_render_state.history_index = (level_render_state.history_index + 1) & 0x1F;
             if (level_render_state.history_count < 0x20) {
                 level_render_state.history_count++;
@@ -332,12 +328,12 @@ void update_level_gameplay_frame(void) {
             if (level_render_state.mode == 4) {
                 if (current_level_index == 0 ||
                     (current_level_index == 1 && level_available[3] == 0)) {
-                    object->flags |= 1;
+                    interpolated_object->flags |= 1;
                     level_render_state.history_count = 0;
                 }
                 if (render_sequence.time > render_sequence.end - 0x38) {
-                    object->fade =
-                        object->model->base_scale *
+                    interpolated_object->fade =
+                        interpolated_object->model->base_scale *
                         ((f32)(render_sequence.end - render_sequence.time) * 0.017857144f);
                     for (color_index = 0; color_index < 3; color_index++) {
                         /* Fakematch: render_sequence_lui, see its declaration. */
@@ -358,3 +354,15 @@ void update_level_gameplay_frame(void) {
 }
 
 extern __typeof__(update_level_gameplay_frame) func_0022EAA8 __attribute__((alias("FUN_0022eaa8")));
+
+f32 level_render_motion_vectors_by_mode[5][4] = {
+    { 0.6f, 0.15f, 0.0f, 1.0f},
+    { 1.0f,  1.0f, 0.0f, 1.0f},
+    { 0.9f, -0.4f, 0.0f, 1.0f},
+    {-0.3f, -0.9f, 0.0f, 1.0f},
+    { 0.4f,  0.4f, 0.0f, 1.0f},
+};
+
+f32 level_render_depth_by_mode[5] = {0.0f, 0.0f, 0.0f, 0.0f, 3.0f};
+
+f32 cam_mode_min_fov[5] = {0.3f, 0.3f, 0.3f, 0.3f, 0.63f};

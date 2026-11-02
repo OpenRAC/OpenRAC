@@ -133,7 +133,7 @@ extern int D_L06_0015FDF8;
 #include "rnc/overlay/l06/mobys/shuttle_data/shuttle_update_2.h"
 
 extern float D_L06_001620F8 __attribute__((sda));
-extern int   shuttle_forced_return_requested_gp __asm__("D_L06_00162100") __attribute__((sda));
+int          shuttle_forced_return_requested_gp __asm__("D_L06_00162100") = 0;
 
 #include "rnc/overlay/l06/mobys/shuttle_data/shuttle_update.h"
 
@@ -220,11 +220,11 @@ extern void cart_burst(void *, void *, int, float, float) __asm__("FUN_L00_0025f
 extern void spawn_particle(void *, void *, int, int, float, int, int, int, int, float) __asm__("FUN_L00_0026a9f0");
 extern char  *D_L06_0015FFD8_03b68 __asm__("D_L06_0015FFD8");
 extern short *D_L06_001ABFC0_03b68[] __asm__("D_L06_001ABFC0");
-extern float  shuttle_breakup_particle_max_speed_gp __asm__("D_L06_0016215C") __attribute__((sda));
+float         shuttle_breakup_particle_max_speed_gp __asm__("D_L06_0016215C") = 4e+01f;
 
 #include "rnc/overlay/l06/mobys/shuttle_data/break_apart_shuttle_linked_mobys_2.h"
 
-extern int shuttle_breakup_particles_per_piece_gp __asm__("D_L06_00162190") __attribute__((sda));
+int shuttle_breakup_particles_per_piece_gp __asm__("D_L06_00162190") = 20;
 
 #include "rnc/overlay/l06/mobys/shuttle_data/break_apart_shuttle_linked_mobys.h"
 
@@ -242,6 +242,7 @@ void begin_moby_linear_and_angular_motion(char *moby,
     qcopy(motion_vars + 0x10, angular_velocity);
 }
 
+/* Moby class 1109 */
 void shuttle_update(struct Moby *moby) {
     enum {
         INITIALIZE_SHUTTLE = 0,
@@ -750,7 +751,7 @@ void FUN_L06_00303748(float scale, char *moby, char *pos, char *push, int count)
 
 /* Breaks the linked pieces apart: pushes each one out from their middle (smaller pieces faster), spins it and sheds dust. */
 void break_apart_shuttle_linked_mobys(struct Moby *moby) {
-    char        *vars = (char *)moby->pvars;
+    char        *shuttle_linkage_vars = (char *)moby->pvars;
     float        center[4];
     float        middle[4];
     float        push[4];
@@ -775,7 +776,7 @@ void break_apart_shuttle_linked_mobys(struct Moby *moby) {
                                         D_L06_00162110);
     largest = 0.0f;
     clear_u64_value(middle);
-    list = D_L06_001ABFC0_03b68[*(int *)(vars + 0xCC)];
+    list = D_L06_001ABFC0_03b68[*(int *)(shuttle_linkage_vars + 0xCC)];
     count = 0;
     do {
         id = *list & 0x7FFF;
@@ -789,7 +790,7 @@ void break_apart_shuttle_linked_mobys(struct Moby *moby) {
         }
     } while (*list++ >= 0);
     fast_vec_scale(middle, middle, 1.0f / convert_integer_to_float(count));
-    list = D_L06_001ABFC0_03b68[*(int *)(vars + 0xCC)];
+    list = D_L06_001ABFC0_03b68[*(int *)(shuttle_linkage_vars + 0xCC)];
     do {
         float speed;
         id = *list & 0x7FFF;
@@ -849,8 +850,8 @@ void break_apart_shuttle_linked_mobys(struct Moby *moby) {
 
 /* Marks every moby in the moby's list for removal; the list ends after its first negative entry. */
 void mark_shuttle_linked_mobys_for_removal(char *moby) {
-    char  *data = ((char *)MOBY(moby)->pvars);
-    short *moby_list_entry = D_L06_001ABFC0_c[*(int *)(data + 0xCC)];
+    char  *shuttle_link_vars = ((char *)MOBY(moby)->pvars);
+    short *moby_list_entry = D_L06_001ABFC0_c[*(int *)(shuttle_link_vars + 0xCC)];
     do {
         mark_moby_for_removal(D_L06_0015FFD8_u + ((*moby_list_entry & 0x7FFF) << 8));
     } while (*moby_list_entry++ >= 0);

@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Finite emitter sampling and complementary emission hits for probe transport.
+#include <stdexcept>
+
 #include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_transport.h"
@@ -444,6 +446,11 @@ void Scene::build_rectangles() {
     // Mesh-only scenes do not pay for a separate acceleration structure.
     if (rectangles.empty()) {
         return;
+    }
+
+    // An Embree built without user geometry cannot trace them (tools/build_port.py).
+    if (rtcGetDeviceProperty(device, RTC_DEVICE_PROPERTY_USER_GEOMETRY_SUPPORTED) == 0) {
+        throw std::runtime_error("this Embree has no user geometry for the area lights");
     }
 
     rectangle_handle = rtcNewScene(device);

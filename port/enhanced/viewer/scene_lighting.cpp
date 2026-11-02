@@ -11,6 +11,7 @@
 #include <memory>
 #include <utility>
 
+#include "common/log.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced_viewer_shaders.h"
@@ -83,6 +84,24 @@ void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
 void SceneLighting::prepare_deformation(
     const renderer::FrameInput& input, const scene::LevelScene& scene
 ) {
+#ifdef OPENRAC_LIGHT_AUTHORING
+    if (gl::enhanced_rendering_available()) {
+        const auto attached = m_object_lights.prepare(input.frame, scene.joint_palette());
+        const auto applied = m_local_lights.set_attached_lights(attached);
+        if (!applied) {
+            if (m_attachment_error != applied.error().message) {
+                log::error("object lights: {}", applied.error().message);
+            }
+            m_attachment_error = applied.error().message;
+            (void)m_local_lights.set_attached_lights({});
+        } else {
+            m_attachment_error.clear();
+        }
+    }
+#endif
+
+    // Native lights also shade material fallbacks when probe GI is unavailable.
+    m_local_lights.prepare(input.frame, scene.point_lights(), gl::enhanced_rendering_available());
     m_water_float.prepare(input, &scene);
 }
 
@@ -169,6 +188,12 @@ bool SceneLighting::early_supported() const {
 }
 
 void SceneLighting::load(const scene::LevelData& level) {
+#ifdef OPENRAC_LIGHT_AUTHORING
+    if (gl::enhanced_rendering_available()) {
+        m_object_lights.load(level);
+    }
+#endif
+
     m_reflection_classes.clear();
     std::vector<enhanced::ReflectionSubject> subjects;
     for (const auto& [class_id, entry] : level.moby_classes) {
@@ -199,6 +224,11 @@ void SceneLighting::load(const scene::LevelData& level) {
 }
 
 void SceneLighting::release() {
+#ifdef OPENRAC_LIGHT_AUTHORING
+    m_attachment_error.clear();
+    m_object_lights.release();
+#endif
+    m_local_lights.release();
     m_wetness.release();
     m_fur.release();
     m_water_float.release();
@@ -250,7 +280,7 @@ void SceneLighting::set_area_lights(bool shown) {
 }
 
 bool SceneLighting::compute_selection() const {
-    return m_probes.compute_selection();
+    return m_probes.compute_selection() || (active() && gl::is_vulkan());
 }
 
 void SceneLighting::set_medial_axis_debug(bool shown) {
@@ -265,6 +295,7 @@ void SceneLighting::select_visible_regions(
     unsigned depth, const renderer::Camera& camera, int width, int height
 ) {
     m_probes.select_visible_regions(depth, camera, width, height);
+    m_local_lights.dispatch(depth, camera, width, height);
 }
 
 void SceneLighting::update_regions(const renderer::Camera& camera, float seconds) {
@@ -288,6 +319,7 @@ void SceneLighting::bind(
     bool depth_matched
 ) const {
     m_probes.bind(shader, layer, all_static_receivers, camera, depth_matched);
+    m_local_lights.bind(shader, camera, depth_matched);
     m_atmosphere.bind(shader);
 }
 

@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/profiler.h"
 #include "common/stats.h"
@@ -154,7 +155,14 @@ void set_lighting(SceneFrame& frame) {
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
-    owner.scene.set_probe_lighting(enhanced, graphics.probe_gi_multiplier);
+    owner.scene.set_probe_lighting(
+        enhanced && !graphics.sweep_probe_lighting_off, graphics.probe_gi_multiplier
+    );
+    owner.scene.set_sweep_translucent(
+        graphics.sweep_translucent_off,
+        graphics.sweep_translucent_unlit,
+        graphics.sweep_translucent_full
+    );
     owner.scene.set_gameplay_rim(
         enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
     );
@@ -297,8 +305,12 @@ void set_camera(SceneFrame& frame) {
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    if (has_camera) {
+        owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
+    }
+    const auto& visibility_camera = input.culling_camera ? *input.culling_camera : input.camera;
     owner.scene.choose_scenery(
-        frame.graphics.original_lod, input.camera.position, input.camera.projection
+        frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
     );
     owner.scene.update_probe_regions(input.camera);
     input.after_world_depth =
@@ -368,6 +380,7 @@ bool draw_world(SceneFrame& frame) {
             input.before_hud = [&owner,
                                 exposure = graphics.adjusted_agx_exposure(),
                                 before_hud = std::move(before_hud)] {
+                crash::breadcrumb("tone mapping");
                 owner.agx.apply(owner.frame, exposure);
                 if (before_hud) {
                     before_hud();
@@ -388,13 +401,17 @@ void render_scene(
     const settings::Settings& graphics,
     FramePresentation& output
 ) {
+    const crash::BreadcrumbScope breadcrumbs(output.source_frame);
+    crash::breadcrumb("scene setup");
     SceneFrame frame{owner, snapshot, graphics, output, {}, {}, false, 1};
     frame.temporal = prepare_temporal(frame);
     {
         const profiling::Zone trace("Upload scene");
+        crash::breadcrumb("scene upload");
         upload_instances(frame);
     }
     const auto scene_done = std::chrono::steady_clock::now();
+    crash::breadcrumb("render target setup");
     frame.picture_scale = prepare_target(frame);
     set_lighting(frame);
     blend_shadows(frame);

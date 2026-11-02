@@ -49,9 +49,8 @@
   if (onAndroid) preloadArt();
 
   $effect(() => {
-    // Android: the launcher's accent is the picked game's own (themes.ts), the colour easing from
-    // one to the next (app.css).
-    if (!onAndroid) return;
+    // The launcher's accent is the picked game's own (themes.ts), the colour easing from one to the
+    // next (app.css).
     const style = document.documentElement.style;
     for (const name of ACCENT_PROPERTIES) style.removeProperty(name);
     for (const [name, value] of accentProperties(app.version?.split("/")[0] ?? null)) style.setProperty(name, value);

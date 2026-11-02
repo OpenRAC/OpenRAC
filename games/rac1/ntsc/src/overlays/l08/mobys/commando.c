@@ -100,7 +100,7 @@ typedef struct {
 
 extern unsigned char D_0013D3B4 NOT_SDA;
 extern char                     commando_name_string[] __asm__("D_L08_001621E0");
-extern int   commando_height_probe_distance_limit_gp __asm__("D_L08_001621D8") __attribute__((sda));
+int          commando_height_probe_distance_limit_gp __asm__("D_L08_001621D8") = 0x18;
 extern char *D_L08_001600EC;
 extern float D_L08_001675C0_c[] __asm__("D_L08_001675C0");
 extern void  FUN_L00_0025a120(void *);
@@ -108,6 +108,7 @@ extern void  FUN_L00_0025a120(void *);
 /* Watcher update, same routine as batalia_deserter_update with two more states and the joint pose copy. */
 void commando_update(WM *m) __asm__("FUN_L08_00302ce8");
 
+/* Moby class 1130 */
 void commando_update(WM *moby) {
     enum {
         COMMANDO_INITIALIZE = 0,
@@ -115,7 +116,7 @@ void commando_update(WM *moby) {
         COMMANDO_DIALOGUE_AFTER_REPOSITION = 2,
         COMMANDO_POST_DIALOGUE = 3
     };
-    L16WatchScratch scratch;
+    L16WatchScratch look_tracking_vectors;
     WD8            *commando_vars = (WD8 *)moby->data;
     float           rate;
     float           head_rate;
@@ -222,21 +223,25 @@ void commando_update(WM *moby) {
             fast_vec_add(commando_vars->target, commando_vars->target, moby->position);
         }
         if (commando_vars->moving_timer) {
-            qcopy(scratch.target, (char *)&D_0013E633_watch + 0xEED);
+            qcopy(look_tracking_vectors.target, (char *)&D_0013E633_watch + 0xEED);
             rate = 0.04f;
             head_rate = 0.3f;
         } else {
-            qcopy(scratch.target, commando_vars->target);
+            qcopy(look_tracking_vectors.target, commando_vars->target);
         }
     }
     if (tracking) {
         float yaw;
         float pitch;
-        qcopy(scratch.eye, moby->position);
-        scratch.eye[2] += 1.0f;
-        fast_vec_sub(scratch.delta, scratch.target, scratch.eye);
-        yaw = fast_subtract_rotations(fast_arc_tan(scratch.delta[0], scratch.delta[1]), moby->yaw);
-        pitch = -fast_arc_tan(vector_length_xy(scratch.delta), scratch.delta[2]);
+        qcopy(look_tracking_vectors.eye, moby->position);
+        look_tracking_vectors.eye[2] += 1.0f;
+        fast_vec_sub(
+            look_tracking_vectors.delta, look_tracking_vectors.target, look_tracking_vectors.eye);
+        yaw = fast_subtract_rotations(
+            fast_arc_tan(look_tracking_vectors.delta[0], look_tracking_vectors.delta[1]),
+            moby->yaw);
+        pitch = -fast_arc_tan(vector_length_xy(look_tracking_vectors.delta),
+                              look_tracking_vectors.delta[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)

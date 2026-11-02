@@ -9,6 +9,7 @@
   import { app, guardShown } from "$lib/app.svelte";
   import { openChangeSet } from "$lib/deepLink.svelte";
   import {
+    age,
     apiFits,
     imageUrl,
     inPreset,
@@ -38,6 +39,7 @@
   import { modErrorOf } from "$lib/api";
   import { onMount } from "svelte";
   import Icon from "./Icon.svelte";
+  import ModBadges from "./ModBadges.svelte";
 
   let { version }: { version: VersionView } = $props();
 
@@ -199,7 +201,9 @@
           <div class="grow">
             <strong>{r.mod.name}</strong>
             <span class="dim">{r.mod.author}</span>
+            {#if age(r.mod.updated, Date.now())}<span class="dim"> · {age(r.mod.updated, Date.now())}</span>{/if}
             <p>{r.mod.description}</p>
+            <ModBadges mod={r.mod} game={version.game} />
           </div>
           {#if r.installed && !upgradeable(r)}
             <span class="dim">{T.installed}</span>
@@ -217,10 +221,14 @@
       {/each}
     </ul>
   {:else}
-    <div class="split">
+    <div class="split" class:open={current}>
       <table>
         <thead>
-          <tr><th>{T.name}</th><th>{T.author}</th><th>{T.version}</th><th class="num">{T.downloads}</th><th></th></tr>
+          <tr
+            ><th>{T.name}</th><th>{T.author}</th><th>{T.version}</th><th class="num">{T.downloads}</th><th
+              >{T.updated}</th
+            ><th></th></tr
+          >
         </thead>
         <tbody>
           {#each shown as r (r.mod.id)}
@@ -235,10 +243,12 @@
                   {#each highlight(r.mod.name, query) as part, i (i)}{#if part.mark}<mark>{part.text}</mark
                       >{:else}{part.text}{/if}{/each}
                 </button>
+                <ModBadges mod={r.mod} game={version.game} />
               </td>
               <td class="dim">{r.mod.author}</td>
               <td>{r.installed ?? r.here?.version ?? r.mod.versions[0]?.version ?? ""}</td>
               <td class="num">{r.mod.downloads.toLocaleString()}</td>
+              <td class="dim">{age(r.mod.updated, Date.now())}</td>
               <td>
                 {#if r.installed && !upgradeable(r)}
                   <span class="dim">{T.installed}</span>
@@ -292,6 +302,8 @@
               <dd>{m.tags.join(", ") || T.nothing}</dd>
               <dt>{T.impact}</dt>
               <dd>{m.impact.map((i) => IMPACT_LABEL[i] ?? i).join(", ") || T.nothing}</dd>
+              <dt>{T.aiAssisted}</dt>
+              <dd>{m.aiAssisted ? T.yes : T.no}</dd>
               <dt>{T.updated}</dt>
               <dd>{m.updated.slice(0, 10)}</dd>
             </dl>
@@ -431,9 +443,24 @@
 
   .split {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+    grid-template-columns: minmax(0, 1fr);
     gap: 16px;
     align-items: start;
+  }
+
+  .split.open {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  }
+
+  tbody .small {
+    white-space: nowrap;
+  }
+
+  /* With the details open in a small window: they say the author and the date, so the table doesn't. */
+  @media (max-width: 1199px) {
+    .split.open :is(th, td):is(:nth-child(2), :nth-child(5)) {
+      display: none;
+    }
   }
 
   table {
@@ -634,7 +661,8 @@
   }
 
   @media (max-width: 860px) {
-    .split {
+    .split,
+    .split.open {
       grid-template-columns: 1fr;
     }
   }

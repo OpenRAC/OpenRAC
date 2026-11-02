@@ -59,6 +59,25 @@ class NativePipeline(unittest.TestCase):
             self.assertNotEqual(result.returncode,0,result.stdout)
         return result
 
+    def test_log_build_identity_survives_packaging_and_appended_retries(self):
+        """Main and per-level logs identify the compiled baker and each calling launcher."""
+        prefix = 'Probe build context: '
+        for version in ('0.9-test', '0.10-test'):
+            env = dict(os.environ, OPENRAC_LAUNCHER_VERSION=version)
+            result = subprocess.run(self.command(), capture_output=True, text=True, env=env, timeout=40)
+            self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+            context = json.loads(next(s[len(prefix):] for s in result.stdout.splitlines() if s.startswith(prefix)))
+            self.assertEqual(context['launcher_version'], version)
+            self.assertTrue(context['baker_version'])
+            self.assertTrue(context['baker_commit'])
+        text = (self.cache/'probe-bake.log').read_text(encoding='utf-8')
+        contexts = [json.loads(s[len(prefix):]) for s in text.splitlines() if s.startswith(prefix)]
+        self.assertEqual([c['launcher_version'] for c in contexts], ['0.9-test', '0.10-test'])
+        for index in range(2):
+            log = (self.cache/f'level_{index:02}'/'batch.log').read_text(encoding='utf-8')
+            self.assertIn(prefix, log)
+            self.assertIn('0.9-test', log)
+
     def test_native_flow_never_starts_python_for_normal_exports_and_reuses_cache(self):
         (self.levels[0]/'bake-inputs/gameplay.bin').unlink()
         self.run_bake()

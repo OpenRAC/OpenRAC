@@ -138,6 +138,10 @@ public:
     // False: the keyboard table no longer presses its player's buttons (a mod took the keyboard).
     void set_keyboard_table(bool on) { m_keyboard_table = on; }
 
+    // The game's dead zone on its sticks' axes (pad.h): the sticks are pushed out past it. None by
+    // default.
+    void set_stick_dead_zone(const StickDeadZone& dead_zone) { m_dead_zone = dead_zone; }
+
     // Whether the cursor is captured now (the frontend sets it: SDL's relative mouse mode).
     void set_captured(bool captured) { m_km.captured = captured; }
 
@@ -195,6 +199,7 @@ private:
     TouchPad m_touch;
     KeyboardMouse m_km;
     bool m_keyboard_table = true;
+    StickDeadZone m_dead_zone;
     // Gathered from the events between two update()s.
     std::array<std::uint8_t, kKeyCount> m_went_down{};
     std::uint32_t m_mouse_went_down = 0;

@@ -51,10 +51,11 @@ float D_L18_001613E4 = 2e+01f;
 
 /* Steer a projectile toward its target and emit its impact effects. */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002A1B58.c: func_L16_002A1C50), where it is exact; names translated to the US level program. */
-void update_armed_transport_rocket(char *m) __asm__("FUN_L16_002a0a98");
+void armed_transport_rocket_update(char *m) __asm__("FUN_L16_002a0a98");
 
-void update_armed_transport_rocket(char *rocket_moby) {
-    float desired[4], next[4], delta[4], blend[4];
+/* Moby class 50 */
+void armed_transport_rocket_update(char *rocket_moby) {
+    float desired[4], next_position[4], delta[4], blend[4];
     char *rocket_data = ((char *)MOBY(rocket_moby)->pvars);
     void *remaining;
     float yaw, pitch;
@@ -80,16 +81,16 @@ void update_armed_transport_rocket(char *rocket_moby) {
         float blend_ticks_remaining = convert_integer_to_float(*(int *)(rocket_data + 0x20));
         float blend_duration_ticks = convert_integer_to_float(*(int *)(rocket_data + 0x30));
         lerp_vector(blend, desired, rocket_data, blend_ticks_remaining / blend_duration_ticks);
-        fast_vec_add(next, rocket_moby + 0x10, blend);
+        fast_vec_add(next_position, rocket_moby + 0x10, blend);
         MOBY(rocket_moby)->rot.z = fast_arc_tan(blend[0], blend[1]);
         MOBY(rocket_moby)->rot.y = -fast_arc_tan(vector_length_xy(blend), blend[2]);
     } else {
-        fast_vec_add(next, rocket_moby + 0x10, desired);
+        fast_vec_add(next_position, rocket_moby + 0x10, desired);
         MOBY(rocket_moby)->rot.z = yaw;
         MOBY(rocket_moby)->rot.y = pitch;
     }
     remaining = delta;
-    if (collision_line((rocket_moby + 0x10), next, 0, rocket_moby, 0) != 0 ||
+    if (collision_line((rocket_moby + 0x10), next_position, 0, rocket_moby, 0) != 0 ||
         fast_vec_length(remaining) < *(float *)(rocket_data + 0x24)) {
         if (hero.vehicle_mode == 2)
             play_entity_sound((int)rocket_moby, 2.0f, (rocket_moby + 0x10), 3, 2.0f, 1.0f, 0, 1, 0);
@@ -114,7 +115,7 @@ void update_armed_transport_rocket(char *rocket_moby) {
                         0);
         mark_moby_for_removal(rocket_moby);
     } else
-        qcopy((rocket_moby + 0x10), next);
+        qcopy((rocket_moby + 0x10), next_position);
 }
 
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002A1B58.c: func_L16_002A1F78), where it is exact; names translated to the US level program. */
@@ -124,7 +125,7 @@ char *spawn_armed_transport_rocket(char *owner,
                                    void *vel,
                                    int   blend_duration_ticks) __asm__("FUN_L16_002a0dc0");
 
-char *spawn_armed_transport_rocket(char *owner,
+char *spawn_armed_transport_rocket(char *spawning_moby,
                                    char *initial_movement_vector,
                                    void *spawn_position,
                                    void *target_position,
@@ -137,7 +138,7 @@ char *spawn_armed_transport_rocket(char *owner,
         MOBY(spawned_moby)->draw_dist = 0xFF;
         spawned_moby[0x31] = 1;
         spawned_moby[0x20] = 0;
-        MOBY(spawned_moby)->spawn_frame = *(unsigned long *)(owner + 0x38);
+        MOBY(spawned_moby)->spawn_frame = *(unsigned long *)(spawning_moby + 0x38);
         MOBY(spawned_moby)->scale = MOBY(spawned_moby)->scale * 3.0f;
         qcopy(spawned_moby + 0x10, spawn_position);
         moby_data = ((char *)MOBY(spawned_moby)->pvars);

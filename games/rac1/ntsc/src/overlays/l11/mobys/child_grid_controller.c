@@ -48,11 +48,12 @@ void update_child_grid_poses(struct Moby *m) __asm__("FUN_L11_0030dd18");
 
 /* Spawns the 4x6 child grid, waits for its linked moby, then fades and blends between two l11_cuboids
    points (pos at 0x30, rotation at 0x70) before handing back to the hero. */
-void update_child_grid_controller(struct Moby *grid_controller) __asm__("FUN_L11_0030d800");
+void child_grid_controller_update(struct Moby *grid_controller) __asm__("FUN_L11_0030d800");
 
 extern float fast_add_rotations(float, float);
 
-void update_child_grid_controller(struct Moby *grid_controller) {
+/* Moby class 1157 */
+void child_grid_controller_update(struct Moby *grid_controller) {
     enum {
         CHILD_GRID_STATE_CREATE_CHILDREN = 0,
         CHILD_GRID_STATE_WAIT_LINK_COMMAND = 1,
@@ -66,7 +67,7 @@ void update_child_grid_controller(struct Moby *grid_controller) {
     Vec4f          rot;
     int            row;
     int            col;
-    float          old;
+    float          previous_fade;
 
     switch (grid_controller->state) {
     case CHILD_GRID_STATE_CREATE_CHILDREN:
@@ -99,10 +100,10 @@ void update_child_grid_controller(struct Moby *grid_controller) {
         break;
     }
     case CHILD_GRID_STATE_FADE_TO_POINT_POSE:
-        old = grid_controller_vars->fade;
+        previous_fade = grid_controller_vars->fade;
         approach_value(&grid_controller_vars->fade, 1.0f, 1.0f / (float)scale_game_frames(20));
         D_L11_0015F3FC = 1.0f - absolute_float(grid_controller_vars->fade);
-        if (old < 0.0f && 0.0f <= grid_controller_vars->fade) {
+        if (previous_fade < 0.0f && 0.0f <= grid_controller_vars->fade) {
             struct Moby *link =
                 (struct Moby *)(D_L11_0015FFD8_d800 + (grid_controller_vars->link << 8));
             char *source_pose_point;
@@ -152,10 +153,10 @@ void update_child_grid_controller(struct Moby *grid_controller) {
         }
         break;
     case CHILD_GRID_STATE_FADE_TO_HERO_POSE:
-        old = grid_controller_vars->fade;
+        previous_fade = grid_controller_vars->fade;
         approach_value(&grid_controller_vars->fade, 1.0f, 1.0f / (float)scale_game_frames(20));
         D_L11_0015F3FC = 1.0f - absolute_float(grid_controller_vars->fade);
-        if (old < 0.0f && 0.0f <= grid_controller_vars->fade) {
+        if (previous_fade < 0.0f && 0.0f <= grid_controller_vars->fade) {
             set_race_camera(&hero.motion.pos, &hero.motion.rot, 0, 1);
             jet_end_mount(3);
         } else if (1.0f <= grid_controller_vars->fade) {
@@ -179,7 +180,7 @@ void update_child_grid_poses(struct Moby *grid_controller) {
     Vec4f parent_axis0_offset;
     Vec4f parent_axis1_offset;
     Vec4f child_position_offset;
-    char *data;
+    char *child_grid_vars;
     struct Moby *(*grid)[6];
     float progress;
     float hi;
@@ -189,13 +190,13 @@ void update_child_grid_poses(struct Moby *grid_controller) {
     int   row;
     int   col;
 
-    data = grid_controller->pvars;
-    grid = (struct Moby * (*)[6]) data;
+    child_grid_vars = grid_controller->pvars;
+    grid = (struct Moby * (*)[6]) child_grid_vars;
     fast_vec_normalize(
         &parent_axis0_offset, &grid_controller->rot_row0, child_grid_parent_axis0_offset_length_gp);
     fast_vec_normalize(
         &parent_axis1_offset, &grid_controller->rot_row1, child_grid_parent_axis1_offset_length_gp);
-    progress = *(float *)(data + 0x6C);
+    progress = *(float *)(child_grid_vars + 0x6C);
     hi = 90.0f - progress * 180.0f;
     if (hi < -90.0f) {
         hi = -90.0f;

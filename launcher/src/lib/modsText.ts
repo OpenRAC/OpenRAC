@@ -78,7 +78,8 @@ export const PAGE = {
 export const ADD = {
   title: "Add a mod",
   linkLabel: "A mod's link",
-  linkPlaceholder: "Paste a mod's link, like github.com/OpenRAC/openrac-mods",
+  linkPlaceholder: "Paste a mod's link, like openrac.dev/mods/lock-strafe",
+  notModPage: "That page isn't a mod. Open a mod's page on openrac.dev and copy its link.",
   go: "Find",
   file: "File…",
   folder: "Folder…",
@@ -87,7 +88,9 @@ export const ADD = {
   drop: "or drop a .zip or folder on this page",
   dropHere: "Drop to add it",
   browse: "Browse mods",
-  modsUrl: "https://github.com/OpenRAC/openrac-mods",
+  modsUrl: "https://openrac.dev/mods",
+  publish: "Publish your mod",
+  publishUrl: "https://openrac.dev/mods/submit",
   close: "Close",
 } as const;
 
@@ -242,7 +245,7 @@ export const PREVIEW = {
  *  the default, the game starts with no mods at all; the Mods tab says so above its list. */
 export const WITH_MODS = {
   label: "Mods",
-  hint: "Play with your gameplay mods, packs and packed levels from the Mods tab.",
+  hint: "Play with your gameplay mods, packs, packed levels and Enhanced graphics from the Mods tab.",
   /** Beside the switch when it is on: how many are switched on, a way to the Mods tab. */
   count: (n: number | null) => (n === null ? "Mods tab" : n === 0 ? "none on yet" : `${n} on`),
   /** Beside the switch when it is off. */
@@ -600,6 +603,9 @@ export const BROWSE = {
   tags: "Tags",
   updated: "Updated",
   impact: "Impact",
+  aiAssisted: "AI-assisted",
+  yes: "Yes",
+  no: "No",
   detailsAria: "Mod details",
   failed: "The mod list couldn't be loaded.",
   empty: "No mods in this list yet.",
@@ -623,8 +629,8 @@ export const DETAIL_TAB = {
 export const noMatch = (q: string) => `No mods match "${q}".`;
 export const didYouMean = (name: string) => `Did you mean ${name}?`;
 export const IMPACT_LABEL: Record<string, string> = {
-  cosmetic: "Cosmetic",
-  gameplay: "Gameplay",
+  cosmetic: "Cosmetic only",
+  gameplay: "Changes gameplay",
   "speedrun-safe": "Speedrun-safe",
   "touches-saves": "Changes saves",
   online: "Online",
@@ -691,6 +697,19 @@ export const rollBackTo = (name: string, version: string) => `Roll back ${name} 
 export const crashAfterUpdate = (names: string[]) =>
   `This came after ${list(names)} updated. Rolling back keeps the earlier version until a fixed one is out.`;
 export const rolledBack = (name: string, version: string) => `${name} is back at ${version}.`;
+
+/** Settings: the launcher in Steam's library (AddToSteam.svelte). */
+export const STEAM_TEXT = {
+  title: "Steam",
+  line: "Add OpenRAC to your Steam library, with its name and pictures.",
+  inLibrary: "In your Steam library.",
+  noUser: "Sign in to Steam once to add OpenRAC to it.",
+  flatpak: "Flatpak Steam can't start OpenRAC. Use Steam's normal package to add it.",
+  add: "Add to Steam",
+  update: "Update in Steam",
+  inSteam: "In Steam",
+  added: "Added. Open Steam to see it.",
+} as const;
 
 export const SETTINGS_TEXT = {
   autoUpdate: "Update mods automatically",

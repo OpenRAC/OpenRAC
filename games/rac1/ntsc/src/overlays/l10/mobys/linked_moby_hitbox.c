@@ -72,12 +72,13 @@ void spawn_linked_hitbox_contact_effects(struct Moby *moby, HitBox *box) {
 
         memcpy(found, D_L10_00178380_u, count * 4);
         for (i = 0; i < count; i++) {
-            struct Moby *other = found[i];
+            struct Moby *hitbox_candidate_moby = found[i];
 
-            if (other == 0 || other->state == 0xFE || other->state == 0xFD) {
+            if (hitbox_candidate_moby == 0 || hitbox_candidate_moby->state == 0xFE ||
+                hitbox_candidate_moby->state == 0xFD) {
                 continue;
             }
-            fast_vec_sub(&delta, &other->pos, &moby->pos);
+            fast_vec_sub(&delta, &hitbox_candidate_moby->pos, &moby->pos);
             transpose_rotation_matrix(inv, moby_rotation_basis);
             transform_vector(&local, &delta, inv);
             qcopy(&point, &local);
@@ -96,9 +97,12 @@ void spawn_linked_hitbox_contact_effects(struct Moby *moby, HitBox *box) {
             fast_vec_add(&point, &point, &moby->pos);
             point_moby_count = collect_mobies_in_sphere(&point, box->margin_x, 0x10, moby, 0);
             for (j = 0; j < point_moby_count; j++) {
-                if (D_L10_00178380_u[j] == other) {
-                    spawn_nearby_effect_without_direction(
-                        (unsigned char *)other, (int)moby, 0x10001, &point, box->strength);
+                if (D_L10_00178380_u[j] == hitbox_candidate_moby) {
+                    spawn_nearby_effect_without_direction((unsigned char *)hitbox_candidate_moby,
+                                                          (int)moby,
+                                                          0x10001,
+                                                          &point,
+                                                          box->strength);
                 }
             }
         }
@@ -109,13 +113,19 @@ extern int FUN_001fa6d0_2c9c70(float) __asm__("truncate_float_to_s32");
 extern int FUN_001f9740_2c9c70(int *) __asm__("FUN_001f9740");
 extern int D_0015ED84;
 
-extern char linked_moby_warning[] __asm__("D_L10_001DCDA0");
-extern char linked_moby_present_message[] __asm__("D_L10_001DCDD0");
-extern char linked_moby_missing_message[] __asm__("D_L10_001DCE00");
+char linked_moby_warning[46] __asm__("D_L10_001DCDA0") =
+    "Warning! moby 794 does not have effect moby!\n";
 
-void update_linked_moby_hitbox(struct Moby *moby) __asm__("FUN_L10_002c9c70");
+char linked_moby_present_message[42] __asm__("D_L10_001DCDD0") =
+    "M794 %d trigger %d = moby %d (oClass %d)\n";
 
-void update_linked_moby_hitbox(struct Moby *moby) {
+char linked_moby_missing_message[36] __asm__("D_L10_001DCE00") =
+    "M794 %d trigger %d = NO MOBY! (-1)\n";
+
+void linked_moby_hitbox_update(struct Moby *moby) __asm__("FUN_L10_002c9c70");
+
+/* Moby class 794 */
+void linked_moby_hitbox_update(struct Moby *moby) {
     enum {
         LINKED_HITBOX_STATE_INITIALIZE = 0,
         LINKED_HITBOX_STATE_WAIT_FOR_LINKED_MOBIES = 1,
@@ -138,17 +148,17 @@ void update_linked_moby_hitbox(struct Moby *moby) {
             int *entry = slot + i * 2;
             int  index = *entry;
             if (index != -1) {
-                struct Moby *other = &D_L10_0015FFD8[index];
-                if (other != 0 && other->oclass == *(short *)(entry + 1) && other->state != 0xfe &&
-                    other->state != 0xfd) {
-                    unsigned short id = other->save_id;
+                struct Moby *linked_moby = &D_L10_0015FFD8[index];
+                if (linked_moby != 0 && linked_moby->oclass == *(short *)(entry + 1) &&
+                    linked_moby->state != 0xfe && linked_moby->state != 0xfd) {
+                    unsigned short id = linked_moby->save_id;
                     if ((((*(int *)((unsigned char *)D_0014C190_257218 + (((short)id >> 5) * 4) +
                                     (D_0015ED84 << 8)) >>
                            (id & 31)) ^
                           1) &
                          1) != 0) {
                         if (*(signed char *)((char *)entry + 6) == -1 ||
-                            other->state != *(signed char *)((char *)entry + 6))
+                            linked_moby->state != *(signed char *)((char *)entry + 6))
                             differences++;
                     }
                 }
@@ -181,11 +191,12 @@ void update_linked_moby_hitbox(struct Moby *moby) {
             for (i = 0; i < 5; i++, entry += 2) {
                 int index = *entry;
                 if (index != -1) {
-                    char          *base = D_L10_0015FFD8_p;
-                    unsigned short oclass = *(unsigned short *)((index << 8) + (int)base + 0xa6);
+                    char          *level_moby_array = D_L10_0015FFD8_p;
+                    unsigned short oclass =
+                        *(unsigned short *)((index << 8) + (int)level_moby_array + 0xa6);
                     *(short *)(entry + 1) = oclass;
                     debug_print(linked_moby_present_message,
-                                ((char *)moby - base) >> 8,
+                                ((char *)moby - level_moby_array) >> 8,
                                 i,
                                 index,
                                 (short)oclass);

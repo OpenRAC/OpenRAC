@@ -24,9 +24,10 @@ extern void draw_active_beam_slots(char *) __asm__("FUN_L00_002e2af0");
 
 /* Slot update of moby class 1331: state 0 clears the two slot arrays, state 1 services the pending slots and frees a slot whose moby has died. Level 14 relative of func_L00_002E32A0. */
 /* Ported from rac1-decomp (src/overlays/shared/vendor_002B2A28.c: func_L14_00304E68), where it is exact; names translated to the US level program. */
-void update_beam_slots(unsigned char *moby) __asm__("FUN_L14_003039e0");
+void beam_slots_update(unsigned char *moby) __asm__("FUN_L14_003039e0");
 
-void update_beam_slots(unsigned char *moby) {
+/* Moby class 1331 */
+void beam_slots_update(unsigned char *moby) {
     enum {
         SLOT_UPDATE_STATE_INITIALIZE = 0,
         SLOT_UPDATE_STATE_PROCESS_SLOTS = 1
@@ -185,7 +186,7 @@ extern BeamOrigin    beam_origins[] __asm__("D_L00_001E6D50");
 extern Q_2E3700      D_L00_001E7130_2E3700[] __asm__("D_L00_001E6DE0");
 extern Q_2E3700      D_L00_001E7160_2E3700[] __asm__("D_L00_001E6E10");
 extern char          D_0013E633_2E3700[] __asm__("D_0013F5E0");
-extern float         D_L00_00161BF0_gp __asm__("D_L00_00161BF0") __attribute__((sda));
+float                beam_endpoint_light_radius_gp __asm__("D_L00_00161BF0") = 5.0f;
 extern float         beam_scroll[] __asm__("D_L00_00161C78") MACRO_ADDR;
 extern TrailSlot     l00_beam_strand_axis_and_origin_slots[] __asm__("D_L00_001E6D30");
 extern f32           D_L00_001E6E10_e3388[][4] __asm__("D_L00_001E6E10");
@@ -349,15 +350,15 @@ void update_slot_panes_and_effects(int unused, int beam) {
     if (beam_slot_state[beam] == 2) {
         beam_slot_state[beam] = 3;
         for (i = 0; i < 20; i++) {
-            Pt *first = &beam_strands[strand].points[i];
-            Pt *second = &beam_strands[next_strand].points[i];
+            Pt *sine_strand_point = &beam_strands[strand].points[i];
+            Pt *noisy_strand_point = &beam_strands[next_strand].points[i];
 
-            first->x = step * (float)i;
-            first->y = first->z = 0.0f;
-            first->w = 1.0f;
-            second->x = step * (float)i;
-            second->y = second->z = 0.0f;
-            second->w = 1.0f;
+            sine_strand_point->x = step * (float)i;
+            sine_strand_point->y = sine_strand_point->z = 0.0f;
+            sine_strand_point->w = 1.0f;
+            noisy_strand_point->x = step * (float)i;
+            noisy_strand_point->y = noisy_strand_point->z = 0.0f;
+            noisy_strand_point->w = 1.0f;
         }
     }
     beam_amplitude_phase[beam] = func_001FA748_2E3700(beam_amplitude_phase[beam], 0.17453292f);
@@ -467,27 +468,32 @@ void update_slot_panes_and_effects(int unused, int beam) {
             qcopy(first_endpoint_effect_position, &beam_origins[beam]);
             first_endpoint_effect_position[2] -= 0.25f;
             if (beam_endpoint_light[beam] == -1) {
-                beam_endpoint_light[beam] = allocate_colored_effect_slot(
-                    first_endpoint_effect_position, D_L00_00161BF0_gp, 0.0f, 1.0f, 1.0f, 2.0f);
+                beam_endpoint_light[beam] =
+                    allocate_colored_effect_slot(first_endpoint_effect_position,
+                                                 beam_endpoint_light_radius_gp,
+                                                 0.0f,
+                                                 1.0f,
+                                                 1.0f,
+                                                 2.0f);
             }
             if (beam_endpoint_light[beam] >= 0) {
                 PointLight *light = &point_lights[beam_endpoint_light[beam]];
 
                 qcopy(&light->position, first_endpoint_effect_position);
-                light->position.f[3] = D_L00_00161BF0_gp;
+                light->position.f[3] = beam_endpoint_light_radius_gp;
             }
         }
         if (beam_endpoint_effect_flags[beam] & 2) {
             tip[2] += 0.5f;
             if (beam_tip_light[beam] == -1) {
-                beam_tip_light[beam] =
-                    allocate_colored_effect_slot(tip, D_L00_00161BF0_gp, 0.0f, 1.0f, 1.0f, 2.0f);
+                beam_tip_light[beam] = allocate_colored_effect_slot(
+                    tip, beam_endpoint_light_radius_gp, 0.0f, 1.0f, 1.0f, 2.0f);
             }
             if (beam_tip_light[beam] >= 0) {
                 PointLight *light = &point_lights[beam_tip_light[beam]];
 
                 qcopy(&light->position, tip);
-                light->position.f[3] = D_L00_00161BF0_gp;
+                light->position.f[3] = beam_endpoint_light_radius_gp;
             }
         }
     }

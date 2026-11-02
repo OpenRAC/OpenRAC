@@ -2050,6 +2050,7 @@ class Unit:
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "BuiltinFnToFnPtr":
             return self.builtin_call(_strip_parens(_inner(c)[0]), args)
         named = None  # the function a call by name reaches through a code address
+        folded = False  # through a place of a name the catalogue folded (openrac_folded_call)
         wide_ret = self._wide_cast_callee(c)
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
@@ -2178,6 +2179,7 @@ class Unit:
                         own = f"(openrac_self_ != 0 ? openrac_self_ : {own})"
                     fp = (f"openrac_folded_call((const uint32_t[]){{{literal}}}, {len(places)}, "
                           f"{own}, {own_size}u, {k})")
+                    folded = True
                     if copies is not None and self._shared_level() is None:
                         # This function is itself one of several copies in one level's program, and a
                         # copy may call another function at that place than the first copy does (Drek's
@@ -2209,6 +2211,10 @@ class Unit:
             defined = self._call_as_defined(named, fp, args, result_t)
             if defined is not None:
                 return defined
+        if folded:
+            by_kind = self._call_by_kind(fp, args, result_t)
+            if by_kind is not None:
+                return by_kind
         values = [self.rv(a) for a in args]
         return f"GFN({ctype.fn_pointer(hostft)}, {fp})({', '.join(values)})"
 
@@ -2292,6 +2298,50 @@ class Unit:
         if result_cls == "ptr":
             return f"(gaddr)({text})"
         return f"(({self.host(ctype.strip_quals(result_t))})({text}))"
+
+    def _call_by_kind(self, fp: str, args: list, result_t: ctype.Type) -> str | None:
+        """A call through a folded name's place that passes a float: with the EE's registers, each
+        kind in its order (openrac_guest_call_regs). The place is often a small wrapper that the
+        runtime resolves to the function it calls (guest.cpp), whose type hostgen does not know, so
+        the call site's own type is all there is; on Windows x64 a position decides the register,
+        and `(float, int, int)` reaching `(unsigned, unsigned, float)` gave the colour tween of
+        Batalia's bomber tank explosions garbage (blue debris). The callee's thunk gives the
+        registers to its own parameters there; elsewhere the call is the same cast as before.
+        None when nothing passed is a float, or the arguments do not fit the registers."""
+        classes = [self._arg_class(a) for a in args]
+        if "f" not in classes or "agg" in classes or self.cls(result_t) in ("rec", "double"):
+            return None
+        if any(self.cls(self.ty(a)) == "double" and c == "i" for a, c in zip(args, classes)):
+            return None  # a double: in an integer register on the EE, in a float one on the host
+        if classes.count("i") > 8 or classes.count("f") > 8:
+            return None
+        # Each argument into a local first, in the call's order, so that calls among them (the
+        # game's random numbers) run in the order they did through the call site's type.
+        locals_, ints, floats = [], [], []
+        for k, (a, c) in enumerate(zip(args, classes)):
+            if c == "i":
+                locals_.append(f"uint64_t a{k}_ = (uint64_t)({self.rv(a)});")
+                ints.append(f"a{k}_")
+            else:
+                locals_.append(f"float a{k}_ = (float)({self.rv(a)});")
+                floats.append(f"a{k}_")
+        # A register the call does not set still held the caller's own argument on the console, as
+        # a direct call passes it (_match_args); else 0.
+        own_i = ["0" if r in self.fn.record_params else f"(uint64_t){r}" for r in self.fn.int_params]
+        own_f = list(self.fn.float_params)
+        ints += [own_i[k] if k < len(own_i) else "0" for k in range(len(ints), 8)]
+        floats += [own_f[k] if k < len(own_f) else "0.0f" for k in range(len(floats), 8)]
+        result_cls = self.cls(result_t)
+        float_result = 1 if result_cls == "float" else 0
+        regs = (f"openrac_guest_call_regs({fp}, (const uint64_t[8]){{{', '.join(ints)}}}, "
+                f"(const float[8]){{{', '.join(floats)}}}, &fr_, {float_result})")
+        head = " ".join(["float fr_;", *locals_])
+        if result_cls == "void":
+            return f"({{ {head} (void){regs}; }})"
+        if result_cls == "float":
+            return f"({{ {head} (void){regs}; fr_; }})"
+        host = "gaddr" if result_cls == "ptr" else self.host(ctype.strip_quals(result_t))
+        return f"({{ {head} ({host}){regs}; }})"
 
     def _recast_call(self, callee: dict, ft: ctype.Func, args: list, result_t: ctype.Type, fp: str) -> str | None:
         """A call through a named function cast to another prototype, `((void (*)(void *, float,

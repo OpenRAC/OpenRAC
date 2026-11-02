@@ -1,7 +1,20 @@
 // Browse's presets and what installs here, on the shared fixture.
 import { describe, expect, it } from "vitest";
 import { mockIndex } from "./mockIndex";
-import { imageUrl, inPreset, PRESETS, siteUrl, upgradeable, versionHere, youtube, type Row } from "./modBrowse";
+import {
+  age,
+  hubLink,
+  imageUrl,
+  inPreset,
+  isSiteLink,
+  PRESETS,
+  regions,
+  siteUrl,
+  upgradeable,
+  versionHere,
+  youtube,
+  type Row,
+} from "./modBrowse";
 
 const index = mockIndex();
 const revoked = (id: string, v: string) =>
@@ -22,6 +35,62 @@ const row = (id: string, installed: string | null = null, h = here): Row => ({
   mod: mod(id),
   here: versionHere(mod(id), h, revoked),
   installed,
+});
+
+describe("a pasted hub link", () => {
+  it("opens a mod's page as its install link", () => {
+    for (const link of [
+      "https://openrac.dev/mods/lock-strafe",
+      "https://www.openrac.dev/mods/lock-strafe/",
+      "http://OpenRAC.dev/mods/lock-strafe?from=x#top",
+      "  openrac.dev/mods/lock-strafe ",
+    ]) {
+      expect(hubLink(link)).toBe("openrac://install/lock-strafe");
+    }
+    expect(hubLink("openrac://install/a@1.0.0")).toBe("openrac://install/a@1.0.0");
+  });
+
+  it("leaves everything else alone", () => {
+    for (const link of [
+      "https://openrac.dev/mods/submit",
+      "https://openrac.dev/mods/set?mods=a",
+      "https://openrac.dev/mods",
+      "https://openrac.dev/mods/..",
+      "https://openrac.dev/mods/a%2Fb",
+      "https://openrac.dev/mods/a/b",
+      "https://openrac.dev.evil.example/mods/a",
+      "https://evil.example/openrac.dev/mods/a",
+      "github.com/OpenRAC/openrac-mods",
+    ]) {
+      expect(hubLink(link)).toBeNull();
+    }
+  });
+
+  it("knows the website's links from a repository's", () => {
+    expect(isSiteLink("https://openrac.dev/mods/submit")).toBe(true);
+    expect(isSiteLink("openrac.dev")).toBe(true);
+    expect(isSiteLink("https://openrac.dev.evil.example/a")).toBe(false);
+    expect(isSiteLink("github.com/OpenRAC/openrac-mods")).toBe(false);
+  });
+});
+
+describe("what a card says", () => {
+  it("names the discs in the site's words", () => {
+    const m = { ...mod("ammo-max"), games: { rac1: ["pal", "ntsc"] } };
+    expect(regions(m, "rac1")).toEqual(["PAL", "NTSC-U"]);
+    expect(regions(m, "rac2")).toEqual([]);
+  });
+
+  it("says how long ago, and nothing for a bad date", () => {
+    const now = Date.parse("2026-11-01T12:00:00Z");
+    expect(age("2026-11-01T01:00:00Z", now)).toBe("today");
+    expect(age("2026-12-01T00:00:00Z", now)).toBe("today");
+    expect(age("2026-10-30T12:00:00Z", now)).toBe("2d ago");
+    expect(age("2026-08-01T12:00:00Z", now)).toBe("3mo ago");
+    expect(age("2024-10-01T12:00:00Z", now)).toBe("2y ago");
+    expect(age("", now)).toBe("");
+    expect(age("soon", now)).toBe("");
+  });
 });
 
 describe("what installs here", () => {

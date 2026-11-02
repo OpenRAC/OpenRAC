@@ -51,6 +51,7 @@ struct openrac_mod {
     bool hook_refused = false;
     std::vector<std::pair<void**, void*>> taken;  // each slot it filled, and what was there before
     std::vector<std::string> hooks;               // the hook points it took
+    std::string data_dir;                         // data_dir's answer, once made (1.11)
     openrac_mod_unload_fn unload = nullptr;
 };
 
@@ -470,8 +471,8 @@ int api_developer_menu(
     if (title == nullptr || title[0] == '\0' || (count != 0 && items == nullptr)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    constexpr std::array<const char*, 4> built_in_titles =
-        {"View", "Graphics", "Sound", "Developer"};
+    constexpr std::array<const char*, 5> built_in_titles =
+        {"Game", "View", "Graphics", "Sound", "Developer"};
     if (std::find(built_in_titles.begin(), built_in_titles.end(), std::string_view(title))
         != built_in_titles.end()) {
         return OPENRAC_HOOK_TAKEN;
@@ -536,6 +537,27 @@ std::uint32_t api_take_developer_menu_action(openrac_mod* mod) {
     const std::uint32_t action = menu->actions.front();
     menu->actions.pop_front();
     return action;
+}
+
+// The mod's own folder (1.11): <mod data>/<its id>, made on the first ask. An id that is not a plain
+// name (a separator, "." or "..") has none.
+const char* api_data_dir(openrac_mod* mod) {
+    if (mod == nullptr || g_host == nullptr || g_host->mod_data.empty() || mod->id.empty()
+        || mod->id == "." || mod->id == ".."
+        || mod->id.find_first_of("/\\:") != std::string::npos) {
+        return nullptr;
+    }
+    if (mod->data_dir.empty()) {
+        const std::filesystem::path dir = g_host->mod_data / mod->id;
+        std::error_code e;
+        std::filesystem::create_directories(dir, e);
+        if (e || !std::filesystem::is_directory(dir, e)) {
+            return nullptr;
+        }
+        const std::u8string path = dir.u8string();
+        mod->data_dir.assign(path.begin(), path.end());
+    }
+    return mod->data_dir.c_str();
 }
 
 int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const char* label) {
@@ -956,6 +978,7 @@ void fill_api(const Host& host) {
     g_api.developer_menu = api_developer_menu;
     g_api.take_developer_menu_action = api_take_developer_menu_action;
     g_api.developer_menu_set_label = api_developer_menu_set_label;
+    g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
     g_api.savestate_load = snapshot_load;

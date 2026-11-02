@@ -84,9 +84,10 @@ extern void         spawn_explosion(void *,
                                     int) __asm__("FUN_L00_0025e450");
 extern L16SparkHitN D_L16_hitN __asm__("D_L16_00174240");
 
-void update_thrown_bomb(L16FallingMoby *moby) __asm__("FUN_L16_002c5eb0");
+void thrown_bomb_update(L16FallingMoby *moby) __asm__("FUN_L16_002c5eb0");
 
-void update_thrown_bomb(L16FallingMoby *moby) {
+/* Moby class 281 */
+void thrown_bomb_update(L16FallingMoby *moby) {
     enum {
         BOMB_STATE_MOVING = 1,
         BOMB_STATE_RESTING = 2,
@@ -180,21 +181,26 @@ unsigned char *spawn_thrown_bomb(int    owner,
 
 unsigned char *spawn_thrown_bomb(
 
-    int owner, void *spawn_position, float *initial_velocity, int fuse_frames, float gravity) {
+    int    thrower_moby,
+    void  *spawn_position,
+    float *initial_velocity,
+    int    fuse_frames,
+
+    float gravity) {
     unsigned char *moby = (unsigned char *)create_moby(0x119);
     if (moby != 0) {
-        char *data = ((char *)MOBY(moby)->pvars);
+        char *thrown_bomb_data = ((char *)MOBY(moby)->pvars);
         moby[0x30] = 0xFF;
         moby[0x31] = 1;
         moby[0x20] = 1;
         MOBY(moby)->draw_dist = 0xFF;
-        *(int *)(data + 0x20) = owner;
-        *(float *)(data + 0x24) = gravity;
-        *(int *)(data + 0x28) = fuse_frames;
-        *(short *)(data + 0xC) = scale_game_frames(5);
-        *(short *)(data + 0xE) = scale_game_frames(0xF);
+        *(int *)(thrown_bomb_data + 0x20) = thrower_moby;
+        *(float *)(thrown_bomb_data + 0x24) = gravity;
+        *(int *)(thrown_bomb_data + 0x28) = fuse_frames;
+        *(short *)(thrown_bomb_data + 0xC) = scale_game_frames(5);
+        *(short *)(thrown_bomb_data + 0xE) = scale_game_frames(0xF);
         qcopy(moby + 0x10, spawn_position);
-        qcopy(data + 0x10, initial_velocity);
+        qcopy(thrown_bomb_data + 0x10, initial_velocity);
         MOBY(moby)->rot.x = random_float_between(-180.0f, 180.0f) * DEG_TO_RAD;
         MOBY(moby)->rot.z = fast_arc_tan(initial_velocity[0], initial_velocity[1]) + 1.5707964f;
         update_entity(moby);

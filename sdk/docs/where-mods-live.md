@@ -57,3 +57,11 @@ game.
 
 The game runs inside the app there, and Android does not let an app load code it
 wrote itself, so native mods are not loaded on Android. Script mods are.
+
+## A mod's own files
+
+A native mod keeps its own files (a seed, a list of games played) in the folder
+`data_dir` gives it (interface 1.11): `mod-data/<id>/` in OpenRAC's data folder,
+beside the memory cards (`~/.local/share/openrac`, `~/Library/Application
+Support/OpenRAC`, `%LOCALAPPDATA%\openrac`). The game makes it on the first ask
+and never removes it; updating or removing the mod leaves it in place.

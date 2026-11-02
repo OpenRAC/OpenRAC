@@ -50,10 +50,10 @@ void         FUN_L00_00250df8_2af8b0(void *) __asm__("FUN_L00_00250df8");
 extern s32   coll_sphere(void *, s32, s32, f32) __asm__("FUN_L00_001f0d60");
 extern void  vscl_2afa48(void *, void *, f32) __asm__("FUN_001f9a68");
 
-extern float D_L00_00161448_gp __asm__("D_L00_00161448") __attribute__((sda));
-extern float D_L00_0016144C_gp __asm__("D_L00_0016144C") __attribute__((sda));
-extern f32   D_L00_00161470_gp __asm__("D_L00_00161470") __attribute__((sda));
-extern s32   D_L00_00161474_gp __asm__("D_L00_00161474") __attribute__((sda));
+float crate_fragment_spin_min_degrees_gp __asm__("D_L00_00161448") = 0;
+float crate_fragment_spin_max_degrees_gp __asm__("D_L00_0016144C") = 3.6e+02f;
+f32   crate_fragment_shrink_factor_gp __asm__("D_L00_00161470") = 0.9f;
+s32   crate_fragment_fade_step_gp __asm__("D_L00_00161474") = 4;
 
 float D_L01_00161448 = 0;
 float D_L01_0016144C = 3.6e+02f;
@@ -135,7 +135,7 @@ unsigned char *spawn_crate_debris(unsigned char *owner,
                                   float          lo,
                                   float          hi) __asm__("FUN_L00_002af8b0");
 
-unsigned char *spawn_crate_debris(unsigned char *owner,
+unsigned char *spawn_crate_debris(unsigned char *debris_source_moby,
                                   void          *initial_velocity,
                                   void          *spawn_position,
                                   void          *initial_rotation,
@@ -148,11 +148,11 @@ unsigned char *spawn_crate_debris(unsigned char *owner,
     if (debris_moby) {
         V_2af8b0 *debris_data = ((V_2af8b0 *)MOBY(debris_moby)->pvars);
         float     scale_multiplier;
-        debris_data->o = owner;
+        debris_data->o = debris_source_moby;
         debris_moby[0x30] = 0xFF;
         MOBY(debris_moby)->draw_dist = 0x7E;
         debris_moby[0x31] = 1;
-        MOBY(debris_moby)->spawn_frame = *(long *)(owner + 0x38);
+        MOBY(debris_moby)->spawn_frame = *(long *)(debris_source_moby + 0x38);
         debris_moby[0x20] = 0;
         MOBY(debris_moby)->rot.x = random_angle_radians();
         MOBY(debris_moby)->rot.y = random_angle_radians();
@@ -167,9 +167,11 @@ unsigned char *spawn_crate_debris(unsigned char *owner,
             debris_data->he = t;
         }
         debris_data->f24 =
-            randf_sym(D_L00_00161448_gp, D_L00_0016144C_gp) * DEG_TO_RAD * frame_time;
+            randf_sym(crate_fragment_spin_min_degrees_gp, crate_fragment_spin_max_degrees_gp) *
+            DEG_TO_RAD * frame_time;
         debris_data->f28 =
-            randf_sym(D_L00_00161448_gp, D_L00_0016144C_gp) * DEG_TO_RAD * frame_time;
+            randf_sym(crate_fragment_spin_min_degrees_gp, crate_fragment_spin_max_degrees_gp) *
+            DEG_TO_RAD * frame_time;
         scale_multiplier = random_float_between(lo, hi);
         MOBY(debris_moby)->scale *= scale_multiplier;
         debris_data->hc = initial_bounce_count;
@@ -181,15 +183,16 @@ unsigned char *spawn_crate_debris(unsigned char *owner,
 
 void nanotech_crate_fragment_update(M_2afa48 *m) __asm__("FUN_L00_002afa48");
 
+/* Moby classes 149, 348, 349, 354-359, 363, 364 */
 void nanotech_crate_fragment_update(M_2afa48 *fragment_moby) {
     enum {
         NANOTECH_CRATE_FRAGMENT_BOUNCING = 0,
         NANOTECH_CRATE_FRAGMENT_FADING = 1
     };
     PV   *pv = fragment_moby->pv;
-    u128  old;
+    u128  pre_motion_position;
     u128 *hit_normal;
-    qcopy(&old, fragment_moby->pos);
+    qcopy(&pre_motion_position, fragment_moby->pos);
     pv->vel[2] -= frame_time_sq * 20.0f;
     fast_vec_add(fragment_moby->pos, fragment_moby->pos, pv->vel);
     fragment_moby->f40 = fast_add_rotations(fragment_moby->f40, pv->f20);
@@ -208,17 +211,21 @@ void nanotech_crate_fragment_update(M_2afa48 *fragment_moby) {
                 reflect_vector(pv->vel, pv->vel, hit_normal);
                 vscl_2afa48(pv->vel, pv->vel, 0.75f);
                 pv->f20 = 0.0f;
-                pv->f24 = randf_sym(D_L00_00161448_gp, D_L00_0016144C_gp) * DEG_TO_RAD * frame_time;
-                pv->f28 = randf_sym(D_L00_00161448_gp, D_L00_0016144C_gp) * DEG_TO_RAD * frame_time;
+                pv->f24 = randf_sym(crate_fragment_spin_min_degrees_gp,
+                                    crate_fragment_spin_max_degrees_gp) *
+                          DEG_TO_RAD * frame_time;
+                pv->f28 = randf_sym(crate_fragment_spin_min_degrees_gp,
+                                    crate_fragment_spin_max_degrees_gp) *
+                          DEG_TO_RAD * frame_time;
             }
         }
         break;
     case NANOTECH_CRATE_FRAGMENT_FADING:
-        fragment_moby->f2c *= D_L00_00161470_gp;
-        if (fragment_moby->b23 < D_L00_00161474_gp) {
+        fragment_moby->f2c *= crate_fragment_shrink_factor_gp;
+        if (fragment_moby->b23 < crate_fragment_fade_step_gp) {
             mark_moby_for_removal(fragment_moby);
         } else {
-            fragment_moby->b23 -= D_L00_00161474_gp;
+            fragment_moby->b23 -= crate_fragment_fade_step_gp;
         }
         break;
     }

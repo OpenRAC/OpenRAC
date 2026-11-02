@@ -7,6 +7,7 @@
 #include <cfenv>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -28,8 +29,11 @@ public:
     RenderWorker(RenderWorker&&) = delete;
     RenderWorker& operator=(RenderWorker&&) = delete;
 
-    // Waits for an empty slot and transfers an owned job. False after a worker failure.
-    [[nodiscard]] bool submit(std::function<void()> job, std::string& error);
+    // Waits for an empty slot and transfers an owned job. `frame` correlates crash breadcrumbs;
+    // -1 means unspecified. Returns false after a worker failure.
+    [[nodiscard]] bool submit(
+        std::function<void()> job, std::string& error, std::int64_t frame = -1
+    );
     // Waits for completion, returning false with the caught exception's message on failure.
     [[nodiscard]] bool finish(std::string& error);
     // Waits until completion or a pacing deadline, without consuming the completed job.
@@ -41,6 +45,7 @@ private:
     std::mutex m_mutex;                 // Guards every handoff field below.
     std::condition_variable m_changed;  // Job arrival, completion or shutdown.
     std::function<void()> m_job;        // The queued job owns its snapshot.
+    std::int64_t m_frame = -1;          // Frame of the queued job, guarded by m_mutex.
     bool m_busy = false;                // Includes queued and executing work.
     bool m_stopping = false;            // Set only after the final job completes.
     std::string m_error;                // A worker failure, reported by finish/submit.

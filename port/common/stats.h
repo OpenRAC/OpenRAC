@@ -182,6 +182,11 @@ struct Frame {
     // The GPU's time for the whole frame, where the backend measures it around all its work
     // (gpu_frame_begin); -1 when it does not.
     double gpu_frame_ms = -1.0;
+    // Pass sampling (set_pass_sampling) was on when it began; and the GPU ended its render pass
+    // around each timed section, so that its sections' GPU times are their own (and the frame's
+    // whole GPU time is longer than it would be).
+    bool passes_sampled = false;
+    bool passes_split = false;
     std::array<std::uint64_t, kCounterCount> counters{};
     std::vector<Section> sections;
     std::vector<std::pair<std::string, double>> gauges;
@@ -224,6 +229,14 @@ struct GpuHooks {
 void set_gpu_hooks(const GpuHooks& hooks);
 bool gpu_timers();  // hooks are installed
 void gpu_result(std::uint64_t serial, int section, double ms);
+
+// Pass sampling: on a tile-based GPU (a phone's) a section's GPU time is only its own when its
+// render pass is ended around it, which slows the frame. With sampling on, the backend does that
+// in one drawn frame of `every` (0: never) and tells which (gpu_passes_split); the others keep
+// their whole-frame GPU time true. The performance capture turns it on while it records.
+void set_pass_sampling(int every);
+int pass_sampling();
+void gpu_passes_split(std::uint64_t serial);
 
 // The GPU time of a whole frame, timed by a backend around all of its work. Vulkan does this
 // outside its render passes: on a tiled GPU (Adreno, Mali) a timestamp inside a render pass is

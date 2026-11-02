@@ -161,6 +161,11 @@ public:
     // (relocated when read); 0 for a game without them.
     virtual std::uint32_t particle_updates() const { return 0; }
 
+    // The game's dead zone on each stick axis, as its pad code reads the bytes: an axis counts
+    // from {inner} away from 0x7F and is full {span} beyond (platform/pad.h's StickDeadZone);
+    // {0, 0} for a game without a known one.
+    virtual std::array<int, 2> stick_dead_zone() const { return {0, 0}; }
+
     // Developer tools: what of the game's state a diagnostics recording carries beside its
     // snapshots, as a JSON value ("" for nothing), read each tick from `ram` and the tick's `state`
     // while a recording runs. It may watch the next tick through `input.game`; diagnostics_off()

@@ -1,0 +1,13 @@
+# Cache verified package archives; install/link steps still run against yarn.lock every time.
+name: Yarn package downloads
+description: Cache the launcher's Yarn archives without retaining node_modules or build output
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo "YARN_ENABLE_GLOBAL_CACHE=false" >> "$GITHUB_ENV"
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: launcher/.yarn/cache
+        key: yarn-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('launcher/yarn.lock', 'launcher/package.json', 'launcher/.yarnrc.yml') }}
+        restore-keys: yarn-v1-${{ runner.os }}-${{ runner.arch }}-

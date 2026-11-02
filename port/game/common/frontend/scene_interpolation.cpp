@@ -185,7 +185,7 @@ void upload_instances(SceneFrame& frame) {
     }
 
     frame.owner.scene.set_instances(scene::Layer::Mobys, live);
-    if (debug_overlay::picker_enabled()) {
+    if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;
         frame.output.picker_palette = palette;
         frame.output.picker_level = frame.scene.level;

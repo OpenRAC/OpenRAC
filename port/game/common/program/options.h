@@ -31,6 +31,7 @@ struct Options {
         mods;  // levels edited in Godot and packed (editor/pack.py), read in place of the disc's
     fs::path settings;  // the player's settings (settings.h); in OpenRAC's data folder unless given
     fs::path controls;  // the player's controls files (controls_store.h); likewise
+    fs::path mod_data;  // the native mods' own folders (openrac_api.data_dir); likewise
     fs::path plugins;   // the native mods' list (mods.h): <data>/plugins/plugins.json unless given
     fs::path probes;    // the player's probe bakes, a level_NN folder each (enhanced rendering)
     bool no_mods = false;  // purist mode: no native mod is loaded (docs/port/MODS.md)
@@ -45,6 +46,10 @@ struct Options {
     bool check_levels =
         false;  // read every extracted level as the window would, say what is wrong, and stop
 };
+
+// OpenRAC's folder in the player's data home, where the launcher keeps cards and settings:
+// %LOCALAPPDATA%\openrac on Windows (launcher/core/src/saves.rs, data_home).
+fs::path data_home();
 
 // Returns this program's name, openrac-<id> (openrac-rac1-pal).
 std::string program_name();

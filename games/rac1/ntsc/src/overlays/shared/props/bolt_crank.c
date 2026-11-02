@@ -54,7 +54,7 @@ extern unsigned char menu_item_enabled_1_lui __asm__("D_0013D395") NOT_SDA;
 extern char  D_L01_001BAAA0[];
 extern f32   D_L01_00167258_lui __asm__("D_L01_00167258") NOT_SDA;
 extern char *D_L01_00167280_lui __asm__("D_L01_00167280") NOT_SDA;
-extern f32   bolt_crank_radial_correction_step_gp __asm__("D_L01_001618A0") __attribute__((sda));
+f32          bolt_crank_radial_correction_step_gp __asm__("D_L01_001618A0") = 0;
 extern f32   approach_value(f32 *, f32, f32) __asm__("FUN_00213ed8");
 extern void  divide_vector_xyz(void *, void *, f32) __asm__("FUN_L00_001ff378");
 extern void  vendor_spring(f32 *, f32 *, f32, f32, f32, f32) __asm__("FUN_L00_0025b8c0");
@@ -92,6 +92,7 @@ void set_novalis_bolt_crank_completion_flags(char *moby) {
 
 void bolt_crank_update(struct Moby *moby) __asm__("FUN_L01_002e0c68");
 
+/* Moby class 280 */
 void bolt_crank_update(struct Moby *moby) {
     BoltCrankVars *crank = (BoltCrankVars *)moby->pvars;
     float          matrix[16];
@@ -100,7 +101,7 @@ void bolt_crank_update(struct Moby *moby) {
     float          offset[4], spring_pos;
     float          distance, yaw_diff, angle, old_angle, height_diff, max_speed, height, ground;
     int            save_id, area_clear;
-    struct Moby   *other;
+    struct Moby   *clearance_candidate_moby;
 
     if (crank == 0) {
         moby->rot.z = fast_add_rotations(moby->rot.z, frame_time * 6.2831855f);
@@ -151,10 +152,13 @@ void bolt_crank_update(struct Moby *moby) {
                                 area_clear = 1;
                                 crank->idle_frames = 0;
                                 bolt_crank_radial_correction_step_gp = 0.0f;
-                                for (other = (struct Moby *)D_L01_0015FFE4; other != 0;
-                                     other = other->next) {
-                                    if (other->flags & 0x1000) {
-                                        if (vector_distance_xy(&moby->pos, &other->pos) < 3.25f) {
+                                for (clearance_candidate_moby = (struct Moby *)D_L01_0015FFE4;
+                                     clearance_candidate_moby != 0;
+                                     clearance_candidate_moby = clearance_candidate_moby->next) {
+                                    if (clearance_candidate_moby->flags & 0x1000) {
+                                        if (vector_distance_xy(&moby->pos,
+                                                               &clearance_candidate_moby->pos) <
+                                            3.25f) {
                                             area_clear = 0;
                                             break;
                                         }

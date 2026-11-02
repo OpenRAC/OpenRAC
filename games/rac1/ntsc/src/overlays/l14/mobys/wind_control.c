@@ -66,13 +66,14 @@ void initialize_wind_spark(struct Moby *wind_control_moby,
 
 void initialize_wind_spark(struct Moby *m, int i, void *dir) __asm__("FUN_L14_002eb388");
 
-extern f32 wind_effect_strength_gp __asm__("D_L14_00161C08") __attribute__((sda));
+f32 wind_effect_strength_gp __asm__("D_L14_00161C08") = 2e+01f;
 
 extern s32 wind_push_decay_frames_gp __asm__("D_L14_00161C04") __attribute__((sda));
 
-void update_wind_control(struct Moby *wind_control_moby) __asm__("FUN_L14_002eaf88");
+void wind_control_update(struct Moby *wind_control_moby) __asm__("FUN_L14_002eaf88");
 
-void update_wind_control(struct Moby *wind_control_moby) {
+/* Moby class 610 */
+void wind_control_update(struct Moby *wind_control_moby) {
     L14WindVars *wind_vars = (L14WindVars *)wind_control_moby->pvars;
     float        wind_direction_or_push_delta[4];
     char        *pos;
@@ -183,13 +184,13 @@ typedef struct {
     int   i504;
 } Spk_k;
 
-extern int wind_spark_speed_range_start_gp __asm__("D_L14_00161C30") __attribute__((sda));
+int wind_spark_speed_range_start_gp __asm__("D_L14_00161C30") = 15;
 
-extern int wind_spark_speed_range_end_gp __asm__("D_L14_00161C34") __attribute__((sda));
+int wind_spark_speed_range_end_gp __asm__("D_L14_00161C34") = 40;
 
-extern float wind_spark_size_range_start_gp __asm__("D_L14_00161C38") __attribute__((sda));
+float wind_spark_size_range_start_gp __asm__("D_L14_00161C38") = 2.0f;
 
-extern float wind_spark_size_range_end_gp __asm__("D_L14_00161C3C") __attribute__((sda));
+float wind_spark_size_range_end_gp __asm__("D_L14_00161C3C") = 6.0f;
 
 void initialize_wind_spark(struct Moby *wind_control_moby, int i, void *spark_travel_direction) {
     Spk_k *spark_vars = (Spk_k *)wind_control_moby->pvars;
@@ -234,15 +235,15 @@ void draw_wind_sparks(struct Moby *m) __asm__("FUN_L14_002eb810");
 
 extern int wind_spark_peak_alpha_gp __asm__("D_L14_00161C10") __attribute__((sda));
 
-extern int wind_spark_fade_in_frames_gp __asm__("D_L14_00161C2C") __attribute__((sda));
+int wind_spark_fade_in_frames_gp __asm__("D_L14_00161C2C") = 30;
 
 void update_wind_sparks(struct Moby *wind_control_moby) {
     Spk_k *spark_vars = (Spk_k *)wind_control_moby->pvars;
     float  spark_travel_direction[4];
     float  clip[4];
-    float  work[4];
+    float  spark_position_delta[4];
     float  ratio;
-    float  first;
+    float  spark_fade_fraction;
     int    in_clip;
     int    i;
     int    opacity;
@@ -265,15 +266,19 @@ void update_wind_sparks(struct Moby *wind_control_moby) {
         } else {
             opacity = wind_spark_peak_alpha_gp;
             if (spark_vars->n380[i] - wind_spark_fade_in_frames_gp < spark_vars->n320[i]) {
-                first = convert_integer_to_float(spark_vars->n380[i] - spark_vars->n320[i]);
-                first = first / convert_integer_to_float(wind_spark_fade_in_frames_gp);
+                spark_fade_fraction =
+                    convert_integer_to_float(spark_vars->n380[i] - spark_vars->n320[i]);
+                spark_fade_fraction =
+                    spark_fade_fraction / convert_integer_to_float(wind_spark_fade_in_frames_gp);
             } else {
-                first = convert_integer_to_float(spark_vars->n320[i]);
-                first = first / convert_integer_to_float(spark_vars->n380[i] -
-                                                         wind_spark_fade_in_frames_gp);
+                spark_fade_fraction = convert_integer_to_float(spark_vars->n320[i]);
+                spark_fade_fraction =
+                    spark_fade_fraction /
+                    convert_integer_to_float(spark_vars->n380[i] - wind_spark_fade_in_frames_gp);
             }
             {
-                int spark_alpha = spark_float_to_integer(((float)opacity - 0.0f) * first + 0.0f);
+                int spark_alpha =
+                    spark_float_to_integer(((float)opacity - 0.0f) * spark_fade_fraction + 0.0f);
                 *shade = spark_alpha;
                 /* Fakematch: storing the shade again is a no-op that reload's cse drops; the
                  * extra uses rank `shade` above `m` for register allocation as in retail. */
@@ -281,8 +286,8 @@ void update_wind_sparks(struct Moby *wind_control_moby) {
                     *shade = spark_alpha;
                 }
             }
-            fast_vec_scale(work, spark_travel_direction, spark_vars->f440[i]);
-            fast_vec_add(pos, pos, work);
+            fast_vec_scale(spark_position_delta, spark_travel_direction, spark_vars->f440[i]);
+            fast_vec_add(pos, pos, spark_position_delta);
             if (in_clip != 0 && absolute_float(pos[0] - l14_camera.pos.f[0]) < 8.0f &&
                 absolute_float(pos[1] - l14_camera.pos.f[1]) < 8.0f &&
                 fast_difference_between_rotations(wind_control_moby->rot.z, l14_camera.yaw) >
@@ -310,7 +315,7 @@ typedef struct {
 
 extern char D_L14_001674C0_m[] __asm__("D_L14_001674C0");
 
-extern int wind_spark_base_color_gp __asm__("D_L14_00161C0C") __attribute__((sda));
+int wind_spark_base_color_gp __asm__("D_L14_00161C0C") = 0x7f7f7f;
 
 float D_L14_001DFD40[4][4] = {
     {0.0f,  1.0f,  1.0f, 1.0f},

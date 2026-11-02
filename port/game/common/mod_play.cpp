@@ -321,6 +321,11 @@ size_t api_save_capture(void* out, size_t size) {
     return g_play->save_capture(out != nullptr ? static_cast<std::uint8_t*>(out) : nullptr, room);
 }
 
+int api_save_slot_current(void) {
+    return g_play != nullptr && g_play->save_slot_current != nullptr ? g_play->save_slot_current()
+                                                                     : -1;
+}
+
 int api_save_slot(int slot, openrac_save_info* out) {
     if (g_play == nullptr || slot < 0 || slot >= g_play->save_slots) {
         return -1;
@@ -732,6 +737,7 @@ void fill_play_api(
     api.save_capture = api_save_capture;
     api.save_slot = api_save_slot;
     api.save_read = api_save_read;
+    api.save_slot_current = api_save_slot_current;
     api.moby_list = api_moby_list;
     api.moby_slot = api_moby_slot;
     api.moby_drive = api_moby_drive;

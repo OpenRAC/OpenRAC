@@ -10,8 +10,8 @@ It works the same on desktop and Android. Nothing runs until you start one.
 
 | Where | How |
 |---|---|
-| Android | Drawer > Developer tools: pick a **Recording length**, then **Record diagnostics**. Recording starts 3 s after the drawer closes. Opening the drawer stops it. |
-| Desktop | Developer menu > **Record diagnostics**, or **Ctrl+F3** to start and stop. |
+| Android | Drawer > Developer tools > **Record diagnostics**: pick a **Recording length**, then **Gameplay recording**. Recording starts 3 s after the drawer closes. Opening the drawer stops it. |
+| Desktop | Developer menu > **Record diagnostics**: pick a **Recording length**, then **Gameplay recording**, or **Ctrl+F3** to start and stop. |
 | Script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that frame. Combine it with `OPENRAC_PRESS` and `--frames` to get repeatable runs. |
 
 While it records, a red `REC` line shows at the top and the debug panel is hidden.
@@ -22,7 +22,10 @@ When it finishes, the report is **copied to the clipboard** and saved as
 and snapshots of the game's state (`_effects.json`, below). Send the whole zip.
 
 - Android: the **Diagnostics recordings** folder in the Files app.
-- Desktop: `perf/` next to the game.
+- Desktop: `perf/` in OpenRAC's data folder, beside the memory cards: `%LOCALAPPDATA%\openrac\perf`
+  on Windows, `~/Library/Application Support/OpenRAC/perf` on macOS,
+  `~/.local/share/openrac/perf` on Linux. Developer > **Record diagnostics** >
+  **Open recordings folder** opens it, and the message after a recording names the file.
 
 **Tips:** keep it short and repeatable. Stay in one place in one level, keep the same
 settings and record for 30 s. Record the same scene before and after a change.
@@ -31,7 +34,8 @@ settings and record for 30 s. Record the same scene before and after a change.
 
 On Android 13 and later the game tells the system each frame's target time and how long
 the work took (ADPF). The system then keeps the CPU fast instead of lowering its clocks
-while the game waits for the display. To compare, record once as usual and once with
+while the game waits for the display. The target asked for is 85% of the frame's time, so
+the clocks keep some in hand for a slower frame. To compare, record once as usual and once with
 `OPENRAC_ADPF_OFF` set. The header's **performance hint** line says which one you have.
 
 ### Simulating a slower device
@@ -39,6 +43,26 @@ while the game waits for the display. To compare, record once as usual and once 
 **Simulate slow CPU** (2x, 4x, 6x), in the same menus, makes the game's threads that many
 times slower. The GPU is not slowed. It gives a rough idea, not an exact match for a real
 weak phone. Works on Linux, Android and macOS.
+
+### Timing each GPU pass on a phone
+
+On Mali and Adreno the GPU time of a section inside a render pass reads about zero: the GPU
+renders the whole pass later, tile by tile. A recording on such a GPU (Vulkan) therefore splits
+the pass around each timed section in one drawn frame of ten, so that those sections' GPU times
+are their own. Those frames give the per-section GPU times and are left out of the frame's GPU
+time; the other nine give the frame's true GPU time. Nothing needs switching on. The report's
+**gpu passes** line says so, and each split frame has `"passes_split":true` in the frames file.
+
+### What each graphics setting costs (settings sweep)
+
+Developer tools > **Record diagnostics** > **Graphics settings sweep** records 80 seconds and
+changes the graphics settings every 4 seconds: Enhanced graphics off, every Enhanced effect off,
+probe lighting off, the blended passes left out, drawn without probe light or with full probe
+light, render scale 50%, then each effect off on its own. VSync is off while it runs, so a step's time is the device's own
+and not a multiple of the display's refresh. Stand still for the whole recording. The report
+lists each step's time a picture (ticks the game runs without drawing are not counted) and GPU
+time (frames split to time their passes left out); the first 1.5 s of each step are left out,
+and each frame carries a `settings sweep step` gauge. The settings are given back when it ends.
 
 ## What the report contains
 

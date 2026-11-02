@@ -71,8 +71,8 @@
   color-scheme: dark;
 }
 
-/* The accent's colours as colours, so that they ease from one game's to the next (Android, App.svelte)
-   rather than jump. */
+/* The accent's colours as colours, so that they ease from one game's to the next (App.svelte) rather
+   than jump. */
 @property --bar-top {
   syntax: "<color>";
   inherits: true;
@@ -83,6 +83,18 @@
   syntax: "<color>";
   inherits: true;
   initial-value: #cd8300;
+}
+
+@property --bar-stripe {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c99222;
+}
+
+@property --bar-stripe-alt {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #bd8619;
 }
 
 @property --amber {
@@ -97,10 +109,12 @@
   initial-value: #ffd08a;
 }
 
-html[data-platform="android"] {
+html {
   transition:
     --bar-top var(--slow) var(--ease),
     --bar-bottom var(--slow) var(--ease),
+    --bar-stripe var(--slow) var(--ease),
+    --bar-stripe-alt var(--slow) var(--ease),
     --amber var(--slow) var(--ease),
     --gold var(--slow) var(--ease);
 }

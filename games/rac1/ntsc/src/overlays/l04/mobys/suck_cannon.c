@@ -23,10 +23,13 @@ struct PortalMobyView {
     s16 uid; /* 0xB2 */
 };
 
-extern s32  D_L04_0015F5C4;
-extern u8   suck_cannon_in_inventory[] __asm__("D_0013D4F1");
-extern u8   suck_cannon_first_acquisition_recorded[] __asm__("D_0013D4C9");
-extern char suck_cannon_missing_segment_switch_warning_format[] __asm__("D_L04_001DC760");
+extern s32 D_L04_0015F5C4;
+extern u8  suck_cannon_in_inventory[] __asm__("D_0013D4F1");
+extern u8  suck_cannon_first_acquisition_recorded[] __asm__("D_0013D4C9");
+
+char suck_cannon_missing_segment_switch_warning_format[37] __asm__("D_L04_001DC760") =
+    "Moby 1120 %d has no segment switch!\n";
+
 extern void FUN_L04_002e1d00_m(struct Moby *) __asm__("FUN_L04_002e1d00");
 extern void start_scene(int) __asm__("FUN_L00_00298840");
 extern void grant_inventory_item(int, int) __asm__("FUN_L00_00260860");
@@ -36,6 +39,7 @@ extern void memcard_save_data(int, int) __asm__("FUN_0020b178");
 
 void suck_cannon_update(struct Moby *moby) __asm__("FUN_L04_002e1a10");
 
+/* Moby class 1120 */
 void suck_cannon_update(struct Moby *moby) {
     enum {
         SUCK_CANNON_INITIALIZE = 0,
@@ -43,7 +47,7 @@ void suck_cannon_update(struct Moby *moby) {
         SUCK_CANNON_WAIT_TO_RESET_CAMERA = 2,
         SUCK_CANNON_REMOVE = 3
     };
-    struct PortalVars *vars = (struct PortalVars *)moby->pvars;
+    struct PortalVars *suck_cannon_vars = (struct PortalVars *)moby->pvars;
     struct Moby       *exit;
 
     moby->rot.z = fast_add_rotations(moby->rot.z, frame_time * 1.5707964f);
@@ -78,8 +82,8 @@ void suck_cannon_update(struct Moby *moby) {
             queue_dialogue_message(0x53DF, -1);
         dialogue_message_duration_frames = 0xB4;
         grant_inventory_item(9, 1);
-        if (vars->exitMoby != -1) {
-            exit = &((struct Moby *)moby_array)[vars->exitMoby];
+        if (suck_cannon_vars->exitMoby != -1) {
+            exit = &((struct Moby *)moby_array)[suck_cannon_vars->exitMoby];
             jet_reset_camera(&exit->pos, &exit->rot);
         } else {
             debug_print(suck_cannon_missing_segment_switch_warning_format,

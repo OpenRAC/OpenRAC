@@ -59,6 +59,14 @@ uniform vec4 shadow_atlas_rects[5];
 uniform vec4 light_sets[64];
 uniform vec4 probe_point_position[8];
 uniform vec4 probe_point_colour[8];
+// Default local lights retain the standalone shader's original eight-light interface.
+#ifndef OPENRAC_FORWARD_PLUS
+#define LOCAL_LIGHT_LOOP(i) for(int i=0;i<8;++i)
+#define LOCAL_POSITION(i) probe_point_position[i]
+#define LOCAL_COLOUR(i) probe_point_colour[i]
+#define LOCAL_CONE(i,d) 1.
+#define LOCAL_ATTENUATION(d,r) (1.0-(d)/(r))
+#endif
 
 vec2 probe_oct(vec3 n) {
     n /= abs(n.x) + abs(n.y) + abs(n.z);
@@ -160,6 +168,7 @@ bool sample_probe_grid(
             continue;
         }
 #endif
+#ifndef OPENRAC_PROBE_FAST
         if (distance > 1e-6) {
 #ifdef OPENRAC_PROBE_RECEIVER_SETUP
             vec2 moment_pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0
@@ -178,6 +187,7 @@ bool sample_probe_grid(
                 weight *= visibility * visibility * visibility;
             }
         }
+#endif
 #ifndef OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE
         if (weight <= 0.0) {
             continue;
@@ -288,7 +298,13 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
     if (probe_gpu_selection != 0) {
         chosen = probe_choose_regions(p);
     }
-    for (int slot = 0; slot < 3; ++slot) {
+#ifdef OPENRAC_PROBE_FAST
+    // Blended surfaces read only the best volume (Enhanced, lossy).
+    const int slots = 1;
+#else
+    const int slots = 3;
+#endif
+    for (int slot = 0; slot < slots; ++slot) {
         int id = chosen[slot];
         if (probe_gpu_selection != 0 && id < 0) {
             continue;
@@ -460,7 +476,10 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 }
 
 float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bias, vec2 slope, bool tent) {
-#ifdef OPENRAC_SHADOW_FILTER_REFERENCE
+#if defined(OPENRAC_PROBE_FAST)
+    // Blended surfaces: four taps instead of the wide kernel (Enhanced, lossy).
+    return shadow_bilinear_rect(map, rect, position, bias, slope);
+#elif defined(OPENRAC_SHADOW_FILTER_REFERENCE)
     return shadow_pcf_reference_rect(map, rect, position, bias, slope, tent);
 #else
     return shadow_pcf_unique_rect(map, rect, position, bias, slope, tent);
@@ -573,6 +592,9 @@ float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
     float start = cascade == 0 ? sun_shadow_near : sun_shadow_ends[cascade - 1];
     float blend =
         smoothstep(mix(start, sun_shadow_ends[cascade], 0.9), sun_shadow_ends[cascade], distance);
+#ifdef OPENRAC_PROBE_FAST
+    blend = 0.0;
+#endif
     float next =
         blend > 0.0 && cascade < 3 ? sun_cascade_visibility(cascade + 1, p, n, plane_normal) : 1.0;
     return mix(visibility, next, blend);
@@ -602,18 +624,27 @@ vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
             * mp_float(response) * mp_float(mix(0.1, 1.0, visibility));
         direct += vec3(contribution);
     }
-    for (int i = 0; i < 8; ++i) {
-        vec3 delta = probe_point_position[i].xyz - p;
-        float radius = probe_point_position[i].w;
+    LOCAL_LIGHT_LOOP(i) {
+        vec3 delta = LOCAL_POSITION(i).xyz - p;
+        float radius = LOCAL_POSITION(i).w;
         float distance = length(delta);
         if (radius <= 0.0 || distance >= radius || distance <= 1e-6) {
             continue;
         }
         float d = float(dot(mp_vec3(delta / distance), mp_vec3(n)));
         float response =
-            probe_backlight != 0 ? max(d, -abs(probe_point_colour[i].w) * d) : max(d, 0.0);
-        mp_vec3 contribution = max(mp_vec3(probe_point_colour[i].rgb), mp_vec3(0))
-            * mp_float(response) * mp_float(1.0 - distance / radius);
+            probe_backlight != 0 ? max(d, -abs(LOCAL_COLOUR(i).w) * d) : max(d, 0.0);
+#ifdef OPENRAC_FORWARD_PLUS
+        // Authored radiance can exceed FP16; narrow only the bounded angular/range weights.
+        if(i>=8) {
+            mp_float weight=mp_float(response)*mp_float(LOCAL_ATTENUATION(distance,radius))
+                            *mp_float(LOCAL_CONE(i,delta/distance));
+            direct+=max(LOCAL_COLOUR(i).rgb,vec3(0))*float(weight);
+            continue;
+        }
+#endif
+        mp_vec3 contribution = max(mp_vec3(LOCAL_COLOUR(i).rgb), mp_vec3(0))
+            * mp_float(response) * mp_float(LOCAL_ATTENUATION(distance,radius)) * mp_float(LOCAL_CONE(i,delta/distance));
         direct += vec3(contribution);
     }
     return direct;

@@ -198,10 +198,13 @@ class Bundle(unittest.TestCase):
                 self.assertEqual(bundle.main(), 0)
             finally:
                 sys.argv = argv
+            self.assertIn("version: " + json.loads((bundle.ROOT/"launcher/src-tauri/tauri.conf.json").read_text())["version"],
+                          (out/"STANDALONE").read_text())
             for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "editor/extract.py",
                         "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
                         "launcher/actions.json",
                         "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
+                        "port/enhanced/lighting/profiles/rac1/object-lights.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
@@ -256,6 +259,9 @@ class Bundle(unittest.TestCase):
                             str(out / "editor"), str(exported)], cwd=tmp, check=True)
             profile = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"
             self.assertEqual((exported / "probe-bake.json").read_bytes(), (bundle.ROOT / profile).read_bytes())
+            lights = "port/enhanced/lighting/profiles/rac1/object-lights.json"
+            self.assertEqual((exported / "object-lights.json").read_bytes(),
+                             (out / lights).read_bytes())
             emission = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-emission.json"
             authored = json.loads((bundle.ROOT / emission).read_text())
             authored['textures/lamp.png'] = definition
@@ -277,7 +283,10 @@ class Bundle(unittest.TestCase):
                 baker.write_bytes(b"enhanced baker")
                 baker.chmod(0o755)
                 (build/"openrac-enhanced-baker.pdb").write_bytes(b"debug")
+                stamp = build/"openrac-build.json"
+                stamp.write_text('{"version":"0.10.1","commit":"built-commit","games":[]}', encoding="utf-8")
                 carried = bundle.copy_games(build, dest)
+                self.assertEqual((dest/stamp.name).read_bytes(), stamp.read_bytes())
                 self.assertEqual(carried, [baker.name])
                 self.assertEqual((dest/baker.name).read_bytes(), baker.read_bytes())
                 self.assertFalse((dest/"openrac-enhanced-baker.pdb").exists())

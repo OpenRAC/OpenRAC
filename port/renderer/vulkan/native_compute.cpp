@@ -27,7 +27,9 @@ bool native_device(NativeDevice& out) {
          bool(
              g->features.shaderStorageImageExtendedFormats
              && g->features.shaderStorageImageWriteWithoutFormat
-         )};
+         ),
+         g->subgroup_extended_types,
+         bool(g->features.fragmentStoresAndAtomics)};
     return true;
 }
 
@@ -106,6 +108,15 @@ bool record_native_compute(
         // An ordinary colour attachment cannot become a storage image through a layout change.
         if (use.write && !(texture->image->usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
             return false;
+        }
+
+        // One image cannot simultaneously have sampled-read and storage-write layouts.
+        for (std::size_t previous = 0; previous < i; ++previous) {
+            const auto& earlier = textures[previous];
+            const auto& alias = local ? local_owners[previous] : owners[previous];
+            if ((use.write || earlier.write) && alias == texture->image) {
+                return false;
+            }
         }
 
         const auto& image = *texture->image;

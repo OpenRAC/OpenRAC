@@ -42,9 +42,10 @@ typedef struct {
     unsigned char *f88;
 } Row13E650;
 
-extern HeroTableRow2C   D_L15_0017C228[];
-extern HeroAnimRow      D_L15_0017A0C0[];
-extern HeroTableEntry70 l15_hero_idle_fidget_entries[] __asm__("D_L15_00179E90");
+extern HeroTableRow2C D_L15_0017C228[];
+extern HeroAnimRow    D_L15_0017A0C0[];
+/* pick_idle_fidget (FUN_L00_00229010) walks 5 entries of 0x70 bytes. */
+extern HeroTableEntry70 l15_hero_idle_fidget_entries[5] __asm__("D_L15_00179E90");
 extern S17AD00          D_L15_0017AC80;
 extern S17C438          D_L15_0017C3B8;
 
@@ -74,7 +75,7 @@ extern float          fast_sin(float);
 extern float          vector_length_xy(void *);
 extern int D_00141660 NOT_SDA;
 int                   r1_repeat_timer __asm__("D_L15_0015F678") = 0;
-extern int            D_L15_0015F6DC_d __asm__("D_L15_0015F6DC");
+extern int            l15_hero_run_start_frame __asm__("D_L15_0015F6DC");
 extern int            D_L15_0015F594 __attribute__((sda));
 extern int D_L15_0016CD80 NOT_SDA;
 extern int                return_hero_animation_id_unchanged(int) __asm__("FUN_L00_002050b8");
@@ -212,13 +213,14 @@ void update_hero_state_machine(void) {
                 if (hero.quick_swap_tap_window == 0) {
                     hero.quick_swap_tap_window = scale_game_frames(0x14);
                 } else {
-                    int base = D_0015ED8C;
-                    int next = base;
+                    int quick_swap_default_item_id = D_0015ED8C;
+                    int quick_swap_target_item_id = quick_swap_default_item_id;
                     int current_item_id = hero.items[0].item_id;
                     if (current_item_id == 8) {
-                        next = D_00141660;
+                        quick_swap_target_item_id = D_00141660;
                     }
-                    if (next != 0 && current_item_id != base) {
+                    if (quick_swap_target_item_id != 0 &&
+                        current_item_id != quick_swap_default_item_id) {
                         if (usage_stats.stat[31].count < 0xFFFF) {
                             usage_stats.stat[31].count++;
                         }
@@ -227,7 +229,7 @@ void update_hero_state_machine(void) {
                         }
                         usage_stats.stat[31].level_mask = usage_stats.stat[31].level_mask |
                                                           (1 << current_level_index) | 0x80000000;
-                        hero.pending_item[0] = next;
+                        hero.pending_item[0] = quick_swap_target_item_id;
                         hero.quick_swap_tap_timer = 0;
                         hero.quick_swap_tap_window = 0;
                     }
@@ -1279,7 +1281,7 @@ void update_hero_state_machine(void) {
                         }
                     }
                     if (hero.air_frames.s == 0) {
-                        int first;
+                        int landing_has_no_ground_moby;
                         int one;
 
                         request_hero_voice_if_enabled(hero.ground_sound_class, 0, 1);
@@ -1294,13 +1296,13 @@ void update_hero_state_machine(void) {
                             hero_set_state(HERO_STATE_DYING, 1);
                             break;
                         }
-                        first = hero.ground_moby == 0;
+                        landing_has_no_ground_moby = hero.ground_moby == 0;
                         one = 1;
                         if (!(scale_game_frames(0x5A) > hero.state_timer)) {
                             if (hero_set_state(HERO_STATE_IDLE, 0)) {
                                 set_hero_animation(0xC, 4, scale_game_frames(6));
                             }
-                            if (first) {
+                            if (landing_has_no_ground_moby) {
                                 hero.move_lock_timer = scale_game_frames(0x16);
                             }
                             configure_hero_point_effect_emission(0.022f, 0.004f, 0xA, 4, 0, 1);
@@ -1316,7 +1318,7 @@ void update_hero_state_machine(void) {
                             if (hero.state.prev == 0x2D) {
                                 hero.move_lock_timer = scale_game_frames(0xA);
                             }
-                            if (first) {
+                            if (landing_has_no_ground_moby) {
                                 if (scale_game_frames(0x32) < hero.state_timer) {
                                     hero.move_lock_timer = scale_game_frames(0x12);
                                 }
@@ -1497,7 +1499,7 @@ void update_hero_state_machine(void) {
                         hero_set_state(HERO_STATE_RUN, 0);
                         if (hero.state.current == HERO_STATE_RUN) {
                             hero.state.step = 1;
-                            set_hero_animation(4, D_L15_0015F6DC_d, scale_game_frames(0xC));
+                            set_hero_animation(4, l15_hero_run_start_frame, scale_game_frames(0xC));
                         }
                         configure_hero_point_effect_emission(0.016f, 0.002f, 5, 2, 1, 0);
                         break;

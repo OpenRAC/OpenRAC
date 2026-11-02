@@ -6,6 +6,7 @@
 // it runs, and once it is finished zipped with the frames it measured and copied to the
 // clipboard, ready to paste. docs/port/PERFORMANCE_CAPTURE.md describes it.
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -31,14 +32,19 @@
 #include "common/system_info.h"
 #include "common/zip_writer.h"
 #include "debug/overlay.h"
+#include "enhanced/fsr3/fsr3.h"
 #include "game/common/frontend/effects_dump.h"
 #include "openrac/game_host.h"
 #include "options_menu.h"
 #include "platform/performance_hint.h"
+#include "program/options.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
 #include "scene/stb_extra.h"
 #include "settings.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend::debug_overlay {
 
@@ -46,6 +52,8 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
+// One frame in this many has its passes split out to time them on a tile-based GPU.
+constexpr int kPassSampling = 10;
 // The capture lengths the drawer and the menu offer, in seconds; 0 runs until stopped.
 constexpr double kLengths[] = {15.0, 30.0, 60.0, 120.0, 0.0};
 // The simulated slow processor's factors they offer (common/slow_cpu.h); 1 is off.
@@ -68,9 +76,199 @@ struct Capture {
     std::string clocks_at_start, thermal_at_start;
     int level_at_start = -1;
     std::uint64_t tick_at_start = 0;
+    int pass_sampling = 0;  // one frame in this many split to time its passes; 0 none
 };
 
 Capture c;
+
+// The settings sweep: one recording that changes the graphics settings every few seconds, with
+// VSync off so that each step's frame time is the device's own, not a multiple of the refresh.
+// Frames split to time their passes (pass sampling) are left out of a step's GPU time.
+struct SweepStep {
+    const char* name;
+    void (*apply)(settings::Settings&);
+};
+
+void effects_off(settings::Settings& g) {
+    g.temporal_quality = renderer::TemporalQuality::Off;
+    g.motion_blur = false;
+    g.agx_preview = false;
+    g.gtao = false;
+    g.enhanced_shadows = false;
+    g.rim_light = false;
+    g.probe_gi_multiplier = 0.0f;
+    g.texture_filter = renderer::TextureFilter::Normal;
+}
+
+constexpr SweepStep kSweep[] = {
+    {"as set", [](settings::Settings&) {}},
+    {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
+    {"enhanced, every effect off", effects_off},
+    {"enhanced, every effect off, probe lighting off",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.sweep_probe_lighting_off = true;
+     }},
+    {"enhanced, every effect off, probe lighting off, scale 50%",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.sweep_probe_lighting_off = true;
+         g.render_scale = 50;
+     }},
+    {"enhanced, every effect off, render scale 50%",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.render_scale = 50;
+     }},
+    {"enhanced, every effect off, blended passes left out",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.sweep_translucent_off = true;
+     }},
+    {"enhanced, every effect off, blended passes without probes",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.sweep_translucent_unlit = true;
+     }},
+    {"enhanced, every effect off, blended passes with full probe light",
+     [](settings::Settings& g) {
+         effects_off(g);
+         g.sweep_translucent_full = true;
+     }},
+    {"enhanced off, blended passes left out",
+     [](settings::Settings& g) {
+         g.enhanced_graphics = false;
+         g.sweep_translucent_off = true;
+     }},
+    {"enhanced off, render scale 50%",
+     [](settings::Settings& g) {
+         g.enhanced_graphics = false;
+         g.render_scale = 50;
+     }},
+    {"as set, temporal off (native)",
+     [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Off; }},
+    {"as set, motion blur off", [](settings::Settings& g) { g.motion_blur = false; }},
+    {"as set, GTAO off", [](settings::Settings& g) { g.gtao = false; }},
+    {"as set, modern shadows off", [](settings::Settings& g) { g.enhanced_shadows = false; }},
+    {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
+    {"as set, edge-aware textures off",
+     [](settings::Settings& g) { g.texture_filter = renderer::TextureFilter::Normal; }},
+    {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
+    {"as set, probe lighting off",
+     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
+    {"as set (again)", [](settings::Settings&) {}},
+};
+constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));
+constexpr double kSweepStepS = 4.0;    // each step's length
+constexpr double kSweepSettleS = 1.5;  // its first part not counted: targets and history renewed
+
+struct Sweep {
+    bool asked = false;    // the next capture is a sweep
+    bool running = false;  // settings changed and not yet given back
+    settings::Settings saved;
+    int step = -1;
+
+    struct Boundary {
+        std::uint64_t serial;
+        double start_s;
+    };
+
+    std::vector<Boundary> starts;  // where each step's frames begin
+    std::uint64_t done_serial = 0;
+    // Each step's pictures: when each began, and its GPU time where measured. A tick the game
+    // runs without drawing is a frame of its own in stats' history, and not counted.
+    std::vector<std::vector<double>> picture_s, gpu_ms;
+    std::vector<std::string> results;  // the report's lines, once it ended
+};
+
+Sweep sweep;
+
+void sweep_apply(int step) {
+    settings::Settings next = sweep.saved;
+    next.vsync = settings::VSync::Off;
+    next.frame_rate = settings::FrameRate::Unlimited;
+    kSweep[step].apply(next);
+    settings::get() = next;
+    s.settings_changed = true;
+    sweep.step = step;
+    const stats::Frame* last = stats::history(0);
+    sweep.starts.push_back(
+        last != nullptr
+            ? Sweep::Boundary{last->serial + 1, last->start_s + last->interval_ms / 1000.0}
+            : Sweep::Boundary{0, 0.0}
+    );
+}
+
+// The frames closed since the last look, a few behind the newest so that their GPU times are in.
+void sweep_collect() {
+    const std::size_t size = stats::history_size();
+    for (std::size_t back = std::min<std::size_t>(size, 96); back-- > 6;) {
+        const stats::Frame* f = stats::history(back);
+        if (f == nullptr || f->serial <= sweep.done_serial) {
+            continue;
+        }
+        sweep.done_serial = f->serial;
+        int step = -1;
+        for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {
+            if (f->serial >= sweep.starts[i].serial) {
+                step = i;
+            }
+        }
+        const bool picture = f->gpu_frame_ms >= 0.0 || f->cpu_ms("render") > 0.0;
+        if (step < 0 || !picture || f->start_s < sweep.starts[step].start_s + kSweepSettleS) {
+            continue;
+        }
+        sweep.picture_s[step].push_back(f->start_s);
+        if (f->gpu_frame_ms >= 0.0 && !f->passes_split) {
+            sweep.gpu_ms[step].push_back(f->gpu_frame_ms);
+        }
+    }
+}
+
+double percentile(std::vector<double> v, double p) {
+    if (v.empty()) {
+        return 0.0;
+    }
+    std::sort(v.begin(), v.end());
+    return v[std::min(v.size() - 1, static_cast<std::size_t>(p * static_cast<double>(v.size())))];
+}
+
+// The settings given back, and each step's picture times written down for the report.
+void sweep_end() {
+    if (!sweep.running) {
+        return;
+    }
+    sweep.running = false;
+    settings::get() = sweep.saved;
+    s.settings_changed = true;
+    sweep.results.clear();
+    for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {
+        const std::vector<double>& starts = sweep.picture_s[i];
+        if (starts.size() < 3) {
+            continue;
+        }
+        std::vector<double> frames;
+        for (std::size_t n = 1; n < starts.size(); ++n) {
+            frames.push_back((starts[n] - starts[n - 1]) * 1000.0);
+        }
+        const double mean =
+            (starts.back() - starts.front()) * 1000.0 / static_cast<double>(starts.size() - 1);
+        sweep.results.push_back(
+            std::format(
+                "{:2} {:<58} {:6.2f} ms a picture ({:5.1f} fps), median {:6.2f}, p90 {:6.2f}; gpu "
+                "median {:6.2f}; {} pictures",
+                i,
+                kSweep[i].name,
+                mean,
+                mean > 0.0 ? 1000.0 / mean : 0.0,
+                percentile(frames, 0.5),
+                percentile(frames, 0.9),
+                percentile(sweep.gpu_ms[i], 0.5),
+                starts.size()
+            )
+        );
+    }
+}
 
 void configure_capture() {
     if (c.configured) {
@@ -94,19 +292,23 @@ void configure_capture() {
     }
 }
 
-// The folder the captures go to: the working folder's perf/; on Android, whose apps run in "/",
-// the app's own files (HOME), which the Files app shows as "Diagnostics recordings".
+// The folder the captures go to: perf/ in OpenRAC's data folder, beside the cards and settings
+// (%LOCALAPPDATA%\openrac\perf on Windows); on Android the app's own files (HOME), which the
+// Files app shows as "Diagnostics recordings". Absolute, so the toast says where it is.
 std::filesystem::path capture_dir() {
-    std::filesystem::path dir = "perf";
 #if defined(__ANDROID__)
+    std::filesystem::path dir = "perf";
     if (const std::optional<std::string> home = env::system_variable("HOME");
         home && !home->empty()) {
         dir = std::filesystem::path(*home) / "perf";
     }
+#else
+    std::filesystem::path dir = program::data_home() / "perf";
 #endif
     std::error_code ignored;
     std::filesystem::create_directories(dir, ignored);
-    return dir;
+    const std::filesystem::path absolute = std::filesystem::absolute(dir, ignored);
+    return absolute.empty() ? dir : absolute;
 }
 
 std::string level_name(int level) {
@@ -129,8 +331,17 @@ void begin_capture(const Shown& shown, double seconds, std::string path) {
         return;
     }
     c.path = std::move(path);
+    // On a tile-based GPU (a phone's) a pass's own GPU time needs its render pass ended around it,
+    // which slows the frame: done in one frame of ten (stats::set_pass_sampling), the rest kept true.
+    c.pass_sampling = 0;
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan() && vkgl::tile_based() && !vkgl::split_pass_timing()) {
+        c.pass_sampling = kPassSampling;
+    }
+#endif
+    stats::set_pass_sampling(c.pass_sampling);
     effects_dump::arm(true);  // snapshots of effects and the game's notes (effects_dump.h)
-    sampler::start();  // where the window and render threads' time goes (common/sampler.h)
+    sampler::start();         // where the window and render threads' time goes (common/sampler.h)
     c.clocks_at_start = system_info::cpu_clocks();
     c.thermal_at_start = system_info::thermal();
     c.level_at_start = s.level;
@@ -250,14 +461,65 @@ perf_capture::Context context(const Shown& shown) {
     }
     const auto& graphics = settings::get();
     if (gl::enhanced_rendering_available()) {
+        // What each costly part of it was set to, so that two recordings compare like for like.
         add("enhanced",
             std::format(
-                "{}{}{}{}",
+                "{}{}{}, temporal {} (upscaler {}), shadows {}, GTAO {}, motion blur {}, AgX {}, "
+                "rim {}",
                 graphics.enhanced_graphics ? "on" : "off",
                 graphics.enhanced_shadows ? ", modern shadows" : "",
                 graphics.enhanced_graphics ? ", probe lighting" : "",
-                graphics.gtao ? ", GTAO" : ""
+                renderer::kTemporalKeys[static_cast<int>(graphics.temporal_quality)],
+                enhanced::Fsr3::active_upscaler(),
+                renderer::kShadowQualityKeys[static_cast<int>(graphics.shadow_quality)],
+                graphics.gtao ? std::format(
+                                    "{} {}x{}{}",
+                                    graphics.gtao_settings.quality == renderer::GtaoQuality::Quality
+                                        ? "quality"
+                                        : "performance",
+                                    graphics.gtao_settings.slices,
+                                    graphics.gtao_settings.steps,
+                                    graphics.gtao_settings.half_resolution ? " half" : ""
+                                )
+                              : std::string("off"),
+                graphics.motion_blur ? "on" : "off",
+                graphics.agx_preview ? "on" : "off",
+                graphics.rim_light ? "on" : "off"
             ));
+    }
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        add("gpu passes",
+            std::format(
+                "{}tile-based GPU, {}",
+                vkgl::tile_based() ? "" : "not a ",
+                vkgl::split_pass_timing()
+                    ? std::string(
+                          "each timed pass split out in every frame (OPENRAC_GPU_PASS_TIMING: "
+                          "its GPU times are its own; the frame is slower)"
+                      )
+                : c.pass_sampling > 0
+                    ? std::format(
+                          "passes split out in one frame of {} to time them; those frames are left "
+                          "out of the frame's GPU time",
+                          c.pass_sampling
+                      )
+                    : std::string("passes not split (their GPU times are their own here)")
+            ));
+    }
+#endif
+    if (!sweep.results.empty()) {
+        add("settings sweep",
+            std::format(
+                "VSync off, {:.0f} s a step, its first {:.1f} s not counted; frames tagged by the "
+                "\"settings sweep step\" gauge",
+                kSweepStepS,
+                kSweepSettleS
+            ));
+        for (std::string& line : sweep.results) {
+            add("sweep", std::move(line));
+        }
+        sweep.results.clear();
     }
     const stats::ProcessMemory memory = stats::process_memory();
     add("process",
@@ -292,6 +554,11 @@ std::vector<std::uint8_t> file_bytes(const std::filesystem::path& path) {
 }
 
 void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) {
+    stats::set_pass_sampling(0);
+    if (sweep.running) {
+        sweep_collect();
+        sweep_end();
+    }
     // The hot functions of the threads sampled while it ran, at the report's end.
     const std::string report = recorder.report(context(shown)) + sampler::stop();
     if (c.opened_dump) {
@@ -347,18 +614,26 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
         }
     }
     const bool copied = SDL_SetClipboardText(report.c_str());
-    log::info(
-        "performance capture: {} frames, report {}{}",
-        recorder.frames(),
-        written ? path.string() : "not written",
-        copied ? ", copied to the clipboard" : ""
-    );
+    // UTF-8 whatever the user's name: path.string() throws on Windows for a letter outside the
+    // system's code page.
+    const std::u8string where8 = path.u8string();
+    const std::string where(where8.begin(), where8.end());
+    if (written) {
+        log::info(
+            "performance capture: {} frames, report {}{}",
+            recorder.frames(),
+            where,
+            copied ? ", copied to the clipboard" : ""
+        );
+    } else {
+        log::warn("performance capture: could not write {}", where);
+    }
     s.toast = std::format(
         "Diagnostics report {}{}",
         copied ? "copied to the clipboard" : "ready",
-        written ? " · saved to " + path.string() : std::string(" (could not be saved)")
+        written ? " · saved to " + where : " · could not be saved to " + where
     );
-    s.toast_until = ImGui::GetTime() + 8.0;
+    s.toast_until = ImGui::GetTime() + (written ? 8.0 : 15.0);
     s.message = s.toast;
     if (c.hid_panel) {
         set_visible(true);
@@ -414,6 +689,37 @@ void toggle_capture(bool after_drawer) {
     c.wait_for_drawer = after_drawer;
     c.start_at = Clock::now() + std::chrono::seconds(after_drawer ? 3 : 0);
     c.path.clear();
+    sweep.asked = false;
+}
+
+void toggle_settings_sweep() {
+    toggle_capture(true);
+    sweep.asked = c.start_at.has_value();
+}
+
+double settings_sweep_seconds() {
+    return kSweepSteps * kSweepStepS;
+}
+
+void open_capture_folder() {
+    std::string url = "file://";
+    const std::u8string path8 = capture_dir().generic_u8string();
+    const std::string path(path8.begin(), path8.end());
+    if (!path.starts_with('/')) {
+        url += '/';  // file:///C:/...
+    }
+    for (const char ch : path) {
+        // Spaces and the URL's own marks, as %XX; the rest as it is.
+        if (ch == ' ' || ch == '%' || ch == '#' || ch == '?') {
+            url += std::format("%{:02X}", static_cast<unsigned char>(ch));
+        } else {
+            url += ch;
+        }
+    }
+    if (!SDL_OpenURL(url.c_str())) {
+        s.toast = std::format("Could not open {}", path);
+        s.toast_until = ImGui::GetTime() + 6.0;
+    }
 }
 
 bool capture_busy() {
@@ -441,6 +747,15 @@ std::string capture_badge() {
     if (length > 0.0 && elapsed >= length) {
         return "Recording finished, writing the report";
     }
+    if (sweep.running && sweep.step >= 0) {
+        return std::format(
+            "REC {:.0f} / {:.0f} s, step {} of {}: stand still",
+            elapsed,
+            length,
+            sweep.step + 1,
+            kSweepSteps
+        );
+    }
     return length > 0.0 ? std::format("REC {:.0f} / {:.0f} s", elapsed, length)
                         : std::format("REC {:.0f} s", elapsed);
 }
@@ -458,9 +773,33 @@ void capture_frame(const Shown& shown) {
             c.wait_for_drawer = false;
             if (Clock::now() >= *c.start_at) {
                 c.start_at.reset();
-                begin_capture(shown, s.capture_seconds, {});
+                if (sweep.asked) {
+                    sweep.asked = false;
+                    begin_capture(shown, settings_sweep_seconds(), {});
+                    if (perf_capture::active()) {
+                        sweep.running = true;
+                        sweep.saved = settings::get();
+                        sweep.step = -1;
+                        sweep.starts.clear();
+                        sweep.done_serial = 0;
+                        sweep.picture_s.assign(kSweepSteps, {});
+                        sweep.gpu_ms.assign(kSweepSteps, {});
+                        sweep_apply(0);
+                    }
+                } else {
+                    begin_capture(shown, s.capture_seconds, {});
+                }
             }
         }
+    }
+    if (sweep.running && perf_capture::active()) {
+        sweep_collect();
+        const int step =
+            std::min(static_cast<int>(perf_capture::elapsed_s() / kSweepStepS), kSweepSteps - 1);
+        if (step != sweep.step) {
+            sweep_apply(step);
+        }
+        stats::gauge("settings sweep step", sweep.step);
     }
     if (perf_capture::active()) {
         // Opening the drawer pauses the game: the capture ends with what it has.

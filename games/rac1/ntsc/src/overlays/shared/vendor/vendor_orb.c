@@ -10,7 +10,7 @@
 
 void FUN_L00_001fff28(char *, int, float);
 
-extern float vendor_orb_rotation_rate_degrees_gp __asm__("D_L00_00161BB0") __attribute__((sda));
+float vendor_orb_rotation_rate_degrees_gp __asm__("D_L00_00161BB0") = 45.0f;
 
 float D_L01_00161FF0 = 45.0f;
 float D_L02_00161F48 = 45.0f;
@@ -33,6 +33,7 @@ float D_L18_001621F0 = 45.0f;
 
 void vendor_orb_update(unsigned char *p) __asm__("FUN_L00_002df730");
 
+/* Moby class 1143 */
 void vendor_orb_update(unsigned char *moby) {
     enum {
         VENDOR_ORB_INITIALIZE = 0,

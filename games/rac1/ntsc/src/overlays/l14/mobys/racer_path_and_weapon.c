@@ -37,8 +37,8 @@ typedef struct {
     float t;
 } PathPos;
 
-extern int   FUN_L00_0025df68(void *, void *, float *, int *, float *, int, float, float, float);
-extern float D_L14_00161A38_gp __asm__("D_L14_00161A38") __attribute__((sda));
+extern int FUN_L00_0025df68(void *, void *, float *, int *, float *, int, float, float, float);
+float      racer_path_lead_distance_gp __asm__("D_L14_00161A38") = 9.0f;
 
 void initialize_racer_path_tracking(struct Moby *racer_moby) __asm__("FUN_L14_002d6358");
 
@@ -50,7 +50,7 @@ void initialize_racer_path_tracking(struct Moby *racer_moby) {
     int            k;
     float          z;
     unsigned short second_point_segment;
-    *(float *)(moby_data + 0x74) = D_L14_00161A38_gp;
+    *(float *)(moby_data + 0x74) = racer_path_lead_distance_gp;
     *(int *)(moby_data + 0x68) = 0;
     *(int *)(moby_data + 0x64) = 0;
     z = *(float *)(moby_data + 0x68);
@@ -139,13 +139,13 @@ void reset_racer_group_to_hero_path_position(struct Moby *group_anchor_moby) {
     int             path_segment_index;
     float           nearest_segment_distance;
     unsigned short *moby_index_cursor = D_L14_001ABF40_6570[group_anchor_moby->group];
-    char          **out;
+    char          **racer_list_write_cursor;
     int             i;
     float           path_step_distance;
     if (moby_index_cursor == 0) {
         return;
     }
-    out = list;
+    racer_list_write_cursor = list;
     do {
         char *o = D_L14_0015FFD8_6570 + ((*moby_index_cursor & 0x7FFF) << 8);
         char *od = *(char **)(o + 0x78);
@@ -175,7 +175,7 @@ void reset_racer_group_to_hero_path_position(struct Moby *group_anchor_moby) {
             set_race_camera(
                 path + (path_segment_index * 16 + 0x10), hero_path_euler_rotation, 0x28, 0);
         }
-        *out++ = o;
+        *racer_list_write_cursor++ = o;
     } while ((short)*moby_index_cursor++ >= 0);
     for (i = 0; i < 3; i++) {
         char *o = list[i];
@@ -184,7 +184,7 @@ void reset_racer_group_to_hero_path_position(struct Moby *group_anchor_moby) {
         o[0x20] = 6;
         ((M_6570 *)o)->f48 = fast_arc_tan(hero.motion.pos.f[0] - group_anchor_moby->pos.x,
                                           hero.motion.pos.f[1] - group_anchor_moby->pos.y);
-        path_step_distance = -D_L14_00161A38_gp;
+        path_step_distance = -racer_path_lead_distance_gp;
         *(int *)(od + 0x64) = hero.rail_segment;
         *(float *)(od + 0x68) = hero.rail_seg_frac;
         FUN_L00_0025d808_6570(path, o + 0x10, od + 0x64, od + 0x68, 0, path_step_distance);
@@ -280,7 +280,8 @@ void update_racer_path_and_weapon(struct Moby *racer_moby) {
         if (sum > 1.0f) {
             sum = 1.0f;
         }
-        *(float *)(moby_data + 0x74) = D_L14_00161A38_gp + (-3.0f - D_L14_00161A38_gp) * sum;
+        *(float *)(moby_data + 0x74) =
+            racer_path_lead_distance_gp + (-3.0f - racer_path_lead_distance_gp) * sum;
     }
     *(int *)(moby_data + 0x68) = 0;
     *(int *)(moby_data + 0x64) = 0;
@@ -502,12 +503,12 @@ extern float D_L14_00161A30 __attribute__((sda));
 void         advance_moby_along_path(struct Moby *moby) __asm__("FUN_L14_002d7198");
 
 void advance_moby_along_path(struct Moby *moby) {
-    char *data = (char *)moby->pvars;
-    int   path_index = *(int *)(data + 0x60);
+    char *path_tracking_state = (char *)moby->pvars;
+    int   path_index = *(int *)(path_tracking_state + 0x60);
     sample_path((int)l14_splines[path_index].path,
                 &moby->pos,
-                data + 0x64,
-                data + 0x68,
+                path_tracking_state + 0x64,
+                path_tracking_state + 0x68,
                 0,
                 D_L14_00161A30 * frame_time);
 }
@@ -589,9 +590,9 @@ extern float D_L14_0015F580[] MACRO_ADDR;
 
 #include "rnc/overlay/l14/mobys/racer_path_and_weapon_globals.h"
 
-extern float joint_light_position_w_gp __asm__("D_L14_00161A60") __attribute__((sda));
-extern void  random_spherical_offset(void *, float, float) __asm__("FUN_00213358");
-extern void  draw_racer_glow_quads(struct Moby *) __asm__("FUN_L14_002d71f0");
+float       joint_light_position_w_gp __asm__("D_L14_00161A60") = 6.0f;
+extern void random_spherical_offset(void *, float, float) __asm__("FUN_00213358");
+extern void draw_racer_glow_quads(struct Moby *) __asm__("FUN_L14_002d71f0");
 
 void update_moby_joint_visual_effects(struct Moby *moby) __asm__("FUN_L14_002d7490");
 

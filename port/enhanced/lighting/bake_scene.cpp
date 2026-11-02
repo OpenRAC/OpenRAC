@@ -163,8 +163,10 @@ void validate_triangle(
 
 void Scene::check_error() const {
     // Embree errors belong to the worker that performed the query.
-    if (rtcGetDeviceError(device) != RTC_ERROR_NONE) {
-        throw std::runtime_error("Embree probe bake failed");
+    if (const RTCError error = rtcGetDeviceError(device); error != RTC_ERROR_NONE) {
+        throw std::runtime_error(
+            "Embree probe bake failed (error " + std::to_string(static_cast<int>(error)) + ")"
+        );
     }
 }
 

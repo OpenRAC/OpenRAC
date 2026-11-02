@@ -218,7 +218,7 @@ struct SubmissionCounters {
 
     // The vkCmd* recorded, by Command; commands_recorded() adds them up.
     std::array<std::uint64_t, kCommandKinds> commands{};
-    std::uint64_t pipelines_created = 0;  // Graphics and compute pipelines made (each a compile).
+    std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
     std::uint64_t descriptor_sets_allocated = 0;  // Every vkAllocateDescriptorSets set.
@@ -250,6 +250,10 @@ struct SubmissionCounters {
     std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
     double shader_compile_s = 0.0;      // The seconds those compiles took.
+    std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
+    double pipeline_compile_s = 0.0;    // Driver pipeline creation, including prewarm workers.
+    std::uint64_t pipeline_creation_calls =
+        0;  // Driver calls, including speculative and failed ones.
 };
 
 SubmissionCounters submission_counters();
@@ -272,6 +276,11 @@ void begin_pipeline_warmup(std::uint32_t frames);
 // garbage (colour 1.0 in every channel, depth 0, stencil 0xA5) instead of being left undefined, so
 // that a later read of it shows in the picture. False when no context is open.
 bool test_poison_discards(bool on);
+
+// Enables test-only reuse of identical compiled programs/layouts; disabled for player launches.
+// Disabling bypasses the pool without discarding its objects; close() releases them.
+// borrow=false retains objects after an independent fresh-driver oracle without reusing them.
+void test_reuse_programs(bool on, bool borrow = true);
 
 // For the tests: draws the copy into the default framebuffer that waits for the present
 // (present-single-copy) into two stand-ins of the screen, B8G8R8A8 at the default framebuffer's
@@ -343,5 +352,24 @@ bool software();
 // buffer's staged copy goes (docs/port/RENDER_PERF.md, "R-05"). False with no context, and on a
 // driver whose every memory type the host sees (lavapipe, some integrated GPUs).
 bool device_only_memory();
+
+// True when the open device draws a pass tile by tile in on-chip memory: Arm Mali, Qualcomm
+// Adreno, Apple and Imagination GPUs, told by the vendor's id (Vulkan has no property for it).
+// There vertex binning and attachment traffic cost most, so the optimisations that save them
+// default on (docs/port/RENDER_PERF.md, "Tile-based GPUs"). OPENRAC_TILE_BASED=1 or 0 overrides
+// the guess, to try a tile-based default on a desktop GPU or to compare without it. False with
+// no context.
+bool tile_based();
+
+// The open device's PCI vendor id (0x5143 Qualcomm, 0x13B5 Arm, ...); 0 with no context.
+std::uint32_t vendor_id();
+
+// Split pass timing: each section timed on the GPU (stats::kGpu) ends the render pass it falls
+// in, at its start and at its end, so that its timestamps lie between passes. A tile-based GPU
+// runs a pass's draws together, so timestamps inside one pass read about zero; split, every
+// timed section reads its own time, at the price of the attachments each split stores and loads
+// again (the frame is slower while it is on). Off by default; OPENRAC_GPU_PASS_TIMING turns it on.
+// Without it, a performance capture splits one frame in a few (stats::set_pass_sampling).
+bool split_pass_timing();
 
 }  // namespace openrac::vkgl

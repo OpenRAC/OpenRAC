@@ -37,6 +37,8 @@ namespace {
     std::exit(64);
 }
 
+}  // namespace
+
 // OpenRAC's folder in the player's data home, as the launcher finds it
 // (launcher/core/src/saves.rs, data_home).
 fs::path data_home() {
@@ -68,6 +70,8 @@ fs::path data_home() {
 #endif
     return base;
 }
+
+namespace {
 
 #if defined(_WIN32)
 // Moves the cards and settings of the folder Windows used before %LOCALAPPDATA% into `base`, the
@@ -260,6 +264,11 @@ Options parse(int argc, char** argv) {
     // folder (controls_store.h).
     if (o.controls.empty()) {
         o.controls = data_home() / "controls";
+    }
+
+    // The mods' own files, a folder per mod's id, beside the cards (openrac_api.data_dir).
+    if (o.mod_data.empty()) {
+        o.mod_data = data_home() / "mod-data";
     }
 
     if (o.plugins.empty()) {

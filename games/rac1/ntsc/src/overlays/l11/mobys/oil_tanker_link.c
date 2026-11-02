@@ -50,11 +50,12 @@ extern void *func_L00_00265050_s(char *,
                                  float,
                                  float *) __asm__("FUN_L00_00263fd8");
 
-void update_oil_tanker_link_effects_and_destruction(struct Moby *moby) __asm__("FUN_L11_003181f0");
+void         oil_tanker_link_update(struct Moby *moby) __asm__("FUN_L11_003181f0");
 extern float D_L11_0015F580[];
 extern int   scale_game_frames(int);
 
-void update_oil_tanker_link_effects_and_destruction(struct Moby *moby) {
+/* Moby class 1265 */
+void oil_tanker_link_update(struct Moby *moby) {
     enum {
         TANKER_LINK_EMIT_EFFECT_AND_SAVE_POSITION = 0,
         TANKER_LINK_BURST_AND_HIDE = 1
@@ -145,7 +146,7 @@ char *
 spawn_class_5f4_moby_with_random_rotation(void *position, void *vector, void *owner, float scale) {
     char *moby = create_moby(0x5F4);
     if (moby != 0) {
-        char *data = ((char *)MOBY(moby)->pvars);
+        char *spawned_moby_vars = ((char *)MOBY(moby)->pvars);
         moby[0x20] = 1;
         qcopy(moby + 0x10, position);
         MOBY(moby)->rot.x = random_angle_radians();
@@ -154,8 +155,8 @@ spawn_class_5f4_moby_with_random_rotation(void *position, void *vector, void *ow
         ((unsigned char *)moby)[0x30] = 0xFF;
         moby[0x31] = 1;
         MOBY(moby)->scale = *(float *)(((char *)MOBY(moby)->pclass) + 0x24) * scale;
-        *(void **)(data + 0x24) = owner;
-        qcopy(data, vector);
+        *(void **)(spawned_moby_vars + 0x24) = owner;
+        qcopy(spawned_moby_vars, vector);
     }
     return moby;
 }
