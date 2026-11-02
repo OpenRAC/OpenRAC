@@ -1042,7 +1042,8 @@ bool update(int loaded_overlay) {
     }
     if (loaded_overlay != OPENRAC_OVERLAY_EXE) {
         // In a level: the pause menu's own Options page, on the level program's menu data.
-        return loaded_overlay >= 0 && fe->page_menu != 0 && pause_page::update(OPENRAC_DATA(fe->page_menu), fe->pad);
+        return loaded_overlay >= 0 && fe->page_menu != 0
+               && pause_page::update(OPENRAC_DATA(fe->page_menu), fe->pad);
     }
     // A game that describes no Video page here (Going Commando's is its host C) has none of these
     // widgets: their words would be read and written at the bottom of game memory.

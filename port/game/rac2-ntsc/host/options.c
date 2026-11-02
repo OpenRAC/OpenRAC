@@ -85,19 +85,19 @@ void func_002E48E8(void) {
  * the port's rows are drawn in it, PAGE_ROWS at a time, the one under the cursor brighter: Up and
  * Down move the cursor, Cross and Right step its row to the next value, Left to the one before.
  */
-#define TEXT_WIDESCREEN 0x31E4    /* "16:9 (widescreen)": the Options item, the page's title */
-#define MENU_CROSS 0x40u           /* the menus' buttons (the pad block's word at +0x1C4) */
+#define TEXT_WIDESCREEN 0x31E4 /* "16:9 (widescreen)": the Options item, the page's title */
+#define MENU_CROSS 0x40u       /* the menus' buttons (the pad block's word at +0x1C4) */
 #define MENU_UP 0x1000u
 #define MENU_RIGHT 0x2000u
 #define MENU_DOWN 0x4000u
 #define MENU_LEFT 0x8000u
-#define SOUND_MOVE 3               /* func_002E5E58's sounds, as the menus' pages play them */
+#define SOUND_MOVE 3 /* func_002E5E58's sounds, as the menus' pages play them */
 #define SOUND_CHOOSE 4
 #define PAGE_ROWS 7
-#define PAGE_TOP 118               /* the first row's y, and each next one's step */
+#define PAGE_TOP 118 /* the first row's y, and each next one's step */
 #define PAGE_STEP 21
 #define PAGE_MIDDLE 0x100
-#define ROW_CHOSEN 0x80F0F0F0ull   /* the row under the cursor, the others (func_0033C738's) */
+#define ROW_CHOSEN 0x80F0F0F0ull /* the row under the cursor, the others (func_0033C738's) */
 #define ROW_OTHER 0x70808080ull
 #define TEXT_BYTES 96
 
@@ -164,7 +164,13 @@ void func_0033C378(gaddr object) {
         const int row = page_top + i;
         openrac_game_option_row_text(row, label, value, TEXT_BYTES);
         snprintf((char*)G(line), TEXT_BYTES, value[0] != 0 ? "%s: %s" : "%s", label, value);
-        func_0027FAA8(PAGE_MIDDLE, PAGE_TOP + PAGE_STEP * i, row == page_cursor ? ROW_CHOSEN : ROW_OTHER, line, -1);
+        func_0027FAA8(
+            PAGE_MIDDLE,
+            PAGE_TOP + PAGE_STEP * i,
+            row == page_cursor ? ROW_CHOSEN : ROW_OTHER,
+            line,
+            -1
+        );
     }
 }
 

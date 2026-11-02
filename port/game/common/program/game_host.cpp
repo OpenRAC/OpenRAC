@@ -546,8 +546,12 @@ void openrac_game_option_row_text(int row, char* label, char* value, int size) {
         put_option_text("", value, size);
 #ifdef OPENRAC_FRONTEND
         if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
-            put_option_text(frontend::options_menu::shown(frontend::options_menu::label(row)), label, size);
-            put_option_text(frontend::options_menu::shown(frontend::options_menu::value(row)), value, size);
+            put_option_text(
+                frontend::options_menu::shown(frontend::options_menu::label(row)), label, size
+            );
+            put_option_text(
+                frontend::options_menu::shown(frontend::options_menu::value(row)), value, size
+            );
         }
 #endif
         (void)row;
