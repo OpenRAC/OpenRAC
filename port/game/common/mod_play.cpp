@@ -1075,6 +1075,53 @@ int api_hud_text_set(openrac_mod* mod, const openrac_hud_text* lines, int count)
     return OPENRAC_HOOK_OK;
 }
 
+// The hero's looping sounds each mod started (hero_sound_play), stopped with the mod.
+struct HeroVoice {
+    openrac_mod* mod;
+    std::uint32_t loads;
+    int voice;
+};
+
+std::vector<HeroVoice> g_hero_voices;
+
+int api_hero_sound_play(openrac_mod* mod, int sound, int loop) {
+    std::int32_t level = -1;
+    if (mod == nullptr || g_play == nullptr || g_play->hero_sound_play == nullptr || sound < 0
+        || !in_level(phase_now(&level))) {
+        return -1;
+    }
+    const int voice = g_play->hero_sound_play(sound, loop != 0 ? 1 : 0);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
+        return v.loads != loads || v.voice == voice;
+    });
+    if (voice >= 0 && loop != 0) {
+        g_hero_voices.push_back({mod, loads, voice});
+    }
+    return voice;
+}
+
+// The looping hero sounds of one mod (all: null) stopped, those of this level load still playing.
+void stop_hero_voices(const openrac_mod* mod) {
+    for (const HeroVoice& v : g_hero_voices) {
+        if ((mod == nullptr || v.mod == mod) && v.loads == loads_now() && g_play != nullptr
+            && g_play->hero_sound_stop != nullptr) {
+            g_play->hero_sound_stop(v.voice);
+        }
+    }
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
+        return mod == nullptr || v.mod == mod;
+    });
+}
+
+void api_hero_sound_stop(openrac_mod* mod, int voice) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_sound_stop == nullptr || voice < 0) {
+        return;
+    }
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) { return v.voice == voice; });
+    g_play->hero_sound_stop(voice);
+}
+
 int api_sound_load(openrac_mod* mod, const char* path) {
     if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -1218,6 +1265,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.camera_set = api_camera_set;
     api.haze_set = api_haze_set;
     api.hud_text_set = api_hud_text_set;
+    api.hero_sound_play = api_hero_sound_play;
+    api.hero_sound_stop = api_hero_sound_stop;
 }
 
 std::vector<HazeDraw> haze_drawn() {
@@ -1353,6 +1402,7 @@ void reset_play() {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         g_hud.clear();
     }
+    stop_hero_voices(nullptr);
     if (g_camera_mod != nullptr && g_play != nullptr && g_play->camera_set != nullptr) {
         g_play->camera_set(nullptr, nullptr);
     }
@@ -1405,6 +1455,7 @@ void drop_figures(const openrac_mod* mod) {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod; });
     }
+    stop_hero_voices(mod);
     if (g_camera_mod == mod) {
         if (g_play != nullptr && g_play->camera_set != nullptr) {
             g_play->camera_set(nullptr, nullptr);

@@ -1585,6 +1585,16 @@ typedef struct openrac_api {
      * mods, or for a line whose text has no end, or whose place or scale is out of range or not a
      * number. Since 1.12. */
     int (*hud_text_set)(openrac_mod* mod, const openrac_hud_text* lines, int count);
+
+    /* Plays one of the hero's own sounds, the game's, on him (Ratchet & Clank: entry `sound` of
+     * Ratchet's class sound table; 26 his jump, 36 his double jump, 27 and 53 his wrench swing, 13
+     * landing on a rail, 0 the rail grind's loop). `loop` 1 plays it until hero_sound_stop (or the
+     * level or the mod goes). Its voice (0 up), or -1 outside a level, past the table or with no
+     * voice free. Since 1.12. */
+    int (*hero_sound_play)(openrac_mod* mod, int sound, int loop);
+
+    /* Stops a voice hero_sound_play gave, if it still plays on the hero. Since 1.12. */
+    void (*hero_sound_stop)(openrac_mod* mod, int voice);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

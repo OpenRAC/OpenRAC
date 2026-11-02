@@ -82,7 +82,7 @@ static void draw_line(
  * about twice it, as the game's own HUD colours go), the opacity's 0 to 255 to its 0 to 128. */
 static unsigned long long gs_colour(uint32_t rgba) {
     const uint32_t alpha = (((rgba >> 24) & 0xFFu) * 128u + 127u) / 255u;
-    return (unsigned long long)((rgba & 0x00FFFFFFu) | (alpha << 24));
+    return (unsigned long long)(((rgba << 8) >> 8) | (alpha << 24));
 }
 
 static void draw_mod_texts(void) {

@@ -1064,6 +1064,13 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         std::fill(rows, rows + 9, 0.0f);
         return 1;
     };
+    play.hero_sound_play = [](int sound, int loop) {
+        g_motion.push_back("hero sound " + std::to_string(sound) + " " + std::to_string(loop));
+        return loop != 0 ? 5 : 3;
+    };
+    play.hero_sound_stop = [](int voice) {
+        g_motion.push_back("hero stop " + std::to_string(voice));
+    };
     static bool playing = false;
     playing = true;
     h.sound_set = [](std::uint32_t voice, float, float) {
@@ -1081,13 +1088,21 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551,
-                                         9560, 9561,      9577, 9581, 9580, 9581, 9591,
-                                         9590, 9591,      9591, 9590, 9602, 9611, 9610}));
-    CHECK((
-        g_motion
-        == std::vector<std::string>{"hero 5", "load beep.wav", "play 4 5 2 1", "stop 7", "camera 7"}
-    ));
+    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560,
+                                         9561, 9577,      9581, 9580, 9581, 9591, 9590, 9591,
+                                         9591, 9590,      9602, 9611, 9610, 9623, 9635}));
+    CHECK(
+        (g_motion
+         == std::vector<std::string>{
+             "hero 5",
+             "load beep.wav",
+             "play 4 5 2 1",
+             "stop 7",
+             "camera 7",
+             "hero sound 26 0",
+             "hero sound 0 1"
+         })
+    );
     // The prop: its mesh asked for once (the level read again with it), drawn where it was posed.
     CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
     CHECK(mods::prop_meshes_generation() == generation + 1);
@@ -1112,7 +1127,10 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::props_drawn().empty());
     CHECK(mods::haze_drawn().empty());
     CHECK(mods::hud_texts().empty());
+    // The looping hero sound went with its level: nothing left to stop.
+    g_motion.clear();
     mods::reset();
+    CHECK((g_motion == std::vector<std::string>{"camera off"}));
 }
 
 int main() {

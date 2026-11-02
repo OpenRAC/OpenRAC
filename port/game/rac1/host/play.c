@@ -301,6 +301,35 @@ static uint32_t hero_moby(void) {
     return in_level() ? GREF(gaddr, HERO_MOBY) : 0;
 }
 
+/* The hero's own sounds for a mod (openrac_api.hero_sound_play): Moby_PlaySound (func_0022ED80) on
+ * him, flag 4 looping, as the hero's slot sounds start theirs (his rail grind's); it checks the
+ * entry against his class's table. A voice is stopped (release_voice_slot, func_0022EAB0) only while
+ * it still plays on him, as the hero's own code checks before stopping one. */
+#define VOICE_POOL RAC1_ADDR(0x0013E650u)
+#define VOICES 32
+#define VOICE_BYTES 0x70u
+#define VOICE_STATE 0x74u
+#define VOICE_OWNER 0x88u
+
+static int hero_sound_play(int sound, int loop) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || sound < 0) {
+        return -1;
+    }
+    return func_0022ED80(sound, loop ? 4 : 0, (int)moby);
+}
+
+static void hero_sound_stop(int voice) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || voice < 0 || voice >= VOICES) {
+        return;
+    }
+    const gaddr slot = OPENRAC_DATA(VOICE_POOL) + (gaddr)voice * VOICE_BYTES;
+    if (GREF(uint32_t, slot + VOICE_OWNER) == moby && GREF(uint8_t, slot + VOICE_STATE) != 0) {
+        func_0022EAB0(voice);
+    }
+}
+
 int rac1_figure_alive(gaddr moby) {
     if (moby == 0 || !in_level() || GREF(uint8_t, moby + MOBY_STATE) >= 0x80
         || GREF(int16_t, moby + MOBY_OCLASS) != HERO_CLASS) {
@@ -599,4 +628,6 @@ const openrac_game_play rac1_play = {
     .collision_triangles = rac1_collision_triangles,
     .camera_set = rac1_camera_set,
     .camera_view = rac1_camera_view,
+    .hero_sound_play = hero_sound_play,
+    .hero_sound_stop = hero_sound_stop,
 };

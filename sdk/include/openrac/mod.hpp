@@ -1148,7 +1148,7 @@ public:
     // has_collision(), has_props(), has_sounds() and has_camera() say the same for each part.
     bool has_api_12() const {
         return m_api->api_minor >= 12
-               && m_api->size >= offsetof(openrac_api, hud_text_set) + sizeof(void*);
+               && m_api->size >= offsetof(openrac_api, hero_sound_stop) + sizeof(void*);
     }
     bool has_hero_drive() const { return has_api_12(); }
     bool has_collision() const { return has_api_12(); }
@@ -1298,6 +1298,18 @@ public:
                && m_api->hud_text_set(m_handle, lines.empty() ? nullptr : lines.data(),
                                       static_cast<int>(lines.size()))
                       == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: one of the hero's own sounds, the game's (openrac_api.hero_sound_play): its
+    // voice, or -1.
+    int hero_sound_play(int sound, bool loop = false) const {
+        return has_api_12() ? m_api->hero_sound_play(m_handle, sound, loop ? 1 : 0) : -1;
+    }
+    // Since 1.12: stops a voice hero_sound_play gave, while it still plays on the hero.
+    void hero_sound_stop(int voice) const {
+        if (has_api_12()) {
+            m_api->hero_sound_stop(m_handle, voice);
+        }
     }
 
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).

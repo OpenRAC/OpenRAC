@@ -478,6 +478,11 @@ typedef struct openrac_game_play {
      * them. */
     int (*camera_set)(const float eye[3], const float rows[9]);
     int (*camera_view)(float eye[3], float rows[9]);
+    /* One of the hero's own sounds (openrac_api.hero_sound_play): entry `sound` of his class's
+     * sound table on him, looped or once: its voice, or -1. And one of his voices stopped, if it
+     * still plays on him (hero_sound_stop). NULL for a game without them. */
+    int (*hero_sound_play)(int sound, int loop);
+    void (*hero_sound_stop)(int voice);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

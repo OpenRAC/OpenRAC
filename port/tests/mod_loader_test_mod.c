@@ -363,6 +363,8 @@ static void motion_frame(void) {
             line.scale = 1.0f;
             s_record(9610 + -s_api->hud_text_set(s_mod, &line, 1));
         }
+        s_record(9620 + s_api->hero_sound_play(s_mod, 26, 0));
+        s_record(9630 + s_api->hero_sound_play(s_mod, 0, 1));
     } else if (s_frames == 2) {
         s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
