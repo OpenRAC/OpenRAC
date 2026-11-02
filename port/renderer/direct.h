@@ -126,6 +126,8 @@ struct DirectState {
     // (TexturePool::distance_field), its alpha the distance to the glyphs' edge.
     bool distance_field = false;
     TextureHandle field = 0;  // its distance field, beside the texture itself
+    // The whole target's on a target wider than the picture, as a fade is (kWholeMarker).
+    bool whole = false;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -223,6 +225,11 @@ public:
     // two markers of the same form, kHudSideMarker in the top 16 bits, what lies left or right of
     // the middle goes out that far (the low 32 bits, the chip's pixels; 0 ends it), with "HUD: Edges".
     static constexpr std::uint64_t kHudSideMarker = 0x4853;
+    // What fills the sides of a target wider than the picture (a still picture's backdrop): from a
+    // marker of the same form, kWholeMarker in the top 16 bits and 1 in the low bit, to one with 0
+    // there, the draws stretch to the whole target, as a fade does, instead of keeping their shape
+    // in its middle. On a target of the picture's own shape it changes nothing.
+    static constexpr std::uint64_t kWholeMarker = 0x5754;
 
     // A VIF1 stream carrying GIF data in DIRECT and DIRECTHL commands, with
     // the bookkeeping codes around them (NOP, FLUSH, STCYCL...). A command
@@ -295,6 +302,7 @@ private:
     void hud_side(int side);
     int m_hud_side = 0;
     std::uint32_t m_hud_side_first = 0;
+    bool m_whole = false;  // between kWholeMarker's two markers
     DirectVertex convert(const GsVertex& v) const;
     void screen_position(const GsVertex& v, float& x, float& y) const;
     void ensure_draw();
