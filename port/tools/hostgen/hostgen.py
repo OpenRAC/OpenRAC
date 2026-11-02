@@ -446,6 +446,10 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
                 f"    openrac_guest_reach(&site_);")
         if ret != "void":
             body += "\n    return 0;"
+        # A wrapped function's own name is the host's: with no C (a build that reads no disc for its
+        # assembly), its stub stands in for <name>__game, which the host calls.
+        if f.symbol in program.wrap:
+            p = p.replace(f" {cname(f.symbol)}(", f" {cname(f.symbol)}__game(", 1)
         stubs.append(f"{p} {{\n{body}\n}}\n")
         stub_count += 1
     _write(out / "stubs.c", "\n".join(stubs))
