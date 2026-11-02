@@ -39,6 +39,7 @@ int func_002B0C28(int a0, int a1, int a2)
             func_L00_0030DDB0(func_00288FB8(a1), a2);
         D_001B1D48 = a1;
         D_001A8C60 = 2;
+        return 2;
     } else {
         if (current != 0)
             return 0;
