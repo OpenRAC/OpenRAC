@@ -527,10 +527,13 @@ Snapshot read_environment() {
 
 // Returns the variables' values, read the first time any of them is asked for. They never change
 // afterwards: a constant of the process rather than state (section 11.4), so a static of this
-// function holds them, which C++ makes safe to read first from any thread.
+// function holds them, which C++ makes safe to read first from any thread. They are never
+// destroyed, so value()'s views stay valid in the program's exit handlers too: a handler
+// registered before the first read (program::finish, which writes OPENRAC_STATE_DUMP) runs after
+// the destructors of statics made later, and read their freed strings on the Mac.
 const Snapshot& snapshot() {
-    static const Snapshot values = read_environment();
-    return values;
+    static const Snapshot* const values = new Snapshot(read_environment());
+    return *values;
 }
 
 }  // namespace

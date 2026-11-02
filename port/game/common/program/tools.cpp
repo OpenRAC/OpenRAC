@@ -238,7 +238,9 @@ void run_tools() {
 }
 
 void write_state_dump() {
-    static const std::optional<std::string> path = env_string(env::Var::StateDump);
+    // A view of env.h's values, which outlive the exit handlers: finish() writes the last dump at
+    // exit, after the destructor of a static copy made here at the first periodic dump had run.
+    const std::optional<std::string_view> path = env::value(env::Var::StateDump);
 
     if (!path || path->empty()) {
         return;
@@ -290,7 +292,7 @@ void write_state_dump() {
 #endif
     json += "}\n";
 
-    if (std::FILE* f = std::fopen(path->c_str(), "w")) {
+    if (std::FILE* f = std::fopen(path->data(), "w")) {
         std::fwrite(json.data(), 1, json.size(), f);
         std::fclose(f);
     } else {

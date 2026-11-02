@@ -162,10 +162,11 @@ void report_stall(bool sent) {
 // their calls (guest.h, openrac_reach_site; port/tools/regress reach). Written at exit and every
 // 600 frames, so a run that crashes still leaves most of it.
 void write_reach() {
-    static const std::optional<std::string> path = env_string(env::Var::Reach);
+    // A view of env.h's values, which outlive the exit handlers (finish() calls this at exit).
+    const std::optional<std::string_view> path = env::value(env::Var::Reach);
 
     if (path && !path->empty()
-        && openrac_guest_write_reach(path->c_str(), openrac_game.id, g_frame) == 0) {
+        && openrac_guest_write_reach(path->data(), openrac_game.id, g_frame) == 0) {
         log::warn("OPENRAC_REACH: cannot write {}", *path);
     }
 }
