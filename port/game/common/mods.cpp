@@ -52,6 +52,7 @@ struct openrac_mod {
     std::vector<std::pair<void**, void*>> taken;  // each slot it filled, and what was there before
     std::vector<std::string> hooks;               // the hook points it took
     std::string data_dir;                         // data_dir's answer, once made (1.11)
+    fs::path dir;                                 // its folder (1.12: props' meshes, sounds)
     openrac_mod_unload_fn unload = nullptr;
 };
 
@@ -991,6 +992,7 @@ void fill_api(const Host& host) {
     g_api.ui_sound = api_ui_sound;
     g_api.ui_pause_item = api_ui_pause_item;
     fill_play_api(g_api, host.play, host.cards);
+    fill_motion_api(g_api, host);
 }
 
 // ---- status.json ----
@@ -1168,6 +1170,7 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
               std::string& reason) {
     auto mod = std::make_unique<openrac_mod>();
     mod->id = c.manifest.id;
+    mod->dir = folder / c.manifest.id;
     mod->version = c.manifest.version_text;
     mod->manifest = c.manifest;
     std::vector<std::string> notes;
@@ -1587,6 +1590,25 @@ int loaded_count() {
 
 const char* mod_id(const openrac_mod* mod) {
     return mod != nullptr ? mod->id.c_str() : "a mod";
+}
+
+bool holds_hook(const openrac_mod* mod, const char* name) {
+    if (mod == nullptr || name == nullptr) {
+        return false;
+    }
+    const char* id = g_host != nullptr ? hook_id(*g_host, name) : name;
+    return std::any_of(mod->hooks.begin(), mod->hooks.end(), [&](const std::string& h) {
+        return h == id;
+    });
+}
+
+fs::path mod_file(const openrac_mod* mod, const char* path) {
+    if (mod == nullptr || path == nullptr || mod->dir.empty() || !folder_path(path)) {
+        return {};
+    }
+    const fs::path file = mod->dir / fs::path(std::u8string(path, path + std::strlen(path)));
+    std::error_code e;
+    return fs::is_regular_file(file, e) ? file : fs::path();
 }
 
 void reset() {

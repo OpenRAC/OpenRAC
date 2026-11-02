@@ -487,6 +487,33 @@ typedef struct openrac_game_play {
     /* The memory card slot the game in progress saves into (the one it was loaded from or last
      * saved to), -1 for none (openrac_api.save_slot_current). NULL for a game without it. */
     int (*save_slot_current)(void);
+    /* The hero moved by a mod (interface 1.12): the hook point of his whole update, whose holder
+     * may set his pose (its name or id, as a mod asks for it: Ratchet & Clank's Hero_Update), and
+     * the pose put on him with what his update does after his movement to show him: 1, or 0 with
+     * no hero now (openrac_api.hero_set_pose). NULL for a game without it. */
+    const char* hero_update_hook;
+    int (*hero_set_pose)(const openrac_game_pose* pose);
+    /* The collision triangles in the box [lo, hi] (openrac_api.collision_triangles, the same
+     * layout: corners, normal, type, moby slot), up to `max` into `out`: how many there are, 0
+     * outside a level. Reads the game's memory only. NULL for a game without it. */
+    int (*collision_triangles)(const float lo[3], const float hi[3], void* out, int max);
+    /* The hero's moby (its address), 0 outside a level (openrac_api.hero_set_joints). NULL for a
+     * game without it. */
+    uint32_t (*hero_moby)(void);
+    /* A mod's camera (openrac_api.camera_set): its eye and rows (forward, left, up, three floats
+     * each), or NULL to let it go: 1, or 0 outside a level. And the camera the game made itself
+     * for its last view (openrac_api.camera_view): 1, or 0 without one. NULL for a game without
+     * them. */
+    int (*camera_set)(const float eye[3], const float rows[9]);
+    int (*camera_view)(float eye[3], float rows[9]);
+    /* One of the hero's own sounds (openrac_api.hero_sound_play): entry `sound` of his class's
+     * sound table on him, looped or once: its voice, or -1. And one of his voices stopped, if it
+     * still plays on him (hero_sound_stop). NULL for a game without them. */
+    int (*hero_sound_play)(int sound, int loop);
+    void (*hero_sound_stop)(int voice);
+    /* Hit points taken from the hero as a hit does (openrac_api.hero_hurt): his health after, or
+     * -1 with no hero. NULL for a game without it. */
+    int (*hero_hurt)(int damage);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;
@@ -596,6 +623,14 @@ void openrac_game_moby_colour(gaddr object, unsigned colour);
  * evaluator leaves it. Nothing without the window's evaluator. */
 void openrac_game_moby_chain(gaddr moby, gaddr marks);
 
+/* The game's local pose decoder (MobyAnimDecodeLocalPose, PAL func_L00_00255B90) has left the moby's
+ * joint records in the scratchpad (0x70000000 + 0x40 * joint: quaternion, scale, translation): the
+ * port's own joint modifiers of that moby (a mod's, openrac_api.hero_set_joints) are composed into
+ * them, as the port's evaluator composes them for drawing and for the pose matrices. The items worn
+ * on Ratchet (the O2 mask, the helmets) copy his head's chain from these records (pack_pose): without
+ * this they kept his pose without the mod's offsets. Nothing for any other moby or with none set. */
+void openrac_game_moby_local_pose(gaddr moby);
+
 /* The game's moby renderer was asked to draw `count` mobys from `first` (0x100 bytes each; count
  * -1: the whole list, the world's draw). A list drawn on its own (the page menu's frame objects)
  * may be drawn with a camera of its own: the window draws those mobys as that camera saw them.
@@ -670,6 +705,23 @@ int openrac_game_ui_quad(const openrac_game_ui_rect* quad);
  * a side of the screen are moved out past that side: the width a wider picture gained there when
  * the player's HUD setting is "Edges", else 0. */
 int openrac_game_hud_side(void);
+
+/* A line of text a mod shows in the game's HUD (mod interface 1.12, openrac_api.hud_text_set): its
+ * text (ends with a 0), its centre on the game's 4:3 screen (0 to 1 across and down), its size (1
+ * the font's 16 pixels a glyph), its colour (0xAABBGGRR, 0 to 255 each, 128 the font's shade) and flags (1 the small
+ * font, 2 a shadow under it). */
+typedef struct openrac_game_hud_text {
+    char text[64];
+    float x;
+    float y;
+    float scale;
+    uint32_t rgba;
+    uint32_t flags;
+} openrac_game_hud_text;
+
+/* The mods' HUD lines of this level load, up to `max` into `out`; returns how many there are. The
+ * game draws them after its own HUD's elements. */
+int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
 
 /* How many times wider than the game's 4:3 the picture is (the player's aspect setting): its
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */

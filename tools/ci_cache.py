@@ -3,6 +3,7 @@
 """Identify the installed CI toolchain before restoring CMake preparation: python tools/ci_cache.py.
 
 Only identical workspaces, tools, runner images and system packages may share configure results.
+Hostgen output has a separate identity without CPU-dependent configure results.
 Source/configuration identities and job variants are added by the port-build-cache action.
 """
 
@@ -59,11 +60,31 @@ def system_packages():
     return sorted(text.splitlines())
 
 
-def installed_identity():
-    """Describe the environment after package, Python and pinned Windows LLVM setup."""
+def clang_program():
+    """Select the same Clang as hostgen after the job's compiler setup."""
     clang = os.environ.get("OPENRAC_CLANG") or shutil.which("clang")
     if not clang:
         raise RuntimeError("Clang must be installed before restoring CI preparation")
+    return clang
+
+
+def hostgen_identity():
+    """MIPS parsing uses -nostdinc; native CPU probes, CMake and Ninja do not affect its output."""
+    identity = {
+        "workspace": str(Path.cwd().resolve()),
+        "system": platform.system(), "machine": platform.machine(),
+        "clang": tool_identity(clang_program()),
+        "python": {"path": sys.executable, "version": sys.version},
+    }
+    if os.name != "nt":
+        # Clang can use shared compiler libraries; executable identity alone does not cover them.
+        identity["packages"] = system_packages()
+    return identity
+
+
+def installed_identity():
+    """Describe the environment after package, Python and pinned Windows LLVM setup."""
+    clang = clang_program()
     cxx = str(Path(clang).with_name("clang++.exe" if os.name == "nt" else "clang++"))
     identity = {
         "workspace": str(Path.cwd().resolve()),
@@ -92,16 +113,18 @@ def installed_identity():
 
 def main():
     """Publish only a digest; actions/cache adds its job and configuration namespaces."""
-    try:
-        value = fingerprint(installed_identity())
-    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-        # Missing identity information means a normal uncached build, never a broad restore.
-        print(f"::warning::Skipping CI preparation cache: {error}")
-        return
-    if os.environ.get("GITHUB_OUTPUT"):
-        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
-            stream.write(f"fingerprint={value}\n")
-    print(f"CI preparation toolchain: {value}")
+    for name, label, collect in (("fingerprint", "preparation", installed_identity),
+                                 ("hostgen_fingerprint", "hostgen", hostgen_identity)):
+        try:
+            value = fingerprint(collect())
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            # A failed configure identity must not disable independently valid generated output.
+            print(f"::warning::Skipping CI {label} cache: {error}")
+            continue
+        if os.environ.get("GITHUB_OUTPUT"):
+            with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
+                stream.write(f"{name}={value}\n")
+        print(f"CI {label} toolchain: {value}")
 
 
 if __name__ == "__main__":

@@ -49,6 +49,7 @@
 #include "renderer/direct.h"
 #include "renderer/effects.h"
 #include "renderer/gl.h"
+#include "renderer/gl_warmup.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "renderer/texture.h"
@@ -56,6 +57,9 @@
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "settings.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend {
 
@@ -173,6 +177,7 @@ gaddr light_bank_address() {
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
     static unsigned loaded_generation;
+    static unsigned loaded_props;
     int wanted = number;
     if (number <= -2
         && std::filesystem::exists(
@@ -184,11 +189,15 @@ void use_level(int number) {
                      ? kTitleWorld
                      : 0;
     }
-    if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation) {
+    // A prop of a mesh the level was read without (interface 1.12): the level is read again with it.
+    const unsigned props = mods::prop_meshes_generation();
+    if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation
+        && loaded_props == props) {
         return;
     }
     crash::level_breadcrumb("level load started", wanted);
     loaded_generation = openrac_game_mods_generation;
+    loaded_props = props;
     g->loaded = wanted;
     // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
@@ -211,6 +220,7 @@ void use_level(int number) {
     // The enhanced renderer's probe and early lighting, drawn when the player's settings ask.
     lighting::use_scene_lighting(g->scene);
     g->level = scene::LevelData();
+    g->prop_models.clear();
     g->picker.clear();
     std::string error;
     const LevelSources sources = level_sources(wanted);
@@ -266,6 +276,16 @@ void use_level(int number) {
             init_level_renderer(wanted, error);
         }
         return;
+    }
+    // The mods' prop meshes, read as an assets classes.json's are (MODS.md, section 6): a mesh that
+    // cannot be read leaves its props undrawn, and the level as it is.
+    for (const std::filesystem::path& mesh : mods::prop_meshes()) {
+        std::string why;
+        if (const auto model = scene::load_model(mesh, g->level, why)) {
+            g->prop_models.emplace_back(mesh, *model);
+        } else {
+            log::warn("mods: prop mesh {}: {}", mesh.string(), why);
+        }
     }
     enhanced::install_texture_upscaler(g->renderer->textures());
     crash::level_breadcrumb("level scene upload", wanted);
@@ -356,6 +376,14 @@ void use_level(int number) {
             g->renderer->textures().place(kSkyTextureKey + static_cast<std::uint32_t>(i), h);
         }
     }
+    // Build shader work from earlier runs now, behind the loading screen (docs/port/RENDER_PERF.md).
+    crash::level_breadcrumb("level pipelines", wanted);
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        vkgl::finish_pipelines();
+    }
+#endif
+    renderer::gl_warmup::warm();
     crash::level_breadcrumb("level load finished", wanted);
     log::info("drawing level {} natively ({} models)", wanted, g->level.models.size());
 }
@@ -408,6 +436,7 @@ void savestate_restored(std::uint64_t tick) {
     g->overdraw = false;
     g->skipped = 0;
     g->agx.release();
+    g->haze.release();
     g->frame.release();
     g->picture.release();
     g->last_world.release();

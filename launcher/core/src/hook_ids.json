@@ -12,6 +12,7 @@
    "Hero_SetPlanarVelocity": "rac1.player.set_planar_velocity",
    "Hero_TakeDamage": "rac1.player.take_damage",
    "Hero_TurnToHeading": "rac1.player.turn_to_heading",
+   "Hero_Update": "rac1.player.update",
    "Hero_UpdateMotionInput": "rac1.player.update_motion_input",
    "Hud_QuickSelect_Draw": "rac1.hud.quick_select.draw",
    "Hud_QuickSelect_Init": "rac1.hud.quick_select.init",

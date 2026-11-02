@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <deque>
@@ -425,6 +426,67 @@ void mix_streams(std::span<std::int16_t> out) {
         }
 
         it = s.parts.empty() ? g_streams.erase(it) : it + 1;
+    }
+}
+
+// ---- The mods' own sounds (interface 1.12) ----
+
+// A sound a mod loaded, decoded whole; a voice of one playing.
+struct ModSound {
+    std::vector<std::int16_t> samples;  // interleaved
+    int channels = 1;
+    std::uint32_t rate = 44100;
+};
+
+struct ModVoice {
+    std::uint32_t handle = 0;
+    std::size_t sound = 0;
+    double position = 0.0;  // in the sound's frames
+    float volume = 1.0f;
+    float pitch = 1.0f;
+    bool loop = false;
+};
+
+std::vector<ModSound> g_mod_sounds;
+std::vector<ModVoice> g_mod_voices;
+std::uint32_t g_next_mod_voice = 1;
+// The most voices at once (OPENRAC_SOUND_VOICES_MAX).
+constexpr std::size_t kModVoicesMax = 16;
+
+// Adds the mods' voices to `out`, at group 0's master volume as the streams take theirs; a voice
+// that ran off its end (not looped) is let go.
+void mix_mod_voices(std::span<std::int16_t> out) {
+    const std::size_t frames = out.size() / 2;
+    const double master = static_cast<double>(g_master[0]) / audio::kFullVolume;
+    for (auto it = g_mod_voices.begin(); it != g_mod_voices.end();) {
+        ModVoice& v = *it;
+        const ModSound& s = g_mod_sounds[v.sound];
+        const std::size_t n = s.samples.size() / static_cast<std::size_t>(s.channels);
+        const double gain = static_cast<double>(v.volume) * master * master;
+        const double step = static_cast<double>(s.rate) / audio::kOutputRate * v.pitch;
+        bool ended = n == 0;
+        for (std::size_t f = 0; f < frames && !ended; ++f) {
+            auto i = static_cast<std::size_t>(v.position);
+            if (i >= n) {
+                if (!v.loop || step <= 0.0) {
+                    ended = true;
+                    break;
+                }
+                v.position = std::fmod(v.position, static_cast<double>(n));
+                i = static_cast<std::size_t>(v.position);
+            }
+            const double frac = v.position - static_cast<double>(i);
+            const std::size_t j = i + 1 < n ? i + 1 : (v.loop ? 0 : i);
+            for (int c = 0; c < 2; ++c) {
+                const int from = s.channels == 2 ? c : 0;
+                const double a = s.samples[i * static_cast<std::size_t>(s.channels) + from];
+                const double b = s.samples[j * static_cast<std::size_t>(s.channels) + from];
+                const double mixed = out[f * 2 + c] + (a + (b - a) * frac) * gain;
+                out[f * 2 + c] = static_cast<std::int16_t>(std::clamp(mixed, -32768.0, 32767.0));
+            }
+            v.position += step;
+        }
+        it = ended ? g_mod_voices.erase(it) : it + 1;
     }
 }
 
@@ -1051,6 +1113,7 @@ void openrac_sound_render(int16_t* interleaved, size_t frames) {
     std::lock_guard lock(g_lock);
     player().render(std::span(interleaved, frames * 2));
     mix_streams(std::span(interleaved, frames * 2));
+    mix_mod_voices(std::span(interleaved, frames * 2));
     g_rendered += frames;
 
     if (g_unheard != nullptr) {
@@ -1073,6 +1136,57 @@ void openrac_sound_set_unheard(size_t (*unheard)(void* user), void* user) {
     if (unheard == nullptr) {
         g_ended.clear();
     }
+}
+
+int openrac_sound_mod_add(const int16_t* samples, size_t frames, int channels, uint32_t rate) {
+    if (samples == nullptr || frames == 0 || (channels != 1 && channels != 2) || rate == 0) {
+        return -1;
+    }
+    std::lock_guard lock(g_lock);
+    ModSound s;
+    s.samples.assign(samples, samples + frames * static_cast<std::size_t>(channels));
+    s.channels = channels;
+    s.rate = rate;
+    g_mod_sounds.push_back(std::move(s));
+    return static_cast<int>(g_mod_sounds.size() - 1);
+}
+
+uint32_t openrac_sound_mod_play(int sound, float volume, float pitch, int loop) {
+    std::lock_guard lock(g_lock);
+    if (sound < 0 || static_cast<std::size_t>(sound) >= g_mod_sounds.size()
+        || g_mod_voices.size() >= kModVoicesMax) {
+        return 0;
+    }
+    ModVoice v;
+    v.handle = g_next_mod_voice++;
+    if (g_next_mod_voice == 0) {
+        g_next_mod_voice = 1;
+    }
+    v.sound = static_cast<std::size_t>(sound);
+    v.volume = volume;
+    v.pitch = pitch;
+    v.loop = loop != 0;
+    g_mod_voices.push_back(v);
+    return v.handle;
+}
+
+int openrac_sound_mod_set(uint32_t voice, float volume, float pitch) {
+    std::lock_guard lock(g_lock);
+    for (ModVoice& v : g_mod_voices) {
+        if (v.handle == voice) {
+            if (volume >= 0.0f) {
+                v.volume = volume;
+                v.pitch = pitch;
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void openrac_sound_mod_stop(uint32_t voice) {
+    std::lock_guard lock(g_lock);
+    std::erase_if(g_mod_voices, [&](const ModVoice& v) { return v.handle == voice; });
 }
 
 }  // extern "C"

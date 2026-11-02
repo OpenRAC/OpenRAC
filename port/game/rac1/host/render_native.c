@@ -494,6 +494,14 @@ void func_00211808(gaddr a0, gaddr a1) {
     openrac_game_moby_chain(a0, a1);
 }
 
+/* MobyAnimDecodeLocalPose (the game's C): the moby's joint records in the scratchpad. A mod's
+ * joint offsets on the hero (openrac_api.hero_set_joints) go into them too, as the port's evaluator
+ * draws him: the items he wears (O2 mask, helmets) copy his head from these records. */
+void func_L00_00255B90(gaddr s) {
+    func_L00_00255B90__game(s);
+    openrac_game_moby_local_pose(s);
+}
+
 #if !RAC1_OMIT(func_L00_00254218)
 /* The level programs' joint pose (hand-written VU0 with scratchpad DMA, 2136 bytes): poses the moby
  * a0's joints 0 to a1 - 1, each joint's matrix in the scratchpad at 0x70000000 + 0x40 * joint; with

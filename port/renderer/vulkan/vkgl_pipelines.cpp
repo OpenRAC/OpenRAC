@@ -21,6 +21,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -239,10 +241,10 @@ std::uint64_t hash_key(const PipelineKey& key) {
     return hash_words(words);
 }
 
-const VkPipeline* PipelineTable::find(const PipelineKey& key, std::uint64_t hash) const {
+std::size_t PipelineTable::find_index(const PipelineKey& key, std::uint64_t hash) const {
     // Nothing made yet.
     if (m_slots.empty()) {
-        return nullptr;
+        return kNone;
     }
 
     const std::size_t mask = m_slots.size() - 1;
@@ -254,7 +256,7 @@ const VkPipeline* PipelineTable::find(const PipelineKey& key, std::uint64_t hash
 
         // A free slot: the key was never added.
         if (slot == 0) {
-            return nullptr;
+            return kNone;
         }
 
         const std::size_t index = slot - 1;
@@ -263,9 +265,14 @@ const VkPipeline* PipelineTable::find(const PipelineKey& key, std::uint64_t hash
         // another key's pipeline.
         if (m_hashes[index] == hash
             && std::memcmp(&m_entries[index].first, &key, sizeof key) == 0) {
-            return &m_entries[index].second;
+            return index;
         }
     }
+}
+
+const VkPipeline* PipelineTable::find(const PipelineKey& key, std::uint64_t hash) const {
+    const std::size_t index = find_index(key, hash);
+    return index != kNone ? &m_entries[index].second : nullptr;
 }
 
 const VkPipeline* PipelineTable::find_reference(const std::string& key) const {
@@ -288,6 +295,13 @@ void PipelineTable::insert(const PipelineKey& key, std::uint64_t hash, VkPipelin
     m_reference.emplace(
         std::string(reinterpret_cast<const char*>(&m_entries[index].first), sizeof key), index
     );
+}
+
+VkPipeline PipelineTable::replace(const PipelineKey& key, std::uint64_t hash, VkPipeline pipeline) {
+    const std::size_t index = find_index(key, hash);
+
+    // Never made: nothing to replace. Both indexes name the entry, so both find the new one.
+    return index != kNone ? std::exchange(m_entries[index].second, pipeline) : VK_NULL_HANDLE;
 }
 
 void PipelineTable::rename_program(std::uint64_t from, std::uint64_t to) {
@@ -595,14 +609,17 @@ bool plausible_key(const PipelineKey& key) {
 
 // Makes the graphics pipeline of key `k` with the stages `vertex_module` and `fragment_module`
 // and `layout`, through the shared pipeline cache; null when the driver refuses it. It reads only
-// its arguments and the device, so the pre-warm worker calls it as the thread that draws does:
+// its arguments and the device, so the pre-warm workers call it as the thread that draws does:
 // whether the pass has colour and stencil comes from the key's formats (VK_FORMAT_UNDEFINED, 0,
-// for none). Counts nothing: the caller does.
+// for none). With `library`, only those parts of it, as a library to link (vk-pipeline-library):
+// the same state from the same key, each part taking its own and the driver ignoring the rest.
+// Counts nothing: the caller does.
 VkPipeline create_graphics_pipeline(
     const PipelineKey& k,
     VkShaderModule vertex_module,
     VkShaderModule fragment_module,
-    VkPipelineLayout layout
+    VkPipelineLayout layout,
+    VkGraphicsPipelineLibraryFlagsEXT library = 0
 ) {
     const bool colour = k.colour_format != VK_FORMAT_UNDEFINED;
     const auto depth_format = static_cast<VkFormat>(k.depth_format);
@@ -740,6 +757,30 @@ VkPipeline create_graphics_pipeline(
     info.pNext = &rendering;
     info.stageCount = 2;
     info.pStages = stages;
+    VkGraphicsPipelineLibraryCreateInfoEXT part{
+        VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT
+    };
+
+    // A part: its own stage, if it has one, and the attachments' formats only where they belong.
+    if (library != 0) {
+        part.flags = library;
+        part.pNext = &rendering;
+        info.pNext = &part;
+        info.flags = VK_PIPELINE_CREATE_LIBRARY_BIT_KHR;
+        const bool pre_raster =
+            (library & VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT) != 0;
+        const bool fragment = (library & VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT) != 0;
+        info.stageCount = pre_raster ? 1 : fragment ? 1 : 0;
+        info.pStages = pre_raster ? &stages[0] : fragment ? &stages[1] : nullptr;
+
+        // The formats are the output's; the shader parts are linked with any.
+        if ((library & VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT) == 0) {
+            rendering.colorAttachmentCount = 0;
+            rendering.depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+            rendering.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+        }
+    }
+
     info.pVertexInputState = &vertex;
     info.pInputAssemblyState = &assembly;
     info.pViewportState = &viewport;
@@ -749,6 +790,12 @@ VkPipeline create_graphics_pipeline(
     info.pColorBlendState = &blending;
     info.pDynamicState = &dynamic;
     info.layout = layout;
+
+    // The fragment stage's part takes its samples from the output's (no sample shading here).
+    if (library == VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT) {
+        info.pMultisampleState = nullptr;
+    }
+
     VkPipeline pipeline = VK_NULL_HANDLE;
 
     // A pipeline the driver refuses is null: its draws are skipped, as before a cache existed.
@@ -766,35 +813,186 @@ VkPipeline create_graphics_pipeline(
     return pipeline;
 }
 
-// Moves what the worker made into Context::pipelines. A key already there (made by a draw while
-// the entry was off) keeps its pipeline, and the worker's is destroyed: no command used it.
-// `w.mutex` must be held.
+// Returns whether a draw links a new pipeline from parts (vk-pipeline-library): the device links
+// them fast and the entry is on; never under the tests' program reuse, whose programs change serial.
+bool libraries_enabled() {
+    return g->libraries.enabled && !g->test_program_reuse
+           && renderer::render_opt::enabled(renderer::render_opt::Opt::VkPipelineLibrary);
+}
+
+// The four parts a pipeline is linked from (VK_EXT_graphics_pipeline_library).
+enum class LibraryPart : std::uint8_t {
+    VertexInput,
+    PreRaster,
+    Fragment,
+    Output
+};
+
+// Returns the library flag of `part`.
+VkGraphicsPipelineLibraryFlagsEXT library_flag(LibraryPart part) {
+    switch (part) {
+        case LibraryPart::VertexInput:
+            return VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT;
+        case LibraryPart::PreRaster:
+            return VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT;
+        case LibraryPart::Fragment:
+            return VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT;
+        case LibraryPart::Output:
+            return VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT;
+    }
+    return 0;
+}
+
+// Returns the key of `part` of the pipeline of key `k`: only the fields that part's state is made
+// from, the others zero, so the pipelines that share a part find the same one. The shader parts
+// keep the program's serial; the vertex input and the output are any program's.
+PipelineKey library_key(const PipelineKey& k, LibraryPart part) {
+    PipelineKey l;
+    std::memset(&l, 0, sizeof l);
+    l.dynamic_fixed = k.dynamic_fixed;
+
+    switch (part) {
+        case LibraryPart::VertexInput:
+            l.topology = k.topology;
+            l.restart = k.restart;
+            l.inputs = k.inputs;
+            std::memcpy(l.input, k.input, sizeof l.input);
+            break;
+        case LibraryPart::PreRaster:
+            l.program = k.program;
+            l.polygon = k.polygon;
+            l.viewports = k.viewports;
+            l.fixed.cull = k.fixed.cull;
+            l.fixed.front = k.fixed.front;
+            break;
+        case LibraryPart::Fragment:
+            l.program = k.program;
+            l.clamp_colour = k.clamp_colour;
+            l.fixed = k.fixed;
+            l.fixed.cull = 0;
+            l.fixed.front = 0;
+            break;
+        case LibraryPart::Output:
+            l.blend = k.blend;
+            l.src_rgb = k.src_rgb;
+            l.dst_rgb = k.dst_rgb;
+            l.src_a = k.src_a;
+            l.dst_a = k.dst_a;
+            l.equation = k.equation;
+            l.colour_mask = k.colour_mask;
+            l.colour_format = k.colour_format;
+            l.depth_format = k.depth_format;
+            l.samples = k.samples;
+            break;
+    }
+
+    return l;
+}
+
+// Returns the table of program-independent or program-owned parts `part` is kept in.
+std::unordered_map<std::string, VkPipeline>& library_table(LibraryPart part) {
+    PipelineLibraries& l = g->libraries;
+    switch (part) {
+        case LibraryPart::VertexInput:
+            return l.vertex_input;
+        case LibraryPart::PreRaster:
+            return l.pre_raster;
+        case LibraryPart::Fragment:
+            return l.fragment;
+        case LibraryPart::Output:
+            return l.output;
+    }
+    return l.output;
+}
+
+// Returns the part the pre-warm workers make of `part`, Whole for the parts they do not make.
+PrewarmPart prewarm_part(LibraryPart part) {
+    return part == LibraryPart::PreRaster  ? PrewarmPart::PreRaster
+           : part == LibraryPart::Fragment ? PrewarmPart::Fragment
+                                           : PrewarmPart::Whole;
+}
+
+// Returns `part`'s library part, for what the workers made.
+LibraryPart library_part(PrewarmPart part) {
+    return part == PrewarmPart::PreRaster ? LibraryPart::PreRaster : LibraryPart::Fragment;
+}
+
+// Puts whole pipeline `pipeline` of key `key` in place of the one a draw linked for it, which is
+// destroyed once the frames recorded with it are done. False when no linked one stands in.
+bool replace_linked(const PipelineKey& key, std::uint64_t hash, VkPipeline pipeline) {
+    PipelineLibraries& l = g->libraries;
+    const VkPipeline* standing = g->pipelines.find(key, hash);
+
+    // Made whole by a draw, or not linked at all.
+    if (standing == nullptr || !l.linked.contains(*standing)) {
+        return false;
+    }
+
+    const VkPipeline old = g->pipelines.replace(key, hash, pipeline);
+    l.linked.erase(old);
+    ++l.replacements;
+
+    // A program's fast lookup must not hand out the retired pipeline.
+    for (auto& [name, program] : g->programs.objects) {
+        if (program.last_pipeline == old) {
+            program.last_pipeline = VK_NULL_HANDLE;
+            program.last_pipeline_key.clear();
+        }
+    }
+
+    defer([old] { vkDestroyPipeline(g->device, old, nullptr); });
+    return true;
+}
+
+// Moves what the workers made into the tables. A whole pipeline whose key is there already keeps
+// the one there and is destroyed (a draw made it first while the entry was off), unless the one
+// there was linked from parts, which it replaces. A part goes into its library table. `w.mutex`
+// must be held; a replaced pipeline is deferred to the frame being recorded.
 void take_ready(PipelinePrewarm& w) {
-    // Each pipeline made; a null one (refused by the driver) is left for the draw to make.
-    for (const auto& [key, pipeline] : w.ready) {
+    // Each pipeline or part made; a null one (refused by the driver) is left for the draw to make.
+    for (const PrewarmDone& done : w.ready) {
         // Refused: the draw makes it, and logs the refusal again.
-        if (pipeline == VK_NULL_HANDLE) {
+        if (done.pipeline == VK_NULL_HANDLE) {
             continue;
         }
 
-        const std::uint64_t hash = hash_key(key);
+        // A part, kept until its program goes.
+        if (done.part != PrewarmPart::Whole) {
+            auto& table = library_table(library_part(done.part));
+            const auto [at, added] = table.try_emplace(key_bytes(done.key), done.pipeline);
+
+            // A draw made it first.
+            if (!added) {
+                vkDestroyPipeline(g->device, done.pipeline, nullptr);
+            }
+
+            continue;
+        }
+
+        const std::uint64_t hash = hash_key(done.key);
+
+        // In place of the linked one, or the first for its key.
+        if (replace_linked(done.key, hash, done.pipeline)) {
+            continue;
+        }
 
         // A draw made it first.
-        if (g->pipelines.find(key, hash) != nullptr) {
-            vkDestroyPipeline(g->device, pipeline, nullptr);
+        if (g->pipelines.find(done.key, hash) != nullptr) {
+            vkDestroyPipeline(g->device, done.pipeline, nullptr);
             continue;
         }
 
-        g->pipelines.insert(key, hash, pipeline);
+        g->pipelines.insert(done.key, hash, done.pipeline);
     }
 
     w.ready.clear();
 }
 
-// Moves the job of key `k` to the front of `queue`. False when no job has that key.
-bool move_to_front(std::deque<PrewarmJob>& queue, const PipelineKey& k) {
-    const auto found =
-        std::ranges::find_if(queue, [&k](const PrewarmJob& job) { return same_key(job.key, k); });
+// Moves the job of key `k` and part `part` to the front of `queue`. False when no job has them.
+bool move_to_front(std::deque<PrewarmJob>& queue, const PipelineKey& k, PrewarmPart part) {
+    const auto found = std::ranges::find_if(queue, [&k, part](const PrewarmJob& job) {
+        return job.part == part && same_key(job.key, k);
+    });
 
     // Not queued.
     if (found == queue.end()) {
@@ -806,16 +1004,24 @@ bool move_to_front(std::deque<PrewarmJob>& queue, const PipelineKey& k) {
         return true;
     }
 
-    PrewarmJob job = *found;
+    const PrewarmJob job = *found;
     queue.erase(found);
     queue.push_front(job);
     return true;
 }
 
+// Returns whether a worker is making key `k`'s `part` now. `w.mutex` must be held.
+bool is_making(const PipelinePrewarm& w, const PipelineKey& k, PrewarmPart part) {
+    return std::ranges::any_of(w.making, [&k, part](const auto& job) {
+        return job.second == part && same_key(job.first, k);
+    });
+}
+
 // Returns the pipeline of key `k` (whose hash_key is `hash`) if the pre-warm made it, waiting for
-// it when it is queued or being made; nothing when the pre-warm has no such key or is off, and
-// the draw makes it. Hot path: one lock and three tests once the worker has nothing left.
-std::optional<VkPipeline> prewarm_take(const PipelineKey& k, std::uint64_t hash) {
+// it when it is queued or being made and `wait` says so; nothing when the pre-warm has no such
+// key or is off, and the draw makes it (or links it, which is why it need not wait). Hot path:
+// one lock and three tests once the workers have nothing left.
+std::optional<VkPipeline> prewarm_take(const PipelineKey& k, std::uint64_t hash, bool wait) {
     // Off: every pipeline is made by its draw.
     if (!prewarm_enabled()) {
         return std::nullopt;
@@ -828,22 +1034,158 @@ std::optional<VkPipeline> prewarm_take(const PipelineKey& k, std::uint64_t hash)
     for (;;) {
         take_ready(w);
 
-        // Made by the worker.
+        // Made by a worker.
         if (const VkPipeline* made = g->pipelines.find(k, hash)) {
             return *made;
         }
 
-        const bool queued = move_to_front(w.queue, k);
-        const bool making = w.making.has_value() && same_key(*w.making, k);
-
-        // Not the pre-warm's: the draw makes it.
-        if (!queued && !making) {
+        // Linked from parts instead, the whole one made later.
+        if (!wait) {
             return std::nullopt;
         }
 
-        // Waiting costs at most the job being made: this key is the next one.
+        const bool queued = move_to_front(w.queue, k, PrewarmPart::Whole);
+
+        // Not the pre-warm's: the draw makes it.
+        if (!queued && !is_making(w, k, PrewarmPart::Whole)) {
+            return std::nullopt;
+        }
+
+        // Waiting costs at most the jobs being made: this key is the next one.
         w.changed.wait(lock);
     }
+}
+
+// Returns the part of key `l` (a library_key) the workers made, waiting for it when it is queued
+// or being made; null when they have none, and the draw makes it.
+VkPipeline library_take(const PipelineKey& l, LibraryPart part) {
+    const PrewarmPart job = prewarm_part(part);
+    auto& table = library_table(part);
+    const std::string bytes = key_bytes(l);
+
+    // Made before, by a draw or by a worker taken in.
+    if (const auto found = table.find(bytes); found != table.end()) {
+        return found->second;
+    }
+
+    // Not a part the workers make.
+    if (job == PrewarmPart::Whole) {
+        return VK_NULL_HANDLE;
+    }
+
+    PipelinePrewarm& w = g->prewarm;
+    std::unique_lock lock(w.mutex);
+
+    // Ends when the part is in its table, or is neither queued nor being made.
+    for (;;) {
+        take_ready(w);
+
+        // Made by a worker.
+        if (const auto found = table.find(bytes); found != table.end()) {
+            return found->second;
+        }
+
+        // Not the pre-warm's: the draw makes it.
+        if (!move_to_front(w.queue, l, job) && !is_making(w, l, job)) {
+            return VK_NULL_HANDLE;
+        }
+
+        w.changed.wait(lock);
+    }
+}
+
+// Returns `part` of the pipeline of key `k` for program `p`, with fragment stage `fragment`: the
+// one made before, or made now through the pipeline cache. Null when the driver refuses it.
+VkPipeline library_for(
+    const Program& p, const PipelineKey& k, LibraryPart part, VkShaderModule fragment
+) {
+    const PipelineKey l = library_key(k, part);
+
+    // Made before, or made ahead by a worker.
+    if (const VkPipeline made = library_take(l, part); made != VK_NULL_HANDLE) {
+        return made;
+    }
+
+    // The vertex input and the output name no program, so no layout is theirs.
+    const bool shader = part == LibraryPart::PreRaster || part == LibraryPart::Fragment;
+    const VkPipeline made = create_graphics_pipeline(
+        k, p.vertex, fragment, shader ? p.layout : VK_NULL_HANDLE, library_flag(part)
+    );
+
+    // Refused: the draw makes the whole pipeline instead.
+    if (made != VK_NULL_HANDLE) {
+        library_table(part).emplace(key_bytes(l), made);
+    }
+
+    return made;
+}
+
+// Links the pipeline of key `k` for program `p` from its four parts, without the driver's
+// link-time optimisation, which is what makes it fast (VK_EXT_graphics_pipeline_library's fast
+// linking); the whole pipeline is queued for a worker, which replaces it. Null when a part or the
+// link is refused, and the draw makes the whole one itself.
+void start_workers(PipelinePrewarm& w);
+
+VkPipeline link_pipeline(Program& p, const PipelineKey& k, VkShaderModule fragment) {
+    const profiling::Zone trace("Vulkan pipeline link");
+    std::array<VkPipeline, 4> parts{};
+
+    // Each part, made before or now; one refused ends the link.
+    for (const LibraryPart part :
+         {LibraryPart::VertexInput,
+          LibraryPart::PreRaster,
+          LibraryPart::Fragment,
+          LibraryPart::Output}) {
+        const VkPipeline made = library_for(p, k, part, fragment);
+
+        // Refused: the whole pipeline is made instead.
+        if (made == VK_NULL_HANDLE) {
+            return VK_NULL_HANDLE;
+        }
+
+        parts[static_cast<std::size_t>(part)] = made;
+    }
+
+    VkPipelineLibraryCreateInfoKHR libraries{VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR};
+    libraries.libraryCount = static_cast<std::uint32_t>(parts.size());
+    libraries.pLibraries = parts.data();
+    VkGraphicsPipelineCreateInfo info{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    info.pNext = &libraries;
+    info.layout = p.layout;
+    VkPipeline pipeline = VK_NULL_HANDLE;
+
+    // A link the driver refuses: the whole pipeline is made instead.
+    if (!check(
+            timed_pipeline_creation([&] {
+                return vkCreateGraphicsPipelines(
+                    g->device, g->pipeline_cache, 1, &info, nullptr, &pipeline
+                );
+            }),
+            "a linked pipeline"
+        )) {
+        return VK_NULL_HANDLE;
+    }
+
+    g->libraries.linked.insert(pipeline);
+    ++g->libraries.links;
+    ++g->submission.pipelines_linked;
+
+    // The whole pipeline, optimised, made on a worker and put in its place between draws.
+    // Not queued twice: the manifest may have queued it already.
+    if (prewarm_enabled()) {
+        PipelinePrewarm& w = g->prewarm;
+        std::lock_guard lock(w.mutex);
+        const bool queued = std::ranges::any_of(w.queue, [&k](const PrewarmJob& job) {
+            return job.part == PrewarmPart::Whole && same_key(job.key, k);
+        });
+        if (!queued && !is_making(w, k, PrewarmPart::Whole)) {
+            w.queue.push_back({k, p.vertex, fragment, p.layout, PrewarmPart::Whole});
+            start_workers(w);
+            w.changed.notify_all();
+        }
+    }
+
+    return pipeline;
 }
 
 // Adds key `k` of program `p` to the manifest, as made by this run, unless the program has no
@@ -873,10 +1215,11 @@ void record_manifest_key(const Program& p, const PipelineKey& k) {
 
     manifest.index.emplace(std::move(bytes), manifest.keys.size());
     manifest.keys.push_back(entry);
+    ++manifest.added;
 }
 
-// The pre-warm worker: makes each queued job's pipeline, in order, until stop is set. Runs on its
-// own thread (PipelinePrewarm::worker) and touches nothing but `w` and the device.
+// A pre-warm worker: makes each queued job's pipeline or part, in order, until stop is set. Runs
+// on its own thread (PipelinePrewarm::workers) and touches nothing but `w` and the device.
 void run_prewarm_worker(PipelinePrewarm& w) {
     profiling::thread_name("Pipeline warmup");
     std::unique_lock lock(w.mutex);
@@ -892,19 +1235,46 @@ void run_prewarm_worker(PipelinePrewarm& w) {
 
         const PrewarmJob job = w.queue.front();
         w.queue.pop_front();
-        w.making = job.key;
+        w.making.emplace_back(job.key, job.part);
 
         // The pipeline is made without the lock, so a draw may queue, find or wait meanwhile.
         lock.unlock();
+        const VkGraphicsPipelineLibraryFlagsEXT library =
+            job.part == PrewarmPart::PreRaster  ? library_flag(LibraryPart::PreRaster)
+            : job.part == PrewarmPart::Fragment ? library_flag(LibraryPart::Fragment)
+                                                : 0;
         const VkPipeline pipeline =
-            create_graphics_pipeline(job.key, job.vertex, job.fragment, job.layout);
+            create_graphics_pipeline(job.key, job.vertex, job.fragment, job.layout, library);
         lock.lock();
 
-        w.ready.emplace_back(job.key, pipeline);
+        w.ready.push_back({job.key, job.part, pipeline});
         ++w.made;
-        w.making.reset();
+        const auto mine = std::ranges::find_if(w.making, [&job](const auto& made) {
+            return made.second == job.part && same_key(made.first, job.key);
+        });
+        w.making.erase(mine);
         w.changed.notify_all();
     }
+}
+
+// Starts the pre-warm workers, if they are not running: one for each two of the CPU's threads,
+// from one to four, so that a level's pipelines are made in parallel behind its loading screen
+// and the game's own threads keep theirs. `w.mutex` must be held.
+void start_workers(PipelinePrewarm& w) {
+    // Running until the backend closes.
+    if (w.started) {
+        return;
+    }
+
+    const unsigned threads = std::thread::hardware_concurrency();
+    const unsigned count = std::clamp(threads / 2, 1U, 4U);
+
+    // Each worker's body, on its own thread until stop_pipeline_prewarm.
+    for (unsigned n = 0; n < count; ++n) {
+        w.workers.emplace_back([&w] { run_prewarm_worker(w); });
+    }
+
+    w.started = true;
 }
 
 }  // namespace
@@ -948,6 +1318,19 @@ void prewarm_program(Program& p) {
     std::lock_guard lock(w.mutex);
     const std::size_t queued = w.queue.size();
 
+    // The program's two shader parts as most of its draws take them (filled polygons, one
+    // viewport, the fixed state dynamic), so that a pipeline first needed mid-frame is only linked.
+    if (libraries_enabled()) {
+        PipelineKey part;
+        std::memset(&part, 0, sizeof part);
+        part.program = p.serial;
+        part.polygon = 0;
+        part.viewports = 1;
+        part.dynamic_fixed = fixed_state_dynamic() ? 1 : 0;
+        w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::PreRaster});
+        w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::Fragment});
+    }
+
     // Each key of this program in the manifest, as a job for this link's serial.
     for (ManifestKey& entry : g->manifest.keys) {
         // Another program's key, or one of a clamped stage (a manifest of an older run).
@@ -955,24 +1338,18 @@ void prewarm_program(Program& p) {
             continue;
         }
 
-        PrewarmJob job{entry.key, p.vertex, p.fragment, p.layout};
+        PrewarmJob job{entry.key, p.vertex, p.fragment, p.layout, PrewarmPart::Whole};
         job.key.program = p.serial;
         w.queue.push_back(job);
         entry.age = 0;
     }
 
-    // Nothing of this program was made in an earlier run.
+    // Nothing of this program to make ahead.
     if (w.queue.size() == queued) {
         return;
     }
 
-    // The first jobs start the worker; it lives until the backend closes.
-    if (!w.started) {
-        // The worker's body, on its own thread until stop_pipeline_prewarm.
-        w.worker = JoiningThread([&w] { run_prewarm_worker(w); });
-        w.started = true;
-    }
-
+    start_workers(w);
     w.changed.notify_all();
 }
 
@@ -981,19 +1358,21 @@ void prewarm_forget(std::uint64_t serial) {
     std::unique_lock lock(w.mutex);
     std::erase_if(w.queue, [serial](const PrewarmJob& job) { return job.key.program == serial; });
 
-    // The program's modules must outlive the job that uses them.
+    // The program's modules must outlive the jobs that use them.
     w.changed.wait(lock, [&w, serial] {
-        return !w.making.has_value() || w.making->program != serial;
+        return std::ranges::none_of(w.making, [serial](const auto& job) {
+            return job.first.program == serial;
+        });
     });
 
     // What was made for it and never drawn with: no command buffer holds it.
-    std::erase_if(w.ready, [serial](const std::pair<PipelineKey, VkPipeline>& done) {
+    std::erase_if(w.ready, [serial](const PrewarmDone& done) {
         // Another program's pipeline stays.
-        if (done.first.program != serial) {
+        if (done.key.program != serial) {
             return false;
         }
 
-        vkDestroyPipeline(g->device, done.second, nullptr);
+        vkDestroyPipeline(g->device, done.pipeline, nullptr);
         return true;
     });
 }
@@ -1001,7 +1380,7 @@ void prewarm_forget(std::uint64_t serial) {
 void stop_pipeline_prewarm() {
     PipelinePrewarm& w = g->prewarm;
 
-    // The worker stops after the job it is making, if any.
+    // The workers stop after the jobs they are making, if any.
     {
         std::lock_guard lock(w.mutex);
         w.stop = true;
@@ -1009,19 +1388,72 @@ void stop_pipeline_prewarm() {
         w.changed.notify_all();
     }
 
-    w.worker.join();
+    w.workers.clear();
 
     // Made, never drawn with.
-    for (const auto& [key, pipeline] : w.ready) {
-        vkDestroyPipeline(g->device, pipeline, nullptr);
+    for (const PrewarmDone& done : w.ready) {
+        vkDestroyPipeline(g->device, done.pipeline, nullptr);
     }
 
     w.ready.clear();
 
     // A run that made pipelines ahead says how many.
     if (w.made != 0) {
-        log::info("vulkan: {} pipelines made ahead on the pre-warm worker", w.made);
+        log::info("vulkan: {} pipelines and parts made ahead on the pre-warm workers", w.made);
     }
+
+    // And a run that linked pipelines from parts, how many and how many were made whole after.
+    if (g->libraries.links != 0) {
+        log::info(
+            "vulkan: {} pipelines linked from parts at their first draw, {} made whole since",
+            g->libraries.links,
+            g->libraries.replacements
+        );
+    }
+}
+
+void collect_prewarm() {
+    // Off, or nothing made: nothing to take.
+    if (!g->prewarm.started) {
+        return;
+    }
+
+    PipelinePrewarm& w = g->prewarm;
+    std::unique_lock lock(w.mutex, std::try_to_lock);
+
+    // A worker holds the lock a moment: taken at the next frame.
+    if (lock.owns_lock()) {
+        take_ready(w);
+    }
+}
+
+void release_program_libraries(std::uint64_t serial) {
+    // The shader parts of the program; the others are any program's and stay.
+    for (auto* table : {&g->libraries.pre_raster, &g->libraries.fragment}) {
+        std::erase_if(*table, [serial](const auto& entry) {
+            PipelineKey key;
+            std::memcpy(&key, entry.first.data(), sizeof key);
+
+            // Another program's.
+            if (key.program != serial) {
+                return false;
+            }
+
+            defer([part = entry.second] { vkDestroyPipeline(g->device, part, nullptr); });
+            return true;
+        });
+    }
+}
+
+void destroy_pipeline_libraries() {
+    PipelineLibraries& l = g->libraries;
+    for (auto* table : {&l.vertex_input, &l.pre_raster, &l.fragment, &l.output}) {
+        for (const auto& [key, part] : *table) {
+            vkDestroyPipeline(g->device, part, nullptr);
+        }
+        table->clear();
+    }
+    l.linked.clear();
 }
 
 void load_pipeline_manifest(const std::filesystem::path& cache) {
@@ -1073,15 +1505,15 @@ void load_pipeline_manifest(const std::filesystem::path& cache) {
     );
 }
 
-void save_pipeline_manifest() {
+std::vector<ManifestEntry> manifest_entries() {
     const PipelineManifest& manifest = g->manifest;
+    std::vector<ManifestEntry> entries;
 
     // No file to keep, or the pre-warm is off and the manifest stays as it was.
     if (manifest.path.empty() || !prewarm_enabled()) {
-        return;
+        return entries;
     }
 
-    std::vector<ManifestEntry> entries;
     entries.reserve(manifest.keys.size());
 
     // Each key some run made or used in the last kManifestMaxAge runs.
@@ -1097,17 +1529,28 @@ void save_pipeline_manifest() {
         );
     }
 
+    return entries;
+}
+
+void write_manifest(const std::filesystem::path& path, std::span<const ManifestEntry> entries) {
     std::string error;
 
     // Saved like the cache: whole, through a file of its own.
-    if (!write_pipeline_manifest(manifest.path, entries, sizeof(PipelineKey), error)) {
+    if (!path.empty() && !entries.empty()
+        && !write_pipeline_manifest(path, entries, sizeof(PipelineKey), error)) {
         log::warn("vulkan: could not save the pipeline manifest: {}", error);
     }
 }
 
+void save_pipeline_manifest() {
+    write_manifest(g->manifest.path, manifest_entries());
+}
+
 bool fixed_state_dynamic() {
+    // Linked pipelines take it as dynamic state too, so that a program's shader parts are few.
     return g->extended_dynamic_state
-           && renderer::render_opt::enabled(renderer::render_opt::Opt::VkExtendedDynamicState);
+           && (renderer::render_opt::enabled(renderer::render_opt::Opt::VkExtendedDynamicState)
+               || libraries_enabled());
 }
 
 FixedState fixed_state(const Target& t) {
@@ -1213,8 +1656,10 @@ VkPipeline pipeline_for(
         return remember_pipeline(p, bytes, *made);
     }
 
-    // Made ahead by the pre-warm worker, or being made: taken from it rather than made again.
-    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash)) {
+    // Made ahead by the pre-warm workers, or being made: taken from them rather than made again.
+    // A draw that can link its pipeline from parts waits for no whole one.
+    const bool link = libraries_enabled();
+    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, !link)) {
         return remember_pipeline(p, bytes, *warmed);
     }
 
@@ -1223,6 +1668,16 @@ VkPipeline pipeline_for(
     if (k.clamp_colour != 0) {
         if (const VkShaderModule clamped = clamped_fragment(p); clamped != VK_NULL_HANDLE) {
             fragment = clamped;
+        }
+    }
+
+    // Linked from parts at once, and made whole on a worker later (vk-pipeline-library): what
+    // would be a compile of the whole pipeline here, in the middle of a frame.
+    if (link) {
+        if (const VkPipeline linked = link_pipeline(p, k, fragment); linked != VK_NULL_HANDLE) {
+            record_manifest_key(p, k);
+            g->pipelines.insert(k, hash, linked);
+            return remember_pipeline(p, bytes, linked);
         }
     }
     const VkPipeline pipeline = create_graphics_pipeline(k, p.vertex, fragment, p.layout);
@@ -1979,8 +2434,34 @@ std::uint64_t wait_for_pipeline_prewarm() {
 
     detail::PipelinePrewarm& w = detail::g->prewarm;
     std::unique_lock lock(w.mutex);
-    w.changed.wait(lock, [&w] { return w.queue.empty() && !w.making.has_value(); });
+    w.changed.wait(lock, [&w] { return w.queue.empty() && w.making.empty(); });
     return w.made;
+}
+
+void finish_pipelines() {
+    // Closed: nothing made or kept.
+    if (detail::g == nullptr) {
+        return;
+    }
+
+    const auto start = detail::Clock::now();
+    std::uint64_t before = 0;
+    {
+        std::lock_guard lock(detail::g->prewarm.mutex);
+        before = detail::g->prewarm.made;
+    }
+    const std::uint64_t made = wait_for_pipeline_prewarm() - before;
+
+    // Said with the time it took, which the loading screen covered.
+    if (made != 0) {
+        log::info(
+            "vulkan: {} pipelines and parts made at the level's load in {:.0f} ms",
+            made,
+            detail::seconds_since(start) * 1000.0
+        );
+    }
+
+    detail::save_pipeline_caches_soon(true);
 }
 
 }  // namespace openrac::vkgl

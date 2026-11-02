@@ -50,12 +50,21 @@ The checks run on pushes to `develop` and `master` as well as pull requests, so 
 default-branch builds populate caches that later pull requests can restore. Superseded PR and
 `develop` runs are cancelled; release checks on `master` finish.
 
-Each native checks configuration has a separate compiler cache and preparation cache. The latter
-keeps dependency sources, fingerprint-checked hostgen output and CMake's configure/compiler
-metadata. Its keys include the tools, installed packages, runner image, workspace, CPU features
-and build configuration. A missing or incompatible identity falls back to normal preparation.
+Each native checks configuration has separate compiler, CMake preparation and hostgen caches.
+CMake preparation keeps dependency sources and configure/compiler metadata, keyed by tools,
+installed packages, runner image, workspace, CPU features and build configuration. A missing or
+incompatible identity falls back to normal preparation. Hostgen's cache keeps generated text
+under a separate Clang/Python, platform, workspace and compiler-package identity, without native
+CPU probes, CMake or Ninja. It can therefore survive a runner CPU change that invalidates CMake.
 Objects remain in ccache; Ninja files and test results are regenerated. Cache hits never skip
-build or test steps. Launcher checks and builds also cache Yarn archives while retaining
+build or test steps. Pull requests restore native compiler/preparation and Rust caches but do
+not save private copies: those copies cannot warm other branches and can evict shared entries
+from the repository's cache allowance. Successful branch builds refresh the shared caches.
+Compiler identity uses executable contents rather than installation timestamps. The hostgen
+cache key covers every game's sources and its shared Python helpers. Prepared source copies and
+Ninja's generation stamp are excluded: hostgen always validates its own input fingerprint and
+required files before reusing output, including when an older source snapshot is restored.
+Launcher checks and builds also cache Yarn archives while retaining
 `yarn install --immutable` and its install/link steps.
 
 ## The level editor

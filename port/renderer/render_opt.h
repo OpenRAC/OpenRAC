@@ -92,10 +92,13 @@ enum class Opt : std::uint8_t {
     PassRenderArea,       // pass-render-area: a pass loads and stores only the rectangle it touched
     OverwriteDiscard,     // overwrite-discard: a target a full-screen pass overwrites is not loaded
     ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended static passes
+    // vk-pipeline-library: a new Vulkan pipeline linked from parts made ahead, the full one later
+    VkPipelineLibrary,
+    GlStateWarmup,  // gl-state-warmup: OpenGL's drawn states drawn once more at a level's load
 };
 
-// The number of entries: ProbeFastBlended is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ProbeFastBlended) + 1;
+// The number of entries: GlStateWarmup is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::GlStateWarmup) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

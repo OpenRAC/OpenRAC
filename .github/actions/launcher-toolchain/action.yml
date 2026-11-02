@@ -37,3 +37,5 @@ runs:
         workspaces: launcher -> target
         shared-key: ${{ inputs.cache-key }}
         cache-on-failure: false
+        # PR-private snapshots cannot warm other branches and evict the shared caches.
+        save-if: ${{ github.event_name != 'pull_request' }}

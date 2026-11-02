@@ -19,6 +19,8 @@ permissions:
 env:
   # tools/build_port.py compiles on every thread of the runner (build_jobs), not all but two.
   OPENRAC_BUILD_JOBS: all
+  # Reinstalling identical compiler bytes must not invalidate all cached objects.
+  CCACHE_COMPILERCHECK: content
 
 # New PR pushes and develop merges supersede old runs; master's release checks all finish.
 concurrency:
@@ -260,6 +262,7 @@ jobs:
       - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: checks-port-release
+          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - uses: ./.github/actions/mesa-cache
         with:
@@ -277,8 +280,12 @@ jobs:
           variant: ubuntu-compatibility
           preset: release
 
-      - name: hostgen
-        run: python -m unittest discover -s port/tools/hostgen -v
+      - name: hostgen and build cache regressions
+        run: |
+          python -m unittest discover -s port/tools/hostgen -v
+          # This job installs both Clang and ccache, so the real cache fixture runs here.
+          python -m unittest discover -s tools -p test_ci_cache.py -v
+          python -m unittest discover -s tools -p test_hostgen_cache.py -v
 
       - name: Build
         working-directory: port
@@ -325,6 +332,7 @@ jobs:
       - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: checks-port-headless
+          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - name: Compilers
         run: |
@@ -361,6 +369,7 @@ jobs:
       - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: checks-port-enhanced
+          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - uses: ./.github/actions/mesa-cache
         with:
@@ -376,6 +385,7 @@ jobs:
         with:
           variant: ubuntu-enhanced-baker
           preset: enhanced
+          hostgen: "false"
 
       - name: Build enhanced lighting and baker
         working-directory: port
@@ -445,6 +455,7 @@ jobs:
       - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: checks-port-fedora
+          save: ${{ github.event_name != 'pull_request' }}
           max-size: 500M
       - uses: ./.github/actions/mesa-cache
         with:
@@ -503,6 +514,7 @@ jobs:
       - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           key: checks-port-windows
+          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - uses: ./.github/actions/clang-windows
 

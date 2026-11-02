@@ -749,8 +749,11 @@ void release_program(Program& p) {
     // Called by erase_program, on this thread, for each pipeline of the program: destroyed once
     // the frames that may still draw with it are done.
     g->pipelines.erase_program(p.serial, [](VkPipeline pipeline) {
+        g->libraries.linked.erase(pipeline);
         defer([pipeline] { vkDestroyPipeline(g->device, pipeline, nullptr); });
     });
+    // And the parts its pipelines were linked from (vk-pipeline-library).
+    release_program_libraries(p.serial);
     p.vertex = p.fragment = VK_NULL_HANDLE;
     p.fragment_clamped = VK_NULL_HANDLE;
     p.clamped_tried = false;

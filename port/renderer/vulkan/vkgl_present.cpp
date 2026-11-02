@@ -57,6 +57,7 @@ struct Gauge {
 // clang-format off: one gauge per row.
 constexpr auto kGauges = std::to_array<Gauge>({
     {"vk_pipelines_created", &SubmissionCounters::pipelines_created, Span::Total},
+    {"vk_pipelines_linked", &SubmissionCounters::pipelines_linked, Span::Total},
     {"vk_pipelines_created_after_warmup", &SubmissionCounters::pipelines_created_after_warmup,
      Span::Total},
     {"vk_descriptor_sets_allocated", &SubmissionCounters::descriptor_sets_allocated, Span::Frame},
@@ -460,6 +461,14 @@ void prepare_frame() {
     f.chunk_at = 0;
     f.chunk_used = 0;
     begin_buffers();
+
+    // What the pre-warm workers made since, a whole pipeline in place of a linked one retired
+    // with this frame; and, every two minutes that made new pipelines, the caches saved on a
+    // thread of their own, so a run killed or crashed keeps them.
+    collect_prewarm();
+    if (Clock::now() - g->saved_at >= std::chrono::minutes(2)) {
+        save_pipeline_caches_soon(false);
+    }
 
     // A copy that waited for a screen there was not (no window, or none shown): made now, so the
     // default framebuffer holds what glBlitFramebuffer put there, as before.

@@ -93,6 +93,8 @@ before and after, and how its frames are shown to be the same.
 | `effect-strip-shader` | on | none (exact) | Material-approved surface-zero strips without UV animation use the existing plain effect shader. |
 | `fsr-object-history-reuse` | on | none (exact) | Retains history nodes for surviving object identities and erases vanished identities each displayed frame. |
 | `moby-glow-skip` | on | none (exact) | The mobys' two glow draws leave out the triangles with no glow packet vertex, whose every fragment they would discard ([moby-glow-skip](#moby-glow-skip-glow-draws-without-the-faces-they-discard)). |
+| `vk-pipeline-library` | on | none (exact) | A new pipeline is linked at once from parts built ahead; a worker builds the optimised one and swaps it in. Desktop only ([vk-pipeline-library](#vk-pipeline-library-pipelines-linked-from-parts)). |
+| `gl-state-warmup` | on | none (exact) | OpenGL: saves each draw state per driver and draws it once into a private target at level load, so driver recompiles happen there ([OpenGL's states behind the loading screen](#opengls-states-behind-the-loading-screen)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -127,6 +129,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_cmds_other` | frame | `vkCmdClearAttachments` and the debug labels | `vkgl_commands.cpp` | |
 | `vk_pipelines_created` | total | Graphics and compute creations on the drawing thread; excludes prewarm workers | `vkgl_internal.h` | R-10, R-11 |
 | `vk_pipelines_created_after_warmup` | total | Of those, the ones made after the warm-up `vkgl::begin_pipeline_warmup(N)` started (N frames after the benchmark's level upload); 0 until it is called | the same | R-10 |
+| `vk_pipelines_linked` | total | Pipelines a draw linked from parts (vk-pipeline-library); not in `vk_pipelines_created` | `vkgl_pipelines.cpp` | vk-pipeline-library |
 | `vk_descriptor_sets_allocated` | frame | Descriptor sets allocated, the material pages' included | `vkgl_pipelines.cpp`, `gpu_materials.inc` | R-14 |
 | `vk_descriptor_writes` | frame | `VkWriteDescriptorSet` entries written | `vkgl_pipelines.cpp`, `gpu_materials.inc`, `gpu_draw.inc` | R-14 |
 | `vk_render_passes` | frame | Render passes begun | `vkgl_commands.cpp`, `vkgl_gl.cpp` (a depth resolve) | R-06, R-07 |
@@ -1733,6 +1736,47 @@ either way, and the saving is the CPU time of the hash and the table probe in `v
 **Equivalence.** `render_equivalence_vulkan` draws the entry on and off in every scenario,
 Enhanced off and on, byte for byte under the validation layer. `vulkan_uniform` has the author's
 test of alternating depth and blend states through one program.
+
+## vk-pipeline-library: pipelines linked from parts
+
+Before, the first draw of a new state compiled a whole pipeline mid-frame (tens of ms on desktop
+drivers). Now it works like DXVK (`vkgl_pipelines.cpp`, `vkgl_device.cpp`):
+
+- A pipeline is built from four parts: vertex input, pre-raster (vertex shader), fragment
+  (fragment shader, depth) and output (blend, formats). Fixed state is dynamic, so a program
+  usually needs one pair of shader parts.
+- When a program links, the workers compile its two shader parts behind the loading screen.
+- A draw with a new key links the parts at once (fast linking, under 1 ms). A worker then builds
+  the optimised whole pipeline, and the next frame swaps it in (`collect_prewarm`). The key goes
+  into the manifest, so the next run builds it whole ahead.
+- Needs `VK_EXT_graphics_pipeline_library` with fast linking. Off on Android. The log says
+  `pipelines linked from parts at a draw: yes/no`. If the driver refuses a part, the draw builds
+  the whole pipeline as before.
+
+`vk_pipelines_linked` counts links (they are not in `vk_pipelines_created`).
+**Equivalence:** `render_equivalence_vulkan` and `vulkan_prewarm`, on and off, byte for byte.
+
+## Pipelines behind the loading screen
+
+The pre-warm now runs one to four workers (half the CPU threads), and a level load ends with
+`vkgl::finish_pipelines()` (`game/common/frontend/world.cpp`), which waits for the queue. So the
+pipelines from earlier runs are built during the loading screen, not in the first frames. The
+manifest and pipeline cache are saved on a background thread at each load and every two minutes,
+so a crash or a kill from the launcher no longer loses them.
+
+## OpenGL's states behind the loading screen
+
+A GL driver silently recompiles a program the first time it is drawn with new state that changes
+its machine code: target formats and samples, blend, colour mask, vertex formats. Program
+binaries (`program_cache.h`) do not cover this.
+
+`renderer/gl_warmup.cpp` wraps the draw and state calls. A draw in a new state is saved with its
+program's sources (`program_cache::Key`) to `<cache>/gl_states/<driver>.bin`. A known state costs
+one compare. States not seen for eight runs are dropped.
+
+At each level load, `gl_warmup::warm()` draws each saved state once: one empty triangle into a
+private 4x4 target with the same formats. It then restores all GL state it changed. The game's
+own targets are never touched. Programs not built by `Shader::build` are skipped.
 
 ## fsr-motion-batch: object motion in batches
 

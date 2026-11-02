@@ -926,35 +926,45 @@ void pictures(gaddr options_page, gaddr list, gaddr game_items) {
     GREF(std::uint32_t, screen + pause_options::kStreamEntries) = m.pictures;
 }
 
+// The Options page (pause_options.h): its list's items are the game's with Camera in them; they
+// become ours, with the hints and pictures to match. Another page's focus may be no list at all: the
+// item grids keep floats where a list keeps its items.
+void options_items(gaddr page) {
+    const gaddr list =
+        pause_options::options_list([](gaddr at) { return GREF(std::uint32_t, at); }, page);
+    if (list == 0) {
+        return;
+    }
+    const gaddr items = GREF(std::uint32_t, list + 0x34);
+    gaddr camera = 0, sound = 0;
+    if (items != 0 && items != m.items && count_items(items, &camera, &sound) > 0 && camera != 0) {
+        if (m.items_for != items) {
+            make(items);
+            m.hints_for = 0;
+        }
+        hints(page, items);
+        pictures(page, list, items);
+        GREF(std::uint32_t, list + 0x34) = m.items;
+    }
+}
+
 bool update(gaddr page_menu, gaddr pad) {
     const gaddr shown = GREF(std::uint32_t, page_menu + 4);
     if (shown == 0) {
+        // Between pages (menu_system.current 0, .next the page coming): the Options page gets its
+        // items before the game enters it, or its rows first show without Video and move on the
+        // next frame.
+        const gaddr next = GREF(std::uint32_t, page_menu + 8);
+        if (next != 0 && next != m.page) {
+            options_items(next);
+        }
         return false;
     }
     if (std::any_of(m.mods.begin(), m.mods.end(), [&](const Rows& r) { return r.page == shown; })) {
         return false;  // a mod's page: mod_ui.cpp's
     }
     if (shown != m.page || m.page == 0) {
-        // The Options page (pause_options.h): its list's items are the game's with Camera in them.
-        // Another page's focus may be no list at all: the item grids keep floats where a list keeps
-        // its items.
-        const gaddr list =
-            pause_options::options_list([](gaddr at) { return GREF(std::uint32_t, at); }, shown);
-        if (list == 0) {
-            return false;
-        }
-        const gaddr items = GREF(std::uint32_t, list + 0x34);
-        gaddr camera = 0, sound = 0;
-        if (items != 0 && items != m.items && count_items(items, &camera, &sound) > 0
-            && camera != 0) {
-            if (m.items_for != items) {
-                make(items);
-                m.hints_for = 0;
-            }
-            hints(shown, items);
-            pictures(shown, list, items);
-            GREF(std::uint32_t, list + 0x34) = m.items;
-        }
+        options_items(shown);
         return false;
     }
     // The port's Video page.

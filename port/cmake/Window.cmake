@@ -200,10 +200,12 @@ add_library(openrac_renderer STATIC
   enhanced/renderer/gtao.cpp
   renderer/gl.cpp
   renderer/gl_stats.cpp
+  renderer/haze.cpp
   renderer/renderer.cpp
   renderer/shadow_volume.cpp
   renderer/shadows.cpp
   renderer/program_cache.cpp
+  renderer/gl_warmup.cpp
   renderer/shader.cpp
   renderer/subsystems.cpp
   renderer/texture.cpp
@@ -227,6 +229,8 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow_composite.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
 if(OPENRAC_VULKAN)
@@ -691,6 +695,8 @@ set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(program_cache LIBS openrac_renderer openrac_platform)
 set_tests_properties(program_cache PROPERTIES SKIP_RETURN_CODE 77)
+openrac_add_test(gl_warmup LIBS openrac_renderer openrac_platform)
+set_tests_properties(gl_warmup PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop")
 
 # Precise world depth (renderer/precise_depth.h): walls 1 cm apart, parted at every distance.
 openrac_add_test(precise_depth LIBS openrac_renderer openrac_platform)

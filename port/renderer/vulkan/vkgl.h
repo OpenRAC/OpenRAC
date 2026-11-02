@@ -224,6 +224,8 @@ struct SubmissionCounters {
     // The vkCmd* recorded, by Command; commands_recorded() adds them up.
     std::array<std::uint64_t, kCommandKinds> commands{};
     std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
+    // Pipelines a draw linked from parts (vk-pipeline-library), not counted in pipelines_created.
+    std::uint64_t pipelines_linked = 0;
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
     std::uint64_t descriptor_sets_allocated = 0;  // Every vkAllocateDescriptorSets set.
@@ -298,6 +300,12 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
 // and returns how many it has made since the backend opened; 0 at once while it is closed. For
 // the tests, which then draw and count the pipelines the drawing thread had to make itself.
 std::uint64_t wait_for_pipeline_prewarm();
+
+// For a level's load, behind its loading screen: waits until the pre-warm workers have made every
+// pipeline and part queued when the level's programs linked (the pipelines earlier runs drew them
+// with), so that its first frames make none, and saves the pipeline caches on a thread of their
+// own if this run made new pipelines. Nothing while the backend is closed.
+void finish_pipelines();
 
 // When the presents have been seen to reach the screen (VK_KHR_present_wait, under the registry's
 // present-timing). `visible` is the moment the backend saw present `id` finished, on the steady

@@ -37,6 +37,7 @@
 #include "platform/input.h"
 #include "platform/window.h"
 #include "renderer/framebuffer.h"
+#include "renderer/haze.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "scene/level.h"
@@ -102,6 +103,8 @@ struct Kept {
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
+    // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
+    std::vector<std::array<float, 5>> haze;
 
     // Mobys the game drew into a texture with a camera of its own (the vendor's screens): each
     // drawn at its marker in the 2D path (renderer::FrameInput::target_mobys). `on_screen`: a
@@ -222,6 +225,7 @@ struct State {
     std::unique_ptr<enhanced::Fsr3>
         temporal;  // Optional enhanced upscaler, released before the window.
     enhanced::AgxPreview agx;
+    renderer::Haze haze;  // the mods' heat haze (interface 1.12)
     renderer::FrameBuffer frame;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
     // The last frame the game drew its world in: what its draw buffer still holds on a frame it
@@ -232,6 +236,9 @@ struct State {
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;  // the mod's texture, its framebuffer
     scene::LevelData level;
+    // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
+    // model in `level`.
+    std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
     scene::ObjectPicker picker;
     scene::LevelScene scene;
     DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.

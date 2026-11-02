@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "renderer/gl.h"
+#include "renderer/gl_warmup.h"
 #include "renderer/program_cache.h"
 #include "renderer/shader_precision.h"
 #include "renderer/texture_filter.h"
@@ -233,6 +234,7 @@ bool Shader::build(
         }
         program_cache::store(key, program);
     }
+    gl_warmup::note_program(program, key);
     release();
     m_program = program;
     m_locations.clear();
