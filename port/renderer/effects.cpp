@@ -406,12 +406,17 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                 t.afail == gs::AlphaFail::FbOnly || t.afail == gs::AlphaFail::RgbOnly;
             const bool fail_alpha = t.afail == gs::AlphaFail::FbOnly;
             const bool fail_z = t.afail == gs::AlphaFail::ZbOnly && set->z_write;
-            if (!t.ate || t.atst == gs::AlphaTest::Always || m_active_shader != &m_test_shader) {
-                call(0, false, true, true, set->z_write);
-            } else if (t.atst == gs::AlphaTest::Never) {
+            // ATST NEVER needs no shader's alpha test: every pixel fails, and only what AFAIL keeps
+            // is written. Going Commando's nanotech orb draws its glow and the crate's glass faces
+            // so (TEST 0x53001: NEVER, RGB_ONLY, ZBUF without ZMSK): colour only, no Z. Taken as
+            // passing, with Z, the glass faces hid the orb's sparks inside the crate.
+            if (t.ate && t.atst == gs::AlphaTest::Never) {
                 if (t.afail != gs::AlphaFail::Keep) {
                     call(0, false, fail_colour, fail_alpha, fail_z);
                 }
+            } else if (!t.ate || t.atst == gs::AlphaTest::Always
+                       || m_active_shader != &m_test_shader) {
+                call(0, false, true, true, set->z_write);
             } else {
                 call(static_cast<int>(t.atst), false, true, true, set->z_write);
                 if (t.afail != gs::AlphaFail::Keep) {
