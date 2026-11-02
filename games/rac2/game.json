@@ -42,6 +42,10 @@
         "mirror": true,
         "rewrites": [
           [
+            "extern void func_0028EA58(",
+            "extern int func_0028EA58("
+          ],
+          [
             "extern void Ff67aa9df_FUN_0027EA28(void *v, void *x);",
             "extern void func_0027EA28(void *v, void *x);"
           ],
@@ -190,7 +194,7 @@
             "extern char D_001C4FA0[];       /* Q: the selection state */\nextern char D_0025E680[], D_0025A498[];\n"
           ]
         ],
-        "commit": "c89b67ce52adb1685b4398e261ef4f5483809c94",
+        "commit": "c714beab03c1de3c690e58040b832c2bd9591d1a",
         "date": "2026-11-01",
         "imported": "2026-11-01"
       },

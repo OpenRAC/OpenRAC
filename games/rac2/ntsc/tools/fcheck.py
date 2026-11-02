@@ -189,6 +189,13 @@ for _level in sorted(levels.NAMES):
     if _level:
         SCRIPTS[f"level{_level:02d}"] = {**SCRIPTS["level00"], "level": _level, "per_phase": 1,
                                          "writes": [f"900:{NEXT_LEVEL:x}:{_level:x}:740"]}
+# $RAC2_FCHECK_MOVES names a JSON file of scripts laid over these by name: a level's run with its
+# own presses, sticks and writes, plus "keys" (words whose values cut the run instead of phases:
+# openrac-boot --capture-key) and "limit" (most states of a function, --capture-limit). The hero's
+# moves are reached that way; their states go in a root of their own ($RAC2_FCHECK_STATES).
+if os.environ.get("RAC2_FCHECK_MOVES"):
+    for _name, _script in json.loads(Path(os.environ["RAC2_FCHECK_MOVES"]).read_text()).items():
+        SCRIPTS[_name] = {**SCRIPTS.get(_name, {}), **_script}
 SHF_WRITE = 1
 STT_FUNC, STT_SECTION = 2, 3
 SHN_ABS = 0xFFF1
@@ -944,6 +951,49 @@ def returns(name: str, text: str) -> str:
     return "int"
 
 
+@lru_cache(maxsize=None)
+def call_copy_rows() -> dict[str, list[tuple[str, int, int, int, int, int]]]:
+    """OpenRAC's port/game/rac2-ntsc/call_copies.tsv (hostgen's copycalls.py): per caller, the calls
+    that differ between the places of a folded function, as (callee, home, canon, size, own, exe)."""
+    out: dict[str, list[tuple[str, int, int, int, int, int]]] = {}
+    path = OPENRAC / "port/game/rac2-ntsc/call_copies.tsv"
+    if path.is_file():
+        for line in path.read_text().splitlines():
+            if line.startswith("#") or not line.strip():
+                continue
+            c = line.split("\t")
+            out.setdefault(c[0], []).append((c[1], int(c[2]), int(c[3], 16), int(c[4]), int(c[5], 16), int(c[6], 16)))
+    return out
+
+
+def call_copies(name: str, prog: "Program") -> dict[str, int]:
+    """Callee name -> the address NAME's copy in PROG calls in its place, for the calls the port makes
+    through openrac_call_in_copy (call_copies.tsv): the jal at the same offset of PROG's copy as
+    the home copy's jal to the callee. The port calls what the running copy calls; so does the gate."""
+    out: dict[str, int] = {}
+    rows = call_copy_rows().get(name, [])
+    if not rows or name not in prog.functions():
+        return out
+    here, size = prog.functions()[name]
+    mine = prog.retail(here, size) if prog.level is not None else retail_bytes(here, size)
+    for callee, home, canon, csize, own, exe in rows:
+        if prog.level is None:
+            if exe:
+                out.setdefault(callee, exe)
+            continue
+        ref = Program(home).retail(canon, min(csize, size))
+        targets = set()
+        for k in range(0, min(len(ref), len(mine)) - 3, 4):
+            w = struct.unpack_from("<I", ref, k)[0]
+            if w >> 26 == 3 and (w & 0x3FFFFFF) << 2 == own:
+                m = struct.unpack_from("<I", mine, k)[0]
+                if m >> 26 == 3:
+                    targets.add((m & 0x3FFFFFF) << 2)
+        if len(targets) == 1:
+            out[callee] = targets.pop()
+    return out
+
+
 class Resolver:
     """Retail values of the symbols NAME's candidate (object OBJ) refers to, in program PROG, for
     Placer: OWN and OTHERS are unit_values'. A named symbol, in order: what NAME's own matched C
@@ -987,6 +1037,7 @@ class Resolver:
                     self.boot_derived[k] = copy_map(prog.level, "call")[v]
         self.aligned: dict[str, int] | None = None
         self.from_bytes: list[str] = []
+        self.copy_calls = call_copies(name, prog)
 
     def boot_value(self, n: str) -> int | None:
         """NAME's value in the boot: its function's address, the boot build's value, or the address
@@ -997,6 +1048,8 @@ class Resolver:
         return int(v, 16) if v is not None else build.address_in_name(n)
 
     def named(self, n: str) -> int | None:
+        if n in self.copy_calls:
+            return self.copy_calls[n]
         if n in self.own:
             return self.own[n] & 0xFFFFFFFF
         if self.local:
@@ -1147,6 +1200,8 @@ def states_of(name: str, root: Path | None = None) -> list[Path]:
 def script_program(script: str) -> Program:
     """The program a capture run's level part runs: a script's "level", else the boot."""
     s = SCRIPTS.get(script, {})
+    if re.fullmatch(r"w\d\d[a-z]+\d*x?", script):     # a wide capture run: wNN, NN its level
+        return Program(int(script[1:3]))
     return Program(s["level"]) if "level" in s else BOOT_PROGRAM
 
 
@@ -1197,6 +1252,8 @@ def capture(names: list[str], script: str, frames: int | None = None, force: boo
         cmd += ["--stick", p]
     for p in s.get("writes", []):
         cmd += ["--write", p]
+    if s.get("keys"):
+        cmd += ["--capture-key", ",".join(s["keys"]), "--capture-limit", str(s.get("limit", 0))]
     with open(out / "capture.log", "a") as log:
         log.write("$ " + shlex.join(cmd) + "\n")
         log.flush()
@@ -1300,6 +1357,32 @@ def check(name: str, candidate: Path | None, ulps: int = 0, work: Path | None = 
     return 4
 
 
+def cover(name: str, out: Path) -> int:
+    """Which of NAME's retail instructions its captured calls run, per program, into OUT: lines of
+    "PROGRAM ADDRESS WORDS STATES RETURNED MAP", MAP one digit an instruction. Retail only: an
+    untaken path is what a SAME says nothing about."""
+    groups: dict[Program, list[Path]] = {}
+    for s in states_of(name):
+        groups.setdefault(state_program(name, s), []).append(s)
+    lines = []
+    for prog, states in sorted(groups.items(), key=lambda g: -1 if g[0].level is None else g[0].level):
+        if name not in prog.functions():
+            continue
+        address, size = prog.functions()[name]
+        tmp = out.with_suffix(f".{prog.key}.tmp")
+        r = subprocess.run([str(FCHECK), "--hooks", str(HOOKS), "--disc", str(DISC), "--limit", str(RETAIL_LIMIT),
+                            "--entry", f"{address:x}", "--coverage", str(tmp), "--cover-size", str(size),
+                            *map(str, states)], capture_output=True, text=True)
+        if r.returncode:
+            print(f"{name}: {prog.label}: {(r.stderr or r.stdout).strip()[-200:]}")
+        elif tmp.is_file():
+            lines += [f"{prog.key} {l}" for l in tmp.read_text().splitlines()]
+        if tmp.exists():
+            tmp.unlink()
+    out.write_text("".join(l + "\n" for l in lines))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1322,6 +1405,9 @@ def main() -> int:
     p.add_argument("--script", default="all", choices=["all", *SCRIPTS])
     p.add_argument("--frames", type=int)
     p.add_argument("--force", action="store_true")
+    p = sub.add_parser("cover", help="which of NAME's retail instructions its captured calls run")
+    p.add_argument("name")
+    p.add_argument("out", type=Path)
     p = sub.add_parser("source", help="NAME's unit, whether it is C or assembly there, and its definition's span")
     p.add_argument("name")
     sub.add_parser("scripts")
@@ -1346,6 +1432,8 @@ def main() -> int:
             got, asked = capture(names, s, a.frames, a.force, wanted=wanted)
             print(f"{s}: {got} of {asked} functions called")
         return 0
+    if a.cmd == "cover":
+        return cover(a.name, a.out)
     if a.cmd == "source":
         if a.name not in sources():
             print(json.dumps({"name": a.name}))
