@@ -183,7 +183,7 @@ void func_00132498(int sector, int offset, int callback, long long argument) {
  * EE's memory would have read as zeros. */
 int func_001326D8(int bank) {
     size_t available = 0;
-    const uint8_t* at = openrac_lib_iop_bytes((uint32_t)bank, &available);
+    const uint8_t* at = openrac_iop_bytes((uint32_t)bank, &available);
     if (openrac_env_string("OPENRAC_SOUND_LOG") != NULL && at != NULL && available >= 16) {
         uint32_t w[4];
         memcpy(w, at, sizeof(w));

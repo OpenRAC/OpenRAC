@@ -276,7 +276,7 @@ unsigned int openrac_lib_sceSifSetDma(gaddr transfers, int count) { /* sceSifSet
 
 /* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
  * past its end. */
-const uint8_t* openrac_lib_iop_bytes(uint32_t address, size_t* available) {
+const uint8_t* openrac_iop_bytes(uint32_t address, size_t* available) {
     if (address >= IOP_BYTES) {
         return NULL;
     }
