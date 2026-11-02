@@ -92,6 +92,7 @@ void GifInterpreter::clear() {
     m_vertices.clear();
     m_draws.clear();
     m_hud_side = 0;
+    m_whole = false;
     m_error.clear();
 }
 
@@ -337,6 +338,9 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
                 draw_frame_snapshot();
             } else if ((value >> 48) == kHudSideMarker) {
                 hud_side(static_cast<std::int32_t>(value & 0xFFFFFFFFu));
+            } else if ((value >> 48) == kWholeMarker) {
+                m_whole = (value & 1u) != 0;
+                m_state_dirty = true;
             } else if ((value >> 48) == kMobyMarker && offscreen_target() != 0) {
                 DirectDraw d;
                 d.state.target = offscreen_target();
@@ -1127,6 +1131,7 @@ void GifInterpreter::ensure_draw() {
         const Context& c = context();
         DirectState s;
         s.textured = p.tme;
+        s.whole = m_whole;
         int frame_x = 0;
         int frame_y = 0;
         s.target = offscreen_target();
@@ -2002,7 +2007,8 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         // nothing is stretched, except what covered the whole screen: a plain fill that spans the
         // picture's whole width (a fade, a clear, a letterbox bar) and the frame itself drawn
         // again. Those are the whole target's. A texture of the pool across the whole width (a
-        // loading picture's band) keeps its shape in the middle.
+        // loading picture's band) keeps its shape in the middle; what a kWholeMarker pair holds (a
+        // still picture's backdrop) is the whole target's.
         std::vector<DirectVertex> placed(vertices.begin(), vertices.end());
         for (const DirectDraw& d : m_interpreter->draws()) {
             const DirectState& s = d.state;
@@ -2022,7 +2028,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 // its frame in strips 32 pixels wide): its part of the whole target.
                 const float lo_y = std::min({placed[i].y, placed[i + 1].y, placed[i + 2].y});
                 const float hi_y = std::max({placed[i].y, placed[i + 1].y, placed[i + 2].y});
-                const bool whole = of_frame
+                const bool whole = of_frame || s.whole
                     || (!s.textured && ((lo <= -0.995f && hi >= 0.995f) || (lo_y <= -0.995f && hi_y >= 0.995f)));
                 // What lies along one side of the picture (the black line the game draws down the
                 // screen's first column) was at the television's edge; in the middle of a wider

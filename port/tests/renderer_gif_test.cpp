@@ -49,6 +49,45 @@ void sprite() {
     CHECK(near(first.z, static_cast<float>(100.0 / 16777215.0 * 2.0 - 1.0)));
 }
 
+// Between kWholeMarker's two markers the draws are the whole target's (a picture's backdrop); the
+// draw after the closing one is the picture's again, and the marker draws nothing itself.
+void whole_target_marker() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    auto square = [](GifBuilder& to, std::uint8_t red, bool eop = false) {
+        to.ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+               {gs::kRgbaq, rgbaq(red, 0, 0, 0x80)},
+               {gs::kXyz2, xyz2(0, 0, 0)},
+               {gs::kXyz2, xyz2(64, 64, 0)}},
+              eop);
+    };
+    constexpr std::uint8_t kNop = 0x7F;
+    square(b, 1);
+    b.ad({{kNop, GifInterpreter::kWholeMarker << 48 | 1}});
+    square(b, 2);
+    b.ad({{kNop, GifInterpreter::kWholeMarker << 48}});
+    square(b, 3, true);
+    CHECK(gif.gif(b.bytes));
+    CHECK(gif.vertices().size() == 18);
+    CHECK(gif.draws().size() == 3);
+    if (gif.draws().size() == 3) {
+        CHECK(!gif.draws()[0].state.whole);
+        CHECK(gif.draws()[1].state.whole);
+        CHECK(!gif.draws()[2].state.whole);
+    }
+    // A new frame starts outside any pair.
+    gif.clear();
+    GifBuilder c;
+    c.ad({{kNop, GifInterpreter::kWholeMarker << 48 | 1}}, true);
+    CHECK(gif.gif(c.bytes));
+    gif.clear();
+    GifBuilder d;
+    square(d, 4, true);
+    CHECK(gif.gif(d.bytes));
+    CHECK(gif.draws().size() == 1 && !gif.draws()[0].state.whole);
+}
+
 void strips_and_kicks() {
     TexturePool textures;
     GifInterpreter gif(textures);
@@ -501,6 +540,7 @@ void blend_weights() {
 int main() {
     blend_weights();
     sprite();
+    whole_target_marker();
     strips_and_kicks();
     packed_and_reglist();
     draw_groups();
