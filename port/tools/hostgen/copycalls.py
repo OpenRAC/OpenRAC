@@ -64,6 +64,7 @@ def rows(source: Path) -> list[tuple[str, str, int, int, int, int, int]]:
     baserom = source / "baserom"
     table: list[tuple[str, str, int, list[tuple[int, int]]]] = []
     names: dict[tuple[int, int], str] = {}
+    kinds: dict[str, str] = {}
     for line in (source / "config/levels/functions.tsv").read_text().splitlines():
         if line.startswith("#"):
             continue
@@ -72,6 +73,7 @@ def rows(source: Path) -> list[tuple[str, str, int, int, int, int, int]]:
             continue
         places = [(int(p[:2]), int(p[3:], 16)) for p in cols[5].split(",") if p]
         table.append((cols[0], cols[1], int(cols[2]), places))
+        kinds[cols[0]] = cols[1]
         for place in places:
             names[place] = cols[0]
     programs = {int(d.name[:2]): level_sections(d) for d in sorted((baserom / "levels").iterdir())
@@ -90,9 +92,17 @@ def rows(source: Path) -> list[tuple[str, str, int, int, int, int, int]]:
         for i in range(size // 4):
             targets = {(level, address): jal_target(w[i]) for level, address, w in copies}
             called = {names.get((level, t), f"?{t:X}") for (level, _), t in targets.items() if t is not None}
+            exe_target = jal_target(own_exe[i]) if own_exe else None
+            if len(called) == 1 and exe_target is not None:
+                # Every level calls one function, but the executable's copy calls another: a level
+                # function (func_L00_0030DDB0) whose executable twin the catalogue did not pair
+                # (func_0029CCD8). C of the executable's function that names the level's runs the
+                # level's code in the executable too; the row gives the executable its own target.
+                (only,) = called
+                if not (kinds.get(only) == "boot" and int(only[-8:], 16) == exe_target):
+                    called = called | {f"exe:{exe_target:X}"}
             if len(called) < 2:
                 continue
-            exe_target = jal_target(own_exe[i]) if own_exe else None
             for (level, address), t in targets.items():
                 name = names.get((level, t)) if t is not None else None
                 if name is not None and name not in found:
