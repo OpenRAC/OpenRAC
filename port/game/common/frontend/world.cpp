@@ -371,6 +371,7 @@ void savestate_restored(std::uint64_t tick) {
     g->pending_frame.reset();
     g->prepared_tick.reset();
     g->pending_images.clear();
+    g->images_after_list.clear();
     g->images.clear();
     g->water_impulses.clear();
     g->kept = std::make_shared<Kept>();

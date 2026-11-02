@@ -310,6 +310,8 @@ struct State {
         pending_frame;  // Window-thread owned; worker writes its result.
     std::vector<renderer::ImageUpload>
         pending_images;          // Game-thread uploads held until the worker finishes.
+    std::vector<renderer::ImageUpload>
+        images_after_list;       // Sent again a capture later (GameProfile::images_outlast_list).
     bool render_failed = false;  // A caught render error terminates the frontend cleanly.
 };
 
