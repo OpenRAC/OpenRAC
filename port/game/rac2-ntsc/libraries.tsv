@@ -201,3 +201,22 @@ func_001338F0	989snd	snd_StartMovieSound	host	command 0x3E
 func_00133930	989snd	snd_UpdateMovieADPCM	host	command 0x5A
 func_00133960	989snd	snd_GetMovieNAX	host	command 0x5B
 func_001326D8	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
+func_0027F2A8	draw	FontPrint	wrap	a string, glyph by glyph: its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
+func_0027F640	draw	FontPrintScaled	wrap	func_0027F2A8 at a scale, with float positions: its quads are marked as glyphs (host/ui2d.c)
+func_0027E018	draw	DrawGlyphQuad	wrap	the 2D layer's textured quad: drawn natively (host/ui2d.c)
+func_0027E1A0	draw	DrawTexturedQuad2d	wrap	the 2D layer's quad with float corners: a glyph drawn natively (host/ui2d.c)
+func_0034E4F8	hud	DrawHudWidgets	wrap	the HUD's widgets (weapon, ammunition, health, bolts): with "HUD: Edges" two markers have the window draw them out at the sides of a wider picture (host/hud.c)
+func_0028E458	hud	UpdateHud	wrap	the level HUD's slots: with the player's "HUD: Edges" the elements anchored left or right are drawn out at the sides of a picture wider than the game's (host/hud.c)
+func_0028E868	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host/ui2d.c)
+func_0028ECD8	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
+func_0028EE98	hud	HudSpriteFine	wrap	a HUD texture as a sprite, in 16ths of a pixel: drawn natively (host/ui2d.c)
+func_0028F078	hud	HudSpriteColour	wrap	func_0028EE98 in a colour: drawn natively (host/ui2d.c)
+func_0028F278	hud	HudTextureSprite	wrap	a sprite of a given texture: drawn natively (host/ui2d.c)
+func_0028F410	hud	HudRotatedSprite	wrap	a rotated sprite: drawn natively (host/ui2d.c)
+func_0028F788	hud	HudSpriteRect	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (host/ui2d.c)
+func_0027CE18	draw	ExecuteDrawCallbacks	wrap	a draw callback list's run: in a picture wider than the game's, the view tests the callbacks make are opened by as much (host/wide_view.c)
+func_0027CEE0	draw	ExecuteDrawCallbacks2	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027CF58	draw	ExecuteDrawCallbacks3	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027D020	draw	ExecuteDrawCallbacks4	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027D0E8	draw	ExecuteDrawCallbacks5	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_00283DB8	draw	FastBSphereCheck	wrap	the bounding sphere view test: while a draw callback list runs, against the picture's sides (host/wide_view.c)

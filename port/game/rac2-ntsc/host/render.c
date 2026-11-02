@@ -96,7 +96,12 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
-    tx *= openrac_game_picture_wider();
+    /* The game fix (differences.json): off, the console's 4:3 view. */
+    static const unsigned char* fix;
+    if (!fix) {
+        fix = openrac_game_fix("fix_wide_moby_effects");
+    }
+    tx *= *fix ? openrac_game_picture_wider() : 1.0f;
     const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(MOBY_MAX_DISTANCE));

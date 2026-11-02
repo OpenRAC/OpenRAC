@@ -1,0 +1,53 @@
+{
+  "about": "What the port of Going Commando does differently from the PS2 game. Read by the port's build (port/cmake/Differences.cmake: the Game fixes settings) and the launcher (launcher/core/src/differences.rs: a game's Differences from the original). docs/port/SETTINGS.md section 8 says how to add an entry.",
+  "game": "rac2",
+  "differences": [
+    {
+      "id": "wide-moby-effects",
+      "kind": "fix",
+      "name": "Wide-screen effects",
+      "discs": ["ntsc"],
+      "original": "A moby near the side of a picture wider than 4:3 counts as out of view for its effects.",
+      "port": "MobyProc's drawn test runs against the wider picture. Off, it runs against the 4:3 view, and mobys near the sides lose their effects.",
+      "setting": {"key": "fix_wide_moby_effects", "default": true},
+      "refs": ["port/game/rac2-ntsc/host/render.c"]
+    },
+    {
+      "id": "wide-liquids",
+      "kind": "fix",
+      "name": "Wide-screen scenery",
+      "discs": ["ntsc"],
+      "original": "The draw callbacks cull what they send against the 4:3 view.",
+      "port": "Each draw callback list runs with the view tests opened as far as the picture is wider. Off, they run against the 4:3 view, and what they draw is missing near the sides.",
+      "setting": {"key": "fix_wide_liquids", "default": true},
+      "refs": ["port/game/rac2-ntsc/host/wide_view.c"]
+    },
+    {
+      "id": "frames-between-ticks",
+      "kind": "port",
+      "name": "Frames between ticks",
+      "discs": ["ntsc"],
+      "original": "One picture a game tick, 60 a second.",
+      "port": "The game still ticks 60 times a second, but the port also draws frames between ticks, with the camera, the mobys and their poses moved from one tick to the next, at the display's rate or the Frame rate setting.",
+      "refs": ["docs/port/SETTINGS.md (2. The tick and the frames)", "port/game/common/settings.h"]
+    },
+    {
+      "id": "wide-picture",
+      "kind": "port",
+      "name": "Wider pictures",
+      "discs": ["ntsc"],
+      "original": "A 4:3 picture, or the game's own 16:9 option, which narrows the vertical view and leaves the television to stretch it.",
+      "port": "A wider picture keeps the game's vertical field of view and shows more of the world to the sides. The game's 16:9 option has no meaning in a window, and the port keeps it off.",
+      "refs": ["docs/port/SETTINGS.md (1. The settings)", "port/game/rac2-ntsc/host/options.c"]
+    },
+    {
+      "id": "start-skips-scenes",
+      "kind": "port",
+      "name": "Start skips cutscenes",
+      "discs": ["ntsc"],
+      "original": "Start needs the shoulder buttons held with it to skip a scene.",
+      "port": "With the Skip cutscenes setting on (the default), Start alone skips an in-game scene: the port holds the shoulder buttons for it, so the game's own skip ends the scene.",
+      "refs": ["port/game/rac2-ntsc/host/tools.c"]
+    }
+  ]
+}
