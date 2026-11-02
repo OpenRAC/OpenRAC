@@ -36,7 +36,7 @@ that undo it; a screenshot says where it went.
 The same keys and the port's settings are in one menu, whose entries are one
 list (`port/game/common/menu_catalog.cpp`): an entry added there shows on every
 system. On Windows, Linux and macOS its key (`menu_bar_key`, `` ` `` by default)
-and controller button (`menu_bar_button`, R4) slide a bar of tabs (Graphics,
+controller button (`menu_bar_button`, R4) and any controller's Select + Start slide a bar of tabs (Graphics,
 Enhanced, Game, Controls, Developer, and a tab for each mod's own menu) down
 from the window's top, with the tab's options in a window under it and, beside
 them, what the option under the pointer or the focus does. The game waits while

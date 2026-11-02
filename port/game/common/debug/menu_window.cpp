@@ -266,7 +266,7 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
     // At its foot, over a hairline: what draws the picture, and how to get back to the game.
     ImFont* body = menu_fonts.body;
     const std::string keys =
-        menu_key_label() + ", or a controller's Home or Select + Start: this menu";
+        menu_key_label() + ", or a controller's Select + Start: this menu";
     const float line = body->FontSize * 1.4f;
     const float foot = b.y - pad - line * 2.0f;
     list->AddLine(

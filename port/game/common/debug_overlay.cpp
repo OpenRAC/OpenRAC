@@ -638,8 +638,8 @@ bool event(const SDL_Event& e) {
             && e.gbutton.button == menu_bar_button() && SDL_GetKeyboardFocus() != nullptr) {
             toggle_menu();
         }
-        // Every controller has these too: its Home button (Guide, PS, Xbox), and Back (Select)
-        // with Start pressed together.
+        // Every controller has these: Back (Select) and Start pressed together. Its Home button
+        // stays the system's and Steam's.
         MenuMotion& m = s.menu_motion;
         if ((e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP)
             && SDL_GetKeyboardFocus() != nullptr) {
@@ -649,10 +649,6 @@ bool event(const SDL_Event& e) {
                 m.back_held = down;
             } else if (button == SDL_GAMEPAD_BUTTON_START) {
                 m.start_held = down;
-            }
-            if (down && button == SDL_GAMEPAD_BUTTON_GUIDE && menu_bar_button() != button) {
-                toggle_menu();
-                return true;
             }
             if (down && m.back_held && m.start_held
                 && (button == SDL_GAMEPAD_BUTTON_BACK || button == SDL_GAMEPAD_BUTTON_START)) {
