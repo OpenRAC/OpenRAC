@@ -338,6 +338,9 @@ static const openrac_front_end front_end = {
     .level_names = level_names,
     .start_level = start_level,
     .pad = 0x00138180u,
+    /* D_001C2740: the 16 directional light sets MobyProc lights each moby with, filled from the
+     * gameplay file and changed at run time (set 13 is the bolts' gold, 1.0 0.8 0.0). */
+    .light_bank = 0x001C2740u,
     .start_level_anywhere = 1,
 };
 

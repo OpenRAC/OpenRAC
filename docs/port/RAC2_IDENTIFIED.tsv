@@ -218,3 +218,8 @@ hero state 20	0x0018C0B4	field	Hyper strike (Square in the air)	HERO_STATE_HYPER
 hero state 19	0x0018C0B4	field	Wrench swing on the ground	HERO_STATE_WRENCH	run	read	P18
 hero state 4	0x0018C0B4	field	Crouch (R1)	HERO_STATE_CROUCH	run	read	P18
 hero state 21	0x0018C0B4	field	Crouch plus Square move	(unknown)	run	read	P18
+hero states rac2	0x0018C0B4	field	rac1's hero_state.h numbering holds in the moves run: 0 idle, 1 strafe, 2 run, 4 crouch, 7 jump, 9 run jump, 14 double jump, 19 wrench combo, 20 wrench slam (hyper strike), 21 crouch swing, 40 grind, 44 swing entry, 51 to 53 swim	(names in rac1 include/rnc/hero/hero_state.h)	retail moves run rb, same presses	proven for those listed	P21
+hero+0x34C	0x0018A16C	field	Short counted while airborne; func_L00_00420C38 leaves camera state 9 or 10 when it reaches 55	-	asm 0x42116C	read	P21
+hero+0x2294	0x0018C0B4	field	Same word as g_heroState; hero+0x229C is the movement group (2 ground move, 4 crouch-like, 30)	-	asm 0x421160	read	P21
+func_L00_002ADB40	0x002ADB40	function	FindGrindRail needs D_001A7B0C (grind boots owned); hero+0x5D0 contact, +0x630 rail, +0x634 segment, +0x638 parameter, +0x63C found	FindGrindRail	C	read	P21
+func_002F7320	0x002F7320	function	Whether the table D_00264E80 (56 rows of key and three values, key 0 ends it) holds VALUE as value INDEX of KEY's row	KeyTableHasValue	asm	read	P21

@@ -48,6 +48,7 @@ void openrac_lib_SyncDCache(gaddr, gaddr);
 void openrac_lib_InvalidDCache(gaddr, gaddr);
 int openrac_lib_sceSifDmaStat(unsigned int);
 unsigned int openrac_lib_sceSifSetDma(gaddr, int);
+const uint8_t* openrac_lib_iop_bytes(uint32_t address, size_t* available);
 void openrac_lib_SetGsCrt(int interlace, int mode, int field);
 void openrac_lib_GsPutIMR(unsigned int mask);
 unsigned long long openrac_lib_GsGetIMR(void);

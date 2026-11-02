@@ -1266,10 +1266,12 @@ TickMobys pose_mobys(
                  static_cast<float>(b[0x39]),
                  static_cast<float>(b[0x3A]) / 256.0f,
                  1.0f};
-            // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90), which MobyProc's glow list
-            // draws its glow packets in; 0 without (a 24-bit integer is exact in a float).
+            // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90 in Ratchet & Clank), which
+            // MobyProc's glow list draws its glow packets in; 0 without (a 24-bit integer is exact
+            // in a float).
+            const std::uint32_t at = g->profile->moby_glow_word();
             const std::uint32_t glow =
-                static_cast<std::uint32_t>(b[0x90] | b[0x91] << 8 | b[0x92] << 16);
+                static_cast<std::uint32_t>(b[at] | b[at + 1] << 8 | b[at + 2] << 16);
             instance.moby_ambient =
                 {b[0x3C] / 128.0f,
                  b[0x3D] / 128.0f,

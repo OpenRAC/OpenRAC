@@ -410,6 +410,10 @@ void Ee::branch(bool taken, u32 at, s32 offset, bool likely) {
 void Ee::step() {
     u32 at = pc;
 
+    if (cover && at - cover_base < cover_bytes) {
+        cover[(at - cover_base) >> 2] = 1;
+    }
+
     // The call's return address is not code: reaching it ends the call.
     if (at == kReturnAddress) {
         returned_ = true;

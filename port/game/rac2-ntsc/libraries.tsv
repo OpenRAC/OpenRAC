@@ -200,7 +200,7 @@ func_00133890	989snd	snd_ResetMovieSound	host	command 0x3D
 func_001338F0	989snd	snd_StartMovieSound	host	command 0x3E
 func_00133930	989snd	snd_UpdateMovieADPCM	host	command 0x5A
 func_00133960	989snd	snd_GetMovieNAX	host	command 0x5B
-func_001326D8	game	snd_BankLoadFromEE	host	a bank in EE memory, its handle returned: host/sound.c	int (int)
+func_001326D8	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
 func_0027F2A8	draw	FontPrint	wrap	a string, glyph by glyph: its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
 func_0027F640	draw	FontPrintScaled	wrap	func_0027F2A8 at a scale, with float positions: its quads are marked as glyphs (host/ui2d.c)
 func_0027E018	draw	DrawGlyphQuad	wrap	the 2D layer's textured quad: drawn natively (host/ui2d.c)

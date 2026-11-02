@@ -136,7 +136,8 @@ class ListState:
 
 
 def packet(data: bytes, entry: bytes, state: ListState, mesh: Mesh, remap: bytes,
-           skins: list, glow: bool = False, compact: bool = False, empty_slots: bool = False) -> None:
+           skins: list, glow: bool = False, compact: bool = False, empty_slots: bool = False,
+           glow_tail: bool = False) -> None:
     """Add one regular packet's vertices and drawn triangles to mesh. A glow packet's
     vertices get light slot -2 (the others -1): with the moby's mode bit 0x10 the game draws
     them unlit in its glow colour (MobyProc's glow list, ReRAC moby_skinning_lighting.md 10).
@@ -147,7 +148,11 @@ def packet(data: bytes, entry: bytes, state: ListState, mesh: Mesh, remap: bytes
 
     EMPTY_SLOTS: a face whose texture slot the class leaves empty (0xff) is drawn untextured
     instead of refused. Some of the later games' classes have no textures of their own (their
-    pictures come from elsewhere at run time, not traced yet)."""
+    pictures come from elsewhere at run time, not traced yet).
+
+    GLOW_TAIL: with a compact table, its last u16 counts the packet's last vertices as glow ones:
+    Going Commando's func_00274D90 overwrites their lit colours with the moby's glow word (its job's
+    +0xAC, MobyProc's moby +0x78 with mode bit 0x10), where Ratchet & Clank has whole glow packets."""
     list_offset, list_size, _, table, data_size, positions_qwc, colours_qwc, transfer = unpack("<IHHIBBBB", entry)
     commands = unpacks(span(data, list_offset, list_size * 16))
     if [c[0] for c in commands] not in ([ST, INDICES], [ST, INDICES, GS_BLOCKS]):
@@ -225,7 +230,7 @@ def packet(data: bytes, entry: bytes, state: ListState, mesh: Mesh, remap: bytes
         if mesh.colours is not None and multiplier is not None:
             mesh.colours.append(tuple(b / 128 for b in multiplier[i * 4:i * 4 + 4]))
         if mesh.light_slots is not None:
-            mesh.light_slots.append(-2 if glow else -1)
+            mesh.light_slots.append(-2 if glow or (glow_tail and compact and i >= total - multipliers) else -1)
         skins.append(skin)
 
     def key(texture: int):
@@ -366,7 +371,7 @@ def moby_class(data: bytes, remap: bytes | list[int], name: str, sequences: list
     for i in range(high):
         try:
             packet(packets, span(packets, packet_table + i * 16, 16), state, mesh, remap, skins, i >= glow_from,
-                   compact, fmt.moby_empty_slots)
+                   compact, fmt.moby_empty_slots, fmt.moby_glow_tail)
         except FormatError as exc:
             raise FormatError(f"packet {i}: {exc}") from exc
     if not mesh.triangles:

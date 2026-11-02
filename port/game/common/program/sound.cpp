@@ -190,6 +190,9 @@ void audio_tick() {
         static_cast<std::size_t>(platform::kAudioRate / tick_rate()) * 2
     );
     openrac_sound_render(samples.data(), samples.size() / 2);
+    // OPENRAC_AUDIO_DUMP works here too: the tick's samples, as a device would have had them.
+    open_dump();
+    write_dump(samples);
 #endif
 }
 

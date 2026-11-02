@@ -141,12 +141,17 @@ many bytes can be another field in another level: it reads what the running copy
   takes one out, each a class and one texture. Every level exports them all, textures `moby_1203.png`
   on. The wrench (class 71, level has its skeleton) is packs 9 to 11, `moby_1200.png` to `moby_1202.png`,
   its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0,
-  paint 0 only, `moby_1300.png`. Levels of this game are format 8 (`editor/port.py`, `GAME_FORMATS`).
+  paint 0 only, `moby_1300.png`. Levels of this game are format 9 (`editor/port.py`, `GAME_FORMATS`).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
   pixels are the first two pictures of the texture data (128 x 128 at +0, 64 x 64 at +0x4000, moby
   textures from +0x5000), not in the GS RAM lump as in Ratchet & Clank; the CLUTs are the lump's first
   two, at 0 and 0x400. `Format.maps_in_textures`.
 - A moby's animation fields start at +0x40 (`profile.cpp`, `moby_anim_fields`).
+- Glow: a packet's compact vertex table ends with a count of its last vertices whose lit colours
+  func_00274D90 overwrites with the moby's glow word, +0x78 (`moby_glow_word`), when its mode has
+  0x10 (the lift button's grey pulse and green, lamps, eyes). The export marks them light slot -2
+  (`Format.moby_glow_tail`) and writes the gameplay file's 16 light sets the mobys are lit with
+  (`Format.moby_lights`); format 9.
 - The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
   the display as in Ratchet & Clank.
 - `split_places.tsv`: the catalogue names the levels' copies of the draw callback lists apart from

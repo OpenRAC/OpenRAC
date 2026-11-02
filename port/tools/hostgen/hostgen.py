@@ -1039,6 +1039,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # from another level's copy, with that level's names): unit -> {name: the function}.
     program.aliases.update({(unit, name): symbol for unit, names in cfg.get("unit_aliases", {}).items()
                             for name, symbol in names.items()})
+    program.global_views = bool(cfg.get("global_views", False))
     program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
     program.returns_64 = set(cfg.get("returns_64", []))
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))

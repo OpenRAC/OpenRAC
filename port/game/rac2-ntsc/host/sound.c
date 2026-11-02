@@ -12,6 +12,7 @@
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
@@ -176,13 +177,20 @@ void func_00132498(int sector, int offset, int callback, long long argument) {
     }
 }
 
-/* snd_BankLoadFromEE (0x001326D8): a bank in EE memory, loaded at once, its handle the result. A level
- * swaps its dialogue banks so (func_00294988); the console's version waits for the IOP. */
+/* snd_BankLoadFromIOP (0x001326D8, the symbol table's name): a bank the game sent to the IOP's memory
+ * with sceSifSetDma, loaded at once, its handle the result. A hand item's bank (func_00294988's three
+ * 0xC800 slots, the Lancer's firing sounds among them) arrives so; the address is the IOP's, which the
+ * EE's memory would have read as zeros. */
 int func_001326D8(int bank) {
-    const gaddr at = openrac_guest_ram_address((gaddr)bank);
-    return bank != 0 && at < openrac_guest_ram_size
-               ? (int)openrac_sound_load_bank(G(at), openrac_guest_ram_size - at)
-               : 0;
+    size_t available = 0;
+    const uint8_t* at = openrac_lib_iop_bytes((uint32_t)bank, &available);
+    if (openrac_env_string("OPENRAC_SOUND_LOG") != NULL && at != NULL && available >= 16) {
+        uint32_t w[4];
+        memcpy(w, at, sizeof(w));
+        fprintf(stderr, "[debug] sound bank from the IOP at %#x: %#x %#x %#x %#x\n", (unsigned)bank,
+                w[0], w[1], w[2], w[3]);
+    }
+    return bank != 0 && at != NULL ? (int)openrac_sound_load_bank(at, available) : 0;
 }
 
 /* snd_PlayVAGStreamTwoParts_CB (0x00133350, command 0x2C): (the right channel's location, the left's,

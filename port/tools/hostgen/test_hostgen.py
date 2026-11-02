@@ -3448,5 +3448,15 @@ class CopyCalls(unittest.TestCase):
         self.assertIn("openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? (gaddr)0x00335000u",
                       call_copy_expr((0, 0x3E4948, 28, 0x3A6C30, 0x335000)))
 
+class GlobalViewTest(unittest.TestCase):
+    def test_a_word_after_the_number_names_the_same_datum(self):
+        import lower
+        self.assertEqual(lower.GLOBAL_VIEW.sub(r"\1", "D_L00_001B1B00_sda"), "D_L00_001B1B00")
+        self.assertEqual(lower.GLOBAL_VIEW.sub(r"\1", "D_001A7390_base"), "D_001A7390")
+        # A number after it is a datum of the build's own.
+        self.assertEqual(lower.GLOBAL_VIEW.sub(r"\1", "D_L00_001B1B00_1"), "D_L00_001B1B00_1")
+
+
 if __name__ == "__main__":
     unittest.main()
+
