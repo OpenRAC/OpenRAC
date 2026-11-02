@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 
 import ctype
-from program import BUILTINS, Program, canon, cname, has_body, symbol_of
+from program import BUILTINS, Program, call_copy_expr, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
 # The EE's float operations in software (openrac/ps2float.h), by C operator: the functions
@@ -1955,6 +1955,13 @@ class Unit:
                 home, canon, size = copies
                 self.fn.uses_self = True
                 addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+            elif level is not None and low <= address < high and self.fn.code in getattr(self.program, "data_copies", ()):
+                # A global that does not pair between levels (data_copies.tsv): what the running
+                # copy forms itself (guest.h).
+                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
+                size = getattr(self.program, "sizes", {}).get(self.fn.code) or 0x400
+                self.fn.uses_self = True
+                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
                 addr = f"OPENRAC_LDATA({level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
@@ -2195,6 +2202,13 @@ class Unit:
                     self.fn.report.calls.add(sym)
                     fp = f"openrac_hook_in_copy({hexaddr(exe_fn)}, {size}u, {home}, {hexaddr(home_fn)}, {hexaddr(stub)}, {k}u)"
                     named = None  # each level fills the hook with its own function: the call site's type
+                elif (call_copy := getattr(self.program, "call_copies", {}).get((self.fn.code if self.fn else None, sym))) is not None:
+                    # A jal that differs between this function's places (call_copies.tsv): the one
+                    # in the copy that runs.
+                    self.fn.report.calls.add(sym)
+                    self.fn.uses_self = True
+                    fp = call_copy_expr(call_copy)
+                    named = self._function_at(call_copy[0], call_copy[3]) or sym
                 elif not places and callee_places:
                     # Inside a function the catalogue folded (copies that differ in what they
                     # call): the function this copy's own call at that place calls (guest.h).

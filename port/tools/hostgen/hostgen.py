@@ -44,7 +44,7 @@ import derived  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -1011,6 +1011,11 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         read_places(source / cfg["places"], program)
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
+    if cfg.get("call_copies"):
+        read_call_copies(args.game.parent / cfg["call_copies"], program)
+    if cfg.get("data_copies"):
+        program.data_copies = {line for line in (args.game.parent / cfg["data_copies"]).read_text().splitlines()
+                               if line and not line.startswith("#")}
     # Copies the catalogue has under another name, starting early (hostgen.json "more_places":
     # function -> "level:address,..."): rac2's Galactic Map list is matched at its level 0 place and
     # 16 bytes into a row of its own in every other level, so those rows hold no function.

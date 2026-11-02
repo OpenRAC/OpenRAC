@@ -56,7 +56,7 @@ import asm
 import ctype
 import retail
 from lower import FnReport, Unit, UnitReport, Unsupported, _Fn, hexaddr, LEVEL_NAME
-from program import Function, Program, Signature, canon, cname, prototype
+from program import Function, Program, Signature, call_copy_expr, canon, cname, prototype
 
 ARG_REGS = list(range(4, 12))     # $a0-$a3, $t0-$t3 (the EE's eight integer argument registers)
 FARG_REGS = list(range(12, 20))   # $f12-$f19
@@ -868,6 +868,10 @@ class Translator:
                 # function of three pointers): the registers, as for a call through an address.
                 return self.indirect(hook, target if at is None else at)
             callee = f"GFN({fn_type}, {hook})"
+        elif (call_copy := getattr(self.program, "call_copies", {}).get((self.unit.fn.code, sym))) is not None:
+            # A jal that differs between this function's places (call_copies.tsv): the running copy's.
+            self.unit.fn.uses_self = True
+            callee = f"GFN({fn_type}, {call_copy_expr(call_copy)})"
         elif self.unit._folded_places(sym):
             # One name for several places (folded by the catalogue): the place this call goes to.
             callee = f"GFN({fn_type}, {self._code_literal(target)})"

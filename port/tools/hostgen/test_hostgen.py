@@ -3380,5 +3380,19 @@ class LevelNames(unittest.TestCase):
                                                               "ref_L01_00400000_00": [1, "0x00300000"]})
 
 
+
+class CopyCalls(unittest.TestCase):
+    def test_formed_by_lui_and_gp(self):
+        import copycalls
+        code = (0x3C030022, 0x03E00008, 0x8C62144C, 0x8F82D4E8)  # lui v1; jr ra; lw v0,0x144C(v1); lw v0,-0x2B18(gp)
+        self.assertEqual(copycalls.formed(code, 0x001AEFF0), {2: 0x0022144C, 3: 0x001AC4D8})
+
+    def test_call_expression(self):
+        from program import call_copy_expr
+        self.assertEqual(call_copy_expr((0, 0x3E4948, 28, 0x3A6C30, 0)),
+                         "openrac_call_in_copy(0, 0x003E4948u, 28u, openrac_self_, 0x003A6C30u)")
+        self.assertIn("openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? (gaddr)0x00335000u",
+                      call_copy_expr((0, 0x3E4948, 28, 0x3A6C30, 0x335000)))
+
 if __name__ == "__main__":
     unittest.main()

@@ -817,6 +817,28 @@ def read_places(path: Path, program: Program) -> int:
     return count
 
 
+def read_call_copies(path: Path, program: Program) -> int:
+    """The calls that differ between the places of a folded function (call_copies.tsv, written by
+    copycalls.py): (caller, callee) -> (home, canon, size, own, exe)."""
+    program.call_copies = {}
+    for line in path.read_text().splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        caller, callee, home, canon, size, own, exe = line.split("\t")
+        program.call_copies[(caller, callee)] = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
+    return len(program.call_copies)
+
+
+def call_copy_expr(row: tuple[int, int, int, int, int]) -> str:
+    """The code address a folded function's call reaches: its running copy's own jal. The
+    executable's copy, when the executable is what is loaded, has its target in the row."""
+    home, canon, size, own, exe = row
+    expr = f"openrac_call_in_copy({home}, 0x{canon:08X}u, {size}u, openrac_self_, 0x{own:08X}u)"
+    if exe:
+        expr = f"(openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? (gaddr)0x{exe:08X}u : {expr})"
+    return expr
+
+
 def read_split_places(path: Path, program: Program) -> int:
     """Places the catalogue folded into a function by its fingerprint although their code differs
     in a constant or a field offset (port/game/<id>/split_places.tsv: function, the variant's name,
