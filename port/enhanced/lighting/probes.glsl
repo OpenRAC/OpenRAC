@@ -99,13 +99,15 @@ ivec2 probe_depth_wrap(ivec2 p) {
 }
 
 // Retain FP32: local mean differences and the total-variance identity avoid moment cancellation.
-vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance) {
-    vec2 uv = probe_map_uv(tile, direction);
+vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance, vec2 atlas_extent) {
+    vec2 oct = probe_oct(direction);
     if (probe_depth_mode == 0) {
-        vec2 m = texture(probe_moments, uv).rg;
+        // Raw maps share the irradiance atlas extent cached by receiver setup.
+        vec2 pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0 + oct * probe_resolution;
+        vec2 m = texture(probe_moments, pixel / atlas_extent).rg;
         return vec2(m.x, max(0.0, m.y - m.x * m.x));
     }
-    vec2 p = .5 + probe_oct(direction) * 6.;
+    vec2 p = .5 + oct * 6.;
     ivec2 base = ivec2(floor(p));
     vec2 f = fract(p);
     vec4 w = vec4((1.-f.x)*(1.-f.y), f.x*(1.-f.y), (1.-f.x)*f.y, f.x*f.y);
@@ -114,7 +116,7 @@ vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance) {
     if (probe_depth_mode >= 2) {
         // RG8 stores exact gutter copies. Center the gather footprint so atlas-coordinate rounding
         // cannot select different neighbours; retain the original local interpolation fractions.
-        gather_uv = (vec2(tile * 8 + base) + 1.) / vec2(textureSize(probe_moments, 0));
+        gather_uv = (vec2(tile * 8 + base) + 1.) / atlas_extent;
         mean = textureGather(probe_moments, gather_uv, 0).wzxy;
     } else {
         // Legacy ASTC gutters were fitted independently, so read their interior copies explicitly.
@@ -150,6 +152,11 @@ vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance) {
                       max(vec4(0), world_mean * (vec4(ranges.w) - world_mean)));
     float variance = ranges.y * ranges.y * dot(w, delta * delta) + dot(w, within);
     return vec2(world_average, variance);
+}
+
+// Standalone callers have no receiver setup from which to reuse the atlas extent.
+vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance) {
+    return probe_depth_sample(tile, direction, receiver_distance, vec2(textureSize(probe_irradiance, 0)));
 }
 
 // Diagnostic callers can request the complete distribution independently of receiver visibility.
@@ -243,7 +250,11 @@ bool sample_probe_grid(
 #endif
 #ifndef OPENRAC_PROBE_FAST
         if (distance > 1e-6) {
+#ifdef OPENRAC_PROBE_RECEIVER_SETUP
+            vec2 moments = probe_depth_sample(tile, delta / distance, distance, atlas_extent);
+#else
             vec2 moments = probe_depth_sample(tile, delta / distance, distance);
+#endif
             if (distance > moments.x) {
                 // Preserve open-direction fill; reduce sparse uncertainty only behind the mean blocker.
                 float variance = moments.y
