@@ -345,6 +345,10 @@ static int hero_set_pose(const openrac_game_pose* pose) {
      * on their random timer, as his update runs them, so a blink under way when the mod took over
      * does not hold his eyes shut. */
     func_L00_00205CC0();
+    /* His looping sounds (the helipack's, the thruster's, a slide's: sound slots that only his
+     * states start and only a change of his control mode stops) end with the mod's moves, as on
+     * a change of mode (release_and_clear_hero_voice_slots). */
+    func_L00_00207220();
     func_L00_00208E98();
     func_L00_002098B8(0);
     func_L00_00210FE0();
