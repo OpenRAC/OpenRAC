@@ -137,9 +137,9 @@ constexpr Entry kEntries[] = {
      "Changes are saved and used at once. A button held as it is bound presses its new control "
      "only once let go and pressed again."},
     {Id::ControllerBindings, Tab::Controls, "Buttons", kPanel, A, "Controller bindings",
-     "What presses each of the pad's controls on a controller. Pick one to change it, add a "
-     "button or a chord, take one away or go back to the default. A mark: another control has "
-     "that button too, and both press."},
+     "What presses each of the pad's controls on a controller. Pick one to replace it, add a "
+     "button or a 2-button combo, remove one or go back to the default. A mark: another control "
+     "has that button too, and both press."},
     {Id::LeftStick, Tab::Controls, "Left stick", kPanel, A, "Left stick",
      "Dead zone, outer edge, sensitivity and inversion. The picture shows the stick as the "
      "controller gives it (grey) and as the game reads it (green). The game has its own dead "
@@ -160,11 +160,9 @@ constexpr Entry kEntries[] = {
     {Id::PlayersReset, Tab::Controls, "Players", kAction, A, "Players back to the defaults",
      "Each player takes the next free controller again. Players are the same in every game."},
     {Id::PlayerOne, Tab::Controls, "Player 1", kPanel, A, "Player 1",
-     "Player 1's controller and keyboard, and what the game reads from them now. Players are "
-     "the same in every game."},
+     "Player 1's controller and keyboard. Players are the same in every game."},
     {Id::PlayerTwo, Tab::Controls, "Player 2", kPanel, A, "Player 2",
-     "Player 2's controller and keyboard, and what the game reads from them now. Players are "
-     "the same in every game."},
+     "Player 2's controller and keyboard. Players are the same in every game."},
     {Id::MenuOpen, Tab::Controls, "Menu", kPanel, D, "Open the menu",
      "The key and the controller button that open and close this menu. Any controller's Select "
      "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "

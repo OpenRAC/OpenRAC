@@ -96,6 +96,10 @@ float key_cap_height();
 // draws them only when `list` is set.
 float key_caps(ImDrawList* list, float x, float middle, std::string_view keys, float alpha);
 
+// Where to draw `text` so its letters (not its line box) are centred on `centre`: across by the
+// ink, from the first letter's left edge to the last's right; down by a capital's height.
+ImVec2 centred_text(ImFont* font, float size, std::string_view text, ImVec2 centre);
+
 // The y to draw `font` text at so it lines up with caps centred at `middle`.
 float beside_caps(const ImFont* font, float middle);
 

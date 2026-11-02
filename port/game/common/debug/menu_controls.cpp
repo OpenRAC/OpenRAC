@@ -251,6 +251,7 @@ void captured(controls::Store& store, platform::Input& input, const Binding& got
     if (chord.with.kind == Binding::Kind::None) {
         const std::vector<int> others = also_bound(store, target, chord.input);
         if (!others.empty()) {
+            w.clash_from = target;
             w.clash_target = others.front();
             w.clash_input = chord.input;
         }
@@ -278,18 +279,9 @@ bool sub_row(const std::string& label, ImU32 ink) {
 
 // ---- Panels ----
 
-// What the tab is doing: a press it waits for, what the last change said, a clash to settle.
-void status_panel(controls::Store& store, platform::Input& input) {
+// Under the control being changed: the press awaited (with Cancel), or a clash to settle.
+void capture_rows(controls::Store& store, platform::Input& input) {
     ControlsMenu& w = s.controls;
-    if (store.file(scope()).read_only()) {
-        line(
-            std::format(
-                "{} was written by a newer OpenRAC: read, not changed.",
-                store.path(scope()).filename().string()
-            ),
-            ui().err
-        );
-    }
     if (w.capture_target >= 0) {
         const std::string what = target_label(w.capture_target);
         const int left = std::max(
@@ -297,22 +289,13 @@ void status_panel(controls::Store& store, platform::Input& input) {
         );
         line(
             w.mode == ControlsMenu::Mode::ChordFirst
-                ? std::format("{}: hold the chord's first button on a controller...", what)
+                ? std::format("{}: hold the combo's first button", what)
             : w.mode == ControlsMenu::Mode::ChordSecond
-                ? std::format(
-                      "{}: {} held; now press the chord's second...",
-                      what,
-                      input_label(w.chord_with)
-                  )
-                : std::format("{}: press a button on a controller...", what),
+                ? std::format("{}: keep {} held, press the second", what, input_label(w.chord_with))
+                : std::format("{}: press a button on the controller", what),
             ui().amber
         );
-        line(
-            std::format(
-                "The game sees no controller until then. Gives up in {} s; Esc cancels.", left
-            ),
-            ui().dim
-        );
+        line(std::format("The controller is ignored until then. Stops in {} s.", left), ui().dim);
         if (menu_row("Cancel")) {
             input.end_capture();
             w.capture_target = -1;
@@ -338,9 +321,22 @@ void status_panel(controls::Store& store, platform::Input& input) {
             w.clash_target = -1;
         }
         note_hover(static_cast<int>(Id::ControlsStatus));
-        return;
     }
-    line(w.message.empty() ? "Changes are saved and used at once." : w.message, ui().soft);
+}
+
+// The tab's state at its top: a file it cannot write, or what the last change said.
+void status_panel(controls::Store& store) {
+    if (store.file(scope()).read_only()) {
+        line(
+            std::format(
+                "{} was written by a newer OpenRAC: read, not changed.",
+                store.path(scope()).filename().string()
+            ),
+            ui().err
+        );
+    }
+    const std::string& said = s.controls.message;
+    line(said.empty() ? "Changes are saved and used at once." : said, ui().soft);
 }
 
 // Each of the pad's controls with what presses it; one picked opens its own rows.
@@ -384,19 +380,25 @@ void bindings_panel(controls::Store& store, platform::Input& input) {
         if (pressed) {
             w.open_target = w.open_target == target ? -1 : target;
         }
-        if (w.open_target == target) {
+        // The press awaited for this control, or the clash it made, in place of its own rows.
+        const int asking = w.capture_target >= 0 ? w.capture_target
+                           : w.clash_target >= 0 ? w.clash_from
+                                                 : -1;
+        if (asking == target) {
+            capture_rows(store, input);
+        } else if (w.open_target == target) {
             const auto act = [&](const char* label, ControlsMenu::Mode mode) {
                 if (sub_row(label, ui().soft) && can) {
                     start_capture(input, target, mode);
                 }
                 note_hover(static_cast<int>(Id::ControllerBindings));
             };
-            act("Change: press a new button", ControlsMenu::Mode::Replace);
-            act("Add another button", ControlsMenu::Mode::Add);
-            act("Add a chord of two buttons", ControlsMenu::Mode::ChordFirst);
+            act("Replace", ControlsMenu::Mode::Replace);
+            act("Add a button", ControlsMenu::Mode::Add);
+            act("Add a 2-button combo", ControlsMenu::Mode::ChordFirst);
             for (std::size_t i = 0; i < pad.size(); ++i) {
                 ImGui::PushID(static_cast<int>(i));
-                if (sub_row("Take away " + chord_label(pad[i]), ui().soft) && can) {
+                if (sub_row("Remove " + chord_label(pad[i]), ui().soft) && can) {
                     std::vector<PadChord> rest = pad;
                     rest.erase(rest.begin() + static_cast<std::ptrdiff_t>(i));
                     write_pad(store, target, rest);
@@ -405,7 +407,7 @@ void bindings_panel(controls::Store& store, platform::Input& input) {
                 ImGui::PopID();
             }
             if (store.file(scope()).get(key_for(*key))) {
-                if (sub_row("Back to the default", ui().soft) && can) {
+                if (sub_row("Reset to default", ui().soft) && can) {
                     store.erase(scope(), key_for(*key));
                 }
                 note_hover(static_cast<int>(Id::ControllerBindings));
@@ -632,24 +634,6 @@ void player_panel(controls::Store& store, platform::Input& input, int p) {
         write(std::clamp(keyboard + by, 0, 2), chosen);
     }
     note_hover(static_cast<int>(id));
-    const platform::Pad& pad = input.pad(p);
-    std::string held;
-    for (std::size_t bit = 0; bit < kButtonNames.size(); ++bit) {
-        if ((pad.buttons & (1u << bit)) == 0) {
-            held += std::string(held.empty() ? "" : " ") + kButtonNames[bit];
-        }
-    }
-    line(
-        std::format(
-            "Reads: {}   sticks {:02X} {:02X}  {:02X} {:02X}",
-            held.empty() ? "nothing held" : held,
-            pad.left_x,
-            pad.left_y,
-            pad.right_x,
-            pad.right_y
-        ),
-        ui().dim
-    );
     ImGui::PopID();
 }
 
@@ -824,7 +808,7 @@ void draw_controls_panel(Id id) {
     }
     switch (id) {
         case Id::ControlsStatus:
-            status_panel(*store, *input);
+            status_panel(*store);
             break;
         case Id::ControllerBindings:
             bindings_panel(*store, *input);

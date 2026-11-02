@@ -379,12 +379,17 @@ bool bar_button(const char* label, float width, bool primary = false) {
         ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
         round + dp(3.0f)
     );
-    const ImVec2 size = ImGui::CalcTextSize(label, nullptr, true);
+    const char* end = ImGui::FindRenderedTextEnd(label);
     list->AddText(
-        ImVec2((a.x + b.x - size.x) * 0.5f, a.y + (height - size.y) * 0.5f),
+        centred_text(
+            ImGui::GetFont(),
+            ImGui::GetFontSize(),
+            std::string_view(label, static_cast<std::size_t>(end - label)),
+            ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+        ),
         primary ? ui().bar_ink : ui().text,
         label,
-        ImGui::FindRenderedTextEnd(label)
+        end
     );
     return pressed;
 }

@@ -156,7 +156,7 @@ bool bar_tab(const char* name, bool open, float height) {
     }
     const float on = tween(item_part("on"), open ? 1.0f : 0.0f, kMedium);
     list->AddText(
-        ImVec2(a.x + dp(14.0f), a.y + (size.y - text.y) * 0.5f),
+        centred_text(font, font->FontSize, name, ImVec2(a.x + size.x * 0.5f, a.y + size.y * 0.5f)),
         ui_colors::mix(ui().bar_label, ui().amber, on),
         name
     );
@@ -186,7 +186,16 @@ bool bar_chip(const char* label, ImU32 ink, bool light, float height, float held
     if (!light) {
         list->AddRect(a, b, ui_colors::fade(ui().line, 1.0f), size.y * 0.5f);
     }
-    list->AddText(ImVec2(a.x + dp(14.0f), a.y + (size.y - text.y) * 0.5f), ink, label);
+    list->AddText(
+        centred_text(
+            menu_fonts.strong,
+            menu_fonts.strong->FontSize,
+            label,
+            ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+        ),
+        ink,
+        label
+    );
     ImGui::PopFont();
     return pressed;
 }

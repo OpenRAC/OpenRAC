@@ -165,6 +165,7 @@ struct ControlsMenu {
     std::string message;           // what the last change said
     // A press just bound that another control also has alone: offered to be taken from it.
     int clash_target = -1;
+    int clash_from = -1;  // the control just changed, under which the choice is shown
     platform::Binding clash_input;
     bool confirm_reset = false;  // "Reset" asked once; asked again, it resets
 };
@@ -265,6 +266,7 @@ struct State {
     bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
     MenuMotion menu_motion;         // the desktop's window's scroll and transitions
     int menu_want_tab = -1;         // a menu::Tab to open the window at (F13: Controls); -1 none
+    bool pad_locked = false;        // ImGui gets no gamepad: a binding's press until let go
     bool drew_last_frame = false;   // the overlay drew the frame before (ImGui's clock ran)
     Scroll menu_scroll;             // the finger's drag over the drawer's rows
     bool shot_when_shut =

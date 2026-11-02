@@ -186,18 +186,18 @@ N as every player" takes their own controls away):
 
 - **Buttons**: each control and what presses it on a controller, a dot when
   the file changed here sets it, and an input another control has too in
-  amber. Picking one opens its own rows: change it, add a button, add a chord
-  of two, take one away, or back to the default. A change waits for a press
-  on any controller; the game and the menu read nothing from the controllers
-  meanwhile, and Esc, Cancel or six seconds without a press give it up. A
-  press another control has alone is offered to be taken from it.
+  amber. Picking one opens its rows: Replace, Add a button, Add a 2-button
+  combo, Remove, Reset to default. A change waits under the row for a press
+  on any controller. Until then the game and the menu ignore the controllers
+  and the keyboard (they come back once every button is let go); Esc, Cancel
+  or six seconds without a press give it up. A press another control has
+  alone is offered to be taken from it.
 - **Left stick, Right stick**: section 4's settings, with the stick drawn as
   the controller gives it and as the game will read it.
 - **Triggers and buttons**: the press point, the face buttons' labels and
   (on a desktop) whether the controllers play in the background.
 - **Players**: the controllers connected, each lit while a button is pressed
-  on it, each player's controller and keyboard, and what the game reads from
-  each player now.
+  on it, and each player's controller and keyboard.
 - **Menu** (desktop): the key and the controller button that open the menu.
 - **Touch controls** (touch screens): the on-screen buttons' size, the
   camera's speed, and editing where the buttons sit.

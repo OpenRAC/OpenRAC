@@ -338,6 +338,69 @@ void add_logo() {
     s.logo_name_x = mask.name_x;
 }
 
+// The controllers as ImGui's gamepad: buttons and d-pad only. The sticks move Ratchet and the
+// camera and are too easy to nudge, so they do not move through the menus. While a button is
+// being bound, and until every button is let go after it, ImGui gets nothing: the press that was
+// bound must not also press a row or close the menu.
+void feed_gamepads() {
+    struct Button {
+        ImGuiKey key;
+        SDL_GamepadButton button;
+    };
+
+    static constexpr Button kButtons[] = {
+        {ImGuiKey_GamepadStart, SDL_GAMEPAD_BUTTON_START},
+        {ImGuiKey_GamepadBack, SDL_GAMEPAD_BUTTON_BACK},
+        {ImGuiKey_GamepadFaceDown, SDL_GAMEPAD_BUTTON_SOUTH},
+        {ImGuiKey_GamepadFaceRight, SDL_GAMEPAD_BUTTON_EAST},
+        {ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST},
+        {ImGuiKey_GamepadFaceUp, SDL_GAMEPAD_BUTTON_NORTH},
+        {ImGuiKey_GamepadDpadUp, SDL_GAMEPAD_BUTTON_DPAD_UP},
+        {ImGuiKey_GamepadDpadDown, SDL_GAMEPAD_BUTTON_DPAD_DOWN},
+        {ImGuiKey_GamepadDpadLeft, SDL_GAMEPAD_BUTTON_DPAD_LEFT},
+        {ImGuiKey_GamepadDpadRight, SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
+        {ImGuiKey_GamepadL1, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER},
+        {ImGuiKey_GamepadR1, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER},
+    };
+    constexpr Sint16 kTriggerDown = 8000;
+    std::array<bool, std::size(kButtons)> down{};
+    bool l2 = false;
+    bool r2 = false;
+    bool any = false;
+    int count = 0;
+    if (SDL_JoystickID* ids = SDL_GetGamepads(&count)) {
+        for (int i = 0; i < count; ++i) {
+            SDL_Gamepad* pad = SDL_GetGamepadFromID(ids[i]);
+            if (pad == nullptr) {
+                continue;
+            }
+            any = true;
+            for (std::size_t b = 0; b < std::size(kButtons); ++b) {
+                down[b] = down[b] || SDL_GetGamepadButton(pad, kButtons[b].button);
+            }
+            l2 = l2 || SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > kTriggerDown;
+            r2 = r2 || SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) > kTriggerDown;
+        }
+        SDL_free(ids);
+    }
+    const bool held = l2 || r2 || std::find(down.begin(), down.end(), true) != down.end();
+    // A press awaited for a binding or for the menu's button belongs to the capture: the menu
+    // ignores the controller until every button is let go after it.
+    if (controls_capturing() || s.menu_button_capture) {
+        s.pad_locked = true;
+    } else if (!held) {
+        s.pad_locked = false;
+    }
+    ImGuiIO& io = ImGui::GetIO();
+    for (std::size_t b = 0; b < std::size(kButtons); ++b) {
+        io.AddKeyEvent(kButtons[b].key, !s.pad_locked && down[b]);
+    }
+    io.AddKeyEvent(ImGuiKey_GamepadL2, !s.pad_locked && l2);
+    io.AddKeyEvent(ImGuiKey_GamepadR2, !s.pad_locked && r2);
+    io.BackendFlags = any ? io.BackendFlags | ImGuiBackendFlags_HasGamepad
+                          : io.BackendFlags & ~ImGuiBackendFlags_HasGamepad;
+}
+
 bool initialise(SDL_Window* window) {
     if (s.initialised) {
         return true;
@@ -360,6 +423,8 @@ bool initialise(SDL_Window* window) {
                           && ImGui_ImplOpenGL3_Init(
                               openrac::gl::is_es() ? "#version 300 es" : "#version 410 core"
                           );
+    // The controllers reach ImGui through feed_gamepads, not the backend.
+    ImGui_ImplSDL3_SetGamepadMode(ImGui_ImplSDL3_GamepadMode_Manual, nullptr, 0);
     if (!started) {
         log::warn("debug overlay: Dear ImGui could not start{}", error.empty() ? "" : ": " + error);
         ImGui::DestroyContext();
@@ -570,14 +635,19 @@ bool visible() {
 bool event(const SDL_Event& e) {
     configure();
     // A press awaited for a binding (the Controls tab): the controllers' presses are the
-    // capture's, not the menu's, and Esc gives it up rather than closing the menu.
+    // capture's, not the menu's. The keyboard does nothing either (no menu key, no Enter on
+    // another row, no Android Back, which a controller's B may be), but Esc gives the capture up. Key releases still reach the menu, so a key
+    // held when the capture began is let go there; the mouse stays free for the Cancel row.
     if (controls_capturing()) {
         if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP
-            || e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION) {
+            || e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION || e.type == SDL_EVENT_TEXT_INPUT) {
             return true;
         }
-        if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) {
-            controls_cancel_capture();
+        if (e.type == SDL_EVENT_KEY_DOWN) {
+            if (e.key.key == SDLK_ESCAPE && !e.key.repeat) {
+                controls_cancel_capture();
+            }
+            s.alt_alone = false;
             return true;
         }
     }
@@ -898,6 +968,7 @@ void draw(const Shown& shown) {
         ImGui::GetIO().DeltaTime = std::min(ImGui::GetIO().DeltaTime, 1.0f / 60.0f);
     }
     s.drew_last_frame = true;
+    feed_gamepads();
     refresh_scripted_pointer();
     ImGui::NewFrame();
     enhanced_settings_window();

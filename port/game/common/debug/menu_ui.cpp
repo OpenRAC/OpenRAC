@@ -261,6 +261,32 @@ float key_cap_width(const std::string& key) {
     return std::max(key_cap_height(), w + dp(14.0f));
 }
 
+ImVec2 centred_text(ImFont* font, float size, std::string_view text, ImVec2 centre) {
+    const float scale = size / font->FontSize;
+    float pen = 0.0f;
+    float ink_left = 0.0f;
+    float ink_right = 0.0f;
+    bool first = true;
+    for (const char* at = text.data(); at < text.data() + text.size();) {
+        unsigned int c = 0;
+        at += ImTextCharFromUtf8(&c, at, text.data() + text.size());
+        const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
+        if (glyph == nullptr) {
+            continue;
+        }
+        if (glyph->Visible) {
+            ink_left = first ? pen + glyph->X0 * scale : ink_left;
+            ink_right = pen + glyph->X1 * scale;
+            first = false;
+        }
+        pen += glyph->AdvanceX * scale;
+    }
+    // A capital's top and bottom; a font without H falls back to its line box.
+    const ImFontGlyph* cap = font->FindGlyph('H');
+    const float cap_middle = cap != nullptr ? (cap->Y0 + cap->Y1) * 0.5f * scale : size * 0.5f;
+    return ImVec2(centre.x - (ink_left + ink_right) * 0.5f, centre.y - cap_middle);
+}
+
 float beside_caps(const ImFont* font, float middle) {
     // Centre a capital letter (0.727 of the size in Inter) rather than the line box, which has
     // room for descenders and would sit the letters low.
@@ -275,23 +301,16 @@ float key_cap(ImDrawList* list, float x, float middle, const std::string& key, f
     list->AddRectFilled(a, b, ui_colors::fade(ui().panel_hi, alpha), h * 0.5f);
     list->AddRect(a, b, ui_colors::fade(ui().line_strong, alpha), h * 0.5f);
     const CapText t = cap_text(key);
-    const ImVec2 size = t.font->CalcTextSizeA(t.size, FLT_MAX, 0.0f, key.c_str());
-    float top = beside_caps(t.font, middle);
+    ImVec2 at = centred_text(t.font, t.size, key, ImVec2(x + w * 0.5f, middle));
     if (cap_sign(key)) {
+        // A sign is centred by its own shape, not by a capital's.
         unsigned int c = 0;
         ImTextCharFromUtf8(&c, key.c_str(), nullptr);
-        const ImFontGlyph* glyph = t.font->FindGlyph(static_cast<ImWchar>(c));
-        const float scale = t.size / t.font->FontSize;
-        top = glyph != nullptr ? middle - (glyph->Y0 + glyph->Y1) * 0.5f * scale
-                               : middle - size.y * 0.5f;
+        if (const ImFontGlyph* glyph = t.font->FindGlyph(static_cast<ImWchar>(c))) {
+            at.y = middle - (glyph->Y0 + glyph->Y1) * 0.5f * (t.size / t.font->FontSize);
+        }
     }
-    list->AddText(
-        t.font,
-        t.size,
-        ImVec2(x + (w - size.x) * 0.5f, top),
-        ui_colors::fade(ui().gold, alpha),
-        key.c_str()
-    );
+    list->AddText(t.font, t.size, at, ui_colors::fade(ui().gold, alpha), key.c_str());
     return w;
 }
 
@@ -421,9 +440,9 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
         const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
         arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, can_lower ? ui().amber : off);
         arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, can_raise ? ui().amber : off);
-        const ImVec2 size = ImGui::CalcTextSize(value.c_str());
+        ImFont* font = ImGui::GetFont();
         list->AddText(
-            ImVec2(left + (column - size.x) * 0.5f, right.y - size.y * 0.5f),
+            centred_text(font, ImGui::GetFontSize(), value, ImVec2(left + column * 0.5f, right.y)),
             ui().gold,
             value.c_str()
         );
@@ -434,15 +453,13 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
         by = ImGui::IsMouseReleased(0) && ImGui::GetIO().MousePos.x < back_until ? -1 : 1;
     }
     if (ImGui::IsItemFocused()) {
-        const auto held = [](ImGuiKey pad, ImGuiKey stick, ImGuiKey key) {
-            return ImGui::IsKeyPressed(pad) || ImGui::IsKeyPressed(stick)
-                   || ImGui::IsKeyPressed(key);
+        // The d-pad or the arrow keys (the sticks do not move through the menus).
+        const auto held = [](ImGuiKey pad, ImGuiKey key) {
+            return ImGui::IsKeyPressed(pad) || ImGui::IsKeyPressed(key);
         };
-        if (held(ImGuiKey_GamepadDpadLeft, ImGuiKey_GamepadLStickLeft, ImGuiKey_LeftArrow)) {
+        if (held(ImGuiKey_GamepadDpadLeft, ImGuiKey_LeftArrow)) {
             by = -1;
-        } else if (held(
-                       ImGuiKey_GamepadDpadRight, ImGuiKey_GamepadLStickRight, ImGuiKey_RightArrow
-                   )) {
+        } else if (held(ImGuiKey_GamepadDpadRight, ImGuiKey_RightArrow)) {
             by = 1;
         }
     }
@@ -466,9 +483,15 @@ bool menu_button(const char* label) {
         ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
         round + dp(3.0f)
     );
-    const ImVec2 size = ImGui::CalcTextSize(label);
     list->AddText(
-        ImVec2((a.x + b.x - size.x) * 0.5f, a.y + (height - size.y) * 0.5f), ui().bar_ink, label
+        centred_text(
+            ImGui::GetFont(),
+            ImGui::GetFontSize(),
+            label,
+            ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+        ),
+        ui().bar_ink,
+        label
     );
     return pressed;
 }
