@@ -190,10 +190,20 @@ u64 Ee::read64(u32 address) {
     return on_read ? on_read(address & 0x1FFFFFFFu, 8) : 0;
 }
 
+void Ee::watch(u32 address, u64 value, unsigned bytes) {
+    // Only main memory is watched, by physical address.
+    u32 physical = address & 0x1FFFFFFFu;
+
+    if (physical < watch_end && physical + bytes > watch_first && on_watched_store) {
+        on_watched_store(physical, value, bytes);
+    }
+}
+
 void Ee::write8(u32 address, u8 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         *p = value;
+        watch(address, value, 1);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 1);
@@ -204,6 +214,7 @@ void Ee::write16(u32 address, u16 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u16>(p, value);
+        watch(address, value, 2);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 2);
@@ -214,6 +225,7 @@ void Ee::write32(u32 address, u32 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u32>(p, value);
+        watch(address, value, 4);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 4);
@@ -224,6 +236,7 @@ void Ee::write64(u32 address, u64 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u64>(p, value);
+        watch(address, value, 8);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 8);
@@ -419,6 +432,7 @@ void Ee::branch(bool taken, u32 at, s32 offset, bool likely) {
 
 void Ee::step() {
     u32 at = pc;
+    instruction = at;
 
     if (cover && at - cover_base < cover_bytes) {
         cover[(at - cover_base) >> 2] = 1;

@@ -223,6 +223,13 @@ int main(int argc, char** argv) {
     std::FILE* trace_file = nullptr;
     sys::Machine machine;
 
+    /*
+     * `--watch-stores ADDRESS:BYTES` (hexadecimal): a line on stderr for each store of the
+     * program into those bytes of main memory, with the field, the store's instruction, the
+     * return address register and the value, to find what writes a word.
+     */
+    unsigned watch_first = 0, watch_bytes = 0;
+
     // One option per pass; a value-taking option reads the next argument as well.
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -284,6 +291,11 @@ int main(int argc, char** argv) {
                 traced.push_back(t);
                 s += *s == ',' ? 1 : 0;
             }
+        } else if (arg == "--watch-stores" && i + 1 < argc) {
+            // ADDRESS:BYTES in hexadecimal.
+            char* end = nullptr;
+            watch_first = static_cast<unsigned>(std::strtoul(argv[++i], &end, 16));
+            watch_bytes = *end == ':' ? static_cast<unsigned>(std::strtoul(end + 1, nullptr, 16)) : 4;
         } else if (arg == "--calls" && i + 1 < argc) {
             // At the end, write each listed function's call count and first and last field.
             calls_file = argv[++i];
@@ -403,7 +415,8 @@ int main(int argc, char** argv) {
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
                 "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] "
                 "[--capture-phases FIELD,...] [--capture-spread] [--capture-key ADDRESS,...] "
-                "[--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE]\n"
+                "[--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE] "
+                "[--watch-stores ADDRESS:BYTES]\n"
             );
             return 2;
         }
@@ -440,6 +453,20 @@ int main(int argc, char** argv) {
     if (!native.empty() && !machine.native.load(native, &error)) {
         std::fprintf(stderr, "%s: %s\n", native.c_str(), error.c_str());
         return 1;
+    }
+
+    // Stores into the watched bytes are logged with the field they happen in.
+    if (watch_bytes) {
+        machine.ee.watch_first = watch_first & 0x1FFFFFFFu;
+        machine.ee.watch_end = machine.ee.watch_first + watch_bytes;
+        machine.ee.on_watched_store = [&machine](u32 address, u64 value, unsigned bytes) {
+            std::fprintf(
+                stderr, "store field %llu pc %08x ra %08x address %08x bytes %u value %llx\n",
+                static_cast<unsigned long long>(machine.frames), machine.ee.instruction,
+                static_cast<u32>(machine.ee.gpr[31].lo), address, bytes,
+                static_cast<unsigned long long>(value)
+            );
+        };
     }
 
     std::vector<u8> capture_marks;
