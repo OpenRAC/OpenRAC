@@ -938,13 +938,15 @@ bool update(gaddr page_menu, gaddr pad) {
         // The Options page (pause_options.h): its list's items are the game's with Camera in them.
         // Another page's focus may be no list at all: the item grids keep floats where a list keeps
         // its items.
-        const gaddr list = pause_options::options_list([](gaddr at) { return GREF(std::uint32_t, at); }, shown);
+        const gaddr list =
+            pause_options::options_list([](gaddr at) { return GREF(std::uint32_t, at); }, shown);
         if (list == 0) {
             return false;
         }
         const gaddr items = GREF(std::uint32_t, list + 0x34);
         gaddr camera = 0, sound = 0;
-        if (items != 0 && items != m.items && count_items(items, &camera, &sound) > 0 && camera != 0) {
+        if (items != 0 && items != m.items && count_items(items, &camera, &sound) > 0
+            && camera != 0) {
             if (m.items_for != items) {
                 make(items);
                 m.hints_for = 0;
