@@ -220,3 +220,8 @@ func_0027CF58	draw	ExecuteDrawCallbacks3	wrap	a draw callback list's run, as fun
 func_0027D020	draw	ExecuteDrawCallbacks4	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
 func_0027D0E8	draw	ExecuteDrawCallbacks5	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
 func_00283DB8	draw	FastBSphereCheck	wrap	the bounding sphere view test: while a draw callback list runs, against the picture's sides (host/wide_view.c)
+func_0028EA58	hud	HudGradientSprite	wrap	a HUD texture as a sprite with a colour a corner: drawn natively (host/ui2d.c)
+func_0027E4A8	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot: drawn natively (host/ui2d.c)
+func_0027E920	draw	DrawRingSegment	wrap	a ring's segment, a colour a corner and the texture's wrap: drawn natively (host/ui2d.c)
+func_0027DE50	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): drawn natively (host/ui2d.c)
+func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
