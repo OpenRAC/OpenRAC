@@ -218,6 +218,29 @@ the lump's (`g_memoryArenaTable` +0x18 the lump, sky at its data base plus its +
 draws no terrain, so the sky's draw names the world's camera (`openrac_game_world_view`): at the frame's
 end the game holds another view's, the cockpit screen's moby (class 2714, its own list and camera).
 
+## Enhanced graphics
+
+Ratchet & Clank's enhanced rendering (`port/enhanced`: probe GI and reflections, sun cascades and
+his shadow map, GTAO, AgX colour, texture upscaling, FSR/ASR, motion blur, volumetric fog, HDR
+output) draws this game too. It is opt-in as there: `enhanced_rendering = 1` (or `OPENRAC_ENHANCED=1`)
+with the Vulkan renderer and the bakes made from the player's own levels; off, the game draws as before.
+
+```sh
+port/build/release/openrac-enhanced-baker --bake-all --levels-dir <levels> --output-dir <data>/probes/ntsc --jobs 0
+OPENRAC_GL_API=vulkan OPENRAC_ENHANCED=1 port/build/release/openrac-rac2-ntsc --data <data> \
+  --levels <levels> --probes <data>/probes/ntsc --window
+```
+
+Play from the same `<levels>` the baker read: interior inference writes `probe-interiors.json` into
+each level, and the bake is checked against those files. From format 17 the export keeps the
+gameplay copy the planner reads (`bake-inputs/gameplay.bin`): the environment transitions (header
+word 0x84) and the light bank (0x04), `port/assets/world/gameplay.cpp`. Local grids grow from the
+transitions and from Ratchet, the vendor and the crates (`port/enhanced/lighting/profiles/rac2`);
+the ship levels and the arenas (5, 10, 15, 22, 23, 25) bake one scene grid
+(`profiles/rac2-ntsc/level_NN`). Not carried: Ratchet's fur detail (a profile of rac1's body
+atlas), the enhanced water (Novalis's), lamp emission (no catalog of this game's emissive
+textures yet) and the hands' water ripples.
+
 ## The texture word (TEX0)
 
 `0x0027C878` (rac1's GetEffectTex) returns a texture's whole TEX0 from its
