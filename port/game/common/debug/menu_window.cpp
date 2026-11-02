@@ -645,12 +645,16 @@ void menu_window(const Shown& shown) {
         // The launcher's panel: a shadow, its ink, a hairline border.
         // (Outside the window's own rectangle, so not clipped to its square corners.)
         list->PushClipRectFullScreen();
-        for (int i = 1; i <= 4; ++i) {
-            const float grow = dp(4.0f) * static_cast<float>(i);
+        // The launcher's --shadow (0 18px 50px): many thin layers, each a little wider and fainter,
+        // add up to a soft edge.
+        constexpr int kLayers = 24;
+        for (int i = kLayers; i >= 1; --i) {
+            const float k = static_cast<float>(i) / kLayers;
+            const float grow = dp(30.0f) * k;
             list->AddRectFilled(
-                ImVec2(at.x - grow, at.y - grow + dp(6.0f)),
-                ImVec2(b.x + grow, b.y + grow + dp(6.0f)),
-                IM_COL32(0, 0, 0, 22),
+                ImVec2(at.x - grow, at.y - grow + dp(14.0f)),
+                ImVec2(b.x + grow, b.y + grow + dp(14.0f)),
+                IM_COL32(0, 0, 0, static_cast<int>(std::lround(10.0f * ease))),
                 dp(16.0f) + grow
             );
         }
@@ -681,7 +685,10 @@ void menu_window(const Shown& shown) {
         }
         m.page = std::min(1.0f, m.page + io.DeltaTime / 0.38f);
         const float page = 1.0f - std::pow(1.0f - m.page, 3.0f);
-        const ImVec2 rows_at(at.x + dp(48.0f) * m.page_from * (1.0f - page), at.y);
+        // The rows stop short of the window's top and foot, so none reach its rounded corners.
+        const float inset = dp(10.0f);
+        const ImVec2 rows_at(at.x + dp(48.0f) * m.page_from * (1.0f - page), at.y + inset);
+        const float rows_h = height - inset * 2.0f;
 
         // The rows' scroll eases to where it is sent: by the wheel over them, or by the focus
         // moving to a row out of sight (ImGui's own scroll request, taken over here).
@@ -710,7 +717,7 @@ void menu_window(const Shown& shown) {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(dp(24.0f), dp(6.0f)));
         if (ImGui::BeginChild(
                 "rows",
-                ImVec2(rows_w, height),
+                ImVec2(rows_w, rows_h),
                 ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened,
                 ImGuiWindowFlags_NoScrollWithMouse
             )) {
@@ -729,9 +736,11 @@ void menu_window(const Shown& shown) {
             // Rows under the window's edges fade into its ground rather than being cut, while
             // there is more of them that way.
             ImDrawList* rows_list = ImGui::GetWindowDrawList();
-            const float fade_h = dp(28.0f);
-            const float x0 = at.x + 1.0f;
-            const float x1 = at.x + rows_w - dp(8.0f);
+            const float fade_h = dp(44.0f);
+            const float x0 = rows_at.x + dp(16.0f);
+            const float x1 = rows_at.x + rows_w - dp(8.0f);
+            const float top_y = rows_at.y;
+            const float foot_y = rows_at.y + rows_h;
             const auto ground = [&](float y) {
                 const float t = std::clamp((y - at.y) / height, 0.0f, 1.0f);
                 const float lit = std::clamp(1.0f - (y - at.y) / dp(160.0f), 0.0f, 1.0f);
@@ -743,22 +752,20 @@ void menu_window(const Shown& shown) {
                     lit * lit
                 );
             };
-            rows_list->PushClipRectFullScreen();
             if (ImGui::GetScrollY() > 0.5f) {
-                const ImU32 c = ground(at.y);
+                const ImU32 c = ground(top_y);
                 const ImU32 none = ui_colors::fade(c, 0.0f);
                 rows_list->AddRectFilledMultiColor(
-                    ImVec2(x0, at.y + 1.0f), ImVec2(x1, at.y + fade_h), c, c, none, none
+                    ImVec2(x0, top_y), ImVec2(x1, top_y + fade_h), c, c, none, none
                 );
             }
             if (ImGui::GetScrollY() < ImGui::GetScrollMaxY() - 0.5f) {
-                const ImU32 c = ground(b.y);
+                const ImU32 c = ground(foot_y);
                 const ImU32 none = ui_colors::fade(c, 0.0f);
                 rows_list->AddRectFilledMultiColor(
-                    ImVec2(x0, b.y - fade_h), ImVec2(x1, b.y - 1.0f), none, none, c, c
+                    ImVec2(x0, foot_y - fade_h), ImVec2(x1, foot_y), none, none, c, c
                 );
             }
-            rows_list->PopClipRect();
         }
         ImGui::EndChild();
         ImGui::PopStyleVar(2);
