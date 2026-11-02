@@ -9,7 +9,7 @@ func_00283CB8	same	2026-11-01	d47584d0+dirty	0b47de416e91	24 calls
 func_00283CF0	same	2026-11-01	d47584d0+dirty	f7a4baba4b06	26 calls
 func_00284088	same	2026-11-01	d47584d0+dirty	407a6ab29997	1 calls
 func_00284268	same	2026-11-01	d47584d0+dirty	bea6991ef368	1 calls
-func_002859C8	same	2026-11-01	d47584d0+dirty	acb0604e80a9	10 calls
+func_002859C8	same	2026-11-02	198632e8	985792892904	8 calls; ran 163 of 859 instructions; re-gated after the 64-bit and variadic prototype fixes (R2-F)
 func_0028B160	same	2026-11-01	d47584d0+dirty	c7a7f072246f	12 calls
 func_002933D0	same	2026-11-01	d47584d0+dirty	b29f92eb02e7	5 calls
 func_00294F10	same	2026-11-01	d47584d0+dirty	7c8f9938d1c7	1 calls
@@ -28,7 +28,7 @@ func_003380B0	same	2026-11-01	d47584d0+dirty	369bd7b4dbdb	6 calls
 func_003384C0	same	2026-11-01	d47584d0+dirty	3b3f81cf2b4a	7 calls; and SAME on 14 calls of P21 hero-state captures (box2), which differed before this fix
 func_00346C60	same	2026-11-01	d47584d0+dirty	d8a576c798c9	8 calls
 func_003489E8	same	2026-11-01	d47584d0+dirty	74e320fb32c6	14 calls
-func_0034B2C8	same	2026-11-01	d47584d0+dirty	941f38d86276	4 calls
+func_0034B2C8	same	2026-11-02	198632e8	5807acfc2101	2 calls; ran 1494 of 1512 instructions; re-gated after the 64-bit and variadic prototype fixes (R2-F)
 func_002833F0	same	2026-11-01	d47584d0+dirty	fe9d8b851cf6	20 calls
 func_00283410	same	2026-11-01	d47584d0+dirty	bae52394c4bc	20 calls
 func_002A0F48	same	2026-11-01	d47584d0+dirty	c7af40a643fa	20 calls
@@ -356,3 +356,49 @@ func_L18_00436B80	same	2026-11-01	5bb51a7e	c5ebd8c62ce9	4 calls (box2's own capt
 func_L22_0040F1C0	same	2026-11-01	5bb51a7e	31cbcc269749	1 calls (box2's own capture of its level, P20)
 func_L23_00415988	same	2026-11-01	5bb51a7e	f4925d0db98c	4 calls (box2's own capture of its level, P20)
 func_L25_0040DE40	same	2026-11-01	5bb51a7e	e42705869a1c	4 calls (box2's own capture of its level, P20)
+func_00282C90	same	2026-11-02	198632e8	4c07fdf910f7	1 calls in its own level's or the boot's runs; ran 2 of 2 instructions; unrun blocks read (R2-F)
+func_00283360	same	2026-11-02	198632e8	e2c0cc5735f7	10 calls in its own level's or the boot's runs; ran 10 of 10 instructions; unrun blocks read (R2-F)
+func_002836E8	same	2026-11-02	198632e8	169ce3f74e91	10 calls in its own level's or the boot's runs; ran 20 of 20 instructions; unrun blocks read (R2-F)
+func_00283CC8	same	2026-11-02	198632e8	84f33daae34a	8 calls in its own level's or the boot's runs; ran 6 of 6 instructions; unrun blocks read (R2-F)
+func_002B9390	same	2026-11-02	198632e8	76fde86f28d1	16 calls in its own level's or the boot's runs; ran 35 of 35 instructions; unrun blocks read (R2-F)
+func_003478F0	same	2026-11-02	198632e8	cbd0e23446ff	4 calls in its own level's or the boot's runs; ran 332 of 363 instructions; unrun blocks read (R2-F)
+func_003486A8	same	2026-11-02	198632e8	9e54de397b5b	2 calls in its own level's or the boot's runs; ran 206 of 206 instructions; unrun blocks read (R2-F)
+func_002E3360	same	2026-11-02	198632e8	f269f84f3be8	7 calls in its own level's or the boot's runs; ran 12 of 66 instructions; unrun blocks read (R2-F)
+func_00302470	same	2026-11-02	198632e8	5cc979fb5c3f	5 calls in its own level's or the boot's runs; ran 181 of 246 instructions; unrun blocks read (R2-F)
+func_002EE000	same	2026-11-02	198632e8	81ed7aaf2e91	10 calls in its own level's or the boot's runs; ran 122 of 141 instructions; unrun blocks read (R2-F)
+func_0029B910	same	2026-11-02	198632e8	4b723f593d39	10 calls in its own level's or the boot's runs; ran 82 of 82 instructions; unrun blocks read (R2-F)
+func_00303210	same	2026-11-02	198632e8	c4b7a77353c9	3 calls in its own level's or the boot's runs; ran 198 of 214 instructions; unrun blocks read (R2-F)
+func_003216E8	same	2026-11-02	198632e8	c4ded9eecbfc	2 calls in its own level's or the boot's runs; ran 313 of 464 instructions; unrun blocks read (R2-F)
+func_002A6C58	same	2026-11-02	198632e8	9518931218cf	4 calls in its own level's or the boot's runs; ran 330 of 464 instructions; unrun blocks read (R2-F)
+func_0028D1E8	same	2026-11-02	198632e8	4d1cb30be795	1 calls in its own level's or the boot's runs; ran 546 of 764 instructions; unrun blocks read (R2-F)
+func_0028CCE0	same	2026-11-02	198632e8	3e7e65296169	1 calls in its own level's or the boot's runs; ran 94 of 321 instructions; unrun blocks read (R2-F)
+func_00131424	same	2026-11-02	198632e8	ae952b6436e6	3 calls in its own level's or the boot's runs; ran 33 of 67 instructions; unrun blocks read (R2-F)
+func_L00_00300618	same	2026-11-02	198632e8	4e7ff104f6d6	1 calls in its own level's or the boot's runs; ran 2581 of 2837 instructions; unrun blocks read (R2-F)
+func_L00_0036EF68	same	2026-11-02	198632e8	bf3a40a00952	8 calls in its own level's or the boot's runs; ran 62 of 62 instructions; unrun blocks read (R2-F)
+func_L00_002FE268	same	2026-11-02	198632e8	8452ed401555	1 calls in its own level's or the boot's runs; ran 27 of 27 instructions; unrun blocks read (R2-F)
+func_L00_003C27A0	same	2026-11-02	198632e8	ffd46b196539	8 calls in its own level's or the boot's runs; ran 130 of 401 instructions; unrun blocks read (R2-F)
+func_L00_002D4E58	same	2026-11-02	198632e8	35f566892df9	2 calls in its own level's or the boot's runs; ran 80 of 105 instructions; unrun blocks read (R2-F)
+func_L00_0042A4E8	same	2026-11-02	198632e8	9bd61a18d062	3 calls in its own level's or the boot's runs; ran 2 of 6 instructions; unrun blocks read (R2-F)
+func_L01_00394148	same	2026-11-02	198632e8	c20575e4db98	4 calls in its own level's or the boot's runs; ran 21 of 62 instructions; unrun blocks read (R2-F)
+func_L01_003209F8	same	2026-11-02	198632e8	96ab1885ced6	4 calls in its own level's or the boot's runs; ran 23 of 60 instructions; unrun blocks read (R2-F)
+func_L01_00399510	same	2026-11-02	198632e8	7b4fb1344020	4 calls in its own level's or the boot's runs; ran 532 of 542 instructions; unrun blocks read (R2-F)
+func_L02_002EFB60	same	2026-11-02	198632e8	256c94230d7a	4 calls in its own level's or the boot's runs; ran 135 of 135 instructions; unrun blocks read (R2-F)
+func_L02_00333480	same	2026-11-02	198632e8	6e742d3ffc3d	6 calls in its own level's or the boot's runs; ran 109 of 113 instructions; unrun blocks read (R2-F)
+func_L02_00389F70	same	2026-11-02	198632e8	23a083036e61	3 calls in its own level's or the boot's runs; ran 16 of 38 instructions; unrun blocks read (R2-F)
+func_L04_0032F62C	same	2026-11-02	198632e8	638b7324802a	ran 191 of 218 calls in its own level's or the boot's runs;  instructions; unrun blocks read (R2-F)
+func_L04_0032F994	same	2026-11-02	198632e8	ac2182f09efa	ran 164 of 164 calls in its own level's or the boot's runs;  instructions; unrun blocks read (R2-F)
+func_L04_003C4050	same	2026-11-02	198632e8	c10e4b006f5c	4 calls in its own level's or the boot's runs; ran 501 of 513 instructions; unrun blocks read (R2-F)
+func_L05_0041A228	same	2026-11-02	198632e8	dddb1b14c946	4 calls in its own level's or the boot's runs; ran 467 of 539 instructions; unrun blocks read (R2-F)
+func_L05_00417D48	same	2026-11-02	198632e8	893c4e8c4b15	4 calls in its own level's or the boot's runs; ran 262 of 301 instructions; unrun blocks read (R2-F)
+func_L05_00442A58	same	2026-11-02	198632e8	6afabc8a2bef	4 calls in its own level's or the boot's runs; ran 202 of 333 instructions; unrun blocks read (R2-F)
+func_L05_004432E0	same	2026-11-02	198632e8	931ec1048986	4 calls in its own level's or the boot's runs; ran 170 of 279 instructions; unrun blocks read (R2-F)
+func_L05_00444840	same	2026-11-02	198632e8	44c4e0cacff3	4 calls in its own level's or the boot's runs; ran 139 of 184 instructions; unrun blocks read (R2-F)
+func_L05_0041EF00	same	2026-11-02	198632e8	43c3704bb6d8	3 calls in its own level's or the boot's runs; ran 382 of 855 instructions; unrun blocks read (R2-F)
+func_L15_0042EFE0	same	2026-11-02	198632e8	dd62a9962588	3 calls in its own level's or the boot's runs; ran 382 of 855 instructions; unrun blocks read (R2-F)
+func_L06_00382608	same	2026-11-02	198632e8	834fd10808db	ran 100 of 146 calls in its own level's or the boot's runs;  instructions; unrun blocks read (R2-F)
+func_L09_003F7CE0	same	2026-11-02	198632e8	00ffc0693029	6 calls in its own level's or the boot's runs; ran 408 of 557 instructions; unrun blocks read (R2-F)
+func_L13_0041FBE0	same	2026-11-02	198632e8	006c7f41a7d6	3 calls in its own level's or the boot's runs; ran 387 of 412 instructions; unrun blocks read (R2-F)
+func_L19_004203F0	same	2026-11-02	198632e8	656eff673b95	3 calls in its own level's or the boot's runs; ran 135 of 266 instructions; unrun blocks read (R2-F)
+func_L04_00419918	same	2026-11-02	198632e8	2c4850e6e2f0	4 calls; ran 203 of 1280 instructions; every unrun block read against retail (R2-F)
+func_L08_003CDF98	same	2026-11-02	198632e8	868e4c3dd143	4 calls; ran 181 of 1684 instructions; every unrun block read against retail (R2-F)
+func_L12_003E2460	same	2026-11-02	198632e8	f3756a49d4f4	4 calls; ran 148 of 1418 instructions; every unrun block read against retail (R2-F)
