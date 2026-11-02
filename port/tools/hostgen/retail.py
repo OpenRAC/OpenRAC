@@ -504,10 +504,23 @@ class CombinedCode:
 
 def starts_of(program) -> dict[int, dict[int, str]]:
     """Every function hostgen knows, by program and address: the one with C (or the host's) where
-    several names share a place."""
+    several names share a place.
+
+    A level's six-digit name (hostgen.json "level_short_names": func_316150 in a level 2 file) is
+    that level's address, never the executable's (Program.level_short_name), so it starts nothing
+    in the executable unless the catalogue has a function there. Taken as a start, it cut the
+    executable's function around it in two, and a jump table's targets past the cut were dropped:
+    the Dynamo's update (func_00315E20, five states) lost states 3 and 4 to level 2's func_316150,
+    so after one activation it returned at once every tick and never targeted again."""
     out: dict[int, dict[int, str]] = {}
+    short = getattr(program, "level_short_names", None)
+    starts = getattr(program, "executable_starts", set())
     for sym in sorted(program.functions):
+        m = short.match(sym) if short is not None else None
+        level_only = m is not None and len(sym) == len("func_") + 6
         for ov, addr in program.code_places(sym):
+            if level_only and ov < 0 and addr not in starts:
+                continue
             have = out.setdefault(ov, {}).get(addr)
             if have is None or (program.functions.get(have) is not None and program.functions[have].unit is None
                                 and program.functions[sym].unit is not None):

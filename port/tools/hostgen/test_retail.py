@@ -10,6 +10,7 @@ program need Clang, as test_hostgen.py's do.
 """
 from __future__ import annotations
 
+import re
 import shutil
 import struct
 import sys
@@ -105,6 +106,21 @@ class Pairs(unittest.TestCase):
         self.assertEqual([rel[1] for _, rel in sorted(lui.items())], ["jtbl_00300000", "D_00300010"])
         block = code.get((-1, 0x00100000))[1]
         self.assertEqual(list(block.tables.values()), [table])
+
+    def test_a_levels_six_digit_name_starts_nothing_in_the_executable(self):
+        # Going Commando's level 2 C calls func_316150, level 2's function at that address. In
+        # the executable 0x316150 is inside func_00315E20, whose jump table goes past it.
+        class Program:
+            functions = {"func_00315E20": None, "func_316150": None, "func_00316248": None, "func_80316248": None}
+            level_short_names = re.compile(r"^func_(?:80(?=[0-9A-F]{6}$))?(?P<addr>[0-9A-F]{6,8})$")
+            executable_starts = {0x315E20, 0x316248}
+
+            def code_places(self, sym):
+                return [(-1, int(sym[-6:], 16))] + ([(2, 0x316150)] if sym == "func_316150" else [])
+
+        starts = retail.starts_of(Program())
+        self.assertEqual(sorted(starts[-1]), [0x315E20, 0x316248])
+        self.assertEqual(starts[2], {0x316150: "func_316150"})
 
     def test_a_lui_in_a_delay_slot_pairs_at_the_branch_target(self):
         source = """
