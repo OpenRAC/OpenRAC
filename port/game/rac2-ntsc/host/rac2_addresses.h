@@ -38,5 +38,7 @@
 #define RAC2_g_mobyTableBase 0x001B1B5Cu         /* the first moby */
 #define RAC2_g_mobyTableEnd 0x001B1B64u          /* past the last */
 #define RAC2_g_weaponTable 0x00239BA0u           /* the items' records, 0xE0 bytes each */
+#define RAC2_g_pSkyData 0x001B20C0u              /* the sky the world is drawn with */
+#define RAC2_g_memoryArenaTable 0x001BAEC0u      /* the loaded data's places: +0x18 its header */
 
 #endif /* OPENRAC_RAC2_ADDRESSES_H */

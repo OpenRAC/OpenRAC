@@ -66,8 +66,12 @@ void func_002E11C0(void) {
     openrac_game_draw(OPENRAC_DRAW_SHRUBS);
 }
 
-/* SkyDrawShell(shell): the window draws the shell with the matrix the sky code built for it. */
+/* SkyDrawShell(shell): the window draws the shell with the matrix the sky code built for it. The sky
+ * is the world's first pass, so its camera is the world's: a flight, and a scene played in one (level
+ * 0's end), draws no terrain, and the camera the game holds at the frame's end is another view's (the
+ * cockpit screen's). */
 void func_002E3940(int shell) {
+    openrac_game_world_view();
     float m[16];
     memcpy(m, G(OPENRAC_DATA(SKY_MATRIX)), sizeof(m));
     openrac_game_sky_shell(shell, m);
