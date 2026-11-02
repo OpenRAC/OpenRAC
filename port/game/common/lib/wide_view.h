@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * Ratchet & Clank: the arithmetic of wide_view.c, apart from game memory so that a test can run it
- * (port/tests/wide_view_test.c): when the bounding sphere test (FastBSphereCheck) sees a view
- * opened to the picture's sides, and the clip constants it then sees.
+ * The arithmetic of the view tests in a wide picture (wide_view_lists.h), apart from game memory so
+ * that a test can run it (port/tests/wide_view_test.c): when the bounding sphere test
+ * (FastBSphereCheck) sees a view opened to the picture's sides, and the clip constants it then sees.
  */
-#ifndef OPENRAC_RAC1_WIDE_VIEW_H
-#define OPENRAC_RAC1_WIDE_VIEW_H
+#ifndef OPENRAC_WIDE_VIEW_H
+#define OPENRAC_WIDE_VIEW_H
 
 #include <math.h>
 
