@@ -58,6 +58,7 @@ static const char* const level_names[LEVELS] = {
 
 /* The item numbers: the owned table's bytes, up to the next table. */
 #define ITEMS 56
+#define RING_SLOTS 8
 #define ITEM_SIZE 0xE0u
 #define STATE_PLAY 0
 #define STATE_SCENE 2
@@ -68,6 +69,7 @@ static const char* const level_names[LEVELS] = {
      + ITEM_SIZE * GREF(uint8_t, RAC2_g_itemEquippedSlot + (unsigned)(id)))
 #define ITEM_WEAPON(r) GREF(int32_t, (r) + 0x00u) /* set for a weapon, whatever else it is */
 #define ITEM_KIND(r) GREF(int32_t, (r) + 0x0Cu) /* 1 to 4 a gadget's or an item's group, -1 none */
+#define ITEM_CLASS(r) GREF(uint16_t, (r) + 0x3Cu) /* 0: nothing the ring could show */
 #define ITEM_AMMO_PRICE(r) GREF(uint16_t, (r) + 0x88u)
 #define ITEM_AMMO_FULL(r) GREF(uint16_t, (r) + 0x8Eu)
 
@@ -188,7 +190,8 @@ static int skip_buttons(void) {
 }
 
 /* An item into the hero's hands as GiveInventoryItem (0x00288308) leaves it: owned, shown as new,
- * full of ammunition, in the weapon lists when it is a weapon. The game's own routine is in each
+ * full of ammunition, in the weapon lists when it is a weapon, and on the quick select ring's first
+ * free slot when it is one the ring takes (0x00288208: kind 0, and a class to show). The game's own routine is in each
  * level at an address of its own; what it writes is here. */
 static int give_item(int id) {
     const gaddr record = ITEM(id);
@@ -209,6 +212,13 @@ static int give_item(int id) {
             }
             if (slot == 0xFF) {
                 GREF(uint8_t, RAC2_g_inventoryOrder + i) = (uint8_t)(id | 0x40);
+                break;
+            }
+        }
+        for (unsigned i = 0; ITEM_KIND(record) == 0 && ITEM_CLASS(record) != 0 && i < RING_SLOTS; ++i) {
+            const gaddr slot = RAC2_g_quickSelectRing + 4u * i;
+            if (GREF(int32_t, slot) == 0 || GREF(int32_t, slot) == id) {
+                GREF(int32_t, slot) = id;
                 break;
             }
         }
