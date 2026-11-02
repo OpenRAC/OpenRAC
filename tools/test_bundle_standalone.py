@@ -142,14 +142,18 @@ class PlayerActions(unittest.TestCase):
 
     def test_going_commando_plays_for_developers(self):
         # Its Play is carried as it is (a developer's, with its warning), started in the data
-        # folder, waiting for the disc set up there; it reads no levels yet. Its build needs a checkout.
+        # folder, reading the data folder's levels. It has no level check yet, so it waits for the
+        # disc set up there and for the export's own stamp: a format bump reads the levels again
+        # before it starts. Its build needs a checkout.
         actions = {a["id"]: a for a in self.actions["versions"]["rac2/ntsc"]}
         play = actions["play"]
         self.assertTrue(play["developer"])
         self.assertIn("development only", play["warning"])
-        self.assertEqual(play["args"], ["--data", "{data}", "--window"])
+        self.assertEqual(play["args"], ["--data", "{data}", "--window", "--levels", "{data}/port/ntsc"])
         self.assertEqual(play["cwd"], "{data}")
-        self.assertEqual([n["path"] for n in play["needs"]], ["{data}/iso_data/rac2/buildinfo.json"])
+        self.assertEqual([n["path"] for n in play["needs"]],
+                         ["{data}/iso_data/rac2/buildinfo.json", actions["port-levels"]["artifact"]])
+        self.assertEqual(actions["port-levels"]["artifact"], f"{{data}}/port/ntsc/levels-{going_commando_format()}.json")
         self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
         self.assertNotIn("todo", play)
         self.assertNotIn("port-build", actions)

@@ -45,7 +45,12 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10 \
 
 From the launcher, with Developer tools on (Settings): set the game up from
 your disc, then Play (`launcher/actions.json`, rac2/ntsc's `play`:
-`--data {data} --window`, after a warning to accept). Its Build the game runs
+`--data {data} --window --levels {root}/assets/port/rac2/ntsc`, after a warning
+to accept). Play first reads the levels (Get the levels ready, `editor/extract.py
+port`) when their stamp, `levels-<format>.json` with the format of
+`editor/port.py` `GAME_FORMATS`, is not there, so a format bump reads them again;
+the game has no `--check-levels` yet, so that stamp is all Play waits for. An
+installed launcher reads and passes `<data>/port/ntsc` instead. Its Build the game runs
 `tools/build_port.py rac2-ntsc --disc {disc}`. Both are `"developer": true`, so a player's
 launcher does not show them.
 
