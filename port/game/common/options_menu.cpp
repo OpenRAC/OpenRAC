@@ -222,6 +222,10 @@ std::string translated(const std::string& text, int lang) {
 
 }  // namespace
 
+std::string shown(const std::string& english) {
+    return game_text(translated(english, language()));
+}
+
 // UTF-8 in the game's text: ASCII as it is, and the accented letters at the game's own codes
 // (each vowel's acute, grave, circumflex and diaeresis in turn from 0x84 for a, 0x8C e, 0x94 i,
 // 0x9C o and 0xA4 u, the capitals 4 below; then ñ 0xA9, ç 0xAB, ß 0xAC, ¡ 0xAE, ¿ 0xAF).
@@ -1047,9 +1051,12 @@ bool update(int loaded_overlay) {
     }
     if (loaded_overlay != OPENRAC_OVERLAY_EXE) {
         // In a level: the pause menu's own Options page, on the level program's menu data.
-        return loaded_overlay >= 0 && pause_page::update(OPENRAC_DATA(fe->page_menu), fe->pad);
+        return loaded_overlay >= 0 && fe->page_menu != 0
+               && pause_page::update(OPENRAC_DATA(fe->page_menu), fe->pad);
     }
-    return page::update(*fe);
+    // A game that describes no Video page here (Going Commando's is its host C) has none of these
+    // widgets: their words would be read and written at the bottom of game memory.
+    return fe->video_page != 0 && page::update(*fe);
 }
 
 std::uint32_t text(int id) {

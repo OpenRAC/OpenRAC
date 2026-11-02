@@ -11,4 +11,3 @@ unsigned int func_0012EA70(unsigned int *param_1, int param_2)
   return uVar1;
 }
 
-INCLUDE_ASM("asm/core", func_0012EA9C);

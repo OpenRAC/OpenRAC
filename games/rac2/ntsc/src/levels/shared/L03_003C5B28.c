@@ -6,6 +6,24 @@ typedef unsigned int u32;
 
 typedef int s32;
 
+typedef short s16;
+typedef unsigned short u16;
+typedef struct {
+    u8 pad[0x20];
+    u8 values[1];
+} L03ChoiceRecord;
+typedef struct {
+    u8 pad[0x48];
+    u32 field48, field4C;
+    s16 previous, current, field54, field56, field58, field5A;
+    s16 last, length, field60, cursor, depth;
+} L03ChoicePath;
+
+extern u32 D_L03_0024A7B0;
+extern void func_L03_003E3308(u8 *);
+extern void func_L03_003E3018(u8 *);
+
+
 /* Three measured byte-state cases and width-specific field views.
    The correspondence name UpdateMoby_2426 does not establish an original
    class, enumeration, allocation or field-name declaration. */
@@ -31,19 +49,79 @@ extern f32 D_L04_001B1C88 __attribute__((sda));
    of the bare-symbol macro cc1 emits only for an `sda` symbol. */
 extern u8 *D_L03_001B2A1C __attribute__((sda));
 
-INCLUDE_ASM("asm/levels", func_L03_003C5B28);
+/* func_L03_003C5B28 is defined in L03_003C5B28-g8.c (it reads the group count through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L03_003C5CE8);
+/* func_L03_003C5CE8 is defined in L03_003C5B28-g8.c (it reads the group count through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L03_003C5DC8);
+/* func_L03_003C5DC8 is defined in L03_003C5B28-g8.c (it reads the group count through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L03_003C5EE8);
+static __inline__ void qcopy(void *dst, const void *src) {
+    __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)"
+                         : : "r"(dst), "r"(src) : "$2", "memory");
+}
+extern void func_L03_003CAB80(u8 *, void *, f32 *);
+extern void func_L03_00419A60(u32, u8 *, s32);
+extern s32 func_00277258(void *, s32, void *, f32);
+extern void func_002A7470(void *, int, int, int);
+extern void func_L00_003294F0(u8 *entity, s32 enabled);
+extern char D_00189EA0[];
 
-INCLUDE_ASM("asm/levels", func_L03_003C9FB8);
+typedef struct {
+    u8 pad0[0x110];
+    f32 f110;
+    f32 f114;
+    u8 pad118[0x220 - 0x118];
+    u32 f220;
+    u8 pad224[0x340 - 0x224];
+    f32 f340[4];
+    u8 pad350[0x358 - 0x350];
+    u8 *f358;
+} L03_5EE8Vars;
+
+typedef struct {
+    u8 pad0[0x10];
+    s32 f10;
+} L03_5EE8Class;
+
+typedef struct {
+    u8 pad0[0x24];
+    L03_5EE8Class *f24;
+    u8 pad28[0x43 - 0x28];
+    u8 f43;
+    u8 pad44[0x68 - 0x44];
+    L03_5EE8Vars *f68;
+    u8 pad6c[0x98 - 0x6C];
+    s32 f98;
+} L03_5EE8Moby;
+
+void func_L03_003C5EE8(L03_5EE8Moby *m) {
+    f32 pos[4] __attribute__((aligned(16)));
+    f32 test[4] __attribute__((aligned(16)));
+    L03_5EE8Vars *v = m->f68;
+
+    func_L03_00419A60(v->f220, v->f358 + 0x10, 0);
+    func_L03_003CAB80(v->f358, D_00189EA0, pos);
+    qcopy(test, pos);
+    test[2] += v->f110 + v->f114;
+    if (func_00277258(test, 0, m, v->f110) == 0) {
+        qcopy(v->f340, pos);
+        func_L00_003294F0(v->f358, 0);
+        v->f358 = 0;
+        m->f98 = m->f24->f10;
+        func_002A7750((u8 *)m, 0x11, 4);
+        if (m->f43 != 0) {
+            func_002A7470(m, 0, 0, 0x14);
+        }
+    } else {
+        func_L03_00419A60(v->f220, v->f358 + 0x10, 1);
+    }
+}
+
+/* func_L03_003C9FB8 lives in L03_003C9FB8.c. */
 
 int func_L03_003CA138(unsigned char *p) { return p[0x20] == 1; }
 
-INCLUDE_ASM("asm/levels", func_L03_003CA148);
+/* func_L03_003CA148 is matched in its own unit, L03_003CA148.c. */
 
 void func_L03_003CA220(u8 *a0, f32 a1) {
     *(f32 *)(*(u8 **)(a0 + 0x68) + 0xA0) = a1;
@@ -54,7 +132,6 @@ void func_L03_003CA220(u8 *a0, f32 a1) {
 
 int func_L03_003CA280(unsigned char *p) { return p[0x20] == 1; }
 
-INCLUDE_ASM("asm/levels", func_L03_003CA290);
 
 INCLUDE_ASM("asm/levels", func_L03_003CA4B0);
 
@@ -91,7 +168,19 @@ u32 func_L03_003CAAC8(u8 *a0, u8 *a1) {
 /* func_L03_003CAAF0 lives in the -g8 sibling: its first call reads a float
    constant through $gp at 0x1354. */
 
-INCLUDE_ASM("asm/levels", func_L03_003CAB80);
+s32 func_L03_00419BD8(u32 a0, u8 *first, u8 *second);
+extern void func_L03_003CAAF0(u8 *, f32 *, f32 *);
+extern s32 func_L03_00419C58(u32, f32 *);
+extern f32 func_00282E80(void *, f32 *);
+extern f32 func_002A89A8(f32 *, s32, f32);
+
+/* Copies one of the two points func_L03_003CAAF0 computes into out: the first
+   that func_L03_00419BD8 accepts, else the first that func_L03_00419C58 finds,
+   else the one with the smaller func_00282E80 against D_00189EA0. One copy per
+   branch: cross-jumping merges them, and their references order the saved
+   registers as retail does. Then raises out[2] by 0.5 and replaces it with
+   func_002A89A8's result. */
+/* func_L03_003CAB80 lives in L03_003CAB80.c. */
 
 extern f32 func_00283B98(f32, f32);
 
@@ -104,21 +193,21 @@ void func_L03_003CC1D8(u8 *a0) {
                                         0.04654212296009064f);
 }
 
-INCLUDE_ASM("asm/levels", func_L03_003CC238);
+/* func_L03_003CC238 lives in L03_003CC238.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003CC478);
+/* Defined in L03_003CC478.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003D04E0);
+/* func_L03_003D04E0 lives in L03_003D04E0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003D09D0);
+/* func_L03_003D09D0 is matched in its own unit, src/levels/shared/L03_003D09D0.c (-g). */
 
-INCLUDE_ASM("asm/levels", func_L03_003D0AE0);
+/* func_L03_003D0AE0 lives in L03_003D0AE0-g8.c. */
 
 extern f32 func_002A7878(f32, f32);
 
 extern s32 func_002A77E0(s32);
 
-extern f32 func_002A7A00(f32 *, f32, f32);
+extern void func_002A7A00(f32 *, f32, f32);
 
 extern void func_00282CC0(void *, void *, void *);
 
@@ -139,41 +228,149 @@ void func_L03_003D0FC8(u8 *a0, s32 a1, s32 a2) {
     func_002C2210(buf, 0x3C, 0x7F7F7F7F, 1, -s1, s2, 0, f20 * 0.14f, f20 * 0.7f, f21);
 }
 
-INCLUDE_ASM("asm/levels", func_L03_003D9578);
+/* func_L03_003D9578 is defined in L03_003D9578.c. */
 
 INCLUDE_ASM("asm/levels", func_L03_003D9820);
 
-INCLUDE_ASM("asm/levels", func_L03_003E21B0);
+/* func_L03_003E21B0 lives in L03_003E21B0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003E26C8);
+/* func_L03_003E26C8 is defined in L03_003E26C8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003E2968);
+/* func_L03_003E2968 is defined in L03_003E2968-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003E2C08);
+/* func_L03_003E2C08 is defined in L03_003C5B28-g8.c (it reads the step count through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L03_003E2D98);
+s32 func_L03_003E2D98(u8 *a0, u32 a1, s32 a2, u32 *a3, s32 a4) {
+    u8 *rec = *(u8 **)(a0 + 0x68);
+    s32 start;
+    s32 six;
+    s32 i;
+    s32 v;
+    s32 found;
+    u32 offset;
+    start = func_002A77E0(6);
+    six = 6;
+    offset = a1 * 24;
 
-INCLUDE_ASM("asm/levels", func_L03_003E2EC8);
+    for (i = 0; i < six; i++) {
+        s32 index = (i + start) % six;
+        s32 j;
 
-INCLUDE_ASM("asm/levels", func_L03_003E3018);
+        v = *(u32 *)((u8 *)&D_L03_0024A7B0 + (offset + index * 4));
+        if (v == -1)
+            continue;
+        j = 0;
+        found = 0;
+        for (; j < a2 + 2; j++) {
+            if (((L03ChoiceRecord *)rec)->values[j] == v)
+                found = 1;
+        }
+        {
+            s32 k;
+            for (k = 0; k < a4; k++) {
+                if (a3[k] == v)
+                    found = 1;
+            }
+        }
+        if (found == 0)
+            return v;
+    }
+    return -1;
+}
 
-INCLUDE_ASM("asm/levels", func_L03_003E3308);
+void func_L03_003E2EC8(u8 *a0) {
+    L03ChoicePath *r = *(L03ChoicePath **)(a0 + 0x68);
+    u8 *bytes = (u8 *)r;
+    if (r->current == r->last) {
+        *(u8 *)(bytes + r->previous + 0x10) = 0;
+        bytes[r->length] = 0xFF;
+        r->previous = r->last;
+        if (r->length >= 2)
+            r->last = bytes[r->length - 2];
+        else
+            r->last = 0;
+        *(u8 *)(bytes + r->length + 0x30) = 0xFF;
+        r->length--;
+        if (r->depth != 0)
+            r->depth--;
+        else
+            r->cursor--;
+    } else {
+        *(u8 *)(bytes + r->current + 0x10) = 1;
+        {
+            s16 depth = r->depth;
+            u16 value = *(u16 *)&r->depth;
+            if (depth == 0 && r->current == bytes[r->cursor + 0x21])
+                r->cursor++;
+            else
+                r->depth = value + 1;
+        }
+        r->last = r->previous;
+        r->previous = r->current;
+        r->length++;
+        bytes[r->length] = (u8)r->current;
+    }
+    func_L03_003E3308(a0);
+    r->field48 = 0;
+    r->field4C = 0;
+    r->field56 = 0;
+    func_L03_003E3018(a0);
+}
 
-INCLUDE_ASM("asm/levels", func_L03_003E3430);
+/* func_L03_003E3018 is defined in L03_003E3018.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003E3678);
+extern u32 D_0024A7B0;
 
-INCLUDE_ASM("asm/levels", func_L03_003E3750);
+extern s32 ref_L03_003E3750_00(u8 *, u32);
 
-INCLUDE_ASM("asm/levels", func_L03_003E3800);
+/* Copies the six values the record's own row of the shared table holds into the
+   record's list, skipping the ones the record does not take, and ends the list
+   with 255. */
+void func_L03_003E3308(u8 *a0) {
+    u32 rec = *(u32 *)(a0 + 0x68);
+    u32 v = *(u32 *)((u8 *)&D_0024A7B0 + *(short *)(rec + 0x50) * 24);
+    s32 count = 0;
+    u32 n = 0;
+    u32 ok;
+
+    if (v != 255) {
+        u32 flags = rec + 0x20;
+        u32 list = rec + 0x40;
+
+        do {
+            if (*(short *)(rec + 0x64) == 0 &&
+                v == *(u8 *)(*(short *)(rec + 0x62) + flags + 1)) {
+                ok = 1;
+            } else if (ref_L03_003E3750_00(a0, v)) {
+                ok = 1;
+            } else {
+                ok = 0;
+            }
+            if (ok) {
+                *(u8 *)(list + n) = v;
+                n++;
+            }
+            count++;
+            if (count >= 6)
+                break;
+            v = *(u32 *)((u8 *)&D_0024A7B0 + count * 4 + *(short *)(rec + 0x50) * 24);
+        } while (v != 255);
+    }
+    *(u8 *)(rec + n + 0x40) = 255;
+}
+
+/* func_L03_003E3430 is defined in L03_003E3430.c. */
+
+/* func_L03_003E3678 lives in L03_003E3678-g8.c. */
+
+
 
 INCLUDE_ASM("asm/levels", func_L03_003E3A00);
 
-INCLUDE_ASM("asm/levels", func_L03_003E4148);
-
-INCLUDE_ASM("asm/levels", func_L03_003E4588);
-
 INCLUDE_ASM("asm/levels", func_L03_003E4680);
+
+/* func_L03_003E4148 is defined in L03_003E4148-g8.c. */
+
 
 extern u8 *func_0029EFD0(s32);
 
@@ -234,13 +431,11 @@ void func_L03_003E5218(u8 *a0) {
     *(u32 *)(*(u8 **)(a0 + 0x68) + 0x60) = 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L03_00408068);
 
-INCLUDE_ASM("asm/levels", func_L03_00409248);
+/* func_L03_00409248 is defined in L03_00409248-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_00409AB0);
+/* func_L03_00409AB0 lives in L03_00409AB0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_00409C38);
 
 extern f32 func_00282C48(f32);
 
@@ -250,7 +445,7 @@ int func_L03_00409D28(u8 *a0) {
     return func_00282C48(*(f32 *)(a0 + 0x18) - *(f32 *)(q + 0x8)) < 0.01f;
 }
 
-INCLUDE_ASM("asm/levels", func_L03_00419578);
+/* func_L03_00419578 lives in L03_00419578-g8.c. */
 
 u32 func_L03_004197A8(u8 *a0) {
     u8 *p = *(u8 **)(a0 + 0x68);
@@ -273,7 +468,6 @@ void func_L03_00419818(u8 *a0, u32 a1) {
         func_002A7750(a0, 3, -1);
 }
 
-INCLUDE_ASM("asm/levels", func_L03_00419850);
 
 extern void func_0029F338(u8 *);
 
@@ -311,12 +505,14 @@ void func_L03_00419A60(u32 a0, u8 *a1, s32 a2) {
         *(unsigned short *)(q + (index << 5) + 0x8C) |= 1;
 }
 
-extern void func_L02_0032E998(u8 *, u8 *, u8 *, u8 *, s32, u32, u32);
+extern s32 func_L02_0032E998(u8 *, u8 *, void *, u8 *, s32, s32 *, s32 *, float, float);
 
-void func_L03_00419B10(u32 a0, u8 *a1, u8 *a2, u8 *a3, u32 x4, u32 x5) {
+s32 func_L03_00419B10(u32 a0, u8 *a1, u8 *a2, u8 *a3, s32 *x4, s32 *x5,
+                     float margin, float tolerance) {
     u8 *q = *(u8 **)((u8 *)D_L03_001B2A1C + (a0 << 8) + 0x68);
 
-    func_L02_0032E998(a1, a2, a3, q + 0x80, *(s32 *)(q + 0x480), x4, x5);
+    return func_L02_0032E998(a1, a2, a3, q + 0x80, *(s32 *)(q + 0x480), x4, x5,
+                            margin, tolerance);
 }
 
 s32 func_L03_00419B58(u32 a0, s32 a1) {
@@ -338,19 +534,46 @@ void func_L03_00419B90(u32 a0, u8 *a1, u8 *a2) {
     func_L02_0032EDD8(a1, q + 0x80, *(s32 *)(q + 0x480), (s32 *)a2);
 }
 
-void func_L03_00419C00();
+s32 func_L03_00419C00(u8 *, u8 *, u8 *);
 
-void func_L03_00419BD8(u32 a0) {
-    func_L03_00419C00((u8 *)D_L03_001B2A1C + (a0 << 8));
+s32 func_L03_00419BD8(u32 a0, u8 *first, u8 *second) {
+    return func_L03_00419C00((u8 *)D_L03_001B2A1C + (a0 << 8), first, second);
 }
 
-INCLUDE_ASM("asm/levels", func_L03_00419C00);
+/* The route graph a pool record points to. Reading count through the struct matters:
+   the sentinel stores are fixed-address scalars, which cannot alias a varying struct
+   field, so the load does not depend on them. */
+typedef struct {
+    u8 pad[0x80];
+    u8 nodes[0x400];
+    s32 count;
+} L03RouteState;
 
-INCLUDE_ASM("asm/levels", func_L03_00419C58);
+/* Asks ComputeRegionRouteHeading about the two points on the object's route graph; the
+   heading it writes and both node indices stay local. */
+s32 func_L03_00419C00(u8 *object, u8 *first, u8 *second) {
+    float angle;
+    s32 firstIndex, secondIndex;
+    L03RouteState *record = *(L03RouteState **)(object + 0x68);
+    firstIndex = -1;
+    secondIndex = -1;
+    return func_L02_0032E998(first, second, &angle, record->nodes,
+                            record->count, &firstIndex, &secondIndex,
+                            0.0f, 0.1f);
+}
+
+/* Returns the node of the indexed record's route graph that holds a1, or -1. */
+s32 func_L03_00419C58(u32 a0, f32 *a1) {
+    L03RouteState *state = *(L03RouteState **)((u8 *)D_L03_001B2A1C + (a0 << 8) + 0x68);
+    s32 out = -1;
+
+    func_L02_0032EDD8((u8 *)a1, state->nodes, state->count, &out);
+    return out;
+}
 
 INCLUDE_ASM("asm/levels", func_L03_0041B848);
 
-INCLUDE_ASM("asm/levels", func_L03_00424C40);
+/* func_L03_00424C40 is in L03_00424C40-g8.c (-G8, -fno-gcse). */
 
 extern s32 func_002A77E0(s32);
 
@@ -383,7 +606,6 @@ void func_L03_00425030(u8 *a0) {
     *(f32 *)(rec + 0x48) = 2.46f;
 }
 
-INCLUDE_ASM("asm/levels", func_L03_00425108);
 
 /* The resident word at 0x001A79F0, below the level base, so its value is the same in every
    program.  The retail reads it absolutely in ordinary flow and through $gp in a delay slot,
@@ -427,7 +649,6 @@ u8 *func_L03_0042B6F8(void *a0, void *a1, u32 a2, u8 *a3, u32 a4, u32 a5) {
     return s0;
 }
 
-INCLUDE_ASM("asm/levels", func_L03_0042B868);
 
 void func_L03_0042B908(u8 *a0, u32 a1) {
     if (a0 != 0) {
@@ -489,7 +710,6 @@ void func_L03_0043AC78(void) {
 
 extern void func_L03_0043ACD8(void);
 
-INCLUDE_ASM("asm/levels", func_L03_0043AD30);
 
 /* rac1-decomp src/game/stub.c: func_001E97C8 */
 /* Takes an argument (callers pass one, e.g. r1_func_001EC210) and ignores
@@ -498,7 +718,6 @@ int func_L03_0043AF30(void *arg0) {
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L03_00454888);
 
 void func_L03_00456E58(void)
 {

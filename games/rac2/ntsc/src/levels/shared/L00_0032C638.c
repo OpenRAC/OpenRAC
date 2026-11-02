@@ -11,11 +11,8 @@ unsigned int func_L00_0032C638(unsigned int param_1)
     return result;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0032C9B8);
 
-INCLUDE_ASM("asm/levels", func_L00_0032CA28);
 
-INCLUDE_ASM("asm/levels", func_L00_0032CB30);
 
 INCLUDE_ASM("asm/levels", func_L00_0032CF60);
 
@@ -27,6 +24,3 @@ void func_L00_0032D100(int value, long address) {
 
 INCLUDE_ASM("asm/levels", func_L00_0032D208);
 
-INCLUDE_ASM("asm/levels", func_L00_0032D310);
-
-INCLUDE_ASM("asm/levels", func_L00_0032EF10);

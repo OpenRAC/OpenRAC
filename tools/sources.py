@@ -9,11 +9,14 @@ the paths left out. An import copies one commit's tree (git archive),
 never a working tree, so nothing uncommitted in a checkout comes along.
 A sync applies the project's diff since the recorded commit, so edits
 made here (docs/SOURCES.md lists them) survive, and a hunk that touches
-one is left as a .rej file to resolve by hand.
+one is left as a .rej file to resolve by hand. A version whose source
+has "mirror" takes REV's tree whole instead, so a sync can be repeated
+without rejects: tracked files REV lacks go, and the (from, to) text
+pairs in its "rewrites" are redone on what comes in.
 
   python3 tools/sources.py status                    how far each checkout is past its recorded commit
   python3 tools/sources.py import GAME/VERSION [REV] copy REV (default: the checkout's HEAD) into an empty directory
-  python3 tools/sources.py sync GAME/VERSION [REV]   apply the diff from the recorded commit to REV
+  python3 tools/sources.py sync GAME/VERSION [REV]   apply the diff from the recorded commit to REV (or mirror REV)
 
 A checkout is looked for in $OPENRAC_SOURCE_<GAME>_<VERSION> when it is
 set (e.g. OPENRAC_SOURCE_RAC1_NTSC), else at the path in game.json (~ is
@@ -77,6 +80,9 @@ def do_sync(key: str, rev: str | None) -> None:
     source = game["versions"][version]["source"]
     repo, dest = games.source_checkout(game["id"], version, ROOT), version_dir(game, version)
     commit = proc.git(repo, "rev-parse", rev or "HEAD")
+    if source.get("mirror"):
+        do_mirror(key, path, game, version, repo, dest, commit)
+        return
     if commit == source["commit"]:
         print(f"{key}: already at {commit[:10]}")
         return
@@ -95,6 +101,39 @@ def do_sync(key: str, rev: str | None) -> None:
     record(path, game, version, commit, repo)
     state = "with rejected hunks (*.rej) to resolve" if apply.returncode else "cleanly"
     print(f"{key}: applied {old[:10]}..{commit[:10]} {state}")
+
+
+def do_mirror(key: str, path: Path, game: dict, version: str, repo: Path, dest: Path, commit: str) -> None:
+    """Make DEST the tree of COMMIT with the source's rewrites, whatever it held before. Files git
+    does not track here (a baserom, a build) are left alone, and a rerun at the same commit is a
+    no-op."""
+    source = game["versions"][version]["source"]
+    exclude = source.get("exclude", [])
+    rewrites = [(a.encode(), b.encode()) for a, b in source.get("rewrites", [])]
+    data = proc.git(repo, "archive", "--format=tar", commit, binary=True)
+    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+        members = [m for m in tar.getmembers() if not excluded(m.name, exclude)]
+        tar.extractall(dest, members=members, filter="data")
+    incoming = {m.name for m in members if not m.isdir()}
+    tracked = proc.git(ROOT, "ls-files", "-z", "--", dest.relative_to(ROOT).as_posix(), binary=True)
+    removed = 0
+    for name in filter(None, tracked.decode().split("\0")):
+        if Path(name).relative_to(dest.relative_to(ROOT)).as_posix() not in incoming:
+            (ROOT / name).unlink(missing_ok=True)
+            removed += 1
+    rewritten = 0
+    for name in incoming:
+        file = dest / name
+        if file.is_symlink() or not file.is_file():
+            continue
+        before = after = file.read_bytes()
+        for old, new in rewrites:
+            after = after.replace(old, new)
+        if after != before:
+            file.write_bytes(after)
+            rewritten += 1
+    record(path, game, version, commit, repo)
+    print(f"{key}: mirrored {commit[:10]}: {len(incoming)} files, {removed} removed, {rewritten} rewritten")
 
 
 def record(path: Path, game: dict, version: str, commit: str, repo: Path) -> None:

@@ -1,5 +1,13 @@
 #include "include_asm.h"
 
+extern int D_001A8C88[] __attribute__((sda));
+extern int D_001A8C8C[] __attribute__((sda));
+
+extern int *D_001AA4F0 __attribute__((section(".sdata")));
+extern int *D_001AA4F0_1 __attribute__((sda));
+extern unsigned char D_001A7AFD __attribute__((section(".sdata")));
+extern int func_00295870(int);
+
 extern char D_0014B540_1[];
 
 extern short D_00152CE4[];
@@ -40,6 +48,8 @@ extern int D_L03_001CA2A8[];
 extern int *D_L01_001AA7F0 __attribute__((sda));
 
 extern int D_001A79F0_3 __attribute__((sda));
+
+extern int D_001C4FA0[];
 
 extern void F6df9730c_FUN_00282B50(char *dst, int *src, int count);
 
@@ -102,7 +112,6 @@ void func_00294BC8(int id, int arg)
 
 INCLUDE_ASM("asm/game", func_00294C40);
 
-INCLUDE_ASM("asm/game", func_00294D80);
 
 s32 func_00294E48(s32 index)
 {
@@ -155,7 +164,6 @@ int func_00295680(int arg)
     return -1;
 }
 
-INCLUDE_ASM("asm/game", func_002956E8);
 
 void func_00295788(int a0, int a1)
 {
@@ -186,9 +194,55 @@ int func_00295828(int id) {
     return -1;
 }
 
-INCLUDE_ASM("asm/game", func_00295870);
+/* looks the level up in the map's table and then walks the levels next to it */
+int func_002958B8(void)
+{
+    int flag = D_001A7AFD ? 0x100 : 0;
+    unsigned int id = D_001C4FA0[0x230 / 4] + flag;
+    int level;
+    int *p;
+    int index;
+    unsigned int delta;
+    int notfound;
+    int limit;
+    int one;
+    int offset;
+    int entry;
 
-INCLUDE_ASM("asm/game", func_002958B8);
+    if ((int)func_00295828(id) == -1) {
+        if (func_00295870(id) != 0)
+            return id;
+    }
+    level = D_001C4FA0[0x230 / 4];
+    index = 0;
+    if (level < 0x1C) {
+        p = D_001AA4F0;
+        while (*p != level) {
+            p++;
+            index++;
+        }
+    }
+    delta = 1;
+    notfound = -1;
+    one = 1;
+    limit = 4;
+    do {
+        offset = index + delta;
+        if (offset < 0) goto update;
+        if (offset >= 0x1C) goto update;
+        {
+            entry = D_001AA4F0_1[offset];
+            if (entry != 0) {
+                id = entry + flag;
+                if (func_00295828(id) == notfound && func_00295870(id) != 0)
+                    return id;
+            }
+        }
+update:
+        delta = ((int)delta > 0) ? -(int)delta : (one - delta);
+    } while (delta != limit);
+    return -1;
+}
 
 /* shared native body of family 490e2c59eb9d7105 */
 int func_00295A10(int param_1)
@@ -205,9 +259,56 @@ int func_00295A10(int param_1)
     return index;
 }
 
-INCLUDE_ASM("asm/game", func_00295A80);
+extern int func_00295A10(int);
 
-INCLUDE_ASM("asm/game", func_00295BE0);
+extern int func_00282C30(int);
+
+int func_00295A80(void)
+{
+    int i;
+    int t;
+    int bestdiff = 0;
+    int best = -1;
+
+    if (D_001C4FA0[0x8C] == 0) {
+        int j;
+
+        for (j = 4; j >= 0; j--) {
+            if (D_001C4FA0[0xA2 + j] != 0 &&
+                j != D_001C4FA0[0xAC] &&
+                D_001C4FA0[0xA7 + j] == -1)
+                return j;
+        }
+    }
+    t = func_00295A10(D_001C4FA0[0x8C]);
+    if (t == -1)
+        return 1;
+    for (i = 0; i < 5; i++) {
+        int d;
+
+        if (D_001C4FA0[0xA2 + i] == 0)
+            continue;
+        if (i == D_001C4FA0[0xAC])
+            continue;
+        if (D_001C4FA0[0xA7 + i] == -1)
+            return i;
+        d = func_00282C30(func_00295A10(D_001C4FA0[0xA7 + i] & 0xFF) - t);
+        if (bestdiff < d) {
+            bestdiff = d;
+            best = i;
+        }
+    }
+    if (best == -1)
+        best = 0;
+    {
+        int off = 0x29C;
+        char *base = (char *)D_001C4FA0;
+        *(int *)(base + off + best * 4) = -1;
+    }
+    return best;
+}
+
+
 
 void func_00295BE8(u8 *a0,u8 *a1,u8 *a2,u8 *a3) {
  s32 i=0;
@@ -230,20 +331,40 @@ void func_00295BE8(u8 *a0,u8 *a1,u8 *a2,u8 *a3) {
 }
 
 extern int D_001C51D0;
-extern void func_00295C70(void);
+extern int func_00295C70(void);
 
 void func_00295C50(int value) {
     D_001C51D0 = value;
     func_00295C70();
 }
 
-INCLUDE_ASM("asm/game", func_00295C70);
+extern int func_00295870(int);
 
-INCLUDE_ASM("asm/game", func_00295D00);
+/* Picks the next free slot of the resident table and reports whether that
+   slot is in use.  The resident flag at D_001A79F0_3 vetoes the slot while
+   the table's counter is still empty.  The counter sits at the table's +0x230
+   and the slot's own flag at its +0x24, so both are reached through the one
+   base the retail uses (the array's indices 0x8C and 0x9). */
+int func_00295C70(void)
+{
+    if (D_001C4FA0[0x8C] >= 0x1C)
+        D_001C4FA0[0x8C] = 0x1B;
+    if (func_00295870(D_001C4FA0[0x8C]))
+        D_001C4FA0[0x9] = 1;
+    else
+        D_001C4FA0[0x9] = 0;
+    if (D_001C4FA0[0x8C] == 0) {
+        if (D_001A79F0_3 != 0)
+            D_001C4FA0[0x9] = 0;
+    }
+    return D_001C4FA0[0x9] != 0;
+}
 
-INCLUDE_ASM("asm/game", func_00295F60);
+/* func_00295D00 is defined in 00295D00-g8.c (-G8 -g). */
 
-INCLUDE_ASM("asm/game", func_00297218);
+/* func_00295F60 is defined in 00295F60-map-g8.c (-G8 -Wa,-G64 -ffast-math -g). */
+
+/* func_00297218 is defined in its sibling unit. */
 
 extern void func_00297550(u8 *, s32, u8 *, short *);
 
@@ -316,13 +437,47 @@ void func_00297550(u8 *out,s32 index,u8 *base,short *offsets) {
     }
 }
 
-INCLUDE_ASM("asm/game", func_00297668);
 
-INCLUDE_ASM("asm/game", func_00297670);
+extern int D_001A79F0_4[] __attribute__((sda));
+
+extern int D_001399B8[];
+
+extern void func_00282A60(void *, int, int);
+
+extern int func_00283EF0(void *, int, int, int);
+
+extern void func_00297BB0(void *);
+
+/* Passes the 0x800-byte buffer to func_00282A60 when the table's field at +0x28 is
+   clear or its field at +0x238 is negative.  Otherwise goes through func_00283EF0
+   and keeps the largest count per flag value.  The flag has no size here, so it is
+   a macro load: $gp in a delay slot, absolute elsewhere. */
+void func_00297670(void *buffer)
+{
+    int *table = D_001C4FA0;
+    int count;
+
+    if (table[0x10 / 4] == 0)
+        return;
+    if (table[0x28 / 4] == 0 || table[0x238 / 4] < 0) {
+        func_00282A60(buffer, 0, 0x800);
+        return;
+    }
+    func_00294E48(D_001A79F0_4[0]);
+    count = func_00283EF0(buffer, 0x800, table[0x14 / 4], table[0xC / 4]);
+    if (count == -1)
+        func_00297BB0(buffer);
+    if (D_001399B8[D_001A79F0_4[0]] < count)
+        D_001399B8[D_001A79F0_4[0]] = count;
+}
 
 
 
-INCLUDE_ASM("asm/game", func_002977A8);
+/* func_002977A8 is defined in 002977A8.c. */
+
+
+
+/* func_002977A8 is defined in its sibling unit. */
 
 void func_002979D8(char *dst, unsigned char *src)
 {
@@ -360,7 +515,6 @@ void func_002979D8(char *dst, unsigned char *src)
     }
 }
 
-INCLUDE_ASM("asm/game", func_00297BA8);
 
 
 /* localized row40 textID10 firstpercent selector b formats signedmappedword80 with original decimalformatter; other selector formats original error string, preserve prefix/tail */
@@ -394,9 +548,48 @@ void func_00297E00(int index, unsigned char *output)
 }
 
 
-INCLUDE_ASM("asm/game", func_002980C8);
 
-INCLUDE_ASM("asm/game", func_002980D0);
+extern int D_L00_0028D890[];
+extern void *D_L00_001C5620[];
+extern float D_00139A28[];
+
+/* Copies the colour entries of one band of the resident table.
+   The two base addresses are taken in the retail's order - the source
+   table's first - and the two pointers in the retail's order, the
+   destination's first: that is what puts the two lui/addiu pairs and the
+   two argument registers where the retail has them. */
+void func_002980D0(void)
+{
+    int band = D_001A79F0_3;
+    int first;
+    int last;
+    float *colours;
+    void **table;
+    float *dst;
+    void **src;
+
+    if ((unsigned)band >= 0x13)
+        return;
+    first = D_L00_0028D890[band];
+    last = D_L00_0028D890[band + 1];
+    if (first >= last)
+        return;
+    table = D_L00_001C5620;
+    colours = D_00139A28;
+    dst = &colours[first * 4];
+    src = &table[first];
+    first = last - first;
+    do {
+        float *entry = (float *)src[0];
+        if (entry != 0) {
+            dst[0] = entry[4];
+            dst[1] = entry[5];
+            dst[2] = entry[0x3E];
+        }
+        dst += 4;
+        src += 1;
+    } while (--first != 0);
+}
 
 void func_00298170(void)
 {
@@ -449,7 +642,50 @@ void func_00298278(void) {
     D_001393E0.field10 = 0;
 }
 
-INCLUDE_ASM("asm/game", func_00298298);
+/* Resolve pending state requests after clearing the two transient flag bits. */
+void func_00298298(void)
+{
+    int flags = D_001A7424[0];
+    int cleared = flags & ~4;
+    int mask = cleared & ~2;
+    int v0, v1;
+    SharedState *state = &D_001393E0;
+
+    D_001A7424[0] = mask;
+    if (state->field17c == 0) {
+        D_001A7420[0] = 3;
+        return;
+    }
+    if ((flags & 0x80) || *(int *)((char *)state + 0x16C) != 0) {
+        int v = mask & ~0x80;
+        D_001A7420[0] = 21;
+        D_001A7424[0] = v | 0x40;
+        return;
+    }
+    if (flags & 0x100) {
+        int w = (mask ^ 0x100) | 0x40;
+        D_001A7420[0] = 20;
+        D_001A7424[0] = w;
+        return;
+    }
+    if (state->field10 != 0) {
+        state->field17c = 0;
+        if (D_001A8C88[0] != 0 || D_001A8C8C[0] != 0) {
+            D_001A7420[0] = 3;
+            return;
+        }
+        v0 = mask | 1;
+        v1 = 2;
+    } else if (flags & 0x200) {
+        v0 = mask ^ 0x200;
+        v1 = 25;
+    } else {
+        return;
+    }
+    D_001A7424[0] = v0;
+    D_001A7420[0] = v1;
+}
+
 
 extern unsigned int D_001A7424[] __attribute__((sda));
 extern int D_001A7420[] __attribute__((sda));

@@ -27,13 +27,14 @@ struct R192V {
     f32 x;
     f32 y;
     f32 z;
-};
+    f32 w;
+} __attribute__((aligned(16)));
 
 extern f32 func_002A7878(f32, f32);
-extern void func_0029FCC0(s32, s32, struct R192V *);
+extern void func_0029FCC0(void *, s32, struct R192V *);
 extern void func_002820D0(struct R192V *, s32, s32, f32, f32, f32);
 
-void func_003225C0(s32 arg0) {
+void func_003225C0(void *arg0) {
     struct R192V sp;
     f32 f20;
     sp.z += func_002A7878(0.1f, 0.4f);

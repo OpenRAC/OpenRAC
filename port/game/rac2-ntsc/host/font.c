@@ -32,54 +32,54 @@ int func_00336A40(gaddr object);
 
 /* Print in the large font (texture 1) and the small one (texture 2). */
 void func_0027F538(int x, int y, int style, gaddr text, int length) {
-    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)FONT_LARGE);
+    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
 void func_0027F5B8(int x, int y, int style, gaddr text, int length) {
-    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)FONT_SMALL);
+    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 /* Right-aligned (x is the right edge). */
 void func_0027F980(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F178(text, length);
-    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)FONT_LARGE);
+    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
 void func_0027FA10(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F198(text, length);
-    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)FONT_SMALL);
+    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 /* Centred on x; the left edge is returned. */
 int func_0027FAA8(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F178(text, length) >> 1;
-    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)FONT_LARGE);
+    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
     return x;
 }
 
 int func_0027FB40(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F198(text, length) >> 1;
-    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)FONT_SMALL);
+    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
     return x;
 }
 
 int func_0027FBD8(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F1B8(text, length) >> 1;
-    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(3), (int)FONT_THIRD);
+    func_0027F2A8(x, y, style, (int)text, length, func_0027C878(3), (int)OPENRAC_DATA(FONT_THIRD));
     return x;
 }
 
 /* The same through 0x0027FC70, which takes no style. */
 void func_00280190(int x, int y, gaddr text, int length) {
-    func_0027FC70(x, y, (int)text, length, func_0027C878(1), (int)FONT_LARGE);
+    func_0027FC70(x, y, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
 void func_00280200(int x, int y, gaddr text, int length) {
-    func_0027FC70(x, y, (int)text, length, func_0027C878(2), (int)FONT_SMALL);
+    func_0027FC70(x, y, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 void func_00280270(int x, int y, gaddr text, int length) {
-    func_0027FC70(x, y, (int)text, length, func_0027C878(3), (int)FONT_THIRD);
+    func_0027FC70(x, y, (int)text, length, func_0027C878(3), (int)OPENRAC_DATA(FONT_THIRD));
 }
 
 static float f32_at(gaddr a) {

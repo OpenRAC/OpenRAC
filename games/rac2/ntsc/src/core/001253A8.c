@@ -51,7 +51,90 @@ extern int r1_func_00119328();
 
 extern void r1_func_00118A50(int, int, int);
 
-INCLUDE_ASM("asm/core", func_001253A8);
+extern int r1_D_001313E8;
+extern int r1_D_001313F0;
+extern int r1_func_0011B4C8();
+extern int r1_func_00120D28(int);
+extern void r1_func_00118C90(int);
+extern char r1_D_00132590[];
+extern void r1_func_0011A6C8();
+extern int r1_D_001313D0;
+extern int r1_func_00120E98(void);
+extern int r1_func_0011B4C8(void *, int, int, void *, int, void *, int, void *, void *);
+extern int r1_D_001313F4 NOT_SDA;
+extern char r1_D_001314C0[];
+extern char r1_D_001324C0[];
+extern int r1_D_00132580 NOT_SDA;
+extern char r1_D_001530C8[];
+extern char r1_D_001530E0[];
+extern volatile int r1_D_00131414;
+extern void r1_func_0011AD70(void *, int);
+extern void r1_func_00120A88();
+
+
+/* rac1-decomp src/core/00121750.c: func_001253A8 */
+int func_001253A8(int lba, int sectors, void *buf, unsigned char *mode) {
+    char *req = r1_D_001314C0;
+    int size;
+    int r;
+
+    if ((r1_D_001313F4 & 1) == 0) {
+        if (r1_func_00120E98() == 6) {
+            return 0;
+        }
+    }
+    if (r1_func_00120D28(4) == 0) {
+        return 0;
+    }
+
+    *(int *)(req + 0x0) = lba;
+    *(int *)(req + 0x4) = sectors;
+    *(void **)(req + 0x8) = buf;
+    req[0xC] = mode[0];
+    req[0xD] = mode[1];
+    req[0xE] = mode[2];
+    *(void **)(req + 0x10) = r1_D_001324C0;
+    *(void **)(req + 0x14) = &r1_D_00132580;
+
+    switch (mode[2]) {
+    case 1:
+        size = sectors * 0x918;
+        break;
+    case 2:
+        size = sectors * 0x924;
+        break;
+    case 0:
+    default:
+        size = sectors << 11;
+        break;
+    }
+
+    r1_D_00132580 = 0;
+    if ((*(volatile int *)&r1_D_001313F4 & 2) == 0) {
+        r1_func_0011AD70(buf, size);
+    }
+    r1_func_0011AD70(r1_D_001324C0, 0x90);
+    r1_func_0011AD70(req, 0x18);
+    r1_func_0011AD70(&r1_D_00132580, 4);
+    if (r1_D_001313D0 > 0) {
+        r1_func_0011A6C8(r1_D_001530C8);
+    }
+
+    r1_D_00131414 = 1;
+    *(volatile int *)&r1_D_001313F0 = 1;
+    r = r1_func_0011B4C8(r1_D_00132590, 1, 1, req, 0x18, 0, 0,
+                      (void *)r1_func_00120A88, r1_D_001324C0);
+    if (r < 0) {
+        r1_D_00131414 = 0;
+        *(volatile int *)&r1_D_001313F0 = 0;
+        r1_func_00118C90(*(volatile int *)&r1_D_001313E8);
+        return 0;
+    }
+    if (r1_D_001313D0 > 0) {
+        r1_func_0011A6C8(r1_D_001530E0);
+    }
+    return 1;
+}
 
 /* rac1-decomp src/core/00121750.c: func_00121930 */
 /* sceCdGetError, r1_func_00120E98's sibling: S-command 3, RPC 4, and -1

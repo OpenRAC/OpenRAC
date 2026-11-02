@@ -82,11 +82,15 @@ Say which in the commit. A function that is merely hard is a near miss, not hand
 Some functions cannot be matched from C, and some have cost enough. Know which before another
 attempt; OpenRAC's `docs/port/BACKFILL.md` has the measurements and the full procedure.
 
-- **Not a function.** It reads a register it never sets, branches outside its own bytes, or has
-  no `jr $ra`: a piece of its neighbour that the catalogue split off. Do not write C; report it,
-  it is a fix in `tools/levels.py`.
+- **Not a function.** Establish from the surrounding retail bytes that the catalogue split off
+  an internal fragment or padding before proposing a fix in `tools/levels.py`. A missing
+  `jr $ra` alone is not evidence: tail calls and non-returning functions are valid. Register
+  inputs and branches outside the extent also need ABI and control-flow analysis.
 - **Handwritten.** COP2/VU0 instructions, `$at` as a working register, a live instruction after
   the return's delay slot, a trapping `addi`: see "Handwritten assembly" above.
+  Decode with the R5900 instruction set before classifying a body. Its three-operand `mult`
+  writes a GPR result; absence of `mflo` does not make that multiplication unused. `por`,
+  `lq`/`sq` and `ldl`/`ldr` are not sufficient evidence of handwritten code.
 - **A tie.** Three different wordings that compile to the same bytes: a fourth will too. So will
   another compiler or another flag: on rac1, three other compilers fixed none of 492 near misses.
 - **Out of budget.** About ten compiles without getting closer.
@@ -95,6 +99,38 @@ Then stop: put the marker back, leave the attempt in `nonmatching/<area>/` with 
 what would unblock it, and let it go up one model tier (docs/AGENT_WORKFLOW.md). Stopping is a
 normal result. C that behaves like the function without matching it is useful to the native port,
 never to `src/` or the progress report.
+
+## Shared blocker knowledge
+
+[`docs/MATCHING-BLOCKERS.md`](docs/MATCHING-BLOCKERS.md) is the shared reference for
+blockers, measured attempts and verified remedies. **Every contributor may edit any
+entry through a normal fork/topic branch and pull request**, including entries originally
+written by someone else. Maintainers review merges; they do not own all knowledge edits.
+A coding AI uses ordinary Markdown file edits and Git in this same repository; no wiki
+clone, browser automation or Computer Use is needed.
+
+Before retrying a near miss, investigating a blocked family or changing the toolchain,
+read the relevant entry and retained source, and check cited fixes against current
+`origin/master`. Do not repeat recorded attempts without a new hypothesis or changed input.
+
+When you find a blocker, useful evidence or a solution, update the existing entry in
+`docs/MATCHING-BLOCKERS.md` in your branch and include it in the relevant PR. Keep it concise:
+
+- Identify the target/family, release, compiler/assembler profile and placement coverage.
+- Record the hypothesis, measured result, remaining difference and next useful experiment.
+  Keep negative results that establish a new constraint; do not duplicate unchanged trials.
+- Distinguish hypotheses, retained near misses, local matches, pending PRs and merged fixes.
+  Link the PR/commit and real checks; equal size alone is not a match. Reconcile an entry
+  when its fix lands, preserving superseded measurements as clearly dated history.
+- Keep useful C in `nonmatching/`; game data, trial objects, assembly and logs stay private.
+
+Discuss findings in the relevant code or documentation PR and incorporate the result in
+the shared file. [Issue #157](https://github.com/OpenRAC/rac2-gc-decomp/issues/157) is retired
+and retained only as historical provenance, not an active discussion hub or knowledge store.
+A personal persistent comment is not required for blocker knowledge. Preserve existing comments as historical sources; do not edit
+another person's comment. Do not create a parallel register, wiki knowledge copy or
+per-contributor/per-session file. The wiki is only a link to the same repository document.
+Reservations remain exclusively in #152; neither the document nor #157 reserves work.
 
 ## Use the machine
 
@@ -120,13 +156,40 @@ each have their own worktree for that reason (docs/AGENT_WORKFLOW.md).
   builds, symbol dumps from them, leaked source), not even as a reference. Publicly distributed
   prototype discs may be cited, naming the build, never as the evidence for a match. OpenRAC's
   docs/policy/SOURCING.md is the full policy.
-- **Plain C.** No inline assembly in a function, no register pins, no artificial barriers.
+- **Follow RAC1's source practices.** Game functions use meaningful C and the reviewed
+  shared EE helpers in `include/common.h` (`qcopy`, `qcopy_nc`, `qzero`, `qzero_nc`). Do not paste
+  instruction sequences into individual game functions. Public runtime-library target
+  primitives (for example GCC's original `longlong.h` multiplication primitive) may be
+  retained with their upstream provenance and licence, as in RAC1. Symbol aliases and
+  independently evidenced file-scope padding are permitted. No register pins, empty asm
+  barriers, fake dependencies, false prototypes or invented volatile accesses. A helper
+  or primitive is not a match: validate its actual compiled bytes and every linked place.
+- **Check current RAC1 before rejecting a method.** Inspect its current source and build
+  inputs, rather than treating an old experiment or private worker restriction as a ban.
+  Methods used there are available here, subject to the same sourcing and strict-build
+  checks. Measured `volatile` fields can describe real reload/store sequences; they are
+  not limited to memory-mapped hardware. Typed integer/FP argument interleavings are
+  permitted when the EE ABI preserves each register bank's argument order, count and
+  widths, stack arguments, return contract and side effects. Do not invent accesses or
+  change the callee's physical interface to influence allocation. See
+  [the examples and limits](docs/COMPILER-NOTES.md#source-methods-shared-with-rac1).
 - **English.** Everything that lands here is in English: code, comments, commit messages,
   issues, pull requests, reviews, and the notes kept in `nonmatching/`. Translate before it is
   published.
+- **LF line endings.** Save every new or edited versioned text file with LF (`\n`),
+  never CRLF or mixed endings. This applies to C, headers, scripts, configuration and
+  documentation; binary assets are not text. Preserve the existing `.gitattributes`
+  byte-preserving policy: Git must not silently rewrite source bytes for Windows.
+  After staging, check `git ls-files --eol -- <changed paths>`: text files must show
+  `i/lf` and `w/lf` (`none` is valid for an empty file or a file without newlines).
+  Normalize the files in your change, not unrelated historical files.
 - **Flags per file, never per function** (`config/cflags.txt`). If one function needs other flags,
   it belongs in a file of its own with those flags.
-- **Nothing edits compiler output.** The build only does what the retail assembler and linker did.
+- **Assembler/linker compatibility follows RAC1's evidence rule.** A compatibility pass
+  may reproduce measured retail macro expansion, hazard padding or section placement.
+  It must preserve compiler-authored operations and data, have independent controls,
+  and pass the strict linked build. Never rewrite instructions, values, branches or
+  registers merely to close a mismatch, or special-case a function/address as a patch.
 - **A match is only `tools/build.py` saying OK.** Not a compiled object, not a masked comparison,
   not a model's claim. Report exactly what you ran and what it printed.
 - **Never commit game data or proprietary tools**: disc images, extracted programs, disassembly,
@@ -162,7 +225,14 @@ work in. It was removed on purpose. Do not recreate any of it:
 - Conventional commit subjects with a scope: `feat(src):`, `fix(tools):`, `build(compiler):`,
   `docs:`, `chore:`. The body says what changed and how it was checked: the commands and what
   they printed (e.g. "tools/build.py all: 28 programs OK; 3 functions added").
-- Small, coherent commits: one function or one small family per commit is fine.
+- Prefer coherent batches over many tiny commits. For decompilation work, aim for
+  **at least five related functions per commit** when practical, including batches
+  of retained near misses. Group supporting source, flags and documentation changes
+  with the work they explain; do not commit every successful trial separately.
+- Keep the batch size appropriate to the situation. A smaller commit is justified
+  for an isolated fix, an independent change that needs separate review, or the final
+  remainder of a batch. Do not combine unrelated work or delay a necessary fix just
+  to reach five. Every batch must still pass the required checks before publication.
 - Leave `progress/report.json` and the README table out of your commits (see "The progress
   report").
 
@@ -185,7 +255,7 @@ regenerates them conflicts with every other one. So pull requests do not touch t
 1. Work on a branch from an up-to-date `master` (`git switch -c match/<what> origin/master`).
    Never commit to `master` directly and never push to it.
 2. Before pushing, run all of these and keep their output for the PR:
-   - `python3 tools/build.py all` (every program `OK`),
+   - `python3 tools/build.py all --strict` (every program `OK`, no C fallback to assembly),
    - `python3 -m unittest discover -s tests`, `python3 tests/check_repository.py` and `python3 tools/progress.py --check`.
 3. Push your branch and open a pull request to `master` with the template filled in: what you
    matched or changed, the commands you ran and what they printed, and what you did not run.

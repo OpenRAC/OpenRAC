@@ -17,13 +17,23 @@ extern int func_L00_002B3998_1(float value);
 typedef struct {
     u8 pad000[0x1b8];
     int f1B8;
-    u8 pad1bc[0xc2c - 0x1bc];
+    u8 pad1bc[0x222 - 0x1bc];
+    short s222;
+    u8 pad224[0xc2c - 0x224];
     int fC2C;
     u8 padc30[0x149d - 0xc30];
     u8 b149D;
     u8 pad149e[0x2290 - 0x149e];
     u8 *p2290;
     int f2294;
+    u8 pad2298[0x22b8 - 0x2298];
+    u8 b22B8;
+    u8 pad22b9[0x22bb - 0x22b9];
+    u8 b22BB;
+    u8 pad22bc[0x22bf - 0x22bc];
+    u8 b22BF;
+    u8 pad22c0[0x24ec - 0x22c0];
+    short s24EC;
 } ResidentState_Fd160fb9c;
 #endif
 
@@ -94,6 +104,24 @@ extern void func_L00_002D3638(char *target, int mode, float value, float zero, f
 extern int func_002761F8_2(char *first, char *second, int mode, int flag, int extra);
 
 extern float func_00282E48_4(char *source, short *table);
+
+extern float func_00282E48(void *source, void *table);
+
+extern int func_002ABB78(void *object);
+
+extern int func_L00_002ADEA0(int index);
+
+extern void *D_L00_001BF218;
+
+#ifndef RAC2_T_HEROBLOCK_2AB1D8
+#define RAC2_T_HEROBLOCK_2AB1D8
+typedef struct {
+    u8 pad000[0x1e4];
+    float f1E4;
+} HeroBlock_2ab1d8;
+#endif
+
+extern HeroBlock_2ab1d8 D_00189EA0;
 
 extern short D_L00_001BF220_2[];
 
@@ -169,11 +197,8 @@ void func_L00_002A6420(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002A6708);
 
-INCLUDE_ASM("asm/levels", func_L00_002A67F8);
 
-INCLUDE_ASM("asm/levels", func_L00_002A6DD0);
 
 /* reads a global mode value; for 8, 9 or 19 probes two engine queries and returns 1 if either reports true, else 0 */
 int func_L00_002A7000(void)
@@ -213,11 +238,10 @@ void func_L00_002A70F0(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002A70F8);
+/* func_L00_002A70F8 is defined in L00_002A70F8-glow.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002A74A8);
+/* func_L00_002A74A8 is defined in L00_002A74A8-tint.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002A75D8);
 
 /* runs a three-float setup over two resident blocks when the mode is 124, then publishes a
    height once two resident flags are clear */
@@ -235,9 +259,9 @@ void func_L00_002A76B8(void)
     *(float *)(*(char **)(base + 0x2290) + 0xF4) = *(float *)(base + 0x6B0);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002A7748);
+/* func_L00_002A7748 is defined in L00_002A7748.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002A7958);
+/* func_L00_002A7958 is matched in its own unit, src/levels/shared/L00_002A7958-g8.c (-O2 -G8 -ffunction-sections). */
 
 /* raises the pending flag once: registers an update routine with the resident pointer */
 void func_L00_002A7A10(void)
@@ -250,18 +274,13 @@ void func_L00_002A7A10(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002A7A50);
-
-INCLUDE_ASM("asm/levels", func_L00_002A7DE8);
-
-
-INCLUDE_ASM("asm/levels", func_L00_002A7E60);
+/* func_L00_002A7A50 is defined in L00_002A7A50-glow.c. */
 
 INCLUDE_ASM("asm/levels", func_L00_002A9460);
 
-INCLUDE_ASM("asm/levels", func_L00_002A9600);
+/* func_L00_002A9600 uses the quadword-copy profile in L00_002A9600-qcopy.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002A9760);
+/* func_L00_002A9760 is defined in L00_002A9760-g8.c. */
 
 /* Clamps two float fields of one object into [-1,1] through a repeated helper call and copies the clamped values into a second object. */
 void func_L00_002A9D38(float *a0, float *a1, float f12)
@@ -281,7 +300,7 @@ void func_L00_002A9D38(float *a0, float *a1, float f12)
     a0[1] = a1[1];
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002A9E30);
+/* func_L00_002A9E30 is defined in L00_002A9E30-retime.c. */
 
 /* blends two table entries by the fractional part of a clock value: the integer part is the index, one step back is wrapped over a count unless a flag selects the last slot, and the result is frac*table[index] + (scale-frac)*table[previous] */
 float func_L00_002A9F30(float *table, int count)
@@ -353,7 +372,7 @@ void func_L00_002AA178(int a0)
     func_L00_003116A8_1(a0, 9, &buf, D_0018AA70);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002AA200);
+/* func_L00_002AA200 is defined in L00_002AA200-pose.c. */
 
 /* Bumps a 16-bit counter in a fixed data block and, when the new value exceeds the caller's threshold, builds a three-float jittered position from two globals plus three random calls, hands it to a spawn helper and stores the helper's return value back into the counter. */
 void func_L00_002AA478(char *self, int arg1)
@@ -376,15 +395,17 @@ void func_L00_002AA478(char *self, int arg1)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002AA570);
+/* Near miss: nonmatching/levels/func_L00_002AA570.c - 472/480 bytes; retail
+   keeps the base's %hi in $s5 and re-materialises it inside the loop. */
+/* func_L00_002AA570 is defined in L00_002AA570-effects.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002AA750);
+/* func_L00_002AA750 is defined in L00_002AA750.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002AA938);
+/* func_L00_002AA938 is defined in L00_002AA938-effects.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002AABE0);
+/* func_L00_002AABE0 is defined in L00_002AABE0.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002AAE00);
+/* func_L00_002AAE00 is defined in L00_002AAE00-effects.c. */
 
 typedef struct {
     char reserved00[0xA4];
@@ -393,6 +414,26 @@ typedef struct {
     int reservedAC;
 } FloatPairRow;
 extern FloatPairRow D_L00_0025BE10[4];
+
+#ifndef RAC2_T_FLOATBLOCK_2AB1D8
+#define RAC2_T_FLOATBLOCK_2AB1D8
+typedef struct {
+    u8 pad000[0x5e0];
+    float f5E0;
+    float f5E4;
+    u8 pad5e8[0x624 - 0x5e8];
+    float f624;
+    float f628;
+    u8 pad62c[0x690 - 0x62c];
+    float f690;
+    float f694;
+    u8 pad698[0x6d4 - 0x698];
+    float f6D4;
+    float f6D8;
+} FloatBlock_2ab1d8;
+#endif
+
+extern FloatBlock_2ab1d8 D_L00_0025BE10_1;
 
 void func_L00_002AB0A8(float first, float second) {
     D_L00_0025BE10[0].first = first;
@@ -429,7 +470,70 @@ int func_L00_002AB108(float *out, float scale, float amount)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002AB1D8);
+/* Publishes the level's camera blend: clears the pending flag at 0x24EC, drops out on the
+   three resident gates (the 0x22BB byte, the 0x222 halfword, the 0x22BF byte), asks the
+   blend helper for the frame scale, and writes the clamped angle pair into the level's
+   float block at 0x25BE10. */
+
+void func_L00_002AB1D8(void)
+{
+    float ret;
+    float f1, f20, f21, f22;
+    int v;
+
+    D_00189E20_16.s24EC = 0;
+
+    if (D_00189E20_16.b22BB == 0)
+        return;
+
+    if (D_00189E20_16.s222 != 0)
+        return;
+
+    if (D_00189E20_16.b22BF != 0)
+        return;
+
+    if (func_L00_002AB108(0, D_00189E20_16.b22B8 != 0 ? 0.7f : 0.57f, 1.3f) == 0)
+        return;
+
+    if (D_00189E20_16.b22B8 != 0 && D_L00_001BF218 != 0) {
+        if (func_002ABB78(D_L00_001BF218) != 0)
+            return;
+    }
+
+    D_L00_0025BE10_1.f6D4 = 0.05f;
+    D_L00_0025BE10_1.f6D8 = 0.3f;
+
+    ret = func_00282E48(&D_00189EA0, D_L00_001BF220_2);
+    f1 = 1.3f - (ret - D_00189EA0.f1E4);
+    f22 = f1 * 0.9615385f;
+    f20 = f22 * (-70.0f * 0.017453294f);
+    if (-30.0f * 0.017453294f < f20)
+        f20 = -30.0f * 0.017453294f;
+    if (f20 < (-70.0f * 0.017453294f))
+        f20 = -70.0f * 0.017453294f;
+
+    f21 = 0.0f;
+    v = func_L00_002ADEA0(0);
+    if (v == 27 || v == 44) {
+        float f0 = 40.0f * 0.017453294f;
+
+        f21 = f22 * f0;
+        if (f0 < f21)
+            f21 = f0;
+    }
+
+    D_L00_0025BE10_1.f694 = f20;
+    D_L00_0025BE10_1.f690 = f21;
+
+    if (D_00189E20_16.b22BB == 2) {
+        D_L00_0025BE10_1.f624 = D_L00_0025BE10_1.f6D4;
+        D_L00_0025BE10_1.f628 = D_L00_0025BE10_1.f6D8;
+        D_L00_0025BE10_1.f5E4 = f20;
+        D_L00_0025BE10_1.f5E0 = f21;
+    }
+
+    D_00189E20_16.s24EC = 1;
+}
 
 void func_L00_002AB3E0(void)
 {
@@ -449,30 +553,29 @@ void func_L00_002AB3E0(void)
 }
 
 
-INCLUDE_ASM("asm/levels", func_L00_002AB420);
+/* func_L00_002AB420 is defined in L00_002AB420-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002AB948);
+/* func_L00_002AB948 is defined in L00_002AB948.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002ABBA0);
+/* func_L00_002ABBA0 is defined in L00_002A6420-target-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002AC1A0);
+/* func_L00_002AC1A0 is defined in L00_002AC1A0.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002AC578);
+/* func_L00_002AC578 is defined in L00_002AC578.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002ACA08);
+/* func_L00_002ACA08 is defined in L00_002ACA08-flags.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002ACF88);
 
-INCLUDE_ASM("asm/levels", func_L00_002AD868);
+/* func_L00_002AD868 is defined in L00_002AD868-rail.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002ADB40);
+/* func_L00_002ADB40 is defined in L00_002ADB40.c. */
 
 /* forwards an output pointer, three pinned floating constants and selector one to the typed helper */
 void func_L00_002ADCF8(f32 *output) {
  func_L00_002D36E0(0.3f,0.0f,1.34f,output,1);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002ADD30);
+/* func_L00_002ADD30 is matched in its own unit, L00_002ADD30.c. */
 
 /* returns indexed resident word 0x1220 when field 0x1244 equals two, otherwise zero */
 u32 func_L00_002ADE68(s32 index) {
@@ -530,10 +633,26 @@ u32 func_L00_002ADFD0(u8 *object,u32 value) {
     return value;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002ADFE8);
 
 
-INCLUDE_ASM("asm/levels", func_L00_002AE070);
+float func_L00_002AE070(int a0)
+{
+    char *base = D_00189E20_2;
+    char *ring;
+    int i;
+    int x;
+
+    if (a0 >= 32)
+        i = 31;
+    else
+        i = a0;
+    if (*(int *)(base + 0x23C0) < i)
+        i = *(int *)(base + 0x23C0);
+    x = *(int *)(base + 0x23BC) - i;
+    ring = base + 0x233C;
+    return *(float *)(ring + ((x + 31) % 32) * 4);
+}
 
 
-INCLUDE_ASM("asm/levels", func_L00_002AE0C8);
+
+/* func_L00_002AE0C8 is defined in L00_002AE0C8-regions.c. */

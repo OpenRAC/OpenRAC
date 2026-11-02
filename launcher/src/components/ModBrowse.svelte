@@ -141,7 +141,7 @@
   <div class="head">
     <label class="search">
       <span class="sr">{T.search}</span>
-      <input bind:this={searchBox} type="search" placeholder={T.search} bind:value={query} />
+      <input bind:this={searchBox} type="search" class:hinted={!onAndroid} placeholder={T.search} bind:value={query} />
       {#if !onAndroid}<kbd>{T.searchHint}</kbd>{/if}
     </label>
     <div class="presets" role="radiogroup" aria-label={T.presetsLabel}>
@@ -388,6 +388,12 @@
 
   .search input {
     width: 100%;
+    padding-block: 9px;
+  }
+
+  /* Room for the "/" hint, so a long search never runs under it. */
+  .search input.hinted {
+    padding-right: 36px;
   }
 
   .search kbd {

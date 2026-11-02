@@ -1,4 +1,5 @@
 #include "include_asm.h"
+#include "common.h"
 
 #ifndef RAC2_T_V4_F0FBA48D3
 #define RAC2_T_V4_F0FBA48D3
@@ -31,7 +32,7 @@ extern void func_00282CF0_4(float *out, char *a, char *b);
 
 extern void func_00282D08(float *out, char *a, char *b, float k);
 
-extern float func_00282DF0(float *v);
+extern float func_00282DF0(void *v);
 
 extern void func_00282F20_3(float *out, float *in, float k);
 
@@ -41,19 +42,92 @@ extern void func_00282CF0_8(char *dst, char *a, char *b);
 
 extern void func_L00_00424EB0(char *a0, char *a1, float t);
 
-extern void func_L00_00424C90(char *a0, char *a1, float t);
+extern float func_L00_00424C90(char *a0, char *a1, float t);
 
 INCLUDE_ASM("asm/levels", func_L00_004224D0);
 
-INCLUDE_ASM("asm/levels", func_L00_00423038);
+typedef struct { float x, y, z, w; } Vector;
+typedef struct { Vector row[3]; } Matrix;
+typedef struct {
+    Vector up, scaled, delta, endpoint, transformed, offset;
+    Matrix basis;
+    Vector difference;
+} CameraScratch;
+extern char *D_L00_001B8E10;
+extern char D_00189E20[];
+extern int D_L00_001B184C MACRO_ADDR;
+extern Vector D_L00_001BF220;
+extern Vector D_L00_001B8E50;
+extern void func_00283678(void *, void *);
+extern void func_00283098(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282D30(void *, void *, float);
+extern int func_002761F8(void *, void *, unsigned int, void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282DD8(void *, void *, void *);
+
+void func_L00_00423038(int reposition)
+{
+    CameraScratch scratch;
+    char *object = D_L00_001B8E10;
+    char *state = *(char **)(object + 0x70);
+    char *movement = state + 0x160;
+    char *transform = state + 0x60;
+    char *position;
+    char *target;
+    float length;
+    if (reposition) {
+        scratch.offset.x = -*(float *)(movement + 0x2C);
+        scratch.offset.y = 0.0f;
+        scratch.offset.z = *(float *)(movement + 0x30);
+        scratch.offset.w = 0.0f;
+        func_00283678(&scratch.basis, D_00189E20);
+        func_00283098(&scratch.transformed, &scratch.offset, *(char **)(transform + 0xC0) + 0xC0);
+        target = object + 0x30;
+        func_00282CC0(target, transform, &scratch.transformed);
+        func_00282D30(&scratch.scaled, *(char **)(transform + 0xC0) + 0xE0, *(float *)(transform + 0xB0));
+        func_00282CC0(&scratch.endpoint, transform, &scratch.scaled);
+        if (func_002761F8(&scratch.endpoint, target, D_L00_001B184C, *(char **)(D_00189E20 + 0x2290), 0)) {
+            func_00282CF0(&scratch.difference, &D_L00_001BF220, &scratch.endpoint);
+            length = func_00282DF0(&scratch.difference);
+            if (length == 0.0f) {
+                qcopy(target, &scratch.endpoint);
+            } else {
+                func_00282D30(&scratch.difference, &scratch.difference, (length - 0.5f) / length);
+                func_00282CC0(target, &scratch.endpoint, &scratch.difference);
+            }
+        }
+    }
+    position = object + 0x30;
+    {
+        float *previous = (float *)(object + 0x64);
+        previous[0] = *(float *)position;
+        previous[1] = *(float *)(position + 4);
+        previous[2] = *(float *)(position + 8);
+    }
+    qcopy(&scratch.up, &D_L00_001B8E50);
+    func_00282F20(&scratch.scaled, &scratch.up, *(float *)(transform + 0xB0));
+    func_00282CC0(&scratch.endpoint, &scratch.scaled, transform);
+    func_00282CF0(&scratch.delta, &scratch.endpoint, position);
+    func_00282F20(object, &scratch.delta, 1.0f);
+    qcopy(object + 0x20, &scratch.up);
+    func_00282DD8(object + 0x10, object, object + 0x20);
+    func_00282F20(object + 0x10, object + 0x10, 1.0f);
+    func_00282DD8(object + 0x20, object + 0x10, object);
+    qcopy(object + 0x40, object);
+}
+
+/* func_L00_00423038 is in a separate compilation unit. */
 
 INCLUDE_ASM("asm/levels", func_L00_00423290);
 
 INCLUDE_ASM("asm/levels", func_L00_004233F8);
 
-INCLUDE_ASM("asm/levels", func_L00_004237C8);
 
-INCLUDE_ASM("asm/levels", func_L00_004239A8);
+/* func_L00_004237C8 is in a separate compilation unit. */
+
+/* func_L00_004239A8 is in L00_004239A8-g8.c. */
 
 int func_L00_00423BB0(void)
 {
@@ -80,7 +154,7 @@ void func_L00_00423BC0(char *a0, void *a1, void *a2, void *a3,
     func_00282CF0_2(a1, &b3, a4);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00423CA8);
+/* func_L00_00423CA8 is in L00_00423CA8-g8.c. */
 
 /* Returns 0 unless the second argument equals 1; then it takes a pointer out of the first argument's field at +112, adds 352 to it, passes a 16-byte stack buffer and a data symbol to one routine, passes the same buffer and the shifted pointer to a second routine that returns a float, and returns 1 only when that float is below zero. */
 int func_L00_00424070(int a0, int a1)
@@ -99,7 +173,7 @@ int func_L00_00424070(int a0, int a1)
     return r;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004240D8);
+/* func_L00_004240D8 is in L00_004240D8-g8-dbg.c. */
 
 INCLUDE_ASM("asm/levels", func_L00_004243C0);
 
@@ -261,7 +335,53 @@ void func_L00_00424C60(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00424C90);
+extern char D_L00_001B8E20[];
+extern float func_00282DB0(void *, void *);
+extern void func_00282D30(void *, void *, float);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282DD8(void *, void *, void *);
+extern float func_002831B0(float);
+extern float func_00283BE0(float, float);
+extern float func_00282C48(float);
+extern float func_002A7AA8(float, float, float, float, float);
+
+float func_L00_00424C90(char *object, char *vector, float threshold)
+{
+    float temporary[4] __attribute__((aligned(16)));
+    float first[4] __attribute__((aligned(16)));
+    float second[4] __attribute__((aligned(16)));
+    float cross[4] __attribute__((aligned(16)));
+    char *state = *(char **)(object + 0x70);
+    char *output = state + 0x1C0;
+    char *direction = state + 0x160;
+    char *camera = D_L00_001B8E20;
+    char *up = camera + 0x20;
+    float dot;
+    float length;
+    float angle;
+    float signed_angle = 0.0f;
+    float sign;
+    float factor;
+    func_00282D30(temporary, up, func_00282DB0(vector, up));
+    func_00282CF0(first, vector, temporary);
+    func_00282D30(temporary, up, func_00282DB0(direction, up));
+    func_00282CF0(second, direction, temporary);
+    dot = func_00282DB0(first, second);
+    length = func_00282DF0(first);
+    if (length == 0.0f) return 0.0f;
+    length *= func_00282DF0(second);
+    if (length == 0.0f) return 0.0f;
+    angle = 1.57079632679f - func_002831B0(dot / length);
+    sign = -1.0f;
+    func_00282DD8(cross, first, up);
+    if (func_00282DB0(cross, second) >= 0.0f) sign = 1.0f;
+    signed_angle = func_00283BE0(3.14159265359f, angle);
+    if (threshold != 0.0f && func_00282C48(signed_angle) > threshold) return signed_angle;
+    factor = func_002A7AA8(-1.0f, 0.0f, 1.0f, 0.0f, signed_angle * 0.63661975f);
+    if (factor > 1.0f) factor = 1.0f;
+    *(float *)(output + 0x1C) = factor * sign;
+    return signed_angle;
+}
 
 /* Builds a vector from a1 and the +96 source block, then feeds it to the inner routine. */
 void func_L00_00424EB0(char *a0, char *a1, float t)
@@ -300,7 +420,7 @@ void func_L00_00424F58(char *a0, float a, float b)
 
 INCLUDE_ASM("asm/levels", func_L00_00424F98);
 
-INCLUDE_ASM("asm/levels", func_L00_00425118);
+/* func_L00_00425118 is in L00_00425118-g8.c. */
 
 /* Builds three vectors from an owner block, blends the stored value toward the closest of the sampled vector length and the stored reference gap, and writes the remaining gap back. */
 void func_L00_00425490(char *obj)
@@ -333,7 +453,7 @@ void func_L00_00425490(char *obj)
 
 INCLUDE_ASM("asm/levels", func_L00_00425560);
 
-INCLUDE_ASM("asm/levels", func_L00_00425A98);
+/* func_L00_00425A98 is in a separate compilation unit. */
 
 INCLUDE_ASM("asm/levels", func_L00_00425CD0);
 

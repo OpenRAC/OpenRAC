@@ -1,60 +1,41 @@
-/* NEAR MISS - candidate 680 bytes, retail's exact size (wave 4, 15 October 2026).
+/* NEAR MISS - sol-high, 28 October 2026, task v0659.
+   USA v1.01; SDK -O2 -G2 -ffunction-sections; 680/680 bytes, 0/1 places.
+   Final check.py first difference: +0xC8. There are 22 non-call instruction-
+   position differences, all in setup from +0xC8 through +0x11C; instructions
+   after that region and both epilogues agree with retail.
 
-   func_0012C4C8 in the SDK's libmpeg (the reference-image resize half of
-   _sequenceHeader): called once the sequence header has set the decoder's
-   sizes, it recomputes the macroblock counts and, when the frame size actually
-   changed, reserves the three frame buffers and re-initialises the reference
-   images. Transcribed from the reconstruction Lombyte carries as
-   src/assembly/sdk/library/sequenceheader.c (MIT), func_0012C4C8, with the
-   decoder state reached through mp->sys at +0x40 as that source does.
-   The 0x180 * width * height >> 8 product is the R5900's three-operand
-   `mult rd,rs,rt` (rabbitizer prints two operands), which is why the source's
-   left-to-right parenthesisation has to be kept.
-   Profile: sdk -O2 -G2 -ffunction-sections (the frame is `addiu $sp,$sp,-0xF0`
-   with `sd` in 16-byte slots; `sdk -O2 -g2 -gstabs` gives the same bytes).
+   Sequence-header reference-image resize: update macroblock counts, and when
+   aligned output dimensions change, rebuild three frame buffers and nine
+   plane descriptors. Based on the earlier transcription of Lombyte's public
+   reconstruction src/assembly/sdk/library/sequenceheader.c (MIT),
+   func_0012C4C8. The corresponding RAC1 entry is func_0012C608.
 
-   Wave 3 recorded 676 bytes, four short, with the residual in the frame-size
-   check. Wave 4 found the four bytes: the `var_2_53 = mpeg + 0x528;` inside the
-   inner `if` is dead (the `sp40 + 0x68` assignment below overwrites it before
-   any use), and this cc1 was still registering its value. Removing that dead
-   assignment gives retail's exact size and moves the first difference from
-   +0xb8 to +0xb4. What is left is one seven-instruction region, and everything
-   after it realigns byte for byte:
+   Improvement over the retained +0xB4 near miss: define the final plane pointer
+   separately on the width-change and height-change paths and join at resize.
+   This reproduces both comparison delay slots (addiu v0,fp,0x528) and keeps
+   ld ra in the shared epilogue. The remaining spill of this pointer occurs
+   immediately at the join, rather than after the first multiplication;
+   subsequent setup scheduling differs until the first allocator-reset call.
+   The diagnostic sched2 dump puts the pointer definition/spill in its own
+   basic block before the setup block, constraining further scheduling.
 
-     retail : bne $s7,$v1,skip ; addiu $v0,$fp,0x528 ; lw $v0,0x4($a1)
-              beq $s6,$v0,end  ; addiu $v0,$fp,0x528 ; sw $s6,0x4($a1) ...
-     here   : bnel $s7,$v1,skip ; sw $s6,0x4($a1)   ; lw $v0,0x4($a1)
-              beq $s6,$v0,end  ; ld $ra,0xE0($sp)    ; sw $s6,0x4($a1)
-              addiu $v0,$fp,0x528 ...
+   Moving the product expression earlier or adding a separate local pointer
+   copy gives identical bytes. Reversing the product grouping changes multiply
+   operands without improving setup. A six-pointer local array gives 636 bytes
+   and different allocation; duplicating dimension stores across the paths
+   regresses to +0x4. Stop on the repeated identical results. Next useful input:
+   evidence for the original common-block boundary or pointer representation.
 
-   Two related choices, both compiler-side:
-
-   - Rematerialisation. Retail computes `mpeg + 0x528` in BOTH branch delay
-     slots, in $v0 - the register the height load then clobbers, which is why
-     the fall-through path needs its own copy. This cc1 computes it once, in
-     $a0 (a register nothing clobbers), leaves it live to the merge and stores
-     it there; that costs one instruction fewer, and it is the four bytes wave 3
-     was missing.
-   - The shared epilogue: with the address no longer occupying the second delay
-     slot, this cc1 sinks `ld $ra,0xE0($sp)` into it and the shared epilogue
-     comes out one instruction short, cancelling the gain.
-
-   Levers tried and measured in wave 4: the `__asm__` alias on one address (the
-   lever the brief proposed for this wall) cannot apply here - the body holds no
-   symbol address at all, every address is `$fp + const` with $fp holding the
-   `mp->sys` pointer loaded from arg0+0x40, so there is no second name to give
-   the same symbol; and no symbol means `mips_check_split`/`-mno-split-addresses`
-   has nothing to bite on either. The retained candidate is the wave-3
-   transcription with that one dead assignment dropped. */
-extern void func_0012FB70(void *arg0);
-
-extern int func_0012FB80(void *arg0, void *arg1, unsigned int arg2, unsigned int arg3);
-
-extern void func_001306D0(void *arg0, void *arg1, void *arg2, void *arg3, void *arg4,
-                          void *arg5, void *arg6, void *arg7, void *arg8, int arg9,
-                          int arg10, int arg11, int arg12, int arg13);
-
-extern void func_001302E0(void *arg0, int arg1, int arg2);
+   Task v0659's suggested sibling func_00122B00 is unrelated software double
+   multiplication, despite also being 680 bytes; its C is not a template here.
+   No old orch/main compiler options are used. Required declarations follow.
+*/
+extern void func_0012FB70(void *);
+extern int func_0012FB80(void *, void *, unsigned int, unsigned int);
+extern void func_001306D0(unsigned int *, unsigned int *, unsigned int *, unsigned int *,
+                          unsigned int *, unsigned int *, unsigned int *, unsigned int *,
+                          unsigned int *, int, int, int, int, int);
+extern int func_001302E0(void *, int, int);
 
 void func_00130428(void *arg0) {
     unsigned char *sp30;
@@ -102,13 +83,13 @@ void func_00130428(void *arg0) {
     *(int *)(mpeg + 0x130) = var_2_40;
     temp_22_48 = var_2_40 << 4;
     temp_23_51 = *(int *)(mpeg + 0x12C) << 4;
-    if (temp_23_51 == *(int *)((unsigned char *)arg0 + 0x0)) {
-        if (temp_22_48 == *(int *)((unsigned char *)arg0 + 0x4)) {
-            return;
-        }
+    if (temp_23_51 != *(int *)arg0) {
+        var_2_53 = mpeg + 0x528;
+        goto resize;
     }
-    sp40 = mpeg + 0x4C0;
-    var_2_53 = sp40 + 0x68;
+    if (temp_22_48 == *(int *)((unsigned char *)arg0 + 4)) return;
+    var_2_53 = mpeg + 0x528;
+resize:
     *(int *)((unsigned char *)arg0 + 0x0) = temp_23_51;
     *(int *)((unsigned char *)arg0 + 0x4) = temp_22_48;
     temp_17_63 = mpeg + 0x108;
@@ -120,6 +101,7 @@ void func_00130428(void *arg0) {
     sp38 = mpeg + 0x3F0;
     temp_16_77 = ((0x180U * (unsigned int)temp_23_51) * (unsigned int)temp_22_48) >> 8;
     sp3C = mpeg + 0x458;
+    sp40 = mpeg + 0x4C0;
     width = temp_23_51;
     height = temp_22_48;
     func_0012FB70(temp_17_63);

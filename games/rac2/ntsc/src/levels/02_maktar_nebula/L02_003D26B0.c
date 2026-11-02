@@ -69,11 +69,11 @@ extern int D_L02_001B359C __attribute__((sda));
 
 extern char *D_0018C2BC;
 
-INCLUDE_ASM("asm/levels", func_L02_003D26B0);
+/* func_L02_003D26B0 is defined in L02_003D26B0-aim-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_003D2DE0);
+/* func_L02_003D2DE0 is defined in L02_003D2DE0-g16.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_003D4308);
+/* func_L02_003D4308 is defined in L02_003D4308-g8.c. */
 
 void func_L02_003D46B8(char *arg0) {
     char *state = *(char **)(arg0 + 0x68);
@@ -96,7 +96,7 @@ void func_L02_003D46B8(char *arg0) {
     func_002B0990(arg0, state + 0x340, 6, 1, 2.5f);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D47B0);
+/* func_L02_003D47B0 is matched in L02_003D47B0-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
 void func_L02_003D4900(char *arg0) {
     char *state = *(char **)(arg0 + 0x68);
@@ -162,8 +162,6 @@ int func_L02_003D4A60(char *arg0) {
     return hit;
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D4AF0);
-
 int func_L02_003D4D00(char *arg0) {
     char *state = *(char **)(arg0 + 0x68);
     short timer = *(short *)(state + 0x32E);
@@ -185,9 +183,9 @@ int func_L02_003D4D00(char *arg0) {
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D4E00);
+/* func_L02_003D4E00 is matched in L02_003D4E00-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L02_003D4ED0);
+/* func_L02_003D4ED0 is matched in L02_003D4ED0.c (built with -frac2-qcopy). */
 
 typedef int TI128 __attribute__((mode(TI)));
 
@@ -212,9 +210,7 @@ void func_L02_003D4FD0(char *arg0, TI128 *arg1, float arg2, float arg3) {
     func_327620(arg0, state + 0x2F4, state + 0x304, 0.5f, 0.087266475f, -1.0f);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D5118);
-
-INCLUDE_ASM("asm/levels", func_L02_003D52A8);
+/* func_L02_003D5118 is matched in L02_003D5118.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
 void func_L02_003D5570(char *arg0) {
     char *state = *(char **)(arg0 + 0x68);
@@ -337,7 +333,7 @@ void func_L02_003D5C20(char *arg0) {
     func_00282A60(s4, 0, 0x40);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D5CF0);
+/* func_L02_003D5CF0 is matched in L02_003D5CF0.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
 extern void func_3366A8(char *);
 
@@ -351,9 +347,9 @@ void func_L02_003D5DF8(char *arg0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D5E40);
+/* func_L02_003D5E40 is matched in L02_003D5E40-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_003D5F50);
+/* func_L02_003D5F50 is defined in L02_003D26B0-g8.c. */
 
 void func_L02_003D62F0(char *arg0) {
     char *state = arg0;
@@ -375,25 +371,25 @@ void func_L02_003D6348(char *arg0) {
     func_L02_003D6388(arg0, 3, 1);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D6388);
+/* func_L02_003D6388 is matched in L02_003D6388-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
 void func_L02_003D6538(char *arg0) {
     func_L02_003D6570(arg0, 4);
     func_L02_003D6570(arg0, 5);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D6570);
+/* func_L02_003D6570 is matched in L02_003D6570-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L02_003D6690);
+/* func_L02_003D6690 is defined in L02_003D6690-helpers-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_003D6A20);
+/* func_L02_003D6A20 is matched in L02_003D6A20-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier -g). */
 
 /* Whether the object's variant byte is one of the later ones. */
 int func_L02_003D6BB0(char *arg0) {
     return *(unsigned char *)(arg0 + 0x20) >= 3;
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D7330);
+/* func_L02_003D7330 is defined in L02_003D7330-g8.c. */
 
 extern void func_00283098(void *, void *, void *);
 
@@ -493,8 +489,6 @@ void func_L02_003D7900(char *arg0) {
     *(int *)(state + 0x18) = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D7C20);
-
 INCLUDE_ASM("asm/levels", func_L02_003D91A0);
 
 void func_L02_003D9608(char *arg0) {
@@ -529,11 +523,82 @@ void func_L02_003D9608(char *arg0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003D9728);
 
-INCLUDE_ASM("asm/levels", func_L02_003D9E68);
+extern void *func_0029FCC0(char *, int, void *);
 
-INCLUDE_ASM("asm/levels", func_L02_003DAB68);
+extern void func_L00_0031BDC0(void *, void *, void *, char *);
+
+extern void func_00282CF0(void *, void *, void *);
+
+extern void func_00282D30(void *, void *, float);
+
+extern void func_002A8C00(void *, char *, int, void *, float);
+
+extern int func_00277F48(float, void *, int, char *, void *);
+
+typedef struct {
+    char pad0[0x18];
+    unsigned char b18;
+    unsigned char b19;
+    unsigned short h1a;
+    char pad1c[0x14];
+} L02_003DAB68_Rec;
+
+/* Runs only while the state's target pointer (+0x240) is set.  The word at +0x98 of the object
+   table entry the state selects (+0x244) is zeroed for the duration and put back at the end.
+   Four rounds, for the joint pairs (1, 2), (3, 4), (5, 6) and (7, 8): the two joint positions
+   (func_0029FCC0), func_L00_0031BDC0 on them and the target's position, the offset from the
+   actor's position to its result, a vector made of the offset's first two floats turned a
+   quarter turn, scaled by func_00282D30 (2.0) and completed with 1.0 and 5627.925, an effect
+   record started from it (func_002A8C00), and two func_00277F48 calls on that record (0.65 and
+   0.95). */
+void func_L02_003DAB68(char *arg0) {
+    char *state = *(char **)(arg0 + 0x68);
+    float v0[4];
+    float v1[4];
+    float hit[4];
+    float diff[4];
+    float perp[4];
+    L02_003DAB68_Rec rec;
+    char *obj;
+    int saved;
+    char *pos;
+    float *offset;
+    int i;
+    int a;
+    int b;
+    float one;
+
+    if (*(int *)(state + 0x240) != 0) {
+        obj = (char *)((*(int *)(state + 0x244) << 8) + D_L02_001B359C);
+        one = 1.0f;
+        saved = *(int *)(obj + 0x98);
+        *(int *)(obj + 0x98) = 0;
+        offset = diff;
+        pos = arg0 + 0x10;
+        for (i = 0; i < 4; i++) {
+            a = i * 2 + 1;
+            b = i * 2 + 2;
+            func_0029FCC0(arg0, a, v0);
+            func_0029FCC0(arg0, b, v1);
+            func_L00_0031BDC0(hit, v0, v1, *(char **)(state + 0x240) + 0x10);
+            func_00282CF0(offset, hit, pos);
+            perp[0] = -diff[1];
+            perp[1] = diff[0];
+            perp[2] = 0.0f;
+            func_00282D30(perp, perp, 2.0f);
+            perp[2] = one;
+            perp[3] = 5627.925f;
+            func_002A8C00(&rec, arg0, 0x10001, perp, (float)*(unsigned char *)(state + 0x35));
+            rec.b18 = 0;
+            rec.b19 = 1;
+            rec.h1a = *(unsigned short *)(arg0 + 0xAA);
+            func_00277F48(0.65f, hit, 0, arg0, &rec);
+            func_00277F48(0.95f, v1, 0, arg0, &rec);
+        }
+        *(int *)((*(int *)(*(char **)(arg0 + 0x68) + 0x244) << 8) + D_L02_001B359C + 0x98) = saved;
+    }
+}
 
 void func_L02_003DAD88(char *arg0) {
     func_L02_003DAE60(
@@ -556,19 +621,19 @@ void func_L02_003DAD88(char *arg0) {
                  (*(int *)(*(char **)(arg0 + 0x68) + 0x244) << 8)));
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003DAE60);
+/* func_L02_003DAE60 is matched in L02_003DAE60-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L02_003DAF90);
-
-
-
-INCLUDE_ASM("asm/levels", func_L02_003DB030);
-
-INCLUDE_ASM("asm/levels", func_L02_003DB158);
+/* func_L02_003DAF90 uses its dedicated G16 vector unit. */
 
 
 
-INCLUDE_ASM("asm/levels", func_L02_003DB200);
+/* func_L02_003DB030 is matched in L02_003DB030-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
+
+/* func_L02_003DB158 is matched in L02_003DB158-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
+
+
+
+/* func_L02_003DB200 is matched in L02_003DB200-g8.c (built with -frac2-zero-ti-por). */
 
 void func_L02_003DB2F0(char *arg0) {
     func_002A7750(arg0, 7, -1);

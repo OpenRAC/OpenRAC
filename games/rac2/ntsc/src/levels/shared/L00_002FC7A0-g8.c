@@ -28,3 +28,26 @@ void func_L00_0030DC58(int argument)
         func_0028A670(argument);
     }
 }
+
+struct LoadSlots_L00 {
+    char pad00[0x34];
+    int slot[4];
+};
+
+extern struct LoadSlots_L00 D_00152CD0;
+extern int ref_L00_00304AE8_00 __attribute__((sda));
+
+/* The level's copy of the load-slot release: same body as func_00294130 with the slot cursor in the level's small data. */
+void func_L00_00304AE8(int *p, int a1)
+{
+    if (a1 != 0) {
+        if (p[1] >= 0) {
+            D_00152CD0.slot[p[1]] = p[0];
+            if (p[1] != ref_L00_00304AE8_00)
+                goto out;
+            ref_L00_00304AE8_00 = p[1] ^ 1;
+        }
+    }
+out:
+    *p = -1;
+}

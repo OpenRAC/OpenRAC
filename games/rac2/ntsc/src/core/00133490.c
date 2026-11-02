@@ -19,14 +19,13 @@ int func_00133490(int value)
     return func_00132C48(0x36, 4, payload);
 }
 
-INCLUDE_ASM("asm/core", func_001334B8);
+/* func_001334B8 is matched in src/core/001334B8-g8.c. */
 
-INCLUDE_ASM("asm/core", func_00133580);
+/* func_00133580 is matched in src/core/00133580-g8.c. */
 
 
-INCLUDE_ASM("asm/core", func_001336C0);
+/* func_001336C0 is matched in its own unit, src/core/001336C0.c (-O2 -G8 -ffunction-sections). */
 
-INCLUDE_ASM("asm/core", func_00133700);
 
 extern int func_00132DF0(int, int, void *, int, int);
 
@@ -48,17 +47,13 @@ int func_00133788(int first, int second, int third, int fourth) {
     return func_00132DF0(16, 16, payload, 0, 0);
 }
 
-INCLUDE_ASM("asm/core", func_001337C8);
 
-INCLUDE_ASM("asm/core", func_00133818);
 
-INCLUDE_ASM("asm/core", func_00133848);
 
 int func_00133890(void) {
     return func_00132C48(61, 0, 0);
 }
 
-INCLUDE_ASM("asm/core", func_001338B8);
 
 void func_001338C8(void)
 {
@@ -75,7 +70,6 @@ int func_001338F0(int first, int second, int third, int fourth, int fifth) {
     return func_00132C48(62, 20, payload);
 }
 
-INCLUDE_ASM("asm/core", func_00133928);
 
 int func_00133930(int first, int second)
 {

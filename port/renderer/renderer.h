@@ -79,6 +79,14 @@ struct EffectQuad {
     // When nonzero, the texture's and CLUT's blocks in the pool instead of TEX0's (a texture the
     // window keeps at a key of its own, past the GS's 14-bit blocks).
     std::uint32_t tbp = 0, cbp = 0;
+    // The GS TEST and ZBUF the game's display list left in effect where the quad was drawn, when
+    // the game marks its quads there (openrac_game_effect_quad_marker): its alpha test, what a
+    // pixel that fails it writes, and whether Z is written (ZMSK). 0 and 0 when unknown: then
+    // every pixel is drawn and no Z is written.
+    std::uint64_t test = 0, zbuf = 0;
+    bool registers = false;  // test and zbuf were read from the list
+    // What the quad draws, the same from one tick to the next (a particle's slot), or 0.
+    std::uint32_t id = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
@@ -129,6 +137,8 @@ struct UiQuad {
     std::uint32_t rgba = 0;
     std::uint64_t tex0 = 0;
     std::uint32_t flags = 0;  // kUiGlyph: a glyph of text (drawn from a distance field); kUiSprite
+    std::uint32_t corners[4] = {};  // with kUiCorners: each corner's colour, in place of rgba
+    std::uint64_t clamp = 0;        // with kUiClamp: CLAMP_1, written before the quad
 };
 
 // UiQuad::flags: kUiSprite, an axis-aligned rectangle the game sends as a sprite (corners 0 and 3),
@@ -136,6 +146,15 @@ struct UiQuad {
 inline constexpr std::uint32_t kUiSprite = 2;
 
 inline constexpr std::uint32_t kUiGlyph = 1;
+
+// UiQuad::flags: kUiCorners, a colour for each corner (`corners`), each triangle in its last
+// corner's colour as the GS draws one unshaded, or shaded between them with kUiShaded (the GS's
+// Gouraud); kUiFlat, no texture (flat colour; TEX0 stays as the game left it); kUiClamp, the
+// texture's wrap set first (`clamp`, CLAMP_1), as the game's packet does, so what follows sees it.
+inline constexpr std::uint32_t kUiCorners = 4;
+inline constexpr std::uint32_t kUiFlat = 8;
+inline constexpr std::uint32_t kUiClamp = 16;
+inline constexpr std::uint32_t kUiShaded = 32;
 
 struct RenderTarget;
 

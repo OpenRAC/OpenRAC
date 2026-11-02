@@ -177,9 +177,11 @@ def player_actions() -> dict:
                         action["cwd"] = "{data}"
                 else:
                     action["args"] = point_at(args, levels)
-                    # The check's stamp is the data folder's; any other need (the disc set up, in
-                    # {data} already) stays as it is.
-                    action["needs"] = [{"path": f"{levels}/{STAMP}" if need["path"].endswith(STAMP) else need["path"],
+                    # The check's stamp is the data folder's, and so is the export's own (Going
+                    # Commando's Play, which has no check yet, waits for that); any other need (the
+                    # disc set up, in {data} already) stays as it is.
+                    action["needs"] = [{"path": f"{levels}/{STAMP}" if need["path"].endswith(STAMP)
+                                        else moved(need["path"], key),
                                         "from": need["from"]} for need in action.get("needs", [])]
                     # The game is started in the data folder: what it writes beside itself (a
                     # screenshot) has a place there, and the copy has no folder for each version.

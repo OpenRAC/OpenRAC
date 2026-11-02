@@ -38,9 +38,9 @@ def baselines_dir() -> Path:
     return runner.REPO / "build" / "regress" / "baselines"
 
 
-def parse_levels(text: str | None) -> list[int]:
+def parse_levels(text: str | None, game: str = "rac1-pal") -> list[int]:
     if not text:
-        return list(routes_mod.LEVELS)
+        return list(routes_mod.levels_of(game))
     out = []
     for part in text.split(","):
         if "-" in part:
@@ -72,7 +72,7 @@ def run_game(meta_path: Path) -> str | None:
 
 def cmd_run(args) -> int:
     build = Path(args.build) if args.build else runner.REPO / "port" / "build" / "release"
-    levels = parse_levels(args.levels) if args.levels or args.set in (None, "standard") else None
+    levels = parse_levels(args.levels, args.game) if args.levels or args.set in (None, "standard") else None
     only = [k.strip() for k in args.only.split(",")] if args.only else None
     started = time.monotonic()
     what = f"{len(levels)} levels" if levels is not None else "all routes"
@@ -242,6 +242,55 @@ def cmd_reach(args) -> int:
     return 0
 
 
+def cmd_report(args) -> int:
+    """What stops the game, for the backfill: the runs' crashes and stops, then what they reached."""
+    rows: dict[tuple[str, str], dict] = {}
+
+    def row(game: str, name: str, kind: str) -> dict:
+        return rows.setdefault((name, kind), {"game": game, "name": name, "kind": kind, "routes": set(), "hits": 0,
+                                              "details": set()})
+
+    files = []
+    for spec in args.runs:
+        run = resolve(spec)
+        files += reach_mod.load_run(run)
+        meta = json.loads((run / "run.json").read_text())
+        game = meta.get("game", "?")
+        for r in meta.get("levels", {}).values():
+            if r.get("status") in ("ok", None):
+                continue
+            lines = r.get("notes", [])
+            reason = lines[0] if lines else r["status"]
+            kind = "stuck" if "stuck" in reason or r["status"] == "hang" else r["status"]
+            name = next((w for l in lines[1:] for w in l.replace(",", " ").split() if w.startswith(("func_", "FUN_"))),
+                        "(no game function)")
+            e = row(game, name, kind)
+            e["routes"].add(str(r.get("key") or r.get("level")))
+            e["hits"] += 1
+            e["details"].add(reason)
+    for game, reached in reach_mod.merge(files).items():
+        for r in reached:
+            e = row(game, r.name, r.kind)
+            e["routes"] |= {str(k) for k in r.levels}
+            e["hits"] += r.calls
+            e["details"] |= r.details
+    # What stops a run first; then by how many routes reached it, then by its hits.
+    weight = {"crash": 0, "hang": 0, "stuck": 0, "exit": 1, "no-control": 1}
+    ranked = sorted(rows.values(), key=lambda e: (weight.get(e["kind"], 2), -len(e["routes"]), -e["hits"], e["name"]))
+    print("  routes        hits  kind          function")
+    for e in ranked[:args.top]:
+        extra = f"  {sorted(e['details'])[0]}" if e["details"] else ""
+        print(f"  {len(e['routes']):6d}  {e['hits']:10d}  {e['kind']:<12}  {e['name']}{extra}")
+    if args.tsv:
+        with Path(args.tsv).open("w") as f:
+            f.write("kind\tfunction\troutes\thits\tsample_routes\tdetail\n")
+            for e in ranked:
+                routes = ",".join(sorted(e["routes"])[:8])
+                detail = "; ".join(sorted(e["details"])[:3]).replace("\t", " ")
+                f.write(f"{e['kind']}\t{e['name']}\t{len(e['routes'])}\t{e['hits']}\t{routes}\t{detail}\n")
+    return 0
+
+
 def cmd_coverage(args) -> int:
     files = []
     for r in args.runs:
@@ -316,6 +365,11 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--top", type=int, default=25)
     m.add_argument("--json")
     m.set_defaults(fn=cmd_reach)
+    o = sub.add_parser("report", help="what stops the game and what it needs next, ranked, for the backfill")
+    o.add_argument("runs", nargs="+")
+    o.add_argument("--top", type=int, default=40)
+    o.add_argument("--tsv", help="every row, to this file")
+    o.set_defaults(fn=cmd_report)
     v = sub.add_parser("coverage", help="what the game asked to draw that the port left undrawn, per version")
     v.add_argument("runs", nargs="+")
     v.add_argument("--top", type=int, default=25)

@@ -1,0 +1,7 @@
+#include "include_asm.h"
+
+INCLUDE_ASM("asm/us2/game", func_US2_002B1C20);
+
+INCLUDE_ASM("asm/us2/game", func_US2_002B1C90);
+
+INCLUDE_ASM("asm/us2/game", func_US2_002B1D18);

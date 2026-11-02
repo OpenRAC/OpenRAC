@@ -40,9 +40,12 @@ def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC
     normal_offset, = unpack("<I", header, layout.normals)
     normal_table = None
     if normal_offset:
+        # Up to 64 entries: a small class of Going Commando's ends its block with fewer.
+        size = min(64 * 8, (len(data) - normal_offset) // 8 * 8)
         normal_table = [unit_normal(values[:3])
-                        for values in struct.iter_unpack("<4h", span(data, normal_offset, 64 * 8))]
+                        for values in struct.iter_unpack("<4h", span(data, normal_offset, size))]
         mesh.normals = []
+    colour_base = 0  # the packet's first place in the class's colour run (layout.vertex_colours)
     for packet_id in range(packet_count):
         entry = table[packet_id * 16:(packet_id + 1) * 16]
         start = packet_table + unpack("<I", entry)[0]
@@ -78,11 +81,16 @@ def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC
                      for i in range(len(raw))]
         else:
             slots = [0] * len(raw)
-        writes = {}
-        for (x, y, z, first, s, t, q, second), slot in zip(raw, slots):
+        if layout.vertex_colours and len(raw) != entry[10]:
+            raise FormatError("tie packet vertex count differs from its colour count")
+        writes, colours = {}, {}
+        for k, ((x, y, z, first, s, t, q, second), slot) in enumerate(zip(raw, slots)):
             for address in {first, second} - {0}:
                 if writes.setdefault(address, (x, y, z, s, t, q, slot)) != (x, y, z, s, t, q, slot):
                     raise FormatError("conflicting tie vertex writes")
+                colours.setdefault(address, colour_base + k)
+        if layout.vertex_colours:
+            colour_base += entry[10]
         address, shader, strip_index = 6, 1, 0
         material, primitive, expected, winding = sources[0], [], 0, 0
 
@@ -118,12 +126,13 @@ def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC
                 if not strip_index:
                     raise FormatError("tie vertex precedes its strip")
                 x, y, z, s, t, q, slot = writes.pop(address)
+                colour = colours[address] if layout.vertex_colours else slot & 0x3F
                 if q != 4096:
                     raise FormatError("unsupported tie perspective texture coordinate")
                 primitive.append(len(mesh.positions))
                 mesh.positions.append((x * scale / 1024, y * scale / 1024, z * scale / 1024))
                 mesh.uvs.append((s / 4096, t / 4096))
-                mesh.light_slots.append(slot & 0x3F)
+                mesh.light_slots.append(colour)
                 if normal_table is not None:
                     mesh.normals.append(normal_table[slot & 0x3F])
                 address += 3

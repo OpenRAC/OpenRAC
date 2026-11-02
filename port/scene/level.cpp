@@ -566,22 +566,23 @@ bool load_level(
     }
     out.game = manifest["game"].string();
     const int format = static_cast<int>(manifest["format"].number(-1));
-    if (format != kManifestFormat) {
+    if (format < kManifestFormat || format > kManifestFormatNewest) {
         // Newer levels than the game: the game is the old part, and reading the levels again
         // would not help.
-        error = format > kManifestFormat ? std::format(
-                                               "{}: manifest format {}, newer than this game reads "
-                                               "({}): build the game again",
-                                               dir.string(),
-                                               format,
-                                               kManifestFormat
-                                           )
-                                         : std::format(
-                                               "{}: manifest format {} (this viewer reads {})",
-                                               dir.string(),
-                                               format,
-                                               kManifestFormat
-                                           );
+        error = format > kManifestFormatNewest
+                    ? std::format(
+                          "{}: manifest format {}, newer than this game "
+                          "reads ({}): build the game again",
+                          dir.string(),
+                          format,
+                          kManifestFormatNewest
+                      )
+                    : std::format(
+                          "{}: manifest format {} (this viewer reads {})",
+                          dir.string(),
+                          format,
+                          kManifestFormatNewest
+                      );
         return false;
     }
     out.level = static_cast<int>(manifest["level"].number(-1));
@@ -687,6 +688,7 @@ bool load_level(
     std::map<int, int> billboard_fades;
     bool fades_known = true;
     const bool known_caps = manifest["game"].string() == "rac1";
+    const bool vertex_tie_colours = manifest["tie_vertex_colours"].boolean(false);
     std::optional<std::uint32_t> box;
     const json::Value& classes = manifest["classes"];
     const std::pair<const char*, std::map<int, ClassModel>*> families[] =
@@ -1030,7 +1032,10 @@ bool load_level(
                 instance.tint = class_colour(id);
             }
             const std::size_t lit = p["colours"].items().size();
-            if ((layer == Layer::Ties && lit == 64) || (layer == Layer::Shrubs && lit == 24)) {
+            // Going Commando's ties carry one colour per vertex of their class (the manifest's
+            // tie_vertex_colours); Ratchet & Clank's one per light slot, 64.
+            const bool tie_lit = vertex_tie_colours ? lit > 0 : lit == 64;
+            if ((layer == Layer::Ties && tie_lit) || (layer == Layer::Shrubs && lit == 24)) {
                 instance.lights = static_cast<int>(out.light_colours.size());
                 for (const json::Value& c : p["colours"].items()) {
                     out.light_colours.push_back(static_cast<std::uint32_t>(c.number(0)));

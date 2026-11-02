@@ -1,0 +1,120 @@
+/* GPT-6.1 Sol high, v0719, USA v1.01, 2026-10-29.
+ * Best check.py: 1380 compiled bytes / 1376 retail, 0 of 2 placements.
+ * Required profile: -O2 -G8 -ffunction-sections -frac2-qcopy
+ * -frac2-qcopy-barrier. This compiler accepts all these options.
+ * Separate initialization/main-strip/branch-strip counters, grouped node
+ * offsets, sequential flag accumulation and TI copies reduced the original
+ * 1456-byte current-toolchain baseline. The measured frame is 0x310 rather
+ * than retail's 0x320; allocation, spills and scheduling still differ.
+ * The state pointer spills where retail retains it in s7. Vertex addresses
+ * become an induction pointer and i/4*4 stays in a GPR across calls, whereas
+ * retail recomputes vertex addresses and spills the quotient. Recover those
+ * local lifetimes next. Explicit UV/color pointer induction with
+ * -fno-strength-reduce reached 1400 bytes; unsigned vertex indices tied 1380.
+ * Disabling the repeated loop pass with a separate branch-age pointer was
+ * 1420 bytes. Do not repeat these forms without new evidence.
+ * The ABS and GP UV views below use the same canonical storage, following
+ * the existing L13_004095F8-g8.c pattern; no fabricated data identity.
+ * All declarations are below. No linked build was run for this near miss.
+ */
+#include "common.h"
+typedef int Vector128 __attribute__((mode(TI)));
+typedef union { int q __attribute__((mode(TI))); float f[4]; } ADVector;
+typedef struct { ADVector vertex[4]; unsigned int color[4]; float uv[4][2]; unsigned long primitive, texture, state, flags; } ADQuad;
+extern void func_00283410(void *, void *);
+extern void func_00283698(void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00283098(void *, void *, void *);
+extern void func_00282C88(void *);
+extern void func_00282DD8(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern float func_00283CE0(int);
+extern unsigned long func_0027C878(int);
+extern void func_00280B90(void *, void *, int);
+extern char D_L13_001B98C0[];
+extern int D_L13_001B163C __attribute__((sda));
+extern int D_L13_001B1640 __attribute__((sda));
+extern int D_L13_001B1644 __attribute__((sda));
+extern int D_L13_001B1648 __attribute__((sda));
+extern int D_L13_001B164C __attribute__((sda));
+extern float D_L13_001B1660_abs[4][2] __asm__("D_L13_001B1660") __attribute__((sda));
+extern float D_L13_001B1660_gp[4][2] SDATA(D_L13_001B1660);
+void func_L13_0041AD00(char *obj) {
+    ADQuad q[3];
+    ADVector matrix[4], inverse[4], camera, previous, side, delta, segment;
+    char *s = *(char **)(obj + 0x68);
+    unsigned long texture, flags;
+    int i,j,k, index, n, branch;
+    func_00283410(matrix,s+0x650);
+    func_00283698(inverse,matrix);
+    matrix[3].q = *(Vector128 *)(obj+0x10);
+    func_00282CF0(&camera,D_L13_001B98C0,obj+0x10);
+    func_00283098(&camera,&camera,inverse);
+    texture=func_0027C878(D_L13_001B163C);
+    flags=(long)D_L13_001B1640;
+    flags |= (long)D_L13_001B1644<<2;
+    flags |= (long)D_L13_001B1648<<4;
+    flags |= (long)D_L13_001B164C<<6;
+    flags |= 0x8000000000UL;
+    q[0].state=q[2].state=q[1].state=0xff9000000260UL;
+    q[0].texture=q[2].texture=q[1].texture=texture;
+    q[2].primitive=q[1].primitive=q[0].primitive=0;
+    q[0].flags=q[2].flags=q[1].flags=flags;
+    for (n=3;n>=0;n--) {
+        q[2].uv[3-n][1]=q[1].uv[3-n][1]=q[0].uv[3-n][1]=D_L13_001B1660_abs[3-n][1];
+        q[2].color[3-n]=q[1].color[3-n]=q[0].color[3-n]=*(int *)(s+0x14);
+    }
+    func_00282C88(&side);
+    for (i=0;i<31;i++) {
+        previous.q = side.q;
+        if (i<30) {
+            func_00282CF0(&segment,s+(0x20+i*16),s+(0x40+i*16));
+            func_00282CF0(&delta,s+(0x30+i*16),&camera);
+            func_00282DD8(&side,&delta,&segment);
+            func_00282F20(&side,&side,0.1f);
+        } else func_00282C88(&side);
+        for (j=0;j<4;j++) {
+            if (j<2) {
+                q[0].vertex[j].q = *(Vector128 *)(s+(0x20+i*16));
+                if (!(j&1)) { func_00282CF0(&q[0].vertex[j],&q[0].vertex[j],&previous); goto uv1; }
+            } else {
+                q[0].vertex[j].q = *(Vector128 *)(s+(0x30+i*16));
+            }
+            if (j&1) func_00282CC0(&q[0].vertex[j],&q[0].vertex[j],&side);
+            else func_00282CF0(&q[0].vertex[j],&q[0].vertex[j],&side);
+uv1:
+            q[0].uv[j][0]=D_L13_001B1660_gp[j][0]+func_00283CE0(i-(i/4)*4)*0.25f;
+        }
+        func_00280B90(q,matrix,0);
+    }
+    for (branch=0;branch<4;branch++) {
+        func_00282C88(&side);
+        index = ((unsigned char *)s)[0x18+branch];
+        if (index<31 && index>=0) {
+            for (k=0;k<3;k++) {
+                previous.q = side.q;
+                if (k<2) {
+                    func_00282CF0(&segment,s+(0x420+k*64)+branch*16,s+(0x4a0+k*64)+branch*16);
+                    func_00282CF0(&delta,s+(0x460+k*64)+branch*16,&camera);
+                    func_00282DD8(&side,&delta,&segment);
+                    func_00282F20(&side,&side,0.1f);
+                } else func_00282C88(&side);
+                if (!k) previous.q = side.q;
+                for (j=0;j<4;j++) {
+                    if (j<2) {
+                        q[0].vertex[j].q = *(Vector128 *)(s+(0x420+k*64)+branch*16);
+                        if (!(j&1)) { func_00282CF0(&q[0].vertex[j],&q[0].vertex[j],&previous); goto uv2; }
+                    } else {
+                        q[0].vertex[j].q = *(Vector128 *)(s+(0x460+k*64)+branch*16);
+                    }
+                    if (j&1) func_00282CC0(&q[0].vertex[j],&q[0].vertex[j],&side);
+                    else func_00282CF0(&q[0].vertex[j],&q[0].vertex[j],&side);
+uv2:
+                    q[0].uv[j][0]=D_L13_001B1660_gp[j][0]+func_00283CE0(k-(k/4)*4)*0.25f;
+                }
+                func_00280B90(q,matrix,0);
+            }
+        }
+    }
+}

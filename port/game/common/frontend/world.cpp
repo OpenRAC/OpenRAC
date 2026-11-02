@@ -175,9 +175,11 @@ void use_level(int number) {
     static unsigned loaded_generation;
     static unsigned loaded_props;
     int wanted = number;
-    if (number == -2
-        && std::filesystem::exists(g->levels / std::format("level_{:02d}", kFlightWorld))) {
-        wanted = kFlightWorld;
+    if (number <= -2
+        && std::filesystem::exists(
+            g->levels / std::format("level_{:02d}", kFlightWorld + 2 + number)
+        )) {
+        wanted = kFlightWorld + 2 + number;
     } else if (number < 0) {
         wanted = std::filesystem::exists(g->levels / std::format("level_{:02d}", kTitleWorld))
                      ? kTitleWorld
@@ -385,6 +387,7 @@ void savestate_restored(std::uint64_t tick) {
     g->pending_frame.reset();
     g->prepared_tick.reset();
     g->pending_images.clear();
+    g->images_after_list.clear();
     g->images.clear();
     g->water_impulses.clear();
     g->kept = std::make_shared<Kept>();
@@ -465,6 +468,7 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     q.tex0 = quad.tex0;
     q.tex1 = quad.tex1;
     q.alpha = quad.alpha;
+    q.id = quad.id;
     const std::uint32_t pixels = quad.pixels & 0x01FFFFFF;
     const std::uint32_t clut = quad.clut & 0x01FFFFFF;
     const std::uint32_t tbp = static_cast<std::uint32_t>(quad.tex0 & 0x3FFF);
@@ -521,6 +525,13 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         // renderer leaves the quad out when nothing is there.
         g->effects.push_back(q);
     }
+}
+
+std::uint32_t effect_quad_marker() {
+    if (!g || g->effects.empty() || g->effects.size() > 0xFFFFF) {
+        return 0;
+    }
+    return (g->effect_generation & 0xFFF) << 20 | static_cast<std::uint32_t>(g->effects.size() - 1);
 }
 
 void effect_textures() {
@@ -712,11 +723,13 @@ void particle(
     const std::uint8_t* record,
     std::uint32_t pixels,
     std::uint32_t clut,
-    int log2_side
+    int log2_side,
+    std::uint32_t id
 ) {
     (void)ram;
     State::Particle p;
     std::memcpy(p.record.data(), record, p.record.size());
+    p.id = id;
     p.pixels = pixels & 0x01FFFFFF;
     p.clut = clut & 0x01FFFFFF;
     p.log2_side = log2_side;
@@ -725,7 +738,7 @@ void particle(
 
 namespace {
 
-// A particle texture's pool key: its 32 x 32 PSMT8 pixels and its 16 x 16 CSM1 palette (both in game
+// A particle texture's pool key: its PSMT8 pixels, 1 << log2_side a side and its 16 x 16 CSM1 palette (both in game
 // memory) decoded to RGBA once, in the chip's alpha units (0x80 = opaque), and placed at a key of its
 // own, kept while the renderer lives. Earlier the pixels and palette went through the pool as
 // uploads at keys handed out per frame in pool order: a key named one texture this frame and
@@ -734,10 +747,10 @@ namespace {
 // Refactor note: effect textures without a source in game memory (effect_quad) still go through
 // the pool at their GS blocks.
 std::uint32_t particle_texture(
-    std::span<const std::uint8_t> ram, std::uint32_t pixels, std::uint32_t clut
+    std::span<const std::uint8_t> ram, std::uint32_t pixels, std::uint32_t clut, int log2_side
 ) {
     constexpr std::uint32_t kParticleTextureKey = 0x30000;  // past the sky's (kSkyTextureKey)
-    constexpr std::size_t kSide = 32;
+    const std::size_t kSide = std::size_t{1} << log2_side;
     if (!g->renderer || pixels == 0 || clut == 0 || pixels + kSide * kSide > ram.size()
         || clut + 1024 > ram.size()) {
         return 0;
@@ -938,9 +951,10 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     );
     const bool reuse_textures = gl::is_vulkan() && !texture_reference;
     std::uint64_t texture_resolves = 0;
+    int texture_side = 0;  // log2, of the particle being resolved
     const auto resolve_texture = [&](std::uint32_t pixels, std::uint32_t palette) {
         ++texture_resolves;
-        return particle_texture(ram, pixels, palette);
+        return particle_texture(ram, pixels, palette, texture_side);
     };
     if (effects_dump::armed()) {
         note_particles(ram, state);
@@ -1036,6 +1050,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         }
         // Its texture: 32 x 32 PSMT8 with a 256-colour CSM1 palette, decoded here and kept in the pool
         // at a key of its own (particle_texture).
+        texture_side = p.log2_side;
         q.tbp = reuse_textures ? texture_cache.resolve(p.pixels, p.clut, resolve_texture)
                                : resolve_texture(p.pixels, p.clut);
         q.cbp = 0;
@@ -1046,6 +1061,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         q.clamp = 5;
         q.tex1 = 0xFF9000000120ull;
         q.alpha = r[3];
+        q.id = p.id;
         items.push_back({z, q});
     }
     stats::gauge("particle texture resolves", double(texture_resolves));
@@ -1080,7 +1096,9 @@ int ui_quad(const openrac_game_ui_rect& quad) {
         q.y[i] = quad.y[i];
         q.u[i] = quad.u[i];
         q.v[i] = quad.v[i];
+        q.corners[i] = quad.corners[i];
     }
+    q.clamp = quad.clamp;
     q.z = quad.z;
     q.rgba = quad.rgba;
     q.tex0 = quad.tex0;

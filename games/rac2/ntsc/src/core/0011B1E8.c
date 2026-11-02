@@ -33,7 +33,6 @@ int func_0011B1E8(int fd, int buf, int len) {
     return -1;
 }
 
-INCLUDE_ASM("asm/core", func_0011B268);
 
 ASM_FUNC("asm/core", func_0011B270);
 

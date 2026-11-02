@@ -49,13 +49,13 @@ extern int D_0018C0B0;
 
 extern int func_002B6120(char *object, unsigned int entry);
 
-extern int func_002B6228(char *object, unsigned int entry);
+extern int func_002B6228(void *object, void *entry, int count, int value);
 
-extern int func_L06_00382850(char *object, unsigned int entry);
+extern int func_L06_00382850(char *object, char *entry, float base);
 
 extern float func_L01_003377C8(void *entry);
 
-extern int func_L01_00337888(char *object, unsigned int entry);
+extern int func_L01_00337888(char *object, unsigned int entry, void *out, int current, int direction, float step);
 
 extern void func_00282CC0(char *first, char *second, char *third);
 
@@ -68,6 +68,8 @@ extern float func_002A7940(void);
 extern void func_002AB668(void *a, void *b, float f);
 
 extern void func_00282D30(char *a, char *b, float f);
+
+extern void func_00282D08(char *dst, char *src, char *extra, float f);
 
 extern void func_002ACDE8(char *a, char *b, char *c);
 
@@ -97,6 +99,8 @@ extern void func_00280B90(void *dst, void *src, int flag);
 
 extern char D_L09_001BF98C0[];
 
+extern char D_L09_001B98C0[];
+
 extern void func_003AEFD0(void *out);
 
 extern float func_00316AC0(float lo, float hi);
@@ -117,7 +121,7 @@ extern void func_002EACF0(char *dst, char *src);
 
 extern void func_002E6C68(char *dst, char *src, int flag);
 
-extern void func_003AF9E8(char *object, char *v);
+extern void func_L09_003AF9E8(char *object, char *v);
 
 extern void func_0031F728(char *object, char *a1, char *a2, float f1, float f2, float f3);
 
@@ -127,7 +131,7 @@ extern float func_002EB478(float a, float b);
 
 extern int func_L09_0033E8B0_1(char *object, int index, void *out, int a, int b, float f);
 
-extern void func_L09_003E9E60(char *object, void *buf, float f);
+extern int func_L09_003E9E60(char *object, void *buf, float f);
 
 extern float func_00282E48_2(char *a, int b);
 
@@ -172,9 +176,7 @@ extern void ref_L09_003F8858_00(char *object, int value);
 
 /* index -> entry of a per-level table; a live entry's first word is a one-based id. */
 
-INCLUDE_ASM("asm/levels", func_L09_002B7238);
 
-INCLUDE_ASM("asm/levels", func_L09_00325C58);
 
 INCLUDE_ASM("asm/levels", func_L09_00326E90);
 
@@ -190,7 +192,7 @@ int func_L09_00329028(char *object, int index)
     return func_002B6120(object, entry);
 }
 
-int func_L09_00329178(char *object, int index)
+int func_L09_00329178(char *object, int index, int count, int value)
 {
     unsigned int entry;
 
@@ -199,7 +201,7 @@ int func_L09_00329178(char *object, int index)
     entry = D_L09_001FE6C0[index];
     if (entry == 0)
         return 0;
-    return func_002B6228(object, entry);
+    return func_002B6228(object, (void *)entry, count, value);
 }
 
 INCLUDE_ASM("asm/levels", func_L09_003364E0);
@@ -207,7 +209,7 @@ INCLUDE_ASM("asm/levels", func_L09_003364E0);
 /* func_L09_0033E658 is matched in L09_0033E658-rc2.c. */
 
 
-int func_L09_0033E690(char *object, int index)
+int func_L09_0033E690(char *object, int index, float base)
 {
     unsigned int entry;
 
@@ -216,7 +218,7 @@ int func_L09_0033E690(char *object, int index)
     entry = D_L09_001FE6C0[index];
     if (entry == 0)
         return -1;
-    return func_L06_00382850(object, entry);
+    return func_L06_00382850(object, (char *)entry, base);
 }
 
 float func_L09_0033E7A0(int index)
@@ -231,7 +233,7 @@ float func_L09_0033E7A0(int index)
     return func_L01_003377C8((void *)entry);
 }
 
-int func_L09_0033E8B0(char *object, int index)
+int func_L09_0033E8B0(char *object, int index, void *out, int current, int direction, float step)
 {
     unsigned int entry;
 
@@ -240,20 +242,19 @@ int func_L09_0033E8B0(char *object, int index)
     entry = D_L09_001FE6C0[index];
     if (entry == 0)
         return -1;
-    return func_L01_00337888(object, entry);
+    return func_L01_00337888(object, entry, out, current, direction, step);
 }
 
 INCLUDE_ASM("asm/levels", func_L09_0037FCE8);
 
-INCLUDE_ASM("asm/levels", func_L09_003806A0);
 
 INCLUDE_ASM("asm/levels", func_L09_003A01D8);
 
-INCLUDE_ASM("asm/levels", func_L09_003A06B0);
+/* func_L09_003A06B0 is defined in L09_003A06B0-helpers.c. */
 
 INCLUDE_ASM("asm/levels", func_L09_003AE8C8);
 
-INCLUDE_ASM("asm/levels", func_L09_003AEA88);
+/* func_L09_003AEA88 is matched in its own unit, src/levels/shared/L09_003AEA88.c (default flags). */
 
 void func_L09_003AEE10(char *object)
 {
@@ -287,7 +288,7 @@ void func_L09_003AEE80(char *object)
     func_L00_002E6CF0(D_L09_003AEF78, object);
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003AF060);
+/* func_L09_003AF060 is defined in L09_003AF060.c. */
 
 /* the effect's record: four blocks, four colour words, a matrix and a vector */
 
@@ -330,21 +331,66 @@ void func_L09_003AF508(char *object)
 }
 
 /* builds the effect's frame, colour word and query box, then hands the result to the stage */
-INCLUDE_ASM("asm/levels", func_L09_003AF6B0);
+void func_L09_003AF6B0(char *object)
+{
+    LOC_L09_003AF508 local;
+    float pos[3];
+    char *frame = *(char **)(object + 0x68);
+    char *data;
+    float len;
+    float scale;
+    int color;
 
-INCLUDE_ASM("asm/levels", func_L09_003AF9E8);
+    func_L00_003C1D30(&local);
+    func_00282D08(pos, frame + 0x10, frame + 0x20, func_002A7878(0.0f, 1.0f));
+    pos[0] += func_002A7878(-0.1f, 0.1f) * *(float *)(frame + 0x50);
+    pos[1] += func_002A7878(-0.1f, 0.1f) * *(float *)(frame + 0x50);
+    pos[2] += func_002A7878(-0.1f, 0.1f) * *(float *)(frame + 0x50);
+    local.v120 = func_0027C878(11);
+    local.v128 = 0xFF9000000260LL;
+    local.v112 = 0;
+    local.v136 = 0x0000008000000040LL | ((long long)(func_001163B0() % 2 + 1) << 2);
+    color = func_002A7820(0x40, 0x7F) << 24;
+    local.v220 = 0.0f;
+    local.k0 = local.k1 = local.k2 = local.k3 = color + 0x103080;
+    data = D_L09_001B98C0;     /* the level's target point: three floats at +0x140 */
+    local.f216 = func_00283248(*(float *)(data + 0x140) - pos[0],
+                               *(float *)(data + 0x144) - pos[1]);
+    len = func_00282E80_1(pos, data + 0x140);
+    local.f212 = -func_00283248(len, *(float *)(data + 0x148) - pos[2]);
+    local.v208 = func_002A7940();
+    func_00283410(&local.m00, &local.v208);
+    local.v192 = pos[0];
+    local.v196 = pos[1];
+    local.v200 = pos[2];
+    local.v204 = 1.0f;
+    scale = func_002A7878(0.05f, 0.15f) * *(float *)(frame + 0x50);
+    func_00282D30(&local.b0, &local.b0, scale);
+    func_00282D30(&local.b1, &local.b1, scale);
+    func_00282D30(&local.b2, &local.b2, scale);
+    func_00282D30(&local.b3, &local.b3, scale);
+    func_00280B90(&local, &local.m00, 0);
+    local.k0 = local.k1 = local.k2 = local.k3 = color + 0x7F7F7F;
+    func_00282D30(&local.b0, &local.b0, 0.5f);
+    func_00282D30(&local.b1, &local.b1, 0.5f);
+    func_00282D30(&local.b2, &local.b2, 0.5f);
+    func_00282D30(&local.b3, &local.b3, 0.5f);
+    func_00280B90(&local, &local.m00, 0);
+    func_L09_003AF9E8(object, pos);
+}
 
-INCLUDE_ASM("asm/levels", func_L09_003B6550);
+
+/* func_L09_003B6550 is in L09_003B6550-zp-g8.c. */
 
 /* snapshots the object's frame and re-seeds its four steering angles from the new one */
-INCLUDE_ASM("asm/levels", func_L09_003E99E0);
+/* func_L09_003E99E0 is matched in its own unit, src/levels/shared/L09_003E99E0-qcopy.c (-frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L09_003E9AA0);
+/* func_L09_003E9AA0 is matched in src/levels/shared/L09_002B7238-g8.c ($gp-relative small data). */
 
-INCLUDE_ASM("asm/levels", func_L09_003E9E60);
+/* Defined in L09_003E9E60.c. */
 
 /* steps the run's frame index and hands the sample it lands on to the linked stage */
-void func_L09_003EA058(char *object, int index) {
+int func_L09_003EA058(char *object, int index) {
     char *frame = *(char **)(object + 0x68);
     char buf[16];
     short value = *(short *)(frame + 0x118);
@@ -358,10 +404,10 @@ void func_L09_003EA058(char *object, int index) {
     base = D_L09_001FE6C0[index];
     off = (*(short *)(frame + 0x11A) << 4) + 0x10;
     f = func_00282E48_2(object + 0x10, base + off);
-    func_L09_003E9E60(object, buf, f);
+    return func_L09_003E9E60(object, buf, f);
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003EA108);
+/* func_L09_003EA108 is in L09_003EA108-qcopy.c. */
 
 int func_L09_003EA2D0(char *object, int index, int value)
 {
@@ -378,7 +424,7 @@ int func_L09_003EA2D0(char *object, int index, int value)
     return -1;
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003EA360);
+/* func_L09_003EA360 is defined in L09_003EA360-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L09_003EA798);
 
@@ -393,8 +439,6 @@ void func_L09_003EA9D0(char *object)
     func_002829A8(p + 0x368);
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003EAB20);
-
 void func_L09_003EAF60(char *object)
 {
     func_002E5CF8(2, 0, object);
@@ -404,7 +448,9 @@ void func_L09_003EAF60(char *object)
     func_0029F338(object);
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003F65E0);
+/* func_L09_003F65E0 is in L09_003F65E0-g8.c. */
+
+/* Defined in L09_003F65E0.c. */
 
 void func_L09_003F7158(char *object)
 {
@@ -416,12 +462,12 @@ void func_L09_003F7158(char *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003F71C8);
+/* func_L09_003F71C8 is defined in L09_002B7238-g8.c (it reads the group count through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L09_003F72A8);
+/* func_L09_003F72A8 is defined in L09_002B7238-g8.c (it reads the group count through $gp). */
 
 /* spawns one measured stage with the object's placement lifted by DY */
-INCLUDE_ASM("asm/levels", func_L09_003F7370);
+/* func_L09_003F7370 is matched in its own unit, src/levels/shared/L09_003F7370.c (default flags). */
 
 void func_L09_003F73E8(char *object)
 {
@@ -503,7 +549,7 @@ void func_L09_003F74A8(char *p)
     *(int *)(s + 152) = *(int *)(v + 16);
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003F7518);
+/* func_L09_003F7518 is in L09_003F7518-g8.c. */
 
 void func_L09_003F7788(char *object, char *target)
 {
@@ -532,7 +578,6 @@ void func_L09_003F77D0(char *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003F7840);
 
 /* reports whether the index still names a reachable entry, or whether the frame moved close enough */
 int func_L09_003F7A88(char *object, int index) {
@@ -549,13 +594,11 @@ int func_L09_003F7A88(char *object, int index) {
     return entry;
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003F7B28);
 
-INCLUDE_ASM("asm/levels", func_L09_003F7C50);
 
 INCLUDE_ASM("asm/levels", func_L09_003F7CE0);
 
-INCLUDE_ASM("asm/levels", func_L09_003F8598);
+/* func_L09_003F8598 is defined in L09_003F8598-g8.c. */
 
 void func_L09_003F87D8(char *unused, int index)
 {
@@ -586,10 +629,6 @@ void func_L09_003F8858(char *object)
 
 /* func_L09_003F8898 lives in the L09_002B7238-g8.c sibling: its four counters are small data. */
 
-INCLUDE_ASM("asm/levels", func_L09_003F8960);
 
-INCLUDE_ASM("asm/levels", func_L09_003F8AE0);
 
-INCLUDE_ASM("asm/levels", func_L09_003F9040);
-
-INCLUDE_ASM("asm/levels", func_L09_003F9108);
+/* func_L09_003F9108 is defined in L09_003F9108-partner.c. */

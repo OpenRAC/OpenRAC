@@ -93,7 +93,10 @@ def leaves(mesh: bytes, extended_offsets: tuple[int, ...] | None = None,
 def _extended_leaf_offsets(block: bytes, mesh_at: int, hero_at: int) -> tuple[int, ...] | None:
     """Read the mod-only leaf offset directory from the collision block header."""
     if block[8:12] != EXT_INDEX_MAGIC:
-        check(not any(block[8:16]) and block[16:20] in (bytes(4), EXT_SLAB_MAGIC),
+        # Six of Going Commando's levels store a third part's offset at +8, after the hero's.
+        third, = unpack("<I", block, 8)
+        check((not third or hero_at and hero_at <= third <= len(block)) and not any(block[12:16])
+              and block[16:20] in (bytes(4), EXT_SLAB_MAGIC),
               "collision header has unknown extension data")
         if block[16:20] == EXT_SLAB_MAGIC:
             check(bool(unpack("<I", block, 20)[0]) and not any(block[24:HEADER]),

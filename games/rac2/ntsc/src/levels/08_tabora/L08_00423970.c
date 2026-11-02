@@ -15,7 +15,7 @@ extern s32 D_L08_001B29DC __attribute__((sda));
 extern char *func_32A170(s32 a, s32 b, s32 c);
 extern void func_328A38(s32 a, s32 b);
 
-INCLUDE_ASM("asm/levels", func_L08_00423970);
+/* func_L08_00423970 is isolated in L08_00423970-g8.c. */
 
 /* Walks the 0x68 context's two counters: one stamps the record's byte 0x20D and the other
    gives the modulus the first is folded by, or zero when it is not positive. */
@@ -37,16 +37,12 @@ void func_L08_00424ED0(char *a0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L08_00424F40);
-
 INCLUDE_ASM("asm/levels", func_L08_00424FF8);
 
 /* Not C: the success arm is the single word 0x4600A028 (COP1 fmt=S funct=0x28,
    fd=$f0 fs=$f0 ft=$f20). See nonmatching/levels/func_L08_00425328.c - this cc1 has no
    max.s pattern, so the ternary and the if-assignment both come out eight bytes larger. */
-INCLUDE_ASM("asm/levels", func_L08_00425328);
 
-INCLUDE_ASM("asm/levels", func_L08_00425398);
 
 void func_L08_00425448(char *a0) {
     char *s0;
@@ -63,9 +59,22 @@ void func_L08_00425448(char *a0) {
     *(u8 *)(a0 + 0xBC) = 1;
 }
 
-/* Near miss: nonmatching/levels/func_L08_004254D0.c - the table load and the shift land in
-   $v0/$v1 the other way round from retail, and `a0 = 0` is not sunk into the beqz slot. */
-INCLUDE_ASM("asm/levels", func_L08_004254D0);
+s32 func_L08_004254D0(s32 a0) {
+    s32 v1;
+    s32 v0;
+    s32 v2;
+    v1 = D_L08_001B29DC;
+    if (a0 != -1) {
+        v0 = a0 << 8;
+        v2 = v1 + v0;
+        a0 = 0;
+        if (v2 == 0 || *(u8 *)(v2 + 0x20) == 0xFE || *(u8 *)(v2 + 0x20) == 0xFD) {
+            a0 = 1;
+        }
+        return a0;
+    }
+    return 1;
+}
 
 s32 func_L08_00425518(s32 a0) {
     s32 v1;
@@ -85,15 +94,98 @@ s32 func_L08_00425518(s32 a0) {
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L08_00425568);
 
-INCLUDE_ASM("asm/levels", func_L08_00425628);
+extern f32 func_002A7878(f32, f32);
+extern f32 func_00283180(f32);
+extern f32 func_00283198(f32);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, f32);
+extern char D_00189EA0[];
 
-INCLUDE_ASM("asm/levels", func_L08_004257A0);
+/* func_L08_00425628 is isolated in L08_00425628.c. */
 
-INCLUDE_ASM("asm/levels", func_L08_004258D0);
+extern void func_L08_00425628(char *);
 
-INCLUDE_ASM("asm/levels", func_L08_00425AA8);
+/* The swing angle is folded into the moby's frame and the subobject is ticked. */
+void func_L08_004257A0(char *a0) {
+    char *s0 = *(char **)(a0 + 0x68);
+    f32 local[4];
+    f32 f21 = -3.1415927f;
+    f32 f20 = 3.1415927f;
+    f32 t;
+
+    t = func_002A7878(f21, f20);
+    *(f32 *)(s0 + 0x180) = func_00283180(t) * (f32)*(u8 *)(s0 + 0x20F);
+    t = func_002A7878(f21, f20);
+    *(f32 *)(s0 + 0x184) = func_00283198(t) * (f32)*(u8 *)(s0 + 0x20F);
+    *(f32 *)(s0 + 0x188) = 0.0f;
+    func_00282CC0(s0 + 0x180, s0 + 0x180, s0 + 0x170);
+    *(f32 *)(s0 + 0x188) = *(f32 *)(s0 + 0x188) + 6.5f;
+    if (*(s16 *)(s0 + 0x1B6) != 0) {
+        func_00282CF0(local, s0 + 0x180, (void *)D_00189EA0);
+        *(s32 *)&local[2] = 0;
+        func_00282F20(local, local, 3.0f);
+        func_00282CC0(s0 + 0x180, s0 + 0x180, local);
+    }
+    func_L08_00425628(a0);
+}
+
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282DD8(void *, void *, void *);
+extern f32 func_00282DF0(void *);
+extern void func_00282F20(void *, void *, f32);
+extern void func_L01_00337A60(void *, void *, void *, s32);
+extern int *D_L08_001FE7C0[];
+
+/* The actor's per-frame world transform: the record's own position goes through the
+   model's matrix, is scaled, and is folded into the model; when the actor names a part,
+   the part's table entry replaces it, and the model's own length ends up in the radius. */
+void func_L08_004258D0(char *a0) {
+    f32 v0[4];
+    f32 v1[4];
+    f32 v2[4];
+    f32 v3[4];
+    char *s1 = a0;
+    char *s4 = *(char **)(a0 + 0x68);
+    s32 idx;
+
+    idx = *(s32 *)(s4 + 0x1E8);
+    if (idx == -1) {
+        func_00282CF0(v0, s1 + 0x10, s4 + 0x120);
+        func_00282F20(v0, v0, 15.0f);
+        v0[2] = 0.0f;
+        func_00282CC0(s4 + 0x180, v0, s4 + 0x120);
+    } else {
+        s32 base = D_L08_001B29DC + (idx << 8);
+
+        func_00282CF0(v0, (char *)base + 0x10, s4 + 0x120);
+        v0[2] = 0.0f;
+        if (func_00282DF0(v0) < 9.0f) {
+            func_00282CF0(v1, s1 + 0x10, s4 + 0x120);
+            v1[2] = 0.0f;
+            func_00282F20(v1, v1, 15.0f);
+            func_00282CC0(s4 + 0x180, v1, s4 + 0x120);
+            func_00282DD8(v2, v0, v1);
+            func_00282DD8(v3, v0, v2);
+            func_00282F20(v3, v3, 1.0f);
+            func_00282CC0(s4 + 0x180, s4 + 0x180, v3);
+        } else {
+            func_00282F20(v0, v0, 15.0f);
+            func_00282CC0(s4 + 0x180, v0, s4 + 0x120);
+        }
+    }
+    idx = *(s32 *)(s4 + 0x1E4);
+    if (idx != -1) {
+        int *list = D_L08_001FE7C0[idx];
+
+        func_L01_00337A60(s4 + 0x180, s4 + 0x180, (char *)list + 0x10, *list);
+    }
+    *(f32 *)(s4 + 0x188) = *(f32 *)(s4 + 0x1C8);
+}
+
+/* func_L08_00425AA8 is isolated in L08_00425AA8.c. */
 
 void func_L08_00425EB0(char *a0) {
     char *p;
@@ -147,17 +239,14 @@ void func_L08_00425F28(char *a0) {
     func_L08_00425448(a0);
 }
 
-INCLUDE_ASM("asm/levels", func_L08_00425FE8);
+/* func_L08_00425FE8 is isolated in L08_00425FE8.c. */
 
-INCLUDE_ASM("asm/levels", func_L08_004262C0);
+/* Collision sweep and movement update are in L08_00423970-motion.c. */
 
-INCLUDE_ASM("asm/levels", func_L08_00426730);
+/* func_L08_00426730 is isolated in L08_00423970-state.c. */
 
-INCLUDE_ASM("asm/levels", func_L08_004290E8);
+/* func_L08_00429238 is isolated in L08_00429238.c. */
 
-INCLUDE_ASM("asm/levels", func_L08_00429238);
-
-INCLUDE_ASM("asm/levels", func_L08_00429350);
 
 extern s32 D_L08_001B39A0[];
 extern s32 D_L08_001B39E0[];
@@ -165,26 +254,13 @@ extern s32 D_L08_001B39F0[];
 extern s32 D_L08_001B3A30[];
 extern void func_00291450(s32 a0);
 
-/* Near miss: nonmatching/levels/func_L08_00429408.c - the address materialisation order
-   in the prologue differs (0x1B39E0 / 0x1B39A0 / 0x1B3A30 are grouped differently). */
-INCLUDE_ASM("asm/levels", func_L08_00429408);
+/* func_L08_004290E8 is isolated in L08_004290E8.c. */
 
-INCLUDE_ASM("asm/levels", func_L08_004294A0);
+/* func_L08_004294A0 is isolated in L08_004294A0.c. */
 
 INCLUDE_ASM("asm/levels", func_L08_00429560);
 
-INCLUDE_ASM("asm/levels", func_L08_00429EE8);
+/* func_L08_00429EE8 is isolated in L08_00429EE8.c. */
 
-INCLUDE_ASM("asm/levels", func_L08_0042A0B0);
 
 INCLUDE_ASM("asm/levels", func_L08_0042A980);
-
-INCLUDE_ASM("asm/levels", func_L08_0042F440);
-
-INCLUDE_ASM("asm/levels", func_L08_0042F660);
-
-INCLUDE_ASM("asm/levels", func_L08_0042F938);
-
-INCLUDE_ASM("asm/levels", func_L08_0042FAC0);
-
-INCLUDE_ASM("asm/levels", func_L08_0042FCE0);

@@ -46,6 +46,14 @@ uniform sampler2D palette_texture;
 uniform sampler2D light_texture;
 // The level's 16 directional sets: colour A (w = back factor), direction A, colour B, direction B.
 uniform vec4 light_sets[64];
+// A point-lit moby's third light (LevelScene::set_moby_point_lights): colour, then the direction
+// from the lights to it, for the record moby_light.x / 256 - 1 names. Going Commando's moby
+// program gives it no back light.
+uniform vec4 moby_point_lights[64];
+// The game's eight point lights as it holds them (colour, falloff; position, reach), added to the
+// terrain's colours when terrain_point_lit is set (Going Commando).
+uniform int terrain_point_lit;
+uniform vec4 terrain_point_lights[16];
 // The metal ("shine") pass (MobyProc's metal packets): texture coordinates from the view-space
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
@@ -161,6 +169,27 @@ void main() {
         v_emission_colour = v_colour.rgb;
         v_lit = 1;
     }
+    // Going Commando's terrain (PatchTfragVertexLighting, 0x2F0468): each point light in reach
+    // adds colour x (1 - d/r) x max(N.(L - P)/d + 1 - d/r, 0) to the colour the level lit, the
+    // sum clamped at 255 (0x80 = 1.0). A light with x and y both 0 is free, as MobyProc reads it.
+    if (terrain_point_lit != 0) {
+        vec3 nw = normalize(normal_model * n);
+        vec3 lit = colour.rgb;
+        for (int i = 0; i < 8; ++i) {
+            vec4 c = terrain_point_lights[2 * i];
+            vec4 q = terrain_point_lights[2 * i + 1];
+            if (q.w <= 0.0 || (q.x == 0.0 && q.y == 0.0)) {
+                continue;
+            }
+            vec3 d = q.xyz - world.xyz;
+            float dist = length(d);
+            float fall = 1.0 - dist / q.w;
+            if (fall > 0.0) {
+                lit += max(c.rgb, vec3(0.0)) * fall * max(dot(nw, d) / max(dist, 1.0e-4) + fall, 0.0);
+            }
+        }
+        v_colour = vec4(min(lit, vec3(255.0 / 128.0)), colour.a) * tint;
+    }
     // A live moby, lit as MobyProc and its VU0 pass light it: its set's two directional
     // lights (or two sets cross-faded) on the skinned normal, with the leaky back clamp
     // max(d, -|K| d), plus its ambient colour, times the vertex's multiplier (all 0x80 = 1.0).
@@ -182,11 +211,18 @@ void main() {
         fa = max(fa, -abs(ca.w) * fa);
         fb = max(fb, -abs(cb.w) * fb);
         vec3 lit = moby_ambient.rgb + ca.rgb * fa + cb.rgb * fb;
+        int point = (int(moby_light.x + 0.5) >> 8) - 1;
+        if (point >= 0 && point < 32) {
+            vec3 dp = moby_point_lights[2 * point + 1].xyz;
+            lit += moby_point_lights[2 * point].rgb * max(dot(-dp, nw), 0.0);
+        }
         v_colour = vec4(min(lit * colour.rgb, vec3(255.0 / 128.0)), colour.a) * tint;
         // A glow packet's vertex (slot -2) of a moby whose mode has 0x10: its glow RGB, unlit,
         // with no multiplier (MobyProc's glow list overwrites the lit colours).
         if (light_slot < -1.5 && moby_ambient.w > 0.5) {
-            int glow = int(moby_ambient.w - 1.0 + 0.5);
+            // w holds an exact integer: round it before taking the 1 off. Rounding w - 1 + 0.5
+            // instead is not exact near 2^24 (a white glow came out as 0x1000000: black on Vulkan).
+            int glow = int(round(moby_ambient.w)) - 1;
             v_colour = vec4(float(glow & 255), float((glow >> 8) & 255), float((glow >> 16) & 255), 128.0)
                      / 128.0 * tint;
             v_glow = 1;

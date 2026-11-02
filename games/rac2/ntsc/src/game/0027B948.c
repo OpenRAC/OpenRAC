@@ -1,5 +1,16 @@
 #include "include_asm.h"
 
+/* Rotated sprite construction follows RAC1 draw.c (GPL-3.0). */
+typedef struct { float x, y, z, w; } QuadPoint;
+typedef struct { unsigned int tag, addr, vif0, vif1; } QuadDmaTag;
+union QuadCursor { QuadDmaTag *tag; int *words; unsigned char *bytes; int addr; };
+extern union QuadCursor D_001B22A8 __attribute__((sda));
+extern void func_00282D30(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern float func_00283198(float);
+extern int func_00283CF0(float);
+
 /* Write the measured GS privileged 64-bit register configuration in order. */
 typedef unsigned long long GsRegisterValue;
 
@@ -52,7 +63,7 @@ extern int Ff67aa9df_D_001A7350 __attribute__((sda));
 
 extern int Ff67aa9df_D_001A7354 __attribute__((sda));
 
-extern void Ff67aa9df_FUN_0027EA28(void *v, void *x);
+extern void func_0027EA28(void *v, void *x);
 
 void func_0027B948(void)
 {
@@ -94,9 +105,8 @@ void func_0027BA48(void)
 
 INCLUDE_ASM("asm/game", func_0027BA68);
 
-INCLUDE_ASM("asm/game", func_0027BD70);
+/* Defined in 0027BD70-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0027C478);
 
 void func_0027C480(void) {
     extern void func_00284F40(int);
@@ -126,7 +136,6 @@ void func_0027C4A8(void)
     func_002859C8();
 }
 
-INCLUDE_ASM("asm/game", func_0027C510);
 
 void func_0027C520(void)
 {
@@ -134,11 +143,11 @@ void func_0027C520(void)
   return;
 }
 
-INCLUDE_ASM("asm/game", func_0027C540);
+/* func_0027C540: defined in 0027B948-g8.c. */
 
 
 
-INCLUDE_ASM("asm/game", func_0027C878);
+/* Defined in 0027C878-g8.c. */
 
 extern int D_001B1608[] __attribute__((sda));
 extern fn_t D_001B9E40[];
@@ -230,9 +239,9 @@ void func_0027D0E8(void) {
     }
 }
 
-INCLUDE_ASM("asm/game", func_0027D160);
+/* Defined in 0027D160-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0027D330);
+/* Defined in 0027D330-g8.c. */
 
 extern int D_L00_001BCAF4;
 
@@ -273,31 +282,256 @@ void func_0027D4B8(void)
     func_0027FB40(0x5A, y, style, text, -1);
 }
 
-INCLUDE_ASM("asm/game", func_0027D5C0);
+/* Subtitle layout and window path adapted from OpenRAC/rac1-decomp src/game/draw.c's
+ * draw_subtitles (GPL-3.0). D_001A7340 is RAC1's g_screen_extent: retail reads its
+ * second word as an offset from this base, a two-word load that reorg leaves out of
+ * the delay slot. Retail reads the language byte twice, so it is declared volatile. */
+typedef struct { short start, end, text[6]; } SubtitleRecord;
+typedef struct { char pad[0x34]; int time; char gap[0x14]; unsigned char *subs; } SubtitleState;
+extern SubtitleState D_001B8840;
+extern volatile unsigned char D_001A7BB4[] __attribute__((sda));
+extern unsigned char D_001A7B96[] __attribute__((sda));
+extern int D_001A7340[] __attribute__((sda));
+extern unsigned char D_001A8998[];
+extern void func_002802E0(unsigned short *, int, int, int, int, int, int, int, int);
+extern void func_00280200(unsigned short *, unsigned long, unsigned char *, int);
+extern void func_0027F5B8(int, int, unsigned long, unsigned char *, int);
+extern unsigned int func_001157AC(unsigned char *);
+extern void func_0027EB88(int, int, int, int, int, int);
 
-INCLUDE_ASM("asm/game", func_0027D900);
+void func_0027D5C0(void)
+{
+    SubtitleRecord *p;
+    int idx;
+    if (!D_001B8840.subs) return;
+    idx = 0;
+    if ((unsigned int)(D_001A7BB4[0] - 2) < 4) idx = D_001A7BB4[0] - 1;
+    for (p = (SubtitleRecord *)D_001B8840.subs; p->start >= 0; ++p) {
+        if (D_001B8840.time < p->start) continue;
+        if (p->end < D_001B8840.time) continue;
+        if (!D_001A7B96[0] && D_001B8840.subs[p->text[idx]] != '*') continue;
+        if (D_001B8840.subs[p->text[idx]] == '*') {
+            int y = 0x40;
+            int alpha = 0xB0000000;
+            unsigned char *str;
+            if (D_001B8840.subs[p->text[idx] + 1] != '*') y = D_001A7340[1] - 0xC8;
+            else if (D_001A7BB1) y = 0x18;
+            if (p->end - D_001B8840.time < 0x12)
+                alpha = (int)(p->end - (long)(D_001B8840.time - 1)) << 27;
+            else if (D_001B8840.time - p->start < 0x12)
+                alpha = (int)(D_001B8840.time - (long)(p->start - 1)) << 27;
+            str = D_001B8840.subs + p->text[idx];
+            if (str[1] != '*')
+                func_0027FB40(0x100, 0xD0, alpha | 0xE0E0E0, str, -1);
+            else
+                func_0027F5B8(0x20, y, alpha | 0xE0E0E0, str, -1);
+        } else {
+            unsigned short win[16];
+            short w, h;
+            int hw, hh;
+            int extent = D_001A7340[1];
+            func_002802E0(win, 0xC8, 0x1A4, 0x28, 0x1D8, 0x100,
+                          D_001A7BB1 ? extent - 0x36 : extent - 0x64, 0x12, 7);
+            func_00280200(win, 0x80B0B0B0UL, &D_001B8840.subs[p->text[idx]], -1);
+            win[5] -= 4;
+            w = win[6];
+            h = win[7];
+            hh = (h >> 1) + 5;
+            hw = (w >> 1) + 10;
+            if ((short)win[5] + hh > D_001A7340[1] - 0x14)
+                win[5] = D_001A7340[1] - ((h >> 1) + 0x19);
+            func_0027EB88((short)win[5] - hh, (short)win[5] + hh, 0x100 - hw, 0x100 + hw, 0x60, 0x40404);
+            win[9] &= ~4;
+            if (func_001157AC(&D_001B8840.subs[p->text[idx]]) < 0x96)
+                func_00280200(win, 0x80B0B0B0UL, &D_001B8840.subs[p->text[idx]], -1);
+            else
+                func_00280200(win, 0x80B0B0B0UL, D_001A8998, -1);
+            return;
+        }
+    }
+}
 
-INCLUDE_ASM("asm/game", func_0027DB68);
+/* Defined in 0027D900-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0027DDC0);
+/* Defined in 0027DB68-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0027DE50);
+/* func_0027DDC0 is in 0027B948-g8.c (-G8: retail re-materialises the address of the
+   packet pointer for every access, which only that flag reproduces). */
 
-INCLUDE_ASM("asm/game", func_0027E010);
+/* func_0027DE50 lives in 0027DE50-sdata.c. */
 
-INCLUDE_ASM("asm/game", func_0027E018);
+/* Defined in 0027DE50-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0027E198);
 
-INCLUDE_ASM("asm/game", func_0027E1A0);
+/* func_0027E018 is in 0027E018.c. */
 
-INCLUDE_ASM("asm/game", func_0027E4A0);
 
-INCLUDE_ASM("asm/game", func_0027E4A8);
+/* Adapted from OpenRAC/rac1-decomp src/game/draw.c's emit_textured_rectangle (GPL-3.0).
+ * RAC2 writes a 16-word GS packet with a per-vertex colour, a closing (5, 0) pair and
+ * z in the top of each XYZ word; the CLAMP word is built up in retail's OR order. */
+void func_0027E1A0(float x, float y, float w, float h, int u, int v, int uw, int vh,
+                   const unsigned int *rgba, unsigned long tex)
+{
+    int x0 = func_00283CF0(x * 16.0f) + D_001A7340[4] - 8;
+    int x1 = func_00283CF0((x + w) * 16.0f) + D_001A7340[4] - 8;
+    int y0 = func_00283CF0(y * 16.0f) + D_001A7340[5] - 8;
+    int y1 = func_00283CF0((y + h) * 16.0f) + D_001A7340[5] - 8;
+    int vb;
+    int ub;
+    int s0, s1;
+    QuadDmaTag *header;
+    QuadDmaTag *tag;
+    long *p;
+    long max_u, min_u, min_v, clamp, wide_u, z;
 
-INCLUDE_ASM("asm/game", func_0027E920);
+    if (x0 > 0x9000 || x1 < 0x7000 || y0 > 0x9000 || y1 < 0x7000) {
+        return;
+    }
+    ub = u + uw;
+    z = (long)0xFFFFF0 << 32;
+    s0 = u * 16;
+    s1 = ub * 16;
+    D_001B22A8.tag->tag = 0x10000009;
+    D_001B22A8.tag->addr = 0;
+    D_001B22A8.tag->vif0 = 0;
+    D_001B22A8.tag->vif1 = 0x50000009;
+    wide_u = u;
+    max_u = ((long)ub << 14) | 0xA;
+    min_u = (wide_u << 4) | max_u;
+    min_v = min_u | ((long)v << 24);
+    vb = v + vh;
+    clamp = min_v | ((long)vb << 34);
+    header = D_001B22A8.tag;
+    D_001B22A8.tag = header + 1;
+    *(long *)(header + 1) = 0x0400000000008001;
+    *(long *)&D_001B22A8.tag->vif0 = 0x8531531531531068;
+    tag = D_001B22A8.tag;
+    D_001B22A8.tag = tag + 1;
+    p = (long *)(tag + 1);
+    p[0] = clamp;
+    p[1] = tex;
+    p[2] = 0x15C;
+    p[3] = rgba[0];
+    p[4] = (v << 20) + s0;
+    p[5] = x0 | ((long)y0 << 16) | z;
+    p[6] = rgba[1];
+    p[7] = (v << 20) + s1;
+    p[8] = x1 | ((long)y0 << 16) | z;
+    p[9] = rgba[2];
+    p[10] = (vb << 20) + s0;
+    p[11] = x0 | ((long)y1 << 16) | z;
+    p[12] = rgba[3];
+    p[13] = (vb << 20) + s1;
+    p[14] = x1 | ((long)y1 << 16) | z;
+    p[15] = 5;
+    D_001B22A8.bytes += 0x80;
+}
 
-INCLUDE_ASM("asm/game", func_0027EA28);
+
+/* Adapted from OpenRAC/rac1-decomp src/game/draw.c's append_rotated_sprite_quad,
+ * itself adapted from Lombyte src/rendering/append_rotated_sprite_quad.c
+ * (GPL-3.0). RAC2 ends the packet with a zero word. */
+void func_0027E4A8(float center_x, float center_y, float quad_width, float quad_height,
+                   float angle, int texture_width, int texture_height,
+                   long texture_tex0, long z_and_fog, int color,
+                   unsigned char flip_u, unsigned char flip_v,
+                   float pivot_u, float pivot_v)
+{
+    QuadPoint vertical_edge;
+    QuadPoint horizontal_edge;
+    QuadPoint center;
+    QuadPoint temporary;
+    QuadPoint top_left;
+    QuadPoint top_right;
+    QuadPoint bottom_left;
+    QuadPoint bottom_right;
+    QuadDmaTag *tag;
+    unsigned long *packet_words;
+    int texture_left;
+    int texture_right;
+    int texture_top;
+    int texture_bottom;
+    float inverse_pivot_u;
+    float inverse_pivot_v;
+
+    if (flip_u != 0) {
+        texture_left = ((unsigned int)texture_width << 4);
+        texture_right = 0x10;
+    } else {
+        texture_right = ((unsigned int)texture_width << 4);
+        texture_left = 0x10;
+    }
+    if (flip_v != 0) {
+        texture_top = ((unsigned int)texture_height << 20);
+        texture_bottom = 0x100000;
+    } else {
+        texture_bottom = ((unsigned int)texture_height << 20);
+        texture_top = 0x100000;
+    }
+    center.x = center_x;
+    center.y = center_y;
+    inverse_pivot_v = 1.0f - pivot_v;
+    vertical_edge.x = quad_height * func_00283198(angle);
+    vertical_edge.y = quad_height * func_00283180(angle);
+    horizontal_edge.x = quad_width * func_00283180(angle);
+    horizontal_edge.y = -quad_width * func_00283198(angle);
+    inverse_pivot_u = 1.0f - pivot_u;
+    func_00282D30(&temporary, &vertical_edge, inverse_pivot_v);
+    func_00282CC0(&top_left, &center, &temporary);
+    func_00282D30(&temporary, &horizontal_edge, inverse_pivot_u);
+    func_00282CF0(&top_left, &top_left, &temporary);
+    func_00282D30(&temporary, &vertical_edge, inverse_pivot_v);
+    func_00282CC0(&top_right, &center, &temporary);
+    func_00282D30(&temporary, &horizontal_edge, pivot_u);
+    func_00282CC0(&top_right, &top_right, &temporary);
+    func_00282D30(&temporary, &vertical_edge, pivot_v);
+    func_00282CF0(&bottom_left, &center, &temporary);
+    func_00282D30(&temporary, &horizontal_edge, inverse_pivot_u);
+    func_00282CF0(&bottom_left, &bottom_left, &temporary);
+    func_00282D30(&temporary, &vertical_edge, pivot_v);
+    func_00282CF0(&bottom_right, &center, &temporary);
+    func_00282D30(&temporary, &horizontal_edge, pivot_u);
+    func_00282CC0(&bottom_right, &bottom_right, &temporary);
+    D_001B22A8.tag->tag = 0x10000007;
+    D_001B22A8.tag->addr = 0;
+    D_001B22A8.tag->vif0 = 0;
+    D_001B22A8.tag->vif1 = 0x50000007;
+    tag = D_001B22A8.tag;
+    packet_words = (unsigned long *)(tag + 1);
+    D_001B22A8.tag = tag + 1;
+    packet_words[0] = 0xB400000000008001;
+    packet_words[1] = 0x53535353106;
+    packet_words[2] = texture_tex0;
+    packet_words[3] = 0x154;
+    packet_words[4] = color;
+    packet_words[5] = texture_left | texture_top;
+    packet_words[6] =
+        (func_00283CF0(top_left.x * 16.0f) + Ff67aa9df_D_001A7350 - 8) |
+        ((unsigned long)(func_00283CF0(top_left.y * 16.0f) + Ff67aa9df_D_001A7354 - 8) << 16) |
+        ((unsigned long)z_and_fog << 32);
+    packet_words[7] = texture_right | texture_top;
+    packet_words[8] =
+        (func_00283CF0(top_right.x * 16.0f) + Ff67aa9df_D_001A7350 - 8) |
+        ((unsigned long)(func_00283CF0(top_right.y * 16.0f) + Ff67aa9df_D_001A7354 - 8) << 16) |
+        ((unsigned long)z_and_fog << 32);
+    packet_words[9] = texture_left | texture_bottom;
+    packet_words[10] =
+        (func_00283CF0(bottom_left.x * 16.0f) + Ff67aa9df_D_001A7350 - 8) |
+        ((unsigned long)(func_00283CF0(bottom_left.y * 16.0f) + Ff67aa9df_D_001A7354 - 8) << 16) |
+        ((unsigned long)z_and_fog << 32);
+    packet_words[11] = texture_right | texture_bottom;
+    packet_words[12] =
+        (func_00283CF0(bottom_right.x * 16.0f) + Ff67aa9df_D_001A7350 - 8) |
+        ((unsigned long)(func_00283CF0(bottom_right.y * 16.0f) + Ff67aa9df_D_001A7354 - 8) << 16) |
+        ((unsigned long)z_and_fog << 32);
+    packet_words[13] = 0;
+    D_001B22A8.tag = (QuadDmaTag *)((unsigned char *)D_001B22A8.tag + 0x70);
+}
+
+
+/* Defined in 0027E920.c. */
+
+/* Defined in 0027EA28.c. */
 
 void func_0027EAE8(int i0, int i1, int i2, int i3, int tag, void *x)
 {
@@ -315,7 +549,7 @@ void func_0027EAE8(int i0, int i1, int i2, int i3, int tag, void *x)
     v[3] = (((i2 << 4) + Ff67aa9df_D_001A7350) - 8)
          | ((long long)(((i3 << 4) + Ff67aa9df_D_001A7354) - 8) << 16)
          | ((long long)tag << 32);
-    Ff67aa9df_FUN_0027EA28(v, x);
+    func_0027EA28(v, x);
 }
 
 extern void func_0027DE50(int a, int b, int c, int d, unsigned long e);
@@ -350,6 +584,5 @@ void func_0027ECC8(int x, int y, int z, int w, int v)
     func_0027DE50(x + 1, y - 3, w + 3, w + 5, v);
 }
 
-INCLUDE_ASM("asm/game", func_0027EE50);
 
-INCLUDE_ASM("asm/game", func_0027EE58);
+/* Defined in 0027EE58.c. */

@@ -30,3 +30,30 @@
 
    The body belongs in the -G8 unit: it reads -0x7600($gp) and the two
    globals D_1A7BC8 and D_19B2E8. */
+
+/* ------------------------------------------------------------------
+   Wave 4, worker 08.  The jump table of this body IS reachable from C,
+   measured.
+
+   The recipe of the common file works with this compiler:
+
+       extern void *jtbl_002B57C0[5];
+       static void *volatile tab[5] = { &&c0, &&c1, &&c2, &&c3, &&c4 };
+       ...
+       goto *jtbl_002B57C0[v];
+
+   gives `lw $3,jtbl_002B57C0($2) ; j $3' - the table's address is
+   taken from the %hi/%lo pair of the symbol, so the build places the
+   level's own table at 0x002B57C0, and the case bodies stay alive
+   through the static array of &&labels (which lands in the discarded
+   .data).  The retail's dispatch is the same shape with the target in
+   $a0 (`lw $a0,0x0($v1) ; jr $a0') and an unsigned test
+   (`sltiu $v0,$v1,0x5').
+
+   The body itself is 1548 bytes (387 instructions) and was not
+   attempted: it is out of budget for one worker, and the dispatch is
+   only five instructions of it.  The near miss above (the note of the
+   first wave) stands: the body reaches -0x7600($gp) and the globals
+   D_1A7BC8 and D_19B2E8.
+
+   The attempt belongs in the -G8 unit. */

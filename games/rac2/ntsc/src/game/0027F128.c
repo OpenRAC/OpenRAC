@@ -16,6 +16,14 @@ typedef float f32;
 
 typedef int TI128 __attribute__((mode(TI)));
 
+extern short D_001A65EE;
+extern void func_00285030(int width, int height, int address, int mode);
+extern void func_0027B2F8(int width, int height, float scale, float a, float b, float c, float d);
+
+typedef struct { u8 pad[0x10]; float *result; u32 threshold; u8 gap[4]; int flags; short x, y, w, h; u8 tail[8]; } CopyRegion;
+
+extern CopyRegion D_001B8A10[];
+
 extern s32 D_001A7B90;
 
 extern s32 D_001A7BB8 __attribute__((sda));
@@ -90,38 +98,33 @@ int func_0027F288(u8 *text, int length, float scale) {
     return func_0027F1D8(text, length, D_00263B50, scale);
 }
 
-INCLUDE_ASM("asm/game", func_0027F2A8);
+/* func_0027F2A8 is in 0027F128-font-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0027F530);
+extern u64 func_0027C878(int);
+extern void func_0027F2A8(int, int, u64, u8 *, int, u64, u8 *);
 
-extern int func_0027C878(int);
-extern void func_0027F2A8(int, int, int, u8 *, int, int, u8 *);
-
-void func_0027F538(int x, int y, int style, u8 *text, int length)
+void func_0027F538(int x, int y, u64 style, u8 *text, int length)
 {
-    int font = func_0027C878(1);
+    u64 font = func_0027C878(1);
     func_0027F2A8(x, y, style, text, length, font, D_00263B50);
 }
 
-void func_0027F5B8(int x, int y, int style, u8 *text, int length)
+void func_0027F5B8(int x, int y, u64 style, u8 *text, int length)
 {
-    int font = func_0027C878(2);
+    u64 font = func_0027C878(2);
     func_0027F2A8(x, y, style, text, length, font, D_00263EF0);
 }
 
 
-INCLUDE_ASM("asm/game", func_0027F638);
 
-INCLUDE_ASM("asm/game", func_0027F640);
+/* func_0027F640 -- see src/game/0027F128-font-g8.c (built with -G8). */
 
-INCLUDE_ASM("asm/game", func_0027F968);
 
 /* func_0027F980 is matched in 0027F980.c. */
 
 /* func_0027FA10 is matched in 0027F980.c. */
 
 
-INCLUDE_ASM("asm/game", func_0027FAA0);
 
 /* func_0027FAA8 is matched in 0027F980.c. */
 
@@ -132,25 +135,25 @@ INCLUDE_ASM("asm/game", func_0027FAA0);
 
 INCLUDE_ASM("asm/game", func_0027FC70);
 
-extern void func_0027FC70(int, int, u8 *, int, int, u8 *);
+extern void func_0027FC70(unsigned short *, u64, u8 *, int, u64, u8 *);
 
-void func_00280190(int x, int y, u8 *text, int length)
+void func_00280190(unsigned short *layout, u64 style, u8 *text, int length)
 {
-    int font = func_0027C878(1);
-    func_0027FC70(x, y, text, length, font, D_00263B50);
+    u64 font = func_0027C878(1);
+    func_0027FC70(layout, style, text, length, font, D_00263B50);
 }
 
-void func_00280200(int x, int y, u8 *text, int length)
+void func_00280200(unsigned short *layout, u64 style, u8 *text, int length)
 {
-    int font = func_0027C878(2);
-    func_0027FC70(x, y, text, length, font, D_00263EF0);
+    u64 font = func_0027C878(2);
+    func_0027FC70(layout, style, text, length, font, D_00263EF0);
 }
 
 
-void func_00280270(int x, int y, u8 *text, int length)
+void func_00280270(unsigned short *layout, u64 style, u8 *text, int length)
 {
-    int font = func_0027C878(3);
-    func_0027FC70(x, y, text, length, font, D_00264290);
+    u64 font = func_0027C878(3);
+    func_0027FC70(layout, style, text, length, font, D_00264290);
 }
 
 void func_002802E0(unsigned short *a0,s32 a1,s32 a2,s32 a3,s32 a4,s32 a5,s32 a6,s32 a7,s32 a8) {
@@ -159,11 +162,29 @@ void func_002802E0(unsigned short *a0,s32 a1,s32 a2,s32 a3,s32 a4,s32 a5,s32 a6,
  a0[6]=0;a0[7]=0;a0[10]=0;a0[11]=0;
 }
 
-INCLUDE_ASM("asm/game", func_00280318);
 
-INCLUDE_ASM("asm/game", func_00280328);
+/* func_00280328 -- see src/game/0027F128-packet-g8.c (built with -G8). */
 
-INCLUDE_ASM("asm/game", func_00280510);
+void func_00280510(int width, int height, int use_saved, float scale) {
+    int address;
+
+    if (use_saved) {
+        address = D_001A65EE << 13;
+    } else {
+        int shift = width + height;
+        if (shift > 16) shift = 16;
+        address = 0x3FF000 - (4 << shift);
+        address = (address >> 13) << 13;
+    }
+    func_00285030(width, height, address, 0);
+    func_0027B2F8(1 << width, 1 << height, scale, 0.0f, 524288.0f, 255.0f, 0.0f);
+    if (use_saved) {
+        func_002FC560(0x47, 0UL);
+    } else {
+        func_002FC560(0x47, 0x30000UL);
+    }
+    func_002FC560(0x42, 0x8000000044UL);
+}
 
 extern void func_00284EA8(void);
 extern void func_0027A9F0(void);
@@ -179,7 +200,18 @@ void func_00280600(void) {
 
 INCLUDE_ASM("asm/game", func_00280660);
 
-INCLUDE_ASM("asm/game", func_00280670);
+/* The share of a region's pixels whose low 24 bits do not exceed the region's threshold. */
+void func_00280670(u32 *pixels, int index) {
+    CopyRegion *region = &D_001B8A10[index];
+    s32 total = region->w * region->h;
+    s32 count = 0;
+    s32 i;
+
+    for (i = 0; i < total; i++) {
+        if ((pixels[i] & 0xFFFFFF) > region->threshold) count++;
+    }
+    *(&D_001B8A10[index])->result = (float)(total - count) / (float)total;
+}
 
 INCLUDE_ASM("asm/game", func_00280710);
 
@@ -189,7 +221,7 @@ INCLUDE_ASM("asm/game", func_00280A70);
 
 INCLUDE_ASM("asm/game", func_00280B30);
 
-INCLUDE_ASM("asm/game", func_00280B90);
+ASM_FUNC("asm/game", func_00280B90);
 
 ASM_FUNC("asm/game", func_00281154);
 
@@ -201,7 +233,6 @@ INCLUDE_ASM("asm/game", func_00281810);
 
 INCLUDE_ASM("asm/game", func_00281A08);
 
-INCLUDE_ASM("asm/game", func_00281DE0);
 
 /* The draw packet's texture state and its flags.
 
@@ -235,11 +266,9 @@ void func_00281DE8(QuadPacket *q, int a1, int a2, int a3) {
     q->f88 = flags;
 }
 
-INCLUDE_ASM("asm/game", func_00281E88);
 
-INCLUDE_ASM("asm/game", func_00281EB8);
+/* func_00281EB8 lives in 00281EB8.c. */
 
-INCLUDE_ASM("asm/game", func_00282098);
 
 /* calls the measured callee with constants 0x47 and 0x513f1 */
 void func_002820A0(void) {
@@ -249,12 +278,6 @@ void func_002820A0(void) {
 void func_002820C8(void)
 {
 }
-
-INCLUDE_ASM("asm/game", func_002820D0);
-
-INCLUDE_ASM("asm/game", func_002824A0);
-
-INCLUDE_ASM("asm/game", func_002824B8);
 
 INCLUDE_ASM("asm/game", func_00282848);
 
@@ -280,7 +303,7 @@ INCLUDE_ASM("asm/game", func_002829A8);
 
 INCLUDE_ASM("asm/game", func_002829D8);
 
-INCLUDE_ASM("asm/game", func_00282A18);
+ASM_FUNC("asm/game", func_00282A18);
 
 INCLUDE_ASM("asm/game", func_00282A28);
 
@@ -298,11 +321,10 @@ ASM_FUNC("asm/game", func_00282B78);
 
 INCLUDE_ASM("asm/game", func_00282BA8);
 
-INCLUDE_ASM("asm/game", func_00282BE0);
+ASM_FUNC("asm/game", func_00282BE0);
 
-INCLUDE_ASM("asm/game", func_00282C08);
 
-INCLUDE_ASM("asm/game", func_00282C10);
+ASM_FUNC("asm/game", func_00282C10);
 
 ASM_FUNC("asm/game", func_00282C30);
 
@@ -310,54 +332,55 @@ ASM_FUNC("asm/game", func_00282C30);
 /* Measured target: byte-identical across all 27 levels. */
 f32 func_00282C48(f32 a0) { return __builtin_fabsf(a0); }
 
-INCLUDE_ASM("asm/game", func_00282C50);
+/* func_00282C50 (the float minimum) is matched in its own unit, src/game/00282C50.c: it needs
+   the -O1 -ffast-math profile. */
 
-INCLUDE_ASM("asm/game", func_00282C58);
+ASM_FUNC("asm/game", func_00282C58);
 
 INCLUDE_ASM("asm/game", func_00282C68);
 
-INCLUDE_ASM("asm/game", func_00282C78);
+ASM_FUNC("asm/game", func_00282C78);
 
 /* Clear one aligned 128-bit object through architectural zero. */
 void func_00282C88(TI128 *a0) { *a0 = 0; }
 
 INCLUDE_ASM("asm/game", func_00282C90);
 
-INCLUDE_ASM("asm/game", func_00282C98);
+ASM_FUNC("asm/game", func_00282C98);
 
-INCLUDE_ASM("asm/game", func_00282CA8);
+ASM_FUNC("asm/game", func_00282CA8);
 
-INCLUDE_ASM("asm/game", func_00282CC0);
+ASM_FUNC("asm/game", func_00282CC0);
 
-INCLUDE_ASM("asm/game", func_00282CD8);
+ASM_FUNC("asm/game", func_00282CD8);
 
-INCLUDE_ASM("asm/game", func_00282CF0);
+ASM_FUNC("asm/game", func_00282CF0);
 
-INCLUDE_ASM("asm/game", func_00282D08);
+ASM_FUNC("asm/game", func_00282D08);
 
-INCLUDE_ASM("asm/game", func_00282D30);
+ASM_FUNC("asm/game", func_00282D30);
 
-INCLUDE_ASM("asm/game", func_00282D48);
+ASM_FUNC("asm/game", func_00282D48);
 
-INCLUDE_ASM("asm/game", func_00282D60);
+ASM_FUNC("asm/game", func_00282D60);
 
-INCLUDE_ASM("asm/game", func_00282D78);
+ASM_FUNC("asm/game", func_00282D78);
 
-INCLUDE_ASM("asm/game", func_00282D90);
+ASM_FUNC("asm/game", func_00282D90);
 
-INCLUDE_ASM("asm/game", func_00282DB0);
+ASM_FUNC("asm/game", func_00282DB0);
 
-INCLUDE_ASM("asm/game", func_00282DD8);
+ASM_FUNC("asm/game", func_00282DD8);
 
 INCLUDE_ASM("asm/game", func_00282DF0);
 
-INCLUDE_ASM("asm/game", func_00282E20);
+ASM_FUNC("asm/game", func_00282E20);
 
 INCLUDE_ASM("asm/game", func_00282E48);
 
 INCLUDE_ASM("asm/game", func_00282E80);
 
-INCLUDE_ASM("asm/game", func_00282EB0);
+ASM_FUNC("asm/game", func_00282EB0);
 
 ASM_FUNC("asm/game", func_00282ED8);
 
@@ -369,21 +392,21 @@ INCLUDE_ASM("asm/game", func_00282FB8);
 
 INCLUDE_ASM("asm/game", func_00283028);
 
-INCLUDE_ASM("asm/game", func_00283098);
+ASM_FUNC("asm/game", func_00283098);
 
 INCLUDE_ASM("asm/game", func_002830C0);
 
-INCLUDE_ASM("asm/game", func_002830F0);
+ASM_FUNC("asm/game", func_002830F0);
 
 INCLUDE_ASM("asm/game", func_00283108);
 
-INCLUDE_ASM("asm/game", func_00283130);
+ASM_FUNC("asm/game", func_00283130);
 
 ASM_FUNC("asm/game", func_00283150);
 
-INCLUDE_ASM("asm/game", func_00283180);
+ASM_FUNC("asm/game", func_00283180);
 
-INCLUDE_ASM("asm/game", func_00283198);
+ASM_FUNC("asm/game", func_00283198);
 
 INCLUDE_ASM("asm/game", func_002831B0);
 
@@ -395,13 +418,13 @@ INCLUDE_ASM("asm/game", func_00283388);
 
 INCLUDE_ASM("asm/game", func_002833B8);
 
-INCLUDE_ASM("asm/game", func_002833F0);
+ASM_FUNC("asm/game", func_002833F0);
 
-INCLUDE_ASM("asm/game", func_00283410);
+ASM_FUNC("asm/game", func_00283410);
 
 ASM_FUNC("asm/game", func_00283430);
 
-INCLUDE_ASM("asm/game", func_00283658);
+ASM_FUNC("asm/game", func_00283658);
 
 INCLUDE_ASM("asm/game", func_00283678);
 
@@ -429,7 +452,8 @@ INCLUDE_ASM("asm/game", func_00283AF0);
 
 INCLUDE_ASM("asm/game", func_00283B48);
 
-INCLUDE_ASM("asm/game", func_00283B98);
+/* Byte-identical 72-byte copy of RAC1 func_001FA748, which RAC1 marks ASM_FUNC. */
+ASM_FUNC("asm/game", func_00283B98);
 
 INCLUDE_ASM("asm/game", func_00283BE0);
 
@@ -459,17 +483,6 @@ ASM_FUNC("asm/game", func_00283EB0);
 
 ASM_FUNC("asm/game", func_00283EF0);
 
-INCLUDE_ASM("asm/game", func_00283FE8);
-
-void func_00284000(void) {
-    func_00124418();
-    if (D_001A7B90 != 0) D_001A7BB8 = 0;
-    if (*(s32 *)0x001a7bb8 != 0) func_001257D0(0,0,0x50,1);
-    else func_001257D0(0,1,D_001A7B90 != 0 ? 3 : 2,0);
-}
-
-INCLUDE_ASM("asm/game", func_00284070);
-
 INCLUDE_ASM("asm/game", func_00284088);
 
 INCLUDE_ASM("asm/game", func_00284268);
@@ -478,10 +491,6 @@ extern long long D_001A6D78;
 
 void func_00284E18(s32 a0, s32 a1, s32 a2) {
     D_001A6D78 = a0 | ((long long)a1 << 8) | ((long long)a2 << 16) | 0x80000000ULL;
-}
-
-void func_00284E40(void) {
-    func_00125A20(*(u8 **)0x001a742c,D_001A6480.c,D_001A6480.a,D_001A6480.b,D_001A6480.d,D_001A6480.e);
 }
 
 int func_00284E80(void)

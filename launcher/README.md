@@ -188,8 +188,11 @@ levels with the packs that are on ([editor/MODDING.md](../editor/MODDING.md)).
 
 Going Commando, Up Your Arsenal and Deadlocked (NTSC-U) are early access.
 Their levels open in Godot and **Models and textures** works, but edits are
-not packed back and the games are not playable yet. Their packs wait in Your
-mods ([editor/README.md](../editor/README.md#the-later-games-early-access)).
+not packed back. Their packs wait in Your mods
+([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
+Your Arsenal and Deadlocked are not playable yet; Going Commando's Play is
+there with developer tools on (it gets its levels ready first, as Ratchet &
+Clank's does, and reads them again when their format changes).
 
 ## Develop
 

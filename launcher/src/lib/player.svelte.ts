@@ -380,8 +380,9 @@ export async function prepare(v: VersionView): Promise<boolean> {
     await refresh();
   }
   const now = freshVersion(v);
-  // Levels only when Play waits for them: a game that reads none yet (Going Commando's) starts as
-  // it is, and is not held up by minutes of reading levels it does not draw.
+  // Levels only when Play waits for them: a game that reads none starts as it is, and is not held
+  // up by minutes of reading levels it does not draw. A game with no level check (Going
+  // Commando's) waits for the export alone, so prepareLevels reads it and no more.
   const waits = !action(now, "play")?.runnable;
   if (
     waits &&

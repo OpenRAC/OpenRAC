@@ -250,3 +250,15 @@ class SecondExportTests(unittest.TestCase):
         extract.export_godot(godot, [0], True, True, fake_godot(extract.GODOT_SCHEMA))
         with self.assertRaisesRegex(FormatError, "Godot projects"):
             extract.ours(godot, "port")
+
+
+class LauncherStampTests(unittest.TestCase):
+    def test_the_launcher_looks_for_the_stamp_each_game_writes(self):
+        import re
+        from port import levels_format
+        actions = (ROOT / "launcher" / "actions.json").read_text(encoding="utf-8")
+        stamps = set(re.findall(r"assets/port/(rac\d)/\w+/levels-(\d+)\.json", actions))
+        self.assertTrue(stamps)
+        for game, written in stamps:
+            with self.subTest(game):
+                self.assertEqual(int(written), levels_format(game))

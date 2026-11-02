@@ -33,10 +33,18 @@ namespace openrac::scene {
 using renderer::Mat4;
 using renderer::Vec3;
 
-// The extracted levels' format (editor/port.py FORMAT); --check-levels writes verified-<format>.json,
-// which the launcher waits for, so older exports are read from the disc again before Play. 4: the
-// textures the game clamps carry clamping samplers.
+// The extracted levels' format (editor/port.py FORMAT). editor/extract.py writes levels-<format>.json,
+// and the launcher's level actions look for that name, so older exports are read from the disc
+// again. Only rac1 has --check-levels: its Play also needs that check's verified-<format>.json
+// (launcher/actions.json). 4: the textures the game clamps carry clamping samplers.
 inline constexpr int kManifestFormat = 4;
+// The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
+// layout, so the reader takes all from kManifestFormat up; which levels are read again is the
+// stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
+// his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
+// 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
+// ship's hulls in every level; 14 with the chrome and glass maps the game binds.
+inline constexpr int kManifestFormatNewest = 14;
 
 struct Vertex {
     float position[3];
@@ -114,7 +122,8 @@ struct Instance {
     // A live moby's joint palette: the first of its matrices in the scene's palette
     // (LevelScene::set_palette); -1 draws the mesh as stored (its bind pose).
     int palette = -1;
-    // A lit tie or shrub: the first of its 64 (24) colours in LevelData::light_colours; -1 none.
+    // A lit tie or shrub: the first of its 64 (24) colours in LevelData::light_colours (a Going
+    // Commando tie: one per vertex of its class); -1 none.
     int lights = -1;
     // A live moby lit as the game lights it: its light word (set 0, set 1, the cross-fade
     // 0..1; w = 1 to light it) and its ambient colour (RGB bytes / 128).

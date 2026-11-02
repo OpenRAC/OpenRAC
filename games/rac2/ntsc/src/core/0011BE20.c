@@ -68,4 +68,3 @@ s32 func_0011BE20(void) {
     return 1;
 }
 
-INCLUDE_ASM("asm/core", func_0011BEDC);

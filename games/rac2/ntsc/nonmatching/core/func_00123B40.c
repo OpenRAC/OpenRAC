@@ -1,38 +1,28 @@
-/* from src/core/001232F0.c: 216 bytes against retail's 228, twelve bytes short.
+/* sol-low, task v0270, USA v1.01 boot (one placement).
+ * Rechecked with the upstream pinned compiler on 28 October 2026: the
+ * prior sol-high 228-byte result below reproduces unchanged.
+ * Explicit shared-return goto walk: 212 bytes, post-walk check eliminated.
+ * Result-pointer/shared-return form: 232 bytes, extra saved s2 and 0x40 frame.
+ * Neither improves the retained original source.
+ * Best check: 228/228 bytes, 0/1 places, sdk -O2 -G2 -ffunction-sections
+ * -fno-thread-jumps. The original public libgcc frame.c find_fde body below
+ * now retains the post-walk null check and the complete retail binary search.
+ * Only +0x20/+0x24 differ: beqz s0 targets the post-walk test at +0x5c
+ * with a nop slot; retail targets the epilogue at +0xd0 with v0 = 0.
+ * All other instructions/operands agree after ordinary symbol relocations.
+ * This supersedes the earlier 216/228 measurement under the default SDK
+ * profile; no new compiler or assembler behavior was introduced.
  *
- * libgcc frame.c: find_fde, transcribed from the same public source the
- * qualified compiler is built from (gnu-ee-binutils-gcc-1.1, gcc/frame.c).
- * The object walk, the lazy frame_init func_00123A00, the binary search and
- * every instruction of them are identical to retail's. What is missing is
- * retail's null test between the loop and the search:
- *
- *   retail  ...pc < pc_end test fails to repeat the loop, then
- *           bnel $s0,$zero,+0x14 ; lw $a3,0x10($s0)   # if (ob != 0) goto body
- *           b  <return 0> ; daddu $v0,$zero,$zero
- *   ours    falls straight through into `hi = ob->count`, which the compiler
- *           hoists into the branch delay slot with no test at all.
- *
- * The test is the source's `if (ob == 0) return 0;` after the loop. Both
- * qualified profiles delete it: on the break edge the loop's own `ob != 0`
- * test dominates, so the redundancy eliminator removes the second test
- * (retail's compiler kept it, and this is a compiler behaviour, not a source
- * shape - the loop is a top-tested `for (ob = objects; ob; ob = ob->next)`
- * whose back edges branch to that test, exactly as in the source).
- *
- * Tried: hoisting `hi = ob->count` out of the for-init into its own statement
- * after the check (no change); the default profile -O2 -G0 (wrong frame,
- * 0x20 against retail's 0x30, and the search body stops matching); the
- * sdk -O2 -g2 -gstabs profile (prologue order changes). -fno-delete-null-
- * pointer-checks is rejected by cc1 as an invalid option.
- *
- * What would unblock it: a compiler/flag that does not fold the second test,
- * or confirmation that this object is one the qualified tree builds with a
- * different profile. `objects` is retail's D_00141838, `struct object` is
- * frame.h's (pc_begin, pc_end, fde_begin, fde_array, count, next).
- *
- * Verified: tools/check.py func_00123B40 --diff: boot: 216 bytes, expected
- * 228.
+ * Targeted controls: -fno-cse-follow-jumps and -fno-gcse still produce
+ * 216 bytes and alter search layout/allocation. An explicit initial guard
+ * with -fno-thread-jumps produces 236 bytes. An infinite walk with an
+ * early null return produces 208 bytes and deletes the post-walk check.
+ * Next: a source/profile retaining the post-walk check while threading only
+ * the initial null exit; another ordinary loop spelling is insufficient.
+ * Declarations required: common.h for u32/s32; object list and frame_init
+ * are declared below. Keep this in an isolated unit if testing other flags.
  */
+#include "common.h"
 
 typedef struct
 {

@@ -44,6 +44,5 @@ void func_L00_0037B7B0(void)
     ref_L00_0037B7B0_00 += 16;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0037B810);
 
 INCLUDE_ASM("asm/levels", func_L00_0037DD18);

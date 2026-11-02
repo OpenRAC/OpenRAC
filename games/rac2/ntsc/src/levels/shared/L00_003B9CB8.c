@@ -1,4 +1,54 @@
-#include "include_asm.h"
+#include "common.h"
+
+extern float func_00283B98(float, float);
+extern float func_00283BE0(float, float);
+extern void func_002833F0(void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_002FEE70(int, void *, int);
+extern void func_00300190(void *, void *);
+extern void func_00300248(void *, void *);
+extern float func_00282DF0(void *);
+extern void func_002ACF68(void *, void *, void *, int, float);
+extern int func_00277258(void *, int, void *, float);
+extern char *D_L00_001BF218;
+extern char *D_0018C0B0;
+extern char D_L00_001BF230[];
+typedef struct { float x, y, z; int unused; float position[4]; } EffectLightRecord;
+extern EffectLightRecord D_L00_001C6F40[];
+extern float func_00282DB0(void *, void *);
+extern void func_00283028(void *, void *, void *);
+extern void func_L00_003BD510(float *, float *, int, int);
+extern void func_002E5CF8(int, int, void *);
+extern void func_L00_003BC998(char *, char *);
+
+
+extern float func_802EE7A8_1(float x, float y);
+
+extern float func_802EE2E8_1(char *p, float *v);
+
+extern void func_802EE970_1(float *matrix, float *quat);
+
+extern void func_802EE138_1(float *off, float *v, char *p);
+
+extern void func_802EE3D0_1(float *dst, float *src, float angle);
+
+extern void func_802EAC30_1(char *pkt, float *matrix, int mode);
+
+extern void ref_L00_003C1FC8_00(char *p);
+extern long long func_002E67A0_2(int id);
+extern float func_0031A888_1(void);
+extern void func_002EE178_1(char *dst, char *src, float scale);
+/* The vector the aim helpers read, at 0x001B8C80. */
+typedef struct {
+    char pad_000[0x140];
+    float x_140;
+    float y_144;
+    float z_148;
+} L00AimVector;
+
+extern L00AimVector D_L00_001B8C80;
+
+
 
 /* The 128-bit unit four of these bodies copy whole. */
 typedef int Rac2TI128 __attribute__((mode(TI)));
@@ -78,11 +128,75 @@ void func_L00_003BAAD0(void)
     func_003182C0();
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003BAC30);
+/* Implemented in L00_003B9CB8-state-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003BB080);
+/* Integrates motion, reflects a collision, updates the light and emits trail slots. */
+char *func_L00_003BB1F8(char *self)
+{
+    float saved[4] __attribute__((aligned(16)));
+    float normal[4] __attribute__((aligned(16)));
+    float projection[4] __attribute__((aligned(16)));
+    float remainder[4] __attribute__((aligned(16)));
+    char *ctx = *(char **)(self + 0x68);
+    char *hit = 0;
+    char *p;
+    EffectLightRecord *light;
+    int light_index;
+    float f;
+    *(float *)(self + 0xF0) = func_00283B98(*(float *)(self + 0xF0), 0.0523598865f);
+    *(float *)(self + 0xF4) = func_00283BE0(*(float *)(self + 0xF4), 0.0130899716f);
+    *(int *)(self + 0xFC) = 0;
+    func_002833F0(self + 0xC0, self + 0xF0);
+    qcopy(saved, self + 0x10);
+    func_00282CC0(self + 0x10, ctx, self + 0x10);
+    func_002FEE70(*(int *)(ctx + 0x50), ctx, 0);
+    func_00300190(self + 0x10, self + 0x10);
+    func_00300248(ctx, ctx);
+    if (func_00282DF0(ctx) != 0.0f && func_00282DF0(ctx + 0x20) != 0.0f)
+        func_002ACF68(ctx, ctx, ctx + 0x20, 0, 0.075f);
+    if (func_00277258(self + 0x10, 0, self, *(float *)(ctx + 0x4C))) {
+        p = D_L00_001BF218;
+        if (p && p != D_0018C0B0 && *(short *)(p + 0xAA) != 0x5CA)
+            hit = (*(unsigned short *)(p + 0x34) & 0x1000) ? p : 0;
+        qcopy(self + 0x10, D_L00_001BF230);
+        func_002EE178_1((char *)normal, D_L00_001BF230 + 0x10, 0.0009765625f);
+        func_802EE3D0_1(normal, normal, 1.0f);
+        func_00283028(ctx, ctx, normal);
+        f = func_00282DB0(ctx, normal);
+        func_002EE178_1((char *)projection, (char *)normal, f);
+        func_802EE138_1(remainder, (float *)ctx, (char *)projection);
+        func_002EE178_1(ctx, (char *)projection, 0.85f);
+        func_00282CC0(ctx, remainder, ctx);
+        func_002EE178_1(ctx + 0x20, ctx + 0x20, 0.95f);
+        func_L00_003BD510(D_L00_001BF230 - 0x10, normal, 6, 0x72FF);
+        func_L00_003BD510(D_L00_001BF230 - 0x10, normal, 6, 0xFF0000);
+        func_002E5CF8(1, 0, self);
+    }
+    light_index = *(int *)(ctx + 0x5C);
+    if (light_index != -1) {
+        light = D_L00_001C6F40 + light_index;
+        qcopy(light->position, self + 0x10);
+        light->position[3] = 4.0f;
+        light->x = 0.25f;
+        light->y = 0.14f;
+        light->z = 1.0f;
+        light->unused = 0;
+        f = func_002A7878_2(-0.1f, 0.1f);
+        light->x += f;
+        light->y += f;
+        light->z += f;
+    }
+    if (*(float *)(self + 0x10) < 2.0f || *(float *)(self + 0x10) > 1021.0f ||
+        *(float *)(self + 0x14) < 2.0f || *(float *)(self + 0x14) > 1021.0f ||
+        *(float *)(self + 0x18) < 2.0f || *(float *)(self + 0x18) > 1021.0f) {
+        qcopy(self + 0x10, saved);
+        self[0x20] = 3;
+    }
+    if (*(int *)(ctx + 0x58) < 8)
+        func_L00_003BC998(self, (char *)func_002A7820_1(8, 20));
+    return hit;
+}
 
-INCLUDE_ASM("asm/levels", func_L00_003BB1F8);
 
 extern void func_002FC560(unsigned int reg, unsigned long value);
 
@@ -129,8 +243,6 @@ void func_L00_003BB668(char *a0)
 
 INCLUDE_ASM("asm/levels", func_L00_003BB8B8);
 
-INCLUDE_ASM("asm/levels", func_L00_003BBB68);
-
 INCLUDE_ASM("asm/levels", func_L00_003BBF48);
 
 /* resets a state record: zero words, plus/minus one float flags and two 64-bit fields in the retail store order */
@@ -164,10 +276,6 @@ void func_L00_003BC080(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003BC108);
-
-INCLUDE_ASM("asm/levels", func_L00_003BC228);
-
 /* Derives a 16-byte element at index-1 from its index-2 and index-3 neighbours through two bound helpers; original game role is unknown. */
 void func_L00_003BC400(Vec16_Fc936841d *object, int index)
 {
@@ -177,11 +285,95 @@ void func_L00_003BC400(Vec16_Fc936841d *object, int index)
     func_00282CC0_15((char *)&object[index - 1], (char *)&object[index - 2], local);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003BC468);
+/* Implemented in L00_003B9CB8-ribbons.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003BC998);
+/* Measured partial layout of one 0xB0-byte record of the table at D_L00_0023F060. */
+typedef struct Rac2Native_003BC998_Slot {
+    unsigned char prefix_00[0x50];
+    float f_50;
+    float f_54;
+    float f_58;
+    float f_5C;
+    float f_60;
+    float f_64;
+    float f_68;
+    float f_6C;
+    float f_70;
+    float f_74;
+    float f_78;
+    float f_7C;
+    float f_80;
+    float f_84;
+    float f_88;
+    float f_8C;
+    float f_90;
+    float f_94;
+    void *w_98;
+    void *w_9C;
+    void *owner_A0;
+    unsigned char tail_A4[0xC];
+} Rac2Native_003BC998_Slot;
 
-INCLUDE_ASM("asm/levels", func_L00_003BCC10);
+extern Rac2Native_003BC998_Slot D_L00_0023F060[];
+
+extern float func_002A78D8_1(float low, float high);
+
+extern void func_002AF000_1(float *out, float a, float b, float c);
+
+extern void func_00282C88_1(void *p);
+
+/* Claims the first free record of the sixteen 0xB0-byte records at D_L00_0023F060, keeps the
+   owner's pointer in it and fills the drawn values. The base and the output pointer are kept
+   in their own variables, and the two owner words are stored in the order 0x9C, 0x98, so that
+   cc1 keeps the table base and the output pointer in registers and fills the delay slots the
+   way retail does. */
+void func_L00_003BC998(char *owner, char *arg1)
+{
+    Rac2Native_003BC998_Slot *base = D_L00_0023F060;
+    Rac2Native_003BC998_Slot *slot;
+    float *out;
+    char *ctx;
+    int i;
+    float r1;
+    float r2;
+
+    ctx = *(char **)(owner + 0x68);
+    for (i = 0; i < 16; i++) {
+        slot = base + i;
+        if (slot->owner_A0 != 0)
+            continue;
+        slot->owner_A0 = owner;
+        out = (float *)((char *)slot + 0x40);
+        (*(int *)(ctx + 0x58))++;
+        slot->f_50 = func_002A7878_2(-3.14159274f, 3.14159274f);
+        slot->f_54 = func_002A7878_2(-3.14159274f, 3.14159274f);
+        slot->f_58 = func_002A7878_2(-3.14159274f, 3.14159274f);
+        slot->f_74 = func_002A7878_2(-3.14159274f, 3.14159274f);
+        slot->f_78 = func_002A7878_2(-3.14159274f, 3.14159274f);
+        slot->f_7C = func_002A7878_2(-3.14159274f, 3.14159274f);
+        slot->f_5C = func_002A78D8_1(0.1f, 0.5f);
+        slot->f_60 = func_002A78D8_1(0.1f, 0.5f);
+        slot->f_64 = func_002A78D8_1(0.1f, 0.5f);
+        slot->f_80 = func_002A78D8_1(0.1f, 0.5f);
+        slot->f_84 = func_002A78D8_1(0.1f, 0.5f);
+        slot->f_88 = func_002A78D8_1(0.1f, 0.5f);
+        slot->f_68 = func_002A7878_2(3.25f, 4.75f) * 0.25f;
+        slot->f_6C = func_002A7878_2(3.25f, 4.75f) * 0.25f;
+        slot->f_70 = func_002A7878_2(3.25f, 4.75f) * 0.25f;
+        slot->f_8C = func_002A7878_2(3.25f, 4.75f) * 0.25f;
+        slot->f_90 = func_002A7878_2(3.25f, 4.75f) * 0.25f;
+        slot->f_94 = func_002A7878_2(3.25f, 4.75f) * 0.25f;
+        func_00282C88_1(slot);
+        func_00282C88_1((char *)slot + 0x10);
+        slot->w_9C = arg1;
+        slot->w_98 = arg1;
+        r1 = func_002A7940();
+        r2 = func_002A7940();
+        func_002AF000_1(out, *(float *)(ctx + 0x4C), r1, r2);
+        break;
+    }
+}
+
 
 extern void func_L00_003BCE28(char *a0, char *a1);
 
@@ -190,15 +382,76 @@ extern char D_0023F060[];
 /* Near miss: nonmatching/levels/func_L00_003BCDC0.c - every instruction present but the
    loop test is `sltu` here against retail's `slt`, and the base is derived from the end
    pointer instead of being materialised on its own. */
-INCLUDE_ASM("asm/levels", func_L00_003BCDC0);
-
-INCLUDE_ASM("asm/levels", func_L00_003BCE28);
 
 INCLUDE_ASM("asm/levels", func_L00_003BCF88);
 
-INCLUDE_ASM("asm/levels", func_L00_003BD510);
+extern float func_002A7878(float, float);
+extern float func_002A78D8(float, float);
+extern int func_002A77E0(int);
+extern int func_001163B0(void);
+extern void func_00283098(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern int func_00283CF0(float);
+extern char *func_002C2210(void *, int, float, float, unsigned int, int, int, void *, int, float);
 
-INCLUDE_ASM("asm/levels", func_L00_003BD7E0);
+/* Emits count pairs of sparks at position, moving along direction turned by a random rotation;
+   position is jittered a little before each pair. Both arms of the random-bit test are the same
+   code: retail keeps the test, so it stays. */
+void func_L00_003BD510(float *position, float *direction, int count, int color)
+{
+    float velocity[4];
+    float previous[4];
+    float angles[4];
+    char matrix[48];
+    float *saved;
+    float scale;
+    int spin;
+    char *particle;
+    int i;
+
+    for (i = 0; i < count; i++) {
+        scale = func_002A7878(1.75f, 2.0f);
+        spin = func_002A77E0(2);
+        if (!spin)
+            spin--;
+        angles[3] = 0;
+        angles[1] = func_002A7878(-1.57079637f, 1.57079637f);
+        angles[0] = func_002A7878(-1.57079637f, 1.57079637f);
+        angles[2] = func_002A7878(-1.57079637f, 1.57079637f);
+        func_002833F0(matrix, angles);
+        func_00283098(velocity, direction, matrix);
+
+        saved = previous;
+        func_00282F20(velocity, velocity, 0.05f);
+        velocity[2] += 0.05f;
+        qcopy(saved, position);
+        position[0] += func_002A78D8(0.0f, 0.15f);
+        position[1] += func_002A78D8(0.0f, 0.15f);
+        position[2] += func_002A78D8(0.0f, 0.15f);
+
+        if (func_001163B0() & 1) {
+            particle = func_002C2210(position, 60, scale * 0.1f, scale, color | 0x4F000000, 0,
+                                     spin, velocity, 1, 0.002f);
+            if (particle)
+                particle[9] = func_00283CF0(4.0f) + 112;
+            particle = func_002C2210(position, 60, scale * 0.07f, scale * 0.7f, 0x7FFFFFFF, 1,
+                                     -spin, velocity, 1, 0.002f);
+            if (particle)
+                particle[9] = func_00283CF0(4.0f) + 112;
+        } else {
+            particle = func_002C2210(position, 60, scale * 0.1f, scale, color | 0x4F000000, 0,
+                                     spin, velocity, 1, 0.002f);
+            if (particle)
+                particle[9] = func_00283CF0(4.0f) + 112;
+            particle = func_002C2210(position, 60, scale * 0.07f, scale * 0.7f, 0x7FFFFFFF, 1,
+                                     -spin, velocity, 1, 0.002f);
+            if (particle)
+                particle[9] = func_00283CF0(4.0f) + 112;
+        }
+    }
+}
+
+/* func_L00_003BD7E0 is in L00_003B9CB8-update.c. */
 
 /* Normalises and combines two temporary vectors from a state block, dispatches on the combined result and conditionally scales the output vector. */
 void func_L00_003BFDE8(char *self, char *p1, int p2)
@@ -231,7 +484,39 @@ unsigned int func_L00_003BFF58(unsigned int param_1)
     return result;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003BFF68);
+extern float func_002B04E0(char *a0, float *src, char *third);
+
+/* The four floats are declared before the two other arguments, which sets the order this caller
+   evaluates them in (the registers are the same either way). */
+extern float func_002AAA00(void *out, float f12, float f13, float f14, float f15, char *in, int a2);
+
+extern void func_002833F0(void *out, void *in);
+
+extern void func_00283738(char *a0, char *a1, void *a2);
+
+extern float func_00282C48(float f);
+
+/* Copies the caller's 16-byte block into a stack scratch area, runs the three-argument starter on
+   it, then fills the scratch area's upper half from the state block's 0xB4 float and the pair
+   helper before folding the starter's result against the state's own reading of that float. One
+   `char scratch[0x50]` gives retail's frame. The 16-byte clear is retail's `sq $zero,0($sp)`:
+   with the scheduling barrier of zero_ti_store_barrier.py it takes retail's place, and so does
+   the prologue's save order. */
+float func_L00_003BFF68(char *a0, char *a1, char *a2, char *a3)
+{
+    char scratch[0x50];
+    float f;
+
+    *(Rac2TI128 *)scratch = *(Rac2TI128 *)a2;
+    f = func_002B04E0(a0, (float *)scratch, a3);
+    *(int *)(scratch + 0x40) = 0;
+    func_002AAA00(scratch + 0x40, f, *(float *)(a1 + 0x14), *(float *)(a1 + 0x18), 3.14159274f, a1 + 0xB4, 0);
+    *(Rac2TI128 *)scratch = 0;
+    *(float *)(scratch + 8) = *(float *)(a1 + 0xB4);
+    func_002833F0(scratch + 0x10, scratch);
+    func_00283738(a0 + 0xC0, a0 + 0xC0, scratch + 0x10);
+    return func_00282C48(f) - func_00282C48(*(float *)(a1 + 0xB4));
+}
 
 /* shared native body of family a04928c6 */
 void func_L00_003C1D30(char *p)
@@ -264,7 +549,63 @@ void func_L00_003C1D30(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003C1FC8);
+void func_L00_003C1FC8(int unused, char *pos, int color, int first, int second, float scale)
+{
+    char pkt[144];
+    float m[16];
+    float quat[4];
+    float off[4];
+    long long r;
+    float dx, dy;
+
+    ref_L00_003C1FC8_00(pkt);
+    *(int *)(pkt + 80) = 0;
+    *(float *)(pkt + 92) = 1.0f;
+    *(float *)(pkt + 96) = 1.0f;
+    *(float *)(pkt + 104) = 1.0f;
+    *(float *)(pkt + 108) = 1.0f;
+    *(int *)(pkt + 84) = 0;
+    *(int *)(pkt + 88) = 0;
+    *(int *)(pkt + 100) = 0;
+    r = func_002E67A0_2(11);
+    *(long long *)(pkt + 112) = 0;
+    *(long long *)(pkt + 120) = r;
+    *(long long *)(pkt + 128) = 0xFF9000000260LL;
+    *(long long *)(pkt + 136) = 0x8000000048LL;
+    dx = D_L00_001B8C80.x_140 - *(float *)pos;
+    dy = D_L00_001B8C80.y_144 - *(float *)(pos + 4);
+    *(int *)(pkt + 76) = color + first;
+    *(int *)(pkt + 72) = color + first;
+    *(int *)(pkt + 68) = color + first;
+    *(int *)(pkt + 64) = color + first;
+    quat[3] = 0;
+    quat[2] = func_802EE7A8_1(dx, dy);
+    quat[1] = -func_802EE7A8_1(func_802EE2E8_1(pos, &D_L00_001B8C80.x_140),
+                              D_L00_001B8C80.z_148 - *(float *)(pos + 8));
+    quat[0] = func_0031A888_1();
+    func_802EE970_1(m, quat);
+    func_802EE138_1(off, &D_L00_001B8C80.x_140, pos);
+    func_802EE3D0_1(off, off, 0.5f);
+    m[12] = *(float *)(pos) + off[0];
+    m[13] = *(float *)(pos + 4) + off[1];
+    m[14] = *(float *)(pos + 8) + off[2];
+    m[15] = 1.0f;
+    func_002EE178_1(pkt, pkt, scale);
+    func_002EE178_1(pkt + 16, pkt + 16, scale);
+    func_002EE178_1(pkt + 32, pkt + 32, scale);
+    func_002EE178_1(pkt + 48, pkt + 48, scale);
+    func_802EAC30_1(pkt, m, 0);
+    *(int *)(pkt + 76) = color + second;
+    *(int *)(pkt + 72) = color + second;
+    *(int *)(pkt + 68) = color + second;
+    *(int *)(pkt + 64) = color + second;
+    func_002EE178_1(pkt, pkt, 0.5f);
+    func_002EE178_1(pkt + 16, pkt + 16, 0.5f);
+    func_002EE178_1(pkt + 32, pkt + 32, 0.5f);
+    func_002EE178_1(pkt + 48, pkt + 48, 0.5f);
+    func_802EAC30_1(pkt, m, 0);
+}
+
 
 INCLUDE_ASM("asm/levels", func_L00_003C27A0);
 
@@ -326,7 +667,6 @@ void func_L00_003C2F10(unsigned char *a0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003C2FC8);
 
 /* When the context flag at offset 0x24 is nonzero, pass scale 1.0, the context, its vector at offset 0x10 and mode zero to the bound helper; original game role is unknown. */
 void func_L00_003C33E0(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
@@ -337,7 +677,6 @@ void func_L00_003C33E0(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003C3418);
 
 /* The 0x68 context block starts with two words and a halfword that this body clears. */
 void func_L00_003C37A0(char *p)
@@ -389,19 +728,18 @@ void func_L00_003C3920(char *unused, char *arg)
     } while (i >= 0);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003C3A70);
-
 INCLUDE_ASM("asm/levels", func_L00_003C3D90);
 
 INCLUDE_ASM("asm/levels", func_L00_003C48D0);
 
-INCLUDE_ASM("asm/levels", func_L00_003C4B98);
 
 INCLUDE_ASM("asm/levels", func_L00_003C4F78);
 
 INCLUDE_ASM("asm/levels", func_L00_003C5310);
 
-INCLUDE_ASM("asm/levels", func_L00_003C58E8);
+/* func_L00_003C58E8 is in L00_003C58E8-qcopy.c. */
+
+/* Implemented in L00_003C58E8.c. */
 
 /* one float gate followed by five integer gates; every failing gate */
 int func_L00_003C5B18(float f12)

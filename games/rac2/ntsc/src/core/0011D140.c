@@ -392,7 +392,118 @@ void func_0011D590(void *request, void *data) {
     r1_func_00119678(base[0]);
 }
 
-INCLUDE_ASM("asm/core", func_0011D620);
+extern void r1_func_0011AD70(void *addr, s32 size);
+extern char r1_D_00156900[];
+extern int r1_func_00118C70(void *);   /* CreateSema */
+extern void r1_func_00118C80(int);     /* DeleteSema */
+extern int r1_func_00118CB0(int);      /* WaitSema */
+typedef unsigned char u8_1B4C8;
+struct SifRpcClient_1B4C8
+{
+  volatile s32_1B4C8 packet;
+  volatile s32_1B4C8 request_id;
+    s32_1B4C8 semaphore_id;
+    u8_1B4C8 pad_C[0x8];
+    s32_1B4C8 server_buffer;
+    u8_1B4C8 pad_18[0x4];
+    s32_1B4C8 end_callback;
+  volatile s32_1B4C8 end_argument;
+    s32_1B4C8 server;
+};
+struct SifRpcPacket_1B4C8 {
+    u8_1B4C8 pad_0[0x14];
+    s32_1B4C8 packet_address;
+    s32_1B4C8 request_id;
+    s32_1B4C8 client;
+    s32_1B4C8 rpc_number;
+    s32_1B4C8 send_size;
+    s32_1B4C8 receive_address;
+    s32_1B4C8 receive_size;
+    s32_1B4C8 completion_mode;
+    s32_1B4C8 server;
+};
+extern u8_1B4C8 r1_D_00156900_1B4C8[] __asm__("r1_D_00156900");
+extern s32_1B4C8 r1_func_00118C70();
+extern s32_1B4C8 r1_func_00118C80_1B4C8() __asm__("r1_func_00118C80");
+extern s32_1B4C8 r1_func_00118CB0();
+extern s32_1B4C8 r1_func_0011AFE8_1B4C8() __asm__("r1_func_0011AFE8");
+extern s32_1B4C8 r1_func_0011B090_1B4C8() __asm__("r1_func_0011B090");
+extern s32_1B4C8 r1_func_0011ABC8();
+extern s32_1B4C8 r1_func_0011AD70_1B4C8() __asm__("r1_func_0011AD70");
+
+
+/* rac1-decomp src/core/00119D88.c: func_0011D620 */
+s32_1B4C8 func_0011D620(struct SifRpcClient_1B4C8 *client, s32_1B4C8 rpc_number, s32_1B4C8 mode, s32_1B4C8 send_buf, s32_1B4C8 send_size,
+                          s32_1B4C8 recv_buf, s32_1B4C8 recv_size, s32_1B4C8 end_func, s32_1B4C8 end_data) {
+    s32_1B4C8 semaphore_parameters[6];
+    struct SifRpcPacket_1B4C8 *packet;
+    s32_1B4C8 semaphore_id;
+    s32_1B4C8 skip_cache_writeback;
+    s32_1B4C8 request_id;
+    s32_1B4C8 allocation_failure_result;
+    packet = (struct SifRpcPacket_1B4C8 *)r1_func_0011AFE8_1B4C8(r1_D_00156900_1B4C8);
+    allocation_failure_result = -1;
+    if (packet == 0) {
+        return allocation_failure_result;
+    }
+    request_id = packet->request_id;
+    skip_cache_writeback = mode & 2;
+    client->end_argument = end_data;
+    client->packet = (s32_1B4C8)packet;
+    client->request_id = request_id;
+    client->end_callback = end_func;
+    packet->rpc_number = rpc_number;
+    packet->send_size = send_size;
+    packet->receive_address = recv_buf;
+    packet->receive_size = recv_size;
+    packet->packet_address = (s32_1B4C8)packet;
+    packet->server = client->server;
+    packet->client = (s32_1B4C8)client;
+    if (!skip_cache_writeback) {
+        if (send_buf == recv_buf) {
+            r1_func_0011AD70_1B4C8(send_buf, (send_size >= recv_size) ? (send_size) : (recv_size));
+        } else {
+            if (send_size > 0) {
+                r1_func_0011AD70_1B4C8(send_buf, send_size);
+            }
+            if (recv_size > 0) {
+                r1_func_0011AD70_1B4C8(recv_buf, recv_size);
+            }
+        }
+    }
+    if (mode & 1) {
+        if (end_func == 0) {
+            packet->completion_mode = 0;
+        } else {
+            packet->completion_mode = 1;
+        }
+        client->semaphore_id = -1;
+        if (r1_func_0011ABC8(0x8000000A, packet, 0x40, send_buf, client->server_buffer, send_size) != 0) {
+            return 0;
+        } else {
+            r1_func_0011B090_1B4C8(packet);
+            return -2;
+        }
+    } else {
+        semaphore_parameters[1] = 1;
+        semaphore_parameters[2] = 0;
+        semaphore_id = r1_func_00118C70(semaphore_parameters);
+        client->semaphore_id = semaphore_id;
+        if (semaphore_id < 0) {
+            r1_func_0011B090_1B4C8(packet);
+            return -3;
+        }
+        packet->completion_mode = 1;
+        if (r1_func_0011ABC8(0x8000000A, packet, 0x40, send_buf, client->server_buffer, send_size) == 0) {
+            r1_func_00118C80_1B4C8(client->semaphore_id);
+            r1_func_0011B090_1B4C8(packet);
+            return -2;
+        }
+        r1_func_00118CB0(client->semaphore_id);
+        r1_func_00118C80_1B4C8(client->semaphore_id);
+        return 0;
+    }
+}
 
 /* rac1-decomp src/core/00119D88.c: func_0011B6B8 */
 /*
@@ -431,4 +542,3 @@ int func_0011D810(void *arg0) {
     return 1;
 }
 
-INCLUDE_ASM("asm/core", func_0011D850);

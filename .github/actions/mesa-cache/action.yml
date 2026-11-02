@@ -1,0 +1,21 @@
+# Mesa's shader cache (MESA_SHADER_CACHE_DIR), kept between runs per runner CPU. llvmpipe stores
+# machine code built for the CPU it ran on (LLVM's -mcpu is the host's), but keys it only on the
+# features Mesa tracks: a cache from another runner CPU can hold instructions this one lacks, and
+# the first shader run from it stops with an illegal instruction. One cache per CPU model and flags.
+name: Mesa shader cache
+description: Restore and save MESA_SHADER_CACHE_DIR for this job, runner CPU and shader sources
+inputs:
+  variant:
+    description: The job's own name for its cache (system, preset, LLVM options)
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: cpu
+      shell: bash
+      run: echo "key=$(grep -m2 -E '^(model name|flags)' /proc/cpuinfo | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.MESA_SHADER_CACHE_DIR }}
+        key: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+        restore-keys: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-

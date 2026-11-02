@@ -23,7 +23,6 @@ char *func_00336968(char *object) {
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_003369A0);
 
 extern void func_00335FC8(void *);
 extern unsigned char D_00263B50[];
@@ -66,4 +65,3 @@ void func_00336A40(u8 *self)
     func_0027F1D8(*(void **)(self + 0x40), -1, *(void **)(self + 0x34), *(f32 *)*(void **)(self + 4));
 }
 
-INCLUDE_ASM("asm/game", func_00336A70);

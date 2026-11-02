@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import struct
 import tempfile
 import unittest
@@ -486,6 +487,48 @@ class Survey(unittest.TestCase):
                 (Path(d) / f"s_{f}.png").write_bytes(b"")
             pairs = survey._pairs(trace, f"{d}/s_")
             self.assertEqual([v[0] for v in pairs.values()], [40])
+
+
+class Rac2(unittest.TestCase):
+    """Going Commando's routes and addresses."""
+
+    REPO = Path(__file__).resolve().parents[3]
+
+    def symbols(self) -> dict[str, int]:
+        table = self.REPO / "games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt"
+        found = re.findall(r"^(\w+) = 0x([0-9A-Fa-f]+);", table.read_text(), re.M)
+        return {name: int(value, 16) for name, value in found}
+
+    def test_the_host_addresses_are_the_symbol_tables(self):
+        symbols = self.symbols()
+        header = self.REPO / "port/game/rac2-ntsc/host/rac2_addresses.h"
+        pairs = re.findall(r"#define RAC2_(\w+) 0x([0-9A-Fa-f]+)u", header.read_text())
+        self.assertGreater(len(pairs), 10)
+        for name, value in pairs:
+            self.assertEqual(symbols.get(name), int(value, 16), name)
+
+    def test_the_routes_addresses_are_the_symbol_tables(self):
+        symbols = self.symbols()
+        a = routes.load()["addresses"]["rac2-ntsc"]
+        self.assertEqual(int(a["hero"], 16) + 0x80, symbols["g_heroPos"])
+        for key, name in (("owned", "g_inventoryOwned"), ("acquired", "g_inventoryNewFlag"), ("ammo", "g_weaponAmmo"),
+                          ("bolts", "g_boltCount")):
+            self.assertEqual(int(a[key], 16), symbols[name], key)
+
+    def test_the_tour_has_a_route_per_level_and_its_switches(self):
+        tour = routes.set_routes("rac2-tour", "rac2-ntsc")
+        self.assertEqual([r.level for r in tour], list(routes.RAC2_LEVELS))
+        env = tour[0].env()
+        self.assertEqual(env["OPENRAC_DIRECT"], "1")
+        self.assertEqual(env["OPENRAC_GIVE"], "all,bolts:500000")
+        self.assertEqual(env["OPENRAC_SOFT_FAULTS"], "1")
+
+    def test_reach_ranks_unmapped_accesses(self):
+        files = [("rac2-ntsc", 1, {"game": "rac2-ntsc", "sites": [], "faults": [
+            {"page": "0x02000000", "write": True, "name": "func_00288308", "hits": 7}]})]
+        row = reach.merge(files)["rac2-ntsc"][0]
+        self.assertEqual((row.name, row.kind, row.calls), ("func_00288308", "unmapped", 7))
+        self.assertEqual(row.details, {"write 0x02000000"})
 
 
 if __name__ == "__main__":

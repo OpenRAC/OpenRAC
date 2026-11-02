@@ -110,9 +110,9 @@ int func_L00_002D9D48(int key) {
     return i;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D9D98);
 
-INCLUDE_ASM("asm/levels", func_L00_002D9E80);
+
+/* func_L00_002D9E80 is in L00_002D7940-setup-g8.c. */
 
 /* Builds a 3-component vector from a spherical radius/elevation/azimuth triple using two unary float helpers, clears the 4th component, then forwards the destination twice plus a third argument to a final helper. */
 void func_L00_002DA0B8(float *out, float *p, void *q)
@@ -128,13 +128,12 @@ void func_L00_002DA0B8(float *out, float *p, void *q)
     func_00282CC0_42(out, out, q);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002DA1E0);
+/* func_L00_002DA1E0 is in L00_002D7940-motion.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002DA390);
 
-INCLUDE_ASM("asm/levels", func_L00_002DB350);
+/* func_L00_002DB350 is in L00_002D7940-grid.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002DB4B8);
+/* func_L00_002DB4B8 is in L00_002D7940-shape.c. */
 
 /* Return the constant signed integer one. */
 /* Returns the constant integer 1. Matches FUN_0012F940 disassembly and decompilation. */
@@ -180,7 +179,7 @@ void func_L00_002DC4C0(Obj_F4778f810 *obj)
     func_00282CF0_4((char *)obj + 0x10, (char *)obj + 0x10, (char *)&tmp[2]);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002E0200);
+ASM_FUNC("asm/levels", func_L00_002E0200);
 
 /* func_L00_002E2048 (packed status field) is a near miss:
    nonmatching/levels/func_L00_002E2048.c */
@@ -191,6 +190,7 @@ INCLUDE_ASM("asm/levels", func_L00_002E2958);
 
 INCLUDE_ASM("asm/levels", func_L00_002E2C30);
 
+/* func_L00_002E30B8 is a near miss: nonmatching/levels/func_L00_002E30B8.c */
 INCLUDE_ASM("asm/levels", func_L00_002E30B8);
 
 INCLUDE_ASM("asm/levels", func_L00_002E3340);

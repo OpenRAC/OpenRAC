@@ -12,6 +12,12 @@ from pathlib import Path
 import bundle_standalone as bundle
 
 
+def going_commando_format() -> str:
+    """The format of Going Commando's export, which moves on alone (editor/port.py GAME_FORMATS)."""
+    text = (bundle.ROOT / "editor" / "port.py").read_text(encoding="utf-8")
+    return re.search(r'^GAME_FORMATS = \{"rac2": (\d+)\}$', text, re.MULTILINE).group(1)
+
+
 class LevelsStamp(unittest.TestCase):
     """The check's stamp names the export's format in every place that reads or writes it: an old
     name leaves Play waiting for a stamp the game never writes, the check run again and again."""
@@ -25,10 +31,12 @@ class LevelsStamp(unittest.TestCase):
         self.assertEqual(stamps, {str(expected)})
         # The levels are ready by a stamp of their own, named after the format too, so a bump
         # reads them again before the check runs.
-        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected)})
+        # Going Commando's export moved on alone, so its bump reads only its levels again.
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected), going_commando_format()})
+        self.assertEqual(set(re.findall(r"rac2/ntsc/levels-(\d+)\.json", actions)), {going_commando_format()})
         self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
         extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
-        self.assertIn('f"levels-{PORT_FORMAT}.json"', extract)
+        self.assertIn('f"levels-{levels_format(game)}.json"', extract)
         self.assertNotIn("level_99/manifest.json", actions)
 
 
@@ -49,13 +57,13 @@ class PlayerActions(unittest.TestCase):
     def test_the_later_games_levels_are_read_for_packs_in_the_data_folder(self):
         # Going Commando, Up Your Arsenal and Deadlocked: early access, so no play and no packing
         # back; their levels are read into the data folder for texture and model packs.
-        for key, first in (("rac2/ntsc", "00"), ("rac3/ntsc", "01"), ("rac4/ntsc", "00")):
+        for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
                 self.assertNotIn("editor-pack", actions)
                 levels = actions["port-levels"]
                 self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
-                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-4.json")
+                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-{stamp}.json")
                 self.assertEqual(actions["editor-extract"]["args"][-3:], ["{data}/levels/ntsc", "--split", "--anywhere"])
                 self.assertEqual([n["path"] for n in actions["assets-export"]["needs"]], [levels["artifact"]])
 
@@ -142,14 +150,18 @@ class PlayerActions(unittest.TestCase):
 
     def test_going_commando_plays_for_developers(self):
         # Its Play is carried as it is (a developer's, with its warning), started in the data
-        # folder, waiting for the disc set up there; it reads no levels yet. Its build needs a checkout.
+        # folder, reading the data folder's levels. It has no level check yet, so it waits for the
+        # disc set up there and for the export's own stamp: a format bump reads the levels again
+        # before it starts. Its build needs a checkout.
         actions = {a["id"]: a for a in self.actions["versions"]["rac2/ntsc"]}
         play = actions["play"]
         self.assertTrue(play["developer"])
         self.assertIn("development only", play["warning"])
-        self.assertEqual(play["args"], ["--data", "{data}", "--window"])
+        self.assertEqual(play["args"], ["--data", "{data}", "--window", "--levels", "{data}/port/ntsc"])
         self.assertEqual(play["cwd"], "{data}")
-        self.assertEqual([n["path"] for n in play["needs"]], ["{data}/iso_data/rac2/buildinfo.json"])
+        self.assertEqual([n["path"] for n in play["needs"]],
+                         ["{data}/iso_data/rac2/buildinfo.json", actions["port-levels"]["artifact"]])
+        self.assertEqual(actions["port-levels"]["artifact"], f"{{data}}/port/ntsc/levels-{going_commando_format()}.json")
         self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
         self.assertNotIn("todo", play)
         self.assertNotIn("port-build", actions)

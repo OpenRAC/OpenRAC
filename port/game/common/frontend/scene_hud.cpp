@@ -181,6 +181,37 @@ void set_packets(SceneFrame& frame) {
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] =
         std::span<const std::uint8_t>(scene.packets).subspan(scene.before_world);
     input.effects = scene.effects;
+    // Between ticks, each quad with an id moves from its last tick's corners as the mobys move
+    // (Kept::prev_effect_corners); one that jumped further than anything carried moves (a slot
+    // freed and taken again in a tick) and one new this tick are drawn where the tick has them.
+    const float alpha = frame.output.alpha;
+    if (alpha < 1.0f && !scene.prev_effect_corners.empty()) {
+        constexpr float kFarthest = 4.0f;  // world units a tick
+        frame.effects = scene.effects;
+        for (renderer::EffectQuad& q : frame.effects) {
+            if (q.id == 0) {
+                continue;
+            }
+            const auto last = scene.prev_effect_corners.find(q.id);
+            if (last == scene.prev_effect_corners.end()) {
+                continue;
+            }
+            const auto& from = last->second;
+            float d[3];
+            for (int i = 0; i < 3; ++i) {
+                d[i] = (q.corner[0][i] + q.corner[3][i] - from[0][i] - from[3][i]) * 0.5f;
+            }
+            if (!(d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < kFarthest * kFarthest)) {
+                continue;
+            }
+            for (int k = 0; k < 4; ++k) {
+                for (int i = 0; i < 4; ++i) {
+                    q.corner[k][i] = from[k][i] + (q.corner[k][i] - from[k][i]) * alpha;
+                }
+            }
+        }
+        input.effects = frame.effects;
+    }
     input.sky_shells = scene.sky_shells;
     input.sky_shell_mask = scene.sky_shell_mask;
     input.effect_uploads = scene.effect_uploads;

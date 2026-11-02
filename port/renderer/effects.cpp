@@ -48,9 +48,12 @@ bool EffectRenderer::draws(const EffectStrip& strip) const {
 bool EffectRenderer::init(RenderState& state, std::string& error) {
     (void)state;
     m_quad_shader.release();
+    m_test_shader.release();
+    m_test_plain = false;
     m_active_shader = nullptr;
     std::string fragment(shaders::direct_frag);
     fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
+    const std::string tested_fragment = fragment;  // the alpha test kept (m_test_shader)
     // Effect packets skip HUD distance fields and alpha tests; authored strip fog remains dynamic.
     // Keep texture functions/tcc dynamic: they can differ between effect strips.
     if (render_opt::enabled(render_opt::Opt::ShaderVariants)
@@ -105,6 +108,35 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
             }
         }
     }
+    // The quads with an alpha test from the list's TEST: as the quads are drawn otherwise (the
+    // material's plain quad source, else its full one), with the test.
+    {
+        std::string tested = tested_fragment;
+        std::string tested_vertex(shaders::effect_vert);
+        if (m_material) {
+            const auto plain = m_material->quad_fragment_source();
+            m_test_plain = plain && m_quad_shader.id();
+            if (!m_test_plain) {
+                const auto extension = m_material->vertex_source();
+                if (!extension.empty()) {
+                    tested_vertex.insert(tested_vertex.find("void main()"), extension);
+                    tested_vertex.insert(
+                        tested_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n"
+                    );
+                }
+            }
+            tested.insert(
+                tested.find("void main()"), m_test_plain ? *plain : m_material->fragment_source()
+            );
+            tested.insert(tested.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+        }
+        if (!m_test_shader.build("effect tested quads", tested_vertex, tested, error)) {
+            log::warn("Effect quads keep no alpha test: {}", error);
+            m_test_shader.release();
+            m_test_plain = false;
+            error.clear();
+        }
+    }
 
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
@@ -142,6 +174,8 @@ void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, con
     m_source_scale = shader.uniform("source_scale");
     m_source_fix = shader.uniform("source_fix");
     m_alpha_test = shader.uniform("alpha_test");
+    m_alpha_ref = shader.uniform("alpha_ref");
+    m_alpha_keep_failing = shader.uniform("alpha_keep_failing");
     glUniformMatrix4fv(m_view_projection, 1, GL_FALSE, view_projection.data());
     glUniformMatrix4fv(m_view, 1, GL_FALSE, view.data());
     glUniform1i(m_fog_enable, 0);
@@ -295,6 +329,9 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         bool fogged = false;
         std::array<float, 4> fog{};
         std::uint32_t fog_colour = 0;
+        // A quad's TEST from the list (EffectQuad::registers; 0 none) and whether it writes Z.
+        std::uint64_t test = 0;
+        bool z_write = false;
         bool operator==(const State&) const = default;
     };
 
@@ -316,12 +353,50 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     };
 
     std::optional<State> set;
+    const auto draw_batch = [&] {
+        glDrawArrays(GL_TRIANGLES, batch.first, batch.count);
+        state.stats.draw_calls++;
+        state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
+    };
     const auto flush = [&] {
-        if (batch.count > 0) {
+        if (batch.count > 0 && set && (set->test != 0 || set->z_write)) {
+            // A quad drawn with the list's TEST and ZBUF, as the chip draws it: the pixels that
+            // pass the alpha test with every write (Z unless ZMSK), then, as OpenGOAL does, those
+            // that fail with what AFAIL still writes. Going Commando's sparks and flames: GEQUAL
+            // 0x60, the failing pixels colour only.
             const profiling::Zone trace("Effects draw batch");
-            glDrawArrays(GL_TRIANGLES, batch.first, batch.count);
-            state.stats.draw_calls++;
-            state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
+            const gs::Test t = gs::Test::decode(set->test);
+            const auto call = [&](int test, bool keep_failing, bool colour, bool alpha, bool z) {
+                glUniform1i(m_alpha_test, test);
+                glUniform1f(m_alpha_ref, static_cast<float>(t.aref));
+                glUniform1i(m_alpha_keep_failing, keep_failing ? 1 : 0);
+                glColorMask(colour, colour, colour, alpha);
+                glDepthMask(z ? GL_TRUE : GL_FALSE);
+                draw_batch();
+            };
+            const bool fail_colour =
+                t.afail == gs::AlphaFail::FbOnly || t.afail == gs::AlphaFail::RgbOnly;
+            const bool fail_alpha = t.afail == gs::AlphaFail::FbOnly;
+            const bool fail_z = t.afail == gs::AlphaFail::ZbOnly && set->z_write;
+            if (!t.ate || t.atst == gs::AlphaTest::Always || m_active_shader != &m_test_shader) {
+                call(0, false, true, true, set->z_write);
+            } else if (t.atst == gs::AlphaTest::Never) {
+                if (t.afail != gs::AlphaFail::Keep) {
+                    call(0, false, fail_colour, fail_alpha, fail_z);
+                }
+            } else {
+                call(static_cast<int>(t.atst), false, true, true, set->z_write);
+                if (t.afail != gs::AlphaFail::Keep) {
+                    call(static_cast<int>(t.atst), true, fail_colour, fail_alpha, fail_z);
+                }
+            }
+            glUniform1i(m_alpha_test, 0);
+            glUniform1i(m_alpha_keep_failing, 0);
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glDepthMask(GL_FALSE);
+        } else if (batch.count > 0) {
+            const profiling::Zone trace("Effects draw batch");
+            draw_batch();
         }
         batch.count = 0;
     };
@@ -335,7 +410,8 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                 wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp
             );
             if (m_material) {
-                if (m_active_shader == &m_quad_shader) {
+                if (m_active_shader == &m_quad_shader
+                    || (m_active_shader == &m_test_shader && m_test_plain)) {
                     m_material->bind_quads(*m_active_shader, input);
                 } else {
                     m_material->bind(*m_active_shader, wanted.surface, input, wanted.motion);
@@ -455,11 +531,36 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     set.reset();
     at = static_cast<GLint>(quads_from);
+    Shader* const quad_shader = m_active_shader;
+    unsigned tested_quads = 0;
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
-        add({q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0}, at, 6, true);
+        State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
+        Shader* shader = quad_shader;
+        if (q.registers) {
+            // The list's TEST and ZBUF (EffectQuad::test, zbuf). An alpha test needs the shader
+            // that keeps it; without that shader the quad is drawn as before, every pixel, no Z.
+            const gs::Test t = gs::Test::decode(q.test);
+            const bool testing =
+                t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never;
+            if (!testing || m_test_shader.id()) {
+                wanted.test = q.test;
+                wanted.z_write = !gs::Zbuf::decode(q.zbuf).zmsk;
+                if (testing) {
+                    shader = &m_test_shader;
+                    ++tested_quads;
+                }
+            }
+        }
+        if (m_active_shader != shader) {
+            flush();
+            use_shader(*shader, view_projection, input.camera.view);
+            set.reset();
+        }
+        add(wanted, at, 6, true);
         at += 6;
     }
     flush();
+    stats::gauge("effect quads alpha tested", tested_quads);
     stats::gauge("effects uploads reused", double(reused_uploads));
     if (m_material) {
         m_material->finish_pass();

@@ -133,9 +133,9 @@ int func_002CDAB0(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002CDB30);
+/* func_002CDB30 is built from 002CDB30-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002CDD88);
+/* func_002CDD88 is built from 002CDD88-g8.c. */
 
 int func_002CE5B8(void) {
     D_001AB9B0 = 1;
@@ -146,7 +146,7 @@ int func_002CE5C8(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002CE5D0);
+/* func_002CE5D0 is built from 002CE5D0-g8.c. */
 
 INCLUDE_ASM("asm/game", func_002CEBD0);
 
@@ -171,57 +171,50 @@ int func_002CF188(char *object) {
 
 INCLUDE_ASM("asm/game", func_002CF2B8);
 
-INCLUDE_ASM("asm/game", func_002CF340);
+/* func_002CF340 is built from 002CF340-g8.c. */
 
 INCLUDE_ASM("asm/game", func_002CF5B0);
 
-INCLUDE_ASM("asm/game", func_002CF7F0);
+/* func_002CF7F0 is built from 002CF7F0-g8.c. */
 
 int func_002CFBE0(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002CFBE8);
 
-INCLUDE_ASM("asm/game", func_002CFDA8);
+/* func_002CFDA8 is built from 002CFDA8-g8.c. */
 
 int func_002D01C8(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D01D0);
 
-INCLUDE_ASM("asm/game", func_002D0568);
+/* func_002D0568 is built from 002D0568-rc2.c. */
 
-INCLUDE_ASM("asm/game", func_002D08C8);
 
-INCLUDE_ASM("asm/game", func_002D0930);
 
-INCLUDE_ASM("asm/game", func_002D0B98);
 
-INCLUDE_ASM("asm/game", func_002D0F00);
+/* func_002D0B98 is built from 002D0B98-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002D0FA0);
 
-INCLUDE_ASM("asm/game", func_002D1228);
+/* func_002D0FA0 is built from 002CD8C0-g8.c for small-data accesses. */
+
+/* func_002D1228 is built from 002D1228-g8.c. */
 
 INCLUDE_ASM("asm/game", func_002D1590);
 
-INCLUDE_ASM("asm/game", func_002D16C8);
+/* func_002D16C8 is built from 002D16C8-g32.c. */
 
-INCLUDE_ASM("asm/game", func_002D1970);
+/* func_002D1970 is built from 002D1970-g8.c. */
 
 /* func_002D1CB0 is built from 002CD8C0-g8.c for small-data accesses. */
 
-INCLUDE_ASM("asm/game", func_002D1D20);
 
-INCLUDE_ASM("asm/game", func_002D1E70);
 
 int func_002D2010(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D2018);
 
 INCLUDE_ASM("asm/game", func_002D2188);
 
@@ -272,7 +265,7 @@ return_value:
     return result;
 }
 
-INCLUDE_ASM("asm/game", func_002D2918);
+/* func_002D2918 is built from 002D2918-g8.c. */
 
 int func_002D2BD8(void) {
     func_0029C640(D_00138344);
