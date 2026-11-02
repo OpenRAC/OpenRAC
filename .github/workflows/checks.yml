@@ -261,11 +261,9 @@ jobs:
         with:
           key: checks-port-release
           max-size: 1G
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: ./.github/actions/mesa-cache
         with:
-          path: /tmp/openrac-mesa
-          key: mesa-ubuntu-release-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
-          restore-keys: mesa-ubuntu-release-${{ runner.arch }}-
+          variant: ubuntu-release
       - name: Compilers and SDL's system libraries
         run: |
           sudo apt-get update
@@ -364,11 +362,9 @@ jobs:
         with:
           key: checks-port-enhanced
           max-size: 1G
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: ./.github/actions/mesa-cache
         with:
-          path: /tmp/openrac-mesa
-          key: mesa-ubuntu-enhanced-nopt-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
-          restore-keys: mesa-ubuntu-enhanced-nopt-${{ runner.arch }}-
+          variant: ubuntu-enhanced-nopt
       - name: Compilers, software Vulkan and Embree 4
         run: |
           sudo apt-get update
@@ -450,11 +446,9 @@ jobs:
         with:
           key: checks-port-fedora
           max-size: 500M
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: ./.github/actions/mesa-cache
         with:
-          path: /tmp/openrac-mesa
-          key: mesa-fedora-release-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
-          restore-keys: mesa-fedora-release-${{ runner.arch }}-
+          variant: fedora-release
 
       - uses: ./.github/actions/port-build-cache
         with:
