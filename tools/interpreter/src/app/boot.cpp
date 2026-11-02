@@ -527,17 +527,15 @@ int main(int argc, char** argv) {
                     keyed.second++;
 
                     // Which field and key each state is of, to tell later what the game was doing.
-                    if (!capture_keys.empty()) {
-                        if (std::FILE* index = std::fopen((capture_dir + "/states.tsv").c_str(), "a")) {
-                            std::fprintf(index, "%s\t%u\t%lld\t%llx", c.name.c_str(), c.taken - 1, field, key);
-                            for (unsigned word : capture_keys) {
-                                u32 value;
-                                std::memcpy(&value, machine.memory.ram(word), 4);
-                                std::fprintf(index, "\t%x", value);
-                            }
-                            std::fputc('\n', index);
-                            std::fclose(index);
+                    if (std::FILE* index = std::fopen((capture_dir + "/states.tsv").c_str(), "a")) {
+                        std::fprintf(index, "%s\t%u\t%lld\t%llx", c.name.c_str(), c.taken - 1, field, key);
+                        for (unsigned word : capture_keys) {
+                            u32 value;
+                            std::memcpy(&value, machine.memory.ram(word), 4);
+                            std::fprintf(index, "\t%x", value);
                         }
+                        std::fputc('\n', index);
+                        std::fclose(index);
                     }
                 }
             }
