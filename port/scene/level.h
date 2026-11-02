@@ -27,6 +27,7 @@
 #include "renderer/math.h"
 #include "renderer/texture.h"
 #include "scene/pvs.h"
+#include "scene/tie_relight.h"
 
 namespace openrac::scene {
 
@@ -44,8 +45,9 @@ inline constexpr int kManifestFormat = 4;
 // his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
 // 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
 // ship's hulls in every level; 14 with the chrome and glass maps the game binds; 15 with every paint
-// job of his ship.
-inline constexpr int kManifestFormatNewest = 15;
+// job of his ship; 16 with what a tie is lit again from when the game moves it or a point light
+// reaches it (its slots before lighting, its class's "relight").
+inline constexpr int kManifestFormatNewest = 16;
 
 struct Vertex {
     float position[3];
@@ -224,6 +226,12 @@ struct LevelData {
     // The ties' and shrubs' lit colours, 64 or 24 per instance, RGBA bytes (0x80 = 1.0), from
     // placements.json.
     std::vector<std::uint32_t> light_colours;
+    // Going Commando's ties, lit again when the game moves one (scene/tie_relight.h, format 15):
+    // the classes' relighting data, each tie's (parallel to the ties; empty without), and the
+    // ties' slots before lighting that those index.
+    std::vector<TieRelightClass> tie_relight_classes;
+    std::vector<TieRelight> tie_relight;
+    std::vector<std::uint32_t> tie_slots;
     // The level's 16 directional light sets (manifest "lights"): per set colour A (w = back
     // factor), direction A, colour B, direction B; empty when the export has none.
     std::vector<float> light_sets;
