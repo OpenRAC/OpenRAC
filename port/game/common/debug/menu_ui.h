@@ -94,8 +94,8 @@ int menu_choice(
 // The launcher's primary button, across the space left.
 bool menu_button(const char* label);
 
-// A line of the card, small and dim, in place of rows that cannot be used yet.
-void menu_note(const char* line);
+// A line of the card, in `ink` (the launcher's soft text by default): what is not pressed.
+void menu_note(const char* line, ImU32 ink = ui().soft);
 
 // ---- The menu's entries ----
 
@@ -122,6 +122,38 @@ std::string menu_key_label();
 
 // An entry's label now, and its help: what the catalog says, or what it says of itself now.
 std::string entry_label(menu::Id id, std::uint8_t where);
+
+// Remembers `entry` (a menu::Id) as the one under the pointer or the focus when the item just drawn
+// is, for the desktop's help: a focus moved by a controller or keys wins over the pointer.
+void note_hover(int entry);
+
+// ---- The Controls tab (debug/menu_controls.cpp) ----
+
+// What one of the Controls tab's plain entries shows now (its file, its player, a setting).
+struct ControlsRow {
+    bool shown = true;
+    std::string label;  // empty: the catalog's
+    bool on = false;
+    std::string value;
+    bool can_lower = true;
+    bool can_raise = true;
+};
+
+ControlsRow controls_row(menu::Id id);
+
+// Does what a plain Controls entry does: `by` -1 or 1 for a choice moved, 1 for a press.
+void controls_act(menu::Id id, int by);
+
+// Draws a Controls panel (menu::Kind::Panel): its rows on the card open now.
+void draw_controls_panel(menu::Id id);
+
+// Each frame: a press awaited for a binding arrives, gives up after a while, or ends with the
+// menu.
+void controls_frame();
+
+// Whether a press is awaited for a binding: the controllers' presses are not the menu's meanwhile.
+bool controls_capturing();
+void controls_cancel_capture();
 
 // The mods' developer menus (mods::developer_menus): how many, a menu's title, and its items as
 // rows, a heading for each group.

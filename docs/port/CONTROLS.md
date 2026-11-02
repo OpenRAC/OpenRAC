@@ -1,7 +1,7 @@
 # The controls
 
 What presses the game's pad: the files that say it, how they layer, the
-names in them, which controller each player is, and the window in the game
+names in them, which controller each player is, and the menu's Controls tab
 that changes them. Keyboard and mouse remapping are not done yet: the
 keyboard keeps the button bindings of `bind_*` (keys named in them) and the
 port's own stick keys, and the mouse is a mod's (the `keyboard-mouse` mod).
@@ -13,8 +13,8 @@ changes), [platform/controls_file.h](../../port/platform/controls_file.h)
 (the controllers' ids, which is which player),
 [game/common/controls_store.h](../../port/game/common/controls_store.h) (the
 files on disk, read, written, watched),
-[game/common/debug/controls_window.cpp](../../port/game/common/debug/controls_window.cpp)
-(the window), [launcher/core/src/controls.rs](../../launcher/core/src/controls.rs)
+[game/common/debug/menu_controls.cpp](../../port/game/common/debug/menu_controls.cpp)
+(the Controls tab), [launcher/core/src/controls.rs](../../launcher/core/src/controls.rs)
 (the launcher's side).
 
 ## 1. The files
@@ -120,7 +120,7 @@ Names:
 A trigger or a stick's direction on a button presses it past the trigger's
 press point (below) or half way, with its pressure. A button on a stick's
 direction pushes the stick fully that way; two opposite directions cancel.
-Two controls may share a pad input: both press. The window marks them.
+Two controls may share a pad input: both press. The Controls tab marks them.
 
 ## 4. Controller settings
 
@@ -176,29 +176,33 @@ SDL has one (`<guid>-<serial>`); two of one model without serials are told
 apart by the order they connected in (`<guid>#2`). SDL's instance numbers,
 new each time, are never kept.
 
-## 6. The window
+## 6. The Controls tab
 
-F13, or Controls in the menu (its Controls tab on a desktop, the drawer on a
-touch screen) or the macOS menu bar, opens it over the game. It changes the running game's file or
-the global one, for every player or for player 1 or 2 alone ("For:"; a
-player chosen, "Player N as every player" takes their own controls away):
+The menu's Controls tab (on a desktop; F13 opens the menu there) and the same
+rows in the drawer on a touch screen change them, with a controller, the
+keyboard or a pointer. It changes the running game's file or the global one,
+for every player or for player 1 or 2 alone ("For"; a player chosen, "Player
+N as every player" takes their own controls away):
 
-- **Bindings**: each control, what presses it on a controller, where that
-  came from (default, every game, this game), and a mark on a pad input
-  another control has too. Change, Add and Chord wait for a press on any
-  controller; the game reads nothing from the controllers meanwhile, and Esc
-  cancels. A press another control has alone is offered to be taken from it.
-- **Sticks and triggers**: section 4's settings, with the stick drawn as the
-  controller gives it and as the game will read it.
-- **Players**: the controllers connected, with a light that shows a press,
-  each player's controller and keyboard, and what the game reads from each
-  player now.
-
-A change is written and applied at once. A button held as its binding
-changes (the capture's own press, a thumb resting on it) does not press its
-new control until it is let go and pressed again; the pad is read afresh
-each frame, so a button let go, a controller pulled out or a binding changed
-never leaves one held.
+- **Buttons**: each control and what presses it on a controller, a dot when
+  the file changed here sets it, and an input another control has too in
+  amber. Picking one opens its own rows: change it, add a button, add a chord
+  of two, take one away, or back to the default. A change waits for a press
+  on any controller; the game and the menu read nothing from the controllers
+  meanwhile, and Esc, Cancel or six seconds without a press give it up. A
+  press another control has alone is offered to be taken from it.
+- **Left stick, Right stick**: section 4's settings, with the stick drawn as
+  the controller gives it and as the game will read it.
+- **Triggers and buttons**: the press point, the face buttons' labels and
+  (on a desktop) whether the controllers play in the background.
+- **Players**: the controllers connected, each lit while a button is pressed
+  on it, each player's controller and keyboard, and what the game reads from
+  each player now.
+- **Menu** (desktop): the key and the controller button that open the menu.
+- **Touch controls** (touch screens): the on-screen buttons' size, the
+  camera's speed, and editing where the buttons sit.
+- **Reset**: this game's controls back to every game's, or every game's to
+  the defaults (pressed twice).
 
 ## 7. What it cannot do
 

@@ -203,7 +203,7 @@ float window_ui_scale(SDL_Window* window) {
     );
 }
 
-// The overlay's windows (the panel, Controller bindings, Enhanced Settings, the inspectors) in the
+// The overlay's windows (the panel, Enhanced Settings, the inspectors) in the
 // launcher's colours, as the menu wears them (debug/menu_ui.h): its panels, hairlines and accent.
 void launcher_style(ImGuiStyle& style) {
     const auto c = [](ui_colors::Color colour, float alpha = 1.0f) {
@@ -566,11 +566,23 @@ void toggle_drawer() {
 }
 
 bool visible() {
-    return s.visible || s.enhanced_settings || s.controls_window;
+    return s.visible || s.enhanced_settings;
 }
 
 bool event(const SDL_Event& e) {
     configure();
+    // A press awaited for a binding (the Controls tab): the controllers' presses are the
+    // capture's, not the menu's, and Esc gives it up rather than closing the menu.
+    if (controls_capturing()) {
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP
+            || e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION) {
+            return true;
+        }
+        if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) {
+            controls_cancel_capture();
+            return true;
+        }
+    }
     if (drawer_possible() && drawer_event(e)) {
         return true;
     }
@@ -702,16 +714,19 @@ bool event(const SDL_Event& e) {
             case SDLK_F12:
                 s.shot_path = shot_name(s.tick);
                 return true;
-            // The controls window (debug/controls_window.cpp); the menus press it too.
+            // The menu, open at its Controls tab (debug/menu_controls.cpp).
             case SDLK_F13:
-                s.controls_window = !s.controls_window;
+                if (menu_window_possible()) {
+                    s.menu_want_tab = static_cast<int>(menu::Tab::Controls);
+                    set_menu(true);
+                }
                 return true;
             default:
                 break;
         }
     }
-    if (!(s.visible || s.enhanced_settings || s.controls_window || s.object_viewer.open
-          || picker_enabled() || s.menu_open)
+    if (!(s.visible || s.enhanced_settings || s.object_viewer.open || picker_enabled()
+          || s.menu_open)
         || !s.initialised) {
         return false;
     }
@@ -845,8 +860,8 @@ void draw(const Shown& shown) {
     const bool badge = s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty()
                        || capture_busy() || !mods::play_notice().empty();
     const bool menu_out = s.menu_open || s.menu_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(s.visible || s.enhanced_settings || s.controls_window || picker_enabled() || badge
-          || menu_out || !s.shot_path.empty())
+    if (!(s.visible || s.enhanced_settings || picker_enabled() || badge || menu_out
+          || !s.shot_path.empty())
         || shown.window == nullptr || !initialise(shown.window)) {
         return;
     }
@@ -881,7 +896,7 @@ void draw(const Shown& shown) {
     refresh_scripted_pointer();
     ImGui::NewFrame();
     enhanced_settings_window();
-    controls_window();
+    controls_frame();
     if (s.visible) {
         panel(shown);
         inspector_window();

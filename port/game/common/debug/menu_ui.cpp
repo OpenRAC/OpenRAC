@@ -340,10 +340,10 @@ bool menu_button(const char* label) {
     return pressed;
 }
 
-void menu_note(const char* line) {
+void menu_note(const char* line, ImU32 ink) {
     ImGui::Dummy(ImVec2(0.0f, dp(10.0f)));
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + dp(16.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ui().soft));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ink));
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - dp(16.0f));
     ImGui::TextUnformatted(line);
     ImGui::PopTextWrapPos();

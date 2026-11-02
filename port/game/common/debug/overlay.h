@@ -133,6 +133,7 @@ struct Scroll {
 struct MenuMotion {
     float scroll_target = 0.0f;  // where the rows are going, in pixels
     float scroll_shown = 0.0f;   // where they are now
+    unsigned rows_window = 0;    // the rows' child window (ImGuiID), whose scroll this eases
     float page = 1.0f;           // the open tab's page, 0 just picked, 1 in place
     float page_from = 0.0f;      // -1 it comes from the left, 1 from the right
     int page_tab = -1;           // the tab the page is of
@@ -144,14 +145,14 @@ struct MenuMotion {
     bool start_held = false;     //   chord that opens and closes the menu
 };
 
-// The controls window (controls_window()): which file it changes, what is being captured, and
-// what it last said.
-struct ControlsWindow {
+// The menu's Controls tab (debug/menu_controls.cpp): which file it changes, what is being captured,
+// and what it last said.
+struct ControlsMenu {
     bool global = false;      // the global file; else the running game's own
     int player = -1;          // the player whose own controls are changed (0, 1); -1 every player's
-    int tab = 0;              // 0 bindings, 1 sticks and triggers, 2 players
-    char filter[64] = {};     // the bindings' rows shown: those naming this
+    int open_target = -1;     // the control whose own rows (change, add, remove) are open; -1 none
     int capture_target = -1;  // the target a press is being captured for; -1 none
+    double capture_since = 0.0;  // when the capture began (ImGui's clock); it times out
     // What the captured press does: replaces the target's pad inputs, adds one, or is the first
     // or the second of a chord.
     enum class Mode {
@@ -166,8 +167,6 @@ struct ControlsWindow {
     int clash_target = -1;
     platform::Binding clash_input;
     bool confirm_reset = false;  // "Reset" asked once; asked again, it resets
-    std::string drag_key;        // a setting's slider being dragged, and where it is now
-    int drag_value = 0;
 };
 
 // Everything the overlay keeps between frames: what the environment asked for, what the last
@@ -225,8 +224,7 @@ struct State {
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
-    bool controls_window = false;    // the controls window (F13)
-    ControlsWindow controls;
+    ControlsMenu controls;           // the menu's Controls tab
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
@@ -255,7 +253,7 @@ struct State {
     std::string toast;         // the same for an action taken with the panel hidden, shown a moment
     double toast_until = 0.0;  // the ImGui time the toast goes at
     bool alt_alone = false;    // Alt went down and no other key since: its release toggles the menu
-    bool menu_key_capture = false;     // the next key pressed becomes the menu's (controls window)
+    bool menu_key_capture = false;     // the next key pressed becomes the menu's (Controls tab)
     bool menu_button_capture = false;  // the next pad button becomes the menu's
     std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)
     ObjectViewerState object_viewer;  // Session-only developer object studio.
@@ -263,13 +261,14 @@ struct State {
     std::string dump_path = "openrac_frames.jsonl";  // where the frames' measurements are written
 
     // The menu (menu_window() on a desktop, drawer() on a touch screen; debug/menu_ui.h).
-    bool menu_open = false;    // open, or opening
-    float menu_at = 0.0f;      // how far out: 0 shut, 1 open
-    bool keep_paused = false;  // the pause the game is left in when it shuts
-    bool menu_focus = false;   // given the keyboard and gamepad when it opens or changes tab
+    bool menu_open = false;         // open, or opening
+    float menu_at = 0.0f;           // how far out: 0 shut, 1 open
+    bool keep_paused = false;       // the pause the game is left in when it shuts
+    bool menu_focus = false;        // given the keyboard and gamepad when it opens or changes tab
     bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
     MenuMotion menu_motion;         // the desktop's window's scroll and transitions
-    Scroll menu_scroll;        // the finger's drag over the drawer's rows
+    int menu_want_tab = -1;         // a menu::Tab to open the window at (F13: Controls); -1 none
+    Scroll menu_scroll;             // the finger's drag over the drawer's rows
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
     bool menu_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
@@ -501,13 +500,6 @@ void reset_enhanced();
 // where the level has no compatible probe data. A change is saved and marked for the window to
 // apply. Defined in debug/controls.cpp.
 void enhanced_settings_window();
-
-// Draws the controls window (s.controls_window): the running game's or the global controls, a row
-// for each of the pad's controls with what presses it and where that came from, a press captured
-// to change one, the sticks' and triggers' settings with the stick drawn as it reads, and which
-// controller each player is. Every change is written and applied at once (controls_store.h).
-// Defined in debug/controls_window.cpp.
-void controls_window();
 
 // ---- The performance capture (common/perf_capture.h) ----
 

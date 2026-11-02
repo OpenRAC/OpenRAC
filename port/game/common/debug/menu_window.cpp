@@ -328,9 +328,8 @@ void version_corner(const ImGuiViewport* viewport, float shown) {
     );
 }
 
-// A controller's button as it is printed on the one in hand: A, Cross, B ... (SDL knows the pad's
-// make); its shoulders as that make names them.
-std::string pad_name(SDL_GamepadButton button) {
+// The make of the first controller connected (SDL's), for the names its buttons wear.
+SDL_GamepadType pad_type() {
     SDL_GamepadType type = SDL_GAMEPAD_TYPE_STANDARD;
     int count = 0;
     if (SDL_JoystickID* pads = SDL_GetGamepads(&count)) {
@@ -339,6 +338,12 @@ std::string pad_name(SDL_GamepadButton button) {
         }
         SDL_free(pads);
     }
+    return type;
+}
+
+// A controller's button as it is printed on a pad of `type`: A, Cross, B ...; its shoulders as
+// that make names them.
+std::string pad_name(SDL_GamepadType type, SDL_GamepadButton button) {
     const bool sony = type == SDL_GAMEPAD_TYPE_PS3 || type == SDL_GAMEPAD_TYPE_PS4
                       || type == SDL_GAMEPAD_TYPE_PS5;
     const bool nintendo = type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO
@@ -384,14 +389,15 @@ void hints(const ImGuiViewport* viewport, float shown) {
     const bool pad = s.menu_motion.pad;
     std::vector<Hint> list;
     if (pad) {
+        const SDL_GamepadType type = pad_type();
         list = {
-            {pad_name(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) + " "
-                 + pad_name(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),
+            {pad_name(type, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) + " "
+                 + pad_name(type, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),
              "Tabs"},
-            {pad_name(SDL_GAMEPAD_BUTTON_SOUTH), "Select"},
+            {pad_name(type, SDL_GAMEPAD_BUTTON_SOUTH), "Select"},
             {"\u2190 \u2192", "Change"},
-            {pad_name(SDL_GAMEPAD_BUTTON_EAST), "Back to the game"},
-            {pad_name(SDL_GAMEPAD_BUTTON_NORTH), "Hold to quit"},
+            {pad_name(type, SDL_GAMEPAD_BUTTON_EAST), "Back to the game"},
+            {pad_name(type, SDL_GAMEPAD_BUTTON_NORTH), "Hold to quit"},
         };
     } else {
         list = {
@@ -488,6 +494,15 @@ void menu_window(const Shown& shown) {
     const std::vector<BarTab> tabs = bar_tabs();
     if (tabs.empty()) {
         return;
+    }
+    if (s.menu_want_tab >= 0) {
+        for (std::size_t i = 0; i < tabs.size(); ++i) {
+            if (tabs[i].catalog == s.menu_want_tab) {
+                s.menu_tab = static_cast<int>(i);
+                s.menu_focus = true;
+            }
+        }
+        s.menu_want_tab = -1;
     }
     s.menu_tab = std::clamp(s.menu_tab, 0, static_cast<int>(tabs.size()) - 1);
     // Tabs back and on: the controller's shoulder buttons, Page Up and Page Down.
@@ -694,12 +709,16 @@ void menu_window(const Shown& shown) {
 
         // The rows' scroll eases to where it is sent: by the wheel over them, or by the focus
         // moving to a row out of sight (ImGui's own scroll request, taken over here).
-        const std::string rows_name = std::format("OpenRAC menu/rows_{:08X}", ImGui::GetID("rows"));
-        if (ImGuiWindow* rows = ImGui::FindWindowByName(rows_name.c_str())) {
+        if (ImGuiWindow* rows =
+                m.rows_window != 0 ? ImGui::FindWindowByID(m.rows_window) : nullptr) {
             const float most = rows->ScrollMax.y;
             if (rows->ScrollTarget.y != FLT_MAX) {
-                m.scroll_target =
+                // ImGui brings the focus just inside the edge; a little further, so it stands
+                // clear of the edge's fade.
+                const float to =
                     rows->ScrollTarget.y - rows->ScrollTargetCenterRatio.y * rows->SizeFull.y;
+                const float clear = to > m.scroll_shown ? dp(48.0f) : -dp(48.0f);
+                m.scroll_target = to + (std::abs(to - m.scroll_shown) > 0.5f ? clear : 0.0f);
             }
             const ImVec2 mouse = io.MousePos;
             if (io.MouseWheel != 0.0f && mouse.x >= at.x && mouse.x < at.x + rows_w
@@ -723,6 +742,7 @@ void menu_window(const Shown& shown) {
                 ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened,
                 ImGuiWindowFlags_NoScrollWithMouse
             )) {
+            m.rows_window = ImGui::GetCurrentWindow()->ID;  // its scroll, eased next frame
             tab_title(tab.name, s.menu_tab, static_cast<int>(tabs.size()));
             if (s.menu_focus) {
                 s.menu_focus_first = true;

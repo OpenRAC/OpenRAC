@@ -192,8 +192,8 @@ void take_keyboard();
 // the controls had files of their own) move into the game's controls file once.
 void open_controls(const std::filesystem::path& dir, const std::string& game);
 
-// The player's controls and the input they press, for the controls window
-// (debug/controls_window.cpp); null while no window is open.
+// The player's controls and the input they press, for the menu's Controls tab
+// (debug/menu_controls.cpp); null while no window is open.
 controls::Store* controls_store();
 platform::Input* input();
 

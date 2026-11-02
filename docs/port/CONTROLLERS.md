@@ -449,7 +449,7 @@ On PC any controller's Select (Back) and Start pressed together open and close
 the menu. The Steam Controller's upper right back button (R4, SDL's right paddle
 1; the 2015 controller's right grip) does too by default,
 as its key does, while the game's window has the focus (`menu_bar_button`,
-changed in Controller bindings, Menu). Not "...": the port cannot keep a
+changed in the menu's Controls tab, Menu). Not "...": the port cannot keep a
 running Steam client from reading the same controller, and Steam opens its own
 panel on "..." whatever window has the focus.
 

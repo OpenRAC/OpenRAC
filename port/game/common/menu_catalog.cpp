@@ -19,6 +19,7 @@ constexpr Kind kSwitch = Kind::Switch;
 constexpr Kind kChoice = Kind::Choice;
 constexpr Kind kAction = Kind::Action;
 constexpr Kind kNote = Kind::Note;
+constexpr Kind kPanel = Kind::Panel;
 
 // clang-format off
 constexpr Entry kEntries[] = {
@@ -125,15 +126,58 @@ constexpr Entry kEntries[] = {
      "behaviour back, bugs included. The launcher's page for the game says more about each."},
 
     // ---- Controls ----
-    {Id::ControllerBindings, Tab::Controls, "Controller", kAction, A, "Controller bindings",
-     "What presses each of the pad's buttons, the sticks' dead zones and which controller each "
-     "player is. F13 opens it too."},
+    {Id::ControlsFile, Tab::Controls, "Controller", kChoice, A, "Change the controls of",
+     "This game: only it, and what is not changed here comes from every game. Every game: what "
+     "each game reads unless its own controls change it."},
+    {Id::ControlsPlayer, Tab::Controls, "Controller", kChoice, A, "For",
+     "Every player, or player 1 or 2 alone: a player's own controls go over every player's."},
+    {Id::ControlsPlayerReset, Tab::Controls, "Controller", kAction, A, "Player as every player",
+     "Takes the player's own controls away: they read every player's again."},
+    {Id::ControlsStatus, Tab::Controls, "Controller", kPanel, A, "Controller",
+     "Changes are saved and used at once. A button held as it is bound presses its new control "
+     "only once let go and pressed again."},
+    {Id::ControllerBindings, Tab::Controls, "Buttons", kPanel, A, "Controller bindings",
+     "What presses each of the pad's controls on a controller. Pick one to change it, add a "
+     "button or a chord, take one away or go back to the default. A mark: another control has "
+     "that button too, and both press."},
+    {Id::LeftStick, Tab::Controls, "Left stick", kPanel, A, "Left stick",
+     "Dead zone, outer edge, sensitivity and inversion. The picture shows the stick as the "
+     "controller gives it (grey) and as the game reads it (green). The game has its own dead "
+     "zone: the port adds none unless set here."},
+    {Id::RightStick, Tab::Controls, "Right stick", kPanel, A, "Right stick",
+     "Dead zone, outer edge, sensitivity and inversion. The picture shows the stick as the "
+     "controller gives it (grey) and as the game reads it (green)."},
+    {Id::TriggerPoint, Tab::Controls, "Triggers and buttons", kChoice, A, "Trigger press point",
+     "How far a trigger is pulled before it presses."},
+    {Id::FaceButtons, Tab::Controls, "Triggers and buttons", kChoice, A, "Face buttons",
+     "By position, or by label: on a pad with A on the right (Nintendo's), the button marked A "
+     "is South."},
+    {Id::PadBackground, Tab::Controls, "Triggers and buttons", kSwitch, D,
+     "Controllers work in the background",
+     "The controllers still play while another window is in front."},
+    {Id::ConnectedControllers, Tab::Controls, "Players", kPanel, A, "Controllers connected",
+     "Each controller connected, lit while a button is pressed on it, and the player it is."},
+    {Id::PlayersReset, Tab::Controls, "Players", kAction, A, "Players back to the defaults",
+     "Each player takes the next free controller again. Players are the same in every game."},
+    {Id::PlayerOne, Tab::Controls, "Player 1", kPanel, A, "Player 1",
+     "Player 1's controller and keyboard, and what the game reads from them now. Players are "
+     "the same in every game."},
+    {Id::PlayerTwo, Tab::Controls, "Player 2", kPanel, A, "Player 2",
+     "Player 2's controller and keyboard, and what the game reads from them now. Players are "
+     "the same in every game."},
+    {Id::MenuOpen, Tab::Controls, "Menu", kPanel, D, "Open the menu",
+     "The key and the controller button that open and close this menu. Any controller's Select "
+     "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "
+     "counts pressed by itself, so Alt+Return still goes full screen."},
     {Id::TouchButtonSize, Tab::Controls, "Touch controls", kChoice, T, "Button size",
      "The on-screen buttons' size."},
     {Id::TouchCameraSpeed, Tab::Controls, "Touch controls", kChoice, T, "Camera speed",
      "How fast a finger dragged over the screen turns the camera."},
-    {Id::TouchMoveControls, Tab::Controls, "Touch controls", kAction, T, "Move the controls",
+    {Id::TouchMoveControls, Tab::Controls, "Touch controls", kAction, T, "Edit the on-screen buttons",
      "Drag the on-screen buttons where your thumbs want them. The game waits meanwhile."},
+    {Id::ControlsReset, Tab::Controls, "Reset", kAction, A, "Reset these controls",
+     "This game's controls go back to every game's, or every game's to the defaults. Pressed "
+     "twice: the first asks."},
 
     // ---- Developer ----
     {Id::DebugOverlay, Tab::Developer, "Tools", kSwitch, A, "Debug overlay",

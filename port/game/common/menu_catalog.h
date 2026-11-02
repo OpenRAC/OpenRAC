@@ -24,6 +24,7 @@ enum class Kind : std::uint8_t {
     Action,  // pressed: does something (opens a window, takes a screenshot, quits)
     Note,    // a line of text, nothing to press
     Fixes,   // the program's game fixes (fixes.h): a switch each, as many as the disc has
+    Panel,   // rows of its own, as many as it has now (the controller's buttons, a stick, a player)
 };
 
 // The kinds of screen an entry is offered on. Desktop: a window with a keyboard and a mouse (the
@@ -93,10 +94,25 @@ enum class Id : std::uint8_t {
     SkipCutscenes,
     GameFixes,
     // Controls
+    ControlsFile,
+    ControlsPlayer,
+    ControlsPlayerReset,
+    ControlsStatus,
     ControllerBindings,
+    LeftStick,
+    RightStick,
+    TriggerPoint,
+    FaceButtons,
+    PadBackground,
+    ConnectedControllers,
+    PlayersReset,
+    PlayerOne,
+    PlayerTwo,
+    MenuOpen,
     TouchButtonSize,
     TouchCameraSpeed,
     TouchMoveControls,
+    ControlsReset,
     // Developer
     DebugOverlay,
     MobyPicker,

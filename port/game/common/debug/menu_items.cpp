@@ -329,8 +329,32 @@ Item item(Id id, std::uint8_t where) {
             return it;
 
         // ---- Controls ----
+        case Id::ControlsFile:
+        case Id::ControlsPlayer:
+        case Id::ControlsPlayerReset:
+        case Id::ControlsStatus:
         case Id::ControllerBindings:
+        case Id::LeftStick:
+        case Id::RightStick:
+        case Id::TriggerPoint:
+        case Id::FaceButtons:
+        case Id::PadBackground:
+        case Id::ConnectedControllers:
+        case Id::PlayersReset:
+        case Id::PlayerOne:
+        case Id::PlayerTwo:
+        case Id::MenuOpen:
+        case Id::ControlsReset: {
+            // debug/menu_controls.cpp's.
+            const ControlsRow r = controls_row(id);
+            it.shown = r.shown;
+            it.label = r.label;
+            it.on = r.on;
+            it.value = r.value;
+            it.can_lower = r.can_lower;
+            it.can_raise = r.can_raise;
             return it;
+        }
         case Id::TouchButtonSize:
             it.value = std::format("{}%", set.touch_scale);
             it.can_lower = set.touch_scale > settings::kTouchScales[0];
@@ -610,10 +634,24 @@ bool act(Id id, int by) {
             return false;  // its switches, one a fix (draw_fixes)
 
         // ---- Controls ----
+        case Id::ControlsFile:
+        case Id::ControlsPlayer:
+        case Id::ControlsPlayerReset:
+        case Id::ControlsStatus:
         case Id::ControllerBindings:
-            // Over the game once the menu has gone.
-            s.controls_window = true;
-            return true;
+        case Id::LeftStick:
+        case Id::RightStick:
+        case Id::TriggerPoint:
+        case Id::FaceButtons:
+        case Id::PadBackground:
+        case Id::ConnectedControllers:
+        case Id::PlayersReset:
+        case Id::PlayerOne:
+        case Id::PlayerTwo:
+        case Id::MenuOpen:
+        case Id::ControlsReset:
+            controls_act(id, by);
+            return false;
         case Id::TouchButtonSize:
             set.touch_scale = settings::step_listed(settings::kTouchScales, set.touch_scale, by);
             settings::save();
@@ -727,15 +765,6 @@ bool act(Id id, int by) {
     return false;
 }
 
-// Remembers the entry under the pointer or the focus, for the desktop's help.
-void note_hover(int entry) {
-    // The focus a controller or the keyboard moves wins over a pointer left over another row.
-    const bool moved = ImGui::GetIO().NavVisible;
-    if (moved ? ImGui::IsItemFocused() : ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
-        s.menu_hover = entry;
-    }
-}
-
 // The game fixes (fixes.h): a switch each. On is the port's fix, off the console's behaviour.
 void draw_fixes() {
     for (int i = 0; i < fixes::count(); ++i) {
@@ -747,6 +776,14 @@ void draw_fixes() {
 }
 
 }  // namespace
+
+void note_hover(int entry) {
+    // The focus a controller or the keyboard moves wins over a pointer left over another row.
+    const bool moved = ImGui::GetIO().NavVisible;
+    if (moved ? ImGui::IsItemFocused() : ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
+        s.menu_hover = entry;
+    }
+}
 
 void press_entry(Id id) {
     if (act(id, 1)) {
@@ -791,6 +828,9 @@ void draw_entry(Id id, std::uint8_t where) {
             return;
         case menu::Kind::Fixes:
             draw_fixes();
+            return;
+        case menu::Kind::Panel:
+            draw_controls_panel(id);
             return;
     }
     note_hover(static_cast<int>(id));
