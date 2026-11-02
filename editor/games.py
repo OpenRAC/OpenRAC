@@ -144,6 +144,10 @@ class Format:
     # (lighting.py needs the executable's normal table, disc.Version.normal_table), its moby
     # class names (moby_classes.tsv) and update functions (games/rac1), and the level packer.
     lighting: bool = False
+    # The terrain and the shrubs lit as the game lights them at level load, the ties left to a
+    # reader of their own (Going Commando: its PatchTfragVertexLighting, 0x2F0468, is
+    # LightTfrags and its shrubs' routine, 0x2E2C38, LightShrubs).
+    world_lighting: bool = False
     class_names: bool = False
     packable: bool = False
     # Early access: a class or block that does not decode is left out and listed (level.problems)
@@ -212,7 +216,7 @@ RAC1 = Format("rac1", "Ratchet & Clank", ties=0x34, shrubs=0x3c, mobys=0x44, mob
               level_names=LEVEL_NAMES["rac1"])
 RAC2 = Format("rac2", "Ratchet & Clank: Going Commando", ties=0x34, shrubs=0x40, mobys=0x4c, moby=GC_MOBY,
               tie_header=GC_TIE, moby_sound_remap=True, maps_in_textures=True, ship_paint_slots=True,
-              moby_glow_tail=True, moby_lights=True, moby_bangles=True,
+              moby_glow_tail=True, moby_lights=True, moby_bangles=True, world_lighting=True,
               level_names=LEVEL_NAMES["rac2"],
               **LATER)
 RAC3 = Format("rac3", "Ratchet & Clank: Up Your Arsenal", ties=0x34, shrubs=0x40, mobys=0x4c, moby=UYA_MOBY,

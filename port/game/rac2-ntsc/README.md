@@ -145,7 +145,7 @@ many bytes can be another field in another level: it reads what the running copy
   level's load and every flight's loads it over the class (`func_002925F0`, by the low bits of
   `0x001A7AF0`), and most levels' tables have no class 3412 of their own, so parked ships drew their
   wings and canopy only. The export has hull 0 as class 3412 in every level, hulls 1 and 2 as 6031 and
-  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 9 (`editor/port.py`, `GAME_FORMATS`).
+  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 13 (`editor/port.py`, `GAME_FORMATS`).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
   pixels are the first two pictures of the texture data (128 x 128 at +0, 64 x 64 at +0x4000, moby
   textures from +0x5000), not in the GS RAM lump as in Ratchet & Clank; the CLUTs are the lump's first
@@ -171,6 +171,16 @@ many bytes can be another field in another level: it reads what the running copy
   `0x8000 | 1 << n`), which the port drew as the whole mesh. The export writes each bangle as class
   `100000 + class * 16 + bangle` (`Format.moby_bangles`, `editor/moby_class.py`), and the profile adds a
   `LiveMoby` per part drawn (`model_only`: that class or nothing); format 11.
+- Terrain and shrub colours: the game lights them at level load as Ratchet & Clank does.
+  PatchTfragVertexLighting (0x2F0468, called for every terrain piece by the level's loader with the
+  point lights cleared) is LightTfrags: the same 8-byte light records, the 5:5:5:1 base colour plus
+  the piece's or vertex's directional set, from the (cos, sin) table at 0x238F00 that it copies to
+  the scratchpad. The shrubs' routine (0x2E2C38) is LightShrubs. Format 12 exports both
+  (`Format.world_lighting`, `wads.Version.normal_table`); before it the terrain and shrubs went out
+  unlit, drawn at 1.0, so dark walls were white and gold rails tan. Checked against the console's
+  memory: terrain 40,600 of 40,600 colours in level 0, 60,422 in level 3, 45,330 in level 4, 26,470 in
+  level 1, 10,070 in level 5, 11,766 of 11,781 in level 22; shrubs 12,552, 47,952, 30,336 and
+  6,960 of as many in levels 0, 3, 4 and 22. The ties keep their own reader (`gc_tie_colours.py`).
 - The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
   the display as in Ratchet & Clank.
 - `split_places.tsv`: the catalogue names the levels' copies of the draw callback lists apart from

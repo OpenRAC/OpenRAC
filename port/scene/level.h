@@ -42,7 +42,8 @@ inline constexpr int kManifestFormat = 4;
 // layout, so the reader takes all from kManifestFormat up; which levels are read again is the
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
-// 13 with his ship's hulls in every level.
+// 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
+// ship's hulls in every level.
 inline constexpr int kManifestFormatNewest = 13;
 
 struct Vertex {

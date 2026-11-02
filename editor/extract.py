@@ -389,14 +389,14 @@ def export_port_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
     """One later game's level in the port's layout (for the overrides packs and the viewer)."""
     disc, source = open_later(iso)
     with disc:
-        return PortLevelWriter(out, load_wad_level(source, source.level(number))).write(lod)
+        return PortLevelWriter(out, load_wad_level(source, source.level(number)), source.normals()).write(lod)
 
 
 def export_port_wad_flight(iso: Path, number: int, out: Path, lod: int) -> dict:
     """A Going Commando flight to a planet as a level of its own (level.load_wad_flight)."""
     disc, source = open_later(iso)
     with disc:
-        return PortLevelWriter(out, load_wad_flight(source, number)).write(lod)
+        return PortLevelWriter(out, load_wad_flight(source, number), source.normals()).write(lod)
 
 
 def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path, split: bool = False,
