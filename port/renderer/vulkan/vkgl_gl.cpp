@@ -259,6 +259,11 @@ void VKGL front_face(GLenum mode) {
     g->state.front_face = mode;
 }
 
+// Only the depth convention: the origin stays lower left (the backend's own flip).
+void VKGL clip_control(GLenum, GLenum depth) {
+    g->state.clip_zero_to_one = depth == GL_ZERO_TO_ONE;
+}
+
 void VKGL polygon_mode(GLenum, GLenum mode) {
     g->state.polygon_mode = mode;
 }
@@ -1503,6 +1508,7 @@ const Entry kEntries[] = {
     VKGL_ENTRY(glCullFace, cull_face),
     VKGL_ENTRY(glFrontFace, front_face),
     VKGL_ENTRY(glPolygonMode, polygon_mode),
+    VKGL_ENTRY(glClipControl, clip_control),
     VKGL_ENTRY(glPixelStorei, pixel_store),
     VKGL_ENTRY(glReadPixels, read_pixels),
     VKGL_ENTRY(glCopyTexSubImage2D, copy_tex_sub_image),

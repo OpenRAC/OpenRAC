@@ -3,6 +3,7 @@
 
 #include "renderer/gl.h"
 
+#include <cstdio>
 #include <cstring>
 #include <optional>
 #include <set>
@@ -20,6 +21,7 @@ OPENRAC_GL_ES_OPTIONAL_FUNCTIONS(OPENRAC_GL_DEFINE)
 OPENRAC_GL_COMPUTE_FUNCTIONS(OPENRAC_GL_DEFINE)
 OPENRAC_GL_PROGRAM_BINARY_FUNCTIONS(OPENRAC_GL_DEFINE)
 #undef OPENRAC_GL_DEFINE
+PFN_glClipControl glClipControl = nullptr;
 
 namespace {
 
@@ -45,6 +47,17 @@ void OPENRAC_GLAPI es_polygon_mode(GLenum face, GLenum mode) {
     if (g_polygon_mode_extension != nullptr) {
         g_polygon_mode_extension(face, mode);
     }
+}
+
+// Whether a desktop GL_VERSION ("4.6.0 NVIDIA ...") is at least major.minor.
+bool desktop_version_at_least(const GLubyte* version, int major, int minor) {
+    int got_major = 0, got_minor = 0;
+    if (version == nullptr
+        || std::sscanf(reinterpret_cast<const char*>(version), "%d.%d", &got_major, &got_minor)
+               != 2) {
+        return false;
+    }
+    return got_major > major || (got_major == major && got_minor >= minor);
 }
 
 }  // namespace
@@ -148,6 +161,14 @@ bool load(GetProcAddress get, std::string& missing) {
         glPolygonMode = es_polygon_mode;
     }
 #undef OPENRAC_GL_LOAD
+    // glClipControl: the Vulkan backend's, or a desktop context of 4.5 or with ARB_clip_control
+    // (a loader hands out a pointer for a function its context does not have).
+    glClipControl = nullptr;
+    if (g_vulkan
+        || (g_api == Api::Desktop
+            && (desktop_version_at_least(version, 4, 5) || has_extension("GL_ARB_clip_control")))) {
+        glClipControl = reinterpret_cast<PFN_glClipControl>(get("glClipControl"));
+    }
     // A new context: the programs kept in memory may be another driver's.
     renderer::program_cache::reset();
     g_loaded = missing.empty();

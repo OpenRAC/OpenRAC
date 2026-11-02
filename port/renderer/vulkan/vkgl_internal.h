@@ -685,6 +685,9 @@ struct State {
     bool primitive_restart = false;
     // GL_DEPTH_CLAMP: the pipeline's depthClampEnable, where the device has it.
     bool depth_clamp = false;
+    // glClipControl's GL_ZERO_TO_ONE: clip-space z goes to Vulkan's depth as it is, not as GL's
+    // (z + w) / 2 (the vertex stage's specialisation constant, shader_compiler.cpp).
+    bool clip_zero_to_one = false;
     GLenum blend_src_rgb = GL_ONE, blend_dst_rgb = GL_ZERO, blend_src_a = GL_ONE,
            blend_dst_a = GL_ZERO;
     GLenum blend_equation = GL_FUNC_ADD;
@@ -786,12 +789,22 @@ struct Input {
     std::uint32_t location, format, stride, instanced;
 };
 
+// PipelineKey::depth_mode's bits: the rasteriser's depth clamp (GL_DEPTH_CLAMP), and the vertex
+// stage's z as Vulkan takes it (glClipControl GL_ZERO_TO_ONE).
+inline constexpr std::uint32_t kDepthClamp = 1;
+inline constexpr std::uint32_t kClipZeroToOne = 2;
+
+// The vertex stage's specialisation constant (shader_compiler.cpp vertex_source): true when its z
+// is already Vulkan's.
+inline constexpr std::uint32_t kClipZeroToOneConstant = 900;
+
 // Everything a pipeline bakes in, as plain numbers: the cache's key. pipeline_for zeroes it whole
 // before it fills it, so its bytes (padding included) are the key: it is compared and hashed as
 // bytes. Trivially copyable, with no padding between its 8-byte words.
 struct PipelineKey {
     std::uint64_t program;
-    std::uint32_t topology, restart, polygon, depth_clamp;
+    std::uint32_t topology, restart, polygon;
+    std::uint32_t depth_mode;  // kDepthClamp | kClipZeroToOne
     // The rasteriser's cull and depth and stencil state; all 0 in the key when `dynamic_fixed`,
     // where a draw records it instead (vk-extended-dynamic-state, R-11).
     FixedState fixed;
@@ -1107,6 +1120,8 @@ struct Context {
     } latency;
 
     VkFormat depth_format = VK_FORMAT_UNDEFINED;
+    // GL_DEPTH32F_STENCIL8's: D32_SFLOAT_S8_UINT where the device has it, else depth_format.
+    VkFormat float_depth_format = VK_FORMAT_UNDEFINED;
     VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
     StaticMemory static_memory;  // Where a static buffer's own copy goes (vkgl_resources.cpp).
     // The presentation extensions (R-09): what Config allowed, what the device was given, and

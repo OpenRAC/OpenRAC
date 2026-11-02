@@ -357,7 +357,10 @@ public:
 
     // Maktar's dome: light strips (tie class 2713) lie on the dome's band (class 2675) within a few
     // centimetres over large areas, and from the landing pad (about 150 units) they flickered in
-    // and out of it with 0.05 (GameProfile::depth_near).
+    // and out of it with GL's depth (GameProfile::precise_depth). Without glClipControl (macOS's
+    // OpenGL) a near of 0.25 parts them five times farther away (GameProfile::depth_near).
+    bool precise_depth() const override { return true; }
+
     float depth_near() const override { return 0.25f; }
 
     // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line

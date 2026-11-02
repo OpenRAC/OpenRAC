@@ -29,6 +29,7 @@
 #include "openrac/game_host.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
+#include "renderer/precise_depth.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -308,8 +309,9 @@ void set_camera(SceneFrame& frame) {
     camera.target = state.camera_target;
     camera.target_id = state.camera_target_id;
     // The world's depth starts at the profile's near (GameProfile::depth_near: finer depth far
-    // away), clamped so that nothing nearer is cut away.
-    const float profile_near = owner.profile != nullptr ? owner.profile->depth_near() : 0.0f;
+    // away), clamped so that nothing nearer is cut away; with precise depth at the window's 0.05.
+    const float profile_near =
+        owner.profile != nullptr && !renderer::precise_depth() ? owner.profile->depth_near() : 0.0f;
     const float near_z = std::max(0.05f, profile_near);
     input.depth_clamp = profile_near > 0.05f;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is

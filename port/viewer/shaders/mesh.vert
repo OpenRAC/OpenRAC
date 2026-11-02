@@ -58,6 +58,8 @@ uniform vec4 terrain_point_lights[16];
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
 uniform int metal_pass;
+// 1: clip-space z goes to the window as it is (renderer/precise_depth.h), 0: GL's (z + w) / 2.
+uniform int clip_zero_to_one;
 uniform int probe_mode;
 uniform int probe_receiver;
 uniform int sun_shadow_enabled;
@@ -249,8 +251,9 @@ void main() {
         float shine = clamp((reach - centre) / 16.0, 0.0, 1.0);
         v_colour = vec4(vec3(112.0 / 128.0), shine);
         // MobyProc's pull toward the camera (GS Z + 1000 Q): a little nearer, so the shine is not
-        // lost to the moby's own surface under it (reversed depth: larger is nearer).
-        gl_Position.z += 1.0e-4 * gl_Position.w;
+        // lost to the moby's own surface under it (reversed depth: larger is nearer). 0.5e-4 of the
+        // window either way: GL's form halves the clip-space z it is given, precise depth does not.
+        gl_Position.z += (clip_zero_to_one != 0 ? 0.5e-4 : 1.0e-4) * gl_Position.w;
         v_lit = 1;
         v_glow = 0;
     }

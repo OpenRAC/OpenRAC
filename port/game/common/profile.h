@@ -240,14 +240,20 @@ public:
     // records (bounding-sphere centre at +0, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
-    // The near distance of the world's depth (game units), or 0 for the window's 0.05. The depth
-    // a window can keep at a distance d resolves about 1.2e-6 d^2 / (near / 0.05) units (2^-24 of
-    // its range, after GL's (z + w) / 2), so 0.05 parts surfaces under 3 cm apart only within
-    // about 150 units: farther, a light strip laid a few centimetres over a wall (Going Commando's
-    // Maktar dome) loses and wins against it from frame to frame. A larger near parts them that
-    // much farther away. Nothing is clipped for it: the frame turns depth clamping on, so what is
-    // nearer than this near is drawn at the nearest depth, in drawing order among itself, instead
-    // of being cut away.
+    // Whether the world's depth is precise (renderer/precise_depth.h): reversed Z in a 32-bit float
+    // buffer, clip-space z to the window as it is, where the context has glClipControl (OpenGL 4.5,
+    // ARB_clip_control, the Vulkan backend; not macOS's OpenGL 4.1). Going Commando's Maktar dome
+    // carries light strips (tie class 2713) within a few centimetres of the band under them (class
+    // 2675): GL's depth parted them only within about 150 units of the window's near 0.05, and
+    // farther away they flickered in and out of it.
+    virtual bool precise_depth() const { return false; }
+
+    // Where precise depth cannot be had: the near distance of the world's depth (game units), or 0
+    // for the window's 0.05. GL's depth resolves about 1.2e-6 d^2 / (near / 0.05) units at a
+    // distance d (2^-24 of its range, after GL's (z + w) / 2), so a larger near parts close surfaces
+    // that much farther away. Nothing is clipped for it: the frame turns depth clamping on, so
+    // what is nearer than this near is drawn at the nearest depth, in drawing order among itself,
+    // instead of being cut away.
     virtual float depth_near() const { return 0.0f; }
 
     // Returns the executable's address of the four shadow directions the hero's shadow is cast

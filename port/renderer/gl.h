@@ -147,6 +147,12 @@ inline constexpr GLenum GL_DEPTH_COMPONENT = 0x1902;
 inline constexpr GLenum GL_DEPTH_COMPONENT24 = 0x81A6;
 inline constexpr GLenum GL_DEPTH24_STENCIL8 = 0x88F0;
 inline constexpr GLenum GL_DEPTH_COMPONENT32F = 0x8CAC;
+inline constexpr GLenum GL_DEPTH32F_STENCIL8 = 0x8CAD;
+inline constexpr GLenum GL_FLOAT_32_UNSIGNED_INT_24_8_REV = 0x8DAD;
+// glClipControl's (OpenGL 4.5, ARB_clip_control).
+inline constexpr GLenum GL_LOWER_LEFT = 0x8CA1;
+inline constexpr GLenum GL_NEGATIVE_ONE_TO_ONE = 0x935E;
+inline constexpr GLenum GL_ZERO_TO_ONE = 0x935F;
 
 inline constexpr GLenum GL_TEXTURE_2D = 0x0DE1;
 inline constexpr GLenum GL_TEXTURE0 = 0x84C0;
@@ -414,6 +420,13 @@ inline bool is_es() {
 
 // True when the context lists the extension (GL_EXTENSIONS, read once by load()).
 bool has_extension(const char* name);
+
+// glClipControl (OpenGL 4.5 or ARB_clip_control on the desktop, and the Vulkan backend's): null
+// where the context lacks it (macOS's 4.1, OpenGL ES). With GL_ZERO_TO_ONE a clip-space z goes to
+// the window as it is, not as (z + w) / 2, whose sum keeps only 2^-24 of the depth range: the
+// world's depth (precise_depth.h) is drawn so.
+using PFN_glClipControl = void(OPENRAC_GLAPI*)(GLenum origin, GLenum depth);
+extern PFN_glClipControl glClipControl;
 
 // True when glEnable(GL_DEPTH_CLAMP) works: always on the desktop, and on ES with EXT_depth_clamp.
 inline bool depth_clamp_available() {

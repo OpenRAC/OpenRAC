@@ -13,6 +13,7 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
+#include "renderer/precise_depth.h"
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer/world/gs_pass.h"
@@ -1123,14 +1124,25 @@ void LevelScene::draw_layer(
         glEnable(GL_CLIP_DISTANCE0);
         glEnable(GL_CLIP_DISTANCE1);
     }
+    // Precise depth (renderer/precise_depth.h): the world's draws send clip-space z to the window as
+    // it is, with the camera's projection in that form, so the same depth lands there with 32-bit
+    // float precision; everything else keeps GL's form.
+    const bool precise = renderer::precise_depth();
+    if (precise) {
+        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+    }
+    const auto drawn_clip = renderer::multiply(
+        precise ? renderer::zero_to_one(input.camera.projection) : input.camera.projection,
+        input.camera.view
+    );
     // The joint palettes (live mobys): unit 1; the textures go on unit 0.
     const bool palettes = layer == Layer::Mobys && m_palette != 0;
     // The frame's uniforms, on the program the next passes draw with: the solid one for the static
     // layers' opaque materials without a cutout (mesh.frag, OPENRAC_SOLID), the general one else.
     const auto use = [&](const renderer::Shader& shader, bool depth_matched) {
         shader.use();
-        const auto drawn_clip = renderer::multiply(input.camera.projection, input.camera.view);
         glUniformMatrix4fv(shader.uniform("view_projection"), 1, GL_FALSE, drawn_clip.data());
+        glUniform1i(shader.uniform("clip_zero_to_one"), precise ? 1 : 0);
         glUniform1f(shader.uniform("picture_scale"), state.target.picture_scale_x);
         if (state.depth_prepass) {
             glUniformMatrix4fv(shader.uniform("view"), 1, GL_FALSE, input.camera.view.data());
@@ -1666,6 +1678,9 @@ void LevelScene::draw_layer(
     if (cut) {
         glDisable(GL_CLIP_DISTANCE0);
         glDisable(GL_CLIP_DISTANCE1);
+    }
+    if (precise) {
+        glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
     }
     if (palettes && !colour_batch) {
         glActiveTexture(GL_TEXTURE0 + kPaletteUnit);
