@@ -60,7 +60,10 @@ void stripes(ImDrawList* list, ImVec2 a, ImVec2 b) {
     const float band = dp(20.0f);
     const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
     list->PushClipRect(a, b, true);
-    for (float x = a.x - lean; x < b.x + lean; x += band * 2.0f) {
+    // They drift slowly right without end: one band pair every few seconds, wrapping round.
+    const float period = band * 2.0f;
+    const float drift = std::fmod(static_cast<float>(ImGui::GetTime()) * dp(8.0f), period);
+    for (float x = a.x - lean - period + drift; x < b.x + lean; x += period) {
         list->AddQuadFilled(
             ImVec2(x + band, a.y),
             ImVec2(x + band * 2.0f, a.y),
