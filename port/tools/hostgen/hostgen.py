@@ -44,7 +44,7 @@ import derived  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -1050,6 +1050,8 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     if cfg.get("executable_functions"):
         program.executable_starts = {int(row[1], 16) for row in tables.read_tsv(source / cfg["executable_functions"],
                                                                                 strip=True) if len(row) >= 2}
+    if cfg.get("level_twins"):
+        read_level_twins(args.game.parent / cfg["level_twins"], program)
     short_names = cfg.get("level_short_names")
     program.level_short_names = re.compile(short_names) if short_names else None
     program.vu0_programs = {int(k, 0): v for k, v in cfg.get("asm", {}).get("vu0_programs", {}).items()}

@@ -122,6 +122,14 @@ class Program:
     # that datum's (lower.py GLOBAL_VIEW). Only Going Commando sets it.
     global_views: bool = False
     executable_starts: set = field(default_factory=set)  # hostgen.json "executable_functions"
+    # hostgen.json "level_twins": functions of the executable that the levels' programs carry, entered
+    # away from the address their name says (Going Commando's func_0031FC28, the ammo pickup's update,
+    # at 0x0031FC60, after another function's leftover instructions), whose level copies the level
+    # catalogue lists under level names (func_L00_003D1258). The entry is the function's address: its
+    # callers form that one, and it pairs with the copies. symbol -> entry; and symbol -> (size, places),
+    # for its calls of the level hooks.
+    executable_entries: dict[str, int] = field(default_factory=dict)
+    level_twins: dict[str, tuple[int, list[tuple[int, int]]]] = field(default_factory=dict)
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
     code_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_CODE_NAMES])
@@ -165,6 +173,9 @@ class Program:
         if symbol in self.level_names:
             # A level's build knows this name: its pattern's address may be another game's.
             named = [self.level_names[symbol]]
+        if named and named[0][0] < 0 and symbol in self.executable_entries:
+            # Named after the address of the leftovers in front of it: entered at the catalogue's.
+            named = [(-1, self.executable_entries[symbol])]
         if not named and symbol in self.symbols:
             named = [(-1, self.symbols[symbol])]
         if symbol not in self.places and named:
@@ -819,6 +830,21 @@ def read_places(path: Path, program: Program) -> int:
                 program.sizes[cols[0]] = int(cols[2])
             count += 1
     return count
+
+
+def read_level_twins(path: Path, program: Program) -> int:
+    """The level copies of the executable's functions entered away from their name
+    (port/game/<id>/level_twins.tsv, written by copycalls.py --twins: name, entry, size, places)."""
+    if not path.exists():
+        return 0
+    for line in path.read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 4:
+            continue
+        places = [(int(item[:2]), int(item[3:], 16)) for item in cols[3].split(",") if item]
+        program.executable_entries[cols[0]] = int(cols[1], 16)
+        program.level_twins[cols[0]] = (int(cols[2]), places)
+    return len(program.level_twins)
 
 
 def read_call_copies(path: Path, program: Program) -> int:
