@@ -610,7 +610,12 @@ export async function pickZip(title: string, copying?: (progress: DiscCopy) => v
   if (!inTauri) return "/home/you/Downloads/HD Ratchet.zip";
   // Android's picker hands over a file, not a path: it is copied into the app's cache first.
   if (onAndroid) {
-    const off = copying ? await onDiscCopy(copying) : null;
+    // Its own event, so a disc's copy elsewhere is never read as this file's.
+    const off = copying
+      ? await listen<DiscCopy>("mod-copy", (e) => {
+          copying(e.payload);
+        })
+      : null;
     try {
       return await call<string | null>("pick_zip");
     } finally {

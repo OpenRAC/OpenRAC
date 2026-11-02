@@ -25,15 +25,20 @@ pub fn iso_file_name(name: &str) -> String {
     }
 }
 
-/// The name a picked mod is kept under: its own, with `.zip` added when the picker gave it without
-/// (plugins::install knows a mod's file by that extension).
+/// The name a picked mod is kept under: the picker's name without any folder, with `.zip` added
+/// when it came without (plugins::install knows a mod's file by that extension); `mod.zip` when
+/// the picker gave none.
 pub fn zip_file_name(name: &str) -> String {
+    let base = name.rsplit(['/', '\\']).next().unwrap_or("").trim();
+    if base.is_empty() || base == "." || base == ".." {
+        return "mod.zip".to_string();
+    }
     let zip =
-        name.len().checked_sub(4).is_some_and(|n| name.is_char_boundary(n) && name[n..].eq_ignore_ascii_case(".zip"));
+        base.len().checked_sub(4).is_some_and(|n| base.is_char_boundary(n) && base[n..].eq_ignore_ascii_case(".zip"));
     if zip {
-        name.to_string()
+        base.to_string()
     } else {
-        format!("{name}.zip")
+        format!("{base}.zip")
     }
 }
 
@@ -249,6 +254,9 @@ mod tests {
         assert_eq!(zip_file_name("lock-strafe.ZIP"), "lock-strafe.ZIP");
         assert_eq!(zip_file_name("lock-strafe"), "lock-strafe.zip");
         assert_eq!(zip_file_name("ł.7z"), "ł.7z.zip");
+        assert_eq!(zip_file_name("Download/lock-strafe.zip"), "lock-strafe.zip");
+        assert_eq!(zip_file_name(" "), "mod.zip");
+        assert_eq!(zip_file_name(".."), "mod.zip");
     }
 
     #[test]

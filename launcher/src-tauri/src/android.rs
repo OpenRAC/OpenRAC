@@ -185,15 +185,15 @@ pub async fn pick_zip<R: Runtime>(app: AppHandle<R>) -> Result<Option<PathBuf>, 
         let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("mod-imports");
         // The add copies the mod out at once, so the last pick's copy is no longer needed. A name
         // the picker gave without its extension gets `.zip` back: the install knows a mod's file by it.
-        let name = zip_file_name(&disc_file_name(&name));
+        let name = zip_file_name(&name);
         let dest = dir.join(&name);
         let total = picked.size.unwrap_or(-1).max(0) as u64;
         let copied = dest.clone();
-        // `disc-copy` events as for a disc, the first at once: the Mods tab says the file is being
-        // read from the moment the picker closes, not only once a large pack is copied.
+        // `mod-copy` events, shaped as a disc's, the first at once: the Mods tab says the file is
+        // being read from the moment the picker closes, not only once a large pack is copied.
         let emitter = app.clone();
         let emit = move |copied| {
-            let _ = emitter.emit("disc-copy", DiscCopy { name: name.clone(), copied, total });
+            let _ = emitter.emit("mod-copy", DiscCopy { name: name.clone(), copied, total });
         };
         emit(0);
         tauri::async_runtime::spawn_blocking(move || {

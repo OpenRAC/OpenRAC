@@ -156,7 +156,9 @@
     installing = null;
   }
 
-  async function add(paths: string[]) {
+  /** Adds to `target`, the game the player was on when they picked or dropped (not the one shown
+   *  once a long copy ends). */
+  async function add(paths: string[], target: VersionView = v) {
     adding = true;
     said = null;
     busy = {
@@ -164,7 +166,7 @@
       share: null,
     };
     try {
-      const added = await addMods(v, paths);
+      const added = await addMods(target, paths);
       said = { text: added.text, failed: added.failed };
       onadded({ plugin: added.plugin, pack: added.pack });
     } catch (err) {
@@ -177,6 +179,7 @@
   /** A picker's answer, or what stopped it said under the buttons (a copy that failed on Android,
    *  a picker that could not open): never a click that seems to do nothing. */
   async function picked(pick: () => Promise<string | null>) {
+    const target = v;
     said = null;
     let path: string | null;
     try {
@@ -185,7 +188,7 @@
       path = null;
       said = { text: message(err), failed: true };
     }
-    if (path) await add([path]);
+    if (path) await add([path], target);
     else {
       busy = null;
       adding = false;
@@ -216,7 +219,8 @@
     void onDrop(
       (paths) => {
         dropping = false;
-        void add(paths);
+        // One add at a time: a drop while one runs is let go, as the buttons are greyed then.
+        if (!adding) void add(paths);
       },
       (over) => (dropping = over),
     ).then((off) => {
@@ -460,42 +464,6 @@
 
   .busy .spinner {
     color: var(--amber);
-  }
-
-  .track {
-    height: 4px;
-    border-radius: 2px;
-    background: var(--line);
-    overflow: hidden;
-  }
-
-  .track i {
-    display: block;
-    height: 100%;
-    background: var(--amber);
-    transition: width var(--fast) var(--ease);
-  }
-
-  .track i.moving {
-    width: 30%;
-    animation: slide 1.4s var(--ease) infinite;
-  }
-
-  @keyframes slide {
-    from {
-      transform: translateX(-100%);
-    }
-    to {
-      transform: translateX(340%);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .track i.moving {
-      animation: none;
-      width: 100%;
-      opacity: 0.4;
-    }
   }
 
   .hint {
