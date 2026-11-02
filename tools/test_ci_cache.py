@@ -61,6 +61,7 @@ class Identity(unittest.TestCase):
     def test_runner_changes_affect_collected_identity(self):
         with mock.patch("ci_cache.tool_identity", return_value={"version": "same compiler"}), \
                 mock.patch("ci_cache.system_packages", return_value=["sdk=1"]), \
+                mock.patch("ci_cache.Path.read_text", return_value="flags\t: sse2 avx\n"), \
                 mock.patch.dict(os.environ, {"OPENRAC_CLANG": "/tools/clang", "ImageVersion": "one"}):
             first = ci_cache.fingerprint(ci_cache.installed_identity())
             with mock.patch.dict(os.environ, {"ImageVersion": "two"}):
