@@ -224,4 +224,7 @@ func_0028EA58	hud	HudGradientSprite	wrap	a HUD texture as a sprite with a colour
 func_0027E4A8	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot: drawn natively (host/ui2d.c)
 func_0027E920	draw	DrawRingSegment	wrap	a ring's segment, a colour a corner and the texture's wrap: drawn natively (host/ui2d.c)
 func_0027DE50	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): drawn natively (host/ui2d.c)
+func_003136D0	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sphere test runs against the picture's sides (host/wide_view.c)
+func_L00_00424F98	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
+func_002E48E8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
