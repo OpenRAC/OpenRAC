@@ -735,6 +735,7 @@ void copy_world_camera(host::GameState& state) {
         state.fog_near_f = g->world_camera->fog_near_f;
         state.fog_far_f = g->world_camera->fog_far_f;
         state.background_colour = g->world_camera->background_colour;
+        state.moby_view = g->world_camera->moby_view;
         // A level's world under a menu's moby context: its mobys, not the menu's in the globals.
         if (g->world_under_menu) {
             state.mobys = g->world_camera->mobys;
@@ -1146,6 +1147,22 @@ std::optional<std::array<float, 8>> moby_point_light(
 // address and joints, the joint palette they index, the hero's shadow, and the mobys the game
 // drew into a texture.
 
+// "Scenery detail: Original": ShrubProc's choice for the tick, from the camera the game's world
+// renderers left in memory (`world_ran`, not under a menu); none to keep the last tick's, empty
+// with the setting off.
+std::optional<std::vector<host::ShrubDraw>> shrub_draws(
+    std::span<const std::uint8_t> ram, bool world_ran
+) {
+    if (!settings::get().original_lod) {
+        return std::vector<host::ShrubDraw>{};
+    }
+    if (!world_ran) {
+        return std::nullopt;
+    }
+    const profiling::Zone trace("Shrub draws");
+    return g->profile->shrub_draws(ram, openrac_game_loaded_overlay());
+}
+
 // Reads the live mobys this tick: which are drawn, how (blend, light, colour, the camera they
 // were drawn with) and in what pose, and the hero's shadow. Mobys the game drew but did not list
 // are added to `state`. `world_ran`, `only_own_camera`: the world renderers ran this tick, and
@@ -1289,21 +1306,22 @@ TickMobys pose_mobys(
             && (ram[m.address + 0x32] | ram[m.address + 0x33]) == 0) {
             continue;
         }
-        // Beyond its draw distance, or wholly behind the eye: MobyProc does not draw it
-        // (GameProfile::beyond_draw_distance). Pokitaru places two mobys of class 1161 with a turn
-        // of -5 pi, past the reach of the game's sine; their rows come out thousands long and their
-        // spheres thousands of units away, so the game never draws them, while drawn here they
-        // covered the sky in cyan. A moby the game draws with a camera of its own (the menus', the
-        // vendor's) is not the world camera's to cull.
-        if (!extra && world_ran && m.address + 0x34 <= ram.size()
-            && std::none_of(
-                g->moby_cameras.begin(),
-                g->moby_cameras.end(),
-                [&](const auto& c) { return c.first == m.address; }
-            )
-            && g->profile->beyond_draw_distance(
-                ram.data() + m.address, state.camera_position, state.forward
-            )) {
+        // Beyond its draw distance, or wholly behind the near plane: MobyProc does not draw it
+        // (GameProfile::moby_distance_fade, which gives the fade of the ones it draws). Pokitaru
+        // places two mobys of class 1161 with a turn of -5 pi, past the reach of the game's sine;
+        // their rows come out thousands long and their spheres thousands of units away, so the
+        // game never draws them, while drawn here they covered the sky in cyan. A moby the game
+        // draws with a camera of its own (the menus', the vendor's) is not the world camera's to
+        // cull or fade.
+        const bool own_camera =
+            std::any_of(g->moby_cameras.begin(), g->moby_cameras.end(), [&](const auto& c) {
+                return c.first == m.address;
+            });
+        std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
+        if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
+            distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+        }
+        if (!distance_fade) {
 #ifdef OPENRAC_LIGHT_AUTHORING
             // An unseen mesh may still carry a light whose sphere reaches visible receivers.
             const auto model = g->level.moby_classes.find(m.class_id);
@@ -1350,13 +1368,18 @@ TickMobys pose_mobys(
         if (!cls->second.second && g->level.overridden_models == 0) {
             instance.world_sphere = m.world_sphere;
         }
-        // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw): mode bit 0x200
-        // (+0x34) adds it; an alpha (+0x23) below 0x80 blends it at that alpha (the explosions'
-        // flashes start at 0x20..0x40 and fade out; a fireball can be spawned below 0x80).
+        // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
+        // its alpha byte (+0x23) times its distance fade (GameProfile::moby_distance_fade: the last 16
+        // units of its draw distance) >> 7. Mode bit 0x200 (+0x34) adds it; the fade below 0x80 or
+        // mode bit 8 blends it with the fading alpha test (blend 3: Z written from As 0x08, so a
+        // far moby comes in gradually instead of at once); else a vertex alpha below 0x80 blends it
+        // at that alpha (the explosions' flashes start at 0x20..0x40 and fade out; a fireball can
+        // be spawned below 0x80).
         if (m.address + 0x36 <= ram.size()) {
             const std::uint8_t* b = ram.data() + m.address;
             const unsigned mode = b[0x34] | b[0x35] << 8;
-            const unsigned alpha = b[0x23];
+            const unsigned fade = distance_fade.value_or(0x80);
+            const unsigned alpha = (fade * b[0x23]) >> 7;
             // Its shine distance (+0x73, 0x18 for a class with metal packets, 32 for the Gadgetron
             // logo) for the metal pass, in the tie-only `lights` slot as -1 - distance (mesh.vert).
             if (b[0x73] != 0) {
@@ -1364,6 +1387,9 @@ TickMobys pose_mobys(
             }
             if ((mode & 0x200) != 0) {
                 instance.blend = 2;
+                instance.tint[3] = static_cast<float>(alpha) / 128.0f;
+            } else if (fade < 0x80 || (mode & 8) != 0) {
+                instance.blend = 3;
                 instance.tint[3] = static_cast<float>(alpha) / 128.0f;
             } else if (alpha < 0x80) {
                 instance.blend = 1;
@@ -1687,7 +1713,8 @@ TickMobys pose_mobys(
         shadow_state,
         std::move(target_mobys),
         water_hands,
-        std::move(point_lit)
+        std::move(point_lit),
+        shrub_draws(ram, world_ran && !under_menu)
     };
 }
 
@@ -1734,6 +1761,7 @@ void keep_tick(
         k.joints.clear();
         k.shadows.clear();
         k.shadow_moby = 0;
+        k.shrubs.clear();
         k.level = g->loaded;
         // A new level's frames cost what they cost: the system forgets the last level's
         // (performance_hint.h).
@@ -1772,6 +1800,9 @@ void keep_tick(
     k.prev_shadow_state = k.shadow_state;
     k.shadow_state = mobys.shadow_state;
     k.water_hands = mobys.water_hands;
+    if (mobys.shrubs) {
+        k.shrubs = std::move(*mobys.shrubs);
+    }
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
                           : std::nullopt;

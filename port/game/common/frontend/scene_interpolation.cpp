@@ -184,7 +184,18 @@ void upload_instances(SceneFrame& frame) {
         frame.owner.temporal->set_scene(live, palette);
     }
 
-    frame.owner.scene.set_instances(scene::Layer::Mobys, live);
+    // "Scenery detail: Original": the shrubs ShrubProc fades or draws as billboards, with the
+    // mobys; the ones it draws whole stay in their layer (choose_scenery).
+    frame.owner.scene.set_shrub_draws(
+        frame.graphics.original_lod ? frame.scene.shrubs : std::vector<scene::ShrubDraw>{}
+    );
+    std::vector<scene::Instance> with_shrubs;
+    if (frame.graphics.original_lod) {
+        with_shrubs = live;
+        frame.owner.scene.add_shrub_effects(with_shrubs);
+    }
+    const auto& drawn = frame.graphics.original_lod ? with_shrubs : live;
+    frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
     if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;
         frame.output.picker_palette = palette;

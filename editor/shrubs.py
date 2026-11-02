@@ -160,6 +160,22 @@ def billboard_fade(data: bytes) -> int:
     return math.trunc(fade) & 0xff if math.isfinite(fade) else -1
 
 
+def billboard_mesh(class_id: int) -> Mesh:
+    """A shrub class's billboard sprite as the port draws it: the unit quad (x 0, y -1/2 to 1/2
+    across, z 0 to 1 up) with its texture, s across and t down from the top, as ShrubProc's four
+    corners. The port places it each frame as the game does (game/rac1/shrub_proc.cpp)."""
+    mesh = Mesh(f"billboard_{class_id}", normals=[])
+    for y, z in ((-0.5, 1.0), (0.5, 1.0), (-0.5, 0.0), (0.5, 0.0)):
+        mesh.positions.append((0.0, y, z))
+        mesh.uvs.append((y + 0.5, 1.0 - z))
+        mesh.normals.append((-1.0, 0.0, 0.0))  # towards the eye
+    # The game draws the sprite clamped on both axes (its CLAMP_1, 5).
+    key = texture_key("billboard", class_id, 3)
+    mesh.add_face(key, (0, 2, 1))
+    mesh.add_face(key, (1, 2, 3))
+    return mesh
+
+
 def shrub_billboard_fades(level) -> dict[int, int]:
     """Class ID -> billboard_fade of its class block (-1: no billboard)."""
     return {class_id: billboard_fade(level.block(start))

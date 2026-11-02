@@ -44,7 +44,7 @@ from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
 from mobys import moby_class_names, moby_instances
-from shrubs import shrub_billboard_fades, shrub_class_normals, shrub_classes, shrub_instances
+from shrubs import billboard_mesh, shrub_billboard_fades, shrub_class_normals, shrub_classes, shrub_instances
 from sky import Sky, level_sky, panorama
 from terrain import terrain
 from occlusion import export_pvs
@@ -237,6 +237,11 @@ class PortLevelWriter(LevelWriter):
         raises a billboard class's to F + 24), for the port's Scenery detail: Original."""
         for class_id, entry in self.classes["shrub"].items():
             entry["billboard_fade"] = fades.get(int(class_id), -1)
+            # The sprite the game draws in place of the far instances, when it has a texture.
+            if fades.get(int(class_id), -1) >= 0 and ("billboard", int(class_id)) in self.level.textures:
+                path = f"shrubs/billboard_{class_id}.glb"
+                self.glb(path, [billboard_mesh(int(class_id))], 1)
+                entry["billboard"] = {"mesh": path}
         self.stats["shrub_billboards"] = sum(1 for f in fades.values() if f >= 0)
 
     def write_mobys(self, placements: list[dict], classes: dict[int, MobyClass | None]) -> None:
