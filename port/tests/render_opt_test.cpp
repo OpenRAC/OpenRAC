@@ -295,7 +295,8 @@ int test_the_vulkan_counters_follow_the_draws() {
     CHECK(after.submits - before.submits == frames);
     CHECK(after.render_passes - before.render_passes >= frames);
     CHECK(after.attachment_store_bytes > before.attachment_store_bytes);
-    CHECK(after.pipelines_created >= 1);
+    // Made whole, or linked from parts where the device links them (vk-pipeline-library).
+    CHECK(after.pipelines_created + after.pipelines_linked >= 1);
     CHECK(after.shader_compiles >= 1);
     CHECK(after.validation_errors == 0);
     print_counters(before, after);

@@ -207,6 +207,12 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::ProbeFastBlended, "probe-fast-blended",
      "blended static passes read the best probe volume without its depth test and filter shadows with four taps",
      true, Tolerance{0.005, 32}},
+    {Opt::VkPipelineLibrary, "vk-pipeline-library",
+     "a pipeline first needed mid-frame is linked from shader parts made on a worker, then replaced",
+     true, Tolerance{}},
+    {Opt::GlStateWarmup, "gl-state-warmup",
+     "each OpenGL state a program was drawn in is drawn once into a private target at a level's load",
+     true, Tolerance{}},
 }};
 // clang-format on
 

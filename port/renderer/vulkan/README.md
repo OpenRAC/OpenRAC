@@ -98,13 +98,16 @@ reference path), and its descriptor set in `Program::set_cache`; its temporary a
 `Context::scratch`'s, kept for their capacity, so a draw that finds both allocates nothing (the
 registry's `vk-draw-cache`). A deleted program's pipelines leave the table with it.
 
-One worker thread makes pipelines ahead (`PipelinePrewarm`, R-10): when a program links, the keys
-earlier runs made for it (the manifest, `<cache>.manifest`, `PipelineManifest`) are queued for it,
-and it calls only `vkCreateGraphicsPipelines` into the shared pipeline cache. Its queue, its
-results and the key it is making are guarded by one mutex; the drawing thread takes a key the
-worker has made, waits for one it is making or has queued, and makes the rest itself. A program's
-release waits for its job and takes the rest back; the backend's close stops and joins the worker
-before anything else.
+Worker threads (one to four) build pipelines ahead (`PipelinePrewarm`, R-10). When a program
+links, the keys earlier runs used (`PipelineManifest`) are queued. One mutex guards the queue and
+results. The drawing thread takes a finished key, waits for a queued one, and builds the rest
+itself. A level load waits for the queue (`vkgl::finish_pipelines`). The backend's close joins
+the workers first.
+
+With `vk-pipeline-library` (desktop), the workers also build each program's two shader parts. A
+draw with an unknown key links four parts (`PipelineLibraries`) at once; the whole pipeline is
+built on a worker and swapped in at a frame's start (`collect_prewarm`). The manifest and
+pipeline cache are saved on `Context::cache_saver` at each load, every two minutes, and at close.
 
 `Context::spirv_cache` keeps what glslang made (R-12): `compile_program` and `check_stage` take a
 program or stage compiled before from it, by a hash of its kind, sources and compiler checked by a

@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -40,6 +41,7 @@
 #include "renderer/gl.h"
 #include "renderer/gpu_draw.h"
 #include "renderer/vulkan/latency_sleep.h"
+#include "renderer/vulkan/pipeline_cache_file.h"
 #include "renderer/vulkan/shader_compiler.h"
 #include "renderer/vulkan/spirv_cache_file.h"
 #include "renderer/vulkan/vkgl.h"
@@ -833,6 +835,10 @@ public:
     // Adds `pipeline` for `key`, whose hash_key is `hash`. The key must not be in the table yet.
     void insert(const PipelineKey& key, std::uint64_t hash, VkPipeline pipeline);
 
+    // Puts `pipeline` in place of the one made for `key` and returns that one; null, and nothing
+    // changed, when the key is not in the table.
+    VkPipeline replace(const PipelineKey& key, std::uint64_t hash, VkPipeline pipeline);
+
     // Removes every pipeline whose key names program `serial`, handing each to `retire`.
     template <typename Retire>
     void erase_program(std::uint64_t serial, Retire retire) {
@@ -867,6 +873,11 @@ private:
     void rebuild();
 
     std::vector<Entry> m_entries;         // Every pipeline, in the order they were made.
+    static constexpr std::size_t kNone = SIZE_MAX;  // find_index's answer for a key not made.
+
+    // Returns the place in m_entries of the pipeline made for `key`, or kNone.
+    [[nodiscard]] std::size_t find_index(const PipelineKey& key, std::uint64_t hash) const;
+
     std::vector<std::uint64_t> m_hashes;  // Each entry's hash_key, at the entry's index.
     // Open addressing over a power of two: 0 is a free slot, n the entry n - 1. Probed linearly.
     std::vector<std::uint32_t> m_slots;
@@ -875,33 +886,65 @@ private:
 
 // ---- Pipelines made ahead: the manifest and the pre-warm worker (R-10) ----
 
+// What a pre-warm job makes: a whole pipeline, or one of the two parts of it that hold a shader
+// (vk-pipeline-library: VK_EXT_graphics_pipeline_library), which a draw links with the other two
+// into a pipeline at once.
+enum class PrewarmPart : std::uint8_t {
+    Whole,      // The whole pipeline, optimised; replaces a linked one when one stands in.
+    PreRaster,  // The vertex stage and the rasteriser's state, as a library.
+    Fragment,   // The fragment stage and the depth and stencil state, as a library.
+};
+
 // One pipeline the pre-warm worker is to make: its key, with the program's serial, and the
 // program's modules and layout, which stay alive until prewarm_forget has run for its serial.
+// For a part, the key holds only that part's fields (library_key).
 struct PrewarmJob {
     PipelineKey key{};                         // The key, its `program` the program's serial.
     VkShaderModule vertex = VK_NULL_HANDLE;    // The program's vertex stage.
     VkShaderModule fragment = VK_NULL_HANDLE;  // The program's fragment stage.
     VkPipelineLayout layout = VK_NULL_HANDLE;  // The program's layout.
+    PrewarmPart part = PrewarmPart::Whole;     // What it makes.
 };
 
-// The pre-warm worker and what passes between it and the thread that draws
+// What a worker made for a job: null when the driver refused it.
+struct PrewarmDone {
+    PipelineKey key{};
+    PrewarmPart part = PrewarmPart::Whole;
+    VkPipeline pipeline = VK_NULL_HANDLE;
+};
+
+// The pre-warm workers and what passes between them and the thread that draws
 // (pipeline-prewarm, docs/port/RENDER_PERF.md, R-10).
 //
-// The worker only takes jobs from `queue`, calls vkCreateGraphicsPipelines into the shared
-// VkPipelineCache, and puts what it made into `ready`. The thread that draws queues the jobs at
+// The workers only take jobs from `queue`, call vkCreateGraphicsPipelines into the shared
+// VkPipelineCache, and put what they made into `ready`. The thread that draws queues the jobs at
 // a program's link, and when a draw needs a key that is queued or being made it waits for it
 // (moving it to the front) instead of making it a second time, then moves `ready` into
-// Context::pipelines. Everything here but `worker` is guarded by `mutex`.
+// Context::pipelines. A level's load waits for the queue to empty (vkgl::finish_pipelines), so
+// the pipelines earlier runs made are made behind the loading screen, on several workers.
+// Everything here but `workers` is guarded by `mutex`.
 struct PipelinePrewarm {
-    std::mutex mutex;                   // Guards the members below.
-    std::condition_variable changed;    // Notified when a job is queued or done, and at stop.
-    std::deque<PrewarmJob> queue;       // Jobs not begun, the next first.
-    std::optional<PipelineKey> making;  // The key the worker is making now, if any.
-    std::vector<std::pair<PipelineKey, VkPipeline>> ready;  // Made, not yet in the table.
-    std::uint64_t made = 0;  // Pipelines the worker has made since the backend opened.
-    bool stop = false;       // Set at close: the worker returns.
-    bool started = false;    // The worker has been started.
-    JoiningThread worker;    // The worker, started with the first job.
+    std::mutex mutex;                 // Guards the members below.
+    std::condition_variable changed;  // Notified when a job is queued or done, and at stop.
+    std::deque<PrewarmJob> queue;     // Jobs not begun, the next first.
+    // The jobs the workers are making now: their keys and parts.
+    std::vector<std::pair<PipelineKey, PrewarmPart>> making;
+    std::vector<PrewarmDone> ready;  // Made, not yet taken by the thread that draws.
+    std::uint64_t made = 0;  // Pipelines and parts the workers have made since the backend opened.
+    bool stop = false;       // Set at close: the workers return.
+    bool started = false;    // The workers have been started.
+    std::vector<JoiningThread> workers;  // Started with the first job.
+};
+
+// The parts of pipelines a draw links into a pipeline at once (vk-pipeline-library), by the bytes
+// of their library_key, and the pipelines so linked, which a worker's whole one replaces. Only the
+// thread that draws uses it; the parts with a shader come from the workers' `ready`.
+struct PipelineLibraries {
+    bool enabled = false;  // The device links libraries fast, and the entry is on.
+    std::unordered_map<std::string, VkPipeline> vertex_input, pre_raster, fragment, output;
+    std::unordered_set<VkPipeline> linked;  // In Context::pipelines, until a whole one replaces it.
+    std::uint64_t links = 0;                // Pipelines linked at a draw, since the backend opened.
+    std::uint64_t replacements = 0;         // Linked ones a whole one has replaced.
 };
 
 // One key of the manifest as the backend keeps it: the key with its program's identity in
@@ -918,6 +961,7 @@ struct PipelineManifest {
     std::filesystem::path path;     // The file beside the pipeline cache; empty: none is kept.
     std::vector<ManifestKey> keys;  // Every key, in the order they were added.
     std::unordered_map<std::string, std::size_t> index;  // Key bytes to its place in `keys`.
+    std::uint64_t added = 0;  // Keys added this run, which a save of the manifest would keep.
 };
 
 // The viewports (and scissors) a draw can set at once, which RecordedState can remember; a draw
@@ -1155,7 +1199,13 @@ struct Context {
 
     PipelineTable pipelines;           // Every graphics pipeline, by key (pipeline_for).
     PipelineManifest manifest;         // The keys to make ahead, by program identity (R-10).
-    PipelinePrewarm prewarm;           // The worker that makes them (R-10).
+    PipelinePrewarm prewarm;           // The workers that make them (R-10).
+    PipelineLibraries libraries;       // Parts linked at a draw (vk-pipeline-library).
+    JoiningThread cache_saver;         // A save of the caches on its own thread, if any.
+    std::atomic<bool> cache_saving{false};  // The saver is still writing.
+    // The manifest's keys added and the clock at the last save, for save_pipeline_caches_soon.
+    std::uint64_t saved_keys = 0;
+    Clock::time_point saved_at{};
     SpirvCache spirv_cache;            // What glslang made, kept between runs (R-12).
     PersistentSets persistent_sets;    // Descriptor sets kept across frames (R-14).
     std::uint64_t image_serial = 0;    // The last Image::serial given out.
@@ -1561,6 +1611,12 @@ void load_pipeline_manifest(const std::filesystem::path& cache);
 // off. Call after stop_pipeline_prewarm.
 void save_pipeline_manifest();
 
+// Returns the manifest's entries as save_pipeline_manifest saves them; none with no file kept.
+std::vector<ManifestEntry> manifest_entries();
+
+// Saves `entries` as the manifest at `path`, logging a failure. Any thread: it reads nothing else.
+void write_manifest(const std::filesystem::path& path, std::span<const ManifestEntry> entries);
+
 // Notes program `p`'s identity and queues the manifest's keys of that identity for the pre-warm
 // worker, which it starts if it is not running. For glLinkProgram, once `p` is linked.
 void prewarm_program(Program& p);
@@ -1570,9 +1626,26 @@ void prewarm_program(Program& p);
 // modules and layout go.
 void prewarm_forget(std::uint64_t serial);
 
-// Stops the pre-warm worker and waits for it, and destroys the pipelines it made that no draw
-// took. For the backend's close, before the programs are released.
+// Stops the pre-warm workers and waits for them, and destroys the pipelines and parts they made
+// that no draw took. For the backend's close, before the programs are released.
 void stop_pipeline_prewarm();
+
+// Moves what the workers have made into the tables, if their lock is free: a whole pipeline
+// replaces the one a draw linked for its key (retired once this frame is done). For the start of
+// a frame's recording, so that a retired pipeline waits for this frame's fence.
+void collect_prewarm();
+
+// Destroys the parts of pipelines program `serial` owns (vk-pipeline-library), once the frames
+// that may still draw with what was linked from them are done. For a program's release.
+void release_program_libraries(std::uint64_t serial);
+
+// Destroys every part of pipelines left. For the backend's close, after the device is idle.
+void destroy_pipeline_libraries();
+
+// Saves the manifest and the pipeline cache now, on a thread of its own, if new pipelines were
+// made since the last save; the SPIR-V cache too. For a level's load and every few minutes, so
+// that a run that does not end cleanly (killed, crashed) keeps what it made.
+void save_pipeline_caches_soon(bool spirv);
 
 // ---- Defined in vkgl_pipelines.cpp ----
 

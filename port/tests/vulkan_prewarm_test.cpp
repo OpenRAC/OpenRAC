@@ -9,7 +9,8 @@
 //
 // Each run is a context of its own, opened and closed in turn, on one private pipeline cache file
 // and its manifest (OPENRAC_VULKAN_PIPELINE_CACHE, set before anything reads the environment). The
-// expected counts follow from what each run draws: kStates pipelines of one program.
+// expected counts follow from what each run draws: kStates pipelines of one program. The last
+// test links them from parts (vk-pipeline-library) and compares the picture with the whole ones'.
 
 #include <array>
 #include <cstdint>
@@ -19,6 +20,7 @@
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
@@ -45,13 +47,17 @@ constexpr int kSide = 4;
 // The fragment colours of the two programs: one the first runs build, one a run builds instead.
 constexpr std::string_view kFirstColour = "vec4(0.25, 0.5, 0.75, 1.0)";
 constexpr std::string_view kOtherColour = "vec4(0.75, 0.5, 0.25, 1.0)";
+// The colour of the program the pipeline-library tests build, which no other run builds.
+constexpr std::string_view kLinkedColour = "vec4(0.5, 0.25, 0.75, 0.5)";
 
 // What one run did: the pipelines the worker had made by the first draw, and those the drawing
 // thread made itself while drawing.
 struct RunCounts {
     std::uint64_t made_ahead = 0;     // wait_for_pipeline_prewarm's count once its jobs are done.
     std::uint64_t made_by_draws = 0;  // pipelines_created over the draws.
-    bool ran = false;                 // The context opened on Vulkan.
+    std::uint64_t linked = 0;         // pipelines_linked over the draws (vk-pipeline-library).
+    std::vector<std::uint8_t> pixels;  // The picture the draws left.
+    bool ran = false;                  // The context opened on Vulkan.
 };
 
 // Sets the environment variable `name` to `value` for this process, before anything reads it:
@@ -124,9 +130,12 @@ RunCounts run(std::string_view colour) {
     shader.use();
     counts.made_ahead = vkgl::wait_for_pipeline_prewarm();
     const std::uint64_t before = vkgl::submission_counters().pipelines_created;
+    const std::uint64_t linked_before = vkgl::submission_counters().pipelines_linked;
     draw_states(target);
     counts.made_by_draws = vkgl::submission_counters().pipelines_created - before;
-    CHECK(target.read_rgba().size() == static_cast<std::size_t>(kSide * kSide * 4));
+    counts.linked = vkgl::submission_counters().pipelines_linked - linked_before;
+    counts.pixels = target.read_rgba();
+    CHECK(counts.pixels.size() == static_cast<std::size_t>(kSide * kSide * 4));
     CHECK(vkgl::submission_counters().validation_errors == 0);
     glDeleteVertexArrays(1, &vao);
     counts.ran = true;
@@ -184,6 +193,29 @@ void test_nothing_is_made_ahead_with_the_entry_off() {
     CHECK(off.made_by_draws >= static_cast<std::uint64_t>(kStates));
 }
 
+// Tests that with vk-pipeline-library on, a program's first draws in new states link their
+// pipelines instead of making them, and draw what the whole pipelines draw. Where the device
+// cannot link pipelines fast nothing is linked, and the draws make their own as before.
+void test_new_pipelines_are_linked_from_parts() {
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
+    const RunCounts whole = run(kLinkedColour);
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, true);
+    const RunCounts linked = run(kLinkedColour);
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
+    CHECK(whole.linked == 0);
+    CHECK(linked.pixels == whole.pixels);
+
+    // A device without fast linking: the draws made their pipelines.
+    if (linked.linked == 0) {
+        std::printf("note: the device links no pipelines from parts\n");
+        CHECK(linked.made_by_draws >= static_cast<std::uint64_t>(kStates));
+        return;
+    }
+
+    CHECK(linked.linked >= static_cast<std::uint64_t>(kStates));
+    CHECK(linked.made_by_draws == 0);
+}
+
 }  // namespace
 
 int main() {
@@ -198,6 +230,8 @@ int main() {
     // The entry under test is on, whatever OPENRAC_RENDER_OPT_OFF says (ctest runs the Vulkan set
     // with all entries off too); one test switches it off itself.
     render_opt::set(render_opt::Opt::PipelinePrewarm, true);
+    // The tests of R-10 count whole pipelines: none is linked from parts until the last test.
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
 
     // Without Vulkan nothing below can run.
     if (!test_a_run_s_pipelines_are_made_ahead_in_the_next()) {
@@ -208,6 +242,7 @@ int main() {
     test_nothing_is_made_ahead_with_the_entry_off();
     test_a_manifest_of_a_program_no_longer_built_is_ignored();
     test_a_damaged_manifest_is_ignored(fs::path(cache.string() + ".manifest"));
+    test_new_pipelines_are_linked_from_parts();
     fs::remove_all(folder, ec);
     return openrac::test::result();
 }

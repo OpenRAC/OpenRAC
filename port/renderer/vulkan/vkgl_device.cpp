@@ -25,6 +25,7 @@
 #include "common/cache_folder.h"
 #include "common/env.h"
 #include "common/log.h"
+#include "common/profiler.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/pipeline_cache_file.h"
 #include "renderer/vulkan/vkgl_internal.h"
@@ -182,6 +183,31 @@ bool make_pipeline_cache() {
     return true;
 }
 
+// Saves the pipeline cache's data to `path`; quiet saves (the ones made while the game runs) log
+// only a failure. Any thread: the cache is internally synchronised. False when nothing was saved.
+bool write_cache_data(const std::filesystem::path& path, bool quiet) {
+    std::size_t size = 0;
+    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, nullptr) != VK_SUCCESS
+        || size <= sizeof(VkPipelineCacheHeaderVersionOne)) {
+        return false;
+    }
+    std::vector<char> buffer(size);
+    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, buffer.data()) != VK_SUCCESS) {
+        return false;
+    }
+    buffer.resize(size);
+    std::string error;
+    // Other programs may save the same file now: each saves whole, through a file of its own.
+    if (!write_pipeline_cache(path, buffer, error)) {
+        log::warn("vulkan: could not save the pipeline cache: {}", error);
+        return false;
+    }
+    if (!quiet) {
+        log::info("vulkan: saved {} bytes of pipeline cache to {}", size, path.string());
+    }
+    return true;
+}
+
 void save_pipeline_cache() {
     if (g == nullptr || g->device == VK_NULL_HANDLE || g->pipeline_cache == VK_NULL_HANDLE
         || !g->open) {
@@ -191,26 +217,50 @@ void save_pipeline_cache() {
     if (path.empty()) {
         return;
     }
-    std::size_t size = 0;
-    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, nullptr) != VK_SUCCESS
-        || size <= sizeof(VkPipelineCacheHeaderVersionOne)) {
-        return;
+    if (write_cache_data(path, false)) {
+        remove_other_pipeline_caches(path);
     }
-    std::vector<char> buffer(size);
-    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, buffer.data()) != VK_SUCCESS) {
-        return;
-    }
-    std::string error;
-    // Other programs may save the same file now: each saves whole, through a file of its own.
-    if (!write_pipeline_cache(path, buffer, error)) {
-        log::warn("vulkan: could not save the pipeline cache: {}", error);
-        return;
-    }
-    log::info("vulkan: saved {} bytes of pipeline cache to {}", size, path.string());
-    remove_other_pipeline_caches(path);
 }
 
 }  // namespace
+
+void save_pipeline_caches_soon(bool spirv) {
+    // Closed, no cache kept, or nothing new since the last save.
+    if (g == nullptr || !g->open || g->pipeline_cache == VK_NULL_HANDLE
+        || g->manifest.added == g->saved_keys) {
+        return;
+    }
+
+    const std::filesystem::path path = pipeline_cache_file();
+
+    // No cache file, or a save still writing: the next call saves.
+    if (path.empty() || g->cache_saving.load()) {
+        return;
+    }
+
+    g->saved_keys = g->manifest.added;
+    g->saved_at = Clock::now();
+
+    // What glslang made is saved on this thread, where it is compiled: only at a level's load,
+    // when the level's programs have just been compiled.
+    if (spirv) {
+        std::string error;
+        if (!g->spirv_cache.save(error)) {
+            log::warn("vulkan: could not save the SPIR-V cache: {}", error);
+        }
+    }
+
+    // The manifest as it is now, and the driver's cache as it is when the thread reads it.
+    g->cache_saver.join();
+    g->cache_saving = true;
+    g->cache_saver =
+        JoiningThread([path, entries = manifest_entries(), manifest = g->manifest.path] {
+            profiling::thread_name("Pipeline cache save");
+            write_manifest(manifest, entries);
+            write_cache_data(path, true);
+            g->cache_saving = false;
+        });
+}
 
 // ---- The device, the screen and the frames ----
 
@@ -623,6 +673,54 @@ bool make_device(std::string& error) {
         }
     }
 
+    // Pipelines linked from parts at a draw (vk-pipeline-library), where the device links them
+    // fast. Desktop drivers only for now: the phones' drivers carry the extension unevenly.
+    VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT library{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT
+    };
+    g->libraries.enabled = false;
+#if !defined(__ANDROID__)
+    {
+        std::uint32_t n = 0;
+        vkEnumerateDeviceExtensionProperties(g->physical, nullptr, &n, nullptr);
+        std::vector<VkExtensionProperties> offered(n);
+        vkEnumerateDeviceExtensionProperties(g->physical, nullptr, &n, offered.data());
+        const auto has = [&offered](const char* name) {
+            return std::ranges::any_of(offered, [name](const VkExtensionProperties& e) {
+                return std::strcmp(e.extensionName, name) == 0;
+            });
+        };
+        VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT fast{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT
+        };
+        VkPhysicalDeviceProperties2 asked{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+        asked.pNext = &fast;
+        VkPhysicalDeviceFeatures2 offers{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        offers.pNext = &library;
+        const bool named = has(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME)
+                           && has(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
+        if (named) {
+            vkGetPhysicalDeviceFeatures2(g->physical, &offers);
+            vkGetPhysicalDeviceProperties2(g->physical, &asked);
+        }
+
+        // Linking that is not fast would only move the compile, so it is not taken.
+        if (named && library.graphicsPipelineLibrary == VK_TRUE
+            && fast.graphicsPipelineLibraryFastLinking == VK_TRUE && g->extended_dynamic_state) {
+            extensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+            extensions.push_back(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
+            library = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT};
+            library.graphicsPipelineLibrary = VK_TRUE;
+            library.pNext = f12.pNext;
+            f12.pNext = &library;
+            g->libraries.enabled = true;
+        }
+    }
+#endif
+    log::info(
+        "vulkan: pipelines linked from parts at a draw: {}", g->libraries.enabled ? "yes" : "no"
+    );
+
     VkPhysicalDevicePresentIdFeaturesKHR present_id{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR
     };
@@ -820,8 +918,10 @@ void describe_device() {
 
 void destroy_all() {
     if (g->device != VK_NULL_HANDLE) {
-        // The pre-warm worker stops first: it uses the programs' modules and the cache.
+        // The pre-warm workers stop first: they use the programs' modules and the cache. A save
+        // on its own thread ends before the last one below.
         stop_pipeline_prewarm();
+        g->cache_saver.join();
         vkDeviceWaitIdle(g->device);
         // Teardown drains all slots directly; resource retirement must not begin another recording.
         g->frame_pending = false;
@@ -867,6 +967,7 @@ void destroy_all() {
         for (auto& [key, pipeline] : g->pipelines) {
             vkDestroyPipeline(g->device, pipeline, nullptr);
         }
+        destroy_pipeline_libraries();
         for (auto& [key, sampler] : g->vk_samplers) {
             vkDestroySampler(g->device, sampler, nullptr);
         }

@@ -55,6 +55,7 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
+#include "renderer/gl_warmup.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "renderer/ui/fps_counter.h"
@@ -447,6 +448,8 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     }
     // [debug tools] The renderer's GL calls counted from here on (renderer/gl_stats.h).
     renderer::gl_stats::install(platform::Window::gl_loader());
+    // OpenGL's drawn states noted, to draw them again at each level's load (renderer/gl_warmup.h).
+    renderer::gl_warmup::install(platform::Window::gl_loader());
     log::info("graphics: up to {} samples a pixel, anisotropy up to {:.0f}; the swap {}", 
               renderer::FrameBuffer::max_samples(), renderer::TexturePool::max_anisotropy(),
               g->swap == platform::SwapInterval::Immediate ? "does not wait"
