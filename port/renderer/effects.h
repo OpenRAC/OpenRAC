@@ -24,6 +24,7 @@
 #include <string_view>
 #include <vector>
 
+#include "renderer/gs.h"
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
 
@@ -124,6 +125,10 @@ private:
         std::uint32_t cbp = 0
     );
 
+    // The rest of apply, once the texture is bound: TEX0's TCC and TFX, the texture's alpha scale
+    // (0.5 for a texture whose alpha is 0..255 with 0x80 as 1), ALPHA's blend.
+    void apply_colour_state(const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits);
+
     struct Vertex {
         float x, y, z;
         float s, t;
@@ -141,7 +146,10 @@ private:
         int tcc = -1;
         int tfx = -1;
         float alpha_scale = -1.0f;
+        unsigned offscreen = 0;  // the off-screen target's GL texture bound (kOffscreenHandle)
     } m_applied;
+    // m_applied.texture while an off-screen target's texture is bound (no pool handle is ~0).
+    static constexpr TextureHandle kOffscreenHandle = ~TextureHandle{0};
 
     EffectPart m_part = EffectPart::All;
     Shader m_shader;

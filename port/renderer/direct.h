@@ -153,6 +153,20 @@ inline thread_local bool g_dump_draws = false;
 inline constexpr int kOffscreenPixels = 512;
 inline constexpr int kOffscreenScale = 2;
 
+// The off-screen targets the 2D path has drawn (DirectRenderer), by GS block, with the GL texture
+// each is drawn in: a world quad that samples one (the cockpit screen's picture, Going Commando's
+// level 0 closing scene) is drawn from that texture (renderer/effects.cpp), as the chip reads the
+// block. The texture covers kOffscreenPixels chip pixels across and down, first row on top. Set at
+// the end of each 2D pass, so a quad drawn before it in a frame sees the last frame's picture.
+struct OffscreenTexture {
+    std::uint32_t block = 0;
+    unsigned texture = 0;
+};
+inline std::vector<OffscreenTexture> g_offscreen_textures;
+// Whether world quads sample them (GameProfile::own_mobys_into_narrow_buffers: Going Commando);
+// off, a world quad reads the block from the texture pool as before.
+inline bool g_quads_sample_targets = false;
+
 // The game reading its frame buffer back (sceGsExecStoreImage: the pause and vendor menus keep the
 // frame they open over, and send it back into the frame each frame as image transfers). The port
 // answers the read with the frame it drew, scaled to the chip's pixels (frame_pixel says where each
@@ -185,6 +199,9 @@ bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& fra
 class GifInterpreter {
 public:
     GifInterpreter(TexturePool& textures, DirectConfig config = {});
+
+    // The off-screen targets drawn to and not since overwritten by a transfer (their GS block).
+    const std::vector<std::uint32_t>& offscreen_blocks() const { return m_offscreen; }
 
     // A GIF packet: tags and their data, as the game sends to the chip
     // (PATH3, or DIRECT through VIF1). Returns false if it is malformed;
@@ -444,6 +461,8 @@ private:
     };
     std::vector<std::pair<std::uint32_t, Offscreen>> m_offscreen_targets;
     const Offscreen& offscreen(std::uint32_t block);
+    // Puts the targets drawn to in g_offscreen_textures.
+    void publish_offscreen();
     std::size_t m_vbo_bytes = 0;
     std::string m_last_error;
     std::array<unsigned, 16> m_samplers{};

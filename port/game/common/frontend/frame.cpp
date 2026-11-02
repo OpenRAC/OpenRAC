@@ -133,7 +133,8 @@ std::vector<std::uint8_t> direct_packets(
     std::size_t* first_offscreen = nullptr,
     std::size_t* world_marker = nullptr,
     std::size_t* moby_marker = nullptr,
-    std::vector<QuadMark>* quad_marks = nullptr
+    std::vector<QuadMark>* quad_marks = nullptr,
+    std::vector<std::pair<std::uint32_t, std::uint32_t>>* texture_mobys = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at =
@@ -276,6 +277,8 @@ std::vector<std::uint8_t> direct_packets(
         slot = std::move(image);
         filling = &slot;
     };
+    // Each context's FRAME width in pixels, as the list sets it (the picture's until it does).
+    std::array<std::uint32_t, 2> frame_width{512, 512};
     std::size_t image_left = 0;  // IMAGE data a tag announced that runs on into the next DIRECT
     std::size_t direct_at = 0;   // where the DIRECT being read starts in the 2D data
     const auto track_direct = [&](const std::uint8_t* d, std::size_t size) {
@@ -309,6 +312,17 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
                         case 0x7F:
+                            if ((value >> 48) == renderer::GifInterpreter::kMobyMarker
+                                && texture_mobys != nullptr
+                                && frame_width[(reg_prim >> 9) & 1] < 512) {
+                                // Mobys drawn while the frame is a buffer narrower than the
+                                // picture: into a texture (the cockpit screen's Fizzwidget,
+                                // 256 x 256 at page 0x1DF), whatever their camera's field of view.
+                                texture_mobys->emplace_back(
+                                    static_cast<std::uint32_t>(value),
+                                    static_cast<std::uint32_t>(value >> 32) & 0xFFFFu
+                                );
+                            }
                             if ((value >> 48) == OPENRAC_EFFECT_QUAD_MARKER) {
                                 if (quad_marks != nullptr) {
                                     quad_marks->push_back(
@@ -379,6 +393,8 @@ std::vector<std::uint8_t> direct_packets(
                             break;
                         case 0x4C:
                         case 0x4D:
+                            frame_width[(address & 0xFF) - 0x4C] =
+                                static_cast<std::uint32_t>((value >> 16) & 0x3F) * 64;
                             // A FRAME away from the draw buffer (page 0) and the display buffer (page
                             // 0x70): the first render to a texture.
                             if (first_offscreen != nullptr && *first_offscreen == SIZE_MAX
@@ -1298,10 +1314,22 @@ TickMobys pose_mobys(
                 g->moby_cameras[static_cast<std::size_t>(zoom.camera)].second;
             frame_focal = {narrowest.focal_x, narrowest.focal_y};
         }
+        // Mobys the 2D path drew into a narrow buffer (the last list read: Going Commando's is a
+        // tick behind its mobys): into a texture, whatever their tangent.
+        const auto into_buffer = [&](std::uint32_t address) {
+            return std::any_of(
+                g->texture_mobys.begin(), g->texture_mobys.end(), [&](const auto& range) {
+                    return address >= range.first && address < range.first + range.second * 0x100u;
+                }
+            );
+        };
         for (const auto& [address, camera] : g->moby_cameras) {
-            switch (
-                own_camera_layer(camera.tan_half_fov_x, zoom, frame_focal[0] > 0.0f, under_menu)
-            ) {
+            const OwnCameraLayer layer =
+                g->profile->own_mobys_into_narrow_buffers() && into_buffer(address)
+                        && frame_focal[0] > 0.0f
+                    ? OwnCameraLayer::Texture
+                    : own_camera_layer(camera.tan_half_fov_x, zoom, frame_focal[0] > 0.0f, under_menu);
+            switch (layer) {
                 case OwnCameraLayer::Texture:
                     into_texture.emplace(address, &camera);
                     break;
@@ -1851,6 +1879,8 @@ TickPackets capture_2d_path(
     std::size_t world_marker = SIZE_MAX;
     std::size_t moby_marker = SIZE_MAX;
     std::vector<QuadMark> quad_marks;
+    g->texture_mobys.clear();
+    renderer::g_quads_sample_targets = g->profile->own_mobys_into_narrow_buffers();
     draw_coverage::begin_tick(level, g->index);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
@@ -1862,7 +1892,8 @@ TickPackets capture_2d_path(
         &first_offscreen,
         &world_marker,
         &moby_marker,
-        &quad_marks
+        &quad_marks,
+        &g->texture_mobys
     );
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the

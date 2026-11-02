@@ -1649,6 +1649,7 @@ void DirectRenderer::release() {
         glDeleteTextures(1, &o.texture);
     }
     m_offscreen_targets.clear();
+    g_offscreen_textures.clear();
     if (m_samplers[0] != 0) {
         glDeleteSamplers(16, m_samplers.data());
         m_samplers.fill(0);
@@ -1690,6 +1691,7 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     const stats::Scope draws("2d draws");
     flush(state);
+    publish_offscreen();
 }
 
 const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) {
@@ -1972,6 +1974,17 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     call(static_cast<int>(s.test.atst), false, GL_TRUE, GL_TRUE, GL_TRUE);
     if (s.test.afail != gs::AlphaFail::Keep) {
         call(static_cast<int>(s.test.atst), true, fail_colour, fail_alpha, fail_depth);
+    }
+}
+
+void DirectRenderer::publish_offscreen() {
+    g_offscreen_textures.clear();
+    for (const std::uint32_t block : m_interpreter->offscreen_blocks()) {
+        for (const auto& [b, o] : m_offscreen_targets) {
+            if (b == block) {
+                g_offscreen_textures.push_back({block, o.texture});
+            }
+        }
     }
 }
 

@@ -186,6 +186,14 @@ public:
     // them. Going Commando's Ship Shack draws its ship there, over its grid panel.
     virtual bool own_mobys_split_the_2d() const { return false; }
 
+    // Whether a moby drawn with a camera of its own while the 2D path's frame is a buffer narrower
+    // than the picture goes into that texture whatever its field of view (frontend/frame.cpp's
+    // pose_mobys), rather than only when its view is wider than the frame's: Going Commando's
+    // cockpit screen draws Fizzwidget into a 256 x 256 buffer with the world's own view. Its world
+    // quads that sample such a buffer then draw the picture there (renderer::g_quads_sample_targets),
+    // the screen's quad of block 0x3BE0.
+    virtual bool own_mobys_into_narrow_buffers() const { return false; }
+
     // Whether an image the game sends outside its display list stays over what that tick's list,
     // built before it and replayed after it, puts at the same block: the game reloads a block
     // that the list was still paging into (Going Commando's flight, func_002E80B0).
