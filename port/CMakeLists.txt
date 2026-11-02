@@ -312,7 +312,7 @@ if(OPENRAC_ENHANCED_RENDERING OR OPENRAC_PROBE_BAKER)
 endif()
 
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
-add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
+add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
 if(TARGET openrac_astc_decode)

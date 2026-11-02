@@ -4,6 +4,10 @@
 // is full irradiance, not E/pi. Sampling returns linear E.
 uniform sampler2D probe_irradiance;
 uniform sampler2D probe_moments;
+uniform sampler2D probe_spread;
+uniform sampler2D probe_depth_ranges;
+// Zero reads moments, one local ASTC, two linear RG8 and three curved RG16 UNORM.
+uniform int probe_depth_mode;
 uniform sampler2D probe_metadata;
 uniform vec3 probe_origin;
 uniform vec3 probe_spacing;
@@ -83,6 +87,82 @@ vec2 probe_map_uv(ivec2 tile, vec3 direction) {
     return pixel / vec2(textureSize(probe_irradiance, 0));
 }
 
+
+// Map seam taps to their interior copy before reading independently compressed blocks.
+ivec2 probe_depth_wrap(ivec2 p) {
+    bool x = p.x == 0 || p.x == 7;
+    bool y = p.y == 0 || p.y == 7;
+    if (x && y) return ivec2(p.x == 0 ? 6 : 1, p.y == 0 ? 6 : 1);
+    if (x) return ivec2(p.x == 0 ? 1 : 6, 7 - p.y);
+    if (y) return ivec2(7 - p.x, p.y == 0 ? 1 : 6);
+    return p;
+}
+
+// Retain FP32: local mean differences and the total-variance identity avoid moment cancellation.
+vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance, vec2 atlas_extent) {
+    vec2 oct = probe_oct(direction);
+    if (probe_depth_mode == 0) {
+        // Raw maps share the irradiance atlas extent cached by receiver setup.
+        vec2 pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0 + oct * probe_resolution;
+        vec2 m = texture(probe_moments, pixel / atlas_extent).rg;
+        return vec2(m.x, max(0.0, m.y - m.x * m.x));
+    }
+    vec2 p = .5 + oct * 6.;
+    ivec2 base = ivec2(floor(p));
+    vec2 f = fract(p);
+    vec4 w = vec4((1.-f.x)*(1.-f.y), f.x*(1.-f.y), (1.-f.x)*f.y, f.x*f.y);
+    vec4 mean, spread;
+    vec2 gather_uv = vec2(0);
+    if (probe_depth_mode >= 2) {
+        // RG8 stores exact gutter copies. Center the gather footprint so atlas-coordinate rounding
+        // cannot select different neighbours; retain the original local interpolation fractions.
+        gather_uv = (vec2(tile * 8 + base) + 1.) / atlas_extent;
+        mean = textureGather(probe_moments, gather_uv, 0).wzxy;
+    } else {
+        // Legacy ASTC gutters were fitted independently, so read their interior copies explicitly.
+        for (int i = 0; i < 4; ++i) {
+            ivec2 at = tile * 8 + probe_depth_wrap(base + ivec2(i & 1, i >> 1));
+            mean[i] = texelFetch(probe_moments, at, 0).r;
+            spread[i] = texelFetch(probe_spread, at, 0).r;
+        }
+    }
+    // Native RG16 gathers retain endpoint precision without bit unpacking or extra texture reads.
+    if (probe_depth_mode == 3) {
+        mean = mix(1. - 2. * (1. - mean) * (1. - mean),
+                   2. * mean * mean, lessThanEqual(mean, vec4(.5)));
+    }
+    vec4 ranges = texelFetch(probe_depth_ranges, tile, 0);
+    float average = dot(w, mean);
+    float world_average = ranges.x + ranges.y * average;
+    // The caller applies variance only behind the mean blocker; front receivers need no spread read.
+    if (receiver_distance <= world_average) {
+        return vec2(world_average, 0);
+    }
+    if (probe_depth_mode >= 2) {
+        spread = textureGather(probe_moments, gather_uv, 1).wzxy;
+    }
+    // Decode each spread before applying the law of total variance.
+    if (probe_depth_mode == 3) {
+        spread *= spread;
+    }
+    vec4 delta = mean - vec4(average);
+    vec4 world_mean = vec4(ranges.x) + ranges.y * mean;
+    // Independent scalar quantization must not create impossible variance beyond the ray cap.
+    vec4 within = min(ranges.z * ranges.z * spread * spread,
+                      max(vec4(0), world_mean * (vec4(ranges.w) - world_mean)));
+    float variance = ranges.y * ranges.y * dot(w, delta * delta) + dot(w, within);
+    return vec2(world_average, variance);
+}
+
+// Standalone callers have no receiver setup from which to reuse the atlas extent.
+vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance) {
+    return probe_depth_sample(tile, direction, receiver_distance, vec2(textureSize(probe_irradiance, 0)));
+}
+
+// Diagnostic callers can request the complete distribution independently of receiver visibility.
+vec2 probe_depth_sample(ivec2 tile, vec3 direction) {
+    return probe_depth_sample(tile, direction, 1e30);
+}
 
 vec2 probe_axis(vec2 axis) { return dot(axis,axis)>.5 ? axis : vec2(1,0); }
 vec3 probe_local(vec3 p,vec2 axis) { axis=probe_axis(axis);return vec3(dot(p.xy,axis),dot(p.xy,vec2(-axis.y,axis.x)),p.z); }
@@ -171,15 +251,13 @@ bool sample_probe_grid(
 #ifndef OPENRAC_PROBE_FAST
         if (distance > 1e-6) {
 #ifdef OPENRAC_PROBE_RECEIVER_SETUP
-            vec2 moment_pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0
-                                + probe_oct(delta / distance) * probe_resolution;
-            vec2 moments = texture(probe_moments, moment_pixel / atlas_extent).xy;
+            vec2 moments = probe_depth_sample(tile, delta / distance, distance, atlas_extent);
 #else
-            vec2 moments = texture(probe_moments, probe_map_uv(tile, delta / distance)).xy;
+            vec2 moments = probe_depth_sample(tile, delta / distance, distance);
 #endif
             if (distance > moments.x) {
                 // Preserve open-direction fill; reduce sparse uncertainty only behind the mean blocker.
-                float variance = max(0.0, moments.y - moments.x * moments.x)
+                float variance = moments.y
                                  * (index_offset == 0 ? 0.5 : 1.0);
                 float difference = distance - moments.x;
                 float denominator = variance + difference * difference;

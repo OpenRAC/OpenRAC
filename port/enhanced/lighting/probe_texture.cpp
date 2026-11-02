@@ -25,6 +25,7 @@ unsigned probe_texture_block(ProbeTextureFormat format) {
         case ProbeTextureFormat::R11G11B10:
             return 1;
         case ProbeTextureFormat::Bc6h:
+        case ProbeTextureFormat::Astc4x4:
             return 4;
         case ProbeTextureFormat::Astc8x8:
             return 8;
@@ -55,6 +56,8 @@ const char* probe_texture_name(ProbeTextureFormat format) {
             return "BC6H unsigned HDR";
         case ProbeTextureFormat::Astc8x8:
             return "ASTC 8x8 HDR";
+        case ProbeTextureFormat::Astc4x4:
+            return "ASTC 4x4 LDR";
         case ProbeTextureFormat::Automatic:
             return "automatic";
     }
@@ -84,6 +87,8 @@ ProbeTextureFormat parse_probe_texture_format(std::string_view token) {
 
 const char* probe_texture_token(ProbeTextureFormat format) {
     switch (format) {
+        case ProbeTextureFormat::Astc4x4:
+            throw std::runtime_error("ASTC 4x4 is reserved for probe depth");
         case ProbeTextureFormat::Automatic:
             return "auto";
         case ProbeTextureFormat::R11G11B10:
@@ -184,15 +189,15 @@ private:
 // One decoder owns its codec tables while expanding bounded rows or a complete CPU image.
 class AstcDecoder {
 public:
-    // Decoder-only contexts avoid encoder scratch and use the exact stored HDR profile.
-    AstcDecoder() {
+    // Decoder-only contexts avoid encoder scratch and use the stored colour or scalar-depth profile.
+    explicit AstcDecoder(ProbeTextureFormat format) {
         astcenc_config config{};
 
-        // ASTC HDR uses unsigned RGB and an opaque LDR alpha channel.
+        // Scalar depth uses linear LDR; irradiance retains its unsigned HDR profile.
         if (astcenc_config_init(
-                ASTCENC_PRF_HDR_RGB_LDR_A,
-                8,
-                8,
+                format == ProbeTextureFormat::Astc4x4 ? ASTCENC_PRF_LDR : ASTCENC_PRF_HDR_RGB_LDR_A,
+                probe_texture_block(format),
+                probe_texture_block(format),
                 1,
                 ASTCENC_PRE_FASTEST,
                 ASTCENC_FLG_DECOMPRESS_ONLY,
@@ -299,7 +304,7 @@ std::vector<Float3> decode_probe_texture(
         decode_bc6(width, height, bytes, result);
     } else {
 #if OPENRAC_PROBE_COMPRESSION
-        AstcDecoder decoder;
+        AstcDecoder decoder(format);
         decoder.decode(width, height, bytes, result);
 #else
         throw std::runtime_error("probe compression is unavailable in this build");
@@ -331,8 +336,8 @@ void validate_probe_texture(
     std::unique_ptr<AstcDecoder> astc;
 
     // Reuse ASTC tables across every row of this asset.
-    if (format == ProbeTextureFormat::Astc8x8) {
-        astc = std::make_unique<AstcDecoder>();
+    if (format == ProbeTextureFormat::Astc8x8 || format == ProbeTextureFormat::Astc4x4) {
+        astc = std::make_unique<AstcDecoder>(format);
     }
 
     for (unsigned y = 0; y < height; y += block) {

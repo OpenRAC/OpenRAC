@@ -271,7 +271,9 @@ sample_result[0]=vec4(light,valid?confidence:0.);})";
                 function = code[at + 2];
                 merge = 0;
             }
-            if (names[function].starts_with("sample_probe_grid(")) {
+            // Depth helpers execute per corner even though their calls are in a separate function.
+            const bool depth_sample = names[function].starts_with("probe_depth_sample(");
+            if (names[function].starts_with("sample_probe_grid(") || depth_sample) {
                 if (op == 246) {
                     merge = code[at + 1];
                 }
@@ -284,7 +286,7 @@ sample_result[0]=vec4(light,valid?confidence:0.);})";
                         ++result[0];
                     }
                     if (target.starts_with("probe_oct(")) {
-                        ++result[merge ? 1 : 2];
+                        ++result[depth_sample || merge ? 1 : 2];
                     }
                 }
             }
@@ -307,7 +309,8 @@ sample_result[0]=vec4(light,valid?confidence:0.);})";
         prepared_calls[1],
         prepared_calls[2]
     );
-    CHECK(original_calls[0] == 2 && prepared_calls[0] == 0);
+    // The depth helper computes its octahedral direction once; only irradiance uses the map helper.
+    CHECK(original_calls[0] == 1 && prepared_calls[0] == 0);
     CHECK(prepared_calls[1] == 1 && prepared_calls[2] == 1);
     if (!probe_error.empty()) {
         std::fprintf(stderr, "%s\n", probe_error.c_str());

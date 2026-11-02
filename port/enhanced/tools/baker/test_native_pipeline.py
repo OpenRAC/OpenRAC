@@ -136,9 +136,13 @@ class NativePipeline(unittest.TestCase):
         self.run_bake('--compression', 'bc6h')
         path = self.cache/'level_00'/'sparse.orpg'
         compressed = path.read_bytes()
-        self.assertEqual(struct.unpack_from('<I', compressed, 4)[0], 6)
+        self.assertEqual(struct.unpack_from('<I', compressed, 4)[0], 8)
+        # Identity has a variable byte length; depth and colour tags follow the fixed grid header.
+        identity_bytes = struct.unpack_from('<I', compressed, 12)[0]
+        self.assertEqual(struct.unpack_from('<II', compressed, 96 + identity_bytes), (3, 1))
         self.run_bake('--compression', 'none')
         raw = path.read_bytes()
+        self.assertEqual(struct.unpack_from('<II', raw, 96 + identity_bytes), (3, 0))
         self.assertGreater(len(raw), len(compressed))
         self.assertNotEqual(compressed, raw)
         result = self.run_bake('--compression', 'none')

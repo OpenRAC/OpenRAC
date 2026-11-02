@@ -108,10 +108,19 @@ Format format_of(GLenum internal) {
             return g->features.textureCompressionBC
                        ? Format{VK_FORMAT_BC6H_UFLOAT_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
                        : Format{};
+        case gl::GL_COMPRESSED_RGBA_ASTC_4x4_KHR:
+            return g->features.textureCompressionASTC_LDR
+                       ? Format{VK_FORMAT_ASTC_4x4_UNORM_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
+                       : Format{};
         case gl::GL_COMPRESSED_RGBA_ASTC_8x8_KHR:
             return g->astc_hdr
                        ? Format{VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
                        : Format{};
+        case gl::GL_RG8:
+            return {VK_FORMAT_R8G8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 2};
+        // Native 16-bit UNORM probes retain hardware gathers without custom bit unpacking.
+        case gl::GL_RG16:
+            return {VK_FORMAT_R16G16_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 4};
         case kGlRg32f:
             return {VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8};
         // Temporal reconstruction uses float depth and two-channel half-float motion outputs.

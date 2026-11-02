@@ -567,6 +567,7 @@ bool make_device(std::string& error) {
     features.multiDrawIndirect = g->features.multiDrawIndirect;
     features.multiViewport = g->features.multiViewport;
     features.textureCompressionBC = g->features.textureCompressionBC;
+    features.textureCompressionASTC_LDR = g->features.textureCompressionASTC_LDR;
 #if OPENRAC_ENHANCED_RENDERING
     // Native enhanced compute providers need these optional storage-image operations.
     features.shaderStorageImageExtendedFormats = g->features.shaderStorageImageExtendedFormats;

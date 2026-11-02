@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// HDR texture formats shared by probe files, CPU verification and GPU uploads.
+// GPU texture formats shared by probe files, CPU verification and GPU uploads.
 #pragma once
 
 #include <array>
@@ -17,7 +17,8 @@ enum class ProbeTextureFormat : std::uint32_t {
     R11G11B10 = 0,
     Bc6h = 1,
     Astc8x8 = 2,
-    Automatic = 3
+    Automatic = 3,
+    Astc4x4 = 4  // Linear LDR scalar depth planes, never irradiance.
 };
 // Returns the encoded byte count, rejecting invalid formats and overflowing dimensions.
 std::size_t probe_texture_bytes(ProbeTextureFormat format, unsigned width, unsigned height);

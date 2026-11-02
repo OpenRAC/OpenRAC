@@ -54,11 +54,17 @@ const GLubyte* VKGL get_string(GLenum name) {
     }
 }
 
-// Reports only enabled HDR compression formats so asset uploads can reject incompatible bakes.
+// Reports enabled compression features so asset uploads can select their compatible formats.
 const GLubyte* VKGL get_stringi(GLenum, GLuint index) {
     if (g->features.textureCompressionBC) {
         if (index == 0) {
             return reinterpret_cast<const GLubyte*>("GL_ARB_texture_compression_bptc");
+        }
+        --index;
+    }
+    if (g->features.textureCompressionASTC_LDR) {
+        if (index == 0) {
+            return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_ldr");
         }
         --index;
     }
@@ -92,7 +98,8 @@ void VKGL get_integerv(GLenum name, GLint* data) {
         }
         case GL_NUM_EXTENSIONS:
             *data = static_cast<GLint>(g->features.textureCompressionBC)
-                    + static_cast<GLint>(g->astc_hdr);
+                    + static_cast<GLint>(g->astc_hdr)
+                    + static_cast<GLint>(g->features.textureCompressionASTC_LDR);
             return;
         case GL_MAJOR_VERSION:
             *data = 4;
@@ -561,11 +568,11 @@ void VKGL tex_image_2d(
 
 // Validates block dimensions before allocating staging memory or copying compressed bytes.
 std::size_t compressed_bytes(GLenum format, int width, int height) {
-    const int side = format == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT ? 4 : 8;
+    const int side = format == GL_COMPRESSED_RGBA_ASTC_8x8_KHR ? 8 : 4;
     return std::size_t((width + side - 1) / side) * ((height + side - 1) / side) * 16;
 }
 
-// Allocates the complete single-level HDR atlas used by baked probe textures.
+// Allocates complete single-level compressed colour or scalar depth atlases.
 void VKGL compressed_tex_image_2d(
     GLenum target,
     GLint level,
@@ -586,7 +593,8 @@ void VKGL compressed_tex_image_2d(
     // This path carries complete probe atlases, not generated GL mip chains.
     if (!texture || level != 0 || border != 0 || width <= 0 || height <= 0
         || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
-            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR)
+            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR
+            && internal != GL_COMPRESSED_RGBA_ASTC_4x4_KHR)
         || format.vk == VK_FORMAT_UNDEFINED || size < 0
         || static_cast<std::size_t>(size) != compressed_bytes(internal, width, height)) {
         fail(kGlInvalidEnum);
@@ -623,10 +631,11 @@ void VKGL compressed_tex_sub_image_2d(
     const void* pixels
 ) {
     Texture* texture = bound_texture(target);
-    const int side = internal == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT ? 4 : 8;
+    const int side = internal == GL_COMPRESSED_RGBA_ASTC_8x8_KHR ? 8 : 4;
     if (!texture || !texture->image || !pixels || level != 0 || internal != texture->internal
         || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
-            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR)
+            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR
+            && internal != GL_COMPRESSED_RGBA_ASTC_4x4_KHR)
         || x < 0 || y < 0 || width <= 0 || height <= 0 || size < 0 || x % side || y % side
         || x > texture->image->width || width > texture->image->width - x
         || y > texture->image->height || height > texture->image->height - y

@@ -123,7 +123,8 @@ private:
     bool m_volume_bounds_failed = false;  // Suppresses repeated shader errors until release.
     MedialAxisOverlay m_medial_axis;
     AreaLightOverlay m_area_lights;  // Companion report geometry, owned by the rendering thread.
-    std::array<unsigned, 3> m_textures{};
+    std::array<unsigned, 5> m_textures{};
+    int m_depth_mode = 0;  // Legacy moments, decoded ASTC, native ASTC, or packed RG8 scalars.
     unsigned m_atlas_tiles_x = kMinimumAtlasTilesX;  // Runtime width in probe tiles.
     lighting::ProbeGrid m_grid;
     lighting::Float3 m_sunlight_scale{1, 1, 1};
