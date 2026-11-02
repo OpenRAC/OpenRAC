@@ -79,4 +79,4 @@ allow	tests	viewer extract
 
 # Known violations (docs/restructure/PROGRESS.md names the packages).
 # platform -> renderer/vulkan: the window opens the Vulkan backend itself; no package yet.
-except	platform/window.cpp:26	renderer/vulkan/vkgl.h	no package yet: the renderer should open its backend on the platform's window
+except	platform/window.cpp:27	renderer/vulkan/vkgl.h	no package yet: the renderer should open its backend on the platform's window

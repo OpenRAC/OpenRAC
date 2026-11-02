@@ -300,6 +300,11 @@ struct State {
     platform::SwapInterval swap_asked = platform::SwapInterval::VSync;
     platform::SwapInterval swap = platform::SwapInterval::VSync;
     bool muted = false;
+    // The window was opened for HDR output (the settings' `hdr` was not off): only then can it
+    // be turned on (apply_hdr).
+    bool hdr_at_start = false;
+    // What the window's display said of HDR when apply_hdr last asked (for hdr_status).
+    hdr::Display hdr_display;
     // The tick's own frame was left undrawn this many ticks in a row (frame(): the game is late).
     int skipped = 0;
     // The producer retains the latest captured scene for interpolation; jobs share its immutable storage.
@@ -420,6 +425,9 @@ platform::DisplayMode window_mode(settings::DisplayMode mode);
 // Puts the player's display settings into effect on the window: the display mode, display and
 // fullscreen size, the picture's shape, the swap's wait (frontend/window.cpp).
 void apply_settings();
+// HDR output as the settings and the window's display ask (common/hdr.h): called with
+// apply_settings, at the window's opening and when the display's HDR changes.
+void apply_hdr();
 
 // Handles the window's own events and keys, which the game never sees: true when `event` was one
 // of the keys (frontend/window.cpp).

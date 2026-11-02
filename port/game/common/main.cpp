@@ -554,6 +554,14 @@ int main(int argc, char** argv) {
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
+        // The launcher's HDR (Settings > HDR) for this run, over the file's.
+        if (const std::string_view hdr = env::value(env::Var::Hdr).value_or(""); !hdr.empty()) {
+            if (settings::set_hdr_mode(hdr)) {
+                log::info("HDR output {} (OPENRAC_HDR)", hdr);
+            } else {
+                log::warn("OPENRAC_HDR={}: not off, auto or on, ignored", hdr);
+            }
+        }
         log::header("settings  " + settings::summary(), false);
         // The console's languages game_host.h names (openrac_game_language): 1 English to 5 Italian.
         constexpr int kFirstLanguage = 1;

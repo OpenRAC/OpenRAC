@@ -280,14 +280,34 @@ Image* read_image() {
     return target_of(g->state.read_framebuffer).colour;
 }
 
+// A half float's value (IEEE 754 binary16).
+static float half_to_float(std::uint16_t h) {
+    const int exponent = (h >> 10) & 0x1F;
+    const int mantissa = h & 0x3FF;
+    const float sign = (h & 0x8000) != 0 ? -1.0f : 1.0f;
+    if (exponent == 0) {
+        return sign * std::ldexp(static_cast<float>(mantissa), -24);
+    }
+    if (exponent == 31) {
+        return mantissa != 0 ? NAN : sign * INFINITY;
+    }
+    return sign * std::ldexp(1.0f + static_cast<float>(mantissa) / 1024.0f, exponent - 15);
+}
+
 void VKGL
 read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* pixels) {
     Image* image = read_image();
-    if (image == nullptr || w <= 0 || h <= 0 || format != GL_RGBA || type != GL_UNSIGNED_BYTE
+    // A float frame (an HDR one) is read as bytes, clamped as an 8-bit one's would be, or as
+    // floats (GL_FLOAT).
+    const bool half = image != nullptr && image->format == VK_FORMAT_R16G16B16A16_SFLOAT;
+    if (image == nullptr || w <= 0 || h <= 0 || format != GL_RGBA
+        || (type != GL_UNSIGNED_BYTE && !(half && type == GL_FLOAT))
         || image->samples != VK_SAMPLE_COUNT_1_BIT) {
         fail(kGlInvalidEnum);
         return;
     }
+    const std::size_t texel = half ? 8 : 4;                   // in the image
+    const std::size_t out_texel = type == GL_FLOAT ? 16 : 4;  // in `pixels`
     const int x0 = std::clamp(x, 0, image->width), y0 = std::clamp(y, 0, image->height);
     const int x1 = std::clamp(x + w, x0, image->width), y1 = std::clamp(y + h, y0, image->height);
     if (x1 <= x0 || y1 <= y0) {
@@ -295,7 +315,7 @@ read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, 
     }
     const int cw = x1 - x0, ch = y1 - y0;
     VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    info.size = static_cast<VkDeviceSize>(cw) * static_cast<VkDeviceSize>(ch) * 4;
+    info.size = static_cast<VkDeviceSize>(cw) * static_cast<VkDeviceSize>(ch) * texel;
     info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     VmaAllocationCreateInfo alloc{};
     alloc.usage = VMA_MEMORY_USAGE_AUTO;
@@ -323,16 +343,28 @@ read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, 
     vmaInvalidateAllocation(g->allocator, allocation, 0, VK_WHOLE_SIZE);
     // Rows come as GL gives them, from the bottom: the same rows (vkgl.h, "Rows").
     const int align = std::max(g->state.pack_alignment, 1);
-    const std::size_t pitch = (static_cast<std::size_t>(w) * 4 + align - 1) / align * align;
+    const std::size_t pitch = (static_cast<std::size_t>(w) * out_texel + align - 1) / align * align;
     const auto* src = static_cast<const std::uint8_t*>(got.pMappedData);
     auto* dst = static_cast<std::uint8_t*>(pixels);
     for (int row = 0; row < ch; ++row) {
-        std::memcpy(
-            dst + pitch * static_cast<std::size_t>(row + (y0 - y))
-                + static_cast<std::size_t>(x0 - x) * 4,
-            src + static_cast<std::size_t>(row) * static_cast<std::size_t>(cw) * 4,
-            static_cast<std::size_t>(cw) * 4
-        );
+        std::uint8_t* to = dst + pitch * static_cast<std::size_t>(row + (y0 - y))
+                           + static_cast<std::size_t>(x0 - x) * out_texel;
+        const std::uint8_t* from = src + static_cast<std::size_t>(row) * cw * texel;
+        if (!half) {
+            std::memcpy(to, from, static_cast<std::size_t>(cw) * 4);
+            continue;
+        }
+        for (std::size_t n = 0; n < static_cast<std::size_t>(cw) * 4; ++n) {
+            std::uint16_t bits = 0;
+            std::memcpy(&bits, from + n * 2, 2);
+            const float value = half_to_float(bits);
+            if (type == GL_FLOAT) {
+                std::memcpy(to + n * 4, &value, 4);
+            } else {
+                to[n] =
+                    static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+            }
+        }
     }
     vmaDestroyBuffer(g->allocator, buffer, allocation);
 }
