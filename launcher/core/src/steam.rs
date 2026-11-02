@@ -576,7 +576,10 @@ mod tests {
         assert!(!grid.join(format!("{id}p.jpg")).exists());
         assert_eq!(std::fs::read(grid.join(format!("{id}_hero.jpg"))).unwrap(), b"mine too");
         assert_eq!(std::fs::read(grid.join(format!("{id}.jpg"))).unwrap(), b"wide");
-        assert!(std::fs::read_dir(&grid).unwrap().flatten().all(|e| !e.path().to_string_lossy().ends_with("openrac-new")));
+        assert!(std::fs::read_dir(&grid)
+            .unwrap()
+            .flatten()
+            .all(|e| !e.path().to_string_lossy().ends_with("openrac-new")));
     }
 
     #[test]
@@ -791,9 +794,7 @@ mod tests {
         let Some((_, Value::Map(entries))) = file.iter_mut().find(|(k, _)| is_key(k, "shortcuts")) else {
             panic!("no list")
         };
-        let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, e)| is_ours(e)) else {
-            panic!("no entry")
-        };
+        let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, e)| is_ours(e)) else { panic!("no entry") };
         set(fields, "AllowDesktopConfig", Value::Int(1));
         set(fields, "LaunchOptions", Value::Text(b"--keep".to_vec()));
         let mut bytes = Vec::new();
