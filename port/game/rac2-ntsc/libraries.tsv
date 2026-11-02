@@ -231,3 +231,4 @@ func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untexture
 func_00288FB8	text	TextById	wrap	the text of an id: the title's 16:9 page is the port's Video page, so its name is "Video" there (host/options.c)
 func_0033C2D8	menu	WidescreenPageUpdate	wrap	the title's 16:9 options page: the port's Video rows, moved with the menus' buttons (host/options.c)
 func_0033C378	menu	WidescreenPageDraw	wrap	the title's 16:9 options page: its panel, with the port's Video rows in it (host/options.c)
+func_0029B168	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)

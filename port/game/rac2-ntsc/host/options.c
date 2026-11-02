@@ -15,9 +15,16 @@
  * the music volume (0x001A7B9C) and the sound volume (0x001A7BA0), both 0 to 0x400, the same three
  * words in the same order as Ratchet & Clank's (rac1/host/options.c), under the same keys of the
  * settings file. func_002E4860 hands the volumes to the mixer's groups and the sound's reset
- * (func_002E48E8) both; the remembered values go in before its first run. The language is not
- * remembered here: its word (0x001A7BB4, a byte, set by the menus' action type 9) is set at the start
- * by code still in assembly, not read yet.
+ * (func_002E48E8) both; the remembered values go in before its first run.
+ *
+ * The language (0x001A7BB4, a byte: the game's own index, which the menus' action type 9 sets) holds
+ * its data's value, 0, from the start: no code writes it before a menu does (a watch of it from the
+ * first frame through the title and its menus). The remembered index goes in with the Sound page.
+ *
+ * A loaded save carries all of them: the memory card's load (func_00298F00) copies each block of
+ * the save into its place (func_0029B168, rac1's memcard_restore_data, the table at D_00256138),
+ * the options as block 0x26, 0x28 bytes from 0x001A7B90 (the Sound page at +8, the language at
+ * +0x24). The player's language and Sound page stay, as in rac1.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -32,6 +39,8 @@
 #define SOUND_WORD(i) (SOUND + 4u * (i))
 #define SOUND_PLAYBACK 0u
 #define LOUDEST 0x400
+#define LANGUAGE 0x001A7BB4u
+#define LANGUAGES 6 /* the indexes the sound and text tables have room for (func_002B6120's rows) */
 
 static const char* const sound_keys[SOUND_WORDS] = {"game_playback", "game_music_volume", "game_sound_volume"};
 
@@ -50,6 +59,10 @@ void func_002E48E8(void) {
             if (value >= 0 && (i == SOUND_PLAYBACK || value <= LOUDEST)) {
                 GREF(int, SOUND_WORD(i)) = value;
             }
+        }
+        const int language = openrac_game_option("game_language_index", -1);
+        if (language >= 0 && language < LANGUAGES) {
+            GREF(uint8_t, LANGUAGE) = (uint8_t)language;
         }
     }
     func_002E48E8__game();
@@ -155,13 +168,30 @@ void func_0033C378(gaddr object) {
     }
 }
 
-/* Each frame (tools.c's on_frame): the game's 16:9 off, and the Sound page as the player left it,
- * for the next run, once it has the remembered values. */
+/* A save's blocks into their places (func_0029B168: the memory card's load, func_00298F00, and
+ * func_00298D28 both restore through it), the language and the Sound page kept. */
+int func_0029B168(gaddr save, int slot, gaddr blocks) {
+    const uint8_t language = GREF(uint8_t, LANGUAGE);
+    int sound[SOUND_WORDS];
+    for (unsigned i = 0; i < SOUND_WORDS; ++i) {
+        sound[i] = GREF(int, SOUND_WORD(i));
+    }
+    const int errors = func_0029B168__game(save, slot, blocks);
+    GREF(uint8_t, LANGUAGE) = language;
+    for (unsigned i = 0; i < SOUND_WORDS; ++i) {
+        GREF(int, SOUND_WORD(i)) = sound[i];
+    }
+    return errors;
+}
+
+/* Each frame (tools.c's on_frame): the game's 16:9 off, and the Sound page and the language as the
+ * player left them, for the next run, once they have the remembered values. */
 void rac2_options_frame(void) {
     GREF(uint8_t, WIDESCREEN) = 0;
     if (sound_put) {
         for (unsigned i = 0; i < SOUND_WORDS; ++i) {
             openrac_game_set_option(sound_keys[i], GREF(int, SOUND_WORD(i)));
         }
+        openrac_game_set_option("game_language_index", GREF(uint8_t, LANGUAGE));
     }
 }
