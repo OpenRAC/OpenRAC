@@ -30,6 +30,10 @@ typedef enum openrac_vu0_sine_order {
     OPENRAC_VU0_SINE_NESTED,
     /* (x + c3 x^3) + x^4 ((c5 x + c7 x^3) + c9 x^5): two halves joined by x^4. */
     OPENRAC_VU0_SINE_HALVES,
+    /* The microprogram's own order in the EE's arithmetic (openrac/ps2float.h): the
+     * fold, then x^3 .. x^9 by repeated products with x^2, then the accumulator
+     * x * 1, + c3 x^3, + c5 x^5, + c7 x^7, + c9 x^9, the cosine's pi/2 added first. */
+    OPENRAC_VU0_SINE_EE,
 } openrac_vu0_sine_order;
 
 /* Where a game's sine microprogram lies, and how its port sums the series.

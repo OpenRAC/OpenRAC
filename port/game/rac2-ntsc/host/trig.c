@@ -9,9 +9,9 @@
  * 0xC90, the sine. It folds the angle into [-pi/2, pi/2] with pi - x and
  * -pi - x, then sums the odd series x + c3 x^3 + c5 x^5 + c7 x^7 + c9 x^9 with
  * the constants the program loads through its I register (0xCF0..0xD08).
- * The constants are read from the packet the game itself loaded; the sum is
- * the port's own order of operations, not a matching claim
- * (common/lib/vu0_sine.h).
+ * The constants are read from the packet the game itself loaded, and the sum
+ * runs in the program's own order with the EE's arithmetic
+ * (common/lib/vu0_sine.h, OPENRAC_VU0_SINE_EE).
  */
 #include <stdint.h>
 #include <string.h>
@@ -28,7 +28,7 @@ static const openrac_vu0_sine_program program = {
     .sine_entry = 0xC90u,
     .minus_pi = 0xC98u,
     .series = {0xCF0u, 0xCF8u, 0xD00u, 0xD08u},
-    .order = OPENRAC_VU0_SINE_NESTED,
+    .order = OPENRAC_VU0_SINE_EE,
 };
 
 float func_00283180(float angle) {
