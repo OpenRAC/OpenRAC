@@ -69,7 +69,8 @@ FORMAT = 4
 # texture data's first picture). 15: every paint job of his ship ("ship_paints"), not only the first.
 # 16: each tie's slots before lighting and each tie class's scale, slot normals, slot positions
 # and vertex makeup ("relight"), for the ties the game moves and the point lights light again.
-GAME_FORMATS = {"rac2": 16}
+# 17: each shrub class's 24 normals ("relight"), for the shrubs a point light reaches.
+GAME_FORMATS = {"rac2": 17}
 
 
 def levels_format(game: str) -> int:
@@ -143,6 +144,7 @@ class PortLevelWriter(LevelWriter):
         super().__init__(out, level)
         # Going Commando's tie classes' relighting data (colour_tie_vertices), by class.
         self.tie_relight = {}
+        self.shrub_relight = {}
         self.dir = out / self.name
         # The executable's (cos, sin) table: with it the terrain is lit as the game lights it.
         self.normals = normals
@@ -188,6 +190,12 @@ class PortLevelWriter(LevelWriter):
             # Each instance's 24 colours as LightShrubs leaves them at level load, one per
             # class normal; a vertex takes the one of its normal (_LIGHT_SLOT).
             normals = shrub_class_normals(level)
+            # What the port lights a shrub again from when a point light reaches it or the game
+            # moves it (format 17): the class's 24 normals, with their fourth word.
+            self.shrub_relight = {c: {"normals": [v for j in range(24) for v in unpack(
+                "<4h", level.block(start), unpack("<I", level.block(start), 0x2c)[0] + 8 * j)]}
+                for start, c in (unpack("<II", e) for e in level.table(0x28, 48))
+                if c in shrubs and fmt.world_lighting}
             for p in shrub_placements:
                 lit = light_shrub_instance(normals[p["class_id"]], p["matrix"], p["colour"],
                                            p["directional_lights"], terrain_lights[0])
@@ -245,9 +253,9 @@ class PortLevelWriter(LevelWriter):
 
     def write_objects(self, family: str, classes: dict[int, Mesh], placements: list[dict]) -> None:
         super().write_objects(family, classes, placements)
+        relight = self.tie_relight if family == "tie" else self.shrub_relight if family == "shrub" else {}
         self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb",
-                                         **({"relight": self.tie_relight[c]}
-                                            if family == "tie" and c in self.tie_relight else {})}
+                                         **({"relight": relight[c]} if c in relight else {})}
                                 for c in sorted(classes)}
         self.placements[f"{family}s"] = [placement(p) for p in placements]
 

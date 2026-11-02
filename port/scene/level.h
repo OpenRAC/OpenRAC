@@ -46,8 +46,9 @@ inline constexpr int kManifestFormat = 4;
 // 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
 // ship's hulls in every level; 14 with the chrome and glass maps the game binds; 15 with every paint
 // job of his ship; 16 with what a tie is lit again from when the game moves it or a point light
-// reaches it (its slots before lighting, its class's "relight").
-inline constexpr int kManifestFormatNewest = 16;
+// reaches it (its slots before lighting, its class's "relight"); 17 with each shrub class's normals,
+// for the shrubs a point light reaches.
+inline constexpr int kManifestFormatNewest = 17;
 
 struct Vertex {
     float position[3];
@@ -232,6 +233,16 @@ struct LevelData {
     std::vector<TieRelightClass> tie_relight_classes;
     std::vector<TieRelight> tie_relight;
     std::vector<std::uint32_t> tie_slots;
+    // Going Commando's shrubs, lit again when a point light reaches one or the game moves it
+    // (format 17): the classes' 24 normals (s16 x, y, z, w), and per shrub its class's entry there
+    // (-1 none), its base colour and its light set select (parallel to the shrubs; empty without).
+    struct ShrubRelight {
+        int cls = -1;
+        std::array<std::int32_t, 3> colour{};
+        std::int32_t select = 0;
+    };
+    std::vector<std::array<std::array<std::int16_t, 4>, 24>> shrub_relight_classes;
+    std::vector<ShrubRelight> shrub_relight;
     // The level's 16 directional light sets (manifest "lights"): per set colour A (w = back
     // factor), direction A, colour B, direction B; empty when the export has none.
     std::vector<float> light_sets;
