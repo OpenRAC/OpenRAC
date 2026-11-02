@@ -455,6 +455,24 @@ mod tests {
         }
     }
 
+    /// Going Commando's Play draws from the levels its `port-levels` writes too. It has no level
+    /// check yet, so it waits for the export's own stamp, named after the format: a format bump
+    /// reads its levels again before it starts. (It once named no levels, so a checkout's Play
+    /// looked in the data folder, where nothing was read, and drew no world.)
+    #[test]
+    fn going_commandos_play_waits_for_the_levels_it_draws() {
+        let file = actions::load(&checkout()).unwrap();
+        let scope = Scope::Version("rac2/ntsc".into());
+        let made = file.find(&scope, "port-levels").and_then(|a| a.artifact.clone()).expect("port-levels makes a file");
+        assert!(made.ends_with(".json") && made.contains("/levels-"), "{made}");
+        assert!(file.find(&scope, "port-levels-check").is_none(), "a check now: Play should wait for its stamp");
+        let play = file.find(&scope, "play").unwrap();
+        assert!(play.needs.iter().any(|n| n.path == made), "play does not wait for {made}");
+        let at = play.args.iter().position(|a| a == "--levels").expect("play has no --levels");
+        let dir = play.args[at + 1].trim_start_matches("{root}/");
+        assert!(made.starts_with(&format!("{dir}/")), "play draws from {dir}, the levels are {made}");
+    }
+
     /// NTSC-U's levels are read from its own disc into a folder of their own, checked by its own
     /// program, never over PAL's: the two versions share the game's data folder.
     #[test]
