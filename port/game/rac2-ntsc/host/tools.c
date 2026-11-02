@@ -139,8 +139,11 @@ static void direct_start(void) {
     start_level(openrac_game_start_level);
 }
 
+void rac2_options_frame(void);
+
 static void on_frame(unsigned frame) {
     (void)frame;
+    rac2_options_frame();
     direct_start();
     hold_destination();
 }
