@@ -268,6 +268,7 @@ struct State {
     bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
     MenuMotion menu_motion;         // the desktop's window's scroll and transitions
     int menu_want_tab = -1;         // a menu::Tab to open the window at (F13: Controls); -1 none
+    bool drew_last_frame = false;   // the overlay drew the frame before (ImGui's clock ran)
     Scroll menu_scroll;             // the finger's drag over the drawer's rows
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture

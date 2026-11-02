@@ -414,6 +414,12 @@ void hints(const ImGuiViewport* viewport, float shown) {
     const float h = dp(22.0f);
     float x = viewport->Pos.x + pad_x;
     const float y = viewport->Pos.y + viewport->Size.y - pad_x - h;
+    // One baseline for the caps' letters and the words beside them, with a capital letter
+    // (Inter's are 0.727 of the size) in the caps' middle: the line's box would sit them low.
+    const float baseline = y + h * 0.5f + cap->FontSize * 0.727f * 0.5f;
+    const auto top = [baseline](const ImFont* font) {
+        return baseline - font->Ascent;
+    };
     for (const Hint& hint : list) {
         // Each key of it its own cap.
         std::size_t from = 0;
@@ -422,7 +428,11 @@ void hints(const ImGuiViewport* viewport, float shown) {
             const std::string key = hint.keys.substr(
                 from, space == std::string::npos ? std::string::npos : space - from
             );
-            const ImVec2 size = cap->CalcTextSizeA(cap->FontSize, FLT_MAX, 0.0f, key.c_str());
+            // An arrow in the words' larger letters: the caps' own are too small to read.
+            const bool arrow = key.starts_with("\u2190") || key.starts_with("\u2192");
+            ImFont* letters = arrow ? body : cap;
+            const ImVec2 size =
+                letters->CalcTextSizeA(letters->FontSize, FLT_MAX, 0.0f, key.c_str());
             const float w = std::max(h, size.x + dp(14.0f));
             draw->AddRectFilled(
                 ImVec2(x, y), ImVec2(x + w, y + h), ui_colors::fade(ui().panel_hi, shown), h * 0.5f
@@ -433,10 +443,11 @@ void hints(const ImGuiViewport* viewport, float shown) {
                 ui_colors::fade(ui().line_strong, shown),
                 h * 0.5f
             );
+            const float arrow_y = y + (h - size.y) * 0.5f;
             draw->AddText(
-                cap,
-                cap->FontSize,
-                ImVec2(x + (w - size.x) * 0.5f, y + (h - size.y) * 0.5f),
+                letters,
+                letters->FontSize,
+                ImVec2(x + (w - size.x) * 0.5f, arrow ? arrow_y : top(cap)),
                 ui_colors::fade(ui().gold, shown),
                 key.c_str()
             );
@@ -450,7 +461,7 @@ void hints(const ImGuiViewport* viewport, float shown) {
         draw->AddText(
             body,
             body->FontSize,
-            ImVec2(x + dp(4.0f), y + (h - size.y) * 0.5f),
+            ImVec2(x + dp(4.0f), top(body)),
             ui_colors::fade(ui().soft, shown),
             hint.does
         );

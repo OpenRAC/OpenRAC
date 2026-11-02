@@ -664,18 +664,18 @@ bool event(const SDL_Event& e) {
             }
             if (down && m.back_held && m.start_held
                 && (button == SDL_GAMEPAD_BUTTON_BACK || button == SDL_GAMEPAD_BUTTON_START)) {
+                m.pad = true;
                 toggle_menu();
                 return true;
             }
         }
-        // Whose buttons the menu names at its foot: the controller's, or the keyboard's.
-        if (s.menu_open) {
-            if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
-                || (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && std::abs(e.gaxis.value) > 16000)) {
-                m.pad = true;
-            } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-                m.pad = false;
-            }
+        // Whose buttons the menu names at its foot: the controller's, or the keyboard's. Watched
+        // while it is shut too, so a menu opened from a controller names the controller's.
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
+            || (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && std::abs(e.gaxis.value) > 16000)) {
+            m.pad = true;
+        } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+            m.pad = false;
         }
     }
     // Escape closes the desktop's menu, as B does (menu_window).
@@ -863,6 +863,7 @@ void draw(const Shown& shown) {
     if (!(s.visible || s.enhanced_settings || picker_enabled() || badge || menu_out
           || !s.shot_path.empty())
         || shown.window == nullptr || !initialise(shown.window)) {
+        s.drew_last_frame = false;
         return;
     }
     const stats::Scope scope("overlay");
@@ -893,6 +894,12 @@ void draw(const Shown& shown) {
         ImGui_ImplOpenGL3_NewFrame();
     }
     ImGui_ImplSDL3_NewFrame();
+    // After frames it skipped, ImGui's clock holds the whole gap: a menu opening then would end
+    // in one frame. It starts again from one frame's time.
+    if (!s.drew_last_frame) {
+        ImGui::GetIO().DeltaTime = std::min(ImGui::GetIO().DeltaTime, 1.0f / 60.0f);
+    }
+    s.drew_last_frame = true;
     refresh_scripted_pointer();
     ImGui::NewFrame();
     enhanced_settings_window();
