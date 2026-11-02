@@ -383,7 +383,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | Variable | Value | What it does | Read in |
 | --- | --- | --- | --- |
 | `OPENRAC_SHOT` | `EVERY:PATH` | Writes a PNG of each window frame whose number is a multiple of `EVERY` (a positive decimal) to `PATH<frame>.png`; `PATH` is the text after the first colon, so it is a prefix. Without a colon, or with `EVERY` of 0, nothing is written. Only ticks' own frames are written unless `OPENRAC_SHOT_BETWEEN` is set. | `port/game/common/frontend.cpp` |
-| `OPENRAC_SHOT_BETWEEN` | any (set) | Also writes the frames drawn between ticks, as `PATH<frame>_b<n>.png`. Needs `OPENRAC_SHOT`. | `port/game/common/frontend.cpp` |
+| `OPENRAC_SHOT_BETWEEN` | any (set) | Also writes the frames drawn between ticks, as `PATH<frame>_b<n>.png`. Needs `OPENRAC_SHOT`, a frame rate above Original and a run in real time: with `OPENRAC_UNCAPPED` or `OPENRAC_NO_BLEND` there is one frame a tick, none between, and the log says so. | `port/game/common/frontend/interpolation.cpp` |
 | `OPENRAC_SHOT_FROM` | `FRAME` (decimal) | No tick-path shots before that frame. Default 0. | `port/game/common/frontend.cpp` |
 | `OPENRAC_DUMP_SNAPSHOT` | `FILE.png` | Writes the frame as read back for the game's own screen capture (the snapshot the game requests) to that PNG. | `port/game/common/frontend.cpp` |
 | `OPENRAC_DUMP_RAM` | `FRAME` (decimal) | At that frame, writes the game's 32 MB of main memory to `ram_FRAME.bin` in the working directory. | `port/game/common/frontend.cpp` |
