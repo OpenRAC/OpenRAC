@@ -533,7 +533,9 @@ def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
         ours(output_path(args.out, args.anywhere, replace=True), "port")
         dest = publish(args.out, lambda out: port(args.iso, survey, wanted, args.terrain_lod, max(1, args.jobs), out,
                                                   version.game), args.anywhere, replace=True)
-        print(f"Levels in the port's layout (early access, not playable yet): {dest}")
+        # Going Commando's port draws them (its Play, developer tools on); the other later games' do not yet.
+        state = "early access" if version.game == "rac2" else "early access, not playable yet"
+        print(f"Levels in the port's layout ({state}): {dest}")
         say_output(dest)
     else:
         dest = publish(args.out, lambda out: raw_later(source, args.level[0], out))
