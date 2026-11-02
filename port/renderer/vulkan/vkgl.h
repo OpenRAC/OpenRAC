@@ -250,6 +250,7 @@ struct SubmissionCounters {
     std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
     double shader_compile_s = 0.0;      // The seconds those compiles took.
+    std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
     double pipeline_compile_s = 0.0;    // Driver pipeline creation, including prewarm workers.
     std::uint64_t pipeline_creation_calls =
         0;  // Driver calls, including speculative and failed ones.
@@ -275,6 +276,11 @@ void begin_pipeline_warmup(std::uint32_t frames);
 // garbage (colour 1.0 in every channel, depth 0, stencil 0xA5) instead of being left undefined, so
 // that a later read of it shows in the picture. False when no context is open.
 bool test_poison_discards(bool on);
+
+// Enables test-only reuse of identical compiled programs/layouts; disabled for player launches.
+// Disabling bypasses the pool without discarding its objects; close() releases them.
+// borrow=false retains objects after an independent fresh-driver oracle without reusing them.
+void test_reuse_programs(bool on, bool borrow = true);
 
 // For the tests: draws the copy into the default framebuffer that waits for the present
 // (present-single-copy) into two stand-ins of the screen, B8G8R8A8 at the default framebuffer's

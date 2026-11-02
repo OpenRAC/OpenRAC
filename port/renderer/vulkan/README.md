@@ -57,6 +57,12 @@ Cache readiness stays a shared uniform to keep its fragment branch uniform withi
 Sampler and mip-view identity remain part of each array entry. Non-material shaders retain
 ordinary descriptor bindings.
 
+Rendering tests may explicitly enable `vkgl::test_reuse_programs`. A bounded context-local pool
+retains immutable modules, layouts and pipelines across fresh GL links only when the complete
+SPIR-V and layout modes match. Uniforms and descriptor state always start fresh. The pool is off
+for player launches, bypassed by cache/lifecycle equivalence cases, and released before device
+teardown. The focused support test checks pixel equality, uniform reset and driver-call savings.
+
 ## State and threads
 
 All of the backend's state is one `Context`, reached through `detail::g` (`vkgl_internal.h`): made

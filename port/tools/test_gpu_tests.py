@@ -3,10 +3,29 @@
 """Check GPU test isolation and scheduling: python -m unittest port.tools.test_gpu_tests."""
 
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
 import unittest
+
+
+class EquivalenceOwners(unittest.TestCase):
+    def test_focused_owners_are_required_by_ctest(self):
+        """Routing an option out of the scene must retain its required feature comparison."""
+        port = Path(__file__).resolve().parents[1]
+        policy = (port / 'tests' / 'render_equivalence_policy.h').read_text(encoding='utf-8')
+        owners = set(re.findall(
+            r'std::pair\{renderer::render_opt::Opt::\w+,\s*"([^"]+)"\}', policy))
+        self.assertTrue(owners)
+        cmake = (port / 'cmake' / 'Render.cmake').read_text(encoding='utf-8')
+        required = re.search(r'set\(equivalence_feature_tests\s+(.*?)\)', cmake, re.DOTALL)
+        self.assertIsNotNone(required)
+        providers = set(required.group(1).split())
+        self.assertRegex(cmake, r'set_tests_properties\(render_equivalence_support\b[^)]*'
+                                r'FIXTURES_SETUP\s+render_equivalence_features')
+        providers.add('render_equivalence_support')
+        self.assertEqual(owners, providers)
 
 
 @unittest.skipUnless(shutil.which('cmake') and shutil.which('ctest'), 'CMake and CTest required')

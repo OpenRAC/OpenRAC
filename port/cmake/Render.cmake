@@ -66,6 +66,7 @@ set_tests_properties(render_opt_environment PROPERTIES ENVIRONMENT
   "OPENRAC_RENDER_OPT_OFF=registry-selftest,no-such-optimisation")
 
 openrac_add_test(render_test_shards INCLUDES .)
+openrac_add_test(render_baseline_file INCLUDES .)
 
 # ---- The benchmark and the equivalence harness (tests/render_fixture.h's synthetic scene) ----
 #
@@ -93,17 +94,33 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
   set_tests_properties(render_bench_smoke PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 
+  openrac_add_test(render_equivalence_support
+    DEFINITIONS OPENRAC_VULKAN=1 LIBS openrac_renderer openrac_renderer_vulkan openrac_platform)
+  set_tests_properties(render_equivalence_support PROPERTIES SKIP_RETURN_CODE 77
+    LABELS render-equivalence-focused FIXTURES_SETUP render_equivalence_features ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+
   add_executable(render_equivalence_test tests/render_equivalence_test.cpp)
   target_link_libraries(render_equivalence_test PRIVATE
     openrac_viewer_lib openrac_platform)
   target_compile_definitions(render_equivalence_test PRIVATE OPENRAC_VULKAN=1)
   openrac_warnings(render_equivalence_test)
   # GpuTests gives this process a private, initially empty shader/pipeline cache.
-  add_test(NAME render_equivalence_vulkan COMMAND render_equivalence_test --shard 0 2)
-  add_test(NAME render_equivalence_vulkan_remaining COMMAND render_equivalence_test --shard 1 2)
+  set(equivalence_baselines "${CMAKE_CURRENT_BINARY_DIR}/test-cache/equivalence-baselines.bin")
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test-cache")
+  add_test(NAME render_equivalence_prepare_vulkan
+    COMMAND render_equivalence_test --prepare "${equivalence_baselines}")
+  set_tests_properties(render_equivalence_prepare_vulkan PROPERTIES
+    FIXTURES_SETUP render_equivalence_baselines PROCESSORS 2
+    LABELS render-equivalence SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  add_test(NAME render_equivalence_vulkan
+    COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard 0 2)
+  add_test(NAME render_equivalence_vulkan_remaining
+    COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard 1 2)
   set(openrac_parallel_gpu_tests render_equivalence_vulkan render_equivalence_vulkan_remaining)
   set_tests_properties(${openrac_parallel_gpu_tests} PROPERTIES SKIP_RETURN_CODE 77
-    LABELS render-equivalence ENVIRONMENT
+    LABELS render-equivalence FIXTURES_REQUIRED render_equivalence_baselines ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   if(OPENRAC_ENHANCED_RENDERING)
     add_test(NAME shadow_scroll_vulkan
@@ -165,4 +182,18 @@ if(TARGET openrac_renderer_vulkan)
   #              (tests/spirv_cache_test.cpp); it needs no GPU
   openrac_add_test(spirv_cache LIBS openrac_renderer_vulkan)
   openrac_add_test(shader_precision LIBS openrac_renderer_vulkan)
+endif()
+
+# Required feature owners replace generic scene runs that cannot exercise those paths.
+set(equivalence_feature_tests fsr3_motion fsr3_frame fsr3_sdk motion_blur water_runtime
+  effect_material vulkan_uniform vulkan_present vulkan_present_timing shadow_scroll_vulkan)
+foreach(test IN LISTS equivalence_feature_tests)
+  if(TEST "${test}" AND TEST render_equivalence_vulkan)
+    set_property(TEST "${test}" APPEND PROPERTY FIXTURES_SETUP render_equivalence_features)
+    set_property(TEST "${test}" APPEND PROPERTY LABELS render-equivalence-focused)
+  endif()
+endforeach()
+if(TEST render_equivalence_vulkan)
+  set_property(TEST render_equivalence_vulkan render_equivalence_vulkan_remaining APPEND PROPERTY
+    FIXTURES_REQUIRED render_equivalence_features)
 endif()
