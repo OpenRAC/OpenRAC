@@ -154,8 +154,8 @@ anything, the launcher shows the mods, their author, and whether this
 computer's game can run them. Links you already added from are listed under
 the field: one click reads that repository again.
 
-- A gameplay mod is installed from its release `.zip`, and only when
-  `SHA256SUMS` lists the same hash. Nothing is compiled locally.
+- A gameplay mod is installed from its release `.zip`, and only when GitHub's
+  digest or `SHA256SUMS` gives the same hash. Nothing is compiled locally.
 - A script mod is its release `.zip` or the repository's files.
 - A texture and model pack comes from the repository and goes to the packs.
   Packs also work from other git hosts if git is installed.

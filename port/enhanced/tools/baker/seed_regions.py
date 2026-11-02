@@ -141,7 +141,7 @@ def coarse_header(path: Path) -> dict:
     with path.open('rb') as source:
         header = source.read(256)
     magic, version = struct.unpack_from('<2I', header)
-    if magic != 0x5047524f or version != 6:
+    if magic != 0x5047524f or version not in (6, 7, 8):
         raise ValueError("unsupported sparse asset header")
     bake_version = struct.unpack_from('<I', header, 8)[0]
     name_at = 16

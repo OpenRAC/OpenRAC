@@ -15,6 +15,7 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/lighting/probe_depth.h"
 #include "enhanced/renderer/local_lights.h"
 #include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/viewer/early_lighting.h"
@@ -40,10 +41,37 @@ constexpr ProbeTextureFormat kProbeFormats[] = {
     {GL_R11F_G11F_B10F, GL_RGB, GL_UNSIGNED_INT_10F_11F_11F_REV},
     {GL_RG32F, GL_RG, GL_FLOAT},
     {GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT},
+    {GL_RG32F, GL_RG, GL_FLOAT},
+    {GL_RGBA32F, GL_RGBA, GL_FLOAT},
 };
 // Caps dense probe textures independently of the device's maximum atlas dimensions.
 constexpr std::size_t kDenseResidencyBudget = 256ull * 1024 * 1024;
 constexpr unsigned kFirstUnit = 3;
+// Stored layout and device capability select one of these upload/sampling modes.
+constexpr std::array<const char*, 5> kProbeDepthNames{
+    "RG32F moments",
+    "decoded ASTC moments",
+    "ASTC 4x4 mean/spread",
+    "RG8 mean/spread",
+    "RG16 UNORM mean/spread"
+};
+// The final two units are reserved for compressed depth spread and FP32 ranges.
+constexpr std::array<unsigned, 5> kProbeUnits{3, 4, 5, 30, 31};
+
+// Selects the native scalar width while preserving legacy moment and irradiance uploads.
+ProbeTextureFormat upload_format(unsigned plane, int depth_mode) {
+    // Only interleaved native depth formats change the original upload contract.
+    if (plane != 1 || depth_mode < 3) {
+        return kProbeFormats[plane];
+    }
+
+    // Sixteen-bit channels use the same gather path as legacy eight-bit channels.
+    if (depth_mode == 4) {
+        return {GL_RG16, GL_RG, GL_UNSIGNED_SHORT};
+    }
+
+    return {GL_RG8, GL_RG, GL_UNSIGNED_BYTE};
+}
 
 // Returns the value `var` was set to, or the empty string when it is unset: the probe GI's reads
 // take the two alike.
@@ -170,8 +198,20 @@ bool ProbeLighting::upload_regions(
             throw std::runtime_error("no probe texture capacity");
         }
         const auto colour_internal = lighting::probe_texture_internal(volume.colour_format);
+        // Unsupported devices reconstruct moments once on load, retaining the original hardware filter.
+        m_depth_mode = 0;
+        if (volume.depth_format == ProbeDepthFormat::Astc4x4) {
+            m_depth_mode = gl::has_extension("GL_KHR_texture_compression_astc_ldr") ? 2 : 1;
+        } else if (volume.depth_format == ProbeDepthFormat::Rg8) {
+            m_depth_mode = 3;
+        }
+        // Native RG16 shares the interleaved gather path with higher component precision.
+        if (volume.depth_format == ProbeDepthFormat::Rg16) {
+            m_depth_mode = 4;
+        }
         for (const auto& region : regions) {
-            if (region.colour_format != volume.colour_format) {
+            if (region.colour_format != volume.colour_format
+                || region.depth_format != volume.depth_format) {
                 throw std::runtime_error(
                     "probe volumes use different texture formats; rebake lighting"
                 );
@@ -190,8 +230,11 @@ bool ProbeLighting::upload_regions(
         }
         std::string compute_error;
         const auto side = volume.grid.map_resolution + 2;
-        const auto probe_bytes = lighting::probe_texture_bytes(volume.colour_format, side, side)
-                                 + 8ull * side * side + 8;
+        // Interleaved RG16 doubles the two-byte RG8 texel without changing range records.
+        const std::size_t scalar_bytes = m_depth_mode == 4 ? 4 : 2;
+        const auto probe_bytes =
+            lighting::probe_texture_bytes(volume.colour_format, side, side)
+            + (m_depth_mode >= 2 ? scalar_bytes * side * side + 16 : 8ull * side * side) + 8;
         const auto resident_bytes = total_regions * probe_bytes;
         if (resident_bytes <= kDenseResidencyBudget) {
             m_full_residency = m_selection.prepare(m_region_grids, m_region_offsets, compute_error);
@@ -234,16 +277,37 @@ bool ProbeLighting::upload_regions(
         if (rows * side > static_cast<unsigned>(limit)) {
             throw std::runtime_error("probe atlas exceeds GPU capacity");
         }
-        glGenTextures(3, m_textures.data());
-        for (unsigned i = 0; i < 3; ++i) {
-            glActiveTexture(GL_TEXTURE0 + kFirstUnit + i);
+        const unsigned maps = m_depth_mode >= 2 ? 5 : 3;
+        glGenTextures(static_cast<GLsizei>(maps), m_textures.data());
+        for (unsigned i = 0; i < maps; ++i) {
+            // RG8 interleaves spread with mean; the spare texture name needs no backing image.
+            if (m_depth_mode >= 3 && i == 3) {
+                continue;
+            }
+            glActiveTexture(GL_TEXTURE0 + kProbeUnits[i]);
             glBindTexture(GL_TEXTURE_2D, m_textures[i]);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, i == 2 ? GL_NEAREST : GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, i == 2 ? GL_NEAREST : GL_LINEAR);
+            glTexParameteri(
+                GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (i == 2 || i == 4) ? GL_NEAREST : GL_LINEAR
+            );
+            glTexParameteri(
+                GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (i == 2 || i == 4) ? GL_NEAREST : GL_LINEAR
+            );
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-            if (i == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10) {
+            if (m_depth_mode == 2 && (i == 1 || i == 3)) {
+                // Each scalar uses independent four-texel blocks, with canonical tile alignment.
+                glCompressedTexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    GL_COMPRESSED_RGBA_ASTC_4x4_KHR,
+                    static_cast<GLsizei>(width),
+                    static_cast<GLsizei>(rows * side),
+                    0,
+                    static_cast<GLsizei>(width * rows * side),
+                    nullptr
+                );
+            } else if (i == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10) {
                 glCompressedTexImage2D(
                     GL_TEXTURE_2D,
                     0,
@@ -260,12 +324,12 @@ bool ProbeLighting::upload_regions(
                 glTexImage2D(
                     GL_TEXTURE_2D,
                     0,
-                    kProbeFormats[i].internal,
-                    static_cast<GLsizei>(i == 2 ? m_atlas_tiles_x : width),
-                    static_cast<GLsizei>(i == 2 ? rows : rows * side),
+                    upload_format(i, m_depth_mode).internal,
+                    static_cast<GLsizei>(i == 2 || i == 4 ? m_atlas_tiles_x : width),
+                    static_cast<GLsizei>(i == 2 || i == 4 ? rows : rows * side),
                     0,
                     kProbeFormats[i].source,
-                    kProbeFormats[i].type,
+                    upload_format(i, m_depth_mode).type,
                     nullptr
                 );
             }
@@ -278,9 +342,10 @@ bool ProbeLighting::upload_regions(
         m_sparse_capacity = volume.atlas_capacity();
         upload_volume(volume, 0);
         log::info(
-            "probe textures: {} irradiance, RG32F moments, RGBA16F metadata; {}x{}, {} "
+            "probe textures: {} irradiance, {} depth, RGBA16F metadata; {}x{}, {} "
             "bytes",
             lighting::probe_texture_name(volume.colour_format),
+            kProbeDepthNames[static_cast<std::size_t>(m_depth_mode)],
             width,
             rows * side,
             (m_atlas_tiles_x * rows) * probe_bytes
@@ -327,16 +392,30 @@ bool ProbeLighting::upload_regions(
 void ProbeLighting::upload_volume(const lighting::ProbeVolume& volume, std::size_t offset) {
     const auto side = volume.grid.map_resolution + 2;
     // Place complete baked rows side by side without decoding or rearranging their bytes.
-    for (unsigned map = 0; map < 3; ++map) {
-        glActiveTexture(GL_TEXTURE0 + kFirstUnit + map);
+    std::vector<Float2> expanded;
+    if (m_depth_mode == 1) {
+        expanded = decode_probe_depth_moment_atlas(volume);
+    }
+    for (unsigned map = 0; map < (m_depth_mode >= 2 ? 5u : 3u); ++map) {
+        glActiveTexture(GL_TEXTURE0 + kProbeUnits[map]);
         glBindTexture(GL_TEXTURE_2D, m_textures[map]);
-        const unsigned scale = map == 2 ? 1 : side;
-        const auto plane = volume.gpu_plane(map);
+        const unsigned scale = map == 2 || map == 4 ? 1 : side;
+        auto plane = volume.gpu_plane(map);
+        if (map == 1 && m_depth_mode == 1) {
+            plane =
+                {reinterpret_cast<const std::uint8_t*>(expanded.data()),
+                 expanded.size() * sizeof(Float2)};
+        }
+        // Interleaved RG8 has no separate spread plane.
+        if (plane.empty()) {
+            continue;
+        }
         const std::size_t row_bytes = plane.size() / volume.atlas_rows();
         // Each source row contains complete probe tiles, including their gutters and padding.
         for (std::size_t row = 0; row < volume.atlas_rows(); ++row) {
             const std::size_t tile = offset + row * lighting::kProbeAtlasTilesX;
-            if (map == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10) {
+            if ((map == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10)
+                || (m_depth_mode == 2 && (map == 1 || map == 3))) {
                 glCompressedTexSubImage2D(
                     GL_TEXTURE_2D,
                     0,
@@ -344,7 +423,8 @@ void ProbeLighting::upload_volume(const lighting::ProbeVolume& volume, std::size
                     static_cast<GLint>(tile / m_atlas_tiles_x * scale),
                     static_cast<GLsizei>(lighting::kProbeAtlasTilesX * scale),
                     static_cast<GLsizei>(scale),
-                    lighting::probe_texture_internal(volume.colour_format),
+                    map == 0 ? lighting::probe_texture_internal(volume.colour_format)
+                             : GL_COMPRESSED_RGBA_ASTC_4x4_KHR,
                     static_cast<GLsizei>(row_bytes),
                     plane.data() + row * row_bytes
                 );
@@ -357,7 +437,7 @@ void ProbeLighting::upload_volume(const lighting::ProbeVolume& volume, std::size
                     static_cast<GLsizei>(lighting::kProbeAtlasTilesX * scale),
                     static_cast<GLsizei>(scale),
                     kProbeFormats[map].source,
-                    kProbeFormats[map].type,
+                    upload_format(map, m_depth_mode).type,
                     plane.data() + row * row_bytes
                 );
             }
@@ -672,6 +752,9 @@ void ProbeLighting::bind(
     glUniform1i(shader.uniform("probe_irradiance"), kFirstUnit);
     glUniform1i(shader.uniform("probe_moments"), kFirstUnit + 1);
     glUniform1i(shader.uniform("probe_metadata"), kFirstUnit + 2);
+    glUniform1i(shader.uniform("probe_depth_mode"), std::max(0, m_depth_mode - 1));
+    glUniform1i(shader.uniform("probe_spread"), kProbeUnits[3]);
+    glUniform1i(shader.uniform("probe_depth_ranges"), kProbeUnits[4]);
     if (!active() || !receiver) {
         return;
     }
@@ -727,9 +810,10 @@ void ProbeLighting::bind(
             static_cast<int>(region_offset(slot, selected.region))
         );
     }
-    for (unsigned i = 0; i < 3; ++i) {
-        glActiveTexture(GL_TEXTURE0 + kFirstUnit + i);
-        glBindTexture(GL_TEXTURE_2D, m_textures[i]);
+    for (unsigned i = 0; i < m_textures.size(); ++i) {
+        glActiveTexture(GL_TEXTURE0 + kProbeUnits[i]);
+        // An unused spread sampler aliases valid RG8 data without another image allocation.
+        glBindTexture(GL_TEXTURE_2D, m_depth_mode >= 3 && i == 3 ? m_textures[1] : m_textures[i]);
     }
     glActiveTexture(GL_TEXTURE0);
 }
@@ -898,9 +982,10 @@ void ProbeLighting::release() {
     sphere_xray = false;
     all_volume_bounds = false;
     if (m_textures[0]) {
-        glDeleteTextures(3, m_textures.data());
+        glDeleteTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
     }
     m_textures = {};
+    m_depth_mode = 0;
     m_sparse_capacity = 0;
     m_atlas_tiles_x = kMinimumAtlasTilesX;
     m_regions.clear();

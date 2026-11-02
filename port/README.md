@@ -121,8 +121,8 @@ with OpenGOAL's and ReRAC's.
 
 The controls are files of their own, `<data home>/openrac/controls/` (`--controls
 DIR` names another folder): every game's, and each game's own over them, with
-which controller each player is. F13 opens a window in the game that changes
-them; [docs/port/CONTROLS.md](../docs/port/CONTROLS.md) says what they hold.
+which controller each player is. The menu's Controls tab (F13 opens it there)
+changes them; [docs/port/CONTROLS.md](../docs/port/CONTROLS.md) says what they hold.
 
 In Ratchet & Clank (PAL) they are the rows of the title menu's Options,
 Video page, drawn by the game's widgets

@@ -305,6 +305,7 @@ function(openrac_add_game config)
                                        "${OPENRAC_GAME_DIR}/common/debug_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/exit_menu.cpp"
+                                       "${OPENRAC_GAME_DIR}/common/menu_catalog.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_ui.cpp"
                                        "${OPENRAC_GAME_DIR}/common/options_menu.cpp"
@@ -337,6 +338,9 @@ function(openrac_add_game config)
       # The window's icon: the game's own or the launcher's, embedded as PNG bytes.
       openrac_window_icon("${config_dir}" "${target_id}" icon_c)
       target_sources(${target} PRIVATE "${icon_c}")
+      # The in-game menu's typefaces (debug/menu_ui.cpp).
+      openrac_menu_fonts(fonts_c)
+      target_sources(${target} PRIVATE "${fonts_c}")
       # The game's name as players see it, in the window's title and on macOS its bundle's name
       # (cmake/MacApp.cmake): the title in its catalogue entry (games/<game>/game.json) and the
       # version's video standard, "Ratchet & Clank (PAL)", "Ratchet & Clank (NTSC)".
@@ -387,6 +391,29 @@ function(openrac_window_icon game_dir target_id out)
 const unsigned char openrac_icon_png[] = {${bytes}};
 const unsigned int openrac_icon_png_size = ${size}u;
 ")
+  set(${out} "${c}" PARENT_SCOPE)
+endfunction()
+
+# The in-game menu's typefaces as C++ arrays (openrac_font_<name>, openrac_font_<name>_size), from
+# game/common/fonts/ (its README.md says where they come from).
+function(openrac_menu_fonts out)
+  set(c "${CMAKE_BINARY_DIR}/generated/openrac_menu_fonts.cpp")
+  set(dir "${OPENRAC_GAME_DIR}/common/fonts")
+  set(content "/* Generated from ${dir} by cmake/Games.cmake. */\n")
+  foreach(pair IN ITEMS "inter:Inter-Regular.ttf" "inter_semibold:Inter-SemiBold.ttf"
+                        "orbitron:Orbitron.ttf")
+    string(REPLACE ":" ";" pair "${pair}")
+    list(GET pair 0 name)
+    list(GET pair 1 file)
+    set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dir}/${file}")
+    file(READ "${dir}/${file}" hex HEX)
+    string(LENGTH "${hex}" n)
+    math(EXPR size "${n} / 2")
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+    string(APPEND content "extern const unsigned char openrac_font_${name}[] = {${bytes}};\n"
+                          "extern const unsigned int openrac_font_${name}_size = ${size}u;\n")
+  endforeach()
+  file(CONFIGURE OUTPUT "${c}" CONTENT "${content}")
   set(${out} "${c}" PARENT_SCOPE)
 endfunction()
 

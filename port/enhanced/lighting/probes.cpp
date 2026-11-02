@@ -195,8 +195,8 @@ ProbeVolume read_probe_header(std::vector<std::uint8_t> bytes) {
 
     const auto format = reader.u32();
 
-    // Only the current GPU plane layout is supported.
-    if (format != kProbeFormatVersion) {
+    // Version six retains its raw depth layout; older assets require a rebake.
+    if (format != kProbeFormatVersion && format != 6 && format != 7) {
         invalid("unsupported probe file version; rebake with this version of the baker");
     }
 
@@ -209,15 +209,16 @@ ProbeVolume read_probe_header(std::vector<std::uint8_t> bytes) {
         invalid("unsupported probe atlas layout; rebake this level");
     }
 
+    // Version six predates the optional ASTC depth layout.
+    if (format >= 7) {
+        volume.depth_format = static_cast<ProbeDepthFormat>(reader.u32());
+    }
     volume.colour_format = static_cast<ProbeTextureFormat>(reader.u32());
-    const auto side = grid.map_resolution + 2;
-    const auto colour_size = probe_texture_bytes(
-        volume.colour_format,
-        kProbeAtlasTilesX * side,
-        static_cast<unsigned>(volume.atlas_rows()) * side
-    );
-    const auto expected =
-        colour_size + product(volume.atlas_capacity(), product(grid.texels_per_probe(), 8) + 8);
+    const auto sizes = volume.plane_sizes();
+    std::size_t expected = 0;
+    for (const auto size : sizes) {
+        expected += size;
+    }
 
     // Reject truncation and trailing bytes before accessing any packed texel.
     if (bytes.size() - reader.offset != expected) {
@@ -323,6 +324,10 @@ void ProbeVolume::validate() const {
 
     grid.validate();
     const auto count = product(grid.probe_count(), grid.texels_per_probe());
+    // A decoded field cannot advertise physical ASTC planes that it does not own.
+    if (gpu_bytes.empty() && depth_format != ProbeDepthFormat::Moments) {
+        invalid("decoded probe field has a compressed depth tag");
+    }
 
     if (probes.size() != grid.probe_count()
         || (gpu_bytes.empty() ? (irradiance.size() != count || distance_moments.size() != count)
@@ -666,9 +671,9 @@ std::optional<ProbeSample> sample_probe_volumes(
     return result;
 }
 
-std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
-    const profiling::Zone timing("Encode probe asset");
-
+std::vector<std::uint8_t> encode_probe_header(
+    const ProbeVolume& v, ProbeTextureFormat colour, ProbeDepthFormat depth
+) {
     v.validate();
     std::vector<std::uint8_t> out;
     write_u32(out, kMagic);
@@ -684,6 +689,7 @@ std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
     write_u64(out, v.grid.scene_hash);
     write_u64(out, v.grid.settings_hash);
 
+    // Supported asset revisions store origin before the upright frame and spacing.
     for (float x : v.grid.origin) {
         write_float(out, x);
     }
@@ -696,21 +702,29 @@ std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
         write_float(out, x);
     }
 
-    for (auto x : v.grid.dimensions) {
-        write_u32(out, x);
+    for (std::uint32_t dimension : v.grid.dimensions) {
+        write_u32(out, dimension);
     }
 
     write_u32(out, v.grid.map_resolution);
     write_float(out, v.grid.max_distance);
     write_u32(out, kProbeAtlasTilesX);
     write_u32(out, static_cast<std::uint32_t>(v.atlas_rows()));
-    write_u32(out, static_cast<std::uint32_t>(v.colour_format));
+    write_u32(out, static_cast<std::uint32_t>(depth));
+    write_u32(out, static_cast<std::uint32_t>(colour));
+
+    return out;
+}
+
+std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
+    const profiling::Zone timing("Encode probe asset");
+    auto out = encode_probe_header(v, v.colour_format, v.depth_format);
 
     if (v.gpu_bytes.empty()) {
         const auto planes = pack_probe_planes(v);
         out.insert(out.end(), planes.begin(), planes.end());
     } else {
-        for (unsigned i = 0; i < 3; ++i) {
+        for (unsigned i = 0; i < v.plane_sizes().size(); ++i) {
             const auto plane = v.gpu_plane(i);
             out.insert(out.end(), plane.begin(), plane.end());
         }
@@ -737,6 +751,7 @@ ProbeVolume decode_probes(std::span<const std::uint8_t> bytes) {
     volume.gpu_bytes = std::vector<std::uint8_t>{};
     volume.gpu_offset = 0;
     volume.colour_format = ProbeTextureFormat::R11G11B10;
+    volume.depth_format = ProbeDepthFormat::Moments;
     volume.validate();
 
     return volume;

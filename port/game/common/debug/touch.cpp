@@ -9,11 +9,14 @@
 #include <cfloat>
 #include <cmath>
 #include <imgui.h>
-#include <imgui_internal.h>  // ImGui::ClearActiveID: a finger that scrolls lets go of what it pressed
+// ImGui::ClearActiveID: a finger that scrolls lets go of what it pressed; FindHoveredWindowEx.
+#include <imgui_internal.h>
+#include <optional>
 
 #include <SDL3/SDL.h>
 
 #include "common/env.h"
+#include "debug/menu_ui.h"
 #include "debug/overlay.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -34,16 +37,30 @@ bool on_edit_bar(const SDL_TouchFingerEvent& f) {
 }
 
 // A finger, at its place in the window, as ImGui's pointer.
-void pointer_at(const SDL_TouchFingerEvent& f) {
+// A finger's place in ImGui's coordinates (the window's), or none without its window.
+std::optional<ImVec2> finger_point(const SDL_TouchFingerEvent& f) {
     SDL_Window* window = SDL_GetWindowFromID(f.windowID);
     int w = 0;
     int h = 0;
     if (window == nullptr || !SDL_GetWindowSize(window, &w, &h)) {
-        return;
+        return std::nullopt;
     }
-    ImGuiIO& io = ImGui::GetIO();
-    io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
-    io.AddMousePosEvent(f.x * static_cast<float>(w), f.y * static_cast<float>(h));
+    return ImVec2(f.x * static_cast<float>(w), f.y * static_cast<float>(h));
+}
+
+void pointer_at(const SDL_TouchFingerEvent& f) {
+    if (const std::optional<ImVec2> at = finger_point(f)) {
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
+        io.AddMousePosEvent(at->x, at->y);
+    }
+}
+
+// Whether one of the overlay's windows (the debug panel, an inspector) is under `at`.
+bool on_overlay_window(ImVec2 at) {
+    ImGuiWindow* window = nullptr;
+    ImGui::FindHoveredWindowEx(at, false, &window, nullptr);
+    return window != nullptr;
 }
 
 }  // namespace
@@ -96,32 +113,14 @@ void drag_scroll(Scroll& scroll) {
 
 // ---- The drawer ----
 
-// Opening it pauses the game, as an emulator's menu does; shutting it leaves the game as its "Keep
-// paused" row says (paused as before it opened, unless changed there).
-void set_drawer(bool open) {
-    if (open == s.drawer_open) {
-        return;
-    }
-    s.drawer_open = open;
-    if (open) {
-        s.keep_paused = s.paused;
-        s.paused = true;
-        s.held_frames = 0;
-        s.drawer_focus = true;
-        s.drawer_scroll.velocity = 0.0f;  // a flick from the last time does not glide on
-    } else {
-        s.paused = s.keep_paused;
-    }
-}
-
-// Starts or ends the editing of the on-screen pad's layout: the drawer shuts, and the game stays
+// Starts or ends the editing of the on-screen pad's layout: the menu shuts, and the game stays
 // paused until it ends.
 void edit_touch(bool on) {
     if (on == s.touch_editing) {
         return;
     }
     if (on) {
-        set_drawer(false);
+        set_menu(false);
         s.keep_paused = s.paused;
         s.paused = true;
         s.held_frames = 0;
@@ -144,14 +143,14 @@ bool drawer_event(const SDL_Event& e) {
             }
             if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
                 // Back ends the layout's editing, as Done does.
-                s.touch_editing ? edit_touch(false) : set_drawer(!s.drawer_open);
+                s.touch_editing ? edit_touch(false) : set_menu(!s.menu_open);
             }
             return true;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
             if (e.gbutton.button != SDL_GAMEPAD_BUTTON_GUIDE) {
                 return false;
             }
-            s.touch_editing ? edit_touch(false) : set_drawer(!s.drawer_open);
+            s.touch_editing ? edit_touch(false) : set_menu(!s.menu_open);
             return true;
         case SDL_EVENT_MOUSE_MOTION:
             return e.motion.which == SDL_TOUCH_MOUSEID;
@@ -164,14 +163,22 @@ bool drawer_event(const SDL_Event& e) {
             if (e.tfinger.touchID == SDL_MOUSE_TOUCHID || !s.initialised) {
                 return false;
             }
+            const ImVec2 at = finger_point(e.tfinger).value_or(ImVec2(-FLT_MAX, -FLT_MAX));
+            // A notification takes a tap on it (debug/notifications.cpp).
+            if (!s.menu_open && press_notification(at)) {
+                s.taken.push_back(e.tfinger.fingerID);
+                return true;
+            }
             const bool on_bar = on_edit_bar(e.tfinger);
-            if (!s.pointer_down && (s.drawer_open || s.visible || on_bar)) {
+            if (!s.pointer_down && (s.menu_open || s.visible || on_bar)) {
                 s.pointer = e.tfinger.fingerID;
                 s.pointer_down = true;
                 pointer_at(e.tfinger);
                 ImGui::GetIO().AddMouseButtonEvent(0, true);
             }
-            if (!s.drawer_open && !on_bar) {
+            // The game's on-screen pad has the finger unless the menu, the editor's bar or one of
+            // the overlay's windows is under it.
+            if (!s.menu_open && !on_bar && !(s.visible && on_overlay_window(at))) {
                 return false;
             }
             s.taken.push_back(e.tfinger.fingerID);

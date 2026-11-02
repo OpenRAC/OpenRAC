@@ -148,6 +148,9 @@ openrac_add_test(texture_pack SOURCES tests/texture_pack_test.cpp renderer/textu
 # The launcher's colours for the options drawer (game/common/ui_colors.h).
 openrac_add_test(ui_colors SOURCES tests/ui_colors_test.cpp game/common/ui_colors.cpp
                            INCLUDES . LIBS openrac_common)
+# The in-game menu's entries, and every option the old menus had (game/common/menu_catalog.h).
+openrac_add_test(menu_catalog SOURCES tests/menu_catalog_test.cpp game/common/menu_catalog.cpp
+                              INCLUDES .)
 # The CPU picture of the developer menu and the mods' menu pages (renderer/ui/canvas.h).
 openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.cpp INCLUDES .)
 openrac_add_test(scripted_moby_colour SOURCES enhanced/tests/scripted_moby_colour_test.cpp
@@ -314,7 +317,7 @@ if(OPENRAC_ENHANCED_RENDERING OR OPENRAC_PROBE_BAKER)
 endif()
 
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
-add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
+add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
 if(TARGET openrac_astc_decode)

@@ -58,6 +58,7 @@ add_library(openrac_platform STATIC
   platform/players.cpp
   platform/performance_hint.cpp
   platform/pump.cpp
+  platform/show_folder.cpp
   platform/touch_pad.cpp
   platform/window.cpp
 )
@@ -78,7 +79,9 @@ openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS 
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
     # What the display says of HDR, through GameActivity (platform/display_hdr.h).
-    android/display_hdr.cpp)
+    android/display_hdr.cpp
+    # The Files app at a folder, through GameActivity (platform/show_folder.h).
+    android/show_folder.cpp)
   if(TARGET adrenotools)
     target_link_libraries(openrac_platform PRIVATE adrenotools)
     target_compile_definitions(openrac_platform PRIVATE OPENRAC_ADRENOTOOLS=1)
@@ -623,6 +626,7 @@ add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
 openrac_add_test(moby_shadow LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
+openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME hero_shadow_vulkan COMMAND hero_shadow_test --gpu)
   set_tests_properties(hero_shadow_vulkan PROPERTIES SKIP_RETURN_CODE 77
@@ -873,6 +877,14 @@ endif()
 openrac_add_test(water_mesh SOURCES enhanced/tests/water_mesh_test.cpp LIBS openrac_enhanced_viewer)
 
 if(OPENRAC_PROBE_BAKER)
+  openrac_add_test(probe_depth_gpu SOURCES enhanced/tests/probe_depth_gpu_test.cpp
+    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    LIBS openrac_probe_bake openrac_enhanced_viewer openrac_platform)
+  set_tests_properties(probe_depth_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST probe_depth_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
   openrac_add_test(probe_compression_gpu SOURCES enhanced/tests/probe_compression_gpu_test.cpp
     LIBS openrac_probe_bake openrac_enhanced_viewer openrac_platform)
   set_tests_properties(probe_compression_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT

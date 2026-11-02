@@ -2,8 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // What the debug overlay draws over the game's picture (debug/overlay.h): the selected moby's
-// marker and the mobys' labels; and the status badge, which says the
-// game is paused or slowed and shows the toasts and the notice.
+// marker and the mobys' labels; and the notifications of what stands: a game paused or slowed, a
+// recording, a mod's line.
 
 #include <cstdint>
 #include <format>
@@ -84,61 +84,42 @@ void picture_marks(const Shown& shown) {
     }
 }
 
-// What the keys of pause and speed have set, said in the picture whether the panel is shown or
-// not: a game standing still or running at a quarter speed with nothing saying why is a puzzle.
-void status_badge() {
-    if (!s.toast.empty() && ImGui::GetTime() >= s.toast_until) {
-        s.toast.clear();
-    }
-    if (s.drawer_at > 0.0f || s.touch_editing) {
-        return;  // the drawer says it, or the bar of the pad's editing
-    }
+// What stands, as notifications kept while it lasts: the pause and the speed the keys have set (a
+// game standing still or running at a quarter speed with nothing saying why is a puzzle), a
+// recording, a mod's line.
+void status_notifications() {
     // With the drawer, without the keys: its rows change them.
     const bool keys = !drawer_possible();
-    std::string line;
     if (s.paused) {
-        line = keys ? "PAUSED    F5 resume    F6 one tick" : "PAUSED";
+        notify({
+            .id = "status.speed",
+            .title = "Paused",
+            .text = keys ? "F5 resumes, F6 runs one tick" : "",
+            .tone = Tone::Warning,
+            .seconds = 0.0,
+        });
     } else if (s.stretch != 1.0) {
-        line =
-            keys ? std::format("SPEED 1/{}    F8 faster    F7 slower", static_cast<int>(s.stretch))
-                 : std::format("SPEED 1/{}", static_cast<int>(s.stretch));
+        notify({
+            .id = "status.speed",
+            .title = std::format("Speed 1/{}", static_cast<int>(s.stretch)),
+            .text = keys ? "F8 faster, F7 slower" : "",
+            .tone = Tone::Warning,
+            .seconds = 0.0,
+        });
+    } else {
+        dismiss("status.speed");
     }
-    const std::string capture = capture_badge();
+    if (const std::string capture = capture_badge(); !capture.empty()) {
+        notify({.id = "status.capture", .title = capture, .tone = Tone::Live, .seconds = 0.0});
+    } else {
+        dismiss("status.capture");
+    }
     // A mod's line (openrac_api.play_notice): a party waiting for its players.
-    const std::string mod_line = mods::play_notice();
-    if (line.empty() && s.toast.empty() && s.notice.empty() && capture.empty()
-        && mod_line.empty()) {
-        return;
+    if (const std::string line = mods::play_notice(); !line.empty()) {
+        notify({.id = "status.mod", .title = line, .tone = Tone::Info, .seconds = 0.0});
+    } else {
+        dismiss("status.mod");
     }
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(
-        ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f, viewport->WorkPos.y + 10.0f),
-        ImGuiCond_Always,
-        ImVec2(0.5f, 0.0f)
-    );
-    ImGui::SetNextWindowBgAlpha(0.82f);
-    const ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize
-        | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
-        | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
-    if (ImGui::Begin("OpenRAC status", nullptr, flags)) {
-        if (!capture.empty()) {
-            text_coloured(kRed, "{}", capture);
-        }
-        if (!line.empty()) {
-            text_coloured(s.paused ? kRed : kYellow, "{}", line);
-        }
-        if (!s.toast.empty()) {
-            text_coloured(kDim, "{}", s.toast);
-        }
-        if (!s.notice.empty()) {
-            text_coloured(kRed, "{}", s.notice);
-        }
-        if (!mod_line.empty()) {
-            text_coloured(kYellow, "{}", mod_line);
-        }
-    }
-    ImGui::End();
 }
 
 }  // namespace openrac::frontend::debug_overlay

@@ -127,14 +127,31 @@ struct Scroll {
     float velocity = 0.0f;
 };
 
-// The controls window (controls_window()): which file it changes, what is being captured, and
-// what it last said.
-struct ControlsWindow {
+// How the desktop's menu window moves (debug/menu_window.cpp): its rows' scroll easing to where
+// the wheel or the focus sends it, the open tab's page coming in from the side it was picked on, and
+// the help fading in when it changes.
+struct MenuMotion {
+    float scroll_target = 0.0f;  // where the rows are going, in pixels
+    float scroll_shown = 0.0f;   // where they are now
+    unsigned rows_window = 0;    // the rows' child window (ImGuiID), whose scroll this eases
+    float page = 1.0f;           // the open tab's page, 0 just picked, 1 in place
+    float page_from = 0.0f;      // -1 it comes from the left, 1 from the right
+    int page_tab = -1;           // the tab the page is of
+    float help = 1.0f;           // the help's text, 0 just changed, 1 shown
+    int help_of = -2;            // the entry it is of (s.menu_hover)
+    bool pad = false;            // the last input was a controller's: its buttons are named
+    float quit_hold = 0.0f;      // seconds the controller's quit button has been held
+    int last_tab = 0;            // the last of the bar's tabs open (not a button's page)
+};
+
+// The menu's Controls tab (debug/menu_controls.cpp): which file it changes, what is being captured,
+// and what it last said.
+struct ControlsMenu {
     bool global = false;      // the global file; else the running game's own
     int player = -1;          // the player whose own controls are changed (0, 1); -1 every player's
-    int tab = 0;              // 0 bindings, 1 sticks and triggers, 2 players
-    char filter[64] = {};     // the bindings' rows shown: those naming this
+    int open_target = -1;     // the control whose own rows (change, add, remove) are open; -1 none
     int capture_target = -1;  // the target a press is being captured for; -1 none
+    double capture_since = 0.0;  // when the capture began (ImGui's clock); it times out
     // What the captured press does: replaces the target's pad inputs, adds one, or is the first
     // or the second of a chord.
     enum class Mode {
@@ -147,10 +164,9 @@ struct ControlsWindow {
     std::string message;           // what the last change said
     // A press just bound that another control also has alone: offered to be taken from it.
     int clash_target = -1;
+    int clash_from = -1;  // the control just changed, under which the choice is shown
     platform::Binding clash_input;
     bool confirm_reset = false;  // "Reset" asked once; asked again, it resets
-    std::string drag_key;        // a setting's slider being dragged, and where it is now
-    int drag_value = 0;
 };
 
 // Everything the overlay keeps between frames: what the environment asked for, what the last
@@ -208,8 +224,7 @@ struct State {
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
-    bool controls_window = false;    // the controls window (F13)
-    ControlsWindow controls;
+    ControlsMenu controls;           // the menu's Controls tab
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
@@ -234,28 +249,40 @@ struct State {
     int shots = 0;                 // written so far (at most 10,000)
 
     std::string message;       // what the last action said (a reload, a file written)
-    std::string notice;        // kept in the picture until cleared (debug_overlay::notice)
-    std::string toast;         // the same for an action taken with the panel hidden, shown a moment
-    double toast_until = 0.0;  // the ImGui time the toast goes at
-    bool alt_alone = false;  // Alt went down and no other key since: its release toggles the menus
-    bool menu_key_capture = false;  // the next key pressed becomes the menu bar's (controls window)
-    bool menu_button_capture = false;  // the next pad button becomes the menu bar's
+    bool alt_alone = false;    // Alt went down and no other key since: its release toggles the menu
+    bool menu_key_capture = false;     // the next key pressed becomes the menu's (Controls tab)
+    bool menu_button_capture = false;  // the next pad button becomes the menu's
     std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)
     ObjectViewerState object_viewer;  // Session-only developer object studio.
     bool developer = false;  // the launcher's developer tools (OPENRAC_DEVELOPER): the level select
     std::string dump_path = "openrac_frames.jsonl";  // where the frames' measurements are written
 
-    // The drawer (drawer_available()).
-    bool drawer_open = false;      // open, or opening
-    float drawer_at = 0.0f;        // how far out: 0 shut, 1 open
-    bool keep_paused = false;      // the pause the game is left in when it shuts
-    bool drawer_focus = false;     // given the keyboard and gamepad when it opens
-    Scroll drawer_scroll;          // the finger's drag over the rows
+    // The menu (menu_window() on a desktop, drawer() on a touch screen; debug/menu_ui.h).
+    bool menu_open = false;         // open, or opening
+    float menu_at = 0.0f;           // how far out: 0 shut, 1 open
+    bool keep_paused = false;       // the pause the game is left in when it shuts
+    bool menu_focus = false;        // given the keyboard and gamepad when it opens or changes tab
+    bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
+    MenuMotion menu_motion;         // the desktop's window's scroll and transitions
+    int menu_want_tab = -1;         // a menu::Tab to open the window at (F13: Controls); -1 none
+    bool pad_locked = false;        // ImGui gets no gamepad: a binding's press until let go
+    bool drew_last_frame = false;   // the overlay drew the frame before (ImGui's clock ran)
+    Scroll menu_scroll;             // the finger's drag over the drawer's rows
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
-    bool drawer_developer = false;  // its developer tools unfolded
-    bool drawer_record = false;     // its diagnostics recordings unfolded
-    bool drawer_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
+    bool menu_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
+    bool quit_asked = false;          // Quit pressed in the drawer: its confirmation is shown
+    bool quit_focus = false;          // the confirmation's first row takes the focus once
+    int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
+    long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
+    int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
+    float menu_row_height = 48.0f;    // a row's height in dp: a thumb's on a touch screen
+    bool drawer_developer = false;    // the drawer's developer tools unfolded
+    bool drawer_fixes = false;        // the drawer's game fixes unfolded
+    bool drawer_controller = false;   // the controller's settings out beside the drawer
+    float drawer_controller_at = 0.0f;     // how far out they are: 0 in, 1 out
+    bool drawer_controller_focus = false;  // the gamepad's focus goes to them, or back, next frame
+    Scroll drawer_controller_scroll;       // the finger's drag over their rows
     // The on-screen pad's layout being edited (touch_editing()): Reset asked for, the box of the
     // bar in the middle of the screen as last drawn, whose fingers are ImGui's, not the pad's, and
     // the lines a dragged group snapped to (set_touch_guides()).
@@ -419,12 +446,7 @@ bool drawer_possible();
 // Defined in debug/touch.cpp.
 void drag_scroll(Scroll& scroll);
 
-// Opens or shuts the drawer. Opening it pauses the game, as an emulator's menu does; shutting it
-// leaves the game as its "Keep paused" row says (paused as before it opened, unless changed there).
-// Defined in debug/touch.cpp.
-void set_drawer(bool open);
-
-// Starts or ends the editing of the on-screen pad's layout (touch_editing()): the drawer shuts,
+// Starts or ends the editing of the on-screen pad's layout (touch_editing()): the menu shuts,
 // and the game stays paused until it ends. Defined in debug/touch.cpp.
 void edit_touch(bool on);
 
@@ -433,32 +455,29 @@ void edit_touch(bool on);
 // the drawer's, which the game then does not see. Defined in debug/touch.cpp.
 bool drawer_event(const SDL_Event& e);
 
-// Slides the drawer towards s.drawer_open with the launcher's easing, and draws it as far out as
-// it is (s.drawer_at), in the launcher's colours (ui_colors.h): the port's settings, the enhanced
-// graphics, the touch controls, the fixes and, unfolded, the developer tools. A touch beside it or
-// the gamepad's B shuts it; once shut, it asks for the screenshot taken in it (s.shot_when_shut).
-// Defined in debug/drawer.cpp.
+// Slides the drawer towards s.menu_open with the launcher's easing, and draws it as far out as it
+// is (s.menu_at): the menu's entries (menu_catalog.h) on cards, the developer tools folded away. A
+// touch beside it or the gamepad's B shuts it. Defined in debug/drawer.cpp.
 void drawer(const Shown& shown);
+
+// Slides the desktop's menu towards s.menu_open: the bar of tabs from the window's top and the
+// window with the open tab's entries and their help. Defined in debug/menu_window.cpp.
+void menu_window(const Shown& shown);
 
 // Draws the bar in the middle of the screen while the on-screen pad's layout is edited, to make
 // the controls smaller or larger, put them back and finish, with the lines a dragged group snapped
 // to. Defined in debug/drawer.cpp.
 void touch_edit_bar();
 
-// Says whether the menu bar can be shown: on Windows and Linux (macOS has its own menu bar, with
-// the same menus), or with OPENRAC_MENU_BAR=1, and never with the drawer. Defined in
-// debug/menu_bar.cpp.
-bool menu_bar_possible();
-
-// Says whether the menu bar is shown: it can be, and the player has not hidden it (settings.h's
-// menu_bar). Defined in debug/menu_bar.cpp.
-bool menu_bar_shown();
+// Says whether the desktop's menu (menu_window) is the menu: everywhere the drawer is not.
+// Defined in debug/menu_bar.cpp.
+bool menu_window_possible();
 
 // Presses and releases `key` through SDL's queue, as the macOS menus do: a menu item does what the
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
 
-// The key that hides and shows the menu bar, as the player reads it ("`", "Alt", "F4"), and its
+// The key that opens and closes the menu, as the player reads it ("`", "Alt", "F4"), and its
 // place on the keyboard (SDL_SCANCODE_UNKNOWN for Alt, which counts only pressed by itself).
 // Defined in debug/menu_bar.cpp.
 std::string menu_bar_key_label();
@@ -469,13 +488,8 @@ SDL_Scancode menu_bar_scancode();
 SDL_GamepadButton menu_bar_button();
 std::string menu_bar_button_label();
 
-// Hides or shows the menu bar and saves it, with a toast when it hides. Defined in
-// debug/menu_bar.cpp.
-void toggle_menu_bar();
-
-// Draws the menu bar: View, Controls, Graphics, Sound and Developer.
-// Defined in debug/menu_bar.cpp.
-void menu_bar();
+// Opens or closes the menu. Defined in debug/menu_bar.cpp.
+void toggle_menu();
 
 // Moves setting `row` (options_menu.h) on by `by`, saves the settings and marks them changed for
 // the window to apply (take_settings_changed). A picture shape of the player's own is the settings
@@ -491,13 +505,6 @@ void reset_enhanced();
 // where the level has no compatible probe data. A change is saved and marked for the window to
 // apply. Defined in debug/controls.cpp.
 void enhanced_settings_window();
-
-// Draws the controls window (s.controls_window): the running game's or the global controls, a row
-// for each of the pad's controls with what presses it and where that came from, a press captured
-// to change one, the sticks' and triggers' settings with the stick drawn as it reads, and which
-// controller each player is. Every change is written and applied at once (controls_store.h).
-// Defined in debug/controls_window.cpp.
-void controls_window();
 
 // ---- The performance capture (common/perf_capture.h) ----
 
@@ -530,7 +537,7 @@ void open_capture_folder();
 bool capture_busy();
 bool capture_pending();
 
-// The status badge's line for the capture ("REC 12 / 30 s"); empty when none runs.
+// The notification of the capture ("REC 12 / 30 s"); empty when none runs.
 std::string capture_badge();
 
 // Once a picture, before the overlay is drawn: starts a capture whose time has come, ends one when
@@ -558,10 +565,21 @@ void object_viewer_window(const Shown& shown);
 // Release private studio resources while the graphics context and ImGui are still alive.
 void release_object_viewer();
 
-// Draws the status badge at the top of the picture, whether the panel is shown or not: the pause
-// and the speed the keys have set, the toast while it lasts and the notice. Hidden while the
-// drawer is out, which says it. Defined in debug/picture.cpp.
-void status_badge();
+// Keeps the notifications of what stands (debug_overlay.h, Notification) up to date, whether the
+// panel is shown or not: the pause and the speed the keys have set, a recording, a mod's line.
+// Defined in debug/picture.cpp.
+void status_notifications();
+
+// Draws the notifications, over everything else (debug/notifications.cpp); says whether any is
+// shown or going.
+void draw_notifications();
+// A press (click or tap) at `at`, in ImGui's coordinates: true when a card took it.
+bool press_notification(ImVec2 at);
+bool notifications_pending();
+
+// The hint at the start: what opens the menu. Defined in
+// debug/notifications.cpp.
+void notify_menu_hint();
 
 // Draws one line of text, formatted as std::format does.
 template <typename... Args>

@@ -349,7 +349,11 @@ void run_probe_batch(
                                                      ? options.settings.texture_format
                                                      : ProbeTextureFormat::R11G11B10;
                     // A format switch must not reuse blocks encoded for another device.
-                    if (stored.colour_format != expected_format) {
+                    const auto expected_depth = job.grid.map_resolution == 6
+                                                    ? ProbeDepthFormat::Rg16
+                                                    : ProbeDepthFormat::Moments;
+                    if (stored.colour_format != expected_format
+                        || stored.depth_format != expected_depth) {
                         throw std::runtime_error("kept probe grid has another compression format");
                     }
 

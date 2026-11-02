@@ -107,11 +107,16 @@ inline constexpr GLenum GL_PRIMITIVE_RESTART = 0x8F9D;
 
 inline constexpr GLenum GL_RG = 0x8227;
 inline constexpr GLenum GL_RG32F = 0x8230;
+inline constexpr GLenum GL_RG8 = 0x822B;
+// Native two-channel normalized 16-bit texture storage.
+inline constexpr GLenum GL_RG16 = 0x822C;
 inline constexpr GLenum GL_RGBA16F = 0x881A;
 inline constexpr GLenum GL_R11F_G11F_B10F = 0x8C3A;
 // HDR block formats used by prefiltered enhanced probe assets.
 inline constexpr GLenum GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT = 0x8E8F;
 inline constexpr GLenum GL_COMPRESSED_RGBA_ASTC_8x8_KHR = 0x93B7;
+inline constexpr GLenum GL_COMPRESSED_RGBA_ASTC_4x4_KHR = 0x93B0;
+inline constexpr GLenum GL_RGBA32F = 0x8814;
 inline constexpr GLenum GL_HALF_FLOAT = 0x140B;
 inline constexpr GLenum GL_UNSIGNED_INT_10F_11F_11F_REV = 0x8C3B;
 inline constexpr GLenum GL_TEXTURE_FETCH_BARRIER_BIT = 0x00000008;

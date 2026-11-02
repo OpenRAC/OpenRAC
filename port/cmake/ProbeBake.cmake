@@ -7,7 +7,7 @@ if(OPENRAC_PROBE_BAKER)
   add_library(openrac_probe_bake STATIC
     enhanced/lighting/bake.cpp enhanced/lighting/bake_workers.cpp enhanced/lighting/bake_output_queue.cpp enhanced/lighting/bake_alignment.cpp enhanced/lighting/bake_integration.cpp
     enhanced/lighting/probe_density.cpp enhanced/lighting/probe_field_sampling.cpp
-    enhanced/lighting/probe_texture_encode.cpp enhanced/lighting/probe_bc6.cpp enhanced/lighting/probe_astc.cpp enhanced/lighting/probe_astc_constraints.cpp
+    enhanced/lighting/probe_depth_encode.cpp enhanced/lighting/probe_texture_encode.cpp enhanced/lighting/probe_bc6.cpp enhanced/lighting/probe_astc.cpp enhanced/lighting/probe_astc_constraints.cpp
     enhanced/lighting/bake_material.cpp enhanced/lighting/bake_scene.cpp
     enhanced/lighting/bake_transport.cpp enhanced/lighting/bake_emitters.cpp enhanced/lighting/interior_lights.cpp
     enhanced/lighting/environment_bake.cpp enhanced/lighting/environment_placement.cpp enhanced/lighting/room_links.cpp enhanced/lighting/environment_water.cpp

@@ -15,8 +15,8 @@ namespace openrac::lighting {
 using Float2 = std::array<float, 2>;
 using Float3 = std::array<float, 3>;
 
-// Only the current GPU-ready layout is accepted. Older assets must be rebaked.
-inline constexpr std::uint32_t kProbeFormatVersion = 6;
+// Version six raw-depth assets remain readable; new files carry independent depth and colour tags.
+inline constexpr std::uint32_t kProbeFormatVersion = 8;
 inline constexpr std::uint32_t kProbeBakeVersion = 5;
 inline constexpr unsigned kProbeAtlasTilesX = 64;
 
@@ -58,6 +58,14 @@ struct Probe {
     bool relocated = false;  // Individual relocation changed the shared aligned starting position.
 };
 
+// Stored depth layout; legacy assets retain their exact RG32F moments.
+enum class ProbeDepthFormat : std::uint32_t {
+    Moments = 0,
+    Astc4x4 = 1,
+    Rg8 = 2,  // Legacy normalized mean/spread bytes with per-probe FP32 decoding ranges.
+    Rg16 = 3  // Curved 16-bit UNORM mean/spread channels with per-probe FP32 decoding ranges.
+};
+
 struct ProbeVolume {
     ProbeGrid grid;
     std::vector<Probe> probes;
@@ -70,6 +78,10 @@ struct ProbeVolume {
     std::size_t gpu_offset = 0;
     ProbeTextureFormat colour_format =
         ProbeTextureFormat::R11G11B10;  // Stored colour plane format.
+    // Encoded depth retains local mean/spread with FP32 per-probe decoding ranges.
+    ProbeDepthFormat depth_format = ProbeDepthFormat::Moments;
+    // Returns the bounded byte sizes of colour, depth, relocation, spread and ranges.
+    std::array<std::size_t, 5> plane_sizes() const;
     std::size_t atlas_rows() const;
     std::size_t atlas_capacity() const;
     std::span<const std::uint8_t> gpu_plane(unsigned plane) const;

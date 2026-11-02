@@ -226,31 +226,40 @@ Exponent 32 uses repeated squaring, others `pow`; no SIMD library or fast-math f
 Upright grid frames rotate XY cell coordinates while rays and irradiance directions stay in world space.
 Relocation is stored in the grid frame for direct GPU upload; CPU reference offsets are world-space.
 
-Format 6 headers contain game/level identity, scene/settings hashes, colour encoding and grid/atlas
+Format 8 headers contain game/level identity, scene/settings hashes, colour/depth encoding and grid/atlas
 layout. Values are little-endian; texture planes upload without repacking:
 
 | Plane | Format | Contents |
 | --- | --- | --- |
 | Irradiance | BC6H, ASTC HDR 8x8 or R11G11B10F | E^(1/5), including map borders |
-| Distance | RG32F | Mean distance and mean squared distance |
+| Mean / spread | RG16 UNORM | 16-bit normalized mean and spread channels, including exact map borders |
 | Metadata | RGBA16F | Total offset XYZ, validity and individual-relocation status |
+| Depth ranges | RGBA32F per probe | Mean minimum, mean range, spread scale and ray-distance cap |
 
-Volumes use rows of 64 probe tiles, with unused tiles zeroed. Runtime keeps
+Volumes use rows of 64 probe tiles, with unused packed tiles zeroed. Runtime keeps
 file bytes for upload/streaming; Vulkan still needs a staging copy. Inspection reports
 count these padded GPU planes separately from the file header. CPU tools
 can expand maps. Sampling blends sqrt(E), squares back to E and divides by pi
 once for diffuse shading. Distances and biases use game units; Z is height.
 
 The baker selects BC6H on supporting desktop Vulkan devices, or ASTC HDR 8x8 when
-available. ASTC LDR support alone is insufficient. Devices with neither format keep R11G11B10F.
+available. Irradiance needs ASTC HDR; devices with neither colour format keep R11G11B10F.
 `--compression auto|none|bc6h|astc` overrides selection for validation. Device encoding is part
-of cache identity; unsupported assets require a local rebake. Old asset versions are rejected.
+of cache identity; unsupported colour assets require a local rebake.
 
 Each 6x6 irradiance map and its gutter occupies one 8x8 tile. BC6H shares endpoints and
 paired indices across its four blocks. ASTC constrains decoded border pairs to at most 0.5%
-linear RGB difference relative to source luminance (floor 0.0001). Colour compression leaves
-RG32F visibility and RGBA16F metadata unchanged. Reflection faces and roughness levels start
-on block boundaries; the 64x64 BRDF lookup remains a separate uncompressed plane.
+linear RGB difference relative to source luminance (floor 0.0001). RGBA16F metadata is unchanged.
+Reflection faces and roughness levels start on block boundaries; the 64x64 BRDF lookup remains a separate uncompressed plane.
+Canonical 6x6 depth maps use an 8x8 RG16 UNORM tile with exact octahedral gutters: 256 bytes
+plus 16 bytes of FP32 ranges per probe, compared with 512 bytes for raw RG32F moments.
+A symmetric square-root mean curve and square-root spread curve preserve endpoint and small-variance
+precision within each probe's fitted ranges. The shader inverts them with quadratic arithmetic.
+Two hardware gathers supply the four mean/spread samples without bit unpacking.
+The sampler applies the law of total variance in FP32 and bounds each tap's variance by
+mean * (ray cap - mean). Version 6 raw moments and version 7 RG8/ASTC depth files remain
+readable; noncanonical maps keep raw moments.
+
 Reflection BC6H uses a bounded 0.2-quality endpoint search; ASTC uses the medium preset.
 ASTC 8x8 can lose more directional colour detail than BC6H, especially near strong emitters.
 

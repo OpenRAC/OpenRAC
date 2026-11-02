@@ -138,8 +138,9 @@ struct PadTuning {
     // The face buttons by their labels, as an Xbox pad has them (A south), rather than by
     // position: on a pad labelled the other way about (Nintendo's), A is PadSouth.
     bool face_labels = false;
-    // The controllers count while another window has the keyboard, as they always have.
-    bool background = true;
+    // The controllers count while another window has the keyboard (the game alt-tabbed or
+    // minimised). Off by default: a pad used elsewhere does not play the game behind it.
+    bool background = false;
 
     bool operator==(const PadTuning&) const = default;
 };

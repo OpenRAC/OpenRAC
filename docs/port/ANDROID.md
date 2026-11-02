@@ -202,7 +202,10 @@ The pages are arranged for a handheld, with a navigation rail:
 
 The desktop's menus (View, Graphics, Sound, Developer) are a drawer on
 Android, as in an emulator. It slides in from the left over the paused game
-with the pad's options button, Back, or a controller's Guide button.
+with the pad's options button, Back, a controller's Guide button, or the
+controller's menu button (L3 by default, `menu_bar_button`). Its Controller settings row
+opens the controller's settings (buttons, sticks, players) in a panel over the
+rest of the screen; B or its close button puts it away.
 
 Its rows sit on cards like the launcher's settings, big enough for a thumb,
 and a controller moves through them (left and right change a value, B

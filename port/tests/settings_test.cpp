@@ -382,7 +382,7 @@ void test_menu_bar_key(const std::filesystem::path& file) {
     settings::load(file);
     CHECK(settings::get().menu_bar_key == "`");
     // The controller button: R4 by default, any name kept, "none" too.
-    CHECK(settings::get().menu_bar_button == "paddle1");
+    CHECK(settings::get().menu_bar_button == "leftstick");
     settings::get().menu_bar_button = "none";
     settings::save();
     settings::load(file);

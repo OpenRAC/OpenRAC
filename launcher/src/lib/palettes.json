@@ -20,6 +20,8 @@
     "--text": "#e8f0ff",
     "--bar-top": "#e5a013",
     "--bar-bottom": "#cd8300",
+    "--bar-stripe": "#c99222",
+    "--bar-stripe-alt": "#bd8619",
     "--bar-ink": "#2a1800",
     "--bar-ink-deep": "#1b1206",
     "--err": "#ff8a7a"

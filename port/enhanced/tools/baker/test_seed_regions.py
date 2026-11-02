@@ -120,6 +120,10 @@ class AuthoredSeeds(unittest.TestCase):
             self.assertEqual(actual['max_distance'], 1234.5)
             self.assertEqual(actual['bake_version'], 5)
             self.assertEqual(actual['probe_format_version'], 6)
+            file.write_bytes(struct.pack('<I', 0x5047524f) + struct.pack('<I', 7) + header[8:])
+            self.assertEqual(seeds.coarse_header(file)['probe_format_version'], 7)
+            file.write_bytes(struct.pack('<I', 0x5047524f) + struct.pack('<I', 8) + header[8:])
+            self.assertEqual(seeds.coarse_header(file)['probe_format_version'], 8)
             for version, revision in ((1, 1), (2, 1), (3, 1), (4, 1), (5, 5), (6, 99)):
                 file.write_bytes(struct.pack('<3I', 0x5047524f, version, revision)+header[12:])
                 with self.assertRaises(ValueError):
