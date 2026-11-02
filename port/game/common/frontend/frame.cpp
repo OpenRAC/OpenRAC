@@ -1152,6 +1152,22 @@ std::optional<std::array<float, 8>> moby_point_light(
 // are added to `state`. `world_ran`, `only_own_camera`: the world renderers ran this tick, and
 // only mobys with a camera of their own were drawn without them; `under_menu`: that world is a
 // level's under a menu (world_under_menu); `debug`: OPENRAC_DEBUG.
+// "Scenery detail: Original": ShrubProc's choice for the tick, from the camera the game's world
+// renderers left in memory (`world_ran`, not under a menu); none to keep the last tick's, empty
+// with the setting off.
+std::optional<std::vector<host::ShrubDraw>> shrub_draws(
+    std::span<const std::uint8_t> ram, bool world_ran
+) {
+    if (!settings::get().original_lod) {
+        return std::vector<host::ShrubDraw>{};
+    }
+    if (!world_ran) {
+        return std::nullopt;
+    }
+    const profiling::Zone trace("Shrub draws");
+    return g->profile->shrub_draws(ram, openrac_game_loaded_overlay());
+}
+
 TickMobys pose_mobys(
     std::span<const std::uint8_t> ram,
     host::GameState& state,
@@ -1626,7 +1642,8 @@ TickMobys pose_mobys(
         shadow_state,
         std::move(target_mobys),
         water_hands,
-        std::move(point_lit)
+        std::move(point_lit),
+        shrub_draws(ram, world_ran && !under_menu)
     };
 }
 
@@ -1673,6 +1690,7 @@ void keep_tick(
         k.joints.clear();
         k.shadows.clear();
         k.shadow_moby = 0;
+        k.shrubs.clear();
         k.level = g->loaded;
         // A new level's frames cost what they cost: the system forgets the last level's
         // (performance_hint.h).
@@ -1711,6 +1729,9 @@ void keep_tick(
     k.prev_shadow_state = k.shadow_state;
     k.shadow_state = mobys.shadow_state;
     k.water_hands = mobys.water_hands;
+    if (mobys.shrubs) {
+        k.shrubs = std::move(*mobys.shrubs);
+    }
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
                           : std::nullopt;

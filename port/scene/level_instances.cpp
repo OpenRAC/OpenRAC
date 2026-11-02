@@ -156,9 +156,9 @@ bool LevelScene::same_palette(
 // Returns the key build_groups groups `instance` by: its class model, its blend and whether it
 // is a gameplay subject and casts the hero's shadow.
 std::uint32_t LevelScene::group_key(const Instance& instance) {
-    return instance.model << 5 | (instance.floats_on_water ? 16u : 0u)
-           | (instance.gameplay_essential ? 8u : 0u)
-           | (static_cast<std::uint32_t>(instance.blend & 3) << 1)
+    return instance.model << 6 | (instance.floats_on_water ? 32u : 0u)
+           | (instance.gameplay_essential ? 16u : 0u)
+           | (static_cast<std::uint32_t>(instance.blend & 7) << 1)
            | (instance.hero_shadow_caster ? 1u : 0u);
 }
 
@@ -292,7 +292,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
     auto& groups = m_groups[static_cast<std::size_t>(layer)];
     auto& idle = m_idle[static_cast<std::size_t>(layer)];
     for (std::size_t i = 0; i < used; ++i) {
-        const std::uint32_t model = m_grouping[i].key >> 5;
+        const std::uint32_t model = m_grouping[i].key >> 6;
         // A live layer draws the same classes frame after frame: each keeps its vertex array and
         // buffer, and only the instances are sent again.
         auto kept = std::find_if(idle.begin(), idle.end(), [&](const Group& g) {
@@ -308,10 +308,10 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         } else {
             g = make_group(model);
         }
-        g.blend = static_cast<int>((m_grouping[i].key >> 1) & 3);
+        g.blend = static_cast<int>((m_grouping[i].key >> 1) & 7);
         g.hero_shadow_caster = (m_grouping[i].key & 1) != 0;
-        g.gameplay_essential = (m_grouping[i].key & 8) != 0;
-        g.floats_on_water = (m_grouping[i].key & 16) != 0;
+        g.gameplay_essential = (m_grouping[i].key & 16) != 0;
+        g.floats_on_water = (m_grouping[i].key & 32) != 0;
         fill_group(g, m_grouping[i].instances, live ? GL_STREAM_DRAW : GL_STATIC_DRAW);
         g.cpu_instances = m_grouping[i].instances;
         g.floating_ids = m_grouping[i].floating_ids;
@@ -527,7 +527,15 @@ void LevelScene::choose_scenery(
         const bool first = scenery.drawn.empty();
         scenery.drawn.resize(scenery.source.size(), 1);
         bool changed = first;
-        for (std::size_t i = 0; i < scenery.source.size(); ++i) {
+        // The shrubs ShrubProc draws whole this tick, when it was replayed: the others fade or are
+        // billboards (add_shrub_effects), or are not drawn.
+        const bool replayed = layer == Layer::Shrubs && shrub_draws_usable();
+        for (std::size_t i = 0; replayed && i < scenery.source.size(); ++i) {
+            const std::uint8_t drawn = m_shrub_draws[i].mesh == 0x80 ? 1 : 0;
+            changed = changed || scenery.drawn[i] != drawn;
+            scenery.drawn[i] = drawn;
+        }
+        for (std::size_t i = 0; !replayed && i < scenery.source.size(); ++i) {
             const Vec3& centre = scenery.centres[i];
             const Vec3 to{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
             const bool was = !first && scenery.drawn[i] != 0;
@@ -558,6 +566,45 @@ void LevelScene::choose_scenery(
     // How often the layers are grouped again (a frame's average: the share of frames).
     if (stats::enabled()) {
         stats::gauge("scenery regroups", rebuilt ? 1 : 0);
+    }
+}
+
+bool LevelScene::shrub_draws_usable() const {
+    const Scenery& shrubs = m_scenery[1];
+    return !shrubs.source.empty() && m_shrub_draws.size() == shrubs.source.size()
+           && m_shrub_billboards.size() == shrubs.source.size();
+}
+
+void LevelScene::set_shrub_draws(std::vector<ShrubDraw> draws) {
+    m_shrub_draws = std::move(draws);
+}
+
+void LevelScene::add_shrub_effects(std::vector<Instance>& live) const {
+    if (!shrub_draws_usable()) {
+        return;
+    }
+    const auto& source = m_scenery[1].source;
+    for (std::size_t i = 0; i < source.size(); ++i) {
+        const ShrubDraw& draw = m_shrub_draws[i];
+        // The fading list: the mesh at its vertex alpha, its texels at 0x0C and over writing depth.
+        if (draw.mesh != 0 && draw.mesh < 0x80) {
+            Instance mesh = source[i];
+            mesh.tint[3] = static_cast<float>(draw.mesh) / 128.0f;
+            mesh.blend = 4;
+            live.push_back(mesh);
+        }
+        // The billboard: its first pass (0x80, TEST 0x5360b) as a moby's face, its second (TEST
+        // 0x53001) blended without depth; coloured with the instance's average lit colour.
+        if (draw.billboard != 0 && m_shrub_billboards[i] >= 0) {
+            Instance billboard;
+            billboard.model = static_cast<std::uint32_t>(m_shrub_billboards[i]);
+            billboard.matrix = draw.billboard_matrix;
+            billboard.tint = m_shrub_colours[i];
+            billboard.tint[3] = static_cast<float>(draw.billboard) / 128.0f;
+            billboard.blend = draw.billboard == 0x80 ? 1 : 5;
+            billboard.occlusion = source[i].occlusion;
+            live.push_back(billboard);
+        }
     }
 }
 

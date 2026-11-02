@@ -132,7 +132,9 @@ struct Instance {
     std::array<float, 4> moby_ambient{0.5f, 0.5f, 0.5f, 1.0f};
     // How a live moby is blended, as MobyProc picks it (the explosions' flashes and fireballs,
     // a pickup fading in): 0 drawn as it is, 1 blended at its alpha (tint's w), 2 added, 3 blended
-    // at its alpha with the fading alpha test (fading out towards its draw distance).
+    // at its alpha with the fading alpha test (fading out towards its draw distance). A shrub
+    // drawn as ShrubProc draws it (LevelScene::add_shrub_effects): 4 its mesh fading (TEST AREF
+    // 0x0C), 5 its billboard blended without depth.
     int blend = 0;
     bool hero_shadow_caster = false;  // live hero and attached equipment; excluded from sun casters
     // Explicit initial-state bake selection, never inferred from lack of a skeleton.
@@ -214,6 +216,10 @@ struct LevelData {
     // carry them (shrubs before "billboard_fade") or a game whose caps are not known. Drawn by only
     // "Scenery detail: Original" (LevelScene::choose_scenery).
     std::array<std::vector<float>, kLayerCount> draw_distances;
+    // Each shrub's class's billboard sprite (the model of the quad ShrubProc draws in place of a
+    // far one; -1 none), parallel to the shrubs; empty when the shrubs are not the level's own
+    // (a mod's placements), whose order is not the game's.
+    std::vector<int> shrub_billboards;
     // The ties' and shrubs' lit colours, 64 or 24 per instance, RGBA bytes (0x80 = 1.0), from
     // placements.json.
     std::vector<std::uint32_t> light_colours;

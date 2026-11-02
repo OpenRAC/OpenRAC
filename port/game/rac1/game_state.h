@@ -69,7 +69,7 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
 
 /**
  * MobyProc's distance test and fade for the moby `moby` (its 0x100 bytes), seen from `state`'s
- * camera: none when it leaves the moby undrawn (past its draw distance, wholly in front of the
+ * camera: none when it leaves the moby undrawn (past its draw distance, wholly nearer than the
  * near plane, or, as the port tests it, wholly outside the view's sides by far), else the fade of
  * its vertex alpha in the GS's units, 0x80 nearer than 16 units inside its draw distance, falling
  * to 0 at it. Bit for bit the game's when `state` has the view block MobyProc reads (moby_view).

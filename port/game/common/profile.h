@@ -24,8 +24,12 @@
 #include <vector>
 
 #include "renderer/math.h"
+#include "scene/shrub_draw.h"
 
 namespace openrac::host {
+
+// What the game's shrub renderer draws of one shrub instance in a frame.
+using ShrubDraw = scene::ShrubDraw;
 
 // A moby as the renderers place it.
 struct LiveMoby {
@@ -142,6 +146,14 @@ public:
         const std::uint8_t* /*moby*/, const GameState& /*state*/
     ) const {
         return std::uint8_t{0x80};
+    }
+
+    // What the game's shrub renderer draws of each shrub instance this frame, in the game's
+    // instance order; empty when it is not known. `level` as for read_state().
+    virtual std::vector<ShrubDraw> shrub_draws(
+        std::span<const std::uint8_t> /*ram*/, int /*level*/
+    ) const {
+        return {};
     }
 
     // Returns the game address of the display list of the frame being shown: the one of the

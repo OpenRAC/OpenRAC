@@ -183,6 +183,17 @@ def textures(level: Level, gs: bytes) -> dict[tuple[str, int], Texture]:
             if fmt.swizzled_textures:
                 data = unswizzle(data, width)
             result[(group, i)] = Texture(width, height, data, span(gs, palette * 256, 1024))
+    # Ratchet & Clank's shrub billboards: a shrub class entry's last 16 bytes are its billboard's
+    # width, height, mip count and the GS RAM blocks (256 bytes each) of its CLUT and pixels, keyed
+    # ("billboard", class id). A class without a billboard has no size.
+    if fmt.game == "rac1":
+        for entry in level.table(0x28, 48):
+            class_id, = unpack("<I", entry, 4)
+            width, height, _levels, palette, pixels = unpack("<5h", entry, 32)
+            if (width > 0 and height > 0 and palette >= 0 and pixels >= 0
+                    and pixels * 256 + width * height <= len(gs) and palette * 256 + 1024 <= len(gs)):
+                result[("billboard", class_id)] = Texture(width, height, span(gs, pixels * 256, width * height),
+                                                          span(gs, palette * 256, 1024))
     # The chrome (128 x 128) and glass (64 x 64) maps the metal packets are drawn with: byte offsets
     # into the GS RAM lump of their PSMT8 pixels and CLUT, at core index 0x90 / 0x94 and 0x98 / 0x9C
     # (ReRAC moby_skinning_lighting.md 9, "Texture"). Blurry environment pictures, alpha 13..0x80.

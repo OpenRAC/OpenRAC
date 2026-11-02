@@ -26,6 +26,7 @@
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "game/rac1/host/collision_notes.h"
+#include "game/rac1/shrub_proc.h"
 #include "openrac/guest.h"
 #include "renderer/math.h"
 
@@ -205,6 +206,12 @@ public:
         const std::uint8_t* moby, const host::GameState& state
     ) const override {
         return rac1::moby_distance_fade(moby, state);
+    }
+
+    std::vector<host::ShrubDraw> shrub_draws(
+        std::span<const std::uint8_t> ram, int level
+    ) const override {
+        return shrub_proc(ram, addresses(level), shrub_class_table(&m_boot == &kRac1Ntsc, level));
     }
 
     std::uint32_t shown_chain(std::span<const std::uint8_t> ram, int level) const override {

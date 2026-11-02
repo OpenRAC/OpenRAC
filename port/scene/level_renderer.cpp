@@ -297,6 +297,30 @@ bool LevelScene::upload(
         }
         scenery.drawn.clear();
     }
+    // The shrubs' billboards and, for those that have one, their colour: their 24 lit colours'
+    // average, channel by channel, truncated (LightShrubs' word at the instance's +0x1C).
+    const auto& shrubs = level.instances[static_cast<std::size_t>(Layer::Shrubs)];
+    m_shrub_draws.clear();
+    m_shrub_billboards = level.shrub_billboards.size() == shrubs.size() ? level.shrub_billboards
+                                                                        : std::vector<int>{};
+    m_shrub_colours.assign(m_shrub_billboards.size(), {1.0f, 1.0f, 1.0f, 1.0f});
+    for (std::size_t i = 0; i < m_shrub_billboards.size(); ++i) {
+        const int first = shrubs[i].lights;
+        if (m_shrub_billboards[i] < 0 || first < 0
+            || static_cast<std::size_t>(first) + 24 > level.light_colours.size()) {
+            continue;
+        }
+        std::array<std::uint32_t, 3> sum{};
+        for (int c = 0; c < 24; ++c) {
+            const std::uint32_t word = level.light_colours[static_cast<std::size_t>(first + c)];
+            for (int channel = 0; channel < 3; ++channel) {
+                sum[static_cast<std::size_t>(channel)] += (word >> (8 * channel)) & 0xFF;
+            }
+        }
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            m_shrub_colours[i][channel] = static_cast<float>(sum[channel] / 24) / 128.0f;
+        }
+    }
     // A glow packet's vertex (light slot -2, mesh.vert); an index past the vertices counts as one,
     // so that a broken primitive is still drawn.
     const auto glow_vertex = [&level](std::uint32_t i) {
@@ -688,6 +712,9 @@ void LevelScene::release() {
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
+    m_shrub_draws.clear();
+    m_shrub_billboards.clear();
+    m_shrub_colours.clear();
     m_animated_base.clear();
     m_spins.clear();
     m_sky.release();
@@ -1397,12 +1424,14 @@ void LevelScene::draw_layer(
             }
             glUniform1i(program->uniform("effect_additive"), effects && g.blend == 2 ? 1 : 0);
             // The blended moby's TEST_1 reference (mesh.frag's split): AREF 0x08 while it fades at
-            // its draw distance (blend 3), else the world's 0x60.
+            // its draw distance (blend 3), a fading shrub's 0x0C (4), none for a billboard's
+            // second pass (5: ATST NEVER, colour only), else the world's 0x60.
+            const int reference = g.blend == 3   ? renderer::world::kArefMobyFading
+                                  : g.blend == 4 ? renderer::world::kArefShrubFading
+                                  : g.blend == 5 ? 0x100
+                                                 : renderer::world::kArefWorld;
             glUniform1f(
-                program->uniform("effect_reference"),
-                static_cast<float>(
-                    g.blend == 3 ? renderer::world::kArefMobyFading : renderer::world::kArefWorld
-                ) / 128.0f
+                program->uniform("effect_reference"), static_cast<float>(reference) / 128.0f
             );
             glUniform1i(program->uniform("probe_effect"), g.blend == 2 ? 1 : 0);
             glUniform1i(program->uniform("hero_shadow_receiver"), g.hero_shadow_caster ? 1 : 0);
