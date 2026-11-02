@@ -35,7 +35,7 @@ public:
             const auto counters = vkgl::submission_counters();
             log::info(
                 "test timing {} {}: wall={:.6f}s glslang={:.6f}s driver={:.6f}s "
-                "compiles={} driver_calls={} pipelines={}",
+                "compiles={} driver_calls={} pipelines={} program_reuses={}",
                 m_name,
                 phase,
                 wall,
@@ -43,7 +43,8 @@ public:
                 counters.pipeline_compile_s - m_counters.pipeline_compile_s,
                 counters.shader_compiles - m_counters.shader_compiles,
                 counters.pipeline_creation_calls - m_counters.pipeline_creation_calls,
-                counters.pipelines_created - m_counters.pipelines_created
+                counters.pipelines_created - m_counters.pipelines_created,
+                counters.test_program_reuses - m_counters.test_program_reuses
             );
             m_counters = counters;
         } else

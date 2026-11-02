@@ -11,6 +11,7 @@
 
 #include "tests/check.h"
 #include "tests/render_equivalence_costs.h"
+#include "tests/render_equivalence_policy.h"
 #include "tests/render_test_shards.h"
 
 namespace {
@@ -64,11 +65,29 @@ void test_registry_costs() {
     CHECK(std::all_of(assigned.begin(), assigned.end(), [](auto owner) { return owner < 2; }));
 }
 
+// Every focused optimisation has one nonempty owner, and cache tests retain fresh objects.
+void test_feature_owners() {
+    std::vector<bool> seen(openrac::renderer::render_opt::kOptCount);
+    for (const auto& [opt, owner] : openrac::test::kFocusedEquivalence) {
+        const auto index = static_cast<std::size_t>(opt);
+        CHECK(!seen.at(index));
+        seen.at(index) = true;
+        CHECK(owner[0] != '\0');
+        CHECK(openrac::test::focused_equivalence_test(opt) == owner);
+    }
+    using openrac::renderer::render_opt::Opt;
+    CHECK(!openrac::test::may_reuse_test_programs(Opt::PipelinePrewarm));
+    CHECK(!openrac::test::may_reuse_test_programs(Opt::SpirvDiskCache));
+    CHECK(openrac::test::focused_equivalence_test(Opt::RegistrySelftest).empty());
+    CHECK(openrac::test::may_reuse_test_programs(Opt::RegistrySelftest));
+}
+
 }  // namespace
 
 // Runs partition arithmetic and actual registry coverage without a graphics device.
 int main() {
     test_balanced_partition();
     test_registry_costs();
+    test_feature_owners();
     return openrac::test::result();
 }

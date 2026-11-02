@@ -386,7 +386,12 @@ jobs:
           required = {'probe_gpu_vulkan', 'early_lighting_vulkan', 'hero_shadow_vulkan',
                       'sun_shadow_vulkan', 'gtao_vulkan', 'probe_bake', 'bake_liquids',
                       'object_lights', 'object_preview', 'object_preview_opengl',
-                      'object_preview_es', 'local_lights'}
+                      'object_preview_es', 'local_lights',
+                      'render_equivalence_prepare_vulkan', 'render_equivalence_vulkan',
+                      'render_equivalence_vulkan_remaining', 'render_equivalence_support',
+                      'motion_blur', 'fsr3_motion', 'fsr3_frame', 'fsr3_sdk',
+                      'water_runtime', 'effect_material', 'vulkan_uniform',
+                      'vulkan_present', 'vulkan_present_timing', 'shadow_scroll_vulkan'}
           cases = {case.attrib['name']: case for case in ET.parse('build/enhanced/enhanced-tests.xml').iter('testcase')}
           missing = required - cases.keys()
           skipped = {name for name in required & cases.keys() if cases[name].find('skipped') is not None}

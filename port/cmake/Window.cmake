@@ -97,7 +97,7 @@ if(OPENRAC_VULKAN)
     renderer/vulkan/vkgl_device.cpp
     renderer/vulkan/vkgl_draw.cpp
     renderer/vulkan/vkgl_gl.cpp
-    renderer/vulkan/gl_program.cpp
+    renderer/vulkan/gl_program.cpp renderer/vulkan/test_program_cache.cpp
     renderer/vulkan/vkgl_pipelines.cpp
     renderer/vulkan/vkgl_present.cpp
     renderer/vulkan/vkgl_resources.cpp

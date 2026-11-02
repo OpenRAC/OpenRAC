@@ -326,14 +326,43 @@ per process. CI runs at most two test processes. Probe, GTAO, horizon-reference 
 matrices occupy both worker slots to bound memory use or retain CPU throughput.
 Only the probe matrix also limits Mesa to two workers while running alone; the other exclusive
 matrices retain Mesa's default worker count.
-The equivalence matrix uses two registry shards. Both check every scenario's
-determinism and discarded attachments; together they compare every registry entry on and off.
-`ctest --preset enhanced -L render-equivalence --parallel 2` runs both halves.
-Rendering test logs report phase wall time, glslang time, driver pipeline creation time and
-compile counts. Drawing includes synchronous readback; it is not a GPU-only timing. Driver
-compilation may overlap on prewarm workers, so its durations need not add up to wall time.
+The equivalence scene uses two registry shards. A required setup fixture verifies fresh-scene
+determinism, synchronous versus batched capture, and poisoned versus retained attachments once
+for both shards. Reference draws create fresh driver objects; paired draws may reuse immutable
+objects and must match those independent pixels. It writes ephemeral RGBA8 baselines under the
+build's `test-cache`. Readers check executable identity, device/driver, initial optimisation
+settings, shape and checksum; a failed setup prevents consumers running.
+Baselines are regenerated each CTest run, not checked-in
+goldens or a persistent cross-device cache.
+
+Optimisations absent from the generic scene have explicit owners in
+[`render_equivalence_policy.h`](../../port/tests/render_equivalence_policy.h). Required focused
+tests exercise temporal motion/history, blur, water simulation/effects, presentation and MSAA.
+The scene shards retain both enhanced and compatibility runs, every scenario and every frame
+for the remaining entries. `ctest --preset enhanced -L render-equivalence --parallel 2` includes
+the setup, focused fixtures and both halves. `--opt NAME` remains available for scene-owned
+entries; feature-owned names report the CTest command that exercises their implementation.
+
+Scene comparisons opt into a bounded, context-local pool of immutable Vulkan program objects.
+Reused bytecode and layout modes must match exactly; each GL link still resets uniforms and
+descriptors. Cache/compilation/lifecycle comparisons bypass the pool, and player launches never
+enable it. Ordinary frames are copied exactly into an RGBA8 snapshot atlas, then read back once
+per scenario. The deliberate depth-pass readback remains to exercise recording splits.
+
+Rendering test logs report phase wall time, glslang time, driver pipeline creation time,
+compile counts and test program reuse. Drawing includes readback; it is not a GPU-only timing.
+Driver compilation may overlap on prewarm workers, so its durations need not add up to wall time.
 Driver calls include speculative prewarming; `pipelines` counts drawing-thread creations.
 Enhanced CI prints these timings from its JUnit report, including successful tests.
+
+Local WSL software Vulkan (Mesa 26.0.8/LLVM 21.1.8), cold Mesa caches, validation,
+`GALLIVM_PERF=nopt` and two CTest slots: the equivalence command took 1,351.09 s before and
+765.63 s after. The latter includes the shared setup and required feature fixtures, replacing
+scene runs that did not exercise those features. The longest scene shard fell from 1,350.32 s
+to 222.31 s; its partner took 205.20 s. These are single samples of test wall time, not game GPU
+timings or a cross-driver guarantee. Scene-owned entries keep all seven scenarios, eight frames
+and both rendering modes, with their existing tolerances.
+
 Linux CI also retains Mesa's driver-keyed shader cache between runs, capped at 1 GiB per job.
 The enhanced Ubuntu job uses `GALLIVM_PERF=nopt` to reduce Mesa's LLVM compilation cost for
 these short runs. Shaders, geometry, validation and image comparisons still execute. Its cache

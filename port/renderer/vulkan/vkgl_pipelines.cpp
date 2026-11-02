@@ -290,6 +290,21 @@ void PipelineTable::insert(const PipelineKey& key, std::uint64_t hash, VkPipelin
     );
 }
 
+void PipelineTable::rename_program(std::uint64_t from, std::uint64_t to) {
+    bool changed = false;
+    for (auto& [key, pipeline] : m_entries) {
+        // Only the deleted GL owner's immutable pipelines change ownership.
+        if (key.program == from) {
+            key.program = to;
+            changed = true;
+        }
+    }
+    // Compute-only and never-drawn programs have no graphics keys to reindex.
+    if (changed) {
+        rebuild();
+    }
+}
+
 void PipelineTable::place(std::size_t index, std::uint64_t hash) {
     const std::size_t mask = m_slots.size() - 1;
     std::size_t at = hash & mask;
