@@ -7,4 +7,8 @@ export type PackView = { id: string, name: string, author: string, description: 
 /**
  * How many levels it changes, and how many textures, models and level files in all.
  */
-levels: number, textures: number, models: number, levelFiles: number, isMap: boolean, isDestination: boolean, };
+levels: number, textures: number, models: number, levelFiles: number, 
+/**
+ * How many of the game's sounds it replaces (`audio/<key>.wav`, editor/audio.py).
+ */
+sounds: number, isMap: boolean, isDestination: boolean, };

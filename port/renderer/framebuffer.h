@@ -32,8 +32,14 @@ public:
 
     // `samples`: 1 for a plain target; more is held to what the driver offers (max_samples()).
     // texture_depth exposes a sampleable depth/stencil texture (single-sample only).
+    // float_colour: the colour in half floats (RGBA16F), for an HDR frame (docs/port/HDR.md).
     bool create(
-        int width, int height, std::string& error, int samples = 1, bool texture_depth = false
+        int width,
+        int height,
+        std::string& error,
+        int samples = 1,
+        bool texture_depth = false,
+        bool float_colour = false
     );
     // A depth-only target: a sampleable depth texture and no colour or stencil at all, for a map
     // that only depth is drawn into (the shadow atlas). A tile-based GPU then gives the pass's
@@ -55,6 +61,9 @@ public:
     unsigned depth_texture() const { return m_texture_depth ? m_depth : 0; }
 
     int samples() const { return m_samples; }
+
+    // The colour is in half floats (create's float_colour).
+    bool float_colour() const { return m_float; }
 
     // The framebuffer resolved() fills, without filling it; 0 for a target of one sample a pixel.
     unsigned resolve_target() const { return m_resolve; }
@@ -87,6 +96,7 @@ private:
     unsigned m_multisample = 0;   // the multisampled colour buffer
     int m_samples = 1;
     bool m_implicit = false;      // resolves_itself()
+    bool m_float = false;         // float_colour()
     int m_width = 0;
     int m_height = 0;
 };

@@ -842,8 +842,9 @@ std::optional<VkPipeline> prewarm_take(const PipelineKey& k, std::uint64_t hash)
 // Adds key `k` of program `p` to the manifest, as made by this run, unless the program has no
 // identity or the manifest is full; a key already there becomes this run's again.
 void record_manifest_key(const Program& p, const PipelineKey& k) {
-    // A compute program, or one linked before the manifest knew it.
-    if (p.identity == 0) {
+    // A compute program, or one linked before the manifest knew it; or a key of the clamped
+    // stage (an HDR frame's), which the pre-warm worker cannot make.
+    if (p.identity == 0 || k.clamp_colour != 0) {
         return;
     }
 
@@ -942,8 +943,8 @@ void prewarm_program(Program& p) {
 
     // Each key of this program in the manifest, as a job for this link's serial.
     for (ManifestKey& entry : g->manifest.keys) {
-        // Another program's key.
-        if (entry.key.program != p.identity) {
+        // Another program's key, or one of a clamped stage (a manifest of an older run).
+        if (entry.key.program != p.identity || entry.key.clamp_colour != 0) {
             continue;
         }
 
@@ -1171,6 +1172,7 @@ VkPipeline pipeline_for(
         k.colour_mask = (s.colour_mask[0] ? 1u : 0u) | (s.colour_mask[1] ? 2u : 0u)
                         | (s.colour_mask[2] ? 4u : 0u) | (s.colour_mask[3] ? 8u : 0u);
         k.colour_format = t.colour->format;
+        k.clamp_colour = t.colour->clamp_writes ? 1 : 0;
     }
     if (t.depth != nullptr) {
         k.depth_format = t.depth->format;
@@ -1207,7 +1209,14 @@ VkPipeline pipeline_for(
         return remember_pipeline(p, bytes, *warmed);
     }
 
-    const VkPipeline pipeline = create_graphics_pipeline(k, p.vertex, p.fragment, p.layout);
+    // Into a float frame that stands in for an 8-bit one: the stage that clamps its colour.
+    VkShaderModule fragment = p.fragment;
+    if (k.clamp_colour != 0) {
+        if (const VkShaderModule clamped = clamped_fragment(p); clamped != VK_NULL_HANDLE) {
+            fragment = clamped;
+        }
+    }
+    const VkPipeline pipeline = create_graphics_pipeline(k, p.vertex, fragment, p.layout);
     ++g->measures.pipelines;
     count_pipeline();
     record_manifest_key(p, k);

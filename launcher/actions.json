@@ -575,6 +575,94 @@
         "todo": "Run it from the desktop app. From a shell on macOS: an export with Ratchet's mesh edited in Blender and his textures upscaled 4x became a pack the port drew on level 0."
       },
       {
+        "id": "audio-export",
+        "label": "Export a level's sounds",
+        "description": "Writes the sounds that play in a level to a folder of WAV files, to edit or replace in an audio editor. A few seconds. Your disc is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio.py",
+          "export",
+          "{disc}",
+          "{data}/exports/audio-level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--timestamp",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "effects",
+          "music",
+          "speech",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
+      },
+      {
+        "id": "audio-export-all",
+        "label": "Export all the game's sounds",
+        "description": "Writes all of the game's sounds of a kind to a folder of WAV files, to edit or replace in an audio editor. Up to a few minutes and about 2.1 GB for everything. Your disc is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio.py",
+          "export",
+          "{disc}",
+          "{data}/exports/audio-{option}",
+          "--what",
+          "{option}",
+          "--timestamp",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "effects",
+          "music",
+          "speech",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
+      },
+      {
+        "id": "audio-import",
+        "label": "Import your sounds",
+        "description": "Reads an audio export you edited back: the WAV files that changed become a pack. The export is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio.py",
+          "import",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
+      },
+      {
         "id": "overrides-add",
         "label": "Add an overrides pack",
         "description": "Copies a pack (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. The file you chose is never changed.",
@@ -1227,6 +1315,94 @@
         ],
         "docs": "editor/MODDING.md",
         "todo": "Run it from the desktop app. The same command as PAL's, with the NTSC-U levels; an export is imported with the levels of the disc it was made from."
+      },
+      {
+        "id": "audio-export",
+        "label": "Export a level's sounds",
+        "description": "Writes the sounds that play in a level to a folder of WAV files, to edit or replace in an audio editor. A few seconds. Your disc is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio.py",
+          "export",
+          "{disc}",
+          "{data}/exports/audio-level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--timestamp",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "effects",
+          "music",
+          "speech",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
+      },
+      {
+        "id": "audio-export-all",
+        "label": "Export all the game's sounds",
+        "description": "Writes all of the game's sounds of a kind to a folder of WAV files, to edit or replace in an audio editor. Up to a few minutes and about 2.1 GB for everything. Your disc is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio.py",
+          "export",
+          "{disc}",
+          "{data}/exports/audio-{option}",
+          "--what",
+          "{option}",
+          "--timestamp",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "effects",
+          "music",
+          "speech",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
+      },
+      {
+        "id": "audio-import",
+        "label": "Import your sounds",
+        "description": "Reads an audio export you edited back: the WAV files that changed become a pack. The export is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio.py",
+          "import",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
       },
       {
         "id": "overrides-add",

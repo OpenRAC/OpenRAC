@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common/breadcrumbs.h"
+#include "common/env.h"
 #include "common/log.h"
 #include "common/profiler.h"
 #include "common/stats.h"
@@ -28,6 +29,9 @@
 #include "openrac/game_host.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 #include "scene/moby_pose.h"
 
 namespace openrac::frontend {
@@ -65,10 +69,24 @@ bool prepare_temporal(SceneFrame& frame) {
 
 // ---- Frame configuration ----
 
-// Recreates the target when its dimensions, samples or depth-sampling requirement changes.
+// Whether the frame is drawn in half floats: while HDR is shown (docs/port/HDR.md), so that the
+// game's blending may add up above white. Each draw's own colour is still clamped to 0..1 as the
+// 8-bit frame clamps it (vkgl::clamp_colour_writes); in SDR the frame is 8-bit, as always.
+bool hdr_frame() {
+#if defined(OPENRAC_VULKAN)
+    // OPENRAC_HDR_FRAME: also without an HDR screen, shown clamped, to compare with the 8-bit one.
+    return gl::is_vulkan() && (vkgl::hdr_frame() || env::flag(env::Var::HdrFrame));
+#else
+    return false;
+#endif
+}
+
+// Recreates the target when its dimensions, samples, depth-sampling requirement or colour
+// format changes.
 void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
     auto& target = frame.owner.frame;
     const auto& output = frame.output;
+    const bool float_colour = hdr_frame();
 
     // Minimized pictures keep their last target until a drawable size returns.
     if (output.box.width <= 0 || output.box.height <= 0) {
@@ -77,12 +95,14 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
 
     // Stable settings reuse the existing attachments.
     if (target.width() == output.width && target.height() == output.height
-        && target.samples() == samples && (target.depth_texture() != 0) == sampleable_depth) {
+        && target.samples() == samples && (target.depth_texture() != 0) == sampleable_depth
+        && target.float_colour() == float_colour) {
         return;
     }
 
     std::string error;
-    bool created = target.create(output.width, output.height, error, samples, sampleable_depth);
+    bool created =
+        target.create(output.width, output.height, error, samples, sampleable_depth, float_colour);
 
     // Some drivers advertise sample counts they cannot attach; retry without multisampling.
     if (!created && samples > 1) {
@@ -92,7 +112,8 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
             output.height,
             error,
             1,
-            enhanced_graphics_available() && frame.graphics.enhanced_graphics
+            enhanced_graphics_available() && frame.graphics.enhanced_graphics,
+            float_colour
         );
     }
 
@@ -101,13 +122,20 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
         throw std::runtime_error(error);
     }
 
+#if defined(OPENRAC_VULKAN)
+    if (float_colour) {
+        vkgl::clamp_colour_writes(target.id());
+    }
+#endif
+
     log::info(
-        "frame {}x{} for a picture of {}x{} pixels, {} sample(s) a pixel",
+        "frame {}x{} for a picture of {}x{} pixels, {} sample(s) a pixel{}",
         target.width(),
         target.height(),
         output.box.width,
         output.box.height,
-        target.samples()
+        target.samples(),
+        float_colour ? ", in half floats (HDR)" : ""
     );
 }
 

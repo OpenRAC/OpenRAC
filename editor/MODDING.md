@@ -20,6 +20,7 @@ levels ([README.md](README.md#the-later-games-early-access)).
 
 Moving objects, editing their values, volumes, paths, cameras and the
 collision is level editing, in Godot: [LEVEL_MODDING.md](LEVEL_MODDING.md).
+Changing the music, speech and effects is [AUDIO_MODDING.md](AUDIO_MODDING.md).
 
 Nothing here changes your disc image or the extracted levels, and nothing
 you export may be shared: it is your disc's data. A pack holds only what you
@@ -235,6 +236,7 @@ level_NN/ties/tie_<class>.glb, level_NN/shrubs/shrub_<class>.glb
 level_NN/terrain.glb              the level's terrain, as the port reads it
 level_NN/placements.json          ties and shrubs placed again (the level packer's)
 level_NN/gameplay_<version>.wad, patches.tsv   a packed level (the level packer's)
+audio/<key>.wav                   a sound of the game, replaced (AUDIO_MODDING.md)
 README*, LICENSE*, *.txt, *.md    for people; other files are ignored
 ```
 

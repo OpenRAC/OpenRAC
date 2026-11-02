@@ -35,6 +35,7 @@ The code is in [port/](../../port/README.md).
 | [DESIGN.md](DESIGN.md) | What is decided, the shape of the port, the open decisions |
 | [ROADMAP.md](ROADMAP.md) | The order of work, and whether the decompilation must be finished first |
 | [SETTINGS.md](SETTINGS.md) | The PC settings and their file, frame pacing against the game's tick, the game's 50/60 Hz option, the graphics card checks, where a frame's time goes, the settings beside OpenGOAL's and ReRAC's, and the game fixes (what the port does otherwise than the original, and what a player switches back) |
+| [HDR.md](HDR.md) | HDR output: settings, where it works, how it works, tests |
 | [SPEEDRUN.md](SPEEDRUN.md) | Speedrunning the port: how it is timed, how to split a run with LiveSplit, the practice tooling, what a save state would take, the game's own speedrun meta, and what a category on the port would have to say |
 | [CONTROLLERS.md](CONTROLLERS.md) | Controllers: what the port does with a PlayStation 5 DualSense today, what Ratchet & Clank actually asks a controller for (analog button pressure, once, for swimming; no rumble at all, even on the console), what SDL3 exposes for adaptive triggers and the light bar, and what to build |
 | [CONTROLS.md](CONTROLS.md) | The controls: the global and per-game files, how they layer, the bindings' names, the sticks' and triggers' settings, which controller each player is, and the window in the game that changes them |

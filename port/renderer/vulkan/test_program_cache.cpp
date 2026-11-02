@@ -38,6 +38,8 @@ bool compatible(const Program& a, const Program& b) {
 void move_objects(Program& to, Program& from) {
     to.vertex = std::exchange(from.vertex, VK_NULL_HANDLE);
     to.fragment = std::exchange(from.fragment, VK_NULL_HANDLE);
+    to.fragment_clamped = std::exchange(from.fragment_clamped, VK_NULL_HANDLE);
+    to.clamped_tried = std::exchange(from.clamped_tried, false);
     to.compute = std::exchange(from.compute, VK_NULL_HANDLE);
     to.compute_pipeline = std::exchange(from.compute_pipeline, VK_NULL_HANDLE);
     to.set_layout = std::exchange(from.set_layout, VK_NULL_HANDLE);

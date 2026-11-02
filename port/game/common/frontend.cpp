@@ -176,11 +176,48 @@ platform::DisplayMode window_mode(settings::DisplayMode mode) {
     }
 }
 
+// OPENRAC_HDR_FRAME: every 60th frame, how much of the HDR frame (half floats) lies above white
+// and its brightest value, in the log. A frame that is not in half floats is not read.
+void log_hdr_frame(unsigned framebuffer, int width, int height) {
+    using namespace gl;
+    static int frames = 0;
+    if (!env::flag(env::Var::HdrFrame) || ++frames % 60 != 0 || width <= 0 || height <= 0) {
+        return;
+    }
+    std::vector<float> pixels(static_cast<std::size_t>(width) * height * 4, -1.0f);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT, pixels.data());
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    std::size_t above = 0;
+    std::size_t below = 0;
+    float brightest = 0.0f;
+    for (std::size_t n = 0; n < pixels.size(); n += 4) {
+        const float m = std::max({pixels[n], pixels[n + 1], pixels[n + 2]});
+        above += m > 1.0f + 1.0f / 512.0f ? 1 : 0;
+        below += std::min({pixels[n], pixels[n + 1], pixels[n + 2]}) < -1.0f / 512.0f ? 1 : 0;
+        brightest = std::max(brightest, m);
+    }
+    if (pixels[0] < 0.0f && brightest == 0.0f) {
+        return;  // not read: an 8-bit frame
+    }
+    const double count = static_cast<double>(pixels.size() / 4);
+    log::info(
+        "hdr frame {}: {:.2f}% of pixels above white, brightest {:.3f}, {:.3f}% below black",
+        frames,
+        100.0 * static_cast<double>(above) / count,
+        brightest,
+        100.0 * static_cast<double>(below) / count
+    );
+}
+
 // Draws `framebuffer` (width x height) into the window's box, black around it; `flip`: its first
 // row is the top (an uploaded picture) rather than the bottom (a rendered frame).
 void present(unsigned framebuffer, int width, int height, int window_width, int window_height, bool flip,
              float aspect = kTvAspect) {
     using namespace gl;
+    if (!flip) {
+        log_hdr_frame(framebuffer, width, height);
+    }
     const Box b = frame_box(window_width, window_height, aspect);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glDisable(GL_SCISSOR_TEST);
@@ -383,6 +420,9 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     // OPENRAC_HIDDEN=1: the window is made and drawn as always but never shown, for scripted runs
     // that should not open windows on the player's screen (several can run at once).
     config.hidden = env::flag(env::Var::Hidden);
+    // HDR output may be turned on later only when it was not off at start (common/hdr.h).
+    config.hdr = chosen.hdr != hdr::Mode::Off;
+    g->hdr_at_start = config.hdr;
     g->window = platform::Window::open(config, error);
     if (!g->window) {
         return false;
@@ -392,6 +432,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g->swap_asked = wanted_swap();
     g->swap = g->window->set_swap_interval(g->swap_asked);
     g->window->set_low_latency(settings::get().low_latency_frames);
+    apply_hdr();
     g->display_mode = chosen.display_mode;
     g->monitor = chosen.monitor;
     g->fullscreen_width = chosen.fullscreen_width;
