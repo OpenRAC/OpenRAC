@@ -20,6 +20,7 @@
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #if defined(_WIN32)
@@ -1068,6 +1069,10 @@ struct LevelMap {
 
 gaddr g_relocate_gp = 0;
 bool g_pair_neighbours = false;  // openrac_guest_set_level_range
+// A global formed by an offset from a whole address (a field, a loop's end) gives way to a pair
+// formed from the global's own lui and low half when the two disagree (openrac_guest_set_level_range,
+// Going Commando only: rac1's pairs stay as they were).
+bool g_direct_pairs_win = false;
 std::vector<std::uint8_t> g_exe_code;
 gaddr g_exe_base = 0;
 std::map<int, LevelMap> g_level_maps;
@@ -1106,16 +1111,30 @@ std::uint32_t exe_reader(int, gaddr at) {
     return exe_word(at);
 }
 
+// `derived` (Going Commando, g_direct_pairs_win): the addresses whose pair in `out` came from an
+// offset added to a whole address in a register (the high half and the low half already joined)
+// rather than from the address's own lui and low half or $gp. Such a pair is right for a field, but
+// not for an address past the end of a block, which another program can follow with other data:
+// Going Commando's executable has the 300 particle records at 0x0022C9A0 and the debris slots right
+// after them at 0x00232760, where Oozla has its fade list (0x002502C0) between the two; the
+// particle loop's end pointer (func_00329488, base + 0x5DC0) paired 0x00232760 with the fade list,
+// so the executable's debris C (func_0032ABC0, the nanotech level-up's sparks) wrote its slots
+// over the fade list, whose update then took a spark's floats for a moby and a callback.
+// A pair formed from the address's own halves replaces a derived one that disagrees.
+using Derived = std::unordered_set<gaddr>;
+
 void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::uint32_t size,
-               gaddr low, gaddr high, std::map<gaddr, std::int32_t>& out, std::uint32_t own = UINT32_MAX) {
+               gaddr low, gaddr high, std::map<gaddr, std::int32_t>& out, std::uint32_t own = UINT32_MAX,
+               Derived* derived = nullptr) {
     std::uint32_t ve[32] = {}, vl[32] = {};
     bool known[32] = {};
+    bool whole[32] = {};            // a known value is a whole address (an add completed it)
     std::uint32_t origin[32] = {};  // where a known value's high half was formed
     // A branch's target gets the registers as the branch leaves them (after its delay slot), so a
     // value formed in a delay slot (lui in a branch-likely's slot, the addiu at the target) pairs.
     struct Registers {
         std::uint32_t ve[32], vl[32], origin[32];
-        bool known[32];
+        bool known[32], whole[32];
     };
     std::map<std::uint32_t, Registers> at_target;
     std::uint32_t pending_from = 0, pending_target = 0;
@@ -1143,6 +1162,7 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
             std::memcpy(r.vl, vl, sizeof(vl));
             std::memcpy(r.origin, origin, sizeof(origin));
             std::memcpy(r.known, known, sizeof(known));
+            std::memcpy(r.whole, whole, sizeof(whole));
             pending = false;
         }
         if (auto t = at_target.find(i); t != at_target.end()) {
@@ -1152,6 +1172,7 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
                     vl[r] = t->second.vl[r];
                     origin[r] = t->second.origin[r];
                     known[r] = true;
+                    whole[r] = t->second.whole[r];
                 }
             }
         }
@@ -1179,6 +1200,7 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
             vl[rt] = (wl & 0xFFFF) << 16;
             origin[rt] = i;
             known[rt] = true;
+            whole[rt] = false;
             continue;
         }
         const bool load = (op >= 0x20 && op <= 0x27) || op == 0x37 || op == 0x1E;
@@ -1186,7 +1208,7 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
         const bool fpu = op == 0x31 || op == 0x39;  // lwc1, swc1: an address, no GPR written
         const bool add = op == 0x09 || op == 0x19 || op == 0x0D;  // addiu, daddiu, ori
         std::uint32_t ae = 0, al = 0, formed = i;
-        bool have = false;
+        bool have = false, offset = false;
         if ((load || store || fpu || add) && rs == 28 && g_relocate_gp != 0) {
             ae = g_relocate_gp + se;
             al = g_relocate_gp + sl;
@@ -1196,6 +1218,7 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
             al = op == 0x0D ? (vl[rs] | (wl & 0xFFFF)) : vl[rs] + sl;
             formed = origin[rs];
             have = true;
+            offset = whole[rs];
         }
         // What the instruction writes is no longer a known value (unless it is the address just
         // formed by addiu/ori); a call leaves only the callee-saved registers.
@@ -1206,6 +1229,7 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
             vl[rd] = vl[rs];
             origin[rd] = origin[rs];
             known[rd] = known[rs];
+            whole[rd] = whole[rs];
         } else if (op == 0x00 || op == 0x1C) {
             known[rd] = false;
             if (op == 0x00 && funct == 0x09) {  // jalr: as jal
@@ -1217,6 +1241,7 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
             call_slot = i + 4;
         } else if (add) {
             known[rt] = have;
+            whole[rt] = have;
             if (have) {
                 ve[rt] = ae;
                 vl[rt] = al;
@@ -1231,6 +1256,14 @@ void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::u
         if (ae - low < high - low) {
             const auto delta = static_cast<std::int32_t>(al - ae);
             const auto [pair, added] = out.emplace(ae, delta);
+            if (derived != nullptr) {
+                if (added && offset) {
+                    derived->insert(ae);
+                } else if (!added && !offset && pair->second != delta && derived->erase(ae) != 0) {
+                    pair->second = delta;  // its own halves: the derived pair gives way
+                    continue;
+                }
+            }
             // OPENRAC_TRACE_RELOCATION: two functions the catalogue calls copies disagree on a global.
             if (!added && pair->second != delta
                 && openrac::env::flag(openrac::env::Var::TraceRelocation)) {
@@ -1315,7 +1348,8 @@ void pair_neighbours(
     gaddr high,
     bool skip_same_place,
     std::unordered_map<gaddr, gaddr>& code,
-    std::map<gaddr, std::int32_t>& out
+    std::map<gaddr, std::int32_t>& out,
+    Derived* derived
 ) {
     gaddr from = 0, to = 0;
     for (std::size_t k = 0; k < own.size(); ++k) {
@@ -1346,7 +1380,7 @@ void pair_neighbours(
         if (!(skip_same_place && place == at)) {
             code.emplace(at, place);
         }
-        pair_code(reference, program, at, place, size, low, high, out);
+        pair_code(reference, program, at, place, size, low, high, out, UINT32_MAX, derived);
         from = at;
         to = place;
     }
@@ -1369,6 +1403,8 @@ void pair_programs(WordReader reference, int program, const Functions& own,
                    std::unordered_map<openrac_host_fn, std::vector<gaddr>> copies, gaddr low, gaddr high,
                    bool skip_same_place, std::unordered_map<gaddr, gaddr>& code,
                    std::map<gaddr, std::int32_t>& out) {
+    Derived derived_pairs;
+    Derived* derived = g_direct_pairs_win ? &derived_pairs : nullptr;
     std::unordered_map<openrac_host_fn, std::size_t> own_count, own_rank;
     for (const auto& [address, fn] : own) {
         ++own_count[fn];
@@ -1399,7 +1435,7 @@ void pair_programs(WordReader reference, int program, const Functions& own,
             if (!(skip_same_place && place == at)) {
                 code.emplace(at, place);
             }
-            pair_code(reference, program, at, place, size, low, high, out, first);
+            pair_code(reference, program, at, place, size, low, high, out, first, derived);
             continue;
         }
         if (!(skip_same_place && places[0] == at)) {
@@ -1420,7 +1456,7 @@ void pair_programs(WordReader reference, int program, const Functions& own,
         }
     }
     if (g_pair_neighbours) {
-        pair_neighbours(reference, program, own, copies, low, high, skip_same_place, code, out);
+        pair_neighbours(reference, program, own, copies, low, high, skip_same_place, code, out, derived);
     }
 }
 
@@ -1737,6 +1773,7 @@ void openrac_guest_set_level_range(gaddr low, gaddr high) {
     g_level_low = low;
     g_level_high = high;
     g_pair_neighbours = true;
+    g_direct_pairs_win = true;
 }
 
 void openrac_guest_set_level_programs(void (*load)(int level)) {
