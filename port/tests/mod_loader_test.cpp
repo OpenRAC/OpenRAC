@@ -1081,30 +1081,9 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK(
-        (g_records
-         == std::vector<int>{
-             9500,
-             9513 + 10,
-             9540,
-             9541,
-             9541,
-             9550,
-             9551,
-             9560,
-             9561,
-             9577,
-             9581,
-             9580,
-             9581,
-             9591,
-             9590,
-             9591,
-             9591,
-             9590,
-             9602
-         })
-    );
+    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551,
+                                         9560, 9561,      9577, 9581, 9580, 9581, 9591,
+                                         9590, 9591,      9591, 9590, 9602, 9611, 9610}));
     CHECK((
         g_motion
         == std::vector<std::string>{"hero 5", "load beep.wav", "play 4 5 2 1", "stop 7", "camera 7"}
@@ -1121,6 +1100,9 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     // The heat haze, drawn while its level is.
     const std::vector<mods::HazeDraw> haze = mods::haze_drawn();
     CHECK(haze.size() == 2 && haze[0].position[0] == 4.0f && haze[0].radius == 1.0f);
+    // The HUD's line, shown while its level is.
+    const std::vector<openrac_hud_text> hud = mods::hud_texts();
+    CHECK(hud.size() == 1 && std::string(hud[0].text) == "KICKFLIP" && hud[0].y == 0.8f);
     // Another hook point is the hero's update now, and the level was loaded again.
     play.hero_update_hook = "Test_Other";
     g_loads = 2;
@@ -1129,6 +1111,7 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK((g_records == std::vector<int>{9501, 9551}));
     CHECK(mods::props_drawn().empty());
     CHECK(mods::haze_drawn().empty());
+    CHECK(mods::hud_texts().empty());
     mods::reset();
 }
 

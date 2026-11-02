@@ -1144,11 +1144,11 @@ public:
     int save_slot_current() const { return has_api_11() ? m_api->save_slot_current() : -1; }
 
     // Whether the port has interface 1.12's calls: the hero moved by the mod (hero_set_pose), the
-    // collision triangles, props, sounds, the camera and heat haze. has_hero_drive(),
+    // collision triangles, props, sounds, the camera, heat haze and HUD text. has_hero_drive(),
     // has_collision(), has_props(), has_sounds() and has_camera() say the same for each part.
     bool has_api_12() const {
         return m_api->api_minor >= 12
-               && m_api->size >= offsetof(openrac_api, haze_set) + sizeof(void*);
+               && m_api->size >= offsetof(openrac_api, hud_text_set) + sizeof(void*);
     }
     bool has_hero_drive() const { return has_api_12(); }
     bool has_collision() const { return has_api_12(); }
@@ -1288,6 +1288,15 @@ public:
         return has_camera()
                && m_api->haze_set(m_handle, patches.empty() ? nullptr : patches.data(),
                                   static_cast<int>(patches.size()))
+                      == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: lines of text in the game's HUD (openrac_hud_text) until the next call; an empty
+    // list takes them off.
+    bool hud_text_set(const std::vector<openrac_hud_text>& lines) const {
+        return has_api_12()
+               && m_api->hud_text_set(m_handle, lines.empty() ? nullptr : lines.data(),
+                                      static_cast<int>(lines.size()))
                       == OPENRAC_HOOK_OK;
     }
 

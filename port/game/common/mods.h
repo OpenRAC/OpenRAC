@@ -204,6 +204,10 @@ struct HazeDraw {
 // The heat haze patches of this level load, every mod's. From any thread.
 std::vector<HazeDraw> haze_drawn();
 
+// The lines of text the mods show in the game's HUD this level load (openrac_hud_text), every
+// mod's, in the order they set them. From any thread.
+std::vector<openrac_hud_text> hud_texts();
+
 // Play (interface 1.8, mod_play.h): the start or travel a mod asked for, done now, on the game's
 // thread after the frame's menus (frontend/frame.cpp, beside the developer menu's start); nothing
 // when none is pending.

@@ -639,6 +639,23 @@ int openrac_game_ui_quad(const openrac_game_ui_rect* quad);
  * the player's HUD setting is "Edges", else 0. */
 int openrac_game_hud_side(void);
 
+/* A line of text a mod shows in the game's HUD (mod interface 1.12, openrac_api.hud_text_set): its
+ * text (ends with a 0), its centre on the game's 4:3 screen (0 to 1 across and down), its size (1
+ * the font's 16 pixels a glyph), its colour (0xAABBGGRR, 0 to 255 each) and flags (1 the small
+ * font, 2 a shadow under it). */
+typedef struct openrac_game_hud_text {
+    char text[64];
+    float x;
+    float y;
+    float scale;
+    uint32_t rgba;
+    uint32_t flags;
+} openrac_game_hud_text;
+
+/* The mods' HUD lines of this level load, up to `max` into `out`; returns how many there are. The
+ * game draws them after its own HUD's elements. */
+int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
+
 /* How many times wider than the game's 4:3 the picture is (the player's aspect setting): its
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */
 float openrac_game_picture_wider(void);

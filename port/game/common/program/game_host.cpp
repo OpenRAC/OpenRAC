@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <span>
+#include <vector>
 
 #include "common/c_boundary.h"
 #include "common/crash.h"
@@ -404,6 +405,28 @@ void openrac_game_sky_shell(int shell, const float* matrix) {
         (void)shell;
         (void)matrix;
 #endif
+    });
+}
+
+int openrac_game_hud_texts(openrac_game_hud_text* out, int max) {
+    return c_boundary::call("openrac_game_hud_texts", 0, [&]() -> int {
+        const std::vector<openrac_hud_text> lines = mods::hud_texts();
+        const int n = static_cast<int>(lines.size());
+        for (int i = 0; out != nullptr && i < n && i < max; ++i) {
+            const openrac_hud_text& l = lines[static_cast<std::size_t>(i)];
+            openrac_game_hud_text& o = out[i];
+            std::memcpy(o.text, l.text, sizeof o.text);
+            o.text[sizeof o.text - 1] = '\0';
+            o.x = l.x;
+            o.y = l.y;
+            o.scale = l.scale;
+            o.rgba = static_cast<std::uint32_t>(l.rgba[0])
+                     | static_cast<std::uint32_t>(l.rgba[1]) << 8
+                     | static_cast<std::uint32_t>(l.rgba[2]) << 16
+                     | static_cast<std::uint32_t>(l.rgba[3]) << 24;
+            o.flags = l.flags;
+        }
+        return n;
     });
 }
 

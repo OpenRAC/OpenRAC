@@ -55,7 +55,7 @@ extern "C" {
  * folder of the mod's own for its files and the memory card slot the game in progress saves into,
  * 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles
  * around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the
- * camera set by a mod and heat haze drawn over the picture.
+ * camera set by a mod, heat haze drawn over the picture and text in the game's HUD.
  */
 #define OPENRAC_MOD_API_MINOR 12
 
@@ -977,6 +977,29 @@ typedef struct openrac_haze {
 /* The most heat haze patches the mods together draw at once. Since 1.12. */
 #define OPENRAC_HAZE_MAX 64
 
+/* openrac_hud_text.flags. Since 1.12. */
+/* The game's small font, else its large one. */
+#define OPENRAC_HUD_SMALL 0x1u
+/* A dark copy of the line a pixel down and right, under it. */
+#define OPENRAC_HUD_SHADOW 0x2u
+
+/* One line of text in the game's own HUD (openrac_api.hud_text_set), drawn with the game's font
+ * after its HUD's elements, and hidden with them (in a scene, under a menu). `text` ends with a 0;
+ * characters outside 32 to 126 are left out. `x` and `y` are the line's centre on the game's 4:3
+ * screen, 0 to 1 across and down; `scale` its size (1 the game's 16 pixels a glyph, 0.25 to 4);
+ * `rgba` its colour and opacity, 0 to 255 each. Since 1.12. */
+typedef struct openrac_hud_text {
+    char text[64];
+    float x;
+    float y;
+    float scale;
+    uint8_t rgba[4];
+    uint32_t flags;
+} openrac_hud_text;
+
+/* The most HUD lines the mods together show at once. Since 1.12. */
+#define OPENRAC_HUD_TEXTS_MAX 16
+
 /* ------------------------------------------------------------------------------------------ *
  * Callbacks
  * ------------------------------------------------------------------------------------------ */
@@ -1553,6 +1576,13 @@ typedef struct openrac_api {
      * or for a patch with a value that is not a number, or a radius or strength below 0. Since
      * 1.12. */
     int (*haze_set)(openrac_mod* mod, const openrac_haze* patches, int count);
+
+    /* Shows lines of text in the game's HUD (openrac_hud_text): the `count` lines replace the
+     * mod's last ones and stay until the next call; 0 (or `lines` null) takes them off. They go
+     * with the level. OPENRAC_HOOK_UNKNOWN outside a level, past OPENRAC_HUD_TEXTS_MAX for all
+     * mods, or for a line whose text has no end, or whose place or scale is out of range or not a
+     * number. Since 1.12. */
+    int (*hud_text_set)(openrac_mod* mod, const openrac_hud_text* lines, int count);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

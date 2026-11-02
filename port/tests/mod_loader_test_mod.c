@@ -352,6 +352,17 @@ static void motion_frame(void) {
             cam.size = sizeof cam;
             s_record(9600 + -s_api->camera_view(&cam) + (int)cam.eye[0]);
         }
+        {
+            openrac_hud_text line;
+            memset(&line, 0, sizeof line);
+            strcpy(line.text, "KICKFLIP");
+            line.x = 0.5f;
+            line.y = 0.8f;
+            line.scale = 0.1f;
+            s_record(9610 + -s_api->hud_text_set(s_mod, &line, 1)); /* a scale too small */
+            line.scale = 1.0f;
+            s_record(9610 + -s_api->hud_text_set(s_mod, &line, 1));
+        }
     } else if (s_frames == 2) {
         s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));

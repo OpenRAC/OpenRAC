@@ -773,6 +773,17 @@ struct Haze {
 std::mutex g_haze_lock;
 std::vector<Haze> g_haze;
 
+// The lines of text each mod shows in the game's HUD (hud_text_set), of a level load: set and read
+// on the game's thread, behind a lock as the haze is.
+struct HudTexts {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::vector<openrac_hud_text> lines;
+};
+
+std::mutex g_hud_lock;
+std::vector<HudTexts> g_hud;
+
 std::uint32_t loads_now() {
     return g_play != nullptr ? g_play->loads() : 0;
 }
@@ -1028,6 +1039,42 @@ int api_haze_set(openrac_mod* mod, const openrac_haze* patches, int count) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_hud_text_set(openrac_mod* mod, const openrac_hud_text* lines, int count) {
+    std::int32_t level = -1;
+    if (mod == nullptr || count < 0 || (count > 0 && lines == nullptr)
+        || (count > 0 && !in_level(phase_now(&level)))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int i = 0; i < count; ++i) {
+        const openrac_hud_text& l = lines[i];
+        const bool ended =
+            std::find(std::begin(l.text), std::end(l.text), '\0') != std::end(l.text);
+        const auto within = [](float v, float lo, float hi) {
+            return std::isfinite(v) && v >= lo && v <= hi;
+        };
+        if (!ended || !within(l.x, 0.0f, 1.0f) || !within(l.y, 0.0f, 1.0f)
+            || !within(l.scale, 0.25f, 4.0f)) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    std::size_t others = 0;
+    for (const HudTexts& h : g_hud) {
+        if (h.mod != mod && h.loads == loads) {
+            others += h.lines.size();
+        }
+    }
+    if (others + static_cast<std::size_t>(count) > OPENRAC_HUD_TEXTS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod || h.loads != loads; });
+    if (count > 0) {
+        g_hud.push_back({mod, loads, std::vector<openrac_hud_text>(lines, lines + count)});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
 int api_sound_load(openrac_mod* mod, const char* path) {
     if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -1170,6 +1217,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.camera_view = api_camera_view;
     api.camera_set = api_camera_set;
     api.haze_set = api_haze_set;
+    api.hud_text_set = api_hud_text_set;
 }
 
 std::vector<HazeDraw> haze_drawn() {
@@ -1182,6 +1230,18 @@ std::vector<HazeDraw> haze_drawn() {
         }
         for (const openrac_haze& p : h.patches) {
             out.push_back({{p.position[0], p.position[1], p.position[2]}, p.radius, p.strength});
+        }
+    }
+    return out;
+}
+
+std::vector<openrac_hud_text> hud_texts() {
+    std::vector<openrac_hud_text> out;
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    for (const HudTexts& h : g_hud) {
+        if (h.loads == loads) {
+            out.insert(out.end(), h.lines.begin(), h.lines.end());
         }
     }
     return out;
@@ -1289,6 +1349,10 @@ void reset_play() {
         const std::lock_guard<std::mutex> lock(g_haze_lock);
         g_haze.clear();
     }
+    {
+        const std::lock_guard<std::mutex> lock(g_hud_lock);
+        g_hud.clear();
+    }
     if (g_camera_mod != nullptr && g_play != nullptr && g_play->camera_set != nullptr) {
         g_play->camera_set(nullptr, nullptr);
     }
@@ -1336,6 +1400,10 @@ void drop_figures(const openrac_mod* mod) {
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);
         std::erase_if(g_haze, [&](const Haze& h) { return h.mod == mod; });
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_hud_lock);
+        std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod; });
     }
     if (g_camera_mod == mod) {
         if (g_play != nullptr && g_play->camera_set != nullptr) {
