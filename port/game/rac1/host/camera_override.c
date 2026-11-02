@@ -39,6 +39,7 @@ static struct {
     uint32_t loads;
     float eye[3], rows[12];
 } mod_camera;
+
 static struct {
     int seen;
     uint32_t loads;

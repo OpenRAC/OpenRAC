@@ -442,7 +442,11 @@ class TablesTests(TempDir):
         path = ROOT / "port" / "game" / "rac8-pal" / "libraries.tsv"
         expected = gen_binding.hook_rows("rac8", ["pal"], {path: LIBRARIES})
         rows = tables.read_tsv(self.libraries, ["symbol", "library", "name", "port"], strip=True)
-        self.assertEqual({"pal": {r["name"]: r["symbol"] for r in rows if r["port"] == "hook"}}, expected)
+        have: dict[str, set[str]] = {}
+        for r in rows:
+            if r["port"] == "hook":
+                have.setdefault(r["name"], set()).add(r["symbol"])
+        self.assertEqual({"pal": have}, expected)
 
     def test_reads_the_headers_of_this_checkouts_libraries(self):
         for path in sorted((ROOT / "port" / "game").glob("*/libraries.tsv")):

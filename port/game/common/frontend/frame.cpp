@@ -1468,8 +1468,9 @@ TickMobys pose_mobys(
             instance.hero_shadow_caster = openrac_game_has_level(g->loaded);
             if (shadow_moby != 0 && model->second < g->level.models.size()) {
                 const scene::Model& mesh = g->level.models[model->second];
-                const renderer::Vec3 size{mesh.max[0] - mesh.min[0], mesh.max[1] - mesh.min[1],
-                                          mesh.max[2] - mesh.min[2]};
+                const renderer::Vec3 size{
+                    mesh.max[0] - mesh.min[0], mesh.max[1] - mesh.min[1], mesh.max[2] - mesh.min[2]
+                };
                 // The mesh's up is its shortest side; the capsule runs along the longest.
                 int along = 0, across = 0;
                 for (int k = 1; k < 3; ++k) {
@@ -1491,12 +1492,15 @@ TickMobys pose_mobys(
                 capsule.a = renderer::transform_point(props[i].matrix, a);
                 capsule.b = renderer::transform_point(props[i].matrix, b);
                 // The matrix's scale along the side the radius was measured on.
-                const renderer::Vec3 o = renderer::transform_point(props[i].matrix, renderer::Vec3{});
+                const renderer::Vec3 o =
+                    renderer::transform_point(props[i].matrix, renderer::Vec3{});
                 renderer::Vec3 unit{};
                 unit[across] = 1.0f;
                 const renderer::Vec3 u = renderer::transform_point(props[i].matrix, unit);
-                const float scale = std::sqrt((u[0] - o[0]) * (u[0] - o[0]) + (u[1] - o[1]) * (u[1] - o[1])
-                                              + (u[2] - o[2]) * (u[2] - o[2]));
+                const float scale = std::sqrt(
+                    (u[0] - o[0]) * (u[0] - o[0]) + (u[1] - o[1]) * (u[1] - o[1])
+                    + (u[2] - o[2]) * (u[2] - o[2])
+                );
                 capsule.radius_a = capsule.radius_b = radius * scale;
                 capsule.segments_a = capsule.segments_b = 8;
                 shadows.push_back(capsule);

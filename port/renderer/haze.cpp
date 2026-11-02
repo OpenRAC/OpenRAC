@@ -39,7 +39,8 @@ void Haze::apply(
     }
     const stats::Scope timing("Heat haze", stats::kGpu);
     std::string error;
-    if ((!m_shader.id() && !m_shader.build("Heat haze", shaders::haze_vert, shaders::haze_frag, error))
+    if ((!m_shader.id()
+         && !m_shader.build("Heat haze", shaders::haze_vert, shaders::haze_frag, error))
         || ((m_copy.width() != output.width() || m_copy.height() != output.height())
             && !m_copy.create(output.width(), output.height(), error))) {
         log::error("Heat haze disabled: {}", error);

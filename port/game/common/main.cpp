@@ -68,7 +68,6 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "frontend/mod_media.h"
-#include "scene/moby_pose.h"
 #include "mod_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
@@ -76,6 +75,7 @@
 #include "platform/window.h"
 #include "renderer/gl.h"
 #include "renderer/texture_pack.h"
+#include "scene/moby_pose.h"
 #include "settings.h"
 #endif
 #if defined(OPENRAC_ANDROID_ACTIVITY)

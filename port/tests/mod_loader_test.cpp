@@ -1053,8 +1053,10 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         return std::uint32_t{7};
     };
     play.camera_set = [](const float eye[3], const float rows[9]) {
-        g_motion.push_back(eye != nullptr ? "camera " + std::to_string(static_cast<int>(eye[0] + rows[0]))
-                                          : std::string("camera off"));
+        g_motion.push_back(
+            eye != nullptr ? "camera " + std::to_string(static_cast<int>(eye[0] + rows[0]))
+                           : std::string("camera off")
+        );
         return 1;
     };
     play.camera_view = [](float eye[3], float rows[9]) {
@@ -1082,14 +1084,31 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(
         (g_records
          == std::vector<int>{
-             9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560, 9561, 9577, 9581, 9580,
-             9581, 9591, 9590, 9591, 9591, 9590, 9602
+             9500,
+             9513 + 10,
+             9540,
+             9541,
+             9541,
+             9550,
+             9551,
+             9560,
+             9561,
+             9577,
+             9581,
+             9580,
+             9581,
+             9591,
+             9590,
+             9591,
+             9591,
+             9590,
+             9602
          })
     );
-    CHECK(
-        (g_motion
-         == std::vector<std::string>{"hero 5", "load beep.wav", "play 4 5 2 1", "stop 7", "camera 7"})
-    );
+    CHECK((
+        g_motion
+        == std::vector<std::string>{"hero 5", "load beep.wav", "play 4 5 2 1", "stop 7", "camera 7"}
+    ));
     // The prop: its mesh asked for once (the level read again with it), drawn where it was posed.
     CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
     CHECK(mods::prop_meshes_generation() == generation + 1);

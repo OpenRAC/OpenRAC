@@ -118,7 +118,8 @@ struct Host {
     // The hero's joints turned by a mod (interface 1.12, openrac_api.hero_set_joints): the offsets
     // put on moby `moby`'s pose wherever it is evaluated (count 0: taken off). Null: no drawing (a
     // test's), and the call says so.
-    void (*joint_offsets)(std::uint32_t moby, const openrac_joint_offset* joints, int count) = nullptr;
+    void (*joint_offsets)(std::uint32_t moby, const openrac_joint_offset* joints, int count) =
+        nullptr;
 };
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
