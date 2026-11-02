@@ -450,6 +450,8 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
                                                        fmt, mesh_file)
     for class_id, (blob, place) in level.items.items():
         result[class_id] = lenient(level, blob, [ITEM_TEXTURES + place] * 16, class_id, fmt)
+    if level.ship_body is not None:
+        result[SHIP_CLASS] = lenient(level, level.ship_body, [SHIP_TEXTURE] * 16, SHIP_CLASS, fmt)
     return result
 
 

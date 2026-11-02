@@ -70,6 +70,8 @@ class Level:
     # The items he holds, which the level's class table only names or leaves out: class number to
     # (decoded class, place among the textures from ITEM_TEXTURES).
     items: dict[int, tuple[bytes, int]] = field(default_factory=dict)
+    # Going Commando's flights: his ship's hull, which the game loads over a class of its own.
+    ship_body: bytes | None = None
 
     @property
     def instances(self) -> bytes:
@@ -390,6 +392,7 @@ def load_wad_flight(source, number: int) -> Level:
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture
     level.textures[("moby", SHIP_TEXTURE)] = record_texture(source.ship_texture(), 0)
+    level.ship_body = source.ship_body()
     return level
 
 
