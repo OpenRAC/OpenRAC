@@ -1,0 +1,38 @@
+# Configure results contain absolute paths and feature checks: restore only with the same
+# tools, installed packages, runner image, workspace and build configuration. Compile objects
+# belong to ccache; Ninja files and test results are regenerated on every run.
+name: Port build preparation cache
+description: Cache matching CMake checks, dependency sources and checked hostgen output
+inputs:
+  variant:
+    description: Unique platform and feature configuration, never shared across jobs
+    required: true
+  preset:
+    description: The port CMake preset built by this job
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: identity
+      shell: bash
+      run: python3 tools/ci_cache.py
+      if: runner.os != 'Windows'
+    - id: windows-identity
+      shell: pwsh
+      run: python tools/ci_cache.py
+      if: runner.os == 'Windows'
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: steps.identity.outputs.fingerprint != '' || steps.windows-identity.outputs.fingerprint != ''
+      with:
+        path: |
+          port/build/${{ inputs.preset }}/CMakeCache.txt
+          port/build/${{ inputs.preset }}/CMakeFiles/[0-9]*
+          port/build/${{ inputs.preset }}/_deps/*-src
+          port/build/${{ inputs.preset }}/_deps/*-subbuild
+          port/build/${{ inputs.preset }}/games/*/gen
+          !port/build/${{ inputs.preset }}/games/*/gen/prep
+          !port/build/**/*.o
+          !port/build/**/*.obj
+          !port/build/**/*.pdb
+        key: prep-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}-g${{ hashFiles('games/rac1/**', 'port/game/**', 'port/tools/hostgen/**') }}
+        restore-keys: prep-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}-g

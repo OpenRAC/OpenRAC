@@ -44,6 +44,20 @@ cd port && cmake --preset release && cmake --build --preset release && ctest --p
 - [port/docs/CODING_CONVENTIONS.md](../port/docs/CODING_CONVENTIONS.md): how
   the port's code is written.
 
+## CI build caches
+
+The checks run on pushes to `develop` and `master` as well as pull requests, so successful
+default-branch builds populate caches that later pull requests can restore. Superseded PR and
+`develop` runs are cancelled; release checks on `master` finish.
+
+Each native checks configuration has a separate compiler cache and preparation cache. The latter
+keeps dependency sources, fingerprint-checked hostgen output and CMake's configure/compiler
+metadata. Its keys include the tools, installed packages, runner image, workspace, CPU features
+and build configuration. A missing or incompatible identity falls back to normal preparation.
+Objects remain in ccache; Ninja files and test results are regenerated. Cache hits never skip
+build or test steps. Launcher checks and builds also cache Yarn archives while retaining
+`yarn install --immutable` and its install/link steps.
+
 ## The level editor
 
 The launcher's **Mods** tab does all of this for you. By hand, for
