@@ -250,6 +250,7 @@ struct State {
     float menu_at = 0.0f;      // how far out: 0 shut, 1 open
     bool keep_paused = false;  // the pause the game is left in when it shuts
     bool menu_focus = false;   // given the keyboard and gamepad when it opens or changes tab
+    bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
     Scroll menu_scroll;        // the finger's drag over the drawer's rows
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture

@@ -94,6 +94,7 @@ void drawer(const Shown& shown) {
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImGui::ColorConvertU32ToFloat4(ui().line_strong));
+    ImGui::PushStyleColor(ImGuiCol_NavCursor, ImVec4(0, 0, 0, 0));  // the rows draw their own
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
                                    | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("OpenRAC options", nullptr, flags)) {
@@ -191,7 +192,7 @@ void drawer(const Shown& shown) {
         ImGui::Dummy(ImVec2(0.0f, dp(12.0f)));
     }
     ImGui::End();
-    ImGui::PopStyleColor(3);
+    ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(5);
 }
 
@@ -202,7 +203,8 @@ bool bar_button(const char* label, float width, bool primary = false) {
     const float height = dp(44.0f);
     const ImVec2 a = ImGui::GetCursorScreenPos();
     const ImVec2 b(a.x + width, a.y + height);
-    const bool pressed = ImGui::InvisibleButton(label, ImVec2(width, height));
+    const bool pressed =
+        ImGui::InvisibleButton(label, ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(12.0f);
     const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);

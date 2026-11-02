@@ -44,6 +44,8 @@ struct MenuFonts {
     ImFont* body = nullptr;    // Inter, the rows
     ImFont* strong = nullptr;  // Inter SemiBold, the tabs and buttons
     ImFont* head = nullptr;    // Orbitron, the headings
+    ImFont* title = nullptr;   // Orbitron, larger: the open tab's name over its rows
+    ImFont* small = nullptr;   // Inter SemiBold, smaller: a section's kicker, the version
 };
 
 extern MenuFonts menu_fonts;

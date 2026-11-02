@@ -7,6 +7,7 @@
 #include "debug/menu_ui.h"
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <imgui.h>
 #include <imgui_internal.h>  // ImHashStr, ShadeVertsLinearColorGradientKeepAlpha
@@ -75,9 +76,21 @@ void add_menu_fonts() {
         add_font(openrac_font_inter_semibold, openrac_font_inter_semibold_size, body);
     menu_fonts.head =
         add_font(openrac_font_orbitron, openrac_font_orbitron_size, std::round(17.0f * s.ui_scale));
+    menu_fonts.title =
+        add_font(openrac_font_orbitron, openrac_font_orbitron_size, std::round(30.0f * s.ui_scale));
+    menu_fonts.small = add_font(
+        openrac_font_inter_semibold,
+        openrac_font_inter_semibold_size,
+        std::round(12.0f * s.ui_scale)
+    );
     ImFont* fallback =
         ImGui::GetIO().Fonts->Fonts.empty() ? nullptr : ImGui::GetIO().Fonts->Fonts[0];
-    for (ImFont** font : {&menu_fonts.body, &menu_fonts.strong, &menu_fonts.head}) {
+    for (ImFont** font :
+         {&menu_fonts.body,
+          &menu_fonts.strong,
+          &menu_fonts.head,
+          &menu_fonts.title,
+          &menu_fonts.small}) {
         if (*font == nullptr) {
             *font = fallback;
         }
@@ -172,8 +185,20 @@ void menu_heading(const char* title) {
     const float size =
         font == menu_fonts.head && font != nullptr ? font->FontSize : ImGui::GetFontSize() * 1.05f;
     const ImVec2 at = ImGui::GetCursorScreenPos();
-    ImGui::GetWindowDrawList()
-        ->AddText(font, size, ImVec2(at.x + dp(4.0f), at.y), ui().gold, title);
+    ImDrawList* list = ImGui::GetWindowDrawList();
+    list->AddText(font, size, ImVec2(at.x + dp(4.0f), at.y), ui().gold, title);
+    // A hairline after it to the card's edge, fading out, as the launcher's section rules.
+    const float end = at.x + ImGui::GetContentRegionAvail().x;
+    const float from =
+        at.x + dp(4.0f) + font->CalcTextSizeA(size, FLT_MAX, 0.0f, title).x + dp(14.0f);
+    if (end - from > dp(24.0f)) {
+        const float y = std::round(at.y + size * 0.55f) + 0.5f;
+        const ImU32 near = ui().line_strong;
+        const ImU32 far = ui_colors::fade(ui().line, 0.0f);
+        list->AddRectFilledMultiColor(
+            ImVec2(from, y), ImVec2(end - dp(4.0f), y + 1.0f), near, far, far, near
+        );
+    }
     ImGui::Dummy(ImVec2(0.0f, size + dp(8.0f)));
 }
 
@@ -188,8 +213,15 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right) {
         );
     }
     ImGui::PushID(label);
-    const bool pressed = ImGui::InvisibleButton("row", ImVec2(width, height));
+    const bool pressed =
+        ImGui::InvisibleButton("row", ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImGui::PopID();
+    // The menu just opened or changed tab: its first row takes the focus, so that the arrows and a
+    // controller start there and the desktop's side says what it does.
+    if (s.menu_focus_first) {
+        s.menu_focus_first = false;
+        ImGui::FocusItem();
+    }
     const ImVec2 a(at.x + dp(3.0f), at.y + dp(3.0f));
     const ImVec2 b(at.x + width - dp(3.0f), at.y + height - dp(3.0f));
     const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);
@@ -201,8 +233,24 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right) {
         );
     }
     focus_ring(list, a, b, dp(10.0f));
+    // The row under the pointer or the focus: a short bar of the accent at its left, the label
+    // moved a little right of it.
+    const bool lit =
+        ImGui::IsItemHovered() || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
+    const float mark = tween(item_part("mark"), lit ? 1.0f : 0.0f, kFast);
+    if (mark > 0.0f) {
+        const float half = height * 0.22f * mark;
+        list->AddRectFilled(
+            ImVec2(at.x + dp(7.0f), at.y + height * 0.5f - half),
+            ImVec2(at.x + dp(10.0f), at.y + height * 0.5f + half),
+            ui_colors::fade(ui().amber, mark),
+            dp(2.0f)
+        );
+    }
     list->AddText(
-        ImVec2(at.x + dp(16.0f), at.y + (height - ImGui::GetFontSize()) * 0.5f), ink, label
+        ImVec2(at.x + dp(16.0f) + dp(4.0f) * mark, at.y + (height - ImGui::GetFontSize()) * 0.5f),
+        ink,
+        label
     );
     if (right) {
         right(list, ImVec2(at.x + width - dp(16.0f), at.y + height * 0.5f));
@@ -272,7 +320,8 @@ bool menu_button(const char* label) {
     const float height = dp(46.0f);
     const ImVec2 a = ImGui::GetCursorScreenPos();
     const ImVec2 b(a.x + ImGui::GetContentRegionAvail().x, a.y + height);
-    const bool pressed = ImGui::InvisibleButton(label, ImVec2(b.x - a.x, height));
+    const bool pressed =
+        ImGui::InvisibleButton(label, ImVec2(b.x - a.x, height), ImGuiButtonFlags_EnableNav);
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(12.0f);
     primary_fill(

@@ -8,8 +8,10 @@
 // under the pointer or the focus does. The game waits while it is open.
 
 #include <algorithm>
+#include <cctype>
 #include <cfloat>
 #include <cmath>
+#include <format>
 #include <imgui.h>
 #include <imgui_internal.h>  // ShadeVertsLinearColorGradientKeepAlpha
 #include <string>
@@ -17,7 +19,9 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/build_info.h"
 #include "debug/menu_ui.h"
+#include "openrac/game_host.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -66,16 +70,54 @@ void stripes(ImDrawList* list, ImVec2 a, ImVec2 b) {
     // Its light top edge and dark bottom one, and a shadow over the game below.
     list->AddLine(ImVec2(a.x, a.y + 0.5f), ImVec2(b.x, a.y + 0.5f), IM_COL32(255, 255, 255, 90));
     list->AddLine(ImVec2(a.x, b.y - 0.5f), ImVec2(b.x, b.y - 0.5f), IM_COL32(0, 0, 0, 76));
+    const ImU32 dark = IM_COL32(0, 0, 0, 110);
+    const ImU32 none = IM_COL32(0, 0, 0, 0);
+    list->AddRectFilledMultiColor(
+        ImVec2(a.x, b.y), ImVec2(b.x, b.y + dp(18.0f)), dark, dark, none, none
+    );
+}
+
+// Bands of `ink` at the bar's lean over [a, b], fading out downwards from `strength`: the bar's
+// stripes, faint, at the top of the window's side.
+void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength) {
+    const float band = dp(20.0f);
+    const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
+    const ImU32 top = ui_colors::fade(ink, strength);
+    const ImU32 bottom = ui_colors::fade(ink, 0.0f);
+    list->PushClipRect(a, b, true);
+    for (float x = a.x - lean; x < b.x + lean; x += band * 2.0f) {
+        const int first = list->VtxBuffer.Size;
+        list->AddQuadFilled(
+            ImVec2(x + band, a.y),
+            ImVec2(x + band * 2.0f, a.y),
+            ImVec2(x + band * 2.0f - lean, b.y),
+            ImVec2(x + band - lean, b.y),
+            IM_COL32_WHITE
+        );
+        // Each corner's colour by its height: the top's, fading to none at the bottom.
+        for (int v = first; v < list->VtxBuffer.Size; ++v) {
+            ImDrawVert& vert = list->VtxBuffer[v];
+            const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+            vert.col = ui_colors::mix(top, bottom, t);
+        }
+    }
+    list->PopClipRect();
+}
+
+// A rounded rectangle filled from `top` at its top to `bottom` at its foot (both opaque).
+void gradient_fill(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    ImU32 top,
+    ImU32 bottom,
+    float round,
+    ImDrawFlags flags = ImDrawFlags_None
+) {
     const int first = list->VtxBuffer.Size;
-    list->AddRectFilled(ImVec2(a.x, b.y), ImVec2(b.x, b.y + dp(18.0f)), IM_COL32_WHITE);
+    list->AddRectFilled(a, b, IM_COL32_WHITE, round, flags);
     ImGui::ShadeVertsLinearColorGradientKeepAlpha(
-        list,
-        first,
-        list->VtxBuffer.Size,
-        ImVec2(a.x, b.y),
-        ImVec2(a.x, b.y + dp(18.0f)),
-        IM_COL32(0, 0, 0, 110),
-        IM_COL32(0, 0, 0, 0)
+        list, first, list->VtxBuffer.Size, a, ImVec2(a.x, b.y), top, bottom
     );
 }
 
@@ -130,52 +172,125 @@ bool bar_chip(const char* label, ImU32 ink, bool light, float height) {
     return pressed;
 }
 
-// The right side of the window: what the entry under the pointer or the focus is and does.
+// Text in `font` at `at`, wrapped at `wrap`: the height it took.
+float text_block(
+    ImDrawList* list, ImFont* font, ImVec2 at, ImU32 ink, const char* text, float wrap
+) {
+    list->AddText(font, font->FontSize, at, ink, text, nullptr, wrap);
+    return font->CalcTextSizeA(font->FontSize, FLT_MAX, wrap, text).y;
+}
+
+// Small capitals with room between the letters, as the launcher's section numbers and kickers.
+void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
+    ImFont* font = menu_fonts.small;
+    const float gap = dp(1.6f);
+    float x = at.x;
+    for (const char c : text) {
+        const char up[2] = {static_cast<char>(std::toupper(static_cast<unsigned char>(c))), 0};
+        list->AddText(font, font->FontSize, ImVec2(x, at.y), ink, up);
+        x += font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, up).x + gap;
+    }
+}
+
+// The right side of the window: what the entry under the pointer or the focus is and does, on a
+// darker ground with the bar's stripes faint at its top.
 void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
     ImDrawList* list = ImGui::GetWindowDrawList();
-    list->AddLine(ImVec2(a.x, a.y + dp(20.0f)), ImVec2(a.x, b.y - dp(20.0f)), ui().line);
-    const float pad = dp(28.0f);
-    float y = a.y + dp(30.0f);
+    const float round = dp(16.0f);
+    list->AddRectFilled(
+        a, b, ui_colors::fade(ui().ink_deep, 0.55f), round, ImDrawFlags_RoundCornersRight
+    );
+    faint_stripes(
+        list, ImVec2(a.x, a.y + 1.0f), ImVec2(b.x - 1.0f, a.y + dp(150.0f)), ui().amber, 0.06f
+    );
+    list->AddLine(ImVec2(a.x, a.y), ImVec2(a.x, b.y), ui().line);
+    const float pad = dp(30.0f);
+    float y = a.y + dp(34.0f);
     const float wrap = b.x - a.x - pad * 2.0f;
     if (s.menu_hover >= 0 && s.menu_hover < menu::kIds) {
         const auto id = static_cast<menu::Id>(s.menu_hover);
-        const std::string label = entry_label(id, menu::kDesktop);
-        ImFont* head = menu_fonts.head;
-        list->AddText(
-            head, head->FontSize, ImVec2(a.x + pad, y), ui().gold, label.c_str(), nullptr, wrap
+        const menu::Entry& e = menu::entry(id);
+        kicker(
+            list,
+            ImVec2(a.x + pad, y),
+            ui().brand,
+            std::string(menu::tab_name(e.tab)) + "  /  " + e.section
         );
-        y += head->CalcTextSizeA(head->FontSize, FLT_MAX, wrap, label.c_str()).y + dp(14.0f);
-        ImFont* body = menu_fonts.body;
-        const char* help = menu::entry(id).help;
-        list->AddText(body, body->FontSize, ImVec2(a.x + pad, y), ui().soft, help, nullptr, wrap);
+        y += menu_fonts.small->FontSize + dp(12.0f);
+        const std::string label = entry_label(id, menu::kDesktop);
+        y +=
+            text_block(list, menu_fonts.head, ImVec2(a.x + pad, y), ui().gold, label.c_str(), wrap);
+        y += dp(12.0f);
+        list->AddRectFilled(
+            ImVec2(a.x + pad, y), ImVec2(a.x + pad + dp(36.0f), y + dp(3.0f)), ui().amber, dp(1.5f)
+        );
+        y += dp(18.0f);
+        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ui().soft, e.help, wrap);
     } else {
-        ImFont* body = menu_fonts.body;
         const char* line = mod_tab ? "A mod's own menu: its items do what the mod says they do."
                                    : "Point at an option, or move to it with the arrow keys or a "
                                      "controller, to see what it does here.";
-        list->AddText(body, body->FontSize, ImVec2(a.x + pad, y), ui().dim, line, nullptr, wrap);
+        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ui().dim, line, wrap);
     }
-    // At its foot: what draws the picture, and how to get back to the game.
+    // At its foot, over a hairline: what draws the picture, and how to get back to the game.
     ImFont* body = menu_fonts.body;
     const std::string keys = menu_key_label() + ", Esc or B: back to the game";
-    const float line = body->FontSize * 1.35f;
+    const float line = body->FontSize * 1.4f;
+    const float foot = b.y - pad - line * 2.0f;
+    list->AddLine(
+        ImVec2(a.x + pad, foot - dp(14.0f)), ImVec2(b.x - pad, foot - dp(14.0f)), ui().line
+    );
     list->AddText(
         body,
         body->FontSize,
-        ImVec2(a.x + pad, b.y - pad - line * 2.0f),
+        ImVec2(a.x + pad, foot),
         ui().dim,
         menu_graphics_line().c_str(),
         nullptr,
         wrap
     );
     list->AddText(
-        body,
-        body->FontSize,
-        ImVec2(a.x + pad, b.y - pad - line),
-        ui().dim,
-        keys.c_str(),
-        nullptr,
-        wrap
+        body, body->FontSize, ImVec2(a.x + pad, foot + line), ui().dim, keys.c_str(), nullptr, wrap
+    );
+}
+
+// The open tab's name over its rows, large, with its place among the tabs before it.
+void tab_title(const std::string& name, int index, int count) {
+    ImDrawList* list = ImGui::GetWindowDrawList();
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(0.0f, dp(22.0f)));
+    const std::string place = std::format("{:02} / {:02}", index + 1, count);
+    kicker(list, ImVec2(at.x + dp(4.0f), at.y + dp(22.0f)), ui().brand, place);
+    ImFont* title = menu_fonts.title;
+    list->AddText(
+        title,
+        title->FontSize,
+        ImVec2(at.x + dp(2.0f), at.y + dp(22.0f) + menu_fonts.small->FontSize + dp(6.0f)),
+        ui().text,
+        name.c_str()
+    );
+    ImGui::Dummy(ImVec2(0.0f, menu_fonts.small->FontSize + dp(6.0f) + title->FontSize));
+}
+
+// Where the game comes from, at the screen's foot on the right while the menu is open: OpenRAC's
+// version and commit, the game and its disc.
+void version_corner(const ImGuiViewport* viewport, float shown) {
+    ImDrawList* list = ImGui::GetForegroundDrawList();
+    ImFont* font = menu_fonts.small;
+    const std::string first =
+        std::format("OpenRAC {}  ·  {}", build_info::version(), build_info::commit());
+    const std::string second = std::format("{}  ·  {}", openrac_game.title, openrac_game.serial);
+    const float pad = dp(18.0f);
+    const float line = font->FontSize * 1.45f;
+    const float right = viewport->Pos.x + viewport->Size.x - pad;
+    const float foot = viewport->Pos.y + viewport->Size.y - pad;
+    const ImU32 strong = ui_colors::fade(ui().soft, shown);
+    const ImU32 quiet = ui_colors::fade(ui().dim, shown);
+    const ImVec2 one = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, first.c_str());
+    const ImVec2 two = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, second.c_str());
+    list->AddText(font, font->FontSize, ImVec2(right - two.x, foot - line), strong, second.c_str());
+    list->AddText(
+        font, font->FontSize, ImVec2(right - one.x, foot - line * 2.0f), quiet, first.c_str()
     );
 }
 
@@ -195,11 +310,21 @@ void menu_window(const Shown& shown) {
     s.menu_row_height = 42.0f;
     const float ease = 1.0f - std::pow(1.0f - s.menu_at, 4.0f);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::GetBackgroundDrawList()->AddRectFilled(
-        viewport->Pos,
-        ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y),
-        ui_colors::fade(ui().ink_deep, 0.55f * ease)
-    );
+    {
+        // The game under it dimmed, more at the foot and the sides, so the window stands out of it.
+        ImDrawList* back = ImGui::GetBackgroundDrawList();
+        const ImVec2 a = viewport->Pos;
+        const ImVec2 b(a.x + viewport->Size.x, a.y + viewport->Size.y);
+        const ImU32 light = ui_colors::fade(ui().ink_deep, 0.45f * ease);
+        const ImU32 heavy = ui_colors::fade(ui().ink_deep, 0.82f * ease);
+        back->AddRectFilledMultiColor(a, b, light, light, heavy, heavy);
+        const float side = viewport->Size.x * 0.22f;
+        const ImU32 edge = ui_colors::fade(ui().ink_deep, 0.5f * ease);
+        const ImU32 none = ui_colors::fade(ui().ink_deep, 0.0f);
+        back->AddRectFilledMultiColor(a, ImVec2(a.x + side, b.y), edge, none, none, edge);
+        back->AddRectFilledMultiColor(ImVec2(b.x - side, a.y), b, none, edge, edge, none);
+    }
+    version_corner(viewport, ease);
 
     const std::vector<BarTab> tabs = bar_tabs();
     if (tabs.empty()) {
@@ -338,6 +463,7 @@ void menu_window(const Shown& shown) {
     ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImGui::ColorConvertU32ToFloat4(ui().line_strong));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_NavCursor, ImVec4(0, 0, 0, 0));  // the rows draw their own
     ImGui::PushFont(menu_fonts.body);
     if (ImGui::Begin(
             "OpenRAC menu",
@@ -356,10 +482,23 @@ void menu_window(const Shown& shown) {
                 dp(16.0f) + grow
             );
         }
-        list->AddRectFilled(at, b, ui().panel, dp(16.0f));
+        // The launcher's panel, lit a little from above, with a glow of the accent along its top
+        // and a line of it on the top edge.
+        gradient_fill(
+            list, at, b, ui_colors::mix(ui().panel, ui().panel_hi, 0.6f), ui().ink_deep, dp(16.0f)
+        );
+        const ImU32 glow = ui_colors::fade(ui().amber, 0.07f);
+        const ImU32 none = ui_colors::fade(ui().amber, 0.0f);
+        list->AddRectFilledMultiColor(
+            ImVec2(at.x + dp(16.0f), at.y + 1.0f),
+            ImVec2(b.x - dp(16.0f), at.y + dp(140.0f)),
+            glow,
+            glow,
+            none,
+            none
+        );
         list->AddRect(at, b, ui().line, dp(16.0f));
-
-        const float rows_w = std::floor(width * 0.6f);
+        const float rows_w = std::floor(width * 0.62f);
         ImGui::SetCursorScreenPos(at);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(dp(24.0f), dp(6.0f)));
         if (ImGui::BeginChild(
@@ -367,12 +506,17 @@ void menu_window(const Shown& shown) {
                 ImVec2(rows_w, height),
                 ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened
             )) {
+            tab_title(tab.name, s.menu_tab, static_cast<int>(tabs.size()));
+            if (s.menu_focus) {
+                s.menu_focus_first = true;
+            }
             if (tab.catalog >= 0) {
                 draw_tab(static_cast<menu::Tab>(tab.catalog), menu::kDesktop);
             } else {
                 draw_mod_menu(tab.mod);
             }
             ImGui::Dummy(ImVec2(0.0f, dp(20.0f)));
+            s.menu_focus_first = false;
             if (s.menu_focus) {
                 s.menu_focus = false;
                 ImGui::SetScrollY(0.0f);
@@ -381,10 +525,28 @@ void menu_window(const Shown& shown) {
         ImGui::EndChild();
         ImGui::PopStyleVar();
         help_pane(ImVec2(at.x + rows_w, at.y), b, tab.mod >= 0);
+        // A line of the accent along the top edge, brightest in the middle.
+        const float mid = (at.x + b.x) * 0.5f;
+        list->AddRectFilledMultiColor(
+            ImVec2(at.x + dp(24.0f), at.y),
+            ImVec2(mid, at.y + dp(2.0f)),
+            none,
+            ui().amber,
+            ui().amber,
+            none
+        );
+        list->AddRectFilledMultiColor(
+            ImVec2(mid, at.y),
+            ImVec2(b.x - dp(24.0f), at.y + dp(2.0f)),
+            ui().amber,
+            none,
+            none,
+            ui().amber
+        );
     }
     ImGui::End();
     ImGui::PopFont();
-    ImGui::PopStyleColor(3);
+    ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(6);
 }
 
