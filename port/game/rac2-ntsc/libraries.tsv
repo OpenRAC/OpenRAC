@@ -228,3 +228,6 @@ func_003136D0	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sp
 func_L00_00424F98	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
 func_002E48E8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
+func_00288FB8	text	TextById	wrap	the text of an id: the title's 16:9 page is the port's Video page, so its name is "Video" there (host/options.c)
+func_0033C2D8	menu	WidescreenPageUpdate	wrap	the title's 16:9 options page: the port's Video rows, moved with the menus' buttons (host/options.c)
+func_0033C378	menu	WidescreenPageDraw	wrap	the title's 16:9 options page: its panel, with the port's Video rows in it (host/options.c)

@@ -27,9 +27,11 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <span>
+#include <string>
 
 #include "common/c_boundary.h"
 #include "common/crash.h"
@@ -40,7 +42,9 @@
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
+#include "debug/overlay.h"
 #include "frontend.h"
+#include "options_menu.h"
 #include "renderer/direct.h"
 #include "renderer/texture.h"
 #include "scene/moby_pose.h"
@@ -511,6 +515,66 @@ gaddr openrac_game_text(int id) {
 #endif
         (void)id;
         return 0;
+    });
+}
+
+namespace {
+
+// TEXT into the game's memory at OUT, cut to SIZE bytes with its end.
+void put_option_text(const std::string& text, char* out, int size) {
+    if (out != nullptr && size > 0) {
+        std::snprintf(out, static_cast<std::size_t>(size), "%s", text.c_str());
+    }
+}
+
+}  // namespace
+
+int openrac_game_option_rows(void) {
+    return c_boundary::call("openrac_game_option_rows", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::options_menu::row_count();
+        }
+#endif
+        return 0;
+    });
+}
+
+void openrac_game_option_row_text(int row, char* label, char* value, int size) {
+    c_boundary::call("openrac_game_option_row_text", [&] {
+        put_option_text("", label, size);
+        put_option_text("", value, size);
+#ifdef OPENRAC_FRONTEND
+        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+            put_option_text(frontend::options_menu::shown(frontend::options_menu::label(row)), label, size);
+            put_option_text(frontend::options_menu::shown(frontend::options_menu::value(row)), value, size);
+        }
+#endif
+        (void)row;
+    });
+}
+
+void openrac_game_option_step(int row, int by) {
+    c_boundary::call("openrac_game_option_step", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+            frontend::debug_overlay::change_setting(row, by);
+        }
+#endif
+        (void)row;
+        (void)by;
+    });
+}
+
+void openrac_game_option_word(const char* english, char* out, int size) {
+    c_boundary::call("openrac_game_option_word", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            put_option_text(frontend::options_menu::shown(english), out, size);
+            return;
+        }
+#endif
+        put_option_text(english, out, size);
     });
 }
 
