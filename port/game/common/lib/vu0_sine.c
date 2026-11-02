@@ -57,13 +57,18 @@ static float sine_ee(const openrac_vu0_sine_program* program, float angle) {
     const float x7 = openrac_ps2_mul(x5, x2);
     const float x9 = openrac_ps2_mul(x7, x2);
     float accumulator = openrac_ps2_mul(x, 1.0f);
-    accumulator =
-        openrac_ps2_add(accumulator, openrac_ps2_mul(x3, program_constant(program, program->series[0])));
-    accumulator =
-        openrac_ps2_add(accumulator, openrac_ps2_mul(x5, program_constant(program, program->series[1])));
-    accumulator =
-        openrac_ps2_add(accumulator, openrac_ps2_mul(x7, program_constant(program, program->series[2])));
-    return openrac_ps2_add(accumulator, openrac_ps2_mul(x9, program_constant(program, program->series[3])));
+    accumulator = openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x3, program_constant(program, program->series[0]))
+    );
+    accumulator = openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x5, program_constant(program, program->series[1]))
+    );
+    accumulator = openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x7, program_constant(program, program->series[2]))
+    );
+    return openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x9, program_constant(program, program->series[3]))
+    );
 }
 
 float openrac_vu0_sine(const openrac_vu0_sine_program* program, float angle) {
@@ -90,7 +95,9 @@ float openrac_vu0_sine(const openrac_vu0_sine_program* program, float angle) {
 
 float openrac_vu0_cosine(const openrac_vu0_sine_program* program, float angle) {
     if (program->order == OPENRAC_VU0_SINE_EE) {
-        return sine_ee(program, openrac_ps2_add(angle, program_constant(program, program->cosine_entry)));
+        return sine_ee(
+            program, openrac_ps2_add(angle, program_constant(program, program->cosine_entry))
+        );
     }
     return openrac_vu0_sine(program, angle + program_constant(program, program->cosine_entry));
 }

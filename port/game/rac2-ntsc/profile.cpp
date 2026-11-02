@@ -258,9 +258,11 @@ public:
     bool own_mobys_split_the_2d() const override { return true; }
 
     bool images_outlast_list() const override { return true; }
+
     bool repeated_ticks_send_images() const override { return true; }
 
     bool mobys_take_point_lights() const override { return true; }
+
     bool terrain_takes_point_lights() const override { return true; }
 
     // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line
