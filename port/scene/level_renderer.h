@@ -256,6 +256,12 @@ public:
     // Immutable frame light bank for registered lighting providers.
     const std::array<float, 64>& point_lights() const { return m_point_lights; }
 
+    // Each point-lit moby's third light for the original lighting (colour, then world direction),
+    // indexed by moby_light.x / 256 - 1 (mesh.vert); empty for a game whose moby program has none.
+    void set_moby_point_lights(std::vector<std::array<float, 8>> lights) {
+        m_moby_point_lights = std::move(lights);
+    }
+
     // The game's fog for this frame (GameState): FOGCOL 0..1, the depths in raw units (game
     // units x 1024) and the GS F at them (255 = none). The world layers are fogged as the GS
     // fogs them: C = FOGCOL + (C - FOGCOL) x F / 255, F linear in camera depth, clamped.
@@ -547,6 +553,7 @@ private:
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
+    std::vector<std::array<float, 8>> m_moby_point_lights;
     bool m_sweep_translucent_off = false;
     bool m_sweep_translucent_unlit = false;
     bool m_sweep_translucent_full = false;

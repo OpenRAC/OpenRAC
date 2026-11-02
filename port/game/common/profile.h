@@ -167,6 +167,11 @@ public:
     // that the list was still paging into (Going Commando's flight, func_002E80B0).
     virtual bool images_outlast_list() const { return false; }
 
+    // Whether the moby program lights each moby by the point lights in reach of its sphere's centre
+    // as a third directional light (Going Commando's MobyProc, 0x2A51C8 and 0x2A57F8), rather than
+    // not at all.
+    virtual bool mobys_take_point_lights() const { return false; }
+
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }

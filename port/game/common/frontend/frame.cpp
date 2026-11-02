@@ -1048,6 +1048,75 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
     }
 }
 
+// Returns the third light the moby program gives a moby from the point lights (Going Commando's
+// MobyProc): the eight after the light bank's 16 sets, {colour, falloff, position, reach}, a light
+// whose x and y are both 0 left out (0x2A51C8). Each light within reach of the moby's sphere
+// centre (+0x00, units of 1/1024) gives its colour times 1 - distance / reach, from it towards the
+// moby (0x2A5810). One is the light as it is, its colour at least 0; several are summed, the
+// directions weighted by each colour's (r + g + b) x 0.332 and normalised (0x2A5960). Returns the
+// colour (w 0) and world direction (w 0), or nothing when no light reaches the moby.
+std::optional<std::array<float, 8>> moby_point_light(
+    std::span<const std::uint8_t> ram, gaddr bank, std::uint32_t moby
+) {
+    constexpr std::uint32_t kPoints = 16 * 0x40;
+    if (bank == 0 || bank + kPoints + 8 * 0x20 > ram.size() || moby + 0x10 > ram.size()) {
+        return std::nullopt;
+    }
+    std::array<float, 4> centre;
+    std::memcpy(centre.data(), ram.data() + moby, sizeof(centre));
+    std::array<float, 3> colour{}, direction{}, single{};
+    int count = 0;
+    for (std::uint32_t i = 0; i < 8; ++i) {
+        std::array<float, 8> light;
+        std::memcpy(light.data(), ram.data() + bank + kPoints + i * 0x20, sizeof(light));
+        std::uint64_t xy;
+        std::memcpy(&xy, ram.data() + bank + kPoints + i * 0x20 + 0x10, sizeof(xy));
+        if (xy == 0) {
+            continue;
+        }
+        const float reach = light[7] * 1024.0f;
+        std::array<float, 3> away{};
+        float squared = 0.0f;
+        for (int c = 0; c < 3; ++c) {
+            away[c] = centre[c] - light[4 + c] * 1024.0f;
+            squared += away[c] * away[c];
+        }
+        if (!(squared - reach * reach <= 0.0f) || squared <= 0.0f) {
+            continue;
+        }
+        const float distance = std::sqrt(squared);
+        const float weight = 1.0f - distance * (1.0f / 1024.0f / light[7]);
+        const float luminance =
+            (light[0] * weight + light[1] * weight + light[2] * weight) * 0.33203125f;
+        for (int c = 0; c < 3; ++c) {
+            colour[c] += light[c] * weight;
+            single[c] = away[c] / distance;
+            direction[c] += single[c] * luminance;
+        }
+        ++count;
+    }
+    if (count == 0) {
+        return std::nullopt;
+    }
+    if (count == 1) {
+        direction = single;
+    }
+    std::array<float, 8> out{};
+    for (int c = 0; c < 3; ++c) {
+        out[c] = std::max(colour[c], 0.0f);
+    }
+    const float length = std::sqrt(
+        direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]
+    );
+    if (!(length > 0.0f) || !std::isfinite(length)) {
+        return std::nullopt;
+    }
+    for (int c = 0; c < 3; ++c) {
+        out[4 + c] = direction[c] / length;
+    }
+    return out;
+}
+
 // The live mobys of one tick, as pose_mobys reads them for keep_tick: each one drawn and its
 // address and joints, the joint palette they index, the hero's shadow, and the mobys the game
 // drew into a texture.
@@ -1079,6 +1148,13 @@ TickMobys pose_mobys(
     std::uint32_t shadow_moby = 0;
     scene::MobyShadowState shadow_state;
     std::vector<Kept::TargetMoby> target_mobys;
+    // The point lights' third light of each moby they reach, where the game lights mobys by them;
+    // as many as the shader's moby_point_lights holds (mesh.vert).
+    std::vector<std::array<float, 8>> point_lit;
+    constexpr std::size_t kPointLitMobys = 32;
+    const gaddr point_bank = g->profile->mobys_take_point_lights() && light_bank_address() != 0
+                                 ? openrac_relocate_data(light_bank_address())
+                                 : 0;
 
     // A moby to pose: its address and joints, and its instance (in target_mobys or in live).
     struct PoseJob {
@@ -1289,6 +1365,12 @@ TickMobys pose_mobys(
                  b[0x3D] / 128.0f,
                  b[0x3E] / 128.0f,
                  (b[0x34] & 0x10) != 0 ? static_cast<float>(glow) + 1.0f : 0.0f};
+            if (point_bank != 0 && point_lit.size() < kPointLitMobys) {
+                if (const auto light = moby_point_light(ram, point_bank, m.address)) {
+                    point_lit.push_back(*light);
+                    instance.moby_light[0] += 256.0f * static_cast<float>(point_lit.size());
+                }
+            }
         }
         // Preserve explicit gameplay colour writes while that RGB is still
         // current. Countdown crates restore their saved colour between flashes;
@@ -1508,7 +1590,8 @@ TickMobys pose_mobys(
         shadow_moby,
         shadow_state,
         std::move(target_mobys),
-        water_hands
+        water_hands,
+        std::move(point_lit)
     };
 }
 
@@ -2131,6 +2214,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     stats::gauge("render preparation ms", prepared ? prepared->seconds * 1000.0 : 0.0);
     part.emplace("lights");
     light_scene(ram, state);
+    g->scene.set_moby_point_lights(mobys.point_lit);
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;
