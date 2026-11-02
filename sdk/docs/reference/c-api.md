@@ -682,7 +682,8 @@ One line of text in the game's own HUD (openrac_api.hud_text_set), drawn with th
 after its HUD's elements, and hidden with them (in a scene, under a menu). `text` ends with a 0;
 characters outside 32 to 126 are left out. `x` and `y` are the line's centre on the game's 4:3
 screen, 0 to 1 across and down; `scale` its size (1 the game's 16 pixels a glyph, 0.25 to 4);
-`rgba` its colour and opacity, 0 to 255 each. Since 1.12.
+`rgba` its colour and opacity, 0 to 255 each, the colour as the game's own HUD gives it (128 a
+channel keeps the font's own shade, 255 about doubles it). Since 1.12.
 
 | Member | |
 |---|---|

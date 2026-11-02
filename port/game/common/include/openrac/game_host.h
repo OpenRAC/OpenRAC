@@ -641,7 +641,7 @@ int openrac_game_hud_side(void);
 
 /* A line of text a mod shows in the game's HUD (mod interface 1.12, openrac_api.hud_text_set): its
  * text (ends with a 0), its centre on the game's 4:3 screen (0 to 1 across and down), its size (1
- * the font's 16 pixels a glyph), its colour (0xAABBGGRR, 0 to 255 each) and flags (1 the small
+ * the font's 16 pixels a glyph), its colour (0xAABBGGRR, 0 to 255 each, 128 the font's shade) and flags (1 the small
  * font, 2 a shadow under it). */
 typedef struct openrac_game_hud_text {
     char text[64];

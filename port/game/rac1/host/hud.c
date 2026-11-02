@@ -72,13 +72,11 @@ static void draw_line(
     }
 }
 
-/* 0 to 255 a channel to the GS's 0 to 128 (full), in its order (0xAABBGGRR). */
+/* The GS's colour (0xAABBGGRR): the colour channels as they come (128 the font's own shade, 255
+ * about twice it, as the game's own HUD colours go), the opacity's 0 to 255 to its 0 to 128. */
 static unsigned long long gs_colour(uint32_t rgba) {
-    unsigned long long out = 0;
-    for (int i = 0; i < 4; i++) {
-        out |= (unsigned long long)((((rgba >> (8 * i)) & 0xFFu) * 128u + 127u) / 255u) << (8 * i);
-    }
-    return out;
+    const uint32_t alpha = (((rgba >> 24) & 0xFFu) * 128u + 127u) / 255u;
+    return (unsigned long long)((rgba & 0x00FFFFFFu) | (alpha << 24));
 }
 
 static void draw_mod_texts(void) {
