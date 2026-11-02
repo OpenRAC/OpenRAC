@@ -464,8 +464,8 @@ int main(int argc, char** argv) {
 
         const std::string game = manifest["game"].string(), version = manifest["version"].string();
 
-        if (game != "rac1" || (version != "pal" && version != "ntsc")) {
-            throw std::runtime_error("expected a RAC1 PAL or NTSC export");
+        if (!bake_identity_supported(game, version)) {
+            throw std::runtime_error("expected a RAC1 PAL or NTSC export or a RAC2 NTSC one");
         }
 
         scene::LevelData level;

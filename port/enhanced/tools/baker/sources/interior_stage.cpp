@@ -16,6 +16,7 @@
 #include "common/profiler.h"
 #include "enhanced/lighting/interiors.h"
 #include "enhanced/tools/baker/pipeline/stage_file.h"
+#include "enhanced/tools/baker/sources/activation.h"
 
 namespace openrac::lighting {
 namespace {
@@ -28,9 +29,10 @@ void validate_identity(const json::Value& data) {
         throw std::runtime_error("unsupported inference input");
     }
 
-    // Level IDs span 0-18 and the source identity is a 64-character SHA-256 digest.
-    if ((data["game"].string() != "rac1-ntsc" && data["game"].string() != "rac1-pal")
-        || data["level"].number(-1) < 0 || data["level"].number() > 18
+    // Level IDs span 0-18 (RAC1) or 0-30 (RAC2) and the source identity is a 64-character
+    // SHA-256 digest.
+    if (!bake_identity_supported(data["game"].string()) || data["level"].number(-1) < 0
+        || data["level"].number() > (data["game"].string() == "rac2-ntsc" ? 30 : 18)
         || data["source_sha256"].string().size() != 64) {
         throw std::runtime_error("invalid source identity");
     }
