@@ -180,6 +180,28 @@ int func_002A4078(gaddr a0, gaddr a1) {
  * (0x002B9490). Short of it, the newest particle was left out whenever it held the highest slot: the
  * Lancer's chamber halo (type 89) went out on 42 of 666 ticks of a level 3 run, a flicker.
  */
+/*
+ * What a particle is from one tick to the next, for the window to move it between ticks: its slot and
+ * type; for an attached halo (type 89, ParticleUpdateAttachedHalo, func_002C6B80), which the game makes
+ * in a new slot each tick, its parent moby (+0x20), joint (+0x24) and offset (+0x30) instead. The
+ * Lancer's chamber halo is one: by its slot it was drawn at the latest tick between ticks, ahead of
+ * the gun.
+ */
+static uint32_t particle_id(const uint8_t* r, gaddr at) {
+    if (r[0] == 89) {
+        /* FNV-1a of +0x20..+0x27 and +0x30..+0x3B (not +0x28, its scale). */
+        static const uint8_t ranges[2][2] = {{0x20, 0x28}, {0x30, 0x3C}};
+        uint32_t h = 2166136261u;
+        for (int n = 0; n < 2; ++n) {
+            for (int k = ranges[n][0]; k < ranges[n][1]; ++k) {
+                h = (h ^ r[k]) * 16777619u;
+            }
+        }
+        return 0x40000000u | (h & 0x003FFFFFu) << 8 | r[0];
+    }
+    return 0x80000000u | ((at >> 6) & 0x7FFFFu) << 8 | r[0];
+}
+
 void func_002B9420(void) {
     if (openrac_guest_overlay() < 0) {
         return;
@@ -198,7 +220,11 @@ void func_002B9420(void) {
         uint64_t entry;
         memcpy(&entry, G(table + (gaddr)r[2] * 8), 8);
         openrac_game_particle(
-            r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, (int)((entry >> 32) & 0xF)
+            r,
+            (uint32_t)(entry >> 32) >> 4,
+            (uint32_t)entry >> 4,
+            (int)((entry >> 32) & 0xF),
+            particle_id(r, pool + (gaddr)i * 0x40)
         );
     }
 }
@@ -259,6 +285,14 @@ static void world_quad(gaddr a0, gaddr a1) {
     memcpy(&q.alpha, r + 0x88, 8);
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
     openrac_game_effect_quad(&q);
+    /* Where the console's packet would have gone in the list, so that the window draws the quad
+     * with the TEST and ZBUF in effect there (the game sets TEST_1 around its quads with
+     * func_002FC560: 0x5360B, alpha GEQUAL 0x60 with failing pixels writing colour only, for the
+     * flight's sparks and flames; 0x31801 for some). */
+    const uint32_t marker = openrac_game_effect_quad_marker();
+    if (marker != 0) {
+        put_marker((uint64_t)OPENRAC_EFFECT_QUAD_MARKER << 48 | marker);
+    }
 }
 
 void func_00280B90(gaddr a0, int a1, int a2) {

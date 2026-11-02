@@ -438,6 +438,17 @@ int openrac_game_hud_side(void) {
     });
 }
 
+uint32_t openrac_game_effect_quad_marker(void) {
+    return c_boundary::call("openrac_game_effect_quad_marker", 0u, [&]() -> std::uint32_t {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::effect_quad_marker();
+        }
+#endif
+        return 0u;
+    });
+}
+
 float openrac_game_picture_wider(void) {
     return c_boundary::call("openrac_game_picture_wider", 1.0f, [&]() -> float {
 #ifdef OPENRAC_FRONTEND
@@ -462,7 +473,9 @@ int openrac_game_ui_quad(const openrac_game_ui_rect* quad) {
     });
 }
 
-void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side) {
+void openrac_game_particle(
+    const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side, uint32_t id
+) {
     c_boundary::call("openrac_game_particle", [&] {
 #ifdef OPENRAC_FRONTEND
         if (g_window) {
@@ -472,7 +485,8 @@ void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut
                 record,
                 pixels,
                 clut,
-                log2_side
+                log2_side,
+                id
             );
         }
 #else
@@ -480,6 +494,7 @@ void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut
         (void)pixels;
         (void)clut;
         (void)log2_side;
+        (void)id;
 #endif
     });
 }

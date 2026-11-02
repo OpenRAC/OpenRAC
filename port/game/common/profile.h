@@ -179,6 +179,13 @@ public:
     // not at all.
     virtual bool mobys_take_point_lights() const { return false; }
 
+    // Whether a frame drawn between ticks moves each effect quad that carries an id (a particle's
+    // slot) part way from its last tick's corners, with the mobys' fraction, rather than drawing
+    // the latest tick's: Going Commando's Lancer halo led the gun by up to a tick at 120 fps.
+    // Ratchet & Clank draws its particles the same way, but its frames between ticks stay as they
+    // were until its render equivalence is run with the change.
+    virtual bool interpolates_effect_quads() const { return false; }
+
     // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
     // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
     // rather than not at all.

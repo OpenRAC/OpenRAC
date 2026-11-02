@@ -79,6 +79,14 @@ struct EffectQuad {
     // When nonzero, the texture's and CLUT's blocks in the pool instead of TEX0's (a texture the
     // window keeps at a key of its own, past the GS's 14-bit blocks).
     std::uint32_t tbp = 0, cbp = 0;
+    // The GS TEST and ZBUF the game's display list left in effect where the quad was drawn, when
+    // the game marks its quads there (openrac_game_effect_quad_marker): its alpha test, what a
+    // pixel that fails it writes, and whether Z is written (ZMSK). 0 and 0 when unknown: then
+    // every pixel is drawn and no Z is written.
+    std::uint64_t test = 0, zbuf = 0;
+    bool registers = false;  // test and zbuf were read from the list
+    // What the quad draws, the same from one tick to the next (a particle's slot), or 0.
+    std::uint32_t id = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,

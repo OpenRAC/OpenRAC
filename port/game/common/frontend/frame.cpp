@@ -23,6 +23,7 @@
 #include <exception>
 #include <format>
 #include <limits>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -114,6 +115,14 @@ std::uint32_t word_at(std::span<const std::uint8_t> ram, std::uint32_t at) {
  * VU1 (UNPACK, MPG and the rest) are stepped over by their sizes: what VU1 draws, the world, has
  * renderers of its own.
  */
+// An effect quad's marker in the DIRECT data (openrac_game_effect_quad_marker) and the first
+// context's TEST and ZBUF in effect there; zbuf_seen when the list had set ZBUF by then.
+struct QuadMark {
+    std::uint32_t marker;
+    std::uint64_t test, zbuf;
+    bool zbuf_seen;
+};
+
 std::vector<std::uint8_t> direct_packets(
     std::span<const std::uint8_t> ram,
     std::uint32_t chain,
@@ -123,7 +132,8 @@ std::vector<std::uint8_t> direct_packets(
     std::size_t* before_world = nullptr,
     std::size_t* first_offscreen = nullptr,
     std::size_t* world_marker = nullptr,
-    std::size_t* moby_marker = nullptr
+    std::size_t* moby_marker = nullptr,
+    std::vector<QuadMark>* quad_marks = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at =
@@ -218,7 +228,8 @@ std::vector<std::uint8_t> direct_packets(
     // set is drawn with the second (Oltanis's ice draws its second layer so, another texture
     // blended half over the first).
     struct Context {
-        std::uint64_t tex0 = 0, tex1 = 0, clamp = 0, alpha = 0x44, test = 0;
+        std::uint64_t tex0 = 0, tex1 = 0, clamp = 0, alpha = 0x44, test = 0, zbuf = 0;
+        bool zbuf_seen = false;
     };
 
     std::array<Context, 2> contexts{};
@@ -298,7 +309,16 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
                         case 0x7F:
-                            if ((value >> 48) == 0x5754) {
+                            if ((value >> 48) == OPENRAC_EFFECT_QUAD_MARKER) {
+                                if (quad_marks != nullptr) {
+                                    quad_marks->push_back(
+                                        {static_cast<std::uint32_t>(value),
+                                         contexts[0].test,
+                                         contexts[0].zbuf,
+                                         contexts[0].zbuf_seen}
+                                    );
+                                }
+                            } else if ((value >> 48) == 0x5754) {
                                 surface = static_cast<std::uint32_t>(value);
                                 uv_motion = {};
                                 uv_offsets = {};
@@ -351,6 +371,11 @@ std::vector<std::uint8_t> direct_packets(
                         case 0x47:
                         case 0x48:
                             contexts[(address & 0xFF) - 0x47].test = value;
+                            break;
+                        case 0x4E:
+                        case 0x4F:
+                            contexts[(address & 0xFF) - 0x4E].zbuf = value;
+                            contexts[(address & 0xFF) - 0x4E].zbuf_seen = true;
                             break;
                         case 0x4C:
                         case 0x4D:
@@ -1737,6 +1762,7 @@ TickPackets capture_2d_path(
     std::size_t first_offscreen = SIZE_MAX;
     std::size_t world_marker = SIZE_MAX;
     std::size_t moby_marker = SIZE_MAX;
+    std::vector<QuadMark> quad_marks;
     draw_coverage::begin_tick(level, g->index);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
@@ -1747,8 +1773,65 @@ TickPackets capture_2d_path(
         &before_world,
         &first_offscreen,
         &world_marker,
-        &moby_marker
+        &moby_marker,
+        &quad_marks
     );
+    // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
+    // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
+    // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list
+    // is the last tick's (the game builds the next while one is sent), so it marks the last tick's
+    // quads: each of this tick's takes the registers of the last tick's quads drawn with the same
+    // TEX0, TEX1, CLAMP and ALPHA, when they all had the same (a quad new in this tick, or one whose
+    // state the last tick drew with two TESTs, is drawn as before: no alpha test, no Z).
+    std::size_t quads_marked = 0, marks_stale = 0;
+    const auto apply = [&](renderer::EffectQuad& q, std::uint64_t test, std::uint64_t zbuf) {
+        q.test = test;
+        q.zbuf = zbuf;
+        q.registers = test != 0;
+        ++quads_marked;
+    };
+    const std::uint32_t generation = g->effect_generation & 0xFFF;
+    const std::uint32_t last_generation = (g->effect_generation - 1) & 0xFFF;
+
+    struct Registers {
+        std::uint64_t test, zbuf;
+        bool ambiguous;
+    };
+
+    std::map<std::array<std::uint64_t, 4>, Registers> by_state;
+    for (const QuadMark& m : quad_marks) {
+        const std::uint32_t index = m.marker & 0xFFFFF;
+        const std::uint64_t zbuf = m.zbuf_seen ? m.zbuf : 0;
+        if ((m.marker >> 20) == generation && index < g->effects.size()) {
+            apply(g->effects[index], m.test, zbuf);
+        } else if ((m.marker >> 20) == last_generation && index < g->effect_states_before.size()) {
+            const auto [at, added] = by_state.try_emplace(
+                g->effect_states_before[index], Registers{m.test, zbuf, false}
+            );
+            if (!added && (at->second.test != m.test || at->second.zbuf != zbuf)) {
+                at->second.ambiguous = true;
+            }
+        } else {
+            ++marks_stale;
+        }
+    }
+    if (!by_state.empty()) {
+        for (renderer::EffectQuad& q : g->effects) {
+            const auto found = by_state.find({q.tex0, q.tex1, q.clamp, q.alpha});
+            if (found != by_state.end() && !found->second.ambiguous) {
+                apply(q, found->second.test, found->second.zbuf);
+            }
+        }
+    }
+    if (debug && marks_stale > 0) {
+        log::info(
+            "frame {}: {} effect quad marks name another tick's quads ({} applied)",
+            g->index,
+            marks_stale,
+            quads_marked
+        );
+    }
+    stats::gauge("effect quads marked", double(quads_marked));
     // The markers in a list index the quads of the tick that built it, and the list shown is the
     // one the last tick built (the game builds the next while this one is sent), one tick behind
     // the quads just recorded; FadeToBlack sends an old list again. Drawn with this tick's quads, a
@@ -1872,9 +1955,28 @@ void keep_effects(
     const profiling::Zone trace("Capture effects");
 
     Kept& k = *g->kept;
+    // The game's quads as the next tick's list marks them, by index (capture_2d_path).
+    g->effect_states_before.clear();
+    for (const renderer::EffectQuad& e : g->effects) {
+        g->effect_states_before.push_back({e.tex0, e.tex1, e.clamp, e.alpha});
+    }
     effect_textures();  // before the sky's sprites go in front of the effect quads
     sky_sprite_quads(state);
     particle_quads(ram, state);
+    // The last tick's corners of the quads that carry an id, when it was the tick before this
+    // one: a frame drawn between ticks moves each from there, as the mobys move (scene_hud.cpp's
+    // set_packets). Kept effects of an older tick, or of a tick that kept no world, move nothing.
+    k.prev_effect_corners.clear();
+    if (g->profile->interpolates_effect_quads() && k.effects_frame + 1 == k.frame) {
+        for (const renderer::EffectQuad& e : k.effects) {
+            if (e.id != 0) {
+                auto& corners = k.prev_effect_corners[e.id];
+                std::memcpy(corners.data(), e.corner, sizeof(e.corner));
+            }
+        }
+    }
+    k.effects_frame = k.frame;
+    ++g->effect_generation;
     k.effects = std::move(g->effects);
     k.effect_uploads = std::move(g->effect_uploads);
     k.sky_shells = g->sky_shells;
@@ -2203,6 +2305,8 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         g->ui_quads.clear();
         g->moby_cameras.clear();
         g->effects.clear();
+        ++g->effect_generation;
+        g->effect_states_before.clear();
         g->effect_uploads.clear();
         // effect_quad's notes of the cleared quads go with them: effect_textures() would read
         // them against the next tick's quads.
