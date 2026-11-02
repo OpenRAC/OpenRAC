@@ -8,7 +8,7 @@
       "name": "Wide-screen effects",
       "discs": ["ntsc"],
       "original": "A moby near the side of a picture wider than 4:3 counts as out of view for its effects.",
-      "port": "MobyProc's drawn test runs against the wider picture. Off, it runs against the 4:3 view, and mobys near the sides lose their effects.",
+      "port": "MobyProc's drawn test runs against the wider picture. The game then runs differently with the picture's shape (a moby drawn makes its effects, which take random numbers and spawn), as it would on a wider console picture; it is the only thing that does: off, the game's memory at 16:9 and 21:9 is the same for 4,000 ticks of level 3, as at 4:3. Off, it runs against the 4:3 view, and mobys near the sides lose their effects.",
       "setting": {"key": "fix_wide_moby_effects", "default": true},
       "refs": ["port/game/rac2-ntsc/host/render.c"]
     },
