@@ -467,7 +467,18 @@ int main(int argc, char** argv) {
                     own_code = wa - entry == wb - state.address;
                 }
             }
-            if (own_code || near_float(wa, wb, ulps)) {
+            /*
+             * An address in the dead stack (a pointer to a local that the call left in memory)
+             * is the compiler's choice of frame, as for the device accesses below: two such
+             * addresses compare as "a stack address", whatever their offsets.
+             */
+            auto in_dead_stack = [&](u32 v) {
+                u32 a = v & 0x01FFFFFF;
+                u32 seg = v & ~u32{0x01FFFFFF};
+                return (seg == 0 || seg == 0x20000000 || seg == 0x30000000 || seg == 0x80000000) && a < sp &&
+                       a >= low;
+            };
+            if (own_code || near_float(wa, wb, ulps) || (in_dead_stack(wa) && in_dead_stack(wb))) {
                 continue;
             }
             words++;
