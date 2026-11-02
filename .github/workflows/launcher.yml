@@ -176,7 +176,7 @@ jobs:
           python-version: "3.12"
       # Each key's prefix is no other job's: "linux-" was the start of "linux-arm64-" too, and the
       # x86 build restored the ARM one's configuration (its Python) and objects.
-      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      - uses: ./.github/actions/compiler-cache
         with:
           key: ${{ matrix.name }}-game
           max-size: 1G
