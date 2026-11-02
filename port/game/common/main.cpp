@@ -65,6 +65,7 @@
 
 #ifdef OPENRAC_FRONTEND
 #include "debug_overlay.h"
+#include "enhanced/renderer/fur.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "mod_menu.h"
@@ -585,6 +586,10 @@ int main(int argc, char** argv) {
             log::info("enhanced rendering off: no mods are loaded (--no-mods)");
         }
         if (gl::enhanced_rendering_enabled()) {
+            // A fur diagnostic from the start, for hidden runs (the drawer's Diagnostics otherwise).
+            enhanced::set_fur_debug_view(
+                static_cast<enhanced::FurDebug>(env::integer(env::Var::FurView, 0))
+            );
             lighting::set_probe_root(g_options.probes);
             log::info("enhanced rendering on (Vulkan only); probe bakes from {}",
                       g_options.probes.empty() ? std::string("nowhere") : g_options.probes.string());

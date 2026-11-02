@@ -407,6 +407,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_FX_DUMP` | `FRAME` (decimal) | Only read inside the `OPENRAC_DEBUG` report (so every 100th frame): for frames from `FRAME` up to `FRAME`+99, logs each effect quad. | `port/game/common/frontend.cpp` |
 | `OPENRAC_MOBY_LOG` | `N[:RADIUS]` | Every `N` ticks (`N` > 0), logs the mobys within `RADIUS` game units of the hero (default 20): class, address, state, mode bits, animation, position, distance, collision radius and update function. | `port/game/common/frontend.cpp` |
 | `OPENRAC_FRAME_LOG` | `FROM-TO` or `N` (decimal) | For ticks in that range, logs what each drew: draw flags, camera, 2D bytes, quad, effect and moby counts. | `port/game/common/frontend.cpp` |
+| `OPENRAC_FUR_VIEW` | `0` (default) to `3` | With enhanced rendering on, starts with a Ratchet fur diagnostic: 1 the coverage mask, 2 the groom directions, 3 the detail normals (the drawer's Enhanced graphics > Diagnostics > Ratchet fur view). | `port/game/common/main.cpp` |
 | `OPENRAC_CAM_LOG` | any (set) | Each drawn frame, logs the camera position, forward and up vectors. | `port/game/common/frontend.cpp` |
 | `OPENRAC_PACING` | any (set) | Each frame shown, logs when (ms), how far between ticks it is (alpha), whether it is a tick or in-between frame, the refresh interval and the draw cost. | `port/game/common/frontend.cpp` |
 | `OPENRAC_FPS` | any (set) | Every 300 frames, logs the frames per second over that span. | `port/game/common/main.cpp` |

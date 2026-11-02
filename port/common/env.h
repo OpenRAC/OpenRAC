@@ -86,6 +86,7 @@ enum class Var : std::uint16_t {
     Fps,
     FrameCost,
     FrameLog,
+    FurView,
     FxDump,
     Give,
     GlApi,
