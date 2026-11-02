@@ -201,3 +201,4 @@ func_001338F0	989snd	snd_StartMovieSound	host	command 0x3E
 func_00133930	989snd	snd_UpdateMovieADPCM	host	command 0x5A
 func_00133960	989snd	snd_GetMovieNAX	host	command 0x5B
 func_001326D8	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
+func_L08_002F2C48	game	func_L08_002F2C48	host	the fourth draw callback list's register, only in levels 8, 9, 19 and 30, folded with func_0027CFD0 by the catalogue (split_places.tsv, host/callback_lists.c)	void (unsigned int, unsigned int)
