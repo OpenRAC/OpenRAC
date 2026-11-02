@@ -29,6 +29,7 @@
 #ifdef OPENRAC_FRONTEND
 #include <SDL3/SDL_timer.h>
 
+#include "audio/ui_sounds.h"
 #include "platform/audio.h"
 #include "settings.h"
 #endif
@@ -137,6 +138,7 @@ void open_sound(bool report) {
         why,
         [](std::span<std::int16_t> samples) {
             openrac_sound_render(samples.data(), samples.size() / 2);
+            audio::ui_sounds::mix(samples);  // the menu's tones over the game's sound
 
             // The player's volume (settings.h): at 0 the output is silence itself.
             if (const float gain = settings::output_gain(); gain < 1.0f) {

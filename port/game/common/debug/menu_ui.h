@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 
+#include "audio/ui_sounds.h"
 #include "debug/overlay.h"
 #include "menu_catalog.h"
 #include "ui_colors.h"
@@ -217,5 +218,13 @@ void draw_mod_menu(int index);
 // and closing leaves it as Keep paused says; a screenshot asked for is taken once it is gone.
 void set_menu(bool open);
 void menu_closed();
+
+// The menu's own soft tones (audio/ui_sounds.h).
+using MenuSound = audio::ui_sounds::Sound;
+// Plays one now, unless one already played this frame (debug/menu_sound.cpp).
+void menu_sound(MenuSound sound);
+// Once a frame, after the menu is built: the menu opened or shut, its tab or page changed, the
+// focus moved to another row.
+void menu_sounds_frame();
 
 }  // namespace openrac::frontend::debug_overlay

@@ -1046,6 +1046,7 @@ void draw(const Shown& shown) {
     } else {
         menu_window(shown);
     }
+    menu_sounds_frame();
     if (s.touch_editing) {
         touch_edit_bar();
     }

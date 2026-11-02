@@ -14,6 +14,9 @@
 #include <imgui_internal.h>  // ImHashStr, ShadeVertsLinearColorGradientKeepAlpha
 #include <string>
 
+#include "frontend.h"
+#include "platform/input.h"
+
 // The menu's typefaces as bytes (cmake/Games.cmake, openrac_menu_fonts, from game/common/fonts/).
 extern const unsigned char openrac_font_inter[];
 extern const unsigned int openrac_font_inter_size;
@@ -51,6 +54,9 @@ ImGuiID item_part(const char* part) {
 }
 
 namespace {
+
+// A choice's row makes its own sound (menu_choice), not the press's.
+bool g_quiet_row = false;
 
 // One typeface from its bytes, at `pixels`: ImGui copies nothing (the bytes stay the program's),
 // and Latin with its accents, as the subset holds.
@@ -374,6 +380,9 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_w
     const bool pressed =
         ImGui::InvisibleButton("row", ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImGui::PopID();
+    if (pressed && !g_quiet_row) {
+        menu_sound(MenuSound::Confirm);
+    }
     // The menu just opened or changed tab: its first row takes the focus, so that the arrows and a
     // controller start there and the desktop's side says what it does.
     if (s.menu_focus_first) {
@@ -472,7 +481,9 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
         );
         back_until = left + column * 0.35f;
     };
+    g_quiet_row = true;  // the row's sound is the value's (below)
     const bool pressed = menu_row(label, ui().text, draw, column + dp(8.0f));
+    g_quiet_row = false;
     int by = 0;
     if (pressed) {
         by = ImGui::IsMouseReleased(0) && ImGui::GetIO().MousePos.x < back_until ? -1 : 1;
@@ -485,7 +496,13 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
             by = 1;
         }
     }
-    return (by < 0 && !can_lower) || (by > 0 && !can_raise) ? 0 : by;
+    const bool blocked = (by < 0 && !can_lower) || (by > 0 && !can_raise);
+    if (by != 0) {
+        // As the game's lists: the cursor's sound for a value moved, Confirm for one pressed, and
+        // Denied past either end.
+        menu_sound(blocked ? MenuSound::Denied : pressed ? MenuSound::Confirm : MenuSound::Cursor);
+    }
+    return blocked ? 0 : by;
 }
 
 bool menu_button(const char* label) {
@@ -494,6 +511,9 @@ bool menu_button(const char* label) {
     const ImVec2 b(a.x + ImGui::GetContentRegionAvail().x, a.y + height);
     const bool pressed =
         ImGui::InvisibleButton(label, ImVec2(b.x - a.x, height), ImGuiButtonFlags_EnableNav);
+    if (pressed) {
+        menu_sound(MenuSound::Confirm);
+    }
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(12.0f);
     primary_fill(
@@ -553,6 +573,10 @@ void set_menu(bool open) {
 void menu_closed() {
     s.menu_confirm_reset = false;
     s.quit_asked = false;
+    // The buttons and keys that closed it (Select + Start, B, Esc) are not the game's too.
+    if (platform::Input* input = frontend::input()) {
+        input->hold_back_held();
+    }
     s.drawer_controller = false;  // the drawer opens again with its own rows alone
     s.drawer_controller_at = 0.0f;
     if (s.shot_when_shut) {
