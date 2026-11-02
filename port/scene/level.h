@@ -233,6 +233,7 @@ struct LevelData {
     std::vector<TieRelightClass> tie_relight_classes;
     std::vector<TieRelight> tie_relight;
     std::vector<std::uint32_t> tie_slots;
+
     // Going Commando's shrubs, lit again when a point light reaches one or the game moves it
     // (format 17): the classes' 24 normals (s16 x, y, z, w), and per shrub its class's entry there
     // (-1 none), its base colour and its light set select (parallel to the shrubs; empty without).
@@ -241,6 +242,7 @@ struct LevelData {
         std::array<std::int32_t, 3> colour{};
         std::int32_t select = 0;
     };
+
     std::vector<std::array<std::array<std::int16_t, 4>, 24>> shrub_relight_classes;
     std::vector<ShrubRelight> shrub_relight;
     // The level's 16 directional light sets (manifest "lights"): per set colour A (w = back

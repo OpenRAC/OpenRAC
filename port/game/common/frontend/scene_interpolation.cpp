@@ -202,8 +202,7 @@ void upload_instances(SceneFrame& frame) {
         const float alpha = frame.output.alpha;
         const auto& prev = frame.scene.prev_scenery;
         frame.owner.scene.add_moved_scenery(
-            with_shrubs,
-            [&](std::size_t k, std::size_t i, const renderer::Mat4& now) {
+            with_shrubs, [&](std::size_t k, std::size_t i, const renderer::Mat4& now) {
                 if (alpha >= 1.0f || i >= prev[k].size()) {
                     return now;
                 }

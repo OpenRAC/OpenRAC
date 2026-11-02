@@ -159,6 +159,7 @@ public:
         std::vector<Instance>& live,
         const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at = {}
     ) const;
+
     bool has_moved_scenery() const { return m_moved_count > 0; }
 
     // Draws depth-tested rigid and skinned velocities into the caller's target, without changing history.

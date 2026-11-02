@@ -1108,7 +1108,8 @@ bool load_level(
                     && p["colour"].items().size() == 3) {
                     relight.cls = relit->second;
                     for (std::size_t c = 0; c < 3; ++c) {
-                        relight.colour[c] = static_cast<std::int32_t>(p["colour"].items()[c].number(0));
+                        relight.colour[c] =
+                            static_cast<std::int32_t>(p["colour"].items()[c].number(0));
                     }
                     relight.select = static_cast<std::int32_t>(p["directional_lights"].number(0));
                 }

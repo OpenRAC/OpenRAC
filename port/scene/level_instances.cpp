@@ -7,13 +7,13 @@
 #include <iterator>
 #include <stdexcept>
 
+#include "assets/geometry/shrub_lighting.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
-#include "assets/geometry/shrub_lighting.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer.h"
 #include "scene/level_renderer_internal.h"
@@ -836,13 +836,16 @@ void LevelScene::relight_shrub(
                          | static_cast<std::uint32_t>(palette[j][3]) << 24;
         }
     } else {
-        std::copy_n(m_light_colours.begin() + static_cast<std::ptrdiff_t>(first), 24, colours.begin());
+        std::copy_n(
+            m_light_colours.begin() + static_cast<std::ptrdiff_t>(first), 24, colours.begin()
+        );
     }
     upload_light_colours(first, colours);
 }
 
 void LevelScene::add_moved_scenery(
-    std::vector<Instance>& live, const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at
+    std::vector<Instance>& live,
+    const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at
 ) const {
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
         const Scenery& scenery = m_scenery[k];
