@@ -6,13 +6,9 @@ FetchContent_Declare(openrac_astc
   GIT_TAG 3ee54d103ca66a5b1f751ad49a4b8064235e2cf9
   GIT_SUBMODULES ""
   SOURCE_SUBDIR openrac-codec-sources-only)
-FetchContent_Declare(openrac_compressonator
-  GIT_REPOSITORY https://github.com/GPUOpen-Tools/compressonator.git
-  GIT_TAG 9da0bc2be8d095adfab04ba9262e94842b48dac2
-  GIT_SUBMODULES ""
-  SOURCE_SUBDIR openrac-codec-sources-only)
 # Populate only the codec sources; upstream applications and their dependencies are not built.
-FetchContent_MakeAvailable(openrac_astc openrac_compressonator)
+FetchContent_MakeAvailable(openrac_astc)
+include(Compressonator)
 set(_astc_sources averages_and_directions block_sizes color_quantize color_unquantize
   compress_symbolic compute_variance decompress_symbolic diagnostic_trace entry
   find_best_partitioning ideal_endpoints_and_weights image integer_sequence mathlib
@@ -44,8 +40,7 @@ file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/bc6_encode_kernel.cp
 add_library(openrac_bc6 STATIC "${CMAKE_CURRENT_BINARY_DIR}/generated/bc6_encode_kernel.cpp")
 target_include_directories(openrac_bc6 SYSTEM PUBLIC
   "${openrac_compressonator_SOURCE_DIR}/cmp_core/shaders"
-  "${openrac_compressonator_SOURCE_DIR}/cmp_core/source"
-  "${openrac_compressonator_SOURCE_DIR}/applications/_libs/cmp_math")
+  "${openrac_compressonator_SOURCE_DIR}/cmp_core/source")
 if(OPENRAC_PROBE_BAKER)
   add_library(openrac_astc_encode ALIAS openrac_astc_codec)
 endif()
