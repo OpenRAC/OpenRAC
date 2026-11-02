@@ -260,6 +260,15 @@ public:
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }
 
+    // Whether MobyProc keeps a moby's shadow slab across its up axis (Going Commando: +0x70 the
+    // offset, +0x74 the half thickness; scene::moby_shadow_state_on_axis) instead of at two world
+    // heights (Ratchet & Clank: +0x84, +0x88; scene::moby_shadow_state).
+    virtual bool shadow_slab_on_up_axis() const { return false; }
+
+    // Whether every moby MobyProc queues casts its shadow (Going Commando: Clank, platforms,
+    // crates), not only the hero's class 0 (Ratchet & Clank's port).
+    virtual bool every_moby_casts_shadow() const { return false; }
+
     // Returns the executable's address of the hero's state record (relocated when read); 0 for a
     // game without one.
     virtual std::uint32_t hero_state() const { return 0; }

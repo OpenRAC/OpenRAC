@@ -231,11 +231,66 @@ void upload_instances(SceneFrame& frame) {
     }
 }
 
+namespace {
+
+// Interpolates each further caster that both ticks hold for the same moby with the same proxies.
+void blend_shadow_sets(SceneFrame& frame, float alpha) {
+    const Kept& scene = frame.scene;
+    for (auto& set : frame.shadow_sets) {
+        const auto before = std::find_if(
+            scene.prev_shadow_sets.begin(),
+            scene.prev_shadow_sets.end(),
+            [&](const renderer::ShadowSet& s) { return s.moby == set.moby; }
+        );
+        const auto previous = scene.prev_matrices.find(set.moby);
+        const auto now = std::find(scene.addresses.begin(), scene.addresses.end(), set.moby);
+        // A reused slot or a changed proxy list has no endpoint to blend from.
+        if (before == scene.prev_shadow_sets.end() || before->capsules.size() != set.capsules.size()
+            || before->heights.has_value() != set.heights.has_value()
+            || previous == scene.prev_matrices.end() || now == scene.addresses.end()
+            || !same_moby(
+                previous->second,
+                scene.live[static_cast<std::size_t>(now - scene.addresses.begin())].matrix
+            )) {
+            continue;
+        }
+        const auto lerp = [alpha](float from, float to) {
+            return from + (to - from) * alpha;
+        };
+        for (std::size_t n = 0; n < set.capsules.size(); ++n) {
+            auto& c = set.capsules[n];
+            const auto& p = before->capsules[n];
+            for (std::size_t component = 0; component < c.a.size(); ++component) {
+                c.a[component] = lerp(p.a[component], c.a[component]);
+                c.b[component] = lerp(p.b[component], c.b[component]);
+            }
+            c.radius_a = lerp(p.radius_a, c.radius_a);
+            c.radius_b = lerp(p.radius_b, c.radius_b);
+        }
+        for (std::size_t component = 0; component < set.extrusion.size(); ++component) {
+            set.extrusion[component] = lerp(before->extrusion[component], set.extrusion[component]);
+        }
+        if (set.heights) {
+            for (std::size_t component = 0; component < set.heights->size(); ++component) {
+                (*set.heights)[component] =
+                    lerp((*before->heights)[component], (*set.heights)[component]);
+            }
+        }
+    }
+}
+
+}  // namespace
+
 void blend_shadows(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     frame.shadows = scene.shadows;
     frame.input.shadow_capsules = frame.shadows;
     const float alpha = frame.output.alpha;
+    frame.shadow_sets = scene.shadow_sets;
+    frame.input.shadow_sets = frame.shadow_sets;
+    if (alpha < 1.0f) {
+        blend_shadow_sets(frame, alpha);
+    }
 
     // Replaced actors or capsule layouts must not interpolate through unrelated geometry.
     if (alpha >= 1.0f || scene.shadow_moby == 0 || scene.shadow_moby != scene.prev_shadow_moby

@@ -74,6 +74,7 @@ struct Kept {
     std::vector<renderer::ShadowCapsule> shadows, prev_shadows;
     std::uint32_t shadow_moby = 0, prev_shadow_moby = 0;
     scene::MobyShadowState shadow_state, prev_shadow_state;
+    std::vector<renderer::ShadowSet> shadow_sets, prev_shadow_sets;  // every_moby_casts_shadow
     std::optional<bool> hero_airborne;
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // ShrubProc's choice for the last tick that ran the world (LevelScene::set_shrub_draws).
@@ -138,6 +139,7 @@ struct TickMobys {
     std::vector<renderer::ShadowCapsule> shadows;          // Captured authored shadow proxies.
     std::uint32_t shadow_moby = 0;                         // Identity of the shadow owner.
     scene::MobyShadowState shadow_state;                   // Captured shadow direction and scale.
+    std::vector<renderer::ShadowSet> shadow_sets;          // Every other caster's proxies.
     std::vector<Kept::TargetMoby> target_mobys;            // Mobys drawn in private camera spaces.
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // Each point-lit moby's third light: colour (w 0), then its world direction (w 0); an

@@ -381,6 +381,19 @@ public:
     // func_L00_00316F60 blends a layer's buffer (+0x10), not keys: his weapon arm.
     bool moby_layer_records() const override { return true; }
 
+    // The hero's shadow is Ratchet & Clank's shadow volumes (shadowproc, func_002DFBB0), fed by
+    // MobyProc's queue (D_001EF160), which the port's MobyProc (host/render.c) does not fill: the
+    // window draws them from the moby instead. MobyProc copies the four directions from 0x1B1B90
+    // (slot 0 aimed by func_0029FFB8) to the scratchpad; the slab is across the moby's up
+    // axis.
+    std::uint32_t shadow_directions() const override { return 0x001B1B90u; }
+
+    bool shadow_slab_on_up_axis() const override { return true; }
+
+    // MobyProc queues every moby with mode 0x400 and a slab: Clank (class 87) where he is the
+    // hero (Aranos Prison), the platforms and crates that carry one.
+    bool every_moby_casts_shadow() const override { return true; }
+
     bool has_levels() const override { return true; }
 
     // The gameplay subjects enhanced lighting gives its GI-coloured rim (port/enhanced/README.md,

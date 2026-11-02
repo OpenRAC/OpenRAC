@@ -1270,6 +1270,8 @@ TickMobys pose_mobys(
     std::vector<renderer::ShadowCapsule> shadows;
     std::uint32_t shadow_moby = 0;
     scene::MobyShadowState shadow_state;
+    std::vector<renderer::ShadowSet> shadow_sets;
+    const bool every_shadow = g->profile->every_moby_casts_shadow();
     std::vector<Kept::TargetMoby> target_mobys;
     // The point lights' third light of each moby they reach, where the game lights mobys by them;
     // as many as the shader's moby_point_lights holds (mesh.vert).
@@ -1639,9 +1641,42 @@ TickMobys pose_mobys(
                                       && instance.moby_light[3] < 1.5f && instance.tint[3] > 0;
         instance.gameplay_essential |= owned_by_hero || instance.hero_shadow_anchor;
         live_joints.push_back(instance.palette >= 0 ? joints : 0);
-        if (g->profile->shadow_directions() != 0 && openrac_game_has_level(g->loaded) && animate
-            && m.class_id == 0 && !extra && instance.moby_light[3] < 1.5f
-            && instance.tint[3] > 0.0f) {
+        if (every_shadow && g->profile->shadow_directions() != 0
+            && openrac_game_has_level(g->loaded) && animate && !extra
+            && instance.moby_light[3] < 1.5f && instance.tint[3] > 0.0f) {
+            const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
+            const auto cast =
+                g->profile->shadow_slab_on_up_axis()
+                    ? scene::moby_shadow_state_on_axis(ram, m.address, directions, state.view())
+                    : scene::moby_shadow_state(ram, m.address, directions, state.view());
+            if (cast.enabled) {
+                auto capsules = scene::moby_shadows(ram, m.address, m.matrix, cast.scale);
+                if (debug && g->index % 100 == 0) {
+                    log::info(
+                        "Moby shadow {:#x} class {}: {} proxies, slot {}, extrusion {:.2f} {:.2f} "
+                        "{:.2f}, slab {:.3f}..{:.3f}, scale {:.3f}",
+                        m.address,
+                        m.class_id,
+                        capsules.size(),
+                        cast.direction_index,
+                        cast.extrusion[0],
+                        cast.extrusion[1],
+                        cast.extrusion[2],
+                        cast.heights[0],
+                        cast.heights[1],
+                        cast.scale
+                    );
+                }
+                if (!capsules.empty()) {
+                    shadow_sets.push_back(
+                        {m.address, std::move(capsules), cast.extrusion, cast.heights}
+                    );
+                }
+            }
+        }
+        if (!every_shadow && g->profile->shadow_directions() != 0
+            && openrac_game_has_level(g->loaded) && animate && m.class_id == 0 && !extra
+            && instance.moby_light[3] < 1.5f && instance.tint[3] > 0.0f) {
             const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
             shadow_state = scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (shadow_state.enabled) {
@@ -1806,6 +1841,7 @@ TickMobys pose_mobys(
         std::move(shadows),
         shadow_moby,
         shadow_state,
+        std::move(shadow_sets),
         std::move(target_mobys),
         water_hands,
         std::move(point_lit),
@@ -1857,6 +1893,7 @@ void keep_tick(
         k.joints.clear();
         k.shadows.clear();
         k.shadow_moby = 0;
+        k.shadow_sets.clear();
         k.shrubs.clear();
         k.scenery = {};
         k.prev_scenery = {};
@@ -1887,16 +1924,19 @@ void keep_tick(
     k.prev_palette = std::move(k.palette);
     k.prev_shadows = std::move(k.shadows);
     k.prev_shadow_moby = k.shadow_moby;
+    k.prev_shadow_sets = std::move(k.shadow_sets);
     // A captured-pose gap has no valid one-tick interpolation endpoint.
     if (!adjacent) {
         k.prev_palette.clear();
         k.prev_shadows.clear();
         k.prev_shadow_moby = 0;
+        k.prev_shadow_sets.clear();
     }
     k.shadows = std::move(mobys.shadows);
     k.shadow_moby = mobys.shadow_moby;
     k.prev_shadow_state = k.shadow_state;
     k.shadow_state = mobys.shadow_state;
+    k.shadow_sets = std::move(mobys.shadow_sets);
     k.water_hands = mobys.water_hands;
     if (mobys.shrubs) {
         k.shrubs = std::move(*mobys.shrubs);

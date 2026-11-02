@@ -16,6 +16,7 @@ struct SceneFrame {
     FramePresentation& output;           // Shared result, published by the worker handoff mutex.
     renderer::FrameInput input;          // Views into scene and the shadow storage below.
     std::vector<renderer::ShadowCapsule> shadows;  // Interpolated capsule storage for input.
+    std::vector<renderer::ShadowSet> shadow_sets;  // Interpolated further casters for input.
     bool temporal = false;    // Temporal reconstruction is active for this scene.
     float picture_scale = 1;  // Width of the original picture inside the wider frame.
     bool has_camera = false;  // The world is drawn: the tick has a camera and set_camera kept one.

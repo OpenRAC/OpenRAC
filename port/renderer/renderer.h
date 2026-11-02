@@ -180,6 +180,7 @@ struct FrameInput {
     std::span<const ShadowCapsule> shadow_capsules;
     Vec3 shadow_extrusion{};
     std::optional<std::array<float,2>> shadow_heights;
+    std::span<const ShadowSet> shadow_sets;  // further casters, each its own extrusion and slab
     // The packets the game built for each bucket this frame (empty when a
     // bucket has nothing, or its renderer draws from elsewhere).
     std::array<std::span<const std::uint8_t>, kBucketCount> packets{};

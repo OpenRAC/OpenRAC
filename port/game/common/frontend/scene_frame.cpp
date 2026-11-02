@@ -458,7 +458,7 @@ void render_scene(
 ) {
     const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     crash::breadcrumb("scene setup");
-    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, false, 1};
+    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, {}, false, 1};
     frame.temporal = prepare_temporal(frame);
     {
         const profiling::Zone trace("Upload scene");
