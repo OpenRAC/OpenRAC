@@ -43,8 +43,9 @@ inline constexpr int kManifestFormat = 4;
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
 // 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
-// ship's hulls in every level; 14 with the chrome and glass maps the game binds.
-inline constexpr int kManifestFormatNewest = 14;
+// ship's hulls in every level; 14 with the chrome and glass maps the game binds; 15 with every paint
+// job of his ship.
+inline constexpr int kManifestFormatNewest = 15;
 
 struct Vertex {
     float position[3];
@@ -232,6 +233,11 @@ struct LevelData {
     Vec3 bounds_min{};
     Vec3 bounds_max{};
     int missing_images = 0;
+    // A texture the game swaps in place (manifest "ship_paints": Going Commando's ship paint jobs,
+    // which the game loads over one texture): the image the faces use (-1 none) and each one it can
+    // be, by the game's number (-1 where one is missing).
+    int variant_image = -1;
+    std::vector<int> variant_images;
 };
 
 // The world centre of `model`'s bounds drawn at `matrix`.

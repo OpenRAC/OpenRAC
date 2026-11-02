@@ -40,6 +40,7 @@ MAX_LEVELS = 100
 ITEM_BANKS = 48
 SHIP_BODIES = 0x48d8
 SHIP_PAINTS = 0x48f0        # Going Commando
+SHIP_PAINT_COUNT = 18       # the pairs there: the Ship Shack's paint jobs (0x152C30 holds the loaded one)
 FLIGHT_BASE = 0x3e24        # Going Commando: the sector the flights' ranges start from
 LEVEL_PAIR = 24              # three (sector, sector count) pairs
 
@@ -227,6 +228,12 @@ class WadDisc:
         base, = unpack("<I", self.toc, FLIGHT_BASE)
         sector, count = unpack("<II", self.toc, SHIP_PAINTS + number * 8)
         return self.disc.sectors(base + sector, count)
+
+    def ship_textures(self) -> list[bytes]:
+        """Every paint job (SHIP_PAINT_COUNT pairs at SHIP_PAINTS): func_002926B8 loads the one the
+        low five bits of 0x001A7AF2 name on each load, the Ship Shack's preview another, and keeps
+        its number at 0x00152C30."""
+        return [self.ship_texture(number) for number in range(SHIP_PAINT_COUNT)]
 
     def ship_body(self, number: int = 0) -> bytes:
         """His ship's hull as func_002925F0 reads it on every level's and flight's load: a class, of

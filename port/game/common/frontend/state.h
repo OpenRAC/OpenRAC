@@ -109,6 +109,9 @@ struct Kept {
     };
 
     std::vector<TargetMoby> target_mobys;
+    // The variant of the level's swapped texture the game has loaded (GameProfile::texture_variant;
+    // -1 keeps the one bound).
+    int texture_variant = -1;
     std::uint32_t draws = 0;
     bool has_camera = false;
     // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame

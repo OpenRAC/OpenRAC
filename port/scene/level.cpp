@@ -1198,6 +1198,23 @@ bool load_level(
     if (out.bounds_min[0] > out.bounds_max[0]) {
         out.bounds_min = out.bounds_max = Vec3{};
     }
+    // A texture the game swaps in place (Going Commando's ship paint jobs): the image its faces
+    // use and every one it can be, which the window binds in its place (LevelScene::set_variant).
+    const json::Value& paints = manifest["ship_paints"];
+    if (paints.is_object() && paints["texture"].is_string()) {
+        const auto& images = out.image_paths;
+        const std::string used = override_of(dir / paints["texture"].string(), out, nullptr)
+                                     .lexically_normal()
+                                     .generic_string();
+        if (std::find(images.begin(), images.end(), used) != images.end()) {
+            out.variant_image = image_index(dir / paints["texture"].string(), out);
+            for (const json::Value& paint : paints["paints"].items()) {
+                out.variant_images.push_back(
+                    paint.is_string() ? image_index(dir / paint.string(), out) : -1
+                );
+            }
+        }
+    }
     if (out.overridden_models > 0 || out.overridden_images > 0) {
         log::info(
             "level {}: {} meshes and {} textures from {}",

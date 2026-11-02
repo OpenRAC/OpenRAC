@@ -425,6 +425,14 @@ void LevelScene::submit_instances(
     );
 }
 
+void LevelScene::set_variant(int number) {
+    if (m_variant_image < 0 || number < 0 || static_cast<std::size_t>(number) >= m_variants.size()) {
+        return;
+    }
+    m_textures[static_cast<std::size_t>(m_variant_image)] =
+        m_variants[static_cast<std::size_t>(number)];
+}
+
 void LevelScene::set_instances(Layer layer, const std::vector<Instance>& source) {
 #ifdef OPENRAC_LIGHT_AUTHORING
     if (m_lighting) {

@@ -1743,6 +1743,7 @@ void keep_tick(
     k.has_state = true;
     k.live = std::move(mobys.live);
     k.target_mobys = std::move(mobys.target_mobys);
+    k.texture_variant = g->profile->texture_variant(ram);
     k.addresses = std::move(mobys.addresses);
     k.joints = std::move(mobys.joints);
     k.palette = std::move(mobys.palette);

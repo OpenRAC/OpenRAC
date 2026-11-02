@@ -368,6 +368,18 @@ bool LevelScene::upload(
                                       : m_white
         );
     }
+    m_variant_image = -1;
+    m_variants.clear();
+    if (level.variant_image >= 0 && static_cast<std::size_t>(level.variant_image) < m_textures.size()) {
+        m_variant_image = level.variant_image;
+        for (const int image : level.variant_images) {
+            m_variants.push_back(
+                image >= 0 && static_cast<std::size_t>(image) < m_textures.size()
+                    ? m_textures[static_cast<std::size_t>(image)]
+                    : m_textures[static_cast<std::size_t>(m_variant_image)]
+            );
+        }
+    }
 
     m_pvs = level.pvs;
     m_camera_visibility = {};

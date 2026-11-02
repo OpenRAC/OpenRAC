@@ -117,6 +117,10 @@ constexpr std::int32_t kShipClass = 3412;
 constexpr std::int32_t kShipBodyClasses = 6030;
 constexpr std::uint32_t kShipBody = 0x00152C18;
 constexpr std::int32_t kShipBodies = 3;
+// And its picture, one of 18 paint jobs, by func_002926B8, which keeps its number at +0x30
+// (editor/port.py's "ship_paints").
+constexpr std::uint32_t kShipPaint = 0x00152C30;
+constexpr std::int32_t kShipPaints = 18;
 
 // A class's bangles: parts of its mesh past its LOD lists, which a moby draws by the bits of its
 // bangle word (+0x7C, an s16; MobyProc, func_002A4E68 at 0x2A5E78): bit 15 clear, the class's mesh
@@ -310,6 +314,13 @@ public:
     bool repeated_ticks_send_images() const override { return true; }
 
     bool mobys_take_point_lights() const override { return true; }
+
+    // The paint job on his ship: func_002926B8 loads one of the 18 over the ship's picture (the
+    // level's load by 0x001A7AF2, the Ship Shack's preview by the one shown) and keeps its number.
+    int texture_variant(std::span<const std::uint8_t> ram) const override {
+        const auto paint = at<std::int32_t>(ram, kShipPaint);
+        return paint >= 0 && paint < kShipPaints ? paint : -1;
+    }
 
     bool interpolates_effect_quads() const override { return true; }
 

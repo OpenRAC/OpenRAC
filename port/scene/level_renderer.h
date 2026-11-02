@@ -106,6 +106,10 @@ public:
     // Replaces a layer's instances (live mobys, each frame).
     void set_instances(Layer layer, const std::vector<Instance>& instances);
 
+    // Draws the faces of the level's swapped texture (LevelData::variant_image: Going Commando's
+    // ship paint jobs) with the game's `number`; one the level does not have leaves the one bound.
+    void set_variant(int number);
+
     // "Scenery detail: Original" (settings.h), from the camera at `eye` seeing through
     // `projection`: the ties and shrubs beyond their draw distances (LevelData::draw_distances) left
     // out, every one drawn at its most detailed LOD. A layer is grouped again only when one of its
@@ -536,6 +540,9 @@ private:
     std::array<std::vector<bool>, kLayerCount> m_colour_visible;
     std::vector<Material> m_materials;
     std::vector<renderer::TextureHandle> m_textures;  // by image
+    // The swapped texture's image (-1 none) and the handle of each variant, by the game's number.
+    int m_variant_image = -1;
+    std::vector<renderer::TextureHandle> m_variants;
     renderer::TextureHandle m_white = 0;
     std::array<std::vector<Group>, kLayerCount> m_groups;
     // The groups a live layer does not draw this frame, kept for the frames it does (set_instances).

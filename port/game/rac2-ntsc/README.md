@@ -152,12 +152,15 @@ many bytes can be another field in another level: it reads what the running copy
   on the disc (RC2.HDR +0x4B3C, class and sectors, `wads.item_banks`), loaded by `func_00294988` when he
   takes one out, each a class and one texture. Every level exports them all, textures `moby_1203.png`
   on. The wrench (class 71, level has its skeleton) is packs 9 to 11, `moby_1200.png` to `moby_1202.png`,
-  its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0,
-  paint 0 only, `moby_1300.png`. Its hull is the disc's too (RC2.HDR +0x48D8, three of them): every
+  its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0:
+  18 paint jobs, the Ship Shack's, of which `func_002926B8` loads the one the low five bits of
+  `0x001A7AF2` name (the Ship Shack's preview loads others) and keeps its number at `0x00152C30`. The
+  faces are exported with paint 0, `moby_1300.png`, the others as `ship_paint_01.png` to `_17`, listed
+  in the manifest's `ship_paints`; the window draws those faces with the paint loaded (format 15). Its hull is the disc's too (RC2.HDR +0x48D8, three of them): every
   level's load and every flight's loads it over the class (`func_002925F0`, by the low bits of
   `0x001A7AF0`), and most levels' tables have no class 3412 of their own, so parked ships drew their
   wings and canopy only. The export has hull 0 as class 3412 in every level, hulls 1 and 2 as 6031 and
-  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 14 (`editor/port.py`, `GAME_FORMATS`).
+  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 15 (`editor/port.py`, `GAME_FORMATS`).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
   pixels are offsets into the stash: the GS RAM table's entries past its count, whose first is the
   128 x 128 chrome at stash offset 0 and the next the 64 x 64 glass at 0x4000 (the stashed moby

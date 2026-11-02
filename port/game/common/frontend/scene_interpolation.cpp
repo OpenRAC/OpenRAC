@@ -195,6 +195,7 @@ void upload_instances(SceneFrame& frame) {
         frame.owner.scene.add_shrub_effects(with_shrubs);
     }
     const auto& drawn = frame.graphics.original_lod ? with_shrubs : live;
+    frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
     if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;

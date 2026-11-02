@@ -39,7 +39,7 @@ import games
 import gc_tie_colours
 from gltf import Gltf
 from godot import PANORAMA, STORED_W, LevelWriter, chunk_terrain, problem_summary
-from level import Level
+from level import SHIP_TEXTURE, Level
 from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
@@ -66,8 +66,8 @@ FORMAT = 4
 # terrain's vertex colours and the shrubs' colours, lit as the game lights them at level load. 13: his
 # ship's hulls in every level, as the game loads them on each level's load, not only in the flights.
 # 14: the chrome and glass maps from the GS RAM lump's stash, where the game takes them (8 read the
-# texture data's first picture).
-GAME_FORMATS = {"rac2": 14}
+# texture data's first picture). 15: every paint job of his ship ("ship_paints"), not only the first.
+GAME_FORMATS = {"rac2": 15}
 
 
 def levels_format(game: str) -> int:
@@ -287,6 +287,15 @@ class PortLevelWriter(LevelWriter):
     def finish(self) -> dict:
         """Textures, placements.json and manifest.json."""
         export_pvs(self.level, self.dir)
+        # His ship's paint jobs (Going Commando): the faces that wear the ship's picture are
+        # exported with paint 0; the port draws them with the one the game loaded.
+        ship = f"moby_{SHIP_TEXTURE:04}"
+        paints = []
+        if self.level.ship_paints and ship in self.textures:
+            for number, texture in enumerate(self.level.ship_paints):
+                name = ship if number == 0 else f"ship_paint_{number:02}"
+                self.textures[name] = texture
+                paints.append(f"textures/{name}.png")
         (self.dir / "textures").mkdir(parents=True, exist_ok=True)
         for name, texture in sorted(self.textures.items()):
             (self.dir / "textures" / f"{name}.png").write_bytes(texture.png())
@@ -305,6 +314,8 @@ class PortLevelWriter(LevelWriter):
                     "sky": self.sky, "classes": self.classes, "placements": "placements.json",
                     "textures": sorted(f"textures/{name}.png" for name in self.textures),
                     "bounds": self.stats["bounds"], "stats": self.stats}
+        if paints:
+            manifest["ship_paints"] = {"texture": f"textures/{ship}.png", "paints": paints}
         bake_inputs = write_bake_inputs(self.level, self.dir)
         write_bake_profile(self.level, self.dir)
         if bake_inputs:

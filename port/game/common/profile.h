@@ -202,6 +202,14 @@ public:
     // not at all.
     virtual bool mobys_take_point_lights() const { return false; }
 
+    // Which variant of the level's swapped texture (scene::LevelData::variant_image) the game has
+    // loaded: Going Commando's ship paint job (func_002926B8 keeps its number at 0x00152C30). -1
+    // for none, which keeps the one bound.
+    virtual int texture_variant(std::span<const std::uint8_t> ram) const {
+        (void)ram;
+        return -1;
+    }
+
     // Whether a frame drawn between ticks moves each effect quad that carries an id (a particle's
     // slot) part way from its last tick's corners, with the mobys' fraction, rather than drawing
     // the latest tick's: Going Commando's Lancer halo led the gun by up to a tick at 120 fps.
