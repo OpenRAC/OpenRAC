@@ -638,7 +638,14 @@ typedef struct openrac_game_ui_rect {
     uint32_t z;
     uint32_t rgba;
     uint64_t tex0;
-    uint32_t flags; /* 1: a glyph of text; 2: sent as a sprite (corners 0 and 3) */
+    /* 1: a glyph of text; 2: sent as a sprite (corners 0 and 3); 4: a colour for each corner
+     * (`corners`; each triangle in its last corner's, as the GS draws unshaded); 8: no texture
+     * (flat colour, TEX0 left as it was); 16: the texture's wrap (CLAMP_1) set to `clamp` first;
+     * 32: shaded between the corners' colours (Gouraud). Going Commando's gradients, boxes and
+     * rings use 4 to 32; a record that leaves them 0 draws as before. */
+    uint32_t flags;
+    uint32_t corners[4];
+    uint64_t clamp;
 } openrac_game_ui_rect;
 
 int openrac_game_ui_quad(const openrac_game_ui_rect* quad);

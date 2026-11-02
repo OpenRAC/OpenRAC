@@ -129,6 +129,8 @@ struct UiQuad {
     std::uint32_t rgba = 0;
     std::uint64_t tex0 = 0;
     std::uint32_t flags = 0;  // kUiGlyph: a glyph of text (drawn from a distance field); kUiSprite
+    std::uint32_t corners[4] = {};  // with kUiCorners: each corner's colour, in place of rgba
+    std::uint64_t clamp = 0;        // with kUiClamp: CLAMP_1, written before the quad
 };
 
 // UiQuad::flags: kUiSprite, an axis-aligned rectangle the game sends as a sprite (corners 0 and 3),
@@ -136,6 +138,15 @@ struct UiQuad {
 inline constexpr std::uint32_t kUiSprite = 2;
 
 inline constexpr std::uint32_t kUiGlyph = 1;
+
+// UiQuad::flags: kUiCorners, a colour for each corner (`corners`), each triangle in its last
+// corner's colour as the GS draws one unshaded, or shaded between them with kUiShaded (the GS's
+// Gouraud); kUiFlat, no texture (flat colour; TEX0 stays as the game left it); kUiClamp, the
+// texture's wrap set first (`clamp`, CLAMP_1), as the game's packet does, so what follows sees it.
+inline constexpr std::uint32_t kUiCorners = 4;
+inline constexpr std::uint32_t kUiFlat = 8;
+inline constexpr std::uint32_t kUiClamp = 16;
+inline constexpr std::uint32_t kUiShaded = 32;
 
 struct RenderTarget;
 

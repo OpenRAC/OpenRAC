@@ -503,10 +503,12 @@ int vsync() {
     // Until the next tick is due, frames at the display's rate (each swap waits for a refresh),
     // the scene moved on from the last tick's to this one's by when each is shown.
     if (g_window && frontend::wants_between()) {
+        g_next_frame += frontend::take_shot_time();
         for (int drawn; (drawn = frontend::between(g_next_frame)) != 0;) {
             if (drawn < 0) {
                 leave();
             }
+            g_next_frame += frontend::take_shot_time();
         }
     }
 #endif

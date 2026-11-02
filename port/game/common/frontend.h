@@ -117,6 +117,10 @@ bool interpolating();
 std::uint32_t text(int id);
 bool wants_between();
 int between(std::chrono::steady_clock::time_point next_tick);
+// The time the window spent writing OPENRAC_SHOT pictures since the last call, which the tick's
+// clock leaves out: a shot that takes longer than a tick would otherwise leave no frame between that
+// tick and the next (OPENRAC_SHOT_BETWEEN) and make the game catch up.
+std::chrono::steady_clock::duration take_shot_time();
 
 // An image the game sent to the GS outside the display list (its library's image transfer): kept
 // for every renderer the window makes, as the chip keeps it in its memory. `base` in 256-byte

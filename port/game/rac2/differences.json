@@ -13,6 +13,16 @@
       "refs": ["port/game/rac2-ntsc/host/render.c"]
     },
     {
+      "id": "wide-nanotech-orbs",
+      "kind": "fix",
+      "name": "Wide-screen crate orbs",
+      "discs": ["ntsc"],
+      "original": "The glowing orb on a nanotech crate draws itself only while its centre is inside the game's 4:3 view.",
+      "port": "The orb's view test runs against the wider picture. Off, it runs against the 4:3 view, and orbs near the sides are missing.",
+      "setting": {"key": "fix_wide_nanotech_orbs", "default": true},
+      "refs": ["port/game/rac2-ntsc/host/wide_view.c"]
+    },
+    {
       "id": "wide-liquids",
       "kind": "fix",
       "name": "Wide-screen scenery",
@@ -39,6 +49,15 @@
       "original": "A 4:3 picture, or the game's own 16:9 option, which narrows the vertical view and leaves the television to stretch it.",
       "port": "A wider picture keeps the game's vertical field of view and shows more of the world to the sides. The game's 16:9 option has no meaning in a window, and the port keeps it off.",
       "refs": ["docs/port/SETTINGS.md (1. The settings)", "port/game/rac2-ntsc/host/options.c"]
+    },
+    {
+      "id": "remembered-options",
+      "kind": "port",
+      "name": "Remembered sound",
+      "discs": ["ntsc"],
+      "original": "The Sound page (playback mode, music and sound volume) resets at power off.",
+      "port": "The port keeps the Sound page in its settings file and puts it back at every start. A loaded save's Sound page still replaces it, as on the console, and is kept from then on.",
+      "refs": ["port/game/rac2-ntsc/host/options.c"]
     },
     {
       "id": "start-skips-scenes",

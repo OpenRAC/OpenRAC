@@ -42,6 +42,14 @@
         "mirror": true,
         "rewrites": [
           [
+            "extern void Ff67aa9df_FUN_0027EA28(void *v, void *x);",
+            "extern void func_0027EA28(void *v, void *x);"
+          ],
+          [
+            "    Ff67aa9df_FUN_0027EA28(v, x);",
+            "    func_0027EA28(v, x);"
+          ],
+          [
             "extern void *func_0027C878(long long);",
             "extern unsigned long long func_0027C878(long long);"
           ],

@@ -18,6 +18,7 @@ void func_0011F828(void);
 void func_0011AEA0(int cache);
 int func_00131D98(int argc, int argv);
 void rac2_install_tools(void); /* tools.c */
+void rac2_install_camera_latch(void); /* camera_latch.c */
 
 /* InitSystemCallTableAddress (libkernl's initsys, called from _InitSys): it patches
  * two kernel routines through SetSyscall, then scans kernel memory with
@@ -52,6 +53,7 @@ int func_00131AE8(void) {
     uint32_t argc;
 
     rac2_install_tools();
+    rac2_install_camera_latch();
     func_0011F828(); /* _InitSys */
     func_0011AEA0(0); /* FlushCache(0) */
     memcpy(&argc, G(0x00146B40u), sizeof argc);

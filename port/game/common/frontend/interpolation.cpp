@@ -284,6 +284,9 @@ bool enhanced_graphics_available() {
 
 namespace {
 
+// The time spent writing shots, until take_shot_time asks (both on the window's thread).
+std::chrono::steady_clock::duration shot_time{};
+
 // Writes a requested capture only after the submitted frame is complete.
 void capture_frame(const FramePresentation& output) {
     const bool first = output.first;
@@ -296,9 +299,19 @@ void capture_frame(const FramePresentation& output) {
         stats::probe("OPENRAC_SHOT_BETWEEN", "OPENRAC_SHOT also writes the frames between ticks");
     static int between_index = 0;
     between_index = first ? 0 : between_index + 1;
+    // With one frame a tick (OPENRAC_UNCAPPED, OPENRAC_NO_BLEND, which scripted runs often set) no
+    // frame is drawn between ticks, so there is none to write: said once, not left to guess.
+    static bool told_none_between = false;
+    if (shot_between && !told_none_between && one_frame_a_tick()) {
+        told_none_between = true;
+        log::warn("OPENRAC_SHOT_BETWEEN: no frames between ticks to write while OPENRAC_UNCAPPED or "
+                  "OPENRAC_NO_BLEND is set (one frame a tick); run in real time with a frame rate above "
+                  "Original");
+    }
     // OPENRAC_SHOT_FROM=FRAME: no shots before that frame.
     static const std::uint64_t shot_from = env_frame(env::Var::ShotFrom).value_or(0);
     if ((first || shot_between) && shots().due(output.tick) && output.tick >= shot_from) {
+        const auto writing = std::chrono::steady_clock::now();
         const std::string path = shots().prefix + std::to_string(output.tick)
                                  + (first ? std::string() : "_b" + std::to_string(between_index))
                                  + ".png";
@@ -310,6 +323,7 @@ void capture_frame(const FramePresentation& output) {
         }
         scene::write_png(path, width, height, pixels);
         log::info("frame {} written to {}", output.tick, path);
+        shot_time += std::chrono::steady_clock::now() - writing;
     }
 }
 
@@ -627,6 +641,10 @@ void set_tick(
 bool interpolating() {
     return !one_frame_a_tick() && settings::get().frame_rate != settings::FrameRate::Original && g
            && g->window;
+}
+
+std::chrono::steady_clock::duration take_shot_time() {
+    return std::exchange(shot_time, std::chrono::steady_clock::duration{});
 }
 
 bool wants_between() {

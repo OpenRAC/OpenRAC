@@ -767,19 +767,36 @@ void GifInterpreter::draw_frame_upload(const ImageUpload& upload) {
 // A quad of the 2D layer: as a textured, blended triangle strip with texel coordinates through its
 // four corners, its texture and colour, drawn from the port's own record.
 void GifInterpreter::native_quad(const UiQuad& quad) {
-    write_register(gs::kTex0_1, quad.tex0);
+    const bool flat = (quad.flags & kUiFlat) != 0;
+    const bool corners = (quad.flags & kUiCorners) != 0;
+    if ((quad.flags & kUiClamp) != 0) {
+        write_register(gs::kClamp1, quad.clamp);
+    }
+    if (!flat) {
+        write_register(gs::kTex0_1, quad.tex0);
+    }
     const bool sprite = (quad.flags & kUiSprite) != 0;
-    write_prim(sprite ? 0x156 : 0x154);
+    // PRIM: a strip (4) or a sprite (6), blended (0x40), texel coordinates (0x100); textured (0x10)
+    // unless flat, Gouraud (8) when shaded.
+    std::uint64_t prim = sprite ? 0x146 : 0x144;
+    if (!flat) {
+        prim |= 0x110;
+    }
+    if ((quad.flags & kUiShaded) != 0) {
+        prim |= 0x8;
+    }
+    write_prim(prim);
     m_glyph = (quad.flags & kUiGlyph) != 0;
     m_in_native = true;
     for (int i = 0; i < 4; ++i) {
         if (sprite && (i == 1 || i == 2)) {
             continue;
         }
-        m_current.rgba[0] = static_cast<std::uint8_t>(quad.rgba);
-        m_current.rgba[1] = static_cast<std::uint8_t>(quad.rgba >> 8);
-        m_current.rgba[2] = static_cast<std::uint8_t>(quad.rgba >> 16);
-        m_current.rgba[3] = static_cast<std::uint8_t>(quad.rgba >> 24);
+        const std::uint32_t rgba = corners ? quad.corners[i] : quad.rgba;
+        m_current.rgba[0] = static_cast<std::uint8_t>(rgba);
+        m_current.rgba[1] = static_cast<std::uint8_t>(rgba >> 8);
+        m_current.rgba[2] = static_cast<std::uint8_t>(rgba >> 16);
+        m_current.rgba[3] = static_cast<std::uint8_t>(rgba >> 24);
         m_current.q = 1.0f;
         m_current.u = quad.u[i];
         m_current.v = quad.v[i];

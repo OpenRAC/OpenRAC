@@ -1068,7 +1068,9 @@ int ui_quad(const openrac_game_ui_rect& quad) {
         q.y[i] = quad.y[i];
         q.u[i] = quad.u[i];
         q.v[i] = quad.v[i];
+        q.corners[i] = quad.corners[i];
     }
+    q.clamp = quad.clamp;
     q.z = quad.z;
     q.rgba = quad.rgba;
     q.tex0 = quad.tex0;
