@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -127,7 +128,8 @@ int main(int argc, char** argv) {
     std::string returns = "void";
     bool have_entry = false;
     int ulps = 0;
-    std::string hooks, disc;
+    std::string hooks, disc, coverage;
+    u32 cover_size = 0;
 
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -172,6 +174,12 @@ int main(int argc, char** argv) {
             disc = argv[++i];
         } else if (arg == "--returns" && i + 1 < argc) {
             returns = argv[++i];
+        } else if (arg == "--coverage" && i + 1 < argc) {
+            // Retail only, no candidate: FILE gets, per entry address, which of its instructions
+            // the states run ("ADDRESS WORDS STATES RETURNED HEX", one byte a word).
+            coverage = argv[++i];
+        } else if (arg == "--cover-size" && i + 1 < argc) {
+            cover_size = static_cast<u32>(std::stoul(argv[++i], nullptr, 0));
         } else if (!arg.empty() && arg[0] != '-') {
             states.push_back(arg);
         } else {
@@ -182,7 +190,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (!have_entry || code.empty() || states.empty()) {
+    if (!have_entry || (code.empty() && coverage.empty()) || states.empty()) {
         std::fprintf(stderr, "openrac-fcheck needs --code, --entry and at least one state\n");
         return 2;
     }
@@ -266,6 +274,9 @@ int main(int argc, char** argv) {
         return true;
     };
 
+    std::map<u32, std::vector<u8>> covered;
+    std::map<u32, std::pair<int, int>> cover_runs;
+
     // Runs one call from a state, the retail function or the candidate.
     auto run = [&](const sys::CallState& state, u32 start, bool candidate, u64 limit) {
         Result r;
@@ -284,6 +295,15 @@ int main(int argc, char** argv) {
             }
         }
 
+        ee.cover = nullptr;
+        if (!candidate && !coverage.empty()) {
+            std::vector<u8>& map = covered[start];
+            map.resize(cover_size / 4);
+            ee.cover = map.data();
+            ee.cover_base = start;
+            ee.cover_bytes = cover_size;
+        }
+
         ee.event_at = ~u64{0};
         ee.pc = start;
         ee.next_pc = start + 4;
@@ -296,6 +316,7 @@ int main(int argc, char** argv) {
             r.instructions += 1'000'000;
         }
         ee.end_call(call);
+        ee.cover = nullptr;
 
         log = nullptr;
         r.gpr = ee.gpr;
@@ -329,6 +350,12 @@ int main(int argc, char** argv) {
             continue;
         }
         Result retail = run(state, state.address, false, kLimit);
+        if (!coverage.empty()) {
+            cover_runs[state.address].first++;
+            cover_runs[state.address].second += retail.returned ? 1 : 0;
+            skipped_in_a_row = retail.returned ? 0 : skipped_in_a_row + 1;
+            continue;
+        }
         Result ours = run(state, entry, true, std::min(kLimit, std::max<u64>(20'000'000, retail.instructions * 8)));
         std::vector<std::string> notes;
         char text[256];
@@ -555,6 +582,24 @@ int main(int argc, char** argv) {
                 std::printf("    %s\n", n.c_str());
             }
         }
+    }
+
+    if (!coverage.empty()) {
+        FILE* out = std::fopen(coverage.c_str(), "w");
+        if (!out) {
+            std::fprintf(stderr, "cannot write %s\n", coverage.c_str());
+            return 2;
+        }
+        for (const auto& [address, map] : covered) {
+            std::fprintf(out, "%08x %zu %d %d ", address, map.size(), cover_runs[address].first,
+                         cover_runs[address].second);
+            for (u8 hit : map) {
+                std::fputc(hit ? '1' : '0', out);
+            }
+            std::fputc('\n', out);
+        }
+        std::fclose(out);
+        return 0;
     }
 
     // How many states were compared: none (every one skipped) is not a verdict (exit 4).
