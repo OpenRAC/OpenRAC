@@ -56,11 +56,12 @@ void whole_target_marker() {
     GifInterpreter gif(textures);
     GifBuilder b;
     auto square = [](GifBuilder& to, std::uint8_t red, bool eop = false) {
-        to.ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
-               {gs::kRgbaq, rgbaq(red, 0, 0, 0x80)},
-               {gs::kXyz2, xyz2(0, 0, 0)},
-               {gs::kXyz2, xyz2(64, 64, 0)}},
-              eop);
+        to
+            .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+                 {gs::kRgbaq, rgbaq(red, 0, 0, 0x80)},
+                 {gs::kXyz2, xyz2(0, 0, 0)},
+                 {gs::kXyz2, xyz2(64, 64, 0)}},
+                eop);
     };
     constexpr std::uint8_t kNop = 0x7F;
     square(b, 1);

@@ -2029,7 +2029,9 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 const float lo_y = std::min({placed[i].y, placed[i + 1].y, placed[i + 2].y});
                 const float hi_y = std::max({placed[i].y, placed[i + 1].y, placed[i + 2].y});
                 const bool whole = of_frame || s.whole
-                    || (!s.textured && ((lo <= -0.995f && hi >= 0.995f) || (lo_y <= -0.995f && hi_y >= 0.995f)));
+                                   || (!s.textured
+                                       && ((lo <= -0.995f && hi >= 0.995f)
+                                           || (lo_y <= -0.995f && hi_y >= 0.995f)));
                 // What lies along one side of the picture (the black line the game draws down the
                 // screen's first column) was at the television's edge; in the middle of a wider
                 // target it would be a line through the world, and it is left out.

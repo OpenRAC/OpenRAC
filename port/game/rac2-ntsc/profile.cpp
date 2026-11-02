@@ -121,7 +121,9 @@ constexpr int kBangles = 15;
 
 // Adds `live` to `mobys` once for each part the game draws of it: its class's mesh, its bangles.
 void add_drawn_parts(
-    std::span<const std::uint8_t> ram, const host::LiveMoby& live, std::vector<host::LiveMoby>& mobys
+    std::span<const std::uint8_t> ram,
+    const host::LiveMoby& live,
+    std::vector<host::LiveMoby>& mobys
 ) {
     const auto word = at<std::int16_t>(ram, live.address + kMobyBangles);
     if (word == 0 || live.class_id <= 0 || live.model_class >= 0) {
