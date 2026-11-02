@@ -17,7 +17,9 @@
  * emitter's). 0 where the test sees the game's own 4:3 view: outside both, where it serves the
  * game's logic too, and in a picture no wider than 4:3.
  */
-static inline float wide_sphere_wider(int lists, float list_wider, int effects, float effect_wider) {
+static inline float wide_sphere_wider(
+    int lists, float list_wider, int effects, float effect_wider
+) {
     const float wider = lists > 0 ? list_wider : effects > 0 ? effect_wider : 0.0f;
     return wider > 1.0f ? wider : 0.0f;
 }

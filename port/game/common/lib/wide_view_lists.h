@@ -19,9 +19,9 @@
 #include "wide_view.h"
 
 enum {
-    WIDE_CULL_MATRIX = 0x100, /* camera block: the cull matrix */
-    WIDE_CLIP_TAN_X = 0x2C0,  /* view block: the clip constants' tangent ... */
-    WIDE_CLIP_SEC_X = 0x2C8,  /* ... its secant ... */
+    WIDE_CULL_MATRIX = 0x100,  /* camera block: the cull matrix */
+    WIDE_CLIP_TAN_X = 0x2C0,   /* view block: the clip constants' tangent ... */
+    WIDE_CLIP_SEC_X = 0x2C8,   /* ... its secant ... */
     WIDE_CLIP_SCALE_X = 0x2E0, /* ... and the secant again (the sphere test's) */
     WIDE_SLOTS = 4
 };
@@ -131,7 +131,9 @@ static void wide_run_list(void (*run)(void), float wider) {
 
 /* The sphere test `game`: against the opened view while a list runs, or `effects` updates that
  * stand for what the player sees (at `effect_wider`) do. */
-static int wide_sphere(int (*game)(gaddr, float), gaddr sphere, float far, int effects, float effect_wider) {
+static int wide_sphere(
+    int (*game)(gaddr, float), gaddr sphere, float far, int effects, float effect_wider
+) {
     const float wider = wide_sphere_wider(g_lists, g_wider, effects, effect_wider);
     if (!(wider > 1.0f) || (g_lists > 0 && wide_still_open(&g_list_clip))) {
         return game(sphere, far);

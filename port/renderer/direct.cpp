@@ -608,13 +608,19 @@ void GifInterpreter::hud_side(int side) {
     // are the frame's only: what the HUD draws off-screen goes with the sprite that shows it.
     constexpr float kMiddle = 56.0f / 256.0f;
     if (m_hud_side != 0) {
-        const float move = static_cast<float>(m_hud_side) * 2.0f / static_cast<float>(m_config.screen_width);
-        for (auto d = m_draws.rbegin(); d != m_draws.rend() && d->first + d->count > m_hud_side_first; ++d) {
+        const float move =
+            static_cast<float>(m_hud_side) * 2.0f / static_cast<float>(m_config.screen_width);
+        for (auto d = m_draws.rbegin();
+             d != m_draws.rend() && d->first + d->count > m_hud_side_first;
+             ++d) {
             if (d->state.target != 0 || d->count == 0) {
                 continue;
             }
-            for (std::uint32_t i = std::max(d->first, m_hud_side_first); i + 3 <= d->first + d->count; i += 3) {
-                const float mid = (m_vertices[i].x + m_vertices[i + 1].x + m_vertices[i + 2].x) / 3.0f;
+            for (std::uint32_t i = std::max(d->first, m_hud_side_first);
+                 i + 3 <= d->first + d->count;
+                 i += 3) {
+                const float mid =
+                    (m_vertices[i].x + m_vertices[i + 1].x + m_vertices[i + 2].x) / 3.0f;
                 if (std::abs(mid) < kMiddle) {
                     continue;
                 }
@@ -640,8 +646,11 @@ void GifInterpreter::draw_frame_snapshot() {
     s.clamp_s = true;
     s.clamp_t = true;
     s.depth_write = false;
-    s.scissor = {0, static_cast<std::uint32_t>(m_config.screen_width - 1), 0,
-                 static_cast<std::uint32_t>(m_config.screen_height - 1)};
+    s.scissor =
+        {0,
+         static_cast<std::uint32_t>(m_config.screen_width - 1),
+         0,
+         static_cast<std::uint32_t>(m_config.screen_height - 1)};
     m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 6});
     DirectVertex corners[4]{};
     for (int k = 0; k < 4; ++k) {
@@ -657,7 +666,8 @@ void GifInterpreter::draw_frame_snapshot() {
         v.rgba[0] = v.rgba[1] = v.rgba[2] = v.rgba[3] = 0x80;
         v.fog = 1.0f;
     }
-    const DirectVertex order[6] = {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
+    const DirectVertex order[6] =
+        {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
     m_vertices.insert(m_vertices.end(), order, order + 6);
     m_state_dirty = true;  // the next primitive's state is its own again
 }

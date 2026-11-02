@@ -61,20 +61,39 @@ static void hud_common(openrac_game_ui_rect* q, unsigned long long tex0, int alp
     q->tex0 = tex0;
 }
 
-static void hud_rect(openrac_game_ui_rect* q, int x0, int y0, int x1, int y1, int u0, int v0, int u1, int v1) {
-    openrac_ui_rect(q, to_screen_x(x0), to_screen_y(y0), to_screen_x(x1), to_screen_y(y1), u0, v0, u1, v1);
+static void hud_rect(
+    openrac_game_ui_rect* q, int x0, int y0, int x1, int y1, int u0, int v0, int u1, int v1
+) {
+    openrac_ui_rect(
+        q, to_screen_x(x0), to_screen_y(y0), to_screen_x(x1), to_screen_y(y1), u0, v0, u1, v1
+    );
 }
 
 /* The font's two prints: a string, glyph by glyph (func_0027E018; func_0027E1A0 for the scaled). */
-void func_0027F2A8(int x, int y, unsigned long long colour, gaddr text, int limit, unsigned long long texture,
-                   gaddr glyphs) {
+void func_0027F2A8(
+    int x,
+    int y,
+    unsigned long long colour,
+    gaddr text,
+    int limit,
+    unsigned long long texture,
+    gaddr glyphs
+) {
     ++g_glyphs;
     func_0027F2A8__game(x, y, colour, text, limit, texture, glyphs);
     --g_glyphs;
 }
 
-void func_0027F640(float x, float y, unsigned long long colour, gaddr text, int limit, float scale,
-                   unsigned long long texture, gaddr glyphs) {
+void func_0027F640(
+    float x,
+    float y,
+    unsigned long long colour,
+    gaddr text,
+    int limit,
+    float scale,
+    unsigned long long texture,
+    gaddr glyphs
+) {
     ++g_glyphs;
     func_0027F640__game(x, y, colour, text, limit, scale, texture, glyphs);
     --g_glyphs;
@@ -82,11 +101,23 @@ void func_0027F640(float x, float y, unsigned long long colour, gaddr text, int 
 
 /* DrawGlyphQuad: a w x h screen rectangle at (x, y) textured from (u, v) .. (u + uw, v + vh) of the
  * texture tex (TEX0) in colour rgba. */
-void func_0027E018(int x, int y, int w, int h, int u, int v, int uw, int vh, unsigned long long rgba,
-                   unsigned long long tex) {
+void func_0027E018(
+    int x,
+    int y,
+    int w,
+    int h,
+    int u,
+    int v,
+    int uw,
+    int vh,
+    unsigned long long rgba,
+    unsigned long long tex
+) {
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
-    hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, u * 16, v * 16, (u + uw) * 16, (v + vh) * 16);
+    hud_rect(
+        &q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, u * 16, v * 16, (u + uw) * 16, (v + vh) * 16
+    );
     q.z = 0xFFFFF0u;
     q.rgba = (uint32_t)rgba;
     q.tex0 = tex;
@@ -100,8 +131,18 @@ void func_0027E018(int x, int y, int w, int h, int u, int v, int uw, int vh, uns
  * out a quad off the chip's 4096 x 4096 coordinate window's used part as the game does. Only a
  * glyph comes here natively: elsewhere it may be a gradient, and the game's packet holds the
  * texels to the quad (a region CLAMP), which a record does not. */
-void func_0027E1A0(float x, float y, float w, float h, int u, int v, int uw, int vh, gaddr colours,
-                   unsigned long long tex) {
+void func_0027E1A0(
+    float x,
+    float y,
+    float w,
+    float h,
+    int u,
+    int v,
+    int uw,
+    int vh,
+    gaddr colours,
+    unsigned long long tex
+) {
     const int same = g_glyphs > 0 && GREF(uint32_t, colours + 4) == GREF(uint32_t, colours)
                      && GREF(uint32_t, colours + 8) == GREF(uint32_t, colours)
                      && GREF(uint32_t, colours + 12) == GREF(uint32_t, colours);
@@ -177,7 +218,9 @@ void func_0028F078(int tex, int x, int y, int w, int h, int alpha, unsigned int 
 
 /* A sprite of the texture tex0 at (x, y), w x h in 16ths of a pixel, texels from (u, v) on by
  * (1 << (lw + 4), 1 << (lh + 4)), with alpha. */
-void func_0028F278(long long tex0, int x, int y, int lw, int lh, int w, int h, int u, int v, int alpha) {
+void func_0028F278(
+    long long tex0, int x, int y, int lw, int lh, int w, int h, int u, int v, int alpha
+) {
     openrac_game_ui_rect q;
     hud_common(&q, (unsigned long long)tex0, alpha);
     hud_rect(&q, x, y, x + w, y + h, u, v, u + (1 << (lw + 4)), v + (1 << (lh + 4)));
@@ -211,7 +254,9 @@ void func_0028F410(int u, int v, long long tex, float x, float y, float w, float
 
 /* A HUD texture as a sprite from (x0, y0) to (x1, y1) (16ths of a pixel), texels (u0, v0) to
  * (u1, v1) (12.4), with alpha. */
-void func_0028F788(int tex, int x0, int y0, int x1, int y1, int u0, int v0, int u1, int v1, int alpha) {
+void func_0028F788(
+    int tex, int x0, int y0, int x1, int y1, int u0, int v0, int u1, int v1, int alpha
+) {
     openrac_game_ui_rect q;
     hud_common(&q, func_0028E640(tex), alpha);
     hud_rect(&q, x0, y0, x1, y1, u0, v0, u1, v1);

@@ -25,7 +25,9 @@ void func_0028E458(void) {
     openrac_hud_edges(OPENRAC_DATA(0x00255330u), draw_hud);
 }
 
-enum { REG_NOP = 0x7F };
+enum {
+    REG_NOP = 0x7F
+};
 
 void func_0034E4F8(gaddr object) {
     const int side = openrac_game_hud_side();

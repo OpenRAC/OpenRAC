@@ -24,13 +24,24 @@
 
 /* Runs `draw`, the game's draw of the HUD whose slots are at `slots`, with the elements out. */
 static inline void openrac_hud_edges(gaddr slots, void (*draw)(void)) {
-    enum { SLOTS = 13, SLOT_BYTES = 0x90, SLOT_X = 0x50, SLOT_FLAGS = 0x60, ANCHOR_LEFT = 4, ANCHOR_RIGHT = 8 };
+    enum {
+        SLOTS = 13,
+        SLOT_BYTES = 0x90,
+        SLOT_X = 0x50,
+        SLOT_FLAGS = 0x60,
+        ANCHOR_LEFT = 4,
+        ANCHOR_RIGHT = 8
+    };
+
     const int side = openrac_game_hud_side();
     int moved[SLOTS];
     for (int i = 0; i < SLOTS; i++) {
         const gaddr slot = slots + (gaddr)i * SLOT_BYTES;
         const int flags = GREF(int, slot + SLOT_FLAGS);
-        moved[i] = side == 0 ? 0 : (flags & ANCHOR_LEFT) != 0 ? -side : (flags & ANCHOR_RIGHT) != 0 ? side : 0;
+        moved[i] = side == 0                     ? 0
+                   : (flags & ANCHOR_LEFT) != 0  ? -side
+                   : (flags & ANCHOR_RIGHT) != 0 ? side
+                                                 : 0;
         GREF(int, slot + SLOT_X) += moved[i];
     }
     draw();

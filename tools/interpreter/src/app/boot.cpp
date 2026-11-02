@@ -218,6 +218,7 @@ int main(int argc, char** argv) {
     struct Traced {
         unsigned address, words;
     };
+
     std::vector<Traced> traced;
     std::FILE* trace_file = nullptr;
     sys::Machine machine;
@@ -394,12 +395,15 @@ int main(int argc, char** argv) {
                 stderr,
                 "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose "
                 "N] "
-                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--stick FRAME:X:Y[:FRAMES]] [--gs-states "
+                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--stick "
+                "FRAME:X:Y[:FRAMES]] [--gs-states "
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
-                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] [--capture-phases FIELD,...] [--capture-spread] [--capture-key ADDRESS,...] [--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE]\n"
+                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] "
+                "[--capture-phases FIELD,...] [--capture-spread] [--capture-key ADDRESS,...] "
+                "[--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE]\n"
             );
             return 2;
         }
@@ -528,7 +532,9 @@ int main(int argc, char** argv) {
 
                     // Which field and key each state is of, to tell later what the game was doing.
                     if (std::FILE* index = std::fopen((capture_dir + "/states.tsv").c_str(), "a")) {
-                        std::fprintf(index, "%s\t%u\t%lld\t%llx", c.name.c_str(), c.taken - 1, field, key);
+                        std::fprintf(
+                            index, "%s\t%u\t%lld\t%llx", c.name.c_str(), c.taken - 1, field, key
+                        );
                         for (unsigned word : capture_keys) {
                             u32 value;
                             std::memcpy(&value, machine.memory.ram(word), 4);

@@ -108,8 +108,17 @@ void func_001F5800(int x, int y, int w, int h, int u, int v, int uw, int vh,
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
     const int ofx = SCREEN_OFX, ofy = SCREEN_OFY;
-    openrac_ui_rect(&q, x * 16 + ofx - 8, y * 16 + ofy - 8, (x + w) * 16 + ofx - 8, (y + h) * 16 + ofy - 8, u * 16, v * 16,
-         (u + uw) * 16, (v + vh) * 16);
+    openrac_ui_rect(
+        &q,
+        x * 16 + ofx - 8,
+        y * 16 + ofy - 8,
+        (x + w) * 16 + ofx - 8,
+        (y + h) * 16 + ofy - 8,
+        u * 16,
+        v * 16,
+        (u + uw) * 16,
+        (v + vh) * 16
+    );
     q.z = 0xFFFFF0u;
     q.rgba = (uint32_t)rgba;
     q.tex0 = tex;
@@ -130,8 +139,17 @@ void func_00200468(int tex, int x, int y, int w, int h, int alpha) {
     hud_size(tex, &tw, &th);
     hud_common(&q, func_00200248(tex), alpha);
     const int ofx = SCREEN_OFX, ofy = SCREEN_OFY;
-    openrac_ui_rect(&q, x * 16 + ofx - 8, y * 16 + ofy - 8, (x + w) * 16 + ofx - 8, (y + h) * 16 + ofy - 8, 0, 0, tw * 16,
-         th * 16);
+    openrac_ui_rect(
+        &q,
+        x * 16 + ofx - 8,
+        y * 16 + ofy - 8,
+        (x + w) * 16 + ofx - 8,
+        (y + h) * 16 + ofy - 8,
+        0,
+        0,
+        tw * 16,
+        th * 16
+    );
     if (!emit(&q)) {
         func_00200468__game(tex, x, y, w, h, alpha);
     }
@@ -173,7 +191,9 @@ void func_002008B8(int tex, int x, int y, int w, int h, int alpha) {
     hud_size(tex, &tw, &th);
     hud_common(&q, func_00200248(tex), alpha);
     const int ofx = SCREEN_OFX, ofy = SCREEN_OFY;
-    openrac_ui_rect(&q, x + ofx - 8, y + ofy - 8, x + w + ofx - 8, y + h + ofy - 8, 0, 0, tw * 16, th * 16);
+    openrac_ui_rect(
+        &q, x + ofx - 8, y + ofy - 8, x + w + ofx - 8, y + h + ofy - 8, 0, 0, tw * 16, th * 16
+    );
     if (!emit(&q)) {
         func_002008B8__game(tex, x, y, w, h, alpha);
     }
@@ -190,7 +210,17 @@ void func_00200A90(int tex, int x, int y, int w, int h, int u, int v, int alpha)
     hud_size(tex, &tw, &th);
     hud_common(&q, func_00200248(tex), alpha);
     const int ofx = SCREEN_OFX, ofy = SCREEN_OFY;
-    openrac_ui_rect(&q, x + ofx - 8, y + ofy - 8, x + w + ofx - 8, y + h + ofy - 8, u, v, u + tw * 16, v + th * 16);
+    openrac_ui_rect(
+        &q,
+        x + ofx - 8,
+        y + ofy - 8,
+        x + w + ofx - 8,
+        y + h + ofy - 8,
+        u,
+        v,
+        u + tw * 16,
+        v + th * 16
+    );
     if (!emit(&q)) {
         func_00200A90__game(tex, x, y, w, h, u, v, alpha);
     }
@@ -208,8 +238,17 @@ void func_00200CA0(RAC1_TYPE_func_00200CA0_tex0 tex0_, int x, int y, int lw, int
     openrac_game_ui_rect q;
     hud_common(&q, (unsigned long long)tex0, alpha);
     const int ofx = SCREEN_OFX, ofy = SCREEN_OFY;
-    openrac_ui_rect(&q, x + ofx - 8, y + ofy - 8, x + w + ofx - 8, y + h + ofy - 8, u, v, u + (1 << (lw + 4)),
-         v + (1 << (lh + 4)));
+    openrac_ui_rect(
+        &q,
+        x + ofx - 8,
+        y + ofy - 8,
+        x + w + ofx - 8,
+        y + h + ofy - 8,
+        u,
+        v,
+        u + (1 << (lw + 4)),
+        v + (1 << (lh + 4))
+    );
     if (!emit(&q)) {
         func_00200CA0__game(tex0, x, y, lw, lh, w, h, u, v, alpha);
     }

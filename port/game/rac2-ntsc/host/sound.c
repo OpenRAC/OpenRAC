@@ -187,8 +187,15 @@ int func_001326D8(int bank) {
     if (openrac_env_string("OPENRAC_SOUND_LOG") != NULL && at != NULL && available >= 16) {
         uint32_t w[4];
         memcpy(w, at, sizeof(w));
-        fprintf(stderr, "[debug] sound bank from the IOP at %#x: %#x %#x %#x %#x\n", (unsigned)bank,
-                w[0], w[1], w[2], w[3]);
+        fprintf(
+            stderr,
+            "[debug] sound bank from the IOP at %#x: %#x %#x %#x %#x\n",
+            (unsigned)bank,
+            w[0],
+            w[1],
+            w[2],
+            w[3]
+        );
     }
     return bank != 0 && at != NULL ? (int)openrac_sound_load_bank(at, available) : 0;
 }

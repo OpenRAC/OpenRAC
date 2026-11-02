@@ -591,8 +591,14 @@ int main(int argc, char** argv) {
             return 2;
         }
         for (const auto& [address, map] : covered) {
-            std::fprintf(out, "%08x %zu %d %d ", address, map.size(), cover_runs[address].first,
-                         cover_runs[address].second);
+            std::fprintf(
+                out,
+                "%08x %zu %d %d ",
+                address,
+                map.size(),
+                cover_runs[address].first,
+                cover_runs[address].second
+            );
             for (u8 hit : map) {
                 std::fputc(hit ? '1' : '0', out);
             }
