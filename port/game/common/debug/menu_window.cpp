@@ -645,16 +645,15 @@ void menu_window(const Shown& shown) {
         // The launcher's panel: a shadow, its ink, a hairline border.
         // (Outside the window's own rectangle, so not clipped to its square corners.)
         list->PushClipRectFullScreen();
-        // The launcher's --shadow (0 18px 50px): many thin layers, each a little wider and fainter,
-        // add up to a soft edge.
+        // A soft, light shadow: many thin faint layers, each a little wider, add up to a smooth edge.
         constexpr int kLayers = 24;
         for (int i = kLayers; i >= 1; --i) {
             const float k = static_cast<float>(i) / kLayers;
-            const float grow = dp(30.0f) * k;
+            const float grow = dp(24.0f) * k;
             list->AddRectFilled(
-                ImVec2(at.x - grow, at.y - grow + dp(14.0f)),
-                ImVec2(b.x + grow, b.y + grow + dp(14.0f)),
-                IM_COL32(0, 0, 0, static_cast<int>(std::lround(10.0f * ease))),
+                ImVec2(at.x - grow, at.y - grow + dp(8.0f)),
+                ImVec2(b.x + grow, b.y + grow + dp(8.0f)),
+                IM_COL32(0, 0, 0, static_cast<int>(std::lround(3.0f * ease))),
                 dp(16.0f) + grow
             );
         }
