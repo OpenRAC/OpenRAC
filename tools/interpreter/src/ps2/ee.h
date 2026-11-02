@@ -342,6 +342,12 @@ public:
     u32 lowest_jump = ~0u;
 
     /**
+     * The lowest stack pointer ($sp) a call reached since it was last set (to all ones), for
+     * openrac-fcheck: memory below the caller's $sp down to this is the call's dead stack.
+     */
+    u32 lowest_sp = ~0u;
+
+    /**
      * Gives the last jumps (from, to), oldest first, to see how the program got lost.
      *
      * @return The 16 most recent jumps, J, JAL, JR and JALR alike.

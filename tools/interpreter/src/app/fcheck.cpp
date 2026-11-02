@@ -96,6 +96,7 @@ struct Result {
     bool returned = false;
     u64 instructions = 0, misaligned = 0;
     u32 lowest_jump = ~0u;
+    u32 lowest_sp = ~0u;
     std::array<Ee::Reg, 32> gpr{};
     std::array<u32, 32> fpr{};
     std::vector<u8> ram, scratchpad;
@@ -310,6 +311,7 @@ int main(int argc, char** argv) {
         log = &r.outside;
 
         ee.lowest_jump = ~0u;
+        ee.lowest_sp = ~0u;
         Ee::Call call = ee.begin_call(start);
         while (!r.returned && r.instructions < limit) {
             r.returned = ee.run_call(1'000'000);
@@ -323,6 +325,7 @@ int main(int argc, char** argv) {
         r.fpr = ee.fpr;
         r.misaligned = ee.misaligned;
         r.lowest_jump = ee.lowest_jump;
+        r.lowest_sp = ee.lowest_sp;
         r.ram.assign(machine->memory.ram(0), machine->memory.ram(0) + GuestMemory::kRamBytes);
         r.scratchpad.assign(machine->memory.scratchpad(0),
                             machine->memory.scratchpad(0) + GuestMemory::kScratchpadBytes);
@@ -422,10 +425,19 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Memory, but for the dead stack and the candidate's own code.
+        /*
+         * Memory, but for the dead stack and the candidate's own code. The dead stack is what the
+         * two calls' frames used below the caller's $sp: down to the lowest $sp either reached
+         * (frames differ in size between retail and the candidate). A fixed window below $sp hid
+         * real stores into heap data placed under the stack (func_003486A8's colour words).
+         */
         u32 sp = static_cast<u32>(state.gpr[29].lo) & (GuestMemory::kRamBytes - 1);
+        u32 low = std::min(ours.lowest_sp, retail.lowest_sp) & (GuestMemory::kRamBytes - 1);
+        if (low > sp) {
+            low = sp;
+        }
         auto skipped = [&](u32 at) {
-            if (at < sp && sp - at <= 0x100000) {
+            if (at < sp && at >= low) {
                 return true;
             }
             for (const Code& c : code) {
@@ -518,7 +530,7 @@ int main(int argc, char** argv) {
             u64 seg = v & ~u64{0x01FFFFFF};
             u32 a = static_cast<u32>(v & 0x01FFFFFF);
             bool mirror = seg == 0 || seg == 0x20000000 || seg == 0x30000000 || seg == 0x80000000;
-            return mirror && a < sp && sp - a <= 0x100000 ? 0x57AC0000'00000000ull : v;
+            return mirror && a < sp && a >= low ? 0x57AC0000'00000000ull : v;
         };
         for (std::vector<Outside>* v : {&ours.outside, &retail.outside}) {
             for (Outside& o : *v) {

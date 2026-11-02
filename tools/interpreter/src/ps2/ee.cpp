@@ -388,6 +388,8 @@ bool Ee::run_call(u64 instructions) {
 
         step();
         instructions--;
+        const u32 sp = static_cast<u32>(gpr[29].lo);
+        lowest_sp = sp < lowest_sp ? sp : lowest_sp;
     }
 
     return returned_ || lost;
