@@ -59,8 +59,8 @@ FORMAT = 4
 # games' files are the same. The layout is the shared one. Going Commando, 5: Ratchet's mesh and
 # textures from the disc's hero pack. 6: the flights to a planet as levels 95 to 98. 7: what he
 # holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
-# of their own, and the picture on his ship.
-GAME_FORMATS = {"rac2": 7}
+# of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
+GAME_FORMATS = {"rac2": 8}
 
 
 def levels_format(game: str) -> int:
