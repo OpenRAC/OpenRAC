@@ -180,6 +180,11 @@ void func_00132498(int sector, int offset, int callback, long long argument) {
  * swaps its dialogue banks so (func_00294988); the console's version waits for the IOP. */
 int func_001326D8(int bank) {
     const gaddr at = openrac_guest_ram_address((gaddr)bank);
+    if (openrac_env_string("OPENRAC_SOUND_LOG") != NULL && at + 16 <= openrac_guest_ram_size) {
+        fprintf(stderr, "[debug] sound bank from EE at %#x: %#x %#x %#x %#x\n", (unsigned)bank,
+                (unsigned)GREF(uint32_t, at), (unsigned)GREF(uint32_t, at + 4u),
+                (unsigned)GREF(uint32_t, at + 8u), (unsigned)GREF(uint32_t, at + 12u));
+    }
     return bank != 0 && at < openrac_guest_ram_size
                ? (int)openrac_sound_load_bank(G(at), openrac_guest_ram_size - at)
                : 0;
