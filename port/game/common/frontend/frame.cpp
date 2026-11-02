@@ -122,7 +122,8 @@ std::vector<std::uint8_t> direct_packets(
     std::vector<renderer::ImageUpload>* uploads = nullptr,
     std::size_t* before_world = nullptr,
     std::size_t* first_offscreen = nullptr,
-    std::size_t* world_marker = nullptr
+    std::size_t* world_marker = nullptr,
+    std::size_t* moby_marker = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at =
@@ -428,6 +429,17 @@ std::vector<std::uint8_t> direct_packets(
                 if ((address & 0xFF) == 0x7F
                     && (value >> 48) == renderer::GifInterpreter::kWorldMarker) {
                     *world_marker = direct_at;
+                }
+            }
+            // The first moby marker (renderer::GifInterpreter::kMobyMarker): where the game drew
+            // mobys of a list of their own (GameProfile::own_mobys_split_the_2d).
+            if (moby_marker != nullptr && *moby_marker == SIZE_MAX && imm == 2) {
+                std::uint64_t value, address;
+                std::memcpy(&value, vif.data() + at + 16, 8);
+                std::memcpy(&address, vif.data() + at + 24, 8);
+                if ((address & 0xFF) == 0x7F
+                    && (value >> 48) == renderer::GifInterpreter::kMobyMarker) {
+                    *moby_marker = direct_at;
                 }
             }
             gif.insert(
@@ -1641,6 +1653,7 @@ TickPackets capture_2d_path(
     std::size_t before_world = SIZE_MAX;
     std::size_t first_offscreen = SIZE_MAX;
     std::size_t world_marker = SIZE_MAX;
+    std::size_t moby_marker = SIZE_MAX;
     draw_coverage::begin_tick(level, g->index);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
@@ -1650,7 +1663,8 @@ TickPackets capture_2d_path(
         &g->effect_uploads,
         &before_world,
         &first_offscreen,
-        &world_marker
+        &world_marker,
+        &moby_marker
     );
     // The markers in a list index the quads of the tick that built it, and the list shown is the
     // one the last tick built (the game builds the next while this one is sent), one tick behind
@@ -1701,6 +1715,12 @@ TickPackets capture_2d_path(
     }
     if (before_world == SIZE_MAX && (draws & 0x10u) != 0) {
         before_world = first_offscreen;
+    }
+    // A game whose menus draw their mobys on the screen late in their 2D path (Going Commando's
+    // Ship Shack: its frame saved to a texture first, then its panels, then the ship): what comes
+    // before them is under them, wherever the first render to a texture was.
+    if (moby_marker != SIZE_MAX && g->profile->own_mobys_split_the_2d()) {
+        before_world = moby_marker;
     }
     // The flight between planets is drawn as the boot program draws it, also when it starts from a
     // planet whose level program is still loaded (world_to_draw: the flight's world): split there,
