@@ -274,6 +274,16 @@ unsigned int openrac_lib_sceSifSetDma(gaddr transfers, int count) { /* sceSifSet
     return 1;
 }
 
+/* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
+ * past its end. */
+const uint8_t* openrac_lib_iop_bytes(uint32_t address, size_t* available) {
+    if (address >= IOP_BYTES) {
+        return NULL;
+    }
+    *available = IOP_BYTES - address;
+    return iop_memory + address;
+}
+
 /* Which RPC server each bound client is for, by client address. */
 #define RPC_CLIENTS 16
 static gaddr rpc_client[RPC_CLIENTS];
