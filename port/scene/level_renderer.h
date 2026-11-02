@@ -37,6 +37,7 @@
 #include "scene/shadow_draws.h"
 #include "scene/shadow_scroll.h"
 #include "scene/shadow_transition.h"
+#include "scene/shrub_draw.h"
 #include "scene/sun_shadow.h"
 
 namespace openrac::scene {
@@ -113,6 +114,15 @@ public:
     // as the game would draw it. Off, the instances as loaded: never set again unless the setting
     // was on, so the default draws the level's resident ties and shrubs untouched.
     void choose_scenery(bool original, const renderer::Vec3& eye, const renderer::Mat4& projection);
+
+    // ShrubProc's choice for the tick (GameProfile::shrub_draws), one per shrub as loaded: with
+    // "Scenery detail: Original" the shrubs' layer then keeps those it draws whole (choose_scenery)
+    // and add_shrub_effects the rest. Empty, or not one per shrub: the draw distances alone.
+    void set_shrub_draws(std::vector<ShrubDraw> draws);
+
+    // The fading shrubs and the billboards drawn in place of the far ones, as the live mobys' list
+    // takes them (Instance::blend 4 and 5), appended to `live`.
+    void add_shrub_effects(std::vector<Instance>& live) const;
 
     // Draws depth-tested rigid and skinned velocities into the caller's target, without changing history.
     void draw_motion(
@@ -472,6 +482,13 @@ private:
 
     static constexpr std::array<Layer, 2> kSceneryLayers{Layer::Ties, Layer::Shrubs};
     std::array<Scenery, kSceneryLayers.size()> m_scenery;
+    // set_shrub_draws: the tick's choice; per shrub as loaded its billboard's model (-1 none) and
+    // its average lit colour (0x80 = 1.0), the billboard's.
+    std::vector<ShrubDraw> m_shrub_draws;
+    std::vector<int> m_shrub_billboards;
+    std::vector<std::array<float, 4>> m_shrub_colours;
+    // m_shrub_draws holds one per shrub as loaded, each with its billboard and colour.
+    bool shrub_draws_usable() const;
     std::vector<std::vector<bool>> m_shadow_solid_primitives;
     // Both solid-shader eligibility modes, rebuilt with geometry/materials on level upload.
     std::vector<std::array<std::vector<ShadowDrawRange>, 2>> m_static_shadow_ranges;

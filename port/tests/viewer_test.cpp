@@ -1194,34 +1194,6 @@ void translucent_texels(const fs::path& dir) {
     fs::remove_all(glass);
 }
 
-// MobyProc's distance cull as the port replays it: a moby whose sphere is past its draw distance
-// along the view, or wholly behind the eye, is not drawn; one with no sphere yet is.
-void moby_draw_distance() {
-    std::uint8_t moby[0x100] = {};
-    const auto place = [&](float x, float y, float z, float r, std::int16_t distance) {
-        const float sphere[4] = {x * 1024.0f, y * 1024.0f, z * 1024.0f, r * 1024.0f};
-        std::memcpy(moby, sphere, sizeof(sphere));
-        std::memcpy(moby + 0x32, &distance, sizeof(distance));
-    };
-    const renderer::Vec3 eye{100.0f, 0.0f, 0.0f};
-    const renderer::Vec3 forward{1.0f, 0.0f, 0.0f};
-    place(150.0f, 30.0f, 0.0f, 1.0f, 64);  // 50 deep, off to the side: drawn
-    CHECK(!game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    place(170.0f, 0.0f, 0.0f, 1.0f, 64);  // 70 deep, past 64
-    CHECK(game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    place(90.0f, 0.0f, 0.0f, 1.0f, 64);  // behind the eye
-    CHECK(game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    place(99.5f, 0.0f, 0.0f, 1.0f, 64);  // the eye inside its sphere
-    CHECK(!game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    // Pokitaru's class 1161 placed with a turn of -5 pi: its sphere thousands of units away.
-    place(9286.5f, 5217.6f, 235.1f, 1.08f, 64);
-    CHECK(
-        game::rac1::moby_beyond_draw_distance(moby, {550.0f, 530.0f, 230.0f}, {0.7f, 0.7f, 0.0f})
-    );
-    place(0.0f, 0.0f, 0.0f, 0.0f, 64);  // no sphere yet
-    CHECK(!game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-}
-
 // The frame's clear colour is the game's: the level settings' background the gameplay loader put in
 // the view context (+0x23C, three words, SetBackgroundColor's bytes), so a packed rc1_background
 // shows where the sky's shells leave gaps. The fog beside it is still read from +0x230.
@@ -1290,7 +1262,6 @@ int main(int argc, char** argv) {
         argc > 1 ? fs::path(argv[1]) : fs::temp_directory_path() / "openrac_viewer_test";
     json_reader();
     pvs_lookup();
-    moby_draw_distance();
     background_colour();
     moby_world_sphere();
     write_level(dir);

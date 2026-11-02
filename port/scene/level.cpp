@@ -686,6 +686,8 @@ bool load_level(
     // The shrub classes' billboard fade distances ("billboard_fade", -1 none), when every class
     // has one; and the game's caps, known for Ratchet & Clank's (renderer/world/draw_data.h).
     std::map<int, int> billboard_fades;
+    // The shrub classes' billboard sprites (a "billboard" with a "mesh"), by class.
+    std::map<int, std::uint32_t> billboard_models;
     bool fades_known = true;
     const bool known_caps = manifest["game"].string() == "rac1";
     const bool vertex_tie_colours = manifest["tie_vertex_colours"].boolean(false);
@@ -700,6 +702,13 @@ bool load_level(
             if (table == &shrubs) {
                 fades_known = fades_known && cls["billboard_fade"].is_number();
                 billboard_fades[id] = static_cast<int>(cls["billboard_fade"].number(-1));
+                if (cls["billboard"]["mesh"].is_string()) {
+                    auto model = model_at(cls["billboard"]["mesh"]);
+                    if (!model) {
+                        return false;
+                    }
+                    billboard_models[id] = *model;
+                }
             }
             if (cls["mesh"].is_string()) {
                 auto model = model_at(cls["mesh"]);
@@ -1042,6 +1051,13 @@ bool load_level(
                 }
             }
             out.instances[static_cast<std::size_t>(layer)].push_back(instance);
+            // In the game's order only when they are the level's own shrubs.
+            if (layer == Layer::Shrubs && !edits[key].is_array()) {
+                const auto billboard = billboard_models.find(id);
+                out.shrub_billboards.push_back(
+                    billboard != billboard_models.end() ? static_cast<int>(billboard->second) : -1
+                );
+            }
             if (known_caps && (layer == Layer::Ties || (layer == Layer::Shrubs && fades_known))) {
                 out.draw_distances[static_cast<std::size_t>(layer)].push_back(
                     game_draw_distance(layer, p["draw_distance"], billboard_fades[id])

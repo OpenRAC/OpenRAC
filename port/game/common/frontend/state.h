@@ -75,6 +75,8 @@ struct Kept {
     scene::MobyShadowState shadow_state, prev_shadow_state;
     std::optional<bool> hero_airborne;
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
+    // ShrubProc's choice for the last tick that ran the world (LevelScene::set_shrub_draws).
+    std::vector<scene::ShrubDraw> shrubs;
     // The last tick's poses, by moby: where its joints start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
     std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
@@ -129,6 +131,8 @@ struct TickMobys {
     // Each point-lit moby's third light: colour (w 0), then its world direction (w 0); an
     // instance's moby_light.x carries 256 x (its record + 1) (mesh.vert).
     std::vector<std::array<float, 8>> point_lit;
+    // ShrubProc's choice (GameProfile::shrub_draws); none keeps the last tick's.
+    std::optional<std::vector<host::ShrubDraw>> shrubs;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
