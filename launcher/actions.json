@@ -1922,12 +1922,12 @@
         "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-16.json",
+            "path": "assets/port/rac2/ntsc/levels-17.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
         "docs": "port/enhanced/lighting/README.md",
-        "todo": "The same baker as Ratchet & Clank's: Going Commando's exports carry their gameplay copy from format 16, whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac2)."
+        "todo": "The same baker as Ratchet & Clank's: Going Commando's exports carry their gameplay copy from format 17, whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac2)."
       },
       {
         "id": "port-rebuild",

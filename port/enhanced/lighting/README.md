@@ -124,7 +124,7 @@ sky weight 0.3, sunlight direction and 8/3-unit dense spacing, two-thirds of the
 The PAL profiles (`profiles/rac1-pal/`) start as copies of NTSC-U's: the levels' classes, textures
 and coordinates are expected to match; check a PAL bake before tuning them apart.
 Going Commando (NTSC-U) bakes with the same defaults and no level profiles yet. Its exports carry
-their gameplay copy from format 16 (`bake-inputs/gameplay.bin`, tag `rac2-v1`): the planner and
+their gameplay copy from format 17 (`bake-inputs/gameplay.bin`, tag `rac2-v1`): the planner and
 interior inference read its environment transitions (header word 0x84, records as RAC1's) and light
 bank (0x04) through `assets/world/gameplay.cpp`, and seed local grids from the placements of the
 classes in [`profiles/rac2/moby-seeds.json`](profiles/rac2/moby-seeds.json). It has no emission
