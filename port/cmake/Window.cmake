@@ -689,6 +689,15 @@ set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)
 openrac_add_test(program_cache LIBS openrac_renderer openrac_platform)
 set_tests_properties(program_cache PROPERTIES SKIP_RETURN_CODE 77)
 
+# Precise world depth (renderer/precise_depth.h): walls 1 cm apart, parted at every distance.
+openrac_add_test(precise_depth LIBS openrac_renderer openrac_platform)
+set_tests_properties(precise_depth PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu)
+if(OPENRAC_VULKAN)
+  add_test(NAME precise_depth_vulkan COMMAND precise_depth_test)
+  set_tests_properties(precise_depth_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+
 openrac_add_test(texture_filter SOURCES tests/texture_filter_test.cpp tests/texture_filter_reference.cpp
                  INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
                  LIBS openrac_viewer_lib openrac_platform)
