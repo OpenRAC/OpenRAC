@@ -177,4 +177,76 @@ std::vector<BakeTriangle> gaspar_liquid_triangles(
     }
     return triangles;
 }
+
+std::vector<BakeTriangle> rac2_liquid_triangles(const json::Value& root) {
+    using namespace assets;
+    // One grid point: corner 0 + (corner 1 - corner 0) c/7 on the left, corner 3 + (corner 2 -
+    // corner 3) c/7 on the right, and r/7 of the way between them (func_00303210).
+    constexpr unsigned kCells = 7;
+    if (root["version"].number() != 1 || !root["surfaces"].is_array()) {
+        fail("Unsupported Going Commando liquid surfaces");
+    }
+    std::vector<BakeTriangle> triangles;
+    for (const auto& surface : root["surfaces"].items()) {
+        if (!surface["emissive"].boolean()) {
+            continue;
+        }
+        std::array<std::array<float, 2>, 4> corners{};
+        for (unsigned k = 0; k < 4; ++k) {
+            for (unsigned axis = 0; axis < 2; ++axis) {
+                corners[k][axis] = float(surface["corners"][k][axis].number(NAN));
+            }
+        }
+        const float height = float(surface["height"].number(NAN));
+        Float3 emission{};
+        for (unsigned c = 0; c < 3; ++c) {
+            emission[c] = float(surface["emission"][c].number(NAN));
+        }
+        for (const auto& corner : corners) {
+            if (!std::isfinite(corner[0]) || !std::isfinite(corner[1])) {
+                fail("Going Commando liquid corner is not finite");
+            }
+        }
+        if (!std::isfinite(height) || !(emission[0] >= 0 && emission[1] >= 0 && emission[2] >= 0)) {
+            fail("Going Commando liquid height or emission is not valid");
+        }
+        const auto point = [&](unsigned column, unsigned row) {
+            const float u = float(column) / kCells, v = float(row) / kCells;
+            const float lx = corners[0][0] + (corners[1][0] - corners[0][0]) * u;
+            const float ly = corners[0][1] + (corners[1][1] - corners[0][1]) * u;
+            const float rx = corners[3][0] + (corners[2][0] - corners[3][0]) * u;
+            const float ry = corners[3][1] + (corners[2][1] - corners[3][1]) * u;
+            return Float3{lx + (rx - lx) * v, ly + (ry - ly) * v, height};
+        };
+        for (unsigned row = 0; row < kCells; ++row) {
+            for (unsigned column = 0; column < kCells; ++column) {
+                const std::array<Float3, 4> quad{
+                    point(column, row),
+                    point(column + 1, row),
+                    point(column, row + 1),
+                    point(column + 1, row + 1)
+                };
+                for (const auto& corners3 :
+                     {std::array<unsigned, 3>{0, 1, 2}, std::array<unsigned, 3>{2, 1, 3}}) {
+                    BakeTriangle triangle;
+                    triangle.diffuse = {};
+                    triangle.emission = {1, 1, 1};
+                    triangle.emission_vertex_colour = true;
+                    for (unsigned i = 0; i < 3; ++i) {
+                        triangle.vertices[i] = quad[corners3[i]];
+                        triangle.emission_colours[i] = emission;
+                    }
+                    const auto& a = triangle.vertices[0];
+                    const auto& b = triangle.vertices[1];
+                    const auto& c = triangle.vertices[2];
+                    if (std::abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
+                        > 1e-8f) {
+                        triangles.push_back(triangle);
+                    }
+                }
+            }
+        }
+    }
+    return triangles;
+}
 }  // namespace openrac::lighting
