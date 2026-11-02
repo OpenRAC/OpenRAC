@@ -342,6 +342,10 @@ static const openrac_front_end front_end = {
      * gameplay file and changed at run time (set 13 is the bolts' gold, 1.0 0.8 0.0). */
     .light_bank = 0x001C2740u,
     .start_level_anywhere = 1,
+    /* D_001A7BB4: the language, a byte the menus' action type 9 sets (0 English, 2 French, 3 German,
+     * 4 Spanish, 5 Italian: the values of the language list's items), read as a word as the text lookup reads it
+     * (func_002D5E98); the port's rows on the Video pages follow it. */
+    .language = 0x001A7BB4u,
 };
 
 /* From crt0 (entry.c), not a constructor: the game is a static library, and nothing else names this
