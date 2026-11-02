@@ -412,6 +412,33 @@ class Translate(unittest.TestCase):
         self.assertEqual(out, ["768"])
         self.assertIn("GFN(long long (*)(int), ", self.last_generated)
 
+    def test_a_cast_to_an_int_parameter_passes_a_64_bit_value_whole(self):
+        # Going Commando's spinning reticle (func_002729A0) casts func_0027E4A8 to take its TEX0 as
+        # an s32, and passes a variable holding GetTexture's 64 bits: the EE's register carries
+        # them all. Through the cast's type the callee's `long long` read the upper half from
+        # whatever the host's register held (zero on Linux: the ring's texture lost TH and CBP).
+        out = self.run_program({
+            "callee.c": """
+                long long func_00120000(int i) { return (long long)i << 33 | 0x80000000ll; }
+                void func_00110000(int n, long long tex0, long long z, int *out) {
+                    *out = (int)(tex0 >> 32) * 100 + (int)(z >> 32) + n;
+                }
+            """,
+            "caller.c": """
+                extern int func_00120000(int);
+                extern void func_00110000(int, int, int, int *);
+                int test_main(void) {
+                    int r;
+                    int t = func_00120000(3);
+                    ((void (*)(int, int, int, int *))func_00110000)(1, t, -5, &r);
+                    test_print(r);
+                    return 0;
+                }
+            """,
+        }, config={"returns_64": ["func_00120000"]})
+        self.assertEqual(out, ["600"])
+        self.assertIn("GFN(void (*)(int, long long, long long, gaddr), ", self.last_generated)
+
     def test_a_cast_to_fewer_arguments_passes_the_callers_own(self):
         # rac3's text code casts a width function to take only its float (`((s32 (*)(f32))f)(1.0f)`):
         # the integers stay what the caller's registers held. Through the definition's type, as a

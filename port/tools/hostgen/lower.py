@@ -2394,7 +2394,14 @@ class Unit:
         common = min(len(classes), len(pcls))
         same_ret = result_cls == "void" or (ret_cls != "void"
                                             and self._reg_class(ret_cls) == self._reg_class(result_cls))
-        if classes[:common] == pcls[:common] and same_ret:
+        # A 64-bit parameter that the call site's type passes as a 32-bit integer: on the EE the
+        # register carries all 64 bits either way; on the host the upper half is whatever the
+        # caller's register held (zero on x86-64, the value's own bits on AArch64). The level 9
+        # target's ring: func_002729A0's casts pass its TEX0 to func_0027E4A8's `long long` as an
+        # s32, and on Linux the texture lost TH's high bits and CBP (64x4, no palette).
+        narrowed = any(pc == "i" and self._wide(p) and not self._wide(self.ty(a))
+                       for a, p, pc in zip(args, sig.params, pcls))
+        if classes[:common] == pcls[:common] and same_ret and not narrowed:
             return None  # the call site's own type passes them alike
         self.fn.report.calls.add(sym)
         self._note_mismatch(sym, sig, args, result_cls, ret_cls)
