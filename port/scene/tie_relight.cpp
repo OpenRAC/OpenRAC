@@ -36,7 +36,8 @@ const std::array<std::array<float, 2>, 256>& trig() {
         std::array<std::array<float, 2>, 256> t{};
         for (int k = 0; k < 256; ++k) {
             const double a = k * 2.0 * 3.14159265358979323846 / 256.0;
-            t[static_cast<std::size_t>(k)] = {static_cast<float>(std::cos(a)), static_cast<float>(std::sin(a))};
+            t[static_cast<std::size_t>(k)] =
+                {static_cast<float>(std::cos(a)), static_cast<float>(std::sin(a))};
         }
         return t;
     }();
@@ -55,8 +56,12 @@ std::array<float, 3> unit(const float* v) {
 using Rgba = std::array<int, 4>;
 
 Rgba bytes(std::uint32_t w) {
-    return {static_cast<int>(w & 0xFF), static_cast<int>((w >> 8) & 0xFF),
-            static_cast<int>((w >> 16) & 0xFF), static_cast<int>(w >> 24)};
+    return {
+        static_cast<int>(w & 0xFF),
+        static_cast<int>((w >> 8) & 0xFF),
+        static_cast<int>((w >> 16) & 0xFF),
+        static_cast<int>(w >> 24)
+    };
 }
 
 }  // namespace
@@ -74,7 +79,8 @@ void relight_tie(
     std::array<std::array<float, 3>, 3> axes{};
     for (std::size_t j = 0; j < 3; ++j) {
         const double length = std::sqrt(
-            static_cast<double>(m[4 * j]) * m[4 * j] + static_cast<double>(m[4 * j + 1]) * m[4 * j + 1]
+            static_cast<double>(m[4 * j]) * m[4 * j]
+            + static_cast<double>(m[4 * j + 1]) * m[4 * j + 1]
             + static_cast<double>(m[4 * j + 2]) * m[4 * j + 2]
         );
         const float w = length != 0.0 ? t32(1.0 / length) : 0.0f;
@@ -83,7 +89,9 @@ void relight_tie(
     auto into = [&](const std::array<float, 3>& light) {
         std::array<float, 3> r{};
         for (std::size_t j = 0; j < 3; ++j) {
-            r[j] = -add(add(mul(axes[j][0], light[0]), mul(axes[j][1], light[1])), mul(axes[j][2], light[2]));
+            r[j] = -add(
+                add(mul(axes[j][0], light[0]), mul(axes[j][1], light[1])), mul(axes[j][2], light[2])
+            );
         }
         return r;
     };
@@ -126,12 +134,13 @@ void relight_tie(
     const float s = mul(cls.scale, 1.0f / 1024.0f);
     for (const TiePointLight& light : points) {
         const float reach = std::max(light.reach, 1.0f);
-        const float away[3] = {
-            add(sphere[0], -light.position[0]), add(sphere[1], -light.position[1]),
-            add(sphere[2], -light.position[2])
-        };
+        const float away[3] =
+            {add(sphere[0], -light.position[0]),
+             add(sphere[1], -light.position[1]),
+             add(sphere[2], -light.position[2])};
         const float both = add(sphere[3], reach);
-        const float d2 = add(add(mul(away[0], away[0]), mul(away[1], away[1])), mul(away[2], away[2]));
+        const float d2 =
+            add(add(mul(away[0], away[0]), mul(away[1], away[1])), mul(away[2], away[2]));
         if (add(d2, -mul(both, both)) >= 0.0f) {
             continue;
         }
@@ -141,10 +150,14 @@ void relight_tie(
             colour[k] = mul(mul(light.colour[k], 128.0f), q);
         }
         for (std::size_t i = 0; i < placed; ++i) {
-            const float x = cls.positions[3 * i], y = cls.positions[3 * i + 1], z = cls.positions[3 * i + 2];
+            const float x = cls.positions[3 * i], y = cls.positions[3 * i + 1],
+                        z = cls.positions[3 * i + 2];
             std::array<float, 3> p{};
             for (std::size_t r = 0; r < 3; ++r) {
-                p[r] = add(add(add(mul(mul(m[r], s), x), mul(mul(m[4 + r], s), y)), mul(mul(m[8 + r], s), z)), m[12 + r]);
+                p[r] =
+                    add(add(add(mul(mul(m[r], s), x), mul(mul(m[4 + r], s), y)),
+                            mul(mul(m[8 + r], s), z)),
+                        m[12 + r]);
             }
             const std::uint16_t code = cls.normals[i];
             const auto& lo = trig()[code & 0xFF];
@@ -154,7 +167,10 @@ void relight_tie(
             for (std::size_t r = 0; r < 3; ++r) {
                 n[r] = add(add(mul(axes[0][r], n0), mul(axes[1][r], n1)), mul(axes[2][r], n2));
             }
-            const float v[3] = {add(light.position[0], -p[0]), add(light.position[1], -p[1]), add(light.position[2], -p[2])};
+            const float v[3] =
+                {add(light.position[0], -p[0]),
+                 add(light.position[1], -p[1]),
+                 add(light.position[2], -p[2])};
             const float dd = add(add(mul(v[0], v[0]), mul(v[1], v[1])), mul(v[2], v[2]));
             if (dd <= 0.0f) {
                 continue;
@@ -163,7 +179,9 @@ void relight_tie(
             const float d = mul(dd, inv);
             const float rd = add(reach, -d);
             const float fall = mul(q, rd);
-            const float dot = add(add(mul(mul(v[0], inv), n[0]), mul(mul(v[1], inv), n[1])), mul(mul(v[2], inv), n[2]));
+            const float dot =
+                add(add(mul(mul(v[0], inv), n[0]), mul(mul(v[1], inv), n[1])),
+                    mul(mul(v[2], inv), n[2]));
             const float f = std::max(add(dot, fall), 0.0f);
             for (std::size_t k = 0; k < 3; ++k) {
                 const int term = std::max(static_cast<int>(mul(mul(colour[k], rd), f)), 0);
@@ -184,12 +202,24 @@ void relight_tie(
         Rgba x{};
         for (std::size_t k = 0; k < 4; ++k) {
             switch (r[0]) {
-            case 1: x[k] = a[k]; break;
-            case 2: x[k] = (a[k] + b[k]) >> 1; break;
-            case 3: x[k] = (3 * a[k] + b[k]) >> 2; break;
-            case 4: x[k] = (2 * a[k] + b[k] + c[k]) >> 2; break;
-            case 5: x[k] = (a[k] + b[k] + c[k] + d[k]) >> 2; break;
-            default: x[k] = 0; break;
+                case 1:
+                    x[k] = a[k];
+                    break;
+                case 2:
+                    x[k] = (a[k] + b[k]) >> 1;
+                    break;
+                case 3:
+                    x[k] = (3 * a[k] + b[k]) >> 2;
+                    break;
+                case 4:
+                    x[k] = (2 * a[k] + b[k] + c[k]) >> 2;
+                    break;
+                case 5:
+                    x[k] = (a[k] + b[k] + c[k] + d[k]) >> 2;
+                    break;
+                default:
+                    x[k] = 0;
+                    break;
             }
         }
         out[v] = static_cast<std::uint32_t>(x[0]) | static_cast<std::uint32_t>(x[1]) << 8

@@ -426,7 +426,8 @@ void LevelScene::submit_instances(
 }
 
 void LevelScene::set_variant(int number) {
-    if (m_variant_image < 0 || number < 0 || static_cast<std::size_t>(number) >= m_variants.size()) {
+    if (m_variant_image < 0 || number < 0
+        || static_cast<std::size_t>(number) >= m_variants.size()) {
         return;
     }
     m_textures[static_cast<std::size_t>(m_variant_image)] =
@@ -625,7 +626,8 @@ void LevelScene::move_scenery(const GameScenery& game) {
             continue;
         }
         const bool ties = kSceneryLayers[k] == Layer::Ties;
-        const bool listed = ties && game.tie_lights.size() == count && game.tie_spheres.size() == count;
+        const bool listed =
+            ties && game.tie_lights.size() == count && game.tie_spheres.size() == count;
         bool changed = false;
         for (std::size_t i = 0; i < count; ++i) {
             const Mat4& m = scenery.source[i].matrix;
@@ -659,7 +661,8 @@ void LevelScene::move_scenery(const GameScenery& game) {
             std::array<TiePointLight, 4> points{};
             std::array<float, 32> key{};
             std::size_t lights = 0;
-            for (std::uint16_t list = listed ? game.tie_lights[i] : 0xFFFF; lights < 4; list >>= 4) {
+            for (std::uint16_t list = listed ? game.tie_lights[i] : 0xFFFF; lights < 4;
+                 list >>= 4) {
                 const std::size_t slot = list & 0xF;
                 if (slot == 0xF) {
                     break;
@@ -675,14 +678,17 @@ void LevelScene::move_scenery(const GameScenery& game) {
             }
             const std::uint8_t set = state == 1 || lights > 0 ? m_tie_relight[i].light_set : 0xFF;
             const Mat4& where = state == 1 ? w : m;
-            if (moved.lit_set[i] == set && (set == 0xFF || (moved.lit[i] == where && moved.lit_points[i] == key))) {
+            if (moved.lit_set[i] == set
+                && (set == 0xFF || (moved.lit[i] == where && moved.lit_points[i] == key))) {
                 continue;
             }
             if (set == 0xFF) {
                 relight_moved_tie(i, nullptr);
             } else {
                 relight_moved_tie(
-                    i, &where, std::span<const TiePointLight>(points.data(), lights),
+                    i,
+                    &where,
+                    std::span<const TiePointLight>(points.data(), lights),
                     listed ? game.tie_spheres[i] : std::array<float, 4>{}
                 );
             }
@@ -697,7 +703,9 @@ void LevelScene::move_scenery(const GameScenery& game) {
 }
 
 void LevelScene::relight_moved_tie(
-    std::size_t i, const Mat4* matrix, std::span<const TiePointLight> points,
+    std::size_t i,
+    const Mat4* matrix,
+    std::span<const TiePointLight> points,
     const std::array<float, 4>& sphere
 ) {
     const Instance& instance = m_scenery[0].source[i];

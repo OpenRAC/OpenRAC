@@ -692,7 +692,9 @@ bool EffectRenderer::apply(
     return texture != state.textures.placeholder();
 }
 
-void EffectRenderer::apply_colour_state(const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits) {
+void EffectRenderer::apply_colour_state(
+    const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits
+) {
     const int tcc_val = tex0.tcc ? 1 : 0;
     if (tcc_val != m_applied.tcc) {
         glUniform1i(m_tcc, tcc_val);

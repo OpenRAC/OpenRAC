@@ -371,7 +371,8 @@ bool LevelScene::upload(
     }
     m_variant_image = -1;
     m_variants.clear();
-    if (level.variant_image >= 0 && static_cast<std::size_t>(level.variant_image) < m_textures.size()) {
+    if (level.variant_image >= 0
+        && static_cast<std::size_t>(level.variant_image) < m_textures.size()) {
         m_variant_image = level.variant_image;
         for (const int image : level.variant_images) {
             m_variants.push_back(

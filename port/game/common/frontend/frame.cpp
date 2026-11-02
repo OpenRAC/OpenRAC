@@ -1187,7 +1187,9 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
 // The ties and shrubs as the game holds them, one per instance the level loaded
 // (GameProfile::scenery_matrices), when the world ran this tick; none for a game that never moves
 // them, or when the words do not point at as many records in memory.
-std::optional<scene::GameScenery> scenery_matrices(std::span<const std::uint8_t> ram, bool world_ran) {
+std::optional<scene::GameScenery> scenery_matrices(
+    std::span<const std::uint8_t> ram, bool world_ran
+) {
     const auto words = g->profile->scenery_matrices();
     if (!world_ran || (words[0] == 0 && words[1] == 0)) {
         return std::nullopt;
@@ -1222,7 +1224,8 @@ std::optional<scene::GameScenery> scenery_matrices(std::span<const std::uint8_t>
             }
         }
     }
-    const std::size_t ties = g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size();
+    const std::size_t ties =
+        g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size();
     if (const gaddr at = table(words[2], ties, 0x20); at != 0) {
         result.tie_spheres.resize(ties);
         result.tie_lights.resize(ties);
@@ -1328,7 +1331,9 @@ TickMobys pose_mobys(
                 g->profile->own_mobys_into_narrow_buffers() && into_buffer(address)
                         && frame_focal[0] > 0.0f
                     ? OwnCameraLayer::Texture
-                    : own_camera_layer(camera.tan_half_fov_x, zoom, frame_focal[0] > 0.0f, under_menu);
+                    : own_camera_layer(
+                          camera.tan_half_fov_x, zoom, frame_focal[0] > 0.0f, under_menu
+                      );
             switch (layer) {
                 case OwnCameraLayer::Texture:
                     into_texture.emplace(address, &camera);

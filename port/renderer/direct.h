@@ -162,6 +162,7 @@ struct OffscreenTexture {
     std::uint32_t block = 0;
     unsigned texture = 0;
 };
+
 inline std::vector<OffscreenTexture> g_offscreen_textures;
 // Whether world quads sample them (GameProfile::own_mobys_into_narrow_buffers: Going Commando);
 // off, a world quad reads the block from the texture pool as before.

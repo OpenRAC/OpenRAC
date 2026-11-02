@@ -148,6 +148,7 @@ private:
         float alpha_scale = -1.0f;
         unsigned offscreen = 0;  // the off-screen target's GL texture bound (kOffscreenHandle)
     } m_applied;
+
     // m_applied.texture while an off-screen target's texture is bound (no pool handle is ~0).
     static constexpr TextureHandle kOffscreenHandle = ~TextureHandle{0};
 

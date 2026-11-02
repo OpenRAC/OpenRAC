@@ -150,6 +150,7 @@ public:
 
     // The instances move_scenery found moved, at their place now, appended to `live`.
     void add_moved_scenery(std::vector<Instance>& live) const;
+
     bool has_moved_scenery() const { return m_moved_count > 0; }
 
     // Draws depth-tested rigid and skinned velocities into the caller's target, without changing history.
@@ -510,6 +511,7 @@ private:
 
     static constexpr std::array<Layer, 2> kSceneryLayers{Layer::Ties, Layer::Shrubs};
     std::array<Scenery, kSceneryLayers.size()> m_scenery;
+
     // move_scenery: per layer, each instance's state (0 as loaded, 1 moved, 2 removed) and its
     // matrix now; the instances a layer leaves out for it. `checked`: whether the game's matrices
     // were found to be the loaded ones (per layer: -1 not yet, 0 no, 1 yes).
@@ -523,6 +525,7 @@ private:
         std::vector<std::array<float, 32>> lit_points;
         int checked = -1;
     };
+
     // The ties' relighting data (LevelData::tie_relight_classes, tie_relight, tie_slots) and their
     // colours as loaded, for putting a tie back.
     std::vector<TieRelightClass> m_tie_relight_classes;
@@ -532,7 +535,9 @@ private:
     // Lights tie `i` again by `matrix` and `points` (nullptr: its colours as loaded) into the
     // light texture.
     void relight_moved_tie(
-        std::size_t i, const Mat4* matrix, std::span<const TiePointLight> points = {},
+        std::size_t i,
+        const Mat4* matrix,
+        std::span<const TiePointLight> points = {},
         const std::array<float, 4>& sphere = {}
     );
     std::array<MovedScenery, kSceneryLayers.size()> m_moved;
