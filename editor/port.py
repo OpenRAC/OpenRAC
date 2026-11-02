@@ -70,7 +70,9 @@ FORMAT = 4
 # 16: each tie's slots before lighting and each tie class's scale, slot normals, slot positions
 # and vertex makeup ("relight"), for the ties the game moves and the point lights light again.
 # 17: each shrub class's 24 normals ("relight"), for the shrubs a point light reaches.
-GAME_FORMATS = {"rac2": 17}
+# 18: the gameplay copy the probe baker plans enhanced lighting from (bake-inputs/gameplay.bin,
+# manifest bake_inputs).
+GAME_FORMATS = {"rac2": 18}
 
 
 def levels_format(game: str) -> int:

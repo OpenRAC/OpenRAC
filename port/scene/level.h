@@ -47,8 +47,9 @@ inline constexpr int kManifestFormat = 4;
 // ship's hulls in every level; 14 with the chrome and glass maps the game binds; 15 with every paint
 // job of his ship; 16 with what a tie is lit again from when the game moves it or a point light
 // reaches it (its slots before lighting, its class's "relight"); 17 with each shrub class's normals,
-// for the shrubs a point light reaches.
-inline constexpr int kManifestFormatNewest = 17;
+// for the shrubs a point light reaches; 18 with the gameplay copy
+// the probe baker reads (bake-inputs/gameplay.bin).
+inline constexpr int kManifestFormatNewest = 18;
 
 struct Vertex {
     float position[3];
