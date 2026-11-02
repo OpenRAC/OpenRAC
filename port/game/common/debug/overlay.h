@@ -275,6 +275,7 @@ struct State {
     int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
     float menu_row_height = 48.0f;    // a row's height in dp: a thumb's on a touch screen
     bool drawer_developer = false;    // the drawer's developer tools unfolded
+    bool drawer_fixes = false;        // the drawer's game fixes unfolded
     bool drawer_controller = false;   // the controller's settings out beside the drawer
     float drawer_controller_at = 0.0f;     // how far out they are: 0 in, 1 out
     bool drawer_controller_focus = false;  // the gamepad's focus goes to them, or back, next frame

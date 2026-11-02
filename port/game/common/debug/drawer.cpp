@@ -64,6 +64,18 @@ public:
     PanelStyle& operator=(const PanelStyle&) = delete;
 };
 
+// A row that folds a section away, its arrow turning as it opens: true when pressed.
+bool fold_row(const char* label, bool open) {
+    card_begin();
+    const bool pressed = menu_row(label, ui().text, [open](ImDrawList* list, ImVec2 right) {
+        const float k = tween(item_part("open"), open ? 1.0f : 0.0f, kMedium);
+        const float dy = 1.0f - 2.0f * k;
+        arrow(list, ImVec2(right.x - dp(5.0f), right.y + dp(2.5f) * dy), 0.0f, dy, ui().soft);
+    });
+    card_end();
+    return pressed;
+}
+
 // Controller settings in a panel right of the drawer, filling the rest of the screen: the list is
 // too long for the drawer itself. `left` is the drawer's right edge, `right_inset` the notch's.
 void controller_panel(float left, float right_inset) {
@@ -255,8 +267,21 @@ void drawer(const Shown& shown) {
         // The menu's tabs one after another, a heading and a card for each of their sections,
         // then the mods' own menus.
         using menu::Tab;
-        for (const Tab tab : {Tab::Graphics, Tab::Enhanced, Tab::Game}) {
-            draw_tab(tab, menu::kTouch);
+        draw_tab(Tab::Graphics, menu::kTouch);
+        draw_tab(Tab::Enhanced, menu::kTouch);
+        // The game's fixes are many: folded away under one row, as the developer tools are.
+        const auto fixes = [](std::string_view section) {
+            return section == "Game fixes";
+        };
+        draw_tab(Tab::Game, menu::kTouch, [&](std::string_view section) {
+            return !fixes(section);
+        });
+        ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));
+        if (fold_row("Game fixes", s.drawer_fixes)) {
+            s.drawer_fixes = !s.drawer_fixes;
+        }
+        if (s.drawer_fixes) {
+            draw_tab(Tab::Game, menu::kTouch, fixes);
         }
         // Controller settings open in their own panel; touch settings stay in the drawer.
         menu_heading("Controls");
@@ -290,19 +315,10 @@ void drawer(const Shown& shown) {
 
         // The developer's tools, folded away under one row.
         ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));
-        card_begin();
         const bool developer = s.drawer_developer;
-        if (menu_row("Developer tools", ui().text, [developer](ImDrawList* list, ImVec2 right) {
-                // The arrow turns as the section opens.
-                const float k = tween(item_part("open"), developer ? 1.0f : 0.0f, kMedium);
-                const float dy = 1.0f - 2.0f * k;
-                arrow(
-                    list, ImVec2(right.x - dp(5.0f), right.y + dp(2.5f) * dy), 0.0f, dy, ui().soft
-                );
-            })) {
+        if (fold_row("Developer tools", developer)) {
             s.drawer_developer = !s.drawer_developer;
         }
-        card_end();
         if (developer) {
             draw_tab(Tab::Developer, menu::kTouch);
         }
