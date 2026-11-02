@@ -1045,6 +1045,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         q.tex1 = 0xFF9000000120ull;
         q.alpha = r[3];
         q.id = p.id;
+        q.rigid = kind != 3;
         items.push_back({z, q});
     }
     stats::gauge("particle texture resolves", double(texture_resolves));

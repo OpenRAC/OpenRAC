@@ -184,6 +184,11 @@ void set_packets(SceneFrame& frame) {
     // Between ticks, each quad with an id moves from its last tick's corners as the mobys move
     // (Kept::prev_effect_corners); one that jumped further than anything carried moves (a slot
     // freed and taken again in a tick) and one new this tick are drawn where the tick has them.
+    // A rigid quad (EffectQuad::rigid: a sprite or flat quad) keeps this tick's shape and moves by
+    // its centre: Going Commando turns the Lancer's glow to a random angle every tick (its
+    // spawner, level 3's 0x0033F6B0, as retail does), and corners taken part way between two
+    // angles drew it shrunken, at times to a point, on every frame between ticks: a flicker, at
+    // 60 fps too, whose frames do not fall on the ticks.
     const float alpha = frame.output.alpha;
     if (alpha < 1.0f && !scene.prev_effect_corners.empty()) {
         constexpr float kFarthest = 4.0f;  // world units a tick
@@ -202,6 +207,14 @@ void set_packets(SceneFrame& frame) {
                 d[i] = (q.corner[0][i] + q.corner[3][i] - from[0][i] - from[3][i]) * 0.5f;
             }
             if (!(d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < kFarthest * kFarthest)) {
+                continue;
+            }
+            if (q.rigid) {
+                for (int k = 0; k < 4; ++k) {
+                    for (int i = 0; i < 3; ++i) {
+                        q.corner[k][i] -= d[i] * (1.0f - alpha);
+                    }
+                }
                 continue;
             }
             for (int k = 0; k < 4; ++k) {
