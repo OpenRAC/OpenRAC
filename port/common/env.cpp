@@ -55,6 +55,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::CamLog, "OPENRAC_CAM_LOG",
      Kind::Flag, Truth::Set, "off",
      "the camera each drawn frame is seen from, in the log"},
+    {Var::Clock, "OPENRAC_CLOCK",
+     Kind::Text, Truth::NotAFlag, "the host's (2000-01-01 00:00:00 with OPENRAC_RECORD or _REPLAY)",
+     "YYYY-MM-DD hh:mm:ss: the time the game's clock (sceCdReadClock) reads, for runs that repeat"},
     {Var::CollCheck, "OPENRAC_COLL_CHECK",
      Kind::Integer, Truth::NotAFlag, "off",
      "N: each collision query also runs the kernel's own instructions and differences go to "

@@ -60,6 +60,7 @@ enum class Var : std::uint16_t {
     CameraInstanceCullOff,
     CameraLatchLog,
     CamLog,
+    Clock,
     CollCheck,
     CollCheckPrint,
     CollTrace,
