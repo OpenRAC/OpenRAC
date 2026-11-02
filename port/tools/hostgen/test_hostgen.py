@@ -1791,6 +1791,40 @@ class Places(unittest.TestCase):
                           (out / "levels" / "16_x" / "L16_00435CE8.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_function_entered_away_from_its_name_calls_the_levels_hook(self):
+        # Going Commando's func_0031FC28 (the ammo pickup's update) is entered at 0x0031FC60, after
+        # another function's leftover instructions, and the level catalogue lists its copies under
+        # level names. Its give through hook 0x0026F740 ran as the empty stub: no ammo, no message.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "p.c").write_text(
+                "extern unsigned int func_0026F740(int, int);\n"
+                "void func_0031FC28(int item) { func_0026F740(item, 5); }\n"
+                "void func_003202E8(char *spawn) { *(void (**)(int))(spawn + 0x64) = func_0031FC28; }\n")
+            (src / "functions.tsv").write_text(
+                "func_003202E8\tboot\t8\tfingerprint\t2\t00:003D18E0,03:003DD768\n"
+                "func_L00_003D1258\tshared\t8\tfingerprint\t2\t00:003D1258,03:003DD0E0\n")
+            (src / "boot.tsv").write_text(
+                "func_0026F740\t0026F740\t8\nfunc_0031FC28\t0031FC60\t8\nfunc_003202E8\t003202E8\t8\n")
+            (root / "twins.tsv").write_text("func_0031FC28\t0031FC60\t8\t00:003D1258,03:003DD0E0\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "executable_functions": "boot.tsv", "relocate": [0x1A7C80, 0x500000],
+                "level_hooks": ["func_0026F740"], "level_twins": "twins.tsv",
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "game" / "p.c").read_text()
+            self.assertIn("openrac_hook_in_copy(0x0031FC60u, 8u, 0, 0x003D1258u, 0x0026F740u, 0u)", text)
+            self.assertIn("OPENRAC_CODE(0x0031FC60u)", text)
+            self.assertNotIn("0x0031FC28u", text)
+            self.assertIn("{0x0031FC60u, (openrac_host_fn)func_0031FC28,", (out / "functions.c").read_text())
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_six_digits_in_a_level_are_the_levels_even_on_an_executable_function(self):
         # func_31C970 in level 7's file is the level's function there; func_0031C970 is the
         # executable's, at the same number.

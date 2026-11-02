@@ -2502,11 +2502,16 @@ class Unit:
         if fn is None or sym not in getattr(self.program, "level_hooks", ()):
             return None
         size = getattr(self.program, "sizes", {}).get(fn.code)
-        if not size or not getattr(self.program, "relocate", None):
-            return None
         places = self.program.code_places(fn.code)
         exe = [a for o, a in places if o < 0]
         levels = [(o, a) for o, a in places if o >= 0]
+        twin = getattr(self.program, "level_twins", {}).get(fn.code)
+        if not levels and twin is not None:
+            # Its level copies are under level names (hostgen.json "level_twins"): the ammo pickup's
+            # update gives the ammo through hook 0x0026F740, which ran as the empty stub.
+            size, levels = twin
+        if not size or not getattr(self.program, "relocate", None):
+            return None
         stub = [a for o, a in self.program.code_places(sym) if o < 0]
         if not exe or not levels or not stub:
             return None

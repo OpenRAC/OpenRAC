@@ -102,6 +102,55 @@ def rows(source: Path) -> list[tuple[str, str, int, int, int, int, int]]:
     return out
 
 
+def masked(word: int) -> int:
+    """An instruction without the fields the linker fills: a jump's target, an immediate's 16 bits."""
+    op = word >> 26
+    if op in (2, 3):
+        return word & 0xFC000000
+    return word if op == 0 else word & 0xFFFF0000
+
+
+def twins(source: Path) -> list[tuple[str, int, int, list[tuple[int, int]]]]:
+    """The executable's functions whose catalogue row starts away from the address their name says
+    (a run of another function's leftover instructions in front: func_0031FC28, the ammo pickup's
+    update, is entered at 0x0031FC60), and the level places of the code that is theirs. The level
+    catalogue pairs a boot function with its copies by name, and these names do not match their
+    address, so their copies are listed under level names (func_L00_003D1258): hostgen calls the
+    level's own functions through them (level_hooks). One row per function:
+
+        name  entry  size  places"""
+    baserom = source / "baserom"
+    programs = {int(d.name[:2]): level_sections(d) for d in sorted((baserom / "levels").iterdir())
+                if d.is_dir() and d.name[:2].isdigit()}
+    exe = elf_sections(baserom / "SCUS_972.68")
+    by_size: dict[int, list[tuple[str, list[tuple[int, int]]]]] = {}
+    for line in (source / "config/levels/functions.tsv").read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 6:
+            continue
+        places = [(int(p[:2]), int(p[3:], 16)) for p in cols[5].split(",") if p]
+        by_size.setdefault(int(cols[2]), []).append((cols[0], places))
+    out = []
+    for line in (source / "config/boot/functions.tsv").read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 3 or cols[0][-8:].upper() == cols[1].upper():
+            continue
+        name, entry, size = cols[0], int(cols[1], 16), int(cols[2])
+        code = words(exe, entry, size & ~3)
+        if code is None or size < 8 or name in {row[0] for row in by_size.get(size, [])}:
+            continue
+        mine = [masked(w) for w in code]
+        places: list[tuple[int, int]] = []
+        for _, theirs in by_size.get(size, []):
+            level, address = next(((lv, a) for lv, a in theirs if lv in programs), (None, 0))
+            copy = words(programs[level], address, size & ~3) if level is not None else None
+            if copy is not None and [masked(w) for w in copy] == mine:
+                places += theirs
+        if places:
+            out.append((name, entry, size, sorted(places)))
+    return out
+
+
 COMPLETES = (0x09, 0x0D, 0x31, 0x39, 0x37, 0x3F, 0x1E, 0x1F)
 
 
@@ -177,7 +226,17 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--data", type=Path, help="also write the functions that take globals from their copy")
     parser.add_argument("--config", type=Path, help="the game's hostgen.json")
+    parser.add_argument("--twins", type=Path, help="also write the level copies of the executable's "
+                        "functions entered away from their name (hostgen.json \"level_twins\")")
     args = parser.parse_args()
+    if args.twins:
+        found_twins = twins(args.source)
+        args.twins.write_text(
+            "# Written by port/tools/hostgen/copycalls.py --twins from the retail programs; do not edit.\n"
+            "# name\tentry\tsize\tplaces\n"
+            + "".join(f"{n}\t{e:08X}\t{z}\t{','.join(f'{lv:02d}:{a:08X}' for lv, a in pl)}\n"
+                      for n, e, z, pl in found_twins))
+        print(f"{len(found_twins)} executable functions with level copies under other names")
     found = rows(args.source)
     lines = ["# Written by port/tools/hostgen/copycalls.py from the retail programs; do not edit.",
              "# caller\tcallee\thome\tcanon\tsize\town\texe"]

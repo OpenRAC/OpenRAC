@@ -117,6 +117,13 @@ every level: state changes, the update in a scene. Rac1 has the same pattern. As
 with all its registers (`level_hooks_by_registers`): the stub's C declaration says nothing of what
 the level's function takes.
 
+`level_twins` (`level_twins.tsv`, written by `port/tools/hostgen/copycalls.py --twins`): 27 such engine
+functions are entered away from the address their name says (the ammo pickup's update `func_0031FC28`
+at `0x0031FC60`, after leftovers of the function before), so the level catalogue lists their copies
+under level names. Their entry is their address in the port, and their hook calls go through those
+copies: before, the pickup's give (hook `0x0026F740`) ran the empty stub, so ammo from crates was never
+added and no message showed.
+
 ## Names the C has from somewhere else
 
 `unit_aliases`: a file's name for another function. Twins matched beside another level's copy keep
