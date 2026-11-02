@@ -396,6 +396,14 @@ public:
 
     bool has_levels() const override { return true; }
 
+    // The hero's record, D_00189E20 (the motion of func_L00_002B5B60: position +0x80, velocity
+    // +0xF0), whose shorts at +0x34C and +0x34E count the updates off the ground and are 0 on
+    // landing (Ratchet & Clank's +0x30C and +0x30E: a jump in level 4 read 15, 25, 35, then 0).
+    // Enhanced lighting tilts his own shadow map down by it.
+    std::uint32_t hero_state() const override { return 0x00189E20u; }
+
+    std::uint32_t hero_air_frames() const override { return 0x34E; }
+
     // The gameplay subjects enhanced lighting gives its GI-coloured rim (port/enhanced/README.md,
     // Gameplay rim lighting); held items and the hero's attachments are added by the frontend.
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }

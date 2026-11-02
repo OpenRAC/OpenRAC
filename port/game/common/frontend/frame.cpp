@@ -1946,9 +1946,12 @@ void keep_tick(
                                   : std::array<std::vector<std::array<float, 12>>, 2>{};
         k.scenery = std::move(*mobys.scenery);
     }
-    k.hero_airborne = g->profile->hero_state() != 0
-                          ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))
-                          : std::nullopt;
+    k.hero_airborne =
+        g->profile->hero_state() != 0
+            ? scene::hero_airborne(
+                  ram, OPENRAC_DATA(g->profile->hero_state()), g->profile->hero_air_frames()
+              )
+            : std::nullopt;
     std::uint32_t mode = 0;
     // The level's mode while a real-time cutscene plays (the profile's). Movies bypass world
     // reconstruction.
