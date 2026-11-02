@@ -53,10 +53,14 @@
   let installing = $state<string | null>(null);
   let adding = $state(false);
   let dropping = $state(false);
+  /** What a file or folder being added is at: copied in (Android, with its share when known), then
+   *  installed. Shown under the buttons from the moment the picker closes until the add says. */
+  let busy = $state<{ text: string; share: number | null } | null>(null);
   /** What the last add said, in a sentence. */
   let said = $state<{ text: string; failed: boolean } | null>(null);
 
   const message = (e: unknown) => (typeof e === "string" ? e : String(e));
+  const nameOf = (path: string) => path.split(/[\\/]/).at(-1) ?? path;
 
   /** A link as it reads on the page: the host dropped, so only the repository shows. */
   const sourceLabel = (url: string) => url.replace(/^https?:\/\/(www\.)?/, "").replace(/\.git$/, "");
@@ -155,20 +159,51 @@
   async function add(paths: string[]) {
     adding = true;
     said = null;
-    const added = await addMods(v, paths);
-    said = { text: added.text, failed: added.failed };
-    onadded({ plugin: added.plugin, pack: added.pack });
+    busy = {
+      text: paths.length === 1 ? T.ADD.adding(nameOf(paths[0] ?? "")) : T.ADD.addingSeveral(paths.length),
+      share: null,
+    };
+    try {
+      const added = await addMods(v, paths);
+      said = { text: added.text, failed: added.failed };
+      onadded({ plugin: added.plugin, pack: added.pack });
+    } catch (err) {
+      said = { text: message(err), failed: true };
+    }
+    busy = null;
     adding = false;
   }
 
-  async function addZip() {
-    const zip = await pickZip(T.ADD.pickZip);
-    if (zip) await add([zip]);
+  /** A picker's answer, or what stopped it said under the buttons (a copy that failed on Android,
+   *  a picker that could not open): never a click that seems to do nothing. */
+  async function picked(pick: () => Promise<string | null>) {
+    said = null;
+    let path: string | null;
+    try {
+      path = await pick();
+    } catch (err) {
+      path = null;
+      said = { text: message(err), failed: true };
+    }
+    if (path) await add([path]);
+    else {
+      busy = null;
+      adding = false;
+    }
   }
 
-  async function addFolder() {
-    const folder = inTauri ? await pickFolder(T.ADD.pickFolder) : "/home/you/Downloads/lock-strafe";
-    if (folder) await add([folder]);
+  function addZip() {
+    // Android copies the file into the app first: said from its first event, as the picker closes.
+    return picked(() =>
+      pickZip(T.ADD.pickZip, (copy) => {
+        adding = true;
+        busy = { text: T.ADD.copying(copy.name), share: copy.total > 0 ? Math.min(1, copy.copied / copy.total) : null };
+      }),
+    );
+  }
+
+  function addFolder() {
+    return picked(async () => (inTauri ? await pickFolder(T.ADD.pickFolder) : "/home/you/Downloads/lock-strafe"));
   }
 
   onMount(() => {
@@ -256,6 +291,18 @@
   </div>
   {#if files && inTauri && !onAndroid}<p class="dim hint">{dropping ? T.ADD.dropHere : T.ADD.drop}</p>{/if}
 
+  {#if busy}
+    <div class="busy" role="status">
+      <p>
+        <span class="spinner"></span><span class="grow">{busy.text}</span>{#if busy.share !== null}<span
+            class="mono dim">{Math.round(busy.share * 100)}%</span
+          >{/if}
+      </p>
+      <div class="track" aria-hidden="true">
+        {#if busy.share !== null}<i style:width={`${busy.share * 100}%`}></i>{:else}<i class="moving"></i>{/if}
+      </div>
+    </div>
+  {/if}
   {#if previewError}<Reason text={previewError} tone="err" role="status" />{/if}
   {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 
@@ -392,6 +439,63 @@
 
   .adds button {
     padding: 8px 16px;
+  }
+
+  /* A file being added: what it is at and a bar, as a job's progress reads elsewhere. */
+  .busy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: rise var(--medium) var(--ease) both;
+  }
+
+  .busy p {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--body);
+  }
+
+  .busy .spinner {
+    color: var(--amber);
+  }
+
+  .track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    overflow: hidden;
+  }
+
+  .track i {
+    display: block;
+    height: 100%;
+    background: var(--amber);
+    transition: width var(--fast) var(--ease);
+  }
+
+  .track i.moving {
+    width: 30%;
+    animation: slide 1.4s var(--ease) infinite;
+  }
+
+  @keyframes slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(340%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .track i.moving {
+      animation: none;
+      width: 100%;
+      opacity: 0.4;
+    }
   }
 
   .hint {

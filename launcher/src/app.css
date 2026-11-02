@@ -385,7 +385,8 @@ button.small {
   padding: 4px 12px;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="search"] {
   font: inherit;
   font-size: 0.875rem;
   width: 100%;
@@ -394,6 +395,17 @@ input[type="text"] {
   border: 1px solid var(--line-field);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
+}
+
+/* A search field is a text field: no system look (WebKit's rounded white box, Chromium's clear
+   button) beside the launcher's own fields. */
+input[type="search"] {
+  appearance: none;
+}
+
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
 }
 
 /* Settings (Settings.svelte, GpuDrivers.svelte): a row per setting, its name and at most a line
