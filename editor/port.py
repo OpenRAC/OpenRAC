@@ -60,7 +60,8 @@ FORMAT = 4
 # textures from the disc's hero pack. 6: the flights to a planet as levels 95 to 98. 7: what he
 # holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
 # of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
-GAME_FORMATS = {"rac2": 8}
+# 9: the mobys' glow vertices and their light sets.
+GAME_FORMATS = {"rac2": 9}
 
 
 def levels_format(game: str) -> int:
@@ -265,7 +266,7 @@ class PortLevelWriter(LevelWriter):
         if self.fmt.lenient:
             # Early access: what the editor and the overrides packs can use, and what not yet.
             manifest["early_access"] = {"playable": False, "packable": False, "lit": False}
-        if self.normals is not None and self.fmt.lighting:
+        if self.fmt.moby_lights or (self.normals is not None and self.fmt.lighting):
             # The 16 directional light sets the level loader copies from the gameplay file
             # (colour A with its back factor in w, direction A, colour B, direction B): what
             # the game lights its mobys with.

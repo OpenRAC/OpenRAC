@@ -131,6 +131,8 @@ class Format:
     skeleton_3x4: bool = False          # moby bind matrices are 3x4 (Deadlocked), not 4x4
     moby_animations: bool = True        # the moby sequences are read (moby_anim.py's frame format)
     moby_glow: bool = True              # a class header's byte 0xa is its first glow packet
+    moby_glow_tail: bool = False        # a packet's vertex table counts its last vertices as glow ones (Going Commando)
+    moby_lights: bool = False           # the gameplay file's light sets go out for the mobys (Going Commando)
     moby_empty_slots: bool = False      # a face may use an empty texture slot: drawn untextured
     sky_short_shells: bool = False      # a sky shell's cluster count and flags are s16 (Up Your Arsenal, Deadlocked)
     # What only Ratchet & Clank has so far: its levels lit as the game lights them at load
@@ -205,6 +207,7 @@ RAC1 = Format("rac1", "Ratchet & Clank", ties=0x34, shrubs=0x3c, mobys=0x44, mob
               level_names=LEVEL_NAMES["rac1"])
 RAC2 = Format("rac2", "Ratchet & Clank: Going Commando", ties=0x34, shrubs=0x40, mobys=0x4c, moby=GC_MOBY,
               tie_header=GC_TIE, moby_sound_remap=True, maps_in_textures=True, ship_paint_slots=True,
+              moby_glow_tail=True, moby_lights=True,
               level_names=LEVEL_NAMES["rac2"],
               **LATER)
 RAC3 = Format("rac3", "Ratchet & Clank: Up Your Arsenal", ties=0x34, shrubs=0x40, mobys=0x4c, moby=UYA_MOBY,
