@@ -42,7 +42,7 @@ inline constexpr int kManifestFormat = 4;
 // layout, so the reader takes all from kManifestFormat up; which levels are read again is the
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture.
-inline constexpr int kManifestFormatNewest = 8;
+inline constexpr int kManifestFormatNewest = 9;
 
 struct Vertex {
     float position[3];

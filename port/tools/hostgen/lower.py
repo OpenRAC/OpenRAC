@@ -51,6 +51,9 @@ LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 # A level function's name, with its level: rac1/pal's func_L05_..., the NTSC decomp's FUN_L05_....
 LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
+# A datum's name with a word after its number (D_001A7390_sda): the same datum; a number after it
+# (D_L00_001B1B00_1) is one of the build's own, a datum of its own.
+GLOBAL_VIEW = re.compile(r"^(D_(?:L\d\d_)?[0-9A-Fa-f]{8})_[A-Za-z_]\w*$")
 
 
 # Type names the host's standard headers (included by guest.h) define.
@@ -1889,8 +1892,13 @@ class Unit:
         an executable function's code read as data; `named_level`: the level its name gives
         (D_L00_...). A global's name and a literal address of it (`*(s32 *)0x1610A8`) take the
         same path."""
-        # A $gp view of a global (common.h's SDATA) is the global.
+        # A $gp view of a global (common.h's SDATA) is the global, and so is a second declaration of
+        # it under a suffixed name (D_L00_001B1B00_sda, D_001B1BC4_base): left whole, the name read
+        # as another name of the executable's datum at that number and took that datum's place in
+        # the level (func_L00_00329520's area table: no region ever held the hero).
         symbol = symbol.removesuffix("__gp") if symbol else symbol
+        if symbol and getattr(self.program, "global_views", False):
+            symbol = GLOBAL_VIEW.sub(r"\1", symbol)
         # A level function's datum by its name, where the build's derived table holds the address of
         # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
         named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})(?:_\d+)?", symbol or "")

@@ -146,6 +146,10 @@ public:
     // Returns where a moby keeps its animation fields (scene::set_moby_anim_fields).
     virtual std::uint32_t moby_anim_fields() const { return 0x50; }
 
+    // Returns where a moby keeps its glow word, the RGB its glow vertices are drawn in while its
+    // mode has bit 0x10 (MobyProc's glow list).
+    virtual std::uint32_t moby_glow_word() const { return 0x90; }
+
     // Returns whether a moby's pose layers keep records (scene::set_moby_layer_records).
     virtual bool moby_layer_records() const { return false; }
 

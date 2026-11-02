@@ -40,6 +40,7 @@
   ],
   "bare_names_in_level_0": true,
   "formed_as": {"ref_L00_00290B48_00": "0x00355FBF"},
+  "global_views": true,
   "candidates_left_out": {
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
     "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"

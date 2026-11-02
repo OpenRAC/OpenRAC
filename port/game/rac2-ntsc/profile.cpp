@@ -266,6 +266,12 @@ public:
     // (func_L00_00310BC8) link at +0x50.
     std::uint32_t moby_anim_fields() const override { return 0x40; }
 
+    // The glow word MobyProc (func_002A4E68) copies to its job when the mode has 0x10, and
+    // func_00274D90 writes over the colours of each packet's last vertices (its vertex table's
+    // last count): +0x78, where Ratchet & Clank's is +0x90. The lift's button (class 0xC16) pulses
+    // grey and turns green there (func_L00_003CD8E0).
+    std::uint32_t moby_glow_word() const override { return 0x78; }
+
     // func_L00_00316F60 blends a layer's buffer (+0x10), not keys: his weapon arm.
     bool moby_layer_records() const override { return true; }
 
