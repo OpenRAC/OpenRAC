@@ -9,7 +9,7 @@ name: checks
 
 on:
   push:
-    branches: [master]
+    branches: [master, develop]
   pull_request:
   workflow_dispatch:
 
@@ -20,10 +20,10 @@ env:
   # tools/build_port.py compiles on every thread of the runner (build_jobs), not all but two.
   OPENRAC_BUILD_JOBS: all
 
-# A newer push to a pull request stops the older run; master's runs all finish.
+# New PR pushes and develop merges supersede old runs; master's release checks all finish.
 concurrency:
   group: checks-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
 
 jobs:
   checks:
@@ -229,6 +229,7 @@ jobs:
           node-version: "22"
           package-manager-cache: false
       - run: corepack enable
+      - uses: ./.github/actions/yarn-cache
       - name: The launcher's packages and a headless Chromium
         run: |
           yarn install --immutable
@@ -270,6 +271,11 @@ jobs:
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev \
             libwayland-dev libxkbcommon-dev libasound2-dev libpulse-dev \
             mesa-vulkan-drivers vulkan-validationlayers
+
+      - uses: ./.github/actions/port-build-cache
+        with:
+          variant: ubuntu-compatibility
+          preset: release
 
       - name: hostgen
         run: python -m unittest discover -s port/tools/hostgen -v
@@ -325,6 +331,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends clang ninja-build
 
+      - uses: ./.github/actions/port-build-cache
+        with:
+          variant: ubuntu-headless
+          preset: headless
+
       - name: Build
         working-directory: port
         run: |
@@ -363,6 +374,11 @@ jobs:
             libgl1-mesa-dev libegl1-mesa-dev libgl1-mesa-dri mesa-vulkan-drivers vulkan-validationlayers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev \
             libwayland-dev libxkbcommon-dev libasound2-dev libpulse-dev xvfb xauth
+      - uses: ./.github/actions/port-build-cache
+        with:
+          variant: ubuntu-enhanced-baker
+          preset: enhanced
+
       - name: Build enhanced lighting and baker
         working-directory: port
         run: |
@@ -438,6 +454,11 @@ jobs:
           key: mesa-fedora-release-${{ runner.arch }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
           restore-keys: mesa-fedora-release-${{ runner.arch }}-
 
+      - uses: ./.github/actions/port-build-cache
+        with:
+          variant: fedora44-release
+          preset: release
+
       - name: Build openrac-rac1-pal as the launcher builds it
         run: python3 tools/build_port.py rac1-pal
 
@@ -488,6 +509,11 @@ jobs:
           key: checks-port-windows
           max-size: 1G
       - uses: ./.github/actions/clang-windows
+
+      - uses: ./.github/actions/port-build-cache
+        with:
+          variant: windows-release
+          preset: release
 
       - name: Build openrac-rac1-pal and the runtime and diagnostic tests
         run: python tools/build_port.py rac1-pal --target runtime_test --target log_test --target crash_symbols_test --target breadcrumbs_test --target breadcrumbs_no_alloc_test --target render_worker_test
