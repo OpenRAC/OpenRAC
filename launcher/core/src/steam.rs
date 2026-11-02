@@ -246,8 +246,10 @@ fn state_of(user: &Path, program: &Path) -> State {
     let Some((_, Value::Map(fields))) = entries.iter().find(|(_, entry)| is_ours(entry)) else {
         return State::NotAdded;
     };
+    // An entry from an older launcher, which let Steam's Desktop Layout run in it, is updated too.
+    let desktop = !matches!(get(fields, "AllowDesktopConfig"), Some(Value::Int(0)));
     match get(fields, "Exe") {
-        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() => State::Added,
+        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && !desktop => State::Added,
         _ => State::Outdated,
     }
 }
@@ -304,7 +306,7 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
             (b"ShortcutPath".to_vec(), text("")),
             (b"LaunchOptions".to_vec(), text("")),
             (b"IsHidden".to_vec(), Value::Int(0)),
-            (b"AllowDesktopConfig".to_vec(), Value::Int(1)),
+            (b"AllowDesktopConfig".to_vec(), Value::Int(0)),
             (b"AllowOverlay".to_vec(), Value::Int(1)),
             (b"OpenVR".to_vec(), Value::Int(0)),
             (b"Devkit".to_vec(), Value::Int(0)),
@@ -331,6 +333,10 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
     set(fields, "Exe", text(exe));
     set(fields, "StartDir", text(quoted(&start_dir(program))));
     set(fields, "icon", text(icon(id).display().to_string()));
+    // Steam Input gives OpenRAC its game configuration (Steam's default gamepad layout) from the
+    // start, never the Desktop Layout's mouse and keys, also while the launcher's window is in
+    // front: the launcher is moved through with the pad as the game is.
+    set(fields, "AllowDesktopConfig", Value::Int(0));
 
     let mut out = Vec::new();
     write_map(&file, &mut out);
@@ -759,6 +765,46 @@ mod tests {
             assert_eq!(std::fs::read_to_string(grid.join(&name)).unwrap(), bytes, "{name}");
         }
         assert_eq!(backups(&user)[0], steams_list());
+    }
+
+    #[test]
+    fn the_entry_takes_steams_gamepad_config_not_the_desktop_layout() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let list = user.join("config/shortcuts.vdf");
+        std::fs::write(&list, steams_list()).unwrap();
+        let program = Path::new("/opt/openrac");
+        assert_eq!(add(&roots, program, &ART), Ok(State::Added));
+        let ours = |list: &Path| {
+            let entries = entries_of(list);
+            let Some((_, Value::Map(fields))) = entries.into_iter().find(|(_, e)| is_ours(e)) else {
+                panic!("no entry")
+            };
+            fields
+        };
+        assert_eq!(get(&ours(&list), "AllowDesktopConfig"), Some(&Value::Int(0)));
+
+        // An entry an older launcher wrote, with the Desktop Layout allowed: shown as to update,
+        // and updated in place, every other field kept.
+        let mut file = parse(&std::fs::read(&list).unwrap()).unwrap();
+        let Some((_, Value::Map(entries))) = file.iter_mut().find(|(k, _)| is_key(k, "shortcuts")) else {
+            panic!("no list")
+        };
+        let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, e)| is_ours(e)) else {
+            panic!("no entry")
+        };
+        set(fields, "AllowDesktopConfig", Value::Int(1));
+        set(fields, "LaunchOptions", Value::Text(b"--keep".to_vec()));
+        let mut bytes = Vec::new();
+        write_map(&file, &mut bytes);
+        std::fs::write(&list, &bytes).unwrap();
+        assert_eq!(state(&roots, program), State::Outdated);
+        assert_eq!(add(&roots, program, &ART), Ok(State::Added));
+        let fields = ours(&list);
+        assert_eq!(get(&fields, "AllowDesktopConfig"), Some(&Value::Int(0)));
+        assert_eq!(get(&fields, "LaunchOptions"), Some(&Value::Text(b"--keep".to_vec())));
+        assert_eq!(entries_of(&list).len(), 2);
     }
 
     #[test]
