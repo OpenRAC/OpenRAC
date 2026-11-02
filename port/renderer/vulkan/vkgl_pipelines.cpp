@@ -861,6 +861,10 @@ PipelineKey library_key(const PipelineKey& k, LibraryPart part) {
         case LibraryPart::PreRaster:
             l.program = k.program;
             l.polygon = k.polygon;
+            // The rasteriser's depth clamp and the vertex stage's specialisation constant
+            // (glClipControl's GL_ZERO_TO_ONE) are this part's: left out, a part made for GL's
+            // depth was linked into precise depth's pipelines, which then halved z twice.
+            l.depth_mode = k.depth_mode;
             l.viewports = k.viewports;
             l.fixed.cull = k.fixed.cull;
             l.fixed.front = k.fixed.front;

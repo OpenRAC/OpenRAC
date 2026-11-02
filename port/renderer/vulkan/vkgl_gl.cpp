@@ -1663,6 +1663,13 @@ Proc get_proc(const char* name) {
     if (name == nullptr) {
         return nullptr;
     }
+    // glClipControl only where its depth can be kept: GL_DEPTH32F_STENCIL8 is a float format on this
+    // device (renderer/precise_depth.h asks for both). Without it, n / d in a 24-bit depth parts
+    // close surfaces no better than GL's form, and worse up close.
+    if (std::strcmp(name, "glClipControl") == 0
+        && (g == nullptr || g->float_depth_format != VK_FORMAT_D32_SFLOAT_S8_UINT)) {
+        return nullptr;
+    }
     for (const Entry& e : kEntries) {
         if (std::strcmp(e.name, name) == 0) {
             return e.proc;
