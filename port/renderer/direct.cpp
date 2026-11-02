@@ -91,6 +91,7 @@ void GifInterpreter::clear() {
     m_targets.clear();
     m_vertices.clear();
     m_draws.clear();
+    m_hud_side = 0;
     m_error.clear();
 }
 
@@ -332,6 +333,10 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
         case 0x7F:  // NOP; the port's marker for a quad of the 2D layer drawn natively
             if ((value >> 48) == kUiQuadMarker && (value & 0xFFFFFFu) < m_ui_quads.size()) {
                 native_quad(m_ui_quads[value & 0xFFFFFFu]);
+            } else if ((value >> 48) == kFrameMarker) {
+                draw_frame_snapshot();
+            } else if ((value >> 48) == kHudSideMarker) {
+                hud_side(static_cast<std::int32_t>(value & 0xFFFFFFFFu));
             } else if ((value >> 48) == kMobyMarker && offscreen_target() != 0) {
                 DirectDraw d;
                 d.state.target = offscreen_target();
@@ -596,6 +601,65 @@ bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& fra
     frame_x = (page % static_cast<int>(kDrawBufferWidth)) * 64 + x % 64;
     frame_y = (page / static_cast<int>(kDrawBufferWidth)) * 32 + y % 32;
     return frame_y < g_draw_buffer_lines;
+}
+
+void GifInterpreter::hud_side(int side) {
+    // Past the middle third on each side: what is across the middle is no side's. The triangles
+    // are the frame's only: what the HUD draws off-screen goes with the sprite that shows it.
+    constexpr float kMiddle = 56.0f / 256.0f;
+    if (m_hud_side != 0) {
+        const float move = static_cast<float>(m_hud_side) * 2.0f / static_cast<float>(m_config.screen_width);
+        for (auto d = m_draws.rbegin(); d != m_draws.rend() && d->first + d->count > m_hud_side_first; ++d) {
+            if (d->state.target != 0 || d->count == 0) {
+                continue;
+            }
+            for (std::uint32_t i = std::max(d->first, m_hud_side_first); i + 3 <= d->first + d->count; i += 3) {
+                const float mid = (m_vertices[i].x + m_vertices[i + 1].x + m_vertices[i + 2].x) / 3.0f;
+                if (std::abs(mid) < kMiddle) {
+                    continue;
+                }
+                for (std::uint32_t k = i; k < i + 3; ++k) {
+                    m_vertices[k].x += mid < 0.0f ? -move : move;
+                }
+            }
+        }
+    }
+    m_hud_side = side;
+    m_hud_side_first = static_cast<std::uint32_t>(m_vertices.size());
+}
+
+void GifInterpreter::draw_frame_snapshot() {
+    if (g_frame_snapshot.texture == 0) {
+        return;
+    }
+    DirectState s;
+    s.textured = true;
+    s.snapshot = true;
+    s.tfx = gs::Tfx::Decal;
+    s.tcc = false;
+    s.clamp_s = true;
+    s.clamp_t = true;
+    s.depth_write = false;
+    s.scissor = {0, static_cast<std::uint32_t>(m_config.screen_width - 1), 0,
+                 static_cast<std::uint32_t>(m_config.screen_height - 1)};
+    m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 6});
+    DirectVertex corners[4]{};
+    for (int k = 0; k < 4; ++k) {
+        DirectVertex& v = corners[k];
+        const float x = static_cast<float>(k & 1);
+        const float y = static_cast<float>(k >> 1);
+        v.x = x * 2.0f - 1.0f;
+        v.y = 1.0f - y * 2.0f;
+        v.z = -1.0f;
+        v.s = x;
+        v.t = 1.0f - y;
+        v.q = 1.0f;
+        v.rgba[0] = v.rgba[1] = v.rgba[2] = v.rgba[3] = 0x80;
+        v.fog = 1.0f;
+    }
+    const DirectVertex order[6] = {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
+    m_vertices.insert(m_vertices.end(), order, order + 6);
+    m_state_dirty = true;  // the next primitive's state is its own again
 }
 
 void GifInterpreter::draw_frame_upload(const ImageUpload& upload) {

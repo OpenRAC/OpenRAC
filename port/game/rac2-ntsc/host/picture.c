@@ -8,7 +8,9 @@
  * and every frame it writes the tiles back over the buffer it has just cleared (func_002FC990), then
  * draws the menu over them: retail's state at the main menu holds that picture at +0x20 of the menu
  * block (0x001F2840). The window has no chip memory to write into, so the picture is kept whole, RGBA,
- * and drawn as one sprite where the tiles would have landed.
+ * and drawn as one sprite where the tiles would have landed. In a level the picture is the frame the
+ * window drew, which it keeps at its own resolution and shape: a marker in the list draws that over
+ * the chip's 512 x 416 copy, or the world under a pause menu is soft and squeezed into the 4:3 middle.
  */
 #include <stdint.h>
 #include <string.h>
@@ -29,12 +31,17 @@ enum {
     REG_XYZ2 = 0x05,
     REG_TEX0_1 = 0x06,
     REG_TEX1_1 = 0x14,
+    REG_NOP = 0x7F,
 };
+
+/* A marker in the display list (renderer::GifInterpreter::kFrameMarker). */
+#define FRAME_MARKER (0x4653ull << 48)
 
 static gaddr picture;
 static int picture_lines;
 static int picture_new;
 static int picture_in_frame;
+static int picture_of_frame; /* the picture is the frame read back, not the title's */
 
 static uint8_t* picture_pixels(void) {
     if (picture == 0) {
@@ -53,6 +60,7 @@ long long func_002FCB00(int data, int destination, int width, int height) {
         picture_lines = height;
         picture_new = 1;
         picture_in_frame = 1;
+        picture_of_frame = 0;
     }
     const openrac_game_image image =
         {destination >> 8, width >> 6, 0, 0, 0, width, height, (gaddr)data};
@@ -79,6 +87,7 @@ void func_002FC8D0(gaddr a0, int a1, int a2) {
     openrac_game_store_image(&image);
     picture_lines = PICTURE_HEIGHT - 32;
     picture_new = 1;
+    picture_of_frame = 1;
 }
 
 /* Writes the saved frame back: the picture, a sprite over the 416 lines of the draw buffer. */
@@ -96,6 +105,9 @@ void func_002FC990(int a0, int a1, int a2) {
         openrac_game_load_image(&image);
         /* It reaches the texture pool after this frame's list: drawn now, the frame shows the pool's
          * missing-texture checkers for a tick, at the client's first picture. */
+        if (picture_of_frame) {
+            func_002FC560(REG_NOP, FRAME_MARKER);
+        }
         return;
     }
     const uint64_t tex0 = (uint64_t)(PICTURE_BLOCK) | (uint64_t)PICTURE_WIDTH_UNITS << 14
@@ -110,6 +122,9 @@ void func_002FC990(int a0, int a1, int a2) {
     func_002FC560(REG_XYZ2, left | top << 16);
     func_002FC560(REG_UV, (uint64_t)(PICTURE_WIDTH << 4) | (uint64_t)(picture_lines << 4) << 16);
     func_002FC560(REG_XYZ2, right | bottom << 16);
+    if (picture_of_frame) {
+        func_002FC560(REG_NOP, FRAME_MARKER);
+    }
 }
 
 void func_0027B858__game(void);
