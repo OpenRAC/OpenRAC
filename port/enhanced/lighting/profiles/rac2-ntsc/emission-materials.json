@@ -178,14 +178,6 @@
       }
     },
     {
-      "name": "lamp: level 14 tie_0036",
-      "texture_sha256": "dc5733f7b3e186ba05daf424f10fd97e9e8b609c27dce47ee9f0cc9afa6b4db5",
-      "emission": {
-        "runtime_intensity": 1,
-        "contrast": 2
-      }
-    },
-    {
       "name": "lamp: level 15 terrain_0000",
       "texture_sha256": "b4b221722dc9b214a2488bd21d148eaa4d113533f8219ed7c9385d254bf59eb3",
       "emission": {
@@ -244,22 +236,6 @@
     {
       "name": "lamp: level 18 terrain_0039",
       "texture_sha256": "e1d7e4dfc18491c5186dd6470a0c3c3b08f27d6abb80701fdd6b72eb07b79880",
-      "emission": {
-        "runtime_intensity": 1,
-        "contrast": 2
-      }
-    },
-    {
-      "name": "lamp: level 18 tie_0096",
-      "texture_sha256": "598b7611291548b8967690722013776d2980c5797bd9b6c326eda13cc93aaf2a",
-      "emission": {
-        "runtime_intensity": 1,
-        "contrast": 2
-      }
-    },
-    {
-      "name": "lamp: level 20 tie_0096",
-      "texture_sha256": "f099e4ac5c6a3176cdf7d453305a86d5cbccc14a74e67cc03669573ba685c5ed",
       "emission": {
         "runtime_intensity": 1,
         "contrast": 2
@@ -347,6 +323,42 @@
       "texture_sha256": "e8387f35e333719e99278bf00e1dc9236165b6f9a94988a4b08ea59a67de2bb0",
       "emission": {
         "runtime_intensity": 1
+      }
+    },
+    {
+      "name": "window: level 14 tie_0036",
+      "texture_sha256": "dc5733f7b3e186ba05daf424f10fd97e9e8b609c27dce47ee9f0cc9afa6b4db5",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "window: level 14 tie_0066",
+      "texture_sha256": "8b8ace01b8e114f59966ae1ed031b8823b50638dd7a928b749992cdf1168d54f",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "window: level 18 tie_0096",
+      "texture_sha256": "598b7611291548b8967690722013776d2980c5797bd9b6c326eda13cc93aaf2a",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
+      }
+    },
+    {
+      "name": "window: level 20 tie_0096",
+      "texture_sha256": "f099e4ac5c6a3176cdf7d453305a86d5cbccc14a74e67cc03669573ba685c5ed",
+      "emission": {
+        "runtime_intensity": 1,
+        "vertex_colour": true,
+        "diffuse_scale": 0
       }
     }
   ]
