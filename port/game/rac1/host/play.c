@@ -75,6 +75,7 @@
 #define HERO_PAST_JUMP_APEX (HERO + 0x41Eu)
 #define HERO_FRAMES_TO_LAND (HERO + 0x44Cu)
 #define HERO_STATE (HERO + 0x2084u)
+#define HERO_CONTROL_MODE (HERO + 0x208Cu)
 #define HERO_HEALTH (HERO + 0x22A8u)
 #define HERO_ITEM_MOBY (HERO + 0x1090u)
 #define HERO_ITEM_ID (HERO + 0x10B8u)
@@ -304,6 +305,13 @@ static int hero_set_pose(const openrac_game_pose* pose) {
         GREF(int16_t, HERO_FRAMES_OFF_GROUND) = 0;
         GREF(int16_t, HERO_PAST_JUMP_APEX) = 0;
         GREF(int32_t, HERO_FRAMES_TO_LAND) = 0;
+        /* A ride begun in a jump or a fall keeps that state's control mode (4 or 2, set only by
+         * hero_set_state), and the follow camera stays in its air mode, its height held, while
+         * it is one of them. */
+        const int32_t mode = GREF(int32_t, HERO_CONTROL_MODE);
+        if (mode == 2 || mode == 4) {
+            GREF(int32_t, HERO_CONTROL_MODE) = 0;
+        }
     } else if (pose->flags & 4u) {
         const int16_t off = GREF(int16_t, HERO_FRAMES_OFF_GROUND);
         GREF(int16_t, HERO_FRAMES_OFF_GROUND) = (int16_t)(off < 0x7FFF ? off + 1 : off);
