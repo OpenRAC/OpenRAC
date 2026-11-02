@@ -247,6 +247,29 @@ void test_three() {
     pump(input);
 }
 
+// The menu waits for a press with the game paused: update() is not called, and poll_capture()
+// alone must see the press. A button held as the capture began does not count.
+void test_capture_while_paused() {
+    Input input;
+    const SDL_JoystickID a = attach("Pad");
+    pump(input);
+    SDL_Joystick* joystick = SDL_GetJoystickFromID(a);
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_SOUTH, true);
+    SDL_UpdateJoysticks();
+    input.begin_capture();
+    input.poll_capture();
+    CHECK(!input.take_captured().has_value());
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_EAST, true);
+    input.poll_capture();
+    const auto got = input.take_captured();
+    CHECK(got.has_value());
+    input.end_capture();
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_SOUTH, false);
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_EAST, false);
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
 }  // namespace
 
 int main() {
@@ -260,6 +283,7 @@ int main() {
     test_hand_over();
     test_unplug();
     test_three();
+    test_capture_while_paused();
     SDL_Quit();
     return openrac::test::result();
 }

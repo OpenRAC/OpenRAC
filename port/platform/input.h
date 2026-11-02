@@ -127,6 +127,9 @@ public:
     // take_captured(). end_capture() lets the pads go again.
     void begin_capture();
     void end_capture();
+    // Reads the controllers for the capture now. update() does it each frame the game runs; the
+    // menu calls this too, as the game waits (update() is not called) while the menu is open.
+    void poll_capture();
 
     bool capturing() const { return m_capturing; }
 

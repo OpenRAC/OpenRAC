@@ -311,6 +311,13 @@ void Input::end_capture() {
     m_capture_held.clear();
 }
 
+void Input::poll_capture() {
+    if (m_capturing) {
+        SDL_UpdateGamepads();
+        capture_step();
+    }
+}
+
 void Input::capture_step() {
     if (m_capture_held.size() != m_gamepads.size()) {
         // A controller came or went: what each holds now is where the capture starts again.

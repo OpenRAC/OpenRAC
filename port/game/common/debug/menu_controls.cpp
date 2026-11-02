@@ -857,6 +857,7 @@ void controls_frame() {
     if (w.capture_target < 0) {
         return;
     }
+    input->poll_capture();
     if (const std::optional<Binding> got = input->take_captured()) {
         captured(*store, *input, *got);
     } else if (ImGui::GetTime() - w.capture_since > kCaptureTimeout) {
