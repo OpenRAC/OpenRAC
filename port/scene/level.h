@@ -41,8 +41,8 @@ inline constexpr int kManifestFormat = 4;
 // The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
 // layout, so the reader takes all from kManifestFormat up; which levels are read again is the
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
-// his other looks and his ship's picture.
-inline constexpr int kManifestFormatNewest = 10;
+// his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own.
+inline constexpr int kManifestFormatNewest = 11;
 
 struct Vertex {
     float position[3];

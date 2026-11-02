@@ -18,6 +18,7 @@
 #include <span>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "openrac/guest.h"
 #include "renderer/math.h"
@@ -108,6 +109,40 @@ constexpr std::array<std::pair<std::uint32_t, std::int32_t>, 4> kLookFlags{
 constexpr std::int32_t kWrenchClass = 71;
 constexpr std::int32_t kWrenchFormClasses = 6020;
 constexpr std::uint32_t kWrenchForm = 0x001A72C0;
+
+// A class's bangles: parts of its mesh past its LOD lists, which a moby draws by the bits of its
+// bangle word (+0x7C, an s16; MobyProc, func_002A4E68 at 0x2A5E78): bit 15 clear, the class's mesh
+// and the bangles of the bits set; set, those bangles alone (bangle 0 for none). A broken crate's
+// pieces and a destroyed enemy's are mobys of a class drawn so, one bit each. The export has each
+// bangle as a class of its own (editor/moby_class.py, BANGLE_CLASSES).
+constexpr std::uint32_t kMobyBangles = 0x7C;
+constexpr int kBangleClasses = 100000;
+constexpr int kBangles = 15;
+
+// Adds `live` to `mobys` once for each part the game draws of it: its class's mesh, its bangles.
+void add_drawn_parts(
+    std::span<const std::uint8_t> ram, const host::LiveMoby& live, std::vector<host::LiveMoby>& mobys
+) {
+    const auto word = at<std::int16_t>(ram, live.address + kMobyBangles);
+    if (word == 0 || live.class_id <= 0 || live.model_class >= 0) {
+        mobys.push_back(live);
+        return;
+    }
+    unsigned mask = static_cast<std::uint16_t>(word) & 0x7FFFu;
+    if (word < 0) {
+        mask = std::max(mask, 1u);
+    } else {
+        mobys.push_back(live);
+    }
+    for (int bangle = 0; bangle < kBangles; ++bangle) {
+        if ((mask & (1u << bangle)) != 0) {
+            host::LiveMoby part = live;
+            part.model_class = kBangleClasses + live.class_id * 16 + bangle;
+            part.model_only = true;
+            mobys.push_back(part);
+        }
+    }
+}
 
 std::int32_t hero_class(std::span<const std::uint8_t> ram) {
     std::int32_t look = at<std::int16_t>(ram, kArmour);
@@ -234,7 +269,7 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
             continue;
         }
         if (const auto live = read_live_moby(ram, m)) {
-            s.mobys.push_back(*live);
+            add_drawn_parts(ram, *live, s.mobys);
         }
     }
     return s;
