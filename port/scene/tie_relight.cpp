@@ -167,6 +167,14 @@ void relight_tie(
             for (std::size_t r = 0; r < 3; ++r) {
                 n[r] = add(add(mul(axes[0][r], n0), mul(axes[1][r], n1)), mul(axes[2][r], n2));
             }
+            // The first slot's normal is turned by vf17 to vf19, not the unit columns: the
+            // directional programs (0x2C0, 0x420) leave there their last batch's light terms times
+            // the back factors (0x2F48xx's prologue). With both back factors 0 those are 0, so
+            // the slot is lit as if it faced the light edge-on; otherwise they hold the dots of
+            // slots past the class's count, which are not known here, and 0 is taken too.
+            if (i == 0) {
+                n = {0.0f, 0.0f, 0.0f};
+            }
             const float v[3] =
                 {add(light.position[0], -p[0]),
                  add(light.position[1], -p[1]),

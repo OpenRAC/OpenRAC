@@ -601,6 +601,7 @@ openrac_add_test(probe_scene SOURCES enhanced/tests/probe_scene_test.cpp
 
 openrac_add_test(object_picker SOURCES tests/object_picker_test.cpp LIBS openrac_scene)
 openrac_add_test(shadow_draws LIBS openrac_scene)
+openrac_add_test(tie_relight LIBS openrac_scene)
 openrac_add_test(shadow_scroll LIBS openrac_scene)
 if(TARGET openrac_renderer_vulkan)
   openrac_add_test(depth_combine LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
