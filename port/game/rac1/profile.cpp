@@ -226,6 +226,9 @@ public:
 
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
+    // Level mode 2 is a real-time cutscene (rac1/host/front_end.c).
+    std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
+
     std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
 
     // process_pad_input (games/rac1's func_002181F0): |byte - 0x7F| from 0x30, over 0x4C.

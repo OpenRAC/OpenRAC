@@ -265,6 +265,11 @@ public:
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 
+    // The value of the game's mode word (openrac_game_mode) while a real-time cutscene plays in a
+    // level, which enhanced motion blur takes the cutscene's tuning for; none for a game without
+    // one known.
+    virtual std::optional<std::uint32_t> cutscene_mode() const { return std::nullopt; }
+
     // Returns the executable's address of the particle updates, one per particle type byte
     // (relocated when read); 0 for a game without them.
     virtual std::uint32_t particle_updates() const { return 0; }

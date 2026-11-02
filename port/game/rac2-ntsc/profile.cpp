@@ -292,6 +292,25 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
     return s;
 }
 
+// The classes enhanced lighting's rim marks as gameplay subjects, as Ratchet & Clank's
+// game/rac1/gameplay_lighting.h does for its own: the ones identified in this game so far (the
+// crates' numbers are Ratchet & Clank's; IDENTIFIED rows of the port's notes).
+constexpr std::array kEssentialMobys{
+    0,     // Ratchet
+    11,    // vendor (func_00390AB8)
+    500,   // bolt crate
+    501,   // nanotech crate (0x1F5)
+    505,   // crate
+    511,   // ammo crate
+    512,   // crate
+    3291,  // a crate's ammo pickup, flying to the hero (0xCDB)
+};
+
+bool essential_moby(int class_id) {
+    return std::find(kEssentialMobys.begin(), kEssentialMobys.end(), class_id)
+           != kEssentialMobys.end();
+}
+
 // The game's profile: its memory read by program, and the display list it sends.
 class Profile final : public host::GameProfile {
 public:
@@ -360,6 +379,13 @@ public:
     bool moby_layer_records() const override { return true; }
 
     bool has_levels() const override { return true; }
+
+    // The gameplay subjects enhanced lighting gives its GI-coloured rim (port/enhanced/README.md,
+    // Gameplay rim lighting); held items and the hero's attachments are added by the frontend.
+    bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
+
+    // Game state 2 is a level's scene (host/tools.c STATE_SCENE, which skip_cutscenes ends).
+    std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
 
     // The pad's read (func_002B88F0): |byte - 0x7F| from 0x30, over 0x4C, as Ratchet & Clank's.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
