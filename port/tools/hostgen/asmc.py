@@ -126,11 +126,15 @@ LEVEL_DATUM = re.compile(r"D_L(\d\d)_([0-9A-Fa-f]{8})")
 
 
 def ps2_float_named(program: Program, symbol: str) -> bool:
-    """Whether hostgen.json "ps2_float" names SYMBOL, or the function a call-site variant
-    (SYMBOL_N) is of."""
+    """Whether hostgen.json "ps2_float" names SYMBOL, the function a call-site variant
+    (SYMBOL_N) is of, or (as F<hash>_FUN_<address>) the catalogue's name for a func_<address>
+    it names."""
     names = getattr(program, "ps2_float", ())
     base = re.sub(r"_\d+$", "", symbol)
-    return symbol in names or base in names
+    if symbol in names or base in names:
+        return True
+    m = re.fullmatch(r"F[0-9a-f]+_FUN_([0-9A-F]{8})", base)
+    return m is not None and f"func_{m.group(1)}" in names
 
 
 class Translator:

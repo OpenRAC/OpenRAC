@@ -2798,6 +2798,17 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(out, [str(0x3F800000), str(0x3F800001)])
         self.assertFalse([p for p in self.last_report["index_problems"] if "ps2_float" in p])
 
+    def test_ps2_float_reaches_variants_and_catalogue_names(self):
+        import asmc
+        from program import Program
+        program = Program()
+        program.ps2_float = {"func_00282CC0"}
+        self.assertTrue(asmc.ps2_float_named(program, "func_00282CC0"))
+        self.assertTrue(asmc.ps2_float_named(program, "func_00282CC0_3"))
+        self.assertTrue(asmc.ps2_float_named(program, "F15a8b7f0_FUN_00282CC0"))
+        self.assertFalse(asmc.ps2_float_named(program, "func_L00_00282CC0"))
+        self.assertFalse(asmc.ps2_float_named(program, "F15a8b7f0_FUN_00282CF0"))
+
     def test_loads_and_stores(self):
         out = self.run_asm("""
             extern unsigned char D_00300000[32];
