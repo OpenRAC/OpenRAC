@@ -519,8 +519,8 @@ void menu_window(const Shown& shown) {
                    || ImGui::IsKeyPressed(ImGuiKey_PageDown, false)) {
             switch_by = 1;
         }
-        // B goes back to the game, as Select + Start does (debug_overlay.cpp). Start alone does
-        // not: held before Select, it closed the menu and the chord opened it again.
+        // B goes back to the game, as the menu's button does (debug_overlay.cpp); Start does not,
+        // being the game's pause.
         if (ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
             set_menu(false);
         }
@@ -581,7 +581,10 @@ void menu_window(const Shown& shown) {
                 s.menu_hover = -1;
                 s.menu_focus = true;
             }
-            if (i == s.menu_tab) {
+            // On Quit's or Resume's page the pill stays on the last tab and fades there, not
+            // sliding off to the bar's start.
+            const int pill_tab = s.menu_tab < tab_count ? s.menu_tab : s.menu_motion.last_tab;
+            if (i == pill_tab) {
                 pill_x = x;
                 pill_w = ImGui::GetItemRectSize().x;
             }
@@ -589,8 +592,13 @@ void menu_window(const Shown& shown) {
         list->ChannelsSetCurrent(0);
         const float px = tween(ImGui::GetID("pill x"), pill_x, kMedium);
         const float pw = tween(ImGui::GetID("pill w"), pill_w, kMedium);
+        const float pill_alpha =
+            tween(ImGui::GetID("pill alpha"), s.menu_tab < tab_count ? 1.0f : 0.0f, kFast);
         list->AddRectFilled(
-            ImVec2(px, pill_at.y), ImVec2(px + pw, pill_at.y + tab_h), ui().ink_deep, tab_h * 0.5f
+            ImVec2(px, pill_at.y),
+            ImVec2(px + pw, pill_at.y + tab_h),
+            ui_colors::fade(ui().ink_deep, pill_alpha),
+            tab_h * 0.5f
         );
         list->ChannelsMerge();
 
@@ -749,6 +757,10 @@ void menu_window(const Shown& shown) {
             }
             if (s.menu_focus) {
                 s.menu_focus_first = true;
+            }
+            if (tab.chip != 0) {
+                // The space a tab's first section heading leaves under the title.
+                ImGui::Dummy(ImVec2(0.0f, dp(14.0f)));
             }
             if (tab.chip == kQuitPage) {
                 card_begin();

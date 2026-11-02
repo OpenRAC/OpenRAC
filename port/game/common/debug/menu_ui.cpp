@@ -539,7 +539,8 @@ bool menu_button(const char* label) {
 }
 
 void menu_note(const char* line, ImU32 ink) {
-    ImGui::Dummy(ImVec2(0.0f, dp(10.0f)));
+    // First in its card, as far from the card's top as a row's label is.
+    ImGui::Dummy(ImVec2(0.0f, dp(s.card.rows == 0 ? 14.0f : 10.0f)));
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + dp(16.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ink));
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - dp(16.0f));
@@ -573,7 +574,7 @@ void set_menu(bool open) {
 void menu_closed() {
     s.menu_confirm_reset = false;
     s.quit_asked = false;
-    // The buttons and keys that closed it (Select + Start, B, Esc) are not the game's too.
+    // The buttons and keys that closed it (the menu button, B, Esc) are not the game's too.
     if (platform::Input* input = frontend::input()) {
         input->hold_back_held();
     }

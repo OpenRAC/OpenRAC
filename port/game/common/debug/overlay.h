@@ -142,8 +142,6 @@ struct MenuMotion {
     bool pad = false;            // the last input was a controller's: its buttons are named
     float quit_hold = 0.0f;      // seconds the controller's quit button has been held
     int last_tab = 0;            // the last of the bar's tabs open (not a button's page)
-    bool back_held = false;      // the controller's Back (Select) and Start held, for their
-    bool start_held = false;     //   chord that opens and closes the menu
 };
 
 // The menu's Controls tab (debug/menu_controls.cpp): which file it changes, what is being captured,

@@ -171,6 +171,11 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_DID_ENTER_BACKGROUND:
             m_touch.release_all();
             break;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            // Back from another window: what the pad and the keys held over there (an Alt+Tab, a
+            // button held while switching) is not a press in the game until let go.
+            hold_back_held();
+            break;
         default:
             break;
     }

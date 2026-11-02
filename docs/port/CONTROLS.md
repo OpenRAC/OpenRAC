@@ -132,7 +132,7 @@ Two controls may share a pad input: both press. The Controls tab marks them.
 | `pad_left_invert_x`, `_invert_y`, `pad_right_invert_x`, `_invert_y` | `0`, `1` | The axis turned over |
 | `pad_trigger_threshold` | about `13`, `1` to `100` (percent) | How far a trigger goes before it holds its button |
 | `pad_face_buttons` | `position`, `labels` | `labels`: a pad marked Nintendo's way (A on the right) is read by its marks, so the button marked A is `PadSouth` |
-| `pad_background` | `1`, `0` | The controllers count while another window has the keyboard |
+| `pad_background` | `0` (default), `1` | `1`: the controllers count while another window has the keyboard (the game alt-tabbed or minimised) |
 
 The settings apply to the controller's own stick before anything reads it,
 so a stick bound to another stick or to a button is tuned the same way. The

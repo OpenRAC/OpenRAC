@@ -43,12 +43,12 @@ on-screen pad's.
 The same keys and the port's settings are in one menu, whose entries are one
 list (`port/game/common/menu_catalog.cpp`): an entry added there shows on every
 system. On Windows, Linux and macOS its key (`menu_bar_key`, `` ` `` by default)
-controller button (`menu_bar_button`, R4) and any controller's Select + Start slide a bar of tabs (Graphics,
+controller button (`menu_bar_button`, L3 by default) slide a bar of tabs (Graphics,
 Enhanced, Game, Controls, Developer, and a tab for each mod's own menu) down
 from the window's top, with the tab's options in a window under it and, beside
 them, what the option under the pointer or the focus does. The game waits while
 it is open; Keep paused (Developer) keeps it so once the menu closes. Escape, B,
-Select + Start or the key again closes it; L1/R1 or Page Up/Down change tabs, and past the last
+the controller button or the key again closes it; L1/R1 or Page Up/Down change tabs, and past the last
 tab reach Quit game and Resume. Quit game asks first (in the drawer too), as
 progress since the last save is lost; Y held for a second quits at once. The
 mouse pointer shows only while the menu or one of the overlay's windows is out. The menu (and the

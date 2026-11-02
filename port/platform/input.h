@@ -104,7 +104,7 @@ public:
     void set_bindings(const std::array<Bindings, kPadPorts>& bindings);
 
     // What each player's controller and the keyboard hold now reads as let go until it is let go
-    // indeed: a menu closed with Select + Start, B or Esc does not also press them in the game.
+    // indeed: a menu closed with its button, B or Esc does not also press them in the game.
     void hold_back_held();
 
     const Bindings& bindings(int port) const { return m_bindings[static_cast<std::size_t>(port)]; }

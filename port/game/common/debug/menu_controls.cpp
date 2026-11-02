@@ -668,7 +668,7 @@ void menu_open_panel() {
     }
     note_hover(static_cast<int>(id));
     if (menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID) {
-        if (sub_row("No button (Select + Start still opens it)", ui().soft)) {
+        if (sub_row("No button", ui().soft)) {
             settings::get().menu_bar_button = "none";
             settings::save();
         }

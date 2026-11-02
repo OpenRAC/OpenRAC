@@ -94,7 +94,7 @@ float key_cap(ImDrawList* list, float x, float middle, const std::string& key, f
 float key_cap_width(const std::string& key);
 float key_cap_height();
 
-// Keys pressed together as caps with a "+" between them ("Select+Start"). Returns their width;
+// Keys pressed together as caps with a "+" between them ("Ctrl+F3"). Returns their width;
 // draws them only when `list` is set.
 float key_caps(ImDrawList* list, float x, float middle, std::string_view keys, float alpha);
 

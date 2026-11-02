@@ -350,7 +350,8 @@ void feed_gamepads() {
     struct Button {
         ImGuiKey key;
         SDL_GamepadButton button;
-        bool arrow = false;  // sent as a key of the keyboard, only when it changes
+        bool arrow = false;                          // sent as a key of the keyboard
+        SDL_Scancode key_of = SDL_SCANCODE_UNKNOWN;  // that key's, on a real keyboard
     };
 
     static constexpr Button kButtons[] = {
@@ -360,10 +361,10 @@ void feed_gamepads() {
         {ImGuiKey_GamepadFaceRight, SDL_GAMEPAD_BUTTON_EAST},
         {ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST},
         {ImGuiKey_GamepadFaceUp, SDL_GAMEPAD_BUTTON_NORTH},
-        {ImGuiKey_UpArrow, SDL_GAMEPAD_BUTTON_DPAD_UP, true},
-        {ImGuiKey_DownArrow, SDL_GAMEPAD_BUTTON_DPAD_DOWN, true},
-        {ImGuiKey_LeftArrow, SDL_GAMEPAD_BUTTON_DPAD_LEFT, true},
-        {ImGuiKey_RightArrow, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, true},
+        {ImGuiKey_UpArrow, SDL_GAMEPAD_BUTTON_DPAD_UP, true, SDL_SCANCODE_UP},
+        {ImGuiKey_DownArrow, SDL_GAMEPAD_BUTTON_DPAD_DOWN, true, SDL_SCANCODE_DOWN},
+        {ImGuiKey_LeftArrow, SDL_GAMEPAD_BUTTON_DPAD_LEFT, true, SDL_SCANCODE_LEFT},
+        {ImGuiKey_RightArrow, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, true, SDL_SCANCODE_RIGHT},
         {ImGuiKey_GamepadL1, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER},
         {ImGuiKey_GamepadR1, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER},
     };
@@ -397,13 +398,23 @@ void feed_gamepads() {
         s.pad_locked = false;
     }
     ImGuiIO& io = ImGui::GetIO();
-    static std::array<bool, std::size(kButtons)> sent{};
+    const bool* keyboard = SDL_GetKeyboardState(nullptr);
     for (std::size_t b = 0; b < std::size(kButtons); ++b) {
         const bool on = !s.pad_locked && down[b];
-        if (!kButtons[b].arrow || on != sent[b]) {
+        if (!kButtons[b].arrow) {
             io.AddKeyEvent(kButtons[b].key, on);
+            continue;
         }
-        sent[b] = on;
+        // The d-pad as the arrows, which the keyboard also presses: held while either holds it,
+        // and let go once neither does, whatever came between (a frame not drawn, the focus lost,
+        // a release ImGui never saw). ImGui keeps a key held until told otherwise, so an arrow
+        // told down and not up again went on moving the focus by itself.
+        const bool held_key = keyboard != nullptr && keyboard[kButtons[b].key_of]
+                              && SDL_GetKeyboardFocus() != nullptr;
+        const bool want = on || held_key;
+        if (ImGui::IsKeyDown(kButtons[b].key) != want) {
+            io.AddKeyEvent(kButtons[b].key, want);
+        }
     }
     io.AddKeyEvent(ImGuiKey_GamepadL2, !s.pad_locked && l2);
     io.AddKeyEvent(ImGuiKey_GamepadR2, !s.pad_locked && r2);
@@ -647,57 +658,8 @@ bool wants_cursor() {
            || s.object_viewer.open || picker_enabled() || s.touch_editing;
 }
 
-namespace {
-
-// Select and Start as each event says they are, before anything below may take the event (a
-// capture, the drawer), so a button held first is known when the second comes.
-void track_chord(const SDL_Event& e) {
-    MenuMotion& m = s.menu_motion;
-    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
-        const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
-        if (e.gbutton.button == SDL_GAMEPAD_BUTTON_BACK) {
-            m.back_held = down;
-        } else if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START) {
-            m.start_held = down;
-        }
-    } else if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST || e.type == SDL_EVENT_GAMEPAD_REMOVED) {
-        m.back_held = m.start_held = false;
-    }
-}
-
-// Whether `button` going down completes Select + Start: the other one is held, as its events
-// said or as any controller reads now (an event of it another part of the port took).
-bool chord_pressed(SDL_GamepadButton button) {
-    if (s.pad_locked || controls_capturing()) {
-        return false;
-    }
-    SDL_GamepadButton other = SDL_GAMEPAD_BUTTON_INVALID;
-    bool held = false;
-    if (button == SDL_GAMEPAD_BUTTON_BACK) {
-        other = SDL_GAMEPAD_BUTTON_START;
-        held = s.menu_motion.start_held;
-    } else if (button == SDL_GAMEPAD_BUTTON_START) {
-        other = SDL_GAMEPAD_BUTTON_BACK;
-        held = s.menu_motion.back_held;
-    } else {
-        return false;
-    }
-    int count = 0;
-    if (SDL_JoystickID* ids = SDL_GetGamepads(&count)) {
-        for (int i = 0; i < count && !held; ++i) {
-            SDL_Gamepad* pad = SDL_GetGamepadFromID(ids[i]);
-            held = pad != nullptr && SDL_GetGamepadButton(pad, other);
-        }
-        SDL_free(ids);
-    }
-    return held;
-}
-
-}  // namespace
-
 bool event(const SDL_Event& e) {
     configure();
-    track_chord(e);
     // A press awaited for a binding (the Controls tab): the controllers' presses are the
     // capture's, not the menu's. The keyboard does nothing either (no menu key, no Enter on
     // another row, no Android Back, which a controller's B may be), but Esc gives the capture up. Key releases still reach the menu, so a key
@@ -780,20 +742,15 @@ bool event(const SDL_Event& e) {
             toggle_menu();
             return true;
         }
-        // The menu's controller button (menu_bar_button; by default R4, the Steam Controller's
-        // upper right back button) does the same, while the game's window has the focus. Not
-        // "...": a running Steam client opens its own panel on it.
-        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
-            && menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID
-            && e.gbutton.button == menu_bar_button() && SDL_GetKeyboardFocus() != nullptr) {
-            toggle_menu();
-        }
     }
-    // Every controller has these, on a desktop and a touch screen alike: Back (Select) and Start
-    // pressed together, in either order. Its Home button stays the system's and Steam's.
+    // The menu's controller button (menu_bar_button; by default L3), on a desktop and a touch
+    // screen alike, while the game's window has the focus. Not "...": a running Steam client opens
+    // its own panel on it. A single button: Select + Start reached the game as its map and its
+    // pause before the second of the two came.
     MenuMotion& m = s.menu_motion;
     if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && SDL_GetKeyboardFocus() != nullptr
-        && chord_pressed(static_cast<SDL_GamepadButton>(e.gbutton.button))) {
+        && menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID && e.gbutton.button == menu_bar_button()
+        && !s.pad_locked && !controls_capturing()) {
         m.pad = true;
         toggle_menu();
         return true;

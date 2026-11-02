@@ -154,7 +154,8 @@ constexpr Entry kEntries[] = {
      "is South."},
     {Id::PadBackground, Tab::Controls, "Triggers and buttons", kSwitch, D,
      "Controllers work in the background",
-     "The controllers still play while another window is in front."},
+     "The controllers still play while another window is in front. Off: the game ignores them "
+     "while it is alt-tabbed or minimised."},
     {Id::ConnectedControllers, Tab::Controls, "Players", kPanel, A, "Controllers connected",
      "Each controller connected, lit while a button is pressed on it, and the player it is."},
     {Id::PlayersReset, Tab::Controls, "Players", kAction, A, "Players back to the defaults",
