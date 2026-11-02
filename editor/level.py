@@ -185,14 +185,17 @@ def textures(level: Level, gs: bytes) -> dict[tuple[str, int], Texture]:
     # The chrome (128 x 128) and glass (64 x 64) maps the metal packets are drawn with: byte offsets
     # into the GS RAM lump of their PSMT8 pixels and CLUT, at core index 0x90 / 0x94 and 0x98 / 0x9C
     # (ReRAC moby_skinning_lighting.md 9, "Texture"). Blurry environment pictures, alpha 13..0x80.
-    # Going Commando's pixels are the first two pictures of the texture data, offsets 0 and 0x4000
-    # in every level, so its moby textures start at 0x5000; the CLUTs are still in the lump, at 0
-    # and 0x400.
+    # Going Commando's pixels are the first two pictures of the stash, offsets 0 and 0x4000 in
+    # every level (the stashed moby textures follow from 0x5000): the GS RAM table's first entry
+    # past its count is a 128 x 128 picture at stash offset 0, the next a 64 x 64 one at 0x4000.
+    # The game sends them to GS block 0xB00 and 0xC00 (PSMT8H, seen in level 0's and level 1's GS
+    # memory, byte for byte the lump from the stash's address). Offset 0 of the texture data is
+    # the first terrain texture, another picture. The CLUTs are the lump's first two, at 0 and 0x400.
     for key, at, size in ((("metal", -2), 0x90, 128), (("metal", -3), 0x98, 64)):
         pixels, palette = unpack("<II", level.index, at)
         if fmt.maps_in_textures:
-            if base + pixels + size * size <= len(level.core) and palette + 1024 <= len(gs):
-                result[key] = Texture(size, size, span(level.core, base + pixels, size * size),
+            if stash and stash + pixels + size * size <= len(gs) and palette + 1024 <= len(gs):
+                result[key] = Texture(size, size, span(gs, stash + pixels, size * size),
                                       span(gs, palette, 1024))
         elif pixels and pixels + size * size <= len(gs) and palette + 1024 <= len(gs):
             result[key] = Texture(size, size, span(gs, pixels, size * size), span(gs, palette, 1024))
