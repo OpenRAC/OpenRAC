@@ -97,6 +97,7 @@ bool load(GetProcAddress get, std::string& missing) {
     }
     // OPENRAC_GL_HIDE_EXTENSIONS=GL_A,GL_B: the renderer acts as if the driver lacked them, to try
     // its fallbacks on a driver that has them (a phone's driver that lacks one, on a desktop).
+    bool clip_control_hidden = false;  // OPENRAC_GL_HIDE_EXTENSIONS names GL_ARB_clip_control
     if (const std::optional<std::string_view> hide = env::value(env::Var::GlHideExtensions)) {
         std::string_view list = *hide;
         while (!list.empty()) {
@@ -105,6 +106,7 @@ bool load(GetProcAddress get, std::string& missing) {
             if (const auto found = g_extensions.find(name); found != g_extensions.end()) {
                 g_extensions.erase(found);
             }
+            clip_control_hidden = clip_control_hidden || name == "GL_ARB_clip_control";
             list = comma == std::string_view::npos ? std::string_view() : list.substr(comma + 1);
         }
     }
@@ -162,10 +164,11 @@ bool load(GetProcAddress get, std::string& missing) {
     }
 #undef OPENRAC_GL_LOAD
     // glClipControl: the Vulkan backend's, or a desktop context of 4.5 or with ARB_clip_control
-    // (a loader hands out a pointer for a function its context does not have).
+    // (a loader hands out a pointer for a function its context does not have). Hiding
+    // GL_ARB_clip_control hides it on a 4.5 context too, to see the world's depth without it.
     glClipControl = nullptr;
     if (g_vulkan
-        || (g_api == Api::Desktop
+        || (g_api == Api::Desktop && !clip_control_hidden
             && (desktop_version_at_least(version, 4, 5) || has_extension("GL_ARB_clip_control")))) {
         glClipControl = reinterpret_cast<PFN_glClipControl>(get("glClipControl"));
     }
