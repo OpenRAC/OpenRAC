@@ -1890,6 +1890,33 @@
         "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
       },
       {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles Going Commando again from the start, keeping the decompilation and disc it was built from. The launcher offers this when the game was built from an older checkout. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "developer": true,
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-ntsc",
+          "--disc",
+          "{disc}",
+          "--clean"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md"
+      },
+      {
         "id": "play",
         "label": "Play",
         "description": "Going Commando as a native PC program, for development: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the levels read from your disc. It boots, plays a new game or a save, and every planet and ship flight can be reached; much is still to fix.",
