@@ -4,4 +4,8 @@ import type { PluginStatusEntry } from "./PluginStatusEntry";
 /**
  * The port's `status.json`: what it did with each mod at its last start.
  */
-export type PluginStatus = { time: string, version: string, purist: boolean, mods: Array<PluginStatusEntry>, hookPoints: Array<string>, };
+export type PluginStatus = { time: string, version: string, 
+/**
+ * The mod interface of the port that wrote it ("1.12").
+ */
+api: string, purist: boolean, mods: Array<PluginStatusEntry>, hookPoints: Array<string>, };

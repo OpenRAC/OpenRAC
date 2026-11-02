@@ -1594,6 +1594,77 @@ TickMobys pose_mobys(
         live.push_back(instance);
         live_addresses.push_back(m.address);
     }
+    // The mods' props (interface 1.12): their meshes where the mods posed them, lit as a moby of the
+    // level is, identified across frames by a key no game address takes.
+    if (!only_own_camera && !under_menu) {
+        const std::vector<mods::PropDraw> props = mods::props_drawn();
+        for (std::size_t i = 0; i < props.size(); ++i) {
+            const auto model =
+                std::find_if(g->prop_models.begin(), g->prop_models.end(), [&](const auto& m) {
+                    return m.first == props[i].mesh;
+                });
+            if (model == g->prop_models.end()) {
+                continue;
+            }
+            scene::Instance instance{model->second, props[i].matrix, props[i].tint};
+            instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
+            instance.occlusion = scene::Pvs::always;
+            instance.blend = props[i].blend;
+            if (instance.blend != 0) {
+                // A glow or a spark: drawn with the mobys' blended groups, no shadow.
+                live.push_back(instance);
+                live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
+                live_joints.push_back(0);
+                continue;
+            }
+            // A prop casts the hero's kind of shadow (a board under his feet goes with his): in the
+            // Enhanced shadow map as his equipment does, and, while the game draws his shadow, as
+            // one capsule along the mesh's longer side, half its shorter side thick.
+            instance.hero_shadow_caster = openrac_game_has_level(g->loaded);
+            if (shadow_moby != 0 && model->second < g->level.models.size()) {
+                const scene::Model& mesh = g->level.models[model->second];
+                const renderer::Vec3 size{
+                    mesh.max[0] - mesh.min[0], mesh.max[1] - mesh.min[1], mesh.max[2] - mesh.min[2]
+                };
+                // The mesh's up is its shortest side; the capsule runs along the longest.
+                int along = 0, across = 0;
+                for (int k = 1; k < 3; ++k) {
+                    along = size[k] > size[along] ? k : along;
+                }
+                int up = along == 0 ? 1 : 0;
+                for (int k = 0; k < 3; ++k) {
+                    up = k != along && size[k] < size[up] ? k : up;
+                }
+                across = 3 - along - up;
+                renderer::Vec3 a{}, b{};
+                for (int k = 0; k < 3; ++k) {
+                    a[k] = b[k] = 0.5f * (mesh.min[k] + mesh.max[k]);
+                }
+                const float radius = 0.5f * size[across];
+                a[along] = mesh.min[along] + radius;
+                b[along] = mesh.max[along] - radius;
+                renderer::ShadowCapsule capsule;
+                capsule.a = renderer::transform_point(props[i].matrix, a);
+                capsule.b = renderer::transform_point(props[i].matrix, b);
+                // The matrix's scale along the side the radius was measured on.
+                const renderer::Vec3 o =
+                    renderer::transform_point(props[i].matrix, renderer::Vec3{});
+                renderer::Vec3 unit{};
+                unit[across] = 1.0f;
+                const renderer::Vec3 u = renderer::transform_point(props[i].matrix, unit);
+                const float scale = std::sqrt(
+                    (u[0] - o[0]) * (u[0] - o[0]) + (u[1] - o[1]) * (u[1] - o[1])
+                    + (u[2] - o[2]) * (u[2] - o[2])
+                );
+                capsule.radius_a = capsule.radius_b = radius * scale;
+                capsule.segments_a = capsule.segments_b = 8;
+                shadows.push_back(capsule);
+            }
+            live.push_back(instance);
+            live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
+            live_joints.push_back(0);
+        }
+    }
     // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
     // part of reading the scene, about 1.5 ms a tick for 180 mobys on a phone's fast core), then
     // given palette slots in the loop's order, as one thread gave them.
@@ -1747,6 +1818,10 @@ void keep_tick(
     k.joints = std::move(mobys.joints);
     k.palette = std::move(mobys.palette);
     k.draws = draws;
+    k.haze.clear();
+    for (const mods::HazeDraw& h : mods::haze_drawn()) {
+        k.haze.push_back({h.position[0], h.position[1], h.position[2], h.radius, h.strength});
+    }
     k.has_camera = state.forward[0] != 0.0f || state.forward[1] != 0.0f || state.forward[2] != 0.0f;
     g->last_tick_menu =
         k.before_world >= 0x40000;  // the last tick's, read before this one's is kept

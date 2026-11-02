@@ -1688,6 +1688,7 @@ function mockPluginStatus(): PluginStatus | null {
   return {
     time: new Date().toISOString(),
     version: "pal",
+    api: "1.12",
     purist: !config.playWithMods,
     mods: mockPlugins
       .filter((p) => p.enabled)

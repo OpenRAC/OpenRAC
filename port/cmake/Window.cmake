@@ -200,6 +200,7 @@ add_library(openrac_renderer STATIC
   enhanced/renderer/gtao.cpp
   renderer/gl.cpp
   renderer/gl_stats.cpp
+  renderer/haze.cpp
   renderer/renderer.cpp
   renderer/shadow_volume.cpp
   renderer/shadows.cpp
@@ -228,6 +229,8 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow_composite.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
 if(OPENRAC_VULKAN)

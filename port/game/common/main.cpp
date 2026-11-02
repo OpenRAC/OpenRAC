@@ -67,6 +67,7 @@
 #include "debug_overlay.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
+#include "frontend/mod_media.h"
 #include "mod_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
@@ -74,6 +75,7 @@
 #include "platform/window.h"
 #include "renderer/gl.h"
 #include "renderer/texture_pack.h"
+#include "scene/moby_pose.h"
 #include "settings.h"
 #endif
 #if defined(OPENRAC_ANDROID_ACTIVITY)
@@ -294,6 +296,31 @@ void load_mods() {
     host.play = openrac_game_play_host;
     host.cards = openrac_game_card_dir != nullptr ? openrac_game_card_dir : "memcard";
     host.mod_data = g_options.mod_data;
+#ifdef OPENRAC_FRONTEND
+    // The mods' own sounds (interface 1.12), on the window's sound output.
+    host.sound_load = frontend::mod_sound_load;
+    host.sound_play = frontend::mod_sound_play;
+    host.sound_set = frontend::mod_sound_set;
+    host.sound_stop = frontend::mod_sound_stop;
+    host.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
+        std::vector<assets::rac1::JointModifier> mods;
+        mods.reserve(static_cast<std::size_t>(count));
+        for (int i = 0; i < count; ++i) {
+            assets::rac1::JointModifier m;
+            m.joint = static_cast<std::uint8_t>(std::min<std::uint32_t>(joints[i].joint, 0xFF));
+            m.mode = 0;  // composed with the pose: q * rotation, translation added
+            for (int k = 0; k < 4; ++k) {
+                m.quat[k] = joints[i].rotation[k];
+            }
+            // The model's units to the skeleton's packed ones (1/1024).
+            for (int k = 0; k < 3; ++k) {
+                m.trans[k] = joints[i].translation[k] * 1024.0f;
+            }
+            mods.push_back(m);
+        }
+        scene::set_extra_joint_modifiers(moby, std::move(mods));
+    };
+#endif
     host.capture_savestate_runtime = [](mods::SavestateRuntime* state) {
         if (state == nullptr) {
             return false;

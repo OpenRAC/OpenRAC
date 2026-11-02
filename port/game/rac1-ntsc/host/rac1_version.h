@@ -165,6 +165,14 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Ratchet's animation guard (hero_anim_guard.c): PAL set_hero_animation func_L00_00232C10 is
  * FUN_L00_002323b8 here. */
 #define func_L00_00232C10 game_FUN_L00_002323b8
+/* The mods' hero_hurt (play.c): PAL hero_change_health func_L00_002056D8 is FUN_L00_002050c0. */
+#define func_L00_002056D8 game_FUN_L00_002050c0
+/* Its hero_set_pose: PAL release_and_clear_hero_voice_slots func_L00_00207220 is
+ * FUN_L00_00206c08 here. */
+#define func_L00_00207220 game_FUN_L00_00206c08
+/* The local pose decoder the port wraps (render_native.c). */
+#define func_L00_00255B90 game_FUN_L00_00254b58
+#define func_L00_00255B90__game game_FUN_L00_00254b58__game
 #define func_L00_00232C10__game game_FUN_L00_002323b8__game
 #define RAC1_ADDR_0x0015EEB4u 0x0015EDB4u
 #define RAC1_ADDR_0x0015EEE0u 0x0015EDE0u
@@ -263,6 +271,20 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Shared explosion capture for enhanced water. */
 #define func_L00_0025F4A8 game_FUN_L00_0025e450
 #define func_L00_0025F4A8__game game_FUN_L00_0025e450__game
+
+/* The hero moved by a mod (play.c, interface 1.12): PAL advance_hero_animation func_L00_00232EF0
+ * is FUN_L00_00232670 here (a hook point, Hero_AdvanceAnimation), update_hero_moby
+ * func_L00_00208E98 FUN_L00_00208820, update_hero_world_matrices func_L00_002098B8
+ * FUN_L00_00209240, update_hero_equipped_items func_L00_00210FE0 FUN_L00_00210928 (the NTSC
+ * decomp's gameplay/hero/air_accel.c), begin_draw_frame func_001F7B40 FUN_001f7978 and
+ * euler_rotation_matrix func_001FA218 FUN_001fa050, as games/rac1's names_ntsc.tsv pairs them. */
+#define func_L00_00232EF0 game_FUN_L00_00232670
+#define func_L00_00205CC0 game_FUN_L00_002056a8
+#define func_L00_00208E98 game_FUN_L00_00208820
+#define func_L00_002098B8 game_FUN_L00_00209240
+#define func_L00_00210FE0 game_FUN_L00_00210928
+#define func_001F7B40 game_FUN_001f7978
+#define func_001FA218 game_FUN_001fa050
 
 /* ---- generated below ---- */
 
@@ -365,6 +387,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_0022D3F8 game_FUN_0022c0e0
 #define func_0022D520 game_FUN_0022c208
 #define func_0022D7E0 game_FUN_0022c4c8
+#define func_0022EAB0 game_FUN_0022d798
 #define func_0022ED80 game_FUN_0022da68
 #define func_0022F4A0 game_request_space_load
 #define func_00230A90 game_FUN_0022f778
@@ -456,6 +479,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0013E604u 0x0013E504u
 #define RAC1_ADDR_0x0013E610u 0x0013E510u
 #define RAC1_ADDR_0x0013E614u 0x0013E514u
+#define RAC1_ADDR_0x0013E650u 0x0013E550u
 #define RAC1_ADDR_0x0013F450u 0x0013F350u
 #define RAC1_ADDR_0x001517D0u 0x001516D0u
 #define RAC1_ADDR_0x00151C60u 0x00151B60u

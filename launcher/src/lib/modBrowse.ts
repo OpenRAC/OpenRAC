@@ -4,7 +4,7 @@
 import type { IndexImage, IndexMod, IndexVersion } from "./api";
 
 /** This launcher's mod interface (core/src/plugins.rs API_MAJOR, API_MINOR). */
-export const LAUNCHER_API: [number, number] = [1, 10];
+export const LAUNCHER_API: [number, number] = [1, 12];
 
 export interface Here {
   game: string;
