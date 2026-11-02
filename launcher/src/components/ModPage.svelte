@@ -840,42 +840,6 @@
     font-size: 0.8125rem;
   }
 
-  .track {
-    height: 4px;
-    border-radius: 2px;
-    background: var(--line);
-    overflow: hidden;
-  }
-
-  .track i {
-    display: block;
-    height: 100%;
-    background: var(--amber);
-    transition: width var(--fast) var(--ease);
-  }
-
-  .track i.moving {
-    width: 30%;
-    animation: slide 1.4s var(--ease) infinite;
-  }
-
-  @keyframes slide {
-    from {
-      transform: translateX(-100%);
-    }
-    to {
-      transform: translateX(340%);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .track i.moving {
-      animation: none;
-      width: 100%;
-      opacity: 0.4;
-    }
-  }
-
   /* Its heading where the other groups have theirs, the fold's chevron at the right (app.css). */
   .advanced > summary {
     min-height: 44px;

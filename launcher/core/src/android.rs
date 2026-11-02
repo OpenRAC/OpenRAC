@@ -25,6 +25,23 @@ pub fn iso_file_name(name: &str) -> String {
     }
 }
 
+/// The name a picked mod is kept under: the picker's name without any folder, with `.zip` added
+/// when it came without (plugins::install knows a mod's file by that extension); `mod.zip` when
+/// the picker gave none.
+pub fn zip_file_name(name: &str) -> String {
+    let base = name.rsplit(['/', '\\']).next().unwrap_or("").trim();
+    if base.is_empty() || base == "." || base == ".." {
+        return "mod.zip".to_string();
+    }
+    let zip =
+        base.len().checked_sub(4).is_some_and(|n| base.is_char_boundary(n) && base[n..].eq_ignore_ascii_case(".zip"));
+    if zip {
+        base.to_string()
+    } else {
+        format!("{base}.zip")
+    }
+}
+
 /// Copies `from` into `dest` through a file beside it, reporting every 64 MB; an image already
 /// there with the same size, and the same first and last MB, is kept as it is (another dump of the
 /// same name and size is copied). File to file, so that the kernel copies (copy_file_range or
@@ -230,6 +247,16 @@ mod tests {
         assert_eq!(iso_file_name("Ratchet & Clank.ISO"), "Ratchet & Clank.ISO");
         assert_eq!(iso_file_name("Ratchet & Clank"), "Ratchet & Clank.iso");
         assert_eq!(iso_file_name("disc.bin"), "disc.bin.iso");
+    }
+
+    #[test]
+    fn a_picked_mod_is_kept_as_a_zip() {
+        assert_eq!(zip_file_name("lock-strafe.ZIP"), "lock-strafe.ZIP");
+        assert_eq!(zip_file_name("lock-strafe"), "lock-strafe.zip");
+        assert_eq!(zip_file_name("ł.7z"), "ł.7z.zip");
+        assert_eq!(zip_file_name("Download/lock-strafe.zip"), "lock-strafe.zip");
+        assert_eq!(zip_file_name(" "), "mod.zip");
+        assert_eq!(zip_file_name(".."), "mod.zip");
     }
 
     #[test]
