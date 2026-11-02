@@ -72,7 +72,9 @@ FORMAT = 4
 # 17: each shrub class's 24 normals ("relight"), for the shrubs a point light reaches.
 # 18: the gameplay copy the probe baker plans enhanced lighting from (bake-inputs/gameplay.bin,
 # manifest bake_inputs).
-GAME_FORMATS = {"rac2": 18}
+# 19: the reviewed emission catalog's textures resolved into probe-emission.json, the level sky
+# and sun profiles (probe-bake.json) the baker reads, from port/enhanced/lighting/profiles/rac2-ntsc.
+GAME_FORMATS = {"rac2": 19}
 
 
 def levels_format(game: str) -> int:

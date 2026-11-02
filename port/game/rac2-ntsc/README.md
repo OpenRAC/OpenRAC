@@ -160,7 +160,7 @@ many bytes can be another field in another level: it reads what the running copy
   level's load and every flight's loads it over the class (`func_002925F0`, by the low bits of
   `0x001A7AF0`), and most levels' tables have no class 3412 of their own, so parked ships drew their
   wings and canopy only. The export has hull 0 as class 3412 in every level, hulls 1 and 2 as 6031 and
-  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 18 (`editor/port.py`, `GAME_FORMATS`; 17 adds the shrub classes' normals, 18 the gameplay copy the probe baker reads).
+  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 19 (`editor/port.py`, `GAME_FORMATS`; 17 adds the shrub classes' normals, 18 the gameplay copy the probe baker reads, 19 the emission catalog and the levels' sky and sun profiles).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
   pixels are offsets into the stash: the GS RAM table's entries past its count, whose first is the
   128 x 128 chrome at stash offset 0 and the next the 64 x 64 glass at 0x4000 (the stashed moby
