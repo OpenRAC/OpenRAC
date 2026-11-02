@@ -330,9 +330,10 @@ public:
 
     // The ties' matrices: gp + 0x31CC (PatchTieVertexLighting, 0x2F3FEC; level 0's copy
     // D_L00_001B251C), the shrubs': gp + 0x30B0 (LightShrubs, 0x2E2C54; level 0's D_L00_001B2400),
-    // the ties' records: gp + 0x31C4 (0x2F3FE0; level 0's D_L00_001B2514).
-    std::array<std::uint32_t, 3> scenery_matrices() const override {
-        return {0x001B21BCu, 0x001B20A0u, 0x001B21B4u};
+    // the ties' records: gp + 0x31C4 (0x2F3FE0; level 0's D_L00_001B2514), the shrubs' records:
+    // gp + 0x30A8 (LightShrubs, 0x2E2C4C).
+    std::array<std::uint32_t, 4> scenery_matrices() const override {
+        return {0x001B21BCu, 0x001B20A0u, 0x001B21B4u, 0x001B2098u};
     }
 
     // Maktar's dome: light strips (tie class 2713) lie on the dome's band (class 2675) within a few

@@ -236,8 +236,9 @@ public:
     // Commando's mobys carry tie and shrub groups (the Maktar lamps' heads turn,
     // func_L00_00323958) and zero the matrices of the ones they remove. 0: drawn as loaded. The
     // third: the word that points at the ties' 32-byte records (bounding sphere at +0, the point
-    // lights' list at +0x1A), for the ties a point light reaches; 0 for none.
-    virtual std::array<std::uint32_t, 3> scenery_matrices() const { return {0, 0, 0}; }
+    // lights' list at +0x1A), for the ties a point light reaches; the fourth the shrubs' 32-byte
+    // records (bounding-sphere centre at +0, the point lights' list at +0x1E); 0 for none.
+    virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
     // The near distance of the world's depth (game units), or 0 for the window's 0.05. The depth
     // a window can keep at a distance d resolves about 1.2e-6 d^2 / (near / 0.05) units (2^-24 of

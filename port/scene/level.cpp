@@ -681,8 +681,10 @@ bool load_level(
     };
 
     std::map<int, ClassModel> ties;
-    // The tie classes' relighting data (format 15), by class: their entry in tie_relight_classes.
+    // The tie classes' relighting data (format 16), by class: their entry in tie_relight_classes;
+    // the shrub classes' normals (format 17): their entry in shrub_relight_classes.
     std::map<int, int> tie_relight_class;
+    std::map<int, int> shrub_relight_class;
     std::map<int, ClassModel> shrubs;
     std::map<int, ClassModel> mobys;
     // The shrub classes' billboard fade distances ("billboard_fade", -1 none), when every class
@@ -711,6 +713,15 @@ bool load_level(
                     }
                     billboard_models[id] = *model;
                 }
+            }
+            if (table == &shrubs && cls["relight"]["normals"].items().size() == 96) {
+                std::array<std::array<std::int16_t, 4>, 24> normals{};
+                const auto& n = cls["relight"]["normals"].items();
+                for (std::size_t j = 0; j < 96; ++j) {
+                    normals[j / 4][j % 4] = static_cast<std::int16_t>(n[j].number(0));
+                }
+                shrub_relight_class[id] = static_cast<int>(out.shrub_relight_classes.size());
+                out.shrub_relight_classes.push_back(normals);
             }
             if (table == &ties && cls["relight"].is_object()) {
                 const json::Value& r = cls["relight"];
@@ -1088,6 +1099,20 @@ bool load_level(
                     }
                 }
                 out.tie_relight.push_back(relight);
+            }
+            // What the shrub is lit again from (its own placements only).
+            if (layer == Layer::Shrubs && !shrub_relight_class.empty()) {
+                LevelData::ShrubRelight relight;
+                const auto relit = shrub_relight_class.find(id);
+                if (relit != shrub_relight_class.end() && !edits[key].is_array()
+                    && p["colour"].items().size() == 3) {
+                    relight.cls = relit->second;
+                    for (std::size_t c = 0; c < 3; ++c) {
+                        relight.colour[c] = static_cast<std::int32_t>(p["colour"].items()[c].number(0));
+                    }
+                    relight.select = static_cast<std::int32_t>(p["directional_lights"].number(0));
+                }
+                out.shrub_relight.push_back(relight);
             }
             out.instances[static_cast<std::size_t>(layer)].push_back(instance);
             // In the game's order only when they are the level's own shrubs.

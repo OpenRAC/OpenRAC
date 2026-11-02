@@ -198,7 +198,28 @@ void upload_instances(SceneFrame& frame) {
         if (frame.graphics.original_lod) {
             frame.owner.scene.add_shrub_effects(with_shrubs);
         }
-        frame.owner.scene.add_moved_scenery(with_shrubs);
+        // Between ticks, a moved instance part way from where the last tick had it, as the mobys.
+        const float alpha = frame.output.alpha;
+        const auto& prev = frame.scene.prev_scenery;
+        frame.owner.scene.add_moved_scenery(
+            with_shrubs,
+            [&](std::size_t k, std::size_t i, const renderer::Mat4& now) {
+                if (alpha >= 1.0f || i >= prev[k].size()) {
+                    return now;
+                }
+                renderer::Mat4 from = now;
+                for (std::size_t c = 0; c < 4; ++c) {
+                    for (std::size_t r = 0; r < 3; ++r) {
+                        from[c * 4 + r] = prev[k][i][c * 3 + r];
+                    }
+                }
+                bool zero = true;
+                for (std::size_t e = 0; e < 9; ++e) {
+                    zero = zero && prev[k][i][e] == 0.0f;
+                }
+                return zero ? now : blend_matrix(from, now, alpha);
+            }
+        );
     }
     const auto& drawn = more ? with_shrubs : live;
     frame.owner.scene.set_variant(frame.scene.texture_variant);

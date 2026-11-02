@@ -1235,6 +1235,17 @@ std::optional<scene::GameScenery> scenery_matrices(
             std::memcpy(&result.tie_lights[i], r + 0x1A, 2);
         }
     }
+    const std::size_t shrubs =
+        g->level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size();
+    if (const gaddr at = table(words[3], shrubs, 0x20); at != 0) {
+        result.shrub_spheres.resize(shrubs);
+        result.shrub_lights.resize(shrubs);
+        for (std::size_t i = 0; i < shrubs; ++i) {
+            const std::uint8_t* r = ram.data() + at + i * 0x20;
+            std::memcpy(result.shrub_spheres[i].data(), r, 16);
+            std::memcpy(&result.shrub_lights[i], r + 0x1E, 2);
+        }
+    }
     return result;
 }
 
@@ -1777,6 +1788,7 @@ void keep_tick(
         k.shadow_moby = 0;
         k.shrubs.clear();
         k.scenery = {};
+        k.prev_scenery = {};
         k.level = g->loaded;
         // A new level's frames cost what they cost: the system forgets the last level's
         // (performance_hint.h).
@@ -1819,6 +1831,8 @@ void keep_tick(
         k.shrubs = std::move(*mobys.shrubs);
     }
     if (mobys.scenery) {
+        k.prev_scenery = adjacent ? std::move(k.scenery.matrices)
+                                  : std::array<std::vector<std::array<float, 12>>, 2>{};
         k.scenery = std::move(*mobys.scenery);
     }
     k.hero_airborne = g->profile->hero_state() != 0

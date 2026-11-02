@@ -285,7 +285,9 @@ bool LevelScene::upload(
         const auto& distances = level.draw_distances[layer];
         const bool sized = distances.size() == level.instances[layer].size();
         const bool chosen = sized && !distances.empty();
-        scenery.source = chosen ? level.instances[layer] : std::vector<Instance>{};
+        // The instances as loaded are kept for every level: the game may move some
+        // (move_scenery); only a layer with distances is chosen by them (choose_scenery).
+        scenery.source = level.instances[layer];
         scenery.distances = chosen ? distances : std::vector<float>{};
         scenery.centres.clear();
         for (const Instance& instance : scenery.source) {
@@ -541,6 +543,8 @@ bool LevelScene::upload(
     m_tie_relight = level.tie_relight;
     m_tie_slots = level.tie_slots;
     m_light_colours = level.light_colours;
+    m_shrub_relight_classes = level.shrub_relight_classes;
+    m_shrub_relight = level.shrub_relight;
     if (!level.light_colours.empty()) {
         const std::size_t rows = (level.light_colours.size() + kLightWidth - 1) / kLightWidth;
         std::vector<std::uint32_t> texels(rows * kLightWidth, 0u);

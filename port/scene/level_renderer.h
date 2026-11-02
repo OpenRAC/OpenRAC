@@ -18,6 +18,7 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -51,6 +52,9 @@ struct GameScenery {
     std::array<std::vector<std::array<float, 12>>, 2> matrices;
     std::vector<std::array<float, 4>> tie_spheres;
     std::vector<std::uint16_t> tie_lights;
+    // The same of the shrubs (their records' +0 and +0x1E).
+    std::vector<std::array<float, 4>> shrub_spheres;
+    std::vector<std::uint16_t> shrub_lights;
 };
 
 class LevelScene {
@@ -148,9 +152,13 @@ public:
     // A tie that a point light reaches (its list) is lit again with it each tick, as the game does.
     void move_scenery(const GameScenery& scenery);
 
-    // The instances move_scenery found moved, at their place now, appended to `live`.
-    void add_moved_scenery(std::vector<Instance>& live) const;
-
+    // The instances move_scenery found moved, at their place now, appended to `live`; `at`, when
+    // given, places each (scenery layer 0 ties / 1 shrubs, instance, matrix now) for a frame drawn
+    // between ticks.
+    void add_moved_scenery(
+        std::vector<Instance>& live,
+        const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at = {}
+    ) const;
     bool has_moved_scenery() const { return m_moved_count > 0; }
 
     // Draws depth-tested rigid and skinned velocities into the caller's target, without changing history.
@@ -500,8 +508,8 @@ private:
 
     // choose_scenery: per layer (the ties, the shrubs) the instances as loaded, their draw
     // distances, their bounds' world centres and whether each is drawn now, 1 or 0 (empty while
-    // the setting is off). A layer whose export has no distances keeps an empty source and is
-    // never chosen.
+    // the setting is off). A layer whose export has no distances is never chosen; its source is
+    // kept for the instances the game moves (move_scenery).
     struct Scenery {
         std::vector<Instance> source;
         std::vector<float> distances;
@@ -532,6 +540,16 @@ private:
     std::vector<TieRelight> m_tie_relight;
     std::vector<std::uint32_t> m_tie_slots;
     std::vector<std::uint32_t> m_light_colours;
+    // The shrubs' relighting data (LevelData::shrub_relight_classes, shrub_relight).
+    std::vector<std::array<std::array<std::int16_t, 4>, 24>> m_shrub_relight_classes;
+    std::vector<LevelData::ShrubRelight> m_shrub_relight;
+    // Lights shrub `i` again by `matrix` and the point lights `list` names, merged from `centre`
+    // (nullptr: its colours as loaded), into the light texture.
+    void relight_shrub(
+        std::size_t i, const Mat4* matrix, std::uint16_t list, const std::array<float, 4>& centre
+    );
+    // Writes `colours` into the light texture from texel `first`.
+    void upload_light_colours(std::size_t first, std::span<const std::uint32_t> colours);
     // Lights tie `i` again by `matrix` and `points` (nullptr: its colours as loaded) into the
     // light texture.
     void relight_moved_tie(

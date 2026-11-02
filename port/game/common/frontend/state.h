@@ -80,6 +80,9 @@ struct Kept {
     // The ties' and the shrubs' matrices the last tick that ran the world left
     // (LevelScene::move_scenery).
     scene::GameScenery scenery;
+    // The ties' and shrubs' matrices the tick before, when it was the one before (a frame between
+    // ticks moves a moved one from there).
+    std::array<std::vector<std::array<float, 12>>, 2> prev_scenery;
     // The last tick's poses, by moby: where its joints start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
     std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;

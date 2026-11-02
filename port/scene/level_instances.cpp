@@ -13,6 +13,7 @@
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
+#include "assets/geometry/shrub_lighting.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer.h"
 #include "scene/level_renderer_internal.h"
@@ -522,7 +523,7 @@ void LevelScene::choose_scenery(
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
         Scenery& scenery = m_scenery[k];
         const Layer layer = kSceneryLayers[k];
-        if (scenery.source.empty()) {
+        if (scenery.source.empty() || scenery.distances.empty()) {
             continue;
         }
         // Off again after being on: the instances as loaded, once.
@@ -653,6 +654,31 @@ void LevelScene::move_scenery(const GameScenery& game) {
                     w[c * 4 + 3] = c == 3 ? 1.0f : 0.0f;
                 }
             }
+            // A shrub a point light reaches (its record's list) or the game moved is lit again by
+            // LightShrubs' pass with its merged third light; one neither, as loaded.
+            if (!ties && i < m_shrub_relight.size() && state != 2) {
+                const bool shrub_listed =
+                    game.shrub_lights.size() == count && game.shrub_spheres.size() == count;
+                const std::uint16_t list = shrub_listed ? game.shrub_lights[i] : 0xFFFF;
+                std::array<float, 32> key{};
+                for (std::uint16_t l = list, n = 0; (l & 0xF) != 0xF && n < 4; l >>= 4, ++n) {
+                    std::copy_n(m_point_lights.data() + 8 * (l & 7), 8, key.data() + 8 * n);
+                }
+                const std::uint8_t set = state == 1 || list != 0xFFFF ? 0 : 0xFF;
+                const Mat4& where = state == 1 ? w : m;
+                const std::array<float, 4> centre =
+                    shrub_listed ? game.shrub_spheres[i] : std::array<float, 4>{};
+                key[31] = static_cast<float>(list);
+                if (moved.lit_set[i] == set
+                    && (set == 0xFF || (moved.lit[i] == where && moved.lit_points[i] == key))) {
+                    continue;
+                }
+                relight_shrub(i, set == 0xFF ? nullptr : &where, list, centre);
+                moved.lit[i] = where;
+                moved.lit_set[i] = set;
+                moved.lit_points[i] = key;
+                continue;
+            }
             if (!ties || i >= m_tie_relight.size() || state == 2) {
                 continue;
             }
@@ -735,6 +761,10 @@ void LevelScene::relight_moved_tie(
     } else {
         colours.assign(m_light_colours.begin() + first, m_light_colours.begin() + first + count);
     }
+    upload_light_colours(first, colours);
+}
+
+void LevelScene::upload_light_colours(std::size_t first, std::span<const std::uint32_t> colours) {
     // The texture's rows of 1024 colours that the instance's run crosses.
     constexpr std::size_t width = kLightWidth;
     glBindTexture(GL_TEXTURE_2D, m_lights);
@@ -757,7 +787,63 @@ void LevelScene::relight_moved_tie(
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void LevelScene::add_moved_scenery(std::vector<Instance>& live) const {
+void LevelScene::relight_shrub(
+    std::size_t i, const Mat4* matrix, std::uint16_t list, const std::array<float, 4>& centre
+) {
+    const Instance& instance = m_scenery[1].source[i];
+    const LevelData::ShrubRelight& relight = m_shrub_relight[i];
+    if (m_lights == 0 || instance.lights < 0 || relight.cls < 0
+        || static_cast<std::size_t>(relight.cls) >= m_shrub_relight_classes.size()) {
+        return;
+    }
+    const std::size_t first = static_cast<std::size_t>(instance.lights);
+    if (first + 24 > m_light_colours.size()) {
+        return;
+    }
+    std::array<std::uint32_t, 24> colours{};
+    if (matrix != nullptr && m_light_sets.size() == std::size_t{16} * 16) {
+        // Ratchet & Clank's LightShrubs, which Going Commando's (0x2E2C38) is instruction for
+        // instruction, point lights merged from the run-time record's centre and list.
+        namespace geo = openrac::assets::rac1;
+        geo::ShrubClass cls;
+        cls.normals.assign(
+            m_shrub_relight_classes[static_cast<std::size_t>(relight.cls)].begin(),
+            m_shrub_relight_classes[static_cast<std::size_t>(relight.cls)].end()
+        );
+        geo::ShrubInstance inst;
+        for (std::size_t c = 0; c < 4; ++c) {
+            for (std::size_t r = 0; r < 4; ++r) {
+                inst.matrix[c][r] = (*matrix)[c * 4 + r];
+            }
+        }
+        inst.matrix[3][3] = 0.01f;
+        inst.colour = relight.colour;
+        inst.dir_lights = relight.select;
+        geo::LightBank bank;
+        for (std::size_t s = 0; s < 16 && s < bank.sets.size(); ++s) {
+            std::memcpy(&bank.sets[s], m_light_sets.data() + 16 * s, sizeof(geo::DirLightSet));
+        }
+        bank.count = 16;
+        geo::PointLightBank points{};
+        std::memcpy(points.data(), m_point_lights.data(), sizeof(points));
+        const geo::ShrubPalette palette = geo::light_shrub_instance(
+            cls, inst, bank, geo::ShrubPointLights{&points, list, &centre}
+        );
+        for (std::size_t j = 0; j < 24; ++j) {
+            colours[j] = static_cast<std::uint32_t>(palette[j][0])
+                         | static_cast<std::uint32_t>(palette[j][1]) << 8
+                         | static_cast<std::uint32_t>(palette[j][2]) << 16
+                         | static_cast<std::uint32_t>(palette[j][3]) << 24;
+        }
+    } else {
+        std::copy_n(m_light_colours.begin() + static_cast<std::ptrdiff_t>(first), 24, colours.begin());
+    }
+    upload_light_colours(first, colours);
+}
+
+void LevelScene::add_moved_scenery(
+    std::vector<Instance>& live, const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at
+) const {
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
         const Scenery& scenery = m_scenery[k];
         const MovedScenery& moved = m_moved[k];
@@ -766,8 +852,11 @@ void LevelScene::add_moved_scenery(std::vector<Instance>& live) const {
                 continue;
             }
             Instance instance = scenery.source[i];
-            instance.matrix = moved.matrix[i];
+            instance.matrix = at ? at(k, i, moved.matrix[i]) : moved.matrix[i];
             instance.occlusion = Pvs::always;
+            // A stable identity for the motion history: layer and place, apart from the mobys'
+            // addresses (below 0x2000000).
+            instance.temporal_id = (std::uint64_t{k + 1} << 40) | i;
             live.push_back(instance);
         }
     }
@@ -775,7 +864,8 @@ void LevelScene::add_moved_scenery(std::vector<Instance>& live) const {
 
 bool LevelScene::shrub_draws_usable() const {
     const Scenery& shrubs = m_scenery[1];
-    return !shrubs.source.empty() && m_shrub_draws.size() == shrubs.source.size()
+    return !shrubs.source.empty() && !shrubs.distances.empty()
+           && m_shrub_draws.size() == shrubs.source.size()
            && m_shrub_billboards.size() == shrubs.source.size();
 }
 
