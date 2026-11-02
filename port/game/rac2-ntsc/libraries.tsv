@@ -229,3 +229,7 @@ func_L00_00424F98	camera	FollowCameraReadStick	wrap	the follow camera's stick re
 func_002E48E8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
 func_L08_002F2C48	game	func_L08_002F2C48	host	the fourth draw callback list's register, only in levels 8, 9, 19 and 30, folded with func_0027CFD0 by the catalogue (split_places.tsv, host/callback_lists.c)	void (unsigned int, unsigned int)
+func_00288FB8	text	TextById	wrap	the text of an id: the title's 16:9 page is the port's Video page, so its name is "Video" there (host/options.c)
+func_0033C2D8	menu	WidescreenPageUpdate	wrap	the title's 16:9 options page: the port's Video rows, moved with the menus' buttons (host/options.c)
+func_0033C378	menu	WidescreenPageDraw	wrap	the title's 16:9 options page: its panel, with the port's Video rows in it (host/options.c)
+func_0029B168	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)

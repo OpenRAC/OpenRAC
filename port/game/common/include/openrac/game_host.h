@@ -729,6 +729,18 @@ int openrac_game_pad_through_mods(int port, uint16_t* buttons, uint8_t analog[4]
  * rows it adds to the game's options), or 0 when the id is the game's. */
 gaddr openrac_game_text(int id);
 
+/* The port's settings as rows (options_menu.h), for a game whose options page is its own host C
+ * (Going Commando: rac2-ntsc/host/options.c) rather than the front end's widgets: how many rows;
+ * a row's name and value now as the game's text (the language of openrac_front_end.language, its
+ * accented letters at the font's codes), each cut to `size` bytes with its end; a row moved by
+ * `by` (1 the next value, -1 the one before), saved and applied as the overlay's menus do; and one
+ * of the port's own words (the page's name, "Video") as the game's text. Without a window there
+ * are no rows: 0, empty texts, nothing moved. */
+int openrac_game_option_rows(void);
+void openrac_game_option_row_text(int row, char* label, char* value, int size);
+void openrac_game_option_step(int row, int by);
+void openrac_game_option_word(const char* english, char* out, int size);
+
 /* Nonzero only while the enhanced Novalis water replacement is ready and enabled. */
 int openrac_game_enhanced_water(void);
 
