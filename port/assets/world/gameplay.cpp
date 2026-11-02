@@ -64,9 +64,34 @@ constexpr std::array<std::string_view, kGameplaySectionCount> kSectionNames{
     "unused_90",
 };
 
-// The byte position of a section's offset in the header.
-std::size_t pointer_of(GameplaySection section) {
-    return 4 * static_cast<std::size_t>(section);
+// Going Commando's header: 40 offsets in an order of its own (tie and shrub groups, the tie
+// colours at 0x94, the level settings at 0x8C). Only the sections a reader here takes from it are
+// placed; the others read as absent. Both were read across all 28 of the disc's levels: the light
+// bank at 0x04 is the one editor/lighting.light_bank exports (count at +0, 0x40-byte sets from
+// +0x10), and the environment transitions at 0x84 run from the bank's end to the cameras' start,
+// 0x10 + count x (16 + 0x80) bytes, with Ratchet & Clank's records (a world-to-cuboid matrix
+// ending in w = 1, hero light sets below the bank's count, flags 1 to 3).
+constexpr std::size_t kRac2HeaderWords = 40;
+
+// The byte position of a section's offset in `game`'s header, or none when it is not placed.
+std::optional<std::size_t> pointer_of(Game game, GameplaySection section) {
+    if (game != Game::Rac2) {
+        return 4 * static_cast<std::size_t>(section);
+    }
+
+    switch (section) {
+        case GameplaySection::DirectionalLights:
+            return 0x04;
+        case GameplaySection::EnvTransitions:
+            return 0x84;
+        default:
+            return std::nullopt;
+    }
+}
+
+// How many offsets `game`'s header holds.
+std::size_t header_words(Game game) {
+    return game == Game::Rac2 ? kRac2HeaderWords : kGameplaySectionCount;
 }
 
 // Checks that an s32 from the file is a valid count or index, and widens it. `what` names it.
@@ -88,36 +113,61 @@ std::string_view gameplay_section_name(GameplaySection section) {
 
 // Borrows the bytes; the caller keeps them alive. Fails when the header does not fit.
 GameplayFile::GameplayFile(Game game, ByteView bytes) : m_game(game), m_bytes(bytes) {
-    require_world_layout(game, "gameplay file");
-    bytes.check(0, 4 * kGameplaySectionCount, "gameplay header");
+    // Going Commando's header is known for the sections pointer_of() places.
+    if (game != Game::Rac2) {
+        require_world_layout(game, "gameplay file");
+    }
+
+    bytes.check(0, 4 * header_words(game), "gameplay header");
 }
 
-// The section's offset from the file start, 0 when the level has none.
+// The section's offset from the file start, 0 when the level has none (or when the game's header
+// is not known to place it).
 u32 GameplayFile::offset(GameplaySection section) const {
-    return m_bytes.u32_at(pointer_of(section));
+    const auto pointer = pointer_of(m_game, section);
+    return pointer ? m_bytes.u32_at(*pointer) : 0;
 }
 
 // The sections the file has, sorted by start, each with its end.
 std::vector<GameplaySectionRange> GameplayFile::sections() const {
     std::vector<GameplaySectionRange> out;
+    // Every start the header names, placed or not: a section runs to the next of them.
+    std::vector<std::size_t> starts;
 
-    // The header is one u32 offset per section, in section order.
-    for (std::size_t i = 0; i < kGameplaySectionCount; ++i) {
+    // The header is one u32 offset per section, in the game's order.
+    for (std::size_t i = 0; i < header_words(m_game); ++i) {
         const s32 at = m_bytes.s32_at(4 * i);
 
         // An offset of 0 (or below) means the level has no such section.
         if (at > 0) {
-            out.push_back({static_cast<GameplaySection>(i), static_cast<std::size_t>(at), 0});
+            starts.push_back(static_cast<std::size_t>(at));
+        }
+    }
+
+    // The sections this game's header is known to place.
+    for (std::size_t i = 0; i < kGameplaySectionCount; ++i) {
+        const auto section = static_cast<GameplaySection>(i);
+
+        // An offset of 0 (or below) means the level has no such section.
+        if (const s32 at = static_cast<s32>(offset(section)); at > 0) {
+            out.push_back({section, static_cast<std::size_t>(at), 0});
         }
     }
 
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) {
         return a.start < b.start;
     });
+    std::sort(starts.begin(), starts.end());
 
     // Each section runs to the start of the next one in the file, the last to the end.
     for (std::size_t k = 0; k < out.size(); ++k) {
-        out[k].end = k + 1 < out.size() ? out[k + 1].start : m_bytes.size();
+        if (m_game == Game::Rac2) {
+            // Going Commando: the next start of any section, placed or not.
+            const auto next = std::upper_bound(starts.begin(), starts.end(), out[k].start);
+            out[k].end = next != starts.end() ? *next : m_bytes.size();
+        } else {
+            out[k].end = k + 1 < out.size() ? out[k + 1].start : m_bytes.size();
+        }
 
         // A section outside the file means the header is damaged.
         if (out[k].start > m_bytes.size() || out[k].end > m_bytes.size()) {

@@ -218,6 +218,56 @@ void cameras() {
     CHECK(tweak && tweak->header.priority == 2 && tweak->distance == 9.0f && tweak->mode == 4);
 }
 
+// Going Commando's header, laid out as its levels are: 40 offsets, the light bank at 0x04, the
+// environment transitions at 0x84 running to the cameras' start at 0x08, the moby instances at
+// 0x4C (which no reader here places, so they read as absent).
+void going_commando() {
+    ByteWriter w;
+    w.resize(0xA0);
+    const std::size_t lights = 0xC0, transitions = 0x150;
+    w.resize(lights);
+    w.put<s32>(2);  // two light sets of 0x40 bytes
+    w.resize(transitions);
+    w.put<s32>(1);
+    w.resize(transitions + 0x10);
+    for (const f32 v : {276.8f, 239.6f, 129.6f, 25.0f}) {
+        w.put(v);  // the bounding circle
+    }
+    const std::size_t record = w.size();
+    for (std::size_t k = 0; k < 16; ++k) {
+        w.put<f32>(k % 5 == 0 ? 0.5f : 0.0f);  // the inverse, w = 0.5 here
+    }
+    w.put<u32>(0x2A2F2F);  // hero colours at t = 0 and 1
+    w.put<u32>(0x4B4742);
+    w.put<s32>(1);   // hero light sets
+    w.put<s32>(-1);  // none: the loader's 0xb
+    w.put<u32>(1);   // flags: cross-fade the hero's light
+    w.resize(record + 0x80);
+    const std::size_t cameras = w.size();
+    w.put<s32>(0);
+    w.resize(cameras + 0x10);
+    w.put_at<u32>(0x04, static_cast<u32>(lights));
+    w.put_at<u32>(0x08, static_cast<u32>(cameras));
+    w.put_at<u32>(0x4C, 0x40);  // the moby instances: not placed for this game
+    w.put_at<u32>(0x84, static_cast<u32>(transitions));
+    const auto bytes = w.bytes();
+
+    const GameplayFile file(Game::Rac2, bytes);
+    CHECK(file.offset(Section::DirectionalLights) == lights);
+    CHECK(file.offset(Section::MobyInstances) == 0);
+    CHECK(!file.section(Section::MobyInstances));
+    // The transitions end where the (unplaced) cameras start.
+    CHECK(file.section(Section::EnvTransitions)->size() == cameras - transitions);
+    CHECK(file.section(Section::DirectionalLights)->size() == transitions - lights);
+    const auto read = read_env_transitions(file);
+    CHECK(read.circles.size() == 1 && read.circles[0][3] == 25.0f);
+    CHECK(read.transitions.size() == 1);
+    const auto& t = read.transitions[0];
+    CHECK(t.inverse[0][0] == 0.5f && t.inverse[3][3] == 0.5f && t.inverse[0][1] == 0.0f);
+    CHECK(t.hero_colour[1] == 0x4B4742 && t.hero_light[0] == 1 && t.hero_light[1] == 0xb);
+    CHECK(t.lerps_hero_light() && !t.lerps_fog());
+}
+
 }  // namespace
 
 int main() {
@@ -225,5 +275,6 @@ int main() {
     settings_and_instances();
     pvars();
     cameras();
+    going_commando();
     return openrac::test::result();
 }
