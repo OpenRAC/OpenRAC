@@ -841,6 +841,7 @@ void destroy_all() {
         for (auto& [name, b] : g->buffers.objects) {
             destroy_buffer(b);
         }
+        clear_test_programs();
         for (auto& [name, p] : g->programs.objects) {
             if (p.serial != 0) {
                 release_program(p);

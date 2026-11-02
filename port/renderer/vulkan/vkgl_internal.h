@@ -568,6 +568,8 @@ struct Program {
     std::string last_pipeline_key;
     VkPipeline last_pipeline = VK_NULL_HANDLE;  // Cleared before the program's pipelines retire.
     CompiledProgram compiled;
+    // Test retention also compares every reflected descriptor binding, including inactive resources.
+    std::vector<VkDescriptorSetLayoutBinding> test_layout_bindings;
     bool gpu_materials = false;
     unsigned material_start = 0;
     VkShaderModule vertex = VK_NULL_HANDLE;
@@ -841,6 +843,9 @@ public:
         rebuild();
     }
 
+    // Moves test-retained immutable pipelines to a newly linked program serial.
+    void rename_program(std::uint64_t from, std::uint64_t to);
+
     // The entries, for destroying every pipeline at close.
     [[nodiscard]] std::vector<Entry>::iterator begin() { return m_entries.begin(); }
 
@@ -1032,6 +1037,9 @@ struct Context {
 #ifdef OPENRAC_TRACY
     void* tracy_state = nullptr;
 #endif
+    bool test_program_borrow = false;    // Retain-only oracles create fresh driver objects.
+    bool test_program_reuse = false;     // Explicitly enabled only by rendering tests.
+    std::vector<Program> test_programs;  // Retained immutable objects, without GL uniform state.
     std::atomic_uint64_t validation_errors = 0;
     std::atomic<double> pipeline_compile_s = 0.0;      // Shared with the pipeline prewarm worker.
     std::atomic_uint64_t pipeline_creation_calls = 0;  // Every timed driver creation attempt.
@@ -1158,6 +1166,13 @@ VkResult timed_pipeline_creation(Create&& create) {
     g->pipeline_creation_calls.fetch_add(1, std::memory_order_relaxed);
     return result;
 }
+
+// Borrows exactly matching immutable driver objects from the test-only retention pool.
+bool reuse_test_program(Program& program);
+// Retains a linked program's driver objects without retaining its uniform or descriptor state.
+bool retain_test_program(Program& program);
+// Releases all retained test objects with retention disabled, before device teardown.
+void clear_test_programs();
 
 // Releases the optional depth-composition pipeline after device idle at context teardown.
 void release_depth_combine();

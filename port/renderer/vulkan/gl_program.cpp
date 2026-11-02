@@ -250,6 +250,9 @@ std::vector<VkDescriptorSetLayoutBinding> program_bindings(Program& program) {
                                               : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         }
     }
+    if (g->test_program_reuse) {
+        program.test_layout_bindings = bindings;
+    }
     return bindings;
 }
 
@@ -301,7 +304,7 @@ bool finish_program_link(Program& program) {
     program.last_set = VK_NULL_HANDLE;
     program.last_key.clear();
     program.descriptor_sets.clear();
-    if (program.compute) {
+    if (program.compute && !program.compute_pipeline) {
         VkComputePipelineCreateInfo info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
         info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
         info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -365,13 +368,21 @@ void VKGL link_program(GLuint name) {
         return;
     }
     separate_draw_uniform(*p, vs, fs);
+    // Descriptor mode is part of compatibility even when the same SPIR-V is used.
+    if (g->test_program_reuse) {
+        (void)program_bindings(*p);
+    }
+    const bool reused = reuse_test_program(*p);
     // Partial driver objects stay owned, but cannot become a linked executable.
-    if (!make_program_modules(*p) || !make_program_layouts(*p) || !finish_program_link(*p)) {
+    if ((!reused && (!make_program_modules(*p) || !make_program_layouts(*p)))
+        || !finish_program_link(*p)) {
         return;
     }
 
-    // Its pipelines of earlier runs are made on the pre-warm worker before its first draw.
-    prewarm_program(*p);
+    // Retained objects already own the graphics pipelines; fresh links keep normal prewarming.
+    if (!reused) {
+        prewarm_program(*p);
+    }
 }
 
 // Reports link status and diagnostic length through the GL table.
@@ -627,6 +638,10 @@ void VKGL uniform_block_binding(GLuint program, GLuint block, GLuint binding) {
 void release_program(Program& p) {
     // No pre-warm job may use its modules or layout once they are handed to defer.
     prewarm_forget(p.serial);
+    // Tests retain only immutable objects; a later link still starts with zero GL uniforms.
+    if (retain_test_program(p)) {
+        return;
+    }
     // Relinking and deletion retire every pipeline referenced by the program's fast lookup.
     p.last_pipeline = VK_NULL_HANDLE;
     p.last_pipeline_key.clear();

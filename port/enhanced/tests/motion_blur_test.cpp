@@ -569,6 +569,45 @@ void test_flood_setup_reuse() {
     renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurSetupReuse, previous);
 }
 
+// Adaptive gathers retain the registry's pixel contract and must actually blur moving detail.
+void test_adaptive_gather_contract() {
+    Fixture f;
+    std::string error;
+    CHECK(f.create(error));
+    f.moving_square();
+    f.tuning.samples = 64;
+    using renderer::render_opt::Opt;
+    renderer::render_opt::set(Opt::MotionBlurAdaptiveSamples, false);
+    const auto reference = f.render(.5f);
+    renderer::render_opt::set(Opt::MotionBlurAdaptiveSamples, true);
+    const auto adaptive = f.render(.5f);
+    CHECK(reference != f.colour);
+    CHECK(adaptive != f.colour);
+    std::size_t different = 0;
+    int maximum = 0;
+    for (std::size_t pixel = 0; pixel < reference.size(); ++pixel) {
+        int delta = 0;
+        for (std::size_t channel = 0; channel < 4; ++channel) {
+            delta = std::max(
+                delta,
+                std::abs(
+                    static_cast<int>(reference[pixel][channel])
+                    - static_cast<int>(adaptive[pixel][channel])
+                )
+            );
+        }
+        different += delta != 0;
+        maximum = std::max(maximum, delta);
+    }
+    const auto tolerance = renderer::render_opt::entry(Opt::MotionBlurAdaptiveSamples).tolerance;
+    CHECK(
+        static_cast<double>(different) / static_cast<double>(reference.size())
+        <= tolerance.max_differing_fraction
+    );
+    CHECK(maximum <= tolerance.max_channel_delta);
+    renderer::render_opt::set(Opt::MotionBlurAdaptiveSamples, true);
+}
+
 void test_foreground_occlusion() {
     Fixture f;
     std::string error;
@@ -597,6 +636,7 @@ int main(int argc, char**) {
     for (bool direct : {false, true}) {
         renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurFastPath, direct);
         renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, direct);
+        renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
         compare_direct = direct;
         test_cutscene_camera_blur();
         test_target_reference();
@@ -608,6 +648,7 @@ int main(int argc, char**) {
         test_live_blur_tuning();
         test_sample_and_depth_tuning();
         test_foreground_occlusion();
+        test_adaptive_gather_contract();
         test_thin_opposing_motion();
         test_jump_flood_radius_and_edges();
         test_wide_source_coordinates();
