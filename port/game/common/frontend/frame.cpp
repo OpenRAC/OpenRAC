@@ -1815,6 +1815,8 @@ TickPackets capture_2d_path(
     return k;
 }
 
+bool sends_image(std::span<const std::uint8_t> packets);
+
 // Decides how this tick's frames start (frontend/tick_picture.h): the last frame standing, the last
 // frame under the tick's 2D, or a cleared frame. `level`: the level program loaded.
 void choose_repeat_frame(int level, bool debug) {
@@ -1830,6 +1832,12 @@ void choose_repeat_frame(int level, bool debug) {
     );
     g->repeat_frame = picture == TickPicture::Repeat;
     g->overdraw = picture == TickPicture::Overdraw;
+    // The picture stands, but the chip still took the images the tick's list sent: kept, a block
+    // the game sends once is there when a later tick draws from it.
+    if (g->repeat_frame && g->hud && g->profile->repeated_ticks_send_images()
+        && sends_image(k.packets)) {
+        g->hud->retain_uploads(k.packets);
+    }
     if (picture != TickPicture::Draw && debug) {
         log::info(
             "frame {}: {}",

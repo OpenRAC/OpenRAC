@@ -167,6 +167,12 @@ public:
     // that the list was still paging into (Going Commando's flight, func_002E80B0).
     virtual bool images_outlast_list() const { return false; }
 
+    // Whether a tick whose last picture stands (frontend/tick_picture.h: Repeat) still applies the
+    // images its list sends to the chip: Going Commando's Galactic Map sends a planet's pictures
+    // once (func_002D6F38) with its 512 x 512 level map, a list as long as a page menu's read-back,
+    // on a tick that draws no world, so the tick was taken for a menu's gap and its images lost.
+    virtual bool repeated_ticks_send_images() const { return false; }
+
     // Whether the moby program lights each moby by the point lights in reach of its sphere's centre
     // as a third directional light (Going Commando's MobyProc, 0x2A51C8 and 0x2A57F8), rather than
     // not at all.
