@@ -294,7 +294,7 @@ void configure_capture() {
 
 // The folder the captures go to: perf/ in OpenRAC's data folder, beside the cards and settings
 // (%LOCALAPPDATA%\openrac\perf on Windows); on Android the app's own files (HOME), which the
-// Files app shows as "Diagnostics recordings". Absolute, so the toast says where it is.
+// Files app shows as "Diagnostics recordings". Absolute, so the notification says where it is.
 std::filesystem::path capture_dir() {
 #if defined(__ANDROID__)
     std::filesystem::path dir = "perf";
@@ -628,13 +628,17 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
     } else {
         log::warn("performance capture: could not write {}", where);
     }
-    s.toast = std::format(
-        "Diagnostics report {}{}",
-        copied ? "copied to the clipboard" : "ready",
-        written ? " · saved to " + where : " · could not be saved to " + where
-    );
-    s.toast_until = ImGui::GetTime() + (written ? 8.0 : 15.0);
-    s.message = s.toast;
+    Notification done{
+        .title =
+            written
+                ? std::format("Diagnostics report {}", copied ? "copied to the clipboard" : "ready")
+                : std::string("The diagnostics report could not be saved"),
+        .text = (written ? "Saved to " : "Not written to ") + where,
+        .tone = written ? Tone::Done : Tone::Error,
+        .seconds = written ? 8.0 : 15.0,
+    };
+    s.message = done.title + ": " + done.text;
+    notify(std::move(done));
     if (c.hid_panel) {
         set_visible(true);
         c.hid_panel = false;
@@ -717,8 +721,12 @@ void open_capture_folder() {
         }
     }
     if (!SDL_OpenURL(url.c_str())) {
-        s.toast = std::format("Could not open {}", path);
-        s.toast_until = ImGui::GetTime() + 6.0;
+        notify({
+            .title = "The folder could not be opened",
+            .text = path,
+            .tone = Tone::Error,
+            .seconds = 6.0,
+        });
     }
 }
 

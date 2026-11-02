@@ -355,6 +355,9 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = r.can_raise;
             return it;
         }
+        case Id::MenuHint:
+            it.on = set.menu_hint;
+            return it;
         case Id::TouchButtonSize:
             it.value = std::format("{}%", set.touch_scale);
             it.can_lower = set.touch_scale > settings::kTouchScales[0];
@@ -651,6 +654,10 @@ bool act(Id id, int by) {
         case Id::MenuOpen:
         case Id::ControlsReset:
             controls_act(id, by);
+            return false;
+        case Id::MenuHint:
+            set.menu_hint = !set.menu_hint;
+            settings::save();
             return false;
         case Id::TouchButtonSize:
             set.touch_scale = settings::step_listed(settings::kTouchScales, set.touch_scale, by);

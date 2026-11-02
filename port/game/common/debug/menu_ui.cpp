@@ -7,6 +7,7 @@
 #include "debug/menu_ui.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cfloat>
 #include <cmath>
 #include <imgui.h>
@@ -161,6 +162,80 @@ void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink) {
          tip,
          ImVec2(back.x + dy * arm, back.y + dx * arm)};
     list->AddPolyline(points, 3, ink, ImDrawFlags_None, dp(2.0f));
+}
+
+namespace {
+
+// A key of one sign (an arrow, `, /) is set larger, in the text's letters, and centred by its
+// own shape: the caps' small letters would leave it a speck, and a ` sits at the line's top.
+bool cap_sign(const std::string& key) {
+    unsigned int c = 0;
+    const int length = ImTextCharFromUtf8(&c, key.c_str(), nullptr);
+    return length == static_cast<int>(key.size())
+           && (c >= 0x2190 ? c <= 0x2193 : std::ispunct(static_cast<int>(c)) != 0);
+}
+
+struct CapText {
+    ImFont* font;
+    float size;
+};
+
+CapText cap_text(const std::string& key) {
+    if (!cap_sign(key)) {
+        return {menu_fonts.small, menu_fonts.small->FontSize};
+    }
+    // An arrow a little over the text's size; a mark, smaller of itself, in the titles' larger
+    // letters at the size they were made at (scaled up, a glyph blurs).
+    if (static_cast<unsigned char>(key[0]) >= 0x80) {
+        return {menu_fonts.body, menu_fonts.body->FontSize * 1.25f};
+    }
+    return {menu_fonts.title, menu_fonts.title->FontSize};
+}
+
+}  // namespace
+
+float key_cap_height() {
+    return dp(22.0f);
+}
+
+float key_cap_width(const std::string& key) {
+    const CapText t = cap_text(key);
+    const float w = t.font->CalcTextSizeA(t.size, FLT_MAX, 0.0f, key.c_str()).x;
+    return std::max(key_cap_height(), w + dp(14.0f));
+}
+
+float beside_caps(const ImFont* font, float middle) {
+    // A capital letter of the caps (Inter's are 0.727 of the size) centred in them: the line's
+    // box, with room below for descenders, would sit the letters low.
+    return middle + menu_fonts.small->FontSize * 0.727f * 0.5f - font->Ascent;
+}
+
+float key_cap(ImDrawList* list, float x, float middle, const std::string& key, float alpha) {
+    const float h = key_cap_height();
+    const float w = key_cap_width(key);
+    const ImVec2 a(x, middle - h * 0.5f);
+    const ImVec2 b(x + w, middle + h * 0.5f);
+    list->AddRectFilled(a, b, ui_colors::fade(ui().panel_hi, alpha), h * 0.5f);
+    list->AddRect(a, b, ui_colors::fade(ui().line_strong, alpha), h * 0.5f);
+    const CapText t = cap_text(key);
+    const ImVec2 size = t.font->CalcTextSizeA(t.size, FLT_MAX, 0.0f, key.c_str());
+    float top = beside_caps(t.font, middle);
+    if (cap_sign(key)) {
+        unsigned int c = 0;
+        ImTextCharFromUtf8(&c, key.c_str(), nullptr);
+        const ImFontGlyph* glyph = t.font->FindGlyph(static_cast<ImWchar>(c));
+        const float scale = t.size / t.font->FontSize;
+        top = glyph != nullptr ? middle - (glyph->Y0 + glyph->Y1) * 0.5f * scale
+                               : middle - size.y * 0.5f;
+    }
+    list->AddText(
+        t.font,
+        t.size,
+        ImVec2(x + (w - size.x) * 0.5f, top),
+        ui_colors::fade(ui().gold, alpha),
+        key.c_str()
+    );
+    return w;
 }
 
 void card_begin() {
@@ -365,6 +440,7 @@ void set_menu(bool open) {
         s.held_frames = 0;
         s.menu_focus = true;
         s.menu_scroll.velocity = 0.0f;  // a flick from the last time does not glide on
+        dismiss("menu.hint");           // the hint at the start has done its work
     } else {
         s.paused = s.keep_paused;
     }

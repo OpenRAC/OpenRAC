@@ -87,10 +87,8 @@ void configure() {
         if (const std::size_t at = v->find('@'); at != std::string_view::npos) {
             s.menu_open_at = std::atoll(std::string(v->substr(at + 1)).c_str());
         }
-    } else if (!drawer_possible() && settings::get().menu_bar) {
-        // Until the player has opened it once: a hint at the start of what opens the menu.
-        s.toast = menu_key_label() + " opens the menu";
-        s.toast_until = 8.0;
+    } else if (settings::get().menu_hint) {
+        notify_menu_hint();  // what opens the menu, at the start
     }
     // OPENRAC_OVERLAY: shown from the start; a list of names opens those sections ("all": every
     // one), "inspect" selects the hero and opens the inspector, "labels" names the mobys in view,
@@ -650,33 +648,33 @@ bool event(const SDL_Event& e) {
             && e.gbutton.button == menu_bar_button() && SDL_GetKeyboardFocus() != nullptr) {
             toggle_menu();
         }
-        // Every controller has these: Back (Select) and Start pressed together. Its Home button
-        // stays the system's and Steam's.
-        MenuMotion& m = s.menu_motion;
-        if ((e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP)
-            && SDL_GetKeyboardFocus() != nullptr) {
-            const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
-            const auto button = static_cast<SDL_GamepadButton>(e.gbutton.button);
-            if (button == SDL_GAMEPAD_BUTTON_BACK) {
-                m.back_held = down;
-            } else if (button == SDL_GAMEPAD_BUTTON_START) {
-                m.start_held = down;
-            }
-            if (down && m.back_held && m.start_held
-                && (button == SDL_GAMEPAD_BUTTON_BACK || button == SDL_GAMEPAD_BUTTON_START)) {
-                m.pad = true;
-                toggle_menu();
-                return true;
-            }
+    }
+    // Every controller has these, on a desktop and a touch screen alike: Back (Select) and Start
+    // pressed together. Its Home button stays the system's and Steam's.
+    MenuMotion& m = s.menu_motion;
+    if ((e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP)
+        && SDL_GetKeyboardFocus() != nullptr) {
+        const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+        const auto button = static_cast<SDL_GamepadButton>(e.gbutton.button);
+        if (button == SDL_GAMEPAD_BUTTON_BACK) {
+            m.back_held = down;
+        } else if (button == SDL_GAMEPAD_BUTTON_START) {
+            m.start_held = down;
         }
-        // Whose buttons the menu names at its foot: the controller's, or the keyboard's. Watched
-        // while it is shut too, so a menu opened from a controller names the controller's.
-        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
-            || (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && std::abs(e.gaxis.value) > 16000)) {
+        if (down && m.back_held && m.start_held
+            && (button == SDL_GAMEPAD_BUTTON_BACK || button == SDL_GAMEPAD_BUTTON_START)) {
             m.pad = true;
-        } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-            m.pad = false;
+            toggle_menu();
+            return true;
         }
+    }
+    // Whose buttons the menu names at its foot: the controller's, or the keyboard's. Watched
+    // while it is shut too, so a menu opened from a controller names the controller's.
+    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
+        || (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && std::abs(e.gaxis.value) > 16000)) {
+        m.pad = true;
+    } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        m.pad = false;
     }
     // Escape closes the desktop's menu, as B does (menu_window).
     if (menu_window_possible() && s.menu_open && e.type == SDL_EVENT_KEY_DOWN
@@ -857,8 +855,8 @@ void draw(const Shown& shown) {
     }
     stats::lap("present");
     s.window = shown.window;
-    const bool badge = s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty()
-                       || capture_busy() || !mods::play_notice().empty();
+    const bool badge = s.paused || s.stretch != 1.0 || notifications_pending() || capture_busy()
+                       || !mods::play_notice().empty();
     const bool menu_out = s.menu_open || s.menu_at > 0.0f || s.shot_when_shut || s.touch_editing;
     if (!(s.visible || s.enhanced_settings || picker_enabled() || badge || menu_out
           || !s.shot_path.empty())
@@ -920,7 +918,8 @@ void draw(const Shown& shown) {
     }
     picker_overlay(shown);
     object_viewer_window(shown);
-    status_badge();
+    status_notifications();
+    draw_notifications();
     ImGui::Render();
     if (s.gl_subset) {
         renderer::ui::imgui_gl::render(ImGui::GetDrawData());
@@ -944,9 +943,13 @@ void draw(const Shown& shown) {
         }
     }
     if (!s.shot_path.empty()) {
-        s.toast = (write_window(s.shot_path, shown.window_width, shown.window_height) ? "saved " : "cannot save ")
-                  + s.shot_path;
-        s.toast_until = ImGui::GetTime() + 2.5;
+        const bool saved = write_window(s.shot_path, shown.window_width, shown.window_height);
+        notify({
+            .title = saved ? "Screenshot saved" : "The screenshot could not be saved",
+            .text = s.shot_path,
+            .tone = saved ? Tone::Done : Tone::Error,
+            .seconds = saved ? 3.0 : 8.0,
+        });
         s.shot_path.clear();
     }
 }
@@ -975,10 +978,6 @@ bool holding() {
 double tick_stretch() {
     configure();
     return s.stretch;
-}
-
-void notice(const std::string& text) {
-    s.notice = text;
 }
 
 bool take_settings_changed() {

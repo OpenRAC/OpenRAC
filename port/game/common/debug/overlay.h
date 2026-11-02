@@ -249,9 +249,6 @@ struct State {
     int shots = 0;                 // written so far (at most 10,000)
 
     std::string message;       // what the last action said (a reload, a file written)
-    std::string notice;        // kept in the picture until cleared (debug_overlay::notice)
-    std::string toast;         // the same for an action taken with the panel hidden, shown a moment
-    double toast_until = 0.0;  // the ImGui time the toast goes at
     bool alt_alone = false;    // Alt went down and no other key since: its release toggles the menu
     bool menu_key_capture = false;     // the next key pressed becomes the menu's (Controls tab)
     bool menu_button_capture = false;  // the next pad button becomes the menu's
@@ -483,8 +480,7 @@ SDL_Scancode menu_bar_scancode();
 SDL_GamepadButton menu_bar_button();
 std::string menu_bar_button_label();
 
-// Opens or closes the menu. The first time the player opens it, the hint at the start
-// (settings.h's menu_bar) is not shown again. Defined in debug/menu_bar.cpp.
+// Opens or closes the menu. Defined in debug/menu_bar.cpp.
 void toggle_menu();
 
 // Moves setting `row` (options_menu.h) on by `by`, saves the settings and marks them changed for
@@ -533,7 +529,7 @@ void open_capture_folder();
 bool capture_busy();
 bool capture_pending();
 
-// The status badge's line for the capture ("REC 12 / 30 s"); empty when none runs.
+// The notification of the capture ("REC 12 / 30 s"); empty when none runs.
 std::string capture_badge();
 
 // Once a picture, before the overlay is drawn: starts a capture whose time has come, ends one when
@@ -561,10 +557,19 @@ void object_viewer_window(const Shown& shown);
 // Release private studio resources while the graphics context and ImGui are still alive.
 void release_object_viewer();
 
-// Draws the status badge at the top of the picture, whether the panel is shown or not: the pause
-// and the speed the keys have set, the toast while it lasts and the notice. Hidden while the
-// drawer is out, which says it. Defined in debug/picture.cpp.
-void status_badge();
+// Keeps the notifications of what stands (debug_overlay.h, Notification) up to date, whether the
+// panel is shown or not: the pause and the speed the keys have set, a recording, a mod's line.
+// Defined in debug/picture.cpp.
+void status_notifications();
+
+// Draws the notifications, over everything else (debug/notifications.cpp); says whether any is
+// shown or going.
+void draw_notifications();
+bool notifications_pending();
+
+// The hint at the start: what opens the menu (settings.h's menu_hint). Defined in
+// debug/notifications.cpp.
+void notify_menu_hint();
 
 // Draws one line of text, formatted as std::format does.
 template <typename... Args>

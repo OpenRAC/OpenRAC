@@ -29,9 +29,12 @@ the window's own resolution. Until it is first shown nothing of it exists
 | F7 / F8 | slower / faster: the game at 1/2, 1/4, 1/8, 1/16 of its speed |
 | F12 | write the window as it is shown to `openrac_window_<tick>.png` in the working directory |
 
-F5 to F8 and F12 work whether the overlay is shown or not. While the game is
-paused or slowed, a line at the top of the picture says so and names the keys
-that undo it; a screenshot says where it went.
+F5 to F8 and F12 work whether the overlay is shown or not. What the port says
+over the game comes as notifications, cards that drop in at the top of the
+picture (`debug_overlay::notify`, `port/game/common/debug/notifications.cpp`):
+while the game is paused or slowed one says so and names the keys that undo it;
+a screenshot, a recording and its report, a level that could not be read and a
+mod's line (`play_notice`) are others. They wait while the menu is out.
 
 The same keys and the port's settings are in one menu, whose entries are one
 list (`port/game/common/menu_catalog.cpp`): an entry added there shows on every
@@ -41,9 +44,8 @@ Enhanced, Game, Controls, Developer, and a tab for each mod's own menu) down
 from the window's top, with the tab's options in a window under it and, beside
 them, what the option under the pointer or the focus does. The game waits while
 it is open; Keep paused (Developer) keeps it so once the menu closes. Escape, B
-or the key again closes it; L1/R1 or Page Up/Down change tabs. Until the menu
-has been opened once, a line at the start names its key (the `menu_bar`
-setting). `OPENRAC_MENU=TAB` (`graphics`, `enhanced`, `game`, `controls`,
+or the key again closes it; L1/R1 or Page Up/Down change tabs. At the start a
+notification names what opens it (the `menu_hint` setting; Controls, Menu). `OPENRAC_MENU=TAB` (`graphics`, `enhanced`, `game`, `controls`,
 `developer`) opens it on that tab from the start. On macOS the system's menu
 bar keeps View, Sound and Developer as well. On Android the same entries are in
 a drawer that slides in from the left (docs/port/ANDROID.md); `OPENRAC_DRAWER=1`

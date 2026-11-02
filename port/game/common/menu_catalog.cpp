@@ -169,6 +169,9 @@ constexpr Entry kEntries[] = {
      "The key and the controller button that open and close this menu. Any controller's Select "
      "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "
      "counts pressed by itself, so Alt+Return still goes full screen."},
+    {Id::MenuHint, Tab::Controls, "Menu", kSwitch, A, "Say how to open it at the start",
+     "A notification at the top of the picture when the game starts names what opens this "
+     "menu, and goes after a few seconds."},
     {Id::TouchButtonSize, Tab::Controls, "Touch controls", kChoice, T, "Button size",
      "The on-screen buttons' size."},
     {Id::TouchCameraSpeed, Tab::Controls, "Touch controls", kChoice, T, "Camera speed",

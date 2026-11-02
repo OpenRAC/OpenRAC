@@ -66,6 +66,16 @@ void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held)
 // An arrow as the launcher draws one, pointing `dx` (-1, 1) or, with `dx` 0, `dy` (1 down, -1 up).
 void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink);
 
+// A key or a controller's button as a cap, as the menu's foot and the notifications show them: its
+// left edge at `x`, its middle at `middle`, faded to `alpha`. Returns its width.
+float key_cap(ImDrawList* list, float x, float middle, const std::string& key, float alpha);
+float key_cap_width(const std::string& key);
+float key_cap_height();
+
+// The top to draw `font`'s text at so it shares the caps' baseline, beside caps whose middle is
+// at `middle`.
+float beside_caps(const ImFont* font, float middle);
+
 // ---- Rows on cards ----
 
 // A section's rows on one card: begun before its first row, ended after its last.

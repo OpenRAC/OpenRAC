@@ -142,6 +142,8 @@ constexpr Old kOld[] = {
     {kTouch, "Player 1: controller, keyboard", Id::PlayerOne},
     {kDesktop, "Players back to the defaults", Id::PlayersReset},
     {kDesktop, "Menu: key and controller button", Id::MenuOpen},
+    {kDesktop, "The hint at the start of what opens the menu", Id::MenuHint},
+    {kTouch, "The hint at the start of what opens the menu", Id::MenuHint},
     {kDesktop, "Reset this game's / every game's controls", Id::ControlsReset},
     {kTouch, "Reset this game's / every game's controls", Id::ControlsReset},
 };

@@ -91,11 +91,6 @@ std::string menu_key_label() {
 
 void toggle_menu() {
     set_menu(!s.menu_open);
-    // The hint at the start has done its work once the player has opened the menu by its key.
-    if (s.menu_open && settings::get().menu_bar) {
-        settings::get().menu_bar = false;
-        settings::save();
-    }
 }
 
 }  // namespace openrac::frontend::debug_overlay
