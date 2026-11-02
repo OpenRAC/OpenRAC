@@ -13,6 +13,7 @@
 #include <imgui_internal.h>  // ImGui::FindRenderedTextEnd: a label's text before its "##" id
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL.h>
 
@@ -31,7 +32,12 @@ const std::string& graphics_line() {
         const auto* name =
             reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
         const char* api = s.gl_subset ? "Vulkan" : openrac::gl::is_es() ? "OpenGL ES" : "OpenGL";
-        return std::format("{} · {}", api, name != nullptr ? name : "unknown GPU");
+        std::string gpu = name != nullptr ? name : "unknown GPU";
+        // On Vulkan the renderer's GL names the GPU "<name> (Vulkan)": the API is said already.
+        if (constexpr std::string_view vk = " (Vulkan)"; gpu.ends_with(vk)) {
+            gpu.resize(gpu.size() - vk.size());
+        }
+        return std::format("{} · {}", api, gpu);
     }();
     return graphics;
 }

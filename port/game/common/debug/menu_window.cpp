@@ -266,11 +266,10 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
                                      "controller, to see what it does here.";
         text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ink(ui().dim), line, wrap);
     }
-    // At its foot, over a hairline: what draws the picture, and how to get back to the game.
+    // At its foot, over a hairline: what draws the picture.
     ImFont* body = menu_fonts.body;
-    const std::string keys = menu_key_label() + ", or a controller's Select + Start: this menu";
     const float line = body->FontSize * 1.4f;
-    const float foot = b.y - pad - line * 2.0f;
+    const float foot = b.y - pad - line;
     list->AddLine(
         ImVec2(a.x + pad, foot - dp(14.0f)), ImVec2(b.x - pad, foot - dp(14.0f)), ui().line
     );
@@ -282,9 +281,6 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
         menu_graphics_line().c_str(),
         nullptr,
         wrap
-    );
-    list->AddText(
-        body, body->FontSize, ImVec2(a.x + pad, foot + line), ui().dim, keys.c_str(), nullptr, wrap
     );
 }
 
