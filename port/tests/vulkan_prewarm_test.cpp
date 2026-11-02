@@ -10,7 +10,7 @@
 // Each run is a context of its own, opened and closed in turn, on one private pipeline cache file
 // and its manifest (OPENRAC_VULKAN_PIPELINE_CACHE, set before anything reads the environment). The
 // expected counts follow from what each run draws: kStates pipelines of one program. The last
-// test links them from parts (vk-pipeline-library) and compares the picture with the whole ones'.
+// tests link them from parts (vk-pipeline-library) and compare the pictures with the whole ones'.
 
 #include <array>
 #include <cstdint>
@@ -216,6 +216,105 @@ void test_new_pipelines_are_linked_from_parts() {
     CHECK(linked.made_by_draws == 0);
 }
 
+// The two vertex layouts of the shared-part test: a triangle of two floats a vertex, packed, and
+// a triangle that covers the picture, each vertex's two floats followed by two that are not read.
+// Read with the packed layout's stride, the second's vertices would be (-1, -1) twice and (3, -1):
+// a triangle of no area, which draws nothing.
+constexpr std::array<float, 6> kPacked = {-1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f};
+constexpr std::array<float, 12> kSpaced =
+    {-1.0f, -1.0f, -1.0f, -1.0f, 3.0f, -1.0f, -1.0f, -1.0f, -1.0f, 3.0f, -1.0f, -1.0f};
+
+// Draws the packed triangle, then the spaced one, each into a cleared picture, with one program;
+// returns the two pictures one after the other, and the pipelines the draws linked in `linked`.
+// Empty where Vulkan is not here.
+std::vector<std::uint8_t> draw_layouts(std::uint64_t& linked) {
+    openrac::test::GlContext context;
+    std::string error;
+
+    // No Vulkan here: nothing to draw.
+    if (!context.open(error) || !vkgl::active()) {
+        return {};
+    }
+
+    openrac::renderer::Shader shader;
+    CHECK(shader.build(
+        "vertex layout fixture",
+        "#version 410 core\n"
+        "layout(location = 0) in vec2 position;\n"
+        "void main() { gl_Position = vec4(position, 0, 1); }\n",
+        "#version 410 core\n"
+        "layout(location = 0) out vec4 result;\n"
+        "void main() { result = vec4(0.25, 0.75, 0.5, 1.0); }\n",
+        error
+    ));
+    openrac::renderer::FrameBuffer target;
+    CHECK(target.create(kSide, kSide, error));
+    std::array<unsigned, 2> vaos{};
+    std::array<unsigned, 2> buffers{};
+    glGenVertexArrays(2, vaos.data());
+    glGenBuffers(2, buffers.data());
+    glBindVertexArray(vaos[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof kPacked, kPacked.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
+    glBindVertexArray(vaos[1]);
+    glBindBuffer(GL_ARRAY_BUFFER, buffers[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof kSpaced, kSpaced.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+    shader.use();
+    const std::uint64_t linked_before = vkgl::submission_counters().pipelines_linked;
+    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+    glViewport(0, 0, kSide, kSide);
+    glDisable(GL_BLEND);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    std::vector<std::uint8_t> pixels;
+
+    // Each layout into a cleared picture, which is kept.
+    for (const unsigned vao : vaos) {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        const std::vector<std::uint8_t> picture = target.read_rgba();
+        pixels.insert(pixels.end(), picture.begin(), picture.end());
+    }
+
+    linked = vkgl::submission_counters().pipelines_linked - linked_before;
+    CHECK(vkgl::submission_counters().validation_errors == 0);
+    glDeleteBuffers(2, buffers.data());
+    glDeleteVertexArrays(2, vaos.data());
+    return pixels;
+}
+
+// Tests that pipelines linked from a part they share draw what their whole pipelines draw: two
+// draws of one program in one state but two vertex layouts share the output part, which must not
+// carry the first draw's vertex input into the second's pipeline (as NVIDIA's driver let it).
+void test_a_shared_part_keeps_only_its_own_state() {
+    std::uint64_t none = 0;
+    std::uint64_t linked = 0;
+    // Nothing made whole ahead or in place of a linked one: every pipeline of the second run is
+    // linked, as it is until a worker's whole one replaces it.
+    render_opt::set(render_opt::Opt::PipelinePrewarm, false);
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
+    const std::vector<std::uint8_t> whole = draw_layouts(none);
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, true);
+    const std::vector<std::uint8_t> parts = draw_layouts(linked);
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
+    render_opt::set(render_opt::Opt::PipelinePrewarm, true);
+    CHECK(none == 0);
+    CHECK(whole.size() == static_cast<std::size_t>(2 * kSide * kSide * 4));
+    CHECK(parts == whole);
+
+    // A device without fast linking links nothing; where it does, both draws were linked.
+    if (linked == 0) {
+        std::printf("note: the device links no pipelines from parts\n");
+        return;
+    }
+
+    CHECK(linked == 2);
+}
+
 }  // namespace
 
 int main() {
@@ -243,6 +342,7 @@ int main() {
     test_a_manifest_of_a_program_no_longer_built_is_ignored();
     test_a_damaged_manifest_is_ignored(fs::path(cache.string() + ".manifest"));
     test_new_pipelines_are_linked_from_parts();
+    test_a_shared_part_keeps_only_its_own_state();
     fs::remove_all(folder, ec);
     return openrac::test::result();
 }
