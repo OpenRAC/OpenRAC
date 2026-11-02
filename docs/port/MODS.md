@@ -738,7 +738,7 @@ with, for each mod:
 |---|---|
 | `<id>-<version>-<platform>.zip` | the mod for one platform (`macos-arm64`, `linux-x86_64`, `windows-x86_64`, ...): what the launcher downloads |
 | `<id>-<version>.zip` | every platform's joined, for installing by hand |
-| `SHA256SUMS` | `sha256sum`'s format, a line per asset: the launcher refuses an asset whose hash is not listed or differs |
+| `SHA256SUMS` | `sha256sum`'s format, a line per asset. Needed only for an asset GitHub gives no `digest` for (older uploads); the launcher refuses an asset with neither, or whose hash differs from either |
 
 The SDK's template carries the workflow that makes them
 ([template/.github/workflows/build.yml](../../sdk/template/.github/workflows/build.yml):
@@ -758,8 +758,9 @@ so a modder pushes a tag and nothing else; openrac-mods uses the same file.
    installed, with the warning that a native mod runs code on this computer;
 3. installs the chosen mod: a native mod is the release's
    `<id>-<version>-<platform>.zip` for this computer, checked against
-   `SHA256SUMS`, then installed as a `.zip` is (section 9). A mod with no
-   asset for this platform, no `SHA256SUMS`, a hash that differs, or a
+   GitHub's `digest` for the asset and `SHA256SUMS`, then installed as a `.zip`
+   is (section 9). A mod with no asset for this platform, neither a digest nor
+   a `SHA256SUMS` line, a hash that differs, or a
    manifest in the archive that is not the one shown, is refused with that
    reason. A data pack (no `plugin`) comes from its asset when the release
    has one, else from the repository's archive at the release's tag (or the

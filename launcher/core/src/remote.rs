@@ -1,6 +1,6 @@
 //! Mods from a git repository's address (docs/port/MODS.md, section 10): what the address holds,
 //! shown before anything is installed; a native mod's built archive for this computer from the
-//! repository's release, checked against its `SHA256SUMS`; a script mod's or a data pack's files (the
+//! repository's release, checked against GitHub's digest or its `SHA256SUMS`; a script mod's or a data pack's files (the
 //! release's joined archive, checked, else the repository's own files: MODS.md, section 11); where each mod came
 //! from (`<data>/plugins/sources.json`), and newer releases to update to.
 //!
@@ -199,6 +199,16 @@ pub fn parse_url(text: &str) -> Result<Source, String> {
 struct Asset {
     name: String,
     browser_download_url: String,
+    #[serde(default)]
+    digest: Option<String>,
+}
+
+impl Asset {
+    /// GitHub's SHA-256 of the uploaded file, lower case. Older uploads have none.
+    fn sha256(&self) -> Option<String> {
+        let hex = self.digest.as_deref()?.strip_prefix("sha256:")?;
+        (hex.len() == 64 && hex.chars().all(|c| c.is_ascii_hexdigit())).then(|| hex.to_ascii_lowercase())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -215,6 +225,11 @@ struct Release {
 impl Release {
     fn asset(&self, name: &str) -> Option<&Asset> {
         self.assets.iter().find(|a| a.name == name)
+    }
+
+    /// Whether asset `name` can be checked: by GitHub's digest or the release's SHA256SUMS.
+    fn checkable(&self, name: &str) -> bool {
+        self.asset(SUMS).is_some() || self.asset(name).is_some_and(|a| a.sha256().is_some())
     }
 }
 
@@ -334,15 +349,20 @@ pub fn parse_sums(text: &str) -> BTreeMap<String, String> {
     out
 }
 
-/// Whether `bytes` are the file `name` that `sums` lists: why not.
-pub fn verify(bytes: &[u8], name: &str, sums: Option<&str>) -> Result<(), String> {
-    let sums =
-        sums.ok_or_else(|| format!("The release has no {SUMS}: {name} cannot be checked, so it is not installed."))?;
-    let want = parse_sums(sums).remove(name).ok_or_else(|| {
-        format!("The release's {SUMS} does not list {name}: it cannot be checked, so it is not installed.")
-    })?;
+/// Whether `bytes` are the file `name`, by GitHub's `digest` and what `sums` lists: why not. One
+/// of the two is needed; when both are there, both must match.
+pub fn verify(bytes: &[u8], name: &str, digest: Option<&str>, sums: Option<&str>) -> Result<(), String> {
+    let listed = sums.and_then(|s| parse_sums(s).remove(name));
+    if digest.is_none() && listed.is_none() {
+        return Err(match sums {
+            None => format!("The release has no {SUMS}: {name} cannot be checked, so it is not installed."),
+            Some(_) => {
+                format!("The release's {SUMS} does not list {name}: it cannot be checked, so it is not installed.")
+            }
+        });
+    }
     let got = format!("{:x}", Sha256::digest(bytes));
-    if got != want {
+    if [digest, listed.as_deref()].into_iter().flatten().any(|want| want != got) {
         return Err(format!(
             "{name} is not the file the release lists (its SHA-256 differs): it was damaged or changed, and is not installed."
         ));
@@ -574,9 +594,11 @@ fn read_github(
                         Some(r) => {
                             m.asset = Some(name);
                             m.tag = Some(r.tag_name.clone());
-                            if r.asset(SUMS).is_none() && m.compatible {
+                            if !r.checkable(m.asset.as_deref().unwrap_or_default()) && m.compatible {
                                 m.compatible = false;
-                                m.why = Some(format!("Its release has no {SUMS}, so its download cannot be checked."));
+                                m.why = Some(format!(
+                                    "Its release has no {SUMS} and no digest from GitHub, so its download cannot be checked."
+                                ));
                             }
                         }
                         None if m.compatible => {
@@ -597,9 +619,9 @@ fn read_github(
             }
         } else {
             // A script mod or a data pack: its joined archive from a release when there is one
-            // (checked against SHA256SUMS), else the repository's own files.
+            // (checked against GitHub's digest or SHA256SUMS), else the repository's own files.
             let name = format!("{}-{}.zip", m.id, m.version);
-            if let Some(r) = eligible.iter().find(|r| r.asset(&name).is_some() && r.asset(SUMS).is_some()) {
+            if let Some(r) = eligible.iter().find(|r| r.asset(&name).is_some() && r.checkable(&name)) {
                 m.asset = Some(name);
                 m.tag = Some(r.tag_name.clone());
             }
@@ -916,8 +938,9 @@ pub fn install_checked(
     let result = if m.kind == "native" {
         let r = release(&m.tag).ok_or("the release went away while it was read")?;
         let name = m.asset.clone().ok_or("no asset")?;
-        let bytes = ctx.fetch.get(&r.asset(&name).ok_or("no asset")?.browser_download_url, false)?;
-        verify(&bytes, &name, sums_of(&r)?.as_deref())?;
+        let asset = r.asset(&name).ok_or("no asset")?;
+        let bytes = ctx.fetch.get(&asset.browser_download_url, false)?;
+        verify(&bytes, &name, asset.sha256().as_deref(), sums_of(&r)?.as_deref())?;
         check_expected(&bytes, &name, expected)?;
         let inside = manifest_in_zip(&bytes)?;
         let (got_id, got_version) = (
@@ -946,8 +969,9 @@ pub fn install_checked(
         let _ = std::fs::remove_dir_all(&target);
         let staging = plugins::Scratch::new(ctx.dir, "pack")?;
         let folder = if let (Some(name), Some(r)) = (m.asset.clone(), release(&m.tag)) {
-            let bytes = ctx.fetch.get(&r.asset(&name).ok_or("no asset")?.browser_download_url, false)?;
-            verify(&bytes, &name, sums_of(&r)?.as_deref())?;
+            let asset = r.asset(&name).ok_or("no asset")?;
+            let bytes = ctx.fetch.get(&asset.browser_download_url, false)?;
+            verify(&bytes, &name, asset.sha256().as_deref(), sums_of(&r)?.as_deref())?;
             check_expected(&bytes, &name, expected)?;
             let zip = staging.0.join(&name);
             std::fs::write(&zip, &bytes).map_err(|e| e.to_string())?;
@@ -1452,6 +1476,37 @@ mod tests {
         forget(dir.path(), "lock-strafe").unwrap();
         assert!(read_sources(dir.path()).mods.is_empty());
         assert!(set_pin(dir.path(), "lock-strafe", true).is_err());
+    }
+
+    #[test]
+    fn github_digest_checks_the_download() {
+        let (id, zero) = ("m", "0".repeat(64));
+        let name = asset_name(id, "1.0.0", PLATFORM);
+        let bytes = mod_zip(id, "1.0.0");
+        let good = sha(&bytes);
+        let other_line = format!("{zero}  other.zip\n");
+        let wrong_line = format!("{zero}  {name}\n");
+        for (digest, sums, want) in [
+            (good.as_str(), None, None),                                // no SHA256SUMS needed
+            (good.as_str(), Some(other_line), None),                    // not listed: the digest is enough
+            (zero.as_str(), None, Some("SHA-256 differs")),             // the digest is checked
+            (good.as_str(), Some(wrong_line), Some("SHA-256 differs")), // both must match
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut fx = Fixture::default();
+            let mut rel = release(&mut fx, "v1.0.0", id, "1.0.0", sums, false);
+            fx.put(&format!("{DL}/v1.0.0/{name}"), bytes.clone());
+            rel["assets"][0]["digest"] = format!("sha256:{}", digest.to_ascii_uppercase()).into();
+            repo(&mut fx, &[("openrac-mod.json", manifest(id, "1.0.0"))], serde_json::json!([rel]), "c1");
+            let c = ctx(dir.path(), &fx);
+            let got = install(&c, "https://github.com/o/r", id);
+            match want {
+                None => {
+                    got.unwrap();
+                }
+                Some(want) => assert!(got.unwrap_err().contains(want)),
+            }
+        }
     }
 
     #[test]
