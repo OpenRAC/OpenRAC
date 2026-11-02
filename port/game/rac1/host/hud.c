@@ -18,6 +18,12 @@
  * after it (by the same amount, so whatever the draw itself did to it stays): nothing else in the
  * game sees another HUD.
  *
+ * The weapon's panel is the exception: the game draws its dark strip from its place to the place
+ * again plus the frame's width (draw_weapon_ammo_hud_panel's `wd = x + width`), so moved left it
+ * came out shorter by the move and its right end twice as far in. That one is drawn at its own
+ * place with the whole screen moved instead (the screen's left, which every 2D draw adds), so it
+ * moves as one piece.
+ *
  * The idea is ReRAC's, which moves the same anchors out by the same flags (crates/rc-game/src/hud.rs,
  * `anchor`, and crates/rc-engine/src/display.rs, `side_extra`; ISC License, Copyright (c) 2026 ReRAC
  * contributors); no code of it is used.
@@ -26,10 +32,15 @@
 
 enum { SLOTS = 13, SLOT_BYTES = 0x90, SLOT_X = 0x50, SLOT_FLAGS = 0x60, ANCHOR_LEFT = 4, ANCHOR_RIGHT = 8 };
 
+/* The screen's left in 16ths of a pixel (screen_extent.left), added to every 2D draw's x. */
+#define SCREEN_LEFT GREF(int, RAC1_ADDR(0x0013E610u))
+
+/* How far each slot is moved while func_001FFFB8 draws them, else all 0. */
+static int moved[SLOTS];
+
 void func_001FFFB8(void) {
     const int side = openrac_game_hud_side();
     const gaddr slots = OPENRAC_DATA(RAC1_ADDR(0x00199C60u));
-    int moved[SLOTS];
     for (int i = 0; i < SLOTS; i++) {
         const gaddr slot = slots + (gaddr)i * SLOT_BYTES;
         const int flags = GREF(int, slot + SLOT_FLAGS);
@@ -39,5 +50,23 @@ void func_001FFFB8(void) {
     func_001FFFB8__game();
     for (int i = 0; i < SLOTS; i++) {
         GREF(int, slots + (gaddr)i * SLOT_BYTES + SLOT_X) -= moved[i];
+        moved[i] = 0;
     }
+}
+
+/* draw_weapon_ammo_hud_panel(element): put back at its own place, with the screen moved instead. */
+int func_L00_0023B140(gaddr element) {
+    const gaddr slots = OPENRAC_DATA(RAC1_ADDR(0x00199C60u));
+    const gaddr offset = element - slots;
+    const int by =
+        offset < SLOTS * SLOT_BYTES && offset % SLOT_BYTES == 0 ? moved[offset / SLOT_BYTES] : 0;
+    if (by == 0) {
+        return func_L00_0023B140__game(element);
+    }
+    GREF(int, element + SLOT_X) -= by;
+    SCREEN_LEFT += by * 16;
+    const int result = func_L00_0023B140__game(element);
+    SCREEN_LEFT -= by * 16;
+    GREF(int, element + SLOT_X) += by;
+    return result;
 }
