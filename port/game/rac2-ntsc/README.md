@@ -97,6 +97,10 @@ What the translation reads (`hostgen.json`):
 | `print.c` | `printf`, `sprintf`, `kprintf`, `scePrintf`: formatted by the port |
 | `sound.c` | `snd_SendCommandSync` (`0x00132C48`) and `snd_QueueCommandToRing` (`0x00132DF0`): every command, as all wrappers end there; a set-parameters reply of 0 is what frees a finished voice's slot, and music is two mono VAG files, right and left |
 | `trig.c` | the VU0 sine and cosine (`0x00283198`, `0x00283180`), from the microprogram the game loads at `0xC80`: where its constants are, for the shared body ([common/lib/vu0_sine.h](../common/lib/vu0_sine.h)) |
+| `ui2d.c` | the 2D layer's draw routines (font prints, glyph quads, HUD sprites), wrapped as rac1's `ui2d.c`: their quads go to the window as records, glyphs drawn from the font's distance field at the frame's resolution ([common/lib/ui_quad.h](../common/lib/ui_quad.h)) |
+| `hud.c` | the HUD in a wider picture with "HUD: Edges": the 13 slots ([common/lib/hud_edges.h](../common/lib/hud_edges.h)) and the widget HUD (`0x0034E4F8`) moved out by `kHudSideMarker` |
+| `wide_view.c` | the five draw callback lists and the sphere test (`0x00283DB8`) against the wider picture ([common/lib/wide_view_lists.h](../common/lib/wide_view_lists.h)), game fix `fix_wide_liquids` |
+| `options.c` | the game's own 16:9 (`0x001A7BB1`) kept off: the window's Picture setting gives the shape |
 | `wad.c` | the WAD decompressor (`0x0029D4D0`), through the shared body ([common/lib/wad_routine.h](../common/lib/wad_routine.h)) |
 
 `libraries.tsv` binds 164 entry points to the shared replacements: the
