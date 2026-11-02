@@ -735,6 +735,7 @@ void copy_world_camera(host::GameState& state) {
         state.fog_near_f = g->world_camera->fog_near_f;
         state.fog_far_f = g->world_camera->fog_far_f;
         state.background_colour = g->world_camera->background_colour;
+        state.moby_view = g->world_camera->moby_view;
         // A level's world under a menu's moby context: its mobys, not the menu's in the globals.
         if (g->world_under_menu) {
             state.mobys = g->world_camera->mobys;
@@ -1289,21 +1290,22 @@ TickMobys pose_mobys(
             && (ram[m.address + 0x32] | ram[m.address + 0x33]) == 0) {
             continue;
         }
-        // Beyond its draw distance, or wholly behind the eye: MobyProc does not draw it
-        // (GameProfile::beyond_draw_distance). Pokitaru places two mobys of class 1161 with a turn
-        // of -5 pi, past the reach of the game's sine; their rows come out thousands long and their
-        // spheres thousands of units away, so the game never draws them, while drawn here they
-        // covered the sky in cyan. A moby the game draws with a camera of its own (the menus', the
-        // vendor's) is not the world camera's to cull.
-        const bool world_camera =
-            !extra && world_ran && m.address + 0x34 <= ram.size()
-            && std::none_of(g->moby_cameras.begin(), g->moby_cameras.end(), [&](const auto& c) {
-                   return c.first == m.address;
-               });
-        if (world_camera
-            && g->profile->beyond_draw_distance(
-                ram.data() + m.address, state.camera_position, state.forward
-            )) {
+        // Beyond its draw distance, or wholly behind the near plane: MobyProc does not draw it
+        // (GameProfile::moby_distance_fade, which gives the fade of the ones it draws). Pokitaru
+        // places two mobys of class 1161 with a turn of -5 pi, past the reach of the game's sine;
+        // their rows come out thousands long and their spheres thousands of units away, so the
+        // game never draws them, while drawn here they covered the sky in cyan. A moby the game
+        // draws with a camera of its own (the menus', the vendor's) is not the world camera's to
+        // cull or fade.
+        const bool own_camera =
+            std::any_of(g->moby_cameras.begin(), g->moby_cameras.end(), [&](const auto& c) {
+                return c.first == m.address;
+            });
+        std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
+        if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
+            distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+        }
+        if (!distance_fade) {
 #ifdef OPENRAC_LIGHT_AUTHORING
             // An unseen mesh may still carry a light whose sphere reaches visible receivers.
             const auto model = g->level.moby_classes.find(m.class_id);
@@ -1351,7 +1353,7 @@ TickMobys pose_mobys(
             instance.world_sphere = m.world_sphere;
         }
         // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
-        // its alpha byte (+0x23) times its distance fade (GameProfile::distance_fade: the last 16
+        // its alpha byte (+0x23) times its distance fade (GameProfile::moby_distance_fade: the last 16
         // units of its draw distance) >> 7. Mode bit 0x200 (+0x34) adds it; the fade below 0x80 or
         // mode bit 8 blends it with the fading alpha test (blend 3: Z written from As 0x08, so a
         // far moby comes in gradually instead of at once); else a vertex alpha below 0x80 blends it
@@ -1360,9 +1362,7 @@ TickMobys pose_mobys(
         if (m.address + 0x36 <= ram.size()) {
             const std::uint8_t* b = ram.data() + m.address;
             const unsigned mode = b[0x34] | b[0x35] << 8;
-            const unsigned fade =
-                world_camera ? g->profile->distance_fade(b, state.camera_position, state.forward)
-                             : 0x80u;
+            const unsigned fade = distance_fade.value_or(0x80);
             const unsigned alpha = (fade * b[0x23]) >> 7;
             // Its shine distance (+0x73, 0x18 for a class with metal packets, 32 for the Gadgetron
             // logo) for the metal pass, in the tie-only `lights` slot as -1 - distance (mesh.vert).

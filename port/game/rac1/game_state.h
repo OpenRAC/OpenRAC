@@ -68,29 +68,14 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAdd
 std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, std::uint32_t m);
 
 /**
- * Whether MobyProc leaves a moby out by its distance, as ReRAC's moby_lod.rs replays it: the
- * bounding sphere (+0x00: x y z r in 1/1024 units) has its centre deeper along the view than the
- * draw distance (+0x32, s16 units), or lies wholly behind the eye. The side planes are left out:
- * the window's picture can be wider than the game's.
- *
- * @param moby The moby's 0x100 bytes.
- * @param eye The camera's position, game units.
- * @param forward The camera's view direction (unit).
+ * MobyProc's distance test and fade for the moby `moby` (its 0x100 bytes), seen from `state`'s
+ * camera: none when it leaves the moby undrawn (past its draw distance, wholly in front of the
+ * near plane, or, as the port tests it, wholly outside the view's sides by far), else the fade of
+ * its vertex alpha in the GS's units, 0x80 nearer than 16 units inside its draw distance, falling
+ * to 0 at it. Bit for bit the game's when `state` has the view block MobyProc reads (moby_view).
  */
-bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward);
-
-/**
- * MobyProc's distance fade of a moby it draws, as ReRAC's moby_lod.rs replays it: 0x80 nearer than
- * 16 units inside its draw distance (+0x32), falling linearly to 0 at it. The moby's vertex alpha is
- * this times its alpha byte (+0x23) >> 7, and below 0x80 the game draws it with the fading TEST_1
- * (AREF 0x08).
- *
- * @param moby The moby's 0x100 bytes.
- * @param eye The camera's position, game units.
- * @param forward The camera's view direction (unit).
- */
-std::uint8_t moby_distance_fade(
-    const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
+std::optional<std::uint8_t> moby_distance_fade(
+    const std::uint8_t* moby, const host::GameState& state
 );
 
 /** The display list of the frame being shown (the buffer VU1_swapChain retired last). */

@@ -1401,8 +1401,7 @@ void LevelScene::draw_layer(
             glUniform1f(
                 program->uniform("effect_reference"),
                 static_cast<float>(
-                    g.blend == 3 ? renderer::world::kArefMobyFading
-                                 : renderer::world::kArefWorld
+                    g.blend == 3 ? renderer::world::kArefMobyFading : renderer::world::kArefWorld
                 ) / 128.0f
             );
             glUniform1i(program->uniform("probe_effect"), g.blend == 2 ? 1 : 0);

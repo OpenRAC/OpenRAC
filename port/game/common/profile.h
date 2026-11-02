@@ -57,6 +57,18 @@ struct GameState {
     // The live mobys, in the order the game's table holds them.
     std::vector<LiveMoby> mobys;
 
+    // What the game's moby renderer tests each moby's distance against, bit for bit as it loads
+    // them: the third column of the view matrix (the depth of a point is its dot with it), the
+    // global cap on a moby's draw distance and the near plane, in the sphere's 1/1024 units. Unset
+    // for a game that does not give them.
+    struct MobyView {
+        std::array<float, 3> depth_axis{};
+        std::int32_t draw_cap = 0;
+        float near_plane = 0.0f;
+    };
+
+    std::optional<MobyView> moby_view;
+
     // The fog UpdateFog left in the view context (+0x218): FOGCOL (display bytes, 0..1), the
     // depths it starts and ends at (raw units, game units x 1024) and the GS fog value F at those
     // depths (255 = none). F is linear in camera depth, clamped between the two.
@@ -123,24 +135,13 @@ public:
         return std::nullopt;
     }
 
-    // Whether the game's moby update leaves the moby whose record starts at `moby` undrawn by its
-    // distance from the camera at `eye`, looking along the unit axis `forward` (game units).
-    virtual bool beyond_draw_distance(
-        const std::uint8_t* /*moby*/,
-        const renderer::Vec3& /*eye*/,
-        const renderer::Vec3& /*forward*/
+    // The vertex alpha's distance fade the game's moby renderer gives the moby whose record starts
+    // at `moby`, seen from `state`'s camera, in the GS's units (0x80 none, 0 at its draw distance);
+    // none when it leaves the moby undrawn by its distance.
+    virtual std::optional<std::uint8_t> moby_distance_fade(
+        const std::uint8_t* /*moby*/, const GameState& /*state*/
     ) const {
-        return false;
-    }
-
-    // The game's distance fade of a moby it draws (`moby`, `eye` and `forward` as for
-    // beyond_draw_distance()), in the GS's units: 0x80 none, 0 at the draw distance.
-    virtual std::uint8_t distance_fade(
-        const std::uint8_t* /*moby*/,
-        const renderer::Vec3& /*eye*/,
-        const renderer::Vec3& /*forward*/
-    ) const {
-        return 0x80;
+        return std::uint8_t{0x80};
     }
 
     // Returns the game address of the display list of the frame being shown: the one of the

@@ -201,16 +201,10 @@ public:
         return read_live_moby(ram, moby);
     }
 
-    bool beyond_draw_distance(
-        const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
+    std::optional<std::uint8_t> moby_distance_fade(
+        const std::uint8_t* moby, const host::GameState& state
     ) const override {
-        return moby_beyond_draw_distance(moby, eye, forward);
-    }
-
-    std::uint8_t distance_fade(
-        const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
-    ) const override {
-        return moby_distance_fade(moby, eye, forward);
+        return rac1::moby_distance_fade(moby, state);
     }
 
     std::uint32_t shown_chain(std::span<const std::uint8_t> ram, int level) const override {
