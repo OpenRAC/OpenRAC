@@ -81,7 +81,7 @@ void draw_touch_pad(int window_width, int window_height) {
 }
 
 // The cursor as the mods ask for it, while nothing else has the mouse: captured only with the
-// window focused and the overlay and the debug menu shut.
+// window focused and the overlay's windows, the menu and the debug menu shut.
 void apply_mouse_capture() {
     if (!g || !g->window || g->window->sdl() == nullptr) {
         return;
@@ -91,11 +91,17 @@ void apply_mouse_capture() {
     const bool capture = focused && !debug_menu::is_open()
                          && (debug_overlay::camera_debug_capturing()
                              || (g->capture_wanted && !debug_overlay::free_camera_enabled()
-                                 && !debug_overlay::visible()));
+                                 && !debug_overlay::wants_cursor()));
     if (SDL_GetWindowRelativeMouseMode(w) != capture) {
         SDL_SetWindowRelativeMouseMode(w, capture);
     }
     g->input.set_captured(capture);
+    // The pointer only where one of the overlay's windows uses it, hidden over the game. (A
+    // captured mouse hides it anyway; let go, SDL shows it as set here.)
+    const bool pointer = debug_overlay::wants_cursor();
+    if (SDL_CursorVisible() != pointer) {
+        pointer ? SDL_ShowCursor() : SDL_HideCursor();
+    }
 }
 
 KeyboardMouseView keyboard_mouse() {

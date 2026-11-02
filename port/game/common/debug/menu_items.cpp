@@ -748,16 +748,10 @@ bool act(Id id, int by) {
             return false;
 
         // ---- Program ----
-        case Id::Quit: {
-            // As the window's close button: the frame loop ends the program normally, so the
-            // launcher sees an ordinary exit.
-            log::info("exit: chosen in the menu, closing the game");
-            SDL_Event quit;
-            SDL_zero(quit);
-            quit.type = SDL_EVENT_QUIT;
-            SDL_PushEvent(&quit);
+        case Id::Quit:
+            s.quit_asked = true;  // its confirmation first (draw_entry)
+            s.quit_focus = true;
             return false;
-        }
 
         case Id::Count:
             break;
@@ -796,9 +790,38 @@ std::string entry_label(Id id, std::uint8_t where) {
     return it.label.empty() ? std::string(menu::entry(id).label) : it.label;
 }
 
+void quit_game() {
+    // As the window's close button: the frame loop ends the program normally, so the launcher
+    // sees an ordinary exit.
+    log::info("exit: chosen in the menu, closing the game");
+    SDL_Event quit;
+    SDL_zero(quit);
+    quit.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&quit);
+}
+
+void quit_confirm_rows() {
+    menu_note("Quit the game? Progress since the last save is lost.", ui().amber);
+    if (s.quit_focus) {
+        s.quit_focus = false;
+        s.menu_focus_first = true;
+    }
+    if (menu_row("Back to the game")) {
+        s.quit_asked = false;
+        set_menu(false);
+    }
+    if (menu_row("Quit game", ui().err)) {
+        quit_game();
+    }
+}
+
 void draw_entry(Id id, std::uint8_t where) {
     const menu::Entry& e = menu::entry(id);
     if (!menu::offered(e, where)) {
+        return;
+    }
+    if (id == Id::Quit && s.quit_asked) {
+        quit_confirm_rows();
         return;
     }
     const Item it = item(id, where);

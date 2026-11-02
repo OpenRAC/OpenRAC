@@ -159,6 +159,13 @@ void draw_entry(menu::Id id, std::uint8_t where);
 // a button of the menu's own (the desktop's Quit).
 void press_entry(menu::Id id);
 
+// Ends the game as the window's close button does (Quit, once confirmed).
+void quit_game();
+
+// Quit's confirmation as rows of the card open now: "Back to the game" first, so a press of A
+// that came too soon does not quit, then "Quit game". The progress since the last save is lost.
+void quit_confirm_rows();
+
 // What the picture is drawn with ("Vulkan · Adreno ..."), for the menus' foot.
 const std::string& menu_graphics_line();
 

@@ -478,13 +478,10 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
         by = ImGui::IsMouseReleased(0) && ImGui::GetIO().MousePos.x < back_until ? -1 : 1;
     }
     if (ImGui::IsItemFocused()) {
-        // The d-pad or the arrow keys (the sticks do not move through the menus).
-        const auto held = [](ImGuiKey pad, ImGuiKey key) {
-            return ImGui::IsKeyPressed(pad) || ImGui::IsKeyPressed(key);
-        };
-        if (held(ImGuiKey_GamepadDpadLeft, ImGuiKey_LeftArrow)) {
+        // The arrow keys, which the d-pad also presses (feed_gamepads); not the sticks.
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
             by = -1;
-        } else if (held(ImGuiKey_GamepadDpadRight, ImGuiKey_RightArrow)) {
+        } else if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
             by = 1;
         }
     }
@@ -555,6 +552,7 @@ void set_menu(bool open) {
 // The menu is out of the picture: what waited for that.
 void menu_closed() {
     s.menu_confirm_reset = false;
+    s.quit_asked = false;
     s.drawer_controller = false;  // the drawer opens again with its own rows alone
     s.drawer_controller_at = 0.0f;
     if (s.shot_when_shut) {

@@ -340,10 +340,17 @@ void add_logo() {
 // camera and are too easy to nudge, so they do not move through the menus. While a button is
 // being bound, and until every button is let go after it, ImGui gets nothing: the press that was
 // bound must not also press a row or close the menu.
+//
+// The d-pad reaches ImGui as the arrow keys: a gamepad's move starts again from the window's
+// visible area whenever the row in focus is outside it (ImGui's NavUpdateCreateMoveRequest), and
+// then a held Down past the last row, while the rows still scroll, jumped back to the top. The
+// keyboard's moves do not do that. Arrows are sent only as the d-pad changes, so the keyboard's
+// own arrows still work.
 void feed_gamepads() {
     struct Button {
         ImGuiKey key;
         SDL_GamepadButton button;
+        bool arrow = false;  // sent as a key of the keyboard, only when it changes
     };
 
     static constexpr Button kButtons[] = {
@@ -353,10 +360,10 @@ void feed_gamepads() {
         {ImGuiKey_GamepadFaceRight, SDL_GAMEPAD_BUTTON_EAST},
         {ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST},
         {ImGuiKey_GamepadFaceUp, SDL_GAMEPAD_BUTTON_NORTH},
-        {ImGuiKey_GamepadDpadUp, SDL_GAMEPAD_BUTTON_DPAD_UP},
-        {ImGuiKey_GamepadDpadDown, SDL_GAMEPAD_BUTTON_DPAD_DOWN},
-        {ImGuiKey_GamepadDpadLeft, SDL_GAMEPAD_BUTTON_DPAD_LEFT},
-        {ImGuiKey_GamepadDpadRight, SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
+        {ImGuiKey_UpArrow, SDL_GAMEPAD_BUTTON_DPAD_UP, true},
+        {ImGuiKey_DownArrow, SDL_GAMEPAD_BUTTON_DPAD_DOWN, true},
+        {ImGuiKey_LeftArrow, SDL_GAMEPAD_BUTTON_DPAD_LEFT, true},
+        {ImGuiKey_RightArrow, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, true},
         {ImGuiKey_GamepadL1, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER},
         {ImGuiKey_GamepadR1, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER},
     };
@@ -390,8 +397,13 @@ void feed_gamepads() {
         s.pad_locked = false;
     }
     ImGuiIO& io = ImGui::GetIO();
+    static std::array<bool, std::size(kButtons)> sent{};
     for (std::size_t b = 0; b < std::size(kButtons); ++b) {
-        io.AddKeyEvent(kButtons[b].key, !s.pad_locked && down[b]);
+        const bool on = !s.pad_locked && down[b];
+        if (!kButtons[b].arrow || on != sent[b]) {
+            io.AddKeyEvent(kButtons[b].key, on);
+        }
+        sent[b] = on;
     }
     io.AddKeyEvent(ImGuiKey_GamepadL2, !s.pad_locked && l2);
     io.AddKeyEvent(ImGuiKey_GamepadR2, !s.pad_locked && r2);
@@ -630,8 +642,62 @@ bool visible() {
     return s.visible || s.enhanced_settings;
 }
 
+bool wants_cursor() {
+    return s.menu_open || s.menu_at > 0.0f || s.visible || s.enhanced_settings
+           || s.object_viewer.open || picker_enabled() || s.touch_editing;
+}
+
+namespace {
+
+// Select and Start as each event says they are, before anything below may take the event (a
+// capture, the drawer), so a button held first is known when the second comes.
+void track_chord(const SDL_Event& e) {
+    MenuMotion& m = s.menu_motion;
+    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
+        const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+        if (e.gbutton.button == SDL_GAMEPAD_BUTTON_BACK) {
+            m.back_held = down;
+        } else if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START) {
+            m.start_held = down;
+        }
+    } else if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST || e.type == SDL_EVENT_GAMEPAD_REMOVED) {
+        m.back_held = m.start_held = false;
+    }
+}
+
+// Whether `button` going down completes Select + Start: the other one is held, as its events
+// said or as any controller reads now (an event of it another part of the port took).
+bool chord_pressed(SDL_GamepadButton button) {
+    if (s.pad_locked || controls_capturing()) {
+        return false;
+    }
+    SDL_GamepadButton other = SDL_GAMEPAD_BUTTON_INVALID;
+    bool held = false;
+    if (button == SDL_GAMEPAD_BUTTON_BACK) {
+        other = SDL_GAMEPAD_BUTTON_START;
+        held = s.menu_motion.start_held;
+    } else if (button == SDL_GAMEPAD_BUTTON_START) {
+        other = SDL_GAMEPAD_BUTTON_BACK;
+        held = s.menu_motion.back_held;
+    } else {
+        return false;
+    }
+    int count = 0;
+    if (SDL_JoystickID* ids = SDL_GetGamepads(&count)) {
+        for (int i = 0; i < count && !held; ++i) {
+            SDL_Gamepad* pad = SDL_GetGamepadFromID(ids[i]);
+            held = pad != nullptr && SDL_GetGamepadButton(pad, other);
+        }
+        SDL_free(ids);
+    }
+    return held;
+}
+
+}  // namespace
+
 bool event(const SDL_Event& e) {
     configure();
+    track_chord(e);
     // A press awaited for a binding (the Controls tab): the controllers' presses are the
     // capture's, not the menu's. The keyboard does nothing either (no menu key, no Enter on
     // another row, no Android Back, which a controller's B may be), but Esc gives the capture up. Key releases still reach the menu, so a key
@@ -724,23 +790,13 @@ bool event(const SDL_Event& e) {
         }
     }
     // Every controller has these, on a desktop and a touch screen alike: Back (Select) and Start
-    // pressed together. Its Home button stays the system's and Steam's.
+    // pressed together, in either order. Its Home button stays the system's and Steam's.
     MenuMotion& m = s.menu_motion;
-    if ((e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP)
-        && SDL_GetKeyboardFocus() != nullptr) {
-        const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
-        const auto button = static_cast<SDL_GamepadButton>(e.gbutton.button);
-        if (button == SDL_GAMEPAD_BUTTON_BACK) {
-            m.back_held = down;
-        } else if (button == SDL_GAMEPAD_BUTTON_START) {
-            m.start_held = down;
-        }
-        if (down && m.back_held && m.start_held
-            && (button == SDL_GAMEPAD_BUTTON_BACK || button == SDL_GAMEPAD_BUTTON_START)) {
-            m.pad = true;
-            toggle_menu();
-            return true;
-        }
+    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && SDL_GetKeyboardFocus() != nullptr
+        && chord_pressed(static_cast<SDL_GamepadButton>(e.gbutton.button))) {
+        m.pad = true;
+        toggle_menu();
+        return true;
     }
     // Whose buttons the menu names at its foot: the controller's, or the keyboard's. Watched
     // while it is shut too, so a menu opened from a controller names the controller's.
@@ -950,16 +1006,18 @@ void draw(const Shown& shown) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, shown.window_width, shown.window_height);
     {
-        // A gamepad moves through the menu's rows while it is open (and on a touch screen through
-        // the panel while the game stands still under it), the keyboard through the desktop's;
-        // they are the game's otherwise.
+        // A gamepad and the keyboard move through the menu's rows while it is open (and on a
+        // touch screen through the panel while the game stands still under it); they are the
+        // game's otherwise. The d-pad comes as the arrow keys (feed_gamepads), so both flags.
         ImGuiIO& io = ImGui::GetIO();
-        const bool pad_moves = s.menu_open || (drawer_possible() && s.visible && s.paused);
-        io.ConfigFlags = pad_moves ? io.ConfigFlags | ImGuiConfigFlags_NavEnableGamepad
-                                   : io.ConfigFlags & ~ImGuiConfigFlags_NavEnableGamepad;
-        const bool keys_move = menu_window_possible() && s.menu_open;
-        io.ConfigFlags = keys_move ? io.ConfigFlags | ImGuiConfigFlags_NavEnableKeyboard
-                                   : io.ConfigFlags & ~ImGuiConfigFlags_NavEnableKeyboard;
+        const bool moves = s.menu_open || (drawer_possible() && s.visible && s.paused);
+        constexpr ImGuiConfigFlags kNav =
+            ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags = moves ? io.ConfigFlags | kNav : io.ConfigFlags & ~kNav;
+        // The pointer hidden over the game (frontend's apply_mouse_capture): ImGui's backend
+        // must not show it again while it draws only notifications.
+        io.ConfigFlags = wants_cursor() ? io.ConfigFlags & ~ImGuiConfigFlags_NoMouseCursorChange
+                                        : io.ConfigFlags | ImGuiConfigFlags_NoMouseCursorChange;
     }
     follow_scale(shown.window);
     if (!s.gl_subset) {

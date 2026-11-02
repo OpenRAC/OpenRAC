@@ -35,6 +35,14 @@ struct BarTab {
     std::string name;
     int catalog = -1;  // menu::Tab, or -1
     int mod = -1;      // the mod menu's index, or -1
+    int chip = 0;      // Chip: one of the bar's buttons, or 0
+};
+
+// After the tabs, L1 and R1 also reach the bar's two buttons at its right: Quit game (its page
+// asks first) and Resume.
+enum Chip : int {
+    kQuitPage = 1,
+    kResumePage = 2
 };
 
 // The tabs with something to show now: the catalog's in order, then the mods'.
@@ -165,7 +173,9 @@ bool bar_tab(const char* name, bool open, float height) {
 }
 
 // A chip on the bar's right: dark, a hairline, its text; true when clicked.
-bool bar_chip(const char* label, ImU32 ink, bool light, float height, float held = 0.0f) {
+bool bar_chip(
+    const char* label, ImU32 ink, bool light, float height, float held = 0.0f, bool picked = false
+) {
     ImGui::PushFont(menu_fonts.strong);
     const ImVec2 text = ImGui::CalcTextSize(label);
     const ImVec2 size(text.x + dp(28.0f), height);
@@ -185,6 +195,19 @@ bool bar_chip(const char* label, ImU32 ink, bool light, float height, float held
     }
     if (!light) {
         list->AddRect(a, b, ui_colors::fade(ui().line, 1.0f), size.y * 0.5f);
+    }
+    // Reached with L1/R1: a ring around it, as the open tab has its pill.
+    const float ring = tween(item_part("picked"), picked ? 1.0f : 0.0f, kFast);
+    if (ring > 0.0f) {
+        const float out = dp(3.0f);
+        list->AddRect(
+            ImVec2(a.x - out, a.y - out),
+            ImVec2(b.x + out, b.y + out),
+            ui_colors::fade(ui().ink_deep, ring),
+            size.y * 0.5f + out,
+            ImDrawFlags_None,
+            dp(2.0f)
+        );
     }
     list->AddText(
         centred_text(
@@ -463,10 +486,13 @@ void menu_window(const Shown& shown) {
     version_corner(viewport, ease);
     hints(viewport, ease);
 
-    const std::vector<BarTab> tabs = bar_tabs();
+    std::vector<BarTab> tabs = bar_tabs();
     if (tabs.empty()) {
         return;
     }
+    const int tab_count = static_cast<int>(tabs.size());  // the bar's tabs, before its buttons
+    tabs.push_back({menu::entry(menu::Id::Quit).label, -1, -1, kQuitPage});
+    tabs.push_back({"Resume", -1, -1, kResumePage});
     if (s.menu_want_tab >= 0) {
         for (std::size_t i = 0; i < tabs.size(); ++i) {
             if (tabs[i].catalog == s.menu_want_tab) {
@@ -477,6 +503,12 @@ void menu_window(const Shown& shown) {
         s.menu_want_tab = -1;
     }
     s.menu_tab = std::clamp(s.menu_tab, 0, static_cast<int>(tabs.size()) - 1);
+    // The menu opens again at the tab it was on, not at a button's page.
+    if (s.menu_tab < tab_count) {
+        s.menu_motion.last_tab = s.menu_tab;
+    } else if (!s.menu_open) {
+        s.menu_tab = std::min(s.menu_motion.last_tab, tab_count - 1);
+    }
     // Tabs back and on: the controller's shoulder buttons, Page Up and Page Down.
     int switch_by = 0;
     if (s.menu_open) {
@@ -493,10 +525,11 @@ void menu_window(const Shown& shown) {
             set_menu(false);
         }
         MenuMotion& m = s.menu_motion;
+        // Held for a second, Y is its own confirmation.
         m.quit_hold = ImGui::IsKeyDown(ImGuiKey_GamepadFaceUp) ? m.quit_hold + io.DeltaTime : 0.0f;
         if (m.quit_hold >= kQuitHold) {
             m.quit_hold = 0.0f;
-            press_entry(menu::Id::Quit);
+            quit_game();
         }
     }
 
@@ -538,7 +571,7 @@ void menu_window(const Shown& shown) {
         list->ChannelsSetCurrent(1);
         float pill_x = pill_at.x;
         float pill_w = 0.0f;
-        for (int i = 0; i < static_cast<int>(tabs.size()); ++i) {
+        for (int i = 0; i < tab_count; ++i) {
             if (i > 0) {
                 ImGui::SameLine();
             }
@@ -570,17 +603,22 @@ void menu_window(const Shown& shown) {
         ImGui::SetCursorScreenPos(
             ImVec2(right - resume_w - dp(8.0f) - quit_w, bar_a.y + (bar - tab_h) * 0.5f)
         );
+        // Quit opens its page, which asks first.
+        const int quit_at = tab_count;
         if (bar_chip(
                 menu::entry(menu::Id::Quit).label,
                 ui().err,
                 false,
                 tab_h,
-                s.menu_motion.quit_hold / kQuitHold
+                s.menu_motion.quit_hold / kQuitHold,
+                s.menu_tab == quit_at
             )) {
-            press_entry(menu::Id::Quit);
+            s.menu_tab = quit_at;
+            s.menu_hover = -1;
+            s.menu_focus = true;
         }
         ImGui::SameLine(0.0f, dp(8.0f));
-        if (bar_chip("Resume", ui().ink_deep, true, tab_h)) {
+        if (bar_chip("Resume", ui().ink_deep, true, tab_h, 0.0f, s.menu_tab == quit_at + 1)) {
             set_menu(false);
         }
     }
@@ -706,10 +744,27 @@ void menu_window(const Shown& shown) {
             )) {
             m.rows_window = ImGui::GetCurrentWindow()->ID;  // its scroll, eased next frame
             tab_title(tab.name, s.menu_tab, static_cast<int>(tabs.size()));
+            if (tab.chip != 0 && s.menu_focus) {
+                s.quit_focus = true;  // "Back to the game" first
+            }
             if (s.menu_focus) {
                 s.menu_focus_first = true;
             }
-            if (tab.catalog >= 0) {
+            if (tab.chip == kQuitPage) {
+                card_begin();
+                quit_confirm_rows();
+                card_end();
+            } else if (tab.chip == kResumePage) {
+                card_begin();
+                if (s.quit_focus) {
+                    s.quit_focus = false;
+                    s.menu_focus_first = true;
+                }
+                if (menu_row("Back to the game")) {
+                    set_menu(false);
+                }
+                card_end();
+            } else if (tab.catalog >= 0) {
                 draw_tab(static_cast<menu::Tab>(tab.catalog), menu::kDesktop);
             } else {
                 draw_mod_menu(tab.mod);

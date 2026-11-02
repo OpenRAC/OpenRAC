@@ -141,6 +141,7 @@ struct MenuMotion {
     int help_of = -2;            // the entry it is of (s.menu_hover)
     bool pad = false;            // the last input was a controller's: its buttons are named
     float quit_hold = 0.0f;      // seconds the controller's quit button has been held
+    int last_tab = 0;            // the last of the bar's tabs open (not a button's page)
     bool back_held = false;      // the controller's Back (Select) and Start held, for their
     bool start_held = false;     //   chord that opens and closes the menu
 };
@@ -272,6 +273,8 @@ struct State {
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
     bool menu_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
+    bool quit_asked = false;          // Quit pressed in the drawer: its confirmation is shown
+    bool quit_focus = false;          // the confirmation's first row takes the focus once
     int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
     long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
     int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1

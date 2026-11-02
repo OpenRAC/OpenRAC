@@ -54,6 +54,11 @@ void set_picker_enabled(bool enabled);
 // Any desktop overlay window holding the mouse, including Enhanced Settings.
 bool visible();
 
+// Whether the mouse's pointer is shown: only while one of the overlay's windows or menus that
+// a pointer uses is out (the menu, the debug panel, Enhanced Settings, the object viewer, the
+// picker, the on-screen buttons' editor). Hidden over the game otherwise.
+bool wants_cursor();
+
 // A window event: true if the overlay took it (its keys, or the mouse and keyboard while they are
 // over one of its windows), so the game does not see it.
 bool event(const SDL_Event& event);
