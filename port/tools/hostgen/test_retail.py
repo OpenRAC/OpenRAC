@@ -120,6 +120,24 @@ class Pairs(unittest.TestCase):
         code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
         self.assertEqual(code.get((-1, 0x00100004))[0].reloc, ("hi", "D_00300040", 0))
 
+    def test_a_lui_in_a_likely_branch_slot_is_not_completed_on_the_way_past(self):
+        # Going Commando's func_L00_004195C8: bc1tl's slot holds the callback's lui, completed at
+        # the target; the fall-through's addiu through the same register completes another value
+        # the slot never gave it.
+        source = """
+            beql $4, $0, there
+            lui $3, %hi(D_00300040)
+            addiu $3, $3, 0x30
+            jr $31
+            daddu $2, $3, $0
+        there:
+            jr $31
+            lw $2, %lo(D_00300040)($3)
+        """
+        words = words_of(assembler.assemble("func_00100000", 0x00100000, source, {"D_00300040": 0x00300040}))
+        code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
+        self.assertEqual(code.get((-1, 0x00100004))[0].reloc, ("hi", "D_00300040", 0))
+
     def test_a_function_address_names_the_function(self):
         source = """
             lui $4, %hi(func_00100100)

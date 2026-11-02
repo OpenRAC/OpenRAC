@@ -403,6 +403,11 @@ class RetailCode:
                         break
             if op == "jr" and ins.rs != 31 and ins.rs in loaded:
                 tables[pc] = loaded[ins.rs]
+            if k > 0 and insns[k - 1].is_branch and insns[k - 1].likely:
+                # A likely branch's delay slot runs only when it is taken: the straight run (its
+                # fall-through) never sees what the slot does. A lui there is completed at the
+                # branch's target, which the follow below finds.
+                continue
             for r in writes[k]:
                 for m in (hi, full, idx, loaded):
                     m.pop(r, None)
@@ -444,6 +449,8 @@ class RetailCode:
         if k > 0:
             before = insns[k - 1]
             if before.is_branch and before.op not in ("jr", "jalr", "j", "jal"):
+                if before.likely:
+                    todo = []                  # a likely branch's slot runs only on the way taken
                 todo.append(((before.target - start) // 4, 0))     # the lui is that branch's delay slot
         seen = set()
         while todo:
