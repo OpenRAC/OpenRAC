@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// OpenGL's states warmed up behind the loading screen (gl_warmup.h): the watching functions in
-// front of the draws, the states noted and their file, and the warm-up draws.
+// OpenGL state warm-up (gl_warmup.h): the wrapped calls, the state file and the warm-up draws.
 
 #include "renderer/gl_warmup.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -420,9 +420,20 @@ void note(GLenum mode) {
     }
 
     // Seen this run.
-    Current hashed = c;
-    hashed.changed = false;
-    if (!s.seen.insert(fnv1a(&hashed, sizeof hashed)).second) {
+    const std::array<std::uint32_t, 11> fields{
+        c.program,
+        c.framebuffer,
+        c.vertex_array,
+        c.blend,
+        c.src_rgb,
+        c.dst_rgb,
+        c.src_a,
+        c.dst_a,
+        c.equation,
+        c.mask,
+        c.mode,
+    };
+    if (!s.seen.insert(fnv1a(fields.data(), sizeof fields)).second) {
         return;
     }
 

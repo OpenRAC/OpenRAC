@@ -1,16 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// OpenGL's states warmed up behind the loading screen (gl-state-warmup, docs/port/RENDER_PERF.md).
-// An OpenGL driver compiles a program again, in secret, the first time it is drawn in a state its
-// machine code depends on: the target's formats and samples, the blend, the colour mask, the vertex
-// formats. That compile lands in the middle of a frame, a hitch the program binaries
-// (program_cache.h) cannot save. So the draws are watched: each new state a program is drawn in is
-// noted, by the program's sources (program_cache::Key) and the state's values, and kept in a file
-// per driver beside the program binaries. At a level's load, warm() draws each noted state of each
-// program built again, once, one empty triangle into a private 4x4 target of the same formats, and
-// gives back every state it changed: the driver makes its variants then. Nothing drawn in the game
-// changes. The Vulkan backend has its own (pipelines made ahead, vkgl.h).
+// OpenGL state warm-up (gl-state-warmup, docs/port/RENDER_PERF.md). A GL driver silently
+// recompiles a program the first time it is drawn with new formats, blend, colour mask or vertex
+// formats. We save each such state per driver and draw it once at level load, into a private 4x4
+// target, so the recompile happens behind the loading screen. Not used on Vulkan.
 
 #pragma once
 
@@ -19,16 +13,15 @@
 
 namespace openrac::renderer::gl_warmup {
 
-// After gl::load() and gl_stats::install() on an OpenGL context (not the Vulkan backend): puts a
-// watching function in front of the draws and the state they note, and reads the driver's file.
-// Once per context.
+// Call once after gl::load() and gl_stats::install() on OpenGL (not Vulkan). Wraps the draw and
+// state calls and loads the driver's file.
 void install(gl::GetProcAddress get);
 
-// For Shader::build: `program` is the program of sources `key`, until it is deleted.
+// Called by Shader::build: `program` was built from `key`.
 void note_program(gl::GLuint program, const program_cache::Key& key);
 
-// For a level's load, once its programs are built: draws each noted state of each of them once,
-// as above, and saves the file when the run noted new states. Nothing before install().
+// Called at level load: draws each saved state of each built program once, and saves the file
+// if there are new states. Does nothing before install().
 void warm();
 
 // What the run did, for the tests and the log.

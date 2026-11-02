@@ -360,9 +360,7 @@ void use_level(int number) {
             g->renderer->textures().place(kSkyTextureKey + static_cast<std::uint32_t>(i), h);
         }
     }
-    // The pipelines earlier runs drew this level's programs with, made behind the loading
-    // screen rather than at their first frames (docs/port/RENDER_PERF.md, R-10).
-    // On OpenGL, the states earlier runs drew them in (renderer/gl_warmup.h).
+    // Build shader work from earlier runs now, behind the loading screen (docs/port/RENDER_PERF.md).
     crash::level_breadcrumb("level pipelines", wanted);
 #if defined(OPENRAC_VULKAN)
     if (gl::is_vulkan()) {

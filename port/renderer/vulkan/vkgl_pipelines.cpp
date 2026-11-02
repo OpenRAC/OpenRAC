@@ -1117,6 +1117,8 @@ VkPipeline library_for(
 // link-time optimisation, which is what makes it fast (VK_EXT_graphics_pipeline_library's fast
 // linking); the whole pipeline is queued for a worker, which replaces it. Null when a part or the
 // link is refused, and the draw makes the whole one itself.
+void start_workers(PipelinePrewarm& w);
+
 VkPipeline link_pipeline(Program& p, const PipelineKey& k, VkShaderModule fragment) {
     const profiling::Zone trace("Vulkan pipeline link");
     std::array<VkPipeline, 4> parts{};
@@ -1162,11 +1164,18 @@ VkPipeline link_pipeline(Program& p, const PipelineKey& k, VkShaderModule fragme
     ++g->submission.pipelines_linked;
 
     // The whole pipeline, optimised, made on a worker and put in its place between draws.
+    // Not queued twice: the manifest may have queued it already.
     if (prewarm_enabled()) {
         PipelinePrewarm& w = g->prewarm;
         std::lock_guard lock(w.mutex);
-        w.queue.push_back({k, p.vertex, fragment, p.layout, PrewarmPart::Whole});
-        w.changed.notify_all();
+        const bool queued = std::ranges::any_of(w.queue, [&k](const PrewarmJob& job) {
+            return job.part == PrewarmPart::Whole && same_key(job.key, k);
+        });
+        if (!queued && !is_making(w, k, PrewarmPart::Whole)) {
+            w.queue.push_back({k, p.vertex, fragment, p.layout, PrewarmPart::Whole});
+            start_workers(w);
+            w.changed.notify_all();
+        }
     }
 
     return pipeline;
