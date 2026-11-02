@@ -262,9 +262,17 @@ struct State {
     bool world_under_menu = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
-    // The mobys the last 2D path read drew into a buffer narrower than the picture (a texture),
-    // by their markers: first moby and count (frame.cpp, direct_packets).
-    std::vector<std::pair<std::uint32_t, std::uint32_t>> texture_mobys;
+
+    // The mobys the last 2D path read drew with a list of their own, by their markers (frame.cpp,
+    // direct_packets): first moby, count, and whether the frame was a buffer narrower than the
+    // picture then (a texture).
+    struct MarkedMobys {
+        std::uint32_t first = 0;
+        std::uint32_t count = 0;
+        bool narrow = false;
+    };
+
+    std::vector<MarkedMobys> texture_mobys;
     // One-shot blasts captured since the last displayed tick; projectiles are added at capture.
     std::vector<renderer::WaterImpulse> water_impulses;
     // The world effect quads the game drew since the last frame (effect_quad).

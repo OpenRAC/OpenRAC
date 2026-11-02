@@ -96,6 +96,11 @@ void GifInterpreter::clear() {
     m_error.clear();
 }
 
+void GifInterpreter::carry(std::vector<DirectDraw> draws, std::vector<DirectVertex> vertices) {
+    m_draws = std::move(draws);
+    m_vertices = std::move(vertices);
+}
+
 bool GifInterpreter::fail(std::string message) {
     m_error = std::move(message);
     return false;
@@ -1690,7 +1695,8 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
 
 void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
-    if (packets.empty()) {
+    // Draws the part before the world held back (flush) are drawn even when nothing follows.
+    if (packets.empty() && m_interpreter->draws().empty()) {
         return;
     }
     m_interpreter->set_ui_quads(input.ui_quads);
@@ -2007,6 +2013,35 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_interpreter->clear();
         return;
     }
+    // Off-screen draws held back from the part before the world to the part after it (Going
+    // Commando, g_quads_sample_targets). The cockpit screen's buffer (block 0x3BE0) is cleared in
+    // the 2D list before the world's marker and Fizzwidget is drawn into it after: drawn where they
+    // come, the clear wiped the picture before the world's quad of that block sampled it, and the
+    // screen was black (level 0's opening scene; the closing one has no world marker, so all of it
+    // came after). Held back, the buffer keeps the last frame's picture, as the quad expects. A
+    // buffer something before the world samples is drawn where it comes.
+    std::vector<std::uint32_t> hold_targets;
+    if (background && g_quads_sample_targets) {
+        for (const DirectDraw& d : m_interpreter->draws()) {
+            if (d.state.target != 0
+                && std::find(hold_targets.begin(), hold_targets.end(), d.state.target)
+                       == hold_targets.end()) {
+                hold_targets.push_back(d.state.target);
+            }
+        }
+        std::erase_if(hold_targets, [&](std::uint32_t block) {
+            return std::any_of(
+                m_interpreter->draws().begin(),
+                m_interpreter->draws().end(),
+                [&](const DirectDraw& d) { return d.state.source == block; }
+            );
+        });
+    }
+    const auto held = [&](const DirectDraw& d) {
+        return d.state.target != 0
+               && std::find(hold_targets.begin(), hold_targets.end(), d.state.target)
+                      != hold_targets.end();
+    };
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     const std::size_t bytes = vertices.size() * sizeof(DirectVertex);
@@ -2064,6 +2099,9 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         std::vector<DirectVertex> placed(vertices.begin(), vertices.end());
         for (const DirectDraw& d : m_interpreter->draws()) {
             const DirectState& s = d.state;
+            if (held(d)) {
+                continue;
+            }
             if (s.target != 0 || d.count == 0) {
                 if (d.count != 0 || d.mobys != 0) {
                     runs.push_back({&d, d.first, d.count, true});  // an off-screen panel's own square
@@ -2136,7 +2174,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_whole_target = true;
     } else {
         for (const DirectDraw& d : m_interpreter->draws()) {
-            if (d.count != 0 || d.mobys != 0) {
+            if ((d.count != 0 || d.mobys != 0) && !held(d)) {
                 draw(d, state);
             }
         }
@@ -2154,7 +2192,24 @@ void DirectRenderer::flush(RenderState& state, bool background) {
     glBindSampler(0, 0);
     glBindSampler(1, 0);
     m_bound_sampler = 0xFFFFFFFF;
+    std::vector<DirectDraw> carried;
+    std::vector<DirectVertex> carried_vertices;
+    for (const DirectDraw& d : m_interpreter->draws()) {
+        if (held(d)) {
+            DirectDraw c = d;
+            c.first = static_cast<std::uint32_t>(carried_vertices.size());
+            carried_vertices.insert(
+                carried_vertices.end(),
+                vertices.begin() + d.first,
+                vertices.begin() + d.first + d.count
+            );
+            carried.push_back(c);
+        }
+    }
     m_interpreter->clear();
+    if (!carried.empty()) {
+        m_interpreter->carry(std::move(carried), std::move(carried_vertices));
+    }
 }
 
 }  // namespace openrac::renderer

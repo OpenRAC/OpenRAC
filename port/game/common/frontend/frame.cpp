@@ -135,7 +135,7 @@ std::vector<std::uint8_t> direct_packets(
     std::size_t* world_marker = nullptr,
     std::size_t* moby_marker = nullptr,
     std::vector<QuadMark>* quad_marks = nullptr,
-    std::vector<std::pair<std::uint32_t, std::uint32_t>>* texture_mobys = nullptr
+    std::vector<State::MarkedMobys>* texture_mobys = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at =
@@ -314,14 +314,14 @@ std::vector<std::uint8_t> direct_packets(
                     switch (address & 0xFF) {
                         case 0x7F:
                             if ((value >> 48) == renderer::GifInterpreter::kMobyMarker
-                                && texture_mobys != nullptr
-                                && frame_width[(reg_prim >> 9) & 1] < 512) {
+                                && texture_mobys != nullptr) {
                                 // Mobys drawn while the frame is a buffer narrower than the
-                                // picture: into a texture (the cockpit screen's Fizzwidget,
+                                // picture go into a texture (the cockpit screen's Fizzwidget,
                                 // 256 x 256 at page 0x1DF), whatever their camera's field of view.
-                                texture_mobys->emplace_back(
-                                    static_cast<std::uint32_t>(value),
-                                    static_cast<std::uint32_t>(value >> 32) & 0xFFFFu
+                                texture_mobys->push_back(
+                                    {static_cast<std::uint32_t>(value),
+                                     static_cast<std::uint32_t>(value >> 32) & 0xFFFFu,
+                                     frame_width[(reg_prim >> 9) & 1] < 512}
                                 );
                             }
                             if ((value >> 48) == OPENRAC_EFFECT_QUAD_MARKER) {
@@ -1331,23 +1331,32 @@ TickMobys pose_mobys(
                 g->moby_cameras[static_cast<std::size_t>(zoom.camera)].second;
             frame_focal = {narrowest.focal_x, narrowest.focal_y};
         }
-        // Mobys the 2D path drew into a narrow buffer (the last list read: Going Commando's is a
-        // tick behind its mobys): into a texture, whatever their tangent.
-        const auto into_buffer = [&](std::uint32_t address) {
+        // Mobys the 2D path drew with lists of their own (the last list read: Going Commando's is
+        // a tick behind its mobys), into a narrow buffer (`narrow`) or anywhere.
+        const auto marked = [&](std::uint32_t address, bool narrow) {
             return std::any_of(
-                g->texture_mobys.begin(), g->texture_mobys.end(), [&](const auto& range) {
-                    return address >= range.first && address < range.first + range.second * 0x100u;
+                g->texture_mobys.begin(), g->texture_mobys.end(), [&](const State::MarkedMobys& m) {
+                    return (m.narrow || !narrow) && address >= m.first
+                           && address < m.first + m.count * 0x100u;
                 }
             );
         };
+        const bool narrow_buffers = g->profile->own_mobys_into_narrow_buffers();
         for (const auto& [address, camera] : g->moby_cameras) {
-            const OwnCameraLayer layer =
-                g->profile->own_mobys_into_narrow_buffers() && into_buffer(address)
-                        && frame_focal[0] > 0.0f
+            OwnCameraLayer layer =
+                narrow_buffers && marked(address, true) && frame_focal[0] > 0.0f
                     ? OwnCameraLayer::Texture
                     : own_camera_layer(
                           camera.tan_half_fov_x, zoom, frame_focal[0] > 0.0f, under_menu
                       );
+            // A moby first drawn this tick, which the list (a tick behind) does not show yet: not
+            // in the world this frame. Its layer is known from the next list. Placed in the world,
+            // Fizzwidget showed for a frame as a head over the ship's canopy where level 0's closing
+            // scene cuts to the cockpit; retail draws him only into the screen's buffer. Into the
+            // texture it is drawn only at a marker, so it waits a frame.
+            if (narrow_buffers && layer == OwnCameraLayer::World && !marked(address, false)) {
+                layer = OwnCameraLayer::Texture;
+            }
             switch (layer) {
                 case OwnCameraLayer::Texture:
                     into_texture.emplace(address, &camera);

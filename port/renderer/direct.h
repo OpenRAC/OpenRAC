@@ -261,6 +261,10 @@ public:
     // Forget this frame's vertices and draws; the registers keep their values.
     void clear();
 
+    // After clear(): the draws (with their vertices) the next part of the frame starts with, drawn
+    // as if it had read them first (DirectRenderer::flush's held-back off-screen draws).
+    void carry(std::vector<DirectDraw> draws, std::vector<DirectVertex> vertices);
+
     const std::vector<DirectVertex>& vertices() const { return m_vertices; }
 
     const std::vector<DirectDraw>& draws() const { return m_draws; }
