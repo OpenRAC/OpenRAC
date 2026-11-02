@@ -43,8 +43,8 @@ inline constexpr int kManifestFormat = 4;
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
 // 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
-// ship's hulls in every level.
-inline constexpr int kManifestFormatNewest = 13;
+// ship's hulls in every level; 14 with the chrome and glass maps the game binds.
+inline constexpr int kManifestFormatNewest = 14;
 
 struct Vertex {
     float position[3];

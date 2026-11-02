@@ -218,3 +218,27 @@ class WadDiscTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChromeAndGlassMaps(unittest.TestCase):
+    """Going Commando's chrome and glass maps: offsets into the stash, the GS RAM table's entries
+    past its count, as the game uploads them; not the texture data's first picture."""
+
+    def test_the_maps_come_from_the_stash(self):
+        from level import Level, textures
+
+        index = bytearray(0x200)
+        struct.pack_into("<II", index, 0x00, 1, 0x100)                    # one GS RAM entry, then the stash
+        struct.pack_into("<4I", index, 0x100, 0, 0, 0, 0)                   # a CLUT at 0
+        struct.pack_into("<4I", index, 0x110, 0x13, 0x800080, 0x800, 0)     # the stash: lump 0x800
+        struct.pack_into("<i", index, 0x84, 1)
+        struct.pack_into("<I", index, 0xac, 0x1C0)
+        struct.pack_into("<h", index, 0x1C0, -1)
+        struct.pack_into("<4I", index, 0x90, 0, 0, 0x4000, 0x400)
+        gs = bytes(0x800) + bytes([1]) * 0x4000 + bytes([2]) * 0x1000
+        core = bytes([9]) * 0x5000                                         # texture data: another picture
+        level = Level(1, b"", {}, bytes(index), core, b"", {}, game="rac2", version="ntsc")
+        maps = textures(level, gs)
+        self.assertEqual(maps[("metal", -2)].pixels, bytes([1]) * 128 * 128)
+        self.assertEqual(maps[("metal", -3)].pixels, bytes([2]) * 64 * 64)
+        self.assertEqual(maps[("metal", -3)].palette, gs[0x400:0x800])

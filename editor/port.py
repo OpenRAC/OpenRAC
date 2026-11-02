@@ -65,7 +65,9 @@ FORMAT = 4
 # bangles as classes of their own (the broken crates' and destroyed enemies' pieces). 12: the
 # terrain's vertex colours and the shrubs' colours, lit as the game lights them at level load. 13: his
 # ship's hulls in every level, as the game loads them on each level's load, not only in the flights.
-GAME_FORMATS = {"rac2": 13}
+# 14: the chrome and glass maps from the GS RAM lump's stash, where the game takes them (8 read the
+# texture data's first picture).
+GAME_FORMATS = {"rac2": 14}
 
 
 def levels_format(game: str) -> int:

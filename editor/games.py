@@ -9,7 +9,7 @@ What is shared (Wrench's readers, which serve all four, and the levels on the di
 
 - the level core: one index header layout (gs_ram, tfrags, occlusion, sky, collision, the class
   and texture tables at the same offsets, textures base at +0x60, the chrome and glass maps at
-  +0x90..+0x9c, whose pixels Going Commando keeps in the texture data, not the GS RAM lump), the class entries (32 bytes for mobys and ties, 48 for shrubs), the 16-byte
+  +0x90..+0x9c, whose pixels Going Commando keeps in the GS RAM lump's stash), the class entries (32 bytes for mobys and ties, 48 for shrubs), the 16-byte
   texture entries and the WAD compression;
 - tfrags, ties, shrubs and collision, whose blocks the same decoders read;
 - the moby class header and its packets; the tie and shrub instance records (from Going Commando on
@@ -128,7 +128,7 @@ class Format:
     ratchet_sequences: bool = True      # +0x78 points at Ratchet's 256 sequence offsets (not Deadlocked's)
     moby_sound_remap: bool = False      # +0xb4 starts a core block (Going Commando, Up Your Arsenal)
     stash: bool = False                 # +0x84 counts GS RAM entries of permanently stashed moby textures
-    maps_in_textures: bool = False      # the chrome and glass maps' pixels are in the texture data (Going Commando)
+    maps_in_textures: bool = False      # the chrome and glass maps' pixels are in the GS RAM lump's stash (Going Commando)
     ship_paint_slots: bool = False      # a face on an empty texture slot wears the ship's picture (Going Commando)
     compact_vertex_table: bool = False  # moby packets' vertex table header: 8 u16 (else 8 u32)
     swizzled_textures: bool = False     # 8-bit textures stored in the GS's PSMT8 order (Deadlocked)

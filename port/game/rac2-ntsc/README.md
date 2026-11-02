@@ -145,11 +145,15 @@ many bytes can be another field in another level: it reads what the running copy
   level's load and every flight's loads it over the class (`func_002925F0`, by the low bits of
   `0x001A7AF0`), and most levels' tables have no class 3412 of their own, so parked ships drew their
   wings and canopy only. The export has hull 0 as class 3412 in every level, hulls 1 and 2 as 6031 and
-  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 13 (`editor/port.py`, `GAME_FORMATS`).
+  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 14 (`editor/port.py`, `GAME_FORMATS`).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
-  pixels are the first two pictures of the texture data (128 x 128 at +0, 64 x 64 at +0x4000, moby
-  textures from +0x5000), not in the GS RAM lump as in Ratchet & Clank; the CLUTs are the lump's first
-  two, at 0 and 0x400. `Format.maps_in_textures`.
+  pixels are offsets into the stash: the GS RAM table's entries past its count, whose first is the
+  128 x 128 chrome at stash offset 0 and the next the 64 x 64 glass at 0x4000 (the stashed moby
+  textures follow from 0x5000); the CLUTs are the lump's first two, at 0 and 0x400. The game sends
+  them to GS blocks 0xB00 and 0xC00 as PSMT8H, CLUTs 0x2C18 and 0x2C1C. Checked byte for byte
+  against the retail GS memory in levels 0, 1, 3 and 4. Offset 0 of the texture data, which format
+  8 to 11 read, is the first terrain texture (some levels' alpha 0xFF stripes: a hard white line on
+  the visor and the vendor). `Format.maps_in_textures`; format 14.
 - A moby's animation fields start at +0x40 (`profile.cpp`, `moby_anim_fields`).
 - Glow: a packet's compact vertex table ends with a count of its last vertices whose lit colours
   func_00274D90 overwrites with the moby's glow word, +0x78 (`moby_glow_word`), when its mode has
