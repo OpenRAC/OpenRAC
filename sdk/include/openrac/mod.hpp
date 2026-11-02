@@ -1144,11 +1144,11 @@ public:
     int save_slot_current() const { return has_api_11() ? m_api->save_slot_current() : -1; }
 
     // Whether the port has interface 1.12's calls: the hero moved by the mod (hero_set_pose), the
-    // collision triangles, props and sounds. has_hero_drive(), has_collision(), has_props() and
-    // has_sounds() say the same for each part.
+    // collision triangles, props, sounds, the camera and heat haze. has_hero_drive(),
+    // has_collision(), has_props(), has_sounds() and has_camera() say the same for each part.
     bool has_api_12() const {
         return m_api->api_minor >= 12
-               && m_api->size >= offsetof(openrac_api, sound_stop) + sizeof(void*);
+               && m_api->size >= offsetof(openrac_api, haze_set) + sizeof(void*);
     }
     bool has_hero_drive() const { return has_api_12(); }
     bool has_collision() const { return has_api_12(); }
@@ -1166,7 +1166,7 @@ public:
     }
 
     // Since 1.12: the collision triangles inside the box [lo, hi] (the level's, then the mobys'
-    // with collision, in a stable order), all of them (more than `max` are left out).
+    // with collision, in a stable order), up to `max` of them.
     std::vector<openrac_collision_triangle> collision_triangles(
         const float lo[3], const float hi[3], int max = 4096
     ) const {
@@ -1241,11 +1241,11 @@ public:
 
     // Since 1.12: a voice's volume and pitch (false once it has ended); stops a voice.
     bool sound_set(std::uint32_t voice, float volume, float pitch) const {
-        return has_api_12() && m_api->sound_set(voice, volume, pitch) == OPENRAC_HOOK_OK;
+        return has_api_12() && m_api->sound_set(m_handle, voice, volume, pitch) == OPENRAC_HOOK_OK;
     }
     void sound_stop(std::uint32_t voice) const {
         if (has_api_12()) {
-            m_api->sound_stop(voice);
+            m_api->sound_stop(m_handle, voice);
         }
     }
 
@@ -1253,16 +1253,14 @@ public:
     // until the next call; an empty list takes them off. False outside a level, for a mod without
     // the hero's update hook, or on a port without the call.
     bool hero_set_joints(const std::vector<openrac_joint_offset>& joints) const {
-        return has_api_12() && m_api->size >= offsetof(openrac_api, hero_set_joints) + sizeof(void*)
+        return has_api_12()
                && m_api->hero_set_joints(m_handle, joints.empty() ? nullptr : joints.data(),
                                          static_cast<int>(joints.size()))
                       == OPENRAC_HOOK_OK;
     }
 
     // Since 1.12: whether the port offers camera_view(), camera_set() and haze_set().
-    bool has_camera() const {
-        return has_api_12() && m_api->size >= offsetof(openrac_api, haze_set) + sizeof(void*);
-    }
+    bool has_camera() const { return has_api_12(); }
 
     // Since 1.12: the camera the game made itself for its last view in the level. False outside a
     // level or on a port without the call.

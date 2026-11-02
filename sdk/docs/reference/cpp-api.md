@@ -219,13 +219,13 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_api_11() const` | Whether the port has interface 1.11's calls (data_dir, save_slot_current). |
 | `std::string data_dir() const` | Since 1.11: the mod's own folder for the files it keeps (beside the memory cards, made by the port), empty for none. |
 | `int save_slot_current() const` | Since 1.11: the memory card slot the game in progress saves into (the one it was loaded from or last saved to), -1 for none. |
-| `bool has_api_12() const` | Whether the port has interface 1.12's calls: the hero moved by the mod (hero_set_pose), the collision triangles, props and sounds. has_hero_drive(), has_collision(), has_props() and has_sounds() say the same for each part. |
+| `bool has_api_12() const` | Whether the port has interface 1.12's calls: the hero moved by the mod (hero_set_pose), the collision triangles, props, sounds, the camera and heat haze. has_hero_drive(), has_collision(), has_props(), has_sounds() and has_camera() say the same for each part. |
 | `bool has_hero_drive() const` |  |
 | `bool has_collision() const` |  |
 | `bool has_props() const` |  |
 | `bool has_sounds() const` |  |
 | `bool hero_set_pose(const openrac_pose& pose) const` | Since 1.12: puts the hero in `pose` (its size set here), from the mod's replacement of the hero's update (rac1.player.update), which then does not call the original: his place, rotation, velocity and animation, and what the update does after his movement to show him. False outside a level, or for a mod that has not taken that hook point. |
-| `std::vector<openrac_collision_triangle> collision_triangles( const float lo[3], const float hi[3], int max = 4096 ) const` | Since 1.12: the collision triangles inside the box [lo, hi] (the level's, then the mobys' with collision, in a stable order), all of them (more than `max` are left out). |
+| `std::vector<openrac_collision_triangle> collision_triangles( const float lo[3], const float hi[3], int max = 4096 ) const` | Since 1.12: the collision triangles inside the box [lo, hi] (the level's, then the mobys' with collision, in a stable order), up to `max` of them. |
 | `int prop_create(const std::string& mesh_path) const` | Since 1.12: a prop of the mesh `mesh_path` (a .glb in the mod's folder) in the level: its id, or -1 (no level, no such file, no room). |
 | `bool prop_pose(int id, const float position[3], const float rotation[4], float scale = 1.0f) const` | Since 1.12: places prop `id` at `position`, turned by the unit quaternion `rotation` (x, y, z, w) and scaled by `scale`; false for a prop gone with its level (make another). |
 | `bool prop_pose(int id, const float matrix[16]) const` | Since 1.12: places prop `id` by a 4 by 4 matrix, column-major. |

@@ -763,11 +763,13 @@ void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullp
 // level load, behind a lock: the front end reads them on its own thread.
 const openrac_mod* g_camera_mod = nullptr;
 std::uint32_t g_camera_loads = 0;
+
 struct Haze {
     const openrac_mod* mod = nullptr;
     std::uint32_t loads = 0;
     std::vector<openrac_haze> patches;
 };
+
 std::mutex g_haze_lock;
 std::vector<Haze> g_haze;
 
@@ -786,9 +788,9 @@ int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose) {
 }
 
 int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, int count) {
-    if (mod == nullptr || g_play == nullptr || g_play->hero_moby == nullptr || g_joint_offsets == nullptr
-        || !holds_hook(mod, g_play->hero_update_hook) || count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX
-        || (count > 0 && joints == nullptr)) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_moby == nullptr
+        || g_joint_offsets == nullptr || !holds_hook(mod, g_play->hero_update_hook) || count < 0
+        || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t moby = g_play->hero_moby();
@@ -858,7 +860,16 @@ int api_prop_create(openrac_mod* mod, const char* mesh_path) {
 }
 
 int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose) {
-    if (pose == nullptr || pose->size < sizeof(openrac_prop_pose)) {
+    const auto finite = [](const float* v, int n) {
+        return std::all_of(v, v + n, [](float f) { return std::isfinite(f); });
+    };
+    if (pose == nullptr || pose->size < sizeof(openrac_prop_pose)
+        || !(
+            (pose->flags & OPENRAC_PROP_MATRIX) != 0
+                ? finite(pose->matrix, 16)
+                : finite(pose->position, 3) && finite(pose->rotation, 4) && finite(&pose->scale, 1)
+        )
+        || ((pose->flags & OPENRAC_PROP_TINT) != 0 && !finite(pose->tint, 4))) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::lock_guard<std::mutex> lock(g_props_lock);
@@ -964,8 +975,12 @@ int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
         }
         return OPENRAC_HOOK_OK;
     }
+    const auto square = [](const float a[3], const float b[3]) {
+        return std::fabs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) < 0.01f;
+    };
     if (camera->size < sizeof(openrac_camera) || !unit(camera->forward) || !unit(camera->left)
-        || !unit(camera->up)
+        || !unit(camera->up) || !square(camera->forward, camera->left)
+        || !square(camera->forward, camera->up) || !square(camera->left, camera->up)
         || !std::all_of(camera->eye, camera->eye + 3, [](float v) { return std::isfinite(v); })) {
         return OPENRAC_HOOK_UNKNOWN;
     }
@@ -997,6 +1012,14 @@ int api_haze_set(openrac_mod* mod, const openrac_haze* patches, int count) {
     }
     if (others + static_cast<std::size_t>(count) > OPENRAC_HAZE_MAX) {
         return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int i = 0; i < count; ++i) {
+        const openrac_haze& p = patches[i];
+        if (!std::all_of(p.position, p.position + 3, [](float v) { return std::isfinite(v); })
+            || !std::isfinite(p.radius) || !std::isfinite(p.strength) || p.radius < 0.0f
+            || p.strength < 0.0f) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
     }
     std::erase_if(g_haze, [&](const Haze& h) { return h.mod == mod || h.loads != loads; });
     if (count > 0) {
@@ -1056,8 +1079,16 @@ std::uint32_t api_sound_play(openrac_mod* mod, int sound, float volume, float pi
     return voice;
 }
 
-int api_sound_set(std::uint32_t voice, float volume, float pitch) {
-    if (g_sound_set == nullptr || voice == 0 || !std::isfinite(volume) || !std::isfinite(pitch)) {
+// Whether `voice` is one the mod played.
+bool own_voice(const openrac_mod* mod, std::uint32_t voice) {
+    return mod != nullptr && voice != 0
+           && std::find(g_voices.begin(), g_voices.end(), std::make_pair(mod, voice))
+                  != g_voices.end();
+}
+
+int api_sound_set(openrac_mod* mod, std::uint32_t voice, float volume, float pitch) {
+    if (g_sound_set == nullptr || !own_voice(mod, voice) || !std::isfinite(volume)
+        || !std::isfinite(pitch)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     return g_sound_set(voice, std::max(volume, 0.0f), std::max(pitch, 0.0f)) != 0
@@ -1065,9 +1096,10 @@ int api_sound_set(std::uint32_t voice, float volume, float pitch) {
                : OPENRAC_HOOK_UNKNOWN;
 }
 
-void api_sound_stop(std::uint32_t voice) {
-    if (g_sound_stop != nullptr && voice != 0) {
+void api_sound_stop(openrac_mod* mod, std::uint32_t voice) {
+    if (g_sound_stop != nullptr && own_voice(mod, voice)) {
         g_sound_stop(voice);
+        std::erase(g_voices, std::make_pair(static_cast<const openrac_mod*>(mod), voice));
     }
 }
 }  // namespace

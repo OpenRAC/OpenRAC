@@ -322,9 +322,10 @@ static void motion_frame(void) {
         s_record(9560 + -s_api->sound_load(s_mod, "missing.wav"));
         voice = s_api->sound_play(s_mod, sound, 0.5f, 2.0f, 1);
         s_record(9570 + (int)voice);
-        s_record(9580 + -s_api->sound_set(voice, 1.0f, 1.0f));
-        s_api->sound_stop(voice);
-        s_record(9580 + -s_api->sound_set(voice, 1.0f, 1.0f));
+        s_record(9580 + -s_api->sound_set(NULL, voice, 1.0f, 1.0f)); /* not the mod's voice */
+        s_record(9580 + -s_api->sound_set(s_mod, voice, 1.0f, 1.0f));
+        s_api->sound_stop(s_mod, voice);
+        s_record(9580 + -s_api->sound_set(s_mod, voice, 1.0f, 1.0f));
         {
             openrac_haze haze[2];
             openrac_camera cam;
@@ -332,14 +333,20 @@ static void motion_frame(void) {
             haze[0].position[0] = 4.0f;
             haze[0].radius = 1.0f;
             haze[0].strength = 0.5f;
+            haze[1].radius = -1.0f;
+            s_record(9590 + -s_api->haze_set(s_mod, haze, 2)); /* a radius below 0 */
+            haze[1].radius = 0.0f;
             s_record(9590 + -s_api->haze_set(s_mod, haze, 2));
             memset(&cam, 0, sizeof cam);
             cam.size = sizeof cam;
             cam.eye[0] = 6.0f;
             s_record(9590 + -s_api->camera_set(s_mod, &cam)); /* rows not unit vectors */
             cam.forward[0] = 1.0f;
-            cam.left[1] = 1.0f;
+            cam.left[0] = 1.0f;
             cam.up[2] = 1.0f;
+            s_record(9590 + -s_api->camera_set(s_mod, &cam)); /* rows not at right angles */
+            cam.left[0] = 0.0f;
+            cam.left[1] = 1.0f;
             s_record(9590 + -s_api->camera_set(s_mod, &cam));
             memset(&cam, 0, sizeof cam);
             cam.size = sizeof cam;

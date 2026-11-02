@@ -1503,6 +1503,8 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_UNKNOWN outside a level, for a path outside the mod's folder or a file that is
      * not there, or past OPENRAC_PROPS_MAX. Since 1.12. */
     int (*prop_create)(openrac_mod* mod, const char* mesh_path);
+    /* Places a prop of the mod's (openrac_prop_pose). OPENRAC_HOOK_UNKNOWN for a prop that is not
+     * the mod's or went with its level, or a pose with a value that is not a number. Since 1.12. */
     int (*prop_pose)(openrac_mod* mod, int id, const openrac_prop_pose* pose);
     /* Hides the prop (hidden 1) or shows it again at its pose (0). Since 1.12. */
     int (*prop_hide)(openrac_mod* mod, int id, int hidden);
@@ -1519,10 +1521,11 @@ typedef struct openrac_api {
      * to play it over and over until sound_stop. Returns the voice (above 0), or 0 when no voice is
      * free (OPENRAC_SOUND_VOICES_MAX for all mods) or the sound is not the mod's. Since 1.12. */
     uint32_t (*sound_play)(openrac_mod* mod, int sound, float volume, float pitch, int loop);
-    /* A voice's volume and pitch from now on. OPENRAC_HOOK_UNKNOWN for a voice that has ended. */
-    int (*sound_set)(uint32_t voice, float volume, float pitch);
-    /* Stops a voice (a voice that has ended: nothing). Since 1.12. */
-    void (*sound_stop)(uint32_t voice);
+    /* A voice's volume and pitch from now on. OPENRAC_HOOK_UNKNOWN for a voice that has ended or
+     * is not the mod's. Since 1.12. */
+    int (*sound_set)(openrac_mod* mod, uint32_t voice, float volume, float pitch);
+    /* Stops a voice of the mod's (one that has ended, or another mod's: nothing). Since 1.12. */
+    void (*sound_stop)(openrac_mod* mod, uint32_t voice);
 
     /* Turns and moves joints of the hero on top of his animation (openrac_joint_offset), from the
      * holder of the hero's update hook (as hero_set_pose): the `count` offsets replace the last ones
@@ -1541,13 +1544,14 @@ typedef struct openrac_api {
      * view). The game's own camera goes on underneath (camera_view). It stays until the mod calls
      * this with null, or the level goes; under the pause menu the menu's own camera is kept. One
      * mod at a time: OPENRAC_HOOK_TAKEN while another mod holds the camera, OPENRAC_HOOK_UNKNOWN
-     * outside a level or for rows that are not unit vectors. Since 1.12. */
+     * outside a level or for rows that are not unit vectors at right angles. Since 1.12. */
     int (*camera_set)(openrac_mod* mod, const openrac_camera* camera);
 
     /* Draws heat haze (openrac_haze) over the picture, behind the HUD: the `count` patches replace
      * the mod's last ones and stay until the next call; 0 (or `patches` null) takes them off. They
-     * go with the level. OPENRAC_HOOK_UNKNOWN outside a level or past OPENRAC_HAZE_MAX for all
-     * mods. Since 1.12. */
+     * go with the level. OPENRAC_HOOK_UNKNOWN outside a level, past OPENRAC_HAZE_MAX for all mods,
+     * or for a patch with a value that is not a number, or a radius or strength below 0. Since
+     * 1.12. */
     int (*haze_set)(openrac_mod* mod, const openrac_haze* patches, int count);
 } openrac_api;
 
