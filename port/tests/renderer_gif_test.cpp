@@ -4,6 +4,7 @@
 // The direct renderer's CPU half: GIF packets in, triangles and draw groups
 // out. Synthetic packets, laid out the way the game's 2D code builds them.
 
+#include <cfenv>
 #include <cmath>
 #include <cstdio>
 #include <utility>
@@ -362,6 +363,36 @@ void fill_to_the_edges() {
     CHECK(near(inner_last.x, 300.5f / 256.0f - 1.0f) && near(inner_last.y, 1.0f - 200.5f / 224.0f));
 }
 
+// The NTSC games draw into a 416-line buffer (XYOFFSET 2048 - 208), stretched onto the 448-line
+// picture. Its scissor of lines 0 to 415 is the picture's 0 to 447: the scale rounded first (448 /
+// 416 as a float, times 416) came to just under 448 and cut the last line, where the cutscene bars
+// left a line of the world showing under them. The renderer runs in the EE's rounding mode, toward
+// zero, where that product falls short.
+void scissor_of_a_shorter_buffer() {
+    const int rounding = std::fegetround();
+    CHECK(std::fesetround(FE_TOWARDZERO) == 0);
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    const std::uint64_t ofy = (2048 - 208) * 16;
+    const std::uint64_t ofx = (2048 - 256) * 16;
+    b
+        .ad({{gs::kXyoffset1, ofx | (ofy << 32)},
+             {gs::kScissor1, openrac::test::scissor(0, 511, 0, 415)},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+             // The bottom bar: its lines 364 to 415 (the default offset's 380 to 431).
+             {gs::kXyz2, xyz2(0, 380, 0)},
+             {gs::kXyz2, xyz2(512, 432, 0)}},
+            true);
+    CHECK(gif.gif(b.bytes));
+    CHECK(gif.draws().size() == 1);
+    const gs::Scissor& cut = gif.draws()[0].state.scissor;
+    CHECK(cut.x0 == 0 && cut.x1 == 511 && cut.y0 == 0 && cut.y1 == 447);
+    // Its bottom (416) is the picture's bottom edge.
+    CHECK(near(gif.vertices()[4].y, -1.0f));
+    CHECK(std::fesetround(rounding) == 0);
+}
+
 void textures_and_vif() {
     TexturePool textures;
     GifInterpreter gif(textures);
@@ -547,6 +578,7 @@ int main() {
     draw_groups();
     no_sample_no_pixel();
     fill_to_the_edges();
+    scissor_of_a_shorter_buffer();
     textures_and_vif();
     offscreen_then_upload();
     frame_named_without_draw();

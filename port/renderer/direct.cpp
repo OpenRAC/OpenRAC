@@ -1192,21 +1192,33 @@ void GifInterpreter::ensure_draw() {
                                                                       : TextureKind::Texture);
         }
         // The scissor is in this buffer's own pixels: scaled onto the picture as its draws are
-        // (screen_position), so it clips where they land.
+        // (screen_position), so it clips where they land. Multiplied before it is divided, so that
+        // an edge the scale puts on a whole pixel lands there exactly in any rounding mode: the
+        // NTSC games' 416-line draw buffer cut at 0-415 is 0-447 of the 448-line picture, where
+        // 448 / 416 rounded toward zero (the EE's mode, which the renderer runs in), times 416,
+        // came to 447.99997 and cut the picture's last line (Going Commando's cutscene bars
+        // stopped a line short of the bottom).
         {
             const float ofx = static_cast<float>(c.xyoffset.ofx) / 16.0f;
             const float ofy = static_cast<float>(c.xyoffset.ofy) / 16.0f;
             const float width = 2.0f * (2048.0f - ofx);
             const float height = 2.0f * (2048.0f - ofy);
-            const float kx = width >= 64.0f && width <= 1024.0f ? static_cast<float>(m_config.screen_width) / width : 1.0f;
-            const float ky = height >= 64.0f && height <= 1024.0f ? static_cast<float>(m_config.screen_height) / height : 1.0f;
-            auto scale = [](std::uint32_t v, float k, bool end) {
-                const float r = end ? (static_cast<float>(v) + 1.0f) * k - 1.0f : static_cast<float>(v) * k;
+            const float sw = static_cast<float>(m_config.screen_width);
+            const float sh = static_cast<float>(m_config.screen_height);
+            const bool fx = width >= 64.0f && width <= 1024.0f;
+            const bool fy = height >= 64.0f && height <= 1024.0f;
+            auto scale = [](std::uint32_t v, bool fits, float screen, float size, bool end) {
+                const float edge = static_cast<float>(v) + (end ? 1.0f : 0.0f);
+                const float r = (fits ? edge * screen / size : edge) - (end ? 1.0f : 0.0f);
                 return static_cast<std::uint32_t>(r < 0.0f ? 0.0f : r);
             };
             s.scissor = s.target != 0 ? c.scissor
-                                      : gs::Scissor{scale(c.scissor.x0, kx, false), scale(c.scissor.x1, kx, true),
-                                                    scale(c.scissor.y0, ky, false), scale(c.scissor.y1, ky, true)};
+                                      : gs::Scissor{
+                                            scale(c.scissor.x0, fx, sw, width, false),
+                                            scale(c.scissor.x1, fx, sw, width, true),
+                                            scale(c.scissor.y0, fy, sh, height, false),
+                                            scale(c.scissor.y1, fy, sh, height, true)
+                                        };
         }
         s.fog = p.fge;
         if (s.fog) {
@@ -2006,6 +2018,33 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         GL_STREAM_DRAW
     );
     const float k = state.target.picture_scale_x;
+    // A plain fill out to the picture's top or left edge (a cutscene bar, a fade) reaches the
+    // target's edge itself. apply()'s pixel_offset moves every vertex a quarter of a pixel right
+    // and down, which leaves the top row and left column a quarter uncovered: no pixel's centre
+    // is there, but with multisampling a sample is, and that row showed the world through the
+    // bar. Such a vertex is put back on the edge (the offset undone); every other is as it was.
+    // Only in a triangle of one colour and depth, so that nothing interpolated across it changes
+    // (a gradient's shades stay where they were). `sides`: the target's left edge is the
+    // picture's (not a picture narrower than the target).
+    const float edge_x = 0.5f / static_cast<float>(std::max(state.target.width, 1));
+    const float edge_y = 0.5f / static_cast<float>(std::max(state.target.height, 1));
+    auto to_edges = [edge_x, edge_y](DirectVertex* v, bool sides) {
+        constexpr float kOn = 1.0f - 1.0f / 65536.0f;
+        for (int j = 1; j < 3; ++j) {
+            if (std::memcmp(v[j].rgba, v[0].rgba, 4) != 0 || v[j].z != v[0].z
+                || v[j].fog != v[0].fog) {
+                return;
+            }
+        }
+        for (int j = 0; j < 3; ++j) {
+            if (v[j].y >= kOn) {
+                v[j].y = 1.0f + edge_y;
+            }
+            if (sides && v[j].x <= -kOn) {
+                v[j].x = -1.0f - edge_x;
+            }
+        }
+    };
     // On a target wider than the game's picture: each draw as runs of triangles that are the
     // picture's (in the target's middle) or the whole target's, in the order they came.
     struct Run {
@@ -2060,6 +2099,9 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 } else {
                     runs.push_back({&d, i, 3, whole});
                 }
+                if (!s.textured) {
+                    to_edges(&placed[i], whole);
+                }
                 if (whole) {
                     continue;
                 }
@@ -2070,7 +2112,17 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         }
         glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), placed.data());
     } else {
-        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), vertices.data());
+        std::vector<DirectVertex> placed(vertices.begin(), vertices.end());
+        for (const DirectDraw& d : m_interpreter->draws()) {
+            if (d.state.target != 0 || d.state.textured) {
+                continue;
+            }
+            for (std::uint32_t i = d.first; i + 3 <= d.first + d.count && i + 3 <= placed.size();
+                 i += 3) {
+                to_edges(&placed[i], true);
+            }
+        }
+        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), placed.data());
     }
     m_vbo_bytes = std::max(bytes, m_vbo_bytes);
     use_program(m_masked);
