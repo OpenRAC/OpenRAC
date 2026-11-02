@@ -249,6 +249,7 @@ let config: Config = {
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")
     ? "vulkan"
     : "opengl",
+  hdr: "",
   safeRendering: false,
   // ?mods: the Mods switch under Play is on.
   playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
