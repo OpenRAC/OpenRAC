@@ -64,8 +64,8 @@
       "kind": "port",
       "name": "Start skips cutscenes",
       "discs": ["ntsc"],
-      "original": "Start needs the shoulder buttons held with it to skip a scene.",
-      "port": "With the Skip cutscenes setting on (the default), Start alone skips an in-game scene: the port holds the shoulder buttons for it, so the game's own skip ends the scene.",
+      "original": "Start needs the shoulder buttons held with it to skip a scene. The ship leaving a planet skips on Cross or Triangle only, and the flight between planets cannot be skipped.",
+      "port": "With the Skip cutscenes setting on (the default), Start alone skips an in-game scene: the port holds the shoulder buttons for it, so the game's own skip ends the scene. Start also presses Cross while the ship leaves a planet, and ends the flight between planets once the next planet is read from the disc: the flight's lap and then the approach end, and the planet loads as it would have. Off, Start works as on a console.",
       "refs": ["port/game/rac2-ntsc/host/tools.c"]
     }
   ]
