@@ -177,6 +177,15 @@ if(TARGET openrac_renderer_vulkan)
     LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
   set_tests_properties(vulkan_present_timing PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  # vulkan_hdr       HDR output's encode pass against renderer/hdr.h's arithmetic, on stand-ins of
+  #                  the screen (tests/vulkan_hdr_test.cpp)
+  # surface_format   the swapchain's format and colour space, SDR as before and HDR's fallbacks
+  #                  (tests/surface_format_test.cpp); no GPU
+  openrac_add_test(vulkan_hdr
+    LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(vulkan_hdr PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  openrac_add_test(surface_format LIBS openrac_renderer_vulkan)
   # spirv_cache  the SPIR-V cache: programs from it the same words as compiled afresh, its file
   #              read back, and a damaged, stale or colliding entry compiled afresh
   #              (tests/spirv_cache_test.cpp); it needs no GPU

@@ -395,11 +395,16 @@ void present() {
     report_measures();
     publish_counters();
     advance();
-    // A window of another size: the default framebuffer follows, as a GL window's does.
+    // A window of another size: the default framebuffer follows, as a GL window's does; and
+    // in half floats from when HDR is shown, in 8 bits from when it no longer is.
     if (g->window != nullptr) {
         int w = 0, h = 0;
         SDL_GetWindowSizeInPixels(g->window, &w, &h);
-        if (w > 0 && h > 0 && (w != g->default_width || h != g->default_height)) {
+        const bool want_float = g->hdr.shown != hdr::Output::Sdr;
+        const bool is_float =
+            g->default_colour && g->default_colour->format == VK_FORMAT_R16G16B16A16_SFLOAT;
+        if (w > 0 && h > 0
+            && (w != g->default_width || h != g->default_height || want_float != is_float)) {
             retire(std::move(g->default_colour));
             retire(std::move(g->default_depth));
             make_default_framebuffer(w, h);

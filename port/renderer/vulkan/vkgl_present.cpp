@@ -148,6 +148,7 @@ void swapchain_barrier(VkCommandBuffer cmd, VkImage image, VkImageLayout from, V
 // one and the old surface draws nowhere (the screen stayed black while the game went on).
 bool renew_surface() {
     vkDeviceWaitIdle(g->device);
+    release_hdr_views();
     if (g->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(g->device, g->swapchain, nullptr);
         g->swapchain = VK_NULL_HANDLE;
@@ -179,8 +180,15 @@ void run_deferred(Frame& f) {
 }
 
 bool make_default_framebuffer(int width, int height) {
-    g->default_colour =
-        default_image({VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 4}, width, height);
+    // In half floats while HDR is shown (vkgl.h, hdr_frame), so the frame's light above white
+    // reaches the encode pass; 8-bit otherwise, as always.
+    g->default_colour = default_image(
+        g->hdr.shown != hdr::Output::Sdr
+            ? Format{VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8}
+            : Format{VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 4},
+        width,
+        height
+    );
     g->default_depth = default_image(
         {g->depth_format,
          VK_IMAGE_ASPECT_DEPTH_BIT
@@ -239,15 +247,10 @@ bool make_swapchain() {
     if (formats.empty()) {
         return false;
     }
-    // A linear format: the picture is in the display's own (gamma) space already, as on the GS.
-    VkSurfaceFormatKHR format = formats[0];
-    for (const VkSurfaceFormatKHR& f : formats) {
-        if (f.format == VK_FORMAT_B8G8R8A8_UNORM || f.format == VK_FORMAT_R8G8B8A8_UNORM
-            || f.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32) {
-            format = f;
-            break;
-        }
-    }
+    // A linear format: the picture is in the display's own (gamma) space already, as on the GS;
+    // or, asked for and offered, an HDR one the encode pass writes (surface_format.h).
+    const VkSurfaceFormatKHR format = choose_hdr_format(formats, caps);
+    const bool hdr = g->hdr.shown != hdr::Output::Sdr;
     int w = 0, h = 0;
     SDL_GetWindowSizeInPixels(g->window, &w, &h);
     VkExtent2D extent{
@@ -279,7 +282,8 @@ bool make_swapchain() {
     info.imageColorSpace = format.colorSpace;
     info.imageExtent = extent;
     info.imageArrayLayers = 1;
-    info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    info.imageUsage =
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | (hdr && g->hdr.direct ? VK_IMAGE_USAGE_STORAGE_BIT : 0u);
     info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     // The system turns the picture to the screen's way up (no pre-rotation of our own).
     info.preTransform = (caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0
@@ -304,6 +308,7 @@ bool make_swapchain() {
     if (!check(vkCreateSwapchainKHR(g->device, &info, nullptr, &swapchain), "the swapchain")) {
         return false;
     }
+    release_hdr_views();
     if (g->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(g->device, g->swapchain, nullptr);
     }
@@ -324,6 +329,7 @@ bool make_swapchain() {
         VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         vkCreateSemaphore(g->device, &si, nullptr, &s);
     }
+    hdr_swapchain_made(format);
     g->swapchain_stale = false;
     return true;
 }
@@ -639,21 +645,31 @@ bool present_to_screen() {
 
     // The copy to the screen in a buffer of its own, so that only it waits for the screen's
     // image (vk-tight-sync); or at the end of `main`, as before.
+    // An HDR screen is written by a compute pass, which the present's own buffer (waiting at the
+    // transfer stage) does not cover: HDR frames record it at the end of `main`.
+    const bool hdr = g->hdr.shown != hdr::Output::Sdr;
     const VkCommandBuffer own =
-        render_opt::enabled(render_opt::Opt::VkTightSync) ? present_cmd() : VK_NULL_HANDLE;
+        render_opt::enabled(render_opt::Opt::VkTightSync) && !hdr ? present_cmd() : VK_NULL_HANDLE;
     VkCommandBuffer cmd = own != VK_NULL_HANDLE ? own : f.main;
-    swapchain_barrier(cmd, screen, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    // The picture straight into the screen when its copy waited and can be composed; else as before.
-    if (composed) {
-        compose_into(cmd, screen, g->swapchain_extent);
-    } else {
-        copy_default_into(cmd, screen, g->swapchain_extent);
+    // HDR: the picture encoded into the screen (hdr_output.cpp); else, or when that cannot be
+    // recorded, copied as before: straight into the screen when its copy waited and can be
+    // composed, else from the window.
+    if (!hdr || !hdr_encode_into(cmd, index)) {
+        if (!hdr) {
+            swapchain_barrier(
+                cmd, screen, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+            );
+        }
+        if (composed) {
+            compose_into(cmd, screen, g->swapchain_extent);
+        } else {
+            copy_default_into(cmd, screen, g->swapchain_extent);
+        }
+        swapchain_barrier(
+            cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+        );
     }
-
-    swapchain_barrier(
-        cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
     // The frame's GPU-driven work recorded and everything handed to the queue; then the present,
     // which a driver may hold until the display or the GPU has room for another picture.
     step.emplace("vulkan submit");

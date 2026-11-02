@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
+#include <iterator>
 #include <regex>
 #include <string>
 #include <string_view>
@@ -330,7 +331,86 @@ bool finish_program_link(Program& program) {
     return program.linked;
 }
 
+// Whether two links of a program give its stages the same resources at the same places, so that
+// one's fragment module can stand in for the other's in the same pipeline layout.
+bool same_layout(const Program& a, const Program& b) {
+    const CompiledProgram& x = a.compiled;
+    const CompiledProgram& y = b.compiled;
+    const auto same_uniform = [](const ProgramUniform& u, const ProgramUniform& v) {
+        return u.name == v.name && u.gl_type == v.gl_type && u.offset == v.offset
+               && u.array_size == v.array_size && u.array_stride == v.array_stride
+               && u.sampler == v.sampler && u.binding == v.binding && u.kind == v.kind;
+    };
+    const auto same_block = [](const ProgramBlock& u, const ProgramBlock& v) {
+        return u.name == v.name && u.binding == v.binding && u.size == v.size;
+    };
+    return a.gpu_materials == b.gpu_materials && a.draw_uniform_offset == b.draw_uniform_offset
+           && x.default_binding == y.default_binding && x.default_size == y.default_size
+           && std::equal(
+               x.uniforms.begin(),
+               x.uniforms.end(),
+               y.uniforms.begin(),
+               y.uniforms.end(),
+               same_uniform
+           )
+           && std::equal(
+               x.blocks.begin(), x.blocks.end(), y.blocks.begin(), y.blocks.end(), same_block
+           )
+           && std::equal(
+               x.storage.begin(), x.storage.end(), y.storage.begin(), y.storage.end(), same_block
+           );
+}
+
 }  // namespace
+
+// Outside the anonymous namespace: vkgl_pipelines.cpp asks for it (vkgl_internal.h).
+VkShaderModule clamped_fragment(Program& p) {
+    if (p.clamped_tried) {
+        return p.fragment_clamped;
+    }
+    p.clamped_tried = true;
+    static const std::regex output(
+        R"(layout\s*\(\s*location\s*=\s*0\s*\)\s*out\s+vec4\s+([A-Za-z_][A-Za-z_0-9]*)\s*;)"
+    );
+    static const std::regex entry(R"(\bvoid\s+main\s*\(\s*(void)?\s*\))");
+    // Or its one output without a location (location 0 then).
+    static const std::regex lone(R"((^|\n)\s*out\s+vec4\s+([A-Za-z_][A-Za-z_0-9]*)\s*;)");
+    const std::string& source = p.fragment_source;
+    std::smatch match;
+    std::string colour;
+    if (std::regex_search(source, match, output)) {
+        colour = match[1];
+    } else {
+        // Only when there is exactly one.
+        const std::sregex_iterator first(source.begin(), source.end(), lone), end;
+        if (first != end && std::next(first) == end) {
+            colour = (*first)[2];
+        }
+    }
+    if (colour.empty() || !std::regex_search(source, entry)) {
+        log::warn("vulkan: a program's colour cannot be clamped (no colour output found)");
+        return VK_NULL_HANDLE;
+    }
+    // The program's own main runs first, then its colour is clamped.
+    std::string fs = std::regex_replace(source, entry, "void openrac_unclamped_main()");
+    fs += "\nvoid main() {\n    openrac_unclamped_main();\n    " + colour + " = clamp(" + colour
+          + ", 0.0, 1.0);\n}\n";
+    // Linked as link_program links it, so that its resources land where the program's are.
+    Program variant;
+    std::string error;
+    if (!compile_program(p.vertex_source, fs, variant.compiled, error)
+        || !material_program(variant, p.vertex_source, fs)) {
+        log::warn("vulkan: a program's colour cannot be clamped: {}", error);
+        return VK_NULL_HANDLE;
+    }
+    separate_draw_uniform(variant, p.vertex_source, fs);
+    if (!same_layout(variant, p)) {
+        log::warn("vulkan: a program's clamped colour stage has another layout; drawn unclamped");
+        return VK_NULL_HANDLE;
+    }
+    p.fragment_clamped = module_of(variant, variant.compiled.fragment);
+    return p.fragment_clamped;
+}
 
 // Builds the executable only after every driver prerequisite succeeds.
 void VKGL link_program(GLuint name) {
@@ -363,6 +443,11 @@ void VKGL link_program(GLuint name) {
     p->serial = ++g->program_serial;
     if (!compile_program(vs, fs, p->compiled, p->log, cs)) {
         return;
+    }
+    // Kept for the clamped fragment stage an HDR frame may ask for (clamped_fragment).
+    if (cs.empty()) {
+        p->vertex_source = vs;
+        p->fragment_source = fs;
     }
     if (!material_program(*p, vs, fs)) {
         return;
@@ -647,12 +732,14 @@ void release_program(Program& p) {
     p.last_pipeline_key.clear();
     defer([vertex = p.vertex,
            fragment = p.fragment,
+           clamped = p.fragment_clamped,
            compute = p.compute,
            pipeline = p.compute_pipeline,
            set_layout = p.set_layout,
            layout = p.layout] {
         vkDestroyShaderModule(g->device, vertex, nullptr);
         vkDestroyShaderModule(g->device, fragment, nullptr);
+        vkDestroyShaderModule(g->device, clamped, nullptr);
         vkDestroyShaderModule(g->device, compute, nullptr);
         vkDestroyPipeline(g->device, pipeline, nullptr);
         vkDestroyPipelineLayout(g->device, layout, nullptr);
@@ -665,6 +752,8 @@ void release_program(Program& p) {
         defer([pipeline] { vkDestroyPipeline(g->device, pipeline, nullptr); });
     });
     p.vertex = p.fragment = VK_NULL_HANDLE;
+    p.fragment_clamped = VK_NULL_HANDLE;
+    p.clamped_tried = false;
     p.compute = VK_NULL_HANDLE;
     p.compute_pipeline = VK_NULL_HANDLE;
     p.set_layout = VK_NULL_HANDLE;

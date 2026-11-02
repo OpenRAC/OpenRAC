@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "common/hdr.h"
 #include "renderer/gpu_draw.h"
 
 struct SDL_Window;
@@ -58,6 +59,10 @@ struct Config {
     bool present_id = true;
     bool present_wait = true;
     bool fifo_latest_ready = true;
+    // HDR output may be asked for (set_hdr): the instance is given VK_EXT_swapchain_colorspace
+    // and the device VK_EXT_hdr_metadata where offered. Off (the player's `hdr = off` at start),
+    // the instance, the device and the swapchain are made as they always were.
+    bool hdr_colour_spaces = false;
 
     // An outside maker of the instance and the device, which then shares them (a mod's OpenXR
     // session, openrac_mod.h's openrac_vulkan_setup): each function stands in for the backend's
@@ -330,6 +335,48 @@ bool swap_shows_at_once();
 // fewer finished frames wait to be shown. Off: one more image than the surface needs (at least
 // three) and two frames in flight.
 void set_low_latency(bool on);
+
+// HDR output (common/hdr.h): the screen is sent `wanted` at `levels` from the next present on,
+// where the surface offers it (the swapchain made again when it changes); else, and always for
+// Output::Sdr, the picture's bytes as before. Needs Config::hdr_colour_spaces for any HDR.
+struct HdrRequest {
+    hdr::Output wanted = hdr::Output::Sdr;
+    hdr::Levels levels;
+
+    bool operator==(const HdrRequest& other) const {
+        return wanted == other.wanted && levels.paper_white == other.levels.paper_white
+               && levels.peak == other.levels.peak;
+    }
+};
+
+void set_hdr(const HdrRequest& request);
+
+// What the screen is sent now (SDR before the first present), and whether the surface offers an
+// HDR colour space at all (false without Config::hdr_colour_spaces).
+hdr::Output hdr_output();
+bool hdr_offered();
+
+// HDR output's frame (docs/port/HDR.md): true while the screen is sent HDR. The renderer then
+// draws its frame in half floats (RGBA16F) with clamp_colour_writes, so that what the game's
+// blending adds up (glows, explosions, lasers) may go above white instead of stopping at it, and
+// the default framebuffer is RGBA16F too. False in SDR: 8-bit frames, as always.
+bool hdr_frame();
+
+// Draws into `framebuffer`'s colour image are given each fragment's colour clamped to 0..1 (the
+// stage made again with a clamp at its end), as an 8-bit target clamps what it is given before
+// blending: in a float frame only blending's sums go above 1. Until the image is made again.
+void clamp_colour_writes(unsigned framebuffer);
+
+// For the tests: the encode pass run on the default framebuffer into a stand-in of an HDR screen
+// (`output`'s format, `width` by `height`), read back as stored: one 32-bit word a texel for
+// Output::Hdr10 (A2B10G10R10) and four half floats for Output::ScRgb. False without a context.
+bool test_hdr_encode(
+    hdr::Output output,
+    const hdr::Levels& levels,
+    int width,
+    int height,
+    std::vector<std::uint8_t>& out
+);
 
 // With low-latency frames, called by the window's thread before a frame begins, before it reads
 // the time it is drawn for and the input: sleeps until the frame, begun then, would be queued just
