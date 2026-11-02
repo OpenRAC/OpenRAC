@@ -118,6 +118,9 @@ class Program:
     # hostgen.json "formed_as": a name to the address its code really forms, for an address no
     # instruction forms itself (the program's end, formed only rounded up). Relocated by that one.
     formed_as: dict[str, int] = field(default_factory=dict)
+    # hostgen.json "global_views": a datum's name with a word after its number (D_001A7390_sda) is
+    # that datum's (lower.py GLOBAL_VIEW). Only Going Commando sets it.
+    global_views: bool = False
     executable_starts: set = field(default_factory=set)  # hostgen.json "executable_functions"
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
