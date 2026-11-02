@@ -1014,8 +1014,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     if cfg.get("call_copies"):
         read_call_copies(args.game.parent / cfg["call_copies"], program)
     if cfg.get("data_copies"):
-        program.data_copies = {line for line in (args.game.parent / cfg["data_copies"]).read_text().splitlines()
-                               if line and not line.startswith("#")}
+        program.data_copies = {(row[0], int(row[1], 16)) for row in (
+            line.split("\t") for line in (args.game.parent / cfg["data_copies"]).read_text().splitlines()
+            if line and not line.startswith("#"))}
     # Copies the catalogue has under another name, starting early (hostgen.json "more_places":
     # function -> "level:address,..."): rac2's Galactic Map list is matched at its level 0 place and
     # 16 bytes into a row of its own in every other level, so those rows hold no function.

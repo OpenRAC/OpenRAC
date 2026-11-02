@@ -126,8 +126,8 @@ def formed(code: tuple[int, ...], gp: int) -> dict[int, int]:
     return out
 
 
-def data_conflicts(source: Path, low: int, high: int, gp: int) -> list[str]:
-    """Functions forming a level global that does not pair with one address of another level:
+def data_conflicts(source: Path, low: int, high: int, gp: int) -> list[tuple[str, int]]:
+    """Functions and the level globals they form that do not pair with one address of another level:
     what is one field of a record in one level is two in another (level 0's 0x22144C is both
     0x221D34 and 0x221D4C in Feltzin), so pairing all functions gives one of them the wrong one."""
     baserom = source / "baserom"
@@ -135,7 +135,7 @@ def data_conflicts(source: Path, low: int, high: int, gp: int) -> list[str]:
                 if d.is_dir() and d.name[:2].isdigit()}
     pairs: dict[tuple[int, int, int], set[int]] = {}
     users: dict[tuple[int, int], set[str]] = {}
-    small: set[str] = set()
+    small: set[tuple[str, int]] = set()
     for line in (source / "config/levels/functions.tsv").read_text().splitlines():
         cols = line.split("\t")
         if line.startswith("#") or len(cols) < 6:
@@ -155,7 +155,7 @@ def data_conflicts(source: Path, low: int, high: int, gp: int) -> list[str]:
             # An accessor: pairing also reads a base and an offset in other functions, which in
             # another level's record is another field (level 0's 0x22144C pairs as 0x221D4C through
             # its neighbours, where Feltzin's accessor reads 0x221D34).
-            small.add(cols[0])
+            small.update((cols[0], a) for a in canon.values() if low <= a < high)
         for level, code in codes.items():
             if level == home or code is None:
                 continue
@@ -167,7 +167,7 @@ def data_conflicts(source: Path, low: int, high: int, gp: int) -> list[str]:
     out = small
     for (home, _, address), seen in pairs.items():
         if len(seen) > 1:
-            out |= users[(home, address)]
+            out |= {(user, address) for user in users[(home, address)]}
     return sorted(out)
 
 
@@ -189,8 +189,8 @@ def main() -> int:
         low, high = config["relocate"][:2] if isinstance(config["relocate"], list) else (config["relocate"]["low"], config["relocate"]["high"])
         names = data_conflicts(args.source, int(str(low), 0), int(str(high), 0), int(config["asm"]["gp"], 0))
         args.data.write_text("# Written by port/tools/hostgen/copycalls.py from the retail programs; do not edit.\n"
-                             + "".join(n + "\n" for n in names))
-        print(f"{len(names)} functions on globals that do not pair")
+                             + "".join(f"{n}\t{a:08X}\n" for n, a in names))
+        print(f"{len(names)} uses, by {len({n for n, _ in names})} functions, of globals that do not pair")
     return 0
 
 

@@ -826,8 +826,25 @@ def read_call_copies(path: Path, program: Program) -> int:
         if line.startswith("#") or not line.strip():
             continue
         caller, callee, home, canon, size, own, exe = line.split("\t")
-        program.call_copies[(caller, callee)] = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
+        row = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
+        program.call_copies[(caller, callee)] = row
+        program.call_copies[(caller, row[0], row[3])] = row
     return len(program.call_copies)
+
+
+def call_copy(program: Program, caller: str | None, callee: str):
+    """call_copies.tsv's row for this call, by the callee's name or, when the C calls it by another
+    (ref_L00_00428EB0_01 is func_L00_00428CE0), by its place."""
+    rows = getattr(program, "call_copies", None)
+    if not rows or caller is None:
+        return None
+    row = rows.get((caller, callee))
+    if row is None:
+        for overlay, address in program.code_places(callee):
+            row = rows.get((caller, overlay, address))
+            if row is not None:
+                break
+    return row
 
 
 def call_copy_expr(row: tuple[int, int, int, int, int]) -> str:

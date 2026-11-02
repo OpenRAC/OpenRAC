@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 
 import ctype
-from program import BUILTINS, Program, call_copy_expr, canon, cname, has_body, symbol_of
+from program import BUILTINS, Program, call_copy as program_call_copy, call_copy_expr, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
 # The EE's float operations in software (openrac/ps2float.h), by C operator: the functions
@@ -1956,7 +1956,7 @@ class Unit:
                 home, canon, size = copies
                 self.fn.uses_self = True
                 addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
-            elif level is not None and low <= address < high and self.fn.code in getattr(self.program, "data_copies", ()):
+            elif level is not None and low <= address < high and (self.fn.code, address) in getattr(self.program, "data_copies", ()):
                 # A global that does not pair between levels (data_copies.tsv): what the running
                 # copy forms itself (guest.h).
                 canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
@@ -2216,7 +2216,7 @@ class Unit:
                     self.fn.report.calls.add(sym)
                     fp = f"openrac_hook_in_copy({hexaddr(exe_fn)}, {size}u, {home}, {hexaddr(home_fn)}, {hexaddr(stub)}, {k}u)"
                     named = None  # each level fills the hook with its own function: the call site's type
-                elif (call_copy := getattr(self.program, "call_copies", {}).get((self.fn.code if self.fn else None, sym))) is not None:
+                elif (call_copy := program_call_copy(self.program, self.fn.code if self.fn else None, sym)) is not None:
                     # A jal that differs between this function's places (call_copies.tsv): the one
                     # in the copy that runs.
                     self.fn.report.calls.add(sym)
