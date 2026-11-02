@@ -10,13 +10,11 @@
  * being a word the HUD's update sets, and a second glyph routine with float corners and a colour
  * for each (func_0027E1A0), which the HUD's scaled counters and the GUI's text elements use.
  *
- * The rest of the 2D layer's routines go the same way: the turned sprite (func_0027E4A8), the ring
- * segments (func_0027E920, a colour a corner unshaded, and the texture's wrap) and the pages'
- * boxes, of flat colour (func_0027DE50) or shaded across (func_0027EA28). Not the HUD's gradient sprite (func_0028EA58):
- * its C has no result, its assembly returns the list's cursor, so its signature depends on whether
- * the build reads the disc. What is still sent as the game's packets is drawn at the frame's
- * resolution all the same (the chip's coordinates are scaled to the frame); OPENRAC_UI_RESIDUAL
- * lists it.
+ * The rest of the 2D layer's routines go the same way: the HUD's gradient sprite (func_0028EA58, a
+ * colour a corner, shaded), the turned sprite (func_0027E4A8), the ring segments (func_0027E920, a
+ * colour a corner unshaded, and the texture's wrap) and the pages' boxes, of flat colour
+ * (func_0027DE50) or shaded across (func_0027EA28). What is still sent as the game's packets is drawn at the frame's resolution all
+ * the same (the chip's coordinates are scaled to the frame); OPENRAC_UI_RESIDUAL lists it.
  */
 #include <stdint.h>
 #include <string.h>
@@ -275,6 +273,24 @@ static void corners_from_xyz(openrac_game_ui_rect* q, const gaddr xyz) {
         q->y[i] = (uint32_t)((w >> 16) & 0xFFFFu);
     }
     q->z = (uint32_t)(GREF(uint64_t, xyz) >> 32);
+}
+
+/* A HUD texture as a sprite with a colour for each corner (colours: four RGBA words), shaded
+ * between them: the HUD's gradient bars. Returns the display list's cursor, as the game's does. */
+int func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
+    int tw, th;
+    openrac_game_ui_rect q;
+    hud_size(tex, &tw, &th);
+    hud_common(&q, func_0028E640(tex), 0x80);
+    q.flags = 4u | 32u;
+    hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, tw * 16, th * 16);
+    for (int i = 0; i < 4; ++i) {
+        q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
+    }
+    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+        return func_0028EA58__game(tex, x, y, w, h, colours);
+    }
+    return (int)GREF(gaddr, LIST_CURSOR);
 }
 
 /* A quad of tex0 centred on (cx, cy), w by h, turned by angle about the pivot (pu, pv: 0 to 1 of
