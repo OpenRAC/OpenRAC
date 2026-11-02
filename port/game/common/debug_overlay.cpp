@@ -13,8 +13,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -31,6 +31,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "debug/menu_ui.h"
 #include "debug/overlay.h"
 #include "debug/ui_scale.h"
 #include "frontend.h"
@@ -69,6 +70,25 @@ void configure() {
     }
     s.configured = true;
     s.developer = env::flag(env::Var::Developer);
+    // OPENRAC_MENU=TAB[@TICK]: the menu's tab when it opens, and the tick of the game it opens at
+    // (screenshots, checks of it); without a tick, its key opens it.
+    if (const std::optional<std::string_view> v = env::value(env::Var::Menu); v && !v->empty()) {
+        const std::string_view tab = v->substr(0, v->find('@'));
+        for (int t = 0; t < static_cast<int>(menu::Tab::Program); ++t) {
+            std::string name = menu::tab_name(static_cast<menu::Tab>(t));
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            if (name == tab) {
+                s.menu_tab = t;
+            }
+        }
+        if (const std::size_t at = v->find('@'); at != std::string_view::npos) {
+            s.menu_open_at = std::atoll(std::string(v->substr(at + 1)).c_str());
+        }
+    } else {
+        notify_menu_hint();  // what opens the menu, at the start
+    }
     // OPENRAC_OVERLAY: shown from the start; a list of names opens those sections ("all": every
     // one), "inspect" selects the hero and opens the inspector, "labels" names the mobys in view,
     // "memview" opens the memory viewer.
@@ -180,47 +200,113 @@ float window_ui_scale(SDL_Window* window) {
     );
 }
 
+// The overlay's windows (the panel, Enhanced Settings, the inspectors) in the
+// launcher's colours, as the menu wears them (debug/menu_ui.h): its panels, hairlines and accent.
+void launcher_style(ImGuiStyle& style) {
+    const auto c = [](ui_colors::Color colour, float alpha = 1.0f) {
+        ImVec4 v = ImGui::ColorConvertU32ToFloat4(colour);
+        v.w *= alpha;
+        return v;
+    };
+    const ui_colors::Colors& u = ui();
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_Text] = c(u.text);
+    colors[ImGuiCol_TextDisabled] = c(u.dim);
+    colors[ImGuiCol_WindowBg] = c(u.panel, 0.94f);
+    colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
+    colors[ImGuiCol_PopupBg] = c(u.panel, 0.98f);
+    colors[ImGuiCol_Border] = c(u.line);
+    colors[ImGuiCol_FrameBg] = c(u.ink_deep);
+    colors[ImGuiCol_FrameBgHovered] = c(ui_colors::mix(u.ink_deep, u.amber, 0.12f));
+    colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.ink_deep, u.amber, 0.22f));
+    colors[ImGuiCol_TitleBg] = c(u.ink_deep);
+    colors[ImGuiCol_TitleBgActive] = c(u.panel_hi);
+    colors[ImGuiCol_TitleBgCollapsed] = c(u.ink_deep, 0.8f);
+    colors[ImGuiCol_MenuBarBg] = c(u.panel_hi);
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0, 0, 0, 0);
+    colors[ImGuiCol_ScrollbarGrab] = c(u.line_strong);
+    colors[ImGuiCol_ScrollbarGrabHovered] = c(u.dim);
+    colors[ImGuiCol_ScrollbarGrabActive] = c(u.soft);
+    colors[ImGuiCol_CheckMark] = c(u.amber);
+    colors[ImGuiCol_SliderGrab] = c(u.brand);
+    colors[ImGuiCol_SliderGrabActive] = c(u.amber);
+    colors[ImGuiCol_Button] = c(u.panel_hi);
+    colors[ImGuiCol_ButtonHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.22f));
+    colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(u.panel_hi, u.amber, 0.38f));
+    colors[ImGuiCol_Header] = c(ui_colors::mix(u.panel_hi, u.amber, 0.14f));
+    colors[ImGuiCol_HeaderHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
+    colors[ImGuiCol_HeaderActive] = c(ui_colors::mix(u.panel_hi, u.amber, 0.38f));
+    colors[ImGuiCol_Separator] = c(u.line);
+    colors[ImGuiCol_SeparatorHovered] = c(u.amber, 0.6f);
+    colors[ImGuiCol_SeparatorActive] = c(u.amber);
+    colors[ImGuiCol_ResizeGrip] = c(u.line);
+    colors[ImGuiCol_ResizeGripHovered] = c(u.amber, 0.6f);
+    colors[ImGuiCol_ResizeGripActive] = c(u.amber);
+    colors[ImGuiCol_Tab] = c(u.ink_deep);
+    colors[ImGuiCol_TabHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
+    colors[ImGuiCol_TabSelected] = c(u.panel_hi);
+    colors[ImGuiCol_TabSelectedOverline] = c(u.amber);
+    colors[ImGuiCol_TabDimmed] = c(u.ink_deep);
+    colors[ImGuiCol_TabDimmedSelected] = c(u.panel_hi);
+    colors[ImGuiCol_PlotLines] = c(u.soft);
+    colors[ImGuiCol_PlotLinesHovered] = c(u.amber);
+    colors[ImGuiCol_PlotHistogram] = c(u.brand);
+    colors[ImGuiCol_PlotHistogramHovered] = c(u.amber);
+    colors[ImGuiCol_TableHeaderBg] = c(u.panel_hi);
+    colors[ImGuiCol_TableBorderStrong] = c(u.line_strong);
+    colors[ImGuiCol_TableBorderLight] = c(u.line);
+    colors[ImGuiCol_TableRowBgAlt] = c(u.text, 0.03f);
+    colors[ImGuiCol_TextSelectedBg] = c(u.amber, 0.3f);
+    colors[ImGuiCol_DragDropTarget] = c(u.amber);
+    colors[ImGuiCol_NavCursor] = c(u.amber);
+    colors[ImGuiCol_ModalWindowDimBg] = c(u.ink_deep, 0.6f);
+}
+
 // The style and the font at s.ui_scale, from ImGui's defaults each time (a scale change rebuilds
-// them). At scale 1 on a desktop nothing is scaled and ImGui adds its own font, as before.
+// them). The overlay's windows wear the menu's look: Inter, rounded frames, roomy rows; on a touch
+// screen larger still, for a finger.
 void style_and_font() {
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
     style = ImGuiStyle();
     ImGui::StyleColorsDark();
-    style.WindowRounding = 3.0f;
-    style.WindowBorderSize = 0.0f;
-    style.FramePadding = ImVec2(4.0f, 2.0f);
-    style.ItemSpacing = ImVec2(6.0f, 3.0f);
+    launcher_style(style);
+    style.WindowRounding = 12.0f;
+    style.ChildRounding = 8.0f;
+    style.PopupRounding = 8.0f;
+    style.FrameRounding = 6.0f;
+    style.GrabRounding = 6.0f;
+    style.ScrollbarRounding = 8.0f;
+    style.TabRounding = 6.0f;
+    style.WindowBorderSize = 1.0f;
+    style.PopupBorderSize = 1.0f;
+    style.WindowPadding = ImVec2(12.0f, 10.0f);
+    style.FramePadding = ImVec2(8.0f, 4.0f);
+    style.ItemSpacing = ImVec2(8.0f, 5.0f);
+    style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
+    style.CellPadding = ImVec2(6.0f, 3.0f);
+    style.IndentSpacing = 16.0f;
+    style.SeparatorTextBorderSize = 1.0f;
+    const bool touch = drawer_possible();
+    if (touch) {
+        io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
+        // Buttons, boxes and headers roomy for a finger, and reached a little beyond.
+        style.WindowPadding = ImVec2(16.0f, 14.0f);
+        style.FramePadding = ImVec2(12.0f, 9.0f);
+        style.ItemSpacing = ImVec2(10.0f, 8.0f);
+        style.CellPadding = ImVec2(8.0f, 5.0f);
+        style.TouchExtraPadding = ImVec2(6.0f, 6.0f);
+        style.ScrollbarSize = 20.0f;
+        style.GrabMinSize = 22.0f;
+    }
+    style.ScaleAllSizes(s.ui_scale);
     io.Fonts->Clear();
-#if defined(__ANDROID__)
-    // On a phone: everything as large as the screen's density asks, in the system's own typeface
-    // (ImGui's built-in one is a bitmap for a desktop's pixels).
-    io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
-    // The panel's buttons, boxes and headers roomier for a finger, and reached a little beyond.
-    style.FramePadding = ImVec2(8.0f, 5.0f);
-    style.ItemSpacing = ImVec2(8.0f, 6.0f);
-    style.TouchExtraPadding = ImVec2(4.0f, 4.0f);
-    style.ScrollbarSize = 18.0f;
-    style.GrabMinSize = 18.0f;
-    style.ScaleAllSizes(s.ui_scale);
-    for (const char* path : {"/system/fonts/Roboto-Regular.ttf", "/system/fonts/DroidSans.ttf"}) {
-        if (std::FILE* f = std::fopen(path, "rb")) {
-            std::fclose(f);
-            if (io.Fonts->AddFontFromFileTTF(path, std::round(15.0f * s.ui_scale)) != nullptr) {
-                return;
-            }
-            break;
-        }
-    }
-#else
-    if (s.ui_scale == 1.0f) {
-        return;
-    }
-    style.ScaleAllSizes(s.ui_scale);
-#endif
+    // ImGui's own, kept only for a build without the menu's typefaces.
     ImFontConfig config;
     config.SizePixels = std::round(13.0f * s.ui_scale);
     io.Fonts->AddFontDefault(&config);
+    add_menu_fonts(touch);
+    io.FontDefault = menu_fonts.panel;
 }
 
 // The logo for the drawer's header, drawn once into ImGui's font atlas before the atlas goes to
@@ -250,6 +336,92 @@ void add_logo() {
     s.logo_name_x = mask.name_x;
 }
 
+// The controllers as ImGui's gamepad: buttons and d-pad only. The sticks move Ratchet and the
+// camera and are too easy to nudge, so they do not move through the menus. While a button is
+// being bound, and until every button is let go after it, ImGui gets nothing: the press that was
+// bound must not also press a row or close the menu.
+//
+// The d-pad reaches ImGui as the arrow keys: a gamepad's move starts again from the window's
+// visible area whenever the row in focus is outside it (ImGui's NavUpdateCreateMoveRequest), and
+// then a held Down past the last row, while the rows still scroll, jumped back to the top. The
+// keyboard's moves do not do that. Arrows are sent only as the d-pad changes, so the keyboard's
+// own arrows still work.
+void feed_gamepads() {
+    struct Button {
+        ImGuiKey key;
+        SDL_GamepadButton button;
+        bool arrow = false;                          // sent as a key of the keyboard
+        SDL_Scancode key_of = SDL_SCANCODE_UNKNOWN;  // that key's, on a real keyboard
+    };
+
+    static constexpr Button kButtons[] = {
+        {ImGuiKey_GamepadStart, SDL_GAMEPAD_BUTTON_START},
+        {ImGuiKey_GamepadBack, SDL_GAMEPAD_BUTTON_BACK},
+        {ImGuiKey_GamepadFaceDown, SDL_GAMEPAD_BUTTON_SOUTH},
+        {ImGuiKey_GamepadFaceRight, SDL_GAMEPAD_BUTTON_EAST},
+        {ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST},
+        {ImGuiKey_GamepadFaceUp, SDL_GAMEPAD_BUTTON_NORTH},
+        {ImGuiKey_UpArrow, SDL_GAMEPAD_BUTTON_DPAD_UP, true, SDL_SCANCODE_UP},
+        {ImGuiKey_DownArrow, SDL_GAMEPAD_BUTTON_DPAD_DOWN, true, SDL_SCANCODE_DOWN},
+        {ImGuiKey_LeftArrow, SDL_GAMEPAD_BUTTON_DPAD_LEFT, true, SDL_SCANCODE_LEFT},
+        {ImGuiKey_RightArrow, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, true, SDL_SCANCODE_RIGHT},
+        {ImGuiKey_GamepadL1, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER},
+        {ImGuiKey_GamepadR1, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER},
+    };
+    constexpr Sint16 kTriggerDown = 8000;
+    std::array<bool, std::size(kButtons)> down{};
+    bool l2 = false;
+    bool r2 = false;
+    bool any = false;
+    int count = 0;
+    if (SDL_JoystickID* ids = SDL_GetGamepads(&count)) {
+        for (int i = 0; i < count; ++i) {
+            SDL_Gamepad* pad = SDL_GetGamepadFromID(ids[i]);
+            if (pad == nullptr) {
+                continue;
+            }
+            any = true;
+            for (std::size_t b = 0; b < std::size(kButtons); ++b) {
+                down[b] = down[b] || SDL_GetGamepadButton(pad, kButtons[b].button);
+            }
+            l2 = l2 || SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > kTriggerDown;
+            r2 = r2 || SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) > kTriggerDown;
+        }
+        SDL_free(ids);
+    }
+    const bool held = l2 || r2 || std::find(down.begin(), down.end(), true) != down.end();
+    // A press awaited for a binding or for the menu's button belongs to the capture: the menu
+    // ignores the controller until every button is let go after it.
+    if (controls_capturing() || s.menu_button_capture) {
+        s.pad_locked = true;
+    } else if (!held) {
+        s.pad_locked = false;
+    }
+    ImGuiIO& io = ImGui::GetIO();
+    const bool* keyboard = SDL_GetKeyboardState(nullptr);
+    for (std::size_t b = 0; b < std::size(kButtons); ++b) {
+        const bool on = !s.pad_locked && down[b];
+        if (!kButtons[b].arrow) {
+            io.AddKeyEvent(kButtons[b].key, on);
+            continue;
+        }
+        // The d-pad as the arrows, which the keyboard also presses: held while either holds it,
+        // and let go once neither does, whatever came between (a frame not drawn, the focus lost,
+        // a release ImGui never saw). ImGui keeps a key held until told otherwise, so an arrow
+        // told down and not up again went on moving the focus by itself.
+        const bool held_key = keyboard != nullptr && keyboard[kButtons[b].key_of]
+                              && SDL_GetKeyboardFocus() != nullptr;
+        const bool want = on || held_key;
+        if (ImGui::IsKeyDown(kButtons[b].key) != want) {
+            io.AddKeyEvent(kButtons[b].key, want);
+        }
+    }
+    io.AddKeyEvent(ImGuiKey_GamepadL2, !s.pad_locked && l2);
+    io.AddKeyEvent(ImGuiKey_GamepadR2, !s.pad_locked && r2);
+    io.BackendFlags = any ? io.BackendFlags | ImGuiBackendFlags_HasGamepad
+                          : io.BackendFlags & ~ImGuiBackendFlags_HasGamepad;
+}
+
 bool initialise(SDL_Window* window) {
     if (s.initialised) {
         return true;
@@ -272,6 +444,8 @@ bool initialise(SDL_Window* window) {
                           && ImGui_ImplOpenGL3_Init(
                               openrac::gl::is_es() ? "#version 300 es" : "#version 410 core"
                           );
+    // The controllers reach ImGui through feed_gamepads, not the backend.
+    ImGui_ImplSDL3_SetGamepadMode(ImGui_ImplSDL3_GamepadMode_Manual, nullptr, 0);
     if (!started) {
         log::warn("debug overlay: Dear ImGui could not start{}", error.empty() ? "" : ": " + error);
         ImGui::DestroyContext();
@@ -471,21 +645,49 @@ void set_touch_guides(float x, float y) {
 
 void toggle_drawer() {
     if (drawer_possible()) {
-        set_drawer(!s.drawer_open);
+        set_menu(!s.menu_open);
     }
 }
 
 bool visible() {
-    return s.visible || s.enhanced_settings || s.controls_window;
+    return s.visible || s.enhanced_settings;
+}
+
+bool wants_cursor() {
+    return s.menu_open || s.menu_at > 0.0f || s.visible || s.enhanced_settings
+           || s.object_viewer.open || picker_enabled() || s.touch_editing;
 }
 
 bool event(const SDL_Event& e) {
     configure();
+    // A press awaited for a binding (the Controls tab): the controllers' presses are the
+    // capture's, not the menu's. The keyboard does nothing either (no menu key, no Enter on
+    // another row, no Android Back, which a controller's B may be), but Esc gives the capture up. Key releases still reach the menu, so a key
+    // held when the capture began is let go there; the mouse stays free for the Cancel row.
+    if (controls_capturing()) {
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP
+            || e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION || e.type == SDL_EVENT_TEXT_INPUT) {
+            return true;
+        }
+        if (e.type == SDL_EVENT_KEY_DOWN) {
+            if (e.key.key == SDLK_ESCAPE && !e.key.repeat) {
+                controls_cancel_capture();
+            }
+            s.alt_alone = false;
+            return true;
+        }
+    }
+    // A click on a notification is the card's (a finger's tap: drawer_event).
+    if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT
+        && e.button.which != SDL_TOUCH_MOUSEID && s.initialised && !s.menu_open
+        && press_notification(ImVec2(e.button.x, e.button.y))) {
+        return true;
+    }
     if (drawer_possible() && drawer_event(e)) {
         return true;
     }
-    if (menu_bar_possible()) {
-        // The controls window waits for the menu bar's new controller button or key: the next one
+    if (menu_window_possible()) {
+        // The controls window waits for the menu's new controller button or key: the next one
         // pressed (Escape keeps the old one).
         if (s.menu_button_capture) {
             if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
@@ -516,12 +718,12 @@ bool event(const SDL_Event& e) {
             s.focus_ns = e.window.timestamp;
         }
         const SDL_Scancode key = menu_bar_scancode();
-        // Freecam owns Alt for mouse look instead of toggling the menu bar.
+        // Freecam owns Alt for mouse look instead of opening the menu.
         if (s.camera_tools.enabled) {
             s.alt_alone = false;
         }
         if (key == SDL_SCANCODE_UNKNOWN && !s.camera_tools.enabled) {
-            // Alt by itself hides and shows the menus (Alt+Return is fullscreen: another key in
+            // Alt by itself opens and closes the menu (Alt+Return is fullscreen: another key in
             // between makes it not by itself).
             const bool alt = e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP
                                  ? e.key.key == SDLK_LALT || e.key.key == SDLK_RALT
@@ -533,21 +735,38 @@ bool event(const SDL_Event& e) {
                 s.alt_alone = alt && e.key.timestamp - s.focus_ns > kFocusSettleNs;
             } else if (e.type == SDL_EVENT_KEY_UP && alt && s.alt_alone) {
                 s.alt_alone = false;
-                toggle_menu_bar();
+                toggle_menu();
             }
         } else if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat && e.key.scancode == key
                    && (e.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT)) == 0) {
-            toggle_menu_bar();
+            toggle_menu();
             return true;
         }
-        // The menu bar's controller button (menu_bar_button; by default R4, the Steam Controller's
-        // upper right back button) does the same, while the game's window has the focus. Not
-        // "...": a running Steam client opens its own panel on it.
-        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
-            && menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID
-            && e.gbutton.button == menu_bar_button() && SDL_GetKeyboardFocus() != nullptr) {
-            toggle_menu_bar();
-        }
+    }
+    // The menu's controller button (menu_bar_button; by default L3), on a desktop and a touch
+    // screen alike, while the game's window has the focus. Not "...": a running Steam client opens
+    // its own panel on it.
+    MenuMotion& m = s.menu_motion;
+    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && SDL_GetKeyboardFocus() != nullptr
+        && menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID && e.gbutton.button == menu_bar_button()
+        && !s.pad_locked && !controls_capturing()) {
+        m.pad = true;
+        toggle_menu();
+        return true;
+    }
+    // Whose buttons the menu names at its foot: the controller's, or the keyboard's. Watched
+    // while it is shut too, so a menu opened from a controller names the controller's.
+    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
+        || (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && std::abs(e.gaxis.value) > 16000)) {
+        m.pad = true;
+    } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        m.pad = false;
+    }
+    // Escape closes the desktop's menu, as B does (menu_window).
+    if (menu_window_possible() && s.menu_open && e.type == SDL_EVENT_KEY_DOWN
+        && e.key.key == SDLK_ESCAPE) {
+        set_menu(false);
+        return true;
     }
     if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
         if (e.key.key == SDLK_F3 && (e.key.mod & SDL_KMOD_CTRL) != 0) {
@@ -579,21 +798,34 @@ bool event(const SDL_Event& e) {
             case SDLK_F12:
                 s.shot_path = shot_name(s.tick);
                 return true;
-            // The controls window (debug/controls_window.cpp); the menus press it too.
+            // The menu, open at its Controls tab (debug/menu_controls.cpp).
             case SDLK_F13:
-                s.controls_window = !s.controls_window;
+                if (menu_window_possible()) {
+                    s.menu_want_tab = static_cast<int>(menu::Tab::Controls);
+                    set_menu(true);
+                }
                 return true;
             default:
                 break;
         }
     }
-    if (!(s.visible || s.enhanced_settings || s.controls_window || s.object_viewer.open
-          || picker_enabled() || menu_bar_shown() || s.drawer_open)
+    if (!(s.visible || s.enhanced_settings || s.object_viewer.open || picker_enabled()
+          || s.menu_open)
         || !s.initialised) {
         return false;
     }
     ImGui_ImplSDL3_ProcessEvent(&e);
     const ImGuiIO& io = ImGui::GetIO();
+    // While the desktop's menu is open the keyboard and the controller are its own (the game waits
+    // under it); the port's function keys still reach the window, as the menu presses some.
+    if (menu_window_possible() && s.menu_open) {
+        if (e.type == SDL_EVENT_KEY_DOWN && !(e.key.key >= SDLK_F1 && e.key.key <= SDLK_F24)) {
+            return true;
+        }
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION) {
+            return true;
+        }
+    }
     switch (e.type) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -618,6 +850,10 @@ void tick(const Tick& t) {
     if (s.wanted && !s.visible) {
         s.wanted = false;
         set_visible(true);
+    }
+    if (s.menu_open_at >= 0 && t.tick >= static_cast<std::uint64_t>(s.menu_open_at)) {
+        s.menu_open_at = -1;
+        set_menu(true);
     }
     if (s.pause_at >= 0 && t.tick == static_cast<std::uint64_t>(s.pause_at)) {
         s.paused = true;
@@ -705,13 +941,13 @@ void draw(const Shown& shown) {
     }
     stats::lap("present");
     s.window = shown.window;
-    const bool badge = s.paused || s.stretch != 1.0 || !s.toast.empty() || !s.notice.empty()
-                       || capture_busy() || !mods::play_notice().empty();
-    const bool drawer_out =
-        s.drawer_open || s.drawer_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(s.visible || s.enhanced_settings || s.controls_window || picker_enabled()
-          || menu_bar_shown() || badge || drawer_out || !s.shot_path.empty())
+    const bool badge = s.paused || s.stretch != 1.0 || notifications_pending() || capture_busy()
+                       || !mods::play_notice().empty();
+    const bool menu_out = s.menu_open || s.menu_at > 0.0f || s.shot_when_shut || s.touch_editing;
+    if (!(s.visible || s.enhanced_settings || picker_enabled() || badge || menu_out
+          || !s.shot_path.empty())
         || shown.window == nullptr || !initialise(shown.window)) {
+        s.drew_last_frame = false;
         return;
     }
     const stats::Scope scope("overlay");
@@ -725,26 +961,36 @@ void draw(const Shown& shown) {
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, shown.window_width, shown.window_height);
-    if (drawer_possible()) {
-        // A gamepad moves through the drawer's rows while it is open, and through the panel while
-        // the game stands still under it; it is the game's otherwise.
+    {
+        // A gamepad and the keyboard move through the menu's rows while it is open (and on a
+        // touch screen through the panel while the game stands still under it); they are the
+        // game's otherwise. The d-pad comes as the arrow keys (feed_gamepads), so both flags.
         ImGuiIO& io = ImGui::GetIO();
-        const bool pad_moves = s.drawer_open || (s.visible && s.paused);
-        io.ConfigFlags = pad_moves ? io.ConfigFlags | ImGuiConfigFlags_NavEnableGamepad
-                                   : io.ConfigFlags & ~ImGuiConfigFlags_NavEnableGamepad;
+        const bool moves = s.menu_open || (drawer_possible() && s.visible && s.paused);
+        constexpr ImGuiConfigFlags kNav =
+            ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags = moves ? io.ConfigFlags | kNav : io.ConfigFlags & ~kNav;
+        // The pointer hidden over the game (frontend's apply_mouse_capture): ImGui's backend
+        // must not show it again while it draws only notifications.
+        io.ConfigFlags = wants_cursor() ? io.ConfigFlags & ~ImGuiConfigFlags_NoMouseCursorChange
+                                        : io.ConfigFlags | ImGuiConfigFlags_NoMouseCursorChange;
     }
     follow_scale(shown.window);
     if (!s.gl_subset) {
         ImGui_ImplOpenGL3_NewFrame();
     }
     ImGui_ImplSDL3_NewFrame();
+    // After frames it skipped, ImGui's clock holds the whole gap: a menu opening then would end
+    // in one frame. It starts again from one frame's time.
+    if (!s.drew_last_frame) {
+        ImGui::GetIO().DeltaTime = std::min(ImGui::GetIO().DeltaTime, 1.0f / 60.0f);
+    }
+    s.drew_last_frame = true;
+    feed_gamepads();
     refresh_scripted_pointer();
     ImGui::NewFrame();
-    if (menu_bar_shown()) {
-        menu_bar();
-    }
     enhanced_settings_window();
-    controls_window();
+    controls_frame();
     if (s.visible) {
         panel(shown);
         inspector_window();
@@ -753,13 +999,17 @@ void draw(const Shown& shown) {
     }
     if (drawer_possible()) {
         drawer(shown);
+    } else {
+        menu_window(shown);
     }
+    menu_sounds_frame();
     if (s.touch_editing) {
         touch_edit_bar();
     }
     picker_overlay(shown);
     object_viewer_window(shown);
-    status_badge();
+    status_notifications();
+    draw_notifications();
     ImGui::Render();
     if (s.gl_subset) {
         renderer::ui::imgui_gl::render(ImGui::GetDrawData());
@@ -783,9 +1033,14 @@ void draw(const Shown& shown) {
         }
     }
     if (!s.shot_path.empty()) {
-        s.toast = (write_window(s.shot_path, shown.window_width, shown.window_height) ? "saved " : "cannot save ")
-                  + s.shot_path;
-        s.toast_until = ImGui::GetTime() + 2.5;
+        const bool saved = write_window(s.shot_path, shown.window_width, shown.window_height);
+        notify({
+            .title = saved ? "Screenshot saved" : "The screenshot could not be saved",
+            .text = s.shot_path,
+            .folder = saved ? s.shot_path : std::string(),
+            .tone = saved ? Tone::Done : Tone::Error,
+            .seconds = saved ? 3.0 : 8.0,
+        });
         s.shot_path.clear();
     }
 }
@@ -814,10 +1069,6 @@ bool holding() {
 double tick_stretch() {
     configure();
     return s.stretch;
-}
-
-void notice(const std::string& text) {
-    s.notice = text;
 }
 
 bool take_settings_changed() {

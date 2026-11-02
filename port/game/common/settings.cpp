@@ -406,7 +406,7 @@ void load(const std::filesystem::path& file) {
                 known = false;
             }
         } else if (key == "menu_bar") {
-            known = parse_bool(value, s.menu_bar);
+            // An older port's switch for the menu bar, which is always there now: read and dropped.
         } else if (key == "menu_bar_key") {
             // Any key name SDL knows; the overlay uses the default for one it does not.
             known = !value.empty();
@@ -608,7 +608,6 @@ void save() {
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"
         << "frame_rate = " << frame_rate_value(s) << "\n"
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
-        << "menu_bar = " << (s.menu_bar ? 1 : 0) << "\n"
         << "menu_bar_key = " << s.menu_bar_key << "\n"
         << "menu_bar_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"

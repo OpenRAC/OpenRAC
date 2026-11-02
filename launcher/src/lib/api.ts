@@ -387,7 +387,7 @@ export const api = {
   deeplinkParse: (url: string) => call<DeepLinkInstall>("deeplink_parse", { url }),
   /** Where the launcher stands in the player's Steam library. */
   steamState: () => call<SteamState>("steam_state"),
-  /** Adds the launcher to Steam's library, or updates it. Rejected while Steam runs. */
+  /** Adds the launcher to Steam's library, or updates it. Steam may be open. */
   steamAdd: () => call<SteamState>("steam_add"),
   /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
   indexFetch: (game: string | null = null, version: string | null = null) =>

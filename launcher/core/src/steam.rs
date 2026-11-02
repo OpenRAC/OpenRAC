@@ -1,9 +1,14 @@
 //! Adds the launcher to the player's Steam library as a non-Steam game: an entry in
 //! `userdata/<id>/config/shortcuts.vdf` and its pictures in `config/grid/`.
 //!
-//! Steam reads that file when it starts and may write its own copy over it, so nothing is written
-//! while Steam runs. Every other entry and every field this file does not know stays as it was: a
-//! file that cannot be read is an error, never overwritten, and the first write keeps a copy.
+//! Steam may be open: it picks up a changed file, and may write its own copy at any moment, so a
+//! write that Steam overtakes is made again on top of Steam's copy. Every other entry and every
+//! field this file does not know stays as it was: a file that cannot be read is an error, never
+//! overwritten, and each write keeps a dated copy (the last three).
+//!
+//! No controller configuration is written. The entry allows the Desktop Layout in the launcher's
+//! window (Steam's "Allow Desktop Configuration in Launcher"), and the game it starts gets Steam's
+//! game configuration (the default gamepad layout, or the player's own, which is Steam's to keep).
 //!
 //! The work takes its folders as arguments, so the tests never touch a real Steam. It is compiled
 //! and tested on every platform; Android does not call it.
@@ -12,12 +17,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::detect;
-
 /// The name the entry carries, and how it is found again.
 pub const NAME: &str = "OpenRAC";
-/// What `add` says when Steam runs.
-pub const STEAM_OPEN: &str = "Close Steam, then try again.";
 /// What `add` says when the only Steam is Flathub's.
 pub const FLATPAK_STEAM: &str = "Flatpak Steam can't start OpenRAC. Use Steam's normal package to add it.";
 
@@ -210,7 +211,8 @@ fn most_recent(text: &str) -> Option<String> {
     None
 }
 
-/// The folder of the account to add to: the last one signed in, or the only one.
+/// The folder of the account to add to: the last one signed in, the only one, or the one whose
+/// settings Steam wrote last.
 fn user_dir(root: &Path) -> Option<PathBuf> {
     let userdata = root.join("userdata");
     let recent = std::fs::read_to_string(root.join("config/loginusers.vdf")).ok().and_then(|t| most_recent(&t));
@@ -225,9 +227,15 @@ fn user_dir(root: &Path) -> Option<PathBuf> {
             let name = e.file_name().to_string_lossy().to_string();
             name != "0" && !name.is_empty() && name.bytes().all(|b| b.is_ascii_digit())
         })
-        .map(|e| e.path());
-    let first = users.next()?;
-    users.next().is_none().then_some(first)
+        .map(|e| e.path())
+        .collect::<Vec<_>>();
+    if users.len() == 1 {
+        return users.pop();
+    }
+    // Several, and none marked last: the one whose settings Steam wrote last.
+    let written = |dir: &PathBuf| std::fs::metadata(dir.join("config/localconfig.vdf")).and_then(|m| m.modified()).ok();
+    users.sort_by_key(written);
+    users.pop().filter(|dir| written(dir).is_some())
 }
 
 /// What the file says about an account's entry, for `program`.
@@ -238,8 +246,10 @@ fn state_of(user: &Path, program: &Path) -> State {
     let Some((_, Value::Map(fields))) = entries.iter().find(|(_, entry)| is_ours(entry)) else {
         return State::NotAdded;
     };
+    // An entry that turned the Desktop Layout off in the launcher's window is updated too.
+    let desktop = matches!(get(fields, "AllowDesktopConfig"), Some(Value::Int(1)));
     match get(fields, "Exe") {
-        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() => State::Added,
+        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && desktop => State::Added,
         _ => State::Outdated,
     }
 }
@@ -323,78 +333,144 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
     set(fields, "Exe", text(exe));
     set(fields, "StartDir", text(quoted(&start_dir(program))));
     set(fields, "icon", text(icon(id).display().to_string()));
+    // The launcher's window keeps Steam's Desktop Layout (mouse and keys); only the game gets the
+    // game configuration.
+    set(fields, "AllowDesktopConfig", Value::Int(1));
 
     let mut out = Vec::new();
     write_map(&file, &mut out);
     Ok((out, id))
 }
 
+/// How many dated copies of `shortcuts.vdf` are kept; older ones go.
+const BACKUPS: usize = 3;
+
+/// The size and change time of a file, to tell whether someone wrote it since it was read.
+fn mark(path: &Path) -> Option<(u64, std::time::SystemTime)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.len(), meta.modified().ok()?))
+}
+
+/// Whether a list about to replace Steam's reads back, with the entry in it.
+fn valid(bytes: &[u8]) -> bool {
+    let Ok(file) = parse(bytes) else { return false };
+    matches!(get(&file, "shortcuts"), Some(Value::Map(entries)) if entries.iter().any(|(_, e)| is_ours(e)))
+}
+
+/// Keeps a dated copy of the list and drops the oldest past `BACKUPS`.
+fn back_up(config: &Path, old: &[u8]) -> std::io::Result<()> {
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
+    std::fs::write(config.join(format!("shortcuts.vdf.openrac-bak-{stamp:024}")), old)?;
+    let mut copies: Vec<PathBuf> = std::fs::read_dir(config)?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("shortcuts.vdf.openrac-bak-")))
+        .collect();
+    copies.sort();
+    let extra = copies.len().saturating_sub(BACKUPS);
+    for stale in &copies[..extra] {
+        let _ = std::fs::remove_file(stale);
+    }
+    Ok(())
+}
+
+/// Writes `bytes` next to `list` and moves it over, so Steam never sees half a file.
+fn replace(list: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let partial = list.with_extension("vdf.openrac-new");
+    let done = std::fs::write(&partial, bytes).and_then(|()| std::fs::rename(&partial, list));
+    if done.is_err() {
+        let _ = std::fs::remove_file(&partial);
+    }
+    done
+}
+
+/// Reads the list, or nothing when there is none yet.
+fn read_list(list: &Path) -> std::io::Result<Option<Vec<u8>>> {
+    match std::fs::read(list) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// The pictures' file names for an id. Steam names them by the id as an unsigned number.
+fn art_names(id: u32) -> [(String, &'static str); 5] {
+    [
+        (format!("{id}p"), "jpg"),
+        (format!("{id}"), "jpg"),
+        (format!("{id}_hero"), "jpg"),
+        (format!("{id}_logo"), "png"),
+        (format!("{id}_icon"), "png"),
+    ]
+}
+
+/// Puts each picture Steam does not have yet. A picture the player chose, in any format, stays.
+fn write_art(grid: &Path, id: u32, art: &Art) -> std::io::Result<()> {
+    std::fs::create_dir_all(grid)?;
+    let bytes = [art.cover, art.wide, art.hero, art.logo, art.icon];
+    for ((stem, ext), bytes) in art_names(id).into_iter().zip(bytes) {
+        if ["png", "jpg", "jpeg", "webp"].iter().any(|e| grid.join(format!("{stem}.{e}")).exists()) {
+            continue;
+        }
+        let target = grid.join(format!("{stem}.{ext}"));
+        let partial = grid.join(format!("{stem}.{ext}.openrac-new"));
+        let done = std::fs::write(&partial, bytes).and_then(|()| std::fs::rename(&partial, &target));
+        if done.is_err() {
+            let _ = std::fs::remove_file(&partial);
+        }
+        done?;
+    }
+    Ok(())
+}
+
 /// Adds the launcher at `program` to the account folder `user`, or updates its entry.
-fn add_to(user: &Path, program: &Path, art: &Art) -> Result<(), String> {
+///
+/// Steam may be open: it reads the list again when it changes (seen in DualTouch, which adds its
+/// shortcut this way), and it may write its own copy at any moment. So the list is read, changed
+/// and checked, and if Steam wrote it in between, read and changed again on top of Steam's copy.
+/// `before_write` runs between the read and the write; the tests use it to play Steam.
+fn add_to(user: &Path, program: &Path, art: &Art, before_write: impl Fn(&Path)) -> Result<(), String> {
     let failed = |e: std::io::Error| format!("Steam's folder can't be written: {e}.");
     let config = user.join("config");
     let grid = config.join("grid");
     let list = config.join("shortcuts.vdf");
-    let old = match std::fs::read(&list) {
-        Ok(bytes) => Some(bytes),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        Err(e) => return Err(failed(e)),
-    };
-    let (new, id) = with_entry(old.as_deref(), program, |id| grid.join(format!("{id}_icon.png")))?;
+    let icon = |id: u32| grid.join(format!("{id}_icon.png"));
 
-    std::fs::create_dir_all(&grid).map_err(failed)?;
-    for (name, bytes) in [
-        (format!("{id}p.jpg"), art.cover),
-        (format!("{id}.jpg"), art.wide),
-        (format!("{id}_hero.jpg"), art.hero),
-        (format!("{id}_logo.png"), art.logo),
-        (format!("{id}_icon.png"), art.icon),
-    ] {
-        std::fs::write(grid.join(name), bytes).map_err(failed)?;
+    let mut old = read_list(&list).map_err(failed)?;
+    let mut seen = mark(&list);
+    let (mut new, mut id) = with_entry(old.as_deref(), program, icon)?;
+    before_write(&list);
+    if mark(&list) != seen {
+        old = read_list(&list).map_err(failed)?;
+        seen = mark(&list);
+        (new, id) = with_entry(old.as_deref(), program, icon)?;
     }
-
-    let backup = config.join("shortcuts.vdf.openrac-bak");
-    if let (Some(old), false) = (&old, backup.exists()) {
-        std::fs::write(&backup, old).map_err(failed)?;
+    if !valid(&new) {
+        return Err("Steam's list of shortcuts can't be written: the new list does not read back.".into());
     }
-    let partial = config.join("shortcuts.vdf.openrac-new");
-    std::fs::write(&partial, new).map_err(failed)?;
-    std::fs::rename(&partial, &list).map_err(failed)
+    std::fs::create_dir_all(&config).map_err(failed)?;
+    if let Some(old) = &old {
+        back_up(&config, old).map_err(failed)?;
+    }
+    if mark(&list) != seen {
+        return Err("Steam changed its list of shortcuts just now. Try again.".into());
+    }
+    replace(&list, &new).map_err(failed)?;
+    write_art(&grid, id, art).map_err(failed)
 }
 
-/// Adds the launcher to the first Steam of `roots`. `running` says Steam is open: nothing is
-/// written then. What it stands at now.
-pub fn add(roots: &[PathBuf], program: &Path, art: &Art, running: bool) -> Result<State, String> {
+/// Adds the launcher to the first Steam of `roots`, or updates its entry. What it stands at now.
+/// Steam may be open; if it does not show the entry, it shows it after a restart.
+pub fn add(roots: &[PathBuf], program: &Path, art: &Art) -> Result<State, String> {
     let Some(root) = found(roots) else {
         return Err("Steam isn't installed here.".into());
     };
     if is_flatpak(root) {
         return Err(FLATPAK_STEAM.into());
     }
-    if running {
-        return Err(STEAM_OPEN.into());
-    }
     let user = user_dir(root).ok_or("Sign in to Steam once, then try again.")?;
-    add_to(&user, program, art)?;
+    add_to(&user, program, art, |_| ())?;
     Ok(state_of(&user, program))
-}
-
-/// Whether Steam runs on this computer.
-pub fn running() -> bool {
-    if cfg!(windows) {
-        let found = detect::quiet(Path::new("tasklist"))
-            .args(["/FI", "IMAGENAME eq steam.exe", "/NH"])
-            .output()
-            .map(|out| String::from_utf8_lossy(&out.stdout).to_ascii_lowercase());
-        found.is_ok_and(|text| text.contains("steam.exe"))
-    } else if cfg!(target_os = "macos") {
-        detect::quiet(Path::new("pgrep")).args(["-x", "steam_osx"]).output().is_ok_and(|out| out.status.success())
-    } else {
-        let Ok(processes) = std::fs::read_dir("/proc") else { return false };
-        processes.flatten().any(|process| {
-            std::fs::read_to_string(process.path().join("comm")).is_ok_and(|name| name.trim_end() == "steam")
-        })
-    }
 }
 
 #[cfg(test)]
@@ -423,6 +499,208 @@ mod tests {
         user
     }
 
+    fn backups(user: &Path) -> Vec<Vec<u8>> {
+        let mut names: Vec<PathBuf> = std::fs::read_dir(user.join("config"))
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.to_string_lossy().contains("openrac-bak-"))
+            .collect();
+        names.sort();
+        names.iter().map(|p| std::fs::read(p).unwrap()).collect()
+    }
+
+    fn entries_of(list: &Path) -> Vec<(Vec<u8>, Value)> {
+        let file = parse(&std::fs::read(list).unwrap()).unwrap();
+        let Some(Value::Map(entries)) = get(&file, "shortcuts") else { panic!("no list") };
+        entries.clone()
+    }
+
+    #[test]
+    fn steam_writing_the_list_mid_add_is_merged_not_lost() {
+        let dir = tempfile::tempdir().unwrap();
+        let user = steam(dir.path());
+        let list = user.join("config/shortcuts.vdf");
+        // Steam's copy, written between the read and the write: its own new game too.
+        let mut theirs = steams_list();
+        theirs.truncate(theirs.len() - 2);
+        theirs.extend_from_slice(b"\x009\x00\x01AppName\x00New one\x00\x08\x08\x08");
+        assert!(parse(&theirs).is_ok());
+        let program = Path::new("/opt/openrac");
+        add_to(&user, program, &ART, |list| std::fs::write(list, &theirs).unwrap()).unwrap();
+        let entries = entries_of(&list);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[1].0, b"9");
+        assert_eq!(entries[2].0, b"10");
+        assert!(is_ours(&entries[2].1));
+        assert_eq!(backups(&user), vec![theirs]);
+    }
+
+    #[test]
+    fn backups_are_kept_to_three() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        std::fs::write(user.join("config/shortcuts.vdf"), steams_list()).unwrap();
+        for n in 0..6 {
+            add(&roots, Path::new(&format!("/opt/{n}/launcher")), &ART).unwrap();
+        }
+        assert_eq!(backups(&user).len(), BACKUPS);
+    }
+
+    #[test]
+    fn adding_twice_changes_nothing_but_a_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let list = user.join("config/shortcuts.vdf");
+        std::fs::write(&list, steams_list()).unwrap();
+        add(&roots, Path::new("/opt/openrac"), &ART).unwrap();
+        let first = std::fs::read(&list).unwrap();
+        assert_eq!(add(&roots, Path::new("/opt/openrac"), &ART), Ok(State::Added));
+        assert_eq!(std::fs::read(&list).unwrap(), first);
+    }
+
+    #[test]
+    fn the_players_own_pictures_stay() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let id = app_id("\"/opt/openrac\"", NAME);
+        let grid = user.join("config/grid");
+        std::fs::create_dir_all(&grid).unwrap();
+        std::fs::write(grid.join(format!("{id}p.png")), b"mine").unwrap();
+        std::fs::write(grid.join(format!("{id}_hero.jpg")), b"mine too").unwrap();
+        add(&roots, Path::new("/opt/openrac"), &ART).unwrap();
+        assert!(!grid.join(format!("{id}p.jpg")).exists());
+        assert_eq!(std::fs::read(grid.join(format!("{id}_hero.jpg"))).unwrap(), b"mine too");
+        assert_eq!(std::fs::read(grid.join(format!("{id}.jpg"))).unwrap(), b"wide");
+        assert!(std::fs::read_dir(&grid)
+            .unwrap()
+            .flatten()
+            .all(|e| !e.path().to_string_lossy().ends_with("openrac-new")));
+    }
+
+    #[test]
+    fn an_id_steam_gave_is_kept_and_names_the_pictures_unsigned() {
+        // Steam's own ids have the top bit set; read as signed they are negative.
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let mut list = Vec::new();
+        list.extend_from_slice(b"\x00shortcuts\x00\x000\x00\x02appid\x00\xfe\xff\xff\xff");
+        list.extend_from_slice(b"\x01AppName\x00OpenRAC\x00\x01Exe\x00\"/opt/openrac\"\x00\x08\x08\x08");
+        std::fs::write(user.join("config/shortcuts.vdf"), &list).unwrap();
+        assert_eq!(add(&roots, Path::new("/opt/openrac"), &ART), Ok(State::Added));
+        assert!(user.join("config/grid/4294967294_icon.png").exists());
+        let entries = entries_of(&user.join("config/shortcuts.vdf"));
+        assert_eq!(entries.len(), 1);
+        let Value::Map(fields) = &entries[0].1 else { panic!("not a map") };
+        assert_eq!(get(fields, "appid"), Some(&Value::Int(0xFFFF_FFFE)));
+    }
+
+    #[test]
+    fn a_second_entry_of_ours_is_left_and_the_first_updated() {
+        let mut list = Vec::new();
+        list.extend_from_slice(b"\x00shortcuts\x00");
+        for key in [&b"0"[..], b"1"] {
+            list.push(0);
+            list.extend_from_slice(key);
+            list.extend_from_slice(b"\x00\x01AppName\x00OpenRAC\x00\x01Exe\x00\"/old\"\x00\x08");
+        }
+        list.extend_from_slice(b"\x08\x08");
+        let (out, _) = with_entry(Some(&list), Path::new("/new"), |_| PathBuf::new()).unwrap();
+        let file = parse(&out).unwrap();
+        let Some(Value::Map(entries)) = get(&file, "shortcuts") else { panic!("no list") };
+        assert_eq!(entries.len(), 2);
+        let exe = |e: &Value| match e {
+            Value::Map(f) => get(f, "Exe").cloned(),
+            _ => None,
+        };
+        assert_eq!(exe(&entries[0].1), Some(Value::Text(b"\"/new\"".to_vec())));
+        assert_eq!(exe(&entries[1].1), Some(Value::Text(b"\"/old\"".to_vec())));
+    }
+
+    #[test]
+    fn paths_with_spaces_unicode_and_backslashes_are_kept_as_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        for program in ["/home/zółw/My Games/openrac launcher", r"C:\Program Files\OpenRAC\launcher.exe"] {
+            let program = Path::new(program);
+            assert_eq!(add(&roots, program, &ART), Ok(State::Added));
+            let entries = entries_of(&user.join("config/shortcuts.vdf"));
+            let Value::Map(fields) = &entries[0].1 else { panic!("not a map") };
+            assert_eq!(get(fields, "Exe"), Some(&Value::Text(quoted(program).into_bytes())));
+        }
+    }
+
+    #[test]
+    fn truncated_empty_and_deep_lists_are_refused() {
+        let full = steams_list();
+        for cut in 1..full.len() {
+            assert!(parse(&full[..cut]).is_err(), "cut at {cut}");
+        }
+        assert!(parse(b"").is_err());
+        let mut deep = Vec::new();
+        for _ in 0..100 {
+            deep.extend_from_slice(b"\x00a\x00");
+        }
+        deep.extend(std::iter::repeat_n(0x08, 101));
+        assert!(parse(&deep).is_err());
+    }
+
+    #[test]
+    fn an_empty_file_is_refused_and_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let user = steam(dir.path());
+        let list = user.join("config/shortcuts.vdf");
+        std::fs::write(&list, b"").unwrap();
+        assert!(add(&[dir.path().to_path_buf()], Path::new("/a"), &ART).is_err());
+        assert_eq!(std::fs::read(&list).unwrap(), b"");
+    }
+
+    #[test]
+    fn several_users_without_a_last_go_by_settings_written_last() {
+        let dir = tempfile::tempdir().unwrap();
+        for (id, age) in [("41", 100), ("42", 10)] {
+            let config = dir.path().join(format!("userdata/{id}/config"));
+            std::fs::create_dir_all(&config).unwrap();
+            let f = std::fs::File::create(config.join("localconfig.vdf")).unwrap();
+            f.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(age)).unwrap();
+        }
+        assert_eq!(user_dir(dir.path()), Some(dir.path().join("userdata/42")));
+    }
+
+    #[test]
+    fn the_first_steam_that_is_there_is_used() {
+        let dir = tempfile::tempdir().unwrap();
+        let second = dir.path().join("b");
+        let user = steam(&second);
+        let roots = [dir.path().join("a"), second];
+        assert_eq!(add(&roots, Path::new("/x"), &ART), Ok(State::Added));
+        assert!(user.join("config/shortcuts.vdf").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_it_cannot_write_leaves_the_list_whole() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let user = steam(dir.path());
+        let config = user.join("config");
+        let list = config.join("shortcuts.vdf");
+        std::fs::write(&list, steams_list()).unwrap();
+        std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o555)).unwrap();
+        if std::fs::write(config.join("probe"), b"").is_ok() {
+            return; // running as root: nothing is read-only
+        }
+        assert!(add(&[dir.path().to_path_buf()], Path::new("/a"), &ART).is_err());
+        std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(std::fs::read(&list).unwrap(), steams_list());
+        assert_eq!(std::fs::read_dir(&config).unwrap().count(), 1);
+    }
+
     #[test]
     fn a_list_written_back_is_the_same_bytes() {
         let bytes = steams_list();
@@ -440,7 +718,7 @@ mod tests {
         let user = steam(dir.path());
         let list = user.join("config/shortcuts.vdf");
         std::fs::write(&list, b"nonsense").unwrap();
-        let err = add(&[dir.path().to_path_buf()], Path::new("/opt/openrac"), &ART, false).unwrap_err();
+        let err = add(&[dir.path().to_path_buf()], Path::new("/opt/openrac"), &ART).unwrap_err();
         assert!(err.contains("can't be read"), "{err}");
         assert_eq!(std::fs::read(&list).unwrap(), b"nonsense");
         assert!(!user.join("config/grid").exists());
@@ -463,7 +741,7 @@ mod tests {
         let program = Path::new("/opt/openrac/launcher");
         assert_eq!(state(&roots, program), State::NotAdded);
 
-        assert_eq!(add(&roots, program, &ART, false), Ok(State::Added));
+        assert_eq!(add(&roots, program, &ART), Ok(State::Added));
 
         let file = parse(&std::fs::read(&list).unwrap()).unwrap();
         let Some(Value::Map(entries)) = get(&file, "shortcuts") else { panic!("no list") };
@@ -488,7 +766,45 @@ mod tests {
         ] {
             assert_eq!(std::fs::read_to_string(grid.join(&name)).unwrap(), bytes, "{name}");
         }
-        assert_eq!(std::fs::read(user.join("config/shortcuts.vdf.openrac-bak")).unwrap(), steams_list());
+        assert_eq!(backups(&user)[0], steams_list());
+    }
+
+    #[test]
+    fn the_launcher_keeps_the_desktop_layout() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let list = user.join("config/shortcuts.vdf");
+        std::fs::write(&list, steams_list()).unwrap();
+        let program = Path::new("/opt/openrac");
+        assert_eq!(add(&roots, program, &ART), Ok(State::Added));
+        let ours = |list: &Path| {
+            let entries = entries_of(list);
+            let Some((_, Value::Map(fields))) = entries.into_iter().find(|(_, e)| is_ours(e)) else {
+                panic!("no entry")
+            };
+            fields
+        };
+        assert_eq!(get(&ours(&list), "AllowDesktopConfig"), Some(&Value::Int(1)));
+
+        // An entry an older launcher wrote, with the Desktop Layout turned off: shown as to update,
+        // and updated in place, every other field kept.
+        let mut file = parse(&std::fs::read(&list).unwrap()).unwrap();
+        let Some((_, Value::Map(entries))) = file.iter_mut().find(|(k, _)| is_key(k, "shortcuts")) else {
+            panic!("no list")
+        };
+        let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, e)| is_ours(e)) else { panic!("no entry") };
+        set(fields, "AllowDesktopConfig", Value::Int(0));
+        set(fields, "LaunchOptions", Value::Text(b"--keep".to_vec()));
+        let mut bytes = Vec::new();
+        write_map(&file, &mut bytes);
+        std::fs::write(&list, &bytes).unwrap();
+        assert_eq!(state(&roots, program), State::Outdated);
+        assert_eq!(add(&roots, program, &ART), Ok(State::Added));
+        let fields = ours(&list);
+        assert_eq!(get(&fields, "AllowDesktopConfig"), Some(&Value::Int(1)));
+        assert_eq!(get(&fields, "LaunchOptions"), Some(&Value::Text(b"--keep".to_vec())));
+        assert_eq!(entries_of(&list).len(), 2);
     }
 
     #[test]
@@ -498,10 +814,10 @@ mod tests {
         let user = steam(dir.path());
         let list = user.join("config/shortcuts.vdf");
         std::fs::write(&list, steams_list()).unwrap();
-        add(&roots, Path::new("/old/launcher"), &ART, false).unwrap();
+        add(&roots, Path::new("/old/launcher"), &ART).unwrap();
         assert_eq!(state(&roots, Path::new("/new/launcher")), State::Outdated);
 
-        assert_eq!(add(&roots, Path::new("/new/launcher"), &ART, false), Ok(State::Added));
+        assert_eq!(add(&roots, Path::new("/new/launcher"), &ART), Ok(State::Added));
 
         let file = parse(&std::fs::read(&list).unwrap()).unwrap();
         let Some(Value::Map(entries)) = get(&file, "shortcuts") else { panic!("no list") };
@@ -509,7 +825,7 @@ mod tests {
         let Value::Map(fields) = &entries[1].1 else { panic!("not a map") };
         assert_eq!(get(fields, "appid"), Some(&Value::Int(app_id("\"/old/launcher\"", NAME))));
         assert_eq!(get(fields, "Exe"), Some(&Value::Text(b"\"/new/launcher\"".to_vec())));
-        assert_eq!(std::fs::read(user.join("config/shortcuts.vdf.openrac-bak")).unwrap(), steams_list());
+        assert_eq!(backups(&user)[0], steams_list());
     }
 
     #[test]
@@ -517,18 +833,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let roots = [dir.path().to_path_buf()];
         let user = steam(dir.path());
-        assert_eq!(add(&roots, Path::new("/opt/openrac"), &ART, false), Ok(State::Added));
-        assert!(!user.join("config/shortcuts.vdf.openrac-bak").exists());
+        assert_eq!(add(&roots, Path::new("/opt/openrac"), &ART), Ok(State::Added));
+        assert!(backups(&user).is_empty());
         assert!(!user.join("config/shortcuts.vdf.openrac-new").exists());
-    }
-
-    #[test]
-    fn nothing_is_written_while_steam_runs() {
-        let dir = tempfile::tempdir().unwrap();
-        let user = steam(dir.path());
-        let result = add(&[dir.path().to_path_buf()], Path::new("/opt/openrac"), &ART, true);
-        assert_eq!(result, Err(STEAM_OPEN.to_string()));
-        assert_eq!(std::fs::read_dir(user.join("config")).unwrap().count(), 0);
     }
 
     #[test]
@@ -562,12 +869,12 @@ mod tests {
 
         let only = [native.clone(), flatpak.clone()];
         assert_eq!(state(&only, program), State::FlatpakSteam);
-        assert_eq!(add(&only, program, &ART, false), Err(FLATPAK_STEAM.to_string()));
+        assert_eq!(add(&only, program, &ART), Err(FLATPAK_STEAM.to_string()));
         assert_eq!(std::fs::read_dir(user.join("config")).unwrap().count(), 0);
 
         steam(&native);
         assert_eq!(state(&only, program), State::NotAdded, "the normal Steam comes first");
-        assert_eq!(add(&only, program, &ART, false), Ok(State::Added));
+        assert_eq!(add(&only, program, &ART), Ok(State::Added));
         assert_eq!(std::fs::read_dir(user.join("config")).unwrap().count(), 0);
     }
 
@@ -587,6 +894,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let roots = [dir.path().join("nowhere")];
         assert_eq!(state(&roots, Path::new("/a")), State::NoSteam);
-        assert!(add(&roots, Path::new("/a"), &ART, false).is_err());
+        assert!(add(&roots, Path::new("/a"), &ART).is_err());
     }
 }

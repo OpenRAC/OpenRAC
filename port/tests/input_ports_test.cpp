@@ -14,8 +14,10 @@
 
 namespace {
 
+using openrac::platform::Bindings;
 using openrac::platform::Button;
 using openrac::platform::Input;
+using openrac::platform::kPadPorts;
 
 // The events' clock, in milliseconds, which the test moves itself.
 std::uint64_t g_now_ms = 1000;
@@ -86,10 +88,35 @@ char on_port(Input& input, int port, SDL_JoystickID a, SDL_JoystickID b) {
     return found;
 }
 
+// There is no window here, so nothing has the focus: the pads are read as in the background.
+void play_in_background(Input& input) {
+    std::array<Bindings, kPadPorts> bindings{input.bindings(0), input.bindings(1)};
+    for (Bindings& b : bindings) {
+        b.tuning.background = true;
+    }
+    input.set_bindings(bindings);
+}
+
+// By default a pad does not play while another window has the focus (pad_background = 0).
+void test_unfocused() {
+    Input input;
+    const SDL_JoystickID a = attach("Pad");
+    pump(input);
+    SDL_Joystick* joystick = SDL_GetJoystickFromID(a);
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, true);
+    SDL_UpdateJoysticks();
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Up));
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, false);
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
 // A dock's device found first and never pressed: the controller pressed plays on port 0, and the
 // dock's device gets port 1 only once it is pressed.
 void test_dock_first() {
     Input input;
+    play_in_background(input);
     const SDL_JoystickID dock = attach("dock");
     const SDL_JoystickID pad = attach("controller");
     pump(input);
@@ -110,6 +137,7 @@ void test_dock_first() {
 // Two players playing at once keep their ports, whoever presses when.
 void test_two_players() {
     Input input;
+    play_in_background(input);
     const SDL_JoystickID a = attach("a");
     const SDL_JoystickID b = attach("b");
     pump(input);
@@ -133,6 +161,7 @@ void test_two_players() {
 // first has been left alone two seconds, not while it is held.
 void test_hand_over() {
     Input input;
+    play_in_background(input);
     const SDL_JoystickID a = attach("a");
     const SDL_JoystickID b = attach("b");
     pump(input);
@@ -178,11 +207,15 @@ void test_hand_over() {
 // Unplugged and plugged in again, mid-game.
 void test_unplug() {
     Input input;
+    play_in_background(input);
     const SDL_JoystickID a = attach("a");
     SDL_JoystickID b = attach("b");
     pump(input);
     tap(input, a);
     tap(input, b);
+    input.refresh_pads();  // the game reads the two taps
+    input.taps_read(0);
+    input.taps_read(1);
     // Port 0's unplugged with Cross held: port 0 is b's at once, and nothing stays pressed.
     hold(input, a, SDL_GAMEPAD_BUTTON_SOUTH, true);
     SDL_DetachVirtualJoystick(a);
@@ -219,6 +252,7 @@ void test_unplug() {
 // pressed takes none from a used one.
 void test_three() {
     Input input;
+    play_in_background(input);
     const SDL_JoystickID dock = attach("dock");
     const SDL_JoystickID a = attach("a");
     const SDL_JoystickID b = attach("b");
@@ -247,6 +281,87 @@ void test_three() {
     pump(input);
 }
 
+// The menu waits for a press with the game paused: update() is not called, and poll_capture()
+// alone must see the press. A button held as the capture began does not count.
+void test_capture_while_paused() {
+    Input input;
+    play_in_background(input);
+    const SDL_JoystickID a = attach("Pad");
+    pump(input);
+    SDL_Joystick* joystick = SDL_GetJoystickFromID(a);
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_SOUTH, true);
+    SDL_UpdateJoysticks();
+    input.begin_capture();
+    input.poll_capture();
+    CHECK(!input.take_captured().has_value());
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_EAST, true);
+    input.poll_capture();
+    const auto got = input.take_captured();
+    CHECK(got.has_value());
+    input.end_capture();
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_SOUTH, false);
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_EAST, false);
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
+// A menu closed with a button: what is held then does not press in the game until let go.
+void test_hold_back_held() {
+    Input input;
+    play_in_background(input);
+    const SDL_JoystickID a = attach("Pad");
+    pump(input);
+    tap(input, a);         // port 0 takes it
+    input.refresh_pads();  // read once, as every frame of the game does
+    SDL_Joystick* joystick = SDL_GetJoystickFromID(a);
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, true);
+    SDL_UpdateJoysticks();
+    input.hold_back_held();
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Up));
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, false);
+    SDL_UpdateJoysticks();
+    input.refresh_pads();
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, true);
+    SDL_UpdateJoysticks();
+    input.refresh_pads();
+    CHECK(input.pad(0).held(Button::Up));
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, false);
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
+// A press let go before the game reads the pad (a quick tap while the frames are slow) still
+// reaches the game, once: read, it is over; not read, it is over a few reads later.
+void test_quick_tap() {
+    Input input;
+    play_in_background(input);
+    const SDL_JoystickID a = attach("Pad");
+    pump(input);
+    tap(input, a, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    input.refresh_pads();
+    input.refresh_pads();  // read again just before the tick (responsive controls)
+    CHECK(input.pad(0).held(Button::Down));
+    input.taps_read(0);
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Down));
+
+    tap(input, a, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    for (int i = 0; i < 6; ++i) {
+        input.refresh_pads();
+    }
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Down));
+
+    // A menu closed with a tap: not the game's.
+    tap(input, a, SDL_GAMEPAD_BUTTON_EAST);
+    input.hold_back_held();
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Circle));
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
 }  // namespace
 
 int main() {
@@ -260,6 +375,10 @@ int main() {
     test_hand_over();
     test_unplug();
     test_three();
+    test_capture_while_paused();
+    test_hold_back_held();
+    test_unfocused();
+    test_quick_tap();
     SDL_Quit();
     return openrac::test::result();
 }

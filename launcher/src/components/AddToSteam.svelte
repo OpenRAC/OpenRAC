@@ -1,6 +1,6 @@
 <script lang="ts">
   // Settings: the launcher as a game in the player's Steam library (core/src/steam.rs). Not shown
-  // without Steam. Steam must be closed to add it: the button says so, and writes nothing.
+  // without Steam. Steam may be open while it is added.
   import { api, errorText, type SteamState } from "$lib/api";
   import { STEAM_TEXT as T } from "$lib/modsText";
   import Reason from "./Reason.svelte";

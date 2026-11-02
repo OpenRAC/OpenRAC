@@ -22,6 +22,10 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 
+import dev.openrac.launcher.FilesProvider;
+
+import java.io.File;
+
 import org.libsdl.app.SDLActivity;
 
 /**
@@ -255,6 +259,17 @@ public class GameActivity extends SDLActivity {
             }
             Log.i(TAG, "window colour mode " + (on ? "HDR, headroom " + headroom : "default"));
         });
+    }
+
+    /**
+     * Opens the Files app at `path`, one of the app's folders the launcher shows there (a
+     * screenshot's, a recording's), else at OpenRAC's own place; false when no Files app takes it.
+     */
+    public static boolean showFiles(final String path) {
+        if (mSingleton == null) {
+            return false;
+        }
+        return FilesProvider.Companion.show(mSingleton, new File(path));
     }
 
     @Override

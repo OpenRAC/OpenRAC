@@ -37,6 +37,7 @@
 #include "openrac/game_host.h"
 #include "options_menu.h"
 #include "platform/performance_hint.h"
+#include "platform/show_folder.h"
 #include "program/options.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
@@ -294,7 +295,7 @@ void configure_capture() {
 
 // The folder the captures go to: perf/ in OpenRAC's data folder, beside the cards and settings
 // (%LOCALAPPDATA%\openrac\perf on Windows); on Android the app's own files (HOME), which the
-// Files app shows as "Diagnostics recordings". Absolute, so the toast says where it is.
+// Files app shows as "Diagnostics recordings". Absolute, so the notification says where it is.
 std::filesystem::path capture_dir() {
 #if defined(__ANDROID__)
     std::filesystem::path dir = "perf";
@@ -628,13 +629,18 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
     } else {
         log::warn("performance capture: could not write {}", where);
     }
-    s.toast = std::format(
-        "Diagnostics report {}{}",
-        copied ? "copied to the clipboard" : "ready",
-        written ? " · saved to " + where : " · could not be saved to " + where
-    );
-    s.toast_until = ImGui::GetTime() + (written ? 8.0 : 15.0);
-    s.message = s.toast;
+    Notification done{
+        .title =
+            written
+                ? std::format("Diagnostics report {}", copied ? "copied to the clipboard" : "ready")
+                : std::string("The diagnostics report could not be saved"),
+        .text = (written ? "Saved to " : "Not written to ") + where,
+        .folder = written ? where : std::string(),
+        .tone = written ? Tone::Done : Tone::Error,
+        .seconds = written ? 8.0 : 15.0,
+    };
+    s.message = done.title + ": " + done.text;
+    notify(std::move(done));
     if (c.hid_panel) {
         set_visible(true);
         c.hid_panel = false;
@@ -702,23 +708,14 @@ double settings_sweep_seconds() {
 }
 
 void open_capture_folder() {
-    std::string url = "file://";
-    const std::u8string path8 = capture_dir().generic_u8string();
-    const std::string path(path8.begin(), path8.end());
-    if (!path.starts_with('/')) {
-        url += '/';  // file:///C:/...
-    }
-    for (const char ch : path) {
-        // Spaces and the URL's own marks, as %XX; the rest as it is.
-        if (ch == ' ' || ch == '%' || ch == '#' || ch == '?') {
-            url += std::format("%{:02X}", static_cast<unsigned char>(ch));
-        } else {
-            url += ch;
-        }
-    }
-    if (!SDL_OpenURL(url.c_str())) {
-        s.toast = std::format("Could not open {}", path);
-        s.toast_until = ImGui::GetTime() + 6.0;
+    if (!platform::show_folder(capture_dir())) {
+        const std::u8string path8 = capture_dir().u8string();
+        notify({
+            .title = "The folder could not be opened",
+            .text = std::string(path8.begin(), path8.end()),
+            .tone = Tone::Error,
+            .seconds = 6.0,
+        });
     }
 }
 
@@ -767,7 +764,7 @@ void capture_frame(const Shown& shown) {
         begin_capture(shown, c.script_seconds, c.script_path);
     }
     if (c.start_at) {
-        if (c.wait_for_drawer && (s.drawer_open || s.drawer_at > 0.0f)) {
+        if (c.wait_for_drawer && (s.menu_open || s.menu_at > 0.0f)) {
             c.start_at = Clock::now() + std::chrono::seconds(3);  // counted from when it is gone
         } else {
             c.wait_for_drawer = false;
@@ -803,7 +800,7 @@ void capture_frame(const Shown& shown) {
     }
     if (perf_capture::active()) {
         // Opening the drawer pauses the game: the capture ends with what it has.
-        if (s.drawer_open) {
+        if (s.menu_open) {
             perf_capture::stop();
         }
         if (const std::unique_ptr<perf_capture::Recorder> done = perf_capture::take_finished()) {

@@ -5,7 +5,7 @@
 
 const PALETTES: &str = include_str!("../../src/lib/palettes.json");
 
-/// The colours the drawer draws with, by their app.css names.
+/// The colours the game's menu (its drawer, its bar of tabs) draws with, by their app.css names.
 const DRAWER: &[&str] = &[
     "--ink-deep",
     "--panel",
@@ -13,6 +13,9 @@ const DRAWER: &[&str] = &[
     "--brand",
     "--bar-top",
     "--bar-bottom",
+    "--bar-stripe",
+    "--bar-stripe-alt",
+    "--bar-ink",
     "--bar-ink-deep",
     "--amber",
     "--gold",
@@ -88,6 +91,10 @@ mod tests {
         // The game's accent; Ratchet & Clank's is the launcher's own.
         let rac3 = ui_colors("nord", Some("rac3"));
         assert_eq!(color(&rac3, "amber"), Some("#ffd23f"));
+        // The bar's stripes and ink too, for the game's menu bar (debug/menu_window.cpp).
+        assert_eq!(color(&own, "bar-stripe"), Some("#c99222"));
+        assert_eq!(color(&rac3, "bar-stripe-alt"), Some("#d7ac27"));
+        assert_eq!(color(&rac3, "bar-ink"), Some("#2a2000"));
         assert_eq!(color(&rac3, "panel"), Some("#3b4252"));
         assert_eq!(ui_colors("openrac", Some("rac1")), own);
     }

@@ -55,7 +55,7 @@ time; the other nine give the frame's true GPU time. Nothing needs switching on.
 
 ### What each graphics setting costs (settings sweep)
 
-Developer tools > **Record diagnostics** > **Graphics settings sweep** records 80 seconds and
+Developer tools > **Record diagnostics** > **Graphics sweep** records 80 seconds and
 changes the graphics settings every 4 seconds: Enhanced graphics off, every Enhanced effect off,
 probe lighting off, the blended passes left out, drawn without probe light or with full probe
 light, render scale 50%, then each effect off on its own. VSync is off while it runs, so a step's time is the device's own

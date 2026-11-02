@@ -1491,7 +1491,7 @@ fn steam_state() -> openrac_launcher_core::steam::State {
 }
 
 /// Adds the launcher to Steam's library, with its pictures (scripts/steam_art.mjs), or updates it.
-/// Nothing is written while Steam runs.
+/// Steam may be open.
 #[tauri::command]
 fn steam_add() -> Result<openrac_launcher_core::steam::State, String> {
     #[cfg(target_os = "android")]
@@ -1507,7 +1507,7 @@ fn steam_add() -> Result<openrac_launcher_core::steam::State, String> {
             icon: include_bytes!("../icons/icon.png"),
         };
         let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
-        steam::add(&steam_roots(), &program, &art, steam::running())
+        steam::add(&steam_roots(), &program, &art)
     }
 }
 

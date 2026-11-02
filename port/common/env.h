@@ -112,7 +112,7 @@ enum class Var : std::uint16_t {
     Keys,
     LauncherVersion,
     Log,
-    MenuBar,
+    Menu,
     MobyLog,
     MobySphereCullOff,
     NativeLibraryDir,

@@ -58,6 +58,7 @@ add_library(openrac_platform STATIC
   platform/players.cpp
   platform/performance_hint.cpp
   platform/pump.cpp
+  platform/show_folder.cpp
   platform/touch_pad.cpp
   platform/window.cpp
 )
@@ -78,7 +79,9 @@ openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS 
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
     # What the display says of HDR, through GameActivity (platform/display_hdr.h).
-    android/display_hdr.cpp)
+    android/display_hdr.cpp
+    # The Files app at a folder, through GameActivity (platform/show_folder.h).
+    android/show_folder.cpp)
   if(TARGET adrenotools)
     target_link_libraries(openrac_platform PRIVATE adrenotools)
     target_compile_definitions(openrac_platform PRIVATE OPENRAC_ADRENOTOOLS=1)

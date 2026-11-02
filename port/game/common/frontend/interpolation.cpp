@@ -768,6 +768,7 @@ bool hold() {
             }
             g->input.handle_event(event);
         }
+        apply_mouse_capture();  // the pointer as the menu, now open or shut, wants it
         if (debug_overlay::take_settings_changed()) {
             apply_settings();  // the drawer is open over the paused game
         }

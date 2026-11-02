@@ -201,9 +201,13 @@ bool window_key(const SDL_Event& event) {
     }
     if (event.key.key == SDLK_F4 && gl::enhanced_rendering_available()) {
         if (!enhanced_graphics_available()) {
-            debug_overlay::notice(
-                "Enhanced lighting requires compatible probe data for this level."
-            );
+            debug_overlay::notify({
+                .id = "enhanced",
+                .title = "Enhanced lighting is not available here",
+                .text = "This level has no compatible probe data.",
+                .tone = debug_overlay::Tone::Warning,
+                .seconds = 6.0,
+            });
             return true;
         }
         auto& graphics = settings::get();

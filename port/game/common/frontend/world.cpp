@@ -225,7 +225,7 @@ void use_level(int number) {
     std::string error;
     const LevelSources sources = level_sources(wanted);
     const auto& dir = sources.dir;
-    debug_overlay::notice({});
+    debug_overlay::dismiss("level");
     // Only Ratchet & Clank's levels are extracted for the port so far (its profile says so). The
     // other games (Going Commando, Up Your Arsenal, Deadlocked at their menus) have no scenery to
     // read: their whole picture is the 2D path, both its parts, and nothing is missing to tell the
@@ -255,14 +255,17 @@ void use_level(int number) {
         log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
         // Said in the picture: the game goes on, its HUD over a black world, and a player takes
         // that for the game being broken.
-        debug_overlay::notice(
-            std::format(
-                "This level's scenery could not be read, so the world is black.\n{}\n"
-                "Close the game and run \"Check the levels\" in the launcher (the log says which "
-                "file).",
+        debug_overlay::notify({
+            .id = "level",
+            .title = "This level's scenery could not be read, so the world is black",
+            .text = std::format(
+                "{}\nClose the game and run \"Check the levels\" in the launcher (the log says "
+                "which file).",
                 error
-            )
-        );
+            ),
+            .tone = debug_overlay::Tone::Error,
+            .seconds = 0.0,
+        });
         g->renderer->add(
             std::make_unique<renderer::DirectRenderer>(
                 "hud",

@@ -711,7 +711,7 @@ export const STEAM_TEXT = {
   add: "Add to Steam",
   update: "Update in Steam",
   inSteam: "In Steam",
-  added: "Added. Open Steam to see it.",
+  added: "Added. If Steam is open and does not show it, restart Steam.",
 } as const;
 
 export const SETTINGS_TEXT = {

@@ -92,6 +92,9 @@ public:
 
     const Pad& pad(int port) const { return m_pads[static_cast<std::size_t>(port)]; }
 
+    // The game has read the port's pad: the buttons tapped since (taps) count no more.
+    void taps_read(int port);
+
     // The game sets the motors here (scePadSetActDirect); update() plays them.
     Pad& pad(int port) { return m_pads[static_cast<std::size_t>(port)]; }
 
@@ -102,6 +105,10 @@ public:
     // uses them. What is held on a player's controller as theirs change, and the keys held as the
     // keyboard's player's change, are held back until let go (bindings.h's Latch).
     void set_bindings(const std::array<Bindings, kPadPorts>& bindings);
+
+    // What each player's controller and the keyboard hold now reads as let go until it is let go
+    // indeed: a menu closed with its button, B or Esc does not also press them in the game.
+    void hold_back_held();
 
     const Bindings& bindings(int port) const { return m_bindings[static_cast<std::size_t>(port)]; }
 
@@ -127,6 +134,9 @@ public:
     // take_captured(). end_capture() lets the pads go again.
     void begin_capture();
     void end_capture();
+    // Reads the controllers for the capture now. update() does it each frame the game runs; the
+    // menu calls this too, as the game waits (update() is not called) while the menu is open.
+    void poll_capture();
 
     bool capturing() const { return m_capturing; }
 
@@ -154,7 +164,15 @@ private:
     struct Connected {
         SDL_Gamepad* gamepad = nullptr;
         std::uint64_t active_ns = 0;  // SDL's time of its last press or stick pushed well out
+        // Each button pressed since the game last read the pad: how many more reads it counts as
+        // held. A press let go before the game's read (a quick tap while the frames are slow)
+        // still reaches the game.
+        std::array<std::uint8_t, SDL_GAMEPAD_BUTTON_COUNT> tapped{};
     };
+
+    // About a tenth of a second at 60 reads a second: a tap the game never asked about (a
+    // pause, a menu) does not turn up later.
+    static constexpr std::uint8_t kTapReads = 6;
     // How long port 0's gamepad is left alone before another one pressed takes the port.
     static constexpr std::uint64_t kHandOverNs = 2'000'000'000;
 
