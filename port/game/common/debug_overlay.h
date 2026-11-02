@@ -158,6 +158,7 @@ struct Notification {
     std::string text{};   // second line, quieter; may hold several lines
     // Keys shown as caps before the text, "or" between entries; "+" joins keys pressed together.
     std::vector<std::string> keys{};
+    std::string folder{};  // a press on the card opens it (or the folder holding this file)
     Tone tone = Tone::Info;
     double seconds = 5.0;  // time on screen (paused while hidden); 0: until dismiss()
 };

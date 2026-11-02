@@ -37,6 +37,7 @@
 #include "openrac/game_host.h"
 #include "options_menu.h"
 #include "platform/performance_hint.h"
+#include "platform/show_folder.h"
 #include "program/options.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
@@ -634,6 +635,7 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
                 ? std::format("Diagnostics report {}", copied ? "copied to the clipboard" : "ready")
                 : std::string("The diagnostics report could not be saved"),
         .text = (written ? "Saved to " : "Not written to ") + where,
+        .folder = written ? where : std::string(),
         .tone = written ? Tone::Done : Tone::Error,
         .seconds = written ? 8.0 : 15.0,
     };
@@ -706,24 +708,11 @@ double settings_sweep_seconds() {
 }
 
 void open_capture_folder() {
-    std::string url = "file://";
-    const std::u8string path8 = capture_dir().generic_u8string();
-    const std::string path(path8.begin(), path8.end());
-    if (!path.starts_with('/')) {
-        url += '/';  // file:///C:/...
-    }
-    for (const char ch : path) {
-        // Spaces and the URL's own marks, as %XX; the rest as it is.
-        if (ch == ' ' || ch == '%' || ch == '#' || ch == '?') {
-            url += std::format("%{:02X}", static_cast<unsigned char>(ch));
-        } else {
-            url += ch;
-        }
-    }
-    if (!SDL_OpenURL(url.c_str())) {
+    if (!platform::show_folder(capture_dir())) {
+        const std::u8string path8 = capture_dir().u8string();
         notify({
             .title = "The folder could not be opened",
-            .text = path,
+            .text = std::string(path8.begin(), path8.end()),
             .tone = Tone::Error,
             .seconds = 6.0,
         });

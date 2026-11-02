@@ -572,9 +572,11 @@ void status_notifications();
 // Draws the notifications, over everything else (debug/notifications.cpp); says whether any is
 // shown or going.
 void draw_notifications();
+// A press (click or tap) at `at`, in ImGui's coordinates: true when a card took it.
+bool press_notification(ImVec2 at);
 bool notifications_pending();
 
-// The hint at the start: what opens the menu (settings.h's menu_hint). Defined in
+// The hint at the start: what opens the menu. Defined in
 // debug/notifications.cpp.
 void notify_menu_hint();
 

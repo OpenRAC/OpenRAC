@@ -13,6 +13,7 @@
 
 #include "debug/menu_ui.h"
 #include "debug/overlay.h"
+#include "platform/show_folder.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -27,6 +28,8 @@ struct Slot {
     bool going = false;   // timed out, dismissed or pushed out by newer slots
     float y = 0.0f;       // drawn top; eases to its place when a card above leaves
     bool placed = false;  // y set at least once
+    ImVec2 a{}, b{};      // where it was drawn last, for a press on it
+    float alpha = 0.0f;   // how much it showed then; 0 hidden
 };
 
 std::vector<Slot> slots;
@@ -274,6 +277,31 @@ void dismiss(std::string_view id) {
     }
 }
 
+bool press_notification(ImVec2 at) {
+    for (Slot& card : slots) {
+        if (card.going || card.alpha < 0.5f || at.x < card.a.x || at.x > card.b.x || at.y < card.a.y
+            || at.y > card.b.y) {
+            continue;
+        }
+        // A card with a file opens its folder; a timed one goes once pressed. The press is the
+        // card's either way, not the game's.
+        if (!card.n.folder.empty() && !platform::show_folder(card.n.folder)) {
+            notify({
+                .title = "The folder could not be opened",
+                .text = card.n.folder,
+                .tone = Tone::Error,
+                .seconds = 6.0,
+            });
+            return true;  // `card` may have moved
+        }
+        if (card.n.seconds > 0.0) {
+            card.going = true;
+        }
+        return true;
+    }
+    return false;
+}
+
 void notify_menu_hint() {
     // The desktop's menu key or Android's Back, and any controller's Select + Start.
     std::vector<std::string> keys;
@@ -309,6 +337,9 @@ void draw_notifications() {
         }
     }
     std::erase_if(slots, [](const Slot& card) { return card.going && card.out >= 1.0f; });
+    for (Slot& card : slots) {
+        card.alpha = 0.0f;
+    }
     if (slots.empty() || stack_shown <= 0.0f) {
         return;
     }
@@ -341,6 +372,9 @@ void draw_notifications() {
         if (alpha > 0.0f) {
             draw_card(list, card, a, w, l, alpha);
         }
+        card.a = a;
+        card.b = ImVec2(a.x + w, a.y + h);
+        card.alpha = alpha;
         // The next card goes below; a leaving card gives up its space as it fades.
         y += (h + dp(10.0f)) * (1.0f - go);
     }

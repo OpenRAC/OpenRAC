@@ -70,7 +70,7 @@ ImFont* add_font(const unsigned char* bytes, unsigned int size, float pixels) {
 
 }  // namespace
 
-void add_menu_fonts() {
+void add_menu_fonts(bool touch) {
     const float body = std::round(15.0f * s.ui_scale);
     menu_fonts.body = add_font(openrac_font_inter, openrac_font_inter_size, body);
     menu_fonts.strong =
@@ -84,6 +84,12 @@ void add_menu_fonts() {
         openrac_font_inter_semibold_size,
         std::round(12.0f * s.ui_scale)
     );
+    // Larger on a touch screen, for reading at arm's length and pressing with a finger.
+    menu_fonts.panel = add_font(
+        openrac_font_inter,
+        openrac_font_inter_size,
+        std::round((touch ? 16.0f : 14.0f) * s.ui_scale)
+    );
     ImFont* fallback =
         ImGui::GetIO().Fonts->Fonts.empty() ? nullptr : ImGui::GetIO().Fonts->Fonts[0];
     for (ImFont** font :
@@ -91,7 +97,8 @@ void add_menu_fonts() {
           &menu_fonts.strong,
           &menu_fonts.head,
           &menu_fonts.title,
-          &menu_fonts.small}) {
+          &menu_fonts.small,
+          &menu_fonts.panel}) {
         if (*font == nullptr) {
             *font = fallback;
         }

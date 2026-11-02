@@ -53,12 +53,13 @@ struct MenuFonts {
     ImFont* head = nullptr;    // Orbitron, the headings
     ImFont* title = nullptr;   // Orbitron, larger: the open tab's name over its rows
     ImFont* small = nullptr;   // Inter SemiBold, smaller: a section's kicker, the version
+    ImFont* panel = nullptr;   // Inter, the debug panel's and the other overlay windows' text
 };
 
 extern MenuFonts menu_fonts;
 
 // Adds the menu's typefaces to the atlas at s.ui_scale (debug_overlay.cpp's style_and_font).
-void add_menu_fonts();
+void add_menu_fonts(bool touch);
 
 // The logo from the font atlas (debug_overlay.cpp, add_logo): its mark in `mark`, its name in
 // `name`. `left_middle` is its left edge at the height of its letters.

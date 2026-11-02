@@ -9,7 +9,9 @@
 #include <cfloat>
 #include <cmath>
 #include <imgui.h>
-#include <imgui_internal.h>  // ImGui::ClearActiveID: a finger that scrolls lets go of what it pressed
+// ImGui::ClearActiveID: a finger that scrolls lets go of what it pressed; FindHoveredWindowEx.
+#include <imgui_internal.h>
+#include <optional>
 
 #include <SDL3/SDL.h>
 
@@ -35,16 +37,30 @@ bool on_edit_bar(const SDL_TouchFingerEvent& f) {
 }
 
 // A finger, at its place in the window, as ImGui's pointer.
-void pointer_at(const SDL_TouchFingerEvent& f) {
+// A finger's place in ImGui's coordinates (the window's), or none without its window.
+std::optional<ImVec2> finger_point(const SDL_TouchFingerEvent& f) {
     SDL_Window* window = SDL_GetWindowFromID(f.windowID);
     int w = 0;
     int h = 0;
     if (window == nullptr || !SDL_GetWindowSize(window, &w, &h)) {
-        return;
+        return std::nullopt;
     }
-    ImGuiIO& io = ImGui::GetIO();
-    io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
-    io.AddMousePosEvent(f.x * static_cast<float>(w), f.y * static_cast<float>(h));
+    return ImVec2(f.x * static_cast<float>(w), f.y * static_cast<float>(h));
+}
+
+void pointer_at(const SDL_TouchFingerEvent& f) {
+    if (const std::optional<ImVec2> at = finger_point(f)) {
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
+        io.AddMousePosEvent(at->x, at->y);
+    }
+}
+
+// Whether one of the overlay's windows (the debug panel, an inspector) is under `at`.
+bool on_overlay_window(ImVec2 at) {
+    ImGuiWindow* window = nullptr;
+    ImGui::FindHoveredWindowEx(at, false, &window, nullptr);
+    return window != nullptr;
 }
 
 }  // namespace
@@ -147,6 +163,12 @@ bool drawer_event(const SDL_Event& e) {
             if (e.tfinger.touchID == SDL_MOUSE_TOUCHID || !s.initialised) {
                 return false;
             }
+            const ImVec2 at = finger_point(e.tfinger).value_or(ImVec2(-FLT_MAX, -FLT_MAX));
+            // A notification takes a tap on it (debug/notifications.cpp).
+            if (!s.menu_open && press_notification(at)) {
+                s.taken.push_back(e.tfinger.fingerID);
+                return true;
+            }
             const bool on_bar = on_edit_bar(e.tfinger);
             if (!s.pointer_down && (s.menu_open || s.visible || on_bar)) {
                 s.pointer = e.tfinger.fingerID;
@@ -154,7 +176,9 @@ bool drawer_event(const SDL_Event& e) {
                 pointer_at(e.tfinger);
                 ImGui::GetIO().AddMouseButtonEvent(0, true);
             }
-            if (!s.menu_open && !on_bar) {
+            // The game's on-screen pad has the finger unless the menu, the editor's bar or one of
+            // the overlay's windows is under it.
+            if (!s.menu_open && !on_bar && !(s.visible && on_overlay_window(at))) {
                 return false;
             }
             s.taken.push_back(e.tfinger.fingerID);

@@ -164,8 +164,6 @@ struct Settings {
     FrameRate frame_rate = FrameRate::Display;
     int frame_cap = 60;                         // FrameRate::Capped's frames a second
     FrameCounter show_fps = FrameCounter::Off;  // Counter mode in the picture's corner.
-    // The start shows what opens the menu (debug/notifications.cpp, notify_menu_hint).
-    bool menu_hint = true;
     // The key that opens and closes the menu, by its place on the keyboard: an SDL scancode name
     // ("`", the key under Escape; "F4", "M"), or "Alt" (either Alt pressed and let go by itself).
     std::string menu_bar_key = "`";

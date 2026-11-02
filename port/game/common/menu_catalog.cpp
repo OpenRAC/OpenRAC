@@ -167,9 +167,6 @@ constexpr Entry kEntries[] = {
      "The key and the controller button that open and close this menu. Any controller's Select "
      "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "
      "counts pressed by itself, so Alt+Return still goes full screen."},
-    {Id::MenuHint, Tab::Controls, "Menu", kSwitch, A, "Say how to open it at the start",
-     "A notification at the top of the picture when the game starts names what opens this "
-     "menu, and goes after a few seconds."},
     {Id::TouchButtonSize, Tab::Controls, "Touch controls", kChoice, T, "Button size",
      "The on-screen buttons' size."},
     {Id::TouchCameraSpeed, Tab::Controls, "Touch controls", kChoice, T, "Camera speed",
@@ -205,7 +202,7 @@ constexpr Entry kEntries[] = {
      "report is copied and saved. Ctrl+F3 starts and stops one too."},
     {Id::RecordLength, Tab::Developer, "Record diagnostics", kChoice, A, "Recording length",
      "How long a gameplay recording runs, or until it is stopped."},
-    {Id::RecordSweep, Tab::Developer, "Record diagnostics", kAction, A, "Graphics settings sweep",
+    {Id::RecordSweep, Tab::Developer, "Record diagnostics", kAction, A, "Graphics sweep",
      "Stand still while it runs: it changes the graphics settings every few seconds, with "
      "VSync off, and measures what each one costs. Use it when the game is slow everywhere."},
     {Id::RecordFolder, Tab::Developer, "Record diagnostics", kAction, D, "Open recordings folder",

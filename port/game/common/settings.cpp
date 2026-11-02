@@ -405,8 +405,6 @@ void load(const std::filesystem::path& file) {
             } else {
                 known = false;
             }
-        } else if (key == "menu_hint") {
-            known = parse_bool(value, s.menu_hint);
         } else if (key == "menu_bar_key") {
             // Any key name SDL knows; the overlay uses the default for one it does not.
             known = !value.empty();
@@ -608,7 +606,6 @@ void save() {
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"
         << "frame_rate = " << frame_rate_value(s) << "\n"
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
-        << "menu_hint = " << (s.menu_hint ? 1 : 0) << "\n"
         << "menu_bar_key = " << s.menu_bar_key << "\n"
         << "menu_bar_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"

@@ -34,7 +34,11 @@ over the game comes as notifications, cards that drop in at the top of the
 picture (`debug_overlay::notify`, `port/game/common/debug/notifications.cpp`):
 while the game is paused or slowed one says so and names the keys that undo it;
 a screenshot, a recording and its report, a level that could not be read and a
-mod's line (`play_notice`) are others. They wait while the menu is out.
+mod's line (`play_notice`) are others. They wait while the menu is out. A
+click or tap on a screenshot's or a report's card opens its folder (on Android,
+the Files app; `platform/show_folder.h`); a tap on any card is never the
+game's. On a touch screen a tap on the debug panel is the panel's too, not the
+on-screen pad's.
 
 The same keys and the port's settings are in one menu, whose entries are one
 list (`port/game/common/menu_catalog.cpp`): an entry added there shows on every
@@ -45,7 +49,7 @@ from the window's top, with the tab's options in a window under it and, beside
 them, what the option under the pointer or the focus does. The game waits while
 it is open; Keep paused (Developer) keeps it so once the menu closes. Escape, B
 or the key again closes it; L1/R1 or Page Up/Down change tabs. At the start a
-notification names what opens it (the `menu_hint` setting; Controls, Menu). `OPENRAC_MENU=TAB` (`graphics`, `enhanced`, `game`, `controls`,
+notification names what opens it. `OPENRAC_MENU=TAB` (`graphics`, `enhanced`, `game`, `controls`,
 `developer`) opens it on that tab from the start. On macOS the system's menu
 bar keeps View, Sound and Developer as well. On Android the same entries are in
 a drawer that slides in from the left (docs/port/ANDROID.md); `OPENRAC_DRAWER=1`

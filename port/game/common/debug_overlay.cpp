@@ -15,7 +15,6 @@
 #include <array>
 #include <cctype>
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -87,7 +86,7 @@ void configure() {
         if (const std::size_t at = v->find('@'); at != std::string_view::npos) {
             s.menu_open_at = std::atoll(std::string(v->substr(at + 1)).c_str());
         }
-    } else if (settings::get().menu_hint) {
+    } else {
         notify_menu_hint();  // what opens the menu, at the start
     }
     // OPENRAC_OVERLAY: shown from the start; a list of names opens those sections ("all": every
@@ -264,51 +263,50 @@ void launcher_style(ImGuiStyle& style) {
 }
 
 // The style and the font at s.ui_scale, from ImGui's defaults each time (a scale change rebuilds
-// them). At scale 1 on a desktop nothing is scaled and ImGui adds its own font, as before.
+// them). The overlay's windows wear the menu's look: Inter, rounded frames, roomy rows; on a touch
+// screen larger still, for a finger.
 void style_and_font() {
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
     style = ImGuiStyle();
     ImGui::StyleColorsDark();
     launcher_style(style);
-    style.WindowRounding = 6.0f;
+    style.WindowRounding = 12.0f;
+    style.ChildRounding = 8.0f;
+    style.PopupRounding = 8.0f;
+    style.FrameRounding = 6.0f;
+    style.GrabRounding = 6.0f;
+    style.ScrollbarRounding = 8.0f;
+    style.TabRounding = 6.0f;
     style.WindowBorderSize = 1.0f;
-    style.FramePadding = ImVec2(4.0f, 2.0f);
-    style.ItemSpacing = ImVec2(6.0f, 3.0f);
-    io.Fonts->Clear();
-    bool have_font = false;
-#if defined(__ANDROID__)
-    // On a phone: everything as large as the screen's density asks, in the system's own typeface
-    // (ImGui's built-in one is a bitmap for a desktop's pixels).
-    io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
-    // The panel's buttons, boxes and headers roomier for a finger, and reached a little beyond.
-    style.FramePadding = ImVec2(8.0f, 5.0f);
-    style.ItemSpacing = ImVec2(8.0f, 6.0f);
-    style.TouchExtraPadding = ImVec2(4.0f, 4.0f);
-    style.ScrollbarSize = 18.0f;
-    style.GrabMinSize = 18.0f;
+    style.PopupBorderSize = 1.0f;
+    style.WindowPadding = ImVec2(12.0f, 10.0f);
+    style.FramePadding = ImVec2(8.0f, 4.0f);
+    style.ItemSpacing = ImVec2(8.0f, 5.0f);
+    style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
+    style.CellPadding = ImVec2(6.0f, 3.0f);
+    style.IndentSpacing = 16.0f;
+    style.SeparatorTextBorderSize = 1.0f;
+    const bool touch = drawer_possible();
+    if (touch) {
+        io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
+        // Buttons, boxes and headers roomy for a finger, and reached a little beyond.
+        style.WindowPadding = ImVec2(16.0f, 14.0f);
+        style.FramePadding = ImVec2(12.0f, 9.0f);
+        style.ItemSpacing = ImVec2(10.0f, 8.0f);
+        style.CellPadding = ImVec2(8.0f, 5.0f);
+        style.TouchExtraPadding = ImVec2(6.0f, 6.0f);
+        style.ScrollbarSize = 20.0f;
+        style.GrabMinSize = 22.0f;
+    }
     style.ScaleAllSizes(s.ui_scale);
-    for (const char* path : {"/system/fonts/Roboto-Regular.ttf", "/system/fonts/DroidSans.ttf"}) {
-        if (std::FILE* f = std::fopen(path, "rb")) {
-            std::fclose(f);
-            have_font =
-                io.Fonts->AddFontFromFileTTF(path, std::round(15.0f * s.ui_scale)) != nullptr;
-            break;
-        }
-    }
-#else
-    if (s.ui_scale != 1.0f) {
-        style.ScaleAllSizes(s.ui_scale);
-    }
-#endif
-    if (!have_font) {
-        // ImGui's own, the first font and so the panels' (at scale 1 on a desktop, as before).
-        ImFontConfig config;
-        config.SizePixels = std::round(13.0f * s.ui_scale);
-        io.Fonts->AddFontDefault(&config);
-    }
-    // The menu's: the launcher's typefaces (debug/menu_ui.h).
-    add_menu_fonts();
+    io.Fonts->Clear();
+    // ImGui's own, kept only for a build without the menu's typefaces.
+    ImFontConfig config;
+    config.SizePixels = std::round(13.0f * s.ui_scale);
+    io.Fonts->AddFontDefault(&config);
+    add_menu_fonts(touch);
+    io.FontDefault = menu_fonts.panel;
 }
 
 // The logo for the drawer's header, drawn once into ImGui's font atlas before the atlas goes to
@@ -650,6 +648,12 @@ bool event(const SDL_Event& e) {
             s.alt_alone = false;
             return true;
         }
+    }
+    // A click on a notification is the card's (a finger's tap: drawer_event).
+    if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT
+        && e.button.which != SDL_TOUCH_MOUSEID && s.initialised && !s.menu_open
+        && press_notification(ImVec2(e.button.x, e.button.y))) {
+        return true;
     }
     if (drawer_possible() && drawer_event(e)) {
         return true;
@@ -1018,6 +1022,7 @@ void draw(const Shown& shown) {
         notify({
             .title = saved ? "Screenshot saved" : "The screenshot could not be saved",
             .text = s.shot_path,
+            .folder = saved ? s.shot_path : std::string(),
             .tone = saved ? Tone::Done : Tone::Error,
             .seconds = saved ? 3.0 : 8.0,
         });
