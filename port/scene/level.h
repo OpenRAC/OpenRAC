@@ -49,8 +49,9 @@ inline constexpr int kManifestFormat = 4;
 // reaches it (its slots before lighting, its class's "relight"); 17 with each shrub class's normals,
 // for the shrubs a point light reaches; 18 with the gameplay copy
 // the probe baker reads (bake-inputs/gameplay.bin); 19 with the emission catalog's textures
-// (probe-emission.json) and the levels' sky and sun profiles (probe-bake.json).
-inline constexpr int kManifestFormatNewest = 19;
+// (probe-emission.json) and the levels' sky and sun profiles (probe-bake.json); 20 with the liquid
+// surfaces the baker lights from (bake-inputs/liquids.json).
+inline constexpr int kManifestFormatNewest = 20;
 
 struct Vertex {
     float position[3];

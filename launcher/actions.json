@@ -1734,7 +1734,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac2/ntsc/levels-19.json",
+        "artifact": "assets/port/rac2/ntsc/levels-20.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -1771,7 +1771,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-19.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1802,7 +1802,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-19.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1855,7 +1855,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-19.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1922,7 +1922,7 @@
         "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-19.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1990,7 +1990,7 @@
             "from": "your disc set up (Set up from your disc)"
           },
           {
-            "path": "assets/port/rac2/ntsc/levels-19.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ]

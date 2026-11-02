@@ -74,7 +74,9 @@ FORMAT = 4
 # manifest bake_inputs).
 # 19: the reviewed emission catalog's textures resolved into probe-emission.json, the level sky
 # and sun profiles (probe-bake.json) the baker reads, from port/enhanced/lighting/profiles/rac2-ntsc.
-GAME_FORMATS = {"rac2": 19}
+# 20: the liquid surfaces the baker lights from (bake-inputs/liquids.json and their effect textures,
+# manifest bake_inputs "liquids").
+GAME_FORMATS = {"rac2": 20}
 
 
 def levels_format(game: str) -> int:
