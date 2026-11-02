@@ -270,6 +270,31 @@ void test_capture_while_paused() {
     pump(input);
 }
 
+// A menu closed with a button: what is held then does not press in the game until let go.
+void test_hold_back_held() {
+    Input input;
+    const SDL_JoystickID a = attach("Pad");
+    pump(input);
+    tap(input, a);         // port 0 takes it
+    input.refresh_pads();  // read once, as every frame of the game does
+    SDL_Joystick* joystick = SDL_GetJoystickFromID(a);
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, true);
+    SDL_UpdateJoysticks();
+    input.hold_back_held();
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Up));
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, false);
+    SDL_UpdateJoysticks();
+    input.refresh_pads();
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, true);
+    SDL_UpdateJoysticks();
+    input.refresh_pads();
+    CHECK(input.pad(0).held(Button::Up));
+    SDL_SetJoystickVirtualButton(joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, false);
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
 }  // namespace
 
 int main() {
@@ -284,6 +309,7 @@ int main() {
     test_unplug();
     test_three();
     test_capture_while_paused();
+    test_hold_back_held();
     SDL_Quit();
     return openrac::test::result();
 }

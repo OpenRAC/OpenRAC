@@ -519,9 +519,9 @@ void menu_window(const Shown& shown) {
                    || ImGui::IsKeyPressed(ImGuiKey_PageDown, false)) {
             switch_by = 1;
         }
-        // B and Start go back to the game; Y held for a second quits it.
-        if (ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)
-            || ImGui::IsKeyPressed(ImGuiKey_GamepadStart, false)) {
+        // B goes back to the game, as Select + Start does (debug_overlay.cpp). Start alone does
+        // not: held before Select, it closed the menu and the chord opened it again.
+        if (ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
             set_menu(false);
         }
         MenuMotion& m = s.menu_motion;

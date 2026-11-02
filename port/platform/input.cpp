@@ -292,6 +292,22 @@ PadInputs Input::read_device(std::size_t index) const {
     return index < m_gamepads.size() ? read_gamepad(m_gamepads[index].gamepad) : PadInputs{};
 }
 
+void Input::hold_back_held() {
+    SDL_UpdateGamepads();
+    for (int port = 0; port < kPadPorts; ++port) {
+        const auto p = static_cast<std::size_t>(port);
+        if (SDL_Gamepad* g = gamepad(port)) {
+            latch_held(read_gamepad(g), m_bindings[p].tuning.trigger_threshold, m_latch[p]);
+        }
+    }
+    int key_count = 0;
+    if (const bool* state = SDL_GetKeyboardState(&key_count)) {
+        std::array<bool, kKeyCount> keys{};
+        std::copy_n(state, std::min(static_cast<std::size_t>(key_count), kKeyCount), keys.begin());
+        latch_held_keys(keys, m_key_latch);
+    }
+}
+
 void Input::begin_capture() {
     // What is held as it begins does not count until let go: the press that asked for the capture
     // is not what it captures.
