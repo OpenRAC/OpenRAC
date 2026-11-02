@@ -158,8 +158,11 @@ def player_actions() -> dict:
                     # From the data folder's levels into the data folder's bakes ({data}/probes/<v>).
                     at = args.index("--levels-dir")
                     action["args"] = args[:at + 1] + [levels] + args[at + 2:]
-                    action["needs"] = [{"path": f"{levels}/{STAMP}", "from": need["from"]}
-                                       for need in action.get("needs", [])]
+                    # Ratchet & Clank's bake waits for the check's stamp; Going Commando's, which
+                    # has no check yet, for the export's own, moved as Play's is.
+                    action["needs"] = [{"path": f"{levels}/{STAMP}" if need["path"].endswith(STAMP)
+                                        else moved(need["path"], key),
+                                        "from": need["from"]} for need in action.get("needs", [])]
                 elif action["id"] == "port-levels-check":
                     action["args"] = point_at(args, levels)
                     action["makes"] = f"{levels}/{STAMP}"

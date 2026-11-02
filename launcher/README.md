@@ -130,7 +130,8 @@ Android loads no native mods. Its Mods tab shows the script mods, Enhanced
 graphics and the packs on one page, without the level editor.
 
 **Enhanced graphics** (experimental) is built in. It is the first row of
-Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and adds bounced light,
+Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and Going Commando
+(NTSC-U, with developer tools on, as its Play is) and adds bounced light,
 modern sun and Ratchet shadows, and ambient occlusion, from the game's Vulkan
 renderer. Its page has:
 
