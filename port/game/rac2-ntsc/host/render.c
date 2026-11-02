@@ -27,9 +27,10 @@
  * copies to the scratchpad. */
 #define MOBY_MAX_DISTANCE 0x001B1B74u
 #define MOBY_GROUPS 0x001BADC0u
-/* The particle pool, the records in use, and the texture table PartProc sends to the scratchpad. */
+/* The particle pool, the highest slot in use (-1 none: FreeParticle, func_002B9180, walks it down),
+ * and the texture table PartProc sends to the scratchpad. */
 #define PARTICLE_POOL 0x001B1D90u
-#define PARTICLE_COUNT 0x001B1D98u
+#define PARTICLE_HIGHEST 0x001B1D98u
 #define PARTICLE_TEXTURES 0x001F1F40u
 /* The effect textures' uploads this frame: their count and the records GetEffectTex (func_0027C878)
  * writes. */
@@ -170,19 +171,22 @@ int func_002A4078(gaddr a0, gaddr a1) {
  * PartProc: each live record of the pool (0x40 bytes, byte 1 bit 7 a free one) goes to the window, as
  * Ratchet & Clank's. Its texture is entry +0x02 of the table: the low half the palette's address << 4
  * with the CLUT offset, the high half the pixels' address << 4 with the log2 of the side: unlike
- * Ratchet & Clank's 32 x 32, this game's are 32 x 32 or 64 x 64 (the table at 0x001F1F40).
+ * Ratchet & Clank's 32 x 32, this game's are 32 x 32 or 64 x 64 (the table at 0x001F1F40). The
+ * records are slots 0 to the highest in use, that one included: PartProc counts the word plus one
+ * (0x002B9490). Short of it, the newest particle was left out whenever it held the highest slot: the
+ * Lancer's chamber halo (type 89) went out on 42 of 666 ticks of a level 3 run, a flicker.
  */
 void func_002B9420(void) {
     if (openrac_guest_overlay() < 0) {
         return;
     }
     const gaddr pool = GREF(gaddr, OPENRAC_DATA(PARTICLE_POOL));
-    const int count = GREF(int, OPENRAC_DATA(PARTICLE_COUNT));
+    const int highest = GREF(int, OPENRAC_DATA(PARTICLE_HIGHEST));
     const gaddr table = OPENRAC_DATA(PARTICLE_TEXTURES);
     if (pool == 0 || pool >= 0x01FE0000u) {
         return;
     }
-    for (int i = 0; i < count && i < 2048; ++i) {
+    for (int i = 0; i <= highest && i < 2048; ++i) {
         const uint8_t* r = G(pool + (gaddr)i * 0x40);
         if ((r[1] & 0x80) != 0) {
             continue;
