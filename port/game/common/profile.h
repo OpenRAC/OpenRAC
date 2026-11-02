@@ -239,6 +239,16 @@ public:
     // lights' list at +0x1A), for the ties a point light reaches; 0 for none.
     virtual std::array<std::uint32_t, 3> scenery_matrices() const { return {0, 0, 0}; }
 
+    // The near distance of the world's depth (game units), or 0 for the window's 0.05. The depth
+    // a window can keep at a distance d resolves about 1.2e-6 d^2 / (near / 0.05) units (2^-24 of
+    // its range, after GL's (z + w) / 2), so 0.05 parts surfaces under 3 cm apart only within
+    // about 150 units: farther, a light strip laid a few centimetres over a wall (Going Commando's
+    // Maktar dome) loses and wins against it from frame to frame. A larger near parts them that
+    // much farther away. Nothing is clipped for it: the frame turns depth clamping on, so what is
+    // nearer than this near is drawn at the nearest depth, in drawing order among itself, instead
+    // of being cut away.
+    virtual float depth_near() const { return 0.0f; }
+
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }

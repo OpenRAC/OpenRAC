@@ -307,6 +307,11 @@ void set_camera(SceneFrame& frame) {
     camera.view = state.view();
     camera.target = state.camera_target;
     camera.target_id = state.camera_target_id;
+    // The world's depth starts at the profile's near (GameProfile::depth_near: finer depth far
+    // away), clamped so that nothing nearer is cut away.
+    const float profile_near = owner.profile != nullptr ? owner.profile->depth_near() : 0.0f;
+    const float near_z = std::max(0.05f, profile_near);
+    input.depth_clamp = profile_near > 0.05f;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
@@ -314,7 +319,7 @@ void set_camera(SceneFrame& frame) {
     camera.projection = state.projection(
         (state.tan_half_fov_y > 0.0f ? state.tan_half_fov_x / state.tan_half_fov_y : 4.0f / 3.0f)
             / picture_scale,
-        0.05f,
+        near_z,
         2000.0f
     );
     camera.position = state.camera_position;

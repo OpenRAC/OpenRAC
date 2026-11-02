@@ -176,6 +176,11 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_GEQUAL);
     }
+    // The world's passes clamp depth when the frame asks (FrameInput::depth_clamp), up to the HUD.
+    const bool depth_clamp = input.depth_clamp && gl::depth_clamp_available();
+    if (depth_clamp) {
+        glEnable(GL_DEPTH_CLAMP);
+    }
 
     RenderState state{m_textures, target, {}};
     const bool enhanced_available =
@@ -389,6 +394,9 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         }
 
+        if (i == hud && depth_clamp) {
+            glDisable(GL_DEPTH_CLAMP);
+        }
         if (i == hud && input.before_hud) {
             input.before_hud();
             glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
@@ -402,6 +410,9 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             const stats::Scope pass(r->name(), r->owns_gpu_timing() ? 0 : stats::kGpu);
             r->render(input, state);
         }
+    }
+    if (depth_clamp) {
+        glDisable(GL_DEPTH_CLAMP);
     }
     if (!scoped_ao && !ao_applied && ao_before != 0 && gtao
         && m_ambient_occlusion->render(input, state.target, true, false)) {

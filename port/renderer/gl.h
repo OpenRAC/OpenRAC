@@ -92,6 +92,8 @@ inline constexpr GLenum GL_FILL = 0x1B02;
 
 inline constexpr GLenum GL_CULL_FACE = 0x0B44;
 inline constexpr GLenum GL_DEPTH_TEST = 0x0B71;
+// Core since 3.2 on the desktop; on ES, EXT_depth_clamp (depth_clamp_available()).
+inline constexpr GLenum GL_DEPTH_CLAMP = 0x864F;
 inline constexpr GLenum GL_STENCIL_TEST = 0x0B90;
 inline constexpr GLenum GL_KEEP = 0x1E00;
 inline constexpr GLenum GL_INCR_WRAP = 0x8507;
@@ -412,6 +414,11 @@ inline bool is_es() {
 
 // True when the context lists the extension (GL_EXTENSIONS, read once by load()).
 bool has_extension(const char* name);
+
+// True when glEnable(GL_DEPTH_CLAMP) works: always on the desktop, and on ES with EXT_depth_clamp.
+inline bool depth_clamp_available() {
+    return !is_es() || has_extension("GL_EXT_depth_clamp");
+}
 
 // True when the context compiles shaders on threads of its own (KHR_ or ARB_parallel_shader_compile,
 // told by load() to use as many as it likes): a shader's compile then runs while the next one is

@@ -223,6 +223,10 @@ struct FrameInput {
     // The target already holds the picture to start from (a tick that draws no world of its own):
     // only depth is cleared.
     bool keep_colour = false;
+    // The world's passes draw with depth clamping (GL_DEPTH_CLAMP), up to the HUD: what is nearer
+    // than the camera's near plane is drawn at the nearest depth instead of being cut away
+    // (GameProfile::depth_near, a near plane farther out than the window's for finer depth).
+    bool depth_clamp = false;
     // Called with the target as drawn before the HUD's renderer (the world, without the 2D over
     // it): what a copy of the frame the game reads back should hold.
     std::function<void()> before_hud;

@@ -511,6 +511,7 @@ bool make_device(std::string& error) {
     VkPhysicalDeviceFeatures features{};
     features.fillModeNonSolid = g->features.fillModeNonSolid;
     features.samplerAnisotropy = g->features.samplerAnisotropy;
+    features.depthClamp = g->features.depthClamp;  // GL_DEPTH_CLAMP (FrameInput::depth_clamp)
     features.shaderClipDistance = g->features.shaderClipDistance;  // the world's clip planes
     features.shaderCullDistance = g->features.shaderCullDistance;
     features.drawIndirectFirstInstance = g->features.drawIndirectFirstInstance;

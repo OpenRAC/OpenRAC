@@ -656,6 +656,7 @@ VkPipeline create_graphics_pipeline(
     raster.polygonMode = k.polygon != 0 ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
     raster.cullMode = k.fixed.cull;
     raster.frontFace = static_cast<VkFrontFace>(k.fixed.front);
+    raster.depthClampEnable = k.depth_clamp != 0 ? VK_TRUE : VK_FALSE;
     raster.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo multisample{
         VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO
@@ -1153,6 +1154,7 @@ VkPipeline pipeline_for(
         mode == GL_LINE_STRIP || mode == GL_TRIANGLE_STRIP || mode == GL_TRIANGLE_FAN;
     k.restart = s.primitive_restart && strip ? 1 : 0;
     k.polygon = s.polygon_mode == GL_LINE && g->features.fillModeNonSolid ? 1 : 0;
+    k.depth_clamp = s.depth_clamp && g->features.depthClamp ? 1 : 0;
     k.dynamic_fixed = fixed_state_dynamic() ? 1 : 0;
 
     // Baked into the pipeline, unless the draw records it as dynamic state (R-11).

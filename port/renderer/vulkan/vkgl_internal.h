@@ -683,6 +683,8 @@ struct State {
     bool blend = false, depth_test = false, cull = false, scissor_test = false,
          stencil_test = false;
     bool primitive_restart = false;
+    // GL_DEPTH_CLAMP: the pipeline's depthClampEnable, where the device has it.
+    bool depth_clamp = false;
     GLenum blend_src_rgb = GL_ONE, blend_dst_rgb = GL_ZERO, blend_src_a = GL_ONE,
            blend_dst_a = GL_ZERO;
     GLenum blend_equation = GL_FUNC_ADD;
@@ -789,7 +791,7 @@ struct Input {
 // bytes. Trivially copyable, with no padding between its 8-byte words.
 struct PipelineKey {
     std::uint64_t program;
-    std::uint32_t topology, restart, polygon;
+    std::uint32_t topology, restart, polygon, depth_clamp;
     // The rasteriser's cull and depth and stencil state; all 0 in the key when `dynamic_fixed`,
     // where a draw records it instead (vk-extended-dynamic-state, R-11).
     FixedState fixed;

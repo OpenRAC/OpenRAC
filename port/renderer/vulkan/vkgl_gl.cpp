@@ -170,6 +170,9 @@ void enable_cap(GLenum cap, bool on) {
         case GL_PRIMITIVE_RESTART:
             s.primitive_restart = on;
             break;
+        case GL_DEPTH_CLAMP:
+            s.depth_clamp = on;
+            break;
         // Clip distances are always on in Vulkan for a shader that writes them; multisampling is
         // the target's.
         default:

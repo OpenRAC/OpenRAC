@@ -335,6 +335,11 @@ public:
         return {0x001B21BCu, 0x001B20A0u, 0x001B21B4u};
     }
 
+    // Maktar's dome: light strips (tie class 2713) lie on the dome's band (class 2675) within a few
+    // centimetres over large areas, and from the landing pad (about 150 units) they flickered in
+    // and out of it with 0.05 (GameProfile::depth_near).
+    float depth_near() const override { return 0.25f; }
+
     // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line
     // buffers, where the world's passes set FRAME (func_002DF1B8: FBP 0xF4).
     std::uint32_t draw_buffer_block() const override { return 0x1E80; }
