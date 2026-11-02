@@ -98,13 +98,23 @@ reference path), and its descriptor set in `Program::set_cache`; its temporary a
 `Context::scratch`'s, kept for their capacity, so a draw that finds both allocates nothing (the
 registry's `vk-draw-cache`). A deleted program's pipelines leave the table with it.
 
-One worker thread makes pipelines ahead (`PipelinePrewarm`, R-10): when a program links, the keys
-earlier runs made for it (the manifest, `<cache>.manifest`, `PipelineManifest`) are queued for it,
-and it calls only `vkCreateGraphicsPipelines` into the shared pipeline cache. Its queue, its
-results and the key it is making are guarded by one mutex; the drawing thread takes a key the
-worker has made, waits for one it is making or has queued, and makes the rest itself. A program's
-release waits for its job and takes the rest back; the backend's close stops and joins the worker
-before anything else.
+Worker threads make pipelines ahead (`PipelinePrewarm`, R-10), one for each two of the CPU's
+threads, one to four: when a program links, the keys earlier runs made for it (the manifest,
+`<cache>.manifest`, `PipelineManifest`) are queued for it, and they call only
+`vkCreateGraphicsPipelines` into the shared pipeline cache. Their queue, their results and the
+keys they are making are guarded by one mutex; the drawing thread takes a key a worker has made,
+waits for one they are making or have queued, and makes the rest itself. A level's load waits for
+the queue to empty (`vkgl::finish_pipelines`), so its pipelines are made behind the loading screen.
+A program's release waits for its jobs and takes the rest back; the backend's close stops and
+joins the workers before anything else.
+
+Where the device links pipeline libraries fast (`vk-pipeline-library`, desktop drivers), the
+workers also make each program's two shader parts at its link, and a draw whose key nobody made
+links its pipeline from four parts (`PipelineLibraries`) at once instead of compiling it; the
+whole pipeline is queued for a worker and put in the linked one's place at a frame's start
+(`collect_prewarm`), the linked one retired with that frame. The manifest and the pipeline cache
+are saved on a thread of their own (`Context::cache_saver`) at each level's load and every two
+minutes that made new pipelines, as well as at close.
 
 `Context::spirv_cache` keeps what glslang made (R-12): `compile_program` and `check_stage` take a
 program or stage compiled before from it, by a hash of its kind, sources and compiler checked by a

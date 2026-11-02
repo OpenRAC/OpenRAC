@@ -204,6 +204,7 @@ add_library(openrac_renderer STATIC
   renderer/shadow_volume.cpp
   renderer/shadows.cpp
   renderer/program_cache.cpp
+  renderer/gl_warmup.cpp
   renderer/shader.cpp
   renderer/subsystems.cpp
   renderer/texture.cpp
@@ -686,6 +687,8 @@ set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(program_cache LIBS openrac_renderer openrac_platform)
 set_tests_properties(program_cache PROPERTIES SKIP_RETURN_CODE 77)
+openrac_add_test(gl_warmup LIBS openrac_renderer openrac_platform)
+set_tests_properties(gl_warmup PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop")
 
 openrac_add_test(texture_filter SOURCES tests/texture_filter_test.cpp tests/texture_filter_reference.cpp
                  INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"

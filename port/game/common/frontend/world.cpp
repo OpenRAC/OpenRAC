@@ -49,6 +49,7 @@
 #include "renderer/direct.h"
 #include "renderer/effects.h"
 #include "renderer/gl.h"
+#include "renderer/gl_warmup.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "renderer/texture.h"
@@ -56,6 +57,9 @@
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "settings.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend {
 
@@ -356,6 +360,16 @@ void use_level(int number) {
             g->renderer->textures().place(kSkyTextureKey + static_cast<std::uint32_t>(i), h);
         }
     }
+    // The pipelines earlier runs drew this level's programs with, made behind the loading
+    // screen rather than at their first frames (docs/port/RENDER_PERF.md, R-10).
+    // On OpenGL, the states earlier runs drew them in (renderer/gl_warmup.h).
+    crash::level_breadcrumb("level pipelines", wanted);
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        vkgl::finish_pipelines();
+    }
+#endif
+    renderer::gl_warmup::warm();
     crash::level_breadcrumb("level load finished", wanted);
     log::info("drawing level {} natively ({} models)", wanted, g->level.models.size());
 }

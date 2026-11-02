@@ -93,6 +93,8 @@ before and after, and how its frames are shown to be the same.
 | `effect-strip-shader` | on | none (exact) | Material-approved surface-zero strips without UV animation use the existing plain effect shader. |
 | `fsr-object-history-reuse` | on | none (exact) | Retains history nodes for surviving object identities and erases vanished identities each displayed frame. |
 | `moby-glow-skip` | on | none (exact) | The mobys' two glow draws leave out the triangles with no glow packet vertex, whose every fragment they would discard ([moby-glow-skip](#moby-glow-skip-glow-draws-without-the-faces-they-discard)). |
+| `vk-pipeline-library` | on | none (exact) | A pipeline first needed by a draw is linked at once from parts made ahead (VK_EXT_graphics_pipeline_library, fast linking, desktop drivers only), and the whole optimised pipeline is made on a worker and put in its place; with it, the fixed state is dynamic as under `vk-extended-dynamic-state` ([vk-pipeline-library](#vk-pipeline-library-pipelines-linked-from-parts)). |
+| `gl-state-warmup` | on | none (exact) | On OpenGL, each state a program was drawn in (target formats and samples, blend, colour mask, vertex formats) is noted in a file per driver, and drawn once more into a private 4x4 target at each level's load, so that the driver's own recompile for it happens behind the loading screen ([OpenGL's states behind the loading screen](#opengls-states-behind-the-loading-screen)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -127,6 +129,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_cmds_other` | frame | `vkCmdClearAttachments` and the debug labels | `vkgl_commands.cpp` | |
 | `vk_pipelines_created` | total | Graphics and compute creations on the drawing thread; excludes prewarm workers | `vkgl_internal.h` | R-10, R-11 |
 | `vk_pipelines_created_after_warmup` | total | Of those, the ones made after the warm-up `vkgl::begin_pipeline_warmup(N)` started (N frames after the benchmark's level upload); 0 until it is called | the same | R-10 |
+| `vk_pipelines_linked` | total | Pipelines a draw linked from parts (vk-pipeline-library); not in `vk_pipelines_created` | `vkgl_pipelines.cpp` | vk-pipeline-library |
 | `vk_descriptor_sets_allocated` | frame | Descriptor sets allocated, the material pages' included | `vkgl_pipelines.cpp`, `gpu_materials.inc` | R-14 |
 | `vk_descriptor_writes` | frame | `VkWriteDescriptorSet` entries written | `vkgl_pipelines.cpp`, `gpu_materials.inc`, `gpu_draw.inc` | R-14 |
 | `vk_render_passes` | frame | Render passes begun | `vkgl_commands.cpp`, `vkgl_gl.cpp` (a depth resolve) | R-06, R-07 |
@@ -1733,6 +1736,72 @@ either way, and the saving is the CPU time of the hash and the table probe in `v
 **Equivalence.** `render_equivalence_vulkan` draws the entry on and off in every scenario,
 Enhanced off and on, byte for byte under the validation layer. `vulkan_uniform` has the author's
 test of alternating depth and blend states through one program.
+
+## vk-pipeline-library: pipelines linked from parts
+
+A pipeline is made at the first draw of its program in its state. R-10's manifest makes a run's
+pipelines again in the next run, but the first time a state is drawn (a first run, a new build,
+an effect first seen) the drawing thread compiled the whole pipeline in the middle of a frame:
+a hitch of tens of milliseconds on desktop drivers. This entry carries out what DXVK does with
+the same extension (`vkgl_pipelines.cpp`, `vkgl_device.cpp`):
+
+- **The parts.** A pipeline is linked from four libraries: the vertex input (inputs, topology,
+  restart), the pre-rasterisation part (the vertex stage, polygon mode, viewports), the fragment
+  part (the fragment stage, depth and stencil state) and the output (blend, colour mask, formats,
+  samples). Each is kept by its `library_key`, the pipeline key with only that part's fields; the
+  vertex input and the output are any program's, the two shader parts their program's, released
+  with it. The fixed state is dynamic with the entry on (R-11's path), so a program has one pair
+  of shader parts in most of its draws.
+- **Ahead, at the link.** When a program links, its two shader parts are queued for the pre-warm
+  workers before the manifest's keys, so they are compiled behind the level's loading screen.
+- **At the draw.** A key not in the table and not made ahead is linked from the parts without
+  the driver's link-time optimisation (fast linking, well under a millisecond), drawn with, and
+  queued for a worker as a whole pipeline. When the worker has made it, the next frame's start
+  (`collect_prewarm`) puts it in the table in the linked one's place, which is destroyed once the
+  frames recorded with it are done. A linked key goes into the manifest like any other, so the
+  next run makes it whole ahead. A draw that can link waits for no whole pipeline being made.
+- **When it is on.** The device must offer `VK_EXT_graphics_pipeline_library` with
+  `graphicsPipelineLibraryFastLinking`; Android builds never ask for it (the phones' drivers carry
+  it unevenly). The log says `pipelines linked from parts at a draw: yes`. A part or link the
+  driver refuses falls back to the whole pipeline at the draw, as before.
+
+The counter `vk_pipelines_linked` counts the links; they are not in `vk_pipelines_created`, whose
+`_after_warmup` share stays the hitch count. The close logs how many were linked and replaced.
+
+**Equivalence.** `render_equivalence_vulkan` draws the entry on and off, byte for byte, on
+lavapipe, which offers fast linking.
+
+## Pipelines behind the loading screen
+
+With R-10 the pre-warm worker made a level's pipelines from the manifest while its first frames
+were already drawn, and those frames waited for keys still queued. Now there are as many workers
+as half the CPU's threads, one to four, and a level's load ends with `vkgl::finish_pipelines()`
+(`game/common/frontend/world.cpp`), which waits until the queue is empty: what earlier runs drew
+is made while the loading screen shows, in parallel. The log says how many and how long. It also
+saves the manifest, the pipeline cache and the SPIR-V cache, the first two on a thread of their
+own; the frame's start saves those two again every two minutes in which new pipelines were made.
+Before, they were saved only by a clean close, so a run stopped from the launcher or crashed
+lost them and drew the same hitches again.
+
+## OpenGL's states behind the loading screen
+
+An OpenGL driver compiles a program again, without saying so, the first time it is drawn in a
+state its machine code depends on: the target's formats and samples, the blend, the colour mask,
+the vertex formats (Mesa's variants, NVIDIA's and AMD's recompiles). The program binaries
+(`program_cache.h`) keep the first compile, not these. `renderer/gl_warmup.cpp` stands in front of
+the draws and of the calls that change those states (`gl_warmup::install`, after `gl_stats`),
+follows them, and at a draw in a state not seen this run reads the target's formats and the vertex
+attributes back from GL and notes the state with its program's sources (`program_cache::Key`,
+from `Shader::build`). A draw in a state already seen costs a compare. The states are kept in
+`<cache>/gl_states/<driver>.bin` (each run ages them; one unseen for eight runs goes), saved on a
+thread of their own at each load and at most every 30 seconds while new ones are noted.
+
+At each level's load (`world.cpp`, beside `vkgl::finish_pipelines`), `gl_warmup::warm()` draws
+every noted state of every program built now once: one triangle of vertices that read zeros, into
+a private framebuffer of 4x4 renderbuffers of that state's formats, and gives back the program,
+framebuffers, vertex array, buffer, viewport, blend and colour mask it changed. The game's own
+targets are never drawn into. The log says how many states and how long. Programs not built by
+`Shader::build` are not noted; a target format it does not know is not noted.
 
 ## fsr-motion-batch: object motion in batches
 
