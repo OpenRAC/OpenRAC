@@ -414,9 +414,10 @@ int vsync() {
         stats::probe("OPENRAC_FPS", "the ticks per second over each 300 ticks, in the log");
     static const bool uncapped = env::flag(env::Var::Uncapped);
     static steady_clock::time_point fps_from = now;
-    // OPENRAC_WATCH=ADDRESS:COUNT[:i|d|l],...: COUNT floats (or words, with i) from each ADDRESS, each
-    // frame, in the log. d: words of an executable's global, at the loaded level's copy of it. l:
-    // words of a level 0 global (D_L00_), at the loaded level's copy of it (OPENRAC_LDATA).
+    // OPENRAC_WATCH=ADDRESS:COUNT[:i|d|l|h],...: COUNT floats (or words, with i) from each ADDRESS,
+    // each frame, in the log. d: words of an executable's global, at the loaded level's copy of it.
+    // l: words of a level 0 global (D_L00_), at the loaded level's copy of it (OPENRAC_LDATA).
+    // h: one hash of COUNT words (any count) from ADDRESS.
     static const std::optional<std::string> watch = env_string(env::Var::Watch);
 
     if (watch) {
@@ -426,6 +427,30 @@ int vsync() {
             unsigned long address = 0, count = 1;
             char kind = 'f';
             std::sscanf(at, "%lx:%lu:%c", &address, &count, &kind);
+
+            if (kind == 'h') {
+                // h: a hash of COUNT words (no limit) from ADDRESS, to see where two runs'
+                // memory first differs without logging it: 64-bit lanes, xor and multiply.
+                std::uint64_t hash = 0xcbf29ce484222325ull;
+                const auto* lane = static_cast<const std::uint8_t*>(G(static_cast<gaddr>(address)));
+                unsigned long n = count;
+
+                for (; n >= 2; n -= 2, lane += 8) {
+                    std::uint64_t v;
+                    std::memcpy(&v, lane, 8);
+                    hash = (hash ^ v) * 0x100000001b3ull;
+                    hash ^= hash >> 29;
+                }
+
+                if (n != 0) {
+                    std::uint32_t v;
+                    std::memcpy(&v, lane, 4);
+                    hash = (hash ^ v) * 0x100000001b3ull;
+                }
+
+                line += std::format(" {:016x}", hash);
+                count = 0;
+            }
 
             for (unsigned long i = 0; i < count && i < 32; ++i) {
                 std::uint32_t w;
