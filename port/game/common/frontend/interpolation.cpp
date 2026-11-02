@@ -729,12 +729,15 @@ int between(std::chrono::steady_clock::time_point next_tick) {
             if (event.type == SDL_EVENT_QUIT) {
                 return -1;
             }
-            if (window_key(event) || debug_overlay::event(event)
-                || debug_menu::event(event, openrac_game_loaded_overlay())) {
+            const bool consumed = window_key(event) || debug_overlay::event(event)
+                                  || debug_menu::event(event, openrac_game_loaded_overlay());
+            debug_overlay::camera_debug_event(event);
+            if (consumed) {
                 continue;
             }
             g->input.handle_event(event);
         }
+        apply_mouse_capture();
     }
     const bool dump = renderer::g_dump_draws;
     renderer::g_dump_draws = false;
@@ -763,7 +766,9 @@ bool hold() {
             if (event.type == SDL_EVENT_QUIT) {
                 return false;
             }
-            if (window_key(event) || debug_overlay::event(event)) {
+            const bool consumed = window_key(event) || debug_overlay::event(event);
+            debug_overlay::camera_debug_event(event);
+            if (consumed) {
                 continue;
             }
             g->input.handle_event(event);
