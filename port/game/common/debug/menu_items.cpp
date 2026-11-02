@@ -729,7 +729,9 @@ bool act(Id id, int by) {
 
 // Remembers the entry under the pointer or the focus, for the desktop's help.
 void note_hover(int entry) {
-    if (ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
+    // The focus a controller or the keyboard moves wins over a pointer left over another row.
+    const bool moved = ImGui::GetIO().NavVisible;
+    if (moved ? ImGui::IsItemFocused() : ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
         s.menu_hover = entry;
     }
 }

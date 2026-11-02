@@ -127,6 +127,23 @@ struct Scroll {
     float velocity = 0.0f;
 };
 
+// How the desktop's menu window moves (debug/menu_window.cpp): its rows' scroll easing to where
+// the wheel or the focus sends it, the open tab's page coming in from the side it was picked on, and
+// the help fading in when it changes.
+struct MenuMotion {
+    float scroll_target = 0.0f;  // where the rows are going, in pixels
+    float scroll_shown = 0.0f;   // where they are now
+    float page = 1.0f;           // the open tab's page, 0 just picked, 1 in place
+    float page_from = 0.0f;      // -1 it comes from the left, 1 from the right
+    int page_tab = -1;           // the tab the page is of
+    float help = 1.0f;           // the help's text, 0 just changed, 1 shown
+    int help_of = -2;            // the entry it is of (s.menu_hover)
+    bool pad = false;            // the last input was a controller's: its buttons are named
+    float quit_hold = 0.0f;      // seconds the controller's quit button has been held
+    bool back_held = false;      // the controller's Back (Select) and Start held, for their
+    bool start_held = false;     //   chord that opens and closes the menu
+};
+
 // The controls window (controls_window()): which file it changes, what is being captured, and
 // what it last said.
 struct ControlsWindow {
@@ -251,6 +268,7 @@ struct State {
     bool keep_paused = false;  // the pause the game is left in when it shuts
     bool menu_focus = false;   // given the keyboard and gamepad when it opens or changes tab
     bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
+    MenuMotion menu_motion;         // the desktop's window's scroll and transitions
     Scroll menu_scroll;        // the finger's drag over the drawer's rows
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture

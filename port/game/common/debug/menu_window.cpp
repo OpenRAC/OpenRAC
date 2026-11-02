@@ -27,6 +27,9 @@ namespace openrac::frontend::debug_overlay {
 
 namespace {
 
+// How long the controller's quit button is held to quit, in seconds.
+constexpr float kQuitHold = 1.0f;
+
 // A tab of the bar: one of the catalog's, or a mod's menu (mods::developer_menus).
 struct BarTab {
     std::string name;
@@ -98,27 +101,34 @@ void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float streng
         for (int v = first; v < list->VtxBuffer.Size; ++v) {
             ImDrawVert& vert = list->VtxBuffer[v];
             const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
-            vert.col = ui_colors::mix(top, bottom, t);
+            // And gone by the right edge, so none shows past the window's rounded corner.
+            const float edge = std::clamp((b.x - vert.pos.x) / dp(80.0f), 0.0f, 1.0f);
+            vert.col = ui_colors::fade(ui_colors::mix(top, bottom, t), edge);
         }
     }
     list->PopClipRect();
 }
 
-// A rounded rectangle filled from `top` at its top to `bottom` at its foot (both opaque).
-void gradient_fill(
+// The window's ground: a rounded rectangle from `top` at its top to `bottom` at its foot, with a
+// glow of `glow` along its top `glow_depth` pixels, all in its own corners.
+void panel_fill(
     ImDrawList* list,
     ImVec2 a,
     ImVec2 b,
     ImU32 top,
     ImU32 bottom,
-    float round,
-    ImDrawFlags flags = ImDrawFlags_None
+    ImU32 glow,
+    float glow_depth,
+    float round
 ) {
     const int first = list->VtxBuffer.Size;
-    list->AddRectFilled(a, b, IM_COL32_WHITE, round, flags);
-    ImGui::ShadeVertsLinearColorGradientKeepAlpha(
-        list, first, list->VtxBuffer.Size, a, ImVec2(a.x, b.y), top, bottom
-    );
+    list->AddRectFilled(a, b, IM_COL32_WHITE, round);
+    for (int v = first; v < list->VtxBuffer.Size; ++v) {
+        ImDrawVert& vert = list->VtxBuffer[v];
+        const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+        const float lit = std::clamp(1.0f - (vert.pos.y - a.y) / glow_depth, 0.0f, 1.0f);
+        vert.col = ui_colors::mix(ui_colors::mix(top, bottom, t), glow, lit * lit);
+    }
 }
 
 // A round tab on the bar: true when clicked. The open one wears the dark pill (drawn by the bar,
@@ -152,7 +162,7 @@ bool bar_tab(const char* name, bool open, float height) {
 }
 
 // A chip on the bar's right: dark, a hairline, its text; true when clicked.
-bool bar_chip(const char* label, ImU32 ink, bool light, float height) {
+bool bar_chip(const char* label, ImU32 ink, bool light, float height, float held = 0.0f) {
     ImGui::PushFont(menu_fonts.strong);
     const ImVec2 text = ImGui::CalcTextSize(label);
     const ImVec2 size(text.x + dp(28.0f), height);
@@ -164,6 +174,12 @@ bool bar_chip(const char* label, ImU32 ink, bool light, float height) {
     const ImU32 fill = light ? ui_colors::mix(IM_COL32_WHITE, ui().gold, 0.25f * hover)
                              : ui_colors::mix(ui().ink_deep, ui().panel_hi, hover);
     list->AddRectFilled(a, b, fill, size.y * 0.5f);
+    if (held > 0.0f) {
+        // Held on the controller: filling up to the moment it acts.
+        list->PushClipRect(a, ImVec2(a.x + size.x * held, b.y), true);
+        list->AddRectFilled(a, b, ui_colors::fade(ink, 0.35f), size.y * 0.5f);
+        list->PopClipRect();
+    }
     if (!light) {
         list->AddRect(a, b, ui_colors::fade(ui().line, 1.0f), size.y * 0.5f);
     }
@@ -205,7 +221,18 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
     );
     list->AddLine(ImVec2(a.x, a.y), ImVec2(a.x, b.y), ui().line);
     const float pad = dp(30.0f);
-    float y = a.y + dp(34.0f);
+    // A new entry's help rises into place and fades in.
+    MenuMotion& m = s.menu_motion;
+    if (m.help_of != s.menu_hover) {
+        m.help_of = s.menu_hover;
+        m.help = 0.0f;
+    }
+    m.help = std::min(1.0f, m.help + ImGui::GetIO().DeltaTime / kMedium);
+    const float in = 1.0f - std::pow(1.0f - m.help, 3.0f);
+    const auto ink = [in](ImU32 c) {
+        return ui_colors::fade(c, 0.2f + 0.8f * in);
+    };
+    float y = a.y + dp(34.0f) + dp(8.0f) * (1.0f - in);
     const float wrap = b.x - a.x - pad * 2.0f;
     if (s.menu_hover >= 0 && s.menu_hover < menu::kIds) {
         const auto id = static_cast<menu::Id>(s.menu_hover);
@@ -213,28 +240,33 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
         kicker(
             list,
             ImVec2(a.x + pad, y),
-            ui().brand,
+            ink(ui().brand),
             std::string(menu::tab_name(e.tab)) + "  /  " + e.section
         );
         y += menu_fonts.small->FontSize + dp(12.0f);
         const std::string label = entry_label(id, menu::kDesktop);
-        y +=
-            text_block(list, menu_fonts.head, ImVec2(a.x + pad, y), ui().gold, label.c_str(), wrap);
+        y += text_block(
+            list, menu_fonts.head, ImVec2(a.x + pad, y), ink(ui().gold), label.c_str(), wrap
+        );
         y += dp(12.0f);
         list->AddRectFilled(
-            ImVec2(a.x + pad, y), ImVec2(a.x + pad + dp(36.0f), y + dp(3.0f)), ui().amber, dp(1.5f)
+            ImVec2(a.x + pad, y),
+            ImVec2(a.x + pad + dp(36.0f), y + dp(3.0f)),
+            ink(ui().amber),
+            dp(1.5f)
         );
         y += dp(18.0f);
-        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ui().soft, e.help, wrap);
+        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ink(ui().soft), e.help, wrap);
     } else {
         const char* line = mod_tab ? "A mod's own menu: its items do what the mod says they do."
                                    : "Point at an option, or move to it with the arrow keys or a "
                                      "controller, to see what it does here.";
-        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ui().dim, line, wrap);
+        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ink(ui().dim), line, wrap);
     }
     // At its foot, over a hairline: what draws the picture, and how to get back to the game.
     ImFont* body = menu_fonts.body;
-    const std::string keys = menu_key_label() + ", Esc or B: back to the game";
+    const std::string keys =
+        menu_key_label() + ", or a controller's Home or Select + Start: this menu";
     const float line = body->FontSize * 1.4f;
     const float foot = b.y - pad - line * 2.0f;
     list->AddLine(
@@ -294,6 +326,130 @@ void version_corner(const ImGuiViewport* viewport, float shown) {
     );
 }
 
+// A controller's button as it is printed on the one in hand: A, Cross, B ... (SDL knows the pad's
+// make); its shoulders as that make names them.
+std::string pad_name(SDL_GamepadButton button) {
+    SDL_GamepadType type = SDL_GAMEPAD_TYPE_STANDARD;
+    int count = 0;
+    if (SDL_JoystickID* pads = SDL_GetGamepads(&count)) {
+        if (count > 0) {
+            type = SDL_GetGamepadTypeForID(pads[0]);
+        }
+        SDL_free(pads);
+    }
+    const bool sony = type == SDL_GAMEPAD_TYPE_PS3 || type == SDL_GAMEPAD_TYPE_PS4
+                      || type == SDL_GAMEPAD_TYPE_PS5;
+    const bool nintendo = type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO
+                          || type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR;
+    switch (button) {
+        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
+            return sony ? "L1" : nintendo ? "L" : "LB";
+        case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
+            return sony ? "R1" : nintendo ? "R" : "RB";
+        default:
+            break;
+    }
+    switch (SDL_GetGamepadButtonLabelForType(type, button)) {
+        case SDL_GAMEPAD_BUTTON_LABEL_A:
+            return "A";
+        case SDL_GAMEPAD_BUTTON_LABEL_B:
+            return "B";
+        case SDL_GAMEPAD_BUTTON_LABEL_X:
+            return "X";
+        case SDL_GAMEPAD_BUTTON_LABEL_Y:
+            return "Y";
+        case SDL_GAMEPAD_BUTTON_LABEL_CROSS:
+            return "Cross";
+        case SDL_GAMEPAD_BUTTON_LABEL_CIRCLE:
+            return "Circle";
+        case SDL_GAMEPAD_BUTTON_LABEL_SQUARE:
+            return "Square";
+        case SDL_GAMEPAD_BUTTON_LABEL_TRIANGLE:
+            return "Triangle";
+        default:
+            return "?";
+    }
+}
+
+// What the buttons do, along the screen's foot on the left while the menu is open: the
+// controller's when it was the last used, else the keyboard's. Each as a key cap and its use.
+void hints(const ImGuiViewport* viewport, float shown) {
+    struct Hint {
+        std::string keys;
+        const char* does;
+    };
+
+    const bool pad = s.menu_motion.pad;
+    std::vector<Hint> list;
+    if (pad) {
+        list = {
+            {pad_name(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) + " "
+                 + pad_name(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),
+             "Tabs"},
+            {pad_name(SDL_GAMEPAD_BUTTON_SOUTH), "Select"},
+            {"\u2190 \u2192", "Change"},
+            {pad_name(SDL_GAMEPAD_BUTTON_EAST), "Back to the game"},
+            {pad_name(SDL_GAMEPAD_BUTTON_NORTH), "Hold to quit"},
+        };
+    } else {
+        list = {
+            {"PgUp PgDn", "Tabs"},
+            {"Enter", "Select"},
+            {"\u2190 \u2192", "Change"},
+            {"Esc", "Back to the game"},
+        };
+    }
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    ImFont* cap = menu_fonts.small;
+    ImFont* body = menu_fonts.body;
+    const float pad_x = dp(18.0f);
+    const float h = dp(22.0f);
+    float x = viewport->Pos.x + pad_x;
+    const float y = viewport->Pos.y + viewport->Size.y - pad_x - h;
+    for (const Hint& hint : list) {
+        // Each key of it its own cap.
+        std::size_t from = 0;
+        while (from <= hint.keys.size()) {
+            const std::size_t space = hint.keys.find(' ', from);
+            const std::string key = hint.keys.substr(
+                from, space == std::string::npos ? std::string::npos : space - from
+            );
+            const ImVec2 size = cap->CalcTextSizeA(cap->FontSize, FLT_MAX, 0.0f, key.c_str());
+            const float w = std::max(h, size.x + dp(14.0f));
+            draw->AddRectFilled(
+                ImVec2(x, y), ImVec2(x + w, y + h), ui_colors::fade(ui().panel_hi, shown), h * 0.5f
+            );
+            draw->AddRect(
+                ImVec2(x, y),
+                ImVec2(x + w, y + h),
+                ui_colors::fade(ui().line_strong, shown),
+                h * 0.5f
+            );
+            draw->AddText(
+                cap,
+                cap->FontSize,
+                ImVec2(x + (w - size.x) * 0.5f, y + (h - size.y) * 0.5f),
+                ui_colors::fade(ui().gold, shown),
+                key.c_str()
+            );
+            x += w + dp(4.0f);
+            if (space == std::string::npos) {
+                break;
+            }
+            from = space + 1;
+        }
+        const ImVec2 size = body->CalcTextSizeA(body->FontSize, FLT_MAX, 0.0f, hint.does);
+        draw->AddText(
+            body,
+            body->FontSize,
+            ImVec2(x + dp(4.0f), y + (h - size.y) * 0.5f),
+            ui_colors::fade(ui().soft, shown),
+            hint.does
+        );
+        x += dp(4.0f) + size.x + dp(22.0f);
+    }
+}
+
 }  // namespace
 
 void menu_window(const Shown& shown) {
@@ -325,6 +481,7 @@ void menu_window(const Shown& shown) {
         back->AddRectFilledMultiColor(ImVec2(b.x - side, a.y), b, none, edge, edge, none);
     }
     version_corner(viewport, ease);
+    hints(viewport, ease);
 
     const std::vector<BarTab> tabs = bar_tabs();
     if (tabs.empty()) {
@@ -341,8 +498,16 @@ void menu_window(const Shown& shown) {
                    || ImGui::IsKeyPressed(ImGuiKey_PageDown, false)) {
             switch_by = 1;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
+        // B and Start go back to the game; Y held for a second quits it.
+        if (ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)
+            || ImGui::IsKeyPressed(ImGuiKey_GamepadStart, false)) {
             set_menu(false);
+        }
+        MenuMotion& m = s.menu_motion;
+        m.quit_hold = ImGui::IsKeyDown(ImGuiKey_GamepadFaceUp) ? m.quit_hold + io.DeltaTime : 0.0f;
+        if (m.quit_hold >= kQuitHold) {
+            m.quit_hold = 0.0f;
+            press_entry(menu::Id::Quit);
         }
     }
 
@@ -416,7 +581,13 @@ void menu_window(const Shown& shown) {
         ImGui::SetCursorScreenPos(
             ImVec2(right - resume_w - dp(8.0f) - quit_w, bar_a.y + (bar - tab_h) * 0.5f)
         );
-        if (bar_chip(menu::entry(menu::Id::Quit).label, ui().err, false, tab_h)) {
+        if (bar_chip(
+                menu::entry(menu::Id::Quit).label,
+                ui().err,
+                false,
+                tab_h,
+                s.menu_motion.quit_hold / kQuitHold
+            )) {
             press_entry(menu::Id::Quit);
         }
         ImGui::SameLine(0.0f, dp(8.0f));
@@ -473,6 +644,8 @@ void menu_window(const Shown& shown) {
         ImDrawList* list = ImGui::GetWindowDrawList();
         const ImVec2 b(at.x + width, at.y + height);
         // The launcher's panel: a shadow, its ink, a hairline border.
+        // (Outside the window's own rectangle, so not clipped to its square corners.)
+        list->PushClipRectFullScreen();
         for (int i = 1; i <= 4; ++i) {
             const float grow = dp(4.0f) * static_cast<float>(i);
             list->AddRectFilled(
@@ -482,29 +655,66 @@ void menu_window(const Shown& shown) {
                 dp(16.0f) + grow
             );
         }
+        list->PopClipRect();
         // The launcher's panel, lit a little from above, with a glow of the accent along its top
         // and a line of it on the top edge.
-        gradient_fill(
-            list, at, b, ui_colors::mix(ui().panel, ui().panel_hi, 0.6f), ui().ink_deep, dp(16.0f)
+        panel_fill(
+            list,
+            at,
+            b,
+            ui_colors::mix(ui().panel, ui().panel_hi, 0.6f),
+            ui().ink_deep,
+            ui_colors::mix(ui().panel_hi, ui().amber, 0.08f),
+            dp(160.0f),
+            dp(16.0f)
         );
-        const ImU32 glow = ui_colors::fade(ui().amber, 0.07f);
         const ImU32 none = ui_colors::fade(ui().amber, 0.0f);
-        list->AddRectFilledMultiColor(
-            ImVec2(at.x + dp(16.0f), at.y + 1.0f),
-            ImVec2(b.x - dp(16.0f), at.y + dp(140.0f)),
-            glow,
-            glow,
-            none,
-            none
-        );
         list->AddRect(at, b, ui().line, dp(16.0f));
         const float rows_w = std::floor(width * 0.62f);
-        ImGui::SetCursorScreenPos(at);
+        MenuMotion& m = s.menu_motion;
+        // A tab just picked: its page comes in from the side of the one before, as the launcher's
+        // pages do, at the top of its rows.
+        if (m.page_tab != s.menu_tab) {
+            m.page_from = m.page_tab < 0 ? 0.0f : (s.menu_tab > m.page_tab ? 1.0f : -1.0f);
+            m.page_tab = s.menu_tab;
+            m.page = 0.0f;
+            m.scroll_target = 0.0f;
+            m.scroll_shown = 0.0f;
+        }
+        m.page = std::min(1.0f, m.page + io.DeltaTime / 0.38f);
+        const float page = 1.0f - std::pow(1.0f - m.page, 3.0f);
+        const ImVec2 rows_at(at.x + dp(48.0f) * m.page_from * (1.0f - page), at.y);
+
+        // The rows' scroll eases to where it is sent: by the wheel over them, or by the focus
+        // moving to a row out of sight (ImGui's own scroll request, taken over here).
+        const std::string rows_name = std::format("OpenRAC menu/rows_{:08X}", ImGui::GetID("rows"));
+        if (ImGuiWindow* rows = ImGui::FindWindowByName(rows_name.c_str())) {
+            const float most = rows->ScrollMax.y;
+            if (rows->ScrollTarget.y != FLT_MAX) {
+                m.scroll_target =
+                    rows->ScrollTarget.y - rows->ScrollTargetCenterRatio.y * rows->SizeFull.y;
+            }
+            const ImVec2 mouse = io.MousePos;
+            if (io.MouseWheel != 0.0f && mouse.x >= at.x && mouse.x < at.x + rows_w
+                && mouse.y >= at.y && mouse.y < b.y) {
+                m.scroll_target -= io.MouseWheel * dp(120.0f);
+            }
+            m.scroll_target = std::clamp(m.scroll_target, 0.0f, most);
+            m.scroll_shown +=
+                (m.scroll_target - m.scroll_shown) * (1.0f - std::exp(-io.DeltaTime * 14.0f));
+            if (std::abs(m.scroll_target - m.scroll_shown) < 0.5f) {
+                m.scroll_shown = m.scroll_target;
+            }
+            ImGui::SetNextWindowScroll(ImVec2(-1.0f, std::round(m.scroll_shown)));
+        }
+        ImGui::SetCursorScreenPos(rows_at);
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ease * page);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(dp(24.0f), dp(6.0f)));
         if (ImGui::BeginChild(
                 "rows",
                 ImVec2(rows_w, height),
-                ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened
+                ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened,
+                ImGuiWindowFlags_NoScrollWithMouse
             )) {
             tab_title(tab.name, s.menu_tab, static_cast<int>(tabs.size()));
             if (s.menu_focus) {
@@ -517,13 +727,43 @@ void menu_window(const Shown& shown) {
             }
             ImGui::Dummy(ImVec2(0.0f, dp(20.0f)));
             s.menu_focus_first = false;
-            if (s.menu_focus) {
-                s.menu_focus = false;
-                ImGui::SetScrollY(0.0f);
+            s.menu_focus = false;
+            // Rows under the window's edges fade into its ground rather than being cut, while
+            // there is more of them that way.
+            ImDrawList* rows_list = ImGui::GetWindowDrawList();
+            const float fade_h = dp(28.0f);
+            const float x0 = at.x + 1.0f;
+            const float x1 = at.x + rows_w - dp(8.0f);
+            const auto ground = [&](float y) {
+                const float t = std::clamp((y - at.y) / height, 0.0f, 1.0f);
+                const float lit = std::clamp(1.0f - (y - at.y) / dp(160.0f), 0.0f, 1.0f);
+                return ui_colors::mix(
+                    ui_colors::mix(
+                        ui_colors::mix(ui().panel, ui().panel_hi, 0.6f), ui().ink_deep, t
+                    ),
+                    ui_colors::mix(ui().panel_hi, ui().amber, 0.08f),
+                    lit * lit
+                );
+            };
+            rows_list->PushClipRectFullScreen();
+            if (ImGui::GetScrollY() > 0.5f) {
+                const ImU32 c = ground(at.y);
+                const ImU32 none = ui_colors::fade(c, 0.0f);
+                rows_list->AddRectFilledMultiColor(
+                    ImVec2(x0, at.y + 1.0f), ImVec2(x1, at.y + fade_h), c, c, none, none
+                );
             }
+            if (ImGui::GetScrollY() < ImGui::GetScrollMaxY() - 0.5f) {
+                const ImU32 c = ground(b.y);
+                const ImU32 none = ui_colors::fade(c, 0.0f);
+                rows_list->AddRectFilledMultiColor(
+                    ImVec2(x0, b.y - fade_h), ImVec2(x1, b.y - 1.0f), none, none, c, c
+                );
+            }
+            rows_list->PopClipRect();
         }
         ImGui::EndChild();
-        ImGui::PopStyleVar();
+        ImGui::PopStyleVar(2);
         help_pane(ImVec2(at.x + rows_w, at.y), b, tab.mod >= 0);
         // A line of the accent along the top edge, brightest in the middle.
         const float mid = (at.x + b.x) * 0.5f;

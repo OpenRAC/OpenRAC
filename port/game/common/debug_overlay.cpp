@@ -638,6 +638,37 @@ bool event(const SDL_Event& e) {
             && e.gbutton.button == menu_bar_button() && SDL_GetKeyboardFocus() != nullptr) {
             toggle_menu();
         }
+        // Every controller has these too: its Home button (Guide, PS, Xbox), and Back (Select)
+        // with Start pressed together.
+        MenuMotion& m = s.menu_motion;
+        if ((e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP)
+            && SDL_GetKeyboardFocus() != nullptr) {
+            const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+            const auto button = static_cast<SDL_GamepadButton>(e.gbutton.button);
+            if (button == SDL_GAMEPAD_BUTTON_BACK) {
+                m.back_held = down;
+            } else if (button == SDL_GAMEPAD_BUTTON_START) {
+                m.start_held = down;
+            }
+            if (down && button == SDL_GAMEPAD_BUTTON_GUIDE && menu_bar_button() != button) {
+                toggle_menu();
+                return true;
+            }
+            if (down && m.back_held && m.start_held
+                && (button == SDL_GAMEPAD_BUTTON_BACK || button == SDL_GAMEPAD_BUTTON_START)) {
+                toggle_menu();
+                return true;
+            }
+        }
+        // Whose buttons the menu names at its foot: the controller's, or the keyboard's.
+        if (s.menu_open) {
+            if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN
+                || (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && std::abs(e.gaxis.value) > 16000)) {
+                m.pad = true;
+            } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                m.pad = false;
+            }
+        }
     }
     // Escape closes the desktop's menu, as B does (menu_window).
     if (menu_window_possible() && s.menu_open && e.type == SDL_EVENT_KEY_DOWN
