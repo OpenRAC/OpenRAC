@@ -82,9 +82,11 @@ bool make_combine() {
     pipeline.stage.pName = "main";
     pipeline.layout = combine.layout;
     const bool made = check(
-        vkCreateComputePipelines(
-            g->device, g->pipeline_cache, 1, &pipeline, nullptr, &combine.pipeline
-        ),
+        timed_pipeline_creation([&] {
+            return vkCreateComputePipelines(
+                g->device, g->pipeline_cache, 1, &pipeline, nullptr, &combine.pipeline
+            );
+        }),
         "shadow composition pipeline"
     );
     vkDestroyShaderModule(g->device, module, nullptr);

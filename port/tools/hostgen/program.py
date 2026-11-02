@@ -112,6 +112,7 @@ class Program:
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
     splits_keep_names: bool = False  # hostgen.json: a level's name of a split place is the variant
     level_data: dict = field(default_factory=dict)  # level -> {data name in its files: address there}
+    small_copies_own_data: int = 0  # hostgen.json: level functions up to this many bytes
     level_hooks_by_registers: bool = False  # hostgen.json: assembly calls a hook with its registers
     bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
     # hostgen.json "formed_as": a name to the address its code really forms, for an address no

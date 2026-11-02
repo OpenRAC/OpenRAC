@@ -15,6 +15,7 @@
 #include "scene/sun_shadow.h"
 #include "tests/check.h"
 #include "tests/gpu_draw_reference.h"
+#include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
 using namespace openrac::gl;
@@ -1141,12 +1142,15 @@ int main(int argc, char** argv) {
             return test::kSkip;
         }
         // Raw kernels compare both filters directly and do not read the production override.
+        test::RenderTestTiming timing("sun shadows");
         if (!reference_only) {
             filter_gpu();
             far_cascade_self_shadow_gpu();
             unique_filter_gpu();
         }
+        timing.lap("filter comparisons");
         gpu();
+        timing.lap("scene comparisons");
     }
     return test::result();
 }

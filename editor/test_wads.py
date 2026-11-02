@@ -108,6 +108,29 @@ class HeroPackTests(unittest.TestCase):
         self.assertEqual((texture.width, texture.height, texture.pixels, texture.palette[0]), (4, 2, bytes(range(8)), 0x7f))
 
 
+class ItemBankTests(unittest.TestCase):
+    def test_the_banks_of_what_he_holds(self):
+        class Source:
+            version = wads.Version("rac2", "ntsc", "", "", "", 0, "", 0x60, item_banks=0x10)
+            toc = bytearray(0x10 + 4 + 48 * 20)
+            read = []
+
+            class disc:
+                @staticmethod
+                def sectors(lba, count):
+                    Source.read.append((lba, count))
+                    bank = bytearray(count * wads.SECTOR)
+                    start = 3 * wads.SECTOR
+                    struct.pack_into("<4I", bank, 0, start + 0x10, 4, start + 0x20, 8)
+                    bank[0x10:0x14], bank[0x20:0x24] = b"item", b"tex0"
+                    return bytes(bank)
+
+        struct.pack_into("<i", Source.toc, 0x10, 100)
+        struct.pack_into("<5i", Source.toc, 0x14 + 20, 192, 3, 2, 5, 1)  # the first row, class 0, is none
+        (class_id, item, texture), = wads.WadDisc.item_banks(Source)
+        self.assertEqual((class_id, item[:4], texture[:4], Source.read), (192, b"item", b"tex0", [(103, 2)]))
+
+
 class WadDiscTests(unittest.TestCase):
     def open(self, version: wads.Version, levels, swap=False) -> Disc:
         temp = tempfile.TemporaryDirectory()

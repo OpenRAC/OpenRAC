@@ -67,6 +67,8 @@ std::optional<rac1::MobyFrame> key_at(
 
 // Where a moby's animation fields start (set_moby_anim_fields).
 std::uint32_t g_anim_fields = 0x50;
+// Whether the pose layers keep records (set_moby_layer_records).
+bool g_layer_records = false;
 
 }  // namespace
 
@@ -78,6 +80,10 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
 
 void set_moby_anim_fields(std::uint32_t first) {
     g_anim_fields = first;
+}
+
+void set_moby_layer_records(bool records) {
+    g_layer_records = records;
 }
 
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
@@ -187,6 +193,25 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
         rac1::PoseLayer l;
         l.joints.assign(ram.begin() + list, ram.begin() + list + count);
         l.weight = at<float>(ram, node + 0x08);
+        if (g_layer_records) {
+            const auto buffer = at<std::uint32_t>(ram, node + 0x10);
+            if (!inside(ram, buffer, 0x30u * count)) {
+                continue;
+            }
+            l.records.resize(count);
+            for (std::uint32_t i = 0; i < count; ++i) {
+                rac1::PoseRecord& r = l.records[i];
+                const std::uint32_t record = buffer + 0x30 * i;
+                for (std::uint32_t k = 0; k < 4; ++k) {
+                    r.quat[k] = at<std::uint32_t>(ram, record + 4 * k);
+                    r.scale[k] = at<std::uint32_t>(ram, record + 0x10 + 4 * k);
+                    r.trans[k] = at<std::uint32_t>(ram, record + 0x20 + 4 * k);
+                }
+                r.joint = l.joints[i];
+            }
+            layers.push_back(std::move(l));
+            continue;
+        }
         l.t = at<float>(ram, node + 0x24);
         if (!(l.t > 0.0f && l.t <= 1.0f)) {
             l.t = 0.0f;

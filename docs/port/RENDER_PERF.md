@@ -125,7 +125,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_cmds_render_pass` | frame | `vkCmdBeginRendering` and `vkCmdEndRendering` | `vkgl_commands.cpp`, `vkgl_gl.cpp` | R-06 |
 | `vk_cmds_query` | frame | `vkCmdWriteTimestamp`, `vkCmdResetQueryPool` (the GPU timers) | `vkgl_commands.cpp` | |
 | `vk_cmds_other` | frame | `vkCmdClearAttachments` and the debug labels | `vkgl_commands.cpp` | |
-| `vk_pipelines_created` | total | Graphics and compute pipelines made, each a compile in the driver | `vkgl_pipelines.cpp`, `vkgl_gl.cpp`, `gpu_draw.inc` | R-10, R-11 |
+| `vk_pipelines_created` | total | Graphics and compute creations on the drawing thread; excludes prewarm workers | `vkgl_internal.h` | R-10, R-11 |
 | `vk_pipelines_created_after_warmup` | total | Of those, the ones made after the warm-up `vkgl::begin_pipeline_warmup(N)` started (N frames after the benchmark's level upload); 0 until it is called | the same | R-10 |
 | `vk_descriptor_sets_allocated` | frame | Descriptor sets allocated, the material pages' included | `vkgl_pipelines.cpp`, `gpu_materials.inc` | R-14 |
 | `vk_descriptor_writes` | frame | `VkWriteDescriptorSet` entries written | `vkgl_pipelines.cpp`, `gpu_materials.inc`, `gpu_draw.inc` | R-14 |
@@ -149,6 +149,8 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_gpu_payload_bytes` | frame | Bytes the CPU writes for the GPU-driven instances: each batch's view and instances as `gpu_make_batch` builds them, and the page header, groups, commands and payload `gpu_record` copies into the mapped input page | `gpu_draw.inc` | R-15 |
 | `vk_shader_compiles` | total | glslang runs: each shader checked at `glCompileShader`, each program compiled at `glLinkProgram`, the GPU-driven and material programs | `shader_compiler.cpp` | R-12 |
 | `shader_compile_s` | total | The seconds those runs took | `shader_compiler.cpp` | R-12 (informs) |
+| `pipeline_compile_s` | total | Driver pipeline creation seconds, including overlapping prewarm work | `vkgl_internal.h` | informs |
+| `pipeline_creation_calls` | total | Backend driver creation attempts, including speculative and failed calls | `vkgl_internal.h` | informs |
 
 The gauges the backend published before (`vk_draws`, `vk_draw_api_calls`, `vk_pipelines_made`,
 `vk_ring_kb`, `vk_uniform_*`, `vk_descriptor_sets`, `vk_gpu_*`, `vk_draw_ms`, `vk_present_ms`,
@@ -318,12 +320,20 @@ the fixture (`SceneRenderer::selftest_reference_path`). The validation layer mus
 Vulkan tests use private shader/pipeline caches under the build's `test-cache/vulkan`.
 A CTest fixture removes only those cache files before the tests start. Fresh scene instances
 can then reuse compiled shaders without reading a player's cache or another test's manifest.
-Explicit cache overrides remain intact. GPU tests share a CTest resource lock; CI runs two
-test processes so CPU checks can run beside one GPU test without competing software renderers.
-The equivalence matrix runs last in two parallel registry shards. Both check every scenario's
+Explicit cache overrides remain intact. Cache and presentation tests share a CTest resource lock;
+equivalence and sun-shadow image tests may overlap other work, with two Mesa rendering workers
+per process. CI runs at most two test processes. Probe, GTAO, horizon-reference and scrolling-shadow
+matrices occupy both worker slots to bound memory use or retain CPU throughput.
+Only the probe matrix also limits Mesa to two workers while running alone; the other exclusive
+matrices retain Mesa's default worker count.
+The equivalence matrix uses two registry shards. Both check every scenario's
 determinism and discarded attachments; together they compare every registry entry on and off.
-Each matrix shard limits Mesa to two rendering workers to bound CPU oversubscription.
 `ctest --preset enhanced -L render-equivalence --parallel 2` runs both halves.
+Rendering test logs report phase wall time, glslang time, driver pipeline creation time and
+compile counts. Drawing includes synchronous readback; it is not a GPU-only timing. Driver
+compilation may overlap on prewarm workers, so its durations need not add up to wall time.
+Driver calls include speculative prewarming; `pipelines` counts drawing-thread creations.
+Enhanced CI prints these timings from its JUnit report, including successful tests.
 Linux CI also retains Mesa's driver-keyed shader cache between runs, capped at 1 GiB per job.
 The enhanced Ubuntu job uses `GALLIVM_PERF=nopt` to reduce Mesa's LLVM compilation cost for
 these short runs. Shaders, geometry, validation and image comparisons still execute. Its cache
@@ -334,8 +344,10 @@ optimised shader execution more than shorter compilation.
 Surface-normal checks share scene setup across authored normal signs, retaining separate mesh
 data and all skinning, cutout and MSAA cases. Effects-only checks load lighting metadata without
 compiling unused scene meshes. GTAO builds each quality kernel on first use, so tests and games
-that use one quality do not compile the other. The shadow reference test retains production
-reference-filter coverage; standalone kernels unaffected by that switch run in the normal test.
+that use one quality do not compile the other. Its image tests retain compatible scene setup
+across qualities, keeping every size, MSAA case and quality-switch comparison.
+The shadow reference test retains production reference-filter coverage; standalone kernels
+unaffected by that switch run in the normal test.
 Probe receiver-normal checks share shaders and probe textures across six separate meshes,
 retaining both windings, all authored normal signs and both camera sides.
 

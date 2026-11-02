@@ -39,6 +39,12 @@ namespace openrac::scene {
 void set_moby_anim_fields(std::uint32_t first);
 
 /**
+ * Whether the game's pose layers keep records instead of keys (rac1::PoseRecord); Going Commando's
+ * do. Said once, as above.
+ */
+void set_moby_layer_records(bool records);
+
+/**
  * The joint palette of the moby at `moby` (a game address): one matrix per joint of the class's
  * high LOD, F_j = P_j S_j in packed model units (rows: the images of the axes, then the
  * translation). Empty when the moby has no class, no joints or no readable key: draw it as stored.

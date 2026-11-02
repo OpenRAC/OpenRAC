@@ -310,9 +310,11 @@ bool finish_program_link(Program& program) {
         info.layout = program.layout;
         if (!link_step(
                 program,
-                vkCreateComputePipelines(
-                    g->device, g->pipeline_cache, 1, &info, nullptr, &program.compute_pipeline
-                ),
+                timed_pipeline_creation([&] {
+                    return vkCreateComputePipelines(
+                        g->device, g->pipeline_cache, 1, &info, nullptr, &program.compute_pipeline
+                    );
+                }),
                 "a compute pipeline"
             )) {
             return false;

@@ -314,6 +314,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g->game = game_id;
     g->profile = &host::game_profile(game_id);
     scene::set_moby_anim_fields(g->profile->moby_anim_fields());
+    scene::set_moby_layer_records(g->profile->moby_layer_records());
     const auto [inner, span] = g->profile->stick_dead_zone();
     g->input.set_stick_dead_zone({inner, span});
     g->levels = levels;

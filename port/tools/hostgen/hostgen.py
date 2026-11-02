@@ -1033,6 +1033,11 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # relocation): [low, high), or none.
     program.relocate = cfg.get("relocate")
     program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
+    program.small_copies_own_data = cfg.get("small_copies_own_data", 0)
+    # hostgen.json "unit_aliases": a name in one file that is another function there (a twin written
+    # from another level's copy, with that level's names): unit -> {name: the function}.
+    program.aliases.update({(unit, name): symbol for unit, names in cfg.get("unit_aliases", {}).items()
+                            for name, symbol in names.items()})
     program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
     program.returns_64 = set(cfg.get("returns_64", []))
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
@@ -1140,7 +1145,7 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
                      if l.strip() and not l.startswith("#")]
         for name, why in sorted(asmc.write_console(asm_stage, args.asm_console.resolve(), names).items()):
             print(f"hostgen: {name}: no console form: {why}", file=sys.stderr)
-    inherited = inherited_early + inherit_results(program)
+    inherited = inherited_early + asm_stage.inherited + inherit_results(program)
     return asm_stage, asm_results, inherited
 
 

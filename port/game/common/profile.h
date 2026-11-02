@@ -29,9 +29,10 @@ namespace openrac::host {
 
 // A moby as the renderers place it.
 struct LiveMoby {
-    std::uint32_t address = 0;         // The moby in game memory (its animation fields, its class).
-    int class_id = 0;                  // Its class, as the game numbers them.
-    std::uint16_t occlusion = 0x7f80;  // Its occlusion word, as the game keeps it.
+    std::uint32_t address = 0;  // The moby in game memory (its animation fields, its class).
+    int class_id = 0;           // Its class, as the game numbers them.
+    int model_class = -1;       // The class drawn for it, when not its own and the level has it.
+    std::uint16_t occlusion = 0x7f80;     // Its occlusion word, as the game keeps it.
     std::array<float, 4> world_sphere{};  // World centre and radius, game units; radius 0: none.
     renderer::Mat4 matrix = renderer::identity();  // Game axes, the moby's scale included.
 };
@@ -144,6 +145,9 @@ public:
 
     // Returns where a moby keeps its animation fields (scene::set_moby_anim_fields).
     virtual std::uint32_t moby_anim_fields() const { return 0x50; }
+
+    // Returns whether a moby's pose layers keep records (scene::set_moby_layer_records).
+    virtual bool moby_layer_records() const { return false; }
 
     // Whether the frame shown is the display list the game sends each tick, rather than one of
     // two list buffers it alternates (shown_chain()).

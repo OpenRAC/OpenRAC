@@ -39,9 +39,10 @@ using renderer::Vec3;
 // (launcher/actions.json). 4: the textures the game clamps carry clamping samplers.
 inline constexpr int kManifestFormat = 4;
 // The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
-// layout, so the reader takes both; which levels are read again is the stamps' doing.
-// 5: Going Commando's, with Ratchet's mesh. 6: and its flights to a planet.
-inline constexpr int kManifestFormatNewest = 6;
+// layout, so the reader takes all from kManifestFormat up; which levels are read again is the
+// stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
+// his other looks and his ship's picture.
+inline constexpr int kManifestFormatNewest = 7;
 
 struct Vertex {
     float position[3];

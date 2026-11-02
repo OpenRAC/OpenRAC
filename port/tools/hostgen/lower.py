@@ -1919,10 +1919,11 @@ class Unit:
         # A level function written with another level's name for the datum (func_L16_00435CE8 was
         # matched from level 23's copy and says D_L23_001B2144, which level 16 has at 0x001B24C4;
         # func_L00_002A53B8 says D_L24_0025B710): the name's level's address, as the level loaded
-        # has it.
+        # has it. So too one level's own function whose name the derived table holds as the
+        # executable's copy (func_L00_003CD8E0's D_L00_001B8C80, the camera, as 0x001B5200).
         if named and not code and getattr(self.program, "level_short_names", None) is not None:
             own = LEVEL_NAME.match(self.fn.code) if self.fn is not None else None
-            if own and int(own.group(1)) != int(named.group(1)):
+            if own and (int(own.group(1)) != int(named.group(1)) or int(named.group(2), 16) != address):
                 return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
@@ -1961,6 +1962,13 @@ class Unit:
                 canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
                 size = getattr(self.program, "sizes", {}).get(self.fn.code) or 0x400
                 self.fn.uses_self = True
+                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+            elif (level is not None and low <= address < high and (size := self._small_copy_size()) is not None):
+                # A leaf the catalogue fingerprints without its operands may be another field in
+                # another level (Going Commando's func_L00_00367720 reads word 15 of the ship
+                # mission in level 0 and word 9 in level 25): what the running copy forms itself.
+                self.fn.uses_self = True
+                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
                 addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
                 addr = f"OPENRAC_LDATA({level}, {addr})"
@@ -2003,6 +2011,12 @@ class Unit:
         canon = next(a for o, a in caller if o == home)
         own = next(a for o, a in callee if o == home)
         return home, canon, getattr(self.program, "sizes", {}).get(fn.code) or 0x400, own
+
+    def _small_copy_size(self) -> int | None:
+        """This function's size, when hostgen.json's "small_copies_own_data" covers it."""
+        limit = getattr(self.program, "small_copies_own_data", 0)
+        size = getattr(self.program, "sizes", {}).get(self.fn.code) if self.fn is not None else None
+        return size if size and size <= limit else None
 
     def _copies_in_one_program(self) -> tuple[int, int, int] | None:
         """For a level function the catalogue places more than once in one program (the same code

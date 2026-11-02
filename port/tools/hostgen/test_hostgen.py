@@ -2111,6 +2111,28 @@ class Places(unittest.TestCase):
             self.assertIn("openrac_guest_entry((openrac_host_fn)func_L02_002D75F8)", text)
             self.assertIn("func_00300000((gaddr)(a))", text)
 
+    def test_a_small_copy_reads_what_it_forms_itself(self):
+        # Going Commando's func_L00_00367720 is a fingerprint, not one field: word 15 of a struct in
+        # level 0, word 9 in level 25, so a pair of the two levels' globals cannot give it.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "extern int D_L00_00221440;\n"
+                "int func_L00_00367720(void) { return D_L00_00221440; }\n",
+                "func_L00_00367720\tshared\t12\tfg\t2\t00:00367720,25:003738A0\n",
+                {"relocate": [0x15F000, 0x500000], "small_copies_own_data": 32})
+            text = (out / "a.c").read_text()
+            self.assertIn("openrac_data_in_copy(0, 0x00367720u, 12u, openrac_self_, 0x00221440u)", text)
+
+    def test_a_files_name_for_another_function(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "extern void func_00300000(void);\n"
+                "extern void func_00300100(void);\n"
+                "void func_00300200(void) { func_00300000(); }\n",
+                "",
+                {"unit_aliases": {"src/a.c": {"func_00300000": "func_00300100"}}})
+            self.assertIn("func_00300100();", (out / "a.c").read_text())
+
     def test_a_call_to_another_levels_function_follows_the_definition(self):
         # rac1/ntsc's Rilgar creature (FUN_L05_002d1688) declared level 0's vector scale as
         # (float, void *, void *) and called it through its level 0 address with that type: right
@@ -2559,6 +2581,38 @@ class FromAssembly(unittest.TestCase):
         files = {f"game/asm/{name}.s": assembler.assemble(name, start, text, symbols, (tables or {}).get(name))
                  for name, (start, text) in functions.items()}
         return self.run_program({"a.c": c}, config=config or ASM_CONFIG, extra_files=files)
+
+    def test_a_translated_caller_reads_a_result_a_c_wrapper_passes_on(self):
+        # A wrapper matched `void` that ends in an assembly function: its caller, in assembly, reads
+        # the result in $v0 (results_before_calls: Going Commando's func_L00_002B5590, func_002D5B38).
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int x);
+            void func_00100200(int x) { func_00100000(x); }
+            INCLUDE_ASM("asm", func_00100100);
+            extern int func_00100100(int x);
+            int test_main(void) {
+                test_print(func_00100100(3));
+                return 0;
+            }
+        """, {
+            "func_00100000": (0x100000, """
+                addiu $2, $4, 4
+                jr $31
+                nop
+            """),
+            "func_00100100": (0x100100, """
+                addiu $29, $29, -16
+                sq $31, 0($29)
+                jal func_00100200
+                nop
+                addiu $2, $2, 1
+                lq $31, 0($29)
+                jr $31
+                addiu $29, $29, 16
+            """),
+        }, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], results_before_calls=True)))
+        self.assertEqual(out, ["8"])
 
     def test_branches_and_delay_slots(self):
         # sum of n..1, the counter decremented in the delay slot after the test read it; a likely

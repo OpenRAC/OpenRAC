@@ -37,6 +37,8 @@ ROOT_SECTORS = 16
 # before +0x72000 on these discs.
 TOC_LIMIT = 0x200000
 MAX_LEVELS = 100
+ITEM_BANKS = 48
+SHIP_PAINTS = 0x48f0        # Going Commando
 FLIGHT_BASE = 0x3e24        # Going Commando: the sector the flights' ranges start from
 LEVEL_PAIR = 24              # three (sector, sector count) pairs
 
@@ -59,12 +61,14 @@ class Version:
     executable_sha1: str
     level_header: int       # the level header's size: 0x60 (Going Commando, Up Your Arsenal) or 0xc68 (Deadlocked)
     hero_packs: int = 0     # where the table of contents keeps the packs of Ratchet's mesh and textures, if it does
+    hero_armours: int = 0   # how many of those packs are his looks; the wrench's follow them
+    item_banks: int = 0     # where it keeps the banks of the items he holds, if it does
     flights: int = 0        # where it keeps the flights' (sector, sector count) pairs, after their base sector
     flight_count: int = 0
 
 
 RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60,
-                    hero_packs=0x4f04, flights=0x3e58, flight_count=4)
+                    hero_packs=0x4f04, hero_armours=9, item_banks=0x4b3c, flights=0x3e58, flight_count=4)
 RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
 VERSIONS = (RAC2_NTSC, RAC3_NTSC, RAC4_NTSC)
@@ -196,6 +200,30 @@ class WadDisc:
         mesh, mesh_sectors, textures, texture_sectors = unpack(
             "<4i", self.toc, self.version.hero_packs + 4 + pack * 16)
         return self.disc.sectors(base + mesh, mesh_sectors), self.disc.sectors(base + textures, texture_sectors)
+
+    def item_banks(self) -> list[tuple[int, bytes, bytes]]:
+        """(class, class WAD, texture WAD) of each item in the banks Ratchet's weapons and gadgets
+        load from when he takes them out (func_00294988): ITEM_BANKS rows of (class, sector, sectors,
+        sound sector, sound sectors), sectors relative to the word before the table. A bank starts
+        with the offset and size of each part, from the disc's sector of the table's base. The rows
+        of class 0 are no item."""
+        base, = unpack("<i", self.toc, self.version.item_banks)
+        result = []
+        for row in range(ITEM_BANKS):
+            class_id, sector, sectors = unpack("<3i", self.toc, self.version.item_banks + 4 + row * 20)
+            if class_id:
+                bank = self.disc.sectors(base + sector, sectors)
+                item, _, texture, _ = unpack("<4I", bank)
+                start = sector * SECTOR
+                result.append((class_id, bank[item - start:], bank[texture - start:]))
+        return result
+
+    def ship_texture(self, number: int = 0) -> bytes:
+        """The picture on his ship, as func_002926B8 reads it: paint NUMBER of the (sector, sector
+        count) pairs at SHIP_PAINTS, from the flights' base sector."""
+        base, = unpack("<I", self.toc, FLIGHT_BASE)
+        sector, count = unpack("<II", self.toc, SHIP_PAINTS + number * 8)
+        return self.disc.sectors(base + sector, count)
 
     def flight(self, number: int) -> bytes:
         """A flight's lump as stored: the sector ranges at `flights`, relative to the sector the

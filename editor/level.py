@@ -22,6 +22,14 @@ SECTION_NAMES = ("overlay", "sound_bank", "core_index", "gs_ram", "hud_header",
 TEXTURE_TABLES = {"terrain": 0x30, "moby": 0x38, "tie": 0x40, "shrub": 0x48}
 # Where the textures of the hero pack start among a level's "moby" ones: past any table's end.
 HERO_TEXTURES = 1000
+# Each of his looks past the first has this many places from there, its texture numbers.
+HERO_LOOK_TEXTURES = 16
+# And those of the items he holds, one each, past all his looks'.
+ITEM_TEXTURES = 1200
+# The forms of his wrench, each a pack with one texture (the first of those places).
+WRENCHES = 3
+# The picture on his ship, past those.
+SHIP_TEXTURE = 1300
 # A hero pack's texture record: its width and height, CLUT and 8-bit pixels (func_00292078).
 RECORD_SIZE, RECORD_CLUT, RECORD_PIXELS = 0x08, 0x20, 0x420
 # Class tables: (count, offset) pairs; each entry starts with a core offset.
@@ -56,6 +64,12 @@ class Level:
     # Going Commando's Ratchet: the file his class's packets are in (wads.WadDisc.hero_pack), which
     # the game loads over the class at run time. His textures are "moby" ones from HERO_TEXTURES.
     hero_mesh: bytes | None = None
+    # His other looks, as (pack number, mesh file), and the wrench's mesh file in each of its forms.
+    hero_looks: list[tuple[int, bytes]] = field(default_factory=list)
+    wrench_meshes: list[bytes] = field(default_factory=list)
+    # The items he holds, which the level's class table only names or leaves out: class number to
+    # (decoded class, place among the textures from ITEM_TEXTURES).
+    items: dict[int, tuple[bytes, int]] = field(default_factory=dict)
 
     @property
     def instances(self) -> bytes:
@@ -176,15 +190,16 @@ def textures(level: Level, gs: bytes) -> dict[tuple[str, int], Texture]:
     return result
 
 
+def record_texture(data: bytes, at: int) -> Texture:
+    """The texture record at AT."""
+    width, height = unpack("<2i", data, at + RECORD_SIZE)
+    return Texture(width, height, span(data, at + RECORD_PIXELS, width * height), span(data, at + RECORD_CLUT, 1024))
+
+
 def hero_textures(data: bytes) -> list[Texture]:
     """A hero pack's textures: a count, then the offset of each record."""
     count, = unpack("<i", data)
-    result = []
-    for at in unpack(f"<{count}i", data, 4):
-        width, height = unpack("<2i", data, at + RECORD_SIZE)
-        result.append(Texture(width, height, span(data, at + RECORD_PIXELS, width * height),
-                              span(data, at + RECORD_CLUT, 1024)))
-    return result
+    return [record_texture(data, at) for at in unpack(f"<{count}i", data, 4)]
 
 
 def unswizzle(pixels: bytes, width: int, inverse: bool = False) -> bytes:
@@ -259,9 +274,7 @@ def load_wad_level(source, entry: dict) -> Level:
     level.boundaries = core_boundaries(level)
     level.textures = textures(level, sections["gs_ram"])
     if version.hero_packs:
-        level.hero_mesh, pack = source.hero_pack()
-        for i, texture in enumerate(hero_textures(pack)):
-            level.textures[("moby", HERO_TEXTURES + i)] = texture
+        hero_files(level, source)
     return level
 
 
@@ -335,6 +348,30 @@ def load_flight(disc: Disc, survey: dict) -> Level:
     ref = next(r for r in survey["global_references"] if r["group"] == "transition")
     lump = decoded(disc.sectors(ref["lba"], (ref["bytes"] + SECTOR - 1) // SECTOR))
     return flight_level(lump, FLIGHT_ID, disc.version.key)
+
+
+def hero_files(level: Level, source) -> None:
+    """What a later game loads over Ratchet's class and his hand at run time: his packs, the wrench's
+    (the next packs, func_00292408) and the banks of what he holds."""
+    level.hero_mesh, pack = source.hero_pack()
+    for i, texture in enumerate(hero_textures(pack)):
+        level.textures[("moby", HERO_TEXTURES + i)] = texture
+    for number in range(1, source.version.hero_armours):
+        mesh, pack = source.hero_pack(number)
+        level.hero_looks.append((number, mesh))
+        for i, texture in enumerate(hero_textures(pack)):
+            level.textures[("moby", HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i)] = texture
+    place = 0
+    for number in range(WRENCHES):
+        mesh, pack = source.hero_pack(source.version.hero_armours + number)
+        level.wrench_meshes.append(mesh)
+        level.textures[("moby", ITEM_TEXTURES + place)] = hero_textures(pack)[0]
+        place += 1
+    for class_id, item, texture in source.item_banks():
+        level.items[class_id] = (decoded(item), place)
+        level.textures[("moby", ITEM_TEXTURES + place)] = hero_textures(decoded(texture))[0]
+        place += 1
+    level.textures[("moby", SHIP_TEXTURE)] = record_texture(source.ship_texture(), 0)
 
 
 def load_wad_flight(source, number: int) -> Level:
