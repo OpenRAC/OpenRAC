@@ -711,7 +711,7 @@ void particle(
 
 namespace {
 
-// A particle texture's pool key: its 32 x 32 PSMT8 pixels and its 16 x 16 CSM1 palette (both in game
+// A particle texture's pool key: its PSMT8 pixels, 1 << log2_side a side and its 16 x 16 CSM1 palette (both in game
 // memory) decoded to RGBA once, in the chip's alpha units (0x80 = opaque), and placed at a key of its
 // own, kept while the renderer lives. Earlier the pixels and palette went through the pool as
 // uploads at keys handed out per frame in pool order: a key named one texture this frame and
@@ -720,10 +720,10 @@ namespace {
 // Refactor note: effect textures without a source in game memory (effect_quad) still go through
 // the pool at their GS blocks.
 std::uint32_t particle_texture(
-    std::span<const std::uint8_t> ram, std::uint32_t pixels, std::uint32_t clut
+    std::span<const std::uint8_t> ram, std::uint32_t pixels, std::uint32_t clut, int log2_side
 ) {
     constexpr std::uint32_t kParticleTextureKey = 0x30000;  // past the sky's (kSkyTextureKey)
-    constexpr std::size_t kSide = 32;
+    const std::size_t kSide = std::size_t{1} << log2_side;
     if (!g->renderer || pixels == 0 || clut == 0 || pixels + kSide * kSide > ram.size()
         || clut + 1024 > ram.size()) {
         return 0;
@@ -924,9 +924,10 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     );
     const bool reuse_textures = gl::is_vulkan() && !texture_reference;
     std::uint64_t texture_resolves = 0;
+    int texture_side = 0;  // log2, of the particle being resolved
     const auto resolve_texture = [&](std::uint32_t pixels, std::uint32_t palette) {
         ++texture_resolves;
-        return particle_texture(ram, pixels, palette);
+        return particle_texture(ram, pixels, palette, texture_side);
     };
     if (effects_dump::armed()) {
         note_particles(ram, state);
@@ -1022,6 +1023,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         }
         // Its texture: 32 x 32 PSMT8 with a 256-colour CSM1 palette, decoded here and kept in the pool
         // at a key of its own (particle_texture).
+        texture_side = p.log2_side;
         q.tbp = reuse_textures ? texture_cache.resolve(p.pixels, p.clut, resolve_texture)
                                : resolve_texture(p.pixels, p.clut);
         q.cbp = 0;

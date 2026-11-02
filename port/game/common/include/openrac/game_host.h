@@ -669,8 +669,8 @@ const unsigned char* openrac_game_fix(const char* key);
  * ALPHA_1's low byte; +0x04 RGBA; +0x08 rotation, 256 steps a turn; +0x09 near (low nibble, 1/4
  * units) and far (high nibble, 32 units); +0x0C size in 1/210000 units, or the second colour of a
  * line or ribbon; +0x10 position, +0x1C a ribbon's half width; +0x20 a line or ribbon's other end,
- * +0x2C its width factor) and where its texture is in the game's memory (32 x 32 PSMT8 pixels,
- * 16 x 16 PSMCT32 CLUT; 0 for none). The window draws the frame's particles after the effect quads,
+ * +0x2C its width factor) and where its texture is in the game's memory (PSMT8 pixels, 1 << log2_side a
+ * side, 16 x 16 PSMCT32 CLUT; 0 for none). The window draws the frame's particles after the effect quads,
  * back to front (renderer/effects.h). */
 void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side);
 

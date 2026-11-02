@@ -164,7 +164,8 @@ int func_002A4078(gaddr a0, gaddr a1) {
 /*
  * PartProc: each live record of the pool (0x40 bytes, byte 1 bit 7 a free one) goes to the window, as
  * Ratchet & Clank's. Its texture is entry +0x02 of the table: the low half the palette's address << 4
- * with the CLUT offset, the high half the pixels' address << 4.
+ * with the CLUT offset, the high half the pixels' address << 4 with the log2 of the side: unlike
+ * Ratchet & Clank's 32 x 32, this game's are 32 x 32 or 64 x 64 (the table at 0x001F1F40).
  */
 void func_002B9420(void) {
     if (openrac_guest_overlay() < 0) {
@@ -183,7 +184,9 @@ void func_002B9420(void) {
         }
         uint64_t entry;
         memcpy(&entry, G(table + (gaddr)r[2] * 8), 8);
-        openrac_game_particle(r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, 5);
+        openrac_game_particle(
+            r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, (int)((entry >> 32) & 0xF)
+        );
     }
 }
 
