@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -3516,6 +3517,18 @@ class CopyCalls(unittest.TestCase):
         import copycalls
         code = (0x3C030022, 0x03E00008, 0x8C62144C, 0x8F82D4E8)  # lui v1; jr ra; lw v0,0x144C(v1); lw v0,-0x2B18(gp)
         self.assertEqual(copycalls.formed(code, 0x001AEFF0), {2: 0x0022144C, 3: 0x001AC4D8})
+
+    def test_executable_copy_lines_up_with_the_level_copy(self):
+        # func_002DC900's name is two words before the code its level 0 copy holds: its words are
+        # read from there, so each jal is compared with the same call of the level's copy.
+        import copycalls
+        jal = lambda target: 0x0C000000 | (target >> 2)  # noqa: E731
+        level = (0x27BDFFE0, jal(0x2E6588), 0x00000000, 0x03E00008)
+        exe_words = (0x00000000, 0x00000000, 0x27BDFFE0, jal(0x27C660), 0x00000000, 0x03E00008)
+        exe = [(0x2DC900, struct.pack(f"<{len(exe_words)}I", *exe_words))]
+        self.assertEqual(copycalls.exe_copy(exe, 0x2DC900, 16, level)[1], jal(0x27C660))
+        # Code that matches nowhere (a false fold) gives the executable no targets at all.
+        self.assertIsNone(copycalls.exe_copy(exe, 0x2DC900, 16, (0x24020001,) * 4))
 
     def test_call_expression(self):
         from program import call_copy_expr

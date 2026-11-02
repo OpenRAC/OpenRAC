@@ -13,19 +13,20 @@
 #include <sys/stat.h>
 
 #if !defined(_WIN32)
-#include <sys/wait.h>
 #include <unistd.h>
+
+#include <sys/wait.h>
 #endif
 
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 
-#define CHECK(condition) \
-    do { \
-        if (!(condition)) { \
-            fprintf(stderr, "memory card test failed at line %d: %s\n", __LINE__, #condition); \
-            exit(1); \
-        } \
+#define CHECK(condition)                                                                           \
+    do {                                                                                           \
+        if (!(condition)) {                                                                        \
+            fprintf(stderr, "memory card test failed at line %d: %s\n", __LINE__, #condition);     \
+            exit(1);                                                                               \
+        }                                                                                          \
     } while (0)
 
 /* The game's memory: a small fixture at guest addresses 0 up. */
@@ -35,6 +36,7 @@ static void* test_guest(gaddr address) {
     CHECK(address < sizeof memory);
     return memory + address;
 }
+
 #undef G
 #define G(address) test_guest((gaddr)(address))
 #include "../game/common/lib/mc.c"
@@ -50,7 +52,13 @@ const char* openrac_game_loaded_mods;
 const openrac_game_play* openrac_game_play_host;
 int openrac_game_no_card;
 
-enum { NAME = 0x100, CMD = 0x200, RESULT = 0x204, TABLE = 0x1000, DATA = 0x8000 };
+enum {
+    NAME = 0x100,
+    CMD = 0x200,
+    RESULT = 0x204,
+    TABLE = 0x1000,
+    DATA = 0x8000
+};
 
 /* The finished command's result, as the game's sceMcSync loop reads it. */
 static int result(int expected_cmd) {
@@ -93,7 +101,14 @@ int main(void) {
     /* A folder no earlier run left behind. */
     struct stat st;
     for (int n = 0;; n++) {
-        snprintf(card, sizeof card, "%s/openrac_mc_test_%ld_%d", tmp != NULL ? tmp : ".", (long)time(NULL), n);
+        snprintf(
+            card,
+            sizeof card,
+            "%s/openrac_mc_test_%ld_%d",
+            tmp != NULL ? tmp : ".",
+            (long)time(NULL),
+            n
+        );
         if (stat(card, &st) != 0) {
             break;
         }
@@ -109,15 +124,22 @@ int main(void) {
     for (size_t i = 0; i < sizeof save; i++) {
         save[i] = (uint8_t)(i * 7 + 1);
     }
-    const char* card_files[] = {"icon.sys", "BASCUS-97268RATCHET", "static.ico", "save0.bin", "save1.bin",
-                           "save2.bin", "save3.bin"};
+    const char* card_files[] =
+        {"icon.sys",
+         "BASCUS-97268RATCHET",
+         "static.ico",
+         "save0.bin",
+         "save1.bin",
+         "save2.bin",
+         "save3.bin"};
     for (size_t i = 0; i < sizeof card_files / sizeof card_files[0]; i++) {
         snprintf(path, sizeof path, "/BASCUS-97268RATCHET/%s", card_files[i]);
         write_file(path, save, (int)sizeof save, 1);
     }
 
     /* What Finder, Explorer, the port and the launcher put beside them. */
-    const char* clutter[] = {".DS_Store", "._save0.bin", "Thumbs.db", "DESKTOP.INI", "save0.bin.mods"};
+    const char* clutter[] =
+        {".DS_Store", "._save0.bin", "Thumbs.db", "DESKTOP.INI", "save0.bin.mods"};
     for (size_t i = 0; i < sizeof clutter / sizeof clutter[0]; i++) {
         snprintf(path, sizeof path, "%s/BASCUS-97268RATCHET/%s", card, clutter[i]);
         FILE* f = fopen(path, "wb");
