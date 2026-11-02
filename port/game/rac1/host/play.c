@@ -311,6 +311,10 @@ static int hero_set_pose(const openrac_game_pose* pose) {
             GREF(float, HERO_INV_ROT_MATRIX + 16u * r + 4u * c) = v;
         }
     }
+    /* His blinks (update_hero_rotation_targets_and_random_manipulators): the face's manipulators
+     * on their random timer, as his update runs them, so a blink under way when the mod took over
+     * does not hold his eyes shut. */
+    func_L00_00205CC0();
     func_L00_00208E98();
     func_L00_002098B8(0);
     func_L00_00210FE0();

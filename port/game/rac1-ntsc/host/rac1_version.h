@@ -271,6 +271,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * decomp's gameplay/hero/air_accel.c), begin_draw_frame func_001F7B40 FUN_001f7978 and
  * euler_rotation_matrix func_001FA218 FUN_001fa050, as games/rac1's names_ntsc.tsv pairs them. */
 #define func_L00_00232EF0 game_FUN_L00_00232670
+#define func_L00_00205CC0 game_FUN_L00_002056a8
 #define func_L00_00208E98 game_FUN_L00_00208820
 #define func_L00_002098B8 game_FUN_L00_00209240
 #define func_L00_00210FE0 game_FUN_L00_00210928
