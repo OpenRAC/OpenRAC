@@ -259,10 +259,9 @@ jobs:
           python-version: "3.12"
       # Each key's prefix is no other job's: "checks-port" was the start of every other port
       # job's key, and restored their objects, built with other options, when it had none.
-      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-release
-          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - uses: ./.github/actions/mesa-cache
         with:
@@ -329,10 +328,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-headless
-          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - name: Compilers
         run: |
@@ -366,10 +364,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-enhanced
-          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - uses: ./.github/actions/mesa-cache
         with:
@@ -452,10 +449,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-fedora
-          save: ${{ github.event_name != 'pull_request' }}
           max-size: 500M
       - uses: ./.github/actions/mesa-cache
         with:
@@ -511,10 +507,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-windows
-          save: ${{ github.event_name != 'pull_request' }}
           max-size: 1G
       - uses: ./.github/actions/clang-windows
 

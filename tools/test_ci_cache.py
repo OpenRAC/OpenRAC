@@ -6,8 +6,10 @@ import copy
 import contextlib
 import glob
 import io
+import ntpath
 import os
 from pathlib import Path
+import posixpath
 import re
 import shutil
 import subprocess
@@ -29,14 +31,46 @@ def cache_settings(step):
 
 class CachePolicy(unittest.TestCase):
     def test_native_compiler_caches_do_not_save_pr_private_snapshots(self):
-        """Every native compiler cache can restore on PRs without evicting shared entries."""
+        """Checks and launcher builds share the success-only compiler cache policy."""
+        for name, count in (("checks.yml", 5), ("launcher.yml", 1)):
+            text = (ROOT / ".github/workflows" / name).read_text()
+            self.assertEqual(count, text.count("uses: ./.github/actions/compiler-cache"), name)
+            self.assertNotIn("uses: hendrikmuhs/ccache-action@", text, name)
         text = (ROOT / ".github/workflows/checks.yml").read_text()
-        steps = re.split(r"(?m)^      - ", text)
-        caches = [step for step in steps if "uses: hendrikmuhs/ccache-action@" in step]
-        self.assertTrue(caches)
-        for step in caches:
-            self.assertIn("save: ${{ github.event_name != 'pull_request' }}", step)
         self.assertIn("CCACHE_COMPILERCHECK: content", text)
+
+    def test_compiler_cache_publishing_uses_success_only_post_action(self):
+        """Cancelled jobs cannot publish through ccache-action's unconditional post step."""
+        text = (ROOT / ".github/actions/compiler-cache/action.yml").read_text()
+        steps = re.split(r"(?m)^    - ", text)
+        setup = next(step for step in steps if "uses: hendrikmuhs/ccache-action@" in step)
+        self.assertIn('save: "false"', setup)
+        self.assertIn('restore: "false"', setup)
+        # This pinned action declares post-if: success(); restore has no publishing post step.
+        pin = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
+        write = next(step for step in steps if "uses: actions/cache@" + pin in step)
+        read = next(step for step in steps if "uses: actions/cache/restore@" + pin in step)
+        self.assertIn("github.event_name != 'pull_request'", write)
+        self.assertIn("github.event_name == 'pull_request'", read)
+        self.assertEqual(cache_settings(write), cache_settings(read))
+        self.assertNotIn("save-always:", text)
+        self.assertNotIn("always()", text)
+        # Archives restore before setup so cached ccache.conf cannot override current job limits.
+        self.assertLess(text.index("uses: actions/cache@"), text.index("uses: hendrikmuhs/ccache-action@"))
+        self.assertIn("ccache-${{ inputs.key }}-success-${{ github.run_id }}-${{ github.run_attempt }}", write)
+        prefixes = write.split("restore-keys: |\n")[1]
+        self.assertLess(prefixes.index("inputs.key }}-success-"), prefixes.rindex("inputs.key }}-"))
+
+    def test_compiler_cache_paths_match_existing_archive_versions(self):
+        """Windows and POSIX path spelling must match ccache-action's cacheDir implementation."""
+        text = (ROOT / ".github/actions/compiler-cache/action.yml").read_text()
+        windows, unix = re.search(
+            r"format\(runner.os == 'Windows' && '([^']+)' \|\| '([^']+)', github.workspace\)", text
+        ).groups()
+        for template, workspace, join in ((windows, r"D:\a\OpenRAC\OpenRAC", ntpath.join),
+                                          (unix, "/home/runner/work/OpenRAC/OpenRAC", posixpath.join)):
+            self.assertEqual(join(workspace, ".ccache"), template.format(workspace))
+        self.assertIn("env.CCACHE_DIR ||", text)
 
     def test_preparation_restore_and_save_use_identical_isolated_keys(self):
         """PRs restore the same preparation as branch builds, through a read-only action."""

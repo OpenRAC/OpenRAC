@@ -60,6 +60,9 @@ Objects remain in ccache; Ninja files and test results are regenerated. Cache hi
 build or test steps. Pull requests restore native compiler/preparation and Rust caches but do
 not save private copies: those copies cannot warm other branches and can evict shared entries
 from the repository's cache allowance. Successful branch builds refresh the shared caches.
+Compiler archives are published only after the whole job succeeds; cancelled and failed runs
+cannot publish partial snapshots. Restores prefer these successful snapshots, with older cache
+keys retained as a fallback until the new snapshots are populated.
 Compiler identity uses executable contents rather than installation timestamps. The hostgen
 cache key covers every game's sources and its shared Python helpers. Prepared source copies and
 Ninja's generation stamp are excluded: hostgen always validates its own input fingerprint and
