@@ -438,14 +438,18 @@ pub fn update_progress_from_bytematch(
             .as_ref()
             .and_then(|p| p.functional.as_ref())
             .map(|f| serde_json::json!({"functions": f.functions, "code": f.code, "percent": f.code_percent}));
+        // The US report uses 0/0 to say its function denominator is unknown.
+        // Do not present that placeholder as "0 of 0 functions" in Develop.
+        let (matched_functions, total_functions) =
+            if us && m.total_functions == Some(0) { (None, None) } else { (m.matched_functions, m.total_functions) };
         rows.insert(
             key,
             serde_json::json!({
                 "progress": {
                     "matched_code": m.matched_code,
                     "total_code": m.total_code,
-                    "matched_functions": m.matched_functions,
-                    "total_functions": m.total_functions,
+                    "matched_functions": matched_functions,
+                    "total_functions": total_functions,
                     "fuzzy_percent": m.fuzzy_match_percent,
                     "percent": m.matched_code_percent,
                     "date": timestamp.map(|t| t.get(..10).unwrap_or(t)),

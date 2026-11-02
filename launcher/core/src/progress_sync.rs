@@ -136,7 +136,8 @@ mod tests {
         site.pages.insert(
             "https://bytematch.dev/OpenRAC/rac5-sm-decomp/SCUS_976.15.json".into(),
             br#"{"measures":{"matched_code":618320,"total_code":6418204,
-                "matched_code_percent":9.63385},"commit":{"timestamp":"2026-11-01T18:00:00Z"}}"#
+                "matched_code_percent":9.63385,"matched_functions":0,"total_functions":0},
+                "commit":{"timestamp":"2026-11-01T18:00:00Z"}}"#
                 .to_vec(),
         );
         let mine = tempfile::tempdir().unwrap();
@@ -149,6 +150,7 @@ mod tests {
         let progress = catalog.version("rac5/ntsc").unwrap().progress.as_ref().unwrap();
         assert_eq!((progress.matched_code, progress.total_code), (618320, 6418204));
         assert_eq!(progress.date.as_deref(), Some("2026-11-01"));
+        assert_eq!((progress.matched_functions, progress.total_functions), (None, None));
 
         site.pages.remove("https://bytematch.dev/OpenRAC/rac5-sm-decomp/SCUS_976.15.json");
         sync(root.path(), &cache, &site).unwrap();
