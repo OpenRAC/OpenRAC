@@ -47,6 +47,7 @@
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
+#include "game/common/frontend/hero_shadows.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
 #include "game/common/frontend/water_interactions.h"
@@ -1267,20 +1268,12 @@ TickMobys pose_mobys(
             }
         }
     }
-    // A game supplies ownership once per frame; weapons and backpacks share the hero's map.
-    // A bounded rig list accommodates equipment without per-frame allocation.
-    constexpr unsigned kHeroCasterCapacity = 32;
-    std::array<gaddr, kHeroCasterCapacity> hero_casters{};
-    unsigned hero_caster_count = 0;
-    // Shadow availability is immutable between level changes, including while a render job runs.
-    if (g->scene.hero_shadow_enabled() && g->loaded >= 0 && openrac_game_front_end
-        && g->loaded < openrac_game_front_end->levels
-        && openrac_game_front_end->hero_shadow_casters) {
-        hero_caster_count = std::min(
-            openrac_game_front_end->hero_shadow_casters(hero_casters.data(), kHeroCasterCapacity),
-            kHeroCasterCapacity
-        );
-    }
+    const auto hero_rig = read_hero_shadow_rig(
+        openrac_game_front_end,
+        g->loaded,
+        g->scene.hero_shadow_enabled(),
+        g->profile->shadow_directions() != 0
+    );
 
     const bool inspect_bones = debug_overlay::picker_snapshot_needed();
 #ifdef OPENRAC_LIGHT_AUTHORING
@@ -1533,19 +1526,16 @@ TickMobys pose_mobys(
             target_mobys.push_back({m.address, instance, *t->second, true});
             continue;
         }
-        const bool owned_by_hero =
-            std::find(hero_casters.begin(), hero_casters.begin() + hero_caster_count, m.address)
-            != hero_casters.begin() + hero_caster_count;
+        const bool owned_by_hero = hero_rig.owns(m.address);
         // Keep the body fallback for games without an attachment callback or during state transitions.
-        instance.hero_shadow_anchor =
-            hero_caster_count ? m.address == hero_casters[0] : m.class_id == 0 && !extra;
+        instance.hero_shadow_anchor = hero_rig.anchors(m.address, m.class_id == 0 && !extra);
         instance.hero_shadow_caster = (owned_by_hero || instance.hero_shadow_anchor)
                                       && openrac_game_has_level(g->loaded)
                                       && instance.moby_light[3] < 1.5f && instance.tint[3] > 0;
         instance.gameplay_essential |= owned_by_hero || instance.hero_shadow_anchor;
         live_joints.push_back(instance.palette >= 0 ? joints : 0);
         if (g->profile->shadow_directions() != 0 && openrac_game_has_level(g->loaded) && animate
-            && m.class_id == 0 && !extra && instance.moby_light[3] < 1.5f
+            && instance.hero_shadow_anchor && instance.moby_light[3] < 1.5f
             && instance.tint[3] > 0.0f) {
             const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
             shadow_state = scene::moby_shadow_state(ram, m.address, directions, state.view());
@@ -1555,7 +1545,7 @@ TickMobys pose_mobys(
             }
             if (debug && g->index % 100 == 0) {
                 log::info(
-                    "Ratchet shadow: {} proxies, slot {}, table {:#x}, "
+                    "Hero shadow: {} proxies, slot {}, table {:#x}, "
                     "extrusion {:.2f} {:.2f} {:.2f}, slab {:.3f}..{:.3f}, scale {:.3f}",
                     shadows.size(),
                     shadow_state.direction_index,

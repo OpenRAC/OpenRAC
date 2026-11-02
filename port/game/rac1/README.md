@@ -59,6 +59,9 @@ Both versions' programs link them as `openrac_game_rac1_profile`
 reads directly on a saved memory picture. A table of a new version goes beside the others in
 `game_state.cpp`, with its profile in `profile.cpp`; nothing outside this folder changes.
 
+The shared front-end callback supplies the active hero body before its equipment. Original
+shadow volumes and enhanced shadow maps follow this body, including playable Clank, on both discs.
+
 ## What stays per version
 
 A version's own folder keeps what truly differs: its `hostgen.json`,
