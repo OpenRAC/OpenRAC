@@ -16,6 +16,10 @@ uniform vec3 probe_sunlight_scale;
 // XYZ is a world-space travel direction; W enables the primary-light override.
 uniform vec4 probe_sunlight_direction;
 uniform int probe_terrain_albedo;
+// 1: lighting anchored on the game's own (Going Commando): the original moby ambient is the floor of
+// a moby's diffuse GI, and terrain whose vertex colours carry the original lighting takes the
+// enhanced lighting relative to unshadowed sunlight (README, Retail anchoring).
+uniform int probe_retail_anchor;
 uniform float probe_normal_bias;
 uniform float probe_view_bias;
 uniform vec3 probe_dense_origin[3];

@@ -519,6 +519,25 @@ its glass packets. Automatic restores the authored selection; clearing overrides
 Stylised exceptions are explicit, never inferred from texture colour. Controls do not change bakes.
 
 
+## Retail anchoring
+
+Going Commando's probe lighting is anchored on the game's own lighting (`probe_retail_anchor`, set
+when the verified bake is a `rac2-*` one; Ratchet & Clank keeps its tuned look). Its skies are two
+to three times dimmer than Ratchet & Clank's and its terrain vertex colours carry the original
+lighting, sunlight included, so the unanchored path left Endako's shade far darker than the
+original and sunlit Barlow sand brighter, from taking the sun twice.
+
+- A live moby's original ambient colour (+0x3C, 0x80 = 1.0) is the floor of its diffuse GI: the
+  ambient multiplies gamma-encoded texels, so its linear equivalent (its 2.2 power) is compared with
+  `indirect / pi` and only the missing luminance is added, in the ambient's hue. Brighter GI (sky,
+  bounces, emitters, lava) stays as baked.
+- Terrain with `terrain_vertex_albedo` takes the enhanced lighting as a ratio to the same point in
+  unshadowed sunlight with unoccluded GI: sunlit ground keeps its original brightness, and shade,
+  GI and occlusion work from there. Cast shade keeps about a third of the sun (`0.1 + 0.9 x 0.28`)
+  instead of a tenth, as the original lighting had no cast shadows.
+
+Both apply to the combined view only; the diagnostic views (`OPENRAC_PROBE_VIEW`) are unchanged.
+
 ## Colour correction
 
 Enhanced Settings > Post Processing enables AgX by default at 0.25 EV. Exposure spans -4 to +4

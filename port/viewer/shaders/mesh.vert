@@ -84,6 +84,7 @@ flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
 out vec3 v_script_emission;
+flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
 // GS F / 255, interpolated in screen space as the GS does: F times the clip w and w, both
 // interpolated perspective-correctly, whose ratio mesh.frag takes. A noperspective F gave NaN
@@ -145,6 +146,8 @@ void main() {
     // multiplier. Keep alpha and the original colour path for fallback.
     v_probe_multiplier = (probe_receiver == 1 ? vec4(1.0, 1.0, 1.0, colour.a) : colour) * tint;
     v_probe_selector = moby_light;
+    // The moby's ambient colour (0x80 = 1.0), which anchored probe lighting keeps as its GI floor.
+    v_probe_ambient = moby_ambient.rgb;
     v_script_emission = moby_light.w < -0.5 ? colour.rgb * tint.rgb * moby_ambient.rgb : vec3(0.0);
     v_emission_colour = colour.rgb * tint.rgb;
     gl_Position = view_projection * world;

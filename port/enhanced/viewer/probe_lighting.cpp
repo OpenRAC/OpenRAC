@@ -643,6 +643,12 @@ void ProbeLighting::bind(
         shader.uniform("probe_terrain_albedo"),
         m_terrain_vertex_albedo && layer == scene::Layer::Terrain ? 1 : 0
     );
+    // Going Commando's original lighting is the anchor (README, Retail anchoring): its moby ambient
+    // and terrain vertex lighting carry more of each level's look than its dimmer skies give the
+    // bake. Ratchet & Clank keeps the tuned look it has.
+    glUniform1i(
+        shader.uniform("probe_retail_anchor"), active() && m_grid.game_version.starts_with("rac2-")
+    );
     glUniform3f(
         shader.uniform("probe_sunlight_scale"),
         m_sunlight_scale[0],
