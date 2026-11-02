@@ -42,6 +42,14 @@
         "mirror": true,
         "rewrites": [
           [
+            "extern void *func_0027C878(long long);",
+            "extern unsigned long long func_0027C878(long long);"
+          ],
+          [
+            "extern void func_0027F640(unsigned long long, char *, int, void *, int, float, float, float);",
+            "extern void func_0027F640(unsigned long long, char *, int, unsigned long long, int, float, float, float);"
+          ],
+          [
             "extern char D_0025FF58[];",
             "extern char D_00259F58[];"
           ],
