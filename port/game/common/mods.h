@@ -191,6 +191,18 @@ std::vector<PropDraw> props_drawn();
 std::vector<std::filesystem::path> prop_meshes();
 unsigned prop_meshes_generation();
 
+// ---- Heat haze (interface 1.12, mod_play.cpp) ----
+
+// A patch of heat haze to draw this frame (openrac_haze), in the game's world.
+struct HazeDraw {
+    std::array<float, 3> position{};
+    float radius = 0.0f;
+    float strength = 0.0f;
+};
+
+// The heat haze patches of this level load, every mod's. From any thread.
+std::vector<HazeDraw> haze_drawn();
+
 // Play (interface 1.8, mod_play.h): the start or travel a mod asked for, done now, on the game's
 // thread after the frame's menus (frontend/frame.cpp, beside the developer menu's start); nothing
 // when none is pending.

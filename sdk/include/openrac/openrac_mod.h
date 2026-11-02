@@ -54,7 +54,8 @@ extern "C" {
  * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a
  * folder of the mod's own for its files and the memory card slot the game in progress saves into,
  * 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles
- * around a place, props (meshes of the mod's drawn in the level) and sounds of the mod's own.
+ * around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the
+ * camera set by a mod and heat haze drawn over the picture.
  */
 #define OPENRAC_MOD_API_MINOR 12
 
@@ -952,6 +953,30 @@ typedef struct openrac_joint_offset {
 #define OPENRAC_SOUNDS_MAX 64
 #define OPENRAC_SOUND_VOICES_MAX 16
 
+/* A camera (openrac_api.camera_view and camera_set), in the game's units and axes (z up): the
+ * eye, and the unit rows the view is built from: where it looks (forward), its left and its up,
+ * each at right angles to the others. Since 1.12. */
+typedef struct openrac_camera {
+    /* sizeof(openrac_camera), set by the mod. */
+    uint32_t size;
+    float eye[3];
+    float forward[3];
+    float left[3];
+    float up[3];
+} openrac_camera;
+
+/* One patch of heat haze (openrac_api.haze_set): the picture behind a ball of `radius` (the game's
+ * units) around `position` wobbles, as air over a jet does, by up to `strength` of the ball's size
+ * on the screen (0.05 a shimmer, 0.3 a strong wobble), fading out to its edge. Since 1.12. */
+typedef struct openrac_haze {
+    float position[3];
+    float radius;
+    float strength;
+} openrac_haze;
+
+/* The most heat haze patches the mods together draw at once. Since 1.12. */
+#define OPENRAC_HAZE_MAX 64
+
 /* ------------------------------------------------------------------------------------------ *
  * Callbacks
  * ------------------------------------------------------------------------------------------ */
@@ -1505,6 +1530,25 @@ typedef struct openrac_api {
      * what he carries follow. OPENRAC_HOOK_UNKNOWN outside a level, for a mod without the hook, or
      * past OPENRAC_JOINT_OFFSETS_MAX. Since 1.12. */
     int (*hero_set_joints)(openrac_mod* mod, const openrac_joint_offset* joints, int count);
+
+    /* Fills `out` (its size set by the mod) with the camera the game made itself for the last
+     * view it built in the level (before a mod's camera_set goes over it). Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or before its first view. Since
+     * 1.12. */
+    int (*camera_view)(openrac_camera* out);
+    /* Puts the game's camera where `camera` says, from the next view the game builds on: the
+     * picture, the sky and what the game's logic reads of its camera (the hero walks along the
+     * view). The game's own camera goes on underneath (camera_view). It stays until the mod calls
+     * this with null, or the level goes; under the pause menu the menu's own camera is kept. One
+     * mod at a time: OPENRAC_HOOK_TAKEN while another mod holds the camera, OPENRAC_HOOK_UNKNOWN
+     * outside a level or for rows that are not unit vectors. Since 1.12. */
+    int (*camera_set)(openrac_mod* mod, const openrac_camera* camera);
+
+    /* Draws heat haze (openrac_haze) over the picture, behind the HUD: the `count` patches replace
+     * the mod's last ones and stay until the next call; 0 (or `patches` null) takes them off. They
+     * go with the level. OPENRAC_HOOK_UNKNOWN outside a level or past OPENRAC_HAZE_MAX for all
+     * mods. Since 1.12. */
+    int (*haze_set)(openrac_mod* mod, const openrac_haze* patches, int count);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

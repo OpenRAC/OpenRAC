@@ -759,6 +759,18 @@ int (*g_sound_set)(std::uint32_t, float, float) = nullptr;
 void (*g_sound_stop)(std::uint32_t) = nullptr;
 void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullptr;
 
+// The mod holding the game's camera (camera_set), and the heat haze patches each mod drew, of a
+// level load, behind a lock: the front end reads them on its own thread.
+const openrac_mod* g_camera_mod = nullptr;
+std::uint32_t g_camera_loads = 0;
+struct Haze {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::vector<openrac_haze> patches;
+};
+std::mutex g_haze_lock;
+std::vector<Haze> g_haze;
+
 std::uint32_t loads_now() {
     return g_play != nullptr ? g_play->loads() : 0;
 }
@@ -913,6 +925,86 @@ int api_prop_remove(openrac_mod* mod, int id) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_camera_view(openrac_camera* out) {
+    if (out == nullptr || out->size < sizeof(openrac_camera) || g_play == nullptr
+        || g_play->camera_view == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    float eye[3], rows[9];
+    if (g_play->camera_view(eye, rows) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::copy(eye, eye + 3, out->eye);
+    std::copy(rows, rows + 3, out->forward);
+    std::copy(rows + 3, rows + 6, out->left);
+    std::copy(rows + 6, rows + 9, out->up);
+    return OPENRAC_HOOK_OK;
+}
+
+// Whether `v` is a unit vector (to a few parts in a thousand).
+bool unit(const float v[3]) {
+    const float n = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    return std::isfinite(n) && std::fabs(n - 1.0f) < 0.01f;
+}
+
+int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
+    if (mod == nullptr || g_play == nullptr || g_play->camera_set == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (g_camera_mod != nullptr && g_camera_loads != loads_now()) {
+        g_camera_mod = nullptr;  // its level went, and the camera with it
+    }
+    if (g_camera_mod != nullptr && g_camera_mod != mod) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    if (camera == nullptr) {
+        if (g_camera_mod == mod) {
+            g_play->camera_set(nullptr, nullptr);
+            g_camera_mod = nullptr;
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    if (camera->size < sizeof(openrac_camera) || !unit(camera->forward) || !unit(camera->left)
+        || !unit(camera->up)
+        || !std::all_of(camera->eye, camera->eye + 3, [](float v) { return std::isfinite(v); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    float rows[9];
+    std::copy(camera->forward, camera->forward + 3, rows);
+    std::copy(camera->left, camera->left + 3, rows + 3);
+    std::copy(camera->up, camera->up + 3, rows + 6);
+    if (g_play->camera_set(camera->eye, rows) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_camera_mod = mod;
+    g_camera_loads = loads_now();
+    return OPENRAC_HOOK_OK;
+}
+
+int api_haze_set(openrac_mod* mod, const openrac_haze* patches, int count) {
+    std::int32_t level = -1;
+    if (mod == nullptr || count < 0 || (count > 0 && patches == nullptr)
+        || (count > 0 && !in_level(phase_now(&level)))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_haze_lock);
+    const std::uint32_t loads = loads_now();
+    std::size_t others = 0;
+    for (const Haze& h : g_haze) {
+        if (h.mod != mod && h.loads == loads) {
+            others += h.patches.size();
+        }
+    }
+    if (others + static_cast<std::size_t>(count) > OPENRAC_HAZE_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::erase_if(g_haze, [&](const Haze& h) { return h.mod == mod || h.loads != loads; });
+    if (count > 0) {
+        g_haze.push_back({mod, loads, std::vector<openrac_haze>(patches, patches + count)});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
 int api_sound_load(openrac_mod* mod, const char* path) {
     if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -1043,6 +1135,24 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.sound_play = api_sound_play;
     api.sound_set = api_sound_set;
     api.sound_stop = api_sound_stop;
+    api.camera_view = api_camera_view;
+    api.camera_set = api_camera_set;
+    api.haze_set = api_haze_set;
+}
+
+std::vector<HazeDraw> haze_drawn() {
+    std::vector<HazeDraw> out;
+    const std::lock_guard<std::mutex> lock(g_haze_lock);
+    const std::uint32_t loads = loads_now();
+    for (const Haze& h : g_haze) {
+        if (h.loads != loads) {
+            continue;
+        }
+        for (const openrac_haze& p : h.patches) {
+            out.push_back({{p.position[0], p.position[1], p.position[2]}, p.radius, p.strength});
+        }
+    }
+    return out;
 }
 
 std::vector<PropDraw> props_drawn() {
@@ -1143,6 +1253,14 @@ void reset_play() {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         g_props.fill(Prop{});
     }
+    {
+        const std::lock_guard<std::mutex> lock(g_haze_lock);
+        g_haze.clear();
+    }
+    if (g_camera_mod != nullptr && g_play != nullptr && g_play->camera_set != nullptr) {
+        g_play->camera_set(nullptr, nullptr);
+    }
+    g_camera_mod = nullptr;
     for (const auto& v : g_voices) {
         if (g_sound_stop != nullptr) {
             g_sound_stop(v.second);
@@ -1182,6 +1300,16 @@ void drop_figures(const openrac_mod* mod) {
                 p = Prop{};
             }
         }
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_haze_lock);
+        std::erase_if(g_haze, [&](const Haze& h) { return h.mod == mod; });
+    }
+    if (g_camera_mod == mod) {
+        if (g_play != nullptr && g_play->camera_set != nullptr) {
+            g_play->camera_set(nullptr, nullptr);
+        }
+        g_camera_mod = nullptr;
     }
     std::erase_if(g_voices, [&](const auto& v) {
         if (v.first == mod && g_sound_stop != nullptr) {

@@ -1653,6 +1653,10 @@ void keep_tick(
     k.joints = std::move(mobys.joints);
     k.palette = std::move(mobys.palette);
     k.draws = draws;
+    k.haze.clear();
+    for (const mods::HazeDraw& h : mods::haze_drawn()) {
+        k.haze.push_back({h.position[0], h.position[1], h.position[2], h.radius, h.strength});
+    }
     k.has_camera = state.forward[0] != 0.0f || state.forward[1] != 0.0f || state.forward[2] != 0.0f;
     g->last_tick_menu =
         k.before_world >= 0x40000;  // the last tick's, read before this one's is kept

@@ -73,6 +73,11 @@ void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 /* collision.c: the collision triangles in a box for the mods (interface 1.12, game_host.h's
  * collision_triangles: openrac_collision_triangle records), read from the game's memory only. */
 int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, int max);
+/* A mod's camera (camera_override.c, openrac_api.camera_set): its eye and rows (forward, left, up),
+ * or NULL to let it go; and the camera the game made itself before the last view build. 1, or 0
+ * outside a level. */
+int rac1_camera_set(const float eye[3], const float rows[9]);
+int rac1_camera_view(float eye[3], float rows[9]);
 
 /* world.c: the level's mobys for the mods (interface 1.9): a moby's slot in the array (-1 none),
  * the mods' gate around each update (UpdateMobys, crash_state.c: 1 before it skips it), the hero's

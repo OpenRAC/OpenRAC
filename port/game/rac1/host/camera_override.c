@@ -16,6 +16,10 @@
  * crossed with left. The game's logic reads the rows too (the hero walks along the view), so
  * this is a debugging switch only, applied in a level only (the menus' panel views are built here
  * too); unset, the build runs as the game wrote it.
+ *
+ * A mod's camera (interface 1.12, openrac_api.camera_set) is written the same way, in the level's
+ * own context only (not under the pause menu, whose camera is its own), until the mod lets it go
+ * or the level goes. The camera the game made itself is kept first (openrac_api.camera_view).
  */
 #include <math.h>
 #include <stdio.h>
@@ -26,6 +30,47 @@
 
 #define CAMERA_POS RAC1_ADDR(0x00187180u)
 #define CAMERA_ROWS RAC1_ADDR(0x00187390u)
+/* The moby context (world.c's): 0 the level's, 1 the pause menu's. */
+#define CONTEXT OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F808u))
+
+/* The mod's camera, and the game's own as it made it before the last build. */
+static struct {
+    int on;
+    uint32_t loads;
+    float eye[3], rows[12];
+} mod_camera;
+static struct {
+    int seen;
+    uint32_t loads;
+    float eye[3], rows[9];
+} game_camera;
+
+int rac1_camera_set(const float eye[3], const float rows[9]) {
+    if (eye == NULL || rows == NULL) {
+        mod_camera.on = 0;
+        return 1;
+    }
+    if (!rac1_level_running()) {
+        return 0;
+    }
+    memcpy(mod_camera.eye, eye, sizeof(mod_camera.eye));
+    for (int i = 0; i < 3; ++i) {
+        memcpy(mod_camera.rows + 4 * i, rows + 3 * i, 3 * sizeof(float));
+        mod_camera.rows[4 * i + 3] = 0.0f;
+    }
+    mod_camera.loads = rac1_program_loads();
+    mod_camera.on = 1;
+    return 1;
+}
+
+int rac1_camera_view(float eye[3], float rows[9]) {
+    if (!rac1_level_running() || !game_camera.seen || game_camera.loads != rac1_program_loads()) {
+        return 0;
+    }
+    memcpy(eye, game_camera.eye, sizeof(game_camera.eye));
+    memcpy(rows, game_camera.rows, sizeof(game_camera.rows));
+    return 1;
+}
 
 void func_001F2608(void) {
     static int read = 0, on = 0;
@@ -50,6 +95,28 @@ void func_001F2608(void) {
                 memcpy(rows + 4, l, sizeof(l));
                 memcpy(rows + 8, u, sizeof(u));
                 on = 1;
+            }
+        }
+    }
+    /* The level's own camera (not the pause menu's), as the game made it; then a mod's over it. */
+    if (openrac_guest_overlay() >= 0 && rac1_level_running() && GREF(int, CONTEXT) == 0) {
+        const float* pos = (const float*)G(OPENRAC_DATA(CAMERA_POS));
+        const float* r = (const float*)G(OPENRAC_DATA(CAMERA_ROWS));
+        memcpy(game_camera.eye, pos, sizeof(game_camera.eye));
+        for (int i = 0; i < 3; ++i) {
+            memcpy(game_camera.rows + 3 * i, r + 4 * i, 3 * sizeof(float));
+        }
+        game_camera.loads = rac1_program_loads();
+        game_camera.seen = 1;
+        if (mod_camera.on && mod_camera.loads != game_camera.loads) {
+            mod_camera.on = 0;
+        }
+        if (mod_camera.on) {
+            float* p = (float*)G(OPENRAC_DATA(CAMERA_POS));
+            float* w = (float*)G(OPENRAC_DATA(CAMERA_ROWS));
+            memcpy(p, mod_camera.eye, sizeof(mod_camera.eye));
+            for (int i = 0; i < 3; ++i) {
+                memcpy(w + 4 * i, mod_camera.rows + 4 * i, 3 * sizeof(float));
             }
         }
     }

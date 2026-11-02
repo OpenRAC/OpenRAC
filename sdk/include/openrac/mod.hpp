@@ -1259,6 +1259,40 @@ public:
                       == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.12: whether the port offers camera_view(), camera_set() and haze_set().
+    bool has_camera() const {
+        return has_api_12() && m_api->size >= offsetof(openrac_api, haze_set) + sizeof(void*);
+    }
+
+    // Since 1.12: the camera the game made itself for its last view in the level. False outside a
+    // level or on a port without the call.
+    bool camera_view(openrac_camera& out) const {
+        out.size = sizeof(openrac_camera);
+        return has_camera() && m_api->camera_view(&out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.12: the game's camera put where `camera` says until camera_release() or the level
+    // goes. False outside a level, while another mod holds the camera, or on a port without it.
+    bool camera_set(const openrac_camera& camera) const {
+        openrac_camera c = camera;
+        c.size = sizeof(openrac_camera);
+        return has_camera() && m_api->camera_set(m_handle, &c) == OPENRAC_HOOK_OK;
+    }
+    void camera_release() const {
+        if (has_camera()) {
+            m_api->camera_set(m_handle, nullptr);
+        }
+    }
+
+    // Since 1.12: heat haze patches over the picture (openrac_haze) until the next call; an empty
+    // list takes them off.
+    bool haze_set(const std::vector<openrac_haze>& patches) const {
+        return has_camera()
+               && m_api->haze_set(m_handle, patches.empty() ? nullptr : patches.data(),
+                                  static_cast<int>(patches.size()))
+                      == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
         return m_api->api_minor >= 9

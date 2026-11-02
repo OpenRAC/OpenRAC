@@ -374,6 +374,26 @@ bool draw_world(SceneFrame& frame) {
             }
         }
 
+        // The mods' heat haze (interface 1.12), over the world and under the HUD.
+        if (!scene.haze.empty() && scene.has_camera && !input.keep_colour && !scene.world_under_menu
+            && (scene.draws & 0x1Fu) != 0) {
+            auto before_hud = std::move(input.before_hud);
+            input.before_hud = [&owner,
+                                &scene,
+                                view_projection =
+                                    renderer::multiply(input.camera.projection, input.camera.view),
+                                before_hud = std::move(before_hud)] {
+                owner.haze.apply(
+                    owner.frame,
+                    view_projection,
+                    scene.haze,
+                    static_cast<float>(scene.frame) / 60.0f
+                );
+                if (before_hud) {
+                    before_hud();
+                }
+            };
+        }
         if (graphics.agx_preview && graphics.enhanced_graphics && enhanced_graphics_available()
             && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0) {
             auto before_hud = std::move(input.before_hud);

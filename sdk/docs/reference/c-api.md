@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `12` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a folder of the mod's own for its files and the memory card slot the game in progress saves into, 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles around a place, props (meshes of the mod's drawn in the level) and sounds of the mod's own. |
+| `OPENRAC_MOD_API_MINOR` | `12` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a folder of the mod's own for its files and the memory card slot the game in progress saves into, 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the camera set by a mod and heat haze drawn over the picture. |
 | `OPENRAC_MOD_TARGET_MINOR` | `OPENRAC_MOD_API_MINOR` |  |
 | `OPENRAC_MOD_EXPORT` | `__declspec(dllexport)` or `__attribute__((visibility("default")))` |  |
 | `OPENRAC_LOG_DEBUG` | `0` | The levels of openrac_api.log, from the most to the least talkative. Since 1.0. |
@@ -161,6 +161,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_JOINT_OFFSETS_MAX` | `128` | The most joints one hero_set_joints call turns. Since 1.12. |
 | `OPENRAC_SOUNDS_MAX` | `64` | The most sounds a mod loads (openrac_api.sound_load), and the most voices the mods play at once (openrac_api.sound_play). Since 1.12. |
 | `OPENRAC_SOUND_VOICES_MAX` | `16` |  |
+| `OPENRAC_HAZE_MAX` | `64` | The most heat haze patches the mods together draw at once. Since 1.12. |
 | `OPENRAC_MOD_QUERY` | `"openrac_mod_query"` | The names the entry points are exported under, for the port's lookup. Since 1.0. |
 | `OPENRAC_MOD_LOAD` | `"openrac_mod_load"` |  |
 | `OPENRAC_MOD_UNLOAD` | `"openrac_mod_unload"` |  |
@@ -646,6 +647,32 @@ Since 1.12.
 | `float rotation[4]` |  |
 | `float translation[3]` |  |
 
+## `openrac_camera`
+
+A camera (openrac_api.camera_view and camera_set), in the game's units and axes (z up): the
+eye, and the unit rows the view is built from: where it looks (forward), its left and its up,
+each at right angles to the others. Since 1.12.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_camera), set by the mod. |
+| `float eye[3]` |  |
+| `float forward[3]` |  |
+| `float left[3]` |  |
+| `float up[3]` |  |
+
+## `openrac_haze`
+
+One patch of heat haze (openrac_api.haze_set): the picture behind a ball of `radius` (the game's
+units) around `position` wobbles, as air over a jet does, by up to `strength` of the ball's size
+on the screen (0.05 a shimmer, 0.3 a strong wobble), fading out to its edge. Since 1.12.
+
+| Member | |
+|---|---|
+| `float position[3]` |  |
+| `float radius` |  |
+| `float strength` |  |
+
 ## `openrac_developer_menu_item`
 
 One entry in a mod's top-level desktop menu. `group` is an optional submenu label; `action` is
@@ -765,3 +792,6 @@ sees them, and one built for 1.2 loads on a 1.2 port or newer.
 | `int (*sound_set)(uint32_t voice, float volume, float pitch)` | A voice's volume and pitch from now on. OPENRAC_HOOK_UNKNOWN for a voice that has ended. |
 | `void (*sound_stop)(uint32_t voice)` | Stops a voice (a voice that has ended: nothing). Since 1.12. |
 | `int (*hero_set_joints)(openrac_mod* mod, const openrac_joint_offset* joints, int count)` | Turns and moves joints of the hero on top of his animation (openrac_joint_offset), from the holder of the hero's update hook (as hero_set_pose): the `count` offsets replace the last ones and stay until the next call; 0 (or `joints` null) takes them off. His drawing, shadow and what he carries follow. OPENRAC_HOOK_UNKNOWN outside a level, for a mod without the hook, or past OPENRAC_JOINT_OFFSETS_MAX. Since 1.12. |
+| `int (*camera_view)(openrac_camera* out)` | Fills `out` (its size set by the mod) with the camera the game made itself for the last view it built in the level (before a mod's camera_set goes over it). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or before its first view. Since 1.12. |
+| `int (*camera_set)(openrac_mod* mod, const openrac_camera* camera)` | Puts the game's camera where `camera` says, from the next view the game builds on: the picture, the sky and what the game's logic reads of its camera (the hero walks along the view). The game's own camera goes on underneath (camera_view). It stays until the mod calls this with null, or the level goes; under the pause menu the menu's own camera is kept. One mod at a time: OPENRAC_HOOK_TAKEN while another mod holds the camera, OPENRAC_HOOK_UNKNOWN outside a level or for rows that are not unit vectors. Since 1.12. |
+| `int (*haze_set)(openrac_mod* mod, const openrac_haze* patches, int count)` | Draws heat haze (openrac_haze) over the picture, behind the HUD: the `count` patches replace the mod's last ones and stay until the next call; 0 (or `patches` null) takes them off. They go with the level. OPENRAC_HOOK_UNKNOWN outside a level or past OPENRAC_HAZE_MAX for all mods. Since 1.12. |

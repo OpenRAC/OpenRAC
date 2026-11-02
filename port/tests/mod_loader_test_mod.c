@@ -325,6 +325,26 @@ static void motion_frame(void) {
         s_record(9580 + -s_api->sound_set(voice, 1.0f, 1.0f));
         s_api->sound_stop(voice);
         s_record(9580 + -s_api->sound_set(voice, 1.0f, 1.0f));
+        {
+            openrac_haze haze[2];
+            openrac_camera cam;
+            memset(haze, 0, sizeof haze);
+            haze[0].position[0] = 4.0f;
+            haze[0].radius = 1.0f;
+            haze[0].strength = 0.5f;
+            s_record(9590 + -s_api->haze_set(s_mod, haze, 2));
+            memset(&cam, 0, sizeof cam);
+            cam.size = sizeof cam;
+            cam.eye[0] = 6.0f;
+            s_record(9590 + -s_api->camera_set(s_mod, &cam)); /* rows not unit vectors */
+            cam.forward[0] = 1.0f;
+            cam.left[1] = 1.0f;
+            cam.up[2] = 1.0f;
+            s_record(9590 + -s_api->camera_set(s_mod, &cam));
+            memset(&cam, 0, sizeof cam);
+            cam.size = sizeof cam;
+            s_record(9600 + -s_api->camera_view(&cam) + (int)cam.eye[0]);
+        }
     } else if (s_frames == 2) {
         s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));

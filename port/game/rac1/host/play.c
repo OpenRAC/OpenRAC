@@ -597,4 +597,6 @@ const openrac_game_play rac1_play = {
     .hero_set_pose = hero_set_pose,
     .hero_moby = hero_moby,
     .collision_triangles = rac1_collision_triangles,
+    .camera_set = rac1_camera_set,
+    .camera_view = rac1_camera_view,
 };

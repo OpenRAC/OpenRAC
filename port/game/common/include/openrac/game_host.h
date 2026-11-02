@@ -472,6 +472,12 @@ typedef struct openrac_game_play {
     /* The hero's moby (its address), 0 outside a level (openrac_api.hero_set_joints). NULL for a
      * game without it. */
     uint32_t (*hero_moby)(void);
+    /* A mod's camera (openrac_api.camera_set): its eye and rows (forward, left, up, three floats
+     * each), or NULL to let it go: 1, or 0 outside a level. And the camera the game made itself
+     * for its last view (openrac_api.camera_view): 1, or 0 without one. NULL for a game without
+     * them. */
+    int (*camera_set)(const float eye[3], const float rows[9]);
+    int (*camera_view)(float eye[3], float rows[9]);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

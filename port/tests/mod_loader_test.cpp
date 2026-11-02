@@ -1052,6 +1052,16 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         );
         return std::uint32_t{7};
     };
+    play.camera_set = [](const float eye[3], const float rows[9]) {
+        g_motion.push_back(eye != nullptr ? "camera " + std::to_string(static_cast<int>(eye[0] + rows[0]))
+                                          : std::string("camera off"));
+        return 1;
+    };
+    play.camera_view = [](float eye[3], float rows[9]) {
+        std::fill(eye, eye + 3, 2.0f);
+        std::fill(rows, rows + 9, 0.0f);
+        return 1;
+    };
     static bool playing = false;
     playing = true;
     h.sound_set = [](std::uint32_t voice, float, float) {
@@ -1072,11 +1082,13 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(
         (g_records
          == std::vector<int>{
-             9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560, 9561, 9577, 9580, 9581
+             9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560, 9561, 9577, 9580, 9581,
+             9590, 9591, 9590, 9602
          })
     );
     CHECK(
-        (g_motion == std::vector<std::string>{"hero 5", "load beep.wav", "play 4 5 2 1", "stop 7"})
+        (g_motion
+         == std::vector<std::string>{"hero 5", "load beep.wav", "play 4 5 2 1", "stop 7", "camera 7"})
     );
     // The prop: its mesh asked for once (the level read again with it), drawn where it was posed.
     CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
@@ -1087,6 +1099,9 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         drawn.size() == 1 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
         && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
     );
+    // The heat haze, drawn while its level is.
+    const std::vector<mods::HazeDraw> haze = mods::haze_drawn();
+    CHECK(haze.size() == 2 && haze[0].position[0] == 4.0f && haze[0].radius == 1.0f);
     // Another hook point is the hero's update now, and the level was loaded again.
     play.hero_update_hook = "Test_Other";
     g_loads = 2;
@@ -1094,6 +1109,7 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::frame();
     CHECK((g_records == std::vector<int>{9501, 9551}));
     CHECK(mods::props_drawn().empty());
+    CHECK(mods::haze_drawn().empty());
     mods::reset();
 }
 

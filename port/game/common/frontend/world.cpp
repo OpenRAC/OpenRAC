@@ -421,6 +421,7 @@ void savestate_restored(std::uint64_t tick) {
     g->overdraw = false;
     g->skipped = 0;
     g->agx.release();
+    g->haze.release();
     g->frame.release();
     g->picture.release();
     g->last_world.release();
