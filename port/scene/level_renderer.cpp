@@ -1111,6 +1111,13 @@ void LevelScene::draw_layer(
         }
         glUniform4fv(shader.uniform("probe_point_position"), 8, point_positions.data());
         glUniform4fv(shader.uniform("probe_point_colour"), 8, point_colours.data());
+        if (!m_moby_point_lights.empty()) {
+            glUniform4fv(
+                shader.uniform("moby_point_lights"),
+                static_cast<GLsizei>(m_moby_point_lights.size() * 2),
+                m_moby_point_lights.front().data()
+            );
+        }
         // The registered lighting's uniforms; without it the shader keeps the game's lighting.
         if (m_lighting) {
             m_lighting->bind(

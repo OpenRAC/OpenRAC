@@ -121,6 +121,9 @@ struct TickMobys {
     scene::MobyShadowState shadow_state;                   // Captured shadow direction and scale.
     std::vector<Kept::TargetMoby> target_mobys;            // Mobys drawn in private camera spaces.
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
+    // Each point-lit moby's third light: colour (w 0), then its world direction (w 0); an
+    // instance's moby_light.x carries 256 x (its record + 1) (mesh.vert).
+    std::vector<std::array<float, 8>> point_lit;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.

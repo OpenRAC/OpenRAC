@@ -46,6 +46,10 @@ uniform sampler2D palette_texture;
 uniform sampler2D light_texture;
 // The level's 16 directional sets: colour A (w = back factor), direction A, colour B, direction B.
 uniform vec4 light_sets[64];
+// A point-lit moby's third light (LevelScene::set_moby_point_lights): colour, then the direction
+// from the lights to it, for the record moby_light.x / 256 - 1 names. Going Commando's moby
+// program gives it no back light.
+uniform vec4 moby_point_lights[64];
 // The metal ("shine") pass (MobyProc's metal packets): texture coordinates from the view-space
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
@@ -182,6 +186,11 @@ void main() {
         fa = max(fa, -abs(ca.w) * fa);
         fb = max(fb, -abs(cb.w) * fb);
         vec3 lit = moby_ambient.rgb + ca.rgb * fa + cb.rgb * fb;
+        int point = (int(moby_light.x + 0.5) >> 8) - 1;
+        if (point >= 0 && point < 32) {
+            vec3 dp = moby_point_lights[2 * point + 1].xyz;
+            lit += moby_point_lights[2 * point].rgb * max(dot(-dp, nw), 0.0);
+        }
         v_colour = vec4(min(lit * colour.rgb, vec3(255.0 / 128.0)), colour.a) * tint;
         // A glow packet's vertex (slot -2) of a moby whose mode has 0x10: its glow RGB, unlit,
         // with no multiplier (MobyProc's glow list overwrites the lit colours).
