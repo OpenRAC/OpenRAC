@@ -306,7 +306,10 @@ class LevelWriter:
         problems = level.problems if fmt.lenient else None
         self.write_environment(level_sky(level, fmt))
         self.scene.node("Game", ".", "Node3D", transform=transform(GAME_TO_GODOT))
-        lights = (light_bank(level.gameplay), self.normals) if self.normals is not None and fmt.lighting else None
+        # The terrain lit as the game lights it at level load: Ratchet & Clank's (lighting) and Going
+        # Commando's (world_lighting), as the port's writer does; the other games' go out unlit.
+        lit = self.normals is not None and (fmt.lighting or fmt.world_lighting)
+        lights = (light_bank(level.gameplay), self.normals) if lit else None
         self.write_terrain(terrain(level.block(unpack("<I", level.index, 0x08)[0]), lod, lights, problems)
                            + chunk_terrain(level, lod, lights, problems), lod)
         ties = tie_classes(level)
