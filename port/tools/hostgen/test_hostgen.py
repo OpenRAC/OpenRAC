@@ -2224,6 +2224,24 @@ class Places(unittest.TestCase):
             self.assertEqual(problems, [])
             self.assertEqual(stats["known"], 2)
 
+    def test_abicheck_finds_a_long_long_passed_as_an_int(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = Path(tmp)
+            (gen / "game_protos.h").write_text("void func_0027E4A8(float a0, int a1, long long a2);\n")
+            (gen / "functions.c").write_text(
+                "static const openrac_fn_entry k_exe[] = {\n"
+                "    {0x0027E4A8u, (openrac_host_fn)func_0027E4A8, \"func_0027E4A8\"},\n};\n")
+            (gen / "a.c").write_text(
+                "void func_002729A0(gaddr a0)\n{\n"
+                "    GFN(void (*)(float, int, int), OPENRAC_CODE(0x0027E4A8u))(1.0f, 2, 3);\n"
+                "    GFN(void (*)(float, int, long long), OPENRAC_CODE(0x0027E4A8u))(1.0f, 2, 3);\n"
+                "}\n")
+            import abicheck
+            problems, _ = abicheck.check(gen)
+            self.assertEqual(len(problems), 1, problems)
+            self.assertIn("a.c:3:", problems[0])
+            self.assertIn("argument 3 is int for long long", problems[0])
+
     def test_abicheck_finds_a_call_whose_positions_differ(self):
         with tempfile.TemporaryDirectory() as tmp:
             gen = Path(tmp)

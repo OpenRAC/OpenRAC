@@ -19,8 +19,9 @@ This reads what hostgen wrote: the functions at each code address (functions.c),
 definitions (game_protos.h), and every GFN in the generated C whose address is known when it is
 written (OPENRAC_LCODE, OPENRAC_CODE, a literal, openrac_folded_call's places,
 openrac_call_in_copy's callee). For each, the call's parameter at every position both have must
-be of the definition's kind (integer or pointer, float, double), and a result the call reads
-must be of the kind the definition returns. It exits 1 when one is not. Calls through an address
+be of the definition's kind (integer or pointer, float, double), an integer the definition takes
+in 64 bits must be passed in 64 (the host leaves a 32-bit argument's upper half unset), and a
+result the call reads must be of the kind the definition returns. It exits 1 when one is not. Calls through an address
 the program computes (tables of update functions) are not known here and are not checked; the
 assembly's translation calls those through each function's thunk where position decides
 (guest.h, OPENRAC_REGS_THUNKS).
@@ -63,6 +64,17 @@ def kind(t: str) -> str:
     if all(w in INT_WORDS for w in t.split()):
         return "i"
     return "?"
+
+
+WIDE_INTS = {"long long", "long long int", "unsigned long long", "unsigned long long int", "signed long long",
+             "long", "unsigned long", "long int", "unsigned long int", "s64", "u64", "openrac_u64", "openrac_s64",
+             "uint64_t", "int64_t"}
+
+
+def wide(t: str) -> bool:
+    """An integer of 64 bits as hostgen writes it (the EE's long and long long)."""
+    t = " ".join(re.sub(r"\b(const|volatile|restrict|__restrict)\b", " ", t).split())
+    return t in WIDE_INTS
 
 
 def split_params(text: str) -> list[str]:
@@ -200,10 +212,17 @@ def compare(call_ret: str, call_params: list[str], def_ret: str, def_params: lis
     what = []
     cp = [kind(p) for p in call_params if p != "..."]
     dp = [kind(p) for p in def_params if p != "..."]
+    cw = [p for p in call_params if p != "..."]
+    dw = [p for p in def_params if p != "..."]
     for k in range(min(len(cp), len(dp))):
         if cp[k] != dp[k] and "?" not in (cp[k], dp[k]):
             what.append(f"argument {k + 1} is {'an integer' if cp[k] == 'i' else cp[k]} for "
                         f"{'an integer' if dp[k] == 'i' else dp[k]}")
+            break
+        if cp[k] == dp[k] == "i" and wide(dw[k]) and not wide(cw[k]) and "*" not in cw[k]:
+            # 32 bits passed where the callee reads 64: the upper half is whatever the host's
+            # register held (the EE's register carried all 64).
+            what.append(f"argument {k + 1} is {cw[k]} for {dw[k]}")
             break
     rc, dc = kind(call_ret), kind(def_ret)
     # A result the callee does not return is whatever the register held, on the EE as on any host
