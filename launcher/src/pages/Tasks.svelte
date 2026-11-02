@@ -14,8 +14,9 @@
   const list = $derived([...jobs.list].reverse());
   const finished = $derived(jobs.list.some((j) => j.state !== "queued" && j.state !== "running"));
   const live = (j: Job) => j.state === "queued" || j.state === "running";
-  /** Which jobs' output is unfolded; a failed one opens by itself. */
+  /** Which jobs' output is unfolded; a failed or selected one opens by itself. */
   const opened = $state<Record<number, boolean>>({});
+  const showOutput = (job: Job) => opened[job.key] ?? (job.key === jobs.selected || job.state === "failed");
   /** The most lines of output written out on the page. */
   const SHOWN = 400;
 
@@ -112,16 +113,13 @@
             </div>
           {/if}
           {#if job.lines.length || job.command}
-            <details
-              open={opened[job.key] ?? job.state === "failed"}
-              ontoggle={(e) => (opened[job.key] = e.currentTarget.open)}
-            >
+            <details open={showOutput(job)} ontoggle={(e) => (opened[job.key] = e.currentTarget.open)}>
               <summary>Show output</summary>
               <div class="row tools">
                 <span class="dim mono clip grow" title={job.command}>{job.command}</span>
                 <button class="small" onclick={() => void copy(job)}>Copy</button>
               </div>
-              {#if opened[job.key] ?? job.state === "failed"}
+              {#if showOutput(job)}
                 <!-- Only while open, and the last lines only: a long build prints thousands. -->
                 {#if job.lines.length > SHOWN}<p class="dim cut">
                     The first {job.lines.length - SHOWN} lines are left out here; Copy takes them all.

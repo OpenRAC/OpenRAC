@@ -383,6 +383,12 @@ void load(const std::filesystem::path& file) {
             } else {
                 known = parse_listed(value, kAnisotropies, s.anisotropy);
             }
+        } else if (key == "hdr") {
+            known = parse(value, hdr::kModeKeys, s.hdr);
+        } else if (key == "hdr_paper_white") {
+            known = parse_int(value, 0, hdr::kPaperWhiteMax, s.hdr_paper_white);
+        } else if (key == "hdr_peak") {
+            known = parse_int(value, 0, hdr::kPeakMax, s.hdr_peak);
         } else if (key == "vsync") {
             known = parse(value, kVSync, s.vsync);
             has_vsync = has_vsync || known;
@@ -596,6 +602,9 @@ void save() {
         << "\n"
         << "temporal_sharpness = " << s.temporal_sharpness << "\n"
         << "anisotropy = " << (s.anisotropy ? std::to_string(s.anisotropy) : "auto") << "\n"
+        << "hdr = " << hdr::kModeKeys[static_cast<int>(s.hdr)] << "\n"
+        << "hdr_paper_white = " << s.hdr_paper_white << "\n"
+        << "hdr_peak = " << s.hdr_peak << "\n"
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"
         << "frame_rate = " << frame_rate_value(s) << "\n"
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
@@ -643,6 +652,16 @@ void save() {
         log::warn("the settings could not be written to {}", g_file.string());
         std::filesystem::remove(written, moved);
     }
+}
+
+bool set_hdr_mode(std::string_view name) {
+    for (std::size_t i = 0; i < std::size(hdr::kModeKeys); ++i) {
+        if (name == hdr::kModeKeys[i]) {
+            g_settings.hdr = static_cast<hdr::Mode>(i);
+            return true;
+        }
+    }
+    return false;
 }
 
 void set_volume(int volume) {

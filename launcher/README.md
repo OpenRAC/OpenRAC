@@ -177,6 +177,9 @@ The disc image is never changed. With developer tools on, the page also shows
 the folders and commands behind the buttons
 ([editor/README.md](../editor/README.md#pack-your-edits)).
 
+**Audio** exports the game's music, speech and effects as WAV files, and imports
+edited ones back as a pack ([editor/AUDIO_MODDING.md](../editor/AUDIO_MODDING.md)).
+
 **Models and textures** exports a level's models (glTF, with skeletons) and
 textures (PNG), and imports edited folders back as overrides. It also manages
 the packs: on or off, order, remove, add a `.zip` or folder, or drop one on
@@ -285,6 +288,11 @@ What the launcher writes, and when it goes online:
 - **Logs**: `openrac-<id>.log` and the five before it, plus `crashes/`, in
   the game's data folder. The launcher's own log is `launcher.log` beside
   `launcher.json`, moved to `launcher.1.log` past 1 MB.
+- **Activity log**: on a game's page, open the menu beside Play → Activity log,
+  then Show output on the job. Audio import results also have Open activity log,
+  which opens that import's output directly. With developer tools on it opens
+  Develop's console. This output is kept for the current launcher session, until
+  Clear finished or closing the launcher; it is not saved in `launcher.log`.
 - **Reports**: `OpenRAC-<report>.zip` in your Downloads folder, only when you
   press Save report.
 - **Memory card**: backups (`.backup_<time>…` beside the game's folder in the

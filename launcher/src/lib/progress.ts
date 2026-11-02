@@ -61,6 +61,7 @@ export const STEP_WORDS: Record<string, string> = {
   pack: "Packing",
   visibility: "Adding what the game can see",
   textures: "Showing your packs' textures",
+  audio: "Writing the sounds",
 };
 
 export interface ToolProgress {

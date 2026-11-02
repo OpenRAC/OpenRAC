@@ -326,7 +326,17 @@ struct ByteMatchMeasures {
 #[derive(Deserialize)]
 struct ByteMatchProjectJson {
     #[serde(default)]
+    measures: Option<ByteMatchMeasures>,
+    #[serde(default)]
+    commit: Option<ByteMatchCommit>,
+    #[serde(default)]
     functional: Option<ByteMatchFunctional>,
+}
+
+#[derive(Deserialize)]
+struct ByteMatchCommit {
+    #[serde(default)]
+    timestamp: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -345,6 +355,16 @@ pub const BYTEMATCH_PROJECTS: &str = "https://bytematch.dev/api/v1/projects?per_
 /// A project's own JSON on bytematch.dev, which also carries its functional C summary.
 pub fn bytematch_project_url(slug: &str) -> String {
     format!("https://bytematch.dev/{slug}.json")
+}
+
+/// RAC5's checkout is the US disc. Its ByteMatch project also contains a PAL
+/// report, which can become the project's default without changing this disc.
+pub fn bytematch_project_url_for(key: &str, slug: &str) -> String {
+    if key == "rac5/ntsc" && slug.eq_ignore_ascii_case("OpenRAC/rac5-sm-decomp") {
+        format!("https://bytematch.dev/{slug}/SCUS_976.15.json")
+    } else {
+        bytematch_project_url(slug)
+    }
 }
 
 /// The game versions of the checkout and the bytematch.dev project each takes from PROJECTS_JSON
@@ -376,7 +396,7 @@ pub fn bytematch_projects_for(root: &Path, projects_json: &str) -> Result<Vec<(S
 }
 
 /// Keeps the latest figures from bytematch.dev's project list, with the functional C summary of
-/// each project's own JSON in PROJECT_JSONS ("owner/repo" -> its JSON), in `cache` (the file
+/// each project's own JSON in PROJECT_JSONS (version key -> its JSON), in `cache` (the file
 /// the launcher keeps them in, for the next start without a network), and returns the reloaded
 /// Catalog. A version takes the project bytematch_projects_for gives it. The checkout's
 /// progress/summary.json is read, never written.
@@ -388,29 +408,55 @@ pub fn update_progress_from_bytematch(
 ) -> Result<Catalog, String> {
     let projects: Vec<ByteMatchProject> =
         serde_json::from_str(projects_json).map_err(|e| format!("invalid project list from bytematch.dev: {e}"))?;
+    let previous = std::fs::read_to_string(cache)
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&text).ok())
+        .unwrap_or_default();
     let mut rows = serde_json::Map::new();
     for (key, slug) in bytematch_projects_for(root, projects_json)? {
         let Some(project) = projects.iter().find(|p| format!("{}/{}", p.owner, p.repo) == slug) else { continue };
-        let Some(m) = &project.measures else { continue };
-        let functional = project_jsons
-            .get(&slug)
-            .and_then(|text| serde_json::from_str::<ByteMatchProjectJson>(text).ok())
-            .and_then(|p| p.functional)
+        let own = project_jsons.get(&key).and_then(|text| serde_json::from_str::<ByteMatchProjectJson>(text).ok());
+        let us = key == "rac5/ntsc" && slug.eq_ignore_ascii_case("OpenRAC/rac5-sm-decomp");
+        let Some(m) = (if us { own.as_ref().and_then(|p| p.measures.as_ref()) } else { project.measures.as_ref() })
+        else {
+            // A transient failure of the versioned request keeps only a prior
+            // US value. Never substitute the project's PAL default measures.
+            let us_source = format!("bytematch.dev/{slug}/SCUS_976.15");
+            if us {
+                if let Some(old) = previous.get(&key).filter(|row| row["source"].as_str() == Some(us_source.as_str())) {
+                    rows.insert(key, old.clone());
+                }
+            }
+            continue;
+        };
+        let timestamp = if us {
+            own.as_ref().and_then(|p| p.commit.as_ref()).and_then(|c| c.timestamp.as_deref())
+        } else {
+            project.timestamp.as_deref()
+        };
+        let functional = own
+            .as_ref()
+            .and_then(|p| p.functional.as_ref())
             .map(|f| serde_json::json!({"functions": f.functions, "code": f.code, "percent": f.code_percent}));
+        // The US report uses 0/0 to say its function denominator is unknown.
+        // Do not present that placeholder as "0 of 0 functions" in Develop.
+        let (matched_functions, total_functions) =
+            if us && m.total_functions == Some(0) { (None, None) } else { (m.matched_functions, m.total_functions) };
         rows.insert(
             key,
             serde_json::json!({
                 "progress": {
                     "matched_code": m.matched_code,
                     "total_code": m.total_code,
-                    "matched_functions": m.matched_functions,
-                    "total_functions": m.total_functions,
+                    "matched_functions": matched_functions,
+                    "total_functions": total_functions,
                     "fuzzy_percent": m.fuzzy_match_percent,
                     "percent": m.matched_code_percent,
-                    "date": project.timestamp.as_deref().map(|t| t.get(..10).unwrap_or(t)),
+                    "date": timestamp.map(|t| t.get(..10).unwrap_or(t)),
                     "functional": functional,
                 },
-                "source": format!("bytematch.dev/{slug}"),
+                "source": if us { format!("bytematch.dev/{slug}/SCUS_976.15") }
+                          else { format!("bytematch.dev/{slug}") },
             }),
         );
     }
@@ -531,7 +577,7 @@ mod tests {
 
         let mut jsons = BTreeMap::new();
         jsons.insert(
-            "OpenRAC/rac1-decomp".to_string(),
+            "rac1/pal".to_string(),
             r#"{"functional": {"code": 370968, "code_percent": 9.99, "functions": 389}}"#.to_string(),
         );
         // The launcher's own folder, beside its settings: where it can always write, unlike

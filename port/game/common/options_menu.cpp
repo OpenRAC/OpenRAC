@@ -39,6 +39,7 @@ constexpr const char* kLabels[kRows] = {
     "Anisotropic filtering",
     "Scenery detail",
     "VSync",
+    "HDR",
     "Frame rate",
     "Frame cap",
     "Low-latency frames",
@@ -82,6 +83,7 @@ constexpr Words kWords[] = {
       "Detalle del escenario",
       "Dettaglio scenario"}},
     {{"VSync", "Synchro verticale", "VSync", "Sincronía vertical", "Sincronia verticale"}},
+    {{"HDR", "HDR", "HDR", "HDR", "HDR"}},
     {{"Frame rate", "Fréquence d'images", "Bildrate", "Fotogramas", "Frequenza fotogrammi"}},
     {{"Frame cap",
       "Limite d'images",
@@ -160,6 +162,7 @@ constexpr Words kWords[] = {
     {{"Centre", "Centre", "Mitte", "Centro", "Centro"}},
     {{"Edges", "Bords", "Ränder", "Bordes", "Bordi"}},
     {{"Adaptive", "Adaptative", "Adaptiv", "Adaptativa", "Adattiva"}},
+    {{"Auto", "Auto", "Auto", "Auto", "Auto"}},
     {{"Unlimited", "Illimitée", "Unbegrenzt", "Ilimitada", "Illimitata"}},
     {{"Display", "Écran", "Bildschirm", "Pantalla", "Schermo"}},
     {{"Video", "Vidéo", "Video", "Vídeo", "Video"}},
@@ -332,6 +335,8 @@ std::string value_of(int row) {
             return s.original_lod ? "Original" : "Full";
         case kVSync:
             return settings::name(s.vsync);
+        case kHdr:
+            return hdr::kModeNames[static_cast<int>(s.hdr)];
         case kFrameRate:
             return settings::frame_rate_name(s);
         case kFrameCap:
@@ -416,6 +421,10 @@ void step_value(int row, int by) {
             break;
         case kVSync:
             s.vsync = stepped_enum(s.vsync, by);
+            break;
+        case kHdr:
+            // From Off, it counts from the next start (frontend/window.cpp, apply_hdr).
+            s.hdr = stepped_enum(s.hdr, by);
             break;
         case kFrameRate: {
             // Original, Display, the caps, Unlimited: one list, the cap's number its place in it.

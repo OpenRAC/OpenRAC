@@ -322,6 +322,39 @@ void drawer_note(const char* line) {
     ++s.card.rows;
 }
 
+// HDR output (common/hdr.h, docs/port/HDR.md): off, auto or on, and the game's white in nits
+// while it is not off. From off it counts from the next start (frontend's apply_hdr says so).
+void drawer_hdr() {
+    settings::Settings& graphics = settings::get();
+    bool changed = false;
+    const int mode = static_cast<int>(graphics.hdr);
+    if (const int by = drawer_choice("HDR", hdr::kModeNames[mode])) {
+        graphics.hdr = static_cast<hdr::Mode>((mode + by + 3) % 3);
+        changed = true;
+    }
+    if (graphics.hdr != hdr::Mode::Off) {
+        // 0 is the system's SDR white.
+        constexpr int kWhites[] = {0, 80, 100, 120, 160, 203, 250, 300, 400, 500};
+        constexpr int kLast = static_cast<int>(std::size(kWhites)) - 1;
+        int at = 0;
+        while (at < kLast && kWhites[at] < graphics.hdr_paper_white) {
+            ++at;
+        }
+        const std::string value = graphics.hdr_paper_white == 0
+                                      ? std::string("System")
+                                      : std::format("{} nits", graphics.hdr_paper_white);
+        if (const int by = drawer_choice("HDR paper white", value, at > 0, at < kLast)) {
+            graphics.hdr_paper_white = kWhites[std::clamp(at + by, 0, kLast)];
+            changed = true;
+        }
+        drawer_note(frontend::hdr_status().c_str());
+    }
+    if (changed) {
+        settings::save();
+        s.settings_changed = true;
+    }
+}
+
 // Enhanced graphics (port/enhanced, the launcher's Mods entry) as the drawer's own rows: the
 // switches and values a player changes (the launcher's choices among them) and a reset, large
 // enough for a thumb and moved through by a gamepad. The tuning and diagnostics (probe spheres,
@@ -619,6 +652,7 @@ void drawer(const Shown& shown) {
         setting_row(options_menu::kSceneryDetail);
         setting_row(options_menu::kFrameRate);
         setting_row(options_menu::kVSync);
+        drawer_hdr();
         if (const int by = drawer_choice(
                 "Frame counter", settings::name(settings::get().show_fps), true, true
             )) {

@@ -37,6 +37,8 @@ The rest is the backend's own, which nothing outside this directory includes:
 | [cache_file.h](cache_file.h), [.cpp](cache_file.cpp) | The envelope of the backend's cache files: a magic, the data's length and hash, read back only when whole, saved through a temporary file of each save's own and renamed into place |
 | [spirv_cache_file.h](spirv_cache_file.h), [.cpp](spirv_cache_file.cpp) | The SPIR-V cache: what glslang made of each program and stage, in memory and in its file beside the pipeline cache, and the encoding of a compiled program |
 | [pipeline_cache_file.h](pipeline_cache_file.h), [.cpp](pipeline_cache_file.cpp) | The pipeline cache's files in that envelope: the driver's data, and the manifest of the keys made, with each key's program identity and age |
+| [hdr_output.cpp](hdr_output.cpp), [shaders/hdr_encode.comp](shaders/hdr_encode.comp) | HDR output ([HDR.md](../../../docs/port/HDR.md)): the HDR swapchain, the pass that writes the frame into it, and the HDR metadata |
+| [surface_format.h](surface_format.h) | Picks the swapchain's format and colour space from what the surface offers (no GPU code, so tests can check it) |
 | [vma.cpp](vma.cpp) | The Vulkan Memory Allocator's implementation, compiled once |
 
 ## Depends on
