@@ -32,6 +32,8 @@
 #define CAMERA_ROWS RAC1_ADDR(0x00187390u)
 /* The moby context (world.c's): 0 the level's, 1 the pause menu's. */
 #define CONTEXT OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F808u))
+/* The level's game mode: 0 play, 3 paused. */
+#define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
 
 /* The mod's camera, and the game's own as it made it before the last build. */
 static struct {
@@ -112,7 +114,8 @@ void func_001F2608(void) {
         if (mod_camera.on && mod_camera.loads != game_camera.loads) {
             mod_camera.on = 0;
         }
-        if (mod_camera.on) {
+        /* Only in play: the pause menu sets itself up from the camera it finds. */
+        if (mod_camera.on && GREF(int, LEVEL_MODE) == 0) {
             float* p = (float*)G(OPENRAC_DATA(CAMERA_POS));
             float* w = (float*)G(OPENRAC_DATA(CAMERA_ROWS));
             memcpy(p, mod_camera.eye, sizeof(mod_camera.eye));
