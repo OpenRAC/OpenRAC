@@ -183,6 +183,9 @@ int main(int argc, char** argv) {
         int phase;
         unsigned long long seen;
         unsigned phase_taken;
+
+        /** With `--capture-key`: the calls seen and the states taken for each value of the key. */
+        std::map<unsigned long long, std::pair<unsigned long long, unsigned>> keyed;
     };
 
     std::vector<Capture> captures;
@@ -198,6 +201,25 @@ int main(int argc, char** argv) {
      */
     std::vector<long long> phases{0};
     bool capture_spread = false;
+
+    /*
+     * The words of `--capture-key`: with any, the calls taken are per value of those words, not
+     * per phase, so a function called every frame gets states from each hero state, weapon or
+     * game state the run goes through and not just the first ones met. `capture_limit` is the
+     * most states of one function in the run (0: no limit).
+     */
+    std::vector<unsigned> capture_keys;
+    unsigned capture_limit = 0;
+
+    /*
+     * `--trace FILE ADDRESS[:WORDS],...`: a line per field with those words of main memory in
+     * hexadecimal, to compare a move against the port's run field by field.
+     */
+    struct Traced {
+        unsigned address, words;
+    };
+    std::vector<Traced> traced;
+    std::FILE* trace_file = nullptr;
     sys::Machine machine;
 
     // One option per pass; a value-taking option reads the next argument as well.
@@ -237,6 +259,30 @@ int main(int argc, char** argv) {
         } else if (arg == "--capture-spread") {
             // Take calls 1, 2, 4, 8, ... rather than the first ones.
             capture_spread = true;
+        } else if (arg == "--capture-key" && i + 1 < argc) {
+            // ADDRESS[,ADDRESS...] in hexadecimal: take states per value of these words.
+            for (const char* s = argv[++i]; *s;) {
+                char* end = nullptr;
+                capture_keys.push_back(static_cast<unsigned>(std::strtoul(s, &end, 16)));
+                s = *end == ',' ? end + 1 : end + std::strlen(end);
+            }
+        } else if (arg == "--capture-limit" && i + 1 < argc) {
+            // The most states of one function in this run.
+            capture_limit = static_cast<unsigned>(std::atoi(argv[++i]));
+        } else if (arg == "--trace" && i + 2 < argc) {
+            // FILE and ADDRESS[:WORDS],... in hexadecimal, words decimal.
+            trace_file = std::fopen(argv[++i], "w");
+            for (const char* s = argv[++i]; *s;) {
+                char* end = nullptr;
+                Traced t{static_cast<unsigned>(std::strtoul(s, &end, 16)), 1};
+                s = end;
+                if (*s == ':') {
+                    t.words = static_cast<unsigned>(std::strtoul(s + 1, &end, 10));
+                    s = end;
+                }
+                traced.push_back(t);
+                s += *s == ',' ? 1 : 0;
+            }
         } else if (arg == "--calls" && i + 1 < argc) {
             // At the end, write each listed function's call count and first and last field.
             calls_file = argv[++i];
@@ -353,7 +399,7 @@ int main(int argc, char** argv) {
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
-                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] [--capture-phases FIELD,...] [--capture-spread] [--calls FILE]\n"
+                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] [--capture-phases FIELD,...] [--capture-spread] [--capture-key ADDRESS,...] [--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE]\n"
             );
             return 2;
         }
@@ -438,13 +484,33 @@ int main(int argc, char** argv) {
                     c.phase_taken = 0;
                 }
 
-                // Before the first phase, or enough taken in this one.
-                if (phase < 0 || c.phase_taken >= c.wanted) {
+                // Before the first phase, or the run's limit reached.
+                if (phase < 0 || (capture_limit && c.taken >= capture_limit)) {
                     continue;
                 }
 
-                // Spread: only calls whose number in the phase is a power of two.
-                unsigned long long n = ++c.seen;
+                // Per value of the key words, or per phase: enough taken there.
+                unsigned long long key = 0;
+                for (unsigned word : capture_keys) {
+                    u32 value;
+                    std::memcpy(&value, machine.memory.ram(word), 4);
+                    key = key * 0x100000001B3ULL + value;
+                }
+                auto& keyed = c.keyed[key];
+                unsigned long long n;
+                if (!capture_keys.empty()) {
+                    if (keyed.second >= c.wanted) {
+                        continue;
+                    }
+                    n = ++keyed.first;
+                } else {
+                    if (c.phase_taken >= c.wanted) {
+                        continue;
+                    }
+                    n = ++c.seen;
+                }
+
+                // Spread: only calls whose number is a power of two.
                 if (capture_spread && (n & (n - 1)) != 0) {
                     continue;
                 }
@@ -458,6 +524,21 @@ int main(int argc, char** argv) {
                 if (state.save(path)) {
                     c.taken++;
                     c.phase_taken++;
+                    keyed.second++;
+
+                    // Which field and key each state is of, to tell later what the game was doing.
+                    if (!capture_keys.empty()) {
+                        if (std::FILE* index = std::fopen((capture_dir + "/states.tsv").c_str(), "a")) {
+                            std::fprintf(index, "%s\t%u\t%lld\t%llx", c.name.c_str(), c.taken - 1, field, key);
+                            for (unsigned word : capture_keys) {
+                                u32 value;
+                                std::memcpy(&value, machine.memory.ram(word), 4);
+                                std::fprintf(index, "\t%x", value);
+                            }
+                            std::fputc('\n', index);
+                            std::fclose(index);
+                        }
+                    }
                 }
             }
 
@@ -604,6 +685,19 @@ int main(int argc, char** argv) {
                 u.lod0 = std::min(u.lod0, lod0);
                 u.lod1 = std::max(u.lod1, lod1);
             };
+        }
+
+        // The traced words of this field.
+        if (trace_file) {
+            std::fprintf(trace_file, "%lld", static_cast<long long>(machine.frames));
+            for (const Traced& t : traced) {
+                for (unsigned k = 0; k < t.words; k++) {
+                    u32 value;
+                    std::memcpy(&value, machine.memory.ram(t.address + 4 * k), 4);
+                    std::fprintf(trace_file, " %08x", value);
+                }
+            }
+            std::fputc('\n', trace_file);
         }
 
         // The pad for this field: the scripted presses that cover it.
