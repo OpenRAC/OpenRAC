@@ -667,11 +667,11 @@ void players_tab(controls::Store& store, platform::Input& input) {
     ImGui::TextDisabled("Players are the same in every game.");
 }
 
-// What hides and shows the menu bar: a key and a controller button (settings.ini's menu_bar_key
+// What opens and closes the menu: a key and a controller button (settings.ini's menu_bar_key
 // and menu_bar_button, read in debug_overlay.cpp).
 void menu_bar_tab() {
     ImGui::SeparatorText("Keyboard");
-    ImGui::TextUnformatted("Hide or show the menus:");
+    ImGui::TextUnformatted("Open or close the menu:");
     ImGui::SameLine();
     if (s.menu_key_capture) {
         ImGui::TextColored(kGreen, "press a key (Escape keeps %s)", menu_bar_key_label().c_str());
@@ -695,7 +695,7 @@ void menu_bar_tab() {
     );
 
     ImGui::SeparatorText("Controller");
-    ImGui::TextUnformatted("Hide or show the menus:");
+    ImGui::TextUnformatted("Open or close the menu:");
     ImGui::SameLine();
     if (s.menu_button_capture) {
         ImGui::TextColored(
@@ -818,7 +818,7 @@ void controls_window() {
             players_tab(*store, *input);
             ImGui::EndTabItem();
         }
-        if (menu_bar_possible() && ImGui::BeginTabItem("Menu bar")) {
+        if (menu_window_possible() && ImGui::BeginTabItem("Menu")) {
             menu_bar_tab();
             ImGui::EndTabItem();
         }

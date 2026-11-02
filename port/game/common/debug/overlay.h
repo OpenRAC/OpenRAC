@@ -237,25 +237,28 @@ struct State {
     std::string notice;        // kept in the picture until cleared (debug_overlay::notice)
     std::string toast;         // the same for an action taken with the panel hidden, shown a moment
     double toast_until = 0.0;  // the ImGui time the toast goes at
-    bool alt_alone = false;  // Alt went down and no other key since: its release toggles the menus
-    bool menu_key_capture = false;  // the next key pressed becomes the menu bar's (controls window)
-    bool menu_button_capture = false;  // the next pad button becomes the menu bar's
+    bool alt_alone = false;    // Alt went down and no other key since: its release toggles the menu
+    bool menu_key_capture = false;     // the next key pressed becomes the menu's (controls window)
+    bool menu_button_capture = false;  // the next pad button becomes the menu's
     std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)
     ObjectViewerState object_viewer;  // Session-only developer object studio.
     bool developer = false;  // the launcher's developer tools (OPENRAC_DEVELOPER): the level select
     std::string dump_path = "openrac_frames.jsonl";  // where the frames' measurements are written
 
-    // The drawer (drawer_available()).
-    bool drawer_open = false;      // open, or opening
-    float drawer_at = 0.0f;        // how far out: 0 shut, 1 open
-    bool keep_paused = false;      // the pause the game is left in when it shuts
-    bool drawer_focus = false;     // given the keyboard and gamepad when it opens
-    Scroll drawer_scroll;          // the finger's drag over the rows
+    // The menu (menu_window() on a desktop, drawer() on a touch screen; debug/menu_ui.h).
+    bool menu_open = false;    // open, or opening
+    float menu_at = 0.0f;      // how far out: 0 shut, 1 open
+    bool keep_paused = false;  // the pause the game is left in when it shuts
+    bool menu_focus = false;   // given the keyboard and gamepad when it opens or changes tab
+    Scroll menu_scroll;        // the finger's drag over the drawer's rows
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
-    bool drawer_developer = false;  // its developer tools unfolded
-    bool drawer_record = false;     // its diagnostics recordings unfolded
-    bool drawer_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
+    bool menu_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
+    int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
+    long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
+    int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
+    float menu_row_height = 48.0f;    // a row's height in dp: a thumb's on a touch screen
+    bool drawer_developer = false;    // the drawer's developer tools unfolded
     // The on-screen pad's layout being edited (touch_editing()): Reset asked for, the box of the
     // bar in the middle of the screen as last drawn, whose fingers are ImGui's, not the pad's, and
     // the lines a dragged group snapped to (set_touch_guides()).
@@ -419,12 +422,7 @@ bool drawer_possible();
 // Defined in debug/touch.cpp.
 void drag_scroll(Scroll& scroll);
 
-// Opens or shuts the drawer. Opening it pauses the game, as an emulator's menu does; shutting it
-// leaves the game as its "Keep paused" row says (paused as before it opened, unless changed there).
-// Defined in debug/touch.cpp.
-void set_drawer(bool open);
-
-// Starts or ends the editing of the on-screen pad's layout (touch_editing()): the drawer shuts,
+// Starts or ends the editing of the on-screen pad's layout (touch_editing()): the menu shuts,
 // and the game stays paused until it ends. Defined in debug/touch.cpp.
 void edit_touch(bool on);
 
@@ -433,32 +431,29 @@ void edit_touch(bool on);
 // the drawer's, which the game then does not see. Defined in debug/touch.cpp.
 bool drawer_event(const SDL_Event& e);
 
-// Slides the drawer towards s.drawer_open with the launcher's easing, and draws it as far out as
-// it is (s.drawer_at), in the launcher's colours (ui_colors.h): the port's settings, the enhanced
-// graphics, the touch controls, the fixes and, unfolded, the developer tools. A touch beside it or
-// the gamepad's B shuts it; once shut, it asks for the screenshot taken in it (s.shot_when_shut).
-// Defined in debug/drawer.cpp.
+// Slides the drawer towards s.menu_open with the launcher's easing, and draws it as far out as it
+// is (s.menu_at): the menu's entries (menu_catalog.h) on cards, the developer tools folded away. A
+// touch beside it or the gamepad's B shuts it. Defined in debug/drawer.cpp.
 void drawer(const Shown& shown);
+
+// Slides the desktop's menu towards s.menu_open: the bar of tabs from the window's top and the
+// window with the open tab's entries and their help. Defined in debug/menu_window.cpp.
+void menu_window(const Shown& shown);
 
 // Draws the bar in the middle of the screen while the on-screen pad's layout is edited, to make
 // the controls smaller or larger, put them back and finish, with the lines a dragged group snapped
 // to. Defined in debug/drawer.cpp.
 void touch_edit_bar();
 
-// Says whether the menu bar can be shown: on Windows and Linux (macOS has its own menu bar, with
-// the same menus), or with OPENRAC_MENU_BAR=1, and never with the drawer. Defined in
-// debug/menu_bar.cpp.
-bool menu_bar_possible();
-
-// Says whether the menu bar is shown: it can be, and the player has not hidden it (settings.h's
-// menu_bar). Defined in debug/menu_bar.cpp.
-bool menu_bar_shown();
+// Says whether the desktop's menu (menu_window) is the menu: everywhere the drawer is not.
+// Defined in debug/menu_bar.cpp.
+bool menu_window_possible();
 
 // Presses and releases `key` through SDL's queue, as the macOS menus do: a menu item does what the
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
 
-// The key that hides and shows the menu bar, as the player reads it ("`", "Alt", "F4"), and its
+// The key that opens and closes the menu, as the player reads it ("`", "Alt", "F4"), and its
 // place on the keyboard (SDL_SCANCODE_UNKNOWN for Alt, which counts only pressed by itself).
 // Defined in debug/menu_bar.cpp.
 std::string menu_bar_key_label();
@@ -469,13 +464,9 @@ SDL_Scancode menu_bar_scancode();
 SDL_GamepadButton menu_bar_button();
 std::string menu_bar_button_label();
 
-// Hides or shows the menu bar and saves it, with a toast when it hides. Defined in
-// debug/menu_bar.cpp.
-void toggle_menu_bar();
-
-// Draws the menu bar: View, Controls, Graphics, Sound and Developer.
-// Defined in debug/menu_bar.cpp.
-void menu_bar();
+// Opens or closes the menu. The first time the player opens it, the hint at the start
+// (settings.h's menu_bar) is not shown again. Defined in debug/menu_bar.cpp.
+void toggle_menu();
 
 // Moves setting `row` (options_menu.h) on by `by`, saves the settings and marks them changed for
 // the window to apply (take_settings_changed). A picture shape of the player's own is the settings

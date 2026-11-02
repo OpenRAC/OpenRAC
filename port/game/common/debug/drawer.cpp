@@ -1,558 +1,60 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The debug overlay's drawer (debug/overlay.h): the menus on a touch screen, a panel that slides
-// out from the left with the port's settings, the enhanced graphics, the touch controls, the fixes
-// and the developer tools on cards, drawn in the launcher's colours (ui_colors.h) with rows as high
-// as a thumb; and the bar shown while the on-screen pad's layout is edited.
+// The debug overlay's drawer (debug/overlay.h): the menu on a touch screen, a panel that slides out
+// from the left with the menu's entries (menu_catalog.h) on cards, drawn by debug/menu_ui.h as the
+// desktop's menu draws them, with rows as high as a thumb; and the bar shown while the on-screen
+// pad's layout is edited.
 
 #include <algorithm>
 #include <cmath>
 #include <format>
 #include <imgui.h>
-#include <imgui_internal.h>  // ImHashStr, ShadeVertsLinearColorGradientKeepAlpha: the eases and gradients
-#include <span>
+#include <imgui_internal.h>  // ImGui::FindRenderedTextEnd: a label's text before its "##" id
 #include <string>
-#include <string_view>
 
 #include <SDL3/SDL.h>
 
-#include "common/slow_cpu.h"
-#include "debug/overlay.h"
-#include "enhanced/fsr3/fsr3.h"
-#include "fixes.h"
-#include "frontend.h"
-#include "options_menu.h"
+#include "debug/menu_ui.h"
 #include "renderer/gl.h"
 #include "settings.h"
-#include "ui_colors.h"
 
 namespace openrac::frontend::debug_overlay {
 
 namespace {
 
-// The launcher's colours: its theme, as the launcher started the game with it (ui_colors.h), so
-// that the drawer looks like the rest of the app (launcher/docs/STYLE.md).
-const ui_colors::Colors& ui() {
-    return ui_colors::launcher();
-}
-
-// A row or button held down: the launcher's accent, faint over the card.
-ImU32 pressed_fill() {
-    return ui_colors::mix(ui().panel_hi, ui().amber, 0.16f);
-}
-
-// The launcher's transitions: what changes (a press, a switch, the focus) eases to its new state
-// over `seconds`, nearly all the way, rather than jumping; `id` is ImGui's, one value each.
-float tween(ImGuiID id, float target, float seconds) {
-    auto [at, made] = s.tweens.try_emplace(id, target);
-    float& v = at->second;
-    if (!made) {
-        v += (target - v) * (1.0f - std::exp(-ImGui::GetIO().DeltaTime * 3.0f / seconds));
-        if (std::abs(target - v) < 0.002f) {
-            v = target;
-        }
-    }
-    return v;
-}
-
-// One of an item's parts that eases on its own (its press, its focus, a switch's knob).
-ImGuiID item_part(const char* part) {
-    return ImHashStr(part, 0, ImGui::GetItemID());
-}
-
-constexpr float kFast = 0.15f;    // --fast
-constexpr float kMedium = 0.28f;  // --medium
-
-// The logo from the font atlas (debug_overlay.cpp, add_logo): the mark in the amber, the name in
-// the text's colour, as the logo stands on the launcher's dark pages. `left_middle` is its left
-// edge at the height of its letters, which the lombax's ears rise above.
-void draw_logo(ImDrawList* list, ImVec2 left_middle) {
-    ImFontAtlas* atlas = ImGui::GetIO().Fonts;
-    const ImFontAtlasCustomRect* at =
-        s.logo_rect >= 0 ? atlas->GetCustomRectByIndex(s.logo_rect) : nullptr;
-    if (at == nullptr) {
-        return;
-    }
-    ImVec2 uv0;
-    ImVec2 uv1;
-    atlas->CalcCustomRectUV(at, &uv0, &uv1);
-    const float w = at->Width;
-    const float h = at->Height;
-    // The capitals of "RAC" sit 63% of the way down the logo's box (y 320 to 455 of 176 to 510).
-    const ImVec2 a(std::round(left_middle.x), std::round(left_middle.y - h * 0.633f));
-    const float split = static_cast<float>(s.logo_name_x);
-    const float uv_split = uv0.x + (uv1.x - uv0.x) * split / w;
-    list->AddImage(
-        atlas->TexID, a, ImVec2(a.x + split, a.y + h), uv0, ImVec2(uv_split, uv1.y), ui().amber
-    );
-    list->AddImage(
-        atlas->TexID,
-        ImVec2(a.x + split, a.y),
-        ImVec2(a.x + w, a.y + h),
-        ImVec2(uv_split, uv0.y),
-        uv1,
-        ui().text
-    );
-}
-
-// The focus ring a gamepad moves, around the item just drawn, easing in as it arrives.
-void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round) {
-    const bool focused = ImGui::IsItemFocused() && ImGui::GetIO().NavVisible;
-    const float shown = tween(item_part("focus"), focused ? 1.0f : 0.0f, kFast);
-    if (shown > 0.0f) {
-        list->AddRect(a, b, ui_colors::fade(ui().amber, shown), round, 0, dp(2.0f));
-    }
-}
-
-// The launcher's main button: its gradient, a highlight along the top, its ink; darker while held.
-void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
-    const int first = list->VtxBuffer.Size;
-    list->AddRectFilled(a, b, IM_COL32_WHITE, round);
-    const ImU32 dark = ui_colors::mix(ui().bar_bottom, ui().ink_deep, 0.18f * held);
-    ImGui::ShadeVertsLinearColorGradientKeepAlpha(
-        list,
-        first,
-        list->VtxBuffer.Size,
-        ImVec2(a.x, a.y),
-        ImVec2(a.x, b.y),
-        ui_colors::mix(ui().bar_top, ui().ink_deep, 0.18f * held),
-        dark
-    );
-    list->AddLine(
-        ImVec2(a.x + round, a.y + 1.0f),
-        ImVec2(b.x - round, a.y + 1.0f),
-        IM_COL32(255, 255, 255, 90)
-    );
-}
-
-// A section's rows on one card, as the launcher's settings have them: the card is drawn under the
-// rows once their height is known, a hairline between each two.
-void card_begin() {
-    ImDrawList* list = ImGui::GetWindowDrawList();
-    list->ChannelsSplit(2);
-    list->ChannelsSetCurrent(1);
-    s.card = {ImGui::GetCursorScreenPos(), ImGui::GetContentRegionAvail().x, 0};
-}
-
-void card_end() {
-    ImDrawList* list = ImGui::GetWindowDrawList();
-    const ImVec2 end(s.card.top.x + s.card.width, ImGui::GetCursorScreenPos().y);
-    list->ChannelsSetCurrent(0);
-    list->AddRectFilled(s.card.top, end, ui().panel_hi, dp(16.0f));
-    list->AddRect(s.card.top, end, ui().line, dp(16.0f));
-    list->ChannelsMerge();
-}
-
-// A section's heading above its card, as the launcher's Settings name theirs: in its accent's gold.
-void drawer_section(const char* title) {
-    ImGui::Dummy(ImVec2(0.0f, dp(18.0f)));
-    ImFont* font = ImGui::GetFont();
-    const float size = ImGui::GetFontSize() * 1.05f;
-    const ImVec2 at = ImGui::GetCursorScreenPos();
-    ImGui::GetWindowDrawList()
-        ->AddText(font, size, ImVec2(at.x + dp(4.0f), at.y), ui().gold, title);
-    ImGui::Dummy(ImVec2(0.0f, size + dp(8.0f)));
-}
-
-// A row of the card open now, as high as a thumb: true when it was pressed (a finger that dragged
-// the rows along presses none). Its label at the left; `right` draws what it shows at the right,
-// from the point given (the row's right edge, inset, at its middle).
-template <typename Right>
-bool drawer_row(const char* label, ImU32 ink, Right&& right) {
-    const float height = dp(48.0f);
-    const ImVec2 at = ImGui::GetCursorScreenPos();
-    const float width = ImGui::GetContentRegionAvail().x;
-    ImDrawList* list = ImGui::GetWindowDrawList();
-    if (s.card.rows++ > 0) {
-        list->AddLine(
-            ImVec2(at.x + dp(16.0f), at.y), ImVec2(at.x + width - dp(16.0f), at.y), ui().line
-        );
-    }
-    ImGui::PushID(label);
-    const bool pressed = ImGui::InvisibleButton("row", ImVec2(width, height));
-    ImGui::PopID();
-    const ImVec2 a(at.x + dp(3.0f), at.y + dp(3.0f));
-    const ImVec2 b(at.x + width - dp(3.0f), at.y + height - dp(3.0f));
-    const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);
-    if (held > 0.0f) {
-        list->AddRectFilled(a, b, ui_colors::fade(pressed_fill(), held), dp(10.0f));
-    }
-    focus_ring(list, a, b, dp(10.0f));
-    list->AddText(
-        ImVec2(at.x + dp(16.0f), at.y + (height - ImGui::GetFontSize()) * 0.5f), ink, label
-    );
-    right(list, ImVec2(at.x + width - dp(16.0f), at.y + height * 0.5f));
-    return pressed;
-}
-
-bool drawer_row(const char* label, ImU32 ink = ui().text) {
-    return drawer_row(label, ink, [](ImDrawList*, ImVec2) {});
-}
-
-// An arrow as the launcher draws one: two strokes meeting at `tip`, pointing `dx` (-1 left, 1
-// right) or, with `dx` 0, down (`dy` 1) or up (`dy` -1).
-void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink) {
-    const float arm = dp(5.0f);
-    const ImVec2 back(tip.x - dx * arm, tip.y - dy * arm);
-    const ImVec2 points[3] =
-        {ImVec2(back.x - dy * arm, back.y - dx * arm),
-         tip,
-         ImVec2(back.x + dy * arm, back.y + dx * arm)};
-    list->AddPolyline(points, 3, ink, ImDrawFlags_None, dp(2.0f));
-}
-
-// A row that turns something on and off, its switch at the right: the launcher's, its knob
-// sliding across and its track filling as it turns on.
-bool drawer_switch(const char* label, bool on) {
-    return drawer_row(label, ui().text, [on](ImDrawList* list, ImVec2 right) {
-        const float k = tween(item_part("switch"), on ? 1.0f : 0.0f, kMedium);
-        const float h = dp(26.0f);
-        const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
-        const ImVec2 b(right.x, right.y + h * 0.5f);
-        list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().brand, k), h * 0.5f);
-        list->AddRect(a, b, ui_colors::mix(ui().line_strong, ui().brand, k), h * 0.5f);
-        const float knob = h * 0.5f - dp(4.0f);
-        const float from = a.x + h * 0.5f;
-        const float to = b.x - h * 0.5f;
-        list->AddCircleFilled(
-            ImVec2(from + (to - from) * k, right.y), knob, ui_colors::mix(ui().dim, ui().text, k)
-        );
-    });
-}
-
-// A row with its value between two arrows, as a console game's options: -1 or 1 when it was moved
-// back or on. A touch on the value's left part moves it back, anywhere else on; a gamepad's or the
-// keyboard's left and right move it while it has the focus, and A moves it on.
-int drawer_choice(
-    const char* label, const std::string& value, bool can_lower = true, bool can_raise = true
-) {
-    float back_until = 0.0f;  // a touch left of this moves the value back
-    const bool pressed = drawer_row(label, ui().text, [&](ImDrawList* list, ImVec2 right) {
-        // The values of every row in one column, centred between its arrows.
-        const float column = std::min(s.card.width * 0.48f, dp(168.0f));
-        const float left = right.x - column;
-        const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
-        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, can_lower ? ui().amber : off);
-        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, can_raise ? ui().amber : off);
-        const ImVec2 size = ImGui::CalcTextSize(value.c_str());
-        list->AddText(
-            ImVec2(left + (column - size.x) * 0.5f, right.y - size.y * 0.5f),
-            ui().gold,
-            value.c_str()
-        );
-        back_until = left + column * 0.35f;
-    });
-    int by = 0;
-    if (pressed) {
-        by = ImGui::IsMouseReleased(0) && ImGui::GetIO().MousePos.x < back_until ? -1 : 1;
-    }
-    if (ImGui::IsItemFocused()) {
-        const auto held = [](ImGuiKey pad, ImGuiKey stick, ImGuiKey key) {
-            return ImGui::IsKeyPressed(pad) || ImGui::IsKeyPressed(stick)
-                   || ImGui::IsKeyPressed(key);
-        };
-        if (held(ImGuiKey_GamepadDpadLeft, ImGuiKey_GamepadLStickLeft, ImGuiKey_LeftArrow)) {
-            by = -1;
-        } else if (held(
-                       ImGuiKey_GamepadDpadRight, ImGuiKey_GamepadLStickRight, ImGuiKey_RightArrow
-                   )) {
-            by = 1;
-        }
-    }
-    return (by < 0 && !can_lower) || (by > 0 && !can_raise) ? 0 : by;
-}
-
-// A percentage the player picks from `list` (settings.h), as a choice row: true when it changed.
-bool drawer_listed(const char* label, int& value, std::span<const int> list) {
-    const int by =
-        drawer_choice(label, std::format("{}%", value), value > list.front(), value < list.back());
-    if (by == 0) {
-        return false;
-    }
-    value = settings::step_listed(list, value, by);
-    return true;
-}
-
-// One of the port's settings as a choice row (options_menu.h).
-void setting_row(int row) {
-    std::string value = options_menu::value(row);
-    if (row == options_menu::kAspect && settings::get().aspect == settings::Aspect::Window) {
-        value = "Fill screen";  // a window's shape, said as a phone's
-    }
-    if (const int by = drawer_choice(options_menu::label(row), value)) {
-        change_setting(row, by);
-    }
-}
-
-// The launcher's primary button, across the drawer.
-bool drawer_button(const char* label) {
-    const float height = dp(46.0f);
-    const ImVec2 a = ImGui::GetCursorScreenPos();
-    const ImVec2 b(a.x + ImGui::GetContentRegionAvail().x, a.y + height);
-    const bool pressed = ImGui::InvisibleButton(label, ImVec2(b.x - a.x, height));
-    ImDrawList* list = ImGui::GetWindowDrawList();
-    const float round = dp(12.0f);
-    primary_fill(
-        list, a, b, round, tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast)
-    );
-    focus_ring(
-        list,
-        ImVec2(a.x - dp(3.0f), a.y - dp(3.0f)),
-        ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
-        round + dp(3.0f)
-    );
-    const ImVec2 size = ImGui::CalcTextSize(label);
-    list->AddText(
-        ImVec2((a.x + b.x - size.x) * 0.5f, a.y + (height - size.y) * 0.5f), ui().bar_ink, label
-    );
-    return pressed;
-}
-
-// A line of the card open now, small and dim, in place of rows that cannot be used yet.
-void drawer_note(const char* line) {
-    ImGui::Dummy(ImVec2(0.0f, dp(10.0f)));
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + dp(16.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ui().soft));
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - dp(16.0f));
-    ImGui::TextUnformatted(line);
-    ImGui::PopTextWrapPos();
-    ImGui::PopStyleColor();
-    ImGui::Dummy(ImVec2(0.0f, dp(10.0f)));
-    ++s.card.rows;
-}
-
-// HDR output (common/hdr.h, docs/port/HDR.md): off, auto or on, and the game's white in nits
-// while it is not off. From off it counts from the next start (frontend's apply_hdr says so).
-void drawer_hdr() {
-    settings::Settings& graphics = settings::get();
-    bool changed = false;
-    const int mode = static_cast<int>(graphics.hdr);
-    if (const int by = drawer_choice("HDR", hdr::kModeNames[mode])) {
-        graphics.hdr = static_cast<hdr::Mode>((mode + by + 3) % 3);
-        changed = true;
-    }
-    if (graphics.hdr != hdr::Mode::Off) {
-        // 0 is the system's SDR white.
-        constexpr int kWhites[] = {0, 80, 100, 120, 160, 203, 250, 300, 400, 500};
-        constexpr int kLast = static_cast<int>(std::size(kWhites)) - 1;
-        int at = 0;
-        while (at < kLast && kWhites[at] < graphics.hdr_paper_white) {
-            ++at;
-        }
-        const std::string value = graphics.hdr_paper_white == 0
-                                      ? std::string("System")
-                                      : std::format("{} nits", graphics.hdr_paper_white);
-        if (const int by = drawer_choice("HDR paper white", value, at > 0, at < kLast)) {
-            graphics.hdr_paper_white = kWhites[std::clamp(at + by, 0, kLast)];
-            changed = true;
-        }
-        drawer_note(frontend::hdr_status().c_str());
-    }
-    if (changed) {
-        settings::save();
-        s.settings_changed = true;
-    }
-}
-
-// Enhanced graphics (port/enhanced, the launcher's Mods entry) as the drawer's own rows: the
-// switches and values a player changes (the launcher's choices among them) and a reset, large
-// enough for a thumb and moved through by a gamepad. The tuning and diagnostics (probe spheres,
-// receiver biases, GTAO's directions and steps, materials, water) are the debug overlay's and the
-// desktop's Enhanced Settings window's. When the game cannot have it, the card says why and what
-// to do instead of leaving the player to guess.
-void drawer_enhanced() {
-#if defined(OPENRAC_ENHANCED_RENDERING) && OPENRAC_ENHANCED_RENDERING
-    auto& set = settings::get();
-    drawer_section("Enhanced graphics");
-    card_begin();
-    if (!gl::enhanced_rendering_enabled()) {
-        drawer_note(
-            "Off. Switch it on under Mods in the launcher: bounced light, modern shadows and "
-            "ambient occlusion, from the game's next start."
-        );
-        card_end();
-        return;
-    }
-    if (!gl::enhanced_rendering_available()) {
-        drawer_note(
-            "It needs the Vulkan renderer, and this run draws with OpenGL. Vulkan 1.3 could not "
-            "start on this device or driver."
-        );
-        card_end();
-        return;
-    }
-    if (!enhanced_graphics_available()) {
-        drawer_note(
-            "This level's lighting is not prepared yet. In the launcher, Mods, Enhanced graphics "
-            "prepares it from your levels; the game shows the original lighting until then."
-        );
-        card_end();
-        return;
-    }
-    bool changed = false;
-    if (drawer_switch("Enhanced graphics", set.enhanced_graphics)) {
-        set.enhanced_graphics = !set.enhanced_graphics;
-        changed = true;
-    }
-    if (set.enhanced_graphics) {
-        if (drawer_switch("Modern shadows", set.enhanced_shadows)) {
-            set.enhanced_shadows = !set.enhanced_shadows;
-            changed = true;
-        }
-        if (set.enhanced_shadows) {
-            const int quality = static_cast<int>(set.shadow_quality);
-            const int last = static_cast<int>(renderer::ShadowQuality::Count) - 1;
-            if (const int by = drawer_choice(
-                    "Shadow quality",
-                    renderer::kShadowQualityNames[quality],
-                    quality > 0,
-                    quality < last
-                )) {
-                set.shadow_quality = static_cast<renderer::ShadowQuality>(quality + by);
-                changed = true;
-            }
-        }
-        if (drawer_switch("Gameplay rim light", set.rim_light)) {
-            set.rim_light = !set.rim_light;
-            changed = true;
-        }
-        if (set.rim_light && drawer_switch("Rim shadow lift", set.rim_shadow_lift)) {
-            set.rim_shadow_lift = !set.rim_shadow_lift;
-            changed = true;
-        }
-        const float gi = set.probe_gi_multiplier;
-        if (const int by = drawer_choice(
-                "Bounce strength", std::format("{:g}x", gi), gi > 0.05f, gi < 4.95f
-            )) {
-            set.probe_gi_multiplier = std::clamp(
-                std::round((gi + 0.25f * static_cast<float>(by)) * 4.0f) / 4.0f, 0.0f, 5.0f
-            );
-            changed = true;
-        }
-        if (drawer_switch("Ambient occlusion", set.gtao)) {
-            set.gtao = !set.gtao;
-            changed = true;
-        }
-        if (set.gtao) {
-            auto& gtao = set.gtao_settings;
-            const bool quality = gtao.quality == renderer::GtaoQuality::Quality;
-            if (drawer_choice(
-                    "Occlusion quality", quality ? "Quality" : "Performance", quality, !quality
-                )) {
-                gtao.quality =
-                    quality ? renderer::GtaoQuality::Performance : renderer::GtaoQuality::Quality;
-                changed = true;
-            }
-        }
-        // Texture upscaling: Normal, or Edge-aware (2x), the world's textures enlarged with sharp edges.
-        {
-            const int filter = static_cast<int>(set.texture_filter);
-            const int last = static_cast<int>(renderer::TextureFilter::Count) - 1;
-            if (const int by = drawer_choice(
-                    "Texture upscaling",
-                    settings::name(set.texture_filter),
-                    filter > 0,
-                    filter < last
-                )) {
-                set.texture_filter = static_cast<renderer::TextureFilter>(filter + by);
-                changed = true;
-            }
-        }
-        // Temporal upscaling (enhanced/fsr3, with Arm ASR or AMD FSR 3.1, the one in use named):
-        // its preset, and its sharpening while on (the launcher's steps of 0.05).
-        if (enhanced::Fsr3::available()) {
-            constexpr int kModes = static_cast<int>(renderer::TemporalQuality::Count);
-            const int mode = static_cast<int>(set.temporal_quality);
-            const std::string_view upscaler = enhanced::Fsr3::active_upscaler();
-            const std::string label = upscaler == "none" ? std::string("Upscaling")
-                                                         : std::format("Upscaling ({})", upscaler);
-            if (const int by = drawer_choice(
-                    label.c_str(), renderer::kTemporalNames[mode], mode > 0, mode < kModes - 1
-                )) {
-                set.temporal_quality =
-                    static_cast<renderer::TemporalQuality>(std::clamp(mode + by, 0, kModes - 1));
-                changed = true;
-            }
-            if (set.temporal_quality != renderer::TemporalQuality::Off) {
-                const float sharp = set.temporal_sharpness;
-                if (const int by = drawer_choice(
-                        "Sharpening",
-                        std::format("{:.0f}%", sharp * 100.0f),
-                        sharp > 0.025f,
-                        sharp < 0.975f
-                    )) {
-                    set.temporal_sharpness = std::clamp(
-                        std::round((sharp + 0.05f * static_cast<float>(by)) * 20.0f) / 20.0f,
-                        0.0f,
-                        1.0f
-                    );
-                    changed = true;
-                }
-            }
-            // Motion blur runs in the upscaler's module (enhanced/fsr3), even with upscaling off.
-            if (drawer_switch("Motion blur", set.motion_blur)) {
-                set.motion_blur = !set.motion_blur;
-                changed = true;
-            }
-        }
-        // Colour correction (AgX) and its brightness, in the launcher's words and steps of 5%.
-        if (drawer_switch("Color correction", set.agx_preview)) {
-            set.agx_preview = !set.agx_preview;
-            changed = true;
-        }
-        if (set.agx_preview) {
-            const float bright = set.agx_brightness;
-            if (const int by = drawer_choice(
-                    "Brightness",
-                    std::format("{:.0f}%", bright * 100.0f),
-                    bright > 0.025f,
-                    bright < 0.975f
-                )) {
-                set.agx_brightness = std::clamp(
-                    std::round((bright + 0.05f * static_cast<float>(by)) * 20.0f) / 20.0f,
-                    0.0f,
-                    1.0f
-                );
-                changed = true;
-            }
-        }
-    }
-    // Asked twice, as the controls window's reset, so a stray touch keeps the player's choices.
-    if (drawer_row(s.drawer_confirm_reset ? "Press again to reset" : "Reset to defaults")) {
-        if (s.drawer_confirm_reset) {
-            reset_enhanced();
-            changed = true;
-        }
-        s.drawer_confirm_reset = !s.drawer_confirm_reset;
-    }
-    card_end();
-    if (changed) {
-        settings::save();
-        s.settings_changed = true;
-    }
-#endif
+// What the picture is drawn with: the launcher's renderer choice takes effect only when the game
+// starts, and here the player sees which one this run has.
+const std::string& graphics_line() {
+    static const std::string graphics = [] {
+        const auto* name =
+            reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
+        const char* api = s.gl_subset ? "Vulkan" : openrac::gl::is_es() ? "OpenGL ES" : "OpenGL";
+        return std::format("{} · {}", api, name != nullptr ? name : "unknown GPU");
+    }();
+    return graphics;
 }
 
 }  // namespace
 
+const std::string& menu_graphics_line() {
+    return graphics_line();
+}
+
 void drawer(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
     // Out in the launcher's --medium, back in a little quicker, as its pages come and go.
-    const float target = s.drawer_open ? 1.0f : 0.0f;
-    const float move = io.DeltaTime / (s.drawer_open ? kMedium : 0.2f);
-    s.drawer_at = s.drawer_at < target ? std::min(s.drawer_at + move, target)
-                                       : std::max(s.drawer_at - move, target);
-    if (s.drawer_at <= 0.0f) {
-        s.drawer_confirm_reset = false;
-        if (s.shot_when_shut) {
-            s.shot_when_shut = false;
-            s.shot_path = shot_name(s.tick);
-        }
+    const float target = s.menu_open ? 1.0f : 0.0f;
+    const float move = io.DeltaTime / (s.menu_open ? kMedium : 0.2f);
+    s.menu_at = s.menu_at < target ? std::min(s.menu_at + move, target)
+                                   : std::max(s.menu_at - move, target);
+    if (s.menu_at <= 0.0f) {
+        menu_closed();
         return;
     }
+    s.menu_row_height = 48.0f;
     // The launcher's --ease, cubic-bezier(0.2, 0.8, 0.2, 1): quick out of the edge, settling slowly.
-    const float ease = 1.0f - std::pow(1.0f - s.drawer_at, 4.0f);
+    const float ease = 1.0f - std::pow(1.0f - s.menu_at, 4.0f);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     // The left of the screen a camera's notch keeps.
     float inset = 0.0f;
@@ -568,18 +70,18 @@ void drawer(const Shown& shown) {
         ui_colors::fade(ui().ink_deep, 0.6f * ease)
     );
     // A touch beside it shuts it, as does the gamepad's B.
-    if (s.drawer_open && ImGui::IsMouseReleased(0) && !s.drawer_scroll.dragged
+    if (s.menu_open && ImGui::IsMouseReleased(0) && !s.menu_scroll.dragged
         && io.MouseClickedPos[0].x > x + width) {
-        set_drawer(false);
+        set_menu(false);
     }
-    if (s.drawer_open && ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
-        set_drawer(false);
+    if (s.menu_open && ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
+        set_menu(false);
     }
     ImGui::SetNextWindowPos(ImVec2(x, viewport->Pos.y));
     ImGui::SetNextWindowSize(ImVec2(width, viewport->Size.y));
-    if (s.drawer_focus) {
+    if (s.menu_focus) {
         ImGui::SetNextWindowFocus();
-        s.drawer_focus = false;
+        s.menu_focus = false;
     }
     // The launcher's panel: its ink, a thin border, 16-pixel corners on the open side; a header
     // above the rows, which scroll under it.
@@ -595,7 +97,7 @@ void drawer(const Shown& shown) {
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
                                    | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("OpenRAC options", nullptr, flags)) {
-        drag_scroll(s.drawer_scroll);
+        drag_scroll(s.menu_scroll);
         {
             ImDrawList* back = ImGui::GetWindowDrawList();
             const ImVec2 top(x, viewport->Pos.y);
@@ -618,7 +120,12 @@ void drawer(const Shown& shown) {
             if (under > 0.0f) {
                 front->AddLine(ImVec2(top.x, bottom.y), bottom, ui_colors::fade(ui().line, under));
             }
-            draw_logo(front, ImVec2(top.x + inset + dp(18.0f), top.y + header * 0.5f));
+            draw_logo(
+                front,
+                ImVec2(top.x + inset + dp(18.0f), top.y + header * 0.5f),
+                ui().amber,
+                ui().text
+            );
             const char* state = s.keep_paused ? "Paused" : "Paused while open";
             const ImVec2 state_size = ImGui::CalcTextSize(state);
             const ImVec2 pill_b(
@@ -633,102 +140,28 @@ void drawer(const Shown& shown) {
             front->AddText(ImVec2(pill_a.x + dp(10.0f), pill_a.y + dp(4.0f)), ui().soft, state);
         }
 
-        if (drawer_button("Resume")) {
-            set_drawer(false);
+        if (menu_button("Resume")) {
+            set_menu(false);
         }
         ImGui::SetItemDefaultFocus();  // where a gamepad starts
 
-        drawer_section("Graphics");
-        card_begin();
-        setting_row(options_menu::kAspect);
-        if (settings::get().aspect != settings::Aspect::Standard) {
-            setting_row(
-                options_menu::kHud
-            );  // the HUD at the 4:3 picture's middle, or out at the edges
+        // The menu's tabs one after another, a heading and a card for each of their sections,
+        // then the mods' own menus.
+        using menu::Tab;
+        for (const Tab tab : {Tab::Graphics, Tab::Enhanced, Tab::Game, Tab::Controls}) {
+            draw_tab(tab, menu::kTouch);
         }
-        setting_row(options_menu::kRenderScale);
-        setting_row(options_menu::kMsaa);
-        setting_row(options_menu::kAnisotropy);
-        setting_row(options_menu::kSceneryDetail);
-        setting_row(options_menu::kFrameRate);
-        setting_row(options_menu::kVSync);
-        drawer_hdr();
-        if (const int by = drawer_choice(
-                "Frame counter", settings::name(settings::get().show_fps), true, true
-            )) {
-            change_setting(options_menu::kShowFps, by);
-        }
-        card_end();
-
-        // What lowers the input lag: when the pad is read and frames are shown, never the game's
-        // ticks (settings.h).
-        drawer_section("Latency");
-        card_begin();
-        // Fewer frames queued for the display, and none held back half a tick (settings.h). Off
-        // by default: the picture then comes as players have learnt its timing.
-        if (drawer_switch("Low-latency frames", settings::get().low_latency_frames)) {
-            change_setting(options_menu::kLowLatency, 1);
-        }
-        // Reads the pad again before each tick and turns the camera between ticks with the right
-        // stick as it is now (settings.h). Off by default: the timing players have learnt.
-        if (drawer_switch("Responsive controls", settings::get().responsive_controls)) {
-            change_setting(options_menu::kResponsiveControls, 1);
-        }
-        card_end();
-
-        drawer_enhanced();
-
-        drawer_section("Sound and game");
-        card_begin();
-        const int volume = settings::get().volume;
-        if (const int by =
-                drawer_choice("Volume", std::format("{}%", volume), volume > 0, volume < 100)) {
-            settings::set_volume(volume + by * 10);
-            settings::save();
-        }
-        if (drawer_switch("Skip cutscenes", settings::get().skip_cutscenes)) {
-            change_setting(options_menu::kSkipCutscenes, 1);
-        }
-        // The controls window (debug/controls_window.cpp), over the game once the drawer is shut.
-        if (drawer_row("Controller bindings")) {
-            s.controls_window = true;
-            set_drawer(false);
-        }
-        card_end();
-
-        // The on-screen pad (platform/touch_pad.h): its size, the camera's speed, and where its
-        // controls are, which the player drags about (edit_touch).
-        drawer_section("Touch controls");
-        card_begin();
-        auto& set = settings::get();
-        if (drawer_listed("Button size", set.touch_scale, settings::kTouchScales)) {
-            settings::save();
-        }
-        if (drawer_listed("Camera speed", set.touch_camera, settings::kTouchCameraSpeeds)) {
-            settings::save();
-        }
-        if (drawer_row("Move the controls")) {
-            edit_touch(true);
-        }
-        card_end();
-
-        // What the port changes from the console that the player may switch back (fixes.h): on is
-        // the port's fix, off the console's behaviour. The launcher's page for the game says more.
-        if (fixes::count() > 0) {
-            drawer_section("Game fixes");
-            card_begin();
-            for (int i = 0; i < fixes::count(); ++i) {
-                if (drawer_switch(fixes::fix(i).name, fixes::on(i))) {
-                    change_setting(options_menu::kRows + 1 + i, 1);
-                }
-            }
-            card_end();
+        for (int i = 0; i < mod_menu_count(); ++i) {
+            ImGui::PushID(i);
+            draw_mod_menu(i);
+            ImGui::PopID();
         }
 
+        // The developer's tools, folded away under one row.
         ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));
         card_begin();
         const bool developer = s.drawer_developer;
-        if (drawer_row("Developer tools", ui().text, [developer](ImDrawList* list, ImVec2 right) {
+        if (menu_row("Developer tools", ui().text, [developer](ImDrawList* list, ImVec2 right) {
                 // The arrow turns as the section opens.
                 const float k = tween(item_part("open"), developer ? 1.0f : 0.0f, kMedium);
                 const float dy = 1.0f - 2.0f * k;
@@ -738,125 +171,24 @@ void drawer(const Shown& shown) {
             })) {
             s.drawer_developer = !s.drawer_developer;
         }
-        if (developer) {
-            if (drawer_switch("Debug overlay", s.visible)) {
-                set_visible(!s.visible);
-            }
-            if (drawer_switch("Keep paused", s.keep_paused)) {
-                s.keep_paused = !s.keep_paused;
-            }
-            if (drawer_row("Step one tick")) {
-                s.keep_paused = true;
-                s.step = true;
-            }
-            // Back is slower, on is faster: full speed at the right end.
-            const std::string speed =
-                s.stretch == 1.0 ? "Full" : std::format("1/{}", static_cast<int>(s.stretch));
-            if (const int by = drawer_choice("Speed", speed, s.stretch < 16.0, s.stretch > 1.0)) {
-                s.stretch =
-                    by < 0 ? std::min(s.stretch * 2.0, 16.0) : std::max(s.stretch / 2.0, 1.0);
-            }
-            if (drawer_row("Screenshot")) {
-                s.shot_when_shut = true;
-                set_drawer(false);
-            }
-            // Diagnostics recordings (debug/capture.cpp): one row that unfolds the two kinds,
-            // each with a line on when to use it. A recording starts a moment after the drawer
-            // has gone; opening the drawer again ends it, and its report is copied and saved.
-            if (capture_pending()) {
-                if (drawer_row("Cancel recording")) {
-                    toggle_capture(true);
-                }
-            } else {
-                const bool record = s.drawer_record;
-                if (drawer_row(
-                        "Record diagnostics", ui().text, [record](ImDrawList* list, ImVec2 right) {
-                            const float k = tween(item_part("open"), record ? 1.0f : 0.0f, kMedium);
-                            const float dy = 1.0f - 2.0f * k;
-                            arrow(
-                                list,
-                                ImVec2(right.x - dp(5.0f), right.y + dp(2.5f) * dy),
-                                0.0f,
-                                dy,
-                                ui().soft
-                            );
-                        }
-                    )) {
-                    s.drawer_record = !s.drawer_record;
-                }
-                if (record) {
-                    // Its two kinds set in under it, so they read as its own.
-                    ImGui::Indent(dp(16.0f));
-                    if (drawer_row("Gameplay recording")) {
-                        toggle_capture(true);
-                        set_drawer(false);
-                    }
-                    drawer_note(
-                        "Records while you play, for the length below. Use it to catch stutters "
-                        "or a slow place or moment."
-                    );
-                    if (const int by =
-                            drawer_choice("Recording length", capture_length_name(), true, true)) {
-                        step_capture_length(by);
-                    }
-                    const std::string sweep_label =
-                        std::format("Graphics settings sweep ({:.0f} s)", settings_sweep_seconds());
-                    if (drawer_row(sweep_label.c_str())) {
-                        toggle_settings_sweep();
-                        set_drawer(false);
-                    }
-                    drawer_note(
-                        "Stand still while it runs: it changes the graphics settings every few "
-                        "seconds, with VSync off, and measures what each one costs. Use it when "
-                        "the game is slow everywhere."
-                    );
-                    ImGui::Unindent(dp(16.0f));
-                }
-            }
-            // A weaker device's processor, for testing how the game copes (common/slow_cpu.h).
-            if (slow_cpu::available()) {
-                if (const int by = drawer_choice("Simulate slow CPU", slow_cpu_name())) {
-                    step_slow_cpu(by);
-                }
-            }
-            if (s.developer && drawer_row("Level select")) {
-                set_drawer(false);
-                press(SDLK_F1);
-            }
-        }
         card_end();
+        if (developer) {
+            draw_tab(Tab::Developer, menu::kTouch);
+        }
 
         ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));
         card_begin();
-        if (drawer_row("Quit game", ui().err)) {
-            SDL_Event quit;
-            SDL_zero(quit);
-            quit.type = SDL_EVENT_QUIT;
-            SDL_PushEvent(&quit);
-        }
+        draw_entry(menu::Id::Quit, menu::kTouch);
         card_end();
 
-        // What the picture is drawn with: the launcher's renderer choice takes effect only when the
-        // game starts, and here the player sees which one this run has.
-        {
-            static const std::string graphics = [] {
-                const auto* name = reinterpret_cast<const char*>(
-                    openrac::gl::glGetString(openrac::gl::GL_RENDERER)
-                );
-                const char* api = s.gl_subset            ? "Vulkan"
-                                  : openrac::gl::is_es() ? "OpenGL ES"
-                                                         : "OpenGL";
-                return std::format("{} · {}", api, name != nullptr ? name : "unknown GPU");
-            }();
-            ImGui::Dummy(ImVec2(0.0f, dp(14.0f)));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ui().dim));
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + dp(6.0f));
-            ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextUnformatted(graphics.c_str());
-            ImGui::PopTextWrapPos();
-            ImGui::PopStyleColor();
-            ImGui::Dummy(ImVec2(0.0f, dp(12.0f)));
-        }
+        ImGui::Dummy(ImVec2(0.0f, dp(14.0f)));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ui().dim));
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + dp(6.0f));
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(graphics_line().c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::PopStyleColor();
+        ImGui::Dummy(ImVec2(0.0f, dp(12.0f)));
     }
     ImGui::End();
     ImGui::PopStyleColor(3);

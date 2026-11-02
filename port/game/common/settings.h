@@ -164,9 +164,10 @@ struct Settings {
     FrameRate frame_rate = FrameRate::Display;
     int frame_cap = 60;                         // FrameRate::Capped's frames a second
     FrameCounter show_fps = FrameCounter::Off;  // Counter mode in the picture's corner.
-    bool menu_bar =
-        true;  // the menus along the window's top (not on macOS, whose menu bar has them); menu_bar_key hides and shows it
-    // The key that hides and shows the menu bar, by its place on the keyboard: an SDL scancode name
+    // The start names the key that opens the menu (debug/menu_window.cpp) until the menu has been
+    // opened by it once.
+    bool menu_bar = true;
+    // The key that opens and closes the menu, by its place on the keyboard: an SDL scancode name
     // ("`", the key under Escape; "F4", "M"), or "Alt" (either Alt pressed and let go by itself).
     std::string menu_bar_key = "`";
     // The controller button that does the same: an SDL gamepad button name ("paddle1", the

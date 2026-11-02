@@ -130,8 +130,8 @@ Read with `std::getenv` throughout `port/`. The authoritative list is
 | `OPENRAC_SOFTWARE_GL` | `1` | Allow a software rasteriser. |
 | `OPENRAC_GPU` | `integrated` | Leave the graphics-card choice to the system (Linux). |
 | `OPENRAC_NO_PUMP_FIBER` | set | Windows: run the game and the window pump in one loop. |
-| `OPENRAC_MENU_BAR` | set | Show the in-window menu bar even on macOS. |
-| `OPENRAC_DRAWER` | set | Use the touch drawer instead of the menu bar. |
+| `OPENRAC_MENU` | tab | Open the menu on that tab from the start. |
+| `OPENRAC_DRAWER` | set | Use the touch drawer instead of the desktop menu. |
 | `OPENRAC_ROUND_NEAREST` | set | Keep the host's round-to-nearest instead of the EE's round-toward-zero. |
 | `OPENRAC_DENORMALS` | set | Keep host denormals instead of the EE's flush-to-zero. |
 

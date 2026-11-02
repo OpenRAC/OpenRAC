@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// The in-game menu's pieces, in the launcher's look (ui_colors.h, launcher/docs/STYLE.md): the rows
+// of options on cards, their switches and arrows, the headings, buttons and notes, and the menu's
+// entries (menu_catalog.h) drawn with them. The desktop's menu (debug/menu_window.cpp) and the touch
+// screen's drawer (debug/drawer.cpp) are two frames around the same rows. Only the overlay's files
+// include it.
+
+#pragma once
+
+#include <cstdint>
+#include <functional>
+#include <imgui.h>
+#include <string>
+
+#include "debug/overlay.h"
+#include "menu_catalog.h"
+#include "ui_colors.h"
+
+namespace openrac::frontend::debug_overlay {
+
+// ---- The look ----
+
+// The launcher's colours, as the launcher started the game with them.
+const ui_colors::Colors& ui();
+
+// A row or button held down: the launcher's accent, faint over the card.
+ImU32 pressed_fill();
+
+// The launcher's transitions: what changes eases to its new state over `seconds`; `id` is ImGui's.
+float tween(ImGuiID id, float target, float seconds);
+
+// One of the last item's parts that eases on its own (its press, its focus, a switch's knob).
+ImGuiID item_part(const char* part);
+
+constexpr float kFast = 0.15f;    // the launcher's --fast
+constexpr float kMedium = 0.28f;  // --medium
+
+// The menu's typefaces (the launcher's: Inter for text, Orbitron for headings), added to ImGui's
+// atlas beside the overlay's own font; each is ImGui's default font when its file could not be
+// read. Set by add_menu_fonts.
+struct MenuFonts {
+    ImFont* body = nullptr;    // Inter, the rows
+    ImFont* strong = nullptr;  // Inter SemiBold, the tabs and buttons
+    ImFont* head = nullptr;    // Orbitron, the headings
+};
+
+extern MenuFonts menu_fonts;
+
+// Adds the menu's typefaces to the atlas at s.ui_scale (debug_overlay.cpp's style_and_font).
+void add_menu_fonts();
+
+// The logo from the font atlas (debug_overlay.cpp, add_logo): its mark in `mark`, its name in
+// `name`. `left_middle` is its left edge at the height of its letters.
+void draw_logo(ImDrawList* list, ImVec2 left_middle, ImU32 mark, ImU32 name);
+
+// The focus ring a gamepad or the keyboard moves, around the item just drawn.
+void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round);
+
+// The launcher's main button's fill: its gradient and a highlight along the top; darker as `held`.
+void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held);
+
+// An arrow as the launcher draws one, pointing `dx` (-1, 1) or, with `dx` 0, `dy` (1 down, -1 up).
+void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink);
+
+// ---- Rows on cards ----
+
+// A section's rows on one card: begun before its first row, ended after its last.
+void card_begin();
+void card_end();
+
+// A section's heading above its card, in the accent's gold.
+void menu_heading(const char* title);
+
+// A row of the card open now: its label at the left, `right` drawing what it shows at its right
+// (from its right edge, inset, at its middle). True when it was pressed (a finger that dragged the
+// rows along presses none). As high as a thumb on a touch screen, a little lower on a desktop.
+using RowRight = std::function<void(ImDrawList* list, ImVec2 right)>;
+bool menu_row(const char* label, ImU32 ink, const RowRight& right);
+bool menu_row(const char* label, ImU32 ink = ui().text);
+
+// A row that turns something on and off: true when pressed.
+bool menu_switch(const char* label, bool on);
+
+// A row with its value between two arrows: -1 or 1 when it was moved back or on (a press on the
+// value's left part moves it back, anywhere else on; left and right while it has the focus).
+int menu_choice(
+    const char* label, const std::string& value, bool can_lower = true, bool can_raise = true
+);
+
+// The launcher's primary button, across the space left.
+bool menu_button(const char* label);
+
+// A line of the card, small and dim, in place of rows that cannot be used yet.
+void menu_note(const char* line);
+
+// ---- The menu's entries ----
+
+// Draws the entries of `tab` offered on `where` (menu::Where), a heading and a card for each
+// section with anything to show. The entry under the pointer or the focus is kept in s.menu_hover
+// (for the desktop's help). False when nothing of the tab is shown.
+bool draw_tab(menu::Tab tab, std::uint8_t where);
+
+// Says whether `tab` has anything to show on `where` now.
+bool tab_shown(menu::Tab tab, std::uint8_t where);
+
+// Draws entry `id` alone (its row, or nothing while it is hidden).
+void draw_entry(menu::Id id, std::uint8_t where);
+
+// Does what entry `id` does when pressed (a switch turns over, a choice moves on), outside the rows:
+// a button of the menu's own (the desktop's Quit).
+void press_entry(menu::Id id);
+
+// What the picture is drawn with ("Vulkan · Adreno ..."), for the menus' foot.
+const std::string& menu_graphics_line();
+
+// The key that opens and closes the menu, as the player reads it (menu_bar_key_label).
+std::string menu_key_label();
+
+// An entry's label now, and its help: what the catalog says, or what it says of itself now.
+std::string entry_label(menu::Id id, std::uint8_t where);
+
+// The mods' developer menus (mods::developer_menus): how many, a menu's title, and its items as
+// rows, a heading for each group.
+int mod_menu_count();
+std::string mod_menu_title(int index);
+void draw_mod_menu(int index);
+
+// The menu's state as both frames share it: opening pauses the game (as an emulator's menu does)
+// and closing leaves it as Keep paused says; a screenshot asked for is taken once it is gone.
+void set_menu(bool open);
+void menu_closed();
+
+}  // namespace openrac::frontend::debug_overlay

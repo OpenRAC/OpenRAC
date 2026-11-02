@@ -446,9 +446,9 @@ asks for the driver on every desktop (`SDL_JOYSTICK_HIDAPI_STEAM=1`,
 `platform/window.cpp`); `SDL_JOYSTICK_HIDAPI_STEAM=0` in the environment turns
 it off. Android keeps SDL's default (off: it would ask for Bluetooth rights).
 On PC the Steam Controller's upper right back button (R4, SDL's right paddle
-1; the 2015 controller's right grip) hides and shows the menu bar by default,
+1; the 2015 controller's right grip) opens and closes the menu by default,
 as its key does, while the game's window has the focus (`menu_bar_button`,
-changed in Controller bindings, Menu bar). Not "...": the port cannot keep a
+changed in Controller bindings, Menu). Not "...": the port cannot keep a
 running Steam client from reading the same controller, and Steam opens its own
 panel on "..." whatever window has the focus.
 

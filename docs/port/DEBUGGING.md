@@ -33,19 +33,22 @@ F5 to F8 and F12 work whether the overlay is shown or not. While the game is
 paused or slowed, a line at the top of the picture says so and names the keys
 that undo it; a screenshot says where it went.
 
-The same keys are menus. On Windows and Linux a bar along the window's top
-has Game, Graphics, Enhanced, Sound and Developer, with a tick beside what is on
-(Graphics lists the picture's settings with their values; a click moves one
-to its next value, and the menu stays open); its key (`menu_bar_key`, `` ` ``
-by default) and controller button (`menu_bar_button`, R4) hide it and show it
-again, and Game > "Hide these menus" hides it (the
-`menu_bar` setting keeps the choice). Game > "Exit game" closes the game as the
-window's close button does. On macOS the system's menu bar has
-View, Sound and Developer instead (the game's own Video options page has the
-picture's settings there); `OPENRAC_MENU_BAR=1` shows the in-window bar too.
-On Android they are a drawer that slides in from the left (docs/port/ANDROID.md);
-`OPENRAC_DRAWER=1` puts it in place of the bar elsewhere, opened with the
-on-screen pad's options button or Back.
+The same keys and the port's settings are in one menu, whose entries are one
+list (`port/game/common/menu_catalog.cpp`): an entry added there shows on every
+system. On Windows, Linux and macOS its key (`menu_bar_key`, `` ` `` by default)
+and controller button (`menu_bar_button`, R4) slide a bar of tabs (Graphics,
+Enhanced, Game, Controls, Developer, and a tab for each mod's own menu) down
+from the window's top, with the tab's options in a window under it and, beside
+them, what the option under the pointer or the focus does. The game waits while
+it is open; Keep paused (Developer) keeps it so once the menu closes. Escape, B
+or the key again closes it; L1/R1 or Page Up/Down change tabs. Until the menu
+has been opened once, a line at the start names its key (the `menu_bar`
+setting). `OPENRAC_MENU=TAB` (`graphics`, `enhanced`, `game`, `controls`,
+`developer`) opens it on that tab from the start. On macOS the system's menu
+bar keeps View, Sound and Developer as well. On Android the same entries are in
+a drawer that slides in from the left (docs/port/ANDROID.md); `OPENRAC_DRAWER=1`
+puts it in place of the desktop's menu, opened with the on-screen pad's options
+button or Back.
 
 F1, F2, F9, F10 and F11 keep their meanings (the level menu of developer
 mode, the frame counter, volume, fullscreen). Escape pauses, as Start does;
@@ -285,8 +288,8 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_OVERLAY_SHOT` | `N:PREFIX` | With the overlay shown: every `N` ticks, the window with the overlay to `PREFIX<tick>.png`, from `OPENRAC_SHOT_FROM` on; while paused one more, `PREFIX<tick>_held.png`. (`OPENRAC_SHOT` writes the game's frame without the overlay.) | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_KEYS` | `FRAME[+HELD]:KEY,...` | Keys and clicks by script, put in the window's event queue at those window frames, as `OPENRAC_PRESS` presses pad buttons. `KEY` is SDL's name of a key (`F3`, `F5`, `Return`) or `click@X,Y`, a left click at that place of the window (in the window's own units, not pixels). `+HELD`: that many pictures later while the game is paused at `FRAME`, where frames do not count. An event is read on the frame after it was put. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_LAUNCHER_VERSION` | text | Set by the launcher for bake tasks; records the running launcher's version in probe logs. Unset CLI runs report unknown. | `port/enhanced/tools/baker/pipeline/pipeline_events.cpp` |
-| `OPENRAC_MENU_BAR` | any (set) | macOS: the overlay's menus in a bar along the window's top as well, as on Windows and Linux (macOS has them in its own menu bar). | `port/game/common/debug_overlay.cpp` |
-| `OPENRAC_DRAWER` | any (set) | The overlay's menus in the drawer, as on Android, in place of the menu bar. | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_MENU` | a tab's name | The menu open on that tab from the start (`graphics`, `enhanced`, `game`, `controls`, `developer`), for screenshots of it. | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_DRAWER` | any (set) | The menu in the drawer, as on Android, in place of the desktop's bar of tabs. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_GL_API` | `es`, `desktop`, `vulkan` | The kind of OpenGL context: `es` asks for OpenGL ES 3.2, what Android draws with (the default there), and runs the renderer's ES path on a desktop driver; `desktop` the 4.1 core profile (the default elsewhere); `vulkan` the renderer's GL carried out on Vulkan 1.3 (`port/renderer/vulkan`; on macOS through MoltenVK). Where Vulkan cannot start, the log says why and the game draws with OpenGL. | `port/platform/window.cpp` |
 | `OPENRAC_HDR` | `off`, `auto`, `on` | HDR for this run, over the settings file's `hdr` ([HDR.md](HDR.md)). Set by the launcher's Settings > HDR. | `port/game/common/main.cpp` |
 | `OPENRAC_HDR_FRAME` | `1` | Vulkan: draws the HDR float frame without an HDR screen and logs how much is above white, to compare with the normal frame ([HDR.md](HDR.md)). | `port/game/common/frontend/scene_frame.cpp` |
@@ -578,7 +581,7 @@ Use W/S to move along the view direction, A/D to strafe, E up, Q down, and Shift
 for four times the selected speed. Ctrl reduces speed to one-quarter and takes
 precedence over Shift. Hold Alt or right-click to look with the mouse:
 the cursor stays hidden while either is held.
-Alt does not toggle the menu bar while freecam is enabled. The game receives
+Alt does not open the menu while freecam is enabled. The game receives
 neutral controller input; F5 pauses gameplay while freecam still moves.
 
 **Culling inspection** is an alternative mode. Renderer visibility and sun cascades

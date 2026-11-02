@@ -767,7 +767,7 @@ void capture_frame(const Shown& shown) {
         begin_capture(shown, c.script_seconds, c.script_path);
     }
     if (c.start_at) {
-        if (c.wait_for_drawer && (s.drawer_open || s.drawer_at > 0.0f)) {
+        if (c.wait_for_drawer && (s.menu_open || s.menu_at > 0.0f)) {
             c.start_at = Clock::now() + std::chrono::seconds(3);  // counted from when it is gone
         } else {
             c.wait_for_drawer = false;
@@ -803,7 +803,7 @@ void capture_frame(const Shown& shown) {
     }
     if (perf_capture::active()) {
         // Opening the drawer pauses the game: the capture ends with what it has.
-        if (s.drawer_open) {
+        if (s.menu_open) {
             perf_capture::stop();
         }
         if (const std::unique_ptr<perf_capture::Recorder> done = perf_capture::take_finished()) {

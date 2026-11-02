@@ -14,6 +14,7 @@
 #include <SDL3/SDL.h>
 
 #include "common/env.h"
+#include "debug/menu_ui.h"
 #include "debug/overlay.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -96,32 +97,14 @@ void drag_scroll(Scroll& scroll) {
 
 // ---- The drawer ----
 
-// Opening it pauses the game, as an emulator's menu does; shutting it leaves the game as its "Keep
-// paused" row says (paused as before it opened, unless changed there).
-void set_drawer(bool open) {
-    if (open == s.drawer_open) {
-        return;
-    }
-    s.drawer_open = open;
-    if (open) {
-        s.keep_paused = s.paused;
-        s.paused = true;
-        s.held_frames = 0;
-        s.drawer_focus = true;
-        s.drawer_scroll.velocity = 0.0f;  // a flick from the last time does not glide on
-    } else {
-        s.paused = s.keep_paused;
-    }
-}
-
-// Starts or ends the editing of the on-screen pad's layout: the drawer shuts, and the game stays
+// Starts or ends the editing of the on-screen pad's layout: the menu shuts, and the game stays
 // paused until it ends.
 void edit_touch(bool on) {
     if (on == s.touch_editing) {
         return;
     }
     if (on) {
-        set_drawer(false);
+        set_menu(false);
         s.keep_paused = s.paused;
         s.paused = true;
         s.held_frames = 0;
@@ -144,14 +127,14 @@ bool drawer_event(const SDL_Event& e) {
             }
             if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
                 // Back ends the layout's editing, as Done does.
-                s.touch_editing ? edit_touch(false) : set_drawer(!s.drawer_open);
+                s.touch_editing ? edit_touch(false) : set_menu(!s.menu_open);
             }
             return true;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
             if (e.gbutton.button != SDL_GAMEPAD_BUTTON_GUIDE) {
                 return false;
             }
-            s.touch_editing ? edit_touch(false) : set_drawer(!s.drawer_open);
+            s.touch_editing ? edit_touch(false) : set_menu(!s.menu_open);
             return true;
         case SDL_EVENT_MOUSE_MOTION:
             return e.motion.which == SDL_TOUCH_MOUSEID;
@@ -165,13 +148,13 @@ bool drawer_event(const SDL_Event& e) {
                 return false;
             }
             const bool on_bar = on_edit_bar(e.tfinger);
-            if (!s.pointer_down && (s.drawer_open || s.visible || on_bar)) {
+            if (!s.pointer_down && (s.menu_open || s.visible || on_bar)) {
                 s.pointer = e.tfinger.fingerID;
                 s.pointer_down = true;
                 pointer_at(e.tfinger);
                 ImGui::GetIO().AddMouseButtonEvent(0, true);
             }
-            if (!s.drawer_open && !on_bar) {
+            if (!s.menu_open && !on_bar) {
                 return false;
             }
             s.taken.push_back(e.tfinger.fingerID);

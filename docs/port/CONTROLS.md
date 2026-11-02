@@ -178,8 +178,8 @@ new each time, are never kept.
 
 ## 6. The window
 
-F13, or Controls in the menu bar (Windows and Linux), the macOS menu, or the
-touch drawer, opens it over the game. It changes the running game's file or
+F13, or Controls in the menu (its Controls tab on a desktop, the drawer on a
+touch screen) or the macOS menu bar, opens it over the game. It changes the running game's file or
 the global one, for every player or for player 1 or 2 alone ("For:"; a
 player chosen, "Player N as every player" takes their own controls away):
 
