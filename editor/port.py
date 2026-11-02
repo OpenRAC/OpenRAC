@@ -67,7 +67,9 @@ FORMAT = 4
 # ship's hulls in every level, as the game loads them on each level's load, not only in the flights.
 # 14: the chrome and glass maps from the GS RAM lump's stash, where the game takes them (8 read the
 # texture data's first picture). 15: every paint job of his ship ("ship_paints"), not only the first.
-GAME_FORMATS = {"rac2": 15}
+# 16: each tie's slots before lighting and each tie class's scale, slot normals, slot positions
+# and vertex makeup ("relight"), for the ties the game moves and the point lights light again.
+GAME_FORMATS = {"rac2": 16}
 
 
 def levels_format(game: str) -> int:
@@ -139,6 +141,8 @@ class PortLevelWriter(LevelWriter):
 
     def __init__(self, out: Path, level: Level, normals=None):
         super().__init__(out, level)
+        # Going Commando's tie classes' relighting data (colour_tie_vertices), by class.
+        self.tie_relight = {}
         self.dir = out / self.name
         # The executable's (cos, sin) table: with it the terrain is lit as the game lights it.
         self.normals = normals
@@ -219,6 +223,19 @@ class PortLevelWriter(LevelWriter):
             try:
                 p["colours"] = gc_tie_colours.vertex_colours(
                     entry, blob, p["matrix"], bank[p["directional_lights"] & 0xF])
+                # What the game lights again when it moves the instance (format 15): its slots
+                # before lighting, and its class's slot normals and vertex makeup (relight).
+                count, = unpack("<H", blob, 0x38)
+                p["slots"] = [r | g << 8 | b << 16 | a << 24
+                              for r, g, b, a in gc_tie_colours.decode_slots(entry, count)]
+                if p["class_id"] not in self.tie_relight:
+                    flat = gc_tie_colours.flat_colour(blob)
+                    self.tie_relight[p["class_id"]] = {
+                        "scale": gc_tie_colours.class_scale(blob),
+                        "slot_normals": gc_tie_colours.slot_normal_codes(blob),
+                        "slot_positions": gc_tie_colours.slot_positions(blob),
+                        "vertex_slots": [x for ref in gc_tie_colours.vertex_slot_refs(blob) for x in ref],
+                        **({"flat_colour": flat} if flat is not None else {})}
             except (struct.error, IndexError) as exc:
                 if level.problems is not None:
                     level.problems.append(f"tie instance {p['index']}: colours not read ({exc})")
@@ -228,7 +245,10 @@ class PortLevelWriter(LevelWriter):
 
     def write_objects(self, family: str, classes: dict[int, Mesh], placements: list[dict]) -> None:
         super().write_objects(family, classes, placements)
-        self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb"} for c in sorted(classes)}
+        self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb",
+                                         **({"relight": self.tie_relight[c]}
+                                            if family == "tie" and c in self.tie_relight else {})}
+                                for c in sorted(classes)}
         self.placements[f"{family}s"] = [placement(p) for p in placements]
 
     def write_shrub_billboards(self, fades: dict[int, int]) -> None:

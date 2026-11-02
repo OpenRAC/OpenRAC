@@ -681,6 +681,8 @@ bool load_level(
     };
 
     std::map<int, ClassModel> ties;
+    // The tie classes' relighting data (format 15), by class: their entry in tie_relight_classes.
+    std::map<int, int> tie_relight_class;
     std::map<int, ClassModel> shrubs;
     std::map<int, ClassModel> mobys;
     // The shrub classes' billboard fade distances ("billboard_fade", -1 none), when every class
@@ -709,6 +711,25 @@ bool load_level(
                     }
                     billboard_models[id] = *model;
                 }
+            }
+            if (table == &ties && cls["relight"].is_object()) {
+                const json::Value& r = cls["relight"];
+                TieRelightClass relight;
+                for (const json::Value& n : r["slot_normals"].items()) {
+                    relight.normals.push_back(static_cast<std::uint16_t>(n.number(0)));
+                }
+                for (const json::Value& n : r["vertex_slots"].items()) {
+                    relight.vertices.push_back(static_cast<std::uint16_t>(n.number(0)));
+                }
+                if (r["flat_colour"].is_number()) {
+                    relight.flat = static_cast<std::uint32_t>(r["flat_colour"].number(0));
+                }
+                for (const json::Value& n : r["slot_positions"].items()) {
+                    relight.positions.push_back(static_cast<std::int16_t>(n.number(0)));
+                }
+                relight.scale = static_cast<float>(r["scale"].number(1.0));
+                tie_relight_class[id] = static_cast<int>(out.tie_relight_classes.size());
+                out.tie_relight_classes.push_back(std::move(relight));
             }
             if (cls["mesh"].is_string()) {
                 auto model = model_at(cls["mesh"]);
@@ -1049,6 +1070,24 @@ bool load_level(
                 for (const json::Value& c : p["colours"].items()) {
                     out.light_colours.push_back(static_cast<std::uint32_t>(c.number(0)));
                 }
+            }
+            // What the tie is lit again from when the game moves it (its own placements only).
+            if (layer == Layer::Ties && !tie_relight_class.empty()) {
+                TieRelight relight;
+                const auto relit = tie_relight_class.find(id);
+                const auto& slots = p["slots"].items();
+                if (relit != tie_relight_class.end() && !slots.empty() && !edits[key].is_array()) {
+                    relight.cls = relit->second;
+                    relight.first = static_cast<std::uint32_t>(out.tie_slots.size());
+                    relight.count = static_cast<std::uint16_t>(slots.size());
+                    relight.light_set = static_cast<std::uint8_t>(
+                        static_cast<int>(p["directional_lights"].number(0)) & 0xF
+                    );
+                    for (const json::Value& c : slots) {
+                        out.tie_slots.push_back(static_cast<std::uint32_t>(c.number(0)));
+                    }
+                }
+                out.tie_relight.push_back(relight);
             }
             out.instances[static_cast<std::size_t>(layer)].push_back(instance);
             // In the game's order only when they are the level's own shrubs.

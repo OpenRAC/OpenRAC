@@ -1168,6 +1168,57 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
 // are added to `state`. `world_ran`, `only_own_camera`: the world renderers ran this tick, and
 // only mobys with a camera of their own were drawn without them; `under_menu`: that world is a
 // level's under a menu (world_under_menu); `debug`: OPENRAC_DEBUG.
+// The ties and shrubs as the game holds them, one per instance the level loaded
+// (GameProfile::scenery_matrices), when the world ran this tick; none for a game that never moves
+// them, or when the words do not point at as many records in memory.
+std::optional<scene::GameScenery> scenery_matrices(std::span<const std::uint8_t> ram, bool world_ran) {
+    const auto words = g->profile->scenery_matrices();
+    if (!world_ran || (words[0] == 0 && words[1] == 0)) {
+        return std::nullopt;
+    }
+    // Where the word at an executable's address points, when `count` records of `size` fit there.
+    auto table = [&](std::uint32_t address, std::size_t count, std::size_t size) -> gaddr {
+        if (address == 0 || count == 0) {
+            return 0;
+        }
+        const gaddr word = openrac_relocate_data(address);
+        if (word + 4 > ram.size()) {
+            return 0;
+        }
+        gaddr at;
+        std::memcpy(&at, ram.data() + word, 4);
+        return at != 0 && at % 16 == 0 && at + count * size <= ram.size() ? at : 0;
+    };
+    scene::GameScenery result;
+    constexpr std::array<scene::Layer, 2> layers{scene::Layer::Ties, scene::Layer::Shrubs};
+    for (std::size_t k = 0; k < 2; ++k) {
+        const std::size_t count = g->level.instances[static_cast<std::size_t>(layers[k])].size();
+        const gaddr at = table(words[k], count, 0x40);
+        if (at == 0) {
+            continue;
+        }
+        auto& out = result.matrices[k];
+        out.resize(count);
+        for (std::size_t i = 0; i < count; ++i) {
+            const std::uint8_t* m = ram.data() + at + i * 0x40;
+            for (std::size_t c = 0; c < 4; ++c) {
+                std::memcpy(&out[i][c * 3], m + c * 0x10, 12);
+            }
+        }
+    }
+    const std::size_t ties = g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size();
+    if (const gaddr at = table(words[2], ties, 0x20); at != 0) {
+        result.tie_spheres.resize(ties);
+        result.tie_lights.resize(ties);
+        for (std::size_t i = 0; i < ties; ++i) {
+            const std::uint8_t* r = ram.data() + at + i * 0x20;
+            std::memcpy(result.tie_spheres[i].data(), r, 16);
+            std::memcpy(&result.tie_lights[i], r + 0x1A, 2);
+        }
+    }
+    return result;
+}
+
 TickMobys pose_mobys(
     std::span<const std::uint8_t> ram,
     host::GameState& state,
@@ -1643,7 +1694,8 @@ TickMobys pose_mobys(
         std::move(target_mobys),
         water_hands,
         std::move(point_lit),
-        shrub_draws(ram, world_ran && !under_menu)
+        shrub_draws(ram, world_ran && !under_menu),
+        scenery_matrices(ram, world_ran && !under_menu)
     };
 }
 
@@ -1691,6 +1743,7 @@ void keep_tick(
         k.shadows.clear();
         k.shadow_moby = 0;
         k.shrubs.clear();
+        k.scenery = {};
         k.level = g->loaded;
         // A new level's frames cost what they cost: the system forgets the last level's
         // (performance_hint.h).
@@ -1731,6 +1784,9 @@ void keep_tick(
     k.water_hands = mobys.water_hands;
     if (mobys.shrubs) {
         k.shrubs = std::move(*mobys.shrubs);
+    }
+    if (mobys.scenery) {
+        k.scenery = std::move(*mobys.scenery);
     }
     k.hero_airborne = g->profile->hero_state() != 0
                           ? scene::hero_airborne(ram, OPENRAC_DATA(g->profile->hero_state()))

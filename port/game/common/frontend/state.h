@@ -77,6 +77,9 @@ struct Kept {
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // ShrubProc's choice for the last tick that ran the world (LevelScene::set_shrub_draws).
     std::vector<scene::ShrubDraw> shrubs;
+    // The ties' and the shrubs' matrices the last tick that ran the world left
+    // (LevelScene::move_scenery).
+    scene::GameScenery scenery;
     // The last tick's poses, by moby: where its joints start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
     std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
@@ -136,6 +139,9 @@ struct TickMobys {
     std::vector<std::array<float, 8>> point_lit;
     // ShrubProc's choice (GameProfile::shrub_draws); none keeps the last tick's.
     std::optional<std::vector<host::ShrubDraw>> shrubs;
+    // The ties and shrubs as the game holds them (LevelScene::move_scenery); none keeps the last
+    // tick's.
+    std::optional<scene::GameScenery> scenery;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.

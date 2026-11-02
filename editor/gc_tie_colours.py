@@ -190,3 +190,106 @@ def vertex_colours(entry: bytes, cls: bytes, matrix: list[float] | None = None, 
         result += [r | g << 8 | b << 16 | a << 24 for r, g, b, a in cache[at:at + n]]
         at += (n + 3) // 4 * 4
     return result
+
+
+# What each vertex's colour is made of, for relighting an instance at run time (the port relights a
+# tie the game moves, as the game does: the mover marks it and PatchTieVertexLighting lights its
+# slots again by its matrix then). One (kind, a, b, c, d) per vertex in vertex_colours' order:
+# kind 0 none (zero), 1 slot a, 2 (a + b) >> 1, 3 (3a + b) >> 2, 4 (2a + b + c) >> 2,
+# 5 (a + b + c + d) >> 2, each channel.
+ZERO, COPY, HALF, THREE_ONE, TWO_ONE_ONE, QUARTER = range(6)
+
+
+def vertex_slot_refs(cls: bytes, lod: int = 0) -> list[tuple[int, int, int, int, int]]:
+    """The remap of _remap, kept as slot references instead of colours, laid out per vertex as
+    vertex_colours lays out the colours."""
+    u16 = lambda o: struct.unpack_from("<H", cls, o)[0]
+    at = struct.unpack_from("<I", cls, 0x34)[0] + u16(0x2A + 2 * lod)
+    sizes, at = cls[at:at + 32], at + 32
+    cache = []
+    for size in sizes:
+        if size == 0:
+            break
+        chunk, at = cls[at:at + size * 16], at + size * 16
+        lengths = struct.unpack_from("<8H", chunk, 0)
+        buf = [(ZERO, 0, 0, 0, 0)] * (lengths[6] * 4)
+        q = 16
+        for j in range(q, q + lengths[0], 4):
+            src, dst = struct.unpack_from("<HH", chunk, j)
+            buf[dst >> 2] = (COPY, src >> 2, 0, 0, 0)
+        q += lengths[0]
+        for j in range(q, q + lengths[1], 4):
+            w, = struct.unpack_from("<I", chunk, j)
+            buf[(w & 0x3FFC) >> 2] = (HALF, (w >> 23) & 0x1FF, (w >> 14) & 0x1FF, 0, 0)
+        q += lengths[1]
+        for j in range(q, q + lengths[2], 4):
+            w, = struct.unpack_from("<I", chunk, j)
+            buf[(w & 0x3FFC) >> 2] = (THREE_ONE, (w >> 14) & 0x1FF, (w >> 23) & 0x1FF, 0, 0)
+        q += lengths[2]
+        for j in range(q, q + lengths[3], 8):
+            a, b, c, dst = struct.unpack_from("<4H", chunk, j)
+            buf[dst >> 2] = (TWO_ONE_ONE, a >> 2, b >> 2, c >> 2, 0)
+        q += lengths[3]
+        for j in range(q, q + lengths[4], 8):
+            w, = struct.unpack_from("<I", chunk, j)
+            fourth, dst = struct.unpack_from("<HH", chunk, j + 4)
+            buf[dst >> 2] = (QUARTER, (w >> 2) & 0x1FF, (w >> 11) & 0x1FF, (w >> 20) & 0x1FF, fourth >> 2)
+        q += lengths[4]
+        for j in range(q, q + lengths[5], 2):
+            dst, = struct.unpack_from("<H", chunk, j)
+            buf[dst >> 2] = (ZERO, 0, 0, 0, 0)
+        cache += buf
+    table, = struct.unpack_from("<I", cls, 4 * lod)
+    result, at = [], 0
+    for p in range(cls[0x0C + lod]):
+        n = cls[table + 16 * p + 10]
+        result += cache[at:at + n]
+        at += (n + 3) // 4 * 4
+    return result
+
+
+def slot_normal_codes(cls: bytes) -> list[int]:
+    """Each slot's normal code (class +0x34's 8-byte records, +6): azimuth | elevation << 8."""
+    count, = struct.unpack_from("<H", cls, 0x38)
+    records, = struct.unpack_from("<I", cls, 0x34)
+    return [struct.unpack_from("<H", cls, records + 8 * i + 6)[0] for i in range(count)]
+
+
+def slot_positions(cls: bytes) -> list[int]:
+    """Each slot's position, s16 x, y, z in the class's units (class +0x34's 8-byte records): the
+    point lights' pass places it by the instance's matrix times the class scale (+0x40) / 1024."""
+    count, = struct.unpack_from("<H", cls, 0x38)
+    records, = struct.unpack_from("<I", cls, 0x34)
+    return [v for i in range(count) for v in struct.unpack_from("<3h", cls, records + 8 * i)]
+
+
+def class_scale(cls: bytes) -> float:
+    """The class's scale (+0x40), which the game keeps in its instances' matrices' last word."""
+    return struct.unpack_from("<f", cls, 0x40)[0]
+
+
+def flat_colour(cls: bytes) -> int | None:
+    """Slot 511's colour, the class's flat colour (RGBA word), when the class has one."""
+    if struct.unpack_from("<H", cls, 0x3C)[0] & 0x10:
+        return struct.unpack_from("<I", cls, 0x4C)[0]
+    return None
+
+
+def mix(refs, slots) -> list[int]:
+    """vertex_colours' words from vertex_slot_refs and the 512 lit slots (a check of the refs)."""
+    out = []
+    for kind, a, b, c, d in refs:
+        if kind == ZERO:
+            v = (0, 0, 0, 0)
+        elif kind == COPY:
+            v = slots[a]
+        elif kind == HALF:
+            v = tuple((x + y) >> 1 for x, y in zip(slots[a], slots[b]))
+        elif kind == THREE_ONE:
+            v = tuple((3 * x + y) >> 2 for x, y in zip(slots[a], slots[b]))
+        elif kind == TWO_ONE_ONE:
+            v = tuple((2 * x + y + z) >> 2 for x, y, z in zip(slots[a], slots[b], slots[c]))
+        else:
+            v = tuple(sum(t) >> 2 for t in zip(slots[a], slots[b], slots[c], slots[d]))
+        out.append(v[0] | v[1] << 8 | v[2] << 16 | v[3] << 24)
+    return out
