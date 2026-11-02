@@ -861,6 +861,28 @@ std::vector<JointMatrix> evaluate_keys(
     // carries one, the translation from its records or the rest), blended in by its weight.
     // Each layer blends a second pose into the joints it covers, by its weight.
     for (const PoseLayer& l : layers) {
+        // Records ready to blend: each over its joint, by the weight.
+        if (!l.records.empty() && l.weight > 0.0f) {
+            const u32 w = ps2::bits(l.weight);
+            const u32 uw = ps2::sub(kOne, w);
+            for (const PoseRecord& r : l.records) {
+                const std::size_t j = r.joint;
+                if (j >= n) {
+                    continue;
+                }
+                rec[j][0] = nlerp_flip(rec[j][0], r.quat, uw, w);
+                const bool one = r.scale[0] == kOne && r.scale[1] == kOne && r.scale[2] == kOne;
+                if (rec[j][1][3] != 0 || !one) {
+                    const V4 cur = rec[j][1][3] != 0 ? rec[j][1] : V4{kOne, kOne, kOne, kOne};
+                    rec[j][1] = lanes_lerp(
+                        cur, V4{r.scale[0], r.scale[1], r.scale[2], kOne}, uw, w, 3, V4{0, 0, 0, kOne}
+                    );
+                }
+                rec[j][2] = lanes_lerp(rec[j][2], r.trans, uw, w, 3, rec[j][2]);
+            }
+            continue;
+        }
+
         // A layer without a key or with no positive weight changes nothing (this also drops NaN
         // weights).
         if (l.a == nullptr || !(l.weight > 0.0f)) {

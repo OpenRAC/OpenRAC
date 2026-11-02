@@ -21,7 +21,7 @@ import struct
 
 from formats import wad, FormatError, Texture, span, unpack
 import games
-from level import HERO_TEXTURES
+from level import HERO_LOOK_TEXTURES, HERO_TEXTURES, ITEM_TEXTURES, SHIP_TEXTURE
 from mesh import Mesh, spherical_normal as normal
 from moby_anim import Skeleton, class_sequences, ratchet_sequences, skeleton
 
@@ -37,6 +37,13 @@ NO_STORE = 0xf4  # VU0 address meaning "do not keep this matrix".
 # 0x80 texels instead, so the faces show plain vertex colour. The mesh uses
 # this key and the writer pairs it with GREY.
 UNTEXTURED = ("moby", -1)
+# Going Commando: the wrench's class, whose packets are in a pack as Ratchet's are, and the classes
+# his other looks and the wrench's other forms are exported as, by number: no level's class table
+# goes this high.
+WRENCH_CLASS = 71
+WRENCH_FORM_CLASSES = 6020
+SHIP_CLASS = 3412           # his ship: the level has the mesh, the disc the picture on it
+HERO_LOOK_CLASSES = 6000
 GREY = Texture(8, 8, bytes(64), bytes((0x80,) * 4) + bytes(1020))
 # A metal packet's GS texture block names the level's chrome (-2) or glass (-3) map, which the game
 # binds at load time (ReRAC moby_skinning_lighting.md 9: "Texture").
@@ -411,10 +418,11 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         if not start:
             result[class_id] = None
             continue
-        hero = class_id == 0 and level.hero_mesh is not None
-        # The hero pack's packets name its own textures, in order.
-        remap = [HERO_TEXTURES + i for i in range(16)] if hero else entry[16:32]
-        mesh_file = level.hero_mesh if hero else None
+        hero, wrench = class_id == 0 and level.hero_mesh is not None, class_id == WRENCH_CLASS and level.wrench_meshes
+        # The hero pack's packets name its own textures, in order. The wrench's pack has one.
+        remap = ([HERO_TEXTURES + i for i in range(16)] if hero else [ITEM_TEXTURES] * 16 if wrench
+                 else [SHIP_TEXTURE] * 16 if class_id == SHIP_CLASS and level.hero_looks else entry[16:32])
+        mesh_file = level.hero_mesh if hero else level.wrench_meshes[0] if wrench else None
         try:
             result[class_id] = moby_class(level.block(start), remap, f"moby_{class_id}",
                                           ratchet_sequences(level) if class_id == 0 and fmt.moby_animations else None,
@@ -422,18 +430,40 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         except FormatError as exc:
             if not fmt.lenient:
                 raise FormatError(f"moby class {class_id}: {exc}") from exc
-            result[class_id] = fallback(level, start, remap, class_id, fmt, exc, mesh_file)
+            result[class_id] = fallback(level, level.block(start), remap, class_id, fmt, exc, mesh_file)
+    # His looks past the first are classes of their own: his skeleton with another pack's packets.
+    # The port asks for the class of the pack the game loaded (rac2-ntsc/profile.cpp).
+    starts = {c: s for s, c in (unpack("<ii", e) for e in level.table(0x18, 32))}
+    for number, mesh_file in level.hero_looks:
+        remap = [HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i for i in range(16)]
+        result[HERO_LOOK_CLASSES + number] = lenient(level, level.block(starts[0]), remap, HERO_LOOK_CLASSES + number,
+                                                     fmt, mesh_file)
+    for number, mesh_file in enumerate(level.wrench_meshes[1:] if WRENCH_CLASS in starts else (), 1):
+        result[WRENCH_FORM_CLASSES + number] = lenient(level, level.block(starts[WRENCH_CLASS]),
+                                                       [ITEM_TEXTURES + number] * 16, WRENCH_FORM_CLASSES + number,
+                                                       fmt, mesh_file)
+    for class_id, (blob, place) in level.items.items():
+        result[class_id] = lenient(level, blob, [ITEM_TEXTURES + place] * 16, class_id, fmt)
     return result
 
 
-def fallback(level, start: int, remap: bytes | list[int], class_id: int, fmt: games.Format, exc: FormatError,
+def lenient(level, data: bytes, remap: list[int], class_id: int, fmt: games.Format,
+            mesh_file: bytes | None = None) -> MobyClass | None:
+    """A class that only a later game loads at run time: as much of it as decodes."""
+    try:
+        return moby_class(data, remap, f"moby_{class_id}", fmt=fmt, mesh_file=mesh_file)
+    except FormatError as exc:
+        return fallback(level, data, remap, class_id, fmt, exc, mesh_file)
+
+
+def fallback(level, data: bytes, remap: bytes | list[int], class_id: int, fmt: games.Format, exc: FormatError,
              mesh_file: bytes | None = None) -> MobyClass | None:
     """A later game's class that did not decode whole (games.Format.lenient): its mesh and
     skeleton without the animations, else its mesh alone, else nothing; what was left out goes
     into level.problems, which the export lists."""
     for what, kwargs in (("animations", {"sequences": []}), ("skeleton", {"sequences": [], "joints": False})):
         try:
-            moby = moby_class(level.block(start), remap, f"moby_{class_id}", fmt=fmt, mesh_file=mesh_file, **kwargs)
+            moby = moby_class(data, remap, f"moby_{class_id}", fmt=fmt, mesh_file=mesh_file, **kwargs)
         except FormatError:
             continue
         level.problems.append(f"moby class {class_id}: {what} left out ({exc})")

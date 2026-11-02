@@ -127,9 +127,19 @@ many bytes can be another field in another level: it reads what the running copy
 
 - Ratchet's class has no packets in a level: the game loads his mesh and textures from a pack of
   RC2.HDR (`packs[]` at +0x4F08, by armour) over the class at run time. The export reads pack 0
-  (`editor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Levels of this
-  game are format 5 (`editor/port.py`, `GAME_FORMATS`); the other armours are not exported yet, and
-  his sequences are compressed on the disc, so the glTF has none: the game draws him from its memory.
+  (`editor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Packs 1 to 8, his
+  other looks, are classes 6001 to 6008 of the export, textures 16 places on for each; `profile.cpp`
+  has the window draw the one the game has (armour `0x001A7A18`, or the four flags before it), through
+  `LiveMoby::model_class`, so class 0 stays the hero everywhere else. His sequences are compressed on
+  the disc, so the glTF has none: the game draws him from its memory.
+- What he holds is not in a level at all, unlike Ratchet & Clank's gadget table: the 42 items are banks
+  on the disc (RC2.HDR +0x4B3C, class and sectors, `wads.item_banks`), loaded by `func_00294988` when he
+  takes one out, each a class and one texture. Every level exports them all, textures `moby_1203.png`
+  on. The wrench (class 71, level has its skeleton) is packs 9 to 11, `moby_1200.png` to `moby_1202.png`,
+  its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0,
+  paint 0 only, `moby_1300.png`. Levels of this game are format 7 (`editor/port.py`, `GAME_FORMATS`).
+- Chrome: a level's core index has no chrome map (`metal_chrome` is grey in every level's export); the
+  glass map is there. Where the game takes it from is not found yet.
 - A moby's animation fields start at +0x40 (`profile.cpp`, `moby_anim_fields`).
 - The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
   the display as in Ratchet & Clank.
