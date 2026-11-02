@@ -1084,3 +1084,4 @@ func_L01_002B9198	render	NovalisPoolStep	wrap	Bypass original pool displacement 
 func_L00_002A5158	render	NovalisPoolImpulse	wrap	Bypass original Novalis pool impulses when enhanced water is active; NTSC FUN_L00_002a3ec8	void(gaddr,int,int,float,float,float,float)
 func_L01_002635C8	render	NovalisWaterVertices	wrap	Use static rest heights instead of original scrolling-water displacement; NTSC FUN_L01_00262618	void(gaddr)
 func_L01_0030AFD0	render	NovalisCaveWater_0030AFD0	wrap	Tag the three cave water surfaces for enhanced materials; NTSC FUN_L01_00309bf8	void(gaddr)
+func_L00_00255B90	draw	MobyAnimDecodeLocalPose	wrap	the local pose decoder: a mod's joint offsets on the hero go into its joint records, which the items he wears (O2 mask, helmets) copy (rac1/host/render_native.c); NTSC FUN_L00_00254b58	void(gaddr)

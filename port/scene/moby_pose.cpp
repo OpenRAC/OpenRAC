@@ -254,4 +254,12 @@ void set_extra_joint_modifiers(std::uint32_t moby, std::vector<rac1::JointModifi
     g_extra_mods = std::move(mods);
 }
 
+std::vector<rac1::JointModifier> extra_joint_modifiers(std::uint32_t moby) {
+    const std::lock_guard<std::mutex> lock(g_extra_lock);
+    if (moby == 0 || g_extra_moby != moby) {
+        return {};
+    }
+    return g_extra_mods;
+}
+
 }  // namespace openrac::scene

@@ -557,6 +557,42 @@ void openrac_game_moby_chain(gaddr moby, gaddr marks) {
     });
 }
 
+void openrac_game_moby_local_pose(gaddr moby) {
+    c_boundary::call("openrac_game_moby_local_pose", [&] {
+#ifdef OPENRAC_FRONTEND
+        const auto mods = scene::extra_joint_modifiers(moby);
+        if (mods.empty()) {
+            return;
+        }
+        const gaddr cls = *static_cast<const gaddr*>(G(moby + 0x24));
+        if (cls == 0) {
+            return;
+        }
+        const unsigned joints = *static_cast<const std::uint8_t*>(G(cls + 0x08));
+        // As moby_animation.cpp's evaluate_keys applies a mode 0 modifier: q * rotation, the scale
+        // multiplied, the translation added.
+        for (const auto& m : mods) {
+            if (m.joint >= joints || m.joint >= 0x7F || m.mode != 0) {
+                continue;
+            }
+            auto* rec = static_cast<float*>(G(0x70000000u + static_cast<gaddr>(m.joint) * 0x40));
+            const float q[4] = {rec[0], rec[1], rec[2], rec[3]};
+            const auto& r = m.quat;
+            rec[0] = q[3] * r[0] + r[3] * q[0] + (q[1] * r[2] - q[2] * r[1]);
+            rec[1] = q[3] * r[1] + r[3] * q[1] + (q[2] * r[0] - q[0] * r[2]);
+            rec[2] = q[3] * r[2] + r[3] * q[2] + (q[0] * r[1] - q[1] * r[0]);
+            rec[3] = q[3] * r[3] - (q[0] * r[0] + q[1] * r[1] + q[2] * r[2]);
+            for (unsigned k = 0; k < 3; ++k) {
+                rec[4 + k] *= m.scale[k];
+                rec[8 + k] += m.trans[k];
+            }
+        }
+#else
+        (void)moby;
+#endif
+    });
+}
+
 gaddr openrac_game_text(int id) {
     return c_boundary::call("openrac_game_text", 0, [&]() -> gaddr {
 #ifdef OPENRAC_FRONTEND

@@ -623,6 +623,14 @@ void openrac_game_moby_colour(gaddr object, unsigned colour);
  * evaluator leaves it. Nothing without the window's evaluator. */
 void openrac_game_moby_chain(gaddr moby, gaddr marks);
 
+/* The game's local pose decoder (MobyAnimDecodeLocalPose, PAL func_L00_00255B90) has left the moby's
+ * joint records in the scratchpad (0x70000000 + 0x40 * joint: quaternion, scale, translation): the
+ * port's own joint modifiers of that moby (a mod's, openrac_api.hero_set_joints) are composed into
+ * them, as the port's evaluator composes them for drawing and for the pose matrices. The items worn
+ * on Ratchet (the O2 mask, the helmets) copy his head's chain from these records (pack_pose): without
+ * this they kept his pose without the mod's offsets. Nothing for any other moby or with none set. */
+void openrac_game_moby_local_pose(gaddr moby);
+
 /* The game's moby renderer was asked to draw `count` mobys from `first` (0x100 bytes each; count
  * -1: the whole list, the world's draw). A list drawn on its own (the page menu's frame objects)
  * may be drawn with a camera of its own: the window draws those mobys as that camera saw them.

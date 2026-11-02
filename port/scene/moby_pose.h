@@ -69,4 +69,10 @@ std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
  */
 void set_extra_joint_modifiers(std::uint32_t moby, std::vector<assets::rac1::JointModifier> mods);
 
+/**
+ * The port's own joint modifiers of the moby at `moby` (set_extra_joint_modifiers): empty for any
+ * other moby or when none are set. Safe from any thread.
+ */
+std::vector<assets::rac1::JointModifier> extra_joint_modifiers(std::uint32_t moby);
+
 }  // namespace openrac::scene
