@@ -1123,9 +1123,18 @@ std::uint32_t exe_reader(int, gaddr at) {
 // A pair formed from the address's own halves replaces a derived one that disagrees.
 using Derived = std::unordered_set<gaddr>;
 
-void pair_code(WordReader reference, int program, gaddr exe, gaddr level, std::uint32_t size,
-               gaddr low, gaddr high, std::map<gaddr, std::int32_t>& out, std::uint32_t own = UINT32_MAX,
-               Derived* derived = nullptr) {
+void pair_code(
+    WordReader reference,
+    int program,
+    gaddr exe,
+    gaddr level,
+    std::uint32_t size,
+    gaddr low,
+    gaddr high,
+    std::map<gaddr, std::int32_t>& out,
+    std::uint32_t own = UINT32_MAX,
+    Derived* derived = nullptr
+) {
     std::uint32_t ve[32] = {}, vl[32] = {};
     bool known[32] = {};
     bool whole[32] = {};            // a known value is a whole address (an add completed it)
@@ -1456,7 +1465,9 @@ void pair_programs(WordReader reference, int program, const Functions& own,
         }
     }
     if (g_pair_neighbours) {
-        pair_neighbours(reference, program, own, copies, low, high, skip_same_place, code, out, derived);
+        pair_neighbours(
+            reference, program, own, copies, low, high, skip_same_place, code, out, derived
+        );
     }
 }
 

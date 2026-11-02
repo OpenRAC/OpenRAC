@@ -286,7 +286,9 @@ void relocation_end_pointer_gives_way() {
     // The level: the records at 0x160000 to 0x160100, another block, the debris at 0x160200.
     words(0x00190000u, {0x3C100016u, 0x26100000u, 0x26110100u, 0x03E00008u, 0});
     words(0x00190100u, {0x3C040016u, 0x24840200u, 0x03E00008u, 0});
-    const auto fn = [](auto f) { return reinterpret_cast<openrac_host_fn>(f); };
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
     static const openrac_fn_entry exe_fns[] = {
         {0x00108000u, fn(particle_loop), "loop"},
         {0x00108100u, fn(debris_spawn), "spawn"},
@@ -297,8 +299,9 @@ void relocation_end_pointer_gives_way() {
     };
     openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 2);
     openrac_guest_register(8, level_fns, 2);
-    openrac_guest_set_relocation(0x00140000u, 0x00170000u, 0, exe.data(), 0x00108000u,
-                                 static_cast<std::uint32_t>(exe.size()));
+    openrac_guest_set_relocation(
+        0x00140000u, 0x00170000u, 0, exe.data(), 0x00108000u, static_cast<std::uint32_t>(exe.size())
+    );
     openrac_guest_set_level_range(0x00140000u, 0x00170000u);
     openrac_guest_set_overlay(8);
     CHECK(OPENRAC_DATA(0x00150000u) == 0x00160000u);
