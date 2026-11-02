@@ -30,6 +30,10 @@ class Input;
 
 namespace openrac::frontend {
 
+// HDR output's state for the settings (docs/port/HDR.md): what the screen is sent, and what the
+// display said of HDR, in a line.
+std::string hdr_status();
+
 // Opens the window. `levels` holds the extracted levels (level_00, level_01, ...).
 bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error);
 

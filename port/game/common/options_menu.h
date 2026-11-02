@@ -25,6 +25,7 @@ enum Row {
     kAnisotropy,
     kSceneryDetail,
     kVSync,
+    kHdr,
     kFrameRate,
     kFrameCap,
     kLowLatency,

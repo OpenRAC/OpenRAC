@@ -272,6 +272,13 @@ bool make_instance(const Config& config, bool validation, std::string& error) {
                 extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
                 flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
             }
+            // HDR output's colour spaces, only where the player may ask for it (Config): without
+            // it the surface offers what it always did.
+            if (config.hdr_colour_spaces && config.window != nullptr
+                && std::strcmp(e.extensionName, VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME) == 0) {
+                extensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
+                g->hdr.colour_spaces = true;
+            }
         }
     }
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
@@ -595,6 +602,12 @@ bool make_device(std::string& error) {
             if (std::strcmp(e.extensionName, kPortabilitySubset) == 0) {
                 extensions.push_back(kPortabilitySubset);
             }
+            // The HDR screen's metadata (hdr_output.cpp), with HDR's colour spaces only.
+            if (g->hdr.colour_spaces
+                && std::strcmp(e.extensionName, VK_EXT_HDR_METADATA_EXTENSION_NAME) == 0) {
+                extensions.push_back(VK_EXT_HDR_METADATA_EXTENSION_NAME);
+                g->hdr.metadata = true;
+            }
         }
 
         // The same operations under two names: the EXT one where offered, which more tools know.
@@ -814,6 +827,7 @@ void destroy_all() {
         g->frame_pending = false;
         release_depth_combine();
         release_colour_transform();
+        release_hdr();
         tracy_gpu_close();
         gpu_release();
         material_release();

@@ -325,6 +325,9 @@ struct Image {
     // The aspects whose contents glInvalidateFramebuffer let go and nothing wrote since: the next
     // pass on the image does not load them (attachment-discard, docs/port/RENDER_PERF.md "R-06").
     VkImageAspectFlags discarded = 0;
+    // Draws into it are given each fragment's colour clamped to 0..1, as an 8-bit target clamps
+    // it (vkgl.h, clamp_colour_writes): a float frame that stands in for the 8-bit one.
+    bool clamp_writes = false;
     VkImageView attachment = VK_NULL_HANDLE;
     std::vector<std::pair<std::uint32_t, VkImageView>>
         views;  // (base | top << 16) -> view for sampling
@@ -574,6 +577,11 @@ struct Program {
     unsigned material_start = 0;
     VkShaderModule vertex = VK_NULL_HANDLE;
     VkShaderModule fragment = VK_NULL_HANDLE;
+    // The fragment stage with its colour clamped to 0..1 (Image::clamp_writes), made the first
+    // time a draw needs it from the sources kept here; null when it could not be made.
+    std::string vertex_source, fragment_source;
+    VkShaderModule fragment_clamped = VK_NULL_HANDLE;
+    bool clamped_tried = false;
     VkShaderModule compute = VK_NULL_HANDLE;
     VkPipeline compute_pipeline = VK_NULL_HANDLE;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
@@ -790,7 +798,7 @@ struct PipelineKey {
     std::uint32_t inputs;
     std::uint32_t viewports;
     std::uint32_t dynamic_fixed;  // 1: `fixed` is dynamic state of the pipeline (R-11).
-    std::uint32_t unused;         // Zero; keeps the key a whole number of 8-byte words.
+    std::uint32_t clamp_colour;   // 1: the fragment stage clamps its colour (Image::clamp_writes).
     Input input[kAttributes];
 };
 
@@ -1006,6 +1014,26 @@ struct Context {
         bool failed = false;
     } colour_transform;
 
+    // HDR output (hdr_output.cpp): what the frontend asked, what the swapchain was made for, the
+    // extensions that allow it, and the encode pass with its views of the swapchain's images.
+    struct Hdr {
+        HdrRequest asked;
+        hdr::Output shown = hdr::Output::Sdr;
+        hdr::Output made_for = hdr::Output::Sdr;  // the asked of the swapchain
+        bool offered = false;
+        bool colour_spaces = false;  // VK_EXT_swapchain_colorspace on the instance
+        bool metadata = false;       // VK_EXT_hdr_metadata on the device
+        VkDescriptorSetLayout descriptors = VK_NULL_HANDLE;
+        VkPipelineLayout layout = VK_NULL_HANDLE;
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        hdr::Output pipeline_for = hdr::Output::Sdr;
+        bool failed = false;
+        std::vector<VkImageView> views;  // per swapchain image, while HDR is shown
+        // The swapchain's images can be storage images (else the pass writes `staging`, copied).
+        bool direct = true;
+        ImagePtr staging;
+    } hdr;
+
     Measures measures;
     SubmissionCounters submission, reported_submission;
     SubmissionCounters published;  // The render counters as the last frame's gauges left them.
@@ -1177,6 +1205,23 @@ void clear_test_programs();
 // Releases the optional depth-composition pipeline after device idle at context teardown.
 void release_depth_combine();
 void release_colour_transform();
+
+// ---- hdr_output.cpp ----
+
+// The surface format for the swapchain, HDR when asked and the surface allows it; sets
+// g->hdr.offered and made_for.
+VkSurfaceFormatKHR choose_hdr_format(
+    std::span<const VkSurfaceFormatKHR> formats, const VkSurfaceCapabilitiesKHR& caps
+);
+// After a swapchain was made with `format`: the encode pass's views and the screen's metadata.
+void hdr_swapchain_made(const VkSurfaceFormatKHR& format);
+// The views let go (before the swapchain they view goes), and everything at close.
+void release_hdr_views();
+void release_hdr();
+// Records the encode of the default framebuffer into swapchain image `index` (UNDEFINED to
+// PRESENT_SRC). False when it cannot, the image then left in TRANSFER_DST for the SDR copy the
+// caller makes instead.
+bool hdr_encode_into(VkCommandBuffer cmd, std::uint32_t index);
 
 // Records `error` for glGetError, unless an earlier one is still waiting to be read.
 inline void fail(GLenum error) {
@@ -1603,6 +1648,12 @@ bool material_enabled();
 // matrix and material uniforms); true, with nothing done, for any other program. False when
 // the preparation fails.
 bool material_program(Program& p, const std::string& vertex, const std::string& fragment);
+
+// Program `p`'s fragment stage with its colour output (location 0) clamped to 0..1 as it ends, as
+// an 8-bit target clamps what it is given (Image::clamp_writes): made from the program's sources
+// the first time, the same way link_program makes the stage; null where it cannot be (then the
+// draw uses the stage as it is).
+VkShaderModule clamped_fragment(Program& p);
 
 // Empties frame slot `f`'s material pages for a new recording.
 void material_reset(Frame& f);
