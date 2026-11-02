@@ -6,6 +6,7 @@
 #include <fstream>
 #include <limits>
 #include <string_view>
+#include <vector>
 
 #include "enhanced/renderer/fur.h"
 #include "enhanced_viewer_shaders.h"
@@ -245,14 +246,22 @@ int main(int argc, char** argv) {
             );
             CHECK(output.good());
         }
-        for (const auto point : std::array<std::array<int, 2>, 6>{
-                 {{30, 30}, {90, 40}, {65, 92}, {210, 140}, {150, 249}, {30, 225}}
-             }) {
+        // Atlas texels that are fur and that are not, in each game's body atlas.
+        using Points = std::vector<std::array<int, 2>>;
+        const bool rac2 = level.game == "rac2";
+        const Points fur =
+            rac2 ? Points{{55, 66}, {208, 102}, {154, 250}, {40, 80}, {200, 130}}
+                 : Points{{30, 30}, {90, 40}, {65, 92}, {210, 140}, {150, 249}, {30, 225}};
+        const Points bare =
+            rac2
+                ? Points{{22, 15}, {139, 55}, {37, 139}, {100, 180}, {150, 120}, {120, 20}}
+                : Points{
+                      {170, 120}, {109, 69}, {150, 70}, {190, 180}, {60, 160}, {175, 230}, {72, 205}
+                  };
+        for (const auto& point : fur) {
             CHECK((map.texel(point[0], point[1]) & 255u) == 255);
         }
-        for (const auto point : std::array<std::array<int, 2>, 7>{
-                 {{170, 120}, {109, 69}, {150, 70}, {190, 180}, {60, 160}, {175, 230}, {72, 205}}
-             }) {
+        for (const auto& point : bare) {
             CHECK((map.texel(point[0], point[1]) & 255u) == 0);
         }
         std::printf("Verified fur UV layout, coverage and exclusions on %s\n", argv[2]);
