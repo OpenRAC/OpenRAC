@@ -402,8 +402,27 @@ static int teleport(const float xyz[3]) {
     return 1;
 }
 
-/* The game's own skip: Start with the shoulders, pressed for it (skip_buttons). */
+/*
+ * OPENRAC_SKIP_SCENES, the test variable (a player's Start leaves the arrival to play): the scene
+ * ends as soon as it can. A level's own scene is ended by the pad (skip_buttons); the arrival after
+ * a flight (g_exitSceneMode 0 or 3) by its skip word, the mode block's +0x26 that func_002E9268
+ * reads with the press, once the scene takes a press: from its 13th tick, faded in (D_001B15A0 0),
+ * and before its last 30.
+ */
+#define SCENE_SKIP 0x00152C26u               /* a short: the scene ends at the next tick */
+#define SCENE_FADE OPENRAC_DATA(0x001B15A0u) /* a float: the fade, 0 when the picture is in */
+#define SCENE_FIRST_TICKS 13
+#define SCENE_LAST_TICKS 30
+
 static int end_scene(void) {
+    const int mode = exit_scene();
+    if (mode == 0 || mode == 3) {
+        const int32_t tick = GREF(int32_t, FLIGHT_TICK);
+        if (tick >= SCENE_FIRST_TICKS && GREF(float, SCENE_FADE) == 0.0f
+            && tick < GREF(int16_t, FLIGHT_LAST) - SCENE_LAST_TICKS) {
+            GREF(int16_t, SCENE_SKIP) = 1;
+        }
+    }
     return in_level() && game_state() == STATE_SCENE;
 }
 
