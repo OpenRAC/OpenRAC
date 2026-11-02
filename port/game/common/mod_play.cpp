@@ -1122,6 +1122,13 @@ void api_hero_sound_stop(openrac_mod* mod, int voice) {
     g_play->hero_sound_stop(voice);
 }
 
+int api_hero_hurt(openrac_mod* mod, int damage) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_hurt == nullptr) {
+        return -1;
+    }
+    return g_play->hero_hurt(damage);
+}
+
 int api_sound_load(openrac_mod* mod, const char* path) {
     if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -1267,6 +1274,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.hud_text_set = api_hud_text_set;
     api.hero_sound_play = api_hero_sound_play;
     api.hero_sound_stop = api_hero_sound_stop;
+    api.hero_hurt = api_hero_hurt;
 }
 
 std::vector<HazeDraw> haze_drawn() {

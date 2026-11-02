@@ -1602,6 +1602,12 @@ typedef struct openrac_api {
 
     /* Stops a voice hero_sound_play gave, if it still plays on the hero. Since 1.12. */
     void (*hero_sound_stop)(openrac_mod* mod, int voice);
+
+    /* Takes `damage` hit points from the hero as a hit of the game's does, his health shown on the
+     * HUD (Ratchet & Clank: hero_change_health, at most 1 a hit). Not below 0, and his death is
+     * not started: that is his own update's, so a mod that has taken it hands a last hit to the
+     * game (on_moby_hit returning 0). His health after, or -1 outside a level. Since 1.12. */
+    int (*hero_hurt)(openrac_mod* mod, int damage);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

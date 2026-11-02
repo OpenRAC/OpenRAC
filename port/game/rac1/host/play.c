@@ -385,6 +385,18 @@ static void hero_sound_stop(int voice) {
     }
 }
 
+/* A hit's damage on the hero for a mod (openrac_api.hero_hurt): hero_change_health
+ * (func_L00_002056D8), at most 1 a hit, his health shown. */
+static int hero_hurt(int damage) {
+    if (hero_moby() == 0) {
+        return -1;
+    }
+    if (damage > 0) {
+        func_L00_002056D8(damage);
+    }
+    return GREF(int32_t, HERO_HEALTH);
+}
+
 int rac1_figure_alive(gaddr moby) {
     if (moby == 0 || !in_level() || GREF(uint8_t, moby + MOBY_STATE) >= 0x80
         || GREF(int16_t, moby + MOBY_OCLASS) != HERO_CLASS) {
@@ -685,4 +697,5 @@ const openrac_game_play rac1_play = {
     .camera_view = rac1_camera_view,
     .hero_sound_play = hero_sound_play,
     .hero_sound_stop = hero_sound_stop,
+    .hero_hurt = hero_hurt,
 };

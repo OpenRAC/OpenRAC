@@ -245,6 +245,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool hud_text_set(const std::vector<openrac_hud_text>& lines) const` | Since 1.12: lines of text in the game's HUD (openrac_hud_text) until the next call; an empty list takes them off. |
 | `int hero_sound_play(int sound, bool loop = false) const` | Since 1.12: one of the hero's own sounds, the game's (openrac_api.hero_sound_play): its voice, or -1. |
 | `void hero_sound_stop(int voice) const` | Since 1.12: stops a voice hero_sound_play gave, while it still plays on the hero. |
+| `int hero_hurt(int damage) const` | Since 1.12: `damage` hit points taken from the hero as a hit of the game's does (his death is his own update's): his health after, or -1. |
 | `bool has_world() const` | Since 1.9: whether the port offers the world calls (moby_list() ... bolts()). |
 | `std::vector<openrac_moby> moby_list() const` | Since 1.9: the level's live mobys (each's size set), all of them. |
 | `int moby_slot(int key) const` | Since 1.9: the slot of placed moby `key`, -1 for none. |

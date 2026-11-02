@@ -511,6 +511,9 @@ typedef struct openrac_game_play {
      * still plays on him (hero_sound_stop). NULL for a game without them. */
     int (*hero_sound_play)(int sound, int loop);
     void (*hero_sound_stop)(int voice);
+    /* Hit points taken from the hero as a hit does (openrac_api.hero_hurt): his health after, or
+     * -1 with no hero. NULL for a game without it. */
+    int (*hero_hurt)(int damage);
 } openrac_game_play;
 
 extern const openrac_game_play* openrac_game_play_host;

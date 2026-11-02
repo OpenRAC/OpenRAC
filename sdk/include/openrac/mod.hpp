@@ -1148,7 +1148,7 @@ public:
     // has_collision(), has_props(), has_sounds() and has_camera() say the same for each part.
     bool has_api_12() const {
         return m_api->api_minor >= 12
-               && m_api->size >= offsetof(openrac_api, hero_sound_stop) + sizeof(void*);
+               && m_api->size >= offsetof(openrac_api, hero_hurt) + sizeof(void*);
     }
     bool has_hero_drive() const { return has_api_12(); }
     bool has_collision() const { return has_api_12(); }
@@ -1311,6 +1311,9 @@ public:
             m_api->hero_sound_stop(m_handle, voice);
         }
     }
+    // Since 1.12: `damage` hit points taken from the hero as a hit of the game's does (his death is
+    // his own update's): his health after, or -1.
+    int hero_hurt(int damage) const { return has_api_12() ? m_api->hero_hurt(m_handle, damage) : -1; }
 
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
