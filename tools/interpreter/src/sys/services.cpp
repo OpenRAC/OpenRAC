@@ -194,6 +194,16 @@ void add_library_services(Machine& machine) {
         std::tm t{};
         localtime_r(&now, &t);
 
+        // OPENRAC_CLOCK (YYYY-MM-DD hh:mm:ss), as the port reads it: the same time every run, so
+        // two runs of the same presses hold the same memory.
+        if (const char* fixed = std::getenv("OPENRAC_CLOCK")) {
+            t = std::tm{};
+            if (std::sscanf(fixed, "%d-%d-%d %d:%d:%d", &t.tm_year, &t.tm_mon, &t.tm_mday, &t.tm_hour, &t.tm_min, &t.tm_sec) == 6) {
+                t.tm_year -= 1900;
+                t.tm_mon -= 1;
+            }
+        }
+
         /*
          * Byte 0 is a status, 0 here; then seconds, minutes, hours, a spare byte, day, month, and
          * the year within the century (assumed).
