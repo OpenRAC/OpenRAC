@@ -32,6 +32,7 @@ struct LiveMoby {
     std::uint32_t address = 0;  // The moby in game memory (its animation fields, its class).
     int class_id = 0;           // Its class, as the game numbers them.
     int model_class = -1;       // The class drawn for it, when not its own and the level has it.
+    bool model_only = false;    // Drawn as model_class or not at all, never as its own class.
     std::uint16_t occlusion = 0x7f80;     // Its occlusion word, as the game keeps it.
     std::array<float, 4> world_sphere{};  // World centre and radius, game units; radius 0: none.
     renderer::Mat4 matrix = renderer::identity();  // Game axes, the moby's scale included.

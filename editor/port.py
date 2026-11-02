@@ -61,8 +61,9 @@ FORMAT = 4
 # textures from the disc's hero pack. 6: the flights to a planet as levels 95 to 98. 7: what he
 # holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
 # of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
-# 9: the mobys' glow vertices and their light sets. 10: the ties' vertex colours.
-GAME_FORMATS = {"rac2": 10}
+# 9: the mobys' glow vertices and their light sets. 10: the ties' vertex colours. 11: the classes'
+# bangles as classes of their own (the broken crates' and destroyed enemies' pieces).
+GAME_FORMATS = {"rac2": 11}
 
 
 def levels_format(game: str) -> int:

@@ -159,6 +159,14 @@ many bytes can be another field in another level: it reads what the running copy
   byte for byte against retail's vertex colour cache in level 3 (point lights left out), and each
   placement's `colours` is one per vertex, a vertex's light slot its place in that list
   (`tie_vertex_colours` in the manifest); format 10.
+- Bangles: parts of a moby class's mesh past its LOD lists (table at header byte 0x2C, in qwords:
+  a word, then per bangle the high LOD's first packet and count and the low LOD's). A moby draws them
+  by its bangle word (+0x7C, s16; MobyProc 0x2A4E68 at 0x2A5E78): bit 15 clear, the class's mesh and
+  the bangles of the bits set; set, those bangles alone (bangle 0 for none). The pieces of a broken
+  crate or a destroyed enemy are mobys of the class with one bit each (func_00273978 writes
+  `0x8000 | 1 << n`), which the port drew as the whole mesh. The export writes each bangle as class
+  `100000 + class * 16 + bangle` (`Format.moby_bangles`, `editor/moby_class.py`), and the profile adds a
+  `LiveMoby` per part drawn (`model_only`: that class or nothing); format 11.
 - The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
   the display as in Ratchet & Clank.
 - `split_places.tsv`: the catalogue names the levels' copies of the draw callback lists apart from
