@@ -6,8 +6,12 @@
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
+#include <stdexcept>
+#include <string_view>
 
 #include "enhanced/lighting/environment_filter.h"
+#include "enhanced/lighting/probe_atlas.h"
+#include "enhanced/lighting/probe_depth.h"
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "tests/check.h"
 
@@ -103,9 +107,13 @@ void test_probe_planes(ProbeTextureFormat format) {
     const auto gpu = decode_gpu_probes(encoded);
     CHECK(gpu.colour_format == format);
     CHECK(encoded.size() < raw.size());
-    CHECK(std::ranges::equal(gpu.gpu_plane(1), raw_gpu.gpu_plane(1)));
+    CHECK(gpu.depth_format == ProbeDepthFormat::Rg16);
+    CHECK(gpu.gpu_plane(1).size() == gpu.atlas_capacity() * 256);
+    CHECK(gpu.gpu_plane(3).empty());
+    CHECK(gpu.gpu_plane(4).size() == gpu.atlas_capacity() * 16);
     CHECK(std::ranges::equal(gpu.gpu_plane(2), raw_gpu.gpu_plane(2)));
     const auto decoded = decode_probes(encoded);
+    CHECK(decoded.distance_moments == source.distance_moments);
     double squared = 0, reference = 0;
 
     for (std::size_t i = 0; i < source.irradiance.size(); ++i) {
@@ -127,6 +135,41 @@ void test_probe_planes(ProbeTextureFormat format) {
     }
 
     CHECK(rejected);
+}
+
+// Packed inputs must be rejected at the public boundary before assuming a decoded raw plane layout.
+void test_rejects_packed_probe_inputs() {
+    for (auto depth : {ProbeDepthFormat::Rg8, ProbeDepthFormat::Rg16}) {
+        const auto bytes =
+            encode_baked_probes(fixture(), ProbeTextureFormat::R11G11B10, {1}, depth);
+        const auto packed = decode_gpu_probes(bytes);
+
+        for (auto colour : {ProbeTextureFormat::R11G11B10, ProbeTextureFormat::Bc6h}) {
+            bool rejected = false;
+
+            try {
+                const auto result = encode_baked_probes(packed, colour);
+            } catch (const std::runtime_error& error) {
+                rejected = std::string_view(error.what())
+                           == "probe compression requires decoded probe maps";
+            }
+
+            CHECK(rejected);
+        }
+    }
+}
+
+// Omitting raw depth must preserve the raw encoder's colour, padding and relocation bytes.
+void test_colour_metadata_packing() {
+    const auto source = fixture();
+    const auto raw = pack_probe_planes(source);
+    const auto compact = pack_probe_colour_metadata(source);
+    // Each eight-by-eight probe has four-byte colour texels plus one eight-byte metadata record.
+    const std::size_t colour_bytes = source.atlas_capacity() * source.grid.texels_per_probe() * 4;
+    const std::size_t metadata_bytes = source.atlas_capacity() * 8;
+    CHECK(compact.size() == colour_bytes + metadata_bytes);
+    CHECK(std::equal(compact.begin(), compact.begin() + colour_bytes, raw.begin()));
+    CHECK(std::equal(compact.end() - metadata_bytes, compact.end(), raw.end() - metadata_bytes));
 }
 
 // GGX filtering retains HDR energy and the material-response lookup is never block-compressed.
@@ -209,6 +252,120 @@ void test_parallel_edges() {
     CHECK(std::fesetround(original_rounding) == 0);
 }
 
+// Separate FP32 range operations must not reconstruct an endpoint above the original ray cap.
+void test_depth_range_round_trip() {
+    constexpr float kCap = 511.831634521484375f;
+    constexpr float kLow = 187.6856536865234375f;
+    const float uncorrected_range = kCap - kLow;
+    CHECK(kLow + uncorrected_range > kCap);
+    auto source = fixture();
+    source.grid.max_distance = kCap;
+    for (std::size_t p = 0; p < source.probes.size(); ++p) {
+        for (unsigned y = 1; y <= 6; ++y) {
+            for (unsigned x = 1; x <= 6; ++x) {
+                // Both endpoints appear in each independently fitted probe map.
+                const float mean = x <= 3 ? kLow : kCap;
+                source.distance_moments[p * 64 + std::size_t{y} * 8 + x] = {mean, mean * mean};
+            }
+        }
+    }
+    update_probe_gutters(source);
+    const auto decoded = decode_probes(encode_baked_probes(source, ProbeTextureFormat::R11G11B10));
+    for (const auto& value : decoded.distance_moments) {
+        CHECK(value[0] <= kCap);
+    }
+}
+
+// RG8 accepts every byte value, but malformed ranges and truncated payloads must still fail.
+void test_invalid_depth() {
+    const auto original = encode_baked_probes(fixture(), ProbeTextureFormat::Bc6h);
+    const auto gpu = decode_gpu_probes(original);
+    const auto offset = static_cast<std::size_t>(gpu.gpu_plane(4).data() - gpu.gpu_bytes.data());
+    auto bytes = original;
+    bytes[offset + 2] = 0xc0;
+    bytes[offset + 3] = 0x7f;
+    for (bool expand : {false, true}) {
+        bool rejected = false;
+        try {
+            const auto decoded = expand ? decode_probes(bytes) : decode_gpu_probes(bytes);
+        } catch (const std::runtime_error&) {
+            rejected = true;
+        }
+        CHECK(rejected);
+    }
+}
+
+// Corrupted byte values are finite but cannot be allowed to open a seam in hardware gathers.
+void test_invalid_unorm_gutter(ProbeDepthFormat format) {
+    auto bytes = encode_baked_probes(fixture(), ProbeTextureFormat::R11G11B10, {1}, format);
+    // Legacy RG8 keeps its version-seven compatibility check.
+    if (format == ProbeDepthFormat::Rg8) {
+        bytes[4] = 7;
+    }
+    const auto gpu = decode_gpu_probes(bytes);
+    const auto offset = static_cast<std::size_t>(gpu.gpu_plane(1).data() - gpu.gpu_bytes.data());
+    // Corrupt the high byte too, so RG16 validation cannot accidentally inspect only eight bits.
+    const unsigned byte = format == ProbeDepthFormat::Rg16 ? 1 : 0;
+    bytes[offset + byte] ^= 1;
+    bool rejected = false;
+    try {
+        const auto decoded = decode_gpu_probes(bytes);
+    } catch (const std::runtime_error&) {
+        rejected = true;
+    }
+    CHECK(rejected);
+}
+
+// A shallow blocker must retain tiny within-texel spread despite a much wider local depth range.
+void test_rg16_small_spread_visibility() {
+    auto source = fixture();
+    source.grid.max_distance = 32.f;
+    constexpr float kMean = .033f, kSpread = .008f, kReceiverOffset = .001f;
+
+    // Other directions force wide mean and spread ranges in the same probe tile.
+    for (auto& moment : source.distance_moments) {
+        moment = {16.f, 16.f * 16.f + 15.f * 15.f};
+    }
+
+    source.distance_moments[9] = {kMean, kMean * kMean + kSpread * kSpread};
+    source.distance_moments[10] = {.027f, .027f * .027f};
+    source.distance_moments[11] = {32.f, 32.f * 32.f};
+    update_probe_gutters(source);
+    const auto decoded = decode_probes(encode_baked_probes(source, ProbeTextureFormat::R11G11B10));
+    const auto value = decoded.distance_moments[9];
+    const float variance = std::max(0.f, value[1] - value[0] * value[0]);
+    const float gap = kMean + kReceiverOffset - value[0];
+    const float visibility = std::pow(variance / (variance + gap * gap), 3.f);
+    const float expected =
+        std::pow(kSpread * kSpread / (kSpread * kSpread + kReceiverOffset * kReceiverOffset), 3.f);
+    CHECK(std::abs(value[0] - kMean) < .00001f);
+    CHECK(std::abs(visibility - expected) < .01f);
+}
+
+// Legacy ASTC depth assets remain readable alongside the RG16 bake default.
+void test_legacy_astc_depth() {
+    const auto source = fixture();
+    auto bytes =
+        encode_baked_probes(source, ProbeTextureFormat::R11G11B10, {1}, ProbeDepthFormat::Astc4x4);
+    bytes[4] = 7;  // Previously published ASTC assets used the version-seven header.
+    const auto gpu = decode_gpu_probes(bytes);
+    CHECK(gpu.depth_format == ProbeDepthFormat::Astc4x4);
+    CHECK(gpu.gpu_plane(3).size() == gpu.atlas_capacity() * 64);
+    CHECK(decode_probes(bytes).distance_moments == source.distance_moments);
+}
+
+// New readers accept the exact version-six header without treating its colour tag as a depth tag.
+void test_legacy_depth() {
+    const auto source = fixture();
+    auto bytes = encode_probes(source);
+    const auto gpu = decode_gpu_probes(bytes);
+    bytes.erase(bytes.begin() + gpu.gpu_offset - 8, bytes.begin() + gpu.gpu_offset - 4);
+    bytes[4] = 6;  // Version six has no depth-format word.
+    const auto legacy = decode_gpu_probes(bytes);
+    CHECK(legacy.depth_format == ProbeDepthFormat::Moments);
+    CHECK(decode_probes(bytes).distance_moments == source.distance_moments);
+}
+
 // Reserved BC6H and malformed ASTC blocks must fail streamed validation before GPU upload.
 void test_malformed_blocks() {
     for (auto format : {ProbeTextureFormat::Bc6h, ProbeTextureFormat::Astc8x8}) {
@@ -238,14 +395,24 @@ int main() {
         CHECK(probe_texture_bytes(ProbeTextureFormat::Bc6h, 8, 8) == 64);
         CHECK(probe_texture_bytes(ProbeTextureFormat::Astc8x8, 8, 8) == 16);
 
+        test_probe_planes(ProbeTextureFormat::R11G11B10);
         for (auto format : {ProbeTextureFormat::Bc6h, ProbeTextureFormat::Astc8x8}) {
             test_probe_planes(format);
             test_reflection_planes(format);
         }
 
+        test_rejects_packed_probe_inputs();
+        test_colour_metadata_packing();
         test_astc_verification_rounding();
         test_parallel_edges();
         test_malformed_blocks();
+        test_invalid_depth();
+        test_invalid_unorm_gutter(ProbeDepthFormat::Rg8);
+        test_invalid_unorm_gutter(ProbeDepthFormat::Rg16);
+        test_legacy_depth();
+        test_legacy_astc_depth();
+        test_depth_range_round_trip();
+        test_rg16_small_spread_visibility();
         return openrac::test::result();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s\n", error.what());

@@ -852,6 +852,14 @@ endif()
 openrac_add_test(water_mesh SOURCES enhanced/tests/water_mesh_test.cpp LIBS openrac_enhanced_viewer)
 
 if(OPENRAC_PROBE_BAKER)
+  openrac_add_test(probe_depth_gpu SOURCES enhanced/tests/probe_depth_gpu_test.cpp
+    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    LIBS openrac_probe_bake openrac_enhanced_viewer openrac_platform)
+  set_tests_properties(probe_depth_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST probe_depth_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
   openrac_add_test(probe_compression_gpu SOURCES enhanced/tests/probe_compression_gpu_test.cpp
     LIBS openrac_probe_bake openrac_enhanced_viewer openrac_platform)
   set_tests_properties(probe_compression_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Offline HDR image encoding and GI colour-plane replacement; visibility data is byte-preserved.
+// Offline HDR image encoding and local mean/spread compression for probe depth.
 #include "enhanced/lighting/probe_texture_encode.h"
 
 #include <algorithm>
@@ -12,7 +12,9 @@
 #include "common/profiler.h"
 #include "enhanced/lighting/environment.h"
 #include "enhanced/lighting/probe_astc.h"
+#include "enhanced/lighting/probe_atlas.h"
 #include "enhanced/lighting/probe_bc6.h"
+#include "enhanced/lighting/probe_depth_encode.h"
 
 namespace openrac::lighting {
 namespace {
@@ -195,6 +197,10 @@ std::vector<std::uint8_t> encode_probe_texture(
     const ProbeTextureEncoding& options
 ) {
     const profiling::Zone timing("Compress probe colour");
+    // Scalar depth uses a separate encoder and independent block planes.
+    if (format == ProbeTextureFormat::Astc4x4) {
+        throw std::runtime_error("ASTC 4x4 requires the probe depth encoder");
+    }
 
     // Never read image texels until their extent and requested format have been validated.
     if (pixels.size() != std::size_t(width) * height) {
@@ -214,44 +220,51 @@ std::vector<std::uint8_t> encode_probe_texture(
     return result;
 }
 
-// Replace only the colour plane; its neighbouring visibility and relocation bytes stay unchanged.
+// Compress irradiance and canonical depth maps while preserving exact relocation metadata.
 std::vector<std::uint8_t> encode_baked_probes(
-    const ProbeVolume& volume, ProbeTextureFormat format, const BakeExecution& execution
+    const ProbeVolume& volume,
+    ProbeTextureFormat format,
+    const BakeExecution& execution,
+    ProbeDepthFormat depth_format
 ) {
-    // Recompression requires the original decoded field rather than another codec's physical blocks.
-    if (volume.colour_format != ProbeTextureFormat::R11G11B10) {
-        throw std::runtime_error("probe compression requires a decoded colour field");
+    // Packed raw-colour assets still have compressed depth; reject them before touching any plane offsets.
+    if (!volume.gpu_bytes.empty() || volume.colour_format != ProbeTextureFormat::R11G11B10) {
+        throw std::runtime_error("probe compression requires decoded probe maps");
     }
 
-    auto bytes = encode_probes(volume);
-
     // Nonstandard map sizes retain the portable raw layout rather than crossing probe boundaries.
-    if (format == ProbeTextureFormat::R11G11B10 || volume.grid.map_resolution != 6) {
-        return bytes;
+    if (volume.grid.map_resolution != 6) {
+        return encode_probes(volume);
     }
 
     const auto side = volume.grid.map_resolution + 2;
     const unsigned width = kProbeAtlasTilesX * side;
     const unsigned height = static_cast<unsigned>(volume.atlas_rows()) * side;
     const auto raw_size = probe_texture_bytes(ProbeTextureFormat::R11G11B10, width, height);
-    const auto payload_size = volume.atlas_capacity() * (volume.grid.texels_per_probe() * 12 + 8);
-    const auto header = bytes.size() - payload_size;
-    const auto pixels = decode_probe_texture(
-        ProbeTextureFormat::R11G11B10, width, height, std::span(bytes).subspan(header, raw_size)
-    );
-    const auto compressed = encode_probe_texture(format, width, height, pixels, {true, execution});
-    std::vector<std::uint8_t> encoded;
-    encoded.reserve(bytes.size() - raw_size + compressed.size());
-    encoded.insert(encoded.end(), bytes.begin(), bytes.begin() + header);
+    const auto planes = pack_probe_colour_metadata(volume);
+    std::span<const std::uint8_t> colour = std::span(planes).first(raw_size);
+    const auto metadata = std::span(planes).subspan(raw_size);
+    std::vector<std::uint8_t> compressed;
 
-    // The final header word describes the colour plane; moments and metadata follow unchanged.
-    for (unsigned c = 0; c < 4; ++c) {
-        encoded[header - 4 + c] =
-            static_cast<std::uint8_t>(static_cast<unsigned>(format) >> (c * 8));
+    // Raw colour uploads directly; other formats need only a temporary decoded colour image.
+    if (format != ProbeTextureFormat::R11G11B10) {
+        const auto pixels =
+            decode_probe_texture(ProbeTextureFormat::R11G11B10, width, height, colour);
+        compressed = encode_probe_texture(format, width, height, pixels, {true, execution});
+        colour = compressed;
     }
 
-    encoded.insert(encoded.end(), compressed.begin(), compressed.end());
-    encoded.insert(encoded.end(), bytes.begin() + header + raw_size, bytes.end());
+    const auto depth = encode_probe_depth(volume, execution, depth_format);
+    auto encoded = encode_probe_header(volume, format, depth_format);
+    encoded.reserve(
+        encoded.size() + colour.size() + metadata.size() + depth[0].size() + depth[1].size()
+        + depth[2].size()
+    );
+    encoded.insert(encoded.end(), colour.begin(), colour.end());
+    encoded.insert(encoded.end(), depth[0].begin(), depth[0].end());
+    encoded.insert(encoded.end(), metadata.begin(), metadata.end());
+    encoded.insert(encoded.end(), depth[1].begin(), depth[1].end());
+    encoded.insert(encoded.end(), depth[2].begin(), depth[2].end());
     return encoded;
 }
 

@@ -88,7 +88,9 @@ cannot hide a source edit.
 
 GI colour uses BC6H on supporting desktop adapters or ASTC HDR 8x8 on supporting adapters such as
 Android devices. Unsupported hardware uses packed R11G11B10F. `--compression auto|bc6h|astc|none`
-selects the policy. Visibility remains RG32F and relocation/classification remains RGBA16F.
+selects the policy. Canonical depth maps use RG16 UNORM mean/spread: 256 bytes per probe,
+plus 16 bytes of FP32 ranges. Two hardware gathers retain stable FP32 variance interpolation;
+relocation/classification remains RGBA16F.
 
 A GI probe has a 6x6 interior plus one border texel on each side. BC6H shares endpoints across its
 four physical blocks to preserve border pairs exactly. ASTC permits at most 0.5% linear RGB border

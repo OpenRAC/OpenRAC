@@ -23,9 +23,12 @@ std::vector<std::uint8_t> encode_probe_texture(
     std::span<const Float3> pixels,
     const ProbeTextureEncoding& options = {}
 );
-// Compresses only the irradiance plane, preserving the exact distance and relocation bytes.
+// Encodes irradiance independently of packed depth; noncanonical map sizes retain raw moments.
 std::vector<std::uint8_t> encode_baked_probes(
-    const ProbeVolume& volume, ProbeTextureFormat format, const BakeExecution& execution = {1}
+    const ProbeVolume& volume,
+    ProbeTextureFormat format,
+    const BakeExecution& execution = {1},
+    ProbeDepthFormat depth_format = ProbeDepthFormat::Rg16
 );
 // Compresses prefiltered radiance while retaining the exact BRDF lookup in its separate plane.
 std::vector<std::uint8_t> encode_baked_environment(
