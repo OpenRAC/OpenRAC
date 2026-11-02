@@ -1650,6 +1650,28 @@ class InputsDigest(unittest.TestCase):
             disc.write_bytes(b"\0" * 32)
             self.assertNotEqual(third, hostgen.inputs_digest(source, config, with_disc, []))
 
+    def test_changes_when_a_disc_named_relative_to_the_decompilation_is_set_up(self):
+        # rac2's hostgen.json names the executable and the level dumps relative to the
+        # decompilation ("baserom/..."), as asmc.retail_source reads them: adding them after a
+        # first build must change the fingerprint, or the stub-only C is kept.
+        with tempfile.TemporaryDirectory() as tmp:
+            source, game = Path(tmp) / "decomp", Path(tmp) / "game" / "g"
+            (source / "src").mkdir(parents=True)
+            game.mkdir(parents=True)
+            (source / "src" / "a.c").write_text("int a(void) { return 1; }\n")
+            config = game / "hostgen.json"
+            config.write_text("{}")
+            cfg = {"sources": ["src"], "includes": [], "symbols": [],
+                   "asm": {"enabled": True, "dirs": [],
+                           "retail": {"exe": "baserom/GAME.EXE", "dump": "baserom/levels"}}}
+            before = hostgen.inputs_digest(source, config, cfg, [])
+            (source / "baserom" / "levels" / "level_00").mkdir(parents=True)
+            (source / "baserom" / "GAME.EXE").write_bytes(b"\0" * 16)
+            with_exe = hostgen.inputs_digest(source, config, cfg, [])
+            self.assertNotEqual(before, with_exe)
+            (source / "baserom" / "levels" / "level_00" / "code.bin").write_bytes(b"\0" * 8)
+            self.assertNotEqual(with_exe, hostgen.inputs_digest(source, config, cfg, []))
+
 
 class SupersededDeclarations(unittest.TestCase):
     def test_header_declaration_a_definition_contradicts_takes_its_prototype(self):
