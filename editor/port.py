@@ -36,6 +36,7 @@ from enhanced.bake_inputs import write_bake_inputs
 from enhanced.profiles import write_bake_profile
 from formats import png, unpack
 import games
+import gc_tie_colours
 from gltf import Gltf
 from godot import PANORAMA, STORED_W, LevelWriter, chunk_terrain, problem_summary
 from level import Level
@@ -60,8 +61,8 @@ FORMAT = 4
 # textures from the disc's hero pack. 6: the flights to a planet as levels 95 to 98. 7: what he
 # holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
 # of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
-# 9: the mobys' glow vertices and their light sets.
-GAME_FORMATS = {"rac2": 9}
+# 9: the mobys' glow vertices and their light sets. 10: the ties' vertex colours.
+GAME_FORMATS = {"rac2": 10}
 
 
 def levels_format(game: str) -> int:
@@ -164,6 +165,8 @@ class PortLevelWriter(LevelWriter):
                 lit = light_tie_instance(normals[p["class_id"]], p["matrix"], p["ambient"],
                                          p["directional_lights"], lights[0])
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
+        elif fmt.tie_header.vertex_colours:
+            self.colour_tie_vertices(tie_placements, set(ties))
         self.write_objects("tie", ties, tie_placements)
         shrubs = shrub_classes(level)
         shrub_placements = shrub_instances(level.instances, shrubs, fmt, problems)
@@ -184,6 +187,34 @@ class PortLevelWriter(LevelWriter):
         if collision:  # the title world has none
             self.write_collision(level.block(collision), [block for _, _, block in level.chunks if block])
         return self.finish()
+
+    def colour_tie_vertices(self, placements: list[dict], exported: set[int]) -> None:
+        """Each instance's colour per vertex of its class (Going Commando): the gameplay file's
+        colour entry lit by the instance's directional light set, as the game's vertex colour
+        cache holds it (gc_tie_colours); a vertex's light slot is its place in that list."""
+        level = self.level
+        entries = gc_tie_colours.colour_entries(level.gameplay)
+        bank = [[list(struct.unpack("<4f", struct.pack("<4I", *v))) for v in s]
+                for s in light_bank(level.gameplay)]
+        blobs = {}
+        for entry in level.table(0x20, 32):
+            start, class_id = unpack("<II", entry)
+            if class_id in exported:
+                blobs[class_id] = level.block(start)
+        coloured = 0
+        for p in placements:
+            entry, blob = entries.get(p["index"]), blobs.get(p["class_id"])
+            if entry is None or blob is None:
+                continue
+            try:
+                p["colours"] = gc_tie_colours.vertex_colours(
+                    entry, blob, p["matrix"], bank[p["directional_lights"] & 0xF])
+            except (struct.error, IndexError) as exc:
+                if level.problems is not None:
+                    level.problems.append(f"tie instance {p['index']}: colours not read ({exc})")
+                continue
+            coloured += 1
+        self.stats["tie_vertex_colours"] = coloured
 
     def write_objects(self, family: str, classes: dict[int, Mesh], placements: list[dict]) -> None:
         super().write_objects(family, classes, placements)
@@ -266,6 +297,10 @@ class PortLevelWriter(LevelWriter):
         if self.fmt.lenient:
             # Early access: what the editor and the overrides packs can use, and what not yet.
             manifest["early_access"] = {"playable": False, "packable": False, "lit": False}
+        if self.fmt.tie_header.vertex_colours:
+            # A tie placement's "colours" are one per vertex of its class, and a vertex's light
+            # slot is its place in that list (not one of 64 slot colours).
+            manifest["tie_vertex_colours"] = True
         if self.fmt.moby_lights or (self.normals is not None and self.fmt.lighting):
             # The 16 directional light sets the level loader copies from the gameplay file
             # (colour A with its back factor in w, direction A, colour B, direction B): what

@@ -96,10 +96,14 @@ class TieHeader:
     normals: int
     light_slots: bool           # packet bytes 0xa and 0xb locate each vertex's light slot (Ratchet & Clank)
     winding_flag: bool = False  # a strip's last byte is a flag (any non-zero turns it), not 0 or 1
+    # Each vertex takes its own colour of the instance's (gc_tie_colours): a vertex's light slot is
+    # its place in the class's colour run, packets in order (Going Commando)
+    vertex_colours: bool = False
 
 
 RAC1_TIE = TieHeader(packet_count=0x20, texture_count=0x23, ad_gifs=0x2c, normals=0x0c, light_slots=True)
-GC_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=0x34, light_slots=False)
+GC_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=0x34, light_slots=False,
+                   vertex_colours=True)
 UYA_DL_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=0x34, light_slots=False,
                        winding_flag=True)
 
