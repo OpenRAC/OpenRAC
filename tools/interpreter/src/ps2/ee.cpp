@@ -14,13 +14,23 @@
 
 #include "ee.h"
 
+#include <cstdlib>
+
 #include "fp.h"
 
 namespace ps2 {
 namespace {
 
-/** Cycles the interpreter charges for every instruction, whatever it is. */
-constexpr u64 kCyclesPerInstruction = 2;
+/**
+ * Cycles the interpreter charges for every instruction, whatever it is: 2, or
+ * OPENRAC_BOOT_CPI (1 to 8) for a test that wants the program to finish its frame in fewer
+ * fields.
+ */
+const u64 kCyclesPerInstruction = [] {
+    const char* value = std::getenv("OPENRAC_BOOT_CPI");
+    long cpi = value ? std::strtol(value, nullptr, 10) : 2;
+    return static_cast<u64>(cpi >= 1 && cpi <= 8 ? cpi : 2);
+}();
 
 /**
  * Extracts the rs field, the first register operand, of an instruction word (documented).
