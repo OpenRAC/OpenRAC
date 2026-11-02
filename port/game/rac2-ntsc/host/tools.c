@@ -62,6 +62,7 @@ static const char* const level_names[LEVELS] = {
 #define ITEM_SIZE 0xE0u
 #define STATE_PLAY 0
 #define STATE_SCENE 2
+#define STATE_LOADING 6
 
 /* An item's record, of the loaded program. */
 #define ITEM(id)                                                                                   \
@@ -80,6 +81,15 @@ static int in_level(void) {
 
 static int game_state(void) {
     return GREF(int32_t, OPENRAC_DATA(RAC2_g_nGameState));
+}
+
+/* How a program's load is drawn while game state 6 runs (g_exitSceneMode; func_002E9268 updates
+ * it): 0 and 3 a scene, which skips on Start itself, 1 the ship leaving a planet, 2 the flight. */
+#define EXIT_SCENE_TAKE_OFF 1
+#define EXIT_SCENE_FLIGHT 2
+
+static int exit_scene(void) {
+    return game_state() == STATE_LOADING ? GREF(int16_t, RAC2_g_exitSceneMode) : -1;
 }
 
 /* The level a start is taking us to, or -1. New Game's own path writes the destination too, so one
@@ -140,12 +150,20 @@ static void direct_start(void) {
 }
 
 void rac2_options_frame(void);
+int rac2_planets_take(void);
+static void flight_skip(void);
 
 static void on_frame(unsigned frame) {
     (void)frame;
     rac2_options_frame();
     direct_start();
+    /* The developer mode's Planets page (options.c): the level chosen there. */
+    const int planet = rac2_planets_take();
+    if (planet >= 0) {
+        start_level(planet);
+    }
     hold_destination();
+    flight_skip();
 }
 
 static int bolts(void) {
@@ -182,7 +200,8 @@ static int flight_bound(void) {
  * the scene's draw (func_0027C480's copy) draws the world bound, the lump's. g_exitSceneMode stays 2 into
  * the next level, whose opening scene is its own world: the bound sky tells them apart. */
 static int flight(void) {
-    if (GREF(int16_t, RAC2_g_exitSceneMode) != 2 || (game_state() != 6 && !flight_bound())) {
+    if (GREF(int16_t, RAC2_g_exitSceneMode) != EXIT_SCENE_FLIGHT
+        || (game_state() != STATE_LOADING && !flight_bound())) {
         return -1;
     }
     return GREF(int16_t, RAC2_g_loadingSceneVariant);
@@ -206,9 +225,99 @@ static int hero(float position[3], float rotation[3], int32_t* state) {
     return 1;
 }
 
-/* A scene ends on Start with the four shoulders, as in Ratchet & Clank, while skip_cutscenes is on. */
+/* What the game's own skip of the scene playing now takes, for Start to press too (the window's
+ * pad bits) while skip_cutscenes is on. A level's scene ends on Start with the four shoulders, as in
+ * Ratchet & Clank. The ship leaving a planet (func_002E9268's mode 1) fades out and ends on
+ * Triangle or Cross pressed once its first 120 ticks have played; Start alone does nothing there,
+ * so Start presses Cross, as rac1's take-off does. The flight itself has no skip on the console:
+ * skip() below. */
 static int skip_buttons(void) {
-    return in_level() && game_state() == STATE_SCENE ? 0x0F00 : 0;
+    if (in_level() && game_state() == STATE_SCENE) {
+        return 0x0F00;
+    }
+    if (exit_scene() == EXIT_SCENE_TAKE_OFF) {
+        return 0x4000;
+    }
+    return 0;
+}
+
+/*
+ * Start during the flight between planets, a port feature (skip_cutscenes, differences.json): the
+ * flight ends. The flight (func_002E8368, game state 6, g_exitSceneMode 2) plays laps of a scene at
+ * 0x1B8840 (+0x34 its tick, +0x40 its last): its first lap, a random one of four after it (more while
+ * the next level's archives load), then the approach to the planet, then it waits for the level. A
+ * lap ends when its tick reaches the last, so the tick is moved there, which is the lap's own end.
+ * One press ends them all: from the press on, each lap is ended as soon as it may be (flight_skip),
+ * until the flight is over. A lap may end once the archives are read (g_levelStagingState's stage 2;
+ * before, the flight would only start another lap) and after its first two ticks, where it starts
+ * its sound. The approach (lap 4, the mode block's +0x64) keeps its last 40 ticks, where the ship
+ * fades into the planet and the flight asks for the landing (the mode block's +0x2C): without them
+ * the level starts with no landing. The level then comes as it would have, and its landing (a
+ * scene of game state 6, g_exitSceneMode 0 or 3, which Start ends on the console too) is ended the
+ * game's way, by its skip word (the mode block's +0x26, which func_002E9268 reads with the press),
+ * once the scene takes a press: from its 13th tick, faded in (D_001B15A0 0), and before its last 30.
+ */
+/* The boot program's scene; a level's copy of it through OPENRAC_DATA, as the fade's. */
+#define FLIGHT_SCENE OPENRAC_DATA(0x001B8840u)
+#define FLIGHT_TICK (FLIGHT_SCENE + 0x34u)
+#define FLIGHT_LAST (FLIGHT_SCENE + 0x40u)
+#define FLIGHT_FIRST_TICKS 2
+#define FLIGHT_LAP 0x00152C64u /* the lap playing: 0 to 3 the laps through space, 4 the approach */
+#define FLIGHT_APPROACH 4
+#define APPROACH_END_TICKS 40
+#define ARCHIVES_READ 2
+
+#define SCENE_SKIP 0x00152C26u               /* a short: the scene ends at the next tick */
+#define SCENE_FADE OPENRAC_DATA(0x001B15A0u) /* a float: the fade, 0 when the picture is in */
+#define SCENE_FIRST_TICKS 13
+#define SCENE_LAST_TICKS 30
+#define LANDING_WAIT 60 /* frames from the flight's end to its landing's start, at most */
+
+static int flight_skipping;
+static int landing_wait;
+
+/* The landing after a skipped flight, ended as Start ends it on the console. */
+static void landing_skip(void) {
+    const int mode = exit_scene();
+    if (mode != 0 && mode != 3) {
+        --landing_wait;
+        return;
+    }
+    const int32_t tick = GREF(int32_t, FLIGHT_TICK);
+    if (tick >= SCENE_FIRST_TICKS && GREF(float, SCENE_FADE) == 0.0f
+        && tick < GREF(int16_t, FLIGHT_LAST) - SCENE_LAST_TICKS) {
+        GREF(int16_t, SCENE_SKIP) = 1;
+        landing_wait = 0;
+    }
+}
+
+static void flight_skip(void) {
+    if (exit_scene() != EXIT_SCENE_FLIGHT) {
+        if (flight_skipping) {
+            flight_skipping = 0;
+            landing_wait = LANDING_WAIT;
+        }
+        if (landing_wait > 0) {
+            landing_skip();
+        }
+        return;
+    }
+    if (!flight_skipping || GREF(int32_t, RAC2_g_levelStagingState) < ARCHIVES_READ) {
+        return;
+    }
+    const int32_t last = GREF(int16_t, FLIGHT_LAST)
+                         - (GREF(int32_t, FLIGHT_LAP) == FLIGHT_APPROACH ? APPROACH_END_TICKS : 0);
+    const int32_t tick = GREF(int32_t, FLIGHT_TICK);
+    if (tick >= FLIGHT_FIRST_TICKS && tick < last) {
+        GREF(int32_t, FLIGHT_TICK) = last;
+    }
+}
+
+/* Called while Start is held with skip_cutscenes on. */
+static void skip(void) {
+    if (exit_scene() == EXIT_SCENE_FLIGHT) {
+        flight_skipping = 1;
+    }
 }
 
 /* An item into the hero's hands as GiveInventoryItem (0x00288308) leaves it: owned, shown as new,
@@ -377,6 +486,7 @@ void rac2_install_tools(void) {
     openrac_game_hero_position = hero_position;
     openrac_game_hero = hero;
     openrac_game_skip_buttons = skip_buttons;
+    openrac_game_skip = skip;
     openrac_game_front_end = &front_end;
     openrac_game_tools_host = &tools;
 }

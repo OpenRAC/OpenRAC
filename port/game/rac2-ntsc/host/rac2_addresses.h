@@ -24,6 +24,7 @@
 #define RAC2_g_inventoryNewFlag 0x001A7B30u /* the same, shown as new */
 #define RAC2_g_inventoryOrder 0x001A7B68u  /* the 32 slots of the weapon lists: item | flag, 0xFF */
 #define RAC2_g_equippedItemSlots 0x001A73B8u /* the eight slots, item numbers, 0 up then clockwise */
+#define RAC2_g_levelStagingState 0x001A7280u /* the level archives' load: +0 its stage, 2 on read */
 #define RAC2_g_exitSceneMode 0x00152C20u /* a short: how a program's load is drawn, 2 the flight */
 #define RAC2_g_loadingSceneVariant                                                                 \
     0x00152C2Eu /* a short: which of the four flights' lumps is loaded */
