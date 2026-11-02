@@ -1720,6 +1720,15 @@ class Unit:
             return self.rv(child)
         raise Unsupported(f"unary {op}")
 
+    def _volatile_word(self, t: ctype.Type) -> bool:
+        """Whether T is a volatile 32-bit integer (written through a typedef or not)."""
+        if self.cls(t) != "int":
+            return False
+        quals = set(getattr(t, "quals", ())) | set(getattr(self.resolve(t), "quals", ()))
+        host = ctype.host(self.resolve(t))
+        return "volatile" in quals | set(self.host(t).split()) and host.split()[-1] in (
+            "int", "int32_t", "uint32_t", "openrac_u32", "openrac_s32") and "long" not in host and "short" not in host
+
     def rv_BinaryOperator(self, n: dict) -> str:
         op = n["opcode"]
         a, b = _inner(n)
@@ -1728,7 +1737,13 @@ class Unit:
             sa = _strip_parens(a)
             if sa.get("kind") == "DeclRefExpr" and sa["referencedDecl"].get("id") in self.fn.wide:
                 return f"({lv.text} = {self._wide_value(b, ctype.Base('long long'))})"
-            return f"({lv.text} = {self.convert(b, self.ty(a))})"
+            ta = self.ty(a)
+            if (lv.addr is not None and getattr(self.program, "dma_stores", False) and self._volatile_word(ta)):
+                # A device register word (a DMA channel's CHCR starts its transfer): the store goes
+                # through the game's openrac_ee_sw_dma, as the hand-written kernels' stores do (asmc.py).
+                return (f"({{ extern void openrac_ee_sw_dma(uint32_t, uint64_t); "
+                        f"openrac_ee_sw_dma((gaddr)({lv.addr}), (uint64_t)({self.convert(b, ta)})); }})")
+            return f"({lv.text} = {self.convert(b, ta)})"
         if op in ("+", "-"):
             ta, tb = self.ty(a), self.ty(b)
             pa, pb = self.cls(ta) == "ptr", self.cls(tb) == "ptr"

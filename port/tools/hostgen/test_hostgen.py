@@ -1187,6 +1187,40 @@ class Translate(unittest.TestCase):
         self.assertIn("openrac_ps2_sub(", self.last_generated)
         self.assertIn("ps2_float: func_00100000 has no C here to translate", self.last_report["index_problems"])
 
+    def test_volatile_word_stores_go_through_the_dma_hook(self):
+        # asm.dma_stores: the game's host C answers the scratchpad DMA channels' stores
+        # (openrac_ee_sw_dma). Functional C that starts a channel by its registers and polls STR
+        # must reach it too, or the transfer never happens and the poll never ends; a plain
+        # word store, and the volatile store of a game without dma_stores, stay ordinary stores.
+        files = {"a.c": """
+            extern unsigned int D_00200000[3];
+            void kick(void) {
+                volatile unsigned int *chcr = (volatile unsigned int *)&D_00200000[1] + 1;
+                *chcr = 0x100;
+                while (*chcr & 0x100) {
+                }
+                D_00200000[0] = 7;
+                test_print(D_00200000[1]);
+            }
+            int test_main(void) {
+                kick();
+                return 0;
+            }
+        """}
+        host = """
+            void openrac_ee_sw_dma(unsigned int a, unsigned long long v) {
+                GREF(unsigned int, a) = (unsigned int)v & ~0x100u;  /* the transfer done at once */
+                GREF(unsigned int, 0x00200004u) = a;
+            }
+        """
+        out = self.run_program(files, config={"asm": {"dma_stores": True}}, host_c=host)
+        self.assertEqual(out, [str(0x00200008)])
+        self.assertEqual(self.last_generated.count("openrac_ee_sw_dma((gaddr)"), 1)
+        files_plain = {"a.c": files["a.c"].replace("while (*chcr & 0x100) {\n                }", "")}
+        out = self.run_program(files_plain, host_c=host)
+        self.assertEqual(out, ["0"])
+        self.assertNotIn("openrac_ee_sw_dma(", self.last_generated)
+
     def test_ps2_float_comparisons_keep_the_order_of_their_calls(self):
         # a > b and a >= b with a call on each side: the left one is called first, as the game's
         # code calls them (FastAbsF(r) > FastAbsF(*v)).
