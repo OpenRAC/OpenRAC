@@ -197,11 +197,15 @@ void test_nothing_is_made_ahead_with_the_entry_off() {
 // pipelines instead of making them, and draw what the whole pipelines draw. Where the device
 // cannot link pipelines fast nothing is linked, and the draws make their own as before.
 void test_new_pipelines_are_linked_from_parts() {
+    // Nothing made ahead from the first run's manifest keys, nor in place of a linked one: the
+    // second run's draws link their pipelines, or make them where the device links none.
+    render_opt::set(render_opt::Opt::PipelinePrewarm, false);
     render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
     const RunCounts whole = run(kLinkedColour);
     render_opt::set(render_opt::Opt::VkPipelineLibrary, true);
     const RunCounts linked = run(kLinkedColour);
     render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
+    render_opt::set(render_opt::Opt::PipelinePrewarm, true);
     CHECK(whole.linked == 0);
     CHECK(linked.pixels == whole.pixels);
 
