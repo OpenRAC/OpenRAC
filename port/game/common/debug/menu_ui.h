@@ -116,8 +116,9 @@ void menu_heading(const char* title);
 // A row of the card open now: its label at the left, `right` drawing what it shows at its right
 // (from its right edge, inset, at its middle). True when it was pressed (a finger that dragged the
 // rows along presses none). As high as a thumb on a touch screen, a little lower on a desktop.
+// `right_width` > 0: what `right` draws takes that much, and a longer label ends in "...".
 using RowRight = std::function<void(ImDrawList* list, ImVec2 right)>;
-bool menu_row(const char* label, ImU32 ink, const RowRight& right);
+bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_width = 0.0f);
 bool menu_row(const char* label, ImU32 ink = ui().text);
 
 // A row that turns something on and off: true when pressed.

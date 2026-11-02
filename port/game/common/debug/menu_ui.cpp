@@ -360,7 +360,7 @@ void menu_heading(const char* title) {
     ImGui::Dummy(ImVec2(0.0f, size + dp(8.0f)));
 }
 
-bool menu_row(const char* label, ImU32 ink, const RowRight& right) {
+bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_width) {
     const float height = dp(s.menu_row_height);
     const ImVec2 at = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
@@ -406,11 +406,27 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right) {
             dp(2.0f)
         );
     }
-    list->AddText(
-        ImVec2(at.x + dp(16.0f) + dp(4.0f) * mark, at.y + (height - ImGui::GetFontSize()) * 0.5f),
-        ink,
-        label
+    const ImVec2 text_at(
+        at.x + dp(16.0f) + dp(4.0f) * mark, at.y + (height - ImGui::GetFontSize()) * 0.5f
     );
+    if (right_width > 0.0f) {
+        // Up to what the right side draws: a longer label is cut short with "...".
+        const float until = at.x + width - dp(16.0f) - right_width - dp(10.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ink);
+        ImGui::RenderTextEllipsis(
+            list,
+            text_at,
+            ImVec2(until, text_at.y + ImGui::GetFontSize()),
+            until,
+            until,
+            label,
+            nullptr,
+            nullptr
+        );
+        ImGui::PopStyleColor();
+    } else {
+        list->AddText(text_at, ink, label);
+    }
     if (right) {
         right(list, ImVec2(at.x + width - dp(16.0f), at.y + height * 0.5f));
     }
@@ -440,14 +456,10 @@ bool menu_switch(const char* label, bool on) {
 
 int menu_choice(const char* label, const std::string& value, bool can_lower, bool can_raise) {
     float back_until = 0.0f;  // a press left of this moves the value back
-    const bool pressed = menu_row(label, ui().text, [&](ImDrawList* list, ImVec2 right) {
-        // The values of every row in one column, centred between its arrows; narrower in a
-        // narrow card where the label would run under it (the drawer's "Anisotropic filtering").
-        const float label_end =
-            ImGui::GetItemRectMin().x + dp(20.0f) + ImGui::CalcTextSize(label).x + dp(12.0f);
-        const float least = ImGui::CalcTextSize(value.c_str()).x + dp(44.0f);
-        const float column =
-            std::max(std::min({s.card.width * 0.48f, dp(190.0f), right.x - label_end}), least);
+    // The values of every row in one column, centred between its arrows; a label too long for
+    // what is left of the row ends in "..." (the drawer's "Anisotropic filtering").
+    const float column = std::min(s.card.width * 0.48f, dp(190.0f));
+    const auto draw = [&](ImDrawList* list, ImVec2 right) {
         const float left = right.x - column;
         const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
         arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, can_lower ? ui().amber : off);
@@ -459,7 +471,8 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
             value.c_str()
         );
         back_until = left + column * 0.35f;
-    });
+    };
+    const bool pressed = menu_row(label, ui().text, draw, column + dp(8.0f));
     int by = 0;
     if (pressed) {
         by = ImGui::IsMouseReleased(0) && ImGui::GetIO().MousePos.x < back_until ? -1 : 1;

@@ -140,15 +140,17 @@ void controller_panel(float left, float right_inset) {
         list->AddLine(
             ImVec2(a.x + dp(1.0f), a.y + header), ImVec2(b.x - dp(1.0f), a.y + header), ui().line
         );
-        // Rows in a centred column of readable width, scrolling under the header.
+        // Rows in a column of readable width at the panel's right, near the thumb, scrolling
+        // under the header. A little padding keeps the cards' outlines inside the child's clip,
+        // and no scrollbar takes their right edge (a finger drags the rows).
         const float column = std::min(size.x - dp(28.0f), dp(720.0f));
-        ImGui::SetCursorScreenPos(ImVec2(a.x + (size.x - column) * 0.5f, a.y + header + dp(1.0f)));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, dp(6.0f)));
+        ImGui::SetCursorScreenPos(ImVec2(b.x - dp(14.0f) - column, a.y + header + dp(1.0f)));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(dp(2.0f), dp(6.0f)));
         if (ImGui::BeginChild(
                 "rows",
                 ImVec2(column, size.y - header - dp(2.0f)),
                 ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened,
-                ImGuiWindowFlags_NoScrollWithMouse
+                ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar
             )) {
             drag_scroll(s.drawer_controller_scroll);
             if (s.drawer_controller_focus && out) {
