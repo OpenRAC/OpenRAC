@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "renderer/shader.h"
@@ -68,6 +69,10 @@ struct FurProfile {
 
 // Built-in original-atlas profile, authored from the exported rac1 body mesh.
 [[nodiscard]] const FurProfile& rac1_fur_profile();
+// Going Commando's, generated from its exported body (profiles/rac2/fur.json).
+[[nodiscard]] const FurProfile& rac2_fur_profile();
+// The built-in profile of a level's game ("rac1", "rac2"); an empty one for any other game.
+[[nodiscard]] const FurProfile& fur_profile(std::string_view game);
 // Hashes UV float words in triangle order; zero denotes invalid indices or non-finite UVs.
 [[nodiscard]] std::uint64_t fur_uv_signature(
     const scene::LevelData& level, const scene::Primitive& primitive

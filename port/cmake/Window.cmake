@@ -446,11 +446,14 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
 )
 target_link_libraries(openrac_enhanced_viewer PUBLIC openrac_scene_renderer openrac_probe_scene)
 # Authored UV regions contain no retail texture pixels; the maps are generated at level load.
+# One profile a game: Ratchet & Clank's and Going Commando's bodies.
 set(fur_profile "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/profiles/rac1/fur.json")
+set(fur_profile_rac2 "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/profiles/rac2/fur.json")
 file(READ "${fur_profile}" fur_profile_text)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${fur_profile}")
+file(READ "${fur_profile_rac2}" fur_profile_rac2_text)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${fur_profile}" "${fur_profile_rac2}")
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/fur_profile_data.h"
-  CONTENT "#pragma once\nnamespace openrac::enhanced { inline constexpr char kRac1FurProfile[] = R\"json(${fur_profile_text})json\"; }\n" @ONLY)
+  CONTENT "#pragma once\nnamespace openrac::enhanced { inline constexpr char kRac1FurProfile[] = R\"json(${fur_profile_text})json\"; inline constexpr char kRac2FurProfile[] = R\"json(${fur_profile_rac2_text})json\"; }\n" @ONLY)
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_enhanced_viewer PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_enhanced_viewer PRIVATE OPENRAC_VULKAN=1)

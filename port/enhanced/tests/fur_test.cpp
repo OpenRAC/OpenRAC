@@ -46,6 +46,22 @@ scene::LevelData fixture(enhanced::FurProfile& profile) {
 }
 
 // Checks authored exclusions and rejects models whose identity or topology differs.
+// Each game's built-in profile is its own: Going Commando's names its body and its UV layout.
+void test_game_profiles() {
+    const auto& rac2 = enhanced::fur_profile("rac2");
+    CHECK(
+        &rac2 == &enhanced::rac2_fur_profile()
+        && &enhanced::fur_profile("rac1") == &enhanced::rac1_fur_profile()
+    );
+    CHECK(rac2.game == "rac2" && rac2.class_id == 0 && rac2.material == "moby_1000");
+    CHECK(
+        rac2.width == 256 && rac2.height == 256 && rac2.index_count == 16038
+        && rac2.vertex_count == 4273
+    );
+    CHECK(rac2.uv_signature != 0 && !rac2.patches.empty());
+    CHECK(enhanced::fur_profile("rac3").game.empty());
+}
+
 void test_maps_and_identity() {
     auto profile = enhanced::rac1_fur_profile();
     CHECK(profile.game == "rac1" && profile.class_id == 0 && profile.patches.size() == 9);
@@ -212,7 +228,7 @@ int main(int argc, char** argv) {
         scene::LevelData level;
         std::string error;
         CHECK(scene::load_level(argv[2], level, error));
-        const auto& profile = enhanced::rac1_fur_profile();
+        const auto& profile = enhanced::fur_profile(level.game);
         const auto surface = enhanced::identify_fur_surface(level, profile);
         if (!surface) {
             std::printf("No supported fur surface: %s\n", error.c_str());
@@ -242,6 +258,7 @@ int main(int argc, char** argv) {
         std::printf("Verified fur UV layout, coverage and exclusions on %s\n", argv[2]);
         return test::result();
     }
+    test_game_profiles();
     test_maps_and_identity();
     return test::result();
 }
