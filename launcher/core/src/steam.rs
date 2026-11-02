@@ -6,9 +6,9 @@
 //! field this file does not know stays as it was: a file that cannot be read is an error, never
 //! overwritten, and each write keeps a dated copy (the last three).
 //!
-//! No controller configuration is written. The launcher reads the pad itself; being a game in
-//! Steam is what makes Steam drop the desktop layout while it runs, and the player's own
-//! configuration for it is Steam's to keep.
+//! No controller configuration is written. The entry allows the Desktop Layout in the launcher's
+//! window (Steam's "Allow Desktop Configuration in Launcher"), and the game it starts gets Steam's
+//! game configuration (the default gamepad layout, or the player's own, which is Steam's to keep).
 //!
 //! The work takes its folders as arguments, so the tests never touch a real Steam. It is compiled
 //! and tested on every platform; Android does not call it.
@@ -246,10 +246,10 @@ fn state_of(user: &Path, program: &Path) -> State {
     let Some((_, Value::Map(fields))) = entries.iter().find(|(_, entry)| is_ours(entry)) else {
         return State::NotAdded;
     };
-    // An entry from an older launcher, which let Steam's Desktop Layout run in it, is updated too.
-    let desktop = !matches!(get(fields, "AllowDesktopConfig"), Some(Value::Int(0)));
+    // An entry that turned the Desktop Layout off in the launcher's window is updated too.
+    let desktop = matches!(get(fields, "AllowDesktopConfig"), Some(Value::Int(1)));
     match get(fields, "Exe") {
-        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && !desktop => State::Added,
+        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && desktop => State::Added,
         _ => State::Outdated,
     }
 }
@@ -306,7 +306,7 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
             (b"ShortcutPath".to_vec(), text("")),
             (b"LaunchOptions".to_vec(), text("")),
             (b"IsHidden".to_vec(), Value::Int(0)),
-            (b"AllowDesktopConfig".to_vec(), Value::Int(0)),
+            (b"AllowDesktopConfig".to_vec(), Value::Int(1)),
             (b"AllowOverlay".to_vec(), Value::Int(1)),
             (b"OpenVR".to_vec(), Value::Int(0)),
             (b"Devkit".to_vec(), Value::Int(0)),
@@ -333,10 +333,9 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
     set(fields, "Exe", text(exe));
     set(fields, "StartDir", text(quoted(&start_dir(program))));
     set(fields, "icon", text(icon(id).display().to_string()));
-    // Steam Input gives OpenRAC its game configuration (Steam's default gamepad layout) from the
-    // start, never the Desktop Layout's mouse and keys, also while the launcher's window is in
-    // front: the launcher is moved through with the pad as the game is.
-    set(fields, "AllowDesktopConfig", Value::Int(0));
+    // The launcher's window keeps Steam's Desktop Layout (mouse and keys); only the game gets the
+    // game configuration.
+    set(fields, "AllowDesktopConfig", Value::Int(1));
 
     let mut out = Vec::new();
     write_map(&file, &mut out);
@@ -771,7 +770,7 @@ mod tests {
     }
 
     #[test]
-    fn the_entry_takes_steams_gamepad_config_not_the_desktop_layout() {
+    fn the_launcher_keeps_the_desktop_layout() {
         let dir = tempfile::tempdir().unwrap();
         let roots = [dir.path().to_path_buf()];
         let user = steam(dir.path());
@@ -786,16 +785,16 @@ mod tests {
             };
             fields
         };
-        assert_eq!(get(&ours(&list), "AllowDesktopConfig"), Some(&Value::Int(0)));
+        assert_eq!(get(&ours(&list), "AllowDesktopConfig"), Some(&Value::Int(1)));
 
-        // An entry an older launcher wrote, with the Desktop Layout allowed: shown as to update,
+        // An entry an older launcher wrote, with the Desktop Layout turned off: shown as to update,
         // and updated in place, every other field kept.
         let mut file = parse(&std::fs::read(&list).unwrap()).unwrap();
         let Some((_, Value::Map(entries))) = file.iter_mut().find(|(k, _)| is_key(k, "shortcuts")) else {
             panic!("no list")
         };
         let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, e)| is_ours(e)) else { panic!("no entry") };
-        set(fields, "AllowDesktopConfig", Value::Int(1));
+        set(fields, "AllowDesktopConfig", Value::Int(0));
         set(fields, "LaunchOptions", Value::Text(b"--keep".to_vec()));
         let mut bytes = Vec::new();
         write_map(&file, &mut bytes);
@@ -803,7 +802,7 @@ mod tests {
         assert_eq!(state(&roots, program), State::Outdated);
         assert_eq!(add(&roots, program, &ART), Ok(State::Added));
         let fields = ours(&list);
-        assert_eq!(get(&fields, "AllowDesktopConfig"), Some(&Value::Int(0)));
+        assert_eq!(get(&fields, "AllowDesktopConfig"), Some(&Value::Int(1)));
         assert_eq!(get(&fields, "LaunchOptions"), Some(&Value::Text(b"--keep".to_vec())));
         assert_eq!(entries_of(&list).len(), 2);
     }
