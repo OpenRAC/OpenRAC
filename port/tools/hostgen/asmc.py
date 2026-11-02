@@ -1554,7 +1554,10 @@ class Translator:
             else:
                 raise AsmUnsupported(f"a parameter of type {c}")
         if stacked:
-            setup[1:1] = [f"    r29 = {S32(f'(openrac_u32)r29 - {8 * len(stacked)}u')};"] + stacked
+            # A whole number of quadwords: $sp stays aligned, as the quadword stores under it need
+            # (func_L00_0032A258's three took it to 8 mod 16, a movaps fault on x86-64).
+            room = (8 * len(stacked) + 15) & ~15
+            setup[1:1] = [f"    r29 = {S32(f'(openrac_u32)r29 - {room}u')};"] + stacked
         lines = [f"/* {f.symbol}: translated from its assembly ({self.where}) */", proto + " {"]
         lines += decl + setup
         lines += ["    " + s if not s.startswith("L_") else s for s in body]
