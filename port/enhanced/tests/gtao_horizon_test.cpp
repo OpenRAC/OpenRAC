@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+//
+// GTAO horizon arithmetic against historical shader and CPU references.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -16,6 +18,7 @@
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"
+#include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -166,10 +169,13 @@ void cpu_predicates() {
 }
 }  // namespace
 
+// Checks every horizon configuration against the historical shader and CPU references.
 int main(int argc, char** argv) {
+    test::RenderTestTiming timing("gtao horizons");
     // This fixture isolates algebraic horizon optimisations against FP32 CPU and shader references.
     openrac::renderer::render_opt::set(openrac::renderer::render_opt::Opt::ShaderFloat16, false);
     cpu_predicates();
+    timing.lap("CPU predicates");
     if (test::failures() || (argc > 1 && std::string_view(argv[1]) == "--cpu")) {
         return test::result();
     }
@@ -226,6 +232,7 @@ void main() {
     if (test::failures()) {
         return test::result();
     }
+    timing.lap("shader setup");
     unsigned vao = 0, depth = 0, buffer = 0, texture = 0;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -405,6 +412,7 @@ void main() {
         "stress)\n",
         cases
     );
+    timing.lap("matrix draw/readback");
     performance_reference_difference.print("GPU/three-step reference", "performance");
     performance_quality_difference.print("GPU/seven-step quality", "performance");
     CHECK(performance_reference_difference.changed == 0);
