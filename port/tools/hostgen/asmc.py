@@ -125,6 +125,14 @@ def is_control(i: asm.Insn) -> bool:
 LEVEL_DATUM = re.compile(r"D_L(\d\d)_([0-9A-Fa-f]{8})")
 
 
+def ps2_float_named(program: Program, symbol: str) -> bool:
+    """Whether hostgen.json "ps2_float" names SYMBOL, or the function a call-site variant
+    (SYMBOL_N) is of."""
+    names = getattr(program, "ps2_float", ())
+    base = re.sub(r"_\d+$", "", symbol)
+    return symbol in names or base in names
+
+
 class Translator:
     forward_unprototyped = False  # asm.forward_unprototyped in hostgen.json
     # asm.in_place in hostgen.json: hand-written routines called in their own register convention,
@@ -189,11 +197,17 @@ class Translator:
         line_block = self.index.code.get(found)
         if line_block is not None:
             res.source = self._relative(line_block[1].path)
+        # hostgen.json "ps2_float" names translated assembly too (a call-site variant by its
+        # function's name): its FPU and VU0 arithmetic is then the EE's, as for the shadows.
+        shadows = self.ps2
+        self.ps2 = shadows or ps2_float_named(self.program, f.symbol)
         try:
             res.text, res.report = self._function(f, found)
         except (AsmUnsupported, Unsupported) as e:
             res.reason = str(e)
             res.text = None
+        finally:
+            self.ps2 = shadows
         return res
 
     def _relative(self, path: Path) -> str:
@@ -1857,6 +1871,15 @@ def write_files(out: Path, cfg: dict, results: dict[str, Result], game: str,
             "#define OPENRAC_ASM_SP() OPENRAC_EE_S32(sp_in_)",
             "#define OPENRAC_ASM_CALL() (openrac_guest_sp = (gaddr)r29)",
             "#define OPENRAC_ASM_LEAVE() (openrac_guest_sp = sp_in_)", ""]
+    # A function hostgen.json "ps2_float" names computes through openrac/ps2float.h, and max and
+    # min as the EE compares (the shadows' file has its own).
+    ps2_lead = ["#include <string.h>", "#include \"openrac/ps2float.h\"",
+                "static inline int openrac_ps2s_key(float f) { unsigned u; memcpy(&u, &f, 4);"
+                " return (u >> 31) ? -(int)(u & 0x7FFFFFFFu) : (int)u; }",
+                "static inline float openrac_ps2s_max(float a, float b) {"
+                " return openrac_ps2s_key(b) > openrac_ps2s_key(a) ? b : a; }",
+                "static inline float openrac_ps2s_min(float a, float b) {"
+                " return openrac_ps2s_key(b) < openrac_ps2s_key(a) ? b : a; }"]
     if shadows:
         texts = stage.shadows if stage is not None else {}
         # Each shadow's address, or 0 where there is no translation: what the port reads.
@@ -1875,6 +1898,8 @@ def write_files(out: Path, cfg: dict, results: dict[str, Result], game: str,
                 " return openrac_ps2s_key(b) > openrac_ps2s_key(a) ? b : a; }",
                 "static inline float openrac_ps2s_min(float a, float b) {"
                 " return openrac_ps2s_key(b) < openrac_ps2s_key(a) ? b : a; }"] if name == "asm_shadows.c" else []
+        if not lead and any("openrac_ps2" in t for t in chunk):
+            lead = ps2_lead
         text = "\n".join(head[:2] + lead + head[2:] + chunk) + "\n"
         path = out / name
         if not path.exists() or path.read_text() != text:

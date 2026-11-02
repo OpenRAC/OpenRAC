@@ -2767,6 +2767,37 @@ class FromAssembly(unittest.TestCase):
                                    str(0x3F800000), "1"])
         self.assertEqual(self.last_report["shadows"], {"sum": "translated", "none": "no function func_00999999"})
 
+    def test_ps2_float_names_translated_assembly_too(self):
+        # hostgen.json "ps2_float" naming a function the decompilation keeps as assembly: its
+        # translation's floats are the EE's (1 + 1.5 * 2^-24 is 1: the adder drops the bits),
+        # where an unnamed one adds as the host does; neither is an index problem.
+        asm_text = """
+                lwc1 $f0, 0($4)
+                lwc1 $f1, 4($4)
+                add.s $f0, $f0, $f1
+                swc1 $f0, 8($4)
+                jr $31
+                lw $2, 8($4)
+            """
+        files = {"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, asm_text),
+                 "game/asm/func_00100100.s": assembler.assemble("func_00100100", 0x00100100, asm_text)}
+        out = self.run_program({"a.c": """
+            extern unsigned D_00200000[4];
+            INCLUDE_ASM("asm", func_00100000);
+            INCLUDE_ASM("asm", func_00100100);
+            extern int func_00100000(unsigned *p);
+            extern int func_00100100(unsigned *p);
+            int test_main(void) {
+                D_00200000[0] = 0x3F800000u;
+                D_00200000[1] = 0x33C00000u;
+                test_print(func_00100000(D_00200000));
+                test_print(func_00100100(D_00200000));
+                return 0;
+            }
+        """}, config={**ASM_CONFIG, "ps2_float": ["func_00100000"]}, extra_files=files, cxx=PS2FLOAT_CXX)
+        self.assertEqual(out, [str(0x3F800000), str(0x3F800001)])
+        self.assertFalse([p for p in self.last_report["index_problems"] if "ps2_float" in p])
+
     def test_loads_and_stores(self):
         out = self.run_asm("""
             extern unsigned char D_00300000[32];

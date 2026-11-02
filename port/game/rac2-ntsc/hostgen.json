@@ -6,7 +6,24 @@
   "source": "games/rac2/ntsc",
   "frame_rate": 60,
   "entry": "func_00131AE8",
-  "ps2_float": ["func_00283248", "func_00283410", "func_002A05A8", "func_002AB6D8"],
+  "ps2_float": [
+    "func_00282890", "func_002828B8", "func_002828C8", "func_002828F0", "func_00282900",
+    "func_00282928", "func_00282938", "func_00282948", "func_00282978", "func_002829A8",
+    "func_002829D8", "func_00282A18", "func_00282A28", "func_00282A38", "func_00282A60",
+    "func_00282A88", "func_00282AB0", "func_00282B50", "func_00282B78", "func_00282BA8",
+    "func_00282BE0", "func_00282C10", "func_00282C30", "func_00282C58", "func_00282C68",
+    "func_00282C78", "func_00282C90", "func_00282C98", "func_00282CA8", "func_00282CC0",
+    "func_00282CD8", "func_00282CF0", "func_00282D08", "func_00282D30", "func_00282D48",
+    "func_00282D60", "func_00282D78", "func_00282D90", "func_00282DB0", "func_00282DD8",
+    "func_00282DF0", "func_00282E20", "func_00282E48", "func_00282E80", "func_00282EB0",
+    "func_00282ED8", "func_00282F20", "func_00282F70", "func_00282FB8", "func_00283028",
+    "func_00283098", "func_002830C0", "func_002830F0", "func_00283108", "func_00283130",
+    "func_00283150", "func_002831B0", "func_00283248", "func_00283360", "func_00283388",
+    "func_002833B8", "func_002833F0", "func_00283410", "func_00283430", "func_00283658",
+    "func_00283678", "func_00283698", "func_002836E8", "func_00283738", "func_00283788",
+    "func_002837D0", "func_00283810", "func_00283898", "func_00283958", "func_002839D0",
+    "func_002A05A8", "func_002AB6D8"
+  ],
   "sources": [
     "src"
   ],
