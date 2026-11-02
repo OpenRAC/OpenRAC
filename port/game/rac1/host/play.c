@@ -262,6 +262,14 @@ static int hero_pose(openrac_game_pose* out) {
 /* The ticks a new seq blends in over (set_hero_animation's time), as a figure's do. */
 #define HERO_SET_BLEND 4
 
+/* The states whose kept id lights the thruster pack's flames (update_beam_effect_lifecycle, the
+ * class 0xA7 mobys: states 0xB-0xE, a ledge jump, a land, and 0x10 and 0x22 while his state timer,
+ * which only his update advances, is young): with the mod's moves they burn on through the ride. */
+static int pack_flame_state(void) {
+    const int32_t st = GREF(int32_t, HERO_STATE);
+    return (st >= 0xB && st <= 0xE) || st == 8 || st == 0x10 || st == 0x1C || st == 0x22;
+}
+
 static int hero_set_pose(const openrac_game_pose* pose) {
     if (!in_level()) {
         return 0;
@@ -321,7 +329,7 @@ static int hero_set_pose(const openrac_game_pose* pose) {
          * it (its height held in the air, its flip and slam modes) for as long as he is in it.
          * On the ground he is idle to the camera: state 0, control mode 0. */
         const int32_t mode = GREF(int32_t, HERO_CONTROL_MODE);
-        if (mode == 2 || mode == 4 || GREF(int32_t, HERO_STATE) == 0x14) {
+        if (mode == 2 || mode == 4 || GREF(int32_t, HERO_STATE) == 0x14 || pack_flame_state()) {
             GREF(int32_t, HERO_STATE) = 0;
             GREF(int32_t, HERO_STATE + 4u) = 0;
             GREF(int32_t, HERO_CONTROL_MODE) = 0;
@@ -332,6 +340,12 @@ static int hero_set_pose(const openrac_game_pose* pose) {
         GREF(int16_t, HERO_PAST_JUMP_APEX) = (int16_t)(pose->velocity[2] < 0.001f ? 1 : 0);
         GREF(int32_t, HERO_FRAMES_TO_LAND) = 0;
         GREF(float, HERO_GROUND_DISTANCE) = 30.0f;
+        /* In the air a state that lights the thruster's flames is a plain fall. */
+        if (pack_flame_state()) {
+            GREF(int32_t, HERO_STATE) = 6;
+            GREF(int32_t, HERO_STATE + 4u) = 0;
+            GREF(int32_t, HERO_CONTROL_MODE) = 2;
+        }
     }
     func_001FA218(HERO, HERO_MOTION_ROT);
     for (unsigned r = 0; r < 4; ++r) {
