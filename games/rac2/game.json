@@ -194,7 +194,7 @@
             "extern char D_001C4FA0[];       /* Q: the selection state */\nextern char D_0025E680[], D_0025A498[];\n"
           ]
         ],
-        "commit": "c714beab03c1de3c690e58040b832c2bd9591d1a",
+        "commit": "578bc4ca903a4d528280a412658187bc87c62c40",
         "date": "2026-11-01",
         "imported": "2026-11-01"
       },

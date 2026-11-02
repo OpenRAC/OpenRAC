@@ -221,7 +221,7 @@ func_L09_0041A700	same	2026-11-01	d47584d0+dirty	32004516f2c2	8 calls
 func_L10_00421790	same	2026-11-01	d47584d0+dirty	c9464e5ad588	3 calls
 func_L10_004227A0	same	2026-11-01	d47584d0+dirty	7cb93bd3ea82	1 calls
 func_L10_00424CD0	same	2026-11-01	d47584d0+dirty	49ed31e4063a	3 calls
-func_L11_00420C88	same	2026-11-01	d47584d0+dirty	a486c2ec5f9a	4 calls
+func_L11_00420C88	same	2026-11-02	578bc4ca9	cfbaabfe3a51	4 calls (P33, on #390's draft with the 0x56c fix)
 func_L11_004465F8	same	2026-11-01	d47584d0+dirty	b1c9de1f1909	4 calls
 func_L11_00451178	same	2026-11-01	d47584d0+dirty	6381b2ad0232	4 calls
 func_L11_00452450	same	2026-11-01	d47584d0+dirty	3807a0d49afb	4 calls
