@@ -571,6 +571,9 @@ pub struct Status {
     pub time: String,
     #[serde(default)]
     pub version: String,
+    /// The mod interface of the port that wrote it ("1.12").
+    #[serde(default)]
+    pub api: String,
     #[serde(default)]
     pub purist: bool,
     #[serde(default)]
@@ -675,7 +678,9 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
     let mods = read_list(dir)?;
     let manifests: Vec<Result<Manifest, String>> =
         mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
-    let status = read_status(dir);
+    // An answer from a port with another interface (OpenRAC updated since its last start) says
+    // nothing about this one: a mod it refused as too new may load now.
+    let status = read_status(dir).filter(|s| s.api.is_empty() || s.api == format!("{API_MAJOR}.{API_MINOR}"));
     let platform = platform_key();
     let mut out = Vec::new();
     for (i, entry) in mods.iter().enumerate() {
@@ -1846,6 +1851,14 @@ mod tests {
         assert_eq!(view(&views, "fine").state, "failed");
         assert!(view(&views, "fine").reason.ends_with("openrac_mod_load returned 3"));
         assert_eq!(read_status(dir).unwrap().hook_points, ["Pad_ProcessReport"]);
+        // Written by a port with another interface (OpenRAC updated since): no longer said.
+        std::fs::write(
+            dir.join(STATUS),
+            r#"{"format": 1, "time": "t", "api": "1.0", "mods": [{"id": "fine", "version": "1.1.0",
+                 "state": "refused", "reason": "needs interface 1.12; this OpenRAC has 1.0"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(view(&list(dir, "rac1", "pal").unwrap(), "fine").state, "ready", "an older port's answer");
         installed_mod(dir, "fine", json!({"version": "1.2.0"}));
         assert_eq!(
             view(&list(dir, "rac1", "pal").unwrap(), "fine").state,
