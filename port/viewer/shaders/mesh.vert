@@ -186,7 +186,9 @@ void main() {
         // A glow packet's vertex (slot -2) of a moby whose mode has 0x10: its glow RGB, unlit,
         // with no multiplier (MobyProc's glow list overwrites the lit colours).
         if (light_slot < -1.5 && moby_ambient.w > 0.5) {
-            int glow = int(moby_ambient.w - 1.0 + 0.5);
+            // w holds an exact integer: round it before taking the 1 off. Rounding w - 1 + 0.5
+            // instead is not exact near 2^24 (a white glow came out as 0x1000000: black on Vulkan).
+            int glow = int(round(moby_ambient.w)) - 1;
             v_colour = vec4(float(glow & 255), float((glow >> 8) & 255), float((glow >> 16) & 255), 128.0)
                      / 128.0 * tint;
             v_glow = 1;
