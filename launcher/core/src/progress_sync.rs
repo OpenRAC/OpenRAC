@@ -31,9 +31,9 @@ pub fn sync(root: &Path, cache: &Path, fetch: &dyn Fetch) -> Result<(), String> 
     let list = fetch_text(fetch, catalog::BYTEMATCH_PROJECTS)
         .ok_or_else(|| format!("{} could not be fetched", catalog::BYTEMATCH_PROJECTS))?;
     let mut jsons = BTreeMap::new();
-    for (_key, slug) in catalog::bytematch_projects_for(root, &list).unwrap_or_default() {
-        if let Some(text) = fetch_text(fetch, &catalog::bytematch_project_url(&slug)) {
-            jsons.insert(slug, text);
+    for (key, slug) in catalog::bytematch_projects_for(root, &list).unwrap_or_default() {
+        if let Some(text) = fetch_text(fetch, &catalog::bytematch_project_url_for(&key, &slug)) {
+            jsons.insert(key, text);
         }
     }
     catalog::update_progress_from_bytematch(root, cache, &list, &jsons).map(|_| ())
@@ -112,6 +112,48 @@ mod tests {
         let ntsc = catalog.version("rac1/ntsc").unwrap().progress.as_ref().unwrap();
         assert_eq!(ntsc.percent, 89.75);
         assert!(ntsc.functional.is_none());
+    }
+
+    #[test]
+    fn rac5_uses_its_us_report_even_when_the_project_defaults_to_pal() {
+        let root = tempfile::tempdir().unwrap();
+        let game = root.path().join("games/rac5");
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(
+            game.join("game.json"),
+            r#"{"id":"rac5","title":"Size Matters","versions":{"ntsc":{
+                "region":"NTSC-U","serial":"SCUS_976.15","bytematch":"OpenRAC/rac5-sm-decomp"}}}"#,
+        )
+        .unwrap();
+        let mut site = Site::default();
+        site.pages.insert(
+            catalog::BYTEMATCH_PROJECTS.into(),
+            br#"[{"owner":"OpenRAC","repo":"rac5-sm-decomp","version":"SCES_550.19",
+                "timestamp":"2026-10-27T17:10:01Z","measures":{
+                "matched_code":87784,"total_code":6418460,"matched_code_percent":1.37}}]"#
+                .to_vec(),
+        );
+        site.pages.insert(
+            "https://bytematch.dev/OpenRAC/rac5-sm-decomp/SCUS_976.15.json".into(),
+            br#"{"measures":{"matched_code":618320,"total_code":6418204,
+                "matched_code_percent":9.63385},"commit":{"timestamp":"2026-11-01T18:00:00Z"}}"#
+                .to_vec(),
+        );
+        let mine = tempfile::tempdir().unwrap();
+        let cache = mine.path().join("progress.json");
+
+        sync(root.path(), &cache, &site).unwrap();
+
+        assert!(site.asked.borrow().iter().any(|url| url.ends_with("/SCUS_976.15.json")));
+        let catalog = catalog::load_with(root.path(), Some(&cache)).unwrap();
+        let progress = catalog.version("rac5/ntsc").unwrap().progress.as_ref().unwrap();
+        assert_eq!((progress.matched_code, progress.total_code), (618320, 6418204));
+        assert_eq!(progress.date.as_deref(), Some("2026-11-01"));
+
+        site.pages.remove("https://bytematch.dev/OpenRAC/rac5-sm-decomp/SCUS_976.15.json");
+        sync(root.path(), &cache, &site).unwrap();
+        let offline = catalog::load_with(root.path(), Some(&cache)).unwrap();
+        assert_eq!(offline.version("rac5/ntsc").unwrap().progress.as_ref().unwrap().matched_code, 618320);
     }
 
     #[test]
