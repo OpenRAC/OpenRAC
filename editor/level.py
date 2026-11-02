@@ -70,6 +70,8 @@ class Level:
     # The items he holds, which the level's class table only names or leaves out: class number to
     # (decoded class, place among the textures from ITEM_TEXTURES).
     items: dict[int, tuple[bytes, int]] = field(default_factory=dict)
+    # Going Commando's flights: his ship's hull, which the game loads over a class of its own.
+    ship_body: bytes | None = None
 
     @property
     def instances(self) -> bytes:
@@ -183,9 +185,16 @@ def textures(level: Level, gs: bytes) -> dict[tuple[str, int], Texture]:
     # The chrome (128 x 128) and glass (64 x 64) maps the metal packets are drawn with: byte offsets
     # into the GS RAM lump of their PSMT8 pixels and CLUT, at core index 0x90 / 0x94 and 0x98 / 0x9C
     # (ReRAC moby_skinning_lighting.md 9, "Texture"). Blurry environment pictures, alpha 13..0x80.
+    # Going Commando's pixels are the first two pictures of the texture data, offsets 0 and 0x4000
+    # in every level, so its moby textures start at 0x5000; the CLUTs are still in the lump, at 0
+    # and 0x400.
     for key, at, size in ((("metal", -2), 0x90, 128), (("metal", -3), 0x98, 64)):
         pixels, palette = unpack("<II", level.index, at)
-        if pixels and pixels + size * size <= len(gs) and palette + 1024 <= len(gs):
+        if fmt.maps_in_textures:
+            if base + pixels + size * size <= len(level.core) and palette + 1024 <= len(gs):
+                result[key] = Texture(size, size, span(level.core, base + pixels, size * size),
+                                      span(gs, palette, 1024))
+        elif pixels and pixels + size * size <= len(gs) and palette + 1024 <= len(gs):
             result[key] = Texture(size, size, span(gs, pixels, size * size), span(gs, palette, 1024))
     return result
 
@@ -382,6 +391,8 @@ def load_wad_flight(source, number: int) -> Level:
     level.hero_mesh, pack = source.hero_pack()
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture
+    level.textures[("moby", SHIP_TEXTURE)] = record_texture(source.ship_texture(), 0)
+    level.ship_body = source.ship_body()
     return level
 
 

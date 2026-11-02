@@ -1905,7 +1905,9 @@ bool begin_capture(State& owner) {
             owner.renderer->textures().upload(image);
         }
     }
-    owner.pending_images.clear();
+    // What the game sent during the last tick goes again once that tick's list has been replayed.
+    owner.pending_images = std::move(owner.images_after_list);
+    owner.images_after_list.clear();
     return read_window_events();
 }
 

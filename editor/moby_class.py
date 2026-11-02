@@ -420,8 +420,14 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
             continue
         hero, wrench = class_id == 0 and level.hero_mesh is not None, class_id == WRENCH_CLASS and level.wrench_meshes
         # The hero pack's packets name its own textures, in order. The wrench's pack has one.
+        painted = ("moby", SHIP_TEXTURE) in level.textures
         remap = ([HERO_TEXTURES + i for i in range(16)] if hero else [ITEM_TEXTURES] * 16 if wrench
-                 else [SHIP_TEXTURE] * 16 if class_id == SHIP_CLASS and level.hero_looks else entry[16:32])
+                 else [SHIP_TEXTURE] * 16 if class_id == SHIP_CLASS and painted
+                 # Going Commando binds a face on an empty slot to his ship's picture: its parts,
+                 # classes with no textures of their own (read from the packets' TEX0 in a level's
+                 # memory after load, func_002932B8).
+                 else [SHIP_TEXTURE if slot == 255 else slot for slot in entry[16:32]] if painted and fmt.ship_paint_slots
+                 else entry[16:32])
         mesh_file = level.hero_mesh if hero else level.wrench_meshes[0] if wrench else None
         try:
             result[class_id] = moby_class(level.block(start), remap, f"moby_{class_id}",
@@ -444,6 +450,8 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
                                                        fmt, mesh_file)
     for class_id, (blob, place) in level.items.items():
         result[class_id] = lenient(level, blob, [ITEM_TEXTURES + place] * 16, class_id, fmt)
+    if level.ship_body is not None:
+        result[SHIP_CLASS] = lenient(level, level.ship_body, [SHIP_TEXTURE] * 16, SHIP_CLASS, fmt)
     return result
 
 

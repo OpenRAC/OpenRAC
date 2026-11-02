@@ -153,6 +153,11 @@ public:
     // two list buffers it alternates (shown_chain()).
     virtual bool sends_display_list() const { return false; }
 
+    // Whether an image the game sends outside its display list stays over what that tick's list,
+    // built before it and replayed after it, puts at the same block: the game reloads a block
+    // that the list was still paging into (Going Commando's flight, func_002E80B0).
+    virtual bool images_outlast_list() const { return false; }
+
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }

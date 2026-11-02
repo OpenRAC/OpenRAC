@@ -68,6 +68,9 @@ void upload_image(
     } else if (g->renderer) {
         g->renderer->textures().upload(image);
     }
+    if (g->profile->images_outlast_list()) {
+        g->images_after_list.push_back(image);
+    }
     g->images.push_back(std::move(image));
 }
 

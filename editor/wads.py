@@ -38,6 +38,7 @@ ROOT_SECTORS = 16
 TOC_LIMIT = 0x200000
 MAX_LEVELS = 100
 ITEM_BANKS = 48
+SHIP_BODIES = 0x48d8
 SHIP_PAINTS = 0x48f0        # Going Commando
 FLIGHT_BASE = 0x3e24        # Going Commando: the sector the flights' ranges start from
 LEVEL_PAIR = 24              # three (sector, sector count) pairs
@@ -223,6 +224,13 @@ class WadDisc:
         count) pairs at SHIP_PAINTS, from the flights' base sector."""
         base, = unpack("<I", self.toc, FLIGHT_BASE)
         sector, count = unpack("<II", self.toc, SHIP_PAINTS + number * 8)
+        return self.disc.sectors(base + sector, count)
+
+    def ship_body(self, number: int = 0) -> bytes:
+        """His ship's hull as func_002925F0 reads it for the flights: a class, of the (sector, sector
+        count) pairs at SHIP_BODIES, from the flights' base sector."""
+        base, = unpack("<I", self.toc, FLIGHT_BASE)
+        sector, count = unpack("<II", self.toc, SHIP_BODIES + number * 8)
         return self.disc.sectors(base + sector, count)
 
     def flight(self, number: int) -> bytes:

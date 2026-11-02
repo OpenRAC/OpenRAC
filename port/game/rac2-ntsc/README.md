@@ -137,9 +137,11 @@ many bytes can be another field in another level: it reads what the running copy
   takes one out, each a class and one texture. Every level exports them all, textures `moby_1203.png`
   on. The wrench (class 71, level has its skeleton) is packs 9 to 11, `moby_1200.png` to `moby_1202.png`,
   its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0,
-  paint 0 only, `moby_1300.png`. Levels of this game are format 7 (`editor/port.py`, `GAME_FORMATS`).
-- Chrome: a level's core index has no chrome map (`metal_chrome` is grey in every level's export); the
-  glass map is there. Where the game takes it from is not found yet.
+  paint 0 only, `moby_1300.png`. Levels of this game are format 8 (`editor/port.py`, `GAME_FORMATS`).
+- Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
+  pixels are the first two pictures of the texture data (128 x 128 at +0, 64 x 64 at +0x4000, moby
+  textures from +0x5000), not in the GS RAM lump as in Ratchet & Clank; the CLUTs are the lump's first
+  two, at 0 and 0x400. `Format.maps_in_textures`.
 - A moby's animation fields start at +0x40 (`profile.cpp`, `moby_anim_fields`).
 - The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
   the display as in Ratchet & Clank.
