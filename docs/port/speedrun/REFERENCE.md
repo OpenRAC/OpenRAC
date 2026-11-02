@@ -167,7 +167,6 @@ unknown *value* warns in the log and falls back to the default; an unknown
 | **`vsync`** | `off`, `on`, `adaptive` | `on` | |
 | **`frame_rate`** | `display`, `original`, `unlimited`, or 20–1000 | `display` | **`original` = one frame a tick.** See [TIMING.md](TIMING.md) §3. |
 | `show_fps` | `0`/`1` | `0` | The frame-rate counter (F2 toggles it). |
-| `menu_bar` | `0`/`1` | `1` | |
 | `mute_unfocused` | `0`/`1` | `0` | |
 | `skip_cutscenes` | `0`/`1` | `1` | Start also presses the game's own cutscene-skip buttons. |
 | `responsive_controls` | `0`/`1` | `0` | Reads the pad again just before each tick: presses reach the game about a tick sooner. The game's logic and its one pad read a tick are unchanged, but a trick timed by feel lands a frame earlier. Also turns the picture's camera between ticks with the right stick (the picture only). |
@@ -178,7 +177,7 @@ unknown *value* warns in the log and falls back to the default; an unknown
 | `fix_wide_nanotech_orbs` | `0`/`1` | `1` | |
 | `fix_wide_liquids` | `0`/`1` | `1` | |
 
-Every one of these except `volume`, `verbose_log`, `menu_bar` and the three
+Every one of these except `volume`, `verbose_log` and the three
 fixes is a row of the game's own **Options → Video** page, drawn by the game's
 widgets, and saved as it is changed
 (`port/game/common/options_menu.cpp`, the rows enum at `options_menu.h:17-33`).

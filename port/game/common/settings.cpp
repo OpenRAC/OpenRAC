@@ -405,6 +405,8 @@ void load(const std::filesystem::path& file) {
             } else {
                 known = false;
             }
+        } else if (key == "menu_bar") {
+            // An older port's switch for the menu bar, which is always there now: read and dropped.
         } else if (key == "menu_bar_key") {
             // Any key name SDL knows; the overlay uses the default for one it does not.
             known = !value.empty();

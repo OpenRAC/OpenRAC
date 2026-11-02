@@ -149,6 +149,11 @@ out past that dead zone (`stick_pair_bytes`), so the game reads a diagonal in
 its own direction and as long as a straight push. Straight pushes and the
 corners give the same bytes as before.
 
+A button pressed and let go between two of the game's reads of the pad (a
+quick tap while the frames are slow) still reads as held once
+(`platform/input.cpp`, `tapped`); one the game never asked about (a pause,
+the menu) is dropped after a few reads.
+
 ## 5. Players
 
 ```text

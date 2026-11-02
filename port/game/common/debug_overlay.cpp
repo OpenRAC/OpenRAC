@@ -745,8 +745,7 @@ bool event(const SDL_Event& e) {
     }
     // The menu's controller button (menu_bar_button; by default L3), on a desktop and a touch
     // screen alike, while the game's window has the focus. Not "...": a running Steam client opens
-    // its own panel on it. A single button: Select + Start reached the game as its map and its
-    // pause before the second of the two came.
+    // its own panel on it.
     MenuMotion& m = s.menu_motion;
     if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && SDL_GetKeyboardFocus() != nullptr
         && menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID && e.gbutton.button == menu_bar_button()
