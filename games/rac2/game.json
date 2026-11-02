@@ -200,6 +200,10 @@
           [
             " unsigned int color;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n",
             " unsigned int color;\n /* OpenRAC: as in func_002E76C0, the new records' colour and alpha now (+0x30, +0x38) are drawn once as\n    the stack left them; retail's alpha byte 0 there, so that first draw changes no pixel. */\n effect.unknown = 0x001A0000;\n effect.unknown2 = 0x001C0000;\n spark.unknown = 0x001A0000;\n spark.unknown2 = 0x001C0000;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n"
+          ],
+          [
+            "extern Vec D_L00_0023A670[];\nextern float D_001AF180_gp[] SDATA(D_001AF180);\nextern char D_L00_001B8DC0[];\nextern Moby *D_L00_001B1AEC;\n",
+            "extern Vec D_L00_0023A670[];\nextern float D_001AF180_gp[] SDATA(D_001AF180);\nextern char D_L00_001B8DC0[];\n/* OpenRAC: the orb that turns the shared orbit table (func_00313600) is the executable's 0x001B17AC, at each\n   level's own place (level 3 0x001B266C). D_L00_001B1AEC is level 0's place: run as that address in every level,\n   no orb became the master in level 3 (a word of its own held there), the table never turned and the crates'\n   sparks stood still. */\nextern Moby *D_001B17AC;\n#define D_L00_001B1AEC D_001B17AC\n"
           ]
         ],
         "commit": "578bc4ca903a4d528280a412658187bc87c62c40",
