@@ -66,92 +66,10 @@
  * shrub and every live moby from the extracted level, whatever the game culled.
  */
 #include "rac1.h"
-#include "wide_view.h"
 
-#include <stdint.h>
-#include <string.h>
-
-#define CAMERA RAC1_ADDR(0x00187040u)
-#define VIEW RAC1_ADDR(0x0018CE00u)
-
-enum {
-    CULL_MATRIX = 0x100,  /* camera block: the cull matrix */
-    CLIP_TAN_X = 0x2C0,   /* view block: the clip constants' tangent ... */
-    CLIP_SEC_X = 0x2C8,   /* ... its secant ... */
-    CLIP_SCALE_X = 0x2E0, /* ... and the secant again (the sphere test's) */
-    SLOTS = 4
-};
-
-/* Words opened for a test or a list's run: where, what they were, what they were set to. */
-typedef struct {
-    gaddr at[SLOTS];
-    uint32_t was[SLOTS];
-    uint32_t set[SLOTS];
-    int count;
-} opened;
-
-static float get(gaddr at) {
-    float f;
-    memcpy(&f, G(at), 4);
-    return f;
-}
-
-static void put(opened* o, gaddr at, float value) {
-    uint32_t bits;
-    memcpy(&bits, &value, 4);
-    o->at[o->count] = at;
-    o->was[o->count] = GREF(uint32_t, at);
-    o->set[o->count] = bits;
-    GREF(uint32_t, at) = bits;
-    o->count++;
-}
-
-/* Back as they were, those still as they were set (a test that set the view up again keeps it). */
-static void close_view(const opened* o) {
-    for (int i = o->count - 1; i >= 0; i--) {
-        if (GREF(uint32_t, o->at[i]) == o->set[i]) {
-            GREF(uint32_t, o->at[i]) = o->was[i];
-        }
-    }
-}
-
-/* The cull matrix's x terms, divided by `wider`. */
-static void open_matrix(opened* o, float wider) {
-    const gaddr matrix = OPENRAC_DATA(CAMERA) + CULL_MATRIX;
-    o->count = 0;
-    for (int column = 0; column < 4; column++) {
-        const gaddr at = matrix + (gaddr)column * 16u;
-        put(o, at, get(at) / wider);
-    }
-}
-
-/* The clip constants' horizontal tangent, times `wider`, and its secants. */
-static void open_clip(opened* o, float wider) {
-    const gaddr view = OPENRAC_DATA(VIEW);
-    float tan_x, sec_x;
-    wide_clip(get(view + CLIP_TAN_X), wider, &tan_x, &sec_x);
-    o->count = 0;
-    put(o, view + CLIP_TAN_X, tan_x);
-    put(o, view + CLIP_SEC_X, sec_x);
-    put(o, view + CLIP_SCALE_X, sec_x);
-}
-
-/* Whether every word `o` opened still holds what it was set to. */
-static int still_open(const opened* o) {
-    for (int i = 0; i < o->count; i++) {
-        if (GREF(uint32_t, o->at[i]) != o->set[i]) {
-            return 0;
-        }
-    }
-    return o->count > 0;
-}
-
-/* How many draw callback lists are running (a callback could run a list); how much wider than 4:3
- * the picture is while they do (asked once a run, not at every test); the words opened for the
- * whole run. */
-static int g_lists;
-static float g_wider = 1.0f;
-static opened g_list_matrix, g_list_clip;
+#define WIDE_CAMERA OPENRAC_DATA(RAC1_ADDR(0x00187040u))
+#define WIDE_VIEW OPENRAC_DATA(RAC1_ADDR(0x0018CE00u))
+#include "../../common/lib/wide_view_lists.h"
 
 /* How many updates whose sphere test stands for what the player sees are running (the nanotech
  * cluster's, Kerwan's air traffic's, the smoke and fire emitter's), and how much wider the picture
@@ -159,40 +77,13 @@ static opened g_list_matrix, g_list_clip;
 static int g_effects;
 static float g_effect_wider = 1.0f;
 
-/* How much wider than 4:3 the picture is for the game fix `key`: 1 (the game's own view) while
- * the player has it off. `*flag` is its flag, asked for the first time. */
-static float wider_for(const unsigned char** flag, const char* key) {
-    if (!*flag) {
-        *flag = openrac_game_fix(key);
-    }
-    return **flag ? openrac_game_picture_wider() : 1.0f;
-}
-
 static const unsigned char* g_fix_liquids;
 static const unsigned char* g_fix_orbs;
 static const unsigned char* g_fix_traffic;
 static const unsigned char* g_fix_fires;
 
 static void run_list(void (*run)(void)) {
-    if (g_lists > 0) {
-        g_lists++;
-        run();
-        g_lists--;
-        return;
-    }
-    g_wider = wider_for(&g_fix_liquids, "fix_wide_liquids");
-    if (!(g_wider > 1.0f)) {
-        run();
-        return;
-    }
-    open_matrix(&g_list_matrix, g_wider);
-    open_clip(&g_list_clip, g_wider);
-    g_lists = 1;
-    run();
-    g_lists = 0;
-    close_view(&g_list_clip);
-    close_view(&g_list_matrix);
-    g_list_matrix.count = g_list_clip.count = 0;
+    wide_run_list(run, wide_wider_for(&g_fix_liquids, "fix_wide_liquids"));
 }
 
 /* ExecuteDrawCallbacks: list 1. */
@@ -217,28 +108,20 @@ void func_001F4AF0(void) {
 
 /* The liquid grid's cull: a flag per block into the scratchpad (0: not drawn). */
 void func_L02_00250720(gaddr grid) {
-    const float wider = g_lists > 0 ? g_wider : wider_for(&g_fix_liquids, "fix_wide_liquids");
-    if (!(wider > 1.0f) || (g_lists > 0 && still_open(&g_list_matrix))) {
+    const float wider = g_lists > 0 ? g_wider : wide_wider_for(&g_fix_liquids, "fix_wide_liquids");
+    if (!(wider > 1.0f) || (g_lists > 0 && wide_still_open(&g_list_matrix))) {
         func_L02_00250720__game(grid);
         return;
     }
-    opened o;
-    open_matrix(&o, wider);
+    wide_opened o;
+    wide_open_matrix(&o, wider);
     func_L02_00250720__game(grid);
-    close_view(&o);
+    wide_close_view(&o);
 }
 
 /* FastBSphereCheck: 1 in view, 0 in view but across the guard band's edge, -1 culled. */
 int func_L00_00200290(gaddr sphere, float far) {
-    const float wider = wide_sphere_wider(g_lists, g_wider, g_effects, g_effect_wider);
-    if (!(wider > 1.0f) || (g_lists > 0 && still_open(&g_list_clip))) {
-        return func_L00_00200290__game(sphere, far);
-    }
-    opened o;
-    open_clip(&o, wider);
-    const int result = func_L00_00200290__game(sphere, far);
-    close_view(&o);
-    return result;
+    return wide_sphere(func_L00_00200290__game, sphere, far, g_effects, g_effect_wider);
 }
 
 /* NanotechBallUpdate: the nanotech cluster (the orb on a nanotech crate) draws only while its
@@ -247,7 +130,7 @@ int func_L00_00200290(gaddr sphere, float far) {
  * (hostgen's hooks.c: the mod's replacement, or the game's C), so the fix holds for a mod's too. */
 void func_L00_002D9EA0(gaddr moby) {
     if (g_effects++ == 0) {
-        g_effect_wider = wider_for(&g_fix_orbs, "fix_wide_nanotech_orbs");
+        g_effect_wider = wide_wider_for(&g_fix_orbs, "fix_wide_nanotech_orbs");
     }
     func_L00_002D9EA0__hooked(moby);
     g_effects--;
@@ -258,7 +141,7 @@ void func_L00_002D9EA0(gaddr moby) {
  * under this as func_L03_0029ED60__hooked, so the fix holds for a mod's update as well. */
 void func_L03_0029ED60(gaddr moby) {
     if (g_effects++ == 0) {
-        g_effect_wider = wider_for(&g_fix_traffic, "fix_wide_air_traffic");
+        g_effect_wider = wide_wider_for(&g_fix_traffic, "fix_wide_air_traffic");
     }
     func_L03_0029ED60__hooked(moby);
     g_effects--;
@@ -270,7 +153,7 @@ void func_L03_0029ED60(gaddr moby) {
  * a mod's update as well. */
 void func_L00_002D83D8(gaddr moby) {
     if (g_effects++ == 0) {
-        g_effect_wider = wider_for(&g_fix_fires, "fix_wide_fires");
+        g_effect_wider = wide_wider_for(&g_fix_fires, "fix_wide_fires");
     }
     func_L00_002D83D8__hooked(moby);
     g_effects--;

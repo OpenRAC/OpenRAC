@@ -117,3 +117,87 @@ void func_0032FEA8(char *object)
     func_00330150(object);
     func_003304D8(object);
 }
+
+/* func_00335DC0: the retail reaches its three globals through $gp (the int at $gp+0x3710 and
+   the float at $gp+0x3718) and through lui/addiu (the float at 0x1B2704), so the unit is the
+   -G8 one.  The three live in the level's data, at an address that differs from level to
+   level, so they are named without an address. */
+extern int ref_L00_00335DC0_00 __attribute__((sda));
+extern float ref_L00_00335DC0_01;
+extern float ref_L00_00335DC0_02 __attribute__((sda));
+
+/* func_00331718 reaches four of its globals through $gp, so it belongs in this unit.
+   The float at the same address is reached twice under two names: once through $gp
+   (ref_L00_00331718_03) and once through lui/lwc1 (ref_L00_00331718_04).
+
+   It needs the unit ASSEMBLED with -Wa,-G32: the retail reaches the base of its two
+   32-byte tables through $gp (addiu $a0,$gp,0x1940), and the assembler's relaxation of
+   `la` into addiu $reg,$gp,off fires only for symbols of at most its -G threshold, which
+   is 8 by default.  With -Wa,-G32 the function is the retail's 200 bytes, word for word;
+   without it it is 208 bytes (the two lui/addiu pairs for the table addresses).
+   config/cflags.txt needs:
+       src/game/0032EB28-g8.c	-O2 -G8 -ffunction-sections -Wa,-G32
+   The flag is safe for the rest of this unit: its other functions take the address of
+   4-byte sda symbols, which the retail reaches through $gp as well. */
+extern int *ref_L00_00331718_00 __attribute__((sda));
+extern int ref_L00_00331718_01[8] __attribute__((sda));
+extern float ref_L00_00331718_02[8] __attribute__((sda));
+extern float ref_L00_00331718_03 __attribute__((sda));
+extern float ref_L00_00331718_04;
+
+extern float func_0029F530(int *);
+extern void func_002E5CF8(int, int, int *);
+
+void func_00331718(void)
+{
+    float value;
+    float threshold;
+    float diff;
+    float old;
+    int i;
+
+    if (ref_L00_00331718_00 == 0)
+        return;
+    value = func_0029F530(ref_L00_00331718_00);
+    for (i = 0; i < 8; i++) {
+        threshold = ref_L00_00331718_02[i];
+        diff = value - threshold;
+        if (diff > 0.0f) {
+            /* the positive case is handled after the join */
+        } else {
+            old = ref_L00_00331718_03 - threshold;
+            if (old > 0.0f) {
+                /* fall through to the join */
+            } else {
+                continue;
+            }
+        }
+        if (diff < 0.0f) {
+            func_002E5CF8(ref_L00_00331718_01[i], 0, ref_L00_00331718_00);
+            ref_L00_00331718_03 = value;
+            return;
+        }
+        old = ref_L00_00331718_04 - threshold;
+        if (old < 0.0f) {
+            func_002E5CF8(ref_L00_00331718_01[i], 0, ref_L00_00331718_00);
+            ref_L00_00331718_03 = value;
+            return;
+        }
+    }
+    ref_L00_00331718_04 = value;
+}
+
+void func_00335DC0(int a0)
+{
+    float value;
+
+    ref_L00_00335DC0_00 = a0;
+    value = 1.076923f;
+    if (a0 == 0)
+        value = 1.0f;
+    ref_L00_00335DC0_01 = value;
+    value = 0.9f;
+    if (a0 == 0)
+        value = 1.0f;
+    ref_L00_00335DC0_02 = value;
+}

@@ -29,9 +29,11 @@ namespace openrac::host {
 
 // A moby as the renderers place it.
 struct LiveMoby {
-    std::uint32_t address = 0;         // The moby in game memory (its animation fields, its class).
-    int class_id = 0;                  // Its class, as the game numbers them.
-    std::uint16_t occlusion = 0x7f80;  // Its occlusion word, as the game keeps it.
+    std::uint32_t address = 0;  // The moby in game memory (its animation fields, its class).
+    int class_id = 0;           // Its class, as the game numbers them.
+    int model_class = -1;       // The class drawn for it, when not its own and the level has it.
+    bool model_only = false;    // Drawn as model_class or not at all, never as its own class.
+    std::uint16_t occlusion = 0x7f80;     // Its occlusion word, as the game keeps it.
     std::array<float, 4> world_sphere{};  // World centre and radius, game units; radius 0: none.
     renderer::Mat4 matrix = renderer::identity();  // Game axes, the moby's scale included.
 };
@@ -138,9 +140,56 @@ public:
         return 0;
     }
 
+    // Returns the GS block of the buffer the game draws its frame in; 0 for one right after the
+    // display buffer, where the display's size puts it.
+    virtual std::uint32_t draw_buffer_block() const { return 0; }
+
+    // Returns where a moby keeps its animation fields (scene::set_moby_anim_fields).
+    virtual std::uint32_t moby_anim_fields() const { return 0x50; }
+
+    // Returns where a moby keeps its glow word, the RGB its glow vertices are drawn in while its
+    // mode has bit 0x10 (MobyProc's glow list).
+    virtual std::uint32_t moby_glow_word() const { return 0x90; }
+
+    // Returns whether a moby's pose layers keep records (scene::set_moby_layer_records).
+    virtual bool moby_layer_records() const { return false; }
+
     // Whether the frame shown is the display list the game sends each tick, rather than one of
     // two list buffers it alternates (shown_chain()).
     virtual bool sends_display_list() const { return false; }
+
+    // Whether the 2D path of a frame is split for its mobys at the first moby the game drew from a
+    // list of its own (a menu's or a shop's, openrac_game_mobys_drawn): the 2D before it goes under
+    // them. Going Commando's Ship Shack draws its ship there, over its grid panel.
+    virtual bool own_mobys_split_the_2d() const { return false; }
+
+    // Whether an image the game sends outside its display list stays over what that tick's list,
+    // built before it and replayed after it, puts at the same block: the game reloads a block
+    // that the list was still paging into (Going Commando's flight, func_002E80B0).
+    virtual bool images_outlast_list() const { return false; }
+
+    // Whether a tick whose last picture stands (frontend/tick_picture.h: Repeat) still applies the
+    // images its list sends to the chip: Going Commando's Galactic Map sends a planet's pictures
+    // once (func_002D6F38) with its 512 x 512 level map, a list as long as a page menu's read-back,
+    // on a tick that draws no world, so the tick was taken for a menu's gap and its images lost.
+    virtual bool repeated_ticks_send_images() const { return false; }
+
+    // Whether the moby program lights each moby by the point lights in reach of its sphere's centre
+    // as a third directional light (Going Commando's MobyProc, 0x2A51C8 and 0x2A57F8), rather than
+    // not at all.
+    virtual bool mobys_take_point_lights() const { return false; }
+
+    // Whether a frame drawn between ticks moves each effect quad that carries an id (a particle's
+    // slot) part way from its last tick's corners, with the mobys' fraction, rather than drawing
+    // the latest tick's: Going Commando's Lancer halo led the gun by up to a tick at 120 fps.
+    // Ratchet & Clank draws its particles the same way, but its frames between ticks stay as they
+    // were until its render equivalence is run with the change.
+    virtual bool interpolates_effect_quads() const { return false; }
+
+    // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
+    // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
+    // rather than not at all.
+    virtual bool terrain_takes_point_lights() const { return false; }
 
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.

@@ -27,9 +27,11 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <span>
+#include <string>
 
 #include "common/c_boundary.h"
 #include "common/crash.h"
@@ -40,7 +42,9 @@
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
+#include "debug/overlay.h"
 #include "frontend.h"
+#include "options_menu.h"
 #include "renderer/direct.h"
 #include "renderer/texture.h"
 #include "scene/moby_pose.h"
@@ -186,6 +190,19 @@ void openrac_game_draw(unsigned layers) {
     });
 }
 
+void openrac_game_world_view(void) {
+    c_boundary::call("openrac_game_world_view", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            const auto* ram = runtime::Memory::get().base();
+            frontend::world_drawn(
+                std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size())
+            );
+        }
+#endif
+    });
+}
+
 void openrac_game_world_under_menu(void) {
     c_boundary::call("openrac_game_world_under_menu", [&] {
 #ifdef OPENRAC_FRONTEND
@@ -208,8 +225,6 @@ void openrac_game_tick_boundary(void) {
 
 void openrac_game_dma_send(gaddr channel, gaddr tag) {
     c_boundary::call("openrac_game_dma_send", [&] {
-        g_chain = tag;
-
         // A frame sent to VIF1 with no vertical blank waited for since the last one: on the console
         // the loop is paced by the DMA and the interrupts (the title loop never calls sceGsSyncV), so
         // the frame ends here, with the vertical blank's handlers, as if the hardware had done it.
@@ -220,6 +235,9 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
                 openrac_game_tick_boundary();
             }
 
+            // The frame's list. What goes to VIF0 (Going Commando's VU0 programs, which it sends in
+            // the middle of a frame) is not one.
+            g_chain = tag;
             g_vsync_since_kick = false;
         }
 
@@ -251,9 +269,11 @@ void openrac_game_set_display(const openrac_game_display* d) {
 #ifdef OPENRAC_FRONTEND
             // Display changes replace globals read by the pending snapshot, so drain it first.
             if (d->frame_width > 0 && d->height > 0 && frontend::finish_render()) {
+                const std::uint32_t named = frontend::draw_buffer_block();
                 renderer::set_draw_buffer_block(
-                    static_cast<std::uint32_t>(d->frame_base) * 32
-                        + static_cast<std::uint32_t>(d->height * d->frame_width),
+                    named != 0 ? named
+                               : static_cast<std::uint32_t>(d->frame_base) * 32
+                                     + static_cast<std::uint32_t>(d->height * d->frame_width),
                     d->height >= 512 ? 448 : 416
                 );
             }
@@ -418,6 +438,17 @@ int openrac_game_hud_side(void) {
     });
 }
 
+uint32_t openrac_game_effect_quad_marker(void) {
+    return c_boundary::call("openrac_game_effect_quad_marker", 0u, [&]() -> std::uint32_t {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::effect_quad_marker();
+        }
+#endif
+        return 0u;
+    });
+}
+
 float openrac_game_picture_wider(void) {
     return c_boundary::call("openrac_game_picture_wider", 1.0f, [&]() -> float {
 #ifdef OPENRAC_FRONTEND
@@ -442,7 +473,9 @@ int openrac_game_ui_quad(const openrac_game_ui_rect* quad) {
     });
 }
 
-void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side) {
+void openrac_game_particle(
+    const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side, uint32_t id
+) {
     c_boundary::call("openrac_game_particle", [&] {
 #ifdef OPENRAC_FRONTEND
         if (g_window) {
@@ -452,7 +485,8 @@ void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut
                 record,
                 pixels,
                 clut,
-                log2_side
+                log2_side,
+                id
             );
         }
 #else
@@ -460,6 +494,7 @@ void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut
         (void)pixels;
         (void)clut;
         (void)log2_side;
+        (void)id;
 #endif
     });
 }
@@ -508,6 +543,70 @@ gaddr openrac_game_text(int id) {
 #endif
         (void)id;
         return 0;
+    });
+}
+
+namespace {
+
+// TEXT into the game's memory at OUT, cut to SIZE bytes with its end.
+void put_option_text(const std::string& text, char* out, int size) {
+    if (out != nullptr && size > 0) {
+        std::snprintf(out, static_cast<std::size_t>(size), "%s", text.c_str());
+    }
+}
+
+}  // namespace
+
+int openrac_game_option_rows(void) {
+    return c_boundary::call("openrac_game_option_rows", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::options_menu::row_count();
+        }
+#endif
+        return 0;
+    });
+}
+
+void openrac_game_option_row_text(int row, char* label, char* value, int size) {
+    c_boundary::call("openrac_game_option_row_text", [&] {
+        put_option_text("", label, size);
+        put_option_text("", value, size);
+#ifdef OPENRAC_FRONTEND
+        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+            put_option_text(
+                frontend::options_menu::shown(frontend::options_menu::label(row)), label, size
+            );
+            put_option_text(
+                frontend::options_menu::shown(frontend::options_menu::value(row)), value, size
+            );
+        }
+#endif
+        (void)row;
+    });
+}
+
+void openrac_game_option_step(int row, int by) {
+    c_boundary::call("openrac_game_option_step", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+            frontend::debug_overlay::change_setting(row, by);
+        }
+#endif
+        (void)row;
+        (void)by;
+    });
+}
+
+void openrac_game_option_word(const char* english, char* out, int size) {
+    c_boundary::call("openrac_game_option_word", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            put_option_text(frontend::options_menu::shown(english), out, size);
+            return;
+        }
+#endif
+        put_option_text(english, out, size);
     });
 }
 

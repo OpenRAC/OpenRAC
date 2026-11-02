@@ -63,7 +63,6 @@ void func_00126E60(void *arg0) {
     }
 }
 
-INCLUDE_ASM("asm/core", func_00126ED0);
 
 /* rac1-decomp src/core/00123168.c: func_00123280 */
 int func_00126ED8(int arg0) {

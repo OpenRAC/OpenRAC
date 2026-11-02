@@ -1,4 +1,95 @@
-#include "include_asm.h"
+#include "common.h"
+
+typedef u32 u128_04340 __attribute__((mode(TI), aligned(16)));
+typedef struct ResidentRenderTextureDefinition_04340 {
+    s32 unk0; /* unused here; a word, so the record is 4-byte aligned */
+    s16 width;
+    s16 height;
+    s16 draw_control_count;
+    s16 clut_block_offset; /* 0x0A: TEX0.CBP (bit 37) after adding the base */
+    s16 mip_block_offset_0;
+    s16 mip_block_offset_1;
+} ResidentRenderTextureDefinition_04340;
+typedef union MaterialMap_04340 {
+    u128_04340 q;
+    u8 b[16];
+} MaterialMap_04340;
+typedef struct {
+    s16 width;
+    s16 height;
+    s16 draw_control_count;
+    s16 texture_block_offset;
+    s16 palette_block_offset;
+    s16 mip_block_offset_0;
+    s16 mip_block_offset_1;
+    s16 mip_block_offset_2;
+} ShrubMipTextureDefinition_04340;
+typedef struct {
+    s32 draw_high;
+    s32 draw_shift;
+    u8 pad8[8];
+    s32 material_base;
+    s32 material_shift;
+    u8 pad18[8];
+    s32 material_index;
+    u8 pad24[0x1C];
+} ShrubRenderPacket_04340;
+typedef struct {
+    u8 pad0[0x10];
+    union {
+        u64 d;
+        s32 w[2];
+    } tex1;
+    u64 payload18;
+    union {
+        u64 d;
+        s32 w[2];
+    } tex0;
+    u64 payload28;
+    u64 miptbp1;
+    u64 payload38;
+} ShrubMipPacket_04340;
+typedef struct {
+    s32 count;
+    s32 prefix_record_count;
+} ShrubRenderGroupHeader_04340;
+typedef struct {
+    u8 pad0[0x10];
+    ShrubRenderGroupHeader_04340 group_header;
+} ShrubRenderGroup_04340;
+typedef struct {
+    ShrubRenderGroup_04340 *group;
+    s32 pad4;
+} ShrubRenderGroupReference_04340;
+typedef struct {
+    u8 pad0[0x10];
+    f32 scale;
+    u8 pad14[2];
+    u16 instance_count;
+    void *first_instance;
+    ShrubMipPacket_04340 *mip_packet;
+    u8 pad20[6];
+    u16 class_slot;
+    s16 group_count;
+    u8 pad2A[2];
+    s32 packed_geometry;
+    u8 pad30[0x10];
+    ShrubRenderGroupReference_04340 groups[1];
+} ShrubRenderClass_04340;
+extern ShrubRenderClass_04340 *D_L00_0021EA20[64];
+extern s16 D_L00_0021EB20[64];
+extern u8 D_L00_0021EBA0[0x400];
+extern s32 D_L00_002203A0[64];
+extern MaterialMap_04340 D_L00_002209A0[64];
+extern s32 D_L00_001B23F0 __attribute__((sda));
+/* Keep the absolute allocation-base loads in their measured form in this G0 unit. */
+extern s32 D_001A72F4 __attribute__((sda));
+extern u64 D_L00_001C91C0[0x30];
+extern s32 func_00283CF0(f32);
+extern s32 func_00282A18(s32);
+extern char D_L00_001A95A0[];
+extern double func_001234F0(float);
+extern void func_0026FEB8(const char *, ...);
 
 #define MACRO_ADDR __attribute__((section(".sdata")))
 
@@ -216,9 +307,9 @@ void func_L00_002FC7A0(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002FC980);
 
-INCLUDE_ASM("asm/levels", func_L00_002FCF18);
+/* func_L00_002FC980 is defined in its own unit. */
+
 
 void func_L00_002FD308(unsigned long long argument)
 {
@@ -249,23 +340,251 @@ void func_L00_002FD400(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002FD480);
+/* func_L00_002FD480 is matched in its own unit, src/levels/shared/L00_002FD480-g8-qcopy.c (-O2 -G8 -ffunction-sections -frac2-qcopy). */
 
-INCLUDE_ASM("asm/levels", func_L00_002FD928);
 
 INCLUDE_ASM("asm/levels", func_L00_002FE268);
 
-INCLUDE_ASM("asm/levels", func_L00_002FE2D8);
 
 INCLUDE_ASM("asm/levels", func_L00_002FF6A8);
 
-INCLUDE_ASM("asm/levels", func_L00_002FFAB8);
+/* Registers the class, relocates its streams, and builds its GS texture packets.
+ * Adapted from RAC1 src/game/loaders.c, register_shrub_render_class, which
+ * credits Lombyte's GPL-3.0 src/rendering/register_shrub_render_class.c
+ * (RAC1 US 0x203B08).
+ */
+void func_L00_002FFAB8(ShrubRenderClass_04340 *render_class, ResidentRenderTextureDefinition_04340 *textures,
+                   u128_04340 *material_map, ShrubMipTextureDefinition_04340 *mip_texture, s32 class_id) {
+    s32 group_index;
+    s32 index;
+    s32 fixed_threshold;
+    MaterialMap_04340 *slot_materials;
+    ShrubMipPacket_04340 *packed_mip_packet;
+    ShrubMipPacket_04340 *mip_packet;
+    ShrubRenderGroupHeader_04340 *group_header;
+    ShrubRenderPacket_04340 *packet;
 
-INCLUDE_ASM("asm/levels", func_L00_00300090);
+    D_L00_0021EBA0[class_id] = D_L00_001B23F0;
+    D_L00_0021EB20[D_L00_001B23F0] = class_id;
+    D_L00_0021EA20[D_L00_001B23F0] = render_class;
+    render_class->class_slot = D_L00_001B23F0;
+    fixed_threshold = func_00283CF0(render_class->scale * 1024.0f);
+    D_L00_002203A0[D_L00_001B23F0] = fixed_threshold;
+    D_L00_001B23F0++;
+    render_class->first_instance = 0;
+    render_class->instance_count = 0;
+    if (render_class->packed_geometry != 0) {
+        render_class->packed_geometry += (s32)render_class;
+    }
+    for (group_index = 0; group_index < render_class->group_count; group_index++) {
+        render_class->groups[group_index].group =
+            (ShrubRenderGroup_04340 *)(((s32)render_class->groups[group_index].group) + ((s32)render_class));
+    }
+
+    packed_mip_packet = render_class->mip_packet;
+    if (packed_mip_packet != 0) {
+        s32 material_base;
+        s32 material_shift;
+
+        mip_packet = (ShrubMipPacket_04340 *)((s32)packed_mip_packet + (s32)render_class);
+        render_class->mip_packet = mip_packet;
+        material_base = mip_packet->tex1.w[0];
+        material_shift = mip_packet->tex1.w[1];
+        if (mip_texture != 0) {
+            s32 mip_width_units[4];
+            s32 width_log2;
+            s32 height_log2;
+            s32 gs_block_base;
+            u64 draw_word;
+            s32 width;
+            s32 level;
+            s32 draw_control_count;
+            s32 palette_block;
+            s32 texture_block;
+            s32 mip_block_0;
+            s32 mip_block_1;
+            s32 mip_block_2;
+
+            width = mip_texture->width;
+            for (level = 0; level < 4; level++) {
+                mip_width_units[level] = width >> (level + 6);
+                if (mip_width_units[level] <= 0) {
+                    mip_width_units[level] = 1;
+                }
+            }
+
+            width_log2 = func_00282A18(mip_texture->width);
+            height_log2 = func_00282A18(mip_texture->height);
+            draw_control_count = mip_texture->draw_control_count;
+            texture_block = mip_texture->texture_block_offset;
+            gs_block_base = D_001A72F4 >> 8;
+            palette_block = mip_texture->palette_block_offset + gs_block_base;
+            mip_block_0 = mip_texture->mip_block_offset_0 + gs_block_base;
+            mip_block_1 = mip_texture->mip_block_offset_1 + gs_block_base;
+            mip_block_2 = mip_texture->mip_block_offset_2 + gs_block_base;
+            mip_packet->tex1.d = (s64)(((u64)(draw_control_count - 1) << 2) | ((u64)1 << 5) | ((u64)material_shift << 6)) | ((s64)material_base << 32);
+            mip_packet->tex0.d = (s64)((u64)((s64)palette_block | ((s64)mip_width_units[0] << 14) | ((s64)0x13 << 20) | ((s64)width_log2 << 26)) | ((u64)height_log2 << 30) | ((u64)1 << 34) | ((u64)(texture_block + gs_block_base) << 37)) | ((s64)4 << 61);
+            draw_word = (u64)mip_block_0 | ((u64)mip_width_units[1] << 14);
+            draw_word |= (u64)mip_block_1 << 20;
+            draw_word |= (u64)mip_width_units[2] << 34;
+            draw_word |= (u64)mip_block_2 << 40;
+            draw_word |= (u64)mip_width_units[3] << 54;
+            mip_packet->miptbp1 = draw_word;
+        } else {
+            s32 template_index;
+            s32 template_slot;
+            u64 template_tex0;
+            u64 template_tex1;
+            u64 template_mip;
+            u64 draw_bits;
+            u64 template_draw_word;
+
+            for (template_index = 0; D_L00_001C91C0[(template_index + 1) * 3] != 0; template_index++) {
+            }
+            template_tex0 = D_L00_001C91C0[template_index * 3];
+            template_slot = template_index * 3;
+            template_tex1 = D_L00_001C91C0[template_slot + 1];
+            template_mip = D_L00_001C91C0[template_slot + 2];
+            draw_bits = ((u64)material_shift << 6) | 0x20;
+            template_draw_word = (template_tex1 & 0x1C) | draw_bits | ((u64)material_base << 32);
+            mip_packet->tex0.d = template_tex0;
+            mip_packet->miptbp1 = template_mip;
+            mip_packet->tex1.d = template_draw_word;
+        }
+    }
+    slot_materials = &D_L00_002209A0[D_L00_0021EBA0[class_id]];
+    qcopy(slot_materials, material_map);
+    for (group_index = 0; group_index < render_class->group_count; group_index++) {
+        group_header = &render_class->groups[group_index].group->group_header;
+        packet = (ShrubRenderPacket_04340 *)((((u8 *)group_header) + (group_header->prefix_record_count * 16)) + 0x10);
+        for (index = 0; index < group_header->count; index++) {
+            s32 material_index;
+            s32 material_base;
+            s32 draw_shift;
+            s32 draw_high;
+            s32 material_shift;
+
+            material_index = slot_materials->b[packet->material_index];
+            draw_high = packet->draw_high;
+            draw_shift = packet->draw_shift;
+            material_base = packet->material_base;
+            material_shift = packet->material_shift;
+            if (textures != 0) {
+                ResidentRenderTextureDefinition_04340 *texture;
+                s32 width_bits;
+                s32 width_units_64;
+                s32 width_units_128;
+                s32 width_log2;
+                s32 height_log2;
+                s32 gs_block_base;
+                s32 mip_block_1;
+                s32 mip_block_0;
+                s32 draw_control_count;
+                u64 tex0_word;
+                u64 tex1_word;
+                u64 mip_word;
+                u64 clamp_word;
+
+                texture = &textures[material_index];
+                width_bits = (u16)texture->width << 16;
+                width_units_64 = width_bits >> 22;
+                width_units_128 = width_bits >> 23;
+                if (width_units_64 <= 0) {
+                    width_units_64 = 1;
+                }
+                if (width_units_128 <= 0) {
+                    width_units_128 = 1;
+                }
+                width_log2 = func_00282A18(width_bits >> 16);
+                height_log2 = func_00282A18(texture->height);
+                gs_block_base = D_001A72F4 >> 8;
+                draw_control_count = texture->draw_control_count;
+                width_bits = texture->clut_block_offset + gs_block_base;
+                mip_block_0 = texture->mip_block_offset_0 + gs_block_base;
+                mip_block_1 = texture->mip_block_offset_1 + gs_block_base;
+                tex1_word = (s64)(((u64)(draw_control_count - 1) << 2) | ((u64)1 << 5) | ((u64)draw_shift << 6)) | ((s64)draw_high << 32);
+                clamp_word = (u64)material_base | ((u64)material_shift << 2) | ((u64)material_index << 24);
+                mip_word = (s64)(((u64)width_units_128 << 14) | ((u64)mip_block_0 << 20) | ((u64)1 << 34) | ((u64)mip_block_1 << 40)) | ((s64)1 << 54);
+                tex0_word = (s64)((u64)(((s64)width_units_64 << 14) | ((s64)0x13 << 20) | ((s64)width_log2 << 26)) | ((u64)height_log2 << 30) | ((u64)1 << 34) | ((u64)width_bits << 37)) | ((s64)4 << 61);
+                *(u64 *)&packet->draw_high = tex1_word;
+                *(u64 *)&packet->material_base = clamp_word;
+                *(u64 *)&packet->material_index = mip_word;
+                *(u64 *)((u8 *)packet + 0x30) = tex0_word;
+            } else {
+                s32 template_index;
+                u64 template_tex0;
+                u64 template_tex1;
+                u64 template_mip;
+                u64 draw_bits;
+                u64 template_draw_word;
+                u64 template_clamp_word;
+
+                template_tex0 = D_L00_001C91C0[material_index * 3];
+                template_index = material_index * 3;
+                template_tex1 = D_L00_001C91C0[template_index + 1];
+                template_mip = D_L00_001C91C0[template_index + 2];
+                draw_bits = ((u64)draw_shift << 6) | 0x20;
+                template_draw_word = (template_tex1 & 0x1C) | draw_bits | ((u64)draw_high << 32);
+                template_clamp_word = (u64)material_base | ((u64)material_shift << 2) | ((u64)material_index << 24);
+                *(u64 *)&packet->draw_high = template_draw_word;
+                *(u64 *)&packet->material_base = template_clamp_word;
+                *(u64 *)&packet->material_index = template_mip;
+                *(u64 *)((u8 *)packet + 0x30) = template_tex0;
+            }
+            packet++;
+        }
+    }
+}
+
+
+/* func_L00_00300090 is defined in L00_002FC7A0-00300090-g8.c (-G8 small data). */
 
 INCLUDE_ASM("asm/levels", func_L00_00300378);
 
-INCLUDE_ASM("asm/levels", func_L00_00300438);
+/* Debug listing of moby class sizes: takes the 32-byte class records with a nonzero
+   data offset as (class id, offset) pairs, turns each offset into the kilobytes up to
+   the next one (the last up to end), sorts them largest first and prints each with
+   "moby %d:      %.1fK\n". */
+void func_L00_00300438(int *records, int count, int end)
+{
+    struct { float id, weight; } values[512];
+    int n = 0;
+    int sorted;
+    int i;
+
+    for (i = 0; i < count; i++) {
+        if (records[i * 8] != 0) {
+            values[n].id = records[i * 8 + 1];
+            values[n].weight = records[i * 8];
+            n++;
+        }
+    }
+    {
+        int k;
+        for (k = 0; k < n - 1; k++)
+            values[k].weight = (values[k + 1].weight - values[k].weight) / 1024.0f;
+    }
+    values[n - 1].weight = ((float)end - values[n - 1].weight) / 1024.0f;
+    do {
+        int k;
+        sorted = 1;
+        for (k = 0; k < n - 1; k++) {
+            if (values[k].weight < values[k + 1].weight) {
+                float id = values[k].id, weight = values[k].weight;
+                values[k].id = values[k + 1].id;
+                values[k].weight = values[k + 1].weight;
+                values[k + 1].id = id;
+                values[k + 1].weight = weight;
+                sorted = 0;
+            }
+        }
+    } while (!sorted);
+    {
+        int j;
+        for (j = 0; j < n; j++)
+            func_0026FEB8(D_L00_001A95A0, func_00283CF0(values[j].id), func_001234F0(values[j].weight));
+    }
+}
 
 void func_L00_00300610(void)
 {
@@ -275,11 +594,36 @@ INCLUDE_ASM("asm/levels", func_L00_00300618);
 
 /* func_L00_003032F0 is matched in L00_003032F0.c (built with -fno-gcse). */
 
-INCLUDE_ASM("asm/levels", func_L00_00303388);
+extern unsigned char D_L00_001C9340[];
 
-INCLUDE_ASM("asm/levels", func_L00_00303418);
+extern int func_00283D80(void *, void *, void *);
 
-INCLUDE_ASM("asm/levels", func_L00_00303530);
+/* Walks the level's sixteen-byte table entries downwards and returns the one-based
+   index of the first entry the shared test accepts, zero when none does. */
+int func_L00_00303388(unsigned char *object)
+{
+    unsigned char *data = D_L00_001C9340;
+    int i = *(int *)(data + 0xC) - 1;
+
+    if (i >= 0) {
+        unsigned char *table = data + 0x20;
+        unsigned char *p = table + (i << 4);
+        unsigned char *q = table + ((i << 4) + 0x20);
+
+        do {
+            if (func_00283D80(object, p, q) != 0)
+                return i + 1;
+            q -= 0x10;
+            p -= 0x10;
+            i--;
+        } while (i >= 0);
+    }
+    return 0;
+}
+
+/* func_L00_00303418 lives in L00_00303418-sdata.c. */
+
+/* func_L00_00303530 is defined in its own unit. */
 
 INCLUDE_ASM("asm/levels", func_L00_00303990);
 
@@ -304,17 +648,37 @@ int func_L00_003046D0(int index)
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00304AE8);
+/* func_L00_00304AE8 is defined in L00_002FC7A0-g8.c (-G8 small data). */
 
-INCLUDE_ASM("asm/levels", func_L00_00305600);
-
-INCLUDE_ASM("asm/levels", func_L00_00306648);
 
 INCLUDE_ASM("asm/levels", func_L00_003080D0);
 
-INCLUDE_ASM("asm/levels", func_L00_00308408);
 
-INCLUDE_ASM("asm/levels", func_L00_00308538);
+extern int r1_func_L00_0024A798(int);
+extern struct { int a, b, c; char *p; } r1_D_L07_001842F0;
+
+
+/* rac1-decomp src/overlays/l07_umbris/menu_cache_entry.c: func_L00_00308408 */
+/* Clears each set bit in a rectangle of a per-row bit grid, notifying for each. */
+void func_L00_00308408(int x, int y0, int w, int h) {
+    int y = y0;
+    for (; y < y0 + h; y++) {
+        int rowbase = (y >> 5) << 4;
+        int i;
+        for (i = x; i < x + w; i++) {
+            unsigned char *p = (unsigned char *)r1_D_L07_001842F0.p + (y << 6) + i / 8;
+            if (*p != 0) {
+                int bit = 1 << (i & 7);
+                if (*p & bit) {
+                    r1_func_L00_0024A798((i >> 5) + rowbase);
+                    *p = *p & ~bit;
+                }
+            }
+        }
+    }
+}
+
+/* func_L00_00308538 is defined in its own unit. */
 
 INCLUDE_ASM("asm/levels", func_L00_00308700);
 
@@ -930,7 +1294,6 @@ void func_L00_0030DE20(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0030DF80);
 
 void func_L00_0030DFE0(void)
 {
@@ -953,25 +1316,19 @@ int func_L00_0030E010(int argument)
 /* shared native body of family e7046bc951256c7e */
 void func_L00_00310048(void)
 {
-    unsigned char *p = D_L05_001B2520;
+    unsigned char *p;
     int seen = 0;
-    unsigned int limit;
+
     D_L05_001B2440 = 0;
-    while (p < D_L05_001B2524) {
-        limit = D_L05_001B2048;
-        do {
-            if ((p[32] >= 254 && *(unsigned int *)(p + 160) <= limit) || seen) {
-                D_L05_001B2440 = D_L05_001B2440 + 1;
-                seen = (p[32] == 0xff) ? 1 : seen;
-            }
-            p += 256;
-        } while (p < D_L05_001B2524);
+    for (p = D_L05_001B2520; p < D_L05_001B2524; p += 256) {
+        if ((p[32] >= 254 && *(unsigned int *)(p + 160) <= D_L05_001B2048) || seen) {
+            D_L05_001B2440++;
+            if (p[32] == 0xff)
+                seen = 1;
+        }
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00310630);
-
-INCLUDE_ASM("asm/levels", func_L00_00310748);
 
 /* rac1-decomp src/overlays/shared/mobyfunc_0024FD50.c: func_L00_0024FFE8 */
 void func_L00_00310838(unsigned char *a, int dx, int dy) {
@@ -1032,9 +1389,7 @@ void func_L00_00310C88(LvlSlotCtx *ctx, LvlSlotNode **handle)
     *handle = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00310D30);
-
-INCLUDE_ASM("asm/levels", func_L00_00311080);
+/* func_L00_00310D30 is defined in its own unit. */
 
 INCLUDE_ASM("asm/levels", func_L00_003110E8);
 
@@ -1055,6 +1410,5 @@ void func_L00_003116A8(char *a0, int n, int a2, char *a3)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00311DC0);
 
-INCLUDE_ASM("asm/levels", func_L00_00314D40);
+ASM_FUNC("asm/levels", func_L00_00314D40);

@@ -1,4 +1,4 @@
-#include "include_asm.h"
+#include "common.h"
 
 typedef struct YeedilEffectState {
     char pad00[0x30];
@@ -19,6 +19,12 @@ extern float func_002A7940(void);
 extern void func_002AF000(void *, float, float, float);
 extern int func_002A77E0(int);
 extern void func_002BE278(void *, void *, int, float);
+
+extern void *func_0029EFD0(int);
+
+extern float func_002A89A8(void *, int, float);
+
+extern void func_002833F0(void *, void *);
 
 void func_L20_0039AA98(unsigned char *object)
 {
@@ -106,14 +112,13 @@ void func_L20_00330A68(void *arg0, int arg1)
 
 /* Catalogue defect: the row's first two words (0x0036AE68 `sw $t3,0x40($v1)` /
    `nop`) sit after the previous function's `jr $ra` (0x0036AE5C) and are
-   unreachable; the next eight words (0x0036AE70 `addiu $sp,$sp,0x20` /
-   `nop`) have the shape of the four-byte stub rows this level's splitter
-   cuts out of a function (131 of them, e.g. func_L00_002B2C50 at
-   0x00308688), so the real body starts at 0x0036AE78 and is 272 bytes: a
-   leaf function with no frame, no saved register and `jr $ra` at 0x0036AF80.
-   It reaches data through $gp twice (0x0036AF0C and 0x0036AF58, both
-   `lw $a0,-0x4800($gp)` -> 0x001AA7F0), so it belongs in the -G8 unit once
-   the row is split. */
+   unreachable; the eight bytes at 0x0036AE70 (`addiu $sp,$sp,0x20` / `nop`)
+   are the stub row this level's splitter cuts out of a function (74 of them
+   in level 20, e.g. at 0x00308688), so the real body starts at 0x0036AE78
+   and is 272 bytes: a leaf function with no frame, no saved register and
+   `jr $ra` at 0x0036AF80.  It reaches data through $gp twice (0x0036AF0C
+   and 0x0036AF58, both `lw $a0,-0x4800($gp)` -> 0x001AA7F0), so it belongs
+   in the -G8 unit once the row is split. */
 INCLUDE_ASM("asm/levels", func_L20_0036AE68);
 
 extern void func_L00_002F3478(void);
@@ -140,9 +145,36 @@ void func_L20_0036E720(void)
     func_002B49E0(3, 1, 0xB, 0, 0);
 }
 
-/* func_L20_0039BDF0 is a near miss: nonmatching/levels/func_L20_0039BDF0.c */
+char *func_L20_0039BDF0(void *arg0, void *arg1, int arg2, int arg3)
+{
+    char *p;
+    int addr;
+    int addr2;
+    char *b;
 
-INCLUDE_ASM("asm/levels", func_L20_0039BDF0);
+    p = (char *)func_0029EFD0(0x12C2);
+    if (p) {
+        *(int *)(p + 0xB8) = (int)arg0;
+        *(unsigned char *)(p + 0x30) = 0xFF;
+        addr = (int)p + 0x10;
+        qcopy((void *)addr, arg1);
+        *(int *)(arg0 + 0x98) = 0;
+        *(float *)(p + 0x18) = *(float *)(p + 0x18) + 2.0f;
+        *(float *)(p + 0x18) = func_002A89A8((void *)addr, 0, 0.5f);
+        b = *(char **)(p + 0xB8);
+        *(int *)(b + 0x98) = *(int *)(*(int *)(b + 0x24) + 0x10);
+        addr2 = (int)p + 0xF0;
+        qzero_nc((void *)addr2);
+        func_002833F0((void *)((int)p + 0xC0), (void *)((int)p + 0xF0));
+        {
+            int *vars = *(int **)(p + 0x68);
+            vars[1] = arg2;
+            vars[2] = arg3;
+        }
+    }
+    return p;
+}
+
 
 /* func_L20_0039BB18 is defined in L20_002DEBE0-g8.c (it reaches data through $gp). */
 

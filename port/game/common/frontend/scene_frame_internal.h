@@ -19,6 +19,7 @@ struct SceneFrame {
     bool temporal = false;    // Temporal reconstruction is active for this scene.
     float picture_scale = 1;  // Width of the original picture inside the wider frame.
     bool has_camera = false;  // The world is drawn: the tick has a camera and set_camera kept one.
+    std::vector<renderer::EffectQuad> effects;  // Effect quads moved between ticks, for input.
 };
 
 // The camera part way from the last tick's to this one's (a cut is not blended).

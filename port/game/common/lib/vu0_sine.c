@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "openrac/guest.h"
+#include "openrac/ps2float.h"
 
 /* Returns the constant of the instruction pair at microprogram address
  * `entry`: the I-register immediate of a LOI pair, its lower word. */
@@ -41,7 +42,39 @@ static float series_halves(float x, float c3, float c5, float c7, float c9) {
     return accumulator + high * x4;
 }
 
+/* The microprogram's sine as it runs (OPENRAC_VU0_SINE_EE): every sum and product the EE's. */
+static float sine_ee(const openrac_vu0_sine_program* program, float angle) {
+    const float pi = program_constant(program, program->sine_entry);
+    const float minus_pi = program->minus_pi ? program_constant(program, program->minus_pi) : -pi;
+    const float upper = openrac_ps2_sub(pi, angle);
+    const float lower = openrac_ps2_sub(minus_pi, angle);
+    float x = openrac_ps2_lt(angle, upper) ? angle : upper;
+    x = openrac_ps2_gt(x, lower) ? x : lower;
+
+    const float x2 = openrac_ps2_mul(x, x);
+    const float x3 = openrac_ps2_mul(x, x2);
+    const float x5 = openrac_ps2_mul(x3, x2);
+    const float x7 = openrac_ps2_mul(x5, x2);
+    const float x9 = openrac_ps2_mul(x7, x2);
+    float accumulator = openrac_ps2_mul(x, 1.0f);
+    accumulator = openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x3, program_constant(program, program->series[0]))
+    );
+    accumulator = openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x5, program_constant(program, program->series[1]))
+    );
+    accumulator = openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x7, program_constant(program, program->series[2]))
+    );
+    return openrac_ps2_add(
+        accumulator, openrac_ps2_mul(x9, program_constant(program, program->series[3]))
+    );
+}
+
 float openrac_vu0_sine(const openrac_vu0_sine_program* program, float angle) {
+    if (program->order == OPENRAC_VU0_SINE_EE) {
+        return sine_ee(program, angle);
+    }
     /* The fold: pi - x above pi/2, -pi - x below -pi/2. */
     const float pi = program_constant(program, program->sine_entry);
     const float upper = pi - angle;
@@ -61,5 +94,10 @@ float openrac_vu0_sine(const openrac_vu0_sine_program* program, float angle) {
 }
 
 float openrac_vu0_cosine(const openrac_vu0_sine_program* program, float angle) {
+    if (program->order == OPENRAC_VU0_SINE_EE) {
+        return sine_ee(
+            program, openrac_ps2_add(angle, program_constant(program, program->cosine_entry))
+        );
+    }
     return openrac_vu0_sine(program, angle + program_constant(program, program->cosine_entry));
 }

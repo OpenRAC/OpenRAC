@@ -1,0 +1,22 @@
+extern unsigned short *D_L05_001FB220[];
+extern unsigned char *D_L05_001B251C __attribute__((sda));
+extern int func_002ED688(unsigned char *);
+
+/* Count initialized entries in the tagged list; the last entry has bit15 set. */
+int func_L05_0037B3A0(unsigned char *object) {
+    void *head = D_L05_001FB220[object[0x21]];
+    unsigned short *entry;
+    int count = 0;
+    int next;
+    unsigned char *state;
+    if (head == 0) return 0;
+    entry = (unsigned short *)head;
+    do {
+        state = (unsigned char *)func_002ED688(D_L05_001B251C + ((*entry & 0x7FFF) << 8));
+        if (state) {
+            next = count + 1;
+            count = *(int *)(state + 0x110) != 1 ? count : next;
+        }
+    } while ((short)*entry++ >= 0);
+    return count;
+}

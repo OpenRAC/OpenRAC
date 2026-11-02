@@ -13,11 +13,15 @@
 // the log.
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "common/env.h"
@@ -42,6 +46,72 @@ namespace {
 std::unique_ptr<platform::AudioOutput> g_sound;
 // The frame from which watch_sound next tries to open a device that could not be opened.
 long g_sound_retry_frame = 0;
+
+// OPENRAC_AUDIO_DUMP=FILE: the mix as the device gets it, as a WAV file. The header's sizes are
+// written when the output closes; a run killed before that leaves them 0, with the samples there.
+std::FILE* g_dump = nullptr;
+std::uint64_t g_dump_bytes = 0;
+
+// The canonical 44-byte header of 16-bit PCM at the output's rate, little-endian.
+std::array<std::uint8_t, 44> wav_header(std::uint32_t data_bytes) {
+    std::array<std::uint8_t, 44> h{};
+    const auto put = [&h](std::size_t at, std::uint32_t value, int bytes) {
+        for (int i = 0; i < bytes; ++i) {
+            h[at + static_cast<std::size_t>(i)] = static_cast<std::uint8_t>(value >> (i * 8));
+        }
+    };
+    const auto tag = [&h](std::size_t at, const char* text) {
+        std::copy_n(text, 4, h.begin() + static_cast<std::ptrdiff_t>(at));
+    };
+    const std::uint32_t frame = platform::kAudioChannels * sizeof(std::int16_t);
+    tag(0, "RIFF");
+    put(4, data_bytes + 36, 4);
+    tag(8, "WAVE");
+    tag(12, "fmt ");
+    put(16, 16, 4);
+    put(20, 1, 2);
+    put(22, platform::kAudioChannels, 2);
+    put(24, platform::kAudioRate, 4);
+    put(28, platform::kAudioRate * frame, 4);
+    put(32, frame, 2);
+    put(34, 16, 2);
+    tag(36, "data");
+    put(40, data_bytes, 4);
+    return h;
+}
+
+void open_dump() {
+    const std::optional<std::string_view> path = env::value(env::Var::AudioDump);
+    if (!path || g_dump != nullptr) {
+        return;
+    }
+    g_dump = std::fopen(std::string(*path).c_str(), "wb");
+    if (g_dump == nullptr) {
+        log::warn("OPENRAC_AUDIO_DUMP: {} cannot be written", *path);
+        return;
+    }
+    const auto header = wav_header(0);
+    std::fwrite(header.data(), 1, header.size(), g_dump);
+}
+
+void write_dump(std::span<const std::int16_t> samples) {
+    if (g_dump != nullptr) {
+        g_dump_bytes += std::fwrite(samples.data(), sizeof(std::int16_t), samples.size(), g_dump)
+                        * sizeof(std::int16_t);
+    }
+}
+
+// After the output has closed: no thread is writing.
+void close_dump() {
+    if (g_dump == nullptr) {
+        return;
+    }
+    const auto header = wav_header(static_cast<std::uint32_t>(g_dump_bytes));
+    std::fseek(g_dump, 0, SEEK_SET);
+    std::fwrite(header.data(), 1, header.size(), g_dump);
+    std::fclose(g_dump);
+    g_dump = nullptr;
+}
 
 // The frames mixed ahead of the device: OPENRAC_AUDIO_BUFFER_MS, by default 20 ms on a desktop.
 // Android's devices take bigger blocks and have never had gaps, so it mixes on request as before.
@@ -120,6 +190,9 @@ void audio_tick() {
         static_cast<std::size_t>(platform::kAudioRate / tick_rate()) * 2
     );
     openrac_sound_render(samples.data(), samples.size() / 2);
+    // OPENRAC_AUDIO_DUMP works here too: the tick's samples, as a device would have had them.
+    open_dump();
+    write_dump(samples);
 #endif
 }
 
@@ -128,11 +201,13 @@ void close_sound() {
     // The engine stops asking the output before the output goes.
     openrac_sound_set_unheard(nullptr, nullptr);
     g_sound.reset();
+    close_dump();
 }
 
 void open_sound(bool report) {
     std::string why;
     const int ahead = ahead_frames();
+    open_dump();
     g_sound = platform::AudioOutput::open(
         why,
         [](std::span<std::int16_t> samples) {
@@ -144,6 +219,7 @@ void open_sound(bool report) {
                     sample = static_cast<std::int16_t>(static_cast<float>(sample) * gain);
                 }
             }
+            write_dump(samples);
         },
         ahead
     );

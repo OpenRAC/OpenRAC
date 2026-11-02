@@ -40,3 +40,45 @@ void func_003417D0(char *self, int arg)
     if (old != *(int *)indices)
         func_002A9588(0, 0, 1, 0, 1);
 }
+
+/* func_00341610 -- the object's index picks one of three per-index records.
+   The first table is in the program's small data (reached through $gp), the
+   second one in the program's data segment; both move with the program, so
+   both are externs.  The retail's guard is an UNSIGNED comparison (sltiu), so
+   a negative index takes the early return as well. */
+extern int D_001AE0C8 __attribute__((sda));
+extern char D_002652F0[];
+extern void func_00348118(void *, int);
+extern void func_00348068(unsigned char *, float *);
+extern int func_00288FB8(int);
+extern void func_00336A38(void *, unsigned int);
+extern void func_003363C0(void *, float);
+
+void func_00341610(char *self, int idx)
+{
+    float *records;
+    float f;
+    unsigned char *child;
+    if ((unsigned int)idx > 2) return;
+    *(int *)(self + 0x1C4) = ((int *)&D_001AE0C8)[idx];
+    *(int *)(self + 0x1C8) = (int)(D_002652F0 + idx * 0x20);
+    *(int *)(self + 0x1CC) = (idx == 0) ? 7 : ((idx == 1) ? 8 : 6);
+    if (idx != 0) {
+        if (idx == 2) f = 2.0f;
+        else f = 1.0f;
+    } else {
+        f = 0.0f;
+    }
+    child = (unsigned char *)self + 0x228;
+    {
+        int *p = (int *)(self + idx * 4);
+        func_00348118(child, p[0x6E]);
+    }
+    records = (idx == 0) ? *(float **)(self + 0x2F0) : ((idx == 1) ? *(float **)(self + 0x2F4) : *(float **)(self + 0x2F8));
+    func_00348068(child, records);
+    func_00336A38(self + 0x1D0, func_00288FB8((idx == 0) ? 0x2D55 : ((idx == 1) ? 0x2D56 : 0x31FE)));
+    func_003363C0(self, f);
+    func_003363C0(self + 0x4C, f);
+    func_003363C0(self + 0xE4, f);
+    *(int *)(self + 0x2FC) = idx;
+}

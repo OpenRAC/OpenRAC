@@ -31,7 +31,6 @@ unsigned int func_002EE6A8(unsigned char *owner)
     return *(unsigned int *)(address + 0x100u);
 }
 
-INCLUDE_ASM("asm/game", func_002EE6D0);
 
 extern int func_002ACCA8(unsigned char *a, int b);
 extern void func_002ED9C0(unsigned char *owner);
@@ -105,6 +104,6 @@ void func_002EE8B0(char *a0)
     *(int *)(p + 304) = 300;
 }
 
-INCLUDE_ASM("asm/game", func_002EE920);
+/* func_002EE920 is matched in 002EE920.c (built with -frac2-qcopy). */
 
-INCLUDE_ASM("asm/game", func_002EE988);
+/* func_002EE988 is matched in 002EE988.c (built with -frac2-qcopy -frac2-qcopy-barrier). */

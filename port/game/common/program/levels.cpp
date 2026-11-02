@@ -33,10 +33,67 @@
 namespace openrac::program {
 namespace {
 
+#ifdef OPENRAC_HAS_DISC
+// Going Commando's programs (games/rac2/ntsc/docs/LEVELS.md): G/LEVELn.WAD, which holds level n but
+// for the museum, level 30, in G/LEVEL21.WAD. Its word pair at +0x10 gives the level data's sector,
+// which opens with the (offset, size) of the program. The image is opened once.
+bool rac2_level_program(int level, std::vector<std::uint8_t>* bytes) {
+    constexpr int kMuseum = 30;
+    constexpr int kMuseumFile = 21;
+    constexpr std::uint64_t kSector = 2048;
+    static std::optional<assets::disc::IsoImage> iso;
+    static bool tried = false;
+    const fs::path image = g_options.data / "iso_data" / openrac_game.game / "disc.iso";
+
+    try {
+        if (!tried) {
+            tried = true;
+            iso.emplace(assets::disc::IsoImage::open(image));
+        }
+
+        if (!iso) {
+            return false;
+        }
+
+        const auto word = [](const std::vector<std::uint8_t>& from, std::size_t at) {
+            std::uint32_t value;
+            std::memcpy(&value, from.data() + at, sizeof(value));
+            return value;
+        };
+        const std::string name =
+            std::format("G/LEVEL{}.WAD", level == kMuseum ? kMuseumFile : level);
+        const assets::disc::IsoEntry* file = iso->find(name);
+
+        if (file == nullptr) {
+            return false;
+        }
+
+        const std::uint64_t start = file->lba * kSector;
+        const std::vector<std::uint8_t> head = iso->read_bytes(start, 0x18);
+
+        if (static_cast<int>(word(head, 0x08)) != level) {
+            return false;
+        }
+
+        const std::uint64_t data = start + word(head, 0x10) * kSector;
+        const std::vector<std::uint8_t> slot = iso->read_bytes(data, 8);
+        *bytes = iso->read_bytes(data + word(slot, 0), word(slot, 4));
+        return !bytes->empty();
+    } catch (const std::exception& e) {
+        log::warn("level {}'s program cannot be read from {}: {}", level, image.string(), e.what());
+        return false;
+    }
+}
+#endif
+
 // A level's program straight from the player's image (<data>/iso_data/<game>/disc.iso, kept by the
-// set-up), for rac1, whose disc layout is known. The image is opened once.
+// set-up), for the games whose disc layout is known. The image is opened once.
 bool level_program_from_disc(int level, std::vector<std::uint8_t>* bytes) {
 #ifdef OPENRAC_HAS_DISC
+    if (std::string(openrac_game.game) == "rac2") {
+        return rac2_level_program(level, bytes);
+    }
+
     static std::optional<assets::disc::Disc> disc;
     static bool tried = false;
 

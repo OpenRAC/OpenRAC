@@ -1,4 +1,4 @@
-#include "include_asm.h"
+#include "common.h"
 
 extern char D_00189E20_9[];
 
@@ -14,9 +14,6 @@ extern void func_00288EA0();
 
 extern void func_002E6D88();
 
-typedef unsigned char u8;
-
-typedef int s32;
 
 typedef struct {
  u8 prefix[0x30];s32 state;u8 gap0[0x1c];u8 *current;u8 gap1[0x138];s32 bank[2];
@@ -49,17 +46,65 @@ void func_002E7018(void)
     D_00152C2A = 0;
 }
 
-INCLUDE_ASM("asm/game", func_002E7090);
+#define MACRO_ADDR __attribute__((section(".sdata")))
 
-INCLUDE_ASM("asm/game", func_002E71B8);
+typedef struct { char pad[0x20]; short active; short slot; } Menu2E7090;
+typedef struct { char pad[0xC]; int start; int end; } Range2E7090;
+typedef struct { char pad[0x30]; int selected; int base; int page; int row; char pad40[0x6C - 0x40]; int start; int destination; } List2E7090;
 
-INCLUDE_ASM("asm/game", func_002E7248);
+extern float D_001B15A0 MACRO_ADDR;
+extern int D_001B15A4 MACRO_ADDR;
+extern Menu2E7090 D_00152C00;
+extern int D_001B22B0 MACRO_ADDR;
+extern Range2E7090 D_001BAEC0;
+extern List2E7090 D_001B8840;
+extern int D_001A79F0 MACRO_ADDR;
+extern int D_001A7B90 MACRO_ADDR;
+extern int D_001B1680 MACRO_ADDR;
+extern void func_002FC138(void);
+extern void func_00294070(int);
+extern int func_0029B3E0(int, int);
+
+/* Opens the list: rebases its range on the loaded block and, for the current program, lays
+   out the first page (80 or 96 rows a page). */
+void func_002E7090(int level)
+{
+    Menu2E7090 *menu = &D_00152C00;
+    short none = -1;
+    int base;
+
+    D_001B15A0 = 1.0f;
+    D_001B15A4 = 0;
+    menu->active = 0;
+    menu->slot = none;
+    func_002FC138();
+    base = D_001B22B0 - 0x60000;
+    D_001B8840.start = D_001BAEC0.start + base;
+    D_001B8840.destination = D_001BAEC0.end + base;
+    D_001B22B0 = base;
+    if (D_001A79F0 == level) {
+        func_002E6D88(3);
+        level = D_001A7B90 ? 0x50 : 0x60;
+        D_001B8840.base = 0;
+        D_001B8840.row = D_001B8840.base / level;
+        func_00294070(D_001B8840.row);
+        D_001B8840.page = D_001B8840.base % level;
+    } else {
+        func_0029B3E0(0, level);
+        D_001B1680 = level;
+        menu->active = 1;
+        menu->slot = none;
+    }
+}
+
+
+/* func_002E7248 is matched in its own unit, 002E7248-qcopy.c. */
 
 INCLUDE_ASM("asm/game", func_002E7338);
 
-INCLUDE_ASM("asm/game", func_002E7570);
+/* func_002E7570 is in 002E7018-qcopy.c (grouped lq/sq copies). */
 
-INCLUDE_ASM("asm/game", func_002E76C0);
+/* func_002E76C0 is in 002E76C0-g8.c. */
 
 extern unsigned int D_001A7AF0 __attribute__((sda));
 extern void func_002E76C0(void *, int, int);
@@ -72,9 +117,8 @@ void func_002E7B48(void *object)
         func_002E76C0(object, index, 0);
 }
 
-INCLUDE_ASM("asm/game", func_002E7BC0);
 
-INCLUDE_ASM("asm/game", func_002E7BC8);
+/* func_002E7BC8 is in 002E7BC8-g8.c. */
 
 
 /* func_002E8190 is matched in 002E7018-g8.c (-G8 small data). */
@@ -102,13 +146,11 @@ void func_002E82C8(int alpha)
 
 INCLUDE_ASM("asm/game", func_002E8368);
 
-INCLUDE_ASM("asm/game", func_002E8BA8);
+/* func_002E8BA8 is matched in 002E8BA8-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002E8F80);
 
-INCLUDE_ASM("asm/game", func_002E9110);
 
-INCLUDE_ASM("asm/game", func_002E9268);
+/* func_002E9268 is in 002E9268.c. */
 
 extern short D_00152C20;
 extern int D_001B1594 __attribute__((sda));
@@ -133,7 +175,6 @@ void func_002EA8E8(void)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002EA968);
 
 extern void func_001325E8(void *, void (*)(int, long), long long);
 extern void func_0011AEA0(int);
@@ -156,10 +197,8 @@ void func_002EAAA8(void *arg, int *status) {
 
 INCLUDE_ASM("asm/game", func_002EAB18);
 
-INCLUDE_ASM("asm/game", func_002EB150);
 
-typedef struct { char pad[0x30]; int selected; char gap[0x3C]; int destination; } State2EB158;
-extern State2EB158 D_001B8840;
+/* D_001B8840 is declared above func_002E7090 (List2E7090). */
 extern char D_0014B540[];
 extern int func_002B7B18(int, int, int);
 extern void func_002B7CE0(int);
@@ -179,19 +218,19 @@ int func_002EB158(int index)
     return 1;
 }
 
-INCLUDE_ASM("asm/game", func_002EB1E0);
+/* func_002EB1E0 is matched in its own unit, 002EB1E0.c (-frac2-gcse-unsplit-edges). */
 
-INCLUDE_ASM("asm/game", func_002EB598);
 
-INCLUDE_ASM("asm/game", func_002EB7E8);
+/* func_002EB7E8 is in 002EB7E8-g8.c (-G8 small data). */
 
-INCLUDE_ASM("asm/game", func_002EBAA8);
+/* func_002EBAA8 is in 002EBAA8-g8.c (-G8 small data). */
+
 
 INCLUDE_ASM("asm/game", func_002EBC70);
 
-INCLUDE_ASM("asm/game", func_002EBDF0);
+/* func_002EBDF0 is matched in 002EBDF0-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002EC1C0);
+/* func_002EC1C0 is matched in 002E7018-g8.c (-G8 small data). */
 
 INCLUDE_ASM("asm/game", func_002EC408);
 
@@ -207,4 +246,3 @@ void func_002ED058(void) {
  }
 }
 
-INCLUDE_ASM("asm/game", func_002ED0A0);

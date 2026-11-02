@@ -315,6 +315,23 @@ void keys_from_memory() {
     CHECK((evaluate_keys(c, &a, nullptr, 0.0f, true) == evaluate(c, s)));
     // A key it needs missing: identity.
     CHECK((evaluate_keys(c, &a, nullptr, 0.5f, true) == std::vector<JointMatrix>(2, kIdentityJoint)));
+    // A layer of records (Going Commando's) moves only the joint it names, by its weight.
+    PoseLayer layer;
+    layer.weight = 1.0f;
+    PoseRecord record;
+    record.joint = 1;
+    record.quat = quat_v4(kQuatIdentity);
+    record.scale = {ps2::bits(1.0f), ps2::bits(1.0f), ps2::bits(1.0f), 0};
+    record.trans = {ps2::bits(50.0f), ps2::bits(60.0f), ps2::bits(70.0f), 0};
+    layer.records.push_back(record);
+    const std::vector<PoseLayer> layers{layer};
+    const std::vector<JointMatrix> plain = evaluate_keys(c, &a, nullptr, 0.0f, true);
+    const std::vector<JointMatrix> moved = evaluate_keys(c, &a, nullptr, 0.0f, true, {}, layers);
+    CHECK(plain[0] == moved[0] && plain[1] != moved[1]);
+    PoseLayer off = layer;
+    off.weight = 0.0f;
+    const std::vector<PoseLayer> none{off};
+    CHECK((evaluate_keys(c, &a, nullptr, 0.0f, true, {}, none) == plain));
 }
 
 }  // namespace

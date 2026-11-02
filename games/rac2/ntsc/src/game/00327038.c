@@ -1,4 +1,19 @@
 #include "include_asm.h"
+#include "common.h"
+
+extern long long func_0027C878(char *p);
+
+extern float func_00283248(float x, float y);
+
+extern float func_00282E80(char *p, float *v);
+
+extern void func_00283410(float *matrix, float *quat);
+
+extern void func_00282CF0(float *off, float *v, char *p);
+
+extern void func_00280B90(char *pkt, float *matrix, int mode);
+
+typedef struct { char pad[0x2290]; char *object; } EffectContext;
 
 #define RAC2_T_VEC16_FC936841D
 
@@ -15,10 +30,6 @@ typedef struct {
     float z;
     float w;
 } Vec16_Fc936841d;
-
-typedef unsigned char u8;
-
-typedef int s32;
 
 typedef struct {
     u8 field00[0x14];
@@ -96,6 +107,16 @@ extern void func_002AF000(void *, float, float, float);
 
 extern void func_00282CC0(void *, void *, void *);
 
+extern long long func_0027C878(char *p);
+
+extern float func_00283248(float x, float y);
+
+extern float func_00282E80(char *p, float *v);
+
+extern void func_00283410(float *matrix, float *quat);
+
+extern void func_00280B90(char *pkt, float *matrix, int mode);
+
 #ifndef RAC2_T_VEC16_FC936841D
 #endif
 
@@ -103,9 +124,8 @@ extern void func_00282CC0(void *, void *, void *);
 
 INCLUDE_ASM("asm/game", func_00327038);
 
-INCLUDE_ASM("asm/game", func_00327380);
+/* func_00327380 is in 00327038-ground-g8.c. */
 
-INCLUDE_ASM("asm/game", func_00327848);
 
 /* func_00327A60 uses small data in 00327038-g8.c. */
 
@@ -113,15 +133,13 @@ INCLUDE_ASM("asm/game", func_00327B40);
 
 /* func_00327D08 is matched in 00327038-g8.c (-G8 small data). */
 
-INCLUDE_ASM("asm/game", func_00327D50);
+/* func_00327D50 is in 00327038-ring-g8.c. */
 
-INCLUDE_ASM("asm/game", func_003280C8);
 
-INCLUDE_ASM("asm/game", func_003281F0);
+/* func_003281F0 is in 003281F0-g8.c. */
 
-INCLUDE_ASM("asm/game", func_003285C0);
+/* func_003285C0 is matched in its own unit, src/game/003285C0-qcopy.c (-frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/game", func_003286D0);
 
 void func_00328758(char *self)
 {
@@ -202,7 +220,7 @@ void func_00328918(char *owner)
     } while (--remaining >= 0);
 }
 
-INCLUDE_ASM("asm/game", func_00328A20);
+/* func_00328A20 is in 00328A20.c. */
 
 INCLUDE_ASM("asm/game", func_00328B68);
 
@@ -282,21 +300,120 @@ void func_00328D98(char *pos, int a1, int a2, char *a3, int t0,
     F8411efa9_FUN_00280B90(pkt, m, 0);
 }
 
-INCLUDE_ASM("asm/game", func_00328F18);
+/* func_00328F18 follows func_0032B3E0 below, after the helpers it declares. */
 
-INCLUDE_ASM("asm/game", func_003290D0);
+/* func_003290D0 is in 003290D0-particle.c. */
 
-INCLUDE_ASM("asm/game", func_00329328);
+typedef struct {
+    float v[4];
+    float f10;
+    float f14;
+    float f18;
+    int f1C;
+    int f20;
+    int f24;
+    int f28;
+    int pad2C;
+    int f30;
+    int f34;
+    void *owner;
+    int pad3C;
+} F328Tail;
+
+typedef struct {
+    float m[4];
+    F328Tail t;
+} F328Particle;
+
+typedef struct {
+    char pad[0x4C];
+    int count;
+} F328Owner;
+
+extern F328Particle D_0022C9A0[300];
+extern float func_00283CE0(int);
+extern int func_00283CF0(float);
+extern int func_00283D38(float, int, int);
+extern float func_00283B98(float, float);
+extern float func_002A7878(float, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282D30(void *, void *, float);
+extern int func_00282948(void *);
+
+void func_00329328(void *obj) {
+    F328Particle *base = D_0022C9A0;
+    F328Particle *p;
+    F328Owner *o = *(F328Owner **)((char *)obj + 0x68);
+    int i;
+    float scale;
+    float half = 0.5f;
+
+    for (i = 0; i < 300; i++) {
+        p = &base[i];
+        if (p->t.owner != obj)
+            continue;
+        scale = func_00283CE0(p->t.f30);
+        scale /= func_00283CE0(p->t.f34);
+        p->t.f28 = func_00283CF0((float)p->t.f24 * scale);
+        p->t.f20 = func_00283D38(scale * half, 0, p->t.f1C);
+        p->t.f14 = func_00283B98(p->t.f14, p->t.f10);
+        p->t.f18 += func_002A7878(0.001f, 0.003f);
+        func_00282CC0(p, p, &p->t);
+        func_00282D30(&p->t, &p->t, 0.99f);
+        if (func_00282948(&p->t.f30)) {
+            p->t.owner = 0;
+            o->count--;
+        }
+    }
+}
 
 INCLUDE_ASM("asm/game", func_00329488);
 
-INCLUDE_ASM("asm/game", func_00329630);
+/* Builds a 144-byte packet, aims a quaternion at the shared 0x001B5200 vector from the
+ * object's own position through three float helpers, writes the last matrix row from that
+ * position, then dispatches the packet. */
+void func_00329630(char *self)
+{
+    char pkt[144];
+    float m[16];
+    float quat[4];
+    long long r;
+    int colour;
 
-INCLUDE_ASM("asm/game", func_00329768);
+    F8411efa9_FUN_00328CA8(pkt);
+    r = func_0027C878((char *)0x2E);
 
-INCLUDE_ASM("asm/game", func_00329CB8);
+    *(long long *)(pkt + 0x78) = r;
+    *(long long *)(pkt + 0x80) = 280993940374112LL;
+    *(long long *)(pkt + 0x88) = ((long long)*(int *)(self + 0x3C) << 2) | 0x8000000040LL;
+    colour = *(int *)(self + 0x30) + (*(unsigned char *)(self + 0x38) << 24);
+    *(long long *)(pkt + 0x70) = 0LL;
+    *(int *)(pkt + 0x4C) = colour;
+    *(int *)(pkt + 0x48) = colour;
+    *(int *)(pkt + 0x44) = colour;
+    *(int *)(pkt + 0x40) = colour;
 
-INCLUDE_ASM("asm/game", func_00329DC0);
+    quat[3] = 0.0f;
+    quat[2] = func_00283248(D_001B5200.x_140 - *(float *)(self + 0),
+                            D_001B5200.y_144 - *(float *)(self + 4));
+    quat[1] = -func_00283248(func_00282E80(self, &D_001B5200.x_140),
+                             D_001B5200.z_148 - *(float *)(self + 8));
+    quat[0] = *(float *)(self + 0x24);
+
+    func_00283410(m, quat);
+
+    m[12] = *(float *)(self + 0);
+    m[13] = *(float *)(self + 4);
+    m[14] = *(float *)(self + 8);
+    m[15] = 1.0f;
+
+    F8411efa9_FUN_00328D30(pkt, *(float *)(self + 0x28));
+    func_00280B90(pkt, m, 0);
+}
+
+/* func_00329768 uses small data in 00329768-g8.c. */
+
+
 
 /* Per frame: scales the value one helper returns by the factor another helper returns, stores both scaled samples and a third sample into a three-float record, and hands the record to a setter with two selector results. */
 void func_00329E60(char *a0)
@@ -320,7 +437,78 @@ void func_00329E60(char *a0)
     }
 }
 
-INCLUDE_ASM("asm/game", func_00329F40);
+/* Format string for the missing-state message. */
+extern char D_001B0238[];
+/* Retail reads these two words with the assembler's lui/lw macro (the destination register
+   as the address temporary): cc1 emits `lw reg,sym` for an sda symbol, and the assembler,
+   with no small-data threshold here, expands it into lui/lw. */
+extern int D_001B22D0[] __attribute__((sda));
+extern int D_001B22D8[] __attribute__((sda));
+
+extern int func_002FD828(float *, float *, float, float, float);
+extern void func_002FD1B8(int, int, int, float, float, float, float);
+extern int func_0026F800(void);
+
+void func_00329F40(char *self)
+{
+    unsigned char *target = D_001BAF98[0];
+    char *state = *(char **)(self + 0x68);
+    unsigned char *object;
+    unsigned char *obj_state;
+    char *probe;
+    float aux[4];
+    float result[4];
+    char *context;
+    int mode;
+
+    if (target == 0) {
+        if (*(int *)(state + 0x38) != 2)
+            return;
+    }
+    mode = *(int *)(state + 0x38);
+    object = target;
+    if (mode == 2)
+        object = *(unsigned char **)(state + 0x48);
+    if (*(short *)(*(char **)(object + 0x24) + 0x46) == 18) {
+        obj_state = *(unsigned char **)(object + 0x68);
+        if (obj_state != 0) {
+            if (*(short *)(obj_state + 0x16) == 0) {
+                *(int *)&result[0] = 0;
+                if (mode != 2)
+                    func_002FD828(result, aux, *(float *)(self + 0x10), *(float *)(self + 0x14), *(float *)(self + 0x18));
+                else
+                    func_002FD828(result, aux, *(float *)(state + 0x20), *(float *)(state + 0x24), *(float *)(state + 0x28));
+                probe = *(char **)(object + 0x68);
+                if (*(float *)(self + 0x18) > result[0] && *(float *)(probe + 0xC) == 0.0f) {
+                    *(unsigned char **)(state + 0x48) = object;
+                    *(int *)(state + 0x38) = 2;
+                    return;
+                }
+                if (obj_state[0x14] == 0) {
+                    func_002FD1B8(D_001B22D0[0], D_001B22D8[0], 1, *(float *)(self + 0x10), *(float *)(self + 0x14), 0.5f, -0.03f);
+                    if (func_0026F800() == 0) {
+                        object[0xBC] += 1;
+                        if (object[0xBC] >= 25) {
+                            context = D_001A63A8;
+                            if (*(short *)(context + 0x72) == 3 && *(short *)(context + 0x6C) < 6000)
+                                func_002B6D28();
+                        }
+                        if (object[0x21] != 255)
+                            func_002A8598(object[0x21], object[0xBC]);
+                    }
+                }
+                *(int *)(state + 0x44) = 0;
+            } else {
+                *(int *)(state + 0x44) = 1;
+            }
+        } else {
+            func_0026FEB8(D_001B0238, *(short *)(object + 0xAA));
+        }
+        *(int *)(state + 0x38) = 1;
+    } else {
+        *(int *)(state + 0x38) = 0;
+    }
+}
 
 INCLUDE_ASM("asm/game", func_0032A130);
 
@@ -340,16 +528,17 @@ void func_0032A978(void)
     }
 }
 
-INCLUDE_ASM("asm/game", func_0032AA30);
 
-INCLUDE_ASM("asm/game", func_0032ABC0);
+/* func_0032ABC0 is matched in its own unit, 0032ABC0.c. */
 
+
+/* func_0032AE30 is a near miss: see nonmatching/game/func_0032AE30.c. */
 
 INCLUDE_ASM("asm/game", func_0032AE30);
 
 
 
-INCLUDE_ASM("asm/game", func_0032B190);
+/* func_0032B190 is defined in 0032B190-dbg.c (-g). */
 
 void func_0032B2F0(char *p)
 {
@@ -389,15 +578,95 @@ void func_0032B378(char *p, float scale)
     F2c74c194_FUN_00282D30(p + 48, p + 48, scale);
 }
 
-INCLUDE_ASM("asm/game", func_0032B3E0);
+/* Builds a 144-byte packet, aims a quaternion at the shared 0x001B5200 vector from pos through three float helpers, derives an offset basis by a fourth, writes the last matrix row from pos plus that offset, then dispatches the packet. */
+void func_0032B3E0(char *pos, int a1, int a2, char *a3, int t0,
+                   float f12, float f13, float f14)
+{
+    char pkt[144];
+    float m[16];
+    float quat[4];
+    float off[4];
+    long long r;
 
-INCLUDE_ASM("asm/game", func_0032B598);
+    func_0032B2F0(pkt);
+    r = func_0027C878(a3);
 
-INCLUDE_ASM("asm/game", func_0032B7D0);
+    *(long long *)(pkt + 136) = ((long long)t0 << 2) | 0x8000000040LL;
+    *(long long *)(pkt + 128) = 280993940374112LL;
+    *(int *)(pkt + 76) = a1 + (a2 << 24);
+    *(int *)(pkt + 72) = a1 + (a2 << 24);
+    *(int *)(pkt + 68) = a1 + (a2 << 24);
+    *(int *)(pkt + 64) = a1 + (a2 << 24);
+    *(long long *)(pkt + 112) = 0LL;
+    *(long long *)(pkt + 120) = r;
 
-INCLUDE_ASM("asm/game", func_0032BA88);
+    quat[3] = 0.0f;
+    quat[2] = func_00283248(D_001B5200.x_140 - *(float *)(pos + 0),
+                            D_001B5200.y_144 - *(float *)(pos + 4));
+    quat[1] = -func_00283248(func_00282E80(pos, &D_001B5200.x_140),
+                             D_001B5200.z_148 - *(float *)(pos + 8));
+    quat[0] = f13;
 
-INCLUDE_ASM("asm/game", func_0032BBF0);
+    func_00283410(m, quat);
+    func_00282CF0(off, &D_001B5200.x_140, pos);
+    func_00282F20(off, off, f14);
+
+    m[12] = *(float *)(pos + 0) + off[0];
+    m[13] = *(float *)(pos + 4) + off[1];
+    m[14] = *(float *)(pos + 8) + off[2];
+    m[15] = 1.0f;
+
+    func_0032B378(pkt, f12);
+    func_00280B90(pkt, m, 0);
+}
+
+void func_00328F18(char *pos, int a1, int a2, char *a3, int t0,
+                   float f12, float f13, float f14)
+{
+    char pkt[144];
+    float m[16];
+    float quat[4];
+    float off[4];
+    long long r;
+
+    func_00328CA8(pkt);
+    r = func_0027C878(a3);
+
+    *(long long *)(pkt + 136) = ((long long)t0 << 2) | 0x8000000040LL;
+    *(long long *)(pkt + 128) = 280993940374112LL;
+    *(int *)(pkt + 76) = a1 + (a2 << 24);
+    *(int *)(pkt + 72) = a1 + (a2 << 24);
+    *(int *)(pkt + 68) = a1 + (a2 << 24);
+    *(int *)(pkt + 64) = a1 + (a2 << 24);
+    *(long long *)(pkt + 112) = 0LL;
+    *(long long *)(pkt + 120) = r;
+
+    quat[3] = 0.0f;
+    quat[2] = func_00283248(D_001B5200.x_140 - *(float *)(pos + 0),
+                            D_001B5200.y_144 - *(float *)(pos + 4));
+    quat[1] = -func_00283248(func_00282E80(pos, &D_001B5200.x_140),
+                             D_001B5200.z_148 - *(float *)(pos + 8));
+    quat[0] = f13;
+
+    func_00283410(m, quat);
+    func_00282CF0(off, &D_001B5200.x_140, pos);
+    func_00282F20(off, off, f14);
+
+    m[12] = *(float *)(pos + 0) + off[0];
+    m[13] = *(float *)(pos + 4) + off[1];
+    m[14] = *(float *)(pos + 8) + off[2];
+    m[15] = 1.0f;
+
+    func_00328D30(pkt, f12);
+    func_00280B90(pkt, m, 0);
+}
+
+/* func_0032B598 is in 0032B598-qcopy.c. */
+
+/* func_0032B7D0 is in 0032B7D0-qcopy.c. */
+
+
+/* func_0032BBF0 is defined in 00316BC8-qcopy.c. */
 
 void func_0032BDC8(Vec16_Fc936841d *object, int index)
 {
@@ -407,17 +676,15 @@ void func_0032BDC8(Vec16_Fc936841d *object, int index)
     Fc936841d_FUN_00282CC0((char *)&object[index - 1], (char *)&object[index - 2], local);
 }
 
-INCLUDE_ASM("asm/game", func_0032BE30);
+/* func_0032BE30 is defined in 0032BE30-beam.c. */
 
 INCLUDE_ASM("asm/game", func_0032C2E8);
 
-INCLUDE_ASM("asm/game", func_0032C688);
 
-INCLUDE_ASM("asm/game", func_0032C700);
+/* func_0032C700 is in 0032C700-explosion.c. */
 
-INCLUDE_ASM("asm/game", func_0032CA40);
+/* func_0032CA40 uses small data in 00327038-explosion-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0032D6F0);
 
 /* finds the first matching object pointer in thirty resident32-byte records or returns-1 */
 s32 func_0032D700(void *object) {
@@ -434,18 +701,13 @@ s32 func_0032D700(void *object) {
 
 INCLUDE_ASM("asm/game", func_0032D758);
 
-INCLUDE_ASM("asm/game", func_0032DA50);
 
-INCLUDE_ASM("asm/game", func_0032DA58);
+/* func_0032DA58 is in 0032DA58-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0032DD40);
+/* func_0032DD40 is in 0032DD40-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0032E4E8);
 
-INCLUDE_ASM("asm/game", func_0032E4F0);
+/* func_0032E4F0 uses small data in 00327038-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0032E568);
 
-INCLUDE_ASM("asm/game", func_0032E588);
 
-INCLUDE_ASM("asm/game", func_0032E700);

@@ -6,6 +6,21 @@ typedef unsigned int u32;
 typedef signed short s16;
 typedef int s32;
 
+extern void func_2EEF88(void *);
+extern void func_2EEFE0(void *, void *, void *);
+extern void func_2EF0C8(void *, void *, void *);
+extern void func_2EF298(void *, void *, float);
+extern float func_2EF0A0(void *, void *);
+extern void func_2EEFF8(void *, void *, void *, float);
+extern void func_2EEFB0(void *, void *, void *);
+extern float func_2EF190(void *, void *);
+extern float func_2EF158(void *, void *);
+extern void func_31EBA8(void *, float, float);
+extern int func_360A80(int, int, void *);
+extern void func_360780(int);
+extern void func_32CEA0(void *, void *);
+extern u8 D_L03_00188660[];
+
 extern void func_31B920(void *entity, int a, int b);
 extern int func_31B9F0(int id);
 extern void func_320318(void *entity, void *target);
@@ -66,17 +81,53 @@ typedef struct {
 
 extern Entry41D1D8 *D_L03_001FE700[];
 
-INCLUDE_ASM("asm/levels", func_L03_003F09C0);
+/* func_L03_003F09C0 is in L03_003F09C0-help-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003F11A0);
+/* func_L03_003F11A0 is in L03_003F11A0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003F1470);
+extern void func_L02_00327350(s32, s32);
+extern void func_00288308(s32);
+extern s32 func_002AD860(s32);
+extern void func_0029F338(u8 *);
+extern void func_0029B3E0(s32, s32);
 
-INCLUDE_ASM("asm/levels", func_L03_003F4638);
+/* Two flag bytes of the boot's state block, reached as members of one object: the stores
+ * are then `lui $at ; sb` pairs that stay out of the call's delay slot, as in retail (a
+ * separate symbol per byte puts the second store into the slot). */
+extern u8 D_001A7B08[0x40] __attribute__((sda));
+extern s32 D_L03_001B2A38[] __attribute__((sda));
 
-INCLUDE_ASM("asm/levels", func_L03_003F5590);
+/* Raises the two flags, sets the entity up from the state's words 0x58 and 0x5C, runs the two
+ * boot steps with 13 (func_002AD860 returns a value that the caller drops; declaring it that way
+ * is what fixes the register choice of the table address), then hands every entity of the
+ * state's group (word 0x80) to func_0029F338 and ends with func_0029B3E0(0, -1). */
+void func_L03_003F1470(u8 *entity) {
+    u8 *state = *(u8 **)(entity + 0x68);
+    u16 *p;
+    u8 *e;
 
-INCLUDE_ASM("asm/levels", func_L03_003F5B70);
+    func_L02_00327350(*(s32 *)(state + 0x58), *(s32 *)(state + 0x5C));
+    D_001A7B08[0x04] = 1;
+    D_001A7B08[0x3C] = 1;
+    func_00288308(13);
+    func_002AD860(13);
+    for (p = (u16 *)D_L03_001FB5A0[*(s32 *)(state + 0x80)];
+         (*(s32 *)(state + 0x80) & 0xFF) != 0xFF && *(s32 *)(state + 0x80) <= D_L03_001B2A38[0] &&
+         p != 0 && ((p != 0 && (s16)p[-1] >= 0) || p == (u16 *)D_L03_001FB5A0[*(s32 *)(state + 0x80)]);
+         p++) {
+        e = D_L03_001B2A1C + ((*p & 0x7FFF) << 8);
+        if (e == 0)
+            break;
+        func_0029F338(e);
+    }
+    func_0029B3E0(0, -1);
+}
+
+/* func_L03_003F4638 is in L03_003F4638-g8.c. */
+
+/* func_L03_003F5590 is in L03_003F5590-g8.c. */
+
+/* func_L03_003F5B70 is in L03_003F5B70-g8.c. */
 
 /* ticks the entity's sub-states, feeds the 0x95 counter to the engine and
  * re-arms its 200-second timer */
@@ -100,8 +151,6 @@ void func_L03_003F6080(u8 *entity) {
     if (timer <= 0xFFFE) *(u16 *)(entity + 0x96) = (u16)(timer + 1);
 }
 
-INCLUDE_ASM("asm/levels", func_L03_003F6158);
-
 /* func_L03_003F62C8 lives in L03_003F09C0-g8.c (it reaches D_L03_001B108C
  * through $gp). */
 
@@ -121,7 +170,7 @@ void func_L03_003F6458(u8 *entity, s32 selector) {
     state->current = state->table[value];
 }
 
-INCLUDE_ASM("asm/levels", func_L03_003F64E8);
+/* func_L03_003F64E8 lives in L03_003F64E8-g8.c */
 
 /* steps the entity's two blend channels and its rate */
 void func_L03_003F6610(u8 *entity) {
@@ -150,7 +199,7 @@ void func_L03_003F66D8(u8 *entity) {
     } while (1);
 }
 
-INCLUDE_ASM("asm/levels", func_L03_003F6748);
+/* func_L03_003F6748 is defined in L03_003F6748-g8.c. */
 
 /* appends one word to the level state's 30-entry table */
 void func_L03_003F68E8(u8 *entity, u32 value) {
@@ -168,27 +217,59 @@ void func_L03_003F6918(u8 *entity, s32 index) {
     state->entries[index] = state->entries[--state->count];
 }
 
-INCLUDE_ASM("asm/levels", func_L03_003F6948);
+/* func_L03_003F6948 is defined in L03_003F6948-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L03_003F6BA8);
 
-INCLUDE_ASM("asm/levels", func_L03_003F6E88);
+/* func_L03_003F6E88 is defined in L03_003F6E88-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_003F71E0);
+/* The voice-load state the level shares with the engine: the key at +0x24, a
+   cleared word at +0x28 and the busy flag at +0x68. */
+typedef struct {
+    u8 pad00[0x24];
+    s32 key;
+    s32 unk28;
+    u8 pad2C[0x3C];
+    s32 active;
+} L03VoiceState;
 
-INCLUDE_ASM("asm/levels", func_L03_004198B0);
+extern L03VoiceState D_001A63A8;
 
-INCLUDE_ASM("asm/levels", func_L03_00419CA0);
+/* Picks the free voice slot the entity asks for, unless the engine is busy
+   or already holds that slot. */
+void func_L03_003F71E0(u8 *a0, s32 a1) {
+    L03VoiceState *st = &D_001A63A8;
+    s32 sel = a1;
+    u8 *a3 = *(u8 **)(a0 + 0x68);
+    u8 *slot;
+    s32 *row;
+    u32 v;
 
-INCLUDE_ASM("asm/levels", func_L03_0041A090);
+    if (st->active != 0) return;
+    if (st->key != -1) return;
+    if (sel == *(s32 *)(a3 + 0x40C)) return;
+    slot = a3 + sel;
+    row = (s32 *)(a3 + sel * 4);
+    v = *(u32 *)((u8 *)row + 0x3D0);
+    st->unk28 = 0;
+    st->key = (v & 0x3FFF) + 0x7D0;
+    *(u8 *)(slot + 0x410) = 1;
+    *(s32 *)(a3 + 0x408) = 0x258;
+    *(s32 *)(a3 + 0x40C) = sel;
+}
 
-INCLUDE_ASM("asm/levels", func_L03_0041A570);
+/* func_L03_004198B0 lives in L03_003F09C0-g8.c (it reaches D_L03_001A8F00
+ * through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L03_0041BE50);
+/* func_L03_00419CA0 is in L03_00419CA0-effects.c. */
+
+/* func_L03_0041A570 is in L03_0041A570-g8.c. */
+
+/* func_L03_0041BE50 is in L03_0041BE50-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L03_0041CA78);
 
-INCLUDE_ASM("asm/levels", func_L03_0041CEB0);
+/* func_L03_0041CEB0 is defined in L03_0041CEB0.c. */
 
 /* func_L03_0041D0A8 lives in L03_003F09C0-g8.c (it reaches D_L03_001B2A1C
  * through $gp). */
@@ -237,17 +318,61 @@ u32 func_L03_0041D1D8(u8 *entity) {
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L03_0041D258);
+/* func_L03_0041D258 is in L03_0041D258-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L03_0041DAD0);
 
-INCLUDE_ASM("asm/levels", func_L03_0041DCE0);
+/* Projects the state position onto its path, clamps lateral displacement,
+ * advances the path blend nearby, and maintains its movement sound. */
+void func_L03_0041DCE0(u8 *entity) {
+    u8 *state = *(u8 **)(entity + 0x68);
+    u8 *entry = (u8 *)D_L03_001FE700[*(int *)(state + 0x210)];
+    float delta[4], along[4], across[4], axis[4], point[4], scaled[4];
+    float distance;
+    float side;
+    func_2EEF88(axis);
+    func_2EEFE0(along, entry + 0x20, entry + 0x10);
+    along[2] = 0;
+    func_2EF0C8(across, along, axis);
+    func_2EF298(across, across, 1.0f);
+    func_2EF298(along, along, 1.0f);
+    func_2EEFE0(delta, state + 0x1F0, entry + 0x10);
+    delta[2] = 0;
+    distance = func_2EF0A0(delta, across);
+    if (distance > *(float *)(state + 0x218)) distance = *(float *)(state + 0x218);
+    else if (distance < -*(float *)(state + 0x218)) distance = -*(float *)(state + 0x218);
+    func_2EEFF8(point, entry + 0x10, entry + 0x20, *(float *)(state + 0x340));
+    func_2EF298(scaled, across, distance);
+    func_2EEFB0(point, point, scaled);
+    func_2EEFE0(delta, state + 0x1F0, point);
+    delta[2] = 0;
+    side = func_2EF0A0(delta, along);
+    if (func_2EF190(state + 0x1F0, point) < 6.0f) {
+        float target = (side < 0.0f);
+        func_31EBA8(state + 0x340, target, 0.016666668f);
+    }
+    if (func_2EF158(entity + 0x10, point) >= 0.5f) {
+        u8 *sound = D_L03_00188660 + *(int *)(state + 0x350) * 0x70;
+        if (*(u8 **)(sound + 0x88) != entity || !sound[0x74])
+            *(int *)(state + 0x350) = func_360A80(0, 4, entity);
+    } else {
+        int slot = *(int *)(state + 0x350);
+        if (slot != -1) {
+            u8 *sound = D_L03_00188660 + slot * 0x70;
+            if (*(u8 **)(sound + 0x88) == entity && sound[0x74]) func_360780(slot);
+        }
+        *(int *)(state + 0x350) = -1;
+    }
+    func_32CEA0(entity, point);
+    *(int *)(state + 0x1A8) = 0;
+}
 
-INCLUDE_ASM("asm/levels", func_L03_0041DFA8);
+/* func_L03_0041DFA8 lives in L03_003F09C0-g8.c (it reaches D_L03_001B1BF0
+ * through $gp). */
 
 /* func_L03_0041E240 lives in L03_003F09C0-g8.c (same $gp access). */
 
-INCLUDE_ASM("asm/levels", func_L03_0041E2D8);
+/* func_L03_0041E2D8 lives in L03_0041E2D8-g8.c */
 
 INCLUDE_ASM("asm/levels", func_L03_0041EAE0);
 
@@ -271,10 +396,11 @@ void func_L03_0041F008(u8 *entity, u32 value) {
     *(u32 *)(state + 0x338) = value;
 }
 
-INCLUDE_ASM("asm/levels", func_L03_0041F048);
+/* func_L03_0041F048 is defined in L03_0041F048-qcopy-barrier.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_0041F090);
+/* func_L03_0041F090 lives in L03_003F09C0-g8.c (it reaches D_L03_001B1C00
+ * and D_L03_001B1C04 through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L03_0041F178);
+/* func_L03_0041F178 is defined in L03_0041F178-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L03_0041F410);
+/* func_L03_0041F410 is in L03_0041F410-g8.c. */

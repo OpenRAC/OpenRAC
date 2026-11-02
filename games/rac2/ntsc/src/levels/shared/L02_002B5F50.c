@@ -1,22 +1,40 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/levels", func_L02_002B5F50);
+struct RouteNode {
+    int path;
+    unsigned char neighbors[4];
+    unsigned char portals[4];
+    unsigned short flags;
+    unsigned char unused[18];
+};
+extern char *D_L02_001FF1C0[];
+extern float func_00283248(float, float);
+extern float func_00283B98(float, float);
+extern int func_L02_0032EDD8(void *, struct RouteNode *, int, int *);
+extern float func_L02_0032EC98(void *, void *, void *, float, float);
 
-INCLUDE_ASM("asm/levels", func_L02_002DCEA0);
 
-INCLUDE_ASM("asm/levels", func_L02_002EF388);
+/* func_L02_002DCEA0 is matched in its own unit, src/levels/shared/L02_002DCEA0.c (-g). */
 
-INCLUDE_ASM("asm/levels", func_L02_002EF968);
+
+/* func_L02_002EF968 is defined in L02_002EF968-helpers.c. */
 
 INCLUDE_ASM("asm/levels", func_L02_002EFB60);
 
-INCLUDE_ASM("asm/levels", func_L02_002F1650);
 
-INCLUDE_ASM("asm/levels", func_L02_002F1FB8);
+ASM_FUNC("asm/levels", func_L02_002F1FB8);
 
-INCLUDE_ASM("asm/levels", func_L02_002F21C0);
+ASM_FUNC("asm/levels", func_L02_002F21C0);
 
-INCLUDE_ASM("asm/levels", func_L02_0031E918);
+float func_L02_0031E918(float scale)
+{
+  float r = ((float) (0xFFF & (func_001163B0() >> 16))) * (1.0f / 4096.0f);
+  float new_var;
+  new_var = r * r;
+  new_var = 1.0f - new_var;
+  return new_var * scale;
+}
+
 
 extern float func_L02_0031E918(float scale);
 extern float func_002A7940(void);
@@ -97,7 +115,7 @@ void func_L02_00327390(char *arg0, char *arg1, int arg2) {
         func_L00_0042A500(arg2);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_00329410);
+/* func_L02_00329410 is matched in its own unit, L02_00329410.c. */
 
 extern void func_00282C88(void *target);
 extern void func_00283098(float *out, const float *a, const float *b);
@@ -113,38 +131,140 @@ void func_L02_003294D8(char *arg0, float *arg1, float arg2) {
 
 typedef int TI128 __attribute__((mode(TI)));
 
-extern float func_002B04E0(void *arg0, void *arg1);
+extern float func_002B04E0(char *arg0, float *arg1, char *transform);
 extern float func_00282C48(float t);
 
 /* Copy the incoming 16-byte record to a local, hand both to the two calls. */
-void func_L02_00329C48(void *arg0, TI128 *arg1) {
+float func_L02_00329C48(char *arg0, TI128 *arg1, char *transform) {
     TI128 buf = *arg1;
 
-    func_00282C48(func_002B04E0(arg0, &buf));
+    return func_00282C48(func_002B04E0(arg0, (float *)&buf, transform));
 }
 
-INCLUDE_ASM("asm/levels", func_L02_0032B468);
+/* func_L02_0032B468 is defined in L02_0032B468.c. */
 
-extern void func_L02_0032E3B0(void *a0, void *a1);
+extern int func_L02_0032E3B0(void *a0, float *a1, int a2);
 
-/* Forward the call with the second pointer advanced by one record. */
+/* The shared lookup takes the record index as a third argument; the retail wrapper hands it
+   only two, so the call goes through a two-parameter prototype. */
 void func_L02_0032E390(void *a0, void *a1) {
-    func_L02_0032E3B0(a0, (char *)a1 + 0x10);
+    ((int (*)(void *, void *))func_L02_0032E3B0)(a0, (char *)a1 + 0x10);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_0032E3B0);
+extern void func_00283410(float *matrix, float *quat);
+extern void func_00283698(void *dst, void *src);
+extern void func_00282CF0(float *out, const float *a, const float *b);
+extern float func_00283248(float a, float b);
+
+int func_L02_0032E3B0(void *object, float *target, int index) {
+    float quat[4];
+    float vec[4];
+    float mat[16];
+    float best;
+    int count;
+    short *p;
+    char *entity;
+
+    if (index == -1) {
+        index = (int)(unsigned char)*(char *)((char *)object + 0x21);
+        if (index == -1)
+            return 0;
+    }
+    best = 0.0f;
+    count = 0;
+    func_00282C88(quat);
+    quat[2] = func_00283248(target[0] - *(float *)((char *)object + 0x10),
+                                   target[1] - *(float *)((char *)object + 0x14));
+    func_00283410(mat, quat);
+    func_00283698(mat, mat);
+    p = (short *)D_L02_001FC060[index];
+    do {
+        entity = D_L02_001B359C + ((*(unsigned short *)p & 0x7FFF) << 8);
+        if (entity[0x20] >= 0 && entity != (char *)object) {
+            func_00282CF0(vec, (float *)(entity + 0x10), (float *)((char *)object + 0x10));
+            func_00283098(vec, vec, mat);
+            if (best < vec[1])
+                count--;
+            else
+                count++;
+        }
+    } while (*p++ >= 0);
+    return count;
+}
 
 INCLUDE_ASM("asm/levels", func_L02_0032E508);
 
-INCLUDE_ASM("asm/levels", func_L02_0032E998);
+int func_L02_0032E998(float *position, float *target, float *heading, struct RouteNode *nodes, int count, int *sourceNode, int *targetNode, float override, float margin) {
+    unsigned char visited[256];
+    int i, j, found, portal, step, routeDepth;
+    int layer;
+    char *path;
+    float angle;
+    *heading = func_00283248(target[0] - position[0], target[1] - position[1]);
+    if (override != 0.0f)
+        *heading = func_00283B98(override, *heading);
+    if (!func_L02_0032EDD8(position, nodes, count, sourceNode))
+        return 0;
+    if (!func_L02_0032EDD8(target, nodes, count, targetNode))
+        return 0;
+    if (nodes[*targetNode].flags & 1)
+        return 0;
+    if (*sourceNode == *targetNode)
+        return 1;
+    {
+        int clear;
+        for (clear = 0; clear < count; clear++)
+            visited[clear] = 0;
+    }
+    found = -1;
+    portal = -1;
+    visited[*targetNode] = 1;
+    for (layer = 1; layer < 50; layer++) {
+        for (i = 0; i < count; i++) {
+            if (visited[i] == layer) {
+                for (j = 0; j < 4; j++) {
+                    unsigned int neighbor = nodes[i].neighbors[j];
+                    if (!(neighbor & 0x80) && !visited[neighbor] && ((nodes[neighbor].flags ^ 1) & 1)) {
+                        visited[neighbor] = layer + 1;
+                        if (neighbor == *sourceNode) {
+                            portal = nodes[i].portals[j];
+                            found = i;
+                        }
+                    }
+                }
+            }
+            if (found != -1)
+                break;
+        }
+        if (found != -1)
+            break;
+    }
+    if (found == -1)
+        return 0;
+    path = D_L02_001FF1C0[nodes[found].path];
+    angle = *heading;
+    routeDepth = visited[found];
+    if (routeDepth >= 3) {
+        int edge;
+        step = routeDepth - 1;
+        for (edge = 0; edge < 4; edge++) {
+            if (visited[nodes[found].neighbors[edge]] == step) {
+                int offset = nodes[found].portals[edge] * 16;
+                angle = func_L02_0032EC98(path + (offset + 0x10), path + (offset + 0x20), position, angle, margin);
+                break;
+            }
+        }
+    }
+    *heading = func_L02_0032EC98(path + (portal * 16 + 0x10), path + (portal * 16 + 0x20), position, angle, margin);
+    return 1;
+}
 
 INCLUDE_ASM("asm/levels", func_L02_0032EC98);
 
 INCLUDE_ASM("asm/levels", func_L02_0032EDD8);
 
-INCLUDE_ASM("asm/levels", func_L02_0032EF10);
+/* func_L02_0032EF10 is defined in L02_0032EF10-helpers.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_0032F008);
 
 extern void *func_L00_0032C638(char *a0);
 extern int func_002B50E0(void *a0, void *a1, float f12);
@@ -178,11 +298,11 @@ int func_L02_00331440(void *a0, void *a1, int a2, float f12, float f13, float f1
 extern void func_00282CF0(float *out, const float *a, const float *b);
 extern int func_L02_00332668(char *arg0, char *arg1);
 
-void func_L02_00332630(char *arg0, void *arg1) {
+int func_L02_00332630(char *arg0, void *arg1) {
     int tmp[4];
 
     func_00282CF0((float *)tmp, (const float *)arg1, (const float *)(arg0 + 0x10));
-    func_L02_00332668(arg0, tmp);
+    return func_L02_00332668(arg0, (char *)tmp);
 }
 
 extern int D_L02_001A8FF0 __attribute__((sda));
@@ -209,7 +329,6 @@ int func_L02_00332668(char *arg0, char *arg1) {
 }
 
 
-INCLUDE_ASM("asm/levels", func_L02_00332900);
 
 extern void func_00282F20(float *out, const float *in, float s);
 extern void *func_L00_0032C638(char *a0);
@@ -230,13 +349,81 @@ int func_L02_003329C8(char *a0, char *a1, float f12, float f13) {
 }
 
 
-INCLUDE_ASM("asm/levels", func_L02_00332A80);
+#include "common.h"
 
-INCLUDE_ASM("asm/levels", func_L02_00332D28);
+typedef union { TI128 q; float f[4]; } MotionVector;
+extern float func_L02_00329C48(char *, TI128 *, char *);
 
-INCLUDE_ASM("asm/levels", func_L02_00332EF0);
+extern float func_00282E48(void *, void *);
+extern float func_00282C10(float);
+extern void func_L02_003294D8(char *, float *, float);
+extern void func_002AFEB8(char *, char *, char *, float, char *);
+extern float func_00282DB0(void *, void *);
+extern void func_002AC9F8(float *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern float func_002AFF08(char *, char *, char *);
+extern float func_002B0360(char *);
+/* This wrapper forwards its live a1/a2/f12 into func_002B00D8. */
+extern void func_L00_003253A0(u8 *, float *, float *, float);
+extern float func_002AFF38(char *, char *, char *);
+extern void func_002AAC80(float *, float, float, float, float);
 
-INCLUDE_ASM("asm/levels", func_L02_00333218);
+void func_L02_00332A80(char *object, char *data, void *target, TI128 *input, void *unused0, void *unused1, char *transform) {
+    MotionVector desired, change;
+    float vertical;
+    float heading, distance, speed, height, drop;
+    if (!(*(unsigned int *)(data + 0x38) & 0x10))
+        func_L00_003BFF68(object, data, (char *)input, (int)transform);
+    heading = 0.0f;
+    if (!(*(unsigned int *)(data + 0x38) & 0x10))
+        heading = func_L02_00329C48(object, input, transform);
+    if (*(float *)(data + 0x30) < heading) {
+        func_00282C88(&desired.q);
+    } else {
+        float gap;
+        distance = func_00282E48(object + 0x10, target);
+        *(float *)(data + 0xCC) = distance;
+        gap = *(float *)(data + 0x34);
+        if (distance <= gap) {
+            qzero(&desired);
+        } else {
+            gap = distance - gap;
+            speed = func_00282C10((gap + gap) * *(float *)(data + 0x24));
+            if (*(float *)(data + 0x28) < speed)
+                speed = *(float *)(data + 0x28);
+            func_L02_003294D8(object, desired.f, speed);
+        }
+    }
+    func_00282CF0(change.f, desired.f, (float *)(data + 0xA0));
+    func_002AFEB8(object, (char *)&change, (char *)&change, 0.0f, transform);
+    if (func_00282DB0(&desired, data + 0xA0) > 0.0f)
+        func_002AC9F8(change.f, *(float *)(data + 0x20));
+    else
+        func_002AC9F8(change.f, *(float *)(data + 0x24));
+    func_00282CC0(data + 0xA0, data + 0xA0, &change);
+    *(float *)(data + 0xB0) = func_002AFF08(object, data + 0xA0, transform);
+    if (!(*(unsigned int *)(data + 0x38) & 4)) {
+        height = func_002B0360(object + 0x10);
+        if (*(float *)(data + 0x90) < height) {
+            func_L00_003253A0((u8 *)object, (float *)(data + 0xA0), (float *)(data + 0xA0), *(float *)(data + 0x2C));
+            if (*(short *)(data + 0xC0) == 0)
+                *(unsigned int *)(data + 0x94) |= 0x20;
+        } else {
+            vertical = func_002AFF38(object, data + 0xA0, transform);
+            drop = vertical;
+            if (*(float *)(data + 0x90) - height < drop)
+                vertical = *(float *)(data + 0x90) - height;
+            else if (vertical < 0.0f)
+                vertical = 0.0f;
+            func_002AAC80(&vertical, *(float *)(data + 0x90) - height, 0.011111111380159855f, 0.011111111380159855f, 1.0f);
+            func_002AFEB8(object, data + 0xA0, data + 0xA0, vertical, transform);
+        }
+    }
+}
+
+
+
+/* func_L02_00333218 is defined in L02_00333218.c. */
 
 extern void func_002AFFD8(char *a0, char *a1, int a2);
 extern void func_00282CC0(void *a0, void *a1, void *a2);
@@ -337,21 +524,110 @@ void *func_L02_003449D8(void *a0, void *a1, void *a2, void *a3, int a4) {
     return rec;
 }
 
-INCLUDE_ASM("asm/levels", func_L02_00348420);
+/* func_L02_00348420 is defined in L02_00348420-helpers.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_00349BD8);
+/* func_L02_00349BD8 is matched in its own unit, L02_00349BD8.c. */
 
 INCLUDE_ASM("asm/levels", func_L02_00389F70);
 
-INCLUDE_ASM("asm/levels", func_L02_0038A008);
+/* func_L02_0038A008 is matched in its own unit, L02_0038A008.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_0038BA28);
+/* Two fields of the resident record at 0x189E20; retail shares its base between them. */
+typedef struct {
+    unsigned char pad00[0x88];
+    float f88;
+    unsigned char pad8C[0x2294 - 0x8C];
+    int f2294;
+} View_00189E20;
 
-INCLUDE_ASM("asm/levels", func_L02_0038BD00);
+extern View_00189E20 D_00189E20;
+/* sda: the bare load `lui $v1 ; lw $v1,%lo($v1)` retail has twice; a plain extern keeps the %hi
+   in a saved register across the calls. */
+extern int D_001A79F0 __attribute__((sda));
+extern int D_L02_001CAA80;
+extern char D_L02_001BA500[];
+extern int D_L02_001B35B8 __attribute__((sda));
+extern int func_L00_00329520(void *a0, int a1);
+extern void func_002A7750(void *a0, int a1, int a2);
+extern void func_L02_0038BD00(unsigned char *a0, int a1);
+extern void func_L00_002E6CF0(void *a0, void *a1);
+extern void func_L02_0038C998(unsigned char *a0);
+extern void func_L02_0038DA00(void *arg0);
 
-INCLUDE_ASM("asm/levels", func_L02_0038C998);
+/* State machine of the controller object that owns a group id list. On level 13 it retires
+   itself (+0x30 = 0xFF, bits 0 and 6 of +0x34 set, bit 12 cleared) once the resident float is
+   past 89 or the resident word is 0x74. State 0 runs func_L02_0038BD00; state 1 switches the
+   whole group off (+0x31 cleared, bit 0 of +0x34 set) when the record test passes, then runs
+   func_L02_0038C998 and queues func_L02_0038DA00; state 2 switches the group back on. */
+void func_L02_0038BA28(unsigned char *arg0) {
+    unsigned char *o = *(unsigned char **)(arg0 + 0x68);
 
-INCLUDE_ASM("asm/levels", func_L02_0038CDE8);
+    if (D_001A79F0 == 13) {
+        if (89.0f < D_00189E20.f88 || D_00189E20.f2294 == 0x74) {
+            arg0[0x30] = 0xFF;
+            *(unsigned short *)(arg0 + 0x34) = (*(unsigned short *)(arg0 + 0x34) | 0x41) & 0xEFFF;
+            *(int *)(arg0 + 0x98) = 0;
+            return;
+        }
+        *(unsigned short *)(arg0 + 0x34) = (*(unsigned short *)(arg0 + 0x34) & 0xFFBE) | 0x1000;
+        *(int *)(arg0 + 0x98) = *(int *)(*(char **)(arg0 + 0x24) + 0x10);
+    }
+    if (*(unsigned short *)(arg0 + 0x34) & 2)
+        return;
+    if (D_L02_001CAA80 != 0)
+        return;
+    switch (arg0[0x20]) {
+    case 0:
+        func_L02_0038BD00(arg0, arg0[0x21]);
+        break;
+    case 1:
+        /* each walk has its own q and e: retail gives the two walks different registers */
+        if (*(int *)(o + 0xC) != -1 && func_L00_00329520(D_L02_001BA500, *(int *)(o + 0xC)) != 0) {
+            unsigned short *q;
+            unsigned char *e;
+
+            q = (unsigned short *)D_L02_001FC060[arg0[0x21]];
+            while (arg0[0x21] != 0xFF && arg0[0x21] <= D_L02_001B35B8 && q != 0 &&
+                   ((q != 0 && (short)q[-1] >= 0) || q == (unsigned short *)D_L02_001FC060[arg0[0x21]])) {
+                e = (unsigned char *)(D_L02_001B359C + ((*q & 0x7FFF) << 8));
+                if (e == 0)
+                    break;
+                e[0x31] = 0;
+                *(unsigned short *)(e + 0x34) |= 1;
+                q++;
+            }
+            func_002A7750(arg0, 2, -1);
+        }
+        func_L02_0038C998(arg0);
+        if (D_001A79F0 != 13 || !(89.0f < D_00189E20.f88))
+            func_L00_002E6CF0(func_L02_0038DA00, arg0);
+        break;
+    case 2:
+        if (func_L00_00329520(D_L02_001BA500, *(int *)(o + 0xC)) == 0) {
+            unsigned short *q;
+            unsigned char *e;
+
+            q = (unsigned short *)D_L02_001FC060[arg0[0x21]];
+            while (arg0[0x21] != 0xFF && arg0[0x21] <= D_L02_001B35B8 && q != 0 &&
+                   ((q != 0 && (short)q[-1] >= 0) || q == (unsigned short *)D_L02_001FC060[arg0[0x21]])) {
+                e = (unsigned char *)(D_L02_001B359C + ((*q & 0x7FFF) << 8));
+                if (e == 0)
+                    break;
+                e[0x31] = 1;
+                *(unsigned short *)(e + 0x34) &= 0xFFFE;
+                q++;
+            }
+            func_002A7750(arg0, 1, -1);
+        }
+        break;
+    }
+}
+
+/* func_L02_0038BD00 is defined in L02_0038BD00-g8.c. */
+
+/* func_L02_0038C998 is defined in L02_002B5F50-g8.c (it reads $gp data). */
+
+/* func_L02_0038CDE8 is defined in L02_002B5F50-lamps.c. */
 
 extern int func_00282978(void *p);
 extern int func_00283D38(int a0, int a1, float f12);
@@ -395,7 +671,6 @@ extern void func_00282D60(void *buf, void *value, float scale);
 extern int func_00283DB8(void *buf, float value);
 extern void func_L00_002ECFE8(void *a0, void *a1, int a2, unsigned int a3,
                               float f12, float f13, float f14, int t0, int t1);
-extern int D_L02_001B35B8 __attribute__((sda));
 extern char *D_L02_001FBFC0[];
 extern int func_L02_002F1658(void);
 
@@ -757,7 +1032,7 @@ void func_L02_003A6FE8(char *self) {
     self[0x7F] = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003A8770);
+/* func_L02_003A8770 is defined in L02_002B5F50-quad.c. */
 
 extern void func_002B9180(void *p);
 extern void func_0029F338(void *e);
@@ -783,12 +1058,10 @@ void func_L02_003AA650(char *arg0) {
 }
 
 
-INCLUDE_ASM("asm/levels", func_L02_003B6548);
 
-INCLUDE_ASM("asm/levels", func_L02_003C0890);
+/* func_L02_003C0890 is defined in L02_003C0890-helpers.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_003C26F0);
 
-INCLUDE_ASM("asm/levels", func_L02_003C4068);
+/* func_L02_003C4068 is defined in L02_003C4068.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_003C4280);
+/* func_L02_003C4280 is defined in L02_003C4280.c. */

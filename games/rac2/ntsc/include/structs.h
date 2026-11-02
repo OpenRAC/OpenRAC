@@ -362,8 +362,11 @@ typedef struct vec4 {
 } vec4;
 
 /*
- * Authentic Insomniac MobyInstance structure (256 bytes / 0x100).
- * Demangled signature: InitMobyInstance(MobyInstance *, int)
+ * Legacy cross-build MobyInstance layout, not qualified for USA v1.01.
+ * Do not use it to interpret current retail mobies: the collision paths read
+ * an instance-data pointer at +0x68, an impact-slot byte at +0xA8 and a class
+ * halfword at +0xAA, which conflict with this layout. Retained for existing
+ * research; engine.h has the measured Rac2MobyCollisionView32 prefix.
  */
 typedef struct MobyInstance {
     /* 0x00 */ BSphere       bSphere;              /* bounding sphere in world space */

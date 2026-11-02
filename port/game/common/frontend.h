@@ -51,11 +51,17 @@ void moby_colour(std::uint32_t object, unsigned colour, int level);
 // objects, drawn with the menu's camera): they are drawn as that camera saw them.
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count);
 
+// The block of the buffer the game draws its frame in, when its profile names one (0 otherwise).
+std::uint32_t draw_buffer_block();
+
 // One-shot world explosion, captured on the game thread for enhanced water.
 void water_explosion(const float* position, float radius, float strength);
 
 // A world effect quad the game drew this frame (openrac_game_effect_quad).
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad);
+// The marker of the quad effect_quad took last (openrac_game_effect_quad_marker): the tick's
+// generation in its top 12 bits, the quad's index in the tick in the low 20; 0 for none.
+std::uint32_t effect_quad_marker();
 // A sky shell the game drew this frame, with its matrix (openrac_game_sky_shell).
 void sky_shell(int shell, const float* matrix);
 
@@ -75,8 +81,14 @@ float picture_wider();
 void sky_sprite(const std::uint8_t* record, std::uint64_t tex0);
 
 // A live particle the game drew this frame (openrac_game_particle).
-void particle(std::span<const std::uint8_t> ram, const std::uint8_t* record, std::uint32_t pixels,
-              std::uint32_t clut, int log2_side);
+void particle(
+    std::span<const std::uint8_t> ram,
+    const std::uint8_t* record,
+    std::uint32_t pixels,
+    std::uint32_t clut,
+    int log2_side,
+    std::uint32_t id
+);
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
@@ -118,6 +130,10 @@ bool interpolating();
 std::uint32_t text(int id);
 bool wants_between();
 int between(std::chrono::steady_clock::time_point next_tick);
+// The time the window spent writing OPENRAC_SHOT pictures since the last call, which the tick's
+// clock leaves out: a shot that takes longer than a tick would otherwise leave no frame between that
+// tick and the next (OPENRAC_SHOT_BETWEEN) and make the game catch up.
+std::chrono::steady_clock::duration take_shot_time();
 
 // An image the game sent to the GS outside the display list (its library's image transfer): kept
 // for every renderer the window makes, as the chip keeps it in its memory. `base` in 256-byte
@@ -148,6 +164,9 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black);
 // Window frames since the player got control in a scripted run (OPENRAC_PRESS's and OPENRAC_WRITE's
 // c entries), -1 before.
 std::int64_t since_control();
+
+// How far OPENRAC_WALK has come, as a JSON value (null with no walk): for OPENRAC_STATE_DUMP.
+std::string walk_state();
 
 // The pad of a port as the game's pad library reads it: buttons active low, then the right and
 // left sticks (x, y each).

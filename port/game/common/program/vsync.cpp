@@ -235,6 +235,7 @@ int tick_rate() {
 
 void finish() {
     write_reach();
+    write_state_dump();
     openrac_guest_report_missing();
     log::info("{} frames", g_frame);
 }
@@ -387,8 +388,11 @@ int vsync() {
         openrac_game_on_frame(static_cast<unsigned>(g_frame));
     }
 
+    run_tools();
+
     if (g_frame % 600 == 0) {
         write_reach();
+        write_state_dump();
     }
 
     if (g_options.frames >= 0 && g_frame >= g_options.frames) {
@@ -410,8 +414,8 @@ int vsync() {
         stats::probe("OPENRAC_FPS", "the ticks per second over each 300 ticks, in the log");
     static const bool uncapped = env::flag(env::Var::Uncapped);
     static steady_clock::time_point fps_from = now;
-    // OPENRAC_WATCH=ADDRESS:COUNT[:i],...: COUNT floats (or words, with i) from each ADDRESS, each
-    // frame, in the log.
+    // OPENRAC_WATCH=ADDRESS:COUNT[:i|d],...: COUNT floats (or words, with i) from each ADDRESS, each
+    // frame, in the log. d: words of an executable's global, at the loaded level's copy of it.
     static const std::optional<std::string> watch = env_string(env::Var::Watch);
 
     if (watch) {
@@ -424,10 +428,11 @@ int vsync() {
 
             for (unsigned long i = 0; i < count && i < 32; ++i) {
                 std::uint32_t w;
-                std::memcpy(&w, G(static_cast<gaddr>(address + 4 * i)), 4);
+                const gaddr at_word = static_cast<gaddr>(address + 4 * i);
+                std::memcpy(&w, G(kind == 'd' ? OPENRAC_DATA(at_word) : at_word), 4);
                 float f;
                 std::memcpy(&f, &w, 4);
-                line += kind == 'i' ? std::format(" {}", static_cast<std::int32_t>(w))
+                line += kind != 'f' ? std::format(" {}", static_cast<std::int32_t>(w))
                                     : std::format(" {:.4f}", f);
             }
 
@@ -498,10 +503,12 @@ int vsync() {
     // Until the next tick is due, frames at the display's rate (each swap waits for a refresh),
     // the scene moved on from the last tick's to this one's by when each is shown.
     if (g_window && frontend::wants_between()) {
+        g_next_frame += frontend::take_shot_time();
         for (int drawn; (drawn = frontend::between(g_next_frame)) != 0;) {
             if (drawn < 0) {
                 leave();
             }
+            g_next_frame += frontend::take_shot_time();
         }
     }
 #endif

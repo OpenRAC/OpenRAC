@@ -1,35 +1,24 @@
-/* from src/core/001163B0.c: C that compiles to 1508 bytes where retail has 1496.
- *
- * The SDK's vfprintf.obj float-to-string helper.  config/datamine's table names
- * strrev at 0x1184D0 in that same object, and the siblings next door are the
- * rounding counter 0x118460 and the itoa 0x118548, so this is the object's cvt.
- * It is NOT newlib's cvt: it returns a *string* (the digits are built in the
- * static buffer 0x13C080 and the exponent is written with the itoa), VfprintfFloat
- * takes `size` from strlen of the result (0x119180 -> 0x1191F8) and its four
- * special-value strings are "Inf" 0x13A490, "-Inf" 0x13A498, "NaN" 0x13A4A0 and
- * "Ind" 0x13A4A8.  The newlib vfprintf.c in the SDK build tree has none of that
- * (its cvt takes eight arguments and returns a digit pointer), so the body below
- * was reconstructed from the retail disassembly, not transcribed.
- *
- * What the draft gets right, measured: the six-way special-value dispatch is
- * instruction for instruction retail's - same tree, pivot on 0xFFFC0000, signed
- * compares (`slt`, `lui 0xFFF0` sign-extended) - once the source is a switch on
- * `u.i[0] & ~0xFFFF` over `union { double d; int i[2]; }`.  `~0xFFFF` is what
- * makes the tree signed (the same mask written 0xFFFF0000 gives `sltu` and
- * orders the cases differently), and the union member is i[0], the *low* half
- * on this little-endian target, even though the masks are high-word exponent
- * patterns - the source reads its word0 the big-endian way.
- *
- * What is left is twelve bytes of register allocation: the masked value here
- * lands in $v1 against retail's $s2, which also shifts the spill of $a2 by one
- * slot, and the exponent tail keeps one extra live value in $s2 (three
- * instructions).  Every block, call and constant in between agrees.
- *
- * Profile: -O2 -G2 -ffunction-sections -mastra-quad-saves (frame 0xB0, ten `sq`
- * saves, $s0..$s3 at 0x10/0x20/0x30/0x40).  Helpers called, all already named
- * in symbol_addrs: dpcmp 0x123028, dpsub 0x122A98, dpmul 0x122B00, litodp
- * 0x123078, dptoli 0x123130, and the object's own 0x117650 (double round) and
- * 0x117848 (dpdiv). */
+/* GPT-6.1 Sol (high), 29 October 2026: FAILED, 1472/1496 bytes,
+ * 0/1 USA v1.01 places. Standalone game unit profile:
+ * -O2 -G2 -ffunction-sections -mastra-quad-saves.
+ * Corrected the older draft's arithmetic against retail: the fraction digit
+ * multiplier remains 10.0; only eps grows each iteration. The rounding limit
+ * remains len, with len + 1 passed to func_00118460. Keep the original ndigits
+ * for decimal-point handling and a separate precision for the small-value case.
+ * The small-value loop decrements e once per multiplication, including exit.
+ * Reusing digit in the reversal and n for the signed special-value switch
+ * improves lifetimes. Same-size loop forms still differ in register allocation,
+ * entry save/extraction scheduling and loop rotation. Character stays in $fp
+ * here; retail spills it and keeps the invariant 10.0 in $s7. The integer
+ * extraction loop also loses retail's explicit top bound check after GCC
+ * rotates it. No flags tested repaired this: no-sched1 gives equal size only,
+ * no-rerun-cse-after-loop and no-gcse still leave broad differences.
+ * Next useful experiment: preserve the digit-loop invariant's lifetime while
+ * spilling the format character, without artificial dependencies or volatility.
+ * Reconstructed from retail; this is the SDK vfprintf object's static-buffer
+ * conversion helper, not the public newlib cvt. All declarations follow.
+ */
+#include "common.h"
 
 extern char D_0013C080[];
 
@@ -40,11 +29,11 @@ extern char D_0013A4A8[];
 
 extern int func_00118460(char *buf, int len);
 
-extern char *func_00118548(unsigned int value, char *buf, unsigned int base);
+extern char *func_00118548(int value, char *buf, unsigned int base);
 
 extern double func_00117650(double);
 
-extern double func_00117848(double, double, int);
+extern double func_00117848(double, double);
 
 char *func_001185E8(double value, int ndigits, char ch, int dot) {
     union {
@@ -63,9 +52,11 @@ char *func_001185E8(double value, int ndigits, char ch, int dot) {
     int j;
     int digit;
     int len;
+    int precision;
 
     u.d = value;
-    switch (u.i[0] & ~0xFFFF) {
+    n = u.i[0] & ~0xFFFF;
+    switch (n) {
     case 0x7FF00000:
         return D_0013A490;
     case 0xFFF00000:
@@ -78,6 +69,7 @@ char *func_001185E8(double value, int ndigits, char ch, int dot) {
         return D_0013A4A8;
     }
 
+    precision = ndigits;
     e = 0;
     n = 0;
     if (value < 0) {
@@ -91,8 +83,8 @@ char *func_001185E8(double value, int ndigits, char ch, int dot) {
     if (value >= 1.0) {
         f = func_00117650(value);
         value = value - f;
-        for (e = 1; e < 163; e++) {
-            digit = (int)func_00117848(f, 10.0, n - 1);
+        for (; ++e < 163;) {
+            digit = (int)func_00117848(f, 10.0);
             p[n] = digit + '0';
             n++;
             f = (f - (double)digit) * 0.1;
@@ -100,67 +92,53 @@ char *func_001185E8(double value, int ndigits, char ch, int dot) {
                 break;
         }
         j = n - 1;
-        if (j > 0) {
-            i = 0;
-            q = p + j;
-            do {
-                c = *q;
-                *q = *p;
-                *p = c;
-                i++;
-                p++;
-                j--;
-                q--;
-            } while (i < j);
-            p = D_0013C080;
+        digit = 0;
+        while (digit < j) {
+            c = p[digit];
+            p[digit] = p[j];
+            p[j] = c;
+            digit++;
+            j--;
         }
         e = n;
     }
 
     if (e == 0) {
-        if (ch == 'f') {
-            p[0] = '0';
-            n = 1;
-        } else {
+        if (ch != 'f') {
             if (value != 0) {
-                while (value < 1.0 && e > -1020) {
+                do {
                     value = value * 10.0;
-                    e--;
-                }
+                } while (value < 1.0 && e >= -1020 && (--e, 1));
+                e--;
             }
             if (value >= 1.0) {
                 value = value * 0.1;
-                ndigits = ndigits + 1;
+                precision = precision + 1;
             }
+        } else {
+            p[0] = '0';
+            n = 1;
         }
     }
 
-    if (e >= 0) {
-        if (ch != 'f')
-            len = ndigits + 1;
-        else
-            len = ndigits + (e > 0 ? e : 1);
+    if (e < 0) {
+        len = precision;
+    } else if (ch != 'f') {
+        len = precision + 1;
     } else {
-        len = ndigits;
+        len = precision + (e > 0 ? e : 1);
     }
 
     eps = 5.5511151231257827e-17;
-    len = len + 1;
     w = 10.0;
-    for (;;) {
-        f = value * w;
-        digit = (int)f;
-        value = f - (double)digit;
-        w = w * 10.0;
-        eps = eps * 10.0;
-        if (n >= len)
-            break;
-        if (value < eps)
-            break;
-        if (value > 1.0 - eps)
-            break;
-        p[n] = digit + '0';
-        n++;
+    fraction_digits:
+    value *= w;
+    digit = (int)value;
+    value -= (double)digit;
+    eps *= w;
+    if (n < len && value >= eps && value <= 1.0 - eps) {
+        p[n++] = digit + '0';
+        goto fraction_digits;
     }
     if (value >= 0.5)
         digit = digit + 1;
@@ -194,45 +172,23 @@ char *func_001185E8(double value, int ndigits, char ch, int dot) {
     }
     if (dot == 0)
         goto skip;
-    if (len == 0) {
-        c = p[len];
-    } else {
-        c = p[len];
-        if (c == '0') {
-            do {
-                len--;
-                if (len == 0)
-                    break;
-            } while (p[len] == '0');
-            c = p[len];
-        }
-    }
-    if (c == '.')
-        len--;
+    while (len != 0 && p[len] == '0') len--;
+    if (p[len] == '.') len--;
 skip:
     if (ch == 'f') {
         p[len + 1] = 0;
     } else {
-        p[len + 1] = ch;
-        if (e < 0) {
-            i = len + 2;
-            p[i] = '-';
-            if (e > -10) {
-                i = len + 3;
-                p[i] = '0';
-            }
-            e = -e;
+        p[++len] = ch;
+        if (e >= 0) {
+            if (e != 0) e--;
+            p[++len] = '+';
+            if (e < 10) p[++len] = '0';
         } else {
-            i = len + 2;
-            if (e != 0)
-                e = e - 1;
-            p[i] = '+';
-            if (e < 10) {
-                i = len + 3;
-                p[i] = '0';
-            }
+            p[++len] = '-';
+            if (e > -10) p[++len] = '0';
+            e = -e;
         }
-        func_00118548(e, p + i + 1, 10);
+        func_00118548(e, p + ++len, 10);
     }
     return D_0013C080;
 }

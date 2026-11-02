@@ -1,0 +1,50 @@
+#include "include_asm.h"
+
+/* func_002BE7E8 in its own unit for the grouped lq/sq profile. */
+
+typedef int TI128 __attribute__((mode(TI)));
+
+typedef struct {
+    char *target;
+    short timer;
+    short bone;
+    int duration;
+    int alpha;
+} Follow_002BE7E8;
+
+extern int func_00282978(void *);
+extern void func_002B9180(void *);
+extern void func_0029FCC0(void *, int, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern char D_001B5340[];
+
+/* Keeps an effect on its target: removed when its timer runs out or the target
+   is gone; fades in over the first fifth of its life and either sits at the
+   target or follows one of its bones, pulled 0.4 toward D_001B5340. */
+void func_002BE7E8(char *effect)
+{
+    Follow_002BE7E8 *f;
+    float bone[4] __attribute__((aligned(16)));
+    float dir[4] __attribute__((aligned(16)));
+
+    if (effect == 0)
+        return;
+    f = (Follow_002BE7E8 *)(effect + 0x20);
+    if (func_00282978(effect + 0x24) != 0 || f->target == 0 || f->target[0x20] < 0) {
+        func_002B9180(effect);
+        return;
+    }
+    if (f->timer < f->duration / 5)
+        *(int *)(effect + 4) = (*(int *)(effect + 4) & 0xFFFFFF)
+                               + ((f->alpha * f->timer) / (f->duration / 3) << 24);
+    if (f->bone == -1) {
+        *(TI128 *)(effect + 0x10) = *(TI128 *)(f->target + 0x10);
+    } else {
+        func_0029FCC0(f->target, f->bone, bone);
+        func_00282CF0(dir, D_001B5340, bone);
+        func_00282F20(dir, dir, 0.4f);
+        func_00282CC0(effect + 0x10, bone, dir);
+    }
+}

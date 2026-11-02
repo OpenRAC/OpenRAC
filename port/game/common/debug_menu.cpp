@@ -39,16 +39,18 @@ bool developer() {
     return env::flag(env::Var::Developer);
 }
 
-// Open only over the boot program (title and main menu), where a new game can be started.
+// Open only over the boot program (title and main menu), where a new game can be started, unless
+// the game can start a level from inside one.
 bool available(int loaded_overlay) {
-    return developer() && front_end() != nullptr && loaded_overlay == OPENRAC_OVERLAY_EXE;
+    return developer() && front_end() != nullptr
+           && (loaded_overlay == OPENRAC_OVERLAY_EXE || front_end()->start_level_anywhere != 0);
 }
 
 struct State {
     bool open = false;
     int cursor = 0;
-    int start = -1;               // a level to start at the next update
-    bool native = false;          // asked for from the game's Options page (with its sound)
+    int start = -1;       // a level to start at the next update
+    bool native = false;  // asked for from the game's Options page (with its sound)
     // A level was started and the game has not left the boot program yet: the Planets page stays
     // on screen for a few frames while the flight loads, and a press on it then (a second Cross
     // or Space) reached the game's menu and left a black screen instead of the level.
@@ -56,6 +58,7 @@ struct State {
     std::uint16_t previous = 0xFFFF;  // pad 0 as last seen (active low)
     renderer::ui::PictureBlit blit;   // Draws the menu's picture over the frame.
 };
+
 State s;
 
 // What --level N with OPENRAC_DIRECT does (rac1: port/game/rac1/host/boot.c, rac1_start_level).
@@ -87,6 +90,7 @@ struct Native {
     gaddr options_items = 0;  // those, then Planets
     gaddr page = 0, title = 0, list = 0, items = 0;
 };
+
 Native n;
 
 void put_item(gaddr at, std::int16_t label, std::int16_t action, std::int32_t arg) {
@@ -101,14 +105,22 @@ void build() {
     if (n.page != 0) {
         return;
     }
+
     const openrac_front_end& fe = *front_end();
+
+    if (fe.language_page == 0) {
+        return;  // a game whose pages are not described: the menu the port draws is the only one
+    }
+
     n.page = openrac_guest_static(0xA0);
     n.title = openrac_guest_static(0x60);
     n.list = openrac_guest_static(0x60);
     n.items = openrac_guest_static(12 * static_cast<gaddr>(level_count() + 1));
+
     for (int i = 0; i < level_count(); ++i) {
         put_item(n.items + 12 * static_cast<gaddr>(i), fe.planet_texts[i], kIgnoredAction, i);
     }
+
     // The page, title and list: the Language page's, with this data.
     std::memcpy(G(n.page), G(fe.language_page), 0xA0);
     std::memcpy(G(n.title), G(fe.language_title), 0x60);
@@ -133,22 +145,33 @@ void list_planets(gaddr base) {
     if (n.base == base) {
         return;
     }
+
     int count = 0;
+
     while (count < kMaxItems && GREF(std::int16_t, base + 12 * static_cast<gaddr>(count)) != 0) {
         ++count;
     }
+
     const gaddr own = 12 * static_cast<gaddr>(count);
     n.base = base;
     n.options_items = openrac_guest_static(own + 12 * 2);
     std::memcpy(G(n.options_items), G(base), own);
-    put_item(n.options_items + own, front_end()->planets_text, 3, static_cast<std::int32_t>(n.page));
+    put_item(
+        n.options_items + own, front_end()->planets_text, 3, static_cast<std::int32_t>(n.page)
+    );
 }
 
 // Once a frame over the front end: the Options list shows the entry.
 void patch() {
     build();
+
+    if (n.page == 0) {
+        return;
+    }
+
     const openrac_front_end& fe = *front_end();
     const gaddr shown = GREF(std::uint32_t, fe.options_list + 0x34);
+
     if (shown == fe.options_items || (shown != 0 && shown == options_menu::options_items())) {
         list_planets(shown);
         GREF(std::uint32_t, fe.options_list + 0x34) = n.options_items;
@@ -156,7 +179,8 @@ void patch() {
 }
 
 bool on_page() {
-    return n.page != 0 && front_end() != nullptr && GREF(std::uint32_t, front_end()->page_menu + 4) == n.page;
+    return n.page != 0 && front_end() != nullptr
+           && GREF(std::uint32_t, front_end()->page_menu + 4) == n.page;
 }
 
 int cursor() {
@@ -199,15 +223,19 @@ renderer::ui::Canvas make_picture(const openrac_front_end& fe) {
     p.fill(8, 20, p.width() - 16, 1, kFrame);
     const int first = (s.cursor / kVisibleLevels) * kVisibleLevels;
     const int end = std::min(first + kVisibleLevels, level_count());
+
     for (int i = first; i < end; ++i) {
         const int y = 27 + (i - first) * kRow;
         const bool sel = i == s.cursor;
+
         if (sel) {
             p.fill(6, y - 2, p.width() - 12, 11, rgba(36, 36, 70));
             p.draw_text(10, y, ">", kSelected);
         }
+
         const std::string number = (i < 10 ? " " : "") + std::to_string(i);
-        p.draw_text(20, y, number + "  " + fe.level_names[i], sel ? kSelected : kText);
+        const char* name = fe.level_names[i] != nullptr ? fe.level_names[i] : "-";
+        p.draw_text(20, y, number + "  " + name, sel ? kSelected : kText);
     }
 #if defined(__ANDROID__)
     p.draw_text(10, p.height() - 12, "X START   TRIANGLE CLOSE", kHint);  // no keyboard to name
@@ -227,14 +255,18 @@ bool event(const SDL_Event& e, int loaded_overlay) {
     if (e.type != SDL_EVENT_KEY_DOWN || e.key.repeat) {
         return false;
     }
+
     const SDL_Keycode key = e.key.key;
+
     if (!s.open) {
         if (key == SDLK_F1 && available(loaded_overlay) && !s.launched) {
             s.open = true;
             return true;
         }
+
         return false;
     }
+
     switch (key) {
         case SDLK_F1:
         case SDLK_BACKSPACE:
@@ -269,6 +301,7 @@ void filter_pad(std::uint16_t& buttons, int loaded_overlay) {
     s.previous = buttons;
     constexpr std::uint16_t kSelect = 0x0001, kUp = 0x0010, kDown = 0x0040, kCross = 0x4000,
                             kTriangle = 0x1000;
+
     if (s.launched) {
         // The game's menu must not act on presses while the level starts (a Cross there broke
         // the start on both discs); once the menu is gone the presses are the game's again, so
@@ -276,8 +309,10 @@ void filter_pad(std::uint16_t& buttons, int loaded_overlay) {
         if (page::on_page()) {
             buttons = 0xFFFF;
         }
+
         return;
     }
+
     if (!s.open && available(loaded_overlay) && page::on_page() && (pressed & kCross) != 0) {
         // Cross on a level of the Planets page: the game's list ignores the item's action.
         s.start = page::cursor();
@@ -285,30 +320,39 @@ void filter_pad(std::uint16_t& buttons, int loaded_overlay) {
         buttons = static_cast<std::uint16_t>(buttons | kCross);
         return;
     }
+
     if (!s.open) {
-        if ((pressed & kSelect) != 0 && available(loaded_overlay)) {
+        if ((pressed & kSelect) != 0 && available(loaded_overlay)
+            && loaded_overlay == OPENRAC_OVERLAY_EXE) {
             s.open = true;
             buttons = 0xFFFF;
         }
+
         return;
     }
+
     if (!available(loaded_overlay)) {
         s.open = false;
         return;
     }
+
     if ((pressed & kUp) != 0) {
         move(-1);
     }
+
     if ((pressed & kDown) != 0) {
         move(1);
     }
+
     if ((pressed & (kTriangle | kSelect)) != 0) {
         s.open = false;
     }
+
     if ((pressed & kCross) != 0) {
         s.start = s.cursor;
         s.open = false;
     }
+
     buttons = 0xFFFF;
 }
 
@@ -316,36 +360,48 @@ void update(int loaded_overlay, std::uint64_t frame) {
     // Unset, the menu is never opened by script.
     static const std::int64_t open_at = env::integer(env::Var::DebugMenu, -1);
     static bool opened_by_script = false;
+    // The program a level was started from: its leaving ends the launch.
+    static int launched_from = OPENRAC_OVERLAY_EXE;
+
     if (!opened_by_script && open_at >= 0 && frame >= static_cast<std::uint64_t>(open_at)
         && available(loaded_overlay)) {
         opened_by_script = true;
         s.open = true;
     }
+
     if (s.open && !available(loaded_overlay)) {
         s.open = false;
     }
+
     const bool over_front_end = available(loaded_overlay);
-    if (loaded_overlay != OPENRAC_OVERLAY_EXE) {
+
+    if (loaded_overlay != launched_from) {
         s.launched = false;
     }
-    if (over_front_end) {
+
+    if (over_front_end && loaded_overlay == OPENRAC_OVERLAY_EXE) {
         page::patch();
     }
+
     if (s.start < 0 || s.launched) {
         s.start = -1;
         s.native = false;
         return;
     }
+
     const int level = s.start;
     const bool native = s.native;
     s.start = -1;
     s.native = false;
+
     if (over_front_end) {
         if (native) {
             page::confirm_sound();
         }
+
         start_level(level);
         s.launched = true;
+        launched_from = loaded_overlay;
     }
 }
 
@@ -353,6 +409,7 @@ void draw(unsigned framebuffer, int width, int height) {
     if (!s.open || width <= 0 || height <= 0) {
         return;
     }
+
     // The menu is only open in a game with a front end (available()).
     const renderer::ui::Canvas p = make_picture(*front_end());
     // The picture in the chip's pixels: the frame is the game's 512 x 448 scaled.

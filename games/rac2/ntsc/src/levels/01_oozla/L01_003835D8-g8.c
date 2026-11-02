@@ -59,3 +59,5 @@ void func_L01_003B5290(u8 *arg0) {
         p += 2;
     }
 }
+
+/* func_L01_003B57A8 is defined in L01_003835D8.c. */

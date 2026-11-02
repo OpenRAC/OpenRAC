@@ -1,8 +1,11 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/levels", func_L05_003008C0);
+extern unsigned int D_001A7AF0 __attribute__((sda));
+extern int D_L05_002A1800[];
 
-INCLUDE_ASM("asm/levels", func_L05_00302CE8);
+/* func_L05_003008C0 is defined in L05_003008C0-quad.c. */
+
+/* func_L05_00302CE8 is defined in L05_00302CE8-g8.c. */
 
 extern int func_002FEF40(int);
 
@@ -18,7 +21,6 @@ void func_L05_00303000(int a0, int a1, int a2, int a3, int a4, int a5, int a6)
     func_L05_00302CE8(a0, a1, a2, a3, a4, a5, a6, step, D_L05_002A2DB0);
 }
 
-INCLUDE_ASM("asm/levels", func_L05_00304B40);
 
 extern int D_L05_00293D48[];
 
@@ -31,37 +33,141 @@ void func_L05_0030C930(int a0, int a1) {
 
 /* func_L05_00324DB8 is defined in L05_003008C0-g8.c (this unit has no $gp access for it). */
 
-INCLUDE_ASM("asm/levels", func_L05_00334358);
 
-INCLUDE_ASM("asm/levels", func_L05_00336630);
 
-INCLUDE_ASM("asm/levels", func_L05_00339078);
 
-INCLUDE_ASM("asm/levels", func_L05_00339EE8);
 
-INCLUDE_ASM("asm/levels", func_L05_0033C2E0);
 
-INCLUDE_ASM("asm/levels", func_L05_0033C5E8);
 
-INCLUDE_ASM("asm/levels", func_L05_0033C650);
 
 INCLUDE_ASM("asm/levels", func_L05_0033CD40);
 
-INCLUDE_ASM("asm/levels", func_L05_0033D3A0);
+/* func_L05_0033D3A0 is in L05_003008C0-reaction-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L05_0033DEE8);
 
-INCLUDE_ASM("asm/levels", func_L05_0033E228);
 
-INCLUDE_ASM("asm/levels", func_L05_0033E600);
 
 INCLUDE_ASM("asm/levels", func_L05_0033F4A8);
 
-INCLUDE_ASM("asm/levels", func_L05_00352B28);
+/* func_L05_00352B28 lives in L05_00352B28.c:
+   its grouped vector copy and debug division labels need a per-file profile. */
 
-INCLUDE_ASM("asm/levels", func_L05_00379968);
+/* Fills the slot table from the hero's equipment bits (the word func_002E6178 reads).
+ * The table holds 15 entries of 0x28 bytes; each bit group sets the +0x00 and +0x18
+ * words of a few entries; bits 7-8, 10-11 and 14-15 are read as two-bit fields. */
+void func_L05_00379968(void)
+{
+    if (D_001A7AF0 & 0x40) {
+        D_L05_002A1800[0x158/4] = 1;
+        D_L05_002A1800[0x140/4] = 1;
+        D_L05_002A1800[0] = 0;
+    } else {
+        D_L05_002A1800[0] = 1;
+        D_L05_002A1800[0x140/4] = 0;
+    }
+    {
+        int *state = D_L05_002A1800;
+        int flags;
+        state[0x18/4] = 1;
+        flags = D_001A7AF0;
+        if (flags & 0x100) {
+            state[0x1D0/4] = 1;
+            state[0x90/4] = 1;
+        } else if (flags & 0x80) {
+            state[0x1D0/4] = 0;
+            state[0x90/4] = 1;
+        } else {
+            state[0x1D0/4] = 0;
+            state[0x90/4] = 0;
+        }
+    }
+    {
+        int *state = D_L05_002A1800;
+        int flags = D_001A7AF0;
+        state[0x78/4] = 0;
+        state[0x1B8/4] = 0;
+        if (flags & 0x200) {
+            state[0x28/4] = 0;
+            state[0x180/4] = 1;
+            state[0x168/4] = 1;
+        } else {
+            state[0x168/4] = 0;
+            state[0x28/4] = 1;
+        }
+    }
+    {
+        int *state = D_L05_002A1800;
+        int flags;
+        state[0x40/4] = 1;
+        flags = D_001A7AF0;
+        if (flags & 0x800) {
+            state[0x1A8/4] = 1;
+            state[0x68/4] = 1;
+        } else if (flags & 0x400) {
+            state[0x1A8/4] = 0;
+            state[0x68/4] = 1;
+        } else {
+            state[0x1A8/4] = 0;
+            state[0x68/4] = 0;
+        }
+    }
+    {
+        int *state = D_L05_002A1800;
+        int flags = D_001A7AF0;
+        state[0x50/4] = 0;
+        state[0x190/4] = 0;
+        if (flags & 0x1000) state[0xB8/4] = 1;
+        else state[0xB8/4] = 0;
+    }
+    {
+        int *state = D_L05_002A1800;
+        int flags = D_001A7AF0;
+        state[0xA0/4] = 0;
+        if (flags & 0x2000) state[0xE0/4] = 1;
+        else state[0xE0/4] = 0;
+    }
+    {
+        int *state = D_L05_002A1800;
+        int flags = D_001A7AF0;
+        state[0xC8/4] = 0;
+        if (flags & 0x8000) {
+            state[0x1E0/4] = 0;
+            state[0x230/4] = 1;
+            state[0xF0/4] = 0;
+            state[0x248/4] = 1;
+            state[0x1F8/4] = 1;
+        } else if (flags & 0x4000) {
+            state[0x1E0/4] = 1;
+            state[0x1F8/4] = 1;
+            state[0xF0/4] = 0;
+            state[0x248/4] = 0;
+            state[0x230/4] = 0;
+        } else {
+            state[0xF0/4] = 1;
+            state[0x230/4] = 0;
+            state[0x1E0/4] = 0;
+            state[0x248/4] = 0;
+            state[0x1F8/4] = 0;
+        }
+    }
+    {
+        int *state = D_L05_002A1800;
+        int flags;
+        state[0x108/4] = 1;
+        flags = D_001A7AF0;
+        if (flags & 0x10) {
+            state[0x118/4] = 0;
+            state[0x220/4] = 1;
+            state[0x208/4] = 1;
+        } else {
+            state[0x118/4] = 1;
+            state[0x208/4] = 0;
+        }
+    }
+    D_L05_002A1800[0x130/4] = 1;
+}
 
-INCLUDE_ASM("asm/levels", func_L05_00379B60);
+/* func_L05_00379B60 is defined in L05_00379B60-g8.c. */
 
 extern char *func_002ED688(int, int);
 
@@ -112,9 +218,9 @@ void func_L05_00379F68(void) {
     } while (i >= 0);
 }
 
-INCLUDE_ASM("asm/levels", func_L05_00379FA0);
+/* func_L05_00379FA0 is defined in L05_00379FA0-qcopy.c. */
 
-INCLUDE_ASM("asm/levels", func_L05_0037A218);
+/* func_L05_0037A218 is defined in L05_0037A218-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L05_0037A5F8);
 
@@ -131,7 +237,6 @@ extern L05Slot40 D_002A1800[];
 
 extern int func_L05_0037AAC8(int index);
 
-INCLUDE_ASM("asm/levels", func_L05_0037AA88);
 
 /* Takes a step off the stored value, never below zero. */
 void func_L05_0037AB18(int index, int step)
@@ -157,11 +262,12 @@ void func_L05_0037AB88(int index, int step)
         D_002A1800[slot].value = D_002A1800[slot].limit;
 }
 
-INCLUDE_ASM("asm/levels", func_L05_0037AC00);
+/* func_L05_0037AC00 is matched in its own unit, src/levels/shared/L05_0037AC00.c (default flags). */
 
-INCLUDE_ASM("asm/levels", func_L05_0037AC40);
+/* func_L05_0037AC40 is matched in its own unit, src/levels/shared/L05_0037AC40.c (default flags). */
 
-INCLUDE_ASM("asm/levels", func_L05_0037AC80);
+/* func_L05_0037AC80 lives in L05_0037AC80.c:
+   its state and damage flow are kept in a separate unit. */
 
 /* Add an argument to the stored value and clamp it into [8, 15]. */
 void func_L05_0037ADD8(float arg)
@@ -184,7 +290,6 @@ float func_L05_0037AE28(void) {
     return ((float *)D_L05_00221D10)[12];
 }
 
-INCLUDE_ASM("asm/levels", func_L05_0037AE38);
 
 extern char *func_L05_00379CA0(char *);
 

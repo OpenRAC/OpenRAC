@@ -1,18 +1,4 @@
-#include "include_asm.h"
-
-typedef signed char s8;
-
-typedef unsigned char u8;
-
-typedef signed short s16;
-
-typedef unsigned short u16;
-
-typedef signed int s32;
-
-typedef unsigned int u32;
-
-typedef float f32;
+#include "common.h"
 
 typedef struct {
     char pad0[0x110];
@@ -54,6 +40,10 @@ typedef struct {
     char pad32[0x68 - 0x32];
     Moby49B8 *f68;          /* 0x68 */
 } Ent49B8;
+
+extern int func_L02_002EF388(void *, void *, void *, void *, int);
+extern void func_002A7750(void *, int, int);
+extern void func_002A7470(void *, int, void *, int);
 
 extern s32 *D_L12_001FEAC0[];
 
@@ -177,39 +167,48 @@ void func_L12_004149B8(Ent49B8 *a0)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L12_00414AB8);
 
-INCLUDE_ASM("asm/levels", func_L12_00414C60);
+/* func_L12_00414C60 is in L12_00414C60-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_00414EB8);
-
-INCLUDE_ASM("asm/levels", func_L12_00415128);
+/* func_L12_00414EB8 is in L12_004149B8-effects-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L12_004163E8);
 
 INCLUDE_ASM("asm/levels", func_L12_00417690);
 
-INCLUDE_ASM("asm/levels", func_L12_00417CA8);
+/* func_L12_00417CA8 is in L12_00417CA8-g16.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_00418418);
+/* func_L12_00418418 is defined in L12_00418418-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_00418D20);
+/* func_L12_00418D20 is in L12_00418D20-g16.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_004190A8);
+/* func_L12_004190A8 is in L12_004190A8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_00419D68);
+/* func_L12_00419D68 is matched in its own unit, L12_00419D68.c. */
 
-/* func_L12_0041A5F8 (160 B): best attempt is 156 bytes with the node pointer in $v1
-   where the retail has it in $a3, and the 128-bit copy using a displacement where the
-   retail pre-computes both bases.  Attempt kept in the wave's drafts/ directory. */
+void func_L12_0041A5F8(u8 *self)
+{
+    u8 *dst = self + 0x10;
+    u8 *n = *(u8 **)(self + 0x68);
+    void *m;
 
-INCLUDE_ASM("asm/levels", func_L12_0041A5F8);
+    qcopy(dst, n + 0x210);
+    *(f32 *)(self + 0xF8) = *(f32 *)(n + 0x21C);
+    *(u32 *)(n + 0x224) = 0;
+    *(u16 *)(self + 0x34) = (*(u16 *)(self + 0x34) & 0xFFBE) | 0x1000;
+    m = *(void **)(self + 0x24);
+    *(u32 *)(self + 0x98) = *(u32 *)((u8 *)m + 0x10);
+    func_L02_002EF388(self, dst, self + 0xF0, 0, 0);
+    func_002A7750(self, 2, -1);
+    if (*(u8 *)(self + 0x43) != 8)
+        func_002A7470(self, 8, 0, 1);
+}
 
-INCLUDE_ASM("asm/levels", func_L12_0041A790);
+/* func_L12_0041A790 is matched in L12_0041A790-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_0041AEF0);
+/* func_L12_0041AEF0 is in L12_0041AEF0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_0041B2A8);
+/* func_L12_0041B2A8 is in L12_0041B2A8-g8.c. */
 
 /* --- func_L12_0041BED8 (176 B) ----------------------------------------------------- */
 
@@ -233,12 +232,11 @@ void func_L12_0041BED8(u8 *self)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L12_0041BF88);
 
-INCLUDE_ASM("asm/levels", func_L12_0041CF10);
+/* func_L12_0041CF10 is in L12_0041CF10-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_0041D3B0);
+/* func_L12_0041D3B0 is in L12_0041D3B0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_0041D808);
+/* func_L12_0041D808 is in L12_0041D808-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L12_0041DDA8);
+/* func_L12_0041DDA8 is in L12_0041DDA8-g8.c. */

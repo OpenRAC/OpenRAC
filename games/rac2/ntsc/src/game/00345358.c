@@ -1,5 +1,14 @@
 #include "include_asm.h"
 
+extern float *func_00335E10(char *);
+extern void func_0034AA30(char *);
+extern void func_00349680(char *, int);
+extern float ref_L00_001AEAC8_00 __attribute__((section(".sdata")));
+extern float ref_L00_001AEACC_00 __attribute__((section(".sdata")));
+extern float ref_L00_001AEAD0_00 __attribute__((section(".sdata")));
+extern float ref_L00_001AEAD4_00 __attribute__((section(".sdata")));
+
+
 extern void F6402b823_FUN_00336320(char *a);
 
 extern void F6402b823_FUN_00336A78(char *a);
@@ -134,6 +143,14 @@ extern void F01bd4546_FUN_00349678(char *p, float v);
 
 extern void F076896f4_FUN_00349AB8(void *, int);
 
+extern int func_002A9588(int, int, int, int, int);
+extern void func_00336320(char *);
+extern void func_00336548(char *);
+extern void func_0034A808(char *, int, int, float *, float *, float *, int *);
+extern void func_00335E38(char *, float, float, float, float);
+extern void func_00335F88(char *, float, float, float, float);
+extern char *D_001A8CFC __attribute__((section(".sdata")));
+
 void func_00345358(char *obj)
 {
     if (*(int *)(obj + 1080) != 0) {
@@ -175,21 +192,16 @@ char *func_00345400(char *p)
     return p;
 }
 
-INCLUDE_ASM("asm/game", func_00345490);
+/* func_00345490 is built from 00345358-init.c. */
 
-INCLUDE_ASM("asm/game", func_003458F8);
 
-INCLUDE_ASM("asm/game", func_00345B78);
 
-INCLUDE_ASM("asm/game", func_00345D58);
+/* func_00345F70 is built from 00345358-layout-g8.c. */
 
-INCLUDE_ASM("asm/game", func_00345F70);
+/* func_003462A8 is built from 00345358-descriptor-g8.c for small-data access. */
 
-INCLUDE_ASM("asm/game", func_003462A8);
+/* func_003463C8 and func_003464D0 are built from 00345358-g8.c for small-data access. */
 
-INCLUDE_ASM("asm/game", func_003463C8);
-
-INCLUDE_ASM("asm/game", func_003464D0);
 
 void func_003465D0(char *a0)
 {
@@ -236,9 +248,47 @@ void *func_00346670(char *p)
 
 INCLUDE_ASM("asm/game", func_00346C60);
 
-INCLUDE_ASM("asm/game", func_003472B8);
+/* The two menu labels at +0x2E8 and +0x330: shown according to the flags of the highlighted
+   grid entry, and placed relative to the owner's position record. */
+typedef struct { int x; int y; } MenuLabelOffset;
+typedef struct { short a, b, c, id, e; } MenuGridEntry;
+extern MenuGridEntry D_00259F58[];
+extern u8 D_001A7AF8[] __attribute__((section(".sdata")));
+extern u8 D_001A7A80[] __attribute__((section(".sdata")));
+extern MenuLabelOffset ref_003472B8_00;
+extern void func_00335E68(void *, int);
 
-INCLUDE_ASM("asm/game", func_00347468);
+void func_003472B8(char *obj)
+{
+    MenuLabelOffset pad;
+    char *a;
+    char *b;
+    float x, y, x2, y2;
+    u8 *flags;
+    int bits;
+    int index = D_00259F58[*(int *)(obj + 0x4FC) + *(int *)(obj + 0x500) * 4].id;
+
+    if (D_001A7AF8[index] == 0)
+        return;
+    a = obj + 0x2E8;
+    pad = ref_003472B8_00;
+    flags = &D_001A7A80[index];
+    b = obj + 0x330;
+    bits = flags[0] & 4;
+    func_00335E68(a, (flags[0] & 1) | (bits != 0));
+    {
+        int b2 = flags[0] & 0x10;
+        func_00335E68(b, b2 != 0);
+    }
+    x = (*(float **)(obj + 0x498))[0] + func_00335E10(a)[0] + (float)pad.x;
+    y = (*(float **)(obj + 0x498))[1] + func_00335E10(a)[1] + (float)pad.y;
+    func_00335E38(a, x, y, 0.0f, 0.0f);
+    x2 = (*(float **)(obj + 0x498))[0] + func_00335E10(b)[0] + (float)pad.x;
+    y2 = (*(float **)(obj + 0x498))[1] + func_00335E10(b)[1] + (float)pad.y;
+    func_00335E38(b, x2, y2, 0.0f, 0.0f);
+}
+
+/* func_00347468 is built from 00345358-selection-g8.c. */
 
 INCLUDE_ASM("asm/game", func_003478F0);
 
@@ -275,9 +325,8 @@ void func_00347EC8(char *object, void *data)
     *(int *)(object + 0xBC) = -1;
 }
 
-INCLUDE_ASM("asm/game", func_00347F80);
+/* func_00347F80 is built from 00345358-wrap.c. */
 
-INCLUDE_ASM("asm/game", func_00348060);
 
 void func_00348068(u8 *a0,f32 *a1) {
  f32 *end;
@@ -320,7 +369,7 @@ s32 func_00348128(u8 *a0) { return *(s32 *)(a0 + 0x50); }
 /* Measured target: byte-identical across all 27 levels. */
 s32 func_00348130(u8 *a0) { return *(s32 *)(a0 + 0xb0); }
 
-INCLUDE_ASM("asm/game", func_00348138);
+/* func_00348138 is built from 00345358-menu.c. */
 
 char *func_003484C8(char *a0)
 {
@@ -342,7 +391,6 @@ char *func_003484C8(char *a0)
     return a0;
 }
 
-INCLUDE_ASM("asm/game", func_00348568);
 
 /* Measured target: byte-identical across all 27 levels. */
 void func_00348570(u8 *a0, s32 a1) { *(s32 *)(a0 + 0x448) = a1; }
@@ -372,9 +420,9 @@ void func_00348640(char *a0, int a1, int *a2)
         func_L00_0042C360_1(a0 + 536 + i * 72, func_00288FB8_2(a2[i]));
 }
 
+/* func_003486A8 is a near miss: nonmatching/game/func_003486A8.c */
 INCLUDE_ASM("asm/game", func_003486A8);
 
-INCLUDE_ASM("asm/game", func_003489E0);
 
 INCLUDE_ASM("asm/game", func_003489E8);
 
@@ -394,7 +442,7 @@ void func_00349150(s32 *a0) {
  a0[0x54]=0;a0[0x55]=0;
 }
 
-INCLUDE_ASM("asm/game", func_00349190);
+/* func_00349190 is built from 00345358-input-g8.c. */
 
 void func_00349488(int *param_1)
 {
@@ -432,12 +480,10 @@ void func_003494D0(char *o)
     *(int *)(o + 28) = 1;
 }
 
-INCLUDE_ASM("asm/game", func_00349588);
 
 /* Measured target: byte-identical across all 27 levels. */
 void func_00349590(u8 *a0, s32 a1) { *(s32 *)(a0 + 0x2c) = a1; }
 
-INCLUDE_ASM("asm/game", func_00349598);
 
 typedef struct {
     char reserved[0x18];
@@ -469,8 +515,6 @@ void func_003495D8(f32 weight, f32 x, f32 y, f32 z, f32 w, JammingParameterRows 
     object->weights[index] = weight;
 }
 
-INCLUDE_ASM("asm/game", func_00349610);
-
 void func_00349628(int param_1, int param_2) {
     *(int *)(param_1 + 0x84) = param_2;
 }
@@ -493,7 +537,7 @@ void func_00349670(int param_1, unsigned int param_2)
 /* Measured target: byte-identical across all 27 levels. */
 void func_00349678(u8 *a0, f32 a1) { *(f32 *)(a0 + 0x24) = a1; }
 
-INCLUDE_ASM("asm/game", func_00349680);
+/* func_00349680 is built with float min/max in 00345358-interpolation.c. */
 
 u8 *func_00349918(u8 *a0) {
  s32 *p=(s32 *)(a0+0x2c); s32 i=1;
@@ -510,7 +554,6 @@ u8 *func_00349918(u8 *a0) {
  return a0;
 }
 
-INCLUDE_ASM("asm/game", func_00349968);
 
 /* Initialises a record of four 1.0 floats, one zero, one small constant and four zero words, then runs the same four-argument setup four times with two selector flags swept over 0 and 1. */
 void func_00349970(S_F49afcbfe *x)
@@ -534,7 +577,6 @@ void func_00349970(S_F49afcbfe *x)
     func_00349A70_1(x, 1, 1, z, z, z, z);
 }
 
-INCLUDE_ASM("asm/game", func_00349A58);
 
 void func_00349A60(u8 *a0, s32 a1, s32 a2) { a0 += a1 * 4; *(s32 *)(a0 + 0x20) = a2; }
 
@@ -589,11 +631,9 @@ char *func_00349CB8(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_00349D50);
 
 INCLUDE_ASM("asm/game", func_00349D58);
 
-INCLUDE_ASM("asm/game", func_0034A4A0);
 
 /* Measured target: byte-identical across all 27 levels. */
 void func_0034A4A8(u8 *a0, s32 a1) { *(s32 *)(a0 + 0x0) = a1; }
@@ -612,13 +652,119 @@ void func_0034A4B0(Rac2Native_79744baad5ad7f65_ScalarChange48Owner *owner, int v
 
 INCLUDE_ASM("asm/game", func_0034A4E0);
 
-INCLUDE_ASM("asm/game", func_0034A808);
+/* func_0034A808 is in 0034A808.c. */
 
 INCLUDE_ASM("asm/game", func_0034AA30);
 
-INCLUDE_ASM("asm/game", func_0034AC10);
+void func_0034AC10(char *self)
+{
+    float *out = func_00335E10(self + 0x5C);
 
-INCLUDE_ASM("asm/game", func_0034AD10);
+    {
+        float x = ref_L00_001AEAC8_00;
+        float px = (*(float **)(self + 8))[0];
+        float y = ref_L00_001AEACC_00;
+        out[0] = x + px;
+        out[1] = y + (*(float **)(self + 8))[1];
+    }
+
+    out = func_00335E10(self + 0xA8);
+    {
+        float x = ref_L00_001AEAD0_00;
+        float px = (*(float **)(self + 8))[0];
+        float y = ref_L00_001AEAD4_00;
+        out[0] = x + px;
+        out[1] = y + (*(float **)(self + 8))[1];
+    }
+
+    func_0034AA30(self);
+    func_00349680(self + 0x140, 1);
+
+    if (*(int *)(self + 0x3F4) != 0) {
+        int remaining = *(int *)(self + 0x3F4) - 1;
+        *(int *)(self + 0x3F4) = remaining;
+        if (remaining == 0) {
+            *(int *)(self + 0x0C) = 0;
+            *(int *)(self + 0x3F8) = 0;
+            *(int *)(self + 0x400) = 1;
+            func_00349630_2(self + 0x1D4, -1);
+            func_00349630_2(self + 0x25C, -1);
+            func_00349630_2(self + 0x2E4, -1);
+            func_00349630_2(self + 0x36C, -1);
+        }
+    }
+}
+
+void func_0034AD10(char *o)
+{
+    if (*(int *)(o + 0xC)) {
+        float x, y, size;
+        int mode, color = 0, i;
+
+        func_00336320(o + 0x5C);
+        func_00336320(o + 0xA8);
+        func_00336548(o + 0xF4);
+        x = 0;
+        y = 0;
+        size = 0;
+        mode = 0;
+        if (*(int *)(o + 0x3F8)) {
+            color = func_002A9588(-1, 0x22222222, 10, 0, 0);
+            --*(int *)(o + 0x3F8);
+        }
+        for (i = 0; i < *(int *)(o + 4); i++) {
+            int flash = 0;
+            float sx, sy;
+
+            if (*(int *)(o + 0x3F8) && i >= *(int *)(o + 0x3FC))
+                flash = 1;
+            func_0034A808(o, *(int *)(o + 4), i, &x, &y, &size, &mode);
+            func_00335E38(o + 0x10, x, y, 0, 0);
+            sx = size;
+            sy = size;
+            switch (mode) {
+            case 0:
+                break;
+            case 1:
+                sx = -size;
+                break;
+            case 2:
+                sy = -size;
+                break;
+            case 3:
+                sy = -size;
+                sx = -sx;
+                break;
+            }
+            func_00335F88(o + 0x10, sx, sy, 0, 0);
+            if (*(int *)(o + 4) < 21) {
+                if (*(int *)o >= i + 1) {
+                    func_00336390(o + 0x10, D_001A8CFC + 0x8710, 26);
+                    if (flash)
+                        *(int *)func_00335E20((unsigned char *)o + 0x10) = color;
+                    else
+                        *(float *)func_00335E20((unsigned char *)o + 0x10) = **(float **)(o + 0x1C8);
+                    func_00336320(o + 0x10);
+                }
+                func_00336390(o + 0x10, D_001A8CFC + 0x8710, 25);
+                *(int *)func_00335E20((unsigned char *)o + 0x10) = 0x55F0C070;
+                func_00336320(o + 0x10);
+            } else {
+                if (*(int *)o >= i + 1) {
+                    func_00336390(o + 0x10, D_001A8CFC + 0x8710, 27);
+                    if (flash)
+                        *(int *)func_00335E20((unsigned char *)o + 0x10) = color;
+                    else
+                        *(float *)func_00335E20((unsigned char *)o + 0x10) = **(float **)(o + 0x1C8);
+                    func_00336320(o + 0x10);
+                }
+                func_00336390(o + 0x10, D_001A8CFC + 0x8710, 24);
+                *(int *)func_00335E20((unsigned char *)o + 0x10) = 0x55F0C070;
+                func_00336320(o + 0x10);
+            }
+        }
+    }
+}
 
 void func_0034AFE8(u8 *a0, f32 a1, f32 a2) {
     *(f32 *)*(u8 **)(a0 + 0x8) = a1;
@@ -639,7 +785,6 @@ void func_0034B000(char *p, int a1)
     func_00349630_2(p + 876, 1);
 }
 
-INCLUDE_ASM("asm/game", func_0034B068);
 
 
 INCLUDE_ASM("asm/game", func_0034B2C8);

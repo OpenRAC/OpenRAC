@@ -97,6 +97,12 @@ rac2_fold_zero_ti_store (first)
 	  || GET_CODE (SET_SRC (set)) != REG)
 	continue;
 
+      /* The measured register-zero store has no displacement.  Keep the
+         materialised zero for stack/field offsets instead of rewriting it
+         to an sq $0,offset(base) form that the compiled retail does not use.  */
+      if (GET_CODE (XEXP (SET_DEST (set), 0)) != REG)
+        continue;
+
       reg = SET_SRC (set);
 
       if (rac2_reg_live_after_store_p (insn, reg))

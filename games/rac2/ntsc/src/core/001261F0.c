@@ -31,7 +31,11 @@ typedef struct {
    0x12001000, or through r1_func_00118F60), when the display is
    interlaced, and 1 otherwise. In the second arm the bit is taken from
    the call's result before the interlace test, as retail does. */
-int func_001261F0(void) {
+/* The libgraph interface carries a 32-bit mode argument. This retail graph011
+   body ignores it; callers pass zero. Independent interface witness:
+   https://github.com/open-goal/jak-project/blob/master/game/graphics/sceGraphicsInterface.h
+   (sceGsSyncV(u32 mode)). Only the signature is used, with no HLE code copied. */
+int func_001261F0(int unused_mode) {
     GsGParam *gp = r1_func_00121D08();
     long csr;
 
@@ -98,4 +102,35 @@ int func_001265B0(GsLoadImage *src, void *dst) {
 
 INCLUDE_ASM("asm/core", func_0012672C);
 
-INCLUDE_ASM("asm/core", func_00126DBC);
+extern int r1_func_00119328(int);
+extern int r1_func_00118AA0(int, int);
+extern int r1_func_00118A90(int, void *, int);
+extern void r1_func_00119390(int);
+
+/* rac1-decomp src/core/00123168.c: func_00123168 */
+/* sceGsSyncVCallback: install (or, called with arg0 == 0, uninstall) the
+   V-sync handler at offset 8/0xC of the GParam block, under
+   DisableIntc/EnableIntc of INTC 2 (VBLANK start) around the
+   AddIntcHandler/RemoveIntcHandler syscalls. Returns the previous
+   handler. */
+int func_00126DBC(void *arg0) {
+    char *g = (char *)r1_func_00121D08();
+    int lvl = 2;
+    int prev = *(int *)(g + 8);
+
+    if (arg0 == 0) {
+        r1_func_00119328(lvl);
+        r1_func_00118AA0(lvl, *(int *)(g + 0xC));
+        *(int *)(g + 0xC) = 0;
+        *(int *)(g + 8) = 0;
+    } else {
+        if (prev != 0) {
+            r1_func_00119328(lvl);
+            r1_func_00118AA0(lvl, *(int *)(g + 0xC));
+        }
+        *(int *)(g + 8) = (int)arg0;
+        *(int *)(g + 0xC) = r1_func_00118A90(lvl, arg0, -1);
+        r1_func_00119390(lvl);
+    }
+    return prev;
+}

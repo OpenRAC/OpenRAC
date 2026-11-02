@@ -1,48 +1,48 @@
-/* func_L01_00394148 (248 bytes, 4 places) - loop body byte-identical, the preamble order
- * is what differs.  Measured with scratch/wslcmp.py: size EXACT at 248 for four spellings,
- * first difference at +0x8 ("instruction at +0x8 differs").  check.py not run.
- *
- * Body, exact: bail out unless the word at 0x001A8F40 is 2 and the byte at 0x001A7A40 is
- * nonzero, then walk the pointer table at D_L01_001BD1C0+0x18C for `*(s16*)(p+0xAA)` equal
- * to 0x398 or 0x1BF; for those, skip when the byte at 0x001B1E61 is set, otherwise
- * func_29F978(p, 0, 0x001B1E60) and three stores of 2.1f (0x40066666) to 0x001B1E80/84/88.
- * The count at +0x44 is re-read on every iteration, and this cc1 reproduces the `bnel`
- * annulled slots that carry it - the whole loop from the `beqz` onward matches.
- * The residue is the preamble: retail materialises the base (`lui $v1,0x1C` /
- * `addiu $v1,$v1,-0x2E40`) only after the 0x001A8F40 load and keeps it in $s2, builds the
- * table cursor with a single `addiu $s1,$s2,0x18C`, and leaves a `nop` of loop alignment
- * before it; this cc1 loads the state into $a0 instead of $v1, builds the cursor through a
- * second register (`addiu $a1,$s2,0x18C` then `daddu $s1,$a1,$zero`), and orders the saves
- * the other way.  Same wall as func_L10_00425798: the preamble/prologue interleave.
- * Note: the base MUST be spelled as a symbol - with a literal, cc1 folds `base + 0x18C`
- * into a new constant and the cursor disappears.
+/*
+ func_L01_00394148 (248 bytes, 4 places) - own unit with -O2 -G0 -ffunction-sections -mno-split-addresses.
+ Size exact; 5 masked lines differ (w5, 2026-10-28): every instruction matches except where `daddu $s0,$zero,$zero`
+ (i = 0) sits: this cc1 schedules it first and reorg puts it in the delay slot of the beqz on D_001A7A40, retail has the
+ `lui $v1,0x1C` there and the i = 0 in the `blez` slot.
+ What got here: re-read the base in the loop body (`base = (char *)D_L01_001BD1C0;` at the top of each iteration) so the
+ guard keeps its own temporary and the loop gets retail's copy `daddu $s2,$v1,$zero`; plain incomplete arrays for the loop
+ globals (not sda: sda turns the macro loads in branch-likely slots into $gp loads); no literal addresses.
+ Reopen: a spelling that puts i = 0 after the count load in RTL order (do/while with a guard, if(count>0){for}, ++i forms
+ and a separate guard variable were all worse: 14-66 lines).
  */
-typedef unsigned char u8;
-typedef signed short s16;
+extern int D_L01_001A8F40;
+extern unsigned char D_001A7A40[];
+extern char *D_L01_001BD1C0[];
+extern unsigned char D_L01_001B1E61[];
+extern char D_L01_001B1E60[];
+extern float D_L01_001B1E80[];
+extern float D_L01_001B1E84[];
+extern float D_L01_001B1E88[];
+extern void func_0029F978(char *p, int a1, char *a2);
 
-extern int func_0029F978(void *a0, int a1, void *a2);
-
-extern u8 D_L01_001BD1C0[];
-
-void func_L01_00394148(void) {
-    u8 *base = D_L01_001BD1C0;
-    u8 **table = (u8 **)(base + 0x18C);
-    u8 *p;
+void func_L01_00394148(void)
+{
+    char *base;
+    char *guard;
+    char **table;
+    char *p;
     int i;
 
-    if (*(int *)0x001A8F40 != 2)
+    if (D_L01_001A8F40 != 2)
         return;
-    if (*(u8 *)0x001A7A40 == 0)
+    if (D_001A7A40[0] == 0)
         return;
-    for (i = 0; i < *(s16 *)(base + 0x44); i++) {
+    base = (char *)D_L01_001BD1C0;
+    for (i = 0; i < *(short *)(base + 0x44); i++) {
+        base = (char *)D_L01_001BD1C0;
+        table = (char **)(base + 0x18C);
         p = table[i];
-        if (*(s16 *)(p + 0xAA) == 0x398 || *(s16 *)(p + 0xAA) == 0x1BF) {
-            if (*(u8 *)0x001B1E61 != 0)
+        if (*(short *)(p + 0xAA) == 0x398 || *(short *)(p + 0xAA) == 0x1BF) {
+            if (D_L01_001B1E61[0] != 0)
                 continue;
-            func_0029F978(p, 0, (void *)0x001B1E60);
-            *(float *)0x001B1E80 = 2.1f;
-            *(float *)0x001B1E84 = 2.1f;
-            *(float *)0x001B1E88 = 2.1f;
+            func_0029F978(p, 0, D_L01_001B1E60);
+            D_L01_001B1E80[0] = 2.1f;
+            D_L01_001B1E84[0] = 2.1f;
+            D_L01_001B1E88[0] = 2.1f;
         }
     }
 }

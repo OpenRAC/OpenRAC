@@ -51,7 +51,6 @@ char *func_L00_004336B0(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004336E0);
 
 /* Calls two helpers on object-plus-8 using the pointer at plus-684; when flag bit 6 is set and the plus-680 word is zero, calls a third helper and normalizes the measured byte cell to 0 or 1; returns flag bit 6. */
 int func_L00_00433810(char *object, int flags)
@@ -78,7 +77,6 @@ char *func_L00_004338A8(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004338D8);
 
 /* Calls two helpers on object-plus-8 using the pointer at plus-684; when flag bit 6 is set and the plus-680 word is zero, calls a third helper and normalizes the measured byte cell to 0 or 1; returns flag bit 6. */
 int func_L00_00433A08(char *object, int flags)
@@ -106,7 +104,6 @@ void* func_L00_00433AA0(void* param_1)
   return param_1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00433AD8);
 
 extern void func_430480(void *);
 extern void func_42C290(void *);
@@ -118,7 +115,6 @@ char *func_L00_00433DB0(char *a0) {
     return a0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00433DE8);
 
 extern int func_0033AF48(char *p);
 
@@ -127,17 +123,13 @@ int func_L00_00433F50(char *p)
     return func_0033AF48(p + 8);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00433FF8);
 
-INCLUDE_ASM("asm/levels", func_L00_00434B40);
 
 void func_L00_004370F8(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00437600);
 
-INCLUDE_ASM("asm/levels", func_L00_00437780);
 
 extern int func_00348128(char *p);
 
@@ -160,9 +152,7 @@ unsigned long func_L00_004380E0(unsigned long param_1)
   return param_1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004380E8);
 
-INCLUDE_ASM("asm/levels", func_L00_00438950);
 
 /* Store the two scalar floating arguments through the supplied pointer cell; original game role is unknown. */
 void func_L00_00438970(float first, float second, float **cell)
@@ -178,7 +168,6 @@ int func_L00_00438E68(char *p)
     return func_00342F70(p + 664);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00438E88);
 
 /* Return the measured signed-word getter result for the owner subview at 0x 298. */
 int func_L00_00438E90(unsigned char *owner)
@@ -192,7 +181,6 @@ void func_L00_00438EB0(unsigned char *owner)
     func_00343058(owner + 0x298);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00439210);
 
 /* Calls a fixed chain of sub-object initialisers at 76-byte steps and returns the base pointer. */
 char *func_L00_004392D0(char *p)
@@ -234,7 +222,6 @@ char *func_L00_0043AD30(char *p)
     return p;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0043D990);
 
 /* Store the supplied unsigned 32-bit word at owner byte offset 0xB 8. */
 void func_L00_0043DA18(int param_1, unsigned int param_2)
@@ -243,9 +230,7 @@ void func_L00_0043DA18(int param_1, unsigned int param_2)
   return;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0043DE98);
 
-INCLUDE_ASM("asm/levels", func_L00_0043E310);
 
 /* Return the complete supplied unsigned-long 64-bit value unchanged. */
 /* Target: FUN_003427B0 — identity function returning its first argument */
@@ -257,15 +242,10 @@ unsigned long func_L00_0043EA78(unsigned long param_1)
   return param_1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0043EEB8);
 
-INCLUDE_ASM("asm/levels", func_L00_0043F298);
 
-INCLUDE_ASM("asm/levels", func_L00_0043F388);
 
-INCLUDE_ASM("asm/levels", func_L00_0043F680);
 
-INCLUDE_ASM("asm/levels", func_L00_0043FDD0);
 
 void func_L00_004427C8(char *object, int value) {
     *(int *)(object + 0x157C) = value;
@@ -275,7 +255,6 @@ void func_L00_004427D0(char *object, int value) {
     *(int *)(object + 0x1580) = value;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00443918);
 
 void func_L00_00443B58(void)
 {
@@ -316,7 +295,6 @@ void func_L00_004450C0(void *arg)
     func_2A48F0(D_L00_001AEB60, arg);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004451F8);
 
 void func_L00_00445EE8(void)
 {
@@ -328,7 +306,6 @@ int func_L00_00445FE8(void) {
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00447160);
 
 extern int func_00350A78(char *p);
 
@@ -351,7 +328,6 @@ int func_L00_00447278(char *p)
     return func_00351268(p + 0x48);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00447298);
 
 void func_L00_00447780(void)
 {

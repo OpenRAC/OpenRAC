@@ -251,7 +251,7 @@ int func_002D5B08(void) {
     return 0;
 }
 
-extern void func_002D5B58(int, int, int *);
+extern int func_002D5B58(int, int, int *);
 
 void func_002D5B38(int first, int second) {
     int result[4];
@@ -259,14 +259,143 @@ void func_002D5B38(int first, int second) {
     func_002D5B58(first, second, result);
 }
 
-INCLUDE_ASM("asm/game", func_002D5B58);
+typedef struct {
+    char pad0[8];
+    int f08;
+    char pad1[8];
+    int f14;
+    int f18;
+    int f1C;
+    char pad2[0xF4 - 0x20];
+    int fF4;
+    int fF8;
+    int fFC;
+    int f100;
+    int f104;
+} Func002D5B58Root;
+extern int D_001A7424 __attribute__((sda));
+extern char D_001A7BB4 __attribute__((sda));
+extern int D_001C1220[];
+extern int D_001F29A0;
+extern void *D_0026CD60[];
+extern void func_00287EA8(void);
+extern void func_00285828(int, int, int, int);
+extern void func_00285788(int, int);
+extern void func_002DF190(int, int);
 
-void func_002D5E38(char *object, int arg, int *result)
+/* Handles a request by type (0 and 1 do nothing): the others set a state code and its parameters in
+   the block at D_001F2840, change the flags of D_001A7424 or call the helpers. Types 6 to 11 store 0
+   through `result` and return 1 (type 7 falls through into type 8). The dispatch reads the table
+   retail already has at D_0026CD60 (fourteen code addresses, one per type; types 0 and 1 go to the
+   common return); `cases` only keeps the labels alive. */
+int func_002D5B58(int type, int value, int *result)
+{
+    static void *cases[12] = {&&L3, &&L4, &&L5, &&L6, &&L7, &&L8, &&L10, &&L11, &&L9, &&L2, &&L12, &&L13};
+    int ret = 0;
+
+    if ((unsigned)type >= 14)
+        goto done;
+    goto *D_0026CD60[type];
+L3:
+    ((Func002D5B58Root *)D_001F2840)->f18 = value;
+    goto done;
+L4:
+    func_002E5E58(4, 0, 0);
+    func_00287EA8();
+    D_001A7424 = (D_001A7424 | 2) & ~4;
+    D_001F29A0 = 0;
+    func_002B49E0(4, 1, 1, value, 0);
+    goto done;
+L5:
+    func_002E5E58(4, 0, 0);
+    D_001A7424 = (D_001A7424 | 4) & ~2;
+    func_002B49E0(4, 1, 1, value, 0);
+    D_001F29A0 = 1;
+    goto done;
+L6: {
+    Func002D5B58Root *root;
+    int index = value >> 16;
+    if (index != 0) {
+        Func002D5B58Root *first = (Func002D5B58Root *)D_001F2840;
+        first->fFC = D_001C1220[index];
+    }
+    root = (Func002D5B58Root *)D_001F2840;
+    root->f100 = root->f14;
+    root->f104 = root->f08;
+    root->f1C = 5;
+    root->fF4 = value & 0xFFFF;
+    ret = 1;
+    func_002DF190(0, 0x11);
+    *result = 0;
+    goto done;
+}
+L7: {
+    Func002D5B58Root *root = (Func002D5B58Root *)D_001F2840;
+    root->fF4 = value;
+    root->f100 = root->f14;
+    root->f1C = 3;
+    root->f104 = root->f08;
+    func_002DF190(0, 0x11);
+    *result = 0;
+}
+L8: {
+    Func002D5B58Root *root = (Func002D5B58Root *)D_001F2840;
+    root->f100 = root->f14;
+    root->f104 = root->f08;
+    root->f1C = 4;
+    root->fF4 = value;
+    ret = 1;
+    func_002DF190(0, 0x11);
+    *result = 0;
+    goto done;
+}
+L10: {
+    Func002D5B58Root *root = (Func002D5B58Root *)D_001F2840;
+    root->f100 = root->f14;
+    root->f104 = root->f08;
+    root->f1C = 6;
+    root->fF4 = value;
+    ret = 1;
+    func_002DF190(0, 0x11);
+    *result = 0;
+    goto done;
+}
+L11: {
+    Func002D5B58Root *root = (Func002D5B58Root *)D_001F2840;
+    root->f100 = root->f14;
+    root->f104 = root->f08;
+    root->f1C = 7;
+    ret = 1;
+    func_002DF190(0, 0x11);
+    *result = 0;
+    goto done;
+}
+L9:
+    D_001A7BB4 = value;
+    ret = 1;
+    *result = 0;
+    goto done;
+L2:
+    func_002DF190(2, 0x11);
+    goto done;
+L12:
+    func_002E5E58(4, 0, 0);
+    func_00285828(0, 0, 0, 0);
+    func_00285788(0, 0);
+    func_002B49E0(4, 1, 9, ((Func002D5B58Root *)D_001F2840)->f14, 0);
+    goto done;
+L13:
+    func_002B49E0(4, 1, 11, ((Func002D5B58Root *)D_001F2840)->f14, 0);
+done:
+    return ret;
+}
+
+int func_002D5E38(char *object, int arg, int *result)
 {
     typedef struct { int first, value, third; } Func002D5E38Row;
     Func002D5E38Row *rows = *(Func002D5E38Row **)(object + 0x34);
     int index = *(int *)(object + 0x40);
-    func_002D5B58(arg, rows[index].value, result);
+    return func_002D5B58(arg, rows[index].value, result);
 }
 
 void func_002D5E70(char *object, int *result) {

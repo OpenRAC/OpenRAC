@@ -7,7 +7,7 @@ void func_0029BCC8(void)
     ref_L00_0030CDA0_00 = -1;
 }
 
-INCLUDE_ASM("asm/game", func_0029BCD8);
+/* func_0029BCD8 is in 0029BCC8-g8.c. */
 
 extern char *D_001A8CFC;
 extern void func_0034E4D8(void *);
@@ -27,7 +27,7 @@ void func_0029BEB8(void) {
         func_0033A6D8(D_001A8CFC + 0x3F138);
 }
 
-INCLUDE_ASM("asm/game", func_0029BF08);
+/* func_0029BF08 is in 0029BCC8-g8.c. */
 
 void func_0029C0D0(void) {
 }
@@ -388,7 +388,6 @@ void func_0029CB20(void) {
         func_00341F38(D_001A8CFC + 0x3E430);
 }
 
-INCLUDE_ASM("asm/game", func_0029CB50);
 
 extern void func_0028A2F8(void);
 
@@ -453,7 +452,7 @@ void func_0029CD20(void) {
     func_00335DC0(D_001A7B90[0] != 0);
 }
 
-INCLUDE_ASM("asm/game", func_0029CD48);
+/* func_0029CD48 is in 0029CD48.c. */
 
 void func_0029CE38(void)
 {
@@ -468,7 +467,6 @@ void func_0029CE38(void)
     }
 }
 
-INCLUDE_ASM("asm/game", func_0029CE78);
 
 
 
@@ -488,8 +486,6 @@ int func_0029CF08(int value) {
         return func_003398A8(D_001A8CFC + 0x3CAA8, value);
     return 0;
 }
-
-INCLUDE_ASM("asm/game", func_0029CF48);
 
 INCLUDE_ASM("asm/game", func_0029CF58);
 
@@ -511,19 +507,79 @@ ASM_FUNC("asm/game", func_0029D7A0);
 
 INCLUDE_ASM("asm/game", func_0029D7C0);
 
-INCLUDE_ASM("asm/game", func_0029D830);
 
-INCLUDE_ASM("asm/game", func_0029D9D0);
+extern void *D_0026CA90[];
+extern unsigned char D_001A7BC8[];
+extern unsigned char D_001A7AF8[];
+extern unsigned char D_001A7B30[];
+extern unsigned char D_001395B8[];
+extern unsigned int D_00139768[];
+extern unsigned char D_0019B278[];
+extern int D_001C51D0[];
+extern int func_002FC010(int, int);
 
-INCLUDE_ASM("asm/game", func_0029DB28);
+typedef struct { int first, second, third, fourth; } ProgressBand;
+extern ProgressBand D_00139A28[];
+
+/* Progress-condition dispatcher. The retail dispatch reads the code-address table it
+   already has at D_0026CA90 (twelve entries, one per condition) and jumps through it;
+   `cases` only keeps the labels alive. The bodies are laid out in the retail's order,
+   which puts the ninth condition's bit test before the eighth one's table lookup. */
+int func_0029D9D0(short kind, int arg)
+{
+    static void *cases[12] = {&&L0, &&L1, &&L2, &&L3, &&L4, &&L5, &&L6, &&L7, &&L9, &&L8, &&L10, &&L11};
+    int k = kind;
+
+    if ((unsigned)k >= 12)
+        goto L11;
+    goto *D_0026CA90[k];
+L0:
+    return 1;
+L1:
+    return D_001A7BC8[arg] != 0;
+L2:
+    return D_001A7AF8[arg] != 0;
+L3:
+    return D_001A7B30[arg] != 0;
+L4:
+    if (arg < 0x72)
+        return D_00139A28[arg].fourth != 0;
+    goto L11;
+L5:
+    if (arg < 0x72)
+        return D_00139A28[arg].fourth >= 2;
+    goto L11;
+L6:
+    return D_001395B8[arg] != 0;
+L7:
+    return ((int (*)(void))arg)() != 0;
+L9: {
+    unsigned int mask = 1u << (arg & 0x1F);
+    return (D_00139768[(unsigned)arg >> 2] & mask) != 0;
+}
+L8:
+    return D_0019B278[(arg & 0xFFFF) + (arg >> 16) * 4] != 0;
+L10:
+    return func_002FC010(D_001C51D0[0], arg);
+L11:
+    return 0;
+}
 
 
-INCLUDE_ASM("asm/game", func_0029DC90);
 
-INCLUDE_ASM("asm/game", func_0029DCD0);
+/* func_0029DC90 is in 0029DC90.c. */
 
-int func_0029DD00(void) { if (*(unsigned char *)0x001A7BD5) { if (*(unsigned char *)0x001A7B08) return 1; } return 0; }
+extern int D_001397C4[];
+extern unsigned char D_001395D5[];
 
-INCLUDE_ASM("asm/game", func_0029DD30);
+int func_0029DCD0(void) {
+    if (D_001397C4[0] < 0) {
+        if (D_001395D5[0] != 0)
+            return 1;
+    }
+    return 0;
+}
 
-INCLUDE_ASM("asm/game", func_0029DDC0);
+/* func_0029DD30 is in 0029DD30.c. */
+
+/* func_0029DDC0 is in 0029DDC0.c. */

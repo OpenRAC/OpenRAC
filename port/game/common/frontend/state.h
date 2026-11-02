@@ -86,6 +86,11 @@ struct Kept {
     std::vector<renderer::WaterImpulse> water_impulses;
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;
+    // The last tick's corners of each effect quad with an id (EffectQuad::id), when that tick was
+    // the one before (GameProfile::interpolates_effect_quads): a frame between ticks moves the
+    // quad from them (scene_hud.cpp). The tick the effects were kept on (Kept::frame).
+    std::unordered_map<std::uint32_t, std::array<std::array<float, 4>, 4>> prev_effect_corners;
+    std::uint64_t effects_frame = ~0ull;
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
@@ -121,6 +126,9 @@ struct TickMobys {
     scene::MobyShadowState shadow_state;                   // Captured shadow direction and scale.
     std::vector<Kept::TargetMoby> target_mobys;            // Mobys drawn in private camera spaces.
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
+    // Each point-lit moby's third light: colour (w 0), then its world direction (w 0); an
+    // instance's moby_light.x carries 256 x (its record + 1) (mesh.vert).
+    std::vector<std::array<float, 8>> point_lit;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -243,6 +251,7 @@ struct State {
         std::array<std::uint8_t, 0x40> record;
         std::uint32_t pixels, clut;
         int log2_side;
+        std::uint32_t id;  // its slot and type (particle), 0 when not known
     };
 
     std::vector<Particle> particles;
@@ -268,6 +277,13 @@ struct State {
     // Since the last frame, for the capture's gauges (effect_textures): the effect quads by where
     // their texture's source was found (none, the paging records, remembered).
     std::array<int, 3> effect_sources{};
+    // The effect quads' generation (effect_quad_marker): one a tick, so that a display list's quad
+    // markers are read only against the quads of the tick that put them there.
+    std::uint32_t effect_generation = 1;
+    // The last tick's effect quads (before the sky's and the particles' join them), by index, as
+    // their GS state: a list drawn a tick behind (sends_display_list) marks those, and this tick's
+    // quads take the TEST and ZBUF of the last tick's quads with the same state (capture_2d_path).
+    std::vector<std::array<std::uint64_t, 4>> effect_states_before;
     // The sky sprites the game drew since the last frame (sky_sprite): record, TEX0.
     std::vector<std::pair<std::array<std::uint8_t, 0x20>, std::uint64_t>> sky_sprites;
     // The 2D layer's quads drawn natively since the last frame (ui_quad), by marker index.
@@ -315,6 +331,8 @@ struct State {
         pending_frame;  // Window-thread owned; worker writes its result.
     std::vector<renderer::ImageUpload>
         pending_images;          // Game-thread uploads held until the worker finishes.
+    std::vector<renderer::ImageUpload>
+        images_after_list;       // Sent again a capture later (GameProfile::images_outlast_list).
     bool render_failed = false;  // A caught render error terminates the frontend cleanly.
 };
 
@@ -373,6 +391,12 @@ struct Route {
 
 // Where a scripted run is, as frame() last read it (frontend.cpp).
 extern Route g_route;
+
+// The pad of a scripted run from a file, or written to one (OPENRAC_RECORD, OPENRAC_REPLAY and
+// OPENRAC_WALK, record.cpp): called with pad 0 as each tick reads it, and with the camera's forward
+// row, which the walk steers by.
+void scripted_pad(std::uint16_t& buttons, std::uint8_t analog[4]);
+void scripted_view(const float forward[3]);
 
 // OPENRAC_SHOT=EVERY:PATH: a PNG of every EVERY-th frame, written to PATH<frame>.png.
 struct Shots {

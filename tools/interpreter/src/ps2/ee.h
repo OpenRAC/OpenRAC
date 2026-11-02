@@ -168,6 +168,13 @@ public:
      */
     u32 pc = 0, next_pc = 4;
 
+    /**
+     * Test-only: when set, `cover[(pc - cover_base) / 4]` is set for each instruction run in
+     * [cover_base, cover_base + cover_bytes). The gate's coverage report reads it.
+     */
+    u8* cover = nullptr;
+    u32 cover_base = 0, cover_bytes = 0;
+
     /** The shift amount register SA, used by QFSRV and set by MTSA, MTSAB, MTSAH (documented). */
     u32 sa = 0;
 

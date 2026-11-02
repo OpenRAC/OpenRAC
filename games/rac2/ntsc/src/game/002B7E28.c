@@ -1,6 +1,15 @@
 #include "include_asm.h"
+#include "common.h"
 
-typedef float f32;
+extern char *func_002B9030(int);
+extern int func_00283CF0(float);
+extern float func_002A7878(float, float);
+extern float func_002A78D8(float, float);
+extern int func_002A77E0(int);
+extern int func_002AAE98(float, float, float, float);
+extern unsigned char *D_001F2574, *D_001F25A4;
+extern void func_002B9180(char *);
+extern void func_00282CC0(char *, char *, char *);
 
 #ifndef RAC2_T_REC_F4EC78016
 #define RAC2_T_REC_F4EC78016
@@ -38,10 +47,6 @@ extern Slot_F4ec78016 D_00188660_1[];
 extern Globals_F4ec78016 D_001A63A8_4[];
 
 extern void func_002B6958(int a, int b, int c, int d);
-
-typedef unsigned char u8;
-
-typedef int s32;
 
 extern float Fe617c30b_FUN_00283CE0(int a);
 
@@ -114,6 +119,50 @@ extern int Fc10c1216_FUN_00283CF0(float);
 
 extern void Fc10c1216_FUN_00282CC0(char *, char *, char *);
 
+extern void func_002B6D80(s32, s32, s32);
+
+extern short D_001A63D4;
+
+#define NOT_SDA __attribute__((section(".data")))
+
+extern short r1_D_001517F0 NOT_SDA;
+
+extern void func_0026FEB8(const char *, ...);
+extern char D_001AA220[];
+
+typedef struct {
+    char pad00[0x2C];
+    short state;
+    char pad2E[2];
+    int value;
+    int quarter;
+} FileLoadVoiceState_002B8048;
+extern FileLoadVoiceState_002B8048 g_fileLoadVoiceState;
+
+typedef struct {
+    char reserved[0x18E];
+    short active;
+    int value;
+} State_2B8518;
+
+extern State_2B8518 D_00138180;
+
+typedef int TI __attribute__((mode(TI)));
+
+extern float func_002B0520(TI *pos);
+extern int D_001A79F0 MACRO_ADDR;
+extern float D_001B1DC0[] MACRO_ADDR;
+
+extern unsigned char *D_001F2544;
+
+extern void func_00300190(char *, char *);
+
+/* func_002BB838 uses the profile in 002BB838-qcopy.c. */
+
+extern int func_00283D38(int, int, float);
+extern unsigned char *D_001F2560;
+
+
 /* Stores the incoming handle into the record's first word and, for a non-negative index, into the next slot of a 112-byte-stride table, then either bumps a state short from 1 to 2 or passes three shorts and one word of a global block to a helper. */
 void func_002B7E28(void *a0, long a1)
 {
@@ -137,7 +186,6 @@ void func_002B7E28(void *a0, long a1)
     }
 }
 
-extern void func_002B6D80(s32, s32, s32);
 void func_002B7EA8(s32 a0, long a1)
 {
     s32 p = (s32)a1;
@@ -154,8 +202,6 @@ void func_002B7EA8(s32 a0, long a1)
                       *(short *)(g + 0x4A));
     }
 }
-
-extern short D_001A63D4;
 
 void func_002B7F08(int arg0, long arg1)
 {
@@ -174,10 +220,6 @@ void func_002B7F08(int arg0, long arg1)
         }
     }
 }
-
-#define NOT_SDA __attribute__((section(".data")))
-
-extern short r1_D_001517F0 NOT_SDA;
 
 /* rac1-decomp src/game/stream.c: func_00217970 */
 void func_002B7F58(int arg0, long arg1) {
@@ -214,8 +256,6 @@ void func_002B7FB0(int arg0, long arg1) {
     }
 }
 
-extern void func_0026FEB8(const char *, ...);
-extern char D_001AA220[];
 void func_002B7FF0(int value, long address)
 {
     char *p = (char *)(int)address;
@@ -229,15 +269,6 @@ void func_002B7FF0(int value, long address)
     if (value == 0)
         *(short *)(p + 10) = 7;
 }
-
-typedef struct {
-    char pad00[0x2C];
-    short state;
-    char pad2E[2];
-    int value;
-    int quarter;
-} FileLoadVoiceState_002B8048;
-extern FileLoadVoiceState_002B8048 g_fileLoadVoiceState;
 
 void func_002B8048(int value, long address)
 {
@@ -262,15 +293,7 @@ void func_002B8048(int value, long address)
 
 INCLUDE_ASM("asm/game", func_002B80B8);
 
-INCLUDE_ASM("asm/game", func_002B8108);
-
-typedef struct {
-    char reserved[0x18E];
-    short active;
-    int value;
-} State_2B8518;
-
-extern State_2B8518 D_00138180;
+/* func_002B8108 is in 002B7E28-g8.c. */
 
 void func_002B8518(void) {
     D_00138180.active = 0;
@@ -279,9 +302,7 @@ void func_002B8518(void) {
 
 INCLUDE_ASM("asm/game", func_002B8530);
 
-INCLUDE_ASM("asm/game", func_002B8548);
-
-INCLUDE_ASM("asm/game", func_002B85F8);
+/* func_002B85F8 is in 002B7E28-g8.c. */
 
 void func_002B8888(u8 *a0) {
  s32 *p=(s32 *)(a0+0x140);s32 count=15;
@@ -292,7 +313,6 @@ void func_002B8888(u8 *a0) {
  do { p[-16]=0;count--;p[0]=0;p++; }while(count>=0);
 }
 
-INCLUDE_ASM("asm/game", func_002B88F0);
 
 void func_002B9000(void) {
     extern void func_002B85F8(void *);
@@ -303,7 +323,7 @@ void func_002B9000(void) {
 
 INCLUDE_ASM("asm/game", func_002B9030);
 
-INCLUDE_ASM("asm/game", func_002B9038);
+ASM_FUNC("asm/game", func_002B9038);
 
 INCLUDE_ASM("asm/game", func_002B9180);
 
@@ -313,17 +333,53 @@ INCLUDE_ASM("asm/game", func_002B9380);
 
 INCLUDE_ASM("asm/game", func_002B9390);
 
-INCLUDE_ASM("asm/game", func_002B9420);
+ASM_FUNC("asm/game", func_002B9420);
 
 INCLUDE_ASM("asm/game", func_002BA048);
 
 INCLUDE_ASM("asm/game", func_002BA0E0);
 
-INCLUDE_ASM("asm/game", func_002BA6A0);
+void func_002BA6A0(char *p)
+{
+    float *f = (float *)p;
+    float *s = f + 0xC;
+    float lim = s[3];
+    float tmp[4] __attribute__((aligned(16)));
+    TI c1, c2;
+    int x, y;
+    float h;
 
-INCLUDE_ASM("asm/game", func_002BA8A0);
-
-extern unsigned char *D_001F2544;
+    if (D_001A79F0 == 15) {
+        if (f[6] < lim) {
+            func_002B9180(p);
+            return;
+        }
+    } else if (f[6] < lim || f[4] < 0.0f || f[5] < 0.0f || f[4] > 1024.0f || f[5] > 1024.0f) {
+        func_002B9180(p);
+        return;
+    }
+    x = (int)f[8];
+    y = (int)f[9];
+    func_00282CC0((char *)tmp, (char *)s, (char *)D_001B1DC0);
+    func_00282CC0((char *)(f + 8), (char *)(f + 8), (char *)tmp);
+    func_00282CC0((char *)(f + 4), (char *)(f + 4), (char *)tmp);
+    if (*(short *)(p + 0xA) != 2 && (x != (int)f[8] || y != (int)f[9])) {
+        c1 = *(TI *)(f + 8);
+        h = func_002B0520(&c1);
+        if (h >= D_001B1DC0[4]) {
+            c2 = *(TI *)(f + 8);
+            lim = func_002B0520(&c2);
+        } else {
+            lim = D_001B1DC0[4];
+        }
+        if (f[10] < lim) {
+            func_002B9180(p);
+            return;
+        }
+    }
+    s[2] -= 0.0027222223f;
+    s[3] = lim + D_001B1DC0[2];
+}
 
 void func_002BA978(char *self)
 {
@@ -336,14 +392,13 @@ void func_002BA978(char *self)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002BAA28);
-
-INCLUDE_ASM("asm/game", func_002BABE8);
+/* func_002BABE8 is in 002B7E28-g8.c (its global read uses the retail's one-register
+   `lui`/`lw` pair, which only a -G8 unit emits). */
 
 void func_002BAE48(void) {
 }
 
-INCLUDE_ASM("asm/game", func_002BAE50);
+/* func_002BAE50 is matched in its own unit, src/game/002BAE50.c (default flags). */
 
 void func_002BAF68(char *a0)
 {
@@ -369,7 +424,26 @@ void func_002BAF68(char *a0)
         Fe617c30b_FUN_002B9180(a0);
 }
 
-INCLUDE_ASM("asm/game", func_002BB050);
+void func_002BB050(u8 *a0)
+{
+    u8 *s0 = a0;
+    u8 *s1 = a0 + 0x20;
+
+    if (func_00282948((char *)s1) != 0) {
+        func_002B9180((char *)s0);
+        return;
+    }
+    {
+        u8 *p = s0 + 0x10;
+
+        func_00300190((char *)p, (char *)p);
+    }
+    *(f32 *)(s0 + 0xC) = *(f32 *)(s0 + 0xC) + *(f32 *)(s1 + 4);
+    if (*(s32 *)(s1) < 6) {
+        *(unsigned int *)(s0 + 4) = (*(unsigned int *)(s0 + 4) & 0xFFFFFF)
+            | ((unsigned int)(*(s32 *)(s1) * 127 / 6) << 24);
+    }
+}
 
 INCLUDE_ASM("asm/game", func_002BB100);
 
@@ -386,11 +460,6 @@ void func_002BB798(char *a0)
         *(int *)(a0 + 4) = (*(int *)(a0 + 4) & 0xFFFFFF)
                          | ((*(int *)(a0 + 32) * 127 / 6) << 24);
 }
-
-INCLUDE_ASM("asm/game", func_002BB838);
-
-extern int func_00283D38(int, int, float);
-extern unsigned char *D_001F2560;
 
 /* blends a sub-object into a position, adds a float field, stores an interpolated value in the
    word at +4 and scales the frame count into a byte table at +2 */
@@ -444,13 +513,40 @@ void func_002BBB70(char *p)
     *(char *)(p + 8) = *(unsigned char *)(p + 8) - 1;
 }
 
-INCLUDE_ASM("asm/game", func_002BBCB0);
+/* func_002BBCB0 is in 002BBCB0-g8-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_002BBF40);
 
-INCLUDE_ASM("asm/game", func_002BC508);
+/* func_002BC508 is in 002BC508-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002BC768);
+char *func_002BC768(char *pos, int spin, int color, float spread, float low, float high, float accel, float size)
+{
+    char *p = func_002B9030(13);
+    char *q;
+    if (p) {
+        qcopy(p + 16, pos);
+        q = p + 32;
+        *(int *)(p + 4) = color;
+        p[9] = func_00283CF0(4.0f) + 64;
+        p[3] = 0x48;
+        *(float *)(p + 12) = size;
+        p[1] = 0;
+        p[8] = 0;
+        p[2] = D_001F2574[0];
+        *(float *)(p + 16) += func_002A78D8(0.0f, spread);
+        *(float *)(p + 20) += func_002A78D8(0.0f, spread);
+        *(float *)(p + 24) += func_002A78D8(0.0f, spread);
+        *(short *)(p + 10) = 10;
+        *(int *)(q + 4) = 0;
+        if (func_002A77E0(2))
+            *(int *)(q + 8) = spin;
+        else
+            *(int *)(q + 8) = -spin;
+        *(int *)(q + 20) = color & 0xffffff;
+        *(float *)(q + 12) = func_002A7878(low, high);
+        *(float *)(q + 16) = accel;
+    }
+    return p;
+}
 
 void func_002BC8E8(char *p)
 {
@@ -485,15 +581,12 @@ void func_002BC8E8(char *p)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002BCA08);
+/* func_002BCB00 is defined in 002BCB00-zero-ti-barrier.c. */
 
-INCLUDE_ASM("asm/game", func_002BCB00);
+/* func_002BCC58 is in 002BCC58-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002BCC58);
 
-INCLUDE_ASM("asm/game", func_002BCF18);
-
-INCLUDE_ASM("asm/game", func_002BD0D0);
+/* func_002BD0D0 is in 002BD0D0-g8.c. */
 
 void func_002BD390(void) {
 }
@@ -527,27 +620,34 @@ void func_002BD398(OBJ_F3c007b59 *o)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002BD500);
+void func_002BD500(char *a)
+{
+    char *p1 = a + 16;
+    char *p2 = a + 32;
+    char *p3 = a + 48;
+    int v;
 
-INCLUDE_ASM("asm/game", func_002BD5B0);
+    func_00282CC0(p1, p1, p3);
+    func_00282CC0(p2, p2, p3);
+    func_00300190(p1, p1);
+    func_00300190(p2, p2);
+    v = *(int *)(a + 4) - (func_00283CF0(*(float *)(p3 + 12)) << 24);
+    *(int *)(a + 4) = v;
+    *(int *)(a + 12) = v;
+    if (v < 0)
+        func_002B9180(a);
+}
 
-INCLUDE_ASM("asm/game", func_002BD8B0);
+/* func_002BDCE8 uses the qcopy profile in 002BDCE8.c. */
 
-INCLUDE_ASM("asm/game", func_002BD9B0);
+/* func_002BDEB0 is in 002BDEB0.c. */
 
-INCLUDE_ASM("asm/game", func_002BDBC0);
 
-INCLUDE_ASM("asm/game", func_002BDCE8);
+/* func_002BE278 uses the quadword-copy profile in 002BE278-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_002BDEB0);
+/* func_002BE400 uses the no-gcse profile in 002BE400.c. */
 
-INCLUDE_ASM("asm/game", func_002BE150);
-
-INCLUDE_ASM("asm/game", func_002BE278);
-
-INCLUDE_ASM("asm/game", func_002BE400);
-
-INCLUDE_ASM("asm/game", func_002BE7E8);
+/* func_002BE7E8 uses the quadword-copy profile in 002BE7E8-qcopy.c. */
 
 /* calls a three-argument helper on the sub-objects at +16 and +32, then packs ((v[6]*v[4])/v[5])<<24 into the low 24 bits of the word at +4 and conditionally calls a second helper on +48 before a final call. */
 void func_002BE928(s32 *self) {
@@ -591,10 +691,49 @@ void func_002BE9B8(char *p)
     Fc10c1216_FUN_00282CC0(p + 16, p + 16, (char *)(q + 4));
 }
 
-INCLUDE_ASM("asm/game", func_002BEBC0);
+/* func_002BEBC0 is in 002BEBC0-hazard-labels.c (retail keeps a branch label on its
+   mtc1 hazard nop, which only a -frac2-hazard-labels unit reproduces). */
 
-INCLUDE_ASM("asm/game", func_002BEE70);
+/* func_002BEE70 is in 002BEE70-g.c (it needs -g for its line notes' pre-division nops). */
 
-INCLUDE_ASM("asm/game", func_002BF390);
+void func_002BF518(char *o)
+{
+    float *s;
+    char *parent;
+    float t;
 
-INCLUDE_ASM("asm/game", func_002BF518);
+    if (o == 0)
+        return;
+    s = (float *)(o + 0x20);
+    parent = *(char **)s;
+    if (parent == 0 || (*(unsigned char *)(parent + 0x20) & 0xF0) == 0xF0) {
+        func_002B9180(o);
+        return;
+    }
+    qcopy(o + 0x10, parent + 0x10);
+    t = s[1] + s[2];
+    s[1] = t;
+    if (t < 0.0f) {
+        func_002B9180(o);
+        return;
+    }
+    if (t > 0.6f) {
+        s[2] = -s[2];
+        s[1] = t + s[2];
+    }
+    s[4] += -0.0174f;
+    if (s[4] < 0.0f)
+        s[4] = 0.0f;
+    s[5] += -0.01446f;
+    if (s[5] < 0.0f)
+        s[5] = 0.0f;
+    s[6] += -0.0015f;
+    if (s[6] < 0.0f)
+        s[6] = 0.0f;
+    *(int *)(o + 4) = func_002AAE98(s[4], s[5], s[6], s[1]);
+    s[3] += 0.0011f;
+    if (s[3] > 1.0f)
+        s[3] -= 1.0f;
+    *(char *)(o + 8) = func_00283CF0(s[3] * 255.0f);
+    *(float *)(o + 0xC) = (*(float **)(o + 0x20))[0xB] * 3000000.0f + 50000.0f;
+}

@@ -61,15 +61,14 @@ int func_L05_0037AFD0(char *object, int flag)
     return *(int *)(s + 0x110);
 }
 
-INCLUDE_ASM("asm/levels", func_L05_0037B108);
+/* func_L05_0037B108 is defined in L05_0037B108.c for its absolute-symbol profile. */
 
 /* func_L05_0037B210 is defined in L05_0037AEC0-g8.c (this unit has no $gp access for it). */
 
-INCLUDE_ASM("asm/levels", func_L05_0037B3A0);
-
-INCLUDE_ASM("asm/levels", func_L05_0037B438);
+/* func_L05_0037B3A0 uses the verified one-argument state-query interface in L05_0037B3A0.c. */
 
 
-INCLUDE_ASM("asm/levels", func_L05_0037B538);
+
+/* func_L05_0037B538 is defined in L05_0037B538.c. */
 
 INCLUDE_ASM("asm/levels", func_L05_0037B6C0);

@@ -23,6 +23,7 @@
 #include <exception>
 #include <format>
 #include <limits>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -114,6 +115,14 @@ std::uint32_t word_at(std::span<const std::uint8_t> ram, std::uint32_t at) {
  * VU1 (UNPACK, MPG and the rest) are stepped over by their sizes: what VU1 draws, the world, has
  * renderers of its own.
  */
+// An effect quad's marker in the DIRECT data (openrac_game_effect_quad_marker) and the first
+// context's TEST and ZBUF in effect there; zbuf_seen when the list had set ZBUF by then.
+struct QuadMark {
+    std::uint32_t marker;
+    std::uint64_t test, zbuf;
+    bool zbuf_seen;
+};
+
 std::vector<std::uint8_t> direct_packets(
     std::span<const std::uint8_t> ram,
     std::uint32_t chain,
@@ -122,7 +131,9 @@ std::vector<std::uint8_t> direct_packets(
     std::vector<renderer::ImageUpload>* uploads = nullptr,
     std::size_t* before_world = nullptr,
     std::size_t* first_offscreen = nullptr,
-    std::size_t* world_marker = nullptr
+    std::size_t* world_marker = nullptr,
+    std::size_t* moby_marker = nullptr,
+    std::vector<QuadMark>* quad_marks = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at =
@@ -217,7 +228,8 @@ std::vector<std::uint8_t> direct_packets(
     // set is drawn with the second (Oltanis's ice draws its second layer so, another texture
     // blended half over the first).
     struct Context {
-        std::uint64_t tex0 = 0, tex1 = 0, clamp = 0, alpha = 0x44, test = 0;
+        std::uint64_t tex0 = 0, tex1 = 0, clamp = 0, alpha = 0x44, test = 0, zbuf = 0;
+        bool zbuf_seen = false;
     };
 
     std::array<Context, 2> contexts{};
@@ -297,7 +309,16 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
                         case 0x7F:
-                            if ((value >> 48) == 0x5754) {
+                            if ((value >> 48) == OPENRAC_EFFECT_QUAD_MARKER) {
+                                if (quad_marks != nullptr) {
+                                    quad_marks->push_back(
+                                        {static_cast<std::uint32_t>(value),
+                                         contexts[0].test,
+                                         contexts[0].zbuf,
+                                         contexts[0].zbuf_seen}
+                                    );
+                                }
+                            } else if ((value >> 48) == 0x5754) {
                                 surface = static_cast<std::uint32_t>(value);
                                 uv_motion = {};
                                 uv_offsets = {};
@@ -350,6 +371,11 @@ std::vector<std::uint8_t> direct_packets(
                         case 0x47:
                         case 0x48:
                             contexts[(address & 0xFF) - 0x47].test = value;
+                            break;
+                        case 0x4E:
+                        case 0x4F:
+                            contexts[(address & 0xFF) - 0x4E].zbuf = value;
+                            contexts[(address & 0xFF) - 0x4E].zbuf_seen = true;
                             break;
                         case 0x4C:
                         case 0x4D:
@@ -428,6 +454,17 @@ std::vector<std::uint8_t> direct_packets(
                 if ((address & 0xFF) == 0x7F
                     && (value >> 48) == renderer::GifInterpreter::kWorldMarker) {
                     *world_marker = direct_at;
+                }
+            }
+            // The first moby marker (renderer::GifInterpreter::kMobyMarker): where the game drew
+            // mobys of a list of their own (GameProfile::own_mobys_split_the_2d).
+            if (moby_marker != nullptr && *moby_marker == SIZE_MAX && imm == 2) {
+                std::uint64_t value, address;
+                std::memcpy(&value, vif.data() + at + 16, 8);
+                std::memcpy(&address, vif.data() + at + 24, 8);
+                if ((address & 0xFF) == 0x7F
+                    && (value >> 48) == renderer::GifInterpreter::kMobyMarker) {
+                    *moby_marker = direct_at;
                 }
             }
             gif.insert(
@@ -644,6 +681,11 @@ bool read_window_events() {
 // Uses the world the game draws now: the level loaded (`level`, -1 the boot program), or one of
 // the boot program's worlds.
 int world_to_draw(std::span<const std::uint8_t> ram, int level) {
+    if (openrac_game_flight != nullptr) {
+        if (const int flight = openrac_game_flight(); flight >= 0) {
+            return -2 - flight;
+        }
+    }
     // The boot program's worlds: the flight between planets (game mode 6), else the title world.
     // A flight between planets also plays inside a planet's program. The game draws it by the ship's
     // state (dispatch_game_state_update): the planet in the take-off (0), the landing (8) and while
@@ -1031,6 +1073,75 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
     }
 }
 
+// Returns the third light the moby program gives a moby from the point lights (Going Commando's
+// MobyProc): the eight after the light bank's 16 sets, {colour, falloff, position, reach}, a light
+// whose x and y are both 0 left out (0x2A51C8). Each light within reach of the moby's sphere
+// centre (+0x00, units of 1/1024) gives its colour times 1 - distance / reach, from it towards the
+// moby (0x2A5810). One is the light as it is, its colour at least 0; several are summed, the
+// directions weighted by each colour's (r + g + b) x 0.332 and normalised (0x2A5960). Returns the
+// colour (w 0) and world direction (w 0), or nothing when no light reaches the moby.
+std::optional<std::array<float, 8>> moby_point_light(
+    std::span<const std::uint8_t> ram, gaddr bank, std::uint32_t moby
+) {
+    constexpr std::uint32_t kPoints = 16 * 0x40;
+    if (bank == 0 || bank + kPoints + 8 * 0x20 > ram.size() || moby + 0x10 > ram.size()) {
+        return std::nullopt;
+    }
+    std::array<float, 4> centre;
+    std::memcpy(centre.data(), ram.data() + moby, sizeof(centre));
+    std::array<float, 3> colour{}, direction{}, single{};
+    int count = 0;
+    for (std::uint32_t i = 0; i < 8; ++i) {
+        std::array<float, 8> light;
+        std::memcpy(light.data(), ram.data() + bank + kPoints + i * 0x20, sizeof(light));
+        std::uint64_t xy;
+        std::memcpy(&xy, ram.data() + bank + kPoints + i * 0x20 + 0x10, sizeof(xy));
+        if (xy == 0) {
+            continue;
+        }
+        const float reach = light[7] * 1024.0f;
+        std::array<float, 3> away{};
+        float squared = 0.0f;
+        for (int c = 0; c < 3; ++c) {
+            away[c] = centre[c] - light[4 + c] * 1024.0f;
+            squared += away[c] * away[c];
+        }
+        if (!(squared - reach * reach <= 0.0f) || squared <= 0.0f) {
+            continue;
+        }
+        const float distance = std::sqrt(squared);
+        const float weight = 1.0f - distance * (1.0f / 1024.0f / light[7]);
+        const float luminance =
+            (light[0] * weight + light[1] * weight + light[2] * weight) * 0.33203125f;
+        for (int c = 0; c < 3; ++c) {
+            colour[c] += light[c] * weight;
+            single[c] = away[c] / distance;
+            direction[c] += single[c] * luminance;
+        }
+        ++count;
+    }
+    if (count == 0) {
+        return std::nullopt;
+    }
+    if (count == 1) {
+        direction = single;
+    }
+    std::array<float, 8> out{};
+    for (int c = 0; c < 3; ++c) {
+        out[c] = std::max(colour[c], 0.0f);
+    }
+    const float length = std::sqrt(
+        direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]
+    );
+    if (!(length > 0.0f) || !std::isfinite(length)) {
+        return std::nullopt;
+    }
+    for (int c = 0; c < 3; ++c) {
+        out[4 + c] = direction[c] / length;
+    }
+    return out;
+}
+
 // The live mobys of one tick, as pose_mobys reads them for keep_tick: each one drawn and its
 // address and joints, the joint palette they index, the hero's shadow, and the mobys the game
 // drew into a texture.
@@ -1062,6 +1173,13 @@ TickMobys pose_mobys(
     std::uint32_t shadow_moby = 0;
     scene::MobyShadowState shadow_state;
     std::vector<Kept::TargetMoby> target_mobys;
+    // The point lights' third light of each moby they reach, where the game lights mobys by them;
+    // as many as the shader's moby_point_lights holds (mesh.vert).
+    std::vector<std::array<float, 8>> point_lit;
+    constexpr std::size_t kPointLitMobys = 32;
+    const gaddr point_bank = g->profile->mobys_take_point_lights() && light_bank_address() != 0
+                                 ? openrac_relocate_data(light_bank_address())
+                                 : 0;
 
     // A moby to pose: its address and joints, and its instance (in target_mobys or in live).
     struct PoseJob {
@@ -1214,7 +1332,10 @@ TickMobys pose_mobys(
                })) {
             continue;
         }
-        auto cls = g->level.moby_classes.find(m.class_id);
+        auto cls = g->level.moby_classes.find(m.model_class);
+        if (cls == g->level.moby_classes.end() && !m.model_only) {
+            cls = g->level.moby_classes.find(m.class_id);
+        }
         if (cls == g->level.moby_classes.end()) {
             continue;
         }
@@ -1258,15 +1379,23 @@ TickMobys pose_mobys(
                  static_cast<float>(b[0x39]),
                  static_cast<float>(b[0x3A]) / 256.0f,
                  1.0f};
-            // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90), which MobyProc's glow list
-            // draws its glow packets in; 0 without (a 24-bit integer is exact in a float).
+            // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90 in Ratchet & Clank), which
+            // MobyProc's glow list draws its glow packets in; 0 without (a 24-bit integer is exact
+            // in a float).
+            const std::uint32_t at = g->profile->moby_glow_word();
             const std::uint32_t glow =
-                static_cast<std::uint32_t>(b[0x90] | b[0x91] << 8 | b[0x92] << 16);
+                static_cast<std::uint32_t>(b[at] | b[at + 1] << 8 | b[at + 2] << 16);
             instance.moby_ambient =
                 {b[0x3C] / 128.0f,
                  b[0x3D] / 128.0f,
                  b[0x3E] / 128.0f,
                  (b[0x34] & 0x10) != 0 ? static_cast<float>(glow) + 1.0f : 0.0f};
+            if (point_bank != 0 && point_lit.size() < kPointLitMobys) {
+                if (const auto light = moby_point_light(ram, point_bank, m.address)) {
+                    point_lit.push_back(*light);
+                    instance.moby_light[0] += 256.0f * static_cast<float>(point_lit.size());
+                }
+            }
         }
         // Preserve explicit gameplay colour writes while that RGB is still
         // current. Countdown crates restore their saved colour between flashes;
@@ -1486,7 +1615,8 @@ TickMobys pose_mobys(
         shadow_moby,
         shadow_state,
         std::move(target_mobys),
-        water_hands
+        water_hands,
+        std::move(point_lit)
     };
 }
 
@@ -1631,6 +1761,8 @@ TickPackets capture_2d_path(
     std::size_t before_world = SIZE_MAX;
     std::size_t first_offscreen = SIZE_MAX;
     std::size_t world_marker = SIZE_MAX;
+    std::size_t moby_marker = SIZE_MAX;
+    std::vector<QuadMark> quad_marks;
     draw_coverage::begin_tick(level, g->index);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
@@ -1640,8 +1772,66 @@ TickPackets capture_2d_path(
         &g->effect_uploads,
         &before_world,
         &first_offscreen,
-        &world_marker
+        &world_marker,
+        &moby_marker,
+        &quad_marks
     );
+    // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
+    // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
+    // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list
+    // is the last tick's (the game builds the next while one is sent), so it marks the last tick's
+    // quads: each of this tick's takes the registers of the last tick's quads drawn with the same
+    // TEX0, TEX1, CLAMP and ALPHA, when they all had the same (a quad new in this tick, or one whose
+    // state the last tick drew with two TESTs, is drawn as before: no alpha test, no Z).
+    std::size_t quads_marked = 0, marks_stale = 0;
+    const auto apply = [&](renderer::EffectQuad& q, std::uint64_t test, std::uint64_t zbuf) {
+        q.test = test;
+        q.zbuf = zbuf;
+        q.registers = test != 0;
+        ++quads_marked;
+    };
+    const std::uint32_t generation = g->effect_generation & 0xFFF;
+    const std::uint32_t last_generation = (g->effect_generation - 1) & 0xFFF;
+
+    struct Registers {
+        std::uint64_t test, zbuf;
+        bool ambiguous;
+    };
+
+    std::map<std::array<std::uint64_t, 4>, Registers> by_state;
+    for (const QuadMark& m : quad_marks) {
+        const std::uint32_t index = m.marker & 0xFFFFF;
+        const std::uint64_t zbuf = m.zbuf_seen ? m.zbuf : 0;
+        if ((m.marker >> 20) == generation && index < g->effects.size()) {
+            apply(g->effects[index], m.test, zbuf);
+        } else if ((m.marker >> 20) == last_generation && index < g->effect_states_before.size()) {
+            const auto [at, added] = by_state.try_emplace(
+                g->effect_states_before[index], Registers{m.test, zbuf, false}
+            );
+            if (!added && (at->second.test != m.test || at->second.zbuf != zbuf)) {
+                at->second.ambiguous = true;
+            }
+        } else {
+            ++marks_stale;
+        }
+    }
+    if (!by_state.empty()) {
+        for (renderer::EffectQuad& q : g->effects) {
+            const auto found = by_state.find({q.tex0, q.tex1, q.clamp, q.alpha});
+            if (found != by_state.end() && !found->second.ambiguous) {
+                apply(q, found->second.test, found->second.zbuf);
+            }
+        }
+    }
+    if (debug && marks_stale > 0) {
+        log::info(
+            "frame {}: {} effect quad marks name another tick's quads ({} applied)",
+            g->index,
+            marks_stale,
+            quads_marked
+        );
+    }
+    stats::gauge("effect quads marked", double(quads_marked));
     // The markers in a list index the quads of the tick that built it, and the list shown is the
     // one the last tick built (the game builds the next while this one is sent), one tick behind
     // the quads just recorded; FadeToBlack sends an old list again. Drawn with this tick's quads, a
@@ -1692,6 +1882,12 @@ TickPackets capture_2d_path(
     if (before_world == SIZE_MAX && (draws & 0x10u) != 0) {
         before_world = first_offscreen;
     }
+    // A game whose menus draw their mobys on the screen late in their 2D path (Going Commando's
+    // Ship Shack: its frame saved to a texture first, then its panels, then the ship): what comes
+    // before them is under them, wherever the first render to a texture was.
+    if (moby_marker != SIZE_MAX && g->profile->own_mobys_split_the_2d()) {
+        before_world = moby_marker;
+    }
     // The flight between planets is drawn as the boot program draws it, also when it starts from a
     // planet whose level program is still loaded (world_to_draw: the flight's world): split there,
     // the planet's name was taken as coming before the world and the stars hid it.
@@ -1701,6 +1897,8 @@ TickPackets capture_2d_path(
     k.named_quads = named_quads;
     return k;
 }
+
+bool sends_image(std::span<const std::uint8_t> packets);
 
 // Decides how this tick's frames start (frontend/tick_picture.h): the last frame standing, the last
 // frame under the tick's 2D, or a cleared frame. `level`: the level program loaded.
@@ -1717,6 +1915,12 @@ void choose_repeat_frame(int level, bool debug) {
     );
     g->repeat_frame = picture == TickPicture::Repeat;
     g->overdraw = picture == TickPicture::Overdraw;
+    // The picture stands, but the chip still took the images the tick's list sent: kept, a block
+    // the game sends once is there when a later tick draws from it.
+    if (g->repeat_frame && g->hud && g->profile->repeated_ticks_send_images()
+        && sends_image(k.packets)) {
+        g->hud->retain_uploads(k.packets);
+    }
     if (picture != TickPicture::Draw && debug) {
         log::info(
             "frame {}: {}",
@@ -1751,9 +1955,28 @@ void keep_effects(
     const profiling::Zone trace("Capture effects");
 
     Kept& k = *g->kept;
+    // The game's quads as the next tick's list marks them, by index (capture_2d_path).
+    g->effect_states_before.clear();
+    for (const renderer::EffectQuad& e : g->effects) {
+        g->effect_states_before.push_back({e.tex0, e.tex1, e.clamp, e.alpha});
+    }
     effect_textures();  // before the sky's sprites go in front of the effect quads
     sky_sprite_quads(state);
     particle_quads(ram, state);
+    // The last tick's corners of the quads that carry an id, when it was the tick before this
+    // one: a frame drawn between ticks moves each from there, as the mobys move (scene_hud.cpp's
+    // set_packets). Kept effects of an older tick, or of a tick that kept no world, move nothing.
+    k.prev_effect_corners.clear();
+    if (g->profile->interpolates_effect_quads() && k.effects_frame + 1 == k.frame) {
+        for (const renderer::EffectQuad& e : k.effects) {
+            if (e.id != 0) {
+                auto& corners = k.prev_effect_corners[e.id];
+                std::memcpy(corners.data(), e.corner, sizeof(e.corner));
+            }
+        }
+    }
+    k.effects_frame = k.frame;
+    ++g->effect_generation;
     k.effects = std::move(g->effects);
     k.effect_uploads = std::move(g->effect_uploads);
     k.sky_shells = g->sky_shells;
@@ -1897,7 +2120,9 @@ bool begin_capture(State& owner) {
             owner.renderer->textures().upload(image);
         }
     }
-    owner.pending_images.clear();
+    // What the game sent during the last tick goes again once that tick's list has been replayed.
+    owner.pending_images = std::move(owner.images_after_list);
+    owner.images_after_list.clear();
     return read_window_events();
 }
 
@@ -2056,6 +2281,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     log_camera(state, world_ran);
     follow_route(ram, level);
     trace_tick(state, draws);
+    scripted_view(state.forward.data());
     // The run's frames are done.
     if (run_over()) {
         return false;
@@ -2079,6 +2305,8 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         g->ui_quads.clear();
         g->moby_cameras.clear();
         g->effects.clear();
+        ++g->effect_generation;
+        g->effect_states_before.clear();
         g->effect_uploads.clear();
         // effect_quad's notes of the cleared quads go with them: effect_textures() would read
         // them against the next tick's quads.
@@ -2098,6 +2326,8 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     stats::gauge("render preparation ms", prepared ? prepared->seconds * 1000.0 : 0.0);
     part.emplace("lights");
     light_scene(ram, state);
+    g->scene.set_moby_point_lights(mobys.point_lit);
+    g->scene.set_terrain_point_lights(g->profile->terrain_takes_point_lights());
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;

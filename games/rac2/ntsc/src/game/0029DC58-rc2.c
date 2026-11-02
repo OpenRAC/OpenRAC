@@ -24,10 +24,11 @@
 #include "common.h"
 
 extern s8 D_001397E0[];
+extern u8 D_001A7A0A;
 s32 func_0029DC58(void) {
     s32 var_v0;
 
-    if ((*(u8 *)0x1A7A0A != 0) || (var_v0 = 1, ((*(s32 *)((s32)D_001397E0) & 0x08000000) == 0))) {
+    if ((D_001A7A0A != 0) || (var_v0 = 1, ((*(s32 *)((s32)D_001397E0) & 0x08000000) == 0))) {
         var_v0 = 0;
     }
     return var_v0;

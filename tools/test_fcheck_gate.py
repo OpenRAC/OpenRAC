@@ -122,7 +122,12 @@ class Rac2ProfileTests(unittest.TestCase):
         self.assertFalse(g.RAC2.level_fn.fullmatch("func_002BA7D8"))
         # level 00 has a capture script (the driver's level00); other levels are not checked yet
         self.assertIn("level00", g.RAC2.scripts)
-        self.assertEqual(g.RAC2.levels_checked, {0})
+        self.assertEqual(len(g.RAC2.levels_checked), 27)
+        self.assertNotIn(21, g.RAC2.levels_checked)
+        places = {"func_L05_00400000": [1, 2, 3, 4, 5], "func_00200000": [0, 7, 8, 9], "func_00100000": []}
+        self.assertEqual(g.rac2_level_lists(list(places), places),
+                         {1: ["func_L05_00400000"], 2: ["func_L05_00400000"], 5: ["func_L05_00400000"],
+                          7: ["func_00200000"], 8: ["func_00200000"]})
 
     def test_two_load_segments(self):
         import struct

@@ -69,9 +69,7 @@ int func_002B3B20(char *p, char *q, float f12, float f13)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002B3BA8);
 
-INCLUDE_ASM("asm/game", func_002B4028);
 
 typedef struct {
     int reserved;
@@ -117,9 +115,8 @@ void func_002B4090(char *self, PoseVector128 *point, float x, float y, float z)
     func_002AB6D8((float *)work.matrix, (float *)(self + 0xF0));
 }
 
-INCLUDE_ASM("asm/game", func_002B41A0);
 
-INCLUDE_ASM("asm/game", func_002B41A8);
+/* func_002B41A8 is matched in 002B41A8.c. */
 
 INCLUDE_ASM("asm/game", func_002B44C0);
 
@@ -149,7 +146,7 @@ int func_002B49C8(int value) {
 
 
 
-INCLUDE_ASM("asm/game", func_002B4C18);
+/* func_002B4C18 is matched in 002B3868-g8.c (small data through $gp). */
 
 extern char *func_002B5D28(void *);
 extern float func_00283B98(float, float);
@@ -176,9 +173,8 @@ int func_002B4FF0(char *self, float *target, float amount)
     return func_002B50E0(self, target, angle);
 }
 
-INCLUDE_ASM("asm/game", func_002B50D8);
 
-INCLUDE_ASM("asm/game", func_002B50E0);
+/* func_002B50E0 is matched in 002B50E0.c. */
 
 extern int func_002B50E0(void *, void *, float);
 

@@ -33,6 +33,7 @@ REPO = paths.repo_root(__file__)
 DATA = {
     "rac1-pal": ("build/data/pal", "assets/port/rac1/pal"),
     "rac1-ntsc": ("build/ntsc-data", "build/ntsc-levels"),
+    "rac2-ntsc": ("build/rac2-data", "build/rac2-levels"),
 }
 
 
@@ -96,7 +97,7 @@ def classify(rc: int | None, timed_out: bool, ticks: list[dict], length: int, fr
 def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels: Path, out: Path,
               extra_env: dict | None = None, settings: dict | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
-    for name in ("trace.jsonl", "reach.json", "coverage.json"):
+    for name in ("trace.jsonl", "reach.json", "coverage.json", "state.json"):
         (out / name).unlink(missing_ok=True)
     env = dict(os.environ)
     for k in list(env):
@@ -104,7 +105,7 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
             del env[k]  # the caller's own switches would change the run
     env.update({"OPENRAC_HIDDEN": "1", "SDL_AUDIODRIVER": "dummy", "OPENRAC_UNCAPPED": "1", "OPENRAC_AUDIO_TICKED": "1",
                 "OPENRAC_TRACE": str(out / "trace.jsonl"), "OPENRAC_REACH": str(out / "reach.json"),
-                "OPENRAC_DRAW_COVERAGE": str(out / "coverage.json")})
+                "OPENRAC_DRAW_COVERAGE": str(out / "coverage.json"), "OPENRAC_STATE_DUMP": str(out / "state.json")})
     env.update(route.env())
     env.update(extra_env or {})
     cmd = [str(exe), "--data", str(data), "--levels", str(levels), "--window", "--skip-movies",
