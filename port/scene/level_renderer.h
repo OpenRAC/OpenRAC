@@ -262,6 +262,10 @@ public:
         m_moby_point_lights = std::move(lights);
     }
 
+    // Whether the terrain's colours take the point lights (point_lights(), mesh.vert); off for a
+    // game whose terrain program has none.
+    void set_terrain_point_lights(bool on) { m_terrain_point_lights = on; }
+
     // The game's fog for this frame (GameState): FOGCOL 0..1, the depths in raw units (game
     // units x 1024) and the GS F at them (255 = none). The world layers are fogged as the GS
     // fogs them: C = FOGCOL + (C - FOGCOL) x F / 255, F linear in camera depth, clamped.
@@ -554,6 +558,7 @@ private:
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
     std::vector<std::array<float, 8>> m_moby_point_lights;
+    bool m_terrain_point_lights = false;
     bool m_sweep_translucent_off = false;
     bool m_sweep_translucent_unlit = false;
     bool m_sweep_translucent_full = false;

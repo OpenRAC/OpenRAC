@@ -1111,6 +1111,13 @@ void LevelScene::draw_layer(
         }
         glUniform4fv(shader.uniform("probe_point_position"), 8, point_positions.data());
         glUniform4fv(shader.uniform("probe_point_colour"), 8, point_colours.data());
+        glUniform1i(
+            shader.uniform("terrain_point_lit"),
+            m_terrain_point_lights && layer == Layer::Terrain ? 1 : 0
+        );
+        if (m_terrain_point_lights && layer == Layer::Terrain) {
+            glUniform4fv(shader.uniform("terrain_point_lights"), 16, m_point_lights.data());
+        }
         if (!m_moby_point_lights.empty()) {
             glUniform4fv(
                 shader.uniform("moby_point_lights"),

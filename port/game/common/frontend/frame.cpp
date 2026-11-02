@@ -2223,6 +2223,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     part.emplace("lights");
     light_scene(ram, state);
     g->scene.set_moby_point_lights(mobys.point_lit);
+    g->scene.set_terrain_point_lights(g->profile->terrain_takes_point_lights());
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;

@@ -178,6 +178,11 @@ public:
     // not at all.
     virtual bool mobys_take_point_lights() const { return false; }
 
+    // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
+    // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
+    // rather than not at all.
+    virtual bool terrain_takes_point_lights() const { return false; }
+
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }

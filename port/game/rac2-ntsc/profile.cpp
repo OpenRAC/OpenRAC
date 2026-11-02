@@ -261,6 +261,7 @@ public:
     bool repeated_ticks_send_images() const override { return true; }
 
     bool mobys_take_point_lights() const override { return true; }
+    bool terrain_takes_point_lights() const override { return true; }
 
     // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line
     // buffers, where the world's passes set FRAME (func_002DF1B8: FBP 0xF4).
