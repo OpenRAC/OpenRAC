@@ -28,10 +28,12 @@
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
 
 #define WIDESCREEN 0x001A7BB1u
 #define SOUND 0x001A7B98u
@@ -88,6 +90,7 @@ void func_002E48E8(void) {
  * A level's pause menu shows the same rows from its Camera page (below).
  */
 #define TEXT_WIDESCREEN 0x31E4 /* "16:9 (widescreen)": the Options item, the page's title */
+#define TEXT_PLANETS 0x7F01    /* no text of the disc: the developer mode's Planets (below) */
 #define MENU_CROSS 0x40u       /* the menus' buttons (the pad block's word at +0x1C4) */
 #define MENU_UP 0x1000u
 #define MENU_RIGHT 0x2000u
@@ -105,12 +108,13 @@ void func_002E48E8(void) {
 
 static int page_cursor;
 static int page_top;
-/* The page's name and one row's line, in game memory for the game's print. */
+/* The page's name, one row's line and the Planets item's name, in game memory for the game's
+ * print. */
 static gaddr page_text;
 
 static gaddr page_buffers(void) {
     if (page_text == 0) {
-        page_text = openrac_guest_static(2 * TEXT_BYTES);
+        page_text = openrac_guest_static(3 * TEXT_BYTES);
     }
     return page_text;
 }
@@ -118,6 +122,11 @@ static gaddr page_buffers(void) {
 /* The game's text lookup: the 16:9 page's name is the port page's in the boot program, whose
  * Options page it is in. A level's pages are its own (their 16:9 row says what the byte holds). */
 int func_00288FB8(int id) {
+    if (id == TEXT_PLANETS) {
+        const gaddr name = page_buffers() + 2 * TEXT_BYTES;
+        snprintf((char*)G(name), TEXT_BYTES, "Planets");
+        return (int)name;
+    }
     if (id == TEXT_WIDESCREEN && openrac_game_loaded_overlay() == OPENRAC_OVERLAY_EXE) {
         const gaddr name = page_buffers();
         openrac_game_option_word("Video", (char*)G(name), TEXT_BYTES);
@@ -179,8 +188,169 @@ static void video_rows_draw(void) {
     }
 }
 
+/*
+ * The developer mode's level select (OPENRAC_DEVELOPER, the launcher's developer tools), as Ratchet
+ * & Clank's port has it: the title's Options list gets a "Planets" item, which opens a page listing
+ * the levels by name; Cross on one starts a new game in it (tools.c, the developer menu's
+ * start_level). Without the developer mode the menus are the game's own.
+ *
+ * The Options page's enter (func_002D58A0) gives its list (the front end's block + 0x3E1D8, a list
+ * widget: func_00342380 sets its items) the items at D_00261590, 20 bytes each ({scale, text id,
+ * action, argument, 0}, ended by one without a text) of which action 3 opens the page its argument
+ * describes (func_002D5E98: g_menuScreenBlock + 0x18, the page shown next; + 0x14 the page shown).
+ * Planets is one more item of action 3, its text an id no text of the disc has (the lookup's wrap
+ * above names it), opening a copy of the 16:9 page's description: the same panel and object
+ * (func_0033C2D8 and func_0033C378 above), which show the levels while that copy is the page.
+ */
+#define OPTIONS_LIST_OFFSET 0x3E1D8u
+#define OPTIONS_ITEMS OPENRAC_DATA(0x00261590u)
+/* g_menuScreenBlock: + 0x14 the page shown, + 0x18 the next. */
+#define MENU_SCREEN OPENRAC_DATA(0x001F2840u)
+#define GUI OPENRAC_DATA(0x001A8CFCu) /* g_guiInstance: the front end's block */
+#define ITEM_BYTES 20u
+#define ITEM_TEXT 4u
+#define ITEM_ACTION 8u
+#define ITEM_ARGUMENT 12u
+#define ACTION_PAGE 3
+#define PAGE_BYTES 0x130u /* a page's description: 14 boxes, then parent, kind and objects */
+#define MAX_ITEMS 8u
+
+static gaddr planets_page;
+static gaddr planets_items;
+static int planets_cursor;
+static int planets_top;
+static int planets_level = -1;
+
+static int developer(void) {
+    const char* value = openrac_env_string("OPENRAC_DEVELOPER");
+    return value != NULL && value[0] != 0 && !(value[0] == '0' && value[1] == 0);
+}
+
+/* The levels the front end lists (tools.c), by the game's numbers: the unnamed ones are skipped. */
+static int planets_count(void) {
+    const openrac_front_end* fe = openrac_game_front_end;
+    int count = 0;
+    for (int i = 0; fe != NULL && i < fe->levels; ++i) {
+        count += fe->level_names[i] != NULL;
+    }
+    return count;
+}
+
+static int planets_nth(int n) {
+    const openrac_front_end* fe = openrac_game_front_end;
+    for (int i = 0; fe != NULL && i < fe->levels; ++i) {
+        if (fe->level_names[i] != NULL && n-- == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int planets_shown(void) {
+    return planets_page != 0 && openrac_game_loaded_overlay() == OPENRAC_OVERLAY_EXE
+           && (GREF(gaddr, MENU_SCREEN + 0x14u) == planets_page
+               || GREF(gaddr, MENU_SCREEN + 0x18u) == planets_page);
+}
+
+/* The Options items, then Planets, opening a copy of the first item's page (the 16:9 page). */
+static void planets_build(void) {
+    if (planets_items != 0) {
+        return;
+    }
+    unsigned count = 0;
+    while (count < MAX_ITEMS
+           && GREF(int32_t, OPTIONS_ITEMS + ITEM_BYTES * count + ITEM_TEXT) != 0) {
+        ++count;
+    }
+    if (count == 0 || GREF(int32_t, OPTIONS_ITEMS + ITEM_ACTION) != ACTION_PAGE) {
+        return;
+    }
+    planets_page = openrac_guest_static(PAGE_BYTES);
+    memcpy(G(planets_page), G(GREF(gaddr, OPTIONS_ITEMS + ITEM_ARGUMENT)), PAGE_BYTES);
+    planets_items = openrac_guest_static(ITEM_BYTES * (count + 2));
+    memcpy(G(planets_items), G(OPTIONS_ITEMS), ITEM_BYTES * (count + 1));
+    const gaddr item = planets_items + ITEM_BYTES * count;
+    memcpy(G(item), G(item - ITEM_BYTES), ITEM_BYTES); /* the last item's scale */
+    GREF(int32_t, item + ITEM_TEXT) = TEXT_PLANETS;
+    GREF(int32_t, item + ITEM_ACTION) = ACTION_PAGE;
+    GREF(gaddr, item + ITEM_ARGUMENT) = planets_page;
+    memset(G(item + ITEM_BYTES), 0, ITEM_BYTES);
+}
+
+int func_002D58A0(void) {
+    const int result = func_002D58A0__game();
+    const gaddr gui = GREF(gaddr, GUI);
+    /* The title's page only: a level's pause menu has its own copy of the enter. */
+    if (gui != 0 && developer() && openrac_game_loaded_overlay() == OPENRAC_OVERLAY_EXE) {
+        planets_build();
+        if (planets_items != 0) {
+            func_00342380(gui + OPTIONS_LIST_OFFSET, planets_items);
+        }
+    }
+    return result;
+}
+
+/* The level a Cross on the page chose, once (tools.c starts it at the next frame), or -1. */
+int rac2_planets_take(void) {
+    const int level = planets_level;
+    planets_level = -1;
+    return level;
+}
+
+static void planets_update(unsigned pressed, int can_choose) {
+    const int rows = planets_count();
+    if (rows <= 0) {
+        return;
+    }
+    const int was = planets_cursor;
+    if (pressed & MENU_UP) {
+        planets_cursor = planets_cursor > 0 ? planets_cursor - 1 : rows - 1;
+    } else if (pressed & MENU_DOWN) {
+        planets_cursor = planets_cursor < rows - 1 ? planets_cursor + 1 : 0;
+    } else if (pressed & MENU_LEFT) {
+        planets_cursor = planets_cursor >= PAGE_ROWS ? planets_cursor - PAGE_ROWS : 0;
+    } else if (pressed & MENU_RIGHT) {
+        planets_cursor = planets_cursor + PAGE_ROWS < rows ? planets_cursor + PAGE_ROWS : rows - 1;
+    }
+    if (planets_cursor != was) {
+        func_002E5E58(SOUND_MOVE, 0, 0);
+    }
+    if (planets_cursor < planets_top) {
+        planets_top = planets_cursor;
+    } else if (planets_cursor >= planets_top + PAGE_ROWS) {
+        planets_top = planets_cursor - PAGE_ROWS + 1;
+    }
+    if ((pressed & MENU_CROSS) != 0 && can_choose && planets_level < 0) {
+        planets_level = planets_nth(planets_cursor);
+        func_002E5E58(SOUND_CHOOSE, 0, 0);
+    }
+}
+
+static void planets_draw(void) {
+    const openrac_front_end* fe = openrac_game_front_end;
+    const gaddr line = page_buffers() + TEXT_BYTES;
+    const int rows = planets_count();
+    for (int i = 0; fe != NULL && i < PAGE_ROWS && planets_top + i < rows; ++i) {
+        const int row = planets_top + i;
+        const int level = planets_nth(row);
+        snprintf((char*)G(line), TEXT_BYTES, "%d  %s", level, fe->level_names[level]);
+        func_0027FAA8(
+            PAGE_MIDDLE,
+            PAGE_TOP + PAGE_STEP * i,
+            row == planets_cursor ? ROW_CHOSEN : ROW_OTHER,
+            line,
+            -1
+        );
+    }
+}
+
 int func_0033C2D8(gaddr object, int buttons) {
     const unsigned pressed = (unsigned)buttons;
+    if (planets_shown()) {
+        planets_update(pressed, GREF(int, object + 0x2A8) == 0);
+        func_0033C2D8__game(object, (int)(pressed & ~MENU_CROSS));
+        return (int)((pressed >> 6) & 1u);
+    }
     video_rows_update(pressed, GREF(int, object + 0x2A8) == 0);
     /* The panel's move, without the 16:9 byte's Cross. */
     func_0033C2D8__game(object, (int)(pressed & ~MENU_CROSS));
@@ -189,6 +359,15 @@ int func_0033C2D8(gaddr object, int buttons) {
 
 void func_0033C378(gaddr object) {
     func_0033AF48(object + 8);
+    /* The page's title prints the name the text lookup gave it when the page opened, which is in
+     * page_buffers(): the Planets page is a copy of this one, so the name is put there each frame. */
+    const gaddr name = page_buffers();
+    if (planets_shown()) {
+        snprintf((char*)G(name), TEXT_BYTES, "Planets");
+        planets_draw();
+        return;
+    }
+    openrac_game_option_word("Video", (char*)G(name), TEXT_BYTES);
     video_rows_draw();
 }
 

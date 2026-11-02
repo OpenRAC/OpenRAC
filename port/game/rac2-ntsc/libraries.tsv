@@ -231,6 +231,7 @@ func_L08_002F2C48	game	func_L08_002F2C48	host	the fourth draw callback list's re
 func_00288FB8	text	TextById	wrap	the text of an id: the title's 16:9 page is the port's Video page, so its name is "Video" there (host/options.c)
 func_0033C2D8	menu	WidescreenPageUpdate	wrap	the title's 16:9 options page: the port's Video rows, moved with the menus' buttons (host/options.c)
 func_0033C378	menu	WidescreenPageDraw	wrap	the title's 16:9 options page: its panel, with the port's Video rows in it (host/options.c)
+func_002D58A0	menu	OptionsPageEnter	wrap	the title's Options page as it opens (its list given its items): in the developer mode the list also has Planets, which opens the port's level select in the 16:9 page's panel (host/options.c)
 func_002D2CE8	menu	CameraPageTick	wrap	the pause menu's Camera page tick in every level (Triangle back, Start and Select close): Triangle goes back from the page's Video rows to its camera rows (host/options.c)
 func_0033C590	menu	CameraPageUpdate	wrap	the pause menu's Camera page: its 16:9 row opens the port's Video rows in the page, which move as the title's (host/options.c)
 func_0033C738	menu	CameraPageDraw	wrap	the pause menu's Camera page: the 16:9 row reads Video, or the Video rows drawn in the panel (host/options.c)
