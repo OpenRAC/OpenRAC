@@ -241,9 +241,14 @@ the ship levels and the arenas (5, 10, 15, 22, 23, 25) bake one scene grid
 glowing textures (`profiles/rac2-ntsc/emission-materials.json`: lamps, light panels, screens, a lava
 floor) into `probe-emission.json`, and nine levels bake their sun from the directional set most of
 their scenery is lit by (`light_set`). Ratchet's fur detail takes `profiles/rac2/fur.json`, the fur
-islands of his body atlas (the same mesh in every level). Not carried yet: the enhanced water
-(Novalis's tables), the lava and other liquids the levels draw through their callbacks (no bake
-input like Gaspar's) and the hands' water ripples.
+islands of his body atlas (the same mesh in every level). From format 20 the lava of levels 14 and
+19 is a bake input as Gaspar's is: its surfaces (class 4959, drawn by `func_00303070` from the third
+draw callback list over the corners `func_00303210` takes from four class 0x1130 markers) go to
+`bake-inputs/liquids.json` with their effect texture, and the ones
+`profiles/rac2-ntsc/liquids.json` reviews emit (`editor/enhanced/liquids.py`, the baker's
+`rac2_liquid_triangles`). Not carried yet: the enhanced water (Novalis's tables and hooks; this
+game's water is a camera-following sheet at one height, `func_L06_00402570` in levels 6, 8, 11, 13,
+16 and 18, and other routines in 1, 9 and 20) and the hands' water ripples.
 
 ## The texture word (TEX0)
 
