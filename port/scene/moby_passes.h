@@ -5,11 +5,12 @@
 // The GS draws every moby face with TEST 0x5360b (renderer/world/gs_pass.h): a fragment whose alpha
 // reaches 0x60 writes Z, the others colour only. The port draws the solid faces first, then the
 // glow faces (MobyProc's glow list, mode bit 0x10) in two draws split at that reference, so that a
-// near glow face hides the far ones behind it. The blended mobys are split the same way at their own
-// reference (0x60, or 0x08 for one fading at its draw distance; an added one writes no depth). Every
-// draw that writes depth comes first; then the rest of the glow, the translucent texels, the rest of
-// the blended mobys and the metal packets, which write no depth. Drawn in one blended draw without depth, the parked
-// ship's front thrusters' glow showed through its rear thrusters' light bars on Pokitaru.
+// near glow face hides the far ones behind it. The blended mobys are split the same way at their
+// own reference (0x60, or 0x08 for one fading at its draw distance; an added one writes no
+// depth). Every draw that writes depth comes first; then the rest of the glow, the translucent
+// texels, the rest of the blended mobys and the metal packets, which write no depth. Drawn in one
+// blended draw without depth, the parked ship's front thrusters' glow showed through its rear
+// thrusters' light bars on Pokitaru.
 
 #pragma once
 

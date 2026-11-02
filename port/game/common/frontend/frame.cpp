@@ -1147,11 +1147,6 @@ std::optional<std::array<float, 8>> moby_point_light(
 // address and joints, the joint palette they index, the hero's shadow, and the mobys the game
 // drew into a texture.
 
-// Reads the live mobys this tick: which are drawn, how (blend, light, colour, the camera they
-// were drawn with) and in what pose, and the hero's shadow. Mobys the game drew but did not list
-// are added to `state`. `world_ran`, `only_own_camera`: the world renderers ran this tick, and
-// only mobys with a camera of their own were drawn without them; `under_menu`: that world is a
-// level's under a menu (world_under_menu); `debug`: OPENRAC_DEBUG.
 // "Scenery detail: Original": ShrubProc's choice for the tick, from the camera the game's world
 // renderers left in memory (`world_ran`, not under a menu); none to keep the last tick's, empty
 // with the setting off.
@@ -1168,6 +1163,11 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
     return g->profile->shrub_draws(ram, openrac_game_loaded_overlay());
 }
 
+// Reads the live mobys this tick: which are drawn, how (blend, light, colour, the camera they
+// were drawn with) and in what pose, and the hero's shadow. Mobys the game drew but did not list
+// are added to `state`. `world_ran`, `only_own_camera`: the world renderers ran this tick, and
+// only mobys with a camera of their own were drawn without them; `under_menu`: that world is a
+// level's under a menu (world_under_menu); `debug`: OPENRAC_DEBUG.
 TickMobys pose_mobys(
     std::span<const std::uint8_t> ram,
     host::GameState& state,
