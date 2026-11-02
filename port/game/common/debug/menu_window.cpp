@@ -265,8 +265,7 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
     }
     // At its foot, over a hairline: what draws the picture, and how to get back to the game.
     ImFont* body = menu_fonts.body;
-    const std::string keys =
-        menu_key_label() + ", or a controller's Select + Start: this menu";
+    const std::string keys = menu_key_label() + ", or a controller's Select + Start: this menu";
     const float line = body->FontSize * 1.4f;
     const float foot = b.y - pad - line * 2.0f;
     list->AddLine(
@@ -668,7 +667,6 @@ void menu_window(const Shown& shown) {
             dp(160.0f),
             dp(16.0f)
         );
-        const ImU32 none = ui_colors::fade(ui().amber, 0.0f);
         list->AddRect(at, b, ui().line, dp(16.0f));
         const float rows_w = std::floor(width * 0.62f);
         MenuMotion& m = s.menu_motion;
@@ -765,24 +763,6 @@ void menu_window(const Shown& shown) {
         ImGui::EndChild();
         ImGui::PopStyleVar(2);
         help_pane(ImVec2(at.x + rows_w, at.y), b, tab.mod >= 0);
-        // A line of the accent along the top edge, brightest in the middle.
-        const float mid = (at.x + b.x) * 0.5f;
-        list->AddRectFilledMultiColor(
-            ImVec2(at.x + dp(24.0f), at.y),
-            ImVec2(mid, at.y + dp(2.0f)),
-            none,
-            ui().amber,
-            ui().amber,
-            none
-        );
-        list->AddRectFilledMultiColor(
-            ImVec2(mid, at.y),
-            ImVec2(b.x - dp(24.0f), at.y + dp(2.0f)),
-            ui().amber,
-            none,
-            none,
-            ui().amber
-        );
     }
     ImGui::End();
     ImGui::PopFont();
