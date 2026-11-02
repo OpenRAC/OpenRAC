@@ -125,6 +125,7 @@ class Format:
     moby_sound_remap: bool = False      # +0xb4 starts a core block (Going Commando, Up Your Arsenal)
     stash: bool = False                 # +0x84 counts GS RAM entries of permanently stashed moby textures
     maps_in_textures: bool = False      # the chrome and glass maps' pixels are in the texture data (Going Commando)
+    ship_paint_slots: bool = False      # a face on an empty texture slot wears the ship's picture (Going Commando)
     compact_vertex_table: bool = False  # moby packets' vertex table header: 8 u16 (else 8 u32)
     swizzled_textures: bool = False     # 8-bit textures stored in the GS's PSMT8 order (Deadlocked)
     skeleton_3x4: bool = False          # moby bind matrices are 3x4 (Deadlocked), not 4x4
@@ -203,7 +204,8 @@ RAC1 = Format("rac1", "Ratchet & Clank", ties=0x34, shrubs=0x3c, mobys=0x44, mob
               tie_ambient=True, gadgets=True, lighting=True, class_names=True, packable=True,
               level_names=LEVEL_NAMES["rac1"])
 RAC2 = Format("rac2", "Ratchet & Clank: Going Commando", ties=0x34, shrubs=0x40, mobys=0x4c, moby=GC_MOBY,
-              tie_header=GC_TIE, moby_sound_remap=True, maps_in_textures=True, level_names=LEVEL_NAMES["rac2"],
+              tie_header=GC_TIE, moby_sound_remap=True, maps_in_textures=True, ship_paint_slots=True,
+              level_names=LEVEL_NAMES["rac2"],
               **LATER)
 RAC3 = Format("rac3", "Ratchet & Clank: Up Your Arsenal", ties=0x34, shrubs=0x40, mobys=0x4c, moby=UYA_MOBY,
               tie_header=UYA_DL_TIE, moby_sound_remap=True, sky_short_shells=True,

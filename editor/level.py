@@ -189,7 +189,9 @@ def textures(level: Level, gs: bytes) -> dict[tuple[str, int], Texture]:
     for key, at, size in ((("metal", -2), 0x90, 128), (("metal", -3), 0x98, 64)):
         pixels, palette = unpack("<II", level.index, at)
         if fmt.maps_in_textures:
-            result[key] = Texture(size, size, span(level.core, base + pixels, size * size), span(gs, palette, 1024))
+            if base + pixels + size * size <= len(level.core) and palette + 1024 <= len(gs):
+                result[key] = Texture(size, size, span(level.core, base + pixels, size * size),
+                                      span(gs, palette, 1024))
         elif pixels and pixels + size * size <= len(gs) and palette + 1024 <= len(gs):
             result[key] = Texture(size, size, span(gs, pixels, size * size), span(gs, palette, 1024))
     return result
@@ -387,6 +389,7 @@ def load_wad_flight(source, number: int) -> Level:
     level.hero_mesh, pack = source.hero_pack()
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture
+    level.textures[("moby", SHIP_TEXTURE)] = record_texture(source.ship_texture(), 0)
     return level
 
 
