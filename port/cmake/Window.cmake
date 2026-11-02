@@ -790,6 +790,7 @@ openrac_warnings(gtao_horizon_test)
 add_test(NAME gtao_horizon_cpu COMMAND gtao_horizon_test --cpu)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME gtao_horizon_vulkan COMMAND gtao_horizon_test)
+  target_compile_definitions(gtao_horizon_test PRIVATE OPENRAC_VULKAN=1)
   # This long arithmetic matrix amortises LLVM optimisation and benefits from faster shaders.
   set_tests_properties(gtao_horizon_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;GALLIVM_PERF=")
