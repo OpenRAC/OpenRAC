@@ -148,6 +148,13 @@ many bytes can be another field in another level: it reads what the running copy
   0x10 (the lift button's grey pulse and green, lamps, eyes). The export marks them light slot -2
   (`Format.moby_glow_tail`) and writes the gameplay file's 16 light sets the mobys are lit with
   (`Format.moby_lights`); format 9.
+- Tie colours: no 64 slot colours in the instance record. The gameplay file's header word 0x94
+  holds one entry per instance (a base colour and shift, then 5:5:5:1 slot colours); the game lights
+  the slots with the instance's directional set and spreads them over the vertices through the
+  class's remap table (PatchTieVertexLighting, 0x2F3E78). `editor/gc_tie_colours.py` does the same,
+  byte for byte against retail's vertex colour cache in level 3 (point lights left out), and each
+  placement's `colours` is one per vertex, a vertex's light slot its place in that list
+  (`tie_vertex_colours` in the manifest); format 10.
 - The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
   the display as in Ratchet & Clank.
 - `split_places.tsv`: the catalogue names the levels' copies of the draw callback lists apart from

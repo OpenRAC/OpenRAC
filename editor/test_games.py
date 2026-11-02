@@ -115,6 +115,14 @@ def gc_tie(winding: int = 0, game=RAC2) -> bytearray:
     data[0x0c], data[0x0f] = count, textures
     struct.pack_into("<I", data, 0x1c, gifs)
     data[0xaf] = winding  # The first strip's last byte.
+    # Packet byte 10 is the packet's vertex (colour) count from Going Commando on.
+    table, = struct.unpack_from("<I", data, 0)
+    for p in range(count):
+        entry = table + 16 * p
+        start = table + struct.unpack_from("<I", data, entry)[0]
+        dinky = data[start + 0x28]
+        fat = (data[entry + 9] * 16 - (dinky - 4) * 8) // 24
+        data[entry + 10] = (dinky - 4) // 2 + fat
     return data
 
 
@@ -123,7 +131,10 @@ class ReaderTests(unittest.TestCase):
         rac1 = tie_mesh(test_ties.fixture(), test_ties.REMAP, "tie")
         rac2 = tie_mesh(gc_tie(), test_ties.REMAP, "tie", RAC2)
         self.assertEqual((rac2.positions, rac2.faces), (rac1.positions, rac1.faces))
-        self.assertEqual(set(rac2.light_slots), {0})  # Not read for the later games.
+        # Going Commando: a vertex's place in its class's colour run, each packet's vertices in
+        # their own order after the packets before (a vertex written twice keeps its one place).
+        self.assertEqual(sorted(set(rac2.light_slots)), list(range(len(set(rac2.light_slots)))))
+        self.assertEqual(set(tie_mesh(gc_tie(), test_ties.REMAP, "tie", RAC3).light_slots), {0})
         with self.assertRaises(Exception):
             tie_mesh(gc_tie(winding=32), test_ties.REMAP, "tie", RAC2)  # Going Commando: 0 or 1 only.
         turned = tie_mesh(gc_tie(winding=32), test_ties.REMAP, "tie", RAC3)

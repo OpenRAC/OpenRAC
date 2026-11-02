@@ -42,7 +42,7 @@ inline constexpr int kManifestFormat = 4;
 // layout, so the reader takes all from kManifestFormat up; which levels are read again is the
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture.
-inline constexpr int kManifestFormatNewest = 9;
+inline constexpr int kManifestFormatNewest = 10;
 
 struct Vertex {
     float position[3];
@@ -120,7 +120,8 @@ struct Instance {
     // A live moby's joint palette: the first of its matrices in the scene's palette
     // (LevelScene::set_palette); -1 draws the mesh as stored (its bind pose).
     int palette = -1;
-    // A lit tie or shrub: the first of its 64 (24) colours in LevelData::light_colours; -1 none.
+    // A lit tie or shrub: the first of its 64 (24) colours in LevelData::light_colours (a Going
+    // Commando tie: one per vertex of its class); -1 none.
     int lights = -1;
     // A live moby lit as the game lights it: its light word (set 0, set 1, the cross-fade
     // 0..1; w = 1 to light it) and its ambient colour (RGB bytes / 128).
