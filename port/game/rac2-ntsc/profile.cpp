@@ -258,6 +258,7 @@ public:
     bool own_mobys_split_the_2d() const override { return true; }
 
     bool images_outlast_list() const override { return true; }
+    bool repeated_ticks_send_images() const override { return true; }
 
     bool mobys_take_point_lights() const override { return true; }
 
