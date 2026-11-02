@@ -110,6 +110,14 @@ constexpr std::int32_t kWrenchClass = 71;
 constexpr std::int32_t kWrenchFormClasses = 6020;
 constexpr std::uint32_t kWrenchForm = 0x001A72C0;
 
+// His ship's hull is loaded over class 3412 on each load, by the hull he has (func_002925F0, which
+// keeps its number at +0x18 of 0x00152C00). The export has hull 0 as the class and the others as
+// classes of their own (editor/moby_class.py, SHIP_BODY_CLASSES).
+constexpr std::int32_t kShipClass = 3412;
+constexpr std::int32_t kShipBodyClasses = 6030;
+constexpr std::uint32_t kShipBody = 0x00152C18;
+constexpr std::int32_t kShipBodies = 3;
+
 // A class's bangles: parts of its mesh past its LOD lists, which a moby draws by the bits of its
 // bangle word (+0x7C, an s16; MobyProc, func_002A4E68 at 0x2A5E78): bit 15 clear, the class's mesh
 // and the bangles of the bits set; set, those bangles alone (bangle 0 for none). A broken crate's
@@ -174,6 +182,9 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     } else if (live.class_id == kWrenchClass) {
         const auto form = at<std::int32_t>(ram, kWrenchForm);
         live.model_class = form > 0 && form < 3 ? kWrenchFormClasses + form : -1;
+    } else if (live.class_id == kShipClass) {
+        const auto body = at<std::int32_t>(ram, kShipBody);
+        live.model_class = body > 0 && body < kShipBodies ? kShipBodyClasses + body : -1;
     }
     live.occlusion = at<std::uint16_t>(ram, m + 0x36);
     std::array<float, 4> sphere;

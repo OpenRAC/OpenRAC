@@ -62,8 +62,9 @@ FORMAT = 4
 # holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
 # of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
 # 9: the mobys' glow vertices and their light sets. 10: the ties' vertex colours. 11: the classes'
-# bangles as classes of their own (the broken crates' and destroyed enemies' pieces).
-GAME_FORMATS = {"rac2": 11}
+# bangles as classes of their own (the broken crates' and destroyed enemies' pieces). 13: his ship's
+# hulls in every level, as the game loads them on each level's load, not only in the flights.
+GAME_FORMATS = {"rac2": 13}
 
 
 def levels_format(game: str) -> int:

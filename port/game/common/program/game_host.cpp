@@ -190,6 +190,19 @@ void openrac_game_draw(unsigned layers) {
     });
 }
 
+void openrac_game_world_view(void) {
+    c_boundary::call("openrac_game_world_view", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            const auto* ram = runtime::Memory::get().base();
+            frontend::world_drawn(
+                std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size())
+            );
+        }
+#endif
+    });
+}
+
 void openrac_game_world_under_menu(void) {
     c_boundary::call("openrac_game_world_under_menu", [&] {
 #ifdef OPENRAC_FRONTEND

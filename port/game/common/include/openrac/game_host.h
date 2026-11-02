@@ -582,6 +582,11 @@ void openrac_game_draw(unsigned layers);
  * 2D goes over that world, and the mobys it draws with its own camera (its frame objects) are drawn
  * on the screen at their place in its 2D, with that camera, after the world's depth is cleared. */
 void openrac_game_world_under_menu(void);
+
+/* The frame's world is being drawn now, with the camera the game holds: as the terrain's draw names
+ * it (openrac_game_draw), for a game whose world can have no terrain (Going Commando's flights and the
+ * scenes played in them), named at its sky. The first world drawn in a frame keeps its camera. */
+void openrac_game_world_view(void);
 /* Rendering notification only: an explicit gameplay write to a moby's RGB. */
 void openrac_game_moby_colour(gaddr object, unsigned colour);
 

@@ -141,7 +141,11 @@ many bytes can be another field in another level: it reads what the running copy
   takes one out, each a class and one texture. Every level exports them all, textures `moby_1203.png`
   on. The wrench (class 71, level has its skeleton) is packs 9 to 11, `moby_1200.png` to `moby_1202.png`,
   its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0,
-  paint 0 only, `moby_1300.png`. Levels of this game are format 9 (`editor/port.py`, `GAME_FORMATS`).
+  paint 0 only, `moby_1300.png`. Its hull is the disc's too (RC2.HDR +0x48D8, three of them): every
+  level's load and every flight's loads it over the class (`func_002925F0`, by the low bits of
+  `0x001A7AF0`), and most levels' tables have no class 3412 of their own, so parked ships drew their
+  wings and canopy only. The export has hull 0 as class 3412 in every level, hulls 1 and 2 as 6031 and
+  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 9 (`editor/port.py`, `GAME_FORMATS`).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
   pixels are the first two pictures of the texture data (128 x 128 at +0, 64 x 64 at +0x4000, moby
   textures from +0x5000), not in the GS RAM lump as in Ratchet & Clank; the CLUTs are the lump's first
@@ -177,7 +181,13 @@ many bytes can be another field in another level: it reads what the running copy
 The flight to a planet is not the level's: `func_002EAB18` loads one of four lumps (RC2.HDR +0x3E58, by
 `g_loadingSceneVariant`) with a sky, mobys and textures of its own, and `func_002E8BA8` draws it while
 `g_exitSceneMode` is 2 and the game state 6. They export as levels 98 down to 95, read as rac1's lump, and
-`openrac_game_flight` (host/tools.c) makes the window draw that world.
+`openrac_game_flight` (host/tools.c) makes the window draw that world. A level's exit can play a scene in
+that world before the next program loads: level 0's ends so (game state 2, then 1, then 6), and the
+scene's draw draws the world bound, the lump's. `g_exitSceneMode` stays 2 into the next level, whose
+opening scene is its own world, so the port takes the lump's world while the sky bound (`g_pSkyData`) is
+the lump's (`g_memoryArenaTable` +0x18 the lump, sky at its data base plus its +0x48 word). A flight
+draws no terrain, so the sky's draw names the world's camera (`openrac_game_world_view`): at the frame's
+end the game holds another view's, the cockpit screen's moby (class 2714, its own list and camera).
 
 ## The texture word (TEX0)
 

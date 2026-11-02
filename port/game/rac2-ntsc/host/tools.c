@@ -160,10 +160,29 @@ static int game_mode(uint32_t* mode) {
     return 1;
 }
 
+/* The flight's lump is the world the game draws while the sky bound is the lump's: func_002EAB18
+ * decompresses it at the arena's header place (+0x18) and binds the sky at the lump's data (header
+ * +4) plus its +0x48 word. A level's load binds its own sky, elsewhere. */
+#define ARENA_HEADER 0x18u
+#define LUMP_DATA 0x04u
+#define LUMP_SKY 0x48u
+
+static int flight_bound(void) {
+    const uint32_t lump = GREF(uint32_t, OPENRAC_DATA(RAC2_g_memoryArenaTable) + ARENA_HEADER);
+    if (lump == 0) {
+        return 0;
+    }
+    const uint32_t sky = GREF(uint32_t, OPENRAC_DATA(RAC2_g_pSkyData));
+    return sky == lump + GREF(uint32_t, lump + LUMP_DATA) + GREF(uint32_t, lump + LUMP_SKY);
+}
+
 /* While a program loads, func_002EA8E8 draws by g_exitSceneMode: 2 is the flight (func_002E8BA8), whose
- * sky and mobys are the lump func_002EAB18 loaded, not the level's. */
+ * sky and mobys are the lump func_002EAB18 loaded, not the level's. A level's exit can play a scene in
+ * that world before the next program loads (level 0's ends so: game state 2, then 1, then 6 again), and
+ * the scene's draw (func_0027C480's copy) draws the world bound, the lump's. g_exitSceneMode stays 2 into
+ * the next level, whose opening scene is its own world: the bound sky tells them apart. */
 static int flight(void) {
-    if (game_state() != 6 || GREF(int16_t, RAC2_g_exitSceneMode) != 2) {
+    if (GREF(int16_t, RAC2_g_exitSceneMode) != 2 || (game_state() != 6 && !flight_bound())) {
         return -1;
     }
     return GREF(int16_t, RAC2_g_loadingSceneVariant);
