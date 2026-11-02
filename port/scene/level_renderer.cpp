@@ -15,6 +15,7 @@
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
+#include "renderer/world/gs_pass.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer_internal.h"
@@ -1316,9 +1317,10 @@ void LevelScene::draw_layer(
         glUniform1i(program->uniform("opaque_solid"), solid ? 1 : 0);
         // The cutout materials' opaque texels (static layers).
         const bool cutouts = !mobys && pass == 1;
-        // The blended mobys' pass: their whole models, all texels, at their alpha (blend 1:
-        // ALPHA 0x44, (Cs - Cd) As + Cd) or added (blend 2: 0x48, Cs As + Cd), depth tested and
-        // not written, as ReRAC draws MobyProc's translucent and additive groups.
+        // The blended mobys' pass: their whole models, all texels, at their alpha (blend 1, and 3
+        // fading at the draw distance: ALPHA 0x44, (Cs - Cd) As + Cd) or added (blend 2: 0x48,
+        // Cs As + Cd), depth tested, as ReRAC draws MobyProc's translucent, fading and additive
+        // groups: the texels at or above the moby's alpha reference write depth, the rest not.
         const bool effects = mobys && pass == 3;
         // The metal packets: blended over the moby with ALPHA 0x44, depth tested and not written,
         // pulled a little toward the camera (MobyProc adds 1000 to their GS Z; mesh.vert).
@@ -1346,6 +1348,10 @@ void LevelScene::draw_layer(
         for (std::size_t gi = 0; gi < groups.size(); ++gi) {
             Group& g = groups[gi];
             if (!visible[gi] || (!metal && (g.blend != 0) != effects)) {
+                continue;
+            }
+            // An added moby writes no depth: all of it is drawn in the second half.
+            if (effects && glow_split == 1 && g.blend == 2) {
                 continue;
             }
             // Inspection includes blended and chrome geometry in the selected frustum filter.
@@ -1390,6 +1396,15 @@ void LevelScene::draw_layer(
                 );
             }
             glUniform1i(program->uniform("effect_additive"), effects && g.blend == 2 ? 1 : 0);
+            // The blended moby's TEST_1 reference (mesh.frag's split): AREF 0x08 while it fades at
+            // its draw distance (blend 3), else the world's 0x60.
+            glUniform1f(
+                program->uniform("effect_reference"),
+                static_cast<float>(
+                    g.blend == 3 ? renderer::world::kArefMobyFading
+                                 : renderer::world::kArefWorld
+                ) / 128.0f
+            );
             glUniform1i(program->uniform("probe_effect"), g.blend == 2 ? 1 : 0);
             glUniform1i(program->uniform("hero_shadow_receiver"), g.hero_shadow_caster ? 1 : 0);
             glUniform1i(

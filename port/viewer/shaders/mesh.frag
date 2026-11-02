@@ -35,9 +35,11 @@ const float kWorldAlphaReference = 96.0 / 128.0;
 // Cutout materials in two passes, as the GS draws them (alpha test GEQUAL 0x80, failing pixels
 // written as colour only): 0 the opaque texels, with depth; 1 the translucent ones, blended.
 uniform int translucent_pass;
-// Mobys MobyProc blends (an explosion's flash, a fading pickup): every face and texel, its alpha
-// the texel's times the moby's (the tint), blended by the pass.
+// Mobys MobyProc blends (an explosion's flash, a fading pickup, one at its draw distance): every
+// face and texel, its alpha the texel's times the moby's (the tint), blended by the pass. Split by
+// glow_split at the moby's alpha reference (TEST_1 AREF: 0x60, or 0x08 fading), as the glow pass.
 uniform int effect_pass;
+uniform float effect_reference;
 // The additive ones (mode bit 0x200, Cs * As + Cd): the shader weighs Cs by As itself, as the GS
 // reaches about 2.0 (0xFF) where GL's SRC_ALPHA stops at 1; drawn with ONE, ONE.
 uniform int effect_additive;
@@ -422,6 +424,9 @@ void main() {
     vec4 c = texel * v_colour * material_colour;
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (effect_pass != 0) {
+        if (glow_split != 0 && (c.a >= effect_reference) != (glow_split == 1)) {
+            discard;
+        }
         vec3 e = min(c.rgb, vec3(1.0));
         e = probe_surface(texel, e);
     #ifdef OPENRAC_ATMOSPHERE

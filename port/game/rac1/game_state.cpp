@@ -181,6 +181,34 @@ bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& e
     return side2 > reach * reach;
 }
 
+std::uint8_t moby_distance_fade(
+    const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
+) {
+    float sphere[4];
+    std::memcpy(sphere, moby, sizeof(sphere));
+    std::int16_t distance;
+    std::memcpy(&distance, moby + 0x32, sizeof(distance));
+    if (!std::isfinite(sphere[0]) || !std::isfinite(sphere[1]) || !std::isfinite(sphere[2])
+        || !std::isfinite(sphere[3])
+        || (sphere[0] == 0.0f && sphere[1] == 0.0f && sphere[2] == 0.0f && sphere[3] == 0.0f)) {
+        return 0x80;
+    }
+    // MobyProc works in the sphere's 1/1024 units: (dd << 10 - r) - (v.z - r), the same sum that
+    // culls the moby once it goes below zero, truncated and shifted down by 7, so that the last 16
+    // units of the draw distance fade it out linearly (ReRAC's moby_lod.rs).
+    const float to[3] =
+        {sphere[0] - eye[0] * 1024.0f, sphere[1] - eye[1] * 1024.0f, sphere[2] - eye[2] * 1024.0f};
+    const float depth = (forward[0] * to[0] + forward[1] * to[1]) + forward[2] * to[2];
+    const float radius = std::fabs(sphere[3]);
+    const float far = (static_cast<float>(static_cast<std::int32_t>(distance) * 1024) - radius)
+                      - (depth - radius);
+    if (!(far > 0.0f)) {
+        return 0;
+    }
+    const auto units = static_cast<std::uint32_t>(std::min(far, 2147483520.0f));
+    return static_cast<std::uint8_t>(std::min<std::uint32_t>(units >> 7, 0x80));
+}
+
 host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses& a) {
     host::GameState s;
     s.camera_position = vec3(ram, a.camera_position);

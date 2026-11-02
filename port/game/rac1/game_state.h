@@ -79,6 +79,20 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
  */
 bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward);
 
+/**
+ * MobyProc's distance fade of a moby it draws, as ReRAC's moby_lod.rs replays it: 0x80 nearer than
+ * 16 units inside its draw distance (+0x32), falling linearly to 0 at it. The moby's vertex alpha is
+ * this times its alpha byte (+0x23) >> 7, and below 0x80 the game draws it with the fading TEST_1
+ * (AREF 0x08).
+ *
+ * @param moby The moby's 0x100 bytes.
+ * @param eye The camera's position, game units.
+ * @param forward The camera's view direction (unit).
+ */
+std::uint8_t moby_distance_fade(
+    const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
+);
+
 /** The display list of the frame being shown (the buffer VU1_swapChain retired last). */
 std::uint32_t shown_chain(std::span<const std::uint8_t> ram, const GameAddresses& a);
 

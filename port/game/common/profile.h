@@ -133,6 +133,16 @@ public:
         return false;
     }
 
+    // The game's distance fade of a moby it draws (`moby`, `eye` and `forward` as for
+    // beyond_draw_distance()), in the GS's units: 0x80 none, 0 at the draw distance.
+    virtual std::uint8_t distance_fade(
+        const std::uint8_t* /*moby*/,
+        const renderer::Vec3& /*eye*/,
+        const renderer::Vec3& /*forward*/
+    ) const {
+        return 0x80;
+    }
+
     // Returns the game address of the display list of the frame being shown: the one of the
     // game's two list buffers it is not building; 0 when none is known. `level` as for
     // read_state(). Not asked of a game that sends_display_list().

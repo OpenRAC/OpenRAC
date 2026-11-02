@@ -131,7 +131,8 @@ struct Instance {
     std::array<float, 4> moby_light{0.0f, 0.0f, 0.0f, 0.0f};
     std::array<float, 4> moby_ambient{0.5f, 0.5f, 0.5f, 1.0f};
     // How a live moby is blended, as MobyProc picks it (the explosions' flashes and fireballs,
-    // a pickup fading in): 0 drawn as it is, 1 blended at its alpha (tint's w), 2 added.
+    // a pickup fading in): 0 drawn as it is, 1 blended at its alpha (tint's w), 2 added, 3 blended
+    // at its alpha with the fading alpha test (fading out towards its draw distance).
     int blend = 0;
     bool hero_shadow_caster = false;  // live hero and attached equipment; excluded from sun casters
     // Explicit initial-state bake selection, never inferred from lack of a skeleton.

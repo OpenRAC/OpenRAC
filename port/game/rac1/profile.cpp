@@ -207,6 +207,12 @@ public:
         return moby_beyond_draw_distance(moby, eye, forward);
     }
 
+    std::uint8_t distance_fade(
+        const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
+    ) const override {
+        return moby_distance_fade(moby, eye, forward);
+    }
+
     std::uint32_t shown_chain(std::span<const std::uint8_t> ram, int level) const override {
         return rac1::shown_chain(ram, addresses(level));
     }

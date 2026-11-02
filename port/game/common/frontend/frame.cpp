@@ -1295,12 +1295,12 @@ TickMobys pose_mobys(
         // spheres thousands of units away, so the game never draws them, while drawn here they
         // covered the sky in cyan. A moby the game draws with a camera of its own (the menus', the
         // vendor's) is not the world camera's to cull.
-        if (!extra && world_ran && m.address + 0x34 <= ram.size()
-            && std::none_of(
-                g->moby_cameras.begin(),
-                g->moby_cameras.end(),
-                [&](const auto& c) { return c.first == m.address; }
-            )
+        const bool world_camera =
+            !extra && world_ran && m.address + 0x34 <= ram.size()
+            && std::none_of(g->moby_cameras.begin(), g->moby_cameras.end(), [&](const auto& c) {
+                   return c.first == m.address;
+               });
+        if (world_camera
             && g->profile->beyond_draw_distance(
                 ram.data() + m.address, state.camera_position, state.forward
             )) {
@@ -1350,13 +1350,20 @@ TickMobys pose_mobys(
         if (!cls->second.second && g->level.overridden_models == 0) {
             instance.world_sphere = m.world_sphere;
         }
-        // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw): mode bit 0x200
-        // (+0x34) adds it; an alpha (+0x23) below 0x80 blends it at that alpha (the explosions'
-        // flashes start at 0x20..0x40 and fade out; a fireball can be spawned below 0x80).
+        // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
+        // its alpha byte (+0x23) times its distance fade (GameProfile::distance_fade: the last 16
+        // units of its draw distance) >> 7. Mode bit 0x200 (+0x34) adds it; the fade below 0x80 or
+        // mode bit 8 blends it with the fading alpha test (blend 3: Z written from As 0x08, so a
+        // far moby comes in gradually instead of at once); else a vertex alpha below 0x80 blends it
+        // at that alpha (the explosions' flashes start at 0x20..0x40 and fade out; a fireball can
+        // be spawned below 0x80).
         if (m.address + 0x36 <= ram.size()) {
             const std::uint8_t* b = ram.data() + m.address;
             const unsigned mode = b[0x34] | b[0x35] << 8;
-            const unsigned alpha = b[0x23];
+            const unsigned fade =
+                world_camera ? g->profile->distance_fade(b, state.camera_position, state.forward)
+                             : 0x80u;
+            const unsigned alpha = (fade * b[0x23]) >> 7;
             // Its shine distance (+0x73, 0x18 for a class with metal packets, 32 for the Gadgetron
             // logo) for the metal pass, in the tie-only `lights` slot as -1 - distance (mesh.vert).
             if (b[0x73] != 0) {
@@ -1364,6 +1371,9 @@ TickMobys pose_mobys(
             }
             if ((mode & 0x200) != 0) {
                 instance.blend = 2;
+                instance.tint[3] = static_cast<float>(alpha) / 128.0f;
+            } else if (fade < 0x80 || (mode & 8) != 0) {
+                instance.blend = 3;
                 instance.tint[3] = static_cast<float>(alpha) / 128.0f;
             } else if (alpha < 0x80) {
                 instance.blend = 1;
