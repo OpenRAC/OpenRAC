@@ -363,6 +363,13 @@ to 222.31 s; its partner took 205.20 s. These are single samples of test wall ti
 timings or a cross-driver guarantee. Scene-owned entries keep all seven scenarios, eight frames
 and both rendering modes, with their existing tolerances.
 
+The spatial GTAO matrix also opts into immutable program retention after its fresh-driver
+lazy-quality compilation assertions. `gtao_test --fresh-programs` runs the same rendering checks
+without retention for paired timings. Two alternating cold-cache software Vulkan pairs with
+validation, `GALLIVM_PERF=nopt` and two Mesa workers averaged 107.62 s fresh versus 66.11 s
+retained. Driver creation calls fell from 253-254 to 49; all scene assertions were preserved.
+These local test timings varied with host load and are not game GPU measurements.
+
 Linux CI also retains Mesa's driver-keyed shader cache between runs, capped at 1 GiB per job.
 The enhanced Ubuntu job uses `GALLIVM_PERF=nopt` to reduce Mesa's LLVM compilation cost for
 these short runs. Shaders, geometry, validation and image comparisons still execute. Its cache
