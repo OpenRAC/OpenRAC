@@ -47,6 +47,7 @@ void func_001F7EF8(gaddr a0, int a1, int a2) {
     memcpy(&q.alpha, r + 0x88, 8);
     q.pixels = 0;
     q.clut = 0;
+    q.id = 0;
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
     openrac_game_effect_quad(&q);
 }

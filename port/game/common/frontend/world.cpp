@@ -451,6 +451,7 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     q.tex0 = quad.tex0;
     q.tex1 = quad.tex1;
     q.alpha = quad.alpha;
+    q.id = quad.id;
     const std::uint32_t pixels = quad.pixels & 0x01FFFFFF;
     const std::uint32_t clut = quad.clut & 0x01FFFFFF;
     const std::uint32_t tbp = static_cast<std::uint32_t>(quad.tex0 & 0x3FFF);
@@ -507,6 +508,13 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         // renderer leaves the quad out when nothing is there.
         g->effects.push_back(q);
     }
+}
+
+std::uint32_t effect_quad_marker() {
+    if (!g || g->effects.empty() || g->effects.size() > 0xFFFFF) {
+        return 0;
+    }
+    return (g->effect_generation & 0xFFF) << 20 | static_cast<std::uint32_t>(g->effects.size() - 1);
 }
 
 void effect_textures() {
@@ -698,11 +706,13 @@ void particle(
     const std::uint8_t* record,
     std::uint32_t pixels,
     std::uint32_t clut,
-    int log2_side
+    int log2_side,
+    std::uint32_t id
 ) {
     (void)ram;
     State::Particle p;
     std::memcpy(p.record.data(), record, p.record.size());
+    p.id = id;
     p.pixels = pixels & 0x01FFFFFF;
     p.clut = clut & 0x01FFFFFF;
     p.log2_side = log2_side;
@@ -1034,6 +1044,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         q.clamp = 5;
         q.tex1 = 0xFF9000000120ull;
         q.alpha = r[3];
+        q.id = p.id;
         items.push_back({z, q});
     }
     stats::gauge("particle texture resolves", double(texture_resolves));

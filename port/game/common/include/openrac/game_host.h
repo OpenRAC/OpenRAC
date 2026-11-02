@@ -615,9 +615,20 @@ typedef struct openrac_game_quad {
     /* Where those two were found: 1 this frame's paging records, 2 the sources the same TEX0 had
      * when it was last paged in, 0 nowhere. */
     uint32_t source;
+    /* A stable identity for the thing the quad draws (a record or a pool slot), the same from one
+     * tick to the next, or 0 for none. With GameProfile::interpolates_effect_quads, a quad drawn
+     * between ticks is moved part way from the last tick's quad of the same id. */
+    uint32_t id;
 } openrac_game_quad;
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
+
+/* The marker of the quad just given to openrac_game_effect_quad, for the display list: the game
+ * puts (OPENRAC_EFFECT_QUAD_MARKER << 48 | marker) in it with an A+D write to the NOP register
+ * where the console's quad packet would have gone, and the window draws that quad with the TEST
+ * and ZBUF the list left in effect there. 0 when there is none (no window, or no quad). */
+#define OPENRAC_EFFECT_QUAD_MARKER 0x4551u
+uint32_t openrac_game_effect_quad_marker(void);
 
 /* World-space explosion; optional visual water response, with no gameplay side effects. */
 void openrac_game_water_explosion(const float position[3], float radius, float strength);
@@ -678,8 +689,12 @@ const unsigned char* openrac_game_fix(const char* key);
  * line or ribbon; +0x10 position, +0x1C a ribbon's half width; +0x20 a line or ribbon's other end,
  * +0x2C its width factor) and where its texture is in the game's memory (PSMT8 pixels, 1 << log2_side a
  * side, 16 x 16 PSMCT32 CLUT; 0 for none). The window draws the frame's particles after the effect quads,
- * back to front (renderer/effects.h). */
-void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side);
+ * back to front (renderer/effects.h). `id`: what the particle is from one tick to the next (its slot,
+ * or for one the game makes anew each tick, what it is attached to), or 0 for none; with
+ * GameProfile::interpolates_effect_quads a frame between ticks moves it from the last tick's. */
+void openrac_game_particle(
+    const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side, uint32_t id
+);
 
 /* A sky sprite (rac1: SkySpriteProc, the stars and glows between the sky shells): its 0x20-byte
  * record (+0x03 ALPHA_1's low byte, +0x04 RGBA, +0x08 rotation in radians, +0x10 position around

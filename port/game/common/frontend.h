@@ -55,6 +55,9 @@ void water_explosion(const float* position, float radius, float strength);
 
 // A world effect quad the game drew this frame (openrac_game_effect_quad).
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad);
+// The marker of the quad effect_quad took last (openrac_game_effect_quad_marker): the tick's
+// generation in its top 12 bits, the quad's index in the tick in the low 20; 0 for none.
+std::uint32_t effect_quad_marker();
 // A sky shell the game drew this frame, with its matrix (openrac_game_sky_shell).
 void sky_shell(int shell, const float* matrix);
 
@@ -74,8 +77,14 @@ float picture_wider();
 void sky_sprite(const std::uint8_t* record, std::uint64_t tex0);
 
 // A live particle the game drew this frame (openrac_game_particle).
-void particle(std::span<const std::uint8_t> ram, const std::uint8_t* record, std::uint32_t pixels,
-              std::uint32_t clut, int log2_side);
+void particle(
+    std::span<const std::uint8_t> ram,
+    const std::uint8_t* record,
+    std::uint32_t pixels,
+    std::uint32_t clut,
+    int log2_side,
+    std::uint32_t id
+);
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).

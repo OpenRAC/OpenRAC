@@ -146,12 +146,17 @@ private:
     EffectPart m_part = EffectPart::All;
     Shader m_shader;
     Shader m_quad_shader;
+    // The quads drawn with the list's TEST (EffectQuad::registers) that test alpha: the quads'
+    // shader with the alpha test kept (the others compile it out, EffectStaticControls).
+    // m_test_plain: built from the material's plain quad source, bound as m_quad_shader is.
+    Shader m_test_shader;
+    bool m_test_plain = false;
     Shader* m_active_shader = nullptr;
     std::unique_ptr<EffectMaterial> m_material;
     TextureFilter m_texture_filter = TextureFilter::Normal;
     int m_view_projection = -1;
     int m_textured = -1, m_tcc = -1, m_tfx = -1, m_tex_alpha_scale = -1;
-    int m_fog_enable = -1, m_alpha_test = -1;
+    int m_fog_enable = -1, m_alpha_test = -1, m_alpha_ref = -1, m_alpha_keep_failing = -1;
     int m_view = -1, m_fog_colour = -1, m_fog_line = -1;
     int m_source_scale = -1, m_source_fix = -1;
     unsigned m_vao = 0, m_vbo = 0;

@@ -300,6 +300,8 @@ public:
 
     bool mobys_take_point_lights() const override { return true; }
 
+    bool interpolates_effect_quads() const override { return true; }
+
     bool terrain_takes_point_lights() const override { return true; }
 
     // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line

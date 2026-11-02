@@ -225,7 +225,7 @@ void func_00218B10(void) {
         }
         uint64_t entry;
         memcpy(&entry, G(table + (gaddr)r[2] * 8), 8);
-        openrac_game_particle(r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, 5);
+        openrac_game_particle(r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, 5, 0);
     }
 }
 
