@@ -42,18 +42,6 @@
         "mirror": true,
         "rewrites": [
           [
-            "qcopy(s->b, s->a);",
-            "qcopy(p + 0x80, p + 0x70);"
-          ],
-          [
-            "if (!((Hero *)D_00189E20)->b[0x49E]) AIM(6, D_L00_001B1534, D_L00_001B153C, 1, s->sound, s->a, s->b)",
-            "if (!((Hero *)D_00189E20)->b[0x49E]) AIM(6, D_L00_001B1534, D_L00_001B153C, 1, s->sound, p + 0x70, p + 0x80)"
-          ],
-          [
-            "if ((u8)state == 3 && H_STATE == 11) AIM(6, D_L00_001B1534, D_L00_001B153C, 1, s->sound, s->a, s->b)",
-            "if ((u8)state == 3 && H_STATE == 11) AIM(6, D_L00_001B1534, D_L00_001B153C, 1, s->sound, p + 0x70, p + 0x80)"
-          ],
-          [
             "extern void *func_0027C878(long long);",
             "extern unsigned long long func_0027C878(long long);"
           ],
@@ -194,7 +182,7 @@
             "extern char D_001C4FA0[];       /* Q: the selection state */\nextern char D_0025E680[], D_0025A498[];\n"
           ]
         ],
-        "commit": "bf09a61b31b6adb4d43f645edd5a3585a2dfa82e",
+        "commit": "c89b67ce52adb1685b4398e261ef4f5483809c94",
         "date": "2026-11-01",
         "imported": "2026-11-01"
       },
