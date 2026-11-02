@@ -166,13 +166,13 @@ void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink) {
 
 namespace {
 
-// A key of one sign (an arrow, `, /) is set larger, in the text's letters, and centred by its
-// own shape: the caps' small letters would leave it a speck, and a ` sits at the line's top.
+// A key that is a single symbol (an arrow, `, /) is drawn larger and centred by its own shape:
+// at the caps' small size it would be a speck, and ` sits at the top of the line.
 bool cap_sign(const std::string& key) {
     unsigned int c = 0;
     const int length = ImTextCharFromUtf8(&c, key.c_str(), nullptr);
     return length == static_cast<int>(key.size())
-           && (c >= 0x2190 ? c <= 0x2193 : std::ispunct(static_cast<int>(c)) != 0);
+           && (c < 0x80 ? std::ispunct(static_cast<int>(c)) != 0 : c >= 0x2190 && c <= 0x2193);
 }
 
 struct CapText {
@@ -194,6 +194,63 @@ CapText cap_text(const std::string& key) {
 
 }  // namespace
 
+void soft_shadow(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    float round,
+    float spread,
+    float drop,
+    int layers,
+    float alpha
+) {
+    const ImU32 ink = ui_colors::fade(ui_colors::rgba(0, 0, 0, 255), alpha);
+    for (int i = layers; i >= 1; --i) {
+        const float grow = spread * static_cast<float>(i) / static_cast<float>(layers);
+        list->AddRectFilled(
+            ImVec2(a.x - grow, a.y - grow + drop),
+            ImVec2(b.x + grow, b.y + grow + drop),
+            ink,
+            round + grow
+        );
+    }
+}
+
+float ease_out(float t) {
+    return 1.0f - std::pow(1.0f - std::clamp(t, 0.0f, 1.0f), 4.0f);
+}
+
+float slide(float at, bool open) {
+    const float dt = ImGui::GetIO().DeltaTime;
+    return std::clamp(at + (open ? dt / kMedium : -dt / 0.2f), 0.0f, 1.0f);
+}
+
+float key_caps(ImDrawList* list, float x, float middle, std::string_view keys, float alpha) {
+    float w = 0.0f;
+    while (true) {
+        // "+" joins two keys, unless it ends the name ("Keypad +").
+        const std::size_t plus = keys.find('+', 1);
+        const bool joined = plus != std::string_view::npos && plus + 1 < keys.size();
+        const std::string key(keys.substr(0, joined ? plus : keys.size()));
+        w += list != nullptr ? key_cap(list, x + w, middle, key, alpha) : key_cap_width(key);
+        if (!joined) {
+            return w;
+        }
+        ImFont* font = menu_fonts.small;
+        if (list != nullptr) {
+            list->AddText(
+                font,
+                font->FontSize,
+                ImVec2(x + w + dp(4.0f), beside_caps(font, middle)),
+                ui_colors::fade(ui().dim, alpha),
+                "+"
+            );
+        }
+        w += font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, "+").x + dp(8.0f);
+        keys.remove_prefix(plus + 1);
+    }
+}
+
 float key_cap_height() {
     return dp(22.0f);
 }
@@ -205,8 +262,8 @@ float key_cap_width(const std::string& key) {
 }
 
 float beside_caps(const ImFont* font, float middle) {
-    // A capital letter of the caps (Inter's are 0.727 of the size) centred in them: the line's
-    // box, with room below for descenders, would sit the letters low.
+    // Centre a capital letter (0.727 of the size in Inter) rather than the line box, which has
+    // room for descenders and would sit the letters low.
     return middle + menu_fonts.small->FontSize * 0.727f * 0.5f - font->Ascent;
 }
 
@@ -300,8 +357,10 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right) {
     const ImVec2 a(at.x + dp(3.0f), at.y + dp(3.0f));
     const ImVec2 b(at.x + width - dp(3.0f), at.y + height - dp(3.0f));
     const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);
-    // A pointer over it (a desktop's): the accent, fainter than a press.
-    const float hover = tween(item_part("hover"), ImGui::IsItemHovered() ? 1.0f : 0.0f, kFast);
+    // Mouse hover: a fainter accent than a press. Not on a touch screen, where a finger only
+    // presses.
+    const bool over = !drawer_possible() && ImGui::IsItemHovered();
+    const float hover = tween(item_part("hover"), over ? 1.0f : 0.0f, kFast);
     if (held > 0.0f || hover > 0.0f) {
         list->AddRectFilled(
             a, b, ui_colors::fade(pressed_fill(), std::max(held, hover * 0.5f)), dp(10.0f)
@@ -310,8 +369,7 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right) {
     focus_ring(list, a, b, dp(10.0f));
     // The row under the pointer or the focus: a short bar of the accent at its left, the label
     // moved a little right of it.
-    const bool lit =
-        ImGui::IsItemHovered() || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
+    const bool lit = over || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
     const float mark = tween(item_part("mark"), lit ? 1.0f : 0.0f, kFast);
     if (mark > 0.0f) {
         const float half = height * 0.22f * mark;
@@ -449,6 +507,8 @@ void set_menu(bool open) {
 // The menu is out of the picture: what waited for that.
 void menu_closed() {
     s.menu_confirm_reset = false;
+    s.drawer_controller = false;  // the drawer opens again with its own rows alone
+    s.drawer_controller_at = 0.0f;
     if (s.shot_when_shut) {
         s.shot_when_shut = false;
         s.shot_path = shot_name(s.tick);

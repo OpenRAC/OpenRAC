@@ -382,7 +382,7 @@ std::string pad_name(SDL_GamepadType type, SDL_GamepadButton button) {
 // controller's when it was the last used, else the keyboard's. Each as a key cap and its use.
 void hints(const ImGuiViewport* viewport, float shown) {
     struct Hint {
-        std::string keys;
+        std::vector<std::string> keys;  // each its own cap
         const char* does;
     };
 
@@ -391,20 +391,20 @@ void hints(const ImGuiViewport* viewport, float shown) {
     if (pad) {
         const SDL_GamepadType type = pad_type();
         list = {
-            {pad_name(type, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) + " "
-                 + pad_name(type, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),
+            {{pad_name(type, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER),
+              pad_name(type, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)},
              "Tabs"},
-            {pad_name(type, SDL_GAMEPAD_BUTTON_SOUTH), "Select"},
-            {"\u2190 \u2192", "Change"},
-            {pad_name(type, SDL_GAMEPAD_BUTTON_EAST), "Back to the game"},
-            {pad_name(type, SDL_GAMEPAD_BUTTON_NORTH), "Hold to quit"},
+            {{pad_name(type, SDL_GAMEPAD_BUTTON_SOUTH)}, "Select"},
+            {{"\u2190", "\u2192"}, "Change"},
+            {{pad_name(type, SDL_GAMEPAD_BUTTON_EAST)}, "Back to the game"},
+            {{pad_name(type, SDL_GAMEPAD_BUTTON_NORTH)}, "Hold to quit"},
         };
     } else {
         list = {
-            {"PgUp PgDn", "Tabs"},
-            {"Enter", "Select"},
-            {"\u2190 \u2192", "Change"},
-            {"Esc", "Back to the game"},
+            {{"PgUp", "PgDn"}, "Tabs"},
+            {{"Enter"}, "Select"},
+            {{"\u2190", "\u2192"}, "Change"},
+            {{"Esc"}, "Back to the game"},
         };
     }
     ImDrawList* draw = ImGui::GetForegroundDrawList();
@@ -413,18 +413,8 @@ void hints(const ImGuiViewport* viewport, float shown) {
     float x = viewport->Pos.x + edge;
     const float middle = viewport->Pos.y + viewport->Size.y - edge - key_cap_height() * 0.5f;
     for (const Hint& hint : list) {
-        // Each key of it its own cap.
-        std::size_t from = 0;
-        while (from <= hint.keys.size()) {
-            const std::size_t space = hint.keys.find(' ', from);
-            const std::string key = hint.keys.substr(
-                from, space == std::string::npos ? std::string::npos : space - from
-            );
+        for (const std::string& key : hint.keys) {
             x += key_cap(draw, x, middle, key, shown) + dp(4.0f);
-            if (space == std::string::npos) {
-                break;
-            }
-            from = space + 1;
         }
         const ImVec2 size = body->CalcTextSizeA(body->FontSize, FLT_MAX, 0.0f, hint.does);
         draw->AddText(
@@ -442,17 +432,14 @@ void hints(const ImGuiViewport* viewport, float shown) {
 
 void menu_window(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
-    const float target = s.menu_open ? 1.0f : 0.0f;
-    const float move = io.DeltaTime / (s.menu_open ? kMedium : 0.2f);
-    s.menu_at = s.menu_at < target ? std::min(s.menu_at + move, target)
-                                   : std::max(s.menu_at - move, target);
+    s.menu_at = slide(s.menu_at, s.menu_open);
     if (s.menu_at <= 0.0f) {
         menu_closed();
         return;
     }
     (void)shown;
     s.menu_row_height = 42.0f;
-    const float ease = 1.0f - std::pow(1.0f - s.menu_at, 4.0f);
+    const float ease = ease_out(s.menu_at);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     {
         // The game under it dimmed, more at the foot and the sides, so the window stands out of it.
@@ -643,18 +630,8 @@ void menu_window(const Shown& shown) {
         // The launcher's panel: a shadow, its ink, a hairline border.
         // (Outside the window's own rectangle, so not clipped to its square corners.)
         list->PushClipRectFullScreen();
-        // A soft, light shadow: many thin faint layers, each a little wider, add up to a smooth edge.
-        constexpr int kLayers = 24;
-        for (int i = kLayers; i >= 1; --i) {
-            const float k = static_cast<float>(i) / kLayers;
-            const float grow = dp(24.0f) * k;
-            list->AddRectFilled(
-                ImVec2(at.x - grow, at.y - grow + dp(8.0f)),
-                ImVec2(b.x + grow, b.y + grow + dp(8.0f)),
-                IM_COL32(0, 0, 0, static_cast<int>(std::lround(3.0f * ease))),
-                dp(16.0f) + grow
-            );
-        }
+        // Many thin faint layers add up to a smooth edge.
+        soft_shadow(list, at, b, dp(16.0f), dp(24.0f), dp(8.0f), 24, 3.0f / 255.0f * ease);
         list->PopClipRect();
         // The launcher's panel, lit a little from above, with a glow of the accent along its top
         // and a line of it on the top edge.

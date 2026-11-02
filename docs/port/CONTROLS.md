@@ -178,8 +178,8 @@ new each time, are never kept.
 
 ## 6. The Controls tab
 
-The menu's Controls tab (on a desktop; F13 opens the menu there) and the same
-rows in the drawer on a touch screen change them, with a controller, the
+The menu's Controls tab (on a desktop; F13 opens the menu there) and, on a touch
+screen, the drawer's Controller settings panel change them, with a controller, the
 keyboard or a pointer. It changes the running game's file or the global one,
 for every player or for player 1 or 2 alone ("For"; a player chosen, "Player
 N as every player" takes their own controls away):

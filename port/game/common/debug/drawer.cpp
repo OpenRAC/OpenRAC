@@ -11,6 +11,7 @@
 #include <format>
 #include <imgui.h>
 #include <imgui_internal.h>  // ImGui::FindRenderedTextEnd: a label's text before its "##" id
+#include <optional>
 #include <string>
 
 #include <SDL3/SDL.h>
@@ -35,6 +36,117 @@ const std::string& graphics_line() {
     return graphics;
 }
 
+// Style shared by the drawer's windows while this object lives: no ImGui background, border or
+// focus frame (we draw our own), no item spacing, a thin scrollbar.
+class PanelStyle {
+public:
+    explicit PanelStyle(ImVec2 padding) {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(16.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, padding);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, dp(4.0f));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(
+            ImGuiCol_ScrollbarGrab, ImGui::ColorConvertU32ToFloat4(ui().line_strong)
+        );
+        ImGui::PushStyleColor(ImGuiCol_NavCursor, ImVec4(0, 0, 0, 0));
+    }
+
+    ~PanelStyle() {
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar(5);
+    }
+
+    PanelStyle(const PanelStyle&) = delete;
+    PanelStyle& operator=(const PanelStyle&) = delete;
+};
+
+// Controller settings in a panel right of the drawer, filling the rest of the screen: the list is
+// too long for the drawer itself. `left` is the drawer's right edge, `right_inset` the notch's.
+void controller_panel(float left, float right_inset) {
+    const bool out = s.drawer_controller && s.menu_open;
+    s.drawer_controller_at = slide(s.drawer_controller_at, out);
+    if (s.drawer_controller_at <= 0.0f) {
+        return;
+    }
+    const float ease = ease_out(s.drawer_controller_at);
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const float gap = dp(12.0f);
+    // Slides in from the left and fades in.
+    const float x = left + gap + dp(40.0f) * (1.0f - ease);
+    const float width = viewport->Pos.x + viewport->Size.x - right_inset - gap - (left + gap);
+    const ImVec2 a(x, viewport->Pos.y + gap);
+    const ImVec2 size(width, viewport->Size.y - gap * 2.0f);
+    ImGui::SetNextWindowPos(a);
+    ImGui::SetNextWindowSize(size);
+    if (s.drawer_controller_focus && out) {
+        ImGui::SetNextWindowFocus();
+    }
+    const float header = dp(56.0f);
+    const PanelStyle style(ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ease);
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
+                                   | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings
+                                   | ImGuiWindowFlags_NoScrollbar
+                                   | ImGuiWindowFlags_NoScrollWithMouse;
+    if (ImGui::Begin("OpenRAC controller settings", nullptr, flags)) {
+        ImDrawList* list = ImGui::GetWindowDrawList();
+        const ImVec2 b(a.x + size.x, a.y + size.y);
+        list->AddRectFilled(a, b, ui_colors::fade(ui().panel, ease), dp(16.0f));
+        list->AddRect(a, b, ui_colors::fade(ui().line, ease), dp(16.0f));
+        // Header: title and a close button (B also closes it).
+        ImFont* head = menu_fonts.head;
+        list->AddText(
+            head,
+            head->FontSize,
+            ImVec2(a.x + dp(22.0f), a.y + (header - head->FontSize) * 0.5f),
+            ui_colors::fade(ui().gold, ease),
+            "Controller settings"
+        );
+        const float close = dp(40.0f);
+        ImGui::SetCursorScreenPos(ImVec2(b.x - close - dp(10.0f), a.y + (header - close) * 0.5f));
+        if (ImGui::InvisibleButton("close", ImVec2(close, close))) {
+            s.drawer_controller = false;
+            s.menu_focus = true;  // the gamepad's focus goes back to the drawer
+        }
+        const ImVec2 c(b.x - close * 0.5f - dp(10.0f), a.y + header * 0.5f);
+        const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);
+        list->AddCircleFilled(c, close * 0.5f, ui_colors::mix(ui().panel_hi, pressed_fill(), held));
+        list->AddCircle(c, close * 0.5f, ui().line_strong);
+        const float k = dp(6.0f);
+        list->AddLine(ImVec2(c.x - k, c.y - k), ImVec2(c.x + k, c.y + k), ui().soft, dp(1.6f));
+        list->AddLine(ImVec2(c.x + k, c.y - k), ImVec2(c.x - k, c.y + k), ui().soft, dp(1.6f));
+        list->AddLine(
+            ImVec2(a.x + dp(1.0f), a.y + header), ImVec2(b.x - dp(1.0f), a.y + header), ui().line
+        );
+        // Rows in a centred column of readable width, scrolling under the header.
+        const float column = std::min(size.x - dp(28.0f), dp(720.0f));
+        ImGui::SetCursorScreenPos(ImVec2(a.x + (size.x - column) * 0.5f, a.y + header + dp(1.0f)));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, dp(6.0f)));
+        if (ImGui::BeginChild(
+                "rows",
+                ImVec2(column, size.y - header - dp(2.0f)),
+                ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened,
+                ImGuiWindowFlags_NoScrollWithMouse
+            )) {
+            drag_scroll(s.drawer_controller_scroll);
+            if (s.drawer_controller_focus && out) {
+                s.menu_focus_first = true;  // a gamepad starts at its first row
+            }
+            draw_tab(menu::Tab::Controls, menu::kTouch, controller_section);
+            ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+    }
+    s.drawer_controller_focus = false;
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
 }  // namespace
 
 const std::string& menu_graphics_line() {
@@ -44,17 +156,13 @@ const std::string& menu_graphics_line() {
 void drawer(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
     // Out in the launcher's --medium, back in a little quicker, as its pages come and go.
-    const float target = s.menu_open ? 1.0f : 0.0f;
-    const float move = io.DeltaTime / (s.menu_open ? kMedium : 0.2f);
-    s.menu_at = s.menu_at < target ? std::min(s.menu_at + move, target)
-                                   : std::max(s.menu_at - move, target);
+    s.menu_at = slide(s.menu_at, s.menu_open);
     if (s.menu_at <= 0.0f) {
         menu_closed();
         return;
     }
     s.menu_row_height = 48.0f;
-    // The launcher's --ease, cubic-bezier(0.2, 0.8, 0.2, 1): quick out of the edge, settling slowly.
-    const float ease = 1.0f - std::pow(1.0f - s.menu_at, 4.0f);
+    const float ease = ease_out(s.menu_at);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     // The left of the screen a camera's notch keeps.
     float inset = 0.0f;
@@ -69,13 +177,19 @@ void drawer(const Shown& shown) {
         ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y),
         ui_colors::fade(ui().ink_deep, 0.6f * ease)
     );
-    // A touch beside it shuts it, as does the gamepad's B.
+    // A tap right of the drawer or B closes it. With the controller panel open, B closes the panel
+    // first and taps go to the panel.
     if (s.menu_open && ImGui::IsMouseReleased(0) && !s.menu_scroll.dragged
-        && io.MouseClickedPos[0].x > x + width) {
+        && io.MouseClickedPos[0].x > x + width && !s.drawer_controller) {
         set_menu(false);
     }
     if (s.menu_open && ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
-        set_menu(false);
+        if (s.drawer_controller) {
+            s.drawer_controller = false;
+            s.menu_focus = true;
+        } else {
+            set_menu(false);
+        }
     }
     ImGui::SetNextWindowPos(ImVec2(x, viewport->Pos.y));
     ImGui::SetNextWindowSize(ImVec2(width, viewport->Size.y));
@@ -86,15 +200,7 @@ void drawer(const Shown& shown) {
     // The launcher's panel: its ink, a thin border, 16-pixel corners on the open side; a header
     // above the rows, which scroll under it.
     const float header = dp(52.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(16.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(dp(14.0f) + inset, header + dp(4.0f)));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, dp(4.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImGui::ColorConvertU32ToFloat4(ui().line_strong));
-    ImGui::PushStyleColor(ImGuiCol_NavCursor, ImVec4(0, 0, 0, 0));  // the rows draw their own
+    std::optional<PanelStyle> style(std::in_place, ImVec2(dp(14.0f) + inset, header + dp(4.0f)));
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
                                    | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("OpenRAC options", nullptr, flags)) {
@@ -149,9 +255,33 @@ void drawer(const Shown& shown) {
         // The menu's tabs one after another, a heading and a card for each of their sections,
         // then the mods' own menus.
         using menu::Tab;
-        for (const Tab tab : {Tab::Graphics, Tab::Enhanced, Tab::Game, Tab::Controls}) {
+        for (const Tab tab : {Tab::Graphics, Tab::Enhanced, Tab::Game}) {
             draw_tab(tab, menu::kTouch);
         }
+        // Controller settings open in their own panel; touch settings stay in the drawer.
+        menu_heading("Controls");
+        card_begin();
+        const bool controller = s.drawer_controller;
+        if (menu_row(
+                "Controller settings", ui().text, [controller](ImDrawList* list, ImVec2 right) {
+                    const float k = tween(item_part("open"), controller ? 1.0f : 0.0f, kMedium);
+                    arrow(
+                        list,
+                        ImVec2(right.x - dp(2.0f) + dp(3.0f) * k, right.y),
+                        1.0f,
+                        0.0f,
+                        ui_colors::mix(ui().soft, ui().amber, k)
+                    );
+                }
+            )) {
+            s.drawer_controller = !s.drawer_controller;
+            s.drawer_controller_focus = s.drawer_controller;
+            s.menu_focus = !s.drawer_controller;
+        }
+        card_end();
+        draw_tab(Tab::Controls, menu::kTouch, [](std::string_view section) {
+            return !controller_section(section);
+        });
         for (int i = 0; i < mod_menu_count(); ++i) {
             ImGui::PushID(i);
             draw_mod_menu(i);
@@ -192,8 +322,15 @@ void drawer(const Shown& shown) {
         ImGui::Dummy(ImVec2(0.0f, dp(12.0f)));
     }
     ImGui::End();
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar(5);
+    style.reset();
+    float right_inset = 0.0f;
+    if (shown.window != nullptr && SDL_GetWindowSafeArea(shown.window, &safe)) {
+        int w = 0;
+        int h = 0;
+        SDL_GetWindowSize(shown.window, &w, &h);
+        right_inset = static_cast<float>(w - safe.x - safe.w);
+    }
+    controller_panel(x + width, right_inset);
 }
 
 namespace {

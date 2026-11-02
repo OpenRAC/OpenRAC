@@ -13,6 +13,7 @@
 #include <functional>
 #include <imgui.h>
 #include <string>
+#include <string_view>
 
 #include "debug/overlay.h"
 #include "menu_catalog.h"
@@ -36,6 +37,12 @@ ImGuiID item_part(const char* part);
 
 constexpr float kFast = 0.15f;    // the launcher's --fast
 constexpr float kMedium = 0.28f;  // --medium
+
+// The launcher's --ease, near enough: fast at first, then settling. `t` from 0 to 1.
+float ease_out(float t);
+
+// Moves `at` (0 shut, 1 open) one frame towards open over kMedium, or towards shut over 0.2 s.
+float slide(float at, bool open);
 
 // The menu's typefaces (the launcher's: Inter for text, Orbitron for headings), added to ImGui's
 // atlas beside the overlay's own font; each is ImGui's default font when its file could not be
@@ -66,14 +73,30 @@ void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held)
 // An arrow as the launcher draws one, pointing `dx` (-1, 1) or, with `dx` 0, `dy` (1 down, -1 up).
 void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink);
 
-// A key or a controller's button as a cap, as the menu's foot and the notifications show them: its
-// left edge at `x`, its middle at `middle`, faded to `alpha`. Returns its width.
+// A soft shadow under the box [a, b]: `layers` faint copies, each a little larger, reaching
+// `spread` out and moved `drop` down; `alpha` is one layer's opacity (0 to 1).
+void soft_shadow(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    float round,
+    float spread,
+    float drop,
+    int layers,
+    float alpha
+);
+
+// Draws a key or pad button as a rounded cap (menu footer, notifications), left edge at `x`,
+// vertical centre at `middle`. Returns its width.
 float key_cap(ImDrawList* list, float x, float middle, const std::string& key, float alpha);
 float key_cap_width(const std::string& key);
 float key_cap_height();
 
-// The top to draw `font`'s text at so it shares the caps' baseline, beside caps whose middle is
-// at `middle`.
+// Keys pressed together as caps with a "+" between them ("Select+Start"). Returns their width;
+// draws them only when `list` is set.
+float key_caps(ImDrawList* list, float x, float middle, std::string_view keys, float alpha);
+
+// The y to draw `font` text at so it lines up with caps centred at `middle`.
 float beside_caps(const ImFont* font, float middle);
 
 // ---- Rows on cards ----
@@ -112,7 +135,13 @@ void menu_note(const char* line, ImU32 ink = ui().soft);
 // Draws the entries of `tab` offered on `where` (menu::Where), a heading and a card for each
 // section with anything to show. The entry under the pointer or the focus is kept in s.menu_hover
 // (for the desktop's help). False when nothing of the tab is shown.
-bool draw_tab(menu::Tab tab, std::uint8_t where);
+// With `only`, draws just the sections (by heading) it returns true for.
+using SectionFilter = std::function<bool(std::string_view section)>;
+bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only = {});
+
+// True for the Controls tab's controller sections (bindings, sticks, players); a touch screen
+// shows them in their own panel next to the drawer.
+bool controller_section(std::string_view section);
 
 // Says whether `tab` has anything to show on `where` now.
 bool tab_shown(menu::Tab tab, std::uint8_t where);

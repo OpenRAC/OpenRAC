@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The notifications (debug_overlay.h, Notification): cards that drop in at the top of the picture
-// in the launcher's look, stack, and glide away. Their marks are drawn, not set in a font, so
-// they need nothing of the atlas but the menu's typefaces.
+// Notification cards (debug_overlay.h): they slide in at the top of the screen, stack, and slide
+// away. Icons are drawn with lines, so no icon font is needed.
 
 #include <algorithm>
 #include <cfloat>
@@ -19,27 +18,23 @@ namespace openrac::frontend::debug_overlay {
 
 namespace {
 
+// One card on screen.
 struct Slot {
     Notification n;
-    double left = 0.0;    // seconds it stays yet (n.seconds counted down while it can be seen)
-    float in = 0.0f;      // 0 to 1, coming in
-    float out = 0.0f;     // 0 to 1, going
-    bool going = false;   // sent away (its time, dismiss, too many)
-    float y = 0.0f;       // its top as drawn: it glides to its place when one above goes
-    bool placed = false;  // y has been set once
+    double left = 0.0;    // seconds left on screen
+    float in = 0.0f;      // 0 to 1 while sliding in
+    float out = 0.0f;     // 0 to 1 while sliding out
+    bool going = false;   // timed out, dismissed or pushed out by newer slots
+    float y = 0.0f;       // drawn top; eases to its place when a card above leaves
+    bool placed = false;  // y set at least once
 };
 
-std::vector<Slot> cards;
-float stack_shown = 1.0f;  // the whole stack, out while the menu hides it
+std::vector<Slot> slots;
+float stack_shown = 1.0f;  // 0 while the menu hides the slots
 
-constexpr std::size_t kMost = 4;  // shown at once: more send the oldest timed one away
-constexpr float kIn = 0.45f;      // seconds coming in
-constexpr float kOut = 0.32f;     // and going
-
-// The launcher's --ease: quick, settling slowly.
-float ease_out(float t) {
-    return 1.0f - std::pow(1.0f - std::clamp(t, 0.0f, 1.0f), 4.0f);
-}
+constexpr std::size_t kMost = 4;  // slots at once; a new one pushes out the oldest timed one
+constexpr float kIn = 0.45f;      // seconds to slide in
+constexpr float kOut = 0.32f;     // seconds to slide out
 
 ImU32 tone_colour(Tone tone) {
     switch (tone) {
@@ -57,7 +52,7 @@ ImU32 tone_colour(Tone tone) {
     return ui().amber;
 }
 
-// The mark in the circle at the card's left, centred at `c`, `r` its circle's radius.
+// The icon inside the circle at the card's left: centre `c`, circle radius `r`.
 void mark(ImDrawList* list, ImVec2 c, float r, Tone tone, ImU32 ink) {
     const float w = dp(2.0f);
     const float k = r * 0.42f;
@@ -96,7 +91,7 @@ void mark(ImDrawList* list, ImVec2 c, float r, Tone tone, ImU32 ink) {
             );
             break;
         case Tone::Live: {
-            // It beats, as a camera's light does.
+            // Pulses like a camera's recording light.
             const float beat = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 4.0f);
             list->AddCircleFilled(c, k * 0.85f, ui_colors::fade(ink, beat));
             break;
@@ -104,41 +99,12 @@ void mark(ImDrawList* list, ImVec2 c, float r, Tone tone, ImU32 ink) {
     }
 }
 
-// The caps of one way to press it ("Select+Start"): their width, drawn when `list` is not null.
-float caps(ImDrawList* list, float x, float middle, const std::string& way, float alpha) {
-    float w = 0.0f;
-    std::size_t from = 0;
-    while (true) {
-        const std::size_t plus = way.find('+', from);
-        const std::string key = way.substr(from, plus == std::string::npos ? plus : plus - from);
-        w += list != nullptr ? key_cap(list, x + w, middle, key, alpha) : key_cap_width(key);
-        if (plus == std::string::npos) {
-            return w;
-        }
-        // A plus between the caps, in the text's quiet ink.
-        ImFont* font = menu_fonts.small;
-        const float pw = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, "+").x;
-        if (list != nullptr) {
-            list->AddText(
-                font,
-                font->FontSize,
-                ImVec2(x + w + dp(4.0f), beside_caps(font, middle)),
-                ui_colors::fade(ui().dim, alpha),
-                "+"
-            );
-        }
-        w += pw + dp(8.0f);
-        from = plus + 1;
-    }
-}
-
-// What the card's second line holds and how it is laid out, measured once for its size and again
-// as it is drawn.
+// A card's measured content, used for its size and when drawing it.
 struct Layout {
     float width = 0.0f;   // the content's, right of the mark
     float height = 0.0f;  // the content's
     float title_h = 0.0f;
-    float wrap = 0.0f;    // where the title's lines break
+    float wrap = 0.0f;    // title wrap width
     float keys_w = 0.0f;  // the caps' line, 0 without keys
     float text_wrap = 0.0f;
 };
@@ -154,7 +120,7 @@ Layout measure(const Notification& n, float most) {
     l.title_h = t.y;
     l.width = t.x;
     for (std::size_t i = 0; i < n.keys.size(); ++i) {
-        l.keys_w += caps(nullptr, 0.0f, 0.0f, n.keys[i], 1.0f) + (i > 0 ? dp(kOrWidth) : 0.0f);
+        l.keys_w += key_caps(nullptr, 0.0f, 0.0f, n.keys[i], 1.0f) + (i > 0 ? dp(kOrWidth) : 0.0f);
     }
     float second_w = l.keys_w;
     float second_h = n.keys.empty() ? 0.0f : key_cap_height();
@@ -170,20 +136,6 @@ Layout measure(const Notification& n, float most) {
     return l;
 }
 
-// A soft shadow under a card: layers growing out, each faint.
-void shadow(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float alpha) {
-    constexpr int kLayers = 12;
-    for (int i = kLayers; i >= 1; --i) {
-        const float grow = dp(1.5f) * static_cast<float>(i);
-        list->AddRectFilled(
-            ImVec2(a.x - grow, a.y - grow + dp(6.0f)),
-            ImVec2(b.x + grow, b.y + grow + dp(6.0f)),
-            ui_colors::fade(ui_colors::rgba(0, 0, 0, 255), alpha * 0.035f),
-            round + grow
-        );
-    }
-}
-
 void draw_card(
     ImDrawList* list, const Slot& card, ImVec2 a, float width, const Layout& l, float alpha
 ) {
@@ -194,16 +146,16 @@ void draw_card(
     const ImVec2 b(a.x + width, a.y + h);
     const float round = std::min(h * 0.5f, dp(24.0f));
     const ImU32 tone = tone_colour(n.tone);
-    shadow(list, a, b, round, alpha);
-    // The drawer's panel and the launcher's hairline.
+    soft_shadow(list, a, b, round, dp(18.0f), dp(6.0f), 12, 0.035f * alpha);
+    // Background and border.
     list->AddRectFilled(a, b, ui_colors::fade(ui().panel, 0.97f * alpha), round);
     list->AddRect(a, b, ui_colors::fade(ui().line_strong, alpha), round);
-    // The mark in its ring.
+    // Icon in its ring.
     const ImVec2 c(a.x + pad + circle * 0.5f, a.y + h * 0.5f);
     list->AddCircleFilled(c, circle * 0.5f, ui_colors::fade(tone, 0.16f * alpha));
     list->AddCircle(c, circle * 0.5f, ui_colors::fade(tone, 0.55f * alpha), 0, dp(1.2f));
     mark(list, c, circle * 0.5f, n.tone, ui_colors::fade(tone, alpha));
-    // The words.
+    // Text.
     const float x = a.x + pad + circle + dp(12.0f);
     float y = a.y + (h - l.height) * 0.5f;
     ImFont* title = menu_fonts.strong;
@@ -233,7 +185,7 @@ void draw_card(
             );
             cx += dp(kOrWidth);
         }
-        cx += caps(list, cx, middle, n.keys[i], alpha);
+        cx += key_caps(list, cx, middle, n.keys[i], alpha);
     }
     if (!n.text.empty()) {
         const float tx = n.keys.empty() ? x : cx + dp(8.0f);
@@ -248,7 +200,7 @@ void draw_card(
             l.text_wrap
         );
     }
-    // The time it has left, a line along its foot that shortens.
+    // Time left, as a line along the bottom that shrinks.
     if (n.seconds > 0.0) {
         const float t = static_cast<float>(std::clamp(card.left / n.seconds, 0.0, 1.0));
         const float x0 = a.x + round + dp(4.0f);
@@ -270,7 +222,7 @@ Slot* find(std::string_view id) {
     if (id.empty()) {
         return nullptr;
     }
-    for (Slot& card : cards) {
+    for (Slot& card : slots) {
         if (card.n.id == id) {
             return &card;
         }
@@ -282,7 +234,7 @@ Slot* find(std::string_view id) {
 
 void notify(Notification n) {
     if (Slot* card = find(n.id)) {
-        // The same one again: changed in place; its time starts over when it has one.
+        // Same id: update in place, and restart its timer if the title or time changed.
         const bool restart =
             card->going || n.title != card->n.title || n.seconds != card->n.seconds;
         card->n = std::move(n);
@@ -299,13 +251,13 @@ void notify(Notification n) {
     Slot card;
     card.left = n.seconds;
     card.n = std::move(n);
-    cards.push_back(std::move(card));
-    // Too many: the oldest with a time goes first.
+    slots.push_back(std::move(card));
+    // Too many cards: the oldest timed one leaves first.
     std::size_t staying = 0;
-    for (const Slot& c : cards) {
+    for (const Slot& c : slots) {
         staying += c.going ? 0 : 1;
     }
-    for (Slot& c : cards) {
+    for (Slot& c : slots) {
         if (staying <= kMost) {
             break;
         }
@@ -323,7 +275,7 @@ void dismiss(std::string_view id) {
 }
 
 void notify_menu_hint() {
-    // A desktop names its key; a touch screen its Back. Any controller's Select and Start.
+    // The desktop's menu key or Android's Back, and any controller's Select + Start.
     std::vector<std::string> keys;
     keys.push_back(drawer_possible() ? std::string("Back") : menu_key_label());
     keys.emplace_back("Select+Start");
@@ -337,15 +289,15 @@ void notify_menu_hint() {
 }
 
 bool notifications_pending() {
-    return !cards.empty();
+    return !slots.empty();
 }
 
 void draw_notifications() {
     const float dt = ImGui::GetIO().DeltaTime;
-    // The menu and the pad's editing cover the picture: the stack goes, and its time stands still.
+    // The menu and the touch pad editor hide the cards and pause their timers.
     const bool hidden = s.menu_open || s.menu_at > 0.0f || s.touch_editing;
-    stack_shown = std::clamp(stack_shown + (hidden ? -dt / 0.2f : dt / kIn), 0.0f, 1.0f);
-    for (Slot& card : cards) {
+    stack_shown = slide(stack_shown, !hidden);
+    for (Slot& card : slots) {
         if (!hidden && !card.going && card.n.seconds > 0.0) {
             card.left -= dt;
             card.going = card.left <= 0.0;
@@ -356,12 +308,12 @@ void draw_notifications() {
             card.in = std::min(card.in + dt / kIn, 1.0f);
         }
     }
-    std::erase_if(cards, [](const Slot& card) { return card.going && card.out >= 1.0f; });
-    if (cards.empty() || stack_shown <= 0.0f) {
+    std::erase_if(slots, [](const Slot& card) { return card.going && card.out >= 1.0f; });
+    if (slots.empty() || stack_shown <= 0.0f) {
         return;
     }
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    // Below a phone's notch or camera.
+    // Below a phone's notch.
     float top = viewport->Pos.y + dp(14.0f);
     SDL_Rect safe{};
     if (s.window != nullptr && SDL_GetWindowSafeArea(s.window, &safe)) {
@@ -371,7 +323,7 @@ void draw_notifications() {
     ImDrawList* list = ImGui::GetForegroundDrawList();
     const float glide = 1.0f - std::exp(-dt * 14.0f);
     float y = top;
-    for (Slot& card : cards) {
+    for (Slot& card : slots) {
         const Layout l = measure(card.n, most - dp(14.0f) * 2.0f - dp(46.0f));
         const float h = std::max(dp(34.0f), l.height) + dp(14.0f) * 2.0f;
         const float width =
@@ -380,7 +332,7 @@ void draw_notifications() {
         const float go = ease_out(card.out);
         card.y = card.placed ? card.y + (y - card.y) * glide : y;
         card.placed = true;
-        // It drops from above, a little smaller, and lifts away as it goes.
+        // Slides down and grows a little on the way in; slides up on the way out.
         const float drop = -dp(28.0f) * (1.0f - come) - dp(18.0f) * go;
         const float scale = 0.94f + 0.06f * come;
         const float alpha = come * (1.0f - go) * ease_out(stack_shown);
@@ -389,7 +341,7 @@ void draw_notifications() {
         if (alpha > 0.0f) {
             draw_card(list, card, a, w, l, alpha);
         }
-        // The next sits below it; one going gives its place up as it goes.
+        // The next card goes below; a leaving card gives up its space as it fades.
         y += (h + dp(10.0f)) * (1.0f - go);
     }
 }

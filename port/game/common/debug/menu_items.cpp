@@ -863,7 +863,11 @@ bool tab_shown(menu::Tab tab, std::uint8_t where) {
     return false;
 }
 
-bool draw_tab(menu::Tab tab, std::uint8_t where) {
+bool controller_section(std::string_view section) {
+    return section != "Touch controls" && section != "Menu";
+}
+
+bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only) {
     const auto all = menu::entries();
     bool any = false;
     for (std::size_t i = 0; i < all.size();) {
@@ -874,7 +878,7 @@ bool draw_tab(menu::Tab tab, std::uint8_t where) {
                && std::string_view(all[end].section) == first.section) {
             ++end;
         }
-        if (first.tab == tab) {
+        if (first.tab == tab && (!only || only(first.section))) {
             bool shown = false;
             for (std::size_t k = i; k < end && !shown; ++k) {
                 shown = shown_now(all[k], where);

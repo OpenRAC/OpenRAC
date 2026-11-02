@@ -141,7 +141,7 @@ bool take_settings_changed();
 
 // ---- Notifications ----
 
-// A notification's mark and colour.
+// A card's icon and colour.
 enum class Tone : std::uint8_t {
     Info,     // the accent: a hint, a mod's line
     Done,     // green: a file written, a report ready
@@ -150,25 +150,22 @@ enum class Tone : std::uint8_t {
     Live,     // a red dot that beats: a recording running
 };
 
-// A card that drops in at the top of the picture, in the launcher's look, and goes after its time
-// (debug/notifications.cpp). Every message the port shows over the game is one: the hint at the
-// start, a screenshot saved, a recording, a report written, a level that could not be read. They
-// stand still while the menu is out (it hides them) and stack, the newest at the foot.
+// A card at the top of the screen (debug/notifications.cpp). Every message the port shows over
+// the game is one. Cards stack, newest at the bottom, and wait while the menu is open.
 struct Notification {
-    std::string id{};     // a later one with the same id changes it in place; empty: never replaced
-    std::string title{};  // its first line
-    std::string text{};   // under it, quieter; may hold lines of its own
-    // Keys or buttons, as caps before the text: each entry is one way, "or" between them, and a
-    // "+" in one joins caps pressed together ("Select+Start").
+    std::string id{};     // a later notify with the same id updates this card; empty: never
+    std::string title{};  // first line
+    std::string text{};   // second line, quieter; may hold several lines
+    // Keys shown as caps before the text, "or" between entries; "+" joins keys pressed together.
     std::vector<std::string> keys{};
     Tone tone = Tone::Info;
-    double seconds = 5.0;  // how long it stays (counted while it can be seen); 0: until dismissed
+    double seconds = 5.0;  // time on screen (paused while hidden); 0: until dismiss()
 };
 
-// Shows `n`, or changes the one with its id.
+// Shows `n`, or updates the card with its id.
 void notify(Notification n);
 
-// Sends the notification with this id away, if it is shown.
+// Hides the card with this id, if there is one.
 void dismiss(std::string_view id);
 
 // GL objects and the ImGui context, before the window's context goes.
