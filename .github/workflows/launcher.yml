@@ -199,6 +199,8 @@ jobs:
             port/build/*/thinlto-cache
             port/build/embree/install
             port/build/embree/openrac-embree.json
+            !port/build/*/_deps/openrac_compressonator-src
+            !port/build/*/_deps/openrac_compressonator-subbuild
             !port/build/**/*.o
             !port/build/**/*.obj
             !port/build/**/*.pdb

@@ -301,6 +301,8 @@ The enhanced baker uses Arm astc-encoder 5.4.0 at
 at `9da0bc2be8d095adfab04ba9262e94842b48dac2` (MIT).
 Only their portable HDR codec sources are built. The ASTC border fitter uses the pinned
 symbolic block interface; codec sources are fetched by `port/cmake/ProbeCompression.cmake`.
+Compressonator's checksum-verified source archive is extracted only for the BC6H kernel,
+seven supporting headers and its core licence; its Git history and other tools are omitted.
 See [Arm's license](port/enhanced/lighting/astc-LICENSE.txt) and
 [AMD's license](port/enhanced/lighting/compressonator-LICENSE.txt).
 
