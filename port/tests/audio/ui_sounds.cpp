@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The menu's tones: silence until one plays, a soft start (no click), a quiet peak, an end within
-// half a second, mixed over what is there; and a held arrow's fast repeats, or every sound
+// The menu's sounds: silence until one plays, a soft start (no click), a quiet peak, an end (with the
+// room it rings in) within 0.7 s, mixed over what is there; and a held arrow's fast repeats, or every sound
 // pressed at once again and again, never louder than a few tones together nor longer.
 
 #include "audio/ui_sounds.h"
@@ -45,7 +45,13 @@ std::vector<std::int16_t> render(int blocks) {
 int main() {
     using ui_sounds::Sound;
     const Sound all[] =
-        {Sound::Cursor, Sound::Confirm, Sound::Back, Sound::Denied, Sound::Open, Sound::Page};
+        {Sound::Cursor,
+         Sound::Confirm,
+         Sound::Back,
+         Sound::Denied,
+         Sound::Open,
+         Sound::Close,
+         Sound::Page};
 
     // Nothing plays: silence.
     ui_sounds::reset();
@@ -56,17 +62,17 @@ int main() {
         ui_sounds::reset();
         ui_sounds::play(s);
         CHECK(ui_sounds::sounding());
-        const std::vector<std::int16_t> out = render(50);  // 0.5 s
+        const std::vector<std::int16_t> out = render(70);  // 0.7 s
         const int p = peak(out);
         CHECK(p > 300);        // heard
         CHECK(p < 32767 / 4);  // and soft: under -12 dB
-        // A soft start: its first millisecond is near silence.
+        // A soft start: its first 0.2 ms is near silence (no click).
         int first = 0;
-        for (std::size_t i = 0; i < 48 * 2; ++i) {
+        for (std::size_t i = 0; i < 10 * 2; ++i) {
             first = std::max(first, std::abs(static_cast<int>(out[i])));
         }
         CHECK(first < p / 4);
-        CHECK(!ui_sounds::sounding());  // over within 0.5 s
+        CHECK(!ui_sounds::sounding());  // over, its room too, within 0.7 s
     }
 
     // Mixed over the game's sound, saturating rather than wrapping.
@@ -103,7 +109,7 @@ int main() {
         storm.insert(storm.end(), block.begin(), block.end());
     }
     CHECK(peak(storm) < 32767 * 3 / 4);
-    render(50);
+    render(70);
     CHECK(!ui_sounds::sounding());
 
     return openrac::test::result();

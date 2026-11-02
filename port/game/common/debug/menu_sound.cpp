@@ -42,7 +42,7 @@ void menu_sound(MenuSound sound) {
 void menu_sounds_frame() {
     const Seen now{s.menu_open, s.menu_tab, s.drawer_controller, s.quit_asked};
     if (now.open != g_seen.open) {
-        menu_sound(now.open ? MenuSound::Open : MenuSound::Back);
+        menu_sound(now.open ? MenuSound::Open : MenuSound::Close);
     } else if (now.open && now.controller != g_seen.controller) {
         menu_sound(now.controller ? MenuSound::Page : MenuSound::Back);
     } else if (now.open && now.quit_asked != g_seen.quit_asked && !now.quit_asked) {

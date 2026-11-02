@@ -52,8 +52,9 @@ Select + Start or the key again closes it; L1/R1 or Page Up/Down change tabs, an
 tab reach Quit game and Resume. Quit game asks first (in the drawer too), as
 progress since the last save is lost; Y held for a second quits at once. The
 mouse pointer shows only while the menu or one of the overlay's windows is out. The menu (and the
-drawer) has soft tones of its own, not the game's (`port/audio/ui_sounds.cpp`): the focus moving,
-a press, back, a value at its end, opening, another tab; a held arrow's are thinned out, each
+drawer) has soft sounds of its own, not the game's (`port/audio/ui_sounds.cpp`): rounded pops
+in a small room for the focus moving, a press, back, a value at its end, opening, closing, another
+tab; a held arrow's are thinned out, each
 fading the one before. At the start a
 notification names what opens it. `OPENRAC_MENU=TAB` (`graphics`, `enhanced`, `game`, `controls`,
 `developer`) opens it on that tab from the start. On macOS the system's menu
