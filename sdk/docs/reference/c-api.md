@@ -121,7 +121,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_PLAY_SCENE` | `4` | A level, a scene playing: a cutscene, a movie, a slideshow, the ship's landing or take-off. |
 | `OPENRAC_PLAY_MENU` | `5` | A level, a menu over it: paused, a vendor, a dialog. |
 | `OPENRAC_POSE_BLENDING` | `0x1u` | The animation is blending into `seq` from another: `frame` is where it arrives. |
-| `OPENRAC_POSE_ON_GROUND` | `0x2u` | For hero_set_pose: the hero on the ground, or in the air, as the game's camera should follow him (Ratchet & Clank: the ground fields his own update keeps). Neither leaves them. Since 1.12. |
+| `OPENRAC_POSE_ON_GROUND` | `0x2u` | For hero_set_pose: the hero on the ground, or in the air, as the game's camera should follow him (Ratchet & Clank: the ground fields his own update keeps; on the ground, a jump, flip, fall or wrench slam state he kept becomes idle, state 0, which hero_pose then reports). Neither leaves them. Since 1.12. |
 | `OPENRAC_POSE_IN_AIR` | `0x4u` |  |
 | `OPENRAC_MOBY_UPDATES` | `0x1u` | It has an update of its own (the game runs it near the camera). |
 | `OPENRAC_MOBY_DRIVEN` | `0x2u` | A mod drives it (moby_drive): its update does not run. |

@@ -283,6 +283,17 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     /* The loop or jump his last state asked for is for that state's animation, not the pose's: a
      * frame past the end of the pose's seq read garbage as a frame (a crash on Pokitaru). As
      * clear_hero_queued_animation, before the advance. */
+    /* Clank's pack (items[3], both mobys) at rest, seq 1, as the game sends it for a seq of
+     * Ratchet's with no pack pair: a heli or thruster spin begun in a glide ran on through the
+     * ride, as only his states set the pack's seq. */
+    if (GREF(int32_t, HERO_ITEM_MOBY + 3u * 0x50u + 0x24u) == 2) {
+        for (unsigned i = 0; i < 2; ++i) {
+            const gaddr pack = GREF(gaddr, HERO_ITEM_MOBY + 3u * 0x50u + 4u * i);
+            if (pack != 0 && GREF(uint8_t, pack + 0x53u) != 1) {
+                func_00213DE0(pack, 1, 0, 7);
+            }
+        }
+    }
     GREF(int32_t, HERO_ANIM_LOOP_FRAME) = -1;
     GREF(int32_t, HERO_QUEUED_FRAME_REQUEST) = 0;
     func_L00_00232EF0();
@@ -305,11 +316,14 @@ static int hero_set_pose(const openrac_game_pose* pose) {
         GREF(int16_t, HERO_FRAMES_OFF_GROUND) = 0;
         GREF(int16_t, HERO_PAST_JUMP_APEX) = 0;
         GREF(int32_t, HERO_FRAMES_TO_LAND) = 0;
-        /* A ride begun in a jump or a fall keeps that state's control mode (4 or 2, set only by
-         * hero_set_state), and the follow camera stays in its air mode, its height held, while
-         * it is one of them. */
+        /* A ride begun in a jump, a flip, a fall or a wrench slam keeps that state (control mode 4
+         * or 2, set only by hero_set_state), and the follow camera keeps the mode it picked for
+         * it (its height held in the air, its flip and slam modes) for as long as he is in it.
+         * On the ground he is idle to the camera: state 0, control mode 0. */
         const int32_t mode = GREF(int32_t, HERO_CONTROL_MODE);
-        if (mode == 2 || mode == 4) {
+        if (mode == 2 || mode == 4 || GREF(int32_t, HERO_STATE) == 0x14) {
+            GREF(int32_t, HERO_STATE) = 0;
+            GREF(int32_t, HERO_STATE + 4u) = 0;
             GREF(int32_t, HERO_CONTROL_MODE) = 0;
         }
     } else if (pose->flags & 4u) {

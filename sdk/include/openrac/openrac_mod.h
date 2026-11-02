@@ -616,7 +616,9 @@ typedef struct openrac_play_status {
 /* The animation is blending into `seq` from another: `frame` is where it arrives. */
 #define OPENRAC_POSE_BLENDING 0x1u
 /* For hero_set_pose: the hero on the ground, or in the air, as the game's camera should follow him
- * (Ratchet & Clank: the ground fields his own update keeps). Neither leaves them. Since 1.12. */
+ * (Ratchet & Clank: the ground fields his own update keeps; on the ground, a jump, flip, fall or
+ * wrench slam state he kept becomes idle, state 0, which hero_pose then reports). Neither leaves
+ * them. Since 1.12. */
 #define OPENRAC_POSE_ON_GROUND 0x2u
 #define OPENRAC_POSE_IN_AIR 0x4u
 
