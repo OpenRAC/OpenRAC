@@ -68,6 +68,9 @@
 /* What the follow camera reads of his ground (follow_camera.c): his height above it, the frames
  * off it, past the top of a jump, and the frames to landing. */
 #define HERO_GROUND_DISTANCE (HERO + 0x2DCu)
+/* A frame his state asked his animation to loop back to or jump to (clear_hero_queued_animation). */
+#define HERO_ANIM_LOOP_FRAME (HERO + 0xAB0u)
+#define HERO_QUEUED_FRAME_REQUEST (HERO + 0xAB8u)
 #define HERO_FRAMES_OFF_GROUND (HERO + 0x30Cu)
 #define HERO_PAST_JUMP_APEX (HERO + 0x41Eu)
 #define HERO_FRAMES_TO_LAND (HERO + 0x44Cu)
@@ -276,6 +279,11 @@ static int hero_set_pose(const openrac_game_pose* pose) {
             (float)HERO_SET_BLEND
         );
     }
+    /* The loop or jump his last state asked for is for that state's animation, not the pose's: a
+     * frame past the end of the pose's seq read garbage as a frame (a crash on Pokitaru). As
+     * clear_hero_queued_animation, before the advance. */
+    GREF(int32_t, HERO_ANIM_LOOP_FRAME) = -1;
+    GREF(int32_t, HERO_QUEUED_FRAME_REQUEST) = 0;
     func_L00_00232EF0();
     /* set_hero_animation sets the speed back to 1: the pose's from here on (the game's advance
      * reads it next tick, as it reads the speed his states set). */
