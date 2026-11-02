@@ -42,7 +42,8 @@ UNTEXTURED = ("moby", -1)
 # goes this high.
 WRENCH_CLASS = 71
 WRENCH_FORM_CLASSES = 6020
-SHIP_CLASS = 3412           # his ship: the level has the mesh, the disc the picture on it
+SHIP_CLASS = 3412           # his ship: the disc has its hulls and the picture on it
+SHIP_BODY_CLASSES = 6030    # his ship's other hulls, by number (the port draws the one the game loaded)
 HERO_LOOK_CLASSES = 6000
 # Going Commando: a class's bangles, exported as classes numbered BANGLE_CLASSES + class * 16 + bangle
 # (bangles()); the port draws them for the moby's bangle word (rac2-ntsc/profile.cpp).
@@ -503,8 +504,11 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
                                                        fmt, mesh_file)
     for class_id, (blob, place) in level.items.items():
         result[class_id] = lenient(level, blob, [ITEM_TEXTURES + place] * 16, class_id, fmt)
-    if level.ship_body is not None:
-        result[SHIP_CLASS] = lenient(level, level.ship_body, [SHIP_TEXTURE] * 16, SHIP_CLASS, fmt)
+    # His ship's hull is the disc's in every level, over any class 3412 of the level's own: the
+    # game loads it over the class on each load (func_002925F0, from func_L00_002A3B88).
+    for number, body in enumerate(level.ship_bodies):
+        class_id = SHIP_CLASS if number == 0 else SHIP_BODY_CLASSES + number
+        result[class_id] = lenient(level, body, [SHIP_TEXTURE] * 16, class_id, fmt)
     return result
 
 
