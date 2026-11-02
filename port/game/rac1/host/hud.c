@@ -55,19 +55,25 @@ static void draw_line(
         if (*c < 32 || *c > 126) {
             continue;
         }
+        /* As the game's own print does: no glyph without an advance, and the space only moves on. */
         const gaddr glyph = table + 4u * (unsigned char)*c;
-        func_001F5800(
-            x,
-            y + (int)(GREF(int8_t, glyph + 2u) * scale),
-            size,
-            size,
-            GREF(uint8_t, glyph),
-            GREF(uint8_t, glyph + 1u),
-            FONT_PIXELS,
-            FONT_PIXELS,
-            colour,
-            texture
-        );
+        if (GREF(int8_t, glyph + 3u) == 0) {
+            continue;
+        }
+        if (*c != ' ') {
+            func_001F5800(
+                x,
+                y + (int)(GREF(int8_t, glyph + 2u) * scale),
+                size,
+                size,
+                GREF(uint8_t, glyph),
+                GREF(uint8_t, glyph + 1u),
+                FONT_PIXELS,
+                FONT_PIXELS,
+                colour,
+                texture
+            );
+        }
         x += (int)(GREF(int8_t, glyph + 3u) * scale + 0.5f);
     }
 }
