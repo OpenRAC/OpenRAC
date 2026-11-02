@@ -875,7 +875,12 @@ std::vector<JointMatrix> evaluate_keys(
                 if (rec[j][1][3] != 0 || !one) {
                     const V4 cur = rec[j][1][3] != 0 ? rec[j][1] : V4{kOne, kOne, kOne, kOne};
                     rec[j][1] = lanes_lerp(
-                        cur, V4{r.scale[0], r.scale[1], r.scale[2], kOne}, uw, w, 3, V4{0, 0, 0, kOne}
+                        cur,
+                        V4{r.scale[0], r.scale[1], r.scale[2], kOne},
+                        uw,
+                        w,
+                        3,
+                        V4{0, 0, 0, kOne}
                     );
                 }
                 rec[j][2] = lanes_lerp(rec[j][2], r.trans, uw, w, 3, rec[j][2]);
