@@ -129,7 +129,7 @@ func_L00_003110E8	same	2026-11-01	40e53335	85505896f10b	11 calls
 func_L00_00323958	same	2026-11-01	40e53335	b160b43fb248	12 calls
 func_L00_0032CF60	same	2026-11-01	40e53335	8851ce7723a6	8 calls
 func_L00_00358B30	same	2026-11-01	40e53335	21e61eddaf67	5 calls
-func_L00_003603C0	same	2026-11-01	40e53335	d6cbf47d7cc8	12 calls
+func_L00_003603C0	same	2026-11-01	40e53335	d6cbf47d7cc8	12 calls; levels 8 9 19 30 copies call func_L08_002F2D10 at +0xB0, which the gate does not apply: DIFFERS on a level 9 state (P21 ship9), SAME with that callee
 func_L00_0036BE28	same	2026-11-01	40e53335	9311a2ff1a48	16 calls
 func_L00_0036C9AC	same	2026-11-01	40e53335	7d9033b18b31	16 calls
 func_L00_0036C9D4	same	2026-11-01	40e53335	2cf0d331e2d6	16 calls
