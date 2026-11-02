@@ -254,6 +254,7 @@ public:
     }
 
     bool sends_display_list() const override { return true; }
+
     bool images_outlast_list() const override { return true; }
 
     // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line

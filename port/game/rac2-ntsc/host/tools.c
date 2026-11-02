@@ -215,7 +215,8 @@ static int give_item(int id) {
                 break;
             }
         }
-        for (unsigned i = 0; ITEM_KIND(record) == 0 && ITEM_CLASS(record) != 0 && i < RING_SLOTS; ++i) {
+        for (unsigned i = 0; ITEM_KIND(record) == 0 && ITEM_CLASS(record) != 0 && i < RING_SLOTS;
+             ++i) {
             const gaddr slot = RAC2_g_quickSelectRing + 4u * i;
             if (GREF(int32_t, slot) == 0 || GREF(int32_t, slot) == id) {
                 GREF(int32_t, slot) = id;
