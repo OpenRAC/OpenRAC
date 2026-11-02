@@ -123,13 +123,15 @@ The [Novalis NTSC profile](profiles/rac1-ntsc/level_01/probe-bake.json) sets sky
 sky weight 0.3, sunlight direction and 8/3-unit dense spacing, two-thirds of the standard 4 units.
 The PAL profiles (`profiles/rac1-pal/`) start as copies of NTSC-U's: the levels' classes, textures
 and coordinates are expected to match; check a PAL bake before tuning them apart.
-Going Commando (NTSC-U) bakes with the same defaults and no level profiles yet. Its exports carry
+Going Commando (NTSC-U) bakes with the same defaults; its level profiles set the scene strategy
+where there are no floor anchors and `light_set` where the scenery takes another directional set
+than 0. Its exports carry
 their gameplay copy from format 17 (`bake-inputs/gameplay.bin`, tag `rac2-v1`): the planner and
 interior inference read its environment transitions (header word 0x84, records as RAC1's) and light
 bank (0x04) through `assets/world/gameplay.cpp`, and seed local grids from the placements of the
-classes in [`profiles/rac2/moby-seeds.json`](profiles/rac2/moby-seeds.json). It has no emission
-catalog, water profile or fur profile: lamps are not emitters, and Ratchet's fur detail and the
-enhanced water stay Ratchet & Clank's. Its flights (levels 95 to 98) have no collision and bake
+classes in [`profiles/rac2/moby-seeds.json`](profiles/rac2/moby-seeds.json). Its emission catalog
+(`profiles/rac2-ntsc/emission-materials.json`) and fur profile (`profiles/rac2/fur.json`) are its
+own; it has no water profile, and its liquids (lava) have no bake input. Its flights (levels 95 to 98) have no collision and bake
 one coarse grid over the scene.
 Export copies `profiles/<game>-<version>/level_NN/probe-bake.json`; launcher bundles include these
 profiles. Baker/runtime read the exported copy without a checkout. Missing profiles use defaults.

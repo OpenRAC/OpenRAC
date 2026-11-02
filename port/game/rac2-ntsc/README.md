@@ -237,9 +237,13 @@ gameplay copy the planner reads (`bake-inputs/gameplay.bin`): the environment tr
 word 0x84) and the light bank (0x04), `port/assets/world/gameplay.cpp`. Local grids grow from the
 transitions and from Ratchet, the vendor and the crates (`port/enhanced/lighting/profiles/rac2`);
 the ship levels and the arenas (5, 10, 15, 22, 23, 25) bake one scene grid
-(`profiles/rac2-ntsc/level_NN`). Not carried: Ratchet's fur detail (a profile of rac1's body
-atlas), the enhanced water (Novalis's), lamp emission (no catalog of this game's emissive
-textures yet) and the hands' water ripples.
+(`profiles/rac2-ntsc/level_NN`). From format 19 the export also resolves this game's catalog of
+glowing textures (`profiles/rac2-ntsc/emission-materials.json`: lamps, light panels, screens, a lava
+floor) into `probe-emission.json`, and nine levels bake their sun from the directional set most of
+their scenery is lit by (`light_set`). Ratchet's fur detail takes `profiles/rac2/fur.json`, the fur
+islands of his body atlas (the same mesh in every level). Not carried yet: the enhanced water
+(Novalis's tables), the lava and other liquids the levels draw through their callbacks (no bake
+input like Gaspar's) and the hands' water ripples.
 
 ## The texture word (TEX0)
 
