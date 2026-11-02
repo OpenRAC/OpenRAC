@@ -245,7 +245,7 @@ void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
 
 // The right side of the window: what the entry under the pointer or the focus is and does, on a
 // darker ground with the bar's stripes faint at its top.
-void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
+void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(16.0f);
     list->AddRectFilled(
@@ -269,7 +269,30 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab) {
     };
     float y = a.y + dp(34.0f) + dp(8.0f) * (1.0f - in);
     const float wrap = b.x - a.x - pad * 2.0f;
-    if (s.menu_hover >= 0 && s.menu_hover < menu::kIds) {
+    if (chip == kQuitPage) {
+        // The Quit page's question, where an option's details are.
+        kicker(list, ImVec2(a.x + pad, y), ink(ui().brand), menu::entry(menu::Id::Quit).label);
+        y += menu_fonts.small->FontSize + dp(12.0f);
+        y += text_block(
+            list, menu_fonts.head, ImVec2(a.x + pad, y), ink(ui().gold), "Quit the game?", wrap
+        );
+        y += dp(12.0f);
+        list->AddRectFilled(
+            ImVec2(a.x + pad, y),
+            ImVec2(a.x + pad + dp(36.0f), y + dp(3.0f)),
+            ink(ui().amber),
+            dp(1.5f)
+        );
+        y += dp(18.0f);
+        text_block(
+            list,
+            menu_fonts.body,
+            ImVec2(a.x + pad, y),
+            ink(ui().amber),
+            "Progress since the last save is lost.",
+            wrap
+        );
+    } else if (s.menu_hover >= 0 && s.menu_hover < menu::kIds) {
         const auto id = static_cast<menu::Id>(s.menu_hover);
         const menu::Entry& e = menu::entry(id);
         kicker(
@@ -764,7 +787,7 @@ void menu_window(const Shown& shown) {
             }
             if (tab.chip == kQuitPage) {
                 card_begin();
-                quit_confirm_rows();
+                quit_confirm_rows(false);  // the question is on the right
                 card_end();
             } else if (tab.chip == kResumePage) {
                 card_begin();
@@ -820,7 +843,7 @@ void menu_window(const Shown& shown) {
         }
         ImGui::EndChild();
         ImGui::PopStyleVar(2);
-        help_pane(ImVec2(at.x + rows_w, at.y), b, tab.mod >= 0);
+        help_pane(ImVec2(at.x + rows_w, at.y), b, tab.mod >= 0, tab.chip);
     }
     ImGui::End();
     ImGui::PopFont();

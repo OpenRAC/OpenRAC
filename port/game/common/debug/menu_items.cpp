@@ -800,8 +800,10 @@ void quit_game() {
     SDL_PushEvent(&quit);
 }
 
-void quit_confirm_rows() {
-    menu_note("Quit the game? Progress since the last save is lost.", ui().amber);
+void quit_confirm_rows(bool note) {
+    if (note) {
+        menu_note("Quit the game? Progress since the last save is lost.", ui().amber);
+    }
     if (s.quit_focus) {
         s.quit_focus = false;
         s.menu_focus_first = true;

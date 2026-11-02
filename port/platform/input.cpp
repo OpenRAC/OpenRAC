@@ -135,6 +135,10 @@ void Input::handle_event(const SDL_Event& event) {
             m_touch.hide();
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            if (const auto it = find(event.gbutton.which);
+                it != m_gamepads.end() && event.gbutton.button < SDL_GAMEPAD_BUTTON_COUNT) {
+                it->tapped[event.gbutton.button] = kTapReads;
+            }
             pressed(event.gbutton.which, event.gbutton.timestamp);
             m_touch.hide();
             break;
@@ -297,8 +301,20 @@ PadInputs Input::read_device(std::size_t index) const {
     return index < m_gamepads.size() ? read_gamepad(m_gamepads[index].gamepad) : PadInputs{};
 }
 
+void Input::taps_read(int port) {
+    SDL_Gamepad* g = gamepad(port);
+    for (Connected& c : m_gamepads) {
+        if (g != nullptr && c.gamepad == g) {
+            c.tapped = {};
+        }
+    }
+}
+
 void Input::hold_back_held() {
     SDL_UpdateGamepads();
+    for (Connected& c : m_gamepads) {
+        c.tapped = {};  // a tap before this was not the game's either
+    }
     for (int port = 0; port < kPadPorts; ++port) {
         const auto p = static_cast<std::size_t>(port);
         if (SDL_Gamepad* g = gamepad(port)) {
@@ -318,6 +334,9 @@ void Input::begin_capture() {
     // is not what it captures.
     SDL_UpdateGamepads();
     m_capture_held.clear();
+    for (Connected& c : m_gamepads) {
+        c.tapped = {};
+    }
     for (const Connected& c : m_gamepads) {
         m_capture_held.push_back(
             pressed_inputs(read_gamepad(c.gamepad), m_bindings[0].tuning.trigger_threshold)
@@ -490,6 +509,20 @@ void Input::refresh_pads() {
                               || SDL_GetKeyboardFocus() != nullptr);
         if (read) {
             PadInputs inputs = read_gamepad(g);
+            // A press already let go, which the game has not read yet, reads as held.
+            if (const auto it = std::find_if(
+                    m_gamepads.begin(),
+                    m_gamepads.end(),
+                    [g](const Connected& c) { return c.gamepad == g; }
+                );
+                it != m_gamepads.end()) {
+                for (std::size_t b = 0; b < it->tapped.size(); ++b) {
+                    if (it->tapped[b] != 0) {
+                        inputs.buttons[b] = true;
+                        --it->tapped[b];
+                    }
+                }
+            }
             // A pad labelled Nintendo's way (A east), read by its labels: A is PadSouth.
             if (m_bindings[static_cast<std::size_t>(port)].tuning.face_labels
                 && SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_SOUTH)

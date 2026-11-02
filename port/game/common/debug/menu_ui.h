@@ -164,8 +164,9 @@ void press_entry(menu::Id id);
 void quit_game();
 
 // Quit's confirmation as rows of the card open now: "Back to the game" first, so a press of A
-// that came too soon does not quit, then "Quit game". The progress since the last save is lost.
-void quit_confirm_rows();
+// that came too soon does not quit, then "Quit game". Over them, unless `note` is false (the
+// window's Quit page says it on the right), that the progress since the last save is lost.
+void quit_confirm_rows(bool note = true);
 
 // What the picture is drawn with ("Vulkan · Adreno ..."), for the menus' foot.
 const std::string& menu_graphics_line();

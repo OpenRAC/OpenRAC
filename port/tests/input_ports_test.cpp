@@ -213,6 +213,9 @@ void test_unplug() {
     pump(input);
     tap(input, a);
     tap(input, b);
+    input.refresh_pads();  // the game reads the two taps
+    input.taps_read(0);
+    input.taps_read(1);
     // Port 0's unplugged with Cross held: port 0 is b's at once, and nothing stays pressed.
     hold(input, a, SDL_GAMEPAD_BUTTON_SOUTH, true);
     SDL_DetachVirtualJoystick(a);
@@ -328,6 +331,37 @@ void test_hold_back_held() {
     pump(input);
 }
 
+// A press let go before the game reads the pad (a quick tap while the frames are slow) still
+// reaches the game, once: read, it is over; not read, it is over a few reads later.
+void test_quick_tap() {
+    Input input;
+    play_in_background(input);
+    const SDL_JoystickID a = attach("Pad");
+    pump(input);
+    tap(input, a, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    input.refresh_pads();
+    input.refresh_pads();  // read again just before the tick (responsive controls)
+    CHECK(input.pad(0).held(Button::Down));
+    input.taps_read(0);
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Down));
+
+    tap(input, a, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    for (int i = 0; i < 6; ++i) {
+        input.refresh_pads();
+    }
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Down));
+
+    // A menu closed with a tap: not the game's.
+    tap(input, a, SDL_GAMEPAD_BUTTON_EAST);
+    input.hold_back_held();
+    input.refresh_pads();
+    CHECK(!input.pad(0).held(Button::Circle));
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
 }  // namespace
 
 int main() {
@@ -344,6 +378,7 @@ int main() {
     test_capture_while_paused();
     test_hold_back_held();
     test_unfocused();
+    test_quick_tap();
     SDL_Quit();
     return openrac::test::result();
 }

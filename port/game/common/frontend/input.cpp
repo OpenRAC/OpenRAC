@@ -257,6 +257,8 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     analog[1] = p.right_y;
     analog[2] = p.left_x;
     analog[3] = p.left_y;
+    g->input.taps_read(port);
+    g->input.taps_read(port);
     // OPENRAC_PRESS=FRAME:MASK:FRAMES[:LX:LY[:RX:RY]],... holds buttons (mask bits as the pad reports
     // them, 0x4000 cross, 0x8 start) and optionally the left and right sticks (0-255, 128 centred; 0
     // is left or up) for scripted checks. FRAME counts the window's frames (world, 2D and movie frames).
