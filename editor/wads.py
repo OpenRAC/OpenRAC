@@ -66,10 +66,12 @@ class Version:
     item_banks: int = 0     # where it keeps the banks of the items he holds, if it does
     flights: int = 0        # where it keeps the flights' (sector, sector count) pairs, after their base sector
     flight_count: int = 0
+    normal_table: int = 0   # the executable's (cos, sin) table the terrain is lit by (lighting.py), if known
 
 
 RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60,
-                    hero_packs=0x4f04, hero_armours=9, item_banks=0x4b3c, flights=0x3e58, flight_count=4)
+                    hero_packs=0x4f04, hero_armours=9, item_banks=0x4b3c, flights=0x3e58, flight_count=4,
+                    normal_table=0x238f00)
 RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
 VERSIONS = (RAC2_NTSC, RAC3_NTSC, RAC4_NTSC)
@@ -232,6 +234,20 @@ class WadDisc:
         base, = unpack("<I", self.toc, FLIGHT_BASE)
         sector, count = unpack("<II", self.toc, SHIP_BODIES + number * 8)
         return self.disc.sectors(base + sector, count)
+
+    def executable(self) -> bytes:
+        """The executable SYSTEM.CNF boots (identify checked its size and SHA-1)."""
+        found = next((lba, size) for path, lba, size in walk(self.disc) if path == self.version.executable)
+        return self.disc.read(found[0] * SECTOR, found[1])
+
+    def normals(self) -> list[tuple[int, int]] | None:
+        """The executable's (cos, sin) table the game lights its terrain by, or None where it is
+        not known. Going Commando's PatchTfragVertexLighting (0x2F0468) copies it from 0x238F00 to
+        the scratchpad and lights each terrain vertex as Ratchet & Clank's LightTfrags does."""
+        if not self.version.normal_table:
+            return None
+        from lighting import normal_table
+        return normal_table(self.executable(), self.version.normal_table)
 
     def flight(self, number: int) -> bytes:
         """A flight's lump as stored: the sector ranges at `flights`, relative to the sector the

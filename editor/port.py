@@ -62,8 +62,9 @@ FORMAT = 4
 # holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
 # of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
 # 9: the mobys' glow vertices and their light sets. 10: the ties' vertex colours. 11: the classes'
-# bangles as classes of their own (the broken crates' and destroyed enemies' pieces).
-GAME_FORMATS = {"rac2": 11}
+# bangles as classes of their own (the broken crates' and destroyed enemies' pieces). 12: the
+# terrain's vertex colours and the shrubs' colours, lit as the game lights them at level load.
+GAME_FORMATS = {"rac2": 12}
 
 
 def levels_format(game: str) -> int:
@@ -147,14 +148,19 @@ class PortLevelWriter(LevelWriter):
         self.dir.mkdir(parents=True)
         problems = level.problems if fmt.lenient else None
         self.write_environment(level_sky(level, fmt))
-        # The game's lighting at level load needs the executable's normal table, which only
-        # Ratchet & Clank's is known for (disc.Version.normal_table): the later games' levels go
-        # out unlit, their vertex colours left to the renderer's defaults.
+        # The game's lighting at level load needs the executable's normal table (Ratchet &
+        # Clank's disc.Version.normal_table, the later games' wads.Version.normal_table). Going
+        # Commando's terrain and shrubs are lit so (world_lighting); its ties have a reader of
+        # their own, and the games with no table go out unlit, their vertex colours left to the
+        # renderer's defaults.
         lights = (light_bank(level.gameplay), self.normals) if self.normals is not None and fmt.lighting else None
+        terrain_lights = (lights if lights is not None or not fmt.world_lighting or self.normals is None
+                          else (light_bank(level.gameplay), self.normals))
         # The terrain block (usually at the core's start, offset 0); the flight world has none.
         tfrags, = unpack("<I", level.index, 0x08)
         has_terrain = not getattr(level, "no_terrain", False)
-        self.write_terrain(terrain(level.block(tfrags), lod, lights, problems) + chunk_terrain(level, lod, lights, problems)
+        self.write_terrain(terrain(level.block(tfrags), lod, terrain_lights, problems)
+                           + chunk_terrain(level, lod, terrain_lights, problems)
                            if has_terrain else [], lod)
         ties = tie_classes(level)
         tie_placements = tie_instances(level.instances, ties, fmt, problems)
@@ -171,13 +177,13 @@ class PortLevelWriter(LevelWriter):
         self.write_objects("tie", ties, tie_placements)
         shrubs = shrub_classes(level)
         shrub_placements = shrub_instances(level.instances, shrubs, fmt, problems)
-        if lights is not None:
+        if terrain_lights is not None:
             # Each instance's 24 colours as LightShrubs leaves them at level load, one per
             # class normal; a vertex takes the one of its normal (_LIGHT_SLOT).
             normals = shrub_class_normals(level)
             for p in shrub_placements:
                 lit = light_shrub_instance(normals[p["class_id"]], p["matrix"], p["colour"],
-                                           p["directional_lights"], lights[0])
+                                           p["directional_lights"], terrain_lights[0])
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
         self.write_objects("shrub", shrubs, shrub_placements)
         self.write_shrub_billboards(shrub_billboard_fades(level))

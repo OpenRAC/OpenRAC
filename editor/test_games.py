@@ -47,6 +47,14 @@ class TableTests(unittest.TestCase):
         self.assertEqual((RAC4.ties, RAC4.shrubs, RAC4.mobys), (0x08, 0x14, 0x30))
         self.assertTrue(RAC4.swizzled_textures and RAC4.skeleton_3x4 and not RAC4.ratchet_sequences)
 
+    def test_going_commando_lights_its_terrain_and_shrubs(self):
+        # Its terrain and shrubs are lit at level load as Ratchet & Clank's (checked byte for byte
+        # against the console's memory in levels 0, 3, 4 and 22), by its own (cos, sin) table.
+        self.assertTrue(RAC2.world_lighting and not RAC2.lighting)
+        self.assertFalse(RAC1.world_lighting or RAC3.world_lighting or RAC4.world_lighting)
+        self.assertEqual(wads.RAC2_NTSC.normal_table, 0x238F00)
+        self.assertEqual((wads.RAC3_NTSC.normal_table, wads.RAC4_NTSC.normal_table), (0, 0))
+
     def test_records_lay_out_their_fields(self):
         for record in (games.RAC1_MOBY, games.GC_MOBY, games.UYA_MOBY, games.DL_MOBY):
             with self.subTest(size=record.size):
