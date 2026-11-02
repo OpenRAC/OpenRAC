@@ -615,6 +615,10 @@ typedef struct openrac_play_status {
 /* openrac_pose.flags. Since 1.8. */
 /* The animation is blending into `seq` from another: `frame` is where it arrives. */
 #define OPENRAC_POSE_BLENDING 0x1u
+/* For hero_set_pose: the hero on the ground, or in the air, as the game's camera should follow him
+ * (Ratchet & Clank: the ground fields his own update keeps). Neither leaves them. Since 1.12. */
+#define OPENRAC_POSE_ON_GROUND 0x2u
+#define OPENRAC_POSE_IN_AIR 0x4u
 
 /* A pose of the hero, or of a figure (openrac_api.hero_pose, figure_pose). Units are the game's.
  * Since 1.8. */
@@ -1501,8 +1505,9 @@ typedef struct openrac_api {
      * pose's `frame` its first key, blending in over 4 ticks) and `anim_speed` his animation's
      * speed (0 holds it); then what the game's update does after his movement to show him: his
      * animation moved on, his moby and its matrices from the pose, what he holds, his drawing. The
-     * pose's state, health, item, scale and flags are not read. In a level with the hero there, and
-     * only the mod holding that hook point: else OPENRAC_HOOK_UNKNOWN. Since 1.12. */
+     * pose's state, health, item and scale are not read, and of its flags only
+     * OPENRAC_POSE_ON_GROUND and OPENRAC_POSE_IN_AIR. In a level with the hero there, and only the
+     * mod holding that hook point: else OPENRAC_HOOK_UNKNOWN. Since 1.12. */
     int (*hero_set_pose)(openrac_mod* mod, const openrac_pose* pose);
 
     /* The collision triangles inside the box [lo, hi] (the game's units): the level's collision

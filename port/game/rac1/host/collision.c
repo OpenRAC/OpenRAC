@@ -2631,14 +2631,16 @@ static void moby_triangles(const Ctx* x, TriangleSink* s) {
         if (U8(m + 0x20) >= 0x80 || U32(m + 0x94) == 0 || unbounded(m)) {
             continue;
         }
-        /* Its bounding sphere (+0, radius +0xC) against the box. */
+        /* Its bounding sphere (+0, radius +0xC) against the box. The sphere is in the kernels'
+         * units, 1024 to the game's (moby_pose scales the position as they do). */
         float d2 = 0.0f;
         for (int k = 0; k < 3; ++k) {
-            const float c = F32(m + 4 * (gaddr)k);
+            const float c = F32(m + 4 * (gaddr)k) / 1024.0f;
             const float e = c < s->lo[k] ? s->lo[k] - c : (c > s->hi[k] ? c - s->hi[k] : 0.0f);
             d2 += e * e;
         }
-        if (d2 > F32(m + 0xC) * F32(m + 0xC)) {
+        const float radius = F32(m + 0xC) / 1024.0f;
+        if (d2 > radius * radius) {
             continue;
         }
         MobyColl mc;

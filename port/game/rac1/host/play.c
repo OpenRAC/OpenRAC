@@ -65,6 +65,12 @@
 #define HERO RAC1_ADDR(0x0013F450u)
 #define HERO_MOBY (HERO + 0x2080u)
 #define HERO_VELOCITY (HERO + 0xE0u)
+/* What the follow camera reads of his ground (follow_camera.c): his height above it, the frames
+ * off it, past the top of a jump, and the frames to landing. */
+#define HERO_GROUND_DISTANCE (HERO + 0x2DCu)
+#define HERO_FRAMES_OFF_GROUND (HERO + 0x30Cu)
+#define HERO_PAST_JUMP_APEX (HERO + 0x41Eu)
+#define HERO_FRAMES_TO_LAND (HERO + 0x44Cu)
 #define HERO_STATE (HERO + 0x2084u)
 #define HERO_HEALTH (HERO + 0x22A8u)
 #define HERO_ITEM_MOBY (HERO + 0x1090u)
@@ -282,6 +288,21 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     }
     /* hero_update's matrices: the rotation's (euler_to_matrix), and its inverse, the identity with
      * the rotation's rows as its columns (set_identity_matrix, matrix_from_basis_rows: a copy). */
+    /* On the ground or in the air, as the mod says (OPENRAC_POSE_ON_GROUND, _IN_AIR): the ground
+     * fields the follow camera reads, which his own update keeps, so it follows him as it follows
+     * the game's own moves. In the air its ground search (30 units and more) finds the ground. */
+    if (pose->flags & 2u) {
+        GREF(float, HERO_GROUND_DISTANCE) = 0.0f;
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = 0;
+        GREF(int16_t, HERO_PAST_JUMP_APEX) = 0;
+        GREF(int32_t, HERO_FRAMES_TO_LAND) = 0;
+    } else if (pose->flags & 4u) {
+        const int16_t off = GREF(int16_t, HERO_FRAMES_OFF_GROUND);
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = (int16_t)(off < 0x7FFF ? off + 1 : off);
+        GREF(int16_t, HERO_PAST_JUMP_APEX) = (int16_t)(pose->velocity[2] < 0.001f ? 1 : 0);
+        GREF(int32_t, HERO_FRAMES_TO_LAND) = 0;
+        GREF(float, HERO_GROUND_DISTANCE) = 30.0f;
+    }
     func_001FA218(HERO, HERO_MOTION_ROT);
     for (unsigned r = 0; r < 4; ++r) {
         for (unsigned c = 0; c < 4; ++c) {
