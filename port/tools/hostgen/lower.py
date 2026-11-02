@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 
 import ctype
-from program import BUILTINS, Program, canon, cname, has_body, symbol_of
+from program import BUILTINS, Program, call_copy as program_call_copy, call_copy_expr, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
 # The EE's float operations in software (openrac/ps2float.h), by C operator: the functions
@@ -50,6 +50,10 @@ HW_RANGES = [(0x10000000, 0x12002000)]  # EE registers, VU memory, GS registers
 LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 # A level function's name, with its level: rac1/pal's func_L05_..., the NTSC decomp's FUN_L05_....
 LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
+UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
+# A datum's name with a word after its number (D_001A7390_sda): the same datum; a number after it
+# (D_L00_001B1B00_1) is one of the build's own, a datum of its own.
+GLOBAL_VIEW = re.compile(r"^(D_(?:L\d\d_)?[0-9A-Fa-f]{8})_[A-Za-z_]\w*$")
 
 
 # Type names the host's standard headers (included by guest.h) define.
@@ -146,6 +150,15 @@ class _Fn:
 
 def _inner(n: dict) -> list:
     return n.get("inner", [])
+
+
+def _does_something(n: dict) -> bool:
+    """An expression with an effect of its own: a call, an assignment, an increment."""
+    k = n.get("kind")
+    if (k in ("CallExpr", "CompoundAssignOperator") or (k == "BinaryOperator" and n.get("opcode") == "=")
+            or (k == "UnaryOperator" and n.get("opcode") in ("++", "--"))):
+        return True
+    return any(isinstance(c, dict) and _does_something(c) for c in _inner(n))
 
 
 def _strip_parens(n: dict) -> dict:
@@ -1507,7 +1520,8 @@ class Unit:
         gaddr: the copy in the program loaded. The assembly's translation (asmc.py) asks here too."""
         if self.fn is not None:
             self.fn.report.calls.add(sym)
-        places = self.program.code_places(sym)
+        # A name whose places all went to a variant (split_places.tsv) is still where it sits.
+        places = self.program.code_places(sym) or list(getattr(self.program, "splits", {}).get(sym, []))
         if not places:
             raise Unsupported(f"the address of {sym}, which has none")
         if getattr(self.program, "relocate", None) and self.fn is not None                     and not LEVEL_NAME.match(self.fn.code) and places[0][0] < 0:
@@ -1607,12 +1621,23 @@ class Unit:
             stack.extend(c for c in n.get("inner", ()) if isinstance(c, dict))
         return out
 
+    def _level_short_name(self, sym: str) -> str:
+        return self.program.level_short_name(self.unit, sym, self.fn.code if self.fn is not None else "")
+
     def _callee_symbol(self, ref: dict) -> str:
         d = self.decls.get(ref["referencedDecl"]["id"])
         sym = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         sym = self.program.aliases.get((self.unit, sym), sym)
         if (self.unit, sym) in self.program.statics:
             return sym
+        # hostgen.json "calls_as": a level's C names a routine its level has only as a variant of
+        # another name, which its own jal reaches (rac2: func_L04_002E04A8's func_L00_002B6BC8).
+        if self.fn is not None:
+            calls_as = getattr(self.program, "calls_as", {})
+            own = LEVEL_NAME.match(self.fn.code)
+            sym = calls_as.get(self.fn.code, {}).get(sym, sym)
+            sym = calls_as.get(f"L{int(own.group(1)):02d}", {}).get(sym, sym) if own else sym
+        sym = self._level_short_name(sym)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own
@@ -1867,11 +1892,53 @@ class Unit:
         an executable function's code read as data; `named_level`: the level its name gives
         (D_L00_...). A global's name and a literal address of it (`*(s32 *)0x1610A8`) take the
         same path."""
+        # A $gp view of a global (common.h's SDATA) is the global, and so is a second declaration of
+        # it under a suffixed name (D_L00_001B1B00_sda, D_001B1BC4_base): left whole, the name read
+        # as another name of the executable's datum at that number and took that datum's place in
+        # the level (func_L00_00329520's area table: no region ever held the hero).
+        symbol = symbol.removesuffix("__gp") if symbol else symbol
+        if symbol and getattr(self.program, "global_views", False):
+            symbol = GLOBAL_VIEW.sub(r"\1", symbol)
+        # A level function's datum by its name, where the build's derived table holds the address of
+        # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
+        named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})(?:_\d+)?", symbol or "")
+        if (named and not code and int(named.group(2), 16) != address
+                and (self._shared_level() is not None or UNIT_LEVEL.search(self.unit))):
+            return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
+        # A level file's bare name its level's build placed elsewhere (D_001FEAC0 is level 2's
+        # 0x001FF1C0): that address, as the level loaded has it.
+        unit_level = UNIT_LEVEL.search(self.unit)
+        if unit_level and not code and symbol:
+            level = int(unit_level.group(1))
+            moved = self.program.level_data.get(level, {})
+            placed = moved.get(symbol)
+            if placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol):
+                # Another name of the executable's datum (r1_D_L01_00160058 and D_L02_001B359C are
+                # 0x001B1B5C, the moby table's base): where this level's build put that datum.
+                placed = moved.get(f"D_{address:08X}")
+            low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
+            if placed is not None and low <= placed < high:
+                return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
+        formed = getattr(self.program, "formed_as", {}).get(symbol or "")
+        if formed is not None:
+            # An address the code only forms with something added (hostgen.json "formed_as"): pairing
+            # the programs finds the sum, so the name is that, relocated, less what was added.
+            return f"(OPENRAC_DATA({hexaddr(formed)}) - {hexaddr(formed - address)})"
+        # A level function written with another level's name for the datum (func_L16_00435CE8 was
+        # matched from level 23's copy and says D_L23_001B2144, which level 16 has at 0x001B24C4;
+        # func_L00_002A53B8 says D_L24_0025B710): the name's level's address, as the level loaded
+        # has it. So too one level's own function whose name the derived table holds as the
+        # executable's copy (func_L00_003CD8E0's D_L00_001B8C80, the camera, as 0x001B5200).
+        if named and not code and getattr(self.program, "level_short_names", None) is not None:
+            own = LEVEL_NAME.match(self.fn.code) if self.fn is not None else None
+            if own and (int(own.group(1)) != int(named.group(1)) or int(named.group(2), 16) != address):
+                return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
             # A function's code declared as data: where that code is in the program loaded.
             addr = f"OPENRAC_CODE({addr})"
-        elif self._relocated(address) and named_level is not None:
+        elif (self._relocated(address) and named_level is not None and self._named_at(symbol, address)
+              and self._in_a_level_file()):
             # A level's datum by its name (D_L00_...) in a function that is not a level's (a
             # static helper of a level file): that level's, looked up for the level loaded, as in
             # the level functions beside it; OPENRAC_DATA would take it for the executable's.
@@ -1897,11 +1964,41 @@ class Unit:
                 home, canon, size = copies
                 self.fn.uses_self = True
                 addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+            elif level is not None and low <= address < high and (self.fn.code, address) in getattr(self.program, "data_copies", ()):
+                # A global that does not pair between levels (data_copies.tsv): what the running
+                # copy forms itself (guest.h).
+                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
+                size = getattr(self.program, "sizes", {}).get(self.fn.code) or 0x400
+                self.fn.uses_self = True
+                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+            elif (level is not None and low <= address < high and (size := self._small_copy_size()) is not None):
+                # A leaf the catalogue fingerprints without its operands may be another field in
+                # another level (Going Commando's func_L00_00367720 reads word 15 of the ship
+                # mission in level 0 and word 9 in level 25): what the running copy forms itself.
+                self.fn.uses_self = True
+                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
+                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
                 addr = f"OPENRAC_LDATA({level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
         return addr
+
+    def _in_a_level_file(self) -> bool:
+        """Whether this file is a level's. A matched file of the executable can spell a global with
+        a level's name and it still compiled to the executable's address: Going Commando's frame
+        list cursor 0x001B22A8 as D_L06_001B22A8, which level 6 uses for something else."""
+        if getattr(self.program, "level_short_names", None) is None:
+            return True     # a game whose files aren't named for their level: rac1's overlays
+        return UNIT_LEVEL.search(self.unit) is not None
+
+    @staticmethod
+    def _named_at(symbol: str | None, address: int) -> bool:
+        """Whether a level-named datum resolved to the address its name states. A build's derived
+        value can be the executable's instead (rac2: D_L06_001B2180 in func_00270210, a boot function
+        whose C took a level's spelling, is 0x001B14C0): that one is the executable's global."""
+        m = re.fullmatch(r"D_L\d\d_([0-9A-Fa-f]{8})", symbol or "")
+        return m is None or int(m.group(1), 16) == address
 
     def _variant_call(self, sym: str) -> tuple[int, int, int, int] | None:
         """For a call from a level function placed in several levels to a level function missing
@@ -1922,6 +2019,12 @@ class Unit:
         canon = next(a for o, a in caller if o == home)
         own = next(a for o, a in callee if o == home)
         return home, canon, getattr(self.program, "sizes", {}).get(fn.code) or 0x400, own
+
+    def _small_copy_size(self) -> int | None:
+        """This function's size, when hostgen.json's "small_copies_own_data" covers it."""
+        limit = getattr(self.program, "small_copies_own_data", 0)
+        size = getattr(self.program, "sizes", {}).get(self.fn.code) if self.fn is not None else None
+        return size if size and size <= limit else None
 
     def _copies_in_one_program(self) -> tuple[int, int, int] | None:
         """For a level function the catalogue places more than once in one program (the same code
@@ -2121,6 +2224,13 @@ class Unit:
                     self.fn.report.calls.add(sym)
                     fp = f"openrac_hook_in_copy({hexaddr(exe_fn)}, {size}u, {home}, {hexaddr(home_fn)}, {hexaddr(stub)}, {k}u)"
                     named = None  # each level fills the hook with its own function: the call site's type
+                elif (call_copy := program_call_copy(self.program, self.fn.code if self.fn else None, sym)) is not None:
+                    # A jal that differs between this function's places (call_copies.tsv): the one
+                    # in the copy that runs.
+                    self.fn.report.calls.add(sym)
+                    self.fn.uses_self = True
+                    fp = call_copy_expr(call_copy)
+                    named = self._function_at(call_copy[0], call_copy[3]) or sym
                 elif not places and callee_places:
                     # Inside a function the catalogue folded (copies that differ in what they
                     # call): the function this copy's own call at that place calls (guest.h).
@@ -2581,17 +2691,22 @@ class Unit:
         if sym in HOST_MATH and (f is None or (f.unit is None and sym not in self.program.host)):
             # A C library maths function the game calls without defining it (declared or
             # not): the host's, on values.
-            return f"{sym}({', '.join(self.rv(a) for a in args)})"
+            # abs and labs are in stdlib.h, which would declare the game's own names (free, rand).
+            name = "__builtin_abs" if sym in ("abs", "labs") else sym
+            return f"{name}({', '.join(self.rv(a) for a in args)})"
         if f is None:
             raise Unsupported(f"call to {sym}, which the program does not know")
         self.fn.report.calls.add(sym)
         sig = f.sig
         result_cls = self.cls(result_t)
         values = self._match_args(sym, sig, args)
+        spent = self._spent_arguments(sig, args)
         # A static helper the console's compiler inlined here: its copy for this call site (after the
         # arguments, whose calls come first in the caller's code too).
         copy = self._inline_copy(sym)
         text = f"{cname(copy or sym)}({', '.join(values)})"
+        if spent:
+            text = f"({', '.join(spent)}, {text})"
         ret_cls = self.sig_cls(sig.ret)
         self._note_mismatch(sym, sig, args, result_cls, ret_cls)
         if result_cls == "void":
@@ -2625,6 +2740,22 @@ class Unit:
             what.append(f"reads a {result_cls} result, returns {ret_cls}")
         if what:
             self.fn.report.mismatches.append(f"{sym}: {'; '.join(what)}")
+
+    def _spent_arguments(self, sig, args: list) -> list[str]:
+        """hostgen.json "keep_spent_arguments": the arguments past what the callee takes that do something
+        (`f(g())` where f takes nothing): the call passes them to no one, but the EE ran them. _match_args
+        leaves them out, and the C of the call would never run. As statements before the call."""
+        if not getattr(self.program, "keep_spent_arguments", False) or not sig.prototyped or sig.variadic:
+            return []
+        classes = [self._arg_class(a) for a in args]
+        pcls = [("agg" if self.sig_cls(p) == "rec" else self._reg_class(self.sig_cls(p))) for p in sig.params]
+        if "agg" in classes or "agg" in pcls:
+            return []
+        out = []
+        for kind in ("i", "f"):
+            given = [a for a, c in zip(args, classes) if c == kind]
+            out += [f"(void)({self.rv(a)})" for a in given[pcls.count(kind):] if _does_something(a)]
+        return out
 
     def _arg_class(self, a: dict) -> str:
         """Which register file the call site put the argument in."""

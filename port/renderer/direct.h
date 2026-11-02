@@ -215,6 +215,14 @@ public:
     // the game's terrain pass (rac1/host/render_native.c). The frontend splits the 2D path there
     // (FrameInput::direct_before_world); drawing passes over it.
     static constexpr std::uint64_t kWorldMarker = 0x574C;
+    // The frame the game read back, whole and at the frame's resolution, over everything so far: a
+    // marker of the same form, kFrameMarker in the top 16 bits, for a game whose own transfer back
+    // is not in its list (Going Commando's tiles, rac2-ntsc/host/picture.c).
+    static constexpr std::uint64_t kFrameMarker = 0x4653;
+    // Going Commando's HUD is one tree of widgets, without Ratchet & Clank's anchored slots: between
+    // two markers of the same form, kHudSideMarker in the top 16 bits, what lies left or right of
+    // the middle goes out that far (the low 32 bits, the chip's pixels; 0 ends it), with "HUD: Edges".
+    static constexpr std::uint64_t kHudSideMarker = 0x4853;
 
     // A VIF1 stream carrying GIF data in DIRECT and DIRECTHL commands, with
     // the bookkeeping codes around them (NOP, FLUSH, STCYCL...). A command
@@ -281,6 +289,12 @@ private:
     void emit_quad(const DirectVertex corners[4]);
     // An image transfer into the draw buffer: its pixels drawn where the chip would store them.
     void draw_frame_upload(const ImageUpload& upload);
+    // The frame snapshot over the whole target (kFrameMarker).
+    void draw_frame_snapshot();
+    // What was drawn since the last marker out to its side, and the next stretch's width.
+    void hud_side(int side);
+    int m_hud_side = 0;
+    std::uint32_t m_hud_side_first = 0;
     DirectVertex convert(const GsVertex& v) const;
     void screen_position(const GsVertex& v, float& x, float& y) const;
     void ensure_draw();

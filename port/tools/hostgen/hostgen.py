@@ -44,7 +44,7 @@ import derived  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -214,8 +214,10 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
     "name<TAB>file" line each, the file relative to the decompilation; lines
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
-    function does without matching its bytes; the matching build never sees it."""
+    function does without matching its bytes; the matching build never sees it.
+    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet."""
     table = cfg.get("candidates")
+    left_out = cfg.get("candidates_left_out", {})
     if not table or not (source / table).is_file():
         return {}
     out: dict[str, str] = {}
@@ -225,7 +227,7 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
             continue
         name, _, rel = line.partition("\t")
         path = source / rel.strip()
-        if path.is_file():
+        if path.is_file() and name.strip() not in left_out:
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
             out[name.strip()] = texts[path]
@@ -1009,6 +1011,20 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         read_places(source / cfg["places"], program)
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
+    if cfg.get("call_copies"):
+        read_call_copies(args.game.parent / cfg["call_copies"], program)
+    if cfg.get("data_copies"):
+        program.data_copies = {(row[0], int(row[1], 16)) for row in (
+            line.split("\t") for line in (args.game.parent / cfg["data_copies"]).read_text().splitlines()
+            if line and not line.startswith("#"))}
+    # Copies the catalogue has under another name, starting early (hostgen.json "more_places":
+    # function -> "level:address,..."): rac2's Galactic Map list is matched at its level 0 place and
+    # 16 bytes into a row of its own in every other level, so those rows hold no function.
+    for sym, text in cfg.get("more_places", {}).items():
+        program.places.setdefault(sym, []).extend(
+            (int(level), int(address, 16)) for level, address in (item.split(":") for item in text.split(",")))
+    program.splits_keep_names = bool(cfg.get("splits_keep_names"))
+    program.calls_as = cfg.get("calls_as", {})
     host_rows = host_table(args.game.parent, cfg)
     program.host = set(cfg.get("host_functions", [])) | set(host_rows)
     program.wrap = wrapped(args.game.parent, cfg)
@@ -1017,7 +1033,22 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # The executable's data that level programs carry at other addresses (guest.h, per-level
     # relocation): [low, high), or none.
     program.relocate = cfg.get("relocate")
+    program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
+    program.small_copies_own_data = cfg.get("small_copies_own_data", 0)
+    # hostgen.json "unit_aliases": a name in one file that is another function there (a twin written
+    # from another level's copy, with that level's names): unit -> {name: the function}.
+    program.aliases.update({(unit, name): symbol for unit, names in cfg.get("unit_aliases", {}).items()
+                            for name, symbol in names.items()})
+    program.global_views = bool(cfg.get("global_views", False))
+    program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
     program.returns_64 = set(cfg.get("returns_64", []))
+    program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
+    if cfg.get("executable_functions"):
+        program.executable_starts = {int(row[1], 16) for row in tables.read_tsv(source / cfg["executable_functions"],
+                                                                                strip=True) if len(row) >= 2}
+    short_names = cfg.get("level_short_names")
+    program.level_short_names = re.compile(short_names) if short_names else None
+    program.vu0_programs = {int(k, 0): v for k, v in cfg.get("asm", {}).get("vu0_programs", {}).items()}
     # Locals that receive a "returns_64" call's result but which the original keeps in a stack slot across calls,
     # where its 32-bit store and load leave the low half sign-extended (hostgen.json "spilled_locals": function ->
     # local names): lower.py keeps them 32-bit.
@@ -1025,6 +1056,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.entries = {sym: int(str(off), 0) for sym, off in cfg.get("entries", {}).items()}
     # Stubs of the executable that every level program fills with a function of its own.
     program.level_hooks = set(cfg.get("level_hooks", []))
+    program.level_hooks_by_registers = cfg.get("level_hooks_by_registers", False)
     # Functions whose float arithmetic is the EE's, computed in software (hostgen.json "ps2_float";
     # openrac/ps2float.h): lower.py.
     program.ps2_float = set(cfg.get("ps2_float", []))
@@ -1104,8 +1136,8 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
                         for p in sorted(d.glob("*.c")))
     # The results C wrappers pass on from their tail calls, before the assembly stage: a translated
     # caller reads such a wrapper's result in $v0 as the EE's did (Going Commando's menu read its
-    # selection through a `void` wrapper and lost it). Only C callees count, so the assembly stage
-    # changes nothing of this.
+    # selection through a `void` wrapper and lost it). Only callees with C count, a function whose C
+    # is left out for its assembly among them, so the assembly stage changes nothing of this.
     inherited_early = inherit_results(program)
     asm_stage, asm_results = asmc.run(program, cfg, source, host_text)
     if args.asm_console:
@@ -1115,7 +1147,7 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
                      if l.strip() and not l.startswith("#")]
         for name, why in sorted(asmc.write_console(asm_stage, args.asm_console.resolve(), names).items()):
             print(f"hostgen: {name}: no console form: {why}", file=sys.stderr)
-    inherited = inherited_early + inherit_results(program)
+    inherited = inherited_early + asm_stage.inherited + inherit_results(program)
     return asm_stage, asm_results, inherited
 
 

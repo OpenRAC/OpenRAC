@@ -4,7 +4,7 @@ Released in Europe as *Ratchet & Clank 2: Locked and Loaded*.
 
 | Version | Directory | Came from | Builds on |
 |---|---|---|---|
-| NTSC-U, `SCUS_972.68` (disc v1.01) | [ntsc/](ntsc/README.md) | [rac2-gc-decomp](https://github.com/OpenRAC/rac2-gc-decomp) | macOS, Linux and Windows through Docker; Linux with Wine natively |
+| NTSC-U, `SCUS_972.68` (disc v1.01) | [ntsc/](ntsc/README.md) | [rac2-gc-decomp](https://github.com/OpenRAC/rac2-decomp) | macOS, Linux and Windows through Docker; Linux with Wine natively |
 
 Since 2026-10-11 the project has rac1/pal's structure:
 
@@ -28,7 +28,7 @@ release (`SCES_516.07`) as C with SDL2 and OpenGL. It builds with CMake on its o
 part of the matching sources or the progress.
 
 Only v1.01 is built; the Greatest Hits release (v2.00) and the PAL release are identified in
-[ntsc/docs/REGIONS.md](ntsc/docs/REGIONS.md). Disc checksums are in
+[ntsc/docs/VERSIONS.md](ntsc/docs/VERSIONS.md). Disc checksums are in
 [baserom/README.md](../../baserom/README.md); progress in [progress/](../../progress/README.md).
 
 ## Getting started

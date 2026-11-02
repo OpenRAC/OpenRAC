@@ -12,4 +12,3 @@ int func_00131400(void *arg)
 
 INCLUDE_ASM("asm/core", func_00131424);
 
-INCLUDE_ASM("asm/core", func_0013153C);

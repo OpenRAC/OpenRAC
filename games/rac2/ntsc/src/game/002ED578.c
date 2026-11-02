@@ -39,14 +39,13 @@ int func_002ED578(int a0, int *p0, int *p1, int *p2)
     return e;
 }
 
-INCLUDE_ASM("asm/game", func_002ED670);
 
 s32 func_002ED688(u8 *a0) {
  if((*(unsigned short *)(a0+0x34)&0x20)==0) return 0;
  return (*(s32 **)(a0+0x68))[5];
 }
 
-INCLUDE_ASM("asm/game", func_002ED6B0);
+/* func_002ED6B0 is in 002ED6B0.c: its call to func_002ED870 has to be an external one. */
 
 INCLUDE_ASM("asm/game", func_002ED848);
 
@@ -60,7 +59,6 @@ INCLUDE_ASM("asm/game", func_002ED880);
 
 INCLUDE_ASM("asm/game", func_002ED8F0);
 
-INCLUDE_ASM("asm/game", func_002ED948);
 
 INCLUDE_ASM("asm/game", func_002ED9A8);
 
@@ -75,10 +73,8 @@ void func_002ED9C0(unsigned char *owner)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002EDA10);
+/* func_002EDA10 is in 002EDA10.c. */
 
 INCLUDE_ASM("asm/game", func_002EE000);
 
-INCLUDE_ASM("asm/game", func_002EE238);
-
-INCLUDE_ASM("asm/game", func_002EE3B0);
+/* func_002EE3B0 is in 002EE3B0-g8.c. */

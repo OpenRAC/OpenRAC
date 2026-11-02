@@ -23,7 +23,7 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10,1300:40
 ## Building and running
 
 The default build reads OpenRAC's own `games/rac2/ntsc` (synced at
-8bc9d785, 2026-10-20). It needs the boot executable, which
+2e09b830, 2026-11-01). It needs the boot executable, which
 `python3 tools/build_port.py rac2-ntsc --disc <your disc image>` has hostgen read
 straight from the image (`OPENRAC_RAC2_NTSC_RETAIL_IMAGE`; no copy is made).
 Without `--disc` the build falls back to `games/rac2/ntsc/baserom/SCUS_972.68`
@@ -71,14 +71,15 @@ What the translation reads (`hostgen.json`):
   ```sh
   python3 port/tools/hostgen/derived.py --game port/game/rac2-ntsc/hostgen.json --source <built rac2-decomp at the synced commit>
   ```
-- `baserom/SCUS_972.68` (`asm.retail`): every function still in assembly is
-  translated from the retail executable's instructions, entries found by
-  their calls (`discover_entries`). Its `include_asm.h` defines the markers
+- `baserom/SCUS_972.68` and `baserom/levels` (`asm.retail`): every function
+  still in assembly is translated from the retail executable's and the level
+  programs' instructions, entries found by their calls (`discover_entries`). Its `include_asm.h` defines the markers
   to nothing, so `defines` sets `INCLUDE_ASM_H` and gives `ASM_FUNC` the
   marker hostgen reads.
-- `skip`: libgcc's `__udivdi3`, `__umoddi3` (host rows) and fp-bit's
-  `__pack_f` file, whose `mode` typedefs Clang reads but hostgen cannot
-  prototype; translated from assembly instead.
+- `skip`: the other releases' C (`src/pal`, `src/us2`); libgcc's `__udivdi3`,
+  `__umoddi3` (host rows), fp-bit's `__pack_f` file, whose `mode` typedefs Clang
+  reads but hostgen cannot prototype, and libgcc's other units, whose macros and
+  `__builtin_setjmp` it cannot read. All translated from assembly instead.
 - `from_assembly`: 15 wrappers whose C omits registers they forward
   (`arguments_filled_with_zero` in the report), translated from assembly.
 
@@ -87,13 +88,19 @@ What the translation reads (`hostgen.json`):
 | File | Replaces |
 |---|---|
 | `font.c` | the font prints (`0x0027F538` and nine siblings) and the GUI text element's draw (`0x00336A78`), passing the font's TEX0 from `0x0027C878` whole, as rac1's port does for FontPrintWindow (`rac1/host/hand.c`) |
+| `spr_dma.c` | the scratchpad's DMA channels (toSPR, fromSPR) the hand-written kernels start and poll (`CollLine`, `0x002761F8`, and about twenty more): `asm.dma_stores` sends their word stores here, and the transfer is done at once |
+| `level.c` | wraps ParseBin (`0x00131CB8`): sets the per-level relocation once and says which program is loaded (`overlay_hook`), as `rac1/host/boot.c` does |
 | `entry.c` | crt0 (`0x00131AE8`): `_InitSys`, `FlushCache(0)`, `main(argc, argv)` with the block at `0x00146B40`, without the thread and heap system calls; `_InitSys`'s scan of kernel memory (`0x0011F718`) and its Deci2 console thread (`0x0011B800`) |
 | `dma.c` | `sceDmaSend` (`0x00127220`), leaving CHCR as after an end tag so the game's VIF1 handler (`0x002FCE18`) retires the whole frame wait mask (`0x001AD520`); `KickVif0Chain` (`0x002FC070`) |
 | `io.c` | `sceOpen` (`0x0011E0D8`), declared variadic |
 | `movie.c` | `PlayFmvMovie` (`0x0034EF58`: first sector, size, ...): the shared native player |
 | `print.c` | `printf`, `sprintf`, `kprintf`, `scePrintf`: formatted by the port |
-| `sound.c` | `snd_SendCommandSync` (`0x00132C48`) and `snd_QueueCommandToRing` (`0x00132DF0`): commands the native engine knows, the others answered 0 without an IOP |
+| `sound.c` | `snd_SendCommandSync` (`0x00132C48`) and `snd_QueueCommandToRing` (`0x00132DF0`): every command, as all wrappers end there; a set-parameters reply of 0 is what frees a finished voice's slot, and music is two mono VAG files, right and left |
 | `trig.c` | the VU0 sine and cosine (`0x00283198`, `0x00283180`), from the microprogram the game loads at `0xC80`: where its constants are, for the shared body ([common/lib/vu0_sine.h](../common/lib/vu0_sine.h)) |
+| `ui2d.c` | the 2D layer's draw routines (font prints, glyph quads, HUD sprites), wrapped as rac1's `ui2d.c`: their quads go to the window as records, glyphs drawn from the font's distance field at the frame's resolution ([common/lib/ui_quad.h](../common/lib/ui_quad.h)) |
+| `hud.c` | the HUD in a wider picture with "HUD: Edges": the 13 slots ([common/lib/hud_edges.h](../common/lib/hud_edges.h)) and the widget HUD (`0x0034E4F8`) moved out by `kHudSideMarker` |
+| `wide_view.c` | the five draw callback lists and the sphere test (`0x00283DB8`) against the wider picture ([common/lib/wide_view_lists.h](../common/lib/wide_view_lists.h)), game fix `fix_wide_liquids` |
+| `options.c` | the game's own 16:9 (`0x001A7BB1`) kept off: the window's Picture setting gives the shape |
 | `wad.c` | the WAD decompressor (`0x0029D4D0`), through the shared body ([common/lib/wad_routine.h](../common/lib/wad_routine.h)) |
 
 `libraries.tsv` binds 164 entry points to the shared replacements: the
@@ -101,6 +108,61 @@ names in the symbol table, the kernel's system-call wrappers by the number
 each loads into `$v1`, and the SDK functions whose instructions (relocations
 masked) are those of rac1-pal's or rac4's bound ones. Several of the latter
 start four bytes after their catalogue place, at the linker's fill word.
+
+## Level hooks
+
+`level_hooks`: 31 empty functions of the executable from `0x0026F710` to `0x0026F808`. Each level's
+program fills them with hero code of its own, which the engine calls from the code it carries in
+every level: state changes, the update in a scene. Rac1 has the same pattern. Assembly calls one
+with all its registers (`level_hooks_by_registers`): the stub's C declaration says nothing of what
+the level's function takes.
+
+## Names the C has from somewhere else
+
+`unit_aliases`: a file's name for another function. Twins matched beside another level's copy keep
+that level's names (`func_L20_002C7588` in level 13's hero update is `func_L00_002B4458` there),
+and some calls are spelled with another level's addresses or a kseg0 one (`func_80338398`). Each row
+comes from comparing the function's calls with retail's jals.
+
+`small_copies_own_data`: the catalogue's fingerprint leaves operands out, so a leaf of up to this
+many bytes can be another field in another level: it reads what the running copy forms.
+
+## What differs from Ratchet & Clank's layouts
+
+- Ratchet's class has no packets in a level: the game loads his mesh and textures from a pack of
+  RC2.HDR (`packs[]` at +0x4F08, by armour) over the class at run time. The export reads pack 0
+  (`editor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Packs 1 to 8, his
+  other looks, are classes 6001 to 6008 of the export, textures 16 places on for each; `profile.cpp`
+  has the window draw the one the game has (armour `0x001A7A18`, or the four flags before it), through
+  `LiveMoby::model_class`, so class 0 stays the hero everywhere else. His sequences are compressed on
+  the disc, so the glTF has none: the game draws him from its memory.
+- What he holds is not in a level at all, unlike Ratchet & Clank's gadget table: the 42 items are banks
+  on the disc (RC2.HDR +0x4B3C, class and sectors, `wads.item_banks`), loaded by `func_00294988` when he
+  takes one out, each a class and one texture. Every level exports them all, textures `moby_1203.png`
+  on. The wrench (class 71, level has its skeleton) is packs 9 to 11, `moby_1200.png` to `moby_1202.png`,
+  its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0,
+  paint 0 only, `moby_1300.png`. Levels of this game are format 9 (`editor/port.py`, `GAME_FORMATS`).
+- Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
+  pixels are the first two pictures of the texture data (128 x 128 at +0, 64 x 64 at +0x4000, moby
+  textures from +0x5000), not in the GS RAM lump as in Ratchet & Clank; the CLUTs are the lump's first
+  two, at 0 and 0x400. `Format.maps_in_textures`.
+- A moby's animation fields start at +0x40 (`profile.cpp`, `moby_anim_fields`).
+- Glow: a packet's compact vertex table ends with a count of its last vertices whose lit colours
+  func_00274D90 overwrites with the moby's glow word, +0x78 (`moby_glow_word`), when its mode has
+  0x10 (the lift button's grey pulse and green, lamps, eyes). The export marks them light slot -2
+  (`Format.moby_glow_tail`) and writes the gameplay file's 16 light sets the mobys are lit with
+  (`Format.moby_lights`); format 9.
+- The frame is drawn at FBP 0xF4, past both display buffers (`draw_buffer_block`), not right after
+  the display as in Ratchet & Clank.
+- `split_places.tsv`: the catalogue names the levels' copies of the draw callback lists apart from
+  the executable's routines, which then would not find their tables in a level.
+
+## The flights
+
+The flight to a planet is not the level's: `func_002EAB18` loads one of four lumps (RC2.HDR +0x3E58, by
+`g_loadingSceneVariant`) with a sky, mobys and textures of its own, and `func_002E8BA8` draws it while
+`g_exitSceneMode` is 2 and the game state 6. They export as levels 98 down to 95, read as rac1's lump, and
+`openrac_game_flight` (host/tools.c) makes the window draw that world.
 
 ## The texture word (TEX0)
 
@@ -125,6 +187,4 @@ its two C callers in `0x002D5E98.c` still pass it on as an `int`.
   programs and the overlay hook, the level-copy functions (`func_..._N`)
   that register at one address in overlay 30 (logged at start), and the
   world renderer.
-- Sound: only play and parameter commands reach the native engine; the
-  banks, the master volume and the streams are dropped with a warning.
 - `rom0:ROMVER` cannot be opened (the game logs it and goes on).

@@ -9,7 +9,7 @@ What is shared (Wrench's readers, which serve all four, and the levels on the di
 
 - the level core: one index header layout (gs_ram, tfrags, occlusion, sky, collision, the class
   and texture tables at the same offsets, textures base at +0x60, the chrome and glass maps at
-  +0x90..+0x9c), the class entries (32 bytes for mobys and ties, 48 for shrubs), the 16-byte
+  +0x90..+0x9c, whose pixels Going Commando keeps in the texture data, not the GS RAM lump), the class entries (32 bytes for mobys and ties, 48 for shrubs), the 16-byte
   texture entries and the WAD compression;
 - tfrags, ties, shrubs and collision, whose blocks the same decoders read;
 - the moby class header and its packets; the tie and shrub instance records (from Going Commando on
@@ -124,11 +124,15 @@ class Format:
     ratchet_sequences: bool = True      # +0x78 points at Ratchet's 256 sequence offsets (not Deadlocked's)
     moby_sound_remap: bool = False      # +0xb4 starts a core block (Going Commando, Up Your Arsenal)
     stash: bool = False                 # +0x84 counts GS RAM entries of permanently stashed moby textures
+    maps_in_textures: bool = False      # the chrome and glass maps' pixels are in the texture data (Going Commando)
+    ship_paint_slots: bool = False      # a face on an empty texture slot wears the ship's picture (Going Commando)
     compact_vertex_table: bool = False  # moby packets' vertex table header: 8 u16 (else 8 u32)
     swizzled_textures: bool = False     # 8-bit textures stored in the GS's PSMT8 order (Deadlocked)
     skeleton_3x4: bool = False          # moby bind matrices are 3x4 (Deadlocked), not 4x4
     moby_animations: bool = True        # the moby sequences are read (moby_anim.py's frame format)
     moby_glow: bool = True              # a class header's byte 0xa is its first glow packet
+    moby_glow_tail: bool = False        # a packet's vertex table counts its last vertices as glow ones (Going Commando)
+    moby_lights: bool = False           # the gameplay file's light sets go out for the mobys (Going Commando)
     moby_empty_slots: bool = False      # a face may use an empty texture slot: drawn untextured
     sky_short_shells: bool = False      # a sky shell's cluster count and flags are s16 (Up Your Arsenal, Deadlocked)
     # What only Ratchet & Clank has so far: its levels lit as the game lights them at load
@@ -202,7 +206,10 @@ RAC1 = Format("rac1", "Ratchet & Clank", ties=0x34, shrubs=0x3c, mobys=0x44, mob
               tie_ambient=True, gadgets=True, lighting=True, class_names=True, packable=True,
               level_names=LEVEL_NAMES["rac1"])
 RAC2 = Format("rac2", "Ratchet & Clank: Going Commando", ties=0x34, shrubs=0x40, mobys=0x4c, moby=GC_MOBY,
-              tie_header=GC_TIE, moby_sound_remap=True, level_names=LEVEL_NAMES["rac2"], **LATER)
+              tie_header=GC_TIE, moby_sound_remap=True, maps_in_textures=True, ship_paint_slots=True,
+              moby_glow_tail=True, moby_lights=True,
+              level_names=LEVEL_NAMES["rac2"],
+              **LATER)
 RAC3 = Format("rac3", "Ratchet & Clank: Up Your Arsenal", ties=0x34, shrubs=0x40, mobys=0x4c, moby=UYA_MOBY,
               tie_header=UYA_DL_TIE, moby_sound_remap=True, sky_short_shells=True,
               level_names=LEVEL_NAMES["rac3"], **LATER)

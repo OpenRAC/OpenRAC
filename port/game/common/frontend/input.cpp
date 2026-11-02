@@ -211,7 +211,9 @@ void menus_after_mods(int port, std::uint16_t& buttons) {
 void skip_after_mods(int port, std::uint16_t& buttons) {
     // A mod's skip (openrac_api.play_skip: a party's scenes ending together) presses as a map's
     // own skip does.
-    const bool asked = port == 0 && mods::play_skipping();
+    // OPENRAC_SKIP_SCENES presses it too.
+    static const bool skip_scenes = env::flag(env::Var::SkipScenes);
+    const bool asked = port == 0 && (mods::play_skipping() || skip_scenes);
     if (asked && openrac_game_skip != nullptr) {
         openrac_game_skip();
     }
@@ -311,6 +313,9 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
         // The late camera latch turns a scripted run's frames by the scripted stick, as the
         // player's by the pad's.
         latch_scripted_stick(analog[0]);
+    }
+    if (port == 0) {
+        scripted_pad(*buttons, analog);  // [debug tools] OPENRAC_RECORD, _REPLAY and _WALK
     }
     // Start skips an in-game scene the way the game itself skips it: a pressed Start also presses
     // what the game's own skip of the scene playing reads (rac1: in a cutscene the four shoulders,

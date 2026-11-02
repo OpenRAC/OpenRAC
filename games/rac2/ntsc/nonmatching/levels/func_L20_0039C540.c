@@ -56,7 +56,7 @@ func_L20_0039C540(char *arg0, char *arg1, char *arg2, float f12) {
 
 typedef int TI128_w07 __attribute__((mode(TI)));
 
-char *func_L20_0039C540(char *arg0, char *arg1, char *arg2, float f12) {
+char *func_L20_0039C540_w07(char *arg0, char *arg1, char *arg2, float f12) {
     char *v;
     char *o = func_0029EFD0(0x12F2);
 
@@ -98,4 +98,85 @@ char *func_L20_0039C540(char *arg0, char *arg1, char *arg2, float f12) {
 
    This body belongs in the `-G8` unit?  No: it reaches no global
    through `$gp`.
+   ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------
+   Fourth attempt (worker 07, level-20 wave of 2026-10-20): the note on
+   func_L20_0039C448 (same directory) has the wall measured out of the
+   compiler's own source (build/downloads/gnu-ee-binutils-gcc-1.1.tar.gz
+   holds it); the summary:
+
+   The CSE (gcc/cse.c, `find_best_addr`) replaces the address of a 128-bit
+   access by the cheapest equivalent in the class of the address pseudo.
+   `plus(reg, const_int)` costs 1 (`mips_address_cost`: `SMALL_INT (plus1)
+   ? 1 : 2`), the same as a plain register, and the tie goes to the plus;
+   the reload then prints the offset as the displacement.  The retail
+   keeps the address in a register (`addiu $v1, $a2, 0x10 ; sq $v0,0($v1)`),
+   which is what the reload produces when the address is still a pseudo.
+
+   Measured today in this level, and none of them is a register base with
+   an offset: a pointer loaded from memory (the class member is a MEM,
+   cost 4, so nothing is substituted); a pointer with different values in
+   two branches (the class is ambiguous - but the compiler then emits
+   `addu`+`addu`+`movn`, three instructions for one address); a volatile
+   pointer object (the address is materialised, but the pointer is
+   spilled and reloaded, eight bytes over); a symbol base (the only plain
+   C spelling that reaches the zero displacement, and it needs a symbol
+   address).
+
+   So the two `addiu` the retail has and this compiler does not are the
+   wall, and the record above stands: the body is 132 bytes against the
+   retail's 140 and everything else matches (the frame 0x30, the save
+   order `s0, s1, s2, ra`, `mov.s $f20, $f12`, the call sequence and the
+   return value).
+
+   This body belongs in the `-G8` unit?  No: it reaches no global through
+   `$gp`.
+   ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------
+   level-20 wave of 2026-10-21, worker 07: the wall is confirmed and the
+   escapes measured.
+
+   THE RETAIL'S SHAPE (both copies are MATERIALISED into a register with a
+   ZERO displacement, which is the corrected rule of wave 5):
+
+     retail:  addiu $v1, $a2, 0x10 ; lq $v0,0x0($s1) ; sq $v0,0x0($v1)
+     this cc1:                         lq $v0,0x0($s1) ; sq $v0,0x10($a2)
+
+     retail:  addiu $v1, $a0, 0x10 ; lq $v0,0x0($s2) ; sq $v0,0x0($v1)
+     this cc1:                         lq $v0,0x0($s2) ; sq $v0,0x10($a0)
+
+   Both bases are runtime pointers (`o`, the allocator's result, and the
+   state pointer loaded from o+0x68), so both addresses are `base + const`
+   with a runtime base - the case the corrected rule says plain C never
+   reproduces.
+
+   MEASURED THIS WAVE (in a scratch unit, with the game's cc1):
+
+     *(TI128 *)(o + 0x10) = *(TI128 *)src;        -> sq $v0,0x10($o)      (folded)
+     TI128 *d = (TI128 *)(o + 0x10); *d = v;     -> sq $v0,0x10($o)      (folded)
+     the same with the offset 0x2010, which is
+       bigger than 0x2000 so that mips_address_cost() gives the plus the
+       cost 2 and the CSE tie should break the other way -> sq $v0,0x2010($o)
+       (STILL folded - the front end builds the address as plus(reg,const)
+       and the RELOAD accepts it for TImode, so the CSE never sees it)
+     TI128 * volatile d = (TI128 *)(o + 0x10);   -> sw $a0,0($sp) ;
+                                                        lq $v0,0x0($s1) ;
+                                                        lw $a0,0($sp) ;
+                                                        sq $v0,0x0($a0)
+       (the zero displacement, but four instructions and a 16-byte stack
+       slot against the retail's three)
+     a pointer LOADED FROM MEMORY (the state pointer of the second copy)
+       does NOT survive: `char *v = *pp; TI128 *d = (TI128 *)(v + 0x10);
+       *d = v2;` gives sq $v0,0x10($v).
+
+   So the two `addiu` the retail has and this compiler does not are the
+   wall, and the record above stands: 132 bytes against the retail's 140
+   and everything else matches (the frame 0x30, the save order
+   s0, s1, s2, ra, the `mov.s $f20, $f12`, the call sequence and the
+   return value).
+
+   This body belongs in the `-G8` unit?  No: it reaches no global through
+   `$gp`.
    ------------------------------------------------------------------ */

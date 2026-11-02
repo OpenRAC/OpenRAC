@@ -5,7 +5,9 @@ has no right C for, ranked by how many levels reached it, then by its calls.
 
 A row is a function and its kind: a stub (asm: still assembly in the decompilation; no-c: no C at
 all; untranslated: C hostgen cannot write; missing: hand C's own report) or zero-args (a call it
-makes with an argument hostgen filled with 0; the details name the callees).
+makes with an argument hostgen filled with 0; the details name the callees), unknown-call (a call
+to a code address no function of the port has) or unmapped (the function touched game memory that
+is not there, under OPENRAC_SOFT_FAULTS; its calls are the ticks it did, the details name the pages).
 """
 
 from __future__ import annotations
@@ -42,6 +44,11 @@ def merge(files: list[tuple[str, int, dict]]) -> dict[str, list[Row]]:
             row.calls += int(s["calls"])
             if s.get("detail"):
                 row.details.add(s["detail"])
+        for f in reach.get("faults", []):
+            row = table.setdefault((f["name"], "unmapped"), Row(f["name"], "unmapped"))
+            row.levels.add(level)
+            row.calls += int(f["hits"])
+            row.details.add(("write " if f.get("write") else "read ") + f["page"])
     return {g: sorted(t.values(), key=lambda r: (-len(r.levels), -r.calls, r.name)) for g, t in rows.items()}
 
 

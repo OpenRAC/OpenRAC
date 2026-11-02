@@ -16,7 +16,7 @@ extern void func_L05_0037B280(void *, void *);
 
 extern void func_L05_0037CEE0(void *, void *, f32);
 
-INCLUDE_ASM("asm/levels", func_L05_0037D608);
+/* func_L05_0037D608 is matched in its own unit, src/levels/shared/L05_0037D608.c (default flags). */
 
 /* Offers every live entry to the handler that takes one pointer through the loop. */
 void func_L25_003752D8(u8 *a0) {

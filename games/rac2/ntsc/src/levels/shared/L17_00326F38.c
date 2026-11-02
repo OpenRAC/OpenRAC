@@ -20,4 +20,3 @@ void func_L17_00326F38(char *a0, char *a1, float f12, float f13, float f14)
     func_2EEEB8(a1, a1, v);
 }
 
-INCLUDE_ASM("asm/levels", func_L17_0032B558);

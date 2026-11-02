@@ -1,52 +1,40 @@
-/* 2026-10-20, Opus retry: no natural loop construct was found. An EMPTY `do { } while (0);`
-   anywhere between the main loop and the return also gives 1 of 1 (its loop note brings the
-   alignment nop before the shared return label); it is held back, since an empty loop exists
-   only to steer the compiler. Wrapping the last (timestamp) store instead also matches, but
-   the neighbour func_L02_003FB120 stores the same timestamp with its load moved above earlier
-   stores, which a loop note there would block, so that spelling is unlikely to be the
-   original's either. */
+/* func_L02_003FB000 (288 bytes, 1 place, 02:003FB000) - near miss, measured 21 October 2026.
 
-/* func_L02_003FB000 (288 bytes, level 2, src/levels/02_maktar_nebula/L02_003F5430.c; two $gp
- * accesses, so it belongs in the -g8 sibling).
- *
- * Bytes: 288 of 288 and `tools/check.py func_L02_003FB000` printed "1 of 1 places match" with the
- * body below, compiled in L02_003F5430-g8.c. It is held back here, not placed in src/, because of
- * the `do { } while (0)` around the last store: that wrapper is the only thing found that
- * produces retail's `nop` at +0x114, and a construct whose only purpose is to steer the compiler
- * is excluded by the rules. The lead can decide to place it as it stands. Precedent in this
- * tree: src/core/00124568.c, func_00124818 (carried from rac1-decomp) wraps a store in
- * `do { } while (0)` for the same mechanism (the loop notes it leaves) and is a landed match.
- * To place it: paste the body below into L02_003F5430-g8.c after func_L02_003F56C0, with its
- * four extern lines, and put the INCLUDE_ASM marker's place in L02_003F5430.c as a comment.
- *
- * Without the wrapper the function is 284 bytes and every instruction matches except the missing
- * `nop` between `sh $v0,0x11E($a0)` and the shared return label (`jr $ra` at +0x118). That nop
- * is cc1's loop alignment, not an assembler hazard: final.c (shorten_branches) gives `.p2align 3`
- * to the first code label that follows ANY NOTE_INSN_LOOP_BEG, and unreachable-code deletion
- * keeps LOOP_BEG/LOOP_END notes. So retail's source had a loop construct (a macro-style
- * do/while(0), or a loop with a constant-false test) after the main loop's last label, and the
- * next label, the return label, got padded to 8 bytes. Measured on this body:
- *   - exact (0 differences): the last store inside `do { } while (0)`; an empty
- *     `do { } while (0);`, `while (0) { }` or `for (;0;) { }` after the last store.
- *   - not exact: wrapping the last two stores (the `sh $zero,0x11C` store moves), or all three
- *     (the `lui` of D_00189E20 is hoisted above the main loop).
- *   - the main loop as `for (;;) { ... if (*p < 0) break; p++; }` or `while (1) { ...
- *     if (*p++ < 0) break; }` does not add the pad by itself (and the first costs more).
- * Everything else was settled by measurement: the tail statement order must be f68 store, then
- * h11C, then h11E (the other five orders move the stores: 1 to 12 differing words); `g` as a
- * separate pointer keeps `lui; addiu; lwc1 0x24CC($v0)` (without it cc1 folds the offset into
- * the lwc1 and the function is 4 bytes shorter again); the six type tests as an `||` chain give
- * retail's `beql` ladder with the constants held in $t0-$t7.
- *
- * Meaning: the object's list-state at +0x68 gets a count (+0x60) and a sum (+0x64) of the scale
- * float (+0x20 of each listed entity's own state) over the entities of six kinds in the list
- * D_L02_001FC060[index] (kinds 0x9CA, 0xB22, 0xC3B, 0xC3E, 0x9F8, 0xA44), then +0x68 is set to
- * the float of the word at D_00189E20+0x24CC, +0x11C to 0 and +0x11E to the halfword D_L02_001B1214.
- */
+   In a -G8 unit of its own (src/levels/02_maktar_nebula/L02_003FB000-g8.c, no cflags line) this
+   C is 284 bytes against retail's 288, 0 of 1 places: every instruction is retail's (both $gp
+   loads included), and the only missing word is the `nop` at +0x114 that aligns the shared
+   return (`jr $ra` at +0x118, the target of the two early returns) to 8 bytes.
+   In src/levels/02_maktar_nebula/L02_003F5430.c (-G0) the same C is 288 bytes but 3 words off:
+   no nop, and D_L02_001B1214 comes out `lui` + `lhu %lo` (patch 0020: outside a delay slot,
+   gas only uses $gp for a symbol whose .extern size it has seen, and -G0 emits none).
+
+   Why the nop is missing: final.c (shorten_branches) gives LOOP_ALIGN to the first CODE_LABEL
+   after a NOTE_INSN_LOOP_BEG, and nothing else gives an 8-byte label alignment here. Retail's
+   return label must therefore follow loop notes with no label in between, i.e. a loop after
+   the last store whose body compiled to nothing.
+   - Diagnosis in scratch only: the same C with an empty `do { } while (0);` after the last
+     store is retail's 72 words exactly. That spelling is rejected (empty loop).
+   - A wrapper around the LAST store only gives retail's bytes: `do { <the 0x11E store> }
+     while (0);` or `for (;;) { <the 0x11E store>; return; }` - each measured in the -G8 unit,
+     `tools/check.py`: 1 of 1 places match. Not landed: such a wrapper is there only to steer
+     the alignment (the merged precedents are func_00124818's do/while(0) barrier and
+     func_00122760's `while` whose body returns); the lead decides whether it is admissible.
+   - A wrapper around the three tail statements (`do { ... } while (0)`, or
+     `for (;;) { ...; return; }`) also aligns the label, but then gcse's PRE hoist of the %hi
+     of D_00189E20 above the inner loop stays (without it cse2 folds the copy back into the
+     tail; with it the pseudo is global and gets $t8): 280 bytes.
+   - `while (entry != 0) { ...; return; }` around the whole walk: the outer LOOP_BEG's first
+     label is the inner loop head, so the return label stays 4-aligned (and the %hi is
+     hoisted the same way): 280 bytes.
+   What would unblock it: a plain-C construct that leaves loop notes after the tail without
+   wrapping it (the original was probably an empty debug/assert macro). */
+
+#include "include_asm.h"
+
 extern char *D_L02_001B359C __attribute__((sda));
-extern unsigned short D_L02_001B1214 __attribute__((sda));
 extern unsigned int D_L02_001FC060[];
-extern char D_00189E20[];
+extern unsigned short D_L02_001B1214 __attribute__((sda));
+extern char D_00189E20_c[];
 
 void func_L02_003FB000(char *a0) {
     char *state = *(char **)(a0 + 0x68);
@@ -84,10 +72,8 @@ void func_L02_003FB000(char *a0) {
             }
         }
     } while (*p++ >= 0);
-    g = D_00189E20;
+    g = D_00189E20_c;
     *(float *)(state + 0x68) = (float)*(int *)(g + 0x24CC);
     *(short *)(state + 0x11C) = 0;
-    do {
-        *(unsigned short *)(state + 0x11E) = D_L02_001B1214;
-    } while (0);
+    *(unsigned short *)(state + 0x11E) = D_L02_001B1214;
 }

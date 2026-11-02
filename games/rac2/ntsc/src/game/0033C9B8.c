@@ -8,4 +8,3 @@ char *func_0033C9B8(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033C9E8);

@@ -83,7 +83,6 @@ INCLUDE_ASM("asm/game", func_002FC618);
 
 /* func_002FC620 is matched in 002FC620.c (-G0: its globals are read absolutely). */
 
-INCLUDE_ASM("asm/game", func_002FC740);
 
 
 

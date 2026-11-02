@@ -1,0 +1,19 @@
+#include "include_asm.h"
+#include "common.h"
+
+extern s32 func_002761F8(void *first, void *second, s32 mode, void *object, s32 flags);
+extern float D_L08_001BFF68;
+
+/* func_L08_003D8290 with a floor (-ffast-math for the max.s): the clear result is the floor, a hit is raised to it. */
+float func_L08_00425328(void *position, float first, float second, float floor)
+{
+    float endpoints[2][4] __attribute__((aligned(16)));
+    qcopy(endpoints[0], position);
+    endpoints[0][2] = second;
+    qcopy(endpoints[1], position);
+    endpoints[1][2] = first;
+    if (func_002761F8(endpoints[1], endpoints[0], 2, 0, 0)) {
+        return D_L08_001BFF68 > floor ? D_L08_001BFF68 : floor;
+    }
+    return floor;
+}

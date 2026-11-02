@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import ctype
@@ -37,6 +37,7 @@ BUILTINS = {
     "qcopy": "openrac_qcopy",
     "qcopy_nc": "openrac_qcopy",
     "qzero": "openrac_qzero",
+    "qzero_nc": "openrac_qzero",
 }
 
 
@@ -47,6 +48,13 @@ def cname(symbol: str) -> str:
     if symbol.startswith("func_"):
         return symbol
     return f"game_{symbol}"
+
+
+VA_LIST_NAMES = ("va_list", "__builtin_va_list", "__gnuc_va_list")
+
+
+_UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
+_LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
 
 
 @dataclass
@@ -101,6 +109,19 @@ class Program:
     hook: dict = field(default_factory=dict)  # hook points (in wrap too): symbol -> its name for mods
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
+    level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
+    splits_keep_names: bool = False  # hostgen.json: a level's name of a split place is the variant
+    level_data: dict = field(default_factory=dict)  # level -> {data name in its files: address there}
+    small_copies_own_data: int = 0  # hostgen.json: level functions up to this many bytes
+    level_hooks_by_registers: bool = False  # hostgen.json: assembly calls a hook with its registers
+    bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
+    # hostgen.json "formed_as": a name to the address its code really forms, for an address no
+    # instruction forms itself (the program's end, formed only rounded up). Relocated by that one.
+    formed_as: dict[str, int] = field(default_factory=dict)
+    # hostgen.json "global_views": a datum's name with a word after its number (D_001A7390_sda) is
+    # that datum's (lower.py GLOBAL_VIEW). Only Going Commando sets it.
+    global_views: bool = False
+    executable_starts: set = field(default_factory=set)  # hostgen.json "executable_functions"
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
     code_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_CODE_NAMES])
@@ -141,6 +162,9 @@ class Program:
                 overlay = m.groupdict().get("overlay")
                 named = [(int(overlay) if overlay is not None else -1, int(m.group("addr"), 16))]
                 break
+        if symbol in self.level_names:
+            # A level's build knows this name: its pattern's address may be another game's.
+            named = [self.level_names[symbol]]
         if not named and symbol in self.symbols:
             named = [(-1, self.symbols[symbol])]
         if symbol not in self.places and named:
@@ -170,6 +194,16 @@ class Program:
                         overlay = m.groupdict().get("overlay")
                         owner.setdefault((int(overlay) if overlay is not None else -1, int(m.group("addr"), 16)), sym)
                         break
+            # A catalogue name that gave all its places to another function (split_places.tsv): a
+            # level's name for that address is that function.
+            for variant, parent in self.split_parent.items():
+                if self.splits_keep_names and not self.places.get(parent):
+                    for pattern in self.code_names:
+                        m = pattern.match(parent)
+                        if m:
+                            overlay = m.groupdict().get("overlay")
+                            owner[(int(overlay) if overlay is not None else -1, int(m.group("addr"), 16))] = variant
+                            break
             self._owner_cache = owner
         return owner
 
@@ -259,6 +293,29 @@ class Program:
             self._function_at = index
         return index.get((overlay, address))
 
+    def level_short_name(self, unit: str, sym: str, function: str = "") -> str:
+        """hostgen.json "level_short_names": a name of six digits in a level's file is an address in
+        that level's program, whose function the catalogue knows: Going Commando's func_2F15C8 is
+        func_00282978 in level 12 and func_0028FAB8 in level 7. Read as an address in the executable
+        it is a stub in the middle of something else, and every such call returned 0. Six digits
+        are the level's even where a function of the executable starts at that address
+        (func_31C970 in level 7 is func_L01_0031BC68 there, not func_0031C970). Eight digits
+        (func_00310580, func_002A7878 in level 1) the same, unless a function of the executable
+        starts there: that is the executable's."""
+        pattern = getattr(self, "level_short_names", None)
+        m = pattern.match(sym) if pattern else None
+        if m is None or (len(m.group("addr")) == 8 and int(m.group("addr"), 16) in self.executable_starts):
+            return sym
+        found = _UNIT_LEVEL.search(unit) or _LEVEL_NAME.match(function)
+        if found is None:
+            return sym
+        address = int(m.group("addr"), 16)
+        own = self.by_place.get((int(found.group(1)), address))
+        if own is None and len(sym) == 13 and sym.startswith("func_80") and address in self.executable_starts:
+            # An uncached spelling of the address (func_80122B00, the double helpers L14 calls).
+            return self.by_place.get((-1, address), f"func_{address:08X}")
+        return own or sym
+
     def canonical(self, symbol: str) -> str:
         """The symbol with C at the same place as symbol, or symbol: the port's own function
         there before the decompilation's C."""
@@ -270,8 +327,15 @@ class Program:
         f = self.functions.get(symbol)
         if f is not None and (f.unit is not None or symbol in self.host):
             return symbol
-        for place in self.code_places(symbol):
+        places = self.code_places(symbol)
+        for place in places:
             other = self.by_place.get(place)
+            if other is not None:
+                return other
+        # A function of level 0's program spelled without its level (rac2's C calls func_003100D8,
+        # level 0's CreateMoby): no such address in the executable, so level 0's place.
+        for overlay, address in places if self.bare_names_in_level_0 else ():
+            other = self.by_place.get((0, address)) if overlay == -1 else None
             if other is not None:
                 return other
         return symbol
@@ -617,13 +681,15 @@ def inherit_results(program: Program) -> list[str]:
             if f.symbol in program.wrap_host or f.symbol in program.host:
                 continue
             sym = program.aliases.get((f.unit, f.tail), f.tail)
+            sym = program.level_short_name(f.unit, sym, f.symbol)
             g = program.statics.get((f.unit, sym))
             if g is None:
                 own = program.grouped(f.unit, sym)
                 g = program.functions.get(own) if own != sym else None
             if g is None:
                 g = program.functions.get(program.canonical(sym))
-            if g is None or g is f or (g.unit is None and g.symbol not in program.host):
+            if g is None or g is f or (g.unit is None and g.symbol not in program.host
+                                       and g.symbol not in program.from_assembly):
                 continue
             ret = canon(g.sig.ret, program.typedefs)
             if ret in (None, "void", "va_list"):
@@ -640,6 +706,19 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
     """Adds one unit's definitions and declarations. Returns problems found."""
     problems = []
     by_id = {d.get("id"): d for d in ast.get("inner", ()) if d.get("kind") == "FunctionDecl"}
+    # This unit's meaning of a typedef's name: units disagree on short ones (V is void * here, a
+    # vector elsewhere), and Clang leaves a function type's parameters sugared.
+    own_typedefs: dict[str, str] = {}
+
+    def own_type(t: ctype.Type) -> ctype.Type:
+        text = own_typedefs.get(t.name) if isinstance(t, ctype.Base) else None
+        if text is None or text.split()[0] in ("struct", "union", "enum") or t.name in VA_LIST_NAMES:
+            return t
+        try:
+            return ctype.parse(text)
+        except ctype.TypeError_:
+            return t
+
     for decl in ast.get("inner", ()):
         kind = decl.get("kind")
         if kind == "TypedefDecl":
@@ -652,6 +731,7 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
                     # itself; what matters for a signature is which it is.
                     text = ("enum " if owned.get("kind") == "EnumDecl" else "struct ") + decl["name"]
             program.typedefs.setdefault(decl["name"], set()).add(text)
+            own_typedefs[decl["name"]] = text
             continue
         if kind == "VarDecl" and decl.get("name", "").startswith(ASM_MARK):
             name = program.grouped(unit, decl["name"][len(ASM_MARK):])
@@ -676,6 +756,7 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
         except ctype.TypeError_ as e:
             problems.append(f"{sym}: {e}")
             continue
+        sig = replace(sig, ret=own_type(sig.ret), params=tuple(own_type(p) for p in sig.params))
         static = decl.get("storageClass") == "static"
         if has_body(decl) and not static:
             sym = program.grouped(unit, sym)
@@ -738,6 +819,45 @@ def read_places(path: Path, program: Program) -> int:
                 program.sizes[cols[0]] = int(cols[2])
             count += 1
     return count
+
+
+def read_call_copies(path: Path, program: Program) -> int:
+    """The calls that differ between the places of a folded function (call_copies.tsv, written by
+    copycalls.py): (caller, callee) -> (home, canon, size, own, exe)."""
+    program.call_copies = {}
+    for line in path.read_text().splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        caller, callee, home, canon, size, own, exe = line.split("\t")
+        row = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
+        program.call_copies[(caller, callee)] = row
+        program.call_copies[(caller, row[0], row[3])] = row
+    return len(program.call_copies)
+
+
+def call_copy(program: Program, caller: str | None, callee: str):
+    """call_copies.tsv's row for this call, by the callee's name or, when the C calls it by another
+    (ref_L00_00428EB0_01 is func_L00_00428CE0), by its place."""
+    rows = getattr(program, "call_copies", None)
+    if not rows or caller is None:
+        return None
+    row = rows.get((caller, callee))
+    if row is None:
+        for overlay, address in program.code_places(callee):
+            row = rows.get((caller, overlay, address))
+            if row is not None:
+                break
+    return row
+
+
+def call_copy_expr(row: tuple[int, int, int, int, int]) -> str:
+    """The code address a folded function's call reaches: its running copy's own jal. The
+    executable's copy, when the executable is what is loaded, has its target in the row."""
+    home, canon, size, own, exe = row
+    expr = f"openrac_call_in_copy({home}, 0x{canon:08X}u, {size}u, openrac_self_, 0x{own:08X}u)"
+    if exe:
+        expr = f"(openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? (gaddr)0x{exe:08X}u : {expr})"
+    return expr
 
 
 def read_split_places(path: Path, program: Program) -> int:
@@ -814,7 +934,7 @@ def canon(t: ctype.Type, typedefs: dict | None = None, depth: int = 0) -> str | 
     if not isinstance(t, ctype.Base):
         return None
     name = t.name
-    if name in ("va_list", "__builtin_va_list", "__gnuc_va_list"):
+    if name in VA_LIST_NAMES:
         return "va_list"
     if name.startswith("enum "):
         return "int"
@@ -866,10 +986,15 @@ def read_symbols(path: Path, program: Program) -> int:
         return 0
     count = 0
     if path.suffix == ".json":
-        for name, value in json.loads(path.read_text(errors="replace")).get("values", {}).items():
+        table = json.loads(path.read_text(errors="replace"))
+        for name, value in table.get("values", {}).items():
             if isinstance(value, str) and re.fullmatch(r"[A-Za-z_]\w*", name):
                 program.symbols.setdefault(name, int(value, 0))
                 count += 1
+        for name, (level, value) in table.get("levels", {}).items():
+            program.level_names[name] = (level, int(value, 0))
+        for level, names in table.get("level_data", {}).items():
+            program.level_data[int(level)] = {name: int(value, 0) for name, value in names.items()}
         return count
     for line in path.read_text(errors="replace").splitlines():
         m = _SPLAT_SYMBOL.match(line)

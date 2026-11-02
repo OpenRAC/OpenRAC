@@ -1,0 +1,129 @@
+/*
+ * Retained handwritten near miss; historical evidence only.
+ * No linked-image equality or complete retail semantics is established.
+ * Compiler: game EE-GCC 2.9-ee-991111b (project profile).
+ * Profile: -O2 -G0 -ffunction-sections -frac2-qcopy -frac2-qcopy-barrier.
+ * Reported final C / retail: 1464 / 1484 bytes; size equality is not a match.
+ * us: 0/1 placements; 1464/1484 bytes.
+ * us2: not run after us mismatch; no exact candidate.
+ * pal: not run after us mismatch; no exact candidate.
+ * Residual: Nine source/profile trials; final 1464 versus 1484 bytes with the correct 0x2A0 frame. Quadword copies have the qualified materialized transfer shape, but allocation and stack-cached vector addresses differ in the second strip loop. Explicit pointers reached1484 bytes with incorrect initialization lifetime; conditional initialization expanded the frame.
+ * Reopening condition: Recover natural temporary-vector pointer lifetimes; retain the two color interpolation banks and the three float input widths.
+ * Where listed, tools/check.py measurements predate retention; no compilation was rerun for this copy.
+ */
+
+/* Historical manual summary: Earlier wide-copy experiments required mixed addressing forms; pointer and structure-assignment variants did not reproduce the same allocation and scheduling. The current manual draft supersedes that screen. The original map is retained privately; no extracted instruction, opcode, address or generated table is reproduced here. */
+
+/* Not matched, 2026-10-23.
+ * Nine source/profile trials; final 1464 versus 1484 bytes with the correct 0x2A0 frame. Quadword copies have the qualified materialized transfer shape, but allocation and stack-cached vector addresses differ in the second strip loop. Explicit pointers reached1484 bytes with incorrect initialization lifetime; conditional initialization expanded the frame.
+ * Profile: -O2 -G0 -ffunction-sections -frac2-qcopy -frac2-qcopy-barrier
+ * Final us check: func_L20_003E6728: 0 of 1 places match (src/levels/20_yeedil/L20_003E6728.c); exit 1.
+ * This source has not passed a linked build or a runtime test.
+ */
+#include "common.h"
+
+typedef int Quadword __attribute__((mode(TI)));
+typedef struct { float f[4]; } Vector __attribute__((aligned(16)));
+typedef struct {
+    Vector vertex[4];
+    unsigned int color[4];
+    float uv[8];
+    long reserved, texture, state, flags;
+} QuadPacket;
+extern Vector D_L20_001B9FC0;
+extern void func_00281DE8(QuadPacket *,int,int,int);
+extern void func_00282CF0(void *,void *,void *);
+extern void func_00282CC0(void *,void *,void *);
+extern void func_00282DD8(void *,void *,void *);
+extern void func_00282F20(void *,void *,float);
+extern float func_00283CE0(int);
+extern unsigned int func_00283D38(unsigned int,unsigned int,float);
+extern void func_00280B90(QuadPacket *,void *,int);
+extern float func_00282DF0(void *);
+extern void func_00282D30(void *,void *,float);
+extern void func_002FC560(unsigned int,unsigned long long);
+
+void func_L20_003E6728(Vector *points,int count,int texture1,int texture2,
+    unsigned int colorEnd1,unsigned int colorStart1,unsigned int colorEnd2,unsigned int colorStart2,
+    int first,int last,int segments,float width1,float width2,float inset)
+{
+    QuadPacket strip, bevel;
+    Vector cross, scaledCross, radial, tangent, left, right, nextRadial, previousRadial, scaledRadial, equalRadial1, equalRadial2, offset;
+    float step, fraction, previousLength, nextLength;
+    Vector *farther;
+    int current, previous, next;
+    func_00281DE8(&strip,texture1,1,128);
+    strip.color[0]=strip.color[1]=strip.color[2]=strip.color[3]=colorStart1;
+    strip.uv[0]=0; strip.uv[1]=0; strip.uv[2]=0; strip.uv[3]=1;
+    strip.uv[4]=1; strip.uv[5]=0; strip.uv[6]=1; strip.uv[7]=1;
+    func_00281DE8(&bevel,texture2,1,128);
+    bevel.color[0]=bevel.color[1]=bevel.color[2]=bevel.color[3]=colorStart2;
+    bevel.uv[0]=0; bevel.uv[1]=0; bevel.uv[2]=0; bevel.uv[3]=1;
+    bevel.uv[4]=1; bevel.uv[5]=0; bevel.uv[6]=1; bevel.uv[7]=1;
+    next=(first+1)%count;
+    func_00282CF0(&radial,&points[first],&D_L20_001B9FC0);
+    func_00282CF0(&tangent,&points[next],&points[first]);
+    func_00282DD8(&cross,&tangent,&radial);
+    func_00282F20(&cross,&cross,width1);
+    func_00282CC0(&strip.vertex[0],&points[first],&cross);
+    func_00282CF0(&strip.vertex[1],&points[first],&cross);
+    step=1.0f/func_00283CE0(segments-1);
+    fraction=step;
+    current=next;
+    previous=first;
+    while (current!=last) {
+        func_00282CF0(&radial,&points[current],&D_L20_001B9FC0);
+        func_00282CF0(&tangent,&points[current],&points[previous]);
+        func_00282DD8(&cross,&tangent,&radial);
+        func_00282F20(&cross,&cross,width1);
+        func_00282CC0(&strip.vertex[2],&points[current],&cross);
+        func_00282CF0(&strip.vertex[3],&points[current],&cross);
+        strip.color[2]=strip.color[3]=func_00283D38(colorStart1,colorEnd1,fraction);
+        func_00280B90(&strip,0,0);
+        *(Quadword *)&strip.vertex[0]=*(Quadword *)&strip.vertex[2];
+        *(Quadword *)&strip.vertex[1]=*(Quadword *)&strip.vertex[3];
+        strip.color[0]=strip.color[1]=strip.color[2];
+        fraction+=step;
+        previous=current;
+        current=(previous+1)%count;
+    }
+    func_00282CF0(&previousRadial,&points[first],&D_L20_001B9FC0);
+    previousLength=func_00282DF0(&previousRadial);
+    fraction=step;
+    current=next;
+    while (current!=last) {
+        func_00282CF0(&nextRadial,&points[current],&D_L20_001B9FC0);
+        nextLength=func_00282DF0(&nextRadial);
+        if (previousLength<nextLength) {
+            if (previousLength==0.0f) *(Quadword *)&equalRadial1=*(Quadword *)&nextRadial;
+            else func_00282D30(&equalRadial1,&previousRadial,nextLength/previousLength);
+            farther=&equalRadial1;
+            func_00282CC0(&left,&D_L20_001B9FC0,&nextRadial);
+        } else {
+            if (nextLength==0.0f) *(Quadword *)&equalRadial2=*(Quadword *)&previousRadial;
+            else func_00282D30(&equalRadial2,&nextRadial,previousLength/nextLength);
+            func_00282CC0(&left,&D_L20_001B9FC0,&equalRadial2);
+            farther=&previousRadial;
+        }
+        func_00282CC0(&right,&D_L20_001B9FC0,farther);
+        func_00282CF0(&tangent,&right,&left);
+        func_00282D30(&offset,&tangent,inset);
+        func_00282CF0(&left,&left,&offset);
+        func_00282CC0(&right,&right,&offset);
+        func_00282CF0(&scaledRadial,&D_L20_001B9FC0,&left);
+        func_00282DD8(&cross,&scaledRadial,&tangent);
+        func_00282F20(&scaledCross,&cross,width2);
+        func_00282CC0(&bevel.vertex[0],&left,&scaledCross);
+        func_00282CF0(&bevel.vertex[1],&left,&scaledCross);
+        func_00282CC0(&bevel.vertex[2],&right,&scaledCross);
+        func_00282CF0(&bevel.vertex[3],&right,&scaledCross);
+        bevel.color[2]=bevel.color[3]=func_00283D38(colorStart2,colorEnd2,fraction);
+        func_00280B90(&bevel,0,0);
+        *(Quadword *)&previousRadial=*(Quadword *)&nextRadial;
+        bevel.color[0]=bevel.color[1]=bevel.color[2];
+        current=(current+1)%count;
+        fraction+=step;
+        previousLength=nextLength;
+    }
+    func_002FC560(0x47,0x5360b);
+}

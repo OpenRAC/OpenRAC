@@ -1,10 +1,8 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/levels", func_L11_004618C0);
+/* Defined in L11_004618C0-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L11_0046D660);
-
-INCLUDE_ASM("asm/levels", func_L11_0046F8F0);
 
 extern void func_00281EB8(void *a0, int a1, unsigned int a2, int a3, float f12, float f13,
                           float f14);
@@ -35,7 +33,7 @@ void func_L11_004701A0(char *a0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L11_004702F0);
+/* func_L11_004702F0 is in L11_004618C0-state-g8.c ($gp height-control reads). */
 
 void func_L11_00472DE8(unsigned char *a0) {
     unsigned short v;
@@ -49,9 +47,9 @@ void func_L11_00472DE8(unsigned char *a0) {
 
 INCLUDE_ASM("asm/levels", func_L11_00472E10);
 
-INCLUDE_ASM("asm/levels", func_L11_00474920);
+/* Defined in L11_00474920-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_0047A310);
+/* func_L11_0047A310 is in L11_004618C0-group-g8.c ($gp moby table reads). */
 
 extern char *r1_D_L08_00167680;
 
@@ -88,9 +86,3 @@ void func_L11_004885B8(unsigned char *a0) {
     func_80301000(a0, buf);
     *(unsigned short *)(a0 + 0x7E) = 0;
 }
-
-INCLUDE_ASM("asm/levels", func_L11_004A0CE0);
-
-INCLUDE_ASM("asm/levels", func_L11_004A6B50);
-
-INCLUDE_ASM("asm/levels", func_L11_004A8AB8);

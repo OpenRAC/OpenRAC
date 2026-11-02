@@ -1,0 +1,240 @@
+# Going Commando: what bugs and bring-up have identified, for naming and refactoring later (USA v1.01 addresses).
+# kind: function, data, field, system. confidence: proven (run or gate), read (from code), guess.
+# name	address	kind	what_it_is	suggested_name	evidence	confidence	found_by
+func_002B4C18	0x002B4C18	function	Game-mode change; computed goto	ChangeGameMode	title never advanced while stubbed	proven	P4
+func_002FCB00	0x002FCB00	function	Writes the title picture straight to frame-buffer pages	DrawPictureToFrameBuffer	menu background fix, host/picture.c	proven	P4
+func_002FC8D0	0x002FC8D0	function	Saves frame-buffer pages for the menu	SaveMenuBackground	menu background fix	read	P4
+func_002FC990	0x002FC990	function	Rewrites saved frame-buffer pages for the menu	RestoreMenuBackground	menu background fix	read	P4
+func_0026EA00	0x0026EA00	function	Title's picture, a 512x416 image	LoadTitlePicture	host/picture.c comment	read	P4
+func_0027B858	0x0027B858	function	Game's blit of the picture to the screen	BlitPicture	host/picture.c comment	read	P4
+func_002E8368	0x002E8368	function	Loading scene phase end; both retail paths return 1	LoadingScenePhaseEnd	gate SAME on 4 calls	proven	P3
+func_0026EDE8	0x0026EDE8	function	No-card notice loop; leaves on a pad press after 60 frames	NoCardNotice	P7 read of retail	read	P7
+func_002A2450	0x002A2450	function	Hero frame packer; starts DMA channel 8 in normal mode	PackHeroFrame	freeze fixed when translated	proven	P7/P6
+func_L00_00316F60	0x00316F60	function	Same function as MobyBuildPose below: the freeze was its list walk spinning on a cycle, not a poll of the scratchpad	MobyBuildPose	lldb sample of the freeze; memory dump (P11)	proven	P7
+func_002FC220	0x002FC220	function	Writes the frame list cursor through D_L06_001B22A8	ResetFrameListCursor	list grew 13,072 bytes a frame until crash	proven	P7
+func_00283898	0x00283898	function	Keeps $ra in $t3 and ends with jr $t3	(unknown)	0xe00fffXX call errors gone	proven	P7
+func_00276158	0x00276158	function	Collision cell lookup, reads $t8; a piece run in place	CollCellLookup	generated C goto L_00276158	proven	P3/P6/P8
+func_002761F8	0x002761F8	function	CollLine	CollLine	gate SAME on 32 calls	proven	P3/P8
+func_00277258	0x00277258	function	CollSphere	CollSphere	gate SAME on 32 calls	proven	P3/P8
+func_00274D90	0x00274D90	function	Runs VU0 microprogram 0 on the moby draw side, not collision	(unknown)	only caller func_002A4D88	read	P8
+func_002A4D88	0x002A4D88	function	Moby draw routine, replaced by a host function	DrawMoby	rac2-ntsc/host/render.c	read	P8
+func_00293A60	0x00293A60	function	Level staging state machine; state 3 and 5 wait on sound bank handles	UpdateLevelStagingMachine	forcing handles advanced it	proven	P2
+g_soundBankHandles	0x00189E00	data	Sound bank handles, -1 until loaded	g_soundBankHandles	P2 forced writes	proven	P2
+func_002A3110	0x002A3110	function	Saves t8/t9 to the scratchpad at entry	(unknown)	asm.input_idioms	read	P8/P6
+func_002A05A8	0x002A05A8	function	29 C callers; sub.s f0,f0,f0 is just zero	(unknown)	asm.input_idioms	read	P6
+func_00282D30	0x00282D30	function	Exit-scene math taking a scale argument	(unknown)	best_declaration fix	read	P6
+func_00280B90	0x00280B90	function	Computed jump inside itself	(unknown)	delay-slot fix	read	P6
+func_002F2758	0x002F2758	function	Piece with register inputs v1, s5, a1	(unknown)	wrong row removed	read	P8
+func_00131CB8	0x00131CB8	function	ParseBin, wrapped by the overlay hook	ParseBin	host/level.c	proven	P1
+func_002E5F60	0x002E5F60	function	Runs the callback list at 0x189D90	(unknown)	crash when overwritten	proven	P10
+func_002E5A50	0x002E5A50	function	Finds a free voice slot; returns 52 when full	FindFreeVoiceSlot	wrote row 52 over 0x189D90	proven	P10
+system-memory-plan	0x355FBF	system	Level arena relocates by this formed sum; level data decompressed over level code if not	(n/a)	hero froze outside level 0	proven	P11/P10
+field-moby-class	+0xAA	field	Moby class, not rac1's +0xA6	(n/a)	profile	proven	P9
+field-moby-anim	+0x40	field	Moby anim fields, 0x10 earlier than rac1's	(n/a)	Ratchet animates	proven	P9
+system-draw-buffer	FBP 0xF4	system	Draw buffer at block 0x1E80, not right after the display	(n/a)	HUD fix	proven	P9
+system-hero-pack	RC2.HDR +0x4F08	system	packs[] of armor packs, sectors relative to the base at +0x4F04; class 0's mesh in pack 0, textures in sector2	(n/a)	moby_0.glb export	proven	P9
+system-next-level-word	0x001B1680	data	Next level; exit flag at 0x001A8B84	(n/a)	fcheck capture	proven	P3
+func_00290B48	0x00290B48	function	Lays out the memory map: arena table at 0x1BAEC0, starting at the program's end rounded up to 16 KB (the code only forms end + 0x3FFF)	SetupMemoryArenas	with the end unrelocated, level buffers overwrote level code from 0x354000	proven	P12
+func_0027CE18	0x0027CE18	function	Runs a callback list: functions at 0x1B9E40, arguments at 0x1B9F40, count 0x1B1608. In every level, in no catalogue row	RunCallbackListA	level 18 and 20 crash here until paired through neighbours	proven	P12
+func_0027D020	0x0027D020	function	Twin of func_0027CE18: functions at 0x1BA040, arguments at 0x1BA140, count 0x1B160C	RunCallbackListB	same as func_0027CE18	proven	P12
+D_001B1B5C	0x001B1B5C	data	Moby table base (gp+0x2B6C); moved per level (level 1 0x1B255C, level 2 0x1B359C, level 9 0x1B285C, level 18 0x1B281C). Also spelled r1_D_L01_00160058 and D_L02_001B359C	g_mobyTableBase	levels 2 and 9 crashed reading the executable's address	proven	P12
+func_L16_004364B0	0x004364B0	function	Level start-up wrapper: forwards a0 to func_L16_00435CE8 although its C has no parameter	LevelStartupWrapper	a0 was host garbage until translated from assembly; carried by levels 16, 22, 23, 26	proven	P12
+func_L16_00435CE8	0x00435CE8	function	Level one-shot start-up taking a moby; same body as func_L23_004402D8	LevelStartup	levels 16, 22, 23, 26 at spawn	read	P12
+func_0028B2B8	0x0028B2B8	function	Bump allocator: cursor 0x1B1880, end 0x1B1884	AllocBump	level 11's cursor overwritten gave its address as a float	read	P12
+func_L04_0043ABE0	0x0043ABE0	function	Calls func_L04_0040A090 seven times on level 4's tables; level 11 has its own twin the catalogue does not list	InitPointTablesL04	called by name in level 11 its addresses overwrote the allocator	proven	P12
+func_L04_0040A090	0x0040A090	function	Builds a table from n points and directions (count, points, dirs, out, ...); calls func_00282D30	BuildPointTable	stack in the level 11 watchpoint	read	P12
+func_L01_003115E8	0x003115E8	function	Walks a u16 moby-index list from table 0x1FB020 and sets each live moby's state byte (+0x20); list index is moby+0x21	SetMobyGroupState	source and level 9 crash	read	P12
+func_L01_003801B8	0x003801B8	function	Moby draw callback with heavy GIF packet building; uses a gp-relative table at gp-0x110	unknown	gp-formed address fix, levels 4, 17, 18	read	P12
+func_002A0C68	0x002A0C68	function	Removes a moby from its sector cell list (hand-written); +0xA4/+0xA5 are its cell, list heads at 0x1D24E0, blocks at +0x4000; traps at 0x2A0F40 when the moby is not in the list	MobyCellRemove	disassembly	read	P12
+func_002A0F48	0x002A0F48	function	Recomputes a moby's cell after it moves, then calls func_002A0C68	MobyUpdateCell	stack in level 17	read	P12
+func_L00_0032CF60	0x0032CF60	function	Moby update loop: links live mobys through +0x28, calls +0x64 update for each	UpdateMobys	generated C	read	P12
+func_L00_00300618	0x00300618	function	Level moby spawn: copies each moby's pvars into an arena, table of (offset,size) by index, pvar pointer at +0x68	SpawnLevelMobys	disassembly	read	P12
+field_moby_0x68	+0x68	field	Moby pvars pointer	pVars	spawn code	read	P12
+field_moby_0x64	+0x64	field	Moby update function	pUpdate	func_L00_0032CF60	read	P12
+field_moby_0x21	+0x21	field	Moby group list index, 255 none	groupIndex	func_L01_003980D0 and func_L01_003115E8	read	P12
+level_21_30	21 / 30	system	Insomniac Museum: game and disc table number 21, archive word, program and catalogue number 30	-	progress 30 read sector 0xA5A5A5A5 from an empty table entry	read	P12
+g_memoryArenaTable	0x001BAEC0	data	Arena table: [1] 0x100000, [2] and [3] the start after the program, then the level's areas; level 0's copy at 0x001BF140, level 1's at 0x001BF840	g_memoryArenaTable	func_00290B48, func_L00_00300618 reads +12 as the decompress target	proven	P11
+ref_L00_00290B48_00	0x00351FC0	data	End of the loaded program, only ever formed as end + 0x3FFF	__program_end	hostgen formed_as; levels 1 and 3 walked after	proven	P11
+func_L00_00300618	0x00300618	function	Level data load: reads the data and decompresses its parts to arena table addresses	LoadLevelData	write-protected level code caught its WadDecompress	proven	P11
+func_L00_0036F488	0x0036F488	function	Gameplay tick of game state 0; calls the player update at +0x568	GameplayTick	stack in level 1; call_in_copy trace	proven	P11
+func_L00_002A3B88	0x002A3B88	function	A level's main loop: switch on the game state	LevelMainLoop	level runs, state switch in the translated assembly	read	P11
+func_L00_002A6DD0	0x002A6DD0	function	Player frame update in 13 levels (0, 2, 5, 6, 10, 14, 15, 22-26, 30)	HeroUpdate	functions.tsv places; moved the hero in level 0	proven	P11
+func_L01_002A8C48	0x002A8C48	function	Player frame update, other variant, in 1, 4, 7, 8, 9, 19 at least	HeroUpdate_variant	jal at +0x568 of level 1's func_L00_0036F488 copy; hero walked in level 1	proven	P11
+func_L00_002A5368	0x002A5368	function	Runs func_L00_002A5048 over 40 records of 176 bytes at D_L24_0025B710	UpdateHeroPoseModifiers	list cycle traced with watchpoints in level 1	proven	P11
+func_L00_002A5048	0x002A5048	function	One pose modifier record: adds it to or removes it from its owner moby's list at +84	UpdatePoseModifier	watchpoint stacks	proven	P11
+func_0029F978	0x0029F978	function	Adds a node to a moby's list at +84; byte +1 is the in-list flag, +8 next	MobyAddPoseModifier	watchpoint stacks, C	read	P11
+func_0029F9F0	0x0029F9F0	function	Removes a node from a moby's list at +84 and clears its first 64 bytes	MobyRemovePoseModifier	watchpoint stacks, C	read	P11
+func_L00_00316F60	0x00316F60	function	Moby joint pose build; walks the lists at moby +80 (next +28) and +84 (next +8)	MobyBuildPose	hung on a cycle in the +84 list in level 1	proven	P11
+func_L01_002BE0E0	0x002BE0E0	function	Hero per-frame timers; ends with four timer records of 112 bytes from 0x0025CF60 (level 1)	UpdateHeroTimers	watchpoint on 0x25CFD0 hit func_00282948 from it	proven	P11
+func_0027BD70	0x0027BD70	function	The frame's draw pass, ordered by the mask at 0x001B1594	DrawFrame	read in src/game/0027BD70-g8.c	read	P11
+func_0027D020	0x0027D020	function	Runs the draw callback list at 0x001BA040, count at 0x001B160C	RunDrawCallbacks	C, crash stacks	read	P11
+func_002B49E0	0x002B49E0	function	Request a game state (a0 state, a1 mode 1 push 2 replace, a2 argument, a3 screen)	RequestGameState	C read; traced: 3 pause, 4 dialog, 5 vendor, 6 program load	proven	P10
+func_002B4B70	0x002B4B70	function	Pop the game-state stack	PopGameState	traced closing the pause menu	proven	P10
+func_L00_0036F488	0x0036F488	function	Play-state tick (level 0 place): pause, map, quick select requests, then the world update	PlayStateTick	retail read at 36F6A0, Start and Select traced	proven	P10
+func_002D5B58	0x002D5B58	function	Menu action by type: 3 next screen, 4 and 5 card pages, 6 to 11 transitions	MenuDoAction	traced type 3 with a screen address	proven	P10
+func_002D5E70	0x002D5E70	function	Menu entry's action: type at +2, value at +4; passes the result on	MenuEntryAction	stale $v0 closed the pause menu when void	proven	P10
+func_002CB8A0	0x002CB8A0	function	Pause list: entry 0 to 6 to its action through the sda entries	PauseListSelect	traced	proven	P10
+func_002CD0E8	0x002CD0E8	function	Pause list update	PauseListUpdate	in the Cross backtrace	proven	P10
+func_002CA8A8	0x002CA8A8	function	Pause menu tick, a switch on the block's mode	PauseMenuTick	traced	proven	P10
+func_002CAB00	0x002CAB00	function	Screen tick: open, update, close widgets, then install the destination	MenuScreenTick	C read and traced	proven	P10
+func_002CADB0	0x002CADB0	function	Menu exit: pops or requests the next state by mode	MenuExit	traced	proven	P10
+func_002CBC58	0x002CBC58	function	Draws a screen's widgets; four draws go through a render target	RenderMenuScreenWidgets	literal addresses in functional C put a picture at 0,0 in levels	proven	P10
+func_002CD950	0x002CD950	function	Help topic list update; level 0's copy is func_L00_00346DB0	HelpTopicUpdate	Cross opens topics after the name fix	proven	P10
+func_002DCB58	0x002DCB58	function	Save page update	SavePageUpdate	C read; slot, overwrite prompt screen D_0025E870	proven	P10
+func_002DA9A8	0x002DA9A8	function	Save and load picture panel draw	MenuPicturePanelDraw	C read	read	P10
+func_002DC900	0x002DC900	function	Slot's planet line; real entry 0x002DC908	SavePlanetLineDraw	widget 0x25DC98 calls 0x2DC908; planet line drew after it was registered	proven	P10
+func_002DDA10	0x002DDA10	function	Save page's slot rows: time, bolts, date or EMPTY	SaveSlotRowsDraw	translation read	read	P10
+func_002DB988	0x002DB998	function	Galactic Map widget function: real entry 0x002DB998, called from data	GalacticMapOpen	call to 0x2DB998 unmapped (level 3 at 0x3564D0); purpose from the page it belongs to	guess	P10
+func_0029B3E0	0x0029B3E0	function	Save to memory card: stamps, packs both tables	MemcardSave	C read; saves written and loaded	proven	P10
+func_0029ADA0	0x0029ADA0	function	Packs the whole save: header sizes, global table, 28 per-level records	SavePack	C read; save header word differed when its table was wrong	proven	P10
+func_00298D28	0x00298D28	function	Unpacks a loaded save; a size mismatch fails the load	SaveUnpack	"Load failed" traced to it	proven	P10
+func_0029AF98	0x0029AF98	function	Writes one table of blocks into the save packet	SaveWriteBlocks	C read	read	P10
+func_0029B168	0x0029B168	function	Restores one table from a save packet, checking sizes	SaveRestoreBlocks	C read	read	P10
+func_0029AEB0	0x0029AEB0	function	Save packet checksum (CRC)	SaveChecksum	C read	read	P10
+func_00294988	0x00294988	function	Loads an item's bank into one of three cache slots at 0x152CD0	LoadItemBank	traced on a hero update	proven	P10
+func_002E5A50	0x002E5A50	function	Finds a free voice row: limit 52 for the hero, else 42; returns 52 when full	FindFreeVoiceSlot	retail read; 41 rows busy in level 3	proven	P10
+func_002E5F60	0x002E5F60	function	Runs the list of callbacks at 0x189D90 each play frame	RunSoundCallbacks	crash site	proven	P10
+func_002E4AC8	0x002E4AC8	function	Voice tick: volumes, distance, stop, status poll	SoundVoicesTick	C read	read	P10
+func_002E59F8	0x002E59F8	function	Asks a voice row to stop	StopVoiceSlot	C read	read	P10
+func_00286738	0x00286738	function	Game state 4's dialogs, switched on the dialog's mode	ModalDialogTick	traced: level card, Load failed	proven	P10
+func_00290B48	0x00290B48	function	Plans level memory from the program's end	InitMemSlots	its use of the executable's end put assets on level code	proven	P10
+func_00294F10	0x00294F10	function	Level start step that writes the callback list	LevelStartSetup	watch showed it writing 0x189D90 at load	read	P10
+func_00131CB8	0x00131CB8	function	ParseBin; Quit Game's disc copy of the boot program has its loop at 0x0026AD20	ParseBin	Quit Game traced	proven	P10
+D_00188660	0x00188660	data	Sound state: header 0x70, 52 voice rows of 0x70, callback list right after	g_soundState	C read, dump	proven	P10
+D_00189D90	0x00189D90	data	Callback list count, then its table pointer; right after voice row 51	g_soundCallbackCount	overwritten by row 52	proven	P10
+voice row +0x70	0x00188660	field	Voice handle; -1 none; +0x74 state byte, +0x88 moby	voice.handle	dump, C read	proven	P10
+D_001F2840	0x001F2840	data	Menu block: +0 mode, +0x14 current screen, +0x18 next screen, +0x1C status, +0xE4	g_menuScreenBlock	OPENRAC_WATCH on it	proven	P10
+screen +0xE8	0x0025DA38	field	Menu screen: +0xE0 back screen, +0xE8 focus widget, +0xEC 14 widgets, +0x128 next focus	screen.focus	C read, dumps	proven	P10
+widget record	0x0025DCF0	field	Menu widget: +0 update, +4 draw, +8 open, +0xC close, +0x10 flags (8: no render target)	MenuWidget	dumps; C read	read	P10
+D_0025DA38	0x0025DA38	data	Pause Save screen	g_MenuScreen_PauseSave	screen 2647160 in level 0, Save opens	proven	P10
+D_0025DB68	0x0025DB68	data	Pause Load screen	g_MenuScreen_PauseLoad	screen 2647464 in level 0, Load opens	proven	P10
+D_00260EE8	0x00260EE8	data	Front-end Save Game screen	g_MenuScreen_SaveGame	traced	proven	P10
+D_00260DB8	0x00260DB8	data	Front-end Load Game screen	g_MenuScreen_LoadGame	traced	proven	P10
+D_0025E870	0x0025E870	data	Overwrite prompt screen	g_MenuScreen_OverwriteSave	prompt shows; was unrelocated	proven	P10
+D_0025A868	0x0025A868	data	Pause Help screen	g_MenuScreen_Help	offset from level 0's 0x2832A8	read	P10
+D_00256368	0x00256368	data	Per-level save table: pointer, size, id	g_savePerLevelTable	save broken when reached through a fake base	proven	P10
+D_00256138	0x00256138	data	Global save table	g_saveGlobalTable	dump: 0x1A79F0 size 4 id 0, ...	proven	P10
+D_00355FBF	0x00355FBF	data	Program end + 0x3FFF, as the code forms it; a level's copy has its own	g_programEndRounded	retail 00290B7C area read	proven	P10
+D_00263B50	0x00263B50	data	Large font glyph table; D_00263EF0 small, D_00264290 third; each has a level copy	g_fontGlyphs	'A' for every glyph in levels before relocating	proven	P10
+D_00138180	0x00138180	data	Pad block: +0x1A4 pressed (0x800 Start, 0x500 quick select or map), +0x1C4 menu flags (0x40 Cross, 0x10 Triangle, 0x1000 Up, 0x4000 Down)	g_pad	C read and pressed	read	P10
+D_001A8BB0	0x001A8BB0	data	Game state: 0 play, 2 scene, 3 pause, 4 dialog, 5 vendor, 6 loading, +8 pending	g_nGameState	traced	proven	P10
+g_heroState 0x31	0x0018C0B4	field	Hero states blocking Start: 0x31 and 0x6F (111, held after a scene until about frame +260)	HERO_STATE_PAUSE_LOCK	retail read; Start at control+200 lost	proven	P10
+moby class 11	0x00390AB8	system	Vendor: needs hero within 4.0 and facing it; Triangle then state 5	Vendor	level 3 (300,245.23,125.5), bought items	proven	P10
+hero pose list	0x00316F60	system	func_L00_00316F60 walks a list from moby +0x54 (+84 above); it hung where a node went on the list twice	HeroPoseList	seen in level 1 and tour; cause in level 1: a timer table address read as level 0's (P11)	read	P10
+func_002E45C8	0x002E45C8	function	Distance to sound volume: lerp between a sound definition's +8 and +0xC volumes over its near/far range; returns int in v0, so C's `extern float F391de845_FUN_002E45C8` is wrong	snd_DistanceVolume	asm: returns lw 8/12(s0) in v0, called by func_002E46C0; before the signature fix volumes were 0 or 0x1b3a80 in OPENRAC_SOUND_LOG	proven	P13
+func_002E46C0	0x002E46C0	function	Volume of a voice at a position: distance to the listener (0x001B5340 copy) through func_002E45C8	snd_VoiceDistanceVolume	asm and func_002E10B8-voices caller	read	P13
+func_002E60A0	0x002E60A0	function	Play callback: stores the handle in the voice slot, state 1 to 2; handle 0 frees the slot	snd_OnVoicePlayed	C	read	P13
+func_002E60E8	0x002E60E8	function	Set-params and still-playing callback: stores the handle; 0 frees the slot, so an IOP answer of 0 is what releases a finished voice	snd_OnVoiceAnswer	C; port always answered the handle, slots stayed full	read	P13
+func_0027CFD0	0x0027CFD0	function	Adds (function, argument) to a list of 64 run later in the frame by func_002E6F48-like walker; level copy L00 0x002E6EF8; ref_L00_00370408_00 in the scene update is this	frame_DeferCall	asm of 0x002E6EF8	read	P13
+func_002EAB18	0x002EAB18	function	The flight's load (transition_load_wad): reads lump g_loadingSceneVariant from TOC +0x3E58 (base word +0x3E24), decompresses, GS upload, binds its sky through func_00291EC0, classes, textures	transition_load_wad	asm	read	P13
+func_002E8BA8	0x002E8BA8	function	Draws the flight: func_002E35E0's sky, its mobys, func_002ECB70 on the first actor, loading ring, fade	DrawSpaceFlightFrame	C	read	P13
+func_002E35E0	0x002E35E0	function	The flight's sky: shells of the bound sky with fixed rotation per shell, no level sky	DrawFlightSky	C	read	P13
+func_002EA8E8	0x002EA8E8	function	Draws a program load by g_exitSceneMode: 0, 3 func_0027C480; 1 the world (func_0027BD70, flags 127); 2 the flight	DrawLoadingFrame	C	read	P13
+g_exitSceneMode	0x00152C20	data	short: how a load is drawn, 2 the flight	-	func_002EA8E8	read	P13
+g_loadingSceneVariant	0x00152C2E	data	short: which of four flight lumps; func_002EAB18 indexes the TOC table with it	-	asm 0x002EAC34	read	P13
+toc_flights	0x00003E58	system	RC2.HDR +0x3E24 base sector, +0x3E58 four (sector, sectors) flight lumps: WAD with the header of rac1's transition lump (words 2-7, 0xC, 0x12)	-	asm plus exported 4 flights with sky	proven	P13
+snd_commands	0x00132DF0	system	989snd command numbers in this game: 6 unload, 8 resolve, 9 master, 0xB playback, 0xD mixer, 0x10 auto reverb, 0x11 play, 0x15 stop, 0x16 pause, 0x17 continue, 0x18 stop all, 0x19 still playing, 0x21 set params, 0x2C stream, 0x2D, 0x2E pause, continue stream, 0x32 time left, 0x34 stop streams, 0x37, 0x38 disc, 0x4E voice range, 0x4F buffered, 0x50, 0x51 reverb, 0x60 reverb settings	-	wrappers scanned in the executable	read	P13
+func_00133340	0x00133350	function	catalogue name differs from address, so a libraries.tsv row at 0x00133350 is not what C callers get; same for func_00132818, A58, AA0, 300, 3C0, 5E0	snd_PlayVAGStreamTwoParts_CB	config/boot/functions.tsv	read	P13
+func_00292328	0x00292328	function	Binds the player display model: copies g_ship-style descriptors and calls func_002933D0; the flight's loader calls it with class 3412	BindPlayerDisplayModel	asm 0x2EAEAC	read	P13
+class_3412	0x00000D54	data	Moby class id func_002EAB18 registers in the flight; level 0's export has its mesh with empty texture slots, so its textures come at run time, not from the class table	-	moby_3412.glb uses moby_untextured	read	P13
+stream_pairs	0x0014B540	system	Stream table: music entries come as right then left mono VAG files (rc2_l00_main_br, rc2_l00_main_bl), first and second of snd_PlayVAGStreamTwoParts_CB	-	VAG headers at sectors 0x13C3CB, 0x13BF88	proven	P13
+master_groups	0x00188660	data	Sound block's group volumes as set by func_00132888: seen 0 0x2CC, 1 0x233 music, 2 0x400, 3 0x266, 4 0x266, 5 0x320, 6 0x400	-	OPENRAC_SOUND_LOG on level 0	proven	P13
+func_L00_00354DF8	0x00354DF8	function	Fills the Galactic Map's planet list (28 rows of 12 bytes at 0x0021CEF0 in level 0) from the unlocked list 0x00139948 and the planet table; retail entry 16 bytes into the rows func_L01_0034B1C0 etc., 0x002DB998 in the executable	GalacticMap_BuildPlanetList	matched C; words at every level's copy	proven	P14
+D_00139948	0x00139948	data	Unlocked planets: zero-ended list of level numbers, at most 28	g_unlockedPlanets	func_L00_00354DF8	read	P14
+D_00262BE0	0x00262BE0	data	Planet table, 12 bytes by level number: +0 name id, +4 value copied to the list row	g_planetTable	func_L00_00354DF8	read	P14
+D_001393E0 state 11	0x001393E0	field	Card machine states 11 and 12 delete a save folder (the only sceMcDelete calls, 0x299D54 and 0x299E34), but no code asks for state 11: li 11 before a store at +0x164 found nowhere in the executable or level 3	CARD_STATE_DELETE_FOLDER	scan of retail words	read	P14
+func_002B9380	0x002B9380	function	Particle update table slots 85 and 93: jumps to the particle's own update at +0x3C	ParticleUpdateOwnCallback	retail words; table func_002BA0E0	read	P14
+func_002BA0E0	0x002BA0E0	function	Fills a table of 111 update callbacks (the functional C calls them particle updates)	InitParticleUpdateTable	functional C	read	P14
+g_mobyCellHeads	0x001D24E0	data	Moby cell table: 4 bytes per cell (head u16, count, block capacity), indexed x<<2 + y<<8, 64 rows of 256 bytes; block pool follows at +0x4000, 32 bytes a block; free bitmap at 0x1EE4E0	g_mobyCells	func_002A0C68 disassembly, level 17 table dump	read	P12
+func_002A0B88	0x002A0B88	function	Frees cell list blocks in the bitmap at 0x1EE4E0; traps on a block not allocated	MobyCellBlockFree	fires first in level 17	read	P12
+func_002A0BE8	0x002A0BE8	function	Allocates a power-of-two run of cell list blocks, first fit in the bitmap	MobyCellBlockAlloc	disassembly	read	P12
+field_moby_0xA4	+0xA4	field	Moby cell rectangle, 4 bytes: x1, y1, x2, y2 in 16-unit cells; only x1 and y1 are range-checked, so y2 of 0x40 or more indexes into the block pool	cellRect	level 17 moby 0x1DFB880 has 02 3D 06 41 at y 1017.2	read	P12
+func_L17_003BCC30	0x003BCC30	function	Lays a chain of mobys behind a leader along its path's first segment	ChainReset	source; moby 0x1DFB880 goes from y 868 to y 1017 between two calls here	read	P12
+func_L17_003BCEC0	0x003BCEC0	function	Moves a chain leader along its path and its links behind it	ChainUpdate	source	read	P12
+func_L17_003BD310	0x003BD310	function	Chain moby update	ChainMobyUpdate	moby +0x64 in level 17	read	P12
+func_L00_003603C0	0x003603C0	function	Ship moby update: within 6.0 of the hero asks the HUD prompt slot (func_002B0C28(2, 0x2798 "Enter ship", 1)); Triangle then enters the ship	ShipUpdate	functional C, prompt on screen, Triangle state 6	proven	P14
+func_002B0C28	0x002B0C28	function	HUD prompt slot: asks for the slot by owner id; 1 when taken, 0 when another owner holds it; a text id draws the prompt, owner 2 ship, 5 help popup, 8 vendor	HudPrompt_Request	retail words; watch	proven	P14
+D_001A8C64	0x001A8C64	data	HUD prompt owner (0 free); level copies 0x001A8FB4, level 1 0x001A8FF4	g_hudPromptOwner	retail words of func_002B0C28 in boot, levels 0, 3, 19	proven	P14
+D_001A8C60	0x001A8C60	data	HUD prompt timer, frames left; level copies 0x001A8FB0	g_hudPromptTimer	retail words	proven	P14
+D_001B1D48	0x001B1D48	data	HUD prompt text id; level 0 0x001B2088, level 3 and 19 0x001B2C08	g_hudPromptText	retail words	proven	P14
+func_00289178	0x00289178	function	Help popup and its voice line, machine at D_00254E78: 0 idle, 1 and 2 voice wait, 3 to 7 open and close, 8 countdown; holds prompt owner 5 while open	HelpPopup_Update	C, watch	read	P14
+D_00254E78	0x00254E78	data	Help popup state	g_helpPopup	C names	read	P14
+0x25E680 screen	0x0025E680	data	Planet page of the Galactic Map (level 3 copy 0x0028B820): Exit, Play Movie, Blast Off, missions, platinum bolts; 0x0028B618 in level 3 is the list	g_MenuScreen_PlanetInfo	screen watch, shot	proven	P14
+hero state 116	0x0018C0B4	field	Fell off: level 3 at z 109.8, then respawn at the start 138 ticks later	HERO_STATE_FALL_OUT	trace s9	read	P14
+toc_item_banks	0x00004B3C	system	RC2.HDR +0x4B3C base sector, +0x4B40 48 rows (class, sector, sectors, sound sector, sound sectors): banks of what the hero holds, 42 items, 6 rows class 0 not items. A bank: offset+size of a class WAD and a texture WAD, offsets from the base's sector	-	all 42 decode; exported, class 1490 draws on the hero	proven	P15
+func_00294988	0x00294988	function	Takes an item's class from its bank in one of three 0xC800 cache slots and registers it (func_002946C0); slot table D_00152CD0; the level's class table does not list these 42 classes	LoadItemBank	moby log shows class 1490 live, not in the level's table	proven	P15
+func_002946C0	0x002946C0	function	Decompresses a bank's texture to VRAM and class to D_00178510, registers the class	LoadMobyClassFromWad	C read	read	P15
+item_table	0x00239BA0	data	Item rows of 0xE0, level 0's copy D_L00_00262570: +4 wrench form byte, +0xC hero slot, +0x10 joint, +0x14 class, +0x18 second class, +0x1C pose kind	g_itemDefs	dump: class ids equal the bank rows	read	P15
+func_L00_002AFBF0	0x002AFBF0	function	spawn_hero_item_mobies: slot 0 hand, 3 and its other, 2, 1; slots at D_00189E20+0x1220, 0x50 bytes each	SpawnHeroItemMobys	C, pairs with rac1's func_L00_0020F118	read	P15
+func_L00_002B0968	0x002B0968	function	update_hero_item_mobys: joints from hero+0xC80; items 12, 17 posed from his pose (0x25BDC0 to 0x1B2E00), 47 (0x1A7D08), 19, 20, 52, 54 two lists	UpdateHeroItemAttachments	C, functional file	read	P15
+func_00292408	0x00292408	function	Wrench form load: packs[9 + form], one texture to TEX0 slot 5; form = item row +4	LoadPackSingleTexture	C read	read	P15
+func_002925F0	0x002925F0	function	Ship body: RC2.HDR +0x48D8 pair by D_001A7AF0 & 3, from base +0x3E24, fixed up as a class	LoadShipDisplayModel	C read	read	P15
+func_002926B8	0x002926B8	function	Ship picture: RC2.HDR +0x48F0 pair by D_001A7AF2 & 31 (18 paints of 256x256), TEX0 at D_00152C00+0x38	LoadShipDisplayTexture	C read, records PIF2	read	P15
+class_71	0x00000047	data	Wrench class: skeleton in the level, packets in packs 9 to 11	-	exported from pack 9	read	P15
+class_3412	0x00000D54	data	The hero's ship: the level has the packets, picture from func_002926B8	-	C read	read	P15
+func_002CB950	0x002CB950	function	Read func_002D5B38's result through a void definition; same family as func_002E45C8, fixed by results_before_calls	-	audit of callers	read	P15
+D_L00_001B8C80	0x001B8C80	data	Level 0 camera block; derived table held the executable's 0x1B5200, so a shot at the lift button read its +0x190 at the boot address (crash at f1596)	-	lldb stop in func_L00_003CD8E0	proven	P15
+func_L00_003CD8E0	0x003CD8E0	function	Lift, its button child class 0xC16, a shot or hero triggers it	UpdateLift	C	read	P15
+func_L17_003BD310	0x003BD310	function	Update of the path-linked hazard classes 0x8AD, 0x8D8, 0x878: state 0 init, 1 ChainReset, 2 leader moves along the path, 3 follower	ChainHazardUpdate	source; level 17 states	read	P17
+pose_layer	0x001D1740	system	Hero pose layer node (0x40 bytes, list at moby +0x50, next +0x1C): +2 count, +8 weight, +0xC joint list, +0x10 buffer of count records of 0x30 bytes (quat, scale, trans, +0x2C scratchpad record it blends into). Not rac1's keys at +0x38; hero's weapon arm is joints 52 to 71, hand 56	PoseLayer	joints within 4 mm of the game's attach matrices on one frame (cmpj)	proven	P15
+class_joint_lists	+0x1C	field	Class +0x1C: per index, a chain (u16 count, bytes from +4); func_002A3F10 takes the last joint. D_L00_001A7F68 lists the nine attach points: 0 right hand 56, 1 joint 55, 2 foot 99, 3 foot 93, 4 head 7, 5 joint 5, 6 joint 54, 7 joint 3, 8 joint 5	-	func_002A3F10 translation, RAM dump	proven	P15
+class_1490	0x000005D2	data	The hand item hero starts with in level 0 (HUD shows 200/200): bank row 15, item 30, joint 0	-	moby log, drawn	read	P15
+func_002E8190	0x002E8190	function	Flight quad through func_00280B90 with TEX0 D_001B2160, drawn when D_00152C00+0x64 is 4; scale by level from D_00261EC0	-	C	read	P15
+func_0026F710..func_0026F808	0x0026F710	system	31 empty stubs in the executable that every level program fills with hero code: engine code carried in levels calls them by jal; hostgen.json level_hooks	HeroHooks	jal scan of 27 levels against the executable	proven	P17
+func_0026F748	0x0026F748	function	Hook: hero state change (state, argument); level 0 func_L00_002C42E0	HeroSetState	C call sites, level 8 hero state 97	proven	P17
+func_0026F718	0x0026F718	function	Hook: hero update in a scene; level 0 func_L00_002A6DD0, others func_L01_002A8C48 and variants	HeroUpdateHook	jal scan	read	P17
+func_0026F808	0x0026F808	function	Hook: nanotech steps (level 0 func_L00_002D5E30: three int pointers)	HeroNanotechSteps	C of the level function	read	P17
+func_002F53C8	0x002F53C8	function	Starts cutscene n: marks it seen, clears state, sets hero state 0x61 and game state 2	CutsceneStart	source; level 8 retail calls	read	P17
+func_002F57A8	0x002F57A8	function	Ends a cutscene: restores hero, frees actors	CutsceneEnd	source; level 8 and 14 capture frames	read	P17
+func_00288CB0	0x00288CB0	function	Requests a level exit: flag 0x1A8B84, destination 0x1B1680	RequestLevelExit	traced in level 25	proven	P17
+func_L25_0040CDA0	0x0040CDA0	function	Wupash mission controller; ctx 0x221850: +0xC wave, +0x10 enemies left, +0x14 waves done; exits to level 2 when done	WupashMission	retail states, watch in port	read	P17
+D_L25_00221850	0x00221850	data	Ship mission context, level 25's place: HUD counters at +0xC and +0x10 read by func_L25_0040D208	g_shipMission	func_L25_0040CDA0, func_L25_0040D208	read	P17
+D_001A79FC	0x001A79FC	data	Raritanium count	g_raritanium	shop buy 1000 to 980	proven	P14
+D_001A73B8	0x001A73B8	data	Quick select ring, ints, 0 up then clockwise by two; writing it does not change the held item	g_equippedItemSlots	Quick Select by stick after writing	proven	P14
+hero state 22	0x0018C0B4	field	Hit: health down by the blow	HERO_STATE_HIT	level 8 health 4 to 2	read	P14
+hero state 57	0x0018C0B4	field	Dead, before the respawn	HERO_STATE_DEAD	level 8 health 0	read	P14
+moby class 4873	0x00379A48	system	Ship Shack terminal in level 24: within 3.0 and facing, Triangle, state 5, func_L24_00379A48	ShipShack	level 24 shop opens	proven	P14
+func_002B49E0	0x002B49E0	function	Asks for game mode index (a stack when mode 1); 4 quick select from func_L00_0036F488, 5 vendor and shop	GameMode_Request	C; lldb	proven	P14
+func_0027D020	0x0027D020	function	Runs the draw callback list at 0x1BA040, count 0x1B160C; level 9 has a null entry once per run, no null seen entering func_0027CFD0	DrawCallbacks	lldb level 9	read	P17
+class_0x957	0x00000957	data	Ship enemy of the Wupash mission: state 0 waits for mission word +0x24 of the context, then registers with func_L05_003D0320	WupashEnemy	retail level 25 states	read	P17
+func_L05_00441F30	0x00441F30	function	Ship flight controller, by mode 0x1B1B20: stick, roll, fire, transitions. Levels 5, 10, 15, 25	ShipFlightUpdate	C read, level 5 flown	read	P18
+func_L05_00442A58	0x00442A58	function	Ship input: left stick (pad +0x108, +0x10C) or D-pad steer, L1 R1 roll (0x4, 0x8), L2 R2 straighten (press +0x1A4 & 3), both shoulders boost mode 7	ShipInput	C read; in game the help says Cross guns, Circle secondary, Square turbo	read	P18
+func_L05_0041DA20	0x0041DA20	function	Feltzin mission driver: object state 1 asks the menu until a challenge is chosen (func_L05_0041ED18), then runs mission 0 to 3 (func_L05_00420A88, 00420E28, 00420FB0, 00421100)	FeltzinMissionUpdate	C read, played	proven	P18
+func_L05_0041ED18	0x0041ED18	function	Challenge menu of a ship level: Left, Right move, Cross accepts (mission index, -2 while none), Triangle Galactic Map. Hero state stays 49	ShipChallengeMenu	C read, shot of Challenge 3	proven	P18
+func_L05_00421100	0x00421100	function	Mission 3 of Feltzin: gates, class 0x114A	FeltzinRings	C comment	read	P18
+D_L05_00221D10	0x00221D10	data	Ship mission context in level 5: +0x10 ships left (HUD Enemy Ships, 25 in challenge 1), +0x14 wave, +0x24 ship objects may start, +0x34, +0x4C, +0x58. Level 0 has another record here: its accessors read other offsets, so pairing cannot relocate them	g_shipMission	run: 25 counts down while firing	proven	P18
+D_L05_00225DD0	0x00225DD0	data	Ship objects registered by class (func_L05_00379E60), 7 in level 5: one template moby per class; D_L05_001AC4D8 the count	g_shipTemplates	lldb list	proven	P18
+D_L05_001FB220	0x001FB220	data	Moby groups: 0x3C0 bytes, pointer per group to a list of u16 moby indexes, last has bit 15; level 0 D_L00_001FA920, filled by func_L00_00300618, object +0x21 is the group, 0xFF none	g_mobyGroups	C read	proven	P18
+D_00259F58	0x00259F58	data	Table func_00340498 passes in its descriptor; level copies by derived level_data	(unknown)	retail words	read	P18
+func_L00_003E4948	0x003E4948	function	One jal wrapper the catalogue folds across 27 levels though each level calls its own moby function: level 0 func_L00_003A6C30, level 5 func_L05_0041CFE8. Pattern of 337 functions, see call_copies.tsv	(wrapper)	retail words of all levels	proven	P18
+D_001A73B8	0x001A73B8	data	Correction to the row above: quick select ring is eight ints, 0 up then clockwise by ONE (slot 1 up right); func_0028BCE8 copies it to the ring entries D_00255170, 28 bytes each	g_equippedItemSlots	filled by give, 8 directions selected	proven	P19
+func_0034DB98	0x0034DB98	function	HUD bolts counter: draws the thousands commas after the number, one func_0027F640 every 3 digits at step*11.6; its C declared the TEX0 word void *, so hostgen cut it to 32 bits (the red and cyan block)	HudBoltsCounter	generated C, draw dump	proven	P19
+chrome_maps	0x00000000	system	Level core index +0x90..+0x9C hold 0, 0, 0x4000, 0x400 in rac2: chrome 128x128 at texture data +0, glass 64x64 at +0x4000 (moby textures from +0x5000), CLUTs at GS lump 0 and 0x400	-	all five levels dumped, pictures looked at	proven	P19
+func_002E80B0	0x002E80B0	function	Flight backdrop: unpacks the planet pictures and uploads them, TEX0 to D_001B2160 and D_001B2168, first free VRAM, moving the effect pages up by 0x88 blocks. The grey rectangle was this planet overwritten by the tick's list	LoadFlightPlanet	pool dumps, picture	proven	P19
+D_001F1F40	0x001F1F40	data	Particle textures by id: low word palette<<4 with CLUT offset, high word pixels<<4 with log2 of the side, 32 or 64; rac1 is all 32. Read as 32 it drew 64 x 64 particles as striped sheets	g_particleTextures	C; picture	proven	P19
+moby_empty_slot	0x00000000	system	A moby face on a 0xFF texture slot binds his ship picture: 20 classes in level 3 (4308 to 4325, 4742 to 4744) all have TEX0 0x8005828621B10700 after load, block 0x700, CLUT 0x2C14 of func_002926B8. Index -1 is the fixed 0x3FFB word	-	RAM after load, level 3	proven	P19
+func_L00_00420C38	0x00420C38	function	Follow camera state changes by hero state: 0x14 hyper strike goes to camera state 9 and keeps the height target +0x80 of the moby block from +0x70	FollowCameraStates	retail words, strike played	proven	P18
+hero state 20	0x0018C0B4	field	Hyper strike (Square in the air)	HERO_STATE_HYPER_STRIKE	run	proven	P18
+hero state 19	0x0018C0B4	field	Wrench swing on the ground	HERO_STATE_WRENCH	run	read	P18
+hero state 4	0x0018C0B4	field	Crouch (R1)	HERO_STATE_CROUCH	run	read	P18
+hero state 21	0x0018C0B4	field	Crouch plus Square move	(unknown)	run	read	P18
+hero states rac2	0x0018C0B4	field	rac1's hero_state.h numbering holds in the moves run: 0 idle, 1 strafe, 2 run, 4 crouch, 7 jump, 9 run jump, 14 double jump, 19 wrench combo, 20 wrench slam (hyper strike), 21 crouch swing, 40 grind, 44 swing entry, 51 to 53 swim	(names in rac1 include/rnc/hero/hero_state.h)	retail moves run rb, same presses	proven for those listed	P21
+hero+0x34C	0x0018A16C	field	Short counted while airborne; func_L00_00420C38 leaves camera state 9 or 10 when it reaches 55	-	asm 0x42116C	read	P21
+hero+0x2294	0x0018C0B4	field	Same word as g_heroState; hero+0x229C is the movement group (2 ground move, 4 crouch-like, 30)	-	asm 0x421160	read	P21
+func_L00_002ADB40	0x002ADB40	function	FindGrindRail needs D_001A7B0C (grind boots owned); hero+0x5D0 contact, +0x630 rail, +0x634 segment, +0x638 parameter, +0x63C found	FindGrindRail	C	read	P21
+func_002F7320	0x002F7320	function	Whether the table D_00264E80 (56 rows of key and three values, key 0 ends it) holds VALUE as value INDEX of KEY's row	KeyTableHasValue	asm	read	P21
+func_L09_0039BA18	0x39BA18	function	keyframed dynamic light moby update (5-byte keys r,g,b,range,frames at state+0x38, blends to next key, owns a light slot at state+0x2E in the light table D_L09_001C7B80, 32-byte entries)	update_keyframe_light	read from retail disassembly vs C (cov review E)	read	P20
+func_00334160	0x334160	function	drain-effect start: reserves one of 30 48-byte slots at 0x237800 (timer=frames*60, color, health drain from effect table 0x237DA0 [mode][id] of {cost,a,frames,b}) on a target when the weapon at 0x239BA0 has an effect type	start_drain_effect	read from retail disassembly vs C (cov review E)	read	P20
+func_L02_003D91A0	0x3D91A0	function	boss/enemy part moby update with damage intake: scales damage 0.35 for sources 0xC89/0xBFE, subtracts from hp at state+0x20, adds amount*32 to a score counter table (0x1FF6B8+0xE0), switches to state 9/10 (hurt/dead) at thresholds	update_damageable_part	read from retail disassembly vs C (cov review E)	guess	P20
+D_001B1B00	0x001B1B00	data	Area table: +0 count, then 0x30-byte records (sphere at +0x20 rel., counts of 4 shape lists, list pointers); func_L00_00329520 tests a point against area N; D_L00_001B1B00_sda is the same datum	g_areas	port and retail RAM, level 0 0x19F8A00	proven	P23
+D_001B17BC	0x001B17BC	data	Per-area member lists rebuilt each frame by func_L00_002AE0C8 (hero kind 1, mobys 2, 3, 4); enemies read them through func_002B39A0 to see the hero (pvars +0x258, +0x25C)	g_areaMembers	port RAM, sight 0 to 1 after the hostgen fix	proven	P23
+func_L00_002AE0C8	0x002AE0C8	function	Rebuilds each area's member list for the frame	UpdateAreaMembers	C, port RAM	read	P23
+func_L00_00329520	0x00329520	function	Whether a point is in area N: bounding sphere, then cuboids, spheres, cylinders, polygons (D_001FDA80)	AreaContainsPoint	C, port RAM	read	P23
+moby+0x78	0x00000078	field	Glow word: RGBA the last vertices of each packet are drawn in while mode has 0x10 (rac1 +0x90); MobyProc copies it to job +0xAC, func_00274D90 writes it over the colours	glowColour	disassembly, lift button shot	proven	P23
+vertex table +0xE	0x0000000E	field	Compact moby vertex table's last u16: how many of the packet's last vertices take the glow word	glowVertexCount	func_00274D90 at 0x274F70, 0x275DB8	proven	P23
+D_001C2740	0x001C2740	data	Directional light bank, 16 sets of 0x40 bytes; level 0's copy 0x1C6B40; set 13 is written at run time (1.0 0.8 0.0) and lights the bolts	g_lightSets	port RAM, gold bolts shot	proven	P23
+func_001326D8	0x001326D8	function	snd_BankLoadFromIOP: loads a sound bank the game DMAed to the IOP; func_00294988's item banks (IOP 0x26A60 + slot * 0xC800)	snd_BankLoadFromIOP	symbol table, run	proven	P23
+moby class +0x28	0x00000028	field	Class sound table, 0x20 a record, count at class +0xD; +0x18 byte the kind (0 needs flag 4), +0x1A the sound	soundTable	func_002E5CF8 disassembly	read	P23
+D_001BE2C0	0x001BE2C0	data	Level 0's draw callback list (functions; arguments at +0x100), count 0x1B194C (executable's 0x1BA040, 0x1B160C): 7 entries in a level 0 frame, none null	g_drawCallbacks	port RAM	read	P23
+func_0034E4F8	0x0034E4F8	function	Draws the HUD widgets (weapon, ammunition, health, bolts); the port wraps it so "HUD: Edges" draws them out at the sides of a wider picture	DrawHudWidgets	port/game/rac2-ntsc/libraries.tsv, host/hud.c	read	P24
+D_001A7BB1	0x001A7BB1	data	The game's own 16:9 flag (byte); the port keeps it off	g_widescreen	rac2/native ae5409957	read	P24

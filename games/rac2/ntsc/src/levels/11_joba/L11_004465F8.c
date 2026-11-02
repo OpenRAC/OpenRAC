@@ -1,4 +1,12 @@
 #include "common.h"
+#include "include_asm.h"
+
+extern char *func_0029EFD0(int id);
+extern float func_002A7878(float a, float b);
+extern float func_002A7940(void);
+extern void func_002C2210(void *, unsigned int, int, unsigned int, int, char *, float, float, float, int);
+extern char D_L11_001A8F20[] __attribute__((sda));
+
 
 extern void func_002B60B0(char *, float, float, float, float);
 extern void func_002A7470(char *, int, int, int);
@@ -15,12 +23,11 @@ extern void func_00282D30_2(char *dst, char *src, float scale);
 extern void func_32C9E0();
 extern void func_32C700();
 extern void func_324560(char *a0);
-extern void func_441978(s32 a0, int a1);
+extern void func_L11_00441978(s32 a0, int a1);
 extern void func_323688(char *a0, char *a1);
-extern void func_300268(char *a0, int a1, int a2);
-extern void func_L11_00449330();
-
+extern void func_00282A60(char *a0, int a1, int a2);
 typedef int TI128 __attribute__((mode(TI)));
+extern void func_L11_00449330(char *self, TI128 *pos);
 extern char *func_3224B0(int a0);
 extern void func_324F00(char *a0);
 extern void func_3362A8(char *a0, s32 a1, int a2, int a3);
@@ -35,21 +42,20 @@ extern void func_32EB98(void *a0, void *a1);
 extern s32 func_441868(s32 a0, s32 a1);
 extern s32 func_33C800(char *a0, s32 a1, s32 a2, s32 a3, float f12, float f13);
 
+
 INCLUDE_ASM("asm/levels", func_L11_004465F8);
 
-INCLUDE_ASM("asm/levels", func_L11_00446C78);
+/* func_L11_00446C78 is defined in L11_00446C78-g16.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_00446EB8);
+/* func_L11_00446EB8 is defined in L11_004465F8-loop-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_00447018);
 
-INCLUDE_ASM("asm/levels", func_L11_004471A8);
+/* func_L11_004471A8 is defined in L11_004465F8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_00447360);
 
-INCLUDE_ASM("asm/levels", func_L11_004475A0);
+/* func_L11_004475A0 is defined in L11_004475A0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_004484A8);
+/* func_L11_004484A8 is defined in L11_004465F8-g8.c. */
 
 void func_L11_00448848(char *a0)
 {
@@ -79,7 +85,7 @@ void func_L11_00448908(char *a0)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L11_00448AA8);
+/* func_L11_00448AA8 is in L11_00448AA8.c. */
 
 s32 func_L11_00448CE0(char *a0)
 {
@@ -94,7 +100,114 @@ s32 func_L11_00448CE0(char *a0)
     return r;
 }
 
-INCLUDE_ASM("asm/levels", func_L11_00448DF8);
+/* The id lists: halfwords whose low 15 bits index the 256-byte records of D_L11_001B359C, the
+   last one with its sign bit set; a walk stops when the object's group byte (+0x21) is 0xFF or
+   above the limit at D_L11_001B35B8. The records' base is read bare (`lui`/`lw` in one register:
+   `sda` in this -G0 unit), the limit is a $gp word. */
+extern u16 *D_L11_001FC420[];
+extern u8 *D_L11_001B359C __attribute__((sda));
+extern s32 D_L11_001B35B8[] __attribute__((sda));
+extern f32 func_00282E80(u8 *, u8 *);
+extern s32 func_L11_00441868(u8 *, s32);
+/* Runs what the id in its second argument names on the object and returns a value the caller
+   keeps; the arguments are read in this order (object, id, two floats, two ints). */
+extern s32 func_002B3BA8(u8 *, s32, f32, f32, s32, s32);
+
+/* The pairing step of a kind-0xD98 object (state block at +0x68: partner +0x350, phase +0x366,
+   the halfword at +0x36A). Below state 4 it forgets its partner and its phase. In phase 1 it
+   runs func_002B3BA8 (result to +0x36A) and takes its partner from +0x220; from any other phase
+   it enters phase 1 (and does the same) when func_L11_00441868 grants a counter of its kind from
+   the owner at +0xB8. In phase 2 with a partner it stays paired (+0x36A of both set to 2) while
+   the partner is alive (state byte not 0xFE or 0xFD, byte +0x95 above 1), is in the same phase
+   and points back at it; otherwise it drops the partner and goes back to phase 0. Without a
+   partner it walks the id list of its group for the nearest other kind-0xD98 object (state byte
+   3 or more, not 0xFE or 0xFD, phase 0) closer than 1000.0 and pairs with it: partner pointers,
+   phase 2 and +0x36A = 2 on both sides. The state block of the partner being checked and that
+   of the object chosen are two variables (one per role), and the group byte goes through a
+   halfword local so that each loop test loads it once. */
+void func_L11_00448DF8(u8 *self)
+{
+    u8 *state = *(u8 **)(self + 0x68);
+    u16 *p;
+    u8 *e;
+    u8 *best;
+    u8 *partner;
+    u8 *pb;
+    u8 *bb;
+    f32 best_d;
+    u16 g;
+
+    if (self[0x20] < 4) {
+        *(u8 **)(state + 0x350) = 0;
+    } else {
+        if (*(s16 *)(state + 0x366) == 1) {
+            *(s16 *)(state + 0x36A) =
+                func_002B3BA8(self, *(s32 *)(state + 0x360), 100.0f, 100.0f, 0, 0);
+            *(u8 **)(state + 0x350) = *(u8 **)(state + 0x220);
+            return;
+        } else if (func_L11_00441868(*(u8 **)(self + 0xB8), *(s16 *)(self + 0xAA))) {
+            *(s16 *)(state + 0x366) = 1;
+            *(s16 *)(state + 0x36A) =
+                func_002B3BA8(self, *(s32 *)(state + 0x360), 100.0f, 100.0f, 0, 0);
+            *(u8 **)(state + 0x350) = *(u8 **)(state + 0x220);
+            return;
+        }
+        if (*(s16 *)(state + 0x366) == 2 && *(u8 **)(state + 0x350) != 0) {
+            partner = *(u8 **)(state + 0x350);
+            pb = *(u8 **)(partner + 0x68);
+            if (partner[0x20] != 0xFE) {
+                if (partner[0x20] != 0xFD) {
+                    if (partner[0x95] != 0) {
+                        if (partner[0x95] != 1) {
+                            if (*(s16 *)(pb + 0x366) == *(s16 *)(state + 0x366)) {
+                                if (*(u8 **)(pb + 0x350) == self) {
+                                    *(s16 *)(state + 0x36A) = 2;
+                                    *(s16 *)(pb + 0x36A) = 2;
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            *(u8 **)(state + 0x350) = 0;
+            *(s16 *)(state + 0x366) = 0;
+            return;
+        }
+        best = 0;
+        best_d = 1000.0f;
+        for (p = D_L11_001FC420[self[0x21]];
+             (g = self[0x21]) != 0xFF && g <= D_L11_001B35B8[0] && p != 0 &&
+             ((p != 0 && (s16)p[-1] >= 0) || p == D_L11_001FC420[g]);
+             p++) {
+            e = D_L11_001B359C + ((*p & 0x7FFF) << 8);
+            if (e == 0)
+                break;
+            if (e[0x20] != 0xFE) {
+                if (e[0x20] != 0xFD) {
+                    if (e != self && e[0x20] >= 3 && *(s16 *)(e + 0xAA) == 0xD98 &&
+                        *(s16 *)(*(u8 **)(e + 0x68) + 0x366) == 0) {
+                        if (func_00282E80(self + 0x10, e + 0x10) < best_d) {
+                            best = e;
+                            best_d = func_00282E80(self + 0x10, e + 0x10);
+                        }
+                    }
+                }
+            }
+        }
+        if (best != 0) {
+            *(u8 **)(state + 0x350) = best;
+            *(s16 *)(state + 0x366) = 2;
+            *(s16 *)(state + 0x36A) = 2;
+            bb = *(u8 **)(best + 0x68);
+            *(u8 **)(bb + 0x350) = self;
+            *(s16 *)(bb + 0x366) = 2;
+            *(s16 *)(bb + 0x36A) = 2;
+            return;
+        }
+    }
+    *(s16 *)(state + 0x366) = 0;
+}
 
 extern float func_0029F530(char *);
 extern void func_0029FCC0(char *, int, void *);
@@ -154,7 +267,8 @@ void func_L11_004492A0(char *a0)
     *(s32 *)(*(char **)((char *)(long)*(s32 *)(s0 + 0x354) + 0x68) + 0x3C) = 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L11_00449330);
+/* func_L11_00449330 is in L11_00449330.c: PAL's level 11 has other code at its place,
+   so the calls to it from this unit go through its symbol. */
 
 void func_L11_004496A0(char *object, int mode, int active) {
     char *state = *(char **)(object + 0x68);
@@ -217,7 +331,7 @@ void func_L11_00449878(char *a0)
     *(s32 *)(s2 + 0x98) = 0;
     s1 = *(char **)(s2 + 0x68);
     if (*(s16 *)(s1 + 0x366) == 1)
-        func_441978(*(s32 *)(s2 + 0xB8), 0xD98);
+        func_L11_00441978(*(s32 *)(s2 + 0xB8), 0xD98);
     *(s16 *)(s1 + 0x366) = 0;
     *(s32 *)(s1 + 0x350) = 0;
     if (*(s32 *)(s1 + 0x354) != 0) {
@@ -232,19 +346,63 @@ void func_L11_00449878(char *a0)
         *(f32 *)(s1 + 0x2D4) = one;
         *(f32 *)(s1 + 0x2D0) = one;
         func_323688(s2, s1 + 0x2B0);
-        func_300268(s1 + 0x2B0, 0, 0x40);
+        func_00282A60(s1 + 0x2B0, 0, 0x40);
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L11_00449970);
+extern void func_0029F978(char *a0, int a1, char *a2);
+extern void func_002A7A00(void *a0, float f12, float f13);
+extern void func_002B0A68(char *a0, int a1, void *a2, float f12, float f13, float f14,
+                        float f15, int a3);
+extern void func_L02_003FC248(char *a0, int a1, int a2);
+extern void func_L01_003E9CF8(char *a0, int a1, char *a2);
 
-INCLUDE_ASM("asm/levels", func_L11_00449AD8);
+/* The moby's death path: clears the spawn flags, hands the last position to the scene
+   manager, resets the 0x2B0 rig and leaves the object in its dead state. */
+void func_L11_00449970(char *a0, int a1, int a2)
+{
+    char *s1 = *(char **)(a0 + 0x68);
+    char *s0;
+    TI128 tmp;
+    float f0;
 
-INCLUDE_ASM("asm/levels", func_L11_00449C70);
+    *(s32 *)(s1 + 0x20) = 0;
+    if (*(s16 *)(s1 + 0x366) == 1)
+        func_L11_00441978(*(s32 *)(a0 + 0xB8), 0xD98);
+    *(s16 *)(s1 + 0x366) = 0;
+    *(s32 *)(s1 + 0x350) = 0;
+    if (*(s32 *)(s1 + 0x354) != 0) {
+        tmp = *(TI128 *)((char *)(long)*(s32 *)(s1 + 0x354) + 0x10);
+        func_L11_00449330(a0, &tmp);
+    }
+    if (*(u8 *)(s1 + 0x2B1) == 0) {
+        s0 = s1 + 0x2B0;
+        func_00282A60(s0, 0, 0x40);
+        func_0029F978(a0, 3, s0);
+        f0 = 1.0e-4f;
+        *(u8 *)(s1 + 0x2B2) = 1;
+        *(f32 *)(s1 + 0x2D8) = f0;
+        *(f32 *)(s1 + 0x2D4) = f0;
+        *(f32 *)(s1 + 0x2D0) = f0;
+        func_002A7A00((char *)&tmp, 1.0f / 60.0f, 0.0500000045f);
+        func_002B0A68(a0, 0x20, (char *)&tmp, 3.0f, 6.0f, 3.0f, 6.0f, 0xFF);
+    }
+    *(s32 *)(a0 + 0x98) = 0;
+    if (a1 == 0)
+        func_L02_003FC248(a0, 0, -1);
+    if (a2 == 0)
+        func_L01_003E9CF8(a0, 0, (char *)func_L11_00449878);
+    else
+        func_L11_00449878(a0);
+}
 
-INCLUDE_ASM("asm/levels", func_L11_0044AFC8);
+/* func_L11_00449AD8 is defined in L11_00449AD8-helpers.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_0044BD68);
+/* func_L11_00449C70 is defined in L11_004465F8-aim-g8.c. */
+
+/* func_L11_0044AFC8 is defined in L11_0044AFC8-g8.c. */
+
+/* func_L11_0044BD68 is in L11_0044BD68-g8.c. */
 
 void func_L11_0044C0F0(char *a0)
 {
@@ -258,14 +416,39 @@ void func_L11_0044C0F0(char *a0)
 
 /* advances the sub-object's ring cursor, hands the new slot of the 0x370 table to the scene
    manager, and refreshes the matching slot of the 0x270 table from the live 0x4A4 record */
-INCLUDE_ASM("asm/levels", func_L11_0044C180);
+/* func_L11_0044C180 is defined in L11_0044C180-helpers.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_0044C220);
+/* func_L11_0044C220 is defined in L11_004465F8-g8.c (its globals are reached through $gp). */
 
 /* state handler: clears the 0x490 word while the frame byte is out of the 0..3 window, otherwise
    arms the 0x4CA gate through the 0xB8 handle and runs the 100-unit smash into it */
 /*W23B*/
-INCLUDE_ASM("asm/levels", func_L11_0044C268);
+/* Same body as func_L02_003F16F0, with this function's own callees. */
+void func_L11_0044C268(char *arg0) {
+    char *state = *(char **)(arg0 + 0x68);
+
+    if (*(unsigned char *)(arg0 + 0x20) < 4) {
+        *(int *)(state + 0x490) = 0;
+        goto done;
+    }
+
+    if (*(short *)(state + 0x4CA) == 1) {
+        *(short *)(state + 0x4C8) =
+            func_002B3BA8(arg0, *(int *)(state + 0x4C4), 100.0f, 100.0f, 0, 0);
+        *(int *)(state + 0x490) = *(int *)(state + 0x220);
+    } else {
+        if (func_L11_00441868(*(int *)(arg0 + 0xB8), *(short *)(arg0 + 0xAA)) == 0)
+            goto done;
+        *(short *)(state + 0x4CA) = 1;
+        *(short *)(state + 0x4C8) =
+            func_002B3BA8(arg0, *(int *)(state + 0x4C4), 100.0f, 100.0f, 0, 0);
+        *(int *)(state + 0x490) = *(int *)(state + 0x220);
+    }
+    return;
+
+done:
+    *(short *)(state + 0x4CA) = 0;
+}
 /*W23E*/
 
 
@@ -361,7 +544,7 @@ void func_L11_0044C4F0(char *object) {
     *(u16 *)(object + 0x34) = (*(u16 *)(object + 0x34) & 0xEFFF) | 0x47;
 }
 
-INCLUDE_ASM("asm/levels", func_L11_0044C688);
+/* func_L11_0044C688 is defined in L11_0044C688-helpers.c. */
 
 void func_L11_0044C818(char *a0)
 {
@@ -372,9 +555,42 @@ void func_L11_0044C818(char *a0)
     func_32C9E0(a0, 6, 4);
 }
 
-INCLUDE_ASM("asm/levels", func_L11_0044C850);
+/* func_L11_0044C850 is defined in L11_004465F8-aim-0044C850-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L11_00450328);
+char *func_L11_00450328(char *a0, TI128 *a1, TI128 *a2, float f12)
+{
+    char *obj = func_0029EFD0(0xDD9);
+
+    if (obj != 0) {
+        char *st;
+        float f20;
+
+        *(unsigned char *)(obj + 0x30) = 0xFF;
+        *(short *)(obj + 0x32) = 0xFF;
+        obj[0x31] = 1;
+        obj[0x20] = 0;
+        *(long long *)(obj + 0x38) = *(long long *)(a0 + 0x38);
+        qcopy(obj + 0x10, a2);
+        st = *(char **)(obj + 0x68);
+        qcopy(st, a1);
+        *(float *)(st + 0x14) = f12;
+        *(char **)(st + 0x10) = a0;
+        *(float *)(st + 0x18) = func_002A7940();
+        *(float *)(st + 0x1C) = func_002A7878(0.20943954586982727f, 0.6283186078071594f);
+        *(float *)(st + 0x20) = 0.15f;
+        *(unsigned char *)(obj + 0x23) = 0x80;
+        *(unsigned short *)(obj + 0x34) |= 0x100;
+        *(float *)(obj + 0x2C) = func_002A7878(0.005f, 0.00625f);
+        *(int *)(st + 0x24) = 0;
+        *(unsigned short *)(obj + 0x34) |= 0x200;
+        f20 = func_002A7878(2.0f, 4.0f);
+        *(unsigned short *)(obj + 0x34) |= 0x41;
+        func_002C2210(obj + 0x10, 4, 0x801060E0, 0, 10, D_L11_001A8F20, f20 * 0.3f, f20, 0.0f, 0);
+        func_002C2210(obj + 0x10, 4, -1, 1, -10, D_L11_001A8F20, f20 * 0.04f, f20 * 0.4f, 0.0f, 0);
+    }
+    return obj;
+}
+
 
 /* Scales four consecutive 16-byte XYZ vectors in place by one scalar through a vector helper. */
 void func_L11_00450748(char *p, float scale)
@@ -473,11 +689,11 @@ void func_L11_00452DF8(char *object) {
 }
 
 
-INCLUDE_ASM("asm/levels", func_L11_00452F30);
+/* func_L11_00452F30 is defined in L11_00452F30-helpers.c. */
 
 void func_L11_004530C0(char *a0)
 {
     func_32C9E0(a0, 6, 3);
 }
 
-INCLUDE_ASM("asm/levels", func_L11_004530E0);
+/* func_L11_004530E0 is defined in L11_004465F8-aim-004530E0-g8.c. */

@@ -122,6 +122,31 @@ extern void func_0029D4D0(int, int);
 extern struct Moby *func_0029EFD0(int);
 extern void func_0029F0C8(struct Moby *, int);
 
+/* The table of the two slots a load reserves. */
+struct LoadSlots {
+    char pad00[0x34];
+    int slot[4];
+};
+
+extern struct LoadSlots D_00152CD0;
+extern int D_001A933C __attribute__((sda));
+
+/* Release the slot the object holds: remember its entry in the table of the two
+   slots, then clear the object's own reference to it. */
+void func_00294130(int *p, int a1)
+{
+    if (a1 != 0) {
+        if (p[1] >= 0) {
+            D_00152CD0.slot[p[1]] = p[0];
+            if (p[1] != D_001A933C)
+                goto out;
+            D_001A933C = p[1] ^ 1;
+        }
+    }
+out:
+    *p = -1;
+}
+
 /* UpdateWorldObjectAnimation: relocate the model record loaded for the current chunk and
    hook each of its parts to a moby, spawning one and initialising it the first time; each
    part's pointer table is made absolute. */

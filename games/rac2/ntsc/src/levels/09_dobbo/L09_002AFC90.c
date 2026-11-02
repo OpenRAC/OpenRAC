@@ -3,7 +3,7 @@
 typedef unsigned char u8;
 typedef unsigned int u32;
 
-INCLUDE_ASM("asm/levels", func_L09_002AFC90);
+/* func_L09_002AFC90 is defined in L09_002AFC90-flags.c. */
 
 extern u8 D_00189E20[];
 
@@ -86,4 +86,3 @@ slow:
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L09_002BC490);

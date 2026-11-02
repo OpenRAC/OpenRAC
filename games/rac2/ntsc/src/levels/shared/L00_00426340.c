@@ -1,4 +1,24 @@
-#include "include_asm.h"
+#include "common.h"
+
+extern void func_00283410(char *, char *);
+extern int func_00282948(char *);
+extern float func_00283CE0(int);
+extern void func_L00_0031AC60(char *, char *, char *, float);
+extern void func_L00_0031AD40(char *, char *, char *, float);
+extern void func_00272550(char *, char *, char *);
+extern float func_00283BE0(float, float);
+extern float func_002A7C00(float, float, float);
+extern float func_L00_0031ABE0(float, float, float);
+extern float func_002A7AA8(float, float, float, float, float);
+extern float func_002702C8(char *, float, float, float, float, float);
+extern float func_002703B0(char *, float, float, float, float, float);
+extern float D_L00_001B8DD8;
+
+
+/* Measured child block reached at owner->sub + 0x40. */
+typedef struct { char pad[0x4C]; float height; } Part_28CE0;
+
+
 
 extern void func_L00_00426248(int);
 
@@ -111,11 +131,6 @@ void func_L00_00426340(int object)
     func_L00_00425CD0(object);
     func_L00_00425560(object);
 }
-
-INCLUDE_ASM("asm/levels", func_L00_004263A8);
-
-INCLUDE_ASM("asm/levels", func_L00_004263B8);
-
 void func_L00_00426478(void)
 {
 }
@@ -141,7 +156,7 @@ void func_L00_00426480(char *object)
     func_00282CC0_4(object + 48, D_00189EA0 + 208, object + 48);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00426560);
+/* func_L00_00426560 is defined in L00_00426560-helpers.c. */
 
 /* clears the seven words of the sub-object at +0x70 (the last after a refresh call), then
    clears the flag word and the identity word-16 of the table entry and the owner's +0x7E. */
@@ -163,7 +178,6 @@ void func_L00_00426680(char *self)
     *(short *)(self + 0x7E) = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004266E8);
 
 INCLUDE_ASM("asm/levels", func_L00_00426C78);
 
@@ -274,9 +288,121 @@ small:
     *(float *)(b + 0x2A8) = 0.018f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00427620);
+extern void func_002EE0D0(void *);
+extern void func_002EE970(void *, void *);
+extern void func_002EEBD8(void *, void *);
 
-INCLUDE_ASM("asm/levels", func_L00_004276E8);
+void func_L00_00427620(unsigned char *a0) {
+    unsigned char buf[0x40];
+    unsigned char *p;
+
+    *(int *)(*(unsigned char **)(a0 + 0x70) + 0xC0) = 4;
+    p = *(unsigned char **)(a0 + 0x70) + 0x30;
+    *(float *)(p + 0x20) = 0.05f;
+    *(float *)(p + 0x24) = 0.3f;
+    *(float *)(p + 0x28) = 1.0f;
+    *(unsigned short *)(p + 0x2C) = 1;
+    func_002EE0D0(p);
+    {
+        unsigned char *q = *(unsigned char **)(a0 + 0x70);
+
+        *(float *)(q + 0x10) = 0.3f;
+        *(float *)(q + 0x14) = 0.3f;
+        *(float *)(q + 0x18) = 1.0f;
+        *(unsigned short *)(q + 0x1C) = 1;
+        func_002EE0D0(q);
+    }
+    func_002EE970(buf, a0 + 0x40);
+    func_002EEBD8(a0, buf);
+    *(unsigned short *)(a0 + 0x7E) = 0;
+}
+
+/* Blends the saved camera position and orientation, then rebuilds its matrix. */
+void func_L00_004276E8(char *object)
+{
+    char matrix[64];
+    char *saved = *(char **)(object + 0x70);
+    char *rotation = saved + 0x30;
+    char *target = saved + 0x80;
+    char *transition = saved + 0xE0;
+    float x, y, delta, blend;
+
+    if (*(unsigned char *)(object + 0x88) == 1) {
+        goto snap;
+    } else if (*(unsigned char *)(object + 0x88) == 2) {
+        float fraction;
+
+        func_00282948(transition);
+        fraction = (float)(*(int *)(transition + 4) - *(int *)(saved + 0xE0)) /
+                   func_00283CE0(*(int *)(transition + 4));
+        func_L00_0031AC60(object + 0x30, object + 0x30, target, fraction);
+        func_L00_0031AD40(object + 0x40, object + 0x40, saved + 0x90, fraction);
+        goto finish;
+    } else if (*(unsigned char *)(object + 0x88) == 3) {
+        float fraction;
+
+        if (func_00282948(transition)) {
+        snap:
+            qcopy(object + 0x30, target);
+            qcopy(object + 0x40, saved + 0x90);
+            goto finish;
+        }
+        fraction = (float)(*(int *)(transition + 4) - *(int *)(saved + 0xE0)) /
+                   func_00283CE0(*(int *)(transition + 4));
+        func_00272550(saved + 0xE8, target, D_00189EA0);
+        x = func_00283BE0(*(float *)(transition + 8), *(float *)(transition + 0x1C));
+        y = func_00283BE0(*(float *)(target + 0x18), D_L00_001B8DD8);
+        if ((x > 0.3490659f && y < -0.3490659f) ||
+            (x < -0.3490659f && y > 0.3490659f)) {
+            float zero = 0.0f;
+
+            delta = *(float *)(transition + 8) - *(float *)(transition + 0x1C);
+            if (delta < zero && y > zero)
+                delta = -delta;
+            else if (delta > zero && y < zero)
+                delta = -delta;
+            *(float *)(transition + 0x1C) += func_002A7C00(0.0f, delta, fraction);
+        } else {
+            *(float *)(transition + 0x1C) = func_L00_0031ABE0(
+                *(float *)(transition + 0x1C), *(float *)(transition + 8), fraction);
+        }
+        blend = func_002A7AA8(*(float *)(transition + 0x44), 0.0f, 1.0f,
+                             *(float *)(transition + 0x48), fraction);
+        *(float *)(transition + 0x24) +=
+            (*(float *)(transition + 0x10) - *(float *)(transition + 0x24)) * blend;
+        *(float *)(transition + 0x20) = func_L00_0031ABE0(
+            *(float *)(transition + 0x20), *(float *)(transition + 0xC), fraction);
+        func_L00_0031AC60(transition + 0x30, transition + 0x30, D_00189EA0, fraction);
+        func_L00_002DA0B8(object + 0x30, transition + 0x1C, transition + 0x30);
+        func_L00_0031AD40(object + 0x40, object + 0x40, target + 0x10, fraction);
+        goto finish;
+    }
+    if (*(short *)(saved + 0x1C) == 1) {
+        *(float *)(object + 0x30) = func_002702C8(saved,
+            *(float *)(object + 0x30), *(float *)target,
+            *(float *)(saved + 0x10), *(float *)(saved + 0x14), *(float *)(saved + 0x18));
+        *(float *)(object + 0x34) = func_002702C8(saved + 4,
+            *(float *)(object + 0x34), *(float *)(target + 4),
+            *(float *)(saved + 0x10), *(float *)(saved + 0x14), *(float *)(saved + 0x18));
+        *(float *)(object + 0x38) = func_002702C8(saved + 8,
+            *(float *)(object + 0x38), *(float *)(target + 8),
+            *(float *)(saved + 0x10), *(float *)(saved + 0x14), *(float *)(saved + 0x18));
+    }
+    if (*(short *)(rotation + 0x2C) == 1) {
+        *(float *)(object + 0x40) = func_002703B0(rotation,
+            *(float *)(object + 0x40), *(float *)(target + 0x10),
+            *(float *)(rotation + 0x20), *(float *)(rotation + 0x24), *(float *)(rotation + 0x28));
+        *(float *)(object + 0x44) = func_002703B0(saved + 0x34,
+            *(float *)(object + 0x44), *(float *)(target + 0x14),
+            *(float *)(rotation + 0x20), *(float *)(rotation + 0x24), *(float *)(rotation + 0x28));
+        *(float *)(object + 0x48) = func_002703B0(saved + 0x38,
+            *(float *)(object + 0x48), *(float *)(target + 0x18),
+            *(float *)(rotation + 0x20), *(float *)(rotation + 0x24), *(float *)(rotation + 0x28));
+    }
+finish:
+    func_00283410(matrix, object + 0x40);
+    func_00283678(object, matrix);
+}
 
 unsigned int func_L00_00427AD8(void)
 {
@@ -323,10 +449,7 @@ extern void func_L00_002D7958_1(float *, void *, float);
 /* 128-bit copies reach lq/sq only through TImode. */
 typedef int TQ_00427BE8 __attribute__((mode(TI)));
 
-/* func_L00_00427BE8: five spellings give the same 128-byte object, retail is 144 -
-   both quadword destinations stay folded on $s0 here where retail holds each in a
-   register. Deposited in nonmatching/levels/func_L00_00427BE8.c. */
-INCLUDE_ASM("asm/levels", func_L00_00427BE8);
+/* func_L00_00427BE8 is defined in L00_00427BE8-helpers.c. */
 
 /* resets a sub-object reached through field +112 of its argument: two int zeros through a pointer 176 bytes in, twelve float constants (0.3/0.04/0.07/1.0/0.99) and three int zeros over offsets 40..172, then four calls (sub-object, +80, +144, the argument) and a 16-bit zero at +126 */
 void func_L00_00427C78(char *self)
@@ -361,11 +484,10 @@ void func_L00_00427C78(char *self)
     *(short *)(self + 126) = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00427D50);
+/* func_L00_00427D50 is defined in L00_00427D50-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00428000);
 
-INCLUDE_ASM("asm/levels", func_L00_004282F0);
+/* func_L00_004282F0 is defined in L00_004282F0-spawn.c. */
 
 /* Reads two floats from a data block, differences them against two globals, calls a two-float helper with the difference pair, refines the returned float through a second helper, then selects one of two small state codes and clears a flag byte according to two float thresholds. */
 void func_L00_004283C8(char *o)
@@ -397,17 +519,15 @@ int func_L00_004284A8(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004284B0);
+/* func_L00_004284B0 is defined in L00_004284B0-helpers.c. */
 
 void func_L00_00428580(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00428588);
+/* func_L00_00428588 is in L00_00428588.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_004287E8);
 
-INCLUDE_ASM("asm/levels", func_L00_00428CE0);
 
 /* runs a fixed pair of callees on the same object handle */
 void func_L00_00428EB0(char *a0)
@@ -416,9 +536,12 @@ void func_L00_00428EB0(char *a0)
     ref_L00_00428EB0_01(a0);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00428EE0);
+/* A method that does nothing and returns 0, reached through a data pointer in every
+   level that has it. Its entry is 24 bytes into the catalogued row, after linker fill. */
+int func_L00_00428EE0(void) {
+    return 0;
+}
 
-INCLUDE_ASM("asm/levels", func_L00_00428F00);
 
 /* When the global identity differs from the signed owner identity at offset 0x86 and the global mode is not 6, clear the owner byte at offset 0x7D and write signed short value 3 at offset 0x7E. */
 void func_L00_00428FE8(Rac2Native_6af85cabb56d3b41_SmallConditional52Owner *owner)
@@ -445,13 +568,38 @@ void func_L00_00429020(int i) {
     q[0x39] = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00429048);
 
-INCLUDE_ASM("asm/levels", func_L00_004290C0);
+extern char * r1_D_L10_001B0C30[];
+extern int r1_func_00215570(void *, int);
+extern int r1_func_L00_00260AB0(void *, int);
+extern int r1_func_L00_00260B68(float *, int);
+extern int r1_func_L00_0025A778(float *, float *, int);
+
+/* rac1-decomp src/overlays/shared/rocket_and_path_camera.c: func_L00_004290C0 */
+/* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a78. */
+int func_L00_004290C0(char *moby, char *unused)
+{
+    unsigned char *e = *(unsigned char **)(r1_D_L10_0015F050 + *(short *)(moby + 0x84) * 32 + 0x1C);
+
+    if (*(int *)(e + 0x0C) >= 0) {
+        if (r1_func_00215570(D_00189EA0, *(int *)(e + 0x0C))) return 1;
+    } else if (*(int *)(e + 0x10) >= 0) {
+        if (r1_func_L00_00260AB0(D_00189EA0, *(int *)(e + 0x10))) return 1;
+    } else if (*(int *)(e + 0x08) >= 0) {
+        if (r1_func_L00_00260B68((float *)D_00189EA0, *(int *)(e + 0x08))) return 1;
+    } else if (*(int *)(e + 0x14) >= 0) {
+        int i = *(int *)(e + 0x14);
+        if (r1_func_L00_0025A778((float *)D_00189EA0,
+                                  (float *)(r1_D_L10_001B0C30[i] + 0x10),
+                                  *(int *)r1_D_L10_001B0C30[i])) return 1;
+    } else if (e[0x38] != 0 && e[0x39] == 0) {
+        return 1;
+    }
+    return 0;
+}
 
 INCLUDE_ASM("asm/levels", func_L00_004291A0);
 
-INCLUDE_ASM("asm/levels", func_L00_00429568);
 
 extern int D_0018C0BC;
 extern int D_0018C0B4;
@@ -487,11 +635,37 @@ void func_L00_00429CE0(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00429CE8);
+/* func_L00_00429CE8 is defined in L00_00429CE8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00429F68);
+/* func_L00_00429F68 is defined in L00_00429F68.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0042A460);
+extern int D_L00_001A8F00 __attribute__((sda));
+
+extern int func_L00_00429CE8(char *);
+
+extern void func_L00_00429F68(char *);
+
+/* Looks the owner's table entry up (index half-word at +0x84, 0x20 bytes per entry, the
+   entry's own pointer at +0x1C) and clears its flag half-word at +0x26 and its word at
+   +0x20, but only when the entry is still idle, the global gate allows it and the extra
+   check accepts the owner. */
+int func_L00_0042A460(char *a0)
+{
+    char *p = *(char **)(D_L00_001B1844 + *(short *)(a0 + 0x84) * 0x20 + 0x1C);
+
+    if (*(short *)(p + 0x26) != 0) {
+        return 0;
+    }
+    if (D_L00_001A8F00 != 0) {
+        if (func_L00_00429CE8(a0) != 0) {
+            *(short *)(p + 0x26) = 0;
+            *(int *)(p + 0x20) = 0;
+            return 0;
+        }
+    }
+    func_L00_00429F68(a0);
+    return 0;
+}
 
 INCLUDE_ASM("asm/levels", func_L00_0042A4E8);
 
@@ -505,11 +679,10 @@ void func_L00_0042A500(int i)
     *(int *)(q + 0x20) = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042A520);
 
-INCLUDE_ASM("asm/levels", func_L00_0042A698);
+/* func_L00_0042A698 is defined in L00_00426340-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0042A908);
+/* func_L00_0042A908 is defined in L00_0042A908-g8.c. */
 
 int func_L00_0042AB40(void) {
     return -1;
@@ -519,15 +692,46 @@ void func_L00_0042AB48(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042AC18);
+/* func_L00_0042AC18 is defined in L00_0042AC18.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0042AD98);
+/* func_L00_0042AD98 is defined in L00_0042AD98.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0042B038);
 
-INCLUDE_ASM("asm/levels", func_L00_0042B840);
+extern void r1_func_001F9BF0(void *, void *, void *);
+extern void r1_func_001F9EC0(void *, void *, void *);
+extern float r1_func_001F9B88(float);
+extern float r1_func_001FA888(int);
+extern int r1_func_001FA898(float);
+extern void r1_func_L01_002A2C90(int a, int b, int c, int d, int e);
+extern char D_00189003[];
 
-INCLUDE_ASM("asm/levels", func_L00_0042BA18);
+
+/* rac1-decomp src/overlays/shared/music_box_voices.c: func_L00_0042B038 */
+/* reverb box sound update: starts or stops the sound as the listener enters or leaves the box */
+void func_L00_0042B038(char *moby) {
+    float a[4];
+    float b[4];
+    unsigned char *data = *(unsigned char **)(moby + 8);
+    r1_func_001F9BF0(a, D_00189003 + 0xE9D, moby + 0x40);
+    a[3] = 0;
+    r1_func_001F9EC0(b, a, moby + 0x50);
+    if (r1_func_001F9B88(b[0]) <= 1.0f && r1_func_001F9B88(b[1]) <= 1.0f && r1_func_001F9B88(b[2]) <= 1.0f) {
+        float t = (b[0] + 1.0f) * 0.5f;
+        int v = r1_func_001FA898(r1_func_001FA888(*(int *)(data + 4)) * t);
+        int w = *(int *)(data + 4);
+        if (!(w < v)) w = v;
+        r1_func_L01_002A2C90((int)moby, data[0], w, data[1], data[2]);
+        data[3] = 1;
+    } else if (data[3] != 0) {
+        if (b[0] > 0.0f) {
+            r1_func_L01_002A2C90(0, data[0], *(int *)(data + 4), data[1], data[2]);
+        } else {
+            r1_func_L01_002A2C90((int)moby, 0, 0, 0, 0);
+        }
+        data[3] = 0;
+    }
+}
+
 
 /* refreshes the object, installs the block at +0x30 and returns the object. */
 char *func_L00_0042BAD0(char *a0)
@@ -537,7 +741,6 @@ char *func_L00_0042BAD0(char *a0)
     return a0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042BC30);
 
 char *func_L00_0042BCF8(char *a0)
 {
@@ -553,7 +756,6 @@ char *func_L00_0042BFF8(char *a0)
     return a0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042C030);
 
 char *func_L00_0042C290(char *a0)
 {
@@ -562,7 +764,6 @@ char *func_L00_0042C290(char *a0)
     return a0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042C2C8);
 
 /* Store the supplied unsigned 32-bit word at owner byte offset 0x 44. */
 void func_L00_0042C358(int param_1, unsigned int param_2)
@@ -578,7 +779,6 @@ void func_L00_0042C360(int param_1, unsigned int param_2)
   return;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042C398);
 
 /* Store the supplied unsigned 32-bit word at owner byte offset 0x 40. */
 void func_L00_0042C4B8(int param_1, unsigned int param_2)
@@ -599,7 +799,7 @@ void func_L00_0042C6C8(void)
 }
 
 /* Return the complete supplied unsigned-long 64-bit value unchanged. */
-/* Target: FUN_003427B0 — identity function returning its first argument */
+/* Target: FUN_003427B0 â€” identity function returning its first argument */
 /* Disassembly: jr ra; move v0,a0 (MIPS delay slot) */
 /* Compiled with: -O2 -G0 -ffunction-sections */
 
@@ -607,5 +807,3 @@ unsigned long func_L00_0042C6D8(unsigned long param_1)
 {
   return param_1;
 }
-
-INCLUDE_ASM("asm/levels", func_L00_0042C760);

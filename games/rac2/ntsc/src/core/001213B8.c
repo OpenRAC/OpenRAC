@@ -1,5 +1,6 @@
 #include "common.h"
 #include "structs.h"
+#include "double_parts.h"
 
 extern void r1_func_0011D4A0(void);
 
@@ -23,9 +24,8 @@ double func_001213B8(long value) {
     return func_00122A40(high, low);
 }
 
-INCLUDE_ASM("asm/core", func_00121450);
+/* func_00121450 is in 00121450.c, its own public libgcc module. */
 
-INCLUDE_ASM("asm/core", func_00121AB8);
 
 extern void func_00121B18(void);
 extern void r1_func_0011D4A0_00121B18(void);
@@ -41,18 +41,48 @@ void func_00121B18(void) {
    `__udivdi3`/`__umoddi3`) are compiled C now: src/core/00121B20.c and
    src/core/001220F0.c. */
 
-INCLUDE_ASM("asm/core", func_00122630);
+/* func_00122630 is in 00122630.c with its qualified packing profile. */
 
-INCLUDE_ASM("asm/core", func_00122760);
+/* The runtime's own IEEE double unpacking: the sign, the kind (2 zero,
+   3 normal, 4 infinity, 0 signalling NaN, 1 quiet NaN) and, for every kind
+   but the zero, the fraction left-justified in the top bits of a 64-bit word
+   with the implicit one at 2^60.
 
-INCLUDE_ASM("asm/core", func_00122800);
+   Two spellings carry the retail bytes: the zero case is a `while` whose body
+   returns, which keeps the block a loop head so the label that follows it is
+   aligned to 8 bytes (retail's standalone `nop` at +0x34), and the normal
+   path assigns the exponent, the kind and the fraction in that order, which
+   is where retail puts the three stores. */
+void func_00122760(double *value, DoubleParts *parts) {
+    unsigned long bits = *(unsigned long *) value;
+    unsigned int exponent = (unsigned int) (bits >> 52) & 0x7FF;
+    unsigned long long fraction = bits & 0xFFFFFFFFFFFFFULL;
 
-typedef struct {
-    int kind;
-    unsigned int sign;
-    int exponent;
-    unsigned long fraction;
-} DoubleParts;
+    parts->sign = (unsigned int) (bits >> 63);
+    while (exponent == 0) {
+        parts->kind = 2;
+        return;
+    }
+    if (exponent == 0x7FF) {
+        if (fraction == 0) {
+            parts->kind = 4;
+            return;
+        }
+        if (fraction & 0x8000000000000ULL) {
+            parts->kind = 1;
+        } else {
+            parts->kind = 0;
+        }
+        parts->fraction.ll = fraction;
+        return;
+    }
+    parts->exponent = (int) exponent - 1023;
+    parts->kind = 3;
+    parts->fraction.ll = (fraction << 8) | 0x1000000000000000ULL;
+}
+
+/* func_00122800 is in 00122800.c with its SDK compiler profile. */
+
 extern void func_00122760(double *, DoubleParts *);
 extern DoubleParts *func_00122800(DoubleParts *, DoubleParts *, DoubleParts *);
 extern double func_00122630(DoubleParts *);
@@ -73,7 +103,7 @@ double func_00122A98(double first, double second) {
     return func_00122630(func_00122800(&a, &b, &result));
 }
 
-INCLUDE_ASM("asm/core", func_00122B00);
+/* func_00122B00 is in 00122B00.c with its SDK assembler profile. */
 
 /* libgcc dp-bit.o: dpdiv (GCC's fp-bit.c `divide`, whose static `_fpdiv_parts`
    this cc1 inlines because it has a single caller). GPL version 2-or-later
@@ -135,7 +165,7 @@ static __inline__ DoubleParts *dp_div_parts(DoubleParts *a, DoubleParts *b) {
         return a;
     }
     if (dp_div_isinf(b)) {
-        a->fraction = 0;
+        a->fraction.ll = 0;
         a->exponent = 0;
         return a;
     }
@@ -145,8 +175,8 @@ static __inline__ DoubleParts *dp_div_parts(DoubleParts *a, DoubleParts *b) {
     }
 
     a->exponent = a->exponent - b->exponent;
-    numerator = a->fraction;
-    denominator = b->fraction;
+    numerator = a->fraction.ll;
+    denominator = b->fraction.ll;
 
     if (numerator < denominator) {
         numerator *= 2;
@@ -171,7 +201,7 @@ static __inline__ DoubleParts *dp_div_parts(DoubleParts *a, DoubleParts *b) {
         }
     }
 
-    a->fraction = quotient;
+    a->fraction.ll = quotient;
     return a;
 }
 
@@ -215,11 +245,11 @@ double func_00123078(int value) {
         if (parts.sign != 0) {
             if (value == (int)0x80000000)
                 return -2147483648.0;
-            parts.fraction = -value;
+            parts.fraction.ll = -value;
         } else
-            parts.fraction = value;
-        while (parts.fraction < (1UL << 60)) {
-            parts.fraction <<= 1;
+            parts.fraction.ll = value;
+        while (parts.fraction.ll < (1UL << 60)) {
+            parts.fraction.ll <<= 1;
             --parts.exponent;
         }
     }
@@ -240,7 +270,7 @@ int func_00123130(double value) {
         return 0;
     if (parts.exponent > 30)
         return parts.sign != 0 ? (int)0x80000000 : 0x7FFFFFFF;
-    result = (int)(parts.fraction >> (60 - parts.exponent));
+    result = (int)(parts.fraction.ll >> (60 - parts.exponent));
     return parts.sign != 0 ? -result : result;
 }
 
@@ -260,6 +290,6 @@ unsigned int func_001231C8(double value) {
     if (parts.exponent > 31)
         return 0xFFFFFFFFU;
     if (parts.exponent > 60)
-        return parts.fraction << (parts.exponent - 60);
-    return parts.fraction >> (60 - parts.exponent);
+        return parts.fraction.ll << (parts.exponent - 60);
+    return parts.fraction.ll >> (60 - parts.exponent);
 }

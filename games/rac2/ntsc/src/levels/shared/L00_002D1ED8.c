@@ -140,11 +140,9 @@ void func_L00_002D2070(void)
     *(float *)(object + 0x48) = *(float *)(base + 0xC20);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D20D0);
 
-INCLUDE_ASM("asm/levels", func_L00_002D2168);
+/* func_L00_002D2168 is in L00_002D1ED8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002D23C0);
 
 /* updates the resident selection and index after validating the selected table entry */
 void func_L00_002D2470(Rac2Native_28c929cadd7aca24_s32 selected, Rac2Native_28c929cadd7aca24_s32 index) {
@@ -178,11 +176,8 @@ void func_L00_002D24D0(int value)
     D_0018AA68 = value;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D24E8);
 
-INCLUDE_ASM("asm/levels", func_L00_002D2A10);
-
-INCLUDE_ASM("asm/levels", func_L00_002D2E68);
+/* func_L00_002D2E68 is in L00_002D1ED8-scan-g8.c. */
 
 /* shared native body of family ea34650e369e */
 void func_L00_002D3068(void)
@@ -273,8 +268,54 @@ void func_L00_002D3208(void) {
     if (secondary) secondary->flags &= ~1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D3240);
 
-INCLUDE_ASM("asm/levels", func_L00_002D3248);
+/* The matrix the level state keeps 0x90 bytes in; the state itself is 0x90 below it. */
+extern char D_00189EB0[];
 
-INCLUDE_ASM("asm/levels", func_L00_002D3290);
+extern float func_00283180(float);
+extern float func_00283198(float);
+extern float func_00283248(float, float);
+extern void func_00282C88(void *);
+extern void func_002830C0(void *, void *, void *);
+extern void func_00283410(void *, void *);
+
+typedef int TI128_L00_002D3290 __attribute__((mode(TI)));
+
+/* Rotates the level state's aim vector: the two angles of the state's yaw and pitch
+   drive two matrix builds, and the state's own vector is transformed between them. */
+float func_L00_002D3290(void)
+{
+    TI128_L00_002D3290 matrix[4];
+    float v[4];
+    float w1[4];
+    float w2[4];
+    float w3[4];
+    float a;
+    char *state;
+
+    v[0] = func_00283180(0.0f);
+    v[1] = func_00283198(0.0f);
+    v[2] = 0.0f;
+    func_00283410(matrix, D_00189EB0);
+    func_002830C0(v, v, matrix);
+    state = D_00189EB0 - 0x90;
+
+    if (*(float *)(state + 0x2A0) != 0.0f || *(float *)(state + 0x2A4) != 0.0f) {
+        *(TI128_L00_002D3290 *)w3 = *(TI128_L00_002D3290 *)(state + 0x2A0);
+        func_00282C88(w1);
+        func_00282C88(w2);
+        a = func_00283248(*(float *)(state + 0x2A0), *(float *)(state + 0x2A4));
+        w1[2] = -a;
+        func_00283410(matrix, w1);
+        func_002830C0(v, v, matrix);
+        func_002830C0(w3, w3, matrix);
+        w2[1] = -func_00283248(w3[2], w3[0]);
+        func_00283410(matrix, w2);
+        func_002830C0(v, v, matrix);
+        w1[2] = -w1[2];
+        func_00283410(matrix, w1);
+        func_002830C0(v, v, matrix);
+    }
+
+    return func_00283248(v[0], v[1]);
+}

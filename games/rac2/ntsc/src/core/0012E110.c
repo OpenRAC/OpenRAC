@@ -43,7 +43,70 @@ void func_0012E110(void *arg0, unsigned int arg1, int arg2) {
 
 ASM_FUNC("asm/core", func_0012E238);
 
-INCLUDE_ASM("asm/core", func_0012E378);
+extern void r1_func_001193F8(int);
+extern void r1_func_00118AD0(int, int);
+extern int r1_func_0011D960(void);
+extern void r1_func_0011D9A8(void);
+extern void r1_func_0012C468_a(void *, void *) __asm__("r1_func_0012C468");
+extern void r1_func_0012BC78();
+extern int r1_func_00118AC0_2A558(int, void *, int, void *) __asm__("r1_func_00118AC0");
+extern void r1_func_00119460_2A558(int) __asm__("r1_func_00119460");
+extern void r1_func_0012A418_2A558(void) __asm__("r1_func_0012A418");
+extern char r1_D_00153AB0[];
+typedef struct {
+    volatile int done; /* 0x00: chunks finished (callback counts) */
+    int err;           /* 0x04 */
+    int size;          /* 0x08 */
+    int next;          /* 0x0C */
+    int total;         /* 0x10 */
+} CscRec_2A558;
+
+/* rac1-decomp src/core/0012A2F0.c: func_0012E378 */
+/* libmpeg chunked DMA copy: arm the channel-3 callback with a progress record, start the transfer, wait for all chunks. */
+void func_0012E378(void *arg0, unsigned int arg1, int arg2) {
+    char *p = (char *)arg0;
+    int event[8];
+    CscRec_2A558 rec;
+    CscRec_2A558 *rp;
+    int h;
+    int r;
+
+    rec.total = arg2 / 0x3FF + 1;
+    rec.size = arg2;
+    rec.next = (arg1 + 0xFFC00) & 0x0FFFFFFF;
+    rec.err = 0;
+    rec.done = 0;
+    rp = &rec;
+    while (*(volatile int *)0x10002010 < 0) {
+    }
+    h = r1_func_00118AC0_2A558(3, (void *)r1_func_0012A418_2A558, 0, rp);
+    *(volatile unsigned int *)0x1000E010 = 8;
+    r1_func_00119460_2A558(3);
+    r = r1_func_0011D960();
+    {
+        volatile unsigned int *madr = (volatile unsigned int *)0x1000B010;
+        volatile unsigned int *qwc = (volatile unsigned int *)0x1000B020;
+        volatile unsigned int *chcr = (volatile unsigned int *)0x1000B000;
+        *madr = arg1 & 0x0FFFFFFF;
+        *qwc = 0xFFC0;
+        *chcr = 0x100;
+    }
+    if (r != 0) {
+        r1_func_0011D9A8();
+    }
+    *(volatile unsigned int *)0x10002000 = 0x700003FF;
+    event[0] = 4;
+    r1_func_0012BC78(*(void **)(p + 0x858), event);
+    while (rec.done < rec.total) {
+    }
+    if (rec.err != 0) {
+        r1_func_0012C468_a(p, r1_D_00153AB0);
+    }
+    while (*(volatile int *)0x10002010 < 0) {
+    }
+    r1_func_001193F8(3);
+    r1_func_00118AD0(3, h);
+}
 
 ASM_FUNC("asm/core", func_0012E538);
 
@@ -66,4 +129,78 @@ void func_0012E890(void *arg0, int arg1, int arg2, int arg3) {
     r1_func_0012AAC8(arg0, 0);
 }
 
-INCLUDE_ASM("asm/core", func_0012E608);
+extern void r1_func_001193F8(int);
+extern void r1_func_00118AD0(int, int);
+extern int r1_func_0011D960(void);
+extern void r1_func_0011D9A8(void);
+extern void r1_func_00128560();
+extern void r1_func_0012BC78();
+extern void *r1_func_0012BC78_result(void *, int *) __asm__("r1_func_0012BC78");
+extern void *r1_func_00118AC0(int, void *, int, void *);
+extern void r1_func_00119460(int);
+extern void r1_func_0012A558(void *, unsigned int, int);
+extern void r1_func_0012A718();
+
+/* rac1-decomp src/core/0012A2F0.c: func_0012E608 */
+void func_0012E608(void *arg0, int *arg1) {
+    char *p = (char *)arg0;
+    int ev[8];
+    int loc[4];
+    int n, small, r, addr;
+    unsigned int mask;
+    void *h;
+
+    ev[0] = 2;
+    n = arg1[3] * arg1[4];
+    r1_func_0012BC78_result(*(void **)(p + 0x858), ev);
+    if ((*(volatile unsigned int *)0x10002010 & 0x4000) != 0) {
+        *(volatile unsigned int *)0x10002010 = 0x40000000;
+    }
+    small = n < 0x400;
+    while (*(volatile int *)0x10002010 < 0) {
+    }
+    r1_func_00128560(arg0, 0);
+    addr = arg1[0];
+    while (*(volatile int *)0x10002010 < 0) {
+    }
+    mask = 0x0FFFFFFF;
+    loc[1] = addr & mask;
+    loc[0] = n * 0x18;
+    if ((unsigned int)loc[0] > 0xFFFF) {
+        h = r1_func_00118AC0(4, (void *)r1_func_0012A718, 0, &loc[0]);
+        *(volatile unsigned int *)0x1000E010 = 0x10;
+        r1_func_00119460(4);
+        r = r1_func_0011D960();
+        *(volatile unsigned int *)0x1000B410 = loc[1];
+        *(volatile unsigned int *)0x1000B420 = 0xFFFF;
+        *(volatile unsigned int *)0x1000B400 = 0x101;
+        if (r != 0) {
+            r1_func_0011D9A8();
+        }
+        loc[1] = (loc[1] + 0xFFFF0) & mask;
+        loc[0] = loc[0] - 0xFFFF;
+        if (small) {
+            r1_func_0012A2F0(arg0, *(int *)(p + 0xD8), n);
+        } else {
+            r1_func_0012A558(arg0, *(int *)(p + 0xD8), n);
+        }
+        r1_func_001193F8(4);
+        r1_func_00118AD0(4, (int)h);
+    } else {
+        r = r1_func_0011D960();
+        *(volatile unsigned int *)0x1000B410 = arg1[0] & mask;
+        *(volatile unsigned int *)0x1000B420 = loc[0];
+        *(volatile unsigned int *)0x1000B400 = 0x101;
+        if (r != 0) {
+            r1_func_0011D9A8();
+        }
+        loc[0] = 0;
+        if (small) {
+            r1_func_0012A2F0(arg0, *(int *)(p + 0xD8), n);
+        } else {
+            r1_func_0012A558(arg0, *(int *)(p + 0xD8), n);
+        }
+    }
+    ev[0] = 3;
+    r1_func_0012BC78_result(*(void **)(p + 0x858), ev);
+}

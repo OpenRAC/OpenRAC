@@ -644,6 +644,11 @@ bool read_window_events() {
 // Uses the world the game draws now: the level loaded (`level`, -1 the boot program), or one of
 // the boot program's worlds.
 int world_to_draw(std::span<const std::uint8_t> ram, int level) {
+    if (openrac_game_flight != nullptr) {
+        if (const int flight = openrac_game_flight(); flight >= 0) {
+            return -2 - flight;
+        }
+    }
     // The boot program's worlds: the flight between planets (game mode 6), else the title world.
     // A flight between planets also plays inside a planet's program. The game draws it by the ship's
     // state (dispatch_game_state_update): the planet in the take-off (0), the landing (8) and while
@@ -1214,7 +1219,10 @@ TickMobys pose_mobys(
                })) {
             continue;
         }
-        auto cls = g->level.moby_classes.find(m.class_id);
+        auto cls = g->level.moby_classes.find(m.model_class);
+        if (cls == g->level.moby_classes.end()) {
+            cls = g->level.moby_classes.find(m.class_id);
+        }
         if (cls == g->level.moby_classes.end()) {
             continue;
         }
@@ -1258,10 +1266,12 @@ TickMobys pose_mobys(
                  static_cast<float>(b[0x39]),
                  static_cast<float>(b[0x3A]) / 256.0f,
                  1.0f};
-            // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90), which MobyProc's glow list
-            // draws its glow packets in; 0 without (a 24-bit integer is exact in a float).
+            // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90 in Ratchet & Clank), which
+            // MobyProc's glow list draws its glow packets in; 0 without (a 24-bit integer is exact
+            // in a float).
+            const std::uint32_t at = g->profile->moby_glow_word();
             const std::uint32_t glow =
-                static_cast<std::uint32_t>(b[0x90] | b[0x91] << 8 | b[0x92] << 16);
+                static_cast<std::uint32_t>(b[at] | b[at + 1] << 8 | b[at + 2] << 16);
             instance.moby_ambient =
                 {b[0x3C] / 128.0f,
                  b[0x3D] / 128.0f,
@@ -1897,7 +1907,9 @@ bool begin_capture(State& owner) {
             owner.renderer->textures().upload(image);
         }
     }
-    owner.pending_images.clear();
+    // What the game sent during the last tick goes again once that tick's list has been replayed.
+    owner.pending_images = std::move(owner.images_after_list);
+    owner.images_after_list.clear();
     return read_window_events();
 }
 
@@ -2056,6 +2068,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     log_camera(state, world_ran);
     follow_route(ram, level);
     trace_tick(state, draws);
+    scripted_view(state.forward.data());
     // The run's frames are done.
     if (run_over()) {
         return false;

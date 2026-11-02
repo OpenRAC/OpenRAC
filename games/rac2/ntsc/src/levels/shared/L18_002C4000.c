@@ -1,6 +1,12 @@
 #include "include_asm.h"
 #include "common.h"
 
+extern void *func_00115484(void *, int, unsigned int);
+extern float D_00189EA0[4];
+extern float func_L02_002F21C0(void *, void *);
+extern int func_L02_004127F8(unsigned char *);
+extern int func_L18_003FB500(unsigned char *, int);
+
 /* Frozen Batch A A18-void-store-16; acknowledged claim 4cf4f8b91176606a7af1fd853f7ccd89fa63964199d0883686e46fb6a47255a8. */
 typedef unsigned char BatchA_A18_u8;
 
@@ -18,19 +24,170 @@ extern void func_00335668(BatchA_A18_u8 *a0, BatchA_A18_s32 a1, BatchA_A18_s32 a
 
 extern BatchA_A18_u8 D_0018C0D4;
 
-INCLUDE_ASM("asm/levels", func_L18_002C4000);
+/* func_L18_002D0C00 */
+extern s32 D_L18_001AFBB0 MACRO_ADDR;
+extern u8 D_00189E20[];
+typedef struct {
+    u8 reserved000[0x80];
+    float position[4];
+    u8 reserved090[0x1D00];
+    float positionHistory[32][4];
+    u8 reserved1F90[0x3AC];
+    float headingHistory[32];
+    s32 headingIndex, headingCount, positionIndex, positionCount;
+} HeroHistory;
+/* Partial input record: only the observed axes and button words are modeled. */
+typedef struct {
+    u8 reserved000[0x108];
+    float horizontal, vertical;
+    u8 reserved110[0x90];
+    s32 held;
+    u8 reserved1A4[12];
+    s32 pressed;
+} InputRecordPrefix;
+extern InputRecordPrefix D_00138180;
+extern void func_L00_002B2BD0(void);
+extern s32 func_00282978(void *);
+extern s32 func_L00_002D3400(void);
+extern float func_L00_002B3900(void);
+extern float func_00282E20(void *);
+extern void func_L18_002D7650(void);
+extern void func_00283410(void *, void *);
+extern void func_00283388(void *);
+extern void func_00283698(void *, void *);
+extern void func_L18_002D0850(void);
+extern void func_L00_002C2DE8(void);
+extern void func_L18_002DEFF8(void);
+
+/* func_L18_002D1998 */
+/* Partial probe-collision record: only the hit object, hit count and surface normal are modeled. */
+typedef struct { u8 prefix[0x18]; s32 object; s32 count; u8 gap[0x20]; float normal[4]; } MotionCollision;
+extern MotionCollision D_L18_001BFC00;
+extern float func_L00_002D3A58(void *);
+/* func_L00_002D36E0(float *out, s32 flag, float x, float y, float z) elsewhere: this typed
+   interleaving keeps both EE argument banks unchanged and gives retail's argument setup order. */
+extern void func_L00_002D36E0(float *, float, float, float, s32);
+extern void func_00282F20(void *, void *, float);
+extern void func_L00_002D3B58(float *, void *, float);
+extern void func_00282D30(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern s32 func_002761F8(void *, void *, s32, void *, void *);
+extern s32 func_00278E78(void);
+extern float func_L00_002D3EA8(void *);
+extern float func_00282DB0(void *, void *);
+
+/* func_L18_002C4000 is defined in L18_002C4000-hero.c. */
 
 /* func_L18_002C41F0 is defined in L18_002C4000-g8.c (this unit has $gp access for it). */
 
-INCLUDE_ASM("asm/levels", func_L18_002CFD68);
+/* func_L18_002CFD68 is defined in L18_002CFD68-qcopy.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_002CFF48);
+/* func_L18_002CFF48 is defined in L18_002CFD68-qcopy.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_002D0C00);
+void func_L18_002D0C00(void)
+{
+    u8 *base;
+    u8 *snapshot;
+    u8 *positions;
+    s32 index;
+    s32 active = D_L18_001AFBB0;
+    if (active) {
+        func_L00_002B2BD0();
+        return;
+    }
+    snapshot = D_00189E20 + 0x2030;
+    qcopy(snapshot, snapshot - 0x1FB0);
+    if (D_00138180.held & 3) {
+        u8 *hero = snapshot - 0x2030;
+        if (*(s16 *)(hero + 0x1454) < 1) *(s16 *)(hero + 0x1454) = 1;
+    } else func_00282978(snapshot - 0xBDC);
+    base = D_00189E20;
+    if (*(s32 *)(base + 0x2294) == 16) *(s16 *)(base + 0x1454) = 0;
+    base[0x22C3] = func_L00_002D3400();
+    *(float *)(base + 0x1FB0) = D_00138180.horizontal;
+    *(float *)(base + 0x1FB4) = D_00138180.vertical;
+    *(s32 *)(base + 0x270) = 0;
+    *(float *)(base + 0x24BC) = func_L00_002B3900();
+    if (func_00282E20(base + 0x1FB0) < 0.25f) {
+        /* horizontal and vertical start as the left and down bits. */
+        s32 right = (D_00138180.pressed >> 13) & 1;
+        s32 horizontal = (D_00138180.pressed >> 15) & 1;
+        s32 up = (D_00138180.pressed >> 14) & 1;
+        s32 vertical = (D_00138180.pressed >> 12) & 1;
+        horizontal = right - horizontal;
+        vertical = up - vertical;
+        *(float *)(base + 0x1FB0) = (float)horizontal;
+        *(float *)(base + 0x1FB4) = (float)vertical;
+    }
+    *(float *)(base + 0x24B8) = func_L00_002B3900();
+    func_L18_002D7650();
+    ((HeroHistory *)base)->headingHistory[((HeroHistory *)base)->headingIndex] = *(float *)(base + 0x98);
+    *(s32 *)(base + 0x23BC) = (*(s32 *)(base + 0x23BC) + 1) % 32;
+    if (++*(s32 *)(base + 0x23C0) > 32) *(s32 *)(base + 0x23C0) = 32;
+    index = *(s32 *)(base + 0x23C4);
+    positions = base + 0x1D90;
+    qcopy_nc(positions + index * 16, (base + 0x80));
+    *(s32 *)(base + 0x23C4) = (index + 1) % 32;
+    if (++*(s32 *)(base + 0x23C8) > 32) *(s32 *)(base + 0x23C8) = 32;
+    func_00283410(base, base + 0x90);
+    func_00283388(base + 0x40);
+    func_00283698(base + 0x40, base);
+    func_L18_002D0850();
+    func_L00_002C2DE8();
+    func_L18_002DEFF8();
+}
 
-INCLUDE_ASM("asm/levels", func_L18_002D1998);
+void func_L18_002D1998(s32 force)
+{
+    float start[4], end[4], lowerStart[4], lowerEnd[4];
+    float height, reach, angle, dot;
+    s32 material;
+    if (func_L00_002D3A58(D_00189E20 + 0xF0) < 0.0016666668f) return;
+    /* Each block forms its own hero pointer; retail keeps only the %hi part across calls. */
+    {
+        u8 *hero = D_00189E20;
+        height = 0.37f;
+        reach = 0.5f;
+        if ((u32)(*(s32 *)(hero + 0x229C) - 17) < 2) {
+            height = 0.0f;
+            reach = 0.7f;
+        } else if (hero[0x22B4] == 4) height = 0.35f;
+    }
+    func_L00_002D36E0(start, 0.0f, 0.0f, height, 1);
+    func_L00_002D36E0(lowerStart, 0.0f, 0.0f, height * 0.3f, 1);
+    if (force || func_00282E20(D_00189E20 + 0xF0) < 0.01f) {
+        func_00282F20(end, D_00189E20, reach);
+        func_00282F20(lowerEnd, D_00189E20, reach * 1.4f);
+    } else {
+        func_L00_002D3B58(end, D_00189E20 + 0xF0, 0.0f);
+        func_00282F20(end, end, reach);
+        func_00282D30(lowerEnd, end, 1.4f);
+    }
+    func_00282CC0(end, end, start);
+    material = -1;
+    func_00282CC0(lowerEnd, lowerEnd, lowerStart);
+    {
+        u8 *hero = D_00189E20;
+        if (func_002761F8(lowerStart, lowerEnd, 2, *(u8 **)(hero + 0x2290), 0) && D_L18_001BFC00.count > 0) material = func_00278E78();
+    }
+    angle = 0.0f;
+    {
+        u8 *hero = D_00189E20;
+        if (func_002761F8(start, end, 2, *(u8 **)(hero + 0x2290), 0) && D_L18_001BFC00.count > 0) angle = func_L00_002D3EA8(D_L18_001BFC00.normal);
+    }
+    if (angle >= 0.8726647f || material == 8 || material == 12) {
+        u8 *hero = D_00189E20;
+        *(s32 *)(hero + 0x270) = D_L18_001BFC00.object;
+        func_L00_002D3B58(D_L18_001BFC00.normal, D_L18_001BFC00.normal, 0.0f);
+        func_00282F20(D_L18_001BFC00.normal, D_L18_001BFC00.normal, 1.0f);
+        dot = func_00282DB0(D_L18_001BFC00.normal, hero + 0xF0);
+        if (dot < 0.0f) {
+            func_00282D30(D_L18_001BFC00.normal, D_L18_001BFC00.normal, -dot);
+            func_00282CC0(hero + 0xF0, hero + 0xF0, D_L18_001BFC00.normal);
+        }
+    }
+}
 
-INCLUDE_ASM("asm/levels", func_L18_002DEFF8);
 
 extern BatchA_A18_s32 ref_L18_002E4090_00(BatchA_A18_s32 a0, BatchA_A18_s32 a1);
 
@@ -46,9 +203,9 @@ void func_L18_002E4090(BatchA_A18_s32 a0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L18_002E42F8);
+/* func_L18_002E42F8 is defined in L18_002E42F8-flags-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_002F1098);
+/* func_L18_002F1098 is matched in its own unit, L18_002F1098-g8.c. */
 
 extern void func_0027F1D8(void *a0, void *a1, const char *a2);
 extern char D_L18_00296510[];
@@ -57,7 +214,7 @@ void func_L18_00303A58(void *a0, void *a1) {
     func_0027F1D8(a0, a1, D_L18_00296510);
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003044B8);
+/* func_L18_003044B8 is defined in L18_003044B8.c. */
 
 INCLUDE_ASM("asm/levels", func_L18_00307C60);
 
@@ -92,14 +249,12 @@ BatchA_A18_s32 func_L18_0033B628(BatchA_A18_s32 a0, BatchA_A18_s32 a1, BatchA_A1
     return a2;
 }
 
-INCLUDE_ASM("asm/levels", func_L18_0035D238);
+/* func_L18_0035D238 is defined in L18_0035D238.c. */
 
-extern float func_L18_0035D5F8(BatchA_A18_s32 a0, BatchA_A18_s32 a1, BatchA_A18_s32 a2,
-                               BatchA_A18_s32 a3);
+extern float func_L18_0035D5F8(void *a0, void *a1, void *a2, char *a3, float f12);
 extern BatchA_A18_s32 D_001FE480[];
 
-float func_L18_0035D5A8(BatchA_A18_s32 a0, BatchA_A18_s32 a1, BatchA_A18_s32 a2,
-                        BatchA_A18_s32 a3) {
+float func_L18_0035D5A8(void *a0, void *a1, void *a2, BatchA_A18_s32 a3, float f12) {
     if (a3 == -1) {
         return -1.0f;
     }
@@ -107,22 +262,48 @@ float func_L18_0035D5A8(BatchA_A18_s32 a0, BatchA_A18_s32 a1, BatchA_A18_s32 a2,
     if (a3 == 0) {
         return -1.0f;
     }
-    return func_L18_0035D5F8(a0, a1, a2, a3);
+    return func_L18_0035D5F8(a0, a1, a2, (char *)a3, f12);
 }
 
-INCLUDE_ASM("asm/levels", func_L18_0035D5F8);
+extern f32 func_L18_0035D238(void *, void *, void *, void *, void *, f32);
+extern f32 func_00282C48(f32);
+extern float func_00282E48(char *, void *);
+
+/* GCC 2.9's zero-length trailing array describes the variable point payload. */
+typedef struct { s32 count; u8 reserved04[12]; f32 point[0][4]; } PathPoints;
+
+/* Finds the best projected point on the path, breaking near ties by distance. */
+f32 func_L18_0035D5F8(void *out, void *origin, void *direction, char *path, float scale) {
+    f32 candidate[4];
+    f32 best = 100000000000.0f;
+    f32 score, distance;
+    s32 i = 0;
+    PathPoints *points = (PathPoints *)path;
+    for (; i < points->count - 1; i++) {
+        score = func_L18_0035D238(candidate, origin, direction, points->point[i], points->point[i + 1], scale);
+        if (score < best) {
+            best = score;
+            qcopy(out, candidate);
+        } else if (func_00282C48(score - best) < 0.1f) {
+            distance = func_00282E48((char *)candidate, origin);
+            if (distance < func_00282E48(out, origin)) {
+                best = score;
+                qcopy(out, candidate);
+            }
+        }
+    }
+    return best;
+}
+
 
 /* func_L18_003F50D8 is matched in L18_003F50D8.c (built with -mno-split-addresses). */
 
-INCLUDE_ASM("asm/levels", func_L18_003F5198);
 
-INCLUDE_ASM("asm/levels", func_L18_003F53D8);
 
 INCLUDE_ASM("asm/levels", func_L18_003F5650);
 
 INCLUDE_ASM("asm/levels", func_L18_003F6CA8);
 
-extern float func_00282E48(char *, void *);
 extern void func_002A93B0(void *);
 extern void func_L18_003F74B8(void *a0, void *a1);
 extern void func_002B0990(char *a0, char *a1, BatchA_A18_s32 a2, BatchA_A18_s32 a3, float f12);
@@ -167,7 +348,17 @@ void func_L18_003F72D8(BatchA_A18_u8 *a0, BatchA_A18_u8 *a1) {
                       *(float *)(a1 + 0x4) - *(float *)(a0 + 0x14));
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003F7320);
+int func_L18_003F7320(void *arg0) {
+    int var_a2;
+    void *temp_a1;
+
+    var_a2 = 0;
+    temp_a1 = *(void **)((unsigned char *)arg0 + 0x68);
+    if (((unsigned short) (*(unsigned short *)((unsigned char *)arg0 + 0x96)) >= 0xF1U) || ((*(short *)((unsigned char *)temp_a1 + 0x294)) >= (*(short *)((unsigned char *)temp_a1 + 0x2A4)))) {
+        var_a2 = 1;
+    }
+    return var_a2;
+}
 
 extern float func_00308AD0(BatchA_A18_u8 *a0, BatchA_A18_u8 *a1);
 extern BatchA_A18_s32 func_L18_003F8E40(BatchA_A18_u8 *s);
@@ -223,9 +414,37 @@ BatchA_A18_s32 func_L18_003F7470(BatchA_A18_u8 *a0) {
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003F74B8);
-
 extern void func_002A7750(BatchA_A18_u8 *a0, BatchA_A18_s32 a1, BatchA_A18_s32 a2);
+extern void func_0029F338(void *);
+extern void func_L01_003E9CF8(void *, int, void *);
+extern void func_L18_003F7590(BatchA_A18_u8 *a0);
+
+void func_L18_003F74B8(void *a0, void *a1)
+{
+    char *s0 = a0;
+    int s2 = (int)a1;
+    char *s1 = *(char **)(s0 + 0x68);
+    short t;
+
+    *(int *)(s1 + 0x20) = 0;
+    func_002A7750(s0, 0x13, 0);
+    *(unsigned short *)(s0 + 0x34) &= 0xEFFF;
+    *(unsigned short *)(s1 + 0x292) -= 1;
+    t = *(unsigned short *)(s1 + 0x292);
+    if (t != -1 || *(short *)(s1 + 0x296) == 0xE) {
+        if (s2 != 0) {
+            func_L18_003F7590(s0);
+        } else {
+            func_L01_003E9CF8(s0, 0, func_L18_003F7590);
+        }
+    } else {
+        if (s2 != 0) {
+            func_0029F338(s0);
+        } else {
+            func_L01_003E9CF8(s0, 0, 0);
+        }
+    }
+}
 
 void func_L18_003F7590(BatchA_A18_u8 *a0) {
     BatchA_A18_s32 p = *(BatchA_A18_s32 *)(a0 + 0x68);
@@ -274,7 +493,7 @@ BatchA_A18_s32 func_L18_003F75E8(BatchA_A18_s32 a0, BatchA_A18_u8 *a1) {
     return (BatchA_A18_s32)r;
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003F76F0);
+/* func_L18_003F76F0 lives in L18_003F76F0-copy.c. */
 
 extern void func_00282F20(void *a0, void *a1, float f12);
 extern void func_00282CC0(void *a0, void *a1, void *a2);
@@ -318,7 +537,7 @@ void func_L18_003F7818(BatchA_A18_u8 *s2, BatchA_A18_u8 *s3, BatchA_A18_s32 s7) 
     func_L18_003F8E30((BatchA_A18_u8 *)*(BatchA_A18_s32 *)(s4 + 0x258));
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003F7988);
+/* func_L18_003F7988 lives in L18_003F7988-copy.c. */
 
 void func_L18_003F7A08(BatchA_A18_u8 *a0) {
     BatchA_A18_u8 *s0 = a0;
@@ -408,7 +627,7 @@ BatchA_A09_s32 func_L18_003F8E80(BatchA_A09_u8 *s) {
     return r;
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003F8EA8);
+/* func_L18_003F8EA8 is defined in L18_003F8EA8-qcopy.c. */
 
 extern void func_00335388(BatchA_A18_u8 *a0, BatchA_A18_s32 a1, BatchA_A18_s32 a2,
                           BatchA_A18_s32 a3);
@@ -427,9 +646,6 @@ void func_L18_003F8FA8(BatchA_A18_u8 *a0) {
 
 INCLUDE_ASM("asm/levels", func_L18_003F9DA0);
 
-INCLUDE_ASM("asm/levels", func_L18_003F9E50);
-
-INCLUDE_ASM("asm/levels", func_L18_003F9EF0);
 
 extern void func_L18_003FC9B8(unsigned char *a0);
 extern void func_L18_003F7988(unsigned char *a0);
@@ -492,13 +708,111 @@ void func_L18_003FA908(BatchA_A18_u8 *s) {
         (unsigned short)(*(unsigned short *)((char *)p + 0xA8) + 1);
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003FA920);
+/* Each scan reads the current slot id again when advancing its group iterator. */
+static __inline__ int L18_SelectionGroupId(char *p, int i, int base) {
+    int off = i << 2;
+    int *groups = (int *)(p + base);
+    return *(int *)((char *)groups + off);
+}
+
+/* Selects the source, secondary member and target from the owner's three group
+   lists. The first target scan prefers entries passing the flag and distance tests. */
+int func_L18_003FA920(char *owner, int slot) {
+    char *secondary[2];
+    char *state = *(char **)(owner + 0x68);
+    char *source = 0;
+    char *selected = 0;
+    char *entity;
+    int i;
+
+    func_00115484(secondary, 0, 8);
+    {
+        unsigned short *entry;
+        for (entry = D_L18_001FB320[L18_SelectionGroupId(state, slot, 0)];
+             (L18_SelectionGroupId(state, slot, 0) & 0xff) != 0xff &&
+             L18_SelectionGroupId(state, slot, 0) <= D_L18_001B2838[0] && entry != 0 &&
+             ((short)entry[-1] >= 0 ||
+              entry == D_L18_001FB320[L18_SelectionGroupId(state, slot, 0)]); entry++) {
+            entity = D_L18_001B281C[0] + (*entry & 0x7fff) * 0x100;
+            if (entity == 0) break;
+            if (entity != 0 && *(unsigned char *)(entity + 0x20) != 0xfe &&
+                *(unsigned char *)(entity + 0x20) != 0xfd &&
+                (*(unsigned short *)(entity + 0x34) & 1) != 0) {
+                source = entity;
+                break;
+            }
+        }
+    }
+    if (source == 0) return 0;
+    for (i = 0; i < 1; i++) {
+        {
+            unsigned short *entry;
+            for (entry = D_L18_001FB320[L18_SelectionGroupId(state, slot, 0x20)];
+                 (L18_SelectionGroupId(state, slot, 0x20) & 0xff) != 0xff &&
+                 L18_SelectionGroupId(state, slot, 0x20) <= D_L18_001B2838[0] && entry != 0 &&
+                 ((short)entry[-1] >= 0 ||
+                  entry == D_L18_001FB320[L18_SelectionGroupId(state, slot, 0x20)]); entry++) {
+                entity = D_L18_001B281C[0] + (*entry & 0x7fff) * 0x100;
+                if (entity == 0) break;
+                if (entity != secondary[0] && entity != 0 &&
+                    *(unsigned char *)(entity + 0x20) != 0xfe &&
+                    *(unsigned char *)(entity + 0x20) != 0xfd &&
+                    (*(unsigned short *)(entity + 0x34) & 1) != 0) {
+                    secondary[i] = entity;
+                    break;
+                }
+            }
+        }
+    }
+    if (secondary[0] == 0) return 0;
+    {
+        unsigned short *entry;
+        for (entity = 0, entry = D_L18_001FB320[L18_SelectionGroupId(state, slot, 0x10)];
+             (L18_SelectionGroupId(state, slot, 0x10) & 0xff) != 0xff &&
+             L18_SelectionGroupId(state, slot, 0x10) <= D_L18_001B2838[0] && entry != 0 &&
+             ((short)entry[-1] >= 0 ||
+              entry == D_L18_001FB320[L18_SelectionGroupId(state, slot, 0x10)]); entry++) {
+            entity = D_L18_001B281C[0] + (*entry & 0x7fff) * 0x100;
+            if (entity == 0) break;
+            if (*(unsigned char *)(entity + 0x31) != 0 &&
+                func_L02_002F21C0(D_00189EA0, entity + 0x10) > 16.0f &&
+                func_L02_004127F8((unsigned char *)entity) == 0) {
+                selected = entity;
+                break;
+            }
+        }
+    }
+    if (selected == 0) {
+        {
+            unsigned short *entry;
+            for (entity = 0, entry = D_L18_001FB320[L18_SelectionGroupId(state, slot, 0x10)];
+                 (L18_SelectionGroupId(state, slot, 0x10) & 0xff) != 0xff &&
+                 L18_SelectionGroupId(state, slot, 0x10) <= D_L18_001B2838[0] && entry != 0 &&
+                 ((short)entry[-1] >= 0 ||
+                  entry == D_L18_001FB320[L18_SelectionGroupId(state, slot, 0x10)]); entry++) {
+                entity = D_L18_001B281C[0] + (*entry & 0x7fff) * 0x100;
+                if (entity == 0) break;
+                if (func_L02_004127F8((unsigned char *)entity) == 0) {
+                    selected = entity;
+                    break;
+                }
+            }
+        }
+        if (selected == 0) goto fail;
+    }
+    func_L18_003F8D28(source, entity, (void *)L18_SelectionGroupId(state, slot, 0x10));
+    func_L18_003F7818((unsigned char *)secondary[0], (unsigned char *)source, 0);
+    func_L18_003FB500((unsigned char *)selected, 1);
+    return 1;
+fail:
+    return 0;
+}
 
 INCLUDE_ASM("asm/levels", func_L18_003FAE50);
 
-INCLUDE_ASM("asm/levels", func_L18_003FB500);
+/* func_L18_003FB500 lives in L18_003FB500.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_003FB5E8);
+/* func_L18_003FB5E8 is matched in its own unit, src/levels/shared/L18_003FB5E8-qcopy.c (-frac2-qcopy). */
 
 void func_L18_003FC958(BatchA_A18_u8 *a0, BatchA_A18_s32 a1) {
     if (a1 != 0) {
@@ -511,17 +825,16 @@ void func_L18_003FC958(BatchA_A18_u8 *a0, BatchA_A18_s32 a1) {
         (unsigned short)((*(unsigned short *)(a0 + 0x34) | 0x41) & 0xEFFF);
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003FC9B8);
+/* func_L18_003FC9B8 lives in L18_003F7988-copy.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_003FCA38);
+/* func_L18_003FCA38 is defined in L18_003FCA38-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_003FCC48);
 
-INCLUDE_ASM("asm/levels", func_L18_003FCD70);
 
-INCLUDE_ASM("asm/levels", func_L18_003FD630);
+/* func_L18_003FCC48 lives in L18_003FCC48-particles.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_003FD730);
+/* func_L18_003FCD70 lives in L18_003FCD70-particles.c. */
+
 
 /* store -1 into field 0x74 of the object at s[0x68] */
 void func_L18_003FE010(BatchA_A18_u8 *s) {
@@ -551,9 +864,8 @@ void func_L18_00426D98(BatchA_A18_u8 *a0) {
     func_0032D118(a0, 0x80, 0x80, 0x80);
 }
 
-INCLUDE_ASM("asm/levels", func_L18_00426E00);
 
-INCLUDE_ASM("asm/levels", func_L18_00426E48);
+/* func_L18_00426E48 lives in L18_00426E48-g8.c. */
 
 extern void func_002EC9C8(BatchA_A18_u8 *a0, BatchA_A18_s32 a1);
 
@@ -567,7 +879,7 @@ void func_L18_00426F28(BatchA_A18_u8 *a0, BatchA_A18_s32 a1, BatchA_A18_s32 a2, 
     }
 }
 
-extern void func_002B60B0(float a0, float a1, float a2, float a3);
+extern void *func_002B60B0(BatchA_A18_u8 *, float, float, float, float);
 extern void func_00282948(void *a0);
 
 /* the object's scale angles are re-submitted in degrees, then the matrix is rebuilt */
@@ -575,7 +887,7 @@ void func_L18_00426F78(BatchA_A18_u8 *a0) {
     BatchA_A18_u8 *p = *(BatchA_A18_u8 **)(a0 + 0x68);
     if (a0[0x21] != 0xFF) {
         if (*(BatchA_A18_u8 *)(p + 0x39F) != 0) {
-            func_002B60B0(0.00027777778450399637f * *(float *)(p + 0x3C4),
+            func_002B60B0(a0, 0.00027777778450399637f * *(float *)(p + 0x3C4),
                           0.01666666753590107f * *(float *)(p + 0x3C0),
                           4.848137450608192e-06f * *(float *)(p + 0x3D4),
                           0.0002908882452175021f * *(float *)(p + 0x3D0));
@@ -643,12 +955,11 @@ BatchA_A18_s32 func_L18_004271C0(BatchA_A18_u8 *a0) {
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L18_00427208);
+/* func_L18_00427208 is defined in L18_00427208-qcopy.c. */
 
-INCLUDE_ASM("asm/levels", func_L18_004273F0);
+/* func_L18_004273F0 is matched in L18_004273F0-g8.c (built with -frac2-qcopy). */
 
 INCLUDE_ASM("asm/levels", func_L18_00427688);
 
 /* func_L18_00427B48: 144 bytes against retail's 148; the chain pointer and the
    stored 1 take each other's register. Deposited in nonmatching/levels/. */
-INCLUDE_ASM("asm/levels", func_L18_00427B48);

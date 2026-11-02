@@ -310,6 +310,8 @@ struct State {
         pending_frame;  // Window-thread owned; worker writes its result.
     std::vector<renderer::ImageUpload>
         pending_images;          // Game-thread uploads held until the worker finishes.
+    std::vector<renderer::ImageUpload>
+        images_after_list;       // Sent again a capture later (GameProfile::images_outlast_list).
     bool render_failed = false;  // A caught render error terminates the frontend cleanly.
 };
 
@@ -368,6 +370,12 @@ struct Route {
 
 // Where a scripted run is, as frame() last read it (frontend.cpp).
 extern Route g_route;
+
+// The pad of a scripted run from a file, or written to one (OPENRAC_RECORD, OPENRAC_REPLAY and
+// OPENRAC_WALK, record.cpp): called with pad 0 as each tick reads it, and with the camera's forward
+// row, which the walk steers by.
+void scripted_pad(std::uint16_t& buttons, std::uint8_t analog[4]);
+void scripted_view(const float forward[3]);
 
 // OPENRAC_SHOT=EVERY:PATH: a PNG of every EVERY-th frame, written to PATH<frame>.png.
 struct Shots {

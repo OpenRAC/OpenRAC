@@ -1,0 +1,74 @@
+#include "common.h"
+
+typedef struct { float x, y, z, w; } BillboardBatchVec __attribute__((aligned(16)));
+typedef int BillboardBatchQuad __attribute__((mode(TI)));
+typedef union { BillboardBatchVec v; BillboardBatchQuad word; } BillboardBatchUp;
+typedef struct {
+    BillboardBatchVec vertex[4];
+    int color[4];
+    float uv[8];
+    unsigned long long tag[4];
+} BillboardBatchPacket;
+
+extern unsigned long long func_0027C878(int);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282DD8(void *, void *, void *);
+extern void func_00282D30(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_002830C0(void *, void *, void *);
+extern void func_00280B90(void *, int, int);
+extern BillboardBatchVec D_L00_001AA310[4] __attribute__((sda));
+extern BillboardBatchVec D_L00_001B8DC0 NOT_SDA;
+
+/* Draws offset camera-facing quads, reusing the packet while its color is unchanged. */
+void func_L00_00325CC0(int count, BillboardBatchVec *positions, int *colors,
+                     float size, float offset)
+{
+    BillboardBatchPacket packet;
+    BillboardBatchUp up;
+    BillboardBatchVec matrix[4];
+    BillboardBatchVec shift;
+    int i, j, color;
+    BillboardBatchVec *dst, *src;
+
+    up.word = 0;
+    up.v.z = 1.0f;
+    up.v.w = 1.0f;
+    packet.tag[1] = func_0027C878(11);
+    color = colors[0];
+    packet.tag[3] = 0x8000000048ULL;
+    packet.tag[2] = 0xff9000000260ULL;
+    packet.tag[0] = 5;
+    packet.uv[0] = 0; packet.uv[1] = 0;
+    packet.uv[2] = 0; packet.uv[3] = 1;
+    packet.uv[4] = 1; packet.uv[5] = 0;
+    packet.uv[6] = 1; packet.uv[7] = 1;
+    packet.color[3] = color;
+    packet.color[2] = color;
+    packet.color[1] = color;
+    packet.color[0] = color;
+    for (i = 0; i < count; ++i) {
+        qcopy(&matrix[3], &positions[i]);
+        func_00282CF0(&matrix[0], &D_L00_001B8DC0, &matrix[3]);
+        func_00282F20(&matrix[0], &matrix[0], 1.0f);
+        func_00282DD8(&matrix[1], &matrix[0], &up);
+        func_00282F20(&matrix[1], &matrix[1], 1.0f);
+        func_00282DD8(&matrix[2], &matrix[1], &matrix[0]);
+        func_00282D30(&shift, &matrix[0], offset);
+        func_00282CC0(&matrix[3], &matrix[3], &shift);
+        if (colors[i] != color) {
+            packet.color[0] = packet.color[1] = packet.color[2] = packet.color[3] = colors[i];
+            color = colors[i];
+        }
+        dst = packet.vertex;
+        src = D_L00_001AA310;
+        for (j = 3; j >= 0; --j) {
+            func_00282D30(dst, src, size);
+            ++src;
+            func_002830C0(dst, dst, matrix);
+            ++dst;
+        }
+        func_00280B90(&packet, 0, 0);
+    }
+}

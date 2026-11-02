@@ -1,10 +1,12 @@
-/* 0 of 5 places match - last line: 04_barlow: 124 bytes, expected 132.
-   Complete: both signed power-of-two divisions with their `slt`/`movn` pairs,
-   the masked tag loop (`& 0xC0FFFFFF`, `| (value & 0x3F) << 24`) and the guard
-   all reproduce.  Differences: the tag stays in $a1 where retail moves it to
-   $t1, the state pointer goes to $a2 against retail's $v1, and the retail loop
-   carries an extra `daddu` copy plus a padding `nop` (eight words) this cc1 does
-   not emit for the seven-word loop. */
+/* GPT-6.1 Sol high: 132/132 bytes, 0/5 places, default -O2 -G0
+   -ffunction-sections. An integer index alongside the countdown restores retail's
+   induction-pointer copy and loop-alignment nop (previous draft: 124/132 bytes).
+   Allocation still differs: state/induction pointer is a2 instead of v1,
+   countdown is v1 instead of a0, and the mask is a0 instead of a1. Initial
+   andi also uses a1 instead of t1; base/offset arithmetic scheduling differs.
+   Factoring the offset and using an s32 pointer for state both tie this form.
+   No extra declarations needed; useful next step is an allocator explanation
+   for the state-to-induction-pointer register preference. */
 
 #include "include_asm.h"
 
@@ -21,9 +23,10 @@ void func_L04_003A14B8(u8 *object, u32 value) {
     s32 count = *(s32 *)(state + 0x8) / 4;
 
     if (count > 0) {
+        int i = 0;
         do {
-            *p = (*p & 0xC0FFFFFF) | tag;
-            p++;
+            p[i] = (p[i] & 0xC0FFFFFF) | tag;
+            i++;
             count--;
         } while (count != 0);
     }

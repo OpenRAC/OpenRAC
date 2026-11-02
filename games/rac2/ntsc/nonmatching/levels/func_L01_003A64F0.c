@@ -46,3 +46,17 @@ void func_L01_003A64F0(u8 *a0) {
         func_00335438((u8 *)&v, (u8 *)&w, 0, 0, 0);
     }
 }
+
+/* Measured again (wave 24, worker 10): the 128-bit addresses stay folded.  The
+   wall says the address is materialised only when it has no constant offset,
+   and the way to get a plain register is a pointer *variable* - but the CSE
+   rewrites that into a plus again (find_best_addr: register-plus-small-
+   constant costs the same as a register, so the tie goes to the plus), and
+   the offset is folded into the lq/sq.  Measured with pointer variables for
+   all three accesses (u128 *vp = (u128 *)(a0 + 0x10), *wp = (u128 *)(a0 +
+   0xF0), *tp = &t): the lq/sq still come out as `lq $2,16($16)` /
+   `sq $2,16($sp)`, the frame is 0x40 instead of retail's 0x50, and the locals
+   sit at +0x10/+0x20 where retail has them at +0x00/+0x10/+0x20.  The retail
+   body materialises three addresses (addiu $v1,$s0,0x10 for the source,
+   addiu $s1,$sp,0x20 for t and addiu $s1,$sp,0x10 for w) and keeps the v
+   local at frame offset 0, where the candidate's locals start at +0x10. */

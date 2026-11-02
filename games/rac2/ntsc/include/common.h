@@ -22,6 +22,46 @@ typedef double             f64;
 #define NOT_SDA __attribute__((section(".data")))
 /* A global in the small-data area, addressed $gp-relative. */
 #define MACRO_ADDR __attribute__((section(".sdata")))
+/* Explicit GP address view, bound to the same canonical storage by
+ * tools/sdata_aliases.py. Keep the real type/extent (or an incomplete array);
+ * its assembler small-address metadata is not a C object bound.
+ */
 #define SDATA(sym) __asm__(#sym "__gp") MACRO_ADDR
+
+/* Approved EE transfer helpers, adapted from rac1-decomp (GPL-3.0).
+ * Both addresses must be
+ * 16-byte aligned. Each helper really reads/writes memory; the clobber keeps
+ * surrounding C accesses correct. Arbitrary source barriers remain forbidden.
+ */
+static __inline__ void qcopy(void *dst, const void *src) {
+    __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)"
+                         : : "r"(dst), "r"(src) : "$2", "memory");
+}
+
+static __inline__ void qzero(void *dst) {
+    __asm__ __volatile__("sq $0,0x0(%0)" : : "r"(dst) : "memory");
+}
+
+/* rac1-decomp's qzero: the same store with no clobbers at all, so the asm is a bare
+ * volatile ASM_OPERANDS. cse flushes everything it knows at one, so an address used
+ * before it is built again (a fresh lui) after it. Use it only where retail rebuilds.
+ */
+static __inline__ void qzero_nc(void *dst) {
+    __asm__ __volatile__("sq $0,0x0(%0)" : : "r"(dst));
+}
+
+/*
+ * The EE `sync` instruction, which no C construct emits. From RAC1's include/common.h, where
+ * libgraph units call it.
+ */
+static __inline__ void CpuSync(void) { __asm__ __volatile__("sync"); }
+
+/* RAC1's non-clobbering variant: callers must establish that surrounding C
+ * accesses do not depend on the copied memory. Keep qcopy as the default.
+ */
+static __inline__ void qcopy_nc(void *dst, const void *src) {
+    __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)"
+                         : : "r"(dst), "r"(src) : "$2");
+}
 
 #endif /* COMMON_H */

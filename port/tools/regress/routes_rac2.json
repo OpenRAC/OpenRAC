@@ -1,0 +1,260 @@
+{
+ "comment": "Going Commando's routes for port/tools/regress: every level with all its items and no deaths, walking, the wrench, firing, the pause pages, the map, the quick select. Each run stops with a crash report on a wait that never ends (OPENRAC_STUCK), and carries on past memory that is not mapped, counted (OPENRAC_SOFT_FAULTS). regress.py report ranks what they found.",
+ "addresses": {
+  "comment": "The words of symbol_addrs/usa/symbol_addrs.txt the steps write (test_regress.py checks them): g_heroPos less 0x80 as the hero, g_inventoryOwned, g_inventoryNewFlag, g_weaponAmmo, g_boltCount.",
+  "rac2-ntsc": {
+   "hero": "0x189E20",
+   "owned": "0x1A7AF8",
+   "acquired": "0x1A7B30",
+   "ammo": "0x139688",
+   "bolts": "0x1A79F8"
+  }
+ },
+ "sets": {
+  "rac2-tour": {
+   "comment": "One route a level.",
+   "defaults": {
+    "sequence": "tour",
+    "length": 1500,
+    "max_frames": 12000,
+    "timeout": 300,
+    "env": {
+     "OPENRAC_GIVE": "all,bolts:500000",
+     "OPENRAC_INVINCIBLE": "1",
+     "OPENRAC_STUCK": "60:6000",
+     "OPENRAC_SOFT_FAULTS": "1"
+    },
+    "boot": [
+     {
+      "at": 300,
+      "buttons": "cross",
+      "hold": 10
+     }
+    ]
+   },
+   "sequences": {
+    "tour": [
+     {
+      "at": 10,
+      "what": "forward",
+      "hold": 120,
+      "left": [
+       128,
+       0
+      ]
+     },
+     {
+      "at": 140,
+      "what": "turn the camera round",
+      "hold": 150,
+      "right": [
+       255,
+       128
+      ]
+     },
+     {
+      "at": 300,
+      "what": "jump",
+      "hold": 5,
+      "buttons": "cross"
+     },
+     {
+      "at": 340,
+      "what": "wrench",
+      "hold": 5,
+      "buttons": "square"
+     },
+     {
+      "at": 380,
+      "what": "walk left",
+      "hold": 90,
+      "left": [
+       0,
+       128
+      ]
+     },
+     {
+      "at": 480,
+      "what": "jump while walking",
+      "hold": 5,
+      "buttons": "cross",
+      "left": [
+       128,
+       0
+      ]
+     },
+     {
+      "at": 520,
+      "what": "fire the weapon held",
+      "hold": 30,
+      "buttons": "circle"
+     },
+     {
+      "at": 580,
+      "what": "talk",
+      "hold": 5,
+      "buttons": "triangle"
+     },
+     {
+      "at": 640,
+      "what": "the pause menu",
+      "hold": 5,
+      "buttons": "start"
+     },
+     {
+      "at": 760,
+      "what": "its next page",
+      "hold": 5,
+      "buttons": "down"
+     },
+     {
+      "at": 800,
+      "what": "open it",
+      "hold": 5,
+      "buttons": "cross"
+     },
+     {
+      "at": 900,
+      "what": "back",
+      "hold": 5,
+      "buttons": "triangle"
+     },
+     {
+      "at": 960,
+      "what": "close the menu",
+      "hold": 5,
+      "buttons": "start"
+     },
+     {
+      "at": 1040,
+      "what": "the map",
+      "hold": 5,
+      "buttons": "select"
+     },
+     {
+      "at": 1160,
+      "what": "close it",
+      "hold": 5,
+      "buttons": "select"
+     },
+     {
+      "at": 1240,
+      "what": "the quick select",
+      "hold": 90,
+      "buttons": "triangle",
+      "left": [
+       128,
+       0
+      ]
+     }
+    ]
+   },
+   "routes": {
+    "00-tour": {
+     "level": 0,
+     "name": "aranos_tutorial"
+    },
+    "01-tour": {
+     "level": 1,
+     "name": "oozla"
+    },
+    "02-tour": {
+     "level": 2,
+     "name": "maktar_nebula"
+    },
+    "03-tour": {
+     "level": 3,
+     "name": "endako"
+    },
+    "04-tour": {
+     "level": 4,
+     "name": "barlow"
+    },
+    "05-tour": {
+     "level": 5,
+     "name": "feltzin_system"
+    },
+    "06-tour": {
+     "level": 6,
+     "name": "notak"
+    },
+    "07-tour": {
+     "level": 7,
+     "name": "siberius"
+    },
+    "08-tour": {
+     "level": 8,
+     "name": "tabora"
+    },
+    "09-tour": {
+     "level": 9,
+     "name": "dobbo"
+    },
+    "10-tour": {
+     "level": 10,
+     "name": "hrugis_cloud"
+    },
+    "11-tour": {
+     "level": 11,
+     "name": "joba"
+    },
+    "12-tour": {
+     "level": 12,
+     "name": "todano"
+    },
+    "13-tour": {
+     "level": 13,
+     "name": "boldan"
+    },
+    "14-tour": {
+     "level": 14,
+     "name": "aranos_prison"
+    },
+    "15-tour": {
+     "level": 15,
+     "name": "gorn"
+    },
+    "16-tour": {
+     "level": 16,
+     "name": "snivelak"
+    },
+    "17-tour": {
+     "level": 17,
+     "name": "smolg"
+    },
+    "18-tour": {
+     "level": 18,
+     "name": "damosel"
+    },
+    "19-tour": {
+     "level": 19,
+     "name": "grelbin"
+    },
+    "20-tour": {
+     "level": 20,
+     "name": "yeedil"
+    },
+    "22-tour": {
+     "level": 22,
+     "name": "dobbo_orbit"
+    },
+    "23-tour": {
+     "level": 23,
+     "name": "damosel_orbit"
+    },
+    "24-tour": {
+     "level": 24,
+     "name": "ship_shack"
+    },
+    "25-tour": {
+     "level": 25,
+     "name": "wupash_nebula"
+    },
+    "26-tour": {
+     "level": 26,
+     "name": "jamming_array"
+    }
+   }
+  }
+ }
+}

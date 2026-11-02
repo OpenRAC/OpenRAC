@@ -1,28 +1,38 @@
-/* func_002B44C0 (1248 bytes) - near miss: this C compiles to 1192 bytes.
+/* GPT-6.1 Sol high, 29 October 2026, task v0788; retained near miss.
+ * Best current-toolchain check: 1252/1248 bytes, 0/28 USA v1.01 places.
+ * Profile: -O2 -G0 -ffunction-sections, isolated source unit. No linked match.
+ * Required types and declarations are included below; common.h supplies qcopy.
+ *
+ * Improvements over the previous 1240-byte TI-only draft: use approved qcopy
+ * for the two external snapshots and offset-to-work transfer, but retain the
+ * ordinary TI work-to-angles assignment (retail uses stack offsets there).
+ * Give the kick loop its own counter: reusing i makes GCC keep the main-loop
+ * counter in s4 and push in s5; separate counters recover push in s4, the
+ * spilled main-loop counter at sp+0xC4, and the main loop's saved registers.
+ * Explicit target/player labels retain both initial vector-subtraction calls.
+ *
+ * Remaining differences: the first snapshot makes qcopy reload self from its
+ * stack home rather than retain a0; the player-state test branches directly
+ * to the player call instead of decay; address spill slots C8..EC are ordered
+ * differently; and the delta-pointer update reloads its spill after the store
+ * at boot 0x002B47C4, adding one word. The post-loop body is shifted by four.
+ * The frame is retail's 0x140 and all scratch extents/offsets are preserved.
+ *
+ * Measured alternatives: reversed inner target test reaches 1248 bytes with
+ * the old shared counter, but lays out the player call first and retains the
+ * wrong loop allocation. A separate counter makes that form 1252. Combining
+ * stack arrays into a struct ties that result. Explicit delta-pointer induction
+ * changes spill order but retains the extra reload. A scalar wave temporary
+ * ties this retained body. A precomputed rotation pointer worsens the prologue.
+ * Flattening the negative player test changes block order; -fno-thread-jumps
+ * with separate counters emits 1268 bytes; -fno-gcse on this draft emits 948.
+ * Do not use the 1248-byte -fstrict-aliasing result: TI casts over float arrays
+ * let that profile incorrectly propagate the prior zero into the angle copy.
+ * Reopen with evidence for the original pointer declarations/alias contract
+ * and conditional layout; further fixed-offset-copy work is unnecessary.
+ */
 
-   A sway/spring update for an attached object: target vector (argument, or the player's
-   position at D_00189E20+0x80 when D_00189E20+0x33C is this object and +0x340 >= 2),
-   per-axis spring/damping over three axes, angle limits, then the object's matrix at
-   +0xC0 and position at +0x10 are rebuilt. The control flow, the struct layout, the stack
-   frame (0x140, locals at 0x00-0xBF in this order), the hoisted address pseudos that are
-   spilled to 0xC8-0xEC, both 3-step loops and the clamps come out the same shape.
-
-   What differs:
-   1. Wall (docs/COMPILER-NOTES.md, "Quadword copy source shapes"): the two 128-bit copies
-      at the top keep their pointers in registers in retail
-      (`addiu $s1,$a0,0x10; lq $v0,0($s1); sq $v0,0($sp)` and
-      `addiu $a0,$v0,0xF0; lq $v0,0($a0); addiu $v1,$sp,0x10; sq $v0,0($v1)`), as does the
-      copy of sway->offset into `work` (through two spilled pointers). This cc1's CSE folds
-      them (`lq $v0,0x10($a0)`), with or without a separate pointer variable.
-   2. As a consequence, retail keeps `self + 0x10` in $s1 for the two func_00282CF0 calls of
-      the target branch and keeps the `target` argument in $s3; here the pointer is rebuilt
-      in each branch and the callee-saved registers and spill slots shift
-      (retail order 0xC8 self+0xC0, 0xCC work, 0xD0 matrix, 0xD4 self+0x10,
-      0xD8 sway+0x10, 0xDC moved, 0xE0 sway+0x20, 0xE4 shift, 0xE8 angles, 0xEC delta walk).
-   Untested ideas once item 1 is solvable: the order of the hoisted address pseudos decides the
-   spill slots, and the x/y/z clamps compile with different branch-likely shapes in retail. */
-
-#include "include_asm.h"
+#include "common.h"
 
 typedef int Vec128_2B44C0 __attribute__((mode(TI)));
 
@@ -82,28 +92,36 @@ void func_002B44C0(char *self, Sway_2B44C0 *sway, float *target)
     char *body;
     float roll;
     int i;
+    int kick_axis;
 
-    *(Vec128_2B44C0 *)old_position = *(Vec128_2B44C0 *)(self + 0x10);
-    *(Vec128_2B44C0 *)old_rotation = *(Vec128_2B44C0 *)(self + 0xF0);
+    qcopy(old_position, self + 0x10);
+    qcopy(old_rotation, self + 0xF0);
     func_00115484(push, 0, 16);
-    if (target != 0 || (D_00189E20.target == self && D_00189E20.state >= 2)) {
-        if (target != 0)
-            func_00282CF0(delta, target, self + 0x10);
-        else
-            func_00282CF0(delta, &D_00189E20.position, self + 0x10);
-        func_002AFDD8(self, delta, delta, 0);
-        func_00282CF0(delta, delta, &sway->offset);
-        push[0] = -delta[1] * sway->scale[0];
-        push[1] = delta[0] * sway->scale[1];
-        push[2] = -sway->scale[2];
-        if (sway->timer == 0) {
-            for (i = 0; i < 3; i++)
-                sway->velocity[i] += push[i] * sway->kick[i];
-            sway->timer = 10;
-        }
-    } else {
-        func_00282948(&sway->timer);
+    if (target != 0)
+        goto target_delta;
+    if (D_00189E20.target == self && D_00189E20.state >= 2)
+        goto player_delta;
+    goto decay;
+target_delta:
+    func_00282CF0(delta, target, self + 0x10);
+    goto active;
+player_delta:
+    func_00282CF0(delta, &D_00189E20.position, self + 0x10);
+active:
+    func_002AFDD8(self, delta, delta, 0);
+    func_00282CF0(delta, delta, &sway->offset);
+    push[0] = -delta[1] * sway->scale[0];
+    push[1] = delta[0] * sway->scale[1];
+    push[2] = -sway->scale[2];
+    if (sway->timer == 0) {
+        for (kick_axis = 0; kick_axis < 3; kick_axis++)
+            sway->velocity[kick_axis] += push[kick_axis] * sway->kick[kick_axis];
+        sway->timer = 10;
     }
+    goto update;
+decay:
+    func_00282948(&sway->timer);
+update:
     for (i = 0; i < 3; i++) {
         sway->velocity[i] += sway->spring[i] * (push[i] - sway->position[i]);
         sway->velocity[i] -= sway->damping[i] * sway->velocity[i];
@@ -126,7 +144,7 @@ void func_002B44C0(char *self, Sway_2B44C0 *sway, float *target)
     func_002833F0(matrix, angles);
     func_002833F0(self + 0xC0, &sway->rotation);
     func_00283738(self + 0xC0, self + 0xC0, matrix);
-    *(Vec128_2B44C0 *)work = sway->offset;
+    qcopy(work, &sway->offset);
     work[2] += delta[2];
     func_00283098(moved, work, self + 0xC0);
     func_00282CC0(moved, moved, self + 0x10);

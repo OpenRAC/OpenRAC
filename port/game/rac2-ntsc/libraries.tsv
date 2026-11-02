@@ -172,3 +172,59 @@ func_00133580	989snd	snd_StreamSafeCdSync	host	symbol_addrs.txt snd_CheckLoadInP
 func_00133640	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; queues the stream stop, then sceCdBreak (0x00125620)
 func_00133688	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
 func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
+func_0027B858	graphics	StartFrameList	wrap	the frame's first packets: a picture written straight to the frame buffer is drawn after them (host/picture.c)
+func_00131CB8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
+func_0029D4D0	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
+# The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
+func_00133350	game	snd_PlayVAGStreamTwoParts_CB	host	command 0x2C: a stream, its handle told to the callback: host/sound.c	int (int, int, int, int, int, int, int, int, int, int, int, long long)
+func_00132498	game	snd_BankLoadByLoc_CB	host	a bank by sector and offset, its handle told to the callback: host/sound.c	void (int, int, int, long long)
+func_001325E8	989snd	snd_BankLoadFromEE_CB	host	a bank in EE memory; the level loader waits for its callback (func_002EAAA8)
+func_00132828	989snd	snd_ResolveBankXREFS	host	command 8
+func_00132858	989snd	snd_UnloadBank	host	command 6
+func_00132888	989snd	snd_SetMasterVolume	host	command 9
+func_00132938	989snd	snd_SetPlaybackMode	host	command 0xB
+func_00132A70	989snd	snd_StopSound	host	command 0x15
+func_00132AC8	989snd	snd_StopAllSounds	host	command 0x18
+func_00132AF8	989snd	snd_PauseAllSoundsInGroup	host	command 0x16
+func_00132B28	989snd	snd_ContinueAllSoundsInGroup	host	command 0x17
+func_00132B58	989snd	snd_SoundIsStillPlaying_CB	host	command 0x19
+func_00133310	989snd	snd_StopAllStreams	host	command 0x34
+func_001333D0	989snd	snd_PauseVAGStream	host	command 0x2D
+func_00133400	989snd	snd_ContinueVAGStream	host	command 0x2E
+func_00133430	989snd	snd_GetVAGStreamTimeRemaining_CB	host	command 0x32
+func_00133460	989snd	snd_IsVAGStreamBuffered_CB	host	command 0x4F
+func_00133490	989snd	snd_StreamSafeCheckCDIdle	host	command 0x36
+func_00133750	989snd	snd_PreAllocReverbWorkArea	host	command 0x51
+func_00133788	989snd	snd_AutoReverb	host	command 0x10
+func_00133890	989snd	snd_ResetMovieSound	host	command 0x3D
+func_001338F0	989snd	snd_StartMovieSound	host	command 0x3E
+func_00133930	989snd	snd_UpdateMovieADPCM	host	command 0x5A
+func_00133960	989snd	snd_GetMovieNAX	host	command 0x5B
+func_001326D8	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
+func_0027F2A8	draw	FontPrint	wrap	a string, glyph by glyph: its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
+func_0027F640	draw	FontPrintScaled	wrap	func_0027F2A8 at a scale, with float positions: its quads are marked as glyphs (host/ui2d.c)
+func_0027E018	draw	DrawGlyphQuad	wrap	the 2D layer's textured quad: drawn natively (host/ui2d.c)
+func_0027E1A0	draw	DrawTexturedQuad2d	wrap	the 2D layer's quad with float corners: a glyph drawn natively (host/ui2d.c)
+func_0034E4F8	hud	DrawHudWidgets	wrap	the HUD's widgets (weapon, ammunition, health, bolts): with "HUD: Edges" two markers have the window draw them out at the sides of a wider picture (host/hud.c)
+func_0028E458	hud	UpdateHud	wrap	the level HUD's slots: with the player's "HUD: Edges" the elements anchored left or right are drawn out at the sides of a picture wider than the game's (host/hud.c)
+func_0028E868	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host/ui2d.c)
+func_0028ECD8	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
+func_0028EE98	hud	HudSpriteFine	wrap	a HUD texture as a sprite, in 16ths of a pixel: drawn natively (host/ui2d.c)
+func_0028F078	hud	HudSpriteColour	wrap	func_0028EE98 in a colour: drawn natively (host/ui2d.c)
+func_0028F278	hud	HudTextureSprite	wrap	a sprite of a given texture: drawn natively (host/ui2d.c)
+func_0028F410	hud	HudRotatedSprite	wrap	a rotated sprite: drawn natively (host/ui2d.c)
+func_0028F788	hud	HudSpriteRect	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (host/ui2d.c)
+func_0027CE18	draw	ExecuteDrawCallbacks	wrap	a draw callback list's run: in a picture wider than the game's, the view tests the callbacks make are opened by as much (host/wide_view.c)
+func_0027CEE0	draw	ExecuteDrawCallbacks2	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027CF58	draw	ExecuteDrawCallbacks3	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027D020	draw	ExecuteDrawCallbacks4	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027D0E8	draw	ExecuteDrawCallbacks5	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_00283DB8	draw	FastBSphereCheck	wrap	the bounding sphere view test: while a draw callback list runs, against the picture's sides (host/wide_view.c)
+func_0028EA58	hud	HudGradientSprite	wrap	a HUD texture as a sprite with a colour a corner: drawn natively (host/ui2d.c)
+func_0027E4A8	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot: drawn natively (host/ui2d.c)
+func_0027E920	draw	DrawRingSegment	wrap	a ring's segment, a colour a corner and the texture's wrap: drawn natively (host/ui2d.c)
+func_0027DE50	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): drawn natively (host/ui2d.c)
+func_003136D0	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sphere test runs against the picture's sides (host/wide_view.c)
+func_L00_00424F98	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
+func_002E48E8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
+func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)

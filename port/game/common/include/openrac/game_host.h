@@ -192,6 +192,10 @@ void openrac_game_warn(const char* message);
  * lets the port skip besides its own cutscenes (rac1/pal: the flight between planets, boot.c). */
 extern void (*openrac_game_skip)(void);
 
+/* A game whose flights between planets the window cannot tell from the front end's words: the flight
+ * being drawn now (0 the first of its worlds, levels 98 down), or -1. NULL: the words decide. */
+extern int (*openrac_game_flight)(void);
+
 /* What the window's own menus and drawing need of a game's front end, when a game installs it
  * (rac1: port/game/rac1/host/front_end.c, with each disc's addresses). NULL: the window adds
  * nothing to the game's menus. */
@@ -245,9 +249,33 @@ typedef struct openrac_front_end {
      * signed byte 3, which the game's string width sums), for the width of a mod's page; 0 for
      * none. */
     gaddr fonts[3];
+    /* Whether start_level works from inside a level too, not only over the title: the developer
+     * menu then opens over a level as well (with F1, the pad's Select being the game's). */
+    int start_level_anywhere;
 } openrac_front_end;
 
 extern const openrac_front_end* openrac_game_front_end;
+
+/* What the developer tools need of a game (docs/port/DEBUGGING.md, Going anywhere, game/common/
+ * program/tools.cpp), when a game installs it (rac2: port/game/rac2-ntsc/host/tools.c). NULL: the
+ * tools' switches do nothing. Every call on the game's thread, at a vertical blank; a member a game
+ * has not got is NULL. */
+typedef struct openrac_game_tools {
+    /* Gives the hero what `what` names: all, weapons, gadgets, bolts:N, or an item's number.
+     * Returns how many things changed, -1 when the word means nothing to this game. */
+    int (*give)(const char* what);
+    /* Puts the hero back at full health (each tick while OPENRAC_INVINCIBLE is on). */
+    void (*heal)(void);
+    /* Puts the hero at `xyz`, in game units. Returns 0 when no level runs. */
+    int (*teleport)(const float xyz[3]);
+    /* Ends the in-game scene playing, the way the game's own skip does. Returns 0 when none plays. */
+    int (*end_scene)(void);
+    /* The game's state as JSON members (no braces), at most `size` bytes with the end: what the
+     * hero holds and where he is, for OPENRAC_STATE_DUMP. Returns the length written. */
+    int (*state_json)(char* out, int size);
+} openrac_game_tools;
+
+extern const openrac_game_tools* openrac_game_tools_host;
 
 /* What the mods' play calls need of a game (sdk/include/openrac/openrac_mod.h, interface 1.8:
  * multiplayer), when a game installs it (rac1: port/game/rac1/host/play.c, with each disc's
@@ -610,7 +638,14 @@ typedef struct openrac_game_ui_rect {
     uint32_t z;
     uint32_t rgba;
     uint64_t tex0;
-    uint32_t flags; /* 1: a glyph of text; 2: sent as a sprite (corners 0 and 3) */
+    /* 1: a glyph of text; 2: sent as a sprite (corners 0 and 3); 4: a colour for each corner
+     * (`corners`; each triangle in its last corner's, as the GS draws unshaded); 8: no texture
+     * (flat colour, TEX0 left as it was); 16: the texture's wrap (CLAMP_1) set to `clamp` first;
+     * 32: shaded between the corners' colours (Gouraud). Going Commando's gradients, boxes and
+     * rings use 4 to 32; a record that leaves them 0 draws as before. */
+    uint32_t flags;
+    uint32_t corners[4];
+    uint64_t clamp;
 } openrac_game_ui_rect;
 
 int openrac_game_ui_quad(const openrac_game_ui_rect* quad);
@@ -641,8 +676,8 @@ const unsigned char* openrac_game_fix(const char* key);
  * ALPHA_1's low byte; +0x04 RGBA; +0x08 rotation, 256 steps a turn; +0x09 near (low nibble, 1/4
  * units) and far (high nibble, 32 units); +0x0C size in 1/210000 units, or the second colour of a
  * line or ribbon; +0x10 position, +0x1C a ribbon's half width; +0x20 a line or ribbon's other end,
- * +0x2C its width factor) and where its texture is in the game's memory (32 x 32 PSMT8 pixels,
- * 16 x 16 PSMCT32 CLUT; 0 for none). The window draws the frame's particles after the effect quads,
+ * +0x2C its width factor) and where its texture is in the game's memory (PSMT8 pixels, 1 << log2_side a
+ * side, 16 x 16 PSMCT32 CLUT; 0 for none). The window draws the frame's particles after the effect quads,
  * back to front (renderer/effects.h). */
 void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side);
 

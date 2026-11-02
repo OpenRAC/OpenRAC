@@ -1,4 +1,15 @@
-#include "include_asm.h"
+#include "common.h"
+
+extern void func_002829A8(void *);
+extern void func_00282D30(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern int func_002A77E0(int);
+extern char *func_002BDCE8(float, void *, float, float, int, void *, float, unsigned int, int);
+extern int func_00283CF0(float);
+extern float func_002A78D8(float, float);
+extern char *func_002C65A0(void *, void *, int, unsigned int, int, int, int, float, float, float, int);
+typedef struct { char prefix[0xD4]; unsigned char *material; } SceneMaterialPrefix;
+extern SceneMaterialPrefix D_L00_001FE940;
 
 extern float func_00283B98_2(float, float);
 
@@ -50,13 +61,18 @@ extern char *func_L00_0032A088_1();
 
 extern int *func_L00_0032A0B8_1();
 
-INCLUDE_ASM("asm/levels", func_L00_003A0F30);
+typedef int VectorBits __attribute__((mode(TI)));
+typedef union { VectorBits bits; float f[4]; } __attribute__((aligned(16))) BeamVector;
+typedef float Vector[4] __attribute__((aligned(16)));
+typedef struct { float vertices[4][4]; unsigned int colors[4]; float uv[4][2]; u64 registers[4]; } __attribute__((aligned(16))) BeamQuad;
+extern void func_L00_003A2B28(char *);
+
 
 INCLUDE_ASM("asm/levels", func_L00_003A1580);
 
-INCLUDE_ASM("asm/levels", func_L00_003A1F68);
 
-INCLUDE_ASM("asm/levels", func_L00_003A2018);
+
+/* func_L00_003A2018 is defined in L00_003A2018-curve.c. */
 
 /* Shared native body; original game role is unknown. */
 void func_L00_003A2138(int unused, float *p, int n)
@@ -84,11 +100,8 @@ void func_L00_003A2138(int unused, float *p, int n)
     } while (--count != 0);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003A2258);
 
-INCLUDE_ASM("asm/levels", func_L00_003A2400);
 
-INCLUDE_ASM("asm/levels", func_L00_003A2408);
 
 /* Derives a 16-byte element at index-1 from its index-2 and index-3 neighbours through two bound helpers; original game role is unknown. */
 void func_L00_003A2570(Vec16_Fc936841d *object, int index)
@@ -114,9 +127,8 @@ void func_L00_003A25D8(int p0, int p1, int p2, int p3, float v)
     func_00281EB8((char *)p1, 44, p2, 1, s, 0.08f, t);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003A2668);
+/* func_L00_003A2668 is defined in L00_003A2668-ribbon.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003A2B20);
 
 /* straight-line constant-store body (no calls, no branches, no loads) */
 void func_L00_003A2B28(char *p)
@@ -166,21 +178,77 @@ void func_L00_003A2BB8(char *p, int v, char *a, char *b)
     func_00282CC0_4(a, a, p + 16);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003A2C60);
+/* func_L00_003A2C60 is defined in L00_003A2C60-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003A2EE0);
+/* func_L00_003A2EE0 is defined in L00_003A2EE0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003A3B58);
 
-INCLUDE_ASM("asm/levels", func_L00_003A3F30);
 
-INCLUDE_ASM("asm/levels", func_L00_003A41F0);
+/* Emit layered sparks while the object's effect timer remains active. */
+void func_L00_003A41F0(char *moby)
+{
+    float position[4], offset[4], velocity[4];
+    int count, rotation;
+    int style;
+    int firstStyle;
+    int firstKind, firstAlpha, secondKind, secondAlpha;
+    float size;
+    if (!*(unsigned char *)(moby + 0xBC))
+        return;
+    func_002829A8(moby + 0xBC);
+    firstStyle = 8;
+    firstKind = 2;
+    firstAlpha = 127;
+    func_00282D30(position, moby + 0xD0, 0.1f);
+    func_00282CC0(position, position, moby + 0x10);
+    func_00282D30(offset, moby + 0xC0, 0.275f);
+    func_00282CC0(position, position, offset);
+    func_00282D30(velocity, moby + 0xD0, 0.1000000089f);
+    for (count = 3; count >= 0; count--) {
+        char *particle;
+        rotation = func_002A77E0(16);
+        if (func_002A77E0(2))
+            rotation = -rotation;
+        particle = func_002BDCE8(0.04f, position, 1.0f, 0.9f, rotation, velocity, 52500.0f, 0x7F204080, 0);
+        if (particle) {
+            char *sub;
+            sub = particle + 0x20;
+            *(short *)(particle + 10) = firstStyle;
+            *(unsigned char *)(particle + 9) = ((*(short *)(moby + 0x32) >> 5) << 4) + func_00283CF0(4.0f);
+            *(int *)(sub + 4) = firstKind;
+            *(unsigned char *)(sub + 10) = firstAlpha;
+            *(unsigned char *)(sub + 11) = *(unsigned char *)(particle + 10);
+        }
+    }
+    rotation = 16;
+    style = 2;
+    size = 15750.0009765625f;
+    secondKind = 2;
+    secondAlpha = 127;
+    for (count = 2; count >= 0; count--) {
+        char *particle = func_002BDCE8(0.02f, position, 1.0f, 1.0f, rotation, velocity, size, 0x7FFFFFFF, 0);
+        if (particle) {
+            char *sub;
+            int brightness;
+            sub = particle + 0x20;
+            brightness = ((*(short *)(moby + 0x32) >> 5) << 4) + func_00283CF0(4.0f);
+            *(short *)(particle + 10) = style;
+            *(unsigned char *)(particle + 9) = brightness;
+            *(unsigned char *)(particle + 8) = func_002A77E0(255);
+            *(int *)(sub + 4) = secondKind;
+            *(unsigned char *)(sub + 10) = secondAlpha;
+            *(unsigned char *)(sub + 11) = *(unsigned char *)(particle + 10);
+        }
+        rotation = -rotation;
+        style <<= 1;
+        size -= 3150.0f;
+    }
+}
 
 INCLUDE_ASM("asm/levels", func_L00_003A4480);
 
 INCLUDE_ASM("asm/levels", func_L00_003A48D0);
 
-INCLUDE_ASM("asm/levels", func_L00_003A5368);
 
 /* Runs one helper over the object and a stack buffer, then builds a second call from the object's field 104 sub-object - its field 24 as a float, the constants 2.0f/5.0f/0.6f and a bound data address - and stores the object into field 184 of the returned pointer when it is non-null. */
 void func_L00_003A5370(int a0)
@@ -199,21 +267,47 @@ void func_L00_003A5370(int a0)
 
 INCLUDE_ASM("asm/levels", func_L00_003A53E8);
 
-INCLUDE_ASM("asm/levels", func_L00_003A5DC0);
+/* func_L00_003A5FC0 is defined in L00_003A5FC0-contact.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003A5FC0);
 
-INCLUDE_ASM("asm/levels", func_L00_003A6538);
 
-INCLUDE_ASM("asm/levels", func_L00_003A6C30);
-
-INCLUDE_ASM("asm/levels", func_L00_003A78B0);
+/* Emit the two layers of a short particle trail. */
+void func_L00_003A78B0(char *moby)
+{
+    float point[4], offset[4], step[4], jitter[4];
+    float *state = (float *)(*(char **)(moby + 0x68) + 0x14);
+    float size = 0.175f;
+    int i;
+    point[0] = state[0];
+    point[1] = state[1];
+    point[2] = state[2];
+    point[3] = 0.0f;
+    func_00282D30(offset, moby + 0xD0, -0.1f);
+    func_00282CC0(point, point, offset);
+    func_00282D30(step, moby + 0xE0, 0.15f);
+    func_00282CC0(point, point, step);
+    func_00282D30(step, moby + 0xE0, -0.03333333507f);
+    for (i = 8; i >= 0; i--) {
+        char *particle;
+        int rotation;
+        jitter[0] = point[0] + func_002A78D8(0.0f, 0.1f);
+        jitter[1] = point[1] + func_002A78D8(0.0f, 0.1f);
+        jitter[2] = point[2] + func_002A78D8(0.0f, 0.1f);
+        rotation = func_002A77E0(255);
+        func_002C65A0(jitter, D_L00_001A8F20, 4, 0x808080, rotation, 127, 127,
+                      size * 210000.0f, size * 210000.0f, 0.0f, 1);
+        particle = func_002C65A0(point, D_L00_001A8F20, 4, 0x203080, rotation, 16, 16,
+                                 262500.0f, 262500.0f, 0.0f, 1);
+        if (particle)
+            *(unsigned char *)(particle + 2) = *D_L00_001FE940.material;
+        func_00282CC0(point, point, step);
+    }
+}
 
 INCLUDE_ASM("asm/levels", func_L00_003A7AF0);
 
-INCLUDE_ASM("asm/levels", func_L00_003A7C30);
 
-INCLUDE_ASM("asm/levels", func_L00_003A7E78);
+/* func_L00_003A7E78 is defined in L00_003A7E78.c. */
 
 /* Computes two sub-record addresses of a 192-byte block and hands three of its sub-records to four helpers, threading a second argument through two of them. */
 void func_L00_003A8060(char *obj, char *arg)
@@ -228,9 +322,9 @@ void func_L00_003A8060(char *obj, char *arg)
     func_00282DD8(obj + 224, other, base);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003A80F8);
 
-INCLUDE_ASM("asm/levels", func_L00_003A8238);
+
+/* func_L00_003A8238 is defined in L00_003A8238-impact.c. */
 
 /* Two size-driven clear loops over one buffer: calls two helpers with a fixed id to obtain a base and an offset, clears 80 records of 112 bytes walking backwards, then clears three fields at offsets 80/84/88 of every 96-byte record up to the buffer end. */
 void func_L00_003A8508(char *a0)
@@ -307,8 +401,6 @@ void func_L00_003A8618(char *a0)
         func_3A91A0(s0);
     }
 }
-
-INCLUDE_ASM("asm/levels", func_L00_003A8670);
 
 INCLUDE_ASM("asm/levels", func_L00_003A87D8);
 

@@ -113,13 +113,13 @@ A worker's claim is not a match. Only the lead's `tools/build.py` is.
 
 ## Keeping workers apart
 
-Each worker gets its own git worktree and branch (`git worktree add ../rac2-w3 -b match/w3
-origin/master`) and functions nobody else has. Hand out whole files where you can: two workers
-editing one file is the usual source of conflicts. There is no queue, claim file or reservation
-system to maintain; the lead's list of who has what, in its own notes, is enough.
+Before assigning matching work, the lead must follow the contributor coordination rules in AGENTS.md. The contributor's active scope must be reserved through issue #152, must not overlap another contributor's active reservation, and must remain within the 500-unfinished-function per-contributor limit across all branches, worktrees and AI agents combined.
 
-Workers need the build environment (docs/BUILDING.md) but not a full build: `tools/check.py`
-compiles one file and compares one function in seconds.
+Workers may divide work locally only within that contributor's active reserved scope. A local worker assignment does not create a separate reservation and does not allow the lead or a worker to expand beyond the scope recorded in the contributor's issue #152 comment. To add or replace functions outside that scope, update the contributor's existing coordination comment as AGENTS.md requires before assigning them.
+
+Each worker gets its own git worktree and branch (`git worktree add ../rac2-w3 -b match/w3 origin/master`) and functions nobody else in the same contributor's wave has. Hand out whole files where you can: two workers editing one file is the usual source of conflicts. No separate per-worker issue #152 comment, committed queue, claim file or reservation database is required; the lead's local list of which worker has which functions is enough.
+
+Workers need the build environment (docs/BUILDING.md) but not a full build: `tools/check.py` compiles one file and compares one function in seconds.
 
 ## Landing
 
@@ -132,12 +132,16 @@ The lead, for each finished worker:
    in the build;
 3. runs `python3 tools/progress.py`, the tests, `tests/check_repository.py` and
    `tools/progress.py --check`;
-4. commits (one function or one family per commit, the report in its own commit) and opens the
-   pull request as AGENTS.md describes, with the build output in it.
+4. commits coherent batches (prefer at least five related functions when practical;
+   see the [exceptions in AGENTS.md](../AGENTS.md#commits), and keep the report in its
+   own commit) and opens the pull request as AGENTS.md describes, with the build output in it.
 
-Lasting knowledge a worker found (a compiler habit, a pattern that keeps coming back) goes into
-docs/COMPILER-NOTES.md. Nothing else is written down per wave: no wave logs, lot documents or
-registers.
+Shared blockers, measured attempts and reopening conditions go into
+[MATCHING-BLOCKERS.md](MATCHING-BLOCKERS.md). Every contributor can improve an existing entry
+through a PR; there is no per-person ownership. Settled compiler mechanisms belong in
+[COMPILER-NOTES.md](COMPILER-NOTES.md), linked from the relevant blocker rather than duplicated.
+Discuss findings in the relevant PR; issue #157 is historical provenance only. No wave logs,
+lot documents or separate registers.
 
 ## Cost sense
 

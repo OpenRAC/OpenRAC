@@ -9,8 +9,8 @@ port is built from the player's disc:
 
 - the executable (an ELF: its code sections, and its data for jump tables), and
 - each level's program (the records ParseBin loads over the executable from `relocate`'s low end
-  up: lit, data, the class tables, text), from level dumps (level_NN/manifest.json and its
-  records, as rac1-decomp's tools/overlays.py writes them) or from the disc image itself (the
+  up: lit, data, the class tables, text), from level dumps (a folder per level with its
+  manifest.json and records: rac1-decomp's level_NN, rac2-decomp's NN_name) or from the disc image itself (the
   level's overlay section, through the editor's own reader, editor/disc.py and formats.py).
 
 What the assembly's text says beyond the words, this works out the way spimdisasm does:
@@ -149,15 +149,32 @@ def elf_parts(b: bytes) -> list[Part]:
     return out
 
 
+def manifest_records(manifest: dict) -> list[dict]:
+    """A level manifest's records: "records" in rac1-decomp's dumps, "sections" in rac2-decomp's."""
+    return manifest.get("records") or manifest["sections"]
+
+
+def level_dump_dir(dump: Path, level: int) -> Path | None:
+    """The folder of LEVEL's dump: level_NN, else the one whose manifest names the level."""
+    named = dump / f"level_{level:02d}"
+    if named.is_dir():
+        return named
+    for d in sorted(dump.iterdir()):
+        man = d / "manifest.json"
+        if man.is_file() and json.loads(man.read_text()).get("level") == level:
+            return d
+    return None
+
+
 def read_dump(dump: Path) -> dict[int, list[Part]]:
     levels = {}
-    for d in sorted(dump.glob("level_*")):
+    for d in sorted(dump.iterdir()) if dump.is_dir() else ():
         man = d / "manifest.json"
         if not man.is_file():
             continue
         m = json.loads(man.read_text())
         parts = []
-        for r in m["records"]:
+        for r in manifest_records(m):
             f = d / f"{r['name']}.bin"
             if r.get("type") == 1 and f.is_file():
                 parts.append(Part(r["name"], r["address"], f.read_bytes(), r["name"] == "text"))
@@ -178,7 +195,7 @@ def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
         with Disc(image) as disc:
             disc.identify()
     except FormatError:
-        return read_boot_executable(image), levels
+        return read_boot_executable(image), read_wad_levels(image)
     with Disc(image) as disc:
         exe = disc.executable()
         for info in disc.survey()["levels"]:
@@ -187,25 +204,58 @@ def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
             offset, size = unpack("<ii", disc.sectors(r["lba"], 1), 0)
             if not size or offset < 0 or offset + size > r["sectors"] * 2048:
                 continue
-            overlay = decoded(disc.read(r["lba"] * 2048 + offset, size))
-            sections = overlay_sections(overlay)
-            parts = []
-            recs = sections["sections"]
-            names = RECORD_NAMES if len(recs) == len(RECORD_NAMES) else [f"record{k}" for k in range(len(recs))]
-            for name, rec in zip(names, recs):
-                if rec["type"] != 1:
-                    continue
-                body = overlay[rec["offset"]:rec["offset"] + rec["bytes"]]
-                code = rec["address"] <= sections["entry_point"] < rec["address"] + rec["bytes"]
-                parts.append(Part("text" if code else name, rec["address"], body, code))
+            parts = overlay_parts(decoded(disc.read(r["lba"] * 2048 + offset, size)))
             levels[int(info["id"])] = parts
     return exe, levels
+
+
+def overlay_parts(overlay: bytes) -> list[Part]:
+    """The parts of a level's program, as ParseBin's records hold them."""
+    from formats import overlay_sections  # noqa: E402
+    sections = overlay_sections(overlay)
+    recs = sections["sections"]
+    names = RECORD_NAMES if len(recs) == len(RECORD_NAMES) else [f"record{k}" for k in range(len(recs))]
+    parts = []
+    for name, rec in zip(names, recs):
+        if rec["type"] != 1:
+            continue
+        body = overlay[rec["offset"]:rec["offset"] + rec["bytes"]]
+        code = rec["address"] <= sections["entry_point"] < rec["address"] + rec["bytes"]
+        parts.append(Part("text" if code else name, rec["address"], body, code))
+    return parts
+
+
+def read_wad_levels(image: Path) -> dict[int, list[Part]]:
+    """Each level's program from Going Commando's disc, through the editor's reader of the later
+    games' discs. Their other games' ports read no level programs yet."""
+    from disc import Disc, FormatError  # noqa: E402
+    from formats import unpack  # noqa: E402
+    from level import decoded  # noqa: E402
+    import wads  # noqa: E402
+    levels: dict[int, list[Part]] = {}
+    try:
+        with Disc(image) as disc:
+            version = wads.identify(disc)
+            if version is None or version.game != "rac2":
+                return levels
+            for entry in wads.WadDisc(disc, version).levels():
+                part = entry.get(wads.LEVEL)
+                if part is None:
+                    continue
+                r = wads.level_ranges(part["header"], version)["data"]
+                start = part["lba"] + r["sector"]
+                offset, size = unpack("<ii", disc.sectors(start, 1), 0)
+                if size > 0:
+                    levels[int(entry["id"])] = overlay_parts(decoded(disc.read(start * 2048 + offset, size)))
+    except FormatError as e:
+        print(f"hostgen: {image}: its level programs cannot be read: {e}", file=sys.stderr)
+    return levels
 
 
 def read_boot_executable(image: Path) -> bytes:
     """The executable SYSTEM.CNF boots, read from a disc image of a game the editor's reader does not
     know (Going Commando's), through the generic ISO 9660 reader: only that file, never a copy of
-    the image. Such a game's levels are not read (no levels)."""
+    the image."""
     from openrac_common import iso9660
     serial = iso9660.boot_serial(image)
     if serial is None:
@@ -230,6 +280,7 @@ class RetailCode:
         self._blocks: dict[tuple[int, int], asm.Block] = {}
         self._pairs: dict[tuple[int, int], tuple[dict, dict]] = {}
         self._lines: dict[tuple[int, int], tuple[asm.Line, asm.Block]] = {}
+        self.follow_far = False                   # _follow's `far`
 
     def __contains__(self, key) -> bool:
         return self.get(key) is not None
@@ -361,7 +412,7 @@ class RetailCode:
         # the half at the branch's target): follow the branches a short way.
         for k, w in enumerate(words):
             if w >> 26 == 0x0F and start + 4 * k not in uses:
-                s = self._follow(insns, writes, k, (w >> 16) & 31, (w & 0xFFFF) << 16)
+                s = self._follow(insns, writes, k, (w >> 16) & 31, (w & 0xFFFF) << 16, far=self.follow_far)
                 if s is not None:
                     uses[start + 4 * k] = [s]
         relocs = {}
@@ -375,9 +426,13 @@ class RetailCode:
 
 
     @staticmethod
-    def _follow(insns: list, writes: list, k: int, reg: int, value: int, limit: int = 48) -> int | None:
+    def _follow(insns: list, writes: list, k: int, reg: int, value: int, limit: int = 48,
+                far: bool = False) -> int | None:
         """The address the lui at insns[k] forms, along the code's branches: the first addiu, ori,
-        load or store through `reg` before something writes it, a jr or j ends the way."""
+        load or store through `reg` before something writes it, a jr or j ends the way. `far`
+        (hostgen.json asm.follow_saved_registers): a j goes on at its target, and a call keeps a
+        register it must save, so a base set once for a whole function (rac2's level loop has
+        `lui $s6, %hi(table)` and the %lo two calls later) is still a base."""
         start = insns[0].addr
 
         def formed(d):
@@ -407,6 +462,11 @@ class RetailCode:
                     s = formed(insns[i + 1])
                     if s is not None:
                         return s
+                    if far and reg not in writes[i + 1]:
+                        if ins.op == "j":
+                            todo.append(((ins.target - start) // 4, n + 1))
+                        elif ins.op in ("jal", "jalr") and (16 <= reg <= 23 or reg == 30):
+                            todo.append((i + 2, n + 1))
                 continue
             if ins.is_branch:
                 todo.append(((ins.target - start) // 4, n + 1))

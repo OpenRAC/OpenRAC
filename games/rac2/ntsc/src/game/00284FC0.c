@@ -18,10 +18,3 @@ void func_00284FC0(void)
 }
 
 INCLUDE_ASM("asm/game", func_00285030);
-
-
-
-
-INCLUDE_ASM("asm/game", func_00285398);
-
-INCLUDE_ASM("asm/game", func_00285548);

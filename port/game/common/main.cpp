@@ -145,6 +145,7 @@ void (*openrac_game_on_frame)(unsigned frame) = nullptr;
 int (*openrac_game_bolts)(void) = nullptr;
 int (*openrac_game_skip_buttons)(void) = nullptr;
 void (*openrac_game_skip)(void) = nullptr;
+int (*openrac_game_flight)(void) = nullptr;
 int (*openrac_game_mode)(uint32_t* mode) = nullptr;
 int (*openrac_game_hero_position)(float xyz[3]) = nullptr;
 int (*openrac_game_camera_position)(float xyz[3]) = nullptr;
@@ -153,6 +154,7 @@ int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* state) =
 int (*openrac_game_camera_turn)(uint8_t, float, float*, float[3], unsigned*) = nullptr;
 const openrac_front_end* openrac_game_front_end = nullptr;
 const openrac_game_play* openrac_game_play_host = nullptr;
+const openrac_game_tools* openrac_game_tools_host = nullptr;
 
 // The hook points of this disc's build, for mods (hostgen's hooks.c; mods.h's HookPoint is its
 // layout).

@@ -1,12 +1,43 @@
-/* func_L00_0032CF60 - 260 bytes, 27 place(s), level 00_aranos_tutorial,
-   retail at 0x0032cf60. Screened with tools/w10_screen.py: 2 call(s)
-   [func_002A05A8@0032D010, func_002A0F48@0032D040]; data addresses
-   materialised [0x200000, 0x1b0000, 0x1b0000]; float constants [0x1b0000];
-   $gp-relative small data: yes   saves: -; callee-saved registers saved
-   [-]; words plain C cannot emit [-]. Head: addiu $sp, $sp, -0x10 ; lui
-   $v0, 0x20 ; sw $zero, -0x5320($v0) ; sd $s0, 0x0($sp) ; addiu $v0, $zero,
-   0xFF ; sd $ra, 0x8($sp). Not matched in this wave: the body is straight-
-   line code whose register allocation and the materialisation of its
-   constant addresses have to be reproduced word for word. What would
-   unblock it: the exact source expression tree, so this cc1 picks the same
-   registers in the same order. */
+/* Retained plain-C attempt: 256/260 bytes; first difference +0x88.
+ * us: 0/27, pal: 0/27, us2: 0/27.
+ * Profile: -O2 -G8 -ffunction-sections -g.
+ * The scan matches structurally, but callback-pointer allocation and delay-slot scheduling differ. -g and disabling the second scheduler did not resolve it. Next: callback ABI/lifetime evidence.
+ */
+extern int D_L00_001FACE0 __attribute__((nosda));
+extern char *D_L00_001B1EA8;
+extern char *D_L00_001B1EA8_1 __attribute__((sda));
+extern char *D_L00_001B1E9C;
+extern void func_002A05A8(void *object);
+extern void func_002A0F48(void *object);
+void func_L00_0032CF60(void)
+{
+    char *scan, *object, *last = 0;
+    void (*update)(void *);
+    D_L00_001FACE0 = 0;
+    D_L00_001B1EA8 = 0;
+    for (scan = D_L00_001B1E9C; *(unsigned char *)(scan + 0x20) != 255; scan += 0x100) {
+        if ((*(unsigned char *)(scan + 0x20) & 0x80) == 0 &&
+            (*(unsigned short *)(scan + 0x34) & 2) == 0) {
+            if (last != 0)
+                *(char **)(last + 0x28) = scan;
+            else
+                D_L00_001B1EA8_1 = scan;
+            last = scan;
+        }
+    }
+    if (last != 0)
+        *(char **)(last + 0x28) = 0;
+    object = D_L00_001B1EA8;
+    while (object != 0) {
+        if (*(signed char *)(object + 0x20) >= 0) {
+            if ((*(unsigned short *)(object + 0x34) & 0x40) == 0)
+                func_002A05A8(object);
+            update = *(void (**)(void *))(object + 0x64);
+            if (update != 0)
+                update(object);
+            if ((*(unsigned short *)(object + 0x34) & 4) == 0)
+                func_002A0F48(object);
+        }
+        object = *(char **)(object + 0x28);
+    }
+}

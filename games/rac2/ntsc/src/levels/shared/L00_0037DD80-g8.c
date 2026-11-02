@@ -16,5 +16,3 @@ extern unsigned int D_L00_001B26B4_1;
 extern float D_L00_001B26B0_1;
 
 extern int D_L00_001B26B0 __attribute__((nosda));
-
-INCLUDE_ASM("asm/levels", func_L00_0037E5F0);

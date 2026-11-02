@@ -194,20 +194,12 @@ INCLUDE_ASM("asm/core", func_00131CB0);
 
 INCLUDE_ASM("asm/core", func_00131D98);
 
-INCLUDE_ASM("asm/core", func_00132028);
+/* func_00132028 is in its own -g8 unit. */
 
-INCLUDE_ASM("asm/core", func_001326D8);
-
-INCLUDE_ASM("asm/core", func_00132210);
-
-
-INCLUDE_ASM("asm/core", func_00132318);
-
-INCLUDE_ASM("asm/core", func_00132498);
+/* func_00132318 and func_001326D8 are in 00132318-g8.c. */
 
 INCLUDE_ASM("asm/core", func_001325E0);
 
-INCLUDE_ASM("asm/core", func_00132818);
 
 void func_00132858(int value) {
     int payload[4];
@@ -243,7 +235,6 @@ void func_00132938(int value) {
     func_00132DF0(11, 4, (int)payload, 0, 0);
 }
 
-INCLUDE_ASM("asm/core", func_00132968);
 
 void func_001329B0(int first, int second, int third) {
     int payload[4];
@@ -253,11 +244,8 @@ void func_001329B0(int first, int second, int third) {
     func_00132DF0(78, 12, (int)payload, 0, 0);
 }
 
-INCLUDE_ASM("asm/core", func_001329F0);
 
-INCLUDE_ASM("asm/core", func_00132A58);
 
-INCLUDE_ASM("asm/core", func_00132AA0);
 
 void func_00132AF8(int value) {
     int payload[4];
@@ -279,16 +267,12 @@ void func_00132B58(int value, long fourth, int fifth) {
     func_00132DF0(25, 4, (int)payload, fourth, fifth);
 }
 
-INCLUDE_ASM("asm/core", func_00132B88);
-
-INCLUDE_ASM("asm/core", func_00132C08);
-
-INCLUDE_ASM("asm/core", func_00132C48);
-
-INCLUDE_ASM("asm/core", func_00132DF0);
 
 
-INCLUDE_ASM("asm/core", func_00133108);
+/* func_00132C48 is in its own -g8 unit. */
+
+/* func_00132DF0 is defined in 00132DF0-g8.c. */
+
 
 /* rac1-decomp src/core/989snd.c: func_0012EC30 */
 /* snd_UnkFunction_0012eaf0 */
@@ -296,11 +280,8 @@ void func_00133220(void) {
     *(int *)&r1_D_0015EDC4 = 1;
 }
 
-INCLUDE_ASM("asm/core", func_00133300);
 
-INCLUDE_ASM("asm/core", func_00133340);
 
-INCLUDE_ASM("asm/core", func_001333C0);
 
 void func_00133400(int value) {
     int payload[4];

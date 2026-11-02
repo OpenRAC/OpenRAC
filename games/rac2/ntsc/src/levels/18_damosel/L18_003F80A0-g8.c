@@ -1,6 +1,7 @@
 #include "include_asm.h"
-typedef unsigned char u8;
-typedef int s32;
+#include "common.h"
+
+/* func_L18_003FB620 is in L18_003FB620-particles.c (-G32 settings record). */
 
 extern int D_L18_001B15C0 __attribute__((sda));
 extern int D_L18_001B15B0 __attribute__((sda));
@@ -58,7 +59,7 @@ extern void func_00340828(void *arg0, s32 arg1, float arg2, float arg3);
 extern int D_L18_001B15F0 __attribute__((sda));
 extern float D_L18_001B15F4 __attribute__((sda));
 extern float D_L18_001B15F8 __attribute__((sda));
-extern u8 D_L18_001B1600[] __attribute__((sda));
+extern u8 D_L18_001B1600[1] __attribute__((sda));
 extern float D_L18_001B1610 __attribute__((sda));
 extern u8 D_001C97C0[];
 extern float D_L18_001B1520 __attribute__((sda));
@@ -79,7 +80,25 @@ void func_L18_0042FAA8(u8 *a0)
     func_L18_0042FAE0(s0, D_L18_001B1490);
 }
 
-INCLUDE_ASM("asm/levels", func_L18_00433088);
+void func_L18_00433088(u8 *a0, s32 a1) {
+    u8 buf[0x70];
+    float t;
+    u8 *pos = buf + 0x10;
+
+    func_0029FC20(*(s32 *)(*(u8 **)(a0 + 0x68) + 0x7C4), a1, pos);
+    func_00308DE0(buf, D_L18_001B1600, pos);
+    func_003088F0(buf, buf, buf + 0x40);
+    func_00308920(buf + 0x50, D_001C97C0, buf);
+    func_00308BD8(buf + 0x50, buf + 0x50, 1.0f);
+    qcopy(buf + 0x60, pos);
+    t = func_003089E0(buf + 0x50, buf + 0x60);
+    if (D_L18_001B1610 < t) {
+        func_00340828(buf, func_00337AD8(D_L18_001B15F0 & 0xFFFFFF,
+                                         D_L18_001B15F0, t * t),
+                      D_L18_001B15F8, D_L18_001B15F4);
+    }
+}
+
 
 void func_L18_0042FAE0(u8 *a0, void *a1) {
     u8 buf[0x30];

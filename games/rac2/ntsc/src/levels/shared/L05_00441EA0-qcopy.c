@@ -1,0 +1,42 @@
+/* Copies the xyz of the first vector of the object's 32-byte entry in the D_L05_001B1EC4
+   table (index at +0x84) to its record's +0x20 with w cleared and on into +0x30, then
+   hands the entry's second vector, w cleared, to func_002833F0. */
+#include "include_asm.h"
+
+#define MACRO_ADDR __attribute__((section(".sdata")))
+
+typedef int TI128 __attribute__((mode(TI)));
+
+extern char *D_L05_001B1EC4 MACRO_ADDR;
+extern int func_002833F0(void *, void *);
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+    unsigned int w;
+} V4;
+
+void func_L05_00441EA0(char *object)
+{
+    char buf[16];
+    int table = (int)D_L05_001B1EC4;
+    char *record = *(char **)(object + 0x70);
+    V4 *dst = (V4 *)(record + 0x20);
+    V4 *src = (V4 *)(*(short *)(object + 0x84) * 32 + table);
+    V4 *second;
+    V4 *sp = (V4 *)buf;
+
+    dst->x = src->x;
+    dst->y = src->y;
+    dst->z = src->z;
+    dst->w = 0;
+    *(TI128 *)(object + 0x30) = *(TI128 *)dst;
+    second = (V4 *)(*(short *)(object + 0x84) * 32 + table);
+    second++;
+    sp->x = second->x;
+    sp->y = second->y;
+    sp->z = second->z;
+    sp->w = 0;
+    func_002833F0(object, buf);
+}

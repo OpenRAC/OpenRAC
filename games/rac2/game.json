@@ -32,14 +32,167 @@
       "target": "The boot executable SCUS_972.68 and its 27 level programs: every program rebuilds byte for byte from splat's assembly, with the C in src/ linked in place of its functions (one definition per function, at every place it has).",
       "source": {
         "name": "rac2-decomp",
-        "repo": "https://github.com/OpenRAC/rac2-gc-decomp",
-        "branch": "master",
+        "repo": "https://github.com/OpenRAC/rac2-decomp",
+        "branch": "port/backfill",
         "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
-        "exclude": [],
-        "commit": "8bc9d785bfec96fbc41c608ce625427912813ca5",
-        "date": "2026-10-20",
-        "imported": "2026-10-20"
+        "exclude": [
+          "toolchain"
+        ],
+        "mirror": true,
+        "rewrites": [
+          [
+            "extern void Ff67aa9df_FUN_0027EA28(void *v, void *x);",
+            "extern void func_0027EA28(void *v, void *x);"
+          ],
+          [
+            "    Ff67aa9df_FUN_0027EA28(v, x);",
+            "    func_0027EA28(v, x);"
+          ],
+          [
+            "extern void *func_0027C878(long long);",
+            "extern unsigned long long func_0027C878(long long);"
+          ],
+          [
+            "extern void func_0027F640(unsigned long long, char *, int, void *, int, float, float, float);",
+            "extern void func_0027F640(unsigned long long, char *, int, unsigned long long, int, float, float, float);"
+          ],
+          [
+            "extern char D_0025FF58[];",
+            "extern char D_00259F58[];"
+          ],
+          [
+            "f[0] = (int)D_0025FF58;",
+            "f[0] = (int)D_00259F58;"
+          ],
+          [
+            "extern AreaVector D_L06_001B3260 SDATA(D_L06_001B3260);",
+            "extern AreaVector D_L06_001B3260;\n#define D_L06_001B3260 D_L06_001B3260"
+          ],
+          [
+            "extern int levelIndexGP SDATA(D_001A79F0);",
+            "extern int D_001A79F0;\n#define levelIndexGP D_001A79F0"
+          ],
+          [
+            "extern int rewardScoreGP SDATA(D_001B1A80);",
+            "extern int D_001B1A80;\n#define rewardScoreGP D_001B1A80"
+          ],
+          [
+            "extern float baselineGP SDATA(D_L06_001B3284);",
+            "extern float D_L06_001B3284;\n#define baselineGP D_L06_001B3284"
+          ],
+          [
+            "extern u32 colorFirst SDATA(D_L16_001B02C0);",
+            "#define colorFirst D_L16_001B02C0[0]"
+          ],
+          [
+            "extern u8 *actorTable SDATA(D_L12_001B2E9C);",
+            "extern u8 *D_L12_001B2E9C;\n#define actorTable D_L12_001B2E9C"
+          ],
+          [
+            "D_001B8FB4",
+            "D_001A8C64"
+          ],
+          [
+            "D_001B8FB0",
+            "D_001A8C60"
+          ],
+          [
+            "D_001C2088",
+            "D_001B1D48"
+          ],
+          [
+            "D_001C8A10",
+            "D_001B8A10"
+          ],
+          [
+            "        D_001A8FB0 = 2;",
+            "        D_001A8C60 = 2;"
+          ],
+          [
+            "        D_001A8FB0 = a2;",
+            "        D_001A8C60 = a2;"
+          ],
+          [
+            "Lombyte (MIT)",
+            "Lombyte (GPL-3.0)"
+          ],
+          [
+            "docs/workflow/BACKFILL.md",
+            "docs/port/BACKFILL.md"
+          ],
+          [
+            "extern void func_002A0F48(p);",
+            "extern void func_002A0F48(u8 *p);"
+          ],
+          [
+            "ref_L00_00370408_00",
+            "func_0027CFD0"
+          ],
+          [
+            "ref_L00_002A9460_00",
+            "func_L00_002A75D8"
+          ],
+          [
+            "ref_L00_002A9460_01",
+            "func_L00_002A76B8"
+          ],
+          [
+            "extern char D_00250000[];",
+            "extern char D_00256368[];"
+          ],
+          [
+            "(D_00250000 + 0x6368)",
+            "D_00256368"
+          ],
+          [
+            "    STATE->channel[1].slot = func_002E5A50(object);\n",
+            "    STATE->channel[1].slot = func_002E5A50(object);\n    if (STATE->channel[1].slot >= 52) /* no free slot: retail would write past the 52 rows */\n        STATE->channel[1].slot = -1;\n"
+          ],
+          [
+            "extern char D_001F2840[];       /* C: the menu block */\nextern char D_00138180[];       /* P: the pad block */\n",
+            "extern char D_001F2840[];       /* C: the menu block */\nextern char D_00138180[];       /* P: the pad block */\nextern char D_00259018[], D_0025A738[], D_0025A498[], D_0025A190[], D_00259EE0[];\nextern int func_002DBAD0(), func_002DA118(), func_002D84B0(), func_002DA9A8();\n"
+          ],
+          [
+            "if (s1 == 0x259018)",
+            "if (s1 == (int)D_00259018)"
+          ],
+          [
+            "if (s1 == 0x25A738)",
+            "if (s1 == (int)D_0025A738)"
+          ],
+          [
+            "if (s1 == 0x25A498)",
+            "if (s1 == (int)D_0025A498)"
+          ],
+          [
+            "CW(0x14) == 0x25A190",
+            "CW(0x14) == (int)D_0025A190"
+          ],
+          [
+            "if (widget == 0x259EE0)",
+            "if (widget == (int)D_00259EE0)"
+          ],
+          [
+            "(cb == 0x2DBAD0 || cb == 0x2DA118 || cb == 0x2D84B0 || cb == 0x2DA9A8)",
+            "(cb == (int)func_002DBAD0 || cb == (int)func_002DA118 || cb == (int)func_002D84B0 || cb == (int)func_002DA9A8)"
+          ],
+          [
+            "CW(0x14) == 0x25E680",
+            "CW(0x14) == (int)D_0025E680"
+          ],
+          [
+            "CW(0x18) = 0x25A498;",
+            "CW(0x18) = (int)D_0025A498;"
+          ],
+          [
+            "extern char D_001C4FA0[];       /* Q: the selection state */\n",
+            "extern char D_001C4FA0[];       /* Q: the selection state */\nextern char D_0025E680[], D_0025A498[];\n"
+          ]
+        ],
+        "commit": "c89b67ce52adb1685b4398e261ef4f5483809c94",
+        "date": "2026-11-01",
+        "imported": "2026-11-01"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
@@ -88,7 +241,7 @@
         "file": "SCES_516.07",
         "sha1": "cb59ce5396ddebb8aa539b0847f8bf66d6a47fe0"
       },
-      "target": "Extraction only: the disc is recognised and its files are read. Nothing is built from the PAL release yet (games/rac2/ntsc/docs/REGIONS.md), and there is no PAL port to play it with."
+      "target": "Extraction only: the disc is recognised and its files are read. Nothing is built from the PAL release yet (games/rac2/ntsc/docs/VERSIONS.md), and there is no PAL port to play it with."
     }
   }
 }

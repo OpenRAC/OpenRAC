@@ -32,4 +32,45 @@ s32 MB_CheckCollPill(struct Moby *moby);
  */
 s32 Camera_CollPrimTest(void *prim, void *grid);
 
+/* Measured USA v1.01 memory views, not native host-pointer structures.
+ * Addresses are 32-bit PS2 values; decode them explicitly in a PC port/debugger.
+ * Field purposes not established by callers and the consumer retain offset names.
+ * See docs/COMMUNITY-ENGINE-REFERENCE.md, "Measured retail impact queue". */
+typedef struct Rac2Impact32 {
+    /* 0x00 */ f32 vector[4];
+    /* 0x10 */ u32 sourceAddress;
+    /* 0x14 */ u32 flags;
+    /* 0x18 */ u8 unk18;
+    /* 0x19 */ u8 unk19;
+    /* 0x1A */ s16 objectClass;
+    /* 0x1C */ f32 strength;
+    /* 0x20 */ u32 unk20;
+    /* 0x24 */ u32 unk24;
+} Rac2Impact32;                         /* payload: 0x28 bytes */
+
+/* Only the prefix needed by the inspected collision paths. Its size is not
+ * the size or stride of a complete moby. */
+typedef struct Rac2MobyCollisionView32 {
+    /* 0x00 */ u8 unk00[0x10];
+    /* 0x10 */ f32 position[4];
+    /* 0x20 */ u8 unk20[0x48];
+    /* 0x68 */ u32 instanceDataAddress;
+    /* 0x6C */ u8 unk6C[0x3C];
+    /* 0xA8 */ u8 impactSlot;
+    /* 0xA9 */ u8 unkA9;
+    /* 0xAA */ s16 objectClass;
+} Rac2MobyCollisionView32;              /* measured prefix: 0xAC bytes */
+
+/* Catalogue symbol; QueueMobyImpact in names.h is a descriptive alias. */
+void func_002A8E20(void *target, const Rac2Impact32 *impact);
+
+/*
+ * Moves *position towards target (src/game/002AA800.c). Under the EABI the
+ * two pointers take $a0 and $a1, the floats $f12-$f15 and direction $a2,
+ * whatever their order in the list; this order is the one retail's callers
+ * set the registers up in (level 20 and 23 bodies only match with it).
+ */
+float func_002AA898(float *position, float target, float *velocity,
+                    float acceleration, float damping, float limit, int direction);
+
 #endif /* ENGINE_H */

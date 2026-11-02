@@ -27,7 +27,7 @@ void func_002ED260(u32_Fe8672ea5 object)
     func_00282C88(D_L04_001B2AF0);
 }
 
-INCLUDE_ASM("asm/game", func_002ED2B8);
+/* func_002ED2B8 is matched in 002ED2B8-g8.c (built with -frac2-qcopy). */
 
 extern float func_00283CE0(int value);
 extern int func_00283CF0(float value);

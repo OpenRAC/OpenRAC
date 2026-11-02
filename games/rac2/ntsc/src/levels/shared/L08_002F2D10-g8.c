@@ -88,3 +88,53 @@ void func_L08_003CD488(s32 *counter, u8 *arg) {
     if (*counter < 0x5A)
         *counter = *counter + 1;
 }
+
+extern f32 func_002A7798(f32);
+
+/* Resident data: a pair of floats at 0x189E20 + 0x1FB0, the aim values at
+   0x138180 + 0x124, and the mode word at 0x1A79F0. */
+extern char D_00189E20[];
+extern char D_00138180[];
+extern s32 D_001A79F0;
+
+void func_L08_003C6528(f32 *a1, f32 *a2, f32 *a3, f32 *a4, f32 *a5, f32 *a6) {
+    char *p = (char *)D_00189E20;
+    f32 v;
+    {
+        char *q = (char *)D_00138180;
+        *a1 = -*(f32 *)(p + 0x1FB0);
+        *a3 = -*(f32 *)(p + 0x1FB4);
+        *a2 = func_002A7798(*(f32 *)(q + 0x128)) - func_002A7798(*(f32 *)(q + 0x124));
+    }
+    if (D_001A79F0 == 8 || D_001A79F0 == 0x1E || D_001A79F0 == 0x15) {
+        char *q = (char *)D_00138180;
+        *a4 = *(f32 *)(q + 0x12C);
+        *a6 = 0;
+    } else {
+        char *q = (char *)D_00138180;
+        *a6 = *(f32 *)(q + 0x12C);
+        *a4 = 0;
+    }
+    {
+        char *q = (char *)D_00138180;
+        *a5 = func_002A7798(*(f32 *)(q + 0x138)) - func_002A7798(*(f32 *)(q + 0x13C));
+    }
+
+    v = *a1;
+    if (v > 1.0f)
+        *a1 = 1.0f;
+    else if (v < -1.0f)
+        *a1 = -1.0f;
+
+    v = *a2;
+    if (v > 1.0f)
+        *a2 = 1.0f;
+    else if (v < -1.0f)
+        *a2 = -1.0f;
+
+    v = *a5;
+    if (v > 1.0f)
+        *a5 = 1.0f;
+    else if (v < -1.0f)
+        *a5 = -1.0f;
+}

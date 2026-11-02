@@ -1,5 +1,4 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/levels", func_L07_002AC078);
+/* func_L07_002AC078 is defined in L07_002AC078-flags.c. */
 
-INCLUDE_ASM("asm/levels", func_L07_002B8618);

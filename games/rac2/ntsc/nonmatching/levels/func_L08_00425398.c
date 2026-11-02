@@ -22,3 +22,8 @@
  * Everything except that one word is ordinary C; a max.s-capable cc1 should land it in one
  * attempt once the frame layout above is written.
  */
+
+Wave 24 (worker 01): not retried - the blocker is the same single word as in
+func_L08_00425328, the EE COP1 `max.s` at 0x00425434 (0x46010028, fd=$f0 fs=$f0 ft=$f1),
+which this cc1 has no pattern for.  Everything else in the body is ordinary C as the
+note above describes.

@@ -208,8 +208,6 @@ void openrac_game_tick_boundary(void) {
 
 void openrac_game_dma_send(gaddr channel, gaddr tag) {
     c_boundary::call("openrac_game_dma_send", [&] {
-        g_chain = tag;
-
         // A frame sent to VIF1 with no vertical blank waited for since the last one: on the console
         // the loop is paced by the DMA and the interrupts (the title loop never calls sceGsSyncV), so
         // the frame ends here, with the vertical blank's handlers, as if the hardware had done it.
@@ -220,6 +218,9 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
                 openrac_game_tick_boundary();
             }
 
+            // The frame's list. What goes to VIF0 (Going Commando's VU0 programs, which it sends in
+            // the middle of a frame) is not one.
+            g_chain = tag;
             g_vsync_since_kick = false;
         }
 
@@ -251,9 +252,11 @@ void openrac_game_set_display(const openrac_game_display* d) {
 #ifdef OPENRAC_FRONTEND
             // Display changes replace globals read by the pending snapshot, so drain it first.
             if (d->frame_width > 0 && d->height > 0 && frontend::finish_render()) {
+                const std::uint32_t named = frontend::draw_buffer_block();
                 renderer::set_draw_buffer_block(
-                    static_cast<std::uint32_t>(d->frame_base) * 32
-                        + static_cast<std::uint32_t>(d->height * d->frame_width),
+                    named != 0 ? named
+                               : static_cast<std::uint32_t>(d->frame_base) * 32
+                                     + static_cast<std::uint32_t>(d->height * d->frame_width),
                     d->height >= 512 ? 448 : 416
                 );
             }

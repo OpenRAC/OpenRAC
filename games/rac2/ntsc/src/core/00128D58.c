@@ -141,7 +141,35 @@ int func_00128E98(unsigned char *src, int *out) {
     return 1;
 }
 
-INCLUDE_ASM("asm/core", func_00128F48);
+typedef struct {
+    unsigned long a : 14;
+    unsigned long b : 2;
+    unsigned long c : 8;
+    unsigned long d : 8;
+} Mode128F48;
+
+extern int r1_func_00124A70(int, Mode128F48, int *, int);
+
+/* rac1-decomp src/core/00125218.c: func_00125218 */
+/* Builds a mode word from bitfields and runs the r1_func_00124A70 round
+   trip. The fields are 64-bit, so each insert is a doubleword and/or,
+   and the struct is passed by value. `if (r >= 0) return out;` keeps
+   retail's two returns; an `r = out` spelling becomes slt/movz. */
+int func_00128F48(int arg0, int arg1) {
+    Mode128F48 m;
+    int out;
+    int r;
+
+    m.a = 2;
+    m.b = 2;
+    m.c = 3;
+    m.d = 1;
+    r = r1_func_00124A70(arg0, m, &out, arg1);
+    if (r >= 0) {
+        return out;
+    }
+    return r;
+}
 
 INCLUDE_ASM("asm/core", func_00128FD0);
 

@@ -19,6 +19,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install the pinned instruction decoder
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess, sys
+          decoder = next(line for line in Path("requirements.txt").read_text().splitlines()
+                         if line.startswith("rabbitizer=="))
+          subprocess.run([sys.executable, "-m", "pip", "install", decoder], check=True)
+          PY
       - name: Unit tests
         run: python -m unittest discover -s tests -v
       - name: Catalogues and sources

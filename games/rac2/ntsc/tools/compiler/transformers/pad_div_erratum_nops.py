@@ -41,9 +41,16 @@ HI/LO `div`/`divu` do not; and this SDK assembler does not accept the D forms
 at all.  This is narrower than the family names sometimes quoted for the wall,
 and it is what the oracle answers.
 
+  (D)  A label that directly follows a noreorder group still counts.  GCC emits
+      each call with its delay slot inside `.set noreorder`; a -g line label
+      after it and a division at that label get the two nops in retail
+      (jal, delay, nop, nop, div.s in func_L00_0040A4A8 and 23 other level-00
+      sites).  gas's own reset for an unreordered previous instruction would
+      cancel them, so the label floor is tested after that reset.
+
 The delay-slot half is NOT fixed here. Retained compiler attempts place a
-`div.s` in a following `jal` delay slot and remain mismatches. This implementation
-suppresses its new floors in noreorder regions; SDK 3.01 pads ordinary noreorder
+`div.s` in a following `jal` delay slot and remain mismatches. A division emitted
+inside a noreorder region gets no new floor; SDK 3.01 pads ordinary noreorder
 cases too, so that behavior remains unsupported. A division scheduled in a delay
 slot still loses the padding. Cross-fragment alignment/relaxation and speculative
 nop removal are not generally reproduced. This is a bounded improvement, not
@@ -122,16 +129,30 @@ PAD_ANCHOR = """      /* If the previous instruction was in a noreorder section,
 	nops = 0;
 """
 
-PAD = """      /* RAC2: require two emitted slots between a code label and a division-
+PAD = """      /* RAC2: an immediately preceding sync.p also requires one nop before
+   this COP1 family. Match the exact mnemonic: sync and sync.l share
+   INSN_SYNC but do not trigger the measured rule. This is another
+   minimum, not an addition.
+
+    */
+      if (! mips_opts.mips16
+	  && rac2_div_erratum_p (ip)
+	  && prev_insn.insn_mo != 0
+	  && prev_insn.insn_mo != &dummy_opcode
+	  && strcmp (prev_insn.insn_mo->name, "sync.p") == 0
+	  && nops < 1)
+	nops = 1;
+
+"""
+
+LABEL_PAD = """      /* RAC2: require two emitted slots between a code label and a division-
    family operation. This is a minimum, not an addition: an existing
    coprocessor hazard nop contributes to the floor. No observed code
-   label means no label-driven padding.
-
-
-
-
-
-
+   label means no label-driven padding. The test runs after the noreorder
+   reset: a label that follows a compiler .set noreorder group (a call and
+   its delay slot) still gets the floor, as retail shows (jal, delay, nop,
+   nop, div.s after a -g line label in func_L00_0040A4A8 and 23 other
+   level-00 sites). See docs/COMPILER-NOTES.md.
     */
       if (rac2_div_label_defined
 	  && ! mips_opts.mips16
@@ -148,20 +169,6 @@ PAD = """      /* RAC2: require two emitted slots between a code label and a div
 	      && ! prev_insn_unreordered)
 	    rac2_div_keep_labels = 1;
 	}
-
-      /* RAC2: an immediately preceding sync.p also requires one nop before
-   this COP1 family. Match the exact mnemonic: sync and sync.l share
-   INSN_SYNC but do not trigger the measured rule. This is another
-   minimum, not an addition.
-
-    */
-      if (! mips_opts.mips16
-	  && rac2_div_erratum_p (ip)
-	  && prev_insn.insn_mo != 0
-	  && prev_insn.insn_mo != &dummy_opcode
-	  && strcmp (prev_insn.insn_mo->name, "sync.p") == 0
-	  && nops < 1)
-	nops = 1;
 
 """
 
@@ -220,7 +227,7 @@ def main() -> None:
 
     end = source.index(";", source.index(STATE_ANCHOR)) + 1
     source = source[:end] + "\n" + HELPER + source[end:]
-    source = source.replace(PAD_ANCHOR, PAD + PAD_ANCHOR, 1)
+    source = source.replace(PAD_ANCHOR, PAD + PAD_ANCHOR + LABEL_PAD, 1)
     source = source.replace(COUNT_ANCHOR, COUNT, 1)
     source = source.replace(LABEL_ANCHOR, LABEL, 1)
     assert source.count(NOP_EMIT_ANCHOR) == 1, "anchor: emitted-nop macro"

@@ -1,5 +1,42 @@
 #include "include_asm.h"
 
+/* A row of a choice list: its label, the byte it edits and up to four choice labels. */
+typedef struct {
+    int text;
+    unsigned char *value;
+    int choices[4];
+} ChoiceRow;
+
+typedef struct {
+    char pad00[0x34];
+    ChoiceRow *rows;
+    int selected;
+} ChoiceMenu;
+
+/* A menu page: the page the back button opens and the menu taking input. */
+typedef struct {
+    char pad00[0xE0];
+    int back;
+    char padE4[4];
+    void *focus;
+    char padEC[0x128 - 0xEC];
+    int pendingFocus;
+} MenuPage;
+
+/* The menu system D_001F2840: its current page, the page to open next and the flag that
+ * keeps the menu from closing. */
+typedef struct {
+    char pad[0x14];
+    MenuPage *owner;
+    int next;
+    char pad1[0x134 - 0x1C];
+    int active;
+} CtxB6;
+
+extern int D_00138180[];
+
+extern void func_002DF190(int, int);
+
 /* Qwen draft (branch qwen/autonomy, 385de342), checked by tools/check.py */
 void func_002D5B58(short param_1, int param_2, int *param_3);
 
@@ -74,18 +111,16 @@ void func_002D5E98(int param_1)
   func_002D5B58(*(short *)(param_1 + 2), *(int *)(param_1 + 4), &auStack_20[0]);
   return;
 }
-
-INCLUDE_ASM("asm/game", func_002D5EC0);
+/* func_002D5EC0 is in 002D5E98-list-g8.c. */
 
 INCLUDE_ASM("asm/game", func_002D6230);
 
 /* func_002D68D8 is in 002D5E98-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002D6970);
 
 typedef struct { char pad[4]; short mode; } Mode2D6E78;
 typedef struct { char pad[0x29C]; int flags[5]; int selected; } Map2D6E78;
-typedef struct { char pad[0xDB]; unsigned char active; } State2D6E78;
+typedef struct { char pad[0xDB]; unsigned char active; char padDC[0x118 - 0xDC]; char *loaded; unsigned int limit; } State2D6E78;
 extern Mode2D6E78 D_001A63A8;
 extern Map2D6E78 D_001C4FA0;
 extern State2D6E78 D_001F2840;
@@ -146,7 +181,6 @@ int func_002D75E8(int *arg0)
 
 INCLUDE_ASM("asm/game", func_002D7698);
 
-INCLUDE_ASM("asm/game", func_002D7AC0);
 
 int func_002D7AC8(void)
 {
@@ -167,17 +201,146 @@ int func_002D7B00(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D7B18);
+typedef struct { char pad[0x1c0]; int held; int pressed; } Pad2D7B18;
+typedef struct {
+    char pad00[0x30];
+    unsigned int flags;
+    char pad34[0xC];
+    int selection;
+} Menu2D7B18;
+/* D_001A7B90 is the 40-byte saved settings block (func_00298E08 copies it whole). Read as
+   fields, its symbol+offset macro loads never fill a delay slot, as in retail. The two
+   sliders are numbered by the menu row that edits them. */
+typedef struct {
+    char pad00[8];
+    int mode;
+    int slider1;
+    int slider0;
+    char pad14[0x28 - 0x14];
+} Settings2D7B18;
+extern Settings2D7B18 D_001A7B90 __attribute__((sda));
+extern int *D_001AA4F0 __attribute__((sda));
+extern void func_00295C50(int);
+extern void func_002E4860(void);
+extern void func_00132938(int);
 
-INCLUDE_ASM("asm/game", func_002D7DB8);
+/* Sound menu input: back and close, row navigation, volume sliders and the mode toggle. */
+int func_002D7B18(Menu2D7B18 *menu)
+{
+    int previous;
+    int old_slider1;
+    int old_slider0;
 
-INCLUDE_ASM("asm/game", func_002D8120);
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x900) != 0 && ((CtxB6 *)&D_001F2840)->active == 0)
+        return 1;
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x10) != 0) {
+        int back = ((CtxB6 *)&D_001F2840)->owner->back;
+        int result;
+
+        /* One shared exit: it keeps the 0/-1 choice a branch, not a conditional move. */
+        if (back != 0) {
+            ((CtxB6 *)&D_001F2840)->next = back;
+        } else if (((CtxB6 *)&D_001F2840)->active == 0) {
+            result = -1;
+            goto back_done;
+        }
+        result = 0;
+back_done:
+        return result;
+    }
+
+    previous = menu->selection;
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x1000) != 0)
+        menu->selection = (previous + 2) % 3;
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x4000) != 0)
+        menu->selection = (menu->selection + 1) % 3;
+    if (menu->selection != previous || ((CtxB6 *)&D_001F2840)->owner->pendingFocus != 0) {
+        func_002DF190(1, 0x11);
+        if (menu->flags & 0x20)
+            func_00295C50(D_001AA4F0[menu->selection]);
+    }
+
+    old_slider1 = D_001A7B90.slider1;
+    old_slider0 = D_001A7B90.slider0;
+    if ((((Pad2D7B18 *)D_00138180)->held & 0x2000) != 0) {
+        if (menu->selection == 0) {
+            int next = D_001A7B90.slider0 + 3;
+            D_001A7B90.slider0 = next < 1025 ? next : 1024;
+        }
+        if (menu->selection == 1) {
+            int next = D_001A7B90.slider1 + 3;
+            D_001A7B90.slider1 = next < 1025 ? next : 1024;
+        }
+    }
+    if ((((Pad2D7B18 *)D_00138180)->held & 0x8000) != 0) {
+        if (menu->selection == 0) {
+            int next = D_001A7B90.slider0 - 3;
+            D_001A7B90.slider0 = next >= 0 ? next : 0;
+        }
+        if (menu->selection == 1) {
+            int next = D_001A7B90.slider1 - 3;
+            D_001A7B90.slider1 = next >= 0 ? next : 0;
+        }
+    }
+    if (old_slider1 != D_001A7B90.slider1 || old_slider0 != D_001A7B90.slider0)
+        func_002E4860();
+
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x40) != 0) {
+        if (menu->selection == 2)
+            D_001A7B90.mode = !D_001A7B90.mode;
+        func_00132938(!D_001A7B90.mode);
+        func_002DF190(0, 0x11);
+    }
+    return 0;
+}
+
+/* func_002D7DB8 is in 002D5E98-audio.c. */
+
 
 int func_002D81A8(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D81B0);
+typedef struct { char pad0[0x36C]; int offset; char pad370[0x16B0 - 0x370]; int start; int length; } Stream2D81B0;
+typedef struct { unsigned int key; unsigned int flags; } Slot2D81B0;
+extern Stream2D81B0 D_0014B540;
+#define MACRO_ADDR __attribute__((section(".sdata")))
+extern Slot2D81B0 D_001B1F50[] MACRO_ADDR;
+extern int D_001F2958;
+
+/* Halves the stream length while it marks the slots whose key is older than the clock and
+   (outside the mode) asks for the next block; the result picks state 1 or 3. */
+int func_002D81B0(char *object)
+{
+    int length;
+    int i;
+    unsigned int *key;
+    unsigned int *flags;
+
+    func_002DE3A0(1);
+    *(int *)(object + 0x54) = 0;
+    *(int *)(object + 0x38) = 0;
+    length = D_0014B540.length;
+    D_0014B540.length = length / 2;
+    flags = &D_001B1F50[0].flags;
+    key = &D_001B1F50[0].key;
+    for (i = 0; i < 5; i++) {
+        if (*key != 0 && *key < D_001F2840.limit)
+            *flags |= 2;
+        flags += 2;
+        key += 2;
+    }
+    *(int *)(object + 0x50) = 0;
+    if (D_001A63A8.mode == 0) {
+        if (func_002B7B18(D_001F2958, D_0014B540.start + D_0014B540.offset, D_0014B540.length) != 0)
+            *(int *)(object + 0x50) = 1;
+        else
+            *(int *)(object + 0x50) = 3;
+    }
+    *(int *)(object + 0x10) |= 4;
+    D_0014B540.length = length;
+    return 0;
+}
 
 extern short D_001A63AC;
 extern void func_002B7AD0(void);
@@ -199,11 +362,69 @@ int func_002D82C8(char *object)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D8338);
+extern unsigned char D_001A7BB4 __attribute__((sda));
+extern int D_00254E78[];
+extern int func_002B7B18(int, int, int);
+extern void func_00282AB0(void *, void *, int);
 
-INCLUDE_ASM("asm/game", func_002D84B0);
+/* The loader object of func_002D81B0: its flags, the entry table it replaced and its state. */
+typedef struct {
+    char pad00[0x10];
+    int flags;
+    char pad14[0x38 - 0x14];
+    int saved_count;
+    char pad3C[0x50 - 0x3C];
+    int state;
+    int saved_base;
+} Loader2D8338;
 
-INCLUDE_ASM("asm/game", func_002D89D8);
+/* Advances the loader: starts the read, then unpacks the loaded block and relocates its entries. */
+int func_002D8338(char *object)
+{
+    Loader2D8338 *loader = (Loader2D8338 *)object;
+
+    switch (loader->state) {
+    case 2:
+        break;
+    case 0:
+        if (D_001A63AC == 0) {
+            Stream2D81B0 *stream = &D_0014B540;
+
+            if (func_002B7B18(D_001F2958, stream->start + stream->offset, stream->length))
+                loader->state = 1;
+            else
+                loader->state = 3;
+        }
+        break;
+    case 1:
+        if (D_001A63AC == 0) {
+            char *data = D_001F2840.loaded;
+            int *header = (int *)(data + ((int *)data)[D_001A7BB4]);
+            int count = *header++;
+            int size = *header++;
+            char *base;
+            int i;
+
+            func_00282AB0(data, header, ((size + 3) & ~3) - 8);
+            loader->saved_base = D_001B1840;
+            loader->saved_count = D_00254E78[11];
+            D_00254E78[11] = count;
+            base = D_001F2840.loaded;
+            D_001B1840 = (int)base;
+            for (i = 0; i < D_00254E78[11]; i++) {
+                int reloc = (int)base - 8;
+
+                ((int *)base)[i * 4] += reloc;
+            }
+            loader->state = 2;
+            loader->flags &= ~4;
+        }
+        break;
+    }
+    return 0;
+}
+
+/* func_002D89D8 is defined in 002D5E98-listbox.c. */
 
 extern char *D_001A8CFC[] __attribute__((sda));
 extern unsigned char D_00139568[];
@@ -255,9 +476,64 @@ int func_002D95D8(char *arg0) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D9600);
+/* Scans the object's 24 effect slots: a slot whose entry flag is clear, whose
+   "used" byte is set, and whose table word is zero is skipped.  Slot 7 also
+   skips a live, in-range material.  The remaining slots dispatch by slot
+   number: most first test the material on the shared record, and every slot
+   that is still live is handed to the effect runner with the "run" flag. */
+typedef struct {
+    char pad00[0x44];
+    char *entries[0x18];
+    unsigned char used[0x18];
+} EffectSlots_2D9600;
 
-INCLUDE_ASM("asm/game", func_002D9730);
+extern int D_00261920[];
+
+extern void func_002DF158(char *, int);
+
+int func_002D9600(EffectSlots_2D9600 *o)
+{
+    int i;
+
+    for (i = 0; i < 0x18; i++) {
+        char *entry;
+        unsigned char id;
+
+        if (o->entries[i] == 0)
+            continue;
+        if (o->used[i] != 0)
+            continue;
+        if (D_00261920[i] == 0)
+            continue;
+        if (i == 7
+            && *(short *)(o->entries[7] + 0xAA) == 0x4A
+            && *(unsigned char *)(o->entries[0] + 0x42)
+                   != *(unsigned char *)(o->entries[0] + 0x43))
+            continue;
+        switch (i - 1) {
+        case 0:
+        case 1:
+        case 2:
+        case 4:
+        case 5:
+        case 9:
+        case 10:
+        case 11:
+            entry = o->entries[0];
+            if ((*(unsigned long long *)(entry + 0x40) & 0xFFFF0000ULL) != 0x99990000ULL)
+                goto call;
+            id = *(unsigned char *)(entry + 0x40);
+            if (id < 0x4D)
+                goto call;
+            if (id < 0x92)
+                continue;
+            break;
+        }
+    call:
+        func_002DF158(o->entries[i], 1);
+    }
+    return 4;
+}
 
 int func_002D9798(int *arg0)
 {
@@ -308,11 +584,11 @@ int func_002D9798(int *arg0)
     return 2;
 }
 
-INCLUDE_ASM("asm/game", func_002D99E8);
+/* func_002D99E8 is built from 002D99E8-g8.c for small-data access. */
 
 
 
-INCLUDE_ASM("asm/game", func_002D9DA0);
+/* func_002D9DA0 is in 002D5E98-texture.c. */
 
 /* The screen position the object is drawn at, and the 64-bit packet its draw call carries. */
 typedef struct {
@@ -413,7 +689,7 @@ int func_002DA2D0(Handles_2DCB28 *object) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002DA328);
+/* func_002DA328 is in 002D5E98-stream.c. */
 
 INCLUDE_ASM("asm/game", func_002DA9A8);
 
@@ -421,15 +697,148 @@ INCLUDE_ASM("asm/game", func_002DAD18);
 
 /* func_002DAE90 is in 002D5E98-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002DAF68);
+/* The map screen's frame: the page and image being shown and the two frame textures. */
+typedef struct {
+    char pad[0x230];
+    int page;
+    int image;
+    char pad238[0x268 - 0x238];
+    unsigned long long tex0;
+    char pad270[8];
+    unsigned long long tex1;
+} Dialog2DAF68;
+extern char *D_001F2854;
+extern char D_0025E680[];
+extern int D_00261998[];
+/* The frame counter as an incomplete sda array: retail's tied absolute macro load. */
+extern int D_001B1598[] __attribute__((sda));
+extern void func_002FC560(int, unsigned long long);
+extern void func_0028F278(unsigned long long, int, int, int, int, int, int, int, int, int);
 
-INCLUDE_ASM("asm/game", func_002DB1B0);
+/* Draws the textured frame around the map dialog, scrolling the inner texture. */
+int func_002DAF68(void)
+{
+    int inset[4];
+    int left;
+    int top;
+    int width;
+    int height;
+    int style;
+    int border;
+    int scroll;
+    int page;
+    Dialog2DAF68 *dialog;
 
-INCLUDE_ASM("asm/game", func_002DB3C0);
+    if (((Dialog2DAF68 *)&D_001C4FA0)->image < 0)
+        return 0;
+    page = ((Dialog2DAF68 *)&D_001C4FA0)->page;
+    if (page == 5 || page == 10 || page == 15)
+        return 0;
+    if (page >= 21 && page != 24)
+        return 0;
 
-INCLUDE_ASM("asm/game", func_002DB648);
+    if (D_001F2854 == D_0025E680) {
+        inset[1] = 50;
+        inset[2] = 38;
+        inset[3] = 25;
+        left = 29;
+        top = 77;
+        width = 191;
+        height = 178;
+        inset[0] = 0;
+    } else {
+        inset[1] = 38;
+        inset[2] = 28;
+        inset[3] = 20;
+        left = 30;
+        top = 76;
+        inset[0] = 0;
+        width = 153;
+        height = 140;
+    }
+    dialog = (Dialog2DAF68 *)&D_001C4FA0;
+    style = D_00261998[dialog->image];
+    scroll = (D_001B1598[0] + dialog->image * 0x2AB) % 2048;
+    border = inset[style];
 
-INCLUDE_ASM("asm/game", func_002DB7F0);
+    func_002FC560(0x47, 0);
+    func_002FC560(8, 0);
+    if (style == 0) {
+        func_0028F278(dialog->tex0, left << 4, top << 4, 7, 7, width << 4, height << 4, 0, 0, 0x80);
+    } else {
+        func_0028F278(dialog->tex0, (left + border) << 4, (top + border) << 4, 7, 7,
+                      (width - border * 2) << 4, (height - border * 2) << 4, scroll, 0, 0x80);
+        func_002FC560(8, 5);
+        func_0028F278(dialog->tex1, left << 4, top << 4, 7, 7, width << 4, height << 4, 0, 0, 0x80);
+    }
+    func_002FC560(0x47, 0x360B);
+    return 4;
+}
+
+/* func_002DB3C0 is in 002DB3C0.c. */
+
+/* Choice list input: close, back, row navigation and cycling the selected row's value. */
+int func_002DB648(ChoiceMenu *menu)
+{
+    CtxB6 *menuSystem = (CtxB6 *)&D_001F2840;
+    int result;
+    int previous;
+
+    if (menuSystem->owner->focus != menu)
+        return 0;
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x900) != 0 && menuSystem->active == 0)
+        return 1;
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x10) != 0) {
+        CtxB6 *menus = (CtxB6 *)&D_001F2840;
+        int back = menus->owner->back;
+
+        /* The shared exit keeps the 0/-1 choice a branch rather than a conditional move. */
+        if (back != 0) {
+            menus->next = back;
+        } else if (menus->active == 0) {
+            result = -1;
+            goto back_done;
+        }
+        result = 0;
+back_done:
+        return result;
+    }
+
+    previous = menu->selected;
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x1000) != 0 && previous != 0)
+        menu->selected = previous - 1;
+    if ((((Pad2D7B18 *)D_00138180)->pressed & 0x4000) != 0) {
+        int selected = menu->selected;
+
+        if (menu->rows[selected + 1].text != 0)
+            menu->selected = selected + 1;
+    }
+    if (previous != menu->selected)
+        func_002DF190(1, 0x11);
+
+    {
+        ChoiceRow *row = &menu->rows[menu->selected];
+        int *choices = row->choices;
+        int count = 0;
+
+        if (choices[0] != 0) {
+            do {
+                count++;
+            } while (choices[count] != 0 && count < 4);
+        }
+        if ((((Pad2D7B18 *)D_00138180)->pressed & 0x40) != 0) {
+            unsigned char *value = row->value;
+
+            if (value != 0) {
+                *value = (*value + 1) % count;
+                func_002DF190(0, 0x11);
+            }
+        }
+    }
+    return 0;
+}
+
+/* func_002DB7F0 is in 002DB7F0.c. */
 
 INCLUDE_ASM("asm/game", func_002DB988);
 
@@ -487,7 +896,7 @@ int func_002DBB78(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002DBC10);
+/* func_002DBC10 is defined in 002DBC10.c. */
 
 #define MACRO_ADDR __attribute__((section(".sdata")))
 
@@ -629,9 +1038,9 @@ int func_002DC090(char *s0)
 
 INCLUDE_ASM("asm/game", func_002DC3C8);
 
-INCLUDE_ASM("asm/game", func_002DC720);
+/* func_002DC720 is matched in its own unit, src/game/002DC720.c (its jump table). */
 
-INCLUDE_ASM("asm/game", func_002DC900);
+/* func_002DC900 is built from 002DC900-g8.c for small-data access. */
 
 /* func_002DCAB8 is built from 002D5E98-g8.c for small-data access. */
 
@@ -640,12 +1049,8 @@ int func_002DCB28(Handles_2DCB28 *object) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002DCB58);
 
-INCLUDE_ASM("asm/game", func_002DCFE8);
 
-INCLUDE_ASM("asm/game", func_002DD400);
 
 INCLUDE_ASM("asm/game", func_002DDA10);
 
-INCLUDE_ASM("asm/game", func_002DDEB0);

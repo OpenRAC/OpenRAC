@@ -4,6 +4,22 @@
 
 typedef int TI128 __attribute__((mode(TI)));
 
+extern float func_002A7878(float, float);
+extern s32 func_002A77E0(s32);
+extern s32 func_00282978(void *);
+extern float *func_L11_004417E8(void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern float func_00283180(float);
+extern float func_00283198(float);
+extern void func_L11_0045FDB0(void *, void *, void *, float, float, float, float);
+extern TI128 D_00189EA0;
+extern u16 D_L11_001B19A8 __attribute__((sda));
+extern s32 D_L11_001B19AC __attribute__((sda));
+extern float D_L11_001B19B0 __attribute__((sda));
+extern float D_L11_001B19B4 __attribute__((sda));
+
 extern s32 D_L11_005A0000 __attribute__((sda));
 
 extern float func_32CB48(float f12, float f13);
@@ -67,4 +83,248 @@ s32 func_L11_00448D28(u8 *a0)
         q++;
     }
     return 0;
+}
+
+extern void func_2FD7E8(void *a0, int a1, void *a2, void *a3, int a4, int a5,
+                        int a6, int a7, float f12);
+
+extern s32 D_L11_001B1C50 __attribute__((sda));
+
+extern u8 D_L11_001B1C10 __attribute__((sda));
+
+extern s32 D_L11_001B1C54;
+
+/* hands the object's 0x270 and 0x370 tables, its 0x4B0/0x4B4/0x4B8 words and the level's
+   own 0x1B1C50/0x1B1C54 state to the scene manager */
+void func_L11_0044C220(char *a0)
+{
+    char *v0 = *(char **)(a0 + 0x68);
+
+    func_2FD7E8(&D_L11_001B1C10, 4, v0 + 0x270, v0 + 0x370,
+                *(s32 *)(v0 + 0x4B4), *(s32 *)(v0 + 0x4B0),
+                D_L11_001B1C50, D_L11_001B1C54,
+                *(f32 *)(v0 + 0x4B8));
+}
+
+typedef struct JobObject JobObject;
+
+/* The record behind an object's +0x68 pointer for the kind handled by the two functions below. */
+typedef struct {
+    u8 pad00[0x18];
+    float *params;          /* +0x18, points at paramBlock */
+    u8 pad1C[4];
+    float health;           /* +0x20 */
+    u8 pad24[4];
+    u8 f28;
+    u8 f29;
+    u8 pad2A[4];
+    u8 f2E;
+    u8 pad2F;
+    float f30;
+    u8 f34;
+    u8 pad35[0x48 - 0x35];
+    u8 f48;
+    u8 pad49;
+    u8 f4A;
+    u8 pad4B[5];
+    u8 hitInfo[0x10];       /* +0x50 */
+    u8 f60;
+    u8 pad61[8];
+    u8 f69;
+    u8 pad6A[0x80 - 0x6A];
+    float f80;
+    float f84;
+    u8 pad88[4];
+    float f8C;
+    u8 pad90[8];
+    s32 f98;
+    u8 pad9C[0xFC - 0x9C];
+    float fFC;
+    float paramBlock[5];    /* +0x100 */
+    u8 pad114[0x12C - 0x114];
+    float f12C;
+    float f130;
+    float f134;
+    u8 pad138[0x1D4 - 0x138];
+    float f1D4;
+    u8 pad1D8[0x1E6 - 0x1D8];
+    u8 f1E6;
+    u8 pad1E7;
+    u8 f1E8;
+    u8 f1E9;
+    u8 pad1EA[0x1FC - 0x1EA];
+    u16 spawnTimer;         /* +0x1FC */
+    u8 pad1FE[0x2F0 - 0x1FE];
+    float basis[12];        /* +0x2F0 */
+    float anchor[4];        /* +0x320 */
+    u8 pad330[0x354 - 0x330];
+    JobObject *turret;      /* +0x354 */
+    float turnRate;         /* +0x358 */
+    u8 pad35C[0x364 - 0x35C];
+    s16 fireTimer;          /* +0x364 */
+    u8 pad366[0x36E - 0x366];
+    s16 f36E;
+} JobState;
+
+struct JobObject {
+    u8 pad00[0x10];
+    float position[4];      /* +0x10 */
+    u8 stage;               /* +0x20 */
+    u8 pad21[0x31 - 0x21];
+    u8 f31;
+    u8 pad32[2];
+    u16 flags;              /* +0x34 */
+    u8 pad36[0x68 - 0x36];
+    JobState *state;        /* +0x68 */
+    u8 pad6C[3];
+    u8 f6F;
+    u8 pad70[0x95 - 0x70];
+    u8 f95;
+    u8 pad96[0xB8 - 0x96];
+    s32 fB8;
+    u8 padBC[4];
+    float rotation[12];     /* +0xC0 */
+};
+
+/* Spawns the effect at a random point around the object's anchor when its timer runs out. */
+void func_L11_004471A8(JobObject *object)
+{
+    float position[4], velocity[4], acceleration[4];
+    JobState *state = object->state;
+    float angle;
+    float *base;
+    int chance;
+    u16 timer;
+
+    if (func_00282978(&state->spawnTimer)) {
+        timer = D_L11_001B19A8;
+        chance = D_L11_001B19AC;
+        state->spawnTimer = timer;
+        if (!func_002A77E0(chance)) {
+            qcopy(position, &D_00189EA0);
+            func_00282CF0(velocity, position, func_L11_004417E8(object));
+            velocity[2] = 0;
+            func_00282F20(velocity, velocity, D_L11_001B19B4);
+            func_00282CC0(position, velocity, func_L11_004417E8(object));
+            position[2] += 5.0f;
+        } else {
+            angle = func_002A7878(-3.1415927410125732f, 3.1415927410125732f);
+            base = func_L11_004417E8(object);
+            position[0] = base[0] + D_L11_001B19B4 * func_00283180(angle);
+            base = func_L11_004417E8(object);
+            position[1] = base[1] + D_L11_001B19B4 * func_00283198(angle);
+            position[2] = func_L11_004417E8(object)[2] + 5.0f;
+        }
+        *(TI128 *)acceleration = 0;
+        acceleration[2] = D_L11_001B19B0 * (1.0f / 60.0f);
+        *(TI128 *)velocity = *(TI128 *)acceleration;
+        func_L11_0045FDB0(object, velocity, position, state->health, (float)state->f34, 1.0f,
+                          550.0f);
+    }
+}
+
+extern s32 func_00283CF0(float);
+extern float func_00282E48(void *, void *);
+extern void func_002A93B0(void *);
+extern void *func_002A9640(void *, s32, s32);
+extern s32 func_002B0ED8(void *, void *, s32);
+extern void func_00283698(void *, void *);
+extern void func_002AFFD8(void *, void *, s32);
+extern s32 func_L11_004461C0(s32, void *);
+extern void func_002A7750(void *, s32, s32);
+extern char D_L11_001BA8C0[];
+extern s32 D_001A8FF4;
+extern void func_L11_00449878(void *);
+extern void func_L11_00448DF8(void *);
+/* Two arguments: retail sets $a1 to the object func_002A9640 returned just before the call;
+   the callee reads only $a0. */
+extern s32 func_L11_00448CE0(void *, void *);
+extern void func_L11_004493F8(void *, s32);
+extern void func_L11_00449970(void *, s32, s32);
+
+/* Per-frame update of a turret-like enemy: on its first frame it seeds its parameter block
+   (including a random-sign turn rate of 10 to 30 degrees), then handles hits, firing, damage
+   and the death sequence. The turn rate's sign is chosen in the store's own expression so the
+   stored value does not cross the coin-flip call. */
+void func_L11_004484A8(JobObject *object)
+{
+    JobState *state = object->state;
+    void *hit;
+    float speed;
+
+    if (object->stage == 0) {
+        state->params = state->paramBlock;
+        state->f48 = func_00283CF0(15.0f);
+        state->f4A = func_00283CF0(16.0f);
+        speed = func_002A7878(10.0f, 30.0f) * 0.01745329424738884f;
+        state->turnRate = func_002A77E0(2) ? -speed : speed;
+        state->f80 = 1.3f;
+        state->f84 = 1.3f;
+        state->f69 = 2;
+        state->f1E9 = 3;
+        state->f1D4 = 0.5f;
+        state->paramBlock[1] = 0.5f;
+        state->paramBlock[2] = 0.5f;
+        state->f60 = 16;
+        state->f98 = 7;
+        state->f8C = 0.4f;
+        state->f1E6 = 5;
+        state->f1E8 = 2;
+        state->paramBlock[0] = 1.3f;
+        state->paramBlock[3] = 0.5f;
+        state->paramBlock[4] = 1.5707964897155762f;
+        state->f130 = 0.523598849773407f;
+        state->f134 = 0.01f;
+        state->f12C = 0.0055555556900799274f;
+        state->f28 = 3;
+        state->f29 = 1;
+        state->f30 = 0.75f;
+        state->fireTimer = 0;
+        if (!func_002A77E0(2))
+            object->flags |= 0x8000;
+        state->turret = 0;
+        func_L11_00449878(object);
+    }
+    if (state->f36E == 0 && object->stage != 18 && !D_001A8FF4) {
+        object->flags |= 0x400;
+        if (object->f31 && func_00282E48(object->position, D_L11_001BA8C0) < 24.0f) {
+            func_002A93B0(object);
+            object->f6F = 22;
+        }
+    } else {
+        object->flags &= 0xFBFF;
+    }
+    if (object->stage >= 3) {
+        state->fFC = 1.0f;
+        hit = func_002A9640(object, 0x10000, 1);
+        if (hit) {
+            state->fFC = 1.0f;
+            if (func_L11_00448CE0(object, hit)) {
+                state->f60 = 15;
+                func_002B0ED8(object, state->hitInfo, 1);
+                state->f60 = 16;
+                if (state->turret && state->fireTimer == 0 && object->f31) {
+                    func_L11_004493F8(state->turret->position, 2);
+                    state->fireTimer = 60;
+                }
+            } else {
+                func_002B0ED8(object, state->hitInfo, 0);
+            }
+        } else {
+            func_002B0ED8(object, state->hitInfo, 0);
+        }
+        if (state->health <= 0.0f && object->f95 != 7 && object->f95 != 8)
+            func_L11_00449970(object, 1, 0);
+        if (state->f36E) {
+            func_00283698(state->basis, object->rotation);
+            func_002AFFD8(object->position, state->anchor, 0);
+            if (!func_L11_004461C0(object->fB8, object->position) && object->f95 != 8) {
+                state->health = 0;
+                func_002A7750(object, 18, 8);
+            }
+        }
+        if (object->stage >= 2 && state->f2E == 2)
+            func_L11_00449970(object, 1, 1);
+        func_L11_00448DF8(object);
+    }
 }

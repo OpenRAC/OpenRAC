@@ -34,13 +34,13 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_972.68",
     "progress": {
-      "matched_code": 495320,
-      "total_code": 5533600,
-      "matched_functions": 3761,
-      "total_functions": 9100,
-      "fuzzy_percent": 8.95,
-      "date": "2026-10-20",
-      "percent": 8.95
+      "matched_code": 4684272,
+      "total_code": 5527936,
+      "matched_functions": 7760,
+      "total_functions": 8579,
+      "fuzzy_percent": 84.74,
+      "date": "2026-11-01",
+      "percent": 84.74
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
   },

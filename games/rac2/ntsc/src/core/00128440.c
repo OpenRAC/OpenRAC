@@ -139,7 +139,6 @@ int func_00128578(int port) {
     return buf[1];
 }
 
-INCLUDE_ASM("asm/core", func_001286C0);
 
 /* rac1-decomp src/core/001236F0.c: func_00124A70 */
 /* RPC 0x8000091A round trip on r1_D_0015B180 (the buffer is both request

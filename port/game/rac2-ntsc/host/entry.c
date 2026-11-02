@@ -11,11 +11,14 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 
 void func_0011F828(void);
 void func_0011AEA0(int cache);
 int func_00131D98(int argc, int argv);
+void rac2_install_tools(void); /* tools.c */
+void rac2_install_camera_latch(void); /* camera_latch.c */
 
 /* InitSystemCallTableAddress (libkernl's initsys, called from _InitSys): it patches
  * two kernel routines through SetSyscall, then scans kernel memory with
@@ -34,9 +37,23 @@ int func_0011B800(void) {
     return -1;
 }
 
+/* A widget's draw names the function at 0x002DC908: the catalogue starts it at 0x002DC900, on the
+ * end of the code before it. */
+int func_002DC900(gaddr box);
+
+static const openrac_fn_entry entries[] = {
+    {0x002DC908u, (openrac_host_fn)func_002DC900, "func_002DC900"},
+};
+
 int func_00131AE8(void) {
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, entries, sizeof entries / sizeof entries[0]);
+    /* The game reports what it draws (host/render.c), so the window draws no world until a pass
+     * of DrawWorld runs: none at the title and the main menu, which are the 2D path alone. */
+    openrac_game_draw(0);
     uint32_t argc;
 
+    rac2_install_tools();
+    rac2_install_camera_latch();
     func_0011F828(); /* _InitSys */
     func_0011AEA0(0); /* FlushCache(0) */
     memcpy(&argc, G(0x00146B40u), sizeof argc);

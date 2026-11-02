@@ -123,6 +123,57 @@ void func_00130300(void *arg0) {
 
 INCLUDE_ASM("asm/core", func_00130428);
 
-INCLUDE_ASM("asm/core", func_001306D0);
 
-INCLUDE_ASM("asm/core", func_001307B0);
+
+/* rac1-decomp src/core/0012AC80.c: func_001306D0 */
+void func_001306D0(unsigned int *o0, unsigned int *o1, unsigned int *o2, unsigned int *o3,
+                   unsigned int *o4, unsigned int *o5, unsigned int *o6, unsigned int *o7,
+                   unsigned int *o8, int a, int b, int c, int w, int h) {
+    unsigned int x = (a & 0xFFFFFFF) | 0x20000000;
+    unsigned int y = (b & 0xFFFFFFF) | 0x20000000;
+    unsigned int z = (c & 0xFFFFFFF) | 0x20000000;
+    int q = (w * h) / 512;
+    int s6, s7, s8;
+    s6 = q * 384; s6 += a;
+    s7 = q * 384; s7 += b;
+    s8 = q * 384; s8 += c;
+    *o0 = x; *o1 = y; *o2 = z; *o3 = x; *o4 = y; *o5 = z;
+    *o6 = (s6 & 0xFFFFFFF) | 0x20000000;
+    *o7 = (s7 & 0xFFFFFFF) | 0x20000000;
+    *o8 = (s8 & 0xFFFFFFF) | 0x20000000;
+}
+
+extern int r1_func_0011D960(void);
+extern void r1_func_0011D9A8(void);
+extern void r1_func_00128590(void *);
+extern void r1_func_00128560(void *, unsigned int);
+extern void func_001307B0(void *, int, int);
+
+/* rac1-decomp src/core/0012AC80.c: func_001307B0 */
+/* _setDefaultQM: tell the callback (type 2) that the default quantiser
+   matrix load starts, then with the IPU idle and reset, DMA the matrix
+   at addr to IPU_TO (tag 4 qwords, chcr 0x101) with interrupts held
+   off, send command cmd and wait, and report type 3. Adapted from
+   Lombyte's project (GPL-3.0) for PAL. */
+void func_001307B0(void *arg, int cmd, int addr) {
+    char *mp = arg;
+    int cb[8];
+    int intr;
+
+    cb[0] = 2;
+    r1_func_0012BC78(*(void **)(mp + 0x858), cb);
+    r1_func_00128590(mp);
+    *(volatile int *)0x10002000 = 0;
+    r1_func_00128590(mp);
+    intr = r1_func_0011D960();
+    *(volatile int *)0x1000B410 = addr & 0x0FFFFFFF;
+    *(volatile int *)0x1000B420 = 4;
+    *(volatile int *)0x1000B400 = 0x101;
+    if (intr != 0) {
+        r1_func_0011D9A8();
+    }
+    r1_func_00128560(mp, cmd);
+    r1_func_00128590(mp);
+    cb[0] = 3;
+    r1_func_0012BC78(*(void **)(mp + 0x858), cb);
+}

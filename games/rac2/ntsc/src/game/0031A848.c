@@ -1,0 +1,46 @@
+#include "include_asm.h"
+#include "common.h"
+
+typedef int TI __attribute__((mode(TI)));
+
+typedef struct {
+    u8 pad00[0x30];
+    u8 *target;
+} Vars31A848;
+
+typedef struct {
+    u8 pad00[0x68];
+    Vars31A848 *vars;
+} Moby31A848;
+
+extern TI D_001A8BD0 MACRO_ADDR;
+
+extern float func_00282C48(float);
+extern void func_00282CF0(void *, void *, void *);
+extern float func_00282DB0(void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00283098(void *, void *, void *);
+extern float func_002831B0(float);
+extern void ref_L00_003BFC98_00(void *, void *, int);
+
+int func_0031A848(Moby31A848 *self, float limit) {
+    float up[4] __attribute__((aligned(16)));
+    float dir[4] __attribute__((aligned(16)));
+    float fwd[4] __attribute__((aligned(16)));
+    float proj[4] __attribute__((aligned(16)));
+    Vars31A848 *vars = self->vars;
+
+    if (vars->target == 0) {
+        return 1;
+    }
+    ref_L00_003BFC98_00(self, fwd, 1);
+    qcopy(up, &D_001A8BD0);
+    up[0] = 1.0f;
+    func_00283098(up, up, (u8 *)self + 0xC0);
+    func_00282CF0(dir, vars->target + 0x10, (u8 *)self + 0x10);
+    func_00282F20(dir, dir, 1.0f);
+    func_00282F20(proj, fwd, func_00282DB0(fwd, dir));
+    func_00282CF0(dir, dir, proj);
+    func_00282F20(dir, dir, 1.0f);
+    return limit * 0.017453294f < func_00282C48(1.5707964f - func_002831B0(func_00282DB0(dir, up)));
+}

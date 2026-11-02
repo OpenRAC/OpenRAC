@@ -42,7 +42,6 @@ void func_L00_0042E880(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042E9A0);
 
 /* Forward owner+8 and the supplied signed word to the measured two-argument setter. */
 void func_L00_0042F0A0(unsigned char *owner, int value)
@@ -50,15 +49,10 @@ void func_L00_0042F0A0(unsigned char *owner, int value)
     func_0033AE18(owner + 8, value);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042F1D0);
 
-INCLUDE_ASM("asm/levels", func_L00_0042F3F8);
 
-INCLUDE_ASM("asm/levels", func_L00_0042F850);
 
-INCLUDE_ASM("asm/levels", func_L00_0042FE48);
 
-INCLUDE_ASM("asm/levels", func_L00_00430500);
 
 /* Store the two scalar floating arguments through the supplied pointer cell; original game role is unknown. */
 void func_L00_00430948(float first, float second, float **cell)
@@ -67,9 +61,7 @@ void func_L00_00430948(float first, float second, float **cell)
     (*cell)[1] = second;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004309E0);
 
-INCLUDE_ASM("asm/levels", func_L00_00430A90);
 
 /* Calls a helper with a pointer to the second 16-byte field of the record and returns the record pointer. */
 char *func_L00_00431668(char *object)
@@ -78,7 +70,6 @@ char *func_L00_00431668(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00431698);
 
 /* Calls a helper with a pointer to the second 16-byte field of the record and returns the record pointer. */
 char *func_L00_00431AA8(char *object)
@@ -87,7 +78,6 @@ char *func_L00_00431AA8(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00431AD8);
 
 /* Calls a helper with a pointer to the second 16-byte field of the record and returns the record pointer. */
 char *func_L00_00431D60(char *object)
@@ -96,7 +86,6 @@ char *func_L00_00431D60(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00431D90);
 
 /* Calls a helper with a pointer to the second 16-byte field of the record and returns the record pointer. */
 char *func_L00_004322E8(char *object)
@@ -105,7 +94,6 @@ char *func_L00_004322E8(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00432318);
 
 /* makes two float-binding calls, then toggles one of two global flag bytes selected by an object field and returns bit 6 of the flag word */
 int func_L00_00432448(char *a0, int a1)
@@ -139,7 +127,6 @@ int func_L00_00432448(char *a0, int a1)
     return (a1 >> 6) & 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_004326F0);
 
 /* Calls a helper with a pointer to the second 16-byte field of the record and returns the record pointer. */
 char *func_L00_00432D70(char *object)
@@ -148,7 +135,6 @@ char *func_L00_00432D70(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00432DA0);
 
 /* resets a sub-object, applies a two-float transform, and when bit 6 of flags is set and an int field is zero calls a mode setter and toggles a global byte */
 int func_L00_00432ED0 (char *object, int flags)
@@ -178,7 +164,6 @@ char *func_L00_00433038(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00433068);
 
 /* makes two float-binding calls, then toggles one of two global flag bytes selected by an object field and returns bit 6 of the flag word */
 int func_L00_00433198(char *a0, int a1)
@@ -219,4 +204,3 @@ char *func_L00_00433400(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00433430);

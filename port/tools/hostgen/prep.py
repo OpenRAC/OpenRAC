@@ -262,7 +262,7 @@ def _expand_line(line: str, name: str, params: list[str] | None, body: str) -> s
     arguments do not close on this line, or are not as many as the parameters, stays."""
     out, pos = [], 0
     for m in re.finditer(r'"(?:\\.|[^"\\\n])*"|\b' + re.escape(name) + r"\b", line):
-        if m.group(0).startswith('"'):
+        if m.group(0).startswith('"') or m.start() < pos:  # a use inside a use just written out
             continue
         if params is None:
             out.append(line[pos:m.start()] + body)
@@ -297,6 +297,9 @@ def _expand_line(line: str, name: str, params: list[str] | None, body: str) -> s
     return "".join(out) + line[pos:]
 
 
+_MACRO_NESTING = 8
+
+
 def expand_cast_macros(text: str) -> str:
     """A one-line macro of the unit whose body defines a record inside a cast is written out where
     it is used, so name_cast_records finds the record in each function (Clang's JSON leaves a
@@ -320,7 +323,12 @@ def expand_cast_macros(text: str) -> str:
                 break
             if lines[j].lstrip().startswith("#") or name not in lines[j]:
                 continue
-            lines[j] = _expand_line(lines[j], name, params, body)
+            # Again for a use in another's arguments: FLD(FLD(p, char *, 8), int, 4).
+            for _ in range(_MACRO_NESTING):
+                written = _expand_line(lines[j], name, params, body)
+                if written == lines[j]:
+                    break
+                lines[j] = written
     return "\n".join(lines)
 
 
@@ -336,6 +344,23 @@ def name_wide_casts(text: str) -> str:
     long __attribute__((mode(TI)))`). The type is written as openrac_ti / openrac_uti
     (openrac_hostgen.h), which carry the attribute in their typedefs."""
     return _WIDE_CAST.sub(lambda m: "openrac_uti" if m.group(1) == "unsigned" else "openrac_ti", text)
+
+
+# GCC's cast as an lvalue, written at a statement's start: "((u8 *)q->p[9]) = 0;".
+_LVALUE_CAST = re.compile(r"^(\s*)\(\(([\w ]+\*+)\)(.+)\) = (.*;)\s*$", re.M)
+
+
+def name_lvalue_casts(text: str) -> str:
+    """Clang refuses GCC's lvalue cast. It stores in the operand as the cast's type, which C says
+    with a pointer to that type."""
+    def write(m: re.Match) -> str:
+        operand, depth = m.group(3), 0
+        for c in operand:
+            depth += (c == "(") - (c == ")")
+            if depth < 0:
+                return m.group(0)  # the closing parenthesis was not the cast's
+        return f"{m.group(1)}*({m.group(2)} *)&({operand}) = {m.group(4)}"
+    return _LVALUE_CAST.sub(write, text)
 
 
 _VA_BUILTINS = ("vfprintf", "vprintf", "vsprintf", "vsnprintf", "vfscanf", "vscanf", "vsscanf")
@@ -438,7 +463,7 @@ def unalias(text: str, aliases: dict[str, str]) -> str:
 
 
 def prepare(text: str) -> str:
-    return rename_va_builtins(own_va_list(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text))))))))
+    return rename_va_builtins(own_va_list(name_lvalue_casts(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text)))))))))
 
 
 # The path may be several adjacent strings over as many lines (the NTSC decomp's long paths).
@@ -499,7 +524,16 @@ def own_declarations(text: str, tag: str) -> str:
     declared name becomes NAME<tag> with the assembler name NAME: the same
     symbol for hostgen, a separate declaration for Clang. Names the candidate
     defines keep theirs."""
-    text = split_declarators(text)
+    # An assembler name after the symbol's first use is an error, and a host has no small data.
+    # `T x SDATA(D_...)` under a name of its own keeps the global through the assembler name
+    # (func_L06_00403130's `baselineGP SDATA(D_L06_001B3284)`).
+    text = split_declarators(re.sub(r"^(?![ \t]*#).*\bSDATA\(\w+\).*$",
+                                    lambda m: re.sub(r"(?<=\b)(?P<n>\w+)(?P<d>(?:\[[^\]]*\])*)[ \t]+SDATA\((\w+)\)",
+                                                     lambda k: k.group("n") + k.group("d") + (
+                                                         "" if k.group("n") == k.group(3)
+                                                         else f' __asm__("{k.group(3)}")'),
+                                                     m.group(0)),
+                                    text, flags=re.M))
     defined = set(_DEFINED.findall(text))
     names = []
     for m in _GAME_DECL.finditer(text):
@@ -513,8 +547,38 @@ def own_declarations(text: str, tag: str) -> str:
                       lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
         # The assembler name goes after the declarator, before attribute macros (MACRO_ADDR).
         text = re.sub(r'(?:^|(?<=; /\*hc\*/ ))((?:extern[ \t]+)?[A-Za-z_][\w \t\*]*?[ \t\*]' + name + tag
-                      + r'\b[^;{}=]*?)((?:[ \t]+[A-Z][A-Z0-9_]*(?:\([^;()]*\))?)*)[ \t]*;',
+                      + r'\b[^;{}=]*?)((?:[ \t]+(?:[A-Z][A-Z0-9_]*(?:\([^;()]*\))?|__attribute__\(\([^;]*?\)\)))*)[ \t]*;',
                       lambda m: f'{m.group(1)} __asm__("{name}"){m.group(2)};', text, flags=re.M)
+    return text
+
+
+_TYPEDEF_RECORD = re.compile(r"\btypedef\s+(?:struct|union)\b[^{;]*\{")
+_RECORD_TAG = re.compile(r"^(?:struct|union)[ \t]+(\w+)[ \t]*\{", re.M)
+_TYPEDEF_MODE = re.compile(r"(?<![\w ]\n)^typedef\b[^;{(\n]*?\b(\w+)[ \t]+__attribute__\b[^;\n]*;", re.M)
+
+
+def own_records(text: str, tag: str) -> str:
+    """The candidate's typedefs of records, under names of its own.
+
+    Two definitions of one record are two types to C however alike they read, so a candidate
+    that defines what its file also defines (`typedef struct { ... } V4;`) cannot sit beside it.
+    The same for a record's tag (`struct Slot { ... };`) and a typedef of a mode (`typedef int
+    Quad __attribute__((mode(TI)));`). One under a `#define` is its own guard, shared with the file."""
+    names = []
+    for m in _TYPEDEF_RECORD.finditer(text):
+        depth, at = 1, m.end()
+        while at < len(text) and depth:
+            depth += (text[at] == "{") - (text[at] == "}")
+            at += 1
+        name = re.match(r"\s*(\w+)\s*;", text[at:])
+        if name:
+            names.append(name.group(1))
+    names += [m.group(1) for m in _RECORD_TAG.finditer(text)]
+    names += [m.group(1) for m in _TYPEDEF_MODE.finditer(text)]
+    names = list(dict.fromkeys(names))
+    for name in names:
+        text = re.sub(r'"(?:\\.|[^"\\\n])*"|(?<!mode\()\b' + name + r'\b',
+                      lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
     return text
 
 
@@ -667,7 +731,7 @@ def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str
             added.add(id(text))
             suffix = f'_hc{len(added)}'
             tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n"
-                        f"{own_statics(own_declarations(without_definitions(prepare(text), matched), suffix), suffix)}")
+                        f"{own_records(own_statics(own_declarations(without_definitions(prepare(text), matched), suffix), suffix), suffix)}")
         return "\n" * m.group(0).count("\n")   # a stub over several lines: the lines stay
 
     text = _INCLUDE_ASM.sub(blank, text)

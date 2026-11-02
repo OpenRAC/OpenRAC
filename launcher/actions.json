@@ -1558,7 +1558,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac2/ntsc/levels-4.json",
+        "artifact": "assets/port/rac2/ntsc/levels-9.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -1595,7 +1595,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-4.json",
+            "path": "assets/port/rac2/ntsc/levels-9.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1626,7 +1626,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-4.json",
+            "path": "assets/port/rac2/ntsc/levels-9.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1679,7 +1679,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-4.json",
+            "path": "assets/port/rac2/ntsc/levels-9.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -1755,7 +1755,7 @@
         "kind": "play",
         "area": "port",
         "state": "planned",
-        "docs": "games/rac2/ntsc/docs/REGIONS.md",
+        "docs": "games/rac2/ntsc/docs/VERSIONS.md",
         "todo": "Needs rac2/ntsc to get past the first level load, then a PAL function map (tools/versions.py) and port/game/rac2-pal, as rac1 has for its PAL release."
       }
     ],

@@ -98,7 +98,6 @@ void func_0033B050(int object, unsigned int a1, unsigned int a2, unsigned int a3
 /* Measured target: byte-identical across all 27 levels. */
 void func_0033B0A8(u8 *a0, f32 a1) { *(f32 *)(a0 + 0x274) = a1; }
 
-INCLUDE_ASM("asm/game", func_0033B0B0);
 
 char *func_0033B0B8(char *object)
 {
@@ -121,7 +120,6 @@ char *func_0033B0B8(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033B160);
 
 /* func_0033B170 is matched in 0033AE20-g8.c (-G8 small data). */
 
@@ -129,7 +127,6 @@ INCLUDE_ASM("asm/game", func_0033B538);
 
 /* func_0033B540 is matched in 0033AE20-g8.c (-G8 small data). */
 
-INCLUDE_ASM("asm/game", func_0033B910);
 
 char *func_0033BD38(char *object)
 {
@@ -137,4 +134,3 @@ char *func_0033BD38(char *object)
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_0033BD68);

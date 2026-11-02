@@ -36,12 +36,12 @@ import errors
 import progress_line
 from godot import SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, write_project
 from spaceships import add_spaceships
-from level import load_flight, load_level, load_title
+from level import load_flight, load_level, load_title, load_wad_flight
 from level import decoded, load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
 from lighting import normal_table
 from pack import pack
-from port import FORMAT as PORT_FORMAT, PortLevelWriter
+from port import PortLevelWriter, levels_format
 from util import sha256
 import wads
 
@@ -392,6 +392,13 @@ def export_port_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
         return PortLevelWriter(out, load_wad_level(source, source.level(number))).write(lod)
 
 
+def export_port_wad_flight(iso: Path, number: int, out: Path, lod: int) -> dict:
+    """A Going Commando flight to a planet as a level of its own (level.load_wad_flight)."""
+    disc, source = open_later(iso)
+    with disc:
+        return PortLevelWriter(out, load_wad_flight(source, number)).write(lod)
+
+
 def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path, split: bool = False,
           region: str = "PAL", game: str = "rac1") -> None:
     """Levels are independent, so they are written in parallel. SPLIT: a project per level,
@@ -446,13 +453,13 @@ def export_port_flight(iso: Path, survey: dict, out: Path, lod: int) -> dict:
         return PortLevelWriter(out, load_flight(disc, survey), normals(disc)).write(lod)
 
 
-def levels_stamp_name() -> str:
-    return f"levels-{PORT_FORMAT}.json"
+def levels_stamp_name(game: str = "rac1") -> str:
+    return f"levels-{levels_format(game)}.json"
 
 
 def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path, game: str = "rac1") -> None:
     """OUT/level_NN/ per level (port.py), written in parallel like godot(). A later game's levels
-    have no title world or flight to add."""
+    have no title world to add; Going Commando's flights are its own."""
     out.mkdir(parents=True, exist_ok=True)
     with worker_pool(min(jobs, len(levels))) as pool:
         if game == "rac1":
@@ -461,6 +468,9 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
             running.append(pool.submit(export_port_flight, iso, survey, out, lod))
         else:
             running = [pool.submit(export_port_wad_level, iso, i, out, lod) for i in levels]
+            if game == "rac2":
+                running += [pool.submit(export_port_wad_flight, iso, i, out, lod)
+                            for i in range(wads.RAC2_NTSC.flight_count)]
         progress_line.say("read", 0, len(running))
         try:
             for count, done in enumerate(as_completed(running), 1):
@@ -476,7 +486,7 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
         write_pvs_stamp(out)
     # Last: every level is whole. The launcher counts the levels as ready by this stamp, named
     # after the export format, so a format bump reads them again before they are checked.
-    (out / levels_stamp_name()).write_text(json.dumps({"format": PORT_FORMAT}) + "\n")
+    (out / levels_stamp_name(game)).write_text(json.dumps({"format": levels_format(game)}) + "\n")
 
 
 def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:

@@ -111,7 +111,6 @@ int func_0011B800(void) {
 
 ASM_FUNC("asm/core", func_0011B8D8);
 
-INCLUDE_ASM("asm/core", func_0011B970);
 
 /* rac1-decomp src/core/00119328.c: func_00119718 */
 /* libkernel sceDeci2Open(protocol, opt, handler): Deci2Call(1, {protocol,
@@ -131,7 +130,6 @@ int func_0011B978(unsigned short arg0, void *arg1, void *arg2) {
     return r1_func_00118E90_ret(1, buf);
 }
 
-INCLUDE_ASM("asm/core", func_0011B9C0);
 
 /* rac1-decomp src/core/00119328.c: func_00119768 */
 void func_0011B9C8(int arg0, signed char arg1) {
@@ -165,7 +163,6 @@ void func_0011BA58(int arg0, int arg1, unsigned short arg2) {
     r1_func_00118E90(-0x6, buf);
 }
 
-INCLUDE_ASM("asm/core", func_0011BA90);
 
 /* rac1-decomp src/core/00119328.c: func_00119840 */
 void func_0011BAA0(int arg0) {
@@ -173,4 +170,3 @@ void func_0011BAA0(int arg0) {
     r1_func_00118E90(0x10, &local);
 }
 
-INCLUDE_ASM("asm/core", func_0011BAC4);

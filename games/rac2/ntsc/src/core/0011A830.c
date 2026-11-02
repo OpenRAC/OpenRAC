@@ -278,5 +278,3 @@ void func_0011B0A0(void)
 }
 
 ASM_FUNC("asm/core", func_0011B0B0);
-
-INCLUDE_ASM("asm/core", func_0011B140);

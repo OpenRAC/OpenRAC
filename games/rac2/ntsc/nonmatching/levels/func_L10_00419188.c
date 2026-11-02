@@ -45,3 +45,16 @@ void func_L10_00419188(u8 *arg0)
         *(q + 0x20) = 2;
     } while (*p++ >= 0);
 }
+
+/* Later worker (wave 24), same result from a different side.  With the sda attribute on
+   D_001B251C the compiler emits the bare symbol and the assembler rebuilds the %lo half
+   inside the loop, as the note above says - but the %hi half (`lui $v1,0x1B`) is still
+   hoisted out of the loop by the loop-invariant motion, so the candidate is 84 bytes
+   against retail's 88 and the address build is split across the loop head.  The same
+   construct in the sibling func_L10_00417440 (which now matches) keeps both halves
+   inside its loop, so the difference is what the motion pass does with the two loops.
+   With the table entry read as u32 the copy of the pointer is the 64-bit `daddu
+   $a0,$v0,$zero` retail has, and the do-while's post-increment lands in the back
+   branch's delay slot; the eight extra bytes of the row stay out of reach.
+   check.py func_L10_00419188: "10_hrugis_cloud: 84 bytes, expected 96" - the row is
+   still eight bytes too long. */

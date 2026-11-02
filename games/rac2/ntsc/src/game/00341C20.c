@@ -44,22 +44,20 @@ char *func_00341C90(char *p) {
     return p;
 }
 
-INCLUDE_ASM("asm/game", func_00341CD0);
 
 /* Measured target: byte-identical across all 27 levels. */
 void func_00341CD8(u8 *a0, s32 a1) { *(s32 *)(a0 + 0x8) = a1; }
 
 
 
-INCLUDE_ASM("asm/game", func_00341E50);
 
-extern void func_00341E90(char *);
+extern s32 func_00341E90(char *);
 
 
-extern void func_00348128(void *);
+extern s32 func_00348128(u8 *);
 
-void func_00341E90(char *object) {
-    func_00348128(object + 0x10);
+s32 func_00341E90(char *object) {
+    return func_00348128((u8 *)object + 0x10);
 }
 
 void func_00341EB0(unsigned char *owner, float *records)
@@ -79,7 +77,6 @@ long func_00341EE8(char *object, int arg)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_00341F38);
 
 char *func_003420C8(char *object) {
     extern void func_003361A8(char *);
@@ -94,7 +91,7 @@ char *func_003420C8(char *object) {
     return object;
 }
 
-INCLUDE_ASM("asm/game", func_00342118);
+/* func_00342118 is in 00341C20-g8.c (it reaches small data through $gp). */
 
 void func_00342380(unsigned char *owner, float *records)
 {

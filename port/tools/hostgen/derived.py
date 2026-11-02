@@ -76,7 +76,7 @@ def used_names(source: Path, cfg: dict) -> set[str]:
 
 def uncovered(source: Path, cfg: dict, table: dict) -> list[str]:
     """The derived names the C uses that TABLE neither values nor lists as unresolved."""
-    known = set(table.get("values", {})) | set(table.get("unresolved", []))
+    known = set(table.get("values", {})) | set(table.get("levels", {})) | set(table.get("unresolved", []))
     return sorted(used_names(source, cfg) - known)
 
 
@@ -90,16 +90,69 @@ def source_commit(source: Path) -> str | None:
     return r.stdout.strip() or None
 
 
+# The names of level code a level's build derives: `ref_L00_0036ADB0_00` states neither the function
+# nor its address (level 0 has that one at 0x002EE918). A short `func_2EDE88` is left out: it is
+# an address in the level of the file that says it, so one name is many functions.
+LEVEL_CODE_NAME = re.compile(r"(?:ref_\w+|r1_func_(?:L\d\d_)?[0-9A-Fa-f]{8}|F[0-9a-f]{8}_(?:FUN|func)_[0-9A-Fa-f]{8})")
+
+
+def level_values(source: Path, boot: dict) -> dict[str, list]:
+    """Of the names of level code the executable's table has no value for, name -> [level, address]
+    from the build of the level the name gives, else of the first that has one. A level's own
+    `placed.json` is beside the executable's (build/00_aranos_tutorial/placed.json)."""
+    out: dict[str, list] = {}
+    for path in sorted(source.glob("build/[0-9][0-9]_*/placed.json")):
+        level = int(path.parent.name[:2])
+        for name, value in json.loads(path.read_text()).get("values", {}).items():
+            if name in boot or not isinstance(value, str) or not LEVEL_CODE_NAME.fullmatch(name):
+                continue
+            own = re.match(r"(?:ref|r1_func)_L(\d\d)_", name)
+            if name not in out or (own is not None and int(own.group(1)) == level):
+                out[name] = [level, value]
+    return dict(sorted(out.items()))
+
+
+LEVEL_DATA_NAME = re.compile(r"D_([0-9A-Fa-f]{8})")
+# Other spellings of a datum: a level's build gives each its own value, which the name's D_ form
+# need not share (r1_D_0019E7D8 and D_001B19C8_1 are 0x001B2688 in level 6, D_001B19C8 0x001B2348).
+OTHER_DATA_NAME = re.compile(r"(?:r1_)?D_\w+")
+
+
+def level_data(source: Path, boot: dict | None = None) -> dict[str, dict[str, str]]:
+    """Level -> {name: address} for data names a level's build gave another address than the one
+    they spell, or, spelled otherwise, than the executable's build gave them: `D_001FEAC0` in a
+    level 2 file is 0x001FF1C0 there."""
+    boot = boot or {}
+    out: dict[str, dict[str, str]] = {}
+    for path in sorted(source.glob("build/[0-9][0-9]_*/placed.json")):
+        moved = {}
+        for name, value in json.loads(path.read_text()).get("values", {}).items():
+            if not isinstance(value, str):
+                continue
+            m = LEVEL_DATA_NAME.fullmatch(name)
+            if m:
+                if int(value, 0) != int(m.group(1), 16):
+                    moved[name] = value
+            elif OTHER_DATA_NAME.fullmatch(name) and name in boot and int(value, 0) != int(boot[name], 0):
+                moved[name] = value
+        if moved:
+            out[str(int(path.parent.name[:2]))] = dict(sorted(moved.items()))
+    return out
+
+
 def make_table(source: Path, cfg: dict, build: dict, commit: str | None) -> dict:
     """The committed form of a build's table: its values, where they come from, and the names
     the C uses that it has no value for."""
     values = {k: v for k, v in sorted(build.get("values", {}).items()) if isinstance(v, str)}
+    levels = level_values(source, values)
     return {
         "about": "Names and the addresses the decompilation's own build derived for them from the "
                  "retail bytes. Written by port/tools/hostgen/derived.py; do not edit.",
         "source": {"commit": commit, "program": build.get("program"), "table": cfg["derived"]["build"]},
         "values": values,
-        "unresolved": sorted(used_names(source, cfg) - set(values)),
+        "levels": levels,
+        "level_data": level_data(source, build.get("values", {})),
+        "unresolved": sorted(used_names(source, cfg) - set(values) - set(levels)),
     }
 
 

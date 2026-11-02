@@ -44,7 +44,96 @@ extern int func_0012B1C0(void *);
 /* func_0012C508 returns a short: its epilogue sign-extends $v0. */
 extern short func_0012C508(int, int);
 
-INCLUDE_ASM("asm/core", func_00129450);
+struct MpegDecoder;
+extern void r1_func_0012C430(void *, char *, int);
+extern void r1_func_00125880(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_type,
+                          int pmv[2][2][2], int mvfs[2][2], int *dmvector);
+extern void r1_func_0012A0F8(void *);
+extern char r1_D_001537E8[];
+typedef struct {
+    char pad0[0x128];
+    int unk128;
+    int unk12C;
+    int unk130;
+    int unk134;
+    int unk138;
+    int unk13C;
+} Elem00125630;
+typedef struct {
+    int unk0;
+    int pad4[3];
+    int unk10;
+} Ref00125630;
+typedef struct {
+    char pad0[0x11C];
+    int unk11C;
+    char pad120[0xC];
+    int unk12C;
+    char pad130[0x44];
+    int unk174;
+    char pad178[0x48];
+    Ref00125630 *unk1C0;
+    char pad1C4[0xC];
+    Ref00125630 *unk1D0;
+    char pad1D4[0xC];
+    Ref00125630 *unk1E0;
+    char pad1E4[0x3AC];
+    Elem00125630 e[2];
+    int unk810;
+} Dec00125630;
+
+/* rac1-decomp src/core/00125630.c: func_00129450 */
+/* Motion-compensate one macroblock (or wait for the intra IDCT) and record its output slot. */
+int func_00129450(void *arg0, int mbAddr, int arg2, int mbType, int motionType,
+                  void *pmv, void *mvfs, void *dmv) {
+    Dec00125630 *d = (Dec00125630 *)arg0;
+    int intra;
+    int x;
+    int y;
+    int bx;
+    int by;
+    Ref00125630 *ref;
+
+    intra = mbType & 1;
+    y = mbAddr / d->unk12C;
+    x = mbAddr % d->unk12C;
+    by = y * 16;
+    bx = x * 16;
+    if (intra) {
+        while ((*(volatile unsigned int *)0x1000D400 >> 8) & 1)
+            ;
+        d->e[d->unk810].unk138 = 0;
+    } else {
+        if ((unsigned int)(motionType - 1) >= 3) {
+            r1_func_0012C430(d, r1_D_001537E8, motionType);
+            d->unk11C = 1;
+            return 0;
+        }
+        r1_func_00125880((struct MpegDecoder *)d, bx, by, mbType, motionType,
+                      pmv, mvfs, dmv);
+        while ((*(volatile unsigned int *)0x1000D400 >> 8) & 1)
+            ;
+        r1_func_0012A0F8(d);
+        d->e[d->unk810].unk138 = 1;
+    }
+    if (arg2 == 1 && (mbType & 2)) {
+        d->e[d->unk810].unk134 = arg2;
+    } else {
+        d->e[d->unk810].unk134 = 0;
+    }
+    d->e[d->unk810].unk130 = intra;
+    if (d->unk174 == 3) {
+        d->e[d->unk810].unk128 = d->unk1C0->unk0 + (x * d->unk1C0->unk10 + y) * 0x180;
+    } else {
+        if (d->unk174 == 2) {
+            ref = d->unk1E0;
+        } else {
+            ref = d->unk1D0;
+        }
+        d->e[d->unk810].unk128 = ref->unk0 + (x * ref->unk10 + y) * 0x180;
+    }
+    return 1;
+}
 
 /* libmpeg. func_001296A0 is rac1-decomp src/core/00125630.c func_00125880
    (_getAllRefs) and func_00129DA8 is Lombyte (GPL-3.0) src/assembly/sdk/library/
@@ -229,9 +318,170 @@ void func_001296A0(MpegDecoderC *d, int bx, int by, int mb_type, int motion_type
     }
 }
 
-INCLUDE_ASM("asm/core", func_00129DA8);
+void func_00129DA8(MpegDecoderC *d, MpegRefImageC *ref, int sfield, int dfield,
+                   int yofs, int h, int bx, int by, int dx, int dy, int fieldpred,
+                   int avg) {
+    MpegMcFetchC *ye;
+    MpegMcFetchC *ce;
+    int n;
+    u8 *buf;
+    u8 *cbuf;
+    int x, y, xm, ym, xr;
+    int cxm, cym, cxr;
+    int cdx, cdy;
+    int cyofs;
+    int xh, yh;
+    int k;
+    int ch;
+    u8 *work;
+    int yidx;
+    int mb;
+    u8 *base;
 
-INCLUDE_ASM("asm/core", func_0012A1C8);
+    work = d->work;
+    x = (dx >> 1) + bx;
+    n = d->mc[d->cur].n;
+    ye = &d->mc[d->cur].y[n];
+    ce = &d->mc[d->cur].c[n];
+    if (fieldpred) {
+        y = ((dy >> 1) * 2 + yofs) + (by + sfield);
+    } else {
+        y = ((dy >> 1) + yofs) + (by + sfield);
+    }
+    xm = x >> 4;
+    ym = y >> 4;
+    mb = xm * ref->width + ym;
+    xr = x - xm * 16;
+    y = y - ym * 16;
+    ye->x = xr;
+    ye->addr = work + (dfield + yofs) * 32;
+    yh = dy & 1;
+    xh = dx & 1;
+    if (yh) {
+        if (y + (h << fieldpred) > 15) {
+            k = (16 >> fieldpred) - (y >> fieldpred) - 1;
+            ye->n0 = k;
+            ye->n1 = h - k;
+        } else {
+            ye->n0 = h;
+            ye->n1 = 0;
+        }
+    } else {
+        if (y + (h << fieldpred) > 16) {
+            k = (16 >> fieldpred) - (y >> fieldpred);
+            ye->n0 = k;
+            ye->n1 = h - k;
+        } else {
+            ye->n0 = h;
+            ye->n1 = 0;
+        }
+    }
+    buf = d->mc[d->cur].buf + n * 0x600;
+    ye->p0 = buf + y * 16;
+    ye->p1 = buf + (y * 16 + 0x300);
+    ye->step = 16 << fieldpred;
+    yidx = (avg << 2) | xh << 1 | yh;
+    avg <<= 2;
+
+    cdx = dx / 2;
+    cdy = dy / 2;
+    ch = h >> 1;
+    cyofs = yofs >> 1;
+    x = (cdx >> 1) + (bx >> 1);
+    if (fieldpred) {
+        y = ((cdy >> 1) * 2 + cyofs) + ((by >> 1) + sfield);
+    } else {
+        y = ((cdy >> 1) + cyofs) + ((by >> 1) + sfield);
+    }
+    xh = cdx & 1;
+    cxm = x >> 3;
+    cym = y >> 3;
+    cxr = x - cxm * 8;
+    y = y - cym * 8;
+    yh = cdy & 1;
+    ce->x = cxr;
+    ce->addr = work + ((dfield + cyofs) * 16 + 0x200);
+    if (yh) {
+        if (y + (ch << fieldpred) > 7) {
+            k = (8 >> fieldpred) - (y >> fieldpred) - 1;
+            ce->n0 = k;
+            ce->n1 = ch - k;
+        } else {
+            ce->n0 = ch;
+            ce->n1 = 0;
+        }
+    } else {
+        if (y + (ch << fieldpred) > 8) {
+            k = (8 >> fieldpred) - (y >> fieldpred);
+            ce->n0 = k;
+            ce->n1 = ch - k;
+        } else {
+            ce->n0 = ch;
+            ce->n1 = 0;
+        }
+    }
+    cbuf = ((cxm - xm) * 2 + (cym - ym)) * 0x180 + buf;
+    base = ref->base;
+    ce->p0 = cbuf + (y * 8 + 0x100);
+    ce->p1 = cbuf + (y * 8 + 0x400);
+    ce->step = 8 << fieldpred;
+    d->mc[d->cur].yfunc[n] = D_00137ED0[yidx];
+    d->mc[d->cur].yref[n] = base + mb * 0x180;
+    d->mc[d->cur].cref[n] = base + (mb + ref->width) * 0x180;
+    d->mc[d->cur].cfunc[n] = D_00137EF0[avg | xh << 1 | yh];
+    d->mc[d->cur].n++;
+}
+
+extern void r1_func_0012C468(void *, void *);
+extern void r1_func_00127318(int, int);
+extern void r1_func_001272B8(int, int, int);
+extern char r1_D_00153870[];
+typedef struct {
+    int unk0;
+    int unk4;
+    char pad8[0x20];
+    void (*fa[4])(void *);
+    void (*fb[4])(void *);
+    char a[4][0x1C];
+    char b[4][0x1C];
+    int unk128;
+    int count;
+    int unk130;
+    int pad134;
+    int unk138;
+    int unk13C;
+} Elem001263A8;
+typedef struct {
+    char pad0[0x590];
+    Elem001263A8 e[2];
+    char pad810[0xC];
+    int unk81C;
+} Dec001263A8;
+
+
+/* rac1-decomp src/core/00125630.c: func_0012A1C8 */
+/* Run a channel's per-block callbacks, then hand its buffer to the output routine. */
+void func_0012A1C8(void *arg0, int idx) {
+    Dec001263A8 *p = (Dec001263A8 *)arg0;
+    int i;
+
+    if (p->e[idx].unk138 != 0) {
+        for (i = 0; i < p->e[idx].count; i++) {
+            p->e[idx].fa[i](p->e[idx].a[i]);
+            p->e[idx].fb[i](p->e[idx].b[i]);
+        }
+    }
+    if (p->e[idx].unk130 != 0 && p->e[idx].unk13C != 0) {
+        r1_func_0012C468(p, r1_D_00153870);
+    }
+    if (p->e[idx].unk130 != 0) {
+        r1_func_00127318(p->e[idx].unk128, p->e[idx].unk4);
+    } else if (p->e[idx].unk13C != 0) {
+        r1_func_00127318(p->e[idx].unk128, p->unk81C);
+    } else {
+        r1_func_001272B8(p->e[idx].unk128, p->unk81C, p->e[idx].unk4);
+    }
+}
 
 ASM_FUNC("asm/core", func_0012A3E8);
 

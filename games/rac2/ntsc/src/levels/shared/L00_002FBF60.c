@@ -35,11 +35,8 @@ void func_L00_002FC028(void)
     ref_L00_002FC028_00 = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002FC058);
 
-INCLUDE_ASM("asm/levels", func_L00_002FC460);
 
-INCLUDE_ASM("asm/levels", func_L00_002FC580);
 
 extern int r1_func_0011CC38_002FC588();
 
@@ -77,4 +74,3 @@ int func_L00_002FC5E8(void) {
     return r1_func_0011CC38_002FC5E8();
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002FC798);

@@ -1,13 +1,17 @@
-/* from src/levels/shared/L00_002E5918.c: returns the $gp float at gp-0x76DC
- * (0x001A7914, a resident symbol: same address in every level) times the argument.
- * Retail, 16 bytes: lwc1 $f0,-0x76DC($gp); nop; jr $ra; mul.s $f0,$f0,$f12.
- * With `extern float D_001A7914 __attribute__((sda));` (and the -g8 sibling unit)
- * the load and the mul.s operand order match retail exactly, but the pinned cc1
- * emits the compact three-instruction form (lwc1; jr $ra; mul.s - 12 bytes): the
- * retail `nop` before `jr $ra` is the wall documented in docs/COMPILER-NOTES.md
- * ("a nop before jr $ra ... those bodies do not reproduce"). Marked G8. */
+/* from src/levels/shared/L00_002E5918.c: retail, 16 bytes, 27 places:
+   lwc1 $f0,-0x76DC($gp) ; nop ; jr $ra ; mul.s $f0,$f0,$f12.
+   Twin of func_L00_002EDCB8, one float later in .sdata (0x001A7914).
+   The candidate is 12 bytes with the same load and the same `mul.s` operand
+   order; the missing word is the `nop` between the load and the jump.
+   Measured this wave (wave 8 w06): -O0, -O1, -O2, -O3, -G0, -G8,
+   -fno-schedule-insns, -fno-delayed-branch, -ffast-math, a volatile global
+   and a double read of the global all give the compact three-instruction form
+   (or a different order); nothing reaches 16 bytes.  Assembling the retail's
+   exact four instructions with the game's `as` gives 12 bytes too, so the
+   `nop` is not the assembler's FPR-hazard nop: the compiler has to emit it.
+   Marked G8. */
 extern float D_001A7914 __attribute__((sda));
 
-float func_L00_002EDCF0(float a) {
-    return D_001A7914 * a;
+float func_L00_002EDCF0(float a0) {
+    return D_001A7914 * a0;
 }

@@ -1,0 +1,192 @@
+#include "common.h"
+
+typedef struct { float x, y, z, w; } MmiPoint;
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282D30(void *, void *, float);
+extern float func_002A7878(float, float);
+extern float func_002A7940(void);
+extern float func_00283180(float);
+extern float func_00283198(float);
+extern void func_002A3110(void *, int, int);
+extern void func_00282D60(void *, void *, float);
+extern void func_00282D90(void *, void *, float);
+extern void func_00129148(void *, void *, float);
+extern void func_00282CF0(void *, void *, void *);
+extern float func_00282DF0(void *);
+extern float func_00282C10(float);
+extern void func_00283098(void *, void *, void *);
+
+/* Choose collision shapes by volume and scatter points inside them.
+ * Source structure follows RAC1's func_L00_0025BCF8_r in
+ * overlays/shared/moby_ground_collision.c (GPL-3.0).
+ * The float argument precedes the integer arguments in source, as in RAC1;
+ * each register bank retains its own argument order in the EE ABI.
+ */
+int func_002A99A0(float density, char *object, int limit, MmiPoint *output, int mask)
+{
+    float volumes[20];
+    char *shapes[20];
+    MmiPoint center, random, delta, point, jitter;
+    char *shape;
+    float total;
+    int count, index, last, n, i, kind;
+    float value;
+    {
+        char *shape = *(char **)(*(char **)(object + 0x24) + 0x10);
+        if (shape == 0) return 0;
+        if (*(short *)(shape + 2))
+            func_002A3110(object, *(short *)(shape + 2), 0);
+        if (*(int *)(shape + 4) <= 0) return 0;
+        shape += 16;
+        total = 0.0f;
+        count = 0;
+        index = 0;
+        {
+            char *data = shape + 4;
+            do {
+                int kind;
+                unsigned flags = *(unsigned *)(data - 4);
+                unsigned active;
+                last = flags >> 31;
+                kind = flags & 255;
+                active = flags & 0x20000;
+                if (!(((mask >> index) ^ 1) & 1) && active) {
+                    shapes[count] = shape;
+                    switch (kind) {
+                    case 0: case 1: case 2: {
+                        float radius;
+                        if (kind < 2) {
+                            qcopy_nc(&center, shape + 16);
+                            func_00282D60(&center, &center, *(float *)(object + 0x2C) * (1.0f / 1024.0f));
+                            radius = center.w;
+                        } else {
+                            qcopy_nc(&center, (void *)(0x70000000 + (*(int *)(data) << 4)));
+                            qcopy_nc(&random, shape + 16);
+                            func_00282CC0(&center, &center, &random);
+                            func_00282D30(&center, &center, *(float *)(object + 0x2C) * (1.0f / 1024.0f));
+                            radius = *(float *)(object + 0x2C);
+                            radius = *(float *)(data + 8) * radius * (1.0f / 1024.0f);
+                        }
+                        volumes[count] = radius * (radius * 4.188790321350098f) * radius;
+                        break;
+                    }
+                    case 3: {
+                        float radius, height, scaled_height;
+                        qcopy_nc(&center, shape + 16);
+                        func_00282D30(&center, &center, *(float *)(object + 0x2C));
+                        radius = center.w * *(float *)(object + 0x2C);
+                        radius *= 1.0f / 1024.0f;
+                        height = *(float *)(data);
+                        scaled_height = height * (1.0f / 1024.0f);
+                        height = scaled_height * *(float *)(object + 0x2C);
+                        volumes[count] = radius * (radius * 4.187743186950684f) * radius + radius * (radius * 1.5707963705062866f) * height;
+                        break;
+                    }
+                    case 4: {
+                        float radius, height;
+                        func_00129148(&center, (void *)(0x70000000 + (*(short *)(data) << 4)), *(float *)(object + 0x2C) * (1.0f / 1024.0f));
+                        func_00129148(&random, (void *)(0x70000000 + (*(short *)(data + 2) << 4)), *(float *)(object + 0x2C) * (1.0f / 1024.0f));
+                        func_00282CF0(&delta, &center, &random);
+                        radius = func_00282DF0(&delta);
+                        height = *(float *)(data + 8) * *(float *)(object + 0x2C) * (1.0f / 1024.0f);
+                        volumes[count] = height * (height * 1.5707963705062866f) * radius;
+                        break;
+                    }
+                    }
+                    total += volumes[count++];
+                }
+                index++;
+                shape += 32;
+                data += 32;
+            } while (!last);
+        }
+    }
+    n = (int)(density * total + 0.5f);
+    if (limit < n) n = limit;
+    for (i = 0; i < n; i++) {
+        value = func_002A7878(0.0f, total);
+        {
+            int selected;
+            for (selected = 0; selected < count; selected++) {
+                if (value < volumes[selected]) break;
+                value -= volumes[selected];
+            }
+            shape = shapes[selected];
+        }
+        kind = (unsigned char)*shape;
+        switch (kind) {
+        case 0: case 1: case 2: {
+            float radius, negative;
+            if (kind < 2) {
+                qcopy_nc(&center, shape + 16);
+                func_00282D30(&center, &center, *(float *)(object + 0x2C));
+                radius = center.w * *(float *)(object + 0x2C);
+            } else {
+                qcopy_nc(&center, (void *)(0x70000000 + (*(int *)(shape + 4) << 4)));
+                qcopy_nc(&random, shape + 16);
+                func_00282CC0(&center, &center, &random);
+                func_00282D30(&center, &center, *(float *)(object + 0x2C));
+                radius = *(float *)(shape + 12) * *(float *)(object + 0x2C);
+            }
+            radius = radius * (1.0f / 1024.0f);
+            func_00282D90(&center, &center, 1024.0f);
+            negative = -radius;
+            for (;;) {
+                random.x = func_002A7878(negative, radius);
+                random.y = func_002A7878(negative, radius);
+                random.z = func_002A7878(negative, radius);
+                if (func_00282DF0(&random) <= radius) {
+                    func_00282CC0(&random, &random, &center);
+                    func_00283098(&random, &random, object + 0xC0);
+                    func_00282CC0(&output[i], &random, object + 0x10);
+                    break;
+                }
+            }
+            break;
+        }
+        case 3: {
+            float radius, height, a, b, angle;
+            qcopy_nc(&center, shape + 16);
+            func_00282D30(&center, &center, *(float *)(object + 0x2C));
+            radius = center.w * *(float *)(object + 0x2C);
+            height = *(float *)(shape + 4) * *(float *)(object + 0x2C);
+            func_00282D90(&center, &center, 1024.0f);
+            radius *= 1.0f / 1024.0f;
+            height *= 1.0f / 1024.0f;
+            a = func_00282C10(func_002A7878(0.0f, radius * radius));
+            b = func_002A7878(0.0f, height);
+            angle = func_002A7940();
+            random.x = func_00283180(angle) * a;
+            random.y = func_00283198(angle) * a;
+            random.z = b;
+            func_00282CC0(&random, &random, object + 0x10);
+            func_00282CC0(&output[i], &center, &random);
+            break;
+        }
+        case 4: {
+            float radius, negative;
+            char *data = shape + 4;
+            func_00129148(&center, (void *)(0x70000000 + (*(short *)(data) << 4)), *(float *)(object + 0x2C));
+            func_00129148(&random, (void *)(0x70000000 + (*(short *)(data + 2) << 4)), *(float *)(object + 0x2C));
+            func_00282CF0(&delta, &random, &center);
+            value = func_002A7878(0.0f, 1.0f);
+            func_00282D30(&delta, &delta, value);
+            func_00282CC0(&point, &delta, &center);
+            func_00282D90(&point, &point, 1024.0f);
+            radius = *(float *)(shape + 12) * *(float *)(object + 0x2C);
+            radius *= 1.0f / 1024.0f;
+            negative = -radius;
+            do {
+                jitter.x = func_002A7878(negative, radius);
+                jitter.y = func_002A7878(negative, radius);
+                jitter.z = func_002A7878(negative, radius);
+            } while (!(func_00282DF0(&jitter) <= radius));
+            func_00282CC0(&jitter, &jitter, &point);
+            func_00283098(&jitter, &jitter, object + 0xC0);
+            func_00282CC0(&output[i], &jitter, object + 0x10);
+            break;
+        }
+        }
+    }
+    return n;
+}

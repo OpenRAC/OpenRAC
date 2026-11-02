@@ -177,7 +177,6 @@ s32 func_0011E4E0(s32 fd, void *buffer, s32 length)
     return result;
 }
 
-INCLUDE_ASM("asm/core", func_0011E740);
 
 extern int D_00134744;
 extern char D_00140140[];

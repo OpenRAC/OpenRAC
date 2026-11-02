@@ -13,7 +13,17 @@
    `-mastra-annul-dead-slots` (patch 0025, opt-in again since 0054) only annuls a slot whose
    destination is a REGISTER the branch tests, never a memory store.
    What would unblock it: a lever that makes this cc1 hoist the constant above the branch
-   and annul a store-bearing delay slot (the retail `beql` conditional-execute form). */
+   and annul a store-bearing delay slot (the retail `beql` conditional-execute form).
+
+   Wave 8 w8-10 notes: the reading of the retail is confirmed by the R5900 rule (an
+   integer `beql`/`bnel` runs its delay slot only when the branch is TAKEN), so mode == 0
+   stores 40.0f in the $gp slot and mode != 0 stores 100.0f in the absolute word - the
+   candidate below is right. The branch-likely form itself is reachable from ordinary C
+   (the matched func_L23_0042AC70 emits a `beql` with the epilogue restore in its slot),
+   so the wall is only the store-bearing slot. The absolute word is per level (0x1B26B0
+   in level 00, 0x1B2D70 in level 01); the `D_L00_001B26B0` spelling is still right,
+   because a `D_LNN_XXXXXXXX` name is unconstrained outside its own level and its value
+   is taken from the retail bytes. */
 
 #include "include_asm.h"
 

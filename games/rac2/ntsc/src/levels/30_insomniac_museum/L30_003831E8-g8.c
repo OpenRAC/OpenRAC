@@ -1,0 +1,21 @@
+#include "common.h"
+extern int func_002F5FB0(float);
+extern float func_002F4DA0(float);
+extern int D_L30_001AEBB8 __attribute__((sda));
+extern float D_L30_00233A60[2][24][24];
+void func_L30_003831E8(int x, int y, float radius, float height) {
+    int extent = func_002F5FB0(radius);
+    int i,j;
+    float rr = 2 * (radius * radius);
+    for(j=y-extent;j<=y;j++) {
+        for(i=x-extent;i<=x;i++) {
+            float d = func_002F4DA0((float)((x-i)*(x-i)+(y-j)*(y-j)));
+            float h = height * func_002F4DA0(rr-d*d);
+            if(h < D_L30_00233A60[D_L30_001AEBB8][i][j]) h=D_L30_00233A60[D_L30_001AEBB8][i][j];
+            D_L30_00233A60[D_L30_001AEBB8][i][j]=h;
+            D_L30_00233A60[D_L30_001AEBB8][x+(x-i)][j]=h;
+            D_L30_00233A60[D_L30_001AEBB8][i][y+(y-j)]=h;
+            D_L30_00233A60[D_L30_001AEBB8][x+(x-i)][y+(y-j)]=h;
+        }
+    }
+}

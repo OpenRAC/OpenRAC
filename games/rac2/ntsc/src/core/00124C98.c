@@ -120,7 +120,136 @@ int func_00124C98(int arg0) {
 }
 
 
-INCLUDE_ASM("asm/core", func_00124E08);
+extern int r1_func_0011AB10(void);
+
+extern void r1_func_0011CEC8(void *, int);
+
+extern int r1_func_0011D620(void *, unsigned int, int, void *, int, void *, int, void *, int);
+
+extern void r1_func_00124818(void);
+
+extern int r1_func_001248F8(void);
+
+extern int r1_D_001363D0;
+
+extern volatile int r1_D_001363A4;
+
+extern volatile int r1_D_001363B4;
+
+extern int r1_D_001363B8;
+
+extern int r1_D_001363BC;
+
+extern int r1_D_001363C0;
+
+extern int r1_D_001363C4;
+
+extern int r1_D_001363CC;
+
+extern volatile int r1_D_001363A0;
+
+extern volatile int r1_D_001363A8;
+
+extern volatile int r1_D_001363AC_v __asm__("r1_D_001363AC");
+
+extern int r1_D_00141A68;
+
+extern int r1_D_00141AC0;
+
+extern char r1_D_00137580[];
+
+extern char r1_D_0013B268[];
+
+extern char r1_D_0013B288[];
+
+/* sceCdInit (libcdvd cdvd000.o): reset the RPC bind states, bind the
+   0x80000592 init server (retrying until it answers), send init_mode and
+   read the IOP reply. The store to 63B4 is volatile and the store of the
+   thread id plain: with the copy of GetThreadId's result folded into its
+   store, sched1 leaves retail's register allocation in the init block.
+   Making any one other init store volatile instead (e.g. 63C8) gives the
+   same bytes. */
+int func_00124E08(int init_mode) {
+    int ret;
+    int r;
+    int i;
+    int stat;
+    int a;
+    int b;
+    int owner;
+    char *rbuf;
+
+    if (r1_func_00124C28(1) != 0) {
+        return 0;
+    }
+    r1_func_0011CF78(0);
+    owner = r1_func_0011AB10();
+    r1_D_001363A4 = 1;
+    r1_D_00141850 = owner;
+    r1_D_001363C0 = -1;
+    r1_D_001363B8 = -1;
+    r1_D_001363C8 = -1;
+    r1_D_001363C4 = -1;
+    r1_D_001363CC = -1;
+    r1_D_001363BC = -1;
+    r1_D_001363B4 = 0;
+    r1_D_001363D0++;
+    while (1) {
+        r = r1_func_0011D450(&r1_D_00141A68, 0x80000592, 0);
+        if (r < 0) {
+            if (r1_D_00136390 > 0) {
+                r1_func_0011C820(r1_D_0013B268, r, r1_D_001363D0);
+            }
+            for (i = 0x100000; i != -1; i--) {
+            }
+            continue;
+        }
+        if (((SifRpcClientData *)&r1_D_00141A68)->serve != 0) {
+            r1_D_00141AC0 = init_mode;
+            r1_D_001363CC = 0;
+            r1_func_0011CEC8(&r1_D_00141AC0, 4);
+            rbuf = r1_D_00137580;
+            if (r1_func_0011D620(&r1_D_00141A68, 0, 0, &r1_D_00141AC0, 4, rbuf, 0x10, 0, 0) < 0) {
+                r1_D_001363A4 = 0;
+                return 0;
+            }
+            break;
+        }
+        for (i = 0x100000; i != -1; i--) {
+        }
+    }
+    a = *(int *)((unsigned int)(rbuf + 4) | 0x20000000);
+    b = *(int *)((unsigned int)(rbuf + 8) | 0x20000000);
+    stat = *(int *)((unsigned int)(rbuf + 0xC) | 0x20000000);
+    ret = 1;
+    if (stat == 0xFF) {
+    } else if (stat == 0xFE) {
+        r1_D_00136390 = ret;
+    } else {
+        if (a / 256 < 2 || b / 256 < 2) {
+            ret = 2;
+        }
+    }
+    r1_D_001363A4 = 0;
+    switch (init_mode) {
+    case 5:
+        if (r1_D_00136390 > 0) {
+            r1_func_0011C820(r1_D_0013B288);
+        }
+        r1_func_00124818();
+        r1_D_001363A8 = -1;
+        r1_D_001363AC_v = -1;
+        r1_D_001363A0 = -1;
+        break;
+    case 0:
+    case 1:
+    default:
+        r1_func_00124780();
+        r1_func_001248F8();
+        break;
+    }
+    return ret;
+}
 
 
 
@@ -286,4 +415,3 @@ int func_001252E0(int arg0) {
     return r;
 }
 
-INCLUDE_ASM("asm/core", func_001253A4);

@@ -55,6 +55,18 @@ from ties import tie_classes, tie_instances, tie_slot_normals
 # gadget classes whose bind pose collapses a joint (the Blaster, the Pyrocitor). 4: the textures the
 # game clamps (terrain, ties, shrubs, the sky) have clamping samplers.
 FORMAT = 4
+# A game whose export moved on alone: a bump here reads only that game's levels again, as the other
+# games' files are the same. The layout is the shared one. Going Commando, 5: Ratchet's mesh and
+# textures from the disc's hero pack. 6: the flights to a planet as levels 95 to 98. 7: what he
+# holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
+# of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
+# 9: the mobys' glow vertices and their light sets.
+GAME_FORMATS = {"rac2": 9}
+
+
+def levels_format(game: str) -> int:
+    """The format of GAME's exported levels."""
+    return GAME_FORMATS.get(game, FORMAT)
 
 
 def sky_glb(data: Sky, texture_uri) -> bytes:
@@ -125,7 +137,7 @@ class PortLevelWriter(LevelWriter):
         # The executable's (cos, sin) table: with it the terrain is lit as the game lights it.
         self.normals = normals
         self.classes = {"tie": {}, "shrub": {}, "moby": {}}
-        self.placements = {"format": FORMAT, "ties": [], "shrubs": [], "mobys": []}
+        self.placements = {"format": levels_format(self.fmt.game), "ties": [], "shrubs": [], "mobys": []}
         self.sky = None
 
     def write(self, lod: int) -> dict:
@@ -240,7 +252,7 @@ class PortLevelWriter(LevelWriter):
         self.stats["bounds"] = [list(bounds[0]), list(bounds[1])]
         if self.fmt.lenient:
             self.stats["problems"] = problem_summary(self.level.problems)
-        manifest = {"format": FORMAT, "game": self.fmt.game, "version": self.level.version, "level": self.level.id,
+        manifest = {"format": levels_format(self.fmt.game), "game": self.fmt.game, "version": self.level.version, "level": self.level.id,
                     "axes": "game units, Z up; matrices column-major",
                     "terrain": "terrain.glb" if (self.dir / "terrain.glb").exists() else None,
                     "collision": "collision.glb" if (self.dir / "collision.glb").exists() else None,
@@ -254,7 +266,7 @@ class PortLevelWriter(LevelWriter):
         if self.fmt.lenient:
             # Early access: what the editor and the overrides packs can use, and what not yet.
             manifest["early_access"] = {"playable": False, "packable": False, "lit": False}
-        if self.normals is not None and self.fmt.lighting:
+        if self.fmt.moby_lights or (self.normals is not None and self.fmt.lighting):
             # The 16 directional light sets the level loader copies from the gameplay file
             # (colour A with its back factor in w, direction A, colour B, direction B): what
             # the game lights its mobys with.
