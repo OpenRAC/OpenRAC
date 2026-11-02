@@ -161,9 +161,11 @@ func_00128A50	pad2	scePad2Read	host	same instructions as rac1-pal's
 func_00128B28	pad2	scePad2GetButtonProfile	host	same instructions as rac1-pal's
 func_00128C18	pad2	scePad2GetState	host	same instructions as rac1-pal's
 func_00128F50	vib	sceVibGetProfile	host	same instructions as rac1-pal's
-func_00129218	vu0	sceVu0RotMatrixZ	host	same instructions as rac1-pal's (Z, X, Y in the library's order)
-func_001292C0	vu0	sceVu0RotMatrixX	host	same instructions as rac1-pal's (Z, X, Y in the library's order)
-func_00129368	vu0	sceVu0RotMatrixY	host	same instructions as rac1-pal's (Z, X, Y in the library's order)
+# sceVu0RotMatrixZ, X and Y (func_00129218, func_001292C0, func_00129368) run from the disc's own
+# instructions (hostgen.json "asm"): the shared replacement (common/lib/vu0.c) takes its sine and cosine
+# from the host's libm, whose last bit differs between macOS and glibc, and level starts built the
+# camera from them (g_cameraState, 0x1B5200: 1 ulp apart on the Mac and Linux). The library's own
+# polynomial on VU0 is the console's, and the same on every host.
 func_00131A98	scf	sceScfGetLocalTimefromRTC	host	same instructions as rac1-pal's and rac4's
 func_00132028	989snd	snd_FlushSoundCommands	host	symbol_addrs.txt snd_Pump; same opening as rac4's snd_FlushSoundCommands; the native flush also delivers deferred disc completion
 func_00133250	989snd	snd_InitVAGStreamingEx	host	same opening as rac4's
