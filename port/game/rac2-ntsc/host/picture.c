@@ -56,9 +56,15 @@ static uint8_t* picture_pixels(void) {
  * has gone out (func_0027B858). */
 long long func_002FCB00(int data, int destination, int width, int height) {
     if (width == PICTURE_WIDTH && height > 0 && height <= PICTURE_HEIGHT) {
-        memcpy(picture_pixels(), G((gaddr)data), (size_t)width * (size_t)height * 4);
+        /* The splash and the no-card notice write the same picture every frame (func_0026EA00's
+         * fade): it goes to the texture pool once and is drawn from the next frame on. A picture
+         * new every frame would never be drawn (func_002FC990 only sends a new one). */
+        const size_t bytes = (size_t)width * (size_t)height * 4;
+        const int same = !picture_of_frame && picture_lines == height
+                         && memcmp(picture_pixels(), G((gaddr)data), bytes) == 0;
+        memcpy(picture_pixels(), G((gaddr)data), bytes);
         picture_lines = height;
-        picture_new = 1;
+        picture_new = picture_new || !same;
         picture_in_frame = 1;
         picture_of_frame = 0;
     }
