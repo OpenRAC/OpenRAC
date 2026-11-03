@@ -187,6 +187,8 @@ void rac1_figure_shots_remove(gaddr figure);
 void rac1_figure_items_tick(void);
 void rac1_figure_items_remove(gaddr figure);
 int rac1_figure_owned(gaddr moby);
+/* A moby the line query also passes through, 0 for none: while a figure's shot is made. */
+void rac1_coll_line_also_ignore(gaddr moby);
 void rac1_figure_hit_dropped(const char* what);
 gaddr rac1_updating_moby(void);
 

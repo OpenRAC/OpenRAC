@@ -1453,6 +1453,13 @@ static int line_prim(
 }
 
 /* The moby pass of CollLine_Fix: the grid cells under the DDA list, (x >> 2, y >> 2) without repeats. */
+/* A moby the line query also passes through, while a figure's shot is made (figure_shots.c). */
+static gaddr line_also_ignores;
+
+void rac1_coll_line_also_ignore(gaddr moby) {
+    line_also_ignores = moby;
+}
+
 static void line_mobys(
     const Ctx* x,
     uint32_t stamp,
@@ -1495,7 +1502,7 @@ static void line_mobys(
         const gaddr list = grid_cell(x, cells[ci][0], cells[ci][1], &count);
         for (int li = 0; li < count; ++li) {
             const gaddr m = moby_at(x, U16(list + 2 * (gaddr)li));
-            if (m == ignore) {
+            if (m == ignore || (line_also_ignores != 0 && m == line_also_ignores)) {
                 continue;
             }
             if ((fl & 0x9) != 0 && (U16(m + 0x34) & 0x4000) == 0) {
