@@ -5,8 +5,8 @@
  * Going Commando: whose draw callback is running. The draw callback lists (wide_view.c runs them)
  * call each function with its argument, for most a moby: the ship's engine flame in the space
  * fights (level 5's func_L05_004186D8, on the ship's moby) and the other effects a moby draws for
- * itself. The world quads drawn meanwhile (render.c) carry it, so that a frame between ticks moves
- * them with that moby as the window draws it (openrac_game_quad::parent).
+ * itself. The world quads drawn meanwhile (render.c) carry it, so that a frame between ticks can move
+ * those on the moby's body with it (openrac_game_quad::parent; the window picks which).
  */
 #ifndef OPENRAC_RAC2_DRAW_OWNER_H
 #define OPENRAC_RAC2_DRAW_OWNER_H

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -181,51 +182,44 @@ void follow_moby(const renderer::Mat4& now, const renderer::Mat4& drawn, float p
     }
 }
 
-// The moves of the mobys that own effect quads (EffectQuad::parent), by address: this tick's
-// matrix and the one this frame draws the moby with, part way from the last tick's (blend_matrix).
-// A moby the tick drew uses its drawn matrices. One it did not draw has no axes in its LiveMoby
-// (level 5's ship, 0x018C7400 in the challenge, whose flame func_L05_004186D8 places by its
-// rotation +0xC0 and position +0x10: its body is drawn as other mobys at its place, classes 4305 to
-// 4325): it moves as the drawn moby at its place does, or, with none there, by its position alone.
+// The moves of the mobys that carry their effect quads (EffectQuad::parent), by address: this
+// tick's matrix and the one this frame draws the moby with, part way from the last tick's
+// (blend_matrix). Only an owner that is not drawn itself but has a drawn moby at its very place,
+// its body: level 5's ship, 0x018C7400 in the challenge, whose flame func_L05_004186D8 places by
+// its rotation +0xC0 and position +0x10, while its body is drawn as other mobys at its place
+// (classes 4305 to 4325). Its quads move as that body does. Others' quads stay where the tick has
+// them: a callback's argument is often a moby whose quads are not on it (a Lancer shot's trail
+// reaching back along its path, beams to far points), and turning those with the moby tore them
+// into stray lines.
 std::unordered_map<std::uint32_t, std::pair<renderer::Mat4, renderer::Mat4>> owner_moves(
     const Kept& scene, float alpha
 ) {
     std::unordered_map<std::uint32_t, std::pair<renderer::Mat4, renderer::Mat4>> moves;
-    if (alpha >= 1.0f) {
+    if (alpha >= 1.0f || !scene.has_prev_state) {
         return moves;
     }
-    std::vector<std::pair<renderer::Mat4, renderer::Mat4>> drawn;
-    for (std::size_t n = 0; n < scene.live.size() && n < scene.addresses.size(); ++n) {
-        const auto last = scene.prev_matrices.find(scene.addresses[n]);
-        if (last != scene.prev_matrices.end()) {
-            const renderer::Mat4& now = scene.live[n].matrix;
-            drawn.emplace_back(now, blend_matrix(last->second, now, alpha));
-            moves.emplace(scene.addresses[n], drawn.back());
+    std::unordered_set<std::uint32_t> drawn_here(scene.addresses.begin(), scene.addresses.end());
+    std::unordered_set<std::uint32_t> owners;
+    for (const renderer::EffectQuad& q : scene.effects) {
+        if (q.parent != 0 && !drawn_here.contains(q.parent)) {
+            owners.insert(q.parent);
         }
-    }
-    if (!scene.has_prev_state) {
-        return moves;
-    }
-    std::unordered_map<std::uint32_t, const renderer::Mat4*> last;
-    for (const host::LiveMoby& m : scene.prev_state.mobys) {
-        last.emplace(m.address, &m.matrix);
     }
     for (const host::LiveMoby& m : scene.state.mobys) {
-        const auto from = last.find(m.address);
-        if (from == last.end() || moves.contains(m.address)) {
+        if (!owners.contains(m.address)) {
             continue;
         }
-        // The drawn moby at its place this tick, when there is one.
-        const auto at = std::find_if(drawn.begin(), drawn.end(), [&m](const auto& d) {
-            const float dx = d.first[12] - m.matrix[12], dy = d.first[13] - m.matrix[13],
-                        dz = d.first[14] - m.matrix[14];
-            return dx * dx + dy * dy + dz * dz < 1e-6f;
-        });
-        moves.emplace(
-            m.address,
-            at != drawn.end() ? *at
-                              : std::pair{m.matrix, blend_matrix(*from->second, m.matrix, alpha)}
-        );
+        // The drawn moby at its place this tick, drawn the tick before too.
+        for (std::size_t n = 0; n < scene.live.size() && n < scene.addresses.size(); ++n) {
+            const renderer::Mat4& now = scene.live[n].matrix;
+            const float dx = now[12] - m.matrix[12], dy = now[13] - m.matrix[13],
+                        dz = now[14] - m.matrix[14];
+            const auto last = scene.prev_matrices.find(scene.addresses[n]);
+            if (dx * dx + dy * dy + dz * dz < 1e-6f && last != scene.prev_matrices.end()) {
+                moves.emplace(m.address, std::pair{now, blend_matrix(last->second, now, alpha)});
+                break;
+            }
+        }
     }
     return moves;
 }
@@ -279,10 +273,10 @@ void set_packets(SceneFrame& frame) {
     // spawner, level 3's 0x0033F6B0, as retail does), and corners taken part way between two
     // angles drew it shrunken, at times to a point, on every frame between ticks: a flicker, at
     // 60 fps too, whose frames do not fall on the ticks.
-    // A quad of a moby's own (EffectQuad::parent: the ship's engine flame in the space fights)
-    // moves with that moby as this frame draws it, through its axes, when the moby was drawn the
-    // tick before too: left at the tick's place, the flame ran ahead of the ship, into its middle as
-    // it flew and out to the side in a barrel roll.
+    // A quad on a moby's body (EffectQuad::parent, owner_moves: the ship's engine flame in the
+    // space fights) moves with the body as this frame draws it, through its axes: left at the
+    // tick's place, the flame ran ahead of the ship, into its middle as it flew and out to the side
+    // in a barrel roll.
     const float alpha = frame.output.alpha;
     const bool owned = std::any_of(scene.effects.begin(), scene.effects.end(), [](const auto& q) {
         return q.parent != 0;
