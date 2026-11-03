@@ -27,7 +27,7 @@ func_00300AA8	same	2026-11-01	d47584d0+dirty	e41e26597796	24 calls
 func_003380B0	same	2026-11-01	d47584d0+dirty	369bd7b4dbdb	6 calls
 func_003384C0	same	2026-11-01	d47584d0+dirty	3b3f81cf2b4a	7 calls; and SAME on 14 calls of P21 hero-state captures (box2), which differed before this fix
 func_00346C60	same	2026-11-01	d47584d0+dirty	d8a576c798c9	8 calls
-func_003489E8	same	2026-11-01	d47584d0+dirty	74e320fb32c6	14 calls
+func_003489E8	same	2026-11-02	b5fc73f29	b05ad9676755	3 calls; ran 271 of 310 instructions; func_00335F88's four floats fixed, fixed gate (R2-F)
 func_0034B2C8	same	2026-11-02	cb99c45bf	5807acfc2101	2 calls; ran 1494 of 1512 instructions; fixed gate (R2-F)
 func_002833F0	same	2026-11-01	d47584d0+dirty	fe9d8b851cf6	20 calls
 func_00283410	same	2026-11-01	d47584d0+dirty	bae52394c4bc	20 calls
@@ -524,3 +524,6 @@ func_L00_003A48D0	same	2026-11-02	dca226c0	bd2a6d998df1	1 calls from the wide ce
 func_L00_003A53E8	same	2026-11-02	dca226c0	111436544e11	1 calls from the wide census scripts; ran 100 of 629 instructions; unrun blocks read; fixed gate (R2-F)
 func_L01_003BE058	same	2026-11-02	dca226c0	0e2ab0b066e2	1 calls from the wide census scripts; ran 228 of 268 instructions; unrun blocks read; fixed gate (R2-F)
 func_L19_00417F88	same	2026-11-02	dca226c0	8f8732e9d38e	1 calls from the wide census scripts; ran 330 of 334 instructions; unrun blocks read; fixed gate (R2-F)
+func_L13_00438D88	same	2026-11-02	7fd05375	02fada5f90fc	1 call (level 18's copy, w18v8); ran 351 of 676 instructions; unrun blocks read; fixed gate (R2-F)
+func_L18_003FA180	same	2026-11-02	7fd05375	05d88452235a	1 call (w18v8); ran 104 of 399 instructions; unrun blocks read; fixed gate (R2-F)
+func_L19_0041C328	unchecked	2026-11-02	7fd05375	4b60d488ff25	no capture calls it (a Grelbin object's event path); read in full against retail (R2-F)
