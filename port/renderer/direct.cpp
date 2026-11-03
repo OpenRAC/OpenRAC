@@ -1342,17 +1342,20 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     // at less than full strength: a tint over the finished frame (the title's blue wash, a fade
     // part way). The game also clears with blending on at full alpha, which replaces the frame
     // all the same: that is a clear.
-    // After the world of a frame split at it (set_over_world) a fill is no clear: it goes over
-    // the finished frame. A scene's fade to black ends on one at full alpha (Maktar's arena, the
-    // ticks either side of the scene's load): left out, the black frame between the fade out and
-    // the fade in showed the world unfaded, HUD and all, for a tick on each side.
+    // After the level's world in a frame split at it (set_over_world) a fill is no clear: it goes
+    // over the finished frame. A scene's fade to black ends on one at full alpha (Maktar's arena,
+    // the ticks either side of the scene's load): left out, the black frame between the fade out
+    // and the fade in showed the world unfaded, HUD and all, for a tick on each side. A tick that
+    // drew mobys alone (the weapon upgrade) clears with such fills: there they stay clears, and
+    // so does an unblended fill anywhere (a fade blends; a plain clear need not).
     const gs::Alpha& al = context().alpha;
     const bool standard = al.a == 0 && al.b == 1 && al.d == 1;  // (Cs - Cd) * C + Cd
     const bool replaces = !attributes().abe
                           || (standard && ((al.c == 0 && b.rgba[3] >= 0x80) || (al.c == 2 && al.fix >= 0x80)));
     // (Only in the frame: an off-screen panel's clear is drawn, however tall the panel. The
     // Load Game page's slot list is 512 lines: its clear left old highlight frames in place.)
-    if (!attributes().tme && replaces && offscreen_target() == 0 && !m_over_world) {
+    const bool fade_over_world = m_over_world && attributes().abe;
+    if (!attributes().tme && replaces && offscreen_target() == 0 && !fade_over_world) {
         const gs::Scissor& sc = context().scissor;
         const std::int64_t scissor_height = static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0);
         const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;
@@ -1719,7 +1722,7 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     m_interpreter->set_ui_quads(input.ui_quads);
     m_interpreter->set_screen_mobys(static_cast<bool>(input.screen_mobys));
     m_interpreter->set_picture(state.target.picture_scale_x, state.target.wide_2d);
-    m_interpreter->set_over_world(std::exchange(m_world_split, false));
+    m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
     {
         const stats::Scope decode("2d decode");

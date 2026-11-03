@@ -267,6 +267,7 @@ void set_packets(SceneFrame& frame) {
     input.strips = scene.strips;
     input.direct_before_world =
         std::span<const std::uint8_t>(scene.packets).first(scene.before_world);
+    input.level_drawn = (scene.draws & kLevelLayers) != 0;
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] =
         std::span<const std::uint8_t>(scene.packets).subspan(scene.before_world);
     input.effects = scene.effects;

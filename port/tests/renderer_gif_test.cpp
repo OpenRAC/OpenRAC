@@ -368,13 +368,13 @@ void fill_to_the_edges() {
 // out there, Maktar's arena showed the world unfaded for a tick on each side of its scene's load.
 void fill_over_the_world() {
     TexturePool textures;
-    auto vertices = [&](bool over_world) {
+    auto vertices = [&](bool over_world, bool blended = true) {
         GifInterpreter gif(textures);
         gif.set_over_world(over_world);
         GifBuilder b;
         b
             .ad({{gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
-                 {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+                 {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, blended)},
                  {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
                  {gs::kXyz2, xyz2(-0.5, -0.5, 0)},
                  {gs::kXyz2, xyz2(511.5, 447.5, 0)}},
@@ -384,6 +384,8 @@ void fill_over_the_world() {
     };
     CHECK(vertices(false) == 0);
     CHECK(vertices(true) == 6);
+    // Unblended, it is a clear wherever it comes (the weapon upgrade's black, three passes of 16).
+    CHECK(vertices(true, false) == 0);
 }
 
 // The NTSC games draw into a 416-line buffer (XYOFFSET 2048 - 208), stretched onto the 448-line

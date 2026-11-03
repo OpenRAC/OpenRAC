@@ -192,6 +192,10 @@ struct FrameInput {
     // the frame's clear, and what the page menus put under their frame objects (the snapshot of
     // the frame they opened over, darkened). Drawn before the world (DirectBackground).
     std::span<const std::uint8_t> direct_before_world{};
+    // Whether the frame drew the level (sky, terrain, ties or shrubs) under its 2D path. Only then
+    // is a full-screen fill after the world a fade over it (GifInterpreter::set_over_world); a
+    // tick of mobys alone (Going Commando's weapon upgrade) clears its buffer with such fills.
+    bool level_drawn = false;
     Camera camera;
     // Opt-in developer inspection: render from camera, but retain visibility from this camera.
     std::optional<Camera> culling_camera;
