@@ -9,7 +9,9 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <limits>
 #include <utility>
+#include <vector>
 
 #include "common/env.h"
 #include "common/log.h"
@@ -616,10 +618,20 @@ bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& fra
 void GifInterpreter::hud_side(int side) {
     // Past the middle third on each side: what is across the middle is no side's. The triangles
     // are the frame's only: what the HUD draws off-screen goes with the sprite that shows it.
+    // Triangles that overlap are one element and move together, or a long panel would come apart
+    // where it crosses the middle third.
     constexpr float kMiddle = 56.0f / 256.0f;
     if (m_hud_side != 0) {
         const float move =
             static_cast<float>(m_hud_side) * 2.0f / static_cast<float>(m_config.screen_width);
+
+        struct Triangle {
+            std::uint32_t first;
+            float left, right, top, bottom;
+            int parent;
+        };
+
+        std::vector<Triangle> triangles;
         for (auto d = m_draws.rbegin();
              d != m_draws.rend() && d->first + d->count > m_hud_side_first;
              ++d) {
@@ -629,14 +641,55 @@ void GifInterpreter::hud_side(int side) {
             for (std::uint32_t i = std::max(d->first, m_hud_side_first);
                  i + 3 <= d->first + d->count;
                  i += 3) {
-                const float mid =
-                    (m_vertices[i].x + m_vertices[i + 1].x + m_vertices[i + 2].x) / 3.0f;
-                if (std::abs(mid) < kMiddle) {
-                    continue;
+                const auto& a = m_vertices[i];
+                const auto& b = m_vertices[i + 1];
+                const auto& c = m_vertices[i + 2];
+                triangles.push_back(
+                    {i,
+                     std::min({a.x, b.x, c.x}),
+                     std::max({a.x, b.x, c.x}),
+                     std::min({a.y, b.y, c.y}),
+                     std::max({a.y, b.y, c.y}),
+                     static_cast<int>(triangles.size())}
+                );
+            }
+        }
+        const auto root = [&](int n) {
+            while (triangles[static_cast<std::size_t>(n)].parent != n) {
+                auto& parent = triangles[static_cast<std::size_t>(n)].parent;
+                parent = triangles[static_cast<std::size_t>(parent)].parent;
+                n = parent;
+            }
+            return n;
+        };
+        for (std::size_t i = 0; i < triangles.size(); ++i) {
+            for (std::size_t k = i + 1; k < triangles.size(); ++k) {
+                const Triangle& p = triangles[i];
+                const Triangle& q = triangles[k];
+                if (p.left <= q.right && q.left <= p.right && p.top <= q.bottom
+                    && q.top <= p.bottom) {
+                    triangles[static_cast<std::size_t>(root(static_cast<int>(k)))].parent =
+                        root(static_cast<int>(i));
                 }
-                for (std::uint32_t k = i; k < i + 3; ++k) {
-                    m_vertices[k].x += mid < 0.0f ? -move : move;
-                }
+            }
+        }
+        std::vector<std::pair<float, float>> extent(
+            triangles.size(),
+            {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
+        );
+        for (std::size_t i = 0; i < triangles.size(); ++i) {
+            auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+            e.first = std::min(e.first, triangles[i].left);
+            e.second = std::max(e.second, triangles[i].right);
+        }
+        for (std::size_t i = 0; i < triangles.size(); ++i) {
+            const auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+            const float mid = (e.first + e.second) / 2.0f;
+            if (std::abs(mid) < kMiddle) {
+                continue;
+            }
+            for (std::uint32_t k = triangles[i].first; k < triangles[i].first + 3; ++k) {
+                m_vertices[k].x += mid < 0.0f ? -move : move;
             }
         }
     }
@@ -798,6 +851,16 @@ void GifInterpreter::native_quad(const UiQuad& quad) {
     write_prim(prim);
     m_glyph = (quad.flags & kUiGlyph) != 0;
     m_in_native = true;
+    // A glyph's top and bottom sit half a texel inside its cell. Its distance field is smooth and
+    // reaches across the cell's edge, so at the very edge it read the next row of the font page: a
+    // descender of the glyph above drew as a short line on top of this one.
+    float glyph_top = quad.v[0];
+    float glyph_bottom = quad.v[0];
+    for (const auto v : quad.v) {
+        glyph_top = std::min(glyph_top, static_cast<float>(v));
+        glyph_bottom = std::max(glyph_bottom, static_cast<float>(v));
+    }
+    const float glyph_inset = m_glyph && glyph_bottom - glyph_top > 16.0f ? 8.0f : 0.0f;
     for (int i = 0; i < 4; ++i) {
         if (sprite && (i == 1 || i == 2)) {
             continue;
@@ -809,7 +872,9 @@ void GifInterpreter::native_quad(const UiQuad& quad) {
         m_current.rgba[3] = static_cast<std::uint8_t>(rgba >> 24);
         m_current.q = 1.0f;
         m_current.u = quad.u[i];
-        m_current.v = quad.v[i];
+        m_current.v = static_cast<decltype(m_current.v)>(std::clamp(
+            static_cast<float>(quad.v[i]), glyph_top + glyph_inset, glyph_bottom - glyph_inset
+        ));
         m_current.x = quad.x[i];
         m_current.y = quad.y[i];
         m_current.z = quad.z;
