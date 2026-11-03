@@ -189,20 +189,31 @@ void upload_instances(SceneFrame& frame) {
     frame.owner.scene.set_shrub_draws(
         frame.graphics.original_lod ? frame.scene.shrubs : std::vector<scene::ShrubDraw>{}
     );
-    // The ties and shrubs the game moved this tick (a moby's group) or removed, with the mobys.
+    // The ties and shrubs the game moved this tick (a moby's group) or removed, with the mobys:
+    // only those of a pass the game ran this tick. The vendor's menu draws no tie or shrub pass
+    // (its world is a picture kept from when it opened) but draws its item's moby, after its
+    // panels: Maktar's moved ties (the arena's turning rings and lights) were drawn there, over
+    // the panels and the kept picture, with the vendor's camera.
     frame.owner.scene.move_scenery(frame.scene.scenery);
-    const bool more = frame.graphics.original_lod || frame.owner.scene.has_moved_scenery();
+    const auto ran = [&](renderer::Bucket bucket) {
+        return (frame.scene.draws & (1u << static_cast<unsigned>(bucket))) != 0;
+    };
+    const std::array<bool, 2> scenery_ran{
+        ran(renderer::Bucket::Ties), ran(renderer::Bucket::Shrubs)
+    };
+    const bool shrub_effects = frame.graphics.original_lod && scenery_ran[1];
+    const bool more = shrub_effects || frame.owner.scene.has_moved_scenery();
     std::vector<scene::Instance> with_shrubs;
     if (more) {
         with_shrubs = live;
-        if (frame.graphics.original_lod) {
+        if (shrub_effects) {
             frame.owner.scene.add_shrub_effects(with_shrubs);
         }
         // Between ticks, a moved instance part way from where the last tick had it, as the mobys.
         const float alpha = frame.output.alpha;
         const auto& prev = frame.scene.prev_scenery;
         frame.owner.scene.add_moved_scenery(
-            with_shrubs, [&](std::size_t k, std::size_t i, const renderer::Mat4& now) {
+            with_shrubs, scenery_ran, [&](std::size_t k, std::size_t i, const renderer::Mat4& now) {
                 if (alpha >= 1.0f || i >= prev[k].size()) {
                     return now;
                 }

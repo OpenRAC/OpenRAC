@@ -845,9 +845,14 @@ void LevelScene::relight_shrub(
 
 void LevelScene::add_moved_scenery(
     std::vector<Instance>& live,
+    const std::array<bool, 2>& layers,
     const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at
 ) const {
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+        // A layer whose pass the game did not run this tick (the vendor's frozen world) has none.
+        if (k >= layers.size() || !layers[k]) {
+            continue;
+        }
         const Scenery& scenery = m_scenery[k];
         const MovedScenery& moved = m_moved[k];
         for (std::size_t i = 0; i < moved.state.size() && i < scenery.source.size(); ++i) {

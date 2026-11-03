@@ -152,11 +152,13 @@ public:
     // A tie that a point light reaches (its list) is lit again with it each tick, as the game does.
     void move_scenery(const GameScenery& scenery);
 
-    // The instances move_scenery found moved, at their place now, appended to `live`; `at`, when
-    // given, places each (scenery layer 0 ties / 1 shrubs, instance, matrix now) for a frame drawn
-    // between ticks.
+    // The instances move_scenery found moved, at their place now, appended to `live`, of the
+    // scenery layers `layers` names (0 ties, 1 shrubs: the ones whose pass the game ran this tick);
+    // `at`, when given, places each (scenery layer, instance, matrix now) for a frame drawn between
+    // ticks.
     void add_moved_scenery(
         std::vector<Instance>& live,
+        const std::array<bool, 2>& layers,
         const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at = {}
     ) const;
 
