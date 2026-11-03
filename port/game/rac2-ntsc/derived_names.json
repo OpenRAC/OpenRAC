@@ -1,7 +1,7 @@
 {
  "about": "Names and the addresses the decompilation's own build derived for them from the retail bytes. Written by port/tools/hostgen/derived.py; do not edit.",
  "source": {
-  "commit": "c2f2807f959d2dca9aa32558cf32a5e0bffd3c79",
+  "commit": "d5d78af00cf9242b58f01a405a7cda3c4dc77108",
   "program": "boot",
   "table": "build/boot/placed.json"
  },
@@ -357,6 +357,7 @@
   "D_001A7A00": "0x001a7a00",
   "D_001A7A08": "0x001a7a08",
   "D_001A7A0A": "0x001a7a0a",
+  "D_001A7A0C": "0x001a7a0c",
   "D_001A7A10": "0x001a7a10",
   "D_001A7A1A": "0x001a7a1a",
   "D_001A7A1C": "0x001a7a1c",
@@ -2618,6 +2619,7 @@
   "func_00117108": "0x00117108",
   "func_00117278": "0x00117278",
   "func_001175F0": "0x001175f0",
+  "func_00117CA0": "0x00117ca0",
   "func_001182B8": "0x001182b8",
   "func_001184D0": "0x001184d0",
   "func_001185E8": "0x001185e8",
@@ -2954,6 +2956,7 @@
   "func_0026F7F0": "0x0026f7f0",
   "func_0026F7F8": "0x0026f7f8",
   "func_0026F800": "0x0026f800",
+  "func_0026F808": "0x0026f808",
   "func_0026FE48": "0x0026fe48",
   "func_0026FEB8": "0x0026feb8",
   "func_0026FF08": "0x0026ff08",
@@ -5678,6 +5681,10 @@
   "ref_L00_00345F70_19": "0x001ae42c",
   "ref_L00_00345F70_20": "0x001ae434",
   "ref_L00_00345F70_21": "0x001ae43c",
+  "ref_L00_0034AA30_00": "0x001ae798",
+  "ref_L00_0034AA30_01": "0x001ae79c",
+  "ref_L00_0034AA30_02": "0x001b23a4",
+  "ref_L00_0034AA30_03": "0x001b23a0",
   "ref_L00_0034EF58_00": "0x001ae7e8",
   "ref_L00_0034EF58_01": "0x001b23c8",
   "ref_L00_0034F408_00": "0x001b23cc",
