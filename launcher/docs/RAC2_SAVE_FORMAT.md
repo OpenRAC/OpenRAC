@@ -177,3 +177,45 @@ constants in each level's code, e.g. 0x83, 0x86, 0x89, 0x9F on Damosel, Joba, En
 and Maktar's arena challenge results (chunk 5 at the index `func_L11_0043E108` and
 `func_L02_003F9B70` give per challenge), races, and the rest of the cinematics bits. Each needs
 its own before/after experiment.
+
+### Planets 0 to 8 (L-6a)
+
+`rac2_flags/planets_a.rs`. Found by scanning each level's assembly (levels 0-8) for constant
+offsets into chunk 5 (0x1395B8), chunk 43 (0x139768) and chunk 3004 (0x19B2E8), then reading the
+decompiled C of every level-only function that uses one.
+
+**The cinematics bits.** The scene players (`func_002EB7E8`, `func_002F53C8`) set
+`*(u32 *)(0x139768 + (id >> 2) * 4) |= 1 << (id & 31)` for scene ids under 0xB1: the word index
+is `id >> 2`, not `id >> 5`, so scene `id` is bit `(id >> 2) * 32 + (id & 31)` of the chunk. The
+Maktar arena intro, bit 331, is scene 43. The level code asks for scenes through a request
+global, not by constant ids, so the other bits are not named here.
+
+| Planet         | Flag                       | Place          | From                                                                                                                                                                                                                       |
+| -------------- | -------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Maktar Nebula  | Arena: first challenge won | chunk 5 +0x31  | `func_L02_003F9B70` maps challenge 0 to it (0..13 to 0x31, 0x34, 0x32, 0x33, 0x35-0x38, 0x91, 0x39-0x3B, 0x92, 0x93); `func_L02_003FCCA0` adds 1 per win and gives item 38 on the first; each frame byte 2 = (0x31 != 0) |
+| Endako         | Swingshot area passed      | chunk 5 +0x0D  | `func_L03_003F09C0`: at level start, with item 13 owned and 0x0D clear, places the hero at its cuboid; set when the hero enters its volume                                                                                  |
+| Barlow         | Thermanator area passed    | chunk 5 +0x12  | `func_L04_00456628`: the same with item 39 and its own volume                                                                                                                                                              |
+| Feltzin System | Space mission 1..4 won     | chunk 5 +0x61..+0x64 | `func_L05_0041DA20` loads them into the mission win counts at level start; `func_L05_00420788` adds 1 per win (bolt prize by count) and `func_L05_004222D8` stores them back, capped at 127                       |
+
+**Load proof** (box1, the same port and data as above, `OPENRAC_DUMP_RAM` at frame 5000). The
+Oozla fixture moved to each planet (chunk 0 and chunk 14), loaded from the title twice, without
+and with the flag:
+
+- Maktar, 0x31 set with byte 2 left clear in the save: the game set byte 2 to 1 (0 without), so
+  it reads the arena count.
+- Feltzin, 0x61 = 3: the level's first mission count (0x1B1350) loaded as 3 (0 without), and its
+  first-mission switch (0x1B13F4) was 0 (1 without).
+- Endako, Swingshot owned, 0x0D clear: control at frame 1675 at (407.8, 232.8, 160.0); with 0x0D
+  set, control at 1986 at the usual (300.2, 227.3, 128.0).
+
+These three are `Proven`; Barlow and Feltzin missions 2 to 4 follow the same code and are
+`FromCode`.
+
+**Left out.** Oozla, Maktar, Endako, Barlow and Tabora's other constant bytes (0x75, 0x7B, 0x9B,
+0x8F, 0x04, 0x09, 0x78, 0xA2, 0x74, 0x75, 0xA4, 0x19, 0x1B, 0x1C) are help-voice and hint
+"already said" marks or have no effect a player would name. Maktar's arena challenges other than
+the first are counted at the bytes above, but the challenge each index is was not read from the
+game's text. Notak's 0x13/0x14 (set together when a probe accepts the hero) and the tutorial's
+byte 0 have no clear meaning. Chunk 3004's group states (bit 0x80 of `0x19B2E8[group + level *
+16]`, set through `func_002A0430(group)` when a level's object group is done) depend on each
+level's object data and are not named. Siberius has no constant use of chunk 5 in its own code.
