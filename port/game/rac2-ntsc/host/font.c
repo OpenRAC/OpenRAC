@@ -20,9 +20,20 @@ unsigned long long func_0027C878(int index);
 int func_0027F178(gaddr text, int length);
 int func_0027F198(gaddr text, int length);
 int func_0027F1B8(gaddr text, int length);
-void func_0027F2A8(int x, int y, int style, int text, int length, unsigned long long tex0, int table);
-void func_0027FC70(int x, int y, int text, int length, unsigned long long tex0, int table);
-void func_0027F640(float x, float y, float scale, int a, int b, int c, unsigned long long tex0, int d);
+void func_0027F2A8(
+    int x, int y, long long style, int text, int length, unsigned long long tex0, int table
+);
+void func_0027FC70(int x, long long y, int text, int length, unsigned long long tex0, int table);
+void func_0027F640(
+    float x,
+    float y,
+    unsigned long long colour,
+    gaddr text,
+    int limit,
+    float scale,
+    unsigned long long tex0,
+    gaddr glyphs
+);
 int func_00336A40(gaddr object);
 
 /* The fonts' glyph tables: large, small and the third. */
@@ -121,5 +132,14 @@ void func_00336A78(gaddr o) {
     }
     const int colour = s32_at((gaddr)s32_at(o + 12));
     const unsigned long long tex0 = func_0027C878(s32_at(o + 56));
-    func_0027F640(x, f32_at(p0 + 4), f32_at(p1), colour, s32_at(o + 64), width, tex0, s32_at(o + 52));
+    func_0027F640(
+        x,
+        f32_at(p0 + 4),
+        colour,
+        (gaddr)s32_at(o + 64),
+        width,
+        f32_at(p1),
+        tex0,
+        (gaddr)s32_at(o + 52)
+    );
 }

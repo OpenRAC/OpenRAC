@@ -214,7 +214,7 @@ static void queue_command(
     func_00132028(); /* snd_CommitRingEntry */
 }
 
-int func_00132DF0(int command_arg, int bytes, int data_arg, long long callback, int callback_data) {
+int func_00132DF0(int command_arg, int bytes, int data_arg, int callback, long long callback_data) {
     const unsigned int command = (unsigned int)command_arg;
     const gaddr data = (gaddr)data_arg;
     if (bytes < 0 || bytes > 0xFFC || (bytes != 0 && data == 0)) {
