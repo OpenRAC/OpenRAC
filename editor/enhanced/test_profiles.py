@@ -25,6 +25,40 @@ class ProfileTests(unittest.TestCase):
                     profiles.write_bake_profile(SimpleNamespace(game='rac1',version=version,id=1),output)
                 self.assertEqual((output/'object-lights.json').read_bytes(),source.read_bytes())
 
+    def test_foliage_shared_by_both_versions_without_replacing_source(self):
+        """Only material metadata is copied; PAL and NTSC use the same content-based selections."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root/'profiles/rac1/foliage-materials.json'
+            source.parent.mkdir(parents=True)
+            source.write_text('{"version":1,"materials":[]}')
+            for version in ('ntsc', 'pal'):
+                output = root/version
+                output.mkdir()
+                with mock.patch.object(profiles, 'PROFILE_ROOT', root/'profiles'):
+                    profiles.write_bake_profile(SimpleNamespace(game='rac1', version=version, id=1), output)
+                target = output/'foliage-materials.json'
+                self.assertEqual(target.read_bytes(), source.read_bytes())
+                target.write_text('{}')
+                self.assertEqual(source.read_text(), '{"version":1,"materials":[]}')
+
+    def test_material_layers_keep_local_authoring_and_match_both_discs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root/'profiles/rac1/material-overrides.json'
+            source.parent.mkdir(parents=True)
+            shared = '{"version":1,"presets":{"coat":{"wetness":{"reflectivity":0.04}}}}'
+            source.write_text(shared)
+            for version in ('pal', 'ntsc'):
+                output = root/version
+                output.mkdir()
+                local = output/'material-overrides.json'
+                local.write_text('{"version":1,"overrides":[]}')
+                with mock.patch.object(profiles, 'PROFILE_ROOT', root/'profiles'):
+                    profiles.write_bake_profile(SimpleNamespace(game='rac1', version=version, id=1), output)
+                self.assertEqual((output/'materials/shared/material-overrides.json').read_text(), shared)
+                self.assertEqual(json.loads(local.read_text()), {'version':1, 'overrides':[]})
+
     def test_background_scene_strategies_are_exported(self):
         """Each tracked background profile reaches exports without a gameplay dependency."""
         for number in (98, 99):

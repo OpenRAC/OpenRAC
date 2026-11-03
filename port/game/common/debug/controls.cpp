@@ -12,6 +12,7 @@
 #include "debug/overlay.h"
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/renderer/atmosphere.h"
+#include "enhanced/renderer/foliage.h"
 #include "enhanced/renderer/fur.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water.h"
@@ -168,100 +169,6 @@ bool motion_blur_controls(settings::Settings& graphics) {
     control_tip("Restores tuning defaults and keeps the Enabled switch unchanged.");
     ImGui::EndDisabled();
     return changed;
-}
-
-// Independent surface controls; the renderer reads bounded copies under a lock.
-void reflection_material_controls(const char* label, enhanced::ReflectionSurface surface) {
-    if (!ImGui::TreeNode(label)) {
-        return;
-    }
-    auto material = enhanced::reflection_material_settings(surface);
-    bool changed = slider_float(
-        "Roughness", &material.roughness, .04f, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
-    );
-    changed |= slider_float(
-        "Reflectivity (F0)", &material.reflectivity, 0, 1, "%.3f", ImGuiSliderFlags_AlwaysClamp
-    );
-    changed |= slider_float(
-        "Reflection strength", &material.strength, 0, 4, "%.2fx", ImGuiSliderFlags_AlwaysClamp
-    );
-    if (surface != enhanced::ReflectionSurface::Water) {
-        changed |= colour_edit("Reflection tint", material.tint.data());
-        changed |= slider_float(
-            "Chrome opacity", &material.opacity, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
-        );
-    }
-    if (ImGui::Button("Reset material")) {
-        material = enhanced::default_reflection_material(surface);
-        changed = true;
-    }
-    if (changed) {
-        enhanced::set_reflection_material_settings(surface, material);
-    }
-    ImGui::TreePop();
-}
-
-// Class identities are retained by the renderer so exceptions do not depend on texture guesses.
-void reflection_override_controls() {
-    if (!ImGui::TreeNode("Object overrides")) {
-        return;
-    }
-    const auto subjects = enhanced::reflection_subjects();
-    if (subjects.empty()) {
-        ImGui::TextDisabled("No authored chrome objects loaded.");
-        ImGui::TreePop();
-        return;
-    }
-    static int selected = -1;
-    auto current = std::find_if(subjects.begin(), subjects.end(), [&](const auto& s) {
-        return s.class_id == selected;
-    });
-    if (current == subjects.end()) {
-        current = subjects.begin();
-        selected = current->class_id;
-    }
-    const auto label = [](const auto& s) {
-        return s.name + " (" + std::to_string(s.class_id) + ")";
-    };
-    if (ImGui::BeginCombo("Object", label(*current).c_str())) {
-        for (auto entry = subjects.begin(); entry != subjects.end(); ++entry) {
-            if (ImGui::Selectable(label(*entry).c_str(), entry == current)) {
-                selected = entry->class_id;
-                current = entry;
-            }
-        }
-        ImGui::EndCombo();
-    }
-    constexpr std::array profiles{
-        enhanced::ReflectionSurface::Chrome,
-        enhanced::ReflectionSurface::Glass,
-        enhanced::ReflectionSurface::Stylised,
-        enhanced::ReflectionSurface::Clank,
-        enhanced::ReflectionSurface::Wrench
-    };
-    int profile = 0;
-    for (unsigned i = 0; i < profiles.size(); ++i) {
-        if (current->override == profiles[i]) {
-            profile = static_cast<int>(i) + 1;
-        }
-    }
-    if (combo(
-            "Material profile", &profile, "Automatic\0Chrome\0Glass\0Stylised\0Clank\0Wrench\0"
-        )) {
-        enhanced::set_reflection_override(
-            selected,
-            profile == 0 ? std::nullopt
-                         : std::optional{profiles[static_cast<unsigned>(profile - 1)]}
-        );
-    }
-    if (ImGui::Button("Clear object overrides")) {
-        enhanced::clear_reflection_overrides();
-    }
-    control_tip(
-        "Overrides affect this object's chrome and glass packets. Painted faces keep their "
-        "material."
-    );
-    ImGui::TreePop();
 }
 
 // Live, session-only water controls; the render worker consumes a locked copy.
@@ -438,6 +345,8 @@ void change_setting(int row, int by) {
 void reset_enhanced() {
     settings::get().reset_enhanced();
     enhanced::set_wetness_material_settings({});
+    frontend::reset_foliage_controls();
+    frontend::reset_materials();
     enhanced::set_wetness_debug_view(false);
     enhanced::set_fur_debug_view(enhanced::FurDebug::Off);
     enhanced::set_fur_material_settings({});
@@ -689,128 +598,12 @@ void enhanced_settings_window() {
         changed |= motion_blur_controls(graphics);
     }
     if (ImGui::CollapsingHeader("Materials & water")) {
-        if (ImGui::TreeNode("Ratchet fur")) {
-            ImGui::TextDisabled("Session only; changes are not saved.");
-            auto fur = enhanced::fur_material_settings();
-            bool fur_changed = checkbox("Directional fur detail", &fur.enabled);
-            fur_changed |= slider_float(
-                "Detail strength", &fur.strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
-            );
-            fur_changed |= slider_float(
-                "Strand contrast", &fur.contrast, 0, .15f, "%.3f", ImGuiSliderFlags_AlwaysClamp
-            );
-            fur_changed |= slider_float(
-                "Detail fade distance",
-                &fur.fade_distance,
-                8,
-                160,
-                "%.0f units",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            ImGui::SeparatorText("Lighting");
-            fur_changed |= checkbox("Fur highlights and scattering", &fur.lighting_enabled);
-            fur_changed |= slider_float(
-                "Environment response",
-                &fur.environment_strength,
-                0,
-                4,
-                "%.2fx",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            fur_changed |= slider_float(
-                "Highlight strength", &fur.highlight, 0, 2, "%.2f", ImGuiSliderFlags_AlwaysClamp
-            );
-            fur_changed |= slider_float(
-                "Highlight softness", &fur.softness, .35f, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
-            );
-            fur_changed |= slider_float(
-                "Highlight directionality",
-                &fur.directionality,
-                0,
-                .9f,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            fur_changed |= slider_float(
-                "Light scattering", &fur.scattering, 0, .5f, "%.2f", ImGuiSliderFlags_AlwaysClamp
-            );
-            if (ImGui::Button("Reset fur material")) {
-                fur = {};
-                fur_changed = true;
-            }
-            if (fur_changed) {
-                enhanced::set_fur_material_settings(fur);
-            }
-            ImGui::TreePop();
+        if (ImGui::Button("Material inspector")) {
+            s.material_settings = true;
         }
-        if (ImGui::TreeNode("Reflection materials")) {
-            ImGui::TextDisabled("Session only; changes are not saved.");
-            reflection_material_controls("Water", enhanced::ReflectionSurface::Water);
-            reflection_material_controls("Chrome", enhanced::ReflectionSurface::Chrome);
-            reflection_material_controls("Glass", enhanced::ReflectionSurface::Glass);
-            reflection_material_controls("Stylised", enhanced::ReflectionSurface::Stylised);
-            reflection_material_controls("Clank", enhanced::ReflectionSurface::Clank);
-            reflection_material_controls("Wrench", enhanced::ReflectionSurface::Wrench);
-            reflection_override_controls();
-            ImGui::TreePop();
-        }
-        if (ImGui::TreeNode("Ratchet wetness")) {
-            ImGui::TextDisabled("Session only; changes are not saved.");
-            auto material = enhanced::wetness_material_settings();
-            bool material_changed = false;
-            material_changed |= slider_float(
-                "Wet diffuse brightness",
-                &material.diffuse_scale,
-                0,
-                1,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            material_changed |= slider_float(
-                "Wet specular strength",
-                &material.specular_strength,
-                0,
-                4,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            material_changed |= slider_float(
-                "Dry roughness",
-                &material.dry_roughness,
-                .08f,
-                1,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            material_changed |= slider_float(
-                "Wet roughness",
-                &material.wet_roughness,
-                .08f,
-                1,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            material_changed |= slider_float(
-                "Wet reflectivity (F0)",
-                &material.reflectivity,
-                0,
-                .16f,
-                "%.4f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            if (ImGui::Button("Reset wetness material")) {
-                material = enhanced::WetnessMaterialSettings{};
-                material_changed = true;
-            }
-            if (material_changed) {
-                enhanced::set_wetness_material_settings(material);
-            }
-            control_tip(
-                "Session only. Lower roughness gives sharper reflections. Dry roughness "
-                "sets the coat as it fades; fully dry Ratchet keeps his original material."
-            );
-            ImGui::TreePop();
-        }
+        ImGui::TextDisabled(
+            "Shared JSON materials: foliage, emission, reflections, fur and wetness."
+        );
         if (ImGui::TreeNode("Water simulation")) {
             water_controls();
             ImGui::TreePop();

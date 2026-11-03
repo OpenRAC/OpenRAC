@@ -204,6 +204,11 @@ void picker_overlay(const Shown& shown) {
             if (!hit->texture.empty()) {
                 text("Texture: {}", hit->texture);
             }
+            if (s.developer && ImGui::Button("Edit material")) {
+                s.material_settings = true;
+                s.material_model = hit->model;
+                s.material_slot = hit->material;
+            }
             if (s.developer) {
                 if (ImGui::Button("Inspect in isolation")) {
                     select_object_viewer(shown);

@@ -109,7 +109,14 @@ Result<void> record_presentation(
                 const auto& description =
                     std::get<graph::ImageDesc>(plan->resources[transition.resource].description);
                 auto& image = description.key.generation == 0 ? *source : destination;
-                record_graph_image_barrier(command, transition, image);
+                // Discarding the old pixels still requires waiting for swapchain acquisition.
+                // Chain the first transition to the submission's transfer-stage semaphore wait.
+                const VkPipelineStageFlags acquire =
+                    screen && &image == &destination
+                            && transition.before.layout == graph::Layout::Undefined
+                        ? VkPipelineStageFlags{VK_PIPELINE_STAGE_TRANSFER_BIT}
+                        : 0;
+                record_graph_image_barrier(command, transition, image, acquire);
             }
 
             // Export phases change visibility only and must not repeat the native screen copy.

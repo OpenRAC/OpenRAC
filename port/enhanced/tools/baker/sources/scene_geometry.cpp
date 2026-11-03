@@ -12,6 +12,7 @@
 
 #include "enhanced/tools/baker/sources/level_scene.h"
 #include "scene/level.h"
+#include "scene/material_overrides.h"
 
 namespace openrac::lighting {
 namespace {
@@ -173,7 +174,8 @@ private:
     void append_primitive(
         const scene::Instance& instance, const scene::Primitive& primitive, unsigned layer
     ) {
-        const auto& material = m_level.materials.at(static_cast<std::size_t>(primitive.material));
+        const auto& material =
+            scene::resolved_material(m_level, instance.model, primitive.material);
 
         // Blended and reflective packets are excluded from static transport.
         if (material.metal || material.blend || material.colour[3] < 0.99f) {
@@ -262,6 +264,10 @@ private:
 }  // namespace
 
 void append_probe_geometry(const scene::LevelData& level, BakeSceneExport& out) {
+    // Invalid authoring must never silently bake original materials instead of the requested overrides.
+    if (!level.material_error.empty()) {
+        throw std::runtime_error(level.material_error);
+    }
     GeometryExporter(level, out).run();
 }
 

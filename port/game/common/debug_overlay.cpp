@@ -990,6 +990,7 @@ void draw(const Shown& shown) {
     refresh_scripted_pointer();
     ImGui::NewFrame();
     enhanced_settings_window();
+    material_settings_window();
     controls_frame();
     if (s.visible) {
         panel(shown);

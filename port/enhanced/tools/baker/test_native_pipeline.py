@@ -108,10 +108,10 @@ class NativePipeline(unittest.TestCase):
             +chunk(b'IDAT', zlib.compress(b'\x00\xff\xff\xff\xff'))+chunk(b'IEND', b''))
         for index in range(24):
             shutil.copyfile(source, level/'textures'/f'hash-{index:02}.png')
-        catalog = directory/'emission-materials.json'
-        catalog.write_text(json.dumps(dict(version=1, materials=[dict(name='Fixture panel',
-            texture_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
-            emission=dict(runtime_intensity=1, bake_intensity=2))])))
+        catalog = directory/'material-overrides.json'
+        catalog.write_text(json.dumps({'version':1,
+            'presets':{'panel':{'emission':{'runtime_intensity':1,'bake_intensity':2}}},
+            'overrides':[{'id':'panel','match':{'texture_file_sha256':hashlib.sha256(source.read_bytes()).hexdigest()},'preset':'panel'}]}))
         defaults = directory/f"level_{manifest['level']:02}"/'probe-emission.json'
         serial = self.root/'serial-emission'
         shutil.copytree(level, serial)

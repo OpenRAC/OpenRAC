@@ -115,12 +115,32 @@ void HeroFur::prepare(const std::optional<scene::Instance>& hero) {
 }
 
 void HeroFur::bind(const renderer::Shader& shader) const {
+    bind(shader, fur_material_settings());
+}
+
+void HeroFur::bind(const renderer::Shader& shader, const FurMaterialSettings& settings) const {
     const auto location = shader.uniform("hero_fur_debug");
     if (location < 0) {
         return;
     }
     gl::glUniform1i(location, int(fur_debug_view()));
-    const auto settings = fur_material_settings();
+    bind_material(shader, settings);
+    gl::glUniform1i(shader.uniform("hero_fur_palette"), m_palette);
+    gl::glUniform1i(shader.uniform("hero_fur_first"), m_surface ? int(m_surface->first) : 0);
+    gl::glUniform1i(shader.uniform("hero_fur_count"), m_surface ? int(m_surface->count) : 0);
+    gl::glUniform1i(shader.uniform("hero_fur_map"), int(kFurUnit));
+    gl::glUniform1i(shader.uniform("hero_fur_detail"), int(kDetailUnit));
+    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 10, m_vertices);
+    gl::glActiveTexture(gl::GL_TEXTURE0 + kFurUnit);
+    gl::glBindTexture(gl::GL_TEXTURE_2D, m_map);
+    gl::glActiveTexture(gl::GL_TEXTURE0 + kDetailUnit);
+    gl::glBindTexture(gl::GL_TEXTURE_2D, m_detail);
+    gl::glActiveTexture(gl::GL_TEXTURE0);
+}
+
+void HeroFur::bind_material(
+    const renderer::Shader& shader, const FurMaterialSettings& settings
+) const {
     gl::glUniform1f(shader.uniform("hero_fur_environment_strength"), settings.environment_strength);
     gl::glUniform1i(
         shader.uniform("hero_fur_detail_enabled"),
@@ -144,17 +164,6 @@ void HeroFur::bind(const renderer::Shader& shader) const {
         settings.directionality,
         settings.scattering
     );
-    gl::glUniform1i(shader.uniform("hero_fur_palette"), m_palette);
-    gl::glUniform1i(shader.uniform("hero_fur_first"), m_surface ? int(m_surface->first) : 0);
-    gl::glUniform1i(shader.uniform("hero_fur_count"), m_surface ? int(m_surface->count) : 0);
-    gl::glUniform1i(shader.uniform("hero_fur_map"), int(kFurUnit));
-    gl::glUniform1i(shader.uniform("hero_fur_detail"), int(kDetailUnit));
-    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 10, m_vertices);
-    gl::glActiveTexture(gl::GL_TEXTURE0 + kFurUnit);
-    gl::glBindTexture(gl::GL_TEXTURE_2D, m_map);
-    gl::glActiveTexture(gl::GL_TEXTURE0 + kDetailUnit);
-    gl::glBindTexture(gl::GL_TEXTURE_2D, m_detail);
-    gl::glActiveTexture(gl::GL_TEXTURE0);
 }
 
 void HeroFur::release() {

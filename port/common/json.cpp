@@ -54,7 +54,9 @@ const Value& Value::operator[](std::size_t index) const {
 
 class Parser {
 public:
-    explicit Parser(std::string_view text) : m_text(text) {}
+    explicit Parser(std::string_view text, DuplicateKeys duplicates)
+        : m_duplicates(duplicates),
+          m_text(text) {}
 
     bool document(Value& out, std::string& error) {
         if (!value(out, 0)) {
@@ -305,6 +307,10 @@ private:
             if (!value(item, depth + 1)) {
                 return false;
             }
+            // Material catalogs reject duplicates before any last-key replacement can hide an error.
+            if (m_duplicates == DuplicateKeys::Reject && out.m_members.contains(key)) {
+                return fail("duplicate object key");
+            }
             out.m_members.insert_or_assign(std::move(key), std::move(item));
             skip_space();
             if (m_at < m_text.size() && m_text[m_at] == ',') {
@@ -319,14 +325,15 @@ private:
         }
     }
 
+    DuplicateKeys m_duplicates;  // Explicit reader policy, fixed for the whole document.
     std::string_view m_text;
     std::size_t m_at = 0;
     std::string m_error;
 };
 
-bool parse(std::string_view text, Value& out, std::string& error) {
+bool parse(std::string_view text, Value& out, std::string& error, DuplicateKeys duplicates) {
     out = Value{};
-    return Parser(text).document(out, error);
+    return Parser(text, duplicates).document(out, error);
 }
 
 bool parse_file(const std::string& path, Value& out, std::string& error) {

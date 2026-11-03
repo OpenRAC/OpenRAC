@@ -13,6 +13,7 @@
 
 #include "common/profiler.h"
 #include "enhanced/tools/baker/sources/interior_inputs.h"
+#include "materials/catalog.h"
 
 namespace openrac::lighting {
 namespace {
@@ -87,6 +88,50 @@ bake_json::Object definitions(const json::Value& catalog) {
         }
     }
 
+    return result;
+}
+
+// Projects resolved material fields into the legacy generated-emission sidecar without a second material resolver.
+json::Value emission_projection(const materials::Properties& properties) {
+    materials::Catalog projected;
+    projected.presets["value"] = properties;
+    const auto text = materials::catalog_text(projected);
+    if (!text) {
+        throw std::runtime_error(text.error().message);
+    }
+    json::Value document;
+    std::string error;
+    if (!json::parse(*text, document, error)) {
+        throw std::runtime_error(error);
+    }
+    auto result = document["presets"]["value"]["emission"].members();
+    const auto& diffuse = document["presets"]["value"]["surface"]["diffuse_scale"];
+    if (!diffuse.is_null()) {
+        result["diffuse_scale"] = diffuse;
+    }
+    return bake_json::object_value(result);
+}
+
+// Keeps old exports readable while current tracked sources use the shared material catalog.
+bake_json::Object material_definitions(const std::filesystem::path& path) {
+    const auto catalog = materials::read_catalog(path);
+    if (!catalog) {
+        throw std::runtime_error(catalog.error().message);
+    }
+    bake_json::Object result;
+    for (const auto& [id, rule] : catalog->rules) {
+        if (rule.match.texture_file_hash.empty()) {
+            continue;
+        }
+        materials::Identity identity;
+        identity.texture_file_hash = rule.match.texture_file_hash;
+        const auto resolved = materials::resolve(*catalog, identity);
+        if (!resolved) {
+            throw std::runtime_error(resolved.error().message);
+        }
+        const auto emission = emission_projection(resolved->properties);
+        result[identity.texture_file_hash] = emission;
+    }
     return result;
 }
 
@@ -170,11 +215,17 @@ bake_json::Object resolve_emission_catalog(
     const profiling::Zone zone("Resolve emission catalog");
 
     // An absent game catalog leaves explicit level definitions authoritative.
-    if (!std::filesystem::exists(catalog)) {
+    const auto unified = catalog.filename() == "emission-materials.json"
+                             ? catalog.parent_path() / "material-overrides.json"
+                             : catalog;
+    if (!std::filesystem::exists(catalog) && !std::filesystem::exists(unified)) {
         return {};
     }
 
-    const auto entries = definitions(bake_json::document(catalog));
+    const auto entries =
+        unified.filename() == "material-overrides.json" && std::filesystem::exists(unified)
+            ? material_definitions(unified)
+            : definitions(bake_json::document(catalog));
     bake_json::Object result;
 
     const auto paths = textures(level);
@@ -193,4 +244,29 @@ bake_json::Object resolve_emission_catalog(
 
     return result;
 }
+
+bake_json::Object resolve_emission_defaults(const std::filesystem::path& path) {
+    auto result = bake_json::optional_object(path);
+    const auto catalog = materials::read_catalog(path.parent_path() / "material-overrides.json");
+    if (!catalog) {
+        throw std::runtime_error(catalog.error().message);
+    }
+    for (const auto& [id, rule] : catalog->rules) {
+        if (rule.match.texture_path.empty()) {
+            continue;
+        }
+        materials::Identity identity;
+        identity.texture_path = rule.match.texture_path;
+        const auto resolved = materials::resolve(*catalog, identity);
+        if (!resolved) {
+            throw std::runtime_error(resolved.error().message);
+        }
+        const auto emission = emission_projection(resolved->properties);
+        if (!emission.members().empty()) {
+            result[identity.texture_path] = emission;
+        }
+    }
+    return result;
+}
+
 }  // namespace openrac::lighting

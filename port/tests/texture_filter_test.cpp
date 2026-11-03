@@ -371,6 +371,8 @@ private:
         m_pool.bind_upscaled_texture_colours(
             m_source, material, static_cast<renderer::TextureFilter>(mode)
         );
+        // The sky pass supplies an identity tint when no override is authored.
+        glUniform3f(material.uniform("sky_tint"), 1, 1, 1);
         glUniform4f(material.uniform("material_colour"), 1, 1, 1, 1);
         glUniform1f(material.uniform("material_diffuse_scale"), 1);
         glUniform1i(material.uniform("cutout"), path.cutout);

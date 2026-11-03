@@ -123,6 +123,13 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
         throw std::runtime_error(error);
     }
 
+    // A transition tick can retain its picture before any world draws into the new target.
+    gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, target.id());
+    gl::glDisable(gl::GL_SCISSOR_TEST);
+    gl::glColorMask(gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE);
+    gl::glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+
 #if defined(OPENRAC_VULKAN)
     if (float_colour) {
         vkgl::clamp_colour_writes(target.id());
@@ -184,6 +191,9 @@ void set_lighting(SceneFrame& frame) {
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
+    if (auto* lighting = owner.scene.level_lighting()) {
+        lighting->set_material_overrides(enhanced);
+    }
     owner.scene.set_probe_lighting(
         enhanced && !graphics.sweep_probe_lighting_off, graphics.probe_gi_multiplier
     );

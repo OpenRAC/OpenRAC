@@ -16,8 +16,8 @@ namespace openrac::vkgl {
 
 namespace {
 
-// The pipeline cache's magic: OpenRAC Vulkan pipeline cache, format 1.
-constexpr CacheMagic kCacheMagic{'O', 'R', 'V', 'K', 'P', 'C', '0', '1'};
+// Format 2 retires driver data saved by builds with unsafe swapchain synchronization.
+constexpr CacheMagic kCacheMagic{'O', 'R', 'V', 'K', 'P', 'C', '0', '2'};
 
 // The manifest's magic: OpenRAC Vulkan pipeline manifest. Its data says its format.
 constexpr CacheMagic kManifestMagic{'O', 'R', 'V', 'K', 'P', 'M', 'A', 'N'};

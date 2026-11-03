@@ -56,6 +56,7 @@ uniform sampler2D emission_texture;
 uniform int emission_vertex_colour;
 uniform float material_emission_contrast;
 uniform float material_diffuse_scale;
+uniform int material_fallback;
 uniform sampler2D gtao_visibility;
 #endif
 
@@ -94,9 +95,8 @@ vec3 emission_texel(bool authored_tint) {
     return result;
 }
 
-vec3 surface_emission(vec4 texel) {
-    // Scripted brightness follows the original encoded GS modulation, then decodes once.
-    vec3 emitted = probe_linear(clamp(texel.rgb * v_script_emission, vec3(0.0), vec3(1.0)));
+vec3 authored_emission() {
+    vec3 emitted = vec3(0.0);
     if (any(greaterThan(material_emission, vec3(0.0)))) {
         vec3 radiance = emission_texel(emission_vertex_colour != 0);
         if (material_emission_contrast > 1.) {
@@ -106,6 +106,12 @@ vec3 surface_emission(vec4 texel) {
         emitted += material_emission * radiance;
     }
     return emitted;
+}
+
+vec3 surface_emission(vec4 texel) {
+    // Scripted brightness follows the original encoded GS modulation, then decodes once.
+    return probe_linear(clamp(texel.rgb * v_script_emission, vec3(0.0), vec3(1.0)))
+        + authored_emission();
 }
 
 uniform int object_reflection_enabled;
@@ -187,16 +193,29 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return fur_diagnostic(v_uv);
     }
 #endif
-    if (probe_receiver == 0 || v_glow != 0 || probe_effect != 0 || metal_pass != 0
+    if (v_glow != 0 || probe_effect != 0 || metal_pass != 0
         || (probe_receiver == 2 && v_probe_selector.w > 1.5)) {
         return original;
     }
+    // Apply authored appearance over retail lighting when there is no probe receiver.
+    if ((probe_mode == 0 || probe_receiver == 0) && material_fallback != 0) {
+        vec3 diffuse = probe_linear(original);
+        if ((material_fallback & 1) != 0) diffuse *= material_diffuse_scale;
+        original = probe_display(diffuse + ((material_fallback & 2) != 0 ? authored_emission() : vec3(0.)));
+    }
+#ifdef OPENRAC_FOLIAGE
+    vec4 leaf = foliage_material();
+    bool foliage = leaf.w > 0.;
+#else
+    const bool foliage = false;
+#endif
+    if (probe_receiver == 0 && !foliage) return original;
 #ifdef OPENRAC_HERO_WETNESS
     if (hero_wetness_debug != 0 && v_hero_wetness >= 0.) {
         return mix(vec3(.12), vec3(0., .65, 1.), clamp(v_hero_wetness, 0., 1.));
     }
 #endif
-    if (probe_mode == 0 && sun_shadow_enabled == 0 && hero_shadow_enabled == 0
+    if (probe_mode == 0 && !foliage && sun_shadow_enabled == 0 && hero_shadow_enabled == 0
 #ifdef OPENRAC_HERO_FUR
         && !(v_hero_fur != 0 && (hero_fur_debug == 3 || hero_fur_lighting_enabled != 0))
 #endif
@@ -273,6 +292,14 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         surface_n, transpose(mat3(view)) * (-eye_position), visibility
     ) + fur_direct + emitted;
     if (probe_mode == 0) {
+#ifdef OPENRAC_FOLIAGE
+        if (foliage) {
+            vec4 selector = probe_receiver == 2 ? v_probe_selector : vec4(0.);
+            vec3 direct = foliage_surface(v_world_position, n, transpose(mat3(view)) * (-eye_position),
+                albedo, vec3(0.), selector, visibility, leaf, v_uv);
+            return probe_display(foliage_debug != 0 ? direct : max(fallback, direct + emitted));
+        }
+#endif
 #ifdef OPENRAC_HERO_FUR
         if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0) {
             fallback += fur_environment_lighting(fur_surface, v_world_position, vec3(0.), albedo);
@@ -323,6 +350,13 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
 #endif
     vec4 selector = probe_receiver == 1 ? vec4(0.0) : v_probe_selector;
+#ifdef OPENRAC_FOLIAGE
+    if (foliage) {
+        vec3 colour = foliage_surface(v_world_position, n, toward_camera, albedo, indirect,
+            selector, visibility, leaf, v_uv);
+        return probe_display(colour + (probe_mode == 1 && foliage_debug == 0 ? emitted : vec3(0.)));
+    }
+#endif
     // Fine fur changes material response; shadow tests, probe lookup bias and cached GI keep smooth normals.
     vec3 direct = probe_direct(v_world_position, surface_n, selector, visibility);
     vec3 illumination = probe_mode == 2

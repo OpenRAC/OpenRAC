@@ -223,6 +223,13 @@ struct State {
     // Mobys.
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
+    bool material_settings = false;  // Unified authoring window, independent of Enhanced Settings.
+    bool material_preset_edit = false;   // Shared preset editing instead of one object slot.
+    std::string material_preset;         // Stable preset id, revalidated after level changes.
+    std::size_t material_selection = 0;  // Current immutable binding row, revalidated on each draw.
+    std::uint32_t material_model = ~0u;  // Pending click-picker model, or none.
+    int material_slot = -1;              // Pending click-picker material.
+    std::string material_error;          // Persistent edit/save diagnostics.
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
     ControlsMenu controls;           // the menu's Controls tab
     bool inspector = false;      // the moby inspector window is open
@@ -549,6 +556,8 @@ void capture_frame(const Shown& shown);
 // mobys' labels (s.labels, within s.radius of the hero). The click picker and bottom
 // details are separate in debug/picker.cpp.
 void picture_marks(const Shown& shown);
+// Draws unified material authoring controls after the window-thread handoff.
+void material_settings_window();
 void picker_overlay(const Shown& shown);
 // Reads one native input action; the returned comma begins the next frame/action pair.
 Result<const char*> read_scripted_action(const char*, ScriptedInput&);

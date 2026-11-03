@@ -181,6 +181,9 @@ if(TARGET openrac_renderer_vulkan)
     LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
   set_tests_properties(vulkan_present PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  add_test(NAME vulkan_present_swapchain COMMAND vulkan_present_test --swapchain)
+  set_tests_properties(vulkan_present_swapchain PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;VK_LAYER_ENABLES=VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
   # vulkan_prewarm  a run's pipelines made again on the pre-warm worker in the next run, a damaged
   #                 manifest and one of a program no longer built ignored
   #                 (tests/vulkan_prewarm_test.cpp); its pipeline cache and manifest are its own

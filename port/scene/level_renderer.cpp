@@ -1200,6 +1200,7 @@ void LevelScene::draw_layer(
         {"mobys opaque", "mobys glow", "mobys translucent", "mobys effects", "mobys metal"};
     // The material state the program holds now (flush): none yet.
     int set_material = -1;
+    std::uint64_t set_variant = 0;
     renderer::TextureHandle set_texture = 0;  // bound on unit 0 (and its colours) for `program`
     int set_wrap = -1;                        // and its clamp: bit 0 across, bit 1 down
     unsigned set_emission_texture = 0;
@@ -1451,17 +1452,25 @@ void LevelScene::draw_layer(
                 if (run_count == 0) {
                     return;
                 }
-                // Model-specific reflection overrides may change even when the material is shared.
-                if (m_lighting && metal && !state.depth_prepass) {
-                    m_lighting->bind_material(
-                        *program, g.model, m_materials[static_cast<std::size_t>(run_material)]
-                    );
+                const auto& original = m_materials[static_cast<std::size_t>(run_material)];
+                const bool enhanced_material = m_lighting && !state.depth_prepass;
+                const std::uint64_t variant =
+                    enhanced_material ? m_lighting->material_variant(g.model, run_material) : 0;
+                // Legacy reflection families can differ by model even without an authored catalog.
+                if (enhanced_material && metal) {
+                    m_lighting->bind_material(*program, g.model, run_material, original);
                 }
-                // The material's state is set only when it is not the last draw's: a model's parts
-                // mostly share a few, and each call into the driver costs more than the test.
-                if (!(state.depth_prepass && solid) && run_material != set_material) {
-                    const Material& m = m_materials[static_cast<std::size_t>(run_material)];
+                // Different object types may share an original material while selecting different authored properties.
+                if (!(state.depth_prepass && solid)
+                    && (run_material != set_material || variant != set_variant)) {
+                    const Material& m =
+                        enhanced_material
+                            ? m_lighting->resolve_material(g.model, run_material, original)
+                            : original;
                     if (enhanced_rendering_available()) {
+                        if (enhanced_material && !metal) {
+                            m_lighting->bind_material(*program, g.model, run_material, m);
+                        }
                         glUniform3f(
                             program->uniform("material_emission"),
                             m.emission[0],
@@ -1511,6 +1520,7 @@ void LevelScene::draw_layer(
                         colour_set = true;
                     }
                     set_material = run_material;
+                    set_variant = variant;
                 }
                 submit_instances(batch, run_first, run_count, instances);
                 rigid_prepass_draws += group_rigid ? 1u : 0u;

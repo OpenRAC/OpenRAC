@@ -18,6 +18,9 @@ VkImageLayout layout_of(renderer::graph::Layout layout);
 );
 // Records one whole-image transition, preserving the shared depth/stencil layout tracker.
 void record_graph_image_barrier(
-    VkCommandBuffer command, const renderer::graph::Barrier& transition, Image& image
+    VkCommandBuffer command,
+    const renderer::graph::Barrier& transition,
+    Image& image,
+    VkPipelineStageFlags external_source = 0
 );
 }  // namespace openrac::vkgl::detail

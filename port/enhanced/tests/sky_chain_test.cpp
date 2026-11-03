@@ -40,6 +40,7 @@ void add_triangle(
 ) {
     const auto first = static_cast<std::uint32_t>(level.indices.size());
     scene::Model model;
+    model.name = layer == scene::Layer::Sky ? "sky.glb" : "terrain.glb";
     model.min = points[0];
     model.max = points[0];
     // Separate indices retain the original triangle winding for sky and shadow casters.
@@ -94,7 +95,7 @@ struct Fixture {
     renderer::FrameBuffer target;  // Offscreen colour/depth used by both recording paths.
     renderer::FrameInput input;    // Stable camera and quality settings during each chain.
     // Initializes enhanced lighting with optional world and sky buckets.
-    explicit Fixture(bool world, bool sky = true);
+    explicit Fixture(bool world, bool sky = true, bool probes = true);
     // Releases the scene while its borrowed renderer texture pool and graphics context still exist.
     ~Fixture();
     Fixture(const Fixture&) = delete;
@@ -105,14 +106,17 @@ struct Fixture {
     void resize(int width, int height, int samples);
 };
 
-Fixture::Fixture(bool world, bool sky) {
+Fixture::Fixture(bool world, bool sky, bool probes) {
     std::string error;
     lighting::use_scene_lighting(scene);
     CHECK(scene.upload(make_level(), renderer.textures(), error));
-    CHECK(test::shadow_probe_fixture(scene, error));
-    scene.set_probe_view(1);
-    CHECK(scene.enable_sun_shadow(true, error));
-    CHECK(scene.enable_hero_shadow(true, error));
+    // The no-probe fixture uses the normal missing-bake path.
+    if (probes) {
+        CHECK(test::shadow_probe_fixture(scene, error));
+        scene.set_probe_view(1);
+        CHECK(scene.enable_sun_shadow(true, error));
+        CHECK(scene.enable_hero_shadow(true, error));
+    }
     scene::Instance hero;
     hero.model = 1;
     hero.hero_shadow_anchor = hero.hero_shadow_caster = true;
@@ -208,6 +212,48 @@ void compare(Fixture& fixture, bool expected_chain = true) {
         static_cast<unsigned long long>(reference.barriers),
         static_cast<unsigned long long>(shared.barriers)
     );
+}
+
+// A live sky tint reaches the authored shell without changing its coverage or other channels.
+void test_sky_material_tint() {
+    Fixture fixture(false);
+    fixture.resize(64, 48, 1);
+    fixture.input.volumetric_quality = renderer::VolumetricQuality::Off;
+    const auto original = render(fixture).pixels;
+    auto& materials = lighting::scene_lighting(fixture.scene)->materials();
+    CHECK(materials.patch(0, "surface.tint", std::array<double, 3>{0, 1, 1}));
+    const auto tinted = render(fixture).pixels;
+    CHECK(original.size() == tinted.size());
+    bool red_changed = false;
+    // Red must decrease somewhere in the shell while green, blue and alpha stay identical.
+    for (std::size_t n = 0; n + 3 < std::min(original.size(), tinted.size()); n += 4) {
+        red_changed |= tinted[n] < original[n];
+        CHECK(tinted[n] <= original[n]);
+        CHECK(
+            std::equal(original.begin() + n + 1, original.begin() + n + 4, tinted.begin() + n + 1)
+        );
+    }
+    CHECK(red_changed);
+    fixture.scene.level_lighting()->set_material_overrides(false);
+    CHECK(render(fixture).pixels == original);
+}
+
+// Authored surface changes render using retail lighting when probes are disabled.
+void test_material_without_probes() {
+    Fixture fixture(true, false, false);
+    fixture.resize(64, 48, 1);
+    CHECK(!fixture.scene.level_lighting()->has_data());
+    fixture.input.sun_pixel_shadow = false;
+    fixture.input.hero_pixel_shadow = false;
+    const auto original = render(fixture).pixels;
+    auto& materials = lighting::scene_lighting(fixture.scene)->materials();
+    CHECK(materials.patch(1, "surface.diffuse_scale", .25));
+    const auto dimmed = render(fixture).pixels;
+    CHECK(dimmed != original);
+    CHECK(materials.patch(1, "emission.runtime_intensity", 1.0));
+    CHECK(render(fixture).pixels != dimmed);
+    fixture.scene.level_lighting()->set_material_overrides(false);
+    CHECK(render(fixture).pixels == original);
 }
 
 // Current shadows, resized transport and real sky blending retain identical pixels at both sample counts.
@@ -346,6 +392,8 @@ int main() {
         if (!context.open(error) || !vkgl::active()) {
             return test::kSkip;
         }
+        test_sky_material_tint();
+        test_material_without_probes();
         test_shared_sky();
         test_world_consumers();
         test_missing_sky();
