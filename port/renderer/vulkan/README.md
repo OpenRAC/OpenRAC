@@ -64,6 +64,9 @@ retains immutable modules, layouts and pipelines across fresh GL links only when
 SPIR-V and layout modes match. Uniforms and descriptor state always start fresh. The pool is off
 for player launches, bypassed by cache/lifecycle equivalence cases, and released before device
 teardown. The focused support test checks pixel equality, uniform reset and driver-call savings.
+Shadow and probe matrices also reuse these objects. `sun_shadow_test --gpu --fresh-programs`
+(or `--gpu-reference --fresh-programs`) and `probe_gpu_test --fresh-programs` run the same checks
+with fresh objects for performance and correctness comparisons.
 
 ## State and threads
 

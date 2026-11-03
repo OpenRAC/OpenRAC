@@ -1745,6 +1745,10 @@ drivers). Now it works like DXVK (`vkgl_pipelines.cpp`, `vkgl_device.cpp`):
 - A pipeline is built from four parts: vertex input, pre-raster (vertex shader), fragment
   (fragment shader, depth) and output (blend, formats). Fixed state is dynamic, so a program
   usually needs one pair of shader parts.
+- Parts are shared between keys: each is keyed by its own fields only (`library_key`), so each
+  is created with its own state only and null pointers for the rest. NVIDIA's driver took the
+  vertex input given to a shared output part into every pipeline linked with it, which drew the
+  wrong vertices (six Vulkan tests on a GTX 1070; llvmpipe ignores it).
 - When a program links, the workers compile its two shader parts behind the loading screen.
 - A draw with a new key links the parts at once (fast linking, under 1 ms). A worker then builds
   the optimised whole pipeline, and the next frame swaps it in (`collect_prewarm`). The key goes

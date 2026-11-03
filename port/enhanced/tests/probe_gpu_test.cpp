@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <string_view>
 
 #include "enhanced/lighting/probes.h"
 #include "enhanced/renderer/gtao.h"
@@ -17,6 +18,9 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/render_test_timing.h"
@@ -1670,7 +1674,14 @@ void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& fram
     }
 }
 
-int main() {
+// Runs the complete sampling/material matrix with optional cold native-object lifetimes.
+int main(int argc, char** argv) {
+    const bool fresh_programs = argc == 2 && std::string_view(argv[1]) == "--fresh-programs";
+    // A cold-object run remains available to validate the same complete matrix.
+    if (argc > 1 && !fresh_programs) {
+        std::fprintf(stderr, "usage: probe_gpu_test [--fresh-programs]\n");
+        return 1;
+    }
     test::GlContext context;
     std::string why;
 
@@ -1678,6 +1689,11 @@ int main() {
         std::printf("SKIP: %s\n", why.c_str());
         return test::kSkip;
     }
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        vkgl::test_reuse_programs(!fresh_programs);
+    }
+#endif
 
     test::RenderTestTiming timing("probes");
     compact_texture_uploads();
@@ -1957,5 +1973,13 @@ void main() {
     );
     sunlight_rgb_correction();
     timing.lap("material and receiver comparisons");
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        const auto reused = vkgl::submission_counters().test_program_reuses;
+        CHECK(fresh_programs ? reused == 0 : reused > 0);
+        CHECK(vkgl::submission_counters().validation_errors == 0);
+        vkgl::test_reuse_programs(false);
+    }
+#endif
     return test::result();
 }

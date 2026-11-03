@@ -15,8 +15,10 @@
 #include <format>
 #include <iterator>
 #include <regex>
+#include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -217,22 +219,75 @@ bool make_program_modules(Program& program) {
     return program.fragment != VK_NULL_HANDLE;
 }
 
+// SPIR-V's OpDecorate and the decorations it carries here (documented: the SPIR-V
+// specification's instruction and Decoration tables).
+constexpr std::uint32_t kSpirvHeaderWords = 5;
+constexpr std::uint32_t kOpDecorate = 71;
+constexpr std::uint32_t kDecorationBinding = 33;
+constexpr std::uint32_t kDecorationDescriptorSet = 34;
+
+// Lists the bindings a stage's module declares in descriptor set 0, the program's own set.
+std::vector<std::uint32_t> set0_bindings(std::span<const std::uint32_t> code) {
+    std::unordered_map<std::uint32_t, std::uint32_t> binding_of;
+    std::unordered_map<std::uint32_t, std::uint32_t> set_of;
+    for (std::size_t at = kSpirvHeaderWords; at < code.size();) {
+        const std::uint32_t count = code[at] >> 16;
+        if (count == 0 || at + count > code.size()) {
+            break;
+        }
+        if ((code[at] & 0xffffu) == kOpDecorate && count >= 4) {
+            const std::uint32_t decoration = code[at + 2];
+            if (decoration == kDecorationBinding) {
+                binding_of[code[at + 1]] = code[at + 3];
+            } else if (decoration == kDecorationDescriptorSet) {
+                set_of[code[at + 1]] = code[at + 3];
+            }
+        }
+        at += count;
+    }
+    std::vector<std::uint32_t> out;
+    for (const auto& [id, binding] : binding_of) {
+        const auto set = set_of.find(id);
+        if (set == set_of.end() || set->second == 0) {
+            out.push_back(binding);
+        }
+    }
+    return out;
+}
+
+// Each binding is visible only to the stages that declare it. Vulkan counts a binding against
+// every stage it names, so naming all stages put MoltenVK's mesh shader at 19 samplers for one
+// stage, over its limit of 16, though its fragment stage uses 16 and its vertex stage 4.
+std::unordered_map<std::uint32_t, VkShaderStageFlags> binding_stages(const CompiledProgram& c) {
+    std::unordered_map<std::uint32_t, VkShaderStageFlags> stages;
+    const std::pair<const std::vector<std::uint32_t>*, VkShaderStageFlagBits> modules[] =
+        {{&c.vertex, VK_SHADER_STAGE_VERTEX_BIT},
+         {&c.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
+         {&c.compute, VK_SHADER_STAGE_COMPUTE_BIT}};
+    for (const auto& [code, stage] : modules) {
+        for (const std::uint32_t binding : set0_bindings(*code)) {
+            stages[binding] |= stage;
+        }
+    }
+    return stages;
+}
+
 // Reflects the program's complete descriptor interface before creating its layouts.
 std::vector<VkDescriptorSetLayoutBinding> program_bindings(Program& program) {
     const auto& c = program.compiled;
+    const auto stages = binding_stages(c);
     std::vector<VkDescriptorSetLayoutBinding> bindings;
     auto add = [&](int binding, VkDescriptorType type) {
         if (binding < 0) {
             return;
         }
-        bindings.push_back(
-            {static_cast<std::uint32_t>(binding),
-             type,
-             1,
-             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-                 | VK_SHADER_STAGE_COMPUTE_BIT,
-             nullptr}
-        );
+        const auto found = stages.find(static_cast<std::uint32_t>(binding));
+        // A binding no module declares (never expected) keeps the old all-stage visibility.
+        const VkShaderStageFlags flags = found != stages.end() ? found->second
+                                                               : VK_SHADER_STAGE_VERTEX_BIT
+                                                                     | VK_SHADER_STAGE_FRAGMENT_BIT
+                                                                     | VK_SHADER_STAGE_COMPUTE_BIT;
+        bindings.push_back({static_cast<std::uint32_t>(binding), type, 1, flags, nullptr});
     };
     program.dynamic_uniforms = c.default_binding >= 0 && reuse_uniforms();
     add(c.default_binding,
@@ -257,9 +312,31 @@ std::vector<VkDescriptorSetLayoutBinding> program_bindings(Program& program) {
     return bindings;
 }
 
+// Warns at each link when a stage still names more samplers than the device allows; past
+// the limit, Vulkan's behaviour is undefined (MoltenVK allows 16 per stage).
+void check_sampler_limit(const std::vector<VkDescriptorSetLayoutBinding>& bindings) {
+    const std::uint32_t limit = g->properties.limits.maxPerStageDescriptorSamplers;
+    for (const VkShaderStageFlagBits stage :
+         {VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT, VK_SHADER_STAGE_COMPUTE_BIT}) {
+        const auto count = std::count_if(bindings.begin(), bindings.end(), [&](const auto& b) {
+            return (b.stageFlags & stage) != 0
+                   && b.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        });
+        if (static_cast<std::uint32_t>(count) > limit) {
+            log::warn(
+                "vulkan: a program's stage {:#x} uses {} samplers, over the device's {}",
+                static_cast<unsigned>(stage),
+                count,
+                limit
+            );
+        }
+    }
+}
+
 // A failed descriptor layout must never be passed into pipeline layout creation.
 bool make_program_layouts(Program& program) {
     const auto bindings = program_bindings(program);
+    check_sampler_limit(bindings);
     VkDescriptorSetLayoutCreateInfo set_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
     set_info.bindingCount = static_cast<std::uint32_t>(bindings.size());
     set_info.pBindings = bindings.data();

@@ -791,9 +791,27 @@ VkPipeline create_graphics_pipeline(
     info.pDynamicState = &dynamic;
     info.layout = layout;
 
-    // The fragment stage's part takes its samples from the output's (no sample shading here).
-    if (library == VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT) {
-        info.pMultisampleState = nullptr;
+    // A part is given only its own state. Its key (library_key) holds only those fields, so a part
+    // made for one key is linked into the pipelines of others: state of another part, given here
+    // from the first key, must not reach it. NVIDIA's driver let the vertex input given to the
+    // shared output part decide the linked pipelines' vertex input, which drew the wrong vertices.
+    if (library != 0) {
+        const auto has = [library](VkGraphicsPipelineLibraryFlagBitsEXT bit) {
+            return (library & bit) != 0;
+        };
+        const bool vertex_input = has(VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT);
+        const bool pre_raster = has(VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT);
+        const bool fragment = has(VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT);
+        const bool output = has(VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT);
+        info.pVertexInputState = vertex_input ? &vertex : nullptr;
+        info.pInputAssemblyState = vertex_input ? &assembly : nullptr;
+        info.pViewportState = pre_raster ? &viewport : nullptr;
+        info.pRasterizationState = pre_raster ? &raster : nullptr;
+        info.pDepthStencilState = fragment ? &depth : nullptr;
+        info.pColorBlendState = output ? &blending : nullptr;
+
+        // The fragment stage's part takes its samples from the output's (no sample shading here).
+        info.pMultisampleState = output ? &multisample : nullptr;
     }
 
     VkPipeline pipeline = VK_NULL_HANDLE;
