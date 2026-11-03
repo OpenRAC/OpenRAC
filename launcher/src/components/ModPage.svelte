@@ -498,7 +498,7 @@
   }
 
   @media (hover: hover) {
-    .crumb:hover {
+    :global(html:where(:not([data-input="pad"]))) .crumb:hover {
       text-decoration: underline;
       text-underline-offset: 3px;
     }

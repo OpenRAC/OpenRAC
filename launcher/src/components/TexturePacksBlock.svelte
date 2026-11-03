@@ -292,7 +292,7 @@
     font-variant-numeric: tabular-nums;
   }
   @media (hover: hover) {
-    .count:hover {
+    :global(html:where(:not([data-input="pad"]))) .count:hover {
       border-color: var(--line-strong);
     }
   }

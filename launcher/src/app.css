@@ -312,8 +312,8 @@ button,
 }
 
 @media (hover: hover) {
-  button:hover:not(:disabled),
-  .button:hover {
+  html:where(:not([data-input="pad"])) button:hover:not(:disabled),
+  html:where(:not([data-input="pad"])) .button:hover {
     border-color: var(--soft);
   }
 }
@@ -344,16 +344,24 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
-/* With a controller (src/lib/pad.ts) the focus is where A presses: always drawn. */
+/* With a controller (src/lib/pad.ts) the focus is where A presses: always drawn, a little bolder
+   than a picked control's own ring (a theme, a game) so the two are told apart, and scrolled to
+   with room around it, so that its ring is not cut by the edge of what scrolls. The pointer's
+   hover is not drawn meanwhile (each :hover rule is under html:not([data-input="pad"])): a
+   mouse standing still over one control lit it beside the focus on another. */
 html[data-input="pad"] :focus {
-  outline: 2px solid var(--amber);
-  outline-offset: 2px;
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+  scroll-margin: 20px;
+  scroll-margin-bottom: calc(20px + var(--pad-aside, 0px));
 }
 
-/* A press dims the button and pushes it in a little; on a touch screen that is all it shows, as
-   hover styles apply only where there is a pointer that hovers. */
+/* A press dims the button and pushes it in a little (a controller's A too, pad.ts); on a touch
+   screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
 button:active:not(:disabled),
-.button:active {
+.button:active,
+button.pad-press:not(:disabled),
+.button.pad-press {
   filter: brightness(0.88);
   transform: scale(0.97);
 }
@@ -366,7 +374,7 @@ button.primary {
 }
 
 @media (hover: hover) {
-  button.primary:hover:not(:disabled) {
+  html:where(:not([data-input="pad"])) button.primary:hover:not(:disabled) {
     filter: brightness(1.08);
     border-color: rgb(0 0 0 / 0.3);
   }
@@ -379,7 +387,7 @@ button.ghost {
 }
 
 @media (hover: hover) {
-  button.ghost:hover:not(:disabled) {
+  html:where(:not([data-input="pad"])) button.ghost:hover:not(:disabled) {
     background: var(--panel-hi);
     border-color: var(--line);
   }
@@ -522,7 +530,7 @@ input.switch:disabled {
 }
 
 @media (hover: hover) {
-  .segmented button:hover:not(:disabled) {
+  html:where(:not([data-input="pad"])) .segmented button:hover:not(:disabled) {
     color: var(--text);
   }
 }

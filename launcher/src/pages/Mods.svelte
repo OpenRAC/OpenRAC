@@ -498,7 +498,7 @@
   }
 
   @media (hover: hover) {
-    .tabs button:hover:not(.on) {
+    :global(html:where(:not([data-input="pad"]))) .tabs button:hover:not(.on) {
       color: var(--text);
     }
   }
