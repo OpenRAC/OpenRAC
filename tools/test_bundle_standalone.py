@@ -217,7 +217,7 @@ class Bundle(unittest.TestCase):
                         "launcher/actions.json",
                         "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
                         "port/enhanced/lighting/profiles/rac1/object-lights.json",
-                        "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json",
+                        "port/enhanced/lighting/profiles/rac1-ntsc/material-overrides.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(list(out.rglob("test_*.py")))
@@ -249,7 +249,7 @@ class Bundle(unittest.TestCase):
             # The carried exporter resolves the carried profile without the checkout or its cwd.
             exported = Path(tmp) / "exported-level"
             exported.mkdir()
-            catalog_path = out / "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json"
+            catalog_path = out / "port/enhanced/lighting/profiles/rac1-ntsc/material-overrides.json"
             self.assertEqual(catalog_path.read_bytes(),
                              (bundle.ROOT / catalog_path.relative_to(out)).read_bytes())
             # A synthetic material proves the isolated exporter consumes the carried catalog.
@@ -258,8 +258,11 @@ class Bundle(unittest.TestCase):
             (exported / "textures/lamp.png").write_bytes(texture)
             catalog = json.loads(catalog_path.read_text())
             definition = {"runtime_intensity": 3, "bake_intensity": 5}
-            catalog['materials'].append({"name": "fixture lamp",
-                "texture_sha256": hashlib.sha256(texture).hexdigest(), "emission": definition})
+            catalog["overrides"].append({
+                "id": "fixture-lamp",
+                "match": {"texture_file_sha256": hashlib.sha256(texture).hexdigest()},
+                "set": {"emission": definition},
+            })
             catalog_path.write_text(json.dumps(catalog))
             script = ("import sys\n"
                       "from pathlib import Path\n"
@@ -274,12 +277,19 @@ class Bundle(unittest.TestCase):
             lights = "port/enhanced/lighting/profiles/rac1/object-lights.json"
             self.assertEqual((exported / "object-lights.json").read_bytes(),
                              (out / lights).read_bytes())
-            emission = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-emission.json"
-            authored = json.loads((bundle.ROOT / emission).read_text())
-            authored['textures/lamp.png'] = definition
+            profiles = out / "port/enhanced/lighting/profiles"
+            for layer, source in (("shared", "rac1"), ("version", "rac1-ntsc"),
+                                  ("level", "rac1-ntsc/level_01")):
+                exported_catalog = exported / "materials" / layer / "material-overrides.json"
+                self.assertEqual(exported_catalog.read_bytes(),
+                                 (profiles / source / "material-overrides.json").read_bytes())
             copied = json.loads((exported / "probe-emission.json").read_text())
-            self.assertEqual(copied.pop('_catalog_defaults'), authored)
-            self.assertEqual(copied, authored)
+            defaults = copied.pop("_catalog_defaults")
+            self.assertEqual(copied, defaults)
+            self.assertEqual(copied["textures/lamp.png"], definition)
+            self.assertEqual(copied["textures/moby_0172.png"],
+                             {"runtime_intensity": 1, "bake_intensity": 4, "contrast": 1.5})
+            self.assertEqual(copied["static_mobys"], [1042])
             self.assertFalse((out / "port/enhanced/tools/baker/moby_seed_whitelist.json").exists())
             water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
             self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
