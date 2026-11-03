@@ -167,7 +167,7 @@ func_00128F50	vib	sceVibGetProfile	host	same instructions as rac1-pal's
 # camera from them (g_cameraState, 0x1B5200: 1 ulp apart on the Mac and Linux). The library's own
 # polynomial on VU0 is the console's, and the same on every host.
 func_00131A98	scf	sceScfGetLocalTimefromRTC	host	same instructions as rac1-pal's and rac4's
-func_00132028	989snd	snd_FlushSoundCommands	host	symbol_addrs.txt snd_Pump; same opening as rac4's snd_FlushSoundCommands; the native flush also delivers deferred disc completion
+func_00132028	989snd	snd_Pump	host	symbol_addrs.txt snd_Pump: the answers of the batch the IOP has, the disc read's end (the common snd_FlushSoundCommands), then the next batch: host/sound.c	int (void)
 func_00133250	989snd	snd_InitVAGStreamingEx	host	same opening as rac4's
 func_001334B8	989snd	snd_StreamSafeCdRead	host	same opening as rac4's: sector, count, destination
 func_00133580	989snd	snd_StreamSafeCdSync	host	symbol_addrs.txt snd_CheckLoadInProgress; sceCdSync (0x00124B88) when no stream plays
