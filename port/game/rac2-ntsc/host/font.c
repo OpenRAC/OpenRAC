@@ -20,7 +20,9 @@ unsigned long long func_0027C878(int index);
 int func_0027F178(gaddr text, int length);
 int func_0027F198(gaddr text, int length);
 int func_0027F1B8(gaddr text, int length);
-void func_0027F2A8(int x, int y, long long style, int text, int length, unsigned long long tex0, int table);
+void func_0027F2A8(
+    int x, int y, long long style, int text, int length, unsigned long long tex0, int table
+);
 void func_0027FC70(int x, long long y, int text, int length, unsigned long long tex0, int table);
 void func_0027F640(
     float x,
