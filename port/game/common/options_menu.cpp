@@ -937,7 +937,14 @@ void options_items(gaddr page) {
     }
     const gaddr items = GREF(std::uint32_t, list + 0x34);
     gaddr camera = 0, sound = 0;
-    if (items != 0 && items != m.items && count_items(items, &camera, &sound) > 0 && camera != 0) {
+    if (items != 0 && items == m.items) {
+        // Ours already, given before the game entered the page: the picture box gets its buffer
+        // only then, so its entries are taken now.
+        hints(page, m.items_for);
+        pictures(page, list, m.items_for);
+        return;
+    }
+    if (items != 0 && count_items(items, &camera, &sound) > 0 && camera != 0) {
         if (m.items_for != items) {
             make(items);
             m.hints_for = 0;
