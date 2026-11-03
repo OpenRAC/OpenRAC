@@ -7,6 +7,7 @@
   "frame_rate": 60,
   "entry": "func_00131AE8",
   "ps2_float": [
+    "func_002702C8", "func_00283CE0", "func_L05_00442880",
     "func_00282890", "func_002828B8", "func_002828C8", "func_002828F0", "func_00282900",
     "func_00282928", "func_00282938", "func_00282948", "func_00282978", "func_002829A8",
     "func_002829D8", "func_00282A18", "func_00282A28", "func_00282A38", "func_00282A60",

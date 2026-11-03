@@ -404,6 +404,9 @@ void func_0033C378(gaddr object) {
 #define PAUSE_LIST_COUNT 0x1CCu
 #define TEXT_CAMERA_ROW 0x2D98
 #define VIDEO_ROW_AFTER 5 /* Camera's row */
+/* The title's Options list's icons: their sheet and their table (func_00341CE0 sets them). */
+#define TITLE_ICON_SHEET 0xEAA6
+#define TITLE_ICONS OPENRAC_DATA(0x001AE138u)
 /* The list's spacing: the cursor's, the rows' and the icons'. */
 #define LIST_CURSOR_STEP OPENRAC_DATA(0x001AE0E0u)
 #define LIST_ROW_STEP OPENRAC_DATA(0x001AE0F4u)
@@ -491,8 +494,8 @@ void func_00341610(gaddr list, int which) {
     const gaddr icons = GREF(gaddr, list + PAUSE_LIST_ICONS);
     const unsigned before = VIDEO_ROW_AFTER + 1;
     memcpy(G(video_icons), G(icons), 4u * before);
-    /* Camera's icon again: the game has none of its own for this. */
-    GREF(int32_t, video_icons + 4u * before) = GREF(int32_t, icons + 4u * VIDEO_ROW_AFTER);
+    /* The title list's first icon, its Video row's (list_icons draws it from that list's sheet). */
+    GREF(int32_t, video_icons + 4u * before) = GREF(int32_t, TITLE_ICONS);
     memcpy(
         G(video_icons + 4u * (before + 1)),
         G(icons + 4u * before),
@@ -500,6 +503,117 @@ void func_00341610(gaddr list, int which) {
     );
     GREF(gaddr, list + PAUSE_LIST_ICONS) = video_icons;
     GREF(int, list + PAUSE_LIST_COUNT) = PAUSE_OPTIONS_ROWS + 1;
+}
+
+/*
+ * The panel's art has its rows baked in, one frame for each list, and none for nine. With Video
+ * shown it is squeezed to the rows' spacing and drawn twice: down to the gap above the last two rows,
+ * where its sides are straight, then one row lower from there, which gives the ninth row and the
+ * panel's bottom edge.
+ */
+#define PANEL_SPRITE_ROWS 3
+#define LIST_ON 0x220u
+#define LIST_ORIGIN 0x218u
+#define LIST_TITLE_BAR 0x98u
+#define LIST_TITLE_TEXT 0x1D0u
+#define LIST_CURSOR 0x130u
+#define SPRITE_POSITION 0u
+#define SPRITE_SCALE 4u
+#define LIST_ICON 0x17Cu
+#define LIST_ICON_SHEET 0x1C4u
+#define LIST_ICON_LEFT OPENRAC_DATA(0x001AE120u)
+#define LIST_ICON_FIRST OPENRAC_DATA(0x001AE124u)
+#define GS_SCISSOR_1 0x40ull
+#define GS_LAST_LINE 447
+/* The art's rows are a little closer than the text's: by here that is this many lines. */
+#define PANEL_LOWER_DROP 2.0f
+/* The icons keep their size in the squeezed slots: this many lines up centres them. */
+#define PANEL_ICON_RISE 1.0f
+#define LIST_ICON_HALF                                                                             \
+    16.0f /* LIST_ICON_FIRST is an icon's top, and the row's middle is below it */
+
+static void panel_clip(int top, int bottom) {
+    func_002FC560(
+        GS_SCISSOR_1,
+        (511ull << 16) | ((unsigned long long)top << 32) | ((unsigned long long)bottom << 48)
+    );
+}
+
+/* Draws the sprite SQUEEZED about the first row, moved down by BELOW. */
+static void panel_sprite(gaddr sprite, float first_row, float below) {
+    const gaddr position = GREF(gaddr, sprite + SPRITE_POSITION);
+    const gaddr scale = GREF(gaddr, sprite + SPRITE_SCALE);
+    const float y = GREF(float, position + 4u);
+    const float height = GREF(float, scale + 4u);
+    GREF(float, position + 4u) = y + (1.0f - list_tighter) * (first_row - y) + below;
+    GREF(float, scale + 4u) = height * list_tighter;
+    func_00336320(sprite);
+    GREF(float, position + 4u) = y;
+    GREF(float, scale + 4u) = height;
+}
+
+/* func_00341A88 for this list: its icons, a line higher, and on the Video row the icon the title's
+ * Options list has there, from that list's sheet. */
+static void list_icons(gaddr list) {
+    const gaddr icon = list + LIST_ICON;
+    const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
+    const int chosen = GREF(int, list + PAUSE_LIST_CURSORS + 4u * PAUSE_OPTIONS_LIST);
+    const int rows = GREF(int, list + PAUSE_LIST_COUNT);
+    const gaddr icons = GREF(gaddr, list + PAUSE_LIST_ICONS);
+    const float x = GREF(float, origin) + GREF(float, LIST_ICON_LEFT);
+    const float y = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST) - PANEL_ICON_RISE;
+    for (int i = 0; i < rows; ++i) {
+        const float row_y = y + GREF(float, LIST_ICON_STEP) * (float)i;
+        func_00335E38(icon, x, row_y, 0.0f, 0.0f);
+        func_00336920(
+            icon,
+            i == VIDEO_ROW_AFTER + 1 ? TITLE_ICON_SHEET : GREF(int, list + LIST_ICON_SHEET),
+            GREF(int, icons + 4u * (gaddr)i)
+        );
+        GREF(unsigned int, func_00335E20(icon)) = i == chosen ? 0x70FFFEEDu : 0x60F0F0B0u;
+        func_00336828(icon);
+    }
+}
+
+void func_00341C20(gaddr list) {
+    if (GREF(int, list + PAUSE_LIST_WHICH) != PAUSE_OPTIONS_LIST
+        || GREF(int, list + PAUSE_LIST_COUNT) != PAUSE_OPTIONS_ROWS + 1) {
+        func_00341C20__game(list);
+        return;
+    }
+    if (GREF(int, list + LIST_ON) == 0) {
+        return;
+    }
+    static const unsigned sprites[PANEL_SPRITE_ROWS] = {0u, 0x4Cu, 0xE4u};
+    const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
+    const float step = GREF(float, LIST_ICON_STEP);
+    const float first_row = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST);
+    const int split = (int)(first_row + LIST_ICON_HALF + step * (PAUSE_OPTIONS_ROWS - 1.5f));
+
+    func_00336320(list + LIST_TITLE_BAR);
+    panel_clip(0, split - 1);
+    for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
+        panel_sprite(list + sprites[i], first_row, 0.0f);
+    }
+    panel_clip(split, GS_LAST_LINE);
+    for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
+        panel_sprite(list + sprites[i], first_row, step + PANEL_LOWER_DROP);
+    }
+    panel_clip(0, GS_LAST_LINE);
+
+    /* The bar around the page's name is in the art: the name goes with it. */
+    const gaddr title = GREF(gaddr, list + LIST_TITLE_TEXT + SPRITE_POSITION);
+    const float title_y = GREF(float, title + 4u);
+    GREF(float, title + 4u) = title_y + (1.0f - list_tighter) * (first_row - title_y);
+    func_00336A78(list + LIST_TITLE_TEXT);
+    GREF(float, title + 4u) = title_y;
+    const gaddr cursor_scale = GREF(gaddr, list + LIST_CURSOR + SPRITE_SCALE);
+    const float cursor_height = GREF(float, cursor_scale + 4u);
+    GREF(float, cursor_scale + 4u) = cursor_height * list_tighter;
+    func_00341A48(list);
+    GREF(float, cursor_scale + 4u) = cursor_height;
+    func_00341A68(list);
+    list_icons(list);
 }
 
 #define CAMERA_HIDDEN_ROW 3 /* 16:9: the page's fourth row */

@@ -1977,8 +1977,9 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             x1 = target_width;
         }
     }
-    const auto y0 = static_cast<GLint>(std::floor(static_cast<float>(s.scissor.y0) * sy));
-    const auto y1 = static_cast<GLint>(std::ceil(static_cast<float>(s.scissor.y1 + 1) * sy));
+    // To the nearest line, so that two scissors that meet do not both draw the line between them.
+    const auto y0 = static_cast<GLint>(std::lround(static_cast<float>(s.scissor.y0) * sy));
+    const auto y1 = static_cast<GLint>(std::lround(static_cast<float>(s.scissor.y1 + 1) * sy));
     glEnable(GL_SCISSOR_TEST);
     glScissor(x0, target_height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
 }
