@@ -623,11 +623,11 @@
   }
 
   @media (hover: hover) {
-    .open:hover:not(:disabled) {
+    :global(html:where(:not([data-input="pad"]))) .open:hover:not(:disabled) {
       background: var(--panel-hi);
     }
 
-    .open:hover .go {
+    :global(html:where(:not([data-input="pad"]))) .open:hover .go {
       color: var(--amber);
     }
   }

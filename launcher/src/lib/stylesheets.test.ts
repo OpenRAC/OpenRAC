@@ -77,6 +77,15 @@ describe("stylesheets", () => {
     expect(outside).toEqual([]);
   });
 
+  it("draw no hover while a controller moves the focus", () => {
+    // pad.ts: html[data-input="pad"]. A mouse resting over a control lit it beside the focus.
+    const loose = all
+      .filter((r) => r.path.at(-1)?.includes(":hover"))
+      .flatMap((r) => (r.path.at(-1) ?? "").split(",").map((s) => `${r.where} ${s.trim()}`))
+      .filter((s) => !s.includes('html:where(:not([data-input="pad"]))'));
+    expect(loose).toEqual([]);
+  });
+
   it("write hex colours only on :root", () => {
     // An @property's initial-value is the other place: CSS takes no var() there, so it repeats
     // :root's value (app.css, the accent's colours).

@@ -35,9 +35,12 @@
   };
 </script>
 
+<!-- data-pad-aside: a controller's d-pad comes here only when the page has nothing further that
+     way (pad.ts), not as it passes the corner the toasts float over. -->
 <div
   class="toasts"
   role="presentation"
+  data-pad-aside
   onpointerenter={() => {
     pointerOver = true;
     hold();

@@ -308,7 +308,7 @@
   }
 
   @media (hover: hover) {
-    .tab:hover:not(.on) {
+    :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on) {
       background: rgb(0 0 0 / 0.1);
     }
   }
@@ -397,13 +397,13 @@
   }
 
   @media (hover: hover) {
-    .site:hover,
-    .discord:hover {
+    :global(html:where(:not([data-input="pad"]))) .site:hover,
+    :global(html:where(:not([data-input="pad"]))) .discord:hover {
       background: rgb(255 255 255 / 0.1);
       color: var(--amber);
     }
 
-    .discord:hover .mark {
+    :global(html:where(:not([data-input="pad"]))) .discord:hover .mark {
       transform: rotate(-12deg) scale(1.08);
     }
   }
@@ -432,7 +432,7 @@
   /* Under the pointer only its gold brightens: no blue edge (app.css's buttons) and no lift, which
      moved it by a pixel and left its text redrawn a little differently. */
   @media (hover: hover) {
-    .update:hover {
+    :global(html:where(:not([data-input="pad"]))) .update:hover {
       border-color: rgb(0 0 0 / 0.3);
       color: var(--amber);
     }
@@ -612,9 +612,23 @@
     color: var(--soft);
   }
 
-  :global(html[data-platform="android"]) .tab:active {
+  :global(html[data-platform="android"]) .tab:active,
+  :global(html[data-platform="android"]) .tab:global(.pad-press) {
     transform: none;
     filter: none;
+  }
+
+  /* The focus rings the icon's circle: the tab is as wide as the rail, which cut a ring round it
+     down to two lines across. */
+  :global(html[data-platform="android"]) .tab:focus-visible,
+  :global(html[data-platform="android"][data-input="pad"]) .tab:focus {
+    outline: none;
+  }
+
+  :global(html[data-platform="android"]) .tab:focus-visible .icon,
+  :global(html[data-platform="android"][data-input="pad"]) .tab:focus .icon {
+    outline: 3px solid var(--amber);
+    outline-offset: 3px;
   }
 
   /* A circle, as round as the logo's "O" above them. */

@@ -191,13 +191,23 @@ release, and a new file adds its line there when it is added.
   WebKitGTK stops drawing it until the slide ends, where Chromium does not.
   So a tab with a list scrolls in columns (`SideFrame.svelte`), not in `<main>`.
 - Hover styles go inside `@media (hover: hover)`: on a touch screen a tapped
-  control would otherwise keep them until the next tap elsewhere. A press
-  shows with `:active`, a keyboard's or controller's focus with
-  `:focus-visible` or `html[data-input="pad"]`.
+  control would otherwise keep them until the next tap elsewhere. Each hover
+  selector also starts with `html:where(:not([data-input="pad"]))`
+  (`:global(...)` in a component), so a mouse resting over one control does
+  not light it beside a controller's focus on another. A press shows with
+  `:active` (and `.pad-press` for a controller's A), a keyboard's or
+  controller's focus with `:focus-visible` or `html[data-input="pad"]`.
+- With a controller (`src/lib/pad.ts`) the focus always stays on something
+  A presses: when the control with it goes away (a page changed, a dialog
+  opened or closed, a row removed) it moves to the one in its place. A
+  control the pad must reach that is out of Tab's order (a roving tab, radio
+  or menu item) uses its role inside `tablist`, `radiogroup` or `menu`. What
+  floats over the page and should be reached only past its end (the toasts)
+  carries `data-pad-aside`.
 - `src/lib/stylesheets.test.ts` holds `app.css` and every component's
-  `<style>` to two of these rules: no hex colour outside `:root`, no hover
-  style outside `@media (hover: hover)`. It names the file and line of what
-  breaks one.
+  `<style>` to three of these rules: no hex colour outside `:root`, no hover
+  style outside `@media (hover: hover)` or without the controller's guard. It
+  names the file and line of what breaks one.
 - Android follows Android's own patterns, not the desktop's: a navigation rail
   on the left (a bar at the bottom below 600 px wide) in place of the orange
   bar, Material's 24/16 px margins, a ripple under the finger
