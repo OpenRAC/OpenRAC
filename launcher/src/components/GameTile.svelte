@@ -7,7 +7,7 @@
   import { regionLabel } from "$lib/labels";
   import { gameTileArt, hideMissing } from "$lib/media";
   import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
-  import { themeStyle } from "$lib/themes";
+  import { accentStyle, themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
 
   /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). */
@@ -28,6 +28,28 @@
       ? game.versions.map((o) => `${regionLabel(o.name)} ${o.progress ? pct(o.progress.percent) : "–"}`).join(" · ")
       : "",
   );
+
+  /** With a controller the tile is one control (pad.ts): A takes its next step (Play, Set up,
+   *  Rebuild), or opens the game's page when it offers none; Y opens the page. A finger or the
+   *  mouse keeps the two apart: the tile opens the page, its button plays. */
+  function padTile(node: HTMLElement) {
+    const press = (e: Event) => {
+      if (!v || !next || !offers) return;
+      e.preventDefault();
+      void playerAct(v, next);
+    };
+    const more = () => {
+      if (v) openVersion(v.key);
+    };
+    node.addEventListener("padpress", press);
+    node.addEventListener("padmore", more);
+    return {
+      destroy() {
+        node.removeEventListener("padpress", press);
+        node.removeEventListener("padmore", more);
+      },
+    };
+  }
 </script>
 
 {#if v && next}
@@ -39,6 +61,7 @@
 
     <button
       class="open"
+      use:padTile
       aria-current={selected || undefined}
       onclick={() => {
         openVersion(v.key);
@@ -62,6 +85,7 @@
             <Icon name="warn" size={13} />Crashed recently<span class="where">: a report is on its page</span>
             <button
               class="x"
+              data-pad-skip
               onclick={() => void dismissCrashes(game.id)}
               aria-label="Dismiss: hide this until the game crashes again"
               title="Dismiss: hide this until the game crashes again"
@@ -72,7 +96,13 @@
         {/if}
       </div>
       {#if offers}
-        <button class="act" class:primary={next.primary} onclick={() => void playerAct(v, next)}>
+        <button
+          class="act"
+          class:primary={next.primary}
+          data-pad-skip
+          style={accentStyle(game.id)}
+          onclick={() => void playerAct(v, next)}
+        >
           <Icon name={next.icon} size={18} />{next.kind === "set-up" ? "Set up" : next.label}
         </button>
       {/if}
@@ -93,6 +123,11 @@
     box-shadow: var(--shadow-sm);
     /* Its foot follows the tile's own width (below). */
     container-type: inline-size;
+    /* Its own layer all along, its round corners clipping the picture there: promoted only while
+       the picture zoomed, the tile showed a bar along its foot until the zoom ended (Android's
+       WebView). */
+    isolation: isolate;
+    will-change: transform;
     transition:
       transform var(--medium) var(--ease),
       box-shadow var(--medium);
@@ -170,12 +205,16 @@
     opacity: 1;
   }
 
+  /* A pixel past the tile's edges, the picture and its shade, so that a zoom drawn a fraction of a
+     pixel short leaves no line of the tile's own colours. */
   .art {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    inset: -1px;
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
     object-fit: cover;
+    will-change: transform;
+    backface-visibility: hidden;
     transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
@@ -205,7 +244,7 @@
 
   .shade {
     position: absolute;
-    inset: 0;
+    inset: -1px;
     background: linear-gradient(
       to top,
       color-mix(in srgb, var(--ink-deep) 94%, transparent) 0%,

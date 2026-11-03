@@ -234,17 +234,35 @@ describe("A controller", () => {
       return (el.getAttribute("aria-label") ?? el.textContent).trim();
     });
 
-  it("opens a game with one press, and comes back to its tile", async () => {
+  it("takes a game's tile as one control: A its next step, Y its page, B back to it", async () => {
     await open("");
     await press("down");
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    await press("accept");
+    // Right goes to the next game, not to the tile's own button.
+    await press("right");
+    expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
+    await press("left", "more");
     await page.waitForTimeout(500);
     // The game's page has the focus on its first control: the next A presses it.
     expect(await page.evaluate(() => document.activeElement?.closest(".page") !== null)).toBe(true);
+    expect(await page.locator(".tile").count()).toBe(0);
     await press("back");
     await page.waitForTimeout(500);
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
+    // A takes the tile's step (Rebuild here) where it is, without opening the page.
+    await press("accept");
+    await page.waitForTimeout(300);
+    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+  });
+
+  it("goes into the rail only sideways", async () => {
+    await open("page=settings");
+    for (let i = 0; i < 12; i++) {
+      await press("up");
+      expect(await page.evaluate(() => document.activeElement?.closest("header") === null)).toBe(true);
+    }
+    await press("left");
+    expect(await page.evaluate(() => document.activeElement?.closest("header") !== null)).toBe(true);
   });
 
   it("reaches every theme, not only the one on", async () => {
