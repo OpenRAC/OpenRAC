@@ -10,6 +10,7 @@ import summaryFile from "../../../progress/summary.json";
 import packageFile from "../../package.json";
 import { onAndroid } from "./api";
 import { mockEnhanced } from "./mockEnhanced";
+import { mockRac2Extra, mockWriteRac2Extra } from "./mockRac2Extra";
 import {
   mockApply,
   mockAutoUpdate,
@@ -67,6 +68,9 @@ import type { WriteResult } from "./generated/WriteResult";
 import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
 import type { Rac2SaveView } from "./generated/Rac2SaveView";
 import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { Rac2ExtraFields } from "./generated/Rac2ExtraFields";
+import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
+import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
 import type { AppInfo, DiscScan, GpuDriver, GpuDrivers } from "./api";
 import type { UpdateInfo, UpdateProgressCallback } from "./updates";
 
@@ -2806,6 +2810,21 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       );
     case "read_save_rac2":
       return delay<Rac2SaveView>(mockSaveRac2(String(args.serial), Number(args.slot ?? 0)));
+    case "read_save_rac2_extra":
+      return delay<Rac2ExtraView>(mockRac2Extra(String(args.serial), Number(args.slot ?? 0)));
+    case "write_save_rac2_extra": {
+      const name = `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${String(Number(args.slot) + 1)}`;
+      return delay<Rac2ExtraWriteResult>({
+        backup: {
+          name,
+          path: `/home/you/.local/share/openrac/memcard/${String(args.serial)}/${name}`,
+          note: `Before editing slot ${String(Number(args.slot) + 1)}`,
+          createdMillis: Date.now(),
+          totalSize: 456192,
+        },
+        view: mockWriteRac2Extra(String(args.serial), Number(args.slot), args.fields as Rac2ExtraFields),
+      });
+    }
     case "write_save_rac2": {
       const fields = args.fields as Rac2SaveFields;
       if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");

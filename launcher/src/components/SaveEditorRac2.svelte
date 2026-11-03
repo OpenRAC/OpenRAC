@@ -6,6 +6,7 @@
   // changes are marked and listed above Save, Reset puts the save back as read, Undo after a save
   // restores the backup, and leaving with changes asks first.
   import Icon from "$components/Icon.svelte";
+  import SaveEditorRac2Advanced2 from "$components/SaveEditorRac2Advanced2.svelte";
   import { api, type Rac2SaveFields, type Rac2SaveView, type SaveBackupInfo } from "$lib/api";
   import { toast } from "$lib/app.svelte";
   import { inertPage, portal } from "$lib/portal";
@@ -557,6 +558,13 @@
             {/each}
           </div>
           <p class="note">Numbered in the order the game keeps them.</p>
+        </section>
+
+        <section id="se2-more" aria-labelledby="se2-more-h">
+          <h3 id="se2-more-h">More</h3>
+          {#key view.fingerprint}
+            <SaveEditorRac2Advanced2 {serial} {slot} {playing} onsaved={() => void load()} />
+          {/key}
         </section>
       {/if}
     </div>
