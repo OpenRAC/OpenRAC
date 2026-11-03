@@ -11,6 +11,7 @@
  * Ratchet & Clank's other two have no pair here: its air traffic is Kerwan's, and its smoke and fire
  * emitter pairs with nothing above 0.09 (RAC1_MAP); 85 functions call the sphere test, not all read.
  */
+#include "draw_owner.h"
 #include "game_protos.h"
 
 #define WIDE_CAMERA OPENRAC_DATA(0x001B5200u)
@@ -29,24 +30,57 @@ static void run_list(void (*run)(void)) {
     wide_run_list(run, wide_wider_for(&g_fix_liquids, "fix_wide_liquids"));
 }
 
+/* A draw callback list's run, as the game's runners (src/game/0027B948.c: the count read again before
+ * each call, as a callback may add one), with each callback's argument kept as the owner of the world
+ * quads it draws (render.c, draw_owner.h): most are a moby's own effects, given the moby. */
+static void run_callbacks(gaddr count_at, gaddr functions, gaddr arguments) {
+    const gaddr outer = rac2_draw_owner;
+    for (int index = 0; index < GREF(int, count_at); ++index) {
+        const gaddr argument = GREF(gaddr, arguments + (gaddr)index * 4u);
+        rac2_draw_owner = argument;
+        GFN(void (*)(int), GREF(gaddr, functions + (gaddr)index * 4u))((int)argument);
+    }
+    rac2_draw_owner = outer;
+}
+
+static void run_first(void) {
+    run_callbacks(OPENRAC_DATA(0x001B1608u), OPENRAC_DATA(0x001B9E40u), OPENRAC_DATA(0x001B9F40u));
+}
+
+static void run_second(void) {
+    run_callbacks(OPENRAC_DATA(0x001B160Cu), OPENRAC_DATA(0x001BA040u), OPENRAC_DATA(0x001BA140u));
+}
+
+static void run_third(void) {
+    run_callbacks(OPENRAC_DATA(0x001B1610u), OPENRAC_DATA(0x001BA240u), OPENRAC_DATA(0x001BA340u));
+}
+
+static void run_fourth(void) {
+    run_callbacks(OPENRAC_DATA(0x001B1614u), OPENRAC_DATA(0x001BA440u), OPENRAC_DATA(0x001BA540u));
+}
+
+static void run_fifth(void) {
+    run_callbacks(OPENRAC_DATA(0x001B1638u), OPENRAC_DATA(0x001B1618u), OPENRAC_DATA(0x001B1628u));
+}
+
 void func_0027CE18(void) {
-    run_list(func_0027CE18__game);
+    run_list(run_first);
 }
 
 void func_0027CEE0(void) {
-    run_list(func_0027CEE0__game);
+    run_list(run_third);
 }
 
 void func_0027CF58(void) {
-    run_list(func_0027CF58__game);
+    run_list(run_fourth);
 }
 
 void func_0027D020(void) {
-    run_list(func_0027D020__game);
+    run_list(run_second);
 }
 
 void func_0027D0E8(void) {
-    run_list(func_0027D0E8__game);
+    run_list(run_fifth);
 }
 
 /* FastBSphereCheck: 1 in view, 0 in view but across the guard band's edge, -1 culled. */

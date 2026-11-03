@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "draw_owner.h"
 #include "game/common/lib/effect_texture.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
@@ -249,6 +250,9 @@ void func_002E10B8(void) {}
 
 void func_0029FEE0(void) {}
 
+/* draw_owner.h: the running draw callback's argument (wide_view.c sets it). */
+gaddr rac2_draw_owner;
+
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
     return openrac_effect_texture(
         tex0, GREF(int, OPENRAC_DATA(TEXTURE_UPLOADS)), OPENRAC_DATA(TEXTURE_RECORDS), pixels, clut
@@ -284,6 +288,7 @@ static void world_quad(gaddr a0, gaddr a1) {
     memcpy(&q.tex1, r + 0x80, 8);
     memcpy(&q.alpha, r + 0x88, 8);
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
+    q.parent = rac2_draw_owner;
     openrac_game_effect_quad(&q);
     /* Where the console's packet would have gone in the list, so that the window draws the quad
      * with the TEST and ZBUF in effect there (the game sets TEST_1 around its quads with

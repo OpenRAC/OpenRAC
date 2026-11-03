@@ -91,6 +91,9 @@ struct EffectQuad {
     // a game may pick at random each tick): a frame between ticks moves it whole, by its centre,
     // rather than each corner part way (which shrinks a quad turned between the two ticks).
     bool rigid = false;
+    // The moby it belongs to (its game address), or 0: a frame between ticks moves it with the
+    // moby as that frame draws the moby, rather than leaving it at the tick's place, ahead.
+    std::uint32_t parent = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,

@@ -484,6 +484,7 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     q.tex1 = quad.tex1;
     q.alpha = quad.alpha;
     q.id = quad.id;
+    q.parent = quad.parent;
     const std::uint32_t pixels = quad.pixels & 0x01FFFFFF;
     const std::uint32_t clut = quad.clut & 0x01FFFFFF;
     const std::uint32_t tbp = static_cast<std::uint32_t>(quad.tex0 & 0x3FFF);
