@@ -154,20 +154,24 @@
 
 <section class="panel saves" aria-label="Saves">
   <div class="row top">
-    <h2 class="grow">Saves</h2>
+    <h2>Saves</h2>
     {#if developer && status?.exists}
-      <span class="chip mono" title="The memory card's folder">{status.gameFolderName ?? version.serial}</span>
-      <button class="ghost small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
-        {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}Refresh
-      </button>
+      <span class="chip mono folder" title="The memory card's folder">{status.gameFolderName ?? version.serial}</span>
     {/if}
-    {#if used.length}
-      <button class="ghost small" onclick={() => (transfer = { mode: "export", source: null })}
-        ><Icon name="upload" size={14} />Export</button
-      >
-    {/if}
-    <button class="ghost small" onclick={() => void startImport()}><Icon name="download" size={14} />Import</button>
-    <button class="ghost small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
+    <div class="actions">
+      {#if developer && status?.exists}
+        <button class="ghost small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
+          {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}Refresh
+        </button>
+      {/if}
+      {#if used.length}
+        <button class="ghost small" onclick={() => (transfer = { mode: "export", source: null })}
+          ><Icon name="upload" size={14} />Export</button
+        >
+      {/if}
+      <button class="ghost small" onclick={() => void startImport()}><Icon name="download" size={14} />Import</button>
+      <button class="ghost small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
+    </div>
   </div>
 
   {#if loading && !status}
@@ -286,8 +290,73 @@
     gap: 12px;
   }
 
+  .saves {
+    container-type: inline-size;
+  }
+
+  /* The title keeps its width; the card's folder shortens; the buttons wrap under it when the
+     panel is narrow. */
   .top {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+
+  .top h2 {
+    flex: none;
+    margin: 0;
+  }
+
+  .folder {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .actions {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 6px;
+  }
+
+  /* A narrow panel: a slot's planet and Edit on the first line, its bolts, time and mods under. */
+  @container (max-width: 520px) {
+    .slots li {
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "slot planet edit"
+        ". bolts bolts"
+        ". when mods";
+      row-gap: 4px;
+    }
+
+    .slots li > :nth-child(1) {
+      grid-area: slot;
+    }
+
+    .slots li > :nth-child(2) {
+      grid-area: planet;
+    }
+
+    .slots li > :nth-child(3) {
+      grid-area: bolts;
+    }
+
+    .slots li > :nth-child(4) {
+      grid-area: when;
+    }
+
+    .slots li > :nth-child(5) {
+      grid-area: mods;
+      justify-self: end;
+    }
+
+    .slots li > :nth-child(6) {
+      grid-area: edit;
+    }
   }
 
   ul {
