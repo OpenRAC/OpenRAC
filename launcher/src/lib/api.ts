@@ -51,6 +51,7 @@ import type { RemoteMod } from "./generated/RemoteMod";
 import type { RemotePreview } from "./generated/RemotePreview";
 import type { ReportEntry } from "./generated/ReportEntry";
 import type { EditorState } from "./generated/EditorState";
+import type { ExportedSaves } from "./generated/ExportedSaves";
 import type { Carried } from "./generated/Carried";
 import type { OutdatedReason } from "./generated/OutdatedReason";
 import type { ResetDone } from "./generated/ResetDone";
@@ -62,7 +63,18 @@ import type { SaveBackupInfo } from "./generated/SaveBackupInfo";
 import type { SaveMod } from "./generated/SaveMod";
 import type { SaveChange } from "./generated/SaveChange";
 import type { SaveFields } from "./generated/SaveFields";
+import type { SaveArchiveSlot } from "./generated/SaveArchiveSlot";
+import type { SaveImportChoice } from "./generated/SaveImportChoice";
+import type { SaveImportPreview } from "./generated/SaveImportPreview";
+import type { SaveImportSlot } from "./generated/SaveImportSlot";
+import type { SaveSlotInfo } from "./generated/SaveSlotInfo";
 import type { SaveView } from "./generated/SaveView";
+import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
+import type { Rac2SaveView } from "./generated/Rac2SaveView";
+import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { Rac2ExtraFields } from "./generated/Rac2ExtraFields";
+import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
+import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
 import type { Scope } from "./generated/Scope";
 import type { Started } from "./generated/Started";
 import type { TextureFolder } from "./generated/TextureFolder";
@@ -159,6 +171,17 @@ export type { SaveMod };
 export type { SaveChange };
 export type { SaveFields };
 export type { SaveView };
+export type {
+  ExportedSaves,
+  ImportedSaves,
+  SaveArchiveSlot,
+  SaveImportChoice,
+  SaveImportPreview,
+  SaveImportSlot,
+  SaveSlotInfo,
+};
+export type { Rac2SaveFields, Rac2SaveView, Rac2WriteResult };
+export type { Rac2ExtraFields, Rac2ExtraView, Rac2ExtraWriteResult };
 export type { Scope };
 export type { Started };
 export type { UpdateChannel };
@@ -301,6 +324,15 @@ export const api = {
   importPcsx2Saves: (serial: string, source: string) => call<ImportedSaves>("import_pcsx2_saves", { serial, source }),
   /** Where PCSX2 keeps its memory cards, when found. */
   pcsx2MemcardsDir: () => call<string | null>("pcsx2_memcards_dir"),
+  /** The game's saves (all, or one slot) exported to an OpenRAC saves file (.zip) where the player
+   *  chooses, in the system's save dialog; `saved` is empty when they backed out. */
+  exportSaves: (serial: string, slot: number | null) => call<ExportedSaves>("export_saves", { serial, slot }),
+  /** What an OpenRAC saves file holds; refused for another game's file or a damaged one. */
+  previewSaveImport: (serial: string, source: string) =>
+    call<SaveImportPreview>("preview_save_import", { serial, source }),
+  /** The saves file onto the game's card, after a backup: all of it, or the chosen slots merged. */
+  importSaves: (serial: string, source: string, choice: SaveImportChoice) =>
+    call<ImportedSaves>("import_saves", { serial, source, choice }),
   openSavesFolder: (serial: string) => call<null>("open_saves_folder", { serial }),
   /** Android: OpenRAC's place in the system's Files app (the saves, settings, games, discs). */
   showFiles: () => call<null>("show_files"),
@@ -340,6 +372,16 @@ export const api = {
   /** Writes the editor's change: refused while the game runs with the card; backs the card up first. */
   writeSave: (serial: string, slot: number, fingerprint: string, change: SaveChange) =>
     call<WriteResult>("write_save", { serial, slot, fingerprint, change }),
+  /** One Going Commando slot for its save editor (core/src/save_edit_rac2.rs). */
+  readSaveRac2: (serial: string, slot: number) => call<Rac2SaveView>("read_save_rac2", { serial, slot }),
+  /** Writes the Going Commando editor's fields, with write_save's guards and backup. */
+  writeSaveRac2: (serial: string, slot: number, fingerprint: string, fields: Rac2SaveFields) =>
+    call<Rac2WriteResult>("write_save_rac2", { serial, slot, fingerprint, fields }),
+  /** A Going Commando slot's advanced fields (core/src/save_edit_rac2_extra.rs). */
+  readSaveRac2Extra: (serial: string, slot: number) => call<Rac2ExtraView>("read_save_rac2_extra", { serial, slot }),
+  /** Writes them: refused while the game runs with the card or if the file changed; backed up first. */
+  writeSaveRac2Extra: (serial: string, slot: number, fingerprint: string, fields: Rac2ExtraFields) =>
+    call<Rac2ExtraWriteResult>("write_save_rac2_extra", { serial, slot, fingerprint, fields }),
   /** A game's overrides packs (core/src/overrides.rs), in the order they apply. */
   overridesList: (game: string) => call<PackView[]>("overrides_list", { game }),
   overridesSummary: (version: string) => call<ModLoadSummary>("overrides_summary", { version }),
@@ -628,6 +670,21 @@ export async function pickMemoryCard(title: string, dir: string | null): Promise
       { name: "PS2 memory card", extensions: ["ps2", "mcd", "mc2", "bin"] },
       { name: "All files", extensions: ["*"] },
     ],
+  });
+  return typeof picked === "string" ? picked : null;
+}
+
+/** A picker for an OpenRAC saves file (a .zip from Export saves); null when cancelled (in the
+ *  browser preview, a made-up one). On Android the system's picker hands over a file, copied into
+ *  the app's cache first (pick_zip). */
+export async function pickSavesFile(title: string): Promise<string | null> {
+  if (!inTauri) return "/home/you/Downloads/OpenRAC saves SCES_509.16 2026-11-02.zip";
+  if (onAndroid) return call<string | null>("pick_zip");
+  const picked = await open({
+    directory: false,
+    multiple: false,
+    title,
+    filters: [{ name: "OpenRAC saves", extensions: ["zip", "ZIP"] }],
   });
   return typeof picked === "string" ? picked : null;
 }
