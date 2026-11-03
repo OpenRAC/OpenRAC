@@ -29,7 +29,7 @@ in [port/](../../port/README.md).
 |---|---|
 | [WORKFLOW.md](WORKFLOW.md) | **To help:** from a player's report to a release: reproduce it by script, find the cause, fix it, check it |
 | [DESIGN.md](DESIGN.md) | What is decided, the shape of the port, open decisions |
-| [ROADMAP.md](ROADMAP.md) | The order of work |
+| [ROADMAP.md](ROADMAP.md) | The phases of the port and where it stands |
 | [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | Bugs that are understood and guarded but not properly fixed yet |
 
 ## Features
