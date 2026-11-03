@@ -1174,6 +1174,41 @@ async fn write_save(
     .map_err(|e| e.to_string())?
 }
 
+/// One Going Commando save slot for its save editor (core/src/save_edit_rac2.rs).
+#[tauri::command]
+async fn read_save_rac2(
+    serial: String,
+    slot: usize,
+) -> Result<openrac_launcher_core::save_edit_rac2::Rac2SaveView, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac2::read_save(&card, &serial, slot)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Writes the Going Commando save editor's fields into a slot, with write_save's guards: refused
+/// while the game runs with the card or if the file changed since it was read; backed up first.
+#[tauri::command]
+async fn write_save_rac2(
+    app: AppHandle,
+    serial: String,
+    slot: usize,
+    fingerprint: String,
+    fields: openrac_launcher_core::save_edit_rac2::Rac2SaveFields,
+) -> Result<openrac_launcher_core::save_edit_rac2::Rac2WriteResult, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac2::write_save(&card, &serial, slot, &fingerprint, &fields, || {
+            in_use(&card, &serial)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// A game's overrides folder (`<data>/overrides`), from the install folder in Settings.
 fn overrides_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, String> {
     let install = state.config.lock().unwrap().install_dir.clone().ok_or("no install folder (Settings)")?;
@@ -2218,6 +2253,8 @@ pub fn run() {
             open_saves_folder,
             read_save,
             write_save,
+            read_save_rac2,
+            write_save_rac2,
             overrides_list,
             overrides_summary,
             overrides_set_enabled,

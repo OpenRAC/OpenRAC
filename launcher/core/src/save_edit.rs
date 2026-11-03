@@ -1146,12 +1146,13 @@ pub fn write_save(
 // ---------------------------------------------------------------------------------------------
 // Is the game running with this card?
 
-/// The program names a rac1 version runs under: the build's file name (`openrac-rac1-pal`, also in
+/// The program names a game version runs under: the build's file name (`openrac-rac1-pal`, also in
 /// the macOS bundle's folder) and the bundle's own name.
 fn program_marks(serial: &str) -> &'static [&'static str] {
     match serial {
         "SCES_509.16" => &["openrac-rac1-pal", "Ratchet & Clank (PAL)"],
         "SCUS_971.99" => &["openrac-rac1-ntsc", "Ratchet & Clank (NTSC)"],
+        "SCUS_972.68" => &["openrac-rac2-ntsc", "Ratchet & Clank - Going Commando (NTSC)"],
         _ => &[],
     }
 }
@@ -1162,7 +1163,10 @@ fn program_marks(serial: &str) -> &'static [&'static str] {
 /// does not count.
 fn program_name(cmdline: &str) -> &str {
     let program = cmdline.split(" --").next().unwrap_or("").trim().trim_matches('"');
-    if [" -", "&&", ";", "|"].iter().any(|s| program.contains(s)) {
+    // An option (" -c") before the first "--" option is a shell's; " - " is a name's dash
+    // ("Ratchet & Clank - Going Commando (NTSC)").
+    let option = program.match_indices(" -").any(|(i, _)| program[i + 2..].chars().next().is_some_and(|c| c != ' '));
+    if option || ["&&", ";", "|"].iter().any(|s| program.contains(s)) {
         return "";
     }
     let name = program.rsplit(['/', '\\']).next().unwrap_or(program);
