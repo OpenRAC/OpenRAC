@@ -133,3 +133,28 @@ export function accentProperties(game: string | null): [string, string][] {
 
 /** The custom properties accentProperties may set, to take them all off again. */
 export const ACCENT_PROPERTIES = [...new Set(Object.values(ACCENTS).flatMap((a) => Object.keys(a)))];
+
+/** Where the accent's game is kept for the first paint, before the settings have loaded. */
+const STORED_ACCENT = "openrac-accent";
+
+/** Puts game `game`'s accent on the page and keeps it for the next start, so the launcher opens in
+ *  it rather than easing into it from the launcher's own (app.css). */
+export function applyAccent(game: string | null, root: HTMLElement = document.documentElement) {
+  for (const name of ACCENT_PROPERTIES) root.style.removeProperty(name);
+  for (const [name, value] of accentProperties(game)) root.style.setProperty(name, value);
+  try {
+    if (game) localStorage.setItem(STORED_ACCENT, game);
+    else localStorage.removeItem(STORED_ACCENT);
+  } catch {
+    // Storage refused (a private window): the accent then comes with the settings.
+  }
+}
+
+/** The game whose accent the last start showed, if any. */
+export function storedAccent(): string | null {
+  try {
+    return localStorage.getItem(STORED_ACCENT);
+  } catch {
+    return null;
+  }
+}

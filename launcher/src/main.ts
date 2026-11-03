@@ -10,6 +10,7 @@ import { app } from "./lib/app.svelte";
 import { startPad } from "./lib/pad";
 import { applyPalette, storedPalette } from "./lib/palettes";
 import { startRipples } from "./lib/ripple";
+import { applyAccent, storedAccent } from "./lib/themes";
 
 const target = document.getElementById("app");
 if (!target) throw new Error("index.html has no #app element");
@@ -24,6 +25,10 @@ if (onAndroid) {
 
 // The theme of the last start, so the first paint has it (App.svelte follows the settings).
 applyPalette(storedPalette());
+// And the accent of the game it showed, put on at once (app.css) until the settings name the game
+// (App.svelte), so it does not ease in from Ratchet & Clank's.
+document.documentElement.dataset.starting = "";
+applyAccent(storedAccent());
 
 // A controller drives the whole launcher; B and Back return to the games from any other page.
 startPad(() => {
