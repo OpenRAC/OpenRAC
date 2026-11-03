@@ -173,6 +173,13 @@ class Program:
         if symbol in self.level_names:
             # A level's build knows this name: its pattern's address may be another game's.
             named = [self.level_names[symbol]]
+            if symbol not in self.places:
+                # A name a level's build derived for a callee (ref_L02_003CC7B0_01): the function
+                # at that level place, whichever name the catalogue gives it (a boot function's
+                # copy there), with all of that function's places.
+                at = self._any_place_owner().get(named[0])
+                if at is not None and at != symbol:
+                    return self.code_places(at)
         if named and named[0][0] < 0 and symbol in self.executable_entries:
             # Named after the address of the leftovers in front of it: entered at the catalogue's.
             named = [(-1, self.executable_entries[symbol])]
@@ -192,6 +199,17 @@ class Program:
             exe = [p for p in named if p[0] < 0 and p not in self.places[symbol]]
             return exe + self.places[symbol]
         return named
+
+    def _any_place_owner(self) -> dict:
+        """The catalogue's functions by every place they have: (overlay, address) -> name."""
+        owner = getattr(self, "_any_owner_cache", None)
+        if owner is None or len(owner) == 0 and self.places:
+            owner = {}
+            for sym, places in self.places.items():
+                for place in places:
+                    owner.setdefault(tuple(place), sym)
+            self._any_owner_cache = owner
+        return owner
 
     def _place_owner(self) -> dict:
         """The catalogue's functions by their own address: (overlay, address) of the name."""

@@ -2608,6 +2608,14 @@ class Preparation(unittest.TestCase):
         self.assertEqual(program.data_level("ref_L00_003A7AF0_00"), 0)
         self.assertIsNone(program.data_address("ref_L00_00000000_00"))
 
+    def test_a_level_build_derived_callee_is_the_function_at_that_place(self):
+        # ref_L02_003CC7B0_01, a callee a level's build derived, sits where the catalogue has
+        # another function's level copy: it is that function, with its places.
+        program = hostgen.Program()
+        program.places = {"func_00283CF0": [(2, 0x002F3158), (0, 0x002F00A0)]}
+        program.level_names = {"ref_L02_003CC7B0_01": (2, 0x002F3158)}
+        self.assertEqual(program.code_places("ref_L02_003CC7B0_01"), program.code_places("func_00283CF0"))
+
     def test_each_declarator_keeps_its_own_assembler_name(self):
         # Batalia: several names in one extern statement each reach their own symbol, not the first's.
         src = ('extern float func_A(int),func_B(float), *D_C;\n'
