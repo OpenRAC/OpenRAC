@@ -516,9 +516,16 @@ void func_00341610(gaddr list, int which) {
 #define LIST_CURSOR 0x130u
 #define SPRITE_POSITION 0u
 #define SPRITE_SCALE 4u
+#define LIST_ICON 0x17Cu
+#define LIST_ICON_SHEET 0x1C4u
+#define LIST_ICON_LEFT OPENRAC_DATA(0x001AE120u)
 #define LIST_ICON_FIRST OPENRAC_DATA(0x001AE124u)
 #define GS_SCISSOR_1 0x40ull
 #define GS_LAST_LINE 447
+/* The art's rows are a little closer than the text's: by here that is this many lines. */
+#define PANEL_LOWER_DROP 2.0f
+/* The icons keep their size in the squeezed slots: this many lines up centres them. */
+#define PANEL_ICON_RISE 1.0f
 #define LIST_ICON_HALF                                                                             \
     16.0f /* LIST_ICON_FIRST is an icon's top, and the row's middle is below it */
 
@@ -540,6 +547,98 @@ static void panel_sprite(gaddr sprite, float first_row, float below) {
     func_00336320(sprite);
     GREF(float, position + 4u) = y;
     GREF(float, scale + 4u) = height;
+}
+
+/*
+ * The Video row's icon, the port's own: a screen and a play sign in shaded quads with no texture,
+ * soft at the edges and in the colours the other icons show. False if the 2D layer is replayed.
+ */
+static const char* const VIDEO_ICON[] = {
+    "................................", "...##########################...",
+    "..############################..", ".##############################.",
+    ".###........................###.", ".###........................###.",
+    ".###.......#................###.", ".###.......###..............###.",
+    ".###.......#####............###.", ".###.......#######..........###.",
+    ".###.......#########........###.", ".###.......###########......###.",
+    ".###.......###########......###.", ".###.......#########........###.",
+    ".###.......#######..........###.", ".###.......#####............###.",
+    ".###.......###..............###.", ".###.......#................###.",
+    ".###........................###.", ".###........................###.",
+    ".##############################.", "..############################..",
+    "...##########################...", ".............######.............",
+    ".............######.............", ".............######.............",
+    ".........##############.........", "........################........",
+    "........################........", "................................",
+};
+#define VIDEO_ICON_COLOUR 0xC5C087u
+#define VIDEO_ICON_CHOSEN 0xE8E4D0u
+#define VIDEO_ICON_ROWS ((int)(sizeof(VIDEO_ICON) / sizeof(VIDEO_ICON[0])))
+#define VIDEO_ICON_COLUMNS 32
+
+int rac2_ui_soft_rect(int x, int y, int w, int h, const unsigned int corners[4]);
+
+static int video_icon_cell(int row, int column) {
+    return row >= 0 && row < VIDEO_ICON_ROWS && column >= 0 && column < VIDEO_ICON_COLUMNS
+           && VIDEO_ICON[row][column] == '#';
+}
+
+/* A grid point's share of the four cells around it, 0 to 4: as a texture of this size is filtered. */
+static int video_icon_point(int row, int column) {
+    return video_icon_cell(row - 1, column - 1) + video_icon_cell(row - 1, column)
+           + video_icon_cell(row, column - 1) + video_icon_cell(row, column);
+}
+
+static int video_icon(int x, int y, unsigned int rgb) {
+    for (int row = 0; row < VIDEO_ICON_ROWS; ++row) {
+        for (int column = 0; column < VIDEO_ICON_COLUMNS;) {
+            const int points[4] =
+                {video_icon_point(row, column),
+                 video_icon_point(row, column + 1),
+                 video_icon_point(row + 1, column),
+                 video_icon_point(row + 1, column + 1)};
+            int width = 1;
+            int full = 1;
+            int empty = 1;
+            unsigned int corners[4];
+            for (int i = 0; i < 4; ++i) {
+                full = full && points[i] == 4;
+                empty = empty && points[i] == 0;
+                corners[i] = ((unsigned int)(points[i] * 0x20) << 24) | rgb;
+            }
+            /* The inside of a run is one quad. */
+            while (full && column + width < VIDEO_ICON_COLUMNS
+                   && video_icon_point(row, column + width + 1) == 4
+                   && video_icon_point(row + 1, column + width + 1) == 4) {
+                ++width;
+            }
+            if (!empty && !rac2_ui_soft_rect(x + column, y + row, width, 1, corners)) {
+                return 0;
+            }
+            column += width;
+        }
+    }
+    return 1;
+}
+
+/* func_00341A88 for this list: its icons, a line higher, and the Video row's own. */
+static void list_icons(gaddr list) {
+    const gaddr icon = list + LIST_ICON;
+    const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
+    const int chosen = GREF(int, list + PAUSE_LIST_CURSORS + 4u * PAUSE_OPTIONS_LIST);
+    const int rows = GREF(int, list + PAUSE_LIST_COUNT);
+    const gaddr icons = GREF(gaddr, list + PAUSE_LIST_ICONS);
+    const float x = GREF(float, origin) + GREF(float, LIST_ICON_LEFT);
+    const float y = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST) - PANEL_ICON_RISE;
+    for (int i = 0; i < rows; ++i) {
+        const float row_y = y + GREF(float, LIST_ICON_STEP) * (float)i;
+        func_00335E38(icon, x, row_y, 0.0f, 0.0f);
+        func_00336920(icon, GREF(int, list + LIST_ICON_SHEET), GREF(int, icons + 4u * (gaddr)i));
+        GREF(unsigned int, func_00335E20(icon)) = i == chosen ? 0x70FFFEEDu : 0x60F0F0B0u;
+        const unsigned int colour = i == chosen ? VIDEO_ICON_CHOSEN : VIDEO_ICON_COLOUR;
+        if (i != VIDEO_ROW_AFTER + 1 || !video_icon((int)x, (int)row_y, colour)) {
+            func_00336828(icon);
+        }
+    }
 }
 
 void func_00341C20(gaddr list) {
@@ -564,7 +663,7 @@ void func_00341C20(gaddr list) {
     }
     panel_clip(split, GS_LAST_LINE);
     for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
-        panel_sprite(list + sprites[i], first_row, step);
+        panel_sprite(list + sprites[i], first_row, step + PANEL_LOWER_DROP);
     }
     panel_clip(0, GS_LAST_LINE);
 
@@ -575,7 +674,7 @@ void func_00341C20(gaddr list) {
     func_00341A48(list);
     GREF(float, cursor_scale + 4u) = cursor_height;
     func_00341A68(list);
-    func_00341A88(list);
+    list_icons(list);
 }
 
 #define CAMERA_HIDDEN_ROW 3 /* 16:9: the page's fourth row */

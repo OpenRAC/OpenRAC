@@ -275,6 +275,20 @@ static void corners_from_xyz(openrac_game_ui_rect* q, const gaddr xyz) {
     q->z = (uint32_t)(GREF(uint64_t, xyz) >> 32);
 }
 
+/* A rectangle with no texture and a colour for each corner, for what the port draws itself; false if
+ * the 2D layer is replayed. */
+int rac2_ui_soft_rect(int x, int y, int w, int h, const unsigned int corners[4]) {
+    openrac_game_ui_rect q;
+    memset(&q, 0, sizeof(q));
+    q.flags = 4u | 8u | 32u;
+    q.z = (uint32_t)HUD_DEPTH;
+    hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, 0, 0);
+    for (int i = 0; i < 4; ++i) {
+        q.corners[i] = corners[i];
+    }
+    return openrac_ui_send(&q, LIST_CURSOR);
+}
+
 /* A HUD texture as a sprite with a colour for each corner (colours: four RGBA words), shaded
  * between them: the HUD's gradient bars. Returns the display list's cursor, as the game's does. */
 int func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
@@ -296,15 +310,35 @@ int func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
 /* A quad of tex0 centred on (cx, cy), w by h, turned by angle about the pivot (pu, pv: 0 to 1 of
  * the quad), its texture's tw x th texels mirrored by flip_u, flip_v, in one colour at depth z: the
  * corners as the game works them out (centre +- the turned half edges, in its order of sums). */
-void func_0027E4A8(float cx, float cy, float w, float h, float angle, int tw, int th, long long tex0,
-                   long long z, int colour, unsigned char flip_u, unsigned char flip_v, float pu, float pv) {
+void func_0027E4A8(
+    float cx,
+    float cy,
+    float w,
+    float h,
+    float angle,
+    int tw,
+    int th,
+    long long tex0,
+    long long z,
+    int colour,
+    unsigned char flip_u,
+    unsigned char flip_v,
+    float pu,
+    float pv
+) {
     const float vx = h * func_00283198(angle), vy = h * func_00283180(angle);
     const float hx = w * func_00283180(angle), hy = -w * func_00283198(angle);
     const float iu = 1.0f - pu, iv = 1.0f - pv;
-    const float px[4] = {(cx + vx * iv) - hx * iu, (cx + vx * iv) + hx * pu, (cx - vx * pv) - hx * iu,
-                         (cx - vx * pv) + hx * pu};
-    const float py[4] = {(cy + vy * iv) - hy * iu, (cy + vy * iv) + hy * pu, (cy - vy * pv) - hy * iu,
-                         (cy - vy * pv) + hy * pu};
+    const float px[4] =
+        {(cx + vx * iv) - hx * iu,
+         (cx + vx * iv) + hx * pu,
+         (cx - vx * pv) - hx * iu,
+         (cx - vx * pv) + hx * pu};
+    const float py[4] =
+        {(cy + vy * iv) - hy * iu,
+         (cy + vy * iv) + hy * pu,
+         (cy - vy * pv) - hy * iu,
+         (cy - vy * pv) + hy * pu};
     const int left = flip_u ? tw << 4 : 0x10, right = flip_u ? 0x10 : tw << 4;
     const int top = flip_v ? th << 4 : 0x10, bottom = flip_v ? 0x10 : th << 4;
     const int us[4] = {left, right, left, right}, vs[4] = {top, top, bottom, bottom};
@@ -350,8 +384,17 @@ void func_0027E920(gaddr xyz, gaddr uv, gaddr colours, unsigned long long tex0, 
 void func_0027DE50(int top, int bottom, int left, int right, unsigned long long colour) {
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
-    openrac_ui_rect(&q, to_screen_x(left * 16), to_screen_y(top * 16), to_screen_x(right * 16),
-                    to_screen_y(bottom * 16), 0, 0, 0, 0);
+    openrac_ui_rect(
+        &q,
+        to_screen_x(left * 16),
+        to_screen_y(top * 16),
+        to_screen_x(right * 16),
+        to_screen_y(bottom * 16),
+        0,
+        0,
+        0,
+        0
+    );
     q.z = 0xFFFFF0u;
     q.rgba = (uint32_t)colour;
     q.flags = 8u;
