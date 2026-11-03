@@ -141,15 +141,14 @@ bool LevelScene::upload(
     }
 #if defined(OPENRAC_VULKAN)
     if (vkgl::gpu_materials_active()) {
+        // The batch's opaque, non-solid geometry never draws an added effect.
         const auto opaque_source = [](std::string source) {
-            source.insert(source.find('\n') + 1, "#define OPENRAC_OPAQUE_COLOUR 1\n");
             const auto effect = source.find("uniform int probe_effect;");
             if (effect != std::string::npos) {
                 source.replace(
                     effect, std::strlen("uniform int probe_effect;"), "const int probe_effect = 0;"
                 );
             }
-            source.insert(source.find("void main() {"), "uniform int opaque_solid;\n");
             return source;
         };
         if (!m_colour_opaque
@@ -1338,6 +1337,11 @@ void LevelScene::draw_layer(
                    && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {
             // Opaque variants specialise alpha handling for each geometry kind.
             selected = &specialised[variant];
+        } else if (batch_shader && solid) {
+            // The reference batch draws solid static geometry with the solid shader, which has no
+            // discard. A shader that can discard is depth tested after it runs, and on MoltenVK
+            // its solid draws over the reused EQUAL depth came out unlike the solid shader's.
+            selected = early ? &m_early_solid : &m_solid;
         } else if (batch_shader) {
             // The reference batch keeps dynamic alpha handling.
             selected = early ? &m_early_colour_opaque : &m_colour_opaque;
@@ -1377,7 +1381,6 @@ void LevelScene::draw_layer(
         }
         int cutout = program->uniform("cutout");
         int colour = program->uniform("material_colour");
-        glUniform1i(program->uniform("opaque_solid"), solid ? 1 : 0);
         // The cutout materials' opaque texels (static layers).
         const bool cutouts = !mobys && pass == 1;
         // The blended mobys' pass: their whole models, all texels, at their alpha (blend 1, and 3

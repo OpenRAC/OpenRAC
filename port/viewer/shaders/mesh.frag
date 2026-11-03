@@ -379,14 +379,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 
 void main() {
     v_fog = v_fog_w.x / v_fog_w.y;
-#ifdef OPENRAC_OPAQUE_COLOUR
-    if (opaque_solid != 0) {
-#endif
-#if defined(OPENRAC_SOLID) || defined(OPENRAC_OPAQUE_COLOUR)
-    // The static solid variant contains no discard. The Vulkan colour-batch
-    // variant selects this original solid path or the original general path
-    // per draw, preserving their texture/derivative and alpha-test ordering.
-    // It only runs with reused EQUAL depth and depth writes disabled.
+#ifdef OPENRAC_SOLID
+    // The static solid variant contains no discard. The Vulkan colour batch draws its solid
+    // geometry with it too, with reused EQUAL depth and depth writes disabled.
     vec4 texel = sample_upscaled_texture_colours(v_uv);
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
     vec4 c = texel * v_colour * material_colour;
@@ -405,10 +400,6 @@ void main() {
         rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }
     out_colour = vec4(rgb, 1.0);
-#ifdef OPENRAC_OPAQUE_COLOUR
-    return;
-    }
-#endif
 #endif
 #ifndef OPENRAC_SOLID
 #ifndef OPENRAC_COLOUR_SPECIALISED

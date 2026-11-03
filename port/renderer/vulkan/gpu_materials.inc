@@ -92,8 +92,6 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
          {"emission_mask", "int(O_MATERIAL.flags.y)", 36},
          {"emission_vertex_colour", "int(O_MATERIAL.flags.z)", 40},
          {"probe_effect", "int(O_MATERIAL.flags.w)", 44},
-         // Opaque-only programs fix probe_effect to zero and reuse its word.
-         {"opaque_solid", "int(O_MATERIAL.flags.w)", 44},
          {"hero_shadow_receiver", "int(O_MATERIAL.resources.z)", 56},
          // Depth programs use the spare resource word for their atlas view;
          // colour programs use it for terrain albedo. They never coexist.
