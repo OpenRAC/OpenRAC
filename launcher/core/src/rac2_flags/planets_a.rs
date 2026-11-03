@@ -14,6 +14,18 @@ const fn story(offset: usize, on: u8) -> Place {
     Place::Byte { chunk: 5, level: None, offset, on }
 }
 
+/// One of Maktar's arena challenges: the byte counts the wins (`func_L02_003F9B70` gives the byte).
+const fn arena(id: &'static str, name: &'static str, offset: usize) -> Flag {
+    Flag {
+        id,
+        level: Some(2),
+        name,
+        description: "Won at least once: the arena's menu marks it done and later wins pay the repeat prize.",
+        place: story(offset, 1),
+        confidence: Confidence::FromCode,
+    }
+}
+
 pub const FLAGS: &[Flag] = &[
     // Maktar Nebula (level 2).
     Flag {
@@ -35,12 +47,25 @@ pub const FLAGS: &[Flag] = &[
     Flag {
         id: "maktar-arena-first-challenge-won",
         level: Some(2),
-        name: "Arena: first challenge won",
+        name: "Arena: Battle for the Electrolyzer",
         description: "The fight that wins the Electrolyzer. On, the arena counts it as won; it does \
                       not give the Electrolyzer.",
         place: story(0x31, 1),
         confidence: Confidence::Proven,
     },
+    arena("maktar-arena-2", "Arena: Hazard Challenge: Watch Your Step!", 0x34),
+    arena("maktar-arena-3", "Arena: Chainblade Challenge", 0x32),
+    arena("maktar-arena-4", "Arena: Time Challenge: Kill 30 Enemies in 30 Seconds", 0x33),
+    arena("maktar-arena-5", "Arena: Battle the B2 Brawler", 0x35),
+    arena("maktar-arena-6", "Arena: Time Challenge: Kill 60 Enemies in 60 Seconds", 0x36),
+    arena("maktar-arena-7", "Arena: Mega Challenge!", 0x37),
+    arena("maktar-arena-8", "Arena: Limited Weapon: Use Only 300 Heavy Lancer Shots", 0x38),
+    arena("maktar-arena-9", "Arena: Limited Weapon: Kill All Enemies with 8 Mini-Nuke Shots", 0x91),
+    arena("maktar-arena-10", "Arena: Tag Team Battle: Chainblade and B2 Brawler", 0x39),
+    arena("maktar-arena-11", "Arena: Endurance Challenge!", 0x3A),
+    arena("maktar-arena-12", "Arena: Ultimate Challenge!", 0x3B),
+    arena("maktar-arena-13", "Arena: Timed Avoidance: Dodge Chainblade for 2 Minutes", 0x92),
+    arena("maktar-arena-14", "Arena: Wrench Expert: Wrench Only and Don't Take a Hit", 0x93),
     // Endako (level 3).
     Flag {
         id: "endako-swingshot-start-passed",

@@ -211,9 +211,7 @@ These three are `Proven`; Barlow and Feltzin missions 2 to 4 follow the same cod
 
 **Left out.** Oozla, Maktar, Endako, Barlow and Tabora's other constant bytes (0x75, 0x7B, 0x9B,
 0x8F, 0x04, 0x09, 0x78, 0xA2, 0x74, 0x75, 0xA4, 0x19, 0x1B, 0x1C) are help-voice and hint
-"already said" marks or have no effect a player would name. Maktar's arena challenges other than
-the first are counted at the bytes above, but the challenge each index is was not read from the
-game's text. Notak's 0x13/0x14 (set together when a probe accepts the hero) and the tutorial's
+"already said" marks or have no effect a player would name. Notak's 0x13/0x14 (set together when a probe accepts the hero) and the tutorial's
 byte 0 have no clear meaning. Chunk 3004's group states (bit 0x80 of `0x19B2E8[group + level *
 16]`, set through `func_002A0430(group)` when a level's object group is done) depend on each
 level's object data and are not named. Siberius has no constant use of chunk 5 in its own code.
@@ -245,8 +243,10 @@ class +0xAA).
 | Gorn         | Ship challenge 1 to 4 won        | chunk 5 0x6B..0x6E    | as Hrugis: `func_L15_0042DCE0` copies them to 0x1B1520..0x1B152C, `func_L15_00432008` back                                                                                                                       | 0x6B, 0x6C = 1: the counters load as 1 1 0 0 (0 0 0 0 without); 3 and 4 from the code                                                                                                               |
 | Snivelak     | Boss beaten                      | chunk 5 byte 0x83 = 2 | 0 not met, 1 fight under way (`func_L16_00403900`), 2 beaten (`func_L16_00412E70`, which also puts Smolg on the map); at 2 the boss (`func_L16_0040ECC0` through `func_L16_00410618`, class 3961) removes itself | state 253 (removed) with it, 1 without                                                                                                                                                              |
 
-Joba's challenge names are in the game's text, not read; they are numbered in the menu's order
-of ids.
+Joba's and Maktar's challenge names come from the game's text. `func_L11_00443CE0` and
+`func_L02_003FE1B0` turn the menu's selection into a text id, the same index the win code passes
+to `func_L11_0043E108` and `func_L02_003F9B70`. Index 0 and 1 of Joba win the Gravity Boots
+(item 0x13) and the Infiltrator (item 0x33), as their names say.
 
 **Skipped** (place known, meaning or effect not): Dobbo 0x1E, 0x1F, 0x20, 0x2D (written by the
 level's controller and the Hrugis seller, read only in passing), 0x79/0x7A/0x7D (hint counters:
