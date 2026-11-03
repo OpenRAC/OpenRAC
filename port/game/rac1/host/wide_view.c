@@ -20,7 +20,7 @@
  *   the overlay layers and other callbacks test with it.
  *
  * The port's picture shows the game's 4:3 view in its middle and opens the horizontal tangent by
- * as much as the picture is wider (frontend.cpp, openrac_game_picture_wider), so what these tests
+ * as much as the picture is wider (program/game_host.cpp, openrac_game_picture_wider), so what these tests
  * cull at the 4:3 sides is in the picture: tiles near its sides were missing. Here the tests run
  * against values opened by the same amount: the matrix's x terms divided by it, the tangent
  * multiplied by it and the secants made the new tangent's. They are opened for each list's run

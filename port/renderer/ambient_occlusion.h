@@ -8,7 +8,7 @@
 // implements it, and whoever makes a Renderer registers one (Renderer::set_ambient_occlusion), so
 // the renderer never includes enhanced/ (CODING_CONVENTIONS.md, section 18).
 //
-// It has one implementation. The scene's lighting and shadow hooks (restructure package P2-39) are
+// It has one implementation. The scene's lighting and shadow hooks (scene/level_lighting.h) are
 // passes of the level renderer rather than of the frame, so they do not take this shape.
 
 #pragma once

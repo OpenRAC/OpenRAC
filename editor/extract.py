@@ -208,7 +208,7 @@ def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, expo
         return f"Godot project{'s, one per level' if split else ''}: {dest}"
     report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source, carry, again)
     for done in report["carried"]:
-        # One line per level for the launcher (launcher/src/lib/editorFlow.ts, CARRY_LINE).
+        # One line per level for the launcher (the launcher hides these lines: launcher/src/lib/toolErrors.ts, MARKERS).
         print(f"openrac-carry: {json.dumps(done, separators=(',', ':'))}", flush=True)
     said = [f"Godot project{'s' if split else ''} in {dest}:"]
     if report["kept"]:

@@ -2,8 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The enhanced lighting of a level, scene_lighting.h: each call of the scene's hook made on the
-// probe lighting or the early lighting as the level renderer made it itself before restructure
-// package P2-39b.
+// probe lighting or the early lighting.
 
 #include "enhanced/viewer/scene_lighting.h"
 

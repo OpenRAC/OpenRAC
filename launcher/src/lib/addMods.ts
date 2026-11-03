@@ -1,5 +1,5 @@
 // Adding what the player chose or dropped on the Mods tab: a native mod goes to the game's mods
-// (core/src/plugins.rs, plugins_install), a data pack to its overrides packs (editor/overrides.py,
+// (src-tauri/src/lib.rs, plugins_install), a data pack to its overrides packs (editor/overrides.py,
 // the version's overrides-add action). The player never has to know which is which.
 import { api, type VersionView } from "./api";
 import { jobs, runChain } from "./app.svelte";
