@@ -64,4 +64,4 @@ water numerics and overwrite rejection.
 
 ## Further reading
 
-[Probe pipeline](../probes/README.md) and [Tracy profiling](../../../../docs/port/PROFILING.md).
+[Probe baker](../baker/README.md) and [Tracy profiling](../../../../docs/port/PROFILING.md).

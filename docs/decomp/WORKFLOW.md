@@ -331,8 +331,7 @@ near misses and on functions over 1 KB
 ([LONG_FUNCTIONS.md](../../games/rac1/docs/LONG_FUNCTIONS.md)), each tier
 starting from the notes and best candidate of the one below. Sonnet is used
 only for library code with an answer key. Queue workers follow
-[QUEUE.md](../../games/rac1/docs/QUEUE.md); the subagent type is
-[.claude/agents/match-worker.md](../../games/rac1/.claude/agents/match-worker.md).
+[QUEUE.md](../../games/rac1/docs/QUEUE.md).
 
 ```
 python3 tools/wave.py plan q6 --queue --overlay --family --count 64 --min-size 32 --max-size 600 --budget 6
@@ -442,9 +441,9 @@ best starting point for the other.
 rac2 reuses a RAC1 body only when its bytes are identical in RAC2. It locates
 the body by exact byte search and re-verifies it with RAC2's own tools; no
 RAC1 name, address or compiler profile is carried over by analogy
-([SECOND-C-LOT.md](../../games/rac2/ntsc/docs/SECOND-C-LOT.md)). Each lot
+(`SECOND-C-LOT.md`). Each lot
 gives every function's RAC1 origin, symbol and file, in a table
-([THIRD-C-LOT.md](../../games/rac2/ntsc/docs/THIRD-C-LOT.md)). Material that
+(`THIRD-C-LOT.md`). Material that
 is not a byte proof goes in
 [COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/ntsc/docs/COMMUNITY-ENGINE-REFERENCE.md),
 marked as reference, never evidence.

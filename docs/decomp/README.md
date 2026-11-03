@@ -67,14 +67,12 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 |---|---|
 | [README.md](../../games/rac2/ntsc/README.md), [docs/BUILDING.md](../../games/rac2/ntsc/docs/BUILDING.md), [CONTRIBUTING.md](../../games/rac2/ntsc/CONTRIBUTING.md), [AGENTS.md](../../games/rac2/ntsc/AGENTS.md) | The project, first steps, contribution rules, agent rules |
 | [docs/BUILDING.md](../../games/rac2/ntsc/docs/BUILDING.md), [docs/LEVELS.md](../../games/rac2/ntsc/docs/LEVELS.md), [docs/COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md) | Building (Docker on any host), the level programs and the catalogue, the compiler |
-| [toolchain/README.md](../../games/rac2/ntsc/toolchain/README.md), [tools/compiler/README.md](../../games/rac2/ntsc/tools/compiler/README.md) | The tools to supply; the compilers rebuilt from source |
+| [tools/compiler/README.md](../../games/rac2/ntsc/tools/compiler/README.md) | The compilers rebuilt from source |
 | [docs/COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md) | The C compiler profile and its patches |
-| [docs/LEVEL-ARCHIVE-FORMAT.md](../../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md), [docs/MOBY-DISPATCH-TABLES.md](../../games/rac2/ntsc/docs/MOBY-DISPATCH-TABLES.md), [docs/VU-MICROPROGRAMS.md](../../games/rac2/ntsc/docs/VU-MICROPROGRAMS.md) | Level archives, class dispatch tables, VU microprograms |
+| [docs/MOBY-DISPATCH-TABLES.md](../../games/rac2/ntsc/docs/MOBY-DISPATCH-TABLES.md), [docs/VU-MICROPROGRAMS.md](../../games/rac2/ntsc/docs/VU-MICROPROGRAMS.md) | Class dispatch tables, VU microprograms |
 | [docs/COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/ntsc/docs/COMMUNITY-ENGINE-REFERENCE.md) | A reverse-engineering reference ("reference, never evidence") |
-| [docs/RAC1-TO-RAC2.md](../../games/rac2/ntsc/docs/RAC1-TO-RAC2.md), [docs/SECOND-C-LOT.md](../../games/rac2/ntsc/docs/SECOND-C-LOT.md) | What carries over from RAC1, and the bodies reused from it |
-| [docs/LEVEL-NATIVE-C.md](../../games/rac2/ntsc/docs/LEVEL-NATIVE-C.md), [docs/LEVEL-INTEGRATION-PLAN.md](../../games/rac2/ntsc/docs/LEVEL-INTEGRATION-PLAN.md), [docs/C-NATIVE-EXPERIMENT-REGISTER.md](../../games/rac2/ntsc/docs/C-NATIVE-EXPERIMENT-REGISTER.md) | C in the level overlays, the plan, the register of trials |
+| [docs/RAC1-TO-RAC2.md](../../games/rac2/ntsc/docs/RAC1-TO-RAC2.md) | What carries over from RAC1 |
 | [docs/PROTOTYPE-BUILDS.md](../../games/rac2/ntsc/docs/PROTOTYPE-BUILDS.md), [docs/AUG6-RETAIL-ANCHORS.md](../../games/rac2/ntsc/docs/AUG6-RETAIL-ANCHORS.md), [docs/ENGINE-SYMBOL-NAMES.md](../../games/rac2/ntsc/docs/ENGINE-SYMBOL-NAMES.md), [docs/ASSERT-MESSAGE-NAMES.md](../../games/rac2/ntsc/docs/ASSERT-MESSAGE-NAMES.md) | Prerelease builds and the names drawn from them; names from retail assert messages |
-| `docs/*-C-LOT.md`, `docs/*-NATIVE-LOT.md`, [docs/INTEGRATION-FIRST-LOT.md](../../games/rac2/ntsc/docs/INTEGRATION-FIRST-LOT.md) | The matching log, one file per lot (28 files) |
 
 ### Ratchet & Clank: Up Your Arsenal ([games/rac3/ntsc](../../games/rac3/ntsc))
 

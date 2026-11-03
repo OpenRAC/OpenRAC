@@ -255,7 +255,7 @@ originals.
 The files mirror the extracted levels (`editor/extract.py port`): the port
 reads each level's files from the stacked mods folder (`--mods`,
 `<mods>/level_NN/`) where they are there and from the levels otherwise
-([port/viewer/level.cpp](../port/viewer/level.cpp)), and the disc sectors
+([port/scene/level.cpp](../port/scene/level.cpp)), and the disc sectors
 `patches.tsv` lists from the files beside it. A model GLB names textures
 as `../textures/<name>.png` (the terrain as `textures/<name>.png`): the
 pack's own where it carries them, the level's otherwise. Joints are

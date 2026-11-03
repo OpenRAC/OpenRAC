@@ -9,8 +9,7 @@ directory lists its own in its `THIRD_PARTY_NOTICES.md` and source comments:
   libgcc and soft-float, newlib, David Gay's dtoa, code ported from rac1-decomp,
   the patched EE-GCC.
 - rac2 and rac3 credit their sources in their docs
-  ([games/rac2/ntsc/docs/SECOND-C-LOT.md](games/rac2/ntsc/docs/SECOND-C-LOT.md),
-  [games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
+  ([games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
   [games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md)).
 
 `port/audio/sound_player.h` follows the behaviour of OpenGOAL's 989snd
