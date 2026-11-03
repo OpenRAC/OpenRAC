@@ -667,7 +667,12 @@ void func_00341C20(gaddr list) {
     }
     panel_clip(0, GS_LAST_LINE);
 
+    /* The bar around the page's name is in the art: the name goes with it. */
+    const gaddr title = GREF(gaddr, list + LIST_TITLE_TEXT + SPRITE_POSITION);
+    const float title_y = GREF(float, title + 4u);
+    GREF(float, title + 4u) = title_y + (1.0f - list_tighter) * (first_row - title_y);
     func_00336A78(list + LIST_TITLE_TEXT);
+    GREF(float, title + 4u) = title_y;
     const gaddr cursor_scale = GREF(gaddr, list + LIST_CURSOR + SPRITE_SCALE);
     const float cursor_height = GREF(float, cursor_scale + 4u);
     GREF(float, cursor_scale + 4u) = cursor_height * list_tighter;

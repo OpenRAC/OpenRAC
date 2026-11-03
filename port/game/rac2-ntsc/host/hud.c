@@ -79,3 +79,6 @@ void func_0034AD10(gaddr panel) {
 SHIP_HUD(func_L05_0041DF58)
 SHIP_HUD(func_L10_00421790)
 SHIP_HUD(func_L15_0042E1B0)
+/* Giant Clank's fights draw theirs the same way: his panel and the enemy's go to the sides. */
+SHIP_HUD(func_L22_003A5018)
+SHIP_HUD(func_L23_0041DA48)

@@ -213,6 +213,8 @@ func_0034AD10	hud	DrawHudPanel	wrap	the top middle panel: with "HUD: Edges" it s
 func_L05_0041DF58	hud	ShipHud5	wrap	the ship level's own HUD, a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
 func_L10_00421790	hud	ShipHud10	wrap	the ship level's own HUD, a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
 func_L15_0042E1B0	hud	ShipHud15	wrap	the ship level's own HUD, a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
+func_L22_003A5018	hud	ClankHud22	wrap	Giant Clank's fight HUD, a callback of func_0029B758: with "HUD: Edges" its panels go to the sides (host/hud.c)
+func_L23_0041DA48	hud	ClankHud23	wrap	Giant Clank's fight HUD, a callback of func_0029B758: with "HUD: Edges" its panels go to the sides (host/hud.c)
 func_0028E458	hud	UpdateHud	wrap	the level HUD's slots: with the player's "HUD: Edges" the elements anchored left or right are drawn out at the sides of a picture wider than the game's (host/hud.c)
 func_0028E868	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host/ui2d.c)
 func_0028ECD8	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
