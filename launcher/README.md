@@ -95,6 +95,13 @@ the game you used last.
   **Import saves from PCSX2**, in the game's menu, copies the game's saves
   from a PCSX2 memory card (a `.ps2` file, or a folder card's
   `_pcsx2_superblock`) onto the card, after a backup of what was there.
+  **Export** and **Import**, on the Saves panel, carry saves to another
+  computer or phone: Export puts all saves, or one slot, in one `.zip` where
+  you choose; Import on the other device shows the file's slots, planets and
+  bolts first, then brings in the slots you tick (the others stay) or
+  replaces every save on the card, after a backup. A file from another game
+  or disc (PAL and NTSC are different discs) is refused, and so is a damaged
+  one ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#saves-between-devices)).
 - **Crashes**: the game page says when the game stopped unexpectedly. Your
   saves are kept. **Copy report** gives text for a
   [GitHub issue](https://github.com/OpenRAC/OpenRAC/issues) or Discord.

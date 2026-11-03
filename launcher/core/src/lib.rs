@@ -73,6 +73,7 @@ pub mod reports;
 pub mod reset;
 pub mod resolver;
 pub mod save_edit;
+pub mod save_transfer;
 pub mod saves;
 pub mod status;
 pub mod steam;

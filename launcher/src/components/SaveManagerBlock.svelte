@@ -4,7 +4,7 @@
   // note. File names, sizes and the card's folder name are a contributor's details: a chip and
   // tooltips with developer tools on.
   import Icon from "$components/Icon.svelte";
-  import { api, ask, type GameSaveStatus, type SaveBackupInfo, type VersionView } from "$lib/api";
+  import { api, ask, pickSavesFile, type GameSaveStatus, type SaveBackupInfo, type VersionView } from "$lib/api";
   import { app, toast } from "$lib/app.svelte";
   import { grouped, size } from "$lib/format";
   import { when } from "$lib/reports";
@@ -31,6 +31,8 @@
   /** "Back up now" asks for an optional name first, in the backups' own space. */
   let naming = $state(false);
   let noteInput = $state<HTMLInputElement | null>(null);
+  /** Export or Import (SaveTransfer.svelte), while its dialog is open. */
+  let transfer = $state<{ mode: "export" | "import"; source: string | null } | null>(null);
 
   const used = $derived(status?.slots.filter((s) => !s.isEmpty) ?? []);
   const empty = $derived(emptySlots(status?.slots.filter((s) => s.isEmpty).map((s) => s.slotIndex + 1) ?? []));
@@ -97,6 +99,15 @@
     }
   }
 
+  /** Import: the file first, then the dialog reads it and shows what is in it. */
+  async function startImport() {
+    const source = await pickSavesFile("Choose an OpenRAC saves file").catch((e: unknown) => {
+      toast(`Could not open the file: ${String(e)}`, "error");
+      return null;
+    });
+    if (source) transfer = { mode: "import", source };
+  }
+
   async function openFolder() {
     try {
       await api.openSavesFolder(version.serial);
@@ -126,6 +137,21 @@
   {/await}
 {/if}
 
+{#if transfer}
+  {#await import("$components/SaveTransfer.svelte") then { default: SaveTransfer }}
+    <SaveTransfer
+      serial={version.serial}
+      mode={transfer.mode}
+      source={transfer.source}
+      {used}
+      onclose={(changedCard) => {
+        transfer = null;
+        if (changedCard) void loadStatus();
+      }}
+    />
+  {/await}
+{/if}
+
 <section class="panel saves" aria-label="Saves">
   <div class="row top">
     <h2 class="grow">Saves</h2>
@@ -135,6 +161,12 @@
         {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}Refresh
       </button>
     {/if}
+    {#if used.length}
+      <button class="ghost small" onclick={() => (transfer = { mode: "export", source: null })}
+        ><Icon name="upload" size={14} />Export</button
+      >
+    {/if}
+    <button class="ghost small" onclick={() => void startImport()}><Icon name="download" size={14} />Import</button>
     <button class="ghost small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
   </div>
 

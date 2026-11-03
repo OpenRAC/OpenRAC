@@ -1022,6 +1022,94 @@ async fn import_pcsx2_saves(
     .map_err(|e| e.to_string())?
 }
 
+/// Exports the game's saves (all, or the slot `slot`) to an OpenRAC saves file
+/// (core/src/save_transfer.rs) where the player chooses: the system's save dialog, opening in
+/// Downloads, or on Android its "save as" screen. `saved` is empty when they backed out.
+#[tauri::command]
+async fn export_saves(
+    app: AppHandle,
+    serial: String,
+    slot: Option<usize>,
+) -> Result<openrac_launcher_core::save_transfer::ExportedSaves, String> {
+    use openrac_launcher_core::save_transfer::{self, ExportedSaves};
+    let version = app.package_info().version.to_string();
+    let name = save_transfer::export_name(&serial, slot);
+    let backed_out = || ExportedSaves { saved: String::new(), slots: Vec::new() };
+    // Android: made in the launcher's cache, then saved where the player chooses.
+    #[cfg(target_os = "android")]
+    let dest = {
+        let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("save-exports");
+        std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+        cache.join(&name)
+    };
+    #[cfg(not(target_os = "android"))]
+    let dest = {
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog =
+            app.dialog().file().set_title("Export saves").set_file_name(&name).add_filter("OpenRAC saves", &["zip"]);
+        if let Some(dir) = reports::save_folder() {
+            dialog = dialog.set_directory(dir);
+        }
+        let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+            .await
+            .map_err(|e| e.to_string())?;
+        let Some(picked) = picked else { return Ok(backed_out()) };
+        picked.into_path().map_err(|e| e.to_string())?
+    };
+    let out = dest.clone();
+    let manifest =
+        tauri::async_runtime::spawn_blocking(move || save_transfer::export_saves(&serial, slot, &version, &out))
+            .await
+            .map_err(|e| e.to_string())??;
+    let slots = manifest.slots.into_iter().filter(|s| !s.empty).collect();
+    if cfg!(target_os = "android") {
+        let saved = android::save_as(&app, &dest, &name).await;
+        let _ = std::fs::remove_file(&dest);
+        let Some(saved) = saved? else { return Ok(backed_out()) };
+        launcher_log::line(&format!("exported saves: {saved}"));
+        return Ok(ExportedSaves { saved, slots });
+    }
+    launcher_log::line(&format!("exported saves: {}", dest.display()));
+    Ok(ExportedSaves { saved: reports::tidy(&dest.to_string_lossy(), reports::home().as_deref()), slots })
+}
+
+/// What an OpenRAC saves file holds, before importing it: refused for another game's file or a
+/// damaged one.
+#[tauri::command]
+async fn preview_save_import(
+    serial: String,
+    source: String,
+) -> Result<openrac_launcher_core::save_transfer::SaveImportPreview, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::save_transfer::preview_import(&serial, Path::new(&source))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Imports an OpenRAC saves file onto the game's card, after a backup: every save folder replaced,
+/// or the chosen slots merged. Refused while the game runs with the card, as a restore is.
+#[tauri::command]
+async fn import_saves(
+    app: AppHandle,
+    serial: String,
+    source: String,
+    choice: openrac_launcher_core::save_transfer::SaveImportChoice,
+) -> Result<openrac_launcher_core::pcsx2_card::ImportedSaves, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        if let Some(game) = in_use(&card, &serial)? {
+            return Err(format!("{game} is running with this memory card: close it first"));
+        }
+        let done = openrac_launcher_core::save_transfer::import_saves(&serial, Path::new(&source), &choice)?;
+        launcher_log::line(&format!("imported saves into {serial}: {} files", done.files));
+        Ok(done)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Where PCSX2 keeps its memory cards, for the file picker to open there; None when not found.
 #[tauri::command]
 fn pcsx2_memcards_dir() -> Option<String> {
@@ -2124,6 +2212,9 @@ pub fn run() {
             restore_backup,
             import_pcsx2_saves,
             pcsx2_memcards_dir,
+            export_saves,
+            preview_save_import,
+            import_saves,
             open_saves_folder,
             read_save,
             write_save,

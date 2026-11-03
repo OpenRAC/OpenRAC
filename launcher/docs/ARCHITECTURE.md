@@ -156,6 +156,8 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `open_game_folder`                                                                                 | `{game, path}`                                                                     | opens a folder inside the game's set-up folder (an export); refuses anything else                                                                                           |
 | `inspect_saves` / `backup_saves` / `restore_backup`                                                | `{serial}` / `{serial, note}` / `{serial, backupName}`                             | the card's slots and backups; a backup; a restore (refused while the game uses the card)                                                                                    |
 | `open_saves_folder`                                                                                | `{serial}`                                                                         | opens the game's memory card folder, made if it is not there                                                                                                                |
+| `export_saves`                                                                                     | `{serial, slot}` (null: all)                                                       | an OpenRAC saves file (`core/src/save_transfer.rs`) where the player chooses; `{saved, slots}`                                                                              |
+| `preview_save_import` / `import_saves`                                                             | `{serial, source}` / `{serial, source, choice}`                                    | what a saves file holds (`SaveImportPreview`); imports it after a backup, replacing or merging slots                                                                        |
 | `read_save`                                                                                        | `{serial, slot}`                                                                   | one slot for the save editor (`core/src/save_edit.rs`, `SaveView`)                                                                                                          |
 | `write_save`                                                                                       | `{serial, slot, fingerprint, change}`                                              | writes the editor's fields or raw chunks, safely (below); the backup and the slot as it now is                                                                              |
 | `reports_list`                                                                                     | `{game}`                                                                           | the game's session logs and crash reports, newest first (`core/src/reports.rs`)                                                                                             |
@@ -417,6 +419,47 @@ a save moved to Kerwan or Rilgar, never visited, lands there and leaves
 Ratchet at the start
 ([docs/port/RAC1_PAL_TESTING.md](../../docs/port/RAC1_PAL_TESTING.md) for
 scripted presses and pictures). Never point a test at the player's own card.
+
+## Saves between devices
+
+**Export** and **Import** on the Saves panel (`components/SaveTransfer.svelte`,
+words in `lib/saveTransfer.ts`) carry one game's saves to another computer or
+phone in one file, `core/src/save_transfer.rs`. The file is a `.zip`, so any
+system opens it:
+
+```text
+openrac-saves.json              the manifest
+BESCES-50916RATCHET/icon.sys    the card's save folders, as they sit on the card
+BESCES-50916RATCHET/save1.bin
+BESCES-50916RATCHET/save1.bin.mods
+```
+
+The manifest (`SaveArchiveManifest`): `format` (`openrac-saves`),
+`formatVersion` (1), the disc's `serial`, the game's `title` from `icon.sys`,
+`launcherVersion`, `created` (UTC), the `slots` with their folder, number,
+planet, bolts, save time and mods, and every file's `path`, `size` and
+`sha256`. Entry names use `/` and keep their case, whatever the system.
+Export takes every save folder on the card, or one slot with its folder's
+other files (icon, settings), so a single slot imports onto an empty card too;
+hidden files (`.DS_Store`) and the backups stay behind. The desktop asks where
+with the system's save dialog, from the Rust side (no dialog permission for
+the page); Android makes the file in the launcher's cache and saves it through
+its "save as" screen (`android::save_as`), and picks a file to import with
+`pick_zip`, which copies it into the cache as for a mod.
+
+An import reads the whole file first and writes nothing when: its serial is
+not the game's (PAL's file on NTSC's card is another disc), its manifest is
+missing or from a newer launcher, a file is not the size or SHA-256 the
+manifest gives, or a path is not `folder/file` with plain names (no `..`,
+separator, drive, or a name Windows refuses). It is refused while the game
+runs with the card, as a restore is. Then it backs the card up
+(`.backup_<time>_before_import`), and either **replaces** (each of the file's
+save folders becomes the file's) or **merges**: only the ticked slots are
+written, with their `.mods` mark (a slot without one loses the card's old
+mark), and the folder's other files only where the card has none. A folder on
+the card in another case takes the file's name. Each file is written beside
+its place and renamed into it. The dialog ticks at first only the slots that
+land in an empty one, and says what each ticked slot replaces.
 
 ## Security
 
