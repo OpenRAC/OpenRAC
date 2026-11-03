@@ -224,6 +224,9 @@ public:
 
     bool has_levels() const override { return true; }
 
+    // Only quads with an id move (rac1_effect_quad_id: the ship's glass).
+    bool interpolates_effect_quads() const override { return true; }
+
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
     // Level mode 2 is a real-time cutscene (rac1/host/front_end.c).

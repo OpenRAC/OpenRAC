@@ -2454,7 +2454,7 @@ int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
 }
 
 /* The vertical capsule query (radius, height, base, flags, ignore): the hero's body. */
-int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, int a4) {
+int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, RAC1_COLL_CAPSULE_IGNORE a4) {
     const RacCollArgs a = {{a0, a1}, {a2, (uint32_t)a3, (uint32_t)a4, 0, 0}};
     return coll_run(RAC_COLL_CAPSULE, &a);
 }

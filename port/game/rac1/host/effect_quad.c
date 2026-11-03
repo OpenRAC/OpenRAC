@@ -6,6 +6,10 @@
 #include "rac1_version.h"
 #include <string.h>
 
+/* The id of the next quad, counting up, for a draw whose quads must follow their moby between
+ * ticks (openrac_game_quad::id); 0 for none. */
+uint32_t rac1_effect_quad_id;
+
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
     return openrac_effect_texture(
         tex0,
@@ -47,7 +51,7 @@ void func_001F7EF8(gaddr a0, int a1, int a2) {
     memcpy(&q.alpha, r + 0x88, 8);
     q.pixels = 0;
     q.clut = 0;
-    q.id = 0;
+    q.id = rac1_effect_quad_id != 0 ? rac1_effect_quad_id++ : 0;
     q.parent = 0;
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
     openrac_game_effect_quad(&q);

@@ -1,4 +1,4 @@
-# Where the C of each src/game/movie/ function came from (docs/MOVIE.md).
+# Where the C of each src/game/movie/ function came from (docs/reference/MOVIE.md).
 # Columns: function, source, date, note. tools/apply_candidate.py refuses to land a movie
 # function without a row. "asm only" = written from the retail assembly alone.
 #

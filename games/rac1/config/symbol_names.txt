@@ -1,6 +1,6 @@
 # Real function names for this PAL build, from the NTSC decomp
 # (config/symbols.txt), mapped to PAL addresses.
-# Only confident mappings are listed; see docs/DECOMP_PROGRESS.md.
+# Only confident mappings are listed; see docs/reference/DECOMP_PROGRESS.md.
 #
 # The build and tools keep using func_<ADDR> (the address IS the name there);
 # these names are annotated in src/ as comments.

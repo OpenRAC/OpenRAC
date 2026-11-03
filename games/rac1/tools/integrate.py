@@ -23,7 +23,7 @@ import sys
 import claims
 import provenance
 
-# Upstream bans these (docs/LLM_DECOMP_INSTRUCTIONS.md): only file-scope
+# Upstream bans these (docs/agents/LLM_DECOMP_INSTRUCTIONS.md): only file-scope
 # aliases and padding directives may use __asm__. Retail's vector copy is
 # qcopy() in include/common.h; a candidate calls it and writes no asm.
 BANNED = [(re.compile(r"\bregister\b[^;{]*__asm__\s*\("), "register pin"),
@@ -31,7 +31,7 @@ BANNED = [(re.compile(r"\bregister\b[^;{]*__asm__\s*\("), "register pin"),
           (re.compile(r'__asm__\s*(?:volatile\s*|__volatile__\s*)?\(\s*"[^".][^"]*[\s$:][^"]*"'), "inline asm"),
           (re.compile(r"\bwhile\s*\(\s*0\s*\)"), "do/while (0) barrier"),
           # An alias names one symbol; "D_x+0x34D" makes the assembler do
-          # address arithmetic the C should do (docs/QUEUE.md, Rules).
+          # address arithmetic the C should do (docs/agents/QUEUE.md, Rules).
           (re.compile(r'__asm__\s*\(\s*"[A-Za-z_][A-Za-z0-9_]*[^A-Za-z0-9_"][^"]*"\s*\)'), "expression alias"),
           # A candidate's #define lands in the whole file: one renamed a
           # declaration a neighbour links against. Such a candidate (newlib's
@@ -45,7 +45,7 @@ def banned(path: str) -> str:
     reasons = [reason for pattern, reason in BANNED if pattern.search(text)]
     sample = provenance.sony_sample(raw)   # comments count: the sample's names must not appear at all
     if sample:
-        reasons.append(f"Sony sample name '{sample}' (docs/MOVIE.md)")
+        reasons.append(f"Sony sample name '{sample}' (docs/reference/MOVIE.md)")
     return ", ".join(reasons)
 
 

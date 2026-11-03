@@ -8,7 +8,7 @@ GCC 2.95 takes its options per translation unit, so a source file is the
 smallest thing a flag can apply to: retail could only have built a function
 with other flags by building its object with them. When one function needs a
 flag its neighbours do not, the function goes in a file of its own
-(docs/BUILD_FIDELITY.md, "Flags"). Makefile.sn and tools/try_func.py both
+(docs/reference/BUILD_FIDELITY.md, "Flags"). Makefile.sn and tools/try_func.py both
 read this list, so a file builds the same way in both.
 """
 import sys

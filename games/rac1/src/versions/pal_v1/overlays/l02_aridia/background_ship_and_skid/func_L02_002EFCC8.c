@@ -2,8 +2,8 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
     int *data = *(int **)(moby + 0x78);
     moby[0x30] = 0xFF;
 
-    if (is_point_inside_clip_volume(hero_globals_base + 0xE9D, data[0x17]) != 0
-        && *(unsigned int *)(hero_globals_base + 0xE9D + 0x200C) < 2) {
+    if (is_point_inside_clip_volume(hero_globals_base + 0xE9D, data[0x17]) != 0 &&
+        *(unsigned int *)(hero_globals_base + 0xE9D + 0x200C) < 2) {
         char *b = help_stats_base + 0x34D;
         if (*(unsigned short *)(b + 0x278) == 0 && usage_stats_entry20_count == 0) {
             int count = 0;
@@ -22,27 +22,27 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
     }
 
     switch (data[0x15]) {
-    case 0:
-        if (is_point_inside_clip_volume(hero_globals_base + 0xE9D, data[0x12]) != 0) {
-            if (*(int *)(hero_globals_base + 0xE9D + 0x2004) == 0x2C) {
-                data[0x15] = 1;
+        case 0:
+            if (is_point_inside_clip_volume(hero_globals_base + 0xE9D, data[0x12]) != 0) {
+                if (*(int *)(hero_globals_base + 0xE9D + 0x2004) == 0x2C) {
+                    data[0x15] = 1;
+                }
             }
-        }
-        break;
-    case 1: {
-        char *h = hero_globals_base + 0xE1D;
-        if (*(int *)(h + 0x300) != 0) {
-            data[0x15] = 0;
-        } else if (is_point_inside_clip_volume(h + 0x80, data[0x13]) != 0) {
-            unsigned char *q = menu_item_enabled_115 + 1;
-            if (q[1] == 0) {
-                q[1] = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53D6, -1);
+            break;
+        case 1: {
+            char *h = hero_globals_base + 0xE1D;
+            if (*(int *)(h + 0x300) != 0) {
+                data[0x15] = 0;
+            } else if (is_point_inside_clip_volume(h + 0x80, data[0x13]) != 0) {
+                unsigned char *q = menu_item_enabled_115 + 1;
+                if (q[1] == 0) {
+                    q[1] = 1;
+                    PlayBankSound(1, 0, 0);
+                    ShowBanner(0x53D6, -1);
+                }
             }
+            break;
         }
-        break;
-    }
     }
 
     {
@@ -132,7 +132,8 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
             }
         }
     }
-    if (((Flags_0013D5C8 *)(menu_item_enabled_115 + 0xB9))->b[0xC] != 0 && is_point_inside_clip_volume(hero_globals_base + 0xE9D, data[5]) != 0) {
+    if (((Flags_0013D5C8 *)(menu_item_enabled_115 + 0xB9))->b[0xC] != 0 &&
+        is_point_inside_clip_volume(hero_globals_base + 0xE9D, data[5]) != 0) {
         char *b = help_stats_base + 0x34D;
         if (*(unsigned short *)(b + 0x90) != 0) {
             int t = scale_ticks(gameplay_event_frame_count) - *(unsigned short *)(b + 0x92) * 600;

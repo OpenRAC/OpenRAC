@@ -2,7 +2,7 @@
 """
 The functional-C list ByteMatch shows beside the progress report.
 
-Functional C (nonmatching/functional.tsv, docs/NONMATCHING.md) does what a
+Functional C (nonmatching/functional.tsv, docs/reference/NONMATCHING.md) does what a
 retail function does without matching its bytes. It is never in src/ and
 never in the progress report. ByteMatch can show it on its own line under
 the Code bar, apart from the matched numbers, if CI uploads this file in the

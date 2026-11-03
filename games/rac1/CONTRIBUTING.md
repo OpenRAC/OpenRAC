@@ -1,6 +1,10 @@
 ## Contributing
 
-The full procedure is in [`docs/WORKFLOW.md`](docs/WORKFLOW.md). In short:
+All 5116 functions match, so most work now makes the code easier to read. Start with
+[`docs/README.md`](docs/README.md) to see where things are and what is left. Any change must keep the match:
+run `bash tools/check_all.sh` before a PR.
+
+To match a function, the full procedure is in [`docs/WORKFLOW.md`](docs/WORKFLOW.md). In short:
 
 1. Pick a function. `python tools/rank_candidates.py` lists promising ones;
    `python tools/triage.py` sorts everything not yet exact into work queues
@@ -13,15 +17,12 @@ The full procedure is in [`docs/WORKFLOW.md`](docs/WORKFLOW.md). In short:
 3. Iterate. `python tools/try_func.py func_XXXXXXXX c1.c c2.c ...`
    compiles each candidate through the real pipeline and says `EXACT` or
    how many bytes are off, in seconds, without touching `src/`.
-   [`docs/LEVERS.md`](docs/LEVERS.md) is the one-page list of what makes
+   [`docs/agents/LEVERS.md`](docs/agents/LEVERS.md) is the one-page list of what makes
    a function match. For a side-by-side view, `sh tools/diff.sh
    func_XXXXXXXX` (or `tools\diff.bat` on Windows) runs
    [asm-differ](https://github.com/simonlindholm/asm-differ).
-4. Verify from scratch with `bash tools/build_sn.sh` (or
-   `python tools/build_sn.py` on Windows).
-5. Regenerate the progress report with
-   `python tools/gen_progress_report.py`, and commit it together with your
-   change. CI fails if the report is out of date.
+4. Verify from scratch with `bash tools/check_all.sh`. It rebuilds, checks every version and refreshes the
+   progress report. Commit the report with your change: CI fails if it is out of date.
 
 On macOS and Linux, prefix each of these with `bash tools/docker/run.sh`.
 m2c and asm-differ are used from local clones (not vendored):
@@ -35,7 +36,7 @@ git clone https://github.com/simonlindholm/asm-differ tools/ext/asm-differ
 
 The build uses retail's own compilers and assembles what they emit as it is,
 apart from a short, documented list of assembler and linker behaviours.
-[docs/BUILD_FIDELITY.md](docs/BUILD_FIDELITY.md) has the list, the evidence
+[docs/reference/BUILD_FIDELITY.md](docs/reference/BUILD_FIDELITY.md) has the list, the evidence
 for each entry and how many matches depend on it. So:
 
 - never add a step that changes the compiler's output to make a function
@@ -58,7 +59,7 @@ as references:
   anything else whose license permits it, credited in
   `THIRD_PARTY_NOTICES.md`;
 - other public decompilations and ports of this game (Lombyte, the NTSC decomp,
-  ReRAC: docs/SIBLING_DECOMPS.md), credited, and public hardware
+  ReRAC: docs/agents/SIBLING_DECOMPS.md), credited, and public hardware
   documentation. The NTSC decomp is never vendored: tools read it at the
   commit pinned in `config/versions/us/ntsc_decomp.txt`, from a cache
   outside the checkout (`python3 tools/ntsc_source.py path`), and
@@ -71,12 +72,12 @@ to check a match against. On 2026-09-30 the movie code (`movie/*`, Sony's
 ezmpeg sample in retail) and one libmpeg helper were reverted to
 assembly for exactly this: they had been compiled from that sample's
 source. They are to be redone from the assembly alone.
-The rules for doing that are in [`docs/MOVIE.md`](docs/MOVIE.md).
+The rules for doing that are in [`docs/reference/MOVIE.md`](docs/reference/MOVIE.md).
 
 Known compiler behaviour, useful levers and measured dead ends are collected
-in [`docs/DECOMP_PROGRESS.md`](docs/DECOMP_PROGRESS.md).
+in [`docs/reference/DECOMP_PROGRESS.md`](docs/reference/DECOMP_PROGRESS.md).
 
-For LLM agents, [`docs/CONTAINERS.md`](docs/CONTAINERS.md) describes a
+For LLM agents, [`docs/reference/CONTAINERS.md`](docs/reference/CONTAINERS.md) describes a
 Ghidra container that serves decompilation and disassembly over MCP, and
 `tools/export_dataset.py` exports every exact match with its retail
 assembly as training pairs.

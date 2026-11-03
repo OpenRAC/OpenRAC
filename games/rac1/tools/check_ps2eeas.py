@@ -6,7 +6,7 @@ Checks the build's assembler steps against SN's real assembler (in the container
 
 Retail's game code was assembled by SN's ps2eeas. This build assembles with
 GNU as and adds what ps2eeas does differently with tools/ps2eeas_nops.py,
-tools/ps2eeas_dli.py and tools/check_macro_slots.py (docs/BUILD_FIDELITY.md).
+tools/ps2eeas_dli.py and tools/check_macro_slots.py (docs/reference/BUILD_FIDELITY.md).
 This tool takes every C file of the game code (src/game/, src/overlays/;
 or the files given), builds it as the build does (tools/try_func.py's
 pipeline), and assembles the same compiler output a second time with
@@ -50,13 +50,15 @@ from elftools.elf.relocation import RelocationSection  # noqa: E402
 import gen_progress_report as gpr  # noqa: E402
 import try_func  # noqa: E402
 from toolchain import sn, start_wineserver  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import names_header  # noqa: E402
 
 ASSEMBLERS = {"1.9.6": "toolchain/sn-prodg-24/local/sce/ee/gcc/ee/bin/ps2eeas.exe",
               "1.9.25": "toolchain/sn-prodg-3.01/usr/local/sce/ee/gcc/ee/bin/Ps2EeAs.exe"}
 WORK = Path("build-sn/check_ps2eeas")
 # Functions defined under their readable names (include/names.h maps each to its func_ name).
 ALIAS = {m.group(1): m.group(2) for m in re.finditer(r"^#define\s+(\w+)\s+(func_[0-9A-F]{8})\b",
-                                                      Path("include/names.h").read_text(), re.M)}
+                                                      names_header.read("include/names.h"), re.M)}
 DEF_ANY = re.compile(r"^(?!extern\b|static\b|typedef\b|#)[A-Za-z_][\w \t\*]*?\b(\w+)\s*\([^;]*$", re.M)
 EXTERN = re.compile(r"^\s*\.extern\s+\w+\s*,\s*\d+\s*$")
 
@@ -139,7 +141,7 @@ def main() -> None:
     files = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not files:
         game = [str(p) for p in gpr.SEGMENT_SOURCES.get("text", [])]
-        files = game + sorted(str(p) for p in Path("src/overlays").glob("*/*.c"))
+        files = game + sorted(str(p) for p in Path("src/overlays").glob("*/**/*.c"))
     start_wineserver()
     WORK.mkdir(parents=True, exist_ok=True)
     with ProcessPoolExecutor(max_workers=os.cpu_count() or 4) as pool:

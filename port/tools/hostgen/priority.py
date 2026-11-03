@@ -169,8 +169,10 @@ def skipped_names(source: Path, cfg: dict) -> set[str]:
 def read_readable(names_h: Path) -> dict[str, str]:
     out = {}
     if names_h.is_file():
-        for readable, sym in re.findall(r"#define\s+(\w+)\s+(func_\w+)", names_h.read_text()):
-            out[sym] = readable
+        parts = [names_h, *sorted((names_h.parent / "names").glob("*.h"))]
+        for path in parts:
+            for readable, sym in re.findall(r"#define\s+(\w+)\s+(func_\w+)", path.read_text()):
+                out[sym] = readable
     return out
 
 

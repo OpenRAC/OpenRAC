@@ -3,7 +3,7 @@
 A moby is any game object: Ratchet's model, enemies, bolts, crates,
 gadgets, projectiles, platforms, effects, invisible level logic. Field
 tables: [data-structures.md](data-structures.md#moby-includemobyh) (use
-`include/moby.h`, not `MobyInstance`/`PVARS.md` offsets). Slot reuse
+`include/structs/moby.h`, not `MobyInstance`/`PVARS.md` offsets). Slot reuse
 delay, update order and the pre/post-pass flag tests are observable
 in-game and must be kept.
 
@@ -17,12 +17,12 @@ in-game and must be kept.
 - `class_slot` (u8, 0x22): per-level registration slot.
   `D_001B3E40[oClass]` -> slot (0xFF = not loaded); `D_001B3C80[slot]` ->
   oClass.
-- Per-class pvars layouts in `include/moby_pvars.h` come from outside
+- Per-class pvars layouts in `include/pvars/moby_pvars.h` come from outside
   tooling and are unverified; check each against the asm.
 
 ## Memory: the moby array and pvars
 
-(`src/game/mobyfunc.c:141-200`)
+(`src/game/moby/mobyfunc.c:141-200`)
 
 - One array of 0x100-byte slots. `CreateMoby` searches `D_0016001C` ..
   `D_00160020`; `D_00160018` is the slot-index base (`InitMobyInstance`
@@ -31,7 +31,7 @@ in-game and must be kept.
   (inferred).
 - Each slot owns **0x80 bytes of pvars** at `D_00160028 + idx * 0x80`,
   zeroed by `CreateMoby`: the class's private state. Catalogue:
-  `docs/PVARS.md` (offset caveat above). Level code casts pvars to private
+  `docs/reference/PVARS.md` (offset caveat above). Level code casts pvars to private
   structs, e.g. `KillFlags`/`VoiceSlot` in
   `src/overlays/shared/sentrybot.c`.
 
@@ -39,12 +39,12 @@ in-game and must be kept.
 
 ### Registering a class (level load)
 
-`register_moby_class` (`func_00203E78`, `src/game/loaders.c:973`; takes
+`register_moby_class` (`func_00203E78`, `src/game/system/loaders.c:973`; takes
 the class data, two more arguments and the oClass):
 
 1. Next slot `D_00160000`: fills `D_001B3E40` (oClass -> slot),
    `D_001B3C80` (slot -> oClass), `D_001B3580` (slot -> data).
-2. `func_00213BB8` (`assign_moby_class_data`, `src/game/mobyutil.c:175`)
+2. `func_00213BB8` (`assign_moby_class_data`, `src/game/moby/mobyutil.c:175`)
    looks oClass up in the `{key, a, b}` table `D_001E8F00` (key -1 ends):
    `a` (update function) -> `D_001B3900[slot]`, `b` (6-word table) ->
    `MobyClass.callbacks`.
@@ -53,7 +53,7 @@ the class data, two more arguments and the oClass):
 
 ### Spawning
 
-`CreateMoby` (`func_0020D348(oClass)`, `src/game/mobyfunc.c:188`):
+`CreateMoby` (`func_0020D348(oClass)`, `src/game/moby/mobyfunc.c:188`):
 
 - Takes the first slot with `state >= 0xFE` **and**
   `D_0015F6F0 >= spawn_frame` (`D_0015F6F0` = frame clock).
@@ -83,7 +83,7 @@ The 0x38 store puts 0x40 bytes at 0x3D-0x3F, so 0x38 may hold more than a
 `u64 spawn_frame` (inferred; `DeleteMoby` overwrites all 8 bytes).
 
 Spawners then fill per-use fields. Example: `func_00226720`
-(`spawn_hand_gadget_moby`, `src/game/pause.c:8919`) returns 0 if
+(`spawn_hand_gadget_moby`, `src/game/ui/pause.c:8919`) returns 0 if
 `D_001B3E40[oClass] == 0xFF`; else creates the moby, sets `update_dist =
 draw_dist = 0xFF`, `state = 0`, `visible = 1`, runs the post pass
 `func_0020ED48` once, tints it (`func_0020E340(o, 0x202020, ...)`), and
@@ -136,7 +136,7 @@ for (m = func_0020E6B8(); m != NULL; m = m->next) {   /* head also saved in a $g
   animation/matrix passes. Both read 0x50-0x53; post also reads `unk71`
   and 0xA8. Exact jobs inferred.
 - Also called from pause code (`src/overlays/shared/pause_menu.c:436`,
-  `src/game/pause.c`): some menus keep mobys ticking.
+  `src/game/ui/pause.c`): some menus keep mobys ticking.
 - Changes a moby makes to another are seen by later mobys in the same
   frame.
 
@@ -179,7 +179,7 @@ for (m = func_0020E6B8(); m != NULL; m = m->next) {   /* head also saved in a $g
 | `anim_flags`, `anim_trigger_count` | 0x70, 0x7E | |
 | `manips` | 0x64 | joint manipulators |
 
-`seqs[i]` -> `AnimSeq` (`include/records.h`, u8 `nframes` at +0x10);
+`seqs[i]` -> `AnimSeq` (`include/structs/records.h`, u8 `nframes` at +0x10);
 `MobyClass.seq_count` (+0x0C) bounds `seq`. Entry points (names.tsv,
 mixed tiers): `set_moby_animation` (`func_00213D28`),
 `blend_moby_animation[_ex]` (`func_00213DE0`/`func_00213F28`),
@@ -290,7 +290,7 @@ More retail strings per level: [datamining.md](datamining.md#5-per-level-strings
 
 - **Start from the role** in `config/overlays/names.tsv`. Don't
   specialise a function shared by many classes.
-- **Include `moby.h`, `hero.h`, `pad.h`, `vector.h`**, not private copies
+- **Include `structs/moby.h`, `structs/hero.h`, `structs/pad.h`, `structs/vector.h`**, not private copies
   (see commits d19de34f, d8808743). pvars still need a local struct for
   the 0x80 bytes, cast from `moby->pvars` (u8 *).
 - **Get signedness/width right.** `state` is read signed by the loop

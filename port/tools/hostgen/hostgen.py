@@ -192,8 +192,10 @@ def read_aliases(source: Path, cfg: dict) -> dict[str, str]:
         path = source / header
         if not path.is_file():
             continue
-        text = path.read_text(encoding="utf-8", errors="surrogateescape")
-        out.update(prep.read_carried_aliases(text) if path.suffix == ".json" else prep.read_aliases(text))
+        if path.suffix == ".json":
+            out.update(prep.read_carried_aliases(path.read_text(encoding="utf-8", errors="surrogateescape")))
+        else:
+            out.update(prep.read_aliases(prep.read_alias_header(path)))
     return out
 
 

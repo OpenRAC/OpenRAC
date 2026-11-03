@@ -46,62 +46,62 @@ The following functions adapt source from
 - `src/overlays/shared/mobyfunc_0024FD50.c`: `func_L00_00250478` (animation frame packet builder; `overlays/shared/gameplay/state/0024eec0.c`, `FUN_L00_0024f440`)
 - `src/overlays/shared/vendor_002E1660.c`: `func_L00_002E72E8` (follow camera approach; `overlays/shared/gameplay/vendor/002e5e38.c`, `follow_camera_approach` / `FUN_L00_002e5e38`)
 - `src/overlays/shared/vendor_002E1660.c`: `func_L00_002E99A0` (follow camera offset and scale; `src/overlays/shared/gameplay/vendor/002df730.c`, `follow_camera_set_offset_scale` / `FUN_L00_002e84f0`)
-- `src/core/00119328.c`: `func_001194C8` (`topThread`)
-- `src/game/stream.c`: `func_00217AE8` (menu entry transitions and message formatting; `src/ui/menus/fun_00216c48.c`)
-- `src/core/00119D88.c`: `func_0011C208` (`sceClose`)
-- `src/core/00119868.c`: `func_00119CC8` (`sceTtyInit`)
-- `src/game/hud.c`: `func_00201190` (HUD sprite with explicit UV corners)
-- `src/game/vendor.c`: `func_00239A00` (vendor item carousel)
-- `src/game/lights.c`: `func_002027C0` (detach point light)
-- `src/core/0011D0D0.c`: `func_0011D248` (`sceSifRebootIop`)
-- `src/game/menu.c`: `func_00208338` (read sector, track size)
-- `src/game/loaders.c`: `func_00203038` (unpack point records)
-- `src/core/00112380.c`: `func_001123A8` (`_calloc_r`)
-- `src/core/00119D88.c`: `func_0011B2F8` (`sceSifBindRpc`)
-- `src/core/00119D88.c`: `func_0011AE20` (`sceSifInitRpc`)
-- `src/core/00121750.c`: `func_00121B78` (`sceGsResetGraph`)
-- `src/core/00123168.c`: `func_001233E8` (`sceDmaPutEnv`)
-- `src/core/00125630.c`: `func_001273A0` (`_waitBdecOut`)
-- `src/core/00125630.c`: `func_001286E8` (`_ipuVdec`)
-- `src/core/00125630.c`: `func_001299E8` (`_cpr8`)
-- `src/core/0012AC80.c`: `func_0012C0A0` (`_decodeOrSkipField`)
-- `src/core/00113B70.c`: `func_00113B70` (`_free_r`)
-- `src/game/memcard.c`: `func_0020BBC8` (memcard_PrepData)
-- `src/game/memcard.c`: `func_00209E68` (memory-card state update; `src/storage/memory_card/memcard_update_state.c`, with PAL directory validation and request handling reconstructed from retail assembly)
-- `src/game/map.c`: `func_00205E70` (map overlay renderer; `src/assembly/textbin/ui/map/draw_map_overlay.c`, with PAL control flow, addressing and mixed argument ordering reconstructed from retail assembly)
-- `src/core/0011CCE0.c`: `func_0011CE70` (`_sceSifLoadModuleBuffer`)
-- `src/game/loaders.c`: `func_00205220` (ParseSpaceSceneChunk)
-- `src/game/draw.c`: `func_001F5368` (screen stripe fill)
-- `src/core/00114060.c`: `func_00114060` (`__sfvwrite`)
-- `src/game/memcard.c`: `func_0020BD70` (memcard_RestoreData)
-- `src/core/0012AC80.c`: `func_0012C990` (`_setDefaultQM`)
-- `src/core/00125630.c`: `func_00128F90` (`_pictureCodingExtension`)
-- `src/core/989snd.c`: `func_0012DDC0` (snd_FlushSoundCommands)
-- `src/game/loaders.c`: `func_00204FC0` (update_world_object_animation)
-- `src/core/989snd.c`: `func_0012E688` (snd_SendIOPCommandAndWait)
-- `src/core/00125630.c`: `func_00128860` (`_peepBit`)
-- `src/core/0011D0D0.c`: `func_0011D0D0` (`sceSifResetIop`)
-- `src/core/0012AC80.c`: `func_0012BF40` (`_decodeOrSkipFrame`)
-- `src/core/001236F0.c`: `func_00123D48` (sceMcWrite)
-- `src/core/boot.c`: `func_0012DA38` (parse_bin)
-- `src/game/pause.c`: `func_002224A8` (draws an options menu: each item's label at left, its current value's name at right, selected one highlighted)
-- `src/game/framebuf.c`: `func_001FB908` (clears the screen through a GIF packet appended to D_00161000: a fixed header then n = w / 32 pairs of sprite corner registers stepping 0x200 per column across a w x h area centred on 0x8000)
-- `src/game/space.c`: `func_002308C8` (spawns six particles around a moby: random velocity and a position taken from the flare corner table, transformed by the moby's matrices)
-- `src/game/space.c`: `func_00230A90` (resident gameplay and cinematic state update; `src/gameplay/update_resident_gameplay_state.c`)
-- `src/core/0012CC90.c`: `func_0012D068` (sceIpuInit)
-- `src/game/loaders.c`: `func_002032D0` (load_hud_banks)
-- `src/game/pause.c`: `func_0021D4C0` (pause slot-select tick)
-- `src/game/draw.c`: `func_001F2608` (builds the view matrices in the camera block from the rotation set up in D_00187390 or the three rotation angles, then copies the result to D_0018D080)
-- `src/game/lights.c`: `func_002023E0` (create_point_light)
-- `src/game/initonce.c`: `func_00201E88` (init_once)
-- `src/game/draw.c`: `func_001F2BC8` (build_occlusion_visibility)
-- `src/game/pause.c`: `func_0021E4B0` (draws a pause-menu list (rows of text with optional subtext, cursor highlight, scrolling))
-- `src/core/00125630.c`: `func_00127D40` (_decMB0)
-- `src/game/vendor.c`: `func_00239CF8` (fun_002389e0)
-- `src/core/0012AC80.c`: `func_0012B2C0` (_PES_packet)
-- `src/game/camera.c`: `func_001ED080` (camera update toward a target orientation: blends yaw/pitch/distance and rebuilds the camera basis)
-- `src/game/space.c`: `func_00233308` (do_space_transition)
-- `src/game/help.c`: `func_001FE6C0` (update_help_state)
+- `src/core/kernel/threads_deci2.c`: `func_001194C8` (`topThread`)
+- `src/game/audio/stream.c`: `func_00217AE8` (menu entry transitions and message formatting; `src/ui/menus/fun_00216c48.c`)
+- `src/core/kernel/kprintf.c`: `func_0011C208` (`sceClose`)
+- `src/core/kernel/tty_queue.c`: `func_00119CC8` (`sceTtyInit`)
+- `src/game/ui/hud.c`: `func_00201190` (HUD sprite with explicit UV corners)
+- `src/game/ui/vendor.c`: `func_00239A00` (vendor item carousel)
+- `src/game/render/lights.c`: `func_002027C0` (detach point light)
+- `src/core/sif/reset_iop.c`: `func_0011D248` (`sceSifRebootIop`)
+- `src/game/ui/menu.c`: `func_00208338` (read sector, track size)
+- `src/game/system/loaders.c`: `func_00203038` (unpack point records)
+- `src/core/libc/atoi_calloc.c`: `func_001123A8` (`_calloc_r`)
+- `src/core/kernel/kprintf.c`: `func_0011B2F8` (`sceSifBindRpc`)
+- `src/core/kernel/kprintf.c`: `func_0011AE20` (`sceSifInitRpc`)
+- `src/core/cdvd/read.c`: `func_00121B78` (`sceGsResetGraph`)
+- `src/core/gs/dma_and_sync_v.c`: `func_001233E8` (`sceDmaPutEnv`)
+- `src/core/mpeg/motion_comp.c`: `func_001273A0` (`_waitBdecOut`)
+- `src/core/mpeg/motion_comp.c`: `func_001286E8` (`_ipuVdec`)
+- `src/core/mpeg/motion_comp.c`: `func_001299E8` (`_cpr8`)
+- `src/core/mpeg/demux.c`: `func_0012C0A0` (`_decodeOrSkipField`)
+- `src/core/libc/free_malloc_trim.c`: `func_00113B70` (`_free_r`)
+- `src/game/system/memcard.c`: `func_0020BBC8` (memcard_PrepData)
+- `src/game/system/memcard.c`: `func_00209E68` (memory-card state update; `src/storage/memory_card/memcard_update_state.c`, with PAL directory validation and request handling reconstructed from retail assembly)
+- `src/game/ui/map.c`: `func_00205E70` (map overlay renderer; `src/assembly/textbin/ui/map/draw_map_overlay.c`, with PAL control flow, addressing and mixed argument ordering reconstructed from retail assembly)
+- `src/core/sif/load_module.c`: `func_0011CE70` (`_sceSifLoadModuleBuffer`)
+- `src/game/system/loaders.c`: `func_00205220` (ParseSpaceSceneChunk)
+- `src/game/render/draw.c`: `func_001F5368` (screen stripe fill)
+- `src/core/libc/fvwrite_fwalk.c`: `func_00114060` (`__sfvwrite`)
+- `src/game/system/memcard.c`: `func_0020BD70` (memcard_RestoreData)
+- `src/core/mpeg/demux.c`: `func_0012C990` (`_setDefaultQM`)
+- `src/core/mpeg/motion_comp.c`: `func_00128F90` (`_pictureCodingExtension`)
+- `src/core/sound/989snd.c`: `func_0012DDC0` (snd_FlushSoundCommands)
+- `src/game/system/loaders.c`: `func_00204FC0` (update_world_object_animation)
+- `src/core/sound/989snd.c`: `func_0012E688` (snd_SendIOPCommandAndWait)
+- `src/core/mpeg/motion_comp.c`: `func_00128860` (`_peepBit`)
+- `src/core/sif/reset_iop.c`: `func_0011D0D0` (`sceSifResetIop`)
+- `src/core/mpeg/demux.c`: `func_0012BF40` (`_decodeOrSkipFrame`)
+- `src/core/mc/memory_card.c`: `func_00123D48` (sceMcWrite)
+- `src/core/startup/boot.c`: `func_0012DA38` (parse_bin)
+- `src/game/ui/pause.c`: `func_002224A8` (draws an options menu: each item's label at left, its current value's name at right, selected one highlighted)
+- `src/game/render/framebuf.c`: `func_001FB908` (clears the screen through a GIF packet appended to D_00161000: a fixed header then n = w / 32 pairs of sprite corner registers stepping 0x200 per column across a w x h area centred on 0x8000)
+- `src/game/system/space.c`: `func_002308C8` (spawns six particles around a moby: random velocity and a position taken from the flare corner table, transformed by the moby's matrices)
+- `src/game/system/space.c`: `func_00230A90` (resident gameplay and cinematic state update; `src/gameplay/update_resident_gameplay_state.c`)
+- `src/core/mpeg/ipu.c`: `func_0012D068` (sceIpuInit)
+- `src/game/system/loaders.c`: `func_002032D0` (load_hud_banks)
+- `src/game/ui/pause.c`: `func_0021D4C0` (pause slot-select tick)
+- `src/game/render/draw.c`: `func_001F2608` (builds the view matrices in the camera block from the rotation set up in D_00187390 or the three rotation angles, then copies the result to D_0018D080)
+- `src/game/render/lights.c`: `func_002023E0` (create_point_light)
+- `src/game/system/initonce.c`: `func_00201E88` (init_once)
+- `src/game/render/draw.c`: `func_001F2BC8` (build_occlusion_visibility)
+- `src/game/ui/pause.c`: `func_0021E4B0` (draws a pause-menu list (rows of text with optional subtext, cursor highlight, scrolling))
+- `src/core/mpeg/motion_comp.c`: `func_00127D40` (_decMB0)
+- `src/game/ui/vendor.c`: `func_00239CF8` (fun_002389e0)
+- `src/core/mpeg/demux.c`: `func_0012B2C0` (_PES_packet)
+- `src/game/gameplay/camera.c`: `func_001ED080` (camera update toward a target orientation: blends yaw/pitch/distance and rebuilds the camera basis)
+- `src/game/system/space.c`: `func_00233308` (do_space_transition)
+- `src/game/ui/help.c`: `func_001FE6C0` (update_help_state)
 - `src/overlays/shared/stream_002670E0.c`: `func_L00_002676A0` (stores b in the d field of the slot func_L00_00267618 finds, if any)
 - `src/overlays/shared/tieproc_00299108.c`: `func_L00_0029A868` (plays the movie of table entry i (set chosen by a flag))
 - `src/overlays/shared/partupd_00272158.c`: `func_L00_00276F18` (FUN_L00_00276078)
@@ -300,37 +300,37 @@ to its PAL address, and each passed this project's own check. In parentheses, Lo
 - `src/overlays/shared/vendor_002B33E8.c`: `func_L00_002B8208` (`FUN_L00_002b6f10`)
 - `src/overlays/shared/vendor_002B33E8.c`: `func_L00_002B9528` (`FUN_L00_002b8230`)
 - `src/overlays/shared/draw_001F3A78.c`: `func_L00_001F3A78` (`FUN_L00_001f36f8`)
-- `src/game/pause.c`: `func_0021E950` (`draw_menu_item_grid`)
-- `src/game/actuator.c`: `func_001E9088` (`FUN_L00_001eaa08`)
-- `src/game/transition.c`: `func_001EB7C0` (`transition_default_draw`)
-- `src/game/pause.c`: `func_00226410` (`update_ammo_preview_transform`)
-- `src/game/draw.c`: `func_001F69F0` (`process_bgm_display_text_event`)
-- `src/game/pause.c`: `func_002250B8` (`draw_menu_flashing_panel`)
-- `src/game/hud.c`: `func_00201AF0` (`draw_boot_image`)
-- `src/game/menu.c`: `func_00207408` (`passes_projected_region_callback_0`)
-- `src/game/partupd.c`: `func_00219780` (`FUN_00218888`)
-- `src/game/mobyutil.c`: `func_00214F78` (`normalize_vector_triplet`)
-- `src/game/hud.c`: `func_00201A38` (`draw_framed_text`)
-- `src/game/pause.c`: `func_00227A70` (`clear_preview_resource_bindings`)
-- `src/game/mobyfunc.c`: `func_0020E340` (`PackRenderCommandFields`)
+- `src/game/ui/pause.c`: `func_0021E950` (`draw_menu_item_grid`)
+- `src/game/gameplay/actuator.c`: `func_001E9088` (`FUN_L00_001eaa08`)
+- `src/game/ui/transition.c`: `func_001EB7C0` (`transition_default_draw`)
+- `src/game/ui/pause.c`: `func_00226410` (`update_ammo_preview_transform`)
+- `src/game/render/draw.c`: `func_001F69F0` (`process_bgm_display_text_event`)
+- `src/game/ui/pause.c`: `func_002250B8` (`draw_menu_flashing_panel`)
+- `src/game/ui/hud.c`: `func_00201AF0` (`draw_boot_image`)
+- `src/game/ui/menu.c`: `func_00207408` (`passes_projected_region_callback_0`)
+- `src/game/render/partupd.c`: `func_00219780` (`FUN_00218888`)
+- `src/game/moby/mobyutil.c`: `func_00214F78` (`normalize_vector_triplet`)
+- `src/game/ui/hud.c`: `func_00201A38` (`draw_framed_text`)
+- `src/game/ui/pause.c`: `func_00227A70` (`clear_preview_resource_bindings`)
+- `src/game/moby/mobyfunc.c`: `func_0020E340` (`PackRenderCommandFields`)
 - `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_0025F368` (`FUN_L00_0025e310`)
 - `src/overlays/shared/help_00214D60.c`: `func_L00_002178A0` (`FUN_L00_00217118`)
 - `src/overlays/shared/vendor_002D9548.c`: `func_L06_002F4CF8` (`FUN_L06_002f38c8`)
-- `src/core/00112468.c`: `func_001126D8` (`_dtoa_r`; David M. Gay's dtoa, see below)
-- `src/core/00116070.c`: `func_00116168` (`double_is_not_nan`; fdlibm, see below)
-- `src/core/00116070.c`: `func_001161B0` (`ClassifyDoubleNaN`; fdlibm, see below)
-- `src/core/00119D88.c`: `func_0011BF80` (`sceOpen`)
-- `src/core/00119D88.c`: `func_0011C388` (`sceLseek`)
-- `src/core/00119D88.c`: `func_0011C5C0` (`sceRead`)
-- `src/core/00119D88.c`: `func_0011C820` (`sceWrite`)
+- `src/core/libc/close_dtoa.c`: `func_001126D8` (`_dtoa_r`; David M. Gay's dtoa, see below)
+- `src/core/libc/printf_rand.c`: `func_00116168` (`double_is_not_nan`; fdlibm, see below)
+- `src/core/libc/printf_rand.c`: `func_001161B0` (`ClassifyDoubleNaN`; fdlibm, see below)
+- `src/core/kernel/kprintf.c`: `func_0011BF80` (`sceOpen`)
+- `src/core/kernel/kprintf.c`: `func_0011C388` (`sceLseek`)
+- `src/core/kernel/kprintf.c`: `func_0011C5C0` (`sceRead`)
+- `src/core/kernel/kprintf.c`: `func_0011C820` (`sceWrite`)
 - `src/overlays/shared/vendor_002C12B0.c`: `func_L00_002C4748` (`FUN_L00_002c3440`)
 - `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_00259B88` (`FUN_L00_00258b50`)
 - `src/overlays/shared/vendor_002D9438.c`: `func_L00_002E0958` (`FUN_L00_002df4a8`)
 - `src/overlays/shared/vendor_00299AF0.c`: `func_L10_002F6E38` (`FUN_L10_002f5a78`)
 - `src/overlays/shared/vendor_002A5218.c`: `func_L02_002A5238` (`FUN_L02_002a4058`)
-- `src/core/00114518.c`: `func_00114920` (`_malloc_r`; newlib's allocator, see below)
-- `src/core/00116FA0.c`: `func_00117118` (`_vfprintf_r`; adapted from the local newlib-derived US candidate, see below)
-- `src/core/00119D88.c`: `func_0011AA90` (`_sceSifSendCmd`; its two small structs' members are named by offset here)
+- `src/core/libc/lseek_malloc.c`: `func_00114920` (`_malloc_r`; newlib's allocator, see below)
+- `src/core/libc/vfprintf.c`: `func_00117118` (`_vfprintf_r`; adapted from the local newlib-derived US candidate, see below)
+- `src/core/kernel/kprintf.c`: `func_0011AA90` (`_sceSifSendCmd`; its two small structs' members are named by offset here)
 
 Four more began as machine ports that came out a few bytes off and were finished by hand by the GPT agent
 (2026-10-05):
@@ -404,20 +404,20 @@ address, each passing this project's own check). In parentheses, Lombyte's name.
 Twelve executable functions from the same pull requests followed on 2026-10-07, proven by the full build.
 Ten went in as the tool wrote them. `func_001EC2B8` needed its file to change around it: a later
 declaration retyped to its parameter, and two typedefs it shares with `func_001ED818` kept once.
-`func_001EE858` was adapted: it writes the fog preset as the struct `src/game/draw.c` already reads.
+`func_001EE858` was adapted: it writes the fog preset as the struct `src/game/render/draw.c` already reads.
 
-- `src/core/00119868.c`: `func_00119AA8` (`sceTtyWrite`)
-- `src/core/0012AC80.c`: `func_0012AD10` (`sceMpegDemuxPssRing`)
-- `src/game/camera.c`: `func_001EC2B8` (`switch_active_camera_record`)
-- `src/game/camera.c`: `func_001ED818` (`FUN_001ed470`)
-- `src/game/drawquad.c`: `func_001F9478` (`append_billboard_batch`)
-- `src/game/effects.c`: `func_001EE858` (`update_camera_environment_from_regions`)
-- `src/game/pause.c`: `func_0021C1B0` (`render_localized_ui_entry_list`)
-- `src/game/pause.c`: `func_0021F6A0` (`update_item_preview_transform`)
-- `src/game/pause.c`: `func_002255F8` (`load_hand_gadget`)
-- `src/game/pause.c`: `func_00228860` (`submit_graphics_setup_command_stream`)
-- `src/game/skyfunc.c`: `func_0022C188` (`update_sky_effects`)
-- `src/game/vendor.c`: `func_0023A5E0` (`render_vendor_capture_texture_overlays_pass`)
+- `src/core/kernel/tty_queue.c`: `func_00119AA8` (`sceTtyWrite`)
+- `src/core/mpeg/demux.c`: `func_0012AD10` (`sceMpegDemuxPssRing`)
+- `src/game/gameplay/camera.c`: `func_001EC2B8` (`switch_active_camera_record`)
+- `src/game/gameplay/camera.c`: `func_001ED818` (`FUN_001ed470`)
+- `src/game/render/drawquad.c`: `func_001F9478` (`append_billboard_batch`)
+- `src/game/render/effects.c`: `func_001EE858` (`update_camera_environment_from_regions`)
+- `src/game/ui/pause.c`: `func_0021C1B0` (`render_localized_ui_entry_list`)
+- `src/game/ui/pause.c`: `func_0021F6A0` (`update_item_preview_transform`)
+- `src/game/ui/pause.c`: `func_002255F8` (`load_hand_gadget`)
+- `src/game/ui/pause.c`: `func_00228860` (`submit_graphics_setup_command_stream`)
+- `src/game/render/skyfunc.c`: `func_0022C188` (`update_sky_effects`)
+- `src/game/ui/vendor.c`: `func_0023A5E0` (`render_vendor_capture_texture_overlays_pass`)
 
 One more on 2026-10-07, written from the adapted `func_L12_00236270` above plus one state arm:
 
@@ -443,8 +443,8 @@ Fifteen more were carried over by machine on 2026-10-05 once `include/common.h` 
 zero store Lombyte identified as inline assembly in the original (its `include/qzero.h`; the helper here is
 written after it). Same tool, same rule; the two executable functions are proven by the full build:
 
-- `src/game/pause.c`: `func_00219C08` (`FUN_00218d10`)
-- `src/game/sound.c`: `func_0022EFE8` (`sound_stop_all_sounds`)
+- `src/game/ui/pause.c`: `func_00219C08` (`FUN_00218d10`)
+- `src/game/audio/sound.c`: `func_0022EFE8` (`sound_stop_all_sounds`)
 - `src/overlays/l00_veldin1/shrubproc_0028A608.c`: `func_L00_0028A608` (`FUN_L00_00289330`)
 - `src/overlays/l01_novalis/vendor_002BA898.c`: `func_L01_002F7558` (`FUN_L01_002f6180`)
 - `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_00260D30` (`FUN_L00_0025fcb8`)
@@ -627,15 +627,15 @@ Nine functions of the executable were carried over by machine on 2026-10-09, fro
 Lombyte and by the same rule (identical instructions, Lombyte's C with every symbol renamed to its PAL
 address, each passing this project's check and the full build):
 
-- `src/game/draw.c`: `func_001F5E60` (`append_rotated_sprite_quad`)
-- `src/game/music.c`: `func_00217130` (`music_update`)
-- `src/game/pause.c`: `func_0021F238` (`update_item_preview_binding`)
-- `src/game/pause.c`: `func_0021FB28` (`draw_items_menu`)
-- `src/game/pause.c`: `func_00222070` (`draw_cheats_menu`)
-- `src/game/pause.c`: `func_002260A8` (`update_menu_preview_pose_and_attachments`)
-- `src/game/pause.c`: `func_002282D0` (`FUN_00226fb8`)
-- `src/game/space.c`: `func_00233AB8` (`render_environment_mapped_object`)
-- `src/game/vendor.c`: `func_0023B210` (`sample_surface_height_map`)
+- `src/game/render/draw.c`: `func_001F5E60` (`append_rotated_sprite_quad`)
+- `src/game/audio/music.c`: `func_00217130` (`music_update`)
+- `src/game/ui/pause.c`: `func_0021F238` (`update_item_preview_binding`)
+- `src/game/ui/pause.c`: `func_0021FB28` (`draw_items_menu`)
+- `src/game/ui/pause.c`: `func_00222070` (`draw_cheats_menu`)
+- `src/game/ui/pause.c`: `func_002260A8` (`update_menu_preview_pose_and_attachments`)
+- `src/game/ui/pause.c`: `func_002282D0` (`FUN_00226fb8`)
+- `src/game/system/space.c`: `func_00233AB8` (`render_environment_mapped_object`)
+- `src/game/ui/vendor.c`: `func_0023B210` (`sample_surface_height_map`)
 
 Eighteen more were adapted by workers on 2026-10-09 from Lombyte's matched C for the same functions, where the
 candidate the tool carried over did not pass this project's check as written. The logic is Lombyte's; what
@@ -643,18 +643,18 @@ changed is declarations (private aliases for globals and callees, the function d
 its file declares it otherwise) and single statement forms. The twelve executable functions are proven by the
 full build. In parentheses, Lombyte's name.
 
-- `src/core/989snd.c`: `func_0012E820` (`snd_send_iop_command_no_wait`)
-- `src/game/draw.c`: `func_001F3D78` (`draw_debug_profiler`)
-- `src/game/draw.c`: `func_001F6668` (`font_print`)
-- `src/game/hud.c`: `func_00200248` (`get_frame_texture`)
-- `src/game/loaders.c`: `func_00203B70` (`prepare_resident_class_render_data`)
-- `src/game/pause.c`: `func_00228690` (`append_fullscreen_clear_strips`)
-- `src/game/skyfunc.c`: `func_0022C5A0` (`draw_sky_shells`)
-- `src/game/skyfunc.c`: `func_0022CA00` (`sky_draw_shell_textured`)
-- `src/game/skyfunc.c`: `func_0022CC40` (`sky_draw_shell_gouraud`)
-- `src/game/space.c`: `func_002305A0` (`render_level_frame`)
-- `src/game/space.c`: `func_00232EF0` (`play_level_loading_slides`)
-- `src/game/update.c`: `func_002391E8` (`FUN_00237ed0`)
+- `src/core/sound/989snd.c`: `func_0012E820` (`snd_send_iop_command_no_wait`)
+- `src/game/render/draw.c`: `func_001F3D78` (`draw_debug_profiler`)
+- `src/game/render/draw.c`: `func_001F6668` (`font_print`)
+- `src/game/ui/hud.c`: `func_00200248` (`get_frame_texture`)
+- `src/game/system/loaders.c`: `func_00203B70` (`prepare_resident_class_render_data`)
+- `src/game/ui/pause.c`: `func_00228690` (`append_fullscreen_clear_strips`)
+- `src/game/render/skyfunc.c`: `func_0022C5A0` (`draw_sky_shells`)
+- `src/game/render/skyfunc.c`: `func_0022CA00` (`sky_draw_shell_textured`)
+- `src/game/render/skyfunc.c`: `func_0022CC40` (`sky_draw_shell_gouraud`)
+- `src/game/system/space.c`: `func_002305A0` (`render_level_frame`)
+- `src/game/system/space.c`: `func_00232EF0` (`play_level_loading_slides`)
+- `src/game/system/update.c`: `func_002391E8` (`FUN_00237ed0`)
 - `src/overlays/l03_kerwan/vendor_00293720.c`: `func_L03_0029E498` (`FUN_L03_0029d2e0`)
 - `src/overlays/l04_eudora/vendor_002CB800.c`: `func_L04_002E2DF0` (`FUN_L04_002e1a10`)
 - `src/overlays/l10_orxon/vendor_00296BD8.c`: `func_L10_00299818` (`FUN_L10_00298668`)
@@ -752,25 +752,25 @@ loading screen and the pad code have extra steps), and those parts were written 
 Lombyte's `volatile` declarations, one `do {} while (0)` and one `#define` are replaced by declarations and
 statement order. Proven by the full build. In parentheses, Lombyte's name.
 
-- `src/game/bmain.c`: `func_001E99D8` (`startlevel`)
-- `src/game/loaders.c`: `func_00204C60` (`service_level_archive_load`)
-- `src/game/missionfunc.c`: `func_0020CDE0` (`update_map_icons`)
-- `src/game/pad.c`: `func_002181F0` (`process_pad_input`)
-- `src/game/pause.c`: `func_00219E90` (`FUN_00218f98`)
-- `src/game/pause.c`: `func_0021A1A0` (`FUN_002192a8`)
-- `src/game/pause.c`: `func_0021BB90` (`update_menu_entry_actions`)
-- `src/game/pause.c`: `func_0021CE60` (`draw_map_screen`)
-- `src/game/pause.c`: `func_0021DB30` (`sound_options_menu`)
-- `src/game/pause.c`: `func_0021DE08` (`draw_sound_menu`)
-- `src/game/pause.c`: `func_002209A0` (`FUN_0021f990`)
-- `src/game/pause.c`: `func_00220DF0` (`update_menu_resource_stream`)
-- `src/game/pause.c`: `func_00223B40` (`draw_localized_three_option_menu`)
-- `src/game/pause.c`: `func_00224C30` (`draw_save_slot_list`)
-- `src/game/pause.c`: `func_00227B00` (`load_preview_resource_bindings`)
-- `src/game/pause.c`: `func_00227DB0` (`FUN_00226b08`)
-- `src/game/sound.c`: `func_0022EB08` (`allocate_voice_slot`)
-- `src/game/transition.c`: `func_001EABE8` (`transition_load_wad`)
-- `src/game/transition.c`: `func_001EB458` (`update_gameplay_frame`)
+- `src/game/system/bmain.c`: `func_001E99D8` (`startlevel`)
+- `src/game/system/loaders.c`: `func_00204C60` (`service_level_archive_load`)
+- `src/game/gameplay/missionfunc.c`: `func_0020CDE0` (`update_map_icons`)
+- `src/game/system/pad.c`: `func_002181F0` (`process_pad_input`)
+- `src/game/ui/pause.c`: `func_00219E90` (`FUN_00218f98`)
+- `src/game/ui/pause.c`: `func_0021A1A0` (`FUN_002192a8`)
+- `src/game/ui/pause.c`: `func_0021BB90` (`update_menu_entry_actions`)
+- `src/game/ui/pause.c`: `func_0021CE60` (`draw_map_screen`)
+- `src/game/ui/pause.c`: `func_0021DB30` (`sound_options_menu`)
+- `src/game/ui/pause.c`: `func_0021DE08` (`draw_sound_menu`)
+- `src/game/ui/pause.c`: `func_002209A0` (`FUN_0021f990`)
+- `src/game/ui/pause.c`: `func_00220DF0` (`update_menu_resource_stream`)
+- `src/game/ui/pause.c`: `func_00223B40` (`draw_localized_three_option_menu`)
+- `src/game/ui/pause.c`: `func_00224C30` (`draw_save_slot_list`)
+- `src/game/ui/pause.c`: `func_00227B00` (`load_preview_resource_bindings`)
+- `src/game/ui/pause.c`: `func_00227DB0` (`FUN_00226b08`)
+- `src/game/audio/sound.c`: `func_0022EB08` (`allocate_voice_slot`)
+- `src/game/ui/transition.c`: `func_001EABE8` (`transition_load_wad`)
+- `src/game/ui/transition.c`: `func_001EB458` (`update_gameplay_frame`)
 
 Six more were carried over by machine on 2026-10-09, from Lombyte's pull requests 133 to 135 (the same
 tool, the same rule: identical instructions, Lombyte's C with every symbol renamed to its PAL address, each
@@ -793,7 +793,7 @@ One more is this project's own port of a function it has from Lombyte: `func_L00
 `src/overlays/shared/camera_001EB508.c` is the level programs' copy of `func_001EC2B8` (Lombyte's
 `switch_active_camera_record`), with the same C under the level's symbols.
 
-`include/moby.h`, the shared definition of the moby (the game's 0x100-byte object), its class header and
+`include/structs/moby.h`, the shared definition of the moby (the game's 0x100-byte object), its class header and
 the vector type, is adapted from Lombyte's `include/rnc/gameplay/entities/moby.h` at 88c78925, whose layout
 and field names come from the matched code it cites.
 
@@ -854,8 +854,8 @@ symbol given its PAL name and declared the way this build reaches it; where a fo
 changed, the function's comment says so. `func_L10_002DE018` started from a draft that does not match
 there. In parentheses, Lombyte's name.
 
-- `src/game/loaders.c`: `func_00204340` (`register_shrub_render_class`)
-- `src/game/sound.c`: `func_0022DD68` (`sound_update`)
+- `src/game/system/loaders.c`: `func_00204340` (`register_shrub_render_class`)
+- `src/game/audio/sound.c`: `func_0022DD68` (`sound_update`)
 - `src/overlays/l10_orxon/vendor_00296BD8.c`: `func_L10_002DE018` (`FUN_L10_002dcc58`)
 - `src/overlays/shared/mobyutil_00258BC8.c`: `func_L00_0025BCF8` (`FUN_L00_0025aca0`)
 - `src/overlays/shared/vendor_002A5218.c`: `func_L02_002FCE00` (`FUN_L02_002fb9c8`)
@@ -864,13 +864,13 @@ there. In parentheses, Lombyte's name.
 - `src/overlays/shared/vendor_002D9438.c`: `func_L00_002DACC0` (`FUN_L00_002d9810`)
 - `src/overlays/shared/vendor_002EB0D8.c`: `func_L00_002ED320` (`FUN_L00_002ebe70`)
 
-`include/hero.h` (the hero and the records inside it) and `include/vector.h` (the 16-byte vector) are
+`include/structs/hero.h` (the hero and the records inside it) and `include/structs/vector.h` (the 16-byte vector) are
 adapted from Lombyte's `include/rnc/gameplay/hero.h` and `include/rnc/math/vector.h` at 42adb529, while
-Lombyte was MIT licensed. `include/pad.h` (the controller state) is adapted from its
-`include/rnc/input/pad_state.h` at the same commit. On 2026-10-22 `include/moby.h`, `include/hero.h` and
-`include/pad.h` took the NTSC decomp's later changes at 4e1f255e (GPL-3.0 since its a1379f57): two
-hero fields, the pad button bits and the function names in their comments. `include/hero_state.h`,
-`include/moby_class_id.h` and `include/camera_modes.h` (enumerations only) are its
+Lombyte was MIT licensed. `include/structs/pad.h` (the controller state) is adapted from its
+`include/rnc/input/pad_state.h` at the same commit. On 2026-10-22 `include/structs/moby.h`, `include/structs/hero.h` and
+`include/structs/pad.h` took the NTSC decomp's later changes at 4e1f255e (GPL-3.0 since its a1379f57): two
+hero fields, the pad button bits and the function names in their comments. `include/enums/hero_state.h`,
+`include/enums/moby_class.h` and `include/enums/camera_mode.h` (enumerations only) are its
 `include/rnc/gameplay/hero_state.h`, `include/rnc/gameplay/entities/moby_class_id.h` and
 `include/rnc/gameplay/camera/camera_modes.h` at 4e1f255e.
 
@@ -916,7 +916,7 @@ SOFTWARE.
 The game's C library is newlib. Five functions here are its open sources,
 as Lombyte reconstructed them for the US build and adapted above:
 
-- `src/core/00112468.c`: `func_001126D8` (`_dtoa_r`), David M. Gay's dtoa:
+- `src/core/libc/close_dtoa.c`: `func_001126D8` (`_dtoa_r`), David M. Gay's dtoa:
 
 ```
 The author of this software is David M. Gay.
@@ -935,11 +935,11 @@ REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
 OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
 ```
 
-- `src/core/00114518.c`: `func_00114920` (`_malloc_r`), newlib's allocator, which
+- `src/core/libc/lseek_malloc.c`: `func_00114920` (`_malloc_r`), newlib's allocator, which
   is Doug Lea's malloc (dlmalloc 2.6.5), released by its author to the public
   domain.
 
-- `src/core/00116FA0.c`: `func_00117118` (`_vfprintf_r`), adapted from
+- `src/core/libc/vfprintf.c`: `func_00117118` (`_vfprintf_r`), adapted from
   Lombyte's newlib 1999 `vfprintf.c` reconstruction in
   `src/assembly/runtime/newlib/vfprintf_r.c`. Its macros are expanded into
   ordinary C; its symbols and stdio types use this checkout's PAL definitions.
@@ -973,7 +973,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 OF SUCH DAMAGE.
 ```
 
-- `src/core/00116070.c`: `func_00116168` and `func_001161B0`, fdlibm's finite
+- `src/core/libc/printf_rand.c`: `func_00116168` and `func_001161B0`, fdlibm's finite
   and NaN tests:
 
 ```
@@ -993,18 +993,18 @@ code and notes, or quote it:
 
 - `editor/mobys.py` (OpenRAC's top level): the moby instance record and what the level
   loader does with each field, from `crates/rc-formats/src/gameplay.rs` and
-  `docs/plan/moby_render_notes.md`; described in `docs/ASSETS.md` ("Mobys").
+  `docs/plan/moby_render_notes.md`; described in `docs/reference/ASSETS.md` ("Mobys").
 - `editor/moby_class.py`: the moby class header and model format
   (packets, vertex cache, skinning slots, normals, untextured faces), from
   `docs/formats/moby_rac1.md` §1-§2 and `crates/rc-formats/src/moby.rs`;
-  described in `docs/ASSETS.md` ("Moby classes").
+  described in `docs/reference/ASSETS.md` ("Moby classes").
 - `editor/moby_anim.py`: moby skeletons and animation sequences,
   from `docs/formats/moby_rac1.md` §3-§4, `docs/plan/moby_animation.md` and
   `crates/rc-formats/src/moby_anim.rs`.
 - `editor/collision.py`: the collision block (cell tree, packed
   vertices, faces and surface bytes), from `docs/formats/collision_rac1.md`,
   `docs/plan/collision_queries.md` and `crates/rc-formats/src/collision.rs`;
-  described in `docs/ASSETS.md` ("Collision").
+  described in `docs/reference/ASSETS.md` ("Collision").
 - `config/overlays/rerac_notes.tsv`: names and notes quoted from its
   `tools/ghidra/names/doc_names.csv` (the commit is in the file's header),
   shown in worker packets.
@@ -1032,17 +1032,17 @@ provides reverse-engineered asset decoders, level modding tools, and C++ type
 definitions for moby instance private variables (`pvars`). The following adapt
 its source code and reverse-engineering findings:
 
-- `include/moby_pvars.h`: moby instance private variable (pvar) layouts, NPC
+- `include/pvars/moby_pvars.h`: moby instance private variable (pvar) layouts, NPC
   state machine structs (`npcVars`, `npcStep`, `npcstring`), and IK / procedural
   structures (`Manipulator`, `Tweaker`), adapted from
   `data/overlay/src/game_common/` and `data/overlay/src/game_rac/` for C
   compilation with SN ProDG.
-- `docs/PVARS.md`: documentation of moby pvar layouts and subsystem
+- `docs/reference/PVARS.md`: documentation of moby pvar layouts and subsystem
   architecture synthesized from Wrench's overlay definitions.
 - `tools/extract/`: asset extraction logic (disc layout, table of contents
   groups, level data header sections, core block bounds, WAD compression,
   terrain, ties, shrubs, sky, gameplay block boundaries), as described in
-  `docs/ASSETS.md`.
+  `docs/reference/ASSETS.md`.
 - `tools/extract/moby_classes.tsv`: moby class names and categories joined with
   Wrench's `data/underlay/rac_moby_classes.asset`.
 
@@ -1123,7 +1123,7 @@ The following reconstructions build on the NTSC decomp (Lombyte), pinned at
 4e1f255e524d922af78aecc2af49df3deb57a709 (GPL-3.0). PAL addresses, compiler
 behaviour and emitted bytes are checked against the PAL v2 retail image:
 
-- src/core/989snd.c: func_0012DB68 (snd_StartSoundSystem), from
+- src/core/sound/989snd.c: func_0012DB68 (snd_StartSoundSystem), from
   src/textbin/audio/snd_start_sound_system.c, snd_start_sound_system.
 - src/overlays/shared/help_00232560.c: func_L00_00232EF0, from
   src/overlays/shared/ui/help/00232670.c, FUN_L00_00232670, continued from

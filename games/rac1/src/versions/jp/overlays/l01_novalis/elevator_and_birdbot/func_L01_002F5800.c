@@ -15,15 +15,18 @@ void TetheredMineUpdate(char *m) {
         float x0 = *(float *)&novalis_tethered_mine_near_distance;
         float k = -((1.0f - lo) / (*(float *)&novalis_tethered_mine_far_distance - x0));
         s = k * dist + (1.0f - k * x0);
-        if (1.0f < s) s = 1.0f;
-        if (s < lo) s = lo;
+        if (1.0f < s)
+            s = 1.0f;
+        if (s < lo)
+            s = lo;
     }
     *(float *)(m + 0x2C) = *(float *)(d + 0x170) * s;
     *(float *)(d + 0xFC) = *(float *)(d + 0x174) * s;
     if (hit != 0) {
         int i;
         int *t;
-        if (((unsigned char *)m)[0x20] == 0x65) return;
+        if (((unsigned char *)m)[0x20] == 0x65)
+            return;
         if ((&menu_item_enabled_115_k)[1] == 0) {
             (&menu_item_enabled_115_k)[1] = 1;
             PlayBankSound(1, 0, 0);
@@ -43,7 +46,8 @@ void TetheredMineUpdate(char *m) {
         DeleteMoby(m);
         return;
     }
-    if (((unsigned char *)m)[0x20] == 0x65) return;
+    if (((unsigned char *)m)[0x20] == 0x65)
+        return;
     gunship_follow_path(m);
     *(unsigned short *)(m + 0x34) |= 0x1000;
     d[0x2B] = 1;

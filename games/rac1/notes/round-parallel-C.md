@@ -1,7 +1,7 @@
 # Range C (0x20CC00-0x21FFFF) — harvesting the newly-unblocked sq/lq pool
 
 > **Historical round notes (September 2026), kept as a record.**
-> `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
+> `docs/reference/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:
 > - The remaining size mismatch named here, `func_00115098`, has been
 >   reverted.
@@ -9,7 +9,7 @@
 >   no longer blocks on `movn`.
 > - On `.align 4`: `tools/sweep_matches.py` now reports only padding of
 >   more than 4 bytes, the case where retail wanted 16-byte alignment (see
->   "Post-`endlabel` padding" in `docs/DECOMP_PROGRESS.md`).
+>   "Post-`endlabel` padding" in `docs/reference/DECOMP_PROGRESS.md`).
 
 ## Range survey (205 remaining stubs, mechanically classified)
 

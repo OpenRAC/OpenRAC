@@ -14,6 +14,7 @@ PRELUDE = S / 'prelude.h'
 
 SUBS = [  # same length
     (r'\bunsigned long long\b', '_ULL16____________'),
+    (r'\blong double\b', '_LD_double_'),
     (r'\blong long\b', '_LL16____'),
     (r'\bunsigned long\b', '_UL8_________'),
     (r'\bsigned long\b', '_SL8_______'),
@@ -21,7 +22,7 @@ SUBS = [  # same length
 ]
 PRELUDE.write_text('typedef unsigned __int128 _ULL16____________;\ntypedef __int128 _LL16____;\n'
                    'typedef unsigned long long _UL8_________;\ntypedef long long _SL8_______;\n'
-                   'typedef long long _L8_;\n')
+                   'typedef long long _L8_;\ntypedef long double _LD_double_;\n')
 UNSUB = {b: re.sub(r'\\b', '', a) for a, b in SUBS}
 
 
@@ -40,9 +41,10 @@ def unee(s):
 
 def prep_includes():
     INC_T.mkdir(exist_ok=True)
-    for p in (ROOT / 'include').iterdir():
-        if p.suffix == '.h':
-            (INC_T / p.name).write_text(ee(p.read_text(errors='replace')))
+    for p in (ROOT / 'include').rglob('*.h'):
+        out = INC_T / p.relative_to(ROOT / 'include')
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(ee(p.read_text(errors='replace')))
 
 
 def clang_json(text, name='x.c'):

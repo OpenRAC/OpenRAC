@@ -2,7 +2,7 @@
 """
 Finds a PAL function's counterpart in Lombyte, the matching decompilation
 of the same game's US build (github.com/mateuszklysz/Lombyte, MIT;
-docs/SIBLING_DECOMPS.md). A function Lombyte has matched is the best
+docs/agents/SIBLING_DECOMPS.md). A function Lombyte has matched is the best
 starting point there is: same source, same compiler family.
 
   python3 tools/lombyte.py map              # rebuild the US-to-PAL map

@@ -2,7 +2,7 @@
 """
 Decompile a level's code in Ghidra, with this repository's function names.
 
-The Ghidra MCP project (docs/CONTAINERS.md) holds only the executable, so a
+The Ghidra MCP project (docs/reference/CONTAINERS.md) holds only the executable, so a
 level's own code (the part that replaces `main` when the level loads,
 docs/OVERLAYS.md) is not there, and the headless server cannot import files.
 This builds a flat image of the level's memory (the executable's resident
@@ -79,7 +79,7 @@ def main():
     (out / "names.tsv").write_text("".join(f"{a:08x}\t{n}\n" for a, n in sorted(names.items())))
 
     if not wanted:
-        for p in sorted(glob.glob(str(ROOT / "src/overlays" / f"l{level:02d}_*" / "*.c"))):
+        for p in sorted(glob.glob(str(ROOT / "src/overlays" / f"l{level:02d}_*" / "**" / "*.c"), recursive=True)):
             wanted += re.findall(r'INCLUDE_ASM\("asm/overlays", (func_L\d+_[0-9A-F]+)\)', Path(p).read_text())
     (out / "request.txt").write_text("\n".join(wanted))
 

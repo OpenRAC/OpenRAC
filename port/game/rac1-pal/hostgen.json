@@ -10,6 +10,7 @@
     "src"
   ],
   "skip": [
+    "src/data",
     "src/libgcc",
     "src/versions"
   ],
