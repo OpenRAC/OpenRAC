@@ -34,6 +34,17 @@ bool LevelScene::needs_early_lighting(const renderer::FrameInput& input) const {
                || (m_hero_enabled && input.hero_pixel_shadow));
 }
 
+std::span<const unsigned> LevelScene::opaque_colour_buffers(
+    const renderer::FrameInput& input, const renderer::RenderState& state
+) const {
+    // Scenes without a registered cache retain the standalone colour path.
+    if (!m_lighting) {
+        return {};
+    }
+
+    return m_lighting->early_buffers(input, state);
+}
+
 void LevelScene::bind_shadow_atlas(const renderer::Shader& shader) const {
     glUniform1i(shader.uniform("shadow_atlas_enabled"), m_shadow_atlas_active ? 1 : 0);
     if (m_shadow_atlas_active) {

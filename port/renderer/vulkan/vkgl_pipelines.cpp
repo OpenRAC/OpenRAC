@@ -31,7 +31,9 @@
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/pipeline_cache_file.h"
+#include "renderer/vulkan/prepared_dispatch.h"
 #include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
 
@@ -1729,13 +1731,28 @@ VkDescriptorSet allocate_set(VkDescriptorSetLayout layout) {
     }
 }
 
+Texture* sampled_texture(const Program& p, std::size_t i) {
+    const ProgramUniform& uniform = p.compiled.uniforms[i];
+    const int unit = std::clamp(p.units[i], 0, kUnits - 1);
+    const auto& state = g->state;
+    // Match the descriptor path's separate bindings for texel buffers, array images and ordinary textures.
+    if (uniform.kind == SamplerKind::Buffer) {
+        return g->textures.find(state.unit_buffer[static_cast<std::size_t>(unit)]);
+    }
+    // Array images have independent GL bindings even when they share a texture unit with 2D data.
+    if (uniform.kind == SamplerKind::Texture2DArray) {
+        return g->textures.find(state.unit_array[static_cast<std::size_t>(unit)]);
+    }
+    return g->textures.find(state.unit_2d[static_cast<std::size_t>(unit)]);
+}
+
 Sampled sampled(const Program& p, std::size_t i) {
     const ProgramUniform& u = p.compiled.uniforms[i];
     const int unit = std::clamp(p.units[i], 0, kUnits - 1);
     const State& s = g->state;
+    Texture* t = sampled_texture(p, i);
     Sampled out;
     if (u.kind == SamplerKind::Buffer) {
-        Texture* t = g->textures.find(s.unit_buffer[static_cast<std::size_t>(unit)]);
         // An absent/incomplete texture must still supply a descriptor with
         // the shader's numeric type, including uniforms behind disabled paths.
         const auto fallback = g->dummy_views
@@ -1745,10 +1762,6 @@ Sampled sampled(const Program& p, std::size_t i) {
         out.texels = t != nullptr ? texel_view(t->buffer, t->buffer_format, fallback) : fallback;
         return out;
     }
-    Texture* t = g->textures.find(
-        u.kind == SamplerKind::Texture2DArray ? s.unit_array[static_cast<std::size_t>(unit)]
-                                              : s.unit_2d[static_cast<std::size_t>(unit)]
-    );
     Image* image = t != nullptr && t->image ? t->image.get() : g->dummy_image.get();
     SamplerParams params = t != nullptr ? t->params : SamplerParams{};
     if (const SamplerParams* own =
@@ -2323,6 +2336,26 @@ VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers) {
     return descriptors_reference(p, samplers);
 }
 
+void record_prepared_dispatch(const PreparedDispatch& packet) {
+    vkCmdBindPipeline(frame().main, VK_PIPELINE_BIND_POINT_COMPUTE, packet.pipeline);
+    count_command(Command::BindPipeline);
+    const auto dynamic_offset = packet.uniform_offset;
+    vkCmdBindDescriptorSets(
+        frame().main,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        packet.layout,
+        0,
+        1,
+        &packet.descriptors,
+        packet.dynamic_uniforms ? 1u : 0u,
+        packet.dynamic_uniforms ? &dynamic_offset : nullptr
+    );
+    count_command(Command::BindDescriptors);
+    vkCmdDispatch(frame().main, packet.groups[0], packet.groups[1], packet.groups[2]);
+    count_command(Command::Dispatch);
+    g->bound_pipeline = VK_NULL_HANDLE;
+}
+
 void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
     const auto& limits = g->properties.limits.maxComputeWorkGroupCount;
     // Reject oversized grids before recording an invalid dispatch for any enhanced pass.
@@ -2344,7 +2377,9 @@ void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
         }
         auto sm = sampled(*p, i);
         if (sm.image) {
-            if (sm.image->layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            // The shared plan supplies transitions after all dispatch bindings are frozen.
+            if (!collecting_surface_chain()
+                && sm.image->layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
                 barrier(frame().main, *sm.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
             sm.image->touched = g->recording;
@@ -2352,26 +2387,22 @@ void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
         samplers.push_back(sm);
     }
     const auto set = descriptors(*p, samplers);
-    vkCmdBindPipeline(frame().main, VK_PIPELINE_BIND_POINT_COMPUTE, p->compute_pipeline);
-    count_command(Command::BindPipeline);
-    const auto dynamic_offset = static_cast<std::uint32_t>(p->uniforms_offset);
-    vkCmdBindDescriptorSets(
-        frame().main,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
+    PreparedDispatch packet{
+        p->compute_pipeline,
         p->layout,
-        0,
-        1,
-        &set,
-        p->dynamic_uniforms ? 1u : 0u,
-        p->dynamic_uniforms ? &dynamic_offset : nullptr
-    );
-    count_command(Command::BindDescriptors);
-    vkCmdDispatch(frame().main, x, y, z);
-    count_command(Command::Dispatch);
-    g->bound_pipeline = VK_NULL_HANDLE;
+        set,
+        static_cast<std::uint32_t>(p->uniforms_offset),
+        p->dynamic_uniforms,
+        {x, y, z}
+    };
+    // Without a collector, preserve immediate native recording.
+    if (!collect_surface_dispatch(packet)) {
+        record_prepared_dispatch(packet);
+    }
 }
 
 void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
+    require_surface_execution();
     prepare_frame();
     end_rendering(PassEnd::Barrier);
     // GPU-generated geometry needs read/write ordering across repeated draws and subsequent dispatches.

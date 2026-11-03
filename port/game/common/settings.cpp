@@ -343,6 +343,8 @@ void load(const std::filesystem::path& file) {
             known = parse_int(value, 4, 24, s.gtao_settings.steps);
         } else if (key == "gtao_half_resolution") {
             known = parse_bool(value, s.gtao_settings.half_resolution);
+        } else if (key == "gtao_hi_z") {
+            known = parse_bool(value, s.gtao_settings.hi_z);
         } else if (key == "gtao_radius") {
             known = parse_float(value, 0.05f, 8.0f, s.gtao_settings.radius);
         } else if (key == "gtao_strength") {
@@ -582,6 +584,7 @@ void save() {
         << "gtao_slices = " << s.gtao_settings.slices << "\n"
         << "gtao_steps = " << s.gtao_settings.steps << "\n"
         << "gtao_half_resolution = " << (s.gtao_settings.half_resolution ? 1 : 0) << "\n"
+        << "gtao_hi_z = " << (s.gtao_settings.hi_z ? 1 : 0) << "\n"
         << "gtao_radius = " << s.gtao_settings.radius << "\n"
         << "gtao_strength = " << s.gtao_settings.strength << "\n"
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"

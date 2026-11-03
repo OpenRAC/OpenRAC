@@ -91,8 +91,22 @@ endif()
 # window opens for OPENRAC_GL_API=vulkan.
 if(OPENRAC_VULKAN)
   add_library(openrac_renderer_vulkan STATIC
+    renderer/vulkan/graph_presentation.cpp
+    renderer/vulkan/frame_capture.cpp
+    renderer/vulkan/surface_batch.cpp renderer/vulkan/surface_batch_import.cpp
+    renderer/vulkan/surface_copy.cpp renderer/vulkan/attachment_copy.cpp
+    renderer/vulkan/prepared_raster.cpp
+    renderer/vulkan/temporal_graph.cpp
+    renderer/vulkan/temporal_compute.cpp
     renderer/vulkan/native_compute.cpp
     renderer/vulkan/depth_combine.cpp
+    renderer/vulkan/graph_states.cpp
+    renderer/vulkan/graph_execution.cpp
+    renderer/vulkan/colour_graph.cpp
+    renderer/vulkan/colour_snapshot.cpp
+    renderer/vulkan/graph_graphics_inputs.cpp
+    renderer/vulkan/graph_compute_inputs.cpp
+    renderer/vulkan/graph_transfers.cpp
     renderer/vulkan/colour_transform.cpp
     renderer/vulkan/hdr_output.cpp
     renderer/vulkan/native_shader_compiler.cpp
@@ -198,13 +212,23 @@ add_library(openrac_renderer STATIC
   renderer/debug_geometry.cpp
   renderer/direct.cpp
   renderer/effects.cpp
+  renderer/effects_colour.cpp renderer/effects_draw.cpp
   renderer/framebuffer.cpp
   enhanced/renderer/agx.cpp
   enhanced/renderer/gtao.cpp
+  enhanced/renderer/compute_graph.cpp
+  enhanced/renderer/gtao_depth.cpp
+  enhanced/renderer/gtao_passes.cpp
+  enhanced/renderer/gtao_graph.cpp
   renderer/gl.cpp
   renderer/gl_stats.cpp
   renderer/haze.cpp
   renderer/renderer.cpp
+  renderer/colour_graph.cpp
+  renderer/colour_snapshot.cpp
+  renderer/surface_prepass.cpp
+  renderer/surface_chain.cpp
+  renderer/world_colour.cpp
   renderer/shadow_volume.cpp
   renderer/shadows.cpp
   renderer/program_cache.cpp
@@ -225,6 +249,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_common.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_evaluate.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_depth.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_composite.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.frag"
@@ -238,7 +263,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_renderer PRIVATE openrac_renderer_vulkan)
-  set_source_files_properties(enhanced/renderer/agx.cpp PROPERTIES COMPILE_DEFINITIONS OPENRAC_VULKAN=1)
+  target_compile_definitions(openrac_renderer PRIVATE OPENRAC_VULKAN=1)
 endif()
 openrac_warnings(openrac_renderer)
 
@@ -343,7 +368,10 @@ add_library(openrac_scene_renderer STATIC
   scene/level_instances.cpp
   scene/level_shadows.cpp
   scene/shadow_atlas_renderer.cpp
+  scene/shadow_graph.cpp
+  scene/shadow_cache_renderer.cpp
   scene/shadow_casters.cpp
+  scene/sky_renderer.cpp
   scene/level_lighting_pass.cpp
   scene/shadow_scroll_renderer.cpp
   scene/motion.cpp
@@ -381,6 +409,9 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/renderer/water_asset.cpp
   enhanced/renderer/water_resources.cpp
   enhanced/renderer/water_simulation.cpp
+  enhanced/renderer/water_dispatch.cpp
+  enhanced/renderer/water_graph.cpp
+  enhanced/renderer/water_simulation_graph.cpp
   enhanced/renderer/wetness.cpp
   enhanced/renderer/fur.cpp
   enhanced/renderer/fur_profile.cpp
@@ -395,6 +426,7 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/environment_selection.cpp
   enhanced/renderer/reflection_material.cpp
   enhanced/viewer/probe_selection.cpp
+  enhanced/viewer/probe_selection_graph.cpp
   enhanced/viewer/probe_sphere_culling.cpp
   enhanced/viewer/probe_sphere_instances.cpp
   enhanced/renderer/local_lights.cpp
@@ -588,7 +620,37 @@ target_link_libraries(early_lighting_test PRIVATE openrac_viewer_lib openrac_pla
 target_include_directories(early_lighting_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 openrac_warnings(early_lighting_test)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
+  target_compile_definitions(early_lighting_test PRIVATE OPENRAC_VULKAN=1)
   add_test(NAME early_lighting_vulkan COMMAND early_lighting_test)
+  openrac_add_test(surface_chain SOURCES enhanced/tests/surface_chain_test.cpp
+    LIBS openrac_viewer_lib openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(surface_chain PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  openrac_add_test(sky_chain SOURCES enhanced/tests/sky_chain_test.cpp
+    LIBS openrac_viewer_lib openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(sky_chain PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  add_test(NAME sky_chain_separate COMMAND sky_chain_test)
+  set_tests_properties(sky_chain_separate PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SHADOW_ATLAS_OFF=1")
+  add_test(NAME sky_chain_scroll COMMAND sky_chain_test)
+  set_tests_properties(sky_chain_scroll PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SCROLLING_SHADOWS=1")
+  openrac_add_test(shadow_graph LIBS openrac_scene_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(shadow_graph PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  openrac_add_test(temporal_graph LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(temporal_graph PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  add_test(NAME frame_capture_environment COMMAND temporal_graph_test --capture-environment)
+  set_tests_properties(frame_capture_environment PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_RENDER_GRAPH_DUMP=1")
+  openrac_add_test(colour_graph LIBS openrac_renderer openrac_platform)
+  set_tests_properties(colour_graph PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  openrac_add_test(graph_compute LIBS openrac_renderer openrac_platform)
+  set_tests_properties(graph_compute PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   set_tests_properties(early_lighting_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
@@ -793,6 +855,10 @@ target_link_libraries(gtao_test PRIVATE openrac_viewer_lib openrac_platform)
 openrac_warnings(gtao_test)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME gtao_vulkan COMMAND gtao_test)
+  openrac_add_test(gtao_depth SOURCES enhanced/tests/gtao_depth_test.cpp
+    LIBS openrac_renderer openrac_platform)
+  set_tests_properties(gtao_depth PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   target_compile_definitions(gtao_test PRIVATE OPENRAC_VULKAN=1)
   set_tests_properties(gtao_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")

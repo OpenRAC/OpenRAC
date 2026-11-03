@@ -15,6 +15,7 @@
 
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -71,6 +72,9 @@ public:
 
     // Temporal history is retained when the optional deformation is inactive.
     virtual bool deformation_active() const { return false; }
+
+    // Opts into scoped transport preparation; unknown providers keep immediate sky recording.
+    virtual bool prepares_atmosphere_chain() const { return false; }
 
     // Optional shared camera-medium transport, prepared once after the current shadows.
     virtual bool atmosphere_wanted(const renderer::FrameInput&) const { return false; }
@@ -197,6 +201,13 @@ public:
     virtual bool early_matches(
         const renderer::FrameInput& input, const renderer::RenderState& state
     ) const = 0;
+
+    // Borrows current early cache allocations through this frame; empty keeps colour separate.
+    virtual std::span<const unsigned> early_buffers(
+        const renderer::FrameInput&, const renderer::RenderState&
+    ) const {
+        return {};
+    }
 };
 
 }  // namespace openrac::scene

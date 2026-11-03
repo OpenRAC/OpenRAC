@@ -215,6 +215,8 @@ inline constexpr std::size_t kCommandKinds = static_cast<std::size_t>(Command::O
 // optimisation pays. Counting them is an add where the work is recorded; present() publishes them
 // as the frame's vk_* gauges while the debug tools measure (common/stats.h).
 struct SubmissionCounters {
+    std::uint64_t surface_chains =
+        0;  // Successfully executed shared surface, colour or temporal sections.
     std::uint64_t validation_errors = 0;
     std::uint64_t uniform_writes = 0, uniform_writes_skipped = 0;
     std::uint64_t uniform_uploads = 0, uniform_upload_bytes = 0;

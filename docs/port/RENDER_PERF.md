@@ -83,7 +83,6 @@ before and after, and how its frames are shown to be the same.
 | `shadow-dry-shaders` | on | none (exact) | Dry casters use shadow vertex variants without unused water attachment code. |
 | `probe-translucent-tiles` | on | none (exact) | Blended lighting uses depth-independent tile masks over the same selected probe regions. |
 | `shadow-frame-reuse` | on | none (exact) | Early lighting uses the current shadows already rendered before atmospheric transport. |
-| `native-compute-setup` | on | none (exact) | Small native imports use stack storage and omit repeated read-only image barriers. |
 | `motion-blur-unique-seeds` | on | none (exact) | Later jump-flood passes test each distinct propagated source once per receiver. |
 | `motion-blur-setup-reuse` | on | none (exact) | Unchanged flood uniforms persist between frames without setup-only program switches. |
 | `shadow-geometry-cull` | on | none (exact) | Opaque terrain omits conservative chunks outside the shadow map and submits compatible ranges together. |
@@ -1859,9 +1858,8 @@ No caster bounds, map resolution, filter, bias or distance is reduced by these s
 
 ## Compute setup and probe lookup
 
-`native-compute-setup` uses bounded stack storage for small imports and skips an image barrier
-only when its existing layout/access already permits the same read. Writable resources still
-receive their required dependency.
+Native compute imports declare renderer-owned images to the render graph.
+Read-only images reuse established states; writable resources receive their required dependency.
 
 `probe-translucent-tiles` supplies conservative, depth-independent region masks to blended
 receivers. The same resident volumes, ordering, three-volume limit and visibility rules apply.
@@ -2018,3 +2016,20 @@ tolerance. The scrolling static shadow caches above
 would save the most binning on these GPUs, but they are not the default there: their texel-snapped
 cascades and unfitted caster bounds change the shadows' pixels (`sun_shadow_vulkan` with
 `OPENRAC_TILE_BASED=1`), so they stay behind `OPENRAC_SCROLLING_SHADOWS`.
+
+## Vulkan render graph
+
+Vulkan declares dependencies for shadow caches and combination, surface depth/normals,
+GTAO, tiled lighting and probes, water, world colour and temporal processing.
+The graph is the only Vulkan recording path for these passes. OpenGL retains its
+compatibility path. Hi-Z remains optional and defaults off.
+
+Compatible work shares a compiled plan. Native SDK dispatches execute before their
+success/failure decision is consumed; SDK-private histories and barriers stay opaque.
+Unknown providers use separate scoped graphs. HUD drawing and presentation retain
+explicit boundaries and existing queue submissions.
+
+`surface_chain`, `sky_chain`, `colour_graph`, `shadow_graph` and `temporal_graph`
+check output, ordering, partial preservation and rejection before GPU execution.
+`vkgl::submission_counters().surface_chains` counts completed shared sections.
+The graph changes dependency planning, not shader algorithms or render resolution.

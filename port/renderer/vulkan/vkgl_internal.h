@@ -40,6 +40,7 @@
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/gpu_draw.h"
+#include "renderer/vulkan/frame_capture_internal.h"
 #include "renderer/vulkan/latency_sleep.h"
 #include "renderer/vulkan/pipeline_cache_file.h"
 #include "renderer/vulkan/shader_compiler.h"
@@ -52,6 +53,7 @@
 #include <vk_mem_alloc.h>
 
 namespace openrac::vkgl::detail {
+class SurfaceBatch;
 
 // The names of renderer/gl.h this header uses (a header has no `using namespace`).
 using openrac::gl::GL_ALWAYS;
@@ -1078,6 +1080,9 @@ struct Context {
         ImagePtr staging;
     } hdr;
 
+    SurfaceBatch* surface_batch = nullptr;  // Borrows the current stack-owned preparation scope.
+    FrameCapture
+        frame_capture;  // Optional frame-wide declarations, owned by this graphics context.
     Measures measures;
     SubmissionCounters submission, reported_submission;
     SubmissionCounters published;  // The render counters as the last frame's gauges left them.
@@ -1672,6 +1677,12 @@ VkDescriptorSet allocate_set(VkDescriptorSetLayout layout);
 // What sampler uniform `i` of program `p` reads now (what is bound to its unit), or the fallback of
 // the shader's type when nothing usable is bound.
 Sampled sampled(const Program& p, std::size_t i);
+// Returns the byte extent of a supported complete buffer-to-image transfer, or zero for unsupported storage.
+VkDeviceSize buffer_image_bytes(const Image& image);
+// Records the validated full-image copy without adding barriers or submissions.
+void record_buffer_image_copy(const BufferRef& source, Image& destination);
+// Returns the renderer texture currently supplying one sampler, or null for the immutable fallback.
+Texture* sampled_texture(const Program& program, std::size_t uniform);
 
 // The descriptor set with program `p`'s uniform blocks, default uniforms and `samplers` for
 // this draw, reused while the same resources are bound this frame. VK_NULL_HANDLE for a

@@ -256,3 +256,33 @@ water is unchanged. This reuses the existing depth fetch and adds a scene-colour
 contacts (or the existing rejected-refraction path). Water views 16/17 show contact coverage and the
 unblended reference. GPU fixtures check analytic contact depths, projection types, silhouettes,
 refraction rejection, MSAA and unchanged deeper water.
+
+## Frame graph
+
+Vulkan uses one fixed-order graph to declare
+window metadata/history updates, every alternating wave substep, the wave-buffer
+transfer and later shader reads. Partial window moves preserve both history buffers
+and the previous local coast metadata. Resets overwrite local metadata without
+requiring old contents. The final RGBA32F map feeds depth/shadow deformation,
+floating attachments and water shading. Normals and foam are evaluated from that
+map in the existing shaders; they have no separate generation dispatch.
+
+Water lighting, floating poses and authored UV animation use smaller compute graphs.
+Storage accesses are explicit; sampled images, texel buffers and uniform inputs match
+the bound shader descriptors. UV animation preserves untouched source components;
+pose filtering reads the previous pose allocation and writes the alternate allocation.
+No shaders, physics parameters, sampling order, dispatch counts or submissions change.
+
+The graph owns precise inter-substep dependencies. OpenGL compatibility recording
+retains its compact-barrier option.
+
+`water_runtime` compares all float bits in complete wave maps through catch-up,
+window motion, resets and pause/resume, with identical dispatch counts. `water_gpu`, `water_mesh_gpu` and `enhanced_rendering_vulkan` cover
+analytic normals/foam, authored UVs, floating poses and depth/shadow/colour consumers.
+`graph_compute` checks ranged transfers, undersized copies and recording lifetime.
+
+The colour graph declares the pre-water colour and depth snapshot separately
+from simulation. Single-sample copies and MSAA colour resolves use transfer scopes;
+MSAA depth retains its sample-zero attachment resolve. Both background images
+become sampled before refraction draws, and their source returns to attachment use.
+Snapshot resizing precedes imports; source and sampled background never alias.

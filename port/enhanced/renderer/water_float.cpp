@@ -5,10 +5,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <stdexcept>
 #include <utility>
 
 #include "common/log.h"
 #include "enhanced/renderer/water.h"
+#include "enhanced/renderer/water_graph.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
@@ -193,8 +195,25 @@ void WaterFloat::prepare(const renderer::FrameInput& input, const scene::LevelSc
         );
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_anchor_buffer);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_pose_buffers[m_current]);
-        glDispatchCompute(unsigned((m_records.size() + 63) / 64), 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+        const std::array uses{
+            WaterBufferUse{
+                m_anchor_buffer,
+                m_records.size() * sizeof(m_records[0]),
+                renderer::graph::Access::Read
+            },
+            WaterBufferUse{
+                m_pose_buffers[m_current],
+                m_records.size() * 8 * sizeof(float),
+                renderer::graph::Access::Write
+            }
+        };
+        // Reflected reads retain the previous poses and the shared wave maps until the new poses are ready.
+        const auto result = water_compute_pass("water floating poses", uses, [&] {
+            glDispatchCompute(unsigned((m_records.size() + 63) / 64), 1, 1);
+        });
+        if (!result) {
+            throw std::runtime_error(result.error().message);
+        }
         glActiveTexture(GL_TEXTURE0);
     }
     m_previous = m_anchors;

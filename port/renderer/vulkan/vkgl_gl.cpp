@@ -21,7 +21,9 @@
 
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/attachment_copy.h"
 #include "renderer/vulkan/gl_program.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
@@ -1297,6 +1299,7 @@ void VKGL blit_framebuffer(
     GLbitfield mask,
     GLenum filter
 ) {
+    require_surface_execution();
     const Target from = target_of(g->state.read_framebuffer);
     const Target to = target_of(g->state.draw_framebuffer);
     auto blit_one = [&](Image* src, Image* dst, VkImageAspectFlags aspect, VkFilter f) {
@@ -1345,32 +1348,12 @@ void VKGL blit_framebuffer(
             }
             barrier(cmd, *src, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
             barrier(cmd, *dst, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-            // The resolve writes all of the destination: what it held before is not needed.
-            dst->discarded = 0;
-            VkRenderingAttachmentInfo depth{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            depth.imageView = attachment_view(*src);
-            depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            depth.resolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
-            depth.resolveImageView = attachment_view(*dst);
-            depth.resolveImageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            depth.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-            depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            VkRenderingInfo info{VK_STRUCTURE_TYPE_RENDERING_INFO};
-            info.renderArea =
-                {{sx0, sy0},
-                 {static_cast<std::uint32_t>(std::min({sx1, src->width, dst->width}) - sx0),
-                  static_cast<std::uint32_t>(std::min({sy1, src->height, dst->height}) - sy0)}};
-            info.layerCount = 1;
-            info.pDepthAttachment = &depth;
-            if ((aspect & VK_IMAGE_ASPECT_STENCIL_BIT) != 0) {
-                info.pStencilAttachment = &depth;
-            }
-            vkCmdBeginRendering(cmd, &info);
-            vkCmdEndRendering(cmd);
-            count_render_pass();
-            count_command(Command::RenderPass);
-            count_attachment(*src, info.renderArea.extent, true, true);
-            count_attachment(*dst, info.renderArea.extent, false, true);
+            const VkRect2D area{
+                {sx0, sy0},
+                {static_cast<std::uint32_t>(std::min({sx1, src->width, dst->width}) - sx0),
+                 static_cast<std::uint32_t>(std::min({sy1, src->height, dst->height}) - sy0)}
+            };
+            record_depth_resolve(cmd, *src, *dst, area, aspect);
             return;
         }
         barrier(cmd, *src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -1398,16 +1381,7 @@ void VKGL blit_framebuffer(
                     static_cast<std::uint32_t>(sx1 - sx0), static_cast<std::uint32_t>(sy1 - sy0), 1
                 };
             }
-            vkCmdCopyImage(
-                cmd,
-                src->image,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                dst->image,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                count,
-                copies
-            );
-            count_copy(copies[0].extent.width, copies[0].extent.height);
+            record_image_copy(cmd, *src, *dst, std::span(copies, count));
             return;
         }
         if (src->samples != VK_SAMPLE_COUNT_1_BIT) {
@@ -1427,16 +1401,7 @@ void VKGL blit_framebuffer(
             r.extent.height = std::min<std::uint32_t>(
                 r.extent.height, static_cast<std::uint32_t>(dst->height - r.dstOffset.y)
             );
-            vkCmdResolveImage(
-                cmd,
-                src->image,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                dst->image,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                1,
-                &r
-            );
-            count_copy(r.extent.width, r.extent.height);
+            record_colour_resolve(cmd, *src, *dst, r);
             return;
         }
         VkImageBlit b{};

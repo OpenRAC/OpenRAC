@@ -94,6 +94,8 @@ constexpr Entry kEntries[] = {
      "Darkens corners and creases where light hardly reaches."},
     {Id::OcclusionQuality, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Occlusion quality",
      "Quality traces more directions for smoother occlusion; Performance costs less."},
+    {Id::OcclusionHiZ, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Hierarchical depth (Hi-Z)",
+     "Uses a depth hierarchy for distant ambient-occlusion samples."},
     {Id::TextureUpscaling, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Texture upscaling",
      "Normal draws the world's textures as they are; Edge-aware enlarges them twice with sharp "
      "edges."},

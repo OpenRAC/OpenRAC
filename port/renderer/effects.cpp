@@ -7,15 +7,18 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "renderer/colour_graph.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
 #include "renderer/gs.h"
 #include "renderer/render_opt.h"
+#include "renderer/surface_chain.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -161,6 +164,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
 
 void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view) {
     m_active_shader = &shader;
+    m_colour_reads_ready = false;
     shader.use();
     m_view_projection = shader.uniform("view_projection");
     m_textured = shader.uniform("textured");
@@ -184,6 +188,19 @@ void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, con
     m_applied = AppliedState{};
 }
 
+void EffectRenderer::prepare_colour_reads() {
+    // Per-material textures stay backend-owned; shared lighting and refraction inputs stay fixed
+    // for this shader phase.
+    if (m_colour_reads_ready) {
+        return;
+    }
+    const auto reads = graphics_shader_reads("effect colour inputs");
+    if (!reads) {
+        throw std::runtime_error(reads.error().message);
+    }
+    m_colour_reads_ready = true;
+}
+
 // Collect material meshes before drawing effects so providers can snapshot the untouched scene.
 void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     const bool quads = m_part != EffectPart::Liquids && !input.effects.empty();
@@ -193,7 +210,12 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     if (m_material) {
         const profiling::Zone prepare("Effects material prepare");
-        m_material->prepare(input);
+        const auto setup = run_surface_setup([this, &input] { m_material->prepare(input); });
+
+        // Simulation may borrow stack-owned transfer callbacks and must complete synchronously.
+        if (!setup) {
+            throw std::runtime_error(setup.error().message);
+        }
     }
     if (!any) {
         if (m_material) {
@@ -214,23 +236,6 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glActiveTexture(GL_TEXTURE0);
-
-    static const bool& upload_reference = stats::probe(
-        "OPENRAC_VK_EFFECT_UPLOAD_REUSE_OFF", "Reference: copy and hash every effect texture upload"
-    );
-    const bool reuse_uploads = gl::is_vulkan() && !upload_reference;
-    std::uint64_t reused_uploads = 0, reused_bytes = 0;
-    const auto upload = [&](const ImageUpload& image) {
-        const profiling::Zone trace("Effects texture upload");
-        if (reuse_uploads) {
-            if (state.textures.upload_cached(image)) {
-                ++reused_uploads;
-                reused_bytes += image.data.size();
-            }
-        } else {
-            state.textures.upload(image);
-        }
-    };
 
     // Every strip and quad as triangles in one buffer, sent once; consecutive ones with the same GS
     // state are then one draw. A frame has hundreds to thousands of them (particles, glows), and
@@ -280,11 +285,6 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     if (m_material) {
         m_material->upload_meshes();
-        if (std::any_of(material_meshes.begin(), material_meshes.end(), [](const auto& mesh) {
-                return mesh.has_value();
-            })) {
-            m_material->prepare_scene(input, state.target);
-        }
         m_shader.use();
     }
     const std::size_t quads_from = m_vertices.size();
@@ -316,259 +316,10 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
 
     geometry.reset();
 
-    // The draw being gathered: its first vertex and count, and the GS state it was set up with.
-    struct Batch {
-        GLint first = 0;
-        GLsizei count = 0;
-    } batch;
-
-    struct State {
-        std::uint64_t tex0, tex1, clamp, alpha;
-        std::uint32_t tbp, cbp, surface;
-        EffectUvMotion motion{};
-        bool fogged = false;
-        std::array<float, 4> fog{};
-        std::uint32_t fog_colour = 0;
-        // A quad's TEST from the list (EffectQuad::registers; 0 none) and whether it writes Z.
-        std::uint64_t test = 0;
-        bool z_write = false;
-        bool operator==(const State&) const = default;
-    };
-
-    // The GS fog of a strip whose program applies it (EffectStrip::fogged); none for the others.
-    bool fog_on = false;
-    const auto set_fog = [&](bool fogged, const std::array<float, 4>& line, std::uint32_t colour) {
-        if (!fogged && !fog_on) {
-            return;
-        }
-        fog_on = fogged;
-        glUniform1i(m_fog_enable, fogged ? 1 : 0);
-        glUniform4f(m_fog_line, line[0], line[1], line[2], line[3]);
-        glUniform3f(
-            m_fog_colour,
-            static_cast<float>(colour & 0xFF),
-            static_cast<float>((colour >> 8) & 0xFF),
-            static_cast<float>((colour >> 16) & 0xFF)
-        );
-    };
-
-    std::optional<State> set;
-    const auto draw_batch = [&] {
-        glDrawArrays(GL_TRIANGLES, batch.first, batch.count);
-        state.stats.draw_calls++;
-        state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
-    };
-    const auto flush = [&] {
-        if (batch.count > 0 && set && (set->test != 0 || set->z_write)) {
-            // A quad drawn with the list's TEST and ZBUF, as the chip draws it: the pixels that
-            // pass the alpha test with every write (Z unless ZMSK), then, as OpenGOAL does, those
-            // that fail with what AFAIL still writes. Going Commando's sparks and flames: GEQUAL
-            // 0x60, the failing pixels colour only.
-            const profiling::Zone trace("Effects draw batch");
-            const gs::Test t = gs::Test::decode(set->test);
-            const auto call = [&](int test, bool keep_failing, bool colour, bool alpha, bool z) {
-                glUniform1i(m_alpha_test, test);
-                glUniform1f(m_alpha_ref, static_cast<float>(t.aref));
-                glUniform1i(m_alpha_keep_failing, keep_failing ? 1 : 0);
-                glColorMask(colour, colour, colour, alpha);
-                glDepthMask(z ? GL_TRUE : GL_FALSE);
-                draw_batch();
-            };
-            const bool fail_colour =
-                t.afail == gs::AlphaFail::FbOnly || t.afail == gs::AlphaFail::RgbOnly;
-            const bool fail_alpha = t.afail == gs::AlphaFail::FbOnly;
-            const bool fail_z = t.afail == gs::AlphaFail::ZbOnly && set->z_write;
-            if (!t.ate || t.atst == gs::AlphaTest::Always || m_active_shader != &m_test_shader) {
-                call(0, false, true, true, set->z_write);
-            } else if (t.atst == gs::AlphaTest::Never) {
-                if (t.afail != gs::AlphaFail::Keep) {
-                    call(0, false, fail_colour, fail_alpha, fail_z);
-                }
-            } else {
-                call(static_cast<int>(t.atst), false, true, true, set->z_write);
-                if (t.afail != gs::AlphaFail::Keep) {
-                    call(static_cast<int>(t.atst), true, fail_colour, fail_alpha, fail_z);
-                }
-            }
-            glUniform1i(m_alpha_test, 0);
-            glUniform1i(m_alpha_keep_failing, 0);
-            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-            glDepthMask(GL_FALSE);
-        } else if (batch.count > 0) {
-            const profiling::Zone trace("Effects draw batch");
-            draw_batch();
-        }
-        batch.count = 0;
-    };
-    // Adds `count` vertices from `first` to the draw, with this state; false when the state has
-    // no texture in the pool (apply).
-    bool drawable = true;
-    const auto add = [&](const State& wanted, GLint first, GLsizei count, bool must_have_texture) {
-        if (!set || !(*set == wanted)) {
-            flush();
-            drawable = apply(
-                wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp
-            );
-            if (m_material) {
-                if (m_active_shader == &m_quad_shader
-                    || (m_active_shader == &m_test_shader && m_test_plain)) {
-                    m_material->bind_quads(*m_active_shader, input);
-                } else {
-                    m_material->bind(*m_active_shader, wanted.surface, input, wanted.motion);
-                }
-            }
-            set_fog(wanted.fogged, wanted.fog, wanted.fog_colour);
-            set = wanted;
-        }
-        if (must_have_texture && !drawable) {
-            return;
-        }
-        if (batch.count > 0 && batch.first + batch.count != first) {
-            flush();
-        }
-        if (batch.count == 0) {
-            batch.first = first;
-        }
-        batch.count += count;
-    };
-
-    std::optional<stats::Scope> strip_timing;
-    if (!strip_counts.empty()) {
-        strip_timing.emplace("Effect strips", stats::kGpu, std::source_location::current());
-    }
-    GLint at = 0;
-    unsigned plain_strips = 0, strip_switches = 0;
-    std::size_t strip_index = 0;
-    for (const EffectStrip& strip : input.strips) {
-        if (strip.count < 3
-            || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
-            || !draws(strip)) {
-            continue;
-        }
-        // An image put in the pool may replace what an earlier strip of the draw samples: that one
-        // is drawn first, and the state is set again after.
-        if (strip.uploads >= 0 && strip.upload_count > 0) {
-            flush();
-            set.reset();
-            for (int u = 0; u < strip.upload_count; ++u) {
-                const std::size_t i = static_cast<std::size_t>(strip.uploads + u);
-                if (i < input.effect_uploads.size()) {
-                    upload(input.effect_uploads[i]);
-                }
-            }
-        }
-        const auto mesh = material_meshes[strip_index];
-        const auto count = strip_counts[strip_index++];
-        const bool plain_strip = !mesh && strip.surface == 0 && !strip.uv_motion.enabled
-                                 && m_quad_shader.id() && m_material->plain_strips_supported()
-                                 && render_opt::enabled(render_opt::Opt::EffectStripShader);
-        auto& wanted_shader = plain_strip ? m_quad_shader : m_shader;
-        if (m_active_shader != &wanted_shader) {
-            flush();
-            use_shader(wanted_shader, view_projection, input.camera.view);
-            set.reset();
-            ++strip_switches;
-        }
-        plain_strips += plain_strip ? 1u : 0u;
-        // Keep the original strip order and texture uploads around each material draw.
-        if (mesh) {
-            flush();
-            set.reset();
-            apply(strip.tex0, strip.tex1, strip.clamp, strip.alpha, state);
-            m_material->bind(m_shader, strip.surface, input, strip.uv_motion);
-            set_fog(strip.fogged, strip.fog, strip.fog_colour);
-            {
-                const profiling::Zone trace("Effects material draw");
-                m_material->draw_mesh(m_shader, *mesh);
-            }
-            state.stats.draw_calls += mesh->draws;
-            state.stats.triangles += mesh->vertices / 3;
-            glBindVertexArray(m_vao);
-            glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-            continue;
-        }
-        add({strip.tex0,
-             strip.tex1,
-             strip.clamp,
-             strip.alpha,
-             0,
-             0,
-             strip.surface,
-             strip.uv_motion,
-             strip.fogged,
-             strip.fog,
-             strip.fog_colour},
-            at,
-            count,
-            false);
-        at += count;
-    }
-    flush();
-    strip_timing.reset();
-    stats::gauge("effect plain strips", plain_strips);
-    stats::gauge("effect strip shader switches", strip_switches);
-    std::optional<stats::Scope> quad_timing;
-    if (quads) {
-        quad_timing.emplace("Effect quads", stats::kGpu, std::source_location::current());
-    }
-    const bool plain =
-        quads && m_quad_shader.id() && render_opt::enabled(render_opt::Opt::EffectQuadShader);
-    if (plain || (quads && m_active_shader != &m_shader)) {
-        use_shader(plain ? m_quad_shader : m_shader, view_projection, input.camera.view);
-    }
-    stats::gauge("effect quad shader", quads && m_active_shader == &m_quad_shader ? 1 : 0);
-    // Every quad's texture before any quad is drawn. A texture's upload rides on the first quad that
-    // named it (frontend::particle_quads hands out the pool keys per frame, in pool order), but the
-    // quads are drawn back to front: one drawn before that quad sampled what the key held last frame,
-    // another texture, and the nanotech crates' orbs came out as opaque white quads.
-    // Refactor note: the uploads could travel as a list of their own instead of riding on quads.
-    for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
-        if (q.uploads >= 0
-            && static_cast<std::size_t>(q.uploads) + 1 < input.effect_uploads.size()) {
-            upload(input.effect_uploads[static_cast<std::size_t>(q.uploads)]);
-            upload(input.effect_uploads[static_cast<std::size_t>(q.uploads) + 1]);
-        }
-    }
-    set.reset();
-    at = static_cast<GLint>(quads_from);
-    Shader* const quad_shader = m_active_shader;
-    unsigned tested_quads = 0;
-    for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
-        State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
-        Shader* shader = quad_shader;
-        if (q.registers) {
-            // The list's TEST and ZBUF (EffectQuad::test, zbuf). An alpha test needs the shader
-            // that keeps it; without that shader the quad is drawn as before, every pixel, no Z.
-            const gs::Test t = gs::Test::decode(q.test);
-            const bool testing =
-                t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never;
-            if (!testing || m_test_shader.id()) {
-                wanted.test = q.test;
-                wanted.z_write = !gs::Zbuf::decode(q.zbuf).zmsk;
-                if (testing) {
-                    shader = &m_test_shader;
-                    ++tested_quads;
-                }
-            }
-        }
-        if (m_active_shader != shader) {
-            flush();
-            use_shader(*shader, view_projection, input.camera.view);
-            set.reset();
-        }
-        add(wanted, at, 6, true);
-        at += 6;
-    }
-    flush();
-    stats::gauge("effect quads alpha tested", tested_quads);
-    stats::gauge("effects uploads reused", double(reused_uploads));
-    if (m_material) {
-        m_material->finish_pass();
-    }
-    stats::gauge("effects upload bytes reused", double(reused_bytes));
-    glBindVertexArray(0);
-    glDisable(GL_BLEND);
-    glDepthMask(GL_TRUE);
+    auto prepared = std::make_shared<const PreparedEffects>(
+        PreparedEffects{std::move(strip_counts), std::move(material_meshes), quads_from}
+    );
+    record_colour(input, state, prepared);
 }
 
 bool EffectRenderer::apply(

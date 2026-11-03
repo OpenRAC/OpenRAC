@@ -8,6 +8,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/world/gl_world.h"
@@ -277,7 +278,6 @@ bool LocalLights::dispatch(
 
     const auto x = unsigned((width + 15) / 16), y = unsigned((height + 15) / 16);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, m_buffers[1]);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     m_cull.use();
     m_clip = renderer::multiply(camera.projection, camera.view);
     glUniformMatrix4fv(m_cull.uniform("world_to_clip"), 1, GL_FALSE, m_clip.data());
@@ -289,11 +289,21 @@ bool LocalLights::dispatch(
     glUniform1i(m_cull.uniform("lights"), kFirstUnit);
     glActiveTexture(GL_TEXTURE0 + kFirstUnit);
     glBindTexture(wgl::GL_TEXTURE_BUFFER, m_textures[0]);
-    {
-        const stats::Scope pass("Forward+ light culling", stats::kGpu);
-        glDispatchCompute(x, y, 1);
+    const std::array<ComputeOutput, 1> outputs{{{m_buffers[1], m_mask_words * sizeof(unsigned)}}};
+    std::string error;
+    // The output is complete for opaque and transparent receivers; light-table and depth reads are captured.
+    if (!run_compute_graph(
+            "Forward+ light culling",
+            outputs,
+            [&] {
+                const stats::Scope pass("Forward+ light culling", stats::kGpu);
+                glDispatchCompute(x, y, 1);
+            },
+            error
+        )) {
+        log::warn("Forward+ graph unavailable, using all local lights: {}", error);
+        return false;
     }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     m_width = width;

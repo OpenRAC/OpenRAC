@@ -18,7 +18,9 @@
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/shader.h"
+#include "renderer/vulkan/graph_execution.h"
 #include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/temporal_graph.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
@@ -30,7 +32,7 @@ namespace detail = openrac::vkgl::detail;
 namespace render_opt = openrac::renderer::render_opt;
 using namespace openrac::gl;
 
-// Restores the real driver before any resource owner tears down or an assertion fails.
+// Restores the overridden driver entry point or tracked state before resource teardown.
 template <typename Function>
 class FunctionOverride {
 public:
@@ -265,13 +267,9 @@ void test_native_compute_rejects_conflicting_images() {
         called = true;
         return true;
     };
-    // Both the small stack-backed path and the reference vector path enforce the same contract.
-    for (const bool streamlined : {false, true}) {
-        render_opt::set(render_opt::Opt::NativeComputeSetup, streamlined);
-        CHECK(!vkgl::record_native_compute(uses, record));
-        CHECK(!called);
-        CHECK(image->layout == layout);
-    }
+    CHECK(!vkgl::temporal_compute("native import test", uses, record));
+    CHECK(!called);
+    CHECK(image->layout == layout);
     render_opt::reset();
     glDeleteTextures(1, &texture);
 }
@@ -327,6 +325,50 @@ void test_failed_submit_never_waits() {
     CHECK(!detail::frame().submitted);
 }
 
+// Unsupported external layouts return an import error without throwing across the graph interface.
+void test_graph_rejects_unknown_layout() {
+    openrac::renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create(1, 1, error));
+    auto* texture = detail::g->textures.find(target.colour_texture());
+    CHECK(texture && texture->image);
+    // The invalid layout exists only while no driver command can consume this borrowed image.
+    {
+        const FunctionOverride layout(texture->image->layout, static_cast<VkImageLayout>(-1));
+        vkgl::GraphExecution execution;
+        const auto imported = execution.import_image("unknown layout", target.colour_texture());
+        CHECK(!imported);
+        CHECK(imported.error().message.find("unsupported graph import") != std::string::npos);
+    }
+    target.release();
+}
+
+// A callback failure cannot release an image already named by the recording's graph barriers.
+void test_failed_graph_retains_images() {
+    namespace graph = openrac::renderer::graph;
+    openrac::renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create(1, 1, error));
+    const auto image = detail::g->textures.find(target.colour_texture())->image;
+    vkgl::GraphExecution execution;
+    const auto output = execution.import_image(
+        "failed output", target.colour_texture(), vkgl::InitialContents::Discard
+    );
+    CHECK(output);
+    execution.add_pass(
+        {"fail after barrier",
+         {{*output,
+           {},
+           {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::General}}}}
+    );
+    // No draw binds the image; the executor itself must retain the barrier's allocation lifetime.
+    const auto failed =
+        execution.run([](unsigned) { throw std::runtime_error("injected callback failure"); });
+    CHECK(!failed);
+    CHECK(image->touched == detail::g->recording);
+    target.release();
+}
+
 // Runs every check in one tiny context; injected entry points are restored before shutdown.
 int run_tests() {
     vkgl::Config config;
@@ -349,6 +391,8 @@ int run_tests() {
     test_upload_size_overflow_is_rejected();
     test_single_sample_colour_expands_into_msaa();
     test_native_compute_rejects_conflicting_images();
+    test_graph_rejects_unknown_layout();
+    test_failed_graph_retains_images();
     test_rejects_oversized_dispatch();
     test_descriptor_failure_is_not_retried();
     test_failed_submit_never_waits();

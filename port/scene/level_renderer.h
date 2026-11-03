@@ -19,6 +19,7 @@
 
 #include <array>
 #include <memory>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -27,6 +28,7 @@
 #include "renderer/debug_lines.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gpu_draw.h"
+#include "renderer/render_opt.h"
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
 #include "renderer/world/gpu.h"
@@ -84,6 +86,10 @@ public:
 
     bool batches_opaque_colour() const;
     bool colour_blend_barrier(Layer layer) const;
+    // Borrows view-matched lighting buffers owned by the registered provider through this frame.
+    std::span<const unsigned> opaque_colour_buffers(
+        const renderer::FrameInput& input, const renderer::RenderState& state
+    ) const;
 
     bool sun_shadow_enabled() const { return m_sun_enabled; }
 
@@ -387,13 +393,47 @@ private:
         renderer::Mat4 camera_clip{};
     };
 
+    // Checks whether the registered transport provider can prepare stable graph declarations.
+    bool can_prepare_atmosphere(const renderer::FrameInput& input) const;
+    // Prepares current shadows and transport once, within a caller-owned execution scope.
+    void prepare_atmosphere_inputs(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Prepares transport before terrain colour when the level has no sky bucket.
+    void prepare_atmosphere(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Queues authored sky and its transport overlay after preparing their shadow/atmosphere inputs.
+    void record_sky(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Executes eligible shadows, transport and sky from one shared plan; references stay immediate.
+    void render_sky(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Draws authored sky shells with the original material blending and camera-relative transforms.
     void draw_sky(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Updates the hero projection and renders its separate map when the atlas is unavailable.
     void prepare_hero_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Updates cascade/caster views and renders separate maps when the atlas is unavailable.
     void prepare_sun_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Joins an active lighting plan, or executes shadow production before atmosphere consumes it.
     void prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Prepares stable shadow allocations and scoped caster callbacks without forcing execution.
+    void prepare_shadow_passes(const renderer::FrameInput& input, renderer::RenderState& state);
     void set_shadow_quality(renderer::ShadowQuality quality);
     bool make_shadow_atlas(std::string& error);
+    // Records atlas casters through the depth graph after preparing any persistent static caches.
     void draw_shadow_atlas(renderer::RenderState& state);
+    // Unbinds earlier shadow sampling and refreshes the five atlas matrices and draw buckets.
+    void prepare_shadow_atlas_draws();
+    // Clears depth and optionally unused attachment contents before a complete atlas refresh.
+    void clear_shadow_atlas(bool discard);
+    // Records the unchanged sun/hero draw buckets, retaining copied static depth when requested.
+    void record_shadow_atlas(
+        unsigned scrolling, bool cache, bool discard, renderer::RenderState& state
+    );
+    // Restores the world target and releases attachment contents no lighting pass samples.
+    void finish_shadow_atlas(bool discard, const renderer::RenderState& state);
+    // Finishes unused attachment cleanup and publishes counters after every deferred shadow producer.
+    void complete_shadow_atlas(
+        const renderer::RenderState& state,
+        bool discard,
+        renderer::FrameStats before,
+        unsigned rerendered
+    );
     // Which casters a shadow map draws: all of them, or, for the static shadow cache (R-18), the
     // static layers (terrain, ties, shrubs) into the cache or the mobys over a copy of it.
     enum class ShadowCasters : std::uint8_t {
@@ -403,12 +443,34 @@ private:
         StaticOpaque,  // Persistent coverage: opaque, unskinned static layers only.
         DynamicAlpha,  // Mobys and all static coverage that can require alpha testing.
     };
-    // Draws the sun cascades whose static casters changed into the static shadow cache, copies
-    // the cache into the atlas and draws the dynamic casters over it; returns the cascades it drew
-    // into the cache (shadow-static-cache, docs/port/RENDER_PERF.md, R-18).
+
+    // A cache key decision is made before callbacks can change any persistent contents.
+    struct StaticShadowUpdate {
+        std::array<StaticShadowKey, kSunCascades> keys{};  // New complete cache identities.
+        std::array<bool, kSunCascades> missed{};           // Rectangles that need redrawing.
+        unsigned count = 0;                                // Number of changed cascades.
+        unsigned last = 0;   // Last changed cascade flushes draw buckets.
+        bool fresh = false;  // A new allocation needs a complete clear.
+    };
+
+    // Compares current caster views with retained cache keys without issuing GPU commands.
+    StaticShadowUpdate static_shadow_update() const;
+    // Allocates a cache matching the atlas, retaining the original all-caster fallback on failure.
+    bool make_static_shadow_target();
+    // Clears the entire fresh cache, or only changed cascade rectangles of an existing cache.
+    void clear_static_shadow_updates(const StaticShadowUpdate& update);
+    // Records changed static casters as one graph phase after its clear/preserve declaration.
+    void record_static_shadow_updates(
+        const StaticShadowUpdate& update, renderer::RenderState& state
+    );
+    // Copies complete cached depth into the dynamic atlas under an explicit transfer dependency.
+    void copy_static_shadow_depth();
+    // Updates changed static cascades and copies cached depth into the atlas; returns the update count.
+    // An absent cache on allocation failure tells the caller to clear and draw all casters instead.
     unsigned draw_cached_cascades(renderer::RenderState& state);
     // Binds `framebuffer`, the atlas or the cache, for depth-only shadow drawing over all of it.
     void begin_shadow_target(unsigned framebuffer);
+    // Publishes cascade and geometry rejection counters after the queued caster draws record.
     void report_sun_culling() const;
     void draw_shadow_map(
         unsigned target,
@@ -428,8 +490,10 @@ private:
         renderer::Vec3 direction, renderer::Vec3 low, renderer::Vec3 high
     );
     bool make_scrolling_target(unsigned cascade);
+    // Records dirty physical strips as one complete-clear or preserved-depth graph phase.
     void draw_scrolling_regions(unsigned cascade, renderer::RenderState& state);
     unsigned update_scrolling_shadows(renderer::RenderState& state);
+    // Combines cached opaque and dynamic depth, restoring atlas casters when composition fails.
     void combine_scrolling_shadows(unsigned mask, renderer::RenderState& state);
     void release_scrolling_shadows();
     Group make_group(std::uint32_t model);
@@ -675,6 +739,14 @@ public:
 
     bool opaque_colour_barrier() const override { return m_scene.colour_blend_barrier(m_layer); }
 
+    bool prepares_colour_chain() const override { return m_layer != Layer::Sky; }
+
+    std::span<const unsigned> opaque_colour_buffers(
+        const renderer::FrameInput& input, const renderer::RenderState& state
+    ) const override {
+        return m_scene.opaque_colour_buffers(input, state);
+    }
+
     void render_opaque_colour(
         unsigned phase, const renderer::FrameInput& input, renderer::RenderState& state
     ) override {
@@ -687,6 +759,13 @@ public:
 
     bool needs_early_lighting(const renderer::FrameInput& input) const override {
         return m_layer == Layer::Terrain && m_scene.needs_early_lighting(input);
+    }
+
+    // Shadow callbacks retain their captures until the shared lighting plan executes.
+    bool prepares_surface_chain(
+        const renderer::FrameInput&, const renderer::RenderState&
+    ) const override {
+        return renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowFrameReuse);
     }
 
     void render_early_lighting(

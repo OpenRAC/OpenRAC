@@ -76,6 +76,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | GTAO directions | `gtao_slices` | `1` to `12` (default `4`) | Number of horizon-search directions; adjustable in ImGui's GTAO settings |
 | GTAO steps | `gtao_steps` | `4` to `24` (default `6`) | Depth samples per side of each direction |
 | GTAO half resolution | `gtao_half_resolution` | `0` (full resolution), `1` (half resolution, default) | A faster half-resolution evaluation with edge-aware upsampling |
+| GTAO hierarchical depth | `gtao_hi_z` | `0` (default), `1` | Optional min/max depth hierarchy for distant taps; close contacts, refinement and discontinuities use full-resolution depth |
 | GTAO radius | `gtao_radius` | `0.05` to `8.0` (default `1.25`) | Occlusion radius in scene units |
 | GTAO strength | `gtao_strength` | `0.0` to `3.0` (default `1.0`) | Multiplies indirect-light occlusion; zero leaves the picture unchanged |
 | Texture filtering | `texture_filter` | `normal`, `edge-aware` (default with Enhanced Graphics) | In Graphics > Enhanced Settings, enabled by the Enhanced graphics master switch. Enlarged world textures (meshes, reflections, sky and world effects): original sampling or cached 2x edge-aware colour reconstruction with directional debanding (Vulkan compute only; OpenGL supports Normal only; other saved values use Normal there). The cache is limited to 64 MiB per texture pool and falls back to Normal when full. Alpha/cutout coverage, shadow/depth sampling, HUD text and distant mip/anisotropic filtering are unchanged |

@@ -2,8 +2,10 @@
 // Copyright (c) 2026 the OpenRAC contributors
 // GPU ownership and draws for the baked water templates; no dense CPU stream is constructed.
 #include <cstddef>
+#include <stdexcept>
 
 #include "common/profiler.h"
+#include "enhanced/renderer/water_graph.h"
 #include "enhanced/renderer/water_mesh.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
@@ -69,8 +71,16 @@ void WaterMesh::upload() {
     m_animation.use();
     gl::glUniform1i(m_animation.uniform("triangle_count"), static_cast<int>(m_sources.size()));
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, m_source_buffer);
-    gl::glDispatchCompute(static_cast<unsigned>((m_sources.size() + 63) / 64), 1, 1);
-    gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT | gl::GL_TEXTURE_FETCH_BARRIER_BIT);
+    const std::array uses{WaterBufferUse{
+        m_source_buffer, m_sources.size() * sizeof(Source), renderer::graph::Access::ReadWrite
+    }};
+    // Authored UV animation updates selected components while preserving positions, colours and source records.
+    const auto result = water_compute_pass("water authored UVs", uses, [&] {
+        gl::glDispatchCompute(static_cast<unsigned>((m_sources.size() + 63) / 64), 1, 1);
+    });
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
 }
 
 void WaterMesh::bind(const renderer::Shader& shader) const {

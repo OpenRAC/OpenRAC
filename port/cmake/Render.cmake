@@ -32,6 +32,19 @@ add_library(openrac_render_opt STATIC renderer/render_opt.cpp)
 target_link_libraries(openrac_render_opt PUBLIC openrac_common)
 openrac_warnings(openrac_render_opt)
 
+# The graph planner has no graphics API dependency; its validation tests also run headlessly.
+add_library(openrac_renderer_graph STATIC
+  renderer/graph/frame_graph.cpp renderer/graph/ranges.cpp
+  renderer/graph/compile.cpp renderer/graph/describe.cpp renderer/graph/frame_context.cpp)
+target_link_libraries(openrac_renderer_graph PUBLIC openrac_common)
+openrac_warnings(openrac_renderer_graph)
+openrac_add_test(frame_graph LIBS openrac_renderer_graph)
+openrac_add_test(frame_context LIBS openrac_renderer_graph)
+
+if(TARGET openrac_renderer_vulkan)
+  target_link_libraries(openrac_renderer_vulkan PRIVATE openrac_renderer_graph)
+endif()
+
 # The envelope of the Vulkan backend's cache files (renderer/vulkan/cache_file.h), which the
 # pipeline cache and its manifest share (R-10), and the SPIR-V cache in it (R-12). Added here so that cmake/Window.cmake, which makes
 # the target, is left to its own lane.

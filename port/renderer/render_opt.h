@@ -61,7 +61,6 @@ enum class Opt : std::uint8_t {
     WaterStepBarriers,  // water-step-barriers: one dependency between adjacent simulation substeps
     FsrObjectHistoryReuse,  // fsr-object-history-reuse: retain nodes for surviving temporal identities
     FsrFloat16,             // fsr-float16: vendor half-precision history filtering
-    NativeComputeSetup,  // native-compute-setup: stack imports and reuse established read layouts
     ShadowFrameReuse,  // shadow-frame-reuse: atmosphere and early lighting share this frame's maps
     ProbeTranslucentTiles,  // probe-translucent-tiles: depth-independent region masks for blending
     ShadowDryShaders,       // shadow-dry-shaders: omit unused water deformation for dry casters

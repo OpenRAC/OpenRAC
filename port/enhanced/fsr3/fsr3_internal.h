@@ -72,6 +72,8 @@ struct Fsr3::State {
     bool valid = false;       // Previous camera and object poses belong to a completed frame.
     bool has_opaque = false;  // The current frame reached its preparticle snapshot hook.
     bool failed = false;      // Suppresses repeated SDK failures until resources are released.
+    std::function<void()>
+        finish_colour;  // Frame-owned colour grading callback, retained through resolve.
 
     // Builds renderer-owned helper shaders lazily, before recording any temporal frame.
     [[nodiscard]] bool build_shaders(std::string& error);
@@ -103,6 +105,12 @@ struct Fsr3::State {
     void draw_reactive();
     // Resolves world colour, retains history and changes the caller's target to display resolution.
     void resolve(renderer::RenderTarget& target);
+    // Prepares motion, reconstruction and blur without committing displayed-frame history.
+    bool resolve_images();
+    // Records the synchronous SDK decision and its existing complete-world fallback.
+    bool upscale(unsigned blur_output);
+    // Applies blur to the completed reconstruction, retaining the unblurred fallback on resource failure.
+    void apply_blur(const renderer::Vec3& delta, unsigned blur_output);
     void restore_world_depth();
 };
 }  // namespace openrac::enhanced

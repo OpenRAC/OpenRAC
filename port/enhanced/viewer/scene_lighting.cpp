@@ -347,6 +347,12 @@ bool SceneLighting::early_matches(
     return m_early_lighting.matches(input, state);
 }
 
+std::span<const unsigned> SceneLighting::early_buffers(
+    const renderer::FrameInput& input, const renderer::RenderState& state
+) const {
+    return m_early_lighting.buffers(input, state);
+}
+
 bool SceneLighting::set_probe_volume(
     const ProbeVolume& volume, std::string& error, const ProbeVolume* dense
 ) {

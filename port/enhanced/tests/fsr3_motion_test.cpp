@@ -13,6 +13,9 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
+#include "renderer/render_opt.h"
+#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -140,7 +143,21 @@ struct MotionFixture {
         view.size = {64, 64};
         // Both poses index separate matrices in the same synthetic palette image.
         view.previous_palette = previous_palette;
-        scene.draw_motion(shader, instances, view, renderer.textures(), submission);
+        // The owning render thread either records immediately or freezes this overlay until scope exit.
+        const auto draw = [&] {
+            scene.draw_motion(shader, instances, view, renderer.textures(), submission);
+        };
+        // Vulkan collects the production overlay; compatibility rendering keeps its direct draw.
+        if (vkgl::active()) {
+            CHECK(vkgl::temporal_chain([&] {
+                const vkgl::TemporalTarget target{
+                    motion.framebuffer(), vkgl::TemporalContents::Preserve
+                };
+                CHECK(vkgl::temporal_raster("fixture object motion", target, {}, draw));
+            }));
+        } else {
+            draw();
+        }
         glBindFramebuffer(GL_FRAMEBUFFER, output.id());
         glBindVertexArray(vao);
         glActiveTexture(GL_TEXTURE0);
@@ -278,6 +295,10 @@ void test_batched_motion_matches_reference(bool cutout) {
     instances.resize(2);
     const auto smaller = fixture.sample_many(instances, scene::MotionSubmission::Individual);
     CHECK(fixture.sample_many(instances, scene::MotionSubmission::Batched) == smaller);
+    // The same rigid, skinned and cutout coverage must match across repeated graph recording.
+
+    CHECK(fixture.sample_many(instances, scene::MotionSubmission::Batched) == smaller);
+    renderer::render_opt::reset();
     CHECK(glGetError() == GL_NO_ERROR);
 }
 }  // namespace
@@ -299,6 +320,10 @@ int main() {
         test_skinned_motion();
         test_batched_motion_matches_reference(false);
         test_batched_motion_matches_reference(true);
+        // Nested material reads must not change layouts behind the temporal graph's attachment declarations.
+        if (vkgl::active()) {
+            CHECK(vkgl::submission_counters().validation_errors == 0);
+        }
         return test::result();
     } catch (...) {
         return 1;

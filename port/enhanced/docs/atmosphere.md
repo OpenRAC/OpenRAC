@@ -48,7 +48,9 @@ attenuate their source colour. Menus and HUD drawing retain their original treat
 
 After the authored sky shells, a premultiplied fog-only overlay adds height/local fog once to the
 sky and clear background. The authored aerial haze is omitted there to avoid applying atmosphere
-twice. The current frame's shadow maps are prepared before volume evaluation.
+twice. On Vulkan, current shadows, volume evaluation, authored sky and the fog overlay
+execute from one shared plan. Unknown lighting providers and keep-colour frames
+use separate scoped graphs.
 
 ## Scope and verification
 
@@ -65,7 +67,9 @@ colour convention to match authored fog and its fixed-function effect blending.
 
 `atmosphere` checks authored haze, Beer-Lambert attenuation, overlapping media, partial slices,
 small spheres, finite outputs and sky separation on the GPU. `atmosphere_off` checks shader
-fallback. The existing enhanced-rendering and water tests cover affected shader paths.
+fallback. `sky_chain` checks exact sky/fog composition, MSAA, resizing, world
+consumers and declared ordering; separate-map and scrolling variants exercise both
+shadow paths. The existing enhanced-rendering and water tests cover affected shaders.
 
 `atmosphere_precision` checks emitted FP16 arithmetic and an FP32 shader variant with unchanged
 uniform/storage layouts. GPU colour checks cover ordinary, HDR and very dim lights. The same

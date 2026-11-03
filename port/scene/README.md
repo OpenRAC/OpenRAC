@@ -139,3 +139,30 @@ original rest mesh and bone frames. The rest pose is not necessarily a T-pose. E
 sequences are not exported into preview models yet, so independent sequence playback is unavailable.
 Bone overlays work with classic graphics; optional enhanced light authoring stays in a separate
 foldout (see [enhanced](../enhanced/README.md#object-light-authoring)).
+
+### Shadow graph phases
+
+`shadow_graph.h` records the existing shadow draws and depth copies between explicit
+Vulkan graph dependencies. Fresh caches and complete maps clear their depth; partial
+static and scrolling updates preserve all previously valid depth outside dirty regions.
+The static-cache copy feeds depth-attachment writes in the dynamic atlas, followed by
+sampled exports for combination and lighting. Separate sun/hero maps use the same contract.
+
+These phases share renderer-owned images with the native depth-combination graph and
+early-lighting graph through their actual allocation state. They do not change caster
+selection, batching, cache keys or submissions. Graph ranges cover whole depth images;
+scissors still define the dirty pixel rectangles inside a recording callback. Existing
+mesh, animation and deformation input synchronisation remains with the draw path.
+
+On Vulkan, shadow preparation retains allocations and copied
+callback captures until their shared plan executes. Cache keys and scrolling-grid
+validity advance after their writers record. Completion publishes culling counters
+and discards unused atlas attachments after composition.
+
+`sky_renderer.cpp` prepares current shadows and transport, then queues authored sky
+and its fog overlay in one shared scope. The registered lighting provider explicitly
+opts into preparation. Terrain still prepares transport when a level has no sky
+bucket. Without active atmosphere, late shadows join the surface-lighting plan.
+`shadow_graph` compares fresh, partial, cache-hit and recreated allocations against
+the reference path. Enhanced scene tests compare both scheduling modes with
+atmosphere, hero motion, changing resolutions, deformation and scrolling caches.
