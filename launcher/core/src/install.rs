@@ -6,7 +6,7 @@
 //! ```text
 //! <install dir>/active/<game>/data/
 //!     iso_data/<game>/        the disc's files, the image, buildinfo.json   (extract)
-//!     decompiler_out/<game>/  the assets in the port's formats              (decompile, not yet)
+//!     decompiler_out/<game>/  the assets in the port's formats              (decompile)
 //!     out/<game>/             the built port                                (compile, not yet)
 //! ```
 //!

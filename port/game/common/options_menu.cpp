@@ -686,10 +686,10 @@ std::uint32_t text(int id) {
 
 /* In a level, the pause menu's Options page (HelpDesk, Save, Load, Sound, Camera, Subtitles, Quit
  * Game) is level code with no Video page, so one is made: a copy of the Camera page (with the Sound
- * page's frames, which are taller), whose list
- * widget shows rows of a label and one of up to four value names chosen by an int (each row 0x18:
- * label, the int's address, the names, 0). The port's rows are given to it kShownHere at a time,
- * each with its value as all three names and its int at 1: Right makes it 2 and Left 0 (whether the
+ * page's frames, which are taller), whose list widget shows rows of a label and one of up to four
+ * value names chosen by an int (each row 0x18: label, the int's address, the names, 0). The port's
+ * rows are given to it kShownHere at a time, each with its value as all three names and its int at
+ * 1: Right makes it 2 and Left 0 (whether the
  * widget wraps or stops), which steps the setting, and the int goes back to 1. "Video" goes into a
  * copy of the Options list's items after Sound, put in the list each time the game gives it its own,
  * as on the title's Options page, and the hint box's texts and the picture box's entries get one for

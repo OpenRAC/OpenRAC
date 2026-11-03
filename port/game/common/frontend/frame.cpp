@@ -1260,7 +1260,7 @@ TickMobys pose_mobys(
 ) {
     const profiling::Zone trace("Pose mobys");
 
-    // The live mobys, by class, each in the pose its animation fields give (viewer/moby_pose.h):
+    // The live mobys, by class, each in the pose its animation fields give (scene/moby_pose.h):
     // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
     // draws every moby in its bind pose.
     static const bool animate = env::flag(env::Var::Anim);

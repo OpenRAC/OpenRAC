@@ -93,7 +93,7 @@ jobs:
           fi
 
       # The layout of the C++ under port/ and sdk/ (port/docs/CODING_CONVENTIONS.md, section 5.6):
-      # clang-format and the blank lines around control blocks. Report only for now: the step
+      # clang-format and the blank lines around control blocks. Report only: the step
       # lists what would change and never fails the build. clang-format comes from the step above.
       - name: C++ layout (report only)
         run: python tools/cpp_style.py --report-only

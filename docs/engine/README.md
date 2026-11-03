@@ -6,6 +6,43 @@ measured on. The per-game docs are the authority. This page summarises them
 and links each claim to its source, so that someone starting on a subsystem
 in one game can see what has already been measured in another.
 
+## The detailed pages
+
+Data on the disc (RAC1, unless a page says otherwise):
+
+| Page | About |
+|---|---|
+| [COLLISION.md](formats/COLLISION.md) | Level collision |
+| [DISC.md](formats/DISC.md) | The disc: file system, table of contents, level headers |
+| [LATER_GAMES.md](formats/LATER_GAMES.md) | Going Commando, Up Your Arsenal and Deadlocked levels |
+| [LEVEL.md](formats/LEVEL.md) | Level data, the core index and the gameplay file |
+| [MOBY.md](formats/MOBY.md) | Moby classes |
+| [OCCLUSION.md](formats/OCCLUSION.md) | Occlusion data |
+| [PSS.md](formats/PSS.md) | PSS movies |
+| [SHRUB_SKY.md](formats/SHRUB_SKY.md) | Shrubs and the sky |
+| [SOUND_BANKS.md](formats/SOUND_BANKS.md) | Sound banks, sound definitions and VAG audio |
+| [TEXTURES.md](formats/TEXTURES.md) | Textures, palettes and GS RAM |
+| [TFRAG.md](formats/TFRAG.md) | Terrain fragments (tfrags) |
+| [TIE.md](formats/TIE.md) | Ties (instanced scenery) |
+| [WAD.md](formats/WAD.md) | WAD compression |
+
+What the game does with it at run time:
+
+| Page | About |
+|---|---|
+| [AUDIO.md](systems/AUDIO.md) | Audio: the sound layer, music and reverb |
+| [CAMERA_FOG.md](systems/CAMERA_FOG.md) | Camera, projection, fog and underwater |
+| [COLLISION_QUERIES.md](systems/COLLISION_QUERIES.md) | Collision queries |
+| [HARDWARE.md](systems/HARDWARE.md) | What the game relies on in the console, and what a native port keeps |
+| [LIGHTING.md](systems/LIGHTING.md) | Lighting |
+| [MOBY_ANIMATION.md](systems/MOBY_ANIMATION.md) | Moby animation |
+| [MOBY_RENDERING.md](systems/MOBY_RENDERING.md) | Drawing mobys: cull, LOD, skinning, metal and glow |
+| [OCCLUSION.md](systems/OCCLUSION.md) | Occlusion culling, per frame |
+| [PARTICLES.md](systems/PARTICLES.md) | Particles |
+| [RENDER_PIPELINE.md](systems/RENDER_PIPELINE.md) | The frame: render order and the display list |
+| [SHADOWS.md](systems/SHADOWS.md) | Shadows |
+| [WORLD_ANIMATION.md](systems/WORLD_ANIMATION.md) | World animation: water, liquids, scrolling surfaces |
+
 ## 1. How to read this page
 
 Each claim names the game it was measured on, using these keys:
@@ -50,7 +87,7 @@ Three rules follow from how the projects work:
 | RAC4 | `SCUS_974.65`, 1,692,216 bytes: a 20 KB loader around one compressed image, which unpacks to 17 sections (5,157,636 bytes) | 47 (24 campaign, 23 multiplayer), each with its own overlay on the disc | the IOP image and the DNAS and network GUI files | the image's core, network and level code (8,027 functions) and the overlays, function by function; nothing is linked ([RESEARCH.md](../../games/rac4/ntsc/docs/RESEARCH.md)) |
 
 Sizes are from each `game.json`. RAC2's level identifiers run 0–20, 22–26
-and 30 ([config/overlays.json](../../games/rac2/ntsc/config/overlays.json)),
+and 30 (`config/overlays.json`),
 and the boot's `map level` strings cover fewer levels than the disc
 ([README](../../games/rac2/ntsc/README.md)). RAC3's levels sit in
 `levels/singleplayer` and `levels/multiplayer` of the Wrench unpack
@@ -61,7 +98,7 @@ and the boot's `map level` strings cover fewer levels than the disc
 RAC1 and RAC2 boot executables have the same sections in the same order
 (**retail** on both):
 
-| Part | RAC1 PAL ([splat.yaml](../../games/rac1/config/splat.yaml)) | RAC2 ([boot-sections.json](../../games/rac2/ntsc/config/boot-sections.json)) |
+| Part | RAC1 PAL ([splat.yaml](../../games/rac1/config/splat.yaml)) | RAC2 (`boot-sections.json`) |
 |---|---|---|
 | VU microcode | `vutext` at 0x100080, 0x12300 bytes | `.vutext` at 0x100080, 86,368 bytes |
 | Core, never replaced | `core_text`, `core_data`, `core_rdata`, `core_bss`, `core_lit` | `core.text` (0x115200), `core.data`, `core.rdata`, `core.bss`, `core.lit` |
@@ -99,9 +136,9 @@ RAC1 and RAC2 boot executables have the same sections in the same order
   in level 18) ([overlays.md](../../games/rac1/ntsc/docs/build/overlays.md)).
 - **RAC2, prerelease.** The same record layout and stop rule; types 1, 8
   and 9 (REL) seen; seven sections in the same order; `.lit` at one address
-  in all 27 levels ([LEVEL-ARCHIVE-FORMAT.md](../../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md)).
+  in all 27 levels (`LEVEL-ARCHIVE-FORMAT.md`).
   The retail overlays come from Wrench's unpack as 27 ELF files pinned by
-  SHA-256 ([config/overlays.json](../../games/rac2/ntsc/config/overlays.json)).
+  SHA-256 (`config/overlays.json`).
 - **RAC3.** Overlays are unpacked with Wrench; the loader is not documented.
 
 ### How much code
@@ -110,7 +147,7 @@ RAC1 and RAC2 boot executables have the same sections in the same order
 |---|---|---|
 | RAC1 PAL | Executable game code 348K; about 3.2 MB of distinct level code not in the executable; about 3.5 MB of distinct game code in all, ten times the executable's (3.7 MB with `core_text`) | [ASSETS.md](../../games/rac1/docs/ASSETS.md#code-overlays) |
 | RAC1 US | Level text records 1,065,136–1,200,936 bytes; distinct level code about 3.2 MB, nine times the executable's | [overlays.md](../../games/rac1/ntsc/docs/build/overlays.md) |
-| RAC2 | 48,788,176 executable and initialised-data bytes over 28 programs; code repeats about 1.23 times across them | [README](../../games/rac2/ntsc/README.md), [SECOND-C-LOT.md](../../games/rac2/ntsc/docs/SECOND-C-LOT.md) |
+| RAC2 | 48,788,176 executable and initialised-data bytes over 28 programs; code repeats about 1.23 times across them | [README](../../games/rac2/ntsc/README.md), `SECOND-C-LOT.md` |
 | RAC3 | 51 overlays: about 100 MB of function bytes, 9.3–9.4 MB distinct; other executables about 3.0 MB of code in 15,146 functions | [Toolchain-and-Build.md](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md), [shared_code_findings.md](../../games/rac3/ntsc/docs/shared_code_findings.md) |
 
 ## 3. Mobys
@@ -247,7 +284,7 @@ on the US disc ([ASSETS.md](../../games/rac1/docs/ASSETS.md#collision)).
 
 **Prerelease**: measured on the 9 September 2003 PAL review disc, re-checked
 on the 6 August and 7 September discs
-([LEVEL-ARCHIVE-FORMAT.md](../../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md)).
+(`LEVEL-ARCHIVE-FORMAT.md`).
 
 - The disc carries 97 named files, unlike RAC1's three: `RC2.HDR` at LBA
   1001 and a `G/LEVELn.WAD` and `G/SCENEn.WAD` per level.
@@ -355,7 +392,7 @@ sections 1 to 4, with a comparison across the sequels in its section 10.
   ([config/strings.tsv](../../games/rac1/config/strings.tsv)). Each level
   has a sound bank section and a `sndvtbl`. RAC2: `989snd` identifiers sit
   in the boot's data, and five functions Lombyte files under `audio/` are
-  byte-identical in RAC2 ([THIRD-C-LOT.md](../../games/rac2/ntsc/docs/THIRD-C-LOT.md)).
+  byte-identical in RAC2 (`THIRD-C-LOT.md`).
 - **Memory card and save data.** RAC1 PAL: `libmc.o` (0x1236F0) matches the
   SDK archive; the 25 state names `CS_INIT` … `CS_PROMPT_BEGIN_NOSAVE` are
   retail strings, and RAC1 US finds the 25-pointer handler table the
@@ -421,8 +458,8 @@ reference ([SOURCING.md](../policy/SOURCING.md)).
 ### RAC1 and RAC2
 
 - 24 reviewed C bodies in the Lombyte tree compile to bytes found in RAC2.
-  RAC2 integrated 19 ([SECOND-C-LOT.md](../../games/rac2/ntsc/docs/SECOND-C-LOT.md),
-  [THIRD-C-LOT.md](../../games/rac2/ntsc/docs/THIRD-C-LOT.md)), refused 2
+  RAC2 integrated 19 (`SECOND-C-LOT.md`,
+  `THIRD-C-LOT.md`), refused 2
   and deferred 3 that exist only in its levels: interpolation, a
   point-in-polygon test, sound and streaming, serial I/O and SDK helpers.
   Some are level-only code in RAC1 but sit in RAC2's boot program too.
@@ -443,7 +480,7 @@ reference ([SOURCING.md](../policy/SOURCING.md)).
 | Key | Finding |
 |---|---|
 | RAC1 PAL | 428 level functions have a relative at 75% similarity or more, nearly all in another level; 137 variants differ only in a constant, float or struct offset ([OVERLAYS.md](../../games/rac1/docs/OVERLAYS.md)) |
-| RAC2 | 13 of the first 17 boot bodies occur in all 27 levels; 82 boot bodies per level are placed ([LEVEL-INTEGRATION-PLAN.md](../../games/rac2/ntsc/docs/LEVEL-INTEGRATION-PLAN.md), [MOBY-DISPATCH-TABLES.md](../../games/rac2/ntsc/docs/MOBY-DISPATCH-TABLES.md)) |
+| RAC2 | 13 of the first 17 boot bodies occur in all 27 levels; 82 boot bodies per level are placed (`LEVEL-INTEGRATION-PLAN.md`, [MOBY-DISPATCH-TABLES.md](../../games/rac2/ntsc/docs/MOBY-DISPATCH-TABLES.md)) |
 | RAC3 | About 95% of overlay code is shared between overlays; 644 `boot_elf.elf` functions (about 30% of its code) equal `frontbin` functions; the 33 functions in `src/levels/common/` are mostly adapted `frontbin` C ([shared_code_findings.md](../../games/rac3/ntsc/docs/shared_code_findings.md), [common_level_c.md](../../games/rac3/ntsc/docs/common_level_c.md)) |
 
 ### Compilers differ, which limits reuse

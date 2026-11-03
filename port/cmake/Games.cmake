@@ -40,7 +40,7 @@ target_link_libraries(openrac_game_common PUBLIC openrac_runtime openrac_ps2floa
 # The asset readers the library replacements use (the WAD decompressor).
 if(TARGET openrac_assets_disc)
   target_link_libraries(openrac_game_common PUBLIC openrac_assets_disc)
-  # main.cpp reads a level's program from the player's image (load_level_program).
+  # program/levels.cpp reads a level's program from the player's image (load_level_program).
   target_compile_definitions(openrac_game_common PUBLIC OPENRAC_HAS_DISC=1)
 endif()
 # The sound engine the sound library's replacement drives (lib/sound_engine.cpp).
@@ -282,15 +282,13 @@ function(openrac_add_game config)
   set(fixes_cpp "${CMAKE_BINARY_DIR}/generated/openrac_fixes_${target_id}.cpp")
   openrac_write_fixes("${game}" "${version}" "${fixes_cpp}")
   # The host program's source folders in game/common (port/game/README.md), globbed like the
-  # library replacements so that splitting main.cpp, frontend.cpp and debug_overlay.cpp into files
-  # there adds no line here. Each stays empty until its split lands.
-  # program/: what main.cpp is split into (main, its options, vsync, the host side of game_host.h),
-  # in every program, with a window or without.
+  # library replacements so that a new file there adds no line here.
+  # program/: the program itself (its options, vsync, levels, sound, movies, the host side of
+  # game_host.h), in every program, with a window or without.
   file(GLOB program_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/program/*.cpp")
-  # frontend/: what frontend.cpp is split into (the window, frame pacing, interpolation, world
-  # submission, input), with the window's sources.
+  # frontend/: the window, frame pacing, interpolation, world submission, input; with a window only.
   file(GLOB frontend_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/frontend/*.cpp")
-  # debug/: what debug_overlay.cpp is split into (the overlay's panels), with the window's sources.
+  # debug/: the debug overlay's panels and the menu; with a window only.
   file(GLOB debug_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/debug/*.cpp")
   foreach(target IN LISTS targets)
     target_link_libraries(${target} PRIVATE openrac_${target_id}_game openrac_runtime openrac_mods)

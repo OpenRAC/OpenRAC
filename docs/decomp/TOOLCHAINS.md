@@ -197,12 +197,12 @@ Names used on this page:
   ([COMPILER-NOTES.md](../../games/rac2/ntsc/docs/COMPILER-NOTES.md), "Complete rebuild recipe").
 - **SDK and small data.** Exact SDK boot objects (CPR8, sysbit flush, IPU DMA
   restart) under a separately qualified SDK profile
-  ([SDK-PROFILE-QUALIFICATION.md](../../games/rac2/ntsc/docs/SDK-PROFILE-QUALIFICATION.md)); a
+  (`SDK-PROFILE-QUALIFICATION.md`); a
   separate small-data unit per overlay, and `$gp` facts proved per function
-  ([SMALL-DATA-UNIT-EVIDENCE.md](../../games/rac2/ntsc/docs/SMALL-DATA-UNIT-EVIDENCE.md),
-  [LOCAL-GP-PROOF.md](../../games/rac2/ntsc/docs/LOCAL-GP-PROOF.md)). It also drew on rac1-decomp's
+  (`SMALL-DATA-UNIT-EVIDENCE.md`,
+  `LOCAL-GP-PROOF.md`). It also drew on rac1-decomp's
   findings ([RAC1-DECOMP-FINDINGS.md](../../games/rac2/ntsc/docs/RAC1-DECOMP-FINDINGS.md),
-  [RAC1-FP-BIT-EVIDENCE.md](../../games/rac2/ntsc/docs/RAC1-FP-BIT-EVIDENCE.md)).
+  `RAC1-FP-BIT-EVIDENCE.md`).
 
 ### RAC3 (rac3-uya-decomp)
 
@@ -268,7 +268,7 @@ Names used on this page:
 
 | Finding | RAC1 PAL | RAC1 NTSC-U | RAC2 | RAC3 | Status |
 |---|---|---|---|---|---|
-| SDK libraries built by a 2.9-ee-991111 variant, separately from game code | yes; SDK `.a` members match retail | yes; SDK compiler is 991111-01 | exact SDK boot objects under a separately qualified SDK profile ([SDK-PROFILE-QUALIFICATION.md](../../games/rac2/ntsc/docs/SDK-PROFILE-QUALIFICATION.md)) | yes: `i5bootn`'s libgcc and libc helpers are 2.9-ee-991111(-01) ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md)) | Every game measured |
+| SDK libraries built by a 2.9-ee-991111 variant, separately from game code | yes; SDK `.a` members match retail | yes; SDK compiler is 991111-01 | exact SDK boot objects under a separately qualified SDK profile (`SDK-PROFILE-QUALIFICATION.md`) | yes: `i5bootn`'s libgcc and libc helpers are 2.9-ee-991111(-01) ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md)) | Every game measured |
 | The compiler switch sits at `boot.cpp` | `boot.cpp` at 0x12DA38, NTSC-to-PAL shift +0x140 there ([DECOMP_PROGRESS.md](../../games/rac1/docs/DECOMP_PROGRESS.md)) | `GAME_TEXT_START` 0x12D8F8 (+0x140 = 0x12DA38) | | | Agreed for RAC1 |
 | Callee-saved saves | `sq`, 16-byte slots, `$ra` too, in all game code; `sd` in the SDK objects of `core_text`, which 2.9-ee builds | `sq` saves (patch `0001`) | `sd`, 8-byte slots | `$s`: `sd`, 8-byte slots (`-fopt-stack`); 13 functions `sq $ra` | Differs per game. A signature, not a constant |
 | Bare tail jumps | only in 2.9-ee objects, where the compiler emits them; the rewrite for SN code is gone ([BUILD_FIDELITY.md](../../games/rac1/docs/BUILD_FIDELITY.md)) | sibling calls off, on per unit | none in the measured family | SN 2.95.3 never emits them; 2.9-ee-991111 does ([compiler_matrix_i5bootn.md](../../games/rac3/ntsc/docs/compiler_matrix_i5bootn.md)) | A tail jump means "not SN 2.95.3" (RAC1 PAL, RAC3) |

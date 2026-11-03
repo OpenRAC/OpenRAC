@@ -36,12 +36,11 @@
  * level_resource_buffers, D_001941C0): select_world_object_resource_tables (func_00205270) decodes
  * one into a buffer and points its class's resources there (moby_class_resources, D_001B3580, by
  * resident_class_slot_by_id, D_001B3E40), so a class is loaded only while its buffer still holds
- * it. That function is wrapped
- * (libraries.tsv): it notes which class each buffer holds, and before a buffer is decoded over, the
- * figures' pieces drawn from it go (the hero's own pieces are the game's). A figure's class not
- * loaded is decoded into the buffer the hero's hand item is not in, and only in play (never under a
- * menu, whose previews and vendor use the buffers), never over another figure's piece; a hand item
- * that cannot be had falls back to the wrench.
+ * it. That function is wrapped (libraries.tsv): it notes which class each buffer holds, and before
+ * a buffer is decoded over, the figures' pieces drawn from it go (the hero's own pieces are the
+ * game's). A figure's class not loaded is decoded into the buffer the hero's hand item is not in,
+ * and only in play (never under a menu, whose previews and vendor use the buffers), never over
+ * another figure's piece; a hand item that cannot be had falls back to the wrench.
  *
  * Shots. The hero's Blaster shots are spawn_homing_shot (func_L00_002CC3C0) with the hero's moby
  * as their owner, his bombs launch_bomb (func_L00_002AE278) of a bomb the glove holds; both wrapped

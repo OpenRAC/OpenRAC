@@ -244,8 +244,7 @@ fragment, divides by w, adds a screen offset, and derives fog from w: the GS
 fog value is clamp(w + offset, low, high), and adding 2048 sets the ADC bit
 on triangles touching the guard band (they are dropped, not clipped).
 Texture coordinates are sent as (s·Q, t·Q, Q). Output is double-buffered GS
-packets of ST, RGBAQ, XYZF2 per vertex. The program's entry points, constant
-block and the clipping program are in [VU1.md](../systems/VU1.md#terrain-55907-and-903379).
+packets of ST, RGBAQ, XYZF2 per vertex.
 
 ## Open
 

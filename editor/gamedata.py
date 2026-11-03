@@ -735,7 +735,7 @@ def curve(scene, rid: str, points: list[tuple]):
 def write_scene(scene, directory: Path, res: str, g: bytes) -> dict:
     """The gameplay nodes of a level scene (under Game, after the mobys) and their class scenes in
     DIRECTORY/gameplay; returns what was written, for level.json."""
-    from godot import Raw, transform
+    from godot import transform
     pvars, names = Pvars(g), moby_names(g)
     scenes = {}
     for kind in ("cuboid", "sphere", "cylinder", "pill", "camera", "sound", "ship"):

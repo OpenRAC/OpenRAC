@@ -3,8 +3,7 @@
 //
 // The level renderer's lighting hook: what a LevelScene asks of the lighting that is not its own,
 // the enhanced renderer's probe lighting and early lighting (enhanced/viewer/scene_lighting.h).
-// The scene owns the interface and calls it at the points its passes did before restructure
-// package P2-39b; whoever makes a LevelScene registers one (LevelScene::set_level_lighting), so the
+// The scene owns the interface and calls it from its passes; whoever makes a LevelScene registers one (LevelScene::set_level_lighting), so the
 // scene never includes enhanced/ (CODING_CONVENTIONS.md, section 18).
 //
 // A scene with none registered lights as the game does: its shaders are built without the probe

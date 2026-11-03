@@ -15,7 +15,7 @@ import struct
 import subprocess
 import tempfile
 
-from water_sources import sub, dot, cross, read_surfaces, load_boundaries, native_request, ADDRESSES, disc_version
+from water_sources import sub, dot, read_surfaces, load_boundaries, native_request, ADDRESSES, disc_version
 
 VERSION = 3
 CELL_SIZE = 0.5

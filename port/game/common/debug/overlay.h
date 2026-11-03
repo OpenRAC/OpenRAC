@@ -501,9 +501,8 @@ void change_setting(int row, int by);
 void reset_enhanced();
 
 // Draws the independent Enhanced Settings window with launcher-ordered main choices and advanced
-// tuning, diagnostics and water sections; disabled
-// where the level has no compatible probe data. A change is saved and marked for the window to
-// apply. Defined in debug/controls.cpp.
+// tuning, diagnostics and water sections; disabled where the level has no compatible probe data. A
+// change is saved and marked for the window to apply. Defined in debug/controls.cpp.
 void enhanced_settings_window();
 
 // ---- The performance capture (common/perf_capture.h) ----

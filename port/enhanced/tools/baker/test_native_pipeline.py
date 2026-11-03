@@ -10,7 +10,6 @@ import subprocess
 import struct
 import sys
 import tempfile
-import time
 import unittest
 import zlib
 

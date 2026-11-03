@@ -11,7 +11,7 @@
 //!
 //! The file is read from the checkout when there is one, else from the copy built into the
 //! launcher. The fixes' values are in the port's own settings file,
-//! `<data home>/settings/<game>-<version>.ini` (port/game/common/main.cpp, `default_settings`),
+//! `<data home>/settings/<game>-<version>.ini` (port/game/common/program/options.cpp, `default_settings`),
 //! which the launcher edits a line at a time: everything else in it stays as the game wrote it.
 //! The game reads the file when it starts, and writes it whole when a setting changes in its own
 //! menus, so a change here while the game runs is overwritten by the next change made there.

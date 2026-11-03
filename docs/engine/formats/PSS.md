@@ -5,8 +5,7 @@ RAC1's full-motion video: 88 slots in the table of contents
 84 of them used. A PSS file is an MPEG-2 program stream whose audio is SPU
 ADPCM in private stream 1. ReRAC surveyed every header of the 84 files of the
 NTSC-U disc (98,629 pictures, 3,587 seconds) and decodes all of them with a
-decoder of its own, checked against an independent MPEG-2 decoder. Which game
-code plays which slot: [CUTSCENES.md](../systems/CUTSCENES.md#5-movies).
+decoder of its own, checked against an independent MPEG-2 decoder.
 
 The movie player in the executable is to be decompiled from the retail
 assembly alone; [MOVIE.md](../../../games/rac1/docs/MOVIE.md) gives the

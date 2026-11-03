@@ -141,7 +141,7 @@ bool take_touch_reset();
 // the screen while editing: 0..1 of the width and of the height, below 0 for none.
 void set_touch_guides(float x, float y);
 // True once after the drawer or the menus changed one of the port's settings (saved already): the
-// window applies it (frontend.cpp, apply_settings).
+// window applies it (frontend/window.cpp, apply_settings).
 bool take_settings_changed();
 
 // ---- Notifications ----

@@ -7,9 +7,8 @@ The modules, the layers, the edges allowed within a layer and today's known
 violations are data, in [rules.tsv](rules.tsv). It is standard-library Python
 and needs no build.
 
-It is not wired into CMake or CI yet: run it yourself before you commit a
-change to the port's includes. A later package adds it to CI beside the
-conventions check.
+CI runs it on every push ("Port layering" in `.github/workflows/checks.yml`).
+Run it yourself before you commit a change to the port's includes.
 
 ```sh
 # From the top of OpenRAC.

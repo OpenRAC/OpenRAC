@@ -1,7 +1,6 @@
 """Collision editing: the block model's exact round trip, edits, limits, and the scene's way back.
 Hand-built blocks; no disc data."""
 
-import hashlib
 import json
 import struct
 import tempfile

@@ -3,8 +3,7 @@
 //
 // The settings of the ambient occlusion pass (enhanced/renderer/gtao.h): the frame carries them
 // (FrameInput::gtao_settings), the player's settings keep them (game/common/settings.h). The
-// renderer owns the type so that neither it nor the settings include enhanced/; restructure package
-// P2-07 moved it from enhanced/renderer/.
+// renderer owns the type so that neither it nor the settings include enhanced/.
 
 #pragma once
 

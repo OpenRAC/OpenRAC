@@ -31,7 +31,7 @@
 
 /* The moby list's head as the loop keeps it (D_00160024). */
 #define MOBY_HEAD RAC1_ADDR(0x00160024u)
-/* The camera block (camera.h, CameraSystem; viewer/game_state.cpp: +0x140 its position). */
+/* The camera block (camera.h, CameraSystem; game/rac1/game_state.cpp: +0x140 its position). */
 #define CAMERA RAC1_ADDR(0x00187040u)
 #define CAMERA_POSITION 0x140u
 

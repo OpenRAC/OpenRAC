@@ -8,7 +8,7 @@ import random
 import unittest
 
 from region_compaction import native_grid_bounds
-from region_repartition import box_cells, grid_count, repartition_regions
+from region_repartition import grid_count, repartition_regions
 
 
 def regions(boxes, spacing=(1, 1, 1)):

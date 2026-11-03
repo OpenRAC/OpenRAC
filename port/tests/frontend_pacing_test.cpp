@@ -3,10 +3,9 @@
 //
 // The frontend's pacing arithmetic (game/common/frontend/pacing.h): the refresh a frame is shown
 // at, how far between ticks the scene is at a refresh for the PAL and NTSC tick rates, and when the
-// frame cap lets a frame start. Characterisation tests: they pin what the functions returned when
-// they were moved out of frontend.cpp, so that the frontend's restructure can show it changed none
-// of it. Each expected value is written as the arithmetic that gives it. The clock is never read:
-// every time is an offset from a fixed point.
+// frame cap lets a frame start. Characterisation tests: they pin what the functions return, so a
+// change to them cannot move a value unseen. Each expected value is written as the arithmetic that
+// gives it. The clock is never read: every time is an offset from a fixed point.
 
 #include <chrono>
 #include <cmath>
