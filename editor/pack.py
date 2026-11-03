@@ -47,7 +47,7 @@ from level import decoded, load_level
 import gamedata
 import progress_line
 import gameplay as gp
-from mobys import (ALWAYS, FIELDS, POINTER, RECORD, SIZE, USUAL, matrix, moby_class_names,
+from mobys import (ALWAYS, FIELDS, POINTER, RECORD, SIZE, USUAL, moby_class_names,
                    moby_instances, node_name)
 from wadpack import compress
 

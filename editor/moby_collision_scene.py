@@ -290,7 +290,7 @@ def node_primitive(node: dict, sub: dict, joints: list) -> mc.Primitive:
     kind = KINDS.get(named) if named is not None else SHAPES.get(shape)
     if kind is None:
         raise FormatError(f"{node['name']}: rc1_collision_kind {named!r} is none of "
-                          f"{', '.join(KIND_NAMES)} or mesh")
+                          f"{', '.join(KINDS)} or mesh")
     if kind == mc.SPHERE and named is None and meta(node, "joint") is not None:
         kind = mc.JOINT_SPHERE
     wanted = {mc.SPHERE: "SphereMesh", mc.JOINT_SPHERE: "SphereMesh", mc.CYLINDER: "CylinderMesh",
