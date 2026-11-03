@@ -134,12 +134,109 @@ Oozla, and the RAM 900 frames later holds every value, with the game's reactions
 - **Experience at or past the next step.** A save with the held Lancer at 9,000 (step 8,960)
   stopped at the level start in hero state 98 and never gave control. The game never saves that
   state, so the editor keeps experience under the step of the version in the save.
-- **The level the save resumes on.** Moving a save needs the level's arrival state; not tried.
-- **Weapon mods** (chunk 42), **platinum bolts spent** (chunk 5 +0x90), **ship upgrades** (the
-  other bits of chunk 44), **crystals and moonstones** (+0x22, +0x24): places known, meanings not
-  proven by an experiment.
+- **The level the save resumes on**, **weapon mods**, **platinum bolts spent**, **ship parts**,
+  **crystals and moonstones**: now edited by the advanced fields, below.
 - **Armour and skill point names**: the game's text was not read; armour is a level 0..4, skill
   points are numbered.
 - **Platinum bolts per level**: each level has four places; how many a level really holds is not
   in the save, so all four are offered.
 - **Gadgets the hero has on** (and the weapon in hand): chunk 32; taking them away is refused.
+
+## The advanced fields
+
+`core/src/save_edit_rac2_extra.rs` and `src/components/SaveEditorRac2Advanced2.svelte` (the "More"
+part of the editor) read and write these, through the main editor's container and guards. Proven
+on box1 (port 8b862810c, scratch cards under `~/RACSwarm/l5-scratch`) as above: a pause-menu save
+after `OPENRAC_WRITE` (e1) against one without (b0), then a save written by `write_save` loaded from
+the title, with `OPENRAC_STATE_DUMP` and a RAM dump after control.
+
+| field                | place                       | type | what the game does with it                                    |
+| -------------------- | --------------------------- | ---- | ------------------------------------------------------------- |
+| resume level         | chunk 0                     | s32  | loads that level and starts the hero at its landing spot      |
+| crystals             | chunk 39 +0x22 (`0x1A7A1A`) | s16  | Tabora's counter (`func_L08_003DB4A0`, the HUD)               |
+| moonstones           | chunk 39 +0x24 (`0x1A7A1C`) | s32  | Grelbin's counter                                             |
+| platinum bolts spent | chunk 5 +0x90 (`0x139648`)  | u8   | `func_002B0D70`: platinum bolts to spend = found less this    |
+| weapon mods          | chunk 42, u8 per item       | bits | slot `s`: bought `1 << 2s`, switched on `2 << 2s` (see below) |
+| ship parts           | chunk 44 bits 0..15         | bits | the Ship Shack's parts (below); bits 16..20 are the paint     |
+
+**e1** (writes 50 frames after control, then the pause-menu save): crystals 25 and moonstones 13
+landed at chunk 39 +0x22 and +0x24, platinum bolts spent 7 at chunk 5 +0x90 (the byte only), mod
+bytes 01 04 15 3F at chunk 42 +0x1C..+0x1F, the ship word 0x2B at chunk 44. Nothing else changed
+but the clock.
+
+### Where Ratchet stands
+
+The save keeps the level and **no position**. A save made after teleporting the hero to
+(303.8, 421.6, 118) on Oozla (t1) differs from one made without moving (b0) only in the clock, the
+play time and the statistics' timers (chunks 4, 1003, 17, 3007); loading t1 put the hero at
+Oozla's start (293.84, 411.66, 115), as loading b0 does. There is no checkpoint either: every load
+starts at the level's landing spot, so the editor offers the level only.
+
+Changing chunk 0 alone and loading from the title reached control on every numbered level 0..20
+and 22..26 (one hidden run each, `OPENRAC_STUCK` on, 7,000 frames, Start pressed through scenes):
+the hero at the level's start, on foot, or in the ship (state 49) on the space levels (5, 10, 15, 25) and the orbits (22, 23, state 86). The Insomniac Museum (30) crashed the port at its load and
+has no level section in the save, so it is not offered.
+
+### Weapon mods
+
+The mod vendor's list (the code at 0x002F7538) offers slot `s` of an owned weapon when
+its record has a price (+0x98, +0x9C, +0xA0, in platinum bolts) and `1 << 2s` is clear; the weapon
+menu (`func_00347468`) shows the slot's icon from the same bit. The names are the game's text
+(0x31CF Shock Mod, 0x31CE Acid Mod, 0x31D0 Lock On Mod, read from a level's RAM). The lock-on
+targeting (`func_L00_002CB038`) tests `0x20`, the bit above Lock On's: the editor writes both bits
+of a slot together, the mod bought and on. The prices are each base record's, read from level 1's
+record table (0x2637A0 in the port's RAM):
+
+| weapon           | Shock | Acid | Lock On |
+| ---------------- | ----- | ---- | ------- |
+| Chopper          |       | 2    | 1       |
+| Pulse Rifle      | 1     |      |         |
+| Seeker Gun       | 1     |      | 1       |
+| Hoverbomb Gun    |       | 3    | 1       |
+| Blitz Gun        |       | 2    | 1       |
+| Minirocket Tube  |       | 2    | 2       |
+| Plasma Coil      |       | 2    | 1       |
+| Lava Gun         |       | 2    | 1       |
+| Lancer           | 2     |      | 3       |
+| Spiderbot Glove  |       | 2    |         |
+| Bouncer          |       | 3    | 1       |
+| Miniturret Glove | 2     |      |         |
+| Gravity Bomb     |       | 2    | 1       |
+| RYNO II          |       |      | 1       |
+
+Chunk 45 (0x1A7AB8) holds, per item, which slots the vendor may offer (`1 << s`); the editor
+leaves it alone.
+
+### Ship parts
+
+From the Ship Shack's tables (`func_002F7738`, text ids at 0x0026D528, masks at 0x0026D648,
+values at 0x0026D6D8) and the ship's model (`func_002E6178`):
+
+| bits   | part      | values                                                               |
+| ------ | --------- | -------------------------------------------------------------------- |
+| 0..1   | nose      | 0 Standard, 2 Scoop, 1 Split                                         |
+| 2..3   | wings     | 0 Standard, 4 Hi-Lift, 8 Heavy Ordinance                             |
+| 4..5   | engine    | 0x10 Triple Boost Acceleration Engine (the shop's second entry 0x20) |
+| 6      | lasers    | Fusion Laser Cannons                                                 |
+| 7..8   | mines     | 0x80 Electro Mine Launcher, 0x100 Mega-Mine Launcher                 |
+| 9      | missiles  | Fast-lock Missile Launcher (0: the Standard one)                     |
+| 10..11 | torpedoes | 0x400 Torpedo Launcher, 0x800 Multi-Torpedo Launcher                 |
+| 12     |           | Nuclear Detonation Device                                            |
+| 13     |           | Hyperspace Warp System                                               |
+| 14..15 | shields   | 0x4000 Advanced, 0x8000 Ultra-Charge Shielding System                |
+
+The game gives a skill point for 0xBB50 (every part at its best, `func_L00_002A67F8`). A two-bit
+part at 3 is not in the shop: loading a save with the nose at 3 (ls2) or the wings at 3 (ls4)
+crashed the port at the title's Load page, so the editor shows such a value as unknown and keeps
+it unless it is changed. 0xBB59 (every part at its last choice) loaded (ls1), and on the Feltzin
+System (level 5, lp5 against lq5 with the ship's own parts) the space level's weapon table
+(`func_L05_00379968`, 0x2A1800 in its RAM) followed every bit: lasers +0x140/+0x158, mines +0x90/+0x1D0,
+missiles +0x168/+0x180, torpedoes +0x68/+0x1A8, the bomb +0xB8, the warp +0xE0, shields
++0x1F8/+0x230/+0x248 and the engine +0x208/+0x220 set, the standard parts' +0x0, +0x28, +0xF0,
++0x118 cleared. The Ship Shack's
+paint list has 17 entries (values 0..16).
+
+**Load proof** (box1): the Oozla save, two platinum bolts found (the main editor), then through
+`write_save`: level 3 (Endako), crystals 25, moonstones 13, platinum bolts spent 2, ship 0xBB59,
+Lancer Shock and Lock On (0x33), Chopper Acid (0x0C). Loaded from the title: control on Endako at
+its start (300.16, 227.28, 128), and the RAM 1,900 frames later holds every value.
