@@ -2,9 +2,9 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 /* The bigger moby pool (rac1/host/moby_pool.c, PAL's table): while the level loader runs, the
  * gameplay header it named gets at least 768 spare slots as its decompression ends (but on the
- * three levels whose heap has no room); nothing else
- * that is decompressed changes, nor the header outside a run, and the loader's argument and result
- * pass through. And the tick's run list keeps its target list to 511 mobys, the rest still run.
+ * three levels whose heap has no room); nothing else that is decompressed changes, nor the header
+ * outside a run, and the loader's argument and result pass through. And the tick's run list keeps
+ * its target list to 511 mobys, the rest still run.
  * With fix_bigger_moby_pool off, the disc's count stays and the list runs on as on a console. */
 #include <stdio.h>
 #include <stdlib.h>

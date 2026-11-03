@@ -9,8 +9,8 @@ helper was written from runs on the same synthetic input as the helper, and both
 same result, so a caller moved onto the package later behaves as it did. Those copies are
 imported from where they live today (sdk/tools, and what tools/ keeps: openrac.checksums,
 fcheck_gate.fcheck_commit); once their callers have moved and a copy is gone, its comparison
-goes with it, as tools/' copies went in P1-05, port/tools' and the probe tools' in P2-10 and the
-editor's disc reader in P2-32 (hostgen's readers keep their characterisation in
+goes with it, as the copies in tools/, port/tools, the probe tools and the editor's disc reader
+already went (hostgen's readers keep their characterisation in
 port/tools/hostgen/test_tables.py; the editor's reader, now on iso9660, keeps its stricter
 checks' tests in editor/test_disc.py).
 """
@@ -177,8 +177,7 @@ class PathsTests(TempDir):
         self.assertEqual(paths.repo_root(ROOT), ROOT)
 
     def test_matches_the_hand_written_roots(self):
-        # tools/*.py take theirs from repo_root since P1-05, port/tools since P2-10; this one is
-        # still written by hand.
+        # tools/*.py and port/tools take theirs from repo_root; this one is still written by hand.
         self.assertEqual(paths.repo_root(gen_binding.__file__), gen_binding.ROOT)
 
     def test_a_checkout_needs_games_and_contributing_md(self):
@@ -278,7 +277,7 @@ class BootstrapTests(TempDir):
     def test_no_module_there_is_named_as_one_of_tools(self):
         # A module of tools/ beside one of the same name elsewhere is imported by whichever folder
         # comes first on the path: hostgen's test assembler, named mips.py like tools/mips.py that
-        # versionmap imports, was one (renamed tests/assembler.py in P2-10).
+        # versionmap imports, was one (now tests/assembler.py).
         ours = {script.stem for script in (ROOT / "tools").glob("*.py")}
         for folder in NAMES_CHECKED:
             for script in sorted((ROOT / folder).rglob("*.py")):

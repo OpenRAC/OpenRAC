@@ -738,8 +738,8 @@ void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad) 
             }
         }
     }
-    // Escape pauses, as Start does, whatever Start is bound to: it used to end the program at
-    // once, a level's progress with it, and a player must always be able to reach the menu.
+    // Escape pauses, as Start does, whatever Start is bound to: a player must always be able to
+    // reach the menu, and never lose a level's progress to a key.
     if (key(keys, SDL_SCANCODE_ESCAPE)) {
         pad.set(Button::Start, true);
     }

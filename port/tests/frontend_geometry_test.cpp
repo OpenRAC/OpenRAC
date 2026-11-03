@@ -4,9 +4,8 @@
 // The frontend's geometry (game/common/frontend/geometry.h): the frame box for windows of each
 // shape, the size the frame is drawn at, the blends of a moby and the camera between ticks, and the
 // bound of a moby drawn between them.
-// Characterisation tests: they pin what the functions returned when they were moved out of
-// frontend.cpp, so that the frontend's restructure can show it changed none of it. Each expected
-// value is written as the arithmetic that gives it.
+// Characterisation tests: they pin what the functions return, so a change to them cannot move a
+// value unseen. Each expected value is written as the arithmetic that gives it.
 
 #include <array>
 #include <cmath>

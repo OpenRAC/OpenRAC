@@ -15,7 +15,7 @@ interleaving; the discs do not use them. The format is ECMA-119 (documented); th
 are its fields.
 
 Written from tools/openrac.py's iso_find, boot_serial and read_boot and tools/extractor.py's
-walk and files_of (with their limits and errors), which use this since P1-05. editor/disc.py and
+walk and files_of (with their limits and errors), which now use this. editor/disc.py and
 wads.py read their records through records and root_directory, keeping their own stricter
 checks. Never give this a path to a disc in a test: the tests build an
 image of their own.
