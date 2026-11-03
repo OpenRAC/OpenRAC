@@ -2206,6 +2206,7 @@ class Unit:
         named = None  # the function a call by name reaches through a code address
         folded = False  # through a place of a name the catalogue folded (openrac_folded_call)
         exe_call = None  # a call_copies row's executable target and the function there
+        computed = False  # through an address the game computes (a vtable, a callback table)
         wide_ret = self._wide_cast_callee(c)
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
@@ -2361,11 +2362,13 @@ class Unit:
                         fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {fp})"
             else:
                 fp = self.function_value(target)
+                computed = True
         else:
             direct = self._cast_exe_call(c, wide_ret)
             if direct is not None:
                 return self.direct_call(direct, args, result_t)
             fp = self.rv(callee)
+            computed = True
         # A call through a code address: the call site's own type.
         pt = self.resolve(self.ty(callee))
         ft = self.resolve(pt.to) if isinstance(pt, ctype.Ptr) else pt
@@ -2394,7 +2397,12 @@ class Unit:
             defined = self._call_as_defined(named, fp, args, result_t)
             if defined is not None:
                 return defined
-        if folded:
+        if folded or computed:
+            # A call through an address the game computes (a vtable's slot, a callback table) is
+            # typed by its call site alone, and the functions it reaches put their kinds where
+            # they like: func_00349680's key interpolation calls (void *, int, void *, void *, float)
+            # and reaches func_00335B10's (float, void *, void *, void *, void *). Windows x64,
+            # 0.10.1: Aranos read its key through the fraction.
             by_kind = self._call_by_kind(fp, args, result_t)
             if by_kind is not None:
                 return by_kind
