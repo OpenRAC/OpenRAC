@@ -117,6 +117,10 @@ constexpr std::int32_t kShipClass = 3412;
 constexpr std::int32_t kShipBodyClasses = 6030;
 constexpr std::uint32_t kShipBody = 0x00152C18;
 constexpr std::int32_t kShipBodies = 3;
+// And its picture, one of 18 paint jobs, by func_002926B8, which keeps its number at +0x30
+// (editor/port.py's "ship_paints").
+constexpr std::uint32_t kShipPaint = 0x00152C30;
+constexpr std::int32_t kShipPaints = 18;
 
 // A class's bangles: parts of its mesh past its LOD lists, which a moby draws by the bits of its
 // bangle word (+0x7C, an s16; MobyProc, func_002A4E68 at 0x2A5E78): bit 15 clear, the class's mesh
@@ -288,6 +292,25 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
     return s;
 }
 
+// The classes enhanced lighting's rim marks as gameplay subjects, as Ratchet & Clank's
+// game/rac1/gameplay_lighting.h does for its own: the ones identified in this game so far (the
+// crates' numbers are Ratchet & Clank's; IDENTIFIED rows of the port's notes).
+constexpr std::array kEssentialMobys{
+    0,     // Ratchet
+    11,    // vendor (func_00390AB8)
+    500,   // bolt crate
+    501,   // nanotech crate (0x1F5)
+    505,   // crate
+    511,   // ammo crate
+    512,   // crate
+    3291,  // a crate's ammo pickup, flying to the hero (0xCDB)
+};
+
+bool essential_moby(int class_id) {
+    return std::find(kEssentialMobys.begin(), kEssentialMobys.end(), class_id)
+           != kEssentialMobys.end();
+}
+
 // The game's profile: its memory read by program, and the display list it sends.
 class Profile final : public host::GameProfile {
 public:
@@ -305,15 +328,40 @@ public:
 
     bool own_mobys_split_the_2d() const override { return true; }
 
+    bool own_mobys_into_narrow_buffers() const override { return true; }
+
     bool images_outlast_list() const override { return true; }
 
     bool repeated_ticks_send_images() const override { return true; }
 
     bool mobys_take_point_lights() const override { return true; }
 
+    // The paint job on his ship: func_002926B8 loads one of the 18 over the ship's picture (the
+    // level's load by 0x001A7AF2, the Ship Shack's preview by the one shown) and keeps its number.
+    int texture_variant(std::span<const std::uint8_t> ram) const override {
+        const auto paint = at<std::int32_t>(ram, kShipPaint);
+        return paint >= 0 && paint < kShipPaints ? paint : -1;
+    }
+
     bool interpolates_effect_quads() const override { return true; }
 
     bool terrain_takes_point_lights() const override { return true; }
+
+    // The ties' matrices: gp + 0x31CC (PatchTieVertexLighting, 0x2F3FEC; level 0's copy
+    // D_L00_001B251C), the shrubs': gp + 0x30B0 (LightShrubs, 0x2E2C54; level 0's D_L00_001B2400),
+    // the ties' records: gp + 0x31C4 (0x2F3FE0; level 0's D_L00_001B2514), the shrubs' records:
+    // gp + 0x30A8 (LightShrubs, 0x2E2C4C).
+    std::array<std::uint32_t, 4> scenery_matrices() const override {
+        return {0x001B21BCu, 0x001B20A0u, 0x001B21B4u, 0x001B2098u};
+    }
+
+    // Maktar's dome: light strips (tie class 2713) lie on the dome's band (class 2675) within a few
+    // centimetres over large areas, and from the landing pad (about 150 units) they flickered in
+    // and out of it with GL's depth (GameProfile::precise_depth). Without glClipControl (macOS's
+    // OpenGL) a near of 0.25 parts them five times farther away (GameProfile::depth_near).
+    bool precise_depth() const override { return true; }
+
+    float depth_near() const override { return 0.25f; }
 
     // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line
     // buffers, where the world's passes set FRAME (func_002DF1B8: FBP 0xF4).
@@ -333,7 +381,35 @@ public:
     // func_L00_00316F60 blends a layer's buffer (+0x10), not keys: his weapon arm.
     bool moby_layer_records() const override { return true; }
 
+    // The hero's shadow is Ratchet & Clank's shadow volumes (shadowproc, func_002DFBB0), fed by
+    // MobyProc's queue (D_001EF160), which the port's MobyProc (host/render.c) does not fill: the
+    // window draws them from the moby instead. MobyProc copies the four directions from 0x1B1B90
+    // (slot 0 aimed by func_0029FFB8) to the scratchpad; the slab is across the moby's up
+    // axis.
+    std::uint32_t shadow_directions() const override { return 0x001B1B90u; }
+
+    bool shadow_slab_on_up_axis() const override { return true; }
+
+    // MobyProc queues every moby with mode 0x400 and a slab: Clank (class 87) where he is the
+    // hero (Aranos Prison), the platforms and crates that carry one.
+    bool every_moby_casts_shadow() const override { return true; }
+
     bool has_levels() const override { return true; }
+
+    // The hero's record, D_00189E20 (the motion of func_L00_002B5B60: position +0x80, velocity
+    // +0xF0), whose shorts at +0x34C and +0x34E count the updates off the ground and are 0 on
+    // landing (Ratchet & Clank's +0x30C and +0x30E: a jump in level 4 read 15, 25, 35, then 0).
+    // Enhanced lighting tilts his own shadow map down by it.
+    std::uint32_t hero_state() const override { return 0x00189E20u; }
+
+    std::uint32_t hero_air_frames() const override { return 0x34E; }
+
+    // The gameplay subjects enhanced lighting gives its GI-coloured rim (port/enhanced/README.md,
+    // Gameplay rim lighting); held items and the hero's attachments are added by the frontend.
+    bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
+
+    // Game state 2 is a level's scene (host/tools.c STATE_SCENE, which skip_cutscenes ends).
+    std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
 
     // The pad's read (func_002B88F0): |byte - 0x7F| from 0x30, over 0x4C, as Ratchet & Clank's.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }

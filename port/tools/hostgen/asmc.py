@@ -130,11 +130,14 @@ def ps2_float_named(program: Program, symbol: str) -> bool:
     (SYMBOL_N) is of, or (as F<hash>_FUN_<address>) the catalogue's name for a func_<address>
     it names."""
     names = getattr(program, "ps2_float", ())
+    # The catalogue's name is matched whole first: its address is digits, which the call-site
+    # suffix's pattern would take for a suffix (F10bf3d29_FUN_00283098 became F10bf3d29_FUN, and
+    # no catalogue variant of a "ps2_float" function was ever computed as the EE does).
+    m = re.fullmatch(r"F[0-9a-f]+_FUN_([0-9A-F]{8})(?:_\d+)?", symbol)
+    if m is not None:
+        return f"func_{m.group(1)}" in names
     base = re.sub(r"_\d+$", "", symbol)
-    if symbol in names or base in names:
-        return True
-    m = re.fullmatch(r"F[0-9a-f]+_FUN_([0-9A-F]{8})", base)
-    return m is not None and f"func_{m.group(1)}" in names
+    return symbol in names or base in names
 
 
 class Translator:
@@ -1755,6 +1758,21 @@ def translate_shadows(stage: Stage, program: Program, a: dict) -> None:
         stage.shadows[alias] = r.text.replace(head, f" openrac_shadow_{alias}(", 1)
 
 
+def apply_signatures(program: Program, a: dict, discovered: bool) -> None:
+    """hostgen.json's "asm" "signatures": each function's verified prototype, a C function type,
+    in place of the one its declarations or registers give. Only for functions with neither C nor
+    a host definition (its C left out for its assembly, "from_assembly", or none at all). Without
+    discovery (no retail program read), a name the program does not have is passed over: it is an
+    entry only discovery finds."""
+    for sym, text in a.get("signatures", {}).items():
+        f = program.functions.get(sym)
+        if f is None and not discovered:
+            continue
+        if f is None or f.unit is not None or sym in program.host:
+            raise ValueError(f"assembly signature for {sym}: expected an assembly-only function")
+        f.sig = Signature.of(ctype.parse(text))
+
+
 def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple[Stage, dict[str, Result]]:
     """Reads the assembly (when it is there), and translates every stub it has assembly for.
     The functions translated are given C (Function.unit "<asm>") and the signature their
@@ -1802,15 +1820,16 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         index.called |= source_of.called()
         stage.retail = source_of.label
     elif not index.blocks:
+        # No instructions to translate (a build without the disc): the functions keep their
+        # stubs, but each with its verified prototype all the same, so that the port's own C that
+        # wraps one (a "wrap" row, calling NAME__game) is compiled against one signature whether
+        # the build reads the disc or not. Entries only discovery would add are not there.
+        apply_signatures(program, a, discovered=False)
         return stage, {}
     # Apply after entry discovery: a verified prototype can name an entry
     # missing from the catalogue. Register use alone cannot distinguish a
     # packed 64-bit descriptor from an integer.
-    for sym, text in a.get("signatures", {}).items():
-        f = program.functions.get(sym)
-        if f is None or f.unit is not None or sym in program.host:
-            raise ValueError(f"assembly signature for {sym}: expected an assembly-only function")
-        f.sig = Signature.of(ctype.parse(text))
+    apply_signatures(program, a, discovered=True)
     # A stub whose place has C under another spelling (func_0020C828 for FUN_0020c828) is that C
     # already: calls to it go there (Program.canonical).
     stubs = [f for f in program.stubs() if f.symbol not in program.host and program.canonical(f.symbol) == f.symbol]

@@ -17,6 +17,7 @@ flat in vec4 v_probe_selector;
 flat in int v_lit;
 flat in int v_glow;
 in vec3 v_script_emission;
+flat in vec3 v_probe_ambient;
 in vec3 v_emission_colour;
 // GS F / 255 times the vertex's clip w, and that w (mesh.vert): their ratio is F interpolated in
 // screen space, as the GS does.
@@ -166,6 +167,20 @@ vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) 
 vec3 wet_coat(vec3 linear_colour,vec3 n,vec3 toward_camera,float visibility) {return linear_colour;}
 #endif
 
+// The original ambient as the floor of a moby's diffuse GI (indirect / pi). The ambient is a
+// multiplier of gamma-encoded texels, so its linear equivalent is its 2.2 power; the GI's missing
+// luminance is added in the ambient's hue, so brighter GI (sky, bounces, emitters) is kept as baked.
+vec3 retail_ambient_floor(vec3 indirect, vec3 ambient) {
+    vec3 floor_linear = pow(clamp(ambient, vec3(0.0), vec3(2.0)), vec3(2.2));
+    const vec3 luma = vec3(0.2126, 0.7152, 0.0722);
+    float wanted = dot(floor_linear, luma);
+    float deficit = wanted - dot(indirect, luma) / 3.14159265359;
+    if (wanted <= 1e-4 || deficit <= 0.0) {
+        return indirect;
+    }
+    return indirect + floor_linear * (deficit / wanted) * 3.14159265359;
+}
+
 vec3 probe_surface(vec4 texel, vec3 original) {
 #ifdef OPENRAC_HERO_FUR
     if (hero_fur_debug > 0 && hero_fur_debug < 3 && v_hero_fur != 0 && v_glow == 0 && probe_effect == 0 && metal_pass == 0) {
@@ -294,6 +309,11 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
     // Artistic GI exposure; keep the bake and direct-light energy unchanged.
     indirect *= probe_gi_multiplier;
+    if (probe_retail_anchor != 0 && probe_receiver == 2 && probe_mode == 1) {
+        indirect = retail_ambient_floor(indirect, v_probe_ambient);
+    }
+    // Before occlusion: anchored terrain compares with the same point unshadowed and unoccluded.
+    vec3 open_indirect = indirect;
     // Only opaque diffuse GI receives AO. Blended/effect surfaces do not have
     // a matching prepass depth; direct light, emission and metal stay intact.
 #ifndef OPENRAC_EARLY_LIGHTING
@@ -308,6 +328,20 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     vec3 illumination = probe_mode == 2
                             ? indirect / 3.14159265359
                             : (probe_mode == 3 ? direct : direct + indirect / 3.14159265359);
+    // Anchored terrain: its vertex colours already hold the original lighting, sunlight included, so
+    // it takes the enhanced lighting as a ratio to the same point in unshadowed sunlight. Sunlit
+    // ground keeps its original brightness instead of taking the sun twice; shade, GI and occlusion
+    // darken or tint it from there. The original lighting has no cast shadows, so cast shade keeps
+    // about a third of the sun (0.1 + 0.9 x 0.28) instead of a tenth: the shapes stay, the level's
+    // brightness stays near the original's.
+    if (probe_retail_anchor != 0 && probe_receiver == 1 && probe_terrain_albedo != 0
+        && probe_mode == 1) {
+        vec3 open = probe_direct(v_world_position, surface_n, selector, 1.0)
+                    + open_indirect / 3.14159265359;
+        vec3 shaded = probe_direct(v_world_position, surface_n, selector, mix(0.28, 1.0, visibility))
+                      + indirect / 3.14159265359;
+        illumination = (shaded + 0.02) / (open + 0.02);
+    }
     if (probe_mode != 2) {
         illumination *= hero_cue;
     }
@@ -345,14 +379,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 
 void main() {
     v_fog = v_fog_w.x / v_fog_w.y;
-#ifdef OPENRAC_OPAQUE_COLOUR
-    if (opaque_solid != 0) {
-#endif
-#if defined(OPENRAC_SOLID) || defined(OPENRAC_OPAQUE_COLOUR)
-    // The static solid variant contains no discard. The Vulkan colour-batch
-    // variant selects this original solid path or the original general path
-    // per draw, preserving their texture/derivative and alpha-test ordering.
-    // It only runs with reused EQUAL depth and depth writes disabled.
+#ifdef OPENRAC_SOLID
+    // The static solid variant contains no discard. The Vulkan colour batch draws its solid
+    // geometry with it too, with reused EQUAL depth and depth writes disabled.
     vec4 texel = sample_upscaled_texture_colours(v_uv);
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
     vec4 c = texel * v_colour * material_colour;
@@ -371,10 +400,6 @@ void main() {
         rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }
     out_colour = vec4(rgb, 1.0);
-#ifdef OPENRAC_OPAQUE_COLOUR
-    return;
-    }
-#endif
 #endif
 #ifndef OPENRAC_SOLID
 #ifndef OPENRAC_COLOUR_SPECIALISED

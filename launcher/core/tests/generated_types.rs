@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use openrac_launcher_core::{
     actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_state, enhanced, index,
     index_apply, jobs, library, mod_error, mod_updates, overrides, pcsx2_card, plugins, remote, reports, reset,
-    resolver, save_edit, saves, steam, update,
+    resolver, save_edit, save_edit_rac2, save_edit_rac2_extra, save_transfer, saves, steam, texture_packs, update,
 };
 use ts_rs::{Config, TS};
 
@@ -59,6 +59,10 @@ fn export_all(cfg: &Config) {
         overrides::PackView,
         openrac_launcher_core::mod_summary::ModLoadSummary,
         pcsx2_card::ImportedSaves,
+        save_transfer::ExportedSaves,
+        save_transfer::SaveImportChoice,
+        save_transfer::SaveImportPreview,
+        save_transfer::SaveArchiveManifest,
         plugins::Installed,
         plugins::PluginView,
         plugins::Status,
@@ -75,7 +79,16 @@ fn export_all(cfg: &Config) {
         reset::ResetPreview,
         save_edit::SaveChange,
         save_edit::WriteResult,
+        save_edit_rac2::Rac2SaveFields,
+        save_edit_rac2::Rac2WriteResult,
+        save_edit_rac2_extra::Rac2ExtraFields,
+        save_edit_rac2_extra::Rac2ExtraWriteResult,
         saves::GameSaveStatus,
+        texture_packs::Exported,
+        texture_packs::ImportMode,
+        texture_packs::Imported,
+        texture_packs::Preview,
+        texture_packs::View,
         update::Channel,
         update::Release,
         update::UpdateSource,

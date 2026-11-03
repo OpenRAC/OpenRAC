@@ -123,6 +123,16 @@ The [Novalis NTSC profile](profiles/rac1-ntsc/level_01/probe-bake.json) sets sky
 sky weight 0.3, sunlight direction and 8/3-unit dense spacing, two-thirds of the standard 4 units.
 The PAL profiles (`profiles/rac1-pal/`) start as copies of NTSC-U's: the levels' classes, textures
 and coordinates are expected to match; check a PAL bake before tuning them apart.
+Going Commando (NTSC-U) bakes with the same defaults; its level profiles set the scene strategy
+where there are no floor anchors and `light_set` where the scenery takes another directional set
+than 0. Its exports carry
+their gameplay copy from format 17 (`bake-inputs/gameplay.bin`, tag `rac2-v1`): the planner and
+interior inference read its environment transitions (header word 0x84, records as RAC1's) and light
+bank (0x04) through `assets/world/gameplay.cpp`, and seed local grids from the placements of the
+classes in [`profiles/rac2/moby-seeds.json`](profiles/rac2/moby-seeds.json). Its emission catalog
+(`profiles/rac2-ntsc/emission-materials.json`) and fur profile (`profiles/rac2/fur.json`) are its
+own; it has no water profile, and its liquids (lava) have no bake input. Its flights (levels 95 to 98) have no collision and bake
+one coarse grid over the scene.
 Export copies `profiles/<game>-<version>/level_NN/probe-bake.json`; launcher bundles include these
 profiles. Baker/runtime read the exported copy without a checkout. Missing profiles use defaults.
 Re-export and rebake after tracked settings change. Profiles contain no extracted meshes/bakes.
@@ -517,6 +527,25 @@ loaded objects with chrome packets and can force any chrome profile for that cla
 its glass packets. Automatic restores the authored selection; clearing overrides resets every class.
 Stylised exceptions are explicit, never inferred from texture colour. Controls do not change bakes.
 
+
+## Retail anchoring
+
+Going Commando's probe lighting is anchored on the game's own lighting (`probe_retail_anchor`, set
+when the verified bake is a `rac2-*` one; Ratchet & Clank keeps its tuned look). Its skies are two
+to three times dimmer than Ratchet & Clank's and its terrain vertex colours carry the original
+lighting, sunlight included, so the unanchored path left Endako's shade far darker than the
+original and sunlit Barlow sand brighter, from taking the sun twice.
+
+- A live moby's original ambient colour (+0x3C, 0x80 = 1.0) is the floor of its diffuse GI: the
+  ambient multiplies gamma-encoded texels, so its linear equivalent (its 2.2 power) is compared with
+  `indirect / pi` and only the missing luminance is added, in the ambient's hue. Brighter GI (sky,
+  bounces, emitters, lava) stays as baked.
+- Terrain with `terrain_vertex_albedo` takes the enhanced lighting as a ratio to the same point in
+  unshadowed sunlight with unoccluded GI: sunlit ground keeps its original brightness, and shade,
+  GI and occlusion work from there. Cast shade keeps about a third of the sun (`0.1 + 0.9 x 0.28`)
+  instead of a tenth, as the original lighting had no cast shadows.
+
+Both apply to the combined view only; the diagnostic views (`OPENRAC_PROBE_VIEW`) are unchanged.
 
 ## Colour correction
 

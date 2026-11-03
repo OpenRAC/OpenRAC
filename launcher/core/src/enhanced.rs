@@ -42,9 +42,10 @@ pub const NO_BAKER_HERE: &str =
 /// the launcher's own build that counts, as `platform.machine()` does for build_port.py.
 pub const SHIPS_BAKER: bool = !cfg!(all(target_os = "macos", target_arch = "x86_64"));
 
-/// Whether a version has the entry: the bake planner reads RAC1's levels (PAL and NTSC-U).
+/// Whether a version has the entry: the bake planner reads RAC1's levels (PAL and NTSC-U) and
+/// RAC2's (NTSC-U), as the baker's `bake_identity_supported` does.
 pub fn supported(game: &str, version: &str) -> bool {
-    game == "rac1" && matches!(version, "pal" | "ntsc")
+    (game == "rac1" && matches!(version, "pal" | "ntsc")) || (game == "rac2" && version == "ntsc")
 }
 
 /// Where a version's probe bakes are kept: `<data>/probes/<version>`.
@@ -378,6 +379,18 @@ mod tests {
         assert!(set_setting(&home, "rac1", "pal", "texture_filter", &Value::from("unknown")).is_err());
         assert!(set_setting(&home, "rac1", "pal", "shadow_quality", &Value::from("unknown")).is_err());
         assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn the_versions_the_baker_reads_have_the_entry() {
+        assert!(supported("rac1", "pal") && supported("rac1", "ntsc") && supported("rac2", "ntsc"));
+        assert!(!supported("rac2", "pal") && !supported("rac3", "ntsc") && !supported("rac1", "jp"));
+        // Going Commando's settings file is its own: switching it on leaves Ratchet & Clank's alone.
+        let home = temp("rac2-entry");
+        set_enabled(&home, "rac2", "ntsc", true).unwrap();
+        assert!(view(&home, "rac2", "ntsc", BakeStatus::default()).entry.enabled);
+        assert!(!view(&home, "rac1", "ntsc", BakeStatus::default()).entry.enabled);
         let _ = std::fs::remove_dir_all(&home);
     }
 

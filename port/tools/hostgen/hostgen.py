@@ -900,7 +900,10 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
         h.update(json.dumps(a, sort_keys=True, default=str).encode())
         base = Path(a["source"]) if a.get("source") else source
         stat_roots = [base / d for d in a.get("dirs", [])]
-        stat_roots += [Path(v) for v in (a.get("retail") or {}).values() if v]
+        # The disc's files are named relative to the decompilation (rac2's "baserom/SCUS_972.68"),
+        # as asmc.retail_source reads them; relative to the build's own folder they were never
+        # found, so a disc set up after the first build left the stub-only C in place.
+        stat_roots += [base / v for v in (a.get("retail") or {}).values() if v]
         for root in stat_roots:
             for f in sorted(_files(root)):
                 st = f.stat()
@@ -1138,6 +1141,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # Functions whose float arithmetic is the EE's, computed in software (hostgen.json "ps2_float";
     # openrac/ps2float.h): lower.py.
     program.ps2_float = set(cfg.get("ps2_float", []))
+    # The game's host C answers the scratchpad DMA channels' word stores (asm.dma_stores,
+    # openrac_ee_sw_dma): C's volatile word stores, the channel registers, go there too (lower.py).
+    program.dma_stores = bool((cfg.get("asm") or {}).get("dma_stores"))
     return host_rows
 
 

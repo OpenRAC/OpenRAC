@@ -122,6 +122,7 @@ openrac_add_test(breadcrumbs LIBS openrac_common Threads::Threads)
 openrac_add_test(breadcrumbs_no_alloc LIBS openrac_common)
 openrac_add_test(joining_thread LIBS openrac_common Threads::Threads)
 openrac_add_test(env LIBS openrac_common)
+openrac_add_test(env_at_exit LIBS openrac_common)
 openrac_add_test(stats LIBS openrac_common)
 openrac_add_test(perf_capture LIBS openrac_common)
 openrac_add_test(zip_writer LIBS openrac_common)
@@ -293,6 +294,7 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
+openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include)
 
 # ---- assets, media, audio, the extractor: no window ----
 openrac_add_c_test(crate_init NO_STRICT_ALIASING WRAPV NO_FP_CONTRACT)

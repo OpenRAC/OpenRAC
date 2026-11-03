@@ -243,19 +243,23 @@ static int skip_buttons(void) {
 
 /*
  * Start during the flight between planets, a port feature (skip_cutscenes, differences.json): the
- * flight ends. The flight (func_002E8368, game state 6, g_exitSceneMode 2) plays laps of a scene at
- * 0x1B8840 (+0x34 its tick, +0x40 its last): its first lap, a random one of four after it (more while
- * the next level's archives load), then the approach to the planet, then it waits for the level. A
- * lap ends when its tick reaches the last, so the tick is moved there, which is the lap's own end.
- * One press ends them all: from the press on, each lap is ended as soon as it may be (flight_skip),
- * until the flight is over. A lap may end once the archives are read (g_levelStagingState's stage 2;
- * before, the flight would only start another lap) and after its first two ticks, where it starts
- * its sound. The approach (lap 4, the mode block's +0x64) keeps its last 40 ticks, where the ship
- * fades into the planet and the flight asks for the landing (the mode block's +0x2C): without them
- * the level starts with no landing. The level then comes as it would have, and its landing (a
- * scene of game state 6, g_exitSceneMode 0 or 3, which Start ends on the console too) is ended the
- * game's way, by its skip word (the mode block's +0x26, which func_002E9268 reads with the press),
- * once the scene takes a press: from its 13th tick, faded in (D_001B15A0 0), and before its last 30.
+ * flight ends and the next planet's own arrival plays. The flight (func_002E8368, game state 6,
+ * g_exitSceneMode 2) plays laps of a scene at 0x1B8840 (+0x34 its tick, +0x40 its last): its first
+ * lap, a random one of four after it while the next level's archives load, a last random one, then
+ * the approach to the planet (lap 4). A lap ends when its tick reaches the last. The phase word
+ * (0x152C68) counts the laps since the archives were read (g_levelStagingState's stage 2; before,
+ * every lap's end starts another): at 0 a lap's end starts the last random lap, at 1 the approach,
+ * at 2 the flight is over.
+ *
+ * One press is kept until the flight is over (flight_skip): from the press on, once the archives
+ * are read, the phase is put at 1, so the lap playing is the last before the approach, and each lap
+ * is ended as soon as it may be, after its first two ticks, where it starts its sound. The approach
+ * waits for the level's banks (stage 5, which it reaches by its third tick) and is then moved to
+ * its second last tick: its last tick before the end runs as it would have, which is the one that
+ * asks for the landing (the mode block's +0x2C) and leaves the ship's fade at 0, as an approach
+ * played through leaves them. The level then comes in as it would have, with its landing (a scene
+ * of game state 6, g_exitSceneMode 0 or 3), which plays: the press is not carried into it, and
+ * Start skips it as on the console (func_002E9268 reads the press there).
  */
 /* The boot program's scene; a level's copy of it through OPENRAC_DATA, as the fade's. */
 #define FLIGHT_SCENE OPENRAC_DATA(0x001B8840u)
@@ -263,50 +267,31 @@ static int skip_buttons(void) {
 #define FLIGHT_LAST (FLIGHT_SCENE + 0x40u)
 #define FLIGHT_FIRST_TICKS 2
 #define FLIGHT_LAP 0x00152C64u /* the lap playing: 0 to 3 the laps through space, 4 the approach */
+#define FLIGHT_PHASE 0x00152C68u /* laps begun since the archives were read */
 #define FLIGHT_APPROACH 4
-#define APPROACH_END_TICKS 40
+#define PHASE_LAST_LAP 1
 #define ARCHIVES_READ 2
-
-#define SCENE_SKIP 0x00152C26u               /* a short: the scene ends at the next tick */
-#define SCENE_FADE OPENRAC_DATA(0x001B15A0u) /* a float: the fade, 0 when the picture is in */
-#define SCENE_FIRST_TICKS 13
-#define SCENE_LAST_TICKS 30
-#define LANDING_WAIT 60 /* frames from the flight's end to its landing's start, at most */
+#define BANKS_LOADING 5
 
 static int flight_skipping;
-static int landing_wait;
-
-/* The landing after a skipped flight, ended as Start ends it on the console. */
-static void landing_skip(void) {
-    const int mode = exit_scene();
-    if (mode != 0 && mode != 3) {
-        --landing_wait;
-        return;
-    }
-    const int32_t tick = GREF(int32_t, FLIGHT_TICK);
-    if (tick >= SCENE_FIRST_TICKS && GREF(float, SCENE_FADE) == 0.0f
-        && tick < GREF(int16_t, FLIGHT_LAST) - SCENE_LAST_TICKS) {
-        GREF(int16_t, SCENE_SKIP) = 1;
-        landing_wait = 0;
-    }
-}
 
 static void flight_skip(void) {
     if (exit_scene() != EXIT_SCENE_FLIGHT) {
-        if (flight_skipping) {
-            flight_skipping = 0;
-            landing_wait = LANDING_WAIT;
-        }
-        if (landing_wait > 0) {
-            landing_skip();
-        }
+        flight_skipping = 0;
         return;
     }
-    if (!flight_skipping || GREF(int32_t, RAC2_g_levelStagingState) < ARCHIVES_READ) {
+    const int32_t stage = GREF(int32_t, RAC2_g_levelStagingState);
+    if (!flight_skipping || stage < ARCHIVES_READ) {
         return;
     }
-    const int32_t last = GREF(int16_t, FLIGHT_LAST)
-                         - (GREF(int32_t, FLIGHT_LAP) == FLIGHT_APPROACH ? APPROACH_END_TICKS : 0);
+    const int approach = GREF(int32_t, FLIGHT_LAP) == FLIGHT_APPROACH;
+    if (!approach && GREF(int32_t, FLIGHT_PHASE) < PHASE_LAST_LAP) {
+        GREF(int32_t, FLIGHT_PHASE) = PHASE_LAST_LAP;
+    }
+    if (approach && stage < BANKS_LOADING) {
+        return;
+    }
+    const int32_t last = GREF(int16_t, FLIGHT_LAST) - (approach ? 2 : 0);
     const int32_t tick = GREF(int32_t, FLIGHT_TICK);
     if (tick >= FLIGHT_FIRST_TICKS && tick < last) {
         GREF(int32_t, FLIGHT_TICK) = last;
@@ -417,8 +402,27 @@ static int teleport(const float xyz[3]) {
     return 1;
 }
 
-/* The game's own skip: Start with the shoulders, pressed for it (skip_buttons). */
+/*
+ * OPENRAC_SKIP_SCENES, the test variable (a player's Start leaves the arrival to play): the scene
+ * ends as soon as it can. A level's own scene is ended by the pad (skip_buttons); the arrival after
+ * a flight (g_exitSceneMode 0 or 3) by its skip word, the mode block's +0x26 that func_002E9268
+ * reads with the press, once the scene takes a press: from its 13th tick, faded in (D_001B15A0 0),
+ * and before its last 30.
+ */
+#define SCENE_SKIP 0x00152C26u               /* a short: the scene ends at the next tick */
+#define SCENE_FADE OPENRAC_DATA(0x001B15A0u) /* a float: the fade, 0 when the picture is in */
+#define SCENE_FIRST_TICKS 13
+#define SCENE_LAST_TICKS 30
+
 static int end_scene(void) {
+    const int mode = exit_scene();
+    if (mode == 0 || mode == 3) {
+        const int32_t tick = GREF(int32_t, FLIGHT_TICK);
+        if (tick >= SCENE_FIRST_TICKS && GREF(float, SCENE_FADE) == 0.0f
+            && tick < GREF(int16_t, FLIGHT_LAST) - SCENE_LAST_TICKS) {
+            GREF(int16_t, SCENE_SKIP) = 1;
+        }
+    }
     return in_level() && game_state() == STATE_SCENE;
 }
 

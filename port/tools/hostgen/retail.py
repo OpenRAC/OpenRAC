@@ -403,6 +403,11 @@ class RetailCode:
                         break
             if op == "jr" and ins.rs != 31 and ins.rs in loaded:
                 tables[pc] = loaded[ins.rs]
+            if k > 0 and insns[k - 1].is_branch and insns[k - 1].likely:
+                # A likely branch's delay slot runs only when it is taken: the straight run (its
+                # fall-through) never sees what the slot does. A lui there is completed at the
+                # branch's target, which the follow below finds.
+                continue
             for r in writes[k]:
                 for m in (hi, full, idx, loaded):
                     m.pop(r, None)
@@ -444,6 +449,8 @@ class RetailCode:
         if k > 0:
             before = insns[k - 1]
             if before.is_branch and before.op not in ("jr", "jalr", "j", "jal"):
+                if before.likely:
+                    todo = []                  # a likely branch's slot runs only on the way taken
                 todo.append(((before.target - start) // 4, 0))     # the lui is that branch's delay slot
         seen = set()
         while todo:
@@ -497,10 +504,23 @@ class CombinedCode:
 
 def starts_of(program) -> dict[int, dict[int, str]]:
     """Every function hostgen knows, by program and address: the one with C (or the host's) where
-    several names share a place."""
+    several names share a place.
+
+    A level's six-digit name (hostgen.json "level_short_names": func_316150 in a level 2 file) is
+    that level's address, never the executable's (Program.level_short_name), so it starts nothing
+    in the executable unless the catalogue has a function there. Taken as a start, it cut the
+    executable's function around it in two, and a jump table's targets past the cut were dropped:
+    the Dynamo's update (func_00315E20, five states) lost states 3 and 4 to level 2's func_316150,
+    so after one activation it returned at once every tick and never targeted again."""
     out: dict[int, dict[int, str]] = {}
+    short = getattr(program, "level_short_names", None)
+    starts = getattr(program, "executable_starts", set())
     for sym in sorted(program.functions):
+        m = short.match(sym) if short is not None else None
+        level_only = m is not None and len(sym) == len("func_") + 6
         for ov, addr in program.code_places(sym):
+            if level_only and ov < 0 and addr not in starts:
+                continue
             have = out.setdefault(ov, {}).get(addr)
             if have is None or (program.functions.get(have) is not None and program.functions[have].unit is None
                                 and program.functions[sym].unit is not None):

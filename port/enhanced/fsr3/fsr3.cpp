@@ -248,6 +248,11 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     last_time = now;
     dispatch.sharpness = std::clamp(sharpness, 0.0f, 1.0f);
     dispatch.vertical_fov = 2 * std::atan(1 / camera.projection[5]);
+    // The near plane the projection was made with, when a game moved it out from the window's 0.05
+    // (GameProfile::depth_near; perspective_reversed: [10] is (f + n) / (f - n), [14] 2 f n / (f - n)).
+    const float p10 = camera.projection[10], p14 = camera.projection[14];
+    const float near_plane = p14 > 0.0f && p10 > 1.0f ? p14 / (p10 + 1.0f) : 0.0f;
+    dispatch.near_plane = near_plane > 0.05f * 1.01f ? near_plane : 0.05f;
     // Without an upscaler nothing gathers jittered frames: the camera stays still.
     if (plain) {
         dispatch.jitter = {0.0f, 0.0f};

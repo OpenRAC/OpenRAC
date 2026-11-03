@@ -328,6 +328,7 @@ endif()
 add_library(openrac_scene STATIC
   scene/hero_shadow.cpp
   scene/level.cpp
+  scene/tie_relight.cpp
   scene/object_picker.cpp
   scene/object_preview_mesh.cpp
   scene/moby_pose.cpp
@@ -484,11 +485,14 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
 )
 target_link_libraries(openrac_enhanced_viewer PUBLIC openrac_scene_renderer openrac_probe_scene)
 # Authored UV regions contain no retail texture pixels; the maps are generated at level load.
+# One profile a game: Ratchet & Clank's and Going Commando's bodies.
 set(fur_profile "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/profiles/rac1/fur.json")
+set(fur_profile_rac2 "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/profiles/rac2/fur.json")
 file(READ "${fur_profile}" fur_profile_text)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${fur_profile}")
+file(READ "${fur_profile_rac2}" fur_profile_rac2_text)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${fur_profile}" "${fur_profile_rac2}")
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/fur_profile_data.h"
-  CONTENT "#pragma once\nnamespace openrac::enhanced { inline constexpr char kRac1FurProfile[] = R\"json(${fur_profile_text})json\"; }\n" @ONLY)
+  CONTENT "#pragma once\nnamespace openrac::enhanced { inline constexpr char kRac1FurProfile[] = R\"json(${fur_profile_text})json\"; inline constexpr char kRac2FurProfile[] = R\"json(${fur_profile_rac2_text})json\"; }\n" @ONLY)
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_enhanced_viewer PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_enhanced_viewer PRIVATE OPENRAC_VULKAN=1)
@@ -669,6 +673,7 @@ openrac_add_test(probe_scene SOURCES enhanced/tests/probe_scene_test.cpp
 
 openrac_add_test(object_picker SOURCES tests/object_picker_test.cpp LIBS openrac_scene)
 openrac_add_test(shadow_draws LIBS openrac_scene)
+openrac_add_test(tie_relight LIBS openrac_scene)
 openrac_add_test(shadow_scroll LIBS openrac_scene)
 if(TARGET openrac_renderer_vulkan)
   openrac_add_test(depth_combine LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
@@ -680,6 +685,7 @@ add_executable(hero_shadow_test tests/hero_shadow_test.cpp)
 target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platform)
 openrac_warnings(hero_shadow_test)
 add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
+openrac_add_test(moby_shadow LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
 openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
@@ -758,6 +764,15 @@ openrac_add_test(program_cache LIBS openrac_renderer openrac_platform)
 set_tests_properties(program_cache PROPERTIES SKIP_RETURN_CODE 77)
 openrac_add_test(gl_warmup LIBS openrac_renderer openrac_platform)
 set_tests_properties(gl_warmup PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop")
+
+# Precise world depth (renderer/precise_depth.h): walls 1 cm apart, parted at every distance.
+openrac_add_test(precise_depth LIBS openrac_renderer openrac_platform)
+set_tests_properties(precise_depth PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu)
+if(OPENRAC_VULKAN)
+  add_test(NAME precise_depth_vulkan COMMAND precise_depth_test)
+  set_tests_properties(precise_depth_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
 
 openrac_add_test(texture_filter SOURCES tests/texture_filter_test.cpp tests/texture_filter_reference.cpp
                  INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"

@@ -60,10 +60,25 @@ def jal_target(word: int) -> int | None:
     return (word & 0x03FFFFFF) << 2 if word >> 26 == 3 else None
 
 
+def exe_copy(exe: list[tuple[int, bytes]], address: int, size: int, level: tuple[int, ...]) -> tuple[int, ...] | None:
+    """The executable's words of a function the levels copy, lined up with a level's copy: a name can
+    start a few words before the code the levels hold (func_002DC900 is entered at 0x002DC908, and
+    its level 0 copy starts there), so the words are read from the first of the next 8 places where
+    they match the level's, ignoring the fields the linker fills. None when they match nowhere: the
+    executable's targets are then not known."""
+    want = [masked(w) for w in level]
+    for skip in range(8):
+        code = words(exe, address + skip * 4, size)
+        if code is not None and [masked(w) for w in code] == want:
+            return code
+    return None
+
+
 def rows(source: Path) -> list[tuple[str, str, int, int, int, int, int]]:
     baserom = source / "baserom"
     table: list[tuple[str, str, int, list[tuple[int, int]]]] = []
     names: dict[tuple[int, int], str] = {}
+    kinds: dict[str, str] = {}
     for line in (source / "config/levels/functions.tsv").read_text().splitlines():
         if line.startswith("#"):
             continue
@@ -72,6 +87,7 @@ def rows(source: Path) -> list[tuple[str, str, int, int, int, int, int]]:
             continue
         places = [(int(p[:2]), int(p[3:], 16)) for p in cols[5].split(",") if p]
         table.append((cols[0], cols[1], int(cols[2]), places))
+        kinds[cols[0]] = cols[1]
         for place in places:
             names[place] = cols[0]
     programs = {int(d.name[:2]): level_sections(d) for d in sorted((baserom / "levels").iterdir())
@@ -85,14 +101,22 @@ def rows(source: Path) -> list[tuple[str, str, int, int, int, int, int]]:
         copies = [(level, address, words(programs[level], address, size))
                   for level, address in places if level in programs]
         copies = [c for c in copies if c[2] is not None]
-        own_exe = words(exe, int(caller[-8:], 16), size) if kind == "boot" else None
+        own_exe = exe_copy(exe, int(caller[-8:], 16), size, copies[0][2]) if kind == "boot" and copies else None
         found: dict[str, tuple[int, int, int, int]] = {}
         for i in range(size // 4):
             targets = {(level, address): jal_target(w[i]) for level, address, w in copies}
             called = {names.get((level, t), f"?{t:X}") for (level, _), t in targets.items() if t is not None}
+            exe_target = jal_target(own_exe[i]) if own_exe else None
+            if len(called) == 1 and exe_target is not None:
+                # Every level calls one function, but the executable's copy calls another: a level
+                # function (func_L00_0030DDB0) whose executable twin the catalogue did not pair
+                # (func_0029CCD8). C of the executable's function that names the level's runs the
+                # level's code in the executable too; the row gives the executable its own target.
+                (only,) = called
+                if not (kinds.get(only) == "boot" and int(only[-8:], 16) == exe_target):
+                    called = called | {f"exe:{exe_target:X}"}
             if len(called) < 2:
                 continue
-            exe_target = jal_target(own_exe[i]) if own_exe else None
             for (level, address), t in targets.items():
                 name = names.get((level, t)) if t is not None else None
                 if name is not None and name not in found:

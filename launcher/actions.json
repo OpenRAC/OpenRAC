@@ -1734,7 +1734,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac2/ntsc/levels-14.json",
+        "artifact": "assets/port/rac2/ntsc/levels-20.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -1771,7 +1771,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-14.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1802,7 +1802,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-14.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1855,7 +1855,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-14.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -1875,7 +1875,8 @@
           "tools/build_port.py",
           "rac2-ntsc",
           "--disc",
-          "{disc}"
+          "{disc}",
+          "--probe-baker"
         ],
         "cwd": ".",
         "platforms": [
@@ -1887,7 +1888,73 @@
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md",
-        "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
+        "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares interior lighting, bounced light and reflections from your extracted levels, for Enhanced graphics. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "developer": true,
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac2/ntsc",
+          "--output-dir",
+          "{data}/probes/ntsc",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/ntsc",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The same baker as Ratchet & Clank's: Going Commando's exports carry their gameplay copy from format 18, whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac2)."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles Going Commando again from the start, keeping the decompilation and disc it was built from. The launcher offers this when the game was built from an older checkout. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "developer": true,
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-ntsc",
+          "--disc",
+          "{disc}",
+          "--clean"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md"
       },
       {
         "id": "play",
@@ -1923,7 +1990,7 @@
             "from": "your disc set up (Set up from your disc)"
           },
           {
-            "path": "assets/port/rac2/ntsc/levels-14.json",
+            "path": "assets/port/rac2/ntsc/levels-20.json",
             "from": "the levels (Get the levels ready)"
           }
         ]

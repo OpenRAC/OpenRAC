@@ -55,6 +55,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::CamLog, "OPENRAC_CAM_LOG",
      Kind::Flag, Truth::Set, "off",
      "the camera each drawn frame is seen from, in the log"},
+    {Var::Clock, "OPENRAC_CLOCK",
+     Kind::Text, Truth::NotAFlag, "the host's (2000-01-01 00:00:00 with OPENRAC_RECORD or _REPLAY)",
+     "YYYY-MM-DD hh:mm:ss: the time the game's clock (sceCdReadClock) reads, for runs that repeat"},
     {Var::CollCheck, "OPENRAC_COLL_CHECK",
      Kind::Integer, Truth::NotAFlag, "off",
      "N: each collision query also runs the kernel's own instructions and differences go to "
@@ -134,6 +137,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::FrameLog, "OPENRAC_FRAME_LOG",
      Kind::Text, Truth::NotAFlag, "none",
      "FROM-TO or N: what each tick in that range drew, in the log"},
+    {Var::FurView, "OPENRAC_FUR_VIEW",
+     Kind::Integer, Truth::NotAFlag, "0",
+     "enhanced Ratchet fur diagnostic at start: 1 coverage mask, 2 groom directions, 3 detail normals"},
     {Var::FxDump, "OPENRAC_FX_DUMP",
      Kind::Integer, Truth::NotAFlag, "none",
      "with OPENRAC_DEBUG, each effect quad of the 100 frames from this one, in the log"},
@@ -524,10 +530,13 @@ Snapshot read_environment() {
 
 // Returns the variables' values, read the first time any of them is asked for. They never change
 // afterwards: a constant of the process rather than state (section 11.4), so a static of this
-// function holds them, which C++ makes safe to read first from any thread.
+// function holds them, which C++ makes safe to read first from any thread. They are never
+// destroyed, so value()'s views stay valid in the program's exit handlers too: a handler
+// registered before the first read (program::finish, which writes OPENRAC_STATE_DUMP) runs after
+// the destructors of statics made later, and read their freed strings on the Mac.
 const Snapshot& snapshot() {
-    static const Snapshot values = read_environment();
-    return values;
+    static const Snapshot* const values = new Snapshot(read_environment());
+    return *values;
 }
 
 }  // namespace

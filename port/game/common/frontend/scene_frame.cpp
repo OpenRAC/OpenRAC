@@ -29,6 +29,7 @@
 #include "openrac/game_host.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
+#include "renderer/precise_depth.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -307,6 +308,12 @@ void set_camera(SceneFrame& frame) {
     camera.view = state.view();
     camera.target = state.camera_target;
     camera.target_id = state.camera_target_id;
+    // The world's depth starts at the profile's near (GameProfile::depth_near: finer depth far
+    // away), clamped so that nothing nearer is cut away; with precise depth at the window's 0.05.
+    const float profile_near =
+        owner.profile != nullptr && !renderer::precise_depth() ? owner.profile->depth_near() : 0.0f;
+    const float near_z = std::max(0.05f, profile_near);
+    input.depth_clamp = profile_near > 0.05f;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
@@ -314,7 +321,7 @@ void set_camera(SceneFrame& frame) {
     camera.projection = state.projection(
         (state.tan_half_fov_y > 0.0f ? state.tan_half_fov_x / state.tan_half_fov_y : 4.0f / 3.0f)
             / picture_scale,
-        0.05f,
+        near_z,
         2000.0f
     );
     camera.position = state.camera_position;
@@ -322,13 +329,14 @@ void set_camera(SceneFrame& frame) {
     // Nor one the guard refuses with no good one to draw instead, nor a tick that draws no world
     // (a loading screen's or a new game's captions, whose view context holds the levels' colours
     // as they come and go). With a world, the colour the game clears to (the level settings'
-    // background, which a mod can change), else the extracted level's.
+    // background, which a mod can change), else the extracted level's. Mobys alone are no level:
+    // the game cleared to black under them (frontend/tick_picture.h, kLevelLayers).
     const std::optional<renderer::Camera> drawn =
         scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
     const bool has_camera = drawn.has_value();
     frame.has_camera = has_camera;
     const auto background = scene.state.background_or(owner.level.background);
-    input.clear_colour = has_camera && (scene.draws & kWorldLayers) != 0
+    input.clear_colour = has_camera && (scene.draws & kLevelLayers) != 0
                              ? std::array<float, 4>{background[0], background[1], background[2], 1}
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
@@ -465,7 +473,7 @@ void render_scene(
 ) {
     const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     crash::breadcrumb("scene setup");
-    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, false, 1};
+    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, {}, false, 1};
     frame.temporal = prepare_temporal(frame);
     {
         const profiling::Zone trace("Upload scene");

@@ -3,8 +3,10 @@
 // Owns the optional hero fur map and vertex selection used by coverage diagnostics.
 #include "enhanced/renderer/fur.h"
 
+#include <algorithm>
 #include <atomic>
 
+#include "common/log.h"
 #include "renderer/gl.h"
 
 namespace openrac::enhanced {
@@ -70,6 +72,15 @@ void HeroFur::load(const scene::LevelData& level, const FurProfile& profile) {
         return;
     }
     m_surface = identify_fur_surface(level, profile);
+    // Which body took the detail, for checking a game's profile against its export.
+    if (m_surface) {
+        log::info(
+            "fur detail: {} of {} body vertices ({} profile)",
+            std::count(m_surface->vertices.begin(), m_surface->vertices.end(), 1u),
+            m_surface->count,
+            profile.game
+        );
+    }
     // A complete fallback descriptor also covers levels without the hero model.
     auto map =
         m_surface

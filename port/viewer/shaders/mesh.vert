@@ -58,6 +58,8 @@ uniform vec4 terrain_point_lights[16];
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
 uniform int metal_pass;
+// 1: clip-space z goes to the window as it is (renderer/precise_depth.h), 0: GL's (z + w) / 2.
+uniform int clip_zero_to_one;
 uniform int probe_mode;
 uniform int probe_receiver;
 uniform int sun_shadow_enabled;
@@ -82,6 +84,7 @@ flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
 out vec3 v_script_emission;
+flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
 // GS F / 255, interpolated in screen space as the GS does: F times the clip w and w, both
 // interpolated perspective-correctly, whose ratio mesh.frag takes. A noperspective F gave NaN
@@ -143,6 +146,8 @@ void main() {
     // multiplier. Keep alpha and the original colour path for fallback.
     v_probe_multiplier = (probe_receiver == 1 ? vec4(1.0, 1.0, 1.0, colour.a) : colour) * tint;
     v_probe_selector = moby_light;
+    // The moby's ambient colour (0x80 = 1.0), which anchored probe lighting keeps as its GI floor.
+    v_probe_ambient = moby_ambient.rgb;
     v_script_emission = moby_light.w < -0.5 ? colour.rgb * tint.rgb * moby_ambient.rgb : vec3(0.0);
     v_emission_colour = colour.rgb * tint.rgb;
     gl_Position = view_projection * world;
@@ -249,8 +254,9 @@ void main() {
         float shine = clamp((reach - centre) / 16.0, 0.0, 1.0);
         v_colour = vec4(vec3(112.0 / 128.0), shine);
         // MobyProc's pull toward the camera (GS Z + 1000 Q): a little nearer, so the shine is not
-        // lost to the moby's own surface under it (reversed depth: larger is nearer).
-        gl_Position.z += 1.0e-4 * gl_Position.w;
+        // lost to the moby's own surface under it (reversed depth: larger is nearer). 0.5e-4 of the
+        // window either way: GL's form halves the clip-space z it is given, precise depth does not.
+        gl_Position.z += (clip_zero_to_one != 0 ? 0.5e-4 : 1.0e-4) * gl_Position.w;
         v_lit = 1;
         v_glow = 0;
     }

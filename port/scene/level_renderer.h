@@ -18,6 +18,7 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -43,6 +44,19 @@
 #include "scene/sun_shadow.h"
 
 namespace openrac::scene {
+
+// The ties and shrubs as the game holds them this tick (GameProfile::scenery_matrices), one per
+// instance as loaded in each layer's order: the matrices' first three columns and translation; and
+// per tie its bounding sphere and the point lights its record lists (+0x1A, four nibbles, 0xF
+// ends). Empty: drawn as loaded.
+struct GameScenery {
+    std::array<std::vector<std::array<float, 12>>, 2> matrices;
+    std::vector<std::array<float, 4>> tie_spheres;
+    std::vector<std::uint16_t> tie_lights;
+    // The same of the shrubs (their records' +0 and +0x1E).
+    std::vector<std::array<float, 4>> shrub_spheres;
+    std::vector<std::uint16_t> shrub_lights;
+};
 
 class LevelScene {
 public:
@@ -112,6 +126,10 @@ public:
     // Replaces a layer's instances (live mobys, each frame).
     void set_instances(Layer layer, const std::vector<Instance>& instances);
 
+    // Draws the faces of the level's swapped texture (LevelData::variant_image: Going Commando's
+    // ship paint jobs) with the game's `number`; one the level does not have leaves the one bound.
+    void set_variant(int number);
+
     // "Scenery detail: Original" (settings.h), from the camera at `eye` seeing through
     // `projection`: the ties and shrubs beyond their draw distances (LevelData::draw_distances) left
     // out, every one drawn at its most detailed LOD. A layer is grouped again only when one of its
@@ -129,6 +147,27 @@ public:
     // The fading shrubs and the billboards drawn in place of the far ones, as the live mobys' list
     // takes them (Instance::blend 4 and 5), appended to `live`.
     void add_shrub_effects(std::vector<Instance>& live) const;
+
+    // The ties' and the shrubs' class-to-world matrices as the game holds them this tick
+    // (GameProfile::scenery_matrices), one per instance as loaded in each layer's order, the
+    // matrix's first three columns and its translation; empty: drawn as loaded. An instance the
+    // game moved leaves its layer and is drawn with the mobys (add_moved_scenery) where the game
+    // puts it; one whose matrix the game zeroed is not drawn. A layer is grouped again only when
+    // the set of moved instances changes.
+    // A tie that a point light reaches (its list) is lit again with it each tick, as the game does.
+    void move_scenery(const GameScenery& scenery);
+
+    // The instances move_scenery found moved, at their place now, appended to `live`, of the
+    // scenery layers `layers` names (0 ties, 1 shrubs: the ones whose pass the game ran this tick);
+    // `at`, when given, places each (scenery layer, instance, matrix now) for a frame drawn between
+    // ticks.
+    void add_moved_scenery(
+        std::vector<Instance>& live,
+        const std::array<bool, 2>& layers,
+        const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at = {}
+    ) const;
+
+    bool has_moved_scenery() const { return m_moved_count > 0; }
 
     // Draws depth-tested rigid and skinned velocities into the caller's target, without changing history.
     void draw_motion(
@@ -535,8 +574,8 @@ private:
 
     // choose_scenery: per layer (the ties, the shrubs) the instances as loaded, their draw
     // distances, their bounds' world centres and whether each is drawn now, 1 or 0 (empty while
-    // the setting is off). A layer whose export has no distances keeps an empty source and is
-    // never chosen.
+    // the setting is off). A layer whose export has no distances is never chosen; its source is
+    // kept for the instances the game moves (move_scenery).
     struct Scenery {
         std::vector<Instance> source;
         std::vector<float> distances;
@@ -546,6 +585,50 @@ private:
 
     static constexpr std::array<Layer, 2> kSceneryLayers{Layer::Ties, Layer::Shrubs};
     std::array<Scenery, kSceneryLayers.size()> m_scenery;
+
+    // move_scenery: per layer, each instance's state (0 as loaded, 1 moved, 2 removed) and its
+    // matrix now; the instances a layer leaves out for it. `checked`: whether the game's matrices
+    // were found to be the loaded ones (per layer: -1 not yet, 0 no, 1 yes).
+    struct MovedScenery {
+        std::vector<std::uint8_t> state;
+        std::vector<Mat4> matrix;
+        // A tie's matrix, light set and point lights when it was last lit again
+        // (relight_moved_tie); lit_set 0xFF: its colours as loaded.
+        std::vector<Mat4> lit;
+        std::vector<std::uint8_t> lit_set;
+        std::vector<std::array<float, 32>> lit_points;
+        int checked = -1;
+    };
+
+    // The ties' relighting data (LevelData::tie_relight_classes, tie_relight, tie_slots) and their
+    // colours as loaded, for putting a tie back.
+    std::vector<TieRelightClass> m_tie_relight_classes;
+    std::vector<TieRelight> m_tie_relight;
+    std::vector<std::uint32_t> m_tie_slots;
+    std::vector<std::uint32_t> m_light_colours;
+    // The shrubs' relighting data (LevelData::shrub_relight_classes, shrub_relight).
+    std::vector<std::array<std::array<std::int16_t, 4>, 24>> m_shrub_relight_classes;
+    std::vector<LevelData::ShrubRelight> m_shrub_relight;
+    // Lights shrub `i` again by `matrix` and the point lights `list` names, merged from `centre`
+    // (nullptr: its colours as loaded), into the light texture.
+    void relight_shrub(
+        std::size_t i, const Mat4* matrix, std::uint16_t list, const std::array<float, 4>& centre
+    );
+    // Writes `colours` into the light texture from texel `first`.
+    void upload_light_colours(std::size_t first, std::span<const std::uint32_t> colours);
+    // Lights tie `i` again by `matrix` and `points` (nullptr: its colours as loaded) into the
+    // light texture.
+    void relight_moved_tie(
+        std::size_t i,
+        const Mat4* matrix,
+        std::span<const TiePointLight> points = {},
+        const std::array<float, 4>& sphere = {}
+    );
+    std::array<MovedScenery, kSceneryLayers.size()> m_moved;
+    std::size_t m_moved_count = 0;  // instances moved now, over both layers
+    // A layer's instances as the scene draws them: its chosen ones (choose_scenery) or all of
+    // them, without the ones the game moved or removed.
+    std::vector<Instance> resident_scenery(std::size_t k) const;
     // set_shrub_draws: the tick's choice; per shrub as loaded its billboard's model (-1 none) and
     // its average lit colour (0x80 = 1.0), the billboard's.
     std::vector<ShrubDraw> m_shrub_draws;
@@ -600,6 +683,9 @@ private:
     std::array<std::vector<bool>, kLayerCount> m_colour_visible;
     std::vector<Material> m_materials;
     std::vector<renderer::TextureHandle> m_textures;  // by image
+    // The swapped texture's image (-1 none) and the handle of each variant, by the game's number.
+    int m_variant_image = -1;
+    std::vector<renderer::TextureHandle> m_variants;
     renderer::TextureHandle m_white = 0;
     std::array<std::vector<Group>, kLayerCount> m_groups;
     // The groups a live layer does not draw this frame, kept for the frames it does (set_instances).

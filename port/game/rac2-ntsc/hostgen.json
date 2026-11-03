@@ -22,7 +22,7 @@
     "func_002833B8", "func_002833F0", "func_00283410", "func_00283430", "func_00283658",
     "func_00283678", "func_00283698", "func_002836E8", "func_00283738", "func_00283788",
     "func_002837D0", "func_00283810", "func_00283898", "func_00283958", "func_002839D0",
-    "func_002A05A8", "func_002AB6D8"
+    "func_002A05A8", "func_002AB6D8", "func_002EE000", "func_002761F8", "func_00277258"
   ],
   "sources": [
     "src"
@@ -158,6 +158,7 @@
     "func_00336A78"
   ],
   "from_assembly": [
+    "func_0029FD48",
         "func_00335D30",
     "func_L00_002F7568",
     "func_L16_004364B0",
@@ -588,7 +589,8 @@
   "asm": {
     "signatures": {
       "F391de845_FUN_002E45C8": "int (void *, float, float, float)",
-      "func_00283B98_10": "float (float, float)"
+      "func_00283B98_10": "float (float, float)",
+      "func_0028EA58": "int (int, int, int, int, int, void *)"
     },
     "results_before_calls": true,
     "vu0_programs": {"0xC80": "rac2_vu0_cosine", "0xC90": "rac2_vu0_sine", "0xD18": "rac2_vu0_rotation_rows"},

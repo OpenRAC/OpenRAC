@@ -74,10 +74,17 @@ struct Kept {
     std::vector<renderer::ShadowCapsule> shadows, prev_shadows;
     std::uint32_t shadow_moby = 0, prev_shadow_moby = 0;
     scene::MobyShadowState shadow_state, prev_shadow_state;
+    std::vector<renderer::ShadowSet> shadow_sets, prev_shadow_sets;  // every_moby_casts_shadow
     std::optional<bool> hero_airborne;
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // ShrubProc's choice for the last tick that ran the world (LevelScene::set_shrub_draws).
     std::vector<scene::ShrubDraw> shrubs;
+    // The ties' and the shrubs' matrices the last tick that ran the world left
+    // (LevelScene::move_scenery).
+    scene::GameScenery scenery;
+    // The ties' and shrubs' matrices the tick before, when it was the one before (a frame between
+    // ticks moves a moved one from there).
+    std::array<std::vector<std::array<float, 12>>, 2> prev_scenery;
     // The last tick's poses, by moby: where its joints start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
     std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
@@ -112,6 +119,9 @@ struct Kept {
     };
 
     std::vector<TargetMoby> target_mobys;
+    // The variant of the level's swapped texture the game has loaded (GameProfile::texture_variant;
+    // -1 keeps the one bound).
+    int texture_variant = -1;
     std::uint32_t draws = 0;
     bool has_camera = false;
     // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame
@@ -129,6 +139,7 @@ struct TickMobys {
     std::vector<renderer::ShadowCapsule> shadows;          // Captured authored shadow proxies.
     std::uint32_t shadow_moby = 0;                         // Identity of the shadow owner.
     scene::MobyShadowState shadow_state;                   // Captured shadow direction and scale.
+    std::vector<renderer::ShadowSet> shadow_sets;          // Every other caster's proxies.
     std::vector<Kept::TargetMoby> target_mobys;            // Mobys drawn in private camera spaces.
     std::array<std::optional<renderer::Vec3>, 2> water_hands{};
     // Each point-lit moby's third light: colour (w 0), then its world direction (w 0); an
@@ -136,6 +147,9 @@ struct TickMobys {
     std::vector<std::array<float, 8>> point_lit;
     // ShrubProc's choice (GameProfile::shrub_draws); none keeps the last tick's.
     std::optional<std::vector<host::ShrubDraw>> shrubs;
+    // The ties and shrubs as the game holds them (LevelScene::move_scenery); none keeps the last
+    // tick's.
+    std::optional<scene::GameScenery> scenery;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -248,6 +262,17 @@ struct State {
     bool world_under_menu = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
+
+    // The mobys the last 2D path read drew with a list of their own, by their markers (frame.cpp,
+    // direct_packets): first moby, count, and whether the frame was a buffer narrower than the
+    // picture then (a texture).
+    struct MarkedMobys {
+        std::uint32_t first = 0;
+        std::uint32_t count = 0;
+        bool narrow = false;
+    };
+
+    std::vector<MarkedMobys> texture_mobys;
     // One-shot blasts captured since the last displayed tick; projectiles are added at capture.
     std::vector<renderer::WaterImpulse> water_impulses;
     // The world effect quads the game drew since the last frame (effect_quad).

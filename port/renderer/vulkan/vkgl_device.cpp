@@ -561,6 +561,7 @@ bool make_device(std::string& error) {
     VkPhysicalDeviceFeatures features{};
     features.fillModeNonSolid = g->features.fillModeNonSolid;
     features.samplerAnisotropy = g->features.samplerAnisotropy;
+    features.depthClamp = g->features.depthClamp;  // GL_DEPTH_CLAMP (FrameInput::depth_clamp)
     features.shaderClipDistance = g->features.shaderClipDistance;  // the world's clip planes
     features.shaderCullDistance = g->features.shaderCullDistance;
     features.drawIndirectFirstInstance = g->features.drawIndirectFirstInstance;
@@ -776,13 +777,20 @@ bool make_device(std::string& error) {
         error = "no memory allocator";
         return false;
     }
-    g->depth_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+    g->float_depth_format = g->depth_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
     for (const VkFormat f : {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT}) {
         VkFormatProperties p{};
         vkGetPhysicalDeviceFormatProperties(g->physical, f, &p);
         if ((p.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
             g->depth_format = f;
             break;
+        }
+    }
+    {
+        VkFormatProperties p{};
+        vkGetPhysicalDeviceFormatProperties(g->physical, VK_FORMAT_D32_SFLOAT_S8_UINT, &p);
+        if ((p.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0) {
+            g->float_depth_format = g->depth_format;
         }
     }
     return make_pipeline_cache();

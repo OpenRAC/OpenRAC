@@ -659,6 +659,10 @@ typedef struct openrac_game_quad {
      * tick to the next, or 0 for none. With GameProfile::interpolates_effect_quads, a quad drawn
      * between ticks is moved part way from the last tick's quad of the same id. */
     uint32_t id;
+    /* The moby the quad belongs to (the argument of the draw callback that drew it), or 0. A frame
+     * between ticks may move it with the moby's body (an engine's flame), so that it stays where it
+     * is on the moby; the window decides which owners' quads sit on them. */
+    uint32_t parent;
 } openrac_game_quad;
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);

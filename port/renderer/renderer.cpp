@@ -179,6 +179,8 @@ bool Renderer::add_game_renderers(std::string& error) {
 
 void Renderer::render(const FrameInput& input, const RenderTarget& source) {
     RenderTarget target = source;
+    // Animated texture pack replacements show the frame of the game's tick, not of the clock.
+    m_textures.set_tick(input.frame);
     // [debug tools] The frame's target set and cleared, timed on the CPU only: on Vulkan the clear
     // is recorded with the first pass that draws.
     {
@@ -203,6 +205,11 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         );
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_GEQUAL);
+    }
+    // The world's passes clamp depth when the frame asks (FrameInput::depth_clamp), up to the HUD.
+    const bool depth_clamp = input.depth_clamp && gl::depth_clamp_available();
+    if (depth_clamp) {
+        glEnable(GL_DEPTH_CLAMP);
     }
 
     RenderState state{m_textures, target, {}};
@@ -464,6 +471,9 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         }
 
+        if (i == hud && depth_clamp) {
+            glDisable(GL_DEPTH_CLAMP);
+        }
         if (i == hud && input.before_hud) {
             input.before_hud();
             glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
@@ -486,6 +496,9 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
                 r->render(input, state);
             }
         }
+    }
+    if (depth_clamp) {
+        glDisable(GL_DEPTH_CLAMP);
     }
     if (!scoped_ao && !ao_applied && ao_before != 0 && gtao
         && m_ambient_occlusion->render(input, state.target, true, false)) {

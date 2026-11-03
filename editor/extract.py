@@ -382,7 +382,7 @@ def export_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
     own process."""
     disc, source = open_later(iso)
     with disc:
-        return LevelWriter(out, load_wad_level(source, source.level(number))).write(lod)
+        return LevelWriter(out, load_wad_level(source, source.level(number)), source.normals()).write(lod)
 
 
 def export_port_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:

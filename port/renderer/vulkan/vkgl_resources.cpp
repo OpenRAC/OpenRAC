@@ -135,6 +135,12 @@ Format format_of(GLenum internal) {
         case GL_DEPTH24_STENCIL8:
         case kGlDepthStencil:
             return {g->depth_format, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 4};
+        // Precise depth (renderer/precise_depth.h): 32-bit float depth, where the device has it
+        // with stencil (else the context's own depth and stencil format).
+        case GL_DEPTH32F_STENCIL8:
+            return {
+                g->float_depth_format, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 4
+            };
         default:
             return {};
     }

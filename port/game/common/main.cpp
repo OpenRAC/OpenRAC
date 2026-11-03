@@ -41,6 +41,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -65,6 +66,7 @@
 
 #ifdef OPENRAC_FRONTEND
 #include "debug_overlay.h"
+#include "enhanced/renderer/fur.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "frontend/mod_media.h"
@@ -109,6 +111,70 @@ bool texture_pack_save(const std::filesystem::path& file, const openrac::rendere
     return stbi_write_png(file.string().c_str(), image.width, image.height, 4, image.pixels.data(),
                           image.width * 4)
            != 0;
+}
+
+// A level's planet name for the dump's folders (renderer/texture_pack.h): the game's own table, and
+// the port's own worlds (frontend/world.cpp): the title screen's (99) and the flights between
+// planets (98, and Going Commando's 95 to 97).
+std::string texture_pack_level_name(int level) {
+    constexpr int kTitleWorld = 99;
+    constexpr int kFirstFlightWorld = 95;
+    if (level == kTitleWorld) {
+        return "Title screen";
+    }
+    const char* name = openrac_game_has_level(level) ? openrac_game_level_name(level) : nullptr;
+    if (name == nullptr && level >= kFirstFlightWorld && level < kTitleWorld) {
+        return "Flights";
+    }
+    return name != nullptr ? name : "";
+}
+
+// A texture pack's animated GIF (renderer/texture_pack.h): its frames and their delays, looped.
+std::optional<openrac::renderer::texture_pack::Animation> texture_pack_load_gif(
+    const std::filesystem::path& file
+) {
+    std::ifstream in(file, std::ios::binary);
+    const std::vector<char> bytes{
+        std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()
+    };
+    int* delays = nullptr;
+    int w = 0;
+    int h = 0;
+    int frames = 0;
+    int channels = 0;
+    unsigned char* pixels = stbi_load_gif_from_memory(
+        reinterpret_cast<const stbi_uc*>(bytes.data()),
+        static_cast<int>(bytes.size()),
+        &delays,
+        &w,
+        &h,
+        &frames,
+        &channels,
+        4
+    );
+    // Not a GIF stb can read.
+    if (pixels == nullptr) {
+        return std::nullopt;
+    }
+    openrac::renderer::texture_pack::Animation animation;
+    const auto frame_bytes = static_cast<std::ptrdiff_t>(w) * h * 4;
+    // A delay this short or none is drawn at 10 a second, as browsers do.
+    constexpr int kShortestDelayMs = 20;
+    constexpr int kUsualDelayMs = 100;
+    constexpr std::uint32_t kMicrosecondsPerMs = 1000;
+    for (int i = 0; i < frames; ++i) {
+        openrac::renderer::Rgba8Image image(w, h);
+        std::copy(pixels + i * frame_bytes, pixels + (i + 1) * frame_bytes, image.pixels.begin());
+        animation.frames.push_back(std::move(image));
+        const int delay = delays != nullptr ? delays[i] : 0;
+        animation.durations_us.push_back(
+            static_cast<std::uint32_t>(delay < kShortestDelayMs ? kUsualDelayMs : delay)
+            * kMicrosecondsPerMs
+        );
+    }
+    stbi_image_free(pixels);
+    stbi_image_free(delays);
+    return animation;
 }
 }  // namespace
 #endif
@@ -612,7 +678,14 @@ int main(int argc, char** argv) {
             log::info("enhanced rendering off: no mods are loaded (--no-mods)");
         }
         if (gl::enhanced_rendering_enabled()) {
+            // A fur diagnostic from the start, for hidden runs (the drawer's Diagnostics otherwise).
+            enhanced::set_fur_debug_view(
+                static_cast<enhanced::FurDebug>(env::integer(env::Var::FurView, 0))
+            );
             lighting::set_probe_root(g_options.probes);
+            // A level's bake is read while the level is already drawn (original lighting until then),
+            // so that its first picture waits for none of it.
+            lighting::set_probe_background_load(true);
             log::info("enhanced rendering on (Vulkan only); probe bakes from {}",
                       g_options.probes.empty() ? std::string("nowhere") : g_options.probes.string());
         }
@@ -624,7 +697,8 @@ int main(int argc, char** argv) {
                 settings::get().texture_pack ? g_options.data / "texture_packs" / openrac_game.id
                                              : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
-                {texture_pack_load, texture_pack_save}
+                {texture_pack_load, texture_pack_save, texture_pack_load_gif},
+                texture_pack_level_name
             );
         }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);

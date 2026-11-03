@@ -625,6 +625,12 @@ VkPipeline create_graphics_pipeline(
 ) {
     const bool colour = k.colour_format != VK_FORMAT_UNDEFINED;
     const auto depth_format = static_cast<VkFormat>(k.depth_format);
+    // Whether the vertex stage's z is Vulkan's already (glClipControl GL_ZERO_TO_ONE).
+    const VkBool32 zero_to_one = (k.depth_mode & kClipZeroToOne) != 0 ? VK_TRUE : VK_FALSE;
+    const VkSpecializationMapEntry zero_to_one_entry{kClipZeroToOneConstant, 0, sizeof(VkBool32)};
+    const VkSpecializationInfo vertex_constants{
+        1, &zero_to_one_entry, sizeof zero_to_one, &zero_to_one
+    };
     VkPipelineShaderStageCreateInfo stages[2]{};
     stages[0] =
         {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -633,7 +639,7 @@ VkPipeline create_graphics_pipeline(
          VK_SHADER_STAGE_VERTEX_BIT,
          vertex_module,
          "main",
-         nullptr};
+         &vertex_constants};
     stages[1] =
         {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
          nullptr,
@@ -675,6 +681,7 @@ VkPipeline create_graphics_pipeline(
     raster.polygonMode = k.polygon != 0 ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
     raster.cullMode = k.fixed.cull;
     raster.frontFace = static_cast<VkFrontFace>(k.fixed.front);
+    raster.depthClampEnable = (k.depth_mode & kDepthClamp) != 0 ? VK_TRUE : VK_FALSE;
     raster.lineWidth = 1.0f;
     VkPipelineMultisampleStateCreateInfo multisample{
         VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO
@@ -874,6 +881,10 @@ PipelineKey library_key(const PipelineKey& k, LibraryPart part) {
         case LibraryPart::PreRaster:
             l.program = k.program;
             l.polygon = k.polygon;
+            // The rasteriser's depth clamp and the vertex stage's specialisation constant
+            // (glClipControl's GL_ZERO_TO_ONE) are this part's: left out, a part made for GL's
+            // depth was linked into precise depth's pipelines, which then halved z twice.
+            l.depth_mode = k.depth_mode;
             l.viewports = k.viewports;
             l.fixed.cull = k.fixed.cull;
             l.fixed.front = k.fixed.front;
@@ -1616,6 +1627,8 @@ VkPipeline pipeline_for(
         mode == GL_LINE_STRIP || mode == GL_TRIANGLE_STRIP || mode == GL_TRIANGLE_FAN;
     k.restart = s.primitive_restart && strip ? 1 : 0;
     k.polygon = s.polygon_mode == GL_LINE && g->features.fillModeNonSolid ? 1 : 0;
+    k.depth_mode = (s.depth_clamp && g->features.depthClamp ? kDepthClamp : 0)
+                   | (s.clip_zero_to_one ? kClipZeroToOne : 0);
     k.dynamic_fixed = fixed_state_dynamic() ? 1 : 0;
 
     // Baked into the pipeline, unless the draw records it as dynamic state (R-11).

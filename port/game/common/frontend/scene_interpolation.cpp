@@ -189,12 +189,50 @@ void upload_instances(SceneFrame& frame) {
     frame.owner.scene.set_shrub_draws(
         frame.graphics.original_lod ? frame.scene.shrubs : std::vector<scene::ShrubDraw>{}
     );
+    // The ties and shrubs the game moved this tick (a moby's group) or removed, with the mobys:
+    // only those of a pass the game ran this tick. The vendor's menu draws no tie or shrub pass
+    // (its world is a picture kept from when it opened) but draws its item's moby, after its
+    // panels: Maktar's moved ties (the arena's turning rings and lights) were drawn there, over
+    // the panels and the kept picture, with the vendor's camera.
+    frame.owner.scene.move_scenery(frame.scene.scenery);
+    const auto ran = [&](renderer::Bucket bucket) {
+        return (frame.scene.draws & (1u << static_cast<unsigned>(bucket))) != 0;
+    };
+    const std::array<bool, 2> scenery_ran{
+        ran(renderer::Bucket::Ties), ran(renderer::Bucket::Shrubs)
+    };
+    const bool shrub_effects = frame.graphics.original_lod && scenery_ran[1];
+    const bool more = shrub_effects || frame.owner.scene.has_moved_scenery();
     std::vector<scene::Instance> with_shrubs;
-    if (frame.graphics.original_lod) {
+    if (more) {
         with_shrubs = live;
-        frame.owner.scene.add_shrub_effects(with_shrubs);
+        if (shrub_effects) {
+            frame.owner.scene.add_shrub_effects(with_shrubs);
+        }
+        // Between ticks, a moved instance part way from where the last tick had it, as the mobys.
+        const float alpha = frame.output.alpha;
+        const auto& prev = frame.scene.prev_scenery;
+        frame.owner.scene.add_moved_scenery(
+            with_shrubs, scenery_ran, [&](std::size_t k, std::size_t i, const renderer::Mat4& now) {
+                if (alpha >= 1.0f || i >= prev[k].size()) {
+                    return now;
+                }
+                renderer::Mat4 from = now;
+                for (std::size_t c = 0; c < 4; ++c) {
+                    for (std::size_t r = 0; r < 3; ++r) {
+                        from[c * 4 + r] = prev[k][i][c * 3 + r];
+                    }
+                }
+                bool zero = true;
+                for (std::size_t e = 0; e < 9; ++e) {
+                    zero = zero && prev[k][i][e] == 0.0f;
+                }
+                return zero ? now : blend_matrix(from, now, alpha);
+            }
+        );
     }
-    const auto& drawn = frame.graphics.original_lod ? with_shrubs : live;
+    const auto& drawn = more ? with_shrubs : live;
+    frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
     if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;
@@ -204,11 +242,66 @@ void upload_instances(SceneFrame& frame) {
     }
 }
 
+namespace {
+
+// Interpolates each further caster that both ticks hold for the same moby with the same proxies.
+void blend_shadow_sets(SceneFrame& frame, float alpha) {
+    const Kept& scene = frame.scene;
+    for (auto& set : frame.shadow_sets) {
+        const auto before = std::find_if(
+            scene.prev_shadow_sets.begin(),
+            scene.prev_shadow_sets.end(),
+            [&](const renderer::ShadowSet& s) { return s.moby == set.moby; }
+        );
+        const auto previous = scene.prev_matrices.find(set.moby);
+        const auto now = std::find(scene.addresses.begin(), scene.addresses.end(), set.moby);
+        // A reused slot or a changed proxy list has no endpoint to blend from.
+        if (before == scene.prev_shadow_sets.end() || before->capsules.size() != set.capsules.size()
+            || before->heights.has_value() != set.heights.has_value()
+            || previous == scene.prev_matrices.end() || now == scene.addresses.end()
+            || !same_moby(
+                previous->second,
+                scene.live[static_cast<std::size_t>(now - scene.addresses.begin())].matrix
+            )) {
+            continue;
+        }
+        const auto lerp = [alpha](float from, float to) {
+            return from + (to - from) * alpha;
+        };
+        for (std::size_t n = 0; n < set.capsules.size(); ++n) {
+            auto& c = set.capsules[n];
+            const auto& p = before->capsules[n];
+            for (std::size_t component = 0; component < c.a.size(); ++component) {
+                c.a[component] = lerp(p.a[component], c.a[component]);
+                c.b[component] = lerp(p.b[component], c.b[component]);
+            }
+            c.radius_a = lerp(p.radius_a, c.radius_a);
+            c.radius_b = lerp(p.radius_b, c.radius_b);
+        }
+        for (std::size_t component = 0; component < set.extrusion.size(); ++component) {
+            set.extrusion[component] = lerp(before->extrusion[component], set.extrusion[component]);
+        }
+        if (set.heights) {
+            for (std::size_t component = 0; component < set.heights->size(); ++component) {
+                (*set.heights)[component] =
+                    lerp((*before->heights)[component], (*set.heights)[component]);
+            }
+        }
+    }
+}
+
+}  // namespace
+
 void blend_shadows(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     frame.shadows = scene.shadows;
     frame.input.shadow_capsules = frame.shadows;
     const float alpha = frame.output.alpha;
+    frame.shadow_sets = scene.shadow_sets;
+    frame.input.shadow_sets = frame.shadow_sets;
+    if (alpha < 1.0f) {
+        blend_shadow_sets(frame, alpha);
+    }
 
     // Replaced actors or capsule layouts must not interpolate through unrelated geometry.
     if (alpha >= 1.0f || scene.shadow_moby == 0 || scene.shadow_moby != scene.prev_shadow_moby

@@ -5,6 +5,10 @@
 #include <array>
 #include <bit>
 #include <cstring>
+#include <future>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "enhanced/fsr3/sdk_shaders.h"
@@ -223,6 +227,7 @@ bool ShaderLibrary::prepare(std::string& error, bool allow_float16) {
                                | FSR3UPSCALER_SHADER_PERMUTATION_DEPTH_INVERTED;
 
     // Only LDR, unjittered render-resolution motion is exposed by this integration.
+    std::vector<std::pair<unsigned, unsigned>> missing;
     for (unsigned pass = 0; pass < kPassSources.size(); ++pass) {
         // Lanczos lookup and sharpening are independently selected by the SDK.
         for (unsigned half : {0u, kHalf}) {
@@ -233,28 +238,51 @@ bool ShaderLibrary::prepare(std::string& error, bool allow_float16) {
                 const auto key = std::pair{pass, kBase | extra | half};
 
                 // Changing quality or resolution reuses the already compiled permutations.
-                if (m_shaders.contains(key)) {
-                    continue;
+                if (!m_shaders.contains(key)) {
+                    missing.push_back(key);
                 }
-
-                auto shader = std::make_unique<Shader>();
-
-                // A failed compilation prevents SDK context creation rather than returning an empty blob.
-                if (!shader->compile(
-                        pass,
-                        key.second,
-                        [this](std::string_view name) { return source(name); },
-                        error
-                    )) {
-                    return false;
-                }
-
-                m_shaders.emplace(key, std::move(shader));
             }
         }
     }
 
-    return true;
+    // The permutations are compiled side by side: one after another they held the first enhanced
+    // frame back by about a second (several on slower machines), with the screen black meanwhile.
+    // Each compile reads only the assembled sources, which nothing changes until they are done.
+    struct Compiled {
+        std::unique_ptr<Shader> shader = std::make_unique<Shader>();
+        std::string error;
+        bool ok = false;
+    };
+
+    const auto lookup = [this](std::string_view name) {
+        return source(name);
+    };
+    std::vector<std::future<Compiled>> compiles;
+    compiles.reserve(missing.size());
+    for (const auto& key : missing) {
+        compiles.push_back(std::async(std::launch::async, [key, &lookup] {
+            Compiled compiled;
+            compiled.ok = compiled.shader->compile(key.first, key.second, lookup, compiled.error);
+            return compiled;
+        }));
+    }
+    bool ok = true;
+    for (std::size_t i = 0; i < missing.size(); ++i) {
+        auto compiled = compiles[i].get();
+
+        // A failed compilation prevents SDK context creation rather than returning an empty blob.
+        if (!compiled.ok) {
+            if (ok) {
+                error = std::move(compiled.error);
+            }
+            ok = false;
+            continue;
+        }
+
+        m_shaders.emplace(missing[i], std::move(compiled.shader));
+    }
+
+    return ok;
 }
 
 bool ShaderLibrary::find(unsigned pass, unsigned permutation, FfxShaderBlob& out) const {

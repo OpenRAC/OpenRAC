@@ -539,6 +539,8 @@ int main() {
     };
     geometry_source("first geometry fixture");
     volume.grid.scene_hash = export_probe_scene(level, 0, expected.environment).scene_hash;
+    // Activation fingerprints the same files without building the transport scene.
+    CHECK(probe_activation_hash(level, 0, expected.environment) == volume.grid.scene_hash);
     {
         std::ofstream(root / "pvs.json") << "camera-only visibility metadata";
         std::ofstream(root / "pvs.bin", std::ios::binary) << "camera grid fixture";

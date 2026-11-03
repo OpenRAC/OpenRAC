@@ -27,10 +27,10 @@ std::array<float, 2> read_direction(const json::Value& source) {
 }
 
 // Reads the compiled, authored profile without loading or modifying any retail pixels.
-FurProfile read_profile() {
+FurProfile read_profile(const char* text) {
     json::Value root;
     std::string error;
-    if (!json::parse(kRac1FurProfile, root, error)) {
+    if (!json::parse(text, root, error)) {
         return {};
     }
     FurProfile profile;
@@ -179,8 +179,18 @@ bool select_vertices(
 }  // namespace
 
 const FurProfile& rac1_fur_profile() {
-    static const FurProfile profile = read_profile();
+    static const FurProfile profile = read_profile(kRac1FurProfile);
     return profile;
+}
+
+const FurProfile& rac2_fur_profile() {
+    static const FurProfile profile = read_profile(kRac2FurProfile);
+    return profile;
+}
+
+const FurProfile& fur_profile(std::string_view game) {
+    static const FurProfile none;
+    return game == "rac1" ? rac1_fur_profile() : game == "rac2" ? rac2_fur_profile() : none;
 }
 
 std::uint64_t fur_uv_signature(const scene::LevelData& level, const scene::Primitive& primitive) {

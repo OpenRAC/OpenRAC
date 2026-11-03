@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <utility>
 
 #include "common/env.h"
 #include "common/log.h"
@@ -94,6 +95,11 @@ void GifInterpreter::clear() {
     m_hud_side = 0;
     m_whole = false;
     m_error.clear();
+}
+
+void GifInterpreter::carry(std::vector<DirectDraw> draws, std::vector<DirectVertex> vertices) {
+    m_draws = std::move(draws);
+    m_vertices = std::move(vertices);
 }
 
 bool GifInterpreter::fail(std::string message) {
@@ -1192,21 +1198,33 @@ void GifInterpreter::ensure_draw() {
                                                                       : TextureKind::Texture);
         }
         // The scissor is in this buffer's own pixels: scaled onto the picture as its draws are
-        // (screen_position), so it clips where they land.
+        // (screen_position), so it clips where they land. Multiplied before it is divided, so that
+        // an edge the scale puts on a whole pixel lands there exactly in any rounding mode: the
+        // NTSC games' 416-line draw buffer cut at 0-415 is 0-447 of the 448-line picture, where
+        // 448 / 416 rounded toward zero (the EE's mode, which the renderer runs in), times 416,
+        // came to 447.99997 and cut the picture's last line (Going Commando's cutscene bars
+        // stopped a line short of the bottom).
         {
             const float ofx = static_cast<float>(c.xyoffset.ofx) / 16.0f;
             const float ofy = static_cast<float>(c.xyoffset.ofy) / 16.0f;
             const float width = 2.0f * (2048.0f - ofx);
             const float height = 2.0f * (2048.0f - ofy);
-            const float kx = width >= 64.0f && width <= 1024.0f ? static_cast<float>(m_config.screen_width) / width : 1.0f;
-            const float ky = height >= 64.0f && height <= 1024.0f ? static_cast<float>(m_config.screen_height) / height : 1.0f;
-            auto scale = [](std::uint32_t v, float k, bool end) {
-                const float r = end ? (static_cast<float>(v) + 1.0f) * k - 1.0f : static_cast<float>(v) * k;
+            const float sw = static_cast<float>(m_config.screen_width);
+            const float sh = static_cast<float>(m_config.screen_height);
+            const bool fx = width >= 64.0f && width <= 1024.0f;
+            const bool fy = height >= 64.0f && height <= 1024.0f;
+            auto scale = [](std::uint32_t v, bool fits, float screen, float size, bool end) {
+                const float edge = static_cast<float>(v) + (end ? 1.0f : 0.0f);
+                const float r = (fits ? edge * screen / size : edge) - (end ? 1.0f : 0.0f);
                 return static_cast<std::uint32_t>(r < 0.0f ? 0.0f : r);
             };
             s.scissor = s.target != 0 ? c.scissor
-                                      : gs::Scissor{scale(c.scissor.x0, kx, false), scale(c.scissor.x1, kx, true),
-                                                    scale(c.scissor.y0, ky, false), scale(c.scissor.y1, ky, true)};
+                                      : gs::Scissor{
+                                            scale(c.scissor.x0, fx, sw, width, false),
+                                            scale(c.scissor.x1, fx, sw, width, true),
+                                            scale(c.scissor.y0, fy, sh, height, false),
+                                            scale(c.scissor.y1, fy, sh, height, true)
+                                        };
         }
         s.fog = p.fge;
         if (s.fog) {
@@ -1324,13 +1342,20 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     // at less than full strength: a tint over the finished frame (the title's blue wash, a fade
     // part way). The game also clears with blending on at full alpha, which replaces the frame
     // all the same: that is a clear.
+    // After the level's world in a frame split at it (set_over_world) a fill is no clear: it goes
+    // over the finished frame. A scene's fade to black ends on one at full alpha (Maktar's arena,
+    // the ticks either side of the scene's load): left out, the black frame between the fade out
+    // and the fade in showed the world unfaded, HUD and all, for a tick on each side. A tick that
+    // drew mobys alone (the weapon upgrade) clears with such fills: there they stay clears, and
+    // so does an unblended fill anywhere (a fade blends; a plain clear need not).
     const gs::Alpha& al = context().alpha;
     const bool standard = al.a == 0 && al.b == 1 && al.d == 1;  // (Cs - Cd) * C + Cd
     const bool replaces = !attributes().abe
                           || (standard && ((al.c == 0 && b.rgba[3] >= 0x80) || (al.c == 2 && al.fix >= 0x80)));
     // (Only in the frame: an off-screen panel's clear is drawn, however tall the panel. The
     // Load Game page's slot list is 512 lines: its clear left old highlight frames in place.)
-    if (!attributes().tme && replaces && offscreen_target() == 0) {
+    const bool fade_over_world = m_over_world && attributes().abe;
+    if (!attributes().tme && replaces && offscreen_target() == 0 && !fade_over_world) {
         const gs::Scissor& sc = context().scissor;
         const std::int64_t scissor_height = static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0);
         const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;
@@ -1502,6 +1527,18 @@ GlBlend translate_blend(const gs::Alpha& alpha) {
             out.exact = false;
         }
     };
+    // Cd (C + 1) with C As or FIX: Cd * C as the source factor DST_COLOR on the weight the shader
+    // writes, plus Cd.
+    if (ks == 0 && ms == 0 && kd == 1 && md == 1 && alpha.c != 1) {
+        out.src = GL_DST_COLOR;
+        out.dst = GL_ONE;
+        out.equation = GL_FUNC_ADD;
+        out.constant = 0.0f;
+        out.source_scale = alpha.c == 0 ? SourceScale::WeightAlpha : SourceScale::WeightFix;
+        out.fix = static_cast<float>(alpha.fix) / 128.0f;
+        out.exact = alpha.c == 0 || alpha.fix <= 0x80;
+        return out;
+    }
     int src_sign = 1;
     int dst_sign = 1;
     term(ks, ms, out.src, src_sign);
@@ -1649,6 +1686,7 @@ void DirectRenderer::release() {
         glDeleteTextures(1, &o.texture);
     }
     m_offscreen_targets.clear();
+    g_offscreen_textures.clear();
     if (m_samplers[0] != 0) {
         glDeleteSamplers(16, m_samplers.data());
         m_samplers.fill(0);
@@ -1677,12 +1715,14 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
 
 void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
-    if (packets.empty()) {
+    // Draws the part before the world held back (flush) are drawn even when nothing follows.
+    if (packets.empty() && m_interpreter->draws().empty()) {
         return;
     }
     m_interpreter->set_ui_quads(input.ui_quads);
     m_interpreter->set_screen_mobys(static_cast<bool>(input.screen_mobys));
     m_interpreter->set_picture(state.target.picture_scale_x, state.target.wide_2d);
+    m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
     {
         const stats::Scope decode("2d decode");
@@ -1690,6 +1730,7 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     const stats::Scope draws("2d draws");
     flush(state);
+    publish_offscreen();
 }
 
 const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) {
@@ -1975,6 +2016,17 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     }
 }
 
+void DirectRenderer::publish_offscreen() {
+    g_offscreen_textures.clear();
+    for (const std::uint32_t block : m_interpreter->offscreen_blocks()) {
+        for (const auto& [b, o] : m_offscreen_targets) {
+            if (b == block) {
+                g_offscreen_textures.push_back({block, o.texture});
+            }
+        }
+    }
+}
+
 void DirectRenderer::flush(RenderState& state, bool background) {
     m_background = background;
     const auto& vertices = m_interpreter->vertices();
@@ -1982,6 +2034,35 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_interpreter->clear();
         return;
     }
+    // Off-screen draws held back from the part before the world to the part after it (Going
+    // Commando, g_quads_sample_targets). The cockpit screen's buffer (block 0x3BE0) is cleared in
+    // the 2D list before the world's marker and Fizzwidget is drawn into it after: drawn where they
+    // come, the clear wiped the picture before the world's quad of that block sampled it, and the
+    // screen was black (level 0's opening scene; the closing one has no world marker, so all of it
+    // came after). Held back, the buffer keeps the last frame's picture, as the quad expects. A
+    // buffer something before the world samples is drawn where it comes.
+    std::vector<std::uint32_t> hold_targets;
+    if (background && g_quads_sample_targets) {
+        for (const DirectDraw& d : m_interpreter->draws()) {
+            if (d.state.target != 0
+                && std::find(hold_targets.begin(), hold_targets.end(), d.state.target)
+                       == hold_targets.end()) {
+                hold_targets.push_back(d.state.target);
+            }
+        }
+        std::erase_if(hold_targets, [&](std::uint32_t block) {
+            return std::any_of(
+                m_interpreter->draws().begin(),
+                m_interpreter->draws().end(),
+                [&](const DirectDraw& d) { return d.state.source == block; }
+            );
+        });
+    }
+    const auto held = [&](const DirectDraw& d) {
+        return d.state.target != 0
+               && std::find(hold_targets.begin(), hold_targets.end(), d.state.target)
+                      != hold_targets.end();
+    };
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     const std::size_t bytes = vertices.size() * sizeof(DirectVertex);
@@ -1993,6 +2074,33 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         GL_STREAM_DRAW
     );
     const float k = state.target.picture_scale_x;
+    // A plain fill out to the picture's top or left edge (a cutscene bar, a fade) reaches the
+    // target's edge itself. apply()'s pixel_offset moves every vertex a quarter of a pixel right
+    // and down, which leaves the top row and left column a quarter uncovered: no pixel's centre
+    // is there, but with multisampling a sample is, and that row showed the world through the
+    // bar. Such a vertex is put back on the edge (the offset undone); every other is as it was.
+    // Only in a triangle of one colour and depth, so that nothing interpolated across it changes
+    // (a gradient's shades stay where they were). `sides`: the target's left edge is the
+    // picture's (not a picture narrower than the target).
+    const float edge_x = 0.5f / static_cast<float>(std::max(state.target.width, 1));
+    const float edge_y = 0.5f / static_cast<float>(std::max(state.target.height, 1));
+    auto to_edges = [edge_x, edge_y](DirectVertex* v, bool sides) {
+        constexpr float kOn = 1.0f - 1.0f / 65536.0f;
+        for (int j = 1; j < 3; ++j) {
+            if (std::memcmp(v[j].rgba, v[0].rgba, 4) != 0 || v[j].z != v[0].z
+                || v[j].fog != v[0].fog) {
+                return;
+            }
+        }
+        for (int j = 0; j < 3; ++j) {
+            if (v[j].y >= kOn) {
+                v[j].y = 1.0f + edge_y;
+            }
+            if (sides && v[j].x <= -kOn) {
+                v[j].x = -1.0f - edge_x;
+            }
+        }
+    };
     // On a target wider than the game's picture: each draw as runs of triangles that are the
     // picture's (in the target's middle) or the whole target's, in the order they came.
     struct Run {
@@ -2012,6 +2120,9 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         std::vector<DirectVertex> placed(vertices.begin(), vertices.end());
         for (const DirectDraw& d : m_interpreter->draws()) {
             const DirectState& s = d.state;
+            if (held(d)) {
+                continue;
+            }
             if (s.target != 0 || d.count == 0) {
                 if (d.count != 0 || d.mobys != 0) {
                     runs.push_back({&d, d.first, d.count, true});  // an off-screen panel's own square
@@ -2047,6 +2158,9 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 } else {
                     runs.push_back({&d, i, 3, whole});
                 }
+                if (!s.textured) {
+                    to_edges(&placed[i], whole);
+                }
                 if (whole) {
                     continue;
                 }
@@ -2057,7 +2171,17 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         }
         glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), placed.data());
     } else {
-        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), vertices.data());
+        std::vector<DirectVertex> placed(vertices.begin(), vertices.end());
+        for (const DirectDraw& d : m_interpreter->draws()) {
+            if (d.state.target != 0 || d.state.textured) {
+                continue;
+            }
+            for (std::uint32_t i = d.first; i + 3 <= d.first + d.count && i + 3 <= placed.size();
+                 i += 3) {
+                to_edges(&placed[i], true);
+            }
+        }
+        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), placed.data());
     }
     m_vbo_bytes = std::max(bytes, m_vbo_bytes);
     use_program(m_masked);
@@ -2071,7 +2195,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_whole_target = true;
     } else {
         for (const DirectDraw& d : m_interpreter->draws()) {
-            if (d.count != 0 || d.mobys != 0) {
+            if ((d.count != 0 || d.mobys != 0) && !held(d)) {
                 draw(d, state);
             }
         }
@@ -2089,7 +2213,24 @@ void DirectRenderer::flush(RenderState& state, bool background) {
     glBindSampler(0, 0);
     glBindSampler(1, 0);
     m_bound_sampler = 0xFFFFFFFF;
+    std::vector<DirectDraw> carried;
+    std::vector<DirectVertex> carried_vertices;
+    for (const DirectDraw& d : m_interpreter->draws()) {
+        if (held(d)) {
+            DirectDraw c = d;
+            c.first = static_cast<std::uint32_t>(carried_vertices.size());
+            carried_vertices.insert(
+                carried_vertices.end(),
+                vertices.begin() + d.first,
+                vertices.begin() + d.first + d.count
+            );
+            carried.push_back(c);
+        }
+    }
     m_interpreter->clear();
+    if (!carried.empty()) {
+        m_interpreter->carry(std::move(carried), std::move(carried_vertices));
+    }
 }
 
 }  // namespace openrac::renderer

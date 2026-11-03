@@ -3335,6 +3335,15 @@ but `tests/check_repository.py` reports that the PAL and v2.00 catalogues still 
 rows, so the repair needs `tools/carry.py` with those releases' dumps. The L20 row is also
 described as a catalogue defect in `nonmatching/README.md`.
 
+**2 November 2026:** the level-26 row of the same body, `func_L26_003547D8` (pointer at
+`26:00286D80` -> `0x003547E8`), now has the named correction `(288, 16)` in `FUNCTION_ENTRY_OFFSETS`,
+carried to PAL and v2.00 with `tools/carry.py --entries` (one row changes in each catalogue). It matches
+in all three releases as level 26's copy of `func_L00_00354DF8`, the level-0 body corrected earlier,
+with the level's own tables. The same repair covers `func_L04_00378838` (levels 4 and 10; pointers at
+`04:0029FE90` and `10:0029F960`), `func_L05_00367340`, `func_L12_0035A838`, `func_L14_0035F510`
+(pointer at `14:0028D180`) and `func_L20_0036AE68`: each starts with the same 16 bytes, has no
+reference to them, and matches in every release that has it as its level's copy of the same body.
+
 **Update, 29 October 2026 (pending review):** matched by the tiered-wave series; `func_002BC508` is C in `src/game/002BC508-g8.c` (`-O2 -G8 -ffunction-sections -g`), placed at 28 US, 28 US2 places (PAL catalogue has no function of this name); `func_002BEBC0` is C in `src/game/002BEBC0-hazard-labels.c` (`-O2 -G0 -ffunction-sections -frac2-hazard-labels`), placed at 28 US, 28 US2 places (PAL catalogue has no function of this name); `func_002C3B08` is C in `src/game/002BF6F0.c` (`-O2 -G0 -ffunction-sections -g`), placed at 28 US, 28 US2 places (PAL catalogue has no function of this name); `func_L00_003B3158` is C in `src/levels/shared/L00_003B3158-shard.c` (`-O2 -G0 -ffunction-sections -frac2-zero-ti-por -fno-gcse`), placed at 27 US, 27 US2 places (PAL catalogue has no function of this name); `func_L02_003D26B0` is C in `src/levels/02_maktar_nebula/L02_003D26B0-aim-g8.c` (`-O2 -G8 -ffunction-sections -frac2-keep-block-order`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L02_003F1BA8` is C in `src/levels/02_maktar_nebula/L02_003DB310-aim-g8.c` (`-O2 -G8 -ffunction-sections -frac2-keep-block-order`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L02_0040BBD8` is C in `src/levels/02_maktar_nebula/L02_0040A4A8-aim-g8.c` (`-O2 -G8 -ffunction-sections -frac2-keep-block-order`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L05_00441F30` is C in `src/levels/shared/L05_00441F30-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 4 US, 4 US2 places (PAL catalogue has no function of this name); `func_L07_00378898` is C in `src/levels/07_siberius/L07_002BE770-rotation-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L07_00416510` is C in `src/levels/shared/L07_00416510-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 4 US, 4 US2 places (PAL catalogue has no function of this name); `func_L11_00449C70` is C in `src/levels/11_joba/L11_004465F8-aim-g8.c` (`-O2 -G8 -ffunction-sections -frac2-zero-ti-por -frac2-keep-block-order`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L11_0044C850` is C in `src/levels/11_joba/L11_004465F8-aim-0044C850-g8.c` (`-O2 -G8 -ffunction-sections -frac2-zero-ti-por -frac2-keep-block-order`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L11_004530E0` is C in `src/levels/11_joba/L11_004465F8-aim-004530E0-g8.c` (`-O2 -G8 -ffunction-sections -frac2-zero-ti-por -frac2-keep-block-order`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L11_004566C0` is C in `src/levels/11_joba/L11_00453358-aim-g8.c` (`-O2 -G8 -ffunction-sections -frac2-zero-ti-por -frac2-keep-block-order`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L12_00429D60` is C in `src/levels/shared/L12_003E1CB0-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 3 US, 3 PAL, 3 US2 places; `func_L18_0042FBC8` is C in `src/levels/18_damosel/L18_0042FBC8-g8.c` (`-O2 -G16 -Wa,-G16 -ffunction-sections -g`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L18_00447128` is C in `src/levels/18_damosel/L18_00447128-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L19_003D2E38` is C in `src/levels/19_grelbin/L19_002CAAB0-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L23_0041B9F0` is C in `src/levels/23_damosel_orbit/L23_0041B9F0-g8.c` (`-O2 -G8 -ffunction-sections -frac2-gcse-unsplit-edges`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name); `func_L30_003E1BA0` is C in `src/levels/30_insomniac_museum/L30_003E1BA0-g8.c` (`-O2 -G8 -ffunction-sections -Wa,-G32`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name). The measurements above are kept as history.
 
 ## Shared hero table and object helpers
@@ -3701,8 +3710,8 @@ Still open: reload's spill registers run one step behind retail from `0x1F4` to 
 
 ## Large retained state machines and the level-data loader
 
-Measured against master `2e09b830` on 1 November 2026, using its current game compiler
-and SN assembler. These are corrections to retained C, **not complete matches or
+Measured against master `2e09b830` on 1 November 2026, using its qualified compiler
+and assembler profiles. These are corrections to retained C, **not complete matches or
 functional-port qualifications**. The source headers record the per-unit profiles;
 the implementations remain in `nonmatching/levels/` with their production markers intact.
 
@@ -3760,3 +3769,50 @@ change. A discarded result is not permission to give its callee a false prototyp
 Next useful work is the specific remaining source/ABI or allocation difference above.
 Do not repeat the removed zero placeholders, hand-written template-copy spelling,
 global strength-reduction disable, or branch-tail merging as if they were new trials.
+
+### Caller contracts, scratch records and allocation-only drafts
+
+`func_L04_003FA7E0` is now reconstructed in `src/levels/shared/L04_003FA7E0.c`.
+Its normal aligned 0x50-byte template assignment uses the current compiler's
+quadword block moves. Correct helper return declarations then resolve the one
+remaining store/call scheduling difference. The four carrying USA v1.01/v2.00
+programs pass strict linked builds; PAL has no row with this canonical identity.
+See [prototypes and lifetimes](COMPILER-NOTES.md#prototypes-lifetimes-and-varargs).
+The old nonmatching copy is retired; no ad-hoc assembly or compiler change is needed.
+
+The related retained investigations establish these constraints:
+
+- `func_L12_003E2460`'s path search reads the pair at offsets 0x268/0x26C as one
+  64-bit sentinel, and its first reset writes 0x268. The previous draft read one
+  word and reset the other. Collision calls also need all five integer-bank
+  arguments, and `func_001234F0` returns a software double for the diagnostic call.
+  Correcting these contracts gives 5,764/5,672 bytes, still nonmatching; the smaller
+  earlier source omitted real operations.
+- `func_L00_003C9978`'s 32-byte request view was too short: `func_002A8C00` writes
+  at +0x20, and `func_002A8E20` also consumes +0x24. The retained union now covers
+  that 40-byte request and the direction vector that occupies its tail later,
+  matching the retail stack overlap without overrunning a separate C object.
+  `func_L00_003D1D28` similarly names the request's +0x24 scalar and gets its tail
+  alignment from the real vector member. The meaning/initialization of that scalar
+  remains unresolved; no replacement value is invented, and neither draft is
+  functionally qualified. Its matrix copy/product helpers were checked separately:
+  they operate on three quadwords, so the 48-byte matrices must not be inflated.
+- The unreferenced `vC0`/`vD0` vectors in `func_L08_003C6AB0` and twelve `z0`..`z11`
+  declarations in `func_L08_00429560` are removed. They shaped stack or pseudo
+  numbering without an evidenced source object. Their removal leaves retained C,
+  not matching credit; an unexplained frame gap cannot be filled with dummy data.
+- Explicit `goto` controls do not solve every loop obstruction. In
+  `func_L00_00303990` the final-loop trial loses required control-flow/alignment
+  and gives 3,380 instead of 3,388 bytes; the retained structured form is 3,392.
+  The two strip-loop controls in `func_00284268` remain 2,996/2,988 bytes with worse
+  opcode agreement. Keep the measured earlier source rather than generalizing the
+  successful loader record-copy remedy to these loops.
+- `func_L13_00438D88` has a real 32-byte route record, with its path pointer at
+  +0x10. That view and `-fno-force-addr` retain the seven diagnostic rows in its
+  mode-2 head; `-fno-force-mem` gives 2,700/2,704 bytes and disturbs FP scheduling.
+  The same memory option leaves `func_L11_00444400` unchanged at 4,640/4,684 bytes.
+  These controls do not justify an artificial rounding barrier or register pin.
+
+Current sizes, profiles and applicable-release results are in the existing
+nonmatching index and source headers. Equal sizes, fixed local blocks and typed
+buffer repairs remain distinct from a complete matching or functional build.

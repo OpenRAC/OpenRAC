@@ -161,11 +161,13 @@ func_00128A50	pad2	scePad2Read	host	same instructions as rac1-pal's
 func_00128B28	pad2	scePad2GetButtonProfile	host	same instructions as rac1-pal's
 func_00128C18	pad2	scePad2GetState	host	same instructions as rac1-pal's
 func_00128F50	vib	sceVibGetProfile	host	same instructions as rac1-pal's
-func_00129218	vu0	sceVu0RotMatrixZ	host	same instructions as rac1-pal's (Z, X, Y in the library's order)
-func_001292C0	vu0	sceVu0RotMatrixX	host	same instructions as rac1-pal's (Z, X, Y in the library's order)
-func_00129368	vu0	sceVu0RotMatrixY	host	same instructions as rac1-pal's (Z, X, Y in the library's order)
+# sceVu0RotMatrixZ, X and Y (func_00129218, func_001292C0, func_00129368) run from the disc's own
+# instructions (hostgen.json "asm"): the shared replacement (common/lib/vu0.c) takes its sine and cosine
+# from the host's libm, whose last bit differs between macOS and glibc, and level starts built the
+# camera from them (g_cameraState, 0x1B5200: 1 ulp apart on the Mac and Linux). The library's own
+# polynomial on VU0 is the console's, and the same on every host.
 func_00131A98	scf	sceScfGetLocalTimefromRTC	host	same instructions as rac1-pal's and rac4's
-func_00132028	989snd	snd_FlushSoundCommands	host	symbol_addrs.txt snd_Pump; same opening as rac4's snd_FlushSoundCommands; the native flush also delivers deferred disc completion
+func_00132028	989snd	snd_Pump	host	symbol_addrs.txt snd_Pump: the answers of the batch the IOP has, the disc read's end (the common snd_FlushSoundCommands), then the next batch: host/sound.c	int (void)
 func_00133250	989snd	snd_InitVAGStreamingEx	host	same opening as rac4's
 func_001334B8	989snd	snd_StreamSafeCdRead	host	same opening as rac4's: sector, count, destination
 func_00133580	989snd	snd_StreamSafeCdSync	host	symbol_addrs.txt snd_CheckLoadInProgress; sceCdSync (0x00124B88) when no stream plays
@@ -200,6 +202,7 @@ func_00133890	989snd	snd_ResetMovieSound	host	command 0x3D
 func_001338F0	989snd	snd_StartMovieSound	host	command 0x3E
 func_00133930	989snd	snd_UpdateMovieADPCM	host	command 0x5A
 func_00133960	989snd	snd_GetMovieNAX	host	command 0x5B
+func_00132318	989snd	snd_BankLoadByLoc	host	command 3 on the loader client: a bank by sector and offset, its handle returned; the matched C waits with FlushCache for an IOP reply no one writes (Maktar's arena, func_L00_0032D208)	unsigned int (int, int)
 func_001326D8	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
 func_0027F2A8	draw	FontPrint	wrap	a string, glyph by glyph: its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
 func_0027F640	draw	FontPrintScaled	wrap	func_0027F2A8 at a scale, with float positions: its quads are marked as glyphs (host/ui2d.c)
@@ -220,6 +223,7 @@ func_0027CF58	draw	ExecuteDrawCallbacks3	wrap	a draw callback list's run, as fun
 func_0027D020	draw	ExecuteDrawCallbacks4	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
 func_0027D0E8	draw	ExecuteDrawCallbacks5	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
 func_00283DB8	draw	FastBSphereCheck	wrap	the bounding sphere view test: while a draw callback list runs, against the picture's sides (host/wide_view.c)
+func_0028EA58	hud	HudGradientSprite	wrap	a HUD texture as a sprite with a colour a corner: drawn natively (host/ui2d.c)
 func_0027E4A8	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot: drawn natively (host/ui2d.c)
 func_0027E920	draw	DrawRingSegment	wrap	a ring's segment, a colour a corner and the texture's wrap: drawn natively (host/ui2d.c)
 func_0027DE50	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): drawn natively (host/ui2d.c)
@@ -236,3 +240,4 @@ func_002D2CE8	menu	CameraPageTick	wrap	the pause menu's Camera page tick in ever
 func_0033C590	menu	CameraPageUpdate	wrap	the pause menu's Camera page: its 16:9 row opens the port's Video rows in the page, which move as the title's (host/options.c)
 func_0033C738	menu	CameraPageDraw	wrap	the pause menu's Camera page: the 16:9 row reads Video, or the Video rows drawn in the panel (host/options.c)
 func_0029B168	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)
+func_L16_0042FB10	game	func_L16_0042FB10	host	a place the catalogue folds into func_L00_00424BB8 although its code stores to other fields (split_places.tsv, host/variants.c)	void (float, float)

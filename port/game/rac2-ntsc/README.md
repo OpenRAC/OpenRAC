@@ -152,12 +152,15 @@ many bytes can be another field in another level: it reads what the running copy
   on the disc (RC2.HDR +0x4B3C, class and sectors, `wads.item_banks`), loaded by `func_00294988` when he
   takes one out, each a class and one texture. Every level exports them all, textures `moby_1203.png`
   on. The wrench (class 71, level has its skeleton) is packs 9 to 11, `moby_1200.png` to `moby_1202.png`,
-  its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0,
-  paint 0 only, `moby_1300.png`. Its hull is the disc's too (RC2.HDR +0x48D8, three of them): every
+  its forms 1 and 2 classes 6021 and 6022. His ship (class 3412) has its picture from RC2.HDR +0x48F0:
+  18 paint jobs, the Ship Shack's, of which `func_002926B8` loads the one the low five bits of
+  `0x001A7AF2` name (the Ship Shack's preview loads others) and keeps its number at `0x00152C30`. The
+  faces are exported with paint 0, `moby_1300.png`, the others as `ship_paint_01.png` to `_17`, listed
+  in the manifest's `ship_paints`; the window draws those faces with the paint loaded (format 15). Its hull is the disc's too (RC2.HDR +0x48D8, three of them): every
   level's load and every flight's loads it over the class (`func_002925F0`, by the low bits of
   `0x001A7AF0`), and most levels' tables have no class 3412 of their own, so parked ships drew their
   wings and canopy only. The export has hull 0 as class 3412 in every level, hulls 1 and 2 as 6031 and
-  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 14 (`editor/port.py`, `GAME_FORMATS`).
+  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 20 (`editor/port.py`, `GAME_FORMATS`; 17 adds the shrub classes' normals, 18 the gameplay copy the probe baker reads, 19 the emission catalog and the levels' sky and sun profiles, 20 the liquid surfaces).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
   pixels are offsets into the stash: the GS RAM table's entries past its count, whose first is the
   128 x 128 chrome at stash offset 0 and the next the 64 x 64 glass at 0x4000 (the stashed moby
@@ -214,6 +217,38 @@ opening scene is its own world, so the port takes the lump's world while the sky
 the lump's (`g_memoryArenaTable` +0x18 the lump, sky at its data base plus its +0x48 word). A flight
 draws no terrain, so the sky's draw names the world's camera (`openrac_game_world_view`): at the frame's
 end the game holds another view's, the cockpit screen's moby (class 2714, its own list and camera).
+
+## Enhanced graphics
+
+Ratchet & Clank's enhanced rendering (`port/enhanced`: probe GI and reflections, sun cascades and
+his shadow map, GTAO, AgX colour, texture upscaling, FSR/ASR, motion blur, volumetric fog, HDR
+output) draws this game too. It is opt-in as there: `enhanced_rendering = 1` (or `OPENRAC_ENHANCED=1`)
+with the Vulkan renderer and the bakes made from the player's own levels; off, the game draws as before.
+
+```sh
+port/build/release/openrac-enhanced-baker --bake-all --levels-dir <levels> --output-dir <data>/probes/ntsc --jobs 0
+OPENRAC_GL_API=vulkan OPENRAC_ENHANCED=1 port/build/release/openrac-rac2-ntsc --data <data> \
+  --levels <levels> --probes <data>/probes/ntsc --window
+```
+
+Play from the same `<levels>` the baker read: interior inference writes `probe-interiors.json` into
+each level, and the bake is checked against those files. From format 18 the export keeps the
+gameplay copy the planner reads (`bake-inputs/gameplay.bin`): the environment transitions (header
+word 0x84) and the light bank (0x04), `port/assets/world/gameplay.cpp`. Local grids grow from the
+transitions and from Ratchet, the vendor and the crates (`port/enhanced/lighting/profiles/rac2`);
+the ship levels and the arenas (5, 10, 15, 22, 23, 25) bake one scene grid
+(`profiles/rac2-ntsc/level_NN`). From format 19 the export also resolves this game's catalog of
+glowing textures (`profiles/rac2-ntsc/emission-materials.json`: lamps, light panels, screens, a lava
+floor) into `probe-emission.json`, and nine levels bake their sun from the directional set most of
+their scenery is lit by (`light_set`). Ratchet's fur detail takes `profiles/rac2/fur.json`, the fur
+islands of his body atlas (the same mesh in every level). From format 20 the lava of levels 14 and
+19 is a bake input as Gaspar's is: its surfaces (class 4959, drawn by `func_00303070` from the third
+draw callback list over the corners `func_00303210` takes from four class 0x1130 markers) go to
+`bake-inputs/liquids.json` with their effect texture, and the ones
+`profiles/rac2-ntsc/liquids.json` reviews emit (`editor/enhanced/liquids.py`, the baker's
+`rac2_liquid_triangles`). Not carried yet: the enhanced water (Novalis's tables and hooks; this
+game's water is a camera-following sheet at one height, `func_L06_00402570` in levels 6, 8, 11, 13,
+16 and 18, and other routines in 1, 9 and 20) and the hands' water ripples.
 
 ## The texture word (TEX0)
 

@@ -413,6 +413,17 @@ LevelBakeProfile load_level_bake_profile(
     return profile;
 }
 
+bool bake_identity_supported(std::string_view game, std::string_view version) {
+    return (game == "rac1" && (version == "pal" || version == "ntsc"))
+           || (game == "rac2" && version == "ntsc");
+}
+
+bool bake_identity_supported(std::string_view game_version) {
+    const auto dash = game_version.find('-');
+    return dash != std::string_view::npos
+           && bake_identity_supported(game_version.substr(0, dash), game_version.substr(dash + 1));
+}
+
 ProbeAssetLoader::ProbeAssetLoader(const scene::LevelData& level, const ProbeActivation& expected)
     : m_level(level.level),
       m_bake(expected.bake) {
@@ -425,12 +436,11 @@ ProbeAssetLoader::ProbeAssetLoader(const scene::LevelData& level, const ProbeAct
 
     m_version = manifest["game"].string() + "-" + manifest["version"].string();
 
-    if ((m_version != "rac1-pal" && m_version != "rac1-ntsc") || m_level < 0) {
+    if (!bake_identity_supported(m_version) || m_level < 0) {
         throw std::runtime_error("probe game version or level does not match loaded scene");
     }
 
-    m_scene_hash =
-        export_probe_scene(level, expected.light_set, expected.environment, false).scene_hash;
+    m_scene_hash = probe_activation_hash(level, expected.light_set, expected.environment);
 }
 
 ProbeVolume ProbeAssetLoader::load(

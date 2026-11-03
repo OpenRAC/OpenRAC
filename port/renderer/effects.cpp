@@ -22,6 +22,24 @@
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
+namespace {
+
+// The GL texture of the off-screen target the 2D path drew at TEX0's block (g_offscreen_textures),
+// or 0.
+unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp) {
+    if (!g_quads_sample_targets) {
+        return 0;
+    }
+    const std::uint32_t block = tbp != 0 ? tbp : gs::Tex0::decode(tex0_bits).tbp0;
+    for (const OffscreenTexture& o : g_offscreen_textures) {
+        if (o.block == block) {
+            return o.texture;
+        }
+    }
+    return 0;
+}
+
+}  // namespace
 
 using namespace gl;
 
@@ -289,14 +307,24 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     const std::size_t quads_from = m_vertices.size();
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+        // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
+        // coordinates over the TEX0's size become the target texture's, which spans
+        // kOffscreenPixels chip pixels with its first row on top.
+        float s_scale = 1.0f, t_scale = 1.0f, t_from = 0.0f;
+        if (offscreen_texture(q.tex0, q.tbp) != 0) {
+            const gs::Tex0 tex0 = gs::Tex0::decode(q.tex0);
+            s_scale = static_cast<float>(tex0.width()) / static_cast<float>(kOffscreenPixels);
+            t_scale = -static_cast<float>(tex0.height()) / static_cast<float>(kOffscreenPixels);
+            t_from = 1.0f;
+        }
         // The strip's two triangles, 0-1-2 and 1-2-3 (the faces are not culled).
         for (const int k : {0, 1, 2, 1, 2, 3}) {
             m_vertices.push_back(
                 {q.corner[k][0],
                  q.corner[k][1],
                  q.corner[k][2],
-                 q.st[k][0],
-                 q.st[k][1],
+                 q.st[k][0] * s_scale,
+                 t_from + q.st[k][1] * t_scale,
                  static_cast<std::uint8_t>(q.rgba[k] & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 8) & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 16) & 0xFF),
@@ -337,6 +365,25 @@ bool EffectRenderer::apply(
     if (tbp != 0) {
         tex0.tbp0 = tbp;
         tex0.cbp = cbp;
+    }
+    // An off-screen target the 2D path drew, sampled from the texture it was drawn in.
+    if (const unsigned target = offscreen_texture(tex0_bits, tbp); target != 0) {
+        if (m_applied.texture != kOffscreenHandle || m_applied.offscreen != target
+            || clamp_bits != m_applied.clamp_bits) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, target);
+            glUniform1i(m_active_shader->uniform("upscaled_texture_colours_ready"), 0);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            m_applied.texture = kOffscreenHandle;
+            m_applied.offscreen = target;
+            m_applied.clamp_bits = clamp_bits;
+            m_applied.tex1_bits = tex1_bits;
+        }
+        apply_colour_state(tex0, 0.5f, alpha_bits);
+        return true;
     }
     TextureHandle texture;
     {
@@ -390,6 +437,15 @@ bool EffectRenderer::apply(
         m_applied.tex1_bits = tex1_bits;
         m_applied.clamp_bits = clamp_bits;
     }
+    apply_colour_state(
+        tex0, state.textures.alpha_scale(texture) == AlphaScale::Full ? 0.5f : 1.0f, alpha_bits
+    );
+    return texture != state.textures.placeholder();
+}
+
+void EffectRenderer::apply_colour_state(
+    const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits
+) {
     const int tcc_val = tex0.tcc ? 1 : 0;
     if (tcc_val != m_applied.tcc) {
         glUniform1i(m_tcc, tcc_val);
@@ -400,7 +456,6 @@ bool EffectRenderer::apply(
         glUniform1i(m_tfx, tfx_val);
         m_applied.tfx = tfx_val;
     }
-    const float scale = state.textures.alpha_scale(texture) == AlphaScale::Full ? 0.5f : 1.0f;
     if (scale != m_applied.alpha_scale) {
         glUniform1f(m_tex_alpha_scale, scale);
         m_applied.alpha_scale = scale;
@@ -420,7 +475,6 @@ bool EffectRenderer::apply(
         glUniform1f(m_source_fix, b.fix);
         m_applied.alpha_bits = alpha_bits;
     }
-    return texture != state.textures.placeholder();
 }
 
 void EffectRenderer::release() {

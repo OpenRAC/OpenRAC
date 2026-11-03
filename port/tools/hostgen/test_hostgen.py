@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -410,6 +411,33 @@ class Translate(unittest.TestCase):
         })
         self.assertEqual(out, ["768"])
         self.assertIn("GFN(long long (*)(int), ", self.last_generated)
+
+    def test_a_cast_to_an_int_parameter_passes_a_64_bit_value_whole(self):
+        # Going Commando's spinning reticle (func_002729A0) casts func_0027E4A8 to take its TEX0 as
+        # an s32, and passes a variable holding GetTexture's 64 bits: the EE's register carries
+        # them all. Through the cast's type the callee's `long long` read the upper half from
+        # whatever the host's register held (zero on Linux: the ring's texture lost TH and CBP).
+        out = self.run_program({
+            "callee.c": """
+                long long func_00120000(int i) { return (long long)i << 33 | 0x80000000ll; }
+                void func_00110000(int n, long long tex0, long long z, int *out) {
+                    *out = (int)(tex0 >> 32) * 100 + (int)(z >> 32) + n;
+                }
+            """,
+            "caller.c": """
+                extern int func_00120000(int);
+                extern void func_00110000(int, int, int, int *);
+                int test_main(void) {
+                    int r;
+                    int t = func_00120000(3);
+                    ((void (*)(int, int, int, int *))func_00110000)(1, t, -5, &r);
+                    test_print(r);
+                    return 0;
+                }
+            """,
+        }, config={"returns_64": ["func_00120000"]})
+        self.assertEqual(out, ["600"])
+        self.assertIn("GFN(void (*)(int, long long, long long, gaddr), ", self.last_generated)
 
     def test_a_cast_to_fewer_arguments_passes_the_callers_own(self):
         # rac3's text code casts a width function to take only its float (`((s32 (*)(f32))f)(1.0f)`):
@@ -1159,6 +1187,72 @@ class Translate(unittest.TestCase):
         self.assertIn("openrac_ps2_sub(", self.last_generated)
         self.assertIn("ps2_float: func_00100000 has no C here to translate", self.last_report["index_problems"])
 
+    def test_volatile_word_stores_go_through_the_dma_hook(self):
+        # asm.dma_stores: the game's host C answers the scratchpad DMA channels' stores
+        # (openrac_ee_sw_dma). Functional C that starts a channel by its registers and polls STR
+        # must reach it too, or the transfer never happens and the poll never ends; a plain
+        # word store, and the volatile store of a game without dma_stores, stay ordinary stores.
+        files = {"a.c": """
+            extern unsigned int D_00200000[3];
+            void kick(void) {
+                volatile unsigned int *chcr = (volatile unsigned int *)&D_00200000[1] + 1;
+                *chcr = 0x100;
+                while (*chcr & 0x100) {
+                }
+                D_00200000[0] = 7;
+                test_print(D_00200000[1]);
+            }
+            int test_main(void) {
+                kick();
+                return 0;
+            }
+        """}
+        host = """
+            void openrac_ee_sw_dma(unsigned int a, unsigned long long v) {
+                GREF(unsigned int, a) = (unsigned int)v & ~0x100u;  /* the transfer done at once */
+                GREF(unsigned int, 0x00200004u) = a;
+            }
+        """
+        out = self.run_program(files, config={"asm": {"dma_stores": True}}, host_c=host)
+        self.assertEqual(out, [str(0x00200008)])
+        self.assertEqual(self.last_generated.count("openrac_ee_sw_dma((gaddr)"), 1)
+        files_plain = {"a.c": files["a.c"].replace("while (*chcr & 0x100) {\n                }", "")}
+        out = self.run_program(files_plain, host_c=host)
+        self.assertEqual(out, ["0"])
+        self.assertNotIn("openrac_ee_sw_dma(", self.last_generated)
+
+    def test_ps2_float_reaches_the_static_helpers_of_its_candidate(self):
+        # A ps2_float function's candidate C is that routine's arithmetic split up: its static
+        # helpers (a functional candidate's vector helpers) compute as the EE does too, and sqrtf
+        # is sqrt.s (the root of |x|, cut). Another candidate in the same file, not ps2_float,
+        # keeps the host's floats in its helpers.
+        add = "static float add(float a, float b) { return a + b; }\n"
+        bits = "static int bits(float f) { union { float f; int i; } u; u.f = f; return u.i; }\n"
+        out = self.run_program({"a.c": """
+            #define INCLUDE_ASM(dir, name)
+            extern float D_00200000[4];
+            INCLUDE_ASM("asm", func_00110100);
+            INCLUDE_ASM("asm", func_00110200);
+            extern void func_00110100(void);
+            extern void func_00110200(void);
+            int test_main(void) {
+                *(int *)&D_00200000[1] = 0x33C00000;
+                D_00200000[0] = 1.0f;
+                D_00200000[2] = 2.0f;
+                func_00110100();
+                func_00110200();
+                return 0;
+            }
+        """}, config={"candidates": "candidates.tsv", "ps2_float": ["func_00110100"]}, extra_files={
+            "game/candidates.tsv": "# name\tfile\nfunc_00110100\tcand/a.c\nfunc_00110200\tcand/b.c\n",
+            "game/cand/a.c": "extern float sqrtf(float);\n" + add + bits
+            + "void func_00110100(void) { test_print(bits(add(D_00200000[0], D_00200000[1])));"
+              " test_print(bits(sqrtf(D_00200000[2]))); }\n",
+            "game/cand/b.c": add + bits + "void func_00110200(void) { test_print(bits(add(D_00200000[0], D_00200000[1]))); }\n",
+        }, cxx=PS2FLOAT_CXX)
+        self.assertEqual(out, [str(0x3F800000), str(0x3FB504F3), str(0x3F800001)])
+        self.assertIn("openrac_ps2_sqrt(", self.last_generated)
+
     def test_ps2_float_comparisons_keep_the_order_of_their_calls(self):
         # a > b and a >= b with a call on each side: the left one is called first, as the game's
         # code calls them (FastAbsF(r) > FastAbsF(*v)).
@@ -1688,6 +1782,28 @@ class InputsDigest(unittest.TestCase):
             self.assertNotEqual(second, third)
             disc.write_bytes(b"\0" * 32)
             self.assertNotEqual(third, hostgen.inputs_digest(source, config, with_disc, []))
+
+    def test_changes_when_a_disc_named_relative_to_the_decompilation_is_set_up(self):
+        # rac2's hostgen.json names the executable and the level dumps relative to the
+        # decompilation ("baserom/..."), as asmc.retail_source reads them: adding them after a
+        # first build must change the fingerprint, or the stub-only C is kept.
+        with tempfile.TemporaryDirectory() as tmp:
+            source, game = Path(tmp) / "decomp", Path(tmp) / "game" / "g"
+            (source / "src").mkdir(parents=True)
+            game.mkdir(parents=True)
+            (source / "src" / "a.c").write_text("int a(void) { return 1; }\n")
+            config = game / "hostgen.json"
+            config.write_text("{}")
+            cfg = {"sources": ["src"], "includes": [], "symbols": [],
+                   "asm": {"enabled": True, "dirs": [],
+                           "retail": {"exe": "baserom/GAME.EXE", "dump": "baserom/levels"}}}
+            before = hostgen.inputs_digest(source, config, cfg, [])
+            (source / "baserom" / "levels" / "level_00").mkdir(parents=True)
+            (source / "baserom" / "GAME.EXE").write_bytes(b"\0" * 16)
+            with_exe = hostgen.inputs_digest(source, config, cfg, [])
+            self.assertNotEqual(before, with_exe)
+            (source / "baserom" / "levels" / "level_00" / "code.bin").write_bytes(b"\0" * 8)
+            self.assertNotEqual(with_exe, hostgen.inputs_digest(source, config, cfg, []))
 
 
 class SupersededDeclarations(unittest.TestCase):
@@ -2262,6 +2378,24 @@ class Places(unittest.TestCase):
             problems, stats = abicheck.check(out)
             self.assertEqual(problems, [])
             self.assertEqual(stats["known"], 2)
+
+    def test_abicheck_finds_a_long_long_passed_as_an_int(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = Path(tmp)
+            (gen / "game_protos.h").write_text("void func_0027E4A8(float a0, int a1, long long a2);\n")
+            (gen / "functions.c").write_text(
+                "static const openrac_fn_entry k_exe[] = {\n"
+                "    {0x0027E4A8u, (openrac_host_fn)func_0027E4A8, \"func_0027E4A8\"},\n};\n")
+            (gen / "a.c").write_text(
+                "void func_002729A0(gaddr a0)\n{\n"
+                "    GFN(void (*)(float, int, int), OPENRAC_CODE(0x0027E4A8u))(1.0f, 2, 3);\n"
+                "    GFN(void (*)(float, int, long long), OPENRAC_CODE(0x0027E4A8u))(1.0f, 2, 3);\n"
+                "}\n")
+            import abicheck
+            problems, _ = abicheck.check(gen)
+            self.assertEqual(len(problems), 1, problems)
+            self.assertIn("a.c:3:", problems[0])
+            self.assertIn("argument 3 is int for long long", problems[0])
 
     def test_abicheck_finds_a_call_whose_positions_differ(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2903,8 +3037,11 @@ class FromAssembly(unittest.TestCase):
         import asmc
         from program import Program
         program = Program()
-        program.ps2_float = {"func_00282CC0"}
+        program.ps2_float = {"func_00282CC0", "func_00283098"}
         self.assertTrue(asmc.ps2_float_named(program, "func_00282CC0"))
+        # An address of decimal digits only is not a call-site suffix (R2-AD: the Feltzin fight).
+        self.assertTrue(asmc.ps2_float_named(program, "F10bf3d29_FUN_00283098"))
+        self.assertTrue(asmc.ps2_float_named(program, "F10bf3d29_FUN_00283098_2"))
         self.assertTrue(asmc.ps2_float_named(program, "func_00282CC0_3"))
         self.assertTrue(asmc.ps2_float_named(program, "F15a8b7f0_FUN_00282CC0"))
         self.assertFalse(asmc.ps2_float_named(program, "func_L00_00282CC0"))
@@ -3583,6 +3720,18 @@ class CopyCalls(unittest.TestCase):
         import copycalls
         code = (0x3C030022, 0x03E00008, 0x8C62144C, 0x8F82D4E8)  # lui v1; jr ra; lw v0,0x144C(v1); lw v0,-0x2B18(gp)
         self.assertEqual(copycalls.formed(code, 0x001AEFF0), {2: 0x0022144C, 3: 0x001AC4D8})
+
+    def test_executable_copy_lines_up_with_the_level_copy(self):
+        # func_002DC900's name is two words before the code its level 0 copy holds: its words are
+        # read from there, so each jal is compared with the same call of the level's copy.
+        import copycalls
+        jal = lambda target: 0x0C000000 | (target >> 2)  # noqa: E731
+        level = (0x27BDFFE0, jal(0x2E6588), 0x00000000, 0x03E00008)
+        exe_words = (0x00000000, 0x00000000, 0x27BDFFE0, jal(0x27C660), 0x00000000, 0x03E00008)
+        exe = [(0x2DC900, struct.pack(f"<{len(exe_words)}I", *exe_words))]
+        self.assertEqual(copycalls.exe_copy(exe, 0x2DC900, 16, level)[1], jal(0x27C660))
+        # Code that matches nowhere (a false fold) gives the executable no targets at all.
+        self.assertIsNone(copycalls.exe_copy(exe, 0x2DC900, 16, (0x24020001,) * 4))
 
     def test_call_expression(self):
         from program import call_copy_expr

@@ -17,6 +17,7 @@
 #include "common/json.h"
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/stage_file.h"
+#include "enhanced/tools/baker/sources/activation.h"
 #include "scene/level.h"
 
 namespace openrac::lighting {
@@ -127,7 +128,9 @@ interiors::Transition convert_transition(const assets::EnvTransition& source, un
 }
 
 // Converts the validated asset reader's transition records to the inference interface.
-std::vector<interiors::Transition> read_transitions(const std::filesystem::path& path) {
+std::vector<interiors::Transition> read_transitions(
+    const std::filesystem::path& path, assets::Game game
+) {
     std::ifstream stream(path, std::ios::binary);
 
     // The asset reader borrows this owned gameplay buffer only within this function.
@@ -141,7 +144,7 @@ std::vector<interiors::Transition> read_transitions(const std::filesystem::path&
     }
 
     const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(stream)), {});
-    const assets::GameplayFile gameplay(assets::Game::Rac1, bytes);
+    const assets::GameplayFile gameplay(game, bytes);
     const auto authored = assets::read_env_transitions(gameplay);
     std::vector<interiors::Transition> transitions;
 
@@ -277,11 +280,11 @@ Result<InteriorInput> load_interior_input(
             return unexpected(Error{error});
         }
 
-        // This adapter uses the validated RAC1 gameplay schema shared by PAL and NTSC exports.
-        if (manifest["game"].string() != "rac1"
-            || (manifest["version"].string() != "pal" && manifest["version"].string() != "ntsc")
+        // This adapter reads the environment transitions of the validated gameplay schemas: RAC1's
+        // (PAL and NTSC) and RAC2's (assets/world/gameplay.cpp places its transitions).
+        if (!bake_identity_supported(manifest["game"].string(), manifest["version"].string())
             || !manifest["level"].is_number() || manifest["level"].number() < 0
-            || manifest["level"].number() > 18
+            || manifest["level"].number() > (manifest["game"].string() == "rac2" ? 30 : 18)
             || std::floor(manifest["level"].number()) != manifest["level"].number()) {
             return unexpected(Error{"unsupported interior level identity"});
         }
@@ -297,7 +300,9 @@ Result<InteriorInput> load_interior_input(
         input.level = static_cast<int>(manifest["level"].number(-1));
         input.source_sha256 = *source;
         input.triangles = read_collision(level / "collision.glb");
-        input.transitions = read_transitions(gameplay);
+        input.transitions = read_transitions(
+            gameplay, manifest["game"].string() == "rac2" ? assets::Game::Rac2 : assets::Game::Rac1
+        );
         return input;
     } catch (const std::exception& error) {
         return unexpected(Error{error.what()});

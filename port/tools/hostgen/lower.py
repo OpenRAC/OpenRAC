@@ -19,7 +19,8 @@ guest.h):
   floats in separate registers); a call through a pointer goes through
   GFN, the table of functions by code address;
 - string literals are copied into game memory once (GSTR);
-- in the functions hostgen.json "ps2_float" names, float + - * /, the
+- in the functions hostgen.json "ps2_float" names, and in the static
+  helpers of a candidate written for one, float + - * /, sqrtf, the
   comparisons, a float's truth and the conversions between int and float
   are the EE FPU's own arithmetic, computed in software (openrac/ps2float.h:
   results cut, no infinities, NaNs or denormals), where the host's
@@ -140,6 +141,7 @@ class _Fn:
     # A static helper's copy for one call site (Unit._inline_copy): the function whose code its calls
     # sit in, as the console's compiler inlined it there.
     home: str | None = None
+    static: bool = False                             # a static definition (Unit._ps2)
 
     @property
     def code(self) -> str:
@@ -200,6 +202,7 @@ class Unit:
     def __init__(self, program: Program, unit: str, ast: dict, report: UnitReport):
         self.program = program
         self.unit = unit
+        self._ps2_statics_cache: set[str] | None = None  # _ps2_statics
         self.ast = ast
         self.report = report
         self.decls: dict[str, dict] = {}
@@ -647,7 +650,7 @@ class Unit:
         copies_before = len(self.inline_copies)
         proto = self.signature(own, sig_t, names, static)
         report = FnReport(own, "translated")
-        self.fn = _Fn(own, sig_t, params, report=report)
+        self.fn = _Fn(own, sig_t, params, report=report, static=static)
         if inline is not None:
             # The caller's code: its address, size and level, and its counts of the calls to each folded
             # function (shared: the copy's calls are the caller's next ones, as the jals in its code are).
@@ -1661,10 +1664,37 @@ class Unit:
 
     def _ps2(self) -> bool:
         """Whether this function's float arithmetic is the EE's (hostgen.json "ps2_float")."""
-        if self.fn is None or self.fn.code not in getattr(self.program, "ps2_float", ()):
+        if self.fn is None:
+            return False
+        names = getattr(self.program, "ps2_float", ())
+        if self.fn.code not in names and not (self.fn.static and self.fn.name in self._ps2_statics(names)):
             return False
         self.uses_ps2 = True
         return True
+
+    def _ps2_statics(self, names) -> set[str]:
+        """The static helpers of the candidate C written for a function hostgen.json "ps2_float"
+        names: they compute as the EE does too. Such C is that routine's arithmetic split up (a
+        functional candidate's vector helpers, a callee it writes out). prep.py pastes each
+        candidate file at the end of the unit with its own names suffixed _hcN: the helpers of
+        block N go with the functions block N defines."""
+        if self._ps2_statics_cache is None:
+            blocks: dict[int, set[str]] = {}
+            ps2_blocks: set[int] = set()
+            block = None
+            for decl in _inner(self.ast):
+                name = decl.get("name") or ""
+                m = re.search(r"_hc(\d+)$", name)
+                if m:
+                    block = int(m[1])
+                if block is None or decl.get("kind") != "FunctionDecl" or not has_body(decl):
+                    continue
+                if decl.get("storageClass") == "static":
+                    blocks.setdefault(block, set()).add(symbol_of(decl))
+                elif self._defined_symbol(decl) in names:
+                    ps2_blocks.add(block)
+            self._ps2_statics_cache = set().union(*(blocks.get(b, set()) for b in ps2_blocks))
+        return self._ps2_statics_cache
 
     def _ps2_binary(self, op: str, x: str, y: str) -> str | None:
         """A float operator as the EE's (openrac/ps2float.h): arithmetic cuts its result,
@@ -1720,6 +1750,15 @@ class Unit:
             return self.rv(child)
         raise Unsupported(f"unary {op}")
 
+    def _volatile_word(self, t: ctype.Type) -> bool:
+        """Whether T is a volatile 32-bit integer (written through a typedef or not)."""
+        if self.cls(t) != "int":
+            return False
+        quals = set(getattr(t, "quals", ())) | set(getattr(self.resolve(t), "quals", ()))
+        host = ctype.host(self.resolve(t))
+        return "volatile" in quals | set(self.host(t).split()) and host.split()[-1] in (
+            "int", "int32_t", "uint32_t", "openrac_u32", "openrac_s32") and "long" not in host and "short" not in host
+
     def rv_BinaryOperator(self, n: dict) -> str:
         op = n["opcode"]
         a, b = _inner(n)
@@ -1728,7 +1767,13 @@ class Unit:
             sa = _strip_parens(a)
             if sa.get("kind") == "DeclRefExpr" and sa["referencedDecl"].get("id") in self.fn.wide:
                 return f"({lv.text} = {self._wide_value(b, ctype.Base('long long'))})"
-            return f"({lv.text} = {self.convert(b, self.ty(a))})"
+            ta = self.ty(a)
+            if (lv.addr is not None and getattr(self.program, "dma_stores", False) and self._volatile_word(ta)):
+                # A device register word (a DMA channel's CHCR starts its transfer): the store goes
+                # through the game's openrac_ee_sw_dma, as the hand-written kernels' stores do (asmc.py).
+                return (f"({{ extern void openrac_ee_sw_dma(uint32_t, uint64_t); "
+                        f"openrac_ee_sw_dma((gaddr)({lv.addr}), (uint64_t)({self.convert(b, ta)})); }})")
+            return f"({lv.text} = {self.convert(b, ta)})"
         if op in ("+", "-"):
             ta, tb = self.ty(a), self.ty(b)
             pa, pb = self.cls(ta) == "ptr", self.cls(tb) == "ptr"
@@ -2394,7 +2439,14 @@ class Unit:
         common = min(len(classes), len(pcls))
         same_ret = result_cls == "void" or (ret_cls != "void"
                                             and self._reg_class(ret_cls) == self._reg_class(result_cls))
-        if classes[:common] == pcls[:common] and same_ret:
+        # A 64-bit parameter that the call site's type passes as a 32-bit integer: on the EE the
+        # register carries all 64 bits either way; on the host the upper half is whatever the
+        # caller's register held (zero on x86-64, the value's own bits on AArch64). The level 9
+        # target's ring: func_002729A0's casts pass its TEX0 to func_0027E4A8's `long long` as an
+        # s32, and on Linux the texture lost TH's high bits and CBP (64x4, no palette).
+        narrowed = any(pc == "i" and self._wide(p) and not self._wide(self.ty(a))
+                       for a, p, pc in zip(args, sig.params, pcls))
+        if classes[:common] == pcls[:common] and same_ret and not narrowed:
             return None  # the call site's own type passes them alike
         self.fn.report.calls.add(sym)
         self._note_mismatch(sym, sig, args, result_cls, ret_cls)
@@ -2668,6 +2720,8 @@ class Unit:
             return f"((gaddr)({v[0]}), {name[10:]}(G({v[0]}), G({v[1]}), {v[2]}), (gaddr)({v[0]}))"
         if name == "__builtin_memset":
             return f"((gaddr)({v[0]}), memset(G({v[0]}), {v[1]}, {v[2]}), (gaddr)({v[0]}))"
+        if name == "__builtin_sqrtf" and self._ps2():
+            return f"openrac_ps2_sqrt({v[0]})"  # sqrt.s: the root of |x|, cut
         if name in ("__builtin_fabsf", "__builtin_sqrtf", "__builtin_fabs", "__builtin_sqrt", "__builtin_abs"):
             return f"{name}({', '.join(v)})"
         if name == "__builtin_alloca" and self.fn is not None:
@@ -2698,6 +2752,8 @@ class Unit:
             # not): the host's, on values.
             # abs and labs are in stdlib.h, which would declare the game's own names (free, rand).
             name = "__builtin_abs" if sym in ("abs", "labs") else sym
+            if sym == "sqrtf" and self._ps2():
+                name = "openrac_ps2_sqrt"  # sqrt.s: the root of |x|, cut
             return f"{name}({', '.join(self.rv(a) for a in args)})"
         if f is None:
             raise Unsupported(f"call to {sym}, which the program does not know")

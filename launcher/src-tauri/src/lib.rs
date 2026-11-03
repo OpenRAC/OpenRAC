@@ -451,6 +451,163 @@ async fn enhanced_set_enabled(
     enhanced_view(state, game, version).await
 }
 
+// ---- Texture packs (core/src/texture_packs.rs) ----
+
+/// The game's folder in the install folder (`{data}`), where its texture pack lives.
+fn game_data_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, String> {
+    let install = state.config.lock().unwrap().install_dir.clone().ok_or("the install folder is not set (Settings)")?;
+    Ok(install::data_dir(&install, game))
+}
+
+/// A game version's Texture packs section.
+#[tauri::command]
+async fn texture_packs_view(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+) -> Result<openrac_launcher_core::texture_packs::View, String> {
+    let data = game_data_dir(&state, &game)?;
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::texture_packs::view(&home, &data, &game, &version)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Switches the texture pack (`enabled`) or saving the textures at the next Play (`dumping`).
+#[tauri::command]
+async fn texture_packs_set(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    enabled: Option<bool>,
+    dumping: Option<bool>,
+) -> Result<openrac_launcher_core::texture_packs::View, String> {
+    use openrac_launcher_core::texture_packs;
+    let home = openrac_launcher_core::saves::data_home();
+    if let Some(on) = enabled {
+        texture_packs::set_enabled(&home, &game, &version, on)?;
+        launcher_log::line(&format!("{game}/{version}: texture pack {}", if on { "on" } else { "off" }));
+    }
+    if let Some(on) = dumping {
+        texture_packs::set_dumping(&home, &game, &version, on)?;
+        launcher_log::line(&format!("{game}/{version}: saving textures {}", if on { "on" } else { "off" }));
+    }
+    texture_packs_view(state, game, version).await
+}
+
+/// Opens a folder of the pack (`dump` false) or of the saved textures, made if it is not there.
+#[tauri::command]
+fn texture_packs_open(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    dump: bool,
+    folder: String,
+) -> Result<(), String> {
+    let data = game_data_dir(&state, &game)?;
+    let home = openrac_launcher_core::saves::data_home();
+    let dir = openrac_launcher_core::texture_packs::folder(&home, &data, &game, &version, dump, &folder)?;
+    open_path_with_system(&app, &dir.to_string_lossy())
+}
+
+/// What a pack's .zip holds, refused for another game's or one that is not a pack.
+#[tauri::command]
+async fn texture_packs_preview(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    source: String,
+) -> Result<openrac_launcher_core::texture_packs::Preview, String> {
+    let data = game_data_dir(&state, &game)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::texture_packs::preview_import(&data, &game, &version, Path::new(&source))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Imports a pack's .zip into the game's pack folder, replacing the pack there (kept beside it) or
+/// merged into it.
+#[tauri::command]
+async fn texture_packs_import(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    source: String,
+    mode: openrac_launcher_core::texture_packs::ImportMode,
+) -> Result<openrac_launcher_core::texture_packs::Imported, String> {
+    use openrac_launcher_core::texture_packs;
+    let data = game_data_dir(&state, &game)?;
+    let label = format!("{game}/{version}");
+    let (textures, kept) = tauri::async_runtime::spawn_blocking(move || {
+        texture_packs::import(&data, &game, &version, Path::new(&source), mode)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    launcher_log::line(&format!("{label}: imported a texture pack of {textures} picture(s) ({mode:?})"));
+    let kept = kept.and_then(|k| k.file_name().map(|n| n.to_string_lossy().into_owned()));
+    Ok(texture_packs::Imported { textures, kept })
+}
+
+/// Exports the game's pack as a .zip where the player chooses (Android: its "save as" screen).
+/// `saved` is empty when they backed out.
+#[tauri::command]
+async fn texture_packs_export(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+) -> Result<openrac_launcher_core::texture_packs::Exported, String> {
+    use openrac_launcher_core::texture_packs::{self, Exported};
+    let data = game_data_dir(&state, &game)?;
+    let home = openrac_launcher_core::saves::data_home();
+    let name = texture_packs::export_name(&texture_packs::id(&game, &version)?);
+    let launcher_version = app.package_info().version.to_string();
+    let backed_out = || Exported { saved: String::new(), textures: 0, left_out: 0 };
+    #[cfg(target_os = "android")]
+    let dest = {
+        let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("texture-pack-exports");
+        std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+        cache.join(&name)
+    };
+    #[cfg(not(target_os = "android"))]
+    let dest = {
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog = app
+            .dialog()
+            .file()
+            .set_title("Share my texture pack")
+            .set_file_name(&name)
+            .add_filter("Texture pack", &["zip"]);
+        if let Some(dir) = reports::save_folder() {
+            dialog = dialog.set_directory(dir);
+        }
+        let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+            .await
+            .map_err(|e| e.to_string())?;
+        let Some(picked) = picked else { return Ok(backed_out()) };
+        picked.into_path().map_err(|e| e.to_string())?
+    };
+    let out = dest.clone();
+    let (textures, left_out) = tauri::async_runtime::spawn_blocking(move || {
+        texture_packs::export(&home, &data, &game, &version, &launcher_version, &out)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    if cfg!(target_os = "android") {
+        let saved = android::save_as(&app, &dest, &name).await;
+        let _ = std::fs::remove_file(&dest);
+        let Some(saved) = saved? else { return Ok(backed_out()) };
+        launcher_log::line(&format!("exported a texture pack: {saved}"));
+        return Ok(Exported { saved, textures, left_out });
+    }
+    launcher_log::line(&format!("exported a texture pack: {}", dest.display()));
+    Ok(Exported { saved: reports::tidy(&dest.to_string_lossy(), reports::home().as_deref()), textures, left_out })
+}
+
 /// Deletes every lighting bake of a version (Enhanced graphics' "Delete the lighting"): the game
 /// keeps the original lighting until it is prepared again.
 #[tauri::command]
@@ -1022,6 +1179,94 @@ async fn import_pcsx2_saves(
     .map_err(|e| e.to_string())?
 }
 
+/// Exports the game's saves (all, or the slot `slot`) to an OpenRAC saves file
+/// (core/src/save_transfer.rs) where the player chooses: the system's save dialog, opening in
+/// Downloads, or on Android its "save as" screen. `saved` is empty when they backed out.
+#[tauri::command]
+async fn export_saves(
+    app: AppHandle,
+    serial: String,
+    slot: Option<usize>,
+) -> Result<openrac_launcher_core::save_transfer::ExportedSaves, String> {
+    use openrac_launcher_core::save_transfer::{self, ExportedSaves};
+    let version = app.package_info().version.to_string();
+    let name = save_transfer::export_name(&serial, slot);
+    let backed_out = || ExportedSaves { saved: String::new(), slots: Vec::new() };
+    // Android: made in the launcher's cache, then saved where the player chooses.
+    #[cfg(target_os = "android")]
+    let dest = {
+        let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("save-exports");
+        std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+        cache.join(&name)
+    };
+    #[cfg(not(target_os = "android"))]
+    let dest = {
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog =
+            app.dialog().file().set_title("Export saves").set_file_name(&name).add_filter("OpenRAC saves", &["zip"]);
+        if let Some(dir) = reports::save_folder() {
+            dialog = dialog.set_directory(dir);
+        }
+        let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+            .await
+            .map_err(|e| e.to_string())?;
+        let Some(picked) = picked else { return Ok(backed_out()) };
+        picked.into_path().map_err(|e| e.to_string())?
+    };
+    let out = dest.clone();
+    let manifest =
+        tauri::async_runtime::spawn_blocking(move || save_transfer::export_saves(&serial, slot, &version, &out))
+            .await
+            .map_err(|e| e.to_string())??;
+    let slots = manifest.slots.into_iter().filter(|s| !s.empty).collect();
+    if cfg!(target_os = "android") {
+        let saved = android::save_as(&app, &dest, &name).await;
+        let _ = std::fs::remove_file(&dest);
+        let Some(saved) = saved? else { return Ok(backed_out()) };
+        launcher_log::line(&format!("exported saves: {saved}"));
+        return Ok(ExportedSaves { saved, slots });
+    }
+    launcher_log::line(&format!("exported saves: {}", dest.display()));
+    Ok(ExportedSaves { saved: reports::tidy(&dest.to_string_lossy(), reports::home().as_deref()), slots })
+}
+
+/// What an OpenRAC saves file holds, before importing it: refused for another game's file or a
+/// damaged one.
+#[tauri::command]
+async fn preview_save_import(
+    serial: String,
+    source: String,
+) -> Result<openrac_launcher_core::save_transfer::SaveImportPreview, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::save_transfer::preview_import(&serial, Path::new(&source))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Imports an OpenRAC saves file onto the game's card, after a backup: every save folder replaced,
+/// or the chosen slots merged. Refused while the game runs with the card, as a restore is.
+#[tauri::command]
+async fn import_saves(
+    app: AppHandle,
+    serial: String,
+    source: String,
+    choice: openrac_launcher_core::save_transfer::SaveImportChoice,
+) -> Result<openrac_launcher_core::pcsx2_card::ImportedSaves, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        if let Some(game) = in_use(&card, &serial)? {
+            return Err(format!("{game} is running with this memory card: close it first"));
+        }
+        let done = openrac_launcher_core::save_transfer::import_saves(&serial, Path::new(&source), &choice)?;
+        launcher_log::line(&format!("imported saves into {serial}: {} files", done.files));
+        Ok(done)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Where PCSX2 keeps its memory cards, for the file picker to open there; None when not found.
 #[tauri::command]
 fn pcsx2_memcards_dir() -> Option<String> {
@@ -1081,6 +1326,75 @@ async fn write_save(
         let mut result = save_edit::write_save(&card, &serial, slot, &fingerprint, &change, || in_use(&card, &serial))?;
         result.view.skill_names = skill_names(install);
         Ok(result)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// One Going Commando save slot for its save editor (core/src/save_edit_rac2.rs).
+#[tauri::command]
+async fn read_save_rac2(
+    serial: String,
+    slot: usize,
+) -> Result<openrac_launcher_core::save_edit_rac2::Rac2SaveView, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac2::read_save(&card, &serial, slot)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Writes the Going Commando save editor's fields into a slot, with write_save's guards: refused
+/// while the game runs with the card or if the file changed since it was read; backed up first.
+#[tauri::command]
+async fn write_save_rac2(
+    app: AppHandle,
+    serial: String,
+    slot: usize,
+    fingerprint: String,
+    fields: openrac_launcher_core::save_edit_rac2::Rac2SaveFields,
+) -> Result<openrac_launcher_core::save_edit_rac2::Rac2WriteResult, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac2::write_save(&card, &serial, slot, &fingerprint, &fields, || {
+            in_use(&card, &serial)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The Going Commando save editor's advanced fields of a slot (core/src/save_edit_rac2_extra.rs).
+#[tauri::command]
+async fn read_save_rac2_extra(
+    serial: String,
+    slot: usize,
+) -> Result<openrac_launcher_core::save_edit_rac2_extra::Rac2ExtraView, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac2_extra::read_save(&card, &serial, slot)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Writes the advanced fields into a slot, with write_save_rac2's guards.
+#[tauri::command]
+async fn write_save_rac2_extra(
+    app: AppHandle,
+    serial: String,
+    slot: usize,
+    fingerprint: String,
+    fields: openrac_launcher_core::save_edit_rac2_extra::Rac2ExtraFields,
+) -> Result<openrac_launcher_core::save_edit_rac2_extra::Rac2ExtraWriteResult, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac2_extra::write_save(&card, &serial, slot, &fingerprint, &fields, || {
+            in_use(&card, &serial)
+        })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -2124,9 +2438,16 @@ pub fn run() {
             restore_backup,
             import_pcsx2_saves,
             pcsx2_memcards_dir,
+            export_saves,
+            preview_save_import,
+            import_saves,
             open_saves_folder,
             read_save,
             write_save,
+            read_save_rac2,
+            write_save_rac2,
+            read_save_rac2_extra,
+            write_save_rac2_extra,
             overrides_list,
             overrides_summary,
             overrides_set_enabled,
@@ -2138,6 +2459,12 @@ pub fn run() {
             plugins_list,
             enhanced_view,
             enhanced_set_enabled,
+            texture_packs_view,
+            texture_packs_set,
+            texture_packs_open,
+            texture_packs_preview,
+            texture_packs_import,
+            texture_packs_export,
             enhanced_set_setting,
             enhanced_delete_bakes,
             plugins_set_enabled,

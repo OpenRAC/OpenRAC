@@ -39,7 +39,7 @@ import games
 import gc_tie_colours
 from gltf import Gltf
 from godot import PANORAMA, STORED_W, LevelWriter, chunk_terrain, problem_summary
-from level import Level
+from level import SHIP_TEXTURE, Level
 from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
@@ -66,8 +66,17 @@ FORMAT = 4
 # terrain's vertex colours and the shrubs' colours, lit as the game lights them at level load. 13: his
 # ship's hulls in every level, as the game loads them on each level's load, not only in the flights.
 # 14: the chrome and glass maps from the GS RAM lump's stash, where the game takes them (8 read the
-# texture data's first picture).
-GAME_FORMATS = {"rac2": 14}
+# texture data's first picture). 15: every paint job of his ship ("ship_paints"), not only the first.
+# 16: each tie's slots before lighting and each tie class's scale, slot normals, slot positions
+# and vertex makeup ("relight"), for the ties the game moves and the point lights light again.
+# 17: each shrub class's 24 normals ("relight"), for the shrubs a point light reaches.
+# 18: the gameplay copy the probe baker plans enhanced lighting from (bake-inputs/gameplay.bin,
+# manifest bake_inputs).
+# 19: the reviewed emission catalog's textures resolved into probe-emission.json, the level sky
+# and sun profiles (probe-bake.json) the baker reads, from port/enhanced/lighting/profiles/rac2-ntsc.
+# 20: the liquid surfaces the baker lights from (bake-inputs/liquids.json and their effect textures,
+# manifest bake_inputs "liquids").
+GAME_FORMATS = {"rac2": 20}
 
 
 def levels_format(game: str) -> int:
@@ -139,6 +148,9 @@ class PortLevelWriter(LevelWriter):
 
     def __init__(self, out: Path, level: Level, normals=None):
         super().__init__(out, level)
+        # Going Commando's tie classes' relighting data (colour_tie_vertices), by class.
+        self.tie_relight = {}
+        self.shrub_relight = {}
         self.dir = out / self.name
         # The executable's (cos, sin) table: with it the terrain is lit as the game lights it.
         self.normals = normals
@@ -184,6 +196,12 @@ class PortLevelWriter(LevelWriter):
             # Each instance's 24 colours as LightShrubs leaves them at level load, one per
             # class normal; a vertex takes the one of its normal (_LIGHT_SLOT).
             normals = shrub_class_normals(level)
+            # What the port lights a shrub again from when a point light reaches it or the game
+            # moves it (format 17): the class's 24 normals, with their fourth word.
+            self.shrub_relight = {c: {"normals": [v for j in range(24) for v in unpack(
+                "<4h", level.block(start), unpack("<I", level.block(start), 0x2c)[0] + 8 * j)]}
+                for start, c in (unpack("<II", e) for e in level.table(0x28, 48))
+                if c in shrubs and fmt.world_lighting}
             for p in shrub_placements:
                 lit = light_shrub_instance(normals[p["class_id"]], p["matrix"], p["colour"],
                                            p["directional_lights"], terrain_lights[0])
@@ -219,6 +237,19 @@ class PortLevelWriter(LevelWriter):
             try:
                 p["colours"] = gc_tie_colours.vertex_colours(
                     entry, blob, p["matrix"], bank[p["directional_lights"] & 0xF])
+                # What the game lights again when it moves the instance (format 15): its slots
+                # before lighting, and its class's slot normals and vertex makeup (relight).
+                count, = unpack("<H", blob, 0x38)
+                p["slots"] = [r | g << 8 | b << 16 | a << 24
+                              for r, g, b, a in gc_tie_colours.decode_slots(entry, count)]
+                if p["class_id"] not in self.tie_relight:
+                    flat = gc_tie_colours.flat_colour(blob)
+                    self.tie_relight[p["class_id"]] = {
+                        "scale": gc_tie_colours.class_scale(blob),
+                        "slot_normals": gc_tie_colours.slot_normal_codes(blob),
+                        "slot_positions": gc_tie_colours.slot_positions(blob),
+                        "vertex_slots": [x for ref in gc_tie_colours.vertex_slot_refs(blob) for x in ref],
+                        **({"flat_colour": flat} if flat is not None else {})}
             except (struct.error, IndexError) as exc:
                 if level.problems is not None:
                     level.problems.append(f"tie instance {p['index']}: colours not read ({exc})")
@@ -228,7 +259,10 @@ class PortLevelWriter(LevelWriter):
 
     def write_objects(self, family: str, classes: dict[int, Mesh], placements: list[dict]) -> None:
         super().write_objects(family, classes, placements)
-        self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb"} for c in sorted(classes)}
+        relight = self.tie_relight if family == "tie" else self.shrub_relight if family == "shrub" else {}
+        self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb",
+                                         **({"relight": relight[c]} if c in relight else {})}
+                                for c in sorted(classes)}
         self.placements[f"{family}s"] = [placement(p) for p in placements]
 
     def write_shrub_billboards(self, fades: dict[int, int]) -> None:
@@ -287,6 +321,15 @@ class PortLevelWriter(LevelWriter):
     def finish(self) -> dict:
         """Textures, placements.json and manifest.json."""
         export_pvs(self.level, self.dir)
+        # His ship's paint jobs (Going Commando): the faces that wear the ship's picture are
+        # exported with paint 0; the port draws them with the one the game loaded.
+        ship = f"moby_{SHIP_TEXTURE:04}"
+        paints = []
+        if self.level.ship_paints and ship in self.textures:
+            for number, texture in enumerate(self.level.ship_paints):
+                name = ship if number == 0 else f"ship_paint_{number:02}"
+                self.textures[name] = texture
+                paints.append(f"textures/{name}.png")
         (self.dir / "textures").mkdir(parents=True, exist_ok=True)
         for name, texture in sorted(self.textures.items()):
             (self.dir / "textures" / f"{name}.png").write_bytes(texture.png())
@@ -305,6 +348,8 @@ class PortLevelWriter(LevelWriter):
                     "sky": self.sky, "classes": self.classes, "placements": "placements.json",
                     "textures": sorted(f"textures/{name}.png" for name in self.textures),
                     "bounds": self.stats["bounds"], "stats": self.stats}
+        if paints:
+            manifest["ship_paints"] = {"texture": f"textures/{ship}.png", "paints": paints}
         bake_inputs = write_bake_inputs(self.level, self.dir)
         write_bake_profile(self.level, self.dir)
         if bake_inputs:

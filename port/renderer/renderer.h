@@ -88,6 +88,13 @@ struct EffectQuad {
     bool registers = false;  // test and zbuf were read from the list
     // What the quad draws, the same from one tick to the next (a particle's slot), or 0.
     std::uint32_t id = 0;
+    // Its shape is the tick's own (a sprite or a flat quad, turned by its record's rotation, which
+    // a game may pick at random each tick): a frame between ticks moves it whole, by its centre,
+    // rather than each corner part way (which shrinks a quad turned between the two ticks).
+    bool rigid = false;
+    // The moby it belongs to (its game address), or 0: a frame between ticks may move it with the
+    // moby's body as that frame draws it, rather than leaving it at the tick's place, ahead.
+    std::uint32_t parent = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
@@ -177,6 +184,7 @@ struct FrameInput {
     std::span<const ShadowCapsule> shadow_capsules;
     Vec3 shadow_extrusion{};
     std::optional<std::array<float,2>> shadow_heights;
+    std::span<const ShadowSet> shadow_sets;  // further casters, each its own extrusion and slab
     // The packets the game built for each bucket this frame (empty when a
     // bucket has nothing, or its renderer draws from elsewhere).
     std::array<std::span<const std::uint8_t>, kBucketCount> packets{};
@@ -185,6 +193,10 @@ struct FrameInput {
     // the frame's clear, and what the page menus put under their frame objects (the snapshot of
     // the frame they opened over, darkened). Drawn before the world (DirectBackground).
     std::span<const std::uint8_t> direct_before_world{};
+    // Whether the frame drew the level (sky, terrain, ties or shrubs) under its 2D path. Only then
+    // is a full-screen fill after the world a fade over it (GifInterpreter::set_over_world); a
+    // tick of mobys alone (Going Commando's weapon upgrade) clears its buffer with such fills.
+    bool level_drawn = false;
     Camera camera;
     // Opt-in developer inspection: render from camera, but retain visibility from this camera.
     std::optional<Camera> culling_camera;
@@ -220,6 +232,10 @@ struct FrameInput {
     // The target already holds the picture to start from (a tick that draws no world of its own):
     // only depth is cleared.
     bool keep_colour = false;
+    // The world's passes draw with depth clamping (GL_DEPTH_CLAMP), up to the HUD: what is nearer
+    // than the camera's near plane is drawn at the nearest depth instead of being cut away
+    // (GameProfile::depth_near, a near plane farther out than the window's for finer depth).
+    bool depth_clamp = false;
     // Called with the target as drawn before the HUD's renderer (the world, without the 2D over
     // it): what a copy of the frame the game reads back should hold.
     std::function<void()> before_hud;
@@ -231,6 +247,7 @@ struct FrameInput {
     bool prepares_temporal_chain = false;
     // Resolved world depth, before world colour: GPU probe selection.
     std::function<void(unsigned, int, int)> after_world_depth;
+    // The game's tick this frame shows (the same for the frames drawn between two ticks).
     std::uint64_t frame = 0;
     double seconds = 0.0;
     // Opts a known depth hook into resource/dispatch preparation without draws or readbacks.

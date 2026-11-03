@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "game": "rac2",
+  "classes": [
+    {"class": 0, "name": "ratchet", "radius": 12},
+    {"class": 11, "name": "vendor", "radius": 12},
+    {"class": 500, "name": "bolt_crate", "radius": 8},
+    {"class": 501, "name": "nanotech_crate", "radius": 8},
+    {"class": 505, "name": "crate", "radius": 8},
+    {"class": 511, "name": "ammo_crate", "radius": 8},
+    {"class": 512, "name": "crate", "radius": 8}
+  ]
+}

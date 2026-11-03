@@ -211,6 +211,17 @@ public:
     std::function<void(u32 address, u64 lo, u64 hi)> on_write128;
 
     /**
+     * Test-only: called for each store of the program into main memory that touches the
+     * physical bytes [watch_first, watch_end), with the store's physical address, value and
+     * size, after the store. `watch_end` 0 watches nothing. `instruction` says which store it was.
+     */
+    u32 watch_first = 0, watch_end = 0;
+    std::function<void(u32 address, u64 value, unsigned bytes)> on_watched_store;
+
+    /** The address of the instruction being run, for `on_watched_store`. */
+    u32 instruction = 0;
+
+    /**
      * Called when `cycles` reaches `event_at`: timers, the display's timing, interrupts. The
      * callee sets the next `event_at`.
      */
@@ -293,6 +304,9 @@ public:
      */
     u8* pointer(u32 address);
 
+    /** Reports a store in memory to `on_watched_store` when it touches the watched bytes. */
+    void watch(u32 address, u64 value, unsigned bytes);
+
     /**
      * Gives an integer argument register by its ABI name: a0 is register 4, a1 is register 5
      * (documented).
@@ -326,6 +340,12 @@ public:
 
     /** The lowest address a jump went to since it was last set (to all ones), for openrac-fcheck. */
     u32 lowest_jump = ~0u;
+
+    /**
+     * The lowest stack pointer ($sp) a call reached since it was last set (to all ones), for
+     * openrac-fcheck: memory below the caller's $sp down to this is the call's dead stack.
+     */
+    u32 lowest_sp = ~0u;
 
     /**
      * Gives the last jumps (from, to), oldest first, to see how the program got lost.

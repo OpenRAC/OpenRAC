@@ -73,6 +73,8 @@ class Level:
     # Going Commando: his ship's hulls, which the game loads over a class of its own in every level
     # and flight (func_002925F0), by the hull he has; the first is class 3412's.
     ship_bodies: list[bytes] = field(default_factory=list)
+    # Going Commando: every paint job of his ship, 0 first (also ("moby", SHIP_TEXTURE)).
+    ship_paints: list[Texture] = field(default_factory=list)
 
     @property
     def instances(self) -> bytes:
@@ -395,7 +397,8 @@ def hero_files(level: Level, source) -> None:
         level.items[class_id] = (decoded(item), place)
         level.textures[("moby", ITEM_TEXTURES + place)] = hero_textures(decoded(texture))[0]
         place += 1
-    level.textures[("moby", SHIP_TEXTURE)] = record_texture(source.ship_texture(), 0)
+    level.ship_paints = [record_texture(raw, 0) for raw in source.ship_textures()]
+    level.textures[("moby", SHIP_TEXTURE)] = level.ship_paints[0]
     level.ship_bodies = source.ship_bodies()
 
 
@@ -407,7 +410,8 @@ def load_wad_flight(source, number: int) -> Level:
     level.hero_mesh, pack = source.hero_pack()
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture
-    level.textures[("moby", SHIP_TEXTURE)] = record_texture(source.ship_texture(), 0)
+    level.ship_paints = [record_texture(raw, 0) for raw in source.ship_textures()]
+    level.textures[("moby", SHIP_TEXTURE)] = level.ship_paints[0]
     level.ship_bodies = source.ship_bodies()
     return level
 

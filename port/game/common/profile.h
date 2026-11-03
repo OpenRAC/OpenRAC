@@ -186,6 +186,14 @@ public:
     // them. Going Commando's Ship Shack draws its ship there, over its grid panel.
     virtual bool own_mobys_split_the_2d() const { return false; }
 
+    // Whether a moby drawn with a camera of its own while the 2D path's frame is a buffer narrower
+    // than the picture goes into that texture whatever its field of view (frontend/frame.cpp's
+    // pose_mobys), rather than only when its view is wider than the frame's: Going Commando's
+    // cockpit screen draws Fizzwidget into a 256 x 256 buffer with the world's own view. Its world
+    // quads that sample such a buffer then draw the picture there (renderer::g_quads_sample_targets),
+    // the screen's quad of block 0x3BE0.
+    virtual bool own_mobys_into_narrow_buffers() const { return false; }
+
     // Whether an image the game sends outside its display list stays over what that tick's list,
     // built before it and replayed after it, puts at the same block: the game reloads a block
     // that the list was still paging into (Going Commando's flight, func_002E80B0).
@@ -202,6 +210,14 @@ public:
     // not at all.
     virtual bool mobys_take_point_lights() const { return false; }
 
+    // Which variant of the level's swapped texture (scene::LevelData::variant_image) the game has
+    // loaded: Going Commando's ship paint job (func_002926B8 keeps its number at 0x00152C30). -1
+    // for none, which keeps the one bound.
+    virtual int texture_variant(std::span<const std::uint8_t> ram) const {
+        (void)ram;
+        return -1;
+    }
+
     // Whether a frame drawn between ticks moves each effect quad that carries an id (a particle's
     // slot) part way from its last tick's corners, with the mobys' fraction, rather than drawing
     // the latest tick's: Going Commando's Lancer halo led the gun by up to a tick at 120 fps.
@@ -214,13 +230,52 @@ public:
     // rather than not at all.
     virtual bool terrain_takes_point_lights() const { return false; }
 
+    // Returns the executable's addresses of the words that point at the ties' and the shrubs'
+    // class-to-world matrices (64 bytes an instance, in the game's instance order; relocated to the
+    // loaded program's copy when read), for a game that moves or removes them at run time: Going
+    // Commando's mobys carry tie and shrub groups (the Maktar lamps' heads turn,
+    // func_L00_00323958) and zero the matrices of the ones they remove. 0: drawn as loaded. The
+    // third: the word that points at the ties' 32-byte records (bounding sphere at +0, the point
+    // lights' list at +0x1A), for the ties a point light reaches; the fourth the shrubs' 32-byte
+    // records (bounding-sphere centre at +0, the point lights' list at +0x1E); 0 for none.
+    virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
+
+    // Whether the world's depth is precise (renderer/precise_depth.h): reversed Z in a 32-bit float
+    // buffer, clip-space z to the window as it is, where the context has glClipControl (OpenGL 4.5,
+    // ARB_clip_control, the Vulkan backend; not macOS's OpenGL 4.1). Going Commando's Maktar dome
+    // carries light strips (tie class 2713) within a few centimetres of the band under them (class
+    // 2675): GL's depth parted them only within about 150 units of the window's near 0.05, and
+    // farther away they flickered in and out of it.
+    virtual bool precise_depth() const { return false; }
+
+    // Where precise depth cannot be had: the near distance of the world's depth (game units), or 0
+    // for the window's 0.05. GL's depth resolves about 1.2e-6 d^2 / (near / 0.05) units at a
+    // distance d (2^-24 of its range, after GL's (z + w) / 2), so a larger near parts close surfaces
+    // that much farther away. Nothing is clipped for it: the frame turns depth clamping on, so
+    // what is nearer than this near is drawn at the nearest depth, in drawing order among itself,
+    // instead of being cut away.
+    virtual float depth_near() const { return 0.0f; }
+
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }
 
+    // Whether MobyProc keeps a moby's shadow slab across its up axis (Going Commando: +0x70 the
+    // offset, +0x74 the half thickness; scene::moby_shadow_state_on_axis) instead of at two world
+    // heights (Ratchet & Clank: +0x84, +0x88; scene::moby_shadow_state).
+    virtual bool shadow_slab_on_up_axis() const { return false; }
+
+    // Whether every moby MobyProc queues casts its shadow (Going Commando: Clank, platforms,
+    // crates), not only the hero's class 0 (Ratchet & Clank's port).
+    virtual bool every_moby_casts_shadow() const { return false; }
+
     // Returns the executable's address of the hero's state record (relocated when read); 0 for a
     // game without one.
     virtual std::uint32_t hero_state() const { return 0; }
+
+    // Returns the offset in the hero's state record of its air-frames counter (a short: game
+    // updates off the ground, 0 on landing), which the hero's shadow map tilts down by.
+    virtual std::uint32_t hero_air_frames() const { return 0x30E; }
 
     // Whether the port has the game's levels extracted (editor/port.py), so that a level whose
     // scenery cannot be read is something missing, not a game with no scenery yet.
@@ -228,6 +283,11 @@ public:
 
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
+
+    // The value of the game's mode word (openrac_game_mode) while a real-time cutscene plays in a
+    // level, which enhanced motion blur takes the cutscene's tuning for; none for a game without
+    // one known.
+    virtual std::optional<std::uint32_t> cutscene_mode() const { return std::nullopt; }
 
     // Returns the executable's address of the particle updates, one per particle type byte
     // (relocated when read); 0 for a game without them.

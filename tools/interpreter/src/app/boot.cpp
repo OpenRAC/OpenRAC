@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     std::string iso, hooks, ppm, vif_file, card, wav, native, native_calls;
     bool card_wanted = true;
     int vif_frame = -1;
-    int frames = -1, report = 60, states_frame = -1;
+    int frames = -1, report = 60, states_frame = -1, ppm_from = -1;
 
     /*
      * Threads that draw: by default most of the fast cores, leaving one for the program itself.
@@ -139,13 +139,16 @@ int main(int argc, char** argv) {
 
     std::vector<Press> presses;
 
-    /** Scripted left stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
+    /** Scripted stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
     struct Stick {
         /** The first field and how many fields it lasts. */
         int frame, length;
 
         /** The axes. */
         unsigned x, y;
+
+        /** The right stick (--rstick) rather than the left. */
+        bool right = false;
     };
 
     std::vector<Stick> sticks;
@@ -223,6 +226,13 @@ int main(int argc, char** argv) {
     std::FILE* trace_file = nullptr;
     sys::Machine machine;
 
+    /*
+     * `--watch-stores ADDRESS:BYTES` (hexadecimal): a line on stderr for each store of the
+     * program into those bytes of main memory, with the field, the store's instruction, the
+     * return address register and the value, to find what writes a word.
+     */
+    unsigned watch_first = 0, watch_bytes = 0;
+
     // One option per pass; a value-taking option reads the next argument as well.
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -284,6 +294,11 @@ int main(int argc, char** argv) {
                 traced.push_back(t);
                 s += *s == ',' ? 1 : 0;
             }
+        } else if (arg == "--watch-stores" && i + 1 < argc) {
+            // ADDRESS:BYTES in hexadecimal.
+            char* end = nullptr;
+            watch_first = static_cast<unsigned>(std::strtoul(argv[++i], &end, 16));
+            watch_bytes = *end == ':' ? static_cast<unsigned>(std::strtoul(end + 1, nullptr, 16)) : 4;
         } else if (arg == "--calls" && i + 1 < argc) {
             // At the end, write each listed function's call count and first and last field.
             calls_file = argv[++i];
@@ -313,6 +328,14 @@ int main(int argc, char** argv) {
             Stick s{0, 4, 0x80, 0x80};
             std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
             sticks.push_back(s);
+        } else if (arg == "--rstick" && i + 1 < argc) {
+            // FRAME:X:Y[:FRAMES], the right stick (the camera's) as --stick has the left.
+            Stick s{0, 4, 0x80, 0x80, true};
+            std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
+            sticks.push_back(s);
+        } else if (arg == "--ppm-from" && i + 1 < argc) {
+            // FIELD: with --ppm FILE, also every field's picture from FIELD on, as FILE_<field>.ppm.
+            ppm_from = std::atoi(argv[++i]);
         } else if (arg == "--write" && i + 1 < argc) {
             // FRAME:ADDRESS:VALUE[:FRAMES], address and value in hexadecimal; one field by default.
             Write w{0, 1, 0, 0};
@@ -395,7 +418,8 @@ int main(int argc, char** argv) {
                 stderr,
                 "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose "
                 "N] "
-                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--stick "
+                "[--ntsc] [--window] [--ppm FILE] [--ppm-from FIELD] [--press "
+                "FRAME:BUTTONS[:FRAMES]] [--rstick FRAME:X:Y[:FRAMES]] [--stick "
                 "FRAME:X:Y[:FRAMES]] [--gs-states "
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
@@ -403,7 +427,8 @@ int main(int argc, char** argv) {
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
                 "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] "
                 "[--capture-phases FIELD,...] [--capture-spread] [--capture-key ADDRESS,...] "
-                "[--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE]\n"
+                "[--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE] "
+                "[--watch-stores ADDRESS:BYTES]\n"
             );
             return 2;
         }
@@ -440,6 +465,41 @@ int main(int argc, char** argv) {
     if (!native.empty() && !machine.native.load(native, &error)) {
         std::fprintf(stderr, "%s: %s\n", native.c_str(), error.c_str());
         return 1;
+    }
+
+    // Stores into the watched bytes are logged with the field they happen in.
+    if (watch_bytes) {
+        machine.ee.watch_first = watch_first & 0x1FFFFFFFu;
+        machine.ee.watch_end = machine.ee.watch_first + watch_bytes;
+        // OPENRAC_BOOT_WATCH_STACK=WORDS: also the words of the stack above sp that look like
+        // return addresses (in 0x100000..0x600000, word aligned), nearest first: the callers that
+        // `ra` alone does not show.
+        const char* stack_env = std::getenv("OPENRAC_BOOT_WATCH_STACK");
+        const unsigned stack_words = stack_env ? static_cast<unsigned>(std::atoi(stack_env)) : 0;
+        machine.ee.on_watched_store = [&machine, stack_words](u32 address, u64 value, unsigned bytes) {
+            std::fprintf(
+                stderr, "store field %llu pc %08x ra %08x address %08x bytes %u value %llx",
+                static_cast<unsigned long long>(machine.frames), machine.ee.instruction,
+                static_cast<u32>(machine.ee.gpr[31].lo), address, bytes,
+                static_cast<unsigned long long>(value)
+            );
+            const u32 sp = machine.ee.sp32() & 0x1FFFFFFFu;
+            if (stack_words) {
+                std::fprintf(stderr, " sp %08x", sp);
+            }
+            for (unsigned k = 0; k < stack_words; k++) {
+                const u32 at = sp + 4 * k;
+                if (at + 4 > 0x2000000u) {
+                    break;
+                }
+                u32 word;
+                std::memcpy(&word, machine.memory.ram(at), 4);
+                if (word >= 0x100000u && word < 0x600000u && (word & 3) == 0) {
+                    std::fprintf(stderr, " %x:%08x", 4 * k, word);
+                }
+            }
+            std::fputc('\n', stderr);
+        };
     }
 
     std::vector<u8> capture_marks;
@@ -713,12 +773,13 @@ int main(int argc, char** argv) {
             }
         }
 
-        // The left stick for this field: centred, or the last scripted position that covers it.
+        // The sticks for this field: centred, or the last scripted position that covers it.
         machine.pad.left_x = machine.pad.left_y = 0x80;
+        machine.pad.right_x = machine.pad.right_y = 0x80;
         for (const Stick& s : sticks) {
             if (frame >= s.frame && frame < s.frame + s.length) {
-                machine.pad.left_x = static_cast<u8>(s.x);
-                machine.pad.left_y = static_cast<u8>(s.y);
+                (s.right ? machine.pad.right_x : machine.pad.left_x) = static_cast<u8>(s.x);
+                (s.right ? machine.pad.right_y : machine.pad.left_y) = static_cast<u8>(s.y);
             }
         }
 
@@ -830,6 +891,11 @@ int main(int argc, char** argv) {
         }
 
         bool shown = machine.drawing.picture(image);
+
+        // Every field's picture from --ppm-from on.
+        if (shown && !ppm.empty() && ppm_from >= 0 && frame >= ppm_from) {
+            write_ppm(ppm + "_" + std::to_string(frame) + ".ppm", image);
+        }
 
 #ifndef OPENRAC_NO_WINDOW
         // The picture is shown at the games' 4:3 shape, if the display was on.

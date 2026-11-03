@@ -14,6 +14,7 @@
 #include "common/stats.h"
 #include "renderer/colour_graph.h"
 #include "renderer/gl.h"
+#include "renderer/precise_depth.h"
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer/world/gs_pass.h"
@@ -141,15 +142,14 @@ bool LevelScene::upload(
     }
 #if defined(OPENRAC_VULKAN)
     if (vkgl::gpu_materials_active()) {
+        // The batch's opaque, non-solid geometry never draws an added effect.
         const auto opaque_source = [](std::string source) {
-            source.insert(source.find('\n') + 1, "#define OPENRAC_OPAQUE_COLOUR 1\n");
             const auto effect = source.find("uniform int probe_effect;");
             if (effect != std::string::npos) {
                 source.replace(
                     effect, std::strlen("uniform int probe_effect;"), "const int probe_effect = 0;"
                 );
             }
-            source.insert(source.find("void main() {"), "uniform int opaque_solid;\n");
             return source;
         };
         if (!m_colour_opaque
@@ -286,7 +286,9 @@ bool LevelScene::upload(
         const auto& distances = level.draw_distances[layer];
         const bool sized = distances.size() == level.instances[layer].size();
         const bool chosen = sized && !distances.empty();
-        scenery.source = chosen ? level.instances[layer] : std::vector<Instance>{};
+        // The instances as loaded are kept for every level: the game may move some
+        // (move_scenery); only a layer with distances is chosen by them (choose_scenery).
+        scenery.source = level.instances[layer];
         scenery.distances = chosen ? distances : std::vector<float>{};
         scenery.centres.clear();
         for (const Instance& instance : scenery.source) {
@@ -297,6 +299,7 @@ bool LevelScene::upload(
             );
         }
         scenery.drawn.clear();
+        m_moved[k] = {};
     }
     // The shrubs' billboards and, for those that have one, their colour: their 24 lit colours'
     // average, channel by channel, truncated (LightShrubs' word at the instance's +0x1C).
@@ -368,6 +371,24 @@ bool LevelScene::upload(
                                         )
                                       : m_white
         );
+        // A texture pack's animated replacement draws its frames by the game's tick.
+        if (i < level.image_animations.size() && level.image_animations[i] != nullptr
+            && level.images[i].width > 0) {
+            textures.animate(m_textures.back(), level.image_animations[i]);
+        }
+    }
+    m_variant_image = -1;
+    m_variants.clear();
+    if (level.variant_image >= 0
+        && static_cast<std::size_t>(level.variant_image) < m_textures.size()) {
+        m_variant_image = level.variant_image;
+        for (const int image : level.variant_images) {
+            m_variants.push_back(
+                image >= 0 && static_cast<std::size_t>(image) < m_textures.size()
+                    ? m_textures[static_cast<std::size_t>(image)]
+                    : m_textures[static_cast<std::size_t>(m_variant_image)]
+            );
+        }
     }
 
     m_pvs = level.pvs;
@@ -524,6 +545,12 @@ bool LevelScene::upload(
         GL_STATIC_DRAW
     );
 
+    m_tie_relight_classes = level.tie_relight_classes;
+    m_tie_relight = level.tie_relight;
+    m_tie_slots = level.tie_slots;
+    m_light_colours = level.light_colours;
+    m_shrub_relight_classes = level.shrub_relight_classes;
+    m_shrub_relight = level.shrub_relight;
     if (!level.light_colours.empty()) {
         const std::size_t rows = (level.light_colours.size() + kLightWidth - 1) / kLightWidth;
         std::vector<std::uint32_t> texels(rows * kLightWidth, 0u);
@@ -713,6 +740,8 @@ void LevelScene::release() {
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
+    m_moved = {};
+    m_moved_count = 0;
     m_shrub_draws.clear();
     m_shrub_billboards.clear();
     m_shrub_colours.clear();
@@ -1039,14 +1068,25 @@ void LevelScene::draw_layer(
         glEnable(GL_CLIP_DISTANCE0);
         glEnable(GL_CLIP_DISTANCE1);
     }
+    // Precise depth (renderer/precise_depth.h): the world's draws send clip-space z to the window as
+    // it is, with the camera's projection in that form, so the same depth lands there with 32-bit
+    // float precision; everything else keeps GL's form.
+    const bool precise = renderer::precise_depth();
+    if (precise) {
+        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+    }
+    const auto drawn_clip = renderer::multiply(
+        precise ? renderer::zero_to_one(input.camera.projection) : input.camera.projection,
+        input.camera.view
+    );
     // The joint palettes (live mobys): unit 1; the textures go on unit 0.
     const bool palettes = layer == Layer::Mobys && m_palette != 0;
     // The frame's uniforms, on the program the next passes draw with: the solid one for the static
     // layers' opaque materials without a cutout (mesh.frag, OPENRAC_SOLID), the general one else.
     const auto use = [&](const renderer::Shader& shader, bool depth_matched) {
         shader.use();
-        const auto drawn_clip = renderer::multiply(input.camera.projection, input.camera.view);
         glUniformMatrix4fv(shader.uniform("view_projection"), 1, GL_FALSE, drawn_clip.data());
+        glUniform1i(shader.uniform("clip_zero_to_one"), precise ? 1 : 0);
         glUniform1f(shader.uniform("picture_scale"), state.target.picture_scale_x);
         if (state.depth_prepass) {
             glUniformMatrix4fv(shader.uniform("view"), 1, GL_FALSE, input.camera.view.data());
@@ -1251,6 +1291,11 @@ void LevelScene::draw_layer(
                    && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {
             // Opaque variants specialise alpha handling for each geometry kind.
             selected = &specialised[variant];
+        } else if (batch_shader && solid) {
+            // The reference batch draws solid static geometry with the solid shader, which has no
+            // discard. A shader that can discard is depth tested after it runs, and on MoltenVK
+            // its solid draws over the reused EQUAL depth came out unlike the solid shader's.
+            selected = early ? &m_early_solid : &m_solid;
         } else if (batch_shader) {
             // The reference batch keeps dynamic alpha handling.
             selected = early ? &m_early_colour_opaque : &m_colour_opaque;
@@ -1290,7 +1335,6 @@ void LevelScene::draw_layer(
         }
         int cutout = program->uniform("cutout");
         int colour = program->uniform("material_colour");
-        glUniform1i(program->uniform("opaque_solid"), solid ? 1 : 0);
         // The cutout materials' opaque texels (static layers).
         const bool cutouts = !mobys && pass == 1;
         // The blended mobys' pass: their whole models, all texels, at their alpha (blend 1, and 3
@@ -1591,6 +1635,9 @@ void LevelScene::draw_layer(
     if (cut) {
         glDisable(GL_CLIP_DISTANCE0);
         glDisable(GL_CLIP_DISTANCE1);
+    }
+    if (precise) {
+        glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
     }
     if (palettes && !colour_batch) {
         glActiveTexture(GL_TEXTURE0 + kPaletteUnit);

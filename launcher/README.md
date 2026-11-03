@@ -95,6 +95,13 @@ the game you used last.
   **Import saves from PCSX2**, in the game's menu, copies the game's saves
   from a PCSX2 memory card (a `.ps2` file, or a folder card's
   `_pcsx2_superblock`) onto the card, after a backup of what was there.
+  **Export** and **Import**, on the Saves panel, carry saves to another
+  computer or phone: Export puts all saves, or one slot, in one `.zip` where
+  you choose; Import on the other device shows the file's slots, planets and
+  bolts first, then brings in the slots you tick (the others stay) or
+  replaces every save on the card, after a backup. A file from another game
+  or disc (PAL and NTSC are different discs) is refused, and so is a damaged
+  one ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#saves-between-devices)).
 - **Crashes**: the game page says when the game stopped unexpectedly. Your
   saves are kept. **Copy report** gives text for a
   [GitHub issue](https://github.com/OpenRAC/OpenRAC/issues) or Discord.
@@ -103,6 +110,17 @@ the game you used last.
 - **Logs**: every play session and crash is kept under **Help**, newest
   first, with the same Copy and Save actions. A recent crash marks the game
   in the list. **Detailed logs** makes the game write more, for when we ask.
+- **Texture packs**: for a game with a port, your own pictures in place of
+  the game's, in three steps. **Save the game's textures while you play**
+  makes the next Play save every picture it shows, sorted into Interface
+  (HUD, menus, font), Shared and a folder for each planet, with counts that
+  open each folder; they come from your disc, so keep them to yourself.
+  Edit or upscale the ones you want in any editor and put them in **your
+  pack**, which has its own switch. **Add a pack…** checks a shared `.zip`
+  (another game's is refused) and adds it to yours or replaces yours, which
+  is kept beside it. **Share my pack…** saves yours as a `.zip`, leaving out
+  pictures that are still the game's own
+  ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
   differently and why. **Game fixes** can be switched; **Kept from crashing**
   and **Playing on a PC** are listed for the record. The list is
@@ -130,7 +148,8 @@ Android loads no native mods. Its Mods tab shows the script mods, Enhanced
 graphics and the packs on one page, without the level editor.
 
 **Enhanced graphics** (experimental) is built in. It is the first row of
-Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and adds bounced light,
+Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and Going Commando
+(NTSC-U, with developer tools on, as its Play is) and adds bounced light,
 modern sun and Ratchet shadows, and ambient occlusion, from the game's Vulkan
 renderer. Its page has:
 
@@ -284,6 +303,10 @@ What the launcher writes, and when it goes online:
   (see Saves above), shared with the game. Saves that some development builds
   kept in the install folder are moved to `migrated/` in the data folder at
   start, so nothing is lost.
+- **Texture packs**: your pack in `<data>/texture_packs/<id>/` (`rac2-ntsc`),
+  the textures the game saved in `texture_dumps/<id>/` of the data folder,
+  and `texture_dumps/<id>.dumping` while saving them is on. A replaced pack
+  is kept as `texture_packs/<id> (before import <date>)`.
 - **Mods**: `<data>/plugins/`, when you add, switch, order, update or remove
   one: each mod's folder, `plugins.json`, and `sources.json` for linked mods.
   Their downloads are checked, then deleted. A pack's files wait in

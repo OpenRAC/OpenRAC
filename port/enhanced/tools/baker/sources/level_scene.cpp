@@ -153,6 +153,48 @@ void export_suns(const scene::LevelData& level, unsigned light_set, BakeScene& t
     }
 }
 
+// Whether the export carries Going Commando's liquid surfaces (bake-inputs/liquids.json).
+bool rac2_liquids(const scene::LevelData& level) {
+    if (level.dir.empty()) {
+        return false;
+    }
+    json::Value manifest;
+    std::string error;
+    if (!json::parse_file((level.dir / "manifest.json").string(), manifest, error)) {
+        throw std::runtime_error(error);
+    }
+    const auto& source = manifest["bake_inputs"]["liquids"].string();
+    if (source.empty()) {
+        return false;
+    }
+    if (manifest["game"].string() != "rac2" || source != kRac2SurfacesSource) {
+        throw std::runtime_error("Unsupported liquid surfaces bake input");
+    }
+    return true;
+}
+
+// Adds Going Commando's emissive liquid surfaces after the exported meshes, in their order.
+void export_rac2_liquids(const scene::LevelData& level, BakeSceneExport& out) {
+    json::Value surfaces;
+    std::string error;
+    if (!json::parse_file((level.dir / "bake-inputs/liquids.json").string(), surfaces, error)) {
+        throw std::runtime_error("Going Commando liquid surfaces: " + error);
+    }
+    const auto triangles = rac2_liquid_triangles(surfaces);
+    out.automatic_liquid_triangles += triangles.size();
+    out.surface_instances += triangles.empty() ? 0 : 1;
+    for (const auto& triangle : triangles) {
+        for (const auto& point : triangle.vertices) {
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                out.bounds_min[axis] = std::min(out.bounds_min[axis], point[axis]);
+                out.bounds_max[axis] = std::max(out.bounds_max[axis], point[axis]);
+            }
+        }
+        out.scene.triangles.push_back(triangle);
+        ++out.emissive_triangles;
+    }
+}
+
 // Adds bake-only liquid surfaces after exported meshes, retaining their source order.
 void export_liquids(const scene::LevelData& level, std::uint32_t record, BakeSceneExport& out) {
     const auto directory = level.dir / "bake-inputs";
@@ -225,10 +267,14 @@ BakeSceneExport export_probe_scene(
     export_suns(level, light_set, out.scene);
     append_probe_geometry(level, out);
     const std::uint32_t liquid_record = automatic_liquids(level);
-    const bool liquid_source = liquid_record != 0;
+    const bool surfaces = rac2_liquids(level);
+    const bool liquid_source = liquid_record != 0 || surfaces;
     // Runtime activation fingerprints raw liquid inputs without repeating bake-only analysis.
-    if (liquid_source && analyze_liquids) {
+    if (liquid_record != 0 && analyze_liquids) {
         export_liquids(level, liquid_record, out);
+    }
+    if (surfaces && analyze_liquids) {
+        export_rac2_liquids(level, out);
     }
     if (out.scene.triangles.empty()) {
         throw NothingToBake("no static render geometry to bake");
@@ -237,6 +283,36 @@ BakeSceneExport export_probe_scene(
     export_proxy_emitters(level, out);
     out.scene_hash = probe_scene_hash(level, out, light_set, liquid_source);
     return out;
+}
+
+std::uint64_t probe_activation_hash(
+    const scene::LevelData& level, unsigned light_set, Float3 environment
+) {
+    const profiling::Zone trace("Probe activation hash");
+
+    if (level.dir.empty()) {
+        return export_probe_scene(level, light_set, environment, false).scene_hash;
+    }
+    if (light_set >= 16 || level.light_sets.size() != 256) {
+        throw std::runtime_error("level has no requested directional light set");
+    }
+    if (level.missing_images) {
+        throw std::runtime_error("bake requires all referenced textures; level has missing images");
+    }
+    const auto& sky = level.sky_panorama;
+    if (sky.width > 0 && sky.height > 0
+        && sky.pixels.size()
+               != std::size_t{static_cast<unsigned>(sky.width)} * static_cast<unsigned>(sky.height)
+                      * 4) {
+        throw std::runtime_error("invalid level sky panorama");
+    }
+    // A source-file fingerprint reads only the environment and the proxy emitters' count from the
+    // export; the meshes, textures, sky and suns it converts are the files' own bytes.
+    BakeSceneExport out;
+    out.scene.environment = environment;
+    export_proxy_emitters(level, out);
+    const bool liquid_source = automatic_liquids(level) != 0 || rac2_liquids(level);
+    return probe_scene_hash(level, out, light_set, liquid_source);
 }
 
 }  // namespace openrac::lighting

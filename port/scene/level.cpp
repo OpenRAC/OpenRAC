@@ -146,8 +146,12 @@ int image_index(const fs::path& requested, LevelData& level) {
         log::warn("texture {}: {}", key, stbi_failure_reason());
         ++level.missing_images;
     }
-    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size.
-    renderer::texture_pack::replace(image);
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size, and its frames
+    // when it is animated.
+    renderer::texture_pack::Replacement replaced;
+    renderer::texture_pack::replace(image, {.level = level.level}, &replaced);
+    level.image_animations.resize(level.images.size());
+    level.image_animations.push_back(std::move(replaced.animation));
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {
@@ -681,6 +685,10 @@ bool load_level(
     };
 
     std::map<int, ClassModel> ties;
+    // The tie classes' relighting data (format 16), by class: their entry in tie_relight_classes;
+    // the shrub classes' normals (format 17): their entry in shrub_relight_classes.
+    std::map<int, int> tie_relight_class;
+    std::map<int, int> shrub_relight_class;
     std::map<int, ClassModel> shrubs;
     std::map<int, ClassModel> mobys;
     // The shrub classes' billboard fade distances ("billboard_fade", -1 none), when every class
@@ -709,6 +717,34 @@ bool load_level(
                     }
                     billboard_models[id] = *model;
                 }
+            }
+            if (table == &shrubs && cls["relight"]["normals"].items().size() == 96) {
+                std::array<std::array<std::int16_t, 4>, 24> normals{};
+                const auto& n = cls["relight"]["normals"].items();
+                for (std::size_t j = 0; j < 96; ++j) {
+                    normals[j / 4][j % 4] = static_cast<std::int16_t>(n[j].number(0));
+                }
+                shrub_relight_class[id] = static_cast<int>(out.shrub_relight_classes.size());
+                out.shrub_relight_classes.push_back(normals);
+            }
+            if (table == &ties && cls["relight"].is_object()) {
+                const json::Value& r = cls["relight"];
+                TieRelightClass relight;
+                for (const json::Value& n : r["slot_normals"].items()) {
+                    relight.normals.push_back(static_cast<std::uint16_t>(n.number(0)));
+                }
+                for (const json::Value& n : r["vertex_slots"].items()) {
+                    relight.vertices.push_back(static_cast<std::uint16_t>(n.number(0)));
+                }
+                if (r["flat_colour"].is_number()) {
+                    relight.flat = static_cast<std::uint32_t>(r["flat_colour"].number(0));
+                }
+                for (const json::Value& n : r["slot_positions"].items()) {
+                    relight.positions.push_back(static_cast<std::int16_t>(n.number(0)));
+                }
+                relight.scale = static_cast<float>(r["scale"].number(1.0));
+                tie_relight_class[id] = static_cast<int>(out.tie_relight_classes.size());
+                out.tie_relight_classes.push_back(std::move(relight));
             }
             if (cls["mesh"].is_string()) {
                 auto model = model_at(cls["mesh"]);
@@ -1050,6 +1086,39 @@ bool load_level(
                     out.light_colours.push_back(static_cast<std::uint32_t>(c.number(0)));
                 }
             }
+            // What the tie is lit again from when the game moves it (its own placements only).
+            if (layer == Layer::Ties && !tie_relight_class.empty()) {
+                TieRelight relight;
+                const auto relit = tie_relight_class.find(id);
+                const auto& slots = p["slots"].items();
+                if (relit != tie_relight_class.end() && !slots.empty() && !edits[key].is_array()) {
+                    relight.cls = relit->second;
+                    relight.first = static_cast<std::uint32_t>(out.tie_slots.size());
+                    relight.count = static_cast<std::uint16_t>(slots.size());
+                    relight.light_set = static_cast<std::uint8_t>(
+                        static_cast<int>(p["directional_lights"].number(0)) & 0xF
+                    );
+                    for (const json::Value& c : slots) {
+                        out.tie_slots.push_back(static_cast<std::uint32_t>(c.number(0)));
+                    }
+                }
+                out.tie_relight.push_back(relight);
+            }
+            // What the shrub is lit again from (its own placements only).
+            if (layer == Layer::Shrubs && !shrub_relight_class.empty()) {
+                LevelData::ShrubRelight relight;
+                const auto relit = shrub_relight_class.find(id);
+                if (relit != shrub_relight_class.end() && !edits[key].is_array()
+                    && p["colour"].items().size() == 3) {
+                    relight.cls = relit->second;
+                    for (std::size_t c = 0; c < 3; ++c) {
+                        relight.colour[c] =
+                            static_cast<std::int32_t>(p["colour"].items()[c].number(0));
+                    }
+                    relight.select = static_cast<std::int32_t>(p["directional_lights"].number(0));
+                }
+                out.shrub_relight.push_back(relight);
+            }
             out.instances[static_cast<std::size_t>(layer)].push_back(instance);
             // In the game's order only when they are the level's own shrubs.
             if (layer == Layer::Shrubs && !edits[key].is_array()) {
@@ -1197,6 +1266,23 @@ bool load_level(
     }
     if (out.bounds_min[0] > out.bounds_max[0]) {
         out.bounds_min = out.bounds_max = Vec3{};
+    }
+    // A texture the game swaps in place (Going Commando's ship paint jobs): the image its faces
+    // use and every one it can be, which the window binds in its place (LevelScene::set_variant).
+    const json::Value& paints = manifest["ship_paints"];
+    if (paints.is_object() && paints["texture"].is_string()) {
+        const auto& images = out.image_paths;
+        const std::string used = override_of(dir / paints["texture"].string(), out, nullptr)
+                                     .lexically_normal()
+                                     .generic_string();
+        if (std::find(images.begin(), images.end(), used) != images.end()) {
+            out.variant_image = image_index(dir / paints["texture"].string(), out);
+            for (const json::Value& paint : paints["paints"].items()) {
+                out.variant_images.push_back(
+                    paint.is_string() ? image_index(dir / paint.string(), out) : -1
+                );
+            }
+        }
     }
     if (out.overridden_models > 0 || out.overridden_images > 0) {
         log::info(

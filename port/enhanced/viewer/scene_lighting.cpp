@@ -218,7 +218,7 @@ void SceneLighting::load(const scene::LevelData& level) {
     enhanced::set_reflection_subjects(std::move(subjects));
     m_probes.load(level);
     m_wetness.load(level);
-    m_fur.load(level, enhanced::rac1_fur_profile());
+    m_fur.load(level, enhanced::fur_profile(level.game));
     m_water_float.load();
     m_atmosphere.load();
 }

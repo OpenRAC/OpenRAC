@@ -43,8 +43,17 @@ class BakeInputs(unittest.TestCase):
             self.assertFalse((writer.dir/"probe-surfaces").exists())
             self.assertTrue((writer.dir/"bake-inputs/overlay.bin").is_file())
 
+    def test_going_commando_keeps_its_gameplay_only(self):
+        # Its level 9 is not Gaspar: no lava sources are asked of the disc.
+        level = SimpleNamespace(game="rac2", version="ntsc", id=9, stored={}, gameplay=b"gc gameplay")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.assertEqual(write_bake_inputs(level, root), {"gameplay": "rac2-v1"})
+            self.assertEqual(sorted(p.name for p in (root/"bake-inputs").iterdir()), ["gameplay.bin"])
+            self.assertEqual((root/"bake-inputs/gameplay.bin").read_bytes(), b"gc gameplay")
+
     def test_other_levels_and_versions_are_unchanged(self):
-        for game, version, level_id in [("rac2", "ntsc", 9), ("rac1", "unknown", 3)]:
+        for game, version, level_id in [("rac2", "pal", 9), ("rac3", "ntsc", 3), ("rac1", "unknown", 3)]:
             level = SimpleNamespace(game=game, version=version, id=level_id)
             with tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)

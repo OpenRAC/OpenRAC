@@ -116,7 +116,9 @@ private:
 };
 
 // The vertex stage's depth from OpenGL's clip space (-w..w) to Vulkan's (0..w), after the
-// shader's own main(), which may set its points' size over the default.
+// shader's own main(), which may set its points' size over the default; left as it is where the
+// pipeline says its z is Vulkan's already (glClipControl GL_ZERO_TO_ONE: the specialisation
+// constant kClipZeroToOneConstant, vkgl_pipelines.cpp).
 std::string vertex_source(std::string_view source) {
     static const std::regex main_decl(R"(\bvoid\s+main\s*\(\s*(void)?\s*\))");
     std::string out = std::regex_replace(
@@ -126,8 +128,11 @@ std::string vertex_source(std::string_view source) {
         std::regex_constants::format_first_only
     );
     // A point's size is the shader's to say in Vulkan; OpenGL's is 1 unless the shader says.
-    out += "\nvoid main() {\n    gl_PointSize = 1.0;\n    openrac_vk_main();\n"
-           "    gl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n}\n";
+    out += "\nlayout(constant_id = " + std::to_string(detail::kClipZeroToOneConstant)
+           + ") const bool openrac_vk_clip_zero_to_one = false;\n"
+             "void main() {\n    gl_PointSize = 1.0;\n    openrac_vk_main();\n"
+             "    if (!openrac_vk_clip_zero_to_one) {\n"
+             "        gl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n    }\n}\n";
     return out;
 }
 

@@ -20,13 +20,16 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "renderer/math.h"
 #include "renderer/texture.h"
+#include "renderer/texture_pack.h"
 #include "scene/pvs.h"
+#include "scene/tie_relight.h"
 
 namespace openrac::scene {
 
@@ -43,8 +46,14 @@ inline constexpr int kManifestFormat = 4;
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
 // 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
-// ship's hulls in every level; 14 with the chrome and glass maps the game binds.
-inline constexpr int kManifestFormatNewest = 14;
+// ship's hulls in every level; 14 with the chrome and glass maps the game binds; 15 with every paint
+// job of his ship; 16 with what a tie is lit again from when the game moves it or a point light
+// reaches it (its slots before lighting, its class's "relight"); 17 with each shrub class's normals,
+// for the shrubs a point light reaches; 18 with the gameplay copy
+// the probe baker reads (bake-inputs/gameplay.bin); 19 with the emission catalog's textures
+// (probe-emission.json) and the levels' sky and sun profiles (probe-bake.json); 20 with the liquid
+// surfaces the baker lights from (bake-inputs/liquids.json).
+inline constexpr int kManifestFormatNewest = 20;
 
 struct Vertex {
     float position[3];
@@ -199,6 +208,8 @@ struct LevelData {
     std::vector<Model> models;
     std::vector<Material> materials;
     std::vector<renderer::Rgba8Image> images;
+    // Parallel to images (or shorter): a texture pack's animated replacement of each, or null.
+    std::vector<std::shared_ptr<const renderer::texture_pack::Animation>> image_animations;
     std::vector<std::string> image_paths;
     // Parallel to images: whether some texel is below full alpha (under the chip's 0x80), which
     // the GS blends however the export's alpha mode reads (material_index).
@@ -223,6 +234,24 @@ struct LevelData {
     // The ties' and shrubs' lit colours, 64 or 24 per instance, RGBA bytes (0x80 = 1.0), from
     // placements.json.
     std::vector<std::uint32_t> light_colours;
+    // Going Commando's ties, lit again when the game moves one (scene/tie_relight.h, format 15):
+    // the classes' relighting data, each tie's (parallel to the ties; empty without), and the
+    // ties' slots before lighting that those index.
+    std::vector<TieRelightClass> tie_relight_classes;
+    std::vector<TieRelight> tie_relight;
+    std::vector<std::uint32_t> tie_slots;
+
+    // Going Commando's shrubs, lit again when a point light reaches one or the game moves it
+    // (format 17): the classes' 24 normals (s16 x, y, z, w), and per shrub its class's entry there
+    // (-1 none), its base colour and its light set select (parallel to the shrubs; empty without).
+    struct ShrubRelight {
+        int cls = -1;
+        std::array<std::int32_t, 3> colour{};
+        std::int32_t select = 0;
+    };
+
+    std::vector<std::array<std::array<std::int16_t, 4>, 24>> shrub_relight_classes;
+    std::vector<ShrubRelight> shrub_relight;
     // The level's 16 directional light sets (manifest "lights"): per set colour A (w = back
     // factor), direction A, colour B, direction B; empty when the export has none.
     std::vector<float> light_sets;
@@ -232,6 +261,11 @@ struct LevelData {
     Vec3 bounds_min{};
     Vec3 bounds_max{};
     int missing_images = 0;
+    // A texture the game swaps in place (manifest "ship_paints": Going Commando's ship paint jobs,
+    // which the game loads over one texture): the image the faces use (-1 none) and each one it can
+    // be, by the game's number (-1 where one is missing).
+    int variant_image = -1;
+    std::vector<int> variant_images;
 };
 
 // The world centre of `model`'s bounds drawn at `matrix`.

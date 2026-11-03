@@ -53,6 +53,7 @@
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "renderer/texture.h"
+#include "renderer/texture_pack.h"
 #include "renderer/texture_pool.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
@@ -484,6 +485,7 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     q.tex1 = quad.tex1;
     q.alpha = quad.alpha;
     q.id = quad.id;
+    q.parent = quad.parent;
     const std::uint32_t pixels = quad.pixels & 0x01FFFFFF;
     const std::uint32_t clut = quad.clut & 0x01FFFFFF;
     const std::uint32_t tbp = static_cast<std::uint32_t>(quad.tex0 & 0x3FFF);
@@ -583,13 +585,23 @@ void effect_textures() {
                 colours,
                 renderer::AlphaScale::Gs
             );
+            // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
+            renderer::texture_pack::Replacement replaced;
+            renderer::texture_pack::replace(texture, {}, &replaced);
             const renderer::TextureHandle h = g->renderer->textures().add(
                 std::move(texture),
                 renderer::AlphaScale::Gs,
                 std::format("effect {:#x}/{:#x}", image.dbp, palette.dbp)
             );
+            g->renderer->textures().set_replacement(h, std::move(replaced), e.pixels, e.clut);
             key = kEffectTextureKey + static_cast<std::uint32_t>(g->effect_textures.size() - 1);
             g->renderer->textures().place(key, h);
+        }
+        // A pack maker's dump groups the textures an effect cycles through (by its quad's slot
+        // when it has one, else by where its texels lie).
+        if (const auto placed = g->renderer->textures().placed(key)) {
+            constexpr std::uint64_t kQuadSlot = std::uint64_t{1} << 32;  // ids apart from blocks
+            g->renderer->textures().watch(q.id != 0 ? q.id | kQuadSlot : image.dbp, *placed);
         }
         q.tbp = key;
         q.cbp = 0;
@@ -787,11 +799,15 @@ std::uint32_t particle_texture(
     const std::vector<std::uint32_t> palette = renderer::clut_csm1(colours, 0x00, 16, 256, texa);
     renderer::Rgba8Image image =
         renderer::convert_t8(indices, kSide, kSide, palette, renderer::AlphaScale::Gs);
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
+    renderer::texture_pack::Replacement replaced;
+    renderer::texture_pack::replace(image, {}, &replaced);
     const renderer::TextureHandle h = g->renderer->textures().add(
         std::move(image),
         renderer::AlphaScale::Gs,
         std::format("particle {:#x}/{:#x}", pixels, clut)
     );
+    g->renderer->textures().set_replacement(h, std::move(replaced));
     const std::uint32_t key =
         kParticleTextureKey + static_cast<std::uint32_t>(g->particle_textures.size());
     g->renderer->textures().place(key, h);
@@ -1077,6 +1093,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         q.tex1 = 0xFF9000000120ull;
         q.alpha = r[3];
         q.id = p.id;
+        q.rigid = kind != 3;
         items.push_back({z, q});
     }
     stats::gauge("particle texture resolves", double(texture_resolves));
