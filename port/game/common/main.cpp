@@ -111,6 +111,22 @@ bool texture_pack_save(const std::filesystem::path& file, const openrac::rendere
                           image.width * 4)
            != 0;
 }
+
+// A level's planet name for the dump's folders (renderer/texture_pack.h): the game's own table, and
+// the port's own worlds (frontend/world.cpp): the title screen's (99) and the flights between
+// planets (98, and Going Commando's 95 to 97).
+std::string texture_pack_level_name(int level) {
+    constexpr int kTitleWorld = 99;
+    constexpr int kFirstFlightWorld = 95;
+    if (level == kTitleWorld) {
+        return "Title screen";
+    }
+    const char* name = openrac_game_has_level(level) ? openrac_game_level_name(level) : nullptr;
+    if (name == nullptr && level >= kFirstFlightWorld && level < kTitleWorld) {
+        return "Flights";
+    }
+    return name != nullptr ? name : "";
+}
 }  // namespace
 #endif
 
@@ -632,7 +648,8 @@ int main(int argc, char** argv) {
                 settings::get().texture_pack ? g_options.data / "texture_packs" / openrac_game.id
                                              : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
-                {texture_pack_load, texture_pack_save}
+                {texture_pack_load, texture_pack_save},
+                texture_pack_level_name
             );
         }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);
