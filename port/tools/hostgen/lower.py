@@ -2405,7 +2405,8 @@ class Unit:
             # 0.10.1: Aranos read its key through the fraction. A call passing integers only goes
             # so too: a moby's update is called (Moby *), and a level registers 77 functions that
             # take a float before an integer, which would read their integers a register late.
-            by_kind = self._call_by_kind(fp, args, result_t, integers_too=computed)
+            # A cast of a named function (wide_ret) reaches a definition hostgen knows: not computed.
+            by_kind = self._call_by_kind(fp, args, result_t, integers_too=computed and wide_ret is None)
             if by_kind is not None:
                 return by_kind
         values = [self.rv(a) for a in args]
