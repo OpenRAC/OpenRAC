@@ -257,3 +257,40 @@ Todano 0x22 (set when a counted object dies), 0x23 (hero entered an area), cinem
 Boldan 0x24..0x28 (five "hero reached area" bytes no level code reads), 0x7E; Aranos Prison 0x29,
 0x2B (the flight's arrival scene to the prison checks it), 0x78, cinematic +0x7C; the per-level
 object-group bits (chunk 3004) that each level reads. Each needs its own experiment.
+## Advanced: progress flags, Smolg to the Museum (L-6c)
+
+`core/src/rac2_flags/planets_c.rs`. Found statically: a scan of every level's disassembly
+(`build/<level>/asm` of rac2-decomp) for loads and stores into chunk 5 (0x1395B8) and chunk 43
+(0x139768), and for the scene queue calls (`func_00288AA0` with a constant scene id), then the C
+of each function that hits. None is load-proven yet, so all are FromCode.
+
+**Scene bits.** The game sets scene `id`'s bit as bit `id & 31` of the word `id >> 2`
+(`func_002EB7E8`, `func_002F53C8`, `func_00288B38`; ids under 0xB1 only), so its place is byte
+`(id >> 2) * 4 + (id & 31) / 8`, bit `id & 7`: Maktar's arena intro, proven above at bit 331, is
+scene 43. Scene ids are numbered by level: `func_002EF010` subtracts the first id of the level's
+scenes, from the table at 0x1AD030 (indexed by level number; Smolg 137, Damosel 143, Grelbin 150,
+Yeedil 155, Dobbo Orbit 163, Damosel Orbit 164, Ship Shack 165, Wupash 166, Jamming Array 167-168).
+Data-driven scene triggers (`func_L17_00417DB0` and its copies in other levels) skip a scene whose
+bit is set, so clearing a bit can replay a scene where its trigger is not yet spent.
+
+| Planet        | Flag                           | Place                    | Code                                                                                                                                   |
+| ------------- | ------------------------------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Smolg         | Hypnomatic part found          | chunk 5 byte 0x84        | set by `func_L17_0041ED58`; the maker (`func_L18_00440718`), the Grelbin trader and the inventory (`func_00337210`) count 0x84, 0x86, 0x89 |
+| Smolg         | Damosel coordinates seller met | chunk 43 scene 137       | `func_L17_0041E208` (sells level 18 on the map, `func_002AD7B8(18)`): plays 137 first unless its bit is set                            |
+| Damosel       | Hypnomatic part found          | chunk 5 byte 0x86        | `func_L18_0043FC70`: the pickup sparkles and is taken (sets 0x86) only while clear                                                     |
+| Damosel       | Hypnomatic maker met           | chunk 43 scene 144       | `func_L18_00440718`: introduction 144 unless seen; with the three parts and the price sells item 55 (scene 145)                        |
+| Damosel       | Coming back from Giant Clank   | chunk 5 byte 0x9F        | set with 0x87 by the launch pad (`func_L09_00410200`, scene 146); `func_L18_003F90A0` at the level start moves the hero, clears it, plays 149 |
+| Grelbin       | Hypnomatic part traded         | chunk 5 byte 0x89        | `func_L19_0042B058` sets it after scene 153; with it the trader goes to his moonstones-for-bolts states                                |
+| Grelbin       | Moonstone trader met           | chunk 43 scene 152       | `func_L19_0042B058` state 0: without 152 or 154 seen the trader stays inactive                                                         |
+| Grelbin       | First moonstone trade made     | chunk 43 scene 154       | same function: with 154 seen he offers the part (scene 153)                                                                            |
+| Damosel Orbit | Giant Clank battle won         | chunk 5 byte 0xA1        | set with 0x88 by `func_L23_0041D9B0`; `func_L18_003F90A0` gives item 5 after the return scene if it is not owned                       |
+
+**Left out.** No reader found in any level or the executable: 0x85 (a Smolg switch,
+`func_L17_0041F8F0`), 0x87 (launch pad used on Damosel), 0x88 (with 0xA1). Not named from the
+code: Damosel 0x94 and 0xA0 (bit fields of the level's controllers), 0xA6 (set by
+`func_L18_00428F08` in Damosel, Grelbin and Yeedil), Jamming Array's 0x01, 0x71 and 0xA5
+(`func_L02_00404410`, shared with Maktar), Yeedil's scenes 160 and 161, the per-level object-group
+states (chunk 3004), and the bits of scenes under 32 and from 169 (no one planet: no "Story scenes"
+group yet). Dobbo Orbit, Ship Shack, Wupash Nebula and the Museum have no constant-indexed story
+byte or scene read in their own code. Space combat results (Feltzin 0x61..0x64, Hrugis 0x66..0x69,
+Gorn 0x6B..0x6E) are counts, written by those levels, not flags.
