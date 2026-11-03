@@ -406,8 +406,11 @@ void retain_background(SceneFrame& frame) {
 
     // The last frame that drew its world, as the world alone (before the HUD's 2D goes over it):
     // what the page menus read back for their background, and what a tick without a world of its
-    // own is drawn over.
-    if (first && has_camera && (scene.draws & 0x1Fu) != 0 && width > 0 && height > 0) {
+    // own is drawn over. Only a tick that drew the level (kLevelLayers): one that drew mobys alone
+    // drew them over the picture held above, and kept as the world, the next tick held that again
+    // and drew them over it once more. Going Commando's weapon upgrade turned the weapon so for
+    // its whole length: every pose it had shown stayed on the screen, over the level's last frame.
+    if (first && has_camera && (scene.draws & kLevelLayers) != 0 && width > 0 && height > 0) {
         input.before_hud = [&owner, &scene, width, height]() {
             // Size changes invalidate the retained world attachment.
             if (owner.last_world.width() != width || owner.last_world.height() != height) {
