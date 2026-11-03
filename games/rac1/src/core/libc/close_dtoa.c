@@ -465,7 +465,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
         for (i = 1;; i++) {
             L = d.d / ds;
             d.d -= L * ds;
-# 505 "/Users/flavy/Projects/OpenRAC/games/rac1/ntsc/src/sdk/library/_dtoa_r.c"
+# 505 "games/rac1/ntsc/src/sdk/library/_dtoa_r.c"
             *s++ = '0' + (s32)L;
             if (i == ilim) {
                 d.d += d.d;

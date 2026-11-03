@@ -44,6 +44,8 @@ Everything else is exactly as it was at that commit.
   looks two levels up for OpenRAC's top instead of three.
 - `src/overlays/l07_umbris/taxi_platform.c` calls a local `hit_message`, not `s16`, which hides the
   type in the port's translation.
+- `src/core/libc/close_dtoa.c`'s line marker gives its source's path from OpenRAC's top, not one
+  machine's.
 - `tools/wave.py` names its own directory in worker prompts instead of a
   path on one machine, and gives its commits the `rac1/pal` scope.
 - `README.md`, `THIRD_PARTY_NOTICES.md`, `docs/reference/ASSETS.md`, `docs/OVERLAYS.md`
