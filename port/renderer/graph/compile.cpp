@@ -28,8 +28,11 @@ void dependency(Plan& plan, unsigned source, unsigned destination, unsigned reso
 
     // Multiple overlapping ranges can establish the same edge.
     if (source != destination
-        && std::find(plan.dependencies.begin(), plan.dependencies.end(), edge)
-               == plan.dependencies.end()) {
+        && std::none_of(
+            plan.dependencies.begin(), plan.dependencies.end(), [edge](const Dependency& previous) {
+                return previous == edge;
+            }
+        )) {
         plan.dependencies.push_back(edge);
     }
 }

@@ -36,12 +36,14 @@ graph::ImageHandle image(graph::Graph& builder, std::uint64_t key = 1, bool defi
 
 // Finds an allocation-specific edge without depending on the diagnostic edge order.
 bool edge(const graph::Plan& plan, unsigned from, unsigned to, unsigned resource) {
-    return std::find(
-               plan.dependencies.begin(),
-               plan.dependencies.end(),
-               graph::Dependency{from, to, resource}
-           )
-           != plan.dependencies.end();
+    return std::any_of(
+        plan.dependencies.begin(),
+        plan.dependencies.end(),
+        [from, to, resource](const graph::Dependency& candidate) {
+            return candidate.source == from && candidate.destination == to
+                   && candidate.resource == resource;
+        }
+    );
 }
 
 // Rejects both image and buffer reads unless their ranges have imported or graph-written contents.

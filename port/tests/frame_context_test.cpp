@@ -85,8 +85,14 @@ void test_cross_graph_dependencies() {
     CHECK(plan->resources[0].last == 2);
     CHECK(plan->passes[1].kind == graph::PassKind::Export);
     CHECK(
-        std::find(plan->dependencies.begin(), plan->dependencies.end(), graph::Dependency{0, 2, 0})
-        != plan->dependencies.end()
+        std::any_of(
+            plan->dependencies.begin(),
+            plan->dependencies.end(),
+            [](const graph::Dependency& candidate) {
+                return candidate.source == 0 && candidate.destination == 2
+                       && candidate.resource == 0;
+            }
+        )
     );
     CHECK(plan->describe() == frame.compile()->describe());
 }
