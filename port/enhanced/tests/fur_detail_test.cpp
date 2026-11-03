@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 // Checks strand orientation, filtering and production normal reconstruction without game assets.
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <exception>
 #include <limits>
@@ -207,7 +208,11 @@ void test_frame(DetailGpu& gpu) {
 void test_filtering(DetailGpu& gpu) {
     glUniform1i(gpu.shader.uniform("hero_fur_detail_enabled"), 0);
     const auto flat = gpu.draw();
-    CHECK(flat[0] == 128 && flat[1] == 128 && flat[2] == 255 && flat[3] == 128);
+    // 0.5 is 127.5 in 8 bits, a tie Vulkan lets the device round either way (NVIDIA: 127).
+    const auto half = [](std::uint8_t v) {
+        return v == 127 || v == 128;
+    };
+    CHECK(half(flat[0]) && half(flat[1]) && flat[2] == 255 && half(flat[3]));
     gpu.reset();
     glUniform3f(gpu.shader.uniform("test_eye"), 0, 0, 90);
     CHECK(gpu.draw() == flat);
