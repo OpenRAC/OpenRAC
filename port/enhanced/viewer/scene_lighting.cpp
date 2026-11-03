@@ -197,7 +197,9 @@ void SceneLighting::bind_material(
     // Explicit optics can use the original reflective colour when no probes are available.
     constexpr int kAuthoredReflection = 2;
     const int reflection = response && response->reflection_override ? kAuthoredReflection : 1;
-    gl::glUniform1i(location, m_material_overrides && source.metal ? reflection : 0);
+    const bool enabled =
+        m_material_overrides && source.metal && (active() || reflection == kAuthoredReflection);
+    gl::glUniform1i(location, enabled ? reflection : 0);
     // Only reflective packets consume these uniforms.
     if (!source.metal) {
         return;
