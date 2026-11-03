@@ -363,6 +363,29 @@ void fill_to_the_edges() {
     CHECK(near(inner_last.x, 300.5f / 256.0f - 1.0f) && near(inner_last.y, 1.0f - 200.5f / 224.0f));
 }
 
+// A full-screen black fill at full strength is the frame's clear before the world (left out: the
+// renderer clears) and a fade's last step after it (set_over_world: drawn over the world). Left
+// out there, Maktar's arena showed the world unfaded for a tick on each side of its scene's load.
+void fill_over_the_world() {
+    TexturePool textures;
+    auto vertices = [&](bool over_world) {
+        GifInterpreter gif(textures);
+        gif.set_over_world(over_world);
+        GifBuilder b;
+        b
+            .ad({{gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
+                 {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+                 {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
+                 {gs::kXyz2, xyz2(-0.5, -0.5, 0)},
+                 {gs::kXyz2, xyz2(511.5, 447.5, 0)}},
+                true);
+        CHECK(gif.gif(b.bytes));
+        return gif.vertices().size();
+    };
+    CHECK(vertices(false) == 0);
+    CHECK(vertices(true) == 6);
+}
+
 // The NTSC games draw into a 416-line buffer (XYOFFSET 2048 - 208), stretched onto the 448-line
 // picture. Its scissor of lines 0 to 415 is the picture's 0 to 447: the scale rounded first (448 /
 // 416 as a float, times 416) came to just under 448 and cut the last line, where the cutscene bars
@@ -584,6 +607,7 @@ int main() {
     draw_groups();
     no_sample_no_pixel();
     fill_to_the_edges();
+    fill_over_the_world();
     scissor_of_a_shorter_buffer();
     textures_and_vif();
     offscreen_then_upload();
