@@ -119,6 +119,11 @@ html {
     --gold var(--slow) var(--ease);
 }
 
+/* While the launcher starts (main.ts, App.svelte), its accent goes on at once, not eased in. */
+html[data-starting] {
+  transition: none;
+}
+
 @media (max-width: 600px) {
   :root {
     --page-x: 16px;
