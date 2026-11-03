@@ -6,6 +6,7 @@
   // changes are marked and listed above Save, Reset puts the save back as read, Undo after a save
   // restores the backup, and leaving with changes asks first.
   import Icon from "$components/Icon.svelte";
+  import SaveEditorRac2Advanced2 from "$components/SaveEditorRac2Advanced2.svelte";
   import { api, type Rac2SaveFields, type Rac2SaveView, type SaveBackupInfo } from "$lib/api";
   import { toast } from "$lib/app.svelte";
   import { inertPage, portal } from "$lib/portal";
@@ -613,9 +614,10 @@
                 {/each}
               </ul>
             {/each}
-            <!-- Advanced sections of their own (SaveEditorRac2Advanced2.svelte: the saved level and
-                 position, weapon mods, platinum bolts spent, ship upgrades) go here, with
-                 {view} and bind:fields like the flags above. -->
+            <h4 class="group">More</h4>
+            {#key view.fingerprint}
+              <SaveEditorRac2Advanced2 {serial} {slot} {playing} onsaved={() => void load()} />
+            {/key}
           </section>
         {/if}
       {/if}

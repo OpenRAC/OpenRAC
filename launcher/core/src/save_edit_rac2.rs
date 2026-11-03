@@ -1240,8 +1240,9 @@ mod tests {
         let before = oozla();
         let f = before.fields();
         assert!(f.flags.iter().all(|x| !x.on));
+        const ARENA: [&str; 2] = ["maktar-arena-entered", "maktar-arena-intro-seen"];
         let mut want = f.clone();
-        want.flags.iter_mut().for_each(|x| x.on = true);
+        want.flags.iter_mut().filter(|x| ARENA.contains(&x.id.as_str())).for_each(|x| x.on = true);
         let mut after = before.clone();
         after.apply(&want).unwrap();
         let mut c = changed(&before, &after);
@@ -1250,7 +1251,7 @@ mod tests {
         assert_eq!(after.global.get(43)[0x29], 0x08);
         assert_eq!(SaveFile::parse(&after.to_bytes()).unwrap().fields(), want);
         let mut off = want.clone();
-        off.flags[1].on = false;
+        off.flags.iter_mut().filter(|x| x.id == ARENA[1]).for_each(|x| x.on = false);
         after.apply(&off).unwrap();
         assert_eq!(after.global.get(43)[0x29], 0);
         let mut bad = want;

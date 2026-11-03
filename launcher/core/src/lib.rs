@@ -75,6 +75,7 @@ pub mod reset;
 pub mod resolver;
 pub mod save_edit;
 pub mod save_edit_rac2;
+pub mod save_edit_rac2_extra;
 pub mod save_transfer;
 pub mod saves;
 pub mod status;
