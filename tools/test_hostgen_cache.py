@@ -75,6 +75,27 @@ class RestoredOutput(unittest.TestCase):
                    if name.endswith(".c") and after.get(name) != digest]
         self.assertTrue(changed)
 
+    def test_frontend_edits_do_not_regenerate_restored_output(self):
+        """Unrelated C++ edits must not discard validated translations of any game."""
+        before = self.contents()
+        common = self.root / "game/common/frontend"
+        common.mkdir(parents=True)
+        frontend = common / "interpolation.cpp"
+        frontend.write_text("// First frontend version.\n")
+        self.assertIn("is up to date", self.generate())
+        frontend.write_text("// Changed freecam input.\n")
+        self.assertIn("is up to date", self.generate())
+        self.assertFalse((self.out / "prep").exists())
+        self.assertEqual(before, self.contents())
+
+    def test_shared_library_table_invalidates_restored_output(self):
+        """Shared host signatures still participate in every game's fingerprint."""
+        table = self.root / "game/common/libraries.tsv"
+        table.parent.mkdir(parents=True)
+        table.write_text("# Changed shared signatures.\n")
+        self.assertNotIn("is up to date", self.generate())
+        self.assertTrue((self.out / "prep").is_dir())
+
     def test_missing_required_output_is_regenerated(self):
         """An incomplete restore must regenerate a missing required output despite a valid digest."""
         missing = self.out / "functions.c"

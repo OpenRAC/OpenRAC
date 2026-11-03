@@ -1605,6 +1605,35 @@ class Translate(unittest.TestCase):
 class InputsDigest(unittest.TestCase):
     """The fingerprint that lets a build skip a translation it already has."""
 
+    def test_host_dependencies_exclude_frontend_but_keep_translation_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            game = root / "game/g"
+            game.mkdir(parents=True)
+            config = game / "hostgen.json"
+            config.write_text("{}")
+            cfg = {"sources": [], "includes": [], "symbols": [], "game": "shared",
+                   "hand": "hand.tsv", "library_api": "../common/api.custom"}
+            (game / "hand.tsv").write_text("answer\t../../external/custom.c\n")
+            dependencies = [game / "hand/nested.c", game / "libraries.tsv",
+                            root / "external/custom.c", root / "game/common/api.custom",
+                            root / "game/shared/host/wrapper.c"]
+            for path in dependencies:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("// Original input.\n")
+            frontend = root / "game/common/frontend/input.cpp"
+            frontend.parent.mkdir(parents=True)
+            frontend.write_text("// Frontend.\n")
+            first = hostgen.inputs_digest(root, config, cfg, [])
+            frontend.write_text("// Changed frontend.\n")
+            (game / "profile.cpp").write_text("// Changed native profile.\n")
+            self.assertEqual(first, hostgen.inputs_digest(root, config, cfg, []))
+            for path in dependencies:
+                with self.subTest(path=path):
+                    before = hostgen.inputs_digest(root, config, cfg, [])
+                    path.write_text("// Changed translation input.\n")
+                    self.assertNotEqual(before, hostgen.inputs_digest(root, config, cfg, []))
+
     def test_changes_with_what_hostgen_reads(self):
         with tempfile.TemporaryDirectory() as tmp:
             source, game = Path(tmp) / "decomp", Path(tmp) / "game" / "g"

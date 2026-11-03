@@ -7,6 +7,7 @@
 // Compares scene-owned render optimisations against verified defaults in seven scenarios,
 // enhanced on/off. A CTest fixture checks fresh-scene determinism, synchronous/batched captures
 // and poisoned discards once, then shares checked ephemeral snapshots with both registry shards.
+// Scrolling shadows share only compatibility snapshots and keep independent enhanced oracles.
 // Feature-owned optimisations are checked by required output/counter fixtures named in
 // render_equivalence_policy.h. No retail data or persistent reference images are used.
 // Comparisons are exact unless an optimisation's registry entry explicitly permits a tolerance.
@@ -430,6 +431,7 @@ struct Selection {
     const render_opt::Entry* entry = nullptr;
     std::size_t shard = 0, shards = 1;
     std::filesystem::path baselines;  // Ephemeral fixture output consumed only by this build.
+    bool compatibility_baselines = false;  // Only compatibility pixels ignore scrolling shadows.
     bool prepare = false;  // Verifies defaults and discarded attachments once for all shards.
 };
 
@@ -437,7 +439,7 @@ struct Selection {
 using Baselines = std::array<std::array<Frames, render::kScenarios.size()>, 2>;
 
 // Binds ephemeral pixels to this executable, driver, fixture and initial optimisation settings.
-std::string baseline_identity(std::uint64_t executable) {
+std::string baseline_identity(std::uint64_t executable, bool compatibility_only = false) {
     std::string identity = std::format(
         "equivalence-v2/{}/{}/{}/{}/{}/{}/{}/{}",
         executable,
@@ -447,8 +449,12 @@ std::string baseline_identity(std::uint64_t executable) {
         kWidth,
         kHeight,
         kFrames,
-        openrac::env::flag(openrac::env::Var::ScrollingShadows)
+        !compatibility_only && openrac::env::flag(openrac::env::Var::ScrollingShadows)
     );
+    // This separate file contains no enhanced snapshots or scrolling-shadow reference pixels.
+    if (compatibility_only) {
+        identity += "/compatibility-only";
+    }
     identity += openrac::vkgl::tile_based() ? "/tiled" : "/immediate";
     for (const auto& entry : render_opt::entries()) {
         identity += std::format("/{}/{}", entry.name, render_opt::enabled(entry.opt));
@@ -456,6 +462,10 @@ std::string baseline_identity(std::uint64_t executable) {
     for (const auto& variable : openrac::env::all()) {
         // Each process deliberately owns a different pipeline cache; rendering overrides must match.
         if (variable.var == openrac::env::Var::VulkanPipelineCache) {
+            continue;
+        }
+        // Compatibility rendering cannot use enhanced scrolling shadows.
+        if (compatibility_only && variable.var == openrac::env::Var::ScrollingShadows) {
             continue;
         }
         const auto value = openrac::env::value(variable.var);
@@ -487,13 +497,15 @@ bool load_baselines(
     const std::filesystem::path& path,
     const std::vector<bool>& modes,
     Baselines& out,
-    std::uint64_t executable
+    std::uint64_t executable,
+    bool compatibility_only = false
 ) {
     constexpr std::size_t kFrameBytes =
         static_cast<std::size_t>(kWidth) * static_cast<std::size_t>(kHeight) * 4;
     const auto expected = modes.size() * render::kScenarios.size() * kFrames * kFrameBytes;
-    const auto bytes =
-        openrac::test::read_render_baseline(path, baseline_identity(executable), expected);
+    const auto bytes = openrac::test::read_render_baseline(
+        path, baseline_identity(executable, compatibility_only), expected
+    );
     if (bytes.size() != expected) {
         return false;
     }
@@ -514,12 +526,16 @@ void prepare_baselines(
     const openrac::scene::LevelData& level,
     const render::SceneSize& size,
     const std::vector<bool>& modes,
-    Baselines& baselines
+    Baselines& baselines,
+    bool witness = true
 ) {
     openrac::test::RenderTestTiming timing("equivalence baselines");
-    use_enhanced(false);
-    test_the_scene_is_drawn(level, size);
-    timing.lap("scene witness");
+    // The fixture already checked the scene witness when lending compatibility snapshots.
+    if (witness) {
+        use_enhanced(false);
+        test_the_scene_is_drawn(level, size);
+        timing.lap("scene witness");
+    }
     for (bool enhanced : modes) {
         use_enhanced(enhanced);
         for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
@@ -603,6 +619,13 @@ std::optional<Selection> selection(int argc, char** argv) {
         argv += 2;
         argc -= 2;
     }
+    // Scrolling shadows retain their own enhanced oracles; only compatibility setup is shared.
+    if (argc == 5 && std::string_view(argv[1]) == "--compatibility-baseline") {
+        chosen.baselines = argv[2];
+        chosen.compatibility_baselines = true;
+        argv += 2;
+        argc -= 2;
+    }
     if (argc == 3 && std::string_view(argv[1]) == "--opt") {
         chosen.entry = render_opt::find(argv[2]);
         if (chosen.entry) {
@@ -629,6 +652,17 @@ bool acquire_baselines(
     std::uint64_t executable,
     Baselines& baselines
 ) {
+    if (chosen.compatibility_baselines) {
+        // Reject stale, corrupt or incompatible fixture output before any comparison.
+        if (!load_baselines(chosen.baselines, {false}, baselines, executable, true)) {
+            return false;
+        }
+        // Every enhanced determinism, batched capture and discard check still runs with scrolling.
+        if (std::find(modes.begin(), modes.end(), true) != modes.end()) {
+            prepare_baselines(setup.level, setup.size, {true}, baselines, false);
+        }
+        return openrac::test::failures() == 0;
+    }
     if (chosen.prepare || chosen.baselines.empty()) {
         prepare_baselines(setup.level, setup.size, modes, baselines);
         // A failed comparison must not publish a new shared reference.
@@ -636,9 +670,15 @@ bool acquire_baselines(
             return false;
         }
         if (chosen.prepare) {
-            return openrac::test::write_render_baseline(
+            const bool full = openrac::test::write_render_baseline(
                 chosen.baselines, baseline_identity(executable), flatten(baselines, modes)
             );
+            return full
+                   && openrac::test::write_render_baseline(
+                       chosen.baselines.string() + ".compatibility",
+                       baseline_identity(executable, true),
+                       flatten(baselines, {false})
+                   );
         }
         return true;
     }
@@ -706,7 +746,7 @@ int main(int argc, char** argv) {
         std::fprintf(
             stderr,
             "usage: render_equivalence_test [--prepare file | [--baseline file] --shard index "
-            "count | --opt registry-name]\n"
+            "count | [--compatibility-baseline file] --opt registry-name]\n"
         );
         return 1;
     }
@@ -731,6 +771,7 @@ int main(int argc, char** argv) {
     if (chosen->prepare) {
         std::error_code error;
         std::filesystem::remove(chosen->baselines, error);
+        std::filesystem::remove(chosen->baselines.string() + ".compatibility", error);
     }
     return run_selection(*chosen, argv[0]);
 }

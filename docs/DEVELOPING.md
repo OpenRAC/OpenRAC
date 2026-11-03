@@ -67,6 +67,8 @@ Compiler identity uses executable contents rather than installation timestamps. 
 cache key covers every game's sources and its shared Python helpers. Prepared source copies and
 Ninja's generation stamp are excluded: hostgen always validates its own input fingerprint and
 required files before reusing output, including when an older source snapshot is restored.
+The translation fingerprint excludes native frontend C++ while retaining configuration tables,
+hand C, shared library signatures and host wrappers. Frontend edits still rebuild native objects.
 Launcher checks and builds also cache Yarn archives while retaining
 `yarn install --immutable` and its install/link steps.
 

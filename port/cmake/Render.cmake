@@ -124,8 +124,10 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   if(OPENRAC_ENHANCED_RENDERING)
     add_test(NAME shadow_scroll_vulkan
-             COMMAND render_equivalence_test --opt shadow-scroll-reuse)
-    set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+             COMMAND render_equivalence_test --compatibility-baseline
+                     "${equivalence_baselines}.compatibility" --opt shadow-scroll-reuse)
+    set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED render_equivalence_baselines ENVIRONMENT
       "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SCROLLING_SHADOWS=1")
   endif()
 endif()
