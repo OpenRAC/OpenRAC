@@ -1519,6 +1519,18 @@ GlBlend translate_blend(const gs::Alpha& alpha) {
             out.exact = false;
         }
     };
+    // Cd (C + 1) with C As or FIX: Cd * C as the source factor DST_COLOR on the weight the shader
+    // writes, plus Cd.
+    if (ks == 0 && ms == 0 && kd == 1 && md == 1 && alpha.c != 1) {
+        out.src = GL_DST_COLOR;
+        out.dst = GL_ONE;
+        out.equation = GL_FUNC_ADD;
+        out.constant = 0.0f;
+        out.source_scale = alpha.c == 0 ? SourceScale::WeightAlpha : SourceScale::WeightFix;
+        out.fix = static_cast<float>(alpha.fix) / 128.0f;
+        out.exact = alpha.c == 0 || alpha.fix <= 0x80;
+        return out;
+    }
     int src_sign = 1;
     int dst_sign = 1;
     term(ks, ms, out.src, src_sign);

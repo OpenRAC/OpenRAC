@@ -560,6 +560,12 @@ void blend_weights() {
     CHECK(blend(alpha_reg(0, 2, 2, 1, 0x80)).source_scale == SourceScale::None);
     CHECK(blend(alpha_reg(0, 1, 0, 1)).source_scale == SourceScale::None);
     CHECK(!blend(alpha_reg(0, 1, 2, 1, 0xC0)).exact);  // (Cs - Cd) FIX + Cd beyond 1
+    // Cd (As + 1), Maktar's arena curtain (0x49): As written as the colour, DST_COLOR + ONE.
+    const GlBlend brighten = blend(alpha_reg(1, 2, 0, 1));
+    CHECK(brighten.source_scale == SourceScale::WeightAlpha && brighten.src == 0x0306u);
+    CHECK(brighten.dst == 1u && brighten.equation == 0x8006u && brighten.exact);
+    CHECK(blend(alpha_reg(1, 2, 2, 1, 0x40)).source_scale == SourceScale::WeightFix);
+    CHECK(!blend(alpha_reg(1, 2, 2, 1, 0xC0)).exact);  // Cd (FIX + 1) beyond 2
 
     CHECK(liquid_strip(0x8000000064ull, 0));         // no TEST seen: a sea, as before
     CHECK(liquid_strip(0x8000000064ull, 0x5360B));   // Z written where As >= 0x60

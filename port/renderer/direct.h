@@ -55,10 +55,16 @@ namespace openrac::renderer {
 // added to or taken from, Cd not weighed: Cs C + Cd, Cd - Cs C, Cs C), the shader multiplies Cs by
 // C itself (source_scale) and GL takes it as it is; the chip's sum clamps at 255 either way, so the
 // source clamped first gives the same colour.
+//
+// Cd (C + 1) (A Cd, B 0, D Cd: Maktar's arena curtain brightens the frame under it with 0x49) is
+// beyond GL's factors too: the shader writes the weight C as the colour and GL adds Cd * that colour
+// (DST_COLOR) to Cd (ONE). GL clamps the written weight at 1, so C above 0x80 brightens at most 2x.
 enum class SourceScale : int {
     None = 0,
     Alpha = 1,
-    Fix = 2
+    Fix = 2,
+    WeightAlpha = 3,  // the colour written is As itself, for DST_COLOR
+    WeightFix = 4     // the colour written is FIX itself, for DST_COLOR
 };
 struct GlBlend {
     unsigned src = 0x0001;       // GL_ONE
