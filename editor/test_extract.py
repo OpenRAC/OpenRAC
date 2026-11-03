@@ -80,6 +80,17 @@ class PoolTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     pool.submit(sum, [1, 2]).result()
 
+    def test_every_submitted_export_may_run_in_its_own_process(self):
+        # Android uses SubprocessPool, which runs only WORKER_FUNCTIONS.
+        import ast
+        tree = ast.parse(Path(extract.__file__).read_text())
+        submitted = {call.args[0].id for call in ast.walk(tree)
+                     if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                     and call.func.attr == "submit" and isinstance(call.func.value, ast.Name)
+                     and call.func.value.id == "pool"}
+        self.assertIn("export_port_wad_flight", submitted)
+        self.assertEqual(submitted - set(extract.WORKER_FUNCTIONS), set())
+
     def test_a_worker_runs_one_export_and_pickles_its_result(self):
         stdin = io.TextIOWrapper(io.BytesIO(pickle.dumps(("export_port_title", ("disc.iso",), {"lod": 1}))))
         stdout = io.TextIOWrapper(io.BytesIO())

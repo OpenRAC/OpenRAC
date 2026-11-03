@@ -316,9 +316,10 @@ def worker_pool(jobs: int) -> Executor:
         return SubprocessPool(jobs)
 
 
-# What SubprocessPool may run: the level exports below.
+# What SubprocessPool may run: the level exports below. Every function given to worker_pool's
+# submit must be here (test_extract checks it), or Android fails where a desktop works.
 WORKER_FUNCTIONS = ("export_level", "export_port_level", "export_port_title", "export_port_flight",
-                    "export_wad_level", "export_port_wad_level")
+                    "export_wad_level", "export_port_wad_level", "export_port_wad_flight")
 # A phone's memory, not its cores, limits how many levels are written at once.
 SUBPROCESS_JOBS = 4
 
