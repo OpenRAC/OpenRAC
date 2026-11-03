@@ -1141,6 +1141,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # Functions whose float arithmetic is the EE's, computed in software (hostgen.json "ps2_float";
     # openrac/ps2float.h): lower.py.
     program.ps2_float = set(cfg.get("ps2_float", []))
+    # The game's host C answers the scratchpad DMA channels' word stores (asm.dma_stores,
+    # openrac_ee_sw_dma): C's volatile word stores, the channel registers, go there too (lower.py).
+    program.dma_stores = bool((cfg.get("asm") or {}).get("dma_stores"))
     return host_rows
 
 

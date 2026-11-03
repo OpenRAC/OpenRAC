@@ -58,7 +58,7 @@
             " unsigned int color;\n /* OpenRAC: as in func_002E76C0, the new records' colour and alpha now (+0x30, +0x38) are drawn once as\n    the stack left them; retail's alpha byte 0 there, so that first draw changes no pixel. */\n effect.unknown = 0x001A0000;\n effect.unknown2 = 0x001C0000;\n spark.unknown = 0x001A0000;\n spark.unknown2 = 0x001C0000;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n"
           ]
         ],
-        "commit": "3b34ee2874c52aa5dc4f181a717de2b53012925d",
+        "commit": "b5fc73f29643ca7ff5f65379d04933bfe9e74f77",
         "date": "2026-11-02",
         "imported": "2026-11-02"
       },
