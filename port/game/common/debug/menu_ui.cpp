@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cfloat>
 #include <cmath>
+#include <format>
 #include <imgui.h>
 #include <imgui_internal.h>  // ImHashStr, ShadeVertsLinearColorGradientKeepAlpha
 #include <string>
@@ -503,6 +504,62 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
         menu_sound(blocked ? MenuSound::Denied : pressed ? MenuSound::Confirm : MenuSound::Cursor);
     }
     return blocked ? 0 : by;
+}
+
+// Draws a slider using the same focus, divider and value column as the choice rows.
+int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step) {
+    const float column = std::min(s.card.width * 0.48f, dp(190.0f));
+    float track_left = 0.0f;
+    float track_right = 0.0f;
+    const auto draw = [&](ImDrawList* list, ImVec2 right) {
+        track_left = right.x - column;
+        track_right = right.x - column * 0.40f;
+        const float fraction =
+            static_cast<float>(value - minimum) / static_cast<float>(maximum - minimum);
+        const ImVec2 start(track_left, right.y);
+        const ImVec2 knob(std::lerp(track_left, track_right, fraction), right.y);
+        list->AddLine(start, ImVec2(track_right, right.y), ui().line_strong, dp(3.0f));
+        list->AddLine(start, knob, ui().amber, dp(3.0f));
+        list->AddCircleFilled(knob, dp(5.0f), ui().amber);
+        const std::string text = std::format("{}%", value);
+        list->AddText(
+            centred_text(
+                ImGui::GetFont(),
+                ImGui::GetFontSize(),
+                text,
+                ImVec2(right.x - column * 0.15f, right.y)
+            ),
+            ui().gold,
+            text.c_str()
+        );
+    };
+    g_quiet_row = true;
+    const bool pressed = menu_row(label, ui().text, draw, column);
+    g_quiet_row = false;
+
+    // Touch applies on release so vertical swipes can still scroll the drawer.
+    const ImGuiIO& io = ImGui::GetIO();
+    const float start_x = io.MouseClickedPos[0].x;
+    const bool started_on_track =
+        start_x >= track_left - dp(5.0f) && start_x <= track_right + dp(5.0f);
+    const bool dragging = !drawer_possible() && ImGui::IsItemActive() && ImGui::IsMouseDown(0);
+    if (started_on_track && (dragging || (pressed && ImGui::IsMouseReleased(0)))) {
+        const float fraction =
+            std::clamp((io.MousePos.x - track_left) / (track_right - track_left), 0.0f, 1.0f);
+        return minimum
+               + step
+                     * static_cast<int>(
+                         std::lround(fraction * static_cast<float>((maximum - minimum) / step))
+                     );
+    }
+
+    // Arrow input also supports the controller d-pad through the menu's input mapping.
+    if (ImGui::IsItemFocused()) {
+        const int by = static_cast<int>(ImGui::IsKeyPressed(ImGuiKey_RightArrow))
+                       - static_cast<int>(ImGui::IsKeyPressed(ImGuiKey_LeftArrow));
+        return std::clamp(value + by * step, minimum, maximum);
+    }
+    return value;
 }
 
 bool menu_button(const char* label) {

@@ -281,6 +281,11 @@ void load(const std::filesystem::path& file) {
             known = parse_pair(value, ':', s.aspect_custom_x, s.aspect_custom_y);
         } else if (key == "hud") {
             known = parse(value, kHud, s.hud);
+        } else if (key == "gameplay_fov") {
+            known = parse_int(value, kMinGameplayFov, kMaxGameplayFov, s.gameplay_fov);
+            // Snap preferences saved before the slider used five-point steps.
+            s.gameplay_fov =
+                (s.gameplay_fov + kGameplayFovStep / 2) / kGameplayFovStep * kGameplayFovStep;
         } else if (key == "render_scale") {
             known = parse_int(value, 25, 400, s.render_scale);
         } else if (key == "msaa") {
@@ -553,6 +558,7 @@ void save() {
     out << "aspect = " << kAspect[static_cast<int>(s.aspect)] << "\n"
         << "aspect_custom = " << s.aspect_custom_x << ":" << s.aspect_custom_y << "\n"
         << "hud = " << kHud[static_cast<int>(s.hud)] << "\n"
+        << "gameplay_fov = " << s.gameplay_fov << "\n"
         << "render_scale = " << s.render_scale << "\n"
         << "msaa = " << s.msaa << "\n"
         << "enhanced_rendering = " << (s.enhanced_rendering ? 1 : 0) << "\n"

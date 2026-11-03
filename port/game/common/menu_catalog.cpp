@@ -35,6 +35,8 @@ constexpr Entry kEntries[] = {
      "The display's resolution in exclusive full screen. Desktop keeps the one it has."},
     {Id::Picture, Tab::Graphics, "Picture", kChoice, A, "Picture",
      "The picture's shape: the console's 4:3, a wide screen, or the whole window."},
+    {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, A, "Field of View",
+     "Adjusts how much of the world you see during gameplay. 100% is the original camera view."},
     {Id::Hud, Tab::Graphics, "Picture", kChoice, A, "HUD",
      "Where the HUD sits on a wide picture: in the 4:3 middle, as on a console, or out at the "
      "screen's edges."},

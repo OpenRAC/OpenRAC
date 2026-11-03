@@ -21,6 +21,7 @@ namespace openrac::frontend::menu {
 enum class Kind : std::uint8_t {
     Switch,  // on or off, a switch at its right
     Choice,  // a value between two arrows, moved back and on
+    Slider,  // a value adjusted along a bounded range
     Action,  // pressed: does something (opens a window, takes a screenshot, quits)
     Note,    // a line of text, nothing to press
     Fixes,   // the program's game fixes (fixes.h): a switch each, as many as the disc has
@@ -56,6 +57,7 @@ enum class Id : std::uint8_t {
     Monitor,
     Resolution,
     Picture,
+    GameplayFov,
     Hud,
     RenderScale,
     Msaa,

@@ -79,6 +79,12 @@ enum class FrameRate {
     Count,
 };
 
+// Gameplay field of view bounds and native value, in percent.
+inline constexpr int kMinGameplayFov = 80;
+inline constexpr int kDefaultGameplayFov = 100;
+inline constexpr int kMaxGameplayFov = 120;
+inline constexpr int kGameplayFovStep = 5;
+
 struct Settings {
     DisplayMode display_mode = DisplayMode::Windowed;
     int monitor = 0;  // 0: the display the window is on; n: the nth display, counted from 1
@@ -90,6 +96,8 @@ struct Settings {
     int aspect_custom_x = 16;
     int aspect_custom_y = 9;
     Hud hud = Hud::Centre;
+    int gameplay_fov =
+        kDefaultGameplayFov;  // Vertical field of view as a percentage of the gameplay camera.
     int render_scale = 100;  // the frame's resolution, as a percentage of the window's picture
     int msaa = 1;            // samples a pixel: 1 (off), 2, 4, 8, 16
     renderer::GtaoSettings gtao_settings;
