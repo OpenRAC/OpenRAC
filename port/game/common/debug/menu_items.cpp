@@ -258,6 +258,11 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = !quality;
             return it;
         }
+        // The hierarchy is relevant only while enhanced ambient occlusion is enabled.
+        case Id::OcclusionHiZ:
+            it.shown = enhanced_on() && set.gtao;
+            it.on = set.gtao_settings.hi_z;
+            return it;
         case Id::TextureUpscaling: {
             it.shown = enhanced_on();
             const int filter = static_cast<int>(set.texture_filter);
@@ -573,6 +578,11 @@ bool act(Id id, int by) {
             set.gtao_settings.quality = set.gtao_settings.quality == renderer::GtaoQuality::Quality
                                             ? renderer::GtaoQuality::Performance
                                             : renderer::GtaoQuality::Quality;
+            changed();
+            return false;
+        // Persist the hierarchy choice with the remaining ambient-occlusion options.
+        case Id::OcclusionHiZ:
+            set.gtao_settings.hi_z = !set.gtao_settings.hi_z;
             changed();
             return false;
         case Id::TextureUpscaling: {

@@ -16,10 +16,12 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/surface_chain.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
+#include "renderer/vulkan/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 
@@ -76,6 +78,47 @@ private:
     bool m_rebind;
     unsigned m_buffer = 0;
 };
+
+namespace {
+// Deferring real water/particle work must retain metadata until a following temporal consumer executes.
+void draw_joined_effects(
+    renderer::EffectRenderer& effects,
+    const renderer::FrameInput& input,
+    renderer::RenderState& state,
+    renderer::FrameBuffer& target
+) {
+#ifdef OPENRAC_VULKAN
+    renderer::FrameBuffer copied;
+    std::string error;
+    CHECK(copied.create(state.target.width, state.target.height, error));
+    bool copied_before_history = false;
+    const auto recorded = renderer::run_surface_chain([&] {
+        CHECK(effects.record_colour(input, state));
+        const auto completed = vkgl::temporal_chain([&] {
+            CHECK(
+                vkgl::temporal_blit(
+                    "effect temporal consumer",
+                    target.id(),
+                    copied.id(),
+                    vkgl::TemporalConsumer::Shader,
+                    [&] {
+                        target.blit_to(copied.id(), state.target.width, state.target.height);
+                        copied_before_history = true;
+                    }
+                )
+            );
+        });
+        CHECK(completed);
+        CHECK(copied_before_history);
+    });
+    CHECK(recorded);
+    CHECK(copied.read_rgba() == target.read_rgba());
+#else
+    (void)target;
+    effects.render(input, state);
+#endif
+}
+}  // namespace
 
 int main() {
     test::GlContext context;
@@ -280,6 +323,8 @@ int main() {
                 renderer::render_opt::set(
                     renderer::render_opt::Opt::WaterMeshReuse, (path & 8) != 0
                 );
+                // Shader variants retain identical output under shared snapshot/draw recording.
+
                 glBindFramebuffer(GL_FRAMEBUFFER, target.id());
                 glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                 glDepthMask(GL_TRUE);
@@ -288,7 +333,12 @@ int main() {
                 glClearDepth(0);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 state.stats = {};
-                effects.render(input, state);
+                // One path retains effects through a nested temporal consumer after preparation returns.
+                if (path == 15) {
+                    draw_joined_effects(effects, input, state, target);
+                } else {
+                    effects.render(input, state);
+                }
                 const auto pixels = target.read_rgba();
                 if (!variants) {
                     variant_reference.push_back(pixels);
@@ -343,6 +393,7 @@ int main() {
         input.water_interactor.reset();
         input.frame = 1000;
         input.seconds = 2;
+
         for (const int samples : {1, 4}) {
             CHECK(target.create(samples == 1 ? 64 : 79, samples == 1 ? 64 : 53, error, samples));
             state.target = {target.id(), target.width(), target.height()};
@@ -363,8 +414,20 @@ int main() {
                     glClearDepth(screen_depth);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                     const auto cleared = target.read_rgba();
-                    effects.render(input, state);
+                    draw_joined_effects(effects, input, state, target);
                     images[colour] = target.read_rgba();
+                    // Repeating the same input preserves simulation state while comparing MSAA refraction scheduling.
+
+                    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+                    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                    glDepthMask(GL_TRUE);
+                    glDisable(GL_SCISSOR_TEST);
+                    glClearColor(colour == 0 ? .6f : .05f, .1f, colour == 0 ? .05f : .6f, .3f);
+                    glClearDepth(screen_depth);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    effects.render(input, state);
+                    CHECK(images[colour] == target.read_rgba());
+
                     if (depth < 2) {
                         auto debug = enhanced::water_debug_settings();
                         debug.view = 17;
@@ -498,7 +561,13 @@ int main() {
                 glDepthMask(GL_TRUE);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 const auto cleared = target.read_rgba();
+#ifdef OPENRAC_VULKAN
+                const auto before_fallback = vkgl::submission_counters().surface_chains;
+#endif
                 fallback.render(input, state);
+#ifdef OPENRAC_VULKAN
+                CHECK(vkgl::submission_counters().surface_chains == before_fallback);
+#endif
                 const auto pixels = target.read_rgba();
                 CHECK(pixels != cleared);
                 if (!variants) {

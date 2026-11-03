@@ -19,6 +19,7 @@ public:
 
 private:
     void ensure_buffer() const;
+    // Writes complete tile masks for a changed view; false selects the full-probe fallback.
     bool dispatch(const renderer::Camera& camera, const std::array<int, 4>& viewport) const;
     renderer::Shader m_cull;
     unsigned m_count = 0;

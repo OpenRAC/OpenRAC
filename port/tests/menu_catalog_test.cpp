@@ -95,6 +95,7 @@ constexpr Old kOld[] = {
     {kTouch, "Bounce strength", Id::BounceStrength},
     {kTouch, "Ambient occlusion", Id::AmbientOcclusion},
     {kTouch, "Occlusion quality", Id::OcclusionQuality},
+    {kTouch, "Hierarchical depth (Hi-Z)", Id::OcclusionHiZ},
     {kTouch, "Texture upscaling", Id::TextureUpscaling},
     {kTouch, "Upscaling", Id::Upscaling},
     {kTouch, "Sharpening", Id::Sharpening},

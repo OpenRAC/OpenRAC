@@ -26,6 +26,7 @@
 #include "renderer/gpu_draw.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl::detail {
@@ -417,6 +418,7 @@ void draw(
     unsigned indirect_buffer,
     unsigned gpu_draw_count
 ) {
+    require_surface_execution();
     // The draw's count, and its time for the vk_draw_ms gauge. The two clock reads are taken only
     // while the debug tools measure (vk-draw-clock): the gauge is published only then.
     struct Timed {

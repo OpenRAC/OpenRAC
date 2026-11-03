@@ -30,6 +30,14 @@
 namespace {
 using namespace openrac;
 
+// Defines borrowed depth after Renderer deliberately discards its completed frame attachments.
+void clear_borrowed_depth(unsigned framebuffer) {
+    gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, framebuffer);
+    gl::glDepthMask(gl::GL_TRUE);
+    gl::glClearDepth(0);
+    gl::glClear(gl::GL_DEPTH_BUFFER_BIT);
+}
+
 // The game has an early HUD-bucket background before its world renderers.
 // A bucket-order shortcut must not run AO on that still-empty depth buffer.
 class BeforeWorld : public renderer::BucketRenderer {
@@ -67,7 +75,7 @@ scene::LevelData corner(bool wall) {
 
 // Checks every size and image for one quality, borrowing only compatible scene setup.
 void check_scene_quality(
-    renderer::Renderer& renderer, bool wall, int samples, renderer::GtaoQuality quality
+    renderer::Renderer& renderer, bool wall, int samples, renderer::GtaoQuality quality, bool hi_z
 ) {
     test::RenderTestTiming timing("gtao quality");
     std::string error;
@@ -78,6 +86,7 @@ void check_scene_quality(
         CHECK(frame.create(width, height, error, samples));
         renderer::FrameInput input;
         input.gtao_settings.quality = quality;
+        input.gtao_settings.hi_z = hi_z;
         input.camera.view = renderer::look_along({4, -6, 4}, {-4, 6, -3.5f}, {0, 0, 1});
         input.camera.projection =
             renderer::perspective_reversed(1.0f, float(width) / float(height), 0.1f, 100);
@@ -87,6 +96,19 @@ void check_scene_quality(
         input.gtao = true;
         renderer.render(input, {frame.id(), width, height});
         const auto ao = frame.read_rgba();
+        // Repeated graph output must agree independently of the optional depth hierarchy.
+
+        renderer.render(input, {frame.id(), width, height});
+        CHECK(frame.read_rgba() == ao);
+
+        // Switching the hierarchy off and back on must not retain stale levels or altered shader state.
+        if (hi_z) {
+            input.gtao_settings.hi_z = false;
+            renderer.render(input, {frame.id(), width, height});
+            input.gtao_settings.hi_z = true;
+            renderer.render(input, {frame.id(), width, height});
+            CHECK(frame.read_rgba() == ao);
+        }
         renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
         renderer.render(input, {frame.id(), width, height});
         CHECK(frame.read_rgba() == ao);
@@ -108,6 +130,7 @@ void check_scene_quality(
             input.camera.view = saved_view;
             renderer.render(input, target);
             CHECK(direct.read_rgba() == ao);
+            clear_borrowed_depth(direct.id());
             renderer::Gtao evaluation;
             CHECK(evaluation.render(input, target, false, true));
             CHECK(evaluation.depth_texture() == direct.depth_texture());
@@ -212,6 +235,7 @@ void check_scene_quality(
             CHECK(full != plain);
             input.gtao_settings = renderer::GtaoSettings{};
             input.gtao_settings.quality = quality;
+            input.gtao_settings.hi_z = hi_z;
             renderer.render(input, {frame.id(), width, height});
             CHECK(frame.read_rgba() == ao);
         }
@@ -242,7 +266,8 @@ void check_scene(bool wall, int samples) {
     CHECK(renderer.init(error));
     timing.lap("setup");
     for (auto quality : {renderer::GtaoQuality::Performance, renderer::GtaoQuality::Quality}) {
-        check_scene_quality(renderer, wall, samples, quality);
+        check_scene_quality(renderer, wall, samples, quality, false);
+        check_scene_quality(renderer, wall, samples, quality, true);
     }
     scene.release();
     renderer.release();
@@ -396,6 +421,7 @@ void indirect_lighting(int samples, bool glow = false, bool cutout = false, bool
             input.camera.view = saved_view;
             renderer.render(input, target);
             CHECK(direct.read_rgba() == ao);
+            clear_borrowed_depth(direct.id());
             renderer::Gtao evaluation;
             CHECK(evaluation.render(input, target, false, true));
             CHECK(evaluation.depth_texture() == direct.depth_texture());

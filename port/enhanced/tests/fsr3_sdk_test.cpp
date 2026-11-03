@@ -10,7 +10,9 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/graph_execution.h"
 #include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -19,7 +21,7 @@ namespace {
 using namespace openrac;
 using namespace openrac::gl;
 
-// Exercise both the fixed-capacity import and its larger dynamic fallback.
+// Checks native graph imports, read reuse and transactional rejection at different image counts.
 void test_native_import_setup() {
     std::array<unsigned, 9> textures{};
     glGenTextures(int(textures.size()), textures.data());
@@ -41,23 +43,24 @@ void test_native_import_setup() {
         return true;
     };
     // Establish read layouts and flush initial uploads before counting repeated imports.
-    CHECK(vkgl::record_native_compute(uses, record));
+    CHECK(vkgl::temporal_compute("native import test", uses, record));
     glFinish();
-    for (const bool fast : {false, true}) {
-        renderer::render_opt::set(renderer::render_opt::Opt::NativeComputeSetup, fast);
+    {
         for (const std::size_t count : {8u, 9u}) {
             const auto before = vkgl::submission_counters().barriers;
             called = false;
-            CHECK(vkgl::record_native_compute(std::span(uses).first(count), record));
+            CHECK(
+                vkgl::temporal_compute("native import test", std::span(uses).first(count), record)
+            );
             CHECK(called);
-            CHECK(vkgl::submission_counters().barriers - before == (fast ? 0 : count));
+            CHECK(vkgl::submission_counters().barriers - before == 0);
         }
         // An invalid last input must leave all earlier inputs and recording untouched.
         auto invalid = uses;
         invalid.back().texture = 0;
         const auto before = vkgl::submission_counters().barriers;
         called = false;
-        CHECK(!vkgl::record_native_compute(invalid, record));
+        CHECK(!vkgl::temporal_compute("native import test", invalid, record));
         CHECK(!called);
         CHECK(vkgl::submission_counters().barriers == before);
     }
@@ -65,13 +68,29 @@ void test_native_import_setup() {
     const std::array<vkgl::NativeImageUse, 1> writable{{{textures[0], true}}};
     for (unsigned repeat = 0; repeat < 2; ++repeat) {
         const auto before = vkgl::submission_counters().barriers;
-        CHECK(vkgl::record_native_compute(writable, record));
+        CHECK(vkgl::temporal_compute("native import test", writable, record));
         CHECK(vkgl::submission_counters().barriers == before + 1);
     }
     glFinish();
     glDeleteTextures(int(textures.size()), textures.data());
     renderer::render_opt::reset();
     CHECK(vkgl::submission_counters().validation_errors == 0);
+}
+
+// Completed native writes must make previously discarded attachments readable to subsequent graph
+// phases.
+void check_defined_sdk_output(unsigned texture) {
+    vkgl::GraphExecution execution;
+    const auto output = execution.import_image("completed SDK output", texture);
+    CHECK(output);
+    namespace graph = renderer::graph;
+    execution.add_pass(
+        {"consume completed SDK output",
+         {{*output,
+           {},
+           {graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Sampled}}}}
+    );
+    CHECK(execution.run([](unsigned) {}));
 }
 
 // A small synthetic scene with explicitly initialised temporal inputs and a storage-capable output.
@@ -188,7 +207,7 @@ void test_temporal_dispatch_preserves_constant_colour() {
 }
 
 // Compare both live SDK paths on moving high-contrast detail, including history and sharpening.
-void test_half_history_matches_reference(bool setup_only = false, bool fp16 = true) {
+void test_half_history_matches_reference(bool same_precision = false, bool fp16 = true) {
     Frame frame;
     std::string error;
     CHECK(frame.create(error));
@@ -196,16 +215,16 @@ void test_half_history_matches_reference(bool setup_only = false, bool fp16 = tr
     CHECK(half_output.create(96, 72, error));
     CHECK(vkgl::allocate_storage_texture(half_output.colour_texture(), GL_RGBA8, 96, 72));
     enhanced::fsr3_detail::SdkContext full, half;
-    renderer::render_opt::set(renderer::render_opt::Opt::FsrFloat16, setup_only && fp16);
+    renderer::render_opt::set(renderer::render_opt::Opt::FsrFloat16, same_precision && fp16);
     CHECK(full.configure({64, 48}, {96, 72}, error));
-    if (!setup_only) {
+    if (!same_precision) {
         CHECK(!full.float16_active());
     }
-    renderer::render_opt::set(renderer::render_opt::Opt::FsrFloat16, !setup_only || fp16);
+    renderer::render_opt::set(renderer::render_opt::Opt::FsrFloat16, !same_precision || fp16);
     CHECK(half.configure({64, 48}, {96, 72}, error));
     vkgl::NativeDevice device;
     CHECK(vkgl::native_device(device));
-    CHECK(half.float16_active() == ((!setup_only || fp16) && device.float16 && device.int16));
+    CHECK(half.float16_active() == ((!same_precision || fp16) && device.float16 && device.int16));
     std::vector<unsigned char> colour(64 * 48 * 4);
     std::vector<float> motion(64 * 48 * 4);
     for (unsigned i = 0; i < 64 * 48; ++i) {
@@ -237,19 +256,27 @@ void test_half_history_matches_reference(bool setup_only = false, bool fp16 = tr
             frame.textures[1],
             frame.output.colour_texture()
         };
-        if (setup_only) {
-            renderer::render_opt::set(renderer::render_opt::Opt::NativeComputeSetup, false);
+        if (same_precision) {
         }
         CHECK(full.dispatch(inputs, dispatch, error));
         const auto reference = frame.output.read_rgba();
         inputs[4] = half_output.colour_texture();
-        if (setup_only) {
-            renderer::render_opt::set(renderer::render_opt::Opt::NativeComputeSetup, true);
+        if (same_precision) {
+        }
+        // SDK writes bypass raster stores, so graph completion must also repair discarded-content
+        // tracking.
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, half_output.id());
+            const GLenum colour_attachment = GL_COLOR_ATTACHMENT0;
+            glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &colour_attachment);
         }
         CHECK(half.dispatch(inputs, dispatch, error));
+        {
+            check_defined_sdk_output(half_output.colour_texture());
+        }
         const auto result = half_output.read_rgba();
         CHECK(reference.size() == result.size());
-        if (setup_only) {
+        if (same_precision) {
             CHECK(reference == result);
         }
         double sum = 0;
@@ -293,7 +320,8 @@ int main() {
         test_native_import_setup();
         test_temporal_dispatch_preserves_constant_colour();
         test_half_history_matches_reference();
-        test_half_history_matches_reference(true);
+        // Identical FP16 and FP32 histories remain exact after discarded output recreation.
+        test_half_history_matches_reference(true, true);
         test_half_history_matches_reference(true, false);
         return openrac::test::result();
     } catch (...) {

@@ -11,6 +11,7 @@
 #include <mutex>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 
 #include "common/log.h"
@@ -19,6 +20,7 @@
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/colour_graph.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
@@ -97,15 +99,43 @@ void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTar
             return;
         }
     }
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+    GLint samples = 1;
+    glGetIntegerv(GL_SAMPLES, &samples);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_background.id());
-    for (const auto mask : {GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT}) {
-        glBlitFramebuffer(
-            0, 0, target.width, target.height, 0, 0, target.width, target.height, mask, GL_NEAREST
-        );
+    // Copy dimensions survive preparation until the enclosing colour scope executes both native blits.
+    const int width = target.width;
+    const int height = target.height;
+    const auto copied = renderer::colour_snapshot(
+        target, m_background.id(), std::max(1, samples), [width, height](bool depth) {
+            glBlitFramebuffer(
+                0,
+                0,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                depth ? GL_DEPTH_BUFFER_BIT : GL_COLOR_BUFFER_BIT,
+                GL_NEAREST
+            );
+        }
+    );
+    if (!copied) {
+        throw std::runtime_error(copied.error().message);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
     m_background_ready = true;
+}
+
+std::array<unsigned, 2> Water::scene_textures() const {
+    // Passes without replacement meshes must not advertise stale refraction inputs.
+    if (!m_background_ready) {
+        return {};
+    }
+    return {m_background.colour_texture(), m_background.depth_texture()};
 }
 
 // Enhanced water already includes its background; legacy GS blending would add it twice.

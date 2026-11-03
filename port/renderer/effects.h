@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -78,6 +79,12 @@ public:
     // Snapshot the scene before any effects draw, only when a replacement mesh is visible.
     virtual void prepare_scene(const FrameInput&, const RenderTarget&) {}
 
+    // Opts into deferred snapshot/draw recording after material simulation and geometry preparation.
+    virtual bool prepares_colour_chain() const { return false; }
+
+    // Returns current colour/depth snapshot textures, or zeros when this pass has no snapshot.
+    virtual std::array<unsigned, 2> scene_textures() const { return {}; }
+
     // Publish per-pass counters after drawing, avoiding work on every material bind.
     virtual void finish_pass() {}
 
@@ -109,9 +116,37 @@ public:
 
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
+
+    bool prepares_colour_chain() const override {
+        return !m_material || m_material->prepares_colour_chain();
+    }
+
+    // Prepares geometry before declaring snapshots and retaining owned draw metadata.
+    [[nodiscard]] Result<void> record_colour(const FrameInput& input, RenderState& state) override;
     void release() override;
 
 private:
+    // Draw metadata is shared by preparation and deferred recording within the enclosing chain.
+    struct PreparedEffects {
+        std::vector<int> strip_counts;  // Expanded stream counts, in accepted strip order.
+        std::vector<std::optional<EffectMesh>> meshes;  // Matching resident-material mesh handles.
+        std::size_t quads_from = 0;                     // First quad vertex after expanded strips.
+    };
+
+    // Queues scene snapshots and their colour consumers, or retains immediate unknown materials.
+    void record_colour(
+        const FrameInput& input,
+        RenderState& state,
+        const std::shared_ptr<const PreparedEffects>& prepared
+    );
+    // Records the existing fused GS batching loop with prepared, frame-owned geometry.
+    // Hot path: retains the existing size/nesting of effect batching to preserve draw and upload order.
+    void draw_prepared(
+        const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+    );
+    // Orders shared material inputs once per selected effect shader, after provider bindings are
+    // installed.
+    void prepare_colour_reads();
     void use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
@@ -161,6 +196,7 @@ private:
     Shader m_test_shader;
     bool m_test_plain = false;
     Shader* m_active_shader = nullptr;
+    bool m_colour_reads_ready = false;  // Reset whenever the effect pass changes its shader.
     std::unique_ptr<EffectMaterial> m_material;
     TextureFilter m_texture_filter = TextureFilter::Normal;
     int m_view_projection = -1;

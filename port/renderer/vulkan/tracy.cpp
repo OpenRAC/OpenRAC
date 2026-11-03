@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "common/profiler.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 #include <tracy/TracyVulkan.hpp>
@@ -62,6 +63,10 @@ void timestamp_boundary() {
 
 // Called only by GPU scopes on the graphics owner; deferred batches precede their timestamps.
 void* begin_zone(std::string_view name, std::source_location location) {
+    // Prepared packets receive GPU scopes only when the compiled chain actually executes.
+    if (collecting_surface_chain()) {
+        return nullptr;
+    }
     if (!g || !g->tracy_state) {
         return nullptr;
     }

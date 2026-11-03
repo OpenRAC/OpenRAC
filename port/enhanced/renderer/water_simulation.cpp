@@ -12,35 +12,8 @@
 #include "enhanced/renderer/water_impulse_contact.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced/renderer/water_window.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/world/gl_world.h"
-#ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/vkgl.h"
-#endif
-#include "scene/level_renderer.h"
 
 namespace openrac::enhanced::water_detail {
-using namespace gl;
-namespace wgl = renderer::world::gl;
-
-void Water::update_lighting(const renderer::FrameInput& input) {
-    m_light.use();
-    glUniform1i(m_light.uniform("probe_region_masks"), 15);
-    m_scene.bind_surface_lighting(m_light, input.camera);
-    glUniform1i(m_light.uniform("water_coast"), 12);
-    glUniform1i(m_light.uniform("water_bodies"), 11);
-    glUniform1i(m_light.uniform("water_body_count"), int(m_bodies.size() / 5));
-    glUniform1i(m_light.uniform("water_light_count"), int(m_light_count));
-    glActiveTexture(GL_TEXTURE0 + 12);
-    glBindTexture(wgl::GL_TEXTURE_BUFFER, m_textures[kCoastTexture]);
-    glActiveTexture(GL_TEXTURE0 + 11);
-    glBindTexture(wgl::GL_TEXTURE_BUFFER, m_textures[kBodyTexture]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_buffers[kLighting]);
-    glDispatchCompute((m_light_count + 63) / 64, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-    glActiveTexture(GL_TEXTURE0);
-}
 
 // Each pass needs a fresh scene snapshot, even when the simulation tick is already prepared.
 void Water::prepare(const renderer::FrameInput& input) {
@@ -288,131 +261,23 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                 std::min(1.f, std::sqrt(moved) * 5.f) * m_debug.interaction_strength * .5f;
         }
     }
-    stats::Scope timer("water simulation", stats::kGpu);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, m_buffers[kWindowCoast]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, m_buffers[kWindowHydraulics]);
-    if (m_cached_body != selected || m_cached_origin != window || m_cached_height != m_sim_height) {
-        m_window_prepare.use();
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffers[kStateA]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_buffers[kStateB]);
-        glUniform1i(m_window_prepare.uniform("initialize_history"), reset ? 1 : 0);
-        glUniform2f(
-            m_window_prepare.uniform("previous_window"),
-            float(m_cached_origin[0]),
-            float(m_cached_origin[1])
-        );
-        glUniform1f(m_window_prepare.uniform("water_current_scale"), m_debug.current_scale);
-        glUniform1i(m_window_prepare.uniform("water_body_count"), int(m_bodies.size() / 5));
-        glUniform1f(m_window_prepare.uniform("water_sim_height"), m_sim_height);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_buffers[kCoast]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_buffers[kBodies]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_buffers[kHydraulics]);
-        glUniform4f(
-            m_window_prepare.uniform("window_config"),
-            float(window[0]),
-            float(window[1]),
-            float(kWindowSize),
-            float(selected)
-        );
-        glDispatchCompute((kWindowCells + 63) / 64, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        m_cached_body = selected;
-        m_cached_height = m_sim_height;
-        m_cached_origin = window;
-    }
-
-    m_step.use();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_buffers[kCoast]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_buffers[kBodies]);
-    glUniform4f(
-        m_step.uniform("water_physics"),
-        m_debug.current_scale,
-        m_debug.friction,
-        m_debug.outlet_damping,
-        m_debug.interaction_radius * m_debug.interaction_radius
-    );
-    glUniform1f(m_step.uniform("displacement_limit"), m_debug.displacement_limit);
-    glUniform1i(m_step.uniform("transport_reference"), 0);
-    glUniform1f(m_step.uniform("wake_strength"), .9f);
-    glUniform1i(m_step.uniform("cell_count"), int(kWindowCells));
-    glUniform1i(m_step.uniform("local_window"), 1);
-    glUniform1f(m_step.uniform("water_dt"), 1.f / 240.f);
-    glUniform4f(
-        m_step.uniform("window_config"),
-        float(window[0]),
-        float(window[1]),
-        float(kWindowSize),
-        float(selected)
-    );
-    glUniform2f(
-        m_step.uniform("previous_window"), float(m_window_origin[0]), float(m_window_origin[1])
-    );
-    glUniform1i(m_step.uniform("atlas_width"), int(m_atlas_width));
-    glUniform4fv(m_step.uniform("water_atlas[0]"), 64, m_atlas[0].data());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_buffers[kRenderPixels]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_buffers[kHydraulics]);
-    glUniform3f(m_step.uniform("previous_hero"), m_hero[0], m_hero[1], m_hero[2]);
-    for (unsigned hand = 0; hand < hand_impulses.size(); ++hand) {
-        const auto point = m_hands[hand].value_or(renderer::Vec3{});
-        glUniform3f(
-            m_step.uniform(hand == 0 ? "previous_hands[0]" : "previous_hands[1]"),
-            point[0],
-            point[1],
-            point[2]
-        );
-    }
-    if (impulse_count) {
-        glUniform4fv(
-            m_step.uniform("impulse_starts[0]"), int(impulse_count), impulse_starts[0].data()
-        );
-        glUniform4fv(m_step.uniform("impulse_ends[0]"), int(impulse_count), impulse_ends[0].data());
-    }
-    const bool compact_barriers =
-        renderer::render_opt::enabled(renderer::render_opt::Opt::WaterStepBarriers);
-    for (unsigned step = 0; step < steps * 4; ++step) {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffers[m_current]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_buffers[1 - m_current]);
-        glUniform1i(m_step.uniform("reset_waves"), reset && step == 0 ? 1 : 0);
-        // A fresh window clears in substep zero; kick it after that clear, exactly once.
-        glUniform1i(
-            m_step.uniform("impulse_count"), step == (reset ? 1u : 0u) ? int(impulse_count) : 0
-        );
-        glUniform4f(m_step.uniform("hero"), hero[0], hero[1], hero[2], step == 0 ? impulse : 0.f);
-        glUniform1i(
-            m_step.uniform("hand_count"),
-            step == 0 && (hand_impulses[0] > 0 || hand_impulses[1] > 0) ? 2 : 0
-        );
-        for (unsigned hand = 0; hand < hand_impulses.size(); ++hand) {
-            const auto point = input.water_hands[hand].value_or(renderer::Vec3{});
-            glUniform4f(
-                m_step.uniform(hand == 0 ? "hands[0]" : "hands[1]"),
-                point[0],
-                point[1],
-                point[2],
-                hand_impulses[hand]
-            );
-        }
-        // The previous substep's trailing barrier already orders its writes before
-        // this dispatch. Keep the initial dependency and every trailing barrier.
-        if (step == 0 || !compact_barriers) {
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-        }
-        glDispatchCompute((kWindowCells + 63) / 64, 1, 1);
-        glUniform2f(m_step.uniform("previous_window"), float(window[0]), float(window[1]));
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-        m_current = 1 - m_current;
-    }
-#ifdef OPENRAC_VULKAN
-    if (steps > 0
-        && !vkgl::copy_buffer_to_texture(
-            m_buffers[kRenderPixels], m_maps[0], int(kWindowSize), int(kWindowSize)
-        )) {
+    const SimulationUpdate update{
+        input,
+        hero,
+        window,
+        hand_impulses,
+        std::span<const Texel>(impulse_starts).first(impulse_count),
+        std::span<const Texel>(impulse_ends).first(impulse_count),
+        impulse,
+        steps,
+        reset
+    };
+    if (!simulate(update)) {
         m_enabled = false;
         water_ready.store(false);
         return;
     }
     water_ready.store(true);
-#endif
     m_window_origin = window;
     remember_tick(input, hero, epoch);
     stats::gauge("water simulation state bytes", double(kWindowCells * sizeof(Texel) * 2));

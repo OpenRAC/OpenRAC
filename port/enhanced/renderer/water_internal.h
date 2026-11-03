@@ -68,9 +68,14 @@ public:
     void prepare_scene(
         const renderer::FrameInput& input, const renderer::RenderTarget& target
     ) override;
+
+    bool prepares_colour_chain() const override { return true; }
+
+    std::array<unsigned, 2> scene_textures() const override;
     void finish_pass() override;
     void draw_mesh(const renderer::Shader& shader, const renderer::EffectMesh& mesh) override;
     bool init(std::string& error) override;
+    // Updates sampled water irradiance after binding the current scene probes and shadows.
     void update_lighting(const renderer::FrameInput& input);
     void prepare(const renderer::FrameInput& input) override;
     void bind(
@@ -87,6 +92,29 @@ public:
     void release() override;
 
 private:
+    // Borrowed frame/impulse inputs remain valid until simulate() finishes all synchronous callbacks.
+    struct SimulationUpdate {
+        const renderer::FrameInput& input;      // Owned by the current renderer frame.
+        renderer::Vec3 hero;                    // Selected current water interactor.
+        std::array<int, 2> window;              // Current local torus origin.
+        std::array<float, 2> hand_impulses;     // Existing tuned hand wake strengths.
+        std::span<const Texel> impulse_starts;  // Borrowed prepare_frame() stack arrays.
+        std::span<const Texel> impulse_ends;    // Matching swept projectile/explosion endpoints.
+        float impulse = 0;                      // Existing tuned main interactor strength.
+        unsigned steps = 0;                     // Caught-up game ticks, each with four substeps.
+        bool reset = false;                     // Existing discontinuity/reset decision.
+    };
+
+    // Records metadata/history preparation using unchanged shader bindings and parameters.
+    void prepare_window(const SimulationUpdate& update);
+    // Binds physics and interaction constants shared by every substep of this update.
+    void configure_wave_steps(const SimulationUpdate& update);
+    // Binds previous contact positions and swept impulse arrays without changing their sampling order.
+    void configure_wave_interactions(const SimulationUpdate& update);
+    // Records one unchanged solver dispatch and advances ping-pong ownership exactly once.
+    void record_wave_step(const SimulationUpdate& update, unsigned step);
+    // Executes the graph or reference chain, reporting transfer/recording failures to the caller.
+    bool simulate(const SimulationUpdate& update);
     // Geometry consumers need waves before depth; liquid lighting waits for current shadows.
     void prepare_frame(const renderer::FrameInput& input, bool lighting);
     bool m_lighting_pending = false;

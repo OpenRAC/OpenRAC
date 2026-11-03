@@ -109,6 +109,74 @@ void main(){uvec2 p=uvec2(gl_FragCoord.xy);result=p.y==0u?vec4(64,128,191,77)/25
         comparisons
     );
 }
+
+namespace {
+// Renders two distinct authored colours and preserved depth before comparing synchronization paths.
+void test_graph_frame(
+    openrac::enhanced::AgxPreview& agx, openrac::renderer::FrameBuffer& target, float exposure
+) {
+    using namespace openrac;
+    using namespace openrac::gl;
+    std::vector<std::uint8_t> reference;
+    // Repeated graph recording receives fresh pixels on the same output allocation.
+    for (bool repeated : {false, true}) {
+        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+        glDisable(GL_SCISSOR_TEST);
+        glDepthMask(GL_TRUE);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glClearDepth(.5);
+        glClearColor(.25f, .5f, .75f, 77.f / 255.f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(0, 0, target.width() / 2, target.height());
+        glClearColor(.75f, .25f, .5f, 177.f / 255.f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
+        agx.apply(target, exposure);
+        auto pixels = target.read_rgba();
+        // Repeated graph recording must preserve identical shader output.
+        if (!repeated) {
+            reference = std::move(pixels);
+        } else {
+            CHECK(!reference.empty());
+            CHECK(reference == pixels);
+        }
+    }
+}
+
+// Checks graph/reference identity on recreated, non-storage and multisample targets at bounded exposures.
+void test_graph_colour() {
+    using namespace openrac;
+    using namespace openrac::gl;
+    // Only Vulkan executes graph phases; compatibility colour checks still run in main.
+    if (!is_vulkan() || !enhanced_rendering_available()) {
+        return;
+    }
+    enhanced::AgxPreview agx;
+    renderer::FrameBuffer target;
+    std::string error;
+    // Recreate shared names across odd sizes, multisample resolve and non-storage fallback cases.
+    for (int variant : {0, 1, 2, 3}) {
+        const int width = variant == 0 ? 31 : 17;
+        const int samples = variant == 2 ? std::min(4, renderer::FrameBuffer::max_samples()) : 1;
+        CHECK(target.create(width, 13, error, samples, true));
+        // Only the first two cases support the direct path; both remain immutable through recording.
+        if (variant < 2) {
+            CHECK(vkgl::allocate_storage_texture(target.colour_texture(), GL_RGBA8, width, 13));
+        }
+        // Both kernel implementations are independently exact across graph/reference execution.
+        for (bool direct : {false, true}) {
+            renderer::render_opt::set(renderer::render_opt::Opt::AgxDirectOutput, direct);
+            // Out-of-range values also check that both paths retain the exposure clamp.
+            for (float exposure : {-10.f, -4.8f, 0.f, .25f, 4.8f, 10.f}) {
+                test_graph_frame(agx, target, exposure);
+            }
+        }
+    }
+    renderer::render_opt::reset();
+    CHECK(vkgl::submission_counters().validation_errors == 0);
+}
+}  // namespace
 #endif
 
 int main(int argc, char**) {
@@ -173,6 +241,7 @@ int main(int argc, char**) {
     }
 #if defined(OPENRAC_VULKAN)
     test_direct_colour();
+    test_graph_colour();
 #endif
     CHECK(glGetError() == GL_NO_ERROR);
     std::puts("AgX reference colour, exposure, alpha and resize checks passed");

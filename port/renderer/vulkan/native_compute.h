@@ -48,16 +48,9 @@ struct NativeImageUse {
     unsigned texture, unsigned format, int width, int height
 );
 
-// Applies one immutable per-context compute colour transform in place to RGBA8 storage.
+// Applies one immutable per-context compute colour transform in place to single-level RGBA8 storage.
 // Bindings zero/one sample/store the same image; push constants hold one float, workgroups are 8x8.
 // Different shader source or unsupported targets return false without modifying their pixels.
 [[nodiscard]] bool transform_colour(unsigned texture, std::string_view source, float parameter);
 
-// Ends drawing, transitions the textures, then records the callback on the current graphics queue.
-// The callback restores each image to its requested layout before returning and retains no handles.
-// Duplicate read-only imports are allowed; aliases involving a write are rejected before recording.
-[[nodiscard]] bool record_native_compute(
-    std::span<const NativeImageUse> textures,
-    const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record
-);
 }  // namespace openrac::vkgl

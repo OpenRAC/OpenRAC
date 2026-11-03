@@ -5,14 +5,17 @@
 
 #include <algorithm>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "renderer/colour_graph.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
 #include "renderer/subsystems.h"
+#include "renderer/surface_chain.h"
 
 namespace openrac::renderer {
 
@@ -86,9 +89,6 @@ bool Renderer::begin_surface_prepass(RenderState& state) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, m_surface_prepass.id());
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    // Alpha zero marks background or unusable authored normals.
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
     state.target.normal_texture = m_surface_prepass.colour_texture();
     // Single-sample compute passes borrow depth directly instead of making another copy.
     if (samples == 1) {
@@ -100,20 +100,48 @@ bool Renderer::begin_surface_prepass(RenderState& state) {
 void Renderer::finish_surface_prepass(const RenderTarget& target) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_surface_prepass.id());
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.framebuffer);
-    glBlitFramebuffer(
-        0,
-        0,
-        target.width,
-        target.height,
-        0,
-        0,
-        target.width,
-        target.height,
-        GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
-        GL_NEAREST
+    const auto queued = queue_surface_copy(
+        m_surface_prepass.id(),
+        target.framebuffer,
+        {target.width, target.height},
+        SurfaceCopy::DepthStencil
     );
+    // A rejected shared copy must not publish an incomplete depth prepass.
+    if (!queued) {
+        throw std::runtime_error(queued.error().message);
+    }
+    // Frames outside the shared scope keep the original native copy.
+    if (!*queued) {
+        glBlitFramebuffer(
+            0,
+            0,
+            target.width,
+            target.height,
+            0,
+            0,
+            target.width,
+            target.height,
+            GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
+            GL_NEAREST
+        );
+    }
     // Resolve the normal colour independently of the existing sky and background.
-    m_surface_prepass.resolved();
+    const auto normals = m_surface_prepass.resolve_target()
+                             ? queue_surface_copy(
+                                   m_surface_prepass.id(),
+                                   m_surface_prepass.resolve_target(),
+                                   {target.width, target.height},
+                                   SurfaceCopy::Colour
+                               )
+                             : Result<bool>{false};
+    // Rejected resolves cannot supply normal data to the lighting consumers.
+    if (!normals) {
+        throw std::runtime_error(normals.error().message);
+    }
+    // The reference path and implicit single-sample targets retain their existing behavior.
+    if (!*normals) {
+        m_surface_prepass.resolved();
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
 }
 
@@ -217,20 +245,7 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);
         const bool surface_prepass = (early_lighting || gtao) && begin_surface_prepass(state);
-        glDepthMask(GL_TRUE);
-        glClearDepth(0);
-        glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        state.depth_prepass = true;
-        glColorMask(surface_prepass, surface_prepass, surface_prepass, surface_prepass);
-        {
-            const stats::Scope depth("world depth prepass", stats::kGpu);
-            for (const auto& r : m_renderers) {
-                if (r->enabled) {
-                    r->render_depth(input, state);
-                }
-            }
-        }
-        state.depth_prepass = false;
+        render_surface_prepass(input, state, surface_prepass);
         // Reuse the prepass depth without overwriting previously drawn sky or background.
         if (surface_prepass) {
             finish_surface_prepass(target);
@@ -320,51 +335,108 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
     }
     bool ao_applied = false;
     bool prepass_done = false;
-    bool opaque_done = false;
     bool particles_started = false;
+    bool world_resolved = false;
     std::vector<bool> opaque_prepared(m_renderers.size());
-    const bool batch_opaque =
-        std::any_of(m_renderers.begin(), m_renderers.end(), [](const auto& r) {
-            return r->enabled && r->batches_opaque_colour();
-        });
     for (std::size_t i = 0; i < m_renderers.size(); ++i) {
         const auto bucket = m_renderers[i]->bucket();
         if (prepass_needed && !prepass_done && m_renderers[i]->enabled && bucket >= Bucket::Terrain
             && bucket <= Bucket::Mobys) {
-            world_prepass();
+            // Compose supported fused lighting, including explicit multisample resolves.
+            if (early_lighting && gtao && needs_indirect_ao && input.gtao_settings.strength > 0
+                && !discard_prepass && can_prepare_surface_chain(input, state)) {
+                // The scope prepares on this thread and executes before these frame locals expire.
+                const auto result =
+                    run_surface_chain([this, &world_prepass, &input, &state, &opaque_prepared, i] {
+                        world_prepass();
+
+                        // Unsupported colour paths retain the original batch boundary.
+                        if (!colour_graph_enabled() || !state.reuse_prepass_depth
+                            || !m_renderers[i]->batches_opaque_colour()) {
+                            return;
+                        }
+
+                        const std::size_t end = opaque_colour_end(i);
+                        const auto buffers = opaque_colour_buffers(i, end, input, state);
+
+                        // Every participating layer must identify its current lighting inputs.
+                        if (buffers.empty()) {
+                            return;
+                        }
+
+                        const auto recorded = record_opaque_colour(i, end, input, state, buffers);
+
+                        // Invalid cache reads reject the plan before deferred writers.
+                        if (!recorded) {
+                            throw std::runtime_error(recorded.error().message);
+                        }
+
+                        std::fill(opaque_prepared.begin() + i, opaque_prepared.begin() + end, true);
+                    });
+                // An invalid plan cannot supply world depth or lighting to colour draws.
+                if (!result) {
+                    throw std::runtime_error(result.error().message);
+                }
+            } else {
+                world_prepass();
+            }
             prepass_done = true;
         }
-        if (batch_opaque && !opaque_prepared[i] && state.reuse_prepass_depth
-            && m_renderers[i]->enabled && m_renderers[i]->batches_opaque_colour()) {
-            // Extend only across layers with no blended work between their
-            // opaque draws. Include a final layer's opaque draws, then stop
-            // before its translucent/glow/effect passes.
-            std::size_t end = i;
-            for (; end < m_renderers.size(); ++end) {
-                const auto& next = m_renderers[end];
-                if (!next->enabled) {
-                    continue;
+        // Known colour providers share ordered work; unsupported hooks retain their scope boundaries.
+        if (surface_chain_enabled() && colour_graph_enabled() && (scoped_ao || !gtao)
+            && bucket >= Bucket::Terrain && bucket <= Bucket::Mobys && m_renderers[i]->enabled
+            && m_renderers[i]->prepares_colour_chain()) {
+            // Known late providers can share their final colour dependencies with reconstruction.
+            if (can_prepare_world_tail(i, hud, input)) {
+                const auto recorded =
+                    run_surface_chain([this, i, hud, &input, &state, &opaque_prepared] {
+                        const auto result =
+                            record_world_tail(i, hud, input, state, opaque_prepared);
+
+                        // A rejected section cannot advance into native HUD drawing.
+                        if (!result) {
+                            throw std::runtime_error(result.error().message);
+                        }
+                    });
+
+                // Structural failures retain the existing frame-boundary error handling.
+                if (!recorded) {
+                    throw std::runtime_error(recorded.error().message);
                 }
-                if (!next->batches_opaque_colour()) {
-                    break;
-                }
-                if (next->opaque_colour_barrier()) {
-                    ++end;
-                    break;
-                }
+
+                target = state.target;
+                world_resolved = true;
+                ao_applied = true;
+                i = hud - 1;
+                continue;
             }
-            const stats::Scope opaque("world opaque colour", stats::kGpu);
-            crash::breadcrumb("world opaque colour");
-            for (unsigned phase = 0; phase < 2; ++phase) {
-                for (std::size_t n = i; n < end; ++n) {
-                    const auto& next = m_renderers[n];
-                    if (next->enabled && next->batches_opaque_colour()) {
-                        next->render_opaque_colour(phase, input, state);
-                        opaque_prepared[n] = true;
+
+            const std::size_t end = world_colour_end(i);
+            // This render-thread scope finishes before any following effects or external callback runs.
+            const auto recorded =
+                run_surface_chain([this, i, end, &input, &state, &opaque_prepared] {
+                    const auto prepared =
+                        record_world_colour(i, end, input, state, opaque_prepared);
+                    // Reject invalid inputs before recording any of this colour sequence.
+                    if (!prepared) {
+                        throw std::runtime_error(prepared.error().message);
                     }
-                }
+                });
+            // A partial sequence cannot be repeated after execution has started.
+            if (!recorded) {
+                throw std::runtime_error(recorded.error().message);
             }
-            opaque_done = true;
+            i = end - 1;
+            continue;
+        }
+        if (!opaque_prepared[i] && state.reuse_prepass_depth && m_renderers[i]->enabled
+            && m_renderers[i]->batches_opaque_colour()) {
+            const std::size_t end = opaque_colour_end(i);
+            const auto recorded = record_opaque_colour(i, end, input, state);
+            if (!recorded) {
+                throw std::runtime_error(recorded.error().message);
+            }
+            std::fill(opaque_prepared.begin() + i, opaque_prepared.begin() + end, true);
         }
         state.opaque_colour_batched = opaque_prepared[i];
         if (ao_before != 0 && i == ao_before) {
@@ -386,7 +458,10 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         // Temporal reconstruction finishes before any HUD geometry uses display-resolution coordinates.
         if (i == hud && input.on_resolve_world) {
             crash::breadcrumb("temporal resolve");
-            input.on_resolve_world(target);
+            // Joined colour/temporal sections have already resolved before this HUD boundary.
+            if (!world_resolved) {
+                input.on_resolve_world(target);
+            }
             state.target = target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
             glViewport(0, 0, target.width, target.height);
@@ -410,7 +485,16 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             crash::breadcrumb(r->name());
             // [debug tools] The pass, timed and counted for the overlay and the dump (common/stats.h).
             const stats::Scope pass(r->name(), r->owns_gpu_timing() ? 0 : stats::kGpu);
-            r->render(input, state);
+            // World buckets preserve their attachments; UI may redirect its target and keeps its
+            // own path.
+            if (bucket <= Bucket::Particles) {
+                const auto recorded = record_bucket_colour(i, input, state, opaque_prepared[i]);
+                if (!recorded) {
+                    throw std::runtime_error(recorded.error().message);
+                }
+            } else {
+                r->render(input, state);
+            }
         }
     }
     if (depth_clamp) {
@@ -429,7 +513,14 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         const GLenum dropped[] = {GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT};
         glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, dropped);
     }
-    stats::gauge("opaque colour batching", opaque_done ? 1 : 0);
+    stats::gauge(
+        "opaque colour batching",
+        std::any_of(
+            opaque_prepared.begin(), opaque_prepared.end(), [](bool prepared) { return prepared; }
+        )
+            ? 1
+            : 0
+    );
     m_stats = state.stats;
     // [debug tools] The textures no pass drew with for a while let go, which walks every entry.
     const stats::Scope retire("texture retire");

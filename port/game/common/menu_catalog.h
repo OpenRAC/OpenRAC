@@ -80,6 +80,7 @@ enum class Id : std::uint8_t {
     BounceStrength,
     AmbientOcclusion,
     OcclusionQuality,
+    OcclusionHiZ,
     TextureUpscaling,
     Upscaling,
     Sharpening,

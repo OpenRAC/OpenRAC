@@ -1936,6 +1936,12 @@ void main() {
     renderer::render_opt::set(renderer::render_opt::Opt::ProbeSelectionVariants, true);
     closest_regions(vao, &split_selection);
     CHECK(!reference_selection.empty() && split_selection == reference_selection);
+    // The same primary and secondary lookup images must match across repeated graph recording.
+    std::vector<std::vector<std::uint8_t>> reference_barriers;
+
+    closest_regions(vao, &reference_barriers);
+    CHECK(reference_barriers == split_selection);
+
     glDeleteVertexArrays(1, &vao);
     shader.release();
     reference.release();

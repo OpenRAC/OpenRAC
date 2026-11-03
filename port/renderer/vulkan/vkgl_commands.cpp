@@ -22,6 +22,7 @@
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl::detail {
@@ -763,6 +764,10 @@ bool split_for(std::uint64_t serial) {
 }
 
 bool timing_begin(std::uint64_t serial, int section) {
+    // Deferred passes receive GPU timestamps when the shared plan executes.
+    if (collecting_surface_chain()) {
+        return false;
+    }
     if (!g || !g->timestamp_bits) {
         return false;
     }
@@ -895,6 +900,7 @@ void timing_results(Frame& f) {
 }
 
 void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommandBuffer present) {
+    require_surface_execution();
     const profiling::Zone trace("Vulkan submit");
 
     end_rendering(PassEnd::Submit);
@@ -1156,6 +1162,7 @@ VkRect2D scissor_rect(const Target& t) {
 }
 
 void clear(GLbitfield mask) {
+    require_surface_execution();
     gpu_flush_draws();
     const Target t = target_of(g->state.draw_framebuffer);
     const State& s = g->state;

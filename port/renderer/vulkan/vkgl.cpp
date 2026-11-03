@@ -145,6 +145,7 @@ bool open(const Config& config, std::string& error) {
     g->state.viewport[2] = g->state.scissor[2] = g->default_width;
     g->state.viewport[3] = g->state.scissor[3] = g->default_height;
     g->open = true;
+    configure_frame_capture();
 #if defined(__ANDROID__)
     if (config.window != nullptr) {
         SDL_AddEventWatch(on_event, nullptr);
@@ -391,6 +392,7 @@ void present() {
     if (!shown) {
         submit(VK_NULL_HANDLE, VK_NULL_HANDLE, false);
     }
+    finish_frame_capture();
     g->measures.present_s += seconds_since(start);
     report_measures();
     publish_counters();

@@ -349,6 +349,8 @@ void set_camera(SceneFrame& frame) {
         frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
     );
     owner.scene.update_probe_regions(input.camera);
+    // This hook only prepares declared probe/light selection kernels and stable uploads.
+    input.prepares_world_depth = true;
     input.after_world_depth =
         owner.scene.compute_probe_selection()
             ? std::function<void(unsigned, int, int)>(
@@ -385,6 +387,19 @@ bool draw_world(SceneFrame& frame) {
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;
 
+        const bool grade_colour = graphics.agx_preview && graphics.enhanced_graphics
+                                  && enhanced_graphics_available() && scene.has_camera
+                                  && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        std::function<void()> finish_colour;
+        // Temporal resolve can compose this known colour-only operation before late world and HUD work.
+        if (grade_colour) {
+            finish_colour = [&owner, exposure = graphics.adjusted_agx_exposure()] {
+                crash::breadcrumb("tone mapping");
+                owner.agx.apply(owner.frame, exposure);
+            };
+        }
+        bool graded_by_temporal = false;
+
         // Loading/menu snapshots bypass history; active world frames resolve before the final HUD bucket.
         if (temporal_wanted && !input.keep_colour) {
             std::string temporal_error;
@@ -398,11 +413,13 @@ bool draw_world(SceneFrame& frame) {
                 graphics.motion_blur,
                 graphics.motion_blur_strength,
                 scene.cutscene,
-                graphics.motion_blur_settings
+                graphics.motion_blur_settings,
+                finish_colour
             };
             const bool active = owner.temporal->begin(
                 temporal, graphics.temporal_quality, graphics.temporal_sharpness, temporal_error
             );
+            graded_by_temporal = active && grade_colour;
 
             // The temporal module reports recoverable setup failures without throwing.
             if (!active && !temporal_error.empty()) {
@@ -430,14 +447,11 @@ bool draw_world(SceneFrame& frame) {
                 }
             };
         }
-        if (graphics.agx_preview && graphics.enhanced_graphics && enhanced_graphics_available()
-            && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0) {
+        if (grade_colour && !graded_by_temporal) {
             auto before_hud = std::move(input.before_hud);
-            input.before_hud = [&owner,
-                                exposure = graphics.adjusted_agx_exposure(),
+            input.before_hud = [finish_colour = std::move(finish_colour),
                                 before_hud = std::move(before_hud)] {
-                crash::breadcrumb("tone mapping");
-                owner.agx.apply(owner.frame, exposure);
+                finish_colour();
                 if (before_hud) {
                     before_hud();
                 }

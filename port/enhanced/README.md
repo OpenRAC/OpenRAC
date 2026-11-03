@@ -22,6 +22,17 @@ GTAO (`renderer/gtao.h`) implements `port/renderer/ambient_occlusion.h`, registe
 `game/common/frontend/world.cpp`. It uses `port/renderer/gtao_settings.h` and builds with its
 shaders in `openrac_renderer`.
 
+The Enhanced menu's hierarchical-depth checkbox enables up to four min/max depth levels
+for distant GTAO samples. They use one RG32F texture buffer with separate graph ranges.
+Near contacts, silhouette refinement and depth discontinuities keep full-resolution samples.
+`gtao_hi_z` is saved independently and defaults off. The hierarchy is built only when enabled;
+changing it needs no restart or rebake.
+Separate shader variants remove hierarchy sampling code when the option is off.
+
+On Vulkan, the provider declares the single-sample depth/normal prepass boundary and the
+hierarchy, horizon and filter passes through the frame planner. MSAA resolves keep their
+graph and feed resolved inputs into GTAO.
+
 `viewer/scene_lighting.h` implements `port/scene/level_lighting.h`; register a `LevelScene`
 through `lighting::use_scene_lighting`. Loader and baker share explicit emission definitions
 in exported `probe-emission.json`.
@@ -196,3 +207,13 @@ game world units, and cone angles are radians. Only authored metadata is saved.
 
 `object-viewer.json` in the working folder exposes the selection, pose, camera, visible controls
 and optional lights to diagnostic tools. `OPENRAC_OVERLAY=object-viewer` opens it in developer mode.
+
+### Lighting graph
+
+Vulkan early lighting, Forward+ light masks, reflection-probe masks and diffuse-probe
+shortlist/tile selection declare their inputs and output ranges to the frame graph.
+The existing kernels and selection rules are unchanged, including secondary-camera
+shortlists and translucent masks. The graph orders producer writes and later reads
+on the existing command buffer.
+
+Hi-Z remains optional and off by default. OpenGL keeps its compatibility path.

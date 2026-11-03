@@ -52,8 +52,10 @@ void main(){
     std::array<std::uint64_t, 6> reference_barriers{}, reference_dispatches{};
     constexpr std::array<std::uint64_t, 6> frames{10, 11, 15, 16, 17, 18};
     // First frame/reset and single ticks use four substeps; the four-tick catch-up uses sixteen.
-    constexpr std::array<std::uint64_t, 6> saved_barriers{3, 3, 15, 3, 0, 3};
-    for (bool compact : {false, true}) {
+    // Shader variants retain identical wave-map bits, graph barriers and dispatch counts.
+    for (unsigned mode : {0u, 1u}) {
+        const bool compact = mode != 0;
+
         renderer::render_opt::set(renderer::render_opt::Opt::WaterStepBarriers, compact);
         renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, compact);
         auto water = enhanced::make_water(scene, fixture.folder);
@@ -85,7 +87,7 @@ void main(){
                 reference_barriers[i] = barriers;
                 reference_dispatches[i] = dispatches;
             } else {
-                CHECK(reference_barriers[i] == barriers + saved_barriers[i]);
+                CHECK(reference_barriers[i] == barriers);
                 CHECK(reference_dispatches[i] == dispatches);
             }
             glBindFramebuffer(GL_FRAMEBUFFER, target.id());
@@ -112,8 +114,8 @@ void main(){
     CHECK(reference[0] != reference[1]);  // the moving interactor must actually create/change waves
     CHECK(reference[3] == reference[4]);  // pausing leaves the wave map unchanged
     std::printf(
-        "Water barriers removed: 3 per tick, 15 per four-tick catch-up; six wave maps match "
-        "exactly\n"
+        "Six graph wave maps match "
+        "exactly with identical barrier and dispatch counts\n"
     );
     renderer::render_opt::reset();
     enhanced::set_water_debug_settings({});

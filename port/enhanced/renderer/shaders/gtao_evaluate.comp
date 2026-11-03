@@ -10,6 +10,8 @@
 uniform float radius;
 uniform int slice_count;
 uniform int step_count;
+uniform samplerBuffer hi_z_depth;
+uniform int hi_z_levels;
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(std430, binding = 11) writeonly buffer GtaoValues {
@@ -31,6 +33,39 @@ vec2 sample_phase(ivec2 pixel) {
     seed = (seed ^ (seed >> 13u)) * 3266489917u;
     seed ^= seed >> 16u;
     return (vec2(seed & 65535u, seed >> 16u) + 0.5) / 65536.0;
+}
+
+// Close contacts and refinement retain exact depth; coarse cells reject silhouettes and empty sky.
+float horizon_depth(inout ivec2 tap, float distance_pixels) {
+#if !defined(OPENRAC_GTAO_HIZ) || OPENRAC_GTAO_HIZ == 0
+    return depth_at(tap);
+#else
+    if (hi_z_levels == 0 || distance_pixels < 8.0) {
+        return depth_at(tap);
+    }
+    int level = clamp(int(floor(log2(distance_pixels / 8.0))), 0, hi_z_levels - 1);
+    ivec2 extent = textureSize(tex_T0, 0);
+    int offset = 0;
+    for (int index = 0; index < level; ++index) {
+        extent = (extent + 1) / 2;
+        offset += extent.x * extent.y;
+    }
+    extent = (extent + 1) / 2;
+    int scale = 1 << (level + 1);
+    ivec2 cell = min(tap / scale, extent - 1);
+    vec2 range = texelFetch(hi_z_depth, offset + cell.y * extent.x + cell.x).rg;
+    if (range.x <= 0.0) {
+        return depth_at(tap);
+    }
+    float near_z = position_at(tap, range.y).z;
+    float far_z = position_at(tap, range.x).z;
+    // A footprint spanning different surfaces stays on the full-resolution reference path.
+    if (abs(near_z - far_z) > radius * 0.025) {
+        return depth_at(tap);
+    }
+    tap = min(cell * scale + scale / 2, textureSize(tex_T0, 0) - 1);
+    return (range.x + range.y) * 0.5;
+#endif
 }
 
 vec4 evaluate(ivec2 cell) {
@@ -87,7 +122,7 @@ vec4 evaluate(ivec2 cell) {
                     || any(greaterThanEqual(tap, textureSize(tex_T0, 0)))) {
                     continue;
                 }
-                float d = depth_at(tap);
+                float d = horizon_depth(tap, distancePixels);
                 if (d <= 0.0) {
                     continue;
                 }

@@ -13,10 +13,13 @@
 #include "enhanced/fsr3/palette_history.h"
 #include "enhanced/fsr3/temporal_math.h"
 #include "enhanced/renderer/agx.h"
+#include "renderer/effects.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/renderer.h"
+#include "renderer/surface_chain.h"
+#include "renderer/vulkan/frame_capture.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
@@ -201,6 +204,8 @@ public:
         }
     }
 
+    bool prepares_colour_chain() const override { return !m_hud; }
+
     void render(const renderer::FrameInput&, renderer::RenderState& state) override {
         // A single display pixel reveals accidental low-resolution HUD rendering or later upscaling.
         if (m_hud) {
@@ -281,6 +286,46 @@ void test_temporal_math() {
     CHECK(!enhanced::fsr3_detail::invert({}, inverse));
 }
 
+// Starts one representative complete graph capture after temporal history has warmed up.
+bool begin_temporal_capture(int scenario) {
+    // This late frame exercises motion, reconstruction, tone mapping and native HUD together.
+    const bool selected =
+        scenario == 6 && with_agx
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::AgxDirectOutput);
+    // Capture starts before any work in the selected complete temporal frame.
+    if (selected) {
+        CHECK(vkgl::capture_frame_graph());
+    }
+    return selected;
+}
+
+// Validates the composed temporal plan after presentation without reading any GPU allocation.
+void finish_temporal_capture() {
+    vkgl::present();
+    const auto dump = vkgl::frame_graph_description();
+    // Report diagnostic failures without weakening the existing pixel and HUD assertions.
+    if (!dump) {
+        std::cerr << dump.error().message << '\n';
+    }
+    CHECK(dump);
+    // These labels demonstrate cross-subgraph composition of the real temporal path.
+    if (dump) {
+        CHECK(dump->find("temporal camera motion") != std::string::npos);
+        CHECK(dump->find("temporal object motion") != std::string::npos);
+        CHECK(dump->find("FSR temporal reconstruction") != std::string::npos);
+        CHECK(dump->find("colour transform") != std::string::npos);
+        CHECK(dump->find("opaque imported contents") != std::string::npos);
+        // The shared section exports motion only after the synchronous reconstruction consumer.
+        const auto motion = dump->find(" work temporal camera motion\n");
+        const auto reconstruction = dump->find(" work FSR temporal reconstruction\n");
+        const auto exported = dump->find(" export temporal camera motion consumers\n");
+        const auto grading = dump->find(" work colour transform\n");
+        CHECK(motion != std::string::npos && reconstruction != std::string::npos);
+        CHECK(exported != std::string::npos && grading != std::string::npos);
+        CHECK(motion < reconstruction && reconstruction < exported && exported < grading);
+    }
+}
+
 // Checks one resolved frame against constant world RGB and an exact one-pixel HUD marker.
 void check_temporal_frame(
     renderer::Renderer& renderer,
@@ -290,15 +335,48 @@ void check_temporal_frame(
     renderer::FrameBuffer& display,
     renderer::TemporalQuality quality,
     bool blur = false,
-    bool cinematic = false
+    int scenario = 0
 ) {
     std::string error;
     renderer::FrameInput input;
+    // A transparent textured quad exercises particle metadata and the opaque snapshot without changing RGB.
+    std::array<renderer::EffectQuad, 1> particles{};
+    constexpr float kParticleCorners[4][2] =
+        {{-.01f, -.01f}, {.01f, -.01f}, {-.01f, .01f}, {.01f, .01f}};
+
+    for (unsigned corner = 0; corner < 4; ++corner) {
+        particles[0].corner[corner][0] = kParticleCorners[corner][0];
+        particles[0].corner[corner][1] = kParticleCorners[corner][1];
+        particles[0].corner[corner][2] = -.06f;
+        particles[0].corner[corner][3] = 1;
+        particles[0].rgba[corner] = 0x00808080u;
+    }
+
+    particles[0].tex0 = 1000u | (1ull << 34);
+    particles[0].alpha = 0x44;
+    input.effects = particles;
     input.volumetric_quality = renderer::VolumetricQuality::Medium;
     input.camera.projection = renderer::perspective_reversed(1, 1.5f, .05f, 2000);
+    const bool cinematic = scenario == 9 || scenario == 10;
+    // Translation, projection and rotation cuts invalidate prior displayed-frame accumulation
+    // independently.
+    if (scenario == 4) {
+        input.camera.position = {9, 0, 0};
+        input.camera.view = renderer::translation({-9, 0, 0});
+    }
+    if (scenario == 8) {
+        input.camera.projection[0] *= 1.1f;
+    }
+    if (scenario == 11) {
+        input.camera.view[0] = 0;
+        input.camera.view[10] = 0;
+        input.camera.view[2] = 1;
+        input.camera.view[8] = -1;
+    }
     renderer::RenderTarget target{display.id(), 96, 72};
     bool before_hud_called = false;
     input.before_hud = [&] {
+        CHECK(!renderer::collecting_surface_chain());
         before_hud_called = true;
     };
     if (!cinematic) {
@@ -306,9 +384,32 @@ void check_temporal_frame(
         input.camera.target_id = 1;
     }
     upscaler.set_scene({}, {});
-    const enhanced::TemporalFrame frame{
-        input, target, display, scene, renderer.textures(), 0, blur, .5f, cinematic
+    int grade_calls = 0;
+    // This known colour-only operation must run once before the ungraded native HUD marker.
+    const auto grade = [&agx, &display, &grade_calls] {
+        const auto texture = display.colour_texture();
+        agx.apply(display, 0);
+        CHECK(display.colour_texture() == texture);
+        ++grade_calls;
     };
+    const bool compose_grade = with_agx;
+    enhanced::TemporalFrame frame{
+        input,
+        target,
+        display,
+        scene,
+        renderer.textures(),
+        scenario == 12 ? 1 : 0,
+        blur,
+        .5f,
+        cinematic,
+        {},
+        {}
+    };
+    // The reference keeps its original before-HUD callback placement.
+    if (compose_grade) {
+        frame.finish_colour = grade;
+    }
     const bool prepared = upscaler.begin(frame, quality, 0, error);
     CHECK(prepared);
 
@@ -318,17 +419,31 @@ void check_temporal_frame(
         return;
     }
 
-    if (with_agx) {
+    // Unknown hooks retain a separate world boundary, including after output recreation.
+    if (scenario == 5) {
+        input.prepares_temporal_chain = false;
+    }
+
+    if (with_agx && !compose_grade) {
         auto before_hud = std::move(input.before_hud);
-        input.before_hud = [&agx, &display, before_hud = std::move(before_hud)] {
-            const auto texture = display.colour_texture();
-            agx.apply(display, 0);
-            CHECK(display.colour_texture() == texture);
+        input.before_hud = [grade, before_hud = std::move(before_hud)] {
+            grade();
             before_hud();
         };
     }
+    const bool capture = begin_temporal_capture(scenario);
+    const auto chains_before = vkgl::submission_counters().surface_chains;
     renderer.render(input, target);
+    // Initial reconstruction shares one section with world colour, without a separate world compile.
+    if (!with_agx && scenario == 0 && renderer::surface_chain_enabled()) {
+        CHECK(vkgl::submission_counters().surface_chains == chains_before + 1);
+    }
+    // Closing this diagnostic uses the normal headless presentation path.
+    if (capture) {
+        finish_temporal_capture();
+    }
     CHECK(before_hud_called);
+    CHECK(grade_calls == (with_agx ? 1 : 0));
     const auto pixels = display.read_rgba();
     if (compare_direct) {
         CHECK(compared_frames < reference_frames.size());
@@ -375,6 +490,13 @@ void test_world_resolve_and_native_hud() {
     std::array<int, 2> world_size{64, 48};
     CHECK(renderer.init(error));
     CHECK(renderer.add(std::make_unique<TestBucket>(false, world_size), error));
+    renderer::Rgba8Image white(1, 1);
+    white.set_texel(0, 0, 0xFFFFFFFFu);
+    renderer.textures().place(
+        1000,
+        renderer.textures().add(std::move(white), renderer::AlphaScale::Full, "temporal particle")
+    );
+    CHECK(renderer.add(std::make_unique<renderer::EffectRenderer>(), error));
     CHECK(renderer.add(std::make_unique<TestBucket>(true, world_size), error));
     CHECK(display.create(96, 72, error));
 
@@ -408,9 +530,11 @@ void test_world_resolve_and_native_hud() {
         }
 
         CHECK(recreated);
-        check_temporal_frame(
-            renderer, scene, upscaler, agx, display, quality, n >= 6, n == 9 || n == 10
-        );
+        // Explicit invalidation after a skipped world must restart the next displayed frame.
+        if (n == 1) {
+            upscaler.reset();
+        }
+        check_temporal_frame(renderer, scene, upscaler, agx, display, quality, n >= 6, n);
     }
 
     upscaler.release();
@@ -442,26 +566,31 @@ int main() {
             return test::kSkip;
         }
 
-        for (bool tone : {false, true}) {
-            with_agx = tone;
-            for (bool direct : {false, true}) {
-                renderer::render_opt::set(
-                    renderer::render_opt::Opt::MotionBlurFastPath, tone || direct
-                );
-                renderer::render_opt::set(
-                    renderer::render_opt::Opt::FsrPaletteReuse, tone || direct
-                );
-                renderer::render_opt::set(
-                    renderer::render_opt::Opt::FsrObjectHistoryReuse, tone || direct
-                );
-                renderer::render_opt::set(renderer::render_opt::Opt::AgxDirectOutput, direct);
-                renderer::render_opt::set(renderer::render_opt::Opt::FsrReactiveR8, direct);
-                renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
-                compare_direct = direct;
-                test_world_resolve_and_native_hud();
+        // Exercise complete frame histories and native HUD coverage through graph composition.
+        {
+            reference_frames.clear();
+            compared_frames = 0;
+            for (bool tone : {false, true}) {
+                with_agx = tone;
+                for (bool direct : {false, true}) {
+                    renderer::render_opt::set(
+                        renderer::render_opt::Opt::MotionBlurFastPath, tone || direct
+                    );
+                    renderer::render_opt::set(
+                        renderer::render_opt::Opt::FsrPaletteReuse, tone || direct
+                    );
+                    renderer::render_opt::set(
+                        renderer::render_opt::Opt::FsrObjectHistoryReuse, tone || direct
+                    );
+                    renderer::render_opt::set(renderer::render_opt::Opt::AgxDirectOutput, direct);
+                    renderer::render_opt::set(renderer::render_opt::Opt::FsrReactiveR8, direct);
+                    renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
+                    compare_direct = direct;
+                    test_world_resolve_and_native_hud();
+                }
             }
+            CHECK(compared_frames == reference_frames.size());
         }
-        CHECK(compared_frames == reference_frames.size());
         test_palette_history();
         std::cout << "Compared " << compared_frames
                   << " complete FSR/HUD frames (plain exact, AgX RGB within one UNORM8 step)\n";

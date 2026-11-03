@@ -13,6 +13,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "renderer/gl.h"
+#include "renderer/vulkan/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 
 #include <host/backends/vk/ffxm_vk.h>
@@ -60,7 +61,7 @@ arm::FfxmResource resource(const vkgl::NativeImage& image, bool write) {
                     arm::FFXM_RESOURCE_USAGE_UAV | arm::FFXM_RESOURCE_USAGE_RENDERTARGET
                 )
               : arm::FFXM_RESOURCE_USAGE_READ_ONLY;
-    // The states match record_native_compute's layouts, which ASR restores after its passes.
+    // The states match temporal_compute's layouts, which ASR restores after its passes.
     return arm::ffxmGetResourceVK(
         reinterpret_cast<void*>(image.image),
         description,
@@ -231,10 +232,11 @@ bool AsrContext::dispatch(
     };
     arm::FfxmErrorCode result = arm::FFXM_OK;
     // The renderer lends the command buffer and images only for this synchronous dispatch.
-    const bool recorded = vkgl::record_native_compute(uses, [&](auto command, auto images) {
-        result = m_state->record(command, images, frame);
-        return result == arm::FFXM_OK;
-    });
+    const bool recorded =
+        vkgl::temporal_compute("ASR temporal reconstruction", uses, [&](auto command, auto images) {
+            result = m_state->record(command, images, frame);
+            return result == arm::FFXM_OK;
+        });
 
     if (!recorded) {
         error = "cannot dispatch Arm ASR temporal upscaling: " + std::to_string(result);

@@ -53,6 +53,16 @@ Each program retains its last complete graphics pipeline key. Repeated draws com
 before hashing a context-cache lookup. Relinking or deleting a program clears its retained
 pipeline before retirement. The context cache and pipeline pre-warm path remain available.
 
+Shadow-depth combination uses the CPU [frame planner](../graph/README.md) to declare
+its sampled inputs, storage output and exported sampling state. `GraphExecution`
+records those dependencies on the existing command buffer; `graph_states.cpp`
+translates barriers and updates the legacy layout tracker. The dispatch, descriptors and frame-slot ownership are unchanged.
+
+`graph_execution.h` runs synchronous pass callbacks against borrowed image and storage-buffer
+allocations. It validates the complete subgraph before execution, records exact image or buffer
+barriers, and exports consumer states on the existing queue. GTAO's prepass, optional Hi-Z,
+horizon and filter integration uses this executor.
+
 Mesh material records select base, emission and edge-aware upscaled colour textures from the
 same bindless array, so changing the upscaled texture does not split compatible indirect batches.
 Cache readiness stays a shared uniform to keep its fragment branch uniform within a batch.
@@ -165,6 +175,37 @@ GPU-driven references, which [RAC1_GPU_DRIVEN.md](../../../docs/port/RAC1_GPU_DR
 - `OPENRAC_GPU_MARKERS` (`vkgl_commands.cpp`, `vkgl_device.cpp`): names the timed GPU passes for
   profilers, in a build configured with `-DOPENRAC_GPU_MARKERS=ON`.
 
+## Graph imports
+
+`GraphExecution` borrows resources through `import_image`, `import_buffer` and
+`import_attachment`. `InitialContents::Preserve` retains valid incoming contents;
+`InitialContents::Discard` requires producers to define them before any read.
+These policies describe graph contents, not immediate GPU clears. Texture imports
+use actual allocation identity and layout. Attachments accept one colour or depth
+aspect; unsupported aspects and external layouts return an error.
+
+## Graph transfers
+
+`GraphExecution::copy_buffer_to_image` uses typed imported handles and an explicit
+transfer-read byte range. Its work pass must declare the destination transfer write;
+a later export supplies shader visibility. The command is valid only during a work
+callback, checks bounds/format/texel alignment and records no extra barriers. Water's
+graph and the legacy `copy_buffer_to_texture` share the native copy recorder.
+
+## Compute graph inputs
+
+`GraphExecution::capture_compute_reads` captures sampled images, texel buffers and uniform
+blocks from the bound compute shader, using the descriptor path's texture lookup.
+Storage reads and writes remain explicit pass declarations. `ComputeInputs::UniformBlocks`
+omits samplers for shortlist branches that only read metadata. A failed capture leaves
+the caller's pass unchanged. Loose uniforms and immutable
+dummy descriptors stay backend-owned. Sampled images currently require one mip level.
+
+Read-only ring views retain their actual offsets and share one allocation identity.
+A buffer subsequently bound for writable storage is promoted to stable storage,
+including when it was already sampled earlier in the frame. Recording adds no
+submissions, CPU waits or copies beyond existing buffer uploads.
+
 ## Tests
 
 The renderer's tests run again on this backend under `_vulkan` names (`port/cmake/Window.cmake`),
@@ -203,6 +244,19 @@ CI). Where Vulkan cannot open, the window falls back to OpenGL and they repeat t
   `enhanced_rendering_vulkan`, `enhanced_rendering_off_vulkan`: the enhanced rendering's passes on
   Vulkan.
 
+## Graphics graph inputs
+
+The backend implements `renderer/colour_graph_backend.h`; the core renderer
+includes that contract rather than Vulkan headers. Native colour and snapshot
+declarations stay in this module, and compatibility recording stays in renderer.
+
+`GraphExecution::capture_graphics_reads` captures the bound graphics program's
+samplers, uniform ranges and read-only storage ranges. Both vertex and fragment
+reader scopes are retained. Capture is transactional, and rejects compute programs.
+Callers must declare any writable storage separately. Graphics samplers import
+complete mip chains under the backend's one-layout-per-image tracker; the compute
+and writable-image interfaces retain their single-level contract.
+
 ## Further reading
 
 - [vkgl.h](vkgl.h): how GL's objects, programs, state and rows map onto Vulkan.
@@ -214,3 +268,94 @@ CI). Where Vulkan cannot open, the window falls back to OpenGL and they repeat t
   counters (`vkgl::submission_counters()`).
 - [docs/port/RENDER_PERF.md](../../../docs/port/RENDER_PERF.md): every render counter and gauge,
   where it is counted, the timed sections, and the optimisation registry.
+
+## Temporal graph recording
+
+`temporal_graph.h` declares synchronous temporal raster, complete colour blit and
+opaque native-compute phases. Raster inputs are explicit; read-only graphics storage
+and palettes are captured once at object-motion shader setup. Overwrite and preserved
+outputs have different contracts, and final display attachments remain available to
+the HUD. No allocation or submission is added by these helpers.
+
+`graph_presentation.h` is the backend's private acquired-image bridge. It records the
+compiled transfer and PRESENT transitions on the command buffer already chosen by the
+presentation path. Swapchain ownership and semaphore waits stay with the context.
+Vulkan uses graph dependency planning for temporal recording.
+
+Temporal composition joins compatible temporal phases in a shared plan. Native SDK
+dispatches flush the pending section before returning their success or failure;
+fallback copies, blur and colour grading can then form the next section. SDK-private
+histories and barriers remain opaque. Late overlays, HUD and acquired-image
+presentation retain their existing boundaries.
+
+`PreparedRaster` retains each pass's loose uniforms, sampler/block bindings and
+framebuffer attachment descriptions. Execution installs those values and restores
+later preparation values afterward, including on callback failure. Owners and
+callbacks remain alive until the synchronous scope returns. Displayed-frame
+history advances only after the complete temporal scope succeeds.
+
+## Frame capture
+
+`frame_capture.h` requests and reads a CPU-only frame-wide diagnostic on the owning
+graphics thread. The existing executors append declarations at pass entry and after
+nested work. Presentation compiles the capture, independently of the GPU submission.
+`OPENRAC_RENDER_GRAPH_DUMP=1` logs one nonempty capture. Disabled capture retains no
+source declarations. See [frame-wide diagnostics](../graph/README.md#frame-wide-diagnostics)
+for opaque boundaries and the limits of the captured model.
+
+## Prepared surface recording
+
+`surface_batch.h` joins existing surface graph declarations within the synchronous
+`renderer::run_surface_chain` scope. `surface_batch_internal.h` owns the temporary
+plan, image bindings and callbacks. Each compute work pass prepares one immutable
+`PreparedDispatch`; multiple dispatches require separate declared passes. Graphics
+and native-compute callbacks opt into deferred recording through `run_prepared`.
+
+The collector rejects undeclared draws, copies, clears, barriers and submissions
+during preparation. Compute setup may upload independent inputs and create frame
+descriptors, but sampled-image transitions and GPU dispatches wait for the shared
+compile. GPU timing surrounds execution rather than setup. Ordinary recording uses
+the same dispatch helper without collecting packets.
+
+`surface_copy.cpp` declares complete depth/stencil copies, sample-zero depth resolves
+and averaged normal-colour resolves. Native copy/resolve commands retain their
+original coverage and formats. `attachment_copy.h` shares their command emitters with
+GL-shaped blits, so graph transitions do not duplicate native barriers.
+Sources, destinations, extents and sample conversions
+validate before the shared section executes.
+
+The sky scope joins shadows, atmosphere transport and sky composition. Late shadows
+join the surface scope, followed by the first contiguous opaque/cutout world batch.
+Explicit early-cache reads connect that batch to its compute producer; per-material
+descriptor reads remain local to drawing. Blended work retains the original batch boundaries.
+Deferred callbacks borrow frame/provider
+state only until their enclosing call returns. Native bind caches are invalidated
+when restoring raster state. Failed preparation or compilation returns an error to the existing frame
+boundary. It does not retry a partially prepared frame.
+
+Native shadow composition uses `GraphExecution`, including the existing wrapped
+static-depth offset, R32F storage output and sampled export. Its descriptors, push
+constants and image owners are captured before compilation. No shadow-only barrier
+executor remains.
+
+`GraphExecution::run_ordered` records whole bucket callbacks that inherit the last
+ordered callback's outgoing graphics state. The first callback starts from its
+captured entry state; the scope publishes the last outgoing state. It does not
+replace `run_prepared`, whose low-level draws require their captured bindings.
+`world_colour.cpp` retains world-layer and blend order. Effects prepare simulation
+and geometry before joining refraction copies and their sampled colour/depth reads.
+
+`ColourAttachments::Colour` declares depth-free sky blending; ordinary world phases
+retain colour/depth preservation. Descriptor-only graphics reads also use prepared
+callbacks, so transport visibility can join the same plan as sky attachment writes.
+
+`BucketRenderer::record_colour` declares ordinary bucket draws or prepares known
+effect geometry before retaining its draw metadata. With opted-in temporal hooks,
+the last supported world/effects sequence joins opaque snapshots, refraction and
+motion/reconstruction inputs in one section. Nested `temporal_chain` calls finish
+pending work before returning to the history owner. Native SDK decisions still
+flush synchronously; unsupported providers and HUD retain their boundaries.
+
+`run_surface_setup` finishes pending declarations and suspends collection around
+material setup. Cold water simulation can then finish its borrowed callbacks and
+transfers synchronously before effect snapshots enter the next shared section.

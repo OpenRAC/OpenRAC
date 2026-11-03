@@ -27,6 +27,7 @@
 #include <string>
 #include <vector>
 
+#include "common/result.h"
 #include "renderer/ambient_occlusion.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gtao_settings.h"
@@ -242,11 +243,15 @@ struct FrameInput {
     std::function<void(const RenderTarget&)> on_before_particles;
     // Resolves the world before the HUD, replacing its target with a display-resolution target.
     std::function<void(RenderTarget&)> on_resolve_world;
+    // Known temporal hooks declare their work and finish it before committing displayed history.
+    bool prepares_temporal_chain = false;
     // Resolved world depth, before world colour: GPU probe selection.
     std::function<void(unsigned, int, int)> after_world_depth;
     // The game's tick this frame shows (the same for the frames drawn between two ticks).
     std::uint64_t frame = 0;
     double seconds = 0.0;
+    // Opts a known depth hook into resource/dispatch preparation without draws or readbacks.
+    bool prepares_world_depth = false;
 };
 
 // Where a frame is drawn: a framebuffer (0 is the window) and its size.
@@ -345,9 +350,28 @@ public:
 
     virtual void render_opaque_colour(unsigned, const FrameInput&, RenderState&) {}
 
+    // Borrows matching early cache buffers through execution; empty keeps colour outside the chain.
+    virtual std::span<const unsigned> opaque_colour_buffers(
+        const FrameInput&, const RenderState&
+    ) const {
+        return {};
+    }
+
+    // True when this world bucket can defer colour with stable frame-owned inputs and callbacks.
+    virtual bool prepares_colour_chain() const { return false; }
+
+    // Declares colour work with frame-owned inputs; overrides may prepare effect geometry first.
+    // The enclosing synchronous chain owns `input` and `state` until recording finishes.
+    [[nodiscard]] virtual Result<void> record_colour(const FrameInput& input, RenderState& state);
+
     virtual bool enhanced_lighting_available() const { return false; }
 
     virtual bool needs_early_lighting(const FrameInput&) const { return false; }
+
+    // True when shadow and lighting inputs can be prepared as scoped graph declarations.
+    virtual bool prepares_surface_chain(const FrameInput&, const RenderState&) const {
+        return false;
+    }
 
     virtual void render_early_lighting(unsigned, const FrameInput&, RenderState&) {}
 
@@ -411,8 +435,56 @@ private:
     std::unique_ptr<AmbientOcclusion> m_ambient_occlusion;  // Null until one is registered.
     // Starts normal-writing depth with matching samples; allocation failure logs and returns false.
     [[nodiscard]] bool begin_surface_prepass(RenderState& state);
+    // Records world depth/normal writes and their optional Vulkan graph boundary.
+    void render_surface_prepass(const FrameInput& input, RenderState& state, bool normals);
+    // Clears and draws the prepass using the existing scene renderers.
+    void draw_surface_prepass(const FrameInput& input, RenderState& state, bool normals);
     // Resolves normals and copies depth back, preserving the existing background colour.
     void finish_surface_prepass(const RenderTarget& target);
+    // Checks the initial supported chain shape without changing quality or sample settings.
+    [[nodiscard]] bool can_prepare_surface_chain(const FrameInput&, const RenderState&) const;
+    // Stops a contiguous opaque batch before the next layer's blended work.
+    std::size_t opaque_colour_end(std::size_t first) const;
+    // Collects unique early cache reads; returns empty when any layer needs standalone colour.
+    std::vector<unsigned> opaque_colour_buffers(
+        std::size_t first, std::size_t end, const FrameInput& input, const RenderState& state
+    ) const;
+    // Records the existing solid/cutout rounds without changing their order or culling.
+    void draw_opaque_colour(
+        std::size_t first, std::size_t end, const FrameInput& input, RenderState& state
+    );
+    // Declares optional cache reads before recording or deferring the unchanged opaque batch.
+    [[nodiscard]] Result<void> record_opaque_colour(
+        std::size_t first,
+        std::size_t end,
+        const FrameInput& input,
+        RenderState& state,
+        std::span<const unsigned> buffers = {}
+    );
+    // Bounds a consecutive known world-colour sequence without crossing effects, UI or unknown hooks.
+    std::size_t world_colour_end(std::size_t first) const;
+    // Requires known colour providers and temporal hooks through the last pre-HUD bucket.
+    bool can_prepare_world_tail(std::size_t first, std::size_t hud, const FrameInput& input) const;
+    // Joins the remaining world/effects, opaque snapshot and temporal resolve before HUD work.
+    [[nodiscard]] Result<void> record_world_tail(
+        std::size_t first,
+        std::size_t hud,
+        const FrameInput& input,
+        RenderState& state,
+        std::vector<bool>& opaque_prepared
+    );
+    // Queues ordered opaque and blended work while retaining the existing batch barriers.
+    [[nodiscard]] Result<void> record_world_colour(
+        std::size_t first,
+        std::size_t end,
+        const FrameInput& input,
+        RenderState& state,
+        std::vector<bool>& opaque_prepared
+    );
+    // Records a bucket with its own captured opaque-batch flag and render-thread timing.
+    [[nodiscard]] Result<void> record_bucket_colour(
+        std::size_t index, const FrameInput& input, RenderState& state, bool opaque_batched
+    );
     FrameBuffer m_selection_depth;
     // Owns smooth normals and matching depth; allocated only for enhanced lighting or AO.
     FrameBuffer m_surface_prepass;

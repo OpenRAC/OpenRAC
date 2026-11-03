@@ -144,6 +144,7 @@ enum class Var : std::uint16_t {
     PvsOff,
     Reach,
     Record,
+    RenderGraphDump,
     RenderOptOff,
     RenderThread,
     Replay,

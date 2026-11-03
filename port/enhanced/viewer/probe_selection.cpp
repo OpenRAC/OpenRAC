@@ -6,6 +6,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
@@ -139,39 +140,13 @@ void ProbeSelection::dispatch(
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, depth);
     m_clip = renderer::multiply(camera.projection, camera.view);
-    glMemoryBarrier(
-        GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT
-    );  // texture-fetch readers
-    const auto& select = m_select.id() ? m_select : m_cull;
-    select.use();
-    glUniform1i(select.uniform("region_count"), static_cast<int>(m_count));
-    glUniform1i(select.uniform("scene_depth"), 0);
-    glUniformMatrix4fv(select.uniform("world_to_clip"), 1, GL_FALSE, m_clip.data());
-    glUniform3f(
-        select.uniform("camera_position"),
-        camera.position[0],
-        camera.position[1],
-        camera.position[2]
-    );
-    glUniform1i(select.uniform("select_regions"), 1);
-    {
-        const stats::Scope shortlist("probe region shortlist", stats::kGpu);
-        glDispatchCompute(1, 1, 1);
-    }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    m_cull.use();
-    glUniform1i(m_cull.uniform("scene_depth"), 0);
-    glUniformMatrix4fv(m_cull.uniform("world_to_clip"), 1, GL_FALSE, m_clip.data());
-    glUniform1i(m_cull.uniform("select_regions"), 0);
-    stats::gauge("probe split kernels", m_select.id() ? 1 : 0);
     m_translucent_tiles =
         renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeTranslucentTiles);
-    glUniform1i(m_cull.uniform("translucent_tiles"), m_translucent_tiles ? 1 : 0);
-    {
-        const stats::Scope tiles("probe tile masks", stats::kGpu);
-        glDispatchCompute(static_cast<unsigned>(tiles_x), static_cast<unsigned>(tiles_y), 1);
+    if (!dispatch_masks(camera, static_cast<unsigned>(tiles_x), static_cast<unsigned>(tiles_y))) {
+        m_started = false;
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return;
     }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     m_started = true;
     m_width = width;
     m_height = height;
@@ -197,20 +172,26 @@ void ProbeSelection::bind(
             || camera->position != m_secondary_position) {
             glBindBufferBase(wgl::GL_UNIFORM_BUFFER, 7, m_buffers[0]);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, m_buffers[2]);
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
             const auto& select = m_select.id() ? m_select : m_cull;
             select.use();
-            glUniform1i(select.uniform("region_count"), static_cast<int>(m_count));
-            glUniform1i(select.uniform("select_regions"), 1);
-            glUniformMatrix4fv(select.uniform("world_to_clip"), 1, GL_FALSE, clip.data());
-            glUniform3f(
-                select.uniform("camera_position"),
-                camera->position[0],
-                camera->position[1],
-                camera->position[2]
-            );
-            glDispatchCompute(1, 1, 1);
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+            const std::array<enhanced::ComputeOutput, 1> outputs{
+                {{m_buffers[2], (selected_capacity + 1) * sizeof(unsigned)}}
+            };
+            std::string error;
+            // Secondary shortlists read metadata only; the combined kernel's depth branch is inactive.
+            if (!enhanced::run_compute_graph(
+                    "secondary probe shortlist",
+                    outputs,
+                    [&] { dispatch_shortlist(clip, camera->position); },
+                    error,
+                    enhanced::ComputeInputs::UniformBlocks
+                )) {
+                log::warn("secondary probe graph unavailable: {}", error);
+                m_secondary_valid = false;
+                shader.use();
+                glUniform1i(shader.uniform("probe_gpu_selection"), 0);
+                return;
+            }
             shader.use();
             m_secondary_clip = clip;
             m_secondary_position = camera->position;

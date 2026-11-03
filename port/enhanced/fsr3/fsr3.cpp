@@ -288,6 +288,7 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     textures = &frame.textures;
     display = frame.target;
     has_opaque = false;
+    finish_colour = std::move(frame.finish_colour);
     frame.target.framebuffer = world.id();
     frame.target.width = size[0];
     frame.target.height = size[1];
@@ -300,6 +301,7 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     frame.input.on_resolve_world = [this](auto& target) {
         resolve(target);
     };
+    frame.input.prepares_temporal_chain = display.framebuffer != 0;
     auto before_hud = std::move(frame.input.before_hud);
     frame.input.before_hud = [this, before_hud = std::move(before_hud)] {
         // The renderer clears the display depth immediately after temporal resolve.
@@ -369,6 +371,7 @@ void Fsr3::reset() {
 
 void Fsr3::release() {
     auto& state = *m_state;
+    state.finish_colour = {};
     state.sdk.release();
     state.asr.release();
     state.use_asr = false;
