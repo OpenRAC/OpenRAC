@@ -591,7 +591,60 @@ void test_setup_boundary() {
     CHECK(!renderer::run_surface_setup({}));
 }
 
-// Odd sizes, full/half AO and recreated resources keep exact output; unknown hooks retain the reference.
+// Checks colour formats and depth/stencil limits because supported MSAA counts need not be contiguous.
+VkSampleCountFlags surface_sample_counts() {
+    vkgl::NativeDevice device;
+    const bool available = vkgl::native_device(device);
+    CHECK(available);
+
+    // Failure remains a test error, without passing invalid handles to the driver.
+    if (!available) {
+        return VK_SAMPLE_COUNT_1_BIT;
+    }
+
+    VkPhysicalDeviceProperties limits{};
+    vkGetPhysicalDeviceProperties(device.physical, &limits);
+    VkSampleCountFlags counts =
+        limits.limits.framebufferDepthSampleCounts & limits.limits.framebufferStencilSampleCounts;
+    // The world and normal targets share the renderer's depth format but use different colours.
+    for (const auto format : {VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT}) {
+        VkImageFormatProperties properties{};
+        const VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                                        | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                        | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        const auto result = vkGetPhysicalDeviceImageFormatProperties(
+            device.physical,
+            format,
+            VK_IMAGE_TYPE_2D,
+            VK_IMAGE_TILING_OPTIMAL,
+            usage,
+            0,
+            &properties
+        );
+        CHECK(result == VK_SUCCESS);
+
+        // Unsupported attachment formats cannot provide a valid multisample fixture.
+        if (result != VK_SUCCESS) {
+            return VK_SAMPLE_COUNT_1_BIT;
+        }
+        counts &= properties.sampleCounts;
+    }
+    return counts;
+}
+
+// Chooses a supported MSAA tier for ordering and rejection checks, or one without MSAA.
+int surface_multisamples() {
+    const auto counts = surface_sample_counts();
+    // Both tiers still run separately in the complete coverage regression below.
+    for (const int samples : {2, 4}) {
+        if ((counts & static_cast<VkSampleCountFlags>(samples)) != 0) {
+            return samples;
+        }
+    }
+    return 1;
+}
+
+// Odd sizes, full/half AO and recreated resources keep exact output; unknown hooks use separate scopes.
 void test_chain() {
     Fixture fixture;
     // Odd extents expose incorrect rounded buffer ranges across target recreation.
@@ -618,7 +671,7 @@ void test_chain() {
     fixture.input.prepares_world_depth = true;
     fixture.input.gtao_settings.hi_z = true;
     compare(fixture, false);
-    fixture.resize(19, 17, true, std::min(4, renderer::FrameBuffer::max_samples()));
+    fixture.resize(19, 17, true, surface_multisamples());
     compare(fixture);
     test_failed_preparation(fixture);
 }
@@ -627,10 +680,11 @@ void test_chain() {
 void test_multisample_chain() {
     Fixture fixture;
     fixture.edge_coverage = true;
+    const auto counts = surface_sample_counts();
     // Tiny odd extents exercise resize and row rounding without full-scene compilation cost.
     for (int samples : {2, 4}) {
-        // A device may expose fewer samples than the requested fixture.
-        if (samples > renderer::FrameBuffer::max_samples()) {
+        // Some drivers support 4x MSAA without supporting 2x for these attachment formats.
+        if ((counts & static_cast<VkSampleCountFlags>(samples)) == 0) {
             continue;
         }
         for (bool half : {false, true}) {
@@ -648,12 +702,13 @@ void test_multisample_chain() {
 // Multisample resolves must precede their sampled consumers in the same executable section.
 void test_multisample_order(test::GlContext& context) {
     // Single-sample-only devices still run all other surface regressions.
-    if (renderer::FrameBuffer::max_samples() < 2) {
+    const int samples = surface_multisamples();
+    if (samples == 1) {
         return;
     }
     Fixture fixture;
     fixture.edge_coverage = true;
-    fixture.resize(23, 17, true, 2);
+    fixture.resize(23, 17, true, samples);
     render_frame(fixture);
     CHECK(vkgl::capture_frame_graph());
     render_frame(fixture);
@@ -703,7 +758,7 @@ void test_surface_copy_contracts() {
     std::string error;
     CHECK(source.create(4, 4, error));
     CHECK(resized.create(5, 4, error));
-    CHECK(multisample.create(4, 4, error, 2));
+    CHECK(multisample.create(4, 4, error, surface_multisamples()));
     // Both attachment types promise complete overwrites and must enforce the same coverage contract.
     for (auto aspect : {renderer::SurfaceCopy::DepthStencil, renderer::SurfaceCopy::Colour}) {
         // The first aliases, the second is partial, and the third would broadcast into MSAA.
