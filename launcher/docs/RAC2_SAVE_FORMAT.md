@@ -177,3 +177,42 @@ constants in each level's code, e.g. 0x83, 0x86, 0x89, 0x9F on Damosel, Joba, En
 and Maktar's arena challenge results (chunk 5 at the index `func_L11_0043E108` and
 `func_L02_003F9B70` give per challenge), races, and the rest of the cinematics bits. Each needs
 its own before/after experiment.
+
+### Levels 9 to 16 (L-6b)
+
+`rac2_flags/planets_b.rs`. Found by reading every access to chunk 5 (0x1395B8) and chunk 43
+(0x139768) in the levels' own code: in the split assembly (`rac2-decomp/build/<level>/asm`) the
+accesses are `lui 0x14` plus a negative offset or a register based on `%lo(D_1395B8)`, so each
+byte's index is exact; the C in `games/rac2/ntsc/src/levels/<level>` then says what the code
+does with it.
+
+**Load proofs** (box1, hidden, scratch settings and cards, port binary of L-2's round, format 20
+data). The Oozla fixture card moved to the planet (chunk 0 = level, chunk 14 byte level = 1), the
+flags then set through `write_save` (an ignored scratch test calling the editor's own write
+path), loaded from the title (`OPENRAC_PRESS=300:4000:10,600:40:5,700:4000:5,900:4000:5`), and
+compared with the same card without the flags. A moby's state is read from a RAM dump
+(`OPENRAC_DUMP_RAM`) by finding its update function's address at moby +0x64 (state +0x20,
+class +0xAA).
+
+| Planet       | Flag                             | Place                 | Code                                                                                                                                                                                                             | Proof                                                                                                                                                                                               |
+| ------------ | -------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dobbo        | Joba coordinates: task given     | chunk 5 byte 0x1D     | `func_L09_0040A2E8` (class 3678) sets it with 0x2D after its first scene; set, the character starts in state 3, not 1                                                                                            | state 3 with it, 1 without (frame 2650)                                                                                                                                                             |
+| Dobbo        | Joba coordinates: task done      | chunk 5 byte 0x2E     | the same character: in state 3 and set, it plays its hand-over scene and calls `func_002AD7B8(11)` (Joba on the map)                                                                                             | from the code                                                                                                                                                                                       |
+| Dobbo        | Hrugis Cloud coordinates offered | chunk 43 bit 768      | `func_L09_00408478` (class 3600, sells Hrugis Cloud's place for bolts, `func_002AD7B8(10)`): set, it starts in the sale states 6/7                                                                               | state 7 with it, 1 without                                                                                                                                                                          |
+| Hrugis Cloud | Ship challenge 1 to 4 won        | chunk 5 0x66..0x69    | wins per challenge: `func_L10_00421288` copies them to 0x1B1390..0x1B139C at the start, `func_L10_00425888` back after a win; challenge 1 at 0 sets the first-visit word 0x1B1444                                | 0x66..0x68 = 1: the counters load as 1 1 1 0 and 0x1B1444 stays 0 (1 without); challenge 4 from the code                                                                                            |
+| Joba         | Arena entered                    | chunk 5 byte 0x4A     | `func_L11_0043E1A0`, as Maktar's byte 5: clear, the entry opens the gate and plays the first-visit scene                                                                                                         | with the arena-fix binary of L-2 and `OPENRAC_WRITE=c300:1A7904:2` (the menu's "enter"): clear, the game set it 0 → 1 at frame 2469 and the arena (class 3466) was in state 8 at 4100; set, state 1 |
+| Joba         | Arena challenge 1 to 13 won      | chunk 5 61..72, 75    | wins per challenge, the byte from `func_L11_0043E108` (challenge 9 is 71, 10 is 69, 11 is 70, 13 is 75); `func_L11_004427B8` adds 1 per win; the menu (`func_L11_00445990`) and the arena's states read them     | challenge 1 (61) set with Arena entered: state 7 at 4100 (1 without); the others from the code                                                                                                      |
+| Gorn         | Ship challenge 1 to 4 won        | chunk 5 0x6B..0x6E    | as Hrugis: `func_L15_0042DCE0` copies them to 0x1B1520..0x1B152C, `func_L15_00432008` back                                                                                                                       | 0x6B, 0x6C = 1: the counters load as 1 1 0 0 (0 0 0 0 without); 3 and 4 from the code                                                                                                               |
+| Snivelak     | Boss beaten                      | chunk 5 byte 0x83 = 2 | 0 not met, 1 fight under way (`func_L16_00403900`), 2 beaten (`func_L16_00412E70`, which also puts Smolg on the map); at 2 the boss (`func_L16_0040ECC0` through `func_L16_00410618`, class 3961) removes itself | state 253 (removed) with it, 1 without                                                                                                                                                              |
+
+Joba's challenge names are in the game's text, not read; they are numbered in the menu's order
+of ids.
+
+**Skipped** (place known, meaning or effect not): Dobbo 0x1E, 0x1F, 0x20, 0x2D (written by the
+level's controller and the Hrugis seller, read only in passing), 0x79/0x7A/0x7D (hint counters:
+every fifth visit plays a help line), 0xA3 (once per arrival, then an autosave), cinematic bits
+767, 771, 807; Joba 0x49 (the arena menu's last choice) and 0x57, cinematic words +0x68, +0x70;
+Todano 0x22 (set when a counted object dies), 0x23 (hero entered an area), cinematic +0x74;
+Boldan 0x24..0x28 (five "hero reached area" bytes no level code reads), 0x7E; Aranos Prison 0x29,
+0x2B (the flight's arrival scene to the prison checks it), 0x78, cinematic +0x7C; the per-level
+object-group bits (chunk 3004) that each level reads. Each needs its own experiment.
