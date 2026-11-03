@@ -806,7 +806,9 @@ BufferRef resolve(Buffer& b, bool persistent) {
         return {b.own, 0, size};
     }
 
-    if (b.gpu != VK_NULL_HANDLE && b.gpu_frame == g->frame_count && b.gpu_version == b.version) {
+    // A buffer first sampled this frame may later become writable storage; promote its transient ring copy.
+    if (!b.storage && b.gpu != VK_NULL_HANDLE && b.gpu_frame == g->frame_count
+        && b.gpu_version == b.version) {
         return {b.gpu, b.gpu_offset, size};
     }
 
@@ -907,6 +909,10 @@ VkBufferView texel_view(GLuint name, GLenum gl_format, VkBufferView fallback) {
     } else if (gl_format == GL_RGBA8) {
         // Compute writes packed UNORM bytes; material shaders read RGBA8.
         format = VK_FORMAT_R8G8B8A8_UNORM;
+    } else if (gl_format == GL_RG32F) {
+        // GTAO's min/max depth hierarchy stores two FP32 bounds per cell.
+        format = VK_FORMAT_R32G32_SFLOAT;
+        texel = 8;
     }
     Buffer* b = g->buffers.find(name);
     if (b == nullptr || b->size < static_cast<std::size_t>(texel)) {
@@ -937,6 +943,49 @@ VkBufferView texel_view(GLuint name, GLenum gl_format, VkBufferView fallback) {
     return view;
 }
 
+VkDeviceSize buffer_image_bytes(const Image& image) {
+    unsigned texel_bytes = 0;
+    // These are the colour formats supported by the renderer's compute-output copy contract.
+    switch (image.format) {
+        case VK_FORMAT_R8G8B8A8_UNORM:
+            texel_bytes = 4;
+            break;
+        case VK_FORMAT_R32G32_SFLOAT:
+            texel_bytes = 8;
+            break;
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
+            texel_bytes = 16;
+            break;
+        default:
+            return 0;
+    }
+    // These copies address the complete base level of single-sample colour images.
+    if (image.width <= 0 || image.height <= 0 || image.samples != VK_SAMPLE_COUNT_1_BIT) {
+        return 0;
+    }
+    return static_cast<VkDeviceSize>(image.width) * static_cast<VkDeviceSize>(image.height)
+           * texel_bytes;
+}
+
+void record_buffer_image_copy(const BufferRef& source, Image& destination) {
+    VkBufferImageCopy copy{};
+    copy.bufferOffset = source.offset;
+    copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copy.imageExtent =
+        {static_cast<unsigned>(destination.width), static_cast<unsigned>(destination.height), 1};
+    vkCmdCopyBufferToImage(
+        frame().main,
+        source.buffer,
+        destination.image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &copy
+    );
+    count_copy(static_cast<unsigned>(destination.width), static_cast<unsigned>(destination.height));
+    destination.discarded = 0;
+    destination.touched = g->recording;
+}
+
 }  // namespace openrac::vkgl::detail
 
 namespace openrac::vkgl {
@@ -956,23 +1005,8 @@ bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int he
     if (!b || !t || !t->image) {
         return false;
     }
-    unsigned texel_bytes = 0;
-    switch (t->image->format) {
-        case VK_FORMAT_R8G8B8A8_UNORM:
-            texel_bytes = 4;
-            break;
-        case VK_FORMAT_R32G32_SFLOAT:
-            texel_bytes = 8;
-            break;
-        case VK_FORMAT_R32G32B32A32_SFLOAT:
-            texel_bytes = 16;
-            break;
-        default:
-            return false;
-    }
-    const auto bytes =
-        static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * texel_bytes;
-    if (t->image->width != width || t->image->height != height || b->size < bytes) {
+    const VkDeviceSize bytes = buffer_image_bytes(*t->image);
+    if (!bytes || t->image->width != width || t->image->height != height || b->size < bytes) {
         return false;
     }
     end_rendering(PassEnd::Copy);
@@ -1003,14 +1037,7 @@ bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int he
     count_barrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
     Image& image = *t->image;
     barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    VkBufferImageCopy copy{};
-    copy.bufferOffset = src.offset;
-    copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copy.imageExtent = {static_cast<unsigned>(width), static_cast<unsigned>(height), 1};
-    vkCmdCopyBufferToImage(
-        cmd, src.buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy
-    );
-    count_copy(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+    record_buffer_image_copy(src, image);
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     image.touched = g->recording;
     return true;

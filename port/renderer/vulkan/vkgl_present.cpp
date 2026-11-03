@@ -25,6 +25,7 @@
 #include "common/profiler.h"
 #include "common/stats.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/graph_presentation.h"
 #include "renderer/vulkan/swapchain_images.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/vulkan/vkgl_internal.h"
@@ -660,24 +661,33 @@ bool present_to_screen() {
     const VkCommandBuffer own =
         render_opt::enabled(render_opt::Opt::VkTightSync) && !hdr ? present_cmd() : VK_NULL_HANDLE;
     VkCommandBuffer cmd = own != VK_NULL_HANDLE ? own : f.main;
-
-    // HDR: the picture encoded into the screen (hdr_output.cpp); else, or when that cannot be
-    // recorded, copied as before: straight into the screen when its copy waited and can be
-    // composed, else from the window.
+    // HDR encoding and its fallback retain the upstream image transitions and compute-stage wait.
     if (!hdr || !hdr_encode_into(cmd, index)) {
+        // Native transfer callbacks retain composition's internal clear-to-blit ordering.
+        const auto copy_screen = [&] {
+            if (composed) {
+                compose_into(cmd, screen, g->swapchain_extent);
+            } else {
+                copy_default_into(cmd, screen, g->swapchain_extent);
+            }
+        };
+        // HDR fallback already owns a transfer-ready screen; the graph plans complete SDR copies.
         if (!hdr) {
+            Image borrowed;
+            borrowed.image = screen;
+            const auto source = composed ? g->present_copy.source : g->default_colour;
+            const auto recorded = record_presentation(cmd, source, borrowed, true, copy_screen);
+            // An incomplete SDR presentation cannot be submitted to the screen.
+            if (!recorded) {
+                throw std::runtime_error(recorded.error().message);
+            }
+        } else {
+            // Failed HDR encoding already performed this transition for its SDR fallback.
+            copy_screen();
             swapchain_barrier(
-                cmd, screen, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
             );
         }
-        if (composed) {
-            compose_into(cmd, screen, g->swapchain_extent);
-        } else {
-            copy_default_into(cmd, screen, g->swapchain_extent);
-        }
-        swapchain_barrier(
-            cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-        );
     }
     // The frame's GPU-driven work recorded and everything handed to the queue; then the present,
     // which a driver may hold until the display or the GPU has room for another picture.
@@ -790,14 +800,28 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
     const VkExtent2D extent{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
     const PendingPresent waiting = g->present_copy;
     VkCommandBuffer cmd = cmd_for(composed.get(), true);
-    barrier(cmd, *composed, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    compose_into(cmd, composed->image, extent);
+    const auto recorded = record_presentation(cmd, waiting.source, *composed, false, [&] {
+        compose_into(cmd, composed->image, extent);
+    });
+    // Temporary images may already be referenced by recorded barriers on failure.
+    if (!recorded) {
+        retire(composed);
+        retire(copied);
+        return false;
+    }
     // The same copy again, the two-step way: into the default framebuffer, then into the image.
     g->present_copy = waiting;
     make_present_copy();
     cmd = cmd_for(copied.get(), true);
-    barrier(cmd, *copied, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copy_default_into(cmd, copied->image, extent);
+    const auto copied_result = record_presentation(cmd, g->default_colour, *copied, false, [&] {
+        copy_default_into(cmd, copied->image, extent);
+    });
+    // Temporary images may already be referenced by recorded barriers on failure.
+    if (!copied_result) {
+        retire(composed);
+        retire(copied);
+        return false;
+    }
     const bool read = read_back(*composed, single) && read_back(*copied, two_step);
     retire(composed);
     retire(copied);

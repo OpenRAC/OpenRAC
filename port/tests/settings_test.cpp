@@ -592,6 +592,13 @@ int main() {
         settings::load(file);
         CHECK(options.gtao_settings.quality == quality);
     }
+    // The depth hierarchy remains independently switchable and survives a save/load cycle.
+    for (bool enabled : {false, true}) {
+        options.gtao_settings.hi_z = enabled;
+        settings::save();
+        settings::load(file);
+        CHECK(options.gtao_settings.hi_z == enabled);
+    }
     std::ofstream(file) << "gtao_quality = quality\n";
     settings::load(file);
     CHECK(options.gtao_settings.quality == renderer::GtaoQuality::Quality);

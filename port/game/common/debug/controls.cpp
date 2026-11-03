@@ -401,6 +401,7 @@ void gtao_controls() {
     bool changed = false;
     ImGui::PushItemWidth(dp(170.0f));
     changed |= checkbox("Half resolution", &options.half_resolution);
+    changed |= checkbox("Hierarchical depth (Hi-Z)", &options.hi_z);
     changed |= slider_int("Directions", &options.slices, 1, 12, "%d", ImGuiSliderFlags_AlwaysClamp);
     changed |=
         slider_int("Steps per side", &options.steps, 4, 24, "%d", ImGuiSliderFlags_AlwaysClamp);

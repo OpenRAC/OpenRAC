@@ -12,6 +12,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "renderer/colour_graph.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
@@ -736,59 +737,6 @@ void LevelScene::set_fog(
     m_fog_params = {slope, offset, std::min(near_f, far_f), std::max(near_f, far_f)};
 }
 
-void LevelScene::draw_sky(const renderer::FrameInput& input, renderer::RenderState& state) {
-    // The shells sit around the camera and never move with it: the view's
-    // rotation only. Each is blended over the last, without depth.
-    renderer::Mat4 rotation = input.camera.view;
-    rotation[12] = rotation[13] = rotation[14] = 0.0f;
-    const renderer::Mat4 view_projection = renderer::multiply(input.camera.projection, rotation);
-    m_sky.use();
-    glUniformMatrix4fv(m_sky.uniform("view_projection"), 1, GL_FALSE, view_projection.data());
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
-    glActiveTexture(GL_TEXTURE0);
-    for (const Group& g : m_groups[static_cast<std::size_t>(Layer::Sky)]) {
-        glBindVertexArray(g.vao);
-        for (const Primitive& p : m_models[g.model].primitives) {
-            const Material& m = m_materials[static_cast<std::size_t>(p.material)];
-            const renderer::TextureHandle texture =
-                m.image >= 0 ? m_textures[static_cast<std::size_t>(m.image)] : m_white;
-            state.textures.bind_upscaled_texture_colours(
-                texture, m_sky, input.texture_filter, !m.clamp_s, !m.clamp_t
-            );
-            // The shell's matrix as the game drew it this tick; its translation is in the game's
-            // sky units, the vertices were exported in 1/1024ths of them (editor/sky.py).
-            renderer::Mat4 shell = renderer::identity();
-            if (p.shell >= 0 && p.shell < 8 && (input.sky_shell_mask & (1u << p.shell)) != 0) {
-                shell = input.sky_shells[static_cast<std::size_t>(p.shell)];
-                shell[3] = shell[7] = shell[11] = 0.0f;
-                shell[12] /= 1024.0f;
-                shell[13] /= 1024.0f;
-                shell[14] /= 1024.0f;
-                shell[15] = 1.0f;
-            }
-            glUniformMatrix4fv(m_sky.uniform("shell"), 1, GL_FALSE, shell.data());
-            glDrawElementsInstanced(
-                GL_TRIANGLES,
-                static_cast<GLsizei>(p.index_count),
-                GL_UNSIGNED_INT,
-                offset(p.first_index * sizeof(std::uint32_t)),
-                g.count
-            );
-            ++state.stats.draw_calls;
-            state.stats.triangles += p.index_count / 3;
-        }
-    }
-    glDisable(GL_BLEND);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
-    glBindVertexArray(0);
-}
-
 bool LevelScene::batches_opaque_colour() const {
 #if defined(OPENRAC_VULKAN)
     static const bool& off = stats::probe(
@@ -879,22 +827,14 @@ void LevelScene::draw_layer(
         m_lighting->prepare_wetness(input, m_palette, m_wetness_hero);
     }
 
-    if (m_lighting && !state.depth_prepass && !state.atmosphere_prepared
-        && (layer == Layer::Sky || layer == Layer::Terrain)) {
-        if (m_lighting->atmosphere_wanted(input) && !state.world_shadows_prepared) {
-            prepare_shadows(input, state);
-            state.world_shadows_prepared = true;
-        }
-        m_lighting->prepare_atmosphere(*this, input, state.target, m_fog_colour, m_fog_params);
-        state.atmosphere_prepared = true;
-    }
+    // Sky owns one scoped shadow/atmosphere/colour plan; levels without sky prepare transport at terrain.
     if (layer == Layer::Sky) {
-        const stats::Scope pass("sky colour", stats::kGpu);
-        draw_sky(input, state);
-        if (m_lighting) {
-            m_lighting->draw_atmosphere_sky(state.target);
-        }
+        render_sky(input, state);
         return;
+    }
+    // A missing sky bucket must still prepare the same transport before world colour.
+    if (layer == Layer::Terrain && !state.depth_prepass && !state.atmosphere_prepared) {
+        prepare_atmosphere(input, state);
     }
     if (layer == Layer::Terrain && !state.depth_prepass && !state.world_shadows_prepared) {
         prepare_shadows(input, state);
@@ -1185,6 +1125,15 @@ void LevelScene::draw_layer(
         glUniformMatrix4fv(shader.uniform("view"), 1, GL_FALSE, input.camera.view.data());
         glUniform1i(shader.uniform("effect_pass"), 0);
         glUniform1i(shader.uniform("metal_pass"), 0);
+        // Bind deformation descriptors before capture; every group restores its own enable flag
+        // before drawing.
+        if (m_lighting && renderer::colour_graph_enabled()) {
+            m_lighting->bind_deformation(shader, false);
+        }
+        const auto reads = renderer::graphics_shader_reads("world colour inputs");
+        if (!reads) {
+            throw std::runtime_error(reads.error().message);
+        }
     };
     glActiveTexture(GL_TEXTURE0 + kLightUnit);
     glBindTexture(GL_TEXTURE_2D, m_lights);

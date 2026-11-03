@@ -3,11 +3,14 @@
 #include "enhanced/fsr3/motion_blur.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <span>
 
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/fsr3/temporal_pass.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 
@@ -144,7 +147,11 @@ void MotionBlur::extract_velocity(const Passes& passes) {
     glBindFramebuffer(GL_FRAMEBUFFER, m_velocity.framebuffer());
     glViewport(0, 0, rw, rh);
     let_go_colour();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const std::array inputs{motion, depth};
+    // Extraction initializes complete exposure-scaled velocity and depth before seed propagation.
+    raster_pass("blur velocity", {m_velocity.framebuffer()}, inputs, [] {
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
 }
 
 int MotionBlur::jump_flood(const Passes& passes) {
@@ -212,7 +219,12 @@ int MotionBlur::jump_flood(const Passes& passes) {
         glUniform1i(program.uniform("jump_pixels"), jump);
         glBindFramebuffer(GL_FRAMEBUFFER, m_seeds[1 - source].framebuffer());
         let_go_colour();
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // The initial shader reads only seed dimensions, not undefined seed pixels.
+        const std::array inputs{m_velocity.texture(), m_seeds[source].texture()};
+        const auto sampled = std::span(inputs).first(pass_count == 0 ? 1u : 2u);
+        raster_pass("blur seed propagation", {m_seeds[1 - source].framebuffer()}, sampled, [] {
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        });
         source = 1 - source;
         ++pass_count;
     }
@@ -260,7 +272,21 @@ void MotionBlur::gather(const Passes& passes, int source) {
         let_go_colour();
     }
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const std::array inputs{
+        reconstructed_colour ? reconstructed_colour : m_colour.texture(),
+        m_velocity.texture(),
+        m_seeds[source].texture()
+    };
+    // Only COPY_UNCHANGED covers stationary pixels; the other gather must retain the displayed
+    // reconstruction.
+    const vkgl::TemporalTarget target{
+        display.framebuffer,
+        reconstructed_colour ? vkgl::TemporalContents::Overwrite : vkgl::TemporalContents::Preserve,
+        renderer::graph::Aspect::Colour,
+        false,
+        vkgl::TemporalConsumer::Attachment
+    };
+    raster_pass("blur gather", target, inputs, [] { glDrawArrays(GL_TRIANGLES, 0, 3); });
 }
 
 void let_go_colour() {

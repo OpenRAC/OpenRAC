@@ -11,6 +11,7 @@
 #include "enhanced_viewer_shaders.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 
@@ -340,6 +341,16 @@ int main(int argc, char** argv) {
             fixture.compare(camera, {0, 0, 96, 80}, .005f);
         }
     }
+
+    // Fresh selector state exercises fresh graph recording rather than returning cached masks.
+    const auto graph_asset = synthetic(lighting::kEnvironmentProbeLimit, true);
+    fixture.upload(graph_asset);
+    const auto graph_masks = fixture.draw(camera, {0, 0, 96, 80}, .02f, -1, true);
+    const auto graph_colour = fixture.draw(camera, {0, 0, 96, 80}, .02f, 1, true);
+
+    fixture.upload(graph_asset);
+    CHECK(fixture.draw(camera, {0, 0, 96, 80}, .02f, -1, true) == graph_masks);
+    CHECK(fixture.draw(camera, {0, 0, 96, 80}, .02f, 1, true) == graph_colour);
 
     fixture.release();
     std::printf("%u RGB-channel frame comparisons (float-bit exact)\n", fixture.comparisons);

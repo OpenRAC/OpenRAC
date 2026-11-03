@@ -305,9 +305,20 @@ int main(int argc, char** argv) {
                 tick < 2 ? renderer::ShadowQuality::Low : renderer::ShadowQuality::Medium;
             std::vector<std::uint8_t> reference;
             std::uint64_t reference_draws = 0;
+            // Compare graph rendering with and without shadow reuse.
             for (const bool reuse : {false, true}) {
                 renderer::render_opt::set(renderer::render_opt::Opt::ShadowFrameReuse, reuse);
+
+#if defined(OPENRAC_VULKAN)
+                const auto before = vkgl::submission_counters();
+#endif
                 renderer.render(frame, rt);
+#if defined(OPENRAC_VULKAN)
+                CHECK(
+                    (vkgl::submission_counters().surface_chains > before.surface_chains)
+                    == gl::is_vulkan()
+                );
+#endif
                 const auto pixels = target.read_rgba();
                 stats::begin_frame(stats::FrameKind::Tick, tick + 1);
                 const auto* measured = stats::history(0);
@@ -320,12 +331,14 @@ int main(int argc, char** argv) {
                     );
                     CHECK(maps == (!reuse && tick % 2 == 0 ? 2 : 1));
                 }
+                // The non-reused frame establishes expected image and draw counts.
                 if (!reuse) {
                     reference = pixels;
                     reference_draws = renderer.last_stats().draw_calls;
                 } else {
                     CHECK(pixels == reference);
-                    if (tick % 2 == 0) {
+                    // Atmosphere shares its earlier maps only when reuse is explicitly enabled.
+                    if (reuse && tick % 2 == 0) {
                         CHECK(renderer.last_stats().draw_calls < reference_draws);
                     } else {
                         CHECK(renderer.last_stats().draw_calls == reference_draws);

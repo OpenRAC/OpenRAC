@@ -633,30 +633,41 @@ int main(int argc, char**) {
         return test::kSkip;
     }
     renderer::gl_stats::install(platform::Window::gl_loader());
-    for (bool direct : {false, true}) {
-        renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurFastPath, direct);
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, direct);
-        renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
-        compare_direct = direct;
-        test_cutscene_camera_blur();
-        test_target_reference();
-        test_jump_with_stationary_target();
-        test_translation_relative_blur();
-        test_reference_at_different_depths();
-        test_camera_cancellation();
-        test_object_motion_and_controls();
-        test_live_blur_tuning();
-        test_sample_and_depth_tuning();
-        test_foreground_occlusion();
-        test_adaptive_gather_contract();
-        test_thin_opposing_motion();
-        test_jump_flood_radius_and_edges();
-        test_wide_source_coordinates();
-        test_dense_motion_equivalence();
-        test_scaled_resize_equivalence();
-        test_flood_setup_reuse();
+    std::vector<Pixels> graph_reference;
+    // Repeated graph recording covers motion, occlusion, resize and partial gathers.
+    for (bool repeated : {false, true}) {
+        reference_frames.clear();
+        compared_frames = 0;
+        for (bool direct : {false, true}) {
+            renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurFastPath, direct);
+            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, direct);
+            renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
+            compare_direct = direct;
+            test_cutscene_camera_blur();
+            test_target_reference();
+            test_jump_with_stationary_target();
+            test_translation_relative_blur();
+            test_reference_at_different_depths();
+            test_camera_cancellation();
+            test_object_motion_and_controls();
+            test_live_blur_tuning();
+            test_sample_and_depth_tuning();
+            test_foreground_occlusion();
+            test_adaptive_gather_contract();
+            test_thin_opposing_motion();
+            test_jump_flood_radius_and_edges();
+            test_wide_source_coordinates();
+            test_dense_motion_equivalence();
+            test_scaled_resize_equivalence();
+            test_flood_setup_reuse();
+        }
+        CHECK(compared_frames == reference_frames.size());
+        if (!repeated) {
+            graph_reference = reference_frames;
+        } else {
+            CHECK(graph_reference == reference_frames);
+        }
     }
-    CHECK(compared_frames == reference_frames.size());
     std::cout << "Compared " << compared_frames << " GPU frames byte-for-byte\n";
     renderer::render_opt::reset();
     CHECK(vkgl::submission_counters().validation_errors == 0);

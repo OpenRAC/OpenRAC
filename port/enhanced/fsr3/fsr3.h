@@ -4,6 +4,7 @@
 // Enhanced Vulkan temporal reconstruction with displayed object poses and a full-resolution HUD.
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -37,6 +38,8 @@ struct TemporalFrame {
     float motion_blur_strength = 0.5f;
     bool camera_motion_blur = false;  // Real-time cutscenes use the original FSR motion.
     renderer::MotionBlurSettings blur_settings;
+    // Optional graph-compatible colour processing after reconstruction/blur, before native HUD work.
+    std::function<void()> finish_colour{};
 };
 
 // Owns SDK histories and intermediate targets; only the render thread calls it.

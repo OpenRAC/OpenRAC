@@ -4,14 +4,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <mutex>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/colour_graph.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
@@ -268,8 +272,26 @@ void Atmosphere::prepare(
     glUniform4fv(compute.uniform("atmosphere_centres[0]"), 8, centres.data());
     glUniform4fv(compute.uniform("atmosphere_media[0]"), 8, media.data());
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_buffer);
-    glDispatchCompute((unsigned(width) + 7) / 8, (unsigned(height) + 7) / 8, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+    // Each cell stores four vec4 transport records; the callback retains the original workgroup
+    // order.
+    const std::array outputs{ComputeOutput{
+        m_buffer,
+        std::uint64_t(width) * std::uint64_t(height) * std::uint64_t(grid.slices) * 4 * 4
+            * sizeof(float)
+    }};
+    const auto dispatch = [&] {
+        glDispatchCompute((unsigned(width) + 7) / 8, (unsigned(height) + 7) / 8, 1);
+    };
+    // The colour reference keeps its original single trailing visibility dependency.
+    if (renderer::colour_graph_enabled()) {
+        if (!run_compute_graph("atmosphere transport", outputs, dispatch, error)) {
+            log::warn("atmosphere transport unavailable: {}", error);
+            return;
+        }
+    } else {
+        dispatch();
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+    }
     stats::gauge("atmosphere cells", width * height * grid.slices);
     m_active = true;
     glActiveTexture(GL_TEXTURE0);
@@ -316,6 +338,7 @@ void Atmosphere::draw_sky(const renderer::RenderTarget& target) {
     if (!m_vao) {
         glGenVertexArrays(1, &m_vao);
     }
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
     glViewport(0, 0, target.width, target.height);
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -325,8 +348,24 @@ void Atmosphere::draw_sky(const renderer::RenderTarget& target) {
     glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     m_sky.use();
     bind(m_sky);
-    glBindVertexArray(m_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const auto reads = renderer::graphics_shader_reads("atmosphere sky inputs");
+    if (!reads) {
+        throw std::runtime_error(reads.error().message);
+    }
+    // Preserve the same attachment blending after the declared transport-buffer read.
+    const auto drawn = renderer::colour_pass(
+        "atmosphere sky",
+        target,
+        [this] {
+            glBindVertexArray(m_vao);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        },
+        renderer::ColourAttachments::Colour
+    );
+    // A rejected sky pass must not publish an incomplete atmosphere overlay.
+    if (!drawn) {
+        throw std::runtime_error(drawn.error().message);
+    }
     glBindVertexArray(0);
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
@@ -410,6 +449,14 @@ public:
         if (m_material) {
             m_material->prepare_scene(input, target);
         }
+    }
+
+    bool prepares_colour_chain() const override {
+        return !m_material || m_material->prepares_colour_chain();
+    }
+
+    std::array<unsigned, 2> scene_textures() const override {
+        return m_material ? m_material->scene_textures() : std::array<unsigned, 2>{};
     }
 
     void finish_pass() override {

@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include <functional>
+
 namespace openrac::renderer {
 
 struct FrameInput;
@@ -26,6 +28,14 @@ public:
     virtual ~AmbientOcclusion() = default;
     AmbientOcclusion(const AmbientOcclusion&) = delete;
     AmbientOcclusion& operator=(const AmbientOcclusion&) = delete;
+
+    // Records the supplied depth/normal prepass synchronously; providers may declare its dependencies.
+    virtual void render_prepass(unsigned /*framebuffer*/, const std::function<void()>& record) {
+        record();
+    }
+
+    // Opts a provider into declaration-only compute preparation inside the shared surface chain.
+    virtual bool prepares_surface_chain() const { return false; }
 
     // Evaluates the occlusion of `target`'s depth. With `apply_to_colour` it is composited over the
     // target's colour; without, it is left for the world's lighting to read (visibility_texture(),

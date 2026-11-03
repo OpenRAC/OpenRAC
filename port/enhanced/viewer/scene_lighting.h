@@ -11,6 +11,7 @@
 
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -73,6 +74,8 @@ public:
     ) override;
     void bind_deformation(const renderer::Shader& shader, bool enabled) const override;
     bool deformation_active() const override;
+
+    bool prepares_atmosphere_chain() const override { return true; }
     bool atmosphere_wanted(const renderer::FrameInput&) const override;
     void prepare_atmosphere(
         const scene::LevelScene&,
@@ -139,6 +142,9 @@ public:
         const renderer::RenderState& state
     ) const override;
     bool early_matches(
+        const renderer::FrameInput& input, const renderer::RenderState& state
+    ) const override;
+    std::span<const unsigned> early_buffers(
         const renderer::FrameInput& input, const renderer::RenderState& state
     ) const override;
 

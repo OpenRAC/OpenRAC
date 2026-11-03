@@ -26,7 +26,6 @@ inline constexpr std::array kFocusedEquivalence{
     std::pair{renderer::render_opt::Opt::FsrObjectHistoryReuse, "fsr3_frame"},
     std::pair{renderer::render_opt::Opt::FsrReactiveR8, "fsr3_frame"},
     std::pair{renderer::render_opt::Opt::FsrFloat16, "fsr3_sdk"},
-    std::pair{renderer::render_opt::Opt::NativeComputeSetup, "fsr3_sdk"},
     std::pair{renderer::render_opt::Opt::OverwriteDiscard, "motion_blur"},
     std::pair{renderer::render_opt::Opt::AgxDirectOutput, "fsr3_frame"},
     std::pair{renderer::render_opt::Opt::WaterStepBarriers, "water_runtime"},

@@ -17,6 +17,7 @@ OpenRAC/
 ├── editor/                 Godot level editor and extractor (shared)
 ├── launcher/               desktop app to set up, build and play every game (Tauri)
 ├── port/                   the native PC port: runtime, hostgen, renderer, platform, the games' programs
+│   └── renderer/graph/     CPU-only frame dependencies and barrier planning
 ├── tools/                  repository-wide tools: openrac.py, extractor.py, sources.py
 │   └── openrac_common/     the helpers the Python tools share (paths, game.json, tables, discs)
 ├── docs/                   knowledge and rules that span the games

@@ -31,6 +31,16 @@ public:
     void release();
 
 private:
+    // Records metadata-only selection, shared by the main and secondary cameras.
+    void dispatch_shortlist(const renderer::Mat4& clip, const renderer::Vec3& position) const;
+    // Records depth-bounded and optional depth-independent masks after the shortlist is visible.
+    void dispatch_tiles(unsigned width, unsigned height) const;
+#if defined(OPENRAC_VULKAN)
+    // Records the shortlist prefix and tile tail as separate dependent graph passes.
+    bool dispatch_mask_graph(const renderer::Camera& camera, unsigned width, unsigned height);
+#endif
+    // Orders the two dispatches through Vulkan graph dependencies or OpenGL compatibility barriers.
+    bool dispatch_masks(const renderer::Camera& camera, unsigned width, unsigned height);
     renderer::Shader m_cull, m_select;
     mutable std::array<unsigned, 3> m_buffers{};
     mutable unsigned m_mask_texture = 0, m_secondary_texture = 0;

@@ -2,7 +2,9 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "enhanced/viewer/environment_selection.h"
 
+#include "common/log.h"
 #include "enhanced/lighting/environment.h"
+#include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/world/gl_world.h"
@@ -114,8 +116,6 @@ bool EnvironmentSelection::dispatch(
     }
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, m_buffer);
-    // Earlier draws may still consume the previous masks through their texture-buffer view.
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     m_cull.use();
     glUniformMatrix4fv(m_cull.uniform("world_to_clip"), 1, GL_FALSE, clip.data());
     glUniform2f(m_cull.uniform("tile_extent"), float(viewport[2]), float(viewport[3]));
@@ -124,8 +124,15 @@ bool EnvironmentSelection::dispatch(
     glActiveTexture(GL_TEXTURE0 + kMetadataUnit);
     glBindTexture(wgl::GL_TEXTURE_BUFFER, m_metadata_texture);
     glActiveTexture(GL_TEXTURE0);
-    glDispatchCompute(x, y, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+    const std::array<enhanced::ComputeOutput, 1> outputs{{{m_buffer, words * sizeof(unsigned)}}};
+    std::string error;
+    // Export complete masks for water and chrome; metadata stays an explicit read-only graph input.
+    if (!enhanced::run_compute_graph(
+            "environment probe tiles", outputs, [&] { glDispatchCompute(x, y, 1); }, error
+        )) {
+        log::warn("environment probe graph unavailable: {}", error);
+        return false;
+    }
     m_started = true;
     m_clip = clip;
     m_viewport = viewport;
