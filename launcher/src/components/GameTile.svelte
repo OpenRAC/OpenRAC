@@ -39,6 +39,7 @@
 
     <button
       class="open"
+      aria-current={selected || undefined}
       onclick={() => {
         openVersion(v.key);
       }}
@@ -100,16 +101,16 @@
   /* Raised under the pointer, or with the focus of a keyboard or a controller; a touch only
      presses it in while the finger is down, and leaves nothing behind. */
   @media (hover: hover) {
-    .tile:hover {
+    :global(html:where(:not([data-input="pad"]))) .tile:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow);
     }
 
-    .tile:hover .art {
+    :global(html:where(:not([data-input="pad"]))) .tile:hover .art {
       transform: scale(1.06);
     }
 
-    .crashed .x:hover {
+    :global(html:where(:not([data-input="pad"]))) .crashed .x:hover {
       opacity: 1;
       background: rgb(255 255 255 / 0.12);
     }
@@ -121,7 +122,8 @@
     box-shadow: var(--shadow);
   }
 
-  .tile:has(.open:active) {
+  .tile:has(.open:active),
+  .tile:has(:global(.open.pad-press)) {
     transform: scale(0.98);
     transition-duration: var(--fast);
   }
@@ -222,8 +224,17 @@
     padding: 0;
   }
 
-  .open:focus-visible {
-    outline-offset: -4px;
+  /* The focus rings the whole tile from outside (the tile cuts what is inside it), apart from the
+     picked game's ring inside it. */
+  .open:focus-visible,
+  :global(html[data-input="pad"]) .open:focus {
+    outline: none;
+  }
+
+  .tile:has(.open:focus-visible),
+  :global(html[data-input="pad"]) .tile:has(.open:focus) {
+    outline: 3px solid var(--amber);
+    outline-offset: 3px;
   }
 
   .foot {

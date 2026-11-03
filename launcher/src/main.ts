@@ -9,7 +9,7 @@ import { onAndroid } from "./lib/api";
 import { app } from "./lib/app.svelte";
 import { startPad } from "./lib/pad";
 import { applyPalette, storedPalette } from "./lib/palettes";
-import { startRipples } from "./lib/ripple";
+import { padRipple, startRipples } from "./lib/ripple";
 import { applyAccent, storedAccent } from "./lib/themes";
 
 const target = document.getElementById("app");
@@ -30,11 +30,16 @@ applyPalette(storedPalette());
 document.documentElement.dataset.starting = "";
 applyAccent(storedAccent());
 
-// A controller drives the whole launcher; B and Back return to the games from any other page.
-startPad(() => {
-  if (app.page === "library") return false;
-  app.page = "library";
-  return true;
-}, !onAndroid);
+// A controller drives the whole launcher; B and Back return to the games from any other page. On
+// Android its A sends the same ripple as a finger.
+startPad(
+  () => {
+    if (app.page === "library") return false;
+    app.page = "library";
+    return true;
+  },
+  !onAndroid,
+  onAndroid ? padRipple : undefined,
+);
 
 export default mount(App, { target });
