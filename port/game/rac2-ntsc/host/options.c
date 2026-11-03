@@ -87,10 +87,12 @@ void func_002E48E8(void) {
  * the menus' font, x the line's middle, the page's 512 by 416). Here the panel moves as before, and
  * the port's rows are drawn in it, PAGE_ROWS at a time, the one under the cursor brighter: Up and
  * Down move the cursor, Cross and Right step its row to the next value, Left to the one before.
- * A level's pause menu shows the same rows from its Camera page (below).
+ * A level's pause menu shows the same rows from a Video item of its own in Options (below).
  */
 #define TEXT_WIDESCREEN 0x31E4 /* "16:9 (widescreen)": the Options item, the page's title */
 #define TEXT_PLANETS 0x7F01    /* no text of the disc: the developer mode's Planets (below) */
+#define TEXT_VIDEO 0x7F02      /* no text of the disc: the pause Options list's Video row (below) */
+#define TEXT_VIDEO_HELP 0x7F03 /* no text of the disc: that row's description */
 #define MENU_CROSS 0x40u       /* the menus' buttons (the pad block's word at +0x1C4) */
 #define MENU_UP 0x1000u
 #define MENU_RIGHT 0x2000u
@@ -108,23 +110,38 @@ void func_002E48E8(void) {
 
 static int page_cursor;
 static int page_top;
-/* The page's name, one row's line and the Planets item's name, in game memory for the game's
+/* The page's name, one row's line, the Planets item's name and the Video row's description, in game memory for the game's
  * print. */
 static gaddr page_text;
 
 static gaddr page_buffers(void) {
     if (page_text == 0) {
-        page_text = openrac_guest_static(3 * TEXT_BYTES);
+        page_text = openrac_guest_static(4 * TEXT_BYTES);
     }
     return page_text;
 }
 
 /* The game's text lookup: the 16:9 page's name is the port page's in the boot program, whose
  * Options page it is in. A level's pages are its own (their 16:9 row says what the byte holds). */
+/* The pause Options list's description of the row under its cursor: the game reads it from a table
+ * of eight, by the row (below). */
+static int video_text(int id);
+
 int func_00288FB8(int id) {
+    id = video_text(id);
+    if (id == TEXT_VIDEO_HELP) {
+        const gaddr help = page_buffers() + 3 * TEXT_BYTES;
+        snprintf((char*)G(help), TEXT_BYTES, "Display, picture and frame rate settings.");
+        return (int)help;
+    }
     if (id == TEXT_PLANETS) {
         const gaddr name = page_buffers() + 2 * TEXT_BYTES;
         snprintf((char*)G(name), TEXT_BYTES, "Planets");
+        return (int)name;
+    }
+    if (id == TEXT_VIDEO) {
+        const gaddr name = page_buffers();
+        openrac_game_option_word("Video", (char*)G(name), TEXT_BYTES);
         return (int)name;
     }
     if (id == TEXT_WIDESCREEN && openrac_game_loaded_overlay() == OPENRAC_OVERLAY_EXE) {
@@ -372,17 +389,115 @@ void func_0033C378(gaddr object) {
 }
 
 /*
- * The pause menu's Camera page (Options, Camera, in every level): func_0033C590 moves its cursor
- * (object + 0x2A8, four rows) and on Cross flips its row's option, func_0033C738 draws the panel
- * and the four lines, "Up/Down movement", "Left/Right movement", "Change camera rotation speed" and
- * "16:9 (widescreen)" (0x001A7BB1, as the title's). Each level has its own copy of both, of the
- * page's tick (func_002D2CE8: Triangle leaves the page, Start and Select the menu) and of the
- * object they work on; the port runs the executable's C for all of them, so these wraps hold in
- * every level. The 16:9 row is the port's Video page here too: the row reads "Video", and its Cross
- * shows the Video rows in the same panel, moved and drawn by the title page's code above, until
- * Triangle goes back to the camera's rows (or the menu closes).
+ * The pause menu's Options list (func_00341610's list 1) has a Video row after Camera: a copy of the
+ * game's items and icons with one more, and the rows drawn closer, so that nine fit in the panel
+ * made for eight. The row opens a copy of the Camera page's description, whose tick and draw
+ * (func_002D2CE8, func_0033C590, func_0033C738: each level has its own copy of them, and of the
+ * object they work on, and the port runs the executable's C for all of them, so these wraps hold
+ * in every level) show the port's rows when that copy is the page on screen. Triangle goes back to
+ * Options as from any page. The Camera page keeps its three camera rows; the game's fourth, 16:9,
+ * is kept off (above) and is not shown or reached.
  */
-#define CAMERA_VIDEO_ROW 3
+#define PAUSE_OPTIONS_LIST 1
+#define PAUSE_OPTIONS_ROWS 8
+#define PAUSE_LIST_ICONS 0x1C8u
+#define PAUSE_LIST_COUNT 0x1CCu
+#define TEXT_CAMERA_ROW 0x2D98
+#define VIDEO_ROW_AFTER 5 /* Camera's row */
+/* The list's spacing: the cursor's, the rows' and the icons'. */
+#define LIST_CURSOR_STEP OPENRAC_DATA(0x001AE0E0u)
+#define LIST_ROW_STEP OPENRAC_DATA(0x001AE0F4u)
+#define LIST_ICON_STEP OPENRAC_DATA(0x001AE128u)
+
+static gaddr video_page, video_items, video_icons;
+static float list_steps[3];
+static const float list_tighter = (float)PAUSE_OPTIONS_ROWS / (PAUSE_OPTIONS_ROWS + 1);
+
+#define PAUSE_LIST_OFFSET 0x3BE08u
+#define PAUSE_LIST_WHICH 0x2FCu
+#define PAUSE_LIST_CURSORS 0x1B8u
+/* The description's text id of the row the game's cursor is on, its eight rows and the row past them. */
+static const int options_help[PAUSE_OPTIONS_ROWS + 1] = {
+    0x2DA6, 0x2DA7, 0x2DA8, 0x2D6C, 0x2DAA, 0x2DAB, 0x2DAC, 0x2DAE, 0x2E1C
+};
+
+static int video_shown(void) {
+    return video_page != 0
+           && (GREF(gaddr, MENU_SCREEN + 0x14u) == video_page
+               || GREF(gaddr, MENU_SCREEN + 0x18u) == video_page);
+}
+
+static int video_text(int id) {
+    const gaddr gui = GREF(gaddr, GUI);
+    if (gui == 0 || video_items == 0) {
+        return id;
+    }
+    const gaddr list = gui + PAUSE_LIST_OFFSET;
+    if (GREF(int, list + PAUSE_LIST_WHICH) != PAUSE_OPTIONS_LIST
+        || GREF(int, list + PAUSE_LIST_COUNT) != PAUSE_OPTIONS_ROWS + 1) {
+        return id;
+    }
+    const int row = GREF(int, list + PAUSE_LIST_CURSORS + 4u * PAUSE_OPTIONS_LIST);
+    if (row <= VIDEO_ROW_AFTER || row > PAUSE_OPTIONS_ROWS || id != options_help[row]) {
+        return id;
+    }
+    return row == VIDEO_ROW_AFTER + 1 ? TEXT_VIDEO_HELP : options_help[row - 1];
+}
+
+/* The Options items with Video after Camera, or the game's where they are not what is expected. */
+static gaddr video_items_of(gaddr items) {
+    if (GREF(int32_t, items + ITEM_BYTES * VIDEO_ROW_AFTER + ITEM_TEXT) != TEXT_CAMERA_ROW
+        || GREF(int32_t, items + ITEM_BYTES * VIDEO_ROW_AFTER + ITEM_ACTION) != ACTION_PAGE) {
+        return items;
+    }
+    if (video_items == 0) {
+        video_page = openrac_guest_static(PAGE_BYTES);
+        video_items = openrac_guest_static(ITEM_BYTES * (PAUSE_OPTIONS_ROWS + 2));
+    }
+    const gaddr camera = items + ITEM_BYTES * VIDEO_ROW_AFTER;
+    memcpy(G(video_page), G(GREF(gaddr, camera + ITEM_ARGUMENT)), PAGE_BYTES);
+    const unsigned before = VIDEO_ROW_AFTER + 1;
+    memcpy(G(video_items), G(items), ITEM_BYTES * before);
+    const gaddr row = video_items + ITEM_BYTES * before;
+    memcpy(G(row), G(camera), ITEM_BYTES);
+    GREF(int32_t, row + ITEM_TEXT) = TEXT_VIDEO;
+    GREF(gaddr, row + ITEM_ARGUMENT) = video_page;
+    /* The rest and the zero item that ends the table. */
+    memcpy(G(row + ITEM_BYTES), G(camera + ITEM_BYTES), ITEM_BYTES * (PAUSE_OPTIONS_ROWS - before + 1));
+    return video_items;
+}
+
+void func_00341540(gaddr list, int main_items, int options_items, int third_items) {
+    func_00341540__game(list, main_items, (int)video_items_of((gaddr)options_items), third_items);
+}
+
+void func_00341610(gaddr list, int which) {
+    const gaddr steps[3] = {LIST_CURSOR_STEP, LIST_ROW_STEP, LIST_ICON_STEP};
+    const int video = which == PAUSE_OPTIONS_LIST && video_items != 0;
+    for (int i = 0; i < 3; ++i) {
+        if (list_steps[i] == 0.0f) {
+            list_steps[i] = GREF(float, steps[i]);
+        }
+        GREF(float, steps[i]) = video ? list_steps[i] * list_tighter : list_steps[i];
+    }
+    func_00341610__game(list, which);
+    if (!video) {
+        return;
+    }
+    if (video_icons == 0) {
+        video_icons = openrac_guest_static(4u * (PAUSE_OPTIONS_ROWS + 1));
+    }
+    const gaddr icons = GREF(gaddr, list + PAUSE_LIST_ICONS);
+    const unsigned before = VIDEO_ROW_AFTER + 1;
+    memcpy(G(video_icons), G(icons), 4u * before);
+    /* Camera's icon again: the game has none of its own for this. */
+    GREF(int32_t, video_icons + 4u * before) = GREF(int32_t, icons + 4u * VIDEO_ROW_AFTER);
+    memcpy(G(video_icons + 4u * (before + 1)), G(icons + 4u * before), 4u * (PAUSE_OPTIONS_ROWS - before));
+    GREF(gaddr, list + PAUSE_LIST_ICONS) = video_icons;
+    GREF(int, list + PAUSE_LIST_COUNT) = PAUSE_OPTIONS_ROWS + 1;
+}
+
+#define CAMERA_HIDDEN_ROW 3 /* 16:9: the page's fourth row */
 #define CAMERA_CURSOR 0x2A8u
 /* The page's data, each level's own copy (OPENRAC_DATA). */
 #define CAMERA_LINES OPENRAC_DATA(0x001ADE00u)  /* each line's x and y words, 8 bytes a line */
@@ -395,41 +510,21 @@ void func_0033C378(gaddr object) {
 #define TEXT_UP_DOWN 0x2DE2
 #define TEXT_LEFT_RIGHT 0x2DE1
 #define TEXT_SPEED 0x2F18
-#define MENU_TRIANGLE 0x10u
-#define MENU_CLOSE 0x900u        /* Start and Select: the pause menu closes */
-#define MENU_BUTTONS 0x00138344u /* the menus' buttons pressed this tick */
 #define CAMERA_CHOSEN 0x80D0D0D0ull
-
-/* Whether the Camera page shows the Video rows. */
-static int camera_video;
-
-int func_002D2CE8(void) {
-    const unsigned pressed = GREF(unsigned, MENU_BUTTONS);
-    if (camera_video && (pressed & MENU_CLOSE) == 0 && (pressed & MENU_TRIANGLE) != 0) {
-        /* Back to the camera's rows, the page kept. */
-        camera_video = 0;
-        func_002E5E58(SOUND_CHOOSE, 0, 0);
-        return 0;
-    }
-    if (pressed & (MENU_TRIANGLE | MENU_CLOSE)) {
-        camera_video = 0;
-    }
-    return func_002D2CE8__game();
-}
 
 int func_0033C590(gaddr object, int buttons) {
     unsigned pressed = (unsigned)buttons;
-    if (camera_video) {
+    if (video_shown()) {
         video_rows_update(pressed, 1);
         /* The panel's move only: the camera's cursor and options stay. */
         pressed &= ~(MENU_UP | MENU_DOWN | MENU_CROSS);
-    } else if ((pressed & MENU_CROSS) != 0
-               && GREF(int, object + CAMERA_CURSOR) == CAMERA_VIDEO_ROW) {
-        camera_video = 1;
-        func_002E5E58(SOUND_CHOOSE, 0, 0);
-        pressed &= ~MENU_CROSS;
     }
+    const int row = GREF(int, object + CAMERA_CURSOR);
     func_0033C590__game(object, (int)pressed);
+    /* Past the third row: round to the other end, as the game's cursor does at its fourth. */
+    if (GREF(int, object + CAMERA_CURSOR) == CAMERA_HIDDEN_ROW) {
+        GREF(int, object + CAMERA_CURSOR) = row == 0 ? CAMERA_HIDDEN_ROW - 1 : 0;
+    }
     return (int)(((unsigned)buttons >> 6) & 1u);
 }
 
@@ -450,8 +545,31 @@ static void camera_line(gaddr object, int row, gaddr name, gaddr value) {
     );
 }
 
+/* The page's title, which the game sets once when it builds the page (func_0033C468), follows what
+ * it shows: Camera or Video. */
+#define TEXT_CAMERA_TITLE 0x2D98
+#define TEXT_PAGE_TOGGLE 11598
+#define TEXT_PAGE_EXIT 11599
+
+static gaddr titled_video;
+
+static void camera_title(gaddr object) {
+    const int shown = video_shown();
+    if (shown == (titled_video == object)) {
+        return;
+    }
+    titled_video = shown ? object : 0;
+    func_0033B050(
+        object + 8,
+        func_00288FB8(shown ? TEXT_VIDEO : TEXT_CAMERA_TITLE),
+        func_00288FB8(TEXT_PAGE_TOGGLE),
+        func_00288FB8(TEXT_PAGE_EXIT)
+    );
+}
+
 void func_0033C738(gaddr object) {
-    if (camera_video) {
+    camera_title(object);
+    if (video_shown()) {
         func_0033AF48(object + 8);
         video_rows_draw();
         return;
@@ -464,9 +582,6 @@ void func_0033C738(gaddr object) {
     const unsigned mode = (unsigned)GREF(int, CAMERA_SPEED);
     const int speed = GREF(int, CAMERA_SPEEDS + 4u * (mode < CAMERA_SPEED_COUNT ? mode : 0u));
     camera_line(object, 2, (gaddr)func_00288FB8(TEXT_SPEED), (gaddr)func_00288FB8(speed));
-    const gaddr name = page_buffers();
-    openrac_game_option_word("Video", (char*)G(name), TEXT_BYTES);
-    camera_line(object, CAMERA_VIDEO_ROW, name, 0);
 }
 
 /* A save's blocks into their places (func_0029B168: the memory card's load, func_00298F00, and
