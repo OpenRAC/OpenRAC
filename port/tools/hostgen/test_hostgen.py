@@ -2942,8 +2942,11 @@ class FromAssembly(unittest.TestCase):
         import asmc
         from program import Program
         program = Program()
-        program.ps2_float = {"func_00282CC0"}
+        program.ps2_float = {"func_00282CC0", "func_00283098"}
         self.assertTrue(asmc.ps2_float_named(program, "func_00282CC0"))
+        # An address of decimal digits only is not a call-site suffix (R2-AD: the Feltzin fight).
+        self.assertTrue(asmc.ps2_float_named(program, "F10bf3d29_FUN_00283098"))
+        self.assertTrue(asmc.ps2_float_named(program, "F10bf3d29_FUN_00283098_2"))
         self.assertTrue(asmc.ps2_float_named(program, "func_00282CC0_3"))
         self.assertTrue(asmc.ps2_float_named(program, "F15a8b7f0_FUN_00282CC0"))
         self.assertFalse(asmc.ps2_float_named(program, "func_L00_00282CC0"))

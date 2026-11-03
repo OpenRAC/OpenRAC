@@ -130,11 +130,14 @@ def ps2_float_named(program: Program, symbol: str) -> bool:
     (SYMBOL_N) is of, or (as F<hash>_FUN_<address>) the catalogue's name for a func_<address>
     it names."""
     names = getattr(program, "ps2_float", ())
+    # The catalogue's name is matched whole first: its address is digits, which the call-site
+    # suffix's pattern would take for a suffix (F10bf3d29_FUN_00283098 became F10bf3d29_FUN, and
+    # no catalogue variant of a "ps2_float" function was ever computed as the EE does).
+    m = re.fullmatch(r"F[0-9a-f]+_FUN_([0-9A-F]{8})(?:_\d+)?", symbol)
+    if m is not None:
+        return f"func_{m.group(1)}" in names
     base = re.sub(r"_\d+$", "", symbol)
-    if symbol in names or base in names:
-        return True
-    m = re.fullmatch(r"F[0-9a-f]+_FUN_([0-9A-F]{8})", base)
-    return m is not None and f"func_{m.group(1)}" in names
+    return symbol in names or base in names
 
 
 class Translator:
