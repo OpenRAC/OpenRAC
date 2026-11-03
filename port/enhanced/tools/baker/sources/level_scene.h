@@ -45,4 +45,12 @@ BakeSceneExport export_probe_scene(
     Float3 environment,
     bool analyze_liquids = true
 );
+
+// export_probe_scene's scene_hash without building the transport scene, for runtime activation:
+// a level read from disc is fingerprinted by its source files, which needs none of the triangles
+// or textures the bake traces. Same checks on the light set, images and sky; in-memory fixtures
+// (no directory) still take the full export for their structural hash.
+std::uint64_t probe_activation_hash(
+    const scene::LevelData& level, unsigned light_set, Float3 environment
+);
 }  // namespace openrac::lighting

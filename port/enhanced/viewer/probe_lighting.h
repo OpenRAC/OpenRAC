@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <future>
+#include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "enhanced/lighting/probe_regions.h"
 #include "enhanced/lighting/probes.h"
+#include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/viewer/area_light_overlay.h"
 #include "enhanced/viewer/environment_lighting.h"
 #include "enhanced/viewer/medial_axis_overlay.h"
@@ -27,6 +33,21 @@ std::string probe_shader_source(std::string source);
 // A level without a bake, or with one that does not match it, keeps the original lighting.
 void set_probe_root(std::filesystem::path root);
 const std::filesystem::path& probe_root();
+
+// Whether ProbeLighting::load reads a level's bake on another thread, the level drawn with its
+// original lighting until the bake is uploaded (update_regions), instead of before load returns.
+// The game turns it on; tools and tests that look at the result of a load leave it off.
+void set_probe_background_load(bool background);
+
+// A level's bake as read and verified away from the rendering thread, before its upload.
+struct ProbeBakeRead {
+    std::string path;  // The sparse grid's file; its folder holds the companion files.
+    lighting::ProbeActivation expected;
+    lighting::ProbeVolume volume;
+    std::vector<lighting::ProbeVolume> regions;
+    double seconds = 0;  // How long the read took.
+    std::string error;   // Why the bake was refused; nothing else is set then.
+};
 
 class ProbeLighting {
 public:
@@ -60,8 +81,14 @@ public:
     }
 
     // Activation through OPENRAC_PROBE_GI, else the level's bake under probe_root(). Missing or
-    // invalid assets report why and leave the original lighting active.
+    // invalid assets report why and leave the original lighting active. With
+    // set_probe_background_load, the bake is read on another thread and uploaded by the first
+    // update_regions after it is ready.
     void load(const scene::LevelData& level);
+
+    // Whether a bake is still being read in the background.
+    bool loading() const { return m_pending_read.valid(); }
+
     void bind(
         const renderer::Shader& shader,
         scene::Layer layer,
@@ -120,6 +147,18 @@ private:
     DebugLines m_volume_bounds;  // Player-containing boxes, owned by the rendering thread.
     std::vector<int> m_containing_regions;  // Cached dense indices, or -1 for sparse fallback.
     std::string m_load_error;
+    // The bake being read in the background (load), its level and the flag that stops the read.
+    std::future<ProbeBakeRead> m_pending_read;
+    std::shared_ptr<std::atomic<bool>> m_cancel_read;
+    int m_pending_level = -1;
+    // Uploads a background read once it is ready; nothing while it is still running.
+    void poll_load();
+    // Stops a background read and waits for it to end.
+    void cancel_load();
+    // Uploads a verified bake and turns probe lighting on; throws when the upload fails.
+    void finish_load(ProbeBakeRead read);
+    // Releases the lighting and reports `why` as the load error.
+    void fail_load(std::string why);
     bool m_volume_bounds_failed = false;  // Suppresses repeated shader errors until release.
     MedialAxisOverlay m_medial_axis;
     AreaLightOverlay m_area_lights;  // Companion report geometry, owned by the rendering thread.

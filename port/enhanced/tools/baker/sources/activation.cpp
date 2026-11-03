@@ -440,8 +440,7 @@ ProbeAssetLoader::ProbeAssetLoader(const scene::LevelData& level, const ProbeAct
         throw std::runtime_error("probe game version or level does not match loaded scene");
     }
 
-    m_scene_hash =
-        export_probe_scene(level, expected.light_set, expected.environment, false).scene_hash;
+    m_scene_hash = probe_activation_hash(level, expected.light_set, expected.environment);
 }
 
 ProbeVolume ProbeAssetLoader::load(

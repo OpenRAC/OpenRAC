@@ -285,4 +285,34 @@ BakeSceneExport export_probe_scene(
     return out;
 }
 
+std::uint64_t probe_activation_hash(
+    const scene::LevelData& level, unsigned light_set, Float3 environment
+) {
+    const profiling::Zone trace("Probe activation hash");
+
+    if (level.dir.empty()) {
+        return export_probe_scene(level, light_set, environment, false).scene_hash;
+    }
+    if (light_set >= 16 || level.light_sets.size() != 256) {
+        throw std::runtime_error("level has no requested directional light set");
+    }
+    if (level.missing_images) {
+        throw std::runtime_error("bake requires all referenced textures; level has missing images");
+    }
+    const auto& sky = level.sky_panorama;
+    if (sky.width > 0 && sky.height > 0
+        && sky.pixels.size()
+               != std::size_t{static_cast<unsigned>(sky.width)} * static_cast<unsigned>(sky.height)
+                      * 4) {
+        throw std::runtime_error("invalid level sky panorama");
+    }
+    // A source-file fingerprint reads only the environment and the proxy emitters' count from the
+    // export; the meshes, textures, sky and suns it converts are the files' own bytes.
+    BakeSceneExport out;
+    out.scene.environment = environment;
+    export_proxy_emitters(level, out);
+    const bool liquid_source = automatic_liquids(level) != 0 || rac2_liquids(level);
+    return probe_scene_hash(level, out, light_set, liquid_source);
+}
+
 }  // namespace openrac::lighting

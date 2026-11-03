@@ -618,6 +618,9 @@ int main(int argc, char** argv) {
                 static_cast<enhanced::FurDebug>(env::integer(env::Var::FurView, 0))
             );
             lighting::set_probe_root(g_options.probes);
+            // A level's bake is read while the level is already drawn (original lighting until then),
+            // so that its first picture waits for none of it.
+            lighting::set_probe_background_load(true);
             log::info("enhanced rendering on (Vulkan only); probe bakes from {}",
                       g_options.probes.empty() ? std::string("nowhere") : g_options.probes.string());
         }
