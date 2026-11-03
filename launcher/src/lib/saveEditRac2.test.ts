@@ -73,7 +73,7 @@ function view(): Rac2SaveView {
     planets: [{ id: 1, name: "Oozla" }],
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
-    flags: [{ id: "maktar-arena-entered", level: 1, name: "Arena entered", note: "" }],
+    flags: [{ id: "maktar-arena-entered", level: 1, name: "Arena entered", description: "", confidence: "proven" }],
   };
 }
 

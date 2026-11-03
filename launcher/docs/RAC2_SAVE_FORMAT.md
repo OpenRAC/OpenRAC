@@ -147,8 +147,7 @@ Oozla, and the RAM 900 frames later holds every value, with the game's reactions
 ## Advanced: progress flags (L-2)
 
 The editor's Advanced switch (off whenever a slot opens, with a warning) shows the story and
-progress flags whose place and effect are both proven, grouped by planet (`FLAGS` in
-`save_edit_rac2.rs`). Other Advanced sections (the saved level and position, weapon mods,
+progress flags, grouped by planet (`launcher/core/src/rac2_flags/`: `planets_a.rs` levels 0-8, `planets_b.rs` 9-16, `planets_c.rs` 17-30 and flags of no one planet; each flag is `Proven` (honoured at load) or `FromCode` (from the code, shown as unverified)). Other Advanced sections (the saved level and position, weapon mods,
 platinum bolts spent, ship upgrades) are a separate component and module, and their notes a
 separate section of this document.
 

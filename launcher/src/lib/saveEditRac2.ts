@@ -157,7 +157,10 @@ export function editList(view: Rac2SaveView, f: Rac2SaveFields): Rac2Edit[] {
     const old = was.flags.find((x) => x.id === flag.id);
     const info = view.flags.find((x) => x.id === flag.id);
     if (!old || !info || old.on === flag.on) continue;
-    const planet = view.planets.find((p) => p.id === info.level)?.name ?? `Level ${String(info.level)}`;
+    const planet =
+      info.level === null
+        ? "Story"
+        : (view.planets.find((p) => p.id === info.level)?.name ?? `Level ${String(info.level)}`);
     out.push({ section: "advanced", text: `${planet}: ${info.name} ${flag.on ? "set" : "cleared"}` });
   }
   return out;
@@ -165,9 +168,10 @@ export function editList(view: Rac2SaveView, f: Rac2SaveFields): Rac2Edit[] {
 
 /** The Advanced view's flags, grouped by planet in the planet list's order. */
 export function flagGroups(view: Rac2SaveView): { planet: string; flags: Rac2SaveView["flags"] }[] {
-  return view.planets
-    .map((p) => ({ planet: p.name, flags: view.flags.filter((f) => f.level === p.id) }))
-    .filter((g) => g.flags.length > 0);
+  return [
+    ...view.planets.map((p) => ({ planet: p.name, flags: view.flags.filter((f) => f.level === p.id) })),
+    { planet: "Across the game", flags: view.flags.filter((f) => f.level === null) },
+  ].filter((g) => g.flags.length > 0);
 }
 
 /** Armour by level, as the editor names it. */

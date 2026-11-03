@@ -2033,14 +2033,22 @@ const RAC2_LEVELS: [number, string][] = [
   [25, "Wupash Nebula"],
   [26, "Jamming Array"],
 ];
-const RAC2_FLAGS: [string, number, string, string][] = [
+const RAC2_FLAGS: [string, number | null, string, string, "proven" | "fromCode"][] = [
   [
     "maktar-arena-entered",
     2,
     "Arena entered",
-    "Clear: the next entry opens the arena's gate and plays its first-visit scene.",
+    "Off, the next visit opens the arena's gate and plays its first-visit scene again.",
+    "proven",
   ],
-  ["maktar-arena-intro-seen", 2, "Arena intro scene seen", "The cinematic the first entry plays (cinematic 331)."],
+  [
+    "maktar-arena-intro-seen",
+    2,
+    "Arena intro scene seen",
+    "The scene the first visit to the arena plays (cinematic 331).",
+    "proven",
+  ],
+  ["mock-unverified", 2, "A flag read from the code", "Shown with the unverified tag in the preview.", "fromCode"],
 ];
 const savedRac2: Record<string, Rac2SaveFields> = {};
 
@@ -2091,7 +2099,13 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
     planets: RAC2_LEVELS.map(([id, name]) => ({ id, name })),
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
-    flags: RAC2_FLAGS.map(([id, level, name, note]) => ({ id, level, name, note })),
+    flags: RAC2_FLAGS.map(([id, level, name, description, confidence]) => ({
+      id,
+      level,
+      name,
+      description,
+      confidence,
+    })),
   };
 }
 const savedRaw: Record<string, Record<string, string>> = {};

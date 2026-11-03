@@ -602,7 +602,12 @@
                             aria-label="changed"
                           ></span>{/if}
                       </label>
-                      <span class="hint">{info.note}</span>
+                      <span class="hint"
+                        >{#if info.confidence === "fromCode"}<span
+                            class="unverified"
+                            title="Read from the game's code; this one flag was not tried in the game">unverified</span
+                          >{/if}{info.description}</span
+                      >
                     </li>
                   {/if}
                 {/each}
@@ -1096,6 +1101,16 @@
 
   .rows.flags {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+
+  .unverified {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 0 6px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    color: var(--soft);
   }
 
   .group {

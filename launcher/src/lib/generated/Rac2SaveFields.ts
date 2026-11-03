@@ -28,6 +28,6 @@ shipPaint: number, items: Array<Rac2ItemState>, planets: Array<Rac2PlanetState>,
  */
 skillPoints: Array<boolean>, 
 /**
- * The Advanced view's progress flags ([`FLAGS`]), in that order.
+ * The Advanced view's progress flags ([`rac2_flags::all`]), in that order.
  */
 flags: Array<Rac2FlagState>, };

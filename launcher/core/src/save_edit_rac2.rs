@@ -24,6 +24,7 @@
 //! two sizes must match the tables and each section's checksum (`SaveChecksum` 0x0029AEB0) must be
 //! non-zero and equal; [`crc16`] is that checksum.
 
+use crate::rac2_flags::{self, Confidence, Place};
 use crate::saves::{self, SaveBackupInfo, RAC2_PLANETS};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -295,49 +296,7 @@ mod id {
     pub const VISITED: i32 = 3001;
     /// Per level: platinum bolts found u8[4] (0x0019B278).
     pub const PLATINUM: i32 = 3003;
-    /// Story and progress bytes, by index (0x001395B8, 205 bytes).
-    pub const STORY: i32 = 5;
-    /// Cinematics seen, a bit each (0x00139768, `g_cinematicUnlockedFlags`).
-    pub const CINEMATICS: i32 = 43;
 }
-
-/// Where a progress flag is: a byte of the story chunk (non-zero is set), or a bit of the
-/// cinematics chunk.
-#[derive(Clone, Copy, Debug)]
-pub enum FlagPlace {
-    StoryByte(usize),
-    CinematicBit(usize),
-}
-
-/// A progress flag the Advanced view offers. Each one's place was proven by a save made before and
-/// after the game set it, and the game honours an edited value at load (format document).
-#[derive(Clone, Copy, Debug)]
-pub struct FlagDef {
-    pub id: &'static str,
-    /// The level whose progress it is (RAC2_PLANETS numbering).
-    pub level: usize,
-    pub name: &'static str,
-    pub note: &'static str,
-    pub place: FlagPlace,
-}
-
-/// The proven progress flags, by level.
-pub const FLAGS: &[FlagDef] = &[
-    FlagDef {
-        id: "maktar-arena-entered",
-        level: 2,
-        name: "Arena entered",
-        note: "Clear: the next entry opens the arena's gate and plays its first-visit scene.",
-        place: FlagPlace::StoryByte(5),
-    },
-    FlagDef {
-        id: "maktar-arena-intro-seen",
-        level: 2,
-        name: "Arena intro scene seen",
-        note: "The cinematic the first entry plays (cinematic 331).",
-        place: FlagPlace::CinematicBit(331),
-    },
-];
 
 /// Offsets in the progress block (chunk 39).
 const P_BOLTS: usize = 0x00;
@@ -545,7 +504,7 @@ pub struct Rac2SaveFields {
     pub planets: Vec<Rac2PlanetState>,
     /// The 30 skill points, in the order the game keeps them.
     pub skill_points: Vec<bool>,
-    /// The Advanced view's progress flags ([`FLAGS`]), in that order.
+    /// The Advanced view's progress flags ([`rac2_flags::all`]), in that order.
     pub flags: Vec<Rac2FlagState>,
 }
 
@@ -560,9 +519,12 @@ pub struct Rac2FlagState {
 #[serde(rename_all = "camelCase")]
 pub struct Rac2FlagInfo {
     pub id: String,
-    pub level: usize,
+    /// The planet whose progress it is; `None` for no one planet.
+    pub level: Option<usize>,
     pub name: String,
-    pub note: String,
+    /// One plain sentence: what it changes in the game.
+    pub description: String,
+    pub confidence: Confidence,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
@@ -689,26 +651,41 @@ impl SaveFile {
             items,
             planets,
             skill_points: g.get(id::SKILL_POINTS)[..SKILL_POINT_COUNT].iter().map(|&b| b != 0).collect(),
-            flags: FLAGS.iter().map(|f| Rac2FlagState { id: f.id.to_string(), on: self.flag(f.place) }).collect(),
+            flags: rac2_flags::all().map(|f| Rac2FlagState { id: f.id.to_string(), on: self.flag(f.place) }).collect(),
         }
     }
 
-    fn flag(&self, place: FlagPlace) -> bool {
+    /// The byte a flag's place names: a global chunk's, or a level section's.
+    fn flag_byte(&mut self, chunk: i32, level: Option<usize>, offset: usize) -> &mut u8 {
+        let section = match level {
+            Some(l) => &mut self.levels[l],
+            None => &mut self.global,
+        };
+        &mut section.get_mut(chunk)[offset]
+    }
+
+    fn flag(&self, place: Place) -> bool {
+        let get = |chunk: i32, level: Option<usize>, offset: usize| match level {
+            Some(l) => self.levels[l].get(chunk)[offset],
+            None => self.global.get(chunk)[offset],
+        };
         match place {
-            FlagPlace::StoryByte(i) => self.global.get(id::STORY)[i] != 0,
-            FlagPlace::CinematicBit(b) => self.global.get(id::CINEMATICS)[b / 8] & (1 << (b % 8)) != 0,
+            Place::Byte { chunk, level, offset, .. } => get(chunk, level, offset) != 0,
+            Place::Bit { chunk, level, offset, bit } => get(chunk, level, offset) & (1 << bit) != 0,
         }
     }
 
-    fn set_flag(&mut self, place: FlagPlace, on: bool) {
+    fn set_flag(&mut self, place: Place, on: bool) {
         match place {
-            FlagPlace::StoryByte(i) => self.global.get_mut(id::STORY)[i] = on as u8,
-            FlagPlace::CinematicBit(b) => {
-                let byte = &mut self.global.get_mut(id::CINEMATICS)[b / 8];
+            Place::Byte { chunk, level, offset, on: value } => {
+                *self.flag_byte(chunk, level, offset) = if on { value } else { 0 }
+            }
+            Place::Bit { chunk, level, offset, bit } => {
+                let byte = self.flag_byte(chunk, level, offset);
                 if on {
-                    *byte |= 1 << (b % 8);
+                    *byte |= 1 << bit;
                 } else {
-                    *byte &= !(1 << (b % 8));
+                    *byte &= !(1 << bit);
                 }
             }
         }
@@ -810,7 +787,7 @@ impl SaveFile {
             }
         }
 
-        for (d, (w, h)) in FLAGS.iter().zip(want.flags.iter().zip(&have.flags)) {
+        for (d, (w, h)) in rac2_flags::all().zip(want.flags.iter().zip(&have.flags)) {
             if w.on != h.on {
                 self.set_flag(d.place, w.on);
             }
@@ -924,7 +901,7 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
     if f.planets.iter().any(|s| s.platinum.len() != PLATINUM_PER_LEVEL) {
         return Err(format!("each level has {PLATINUM_PER_LEVEL} platinum bolt places"));
     }
-    if f.flags.len() != FLAGS.len() || f.flags.iter().zip(FLAGS).any(|(s, d)| s.id != d.id) {
+    if f.flags.len() != rac2_flags::all().count() || f.flags.iter().zip(rac2_flags::all()).any(|(s, d)| s.id != d.id) {
         return Err("the progress flags do not match the editor's".into());
     }
     if f.skill_points.len() != SKILL_POINT_COUNT {
@@ -975,13 +952,13 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
         planets: listed_levels().map(|(id, name)| Rac2PlanetInfo { id, name: name.to_string() }).collect(),
         max_bolts: MAX_BOLTS,
         max_xp: MAX_XP,
-        flags: FLAGS
-            .iter()
+        flags: rac2_flags::all()
             .map(|f| Rac2FlagInfo {
                 id: f.id.to_string(),
                 level: f.level,
                 name: f.name.to_string(),
-                note: f.note.to_string(),
+                description: f.description.to_string(),
+                confidence: f.confidence,
             })
             .collect(),
     }
@@ -1269,16 +1246,43 @@ mod tests {
         after.apply(&want).unwrap();
         let mut c = changed(&before, &after);
         c.sort();
-        assert_eq!(c, [(None, id::STORY, 5), (None, id::CINEMATICS, 0x29)]);
-        assert_eq!(after.global.get(id::CINEMATICS)[0x29], 0x08);
+        assert_eq!(c, [(None, 5, 5), (None, 43, 0x29)]);
+        assert_eq!(after.global.get(43)[0x29], 0x08);
         assert_eq!(SaveFile::parse(&after.to_bytes()).unwrap().fields(), want);
         let mut off = want.clone();
         off.flags[1].on = false;
         after.apply(&off).unwrap();
-        assert_eq!(after.global.get(id::CINEMATICS)[0x29], 0);
+        assert_eq!(after.global.get(43)[0x29], 0);
         let mut bad = want;
         bad.flags.pop();
         assert!(after.apply(&bad).is_err());
+    }
+
+    #[test]
+    fn every_flag_names_a_place_in_the_save() {
+        let mut ids = std::collections::HashSet::new();
+        let mut last_level = 0;
+        for f in rac2_flags::all() {
+            assert!(ids.insert(f.id), "flag ids are unique: {}", f.id);
+            assert!(!f.name.is_empty() && !f.description.is_empty(), "{} is described", f.id);
+            if let Some(l) = f.level {
+                assert!(RAC2_PLANETS.iter().any(|&(p, _)| p as usize == l), "{}: level {l}", f.id);
+                assert!(l >= last_level, "{} is in planet order", f.id);
+                last_level = l;
+            }
+            let (chunk, level, offset, bit) = match f.place {
+                Place::Byte { chunk, level, offset, on } => {
+                    assert_ne!(on, 0, "{}: a set byte is not 0", f.id);
+                    (chunk, level, offset, 0)
+                }
+                Place::Bit { chunk, level, offset, bit } => (chunk, level, offset, bit),
+            };
+            assert!(bit < 8, "{}", f.id);
+            let layout = if level.is_some() { LEVEL_LAYOUT } else { GLOBAL_LAYOUT };
+            let size = layout.iter().find(|&&(c, _)| c == chunk).map(|&(_, n)| n);
+            assert!(size.is_some_and(|n| offset < n), "{}: chunk {chunk} offset {offset}", f.id);
+            assert!(level.is_none_or(|l| l < LEVEL_SLOTS), "{}", f.id);
+        }
     }
 
     #[test]
