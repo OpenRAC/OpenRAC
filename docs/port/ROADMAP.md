@@ -46,7 +46,7 @@ conflicting prototypes, the left-out functions:
 [PORTABILITY.md](PORTABILITY.md), section 4), and C for the hand-written
 assembly once its meaning is known.
 
-## Where the port stands (2026-10-09)
+## Where the port stands
 
 [port/](../../port/README.md) holds the scaffolding for every phase:
 
@@ -62,15 +62,14 @@ assembly once its meaning is known.
   `openrac-rac1-pal` builds from the whole decompilation, loads the player's
   executable data and runs the game's `main`.
 
-What moves it on is the frontier in hostgen's report: the functions the
-program reaches that have no C. For OpenRAC's decompilation today they are
-the boot stage (`func_001E99D8`), the title loop (`func_001EBB48`) and the
-level loop (`func_L00_002465F8`), all still assembly. A further-along copy
-of the decompilation builds the same way (`-DOPENRAC_RAC1_PAL_SOURCE`).
+Ratchet & Clank plays from start to end on both discs (`openrac-rac1-pal`,
+`openrac-rac1-ntsc`). Functions still in assembly run as the port's own C;
+hostgen's report lists what is left. Bugs that are known are in
+[KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 
-The four other versions build the same way, each from its decompilation
-(`openrac-rac1-ntsc`, `-rac2-ntsc`, `-rac3-ntsc`, `-rac4-ntsc`); what they still
-need before they run is in [port/game](../../port/game/README.md): their `main`,
+The sequels build the same way, each from its decompilation
+(`openrac-rac2-ntsc`, `-rac3-ntsc`, `-rac4-ntsc`); what they still need
+before they run is in [port/game](../../port/game/README.md): their `main`,
 and their library tables.
 
 ## What can be taken now
