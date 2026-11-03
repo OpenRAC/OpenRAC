@@ -46,31 +46,28 @@ cd port && cmake --preset release && cmake --build --preset release && ctest --p
 
 ## CI build caches
 
-The checks run on pushes to `develop` and `master` as well as pull requests, so successful
-default-branch builds populate caches that later pull requests can restore. Superseded PR and
-`develop` runs are cancelled; release checks on `master` finish.
+The checks run on pull requests and on pushes to `develop` and `master`. A
+newer run cancels an older one on a pull request or `develop`; release
+checks on `master` always finish.
 
-Each native checks configuration has separate compiler, CMake preparation and hostgen caches.
-CMake preparation keeps dependency sources and configure/compiler metadata, keyed by tools,
-installed packages, runner image, workspace, CPU features and build configuration. A missing or
-incompatible identity falls back to normal preparation. Hostgen's cache keeps generated text
-under a separate Clang/Python, platform, workspace and compiler-package identity, without native
-CPU probes, CMake or Ninja. It can therefore survive a runner CPU change that invalidates CMake.
-Objects remain in ccache; Ninja files and test results are regenerated. Cache hits never skip
-build or test steps. Pull requests restore native compiler/preparation and Rust caches but do
-not save private copies: those copies cannot warm other branches and can evict shared entries
-from the repository's cache allowance. Successful branch builds refresh the shared caches.
-Compiler archives are published only after the whole job succeeds; cancelled and failed runs
-cannot publish partial snapshots. Restores prefer these successful snapshots, with older cache
-keys retained as a fallback until the new snapshots are populated.
-Compiler identity uses executable contents rather than installation timestamps. The hostgen
-cache key covers every game's sources and its shared Python helpers. Prepared source copies and
-Ninja's generation stamp are excluded: hostgen always validates its own input fingerprint and
-required files before reusing output, including when an older source snapshot is restored.
-The translation fingerprint excludes native frontend C++ while retaining configuration tables,
-hand C, shared library signatures and host wrappers. Frontend edits still rebuild native objects.
-Launcher checks and builds also cache Yarn archives while retaining
-`yarn install --immutable` and its install/link steps.
+- Each native build has three caches: compiler objects (ccache), CMake
+  preparation (dependency sources and configure results) and hostgen's
+  generated C. Each key covers what can change the result: tools, packages,
+  runner image, CPU features, build type. A missing or mismatched cache just
+  means a normal build. Ninja files and test results are never cached, and a
+  cache hit never skips a build or test step.
+- The hostgen cache does not depend on CMake, Ninja or the CPU, so it
+  survives a runner CPU change. Its key covers every game's sources and the
+  shared Python helpers. hostgen still checks its own input fingerprint
+  before it reuses output. That fingerprint leaves out the native frontend
+  C++ (edits there still rebuild objects) but keeps configuration tables,
+  hand C, library signatures and host wrappers.
+- Compiler identity is the executable's contents, not its install time.
+- Only successful branch builds save caches, after the whole job passes.
+  Pull requests restore caches but never save their own, so they cannot
+  evict the shared ones. Older keys stay as a fallback until new ones exist.
+- Launcher jobs also cache Yarn archives and still run
+  `yarn install --immutable`.
 
 ## The level editor
 

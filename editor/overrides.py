@@ -60,7 +60,7 @@ the level's has the same vertices (both discs' levels have the same
 terrain), their textures named as LEVELS name them; what belongs to one disc's data (a packed gameplay
 file, patches.tsv, placements.json) or has no match is left out and listed. The port draws each level's
 files from MODS/level_NN/ where they are there, and from the extracted
-levels otherwise (port/viewer/level.cpp), and reads the disc sectors
+levels otherwise (port/scene/level.cpp), and reads the disc sectors
 patches.tsv lists from the files beside it (port/game/common/lib/cdvd.c).
 
 The sound is not by level or by disc: a pack names a sound by its key, a hash of what it is

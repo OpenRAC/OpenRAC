@@ -56,5 +56,5 @@ def write_bake_inputs(level, directory):
             raise ValueError("Gaspar bake input missing: " + name)
         (directory / (name + ".bin")).write_bytes(data)
     # Each disc's overlay keeps the liquid's record at its own address
-    # (port/enhanced/tools/probes/liquids.h).
+    # (port/enhanced/tools/baker/sources/liquids.h).
     return {**metadata, "liquid": f"rac1-{level.version}-gaspar-v1"}

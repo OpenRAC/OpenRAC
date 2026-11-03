@@ -488,7 +488,7 @@ int func_L00_002963D8(void) {
 
 /* moby_anim_eval_chain (hand-written VU0, 2640 bytes): the pose matrices of the joints marked in
  * a1 for the moby a0, into the scratchpad (MobyGetBoneMatrix reads them: the menu panels' corners,
- * items in Ratchet's hands). The port's evaluator (viewer/moby_pose, after ReRAC's evaluate_chains;
+ * items in Ratchet's hands). The port's evaluator (scene/moby_pose, after ReRAC's evaluate_chains;
  * post-scale records are not skipped yet as the chain form does). */
 void func_00211808(gaddr a0, gaddr a1) {
     openrac_game_moby_chain(a0, a1);

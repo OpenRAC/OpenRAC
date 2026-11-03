@@ -228,9 +228,10 @@ python3 tools/fcheck_gate.py us                        # the US table: unchecked
 python3 -m unittest tools/test_fcheck_gate.py
 ```
 
-`OPENRAC_ROOT` names the OpenRAC checkout with the runtime build and
-`OPENRAC_DECOMP` the rac1-decomp checkout (defaults: `~/Projects/RAC/OpenRAC`
-and `~/Projects/RAC/rac1-decomp`). Each log is kept in rac1-decomp's
+`OPENRAC_ROOT` names the OpenRAC checkout with the interpreter build
+(default: the checkout holding the script). `OPENRAC_DECOMP` names the
+rac1-decomp checkout; without it the gate uses `OPENRAC_SOURCE_RAC1_PAL`, else
+the `checkout` that `games/rac1/game.json` names for pal. Each log is kept in rac1-decomp's
 `build-sn/fcheck/gate/logs/`. The gate copies each C file into
 `build-sn/fcheck/gate/`, which is ignored; it edits nothing else there.
 
