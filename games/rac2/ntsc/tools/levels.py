@@ -415,6 +415,7 @@ def level_extent(number: int, address: int, size: int) -> tuple[int, int]:
 # Measured mixed extents shared by the boot and level copies. Canonical names
 # stay stable; only the callable entry moves, with the original end preserved.
 FUNCTION_ENTRY_OFFSETS = {
+    "func_001158F4": (460, 4),
     "func_0011E740": (232, 96),
     "func_0011F9E4": (52, 4),
     "func_0011FB8C": (188, 12),
@@ -529,6 +530,7 @@ FUNCTION_ENTRY_OFFSETS = {
     "func_L00_00419A80": (212, 16),
     "func_L00_004263A8": (16, 8),
     "func_L00_00427620": (200, 8),
+    "func_L01_0034B1C0": (288, 16),
     "func_L01_003B1F08": (1676, 8),
     "func_L01_003D8358": (1116, 8),
     "func_L01_00410AD0": (1548, 8),
@@ -538,6 +540,7 @@ FUNCTION_ENTRY_OFFSETS = {
     "func_L02_003F0788": (16, 8),
     "func_L02_004004D0": (384, 8),
     "func_L02_00439CD8": (1548, 8),
+    "func_L03_003564C0": (288, 16),
     "func_L03_0038AA20": (268, 24),
     "func_L03_003C5FE8": (540, 8),
     "func_L03_003C7E20": (2008, 8),
@@ -565,6 +568,7 @@ FUNCTION_ENTRY_OFFSETS = {
     "func_L07_003B72E8": (1264, 8),
     "func_L07_00409300": (172, 8),
     "func_L07_00416510": (2048, 8),
+    "func_L09_00352150": (288, 16),
     "func_L09_003FEF00": (4028, 8),
     "func_L09_0041D650": (976, 8),
     "func_L10_00415A50": (1548, 8),
@@ -610,6 +614,7 @@ FUNCTION_ENTRY_OFFSETS = {
     "func_L22_0040F1C0": (1548, 8),
     "func_L22_004135F8": (1388, 8),
     "func_L22_00413B70": (3756, 40),
+    "func_L23_0035CE90": (288, 16),
     "func_L23_003BDA20": (4060, 8),
     "func_L23_00415988": (1548, 8),
     "func_L24_003EFA38": (1376, 8),
@@ -859,6 +864,8 @@ def function_extent(name: str, address: int, size: int) -> tuple[int, int]:
 # names have no incoming reference at any measured placement. Keep the selection
 # named: an identical store in another extent is not evidence to cut it.
 FUNCTION_RESIDUES = {
+    "func_0011B320": 4,
+    "func_0011B450": 4,
     "func_0011F864": 4,
     "func_00335E60": 4,
     "func_L00_002DA390": 4,

@@ -158,6 +158,8 @@
     "func_00336A78"
   ],
   "from_assembly": [
+    "func_001182B8",
+    "func_00117CA0",
     "func_0029FD48",
         "func_00335D30",
     "func_L00_002F7568",
