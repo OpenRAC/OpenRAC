@@ -28,6 +28,7 @@ import {
   mockControlsView,
 } from "./mockControls";
 import type { ActionView } from "./generated/ActionView";
+import type { TexturePackView } from "./generated/TexturePackView";
 import type { BuildInfo } from "./generated/BuildInfo";
 import type { Check } from "./generated/Check";
 import type { Config } from "./generated/Config";
@@ -1720,6 +1721,28 @@ function samplePack(name: string): PackView {
   };
 }
 
+/** A game's texture pack and saved textures, as the preview pretends (`?notextures`: none yet). */
+const mockTextures: TexturePackView = query.has("notextures")
+  ? { id: "", enabled: true, dumping: false, packCount: 0, packAnimated: 0, pack: [], dumpCount: 0, dump: [] }
+  : {
+      id: "",
+      enabled: true,
+      dumping: false,
+      packCount: 38,
+      packAnimated: 2,
+      pack: [
+        { path: "Interface", label: "Interface", count: 12 },
+        { path: "Planets/Oozla", label: "Oozla", count: 26 },
+      ],
+      dumpCount: 1342,
+      dump: [
+        { path: "Interface", label: "Interface", count: 214 },
+        { path: "Shared", label: "Shared", count: 96 },
+        { path: "Planets/Aranos (tutorial)", label: "Aranos (tutorial)", count: 402 },
+        { path: "Planets/Oozla", label: "Oozla", count: 630 },
+      ],
+    };
+
 /** The overrides packs the preview pretends are added. */
 const mockPacks: PackView[] = [
   {
@@ -2316,6 +2339,46 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       }
       return delay<PackView[]>([...mockPacks]);
     }
+    case "texture_packs_view":
+      return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
+    case "texture_packs_set":
+      if (typeof args.enabled === "boolean") mockTextures.enabled = args.enabled;
+      if (typeof args.dumping === "boolean") mockTextures.dumping = args.dumping;
+      return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
+    case "texture_packs_open":
+      return delay(null);
+    case "texture_packs_preview":
+      if (String(args.source).includes("rac1")) {
+        throw new Error(
+          "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's page instead.",
+        );
+      }
+      return delay({
+        textures: 120,
+        animated: 1,
+        folders: [
+          { path: "Interface", label: "Interface", count: 40 },
+          { path: "Shared", label: "Shared", count: 80 },
+        ],
+        name: "Crisp HUD",
+        current: mockTextures.packCount,
+        replacing: 12,
+        skipped: 1,
+      });
+    case "texture_packs_import": {
+      const added = args.mode === "replace" ? 120 : mockTextures.packCount + 108;
+      mockTextures.packCount = added;
+      mockTextures.pack = [
+        { path: "Interface", label: "Interface", count: 40 },
+        { path: "Shared", label: "Shared", count: added - 40 },
+      ];
+      return delay({
+        textures: 120,
+        kept: args.mode === "replace" ? "rac2-ntsc (before import 2026-11-03-061500)" : null,
+      });
+    }
+    case "texture_packs_export":
+      return delay({ saved: "~/Downloads/rac2-ntsc-texture-pack.zip", textures: mockTextures.packCount, leftOut: 3 });
     case "enhanced_view":
     case "enhanced_set_enabled":
     case "enhanced_set_setting":

@@ -103,6 +103,17 @@ the game you used last.
 - **Logs**: every play session and crash is kept under **Help**, newest
   first, with the same Copy and Save actions. A recent crash marks the game
   in the list. **Detailed logs** makes the game write more, for when we ask.
+- **Texture packs**: for a game with a port, your own pictures in place of
+  the game's, in three steps. **Save the game's textures while you play**
+  makes the next Play save every picture it shows, sorted into Interface
+  (HUD, menus, font), Shared and a folder for each planet, with counts that
+  open each folder; they come from your disc, so keep them to yourself.
+  Edit or upscale the ones you want in any editor and put them in **your
+  pack**, which has its own switch. **Add a pack…** checks a shared `.zip`
+  (another game's is refused) and adds it to yours or replaces yours, which
+  is kept beside it. **Share my pack…** saves yours as a `.zip`, leaving out
+  pictures that are still the game's own
+  ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
   differently and why. **Game fixes** can be switched; **Kept from crashing**
   and **Playing on a PC** are listed for the record. The list is
@@ -285,6 +296,10 @@ What the launcher writes, and when it goes online:
   (see Saves above), shared with the game. Saves that some development builds
   kept in the install folder are moved to `migrated/` in the data folder at
   start, so nothing is lost.
+- **Texture packs**: your pack in `<data>/texture_packs/<id>/` (`rac2-ntsc`),
+  the textures the game saved in `texture_dumps/<id>/` of the data folder,
+  and `texture_dumps/<id>.dumping` while saving them is on. A replaced pack
+  is kept as `texture_packs/<id> (before import <date>)`.
 - **Mods**: `<data>/plugins/`, when you add, switch, order, update or remove
   one: each mod's folder, `plugins.json`, and `sources.json` for linked mods.
   Their downloads are checked, then deleted. A pack's files wait in

@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use openrac_launcher_core::{
     actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_state, enhanced, index,
     index_apply, jobs, library, mod_error, mod_updates, overrides, pcsx2_card, plugins, remote, reports, reset,
-    resolver, save_edit, saves, steam, update,
+    resolver, save_edit, saves, steam, texture_packs, update,
 };
 use ts_rs::{Config, TS};
 
@@ -76,6 +76,11 @@ fn export_all(cfg: &Config) {
         save_edit::SaveChange,
         save_edit::WriteResult,
         saves::GameSaveStatus,
+        texture_packs::Exported,
+        texture_packs::ImportMode,
+        texture_packs::Imported,
+        texture_packs::Preview,
+        texture_packs::View,
         update::Channel,
         update::Release,
         update::UpdateSource,
