@@ -143,3 +143,38 @@ Oozla, and the RAM 900 frames later holds every value, with the game's reactions
 - **Platinum bolts per level**: each level has four places; how many a level really holds is not
   in the save, so all four are offered.
 - **Gadgets the hero has on** (and the weapon in hand): chunk 32; taking them away is refused.
+
+## Advanced: progress flags (L-2)
+
+The editor's Advanced switch (off whenever a slot opens, with a warning) shows the story and
+progress flags whose place and effect are both proven, grouped by planet (`FLAGS` in
+`save_edit_rac2.rs`). Other Advanced sections (the saved level and position, weapon mods,
+platinum bolts spent, ship upgrades) are a separate component and module, and their notes a
+separate section of this document.
+
+**Method.** Two hidden runs on box1 from the same start, one with the event and one without, then
+a RAM dump at the same frame; `ramdiff.py` compares the dumps inside the save's chunks (every
+chunk is a copy of RAM by the save tables, so this is the save's own difference). Port faaacf206
+(it has the Maktar arena sound-bank fix), format 20 data.
+
+| Planet        | Flag                   | Place                                         | Proof                                                                                                                                                                                               |
+| ------------- | ---------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Maktar Nebula | Arena entered          | chunk 5 (0x1395B8) byte 5                     | entering the arena (`--level 2`, teleport 485.6 700.1 123.0, `OPENRAC_WRITE=c300:1A7904:2`) set it 0 → 1; `func_L02_003F9C10` opens the gate and plays the first-visit scene only while it is clear |
+| Maktar Nebula | Arena intro scene seen | chunk 43 (0x139768) bit 331 (byte 0x29, 0x08) | set by the same entry                                                                                                                                                                               |
+
+The same entry also set chunk 5 byte 0x9C to 1, the "once" bit field at chunk 5 +0xA7 (bit 2,
+set through `func_00294E48`) and bit 7 of level 2's byte 7 in chunk 3004 (the per-level object
+group states `D_0019B2E8[group + level * 16]`); their meanings are not proven, so they are not
+offered.
+
+**Load proof.** The Oozla fixture moved to Maktar (chunk 0 = 2, chunk 14 byte 2 = 1) was loaded
+twice, without and with the Arena entered flag, and the hero sent into the arena the same way.
+Without it the arena's intro played (bit 331 set at frame 5900); with it the intro did not play
+(bit 331 stayed clear): the game honours the edited flag.
+
+**Not yet named.** Per-level chunk 3004 (16 object-group states per level, which move as missions
+are done: level 0 after the tutorial `bf 83 0f 80 00 80`), chunk 5's other bytes (indexed by
+constants in each level's code, e.g. 0x83, 0x86, 0x89, 0x9F on Damosel, Joba, Endako), Joba's
+and Maktar's arena challenge results (chunk 5 at the index `func_L11_0043E108` and
+`func_L02_003F9B70` give per challenge), races, and the rest of the cinematics bits. Each needs
+its own before/after experiment.

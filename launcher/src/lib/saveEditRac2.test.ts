@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Rac2SaveFields, Rac2SaveView } from "./api";
-import { changed, editList, fieldErrors, ownedCount, platinumCount, setOwned, versionName } from "./saveEditRac2";
+import {
+  changed,
+  editList,
+  fieldErrors,
+  flagGroups,
+  ownedCount,
+  platinumCount,
+  setOwned,
+  versionName,
+} from "./saveEditRac2";
 
 function view(): Rac2SaveView {
   return {
@@ -24,6 +33,7 @@ function view(): Rac2SaveView {
       ],
       planets: [{ id: 1, available: true, visited: true, platinum: [false, false, false, false] }],
       skillPoints: Array<boolean>(30).fill(false),
+      flags: [{ id: "maktar-arena-entered", on: false }],
     },
     items: [
       {
@@ -63,6 +73,7 @@ function view(): Rac2SaveView {
     planets: [{ id: 1, name: "Oozla" }],
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
+    flags: [{ id: "maktar-arena-entered", level: 1, name: "Arena entered", note: "" }],
   };
 }
 
@@ -110,6 +121,9 @@ describe("the Going Commando save editor's page checks", () => {
       "Platinum bolts: Oozla",
       "Skill points 0 → 1",
     ]);
+    f.flags.forEach((x) => (x.on = true));
+    expect(editList(v, f).at(-1)?.text).toBe("Oozla: Arena entered set");
+    expect(flagGroups(v)).toEqual([{ planet: "Oozla", flags: v.flags }]);
   });
 
   it("names the version in the save", () => {

@@ -4,7 +4,7 @@
 import type { Rac2SaveFields, Rac2SaveView } from "./api";
 
 /** The editor's sections, in page order. */
-export type Rac2Section = "ratchet" | "weapons" | "gadgets" | "planets" | "skills";
+export type Rac2Section = "ratchet" | "weapons" | "gadgets" | "planets" | "skills" | "advanced";
 
 /** Ship paint jobs: the game numbers them, 0 the one the ship starts with. */
 export const SHIP_PAINTS = 18;
@@ -153,7 +153,21 @@ export function editList(view: Rac2SaveView, f: Rac2SaveFields): Rac2Edit[] {
   if (f.skillPoints.join() !== was.skillPoints.join()) {
     out.push({ section: "skills", text: `Skill points ${String(sp(was.skillPoints))} → ${String(sp(f.skillPoints))}` });
   }
+  for (const flag of f.flags) {
+    const old = was.flags.find((x) => x.id === flag.id);
+    const info = view.flags.find((x) => x.id === flag.id);
+    if (!old || !info || old.on === flag.on) continue;
+    const planet = view.planets.find((p) => p.id === info.level)?.name ?? `Level ${String(info.level)}`;
+    out.push({ section: "advanced", text: `${planet}: ${info.name} ${flag.on ? "set" : "cleared"}` });
+  }
   return out;
+}
+
+/** The Advanced view's flags, grouped by planet in the planet list's order. */
+export function flagGroups(view: Rac2SaveView): { planet: string; flags: Rac2SaveView["flags"] }[] {
+  return view.planets
+    .map((p) => ({ planet: p.name, flags: view.flags.filter((f) => f.level === p.id) }))
+    .filter((g) => g.flags.length > 0);
 }
 
 /** Armour by level, as the editor names it. */

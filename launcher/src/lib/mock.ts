@@ -2033,6 +2033,15 @@ const RAC2_LEVELS: [number, string][] = [
   [25, "Wupash Nebula"],
   [26, "Jamming Array"],
 ];
+const RAC2_FLAGS: [string, number, string, string][] = [
+  [
+    "maktar-arena-entered",
+    2,
+    "Arena entered",
+    "Clear: the next entry opens the arena's gate and plays its first-visit scene.",
+  ],
+  ["maktar-arena-intro-seen", 2, "Arena intro scene seen", "The cinematic the first entry plays (cinematic 331)."],
+];
 const savedRac2: Record<string, Rac2SaveFields> = {};
 
 /** A Going Commando slot: early in the game, on Oozla, with the Lancer in hand. */
@@ -2058,6 +2067,7 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       platinum: [false, false, false, false],
     })),
     skillPoints: Array<boolean>(30).fill(false),
+    flags: RAC2_FLAGS.map(([id]) => ({ id, on: false })),
   };
   return {
     serial,
@@ -2081,6 +2091,7 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
     planets: RAC2_LEVELS.map(([id, name]) => ({ id, name })),
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
+    flags: RAC2_FLAGS.map(([id, level, name, note]) => ({ id, level, name, note })),
   };
 }
 const savedRaw: Record<string, Record<string, string>> = {};

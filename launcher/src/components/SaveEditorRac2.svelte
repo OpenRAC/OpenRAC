@@ -20,6 +20,7 @@
     platinumCount,
     setOwned,
     SHIP_PAINTS,
+    flagGroups,
     versionName,
     type Rac2Section,
   } from "$lib/saveEditRac2";
@@ -147,14 +148,24 @@
     node.focus();
   }
 
-  const sections: [Rac2Section, string][] = [
+  /** Advanced: progress flags and the like, behind a switch that starts off for each slot. */
+  let advanced = $state(false);
+  const sections = $derived<[Rac2Section, string][]>([
     ["ratchet", "Ratchet"],
     ["weapons", "Weapons"],
     ["gadgets", "Gadgets and items"],
     ["planets", "Planets"],
     ["skills", "Skill points"],
-  ];
-  const sectionLabel = Object.fromEntries(sections) as Record<Rac2Section, string>;
+    ...(advanced ? ([["advanced", "Advanced"]] as [Rac2Section, string][]) : []),
+  ]);
+  const sectionLabel: Record<Rac2Section, string> = {
+    ratchet: "Ratchet",
+    weapons: "Weapons",
+    gadgets: "Gadgets and items",
+    planets: "Planets",
+    skills: "Skill points",
+    advanced: "Advanced",
+  };
   let current = $state<Rac2Section>("ratchet");
   let target: Rac2Section | null = null;
 
@@ -173,7 +184,7 @@
       if (el && el.getBoundingClientRect().top <= line) at = key;
     }
     const end = bodyEl.scrollTop + bodyEl.clientHeight >= bodyEl.scrollHeight - 2;
-    current = end ? (target ?? "skills") : at;
+    current = end ? (target ?? (advanced ? "advanced" : "skills")) : at;
   }
 
   $effect(() => {
@@ -558,6 +569,50 @@
           </div>
           <p class="note">Numbered in the order the game keeps them.</p>
         </section>
+
+        <section id="se2-advanced-switch" aria-label="Advanced editing">
+          <label class="own switch">
+            <input type="checkbox" bind:checked={advanced} />
+            Advanced: story and progress flags
+          </label>
+          {#if !advanced && editedSections.has("advanced")}
+            <p class="note">Advanced changes are still in the list of changes.</p>
+          {/if}
+        </section>
+
+        {#if advanced}
+          <section id="se2-advanced" aria-labelledby="se2-advanced-h" transition:slide={fold}>
+            <h3 id="se2-advanced-h">Advanced</h3>
+            <p class="running">
+              <Icon name="warn" size={16} />These change where the story stands. A flag that does not match the rest of
+              the save can replay a scene, skip one, or leave a door shut; your card is backed up first.
+            </p>
+            {#each flagGroups(view) as group (group.planet)}
+              <h4 class="group">{group.planet}</h4>
+              <ul class="rows flags">
+                {#each group.flags as info (info.id)}
+                  {@const s = fields.flags.find((x) => x.id === info.id)}
+                  {#if s}
+                    <li>
+                      <label class="own">
+                        <input type="checkbox" bind:checked={s.on} />
+                        {info.name}{#if s.on !== view.fields.flags.find((x) => x.id === info.id)?.on}<span
+                            class="mark"
+                            role="img"
+                            aria-label="changed"
+                          ></span>{/if}
+                      </label>
+                      <span class="hint">{info.note}</span>
+                    </li>
+                  {/if}
+                {/each}
+              </ul>
+            {/each}
+            <!-- Advanced sections of their own (SaveEditorRac2Advanced2.svelte: the saved level and
+                 position, weapon mods, platinum bolts spent, ship upgrades) go here, with
+                 {view} and bind:fields like the flags above. -->
+          </section>
+        {/if}
       {/if}
     </div>
 
@@ -1039,6 +1094,19 @@
     color: var(--dim);
   }
 
+  .rows.flags {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+
+  .group {
+    margin: 12px 0 6px;
+    font-size: 0.875rem;
+  }
+
+  .switch {
+    font-size: 0.875rem;
+  }
+
   .rows.planets {
     grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
@@ -1085,6 +1153,10 @@
 
     .rows li > :first-child {
       grid-column: 1 / -1;
+    }
+
+    .rows.flags {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 

@@ -295,7 +295,49 @@ mod id {
     pub const VISITED: i32 = 3001;
     /// Per level: platinum bolts found u8[4] (0x0019B278).
     pub const PLATINUM: i32 = 3003;
+    /// Story and progress bytes, by index (0x001395B8, 205 bytes).
+    pub const STORY: i32 = 5;
+    /// Cinematics seen, a bit each (0x00139768, `g_cinematicUnlockedFlags`).
+    pub const CINEMATICS: i32 = 43;
 }
+
+/// Where a progress flag is: a byte of the story chunk (non-zero is set), or a bit of the
+/// cinematics chunk.
+#[derive(Clone, Copy, Debug)]
+pub enum FlagPlace {
+    StoryByte(usize),
+    CinematicBit(usize),
+}
+
+/// A progress flag the Advanced view offers. Each one's place was proven by a save made before and
+/// after the game set it, and the game honours an edited value at load (format document).
+#[derive(Clone, Copy, Debug)]
+pub struct FlagDef {
+    pub id: &'static str,
+    /// The level whose progress it is (RAC2_PLANETS numbering).
+    pub level: usize,
+    pub name: &'static str,
+    pub note: &'static str,
+    pub place: FlagPlace,
+}
+
+/// The proven progress flags, by level.
+pub const FLAGS: &[FlagDef] = &[
+    FlagDef {
+        id: "maktar-arena-entered",
+        level: 2,
+        name: "Arena entered",
+        note: "Clear: the next entry opens the arena's gate and plays its first-visit scene.",
+        place: FlagPlace::StoryByte(5),
+    },
+    FlagDef {
+        id: "maktar-arena-intro-seen",
+        level: 2,
+        name: "Arena intro scene seen",
+        note: "The cinematic the first entry plays (cinematic 331).",
+        place: FlagPlace::CinematicBit(331),
+    },
+];
 
 /// Offsets in the progress block (chunk 39).
 const P_BOLTS: usize = 0x00;
@@ -503,6 +545,24 @@ pub struct Rac2SaveFields {
     pub planets: Vec<Rac2PlanetState>,
     /// The 30 skill points, in the order the game keeps them.
     pub skill_points: Vec<bool>,
+    /// The Advanced view's progress flags ([`FLAGS`]), in that order.
+    pub flags: Vec<Rac2FlagState>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct Rac2FlagState {
+    pub id: String,
+    pub on: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct Rac2FlagInfo {
+    pub id: String,
+    pub level: usize,
+    pub name: String,
+    pub note: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
@@ -554,6 +614,8 @@ pub struct Rac2SaveView {
     pub planets: Vec<Rac2PlanetInfo>,
     pub max_bolts: u32,
     pub max_xp: u32,
+    /// The Advanced view's progress flags, in the order of `fields.flags`.
+    pub flags: Vec<Rac2FlagInfo>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
@@ -627,6 +689,28 @@ impl SaveFile {
             items,
             planets,
             skill_points: g.get(id::SKILL_POINTS)[..SKILL_POINT_COUNT].iter().map(|&b| b != 0).collect(),
+            flags: FLAGS.iter().map(|f| Rac2FlagState { id: f.id.to_string(), on: self.flag(f.place) }).collect(),
+        }
+    }
+
+    fn flag(&self, place: FlagPlace) -> bool {
+        match place {
+            FlagPlace::StoryByte(i) => self.global.get(id::STORY)[i] != 0,
+            FlagPlace::CinematicBit(b) => self.global.get(id::CINEMATICS)[b / 8] & (1 << (b % 8)) != 0,
+        }
+    }
+
+    fn set_flag(&mut self, place: FlagPlace, on: bool) {
+        match place {
+            FlagPlace::StoryByte(i) => self.global.get_mut(id::STORY)[i] = on as u8,
+            FlagPlace::CinematicBit(b) => {
+                let byte = &mut self.global.get_mut(id::CINEMATICS)[b / 8];
+                if on {
+                    *byte |= 1 << (b % 8);
+                } else {
+                    *byte &= !(1 << (b % 8));
+                }
+            }
         }
     }
 
@@ -723,6 +807,12 @@ impl SaveFile {
                 for (k, &found) in w.platinum.iter().enumerate() {
                     pb[k] = found as u8;
                 }
+            }
+        }
+
+        for (d, (w, h)) in FLAGS.iter().zip(want.flags.iter().zip(&have.flags)) {
+            if w.on != h.on {
+                self.set_flag(d.place, w.on);
             }
         }
 
@@ -834,6 +924,9 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
     if f.planets.iter().any(|s| s.platinum.len() != PLATINUM_PER_LEVEL) {
         return Err(format!("each level has {PLATINUM_PER_LEVEL} platinum bolt places"));
     }
+    if f.flags.len() != FLAGS.len() || f.flags.iter().zip(FLAGS).any(|(s, d)| s.id != d.id) {
+        return Err("the progress flags do not match the editor's".into());
+    }
     if f.skill_points.len() != SKILL_POINT_COUNT {
         return Err(format!("there are {SKILL_POINT_COUNT} skill points"));
     }
@@ -882,6 +975,15 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
         planets: listed_levels().map(|(id, name)| Rac2PlanetInfo { id, name: name.to_string() }).collect(),
         max_bolts: MAX_BOLTS,
         max_xp: MAX_XP,
+        flags: FLAGS
+            .iter()
+            .map(|f| Rac2FlagInfo {
+                id: f.id.to_string(),
+                level: f.level,
+                name: f.name.to_string(),
+                note: f.note.to_string(),
+            })
+            .collect(),
     }
 }
 
@@ -1153,6 +1255,30 @@ mod tests {
         let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
         let lancer = v.items.iter().find(|i| i.id == 30).unwrap();
         assert_eq!((lancer.version, lancer.max_ammo, lancer.max_xp), (Some(2), Some(400), Some(8000 * 32 - 1)));
+    }
+
+    #[test]
+    fn progress_flags_land_where_the_game_keeps_them() {
+        // The game's own writes on entering Maktar's arena the first time (format document, a0/a1).
+        let before = oozla();
+        let f = before.fields();
+        assert!(f.flags.iter().all(|x| !x.on));
+        let mut want = f.clone();
+        want.flags.iter_mut().for_each(|x| x.on = true);
+        let mut after = before.clone();
+        after.apply(&want).unwrap();
+        let mut c = changed(&before, &after);
+        c.sort();
+        assert_eq!(c, [(None, id::STORY, 5), (None, id::CINEMATICS, 0x29)]);
+        assert_eq!(after.global.get(id::CINEMATICS)[0x29], 0x08);
+        assert_eq!(SaveFile::parse(&after.to_bytes()).unwrap().fields(), want);
+        let mut off = want.clone();
+        off.flags[1].on = false;
+        after.apply(&off).unwrap();
+        assert_eq!(after.global.get(id::CINEMATICS)[0x29], 0);
+        let mut bad = want;
+        bad.flags.pop();
+        assert!(after.apply(&bad).is_err());
     }
 
     #[test]
