@@ -708,6 +708,7 @@
 
   .head h2 {
     margin: 0;
+    overflow-wrap: anywhere;
   }
 
   .sub {
@@ -724,6 +725,7 @@
   }
 
   .foot .row {
+    flex-wrap: wrap;
     gap: 8px;
     font-size: 0.8125rem;
   }
@@ -775,6 +777,7 @@
 
   .review button {
     width: 100%;
+    white-space: normal;
     justify-content: flex-start;
     gap: 12px;
     font-weight: 400;
@@ -783,8 +786,8 @@
   }
 
   .where {
-    flex: none;
-    width: 128px;
+    flex: 0 1 8rem;
+    min-width: 0;
     color: var(--dim);
   }
 
@@ -831,7 +834,9 @@
     color: var(--ok);
   }
 
+  /* The sections reflow by the body's own width (the window less the dialog's margins). */
   .body {
+    container-type: inline-size;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -888,7 +893,7 @@
 
   .line {
     display: grid;
-    grid-template-columns: 120px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
     align-items: center;
     gap: 12px;
     padding: 10px 2px;
@@ -918,6 +923,8 @@
   }
 
   .hint {
+    flex: 1 1 12rem;
+    min-width: 0;
     font-size: 0.75rem;
     color: var(--dim);
   }
@@ -971,9 +978,16 @@
     border-color: var(--amber);
   }
 
+  .rows {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: 12px;
+  }
+
   .rows li {
     display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) 150px;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     align-items: center;
     gap: 12px;
     padding: 7px 2px;
@@ -985,6 +999,8 @@
   }
 
   .own {
+    min-width: 0;
+    overflow-wrap: anywhere;
     display: inline-flex;
     align-items: center;
     gap: 9px;
@@ -992,6 +1008,7 @@
   }
 
   .ammo {
+    flex-wrap: wrap;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -1022,11 +1039,13 @@
     color: var(--dim);
   }
 
-  .planets li {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 0.9fr);
+  .rows.planets {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
 
   .planet {
+    min-width: 0;
+    overflow-wrap: anywhere;
     display: flex;
     flex-direction: column;
     line-height: 1.3;
@@ -1051,6 +1070,22 @@
     color: var(--bar-ink-deep);
     background: var(--gold);
     border-color: var(--gold);
+  }
+
+  @container (max-width: 560px) {
+    .line {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+    }
+
+    .rows,
+    .rows.planets {
+      grid-template-columns: repeat(3, auto) minmax(0, 1fr);
+    }
+
+    .rows li > :first-child {
+      grid-column: 1 / -1;
+    }
   }
 
   .skills {
