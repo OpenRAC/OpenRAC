@@ -437,7 +437,7 @@ void main() { colour=vec4(float(object_reflection_enabled),object_reflection_mat
     source.metal = true;
     source.name = "metal_chrome";
     const auto draw = [&](unsigned model) {
-        materials.bind_material(shader, model, source);
+        materials.bind_material(shader, model, -1, source);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };

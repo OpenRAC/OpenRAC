@@ -20,6 +20,12 @@
 
 namespace openrac::json {
 
+// Default readers retain legacy last-key semantics; authored catalogs can reject ambiguous duplicates.
+enum class DuplicateKeys {
+    LastWins,
+    Reject
+};
+
 // One JSON value: null, a boolean, a number, a string, an array or an object, with its children.
 //
 // Copied and moved as a whole tree. Reading a value as the wrong type gives an empty or fallback
@@ -93,7 +99,12 @@ private:
 
 // Parses `text` as one whole document into `out`. False when it is not JSON, or has text after the
 // value: `error` then says what and at which byte offset, and `out` is left incomplete.
-bool parse(std::string_view text, Value& out, std::string& error);
+bool parse(
+    std::string_view text,
+    Value& out,
+    std::string& error,
+    DuplicateKeys duplicates = DuplicateKeys::LastWins
+);
 
 // Reads the file at `path` and parses it as parse() does. False when the file cannot be read or is
 // not JSON: `error` then names the file and says why.

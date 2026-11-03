@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "emission-shrub_0051",
+      "match": {
+        "texture_path": "textures/shrub_0051.png"
+      },
+      "set": {
+        "emission": {
+          "bake_intensity": 6
+        }
+      }
+    },
+    {
+      "id": "emission-shrub_0052",
+      "match": {
+        "texture_path": "textures/shrub_0052.png"
+      },
+      "set": {
+        "emission": {
+          "bake_intensity": 6
+        }
+      }
+    }
+  ]
+}

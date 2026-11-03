@@ -21,6 +21,7 @@ Library `openrac_common`. Each header has a namespace of its own under `openrac`
 | [`profiler.h`](profiler.h) | `openrac::profiling`: optional Tracy zones, thread names and frame markers, independent of the debug overlay ([guide](../../docs/port/PROFILING.md)) |
 | [`system_info.h`](system_info.h) | `openrac::system_info`: the system, processor and memory a report names |
 | [`build_info.h`](build_info.h) | `openrac::build_info`: OpenRAC's version and the checkout's commit, written at each build |
+| [`staged_file.h`](staged_file.h) | `openrac::StagedFile`: exclusive staging and atomic publication for authored metadata |
 | [`json.h`](json.h) | `openrac::json`: a JSON reader (a tree of values, parsed whole) for the editor's exports, mod manifests and the tools' files |
 | [`ps2_float.h`](ps2_float.h) | `openrac::ps2`: the PS2's FPU and vector-unit float arithmetic on raw bit patterns, for the asset readers, the world renderers and the runtime's C entry points (`openrac/ps2float.h`) |
 | [`float_encoding.h`](float_encoding.h) | `openrac::float_encoding`: IEEE floats packed to the small float formats of half-float metadata and irradiance channels |

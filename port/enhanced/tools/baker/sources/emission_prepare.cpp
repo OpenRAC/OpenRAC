@@ -11,9 +11,57 @@
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/stage_file.h"
 #include "enhanced/tools/baker/sources/emission_catalog.h"
+#include "materials/catalog.h"
 
 namespace openrac::lighting {
 namespace {
+// Publishes generated source layers separately, preserving root-level local authoring and mod overlays.
+void prepare_material_sources(
+    const std::filesystem::path& level,
+    const std::filesystem::path& catalog,
+    const std::filesystem::path& defaults
+) {
+    const auto manifest = bake_json::optional_object(level / "manifest.json");
+    const auto game = manifest.find("game");
+    // Ad-hoc CLI fixtures without source identity retain their existing behaviour.
+    if (game == manifest.end() || !game->second.is_string()) {
+        return;
+    }
+    if (game->second.string().empty()
+        || game->second.string().find_first_not_of(
+               "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+           ) != std::string::npos) {
+        throw std::runtime_error("invalid material profile game identity");
+    }
+    const auto profiles = catalog.parent_path().parent_path();
+    const std::pair<std::string_view, std::filesystem::path> sources[] =
+        {{"shared", profiles / game->second.string() / "material-overrides.json"},
+         {"version", catalog.parent_path() / "material-overrides.json"},
+         {"level", defaults.parent_path() / "material-overrides.json"}};
+    for (const auto& [layer, source] : sources) {
+        const auto target = level / "materials" / layer / "material-overrides.json";
+        std::error_code error;
+        if (!std::filesystem::exists(source, error)) {
+            if (error) {
+                throw std::runtime_error(error.message());
+            }
+            std::filesystem::remove(target, error);
+            if (error) {
+                throw std::runtime_error(error.message());
+            }
+            continue;
+        }
+        const auto parsed = materials::read_catalog(source);
+        if (!parsed) {
+            throw std::runtime_error(parsed.error().message);
+        }
+        const auto written = materials::write_catalog(target, *parsed);
+        if (!written) {
+            throw std::runtime_error(written.error().message);
+        }
+    }
+}
+
 // Overlays one level of fields, preserving independent material properties on shared texture keys.
 void overlay(bake_json::Object& target, const bake_json::Object& source) {
     // Level authoring overrides catalog fields individually, while scalar/list records replace whole values.
@@ -91,8 +139,9 @@ Result<bool> prepare_level_emission(
     // Reject malformed configuration before replacing any generated profile.
     try {
         const profiling::Zone zone("Prepare emission profile");
+        prepare_material_sources(level, catalog, defaults);
         auto resolved = resolve_emission_catalog(level, catalog, execution);
-        overlay(resolved, bake_json::optional_object(defaults));
+        overlay(resolved, resolve_emission_defaults(defaults));
         const auto path = level / "probe-emission.json";
         const auto original = bake_json::optional_object(path);
         auto existing = original;

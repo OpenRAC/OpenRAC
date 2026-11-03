@@ -7,6 +7,7 @@
 #include "enhanced/viewer/scene_lighting.h"
 
 #include <algorithm>
+#include <bit>
 #include <memory>
 #include <utility>
 
@@ -43,9 +44,14 @@ std::string hero_shader(std::string source, const char* fur_source) {
 std::string hero_fragment(std::string source) {
     if (gl::is_vulkan() && gl::enhanced_rendering_available()) {
         const auto surface = source.find("vec3 probe_surface(");
+        // Material response shares existing lighting helpers and never changes coverage or depth.
         if (surface != std::string::npos) {
+            source.insert(surface, shaders::foliage_glsl);
+        }
+        const auto fur_surface = source.find("vec3 probe_surface(");
+        if (fur_surface != std::string::npos) {
             source.insert(
-                surface,
+                fur_surface,
                 hero_only_source(shaders::fur_lighting_glsl)
                     + hero_only_source(shaders::fur_environment_glsl)
             );
@@ -71,13 +77,16 @@ std::string SceneLighting::mesh_fragment(std::string source) const {
 void SceneLighting::prepare_wetness(
     const renderer::FrameInput& input, unsigned palette, const std::optional<scene::Instance>& hero
 ) {
+    // Snapshot session defaults once, avoiding locks in each material binding.
+    m_default_fur = enhanced::fur_material_settings();
+    m_default_wetness = enhanced::wetness_material_settings();
     m_wetness.prepare(input, palette, hero);
     m_fur.prepare(hero);
 }
 
 void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
-    m_wetness.bind(shader);
-    m_fur.bind(shader);
+    m_wetness.bind(shader, m_default_wetness);
+    m_fur.bind(shader, m_default_fur);
 }
 
 void SceneLighting::prepare_deformation(
@@ -142,20 +151,61 @@ void SceneLighting::bind_atmosphere(const renderer::Shader& shader) const {
     m_atmosphere.bind(shader);
 }
 
-void SceneLighting::bind_material(
-    const renderer::Shader& shader, std::uint32_t model, const scene::Material& source
+void SceneLighting::bind_surface_material(
+    const renderer::Shader& shader, std::uint32_t model, int slot, const scene::Material& source
 ) const {
+    // Every ordinary material resets its packed controls before the draw's immutable snapshot.
+    if (gl::enhanced_rendering_available()) {
+        m_foliage.bind(shader, source, m_material_overrides);
+        const auto* response = m_material_overrides ? m_materials.response(model, slot) : nullptr;
+        gl::glUniform1i(
+            shader.uniform("material_fallback"), response ? response->fallback_channels : 0
+        );
+        // Catalog families override the legacy foliage adapter only when explicitly authored.
+        if (response && response->family_override) {
+            gl::glUniform1f(
+                shader.uniform("foliage_reflectivity"), response->reflection.reflectivity
+            );
+            gl::glUniform1i(
+                shader.uniform("foliage_parameters0"),
+                std::bit_cast<std::int32_t>(response->foliage[0])
+            );
+            gl::glUniform1i(
+                shader.uniform("foliage_parameters1"),
+                std::bit_cast<std::int32_t>(response->foliage[1])
+            );
+        }
+        if (response) {
+            // Inherited values reset the preceding material's overrides within the same shader run.
+            m_fur.bind_material(shader, response->fur_override ? response->fur : m_default_fur);
+            m_wetness.bind_material(
+                shader, response->wetness_override ? response->wetness : m_default_wetness
+            );
+        }
+    }
+}
+
+void SceneLighting::bind_material(
+    const renderer::Shader& shader, std::uint32_t model, int slot, const scene::Material& source
+) const {
+    bind_surface_material(shader, model, slot, source);
     const auto location = shader.uniform("object_reflection_enabled");
     if (location < 0) {
         return;
     }
-    gl::glUniform1i(location, active() && source.metal ? 1 : 0);
+    const auto* response = m_material_overrides ? m_materials.response(model, slot) : nullptr;
+    // Explicit optics can use the original reflective colour when no probes are available.
+    constexpr int kAuthoredReflection = 2;
+    const int reflection = response && response->reflection_override ? kAuthoredReflection : 1;
+    gl::glUniform1i(location, m_material_overrides && source.metal ? reflection : 0);
+    // Only reflective packets consume these uniforms.
     if (!source.metal) {
         return;
     }
     const auto found = m_reflection_classes.find(model);
     const int class_id = found != m_reflection_classes.end() ? found->second : -1;
-    const auto material = enhanced::reflection_material_for(source.name, class_id);
+    const auto material =
+        response ? response->reflection : enhanced::reflection_material_for(source.name, class_id);
     gl::glUniform3f(
         shader.uniform("object_reflection_material"),
         material.roughness,
@@ -169,6 +219,30 @@ void SceneLighting::bind_material(
         material.tint[2],
         material.opacity
     );
+}
+
+const scene::Material& SceneLighting::resolve_material(
+    std::uint32_t model, int slot, const scene::Material& original
+) const {
+    const auto* binding = m_material_overrides && gl::enhanced_rendering_available()
+                              ? m_materials.find(model, slot)
+                              : nullptr;
+    return binding ? binding->surface : original;
+}
+
+std::uint64_t SceneLighting::material_variant(std::uint32_t model, int slot) const {
+    const auto* binding = m_material_overrides && gl::enhanced_rendering_available()
+                              ? m_materials.find(model, slot)
+                              : nullptr;
+    return binding ? binding->variant : 0;
+}
+
+std::array<float, 3> SceneLighting::sky_tint(std::uint32_t model, int slot) const {
+    // Classic rendering keeps the exported sky colours.
+    const auto* response = m_material_overrides && gl::enhanced_rendering_available()
+                               ? m_materials.response(model, slot)
+                               : nullptr;
+    return response ? response->sky_tint : std::array<float, 3>{1, 1, 1};
 }
 
 std::string SceneLighting::early_fragment(std::string source) const {
@@ -216,6 +290,27 @@ void SceneLighting::load(const scene::LevelData& level) {
     }
     enhanced::set_reflection_subjects(std::move(subjects));
     m_probes.load(level);
+    // Foliage is optional: bad material authoring must not disable unrelated enhanced lighting.
+    if (gl::enhanced_rendering_available()) {
+        const auto foliage = m_foliage.load(level);
+        if (!foliage) {
+            log::warn("foliage materials: {}", foliage.error().message);
+        }
+        log::info("foliage materials: {} reviewed textures matched", m_foliage.size());
+    }
+    // Material resolution is CPU-only and completes before any colour draw can use the cache.
+    const auto materials = m_materials.load(level);
+    if (!materials) {
+        log::warn("material overrides: {}", log::tidy(materials.error().message));
+    }
+    const auto editor = m_materials.editor();
+    if (editor && editor->bindings) {
+        log::info(
+            "material overrides: {} bindings, {} foliage",
+            editor->bindings->bindings.size(),
+            editor->foliage_bindings
+        );
+    }
     m_wetness.load(level);
     m_fur.load(level, enhanced::fur_profile(level.game));
     m_water_float.load();
@@ -230,6 +325,8 @@ void SceneLighting::release() {
     m_local_lights.release();
     m_wetness.release();
     m_fur.release();
+    m_foliage.clear();
+    m_materials.clear();
     m_water_float.release();
     m_atmosphere.release();
     m_probes.release();
@@ -263,6 +360,11 @@ void SceneLighting::set_lighting(bool enabled, float multiplier) {
 
 void SceneLighting::set_sunlight_direction(std::optional<renderer::Vec3> direction) {
     m_probes.runtime_sunlight_direction = direction;
+}
+
+// A missing bake changes lighting, while this switch follows the submitted graphics settings.
+void SceneLighting::set_material_overrides(bool enabled) {
+    m_material_overrides = enabled;
 }
 
 void SceneLighting::set_bias(float normal, float view) {

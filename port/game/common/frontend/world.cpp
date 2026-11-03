@@ -1139,6 +1139,124 @@ int ui_quad(const openrac_game_ui_rect& quad) {
     return static_cast<int>((g->ui_quads.size() - 1) | (g->ui_generation & 0x3F) << 24);
 }
 
+namespace {
+// Borrows authoring state only while the window thread has exclusive scene ownership.
+enhanced::MaterialRuntime* editable_materials(std::string& error) {
+    if (!g || render_pending()) {
+        error = "render worker is busy; retry after it completes";
+        return nullptr;
+    }
+    auto* lighting = lighting::scene_lighting(g->scene);
+    if (!lighting) {
+        error = "enhanced material renderer unavailable";
+        return nullptr;
+    }
+    error.clear();
+    return &lighting->materials();
+}
+
+// Translates the material module's error contract for the existing frontend UI interface.
+bool material_edit_result(const Result<void>& result, std::string& error) {
+    if (!result) {
+        error = result.error().message;
+        return false;
+    }
+    error.clear();
+    return true;
+}
+}  // namespace
+
+std::shared_ptr<const enhanced::MaterialEditor> material_editor() {
+    // The immutable snapshot is acquired only after the scene ownership handoff.
+    if (!g || render_pending()) {
+        return {};
+    }
+    auto* lighting = lighting::scene_lighting(g->scene);
+    return lighting ? lighting->materials().editor() : nullptr;
+}
+
+bool patch_material(
+    std::size_t binding, std::string key, materials::Value value, std::string& error
+) {
+    auto* editor = editable_materials(error);
+    return editor
+           && material_edit_result(editor->patch(binding, std::move(key), std::move(value)), error);
+}
+
+bool patch_material_preset(
+    const std::string& preset, std::string key, materials::Value value, std::string& error
+) {
+    auto* editor = editable_materials(error);
+    return editor
+           && material_edit_result(
+               editor->patch_preset(preset, std::move(key), std::move(value)), error
+           );
+}
+
+bool undo_material(std::size_t binding, const std::string& key, std::string& error) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->undo(binding, key), error);
+}
+
+bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->undo_preset(preset, key), error);
+}
+
+bool save_materials(std::string& error) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->save(), error);
+}
+
+void reset_materials() {
+    if (!g || render_pending()) {
+        return;
+    }
+    auto* lighting = lighting::scene_lighting(g->scene);
+    if (lighting) {
+        lighting->materials().reset();
+    }
+}
+
+enhanced::FoliageControls foliage_controls() {
+    // No UI may access a scene still owned by the render worker.
+    if (!g || render_pending()) {
+        return {};
+    }
+    auto* lighting = lighting::scene_lighting(g->scene);
+    return lighting ? lighting->foliage_materials().controls() : enhanced::FoliageControls{};
+}
+
+bool set_foliage_controls(const enhanced::FoliageControls& controls, std::string& error) {
+    // The window thread edits material caches only with exclusive scene ownership.
+    if (!g || render_pending()) {
+        error = "foliage renderer unavailable";
+        return false;
+    }
+    auto* lighting = lighting::scene_lighting(g->scene);
+    if (!lighting) {
+        error = "enhanced foliage renderer unavailable";
+        return false;
+    }
+    const auto result = lighting->foliage_materials().set_controls(controls);
+    if (!result) {
+        error = result.error().message;
+        return false;
+    }
+    return true;
+}
+
+void reset_foliage_controls() {
+    // Reset uses the same render-worker handoff as an ordinary edit.
+    if (!g || render_pending()) {
+        return;
+    }
+    auto* lighting = lighting::scene_lighting(g->scene);
+    if (lighting) {
+        lighting->foliage_materials().reset_controls();
+    }
+}
+
 }  // namespace openrac::frontend
 
 // Called on the game thread: disable legacy displacement only with a working replacement.

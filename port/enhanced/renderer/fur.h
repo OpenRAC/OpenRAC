@@ -111,6 +111,10 @@ public:
     void bind(
         const renderer::Shader& shader
     ) const;         // Supplies maps to production colour variants.
+    // Binds cached per-material controls; coverage resources and eligibility remain unchanged.
+    void bind(const renderer::Shader& shader, const FurMaterialSettings& settings) const;
+    // Updates optical uniforms without rebinding coverage maps or eligibility buffers.
+    void bind_material(const renderer::Shader& shader, const FurMaterialSettings& settings) const;
     void release();  // Called with the owning render context current.
 
 private:

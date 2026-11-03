@@ -191,6 +191,9 @@ void set_lighting(SceneFrame& frame) {
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
+    if (auto* lighting = owner.scene.level_lighting()) {
+        lighting->set_material_overrides(enhanced);
+    }
     owner.scene.set_probe_lighting(
         enhanced && !graphics.sweep_probe_lighting_off, graphics.probe_gi_multiplier
     );
