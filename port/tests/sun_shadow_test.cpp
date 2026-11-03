@@ -11,6 +11,9 @@
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/shadows.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 #include "scene/level_renderer.h"
 #include "scene/sun_shadow.h"
 #include "tests/check.h"
@@ -1123,10 +1126,16 @@ void test_static_shadow_keys_follow_the_camera() {
     CHECK(same_key == 0);
 }
 
+// Keeps every geometry/filter/scene check; fresh native objects remain selectable for comparisons.
 int main(int argc, char** argv) {
-    const bool reference_only = argc == 2 && std::string_view(argv[1]) == "--gpu-reference";
-    if (argc > 1 && !reference_only && (argc != 2 || std::string_view(argv[1]) != "--gpu")) {
-        std::fprintf(stderr, "usage: sun_shadow_test [--gpu | --gpu-reference]\n");
+    const bool fresh_programs = argc == 3 && std::string_view(argv[2]) == "--fresh-programs";
+    const bool reference_only = argc > 1 && std::string_view(argv[1]) == "--gpu-reference";
+    if (argc > 1
+        && ((!reference_only && std::string_view(argv[1]) != "--gpu")
+            || (argc != 2 && !fresh_programs))) {
+        std::fprintf(
+            stderr, "usage: sun_shadow_test [--gpu | --gpu-reference] [--fresh-programs]\n"
+        );
         return 1;
     }
     test::gpu_draw_reference(true);
@@ -1141,6 +1150,12 @@ int main(int argc, char** argv) {
             std::printf("SKIP: %s\n", why.c_str());
             return test::kSkip;
         }
+        // Identical immutable objects may survive fresh scene links; uniforms still start empty.
+#if defined(OPENRAC_VULKAN)
+        if (gl::is_vulkan()) {
+            vkgl::test_reuse_programs(!fresh_programs);
+        }
+#endif
         // Raw kernels compare both filters directly and do not read the production override.
         test::RenderTestTiming timing("sun shadows");
         if (!reference_only) {
@@ -1151,6 +1166,16 @@ int main(int argc, char** argv) {
         timing.lap("filter comparisons");
         gpu();
         timing.lap("scene comparisons");
+#if defined(OPENRAC_VULKAN)
+        // OpenGL has no native Vulkan object pool to validate.
+        if (!gl::is_vulkan()) {
+            return test::result();
+        }
+        const auto reused = vkgl::submission_counters().test_program_reuses;
+        CHECK(fresh_programs ? reused == 0 : reused > 0);
+        CHECK(vkgl::submission_counters().validation_errors == 0);
+        vkgl::test_reuse_programs(false);
+#endif
     }
     return test::result();
 }
