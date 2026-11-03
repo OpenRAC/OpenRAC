@@ -51,6 +51,8 @@ HW_RANGES = [(0x10000000, 0x12002000)]  # EE registers, VU memory, GS registers
 LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 # A level function's name, with its level: rac1/pal's func_L05_..., the NTSC decomp's FUN_L05_....
 LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
+# A call_copies row with an executable target: the executable's call, else the level copy's.
+_EXE_OR_COPY = "(openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? "
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 # A datum's name with a word after its number (D_001A7390_sda): the same datum; a number after it
 # (D_L00_001B1B00_1) is one of the build's own, a datum of its own.
@@ -926,6 +928,10 @@ class Unit:
                 # Called by code address (a folded wrapper's own callee): through a pointer to a
                 # function with the result this one returns, as the definition there has it.
                 call = f"GFN({ret} (*)" + call[len("GFN(void (*)"):]
+            elif call.startswith(_EXE_OR_COPY):
+                # A call_copies row's two calls (the executable's target, the level copy's): each so.
+                call = call.replace(f"{_EXE_OR_COPY}GFN(void (*)", f"{_EXE_OR_COPY}GFN({ret} (*)", 1)
+                call = call.replace(" : GFN(void (*)", f" : GFN({ret} (*)", 1)
             return [pad + f"return ({ret})({call});"]
         if k == "ReturnStmt":
             kids = _inner(n)
@@ -2199,6 +2205,7 @@ class Unit:
             return self.builtin_call(_strip_parens(_inner(c)[0]), args)
         named = None  # the function a call by name reaches through a code address
         folded = False  # through a place of a name the catalogue folded (openrac_folded_call)
+        exe_call = None  # a call_copies row's executable target and the function there
         wide_ret = self._wide_cast_callee(c)
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
@@ -2276,6 +2283,15 @@ class Unit:
                     self.fn.uses_self = True
                     fp = call_copy_expr(call_copy)
                     named = self._function_at(call_copy[0], call_copy[3]) or sym
+                    if call_copy[4]:
+                        # The executable's copy calls a function of its own, whose definition may
+                        # put its kinds in another order than the level copy's (func_0033B018 is
+                        # (void *, float, float), level 0's func_L00_00430948 (float, float, void *)):
+                        # each is called by its own type (_call_as_defined). Windows x64, 0.10.1:
+                        # the title's menus read their position through a float.
+                        fp = call_copy_expr(call_copy[:4] + (0,))
+                        exe_call = (f"(gaddr)0x{call_copy[4]:08X}u",
+                                    self._function_at(-1, call_copy[4]))
                 elif not places and callee_places:
                     # Inside a function the catalogue folded (copies that differ in what they
                     # call): the function this copy's own call at that place calls (guest.h).
@@ -2359,6 +2375,18 @@ class Unit:
                             ft.variadic, ft.prototyped)
         if wide_ret is not None and self.cls(hostft.ret) == "int" and self.cls(wide_ret) == "int":
             hostft = ctype.Func(wide_ret, hostft.params, hostft.variadic, hostft.prototyped)
+        if exe_call is not None:
+            exe_fp, exe_named = exe_call
+            recast = self._recast_call(c, ft, args, result_t, call_copy_expr(call_copy))
+            if recast is not None:
+                return recast
+            values = [self.rv(a) for a in args]
+            plain = f"({', '.join(values)})"
+            exe = (exe_named and self._call_as_defined(exe_named, exe_fp, args, result_t)
+                   or f"GFN({ctype.fn_pointer(hostft)}, {exe_fp}){plain}")
+            copy = (named and self._call_as_defined(named, fp, args, result_t)
+                    or f"GFN({ctype.fn_pointer(hostft)}, {fp}){plain}")
+            return f"{_EXE_OR_COPY}{exe} : {copy})"
         recast = self._recast_call(c, ft, args, result_t, fp)
         if recast is not None:
             return recast
