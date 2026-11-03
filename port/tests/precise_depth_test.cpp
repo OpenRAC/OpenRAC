@@ -170,10 +170,12 @@ int main() {
             gl_form * 100.0,
             precise_form * 100.0
         );
-        // Precise depth parts them at every distance; GL's form near, and only by the luck of
-        // its rounding from about 150 units on.
+        // Precise depth parts them at every distance; GL's form only near. At 50 units the
+        // walls are 2e-7 apart in depth, and GL's z + w (the shader's, under Vulkan) rounds by
+        // up to 8e-8: whether they part there is the driver's rounding (llvmpipe in Mesa 26.0
+        // loses 87.7%, in 26.2 none).
         CHECK(precise_form == 0.0);
-        if (distance <= 50.0f) {
+        if (distance <= 10.0f) {
             CHECK(gl_form == 0.0);
         } else {
             gl_lost_far += gl_form;
