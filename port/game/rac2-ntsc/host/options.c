@@ -404,6 +404,9 @@ void func_0033C378(gaddr object) {
 #define PAUSE_LIST_COUNT 0x1CCu
 #define TEXT_CAMERA_ROW 0x2D98
 #define VIDEO_ROW_AFTER 5 /* Camera's row */
+/* The title's Options list's icons: their sheet and their table (func_00341CE0 sets them). */
+#define TITLE_ICON_SHEET 0xEAA6
+#define TITLE_ICONS OPENRAC_DATA(0x001AE138u)
 /* The list's spacing: the cursor's, the rows' and the icons'. */
 #define LIST_CURSOR_STEP OPENRAC_DATA(0x001AE0E0u)
 #define LIST_ROW_STEP OPENRAC_DATA(0x001AE0F4u)
@@ -491,8 +494,8 @@ void func_00341610(gaddr list, int which) {
     const gaddr icons = GREF(gaddr, list + PAUSE_LIST_ICONS);
     const unsigned before = VIDEO_ROW_AFTER + 1;
     memcpy(G(video_icons), G(icons), 4u * before);
-    /* Camera's icon again: the game has none of its own for this. */
-    GREF(int32_t, video_icons + 4u * before) = GREF(int32_t, icons + 4u * VIDEO_ROW_AFTER);
+    /* The title list's first icon, its Video row's (list_icons draws it from that list's sheet). */
+    GREF(int32_t, video_icons + 4u * before) = GREF(int32_t, TITLE_ICONS);
     memcpy(
         G(video_icons + 4u * (before + 1)),
         G(icons + 4u * before),
@@ -549,78 +552,8 @@ static void panel_sprite(gaddr sprite, float first_row, float below) {
     GREF(float, scale + 4u) = height;
 }
 
-/*
- * The Video row's icon, the port's own: a screen and a play sign in shaded quads with no texture,
- * soft at the edges and in the colours the other icons show. False if the 2D layer is replayed.
- */
-static const char* const VIDEO_ICON[] = {
-    "................................", "...##########################...",
-    "..############################..", ".##############################.",
-    ".###........................###.", ".###........................###.",
-    ".###.......#................###.", ".###.......###..............###.",
-    ".###.......#####............###.", ".###.......#######..........###.",
-    ".###.......#########........###.", ".###.......###########......###.",
-    ".###.......###########......###.", ".###.......#########........###.",
-    ".###.......#######..........###.", ".###.......#####............###.",
-    ".###.......###..............###.", ".###.......#................###.",
-    ".###........................###.", ".###........................###.",
-    ".##############################.", "..############################..",
-    "...##########################...", ".............######.............",
-    ".............######.............", ".............######.............",
-    ".........##############.........", "........################........",
-    "........################........", "................................",
-};
-#define VIDEO_ICON_COLOUR 0xC5C087u
-#define VIDEO_ICON_CHOSEN 0xE8E4D0u
-#define VIDEO_ICON_ROWS ((int)(sizeof(VIDEO_ICON) / sizeof(VIDEO_ICON[0])))
-#define VIDEO_ICON_COLUMNS 32
-
-int rac2_ui_soft_rect(int x, int y, int w, int h, const unsigned int corners[4]);
-
-static int video_icon_cell(int row, int column) {
-    return row >= 0 && row < VIDEO_ICON_ROWS && column >= 0 && column < VIDEO_ICON_COLUMNS
-           && VIDEO_ICON[row][column] == '#';
-}
-
-/* A grid point's share of the four cells around it, 0 to 4: as a texture of this size is filtered. */
-static int video_icon_point(int row, int column) {
-    return video_icon_cell(row - 1, column - 1) + video_icon_cell(row - 1, column)
-           + video_icon_cell(row, column - 1) + video_icon_cell(row, column);
-}
-
-static int video_icon(int x, int y, unsigned int rgb) {
-    for (int row = 0; row < VIDEO_ICON_ROWS; ++row) {
-        for (int column = 0; column < VIDEO_ICON_COLUMNS;) {
-            const int points[4] =
-                {video_icon_point(row, column),
-                 video_icon_point(row, column + 1),
-                 video_icon_point(row + 1, column),
-                 video_icon_point(row + 1, column + 1)};
-            int width = 1;
-            int full = 1;
-            int empty = 1;
-            unsigned int corners[4];
-            for (int i = 0; i < 4; ++i) {
-                full = full && points[i] == 4;
-                empty = empty && points[i] == 0;
-                corners[i] = ((unsigned int)(points[i] * 0x20) << 24) | rgb;
-            }
-            /* The inside of a run is one quad. */
-            while (full && column + width < VIDEO_ICON_COLUMNS
-                   && video_icon_point(row, column + width + 1) == 4
-                   && video_icon_point(row + 1, column + width + 1) == 4) {
-                ++width;
-            }
-            if (!empty && !rac2_ui_soft_rect(x + column, y + row, width, 1, corners)) {
-                return 0;
-            }
-            column += width;
-        }
-    }
-    return 1;
-}
-
-/* func_00341A88 for this list: its icons, a line higher, and the Video row's own. */
+/* func_00341A88 for this list: its icons, a line higher, and on the Video row the icon the title's
+ * Options list has there, from that list's sheet. */
 static void list_icons(gaddr list) {
     const gaddr icon = list + LIST_ICON;
     const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
@@ -632,12 +565,13 @@ static void list_icons(gaddr list) {
     for (int i = 0; i < rows; ++i) {
         const float row_y = y + GREF(float, LIST_ICON_STEP) * (float)i;
         func_00335E38(icon, x, row_y, 0.0f, 0.0f);
-        func_00336920(icon, GREF(int, list + LIST_ICON_SHEET), GREF(int, icons + 4u * (gaddr)i));
+        func_00336920(
+            icon,
+            i == VIDEO_ROW_AFTER + 1 ? TITLE_ICON_SHEET : GREF(int, list + LIST_ICON_SHEET),
+            GREF(int, icons + 4u * (gaddr)i)
+        );
         GREF(unsigned int, func_00335E20(icon)) = i == chosen ? 0x70FFFEEDu : 0x60F0F0B0u;
-        const unsigned int colour = i == chosen ? VIDEO_ICON_CHOSEN : VIDEO_ICON_COLOUR;
-        if (i != VIDEO_ROW_AFTER + 1 || !video_icon((int)x, (int)row_y, colour)) {
-            func_00336828(icon);
-        }
+        func_00336828(icon);
     }
 }
 

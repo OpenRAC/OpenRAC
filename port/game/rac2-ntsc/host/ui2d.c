@@ -275,20 +275,6 @@ static void corners_from_xyz(openrac_game_ui_rect* q, const gaddr xyz) {
     q->z = (uint32_t)(GREF(uint64_t, xyz) >> 32);
 }
 
-/* A rectangle with no texture and a colour for each corner, for what the port draws itself; false if
- * the 2D layer is replayed. */
-int rac2_ui_soft_rect(int x, int y, int w, int h, const unsigned int corners[4]) {
-    openrac_game_ui_rect q;
-    memset(&q, 0, sizeof(q));
-    q.flags = 4u | 8u | 32u;
-    q.z = (uint32_t)HUD_DEPTH;
-    hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, 0, 0);
-    for (int i = 0; i < 4; ++i) {
-        q.corners[i] = corners[i];
-    }
-    return openrac_ui_send(&q, LIST_CURSOR);
-}
-
 /* A HUD texture as a sprite with a colour for each corner (colours: four RGBA words), shaded
  * between them: the HUD's gradient bars. Returns the display list's cursor, as the game's does. */
 int func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
