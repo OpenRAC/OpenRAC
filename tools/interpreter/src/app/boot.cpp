@@ -471,13 +471,34 @@ int main(int argc, char** argv) {
     if (watch_bytes) {
         machine.ee.watch_first = watch_first & 0x1FFFFFFFu;
         machine.ee.watch_end = machine.ee.watch_first + watch_bytes;
-        machine.ee.on_watched_store = [&machine](u32 address, u64 value, unsigned bytes) {
+        // OPENRAC_BOOT_WATCH_STACK=WORDS: also the words of the stack above sp that look like
+        // return addresses (in 0x100000..0x600000, word aligned), nearest first: the callers that
+        // `ra` alone does not show.
+        const char* stack_env = std::getenv("OPENRAC_BOOT_WATCH_STACK");
+        const unsigned stack_words = stack_env ? static_cast<unsigned>(std::atoi(stack_env)) : 0;
+        machine.ee.on_watched_store = [&machine, stack_words](u32 address, u64 value, unsigned bytes) {
             std::fprintf(
-                stderr, "store field %llu pc %08x ra %08x address %08x bytes %u value %llx\n",
+                stderr, "store field %llu pc %08x ra %08x address %08x bytes %u value %llx",
                 static_cast<unsigned long long>(machine.frames), machine.ee.instruction,
                 static_cast<u32>(machine.ee.gpr[31].lo), address, bytes,
                 static_cast<unsigned long long>(value)
             );
+            const u32 sp = machine.ee.sp32() & 0x1FFFFFFFu;
+            if (stack_words) {
+                std::fprintf(stderr, " sp %08x", sp);
+            }
+            for (unsigned k = 0; k < stack_words; k++) {
+                const u32 at = sp + 4 * k;
+                if (at + 4 > 0x2000000u) {
+                    break;
+                }
+                u32 word;
+                std::memcpy(&word, machine.memory.ram(at), 4);
+                if (word >= 0x100000u && word < 0x600000u && (word & 3) == 0) {
+                    std::fprintf(stderr, " %x:%08x", 4 * k, word);
+                }
+            }
+            std::fputc('\n', stderr);
         };
     }
 
