@@ -81,6 +81,7 @@ US_TABLE = ROOT / "port/game/rac1-ntsc/hand/hand.tsv"
 # functional.tsv row that is also here is not the C the port runs (its verdict says so).
 PAL_HAND = ROOT / "port/game/rac1-pal/hand/hand.tsv"
 PAL_VERDICTS = ROOT / "port/game/rac1-pal/fcheck.tsv"
+RAC2_RUN_VERDICTS = ROOT / "port/game/rac2-ntsc/fcheck_run.tsv"
 # Functions whose DIFFERS is known not to be a difference of the C (name<TAB>reason), recorded by hand.
 PAL_ARTEFACTS = ROOT / "port/game/rac1-pal/fcheck_artefacts.tsv"
 US_VERDICTS = ROOT / "port/game/rac1-ntsc/hand/fcheck.tsv"
@@ -696,6 +697,28 @@ def combine(name: str, title: tuple[str, str] | None, levels: list[tuple[str, st
     return "no-states", "never called in the capture runs (title, menu and every level)"
 
 
+def same_run_rows(path: Path) -> list[dict]:
+    """The `same-run` verdicts (docs/port/BACKFILL.md): a whole run with a function swapped left game
+    memory equal to a plain run's. They are not `same` and do not make a row done, so they are kept
+    in a table of their own, which `run` never rewrites. No file: no verdicts."""
+    if not path.exists():
+        return []
+    keys = ("name", "status", "date", "decomp", "csum", "route", "field", "calls", "note")
+    rows = []
+    for line in path.read_text().splitlines():
+        if line and not line.startswith("#"):
+            rows.append(dict(zip(keys, line.split("\t"))))
+    return rows
+
+
+def same_run_summary(rows: list[dict]) -> str:
+    """One line on the `same-run` verdicts; empty when there are none."""
+    names = sorted({r["name"] for r in rows})
+    if not names:
+        return ""
+    return f"{len(names)} functions same-run, not counted as same: {', '.join(names)}"
+
+
 def summary(rows: list[Row]) -> str:
     counts = {s: 0 for s in STATUSES}
     counts[""] = 0
@@ -1154,6 +1177,9 @@ def cmd_report(args: argparse.Namespace) -> int:
             if r.status == "differs":
                 print(f"  differs: {r.name}  {r.note}")
         bad += sum(1 for r in rows if r.status in ("", "differs")) + len(stale)
+    line = same_run_summary(same_run_rows(RAC2_RUN_VERDICTS))
+    if args.game == "rac2" and line:
+        print(line)
     return 1 if args.strict and bad else 0
 
 

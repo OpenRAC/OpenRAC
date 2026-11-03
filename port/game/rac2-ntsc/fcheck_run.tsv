@@ -1,0 +1,9 @@
+# Whole-run verdicts for C fcheck cannot run: openrac-boot --swap, then main memory against a plain run at FIELD, leaving out the candidate's code and the stack (docs/port/BACKFILL.md, "same-run"). Not `same`: a row here is not done.
+# name	status	date	decomp	csum	route	field	calls	note
+func_0026EDE8	same-run	2026-11-04	0c8ce745	b4df3987724d	level05	3300	1	0 game words differ
+func_002CA070	same-run	2026-11-04	0c8ce745	dcd9baa836e7	level05	3300	2	0 game words differ
+func_002EAB18	same-run	2026-11-04	0c8ce745	507621f235c6	level05	3300	1	0 game words differ
+func_002F5FB8	same-run	2026-11-04	0c8ce745	f59e5f30b95d	level05	3300	4	0 game words differ
+func_L00_002A3B88	same-run	2026-11-04	0c8ce745	831f33c51ab3	level05	3300	1	0 game words differ
+func_L00_002A3B88	same-run	2026-11-04	0c8ce745	831f33c51ab3	level14	3700	1	0 game words differ
+func_L00_00303990	same-run	2026-11-04	0c8ce745	30f3ef944a07	level00	3300	1	0 game words differ; resume path not run; links only on level 0
