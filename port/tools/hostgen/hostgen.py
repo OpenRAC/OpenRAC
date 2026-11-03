@@ -850,9 +850,9 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     cache, a second configure) skips the translation."""
     paths = [source / d for d in sorted(set(cfg["sources"] + cfg["includes"]))]
     paths += [source / t for t in cfg["symbols"]]
-    # An alias table outside the include directories (a build's derived values) counts too.
-    paths += [source / t for t in cfg.get("aliases", []) if Path(t).suffix == ".json"]
-    for key in ("places", "candidates"):
+    # Aliases and catalogues outside the include directories count too.
+    paths += [source / t for t in cfg.get("aliases", []) + cfg.get("catalogues", [])]
+    for key in ("places", "candidates", "executable_functions"):
         if cfg.get(key):
             paths.append(source / cfg[key])
     # The table that names the units of another compiler (long_long_128) decides how their C reads.
@@ -863,9 +863,27 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
         for line in table.read_text().splitlines():
             if line.strip() and not line.startswith("#"):
                 paths.append(source / line.partition("\t")[2].strip())
-    # The game's own folder and the tables every game shares (port/game/<id>, port/game/common).
-    paths += [config.parent, config.parent.parent / "common", HERE / "include"]
-    paths += sorted(HERE.glob("*.py"))
+    # Frontend C++ does not affect translation. Keep the configuration's tables, hand C and
+    # headers, plus the shared host wrappers whose signatures the assembly stage reads.
+    paths += [config]
+    paths += sorted(p for p in config.parent.rglob("*")
+                    if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
+    paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
+    paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
+    for key in ("libraries", "hand", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+        if cfg.get(key):
+            paths.append(config.parent / cfg[key])
+    if cfg.get("drafts"):
+        paths.append(config.parent / cfg["drafts"]["units"])
+    # Hand/override tables may name C outside the configuration's own directory.
+    for key in ("hand", "overrides"):
+        if cfg.get(key):
+            table = config.parent / cfg[key]
+            if table.is_file():
+                for line in table.read_text().splitlines():
+                    if line.strip() and not line.startswith("#"):
+                        paths.append(table.parent / line.partition("\t")[2].strip())
+    paths += sorted(p for p in HERE.glob("*.py") if not p.name.startswith("test_"))
     # The shared helpers it reads its tables through (tools/openrac_common) are its code as well.
     paths += sorted(Path(tables.__file__).parent.glob("*.py"))
     h = hashlib.sha256()
