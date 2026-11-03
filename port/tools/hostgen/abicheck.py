@@ -318,11 +318,51 @@ def check(gen: Path, include_all: bool = False) -> tuple[list[str], dict]:
     return problems, stats
 
 
+HOST_DECL = re.compile(r"^(?!return\b|typedef\b|static\s+inline\b)(?P<ret>[A-Za-z_][\w\s\*]*?)\s*\b"
+                       r"(?P<name>func_\w+)\s*\((?P<params>[^;{}()]*)\)\s*[;{]", re.M)
+
+
+def check_host(host: Path, protos: dict[str, tuple[str, list[str]]]) -> list[str]:
+    """The game's hand-written host C (port/game/<id>/host) declaring or defining a game function
+    with its own parameter list, not through game_protos.h: the host compiler cannot compare them,
+    and on Windows x64 a kind at another position reads the wrong register (host/font.c called
+    func_0027F640 as (float, float, float, int, ...) for (float, float, u64, gaddr, int, float, ...):
+    the title's menus read their text through the colour, 0.10.1)."""
+    problems = []
+    for path in sorted(host.glob("*.c")):
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", lambda c: "\n" * c.group(0).count("\n"),
+                      path.read_text(errors="replace"), flags=re.S)
+        for m in HOST_DECL.finditer(text):
+            name = m.group("name")
+            if name not in protos or not protos[name][1]:
+                continue  # the port's own function, or one game_protos.h leaves unprototyped
+            params = split_params(m.group("params"))
+            if any(kind(p) == "?" for p in params):
+                continue
+            def_ret, def_params = protos[name]
+            ret = m.group("ret").strip()
+            if m.group(0).endswith("{"):
+                # The port's own definition in the game function's place: the game's C calls it
+                # as game_protos.h has it.
+                what = compare(def_ret, def_params, ret, params, True)
+            else:
+                what = compare(ret, params, def_ret, def_params, True)
+            if len(params) != len([p for p in def_params if p != "..."]) and "..." not in def_params:
+                what.append(f"{len(params)} parameters for {len(def_params)}")
+            if what:
+                line = text.count("\n", 0, m.start()) + 1
+                problems.append(f"{path.name}:{line}: {name}: {'; '.join(what)} "
+                                f"(game_protos.h: {def_ret} ({', '.join(def_params)}))")
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("gen", type=Path, help="a game's generated directory (port/build/<preset>/games/<id>/gen)")
     ap.add_argument("--all", action="store_true",
                     help="check every place a folded call can reach, not only the first")
+    ap.add_argument("--host", type=Path,
+                    help="the game's host C (port/game/<id>/host): its own declarations of game functions too")
     args = ap.parse_args(argv)
     if not (args.gen / "functions.c").exists():
         # A game this build does not make (CI builds some games only): skipped, not failed.
@@ -333,7 +373,14 @@ def main(argv: list[str] | None = None) -> int:
         print(p)
     print(f"abicheck: {stats['calls']} calls through a code address, {stats['known']} to a known one, "
           f"{len(problems)} whose type is not the definition's", file=sys.stderr)
-    return 1 if problems else 0
+    host_problems = []
+    if args.host is not None and args.host.is_dir():
+        host_problems = check_host(args.host, read_protos(args.gen / "game_protos.h"))
+        for p in host_problems:
+            print(p)
+        print(f"abicheck: {len(host_problems)} host declarations whose type is not the definition's",
+              file=sys.stderr)
+    return 1 if problems or host_problems else 0
 
 
 if __name__ == "__main__":

@@ -212,8 +212,10 @@ function(openrac_add_game config)
     VERBATIM)
   add_custom_target(openrac_${target_id}_hostgen DEPENDS "${gen}/hostgen.stamp")
   # Every call through a known code address passes its arguments as the function there takes them,
-  # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py).
-  add_test(NAME ${id}_call_abi COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/abicheck.py" "${gen}")
+  # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py), and the game's host C
+  # declares the game functions it calls or replaces as game_protos.h has them.
+  add_test(NAME ${id}_call_abi COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/abicheck.py" "${gen}"
+           --host "${config_dir}/host")
   set_tests_properties(${id}_call_abi PROPERTIES SKIP_RETURN_CODE 77)
 
   # The game: generated C, and the game's own host C if it has any.
