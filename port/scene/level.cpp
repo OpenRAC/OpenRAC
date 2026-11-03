@@ -147,7 +147,7 @@ int image_index(const fs::path& requested, LevelData& level) {
         ++level.missing_images;
     }
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size.
-    renderer::texture_pack::replace(image);
+    renderer::texture_pack::replace(image, {.level = level.level});
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {

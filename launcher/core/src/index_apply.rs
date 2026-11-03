@@ -87,7 +87,7 @@ pub fn source_url(m: &PlannedMod) -> String {
 }
 
 /// `YYYY-MM-DD-HHMMSS` in UTC, for the backup's folder.
-fn stamp(secs: u64) -> String {
+pub(crate) fn stamp(secs: u64) -> String {
     let days = (secs / 86_400) as i64;
     let rem = secs % 86_400;
     // Howard Hinnant's civil_from_days.

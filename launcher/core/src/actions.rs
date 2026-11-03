@@ -604,6 +604,17 @@ impl Action {
                 }
             }
         }
+        // A game's Texture packs, "Save the game's textures while you play" (texture_packs.rs):
+        // the dump folder in the data home, for the port to write each texture it meets into.
+        if self.kind == Kind::Play {
+            if let Some(v) = ctx.version {
+                if let Some(pair) = crate::texture_packs::play_env(&crate::saves::data_home(), &v.game, &v.name) {
+                    if !env.iter().any(|(k, _)| *k == pair.0) {
+                        env.push(pair);
+                    }
+                }
+            }
+        }
         let output = match &self.output {
             Some(output) => Some(abs(ctx.root, &fill(output)?)),
             None => None,

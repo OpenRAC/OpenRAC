@@ -77,6 +77,12 @@ import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
 import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
 import type { Scope } from "./generated/Scope";
 import type { Started } from "./generated/Started";
+import type { TextureFolder } from "./generated/TextureFolder";
+import type { TexturePackImportMode } from "./generated/TexturePackImportMode";
+import type { TexturePackPreview } from "./generated/TexturePackPreview";
+import type { TexturePackView } from "./generated/TexturePackView";
+import type { ExportedTexturePack } from "./generated/ExportedTexturePack";
+import type { ImportedTexturePack } from "./generated/ImportedTexturePack";
 import type { Tool } from "./generated/Tool";
 import type { UpdateChannel } from "./generated/UpdateChannel";
 import type { UpdateSource } from "./generated/UpdateSource";
@@ -122,6 +128,8 @@ export const onAndroid =
     ? androidUserAgent(navigator.userAgent)
     : typeof location !== "undefined" && new URLSearchParams(location.search).has("android"));
 
+export type { TextureFolder, TexturePackImportMode, TexturePackPreview, TexturePackView };
+export type { ExportedTexturePack, ImportedTexturePack };
 export type { ActionArea };
 export type { ActionKind };
 export type { ActionState };
@@ -398,6 +406,26 @@ export const api = {
   pluginsSetSetting: (game: string, version: string, id: string, key: string, value: unknown) =>
     call<PluginView[]>("plugins_set_setting", { game, version, id, key, value }),
   /** The built-in Enhanced graphics entry of a version (core/src/enhanced.rs); null where it has none. */
+  /** A version's texture pack and the textures the game saved (core texture_packs.rs). */
+  texturePacks: (game: string, version: string) => call<TexturePackView>("texture_packs_view", { game, version }),
+  /** Switches the pack on or off, or saving the textures at the next Play. */
+  texturePacksSet: (game: string, version: string, change: { enabled?: boolean; dumping?: boolean }) =>
+    call<TexturePackView>("texture_packs_set", {
+      game,
+      version,
+      enabled: change.enabled ?? null,
+      dumping: change.dumping ?? null,
+    }),
+  /** Opens a folder of the pack, or of the saved textures (`dump`); `folder` "" is the whole one. */
+  texturePacksOpen: (game: string, version: string, dump: boolean, folder = "") =>
+    call<null>("texture_packs_open", { game, version, dump, folder }),
+  texturePacksPreview: (game: string, version: string, source: string) =>
+    call<TexturePackPreview>("texture_packs_preview", { game, version, source }),
+  texturePacksImport: (game: string, version: string, source: string, mode: TexturePackImportMode) =>
+    call<ImportedTexturePack>("texture_packs_import", { game, version, source, mode }),
+  /** Saves the pack as a .zip where the player chooses; `saved` is empty when they backed out. */
+  texturePacksExport: (game: string, version: string) =>
+    call<ExportedTexturePack>("texture_packs_export", { game, version }),
   enhancedView: (game: string, version: string) => call<EnhancedView | null>("enhanced_view", { game, version }),
   enhancedSetEnabled: (game: string, version: string, enabled: boolean) =>
     call<EnhancedView | null>("enhanced_set_enabled", { game, version, enabled }),

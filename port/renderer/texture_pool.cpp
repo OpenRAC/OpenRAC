@@ -414,7 +414,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     }
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size: the 2D layer's
     // texture coordinates are fractions of the chip's size, not of the picture's.
-    texture_pack::replace(image);
+    texture_pack::replace(image, {.interface = true});
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     m_entries[h - 1].from_upload = true;
     m_entries[h - 1].key = key;

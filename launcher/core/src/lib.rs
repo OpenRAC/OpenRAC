@@ -80,6 +80,7 @@ pub mod save_transfer;
 pub mod saves;
 pub mod status;
 pub mod steam;
+pub mod texture_packs;
 pub mod theme;
 pub mod update;
 pub mod webkit;
