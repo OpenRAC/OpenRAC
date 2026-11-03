@@ -63,6 +63,9 @@ import type { SaveMod } from "./generated/SaveMod";
 import type { SaveChange } from "./generated/SaveChange";
 import type { SaveFields } from "./generated/SaveFields";
 import type { SaveView } from "./generated/SaveView";
+import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
+import type { Rac2SaveView } from "./generated/Rac2SaveView";
+import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
 import type { Scope } from "./generated/Scope";
 import type { Started } from "./generated/Started";
 import type { Tool } from "./generated/Tool";
@@ -151,6 +154,7 @@ export type { SaveMod };
 export type { SaveChange };
 export type { SaveFields };
 export type { SaveView };
+export type { Rac2SaveFields, Rac2SaveView, Rac2WriteResult };
 export type { Scope };
 export type { Started };
 export type { UpdateChannel };
@@ -332,6 +336,11 @@ export const api = {
   /** Writes the editor's change: refused while the game runs with the card; backs the card up first. */
   writeSave: (serial: string, slot: number, fingerprint: string, change: SaveChange) =>
     call<WriteResult>("write_save", { serial, slot, fingerprint, change }),
+  /** One Going Commando slot for its save editor (core/src/save_edit_rac2.rs). */
+  readSaveRac2: (serial: string, slot: number) => call<Rac2SaveView>("read_save_rac2", { serial, slot }),
+  /** Writes the Going Commando editor's fields, with write_save's guards and backup. */
+  writeSaveRac2: (serial: string, slot: number, fingerprint: string, fields: Rac2SaveFields) =>
+    call<Rac2WriteResult>("write_save_rac2", { serial, slot, fingerprint, fields }),
   /** A game's overrides packs (core/src/overrides.rs), in the order they apply. */
   overridesList: (game: string) => call<PackView[]>("overrides_list", { game }),
   overridesSummary: (version: string) => call<ModLoadSummary>("overrides_summary", { version }),
