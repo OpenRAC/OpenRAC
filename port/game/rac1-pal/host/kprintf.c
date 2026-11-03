@@ -5,13 +5,14 @@
  * port (hostgen.json, "host_functions"). Both hand their format and a va_list to the print core
  * (func_0011A0A0), which walks the console's argument area and writes each character through a
  * hook: the debugger's console, or nothing on a retail console. hostgen
- * cannot pass a host va_list as the console's, so the port formats here (rac1_vformat, hand.c)
+ * cannot pass a host va_list as the console's, so the port formats here (common/lib/guest_format.h)
  * and the text goes to the log. PAL only: the NTSC program's names for these differ.
  */
-#include "rac1.h"
-
 #include <stdarg.h>
 #include <stdio.h>
+
+#include "game/common/lib/guest_format.h"
+#include "rac1.h"
 
 /* kprintf: the format and its arguments, through the print hook of the moment. */
 void func_0011A690(gaddr format, ...) {
@@ -19,7 +20,7 @@ void func_0011A690(gaddr format, ...) {
     va_list args;
 
     va_start(args, format);
-    rac1_vformat(out, sizeof(out), (const char *)G(format), args);
+    openrac_guest_vformat(out, sizeof(out), (const char*)G(format), args);
     va_end(args);
     fprintf(stderr, "[game] %s", out);
 }
@@ -32,7 +33,7 @@ int func_0011A6C8(gaddr format, ...) {
     va_list args;
 
     va_start(args, format);
-    n = rac1_vformat(out, sizeof(out), (const char *)G(format), args);
+    n = openrac_guest_vformat(out, sizeof(out), (const char*)G(format), args);
     va_end(args);
     fprintf(stderr, "[game] %s", out);
     return n;
