@@ -134,6 +134,18 @@ export function accentProperties(game: string | null): [string, string][] {
 /** The custom properties accentProperties may set, to take them all off again. */
 export const ACCENT_PROPERTIES = [...new Set(Object.values(ACCENTS).flatMap((a) => Object.keys(a)))];
 
+/** Game `game`'s accent as an element's own style, whichever game the page wears: a Play button on
+ *  each game's tile in that game's colour. Ratchet & Clank's is the launcher's own (palettes.json
+ *  base), set too, so another game's accent on the page does not show through. */
+export function accentStyle(game: string): string {
+  const own = ACCENTS[game] ?? {};
+  const base: Record<string, string> = palettes.base;
+  return ACCENT_PROPERTIES.flatMap((name) => {
+    const value = own[name] ?? base[name];
+    return value ? [`${name}: ${value}`] : [];
+  }).join("; ");
+}
+
 /** Where the accent's game is kept for the first paint, before the settings have loaded. */
 const STORED_ACCENT = "openrac-accent";
 

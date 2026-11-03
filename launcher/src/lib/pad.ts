@@ -1,14 +1,15 @@
 // The launcher with a controller, without a mouse or a touch screen: the d-pad or the left stick
 // moves the focus to the nearest control in that direction, A presses it, B goes back (closes a
-// menu or a dialog, then returns to the games), LB and RB change tabs. On Android the activity
-// hands the controller's buttons to `window.__openracPad` (MainActivity.kt); on a desktop they
-// are read with the Gamepad API. Nothing here knows a page: it reads the document as it is.
+// menu or a dialog, then returns to the games), LB and RB change tabs, Y opens what a control has
+// besides (a game's page from its tile). On Android the activity hands the controller's buttons
+// to `window.__openracPad` (MainActivity.kt); on a desktop they are read with the Gamepad API.
+// Nothing here knows a page but the tabs' bar: it reads the document as it is.
 
-export type PadButton = "up" | "down" | "left" | "right" | "accept" | "back" | "prev" | "next";
+export type PadButton = "up" | "down" | "left" | "right" | "accept" | "back" | "prev" | "next" | "more";
 type Direction = "up" | "down" | "left" | "right";
 
 const DIRECTIONS: readonly string[] = ["up", "down", "left", "right"];
-const BUTTONS: readonly string[] = [...DIRECTIONS, "accept", "back", "prev", "next"];
+const BUTTONS: readonly string[] = [...DIRECTIONS, "accept", "back", "prev", "next", "more"];
 
 /** A held direction moves again after REPEAT_DELAY_MS, then every REPEAT_MS. */
 const REPEAT_DELAY_MS = 350;
@@ -49,7 +50,7 @@ function usable(el: HTMLElement): boolean {
   return (
     !(el as HTMLButtonElement).disabled &&
     (el.tabIndex !== -1 || rovingItem(el)) &&
-    !el.closest("[inert], [aria-hidden=true]") &&
+    !el.closest("[inert], [aria-hidden=true], [data-pad-skip]") &&
     visible(el)
   );
 }
@@ -277,9 +278,10 @@ function move(dir: Direction) {
   // that way; from there, the page is as near as ever.
   const aside = (el: HTMLElement) => el.closest("[data-pad-aside]") !== null;
   const inAside = aside(from);
+  const reachable = items.filter((el) => crosses(from, el, dir));
   const next =
-    nearest(box, candidates(items.filter((el) => inAside || !aside(el))), dir) ??
-    (inAside ? null : nearest(box, candidates(items.filter(aside)), dir));
+    nearest(box, candidates(reachable.filter((el) => inAside || !aside(el))), dir) ??
+    (inAside ? null : nearest(box, candidates(reachable.filter(aside)), dir));
   if (!next && from !== document.activeElement && usable(from) && !textEntry(from)) {
     show(from);
     return;
@@ -297,6 +299,26 @@ function move(dir: Direction) {
 
 function escape(target: Element) {
   target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+}
+
+/** The launcher's tabs: Android's rail on the left (its bar at the bottom on a narrow window), the
+ *  desktop's bar at the top. */
+const BAR = "header.site-header";
+
+/**
+ * Whether the focus may go from `from` to `to` going `dir`, as far as the tabs' bar goes: into it
+ * and out of it only across it (left and right for Android's rail, up and down for a bar along
+ * the window's edge), and along it only inside it. Up in the settings jumped to the Games tab of
+ * the rail beside them, as the tab was nearer than the control above at the far side.
+ */
+function crosses(from: HTMLElement, to: HTMLElement, dir: Direction): boolean {
+  const bar = document.querySelector<HTMLElement>(BAR);
+  if (!bar) return true;
+  const fromBar = bar.contains(from);
+  if (fromBar === bar.contains(to)) return true;
+  const { width, height } = bar.getBoundingClientRect();
+  const across = height > width ? dir === "left" || dir === "right" : dir === "up" || dir === "down";
+  return across;
 }
 
 /** Tells the page that `el`'s value changed, as a player's own change does. */
@@ -365,9 +387,17 @@ function accept() {
     return;
   }
   pressed(el);
+  // A control can take A for itself (a game's tile plays its game): `padpress`, cancelled.
+  if (!el.dispatchEvent(new CustomEvent("padpress", { cancelable: true }))) return;
   el.click();
   // A choice in a menu closes it: back to the button that opened it.
   if (el.getAttribute("role") === "menuitem") restoreOpener();
+}
+
+/** Y: what the focused control offers besides A (a game's tile opens its page), as `padmore`. */
+function more() {
+  const el = current(focusables(scope()));
+  el?.dispatchEvent(new CustomEvent("padmore"));
 }
 
 function restoreOpener() {
@@ -492,6 +522,9 @@ function act(button: PadButton) {
     case "next":
       tab(1);
       break;
+    case "more":
+      more();
+      break;
   }
 }
 
@@ -566,6 +599,7 @@ const STANDARD: [number, PadButton][] = [
   [1, "back"],
   [4, "prev"],
   [5, "next"],
+  [3, "more"],
   [9, "accept"],
   [12, "up"],
   [13, "down"],
