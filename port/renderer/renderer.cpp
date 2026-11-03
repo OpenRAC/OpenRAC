@@ -151,6 +151,8 @@ bool Renderer::add_game_renderers(std::string& error) {
 
 void Renderer::render(const FrameInput& input, const RenderTarget& source) {
     RenderTarget target = source;
+    // Animated texture pack replacements show the frame of the game's tick, not of the clock.
+    m_textures.set_tick(input.frame);
     // [debug tools] The frame's target set and cleared, timed on the CPU only: on Vulkan the clear
     // is recorded with the first pass that draws.
     {

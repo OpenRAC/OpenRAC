@@ -244,6 +244,7 @@ struct FrameInput {
     std::function<void(RenderTarget&)> on_resolve_world;
     // Resolved world depth, before world colour: GPU probe selection.
     std::function<void(unsigned, int, int)> after_world_depth;
+    // The game's tick this frame shows (the same for the frames drawn between two ticks).
     std::uint64_t frame = 0;
     double seconds = 0.0;
 };

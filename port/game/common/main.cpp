@@ -41,6 +41,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -126,6 +127,54 @@ std::string texture_pack_level_name(int level) {
         return "Flights";
     }
     return name != nullptr ? name : "";
+}
+
+// A texture pack's animated GIF (renderer/texture_pack.h): its frames and their delays, looped.
+std::optional<openrac::renderer::texture_pack::Animation> texture_pack_load_gif(
+    const std::filesystem::path& file
+) {
+    std::ifstream in(file, std::ios::binary);
+    const std::vector<char> bytes{
+        std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()
+    };
+    int* delays = nullptr;
+    int w = 0;
+    int h = 0;
+    int frames = 0;
+    int channels = 0;
+    unsigned char* pixels = stbi_load_gif_from_memory(
+        reinterpret_cast<const stbi_uc*>(bytes.data()),
+        static_cast<int>(bytes.size()),
+        &delays,
+        &w,
+        &h,
+        &frames,
+        &channels,
+        4
+    );
+    // Not a GIF stb can read.
+    if (pixels == nullptr) {
+        return std::nullopt;
+    }
+    openrac::renderer::texture_pack::Animation animation;
+    const auto frame_bytes = static_cast<std::ptrdiff_t>(w) * h * 4;
+    // A delay this short or none is drawn at 10 a second, as browsers do.
+    constexpr int kShortestDelayMs = 20;
+    constexpr int kUsualDelayMs = 100;
+    constexpr std::uint32_t kMicrosecondsPerMs = 1000;
+    for (int i = 0; i < frames; ++i) {
+        openrac::renderer::Rgba8Image image(w, h);
+        std::copy(pixels + i * frame_bytes, pixels + (i + 1) * frame_bytes, image.pixels.begin());
+        animation.frames.push_back(std::move(image));
+        const int delay = delays != nullptr ? delays[i] : 0;
+        animation.durations_us.push_back(
+            static_cast<std::uint32_t>(delay < kShortestDelayMs ? kUsualDelayMs : delay)
+            * kMicrosecondsPerMs
+        );
+    }
+    stbi_image_free(pixels);
+    stbi_image_free(delays);
+    return animation;
 }
 }  // namespace
 #endif
@@ -648,7 +697,7 @@ int main(int argc, char** argv) {
                 settings::get().texture_pack ? g_options.data / "texture_packs" / openrac_game.id
                                              : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
-                {texture_pack_load, texture_pack_save},
+                {texture_pack_load, texture_pack_save, texture_pack_load_gif},
                 texture_pack_level_name
             );
         }

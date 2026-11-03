@@ -146,8 +146,12 @@ int image_index(const fs::path& requested, LevelData& level) {
         log::warn("texture {}: {}", key, stbi_failure_reason());
         ++level.missing_images;
     }
-    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size.
-    renderer::texture_pack::replace(image, {.level = level.level});
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size, and its frames
+    // when it is animated.
+    renderer::texture_pack::Replacement replaced;
+    renderer::texture_pack::replace(image, {.level = level.level}, &replaced);
+    level.image_animations.resize(level.images.size());
+    level.image_animations.push_back(std::move(replaced.animation));
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {

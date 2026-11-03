@@ -370,6 +370,11 @@ bool LevelScene::upload(
                                         )
                                       : m_white
         );
+        // A texture pack's animated replacement draws its frames by the game's tick.
+        if (i < level.image_animations.size() && level.image_animations[i] != nullptr
+            && level.images[i].width > 0) {
+            textures.animate(m_textures.back(), level.image_animations[i]);
+        }
     }
     m_variant_image = -1;
     m_variants.clear();
