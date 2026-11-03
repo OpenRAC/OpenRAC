@@ -489,7 +489,9 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
                     planet_name,
                     timestamp,
                     modified_millis: mtime,
-                    editable: exists && !is_empty && crate::save_edit::edits_serial(serial),
+                    editable: exists
+                        && !is_empty
+                        && (crate::save_edit::edits_serial(serial) || crate::save_edit_rac2::edits_serial(serial)),
                     mods: if exists && !is_empty { save_mods(&save_path) } else { None },
                 });
             }
