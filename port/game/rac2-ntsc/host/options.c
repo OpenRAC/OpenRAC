@@ -417,9 +417,8 @@ static const float list_tighter = (float)PAUSE_OPTIONS_ROWS / (PAUSE_OPTIONS_ROW
 #define PAUSE_LIST_WHICH 0x2FCu
 #define PAUSE_LIST_CURSORS 0x1B8u
 /* The description's text id of the row the game's cursor is on, its eight rows and the row past them. */
-static const int options_help[PAUSE_OPTIONS_ROWS + 1] = {
-    0x2DA6, 0x2DA7, 0x2DA8, 0x2D6C, 0x2DAA, 0x2DAB, 0x2DAC, 0x2DAE, 0x2E1C
-};
+static const int options_help[PAUSE_OPTIONS_ROWS + 1] =
+    {0x2DA6, 0x2DA7, 0x2DA8, 0x2D6C, 0x2DAA, 0x2DAB, 0x2DAC, 0x2DAE, 0x2E1C};
 
 static int video_shown(void) {
     return video_page != 0
@@ -463,7 +462,9 @@ static gaddr video_items_of(gaddr items) {
     GREF(int32_t, row + ITEM_TEXT) = TEXT_VIDEO;
     GREF(gaddr, row + ITEM_ARGUMENT) = video_page;
     /* The rest and the zero item that ends the table. */
-    memcpy(G(row + ITEM_BYTES), G(camera + ITEM_BYTES), ITEM_BYTES * (PAUSE_OPTIONS_ROWS - before + 1));
+    memcpy(
+        G(row + ITEM_BYTES), G(camera + ITEM_BYTES), ITEM_BYTES * (PAUSE_OPTIONS_ROWS - before + 1)
+    );
     return video_items;
 }
 
@@ -492,7 +493,11 @@ void func_00341610(gaddr list, int which) {
     memcpy(G(video_icons), G(icons), 4u * before);
     /* Camera's icon again: the game has none of its own for this. */
     GREF(int32_t, video_icons + 4u * before) = GREF(int32_t, icons + 4u * VIDEO_ROW_AFTER);
-    memcpy(G(video_icons + 4u * (before + 1)), G(icons + 4u * before), 4u * (PAUSE_OPTIONS_ROWS - before));
+    memcpy(
+        G(video_icons + 4u * (before + 1)),
+        G(icons + 4u * before),
+        4u * (PAUSE_OPTIONS_ROWS - before)
+    );
     GREF(gaddr, list + PAUSE_LIST_ICONS) = video_icons;
     GREF(int, list + PAUSE_LIST_COUNT) = PAUSE_OPTIONS_ROWS + 1;
 }

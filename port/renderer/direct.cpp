@@ -9,9 +9,9 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <limits>
 #include <utility>
 #include <vector>
-#include <limits>
 
 #include "common/env.h"
 #include "common/log.h"
@@ -624,11 +624,13 @@ void GifInterpreter::hud_side(int side) {
     if (m_hud_side != 0) {
         const float move =
             static_cast<float>(m_hud_side) * 2.0f / static_cast<float>(m_config.screen_width);
+
         struct Triangle {
             std::uint32_t first;
             float left, right, top, bottom;
             int parent;
         };
+
         std::vector<Triangle> triangles;
         for (auto d = m_draws.rbegin();
              d != m_draws.rend() && d->first + d->count > m_hud_side_first;
@@ -672,7 +674,8 @@ void GifInterpreter::hud_side(int side) {
             }
         }
         std::vector<std::pair<float, float>> extent(
-            triangles.size(), {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
+            triangles.size(),
+            {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
         );
         for (std::size_t i = 0; i < triangles.size(); ++i) {
             auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
