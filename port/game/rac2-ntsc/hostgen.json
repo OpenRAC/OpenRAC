@@ -22,7 +22,7 @@
     "func_002833B8", "func_002833F0", "func_00283410", "func_00283430", "func_00283658",
     "func_00283678", "func_00283698", "func_002836E8", "func_00283738", "func_00283788",
     "func_002837D0", "func_00283810", "func_00283898", "func_00283958", "func_002839D0",
-    "func_002A05A8", "func_002AB6D8"
+    "func_002A05A8", "func_002AB6D8", "func_002EE000", "func_002761F8", "func_00277258"
   ],
   "sources": [
     "src"
