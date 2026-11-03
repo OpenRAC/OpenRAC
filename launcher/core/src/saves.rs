@@ -302,6 +302,11 @@ pub const RAC2_PLANETS: &[(u32, &str)] = &[
     (30, "Insomniac Museum"),
 ];
 
+/// Going Commando's planet for level `level`, if it is one of its levels.
+pub fn rac2_planet(level: u32) -> Option<&'static str> {
+    RAC2_PLANETS.iter().find(|(id, _)| *id == level).map(|(_, name)| *name)
+}
+
 /// Whether `serial` is Going Commando's NTSC-U disc, whose save records the launcher reads.
 fn is_rac2_ntsc(serial: &str) -> bool {
     serial.contains("972.68")
