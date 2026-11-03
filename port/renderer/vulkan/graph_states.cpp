@@ -217,7 +217,10 @@ VkImageLayout layout_of(graph::Layout layout) {
 }
 
 void record_graph_image_barrier(
-    VkCommandBuffer command, const graph::Barrier& transition, Image& image
+    VkCommandBuffer command,
+    const graph::Barrier& transition,
+    Image& image,
+    VkPipelineStageFlags external_source
 ) {
     const auto& range = std::get<graph::ImageRange>(transition.range);
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -230,7 +233,8 @@ void record_graph_image_barrier(
     // Whole-image imports share the legacy layout, including stencil beside sampled depth.
     barrier.subresourceRange =
         {image.aspect, range.first_mip, range.mip_count, range.first_layer, range.layer_count};
-    const VkPipelineStageFlags source = stages_of(transition.before.stages);
+    const VkPipelineStageFlags source =
+        external_source != 0 ? external_source : stages_of(transition.before.stages);
     // The queue has no stage after handing an acquired image back to presentation.
     const VkPipelineStageFlags destination = transition.after.layout == graph::Layout::Present
                                                  ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT

@@ -42,10 +42,9 @@ using SavedCache = CacheFile;
     const std::filesystem::path& path, std::span<const char> data, std::string& error
 );
 
-// The manifest's format: read only when the file's is this one. A change of what a key holds
-// raises it, and an older manifest is then dropped whole: 2 since R-11 put the fixed state in a
-// struct of its own and added whether it is dynamic.
-inline constexpr std::uint32_t kManifestFormat = 2;
+// A format change retires older warm-up keys. Format 3 drops keys from builds that reproduced
+// the startup device loss.
+inline constexpr std::uint32_t kManifestFormat = 3;
 
 // One pipeline of the manifest: its program's identity, how many runs have passed since one made
 // or used it, and its key's bytes, as the backend's PipelineKey lays them out.
