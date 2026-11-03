@@ -6,6 +6,43 @@ measured on. The per-game docs are the authority. This page summarises them
 and links each claim to its source, so that someone starting on a subsystem
 in one game can see what has already been measured in another.
 
+## The detailed pages
+
+Data on the disc (RAC1, unless a page says otherwise):
+
+| Page | About |
+|---|---|
+| [COLLISION.md](formats/COLLISION.md) | Level collision |
+| [DISC.md](formats/DISC.md) | The disc: file system, table of contents, level headers |
+| [LATER_GAMES.md](formats/LATER_GAMES.md) | Going Commando, Up Your Arsenal and Deadlocked levels |
+| [LEVEL.md](formats/LEVEL.md) | Level data, the core index and the gameplay file |
+| [MOBY.md](formats/MOBY.md) | Moby classes |
+| [OCCLUSION.md](formats/OCCLUSION.md) | Occlusion data |
+| [PSS.md](formats/PSS.md) | PSS movies |
+| [SHRUB_SKY.md](formats/SHRUB_SKY.md) | Shrubs and the sky |
+| [SOUND_BANKS.md](formats/SOUND_BANKS.md) | Sound banks, sound definitions and VAG audio |
+| [TEXTURES.md](formats/TEXTURES.md) | Textures, palettes and GS RAM |
+| [TFRAG.md](formats/TFRAG.md) | Terrain fragments (tfrags) |
+| [TIE.md](formats/TIE.md) | Ties (instanced scenery) |
+| [WAD.md](formats/WAD.md) | WAD compression |
+
+What the game does with it at run time:
+
+| Page | About |
+|---|---|
+| [AUDIO.md](systems/AUDIO.md) | Audio: the sound layer, music and reverb |
+| [CAMERA_FOG.md](systems/CAMERA_FOG.md) | Camera, projection, fog and underwater |
+| [COLLISION_QUERIES.md](systems/COLLISION_QUERIES.md) | Collision queries |
+| [HARDWARE.md](systems/HARDWARE.md) | What the game relies on in the console, and what a native port keeps |
+| [LIGHTING.md](systems/LIGHTING.md) | Lighting |
+| [MOBY_ANIMATION.md](systems/MOBY_ANIMATION.md) | Moby animation |
+| [MOBY_RENDERING.md](systems/MOBY_RENDERING.md) | Drawing mobys: cull, LOD, skinning, metal and glow |
+| [OCCLUSION.md](systems/OCCLUSION.md) | Occlusion culling, per frame |
+| [PARTICLES.md](systems/PARTICLES.md) | Particles |
+| [RENDER_PIPELINE.md](systems/RENDER_PIPELINE.md) | The frame: render order and the display list |
+| [SHADOWS.md](systems/SHADOWS.md) | Shadows |
+| [WORLD_ANIMATION.md](systems/WORLD_ANIMATION.md) | World animation: water, liquids, scrolling surfaces |
+
 ## 1. How to read this page
 
 Each claim names the game it was measured on, using these keys:
