@@ -502,6 +502,82 @@ void func_00341610(gaddr list, int which) {
     GREF(int, list + PAUSE_LIST_COUNT) = PAUSE_OPTIONS_ROWS + 1;
 }
 
+/*
+ * The panel's art has its rows baked in, one frame for each list, and none for nine. With Video
+ * shown it is squeezed to the rows' spacing and drawn twice: down to the gap above the last two rows,
+ * where its sides are straight, then one row lower from there, which gives the ninth row and the
+ * panel's bottom edge.
+ */
+#define PANEL_SPRITE_ROWS 3
+#define LIST_ON 0x220u
+#define LIST_ORIGIN 0x218u
+#define LIST_TITLE_BAR 0x98u
+#define LIST_TITLE_TEXT 0x1D0u
+#define LIST_CURSOR 0x130u
+#define SPRITE_POSITION 0u
+#define SPRITE_SCALE 4u
+#define LIST_ICON_FIRST OPENRAC_DATA(0x001AE124u)
+#define GS_SCISSOR_1 0x40ull
+#define GS_LAST_LINE 447
+#define LIST_ICON_HALF                                                                             \
+    16.0f /* LIST_ICON_FIRST is an icon's top, and the row's middle is below it */
+
+static void panel_clip(int top, int bottom) {
+    func_002FC560(
+        GS_SCISSOR_1,
+        (511ull << 16) | ((unsigned long long)top << 32) | ((unsigned long long)bottom << 48)
+    );
+}
+
+/* Draws the sprite SQUEEZED about the first row, moved down by BELOW. */
+static void panel_sprite(gaddr sprite, float first_row, float below) {
+    const gaddr position = GREF(gaddr, sprite + SPRITE_POSITION);
+    const gaddr scale = GREF(gaddr, sprite + SPRITE_SCALE);
+    const float y = GREF(float, position + 4u);
+    const float height = GREF(float, scale + 4u);
+    GREF(float, position + 4u) = y + (1.0f - list_tighter) * (first_row - y) + below;
+    GREF(float, scale + 4u) = height * list_tighter;
+    func_00336320(sprite);
+    GREF(float, position + 4u) = y;
+    GREF(float, scale + 4u) = height;
+}
+
+void func_00341C20(gaddr list) {
+    if (GREF(int, list + PAUSE_LIST_WHICH) != PAUSE_OPTIONS_LIST
+        || GREF(int, list + PAUSE_LIST_COUNT) != PAUSE_OPTIONS_ROWS + 1) {
+        func_00341C20__game(list);
+        return;
+    }
+    if (GREF(int, list + LIST_ON) == 0) {
+        return;
+    }
+    static const unsigned sprites[PANEL_SPRITE_ROWS] = {0u, 0x4Cu, 0xE4u};
+    const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
+    const float step = GREF(float, LIST_ICON_STEP);
+    const float first_row = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST);
+    const int split = (int)(first_row + LIST_ICON_HALF + step * (PAUSE_OPTIONS_ROWS - 1.5f));
+
+    func_00336320(list + LIST_TITLE_BAR);
+    panel_clip(0, split - 1);
+    for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
+        panel_sprite(list + sprites[i], first_row, 0.0f);
+    }
+    panel_clip(split, GS_LAST_LINE);
+    for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
+        panel_sprite(list + sprites[i], first_row, step);
+    }
+    panel_clip(0, GS_LAST_LINE);
+
+    func_00336A78(list + LIST_TITLE_TEXT);
+    const gaddr cursor_scale = GREF(gaddr, list + LIST_CURSOR + SPRITE_SCALE);
+    const float cursor_height = GREF(float, cursor_scale + 4u);
+    GREF(float, cursor_scale + 4u) = cursor_height * list_tighter;
+    func_00341A48(list);
+    GREF(float, cursor_scale + 4u) = cursor_height;
+    func_00341A68(list);
+    func_00341A88(list);
+}
+
 #define CAMERA_HIDDEN_ROW 3 /* 16:9: the page's fourth row */
 #define CAMERA_CURSOR 0x2A8u
 /* The page's data, each level's own copy (OPENRAC_DATA). */
