@@ -2402,8 +2402,10 @@ class Unit:
             # typed by its call site alone, and the functions it reaches put their kinds where
             # they like: func_00349680's key interpolation calls (void *, int, void *, void *, float)
             # and reaches func_00335B10's (float, void *, void *, void *, void *). Windows x64,
-            # 0.10.1: Aranos read its key through the fraction.
-            by_kind = self._call_by_kind(fp, args, result_t)
+            # 0.10.1: Aranos read its key through the fraction. A call passing integers only goes
+            # so too: a moby's update is called (Moby *), and a level registers 77 functions that
+            # take a float before an integer, which would read their integers a register late.
+            by_kind = self._call_by_kind(fp, args, result_t, integers_too=computed)
             if by_kind is not None:
                 return by_kind
         values = [self.rv(a) for a in args]
@@ -2497,7 +2499,7 @@ class Unit:
             return f"(gaddr)({text})"
         return f"(({self.host(ctype.strip_quals(result_t))})({text}))"
 
-    def _call_by_kind(self, fp: str, args: list, result_t: ctype.Type) -> str | None:
+    def _call_by_kind(self, fp: str, args: list, result_t: ctype.Type, integers_too: bool = False) -> str | None:
         """A call through a folded name's place that passes a float: with the EE's registers, each
         kind in its order (openrac_guest_call_regs). The place is often a small wrapper that the
         runtime resolves to the function it calls (guest.cpp), whose type hostgen does not know, so
@@ -2505,9 +2507,13 @@ class Unit:
         and `(float, int, int)` reaching `(unsigned, unsigned, float)` gave the colour tween of
         Batalia's bomber tank explosions garbage (blue debris). The callee's thunk gives the
         registers to its own parameters there; elsewhere the call is the same cast as before.
-        None when nothing passed is a float, or the arguments do not fit the registers."""
+        integers_too: a call that passes integers only goes so as well (a call through a computed
+        address, whose callee may take a float before them). None when nothing passed is a float
+        (or nothing at all, with integers_too), or the arguments do not fit the registers."""
         classes = [self._arg_class(a) for a in args]
-        if "f" not in classes or "agg" in classes or self.cls(result_t) in ("rec", "double"):
+        if not classes or ("f" not in classes and not integers_too):
+            return None
+        if "agg" in classes or self.cls(result_t) in ("rec", "double"):
             return None
         if any(self.cls(self.ty(a)) == "double" and c == "i" for a, c in zip(args, classes)):
             return None  # a double: in an integer register on the EE, in a float one on the host

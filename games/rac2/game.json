@@ -56,6 +56,10 @@
           [
             " unsigned int color;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n",
             " unsigned int color;\n /* OpenRAC: as in func_002E76C0, the new records' colour and alpha now (+0x30, +0x38) are drawn once as\n    the stack left them; retail's alpha byte 0 there, so that first draw changes no pixel. */\n effect.unknown = 0x001A0000;\n effect.unknown2 = 0x001C0000;\n spark.unknown = 0x001A0000;\n spark.unknown2 = 0x001C0000;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n"
+          ],
+          [
+            "extern void func_003182C0(void);\n\n/* Calls the measured no-argument callee. */\nvoid func_L00_003BAAD0(void)\n{\n    func_003182C0();\n}\n",
+            "extern void func_003182C0(char *);\n\n/* Calls the measured callee with the object it was given. OpenRAC: the decompilation's\n   (void) left a0 unset; the console's a0 still held the moby, the host's held anything. */\nvoid func_L00_003BAAD0(char *self)\n{\n    func_003182C0(self);\n}\n"
           ]
         ],
         "commit": "99f35ac2c084fc59cdf3d631f8f960a825e7a49c",
