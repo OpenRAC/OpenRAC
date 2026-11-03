@@ -2,6 +2,8 @@
 // Small layer parameters travel with the captured frame; geometry templates remain resident.
 uniform usamplerBuffer water_coarse;
 uniform int water_mesh;
+// Vulkan may carry this draw integer separately; OpenGL keeps the ordinary uniform.
+#define OPENRAC_DRAW_INT water_first_triangle
 uniform int water_first_triangle;
 uniform int water_uv_animate;
 uniform vec4 water_uv_motion; // scroll U/V, signed distortion amplitude, original animation phase.

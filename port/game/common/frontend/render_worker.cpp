@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "common/crash.h"
 #include "common/profiler.h"
 
@@ -41,7 +42,7 @@ RenderWorker::~RenderWorker() {
     m_thread.join();
 }
 
-bool RenderWorker::submit(std::function<void()> job, std::string& error) {
+bool RenderWorker::submit(std::function<void()> job, std::string& error, std::int64_t frame) {
     const profiling::Zone trace("Render handoff");
     // An empty function cannot wake a consumer waiting for an owned job.
     if (!job) {
@@ -59,14 +60,16 @@ bool RenderWorker::submit(std::function<void()> job, std::string& error) {
     }
 
     m_job = std::move(job);
+    m_frame = frame;
     m_busy = true;
+    crash::breadcrumb(crash::BreadcrumbThread::Main, "render job queued", frame);
     lock.unlock();
     m_changed.notify_all();
     return true;
 }
 
 bool RenderWorker::finish(std::string& error) {
-    const profiling::Zone trace("Render completion wait");
+    const profiling::Zone trace("Render completion wait", profiling::ZoneColour::Idle);
     std::unique_lock lock(m_mutex);
     m_changed.wait(lock, [this] { return !m_busy; });
     error = m_error;
@@ -74,7 +77,7 @@ bool RenderWorker::finish(std::string& error) {
 }
 
 bool RenderWorker::ready_until(std::chrono::steady_clock::time_point deadline) {
-    const profiling::Zone trace("Render readiness wait");
+    const profiling::Zone trace("Render readiness wait", profiling::ZoneColour::Idle);
     std::unique_lock lock(m_mutex);
     return m_changed.wait_until(lock, deadline, [this] { return !m_busy; });
 }
@@ -88,7 +91,7 @@ void RenderWorker::run() {
     for (;;) {
         std::unique_lock lock(m_mutex);
         {
-            const profiling::Zone trace("Render worker idle");
+            const profiling::Zone trace("Render worker idle", profiling::ZoneColour::Idle);
             m_changed.wait(lock, [this] { return m_stopping || static_cast<bool>(m_job); });
         }
 
@@ -98,8 +101,11 @@ void RenderWorker::run() {
         }
 
         auto job = std::exchange(m_job, {});
+        const auto frame = m_frame;
         lock.unlock();
         std::string error;
+        const crash::BreadcrumbScope breadcrumbs(crash::BreadcrumbThread::Render, frame);
+        crash::breadcrumb(crash::BreadcrumbThread::Render, "render job started", frame);
 
         // Render failures return to the producer instead of escaping the thread entry point.
         try {
@@ -111,13 +117,16 @@ void RenderWorker::run() {
             const profiling::Zone trace("Render snapshot");
             job();
         } catch (const std::exception& failure) {
+            crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
             error = failure.what();
         } catch (...) {
+            crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
             error = "unknown render-thread exception";
         }
 
         // Release captured owners before publishing completion.
         job = {};
+        crash::breadcrumb(crash::BreadcrumbThread::Render, "render job finished", frame);
         lock.lock();
         m_error = std::move(error);
         m_busy = false;

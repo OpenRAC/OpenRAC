@@ -19,6 +19,9 @@ def write_bake_profile(level, directory: Path) -> None:
         # Unconfigured levels use the baker and runtime's built-in defaults.
         if source.is_file():
             shutil.copyfile(source, directory / source.name)
+    lights = PROFILE_ROOT / level.game / "object-lights.json"
+    if lights.is_file():
+        shutil.copyfile(lights, directory / lights.name)
     write_emission_profile(level, directory)
 
 

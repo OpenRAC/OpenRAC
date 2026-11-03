@@ -141,9 +141,69 @@ int func_00128E98(unsigned char *src, int *out) {
     return 1;
 }
 
-INCLUDE_ASM("asm/core", func_00128F48);
+typedef struct {
+    unsigned long a : 14;
+    unsigned long b : 2;
+    unsigned long c : 8;
+    unsigned long d : 8;
+} Mode128F48;
 
-INCLUDE_ASM("asm/core", func_00128FD0);
+extern int r1_func_00124A70(int, Mode128F48, int *, int);
+
+/* rac1-decomp src/core/00125218.c: func_00125218 */
+/* Builds a mode word from bitfields and runs the r1_func_00124A70 round
+   trip. The fields are 64-bit, so each insert is a doubleword and/or,
+   and the struct is passed by value. `if (r >= 0) return out;` keeps
+   retail's two returns; an `r = out` spelling becomes slt/movz. */
+int func_00128F48(int arg0, int arg1) {
+    Mode128F48 m;
+    int out;
+    int r;
+
+    m.a = 2;
+    m.b = 2;
+    m.c = 3;
+    m.d = 1;
+    r = r1_func_00124A70(arg0, m, &out, arg1);
+    if (r >= 0) {
+        return out;
+    }
+    return r;
+}
+
+extern void *func_001153D4(void *, const void *, unsigned int);
+
+/* libvib's command to the dbc send call, passed by value like
+   func_00128F48's: retail moves the whole 64-bit register into $a1
+   (daddu), where an int view of it would be truncated (dsll32/dsra32,
+   as libpad2's func_00128B28 shows). */
+extern int func_001286C8(int, Mode128F48, int *, unsigned char *);
+
+/* The libvib sibling of func_00128F48: build command {0xB, 1, 3, 1}, pack
+   both sizes and the two blocks (first, then second) into one packet and
+   send it through func_001286C8 with a 0x28-byte size word. Initialising
+   `result` before the bitfields gives retail's insert schedule; adding the
+   packet's address to first_size gives retail's second destination. */
+int func_00128FD0(int port, int second_size, void *second, int first_size, void *first) {
+    Mode128F48 m;
+    struct {
+        int sizes[2];
+        unsigned char buffer[0x28];
+    } packet;
+    int result;
+
+    result = 0x28;
+    m.a = 0xB;
+    m.b = 1;
+    m.c = 3;
+    m.d = 1;
+    packet.sizes[1] = first_size;
+    func_001153D4(packet.buffer, first, first_size);
+    packet.sizes[0] = second_size;
+    first_size += (int)&packet;
+    func_001153D4((void *)(first_size + 8), second, second_size);
+    return func_001286C8(port, m, &result, (unsigned char *)&packet);
+}
 
 ASM_FUNC("asm/core", func_001290BC);
 

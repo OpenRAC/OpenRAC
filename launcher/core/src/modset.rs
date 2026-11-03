@@ -1387,7 +1387,7 @@ mod tests {
         fn walk(at: &Path, root: &Path, out: &mut BTreeMap<String, Vec<u8>>) {
             for e in std::fs::read_dir(at).into_iter().flatten().flatten() {
                 let rel = e.path().strip_prefix(root).unwrap().to_string_lossy().into_owned();
-                if rel.starts_with(".cache") || rel.starts_with("profiles") {
+                if rel.starts_with(".cache") || rel.starts_with("profiles") || rel.starts_with(plugins::PREVIOUS) {
                     continue;
                 }
                 if e.path().is_dir() {

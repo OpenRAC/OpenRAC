@@ -44,7 +44,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "collision_check.h"
 #include "collision_notes.h"
+#include "openrac/ee.h"
 #include "openrac/game_host.h"
 #include "openrac/host_env.h"
 #include "openrac/ps2float.h"
@@ -438,10 +440,12 @@ static int ensure_verts(size_t count, int allow_growth) {
  * vf2's w and vf25..vf29 (the hit registers, below). The sphere, capsule and hero-group kernels
  * store the push-out from vf2, whose w lane is the w of the last quadword loaded into vf2 whole: a
  * decoded mesh vertex (its fourth halfword), a face's second vertex (the outcode word the kernel
- * keeps in its w), a primitive record's +0xC or a joint's w; the line query's cell walk turns it
- * into the start's z x1024 (vmr32 three times). The port follows those loads (g_vf2w) where the
- * kernels make them. */
-static uint32_t g_vf[32][4];
+ * keeps in its w; the line query's too), a primitive record's +0xC or a joint's w; the line
+ * query's cell walk turns it into the start's z x1024 (vmr32 three times); the sphere-moby and
+ * hero-group kernels start by moving a whole GPR into vf2, whose upper half (w) no code here knows:
+ * taken as 0. The port follows those loads (g_vf2w) where the kernels make them. These are the
+ * program's own VU0 registers, so the code after a query sees what the kernel left there. */
+#define g_vf ((uint32_t (*)[4])openrac_vu0.vf)
 #define g_vf2w (g_vf[2][3])
 
 /* What the sphere and capsule kernels' register $7 holds when a pose-cache miss stores it (the
@@ -574,7 +578,7 @@ static void record(
     b->have = 1;
     b->kind = 0x1000 + ty;
     b->point = vadd(point, v0abs);
-    b->normal = normal;
+    b->normal = vadd(normal, vzero()); /* moved in as n + vf0: a -0 lane becomes +0 */
     const V3 tri[3] = {v0abs, vadd(e1, v0abs), vadd(e2, v0abs)};
     for (int i = 0; i < 3; ++i) {
         for (int k = 0; k < 3; ++k) {
@@ -943,8 +947,8 @@ static int vol_prim_test(
 static void prim_best(Best* b, gaddr prim, V3 point, V3 normal, gaddr moby) {
     b->have = 1;
     b->kind = -(int32_t)prim;
-    b->point = point;
-    b->normal = normal;
+    b->point = vadd(point, vzero()); /* moved in as vf0 + x: a -0 lane becomes +0 */
+    b->normal = vadd(normal, vzero());
     b->moby = moby; /* the triangle (+0x50..+0x70) stays as the previous hit left it */
 }
 
@@ -1311,7 +1315,11 @@ static void line_world(
             const Vert* v0 = &g_verts[vi[0]];
             const Vert* v1 = &g_verts[vi[1]];
             const Vert* v2 = &g_verts[vi[2]];
-            if ((v0->code & v1->code & v2->code) != 0 || face_excluded(fl, ty)) {
+            if ((v0->code & v1->code & v2->code) != 0) {
+                continue;
+            }
+            g_vf2w = v1->code; /* the face's vertices are loaded past the outcodes, vf2 whole */
+            if (face_excluded(fl, ty)) {
                 continue;
             }
             float q;
@@ -1371,12 +1379,14 @@ static int line_prim(
         const float top = fadd(cc.v[2], fmul(F32(p + 4), s));
         cc.v[2] = fmin2(fmax2(cc.v[2], p6.v[2]), top);
     } else if (kind == 2) {
+        g_vf2w = U32(p + 0xC); /* vf2: the record's first quadword, whole */
         const V3 v = vadd(joint_at(S32(p + 4)), vld(p + 0x10));
         cc = vadd(rot(c->rows, vmuls(v, s)), c->pos);
         rad = fmul(F32(p + 0xC), s);
     } else {
         /* A capsule between two joints: where the segment enters the capsule's infinite axis line (the
          * segment's start when they are parallel), brought back onto the axis between the joints. */
+        g_vf2w = joint_w(S16(p + 6)); /* vf2: the second joint, whole */
         const V3 a0 = rot(c->rows, vmuls(joint_at(S16(p + 4)), s));
         const V3 b0 = rot(c->rows, vmuls(joint_at(S16(p + 6)), s));
         rad = fmul(F32(p + 0xC), s);
@@ -2052,9 +2062,8 @@ static const Ctx* level_ctx(void) {
     return &x;
 }
 
-/* The executable's line query: its own globals, or with a level loaded (where retail runs the level's
- * copy of this kernel) the level's. */
-int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
+/* The queries as this port computes them (the entry points are at the end). */
+static int host_line_boot(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = openrac_game_loaded_overlay() >= 0 ? level_ctx() : &BOOT;
@@ -2065,14 +2074,7 @@ int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     return r;
 }
 
-/* CollLine_Fix(a, b, flags, ignore, hit template): the hit nearest a on the segment a -> b, world mesh
- * then mobys; 1 with CollOutput filled, else 0. */
-int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
-    /* A figure's shot posts no hit records (figure_items.c). */
-    if (a4 != 0 && rac1_figure_owned(rac1_updating_moby())) {
-        a4 = 0;
-        rac1_figure_hit_dropped("line hit template");
-    }
+static int host_line(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = level_ctx();
@@ -2117,7 +2119,7 @@ int rac1_level_line(const float from[3], const float to[3], int* blocked) {
 
 /* The sphere query (radius, centre, flags, ignore): the closest face within the radius, the centre
  * pushed out to touch it (+0x30). */
-int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
+static int host_sphere(float a0, gaddr a1, int a2, gaddr a3) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = level_ctx();
@@ -2128,8 +2130,7 @@ int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
     return r;
 }
 
-/* The vertical capsule query (radius, height, base, flags, ignore): the hero's body. */
-int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, int a4) {
+static int host_capsule(float a0, float a1, gaddr a2, int a3, int a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = level_ctx();
@@ -2140,15 +2141,7 @@ int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, int a4) {
     return r;
 }
 
-/* coll_sphere_mobys(radius, centre, flags, ignore, hit template): every moby the sphere touches, in
- * grid order, listed (0-terminated) at the list address; returns how many. CollOutput gets +0x18 = the
- * first, +0x1C = 0x3F, +0x20 = (0, 0, 0, 1); with a template each listed moby with mode bit 0x4000 gets
- * a hit record. */
-int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
-    if (a4 != 0 && rac1_figure_owned(rac1_updating_moby())) {
-        a4 = 0;
-        rac1_figure_hit_dropped("sphere hit template");
-    }
+static int host_sphere_mobys(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = level_ctx();
@@ -2158,6 +2151,7 @@ int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
     Volume vol;
     g_joints = 0;
     g_r7 = x->grid;
+    g_vf2w = 0; /* vf2 takes 1024.0 from $2 whole (qmtc2): w its upper half, unknown, taken as 0 */
     if (stamp >= 0 && volume_new(&vol, a1, a0, 0.0f, 0, openrac_guest_ram_size > GUEST_RAM_SIZE)) {
         const V3 c = vol.c1024;
         const float r = vol.r1024;
@@ -2320,15 +2314,16 @@ int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
     return result;
 }
 
-/* Sphere against the hero-only collision groups (radius, centre), after each capsule pass of the hero:
- * everything at x64, groups culled by their bounding sphere, vertices unsigned and absolute. */
-int func_L00_001F34F0(float a0, gaddr a1) {
+static int host_hero_groups(float a0, gaddr a1) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);
     const Ctx* x = level_ctx();
     const gaddr hero = U32(x->hero);
     int result = 0;
     if (hero != 0) {
+        /* vf2 takes a constant from $1 whole (qmtc2): w is the register's upper half, which no
+         * code here sets; taken as 0. */
+        g_vf2w = 0;
         const float shrink = best_shrink();
         const float r64 = fmul(a0, 64.0f);
         const V3 c64 = vmuls(vld(a1), 64.0f);
@@ -2404,4 +2399,349 @@ int func_L00_001F34F0(float a0, gaddr a1) {
     trace(4, result);
     fesetround(fr);
     return result;
+}
+
+/* ---- The entry points, and the check against the retail kernels ----
+ *
+ * With OPENRAC_COLL_CHECK set, each query also runs the kernel's own instructions (hostgen's
+ * translation of its assembly from the player's disc, hostgen.json "asm" "shadows") on the same
+ * state, and collision_check.c says where the two differ. The game goes on with this file's result.
+ */
+
+/* What a check puts back between the two runs: the kernels' state kept here between calls. */
+void rac1_coll_state(void* to, const void* from, size_t* size) {
+    struct {
+        uint32_t r7;
+        gaddr joints;
+    } st;
+
+    *size = sizeof st;
+    if (to != NULL) {
+        st.r7 = g_r7;
+        st.joints = g_joints;
+        memcpy(to, &st, sizeof st);
+    }
+    if (from != NULL) {
+        memcpy(&st, from, sizeof st);
+        g_r7 = st.r7;
+        g_joints = st.joints;
+    }
+}
+
+/* The hit registers as this file leaves them (vf25..vf29, vf2's w), for the check to compare. */
+const uint32_t (*rac1_coll_vf(void))[4] {
+    return (const uint32_t (*)[4])g_vf;
+}
+
+/* The CollOutput the queries of the loaded program write. */
+gaddr rac1_coll_output(int boot) {
+    return boot && openrac_game_loaded_overlay() < 0 ? BOOT.out : level_ctx()->out;
+}
+
+int rac1_coll_host(int kind, const RacCollArgs* a) {
+    switch (kind) {
+        case RAC_COLL_LINE:
+            return host_line(a->u[0], a->u[1], (int)a->u[2], (int)a->u[3], (int)a->u[4]);
+        case RAC_COLL_LINE_BOOT:
+            return host_line_boot(a->u[0], a->u[1], (int)a->u[2], (int)a->u[3], (int)a->u[4]);
+        case RAC_COLL_SPHERE:
+            return host_sphere(a->f[0], a->u[0], (int)a->u[1], a->u[2]);
+        case RAC_COLL_CAPSULE:
+            return host_capsule(a->f[0], a->f[1], a->u[0], (int)a->u[1], (int)a->u[2]);
+        case RAC_COLL_SPHERE_MOBYS:
+            return host_sphere_mobys(a->f[0], a->u[0], (int)a->u[1], a->u[2], a->u[3]);
+        case RAC_COLL_HERO_GROUPS:
+            return host_hero_groups(a->f[0], a->u[0]);
+        default:
+            return 0;
+    }
+}
+
+static inline int coll_run(int kind, const RacCollArgs* a) {
+    return rac1_coll_checking() ? rac1_coll_check(kind, a) : rac1_coll_host(kind, a);
+}
+
+/* The executable's line query: its own globals, or with a level loaded (where retail runs the level's
+ * copy of this kernel) the level's. */
+int func_001EFE10(gaddr a0, gaddr a1, int a2, int a3, int a4) {
+    const RacCollArgs a = {{0.0f, 0.0f}, {a0, a1, (uint32_t)a2, (uint32_t)a3, (uint32_t)a4}};
+    return coll_run(RAC_COLL_LINE_BOOT, &a);
+}
+
+/* CollLine_Fix(a, b, flags, ignore, hit template): the hit nearest a on the segment a -> b, world mesh
+ * then mobys; 1 with CollOutput filled, else 0. */
+int func_L00_001EFFF0(gaddr a0, gaddr a1, int a2, int a3, int a4) {
+    /* A figure's shot posts no hit records (figure_items.c). */
+    if (a4 != 0 && rac1_figure_owned(rac1_updating_moby())) {
+        a4 = 0;
+        rac1_figure_hit_dropped("line hit template");
+    }
+    const RacCollArgs a = {{0.0f, 0.0f}, {a0, a1, (uint32_t)a2, (uint32_t)a3, (uint32_t)a4}};
+    return coll_run(RAC_COLL_LINE, &a);
+}
+
+/* The sphere query (radius, centre, flags, ignore): the closest face within the radius, the centre
+ * pushed out to touch it (+0x30). */
+int func_L00_001F10E0(float a0, gaddr a1, int a2, gaddr a3) {
+    const RacCollArgs a = {{a0, 0.0f}, {a1, (uint32_t)a2, a3, 0, 0}};
+    return coll_run(RAC_COLL_SPHERE, &a);
+}
+
+/* The vertical capsule query (radius, height, base, flags, ignore): the hero's body. */
+int func_L00_001F1D20(float a0, float a1, gaddr a2, int a3, RAC1_COLL_CAPSULE_IGNORE a4) {
+    const RacCollArgs a = {{a0, a1}, {a2, (uint32_t)a3, (uint32_t)a4, 0, 0}};
+    return coll_run(RAC_COLL_CAPSULE, &a);
+}
+
+/* coll_sphere_mobys(radius, centre, flags, ignore, hit template): every moby the sphere touches, in
+ * grid order, listed (0-terminated) at the list address; returns how many. CollOutput gets +0x18 = the
+ * first, +0x1C = 0x3F, +0x20 = (0, 0, 0, 1); with a template each listed moby with mode bit 0x4000 gets
+ * a hit record. */
+int func_L00_001F2BE8(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
+    if (a4 != 0 && rac1_figure_owned(rac1_updating_moby())) {
+        a4 = 0;
+        rac1_figure_hit_dropped("sphere hit template");
+    }
+    const RacCollArgs a = {{a0, 0.0f}, {a1, (uint32_t)a2, a3, a4, 0}};
+    return coll_run(RAC_COLL_SPHERE_MOBYS, &a);
+}
+
+/* Sphere against the hero-only collision groups (radius, centre), after each capsule pass of the hero:
+ * everything at x64, groups culled by their bounding sphere, vertices unsigned and absolute. */
+int func_L00_001F34F0(float a0, gaddr a1) {
+    const RacCollArgs a = {{a0, 0.0f}, {a1, 0, 0, 0, 0}};
+    return coll_run(RAC_COLL_HERO_GROUPS, &a);
+}
+
+/* ---- The collision triangles in a box, for the mods (interface 1.12) ----
+ *
+ * What the queries above test, read out as triangles for a mod's own physics (a hoverboard's): the
+ * level's cells and the collision meshes of the mobys on the moby grid, decoded as the kernels
+ * decode them, in world units. Nothing here is a query of the game's: no stamp, no hit log, no
+ * vector register and no scratch the kernels use is touched, so the game's next query sees what it
+ * would have seen. Host floats throughout: the triangles are for the mod, not for the game. */
+
+typedef struct {
+    float corners[3][3];
+    float normal[3];
+    uint32_t type;
+    int32_t moby;
+} CollTriangle; /* openrac_collision_triangle's layout */
+
+typedef struct {
+    float lo[3], hi[3];
+    CollTriangle* out;
+    int max;
+    int count;
+} TriangleSink;
+
+/* Adds the triangle when its bounds meet the box; its normal from its corners, unit length (0 for
+ * a degenerate one). */
+static void sink_triangle(TriangleSink* s, const float p[3][3], uint32_t type, int32_t moby) {
+    for (int k = 0; k < 3; ++k) {
+        const float lo = fminf(p[0][k], fminf(p[1][k], p[2][k]));
+        const float hi = fmaxf(p[0][k], fmaxf(p[1][k], p[2][k]));
+        if (hi < s->lo[k] || lo > s->hi[k]) {
+            return;
+        }
+    }
+    if (s->count < s->max) {
+        CollTriangle* t = &s->out[s->count];
+        float e1[3], e2[3];
+        for (int k = 0; k < 3; ++k) {
+            for (int c = 0; c < 3; ++c) {
+                t->corners[c][k] = p[c][k];
+            }
+            e1[k] = p[1][k] - p[0][k];
+            e2[k] = p[2][k] - p[0][k];
+        }
+        const float n[3] =
+            {e1[1] * e2[2] - e1[2] * e2[1],
+             e1[2] * e2[0] - e1[0] * e2[2],
+             e1[0] * e2[1] - e1[1] * e2[0]};
+        const float len = sqrtf(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        for (int k = 0; k < 3; ++k) {
+            t->normal[k] = len > 0.0f ? n[k] / len : 0.0f;
+        }
+        t->type = type;
+        t->moby = moby;
+    }
+    ++s->count;
+}
+
+/* A cell's vertex as decode_vertices reads it (x << 6, y << 6, z << 4, in 1/1024 of a unit from
+ * the cell's centre), in world units. */
+static void cell_vertex(const Cell* c, int i, const float centre[3], float out[3]) {
+    const uint32_t w = U32(c->vertices + 4 * (gaddr)i);
+    const int32_t f[3] =
+        {((int32_t)(w << 22)) >> 22, ((int32_t)(w << 12)) >> 22, ((int32_t)w) >> 20};
+    const int16_t h[3] = {(int16_t)(f[0] << 6), (int16_t)(f[1] << 6), (int16_t)(f[2] << 4)};
+    for (int k = 0; k < 3; ++k) {
+        out[k] = centre[k] + (float)h[k] / 1024.0f;
+    }
+}
+
+/* The cells of a box are at most this many each way (a cell is 4 units): a box larger than 1024
+ * units is cut to its low corner's 1024. */
+#define TRIANGLE_CELLS_MAX 256
+
+static void level_triangles(gaddr mesh, TriangleSink* s) {
+    const int extended = collision_has_extended_tree(mesh);
+    const int top = (extended ? 131072 : 1024) / 4 - 1;
+    int lo[3], hi[3];
+    for (int k = 0; k < 3; ++k) {
+        lo[k] = s->lo[k] <= 0.0f ? 0 : (int)(s->lo[k] / 4.0f);
+        hi[k] = s->hi[k] <= 0.0f ? -1 : (int)(s->hi[k] / 4.0f);
+        if (hi[k] > top) {
+            hi[k] = top;
+        }
+        if (hi[k] - lo[k] >= TRIANGLE_CELLS_MAX) {
+            hi[k] = lo[k] + TRIANGLE_CELLS_MAX - 1;
+        }
+    }
+    for (int z = lo[2]; z <= hi[2]; ++z) {
+        for (int y = lo[1]; y <= hi[1]; ++y) {
+            for (int x = lo[0]; x <= hi[0]; ++x) {
+                Cell cell;
+                if (!cell_open(mesh, cell_word(mesh, x, y, z), &cell)) {
+                    continue;
+                }
+                const float centre[3] =
+                    {(float)(x * 4) + 2.0f, (float)(y * 4) + 2.0f, (float)(z * 4) + 2.0f};
+                int vi[3], ty;
+                for (int j = 0; cell_triangle(&cell, j, vi, &ty); ++j) {
+                    if (vi[0] >= cell.nv || vi[1] >= cell.nv || vi[2] >= cell.nv) {
+                        continue;
+                    }
+                    float p[3][3];
+                    for (int c = 0; c < 3; ++c) {
+                        cell_vertex(&cell, vi[c], centre, p[c]);
+                    }
+                    sink_triangle(s, p, (uint32_t)ty, -1);
+                }
+            }
+        }
+    }
+}
+
+static int slot_order(const void* a, const void* b) {
+    const uint16_t x = *(const uint16_t*)a, y = *(const uint16_t*)b;
+    return (x > y) - (x < y);
+}
+
+/* The mobys with collision on the grid's cells under the box, each once, by slot; their meshes as
+ * moby_mesh_verts places them (the rows times the scale, from the moby's position). */
+static void moby_triangles(const Ctx* x, TriangleSink* s) {
+    const int expanded = openrac_guest_ram_size > GUEST_RAM_SIZE;
+    const int top = expanded ? 8191 : 63;
+    int lo[2], hi[2];
+    for (int k = 0; k < 2; ++k) {
+        lo[k] = s->lo[k] <= 0.0f ? 0 : (int)(s->lo[k] / 16.0f);
+        hi[k] = s->hi[k] <= 0.0f ? -1 : (int)(s->hi[k] / 16.0f);
+        if (hi[k] > top) {
+            hi[k] = top;
+        }
+        if (hi[k] - lo[k] >= TRIANGLE_CELLS_MAX / 4) {
+            hi[k] = lo[k] + TRIANGLE_CELLS_MAX / 4 - 1;
+        }
+    }
+    static uint16_t slots[4096];
+    int n = 0;
+    for (int gy = lo[1]; gy <= hi[1]; ++gy) {
+        for (int gx = lo[0]; gx <= hi[0]; ++gx) {
+            int count;
+            const gaddr list = grid_cell(x, (unsigned)gx, (unsigned)gy, &count);
+            for (int i = 0; i < count && n < (int)(sizeof slots / sizeof slots[0]); ++i) {
+                slots[n++] = U16(list + 2 * (gaddr)i);
+            }
+        }
+    }
+    qsort(slots, (size_t)n, sizeof slots[0], slot_order);
+    for (int i = 0; i < n; ++i) {
+        if (i > 0 && slots[i] == slots[i - 1]) {
+            continue;
+        }
+        const gaddr m = moby_at(x, slots[i]);
+        if (U8(m + 0x20) >= 0x80 || U32(m + 0x94) == 0 || unbounded(m)) {
+            continue;
+        }
+        /* Its bounding sphere (+0, radius +0xC) against the box. The sphere is in the kernels'
+         * units, 1024 to the game's (moby_pose scales the position as they do). */
+        float d2 = 0.0f;
+        for (int k = 0; k < 3; ++k) {
+            const float c = F32(m + 4 * (gaddr)k) / 1024.0f;
+            const float e = c < s->lo[k] ? s->lo[k] - c : (c > s->hi[k] ? c - s->hi[k] : 0.0f);
+            d2 += e * e;
+        }
+        const float radius = F32(m + 0xC) / 1024.0f;
+        if (d2 > radius * radius) {
+            continue;
+        }
+        MobyColl mc;
+        moby_head(m, 0, &mc);
+        if (mc.vb <= 0) {
+            continue;
+        }
+        moby_mesh(&mc);
+        float rows[3][3];
+        for (int r = 0; r < 3; ++r) {
+            for (int k = 0; k < 3; ++k) {
+                rows[r][k] = F32(m + 0xC0 + 0x10 * (gaddr)r + 4 * (gaddr)k) * F32(m + 0x2C);
+            }
+        }
+        const float pos[3] = {F32(m + 0x10), F32(m + 0x14), F32(m + 0x18)};
+        for (int fi = 0; fi < mc.nfaces; ++fi) {
+            const gaddr f = mc.faces + (mc.extended_indices ? 8u : 4u) * (gaddr)fi;
+            const int vi[3] = {
+                mc.extended_indices ? U16(f) : U8(f),
+                mc.extended_indices ? U16(f + 2) : U8(f + 1),
+                mc.extended_indices ? U16(f + 4) : U8(f + 2),
+            };
+            const uint32_t ty = U8(f + (mc.extended_indices ? 6u : 3u));
+            float p[3][3];
+            int ok = 1;
+            for (int c = 0; c < 3 && ok; ++c) {
+                ok = vi[c] < mc.nverts;
+                if (!ok) {
+                    break;
+                }
+                const gaddr v = mc.verts + 8 * (gaddr)vi[c];
+                const float l[3] = {(float)S16(v), (float)S16(v + 2), (float)S16(v + 4)};
+                for (int k = 0; k < 3; ++k) {
+                    p[c][k] =
+                        pos[k]
+                        + (rows[0][k] * l[0] + rows[1][k] * l[1] + rows[2][k] * l[2]) / 1024.0f;
+                }
+            }
+            if (ok) {
+                sink_triangle(s, p, ty, (int32_t)slots[i]);
+            }
+        }
+    }
+}
+
+int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, int max) {
+    if (lo == NULL || hi == NULL || !rac1_level_running()) {
+        return 0;
+    }
+    TriangleSink s;
+    for (int k = 0; k < 3; ++k) {
+        if (!isfinite(lo[k]) || !isfinite(hi[k]) || hi[k] < lo[k]) {
+            return 0;
+        }
+        s.lo[k] = lo[k];
+        s.hi[k] = hi[k];
+    }
+    s.out = (CollTriangle*)out;
+    s.max = out != NULL && max > 0 ? max : 0;
+    s.count = 0;
+    const Ctx* x = level_ctx();
+    const gaddr mesh = U32(x->out);
+    if (mesh != 0) {
+        level_triangles(mesh, &s);
+    }
+    if (U32(x->mobys) != 0) {
+        moby_triangles(x, &s);
+    }
+    return s.count;
 }

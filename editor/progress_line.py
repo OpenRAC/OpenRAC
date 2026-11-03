@@ -27,6 +27,7 @@ STEPS = {
     "pack": "levels packed",
     "visibility": "levels whose visibility was added for the port",
     "textures": "levels whose textures a pack was shown or hidden in",
+    "audio": "sounds written as WAV files for the Audio tab",
 }
 
 PATTERN = re.compile(r"^(?P<step>[a-z]+)(?: (?P<done>\d+)/(?P<total>\d+)(?: (?P<level>\d+))?)?$")

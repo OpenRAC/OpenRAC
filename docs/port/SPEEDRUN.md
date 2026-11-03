@@ -22,7 +22,7 @@ have to look like. The documents are in [speedrun/](speedrun/README.md).
   (`D_0015EE7C` on PAL, `D_0015ED7C` on NTSC-U), which the port holds at a
   sixtieth of a second. A run's *game time* is therefore ticks × 1/60.
 - **Splitting a run works today.** The `live-splits` mod
-  ([OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods)) drives a
+  ([OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods)) drives a
   LiveSplit timer over LiveSplit's own server and splits at every planet. See
   [speedrun/LIVESPLITTING.md](speedrun/LIVESPLITTING.md).
 - **Practice tooling is good but not a save-state system.** Pause, single

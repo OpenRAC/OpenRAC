@@ -5,7 +5,7 @@ that names a level's directory or report category (docs/OVERLAYS.md,
 "Levels").
 
 The index is the game's own level number: the disc's level table order
-(D_0013A548, docs/ASSETS.md), the order of the level overlays in
+(D_0013A548, docs/reference/ASSETS.md), the order of the level overlays in
 baserom/overlays/level_NN/, the NN in func_LNN_* / D_LNN_* symbols, and
 the order of the save's unlocked-planet flags. Symbols and baserom paths
 keep the bare number; only source directories and report labels carry the

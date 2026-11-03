@@ -331,12 +331,14 @@ bool room_path_clear(const Scene& scene, Float3 a, Float3 b, const BakeSettings&
     return true;
 }
 
+// Tests both endpoint margins because the room graph stores undirected connections.
 bool room_body_path_clear(
     const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings, bool swimming
 ) {
-    return floor_step_clear(
-        scene, a, b, settings, settings.traversal.player_height * (swimming ? .5f : 1.f)
-    );
+    // Swimming uses half-height clearance at the water surface.
+    const float height = settings.traversal.player_height * (swimming ? .5f : 1.f);
+    return floor_step_clear(scene, a, b, settings, height)
+           && floor_step_clear(scene, b, a, settings, height);
 }
 
 std::vector<Float3> room_floor_path(

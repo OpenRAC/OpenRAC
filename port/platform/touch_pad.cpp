@@ -39,11 +39,6 @@ constexpr float kSnap = 0.025f;
 
 using Kind = TouchControl::Kind;
 
-std::uint8_t axis_byte(float v) {
-    v = std::clamp(v, -1.0f, 1.0f);
-    return static_cast<std::uint8_t>(std::lround(127.5f + v * 127.5f));
-}
-
 constexpr const char* kGroupNames[] =
     {"stick", "dpad", "face", "l1", "l2", "r1", "r2", "select", "start", "menu"};
 static_assert(std::size(kGroupNames) == kTouchGroups, "a name for each TouchGroup");
@@ -509,7 +504,7 @@ void TouchPad::knob(std::size_t index, float& dx, float& dy) const {
     }
 }
 
-void TouchPad::apply(Pad& pad) const {
+void TouchPad::apply(Pad& pad, const StickDeadZone& dead_zone) const {
     if (m_editing) {
         return;  // the fingers move the controls, not Ratchet
     }
@@ -533,16 +528,14 @@ void TouchPad::apply(Pad& pad) const {
         dx /= c.radius;
         dy /= c.radius;
         square_stick(dx, dy);
-        pad.left_x = axis_byte(dx);
-        pad.left_y = axis_byte(dy);
+        stick_pair_bytes(dx, dy, dead_zone, pad.left_x, pad.left_y);
     }
     float lx = 0.0f;
     float ly = 0.0f;
     look(lx, ly);
     if (lx != 0.0f || ly != 0.0f) {
         square_stick(lx, ly);
-        pad.right_x = axis_byte(lx);
-        pad.right_y = axis_byte(ly);
+        stick_pair_bytes(lx, ly, dead_zone, pad.right_x, pad.right_y);
     }
 }
 

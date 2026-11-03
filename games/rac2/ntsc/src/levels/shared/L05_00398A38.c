@@ -1,0 +1,135 @@
+#include "common.h"
+
+typedef int Quad98A __attribute__((mode(TI)));
+typedef union {
+    Quad98A q;
+    float f[4];
+} Vec98A;
+
+typedef struct {
+    Vec98A p[4];
+    int color[4];
+    float uv[8];
+    u64 zero, texture, mode, primitive;
+} Ribbon98A;
+
+extern u64 func_0027C878(int);
+extern void func_L00_003A2570(void *, int);
+extern void func_L00_003B2900(void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282DD8(void *, void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282D30(void *, void *, float);
+extern void func_002830C0(void *, void *, void *);
+extern void func_00280B90(void *, int, int);
+extern float func_00283CE0(int);
+extern char D_L05_001B96C0[];
+
+/* Draw two textured strips along the points, scrolling the wider strip's U coordinate. */
+void func_L05_00398A38(char *obj, int count, Vec98A *points, int n)
+{
+    Ribbon98A inner, outer;
+    Vec98A tangent, view, right, pos, thin, wide;
+    int color = 0x80ff4000;
+    char *data = *(char **)(obj + 0x68);
+    float u, v;
+
+    if (*(int *)(data + 0x24))
+        color = 0x800040ff;
+    inner.texture = func_0027C878(43);
+    inner.mode = 0xff9000000260ULL;
+    inner.primitive = ((u64)count << 32) | 0x68;
+    inner.color[1] = 0x7fffffff;
+    inner.color[0] = 0x7fffffff;
+    inner.zero = 0;
+    outer.texture = func_0027C878(43);
+    outer.mode = 0xff9000000260ULL;
+    outer.zero = 0;
+    outer.primitive = ((u64)(count / 3) << 32) | 0x68;
+    thin.q = 0;
+    wide.q = 0;
+    thin.f[2] = 0.04f;
+    wide.f[2] = 0.16f;
+    inner.color[1] = color;
+    outer.color[0] = color;
+    thin.f[3] = 1.0f;
+    wide.f[3] = 1.0f;
+    func_L00_003A2570(points, n);
+    func_L00_003B2900(&inner);
+    func_L00_003B2900(&outer);
+    inner.uv[0] = 0;
+    inner.uv[1] = 0;
+    inner.uv[2] = 0;
+    inner.uv[3] = 1;
+    inner.uv[4] = 1;
+    inner.uv[5] = 0;
+    inner.uv[6] = 1;
+    inner.uv[7] = 1;
+    outer.uv[0] = 0;
+    outer.uv[1] = 0;
+    outer.uv[2] = 0;
+    outer.uv[3] = 1;
+    outer.uv[4] = 0.33f;
+    outer.uv[5] = 0;
+    outer.uv[6] = 0.33f;
+    outer.uv[7] = 1;
+    func_00282CF0(&tangent, points + 1, points);
+    func_00282F20(&tangent, &tangent, 1.0f);
+    func_00282CF0(&view, D_L05_001B96C0, points);
+    func_00282DD8(&right, &view, &tangent);
+    func_00282F20(&right, &right, 1.0f);
+    func_00282DD8(&view, &tangent, &right);
+    qcopy(&pos, points);
+    qcopy(&inner.p[0], &thin);
+    func_00282D30(&inner.p[1], &inner.p[0], -1.0f);
+    func_002830C0(&inner.p[0], &inner.p[0], &tangent);
+    func_002830C0(&inner.p[1], &inner.p[1], &tangent);
+    qcopy(&outer.p[0], &wide);
+    func_00282D30(&outer.p[1], &outer.p[0], -1.0f);
+    func_002830C0(&outer.p[0], &outer.p[0], &tangent);
+    func_002830C0(&outer.p[1], &outer.p[1], &tangent);
+    {
+        int i;
+
+        for (i = 1; i < n - 1; i++) {
+            Vec98A *following = points + (i + 1);
+            Vec98A *current = points + i;
+
+            qcopy(&inner.p[2], &thin);
+            func_00282D30(&inner.p[3], &inner.p[2], -1.0f);
+            qcopy(&outer.p[2], &wide);
+            func_00282D30(&outer.p[3], &outer.p[2], -1.0f);
+            func_00282CF0(&tangent, following, current);
+            func_00282F20(&tangent, &tangent, 1.0f);
+            func_00282CF0(&view, D_L05_001B96C0, current);
+            func_00282DD8(&right, &view, &tangent);
+            func_00282F20(&right, &right, 1.0f);
+            func_00282DD8(&view, &tangent, &right);
+            qcopy(&pos, current);
+            func_002830C0(&inner.p[2], &inner.p[2], &tangent);
+            func_002830C0(&inner.p[3], &inner.p[3], &tangent);
+            func_002830C0(&outer.p[2], &outer.p[2], &tangent);
+            func_002830C0(&outer.p[3], &outer.p[3], &tangent);
+            inner.color[3] = 0x7f7f7f7f;
+            inner.color[2] = 0x7f7f7f7f;
+            outer.color[3] = color;
+            outer.color[2] = color;
+            func_00280B90(&inner, 0, 0);
+            func_00280B90(&outer, 0, 0);
+            u = func_00283CE0(i) * 0.33f;
+            v = u + 0.33f;
+            if (u >= 1.0f) {
+                u -= 1.0f;
+                v -= 1.0f;
+            }
+            outer.uv[0] = u;
+            outer.uv[4] = v;
+            outer.uv[2] = u;
+            outer.uv[6] = v;
+            qcopy(&inner.p[0], &inner.p[2]);
+            qcopy(&inner.p[1], &inner.p[3]);
+            qcopy(&outer.p[0], &outer.p[2]);
+            qcopy(&outer.p[1], &outer.p[3]);
+        }
+    }
+}

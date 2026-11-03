@@ -138,6 +138,7 @@ class MainActivity : TauriActivity() {
     KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
     KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_BUTTON_START -> "accept"
     KeyEvent.KEYCODE_BUTTON_B -> "back"
+    KeyEvent.KEYCODE_BUTTON_Y -> "more"
     KeyEvent.KEYCODE_BUTTON_L1 -> "prev"
     KeyEvent.KEYCODE_BUTTON_R1 -> "next"
     else -> null

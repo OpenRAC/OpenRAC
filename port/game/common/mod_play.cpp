@@ -74,10 +74,15 @@ static_assert(
     sizeof(openrac_moby_deletion) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_deletion)
 );
 
+// The collision triangles are the game's records as they are (interface 1.12).
+static_assert(sizeof(openrac_collision_triangle) == 14 * sizeof(float));
+
 namespace {
 
 // A save file is read whole: none of a game's is larger.
 constexpr std::uintmax_t kSaveMax = 1u << 20;
+// The most sounds the mods load together (OPENRAC_SOUNDS_MAX each).
+constexpr std::size_t kSoundsMax = 4 * OPENRAC_SOUNDS_MAX;
 
 // A figure a mod made: whose, its moby, the level load it was made in.
 struct Figure {
@@ -1191,6 +1196,484 @@ int api_sim_digest(std::int32_t level, std::uint32_t* out) {
     return *out != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// ---- Interface 1.12: the hero moved by a mod, the collision triangles, props and sounds ----
+
+// A prop a mod made: whose, its mesh, the level load it was made in, its matrix once posed.
+struct Prop {
+    const openrac_mod* mod = nullptr;
+    std::filesystem::path mesh;
+    std::uint32_t loads = 0;
+    bool posed = false;
+    bool hidden = false;
+    std::array<float, 16> matrix{};
+    std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
+    int blend = 0;
+};
+
+// A sound a mod loaded: whose, and the host's id of it.
+struct Sound {
+    const openrac_mod* mod = nullptr;
+    int host = -1;
+};
+
+// The props, the meshes asked for (and their count's generation), behind a lock: the front end
+// reads them on its own thread.
+std::mutex g_props_lock;
+std::array<Prop, OPENRAC_PROPS_MAX> g_props;
+std::vector<std::filesystem::path> g_prop_meshes;
+unsigned g_prop_generation = 0;
+std::vector<Sound> g_sounds;
+std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_voices;
+int (*g_sound_load)(const std::filesystem::path&) = nullptr;
+std::uint32_t (*g_sound_play)(int, float, float, bool) = nullptr;
+int (*g_sound_set)(std::uint32_t, float, float) = nullptr;
+void (*g_sound_stop)(std::uint32_t) = nullptr;
+void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullptr;
+
+// The mod holding the game's camera (camera_set), and the heat haze patches each mod drew, of a
+// level load, behind a lock: the front end reads them on its own thread.
+const openrac_mod* g_camera_mod = nullptr;
+std::uint32_t g_camera_loads = 0;
+
+struct Haze {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::vector<openrac_haze> patches;
+};
+
+std::mutex g_haze_lock;
+std::vector<Haze> g_haze;
+
+// The lines of text each mod shows in the game's HUD (hud_text_set), of a level load: set and read
+// on the game's thread, behind a lock as the haze is.
+struct HudTexts {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::vector<openrac_hud_text> lines;
+};
+
+std::mutex g_hud_lock;
+std::vector<HudTexts> g_hud;
+
+std::uint32_t loads_now() {
+    return g_play != nullptr ? g_play->loads() : 0;
+}
+
+int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose) {
+    if (mod == nullptr || pose == nullptr || pose->size < sizeof(openrac_pose) || g_play == nullptr
+        || g_play->hero_set_pose == nullptr || !holds_hook(mod, g_play->hero_update_hook)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_pose p{};
+    std::memcpy(&p, &pose->level, sizeof p);
+    return g_play->hero_set_pose(&p) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, int count) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_moby == nullptr
+        || g_joint_offsets == nullptr || !holds_hook(mod, g_play->hero_update_hook) || count < 0
+        || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t moby = g_play->hero_moby();
+    if (moby == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_joint_offsets(moby, joints, count);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_collision_triangles(
+    const float lo[3], const float hi[3], openrac_collision_triangle* out, int max
+) {
+    if (g_play == nullptr || g_play->collision_triangles == nullptr || lo == nullptr
+        || hi == nullptr) {
+        return 0;
+    }
+    return g_play->collision_triangles(lo, hi, out, out != nullptr ? std::max(max, 0) : 0);
+}
+
+// The mod's prop `id` of this level load, null for one that is not; one gone with its level is let
+// go. Under g_props_lock.
+Prop* own_prop(const openrac_mod* mod, int id) {
+    if (mod == nullptr || id < 0 || id >= static_cast<int>(g_props.size())) {
+        return nullptr;
+    }
+    Prop& p = g_props[static_cast<std::size_t>(id)];
+    if (p.mod != mod) {
+        return nullptr;
+    }
+    if (p.loads != loads_now()) {
+        p = Prop{};
+        return nullptr;
+    }
+    return &p;
+}
+
+int api_prop_create(openrac_mod* mod, const char* mesh_path) {
+    std::int32_t level = -1;
+    if (mod == nullptr || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::filesystem::path mesh = mod_file(mod, mesh_path);
+    if (mesh.empty() || mesh.extension() != ".glb") {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    for (Prop& p : g_props) {
+        if (p.mod != nullptr && p.loads != loads) {
+            p = Prop{};
+        }
+    }
+    for (std::size_t i = 0; i < g_props.size(); ++i) {
+        if (g_props[i].mod != nullptr) {
+            continue;
+        }
+        g_props[i] = Prop{mod, mesh, loads};
+        // A mesh no level has read yet: the scenery is read again with it.
+        if (std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) == g_prop_meshes.end()) {
+            g_prop_meshes.push_back(mesh);
+            ++g_prop_generation;
+        }
+        return static_cast<int>(i);
+    }
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose) {
+    const auto finite = [](const float* v, int n) {
+        return std::all_of(v, v + n, [](float f) { return std::isfinite(f); });
+    };
+    if (pose == nullptr || pose->size < sizeof(openrac_prop_pose)
+        || !(
+            (pose->flags & OPENRAC_PROP_MATRIX) != 0
+                ? finite(pose->matrix, 16)
+                : finite(pose->position, 3) && finite(pose->rotation, 4) && finite(&pose->scale, 1)
+        )
+        || ((pose->flags & OPENRAC_PROP_TINT) != 0 && !finite(pose->tint, 4))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if ((pose->flags & OPENRAC_PROP_MATRIX) != 0) {
+        std::copy(pose->matrix, pose->matrix + 16, p->matrix.begin());
+    } else {
+        // The rotation's matrix (a unit quaternion), each axis scaled, then the place.
+        const float x = pose->rotation[0], y = pose->rotation[1], z = pose->rotation[2],
+                    w = pose->rotation[3], s = pose->scale;
+        const float m[9] = {
+            1 - 2 * (y * y + z * z),
+            2 * (x * y + z * w),
+            2 * (x * z - y * w),
+            2 * (x * y - z * w),
+            1 - 2 * (x * x + z * z),
+            2 * (y * z + x * w),
+            2 * (x * z + y * w),
+            2 * (y * z - x * w),
+            1 - 2 * (x * x + y * y),
+        };
+        for (int c = 0; c < 3; ++c) {
+            for (int r = 0; r < 3; ++r) {
+                p->matrix[static_cast<std::size_t>(4 * c + r)] = m[3 * c + r] * s;
+            }
+            p->matrix[static_cast<std::size_t>(4 * c + 3)] = 0.0f;
+        }
+        p->matrix[12] = pose->position[0];
+        p->matrix[13] = pose->position[1];
+        p->matrix[14] = pose->position[2];
+        p->matrix[15] = 1.0f;
+    }
+    if ((pose->flags & OPENRAC_PROP_TINT) != 0) {
+        std::copy(pose->tint, pose->tint + 4, p->tint.begin());
+        p->blend = pose->blend <= OPENRAC_PROP_ADD ? static_cast<int>(pose->blend) : 0;
+    } else {
+        p->tint = {1.0f, 1.0f, 1.0f, 1.0f};
+        p->blend = 0;
+    }
+    p->posed = true;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_prop_hide(openrac_mod* mod, int id, int hidden) {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    p->hidden = hidden != 0;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_prop_remove(openrac_mod* mod, int id) {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    *p = Prop{};
+    return OPENRAC_HOOK_OK;
+}
+
+int api_camera_view(openrac_camera* out) {
+    if (out == nullptr || out->size < sizeof(openrac_camera) || g_play == nullptr
+        || g_play->camera_view == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    float eye[3], rows[9];
+    if (g_play->camera_view(eye, rows) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::copy(eye, eye + 3, out->eye);
+    std::copy(rows, rows + 3, out->forward);
+    std::copy(rows + 3, rows + 6, out->left);
+    std::copy(rows + 6, rows + 9, out->up);
+    return OPENRAC_HOOK_OK;
+}
+
+// Whether `v` is a unit vector (to a few parts in a thousand).
+bool unit(const float v[3]) {
+    const float n = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    return std::isfinite(n) && std::fabs(n - 1.0f) < 0.01f;
+}
+
+int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
+    if (mod == nullptr || g_play == nullptr || g_play->camera_set == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (g_camera_mod != nullptr && g_camera_loads != loads_now()) {
+        g_camera_mod = nullptr;  // its level went, and the camera with it
+    }
+    if (g_camera_mod != nullptr && g_camera_mod != mod) {
+        return OPENRAC_HOOK_TAKEN;
+    }
+    if (camera == nullptr) {
+        if (g_camera_mod == mod) {
+            g_play->camera_set(nullptr, nullptr);
+            g_camera_mod = nullptr;
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    const auto square = [](const float a[3], const float b[3]) {
+        return std::fabs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) < 0.01f;
+    };
+    if (camera->size < sizeof(openrac_camera) || !unit(camera->forward) || !unit(camera->left)
+        || !unit(camera->up) || !square(camera->forward, camera->left)
+        || !square(camera->forward, camera->up) || !square(camera->left, camera->up)
+        || !std::all_of(camera->eye, camera->eye + 3, [](float v) { return std::isfinite(v); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    float rows[9];
+    std::copy(camera->forward, camera->forward + 3, rows);
+    std::copy(camera->left, camera->left + 3, rows + 3);
+    std::copy(camera->up, camera->up + 3, rows + 6);
+    if (g_play->camera_set(camera->eye, rows) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_camera_mod = mod;
+    g_camera_loads = loads_now();
+    return OPENRAC_HOOK_OK;
+}
+
+int api_haze_set(openrac_mod* mod, const openrac_haze* patches, int count) {
+    std::int32_t level = -1;
+    if (mod == nullptr || count < 0 || (count > 0 && patches == nullptr)
+        || (count > 0 && !in_level(phase_now(&level)))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_haze_lock);
+    const std::uint32_t loads = loads_now();
+    std::size_t others = 0;
+    for (const Haze& h : g_haze) {
+        if (h.mod != mod && h.loads == loads) {
+            others += h.patches.size();
+        }
+    }
+    if (others + static_cast<std::size_t>(count) > OPENRAC_HAZE_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int i = 0; i < count; ++i) {
+        const openrac_haze& p = patches[i];
+        if (!std::all_of(p.position, p.position + 3, [](float v) { return std::isfinite(v); })
+            || !std::isfinite(p.radius) || !std::isfinite(p.strength) || p.radius < 0.0f
+            || p.strength < 0.0f) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    std::erase_if(g_haze, [&](const Haze& h) { return h.mod == mod || h.loads != loads; });
+    if (count > 0) {
+        g_haze.push_back({mod, loads, std::vector<openrac_haze>(patches, patches + count)});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_hud_text_set(openrac_mod* mod, const openrac_hud_text* lines, int count) {
+    std::int32_t level = -1;
+    if (mod == nullptr || count < 0 || (count > 0 && lines == nullptr)
+        || (count > 0 && !in_level(phase_now(&level)))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int i = 0; i < count; ++i) {
+        const openrac_hud_text& l = lines[i];
+        const bool ended =
+            std::find(std::begin(l.text), std::end(l.text), '\0') != std::end(l.text);
+        const auto within = [](float v, float lo, float hi) {
+            return std::isfinite(v) && v >= lo && v <= hi;
+        };
+        if (!ended || !within(l.x, 0.0f, 1.0f) || !within(l.y, 0.0f, 1.0f)
+            || !within(l.scale, 0.25f, 4.0f)) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    std::size_t others = 0;
+    for (const HudTexts& h : g_hud) {
+        if (h.mod != mod && h.loads == loads) {
+            others += h.lines.size();
+        }
+    }
+    if (others + static_cast<std::size_t>(count) > OPENRAC_HUD_TEXTS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod || h.loads != loads; });
+    if (count > 0) {
+        g_hud.push_back({mod, loads, std::vector<openrac_hud_text>(lines, lines + count)});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+// The hero's looping sounds each mod started (hero_sound_play), stopped with the mod.
+struct HeroVoice {
+    openrac_mod* mod;
+    std::uint32_t loads;
+    int voice;
+};
+
+std::vector<HeroVoice> g_hero_voices;
+
+int api_hero_sound_play(openrac_mod* mod, int sound, int loop) {
+    std::int32_t level = -1;
+    if (mod == nullptr || g_play == nullptr || g_play->hero_sound_play == nullptr || sound < 0
+        || !in_level(phase_now(&level))) {
+        return -1;
+    }
+    const int voice = g_play->hero_sound_play(sound, loop != 0 ? 1 : 0);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
+        return v.loads != loads || v.voice == voice;
+    });
+    if (voice >= 0 && loop != 0) {
+        g_hero_voices.push_back({mod, loads, voice});
+    }
+    return voice;
+}
+
+// The looping hero sounds of one mod (all: null) stopped, those of this level load still playing.
+void stop_hero_voices(const openrac_mod* mod) {
+    for (const HeroVoice& v : g_hero_voices) {
+        if ((mod == nullptr || v.mod == mod) && v.loads == loads_now() && g_play != nullptr
+            && g_play->hero_sound_stop != nullptr) {
+            g_play->hero_sound_stop(v.voice);
+        }
+    }
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
+        return mod == nullptr || v.mod == mod;
+    });
+}
+
+void api_hero_sound_stop(openrac_mod* mod, int voice) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_sound_stop == nullptr || voice < 0) {
+        return;
+    }
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) { return v.voice == voice; });
+    g_play->hero_sound_stop(voice);
+}
+
+int api_hero_hurt(openrac_mod* mod, int damage) {
+    if (mod == nullptr || g_play == nullptr || g_play->hero_hurt == nullptr) {
+        return -1;
+    }
+    return g_play->hero_hurt(damage);
+}
+
+int api_sound_load(openrac_mod* mod, const char* path) {
+    if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto own = std::count_if(g_sounds.begin(), g_sounds.end(), [&](const Sound& s) {
+        return s.mod == mod;
+    });
+    const std::filesystem::path file = mod_file(mod, path);
+    const std::filesystem::path ext = file.extension();
+    if (own >= OPENRAC_SOUNDS_MAX || file.empty() || (ext != ".wav" && ext != ".ogg")) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int host = g_sound_load(file);
+    if (host < 0) {
+        log::warn("mods: {} could not read the sound {}", mod_id(mod), path);
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_sounds.push_back({mod, host});
+    return static_cast<int>(g_sounds.size() - 1);
+}
+
+// Voices that ended (the host's sound_set answers no more) are forgotten as new ones are asked for.
+void forget_ended_voices() {
+    std::erase_if(g_voices, [](const auto& v) {
+        return g_sound_set == nullptr || g_sound_set(v.second, -1.0f, -1.0f) == 0;
+    });
+}
+
+std::uint32_t api_sound_play(openrac_mod* mod, int sound, float volume, float pitch, int loop) {
+    if (mod == nullptr || g_sound_play == nullptr || sound < 0
+        || sound >= static_cast<int>(g_sounds.size())
+        || g_sounds[static_cast<std::size_t>(sound)].mod != mod || !std::isfinite(volume)
+        || !std::isfinite(pitch)) {
+        return 0;
+    }
+    forget_ended_voices();
+    if (g_voices.size() >= OPENRAC_SOUND_VOICES_MAX) {
+        return 0;
+    }
+    const std::uint32_t voice = g_sound_play(
+        g_sounds[static_cast<std::size_t>(sound)].host,
+        std::max(volume, 0.0f),
+        std::max(pitch, 0.0f),
+        loop != 0
+    );
+    if (voice != 0) {
+        g_voices.emplace_back(mod, voice);
+    }
+    return voice;
+}
+
+// Whether `voice` is one the mod played.
+bool own_voice(const openrac_mod* mod, std::uint32_t voice) {
+    return mod != nullptr && voice != 0
+           && std::find(g_voices.begin(), g_voices.end(), std::make_pair(mod, voice))
+                  != g_voices.end();
+}
+
+int api_sound_set(openrac_mod* mod, std::uint32_t voice, float volume, float pitch) {
+    if (g_sound_set == nullptr || !own_voice(mod, voice) || !std::isfinite(volume)
+        || !std::isfinite(pitch)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_sound_set(voice, std::max(volume, 0.0f), std::max(pitch, 0.0f)) != 0
+               ? OPENRAC_HOOK_OK
+               : OPENRAC_HOOK_UNKNOWN;
+}
+
+void api_sound_stop(openrac_mod* mod, std::uint32_t voice) {
+    if (g_sound_stop != nullptr && own_voice(mod, voice)) {
+        g_sound_stop(voice);
+        std::erase(g_voices, std::make_pair(static_cast<const openrac_mod*>(mod), voice));
+    }
+}
 }  // namespace
 
 void fill_play_api(
@@ -1269,6 +1752,82 @@ void fill_play_api(
     api.hero_hold_at = api_hero_hold_at;
     api.hero_stand_in_as = api_hero_stand_in_as;
     api.hero_stand_in_read = api_hero_stand_in_read;
+}
+
+void fill_motion_api(openrac_api& api, const Host& host) {
+    g_sound_load = host.sound_load;
+    g_sound_play = host.sound_play;
+    g_sound_set = host.sound_set;
+    g_sound_stop = host.sound_stop;
+    g_joint_offsets = host.joint_offsets;
+    api.hero_set_pose = api_hero_set_pose;
+    api.hero_set_joints = api_hero_set_joints;
+    api.collision_triangles = api_collision_triangles;
+    api.prop_create = api_prop_create;
+    api.prop_pose = api_prop_pose;
+    api.prop_hide = api_prop_hide;
+    api.prop_remove = api_prop_remove;
+    api.sound_load = api_sound_load;
+    api.sound_play = api_sound_play;
+    api.sound_set = api_sound_set;
+    api.sound_stop = api_sound_stop;
+    api.camera_view = api_camera_view;
+    api.camera_set = api_camera_set;
+    api.haze_set = api_haze_set;
+    api.hud_text_set = api_hud_text_set;
+    api.hero_sound_play = api_hero_sound_play;
+    api.hero_sound_stop = api_hero_sound_stop;
+    api.hero_hurt = api_hero_hurt;
+}
+
+std::vector<HazeDraw> haze_drawn() {
+    std::vector<HazeDraw> out;
+    const std::lock_guard<std::mutex> lock(g_haze_lock);
+    const std::uint32_t loads = loads_now();
+    for (const Haze& h : g_haze) {
+        if (h.loads != loads) {
+            continue;
+        }
+        for (const openrac_haze& p : h.patches) {
+            out.push_back({{p.position[0], p.position[1], p.position[2]}, p.radius, p.strength});
+        }
+    }
+    return out;
+}
+
+std::vector<openrac_hud_text> hud_texts() {
+    std::vector<openrac_hud_text> out;
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    for (const HudTexts& h : g_hud) {
+        if (h.loads == loads) {
+            out.insert(out.end(), h.lines.begin(), h.lines.end());
+        }
+    }
+    return out;
+}
+
+std::vector<PropDraw> props_drawn() {
+    std::vector<PropDraw> out;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    for (std::size_t i = 0; i < g_props.size(); ++i) {
+        const Prop& p = g_props[i];
+        if (p.mod != nullptr && p.posed && !p.hidden && p.loads == loads) {
+            out.push_back({static_cast<int>(i), p.mesh, p.matrix, p.tint, p.blend});
+        }
+    }
+    return out;
+}
+
+std::vector<std::filesystem::path> prop_meshes() {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    return g_prop_meshes;
+}
+
+unsigned prop_meshes_generation() {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    return g_prop_generation;
 }
 
 void play_loading(const openrac_mod* mod) {
@@ -1361,6 +1920,30 @@ void reset_play() {
         g_play->scene_start(-1);
     }
     g_figures.fill(Figure{});
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        g_props.fill(Prop{});
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_haze_lock);
+        g_haze.clear();
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_hud_lock);
+        g_hud.clear();
+    }
+    stop_hero_voices(nullptr);
+    if (g_camera_mod != nullptr && g_play != nullptr && g_play->camera_set != nullptr) {
+        g_play->camera_set(nullptr, nullptr);
+    }
+    g_camera_mod = nullptr;
+    for (const auto& v : g_voices) {
+        if (g_sound_stop != nullptr) {
+            g_sound_stop(v.second);
+        }
+    }
+    g_voices.clear();
+    g_sounds.clear();
     g_request = Request{};
     std::fill(g_drives.begin(), g_drives.end(), Drive{});
     g_gate = Gate{};
@@ -1390,6 +1973,35 @@ void drop_figures(const openrac_mod* mod) {
     if (g_request.mod == mod) {
         g_request = Request{};
     }
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        for (Prop& p : g_props) {
+            if (p.mod == mod) {
+                p = Prop{};
+            }
+        }
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_haze_lock);
+        std::erase_if(g_haze, [&](const Haze& h) { return h.mod == mod; });
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_hud_lock);
+        std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod; });
+    }
+    stop_hero_voices(mod);
+    if (g_camera_mod == mod) {
+        if (g_play != nullptr && g_play->camera_set != nullptr) {
+            g_play->camera_set(nullptr, nullptr);
+        }
+        g_camera_mod = nullptr;
+    }
+    std::erase_if(g_voices, [&](const auto& v) {
+        if (v.first == mod && g_sound_stop != nullptr) {
+            g_sound_stop(v.second);
+        }
+        return v.first == mod;
+    });
     for (Drive& d : g_drives) {
         if (d.mod == mod) {
             d = Drive{};

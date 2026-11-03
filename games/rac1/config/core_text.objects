@@ -27,35 +27,35 @@
 #   build-sn/libgcc/dp-bit.o, fp-bit.o <- src/libgcc/fp-bit.c
 #   build-sn/libgcc/asm_*.o    <- src/libgcc/nonmatching_*.c
 
-build-sn/core/00112380.o 0x00112380 ee29
-build-sn/core/00112468.o 0x00112468 ee29
-build-sn/core/001138A8.o 0x001138A8 ee29
-build-sn/core/001138B8.o 0x001138B8 ee29
-build-sn/core/00113A70.o 0x00113A70 ee29
-build-sn/core/00113B70.o 0x00113B70 ee29
-build-sn/core/00114000.o 0x00114000 ee29
-build-sn/core/00114060.o 0x00114060 ee29
-build-sn/core/001144D0.o 0x001144D0 ee29
-build-sn/core/00114518.o 0x00114518 ee29
-build-sn/core/001154C0.o 0x001154C0 ee29
-build-sn/core/00116070.o 0x00116070 ee29
-build-sn/core/00116248.o 0x00116248 ee29
-build-sn/core/001162B8.o 0x001162B8 ee29
-build-sn/core/00116CC0.o 0x00116CC0 ee29
-build-sn/core/00116D30.o 0x00116D30 ee29
-build-sn/core/00116FA0.o 0x00116FA0 ee29
-build-sn/core/001188C8.o 0x001188C8 ee29
-build-sn/core/00118A40.o 0x00118A40 ee29
-build-sn/core/00119328.o 0x00119328 ee29
-build-sn/core/00119868.o 0x00119868 ee29
-build-sn/core/00119D88.o 0x00119D88 ee29 - dtls29-real
-build-sn/core/0011CCE0.o 0x0011CCE0 ee29
-build-sn/core/0011D0D0.o 0x0011D0D0 ee29
-build-sn/core/0011D700.o 0x0011D700 ee29
-build-sn/core/0011D960.o 0x0011D960 ee29
-build-sn/core/0011DBE8.o 0x0011DBE8 ee29
-build-sn/core/0011DD68.o 0x0011DD68 ee29
-build-sn/core/0011DDD0.o 0x0011DDD0 ee29
+build-sn/core/libc/atoi_calloc.o 0x00112380 ee29
+build-sn/core/libc/close_dtoa.o 0x00112468 ee29
+build-sn/core/libc/errno.o 0x001138A8 ee29
+build-sn/core/libc/exit_fflush.o 0x001138B8 ee29
+build-sn/core/libc/findfp.o 0x00113A70 ee29
+build-sn/core/libc/free_malloc_trim.o 0x00113B70 ee29
+build-sn/core/libc/fstat_r.o 0x00114000 ee29
+build-sn/core/libc/fvwrite_fwalk.o 0x00114060 ee29
+build-sn/core/libc/localeconv.o 0x001144D0 ee29
+build-sn/core/libc/lseek_malloc.o 0x00114518 ee29
+build-sn/core/libc/mprec.o 0x001154C0 ee29
+build-sn/core/libc/printf_rand.o 0x00116070 ee29
+build-sn/core/libc/sprintf.o 0x00116248 ee29
+build-sn/core/libc/stdio_ops.o 0x001162B8 ee29
+build-sn/core/libc/find_substring.o 0x00116CC0 ee29
+build-sn/core/libc/strtol.o 0x00116D30 ee29
+build-sn/core/libc/vfprintf.o 0x00116FA0 ee29
+build-sn/core/libc/write_wsetup.o 0x001188C8 ee29
+build-sn/core/kernel/libkernl_glue.o 0x00118A40 ee29
+build-sn/core/kernel/threads_deci2.o 0x00119328 ee29
+build-sn/core/kernel/tty_queue.o 0x00119868 ee29
+build-sn/core/kernel/kprintf.o 0x00119D88 ee29 - dtls29-real
+build-sn/core/sif/load_module.o 0x0011CCE0 ee29
+build-sn/core/sif/reset_iop.o 0x0011D0D0 ee29
+build-sn/core/kernel/tlbtrap.o 0x0011D700 ee29
+build-sn/core/kernel/supplement_crt0.o 0x0011D960 ee29
+build-sn/core/kernel/exec_patch.o 0x0011DBE8 ee29
+build-sn/core/kernel/exit.o 0x0011DD68 ee29
+build-sn/core/kernel/alarm.o 0x0011DDD0 ee29
 build-sn/libgcc/l2__main.o
 build-sn/libgcc/l2_divdi3.o
 build-sn/libgcc/asm_0011E6D4.o
@@ -69,27 +69,27 @@ build-sn/libgcc/l2_umoddi3.o
 build-sn/libgcc/dp-bit.o
 build-sn/libgcc/asm_001206A4.o
 build-sn/libgcc/fp-bit.o
-build-sn/core/001207B8.o 0x001207B8
-build-sn/core/001208E8.o 0x001208E8 ee29
-build-sn/core/00121750.o 0x00121750 ee29 991111 gas210
-build-sn/core/00121D18.o 0x00121D18 ee29
-build-sn/core/00122140.o 0x00122140 ee29
-build-sn/core/00122200.o 0x00122200 ee29
-build-sn/core/001224B0.o 0x001224B0 ee29
-build-sn/core/00122630.o 0x00122630 ee29
-build-sn/core/00122818.o 0x00122818 ee29
-build-sn/core/00122AD8.o 0x00122AD8 ee29
-build-sn/core/00123168.o 0x00123168 ee29
-build-sn/core/001236F0.o 0x001236F0 ee29
-build-sn/core/00125218.o 0x00125218 ee29
-build-sn/core/001252A0.o 0x001252A0 ee29
-build-sn/core/00125630.o 0x00125630 ee29
-build-sn/core/0012A2F0.o 0x0012A2F0 ee29 - gas210-real
-build-sn/core/0012AC80.o 0x0012AC80 ee29 991111-01
-build-sn/core/0012CC70.o 0x0012CC70 ee29
-build-sn/core/0012CC90.o 0x0012CC90 ee29
-build-sn/core/crt0.o 0x0012D868 ee29
-build-sn/core/boot.o 0x0012DA38
-build-sn/core/989snd.o 0x0012DB68 sn - ps2eeas-real
-build-sn/core/permcb.o 0x0012F308
-build-sn/core/wad.o 0x0012F348
+build-sn/core/gs/vif1_gif_reset.o 0x001207B8
+build-sn/core/cdvd/callbacks.o 0x001208E8 ee29
+build-sn/core/cdvd/read.o 0x00121750 ee29 991111 gas210
+build-sn/core/gs/def_disp_env.o 0x00121D18 ee29
+build-sn/core/gs/put_disp_env.o 0x00122140 ee29
+build-sn/core/gs/def_draw_env.o 0x00122200 ee29
+build-sn/core/gs/put_draw_env.o 0x001224B0 ee29
+build-sn/core/gs/def_load_image.o 0x00122630 ee29
+build-sn/core/gs/load_image.o 0x00122818 ee29
+build-sn/core/gs/store_image.o 0x00122AD8 ee29
+build-sn/core/gs/dma_and_sync_v.o 0x00123168 ee29
+build-sn/core/mc/memory_card.o 0x001236F0 ee29
+build-sn/core/input/vib_profile.o 0x00125218 ee29
+build-sn/core/vu0/vector.o 0x001252A0 ee29
+build-sn/core/mpeg/motion_comp.o 0x00125630 ee29
+build-sn/core/mpeg/csc.o 0x0012A2F0 ee29 - gas210-real
+build-sn/core/mpeg/demux.o 0x0012AC80 ee29 991111-01
+build-sn/core/mpeg/ipu_dma_restart.o 0x0012CC70 ee29
+build-sn/core/mpeg/ipu.o 0x0012CC90 ee29
+build-sn/core/startup/crt0.o 0x0012D868 ee29
+build-sn/core/startup/boot.o 0x0012DA38
+build-sn/core/sound/989snd.o 0x0012DB68 sn - ps2eeas-real
+build-sn/core/startup/permcb.o 0x0012F308
+build-sn/core/storage/wad.o 0x0012F348

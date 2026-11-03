@@ -1,7 +1,9 @@
 # Workflow
 
+All 5116 functions match now. Use this for the other versions, or to rewrite a function that is already matched.
+
 How a function goes from `INCLUDE_ASM` to matched C, in order. Every step
-reflects a real incident. `docs/DECOMP_PROGRESS.md` covers the levers and
+reflects a real incident. `docs/reference/DECOMP_PROGRESS.md` covers the levers and
 the dead ends; this file is the procedure.
 
 Revised 2026-09-16 after checking our process against
@@ -38,7 +40,7 @@ than decoding them. It can also reveal a different compiler.
   - a whole family shares the same "unexplained" residual;
   - `sd` spills where the rest of its segment uses `sq`.
 - Try every EE `cc1` in the toolchain mirrors on the verbatim source. See
-  `docs/DECOMP_PROGRESS.md`, "libgcc is 2.9-ee".
+  `docs/reference/DECOMP_PROGRESS.md`, "libgcc is 2.9-ee".
 
 **A residual shared across a whole family is a signal, not a verdict.**
 Before recording "treat the rest of this family as the same known
@@ -53,7 +55,7 @@ python tools/m2c.py func_XXXXXXXX    # m2c sketch, with context
 
 m2c output is a reference. It is never matching as emitted, and it
 mis-decodes branch-likely (`bnel`) conditions. Ghidra output (from the
-MCP container, `docs/CONTAINERS.md`) is reference only too, and is never
+MCP container, `docs/reference/CONTAINERS.md`) is reference only too, and is never
 pasted into `src/`.
 
 Look for **family siblings** before writing anything: grep
@@ -99,7 +101,7 @@ src/core/X.c` compiles a file whole under both and lists each function's
 verdict. A near-miss that only one compiler reaches says which one it is;
 the objects marked `ee29` in `config/core_text.objects` build with 2.9-ee.
 
-Work through the levers in `docs/DECOMP_PROGRESS.md` in rough order of
+Work through the levers in `docs/reference/DECOMP_PROGRESS.md` in rough order of
 cost:
 
 1. Types and struct shape: `long` is 64-bit, `long long` is 128-bit;
@@ -172,12 +174,12 @@ If a new library module is added, update `tools/libgcc_units.py`,
 | Mixed `$gp` and `lui` access to one variable within a file suggests a TU boundary | **relevant**: our `NOT_SDA` / `extern short` workarounds may be compensating for compiling two giant files where retail had many TUs. Use it as a split hint when a variable is addressed both ways |
 | objdiff units = real TUs | **not yet**: units are our files, not retail's TUs. Refine as splits become known (the `.cpp` names above are the first evidence) |
 | The NTSC decomp's flags `-G8 -O2 -ffast-math -fno-exceptions` (GCC 2.95.2) | **`-ffast-math` measured and rejected**: a whole build with it gives 363 exact vs 364. It breaks `func_0022DB48` and improves nothing. `-G8` was already ruled out (float constants would pool into `.lit4`, which retail never does). `-fno-exceptions` only matters for C++. NTSC decomp decompiles almost nothing, so its flags were never verified against matches |
-| decomp-permuter / decomp.me | **adopted, locally**: `tools/permuter_setup.py` runs the real decomp-permuter against our own compiler, inside the container (docs/PERMUTER.md). decomp.me itself still has no SN ProDG compiler preset for this game, so it cannot be used for collaboration on it as-is |
+| decomp-permuter / decomp.me | **adopted, locally**: `tools/permuter_setup.py` runs the real decomp-permuter against our own compiler, inside the container (docs/agents/PERMUTER.md). decomp.me itself still has no SN ProDG compiler preset for this game, so it cannot be used for collaboration on it as-is |
 
 ## Agent waves
 
 When agents do the matching, one orchestrator plans waves of workers
-and reviews what comes back. The workers follow [WORKER.md](WORKER.md).
+and reviews what comes back. The workers follow [WORKER.md](agents/WORKER.md).
 
 ```
 python3 tools/lombyte.py todo                # matched in Lombyte, not here
@@ -201,7 +203,7 @@ python3 tools/wave.py land w7                # one commit per EXACT, full build 
 ### Queue waves
 
 The full description, with the lead's loop, the measurements and what
-went wrong, is in [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md). In short:
+went wrong, is in [AGENT_WORKFLOW.md](agents/AGENT_WORKFLOW.md). In short:
 
 Modelled on Thief3-Decomp's tiered workflow: the aim is the most matches
 per token.
@@ -214,9 +216,9 @@ python3 tools/wave.py tokens q1      # tokens per worker and per match
 - Each worker takes N functions from the wave, COUNT at a time
   (`wave.py claim`), so the startup cost (system prompt, protocol) is paid
   once per worker instead of once per function. Its whole prompt is one
-  line: `Read docs/QUEUE.md and follow it exactly. WAVE=q1 ID=s01 N=6 COUNT=2`.
+  line: `Read docs/agents/QUEUE.md and follow it exactly. WAVE=q1 ID=s01 N=6 COUNT=2`.
   IDs are never reused within a wave.
-- [QUEUE.md](QUEUE.md) is the workers' whole instruction set (about 1.3K
+- [QUEUE.md](agents/QUEUE.md) is the workers' whole instruction set (about 1.3K
   tokens), in place of WORKER.md and LEVERS.md. Add an idiom to it only
   when a landed function shows it.
 - A claim prints the function's packet: dossier, assembly, and matched C
@@ -292,7 +294,7 @@ Measured on 2026-09-26/27 (Sonnet workers, one function each):
 
 - **Ports first.** Functions Lombyte has matched (`tools/lombyte.py todo`,
   66 on 2026-09-27, 6.8% of code) should match in a run or two once
-  renamed. See [SIBLING_DECOMPS.md](SIBLING_DECOMPS.md).
+  renamed. See [SIBLING_DECOMPS.md](agents/SIBLING_DECOMPS.md).
 - **Fresh functions pay best.** A pool that a tool fix just unblocked
   (the `$fp` save rule, `qcopy()`) matched at 28%. Leftovers that earlier
   waves stopped on matched at 6%.

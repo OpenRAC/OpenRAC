@@ -71,6 +71,25 @@ class CatalogueTests(unittest.TestCase):
             run = subprocess.run([str(executable)], capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)
 
+    def test_verified_signature_holds_without_the_assembly(self):
+        # A function whose C is left to its assembly (from_assembly) keeps its verified prototype
+        # when there is nothing to translate (a build without the disc): the port's C that wraps
+        # it is then compiled against one signature either way. A name only discovery adds is
+        # passed over there.
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            name = 'func_00100000'
+            p = Program()
+            p.functions[name] = Function(name, Signature(ctype.Base('void'), (), True, False), asm=True)
+            p.index_places()
+            cfg = {'asm': {'enabled': True, 'dirs': ['.'], 'signatures': {
+                name: 'int (int, void *)', 'func_00100100': 'int (int)'}}}
+            stage, results = asmc.run(p, cfg, folder)
+            self.assertEqual(results, {})
+            self.assertEqual(prototype(p.functions[name]).split('(')[0].split()[0], 'int')
+            self.assertEqual(len(p.functions[name].sig.params), 2)
+            self.assertNotIn('func_00100100', p.functions)
+
     def test_catalogue_entry_gets_real_argument_signature(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)

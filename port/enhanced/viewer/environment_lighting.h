@@ -38,8 +38,10 @@ private:
     bool m_debug_failed =
         false;  // A failed diagnostic does not disable reflections or retry every frame.
     unsigned m_texture = 0;
+    unsigned m_brdf_texture = 0;  // Uncompressed material lookup, independent of radiance blocks.
     mutable unsigned m_fallback = 0;  // Vulkan requires a valid descriptor even with zero probes.
     unsigned m_resolution = 128, m_columns = 1;
+    unsigned m_alignment = 1;  // Stored radiance block extent, shared with shader addressing.
     std::vector<std::array<float, 4>> m_metadata;
 };
 }  // namespace openrac::lighting

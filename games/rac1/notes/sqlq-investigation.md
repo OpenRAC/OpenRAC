@@ -1,9 +1,9 @@
 # The `sq`/`lq` callee-saved spill question — resolved
 
-> Historical log. `tools/fix_core_spills.py`, `tools/fix_tail_calls.py`, `tools/fix_trunc_slot.py` and `tools/func_cflags.py`, which it describes, were removed on 2026-10-07 for rewriting compiler output; see docs/BUILD_FIDELITY.md for the current build.
+> Historical log. `tools/fix_core_spills.py`, `tools/fix_tail_calls.py`, `tools/fix_trunc_slot.py` and `tools/func_cflags.py`, which it describes, were removed on 2026-10-07 for rewriting compiler output; see docs/reference/BUILD_FIDELITY.md for the current build.
 
 > **Historical round notes (September 2026), kept as a record.**
-> `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
+> `docs/reference/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:
 > - Section 4's build change was adopted and then refined: `core_text` is
 >   no longer compiled with v1.36 but with v1.14 plus
@@ -26,7 +26,7 @@ blocker.
 
 ## 1. What retail actually does (the old premise was wrong)
 
-`docs/DECOMP_PROGRESS.md` states "Retail always spills callee-saved
+`docs/reference/DECOMP_PROGRESS.md` states "Retail always spills callee-saved
 registers (`$ra`, `$s0`-`$s7`) as plain 64-bit doublewords (`sd`/`ld`)".
 That was generalised from `core_text` and is **false for `text`**.
 Measured across every disassembled function:
@@ -160,7 +160,7 @@ was a GCC *build-time* configuration choice.
 2. Re-examine the range-A "`sq`/`lq` blocked" functions (§5); a large
    fraction are probably matchable as-is.
 3. Correct the "retail always spills `sd`/`ld`" premise in
-   `docs/DECOMP_PROGRESS.md` and re-audit every entry that cites the
+   `docs/reference/DECOMP_PROGRESS.md` and re-audit every entry that cites the
    `sq`/`lq` question as its reason for being blocked.
 4. `core_text` s-register functions (§6) stay blocked; that's the only
    part still wanting a compiler-level answer.

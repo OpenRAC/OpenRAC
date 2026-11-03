@@ -12,16 +12,16 @@ code segments:
 
 | Segment | vram | What it holds | Sources |
 |---|---|---|---|
-| `core` | 0x100080 | VU microcode (`vutext`), then `core_text` from 0x112380: Sony SDK libraries, newlib, the 989snd sound library, libgcc, start-up and the main loop; plus `core_data`, `core_rdata`, `core_bss` | `src/core/` (53 files named by start address, e.g. `src/core/0012AC80.c`), `src/libgcc/` |
+| `core` | 0x100080 | VU microcode (`vutext`), then `core_text` from 0x112380: Sony SDK libraries, newlib, the 989snd sound library, libgcc, start-up and the main loop; plus `core_data`, `core_rdata`, `core_bss` | `src/core/` (53 files named by start address, e.g. `src/core/mpeg/demux.c`), `src/libgcc/` |
 | `main` | 0x15ED80 | the game program: `core_lit`, `lit` (0x15F000), `bss`, `data`, the three level vtables (`lvl_vtbl`, `lvl_camvtbl`, `lvl_sndvtbl`) and `text` from 0x1E9080 | `src/game/` |
 
 Object-to-address maps in retail link order (read by the Makefile, linker
 script and tools): `config/core_text.objects` (start address per object,
 boundaries from retail's `0xCDCDCDCD` linker fill; column 3 `ee29` marks the
 49 SDK objects built with Sony's 2.9-ee) and `config/text.objects` (game
-objects, e.g. `build-sn/game/bmain.o 0x001E9808`).
+objects, e.g. `build-sn/game/system/bmain.o 0x001E9808`).
 
-Compilers ([TOOLCHAIN.md](../TOOLCHAIN.md)): SN Systems GCC 2.95.3 (build
+Compilers ([TOOLCHAIN.md](../reference/TOOLCHAIN.md)): SN Systems GCC 2.95.3 (build
 v1.14) for game code; Sony's 2.9-ee-991111 for SDK objects and libgcc.
 
 ### Original source file names
@@ -29,7 +29,7 @@ v1.14) for game code; Sony's 2.9-ee-991111 for SDK objects and libgcc.
 Each `src/game/*.c` header comment gives the original C++ unit, e.g.
 `bmain.cpp in the original source; text 0x1E9808-0x1E9E70`; compiled as C, it
 gives the same code. Evidence:
-[DATAMINED_REVERSE_ENGINEERING.md](../DATAMINED_REVERSE_ENGINEERING.md).
+[DATAMINED_REVERSE_ENGINEERING.md](../reference/DATAMINED_REVERSE_ENGINEERING.md).
 Game units in link order (`config/text.objects`): actuator, bloaders, stub,
 bmain, transition, camera, effects, cmecpu, collproc, draw, drawquad,
 fastfunc, framebuf, freeze, help, hud, init, initonce, lights, loaders, map,
@@ -37,13 +37,13 @@ menu, memcard, miscproc, missionfunc, mobyfunc, mobyproc, mobyutil, music,
 stream, pad, partproc, partupd, pause, shadowproc, shrubfunc, shrubproc,
 skyfunc, skyproc, sound, space, stash, tfragfunc, vuchain, tfragproc,
 tiefunc, tieproc, update, vendor, then `movie/*` (MPEG player; see
-[MOVIE.md](../MOVIE.md)).
+[MOVIE.md](../reference/MOVIE.md)).
 
 ## 2. Level overlays
 
 `main` only runs before the first level loads. **Each of the 19 levels ships
 its own, larger build of the game program** that replaces all of `main`;
-`core` stays resident ([ASSETS.md](../ASSETS.md) "Code overlays",
+`core` stays resident ([ASSETS.md](../reference/ASSETS.md) "Code overlays",
 [OVERLAYS.md](../OVERLAYS.md)). A level's code is seven records, dumped by
 `tools/overlays.py dump` to `baserom/overlays/level_NN/` (`manifest.json`).
 Level 00:
@@ -113,7 +113,7 @@ Three tables per level ([OVERLAYS.md](../OVERLAYS.md#roles); class binding in
 `tools/overlays.py names` decodes them into `config/overlays/names.tsv`:
 roles `UpdateMoby_<oClass>`, `Init/Activate/Update/ExitCamera_<id>`,
 `SoundFunc_<id>`, with levels. Many roles means generic (e.g. the empty
-`func_001E9768` in `src/game/stub.c`); `tools/dossier.py` writes the role
+`func_001E9768` in `src/game/system/stub.c`); `tools/dossier.py` writes the role
 into a worker's `CONTEXT.md`. Recipe (class 726):
 
 ```sh
@@ -128,7 +128,7 @@ grep -rln func_L01_002BB068 src/overlays                         # shared/water_
 ### Boot and level start
 
 - `main` (`func_0012DB18`, core): outer loop; loads level code via ParseBin.
-- `src/game/bmain.c`: `func_001E99D8` is start-up before the first level
+- `src/game/system/bmain.c`: `func_001E99D8` is start-up before the first level
   (clears level bss, intro and loading images, intro movie, sound bank, video
   mode, starts the level load). `func_001E9808(level)` starts a level from
   the table at `D_00137C80` (alternate set while `D_0015EE80` is set), waits
@@ -140,7 +140,7 @@ grep -rln func_L01_002BB068 src/overlays                         # shared/water_
 
 ### The moby update loop
 
-`func_00213C78` (`MobyUpdateLoop`, candidate) in `src/game/mobyutil.c`, still
+`func_00213C78` (`MobyUpdateLoop`, candidate) in `src/game/moby/mobyutil.c`, still
 assembly. Per moby in list order: skip if `(s8)state < 0`; pre pass
 `func_0020E3D0` unless flag 0x40; `m->update(m)`; post pass `func_0020ED48`
 unless flag 4. The list head is also stored at `$gp-0x6CDC`. Reconstruction
@@ -172,9 +172,9 @@ prints them.
 
 Field tables: [data-structures.md](data-structures.md).
 
-- **Hero**: global `D_0013F450`, `struct Hero` (`include/hero.h`).
+- **Hero**: global `D_0013F450`, `struct Hero` (`include/structs/hero.h`).
   `D_0013F4D0` (`gHeroPos`) is the position block.
-- **Pad**: `D_0013CA40`, `struct PadState` (0x350 bytes, `include/pad.h`).
+- **Pad**: `D_0013CA40`, `struct PadState` (0x350 bytes, `include/structs/pad.h`).
 - **Hero code is level code.** The largest functions are per-level builds of
   the hero state machine, all matched C:
 
@@ -209,12 +209,12 @@ Levels 00, 02, 09, 11, 13, 16, 17 and 18 are at 100%.
 Remaining work: `INCLUDE_ASM` stubs (see
 [conventions.md](conventions.md#assembly-stubs)); near misses in
 `nonmatching/<dir>/`, closest first in `nonmatching/README.md`
-([NONMATCHING.md](../NONMATCHING.md)); port-only C that behaves like retail
+([NONMATCHING.md](../reference/NONMATCHING.md)); port-only C that behaves like retail
 without matching in `nonmatching/functional/` and
 `nonmatching/functional.tsv` (never built). Original assembly
 counts as finished: `config/handwritten_asm.txt` (245 entries, including 33
 VU0 helpers in `fastfunc.o` added 2026-10-17) and `config/linker_remnants.txt`
-([ASM_CLASSIFICATION.md](../ASM_CLASSIFICATION.md)).
+([ASM_CLASSIFICATION.md](../reference/ASM_CLASSIFICATION.md)).
 
 ## 5. Where do I look for X
 
@@ -223,22 +223,22 @@ Readable names come from `config/names.tsv` / `include/names.h`.
 | Looking for | Start here |
 |---|---|
 | Update function of moby class N | `config/overlays/names.tsv` role `UpdateMoby_N`, class names in `tools/extract/moby_classes.tsv` (recipe in [section 2](#the-dispatch-tables-which-function-updates-moby-class-n)) |
-| A moby's private state | `Moby.pvars` (0x78) cast to the class's struct in the update function's file; [mobys.md](mobys.md), [PVARS.md](../PVARS.md) |
-| Mobys | `CreateMoby` (`func_0020D348`), `DeleteMoby` (`func_0020D678`), `InitMobyInstance`, `MobyAnimProc` in `src/game/mobyfunc.c`, `mobyproc.c`, `mobyutil.c` (loop `func_00213C78`); `MobyProc` (`func_L00_002569F8`) in level code |
-| Hero movement and states | `src/overlays/shared/hero_water_and_ground_motion.c`, `hero_item_input_and_hud.c` and their per-level copies (`src/overlays/l1[678]_*/help_*.c`); `include/hero.h` |
-| Controller input | `UpdatePad` (`func_00218908`), `ClearPadInput` in `src/game/pad.c`; `include/pad.h` (`D_0013CA40`) |
-| HUD | `HudDraw` (`func_001FFFB8`), `HudSprite`, `Hud_*` in `src/game/hud.c`; banks in `src/game/loaders.c` (`LoadHudBanks`); level `HudFrame` (`func_L00_0023BAB8`) |
-| Camera | `UpdateAllCameras` (`func_001EC7C8`), `UpdateCamera` (`func_001EDE50`), `camera_update` (`func_001ED080`, candidate), `Camera_*` in `src/game/camera.c`; per-level cameras via `camvtbl` roles `InitCamera_<id>` / `UpdateCamera_<id>`; `src/overlays/shared/camera_*.c` |
-| Sound and music | `sound_update` (`func_0022DD68`), `sound_*` in `src/game/sound.c`; `music_*` in `src/game/music.c`; level `sndvtbl` roles `SoundFunc_<id>`; 989snd `snd_*` in `src/core/` |
-| Save / memory card | `memcard_Save` (`func_0020BFC8`), `memcard_PrepData`, `memcard_Restore*` in `src/game/memcard.c`; `gGameSaveData` (`D_001A05C0`), `gLevelSaveData` (`D_001A08C0`); card states and save chunk ids in [DATAMINED_REVERSE_ENGINEERING.md](../DATAMINED_REVERSE_ENGINEERING.md) |
-| Menus and pause | `DrawItemsMenu`, `DrawMapScreen`, `DrawCheatsMenu`, `DrawMissionsMenu`, `PauseAllSounds` in `src/game/pause.c`, `src/game/menu.c` |
-| Particles | `UpdateParts` (`func_00218A80`), `PartProc` (`func_00218B10`) in `src/game/partproc.c`, `partupd.c`; level `CreatePart2` / `KillPart` |
-| Rendering | `drawNormalFrame` (`func_001F45F0`), `AddDrawCallback`, `ExecuteDrawCallbacks` (`func_001F4A00`) and variants 2-4 in `src/game/draw.c`; `DrawMobys` (`func_0020E2B0`), `DrawTfrag` (`func_002346C0`), `DrawTies_1/2`, `DrawShrubs`, `SkyDrawShell*` in the `*proc.c` units (`tfragproc.c`, `tieproc.c`, `shrubproc.c`, `skyproc.c`); `src/game/vuchain.c` |
-| Level loading | `src/game/bmain.c` (`func_001E9808`, `func_001E99D8`), `src/game/loaders.c`, ParseBin in `src/core/`; on-disc layout in [ASSETS.md](../ASSETS.md) |
+| A moby's private state | `Moby.pvars` (0x78) cast to the class's struct in the update function's file; [mobys.md](mobys.md), [PVARS.md](../reference/PVARS.md) |
+| Mobys | `CreateMoby` (`func_0020D348`), `DeleteMoby` (`func_0020D678`), `InitMobyInstance`, `MobyAnimProc` in `src/game/moby/mobyfunc.c`, `mobyproc.c`, `mobyutil.c` (loop `func_00213C78`); `MobyProc` (`func_L00_002569F8`) in level code |
+| Hero movement and states | `src/overlays/shared/hero_water_and_ground_motion.c`, `hero_item_input_and_hud.c` and their per-level copies (`src/overlays/l1[678]_*/help_*.c`); `include/structs/hero.h` |
+| Controller input | `UpdatePad` (`func_00218908`), `ClearPadInput` in `src/game/system/pad.c`; `include/structs/pad.h` (`D_0013CA40`) |
+| HUD | `HudDraw` (`func_001FFFB8`), `HudSprite`, `Hud_*` in `src/game/ui/hud.c`; banks in `src/game/system/loaders.c` (`LoadHudBanks`); level `HudFrame` (`func_L00_0023BAB8`) |
+| Camera | `UpdateAllCameras` (`func_001EC7C8`), `UpdateCamera` (`func_001EDE50`), `camera_update` (`func_001ED080`, candidate), `Camera_*` in `src/game/gameplay/camera.c`; per-level cameras via `camvtbl` roles `InitCamera_<id>` / `UpdateCamera_<id>`; `src/overlays/shared/camera_*.c` |
+| Sound and music | `sound_update` (`func_0022DD68`), `sound_*` in `src/game/audio/sound.c`; `music_*` in `src/game/audio/music.c`; level `sndvtbl` roles `SoundFunc_<id>`; 989snd `snd_*` in `src/core/` |
+| Save / memory card | `memcard_Save` (`func_0020BFC8`), `memcard_PrepData`, `memcard_Restore*` in `src/game/system/memcard.c`; `gGameSaveData` (`D_001A05C0`), `gLevelSaveData` (`D_001A08C0`); card states and save chunk ids in [DATAMINED_REVERSE_ENGINEERING.md](../reference/DATAMINED_REVERSE_ENGINEERING.md) |
+| Menus and pause | `DrawItemsMenu`, `DrawMapScreen`, `DrawCheatsMenu`, `DrawMissionsMenu`, `PauseAllSounds` in `src/game/ui/pause.c`, `src/game/ui/menu.c` |
+| Particles | `UpdateParts` (`func_00218A80`), `PartProc` (`func_00218B10`) in `src/game/render/partproc.c`, `partupd.c`; level `CreatePart2` / `KillPart` |
+| Rendering | `drawNormalFrame` (`func_001F45F0`), `AddDrawCallback`, `ExecuteDrawCallbacks` (`func_001F4A00`) and variants 2-4 in `src/game/render/draw.c`; `DrawMobys` (`func_0020E2B0`), `DrawTfrag` (`func_002346C0`), `DrawTies_1/2`, `DrawShrubs`, `SkyDrawShell*` in the `*proc.c` units (`tfragproc.c`, `tieproc.c`, `shrubproc.c`, `skyproc.c`); `src/game/render/vuchain.c` |
+| Level loading | `src/game/system/bmain.c` (`func_001E9808`, `func_001E99D8`), `src/game/system/loaders.c`, ParseBin in `src/core/`; on-disc layout in [ASSETS.md](../reference/ASSETS.md) |
 | A symbol's readable name | `python3 tools/names.py func_001EC7C8` or `... UpdateAllCameras` ([NAMES.md](../NAMES.md)) |
 | Which file holds function X | `grep -rln func_X src/`; for level code, `config/overlays/functions.tsv` gives kind and places |
 | Retail assembly of X | `asm/nonmatchings/{text,core_text}/func_X.s`, `asm/overlays/func_LNN_X.s` (after `tools/setup_asm.sh`) |
 | Strings | `config/strings.tsv` (address, symbol, xrefs, value) |
 
 Other docs: [WORKFLOW.md](../WORKFLOW.md) (set-up, iterate, verify, publish),
-[BUILD_FIDELITY.md](../BUILD_FIDELITY.md) (what the build may do).
+[BUILD_FIDELITY.md](../reference/BUILD_FIDELITY.md) (what the build may do).

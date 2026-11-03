@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Plans, tracks and integrates waves of worker agents (docs/WORKER.md).
+Plans, tracks and integrates waves of worker agents (docs/agents/WORKER.md).
 
   python3 tools/wave.py plan NAME [--role match|compile] [--count N]
                          [--budget N] [--near | --fresh | --overlay] [func_X ...]
@@ -8,7 +8,7 @@ Plans, tracks and integrates waves of worker agents (docs/WORKER.md).
       one's CONTEXT.md and m2c sketch, starts a fresh BUDGET of try_func
       runs, and prints each worker's one-line prompt.
   python3 tools/wave.py plan NAME --queue [--min-size N] [--max-size N] ...
-      A queue wave (docs/QUEUE.md): workers take several functions each.
+      A queue wave (docs/agents/QUEUE.md): workers take several functions each.
   python3 tools/wave.py claim NAME ID [--count N]
       For a queue worker: claims the next N functions and prints each
       one's packet (dossier, assembly, matched C to start from).
@@ -29,12 +29,12 @@ Plans, tracks and integrates waves of worker agents (docs/WORKER.md).
       source file and moves on. Needs src/ and progress/ clean.
 
   python3 tools/wave.py long NAME func_X ... [--arm opus] [--budget 30]
-      Sets up long-function workers (docs/LONG_FUNCTIONS.md): each
+      Sets up long-function workers (docs/agents/LONG_FUNCTIONS.md): each
       function's dossier, m2c sketch and PACKET.md, and a BUDGET in its
       build-sn/try/<func>/<arm>/ folder; prints one prompt per function.
       Refuses a function rank_candidates blocks.
   python3 tools/wave.py stage [--level NN] [--max F] [func_X ...]
-      Shares near misses (docs/NONMATCHING.md): each overlay stub's closest
+      Shares near misses (docs/reference/NONMATCHING.md): each overlay stub's closest
       attempt within --max (a fraction of the bytes; default 0.15) goes to
       nonmatching/<dir>/<func>.c through tools/nonmatching.py, unless the
       staged one is already as close. Packets start from it; landing the
@@ -55,7 +55,7 @@ within 8 bytes, or a near-miss in src/); --fresh, the default, picks
 functions nobody has tried, smallest first. Waves are recorded in
 build-sn/waves/NAME.json.
 
---overlay --near is a near wave (docs/QUEUE.md, "Near misses"): overlay
+--overlay --near is a near wave (docs/agents/QUEUE.md, "Near misses"): overlay
 stubs whose best attempt came within --near-max of retail (a fraction of
 the bytes; default 0.10) or within 8 bytes of its size, closest first.
 Each one's best candidate is kept as build-sn/try/<func>/best.c, and
@@ -146,7 +146,7 @@ def closeness(row: dict) -> int | None:
 def logged_runs(name: str) -> list[tuple[str, str]]:
     """(candidate file, verdict) of every run ever logged for NAME, oldest
     log first (runs.<stamp>.log, then runs.log), then each trial arm's
-    (try_func --arm, docs/LONG_FUNCTIONS.md) with its folder in the path."""
+    (try_func --arm, docs/agents/LONG_FUNCTIONS.md) with its folder in the path."""
     work = TRY / name
     logs = sorted(work.glob("runs.*.log")) + [work / "runs.log"] + sorted(work.glob("*/runs.log"))
     return [(str(log.parent.relative_to(work) / c), v.strip()) for log in logs if log.exists()
@@ -447,7 +447,7 @@ def plan(args, quiet: bool = False) -> None:
     if args.queue:
         print(f"\nwave {args.name}: a queue of {len(names)} functions, budget {args.budget} runs each. "
               f"One prompt per worker (ID unique, N functions each, COUNT claimed at a time):\n\n"
-              f"Read docs/QUEUE.md and follow it exactly. WAVE={args.name} ID=s01 N=6 COUNT=2")
+              f"Read docs/agents/QUEUE.md and follow it exactly. WAVE={args.name} ID=s01 N=6 COUNT=2")
         return
     print(f"\nwave {args.name}: {len(names)} {args.role} workers, budget {args.budget} runs each\n")
     for name in names:
@@ -456,7 +456,7 @@ def plan(args, quiet: bool = False) -> None:
 
 def prompt(name: str, role: str, budget: int) -> str:
     return (f"You are a {role} worker on {name} in the repository {ROOT} "
-            f"(run every command from there). Follow docs/WORKER.md, the rules and the "
+            f"(run every command from there). Follow docs/agents/WORKER.md, the rules and the "
             f"\"{SECTION[role]}\" section; your context is build-sn/try/{name}/CONTEXT.md and "
             f"your budget is {budget} try_func runs. Work alone: never use the Agent, "
             f"WebSearch or WebFetch tools.")
@@ -623,7 +623,7 @@ def packet(name: str, budget: int, near: bool = False) -> str:
 def lombyte_port(name: str) -> tuple[str, str, str, str] | None:
     """(Lombyte file, its name, its C, a caveat when its function's size
     differs from ours) when Lombyte matched NAME's US counterpart
-    (tools/lombyte.py; docs/SIBLING_DECOMPS.md)."""
+    (tools/lombyte.py; docs/agents/SIBLING_DECOMPS.md)."""
     import lombyte
     if not lombyte.MAP.exists() or not lombyte.LOMBYTE.is_dir():
         return None
@@ -652,7 +652,7 @@ def start_from(name: str) -> list[tuple[str, str]]:
             return extract_definition(entry[0], other)
         if not OVERLAY_NAME.match(other):          # a relative in the executable
             start = re.compile(rf"^(?!extern\b)[A-Za-z_][^;]*\b{other}\s*\([^;]*$")
-            for path in sorted((ROOT / "src/game").glob("*.c")):
+            for path in sorted((ROOT / "src/game").rglob("*.c")):
                 lines = path.read_text(errors="replace").splitlines()
                 for i, line in enumerate(lines):
                     if other in line and start.match(line):
@@ -998,7 +998,7 @@ def long_setup(args) -> None:
         (work / "PACKET.md").write_text(packet(name, args.budget))
         (work / args.arm).mkdir(exist_ok=True)
         (work / args.arm / "BUDGET").write_text(f"{args.budget}\n")
-        print(f"Read docs/LONG_FUNCTIONS.md and follow it exactly. FUNC={name} ARM={args.arm}.")
+        print(f"Read docs/agents/LONG_FUNCTIONS.md and follow it exactly. FUNC={name} ARM={args.arm}.")
 
 
 def stage(args) -> None:

@@ -4,6 +4,7 @@ Check one function's C quickly, without building whole programs.
 
   python3 tools/check.py func_XXXXXXXX          # or func_LNN_XXXXXXXX
   python3 tools/check.py func_XXXXXXXX --diff   # also the instructions side by side
+  python3 tools/check.py func_XXXXXXXX --version pal   # at its places in another release (pal, us2)
 
 Compiles the file in src/ that defines it and tries the function at each of its places (the
 boot, and every level that has it) the way tools/build.py places it: the same instructions,
@@ -34,11 +35,12 @@ def disassemble(data: bytes, address: int) -> list[str]:
     out = []
     for i in range(0, len(data), 4):
         word = int.from_bytes(data[i:i + 4], "little")
-        out.append(rabbitizer.Instruction(word, vram=address + i).disassemble())
+        out.append(rabbitizer.Instruction(word, address + i, rabbitizer.InstrCategory.R5900).disassemble())
     return out
 
 
-def main() -> None:
+def main() -> int:
+    levels.version_argument()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if len(args) != 1:
         sys.exit(__doc__)
@@ -55,7 +57,7 @@ def main() -> None:
         if row[0] == name:
             programs += [levels.level_dir(lv) for lv, _ in row[4]]
     if not programs:
-        sys.exit(f"{name} is in neither catalogue")
+        sys.exit(f"{name} is in neither catalogue of {levels.VERSION}")
     index = sym["section"]
     ok = 0
     for program in programs:
@@ -79,7 +81,8 @@ def main() -> None:
                 print(f"  {address + 4 * k:08X}  {a:<40} {'  ' if a == b else '| '}{b}")
             diff = False          # once is enough
     print(f"{name}: {ok} of {len(programs)} places match ({source.relative_to(ROOT)})")
+    return 0 if ok == len(programs) else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

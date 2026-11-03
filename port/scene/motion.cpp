@@ -4,8 +4,10 @@
 // LevelScene's velocity draw reuses uploaded geometry and alpha masks, including live joint palettes.
 #include <algorithm>
 #include <limits>
+#include <stdexcept>
 
 #include "common/stats.h"
+#include "renderer/colour_graph.h"
 #include "renderer/gl.h"
 #include "scene/level_lighting.h"
 #include "scene/level_renderer.h"
@@ -57,6 +59,17 @@ void LevelScene::draw_motion(
 
     m_motion_records.bind(3);
     glActiveTexture(GL_TEXTURE0);
+    // Prime descriptor-safe deformation inputs; each group still selects its own enable flag before
+    // drawing.
+    if (m_lighting) {
+        m_lighting->bind_deformation(shader, false);
+    }
+    // Material alpha textures bind per draw; shared capture must not retain the previous depth sampler.
+    glBindTexture(GL_TEXTURE_2D, 0);
+    const auto reads = renderer::graphics_shader_reads("object motion inputs");
+    if (!reads) {
+        throw std::runtime_error(reads.error().message);
+    }
 
     // Both paths share the same textures, pose history and coverage shader.
     if (batched) {

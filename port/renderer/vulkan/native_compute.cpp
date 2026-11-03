@@ -24,7 +24,9 @@ bool native_device(NativeDevice& out) {
          bool(
              g->features.shaderStorageImageExtendedFormats
              && g->features.shaderStorageImageWriteWithoutFormat
-         )};
+         ),
+         g->subgroup_extended_types,
+         bool(g->features.fragmentStoresAndAtomics)};
     return true;
 }
 
@@ -71,56 +73,4 @@ bool allocate_storage_texture(unsigned texture, unsigned format, int width, int 
     return true;
 }
 
-bool record_native_compute(
-    std::span<const NativeImageUse> textures,
-    const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record
-) {
-    // A native callback borrows a single active command recording.
-    if (!g || !g->open || !record) {
-        return false;
-    }
-
-    std::vector<ImagePtr> owners;
-    std::vector<NativeImage> images;
-
-    // Validate all inputs before changing layouts or ending the current render pass.
-    for (const auto& use : textures) {
-        const auto* texture = g->textures.find(use.texture);
-
-        // Multisampled images must be resolved before a compute provider reads them.
-        if (!texture || !texture->image || texture->image->samples != VK_SAMPLE_COUNT_1_BIT) {
-            return false;
-        }
-
-        // An ordinary colour attachment cannot become a storage image through a layout change.
-        if (use.write && !(texture->image->usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
-            return false;
-        }
-
-        owners.push_back(texture->image);
-        const auto& image = *texture->image;
-        images.push_back(
-            {image.image,
-             image.format,
-             image.aspect,
-             static_cast<unsigned>(image.width),
-             static_cast<unsigned>(image.height)}
-        );
-    }
-
-    end_rendering(PassEnd::Compute);
-    const auto command = frame().main;
-
-    // Queue order and the renderer's image tracker remain authoritative across native dispatches.
-    for (std::size_t i = 0; i < owners.size(); ++i) {
-        barrier(
-            command,
-            *owners[i],
-            textures[i].write ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-        );
-        owners[i]->touched = g->recording;
-    }
-
-    return record(command, images);
-}
 }  // namespace openrac::vkgl

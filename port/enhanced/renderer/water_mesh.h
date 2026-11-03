@@ -36,6 +36,23 @@ public:
     struct Plan {
         std::vector<Batch> batches;
         std::uint64_t vertices = 0;
+
+        struct RestLookup {
+            std::array<std::uint32_t, 3> key{};  // Bit-exact XY and surface; Z stays live.
+            std::vector<float> heights;          // Original candidate order preserves ties.
+            bool valid = false;
+        };
+
+        struct Triangle {
+            std::size_t first;
+            std::array<unsigned, 3> order;
+            Shape shape;
+        };
+
+        std::vector<RestLookup> rest;
+        std::vector<std::array<std::uint32_t, 3>> positions;
+        std::vector<Triangle> topology;
+        bool topology_valid = false;
     };
 
     // Two texels per coarse vertex plus one animation record; the GPU fills each UV texel's ZW.
@@ -57,6 +74,9 @@ public:
     void draw(const renderer::Shader&, const renderer::EffectMesh&) const;
     // Releases GPU resources; the immutable bake remains available for reinitialisation.
     void release();
+    void finish_pass() const;
+
+    const std::array<unsigned, 4>& cache_counts() const { return m_cache_counts; }
 
     // Immutable views for CPU/GPU equivalence tests and mesh diagnostics.
     const Plan& plan(std::size_t handle) const { return m_plans.at(handle); }
@@ -67,7 +87,12 @@ public:
 
 private:
     // The nearest authored layer at XY supplies static height instead of the legacy moving endpoints.
-    float rest_height(const renderer::EffectVertex&, unsigned surface) const;
+    float rest_height(
+        const renderer::EffectVertex&, unsigned surface, std::vector<float>* heights = nullptr
+    ) const;
+    std::vector<renderer::EffectVertex> m_rest_vertices;
+    std::vector<std::array<std::uint32_t, 3>> m_position_bits;
+    std::array<unsigned, 4> m_cache_counts{};         // Height lookups/hits, topology builds/hits.
     std::map<std::array<int, 4>, Shape> m_templates;  // Immutable shape-to-resident-range lookup.
     std::vector<std::array<float, 2>> m_weights;      // Baked dense coordinates; never regenerated.
     std::vector<Source> m_sources;                    // Owned coarse instances for this pass.

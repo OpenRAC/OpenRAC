@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -13,12 +14,16 @@
 #include <memory>
 #include <numbers>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "common/stats.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
+#include "enhanced/tests/prepass_capture.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -43,6 +48,8 @@ scene::LevelData smooth_level(float sign, bool skinned, bool cutout) {
         vertex.normal[2] = .6f * sign;
         std::fill(std::begin(vertex.colour), std::end(vertex.colour), 1.0f);
         vertex.light_slot = -1;
+        vertex.uv[0] = (p[0] + 4.f) * .125f;
+        vertex.uv[1] = (p[1] + 4.f) * .125f;
         vertex.weights[0] = 1;
         level.vertices.push_back(vertex);
     }
@@ -50,12 +57,47 @@ scene::LevelData smooth_level(float sign, bool skinned, bool cutout) {
     level.indices = {0, 1, 2, 0, 2, 3};
     level.materials.push_back({});
     level.materials[0].cutout = cutout;
+    if (cutout) {
+        renderer::Rgba8Image image(4, 4);
+        for (unsigned y = 0; y < 4; ++y) {
+            for (unsigned x = 0; x < 4; ++x) {
+                image.set_texel(
+                    x, y, ((x == 0 && y == 0) || (x == 3 && y == 3)) ? 0x00ffffffu : 0xffffffffu
+                );
+            }
+        }
+        level.images.push_back(std::move(image));
+        level.image_paths.push_back("prepass-cutout.png");
+        level.translucent_images.push_back(true);
+        level.materials[0].image = 0;
+    }
     scene::Model model;
     model.primitives.push_back({0, 6, 0});
     model.min = {-4, -4, 0};
     model.max = {4, 4, 0};
     model.joints = skinned ? 1 : 0;
     level.models.push_back(model);
+    return level;
+}
+
+// Three separately indexed meshes let normal signs change without rebuilding shaders.
+scene::LevelData normal_variants(bool skinned, bool cutout) {
+    auto level = smooth_level(1, skinned, cutout);
+    for (const float sign : {-1.f, 0.f}) {
+        auto variant = smooth_level(sign, skinned, cutout);
+        const auto vertex_base = static_cast<std::uint32_t>(level.vertices.size());
+        const auto index_base = static_cast<std::uint32_t>(level.indices.size());
+        level.vertices
+            .insert(level.vertices.end(), variant.vertices.begin(), variant.vertices.end());
+        for (const auto index : variant.indices) {
+            level.indices.push_back(vertex_base + index);
+        }
+        auto model = std::move(variant.models.front());
+        for (auto& primitive : model.primitives) {
+            primitive.first_index += index_base;
+        }
+        level.models.push_back(std::move(model));
+    }
     return level;
 }
 
@@ -114,42 +156,121 @@ void check_smooth_colour(const std::vector<std::uint8_t>& pixels, float sign) {
     CHECK(pixels[left + 1] < 5 && pixels[right + 1] < 5);
 }
 
-// Checks colour direction for GI and direct light through the real normal/depth and colour passes.
-void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
-    renderer::Renderer renderer;
-    scene::LevelScene scene;
-    lighting::use_scene_lighting(scene);
-    std::string error;
-    CHECK(scene.upload(smooth_level(sign, skinned, cutout), renderer.textures(), error));
-    CHECK(lighting::scene_lighting(scene)->set_probe_volume(directional_probes(), error));
+// Selects the authored normal mesh and its original nonuniform/skinned transform.
+void set_normal_variant(scene::LevelScene& scene, bool skinned, float sign) {
     const auto layer = skinned ? scene::Layer::Mobys : scene::Layer::Terrain;
     scene::Instance instance;
+    instance.model = sign > 0 ? 0u : sign < 0 ? 1u : 2u;
     // Nonuniform scale must use the same normal transform in both raster passes.
     instance.matrix[0] = .9f;
     instance.matrix[10] = 1.2f;
 
-    // The fixture has one identity joint, exercising the skinned depth variant.
+    // A nonidentity joint exercises skinned position and normal transforms.
     if (skinned) {
         instance.palette = 0;
-        scene.set_palette({renderer::identity()});
+        auto pose = renderer::identity();
+        if (sign != 0) {
+            pose[0] = pose[10] = .98f;
+            pose[8] = .15f;
+            pose[2] = -.15f;
+        }
+        pose[14] = .2f;
+        scene.set_palette({pose});
     }
 
     scene.set_instances(layer, {instance});
-    CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error));
-    CHECK(renderer.init(error));
-    renderer::FrameBuffer frame;
-    CHECK(frame.create(64, 64, error, samples));
+}
+
+// Borrows one shader configuration for its authored-normal variants.
+struct NormalCase {
+    renderer::Renderer& renderer;   // Renderer owned by the fixture driver.
+    scene::LevelScene& scene;       // Uploaded normal-sign meshes.
+    test::PrepassCapture& capture;  // Captures the matching depth/normal prepass.
+    renderer::FrameBuffer& frame;   // Shared colour target.
+    bool skinned;                   // Uses a live joint palette.
+    bool cutout;                    // Uses alpha-tested material coverage.
+    int samples;                    // Colour and prepass sample count.
+};
+
+// Keeps every sign, lighting mode and near-plane check on the same immutable shader setup.
+void check_normal_variant(NormalCase& fixture, float sign) {
+    auto& renderer = fixture.renderer;
+    auto& scene = fixture.scene;
+    auto& frame = fixture.frame;
+    auto* capture = &fixture.capture;
+    const bool skinned = fixture.skinned, cutout = fixture.cutout;
+    const int samples = fixture.samples;
+    set_normal_variant(scene, skinned, sign);
     renderer::FrameInput input;
     input.camera.view = renderer::translation({0, 0, -8});
     input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
 
     for (const int mode : {2, 3}) {
         scene.set_probe_view(mode);
+        renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, false);
         renderer.render(input, {frame.id(), 64, 64});
+        const auto reference = frame.read_rgba(), normals = capture->normals,
+                   depth = capture->depths;
+        CHECK(!normals.empty());
+        CHECK(samples != 1 || !depth.empty());
+        renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, true);
+        renderer.render(input, {frame.id(), 64, 64});
+        CHECK(frame.read_rgba() == reference);
+        CHECK(capture->normals == normals && capture->depths == depth);
         check_smooth_colour(frame.read_rgba(), sign);
     }
 
+    if (sign != 0 && !cutout) {
+        // Close surfaces have tiny position derivatives, especially at gameplay resolutions.
+        // Their smooth normals must remain valid rather than becoming the neutral fallback.
+        for (float distance : {.03f, .1f, 1.f}) {
+            input.camera.view = renderer::translation({0, 0, -(skinned ? .24f : 0.f) - distance});
+            input.camera.projection = renderer::perspective_reversed(1, 1, .001f, 100);
+            renderer.render(input, {frame.id(), 64, 64});
+            CHECK(!capture->normals.empty());
+            if (!capture->normals.empty()) {
+                constexpr std::size_t centre = (32 * 64 + 32) * 4;
+                CHECK(capture->normals[centre + 3] > 250);
+                CHECK(capture->normals[centre + 2] > 220);
+            }
+        }
+    }
+
     CHECK(gl::glGetError() == gl::GL_NO_ERROR);
+}
+
+// Checks colour direction for GI and direct light through the real normal/depth and colour passes.
+void test_smooth_normals(bool skinned, bool cutout, int samples) {
+    renderer::Renderer renderer;
+    scene::LevelScene scene;
+    lighting::use_scene_lighting(scene);
+    std::string error;
+    const bool uploaded =
+        scene.upload(normal_variants(skinned, cutout), renderer.textures(), error);
+    CHECK(uploaded);
+    if (!uploaded) {
+        std::fprintf(stderr, "%s\n", error.c_str());
+        return;
+    }
+    CHECK(lighting::scene_lighting(scene)->set_probe_volume(directional_probes(), error));
+    const auto layer = skinned ? scene::Layer::Mobys : scene::Layer::Terrain;
+    if (skinned) {
+        // Terrain owns the shared early-lighting/prepass request, even in a moby-only fixture.
+        CHECK(renderer.add(
+            std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error
+        ));
+    }
+    CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error));
+    auto observer = std::make_unique<test::PrepassCapture>();
+    auto* capture = observer.get();
+    CHECK(renderer.add(std::move(observer), error));
+    CHECK(renderer.init(error));
+    renderer::FrameBuffer frame;
+    CHECK(frame.create(64, 64, error, samples, samples == 1));
+    NormalCase fixture{renderer, scene, *capture, frame, skinned, cutout, samples};
+    for (const float sign : {1.f, -1.f, 0.f}) {
+        check_normal_variant(fixture, sign);
+    }
     renderer.release();
     scene.release();
     frame.release();
@@ -159,11 +280,79 @@ void test_smooth_normals(float sign, bool skinned, bool cutout, int samples) {
 void test_mesh_variants(int samples) {
     for (const bool skinned : {false, true}) {
         for (const bool cutout : {false, true}) {
-            test_smooth_normals(1, skinned, cutout, samples);
-            test_smooth_normals(-1, skinned, cutout, samples);
-            test_smooth_normals(0, skinned, cutout, samples);
+            test_smooth_normals(skinned, cutout, samples);
         }
     }
+}
+
+// A depth callback requests the plain prepass without GI or a normal attachment.
+void test_depth_only() {
+    stats::set_enabled(stats::Client::Dump, true);
+    std::uint64_t stamp = 0;
+    for (bool cutout : {false, true}) {
+        renderer::Renderer renderer;
+        scene::LevelScene scene;
+        lighting::use_scene_lighting(scene);
+        std::string error;
+        const bool uploaded =
+            scene.upload(smooth_level(1, false, cutout), renderer.textures(), error);
+        CHECK(uploaded);
+        if (!uploaded) {
+            std::fprintf(stderr, "%s\n", error.c_str());
+            return;
+        }
+        scene::Instance instance;
+        instance.matrix[0] = .9f;
+        instance.matrix[10] = 1.2f;
+        scene.set_instances(scene::Layer::Terrain, {instance});
+        CHECK(renderer.add(
+            std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error
+        ));
+        auto observer = std::make_unique<test::PrepassCapture>();
+        auto* capture = observer.get();
+        CHECK(renderer.add(std::move(observer), error));
+        CHECK(renderer.init(error));
+        renderer::FrameBuffer frame;
+        CHECK(frame.create(67, 53, error, 1, true));
+        renderer::RenderTarget target{frame.id(), 67, 53};
+        target.depth_texture = frame.depth_texture();
+        renderer::FrameInput input;
+        input.camera.view = renderer::translation({0, 0, -8});
+        input.camera.projection = renderer::perspective_reversed(1, 67.f / 53.f, .1f, 100);
+        input.camera.projection[8] = .13f;
+        input.after_world_depth = [](unsigned depth, int, int) {
+            CHECK(depth != 0);
+        };
+        std::vector<std::uint8_t> pixels, depths;
+        for (bool rigid : {false, true}) {
+            renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, rigid);
+            stats::begin_frame(stats::FrameKind::Tick, ++stamp);
+            renderer.render(input, target);
+            stats::begin_frame(stats::FrameKind::Tick, ++stamp);
+            const auto actual = frame.read_rgba();
+            CHECK(capture->normals.empty() && !capture->depths.empty());
+            if (!rigid) {
+                pixels = actual;
+                depths = capture->depths;
+            } else {
+                CHECK(actual == pixels && capture->depths == depths);
+            }
+            const auto* measured = stats::history(0);
+            CHECK(measured != nullptr);
+            if (measured) {
+                const auto at = std::find_if(
+                    measured->gauges.begin(), measured->gauges.end(), [](const auto& g) {
+                        return g.first == "prepass rigid draws terrain";
+                    }
+                );
+                CHECK(at != measured->gauges.end() && (rigid ? at->second > 0 : at->second == 0));
+            }
+        }
+        renderer.release();
+        scene.release();
+        frame.release();
+    }
+    stats::set_enabled(stats::Client::Dump, false);
 }
 }  // namespace
 
@@ -182,6 +371,7 @@ int main() {
             test_mesh_variants(samples);
         }
 
+        test_depth_only();
         return test::result();
     } catch (const std::exception& failure) {
         std::fprintf(stderr, "%s\n", failure.what());

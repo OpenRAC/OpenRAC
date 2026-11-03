@@ -126,11 +126,15 @@ impl LauncherProgram {
     }
 }
 
+/// The URL scheme the website's Install buttons open (deeplink.rs).
+pub const SCHEME_MIME: &str = "x-scheme-handler/openrac";
+
 /// The launcher's `.desktop` entry for the window class `wm_class`, starting `program`; `hidden`
-/// keeps it out of the menu.
+/// keeps it out of the menu. It opens `openrac://` links: the link comes after `--`, so a crafted
+/// one can never be read as an option (deeplink::link_from_args takes only that one argument).
 pub fn launcher_entry(program: &Path, wm_class: &str, hidden: bool) -> String {
     format!(
-        "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=Set up, build and play the decompiled Ratchet & Clank games\nExec={}\nIcon=dev.openrac.launcher\nTerminal=false\nCategories=Game;Development;\nStartupNotify=true\nStartupWMClass={}\n{}",
+        "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\nComment=Set up, build and play the decompiled Ratchet & Clank games\nExec={} -- %u\nIcon=dev.openrac.launcher\nTerminal=false\nCategories=Game;Development;\nMimeType={SCHEME_MIME};\nStartupNotify=true\nStartupWMClass={}\n{}",
         detect::desktop_exec(program),
         wm_class,
         no_display(hidden)
@@ -167,6 +171,18 @@ pub fn ensure_launcher(icons: &[Icon]) {
     let Some(places) = Places::from_env() else { return };
     let changed = write_launcher(&places, icons, &LauncherProgram::from_env());
     refresh(&places, changed);
+    // openrac:// links open the launcher. Best-effort: without xdg-mime the desktop still finds
+    // the entry's MimeType after its database refresh.
+    if changed.entries {
+        claim_scheme();
+    }
+}
+
+/// Makes the launcher's own entry the openrac:// handler (`xdg-mime default`), best-effort: its
+/// Exec passes the link after `--`. Run after Tauri's deep-link registration, which sets its own.
+pub fn claim_scheme() {
+    let _ =
+        detect::quiet(Path::new("xdg-mime")).args(["default", "dev.openrac.launcher.desktop", SCHEME_MIME]).status();
 }
 
 // ---- The games ------------------------------------------------------------------------------
@@ -316,8 +332,9 @@ mod tests {
         }
         let shown = "[Desktop Entry]\nType=Application\nName=OpenRAC Launcher\n\
             Comment=Set up, build and play the decompiled Ratchet & Clank games\n\
-            Exec=\"/opt/OpenRAC Launcher/run\"\nIcon=dev.openrac.launcher\nTerminal=false\n\
-            Categories=Game;Development;\nStartupNotify=true\nStartupWMClass=dev.openrac.launcher\n";
+            Exec=\"/opt/OpenRAC Launcher/run\" -- %u\nIcon=dev.openrac.launcher\nTerminal=false\n\
+            Categories=Game;Development;\nMimeType=x-scheme-handler/openrac;\nStartupNotify=true\n\
+            StartupWMClass=dev.openrac.launcher\n";
         assert_eq!(read(places.applications.join("dev.openrac.launcher.desktop")), shown);
         let hidden = shown.replace("StartupWMClass=dev.openrac.launcher\n", "StartupWMClass=openrac-launcher\n")
             + "NoDisplay=true\n";
@@ -338,7 +355,8 @@ mod tests {
         // A program that moved changes the entries only.
         let moved = LauncherProgram { path: PathBuf::from("/opt/elsewhere/launcher"), packaged: false };
         assert_eq!(write_launcher(&places, newer, &moved), Changed { icons: false, entries: true });
-        assert!(read(places.applications.join("openrac-launcher.desktop")).contains("Exec=\"/opt/elsewhere/launcher\""));
+        assert!(read(places.applications.join("openrac-launcher.desktop"))
+            .contains("Exec=\"/opt/elsewhere/launcher\" -- %u"));
     }
 
     #[test]

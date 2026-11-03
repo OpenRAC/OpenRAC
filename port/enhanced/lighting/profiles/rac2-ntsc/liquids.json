@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "emissive": [
+    {
+      "name": "lava (levels 14 and 19, effect texture 65 / 73)",
+      "texture_sha256": "1be5bbb6b6fdab8051c39a1a9fb8e486ef0e53d4348d0befe16e0fbfb58ba44f"
+    }
+  ]
+}

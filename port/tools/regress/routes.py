@@ -35,8 +35,12 @@ BUTTONS = {
     "triangle": 0x1000, "circle": 0x2000, "cross": 0x4000, "square": 0x8000,
 }
 
-GAMES = ("rac1-pal", "rac1-ntsc")
+GAMES = ("rac1-pal", "rac1-ntsc", "rac2-ntsc")
 LEVELS = range(19)
+# Going Commando's programs on the disc (level 30, the Insomniac Museum, has not been seen to run
+# its own code yet) and its routes, a file of their own beside rac1's.
+RAC2_LEVELS = (*range(21), *range(22, 27))
+ROUTES_RAC2 = HERE / "routes_rac2.json"
 
 # What a step can do besides pressing (a set's routes): each becomes words of game memory written
 # from control, at the version's addresses (routes.json "addresses").
@@ -78,6 +82,7 @@ class Route:
     start: str = "direct"          # direct: OPENRAC_DIRECT with --level N; title: from the boot screens
     card: str | None = None        # "prepared": a fresh copy of the prepared card (regress.py card)
     until: str = "control"         # control: the run ends length frames after it; frames: at max_frames
+    switches: dict = field(default_factory=dict)  # more OPENRAC_* switches: a route's "env"
     versions: list = field(default_factory=list)  # what PAL and US do differently on it (compare)
 
     def __post_init__(self):
@@ -124,11 +129,23 @@ class Route:
         cameras = [s["camera"] for s in self.steps if "camera" in s]
         if cameras:
             env["OPENRAC_CAMERA"] = ",".join(f"{float(v):g}" for v in cameras[-1])
+        env.update({k: str(v) for k, v in self.switches.items()})
         return env
 
 
+def levels_of(game: str) -> tuple | range:
+    """The levels of a game's standard routes."""
+    return RAC2_LEVELS if game == "rac2-ntsc" else LEVELS
+
+
 def load(path: Path = ROUTES) -> dict:
-    return json.loads(Path(path).read_text())
+    """The routes file; the default one with Going Commando's sets and addresses beside rac1's."""
+    data = json.loads(Path(path).read_text())
+    if Path(path) == ROUTES:
+        rac2 = json.loads(ROUTES_RAC2.read_text())
+        data["sets"].update(rac2["sets"])
+        data["addresses"]["rac2-ntsc"] = rac2["addresses"]["rac2-ntsc"]
+    return data
 
 
 def route(level: int, game: str, data: dict | None = None) -> Route:
@@ -268,7 +285,7 @@ def set_routes(name: str | None, game: str, data: dict | None = None) -> list[Ro
     game's. "standard" (or None) is the level routes."""
     data = data if data is not None else load()
     if name in (None, "", "standard"):
-        return [route(level, game, data) for level in LEVELS]
+        return [route(level, game, data) for level in levels_of(game)]
     if name not in data.get("sets", {}):
         raise ValueError(f"no route set {name!r} (known: {', '.join(sets(data))})")
     rs = data["sets"][name]
@@ -299,5 +316,6 @@ def set_routes(name: str | None, game: str, data: dict | None = None) -> list[Ro
                          length=int(spec.get("length", 660)), max_frames=int(spec.get("max_frames", 9000)),
                          timeout=float(spec.get("timeout", 240)), key=key, writes=writes_of(steps, game, data),
                          start=spec.get("start", "direct"), card=spec.get("card"), until=spec.get("until", "control"),
+                         switches=dict(spec.get("env", {})),
                          versions=list(spec.get("versions", []))))
     return out

@@ -10,7 +10,7 @@ the NTSC-U disc, and OpenRAC's extractor every stream it reads on PAL, where
 the game's decoder is `func_0020C468` (NTSC-U 0x20B618)
 ([ASSETS.md](../../../games/rac1/docs/ASSETS.md#wad-compression)). The
 sequels use the same magic: RAC2's prerelease level data holds `"WAD"`
-containers ([LEVEL-ARCHIVE-FORMAT.md](../../../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md)),
+containers (`LEVEL-ARCHIVE-FORMAT.md`),
 and RAC3 and Deadlocked wrap their boot image in one (Wrench, **reference**).
 Whether the packet rules below hold unchanged in the sequels is not measured.
 

@@ -39,6 +39,50 @@ void test_temporal_settings(const std::filesystem::path& file) {
     CHECK(settings::get().motion_blur_strength == .5f);
 }
 
+void test_lily_momentum(const std::filesystem::path& file) {
+    using namespace openrac;
+    for (const float value : {0.f, .25f, .65f, 1.f}) {
+        std::ofstream(file) << "lily_momentum = " << value << "\n";
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == value);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == value);
+    }
+    for (const char* invalid : {"nan", "inf", "-0.1", "1.1", "bad"}) {
+        std::ofstream(file) << "lily_momentum = " << invalid << "\n";
+        settings::load(file);
+        CHECK(settings::get().lily_momentum == .25f);
+    }
+}
+
+// HDR output: off with no key (the picture as always), its three modes and levels round-trip, and
+// values out of range keep the defaults.
+void test_hdr_settings(const std::filesystem::path& file) {
+    using namespace openrac;
+    std::ofstream(file) << "vsync = on\n";
+    settings::load(file);
+    CHECK(settings::get().hdr == hdr::Mode::Off);
+    CHECK(settings::get().hdr_paper_white == 0 && settings::get().hdr_peak == 0);
+    for (std::size_t n = 0; n < std::size(hdr::kModeKeys); ++n) {
+        std::ofstream(file) << "hdr = " << hdr::kModeKeys[n]
+                            << "\nhdr_paper_white = 250\nhdr_peak = 1400\n";
+        settings::load(file);
+        CHECK(settings::get().hdr == static_cast<hdr::Mode>(n));
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().hdr == static_cast<hdr::Mode>(n));
+        CHECK(settings::get().hdr_paper_white == 250 && settings::get().hdr_peak == 1400);
+    }
+    // The launcher's word over the file's, and another word changes nothing.
+    CHECK(settings::set_hdr_mode("auto") && settings::get().hdr == hdr::Mode::Auto);
+    CHECK(!settings::set_hdr_mode("bright") && settings::get().hdr == hdr::Mode::Auto);
+    std::ofstream(file) << "hdr = bright\nhdr_paper_white = 5000\nhdr_peak = -1\n";
+    settings::load(file);
+    CHECK(settings::get().hdr == hdr::Mode::Off);
+    CHECK(settings::get().hdr_paper_white == 0 && settings::get().hdr_peak == 0);
+}
+
 void test_reset_enhanced() {
     using namespace openrac;
     settings::Settings s;
@@ -49,6 +93,7 @@ void test_reset_enhanced() {
     s.frame_cap = 144;
     s.texture_filter = renderer::TextureFilter::Normal;
     s.shadow_quality = renderer::ShadowQuality::Low;
+    s.volumetric_quality = renderer::VolumetricQuality::High;
     s.agx_preview = false;
     s.agx_exposure = 2;
     s.agx_brightness = 1;
@@ -56,14 +101,17 @@ void test_reset_enhanced() {
     s.probe_spheres = true;
     s.motion_blur = false;
     s.motion_blur_settings.samples = 64;
+    s.lily_momentum = .8f;
     s.reset_enhanced();
     CHECK(s.enhanced_rendering && s.enhanced_graphics);
     CHECK(s.volume == 37 && s.render_scale == 75 && s.frame_cap == 144);
     CHECK(s.texture_filter == renderer::TextureFilter::EdgeAware);
     CHECK(s.shadow_quality == renderer::ShadowQuality::High);
+    CHECK(s.volumetric_quality == renderer::VolumetricQuality::Off);
     CHECK(s.agx_preview && s.agx_exposure == .25f && s.agx_brightness == .5f);
     CHECK(!s.sun_direction_override && !s.probe_spheres);
-    CHECK(s.motion_blur && s.motion_blur_settings.samples == 32);
+    CHECK(s.motion_blur && s.motion_blur_settings.samples == 16);
+    CHECK(s.lily_momentum == .25f);
 }
 
 void test_agx_preview(const std::filesystem::path& file) {
@@ -127,12 +175,31 @@ void test_motion_blur_tuning(const std::filesystem::path& file) {
       << "motion_blur_depth_tolerance = -1\nmotion_blur_cutscene_multiplier = inf\n";
     settings::load(file);
     const auto& blur = settings::get().motion_blur_settings;
-    CHECK(blur.max_radius == 128 && blur.samples == 32);
-    CHECK(blur.min_motion == .5f && blur.spread == .5f);
+    CHECK(blur.max_radius == 64 && blur.samples == 16);
+    CHECK(blur.min_motion == 1.f && blur.spread == .5f);
     CHECK(blur.depth_tolerance == .009f && blur.cutscene_multiplier == 1.f);
 }
 
-// Invalid or missing keys keep High; both published choices survive save/load.
+// Missing/invalid keys leave experimental volumetrics off; every tier survives save/load.
+void test_volumetric_quality(const std::filesystem::path& file) {
+    using namespace openrac;
+    for (std::size_t n = 0; n < std::size(renderer::kVolumetricQualityKeys); ++n) {
+        std::ofstream(file) << "volumetric_quality = " << renderer::kVolumetricQualityKeys[n]
+                            << "\n";
+        settings::load(file);
+        CHECK(settings::get().volumetric_quality == static_cast<renderer::VolumetricQuality>(n));
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().volumetric_quality == static_cast<renderer::VolumetricQuality>(n));
+    }
+    std::ofstream(file) << "volumetric_quality = invalid\n";
+    settings::load(file);
+    CHECK(settings::get().volumetric_quality == renderer::VolumetricQuality::Off);
+    std::ofstream(file) << "";
+    settings::load(file);
+    CHECK(settings::get().volumetric_quality == renderer::VolumetricQuality::Off);
+}
+
 void test_shadow_quality(const std::filesystem::path& file) {
     using namespace openrac;
     CHECK(settings::Settings{}.shadow_quality == renderer::ShadowQuality::High);
@@ -263,6 +330,69 @@ void test_bindings_survive_a_save(const std::filesystem::path& file) {
     CHECK(settings::get().bindings.at("bind_cross") == "KeyF,PadWest");
 }
 
+// A first start covers the screen; a file that already says how the window is keeps it.
+void test_first_start_display(const std::filesystem::path& file) {
+    using namespace openrac;
+    using settings::DisplayMode;
+    const auto mode_after = [&](const char* text, bool scripted) {
+        std::filesystem::remove(file);
+        if (text != nullptr) {
+            std::ofstream(file) << text;
+        }
+        settings::load(file);
+        settings::first_start_display(scripted);
+        return settings::get().display_mode;
+    };
+    // No file at all, or one without the key (the launcher writes some keys before a first game).
+    CHECK(mode_after(nullptr, false) == DisplayMode::Borderless);
+    CHECK(mode_after("enhanced_rendering = 1\n", false) == DisplayMode::Borderless);
+    // A player's own choice stays, whatever it is.
+    CHECK(mode_after("display_mode = windowed\n", false) == DisplayMode::Windowed);
+    CHECK(mode_after("display_mode = fullscreen\n", false) == DisplayMode::Fullscreen);
+    CHECK(mode_after("display_mode = something\n", false) == DisplayMode::Windowed);
+    // The older key: false is a choice of the window too.
+    CHECK(mode_after("fullscreen = false\n", false) == DisplayMode::Windowed);
+    CHECK(mode_after("fullscreen = true\n", false) == DisplayMode::Borderless);
+    // Checks and tools keep the window.
+    CHECK(mode_after(nullptr, true) == DisplayMode::Windowed);
+    // Once saved, the file has the key, and a later start reads it as it is.
+    mode_after(nullptr, false);
+    settings::get().display_mode = DisplayMode::Windowed;  // the player pressed F11
+    settings::save();
+    settings::load(file);
+    CHECK(!settings::first_start_display(false));
+    CHECK(settings::get().display_mode == DisplayMode::Windowed);
+    std::filesystem::remove(file);
+}
+
+// The menu bar's key: the one under Escape unless the file names another, which a save keeps.
+void test_menu_bar_key(const std::filesystem::path& file) {
+    using namespace openrac;
+    std::filesystem::remove(file);
+    settings::load(file);
+    CHECK(settings::get().menu_bar_key == "`");
+    settings::get().menu_bar_key = "F4";
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().menu_bar_key == "F4");
+    std::ofstream(file) << "menu_bar_key = Alt\n";
+    settings::load(file);
+    CHECK(settings::get().menu_bar_key == "Alt");
+    std::ofstream(file) << "menu_bar_key = \n";
+    settings::load(file);
+    CHECK(settings::get().menu_bar_key == "`");
+    // The controller button: R4 by default, any name kept, "none" too.
+    CHECK(settings::get().menu_bar_button == "leftstick");
+    settings::get().menu_bar_button = "none";
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().menu_bar_button == "none");
+    std::ofstream(file) << "menu_bar_button = misc1\n";
+    settings::load(file);
+    CHECK(settings::get().menu_bar_button == "misc1");
+    std::filesystem::remove(file);
+}
+
 }  // namespace
 
 int main() {
@@ -287,15 +417,20 @@ int main() {
     CHECK(settings::get().medial_axis_debug);
     CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
     test_temporal_settings(file);
+    test_lily_momentum(file);
+    test_hdr_settings(file);
     test_reset_enhanced();
     test_agx_preview(file);
     test_motion_blur_tuning(file);
     test_shadow_quality(file);
+    test_volumetric_quality(file);
     test_sunlight_settings(file);
     test_frame_counter_modes(file);
     test_game_options_load_from_the_file(file);
     test_game_options_are_saved_when_they_change(file);
     test_bindings_survive_a_save(file);
+    test_first_start_display(file);
+    test_menu_bar_key(file);
     CHECK(settings::get().texture_filter == renderer::TextureFilter::EdgeAware);
     CHECK(settings::get().anisotropy == 0);
     CHECK(settings::get().anisotropy_samples(true) == 4);
@@ -456,6 +591,13 @@ int main() {
         settings::save();
         settings::load(file);
         CHECK(options.gtao_settings.quality == quality);
+    }
+    // The depth hierarchy remains independently switchable and survives a save/load cycle.
+    for (bool enabled : {false, true}) {
+        options.gtao_settings.hi_z = enabled;
+        settings::save();
+        settings::load(file);
+        CHECK(options.gtao_settings.hi_z == enabled);
     }
     std::ofstream(file) << "gtao_quality = quality\n";
     settings::load(file);

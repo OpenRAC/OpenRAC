@@ -13,7 +13,7 @@ and texture tables are the same in Going Commando, Up Your Arsenal and
 Deadlocked, measured on their retail discs; what differs (the level data's
 slots, the instance records, the moby texture stash) is in
 [LATER_GAMES.md](LATER_GAMES.md). RAC2's level data header was also
-measured on prerelease discs ([LEVEL-ARCHIVE-FORMAT.md](../../../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md)).
+measured on prerelease discs (`LEVEL-ARCHIVE-FORMAT.md`).
 
 **Addresses.** NTSC-U addresses are ReRAC's (`SCUS_971.99`); PAL names come
 from `games/rac1/config/overlays/us_map.tsv`. A PAL name of the form
@@ -183,8 +183,7 @@ in [CAMERA_FOG.md](../systems/CAMERA_FOG.md).
 
 `{s32 count; s32 size}`, `size` counting the header. Entries of 16 bytes:
 string offset from the section, then s16 id, short id, third-person id, co-op
-id, voice clip, character. Korean uses another encoding. The runtime text
-path is in [HUD_TEXT.md](../systems/HUD_TEXT.md).
+id, voice clip, character. Korean uses another encoding.
 
 ### 8.3 Moby instances (0x78 bytes)
 
@@ -221,9 +220,7 @@ calling `InitMobyInstance` (NTSC-U 0x20C5F0, PAL `func_0020D440`) first.
 The ground probe is NTSC-U level 01 0x26E618 (PAL `func_00214358`); the
 rotation rows and bounding sphere are built next by NTSC-U 0x20DEF8 (PAL
 `func_0020ED48`, `moby_build_rotation` in [RENDERER.md](../../port/RENDERER.md)).
-The spawn test and the save bits it reads are in
-[GAME_STATE.md](../systems/GAME_STATE.md); the runtime record in
-[MOBY.md](MOBY.md).
+The runtime record is in [MOBY.md](MOBY.md).
 
 ### 8.4 Tie and shrub instances
 

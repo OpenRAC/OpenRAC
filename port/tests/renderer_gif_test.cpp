@@ -4,6 +4,7 @@
 // The direct renderer's CPU half: GIF packets in, triangles and draw groups
 // out. Synthetic packets, laid out the way the game's 2D code builds them.
 
+#include <cfenv>
 #include <cmath>
 #include <cstdio>
 #include <utility>
@@ -47,6 +48,46 @@ void sprite() {
     CHECK(first.rgba[0] == 0xFF && first.rgba[3] == 0x80);
     // Depth: 100 of a 24-bit buffer.
     CHECK(near(first.z, static_cast<float>(100.0 / 16777215.0 * 2.0 - 1.0)));
+}
+
+// Between kWholeMarker's two markers the draws are the whole target's (a picture's backdrop); the
+// draw after the closing one is the picture's again, and the marker draws nothing itself.
+void whole_target_marker() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    auto square = [](GifBuilder& to, std::uint8_t red, bool eop = false) {
+        to
+            .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+                 {gs::kRgbaq, rgbaq(red, 0, 0, 0x80)},
+                 {gs::kXyz2, xyz2(0, 0, 0)},
+                 {gs::kXyz2, xyz2(64, 64, 0)}},
+                eop);
+    };
+    constexpr std::uint8_t kNop = 0x7F;
+    square(b, 1);
+    b.ad({{kNop, GifInterpreter::kWholeMarker << 48 | 1}});
+    square(b, 2);
+    b.ad({{kNop, GifInterpreter::kWholeMarker << 48}});
+    square(b, 3, true);
+    CHECK(gif.gif(b.bytes));
+    CHECK(gif.vertices().size() == 18);
+    CHECK(gif.draws().size() == 3);
+    if (gif.draws().size() == 3) {
+        CHECK(!gif.draws()[0].state.whole);
+        CHECK(gif.draws()[1].state.whole);
+        CHECK(!gif.draws()[2].state.whole);
+    }
+    // A new frame starts outside any pair.
+    gif.clear();
+    GifBuilder c;
+    c.ad({{kNop, GifInterpreter::kWholeMarker << 48 | 1}}, true);
+    CHECK(gif.gif(c.bytes));
+    gif.clear();
+    GifBuilder d;
+    square(d, 4, true);
+    CHECK(gif.gif(d.bytes));
+    CHECK(gif.draws().size() == 1 && !gif.draws()[0].state.whole);
 }
 
 void strips_and_kicks() {
@@ -322,6 +363,61 @@ void fill_to_the_edges() {
     CHECK(near(inner_last.x, 300.5f / 256.0f - 1.0f) && near(inner_last.y, 1.0f - 200.5f / 224.0f));
 }
 
+// A full-screen black fill at full strength is the frame's clear before the world (left out: the
+// renderer clears) and a fade's last step after it (set_over_world: drawn over the world). Left
+// out there, Maktar's arena showed the world unfaded for a tick on each side of its scene's load.
+void fill_over_the_world() {
+    TexturePool textures;
+    auto vertices = [&](bool over_world, bool blended = true) {
+        GifInterpreter gif(textures);
+        gif.set_over_world(over_world);
+        GifBuilder b;
+        b
+            .ad({{gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
+                 {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, blended)},
+                 {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
+                 {gs::kXyz2, xyz2(-0.5, -0.5, 0)},
+                 {gs::kXyz2, xyz2(511.5, 447.5, 0)}},
+                true);
+        CHECK(gif.gif(b.bytes));
+        return gif.vertices().size();
+    };
+    CHECK(vertices(false) == 0);
+    CHECK(vertices(true) == 6);
+    // Unblended, it is a clear wherever it comes (the weapon upgrade's black, three passes of 16).
+    CHECK(vertices(true, false) == 0);
+}
+
+// The NTSC games draw into a 416-line buffer (XYOFFSET 2048 - 208), stretched onto the 448-line
+// picture. Its scissor of lines 0 to 415 is the picture's 0 to 447: the scale rounded first (448 /
+// 416 as a float, times 416) came to just under 448 and cut the last line, where the cutscene bars
+// left a line of the world showing under them. The renderer runs in the EE's rounding mode, toward
+// zero, where that product falls short.
+void scissor_of_a_shorter_buffer() {
+    const int rounding = std::fegetround();
+    CHECK(std::fesetround(FE_TOWARDZERO) == 0);
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    const std::uint64_t ofy = (2048 - 208) * 16;
+    const std::uint64_t ofx = (2048 - 256) * 16;
+    b
+        .ad({{gs::kXyoffset1, ofx | (ofy << 32)},
+             {gs::kScissor1, openrac::test::scissor(0, 511, 0, 415)},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+             // The bottom bar: its lines 364 to 415 (the default offset's 380 to 431).
+             {gs::kXyz2, xyz2(0, 380, 0)},
+             {gs::kXyz2, xyz2(512, 432, 0)}},
+            true);
+    CHECK(gif.gif(b.bytes));
+    CHECK(gif.draws().size() == 1);
+    const gs::Scissor& cut = gif.draws()[0].state.scissor;
+    CHECK(cut.x0 == 0 && cut.x1 == 511 && cut.y0 == 0 && cut.y1 == 447);
+    // Its bottom (416) is the picture's bottom edge.
+    CHECK(near(gif.vertices()[4].y, -1.0f));
+    CHECK(std::fesetround(rounding) == 0);
+}
+
 void textures_and_vif() {
     TexturePool textures;
     GifInterpreter gif(textures);
@@ -489,6 +585,12 @@ void blend_weights() {
     CHECK(blend(alpha_reg(0, 2, 2, 1, 0x80)).source_scale == SourceScale::None);
     CHECK(blend(alpha_reg(0, 1, 0, 1)).source_scale == SourceScale::None);
     CHECK(!blend(alpha_reg(0, 1, 2, 1, 0xC0)).exact);  // (Cs - Cd) FIX + Cd beyond 1
+    // Cd (As + 1), Maktar's arena curtain (0x49): As written as the colour, DST_COLOR + ONE.
+    const GlBlend brighten = blend(alpha_reg(1, 2, 0, 1));
+    CHECK(brighten.source_scale == SourceScale::WeightAlpha && brighten.src == 0x0306u);
+    CHECK(brighten.dst == 1u && brighten.equation == 0x8006u && brighten.exact);
+    CHECK(blend(alpha_reg(1, 2, 2, 1, 0x40)).source_scale == SourceScale::WeightFix);
+    CHECK(!blend(alpha_reg(1, 2, 2, 1, 0xC0)).exact);  // Cd (FIX + 1) beyond 2
 
     CHECK(liquid_strip(0x8000000064ull, 0));         // no TEST seen: a sea, as before
     CHECK(liquid_strip(0x8000000064ull, 0x5360B));   // Z written where As >= 0x60
@@ -501,11 +603,14 @@ void blend_weights() {
 int main() {
     blend_weights();
     sprite();
+    whole_target_marker();
     strips_and_kicks();
     packed_and_reglist();
     draw_groups();
     no_sample_no_pixel();
     fill_to_the_edges();
+    fill_over_the_world();
+    scissor_of_a_shorter_buffer();
     textures_and_vif();
     offscreen_then_upload();
     frame_named_without_draw();

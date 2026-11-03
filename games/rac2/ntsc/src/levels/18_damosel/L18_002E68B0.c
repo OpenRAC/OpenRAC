@@ -1,6 +1,30 @@
 #include "include_asm.h"
 #include "common.h"
 
+extern s32 func_00282978(s16 *timer);
+extern s32 func_00288E18(s32 key, s32 selection);
+extern s32 func_002ACBC8(void *point, s32 index);
+extern s32 func_002E5E58(s32 index, s32 value, void *object);
+extern void func_002B0A18(s32 first, s32 second);
+
+extern u16 D_0018CF40;
+extern u8 D_001A7AFD[] __attribute__((sda));
+extern u8 D_001A7A60[] MACRO_ADDR;
+extern u8 D_00189EA0[];
+extern u8 D_00189E20[];
+extern u32 D_L18_001A903C[] __attribute__((sda));
+
+typedef int u128 __attribute__((mode(TI)));
+
+extern char *func_002A9640(char *, int, int);
+extern void func_002B0ED8(char *, char *, int);
+extern void func_002A6C58(char *, int, int);
+extern void func_0029F338(char *);
+extern void func_00282CC0(void *, void *, void *);
+extern int func_002A8C28(char *, void *, float, float, float, int, int, int, int);
+extern void func_L00_002E6EF8(void *, char *);
+extern char D_L18_003F9018[];
+
 extern void func_3F7CD8(s32);
 extern void func_3F7EF8(s32);
 extern void func_3F80A0(s32);
@@ -21,15 +45,14 @@ extern float func_00283180(float);
 extern float func_00283198(float);
 extern u8 *D_L18_001FF4D4;
 
-INCLUDE_ASM("asm/levels", func_L18_002E68B0);
+/* func_L18_002E68B0 is in the sibling file L18_002E68B0-decider.c (its own profile). */
 
 INCLUDE_ASM("asm/levels", func_L18_003170F8);
 
-INCLUDE_ASM("asm/levels", func_L18_0033D768);
 
 /* Fills the record with the requested fields and derived coordinates. */
-char *func_L18_0035B6B8(char *p0, s16 p1, char *p2, s32 p3, char *p4, float f0, float f1,
-                         float f2, float f3, float f4)
+char *func_L18_0035B6B8(char *p0, float f0, float f1, float f2, float f3, float f4, s16 p1,
+                         char *p2, s32 p3, char *p4)
 {
     char *s0 = func_002B9030(0x65);
     char *s1 = s0 + 0x20;
@@ -75,9 +98,57 @@ void func_L18_0035B838(char *a0)
         func_34B1D0(s1);
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003A0C28);
+void func_L18_003A0C28(u8 *entity) {
+    u8 *state;
+    u32 substate;
+    u8 mode;
 
-INCLUDE_ASM("asm/levels", func_L18_003B12C0);
+    state = *(u8 **)(entity + 0x68);
+    if (entity[0x20] == 0) {
+        entity[0x30] = 0xFF;
+        *(u16 *)(state + 0xE) = 0x28;
+        *(u16 *)(state + 0xC) = 0;
+        entity[0x20] = 1;
+    }
+    if (D_0018CF40 != 0)
+        goto after;
+    if (D_001A7AFD[0] != 0) {
+        if (func_00282978((s16 *)(state + 0xE)) != 0)
+            func_00288E18(0xA27, 0x7E);
+    }
+after:
+    mode = entity[0x20];
+    if (mode != 1)
+        goto end;
+    substate = *(u32 *)(state + 0x8);
+    switch (substate) {
+    case 0: {
+        u8 *block = D_00189EA0;
+        if (func_002ACBC8(block, *(u32 *)(state + 0)) != 0) {
+            if (*(u32 *)(block + 0x221C) == 15)
+                *(u32 *)(state + 8) = mode;
+        }
+        break;
+    }
+    case 1: {
+        u8 *block = D_00189E20;
+        if (*(u32 *)(block + 0x2294) == 0x3E) {
+            *(u32 *)(state + 8) = 0;
+        } else if (func_002ACBC8(block + 0x80, *(u32 *)(state + 4)) != 0) {
+            if (D_001A7A60[7] == 0) {
+                D_001A7A60[7] = substate;
+                func_002E5E58(1, 0, 0);
+                func_002B0A18(0x1233, -1);
+                D_L18_001A903C[0] = substate;
+            }
+        }
+        break;
+    }
+    }
+end:
+    return;
+}
+
 
 void func_L18_003F7C70(s32 a0)
 {
@@ -150,4 +221,35 @@ void func_L18_003F7CD8(u8 *object) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L18_003F7EF8);
+void func_L18_003F7EF8(char *p)
+{
+    char *data = *(char **)(p + 0x68);
+    char *hit = func_002A9640(p, 0x10000, 1);
+    int old;
+    float v[4] __attribute__((aligned(16)));
+    float temp[4] __attribute__((aligned(16)));
+    float zero[4] __attribute__((aligned(16)));
+    if (hit && *(char **)(hit + 0x20)) {
+        int type = *(short *)(*(char **)(hit + 0x20) + 0xAA);
+        if (type == 0xB69) {
+            if (*(unsigned char *)(p + 0x31)) *(float *)(hit + 0x2C) = 4.0f;
+            else *(float *)(hit + 0x2C) = 0;
+        } else if (type == 0xF0A || type == 0xF9E) *(float *)(hit + 0x2C) = 0;
+    }
+    old = *(unsigned char *)(p + 0x94);
+    func_002B0ED8(p, data + 0x60, 0);
+    if (*(unsigned char *)(p + 0x20) == 9 &&
+        (*(unsigned char *)(p + 0x94) == 9 || *(unsigned char *)(p + 0x94) == 4 || *(unsigned char *)(p + 0x94) == 3))
+        *(unsigned char *)(p + 0x94) = old;
+    if (*(float *)(p + 0x18) < 90.0f) {
+        func_002A6C58(p, 0, 3);
+        func_0029F338(p);
+        return;
+    }
+    *(u128 *)zero = 0;
+    zero[2] = *(float *)(data + 0x114) + *(float *)(data + 0x110);
+    *(u128 *)temp = *(u128 *)zero;
+    func_00282CC0(v, p + 0x10, temp);
+    func_002A8C28(p, v, *(float *)(data + 0x110) + 0.2f, 10.0f, 1.0f, 0x4000000, 0, 1, 0);
+    if (*(unsigned char *)(p + 0x20) >= 2) func_L00_002E6EF8(D_L18_003F9018, p);
+}

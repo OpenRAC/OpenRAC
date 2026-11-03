@@ -125,4 +125,9 @@ void func_00130A80(void *object) {
 }
 
 
-INCLUDE_ASM("asm/core", func_00130A8C);
+/* Its entry is four bytes into the catalogued row, after one word of 0xCDCDCDCD fill. */
+extern void func_00130B80(void *arg0);
+
+void func_00130A8C(void *object) {
+    func_00130B80(*(char **)((char *)object + 0x40) + 0x4C);
+}

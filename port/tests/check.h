@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The port's test harness: CHECK records a failure and goes on; a test
-// program returns test_result() from main, so CTest sees the failures.
+// program returns openrac::test::result() from main, so CTest sees the failures.
 
 #pragma once
 

@@ -52,6 +52,9 @@ std::array<f32, 4> shrub_instance_centre(const ShrubClass& shrub, const ShrubIns
 struct ShrubPointLights {
     const PointLightBank* bank = nullptr;
     u16 list = 0xffff;
+    // The instance's world bounding-sphere centre as its run-time record holds it (Going
+    // Commando's +0); null: the one the loader computes (shrub_instance_centre).
+    const std::array<f32, 4>* centre = nullptr;
 };
 
 // The VU0 registers LightShrubs sets up before lighting a class's normals: the shared light

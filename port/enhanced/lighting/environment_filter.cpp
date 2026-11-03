@@ -9,6 +9,8 @@
 #include <numbers>
 #include <stdexcept>
 
+#include "common/profiler.h"
+
 namespace openrac::lighting {
 namespace {
 constexpr float kPi = std::numbers::pi_v<float>;
@@ -171,6 +173,8 @@ Float3 brdf(float nv, float roughness, std::span<const Float2> samples) {
 void filter_environment(
     EnvironmentAsset& asset, unsigned probe, std::span<const Float3> faces, unsigned samples
 ) {
+    const profiling::Zone zone("Filter environment GGX mips");
+
     if (samples == 0 || faces.size() != std::size_t(6) * asset.resolution * asset.resolution
         || probe >= asset.probes.size()) {
         throw std::runtime_error("invalid environment filter input");
@@ -184,7 +188,7 @@ void filter_environment(
     }
 
     for (unsigned mip = 0; mip < asset.levels(); ++mip) {
-        const unsigned size = asset.face_resolution(mip), side = size + 2;
+        const unsigned size = asset.face_resolution(mip), side = asset.face_pitch(mip);
         const unsigned row = asset.probe_y(probe) + asset.level_row(mip);
         // Preserve the original GGX schedule rather than treating retained mip one as a mirror.
         const float roughness =
@@ -194,7 +198,9 @@ void filter_environment(
             for (unsigned y = 0; y < side; ++y) {
                 for (unsigned x = 0; x < side; ++x) {
                     const auto direction = environment_direction(
-                        face, {(float(x) - .5f) / float(size), (float(y) - .5f) / float(size)}
+                        face,
+                        {(float(std::min(x, size + 1)) - .5f) / float(size),
+                         (float(std::min(y, size + 1)) - .5f) / float(size)}
                     );
                     asset.pixels[std::size_t(row + y) * asset.width() + column + face * side + x] =
                         pack_environment_colour(

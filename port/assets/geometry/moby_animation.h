@@ -226,6 +226,16 @@ struct JointModifier {
 // blended over those joints after the moby's own keys, before the modifiers. After ReRAC's
 // PoseLayer, layer_local and apply_layers (moby_anim.rs; ISC License, Copyright (c) 2026 ReRAC
 // contributors).
+struct PoseRecord {
+    std::array<u32, 4> quat{};
+    std::array<u32, 4> scale{};
+    std::array<u32, 4> trans{};
+    u8 joint = 0;
+};
+
+// Going Commando's layer has no keys: the game keeps the pose evaluated in the node's buffer (+0x10,
+// +2 records of 0x30 bytes, a joint record's quaternion, scale and translation, the record it blends
+// into at +0x2C), and func_L00_00316F60 blends them by the weight. `records` then replaces the keys.
 struct PoseLayer {
     std::vector<u8> joints;
     const MobyFrame* a = nullptr;
@@ -233,6 +243,7 @@ struct PoseLayer {
     f32 t = 0.0f;
     bool plain = false;
     f32 weight = 0.0f;
+    std::vector<PoseRecord> records;
 };
 
 // The palette for two given keys, as MobyAnimEval takes them from the moby

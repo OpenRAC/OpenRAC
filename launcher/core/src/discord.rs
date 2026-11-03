@@ -402,6 +402,9 @@ pub fn planet_from_log(game: &str, line: &str) -> Option<Place> {
             planet: crate::saves::RAC1_PLANETS.get(level)?.to_string(),
             location: crate::saves::RAC1_LOCATIONS.get(level).map(|l| l.to_string()),
         }),
+        "rac2" => {
+            Some(Place { planet: crate::saves::rac2_planet(u32::try_from(level).ok()?)?.to_string(), location: None })
+        }
         _ => Some(Place { planet: format!("Level {level}"), location: None }),
     }
 }
@@ -737,6 +740,15 @@ mod tests {
         assert_eq!(thousands(1234567), "1,234,567");
         assert_eq!(
             planet_from_log("rac2", "[info] now playing level 4"),
+            Some(Place { planet: "Barlow".into(), location: None })
+        );
+        assert_eq!(
+            planet_from_log("rac2", "[info] now playing level 30"),
+            Some(Place { planet: "Insomniac Museum".into(), location: None })
+        );
+        assert_eq!(planet_from_log("rac2", "[info] now playing level 21"), None);
+        assert_eq!(
+            planet_from_log("rac3", "[info] now playing level 4"),
             Some(Place { planet: "Level 4".into(), location: None })
         );
         assert_eq!(planet_from_log("rac1", "[info] 4000 frames"), None);

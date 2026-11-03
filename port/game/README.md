@@ -7,7 +7,7 @@ makes `openrac-<id>` for every one whose decompilation is present:
 | Directory | Game | Decompilation | Entry (`main`) | Library table |
 |---|---|---|---|---|
 | [rac1-pal](rac1-pal/README.md) | Ratchet & Clank (PAL) | `games/rac1` | `func_0012DB18` | complete, from [the survey](../../docs/port/RAC1_PAL_SURVEY.md) |
-| [rac1-ntsc](rac1-ntsc/README.md) | Ratchet & Clank (NTSC-U) | `games/rac1/ntsc` | `FUN_0012d9d8` | carried from rac1-pal's ([versionmap](../tools/versionmap/README.md)); runs into its title loop |
+| [rac1-ntsc](rac1-ntsc/README.md) | Ratchet & Clank (NTSC-U) | `games/rac1/ntsc` | `FUN_0012d9d8` | carried from rac1-pal's ([versionmap](../tools/versionmap/README.md)); plays, like rac1-pal |
 | [rac2-ntsc](rac2-ntsc/README.md) | Going Commando (NTSC-U) | `games/rac2/ntsc` (`src/`, with level placements from `config/levels/functions.tsv`) | `func_00131AE8` (its crt0, the port's own; `main` is `func_00131D98`) | from its symbol table and byte comparison with rac1-pal's and rac4's; reaches its main menu with a further-along decompilation |
 | rac3-ntsc | Up Your Arsenal (NTSC-U) | `games/rac3/ntsc` (without `i5bootn`, the online program; the menu, `frontbin`, as a group of its own) | not known yet | empty |
 | rac4-ntsc | Deadlocked (NTSC-U) | `games/rac4/ntsc` | not known yet | its libc, from `config/libc.tsv` |
@@ -17,15 +17,15 @@ Everything else is shared: game memory and the guest contract
 the library replacements and the program ([common](common)), the platform
 layer and the renderer.
 
-The program in `common/` is being split into three folders, which the build
-takes every `.cpp` file from ([Games.cmake](../cmake/Games.cmake)), so a
-split adds no line to it. They are empty until their splits land:
+The program in `common/` is split into folders. The build takes every `.cpp`
+file from them ([Games.cmake](../cmake/Games.cmake)), so a new file needs no
+CMake line:
 
 | Folder | |
 |---|---|
-| `common/program/` | the program itself, in every game's program, with a window or without: `main`, its options, vsync, the host side of `game_host.h` (from `main.cpp`) |
-| `common/frontend/` | the window, built only with one: the window, frame pacing, interpolation, world submission, input (from `frontend.cpp`) |
-| `common/debug/` | the debug overlay's parts, built only with a window (from `debug_overlay.cpp`): `overlay.h`, which only the overlay's files include, with its state and the helpers its panels share (defined in `overlay.cpp`), and a file for each of the panel's sections and the windows beside them: `frame.cpp`, `renderer.cpp`, `memory.cpp` (with the memory viewer), `mobys.cpp` (with the moby inspector), `game.cpp`, `shaders.cpp` |
+| `common/program/` | The program itself, with or without a window: `main`, its options, vsync, the host side of `game_host.h` |
+| `common/frontend/` | Built only with a window: frame pacing, interpolation, world submission, input |
+| `common/debug/` | The debug overlay and menu, built only with a window. `overlay.h` holds the state its panels share; each panel and window has its own file |
 
 ## What a game is
 

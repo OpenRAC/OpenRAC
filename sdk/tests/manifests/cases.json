@@ -35,7 +35,7 @@
        "author": "OpenRAC contributors",
        "description": "Strafe as in the later games.",
        "license": "GPL-3.0-or-later",
-       "homepage": "https://github.com/OpenRAC/rac1-mods",
+       "homepage": "https://github.com/OpenRAC/openrac-mods",
        "api": "1.2",
        "games": {"rac1": ["pal", "ntsc"]},
        "plugin": {"macos-arm64": "lib/macos-arm64/lock_strafe.dylib", "linux-x86_64": "lib/linux-x86_64/lock_strafe.so", "windows-x86_64": "lib/windows-x86_64/lock_strafe.dll"},

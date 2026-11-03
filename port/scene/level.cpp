@@ -25,6 +25,47 @@ namespace openrac::scene {
 
 namespace fs = std::filesystem;
 
+namespace {
+// The importer already maps exported joint_NNN names to the game's stable joint numbers.
+int bone_number(const cgltf_node* node, int fallback) {
+    if (node && node->name && std::strncmp(node->name, "joint_", 6) == 0) {
+        return std::clamp(std::atoi(node->name + 6), 0, 255);
+    }
+    return fallback;
+}
+
+// Retain bind frames so P*S skinning palettes can recover the attachment frame P.
+void retain_bones(Model& model, const cgltf_skin& skin) {
+    for (cgltf_size j = 0; j < skin.joints_count; ++j) {
+        const auto* joint = skin.joints[j];
+        const int number = bone_number(joint, int(j));
+        model.bones.resize(std::max(model.bones.size(), std::size_t(number + 1)));
+        auto& bone = model.bones[std::size_t(number)];
+        bone.name = joint && joint->name ? joint->name : "joint_" + std::to_string(number);
+        Mat4 inverse{};
+        // A glTF without inverse binds defines identity, not a guessed vertex-space pivot.
+        if (skin.inverse_bind_matrices) {
+            if (!cgltf_accessor_read_float(skin.inverse_bind_matrices, j, inverse.data(), 16)) {
+                bone.name.clear();
+                continue;
+            }
+            const auto bind = renderer::inverse_affine(inverse);
+            if (bind) {
+                bone.bind = *bind;
+            } else {
+                bone.name.clear();
+            }
+        }
+        for (cgltf_size p = 0; p < skin.joints_count; ++p) {
+            if (joint && joint->parent == skin.joints[p]) {
+                bone.parent = bone_number(skin.joints[p], int(p));
+                break;
+            }
+        }
+    }
+}
+}  // namespace
+
 const char* layer_name(Layer layer) {
     switch (layer) {
         case Layer::Sky:
@@ -105,8 +146,12 @@ int image_index(const fs::path& requested, LevelData& level) {
         log::warn("texture {}: {}", key, stbi_failure_reason());
         ++level.missing_images;
     }
-    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size.
-    renderer::texture_pack::replace(image);
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size, and its frames
+    // when it is animated.
+    renderer::texture_pack::Replacement replaced;
+    renderer::texture_pack::replace(image, {.level = level.level}, &replaced);
+    level.image_animations.resize(level.images.size());
+    level.image_animations.push_back(std::move(replaced.animation));
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {
@@ -119,6 +164,7 @@ int image_index(const fs::path& requested, LevelData& level) {
     return pixels != nullptr ? static_cast<int>(level.images.size() - 1) : -1;
 }
 
+// Shares equivalent decoded materials while retaining original emission intent for offline review.
 int material_index(const cgltf_material* source, const fs::path& base, LevelData& level) {
     Material m;
     if (source != nullptr) {
@@ -130,6 +176,8 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
             source->has_emissive_strength ? source->emissive_strength.emissive_strength : 1.0f;
         for (unsigned c = 0; c < 3; ++c) {
             m.emission[c] = source->emissive_factor[c] * strength;
+            // Audits retain explicit material intent even when visible strength is zero.
+            m.authored_emission = m.authored_emission || source->emissive_factor[c] > 0;
         }
         const auto* emission = source->emissive_texture.texture;
         if (emission && emission->image && emission->image->uri) {
@@ -167,10 +215,11 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
     }
     for (std::size_t i = 0; i < level.materials.size(); ++i) {
         const Material& o = level.materials[i];
+        // Shared materials must also agree on the emission intent retained for offline auditing.
         if (o.image == m.image && o.cutout == m.cutout && o.blend == m.blend && o.metal == m.metal
             && o.clamp_s == m.clamp_s && o.clamp_t == m.clamp_t && o.colour == m.colour
             && o.emission == m.emission && o.emission_image == m.emission_image
-            && (!m.metal || o.name == m.name)) {
+            && o.authored_emission == m.authored_emission && (!m.metal || o.name == m.name)) {
             return static_cast<int>(i);
         }
     }
@@ -288,6 +337,7 @@ std::optional<std::uint32_t> load_model(
         // The skin's joints as the game numbers them (the exporter names them joint_NNN).
         std::vector<std::uint8_t> skin_joints;
         if (node.skin != nullptr) {
+            retain_bones(model, *node.skin);
             for (cgltf_size j = 0; j < node.skin->joints_count; ++j) {
                 const cgltf_node* joint = node.skin->joints[j];
                 int number = static_cast<int>(j);
@@ -518,23 +568,25 @@ bool load_level(
     if (!json::parse_file((dir / "manifest.json").string(), manifest, error)) {
         return false;
     }
+    out.game = manifest["game"].string();
     const int format = static_cast<int>(manifest["format"].number(-1));
-    if (format != kManifestFormat) {
+    if (format < kManifestFormat || format > kManifestFormatNewest) {
         // Newer levels than the game: the game is the old part, and reading the levels again
         // would not help.
-        error = format > kManifestFormat ? std::format(
-                                               "{}: manifest format {}, newer than this game reads "
-                                               "({}): build the game again",
-                                               dir.string(),
-                                               format,
-                                               kManifestFormat
-                                           )
-                                         : std::format(
-                                               "{}: manifest format {} (this viewer reads {})",
-                                               dir.string(),
-                                               format,
-                                               kManifestFormat
-                                           );
+        error = format > kManifestFormatNewest
+                    ? std::format(
+                          "{}: manifest format {}, newer than this game "
+                          "reads ({}): build the game again",
+                          dir.string(),
+                          format,
+                          kManifestFormatNewest
+                      )
+                    : std::format(
+                          "{}: manifest format {} (this viewer reads {})",
+                          dir.string(),
+                          format,
+                          kManifestFormatNewest
+                      );
         return false;
     }
     out.level = static_cast<int>(manifest["level"].number(-1));
@@ -633,13 +685,20 @@ bool load_level(
     };
 
     std::map<int, ClassModel> ties;
+    // The tie classes' relighting data (format 16), by class: their entry in tie_relight_classes;
+    // the shrub classes' normals (format 17): their entry in shrub_relight_classes.
+    std::map<int, int> tie_relight_class;
+    std::map<int, int> shrub_relight_class;
     std::map<int, ClassModel> shrubs;
     std::map<int, ClassModel> mobys;
     // The shrub classes' billboard fade distances ("billboard_fade", -1 none), when every class
     // has one; and the game's caps, known for Ratchet & Clank's (renderer/world/draw_data.h).
     std::map<int, int> billboard_fades;
+    // The shrub classes' billboard sprites (a "billboard" with a "mesh"), by class.
+    std::map<int, std::uint32_t> billboard_models;
     bool fades_known = true;
     const bool known_caps = manifest["game"].string() == "rac1";
+    const bool vertex_tie_colours = manifest["tie_vertex_colours"].boolean(false);
     std::optional<std::uint32_t> box;
     const json::Value& classes = manifest["classes"];
     const std::pair<const char*, std::map<int, ClassModel>*> families[] =
@@ -651,6 +710,41 @@ bool load_level(
             if (table == &shrubs) {
                 fades_known = fades_known && cls["billboard_fade"].is_number();
                 billboard_fades[id] = static_cast<int>(cls["billboard_fade"].number(-1));
+                if (cls["billboard"]["mesh"].is_string()) {
+                    auto model = model_at(cls["billboard"]["mesh"]);
+                    if (!model) {
+                        return false;
+                    }
+                    billboard_models[id] = *model;
+                }
+            }
+            if (table == &shrubs && cls["relight"]["normals"].items().size() == 96) {
+                std::array<std::array<std::int16_t, 4>, 24> normals{};
+                const auto& n = cls["relight"]["normals"].items();
+                for (std::size_t j = 0; j < 96; ++j) {
+                    normals[j / 4][j % 4] = static_cast<std::int16_t>(n[j].number(0));
+                }
+                shrub_relight_class[id] = static_cast<int>(out.shrub_relight_classes.size());
+                out.shrub_relight_classes.push_back(normals);
+            }
+            if (table == &ties && cls["relight"].is_object()) {
+                const json::Value& r = cls["relight"];
+                TieRelightClass relight;
+                for (const json::Value& n : r["slot_normals"].items()) {
+                    relight.normals.push_back(static_cast<std::uint16_t>(n.number(0)));
+                }
+                for (const json::Value& n : r["vertex_slots"].items()) {
+                    relight.vertices.push_back(static_cast<std::uint16_t>(n.number(0)));
+                }
+                if (r["flat_colour"].is_number()) {
+                    relight.flat = static_cast<std::uint32_t>(r["flat_colour"].number(0));
+                }
+                for (const json::Value& n : r["slot_positions"].items()) {
+                    relight.positions.push_back(static_cast<std::int16_t>(n.number(0)));
+                }
+                relight.scale = static_cast<float>(r["scale"].number(1.0));
+                tie_relight_class[id] = static_cast<int>(out.tie_relight_classes.size());
+                out.tie_relight_classes.push_back(std::move(relight));
             }
             if (cls["mesh"].is_string()) {
                 auto model = model_at(cls["mesh"]);
@@ -983,13 +1077,56 @@ bool load_level(
                 instance.tint = class_colour(id);
             }
             const std::size_t lit = p["colours"].items().size();
-            if ((layer == Layer::Ties && lit == 64) || (layer == Layer::Shrubs && lit == 24)) {
+            // Going Commando's ties carry one colour per vertex of their class (the manifest's
+            // tie_vertex_colours); Ratchet & Clank's one per light slot, 64.
+            const bool tie_lit = vertex_tie_colours ? lit > 0 : lit == 64;
+            if ((layer == Layer::Ties && tie_lit) || (layer == Layer::Shrubs && lit == 24)) {
                 instance.lights = static_cast<int>(out.light_colours.size());
                 for (const json::Value& c : p["colours"].items()) {
                     out.light_colours.push_back(static_cast<std::uint32_t>(c.number(0)));
                 }
             }
+            // What the tie is lit again from when the game moves it (its own placements only).
+            if (layer == Layer::Ties && !tie_relight_class.empty()) {
+                TieRelight relight;
+                const auto relit = tie_relight_class.find(id);
+                const auto& slots = p["slots"].items();
+                if (relit != tie_relight_class.end() && !slots.empty() && !edits[key].is_array()) {
+                    relight.cls = relit->second;
+                    relight.first = static_cast<std::uint32_t>(out.tie_slots.size());
+                    relight.count = static_cast<std::uint16_t>(slots.size());
+                    relight.light_set = static_cast<std::uint8_t>(
+                        static_cast<int>(p["directional_lights"].number(0)) & 0xF
+                    );
+                    for (const json::Value& c : slots) {
+                        out.tie_slots.push_back(static_cast<std::uint32_t>(c.number(0)));
+                    }
+                }
+                out.tie_relight.push_back(relight);
+            }
+            // What the shrub is lit again from (its own placements only).
+            if (layer == Layer::Shrubs && !shrub_relight_class.empty()) {
+                LevelData::ShrubRelight relight;
+                const auto relit = shrub_relight_class.find(id);
+                if (relit != shrub_relight_class.end() && !edits[key].is_array()
+                    && p["colour"].items().size() == 3) {
+                    relight.cls = relit->second;
+                    for (std::size_t c = 0; c < 3; ++c) {
+                        relight.colour[c] =
+                            static_cast<std::int32_t>(p["colour"].items()[c].number(0));
+                    }
+                    relight.select = static_cast<std::int32_t>(p["directional_lights"].number(0));
+                }
+                out.shrub_relight.push_back(relight);
+            }
             out.instances[static_cast<std::size_t>(layer)].push_back(instance);
+            // In the game's order only when they are the level's own shrubs.
+            if (layer == Layer::Shrubs && !edits[key].is_array()) {
+                const auto billboard = billboard_models.find(id);
+                out.shrub_billboards.push_back(
+                    billboard != billboard_models.end() ? static_cast<int>(billboard->second) : -1
+                );
+            }
             if (known_caps && (layer == Layer::Ties || (layer == Layer::Shrubs && fades_known))) {
                 out.draw_distances[static_cast<std::size_t>(layer)].push_back(
                     game_draw_distance(layer, p["draw_distance"], billboard_fades[id])
@@ -1129,6 +1266,23 @@ bool load_level(
     }
     if (out.bounds_min[0] > out.bounds_max[0]) {
         out.bounds_min = out.bounds_max = Vec3{};
+    }
+    // A texture the game swaps in place (Going Commando's ship paint jobs): the image its faces
+    // use and every one it can be, which the window binds in its place (LevelScene::set_variant).
+    const json::Value& paints = manifest["ship_paints"];
+    if (paints.is_object() && paints["texture"].is_string()) {
+        const auto& images = out.image_paths;
+        const std::string used = override_of(dir / paints["texture"].string(), out, nullptr)
+                                     .lexically_normal()
+                                     .generic_string();
+        if (std::find(images.begin(), images.end(), used) != images.end()) {
+            out.variant_image = image_index(dir / paints["texture"].string(), out);
+            for (const json::Value& paint : paints["paints"].items()) {
+                out.variant_images.push_back(
+                    paint.is_string() ? image_index(dir / paint.string(), out) : -1
+                );
+            }
+        }
     }
     if (out.overridden_models > 0 || out.overridden_images > 0) {
         log::info(

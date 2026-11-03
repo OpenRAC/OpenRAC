@@ -2,6 +2,9 @@
 // Copyright (c) 2026 the OpenRAC contributors
 // Offline simplification against full-density directional lighting and visibility.
 #pragma once
+#include <functional>
+
+#include "enhanced/lighting/bake_workers.h"
 #include "enhanced/lighting/room_layout.h"
 
 namespace openrac::lighting::bake_detail {
@@ -9,6 +12,8 @@ struct ProbeDensitySettings {
     bool enabled = false;
     float relative_error = .1f;
     float absolute_error = .02f;  // Linear irradiance; dark references use a stricter floor.
+    ProbeTextureFormat texture_format =
+        ProbeTextureFormat::R11G11B10;  // Compare the actual stored colours.
     void validate() const;
 };
 
@@ -37,13 +42,28 @@ std::vector<ProbeDensityReceiver> probe_density_receivers(
     unsigned threads = 0
 );
 
+// Borrows unchanged comparison evidence and the controller's execution budget until reduction returns.
+struct ProbeDensityInput {
+    const ProbeVolume& coarse;  // Background field used by the final sparse/local blend.
+    std::span<const ProbeDensityReceiver>
+        receivers;               // Playable surfaces that must retain lighting.
+    BakeExecution execution{1};  // Compression shares workers without changing density settings.
+    // Optional identity function finalizes candidate headers before their first and only encoding.
+    std::function<std::uint64_t(const ProbeGrid&)> settings_hash{};
+};
+
+// Owns the chosen raw grid and its already encoded payload, plus a fallback only after reduction.
+struct ProbeDensityReduction {
+    ProbeVolume volume;  // Chosen lattice, retaining original unquantized samples and metadata.
+    std::vector<std::uint8_t> bytes;  // Chosen GPU-format asset, never re-encoded by output.
+    std::vector<std::uint8_t> reference_bytes;  // Original asset, present only for reduced grids.
+    ProbeDensityReport
+        report;  // The same receiver checks and reduction decisions as serial baking.
+};
+
 // Keep exact original capture positions, moments and endpoints. Each axis may double its spacing;
 // rejected candidates retain the fine grid. No candidate is compared against an earlier reduction.
-ProbeVolume simplify_probe_density(
-    ProbeVolume reference,
-    const ProbeVolume& coarse,
-    std::span<const ProbeDensityReceiver> receivers,
-    const ProbeDensitySettings& settings,
-    ProbeDensityReport& report
+ProbeDensityReduction simplify_probe_density(
+    ProbeVolume reference, const ProbeDensityInput& input, const ProbeDensitySettings& settings
 );
 }  // namespace openrac::lighting::bake_detail

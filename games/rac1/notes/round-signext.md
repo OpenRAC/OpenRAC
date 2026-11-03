@@ -1,7 +1,7 @@
 # Round notes: cashing in the sign-extension solution
 
 > **Historical round notes (September 2026), kept as a record.**
-> `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
+> `docs/reference/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:
 > - `func_00217860` and `func_002178C0` ("blocked on the unsolved sq/lq
 >   question") and `func_00217A60` ("hinges on movn") are now exact;

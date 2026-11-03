@@ -56,6 +56,8 @@
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
+#include "renderer/gl_warmup.h"
+#include "renderer/precise_depth.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "renderer/ui/fps_counter.h"
@@ -177,11 +179,48 @@ platform::DisplayMode window_mode(settings::DisplayMode mode) {
     }
 }
 
+// OPENRAC_HDR_FRAME: every 60th frame, how much of the HDR frame (half floats) lies above white
+// and its brightest value, in the log. A frame that is not in half floats is not read.
+void log_hdr_frame(unsigned framebuffer, int width, int height) {
+    using namespace gl;
+    static int frames = 0;
+    if (!env::flag(env::Var::HdrFrame) || ++frames % 60 != 0 || width <= 0 || height <= 0) {
+        return;
+    }
+    std::vector<float> pixels(static_cast<std::size_t>(width) * height * 4, -1.0f);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT, pixels.data());
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    std::size_t above = 0;
+    std::size_t below = 0;
+    float brightest = 0.0f;
+    for (std::size_t n = 0; n < pixels.size(); n += 4) {
+        const float m = std::max({pixels[n], pixels[n + 1], pixels[n + 2]});
+        above += m > 1.0f + 1.0f / 512.0f ? 1 : 0;
+        below += std::min({pixels[n], pixels[n + 1], pixels[n + 2]}) < -1.0f / 512.0f ? 1 : 0;
+        brightest = std::max(brightest, m);
+    }
+    if (pixels[0] < 0.0f && brightest == 0.0f) {
+        return;  // not read: an 8-bit frame
+    }
+    const double count = static_cast<double>(pixels.size() / 4);
+    log::info(
+        "hdr frame {}: {:.2f}% of pixels above white, brightest {:.3f}, {:.3f}% below black",
+        frames,
+        100.0 * static_cast<double>(above) / count,
+        brightest,
+        100.0 * static_cast<double>(below) / count
+    );
+}
+
 // Draws `framebuffer` (width x height) into the window's box, black around it; `flip`: its first
 // row is the top (an uploaded picture) rather than the bottom (a rendered frame).
 void present(unsigned framebuffer, int width, int height, int window_width, int window_height, bool flip,
              float aspect = kTvAspect) {
     using namespace gl;
+    if (!flip) {
+        log_hdr_frame(framebuffer, width, height);
+    }
     const Box b = frame_box(window_width, window_height, aspect);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glDisable(GL_SCISSOR_TEST);
@@ -314,6 +353,12 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g = std::make_unique<State>();
     g->game = game_id;
     g->profile = &host::game_profile(game_id);
+    // Before the first frame buffer is made (they keep their depth format).
+    renderer::request_precise_depth(g->profile->precise_depth());
+    scene::set_moby_anim_fields(g->profile->moby_anim_fields());
+    scene::set_moby_layer_records(g->profile->moby_layer_records());
+    const auto [inner, span] = g->profile->stick_dead_zone();
+    g->input.set_stick_dead_zone({inner, span});
     g->levels = levels;
     // Before SDL starts: on Wayland the app id names the program to the desktop, and a machine
     // with two graphics cards is asked for the fast one.
@@ -347,6 +392,19 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     // display's, the frames between ticks moving the scene on (between), each shown at a refresh
     // when the player's vsync is on (wanted_swap).
     config.vsync = false;  // set below, as asked
+#if !defined(__ANDROID__)
+    // A first start covers the screen; checks and tools (a hidden window, no real display) keep
+    // their window.
+    {
+        const char* driver = SDL_GetCurrentVideoDriver();
+        const bool no_display =
+            driver != nullptr
+            && (std::strcmp(driver, "offscreen") == 0 || std::strcmp(driver, "dummy") == 0);
+        if (settings::first_start_display(env::flag(env::Var::Hidden) || no_display)) {
+            log::info("first start: the game covers the screen (display_mode = borderless)");
+        }
+    }
+#endif
     const settings::Settings& chosen = settings::get();
     if (chosen.window_width >= 320 && chosen.window_height >= 240) {
         // The window as the player left it.
@@ -367,6 +425,9 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     // OPENRAC_HIDDEN=1: the window is made and drawn as always but never shown, for scripted runs
     // that should not open windows on the player's screen (several can run at once).
     config.hidden = env::flag(env::Var::Hidden);
+    // HDR output may be turned on later only when it was not off at start (common/hdr.h).
+    config.hdr = chosen.hdr != hdr::Mode::Off;
+    g->hdr_at_start = config.hdr;
     g->window = platform::Window::open(config, error);
     if (!g->window) {
         return false;
@@ -376,6 +437,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     g->swap_asked = wanted_swap();
     g->swap = g->window->set_swap_interval(g->swap_asked);
     g->window->set_low_latency(settings::get().low_latency_frames);
+    apply_hdr();
     g->display_mode = chosen.display_mode;
     g->monitor = chosen.monitor;
     g->fullscreen_width = chosen.fullscreen_width;
@@ -390,12 +452,26 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     }
     // [debug tools] The renderer's GL calls counted from here on (renderer/gl_stats.h).
     renderer::gl_stats::install(platform::Window::gl_loader());
+    // OpenGL's drawn states noted, to draw them again at each level's load (renderer/gl_warmup.h).
+    renderer::gl_warmup::install(platform::Window::gl_loader());
     log::info("graphics: up to {} samples a pixel, anisotropy up to {:.0f}; the swap {}", 
               renderer::FrameBuffer::max_samples(), renderer::TexturePool::max_anisotropy(),
               g->swap == platform::SwapInterval::Immediate ? "does not wait"
               : g->swap == platform::SwapInterval::Adaptive ? "waits for the display (adaptive)"
                                                             : "waits for the display");
+    if (g->profile->precise_depth()) {
+        log::info(
+            "graphics: world depth {}",
+            renderer::precise_depth()
+                ? "32-bit float, z to the window as it is (glClipControl)"
+                : "in GL's form: no glClipControl here (GameProfile::depth_near)"
+        );
+    }
     return true;
+}
+
+std::uint32_t draw_buffer_block() {
+    return g != nullptr && g->profile != nullptr ? g->profile->draw_buffer_block() : 0;
 }
 
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count) {
@@ -533,6 +609,7 @@ void close() {
         // Temporal histories reference the target and scene, so retire them before either owner.
         g->temporal.reset();
         g->agx.release();
+        g->haze.release();
         g->frame.release();
         g->picture.release();
         g->last_world.release();

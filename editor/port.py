@@ -20,6 +20,7 @@ reads in place of the Godot scene:
     probe-bake.json    matching authored lighting profile, when one exists
     probe-emission.json matching shared runtime/bake emission profile, when one exists
     water-boundaries.json matching authored water outlets, when one exists
+    bake-inputs/overlay.bin raw Novalis NTSC water tables for automatic preparation
 
 A moby placement's matrix is the instance's own (position, rotation, scale);
 the class scale in the manifest multiplies in when the class mesh is drawn,
@@ -35,25 +36,52 @@ from enhanced.bake_inputs import write_bake_inputs
 from enhanced.profiles import write_bake_profile
 from formats import png, unpack
 import games
+import gc_tie_colours
 from gltf import Gltf
 from godot import PANORAMA, STORED_W, LevelWriter, chunk_terrain, problem_summary
-from level import Level
+from level import SHIP_TEXTURE, Level
 from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
 from mobys import moby_class_names, moby_instances
-from shrubs import shrub_billboard_fades, shrub_class_normals, shrub_classes, shrub_instances
+from shrubs import billboard_mesh, shrub_billboard_fades, shrub_class_normals, shrub_classes, shrub_instances
 from sky import Sky, level_sky, panorama
 from terrain import terrain
 from occlusion import export_pvs
 from ties import tie_classes, tie_instances, tie_slot_normals
 
-# The export's format: the port reads only its own (viewer/level.h kManifestFormat), and its level
+# The export's format: the port reads only its own (scene/level.h kManifestFormat), and its level
 # check names the format in the stamp the launcher waits for, so levels exported before a change
 # are read from the disc again. 2: the mobys' metal packets and the chrome and glass maps. 3: the
 # gadget classes whose bind pose collapses a joint (the Blaster, the Pyrocitor). 4: the textures the
 # game clamps (terrain, ties, shrubs, the sky) have clamping samplers.
 FORMAT = 4
+# A game whose export moved on alone: a bump here reads only that game's levels again, as the other
+# games' files are the same. The layout is the shared one. Going Commando, 5: Ratchet's mesh and
+# textures from the disc's hero pack. 6: the flights to a planet as levels 95 to 98. 7: what he
+# holds, from the banks the game loads it from, the wrench from its pack, his other looks as classes
+# of their own, and the picture on his ship. 8: the chrome and glass maps, from the texture data.
+# 9: the mobys' glow vertices and their light sets. 10: the ties' vertex colours. 11: the classes'
+# bangles as classes of their own (the broken crates' and destroyed enemies' pieces). 12: the
+# terrain's vertex colours and the shrubs' colours, lit as the game lights them at level load. 13: his
+# ship's hulls in every level, as the game loads them on each level's load, not only in the flights.
+# 14: the chrome and glass maps from the GS RAM lump's stash, where the game takes them (8 read the
+# texture data's first picture). 15: every paint job of his ship ("ship_paints"), not only the first.
+# 16: each tie's slots before lighting and each tie class's scale, slot normals, slot positions
+# and vertex makeup ("relight"), for the ties the game moves and the point lights light again.
+# 17: each shrub class's 24 normals ("relight"), for the shrubs a point light reaches.
+# 18: the gameplay copy the probe baker plans enhanced lighting from (bake-inputs/gameplay.bin,
+# manifest bake_inputs).
+# 19: the reviewed emission catalog's textures resolved into probe-emission.json, the level sky
+# and sun profiles (probe-bake.json) the baker reads, from port/enhanced/lighting/profiles/rac2-ntsc.
+# 20: the liquid surfaces the baker lights from (bake-inputs/liquids.json and their effect textures,
+# manifest bake_inputs "liquids").
+GAME_FORMATS = {"rac2": 20}
+
+
+def levels_format(game: str) -> int:
+    """The format of GAME's exported levels."""
+    return GAME_FORMATS.get(game, FORMAT)
 
 
 def sky_glb(data: Sky, texture_uri) -> bytes:
@@ -120,11 +148,14 @@ class PortLevelWriter(LevelWriter):
 
     def __init__(self, out: Path, level: Level, normals=None):
         super().__init__(out, level)
+        # Going Commando's tie classes' relighting data (colour_tie_vertices), by class.
+        self.tie_relight = {}
+        self.shrub_relight = {}
         self.dir = out / self.name
         # The executable's (cos, sin) table: with it the terrain is lit as the game lights it.
         self.normals = normals
         self.classes = {"tie": {}, "shrub": {}, "moby": {}}
-        self.placements = {"format": FORMAT, "ties": [], "shrubs": [], "mobys": []}
+        self.placements = {"format": levels_format(self.fmt.game), "ties": [], "shrubs": [], "mobys": []}
         self.sky = None
 
     def write(self, lod: int) -> dict:
@@ -132,14 +163,19 @@ class PortLevelWriter(LevelWriter):
         self.dir.mkdir(parents=True)
         problems = level.problems if fmt.lenient else None
         self.write_environment(level_sky(level, fmt))
-        # The game's lighting at level load needs the executable's normal table, which only
-        # Ratchet & Clank's is known for (disc.Version.normal_table): the later games' levels go
-        # out unlit, their vertex colours left to the renderer's defaults.
+        # The game's lighting at level load needs the executable's normal table (Ratchet &
+        # Clank's disc.Version.normal_table, the later games' wads.Version.normal_table). Going
+        # Commando's terrain and shrubs are lit so (world_lighting); its ties have a reader of
+        # their own, and the games with no table go out unlit, their vertex colours left to the
+        # renderer's defaults.
         lights = (light_bank(level.gameplay), self.normals) if self.normals is not None and fmt.lighting else None
+        terrain_lights = (lights if lights is not None or not fmt.world_lighting or self.normals is None
+                          else (light_bank(level.gameplay), self.normals))
         # The terrain block (usually at the core's start, offset 0); the flight world has none.
         tfrags, = unpack("<I", level.index, 0x08)
         has_terrain = not getattr(level, "no_terrain", False)
-        self.write_terrain(terrain(level.block(tfrags), lod, lights, problems) + chunk_terrain(level, lod, lights, problems)
+        self.write_terrain(terrain(level.block(tfrags), lod, terrain_lights, problems)
+                           + chunk_terrain(level, lod, terrain_lights, problems)
                            if has_terrain else [], lod)
         ties = tie_classes(level)
         tie_placements = tie_instances(level.instances, ties, fmt, problems)
@@ -151,16 +187,24 @@ class PortLevelWriter(LevelWriter):
                 lit = light_tie_instance(normals[p["class_id"]], p["matrix"], p["ambient"],
                                          p["directional_lights"], lights[0])
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
+        elif fmt.tie_header.vertex_colours:
+            self.colour_tie_vertices(tie_placements, set(ties))
         self.write_objects("tie", ties, tie_placements)
         shrubs = shrub_classes(level)
         shrub_placements = shrub_instances(level.instances, shrubs, fmt, problems)
-        if lights is not None:
+        if terrain_lights is not None:
             # Each instance's 24 colours as LightShrubs leaves them at level load, one per
             # class normal; a vertex takes the one of its normal (_LIGHT_SLOT).
             normals = shrub_class_normals(level)
+            # What the port lights a shrub again from when a point light reaches it or the game
+            # moves it (format 17): the class's 24 normals, with their fourth word.
+            self.shrub_relight = {c: {"normals": [v for j in range(24) for v in unpack(
+                "<4h", level.block(start), unpack("<I", level.block(start), 0x2c)[0] + 8 * j)]}
+                for start, c in (unpack("<II", e) for e in level.table(0x28, 48))
+                if c in shrubs and fmt.world_lighting}
             for p in shrub_placements:
                 lit = light_shrub_instance(normals[p["class_id"]], p["matrix"], p["colour"],
-                                           p["directional_lights"], lights[0])
+                                           p["directional_lights"], terrain_lights[0])
                 p["colours"] = [r | g << 8 | b << 16 | a << 24 for r, g, b, a in lit]
         self.write_objects("shrub", shrubs, shrub_placements)
         self.write_shrub_billboards(shrub_billboard_fades(level))
@@ -172,9 +216,53 @@ class PortLevelWriter(LevelWriter):
             self.write_collision(level.block(collision), [block for _, _, block in level.chunks if block])
         return self.finish()
 
+    def colour_tie_vertices(self, placements: list[dict], exported: set[int]) -> None:
+        """Each instance's colour per vertex of its class (Going Commando): the gameplay file's
+        colour entry lit by the instance's directional light set, as the game's vertex colour
+        cache holds it (gc_tie_colours); a vertex's light slot is its place in that list."""
+        level = self.level
+        entries = gc_tie_colours.colour_entries(level.gameplay)
+        bank = [[list(struct.unpack("<4f", struct.pack("<4I", *v))) for v in s]
+                for s in light_bank(level.gameplay)]
+        blobs = {}
+        for entry in level.table(0x20, 32):
+            start, class_id = unpack("<II", entry)
+            if class_id in exported:
+                blobs[class_id] = level.block(start)
+        coloured = 0
+        for p in placements:
+            entry, blob = entries.get(p["index"]), blobs.get(p["class_id"])
+            if entry is None or blob is None:
+                continue
+            try:
+                p["colours"] = gc_tie_colours.vertex_colours(
+                    entry, blob, p["matrix"], bank[p["directional_lights"] & 0xF])
+                # What the game lights again when it moves the instance (format 15): its slots
+                # before lighting, and its class's slot normals and vertex makeup (relight).
+                count, = unpack("<H", blob, 0x38)
+                p["slots"] = [r | g << 8 | b << 16 | a << 24
+                              for r, g, b, a in gc_tie_colours.decode_slots(entry, count)]
+                if p["class_id"] not in self.tie_relight:
+                    flat = gc_tie_colours.flat_colour(blob)
+                    self.tie_relight[p["class_id"]] = {
+                        "scale": gc_tie_colours.class_scale(blob),
+                        "slot_normals": gc_tie_colours.slot_normal_codes(blob),
+                        "slot_positions": gc_tie_colours.slot_positions(blob),
+                        "vertex_slots": [x for ref in gc_tie_colours.vertex_slot_refs(blob) for x in ref],
+                        **({"flat_colour": flat} if flat is not None else {})}
+            except (struct.error, IndexError) as exc:
+                if level.problems is not None:
+                    level.problems.append(f"tie instance {p['index']}: colours not read ({exc})")
+                continue
+            coloured += 1
+        self.stats["tie_vertex_colours"] = coloured
+
     def write_objects(self, family: str, classes: dict[int, Mesh], placements: list[dict]) -> None:
         super().write_objects(family, classes, placements)
-        self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb"} for c in sorted(classes)}
+        relight = self.tie_relight if family == "tie" else self.shrub_relight if family == "shrub" else {}
+        self.classes[family] = {str(c): {"mesh": f"{family}s/{family}_{c}.glb",
+                                         **({"relight": relight[c]} if c in relight else {})}
+                                for c in sorted(classes)}
         self.placements[f"{family}s"] = [placement(p) for p in placements]
 
     def write_shrub_billboards(self, fades: dict[int, int]) -> None:
@@ -183,6 +271,11 @@ class PortLevelWriter(LevelWriter):
         raises a billboard class's to F + 24), for the port's Scenery detail: Original."""
         for class_id, entry in self.classes["shrub"].items():
             entry["billboard_fade"] = fades.get(int(class_id), -1)
+            # The sprite the game draws in place of the far instances, when it has a texture.
+            if fades.get(int(class_id), -1) >= 0 and ("billboard", int(class_id)) in self.level.textures:
+                path = f"shrubs/billboard_{class_id}.glb"
+                self.glb(path, [billboard_mesh(int(class_id))], 1)
+                entry["billboard"] = {"mesh": path}
         self.stats["shrub_billboards"] = sum(1 for f in fades.values() if f >= 0)
 
     def write_mobys(self, placements: list[dict], classes: dict[int, MobyClass | None]) -> None:
@@ -228,6 +321,15 @@ class PortLevelWriter(LevelWriter):
     def finish(self) -> dict:
         """Textures, placements.json and manifest.json."""
         export_pvs(self.level, self.dir)
+        # His ship's paint jobs (Going Commando): the faces that wear the ship's picture are
+        # exported with paint 0; the port draws them with the one the game loaded.
+        ship = f"moby_{SHIP_TEXTURE:04}"
+        paints = []
+        if self.level.ship_paints and ship in self.textures:
+            for number, texture in enumerate(self.level.ship_paints):
+                name = ship if number == 0 else f"ship_paint_{number:02}"
+                self.textures[name] = texture
+                paints.append(f"textures/{name}.png")
         (self.dir / "textures").mkdir(parents=True, exist_ok=True)
         for name, texture in sorted(self.textures.items()):
             (self.dir / "textures" / f"{name}.png").write_bytes(texture.png())
@@ -239,13 +341,15 @@ class PortLevelWriter(LevelWriter):
         self.stats["bounds"] = [list(bounds[0]), list(bounds[1])]
         if self.fmt.lenient:
             self.stats["problems"] = problem_summary(self.level.problems)
-        manifest = {"format": FORMAT, "game": self.fmt.game, "version": self.level.version, "level": self.level.id,
+        manifest = {"format": levels_format(self.fmt.game), "game": self.fmt.game, "version": self.level.version, "level": self.level.id,
                     "axes": "game units, Z up; matrices column-major",
                     "terrain": "terrain.glb" if (self.dir / "terrain.glb").exists() else None,
                     "collision": "collision.glb" if (self.dir / "collision.glb").exists() else None,
                     "sky": self.sky, "classes": self.classes, "placements": "placements.json",
                     "textures": sorted(f"textures/{name}.png" for name in self.textures),
                     "bounds": self.stats["bounds"], "stats": self.stats}
+        if paints:
+            manifest["ship_paints"] = {"texture": f"textures/{ship}.png", "paints": paints}
         bake_inputs = write_bake_inputs(self.level, self.dir)
         write_bake_profile(self.level, self.dir)
         if bake_inputs:
@@ -253,7 +357,11 @@ class PortLevelWriter(LevelWriter):
         if self.fmt.lenient:
             # Early access: what the editor and the overrides packs can use, and what not yet.
             manifest["early_access"] = {"playable": False, "packable": False, "lit": False}
-        if self.normals is not None and self.fmt.lighting:
+        if self.fmt.tie_header.vertex_colours:
+            # A tie placement's "colours" are one per vertex of its class, and a vertex's light
+            # slot is its place in that list (not one of 64 slot colours).
+            manifest["tie_vertex_colours"] = True
+        if self.fmt.moby_lights or (self.normals is not None and self.fmt.lighting):
             # The 16 directional light sets the level loader copies from the gameplay file
             # (colour A with its back factor in w, direction A, colour B, direction B): what
             # the game lights its mobys with.

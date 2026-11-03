@@ -28,7 +28,7 @@ def main():
         command = [str(qemu), '-L', str(sysroot), str(assembler)]
     version = subprocess.check_output([*command, '--version'], text=True).splitlines()[0]
     assert version == 'GNU assembler 2.10-ee-001003-1', version
-    source = Path('src/core/00121750.c')
+    source = Path('src/core/cdvd/read.c')
     text = source.read_text()
     work = Path('build-sn/verify-read-assembler')
     obj = try_func.build('func_00121750', 'core_text', source, 0,

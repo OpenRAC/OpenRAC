@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+#include <stdexcept>
+
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
+#include "scene/level_renderer_internal.h"
+#include "scene/shadow_graph.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
@@ -55,7 +59,8 @@ bool LevelScene::make_scrolling_target(unsigned cascade) {
     }
     const bool fresh = !scroll.statics->id() || !scroll.combined;
     std::string error;
-    if (!scroll.statics->id() && !scroll.statics->create(size, size, error, 1, true)) {
+    if (!scroll.statics->id()
+        && !render_detail::create_shadow_target(*scroll.statics, size, error)) {
         log::warn("scrolling shadow cache {} unavailable: {}", cascade, error);
         scroll.grid.invalidate();
         return false;
@@ -89,20 +94,41 @@ bool LevelScene::make_scrolling_target(unsigned cascade) {
 void LevelScene::draw_scrolling_regions(unsigned cascade, renderer::RenderState& state) {
     const auto& scroll = m_scroll_shadows[cascade];
     const int size = m_shadow_layout.rects[cascade][2];
-    for (const auto& region : scroll.update.regions) {
-        draw_shadow_map(
-            scroll.statics->id(),
-            size,
-            shadow_scroll_matrix(scroll.update, region, size),
-            false,
-            m_hero_ready,
-            state,
-            kSunCascades,
-            -1,
-            false,
-            ShadowCasters::StaticOpaque,
-            &region.physical
-        );
+    // Cache hits retain sampled depth without recording an empty attachment pass.
+    if (scroll.update.regions.empty()) {
+        return;
+    }
+    const auto grid = scroll.grid;
+    const auto update = scroll.update;
+    // A rejected or incomplete deferred writer must force a complete refresh on the next frame.
+    m_scroll_shadows[cascade].grid.invalidate();
+    // A fully covered initial update defines the whole toroidal image; later strips preserve their neighbours.
+    const auto drawn = shadow_depth_pass(
+        "scrolling static shadow updates",
+        scroll.statics->id(),
+        scroll.update.full ? ShadowDepthContents::Clear : ShadowDepthContents::Preserve,
+        [this, &state, cascade, size, grid, update = update] {
+            // Frozen dirty rectangles retain their original toroidal mappings through execution.
+            for (const auto& region : update.regions) {
+                draw_shadow_map(
+                    m_scroll_shadows[cascade].statics->id(),
+                    size,
+                    shadow_scroll_matrix(update, region, size),
+                    false,
+                    m_hero_ready,
+                    state,
+                    kSunCascades,
+                    -1,
+                    false,
+                    ShadowCasters::StaticOpaque,
+                    &region.physical
+                );
+            }
+            m_scroll_shadows[cascade].grid = grid;
+        }
+    );
+    if (!drawn) {
+        throw std::runtime_error(drawn.error().message);
     }
 }
 
@@ -159,19 +185,30 @@ void LevelScene::combine_scrolling_shadows(unsigned mask, renderer::RenderState&
         );
         // Restore static casters in this atlas rectangle if composition fails.
         if (!scroll.active) {
-            draw_shadow_map(
+            // A failed composition falls back to retained atlas depth plus the missing static opaque casters.
+            const auto restored = shadow_depth_pass(
+                "shadow composition fallback",
                 m_shadow_atlas->id(),
-                m_shadow_layout.rects[i][2],
-                m_sun_cascades.matrices[i],
-                false,
-                m_hero_ready,
-                state,
-                i,
-                static_cast<int>(i),
-                true,
-                ShadowCasters::StaticOpaque
+                ShadowDepthContents::Preserve,
+                [this, &state, i] {
+                    draw_shadow_map(
+                        m_shadow_atlas->id(),
+                        m_shadow_layout.rects[i][2],
+                        m_sun_cascades.matrices[i],
+                        false,
+                        m_hero_ready,
+                        state,
+                        i,
+                        static_cast<int>(i),
+                        true,
+                        ShadowCasters::StaticOpaque
+                    );
+                    m_scroll_shadows[i].grid.invalidate();
+                }
             );
-            scroll.grid.invalidate();
+            if (!restored) {
+                throw std::runtime_error(restored.error().message);
+            }
         } else {
             ++active;
         }

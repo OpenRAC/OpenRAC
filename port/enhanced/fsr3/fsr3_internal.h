@@ -5,12 +5,14 @@
 #pragma once
 
 #include <chrono>
-#include <unordered_map>
 #include <vector>
 
+#include "enhanced/asr/asr_context.h"
 #include "enhanced/fsr3/frame_target.h"
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/fsr3/motion_blur.h"
+#include "enhanced/fsr3/object_history.h"
+#include "enhanced/fsr3/palette_history.h"
 #include "enhanced/fsr3/sdk_context.h"
 #include "renderer/framebuffer.h"
 #include "renderer/renderer.h"
@@ -26,7 +28,16 @@ struct Fsr3::State {
     renderer::MotionBlurSettings blur_settings;
     bool camera_blur = false;
     bool blur_mode_changed = false;
-    fsr3_detail::SdkContext sdk;        // AMD pipelines and GPU history.
+    fsr3_detail::SdkContext sdk;       // AMD pipelines and GPU history.
+    asr_detail::AsrContext asr;        // Arm's pipelines and GPU history, on tile-based GPUs.
+    bool use_asr = false;              // Whether asr, not sdk, holds the live history.
+    bool asr_refused = false;          // ASR could not start on this device; FSR 3.1 stays.
+    bool asr_dispatch_failed = false;  // This frame's ASR dispatch failed; FSR 3.1 takes over.
+    // No upscaler: the world is copied to the picture unjittered, for motion blur alone (temporal
+    // upscaling off) or on Android when ASR cannot run (FSR 3.1 is never used there).
+    bool plain_wanted = false;
+    bool plain = false;
+    [[nodiscard]] bool asr_possible() const;
     renderer::FrameBuffer world;        // Render-resolution colour and sampleable opaque depth.
     fsr3_detail::FrameTarget motion;    // RGBA16F: pixel velocity XY and reactive coverage Z.
     fsr3_detail::FrameTarget depth;     // R32F copy, avoiding depth/stencil view reinterpretation.
@@ -38,12 +49,12 @@ struct Fsr3::State {
     renderer::Shader late_world_depth;  // Display-resolution depth for late world effects.
     renderer::Shader reactive_mask;     // Particle colour-difference mask.
     unsigned vao = 0;                   // Empty VAO for fullscreen triangles.
-    unsigned previous_palette = 0;      // Previous displayed joint matrices.
+    fsr3_detail::PaletteHistory previous_palette;  // Previous displayed joint matrices.
     unsigned output_texture = 0;        // Display texture last made storage-capable.
 
     std::vector<scene::Instance> instances;  // Current displayed live mobys.
     std::vector<renderer::Mat4> palette;     // Current displayed joints, padded only on upload.
-    std::unordered_map<std::uint64_t, scene::Instance> previous;  // Last displayed live identities.
+    fsr3_detail::ObjectHistory previous;     // Last displayed live identities.
     std::vector<scene::MotionInstance> velocities;  // Current/previous pairs for the velocity pass.
 
     renderer::Camera camera;                    // Current unjittered camera.
@@ -61,6 +72,8 @@ struct Fsr3::State {
     bool valid = false;       // Previous camera and object poses belong to a completed frame.
     bool has_opaque = false;  // The current frame reached its preparticle snapshot hook.
     bool failed = false;      // Suppresses repeated SDK failures until resources are released.
+    std::function<void()>
+        finish_colour;  // Frame-owned colour grading callback, retained through resolve.
 
     // Builds renderer-owned helper shaders lazily, before recording any temporal frame.
     [[nodiscard]] bool build_shaders(std::string& error);
@@ -68,6 +81,12 @@ struct Fsr3::State {
     [[nodiscard]] bool configure(
         renderer::FrameBuffer& output, std::array<int, 2> size, std::string& error
     );
+    // Configures Arm ASR where it is preferred and starts, otherwise FSR 3.1.
+    [[nodiscard]] bool configure_upscaler(
+        std::array<int, 2> size, std::array<int, 2> display_size, std::string& error
+    );
+    // Records the chosen upscaler over colour, depth, motion, reactive mask and output.
+    [[nodiscard]] bool dispatch_upscaler(std::array<unsigned, 5> inputs, std::string& error);
     // Applies a new jitter sample and establishes current/previous camera transforms.
     [[nodiscard]] bool prepare_camera(TemporalFrame frame, float sharpness, std::string& error);
     // Installs the render-resolution world target and the synchronous reconstruction callbacks.
@@ -86,6 +105,12 @@ struct Fsr3::State {
     void draw_reactive();
     // Resolves world colour, retains history and changes the caller's target to display resolution.
     void resolve(renderer::RenderTarget& target);
+    // Prepares motion, reconstruction and blur without committing displayed-frame history.
+    bool resolve_images();
+    // Records the synchronous SDK decision and its existing complete-world fallback.
+    bool upscale(unsigned blur_output);
+    // Applies blur to the completed reconstruction, retaining the unblurred fallback on resource failure.
+    void apply_blur(const renderer::Vec3& delta, unsigned blur_output);
     void restore_world_depth();
 };
 }  // namespace openrac::enhanced

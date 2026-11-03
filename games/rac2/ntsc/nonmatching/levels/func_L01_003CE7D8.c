@@ -20,8 +20,72 @@
    What unblocks it: a spelling that stops $f20 being allocated (the whole body then fits the
    0x10 frame) and gets the branch inverted. */
 
-#include "include_asm.h"
+/* Near miss: 140 against 144 bytes, one word short.  Level 01, 0x003CE7D8.
 
-extern float func_00282C48(float);
+   Everything up to the float branch is retail's, instruction for instruction:
+   the `lui $at,0x3F80 ; mtc1 $at,$f0`, the `mul.s $f15,$f15,$f15`, the
+   three `f14` round trips, the `c.olt.s $f15,$f0` + `bc1tl` with
+   `mov.s $f0,$f15` in the delay slot, the `mul.s $f0,$f0,$f13` and the two
+   `lwc1`/`swc1` tails.
 
-INCLUDE_ASM("asm/levels", func_L01_003CE7D8);
+   What differs:
+
+   1. the division.  Retail has `c.olt.s $f12,$f2 ; nop ; nop ;
+      div.s $f0,$f0,$f15 ; bc1fl ...` - two nops between the compare and the
+      divide - and this candidate has none, so it is four bytes short.  The
+      project's assembler pads a division only when it lands fewer than two
+      slots after a code label (tools/compiler/transformers/
+      pad_div_erratum_nops.py) or fewer than two slots after the end of a
+      branch group (pad_div_erratum_branch.py); with the division two slots
+      after the `c.olt.s` neither fires.  The retail's two nops are not
+      reproduced by any source shape measured here.
+
+   2. the `bc1fl` delay slot.  Retail fills it with the first instruction of
+      the branch's own block (`add.s $f0,$f1,$f0`); this candidate puts the
+      `swc1 $f0,0($a1)` there and keeps a second copy of the store after the
+      block, because the store's value depends on the branch.
+
+   The float branch-likely forms are the ones measured in
+   nonmatching/levels/func_L20_002C7588.c: `if (!(a > b)) { } else { x = b; }`
+   emits `c.lt.s b,a` + `bc1tl` and the plain `if (a < b)` emits
+   `c.lt.s a,b` + `bc1fl`.  Both are used here.
+
+   The `func_002E33E0` of the retail is func_00282C48 (level 01, 0x002E33E0),
+   an eight-byte boot function. */
+
+
+typedef float f32;
+
+extern float func_00282C48(float a0);
+
+float func_L01_003CE7D8(f32 *a0, f32 *a1, f32 f12, f32 f13, f32 f14, f32 f15)
+{
+    f32 f0, f1, f2;
+
+    f0 = 1.0f;
+    f15 = f15 * f15;
+    f1 = *a1;
+    f14 = 1.0f - f14;
+    f14 = f14 - 1.0f;
+    f14 = f14 + 1.0f;
+    f1 = f1 * f14;
+    *a1 = f1;
+    f2 = *a0;
+    f0 = f2 - f12;
+    f0 = f0 * f0;
+    if (!(f0 > f15)) {
+    } else {
+        f0 = f15;
+    }
+    f0 = f0 * f13;
+    f0 = f0 / f15;
+    if (f12 < f2)
+        f0 = f1 - (f1 + f0);
+    *a1 = f0;
+    f1 = *a1;
+    f0 = *a0;
+    f0 = f0 + f1;
+    f12 = f12 - f0;
+    *a0 = f0;
+    return func_00282C48(f12);
+}

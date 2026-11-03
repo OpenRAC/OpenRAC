@@ -9,6 +9,9 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <limits>
+#include <utility>
+#include <vector>
 
 #include "common/env.h"
 #include "common/log.h"
@@ -91,7 +94,14 @@ void GifInterpreter::clear() {
     m_targets.clear();
     m_vertices.clear();
     m_draws.clear();
+    m_hud_side = 0;
+    m_whole = false;
     m_error.clear();
+}
+
+void GifInterpreter::carry(std::vector<DirectDraw> draws, std::vector<DirectVertex> vertices) {
+    m_draws = std::move(draws);
+    m_vertices = std::move(vertices);
 }
 
 bool GifInterpreter::fail(std::string message) {
@@ -332,6 +342,13 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
         case 0x7F:  // NOP; the port's marker for a quad of the 2D layer drawn natively
             if ((value >> 48) == kUiQuadMarker && (value & 0xFFFFFFu) < m_ui_quads.size()) {
                 native_quad(m_ui_quads[value & 0xFFFFFFu]);
+            } else if ((value >> 48) == kFrameMarker) {
+                draw_frame_snapshot();
+            } else if ((value >> 48) == kHudSideMarker) {
+                hud_side(static_cast<std::int32_t>(value & 0xFFFFFFFFu));
+            } else if ((value >> 48) == kWholeMarker) {
+                m_whole = (value & 1u) != 0;
+                m_state_dirty = true;
             } else if ((value >> 48) == kMobyMarker && offscreen_target() != 0) {
                 DirectDraw d;
                 d.state.target = offscreen_target();
@@ -598,6 +615,126 @@ bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& fra
     return frame_y < g_draw_buffer_lines;
 }
 
+void GifInterpreter::hud_side(int side) {
+    // Past the middle third on each side: what is across the middle is no side's. The triangles
+    // are the frame's only: what the HUD draws off-screen goes with the sprite that shows it.
+    // Triangles that overlap are one element and move together, or a long panel would come apart
+    // where it crosses the middle third.
+    constexpr float kMiddle = 56.0f / 256.0f;
+    if (m_hud_side != 0) {
+        const float move =
+            static_cast<float>(m_hud_side) * 2.0f / static_cast<float>(m_config.screen_width);
+
+        struct Triangle {
+            std::uint32_t first;
+            float left, right, top, bottom;
+            int parent;
+        };
+
+        std::vector<Triangle> triangles;
+        for (auto d = m_draws.rbegin();
+             d != m_draws.rend() && d->first + d->count > m_hud_side_first;
+             ++d) {
+            if (d->state.target != 0 || d->count == 0) {
+                continue;
+            }
+            for (std::uint32_t i = std::max(d->first, m_hud_side_first);
+                 i + 3 <= d->first + d->count;
+                 i += 3) {
+                const auto& a = m_vertices[i];
+                const auto& b = m_vertices[i + 1];
+                const auto& c = m_vertices[i + 2];
+                triangles.push_back(
+                    {i,
+                     std::min({a.x, b.x, c.x}),
+                     std::max({a.x, b.x, c.x}),
+                     std::min({a.y, b.y, c.y}),
+                     std::max({a.y, b.y, c.y}),
+                     static_cast<int>(triangles.size())}
+                );
+            }
+        }
+        const auto root = [&](int n) {
+            while (triangles[static_cast<std::size_t>(n)].parent != n) {
+                auto& parent = triangles[static_cast<std::size_t>(n)].parent;
+                parent = triangles[static_cast<std::size_t>(parent)].parent;
+                n = parent;
+            }
+            return n;
+        };
+        for (std::size_t i = 0; i < triangles.size(); ++i) {
+            for (std::size_t k = i + 1; k < triangles.size(); ++k) {
+                const Triangle& p = triangles[i];
+                const Triangle& q = triangles[k];
+                if (p.left <= q.right && q.left <= p.right && p.top <= q.bottom
+                    && q.top <= p.bottom) {
+                    triangles[static_cast<std::size_t>(root(static_cast<int>(k)))].parent =
+                        root(static_cast<int>(i));
+                }
+            }
+        }
+        std::vector<std::pair<float, float>> extent(
+            triangles.size(),
+            {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
+        );
+        for (std::size_t i = 0; i < triangles.size(); ++i) {
+            auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+            e.first = std::min(e.first, triangles[i].left);
+            e.second = std::max(e.second, triangles[i].right);
+        }
+        for (std::size_t i = 0; i < triangles.size(); ++i) {
+            const auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+            const float mid = (e.first + e.second) / 2.0f;
+            if (std::abs(mid) < kMiddle) {
+                continue;
+            }
+            for (std::uint32_t k = triangles[i].first; k < triangles[i].first + 3; ++k) {
+                m_vertices[k].x += mid < 0.0f ? -move : move;
+            }
+        }
+    }
+    m_hud_side = side;
+    m_hud_side_first = static_cast<std::uint32_t>(m_vertices.size());
+}
+
+void GifInterpreter::draw_frame_snapshot() {
+    if (g_frame_snapshot.texture == 0) {
+        return;
+    }
+    DirectState s;
+    s.textured = true;
+    s.snapshot = true;
+    s.tfx = gs::Tfx::Decal;
+    s.tcc = false;
+    s.clamp_s = true;
+    s.clamp_t = true;
+    s.depth_write = false;
+    s.scissor =
+        {0,
+         static_cast<std::uint32_t>(m_config.screen_width - 1),
+         0,
+         static_cast<std::uint32_t>(m_config.screen_height - 1)};
+    m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 6});
+    DirectVertex corners[4]{};
+    for (int k = 0; k < 4; ++k) {
+        DirectVertex& v = corners[k];
+        const float x = static_cast<float>(k & 1);
+        const float y = static_cast<float>(k >> 1);
+        v.x = x * 2.0f - 1.0f;
+        v.y = 1.0f - y * 2.0f;
+        v.z = -1.0f;
+        v.s = x;
+        v.t = 1.0f - y;
+        v.q = 1.0f;
+        v.rgba[0] = v.rgba[1] = v.rgba[2] = v.rgba[3] = 0x80;
+        v.fog = 1.0f;
+    }
+    const DirectVertex order[6] =
+        {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
+    m_vertices.insert(m_vertices.end(), order, order + 6);
+    m_state_dirty = true;  // the next primitive's state is its own again
+}
+
 void GifInterpreter::draw_frame_upload(const ImageUpload& upload) {
     int fx = 0;
     int fy = 0;
@@ -693,22 +830,51 @@ void GifInterpreter::draw_frame_upload(const ImageUpload& upload) {
 // A quad of the 2D layer: as a textured, blended triangle strip with texel coordinates through its
 // four corners, its texture and colour, drawn from the port's own record.
 void GifInterpreter::native_quad(const UiQuad& quad) {
-    write_register(gs::kTex0_1, quad.tex0);
+    const bool flat = (quad.flags & kUiFlat) != 0;
+    const bool corners = (quad.flags & kUiCorners) != 0;
+    if ((quad.flags & kUiClamp) != 0) {
+        write_register(gs::kClamp1, quad.clamp);
+    }
+    if (!flat) {
+        write_register(gs::kTex0_1, quad.tex0);
+    }
     const bool sprite = (quad.flags & kUiSprite) != 0;
-    write_prim(sprite ? 0x156 : 0x154);
+    // PRIM: a strip (4) or a sprite (6), blended (0x40), texel coordinates (0x100); textured (0x10)
+    // unless flat, Gouraud (8) when shaded.
+    std::uint64_t prim = sprite ? 0x146 : 0x144;
+    if (!flat) {
+        prim |= 0x110;
+    }
+    if ((quad.flags & kUiShaded) != 0) {
+        prim |= 0x8;
+    }
+    write_prim(prim);
     m_glyph = (quad.flags & kUiGlyph) != 0;
     m_in_native = true;
+    // A glyph's top and bottom sit half a texel inside its cell. Its distance field is smooth and
+    // reaches across the cell's edge, so at the very edge it read the next row of the font page: a
+    // descender of the glyph above drew as a short line on top of this one.
+    float glyph_top = quad.v[0];
+    float glyph_bottom = quad.v[0];
+    for (const auto v : quad.v) {
+        glyph_top = std::min(glyph_top, static_cast<float>(v));
+        glyph_bottom = std::max(glyph_bottom, static_cast<float>(v));
+    }
+    const float glyph_inset = m_glyph && glyph_bottom - glyph_top > 16.0f ? 8.0f : 0.0f;
     for (int i = 0; i < 4; ++i) {
         if (sprite && (i == 1 || i == 2)) {
             continue;
         }
-        m_current.rgba[0] = static_cast<std::uint8_t>(quad.rgba);
-        m_current.rgba[1] = static_cast<std::uint8_t>(quad.rgba >> 8);
-        m_current.rgba[2] = static_cast<std::uint8_t>(quad.rgba >> 16);
-        m_current.rgba[3] = static_cast<std::uint8_t>(quad.rgba >> 24);
+        const std::uint32_t rgba = corners ? quad.corners[i] : quad.rgba;
+        m_current.rgba[0] = static_cast<std::uint8_t>(rgba);
+        m_current.rgba[1] = static_cast<std::uint8_t>(rgba >> 8);
+        m_current.rgba[2] = static_cast<std::uint8_t>(rgba >> 16);
+        m_current.rgba[3] = static_cast<std::uint8_t>(rgba >> 24);
         m_current.q = 1.0f;
         m_current.u = quad.u[i];
-        m_current.v = quad.v[i];
+        m_current.v = static_cast<decltype(m_current.v)>(std::clamp(
+            static_cast<float>(quad.v[i]), glyph_top + glyph_inset, glyph_bottom - glyph_inset
+        ));
         m_current.x = quad.x[i];
         m_current.y = quad.y[i];
         m_current.z = quad.z;
@@ -1036,6 +1202,7 @@ void GifInterpreter::ensure_draw() {
         const Context& c = context();
         DirectState s;
         s.textured = p.tme;
+        s.whole = m_whole;
         int frame_x = 0;
         int frame_y = 0;
         s.target = offscreen_target();
@@ -1096,21 +1263,33 @@ void GifInterpreter::ensure_draw() {
                                                                       : TextureKind::Texture);
         }
         // The scissor is in this buffer's own pixels: scaled onto the picture as its draws are
-        // (screen_position), so it clips where they land.
+        // (screen_position), so it clips where they land. Multiplied before it is divided, so that
+        // an edge the scale puts on a whole pixel lands there exactly in any rounding mode: the
+        // NTSC games' 416-line draw buffer cut at 0-415 is 0-447 of the 448-line picture, where
+        // 448 / 416 rounded toward zero (the EE's mode, which the renderer runs in), times 416,
+        // came to 447.99997 and cut the picture's last line (Going Commando's cutscene bars
+        // stopped a line short of the bottom).
         {
             const float ofx = static_cast<float>(c.xyoffset.ofx) / 16.0f;
             const float ofy = static_cast<float>(c.xyoffset.ofy) / 16.0f;
             const float width = 2.0f * (2048.0f - ofx);
             const float height = 2.0f * (2048.0f - ofy);
-            const float kx = width >= 64.0f && width <= 1024.0f ? static_cast<float>(m_config.screen_width) / width : 1.0f;
-            const float ky = height >= 64.0f && height <= 1024.0f ? static_cast<float>(m_config.screen_height) / height : 1.0f;
-            auto scale = [](std::uint32_t v, float k, bool end) {
-                const float r = end ? (static_cast<float>(v) + 1.0f) * k - 1.0f : static_cast<float>(v) * k;
+            const float sw = static_cast<float>(m_config.screen_width);
+            const float sh = static_cast<float>(m_config.screen_height);
+            const bool fx = width >= 64.0f && width <= 1024.0f;
+            const bool fy = height >= 64.0f && height <= 1024.0f;
+            auto scale = [](std::uint32_t v, bool fits, float screen, float size, bool end) {
+                const float edge = static_cast<float>(v) + (end ? 1.0f : 0.0f);
+                const float r = (fits ? edge * screen / size : edge) - (end ? 1.0f : 0.0f);
                 return static_cast<std::uint32_t>(r < 0.0f ? 0.0f : r);
             };
             s.scissor = s.target != 0 ? c.scissor
-                                      : gs::Scissor{scale(c.scissor.x0, kx, false), scale(c.scissor.x1, kx, true),
-                                                    scale(c.scissor.y0, ky, false), scale(c.scissor.y1, ky, true)};
+                                      : gs::Scissor{
+                                            scale(c.scissor.x0, fx, sw, width, false),
+                                            scale(c.scissor.x1, fx, sw, width, true),
+                                            scale(c.scissor.y0, fy, sh, height, false),
+                                            scale(c.scissor.y1, fy, sh, height, true)
+                                        };
         }
         s.fog = p.fge;
         if (s.fog) {
@@ -1228,13 +1407,20 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     // at less than full strength: a tint over the finished frame (the title's blue wash, a fade
     // part way). The game also clears with blending on at full alpha, which replaces the frame
     // all the same: that is a clear.
+    // After the level's world in a frame split at it (set_over_world) a fill is no clear: it goes
+    // over the finished frame. A scene's fade to black ends on one at full alpha (Maktar's arena,
+    // the ticks either side of the scene's load): left out, the black frame between the fade out
+    // and the fade in showed the world unfaded, HUD and all, for a tick on each side. A tick that
+    // drew mobys alone (the weapon upgrade) clears with such fills: there they stay clears, and
+    // so does an unblended fill anywhere (a fade blends; a plain clear need not).
     const gs::Alpha& al = context().alpha;
     const bool standard = al.a == 0 && al.b == 1 && al.d == 1;  // (Cs - Cd) * C + Cd
     const bool replaces = !attributes().abe
                           || (standard && ((al.c == 0 && b.rgba[3] >= 0x80) || (al.c == 2 && al.fix >= 0x80)));
     // (Only in the frame: an off-screen panel's clear is drawn, however tall the panel. The
     // Load Game page's slot list is 512 lines: its clear left old highlight frames in place.)
-    if (!attributes().tme && replaces && offscreen_target() == 0) {
+    const bool fade_over_world = m_over_world && attributes().abe;
+    if (!attributes().tme && replaces && offscreen_target() == 0 && !fade_over_world) {
         const gs::Scissor& sc = context().scissor;
         const std::int64_t scissor_height = static_cast<std::int64_t>(sc.y1) - static_cast<std::int64_t>(sc.y0);
         const std::int64_t height = std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16;
@@ -1406,6 +1592,18 @@ GlBlend translate_blend(const gs::Alpha& alpha) {
             out.exact = false;
         }
     };
+    // Cd (C + 1) with C As or FIX: Cd * C as the source factor DST_COLOR on the weight the shader
+    // writes, plus Cd.
+    if (ks == 0 && ms == 0 && kd == 1 && md == 1 && alpha.c != 1) {
+        out.src = GL_DST_COLOR;
+        out.dst = GL_ONE;
+        out.equation = GL_FUNC_ADD;
+        out.constant = 0.0f;
+        out.source_scale = alpha.c == 0 ? SourceScale::WeightAlpha : SourceScale::WeightFix;
+        out.fix = static_cast<float>(alpha.fix) / 128.0f;
+        out.exact = alpha.c == 0 || alpha.fix <= 0x80;
+        return out;
+    }
     int src_sign = 1;
     int dst_sign = 1;
     term(ks, ms, out.src, src_sign);
@@ -1461,24 +1659,32 @@ DirectRenderer::~DirectRenderer() = default;
 
 bool DirectRenderer::init(RenderState& state, std::string& error) {
     m_interpreter = std::make_unique<GifInterpreter>(state.textures, m_config);
-    if (!m_shader.build("direct", shaders::direct_vert, shaders::direct_frag, error)) {
+    std::string masked(shaders::direct_frag);
+    masked.insert(masked.find('\n') + 1, "#define OPENRAC_SAMPLE_MASK 1\n");
+    if (!m_shader.build("direct", shaders::direct_vert, shaders::direct_frag, error)
+        || !m_shader_masked.build("direct masked", shaders::direct_vert, masked, error)) {
         return false;
     }
-    m_uniforms.textured = m_shader.uniform("textured");
-    m_uniforms.tcc = m_shader.uniform("tcc");
-    m_uniforms.tfx = m_shader.uniform("tfx");
-    m_uniforms.tex_alpha_scale = m_shader.uniform("tex_alpha_scale");
-    m_uniforms.fog_enable = m_shader.uniform("fog_enable");
-    m_uniforms.fog_colour = m_shader.uniform("fog_colour");
-    m_uniforms.alpha_test = m_shader.uniform("alpha_test");
-    m_uniforms.alpha_ref = m_shader.uniform("alpha_ref");
-    m_uniforms.alpha_keep_failing = m_shader.uniform("alpha_keep_failing");
-    m_uniforms.multisampled = m_shader.uniform("multisampled");
-    m_uniforms.distance_field = m_shader.uniform("distance_field");
-    m_uniforms.tex_T1 = m_shader.uniform("tex_T1");
-    m_uniforms.pixel_offset = m_shader.uniform("pixel_offset");
-    m_uniforms.source_scale = m_shader.uniform("source_scale");
-    m_uniforms.source_fix = m_shader.uniform("source_fix");
+    for (int k = 0; k < 2; ++k) {
+        const Shader& p = k == 0 ? m_shader : m_shader_masked;
+        Uniforms& u = m_program_uniforms[static_cast<std::size_t>(k)];
+        u.textured = p.uniform("textured");
+        u.tcc = p.uniform("tcc");
+        u.tfx = p.uniform("tfx");
+        u.tex_alpha_scale = p.uniform("tex_alpha_scale");
+        u.fog_enable = p.uniform("fog_enable");
+        u.fog_colour = p.uniform("fog_colour");
+        u.alpha_test = p.uniform("alpha_test");
+        u.alpha_ref = p.uniform("alpha_ref");
+        u.alpha_keep_failing = p.uniform("alpha_keep_failing");
+        u.distance_field = p.uniform("distance_field");
+        u.tex_T1 = p.uniform("tex_T1");
+        u.pixel_offset = p.uniform("pixel_offset");
+        u.source_scale = p.uniform("source_scale");
+        u.source_fix = p.uniform("source_fix");
+    }
+    m_masked = false;
+    m_uniforms = m_program_uniforms[0];
 
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
@@ -1525,6 +1731,7 @@ bool DirectRenderer::init(RenderState& state, std::string& error) {
 
 void DirectRenderer::release() {
     m_shader.release();
+    m_shader_masked.release();
     if (m_vbo != 0) {
         glDeleteBuffers(1, &m_vbo);
         m_vbo = 0;
@@ -1544,6 +1751,7 @@ void DirectRenderer::release() {
         glDeleteTextures(1, &o.texture);
     }
     m_offscreen_targets.clear();
+    g_offscreen_textures.clear();
     if (m_samplers[0] != 0) {
         glDeleteSamplers(16, m_samplers.data());
         m_samplers.fill(0);
@@ -1572,12 +1780,14 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
 
 void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
-    if (packets.empty()) {
+    // Draws the part before the world held back (flush) are drawn even when nothing follows.
+    if (packets.empty() && m_interpreter->draws().empty()) {
         return;
     }
     m_interpreter->set_ui_quads(input.ui_quads);
     m_interpreter->set_screen_mobys(static_cast<bool>(input.screen_mobys));
     m_interpreter->set_picture(state.target.picture_scale_x, state.target.wide_2d);
+    m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
     {
         const stats::Scope decode("2d decode");
@@ -1585,6 +1795,7 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     }
     const stats::Scope draws("2d draws");
     flush(state);
+    publish_offscreen();
 }
 
 const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) {
@@ -1615,7 +1826,19 @@ const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) 
     return m_offscreen_targets.back().second;
 }
 
+void DirectRenderer::use_program(bool masked) {
+    m_masked = masked;
+    m_uniforms = m_program_uniforms[masked ? 1 : 0];
+    (masked ? m_shader_masked : m_shader).use();
+}
+
 void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+    // Off-screen targets have one sample a pixel; the frame has several when it has a resolve
+    // target. The program first: every uniform below is set for this draw.
+    const bool masked = s.target == 0 && render_state.target.resolve_framebuffer != 0;
+    if (masked != m_masked) {
+        use_program(masked);
+    }
     // Where the draw goes: an off-screen target's square, or the frame.
     if (s.target != 0) {
         const Offscreen& o = offscreen(s.target);
@@ -1629,11 +1852,6 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform2f(m_uniforms.pixel_offset, 0.5f / static_cast<float>(std::max(render_state.target.width, 1)),
                     -0.5f / static_cast<float>(std::max(render_state.target.height, 1)));
     }
-    // Off-screen targets have one sample a pixel; the frame has several when it has a resolve target.
-    glUniform1i(
-        m_uniforms.multisampled,
-        s.target == 0 && render_state.target.resolve_framebuffer != 0 ? 1 : 0
-    );
     glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
@@ -1759,8 +1977,9 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             x1 = target_width;
         }
     }
-    const auto y0 = static_cast<GLint>(std::floor(static_cast<float>(s.scissor.y0) * sy));
-    const auto y1 = static_cast<GLint>(std::ceil(static_cast<float>(s.scissor.y1 + 1) * sy));
+    // To the nearest line, so that two scissors that meet do not both draw the line between them.
+    const auto y0 = static_cast<GLint>(std::lround(static_cast<float>(s.scissor.y0) * sy));
+    const auto y1 = static_cast<GLint>(std::lround(static_cast<float>(s.scissor.y1 + 1) * sy));
     glEnable(GL_SCISSOR_TEST);
     glScissor(x0, target_height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
 }
@@ -1781,7 +2000,7 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
                                   d.clear_depth);
             glDisable(GL_CULL_FACE);
             glDisable(GL_SCISSOR_TEST);
-            m_shader.use();
+            use_program(m_masked);
             glBindVertexArray(m_vao);
             glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
             glActiveTexture(GL_TEXTURE0);
@@ -1793,7 +2012,7 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
             m_frame->screen_mobys(d.mobys, render_state.target, d.clear_depth);
             glDisable(GL_CULL_FACE);
             glDisable(GL_SCISSOR_TEST);
-            m_shader.use();
+            use_program(m_masked);
             glBindVertexArray(m_vao);
             glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
             glActiveTexture(GL_TEXTURE0);
@@ -1863,6 +2082,17 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     }
 }
 
+void DirectRenderer::publish_offscreen() {
+    g_offscreen_textures.clear();
+    for (const std::uint32_t block : m_interpreter->offscreen_blocks()) {
+        for (const auto& [b, o] : m_offscreen_targets) {
+            if (b == block) {
+                g_offscreen_textures.push_back({block, o.texture});
+            }
+        }
+    }
+}
+
 void DirectRenderer::flush(RenderState& state, bool background) {
     m_background = background;
     const auto& vertices = m_interpreter->vertices();
@@ -1870,6 +2100,35 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_interpreter->clear();
         return;
     }
+    // Off-screen draws held back from the part before the world to the part after it (Going
+    // Commando, g_quads_sample_targets). The cockpit screen's buffer (block 0x3BE0) is cleared in
+    // the 2D list before the world's marker and Fizzwidget is drawn into it after: drawn where they
+    // come, the clear wiped the picture before the world's quad of that block sampled it, and the
+    // screen was black (level 0's opening scene; the closing one has no world marker, so all of it
+    // came after). Held back, the buffer keeps the last frame's picture, as the quad expects. A
+    // buffer something before the world samples is drawn where it comes.
+    std::vector<std::uint32_t> hold_targets;
+    if (background && g_quads_sample_targets) {
+        for (const DirectDraw& d : m_interpreter->draws()) {
+            if (d.state.target != 0
+                && std::find(hold_targets.begin(), hold_targets.end(), d.state.target)
+                       == hold_targets.end()) {
+                hold_targets.push_back(d.state.target);
+            }
+        }
+        std::erase_if(hold_targets, [&](std::uint32_t block) {
+            return std::any_of(
+                m_interpreter->draws().begin(),
+                m_interpreter->draws().end(),
+                [&](const DirectDraw& d) { return d.state.source == block; }
+            );
+        });
+    }
+    const auto held = [&](const DirectDraw& d) {
+        return d.state.target != 0
+               && std::find(hold_targets.begin(), hold_targets.end(), d.state.target)
+                      != hold_targets.end();
+    };
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     const std::size_t bytes = vertices.size() * sizeof(DirectVertex);
@@ -1881,6 +2140,33 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         GL_STREAM_DRAW
     );
     const float k = state.target.picture_scale_x;
+    // A plain fill out to the picture's top or left edge (a cutscene bar, a fade) reaches the
+    // target's edge itself. apply()'s pixel_offset moves every vertex a quarter of a pixel right
+    // and down, which leaves the top row and left column a quarter uncovered: no pixel's centre
+    // is there, but with multisampling a sample is, and that row showed the world through the
+    // bar. Such a vertex is put back on the edge (the offset undone); every other is as it was.
+    // Only in a triangle of one colour and depth, so that nothing interpolated across it changes
+    // (a gradient's shades stay where they were). `sides`: the target's left edge is the
+    // picture's (not a picture narrower than the target).
+    const float edge_x = 0.5f / static_cast<float>(std::max(state.target.width, 1));
+    const float edge_y = 0.5f / static_cast<float>(std::max(state.target.height, 1));
+    auto to_edges = [edge_x, edge_y](DirectVertex* v, bool sides) {
+        constexpr float kOn = 1.0f - 1.0f / 65536.0f;
+        for (int j = 1; j < 3; ++j) {
+            if (std::memcmp(v[j].rgba, v[0].rgba, 4) != 0 || v[j].z != v[0].z
+                || v[j].fog != v[0].fog) {
+                return;
+            }
+        }
+        for (int j = 0; j < 3; ++j) {
+            if (v[j].y >= kOn) {
+                v[j].y = 1.0f + edge_y;
+            }
+            if (sides && v[j].x <= -kOn) {
+                v[j].x = -1.0f - edge_x;
+            }
+        }
+    };
     // On a target wider than the game's picture: each draw as runs of triangles that are the
     // picture's (in the target's middle) or the whole target's, in the order they came.
     struct Run {
@@ -1895,10 +2181,14 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         // nothing is stretched, except what covered the whole screen: a plain fill that spans the
         // picture's whole width (a fade, a clear, a letterbox bar) and the frame itself drawn
         // again. Those are the whole target's. A texture of the pool across the whole width (a
-        // loading picture's band) keeps its shape in the middle.
+        // loading picture's band) keeps its shape in the middle; what a kWholeMarker pair holds (a
+        // still picture's backdrop) is the whole target's.
         std::vector<DirectVertex> placed(vertices.begin(), vertices.end());
         for (const DirectDraw& d : m_interpreter->draws()) {
             const DirectState& s = d.state;
+            if (held(d)) {
+                continue;
+            }
             if (s.target != 0 || d.count == 0) {
                 if (d.count != 0 || d.mobys != 0) {
                     runs.push_back({&d, d.first, d.count, true});  // an off-screen panel's own square
@@ -1915,8 +2205,10 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 // its frame in strips 32 pixels wide): its part of the whole target.
                 const float lo_y = std::min({placed[i].y, placed[i + 1].y, placed[i + 2].y});
                 const float hi_y = std::max({placed[i].y, placed[i + 1].y, placed[i + 2].y});
-                const bool whole = of_frame
-                    || (!s.textured && ((lo <= -0.995f && hi >= 0.995f) || (lo_y <= -0.995f && hi_y >= 0.995f)));
+                const bool whole = of_frame || s.whole
+                                   || (!s.textured
+                                       && ((lo <= -0.995f && hi >= 0.995f)
+                                           || (lo_y <= -0.995f && hi_y >= 0.995f)));
                 // What lies along one side of the picture (the black line the game draws down the
                 // screen's first column) was at the television's edge; in the middle of a wider
                 // target it would be a line through the world, and it is left out.
@@ -1932,6 +2224,9 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 } else {
                     runs.push_back({&d, i, 3, whole});
                 }
+                if (!s.textured) {
+                    to_edges(&placed[i], whole);
+                }
                 if (whole) {
                     continue;
                 }
@@ -1942,10 +2237,20 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         }
         glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), placed.data());
     } else {
-        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), vertices.data());
+        std::vector<DirectVertex> placed(vertices.begin(), vertices.end());
+        for (const DirectDraw& d : m_interpreter->draws()) {
+            if (d.state.target != 0 || d.state.textured) {
+                continue;
+            }
+            for (std::uint32_t i = d.first; i + 3 <= d.first + d.count && i + 3 <= placed.size();
+                 i += 3) {
+                to_edges(&placed[i], true);
+            }
+        }
+        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(bytes), placed.data());
     }
     m_vbo_bytes = std::max(bytes, m_vbo_bytes);
-    m_shader.use();
+    use_program(m_masked);
     if (k < 1.0f) {
         for (const Run& r : runs) {
             m_whole_target = r.whole;
@@ -1956,7 +2261,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_whole_target = true;
     } else {
         for (const DirectDraw& d : m_interpreter->draws()) {
-            if (d.count != 0 || d.mobys != 0) {
+            if ((d.count != 0 || d.mobys != 0) && !held(d)) {
                 draw(d, state);
             }
         }
@@ -1974,7 +2279,24 @@ void DirectRenderer::flush(RenderState& state, bool background) {
     glBindSampler(0, 0);
     glBindSampler(1, 0);
     m_bound_sampler = 0xFFFFFFFF;
+    std::vector<DirectDraw> carried;
+    std::vector<DirectVertex> carried_vertices;
+    for (const DirectDraw& d : m_interpreter->draws()) {
+        if (held(d)) {
+            DirectDraw c = d;
+            c.first = static_cast<std::uint32_t>(carried_vertices.size());
+            carried_vertices.insert(
+                carried_vertices.end(),
+                vertices.begin() + d.first,
+                vertices.begin() + d.first + d.count
+            );
+            carried.push_back(c);
+        }
+    }
     m_interpreter->clear();
+    if (!carried.empty()) {
+        m_interpreter->carry(std::move(carried), std::move(carried_vertices));
+    }
 }
 
 }  // namespace openrac::renderer

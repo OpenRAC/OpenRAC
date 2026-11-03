@@ -13,7 +13,7 @@ Reading the tables:
 - Notes come from header comments. `FUN_Lxx_...` / lowercase names there
   are NTSC-decomp (US) labels; see [Addresses](#addresses-pal-vs-us).
 
-## Vectors (`include/vector.h`)
+## Vectors (`include/structs/vector.h`)
 
 | Type | Size / align | Layout | Use |
 |---|---|---|---|
@@ -32,7 +32,7 @@ Alignment:
 - `Vec4f` vs `Vec4` changes codegen (struct padding, whether gcc uses
   `lq`), so both exist.
 
-## Moby (`include/moby.h`)
+## Moby (`include/structs/moby.h`)
 
 One 0x100-byte record per live object. Lifecycle: [mobys.md](mobys.md).
 
@@ -95,12 +95,12 @@ sizeof = 0x100
 
 - Hand-checked: `func_00213C78` loads `lb 0x20`, `lw 0x28`, `lhu 0x34`,
   `lw 0x74`; `InitMobyInstance`/`CreateMoby` write 0xA6 and 0x78
-  (`src/game/mobyfunc.c:188`, `:295`).
+  (`src/game/moby/mobyfunc.c:188`, `:295`).
 - `class_slot`'s note cites level table `D_L00_00197300`; the executable
   keeps slot -> class header in `D_001B3580[slot]`
-  (`src/game/loaders.c:973`). Same data or not: unchecked.
-- **Do not take offsets from `MobyInstance` (`include/structs.h`) or
-  `docs/PVARS.md`**: they put update/pvars/oClass at 0xA8/0xAC/0xBC,
+  (`src/game/system/loaders.c:973`). Same data or not: unchecked.
+- **Do not take offsets from `MobyInstance` (`include/structs/misc.h`) or
+  `docs/reference/PVARS.md`**: they put update/pvars/oClass at 0xA8/0xAC/0xBC,
   contradicted by matched code (0x74/0x78/0xA6). Likely another game's
   layout (inferred).
 
@@ -108,7 +108,7 @@ sizeof = 0x100
 
 | Bit | Meaning | Evidence |
 |---|---|---|
-| 0x0002 | no update function for the class (set when `D_001B3900[slot]` is 0); cleared again if the class's first sequence has 2+ frames | `InitMobyInstance`, `src/game/mobyfunc.c:295` |
+| 0x0002 | no update function for the class (set when `D_001B3900[slot]` is 0); cleared again if the class's first sequence has 2+ frames | `InitMobyInstance`, `src/game/moby/mobyfunc.c:295` |
 | 0x0004 | skip the post-update pass `func_0020ED48` | `func_00213C78` (`andi 0x4`) |
 | 0x0005 (0x1 and 0x4) | set together when the class has no header (`pclass = 0`) | `InitMobyInstance` (`flags \|= 5`) |
 | 0x0010 | has a glow colour (class +0x40 copied to `glow_color`) | `InitMobyInstance` |
@@ -117,7 +117,7 @@ sizeof = 0x100
 
 The class header's `flags` (+0x44) is ORed in on creation.
 
-## MobyClass (`include/moby.h`)
+## MobyClass (`include/structs/moby.h`)
 
 Pointed at by `Moby.pclass`. Real size unknown; only fields matched code
 reads are named.
@@ -138,18 +138,18 @@ reads are named.
 sizeof = 0x4C
 
 - `callbacks` (+0x2C) = the 6-word table from the level's `vtbl` record,
-  stored by `func_00213BB8` (`src/game/mobyutil.c:175`); see
+  stored by `func_00213BB8` (`src/game/moby/mobyutil.c:175`); see
   [mobys.md](mobys.md#binding-classes-to-update-functions).
 - Unnamed bytes `InitMobyInstance` reads: +0x06 (sets `Moby.unk73` =
   0x18), +0x0C (sequence mode; 1 with a one-frame sequence stops the
   animation), +0x0E (copied to `Moby.unk72`).
 
-## Hero (`include/hero.h`)
+## Hero (`include/structs/hero.h`)
 
 Ratchet: one 0x2300-byte singleton at **`D_0013F450`** (122 files).
 `D_0013F4D0` = hero + 0x80 = `motion.pos` (`gHeroPos` in names.tsv).
 
-- `hero.h` says `D_0013F350`: that is the US address.
+- `structs/hero.h` says `D_0013F350`: that is the US address.
 - `D_0013E633 + 0xE1D` (e.g. `src/overlays/shared/cutscene_and_movie_playback.c:144`)
   is the same object, a compiler address-materialisation artifact.
 
@@ -169,7 +169,7 @@ Layout overview (offsets absolute in `Hero`):
 | 0x2084 | `HeroState state` | 0x20 | state machine |
 | 0x22A8 | `HeroHealth health` | 0xC | hit points |
 
-Named fields (all fields: `include/hero.h`):
+Named fields (all fields: `include/structs/hero.h`):
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -276,7 +276,7 @@ sizeof = 0x110
 |---|---|---|---|
 | 0x000 | `s32` | `current` | state id; hero_set_state sets it |
 | 0x004 | `s32` | `step` | sub-step, 0 on state change |
-| 0x008 | `s32` | `control_mode` |  |
+| 0x008 | `s32` | `control_mode` | `enum HeroControlMode`, in `include/enums/hero_state.h` |
 | 0x00C | `s32` | `prev` | state before the last change |
 | 0x010 | `s32` | `prev_control_mode` | control_mode before the last change |
 | 0x014 | `s32` | `prev_timer` | state_timer before the last change |
@@ -286,7 +286,7 @@ sizeof = 0x110
 sizeof = 0x20
 
 `hero_set_state` copies `current`/`control_mode`/`state_timer` into
-`prev*`, zeroes `step` and `state_timer`, clears `trail` (hero.h).
+`prev*`, zeroes `step` and `state_timer`, clears `trail` (structs/hero.h).
 
 ### HeroHealth (hero + 0x22A8)
 
@@ -328,10 +328,10 @@ sizeof = 0xC
 
 sizeof = 0x50
 
-- 7 slots, not the "four" hero.h says: matched code uses `items[6]`
+- 7 slots, not the "four" structs/hero.h says: matched code uses `items[6]`
   (`func_L00_002B33E8`). The item-switch arrays (0x20B8..0x2128) are 7
   long too.
-- hero.h: `FUN_L00_0020fca8(i, v)` releases slot i (state 3);
+- structs/hero.h: `FUN_L00_0020fca8(i, v)` releases slot i (state 3);
   `..._0020d460` / `..._0020d498` return a ready slot's moby / item id.
 
 ### HeroManipulator (hero + 0xD30 + i * 0x40)
@@ -354,13 +354,13 @@ HeroManipulator = the first 0x40 bytes of the 0xB0-byte `HeroEase`.
 targets, `kind` (+0xA2), `accel`, `max_speed`, `scale`, and rebuilds
 `quat`/`scale3`/`translation` each frame; `attach_manipulator` hands that
 part to the moby. `MobyTrail`, `HeroRandTimer`, `HeroVelocityKey`: see
-hero.h.
+structs/hero.h.
 
-## PadState (`include/pad.h`)
+## PadState (`include/structs/pad.h`)
 
 0x350-byte singleton **`D_0013CA40`** (71 files; overlays also use
 `D_0013A5E0 + 0x2460`, e.g. `src/overlays/shared/hero_gadget_use.c:128`).
-Per frame, in `src/game/pad.c`: `func_00218908` (UpdatePad) ->
+Per frame, in `src/game/system/pad.c`: `func_00218908` (UpdatePad) ->
 `func_00217F68` (per-pad poll) -> `func_002181F0` (process_pad_input).
 
 | Offset | Type | Field | Notes |
@@ -481,7 +481,7 @@ Flag byte `D_0015EEB4` = `D_0015EEB0 + 4` (`gCheatMirroredLevels`, cheat
 flag 4): the mirrored-levels cheat, not a pad setting. When set,
 `analog[0]`/`analog[2]` are negated and 0x8000/0x2000 swapped in
 `held`/`raw_held`; the `_unmasked` copies and `analog_prev` undo it.
-pad.h gives the US address `D_0015EDB4`.
+structs/pad.h gives the US address `D_0015EDB4`.
 
 ### Stick history and flick detector
 
@@ -489,7 +489,7 @@ Each poll stores left-stick magnitude/angle in `hist_mag`/`hist_ang`
 (rings of 30). If magnitude is now > 0.9:
 
 1. Look back `scale_game_frames(4) - 1` polls (`func_001F98C0`;
-   `src/game/space.c:1738`): stop at the first sample > 0.9; a sample
+   `src/game/system/space.c:1738`): stop at the first sample > 0.9; a sample
    < 0.25 before that is a flick.
 2. Else, over `scale_game_frames(5) - 1` polls, a
    `FastDiffRots(old, angle)` above 0.9599311 rad (55 degrees) is a flick.
@@ -515,11 +515,11 @@ Only when `rep_rate != 0`. While `held` is nonzero and equals `prev_held`,
 
 A device state other than 1 clears input and resets to 0.
 
-## Small shared records (`include/records.h`)
+## Small shared records (`include/structs/records.h`)
 
 | Record | Size | Layout | Used for |
 |---|---|---|---|
-| `DispatchRec` | 0x14 | function pointers at +0x08 and +0x10 | entries of the camera and mode dispatch tables (e.g. `D_001E8F80[]` in `src/game/pad.c`) |
+| `DispatchRec` | 0x14 | function pointers at +0x08 and +0x10 | entries of the camera and mode dispatch tables (e.g. `D_001E8F80[]` in `src/game/system/pad.c`) |
 | `PadSlots` | 0x2B8 | `use[5]`, `flags[5]`, `sel`, `size[5]` after 0x278 bytes | the slot tables of the pad-driven selector state at `D_001A01F0` |
 | `AnimSeq` | >= 0x11 | `nframes` (u8) at +0x10 | animation sequence header (`MobyClass.seqs[]`); only the frame count is read |
 
@@ -530,16 +530,16 @@ PAL memory-map sheet); the rest come from source comments.
 
 | Address | What | Evidence |
 |---|---|---|
-| `D_0013F450` | the hero (`Hero`, 0x2300 bytes) | hero.h; 122 files |
+| `D_0013F450` | the hero (`Hero`, 0x2300 bytes) | structs/hero.h; 122 files |
 | `D_0013F4D0` | hero + 0x80 = `motion.pos`, "gHeroPos" | names.tsv |
-| `D_0013CA40` | the pad (`PadState`, 0x350 bytes) | pad.h, `src/game/pad.c` |
+| `D_0013CA40` | the pad (`PadState`, 0x350 bytes) | structs/pad.h, `src/game/system/pad.c` |
 | `D_0013A5E0` | base symbol overlay code addresses globals from: `+0x2460` = the pad; `+0x2600`, `+0x2604`, `+0x2634`, `+0x2610` are also used (flags at +0x2600 tested for 0x2/0x8 in `func_L00_00229348`, `src/overlays/shared/hero_vehicle_and_collision.c`). What lives at 0x0013A5E0 itself is not established. | grep `D_0013A5E0 +` |
-| `D_0015EE84` | current level index (0..18 for the 19 level overlays, inferred; s32, also read as s16) | `#define current_level_index` in `src/game/space.c:1693`; `1 << D_0015EE84` level masks in vendor code; `% 19` table index in `src/game/pause.c` |
-| `D_0015EEB0` | cheat flags, 8 bytes ("gCheats"); `D_0015EEB4` = mirrored levels | names.tsv; `src/game/pad.c` |
+| `D_0015EE84` | current level index (0..18 for the 19 level overlays, inferred; s32, also read as s16) | `#define current_level_index` in `src/game/system/space.c:1693`; `1 << D_0015EE84` level masks in vendor code; `% 19` table index in `src/game/ui/pause.c` |
+| `D_0015EEB0` | cheat flags, 8 bytes ("gCheats"); `D_0015EEB4` = mirrored levels | names.tsv; `src/game/system/pad.c` |
 | `D_0015EE98` | bolts ("gBolts") | names.tsv |
 | `D_0015EEA0` | max nanotech ("gMaxNanotech") | names.tsv |
 | `D_0015F6A8` | game mode (0 paused, 2 gameplay, -1 debug menu) ("gGameMode") | names.tsv |
-| `D_0015F6F0` | frame counter used as the moby clock: `CreateMoby` reuses a slot only when it is >= the slot's `spawn_frame`, and `DeleteMoby` sets `spawn_frame = D_0015F6F0 + 2` | `src/game/mobyfunc.c:188`, `:383` |
+| `D_0015F6F0` | frame counter used as the moby clock: `CreateMoby` reuses a slot only when it is >= the slot's `spawn_frame`, and `DeleteMoby` sets `spawn_frame = D_0015F6F0 + 2` | `src/game/moby/mobyfunc.c:188`, `:383` |
 | `D_0013D490` | special-item flags (Zoomerator, Raritanium, Codebot, Premium/Ultra Nanotech) ("gSpecialItems") | names.tsv |
 | `D_0013D510` | 30 skill-point flags ("gSkillPoints") | names.tsv |
 | `D_0013D5CA` .. `D_0013D5EB` | gadget-owned bytes: Heli-Pack 0x5CA, Morph-o-Ray 0x5DD, Magneboots 0x5E4, Hologuise 0x5E7, Map-o-matic 0x5E9, Persuader 0x5EB | names.tsv |
@@ -547,9 +547,9 @@ PAL memory-map sheet); the rest come from source comments.
 | `D_001A05C0` / `D_001A08C0` | game save data blob / 20 level save records | names.tsv |
 | `D_0014C190` | per-level save bits, indexed `[level][save_id >> 5]` | `Moby.save_id` comment |
 | `D_0014C050` | per-level mission rows that `Moby.mission` indexes | `Moby.mission` comment |
-| `D_0016001C` .. `D_00160020` | the moby array (pool); `D_00160018` is the base used for the slot index, `D_00160028` the 0x80-byte-per-moby pvars area | `src/game/mobyfunc.c:141-200` |
-| `D_00160000` | number of registered moby classes (next class slot) | `src/game/loaders.c:973` |
-| `D_001B3E40[oClass]`, `D_001B3C80[slot]`, `D_001B3580[slot]`, `D_001B3900[slot]` | class tables: oClass -> slot (0xFF = not loaded), slot -> oClass, slot -> class header, slot -> update function | `src/game/loaders.c:973`, `src/game/mobyutil.c:175` |
+| `D_0016001C` .. `D_00160020` | the moby array (pool); `D_00160018` is the base used for the slot index, `D_00160028` the 0x80-byte-per-moby pvars area | `src/game/moby/mobyfunc.c:141-200` |
+| `D_00160000` | number of registered moby classes (next class slot) | `src/game/system/loaders.c:973` |
+| `D_001B3E40[oClass]`, `D_001B3C80[slot]`, `D_001B3580[slot]`, `D_001B3900[slot]` | class tables: oClass -> slot (0xFF = not loaded), slot -> oClass, slot -> class header, slot -> update function | `src/game/system/loaders.c:973`, `src/game/moby/mobyutil.c:175` |
 
 The `collected`/`killed` tables that `save_id` indexes are in each level's
 own BSS, not a global (e.g. `D_L01_001BB9C0`, `D_L09_001BB6C0`).

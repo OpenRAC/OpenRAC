@@ -7,6 +7,7 @@
 #include <format>
 
 #include "renderer/gl.h"
+#include "renderer/precise_depth.h"
 
 namespace openrac::renderer {
 
@@ -14,11 +15,26 @@ using namespace openrac::gl;
 
 namespace {
 
+bool g_precise_depth_wanted = false;  // request_precise_depth's
+
 // A driver that lists GL_EXT_multisampled_render_to_texture but would not complete such a target:
 // multisampled buffers from then on.
 bool g_implicit_refused = false;
 
+// The depth and stencil format of the frame buffers: 32-bit float depth with precise depth.
+GLenum depth_stencil_format() {
+    return precise_depth() ? GL_DEPTH32F_STENCIL8 : GL_DEPTH24_STENCIL8;
+}
+
 }  // namespace
+
+void request_precise_depth(bool wanted) {
+    g_precise_depth_wanted = wanted;
+}
+
+bool precise_depth() {
+    return g_precise_depth_wanted && glClipControl != nullptr;
+}
 
 FrameBuffer::~FrameBuffer() {
     // release() frees the GL objects while the context exists.
@@ -35,23 +51,25 @@ int FrameBuffer::max_samples() {
 }
 
 bool FrameBuffer::create(
-    int width, int height, std::string& error, int samples, bool texture_depth
+    int width, int height, std::string& error, int samples, bool texture_depth, bool float_colour
 ) {
     release();
     m_width = width;
     m_height = height;
     m_samples = std::clamp(samples, 1, max_samples());
+    m_float = float_colour;
+    const GLenum colour_format = float_colour ? GL_RGBA16F : GL_RGBA8;
     glGenTextures(1, &m_colour);
     glBindTexture(GL_TEXTURE_2D, m_colour);
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        static_cast<GLint>(GL_RGBA8),
+        static_cast<GLint>(colour_format),
         width,
         height,
         0,
         GL_RGBA,
-        GL_UNSIGNED_BYTE,
+        float_colour ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE,
         nullptr
     );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(GL_LINEAR));
@@ -80,14 +98,18 @@ bool FrameBuffer::create(
     m_implicit = m_samples > 1 && !g_implicit_refused && glFramebufferTexture2DMultisampleEXT != nullptr
                  && glRenderbufferStorageMultisampleEXT != nullptr;
     if (m_implicit) {
-        glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, m_samples, GL_DEPTH24_STENCIL8, width, height);
+        glRenderbufferStorageMultisampleEXT(
+            GL_RENDERBUFFER, m_samples, depth_stencil_format(), width, height
+        );
         glFramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0,
                                              m_samples);
     } else if (m_samples > 1) {
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, GL_DEPTH24_STENCIL8, width, height);
+        glRenderbufferStorageMultisample(
+            GL_RENDERBUFFER, m_samples, depth_stencil_format(), width, height
+        );
         glGenRenderbuffers(1, &m_multisample);
         glBindRenderbuffer(GL_RENDERBUFFER, m_multisample);
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, GL_RGBA8, width, height);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, colour_format, width, height);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, m_multisample);
     } else {
         if (texture_depth) {
@@ -96,12 +118,12 @@ bool FrameBuffer::create(
             glTexImage2D(
                 GL_TEXTURE_2D,
                 0,
-                GL_DEPTH24_STENCIL8,
+                depth_stencil_format(),
                 width,
                 height,
                 0,
                 GL_DEPTH_STENCIL,
-                GL_UNSIGNED_INT_24_8,
+                precise_depth() ? GL_FLOAT_32_UNSIGNED_INT_24_8_REV : GL_UNSIGNED_INT_24_8,
                 nullptr
             );
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -109,7 +131,7 @@ bool FrameBuffer::create(
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         } else {
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+            glRenderbufferStorage(GL_RENDERBUFFER, depth_stencil_format(), width, height);
         }
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0);
     }
@@ -132,11 +154,47 @@ bool FrameBuffer::create(
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     if (status != GL_FRAMEBUFFER_COMPLETE && m_implicit) {
         g_implicit_refused = true;
-        return create(width, height, error, samples);
+        return create(width, height, error, samples, texture_depth, float_colour);
     }
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         error = std::format("framebuffer {}x{} with {} sample(s) incomplete ({:#x})", width, height, m_samples,
                             status);
+        release();
+        return false;
+    }
+    return true;
+}
+
+bool FrameBuffer::create_depth(int width, int height, std::string& error) {
+    release();
+    m_width = width;
+    m_height = height;
+    m_texture_depth = true;
+    glGenTextures(1, &m_depth);
+    glBindTexture(GL_TEXTURE_2D, m_depth);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_DEPTH_COMPONENT32F,
+        width,
+        height,
+        0,
+        GL_DEPTH_COMPONENT,
+        GL_FLOAT,
+        nullptr
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenFramebuffers(1, &m_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depth, 0);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        error =
+            std::format("depth-only framebuffer {}x{} incomplete ({:#x})", width, height, status);
         release();
         return false;
     }

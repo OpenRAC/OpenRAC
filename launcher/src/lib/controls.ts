@@ -3,7 +3,7 @@
 // inputs written so that its keys stay as the file had them. Pure functions, tested without a page.
 //
 // No page shows the controls yet: these are for the one that will (the game's own window does it
-// today, port/game/common/debug/controls_window.cpp).
+// today, port/game/common/debug/menu_controls.cpp).
 
 import type { BindingRow } from "./generated/BindingRow";
 import type { ControlsLayer } from "./generated/ControlsLayer";

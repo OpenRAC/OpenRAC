@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 #include <array>
+#include <limits>
 #include <vector>
 
 #include "scene/shadow_draws.h"
@@ -71,10 +72,52 @@ void test_material_coverage() {
     }
     CHECK(prepare_shadow_draws({}, materials, {}, true).empty());
 }
+
+// Bounds cover every referenced position; malformed and exceptional ranges survive.
+void test_shadow_geometry() {
+    std::vector<Vertex> vertices(4);
+    vertices[0].position[0] = -2;
+    vertices[1].position[0] = 3;
+    vertices[2].position[1] = 4;
+    vertices[3].position[2] = std::numeric_limits<float>::quiet_NaN();
+    std::vector<std::uint32_t> indices;
+    for (unsigned i = 0; i < 129; ++i) {
+        indices.insert(indices.end(), {0, 1, 2});
+    }
+    indices.insert(indices.end(), {0, 1, 3});
+    const std::array<ShadowDrawRange, 7> draws{
+        {{0, 387, -1, true},
+         {0, 3, 2, false},
+         {387, 3, -1, true},
+         {999, 3, -1, true},
+         {387, 3, 2, false},
+         {999, 3, 2, false},
+         {0, 2, 2, false}}
+    };
+    const auto geometry = prepare_shadow_geometry(draws, vertices, indices);
+    CHECK(geometry.size() == 8);
+    if (geometry.size() != 8) {
+        return;
+    }
+    check_range(geometry[0].draw, 0, 384, -1, true);
+    check_range(geometry[1].draw, 384, 3, -1, true);
+    CHECK(geometry[0].bounded && geometry[1].bounded);
+    CHECK((geometry[0].low == openrac::renderer::Vec3{-2, 0, 0}));
+    CHECK((geometry[0].high == openrac::renderer::Vec3{3, 4, 0}));
+    check_range(geometry[2].draw, 0, 3, 2, false);
+    CHECK(geometry[2].bounded && !geometry[3].bounded && !geometry[4].bounded);
+    CHECK(geometry[2].low == geometry[0].low && geometry[2].high == geometry[0].high);
+    CHECK(!geometry[5].bounded && !geometry[6].bounded && !geometry[7].bounded);
+    check_range(geometry[5].draw, 387, 3, 2, false);
+    check_range(geometry[6].draw, 999, 3, 2, false);
+    check_range(geometry[7].draw, 0, 2, 2, false);
+    CHECK(prepare_shadow_geometry({}, vertices, indices).empty());
+}
 }  // namespace
 
 int main() {
     test_opaque_ranges();
     test_material_coverage();
+    test_shadow_geometry();
     return openrac::test::result();
 }

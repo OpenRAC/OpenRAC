@@ -23,7 +23,8 @@ bash tools/build_sn_data.sh >/dev/null || { echo "*** data objects failed"; exit
 # Always from scratch: a failed compile leaves the previous .o behind, whose
 # INCLUDE_ASM stubs still hold retail's bytes -- a fictional match.
 rm -rf build-sn/core build-sn/libgcc
-rm -rf build-sn/game
+rm -rf build-sn/game build-sn/data
+python tools/data_in_c.py generate >/dev/null
 make_sn >build-sn/make.log 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then tail -20 build-sn/make.log; echo "*** make failed (exit $rc)"; exit 1; fi
@@ -35,7 +36,7 @@ bash rac1.ld.sh >/dev/null
 # (tools/list_undefined.py), then equate. Not from the linker's
 # complaints: this ld can crash on a long run of undefined references
 # ("Unhandled illegal instruction"), sometimes before printing any.
-# The list only ever grows. Returns nonzero when nothing new was found.
+# Returns nonzero when nothing new was found.
 update_bss_equs() {
   touch build-sn/undefined_syms.txt
   local new
@@ -47,7 +48,9 @@ update_bss_equs() {
   sn "$TC/ee-as.exe" -o build-sn/bss_equs.o build-sn/bss_equs.s
 }
 
-[ -f build-sn/bss_equs.o ] || update_bss_equs || true
+# Start the list again: data moved into C defines symbols that used to have no definition.
+rm -f build-sn/undefined_syms.txt build-sn/bss_equs.o
+update_bss_equs || true
 
 # The equates are cached, so C that newly references a bss symbol fails to
 # link. Add the missing symbols and retry, a few passes at most, rather than

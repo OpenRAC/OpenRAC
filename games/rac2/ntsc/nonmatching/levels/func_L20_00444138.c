@@ -1,3 +1,17 @@
+/* MATCHED (wave 4, worker 03): the function now lives in
+   src/levels/20_yeedil/L20_00444138-g8.c and tools/check.py says
+   "20_yeedil: OK / 1 of 1 places match".  The notes below are kept as the record of the
+   three earlier waves.  What finally closed it:
+   - the bound needs TWO names and TWO attributes - D_L20_001B2FA0 (sda, the $gp read in
+     the third test's delay slot) and D_L20_001B2FA0_abs (nosda, the two absolute reads) -
+     and the unit needs -mno-split-addresses for the retail's "base == dest" load;
+   - the sign extension of the id must land in $v0, not $v1.  It does when the $gp read of
+     the bound is written INSIDE the third test's if body (so it is a separate assignment)
+     and the top check reads the bound as an expression instead of through the variable:
+         if ((s16)id != 0x1232) { bound = D_L20_001B2FA0; goto next; }
+     with `bound = D_L20_001B2FA0_abs;` LAST in the store block.  The reload pass then
+     gives the bound, the extension and the flags the same register, as the retail does.
+*/
 /* 0 of 1 places match - last line: 20_yeedil: 152 bytes, expected 156
    The walk is recovered from the matched sibling recipe (L01_003CAFE0-g8.c, L04_00422A00-g8.c):
    a `for` over the 0x100-stride object list whose bound D_L20_001B2FA0 is re-read every

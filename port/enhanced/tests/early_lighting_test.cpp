@@ -10,6 +10,10 @@
 #include "enhanced_viewer_shaders.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"
@@ -312,6 +316,17 @@ void check() {
                     return output.read_rgba();
                 };
                 const auto reference = draw(false, false), actual = draw(true, false);
+                // Identical cache bytes must survive repeated graph recording at every fixture and size.
+
+                CHECK(early.render(
+                    depth.depth_texture(),
+                    input,
+                    state.target,
+                    [&](const auto& shader) { bind(shader, shadows); },
+                    error
+                ));
+                CHECK(draw(true, false) == actual);
+
                 unsigned differences = 0;
                 for (std::size_t i = 0; i < actual.size(); ++i) {
                     if (std::abs(int(actual[i]) - int(reference[i])) > (i % 4 == 3 ? 1 : 6)) {
@@ -455,5 +470,8 @@ int main() {
         return test::kSkip;
     }
     check();
+#if defined(OPENRAC_VULKAN)
+    CHECK(vkgl::submission_counters().validation_errors == 0);
+#endif
     return test::result();
 }

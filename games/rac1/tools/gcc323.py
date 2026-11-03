@@ -168,7 +168,7 @@ def container_argument(value: str, root) -> str:
 def in_container(arguments: list[str]) -> int:
     cli = os.environ.get("CONTAINER_CLI") or shutil.which("podman") or shutil.which("docker")
     if not cli:
-        raise RuntimeError("GCC 3.2.3 on this host requires Docker/Podman; see docs/TOOLCHAIN.md.")
+        raise RuntimeError("GCC 3.2.3 on this host requires Docker/Podman; see docs/reference/TOOLCHAIN.md.")
     image = os.environ.get("RAC1_BUILD_IMAGE")
     platform_args = []
     if not image:

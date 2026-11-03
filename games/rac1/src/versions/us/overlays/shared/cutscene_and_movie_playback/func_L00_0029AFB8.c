@@ -13,7 +13,7 @@ void update_slideshow(void) {
     one = 1;
     if (IST == 0) {
         if (ITMR >= slideshow_image_end_times[IIDX] - 0x24) {
-            if (*(short *)(help_stats_base + 0x100BD) != 0) {
+            if (*(short *)cd_read_active != 0) {
                 update_audio_stream_until_idle(1);
             }
             if (!s0 && IIDX == 0x27) {
@@ -21,7 +21,8 @@ void update_slideshow(void) {
                 end_slideshow();
                 return;
             }
-            if (IIDX >= 0x2B) goto quit;
+            if (IIDX >= 0x2B)
+                goto quit;
             ICNT = -1;
             IST = 1;
         }
@@ -67,7 +68,7 @@ void update_slideshow(void) {
     }
     ICNT = ICNT + 1;
     ITMR = ITMR + 1;
-    if (*(int *)(pad_globals_base + 0x2604) & 0x800) {
+    if (*(int *)(&pad0_pressed) & 0x800) {
         end_slideshow();
     }
     sound_update();

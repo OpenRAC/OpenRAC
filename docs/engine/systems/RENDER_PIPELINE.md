@@ -52,7 +52,7 @@ Each pass is switched by a bit of the draw mask (PAL `D_0018A3B0`):
 11. **Particles**: `PartProc` (`func_00218B10`).
 12. The anti-aliasing blit, when enabled.
 13. HUD GS state (TEST_1 0x5380B, ALPHA_1 0x44), then the HUD, help box and
-    screen fade: the HUD is drawn **after** the blit ([HUD_TEXT.md](HUD_TEXT.md)).
+    screen fade: the HUD is drawn **after** the blit.
 14. `DoGifPaging` (`func_001F4748`).
 15. Underwater tint and black or white fades.
 16. VU0 program 436083 is loaded.
@@ -74,7 +74,7 @@ next frame's chain ([LIGHTING.md](LIGHTING.md)).
   global records the resident program (6 mobys, 7 sprites, 8 particles), reset
   each frame, so a program is re-sent only when it changes.
 
-Which program each pass uses: [VU1.md](VU1.md).
+Which program each pass uses: [VU_PROGRAMS.md](../../port/VU_PROGRAMS.md).
 
 ## 4. Chain builders
 

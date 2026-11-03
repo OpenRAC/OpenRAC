@@ -2,7 +2,7 @@
 # Objects start after every run of linker fill (0xCDCDCDCD) and at each code section; they are named
 # by their start address (core/00115200, game/0026EA00) until their source file is identified. Add a
 # row to split a unit at a proven file boundary or to rename it; only the name changes, never the
-# address. Rows are read by scripts/unique_estimate.py when it builds the decomp.dev report.
+# address. Rows are read by scripts/unique_estimate.py when it builds the progress report.
 # mapped: rows below come from scripts/map_segments.py (boundaries of Promises/RC2-Going-Decompiled's v2.00 split,
 # matched by relocation-masked function digest; columns: v1.01 start, name, kind, v2.00 start, functions used to match).
 0x00115200 00115200 c 0x00115200 2

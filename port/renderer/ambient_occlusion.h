@@ -8,10 +8,12 @@
 // implements it, and whoever makes a Renderer registers one (Renderer::set_ambient_occlusion), so
 // the renderer never includes enhanced/ (CODING_CONVENTIONS.md, section 18).
 //
-// It has one implementation. The scene's lighting and shadow hooks (restructure package P2-39) are
+// It has one implementation. The scene's lighting and shadow hooks (scene/level_lighting.h) are
 // passes of the level renderer rather than of the frame, so they do not take this shape.
 
 #pragma once
+
+#include <functional>
 
 namespace openrac::renderer {
 
@@ -26,6 +28,14 @@ public:
     virtual ~AmbientOcclusion() = default;
     AmbientOcclusion(const AmbientOcclusion&) = delete;
     AmbientOcclusion& operator=(const AmbientOcclusion&) = delete;
+
+    // Records the supplied depth/normal prepass synchronously; providers may declare its dependencies.
+    virtual void render_prepass(unsigned /*framebuffer*/, const std::function<void()>& record) {
+        record();
+    }
+
+    // Opts a provider into declaration-only compute preparation inside the shared surface chain.
+    virtual bool prepares_surface_chain() const { return false; }
 
     // Evaluates the occlusion of `target`'s depth. With `apply_to_colour` it is composited over the
     // target's colour; without, it is left for the world's lighting to read (visibility_texture(),

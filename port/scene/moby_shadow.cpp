@@ -79,6 +79,84 @@ MobyShadowState moby_shadow_state(
     return state;
 }
 
+MobyShadowState moby_shadow_state_on_axis(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t moby,
+    std::uint32_t directions,
+    const renderer::Mat4& view
+) {
+    MobyShadowState state;
+    if (moby > ram.size() || ram.size() - moby < 0x100) {
+        return state;
+    }
+    auto read = [&]<typename T>(std::uint32_t at) {
+        T value{};
+        if (at <= ram.size() && ram.size() - at >= sizeof(T)) {
+            std::memcpy(&value, ram.data() + at, sizeof(T));
+        }
+        return value;
+    };
+    // MobyProc queues a shadow only with mode bit 0x400 and a nonzero half thickness (the word).
+    const auto mode = read.template operator()<std::uint16_t>(moby + 0x34);
+    if (!(mode & 0x400) || (mode & 0x81)
+        || read.template operator()<std::uint32_t>(moby + 0x74) == 0) {
+        return state;
+    }
+    const auto up = read.template operator()<renderer::Vec3>(moby + 0xe0);
+    const auto position = read.template operator()<renderer::Vec3>(moby + 0x10);
+    const float offset = read.template operator()<float>(moby + 0x70);
+    const float half = read.template operator()<float>(moby + 0x74);
+    const auto index = static_cast<std::int8_t>(ram[moby + 0xbd]);
+    renderer::Vec3 direction{};
+    if (index < 0) {
+        direction = {-up[0], -up[1], -up[2]};
+    } else if (index < 4 && directions <= ram.size() && ram.size() - directions >= 64) {
+        direction = read.template operator()<renderer::Vec3>(directions + index * 16);
+    } else {
+        return state;
+    }
+    state.direction_index = static_cast<std::uint8_t>(index < 0 ? 3 : index);
+    const float length2 = renderer::dot(direction, direction);
+    const float across = renderer::dot(direction, up);
+    if (!std::isfinite(length2) || length2 < 1e-8f || !std::isfinite(direction[2])
+        || direction[2] >= -1e-5f || !std::isfinite(across) || std::fabs(across) < 1e-6f
+        || !std::isfinite(half) || !std::isfinite(offset) || half <= 0
+        || !(std::fabs(up[2]) > 0.5f)) {
+        return state;
+    }
+    // The bounding sphere's centre cast along the direction onto the plane through the position
+    // +0x70 along the up axis (VU0 Q division, 0x2A6060).
+    auto centre = read.template operator()<renderer::Vec3>(moby);
+    for (auto& x : centre) {
+        x /= 1024.0f;
+    }
+    const float depth = renderer::dot(up, position) + offset;
+    const float t = (depth - renderer::dot(up, centre)) / across;
+    for (int i = 0; i < 3; ++i) {
+        centre[i] += direction[i] * t;
+    }
+    // func_002DFBB0's clip planes, up . p = depth -+ half, as world z at the cast centre.
+    const float sideways = up[0] * centre[0] + up[1] * centre[1];
+    const float a = (depth - half - sideways) / up[2];
+    const float b = (depth + half - sideways) / up[2];
+    state.heights = {std::min(a, b), std::max(a, b)};
+    // The fade: (byte +0x6F * 1024 - the cast centre's view depth * 1024) / 2, truncated (vftoi0,
+    // dsra32 1), at most 0x1000; MobyProc's +0x31 test keeps beyond-range mobys out.
+    const float view_depth = -renderer::transform_point(view, centre)[2] * 1024.0f;
+    if (!std::isfinite(view_depth) || std::fabs(view_depth) > 1e8f) {
+        return state;
+    }
+    const int remaining =
+        static_cast<int>(static_cast<float>(ram[moby + 0x6f]) * 1024.0f - view_depth) >> 1;
+    state.scale = static_cast<float>(std::clamp(remaining, 0, 4096)) / 4096.0f;
+    state.extrusion = renderer::normalize(direction);
+    for (auto& x : state.extrusion) {
+        x *= 1000.0f;
+    }
+    state.enabled = state.scale > 0;
+    return state;
+}
+
 std::vector<renderer::ShadowCapsule> moby_shadows(
     std::span<const std::uint8_t> ram,
     std::uint32_t moby,

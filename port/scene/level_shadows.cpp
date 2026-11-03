@@ -7,10 +7,11 @@
 #include <iterator>
 #include <stdexcept>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/surface_chain.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
@@ -18,6 +19,7 @@
 #include "scene/level_renderer_internal.h"
 #include "scene/moby_passes.h"
 #include "scene/shadow_atlas.h"
+#include "scene/shadow_graph.h"
 #include "scene_shaders.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
@@ -26,6 +28,45 @@
 namespace openrac::scene {
 using namespace openrac::gl;
 using namespace render_detail;
+
+bool LevelScene::make_dry_shadow_programs(bool atlas, std::string& error) {
+    auto& programs = atlas ? m_dry_atlas : m_dry_shadow;
+    for (unsigned solid = 0; solid < programs.size(); ++solid) {
+        if (programs[solid].id()) {
+            continue;
+        }
+        // Positions, palettes and alpha coverage are unchanged. Only water deformation,
+        // which is disabled for these groups, is absent from the vertex program.
+        std::string vertex =
+            m_lighting ? m_lighting->dry_shadow_vertex(std::string(shaders::shadow_depth_vert))
+                       : std::string(shaders::shadow_depth_vert);
+        std::string fragment(shaders::hero_shadow_frag);
+        if (atlas) {
+            vertex.insert(
+                vertex.find('\n') + 1,
+                "#extension GL_ARB_shader_viewport_layer_array : require\n"
+                "#define OPENRAC_SHADOW_ATLAS 1\n"
+            );
+        }
+        if (solid) {
+            vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_SHADOW_SOLID 1\n");
+            fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_SHADOW_SOLID 1\n");
+        }
+        if (!programs[solid].build(
+                std::string(atlas ? "dry atlas shadow " : "dry shadow ")
+                    + (solid ? "solid" : "alpha"),
+                vertex,
+                fragment,
+                error
+            )) {
+            for (auto& shader : programs) {
+                shader.release();
+            }
+            return false;
+        }
+    }
+    return true;
+}
 
 bool LevelScene::enable_hero_shadow(bool enabled, std::string& error) {
     if (enabled && (!enhanced_rendering_available() || !probe_data_available())) {
@@ -45,6 +86,10 @@ bool LevelScene::enable_hero_shadow(bool enabled, std::string& error) {
             error
         )) {
         return false;
+    }
+    std::string dry_error;
+    if (!make_dry_shadow_programs(false, dry_error)) {
+        log::warn("Dry shadow variants unavailable: {}", dry_error);
     }
     if (!m_hero_map) {
         m_hero_map = std::make_unique<renderer::FrameBuffer>();
@@ -77,6 +122,29 @@ void LevelScene::set_shadow_quality(renderer::ShadowQuality quality) {
 }
 
 void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::RenderState& state) {
+    const bool requested =
+        (m_sun_enabled && input.sun_pixel_shadow) || (m_hero_enabled && input.hero_pixel_shadow);
+    // Atmosphere needs completed maps before sky; disabled shadows need no separate executable plan.
+    if (requested && probe_data_available() && renderer::surface_chain_enabled()
+        && !renderer::collecting_surface_chain()) {
+        const auto prepared = renderer::run_surface_chain([this, &input, &state] {
+            prepare_shadow_passes(input, state);
+        });
+        // A rejected producer cannot lend shadow readiness to atmosphere or material lighting.
+        if (!prepared) {
+            m_sun_ready = m_hero_ready = false;
+            throw std::runtime_error(prepared.error().message);
+        }
+        return;
+    }
+    prepare_shadow_passes(input, state);
+}
+
+void LevelScene::prepare_shadow_passes(
+    const renderer::FrameInput& input, renderer::RenderState& state
+) {
+    crash::breadcrumb("shadow maps");
+    m_shadow_geometry_indices = {};
     set_shadow_quality(input.shadow_quality);
     m_shadow_atlas_active = false;
 #if defined(OPENRAC_VULKAN)
@@ -107,12 +175,13 @@ void LevelScene::prepare_shadows(const renderer::FrameInput& input, renderer::Re
     prepare_sun_shadow(input, state);
     if (m_shadow_atlas_active && (m_hero_ready || m_sun_ready)) {
         draw_shadow_atlas(state);
-        report_sun_culling();
     }
     stats::gauge("shadow atlas", m_shadow_atlas_active ? 1 : 0);
     stats::gauge("shadow atlas size", m_shadow_layout.size);
     stats::gauge("sun shadow near size", m_shadow_layout.rects[0][2]);
     stats::gauge("hero shadow size", m_shadow_layout.rects[4][2]);
+    stats::gauge("shadow geometry tested indices", double(m_shadow_geometry_indices[0]));
+    stats::gauge("shadow geometry rejected indices", double(m_shadow_geometry_indices[1]));
 }
 
 void LevelScene::prepare_hero_shadow(
@@ -157,9 +226,18 @@ void LevelScene::prepare_hero_shadow(
             log::warn("hero shadow target unavailable: {}", error);
             return;
         }
-        draw_shadow_map(
-            m_hero_map->id(), m_shadow_layout.rects[4][2], m_hero_matrix, true, false, state
+        // Separate hero maps export the same sampled depth contract as the atlas's hero rectangle.
+        const auto drawn = shadow_depth_pass(
+            "hero shadow map", m_hero_map->id(), ShadowDepthContents::Clear, [this, &state] {
+                draw_shadow_map(
+                    m_hero_map->id(), m_shadow_layout.rects[4][2], m_hero_matrix, true, false, state
+                );
+            }
         );
+        // Do not mark a separate map ready if its depth recording was rejected.
+        if (!drawn) {
+            throw std::runtime_error(drawn.error().message);
+        }
     }
     m_hero_ready = true;
 }
@@ -190,6 +268,10 @@ bool LevelScene::enable_sun_shadow(bool enabled, std::string& error) {
         if (!m_shadow_solid.build("opaque static shadow depth", vertex, fragment, error)) {
             return false;
         }
+    }
+    std::string dry_error;
+    if (!make_dry_shadow_programs(false, dry_error)) {
+        log::warn("Dry shadow variants unavailable: {}", dry_error);
     }
     for (unsigned i = 0; i < kSunCascades; ++i) {
         auto& map = m_sun_maps[i];
@@ -237,8 +319,9 @@ void LevelScene::prepare_sun_shadow(
     }
     try {
         direction = m_lighting->sunlight_direction(direction);
+        m_sun_camera = input.culling_camera ? *input.culling_camera : input.camera;
         m_sun_cascades =
-            sun_cascades(input.camera, direction, low, high, 256, input.shadow_quality);
+            sun_cascades(m_sun_camera, direction, low, high, 256, input.shadow_quality);
 #if defined(OPENRAC_VULKAN)
         static const bool& scrolling = stats::probe(
             "OPENRAC_SCROLLING_SHADOWS", "Experimental toroidal static caches for the sun cascades"
@@ -271,21 +354,34 @@ void LevelScene::prepare_sun_shadow(
                 log::warn("sun shadow target unavailable: {}", error);
                 return;
             }
-            draw_shadow_map(
+            // Separate cascades remain full clears, then export depth for early/material lighting.
+            const auto drawn = shadow_depth_pass(
+                "sun cascade map",
                 m_sun_maps[i]->id(),
-                m_shadow_layout.rects[i][2],
-                m_sun_cascades.matrices[i],
-                false,
-                m_hero_ready,
-                state,
-                i
+                ShadowDepthContents::Clear,
+                [this, &state, i] {
+                    draw_shadow_map(
+                        m_sun_maps[i]->id(),
+                        m_shadow_layout.rects[i][2],
+                        m_sun_cascades.matrices[i],
+                        false,
+                        m_hero_ready,
+                        state,
+                        i
+                    );
+                    // Counts become available only after the last deferred cascade has recorded.
+                    if (i + 1 == kSunCascades) {
+                        report_sun_culling();
+                    }
+                }
             );
+            // Do not mark a separate map ready if its depth recording was rejected.
+            if (!drawn) {
+                throw std::runtime_error(drawn.error().message);
+            }
         }
     }
     m_sun_ready = true;
-    if (!m_shadow_atlas_active) {
-        report_sun_culling();
-    }
 }
 
 void LevelScene::report_sun_culling() const {
@@ -314,5 +410,7 @@ void LevelScene::report_sun_culling() const {
     stats::gauge("sun alpha draws", static_cast<double>(alpha_draws));
     stats::gauge("sun compacted groups", static_cast<double>(compacted));
     stats::gauge("sun unbounded instances", static_cast<double>(unbounded));
+    stats::gauge("shadow geometry tested indices", double(m_shadow_geometry_indices[0]));
+    stats::gauge("shadow geometry rejected indices", double(m_shadow_geometry_indices[1]));
 }
 }  // namespace openrac::scene

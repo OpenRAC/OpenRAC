@@ -2,16 +2,17 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The GL functions renderer/gl.h's table holds (vkgl_internal.h): state, textures, buffers, vertex
-// arrays, draws, shaders and programs, uniforms, samplers and framebuffers, each carried out with
-// the rest of the backend; and get_proc (vkgl.h), which hands the table its entries by name.
+// arrays, draws, samplers and framebuffers. Shader/program entry points live in gl_program.cpp.
+// get_proc (vkgl.h) hands the shared GL table its entries by name.
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,7 +21,9 @@
 
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
-#include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/attachment_copy.h"
+#include "renderer/vulkan/gl_program.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
@@ -53,8 +56,24 @@ const GLubyte* VKGL get_string(GLenum name) {
     }
 }
 
-const GLubyte* VKGL get_stringi(GLenum, GLuint) {
-    return nullptr;  // no extensions: none of the GL ones the renderer looks for applies
+// Reports enabled compression features so asset uploads can select their compatible formats.
+const GLubyte* VKGL get_stringi(GLenum, GLuint index) {
+    if (g->features.textureCompressionBC) {
+        if (index == 0) {
+            return reinterpret_cast<const GLubyte*>("GL_ARB_texture_compression_bptc");
+        }
+        --index;
+    }
+    if (g->features.textureCompressionASTC_LDR) {
+        if (index == 0) {
+            return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_ldr");
+        }
+        --index;
+    }
+    if (g->astc_hdr && index == 0) {
+        return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_hdr");
+    }
+    return nullptr;
 }
 
 void VKGL get_integerv(GLenum name, GLint* data) {
@@ -80,7 +99,9 @@ void VKGL get_integerv(GLenum name, GLint* data) {
             return;
         }
         case GL_NUM_EXTENSIONS:
-            *data = 0;
+            *data = static_cast<GLint>(g->features.textureCompressionBC)
+                    + static_cast<GLint>(g->astc_hdr)
+                    + static_cast<GLint>(g->features.textureCompressionASTC_LDR);
             return;
         case GL_MAJOR_VERSION:
             *data = 4;
@@ -157,6 +178,9 @@ void enable_cap(GLenum cap, bool on) {
             break;
         case GL_PRIMITIVE_RESTART:
             s.primitive_restart = on;
+            break;
+        case GL_DEPTH_CLAMP:
+            s.depth_clamp = on;
             break;
         // Clip distances are always on in Vulkan for a shader that writes them; multisampling is
         // the target's.
@@ -244,6 +268,11 @@ void VKGL front_face(GLenum mode) {
     g->state.front_face = mode;
 }
 
+// Only the depth convention: the origin stays lower left (the backend's own flip).
+void VKGL clip_control(GLenum, GLenum depth) {
+    g->state.clip_zero_to_one = depth == GL_ZERO_TO_ONE;
+}
+
 void VKGL polygon_mode(GLenum, GLenum mode) {
     g->state.polygon_mode = mode;
 }
@@ -268,14 +297,34 @@ Image* read_image() {
     return target_of(g->state.read_framebuffer).colour;
 }
 
+// A half float's value (IEEE 754 binary16).
+static float half_to_float(std::uint16_t h) {
+    const int exponent = (h >> 10) & 0x1F;
+    const int mantissa = h & 0x3FF;
+    const float sign = (h & 0x8000) != 0 ? -1.0f : 1.0f;
+    if (exponent == 0) {
+        return sign * std::ldexp(static_cast<float>(mantissa), -24);
+    }
+    if (exponent == 31) {
+        return mantissa != 0 ? NAN : sign * INFINITY;
+    }
+    return sign * std::ldexp(1.0f + static_cast<float>(mantissa) / 1024.0f, exponent - 15);
+}
+
 void VKGL
 read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* pixels) {
     Image* image = read_image();
-    if (image == nullptr || w <= 0 || h <= 0 || format != GL_RGBA || type != GL_UNSIGNED_BYTE
+    // A float frame (an HDR one) is read as bytes, clamped as an 8-bit one's would be, or as
+    // floats (GL_FLOAT).
+    const bool half = image != nullptr && image->format == VK_FORMAT_R16G16B16A16_SFLOAT;
+    if (image == nullptr || w <= 0 || h <= 0 || format != GL_RGBA
+        || (type != GL_UNSIGNED_BYTE && !(half && type == GL_FLOAT))
         || image->samples != VK_SAMPLE_COUNT_1_BIT) {
         fail(kGlInvalidEnum);
         return;
     }
+    const std::size_t texel = half ? 8 : 4;                   // in the image
+    const std::size_t out_texel = type == GL_FLOAT ? 16 : 4;  // in `pixels`
     const int x0 = std::clamp(x, 0, image->width), y0 = std::clamp(y, 0, image->height);
     const int x1 = std::clamp(x + w, x0, image->width), y1 = std::clamp(y + h, y0, image->height);
     if (x1 <= x0 || y1 <= y0) {
@@ -283,7 +332,7 @@ read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, 
     }
     const int cw = x1 - x0, ch = y1 - y0;
     VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    info.size = static_cast<VkDeviceSize>(cw) * static_cast<VkDeviceSize>(ch) * 4;
+    info.size = static_cast<VkDeviceSize>(cw) * static_cast<VkDeviceSize>(ch) * texel;
     info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     VmaAllocationCreateInfo alloc{};
     alloc.usage = VMA_MEMORY_USAGE_AUTO;
@@ -311,16 +360,28 @@ read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, 
     vmaInvalidateAllocation(g->allocator, allocation, 0, VK_WHOLE_SIZE);
     // Rows come as GL gives them, from the bottom: the same rows (vkgl.h, "Rows").
     const int align = std::max(g->state.pack_alignment, 1);
-    const std::size_t pitch = (static_cast<std::size_t>(w) * 4 + align - 1) / align * align;
+    const std::size_t pitch = (static_cast<std::size_t>(w) * out_texel + align - 1) / align * align;
     const auto* src = static_cast<const std::uint8_t*>(got.pMappedData);
     auto* dst = static_cast<std::uint8_t*>(pixels);
     for (int row = 0; row < ch; ++row) {
-        std::memcpy(
-            dst + pitch * static_cast<std::size_t>(row + (y0 - y))
-                + static_cast<std::size_t>(x0 - x) * 4,
-            src + static_cast<std::size_t>(row) * static_cast<std::size_t>(cw) * 4,
-            static_cast<std::size_t>(cw) * 4
-        );
+        std::uint8_t* to = dst + pitch * static_cast<std::size_t>(row + (y0 - y))
+                           + static_cast<std::size_t>(x0 - x) * out_texel;
+        const std::uint8_t* from = src + static_cast<std::size_t>(row) * cw * texel;
+        if (!half) {
+            std::memcpy(to, from, static_cast<std::size_t>(cw) * 4);
+            continue;
+        }
+        for (std::size_t n = 0; n < static_cast<std::size_t>(cw) * 4; ++n) {
+            std::uint16_t bits = 0;
+            std::memcpy(&bits, from + n * 2, 2);
+            const float value = half_to_float(bits);
+            if (type == GL_FLOAT) {
+                std::memcpy(to + n * 4, &value, 4);
+            } else {
+                to[n] =
+                    static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+            }
+        }
     }
     vmaDestroyBuffer(g->allocator, buffer, allocation);
 }
@@ -468,6 +529,11 @@ void VKGL tex_image_2d(
     if (t == nullptr || w <= 0 || h <= 0 || level < 0) {
         return;
     }
+    // Shifting an int by its width is undefined, even when the requested mip does not exist.
+    if (level >= std::numeric_limits<unsigned>::digits || !image_extent_valid(w, h)) {
+        fail(kGlInvalidValue);
+        return;
+    }
     const Format f = format_of(static_cast<GLenum>(internal));
     if (f.vk == VK_FORMAT_UNDEFINED) {
         fail(kGlInvalidEnum);
@@ -508,6 +574,96 @@ void VKGL tex_image_2d(
     VkCommandBuffer cmd = cmd_for(&image);
     copy_to_image(cmd, image, staged, level, 0, 0, w, h);
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+// Validates block dimensions before allocating staging memory or copying compressed bytes.
+std::size_t compressed_bytes(GLenum format, int width, int height) {
+    const int side = format == GL_COMPRESSED_RGBA_ASTC_8x8_KHR ? 8 : 4;
+    return std::size_t((width + side - 1) / side) * ((height + side - 1) / side) * 16;
+}
+
+// Allocates complete single-level compressed colour or scalar depth atlases.
+void VKGL compressed_tex_image_2d(
+    GLenum target,
+    GLint level,
+    GLenum internal,
+    GLsizei width,
+    GLsizei height,
+    GLint border,
+    GLsizei size,
+    const void* pixels
+) {
+    Texture* texture = bound_texture(target);
+    const Format format = format_of(internal);
+    // Bounds also make the compressed block-count arithmetic safe.
+    if (!image_extent_valid(width, height)) {
+        fail(kGlInvalidValue);
+        return;
+    }
+    // This path carries complete probe atlases, not generated GL mip chains.
+    if (!texture || level != 0 || border != 0 || width <= 0 || height <= 0
+        || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR
+            && internal != GL_COMPRESSED_RGBA_ASTC_4x4_KHR)
+        || format.vk == VK_FORMAT_UNDEFINED || size < 0
+        || static_cast<std::size_t>(size) != compressed_bytes(internal, width, height)) {
+        fail(kGlInvalidEnum);
+        return;
+    }
+    prepare_frame();
+    retire(std::move(texture->image));
+    texture->image = make_image(format, width, height, 1, VK_SAMPLE_COUNT_1_BIT);
+    texture->internal = internal;
+    if (!texture->image || !pixels) {
+        return;
+    }
+    const auto staged = ring_copy(pixels, static_cast<VkDeviceSize>(size));
+    if (!staged.data) {
+        return;
+    }
+    auto& image = *texture->image;
+    const auto command = cmd_for(&image);
+    copy_to_image(command, image, staged, 0, 0, 0, width, height);
+    barrier(command, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    g->submission.texture_upload_bytes += static_cast<std::uint64_t>(size);
+}
+
+// Copies whole compressed block rows directly from the baked file into the resident atlas.
+void VKGL compressed_tex_sub_image_2d(
+    GLenum target,
+    GLint level,
+    GLint x,
+    GLint y,
+    GLsizei width,
+    GLsizei height,
+    GLenum internal,
+    GLsizei size,
+    const void* pixels
+) {
+    Texture* texture = bound_texture(target);
+    const int side = internal == GL_COMPRESSED_RGBA_ASTC_8x8_KHR ? 8 : 4;
+    if (!texture || !texture->image || !pixels || level != 0 || internal != texture->internal
+        || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+            && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR
+            && internal != GL_COMPRESSED_RGBA_ASTC_4x4_KHR)
+        || x < 0 || y < 0 || width <= 0 || height <= 0 || size < 0 || x % side || y % side
+        || x > texture->image->width || width > texture->image->width - x
+        || y > texture->image->height || height > texture->image->height - y
+        || (width % side && x + width != texture->image->width)
+        || (height % side && y + height != texture->image->height)
+        || static_cast<std::size_t>(size) != compressed_bytes(internal, width, height)) {
+        fail(kGlInvalidEnum);
+        return;
+    }
+    const auto staged = ring_copy(pixels, static_cast<VkDeviceSize>(size));
+    if (!staged.data) {
+        return;
+    }
+    auto& image = *texture->image;
+    const auto command = cmd_for(&image);
+    copy_to_image(command, image, staged, 0, x, y, width, height);
+    barrier(command, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    g->submission.texture_upload_bytes += static_cast<std::uint64_t>(size);
 }
 
 void VKGL tex_sub_image_2d(
@@ -660,14 +816,23 @@ void VKGL buffer_data(GLenum target, GLsizeiptr size, const void* data, GLenum u
         return;
     }
     g->submission.cpu_mirror_bytes -= b->data.size();
-    b->data.assign(static_cast<std::size_t>(size), 0);
+    const bool direct =
+        data != nullptr && size > 0
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::VkBufferDirectFill);
+    if (direct) {
+        const auto* bytes = static_cast<const std::uint8_t*>(data);
+        b->data.assign(bytes, bytes + size);
+    } else {
+        b->data.assign(static_cast<std::size_t>(size), 0);
+        g->submission.buffer_zero_fill_bytes += static_cast<std::uint64_t>(size);
+    }
     g->submission.cpu_mirror_bytes += b->data.size();
     b->size = b->data.size();
     b->static_hint = is_static_usage(usage);
     b->rewritten = false;
     b->mirror_freed = false;
     b->staged = nullptr;
-    if (data != nullptr && size > 0) {
+    if (!direct && data != nullptr && size > 0) {
         std::memcpy(b->data.data(), data, static_cast<std::size_t>(size));
     }
     changed(*b);
@@ -676,14 +841,33 @@ void VKGL buffer_data(GLenum target, GLsizeiptr size, const void* data, GLenum u
 void VKGL buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, const void* data) {
     GLuint* binding = buffer_binding(target);
     Buffer* b = binding != nullptr ? g->buffers.find(*binding) : nullptr;
-    if (b == nullptr || offset < 0 || size <= 0
-        || static_cast<std::size_t>(offset + size) > b->size) {
+    // An empty update needs no source bytes and preserves the buffer.
+    if (size == 0) {
+        return;
+    }
+    // Subtraction checks the range without overflowing offset + size on malformed input.
+    if (b == nullptr || offset < 0 || size <= 0 || data == nullptr
+        || static_cast<std::size_t>(offset) > b->size
+        || static_cast<std::size_t>(size) > b->size - static_cast<std::size_t>(offset)) {
+        fail(kGlInvalidValue);
         return;
     }
 
-    // The rest of the buffer stays as it was: its mirror is read back first if it was let go.
-    buffer_bytes(*b);
-    std::memcpy(b->data.data() + offset, data, static_cast<std::size_t>(size));
+    if (offset == 0 && static_cast<std::size_t>(size) == b->size
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::VkBufferDirectFill)) {
+        // No old byte survives a complete replacement. In particular, do not recover
+        // a discarded CPU mirror from device memory just to overwrite it immediately.
+        g->submission.cpu_mirror_bytes -= b->data.size();
+        const auto* bytes = static_cast<const std::uint8_t*>(data);
+        b->data.assign(bytes, bytes + size);
+        g->submission.cpu_mirror_bytes += b->data.size();
+        b->keep_mirror = b->keep_mirror || b->mirror_freed;
+        b->mirror_freed = false;
+    } else {
+        // Partial updates still require every untouched byte of the old buffer.
+        buffer_bytes(*b);
+        std::memcpy(b->data.data() + offset, data, static_cast<std::size_t>(size));
+    }
     b->rewritten = true;
     changed(*b);
 }
@@ -763,421 +947,6 @@ void VKGL draw_elements_instanced(
     GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instances
 ) {
     draw(mode, count, instances, true, type, reinterpret_cast<std::uintptr_t>(indices), 0);
-}
-
-// ---- Shaders and programs ----
-
-GLuint VKGL create_shader(GLenum type) {
-    const GLuint name = g->shaders.add();
-    g->shaders.find(name)->type = type;
-    return name;
-}
-
-void VKGL
-shader_source(GLuint name, GLsizei count, const GLchar* const* strings, const GLint* lengths) {
-    Shader* sh = g->shaders.find(name);
-    if (sh == nullptr) {
-        return;
-    }
-    sh->source.clear();
-    for (GLsizei i = 0; i < count; ++i) {
-        if (lengths != nullptr && lengths[i] >= 0) {
-            sh->source.append(strings[i], static_cast<std::size_t>(lengths[i]));
-        } else {
-            sh->source.append(strings[i]);
-        }
-    }
-}
-
-void VKGL compile_shader(GLuint name) {
-    if (Shader* sh = g->shaders.find(name)) {
-        sh->log.clear();
-        sh->compiled = sh->type == GL_COMPUTE_SHADER
-                           ? check_compute_stage(sh->source, sh->log)
-                           : check_stage(sh->type == GL_VERTEX_SHADER, sh->source, sh->log);
-    }
-}
-
-void write_log(const std::string& log, GLsizei size, GLsizei* length, GLchar* out) {
-    const GLsizei n = size > 0 ? std::min<GLsizei>(size - 1, static_cast<GLsizei>(log.size())) : 0;
-    if (out != nullptr && size > 0) {
-        std::memcpy(out, log.data(), static_cast<std::size_t>(n));
-        out[n] = '\0';
-    }
-    if (length != nullptr) {
-        *length = n;
-    }
-}
-
-void VKGL get_shader_iv(GLuint name, GLenum what, GLint* out) {
-    Shader* sh = g->shaders.find(name);
-    *out = 0;
-    if (sh == nullptr) {
-        return;
-    }
-    if (what == GL_COMPILE_STATUS) {
-        *out = sh->compiled ? GL_TRUE : GL_FALSE;
-    } else if (what == GL_INFO_LOG_LENGTH) {
-        *out = sh->log.empty() ? 0 : static_cast<GLint>(sh->log.size() + 1);
-    }
-}
-
-void VKGL get_shader_info_log(GLuint name, GLsizei size, GLsizei* length, GLchar* log) {
-    Shader* sh = g->shaders.find(name);
-    write_log(sh != nullptr ? sh->log : std::string(), size, length, log);
-}
-
-void VKGL delete_shader(GLuint name) {
-    g->shaders.objects.erase(name);
-}
-
-GLuint VKGL create_program() {
-    return g->programs.add();
-}
-
-void VKGL attach_shader(GLuint program, GLuint shader) {
-    if (Program* p = g->programs.find(program)) {
-        p->shaders.push_back(shader);
-    }
-}
-
-void VKGL bind_attrib_location(GLuint, GLuint, const GLchar*) {
-    // The renderer's shaders give their inputs locations of their own.
-}
-
-VkShaderModule module_of(const std::vector<std::uint32_t>& code) {
-    VkShaderModuleCreateInfo info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    info.codeSize = code.size() * sizeof(std::uint32_t);
-    info.pCode = code.data();
-    VkShaderModule module = VK_NULL_HANDLE;
-    check(vkCreateShaderModule(g->device, &info, nullptr, &module), "a shader module");
-    return module;
-}
-
-void VKGL link_program(GLuint name) {
-    Program* p = g->programs.find(name);
-    if (p == nullptr) {
-        return;
-    }
-    std::string vs, fs, cs;
-    for (GLuint s : p->shaders) {
-        if (Shader* sh = g->shaders.find(s)) {
-            (sh->type == GL_VERTEX_SHADER    ? vs
-             : sh->type == GL_COMPUTE_SHADER ? cs
-                                             : fs) = sh->source;
-        }
-    }
-    if (p->serial != 0) {
-        release_program(*p);
-    }
-    p->log.clear();
-    p->linked = false;
-    p->serial = ++g->program_serial;
-    if (!compile_program(vs, fs, p->compiled, p->log, cs)) {
-        return;
-    }
-    if (!material_program(*p, vs, fs)) {
-        return;
-    }
-    const CompiledProgram& c = p->compiled;
-    if (!c.compute.empty()) {
-        p->compute = module_of(c.compute);
-    } else {
-        p->vertex = module_of(c.vertex);
-        p->fragment = module_of(c.fragment);
-    }
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    auto add = [&](int binding, VkDescriptorType type) {
-        if (binding < 0) {
-            return;
-        }
-        bindings.push_back(
-            {static_cast<std::uint32_t>(binding),
-             type,
-             1,
-             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-                 | VK_SHADER_STAGE_COMPUTE_BIT,
-             nullptr}
-        );
-    };
-    p->dynamic_uniforms = c.default_binding >= 0 && reuse_uniforms();
-    add(c.default_binding,
-        p->dynamic_uniforms ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
-                            : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    for (const ProgramBlock& b : c.blocks) {
-        add(b.binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    }
-    for (const auto& b : c.storage) {
-        add(b.binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    }
-    for (const ProgramUniform& u : c.uniforms) {
-        if (u.sampler && u.binding >= 0) {
-            add(u.binding,
-                u.kind == SamplerKind::Buffer ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER
-                                              : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        }
-    }
-    VkDescriptorSetLayoutCreateInfo set_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    set_info.bindingCount = static_cast<std::uint32_t>(bindings.size());
-    set_info.pBindings = bindings.data();
-    check(
-        vkCreateDescriptorSetLayout(g->device, &set_info, nullptr, &p->set_layout),
-        "a descriptor set layout"
-    );
-    VkPipelineLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    const VkDescriptorSetLayout layouts[] = {p->set_layout, g->material_layout};
-    const VkPushConstantRange material_push{VK_SHADER_STAGE_VERTEX_BIT, 0, 4};
-    layout_info.setLayoutCount = p->gpu_materials ? 2u : 1u;
-    layout_info.pSetLayouts = layouts;
-    if (p->gpu_materials) {
-        layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges = &material_push;
-    }
-    check(
-        vkCreatePipelineLayout(g->device, &layout_info, nullptr, &p->layout), "a pipeline layout"
-    );
-    // Uniforms start at zero, as GL's do; a relink keeps nothing, as GL's does.
-    p->uniforms.assign(
-        p->gpu_materials ? p->material_start + kMaterialBytes
-                         : static_cast<unsigned>(std::max(c.default_size, 0)),
-        0
-    );
-    p->units.assign(c.uniforms.size(), 0);
-    p->block_bindings.assign(c.blocks.size(), 0);
-    p->uniforms_dirty = true;
-    p->last_set = VK_NULL_HANDLE;
-    p->last_key.clear();
-    p->descriptor_sets.clear();
-    if (p->compute) {
-        VkComputePipelineCreateInfo info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-        info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-        info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        info.stage.module = p->compute;
-        info.stage.pName = "main";
-        info.layout = p->layout;
-        check(
-            vkCreateComputePipelines(
-                g->device, VK_NULL_HANDLE, 1, &info, nullptr, &p->compute_pipeline
-            ),
-            "a compute pipeline"
-        );
-        count_pipeline();
-    }
-    p->linked = p->layout && ((p->vertex && p->fragment) || p->compute_pipeline);
-
-    // Its pipelines of earlier runs are made on the pre-warm worker before its first draw.
-    prewarm_program(*p);
-}
-
-void VKGL get_program_iv(GLuint name, GLenum what, GLint* out) {
-    Program* p = g->programs.find(name);
-    *out = 0;
-    if (p == nullptr) {
-        return;
-    }
-    if (what == GL_LINK_STATUS) {
-        *out = p->linked ? GL_TRUE : GL_FALSE;
-    } else if (what == GL_INFO_LOG_LENGTH) {
-        *out = p->log.empty() ? 0 : static_cast<GLint>(p->log.size() + 1);
-    } else if (what == kGlActiveUniforms) {
-        *out = 0;  // not listed (gl_stats' uniform listing and shader reloading are GL's alone)
-    }
-}
-
-void VKGL get_program_info_log(GLuint name, GLsizei size, GLsizei* length, GLchar* log) {
-    Program* p = g->programs.find(name);
-    write_log(p != nullptr ? p->log : std::string(), size, length, log);
-}
-
-void VKGL delete_program(GLuint name) {
-    auto it = g->programs.objects.find(name);
-    if (it == g->programs.objects.end()) {
-        return;
-    }
-    if (it->second.serial != 0) {
-        release_program(it->second);
-    }
-    g->programs.objects.erase(it);
-    if (g->state.program == name) {
-        g->state.program = 0;
-    }
-}
-
-void VKGL use_program(GLuint name) {
-    g->state.program = name;
-}
-
-// A uniform's location: its entry in the program's list, and the element of an array.
-constexpr int kElementBits = 12;
-
-GLint VKGL get_uniform_location(GLuint program, const GLchar* name) {
-    Program* p = g->programs.find(program);
-    if (p == nullptr || !p->linked || name == nullptr) {
-        return -1;
-    }
-    std::string_view n(name);
-    int element = 0;
-    if (const std::size_t bracket = n.find('['); bracket != std::string_view::npos) {
-        element = std::atoi(std::string(n.substr(bracket + 1)).c_str());
-        n = n.substr(0, bracket);
-    }
-    const auto& list = p->compiled.uniforms;
-    for (std::size_t i = 0; i < list.size(); ++i) {
-        if (list[i].name == n && element >= 0 && element < list[i].array_size) {
-            return static_cast<GLint>(i << kElementBits | static_cast<std::size_t>(element));
-        }
-    }
-    return -1;
-}
-
-// Where a location's value goes in the current program's default block; null for none.
-std::uint8_t* uniform_at(
-    GLint location,
-    int count_bytes,
-    const ProgramUniform** out_uniform = nullptr,
-    int* out_index = nullptr
-) {
-    Program* p = g->programs.find(g->state.program);
-    if (p == nullptr || !p->linked || location < 0) {
-        return nullptr;
-    }
-    const std::size_t index = static_cast<std::size_t>(location) >> kElementBits;
-    const int element = location & ((1 << kElementBits) - 1);
-    if (index >= p->compiled.uniforms.size()) {
-        return nullptr;
-    }
-    const ProgramUniform& u = p->compiled.uniforms[index];
-    if (out_uniform != nullptr) {
-        *out_uniform = &u;
-    }
-    if (out_index != nullptr) {
-        *out_index = static_cast<int>(index);
-    }
-    if (u.sampler || u.offset < 0) {
-        return nullptr;
-    }
-    const std::size_t at =
-        static_cast<std::size_t>(u.offset)
-        + static_cast<std::size_t>(element) * static_cast<std::size_t>(u.array_stride);
-    if (at + static_cast<std::size_t>(count_bytes) > p->uniforms.size()) {
-        return nullptr;
-    }
-    if (element >= u.array_size) {
-        return nullptr;
-    }
-    return p->uniforms.data() + at;
-}
-
-void write_uniform(std::uint8_t* destination, const void* source, std::size_t bytes) {
-    ++g->submission.uniform_writes;
-    // Compare bytes, preserving signed zero and NaN payloads exactly.
-    if (reuse_uniforms() && std::memcmp(destination, source, bytes) == 0) {
-        ++g->submission.uniform_writes_skipped;
-        return;
-    }
-    std::memcpy(destination, source, bytes);
-    auto* p = g->programs.find(g->state.program);
-    if (!p->gpu_materials || destination < p->uniforms.data() + p->material_start) {
-        p->uniforms_dirty = true;
-    }
-}
-
-void VKGL uniform_1i(GLint location, GLint v) {
-    const ProgramUniform* u = nullptr;
-    int index = -1;
-    if (std::uint8_t* at = uniform_at(location, 4, &u, &index)) {
-        write_uniform(at, &v, 4);
-    } else if (u != nullptr && u->sampler) {
-        g->programs.find(g->state.program)->units[static_cast<std::size_t>(index)] = v;
-    }
-}
-
-void VKGL uniform_1ui(GLint location, GLuint v) {
-    if (std::uint8_t* at = uniform_at(location, 4)) {
-        write_uniform(at, &v, 4);
-    }
-}
-
-void VKGL uniform_1f(GLint location, GLfloat v) {
-    if (std::uint8_t* at = uniform_at(location, 4)) {
-        write_uniform(at, &v, 4);
-    }
-}
-
-void VKGL uniform_2f(GLint location, GLfloat a, GLfloat b) {
-    const float v[] = {a, b};
-    if (std::uint8_t* at = uniform_at(location, 8)) {
-        write_uniform(at, v, 8);
-    }
-}
-
-void VKGL uniform_3f(GLint location, GLfloat a, GLfloat b, GLfloat c) {
-    const float v[] = {a, b, c};
-    if (std::uint8_t* at = uniform_at(location, 12)) {
-        write_uniform(at, v, 12);
-    }
-}
-
-void VKGL uniform_4f(GLint location, GLfloat a, GLfloat b, GLfloat c, GLfloat d) {
-    const float v[] = {a, b, c, d};
-    if (std::uint8_t* at = uniform_at(location, 16)) {
-        write_uniform(at, v, 16);
-    }
-}
-
-void VKGL uniform_4fv(GLint location, GLsizei count, const GLfloat* v) {
-    if (location < 0 || count <= 0 || !v) {
-        return;
-    }
-    for (GLsizei i = 0; i < count; ++i) {
-        if (std::uint8_t* at = uniform_at(location + i, 16)) {
-            write_uniform(at, v + i * 4, 16);
-        }
-    }
-}
-
-void VKGL uniform_matrix_4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* v) {
-    if (location < 0 || count <= 0 || !v) {
-        return;
-    }
-    for (GLsizei i = 0; i < count; ++i) {
-        std::uint8_t* at = uniform_at(location + i, 64);
-        if (at == nullptr) {
-            continue;
-        }
-        const GLfloat* m = v + i * 16;
-        if (transpose == GL_FALSE) {
-            write_uniform(at, m, 64);
-        } else {
-            float t[16];
-            for (int r = 0; r < 4; ++r) {
-                for (int c = 0; c < 4; ++c) {
-                    t[c * 4 + r] = m[r * 4 + c];
-                }
-            }
-            write_uniform(at, t, 64);
-        }
-    }
-}
-
-GLuint VKGL get_uniform_block_index(GLuint program, const GLchar* name) {
-    Program* p = g->programs.find(program);
-    if (p == nullptr || !p->linked || name == nullptr) {
-        return wgl::GL_INVALID_INDEX;
-    }
-    for (std::size_t i = 0; i < p->compiled.blocks.size(); ++i) {
-        if (p->compiled.blocks[i].name == name) {
-            return static_cast<GLuint>(i);
-        }
-    }
-    return wgl::GL_INVALID_INDEX;
-}
-
-void VKGL uniform_block_binding(GLuint program, GLuint block, GLuint binding) {
-    Program* p = g->programs.find(program);
-    if (p != nullptr && block < p->block_bindings.size()) {
-        p->block_bindings[block] = binding;
-    }
 }
 
 void VKGL bind_buffer_base(GLenum target, GLuint index, GLuint buffer) {
@@ -1325,11 +1094,24 @@ void VKGL framebuffer_renderbuffer(GLenum target, GLenum attachment, GLenum, GLu
 }
 
 GLenum VKGL check_framebuffer_status(GLenum target) {
+    constexpr GLenum kIncompleteAttachment = 0x8CD6;
+    constexpr GLenum kMissingAttachment = 0x8CD7;
+    constexpr GLenum kIncompleteMultisample = 0x8D56;
     const Target t = target_of(
         target == GL_READ_FRAMEBUFFER ? g->state.read_framebuffer : g->state.draw_framebuffer
     );
-    return t.colour != nullptr || t.depth != nullptr ? GL_FRAMEBUFFER_COMPLETE
-                                                     : 0x8CD7;  // INCOMPLETE_MISSING_ATTACHMENT
+    const auto* framebuffer = bound_framebuffer(target);
+    // An allocated depth attachment must not conceal a failed colour allocation, or vice versa.
+    if (framebuffer
+        && (((framebuffer->colour_texture || framebuffer->colour_renderbuffer) && !t.colour)
+            || ((framebuffer->depth_texture || framebuffer->depth_renderbuffer) && !t.depth))) {
+        return kIncompleteAttachment;
+    }
+    // Vulkan requires all attachments in this renderer's pass to use the same sample count.
+    if (t.colour && t.depth && t.colour->samples != t.depth->samples) {
+        return kIncompleteMultisample;
+    }
+    return t.colour != nullptr || t.depth != nullptr ? GL_FRAMEBUFFER_COMPLETE : kMissingAttachment;
 }
 
 void VKGL gen_renderbuffers(GLsizei n, GLuint* names) {
@@ -1487,6 +1269,32 @@ bool hold_present_copy(const std::array<GLint, 8>& r, GLenum filter) {
     return true;
 }
 
+// Ends the open pass with its colour resolved into `dst` when it draws into `src`, a
+// multisampled image, and the blit asks for nothing else: all of it, unscaled and unflipped, into
+// a single-sampled image of the same size and format. False, with nothing done, otherwise.
+bool resolve_in_pass(Image& src, Image& dst, const std::array<GLint, 8>& r) {
+    const bool whole = r[0] == 0 && r[1] == 0 && r[2] == src.width && r[3] == src.height
+                       && r[4] == 0 && r[5] == 0 && r[6] == dst.width && r[7] == dst.height;
+    if (!renderer::render_opt::enabled(renderer::render_opt::Opt::MsaaPassResolve) || !whole
+        || !g->rendering || !g->pass.deferred || g->rendering_target.colour != &src
+        || src.samples == VK_SAMPLE_COUNT_1_BIT || dst.samples != VK_SAMPLE_COUNT_1_BIT
+        || src.format != dst.format || src.width != dst.width || src.height != dst.height
+        || (dst.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0) {
+        return false;
+    }
+    g->pass.resolve_colour = &dst;
+    g->pass.used_colour = true;
+    // The resolve writes only inside the render area: all of the image.
+    touch_area(
+        g->rendering_target,
+        {{0, 0}, {static_cast<std::uint32_t>(src.width), static_cast<std::uint32_t>(src.height)}}
+    );
+    end_rendering(PassEnd::Copy);
+    return true;
+}
+
+#include "renderer/vulkan/multisample_blit.inc"
+
 void VKGL blit_framebuffer(
     GLint sx0,
     GLint sy0,
@@ -1499,10 +1307,39 @@ void VKGL blit_framebuffer(
     GLbitfield mask,
     GLenum filter
 ) {
+    require_surface_execution();
     const Target from = target_of(g->state.read_framebuffer);
     const Target to = target_of(g->state.draw_framebuffer);
     auto blit_one = [&](Image* src, Image* dst, VkImageAspectFlags aspect, VkFilter f) {
         if (src == nullptr || dst == nullptr || src == dst) {
+            return;
+        }
+        // Vulkan transfer blits cannot write multisampled images; colour is broadcast by a draw.
+        if (dst->samples != VK_SAMPLE_COUNT_1_BIT && src->samples == VK_SAMPLE_COUNT_1_BIT) {
+            VkImageBlit region{};
+            if (aspect != VK_IMAGE_ASPECT_COLOR_BIT || src->format == VK_FORMAT_R32_UINT
+                || src->format == VK_FORMAT_R32G32B32A32_UINT || dst->format == VK_FORMAT_R32_UINT
+                || dst->format == VK_FORMAT_R32G32B32A32_UINT) {
+                fail(0x0502);  // GL_INVALID_OPERATION: depth/integer copies need different shaders.
+                return;
+            }
+            if (blit_region(*src, *dst, aspect, {sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1}, region)) {
+                blit_into_multisample(*src, *dst, region, f);
+            }
+            return;
+        }
+        // Equal-sample copies cannot scale, flip or change sample count.
+        if (dst->samples != VK_SAMPLE_COUNT_1_BIT
+            && (src->samples != dst->samples || sx1 <= sx0 || sy1 <= sy0 || sx1 - sx0 != dx1 - dx0
+                || sy1 - sy0 != dy1 - dy0)) {
+            fail(0x0502);  // GL_INVALID_OPERATION: unsupported multisample copy.
+            return;
+        }
+        // The whole of the open pass's multisampled colour resolved into an image of its size:
+        // done by the pass itself as it ends (msaa-pass-resolve), not by a copy that reads every
+        // sample back from memory.
+        if (aspect == VK_IMAGE_ASPECT_COLOR_BIT
+            && resolve_in_pass(*src, *dst, {sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1})) {
             return;
         }
         VkCommandBuffer cmd = cmd_for(src, true);
@@ -1519,43 +1356,27 @@ void VKGL blit_framebuffer(
             }
             barrier(cmd, *src, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
             barrier(cmd, *dst, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-            // The resolve writes all of the destination: what it held before is not needed.
-            dst->discarded = 0;
-            VkRenderingAttachmentInfo depth{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            depth.imageView = attachment_view(*src);
-            depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            depth.resolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
-            depth.resolveImageView = attachment_view(*dst);
-            depth.resolveImageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            depth.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-            depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            VkRenderingInfo info{VK_STRUCTURE_TYPE_RENDERING_INFO};
-            info.renderArea =
-                {{sx0, sy0},
-                 {static_cast<std::uint32_t>(std::min({sx1, src->width, dst->width}) - sx0),
-                  static_cast<std::uint32_t>(std::min({sy1, src->height, dst->height}) - sy0)}};
-            info.layerCount = 1;
-            info.pDepthAttachment = &depth;
-            if ((aspect & VK_IMAGE_ASPECT_STENCIL_BIT) != 0) {
-                info.pStencilAttachment = &depth;
-            }
-            vkCmdBeginRendering(cmd, &info);
-            vkCmdEndRendering(cmd);
-            count_render_pass();
-            count_command(Command::RenderPass);
-            count_attachment(*src, info.renderArea.extent, true, true);
-            count_attachment(*dst, info.renderArea.extent, false, true);
+            const VkRect2D area{
+                {sx0, sy0},
+                {static_cast<std::uint32_t>(std::min({sx1, src->width, dst->width}) - sx0),
+                 static_cast<std::uint32_t>(std::min({sy1, src->height, dst->height}) - sy0)}
+            };
+            record_depth_resolve(cmd, *src, *dst, area, aspect);
             return;
         }
         barrier(cmd, *src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         barrier(cmd, *dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        if ((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 && sx1 - sx0 == dx1 - dx0
-            && sy1 - sy0 == dy1 - dy0 && sx1 > sx0 && sy1 > sy0) {
+        if (((aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 || src->samples != VK_SAMPLE_COUNT_1_BIT)
+            && src->samples == dst->samples && sx1 - sx0 == dx1 - dx0 && sy1 - sy0 == dy1 - dy0
+            && sx1 > sx0 && sy1 > sy0) {
             // Depth/stencil formats need not support BLIT_DST. An unscaled
             // copy has no such requirement; each aspect is copied separately.
             VkImageCopy copies[2]{};
             std::uint32_t count = 0;
-            for (const auto bit : {VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_ASPECT_STENCIL_BIT}) {
+            for (const auto bit :
+                 {VK_IMAGE_ASPECT_COLOR_BIT,
+                  VK_IMAGE_ASPECT_DEPTH_BIT,
+                  VK_IMAGE_ASPECT_STENCIL_BIT}) {
                 if ((aspect & bit) == 0) {
                     continue;
                 }
@@ -1568,16 +1389,7 @@ void VKGL blit_framebuffer(
                     static_cast<std::uint32_t>(sx1 - sx0), static_cast<std::uint32_t>(sy1 - sy0), 1
                 };
             }
-            vkCmdCopyImage(
-                cmd,
-                src->image,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                dst->image,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                count,
-                copies
-            );
-            count_copy(copies[0].extent.width, copies[0].extent.height);
+            record_image_copy(cmd, *src, *dst, std::span(copies, count));
             return;
         }
         if (src->samples != VK_SAMPLE_COUNT_1_BIT) {
@@ -1597,16 +1409,7 @@ void VKGL blit_framebuffer(
             r.extent.height = std::min<std::uint32_t>(
                 r.extent.height, static_cast<std::uint32_t>(dst->height - r.dstOffset.y)
             );
-            vkCmdResolveImage(
-                cmd,
-                src->image,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                dst->image,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                1,
-                &r
-            );
-            count_copy(r.extent.width, r.extent.height);
+            record_colour_resolve(cmd, *src, *dst, r);
             return;
         }
         VkImageBlit b{};
@@ -1679,6 +1482,7 @@ const Entry kEntries[] = {
     VKGL_ENTRY(glCullFace, cull_face),
     VKGL_ENTRY(glFrontFace, front_face),
     VKGL_ENTRY(glPolygonMode, polygon_mode),
+    VKGL_ENTRY(glClipControl, clip_control),
     VKGL_ENTRY(glPixelStorei, pixel_store),
     VKGL_ENTRY(glReadPixels, read_pixels),
     VKGL_ENTRY(glCopyTexSubImage2D, copy_tex_sub_image),
@@ -1688,6 +1492,8 @@ const Entry kEntries[] = {
     VKGL_ENTRY(glBindTexture, bind_texture),
     VKGL_ENTRY(glActiveTexture, active_texture),
     VKGL_ENTRY(glTexImage2D, tex_image_2d),
+    VKGL_ENTRY(glCompressedTexImage2D, compressed_tex_image_2d),
+    VKGL_ENTRY(glCompressedTexSubImage2D, compressed_tex_sub_image_2d),
     VKGL_ENTRY(glTexSubImage2D, tex_sub_image_2d),
     VKGL_ENTRY(glTexParameteri, tex_parameter_i),
     VKGL_ENTRY(glTexParameterf, tex_parameter_f),
@@ -1819,40 +1625,6 @@ void destroy_buffer(Buffer& b) {
     b.own_mapped = nullptr;
 }
 
-// ---- Shaders and programs ----
-
-void release_program(Program& p) {
-    // No pre-warm job may use its modules or layout once they are handed to defer.
-    prewarm_forget(p.serial);
-    // Relinking and deletion retire every pipeline referenced by the program's fast lookup.
-    p.last_pipeline = VK_NULL_HANDLE;
-    p.last_pipeline_key.clear();
-    defer([vertex = p.vertex,
-           fragment = p.fragment,
-           compute = p.compute,
-           pipeline = p.compute_pipeline,
-           set_layout = p.set_layout,
-           layout = p.layout] {
-        vkDestroyShaderModule(g->device, vertex, nullptr);
-        vkDestroyShaderModule(g->device, fragment, nullptr);
-        vkDestroyShaderModule(g->device, compute, nullptr);
-        vkDestroyPipeline(g->device, pipeline, nullptr);
-        vkDestroyPipelineLayout(g->device, layout, nullptr);
-        vkDestroyDescriptorSetLayout(g->device, set_layout, nullptr);
-    });
-    // Its pipelines go with it.
-    // Called by erase_program, on this thread, for each pipeline of the program: destroyed once
-    // the frames that may still draw with it are done.
-    g->pipelines.erase_program(p.serial, [](VkPipeline pipeline) {
-        defer([pipeline] { vkDestroyPipeline(g->device, pipeline, nullptr); });
-    });
-    p.vertex = p.fragment = VK_NULL_HANDLE;
-    p.compute = VK_NULL_HANDLE;
-    p.compute_pipeline = VK_NULL_HANDLE;
-    p.set_layout = VK_NULL_HANDLE;
-    p.layout = VK_NULL_HANDLE;
-}
-
 }  // namespace openrac::vkgl::detail
 
 namespace openrac::vkgl {
@@ -1863,6 +1635,13 @@ using namespace detail;
 
 Proc get_proc(const char* name) {
     if (name == nullptr) {
+        return nullptr;
+    }
+    // glClipControl only where its depth can be kept: GL_DEPTH32F_STENCIL8 is a float format on this
+    // device (renderer/precise_depth.h asks for both). Without it, n / d in a 24-bit depth parts
+    // close surfaces no better than GL's form, and worse up close.
+    if (std::strcmp(name, "glClipControl") == 0
+        && (g == nullptr || g->float_depth_format != VK_FORMAT_D32_SFLOAT_S8_UINT)) {
         return nullptr;
     }
     for (const Entry& e : kEntries) {

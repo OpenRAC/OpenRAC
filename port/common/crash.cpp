@@ -16,20 +16,20 @@
 #include <ctime>
 #include <string>
 
+#include "common/breadcrumbs.h"
 #include "common/build_info.h"
+#include "common/crash_symbols.h"
 #include "common/log.h"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#include <windows.h>
-
-#include <dbghelp.h>
 #include <direct.h>
 #include <fcntl.h>
 #include <io.h>
+#include <windows.h>
+
 #include <sys/stat.h>
-#pragma comment(lib, "dbghelp.lib")
 #else
 #include <dlfcn.h>
 #include <execinfo.h>
@@ -276,8 +276,12 @@ void write_state(Out& out) {
 // The frames, taken once by capture() and written to each file from there.
 void* g_frames[64];
 int g_frame_count = 0;
+// Captured once into process storage, keeping crash-stack use and every report copy bounded.
+Breadcrumbs::Snapshot g_breadcrumbs;
+std::size_t g_breadcrumb_count = 0;
 
 void capture() {
+    g_breadcrumb_count = breadcrumbs().snapshot(g_breadcrumbs);
 #if defined(_WIN32)
     g_frame_count = CaptureStackBackTrace(0, 62, g_frames, nullptr);
 #else
@@ -332,8 +336,6 @@ void write_backtrace(Out& out) {
     void** frames = g_frames;
 #if defined(_WIN32)
     const USHORT count = static_cast<USHORT>(g_frame_count);
-    HANDLE process = GetCurrentProcess();
-    alignas(SYMBOL_INFO) char storage[sizeof(SYMBOL_INFO) + 256];
     for (USHORT i = 0; i < count; ++i) {
         Text t;
         t.dec(i).str("  ");
@@ -349,19 +351,16 @@ void write_backtrace(Out& out) {
         } else {
             t.hex(address);
         }
-        auto* symbol = reinterpret_cast<SYMBOL_INFO*>(storage);
-        std::memset(storage, 0, sizeof(storage));
-        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        symbol->MaxNameLen = 255;
-        DWORD64 displacement = 0;
-        if (SymFromAddr(process, address, &displacement, symbol)) {
-            t.str(" ").str(symbol->Name).str(" + ").dec(static_cast<long long>(displacement));
-            IMAGEHLP_LINE64 line{};
-            line.SizeOfStruct = sizeof(line);
-            DWORD column = 0;
-            if (SymGetLineFromAddr64(process, address, &column, &line)) {
-                const char* file = std::strrchr(line.FileName, '\\');
-                t.str(" (").str(file != nullptr ? file + 1 : line.FileName).str(":").dec(line.LineNumber).str(")");
+        symbols::Location location;
+        if (symbols::locate(static_cast<std::uintptr_t>(address), location)) {
+            if (location.function[0]) {
+                t.str(" ")
+                    .str(location.function)
+                    .str(" + ")
+                    .dec(static_cast<long long>(location.displacement));
+            }
+            if (location.line) {
+                t.str(" (").str(location.file).str(":").dec(location.line).str(")");
             }
         }
         t.str("\n");
@@ -395,6 +394,9 @@ void write_head(Out& out, const char* reason, Kind kind, long long now) {
     }
     out.str("\n");
     out.str("Program:  ").str(g_program).str(", ").str(g_version).str("\n");
+#if defined(_WIN32)
+    out.str("Symbols:  ").str(symbols::status()).str("\n");
+#endif
     write_state(out);
 }
 
@@ -410,6 +412,43 @@ void write_tail(Out& out) {
     const std::string_view header = log::header_for_crash();
     out.put(header.data(), header.size());
     out.str("==== end of the report ====\n");
+}
+
+// Names the counter behind an event; game ticks need not match the frontend's snapshot index.
+const char* breadcrumb_value_label(BreadcrumbValue kind) {
+    switch (kind) {
+        case BreadcrumbValue::Frame:
+            return " frame=";
+        case BreadcrumbValue::Level:
+            return " level=";
+        case BreadcrumbValue::Tick:
+            return " tick=";
+    }
+    return " value=";
+}
+
+// Emits the same captured timeline to the crash file, session log and stderr without allocating.
+void write_breadcrumbs(Out& out) {
+    // An early crash may precede the first instrumented game or render operation.
+    if (g_breadcrumb_count == 0) {
+        return;
+    }
+    out.str("\nRecent activity (oldest first; us since first retained event):\n");
+    const auto first = g_breadcrumbs[0].tick;
+    for (std::size_t i = 0; i < g_breadcrumb_count; ++i) {
+        const auto& entry = g_breadcrumbs[i];
+        Text text;
+        text.str("  +")
+            .dec(static_cast<long long>(entry.tick - first))
+            .str(entry.thread == BreadcrumbThread::Render ? " us [render] " : " us [main] ")
+            .str(entry.message);
+        // A loading level ID must not be mistaken for a captured render frame.
+        if (entry.value >= 0) {
+            text.str(breadcrumb_value_label(entry.kind)).dec(entry.value);
+        }
+        text.str("\n");
+        out.text(text);
+    }
 }
 
 }  // namespace
@@ -539,8 +578,7 @@ void configure(const std::filesystem::path& folder, const std::string& program, 
     copy(g_session, sizeof(g_session), session);
     g_offset = local_offset();
 #if defined(_WIN32)
-    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
-    SymInitialize(GetCurrentProcess(), nullptr, TRUE);
+    symbols::initialize();
     g_base = reinterpret_cast<std::uintptr_t>(GetModuleHandleA(nullptr));
 #else
     // The first backtrace() loads what it unwinds with (glibc: libgcc_s), which allocates: here,
@@ -602,6 +640,7 @@ void write_report(int fd, const char* reason, Kind kind, long long now) {
     write_head(out, reason, kind, now);
     capture();
     write_backtrace(out);
+    write_breadcrumbs(out);
     write_tail(out);
 }
 
@@ -643,6 +682,7 @@ const char* report(const char* reason, Kind kind) {
         out.str("[error] ==== the program stopped: ").str(kind_name(kind)).str(" ====\n");
         write_head(out, reason, kind, now);
         write_backtrace(out);
+        write_breadcrumbs(out);
         if (file >= 0) {
             const char* slash = std::strrchr(g_written, '/');
             out.str("Crash report: ").str(g_folder_shown).str(slash != nullptr ? slash : "").str("\n");
@@ -658,6 +698,7 @@ const char* report(const char* reason, Kind kind) {
         out.str("==== OpenRAC crash report ====\n");
         write_head(out, reason, kind, now);
         write_backtrace(out);
+        write_breadcrumbs(out);
         write_tail(out);
     }
     close_fd(file);

@@ -77,7 +77,17 @@
 #define HERO RAC1_ADDR(0x0013F450u)
 #define HERO_MOBY (HERO + 0x2080u)
 #define HERO_VELOCITY (HERO + 0xE0u)
+/* What the follow camera reads of his ground (follow_camera.c): his height above it, the frames
+ * off it, past the top of a jump, and the frames to landing. */
+#define HERO_GROUND_DISTANCE (HERO + 0x2DCu)
+/* A frame his state asked his animation to loop back to or jump to (clear_hero_queued_animation). */
+#define HERO_ANIM_LOOP_FRAME (HERO + 0xAB0u)
+#define HERO_QUEUED_FRAME_REQUEST (HERO + 0xAB8u)
+#define HERO_FRAMES_OFF_GROUND (HERO + 0x30Cu)
+#define HERO_PAST_JUMP_APEX (HERO + 0x41Eu)
+#define HERO_FRAMES_TO_LAND (HERO + 0x44Cu)
 #define HERO_STATE (HERO + 0x2084u)
+#define HERO_CONTROL_MODE (HERO + 0x208Cu)
 #define HERO_HEALTH (HERO + 0x22A8u)
 #define HERO_FRAMES_OFF_GROUND (HERO + 0x30Cu)
 #define HERO_ITEM_MOBY (HERO + 0x1090u)
@@ -244,13 +254,184 @@ static int hero_pose(openrac_game_pose* out) {
         out->flags = 0;
     }
     if (rac1_hero_steady()) {
-        out->flags |= 2u; /* OPENRAC_POSE_STEADY */
+        out->flags |= 8u; /* OPENRAC_POSE_STEADY */
     }
     if (GREF(int16_t, HERO_FRAMES_OFF_GROUND) != 0) {
-        out->flags |= 4u; /* OPENRAC_POSE_AIRBORNE */
+        out->flags |= 16u; /* OPENRAC_POSE_AIRBORNE */
     }
     out->anim_speed = GREF(float, HERO_ANIM_SPEED);
     return 1;
+}
+
+/* ---- The hero moved by a mod (interface 1.12) ----
+ *
+ * A mod that has taken the hero's whole update (the hook point Hero_Update: the level loop's
+ * coordinate_hero_frame_update, or its copy in the level, update_hero_frame or HeroL03_FrameUpdate)
+ * and does not run it puts him in its pose here, in place of what the update did with the stick:
+ * his animation first, as the update starts with advance_hero_animation; then where he is, his
+ * rotation and his velocity (Hero.motion), his matrices from the rotation as hero_update makes
+ * them; then the part of the update after his movement that shows him (update_hero_moby,
+ * update_hero_world_matrices, update_hero_equipped_items, begin_draw_frame), in the update's order.
+ * The rest of it (the state machine and its transitions, ledges and rails, the voice, the easing of
+ * his body, item rewards, the map's reveal, the lighting zone) is the mod's to leave out: it moves
+ * him by its own rules. */
+#define HERO_MOTION_POS (HERO + 0x80u)
+#define HERO_MOTION_ROT (HERO + 0x90u)
+#define HERO_INV_ROT_MATRIX (HERO + 0x40u)
+/* The ticks a new seq blends in over (set_hero_animation's time), as a figure's do. */
+#define HERO_SET_BLEND 4
+
+/* The states whose kept id lights the thruster pack's flames (update_beam_effect_lifecycle, the
+ * class 0xA7 mobys: states 0xB-0xE, a ledge jump, a land, and 0x10 and 0x22 while his state timer,
+ * which only his update advances, is young): with the mod's moves they burn on through the ride. */
+static int pack_flame_state(void) {
+    const int32_t st = GREF(int32_t, HERO_STATE);
+    return (st >= 0xB && st <= 0xE) || st == 8 || st == 0x10 || st == 0x1C || st == 0x22;
+}
+
+static int hero_set_pose(const openrac_game_pose* pose) {
+    if (!in_level()) {
+        return 0;
+    }
+    const gaddr moby = GREF(gaddr, HERO_MOBY);
+    if (moby == 0) {
+        return 0;
+    }
+    /* A new seq through the game's own start of one (the port's guard of it keeps a seq this
+     * level's class lacks out), its first key the pose's; the same seq runs on by itself. */
+    if (seq_frames(moby, pose->seq) > 0 && pose->seq != GREF(uint8_t, moby + MOBY_TARGET_SEQ)) {
+        const int frames = seq_frames(moby, pose->seq);
+        func_L00_00232C10(
+            (int)pose->seq,
+            (int)pose->frame < frames ? (int)pose->frame : frames - 1,
+            (float)HERO_SET_BLEND
+        );
+    }
+    /* The loop or jump his last state asked for is for that state's animation, not the pose's: a
+     * frame past the end of the pose's seq read garbage as a frame (a crash on Pokitaru). As
+     * clear_hero_queued_animation, before the advance. */
+    /* Clank's pack (items[3], both mobys) at rest, seq 1, as the game sends it for a seq of
+     * Ratchet's with no pack pair: a heli or thruster spin begun in a glide ran on through the
+     * ride, as only his states set the pack's seq. */
+    if (GREF(int32_t, HERO_ITEM_MOBY + 3u * 0x50u + 0x24u) == 2) {
+        for (unsigned i = 0; i < 2; ++i) {
+            const gaddr pack = GREF(gaddr, HERO_ITEM_MOBY + 3u * 0x50u + 4u * i);
+            if (pack != 0 && GREF(uint8_t, pack + 0x53u) != 1) {
+                func_00213DE0(pack, 1, 0, 7);
+            }
+        }
+    }
+    GREF(int32_t, HERO_ANIM_LOOP_FRAME) = -1;
+    GREF(int32_t, HERO_QUEUED_FRAME_REQUEST) = 0;
+    func_L00_00232EF0();
+    /* set_hero_animation sets the speed back to 1: the pose's from here on (the game's advance
+     * reads it next tick, as it reads the speed his states set). */
+    GREF(float, HERO_ANIM_SPEED) = pose->anim_speed;
+    for (unsigned i = 0; i < 3; ++i) {
+        GREF(float, HERO_MOTION_POS + 4u * i) = pose->position[i];
+        GREF(float, HERO_MOTION_ROT + 4u * i) = pose->rotation[i];
+        /* Units a second to a tick's move, as hero_pose divides. */
+        GREF(float, HERO_VELOCITY + 4u * i) = pose->velocity[i] / (float)openrac_game.frame_rate;
+    }
+    /* hero_update's matrices: the rotation's (euler_to_matrix), and its inverse, the identity with
+     * the rotation's rows as its columns (set_identity_matrix, matrix_from_basis_rows: a copy). */
+    /* On the ground or in the air, as the mod says (OPENRAC_POSE_ON_GROUND, _IN_AIR): the ground
+     * fields the follow camera reads, which his own update keeps, so it follows him as it follows
+     * the game's own moves. In the air its ground search (30 units and more) finds the ground. */
+    if (pose->flags & 2u) {
+        GREF(float, HERO_GROUND_DISTANCE) = 0.0f;
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = 0;
+        GREF(int16_t, HERO_PAST_JUMP_APEX) = 0;
+        GREF(int32_t, HERO_FRAMES_TO_LAND) = 0;
+        /* A ride begun in a jump, a flip, a fall or a wrench slam keeps that state (control mode 4
+         * or 2, set only by hero_set_state), and the follow camera keeps the mode it picked for
+         * it (its height held in the air, its flip and slam modes) for as long as he is in it.
+         * On the ground he is idle to the camera: state 0, control mode 0. */
+        const int32_t mode = GREF(int32_t, HERO_CONTROL_MODE);
+        if (mode == 2 || mode == 4 || GREF(int32_t, HERO_STATE) == 0x14 || pack_flame_state()) {
+            GREF(int32_t, HERO_STATE) = 0;
+            GREF(int32_t, HERO_STATE + 4u) = 0;
+            GREF(int32_t, HERO_CONTROL_MODE) = 0;
+        }
+    } else if (pose->flags & 4u) {
+        const int16_t off = GREF(int16_t, HERO_FRAMES_OFF_GROUND);
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = (int16_t)(off < 0x7FFF ? off + 1 : off);
+        GREF(int16_t, HERO_PAST_JUMP_APEX) = (int16_t)(pose->velocity[2] < 0.001f ? 1 : 0);
+        GREF(int32_t, HERO_FRAMES_TO_LAND) = 0;
+        GREF(float, HERO_GROUND_DISTANCE) = 30.0f;
+        /* In the air a state that lights the thruster's flames is a plain fall. */
+        if (pack_flame_state()) {
+            GREF(int32_t, HERO_STATE) = 6;
+            GREF(int32_t, HERO_STATE + 4u) = 0;
+            GREF(int32_t, HERO_CONTROL_MODE) = 2;
+        }
+    }
+    func_001FA218(HERO, HERO_MOTION_ROT);
+    for (unsigned r = 0; r < 4; ++r) {
+        for (unsigned c = 0; c < 4; ++c) {
+            const float v =
+                r < 3 && c < 3 ? GREF(float, HERO + 16u * c + 4u * r) : (r == c ? 1.0f : 0.0f);
+            GREF(float, HERO_INV_ROT_MATRIX + 16u * r + 4u * c) = v;
+        }
+    }
+    /* His blinks (update_hero_rotation_targets_and_random_manipulators): the face's manipulators
+     * on their random timer, as his update runs them, so a blink under way when the mod took over
+     * does not hold his eyes shut. */
+    func_L00_00205CC0();
+    /* His looping sounds (the helipack's, the thruster's, a slide's: sound slots that only his
+     * states start and only a change of his control mode stops) end with the mod's moves, as on
+     * a change of mode (release_and_clear_hero_voice_slots). */
+    func_L00_00207220();
+    func_L00_00208E98();
+    func_L00_002098B8(0);
+    func_L00_00210FE0();
+    func_001F7B40();
+    return 1;
+}
+
+static uint32_t hero_moby(void) {
+    return in_level() ? GREF(gaddr, HERO_MOBY) : 0;
+}
+
+/* The hero's own sounds for a mod (openrac_api.hero_sound_play): Moby_PlaySound (func_0022ED80) on
+ * him, flag 4 looping, as the hero's slot sounds start theirs (his rail grind's); it checks the
+ * entry against his class's table. A voice is stopped (release_voice_slot, func_0022EAB0) only while
+ * it still plays on him, as the hero's own code checks before stopping one. */
+#define VOICE_POOL RAC1_ADDR(0x0013E650u)
+#define VOICES 32
+#define VOICE_BYTES 0x70u
+#define VOICE_STATE 0x74u
+#define VOICE_OWNER 0x88u
+
+static int hero_sound_play(int sound, int loop) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || sound < 0) {
+        return -1;
+    }
+    return func_0022ED80(sound, loop ? 4 : 0, (int)moby);
+}
+
+static void hero_sound_stop(int voice) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || voice < 0 || voice >= VOICES) {
+        return;
+    }
+    const gaddr slot = OPENRAC_DATA(VOICE_POOL) + (gaddr)voice * VOICE_BYTES;
+    if (GREF(uint32_t, slot + VOICE_OWNER) == moby && GREF(uint8_t, slot + VOICE_STATE) != 0) {
+        func_0022EAB0(voice);
+    }
+}
+
+/* A hit's damage on the hero for a mod (openrac_api.hero_hurt): hero_change_health
+ * (func_L00_002056D8), at most 1 a hit, his health shown. */
+static int hero_hurt(int damage) {
+    if (hero_moby() == 0) {
+        return -1;
+    }
+    if (damage > 0) {
+        func_L00_002056D8(damage);
+    }
+    return GREF(int32_t, HERO_HEALTH);
 }
 
 int rac1_figure_alive(gaddr moby) {
@@ -628,4 +809,13 @@ const openrac_game_play rac1_play = {
     .camera_script_play = rac1_camera_script_play,
     .camera_script_show = rac1_camera_script_show,
     .save_slot_current = save_slot_current,
+    .hero_update_hook = "Hero_Update",
+    .hero_set_pose = hero_set_pose,
+    .hero_moby = hero_moby,
+    .collision_triangles = rac1_collision_triangles,
+    .camera_set = rac1_camera_set,
+    .camera_view = rac1_camera_view,
+    .hero_sound_play = hero_sound_play,
+    .hero_sound_stop = hero_sound_stop,
+    .hero_hurt = hero_hurt,
 };

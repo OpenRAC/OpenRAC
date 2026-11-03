@@ -18,7 +18,7 @@ void main() {
         result = vec4(1);
         return;
     }
-    mp_float visibility = mp_float(0), total = mp_float(0);
+    float visibility = 0.0, total = 0.0;
     ivec2 extent = (textureSize(tex_T0, 0) + evaluation_scale - 1) / evaluation_scale;
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
@@ -44,15 +44,15 @@ void main() {
             if (abs(delta.z) > max(0.05, -centre.z * 0.01) && plane > 0.0025) {
                 continue;
             }
-            // Rejection, plane error and reconstructed positions stay FP32. The surviving
-            // filter coefficients and sampled visibility are bounded to [0,1]. Widen the sums.
-            mp_float weight = exp(mp_float(-float(x * x + y * y) * 0.6 - plane * plane / 0.0025))
-                * pow(mp_float(agreement), mp_float(8));
-            visibility += mp_float(mp_float(guide.r) * weight);
-            total += mp_float(weight);
+            // Keep the filter in FP32: FP16 coefficients round differently between
+            // specialised and uniform-scale programs on some Vulkan drivers.
+            float weight = exp(-float(x * x + y * y) * 0.6 - plane * plane / 0.0025)
+                * pow(agreement, 8.0);
+            visibility += guide.r * weight;
+            total += weight;
         }
     }
-    float ao = float(total) > 1e-5 ? float(visibility) / float(total) : 1.0;
-    mp_float visibility_result = clamp(mp_float(1) - (mp_float(1) - mp_float(ao)) * mp_float(strength), mp_float(0), mp_float(1));
-    result = vec4(vec3(float(visibility_result)), 1);
+    float ao = total > 1e-5 ? visibility / total : 1.0;
+    float visibility_result = clamp(1.0 - (1.0 - ao) * strength, 0.0, 1.0);
+    result = vec4(vec3(visibility_result), 1);
 }

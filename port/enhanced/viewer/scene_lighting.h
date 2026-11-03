@@ -11,10 +11,17 @@
 
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
+#ifdef OPENRAC_LIGHT_AUTHORING
+#include "enhanced/lighting/object_lights.h"
+#endif
 #include "enhanced/lighting/probes.h"
+#include "enhanced/renderer/atmosphere.h"
+#include "enhanced/renderer/fur.h"
+#include "enhanced/renderer/local_lights.h"
 #include "enhanced/renderer/water_float.h"
 #include "enhanced/renderer/wetness.h"
 #include "enhanced/viewer/early_lighting.h"
@@ -30,17 +37,56 @@ namespace openrac::lighting {
 // The probe and early lighting of one LevelScene. The scene owns it once registered.
 class SceneLighting final : public scene::LevelLighting {
 public:
+    // Thread-safe authoring input; replaces the level's unshadowed point/spot lights atomically.
+    Result<void> set_local_lights(std::span<const enhanced::LocalLight> lights) {
+        return m_local_lights.set_lights(lights);
+    }
+
+    // Session-only all-lights reference for validation and profiling.
+    void set_local_light_reference(bool reference) { m_local_lights.reference = reference; }
     std::string mesh_fragment(std::string source) const override;
     std::string mesh_vertex(std::string source) const override;
+
+    std::optional<std::string> rigid_depth_vertex(std::string source) const override {
+        return source;
+    }
+
+    // Water attachments are the only position deformation supplied by this provider.
+    std::string dry_shadow_vertex(std::string source) const override { return source; }
+
     void prepare_wetness(
         const renderer::FrameInput& input,
         unsigned palette,
         const std::optional<scene::Instance>& hero
     ) override;
     void bind_wetness(const renderer::Shader& shader) const override;
-    void prepare_deformation(const renderer::FrameInput& input) override;
+
+#ifdef OPENRAC_LIGHT_AUTHORING
+    void prepare_instances(
+        scene::Layer layer, std::span<const scene::Instance> instances
+    ) override {
+        m_object_lights.instances(layer, instances);
+    }
+#endif
+
+    void prepare_deformation(
+        const renderer::FrameInput& input, const scene::LevelScene& scene
+    ) override;
     void bind_deformation(const renderer::Shader& shader, bool enabled) const override;
     bool deformation_active() const override;
+
+    bool prepares_atmosphere_chain() const override { return true; }
+    bool atmosphere_wanted(const renderer::FrameInput&) const override;
+    void prepare_atmosphere(
+        const scene::LevelScene&,
+        const renderer::FrameInput&,
+        const renderer::RenderTarget&,
+        const std::array<float, 4>&,
+        const std::array<float, 4>&
+    ) override;
+    void draw_atmosphere_sky(const renderer::RenderTarget&) override;
+    std::string atmosphere_source() const override;
+    void bind_atmosphere(const renderer::Shader&) const override;
     void bind_material(
         const renderer::Shader& shader, std::uint32_t model, const scene::Material& material
     ) const override;
@@ -98,6 +144,9 @@ public:
     bool early_matches(
         const renderer::FrameInput& input, const renderer::RenderState& state
     ) const override;
+    std::span<const unsigned> early_buffers(
+        const renderer::FrameInput& input, const renderer::RenderState& state
+    ) const override;
 
     // Uploads a probe volume an in-memory provider made (and its dense volume); the provider has
     // checked the scene's and the bake's identity. False with `error` when it cannot be uploaded.
@@ -113,8 +162,15 @@ public:
 private:
     std::map<std::uint32_t, int>
         m_reflection_classes;  // Authored object identity for chrome overrides.
+#ifdef OPENRAC_LIGHT_AUTHORING
+    std::string m_attachment_error;  // Deduplicates malformed-profile/capacity diagnostics.
+    enhanced::ObjectLights m_object_lights;
+#endif
+    enhanced::LocalLights m_local_lights;  // Render-thread table and complete tile masks.
     enhanced::HeroWetness m_wetness;
+    enhanced::HeroFur m_fur;
     enhanced::WaterFloat m_water_float;
+    enhanced::Atmosphere m_atmosphere;
     ProbeLighting m_probes;          // The level's probe bake on the GPU.
     EarlyLighting m_early_lighting;  // The early-lit world's per-pixel lighting.
 };

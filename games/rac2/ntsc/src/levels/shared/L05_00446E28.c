@@ -14,6 +14,4 @@ int func_L05_00447F10(void)
     return ref_L05_00447F10_00;
 }
 
-INCLUDE_ASM("asm/levels", func_L05_00450238);
 
-INCLUDE_ASM("asm/levels", func_L05_00462858);

@@ -11,6 +11,7 @@
 
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/water_mesh.h"
+#include "renderer/framebuffer.h"
 #include "renderer/shader.h"
 
 namespace openrac::enhanced::water_detail {
@@ -51,12 +52,30 @@ public:
     Water(scene::LevelScene& scene, const std::filesystem::path& path);
     std::string fragment_source() const override;
     std::string vertex_source() const override;
+
+    std::optional<std::string> quad_fragment_source() const override {
+        return "vec3 effect_material(vec3 rgb){return rgb;}\n";
+    }
+
+    void bind_quads(const renderer::Shader&, const renderer::FrameInput&) override {}
+
+    bool plain_strips_supported() const override { return true; }
     std::optional<renderer::EffectMesh> mesh(
         const renderer::EffectStrip& strip, std::span<const renderer::EffectVertex> vertices
     ) override;
     void upload_meshes() override;
+    // Captures opaque colour and reversed depth before enhanced water composites them.
+    void prepare_scene(
+        const renderer::FrameInput& input, const renderer::RenderTarget& target
+    ) override;
+
+    bool prepares_colour_chain() const override { return true; }
+
+    std::array<unsigned, 2> scene_textures() const override;
+    void finish_pass() override;
     void draw_mesh(const renderer::Shader& shader, const renderer::EffectMesh& mesh) override;
     bool init(std::string& error) override;
+    // Updates sampled water irradiance after binding the current scene probes and shadows.
     void update_lighting(const renderer::FrameInput& input);
     void prepare(const renderer::FrameInput& input) override;
     void bind(
@@ -73,6 +92,29 @@ public:
     void release() override;
 
 private:
+    // Borrowed frame/impulse inputs remain valid until simulate() finishes all synchronous callbacks.
+    struct SimulationUpdate {
+        const renderer::FrameInput& input;      // Owned by the current renderer frame.
+        renderer::Vec3 hero;                    // Selected current water interactor.
+        std::array<int, 2> window;              // Current local torus origin.
+        std::array<float, 2> hand_impulses;     // Existing tuned hand wake strengths.
+        std::span<const Texel> impulse_starts;  // Borrowed prepare_frame() stack arrays.
+        std::span<const Texel> impulse_ends;    // Matching swept projectile/explosion endpoints.
+        float impulse = 0;                      // Existing tuned main interactor strength.
+        unsigned steps = 0;                     // Caught-up game ticks, each with four substeps.
+        bool reset = false;                     // Existing discontinuity/reset decision.
+    };
+
+    // Records metadata/history preparation using unchanged shader bindings and parameters.
+    void prepare_window(const SimulationUpdate& update);
+    // Binds physics and interaction constants shared by every substep of this update.
+    void configure_wave_steps(const SimulationUpdate& update);
+    // Binds previous contact positions and swept impulse arrays without changing their sampling order.
+    void configure_wave_interactions(const SimulationUpdate& update);
+    // Records one unchanged solver dispatch and advances ping-pong ownership exactly once.
+    void record_wave_step(const SimulationUpdate& update, unsigned step);
+    // Executes the graph or reference chain, reporting transfer/recording failures to the caller.
+    bool simulate(const SimulationUpdate& update);
     // Geometry consumers need waves before depth; liquid lighting waits for current shadows.
     void prepare_frame(const renderer::FrameInput& input, bool lighting);
     bool m_lighting_pending = false;
@@ -80,6 +122,8 @@ private:
         const renderer::FrameInput& input, const renderer::Vec3& hero, std::uint64_t epoch
     );
     std::unique_ptr<WaterMesh> m_mesh;
+    renderer::FrameBuffer m_background;
+    bool m_background_ready = false;
     scene::LevelScene& m_scene;
     std::vector<Texel> m_bodies, m_coast, m_hydraulics;
     renderer::Shader m_step, m_light, m_window_prepare;
@@ -101,10 +145,12 @@ private:
     std::uint64_t m_reset_epoch = 0;
     std::uint64_t m_last_frame = std::numeric_limits<std::uint64_t>::max();
     renderer::Vec3 m_hero{};
+    std::uint64_t m_impulse_frame = std::numeric_limits<std::uint64_t>::max();
     std::array<std::optional<renderer::Vec3>, 2> m_hands{};
     double m_time = 0, m_exit_time = -1;
     float m_sim_weight = 1;
     bool m_enabled = false;
     bool m_bound = false;
+    unsigned m_effect_setups = 0;
 };
 }  // namespace openrac::enhanced::water_detail

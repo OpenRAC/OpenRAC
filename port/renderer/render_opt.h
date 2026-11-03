@@ -56,12 +56,48 @@ enum class Opt : std::uint8_t {
     FsrMotionBatch,      // fsr-motion-batch: FSR object motion drawn in pose-buffer batches
     MobyGlowSkip,        // moby-glow-skip: the glow pass leaves out primitives with no glow vertex
     GtaoDirectDepth,  // gtao-direct-depth: the colour composite samples the prepass depth, no copy
-    FsrFloat16,       // fsr-float16: vendor half-precision history filtering
-    ShaderFloat16,    // shader-float16: audited local mixed-precision arithmetic
+    VkBufferDirectFill,  // vk-buffer-direct-fill: supplied buffer bytes replace the mirror directly
+    FsrPaletteReuse,  // fsr-palette-reuse: retain joint-history storage and skip unchanged uploads
+    WaterStepBarriers,  // water-step-barriers: one dependency between adjacent simulation substeps
+    FsrObjectHistoryReuse,  // fsr-object-history-reuse: retain nodes for surviving temporal identities
+    FsrFloat16,             // fsr-float16: vendor half-precision history filtering
+    ShadowFrameReuse,  // shadow-frame-reuse: atmosphere and early lighting share this frame's maps
+    ProbeTranslucentTiles,  // probe-translucent-tiles: depth-independent region masks for blending
+    ShadowDryShaders,       // shadow-dry-shaders: omit unused water deformation for dry casters
+    MotionBlurUniqueSeeds,  // motion-blur-unique-seeds: skip already-tested flood sources
+    MotionBlurSetupReuse,   // motion-blur-setup-reuse: retain unchanged flood uniforms
+    ShadowGeometryCull,  // shadow-geometry-cull: reject off-map chunks of single-instance terrain
+    EffectQuadShader,    // effect-quad-shader: omit water machinery from ordinary quads
+    EffectSetupReuse,    // effect-setup-reuse: bind unchanged material state once per pass
+    WaterMeshReuse,      // water-mesh-reuse: retain immutable rest-height and topology lookups
+    EffectStripShader,   // effect-strip-shader: plain shader for undeformed surface-zero strips
+    ShadowStaticGeometryCull,  // shadow-static-geometry-cull: off-map rigid static ranges
+    AgxDirectOutput,  // agx-direct-output: in-place colour transform on storage-capable outputs
+    PrepassRigid,     // prepass-rigid: static dry depth/normal shaders without skinning
+    EffectStaticControls,    // effect-static-controls: omit unused effect fragment paths
+    WaterLocalShader,        // water-local-shader: specialise local-window water sampling
+    ProbeSelectionVariants,  // probe-selection-variants: separate shortlist and tile kernels
+    EarlyProbeSetup,         // early-probe-setup: prepare receiver atlas coordinates once per grid
+    VkDrawUniform,           // vk-draw-uniform: opt-in vertex draw integer as a push constant
+    ShaderVariants,          // shader-variants: compile fixed pass controls out of local shaders
+    ShaderFloat16,           // shader-float16: audited local mixed-precision arithmetic
+    CameraVisibilityReuse,   // camera-visibility-reuse: depth and colour share GPU visibility
+    ShadowDepthOnly,  // shadow-depth-only: the shadow maps hold depth alone, no colour or stencil
+    FsrReactiveR8,    // fsr-reactive-r8: the upscaler's reactive mask is one R8 channel
+    MsaaPassResolve,  // msaa-pass-resolve: a multisampled colour resolved by its own pass
+    // motion-blur-adaptive-samples: two blur samples a pixel of trail, not always the most
+    MotionBlurAdaptiveSamples,
+    AttachmentUntouched,  // attachment-untouched: an attachment a pass leaves alone not loaded
+    PassRenderArea,       // pass-render-area: a pass loads and stores only the rectangle it touched
+    OverwriteDiscard,     // overwrite-discard: a target a full-screen pass overwrites is not loaded
+    ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended static passes
+    // vk-pipeline-library: a new Vulkan pipeline linked from parts made ahead, the full one later
+    VkPipelineLibrary,
+    GlStateWarmup,  // gl-state-warmup: OpenGL's drawn states drawn once more at a level's load
 };
 
-// The number of entries: ShaderFloat16 is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ShaderFloat16) + 1;
+// The number of entries: GlStateWarmup is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::GlStateWarmup) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

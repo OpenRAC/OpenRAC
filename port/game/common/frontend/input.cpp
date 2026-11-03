@@ -81,19 +81,27 @@ void draw_touch_pad(int window_width, int window_height) {
 }
 
 // The cursor as the mods ask for it, while nothing else has the mouse: captured only with the
-// window focused and the overlay and the debug menu shut.
+// window focused and the overlay's windows, the menu and the debug menu shut.
 void apply_mouse_capture() {
     if (!g || !g->window || g->window->sdl() == nullptr) {
         return;
     }
     SDL_Window* w = g->window->sdl();
     const bool focused = (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS) != 0;
-    const bool capture =
-        g->capture_wanted && focused && !debug_overlay::visible() && !debug_menu::is_open();
+    const bool capture = focused && !debug_menu::is_open()
+                         && (debug_overlay::camera_debug_capturing()
+                             || (g->capture_wanted && !debug_overlay::free_camera_enabled()
+                                 && !debug_overlay::wants_cursor()));
     if (SDL_GetWindowRelativeMouseMode(w) != capture) {
         SDL_SetWindowRelativeMouseMode(w, capture);
     }
     g->input.set_captured(capture);
+    // The pointer only where one of the overlay's windows uses it, hidden over the game. (A
+    // captured mouse hides it anyway; let go, SDL shows it as set here.)
+    const bool pointer = debug_overlay::wants_cursor();
+    if (SDL_CursorVisible() != pointer) {
+        pointer ? SDL_ShowCursor() : SDL_HideCursor();
+    }
 }
 
 KeyboardMouseView keyboard_mouse() {
@@ -101,7 +109,8 @@ KeyboardMouseView keyboard_mouse() {
         return {};
     }
     KeyboardMouseView view{
-        &g->input.keyboard_mouse(), debug_overlay::visible() || debug_menu::is_open()
+        &g->input.keyboard_mouse(),
+        debug_overlay::visible() || debug_menu::is_open() || debug_overlay::free_camera_enabled()
     };
     SDL_Window* w = g->window ? g->window->sdl() : nullptr;
     if (w == nullptr) {
@@ -208,7 +217,9 @@ void menus_after_mods(int port, std::uint16_t& buttons) {
 void skip_after_mods(int port, std::uint16_t& buttons) {
     // A mod's skip (openrac_api.play_skip: a party's scenes ending together) presses as a map's
     // own skip does.
-    const bool asked = port == 0 && mods::play_skipping();
+    // OPENRAC_SKIP_SCENES presses it too.
+    static const bool skip_scenes = env::flag(env::Var::SkipScenes);
+    const bool asked = port == 0 && (mods::play_skipping() || skip_scenes);
     if (asked && openrac_game_skip != nullptr) {
         openrac_game_skip();
     }
@@ -248,6 +259,7 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     analog[1] = p.right_y;
     analog[2] = p.left_x;
     analog[3] = p.left_y;
+    g->input.taps_read(port);
     // OPENRAC_PRESS=FRAME:MASK:FRAMES[:LX:LY[:RX:RY]],... holds buttons (mask bits as the pad reports
     // them, 0x4000 cross, 0x8 start) and optionally the left and right sticks (0-255, 128 centred; 0
     // is left or up) for scripted checks. FRAME counts the window's frames (world, 2D and movie frames).
@@ -309,6 +321,9 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
         // player's by the pad's.
         latch_scripted_stick(analog[0]);
     }
+    if (port == 0) {
+        scripted_pad(*buttons, analog);  // [debug tools] OPENRAC_RECORD, _REPLAY and _WALK
+    }
     // Start skips an in-game scene the way the game itself skips it: a pressed Start also presses
     // what the game's own skip of the scene playing reads (rac1: in a cutscene the four shoulders,
     // since the game skips one on Start with L1, L2, R1 and R2 held, Start alone only once it is
@@ -321,6 +336,11 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     if (openrac_game_pad_report_hook == nullptr) {
         skip_after_mods(port, *buttons);
         menus_after_mods(port, *buttons);
+    }
+    // Keep the game at its own camera/player pose while the developer flies independently.
+    if (debug_overlay::free_camera_enabled()) {
+        *buttons = 0xffff;
+        std::fill_n(analog, 4, std::uint8_t{128});
     }
     if (port == 0) {
         debug_overlay::pad(*buttons, analog);  // [debug tools]

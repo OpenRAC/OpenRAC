@@ -17,7 +17,7 @@ The repository must be **public**: the launcher reads it without an account.
 - **The manifest**, where the launcher looks for it:
   - one mod: `openrac-mod.json` at the top;
   - several mods: one folder per mod at the top, each with its
-    `openrac-mod.json` (as [rac1-mods](https://github.com/OpenRAC/rac1-mods));
+    `openrac-mod.json` (as [openrac-mods](https://github.com/OpenRAC/openrac-mods));
   - or a top-level `openrac-mods.json`, `{"format": 1, "mods": ["a", "b"]}`,
     listing the folders to read (then only those).
 - **For a native mod, a release** with `<id>-<version>-<platform>.zip` for

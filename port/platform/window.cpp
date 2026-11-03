@@ -19,6 +19,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "platform/display_hdr.h"
 #include "platform/gpu_driver.h"
 #if defined(OPENRAC_VULKAN)
 #include <SDL3/SDL_vulkan.h>
@@ -293,6 +294,11 @@ Platform::Platform(unsigned subsystems) {
         // ...and the controller still plays it. The keyboard counts only while the window has the
         // focus (Input::update), so typing elsewhere never moves Ratchet.
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+#if !defined(__ANDROID__)
+        // A Steam Controller (2015 or 2026) is read by SDL's own driver, so it plays a game started
+        // outside Steam as a gamepad. An SDL_JOYSTICK_HIDAPI_STEAM=0 in the environment still wins.
+        SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
+#endif
     }
     if ((subsystems & kAudio) != 0) {
         flags |= SDL_INIT_AUDIO;
@@ -476,6 +482,7 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
          g_vulkan_setup.physical_device,
          g_vulkan_setup.create_device};
     vk.validation = config.debug_context;
+    vk.hdr_colour_spaces = config.hdr;
     if (!vkgl::open(vk, error)) {
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
@@ -827,6 +834,84 @@ bool Window::swap_shows_at_once() const {
 #else
     return true;
 #endif
+}
+
+hdr::Display Window::hdr_display() const {
+    hdr::Display display;
+    if (m_window == nullptr) {
+        return display;
+    }
+    // SDL says it on Windows, macOS and Wayland; Android is asked through its activity; X11 has
+    // nothing to say.
+#if defined(_WIN32) || defined(__APPLE__)
+    display.known = true;
+#elif defined(__ANDROID__)
+    // Asked of the activity instead (platform/display_hdr.h).
+    android_display_hdr(display);
+    return display;
+#else
+    const char* driver = SDL_GetCurrentVideoDriver();
+    display.known = driver != nullptr && std::strcmp(driver, "wayland") == 0;
+#endif
+    if (!display.known) {
+        return display;
+    }
+    const SDL_PropertiesID props = SDL_GetWindowProperties(m_window);
+    display.hdr_enabled = SDL_GetBooleanProperty(props, SDL_PROP_WINDOW_HDR_ENABLED_BOOLEAN, false);
+    const float headroom = SDL_GetFloatProperty(props, SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT, 1.0f);
+    // The white level is in scRGB's units (80 nits) on Windows; macOS's EDR puts the system's
+    // white at 1.0, which scRGB's 80 nits then is; Wayland's headroom is over BT.2408's 203 nits.
+    display.headroom = headroom;
+#if defined(__APPLE__)
+    // EDR: white is the system's, as on Android (common/hdr.h, Display::relative).
+    display.relative = true;
+#endif
+#if defined(_WIN32) || defined(__APPLE__)
+    const float white = SDL_GetFloatProperty(props, SDL_PROP_WINDOW_SDR_WHITE_LEVEL_FLOAT, 1.0f);
+    display.sdr_white_nits = white * hdr::kScRgbUnitNits;
+    display.peak_nits = display.sdr_white_nits * headroom;
+#else
+    display.peak_nits = hdr::kReferenceWhiteNits * headroom;
+#endif
+    return display;
+}
+
+void Window::set_hdr(
+    [[maybe_unused]] hdr::Output wanted, [[maybe_unused]] const hdr::Levels& levels
+) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        vkgl::set_hdr({wanted, levels});
+#if defined(__ANDROID__)
+        // The window's colour mode follows what is asked, once a change.
+        const bool hdr = wanted != hdr::Output::Sdr;
+        const float headroom = hdr ? levels.peak / levels.paper_white : 0.0f;
+        if (hdr != m_hdr_window || headroom != m_hdr_headroom) {
+            m_hdr_window = hdr;
+            m_hdr_headroom = headroom;
+            android_window_hdr(hdr, headroom);
+        }
+#endif
+    }
+#endif
+}
+
+hdr::Output Window::hdr_output() const {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::hdr_output();
+    }
+#endif
+    return hdr::Output::Sdr;
+}
+
+bool Window::hdr_offered() const {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::hdr_offered();
+    }
+#endif
+    return false;
 }
 
 void Window::set_low_latency(bool on) {

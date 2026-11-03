@@ -59,11 +59,13 @@ float hero_shadow_blend(bool airborne, double seconds, ShadowTransition& transit
     return transition.value;
 }
 
-std::optional<bool> hero_airborne(std::span<const std::uint8_t> ram, std::uint32_t hero) {
+std::optional<bool> hero_airborne(
+    std::span<const std::uint8_t> ram, std::uint32_t hero, std::uint32_t air_frames
+) {
     // Collision/ground-probe update clears air_frames on landing and
     // increments it while off the ground, including a zero-speed jump apex.
     // 0x30A instead flags particular mobys hit by the ground probe.
-    constexpr std::size_t offset = 0x30e;
+    const std::size_t offset = air_frames;
     if (!hero || hero > ram.size() || ram.size() - hero < offset + 2) {
         return {};
     }

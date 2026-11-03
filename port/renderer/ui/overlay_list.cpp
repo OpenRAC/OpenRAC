@@ -71,7 +71,9 @@ void OverlayList::rect(float x, float y, float w, float h, std::uint32_t colour)
     m_vertices.insert(m_vertices.end(), {a, b, d, b, e, d});
 }
 
-void OverlayList::text(float x, float y, float height, std::uint32_t colour, std::string_view line) {
+void OverlayList::text(
+    float x, float y, float height, std::uint32_t colour, std::string_view line
+) {
     if (!finite(x) || !finite(y) || !finite(height) || height <= 0.0f) {
         return;
     }
@@ -96,11 +98,13 @@ void OverlayList::text(float x, float y, float height, std::uint32_t colour, std
                 while (col + 1 < kGlyphColumns && rows[r * kGlyphColumns + col + 1] == '#') {
                     ++col;
                 }
-                rect(at + static_cast<float>(first) * pixel_w,
-                     y + static_cast<float>(r) * pixel_h,
-                     static_cast<float>(col - first + 1) * pixel_w,
-                     pixel_h,
-                     colour);
+                rect(
+                    at + static_cast<float>(first) * pixel_w,
+                    y + static_cast<float>(r) * pixel_h,
+                    static_cast<float>(col - first + 1) * pixel_w,
+                    pixel_h,
+                    colour
+                );
             }
         }
         at += cell;
@@ -115,7 +119,9 @@ float OverlayList::text_width(float height, std::string_view line) const {
     return static_cast<float>(characters(line)) * cell_width(height, m_aspect);
 }
 
-bool overlay_project(const Mat4& view, const Mat4& projection, const Vec3& world, float& x, float& y) {
+bool overlay_project(
+    const Mat4& view, const Mat4& projection, const Vec3& world, float& x, float& y
+) {
     if (!finite(world[0]) || !finite(world[1]) || !finite(world[2])) {
         return false;
     }

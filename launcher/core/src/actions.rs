@@ -544,16 +544,20 @@ impl Action {
             Some(v) => format!("{} · {} ({})", self.label, v.title, v.region),
             None => self.label.clone(),
         };
+        let mut env = Vec::new();
+        // The bake transcript identifies the running launcher even when it uses another checkout.
+        if self.id == crate::enhanced::BAKE_ACTION {
+            env.push(("OPENRAC_LAUNCHER_VERSION".to_string(), env!("CARGO_PKG_VERSION").to_string()));
+        }
         // Developer tools on: the native port offers its developer features (a level select in the
         // front end's Options).
-        let mut env = Vec::new();
         if self.kind == Kind::Play && ctx.config.developer {
             env.push(("OPENRAC_DEVELOPER".to_string(), "1".to_string()));
         }
         // Settings, "Theme": the game's options drawer wears the launcher's colours (theme.rs).
         if self.kind == Kind::Play {
             let game = ctx.version.map(|v| v.game.as_str());
-            env.push((crate::theme::ENV.to_string(), crate::theme::ui_colors(&ctx.config.theme, game, ctx.platform)));
+            env.push((crate::theme::ENV.to_string(), crate::theme::ui_colors(&ctx.config.theme, game)));
         }
         // Settings, "Multiplayer name": the name online mods show the other players
         // (multiplayer.rs); one that is not valid is left out, and the mod uses its own.
@@ -577,6 +581,10 @@ impl Action {
         {
             env.push(("OPENRAC_GL_API".to_string(), "vulkan".to_string()));
         }
+        // Settings, "HDR": the launcher's choice over the game's own for this start.
+        if self.kind == Kind::Play && matches!(ctx.config.hdr.as_str(), "off" | "auto" | "on") {
+            env.push(("OPENRAC_HDR".to_string(), ctx.config.hdr.clone()));
+        }
         // The Mods tab's Enhanced graphics (enhanced.rs): with `enhanced_rendering = 1` in the
         // version's settings file the game draws with Vulkan, the one renderer that has it, and
         // takes the probe bakes made from the player's levels. Off, nothing is added. On Android
@@ -595,6 +603,17 @@ impl Action {
                             }
                         }
                         args.extend(more_args);
+                    }
+                }
+            }
+        }
+        // A game's Texture packs, "Save the game's textures while you play" (texture_packs.rs):
+        // the dump folder in the data home, for the port to write each texture it meets into.
+        if self.kind == Kind::Play {
+            if let Some(v) = ctx.version {
+                if let Some(pair) = crate::texture_packs::play_env(&crate::saves::data_home(), &v.game, &v.name) {
+                    if !env.iter().any(|(k, _)| *k == pair.0) {
+                        env.push(pair);
                     }
                 }
             }
@@ -771,6 +790,30 @@ mod tests {
         assert!(parse(r#"{"format": 1, "extra": true}"#).is_err());
     }
 
+    /// A bake using a different checkout still reports this launcher's actual compiled version.
+    #[test]
+    fn bake_plan_passes_running_launcher_version() {
+        let root = checkout();
+        let config = Config::default();
+        let ctx = Context {
+            root: &root,
+            config: &config,
+            version: None,
+            status: None,
+            toolchains: false,
+            platform: Platform::current(),
+            level: None,
+            path: None,
+            option: None,
+        };
+        let action: Action = serde_json::from_str(
+            r#"{"id": "probe-bake", "label": "Bake", "kind": "build", "state": "unverified", "program": "python"}"#,
+        )
+        .unwrap();
+        let plan = action.plan(&ctx).unwrap();
+        assert!(plan.env.contains(&("OPENRAC_LAUNCHER_VERSION".to_string(), env!("CARGO_PKG_VERSION").to_string())));
+    }
+
     #[test]
     fn a_developers_action_runs_only_with_developer_tools_on() {
         let root = checkout();
@@ -940,9 +983,19 @@ mod tests {
         let keyed = Config { multiplayer_key: key.clone(), ..installed.clone() };
         assert!(play.plan(&ctx(&keyed)).unwrap().env.contains(&("OPENRAC_IDENTITY_KEY".to_string(), key)));
         assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_IDENTITY_KEY"));
-        // Settings, "Renderer": Vulkan on the desktops; OpenGL, the default, sets nothing.
-        assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
-        let vulkan = Config { renderer: "vulkan".into(), ..installed.clone() };
+        // Settings, "HDR": nothing by default (the game's own), else the launcher's word.
+        assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_HDR"));
+        let modes = ["off", "auto", "on"].map(|mode| Config { hdr: mode.into(), ..installed.clone() });
+        for hdr in &modes {
+            let plan = play.plan(&ctx(hdr)).unwrap();
+            assert!(plan.env.contains(&("OPENRAC_HDR".to_string(), hdr.hdr.clone())), "{:?}", plan.env);
+        }
+        let odd = Config { hdr: "bright".into(), ..installed.clone() };
+        assert!(!play.plan(&ctx(&odd)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_HDR"));
+        // Settings, "Renderer": Vulkan, the default, on the desktops; OpenGL sets nothing.
+        let opengl = Config { renderer: "opengl".into(), ..installed.clone() };
+        assert!(!play.plan(&ctx(&opengl)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
+        let vulkan = installed.clone();
         let plan = play.plan(&ctx(&vulkan)).unwrap();
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         // macOS as well: the game's bundle carries MoltenVK.

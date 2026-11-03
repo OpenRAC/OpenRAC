@@ -27,9 +27,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <span>
+#include <string>
+#include <vector>
 
 #include "common/c_boundary.h"
 #include "common/crash.h"
@@ -40,7 +43,9 @@
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
+#include "debug/overlay.h"
 #include "frontend.h"
+#include "options_menu.h"
 #include "renderer/direct.h"
 #include "renderer/texture.h"
 #include "scene/moby_pose.h"
@@ -186,6 +191,19 @@ void openrac_game_draw(unsigned layers) {
     });
 }
 
+void openrac_game_world_view(void) {
+    c_boundary::call("openrac_game_world_view", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            const auto* ram = runtime::Memory::get().base();
+            frontend::world_drawn(
+                std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size())
+            );
+        }
+#endif
+    });
+}
+
 void openrac_game_world_under_menu(void) {
     c_boundary::call("openrac_game_world_under_menu", [&] {
 #ifdef OPENRAC_FRONTEND
@@ -208,8 +226,6 @@ void openrac_game_tick_boundary(void) {
 
 void openrac_game_dma_send(gaddr channel, gaddr tag) {
     c_boundary::call("openrac_game_dma_send", [&] {
-        g_chain = tag;
-
         // A frame sent to VIF1 with no vertical blank waited for since the last one: on the console
         // the loop is paced by the DMA and the interrupts (the title loop never calls sceGsSyncV), so
         // the frame ends here, with the vertical blank's handlers, as if the hardware had done it.
@@ -220,6 +236,9 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
                 openrac_game_tick_boundary();
             }
 
+            // The frame's list. What goes to VIF0 (Going Commando's VU0 programs, which it sends in
+            // the middle of a frame) is not one.
+            g_chain = tag;
             g_vsync_since_kick = false;
         }
 
@@ -251,9 +270,11 @@ void openrac_game_set_display(const openrac_game_display* d) {
 #ifdef OPENRAC_FRONTEND
             // Display changes replace globals read by the pending snapshot, so drain it first.
             if (d->frame_width > 0 && d->height > 0 && frontend::finish_render()) {
+                const std::uint32_t named = frontend::draw_buffer_block();
                 renderer::set_draw_buffer_block(
-                    static_cast<std::uint32_t>(d->frame_base) * 32
-                        + static_cast<std::uint32_t>(d->height * d->frame_width),
+                    named != 0 ? named
+                               : static_cast<std::uint32_t>(d->frame_base) * 32
+                                     + static_cast<std::uint32_t>(d->height * d->frame_width),
                     d->height >= 512 ? 448 : 416
                 );
             }
@@ -383,6 +404,17 @@ void openrac_game_effect_quad(const openrac_game_quad* quad) {
     });
 }
 
+void openrac_game_water_explosion(const float position[3], float radius, float strength) {
+    c_boundary::call("openrac_game_water_explosion", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window)
+            frontend::water_explosion(position, radius, strength);
+#else
+        (void)position; (void)radius; (void)strength;
+#endif
+    });
+}
+
 void openrac_game_sky_shell(int shell, const float* matrix) {
     c_boundary::call("openrac_game_sky_shell", [&] {
 #ifdef OPENRAC_FRONTEND
@@ -396,6 +428,28 @@ void openrac_game_sky_shell(int shell, const float* matrix) {
     });
 }
 
+int openrac_game_hud_texts(openrac_game_hud_text* out, int max) {
+    return c_boundary::call("openrac_game_hud_texts", 0, [&]() -> int {
+        const std::vector<openrac_hud_text> lines = mods::hud_texts();
+        const int n = static_cast<int>(lines.size());
+        for (int i = 0; out != nullptr && i < n && i < max; ++i) {
+            const openrac_hud_text& l = lines[static_cast<std::size_t>(i)];
+            openrac_game_hud_text& o = out[i];
+            std::memcpy(o.text, l.text, sizeof o.text);
+            o.text[sizeof o.text - 1] = '\0';
+            o.x = l.x;
+            o.y = l.y;
+            o.scale = l.scale;
+            o.rgba = static_cast<std::uint32_t>(l.rgba[0])
+                     | static_cast<std::uint32_t>(l.rgba[1]) << 8
+                     | static_cast<std::uint32_t>(l.rgba[2]) << 16
+                     | static_cast<std::uint32_t>(l.rgba[3]) << 24;
+            o.flags = l.flags;
+        }
+        return n;
+    });
+}
+
 int openrac_game_hud_side(void) {
     return c_boundary::call("openrac_game_hud_side", 0, [&]() -> int {
 #ifdef OPENRAC_FRONTEND
@@ -404,6 +458,17 @@ int openrac_game_hud_side(void) {
         }
 #endif
         return 0;
+    });
+}
+
+uint32_t openrac_game_effect_quad_marker(void) {
+    return c_boundary::call("openrac_game_effect_quad_marker", 0u, [&]() -> std::uint32_t {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::effect_quad_marker();
+        }
+#endif
+        return 0u;
     });
 }
 
@@ -431,7 +496,9 @@ int openrac_game_ui_quad(const openrac_game_ui_rect* quad) {
     });
 }
 
-void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side) {
+void openrac_game_particle(
+    const uint8_t* record, uint32_t pixels, uint32_t clut, int log2_side, uint32_t id
+) {
     c_boundary::call("openrac_game_particle", [&] {
 #ifdef OPENRAC_FRONTEND
         if (g_window) {
@@ -441,7 +508,8 @@ void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut
                 record,
                 pixels,
                 clut,
-                log2_side
+                log2_side,
+                id
             );
         }
 #else
@@ -449,6 +517,7 @@ void openrac_game_particle(const uint8_t* record, uint32_t pixels, uint32_t clut
         (void)pixels;
         (void)clut;
         (void)log2_side;
+        (void)id;
 #endif
     });
 }
@@ -488,6 +557,42 @@ void openrac_game_moby_chain(gaddr moby, gaddr marks) {
     });
 }
 
+void openrac_game_moby_local_pose(gaddr moby) {
+    c_boundary::call("openrac_game_moby_local_pose", [&] {
+#ifdef OPENRAC_FRONTEND
+        const auto mods = scene::extra_joint_modifiers(moby);
+        if (mods.empty()) {
+            return;
+        }
+        const gaddr cls = *static_cast<const gaddr*>(G(moby + 0x24));
+        if (cls == 0) {
+            return;
+        }
+        const unsigned joints = *static_cast<const std::uint8_t*>(G(cls + 0x08));
+        // As moby_animation.cpp's evaluate_keys applies a mode 0 modifier: q * rotation, the scale
+        // multiplied, the translation added.
+        for (const auto& m : mods) {
+            if (m.joint >= joints || m.joint >= 0x7F || m.mode != 0) {
+                continue;
+            }
+            auto* rec = static_cast<float*>(G(0x70000000u + static_cast<gaddr>(m.joint) * 0x40));
+            const float q[4] = {rec[0], rec[1], rec[2], rec[3]};
+            const auto& r = m.quat;
+            rec[0] = q[3] * r[0] + r[3] * q[0] + (q[1] * r[2] - q[2] * r[1]);
+            rec[1] = q[3] * r[1] + r[3] * q[1] + (q[2] * r[0] - q[0] * r[2]);
+            rec[2] = q[3] * r[2] + r[3] * q[2] + (q[0] * r[1] - q[1] * r[0]);
+            rec[3] = q[3] * r[3] - (q[0] * r[0] + q[1] * r[1] + q[2] * r[2]);
+            for (unsigned k = 0; k < 3; ++k) {
+                rec[4 + k] *= m.scale[k];
+                rec[8 + k] += m.trans[k];
+            }
+        }
+#else
+        (void)moby;
+#endif
+    });
+}
+
 gaddr openrac_game_text(int id) {
     return c_boundary::call("openrac_game_text", 0, [&]() -> gaddr {
 #ifdef OPENRAC_FRONTEND
@@ -497,6 +602,70 @@ gaddr openrac_game_text(int id) {
 #endif
         (void)id;
         return 0;
+    });
+}
+
+namespace {
+
+// TEXT into the game's memory at OUT, cut to SIZE bytes with its end.
+void put_option_text(const std::string& text, char* out, int size) {
+    if (out != nullptr && size > 0) {
+        std::snprintf(out, static_cast<std::size_t>(size), "%s", text.c_str());
+    }
+}
+
+}  // namespace
+
+int openrac_game_option_rows(void) {
+    return c_boundary::call("openrac_game_option_rows", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::options_menu::row_count();
+        }
+#endif
+        return 0;
+    });
+}
+
+void openrac_game_option_row_text(int row, char* label, char* value, int size) {
+    c_boundary::call("openrac_game_option_row_text", [&] {
+        put_option_text("", label, size);
+        put_option_text("", value, size);
+#ifdef OPENRAC_FRONTEND
+        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+            put_option_text(
+                frontend::options_menu::shown(frontend::options_menu::label(row)), label, size
+            );
+            put_option_text(
+                frontend::options_menu::shown(frontend::options_menu::value(row)), value, size
+            );
+        }
+#endif
+        (void)row;
+    });
+}
+
+void openrac_game_option_step(int row, int by) {
+    c_boundary::call("openrac_game_option_step", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+            frontend::debug_overlay::change_setting(row, by);
+        }
+#endif
+        (void)row;
+        (void)by;
+    });
+}
+
+void openrac_game_option_word(const char* english, char* out, int size) {
+    c_boundary::call("openrac_game_option_word", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            put_option_text(frontend::options_menu::shown(english), out, size);
+            return;
+        }
+#endif
+        put_option_text(english, out, size);
     });
 }
 

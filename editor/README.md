@@ -904,8 +904,8 @@ Approximations:
   inferred rather than traced in the game's code. Sprites the game adds
   to the sky at run time are not included.
 
-Not yet extracted: low-detail moby meshes, audio, video
-and each level's code overlay. [ASSETS.md](../games/rac1/docs/ASSETS.md) describes
+Not yet extracted: low-detail moby meshes, audio (the Mods page's Audio tab exports
+it: [AUDIO_MODDING.md](AUDIO_MODDING.md)), video and each level's code overlay. [ASSETS.md](../games/rac1/docs/ASSETS.md) describes
 the formats and the evidence for them.
 
 ## The later games (early access)
@@ -1002,6 +1002,7 @@ The editor's files carry no licence lines, as the maintainers decided: the edito
 | `collision_scene.py` | The collision as tiles and hero walls in the scene, read back and packed into the level's core data |
 | `moby_collision.py` | Moby class collision: read, checked and written back byte-exact; generated from a mesh (also a command) |
 | `moby_collision_scene.py` | A class's collision in its class scene, read back and packed into the level's core data |
+| `audio.py` | The game's sounds as WAV files, and the edits back as a pack ([AUDIO_MODDING.md](AUDIO_MODDING.md)) |
 | `gamedata.py` | The gameplay data (pvars, links, groups, volumes, paths, cameras, sounds, level settings) in the scene and packed back |
 | `pack.py`, `gameplay.py`, `scenery.py`, `wadpack.py` | Packing edited scenes back into the game's level data |
 | `addons/openrac_collision/` | The Collision dock (GDScript, editor only): `plugin.gd` the plugin, `dock.gd` and `help.gd` its panel, `level_faces.gd` the level's faces and their edits, `class_collision.gd` a class scene's collision, `surfaces.gd` the type bytes |

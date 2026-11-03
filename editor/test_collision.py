@@ -115,6 +115,22 @@ class DecodeTests(unittest.TestCase):
         self.assertGreater(u[0] * v[1] - u[1] * v[0], 0)
 
 
+class HeaderTests(unittest.TestCase):
+    def test_a_third_part_after_the_hero_part_is_read(self):
+        """Six of Going Commando's levels store one more offset at +8."""
+        plain = bytearray(block({(0, 0, 0): leaf([(0, 0, 0), (8, 0, 0), (0, 8, 0)], [(0, 1, 2, 0)])}, hero=2))
+        hero_at, = struct.unpack_from("<I", plain, 4)
+        third = bytes(plain)
+        third = third[:8] + struct.pack("<I", hero_at) + third[12:]
+        self.assertEqual(decode(third).triangles, decode(bytes(plain)).triangles)
+
+    def test_other_header_words_are_refused(self):
+        plain = bytearray(block({(0, 0, 0): leaf([(0, 0, 0), (8, 0, 0), (0, 8, 0)], [(0, 1, 2, 0)])}, hero=2))
+        plain[12] = 1
+        with self.assertRaises(FormatError):
+            decode(bytes(plain))
+
+
 class OutputTests(unittest.TestCase):
     def test_colours(self):
         self.assertEqual(colour(0x1f), colour(0x7f))  # Bits 5-7 are not part of the surface.

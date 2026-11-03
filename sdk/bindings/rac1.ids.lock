@@ -671,6 +671,7 @@ rac1.player.approach_speed	pal:L00:00212740	FUN_L00_00212088,Hero_ApproachSpeed,
 rac1.player.set_planar_velocity	pal:L00:00212790	FUN_L00_002120d8,Hero_SetPlanarVelocity,func_L00_00212790
 rac1.player.take_damage	pal:L00:002056D8	FUN_L00_002050c0,Hero_TakeDamage,func_L00_002056D8
 rac1.player.turn_to_heading	pal:L00:002124E8	FUN_L00_00211e30,Hero_TurnToHeading,func_L00_002124E8
+rac1.player.update	pal:L00:002076E8	FUN_L00_002070d0,FUN_L01_00228870,FUN_L03_002002f8,Hero_Update,func_L00_002076E8,func_L01_00228E08,func_L03_00200890
 rac1.player.update_motion_input	pal:L00:00211D28	FUN_L00_00211670,Hero_UpdateMotionInput,func_L00_00211D28
 rac1.save.new_game	pal:00209DC0	FUN_00209370,Save_NewGame,func_00209DC0
 rac1.save.new_game_plus	pal:00227DB0	FUN_00226b08,Save_NewGamePlus,func_00227DB0

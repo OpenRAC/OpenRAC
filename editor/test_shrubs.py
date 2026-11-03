@@ -5,7 +5,7 @@ import struct
 import unittest
 
 from formats import FormatError
-from shrubs import billboard_fade, shrub_instances, shrub_mesh
+from shrubs import billboard_fade, billboard_mesh, shrub_instances, shrub_mesh
 
 
 def command(code, immediate=0, data=b"", count=0):
@@ -49,6 +49,13 @@ class ShrubTests(unittest.TestCase):
         for fade, byte in ((40.7, 40), (256.0, 0), (300.5, 44), (math.inf, -1)):
             struct.pack_into("<f", data, 0x100, fade)
             self.assertEqual(billboard_fade(data), byte)
+
+    def test_billboard_mesh_is_shrubprocs_quad(self):
+        mesh = billboard_mesh(466)
+        # ShrubProc's corners (y across, z up) with their s and t.
+        self.assertEqual(mesh.positions, [(0, -0.5, 1), (0, 0.5, 1), (0, -0.5, 0), (0, 0.5, 0)])
+        self.assertEqual(mesh.uvs, [(0, 0), (1, 0), (0, 1), (1, 1)])
+        self.assertEqual(list(mesh.faces.values()), [[(0, 2, 1), (1, 2, 3)]])
 
     def test_triangle_list_scale_texture_and_padding(self):
         for padded in (False, True):

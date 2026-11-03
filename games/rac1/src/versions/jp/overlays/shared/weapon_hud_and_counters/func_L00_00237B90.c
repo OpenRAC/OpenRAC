@@ -1,22 +1,25 @@
 int draw_hud_text_panel(char *e) {
-    int w1, tex, l1, y, i, width, left, w2, l2, alpha, color, c, level, elapsed, score, interval, per, seconds, minutes, rem, idx;
+    int w1, tex, l1, y, i, width, left, w2, l2, alpha, color, c, level, elapsed, score, interval, per, seconds, minutes,
+        rem, idx;
     float fade;
-    HudPoint_237B90 points[2];
-    HudPoint_237B90 point;
+    HudPoint points[2];
+    HudPoint point;
     char text[64];
     int text_y;
     void *pt;
     unsigned char *opacity = (unsigned char *)e + 0x70;
 
     if (pal_mode != 0) {
-        y = *(int *)&hud_text_panel_y + 0xa;
+        y = hud_text_panel_y + 0xa;
     } else {
-        y = *(int *)&hud_text_panel_y + 0x12;
+        y = hud_text_panel_y + 0x12;
     }
     fade = IntToFloat(*opacity);
     fade /= multiply_global_factor(8.0f);
-    if (fade < 0.0f) fade = 0.0f;
-    if (fade > 1.0f) fade = 1.0f;
+    if (fade < 0.0f)
+        fade = 0.0f;
+    if (fade > 1.0f)
+        fade = 1.0f;
     text_y = y + 8;
     i = 0;
     alpha = truncate_float_to_s32(fade * 128.0f);
@@ -81,8 +84,8 @@ int draw_hud_text_panel(char *e) {
         pt = &point;
         if (FastVecDist(gHeroPos, pt) < 5.0f) {
             race_record_panel_end_y = y + 100;
-            elapsed = race_best_times[g_current_level_index == 0x10 ? 1 : 0];
-            score = race_best_records[g_current_level_index == 0x10 ? 1 : 0];
+            elapsed = race_best_times[g_current_level_index == LEVEL_KALEBO3 ? 1 : 0];
+            score = race_best_records[g_current_level_index == LEVEL_KALEBO3 ? 1 : 0];
             if (elapsed != 0) {
                 interval = pal_mode != 0 ? 3000 : 3600;
                 per = interval / 60;

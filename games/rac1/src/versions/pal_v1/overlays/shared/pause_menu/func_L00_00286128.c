@@ -1,6 +1,5 @@
 extern B_00284e50 D_E1_L00_001BB280;
-void jet_reset_camera(void *a0, void *a1)
-{
+void jet_reset_camera(void *a0, void *a1) {
     unsigned char *src;
     int i;
     int lvl;
@@ -10,8 +9,10 @@ void jet_reset_camera(void *a0, void *a1)
     lvl = g_current_level_index_m;
     for (src = current_moby_states.f, i = 0; i < 0x7FF; i++, src++) {
         int v = *src;
-        if ((unsigned char)v == 0) continue;
-        if ((unsigned char)v != 1 && saved_mission_state[lvl][(unsigned char)v - 2] != 0xFF) continue;
+        if ((unsigned char)v == 0)
+            continue;
+        if ((unsigned char)v != 1 && saved_mission_state[lvl][(unsigned char)v - 2] != 0xFF)
+            continue;
         D_E1_L00_001BB280.f[i] = v;
         level_moby_killed[lvl][i >> 5] |= 1 << (i & 0x1F);
         session_moby_killed[i >> 5] |= 1 << (i & 0x1F);

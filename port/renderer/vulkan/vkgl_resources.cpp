@@ -103,6 +103,24 @@ Format format_of(GLenum internal) {
             return {VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8};
         case kGlR11fG11fB10f:
             return {VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_ASPECT_COLOR_BIT, 4};
+        // Compressed probes are sampled directly; support must also have been enabled on the device.
+        case gl::GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+            return g->features.textureCompressionBC
+                       ? Format{VK_FORMAT_BC6H_UFLOAT_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
+                       : Format{};
+        case gl::GL_COMPRESSED_RGBA_ASTC_4x4_KHR:
+            return g->features.textureCompressionASTC_LDR
+                       ? Format{VK_FORMAT_ASTC_4x4_UNORM_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
+                       : Format{};
+        case gl::GL_COMPRESSED_RGBA_ASTC_8x8_KHR:
+            return g->astc_hdr
+                       ? Format{VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
+                       : Format{};
+        case gl::GL_RG8:
+            return {VK_FORMAT_R8G8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 2};
+        // Native 16-bit UNORM probes retain hardware gathers without custom bit unpacking.
+        case gl::GL_RG16:
+            return {VK_FORMAT_R16G16_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 4};
         case kGlRg32f:
             return {VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8};
         // Temporal reconstruction uses float depth and two-channel half-float motion outputs.
@@ -117,6 +135,12 @@ Format format_of(GLenum internal) {
         case GL_DEPTH24_STENCIL8:
         case kGlDepthStencil:
             return {g->depth_format, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 4};
+        // Precise depth (renderer/precise_depth.h): 32-bit float depth, where the device has it
+        // with stencil (else the context's own depth and stencil format).
+        case GL_DEPTH32F_STENCIL8:
+            return {
+                g->float_depth_format, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 4
+            };
         default:
             return {};
     }
@@ -151,6 +175,12 @@ int texel_bytes(VkFormat f) {
     }
 }
 
+bool image_extent_valid(int width, int height) {
+    const auto maximum = g->properties.limits.maxImageDimension2D;
+    return width > 0 && height > 0 && static_cast<unsigned>(width) <= maximum
+           && static_cast<unsigned>(height) <= maximum;
+}
+
 ImagePtr make_image(
     const Format& format,
     int width,
@@ -159,6 +189,12 @@ ImagePtr make_image(
     VkSampleCountFlagBits samples,
     VkImageUsageFlags extra_usage
 ) {
+    // Reject impossible attachments before driver allocation and before signed size arithmetic.
+    if (!image_extent_valid(width, height) || levels <= 0 || levels > full_chain(width, height)) {
+        fail(kGlInvalidValue);
+        return nullptr;
+    }
+
     // Called by the last owner to let go: the image's Vulkan objects go first, while the device
     // is open, then the Image itself.
     auto image = std::shared_ptr<Image>(std::make_unique<Image>().release(), [](Image* i) {
@@ -667,6 +703,56 @@ bool make_resident(Buffer& b) {
     return true;
 }
 
+// Queues a private read-back only after recording succeeds, and never waits for a failed submit.
+bool copy_read_back(
+    const Buffer& buffer, const Chunk& staging, VkCommandBuffer command, VkFence fence
+) {
+    VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (!check(vkBeginCommandBuffer(command, &begin), "begin buffer read-back")) {
+        return false;
+    }
+    // The staging copy that filled `own` was submitted earlier: this waits for its write.
+    VkMemoryBarrier filled{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+    filled.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    filled.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(
+        command,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        1,
+        &filled,
+        0,
+        nullptr,
+        0,
+        nullptr
+    );
+    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    const VkBufferCopy region{0, 0, buffer.size};
+    vkCmdCopyBuffer(command, buffer.own, staging.buffer, 1, &region);
+    count_command(Command::Copy);
+    if (!check(vkEndCommandBuffer(command), "end buffer read-back")) {
+        return false;
+    }
+    VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &command;
+    if (!check(vkQueueSubmit(g->queue, 1, &submit, fence), "submit buffer read-back")) {
+        return false;
+    }
+    ++g->submission.submits;
+    ++g->measures.flushes;
+    return check(
+               vkWaitForFences(g->device, 1, &fence, VK_TRUE, UINT64_MAX),
+               "wait for buffer read-back"
+           )
+           && check(
+               vmaInvalidateAllocation(g->allocator, staging.allocation, 0, VK_WHOLE_SIZE),
+               "invalidate buffer read-back"
+           );
+}
+
 // Reads buffer `b`'s own copy in device-only memory into `out` (b.size bytes): a command buffer
 // of its own copies it to a mapped buffer, after a barrier that orders it behind every transfer
 // submitted before, and the CPU waits for it. The frame's command buffers are not touched.
@@ -698,40 +784,9 @@ void read_back(const Buffer& b, std::uint8_t* out) {
     made = made && check(vkAllocateCommandBuffers(g->device, &cmd_info, &cmd), "a read-back");
     made = made && check(vkCreateFence(g->device, &fence_info, nullptr, &fence), "a fence");
 
-    // Every object made: record, submit and wait.
+    // Failed recording or submission cannot make the staging bytes readable.
+    made = made && copy_read_back(b, readback, cmd, fence);
     if (made) {
-        VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(cmd, &begin);
-        // The staging copy that filled `own` was submitted earlier: this waits for its write.
-        VkMemoryBarrier filled{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-        filled.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        filled.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        vkCmdPipelineBarrier(
-            cmd,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0,
-            1,
-            &filled,
-            0,
-            nullptr,
-            0,
-            nullptr
-        );
-        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-        const VkBufferCopy region{0, 0, b.size};
-        vkCmdCopyBuffer(cmd, b.own, readback.buffer, 1, &region);
-        count_command(Command::Copy);
-        vkEndCommandBuffer(cmd);
-        VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        submit.commandBufferCount = 1;
-        submit.pCommandBuffers = &cmd;
-        check(vkQueueSubmit(g->queue, 1, &submit, fence), "a read-back submit");
-        ++g->submission.submits;
-        ++g->measures.flushes;
-        vkWaitForFences(g->device, 1, &fence, VK_TRUE, UINT64_MAX);
-        vmaInvalidateAllocation(g->allocator, readback.allocation, 0, VK_WHOLE_SIZE);
         std::memcpy(out, readback.mapped, b.size);
     }
 
@@ -757,7 +812,9 @@ BufferRef resolve(Buffer& b, bool persistent) {
         return {b.own, 0, size};
     }
 
-    if (b.gpu != VK_NULL_HANDLE && b.gpu_frame == g->frame_count && b.gpu_version == b.version) {
+    // A buffer first sampled this frame may later become writable storage; promote its transient ring copy.
+    if (!b.storage && b.gpu != VK_NULL_HANDLE && b.gpu_frame == g->frame_count
+        && b.gpu_version == b.version) {
         return {b.gpu, b.gpu_offset, size};
     }
 
@@ -822,6 +879,7 @@ const std::vector<std::uint8_t>& buffer_bytes(Buffer& b) {
     }
 
     b.data.assign(b.size, 0);
+    g->submission.buffer_mirror_restore_bytes += b.size;
 
     // Mapped memory, the staging copy this recording has not submitted yet, or a read-back.
     if (b.own_mapped != nullptr) {
@@ -857,6 +915,10 @@ VkBufferView texel_view(GLuint name, GLenum gl_format, VkBufferView fallback) {
     } else if (gl_format == GL_RGBA8) {
         // Compute writes packed UNORM bytes; material shaders read RGBA8.
         format = VK_FORMAT_R8G8B8A8_UNORM;
+    } else if (gl_format == GL_RG32F) {
+        // GTAO's min/max depth hierarchy stores two FP32 bounds per cell.
+        format = VK_FORMAT_R32G32_SFLOAT;
+        texel = 8;
     }
     Buffer* b = g->buffers.find(name);
     if (b == nullptr || b->size < static_cast<std::size_t>(texel)) {
@@ -887,6 +949,49 @@ VkBufferView texel_view(GLuint name, GLenum gl_format, VkBufferView fallback) {
     return view;
 }
 
+VkDeviceSize buffer_image_bytes(const Image& image) {
+    unsigned texel_bytes = 0;
+    // These are the colour formats supported by the renderer's compute-output copy contract.
+    switch (image.format) {
+        case VK_FORMAT_R8G8B8A8_UNORM:
+            texel_bytes = 4;
+            break;
+        case VK_FORMAT_R32G32_SFLOAT:
+            texel_bytes = 8;
+            break;
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
+            texel_bytes = 16;
+            break;
+        default:
+            return 0;
+    }
+    // These copies address the complete base level of single-sample colour images.
+    if (image.width <= 0 || image.height <= 0 || image.samples != VK_SAMPLE_COUNT_1_BIT) {
+        return 0;
+    }
+    return static_cast<VkDeviceSize>(image.width) * static_cast<VkDeviceSize>(image.height)
+           * texel_bytes;
+}
+
+void record_buffer_image_copy(const BufferRef& source, Image& destination) {
+    VkBufferImageCopy copy{};
+    copy.bufferOffset = source.offset;
+    copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copy.imageExtent =
+        {static_cast<unsigned>(destination.width), static_cast<unsigned>(destination.height), 1};
+    vkCmdCopyBufferToImage(
+        frame().main,
+        source.buffer,
+        destination.image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &copy
+    );
+    count_copy(static_cast<unsigned>(destination.width), static_cast<unsigned>(destination.height));
+    destination.discarded = 0;
+    destination.touched = g->recording;
+}
+
 }  // namespace openrac::vkgl::detail
 
 namespace openrac::vkgl {
@@ -906,23 +1011,8 @@ bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int he
     if (!b || !t || !t->image) {
         return false;
     }
-    unsigned texel_bytes = 0;
-    switch (t->image->format) {
-        case VK_FORMAT_R8G8B8A8_UNORM:
-            texel_bytes = 4;
-            break;
-        case VK_FORMAT_R32G32_SFLOAT:
-            texel_bytes = 8;
-            break;
-        case VK_FORMAT_R32G32B32A32_SFLOAT:
-            texel_bytes = 16;
-            break;
-        default:
-            return false;
-    }
-    const auto bytes =
-        static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * texel_bytes;
-    if (t->image->width != width || t->image->height != height || b->size < bytes) {
+    const VkDeviceSize bytes = buffer_image_bytes(*t->image);
+    if (!bytes || t->image->width != width || t->image->height != height || b->size < bytes) {
         return false;
     }
     end_rendering(PassEnd::Copy);
@@ -953,14 +1043,7 @@ bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int he
     count_barrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
     Image& image = *t->image;
     barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    VkBufferImageCopy copy{};
-    copy.bufferOffset = src.offset;
-    copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copy.imageExtent = {static_cast<unsigned>(width), static_cast<unsigned>(height), 1};
-    vkCmdCopyBufferToImage(
-        cmd, src.buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy
-    );
-    count_copy(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+    record_buffer_image_copy(src, image);
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     image.touched = g->recording;
     return true;

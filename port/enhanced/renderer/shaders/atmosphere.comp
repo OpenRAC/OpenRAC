@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+layout(local_size_x=8,local_size_y=8) in;
+layout(std430,binding=4) writeonly buffer AtmosphereOutput { vec4 atmosphere_output[]; };
+uniform vec2 atmosphere_grid_size;
+uniform int atmosphere_slices;
+#define atmosphere_grid ivec2(atmosphere_grid_size)
+uniform vec3 atmosphere_eye,atmosphere_right,atmosphere_up,atmosphere_forward;
+uniform vec4 atmosphere_tangents;
+uniform vec4 atmosphere_fog,atmosphere_colour;
+uniform vec4 atmosphere_height; // density, base Z, falloff, far
+uniform vec4 atmosphere_scatter; // haze multiplier, sunlight strength, g, reserved
+uniform vec4 atmosphere_centres[8],atmosphere_media[8];
+uniform int atmosphere_volume_count;
+float authored_transmission(float depth) {
+    if(atmosphere_colour.a<.5) return 1.;
+    return clamp(clamp(depth*1024.*atmosphere_fog.x+atmosphere_fog.y,
+                      atmosphere_fog.z,atmosphere_fog.w)/255.,1e-4,1.);
+}
+void main() {
+    ivec2 xy=ivec2(gl_GlobalInvocationID.xy);
+    if(any(greaterThanEqual(xy,atmosphere_grid))) return;
+    vec2 ndc=(vec2(xy)+.5)/vec2(atmosphere_grid)*2.-1.;
+    ndc+=atmosphere_tangents.zw;
+    vec3 ray=atmosphere_forward+atmosphere_right*ndc.x*atmosphere_tangents.x
+                                  +atmosphere_up*ndc.y*atmosphere_tangents.y;
+    float ray_scale=length(ray);vec3 direction=ray/ray_scale;
+    vec3 to_sun=probe_sunlight_direction.w!=0.?-probe_sunlight_direction.xyz:-light_sets[1].xyz;
+    to_sun=dot(to_sun,to_sun)>1e-8?normalize(to_sun):vec3(0,0,1);
+    vec3 sun=max(light_sets[0].rgb,vec3(0))*probe_sunlight_scale;
+    float phase=atmosphere_phase(dot(direction,to_sun),atmosphere_scatter.z);
+    float log_far=log(1.+atmosphere_height.w);
+    // Ray/sphere intersections are invariant along a column. Keep the original
+    // intersection arithmetic so even tiny local volumes retain their coverage.
+#ifndef OPENRAC_ATMOSPHERE_NO_VOLUMES
+    vec2 intervals[8];
+    for(int v=0;v<atmosphere_volume_count;++v) {
+        intervals[v]=vec2(0);
+        if(atmosphere_media[v].a>0.) {
+            vec3 delta=atmosphere_centres[v].xyz-atmosphere_eye;
+            float closest=dot(delta,direction);
+            float perpendicular=dot(delta,delta)-closest*closest;
+            float radius=atmosphere_centres[v].w;
+            float chord=radius*radius-perpendicular;
+            if(chord>0.) {
+                float half_chord=sqrt(chord);
+                intervals[v]=vec2(closest-half_chord,closest+half_chord)/ray_scale;
+            }
+        }
+    }
+#endif
+    uint light_mask=0u;
+    for(int v=0;v<8;++v) {
+        float radius=probe_point_position[v].w;
+        if(radius>0.) {
+            vec3 delta=probe_point_position[v].xyz-atmosphere_eye;
+            float nearest=clamp(dot(delta,direction),0.,atmosphere_height.w*ray_scale);
+            vec3 offset=delta-direction*nearest;
+            // Include absolute world-coordinate rounding as well as ray arithmetic.
+            // The original per-cell radius test remains authoritative.
+            vec3 magnitude=abs(atmosphere_eye)+abs(probe_point_position[v].xyz);
+            float padded_radius=radius+1e-6*max(max(magnitude.x,magnitude.y),magnitude.z);
+            float padding=1e-4*max(padded_radius*padded_radius,dot(delta,delta));
+            if(dot(offset,offset)<=padded_radius*padded_radius+padding) light_mask|=1u<<uint(v);
+        }
+    }
+    vec4 combined=vec4(0,0,0,1),fog_only=combined;
+    float start=0.,previous=1.;
+    for(int z=0;z<atmosphere_slices;++z) {
+        float end=exp(log_far*float(z+1)/float(atmosphere_slices))-1.;
+        float ds=end-start;
+        vec3 world=atmosphere_eye+ray*(start+end)*.5;
+        // Convert the authored distance curve to optical depth, then combine media before integration.
+        float current=authored_transmission(end);
+        float aerial=max(0.,log(previous/current))*atmosphere_scatter.x/max(ds,1e-6);
+        previous=current;
+        float density=atmosphere_height.x*exp(clamp(-atmosphere_height.z*max(0.,world.z-atmosphere_height.y),-80.,0.))*ray_scale;
+        vec3 scattering=atmosphere_colour.rgb*density;
+#ifndef OPENRAC_ATMOSPHERE_NO_VOLUMES
+        for(int v=0;v<atmosphere_volume_count;++v) {
+            float lo=max(start,intervals[v].x);
+            float hi=min(end,intervals[v].y);
+            if(hi<=lo) continue;
+            float radius=atmosphere_centres[v].w;
+            float weight=0.;
+            for(int q=0;q<4;++q) {
+                vec3 p=atmosphere_eye+ray*mix(lo,hi,(float(q)+.5)/4.);
+                weight+=smoothstep(0.,max(.01,radius*.1),radius-length(p-atmosphere_centres[v].xyz));
+            }
+            weight*=.25*(hi-lo)/ds;
+            float local=max(0.,atmosphere_media[v].a)*weight*ray_scale;
+            density+=local;scattering+=local*atmosphere_media[v].rgb;
+        }
+#endif
+        vec3 fog_source=vec3(0),source=vec3(0);
+        // Exact zero only: retain arbitrarily thin media without a density threshold.
+        if(aerial>0. || density>0.) {
+            float visibility=atmosphere_scatter.y>0. && aerial+density>1e-8?sun_shadow_visibility(world,vec3(0),vec3(0)):1.;
+            vec3 illumination=atmosphere_illumination(sun,phase,visibility,atmosphere_scatter.y);
+            fog_source=scattering*illumination;
+            source=(atmosphere_colour.rgb*aerial+scattering)*illumination;
+            // Existing point-light records use a bounded, linear range attenuation.
+            for(int l=0;l<8;++l) {
+                if((light_mask&(1u<<uint(l)))==0u) continue;
+                vec3 delta=probe_point_position[l].xyz-world;
+                float radius=probe_point_position[l].w;
+                float distance=length(delta);
+                if(distance<radius) {
+                    vec3 light=atmosphere_point_colour(probe_point_colour[l].rgb,1.-distance/radius);
+                    fog_source+=scattering*light;
+                    source+=(atmosphere_colour.rgb*aerial+scattering)*light;
+                }
+            }
+            combined=atmosphere_step(combined,source,aerial+density,ds);
+            fog_only=atmosphere_step(fog_only,fog_source,density,ds);
+        }
+        int index=((z*atmosphere_grid.y+xy.y)*atmosphere_grid.x+xy.x)*4;
+        atmosphere_output[index]=combined;atmosphere_output[index+1]=fog_only;
+        atmosphere_output[index+2]=vec4(source,aerial+density);
+        atmosphere_output[index+3]=vec4(fog_source,density);
+        start=end;
+    }
+}

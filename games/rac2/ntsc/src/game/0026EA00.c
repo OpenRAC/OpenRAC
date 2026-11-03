@@ -1,5 +1,35 @@
 #include "include_asm.h"
 
+typedef struct { float x, y, z, w; } MarkerVector;
+typedef struct {
+    unsigned char *target;
+    int active;
+    float timer;
+    int reserved;
+    short alpha[16];
+    short texture[16];
+    unsigned int colour[16];
+    float interpolation[16];
+    float scale[16];
+} MarkerStateView;
+extern MarkerStateView D_001B5640;
+extern MarkerVector D_001B5340;
+extern int D_001A7348[] __attribute__((sda));
+extern float func_00282E48(MarkerVector *, MarkerVector *);
+extern float func_00283CE0(int);
+extern void func_00279BD8(MarkerVector *, MarkerVector *);
+extern long func_0027C878(int);
+extern float func_00282C48(float);
+extern int func_00283CF0(float);
+extern void func_0027E018(int x, int y, int width, int height,
+                        int u, int v, int uw, int vh, long colour, long texture);
+
+
+extern void func_00270598(char *);
+extern int func_00270838(char *, char *);
+extern int func_002A6640(void *, float *, int *);
+extern int func_00283CF0(float);
+
 /* Family 34e74db3063e7a24 — 108 bytes, 2 placements (18_damosel, 6_notak).
    Same shape as be569dc253cd5555: walk the resident function-pointer table at
    0x1B2180, call each entry while the resident count at 0x1B21C0 says there is
@@ -15,7 +45,7 @@ extern float func_00283BE0_3(float, float);
 
 extern float func_00282C48_5(float);
 
-extern void func_00283B98_6(float, float);
+extern float func_00283B98(float, float);
 
 typedef unsigned char u8;
 
@@ -73,7 +103,7 @@ extern void func_002FC3C0(int);
 extern int func_001244B8(int, int);
 extern int func_001261F0(int);
 
-INCLUDE_ASM("asm/game", func_0026EA00);
+/* func_0026EA00 is in 0026EA00-splash.c. */
 
 extern void func_002FCD18(void);
 extern void func_00284E18(int, int, int);
@@ -104,6 +134,7 @@ void func_0026EAC8(int arg)
     func_001261F0(0);
     func_002FCDA8();
 }
+
 
 extern int func_002A77E0(int);
 
@@ -215,7 +246,7 @@ unsigned int func_0026F740(void)
     return 0;
 }
 
-unsigned int func_0026F748(void)
+unsigned int func_0026F748(int unused0, int unused1)
 {
     return 0;
 }
@@ -323,11 +354,90 @@ void func_0026F808(void)
 {
 }
 
-INCLUDE_ASM("asm/game", func_0026F810);
+/* func_0026F810 is in 0026EA00-actuator.c (jump table and float pool). */
 
-INCLUDE_ASM("asm/game", func_0026FC70);
 
-INCLUDE_ASM("asm/game", func_0026FC78);
+extern int func_0011AEA0(int);
+extern int func_001244B8(int, int);
+
+/* Uploads a PIF image (header arg0, CLUT at +0x20 of 0x200 bytes when +0x14 is set, else
+   0x400, then w * h pixels) to GS memory: the 16x16 CLUT to block cbp >> 8 and the pixels
+   as PSMT8H to tbp >> 8 with a buffer width of w / 64 (at least 1), then writes the
+   matching TEX0 plus 1, 0 to arg1 (rac1's LoadPifAsPSMT8H). */
+typedef struct {
+    long q[12];
+} GsLoadImage26FC78 __attribute__((aligned(16)));
+
+typedef struct {
+    void *clut;
+    void *image;
+    int unk08[3];
+    int clutSize;
+    int imageSize;
+    int unk1C[4];
+    int tbp;
+    int unk30[3];
+    int tbw;
+    int unk40[3];
+    int tw;
+    int th;
+} PifTex26FC78;
+
+typedef struct {
+    char unk00[8];
+    int w;
+    int h;
+    int unk10;
+    int psm;
+} PifHeader26FC78;
+
+extern void func_00282A60(void *, int, int);
+extern int func_00282A18(int);
+extern int func_00126288(GsLoadImage26FC78 *, short, short, short, short, short, short, short);
+extern int func_001265B0(GsLoadImage26FC78 *, void *);
+
+void func_0026FC78(char *arg0, unsigned long long *out, int tbp, int cbp)
+{
+    PifTex26FC78 d;
+    GsLoadImage26FC78 li;
+    PifHeader26FC78 *pif = (PifHeader26FC78 *)arg0;
+    int c;
+
+    func_00282A60(&d, 0, sizeof(d));
+    d.clut = (char *)pif + 0x20;
+    if (pif->psm == 0) {
+        d.clutSize = 0x400;
+    } else {
+        d.clutSize = 0x200;
+    }
+    c = cbp >> 8;
+    d.tw = func_00282A18(pif->w);
+    d.th = func_00282A18(pif->h);
+    d.image = (char *)pif + (d.clutSize + 0x20);
+    d.imageSize = pif->w * pif->h;
+    func_00126288(&li, c, 1, pif->psm, 0, 0, 16, 16);
+    func_0011AEA0(0);
+    func_001265B0(&li, d.clut);
+    func_001244B8(0, 0);
+    d.tbw = pif->w >> 6;
+    if (d.tbw <= 0) {
+        d.tbw = 1;
+    }
+    d.tbp = tbp >> 8;
+    func_00126288(&li, d.tbp, d.tbw, 0x1B, 0, 0, pif->w, pif->h);
+    func_0011AEA0(0);
+    func_001265B0(&li, d.image);
+    func_001244B8(0, 0);
+    /* The TEX0 layout, with no zero fields. Retail's groups are this flat chain's without
+       fold's flattening of four or more operands of one type, which the changes of
+       signedness keep it from doing. */
+    out[0] = (unsigned long)((long)((unsigned long)d.tbp | ((unsigned long)d.tbw << 14)
+           | ((unsigned long)0x1B << 20) | ((unsigned long)d.tw << 26))
+           | ((long)d.th << 30) | ((long)1 << 34) | ((long)c << 37))
+           | ((unsigned long)pif->psm << 51) | ((unsigned long)4 << 61);
+    out[1] = 1;
+    out[2] = 0;
+}
 
 typedef struct { char pad[0x32C]; int base; int offset; int count; } Table26FE48;
 extern Table26FE48 D_0014B540;
@@ -351,11 +461,65 @@ void func_0026FEB8(const char *format,...) {
 
 INCLUDE_ASM("asm/game", func_0026FEF0);
 
-INCLUDE_ASM("asm/game", func_0026FF08);
 
-INCLUDE_ASM("asm/game", func_00270018);
+typedef struct {
+    u8 pad[0x3D0];
+    float f3D0;
+    float f3D4;
+    float f3D8;
+    float f3DC;
+    float f3E0;
+    float f3E4;
+    u8 mode;
+    u8 active;
+    short s3EA;
+    float f3EC;
+    float f3F0;
+} F270018Aim;
 
-INCLUDE_ASM("asm/game", func_002701A8);
+extern F270018Aim D_001B5200;
+extern float D_001B90F0[];
+extern float func_002703B0(char *, float, float, float, float, float);
+extern float func_00283198(float);
+extern float func_00283180(float);
+extern float func_002A7C00(float, float, float);
+extern float func_00283CE0(int);
+extern int func_00282978(void *);
+extern void func_0027AB40(void);
+
+void func_00270018(void) {
+    float half;
+    float t;
+
+    if (D_001B5200.active == 1) {
+        switch (D_001B5200.mode) {
+        case 0:
+            D_001B5200.f3D8 = D_001B5200.f3D4;
+            D_001B5200.active = 0;
+            break;
+        case 3:
+            D_001B5200.f3D8 = func_002703B0((char *)&D_001B5200.f3D0, D_001B5200.f3D8, D_001B5200.f3D4, D_001B5200.f3DC, D_001B5200.f3E0, D_001B5200.f3E4);
+            if (func_00282C48(D_001B5200.f3D0) < 0.0001f)
+                D_001B5200.active = 0;
+            break;
+        case 1:
+            if (func_00282978(&D_001B5200.s3EA))
+                D_001B5200.active = 0;
+            t = func_00283CE0(D_001B5200.s3EA) * D_001B5200.f3EC;
+            D_001B5200.f3D8 = D_001B5200.f3D4 + (D_001B5200.f3F0 - D_001B5200.f3D4) * t;
+            break;
+        case 2:
+            if (func_00282978(&D_001B5200.s3EA))
+                D_001B5200.active = 0;
+            D_001B5200.f3D8 = func_002A7C00(D_001B5200.f3D4, D_001B5200.f3F0, func_00283CE0(D_001B5200.s3EA) * D_001B5200.f3EC);
+            break;
+        }
+        half = D_001B5200.f3D8 * 0.5f;
+        D_001B90F0[0] = func_00283198(half) / func_00283180(half);
+        func_0027AB40();
+    }
+}
+
 
 extern void func_00282B50(void *, void *, int);
 extern char *D_001B5390;
@@ -404,8 +568,6 @@ char *func_00270280(int a0)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002702B8);
-
 /* Integrates one float field with a spring-damper step, clamps it to a symmetric limit, then lets a helper raise or lower it, returning a bias plus the field. */
 float func_002702C8(float *p, float a, float b, float c, float d, float lim)
 {
@@ -432,7 +594,7 @@ float func_002702C8(float *p, float a, float b, float c, float d, float lim)
 }
 
 /* Advances a stored float by a scaled helper result, then clamps it against a positive limit, then clamps it again with a second helper and finally rescales it through a third helper. */
-void func_002703B0(char *obj, float p1, float p2, float p3, float p4, float p5)
+float func_002703B0(char *obj, float p1, float p2, float p3, float p4, float p5)
 {
     float r;
     float t;
@@ -461,7 +623,7 @@ void func_002703B0(char *obj, float p1, float p2, float p3, float p4, float p5)
         *(float *)obj = -func_00282C48_5(r);
     }
 
-    func_00283B98_6(p1, *(float *)obj);
+    return func_00283B98(p1, *(float *)obj);
 }
 
 /* sets the referenced object halfword at 0x7e and clears its byte at 0x7d */
@@ -498,7 +660,7 @@ void func_00270550(char *object) {
         callback(object);
 }
 
-INCLUDE_ASM("asm/game", func_00270598);
+/* func_00270598 is in 00270598.c. */
 
 INCLUDE_ASM("asm/game", func_00270838);
 
@@ -508,7 +670,6 @@ void func_00270A00(char *object) {
         callback(object);
 }
 
-INCLUDE_ASM("asm/game", func_00270A48);
 
 extern void func_00282CF0(float *dst, float *a, float *b);
 extern float func_00282DB0(float *a, float *b);
@@ -572,35 +733,77 @@ void func_00270B58(float *out, float *p0, float *p1, float *dir0, float *dir1, f
     out[2] = func_00282DF0(diff);
 }
 
-INCLUDE_ASM("asm/game", func_00270D50);
+/* func_00270D50 is defined separately in 00270D50.c. */
 
-INCLUDE_ASM("asm/game", func_00270E30);
+/* func_00270E30 uses the quadword-copy profile in 0026EA00-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_00270EA8);
+/* func_00270EA8 uses the quadword-copy profile in 0026EA00-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_00270EE0);
+/* func_00270EE0 is in 00270EE0-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_00271130);
+/* func_002712D8 is in 002712D8.c. */
 
-INCLUDE_ASM("asm/game", func_002712D8);
+/* func_002718B8 uses the quadword-copy profile in 0026EA00-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_002718B8);
+/* func_00271958 is in 00271958-g8.c. */
 
-INCLUDE_ASM("asm/game", func_00271958);
+/* func_00271B90 is in 00271B90.c. */
 
-INCLUDE_ASM("asm/game", func_00271B90);
+/* func_00271FD8 is in 00271FD8-g8.c. */
 
-INCLUDE_ASM("asm/game", func_00271E88);
 
-INCLUDE_ASM("asm/game", func_00271FD8);
+/* Advances the shared scalar towards the stored target and updates its timer. */
+typedef struct {
+    char prefix[0x268];
+    float step;
+    float target;
+    int timer;
+    float step2;
+    float rate2;
+    float target2;
+    int timer2;
+} ScalarTransitionView;
+extern ScalarTransitionView D_L00_001B8C80;
+extern float D_L00_001B18E0 __attribute__((sda));
+extern float func_002AA2E8(float *, float, float);
+extern int func_00282948(void *);
 
-INCLUDE_ASM("asm/game", func_00272198);
+void func_002721C8(void)
+{
+    ScalarTransitionView *state = &D_L00_001B8C80;
 
-INCLUDE_ASM("asm/game", func_002721C8);
+    if (state->step != 0.0f) {
+        func_002AA2E8(&D_L00_001B18E0,
+                     state->target, state->step);
+        if (D_L00_001B18E0 == state->target) {
+            if (func_00282948(&state->timer) == 1)
+                state->target = 0.0f;
+        }
+        if (D_L00_001B8C80.target <= 0.0f && D_L00_001B18E0 <= 0.0f)
+            D_L00_001B8C80.step = 0.0f;
+    }
+}
 
-INCLUDE_ASM("asm/game", func_00272280);
+/* Advances the second shared scalar towards its stored target and updates its timer. */
+extern float D_L00_001B18E4 __attribute__((sda));
 
-INCLUDE_ASM("asm/game", func_00272368);
+void func_00272280(void)
+{
+    if (D_L00_001B8C80.step2 != 0.0f) {
+        if (D_L00_001B8C80.target2 != 0.0f)
+            func_002AA2E8(&D_L00_001B18E4, D_L00_001B8C80.target2, D_L00_001B8C80.step2);
+        else
+            func_002AA2E8(&D_L00_001B18E4, D_L00_001B8C80.target2, D_L00_001B8C80.rate2);
+        if (D_L00_001B18E4 == D_L00_001B8C80.target2) {
+            if (func_00282948(&D_L00_001B8C80.timer2) == 1)
+                D_L00_001B8C80.target2 = 0.0f;
+        }
+        if (D_L00_001B8C80.target2 <= 0.0f && D_L00_001B18E4 <= 0.0f)
+            D_L00_001B8C80.step2 = 0.0f;
+    }
+}
+
+/* func_00272CB0 is in 0026EA00-target.c (-g for its nop pair before div.s). */
 
 INCLUDE_ASM("asm/game", func_00272540);
 
@@ -624,26 +827,142 @@ int func_00272550(float *a0)
 
 INCLUDE_ASM("asm/game", func_002725C8);
 
-INCLUDE_ASM("asm/game", func_002725E0);
+/* Draw sixteen lens-flare elements with distance and screen-edge fades.
+ * Corresponds to RAC1 draw_lens_flare, src/game/effects.c (GPL-3.0). */
+
+void func_002725E0(void)
+{
+    MarkerVector projected;
+    float centre[2], delta[2], scaled[2], point[2];
+    float distance;
+    int i;
+
+    if (D_001B5640.active != 1 || (D_001B5640.target[0x20] & 0x80)) {
+        D_001B5640.active = 0;
+        return;
+    }
+    if (D_001B5640.timer <= 0.0f) return;
+    distance = func_00282E48(&D_001B5340, (MarkerVector *)(D_001B5640.target + 0x10));
+    centre[0] = func_00283CE0(D_001A7348[0]);
+    centre[1] = func_00283CE0(D_001A7348[1]);
+    func_00279BD8(&projected, (MarkerVector *)(D_001B5640.target + 0x10));
+    projected.x = (projected.x - func_00283CE0(D_001A7348[2])) * 0.0625f;
+    projected.y = (projected.y - func_00283CE0(D_001A7348[3])) * 0.0625f;
+    delta[0] = centre[0] - projected.x;
+    delta[1] = centre[1] - projected.y;
+    for (i = 0; i < 16; ++i) {
+        long texture = func_0027C878(D_001B5640.texture[i] + 6);
+        int width = i ? 32 : 64;
+        int size, x, y;
+        float fade = distance - 5.0f;
+        float fade_x, fade_y, radius;
+        unsigned int colour;
+        scaled[0] = delta[0] * D_001B5640.interpolation[i];
+        scaled[1] = delta[1] * D_001B5640.interpolation[i];
+        point[0] = centre[0] + scaled[0];
+        point[1] = centre[1] + scaled[1];
+        if (fade > 1.0f) fade = 1.0f;
+        else if (fade < 0.0f) fade = 0.0f;
+        fade_x = func_00282C48(delta[0]) / centre[0] * -5.0f + 5.5f;
+        if (fade_x > 1.0f) fade_x = 1.0f;
+        else if (fade_x < 0.0f) fade_x = 0.0f;
+        fade_y = func_00282C48(delta[1]) / centre[1] * -5.0f + 5.5f;
+        if (fade_y > 1.0f) fade_y = 1.0f;
+        else if (fade_y < 0.0f) fade_y = 0.0f;
+        fade *= fade_x * fade_y;
+        colour = (func_00283CF0(fade * (float)D_001B5640.alpha[i]) << 24) |
+                 (D_001B5640.colour[i] & 0xFFFFFF);
+        size = func_00283CF0((float)width * D_001B5640.scale[i]);
+        radius = (float)(size >> 1);
+        x = func_00283CF0(point[0] - radius);
+        y = func_00283CF0(point[1] - radius);
+        func_0027E018(x, y, size, size, 0, 0, width, width, (int)colour, texture);
+    }
+    D_001B5640.timer = 0.0f;
+}
 
 
-INCLUDE_ASM("asm/game", func_00272CB0);
 
-INCLUDE_ASM("asm/game", func_00273310);
 
-INCLUDE_ASM("asm/game", func_00273318);
 
-INCLUDE_ASM("asm/game", func_00273418);
 
-INCLUDE_ASM("asm/game", func_00273598);
 
-INCLUDE_ASM("asm/game", func_002735A0);
 
-INCLUDE_ASM("asm/game", func_00273730);
+/* Blends the fog preset between the two colours and depth ranges of the camera environment
+   region the position falls in (rac1's camera_switch_and_update twin). */
+typedef struct {
+    u8 pad0[0x50];
+    int flags;
+    int negative_color;
+    int positive_color;
+    float negative_depth_start;
+    float negative_value_start;
+    float negative_depth_end;
+    float negative_value_end;
+    float positive_depth_start;
+    float positive_value_start;
+    float positive_depth_end;
+    float positive_value_end;
+    u8 pad7C[4];
+} CameraEnvironmentRegion;
+typedef struct {
+    u8 r, g, b, pad3;
+    float f[4];
+} FogPresetView;
+extern CameraEnvironmentRegion D_001C1740[];
+#ifndef MACRO_ADDR
+#define MACRO_ADDR __attribute__((section(".sdata")))
+#endif
+extern FogPresetView D_001B1640 MACRO_ADDR;
+extern int func_002A6640(void *, float *, int *);
+extern int func_00283CF0(float);
 
-INCLUDE_ASM("asm/game", func_00273978);
+/* Arithmetic follows RAC1's update_camera_environment_from_regions,
+   src/game/effects.c (Lombyte/OpenRAC, GPL-3.0). */
+void func_002735A0(void *position)
+{
+    float blend;
+    int region_index;
+    CameraEnvironmentRegion *region;
+    unsigned int positive_weight;
+    unsigned int negative_weight;
+    int negative_color;
+    int positive_color;
+    float inverse_blend;
+    unsigned int red, green;
+    unsigned int positive_red, negative_red, positive_green, negative_green, positive_blue, negative_blue;
 
-INCLUDE_ASM("asm/game", func_00273B70);
+    if (func_002A6640(position, &blend, &region_index) == 0)
+        return;
+    region = &D_001C1740[region_index];
+    if (!(region->flags & 2))
+        return;
+    positive_weight = func_00283CF0(blend * 255.0f);
+    negative_weight = 255 - positive_weight;
+    inverse_blend = 1.0f - blend;
+    positive_color = region->positive_color;
+    negative_color = region->negative_color;
+    positive_red = (positive_color & 0xFF) * positive_weight;
+    positive_green = ((positive_color >> 8) & 0xFF) * positive_weight;
+    positive_blue = (positive_color >> 16) & 0xFF;
+    negative_red = (negative_color & 0xFF) * negative_weight;
+    negative_green = ((negative_color >> 8) & 0xFF) * negative_weight;
+    negative_blue = (negative_color >> 16) & 0xFF;
+    red = (int)(positive_red + negative_red) >> 8;
+    green = (int)(positive_green + negative_green) >> 8;
+    D_001B1640.b = (int)(positive_blue * positive_weight + negative_blue * negative_weight) >> 8;
+    D_001B1640.r = red;
+    D_001B1640.g = green;
+    D_001B1640.f[0] = (region->positive_depth_start * blend + region->negative_depth_start * inverse_blend) * 1024.0f;
+    D_001B1640.f[1] = (region->positive_depth_end * blend + region->negative_depth_end * inverse_blend) * 1024.0f;
+    D_001B1640.f[2] = 255.0f - (region->positive_value_start * blend + region->negative_value_start * inverse_blend) * 255.0f;
+    D_001B1640.f[3] = 255.0f - (region->positive_value_end * blend + region->negative_value_end * inverse_blend) * 255.0f;
+}
+
+/* func_00273730 is in 00273730.c. */
+
+/* func_00273978 is in 00273978.c. */
+
 
 int func_00273D10(char *obj)
 {
@@ -689,4 +1008,4 @@ int func_00273D10(char *obj)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_00273E98);
+/* func_00273E98 is defined in 00273E98.c. */

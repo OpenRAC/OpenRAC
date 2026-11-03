@@ -72,6 +72,13 @@ int tick_rate();
 // logged, and the frame count. main has it run at exit.
 void finish();
 
+// The developer tools (tools.cpp), once a vertical blank: OPENRAC_GIVE, OPENRAC_INVINCIBLE,
+// OPENRAC_TELEPORT, OPENRAC_SKIP_SCENES and OPENRAC_STUCK.
+void run_tools();
+
+// OPENRAC_STATE_DUMP's file: the game's state now, as JSON (tools.cpp).
+void write_state_dump();
+
 #ifdef OPENRAC_FRONTEND
 // The window was closed: the player quit, or Android ended the game's activity (closed from
 // Recents, or the launcher's Stop). On a desktop that is std::exit. On Android the game is often

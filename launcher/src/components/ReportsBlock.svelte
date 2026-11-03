@@ -500,7 +500,7 @@
   }
 
   @media (hover: hover) {
-    button.danger:hover:not(:disabled) {
+    :global(html:where(:not([data-input="pad"]))) button.danger:hover:not(:disabled) {
       border-color: color-mix(in srgb, var(--err) 45%, transparent);
     }
   }
@@ -513,7 +513,7 @@
   }
 
   @media (hover: hover) {
-    button.danger-solid:hover:not(:disabled) {
+    :global(html:where(:not([data-input="pad"]))) button.danger-solid:hover:not(:disabled) {
       filter: brightness(1.08);
     }
   }

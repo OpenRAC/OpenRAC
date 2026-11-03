@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+//
+// Spatial GTAO coverage, lighting integration and resource-lifetime regressions.
+// --fresh-programs disables native object retention for paired timing runs.
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <numbers>
+#include <string_view>
 
 #include "common/stats.h"
 #include "enhanced/renderer/gtao.h"
@@ -11,6 +16,7 @@
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -18,10 +24,19 @@
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/gpu_draw_reference.h"
+#include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
 using namespace openrac;
+
+// Defines borrowed depth after Renderer deliberately discards its completed frame attachments.
+void clear_borrowed_depth(unsigned framebuffer) {
+    gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, framebuffer);
+    gl::glDepthMask(gl::GL_TRUE);
+    gl::glClearDepth(0);
+    gl::glClear(gl::GL_DEPTH_BUFFER_BIT);
+}
 
 // The game has an early HUD-bucket background before its world renderers.
 // A bucket-order shortcut must not run AO on that still-empty depth buffer.
@@ -58,20 +73,12 @@ scene::LevelData corner(bool wall) {
     return data;
 }
 
-void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
-    auto level = corner(wall);
-    renderer::Renderer renderer;
-    renderer.set_ambient_occlusion(std::make_unique<renderer::Gtao>());
-    scene::LevelScene scene;
-    lighting::use_scene_lighting(scene);
+// Checks every size and image for one quality, borrowing only compatible scene setup.
+void check_scene_quality(
+    renderer::Renderer& renderer, bool wall, int samples, renderer::GtaoQuality quality, bool hi_z
+) {
+    test::RenderTestTiming timing("gtao quality");
     std::string error;
-    CHECK(scene.upload(level, renderer.textures(), error));
-    CHECK(test::shadow_probe_fixture(scene, error));
-    CHECK(renderer.add(std::make_unique<BeforeWorld>(), error));
-    CHECK(
-        renderer.add(std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error)
-    );
-    CHECK(renderer.init(error));
     renderer::FrameBuffer frame;
     bool modes_differ = false;
     for (const auto size : {std::pair{128, 96}, std::pair{131, 99}, std::pair{192, 96}}) {
@@ -79,6 +86,7 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
         CHECK(frame.create(width, height, error, samples));
         renderer::FrameInput input;
         input.gtao_settings.quality = quality;
+        input.gtao_settings.hi_z = hi_z;
         input.camera.view = renderer::look_along({4, -6, 4}, {-4, 6, -3.5f}, {0, 0, 1});
         input.camera.projection =
             renderer::perspective_reversed(1.0f, float(width) / float(height), 0.1f, 100);
@@ -88,6 +96,25 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
         input.gtao = true;
         renderer.render(input, {frame.id(), width, height});
         const auto ao = frame.read_rgba();
+        // Repeated graph output must agree independently of the optional depth hierarchy.
+
+        renderer.render(input, {frame.id(), width, height});
+        CHECK(frame.read_rgba() == ao);
+
+        // Switching the hierarchy off and back on must not retain stale levels or altered shader state.
+        if (hi_z) {
+            input.gtao_settings.hi_z = false;
+            renderer.render(input, {frame.id(), width, height});
+            input.gtao_settings.hi_z = true;
+            renderer.render(input, {frame.id(), width, height});
+            CHECK(frame.read_rgba() == ao);
+        }
+        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
+        renderer.render(input, {frame.id(), width, height});
+        CHECK(frame.read_rgba() == ao);
+        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
+        renderer.render(input, {frame.id(), width, height});
+        CHECK(frame.read_rgba() == ao);
         if (samples == 1) {
             // Both paths must preserve the same pixels, including subsequent
             // depth-tested colour passes and changes to the borrowed depth.
@@ -103,6 +130,7 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
             input.camera.view = saved_view;
             renderer.render(input, target);
             CHECK(direct.read_rgba() == ao);
+            clear_borrowed_depth(direct.id());
             renderer::Gtao evaluation;
             CHECK(evaluation.render(input, target, false, true));
             CHECK(evaluation.depth_texture() == direct.depth_texture());
@@ -181,17 +209,66 @@ void check_scene(bool wall, int samples, renderer::GtaoQuality quality) {
             input.gtao_settings.steps = 6;
             renderer.render(input, {frame.id(), width, height});
             const auto full = frame.read_rgba();
+            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
+            renderer.render(input, {frame.id(), width, height});
+            const auto unspecialized = frame.read_rgba();
+            if (unspecialized != full) {
+                std::size_t different = 0;
+                int maximum = 0;
+                for (std::size_t at = 0; at < full.size(); ++at) {
+                    const int delta = std::abs(int(unspecialized[at]) - int(full[at]));
+                    different += delta != 0;
+                    maximum = std::max(maximum, delta);
+                }
+                std::printf(
+                    "GTAO variant %dx%d quality=%d: %zu differing channels, max %d\n",
+                    width,
+                    height,
+                    int(quality),
+                    different,
+                    maximum
+                );
+            }
+            CHECK(unspecialized == full);
+            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
             CHECK(full.size() == plain.size());
             CHECK(full != plain);
             input.gtao_settings = renderer::GtaoSettings{};
             input.gtao_settings.quality = quality;
+            input.gtao_settings.hi_z = hi_z;
             renderer.render(input, {frame.id(), width, height});
             CHECK(frame.read_rgba() == ao);
         }
         CHECK(gl::glGetError() == gl::GL_NO_ERROR);
     }
-    if (wall) { CHECK(modes_differ); }
+    if (wall) {
+        CHECK(modes_differ);
+    }
+    timing.lap("draw/readback");
     frame.release();
+}
+
+// Reuses scene and shader setup across qualities while retaining creation and teardown checks.
+void check_scene(bool wall, int samples) {
+    test::RenderTestTiming timing("gtao scene");
+    auto level = corner(wall);
+    renderer::Renderer renderer;
+    renderer.set_ambient_occlusion(std::make_unique<renderer::Gtao>());
+    scene::LevelScene scene;
+    lighting::use_scene_lighting(scene);
+    std::string error;
+    CHECK(scene.upload(level, renderer.textures(), error));
+    CHECK(test::shadow_probe_fixture(scene, error));
+    CHECK(renderer.add(std::make_unique<BeforeWorld>(), error));
+    CHECK(
+        renderer.add(std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Terrain), error)
+    );
+    CHECK(renderer.init(error));
+    timing.lap("setup");
+    for (auto quality : {renderer::GtaoQuality::Performance, renderer::GtaoQuality::Quality}) {
+        check_scene_quality(renderer, wall, samples, quality, false);
+        check_scene_quality(renderer, wall, samples, quality, true);
+    }
     scene.release();
     renderer.release();
 }
@@ -344,6 +421,7 @@ void indirect_lighting(int samples, bool glow = false, bool cutout = false, bool
             input.camera.view = saved_view;
             renderer.render(input, target);
             CHECK(direct.read_rgba() == ao);
+            clear_borrowed_depth(direct.id());
             renderer::Gtao evaluation;
             CHECK(evaluation.render(input, target, false, true));
             CHECK(evaluation.depth_texture() == direct.depth_texture());
@@ -423,7 +501,9 @@ void scripted_glow_depth() {
     using namespace gl;
     auto level = corner(true);
     level.instances[static_cast<std::size_t>(scene::Layer::Terrain)].clear();
-    for (auto& vertex : level.vertices) vertex.light_slot = -2;
+    for (auto& vertex : level.vertices) {
+        vertex.light_slot = -2;
+    }
     scene::Instance instance;
     instance.moby_light[3] = -1;  // Explicit gameplay colour, still a lit moby.
     renderer::Renderer renderer;
@@ -435,15 +515,20 @@ void scripted_glow_depth() {
     renderer::FrameBuffer target;
     CHECK(target.create(64, 48, error));
     renderer::Shader sentinel;
-    CHECK(sentinel.build("unoccluded depth sentinel", R"glsl(#version 410 core
+    CHECK(sentinel.build(
+        "unoccluded depth sentinel",
+        R"glsl(#version 410 core
 void main() {
     vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
     gl_Position = vec4(p * 2.0 - 1.0, -1.0, 1.0);
 }
-)glsl", R"glsl(#version 410 core
+)glsl",
+        R"glsl(#version 410 core
 layout(location=0) out vec4 result;
 void main() { result = vec4(0, 1, 0, 1); }
-)glsl", error));
+)glsl",
+        error
+    ));
     GLuint vao = 0;
     glGenVertexArrays(1, &vao);
     renderer::FrameInput input;
@@ -470,7 +555,9 @@ void main() { result = vec4(0, 1, 0, 1); }
         glDrawArrays(GL_TRIANGLES, 0, 3);
         const auto pixels = target.read_rgba();
         unsigned occluded = 0;
-        for (std::size_t i = 0; i < pixels.size(); i += 4) occluded += pixels[i] != 0;
+        for (std::size_t i = 0; i < pixels.size(); i += 4) {
+            occluded += pixels[i] != 0;
+        }
         CHECK(glow ? occluded == 0 : occluded > 0);
     }
     glBindVertexArray(0);
@@ -627,78 +714,147 @@ void optimized_paths(int samples) {
     scene.release();
     renderer.release();
 }
+#if defined(OPENRAC_VULKAN)
+// Building one quality must not compile the unused kernel; switching back reuses it.
+void lazy_quality_programs() {
+    using namespace gl;
+    renderer::FrameBuffer frame;
+    std::string error;
+    CHECK(frame.create(16, 16, error, 1, true));
+    glBindFramebuffer(GL_FRAMEBUFFER, frame.id());
+    glDepthMask(GL_TRUE);
+    glClearDepth(.5);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    renderer::FrameInput input;
+    input.gtao = true;
+    input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
+    renderer::RenderTarget target{frame.id(), 16, 16};
+    target.depth_texture = frame.depth_texture();
+    renderer::Gtao ao;
+    // Count requested kernels, excluding unrelated background graphics warmup on repeat runs.
+    const bool prewarm = renderer::render_opt::enabled(renderer::render_opt::Opt::PipelinePrewarm);
+    renderer::render_opt::set(renderer::render_opt::Opt::PipelinePrewarm, false);
+    const auto before = vkgl::submission_counters().pipelines_created;
+    input.gtao_settings.quality = renderer::GtaoQuality::Quality;
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 1);
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 1);
+    input.gtao_settings.quality = renderer::GtaoQuality::Performance;
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 2);
+    input.gtao_settings.quality = renderer::GtaoQuality::Quality;
+    CHECK(ao.render(input, target, false, true));
+    CHECK(vkgl::submission_counters().pipelines_created == before + 2);
+    ao.release();
+    renderer::render_opt::set(renderer::render_opt::Opt::PipelinePrewarm, prewarm);
+}
+#endif
+
+// Checks GPU query survival across synchronous recording splits within one frame.
+void test_timestamp_recording(test::GlContext& context, std::string& error) {
+    stats::set_enabled(stats::Client::Overlay, true);
+    gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, 0);
+    renderer::FrameBuffer timing_frame;
+    CHECK(timing_frame.create(128, 128, error));
+    gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, timing_frame.id());
+    gl::glViewport(0, 0, 128, 128);
+    for (unsigned i = 0; i < 8; ++i) {
+        stats::begin_frame(stats::FrameKind::Tick, i);
+        {
+            const stats::Scope timed("timestamp flush", stats::kGpu);
+            gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+            // A synchronous readback/finish starts another recording in
+            // the same frame slot. Its active timestamp pair must survive.
+            gl::glFinish();
+        }
+        {
+            const stats::Scope work("timestamp work", stats::kGpu);
+            for (unsigned clear = 0; clear < 64; ++clear) {
+                gl::glClearColor(float(clear & 1), 0, 0, 1);
+                gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+            }
+        }
+        // Empty scopes must not repeatedly charge earlier in-flight work.
+        for (unsigned marker = 0; marker < 16; ++marker) {
+            const stats::Scope empty("timestamp empty marker", stats::kGpu);
+        }
+        gl::glFinish();
+        context.window().swap();
+    }
+    stats::begin_frame(stats::FrameKind::Tick, 8);
+    const auto* measured = stats::history(3);
+    CHECK(measured && measured->pending_gpu == 0 && measured->gpu_ms() >= 0);
+    if (measured) {
+        // Finish drains work before the next CPU frame begins, so the
+        // non-overlapping GPU intervals fit inside that CPU interval.
+        CHECK(measured->gpu_ms() <= measured->interval_ms + 1.0);
+    }
+    timing_frame.release();
+    stats::set_enabled(stats::Client::Overlay, false);
+}
+
 }  // namespace
 
-int main() {
+// Keeps compilation assertions fresh, then checks the complete rendering matrix.
+int main(int argc, char** argv) {
+    const bool fresh_programs = argc == 2 && std::string_view(argv[1]) == "--fresh-programs";
+    // The reference switch changes only test object retention, never rendering settings.
+    if (argc != 1 && !fresh_programs) {
+        std::fprintf(stderr, "usage: gtao_test [--fresh-programs]\n");
+        return 1;
+    }
+    openrac::test::RenderTestTiming timing("gtao matrix");
     openrac::test::GlContext context;
     std::string error;
     if (!context.open(error)) {
         std::printf("SKIP: %s\n", error.c_str());
         return openrac::test::kSkip;
     }
+#if defined(OPENRAC_VULKAN)
+    if (openrac::gl::is_vulkan()) {
+        lazy_quality_programs();
+        CHECK(openrac::vkgl::submission_counters().test_program_reuses == 0);
+        // Repeated scenes can borrow identical native objects after the fresh-compilation test.
+        openrac::vkgl::test_reuse_programs(!fresh_programs);
+    }
+#endif
+    timing.lap("lazy quality programs");
     // Normal orientation must agree for reversed authored signs and resolved MSAA coverage.
     for (const int samples : {1, 4}) {
         test_grazing_smooth_normals(1, samples);
         test_grazing_smooth_normals(-1, samples);
     }
+    timing.lap("grazing normals");
 
-    for (auto quality : {renderer::GtaoQuality::Performance, renderer::GtaoQuality::Quality}) {
-        check_scene(false, 1, quality);
-        check_scene(true, 1, quality);
-        check_scene(true, 4, quality);
-    }
+    check_scene(false, 1);
+    check_scene(true, 1);
+    check_scene(true, 4);
+    timing.lap("scene matrix");
     indirect_lighting(1);
     indirect_lighting(4);
     indirect_lighting(1, true);
     indirect_lighting(1, false, true);
     indirect_lighting(1, false, false, true);
+    timing.lap("indirect lighting");
     scripted_glow_depth();
     optimized_paths(1);
     optimized_paths(4);
+    timing.lap("optimized paths");
+#if defined(OPENRAC_VULKAN)
+    if (openrac::gl::is_vulkan()) {
+        const auto reuses = openrac::vkgl::submission_counters().test_program_reuses;
+        CHECK(fresh_programs ? reuses == 0 : reuses > 0);
+        openrac::vkgl::test_reuse_programs(false);
+    }
+#endif
     if (openrac::stats::gpu_timers()) {
-        using namespace openrac;
-        stats::set_enabled(stats::Client::Overlay, true);
-        gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, 0);
-        renderer::FrameBuffer timing_frame;
-        CHECK(timing_frame.create(1024, 1024, error));
-        gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, timing_frame.id());
-        gl::glViewport(0, 0, 1024, 1024);
-        for (unsigned i = 0; i < 8; ++i) {
-            stats::begin_frame(stats::FrameKind::Tick, i);
-            {
-                const stats::Scope timed("timestamp flush", stats::kGpu);
-                gl::glClear(gl::GL_COLOR_BUFFER_BIT);
-                // A synchronous readback/finish starts another recording in
-                // the same frame slot. Its active timestamp pair must survive.
-                gl::glFinish();
-            }
-            {
-                const stats::Scope work("timestamp work", stats::kGpu);
-                for (unsigned clear = 0; clear < 64; ++clear) {
-                    gl::glClearColor(float(clear & 1), 0, 0, 1);
-                    gl::glClear(gl::GL_COLOR_BUFFER_BIT);
-                }
-            }
-            // Empty scopes must not repeatedly charge earlier in-flight work.
-            for (unsigned marker = 0; marker < 16; ++marker) {
-                const stats::Scope empty("timestamp empty marker", stats::kGpu);
-            }
-            gl::glFinish();
-            context.window().swap();
-        }
-        stats::begin_frame(stats::FrameKind::Tick, 8);
-        const auto* measured = stats::history(3);
-        CHECK(measured && measured->pending_gpu == 0 && measured->gpu_ms() >= 0);
-        if (measured) {
-            // Finish drains work before the next CPU frame begins, so the
-            // non-overlapping GPU intervals fit inside that CPU interval.
-            CHECK(measured->gpu_ms() <= measured->interval_ms + 1.0);
-        }
-        timing_frame.release();
-        stats::set_enabled(stats::Client::Overlay, false);
+        test_timestamp_recording(context, error);
     }
 #if defined(OPENRAC_VULKAN)
-    if (gl::is_vulkan()) CHECK(vkgl::submission_counters().validation_errors == 0);
+    if (gl::is_vulkan()) {
+        CHECK(vkgl::submission_counters().validation_errors == 0);
+    }
 #endif
     return openrac::test::result();
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Holds the build to docs/BUILD_FIDELITY.md.
+Holds the build to docs/reference/BUILD_FIDELITY.md.
 
   python3 tools/check_build_fidelity.py      # exit 1 with the reasons if the build strays
 
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DOC = ROOT / "docs/BUILD_FIDELITY.md"
+DOC = ROOT / "docs/reference/BUILD_FIDELITY.md"
 
 # What each allowed step reproduces (BUILD_FIDELITY.md has the evidence and the numbers).
 ALLOWED = {
@@ -72,10 +72,10 @@ def main() -> None:
     for tool, where in sorted(steps.items()):
         if tool in REMOVED:
             problems.append(f"{tool}.py is run again ({', '.join(sorted(where))}): it was removed for "
-                            "rewriting compiler output (docs/BUILD_FIDELITY.md, \"Removed\")")
+                            "rewriting compiler output (docs/reference/BUILD_FIDELITY.md, \"Removed\")")
         elif tool not in ALLOWED and tool not in HELPERS:
             problems.append(f"{tool}.py runs between the compiler and the assembler ({', '.join(sorted(where))}) "
-                            "but is not an allowed step: document it in docs/BUILD_FIDELITY.md with its "
+                            "but is not an allowed step: document it in docs/reference/BUILD_FIDELITY.md with its "
                             "evidence and measured dependence, then add it to ALLOWED")
     for tool in sorted(REMOVED):
         if (ROOT / f"tools/{tool}.py").exists():
@@ -84,7 +84,7 @@ def main() -> None:
         problems.append("config/func_cflags.txt exists: flags apply to whole files (config/file_cflags.txt)")
     for tool in sorted(ALLOWED):
         if f"{tool}.py" not in doc:
-            problems.append(f"docs/BUILD_FIDELITY.md does not describe {tool}.py")
+            problems.append(f"docs/reference/BUILD_FIDELITY.md does not describe {tool}.py")
     cfg = ROOT / "config/file_cflags.txt"
     if cfg.exists():
         for n, line in enumerate(cfg.read_text().splitlines(), 1):
@@ -99,7 +99,7 @@ def main() -> None:
             elif not parts[0].startswith("build-sn/game/"):
                 problems.append(f"config/text.objects:{n}: gcc323 must name a game object")
     if "gcc323" in steps and "gcc323.py" not in doc:
-        problems.append("docs/BUILD_FIDELITY.md does not describe the gcc323.py compiler frontend")
+        problems.append("docs/reference/BUILD_FIDELITY.md does not describe the gcc323.py compiler frontend")
     if problems:
         print("build fidelity check failed:")
         for p in problems:

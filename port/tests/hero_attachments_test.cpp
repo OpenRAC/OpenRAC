@@ -63,10 +63,22 @@ void test_detached_and_invalid_equipment() {
     fixture.pointer(0x100 + 0x2080, 0);
     CHECK(fixture.read() == 0);
 }
+
+// Switching the controlled body replaces the anchor even while Ratchet's old moby remains alive.
+void test_controlled_body_switch() {
+    Fixture fixture;
+    fixture.pointer(0x100 + 0x2080, 0x3000);
+    CHECK(fixture.read() == 1);
+    CHECK(fixture.addresses[0] == 0x3000);
+    fixture.pointer(0x100 + 0x2080, 0x3100);
+    CHECK(fixture.read() == 1);
+    CHECK(fixture.addresses[0] == 0x3100);
+}
 }  // namespace
 
 int main() {
     test_body_and_attached_equipment();
     test_detached_and_invalid_equipment();
+    test_controlled_body_switch();
     return openrac::test::result();
 }

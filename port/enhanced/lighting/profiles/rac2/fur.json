@@ -1,0 +1,396 @@
+{
+ "game": "rac2",
+ "class_id": 0,
+ "material": "moby_1000",
+ "size": [
+  256,
+  256
+ ],
+ "index_count": 16038,
+ "vertex_count": 4273,
+ "uv_signature": "3cc2840d1a3fd58b",
+ "patches": [
+  {
+   "name": "island 0",
+   "direction": [
+    0.136,
+    -0.991
+   ],
+   "triangles": [
+    [
+     95,
+     95
+    ]
+   ]
+  },
+  {
+   "name": "island 1",
+   "direction": [
+    -0.227,
+    0.974
+   ],
+   "triangles": [
+    [
+     170,
+     211
+    ]
+   ]
+  },
+  {
+   "name": "island 2",
+   "direction": [
+    0.993,
+    0.12
+   ],
+   "triangles": [
+    [
+     1581,
+     1591
+    ]
+   ]
+  },
+  {
+   "name": "island 3",
+   "direction": [
+    -0.11,
+    0.994
+   ],
+   "triangles": [
+    [
+     1592,
+     1597
+    ]
+   ]
+  },
+  {
+   "name": "island 4",
+   "direction": [
+    -0.284,
+    -0.959
+   ],
+   "triangles": [
+    [
+     1598,
+     1735
+    ]
+   ]
+  },
+  {
+   "name": "island 5",
+   "direction": [
+    -0.881,
+    -0.473
+   ],
+   "triangles": [
+    [
+     1833,
+     1834
+    ]
+   ]
+  },
+  {
+   "name": "island 6",
+   "direction": [
+    0.578,
+    -0.816
+   ],
+   "triangles": [
+    [
+     1936,
+     1996
+    ]
+   ]
+  },
+  {
+   "name": "island 7",
+   "direction": [
+    0.33,
+    -0.944
+   ],
+   "triangles": [
+    [
+     2349,
+     2488
+    ]
+   ]
+  },
+  {
+   "name": "island 8",
+   "direction": [
+    0.109,
+    0.994
+   ],
+   "triangles": [
+    [
+     2494,
+     2506
+    ]
+   ]
+  },
+  {
+   "name": "island 9",
+   "direction": [
+    -0.95,
+    -0.312
+   ],
+   "triangles": [
+    [
+     2573,
+     2584
+    ]
+   ]
+  },
+  {
+   "name": "island 10",
+   "direction": [
+    -0.159,
+    0.987
+   ],
+   "triangles": [
+    [
+     2603,
+     2617
+    ]
+   ]
+  },
+  {
+   "name": "island 11",
+   "direction": [
+    -0.083,
+    0.997
+   ],
+   "triangles": [
+    [
+     2626,
+     2668
+    ]
+   ]
+  },
+  {
+   "name": "island 12",
+   "direction": [
+    -0.103,
+    0.995
+   ],
+   "triangles": [
+    [
+     2858,
+     2882
+    ],
+    [
+     2913,
+     2949
+    ]
+   ]
+  },
+  {
+   "name": "island 13",
+   "direction": [
+    -0.054,
+    0.999
+   ],
+   "triangles": [
+    [
+     2979,
+     3040
+    ]
+   ]
+  },
+  {
+   "name": "island 14",
+   "direction": [
+    -0.121,
+    0.993
+   ],
+   "triangles": [
+    [
+     3041,
+     3145
+    ]
+   ]
+  },
+  {
+   "name": "island 15",
+   "direction": [
+    -0.099,
+    0.995
+   ],
+   "triangles": [
+    [
+     3146,
+     3264
+    ]
+   ]
+  },
+  {
+   "name": "island 16",
+   "direction": [
+    -0.203,
+    0.979
+   ],
+   "triangles": [
+    [
+     3265,
+     3336
+    ]
+   ]
+  },
+  {
+   "name": "island 17",
+   "direction": [
+    -0.197,
+    0.98
+   ],
+   "triangles": [
+    [
+     3367,
+     3376
+    ]
+   ]
+  },
+  {
+   "name": "island 18",
+   "direction": [
+    -0.15,
+    0.989
+   ],
+   "triangles": [
+    [
+     3377,
+     3493
+    ]
+   ]
+  },
+  {
+   "name": "island 19",
+   "direction": [
+    0.086,
+    0.996
+   ],
+   "triangles": [
+    [
+     3494,
+     3608
+    ]
+   ]
+  },
+  {
+   "name": "island 20",
+   "direction": [
+    -0.067,
+    0.998
+   ],
+   "triangles": [
+    [
+     3692,
+     3732
+    ]
+   ]
+  },
+  {
+   "name": "island 21",
+   "direction": [
+    0.014,
+    1.0
+   ],
+   "triangles": [
+    [
+     3841,
+     3841
+    ]
+   ]
+  },
+  {
+   "name": "island 22",
+   "direction": [
+    0.326,
+    0.945
+   ],
+   "triangles": [
+    [
+     3842,
+     3842
+    ]
+   ]
+  },
+  {
+   "name": "island 23",
+   "direction": [
+    -0.216,
+    0.976
+   ],
+   "triangles": [
+    [
+     3843,
+     3843
+    ]
+   ]
+  },
+  {
+   "name": "island 24",
+   "direction": [
+    0.481,
+    -0.877
+   ],
+   "triangles": [
+    [
+     4263,
+     4272
+    ]
+   ]
+  },
+  {
+   "name": "island 25",
+   "direction": [
+    -0.008,
+    -1.0
+   ],
+   "triangles": [
+    [
+     4273,
+     4418
+    ]
+   ]
+  },
+  {
+   "name": "island 26",
+   "direction": [
+    0.339,
+    -0.941
+   ],
+   "triangles": [
+    [
+     5024,
+     5024
+    ]
+   ]
+  },
+  {
+   "name": "island 27",
+   "direction": [
+    0.473,
+    -0.881
+   ],
+   "triangles": [
+    [
+     5100,
+     5160
+    ]
+   ]
+  },
+  {
+   "name": "island 28",
+   "direction": [
+    0.491,
+    0.871
+   ],
+   "triangles": [
+    [
+     5295,
+     5340
+    ]
+   ]
+  }
+ ],
+ "regions": []
+}

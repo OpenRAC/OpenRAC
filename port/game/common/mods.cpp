@@ -16,6 +16,7 @@
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -23,6 +24,7 @@
 #include "common/build_info.h"
 #include "common/c_boundary.h"
 #include "common/crash.h"
+#include "common/env.h"
 #include "common/json.h"
 #include "common/log.h"
 #include "mod_library.h"
@@ -54,6 +56,7 @@ struct openrac_mod {
     std::vector<std::pair<void**, void*>> taken;  // each slot it filled, and what was there before
     std::vector<std::string> hooks;               // the hook points it took
     std::string data_dir;                         // data_dir's answer, once made (1.11)
+    fs::path dir;                                 // its folder (1.12: props' meshes, sounds)
     openrac_mod_unload_fn unload = nullptr;
     // What a party needs of it (interface 1.12): its settings as text, made when first asked and
     // kept for the life of the mod (the table hands out their strings), the rules it published
@@ -494,8 +497,8 @@ int api_developer_menu(
     if (title == nullptr || title[0] == '\0' || (count != 0 && items == nullptr)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    constexpr std::array<const char*, 4> built_in_titles =
-        {"View", "Graphics", "Sound", "Developer"};
+    constexpr std::array<const char*, 5> built_in_titles =
+        {"Game", "View", "Graphics", "Sound", "Developer"};
     if (std::find(built_in_titles.begin(), built_in_titles.end(), std::string_view(title))
         != built_in_titles.end()) {
         return OPENRAC_HOOK_TAKEN;
@@ -562,7 +565,7 @@ std::uint32_t api_take_developer_menu_action(openrac_mod* mod) {
     return action;
 }
 
-// The mod's own folder (1.12): <mod data>/<its id>, made on the first ask. An id that is not a plain
+// The mod's own folder (1.11): <mod data>/<its id>, made on the first ask. An id that is not a plain
 // name (a separator, "." or "..") has none.
 const char* api_data_dir(openrac_mod* mod) {
     if (mod == nullptr || g_host == nullptr || g_host->mod_data.empty() || mod->id.empty()
@@ -1226,16 +1229,17 @@ int api_plugins_folder(char* out, std::uint32_t size) {
 // The launcher's key for this installation (launcher/core/src/multiplayer.rs): a game started
 // without the launcher has none, and cannot be banned.
 int api_identity_key(char* out, std::uint32_t size) {
-    const char* key = std::getenv("OPENRAC_IDENTITY_KEY");
-    if (out == nullptr || size == 0 || key == nullptr) {
+    const std::optional<std::string_view> key = env::value(env::Var::IdentityKey);
+    if (out == nullptr || size == 0 || !key) {
         return 0;
     }
-    const std::size_t length = std::strlen(key);
+    const std::size_t length = key->size();
     // A key cut short is another key: none rather than that.
     if (length == 0 || length >= size) {
         return 0;
     }
-    std::memcpy(out, key, length + 1);
+    std::memcpy(out, key->data(), length);
+    out[length] = '\0';
     return static_cast<int>(length);
 }
 
@@ -1312,6 +1316,7 @@ void fill_api(const Host& host) {
     g_api.plugins_folder = api_plugins_folder;
     g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
+    fill_motion_api(g_api, host);
 }
 
 // ---- status.json ----
@@ -1490,6 +1495,7 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
               std::string& reason) {
     auto mod = std::make_unique<openrac_mod>();
     mod->id = c.manifest.id;
+    mod->dir = folder / c.manifest.id;
     mod->version = c.manifest.version_text;
     mod->manifest = c.manifest;
     std::vector<std::string> notes;
@@ -1940,6 +1946,25 @@ const openrac_api& api_for_tests() {
 
 const char* mod_id(const openrac_mod* mod) {
     return mod != nullptr ? mod->id.c_str() : "a mod";
+}
+
+bool holds_hook(const openrac_mod* mod, const char* name) {
+    if (mod == nullptr || name == nullptr) {
+        return false;
+    }
+    const char* id = g_host != nullptr ? hook_id(*g_host, name) : name;
+    return std::any_of(mod->hooks.begin(), mod->hooks.end(), [&](const std::string& h) {
+        return h == id;
+    });
+}
+
+fs::path mod_file(const openrac_mod* mod, const char* path) {
+    if (mod == nullptr || path == nullptr || mod->dir.empty() || !folder_path(path)) {
+        return {};
+    }
+    const fs::path file = mod->dir / fs::path(std::u8string(path, path + std::strlen(path)));
+    std::error_code e;
+    return fs::is_regular_file(file, e) ? file : fs::path();
 }
 
 void reset() {

@@ -219,7 +219,109 @@ void func_0012D420(void *arg0, int arg1, int arg2) {
     }
 }
 
-INCLUDE_ASM("asm/core", func_0012D4B0);
+#define PI_(o) (*(int *)((char *)p + (o)))
+#define PP_(o) (*(char **)((char *)p + (o)))
+#define RDY_(o) (*(int *)(PP_(o) + 0x28))
+
+/* rac1-decomp src/core/00125630.c: func_0012D4B0 */
+int func_0012D4B0(void *p, int arg1) {
+    char *rec;
+    int ret;
+    int n;
+    char *tmp;
+    char *cur;
+
+    rec = 0;
+    ret = 0;
+    n = (PI_(0x174) == 3) ? 2 : 4;
+    if (PI_(0x150) == 3) {
+        PP_(0x1C0) = PP_(0x1C4);
+        PP_(0x1D0) = PP_(0x1D4);
+        PP_(0x1E0) = PP_(0x1E4);
+        if (PI_(0xA0) + PI_(0xA4) >= n) {
+            PI_(0xE8) = 0;
+            PI_(0x1A8) = 0;
+            PI_(0x1A4) = 0;
+        }
+        if ((PI_(0xE8) != 0 || PI_(0x1A8) != 0) && PI_(0x1A4) == 0) {
+            RDY_(0x1B8) = 0;
+            RDY_(0x1C8) = 0;
+            RDY_(0x1D8) = 0;
+        }
+        PI_(0xE8) = 0;
+        PI_(0x1A8) = 0;
+        if (PI_(0x174) == 3) {
+            if (RDY_(0x1B8) == 1 || PI_(0x1A4) != 0) {
+                if (RDY_(0x1BC) == 1) {
+                    ret = 1;
+                }
+            }
+        } else {
+            if ((RDY_(0x1C8) == 1 && RDY_(0x1D8) == 1) || PI_(0x1A4) != 0) {
+                if (RDY_(0x1CC) == 1) {
+                    if (RDY_(0x1DC) == 1) {
+                        ret = 1;
+                    }
+                }
+            }
+        }
+    } else {
+        if (arg1 == 0) {
+            tmp = PP_(0x1B8);
+            PP_(0x1B8) = PP_(0x1BC);
+            PP_(0x1BC) = tmp;
+            tmp = PP_(0x1C8);
+            PP_(0x1C8) = PP_(0x1CC);
+            PP_(0x1CC) = tmp;
+            tmp = PP_(0x1D8);
+            PP_(0x1D8) = PP_(0x1DC);
+            PP_(0x1DC) = tmp;
+        }
+        PP_(0x1C0) = PP_(0x1BC);
+        PP_(0x1D0) = PP_(0x1CC);
+        PP_(0x1E0) = PP_(0x1DC);
+        if (PI_(0x174) == 3) {
+            if (PI_(0x150) != 2 || RDY_(0x1B8) == 1) {
+                ret = 1;
+            }
+        } else {
+            cur = (PI_(0x174) == 1) ? PP_(0x1E0) : PP_(0x1D0);
+            if (PI_(0x150) != 2 || (arg1 != 0 && *(int *)(cur + 0x28) == 1) ||
+                (RDY_(0x1C8) == 1 && RDY_(0x1D8) == 1)) {
+                ret = 1;
+            }
+        }
+    }
+    switch (PI_(0x174)) {
+    case 3:
+        rec = PP_(0x1C0);
+        break;
+    case 1:
+        rec = PP_(0x1D0);
+        break;
+    case 2:
+        rec = PP_(0x1E0);
+        break;
+    }
+    *(int *)(rec + 0x28) = 0;
+    *(long *)(rec + 0x18) = *(long *)((char *)p + 0x828);
+    *(int *)(rec + 0x2C) = PI_(0x150);
+    *(long *)(rec + 0x20) = *(long *)((char *)p + 0x830);
+    *(int *)(rec + 0x30) = PI_(0x174);
+    *(int *)(rec + 0x34) = PI_(0x13C);
+    *(int *)(rec + 0x38) = PI_(0x188);
+    *(int *)(rec + 0x3C) = PI_(0x178);
+    *(int *)(rec + 0x40) = PI_(0x184);
+    *(int *)(rec + 0x44) = PI_(0x18C);
+    *(int *)(rec + 0x48) = PI_(0x190);
+    *(int *)(rec + 0x4C) = PI_(0x194);
+    *(int *)(rec + 0x50) = PI_(0x198);
+    *(int *)(rec + 0x54) = PI_(0x19C);
+    *(int *)(rec + 0x58) = PI_(0x1A0);
+    *(int *)(rec + 0x5C) = PI_(0x148);
+    *(int *)(rec + 0x60) = PI_(0x14C);
+    return ret;
+}
 
 /* rac1-decomp src/core/00125630.c: func_00129948 */
 /* Does the request at arg1 fit the heap described by arg0? A sized

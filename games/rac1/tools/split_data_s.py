@@ -60,7 +60,10 @@ def table_rest(body: list[str]) -> list[str]:
 
 
 def main() -> None:
-    src, prefix, cuts = sys.argv[1], sys.argv[2], set(sys.argv[3:])
+    src, prefix = sys.argv[1], sys.argv[2]
+    # +LABEL is a label inside a block a compiled object owns: it goes, with no cut of its own.
+    cuts = {a for a in sys.argv[3:] if not a.startswith("+")}
+    inside = {a[1:] for a in sys.argv[3:] if a.startswith("+")}
     lines = open(src, newline="").read().splitlines(keepends=True)
     starts = [i for i, l in enumerate(lines) if re.match(LABEL, l)]
     header = lines[: starts[0]]
@@ -69,19 +72,43 @@ def main() -> None:
         j = starts[k + 1] if k + 1 < len(starts) else len(lines)
         name = re.match(LABEL, lines[i]).group(1)
         blocks.append((name, lines[i:j]))
-    missing = cuts - {n for n, _ in blocks}
+    rests = {f"D_{first_address(table_rest(b)):08X}" for n, b in blocks if n.startswith("jtbl_") and table_rest(b)}
+    # A cut may be an address inside a block: the disassembly has no label there. Start a new block at that line.
+    known = {n for n, _ in blocks}
+    cut_blocks = []
+    for name, body in blocks:
+        current, current_name = [], name
+        for line in body:
+            at = first_address([line])
+            here = f"D_{at:08X}" if at is not None else None
+            if here and here in cuts and here not in known and current:
+                cut_blocks.append((current_name, current))
+                current, current_name = [], here
+                known.add(here)
+            current.append(line)
+        cut_blocks.append((current_name, current))
+    blocks = cut_blocks
+    missing = (cuts | inside) - {n for n, _ in blocks} - rests
     if missing:
         sys.exit(f"labels not found in {src}: {sorted(missing)}")
 
     parts, cur = [], []
     for name, body in blocks:
+        if name in inside:
+            continue
         if name in cuts:
             parts.append(cur)
             cur = []
             # The object brings only the table; data splat merged into the
             # block after it (strings, say) stays, at its own address.
             if name.startswith("jtbl_") and table_rest(body):
-                cur.append(table_rest(body))
+                # A rest that is a block of its own has a cut named from its address.
+                rest_label = f"D_{first_address(table_rest(body)):08X}"
+                if rest_label in cuts:
+                    parts.append(cur)
+                    cur = []
+                else:
+                    cur.append(table_rest(body))
         else:
             cur.append(body)
     parts.append(cur)

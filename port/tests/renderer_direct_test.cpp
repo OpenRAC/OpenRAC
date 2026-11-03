@@ -6,13 +6,16 @@
 // framebuffer through the Renderer, then pixels read back. Skipped (exit 77)
 // where no OpenGL 4.1 context can be made.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "check.h"
+#include "common/breadcrumbs.h"
 #include "renderer/direct.h"
 #include "renderer/framebuffer.h"
 #include "renderer/renderer.h"
@@ -267,6 +270,32 @@ void skipped_tick_uploads() {
     CHECK(close(pixels.at(35, 35), 0, 255, 0, 35, 35));
 }
 
+// Actual renderer passes inherit either trail's frame and leave the rendered pixels unchanged.
+void test_pass_breadcrumbs(Renderer& renderer, const FrameInput& input, FrameBuffer& frame) {
+    using namespace openrac::crash;
+    const auto baseline = frame.read_rgba();
+    for (const auto thread : {BreadcrumbThread::Main, BreadcrumbThread::Render}) {
+        const std::int64_t frame_id = thread == BreadcrumbThread::Main ? 9001 : 9002;
+        {
+            const BreadcrumbScope context(thread, frame_id);
+            renderer.render(input, {frame.id(), kWidth, kHeight});
+        }
+        Breadcrumbs::Snapshot entries{};
+        const auto count = breadcrumbs().snapshot(entries);
+        bool clear = false, hud = false, correct_thread = true;
+        for (std::size_t i = 0; i < count; ++i) {
+            // Ignore earlier history; both passes here use unique captured frames.
+            if (entries[i].value == frame_id) {
+                correct_thread &= entries[i].thread == thread;
+                clear |= std::string_view(entries[i].message) == "frame clear";
+                hud |= std::string_view(entries[i].message) == "hud";
+            }
+        }
+        CHECK(clear && hud && correct_thread);
+        CHECK(frame.read_rgba() == baseline);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -367,6 +396,7 @@ int main() {
         big.release();
     }
 
+    test_pass_breadcrumbs(renderer, input, frame);
     frame.release();
     renderer.release();
     return openrac::test::result();

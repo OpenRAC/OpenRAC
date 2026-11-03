@@ -1,7 +1,7 @@
 /* NON_MATCHING func_L00_00257F4C -- src/overlays/shared/mobyproc_00251A78.c
  * Best so far: SIZE ours 112 / retail 272, checked 2026-10-15.
  * Not built into anything: the retail assembly stays in the source file
- * until a candidate is EXACT (docs/NONMATCHING.md). Start from this one.
+ * until a candidate is EXACT (docs/reference/NONMATCHING.md). Start from this one.
  * What the last attempts found:
  *   `extern char *D_L00_0015FC80 MACRO_ADDR;`, which matches the usage.
  *   Remaining difference: see the BYTES 86/104 result above (`lq`/`prot3w`
@@ -9,7 +9,7 @@
  *   2026-10-15: since cfa93640 this is joined with func_L00_00257FB4 and func_L00_0025804C (272 bytes), and
  *   those pieces are handwritten assembly: prot3w, VU0 macro instructions (lqc2, vsub, vmul, qmfc2.ni), addi
  *   marked handwritten by the disassembler, hand-placed nops. No C compiles to that, so this should stay
- *   assembly. Levels have no handwritten list yet (docs/ASM_CLASSIFICATION.md lists only remnants), which is
+ *   assembly. Levels have no handwritten list yet (docs/reference/ASM_CLASSIFICATION.md lists only remnants), which is
  *   an upstream decision.
  */
 /* Grid lookup: the 64 x 64 cell of the point (v[0], v[1]) (16 units a cell)

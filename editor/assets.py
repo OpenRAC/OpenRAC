@@ -84,7 +84,7 @@ from gltf_read import GltfError, invert, multiply, point, vector  # noqa: E402
 from mesh import Mesh  # noqa: E402
 import pngio  # noqa: E402
 from pngio import PngError  # noqa: E402
-from port import FORMAT as LEVELS_FORMAT  # noqa: E402  the levels these assets come from
+from port import FORMAT as LEVELS_FORMAT, levels_format  # noqa: E402  the levels these assets come from
 import util  # noqa: E402
 from util import sha256  # noqa: E402
 
@@ -177,9 +177,10 @@ def level_manifest(levels: Path, level: int) -> dict:
         raise AssetError(f"{levels} has no level {level:02}: get the levels ready first "
                          "(editor/extract.py port, or the launcher's \"Get the levels ready\")")
     manifest = read_json(path)
-    if manifest.get("format") != LEVELS_FORMAT:
+    expected = levels_format(levels_game(manifest))
+    if manifest.get("format") != expected:
         raise AssetError(f"level {level:02} in {levels} was extracted by another version (format "
-                         f"{manifest.get('format')}, this tool reads {LEVELS_FORMAT}): get the levels ready again")
+                         f"{manifest.get('format')}, this tool reads {expected}): get the levels ready again")
     return manifest
 
 
@@ -380,7 +381,8 @@ def export_model(export: LevelExport, family: str, class_id: int, entry: dict) -
         names = [document.list("nodes")[j].get("name", "") for j in document.list("skins")[0]["joints"]]
         skeleton = {"joints": len({JOINT.match(n).group(1) for n in names if JOINT.match(n)}), "names": names}
     manifest = {
-        "format": ASSET_FORMAT, "game": export.game, "version": export.version, "levels_format": LEVELS_FORMAT,
+        "format": ASSET_FORMAT, "game": export.game, "version": export.version,
+        "levels_format": levels_format(export.game),
         "level": export.level, "kind": family, "class": class_id, "name": name,
         "source": entry["mesh"], "source_sha256": sha256(data),
         "scale": scale, "model": f"{stem}.gltf",
@@ -419,7 +421,8 @@ def export_terrain(export: LevelExport, level_entry: dict) -> dict | None:
     (out / "terrain.bin").write_bytes(buffer)
     (out / "terrain.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n")
     manifest = {
-        "format": ASSET_FORMAT, "game": export.game, "version": export.version, "levels_format": LEVELS_FORMAT,
+        "format": ASSET_FORMAT, "game": export.game, "version": export.version,
+        "levels_format": levels_format(export.game),
         "level": export.level, "kind": "terrain", "class": None, "name": "terrain",
         "source": rel, "source_sha256": sha256(data), "scale": 1.0, "model": "terrain.gltf",
         "files": {"terrain.gltf": digest.sha256(out / "terrain.gltf"), "terrain.bin": sha256(buffer)},
@@ -458,7 +461,8 @@ def export_sky(export: LevelExport, level_entry: dict) -> dict | None:
     (out / "sky.bin").write_bytes(buffer)
     (out / "sky.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n")
     manifest = {
-        "format": ASSET_FORMAT, "game": export.game, "version": export.version, "levels_format": LEVELS_FORMAT,
+        "format": ASSET_FORMAT, "game": export.game, "version": export.version,
+        "levels_format": levels_format(export.game),
         "level": export.level, "kind": "sky", "class": None, "name": "sky",
         "source": rel, "source_sha256": sha256(data), "scale": 1.0, "model": "sky.gltf",
         "files": {"sky.gltf": digest.sha256(out / "sky.gltf"), "sky.bin": sha256(buffer)},
@@ -520,7 +524,7 @@ def export(levels: Path, out: Path, level_ids: list[int], what: str, classes: li
             if what in ("textures", "all"):
                 for name in manifest.get("textures", []):
                     export_level.texture(levels / f"level_{level:02}" / name)
-            textures = {"format": ASSET_FORMAT, "game": game, "version": version, "levels_format": LEVELS_FORMAT,
+            textures = {"format": ASSET_FORMAT, "game": game, "version": version, "levels_format": levels_format(game),
                         "level": level, "textures": dict(sorted(export_level.textures.items()))}
             (export_level.dir / "textures").mkdir(exist_ok=True)
             (export_level.dir / "textures" / "textures.json").write_text(json.dumps(textures, indent=1) + "\n")
@@ -535,7 +539,7 @@ def export(levels: Path, out: Path, level_ids: list[int], what: str, classes: li
                              else "nothing to export: the level has no sky" if what == "sky"
                              else "nothing to export: no class with a model was chosen")
         summary = {"format": ASSET_FORMAT, "tool": "openrac-assets", "game": game, "version": version,
-                   "levels_format": LEVELS_FORMAT, "id": os.urandom(8).hex(), "what": what,
+                   "levels_format": levels_format(game), "id": os.urandom(8).hex(), "what": what,
                    "levels": sorted(level_ids), **counts}
         (temporary / "export.json").write_text(json.dumps(summary, indent=1) + "\n")
         (temporary / "README.txt").write_text(README)
@@ -581,7 +585,7 @@ class LevelsIndex:
                 manifest = json.loads(path.read_text())
             except (OSError, json.JSONDecodeError):
                 continue
-            if manifest.get("format") == LEVELS_FORMAT and isinstance(manifest.get("level"), int):
+            if manifest.get("format") == levels_format(levels_game(manifest)) and isinstance(manifest.get("level"), int):
                 self.manifests[manifest["level"]] = manifest
         # The disc they were read from: one per folder (extract.py port writes each version's own).
         self.version = next((m.get("version", "pal") for m in self.manifests.values()), None)
@@ -1445,7 +1449,7 @@ def import_edits(edited: Path, levels: Path, report: Report) -> Pack:
     pack = Pack(version=summary.get("version", "pal"), game=game)
     for level in summary.get("levels", []):
         if level not in index.manifests:
-            raise AssetError(f"{levels} has no level {level:02} of format {LEVELS_FORMAT}: get the levels ready")
+            raise AssetError(f"{levels} has no level {level:02} of format {levels_format(game)}: get the levels ready")
         textures_manifest = edited / f"level_{level:02}" / "textures" / "textures.json"
         export_textures = read_json(textures_manifest).get("textures", {}) if textures_manifest.is_file() else {}
         edited_textures = import_textures(edited, level, index, pack, report)
@@ -1483,7 +1487,7 @@ def write_pack(pack: Pack, out: Path, name: str, author: str, description: str, 
     import overrides
     replaces = overrides.describe(pack.files)
     manifest = {"format": overrides.PACK_FORMAT, "game": pack.game, "version": pack.version, "name": name,
-                "author": author, "description": description, "levels_format": LEVELS_FORMAT,
+                "author": author, "description": description, "levels_format": levels_format(pack.game),
                 "replaces": replaces, "originals": overrides.originals(pack.files, levels)}
     if source_id:
         manifest["export"] = source_id

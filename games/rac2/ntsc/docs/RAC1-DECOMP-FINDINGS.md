@@ -69,10 +69,13 @@ archive whose provenance meets that policy.
 
 ## 3. Compiler behaviour measured on RAC1
 
-These explain differences RAC2 has also recorded. The workarounds rac1-decomp
-uses for its game code rewrite compiler-generated assembly, which this
-repository's acceptance rules do not allow; they are listed for understanding,
-not adoption.
+These explain differences RAC2 has also recorded. RAC1's source and evidenced
+assembler/linker compatibility methods are now permitted under `AGENTS.md`.
+RAC2 currently uses qualified source-level compiler/assembler models and direct
+object-section placement. A pass from another toolchain still needs local
+evidence and independent controls; never rewrite compiler-authored operations
+just to close an unexplained difference. The measurements below retain their
+original date and toolchain scope.
 
 - **Two SN GCC 2.95.3 sub-builds behave differently.** v1.14 (in the
   `sce_ps2_sdk_24` kit) lays out callee-saved slots like RAC1 retail; v1.36
@@ -96,7 +99,7 @@ not adoption.
 
 rac1-decomp uses these to propose candidates. These observations do not
 permit source permutations on parked RAC2 targets: the concrete reopening
-evidence required by CAMPAIGN-WORKFLOW.md still applies.
+evidence required by `AGENTS.md` and `docs/MATCHING-BLOCKERS.md` still applies.
 
 - **m2c with generated context** for a first C sketch. Its output is never
   matching as emitted and mis-decodes branch-likely conditions.

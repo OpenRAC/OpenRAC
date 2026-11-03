@@ -10,7 +10,7 @@ built each object.
   python tools/compiler_sweep.py -j 8 ...            # parallel jobs
 
 Modes (each compiler's output as it is; the build rewrites none of it,
-docs/BUILD_FIDELITY.md):
+docs/reference/BUILD_FIDELITY.md):
   v114    SN's 2.95.3 build v1.14, the game compiler
   ee29    Sony's 2.9-ee, the SDK compiler
 

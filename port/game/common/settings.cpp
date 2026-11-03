@@ -22,6 +22,7 @@ void Settings::reset_enhanced() {
     enhanced_graphics = defaults.enhanced_graphics;
     enhanced_shadows = defaults.enhanced_shadows;
     shadow_quality = defaults.shadow_quality;
+    volumetric_quality = defaults.volumetric_quality;
     rim_light = defaults.rim_light;
     rim_shadow_lift = defaults.rim_shadow_lift;
     rim_lift_exponent = defaults.rim_lift_exponent;
@@ -45,6 +46,7 @@ void Settings::reset_enhanced() {
     motion_blur = defaults.motion_blur;
     motion_blur_settings = defaults.motion_blur_settings;
     motion_blur_strength = defaults.motion_blur_strength;
+    lily_momentum = defaults.lily_momentum;
     temporal_sharpness = defaults.temporal_sharpness;
     texture_filter = defaults.texture_filter;
 }
@@ -69,6 +71,7 @@ Settings g_settings;
 std::atomic<float> g_gain{1.0f};  // g_settings.volume, read by the sound's thread
 std::atomic<bool> g_muted{false};
 std::filesystem::path g_file;
+bool g_display_mode_in_file = false;  // the file load() read said display_mode or fullscreen
 
 // How far from 0 a game's option in the file may be (game_option): no option a game keeps comes
 // near it (rac1's volumes go to 0x400), and a hand-edited number past it is reported.
@@ -227,6 +230,7 @@ Settings& get() {
 
 void load(const std::filesystem::path& file) {
     g_file = file;
+    g_display_mode_in_file = false;
     g_settings = Settings{};
     fixes::reset();
     Settings& s = g_settings;
@@ -247,6 +251,10 @@ void load(const std::filesystem::path& file) {
         const std::string key = trimmed(line.substr(0, eq));
         const std::string value = trimmed(line.substr(eq + 1));
         bool known = true;
+        if (key == "display_mode" || key == "fullscreen") {
+            // Even a value the port does not know: the player chose something.
+            g_display_mode_in_file = true;
+        }
         if (key == "display_mode") {
             known = parse(value, kDisplayMode, s.display_mode);
         } else if (key == "fullscreen") {
@@ -281,6 +289,8 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_rendering);
         } else if (key == "enhanced_graphics") {
             known = parse_bool(value, s.enhanced_graphics);
+        } else if (key == "volumetric_quality") {
+            known = parse(value, renderer::kVolumetricQualityKeys, s.volumetric_quality);
         } else if (key == "shadow_quality") {
             known = parse(value, renderer::kShadowQualityKeys, s.shadow_quality);
         } else if (key == "enhanced_shadows") {
@@ -333,6 +343,8 @@ void load(const std::filesystem::path& file) {
             known = parse_int(value, 4, 24, s.gtao_settings.steps);
         } else if (key == "gtao_half_resolution") {
             known = parse_bool(value, s.gtao_settings.half_resolution);
+        } else if (key == "gtao_hi_z") {
+            known = parse_bool(value, s.gtao_settings.hi_z);
         } else if (key == "gtao_radius") {
             known = parse_float(value, 0.05f, 8.0f, s.gtao_settings.radius);
         } else if (key == "gtao_strength") {
@@ -347,6 +359,8 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 1.0f, s.agx_brightness);
         } else if (key == "motion_blur") {
             known = parse_bool(value, s.motion_blur);
+        } else if (key == "lily_momentum") {
+            known = parse_float(value, 0.0f, 1.0f, s.lily_momentum);
         } else if (key == "motion_blur_strength") {
             known = parse_float(value, 0.0f, 1.0f, s.motion_blur_strength);
         } else if (key == "motion_blur_radius") {
@@ -371,6 +385,12 @@ void load(const std::filesystem::path& file) {
             } else {
                 known = parse_listed(value, kAnisotropies, s.anisotropy);
             }
+        } else if (key == "hdr") {
+            known = parse(value, hdr::kModeKeys, s.hdr);
+        } else if (key == "hdr_paper_white") {
+            known = parse_int(value, 0, hdr::kPaperWhiteMax, s.hdr_paper_white);
+        } else if (key == "hdr_peak") {
+            known = parse_int(value, 0, hdr::kPeakMax, s.hdr_peak);
         } else if (key == "vsync") {
             known = parse(value, kVSync, s.vsync);
             has_vsync = has_vsync || known;
@@ -388,7 +408,19 @@ void load(const std::filesystem::path& file) {
                 known = false;
             }
         } else if (key == "menu_bar") {
-            known = parse_bool(value, s.menu_bar);
+            // An older port's switch for the menu bar, which is always there now: read and dropped.
+        } else if (key == "menu_bar_key") {
+            // Any key name SDL knows; the overlay uses the default for one it does not.
+            known = !value.empty();
+            if (known) {
+                s.menu_bar_key = value;
+            }
+        } else if (key == "menu_bar_button") {
+            // Any button name SDL knows, or "none"; the overlay uses the default for another.
+            known = !value.empty();
+            if (known) {
+                s.menu_bar_button = value;
+            }
         } else if (key == "mute_unfocused") {
             known = parse_bool(value, s.mute_unfocused);
         } else if (key == "original_lod") {
@@ -447,7 +479,7 @@ void load(const std::filesystem::path& file) {
     }
     if (old_strafe) {
         log::info(
-            "{}: the strafe is a mod now, lock-strafe (OpenRAC/rac1-mods): add it in the "
+            "{}: the strafe is a mod now, lock-strafe (OpenRAC/openrac-mods): add it in the "
             "launcher's "
             "Mods tab. This file's strafe setting is left out.",
             file.string()
@@ -455,6 +487,14 @@ void load(const std::filesystem::path& file) {
     }
     g_gain = gain_now();
     log::info("settings from {}: {}", file.string(), summary());
+}
+
+bool first_start_display(bool scripted) {
+    if (g_display_mode_in_file || scripted) {
+        return false;
+    }
+    g_settings.display_mode = DisplayMode::Borderless;
+    return true;
 }
 
 std::string summary() {
@@ -517,6 +557,8 @@ void save() {
         << "msaa = " << s.msaa << "\n"
         << "enhanced_rendering = " << (s.enhanced_rendering ? 1 : 0) << "\n"
         << "enhanced_graphics = " << (s.enhanced_graphics ? 1 : 0) << "\n"
+        << "volumetric_quality = "
+        << renderer::kVolumetricQualityKeys[static_cast<int>(s.volumetric_quality)] << "\n"
         << "shadow_quality = " << renderer::kShadowQualityKeys[static_cast<int>(s.shadow_quality)]
         << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
@@ -542,6 +584,7 @@ void save() {
         << "gtao_slices = " << s.gtao_settings.slices << "\n"
         << "gtao_steps = " << s.gtao_settings.steps << "\n"
         << "gtao_half_resolution = " << (s.gtao_settings.half_resolution ? 1 : 0) << "\n"
+        << "gtao_hi_z = " << (s.gtao_settings.hi_z ? 1 : 0) << "\n"
         << "gtao_radius = " << s.gtao_settings.radius << "\n"
         << "gtao_strength = " << s.gtao_settings.strength << "\n"
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
@@ -551,6 +594,7 @@ void save() {
         << "agx_exposure = " << s.agx_exposure << "\n"
         << "agx_brightness = " << s.agx_brightness << "\n"
         << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
+        << "lily_momentum = " << s.lily_momentum << "\n"
         << "motion_blur_strength = " << s.motion_blur_strength << "\n"
         << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"
         << "motion_blur_samples = " << s.motion_blur_settings.samples << "\n"
@@ -561,10 +605,14 @@ void save() {
         << "\n"
         << "temporal_sharpness = " << s.temporal_sharpness << "\n"
         << "anisotropy = " << (s.anisotropy ? std::to_string(s.anisotropy) : "auto") << "\n"
+        << "hdr = " << hdr::kModeKeys[static_cast<int>(s.hdr)] << "\n"
+        << "hdr_paper_white = " << s.hdr_paper_white << "\n"
+        << "hdr_peak = " << s.hdr_peak << "\n"
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"
         << "frame_rate = " << frame_rate_value(s) << "\n"
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
-        << "menu_bar = " << (s.menu_bar ? 1 : 0) << "\n"
+        << "menu_bar_key = " << s.menu_bar_key << "\n"
+        << "menu_bar_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
         << "original_lod = " << (s.original_lod ? 1 : 0) << "\n"
         << "responsive_controls = " << (s.responsive_controls ? 1 : 0) << "\n"
@@ -606,6 +654,16 @@ void save() {
         log::warn("the settings could not be written to {}", g_file.string());
         std::filesystem::remove(written, moved);
     }
+}
+
+bool set_hdr_mode(std::string_view name) {
+    for (std::size_t i = 0; i < std::size(hdr::kModeKeys); ++i) {
+        if (name == hdr::kModeKeys[i]) {
+            g_settings.hdr = static_cast<hdr::Mode>(i);
+            return true;
+        }
+    }
+    return false;
 }
 
 void set_volume(int volume) {

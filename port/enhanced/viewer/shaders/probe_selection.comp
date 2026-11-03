@@ -8,18 +8,22 @@ layout(std140) uniform ProbeRegions {
     vec4 regions[3072];
 };
 
-// Count, 128 global region indices, then four mask words per screen tile.
+// Count, 128 global IDs, then four words per tile for opaque and depth-independent masks.
 layout(std430, binding = 8) buffer TileMasks {
     uint masks[];
 };
 
+#ifndef OPENRAC_PROBE_SHORTLIST
 uniform sampler2D scene_depth;
+#endif
 uniform mat4 world_to_clip;
 uniform int region_count;
+#if !defined(OPENRAC_PROBE_SHORTLIST) && !defined(OPENRAC_PROBE_TILES)
 uniform int select_regions;
+#endif
+uniform int translucent_tiles;
 uniform vec3 camera_position;
-shared float distances[1024];
-shared uint indices[1024];
+
 
 vec2 region_axis(uint id) { vec2 a=vec2(regions[id*3+1].w,regions[id*3+2].w);return dot(a,a)>.5?a:vec2(1,0); }
 vec3 region_local(uint id,vec3 p) { vec2 a=region_axis(id);return vec3(dot(p.xy,a),dot(p.xy,vec2(-a.y,a.x)),p.z); }
@@ -35,6 +39,9 @@ bool intersects_region(uint id, vec4 frustum[6]) {
     return true;
 }
 
+#ifndef OPENRAC_PROBE_TILES
+shared float distances[1024];
+shared uint indices[1024];
 // One workgroup sorts all 1024 keys, with stable region IDs breaking distance ties.
 void select_closest(uint lane) {
     mat4 t = transpose(world_to_clip);
@@ -78,13 +85,22 @@ void select_closest(uint lane) {
         masks[0] = count;
     }
 }
+#endif
+#ifndef OPENRAC_PROBE_SHORTLIST
 shared uint minimum_depth, maximum_depth;
 shared uint hit_words[4];
 shared vec4 planes[6];
 
+#endif
+
 void main() {
     uint lane = gl_LocalInvocationIndex;
+#ifdef OPENRAC_PROBE_SHORTLIST
+    select_closest(lane);
+#else
+#ifndef OPENRAC_PROBE_TILES
     if (select_regions != 0) { select_closest(lane); return; }
+#endif
     ivec2 extent = textureSize(scene_depth, 0);
     ivec2 begin = ivec2(gl_WorkGroupID.xy) * 16;
     ivec2 end = min(begin + 16, extent);
@@ -105,6 +121,33 @@ void main() {
         }
     }
     barrier();
+    // A blended receiver may occupy any depth, including tiles with no opaque geometry.
+    // Preserve global selection/order; only reject regions outside the tile's side planes.
+    if (translucent_tiles != 0) {
+        if (lane == 0) {
+            vec2 lo = vec2(begin) / vec2(extent) * 2.0 - 1.0;
+            vec2 hi = vec2(end) / vec2(extent) * 2.0 - 1.0;
+            mat4 transform = transpose(world_to_clip);
+            planes[0] = transform * vec4(1, 0, 0, -lo.x);
+            planes[1] = transform * vec4(-1, 0, 0, hi.x);
+            planes[2] = transform * vec4(0, 1, 0, -lo.y);
+            planes[3] = transform * vec4(0, -1, 0, hi.y);
+            planes[4] = planes[5] = vec4(0);
+        }
+        barrier();
+        if (lane < masks[0] && intersects_region(masks[1u + lane], planes)) {
+            atomicOr(hit_words[lane / 32], 1u << (lane % 32));
+        }
+        barrier();
+        if (lane < 4u) {
+            uint tiles_x = uint((extent.x + 15) / 16);
+            uint tiles_y = uint((extent.y + 15) / 16);
+            uint tile = gl_WorkGroupID.y * tiles_x + gl_WorkGroupID.x;
+            masks[129u + (tiles_x * tiles_y + tile) * 4u + lane] = hit_words[lane];
+            hit_words[lane] = 0u;
+        }
+        barrier();
+    }
     // Uniform branch: partial/empty tiles never strand lanes before a barrier.
     if (maximum_depth != 0u) {
         if (lane == 0) {
@@ -130,4 +173,5 @@ void main() {
     if (lane < words) {
         masks[129u + tile * words + lane] = hit_words[lane];
     }
+#endif
 }

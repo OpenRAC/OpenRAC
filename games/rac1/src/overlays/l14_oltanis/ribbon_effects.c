@@ -1,29 +1,31 @@
 /* Starts at 0x002E0538 (was ribbons_002E0538.c). */
-/* Level 14 code: func_L14_002E0538 in a file of its own, built with -fno-gcse
+/* Level 14 code: animate_ribbon_effect_paths in a file of its own, built with -fno-gcse
  * (config/file_cflags.txt). The functions of vendor_002E0538.c do not build
  * with it (18 of 36 change), so it was another object in retail
- * (docs/BUILD_FIDELITY.md, rule 2). */
+ * (docs/reference/BUILD_FIDELITY.md, rule 2). */
 #include "common.h"
-#include "records.h"
-#include "vector.h"
-#include "hero.h"
-#include "moby.h"
+#include "structs/records.h"
+#include "structs/vector.h"
+#include "structs/hero.h"
+#include "structs/moby.h"
+#include "asm_functions/executable.h"
+#include "overlays/shared/moby_ground_collision.h"
+#include "game/render/draw.h"
+#include "game/math/fastfunc.h"
+#include "overlays/l14_oltanis/wind_lightning_and_taxi.h"
 
-extern float FastAddRots(float, float);
-extern float FastSubRots(float, float);
-extern float IntToFloat(int);
-extern float normalize_angle(float);
-extern float FastSin(float);
-extern float randf_sym(float, float);
-extern float FastCos(float x);
 struct Moby;
-extern void AddDrawCallback(void (*)(struct Moby *), struct Moby *);
-void draw_ribbon_effect(char *m);
 
 typedef struct RibbonPoint {
     f32 x;                              /* 0x00 */
-    union { f32 f; s32 i; } aux;        /* 0x04: zeroed as an int in the ring; the sweep's cosine */
-    union { f32 f; s32 i; } height;     /* 0x08: ring height; the sweep's height is zeroed as an int first */
+    union {
+        f32 f;
+        s32 i;
+    } aux;        /* 0x04: zeroed as an int in the ring; the sweep's cosine */
+    union {
+        f32 f;
+        s32 i;
+    } height;     /* 0x08: ring height; the sweep's height is zeroed as an int first */
     f32 one;                            /* 0x0C */
 } RibbonPoint;
 
@@ -37,9 +39,8 @@ typedef struct RibbonVars {
     f32 ring_step;                      /* 0x1F0 */
 } RibbonVars;
 
-// Per-frame update for the level 14 moby: refreshes its ring table and hands the table to func_001F49B0.
-void animate_ribbon_effect_paths(char *moby)
-{
+// Per-frame update for the level 14 moby: refreshes its ring table and hands the table to AddDrawCallback.
+void animate_ribbon_effect_paths(char *moby) {
     RibbonVars *d = (RibbonVars *)((struct Moby *)moby)->pvars;
     RibbonPoint *o;
     int i;

@@ -142,7 +142,7 @@ def build(name, seg, src, first, last, candidate, work):
     obj.unlink(missing_ok=True)
     # The source file's own extra flags (config/file_cflags.txt), as Makefile.sn passes them.
     # No step between the compiler and the assembler changes what the compiler wrote, apart
-    # from the assembler behaviours listed in docs/BUILD_FIDELITY.md.
+    # from the assembler behaviours listed in docs/reference/BUILD_FIDELITY.md.
     extra = file_cflags.flags_for(src.as_posix())
     with open(work / "log.txt", "w") as log:
         s = [work / f"{n}.s" for n in "abcd"]

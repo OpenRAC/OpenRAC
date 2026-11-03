@@ -102,15 +102,14 @@ unsigned EnvironmentAsset::face_resolution(unsigned mip) const {
 
 unsigned EnvironmentAsset::columns() const {
     unsigned columns = 1;
-    while (std::size_t(columns) * columns * 6 * (face_resolution() + 2)
-           < probes.size() * stack_height()) {
+    while (std::size_t(columns) * columns * 6 * face_pitch() < probes.size() * stack_height()) {
         ++columns;
     }
     return columns;
 }
 
 unsigned EnvironmentAsset::probe_x(unsigned probe) const {
-    return (probe % columns()) * 6 * (face_resolution() + 2);
+    return (probe % columns()) * 6 * face_pitch();
 }
 
 unsigned EnvironmentAsset::probe_y(unsigned probe) const {
@@ -122,17 +121,22 @@ unsigned EnvironmentAsset::brdf_row() const {
 }
 
 unsigned EnvironmentAsset::width() const {
-    return std::max(kEnvironmentBrdfSize, columns() * 6 * (face_resolution() + 2));
+    return std::max(kEnvironmentBrdfSize, columns() * 6 * face_pitch());
 }
 
 unsigned EnvironmentAsset::level_row(unsigned mip) const {
     unsigned row = 0;
 
     for (unsigned i = 0; i < mip; ++i) {
-        row += face_resolution(i) + 2;
+        row += face_pitch(i);
     }
 
     return row;
+}
+
+unsigned EnvironmentAsset::face_pitch(unsigned mip) const {
+    const unsigned alignment = probe_texture_block(colour_format);
+    return (face_resolution(mip) + 2 + alignment - 1) / alignment * alignment;
 }
 
 unsigned EnvironmentAsset::stack_height() const {
@@ -146,7 +150,10 @@ unsigned EnvironmentAsset::height() const {
 void EnvironmentAsset::validate() const {
     if (resolution < 4 || resolution > 256 || !std::has_single_bit(resolution) || probes.empty()
         || probes.size() > kEnvironmentProbeLimit || width() > 16384 || height() > 16384
-        || pixels.size() != std::size_t(width()) * height()) {
+        || (gpu_bytes.empty()
+                ? pixels.size() != std::size_t(width()) * height()
+                : gpu_bytes.size() != probe_texture_bytes(colour_format, width(), brdf_row())
+                      || brdf.size() != std::size_t{kEnvironmentBrdfSize} * kEnvironmentBrdfSize)) {
         throw std::runtime_error("invalid environment atlas layout");
     }
 
@@ -314,98 +321,171 @@ std::uint64_t environment_gi_hash(const std::filesystem::path& directory) {
 
 std::vector<std::uint8_t> encode_environment(const EnvironmentAsset& asset) {
     asset.validate();
-    std::vector<std::uint8_t> out{'O', 'R', 'E', 'N', 'V', '0', '0', '5'};
-
+    std::vector<std::uint8_t> out{'O', 'R', 'E', 'N', 'V', '0', '0', '6'};
     for (unsigned value :
-         {5u, asset.resolution, static_cast<unsigned>(asset.probes.size()), asset.level}) {
+         {6u, asset.resolution, static_cast<unsigned>(asset.probes.size()), asset.level}) {
         word(out, value);
     }
-
     for (auto hash : {asset.scene_hash, asset.settings_hash, asset.gi_hash}) {
         word(out, static_cast<unsigned>(hash));
         word(out, static_cast<unsigned>(hash >> 32));
     }
-
+    word(out, static_cast<unsigned>(asset.colour_format));
     for (const auto& probe : asset.probes) {
-        for (float v : probe.frame.axis) {
-            word(out, std::bit_cast<unsigned>(v));
+        for (float value : probe.frame.axis) {
+            word(out, std::bit_cast<unsigned>(value));
         }
-        for (auto v :
+        for (const auto& vector :
              {probe.position,
               probe.minimum,
               probe.maximum,
               probe.projection_minimum,
               probe.projection_maximum}) {
-            for (float x : v) {
-                word(out, std::bit_cast<unsigned>(x));
+            for (float value : vector) {
+                word(out, std::bit_cast<unsigned>(value));
             }
         }
     }
-
-    for (auto pixel : asset.pixels) {
-        word(out, pixel);
+    if (!asset.gpu_bytes.empty()) {
+        out.insert(out.end(), asset.gpu_bytes.begin(), asset.gpu_bytes.end());
+        for (auto pixel : asset.brdf) {
+            word(out, pixel);
+        }
+    } else {
+        if (asset.colour_format != ProbeTextureFormat::R11G11B10) {
+            throw std::runtime_error(
+                "compressed environment asset requires an encoded radiance plane"
+            );
+        }
+        // Ordinary CPU fixtures use the same two-plane layout, without requiring an encoder.
+        for (std::size_t i = 0; i < std::size_t(asset.width()) * asset.brdf_row(); ++i) {
+            word(out, asset.pixels[i]);
+        }
+        for (unsigned y = 0; y < kEnvironmentBrdfSize; ++y) {
+            for (unsigned x = 0; x < kEnvironmentBrdfSize; ++x) {
+                word(out, asset.pixels[std::size_t(asset.brdf_row() + y) * asset.width() + x]);
+            }
+        }
     }
-
     return out;
 }
 
-EnvironmentAsset decode_environment(std::span<const std::uint8_t> bytes) {
-    if (bytes.size() < 48
-        || std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV005") {
-        throw std::runtime_error("invalid environment asset header");
+namespace {
+// Read only bounded header fields before computing atlas dimensions or allocating texture data.
+EnvironmentAsset read_environment_header(std::span<const std::uint8_t> bytes, std::size_t& at) {
+    if (bytes.size() < 52
+        || std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV006") {
+        throw std::runtime_error("unsupported environment asset; rebake reflections");
     }
-
-    std::size_t at = 8;
-
-    if (word(bytes, at) != 5) {
+    at = 8;
+    if (word(bytes, at) != 6) {
         throw std::runtime_error("unsupported environment asset version");
     }
-
     EnvironmentAsset asset;
     asset.resolution = word(bytes, at);
     const auto count = word(bytes, at);
     asset.level = word(bytes, at);
-
     for (auto* hash : {&asset.scene_hash, &asset.settings_hash, &asset.gi_hash}) {
         *hash = word(bytes, at);
         *hash |= std::uint64_t(word(bytes, at)) << 32;
     }
-
+    asset.colour_format = static_cast<ProbeTextureFormat>(word(bytes, at));
     if (count == 0 || count > kEnvironmentProbeLimit || asset.resolution < 4
         || asset.resolution > 256 || !std::has_single_bit(asset.resolution)) {
         throw std::runtime_error("invalid environment asset bounds");
     }
-
     asset.probes.resize(count);
-    const auto expected = std::size_t(count) * 68 + std::size_t(asset.width()) * asset.height() * 4;
+    return asset;
+}
 
-    if (bytes.size() - at != expected) {
-        throw std::runtime_error("environment asset size mismatch");
-    }
-
+// Decode oriented influence and projection boxes independently of the texture encoding.
+void read_environment_probes(
+    EnvironmentAsset& asset, std::span<const std::uint8_t> bytes, std::size_t& at
+) {
     for (auto& probe : asset.probes) {
-        for (auto& v : probe.frame.axis) {
-            v = std::bit_cast<float>(word(bytes, at));
+        for (auto& value : probe.frame.axis) {
+            value = std::bit_cast<float>(word(bytes, at));
         }
-        for (auto* v :
+        for (auto* vector :
              {&probe.position,
               &probe.minimum,
               &probe.maximum,
               &probe.projection_minimum,
               &probe.projection_maximum}) {
-            for (auto& x : *v) {
-                x = std::bit_cast<float>(word(bytes, at));
+            for (auto& value : *vector) {
+                value = std::bit_cast<float>(word(bytes, at));
             }
         }
     }
+}
 
-    asset.pixels.resize(std::size_t(asset.width()) * asset.height());
-
-    for (auto& pixel : asset.pixels) {
+// Retain physical colour blocks and the exact uncompressed material-response lookup.
+void read_environment_payload(
+    EnvironmentAsset& asset,
+    std::span<const std::uint8_t> bytes,
+    std::size_t& at,
+    std::size_t radiance_bytes
+) {
+    asset.gpu_bytes.assign(bytes.begin() + at, bytes.begin() + at + radiance_bytes);
+    at += radiance_bytes;
+    asset.brdf.resize(std::size_t{kEnvironmentBrdfSize} * kEnvironmentBrdfSize);
+    for (auto& pixel : asset.brdf) {
         pixel = word(bytes, at);
+        if (((pixel >> 6) & 31) == 31 || ((pixel >> 17) & 31) == 31 || (pixel >> 27) == 31) {
+            throw std::runtime_error("nonfinite environment BRDF lookup");
+        }
     }
+}
 
+// CPU tools request an expanded image; runtime loaders keep only the encoded planes.
+void expand_environment(EnvironmentAsset& asset) {
+    const auto decoded =
+        decode_probe_texture(asset.colour_format, asset.width(), asset.brdf_row(), asset.gpu_bytes);
+    asset.pixels.resize(std::size_t(asset.width()) * asset.height());
+    for (std::size_t i = 0; i < decoded.size(); ++i) {
+        asset.pixels[i] = pack_environment_colour(decoded[i]);
+    }
+    for (unsigned y = 0; y < kEnvironmentBrdfSize; ++y) {
+        for (unsigned x = 0; x < kEnvironmentBrdfSize; ++x) {
+            asset.pixels[std::size_t(asset.brdf_row() + y) * asset.width() + x] =
+                asset.brdf[y * kEnvironmentBrdfSize + x];
+        }
+    }
+}
+
+// Reads the current two-plane layout and rejects old versions or malformed payloads.
+EnvironmentAsset read_environment(std::span<const std::uint8_t> bytes, bool expand) {
+    std::size_t at = 0;
+    auto asset = read_environment_header(bytes, at);
+    const auto radiance_bytes =
+        probe_texture_bytes(asset.colour_format, asset.width(), asset.brdf_row());
+    const auto expected = asset.probes.size() * 68 + radiance_bytes
+                          + std::size_t{kEnvironmentBrdfSize} * kEnvironmentBrdfSize * 4;
+    // Reject truncation and extra bytes before reading any boxes or GPU payload.
+    if (bytes.size() - at != expected) {
+        throw std::runtime_error("environment asset size mismatch");
+    }
+    read_environment_probes(asset, bytes, at);
+    read_environment_payload(asset, bytes, at, radiance_bytes);
+    // Runtime validation uses bounded row scratch rather than a full expanded HDR image.
+    if (expand) {
+        expand_environment(asset);
+    } else {
+        validate_probe_texture(
+            asset.colour_format, asset.width(), asset.brdf_row(), asset.gpu_bytes
+        );
+    }
     asset.validate();
     return asset;
+}
+
+}  // namespace
+
+EnvironmentAsset decode_environment(std::span<const std::uint8_t> bytes) {
+    return read_environment(bytes, true);
+}
+
+EnvironmentAsset decode_gpu_environment(std::span<const std::uint8_t> bytes) {
+    return read_environment(bytes, false);
 }
 }  // namespace openrac::lighting

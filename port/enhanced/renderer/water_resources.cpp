@@ -152,11 +152,14 @@ bool Water::init(std::string& error) {
     return true;
 }
 
+// Release all GPU-owned water resources, including the transmission snapshot.
 void Water::release() {
     if (contact_source == this) {
         contact_source = nullptr;
     }
     water_ready.store(false);
+    m_background.release();
+    m_background_ready = false;
     m_step.release();
     m_window_prepare.release();
     m_light.release();
@@ -179,6 +182,7 @@ void Water::release() {
     m_sim_height = m_cached_height = 0;
     m_cached_origin = m_window_origin = {};
     m_prepared_frame = m_clock_frame = m_last_frame = std::numeric_limits<std::uint64_t>::max();
+    m_impulse_frame = std::numeric_limits<std::uint64_t>::max();
     m_reset_epoch = 0;
     m_hero = {};
     m_hands = {};

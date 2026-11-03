@@ -175,7 +175,7 @@
   }
 
   @media (hover: hover) {
-    .entry:hover:not(.on) {
+    :global(html:where(:not([data-input="pad"]))) .entry:hover:not(.on) {
       background: color-mix(in srgb, var(--panel-hi) 60%, transparent);
       transform: translateX(2px);
     }
@@ -225,7 +225,7 @@
   }
 
   @media (hover: hover) {
-    .entry:hover .thumb img {
+    :global(html:where(:not([data-input="pad"]))) .entry:hover .thumb img {
       transform: scale(1.06);
       filter: none;
     }
@@ -349,7 +349,7 @@
   }
 
   @media (hover: hover) {
-    :global(html[data-platform="android"]) .entry:hover:not(.on) {
+    :global(html:where(:not([data-input="pad"]))[data-platform="android"]) .entry:hover:not(.on) {
       background: none;
       transform: none;
     }

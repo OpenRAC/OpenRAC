@@ -25,20 +25,30 @@ void main() {
     velocity = vec4(0, 0, depth, 65504.0);
     vec2 relative_velocity = motion.xy / size;
     if (depth <= 0.0) {
-        if (camera_relative == 0) { velocity = vec4(0); return; }
+#ifndef OPENRAC_BLUR_CAMERA
+#ifndef OPENRAC_BLUR_GAMEPLAY
+        if (camera_relative == 0)
+#endif
+        { velocity = vec4(0); return; }
+#endif
         // In cutscenes, the FSR sky vector includes camera rotation but no translation.
     } else {
         vec4 world = inverse_raster * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1);
         if (abs(world.w) < 1e-6) return;
         world /= world.w;
         velocity.w = min(length(world.xyz - camera_position), 65504.0);
-        if (camera_relative == 0) {
+#ifndef OPENRAC_BLUR_CAMERA
+#ifndef OPENRAC_BLUR_GAMEPLAY
+        if (camera_relative == 0)
+#endif
+        {
             // Project the tracking focus translation at each receiver's depth during gameplay.
             vec4 old = previous_view * vec4(world.xyz - reference_delta, 1);
             if (old.w <= 0.0) return;
             vec2 reference_velocity = old.xy / old.w * 0.5 + 0.5 - (uv - jitter / size);
             relative_velocity -= reference_velocity;
         }
+#endif
     }
     if (motion.z > 0.5) return; // New/teleported objects lack reliable history in either mode.
     relative_velocity *= exposure;

@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "common/hdr.h"
 #include "renderer/gpu_draw.h"
 
 struct SDL_Window;
@@ -58,6 +59,10 @@ struct Config {
     bool present_id = true;
     bool present_wait = true;
     bool fifo_latest_ready = true;
+    // HDR output may be asked for (set_hdr): the instance is given VK_EXT_swapchain_colorspace
+    // and the device VK_EXT_hdr_metadata where offered. Off (the player's `hdr = off` at start),
+    // the instance, the device and the swapchain are made as they always were.
+    bool hdr_colour_spaces = false;
 
     // An outside maker of the instance and the device, which then shares them (a mod's OpenXR
     // session, openrac_mod.h's openrac_vulkan_setup): each function stands in for the backend's
@@ -111,6 +116,9 @@ bool active();
 // (including readback flush boundaries), not merely one displayed frame.
 bool gpu_driven_active();
 bool gpu_materials_active();
+// Starts a recording if needed and returns its identity; zero without GPU instance rendering.
+// Cached instance batches must be rebuilt after the identity changes, including readback flushes.
+std::uint64_t gpu_instance_recording();
 // Indexed viewports route shadow draws to atlas rectangles from the vertex
 // shader. Empty rectangles restore the ordinary single-viewport path.
 bool indexed_viewports_supported(unsigned count);
@@ -122,6 +130,11 @@ renderer::GpuInstanceBatch gpu_instances(
 );
 bool draw_gpu_instances(
     renderer::GpuInstanceBatch batch, unsigned first_index, unsigned index_count
+);
+
+// Consecutive ranges sharing all current state and one instance batch. No per-draw materials.
+bool draw_gpu_instance_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
 );
 
 // Draws triangles with uint32 indices from the current vertex array using a compute-written command.
@@ -202,6 +215,8 @@ inline constexpr std::size_t kCommandKinds = static_cast<std::size_t>(Command::O
 // optimisation pays. Counting them is an add where the work is recorded; present() publishes them
 // as the frame's vk_* gauges while the debug tools measure (common/stats.h).
 struct SubmissionCounters {
+    std::uint64_t surface_chains =
+        0;  // Successfully executed shared surface, colour or temporal sections.
     std::uint64_t validation_errors = 0;
     std::uint64_t uniform_writes = 0, uniform_writes_skipped = 0;
     std::uint64_t uniform_uploads = 0, uniform_upload_bytes = 0;
@@ -210,7 +225,9 @@ struct SubmissionCounters {
 
     // The vkCmd* recorded, by Command; commands_recorded() adds them up.
     std::array<std::uint64_t, kCommandKinds> commands{};
-    std::uint64_t pipelines_created = 0;  // Graphics and compute pipelines made (each a compile).
+    std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
+    // Pipelines a draw linked from parts (vk-pipeline-library), not counted in pipelines_created.
+    std::uint64_t pipelines_linked = 0;
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
     std::uint64_t descriptor_sets_allocated = 0;  // Every vkAllocateDescriptorSets set.
@@ -233,12 +250,19 @@ struct SubmissionCounters {
     // can see (VmaAllocationInfo's memory type), made so far.
     std::uint64_t buffer_static_bytes_host_visible = 0;
     std::uint64_t cpu_mirror_bytes = 0;  // Now: the CPU copies GL's buffers keep (glBufferData).
+    std::uint64_t buffer_zero_fill_bytes =
+        0;  // Cumulative: glBufferData mirror zero initialisation.
+    std::uint64_t buffer_mirror_restore_bytes = 0;  // Cumulative: discarded mirrors recovered.
     // Bytes the CPU writes for the GPU-driven instances: each batch's payload as it is built, and
     // its copy into the mapped input page at the end of the recording.
     std::uint64_t gpu_payload_bytes = 0;
     std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
     double shader_compile_s = 0.0;      // The seconds those compiles took.
+    std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
+    double pipeline_compile_s = 0.0;    // Driver pipeline creation, including prewarm workers.
+    std::uint64_t pipeline_creation_calls =
+        0;  // Driver calls, including speculative and failed ones.
 };
 
 SubmissionCounters submission_counters();
@@ -262,6 +286,11 @@ void begin_pipeline_warmup(std::uint32_t frames);
 // that a later read of it shows in the picture. False when no context is open.
 bool test_poison_discards(bool on);
 
+// Enables test-only reuse of identical compiled programs/layouts; disabled for player launches.
+// Disabling bypasses the pool without discarding its objects; close() releases them.
+// borrow=false retains objects after an independent fresh-driver oracle without reusing them.
+void test_reuse_programs(bool on, bool borrow = true);
+
 // For the tests: draws the copy into the default framebuffer that waits for the present
 // (present-single-copy) into two stand-ins of the screen, B8G8R8A8 at the default framebuffer's
 // size: `single` the one blit the present makes, `two_step` the copy into the default
@@ -273,6 +302,12 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
 // and returns how many it has made since the backend opened; 0 at once while it is closed. For
 // the tests, which then draw and count the pipelines the drawing thread had to make itself.
 std::uint64_t wait_for_pipeline_prewarm();
+
+// For a level's load, behind its loading screen: waits until the pre-warm workers have made every
+// pipeline and part queued when the level's programs linked (the pipelines earlier runs drew them
+// with), so that its first frames make none, and saves the pipeline caches on a thread of their
+// own if this run made new pipelines. Nothing while the backend is closed.
+void finish_pipelines();
 
 // When the presents have been seen to reach the screen (VK_KHR_present_wait, under the registry's
 // present-timing). `visible` is the moment the backend saw present `id` finished, on the steady
@@ -311,6 +346,48 @@ bool swap_shows_at_once();
 // three) and two frames in flight.
 void set_low_latency(bool on);
 
+// HDR output (common/hdr.h): the screen is sent `wanted` at `levels` from the next present on,
+// where the surface offers it (the swapchain made again when it changes); else, and always for
+// Output::Sdr, the picture's bytes as before. Needs Config::hdr_colour_spaces for any HDR.
+struct HdrRequest {
+    hdr::Output wanted = hdr::Output::Sdr;
+    hdr::Levels levels;
+
+    bool operator==(const HdrRequest& other) const {
+        return wanted == other.wanted && levels.paper_white == other.levels.paper_white
+               && levels.peak == other.levels.peak;
+    }
+};
+
+void set_hdr(const HdrRequest& request);
+
+// What the screen is sent now (SDR before the first present), and whether the surface offers an
+// HDR colour space at all (false without Config::hdr_colour_spaces).
+hdr::Output hdr_output();
+bool hdr_offered();
+
+// HDR output's frame (docs/port/HDR.md): true while the screen is sent HDR. The renderer then
+// draws its frame in half floats (RGBA16F) with clamp_colour_writes, so that what the game's
+// blending adds up (glows, explosions, lasers) may go above white instead of stopping at it, and
+// the default framebuffer is RGBA16F too. False in SDR: 8-bit frames, as always.
+bool hdr_frame();
+
+// Draws into `framebuffer`'s colour image are given each fragment's colour clamped to 0..1 (the
+// stage made again with a clamp at its end), as an 8-bit target clamps what it is given before
+// blending: in a float frame only blending's sums go above 1. Until the image is made again.
+void clamp_colour_writes(unsigned framebuffer);
+
+// For the tests: the encode pass run on the default framebuffer into a stand-in of an HDR screen
+// (`output`'s format, `width` by `height`), read back as stored: one 32-bit word a texel for
+// Output::Hdr10 (A2B10G10R10) and four half floats for Output::ScRgb. False without a context.
+bool test_hdr_encode(
+    hdr::Output output,
+    const hdr::Levels& levels,
+    int width,
+    int height,
+    std::vector<std::uint8_t>& out
+);
+
 // With low-latency frames, called by the window's thread before a frame begins, before it reads
 // the time it is drawn for and the input: sleeps until the frame, begun then, would be queued just
 // as the GPU is free for it (latency_sleep.h), never past `limit`. Returns the seconds slept.
@@ -332,5 +409,24 @@ bool software();
 // buffer's staged copy goes (docs/port/RENDER_PERF.md, "R-05"). False with no context, and on a
 // driver whose every memory type the host sees (lavapipe, some integrated GPUs).
 bool device_only_memory();
+
+// True when the open device draws a pass tile by tile in on-chip memory: Arm Mali, Qualcomm
+// Adreno, Apple and Imagination GPUs, told by the vendor's id (Vulkan has no property for it).
+// There vertex binning and attachment traffic cost most, so the optimisations that save them
+// default on (docs/port/RENDER_PERF.md, "Tile-based GPUs"). OPENRAC_TILE_BASED=1 or 0 overrides
+// the guess, to try a tile-based default on a desktop GPU or to compare without it. False with
+// no context.
+bool tile_based();
+
+// The open device's PCI vendor id (0x5143 Qualcomm, 0x13B5 Arm, ...); 0 with no context.
+std::uint32_t vendor_id();
+
+// Split pass timing: each section timed on the GPU (stats::kGpu) ends the render pass it falls
+// in, at its start and at its end, so that its timestamps lie between passes. A tile-based GPU
+// runs a pass's draws together, so timestamps inside one pass read about zero; split, every
+// timed section reads its own time, at the price of the attachments each split stores and loads
+// again (the frame is slower while it is on). Off by default; OPENRAC_GPU_PASS_TIMING turns it on.
+// Without it, a performance capture splits one frame in a few (stats::set_pass_sampling).
+bool split_pass_timing();
 
 }  // namespace openrac::vkgl

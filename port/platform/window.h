@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include "common/hdr.h"
+
 struct SDL_Window;
 struct SDL_GLContextState;
 
@@ -151,6 +153,8 @@ struct WindowConfig {
     bool debug_context = false;
     int msaa_samples = 0;
     GlApi gl_api = default_gl_api();
+    // HDR output may be asked for later (set_hdr); off, a Vulkan window is made as it always was.
+    bool hdr = false;
 };
 
 // The context's function loader, in SDL_GL_GetProcAddress's shape: what
@@ -192,6 +196,15 @@ public:
     // Low-latency frames (the player's setting): fewer finished frames wait to be shown. Vulkan:
     // vkgl::set_low_latency. OpenGL: each swap waits for the graphics card to finish (glFinish).
     void set_low_latency(bool on);
+
+    // HDR output (common/hdr.h): what the system says of the window's display (SDL; on Android
+    // the activity, platform/display_hdr.h; unknown on X11), and the screen asked to show `wanted`
+    // at `levels`. Vulkan only (and WindowConfig::hdr); OpenGL always shows SDR. hdr_output: what
+    // it shows; hdr_offered: the screen offers an HDR format at all.
+    hdr::Display hdr_display() const;
+    void set_hdr(hdr::Output wanted, const hdr::Levels& levels);
+    hdr::Output hdr_output() const;
+    bool hdr_offered() const;
 
     // Low-latency frames, before a frame begins and reads its time and the input: Vulkan sleeps
     // until the frame would be queued just as the GPU is free for it, never past `limit`, and
@@ -241,6 +254,8 @@ private:
     SDL_GLContextState* m_context = nullptr;
     bool m_vulkan = false;
     bool m_low_latency = false;
+    bool m_hdr_window = false;        // Android: the window's colour mode asked for HDR
+    float m_hdr_headroom = 0.0f;      // Android: the headroom the window asked for
     void (*m_gl_finish)() = nullptr;  // OpenGL's glFinish, for m_low_latency
     bool m_vulkan_library = false;  // macOS: the Vulkan library this window had SDL load
     DisplayMode m_mode = DisplayMode::Windowed;

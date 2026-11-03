@@ -37,6 +37,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 import claims  # noqa: E402
 import levels  # noqa: E402
 import srcnames
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import names_header  # noqa: E402
 
 SRC = ROOT / "src/overlays"
 ASM = ROOT / "asm/overlays"
@@ -82,7 +84,7 @@ def spans(path: Path) -> dict[str, tuple[int, int, bool]]:
 
 
 def index() -> dict[str, tuple[Path, int, int, bool]]:
-    return {n: (p, *s) for p in sorted(SRC.glob("*/*.c")) for n, s in spans(p).items()}
+    return {n: (p, *s) for p in sorted(SRC.glob("*/**/*.c")) for n, s in spans(p).items()}
 
 
 def branches_to(name: str, target: str) -> bool:
@@ -220,7 +222,7 @@ def clone(only: list[str]) -> None:
     places = {r[0]: (int(r[5].split(",")[0][:2]), int(r[5].split(",")[0][3:], 16), int(r[2])) for r in cat}
     exact, tried = [], 0
     names_h = ROOT / "include/names.h"
-    readable = dict(re.findall(r"^#define\s+(\w+)\s+((?:func_|D_)\w+)\s*$", names_h.read_text(), flags=re.M)) \
+    readable = dict(re.findall(r"^#define\s+(\w+)\s+((?:func_|D_)\w+)\s*$", names_header.read(names_h), flags=re.M)) \
         if names_h.exists() else {}
     # NAME=PARENT clones from a parent variants.tsv doesn't list (a close
     # relative in config/overlays/families.tsv, say); plain names keep theirs.

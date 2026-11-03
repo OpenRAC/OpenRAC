@@ -21,8 +21,10 @@
 #include <string>
 #include <vector>
 
+#include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -195,6 +197,53 @@ void test_a_frame_copies_less(openrac::test::GlContext& context, const Picture& 
     CHECK(on <= off);
 }
 
+// A postprocess reading deferred window colour must materialize it before a preserved graph import.
+void test_temporal_read_after_deferred_copy(const Picture& picture) {
+    namespace vkgl = openrac::vkgl;
+    openrac::renderer::FrameBuffer copy;
+    std::string error;
+    CHECK(copy.create(kWindowWidth, kWindowHeight, error));
+    std::vector<std::uint8_t> reference;
+    // Each recording queues complete window composition, then explicitly reads that colour.
+    for (bool repeated : {false, true}) {
+        const auto queued = vkgl::temporal_blit(
+            "deferred temporal presentation",
+            picture.framebuffer,
+            0,
+            vkgl::TemporalConsumer::Attachment,
+            [&] { blit_to_window(picture, true, GL_LINEAR); }
+        );
+        CHECK(queued);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copy.id());
+        // The synchronous callback reads the physical default image only after its pending copy is
+        // complete.
+        const auto copied = vkgl::temporal_blit(
+            "read deferred window", 0, copy.id(), vkgl::TemporalConsumer::Shader, [&] {
+                glBlitFramebuffer(
+                    0,
+                    0,
+                    kWindowWidth,
+                    kWindowHeight,
+                    0,
+                    0,
+                    kWindowWidth,
+                    kWindowHeight,
+                    GL_COLOR_BUFFER_BIT,
+                    GL_NEAREST
+                );
+            }
+        );
+        CHECK(copied);
+        const auto pixels = copy.read_rgba();
+        if (!repeated) {
+            reference = pixels;
+        } else {
+            CHECK(reference == pixels);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -212,10 +261,14 @@ int main() {
     render_opt::set(render_opt::Opt::AttachmentDiscard, true);
     render_opt::set(render_opt::Opt::PresentSingleCopy, true);
     const Picture picture = make_picture();
-    test_one_copy_is_the_two_copies(picture, true, GL_LINEAR);
-    test_one_copy_is_the_two_copies(picture, false, GL_NEAREST);
-    test_a_draw_after_the_blit_makes_the_copy(picture);
-    test_a_frame_copies_less(context, picture);
+    // Stand-in screen images exercise graph transfer boundaries without a visible swapchain.
+    {
+        test_one_copy_is_the_two_copies(picture, true, GL_LINEAR);
+        test_one_copy_is_the_two_copies(picture, false, GL_NEAREST);
+        test_a_draw_after_the_blit_makes_the_copy(picture);
+        test_a_frame_copies_less(context, picture);
+    }
+    test_temporal_read_after_deferred_copy(picture);
     CHECK(openrac::vkgl::submission_counters().validation_errors == 0);
     return openrac::test::result();
 }

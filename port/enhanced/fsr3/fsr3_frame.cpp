@@ -2,12 +2,16 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Fsr3 frame resolve: velocities, particle reactivity, SDK dispatch and displayed-pose history.
-#include <algorithm>
+#include <array>
 #include <cmath>
+#include <stdexcept>
+#include <utility>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "enhanced/fsr3/fsr3_internal.h"
+#include "enhanced/fsr3/temporal_pass.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
@@ -22,13 +26,13 @@ void Fsr3::State::build_velocities() {
     // Map by stable identity, never by draw order; disappearing objects cannot shift another object's history.
     for (const auto& instance : instances) {
         // Blended mobys have no opaque depth and belong in the reactive colour difference.
-        if (instance.blend) {
+        if (instance.blend || instance.lighting_only) {
             continue;
         }
 
         const auto old = previous.find(instance.temporal_id);
-        bool matched = !dispatch.reset && instance.temporal_id != 0 && old != previous.end();
-        matched = matched && old->second.model == instance.model;
+        bool matched = !dispatch.reset && instance.temporal_id != 0 && old != nullptr;
+        matched = matched && old->model == instance.model;
 
         // A replaced skeleton or a large translation must not reproject an unrelated pose.
         if (matched) {
@@ -36,14 +40,14 @@ void Fsr3::State::build_velocities() {
 
             // The fourth matrix column contains the world translation.
             for (std::size_t n = 12; n < 15; ++n) {
-                const float delta = instance.matrix[n] - old->second.matrix[n];
+                const float delta = instance.matrix[n] - old->matrix[n];
                 movement += delta * delta;
             }
 
-            matched = movement < 64 && (instance.palette < 0) == (old->second.palette < 0);
+            matched = movement < 64 && (instance.palette < 0) == (old->palette < 0);
         }
 
-        const auto& from = matched ? old->second : instance;
+        const auto& from = matched ? *old : instance;
         scene::MotionInstance velocity;
         velocity.model = instance.model;
         velocity.current = instance.matrix;
@@ -62,45 +66,24 @@ void Fsr3::State::build_velocities() {
 
 void Fsr3::State::save_palette() {
     const stats::Scope timing("FSR palette history", stats::kGpu);
-    // The vertex shader uses four texels per matrix, with 256 matrices per row.
-    constexpr std::size_t kMatricesPerRow = 256;
-    const std::size_t rows =
-        std::max(std::size_t{1}, (palette.size() + kMatricesPerRow - 1) / kMatricesPerRow);
-    std::vector<renderer::Mat4> padded(rows * kMatricesPerRow);
-    std::copy(palette.begin(), palette.end(), padded.begin());
-
-    // The first displayed frame has no previous joint image yet.
-    if (!previous_palette) {
-        glGenTextures(1, &previous_palette);
-    }
-
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_2D, previous_palette);
-    // RGBA32F retains the exact joint columns consumed by the current-frame skinning shader.
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, 0x8814, 1024, static_cast<int>(rows), 0, GL_RGBA, GL_FLOAT, padded.data()
-    );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glActiveTexture(GL_TEXTURE0);
+    previous_palette.update(palette);
 }
 
 void Fsr3::State::capture_opaque(const renderer::RenderTarget& target) {
     const stats::Scope timing("FSR opaque copy", stats::kGpu);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, opaque.framebuffer());
-    glBlitFramebuffer(
-        0,
-        0,
-        target.width,
-        target.height,
-        0,
-        0,
-        target.width,
-        target.height,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST
+    // The callback retains the original complete pre-particle colour snapshot on the render thread.
+    fsr3_detail::blit_pass(
+        "temporal opaque snapshot",
+        target.framebuffer,
+        opaque.framebuffer(),
+        vkgl::TemporalConsumer::Shader,
+        [width = target.width, height = target.height] {
+            glBlitFramebuffer(
+                0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+            );
+        }
     );
     has_opaque = true;
 }
@@ -134,23 +117,32 @@ void Fsr3::State::draw_camera_motion() {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, world.depth_texture());
     glBindFramebuffer(GL_FRAMEBUFFER, depth.framebuffer());
+    fsr3_detail::let_go_colour();
     glUniform1i(camera_motion.uniform("depth_only"), 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const std::array inputs{world.depth_texture()};
+    // Fullscreen depth conversion overwrites every scalar output before either upscaler reads it.
+    fsr3_detail::raster_pass("temporal float depth", {depth.framebuffer()}, inputs, [] {
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
     glBindFramebuffer(GL_FRAMEBUFFER, motion.framebuffer());
+    fsr3_detail::let_go_colour();
     glUniform1i(camera_motion.uniform("depth_only"), 0);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    // Camera motion initializes both static geometry and sky before object overlays.
+    fsr3_detail::raster_pass("temporal camera motion", {motion.framebuffer()}, inputs, [] {
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
 }
 
 void Fsr3::State::draw_motion() {
     draw_camera_motion();
 
     // Fresh history uses current joints at both endpoints; the reactive flag rejects any old colour.
-    if (dispatch.reset || !previous_palette) {
+    if (dispatch.reset || !previous_palette.texture()) {
         save_palette();
     }
 
     build_velocities();
-    view.previous_palette = previous_palette;
+    view.previous_palette = previous_palette.texture();
     // Attach world depth only after the fullscreen sampling passes have finished.
     glFramebufferTexture2D(
         GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, world.depth_texture(), 0
@@ -164,7 +156,17 @@ void Fsr3::State::draw_motion() {
             renderer::render_opt::enabled(renderer::render_opt::Opt::FsrMotionBatch)
                 ? scene::MotionSubmission::Batched
                 : scene::MotionSubmission::Individual;
-        scene->draw_motion(object_motion, velocities, view, *textures, submission);
+        // Object motion preserves the camera field outside opaque object coverage and only tests
+        // world depth.
+        const vkgl::TemporalTarget target{
+            motion.framebuffer(),
+            vkgl::TemporalContents::Preserve,
+            renderer::graph::Aspect::Colour,
+            true
+        };
+        fsr3_detail::raster_pass("temporal object motion", target, {}, [this, submission] {
+            scene->draw_motion(object_motion, velocities, view, *textures, submission);
+        });
     }
     glDisable(GL_DEPTH_TEST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
@@ -178,6 +180,7 @@ void Fsr3::State::draw_reactive() {
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, reactive.framebuffer());
+    fsr3_detail::let_go_colour();
     glBindVertexArray(vao);
     reactive_mask.use();
     glActiveTexture(GL_TEXTURE0);
@@ -186,7 +189,11 @@ void Fsr3::State::draw_reactive() {
     glBindTexture(GL_TEXTURE_2D, opaque.texture());
     glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_2D, motion.texture());
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const std::array inputs{world.colour_texture(), opaque.texture(), motion.texture()};
+    // The mask covers every pixel, including zero reactivity on an unchanged background.
+    fsr3_detail::raster_pass("temporal reactive mask", {reactive.framebuffer()}, inputs, [] {
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(0);
 }
@@ -211,27 +218,26 @@ void Fsr3::State::restore_world_depth() {
         late_world_depth.uniform("display_size"), float(display.width), float(display.height)
     );
     glUniform2f(late_world_depth.uniform("jitter"), dispatch.jitter[0], dispatch.jitter[1]);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const std::array inputs{world.depth_texture()};
+    // Late overlays need reconstructed full-display depth without overwriting the resolved world
+    // colour.
+    const vkgl::TemporalTarget target{
+        display.framebuffer,
+        vkgl::TemporalContents::Overwrite,
+        renderer::graph::Aspect::Depth,
+        false,
+        vkgl::TemporalConsumer::Attachment
+    };
+    fsr3_detail::raster_pass("temporal display depth", target, inputs, [] {
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthFunc(GL_GEQUAL);
     glBindVertexArray(0);
 }
 
-void Fsr3::State::resolve(renderer::RenderTarget& target) {
-    const stats::Scope timing("FSR frame resolve");
-    draw_motion();
-    draw_reactive();
+bool Fsr3::State::upscale(unsigned blur_output) {
     std::string error;
-    // Select the reference before dispatch: only frames that will blur borrow its output.
-    const bool blur_frame = !dispatch.reset && !blur_mode_changed && blur_strength > 0
-                            && (!camera_blur || blur_settings.cutscene_multiplier > 0);
-    const auto delta = !blur_frame   ? std::optional<renderer::Vec3>{}
-                       : camera_blur ? std::optional{renderer::Vec3{}}
-                                     : fsr3_detail::reference_displacement(camera, old_camera);
-    const unsigned blur_output =
-        delta && renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurFastPath)
-            ? blur.reconstruction_output(display.width, display.height)
-            : 0;
     const std::array<unsigned, 5> inputs{
         world.colour_texture(),
         depth.texture(),
@@ -241,51 +247,114 @@ void Fsr3::State::resolve(renderer::RenderTarget& target) {
     };
     const bool resolved = [&] {
         const stats::Scope upscaler("FSR upscaler", stats::kGpu);
-        return sdk.dispatch(inputs, dispatch, error);
+        if (plain) {
+            fsr3_detail::blit_pass(
+                "temporal plain presentation",
+                world.id(),
+                display.framebuffer,
+                vkgl::TemporalConsumer::Attachment,
+                [this] { world.blit_to(display.framebuffer, display.width, display.height); }
+            );
+            return true;
+        }
+        crash::breadcrumb("temporal upscaling");
+        return dispatch_upscaler(inputs, error);
     }();
 
-    // A rejected dispatch still presents a complete world and full-resolution HUD, then stops retrying.
+    // A rejected dispatch still presents a complete world and full-resolution HUD, then stops
+    // retrying; a failed Arm ASR dispatch instead leaves FSR 3.1 to the next frame.
     if (!resolved) {
         log::error("{}", error);
-        world.blit_to(display.framebuffer, display.width, display.height);
-        failed = true;
-    }
-
-    if (resolved && delta) {
-        const bool blurred = blur.apply(
-            {display,
-             {world.width(), world.height()},
-             motion.texture(),
-             world.depth_texture(),
-             inverse_raster,
-             view.previous,
-             dispatch.jitter,
-             camera.position,
-             *delta,
-             camera_blur,
-             blur_strength,
-             dispatch.milliseconds,
-             blur_settings,
-             blur_output}
+        fsr3_detail::blit_pass(
+            "temporal fallback presentation",
+            world.id(),
+            display.framebuffer,
+            vkgl::TemporalConsumer::Attachment,
+            [this] { world.blit_to(display.framebuffer, display.width, display.height); }
         );
-        // Resource failures still present the complete reconstructed world and HUD.
-        if (!blurred && blur_output) {
-            blur.present_reconstruction(display);
+        failed = !std::exchange(asr_dispatch_failed, false);
+    }
+
+    return resolved;
+}
+
+void Fsr3::State::apply_blur(const renderer::Vec3& delta, unsigned blur_output) {
+    const bool blurred = blur.apply(
+        {display,
+         {world.width(), world.height()},
+         motion.texture(),
+         world.depth_texture(),
+         inverse_raster,
+         view.previous,
+         dispatch.jitter,
+         camera.position,
+         delta,
+         camera_blur,
+         blur_strength,
+         dispatch.milliseconds,
+         blur_settings,
+         blur_output}
+    );
+    // Resource failures still present the complete reconstructed world and HUD.
+    if (!blurred && blur_output) {
+        blur.present_reconstruction(display);
+    }
+}
+
+bool Fsr3::State::resolve_images() {
+    const stats::Scope timing("FSR frame resolve");
+    draw_motion();
+    if (!plain) {
+        draw_reactive();  // the upscaler's alone
+    }
+    // Select the reference before dispatch: only frames that will blur borrow its output.
+    const bool blur_frame = !dispatch.reset && !blur_mode_changed && blur_strength > 0
+                            && (!camera_blur || blur_settings.cutscene_multiplier > 0);
+    const auto delta = !blur_frame   ? std::optional<renderer::Vec3>{}
+                       : camera_blur ? std::optional{renderer::Vec3{}}
+                                     : fsr3_detail::reference_displacement(camera, old_camera);
+    const unsigned blur_output =
+        delta && !plain
+                && renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurFastPath)
+            ? blur.reconstruction_output(display.width, display.height)
+            : 0;
+    const bool resolved = upscale(blur_output);
+    // Blur can consume reconstruction only after the synchronous SDK decision succeeds.
+    if (resolved && delta) {
+        apply_blur(*delta, blur_output);
+    }
+    // This known colour-only callback remains before late world effects and native HUD drawing.
+    if (finish_colour) {
+        finish_colour();
+    }
+    return resolved;
+}
+
+void Fsr3::State::resolve(renderer::RenderTarget& target) {
+    bool resolved = false;
+    // This synchronous scope finishes all queued draws before displayed-frame history is retained.
+    const auto prepare = [this, &resolved] {
+        resolved = resolve_images();
+    };
+    // Window-directed copies retain the native acquired-image presentation boundary.
+    if (display.framebuffer != 0) {
+        const auto result = vkgl::temporal_chain(prepare);
+        // Structural failure cannot advance pose, palette or camera history.
+        if (!result) {
+            throw std::runtime_error(result.error().message);
         }
+    } else {
+        prepare();
     }
-
-    previous.clear();
-
-    // The next frame sees exactly the displayed transforms, including interpolation between simulation ticks.
-    for (const auto& instance : instances) {
-        auto saved = instance;
-        saved.floats_on_water = instance.floats_on_water && scene->deformation_active();
-        previous.insert_or_assign(instance.temporal_id, saved);
-    }
+    // Preserve displayed poses (including interpolation), without reallocating survivors.
+    const auto changes = previous.update(instances, scene->deformation_active());
+    stats::gauge("FSR history nodes inserted", double(changes.inserted));
+    stats::gauge("FSR history nodes erased", double(changes.erased));
 
     save_palette();
     old_camera = camera;
     valid = resolved;
+    finish_colour = {};
     target = display;
 }
 }  // namespace openrac::enhanced

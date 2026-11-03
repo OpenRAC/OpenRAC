@@ -7,7 +7,7 @@ typedef signed int s32;
 typedef unsigned int u32;
 typedef float f32;
 
-INCLUDE_ASM("asm/levels", func_L16_004165B0);
+/* func_L16_004165B0 is defined in L16_004165B0-fx-g8.c. */
 
 extern void func_002E74B8(char *, char *, char *);
 extern void func_002E7788(char *, char *, f32);
@@ -48,11 +48,11 @@ f32 func_L16_00416EB8(char *arg0) {
     return *(f32 *)(*(char **)(arg0 + 0x68) + 0x78);
 }
 
-INCLUDE_ASM("asm/levels", func_L16_00416EC8);
+/* func_L16_00416EC8 uses its dedicated quadword-copy and G16 profile. */
 
-INCLUDE_ASM("asm/levels", func_L16_00416FB0);
+/* func_L16_00416FB0 is defined in L16_004165B0-aim-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00417210);
+/* func_L16_00417210 is defined in L16_00417210-g8.c. */
 
 /* the model index the object's data block points at */
 s32 func_L16_00417788(char *arg0) {
@@ -60,73 +60,96 @@ s32 func_L16_00417788(char *arg0) {
     return *(s32 *)(p + 0x60);
 }
 
-INCLUDE_ASM("asm/levels", func_L16_00417798);
+/* func_L16_00417798 is defined in L16_00417798-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00417990);
+/* func_L16_00417990 is defined in L16_00417990-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00417DB0);
+/* func_L16_00417DB0 is defined in L16_00417DB0.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_004182A8);
 
-INCLUDE_ASM("asm/levels", func_L16_004185C0);
 
-INCLUDE_ASM("asm/levels", func_L16_004189A0);
+/* func_L16_004189A0 is defined in L16_004189A0.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00418E38);
+/* func_L16_00418E38 is defined in L16_004165B0-blend-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00419140);
+/* func_L16_00419140 is defined in L16_00419140-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_004192A8);
 
 extern char D_00189E20[];
 extern void func_00315728(char *, char *, s32, char *, f32);
 extern void func_00315948(char *, char *);
 
-/* next frame: arms the object once the shared render state names it, then hands its box to the collision pass */
-void func_L16_0041C6A0(char *arg0) {
-    char buf[0x30];
-    char v[0x10];
-    char *q;
-    char *p;
+extern f32 func_00283B98(f32, f32);
+extern f32 func_00283BE0(f32, f32);
+extern s32 func_002829D8(char *);
+extern void func_L16_0041C948(char *);
+extern void func_002A7750(char *, s32, s32);
 
-    if (*(u8 *)(arg0 + 0x20) == 0) {
-        *(u8 *)(arg0 + 0x20) = 1;
-        *(u8 *)(arg0 + 0x31) = 0;
-        *(u16 *)(arg0 + 0x34) |= 1;
+/* Controls the timed rotation cycle and restores the original settings. */
+void func_L16_0041C7A0(char *self) {
+    char *st = *(char **)(self + 0x68);
+    f32 a, b, angle;
+    switch (*(u8 *)(self + 0x20)) {
+    case 0:
+        *(s32 *)(st + 0) = 0;
+        *(s32 *)(st + 4) = 0;
+        *(s32 *)(st + 8) = 0;
+        *(s32 *)(st + 12) = 0;
+        *(s32 *)(st + 16) = 0;
+        a = *(f32 *)(st + 20);
+        angle = *(f32 *)(self + 0xF0);
+        b = *(f32 *)(st + 24);
+        *(f32 *)(st + 40) = angle;
+        *(s32 *)(st + 36) = *(u8 *)(self + 0xBC);
+        *(f32 *)(st + 32) = b;
+        *(f32 *)(st + 28) = a;
+        func_002A7750(self, 1, -1);
+        break;
+    case 1:
+        if (*(u8 *)(self + 0xBC))
+            func_002A7750(self, 4, -1);
+        break;
+    case 4:
+        if (*(s32 *)(st + 16) < 180) {
+            *(f32 *)(self + 0xF0) = func_00283B98(*(f32 *)(self + 0xF0), 0.0872664749622345f);
+            *(s32 *)(st + 16) += 5;
+        } else func_002A7750(self, 2, -1);
+        break;
+    case 2:
+        if (func_002829D8(st + 20)) func_002A7750(self, 3, -1);
+        break;
+    case 3:
+        if (func_002829D8(st + 24)) func_002A7750(self, 5, -1);
+        func_L16_0041C948(self);
+        break;
+    case 5:
+        if (*(s32 *)(st + 16) > 0) {
+            *(f32 *)(self + 0xF0) = func_00283BE0(*(f32 *)(self + 0xF0), 0.0872664749622345f);
+            *(s32 *)(st + 16) -= 5;
+        } else {
+            *(u8 *)(self + 0xBC) = *(u8 *)(st + 36);
+            *(f32 *)(st + 20) = *(f32 *)(st + 28);
+            *(f32 *)(st + 24) = *(f32 *)(st + 32);
+            a = *(f32 *)(st + 40);
+            *(f32 *)(self + 0xF0) = a;
+            func_002A7750(self, 1, -1);
+        }
+        break;
     }
-    if (*(u8 *)(arg0 + 0x20) != 1)
-        return;
-    q = D_00189E20;
-    p = *(char **)(q + 0x33C);
-    if (p == 0 || p != arg0)
-        return;
-    if (*(s32 *)(q + 0x340) == 0)
-        return;
-    *(s32 *)(v + 0) = 0;
-    *(f32 *)(v + 4) = 1.0f;
-    *(s32 *)(v + 8) = 0;
-    *(f32 *)(v + 0xC) = 1.0f;
-    func_002E7788(v, v, 10.0f);
-    func_00315728(buf, arg0, 1, v, (f32)(*(s32 *)0x001A7A00 * 200));
-    *(u16 *)(buf + 0x1A) = *(u16 *)(arg0 + 0xAA);
-    func_00315948(*(char **)(q + 0x2290), buf);
 }
 
-INCLUDE_ASM("asm/levels", func_L16_0041C7A0);
 
-INCLUDE_ASM("asm/levels", func_L16_0041C990);
+/* func_L16_0041C990 is defined in L16_0041C990-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_0041CB30);
 
-INCLUDE_ASM("asm/levels", func_L16_0041CF80);
+/* func_L16_0041CF80 is defined in L16_0041CF80.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_0041E370);
+/* func_L16_0041E370 lives in L16_0041E370.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_0041EBE8);
 
-INCLUDE_ASM("asm/levels", func_L16_0041ECF8);
+/* func_L16_0041ECF8 lives in L16_004165B0-g8.c (it takes the address of a $gp global). */
 
-INCLUDE_ASM("asm/levels", func_L16_0041EE90);
+/* func_L16_0041EE90 is defined in L16_0041EE90-g8.c. */
 
 extern void func_002E74B8(char *, char *, char *);
 extern s32 func_00313EE0(s32, s32);
@@ -151,10 +174,10 @@ void func_L16_0041F150(char *arg0) {
     obj[9] = (u8)(func_002E8648(4.0f) - 16);
 }
 
-INCLUDE_ASM("asm/levels", func_L16_0041F1F0);
+/* func_L16_0041F1F0 lives in L16_0041F1F0.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_0041F360);
+/* func_L16_0041F360 is defined in L16_0041F360-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00424B48);
+/* func_L16_0041F360 is defined in L16_004165B0-ring-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L16_00435CE8);
+

@@ -113,6 +113,14 @@ rac1.player.advance_animation (Hero_AdvanceAnimation) void(): Ratchet's animatio
 type Hero_AdvanceAnimationFn = () -> ()
 ```
 
+### `Hero_UpdateFn`
+
+rac1.player.update (Hero_Update) void(): The hero's whole update, once a tick from the level loop (coordinate_hero_frame_update, and its copies update_hero_frame and HeroL03_FrameUpdate in the other families of levels: one hook point): his animation's advance, the stick, his state machine and movement (Hero_UpdateMotionInput), ledges and rails, his state's transitions, his body's easing, his moby and matrices, what he holds and his drawing; it fades out when he leaves the world's bounds. A replacement that does not call the original moves him by itself and shows him with openrac_api.hero_set_pose.
+
+```lua
+type Hero_UpdateFn = () -> ()
+```
+
 ### `Item_GiveFn`
 
 rac1.item.give (Item_Give) void(i32,i32): Gives the player item id (GiveItem): sets its owned and obtained bytes, shows its banner, gives its starting ammo, marks it bought in the vendor's stock and adds it to the quick select; equip non-zero also puts it in hand. Every item the game gives goes through it but the Persuader's.

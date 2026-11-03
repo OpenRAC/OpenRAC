@@ -44,6 +44,12 @@ if(OPENRAC_ENHANCED_RENDERING)
   add_compile_definitions(OPENRAC_ENHANCED_RENDERING=1)
 endif()
 
+# The general Object Viewer is ready; additive object-light authoring remains opt-in work in progress.
+option(OPENRAC_LIGHT_AUTHORING "Compile experimental object-light authoring and attached light profiles" OFF)
+if(OPENRAC_LIGHT_AUTHORING)
+  add_compile_definitions(OPENRAC_LIGHT_AUTHORING=1)
+endif()
+
 option(OPENRAC_PORT_WINDOW "Build the programs that open a window (needs SDL3)" ON)
 option(OPENRAC_GPU_MARKERS "Compile opt-in Vulkan GPU profiler labels" OFF)
 option(OPENRAC_PORT_GAMES "Build the games from their decompilations (needs Clang and Python 3)" ON)
@@ -71,7 +77,10 @@ add_custom_target(openrac_build_info
   COMMENT "OpenRAC's version and commit"
   VERBATIM)
 add_library(openrac_common STATIC
+  common/breadcrumbs.cpp
+  common/cache_folder.cpp
   common/crash.cpp
+  common/crash_symbols.cpp
   common/env.cpp
   common/json.cpp
   common/log.cpp
@@ -103,10 +112,17 @@ endif()
 openrac_warnings(openrac_common)
 
 openrac_add_test(log LIBS openrac_common)
+if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
+  openrac_add_test(crash_symbols LIBS openrac_common)
+  add_dependencies(crash_symbols_test log_test)
+endif()
 find_package(Threads REQUIRED)
 target_link_libraries(openrac_common PUBLIC Threads::Threads)  # common/parallel.cpp
+openrac_add_test(breadcrumbs LIBS openrac_common Threads::Threads)
+openrac_add_test(breadcrumbs_no_alloc LIBS openrac_common)
 openrac_add_test(joining_thread LIBS openrac_common Threads::Threads)
 openrac_add_test(env LIBS openrac_common)
+openrac_add_test(env_at_exit LIBS openrac_common)
 openrac_add_test(stats LIBS openrac_common)
 openrac_add_test(perf_capture LIBS openrac_common)
 openrac_add_test(zip_writer LIBS openrac_common)
@@ -119,6 +135,8 @@ openrac_add_test(c_boundary LIBS openrac_common)
 openrac_add_test(frame_pacing INCLUDES .)
 openrac_add_test(latency_sleep INCLUDES .)
 openrac_add_test(swapchain_images INCLUDES .)
+# HDR output's arithmetic and choices (renderer/hdr.h); no GPU.
+openrac_add_test(hdr INCLUDES .)
 openrac_add_test(frame_counter INCLUDES .)
 openrac_add_test(render_worker SOURCES tests/render_worker_test.cpp
   game/common/frontend/render_worker.cpp INCLUDES . LIBS openrac_common Threads::Threads)
@@ -130,6 +148,9 @@ openrac_add_test(texture_pack SOURCES tests/texture_pack_test.cpp renderer/textu
 # The launcher's colours for the options drawer (game/common/ui_colors.h).
 openrac_add_test(ui_colors SOURCES tests/ui_colors_test.cpp game/common/ui_colors.cpp
                            INCLUDES . LIBS openrac_common)
+# The in-game menu's entries, and every option the old menus had (game/common/menu_catalog.h).
+openrac_add_test(menu_catalog SOURCES tests/menu_catalog_test.cpp game/common/menu_catalog.cpp
+                              INCLUDES .)
 # The CPU picture of the developer menu and the mods' menu pages (renderer/ui/canvas.h).
 openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.cpp INCLUDES .)
 # What mods draw over the game, gathered on the CPU, and a point of the level found on the picture.
@@ -179,7 +200,7 @@ add_library(openrac_runtime STATIC
 )
 target_include_directories(openrac_runtime PUBLIC runtime/include)
 target_link_libraries(openrac_runtime PUBLIC openrac_common)
-if(MINGW)
+if(WIN32)
   target_link_libraries(openrac_common PUBLIC dbghelp advapi32)
 endif()
 openrac_warnings(openrac_runtime)
@@ -248,6 +269,7 @@ foreach(which a b old)
 endforeach()
 openrac_warnings(mod_loader_test)
 add_test(NAME mod_loader COMMAND mod_loader_test)
+set_tests_properties(mod_loader PROPERTIES ENVIRONMENT "OPENRAC_IDENTITY_KEY=0123456789abcdef0123456789abcdef")
 
 # Script mods (docs/port/MODS.md, section 11): the real loader and Luau with a game of the test's own,
 # its binding generated from tests/script_binding_test.json, beside the native test mod.
@@ -268,6 +290,11 @@ find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)
   add_test(NAME mod_binding COMMAND "${Python3_EXECUTABLE}" -m unittest discover
            -s "${PROJECT_SOURCE_DIR}/../sdk/tools" -p "test_gen_binding.py")
+  if(TARGET crash_symbols_test)
+    add_test(NAME crash_symbols_local COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_crash_symbols.py"
+      "$<TARGET_FILE:crash_symbols_test>" "$<TARGET_FILE:log_test>")
+  endif()
 endif()
 
 openrac_add_c_test(rac4_io
@@ -275,6 +302,7 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
+openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include)
 
 # ---- assets, media, audio, the extractor: no window ----
 openrac_add_c_test(crate_init NO_STRICT_ALIASING WRAPV NO_FP_CONTRACT)
@@ -290,13 +318,25 @@ openrac_warnings(openrac_ps2float)
 
 openrac_add_c_test(ps2float NO_FP_CONTRACT LIBS openrac_ps2float)
 
+# Encoders are offline; enhanced builds also decode blocks for asset checks and CPU reference sampling.
+option(OPENRAC_PROBE_BAKER "Build the offline Embree 4 probe baker" OFF)
+if(OPENRAC_ENHANCED_RENDERING OR OPENRAC_PROBE_BAKER)
+  include(ProbeCompression)
+endif()
+
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
-add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
+add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
+if(TARGET openrac_astc_decode)
+  target_link_libraries(openrac_lighting PRIVATE openrac_astc_decode openrac_bc6)
+  target_compile_definitions(openrac_lighting PRIVATE OPENRAC_PROBE_COMPRESSION=1)
+endif()
+# Shared probe-format timings use the same optional profiling backend as the offline baker.
+target_link_libraries(openrac_lighting PRIVATE openrac_common)
 openrac_warnings(openrac_lighting)
 openrac_add_test(environment SOURCES enhanced/tests/environment_test.cpp LIBS openrac_lighting)
-foreach(name IN ITEMS probes probe_atlas probe_regions)
+foreach(name IN ITEMS probes probe_atlas probe_regions probe_decode)
   openrac_add_test(lighting_${name} SOURCES enhanced/tests/lighting/${name}.cpp
                                     LIBS openrac_lighting)
   set_tests_properties(lighting_${name} PROPERTIES SKIP_RETURN_CODE 77)
@@ -380,6 +420,10 @@ if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
 include(Render)
+include(GpuTests)
+openrac_configure_gpu_tests(${openrac_parallel_gpu_tests})
+add_test(NAME gpu_test_config
+         COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/test_gpu_tests.py")
 
 # ---- the games, from their decompilations (port/game/*/hostgen.json) ----
 if(OPENRAC_PORT_GAMES)

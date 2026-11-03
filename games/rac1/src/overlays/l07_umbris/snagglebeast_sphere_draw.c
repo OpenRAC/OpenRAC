@@ -1,12 +1,19 @@
 /* Starts at 0x00313D28 (was effect_00313D28.c). */
-/* Level 07 code: func_L07_00313D28 in a file of its own, built with
+/* Level 07 code: draw_snagglebeast_sphere_quad_strips in a file of its own, built with
  * -mno-split-addresses (config/file_cflags.txt). The functions of
  * vendor_00313D28.c do not build with it (11 change), so it was another
- * object in retail (docs/BUILD_FIDELITY.md, rule 2). */
+ * object in retail (docs/reference/BUILD_FIDELITY.md, rule 2). */
 #include "common.h"
 #include "callees.h"
-#include "vector.h"
-#include "moby.h"
+#include "structs/vector.h"
+#include "structs/moby.h"
+#include "asm_functions/shared_levels.h"
+#include "overlays/shared/moby_ground_collision.h"
+#include "game/moby/mobyutil.h"
+#include "asm_functions/executable.h"
+#include "game/math/fastfunc.h"
+#include "overlays/shared/moby_frame_packet.h"
+#include "game/render/vuchain.h"
 
 /* Snagglebeast sphere effect: only the draw state is read here. */
 struct SnaggleSphereVars {
@@ -14,17 +21,8 @@ struct SnaggleSphereVars {
     u8 brightness;                  /* 0x1C6 */
 };
 
-extern void VU1_addGSregister(int, u64);
-extern u64 GetEffectTex(int);
-extern float IntToFloat(int);
 extern int truncate_float_to_s32(float);
-extern void Moby_GetJointWorldPos(void *, int, void *);
-extern float split_float_fraction(void *, float);
-extern float normalize_angle(float);
-extern void BuildSphericalOffset(void *, float, float, float);
-extern float FastAddRots(float, float);
-extern void FastVecAdd(void *, void *, void *);
-extern void draw_world_quad(void *, int, int);
+
 extern s32 depth_buffer_address;
 extern s32 umbris_frame_count;
 typedef struct {

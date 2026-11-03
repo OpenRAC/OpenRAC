@@ -59,6 +59,14 @@ struct Hero_AdvanceAnimation {
     using fn = void (*)();
 };
 
+// The hero's whole update, once a tick from the level loop (coordinate_hero_frame_update, and its copies update_hero_frame and HeroL03_FrameUpdate in the other families of levels: one hook point): his animation's advance, the stick, his state machine and movement (Hero_UpdateMotionInput), ledges and rails, his state's transitions, his body's easing, his moby and matrices, what he holds and his drawing; it fades out when he leaves the world's bounds. A replacement that does not call the original moves him by itself and shows him with openrac_api.hero_set_pose.
+struct Hero_Update {
+    static constexpr const char* id = "rac1.player.update";
+    static constexpr const char* name = "Hero_Update";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 // Gives the player item id (GiveItem): sets its owned and obtained bytes, shows its banner, gives its starting ammo, marks it bought in the vendor's stock and adds it to the quick select; equip non-zero also puts it in hand. Every item the game gives goes through it but the Persuader's.
 struct Item_Give {
     static constexpr const char* id = "rac1.item.give";
@@ -7477,6 +7485,7 @@ namespace hooks {
         using set_planar_velocity = rac1::Hero_SetPlanarVelocity;
         using take_damage = rac1::Hero_TakeDamage;
         using turn_to_heading = rac1::Hero_TurnToHeading;
+        using update = rac1::Hero_Update;
         using update_motion_input = rac1::Hero_UpdateMotionInput;
     }  // namespace player
     namespace save {

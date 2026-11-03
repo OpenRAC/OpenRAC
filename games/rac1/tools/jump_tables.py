@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from libgcc_units import SEGMENT_SOURCES  # noqa: E402
+import data_in_c
 import srcnames
 
 FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})(?:_r)?\s*\(", re.M)
@@ -69,15 +70,25 @@ def provided() -> list[tuple[str, str, str]]:
     return sorted(out)
 
 
+def cuts() -> list[tuple[str, str, str]]:
+    """(label, object, input section) of every hole in the data blob, in address order: jump tables and data files."""
+    tables = [(label, obj, f".rodata.{label}") for label, _, obj in provided()]
+    tables += data_in_c.provided()
+    return sorted(tables, key=lambda row: int(row[0].rsplit("_", 1)[1], 16))
+
+
 def main() -> None:
-    tables = provided()
+    tables = cuts()
     if sys.argv[1:] == ["labels"]:
-        print(" ".join(label for label, _, _ in tables))
+        inside = [f"+{inner}" for inner in data_in_c.interior() if data_in_c.segment_of(inner) == "data"]
+        print(" ".join([label for label, _, _ in tables] + inside))
     elif sys.argv[1:] == ["ld"]:
         # split_data_s.py numbers the pieces around the cuts from 1.
-        for n, (label, _, obj) in enumerate(tables, 1):
+        for n, (label, obj, section) in enumerate(tables, 1):
             print(f"    build-sn/data_{n}.o(.data)")
-            print(f"    {obj}(.rodata.{label})")
+            print(f"    {obj}({section})")
+            for line in data_in_c.inner_symbols(label):
+                print(line)
         print(f"    build-sn/data_{len(tables) + 1}.o(.data)")
     else:
         sys.exit(__doc__)

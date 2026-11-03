@@ -106,7 +106,6 @@ void func_00343538(QwenRecovery_a2544d80ec96_AbiByte22 *p1, const QwenRecovery_a
     func_00342F70(p1 + 0x298, table);
 }
 
-INCLUDE_ASM("asm/game", func_00343558);
 
 int func_00343560(unsigned char *owner)
 {

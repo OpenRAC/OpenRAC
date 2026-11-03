@@ -25,6 +25,7 @@
 #include "common/profiler.h"
 #include "common/stats.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/graph_presentation.h"
 #include "renderer/vulkan/swapchain_images.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/vulkan/vkgl_internal.h"
@@ -57,6 +58,7 @@ struct Gauge {
 // clang-format off: one gauge per row.
 constexpr auto kGauges = std::to_array<Gauge>({
     {"vk_pipelines_created", &SubmissionCounters::pipelines_created, Span::Total},
+    {"vk_pipelines_linked", &SubmissionCounters::pipelines_linked, Span::Total},
     {"vk_pipelines_created_after_warmup", &SubmissionCounters::pipelines_created_after_warmup,
      Span::Total},
     {"vk_descriptor_sets_allocated", &SubmissionCounters::descriptor_sets_allocated, Span::Frame},
@@ -148,6 +150,7 @@ void swapchain_barrier(VkCommandBuffer cmd, VkImage image, VkImageLayout from, V
 // one and the old surface draws nowhere (the screen stayed black while the game went on).
 bool renew_surface() {
     vkDeviceWaitIdle(g->device);
+    release_hdr_views();
     if (g->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(g->device, g->swapchain, nullptr);
         g->swapchain = VK_NULL_HANDLE;
@@ -179,8 +182,15 @@ void run_deferred(Frame& f) {
 }
 
 bool make_default_framebuffer(int width, int height) {
-    g->default_colour =
-        default_image({VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 4}, width, height);
+    // In half floats while HDR is shown (vkgl.h, hdr_frame), so the frame's light above white
+    // reaches the encode pass; 8-bit otherwise, as always.
+    g->default_colour = default_image(
+        g->hdr.shown != hdr::Output::Sdr
+            ? Format{VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8}
+            : Format{VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 4},
+        width,
+        height
+    );
     g->default_depth = default_image(
         {g->depth_format,
          VK_IMAGE_ASPECT_DEPTH_BIT
@@ -239,15 +249,10 @@ bool make_swapchain() {
     if (formats.empty()) {
         return false;
     }
-    // A linear format: the picture is in the display's own (gamma) space already, as on the GS.
-    VkSurfaceFormatKHR format = formats[0];
-    for (const VkSurfaceFormatKHR& f : formats) {
-        if (f.format == VK_FORMAT_B8G8R8A8_UNORM || f.format == VK_FORMAT_R8G8B8A8_UNORM
-            || f.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32) {
-            format = f;
-            break;
-        }
-    }
+    // A linear format: the picture is in the display's own (gamma) space already, as on the GS;
+    // or, asked for and offered, an HDR one the encode pass writes (surface_format.h).
+    const VkSurfaceFormatKHR format = choose_hdr_format(formats, caps);
+    const bool hdr = g->hdr.shown != hdr::Output::Sdr;
     int w = 0, h = 0;
     SDL_GetWindowSizeInPixels(g->window, &w, &h);
     VkExtent2D extent{
@@ -279,7 +284,8 @@ bool make_swapchain() {
     info.imageColorSpace = format.colorSpace;
     info.imageExtent = extent;
     info.imageArrayLayers = 1;
-    info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    info.imageUsage =
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | (hdr && g->hdr.direct ? VK_IMAGE_USAGE_STORAGE_BIT : 0u);
     info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     // The system turns the picture to the screen's way up (no pre-rotation of our own).
     info.preTransform = (caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0
@@ -304,6 +310,7 @@ bool make_swapchain() {
     if (!check(vkCreateSwapchainKHR(g->device, &info, nullptr, &swapchain), "the swapchain")) {
         return false;
     }
+    release_hdr_views();
     if (g->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(g->device, g->swapchain, nullptr);
     }
@@ -324,6 +331,7 @@ bool make_swapchain() {
         VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         vkCreateSemaphore(g->device, &si, nullptr, &s);
     }
+    hdr_swapchain_made(format);
     g->swapchain_stale = false;
     return true;
 }
@@ -364,6 +372,11 @@ void publish_counters() {
     }
 
     stats::gauge("shader_compile_s", now.shader_compile_s);
+    stats::gauge("pipeline_compile_s", g->pipeline_compile_s.load(std::memory_order_relaxed));
+    stats::gauge(
+        "pipeline_creation_calls",
+        static_cast<double>(g->pipeline_creation_calls.load(std::memory_order_relaxed))
+    );
     stats::gauge("vk_gpu_timestamps", g->timestamp_bits != 0 ? 1.0 : 0.0);
     // The presentation's timing (R-09): whether presents can be waited on, whether one has been
     // seen finished, and how long the frame waited for a free swapchain image.
@@ -394,7 +407,7 @@ double wait_for_previous_frame() {
     if (!last.submitted) {
         return 0.0;
     }
-    const stats::Scope wait("vulkan frame wait");
+    const stats::Scope wait("vulkan frame wait", profiling::ZoneColour::Idle);
     const Clock::time_point start = Clock::now();
     if (!check(
             vkWaitForFences(g->device, 1, &last.fence, VK_TRUE, UINT64_MAX), "previous frame fence"
@@ -424,7 +437,7 @@ void prepare_frame() {
         wait_for_previous_frame();
     }
     if (f.submitted) {
-        const stats::Scope wait("vulkan frame wait");
+        const stats::Scope wait("vulkan frame wait", profiling::ZoneColour::Idle);
         const Clock::time_point start = Clock::now();
         if (!check(
                 vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "frame-slot fence"
@@ -441,14 +454,22 @@ void prepare_frame() {
     f.timings.clear();
     f.timestamp_used = 0;
     f.active_timing = -1;
-    vkResetCommandPool(g->device, f.pool, 0);
+    require_success(vkResetCommandPool(g->device, f.pool, 0), "reset frame pool");
     for (VkDescriptorPool pool : f.pools) {
-        vkResetDescriptorPool(g->device, pool, 0);
+        require_success(vkResetDescriptorPool(g->device, pool, 0), "reset frame descriptors");
     }
     f.pool_at = 0;
     f.chunk_at = 0;
     f.chunk_used = 0;
     begin_buffers();
+
+    // What the pre-warm workers made since, a whole pipeline in place of a linked one retired
+    // with this frame; and, every two minutes that made new pipelines, the caches saved on a
+    // thread of their own, so a run killed or crashed keeps them.
+    collect_prewarm();
+    if (Clock::now() - g->saved_at >= std::chrono::minutes(2)) {
+        save_pipeline_caches_soon(false);
+    }
 
     // A copy that waited for a screen there was not (no window, or none shown): made now, so the
     // default framebuffer holds what glBlitFramebuffer put there, as before.
@@ -634,21 +655,40 @@ bool present_to_screen() {
 
     // The copy to the screen in a buffer of its own, so that only it waits for the screen's
     // image (vk-tight-sync); or at the end of `main`, as before.
+    // An HDR screen is written by a compute pass, which the present's own buffer (waiting at the
+    // transfer stage) does not cover: HDR frames record it at the end of `main`.
+    const bool hdr = g->hdr.shown != hdr::Output::Sdr;
     const VkCommandBuffer own =
-        render_opt::enabled(render_opt::Opt::VkTightSync) ? present_cmd() : VK_NULL_HANDLE;
+        render_opt::enabled(render_opt::Opt::VkTightSync) && !hdr ? present_cmd() : VK_NULL_HANDLE;
     VkCommandBuffer cmd = own != VK_NULL_HANDLE ? own : f.main;
-    swapchain_barrier(cmd, screen, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-    // The picture straight into the screen when its copy waited and can be composed; else as before.
-    if (composed) {
-        compose_into(cmd, screen, g->swapchain_extent);
-    } else {
-        copy_default_into(cmd, screen, g->swapchain_extent);
+    // HDR encoding and its fallback retain the upstream image transitions and compute-stage wait.
+    if (!hdr || !hdr_encode_into(cmd, index)) {
+        // Native transfer callbacks retain composition's internal clear-to-blit ordering.
+        const auto copy_screen = [&] {
+            if (composed) {
+                compose_into(cmd, screen, g->swapchain_extent);
+            } else {
+                copy_default_into(cmd, screen, g->swapchain_extent);
+            }
+        };
+        // HDR fallback already owns a transfer-ready screen; the graph plans complete SDR copies.
+        if (!hdr) {
+            Image borrowed;
+            borrowed.image = screen;
+            const auto source = composed ? g->present_copy.source : g->default_colour;
+            const auto recorded = record_presentation(cmd, source, borrowed, true, copy_screen);
+            // An incomplete SDR presentation cannot be submitted to the screen.
+            if (!recorded) {
+                throw std::runtime_error(recorded.error().message);
+            }
+        } else {
+            // Failed HDR encoding already performed this transition for its SDR fallback.
+            copy_screen();
+            swapchain_barrier(
+                cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+            );
+        }
     }
-
-    swapchain_barrier(
-        cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
     // The frame's GPU-driven work recorded and everything handed to the queue; then the present,
     // which a driver may hold until the display or the GPU has room for another picture.
     step.emplace("vulkan submit");
@@ -760,14 +800,28 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
     const VkExtent2D extent{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
     const PendingPresent waiting = g->present_copy;
     VkCommandBuffer cmd = cmd_for(composed.get(), true);
-    barrier(cmd, *composed, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    compose_into(cmd, composed->image, extent);
+    const auto recorded = record_presentation(cmd, waiting.source, *composed, false, [&] {
+        compose_into(cmd, composed->image, extent);
+    });
+    // Temporary images may already be referenced by recorded barriers on failure.
+    if (!recorded) {
+        retire(composed);
+        retire(copied);
+        return false;
+    }
     // The same copy again, the two-step way: into the default framebuffer, then into the image.
     g->present_copy = waiting;
     make_present_copy();
     cmd = cmd_for(copied.get(), true);
-    barrier(cmd, *copied, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copy_default_into(cmd, copied->image, extent);
+    const auto copied_result = record_presentation(cmd, g->default_colour, *copied, false, [&] {
+        copy_default_into(cmd, copied->image, extent);
+    });
+    // Temporary images may already be referenced by recorded barriers on failure.
+    if (!copied_result) {
+        retire(composed);
+        retire(copied);
+        return false;
+    }
     const bool read = read_back(*composed, single) && read_back(*copied, two_step);
     retire(composed);
     retire(copied);

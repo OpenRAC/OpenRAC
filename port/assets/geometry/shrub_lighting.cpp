@@ -155,7 +155,11 @@ ShrubLightRegs shrub_light_regs(
     // Without a point-light bank the merged light stays zero and contributes nothing.
     if (points && points->bank != nullptr) {
         point = merge_point_lights(
-            ps2::bits(shrub_instance_centre(shrub, inst)), *points->bank, points->list
+            ps2::bits(
+                points->centre != nullptr ? *points->centre : shrub_instance_centre(shrub, inst)
+            ),
+            *points->bank,
+            points->list
         );
     }
 

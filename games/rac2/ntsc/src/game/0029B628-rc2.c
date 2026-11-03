@@ -24,15 +24,17 @@
 #include "common.h"
 
 extern s32 D_001A7908;
+extern s32 D_001A7290 __attribute__((nosda));
+extern s32 D_001A72C0 __attribute__((nosda));
 extern s32 D_00152C00[];
 
 void func_0029B628(void) {
     s32 *p;
 
     p = D_00152C00;
-    *(s32 *)0x1A7290 = -1;
+    D_001A7290 = -1;
     p[6] = -1;
-    *(s32 *)0x1A72C0 = -1;
+    D_001A72C0 = -1;
     p[12] = -1;
     D_001A7908 = 0;
 }

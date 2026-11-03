@@ -135,6 +135,10 @@ void Input::handle_event(const SDL_Event& event) {
             m_touch.hide();
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            if (const auto it = find(event.gbutton.which);
+                it != m_gamepads.end() && event.gbutton.button < SDL_GAMEPAD_BUTTON_COUNT) {
+                it->tapped[event.gbutton.button] = kTapReads;
+            }
             pressed(event.gbutton.which, event.gbutton.timestamp);
             m_touch.hide();
             break;
@@ -170,6 +174,11 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_WINDOW_FOCUS_LOST:
         case SDL_EVENT_DID_ENTER_BACKGROUND:
             m_touch.release_all();
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            // Back from another window: what the pad and the keys held over there (an Alt+Tab, a
+            // button held while switching) is not a press in the game until let go.
+            hold_back_held();
             break;
         default:
             break;
@@ -292,11 +301,42 @@ PadInputs Input::read_device(std::size_t index) const {
     return index < m_gamepads.size() ? read_gamepad(m_gamepads[index].gamepad) : PadInputs{};
 }
 
+void Input::taps_read(int port) {
+    SDL_Gamepad* g = gamepad(port);
+    for (Connected& c : m_gamepads) {
+        if (g != nullptr && c.gamepad == g) {
+            c.tapped = {};
+        }
+    }
+}
+
+void Input::hold_back_held() {
+    SDL_UpdateGamepads();
+    for (Connected& c : m_gamepads) {
+        c.tapped = {};  // a tap before this was not the game's either
+    }
+    for (int port = 0; port < kPadPorts; ++port) {
+        const auto p = static_cast<std::size_t>(port);
+        if (SDL_Gamepad* g = gamepad(port)) {
+            latch_held(read_gamepad(g), m_bindings[p].tuning.trigger_threshold, m_latch[p]);
+        }
+    }
+    int key_count = 0;
+    if (const bool* state = SDL_GetKeyboardState(&key_count)) {
+        std::array<bool, kKeyCount> keys{};
+        std::copy_n(state, std::min(static_cast<std::size_t>(key_count), kKeyCount), keys.begin());
+        latch_held_keys(keys, m_key_latch);
+    }
+}
+
 void Input::begin_capture() {
     // What is held as it begins does not count until let go: the press that asked for the capture
     // is not what it captures.
     SDL_UpdateGamepads();
     m_capture_held.clear();
+    for (Connected& c : m_gamepads) {
+        c.tapped = {};
+    }
     for (const Connected& c : m_gamepads) {
         m_capture_held.push_back(
             pressed_inputs(read_gamepad(c.gamepad), m_bindings[0].tuning.trigger_threshold)
@@ -309,6 +349,13 @@ void Input::begin_capture() {
 void Input::end_capture() {
     m_capturing = false;
     m_capture_held.clear();
+}
+
+void Input::poll_capture() {
+    if (m_capturing) {
+        SDL_UpdateGamepads();
+        capture_step();
+    }
 }
 
 void Input::capture_step() {
@@ -462,6 +509,20 @@ void Input::refresh_pads() {
                               || SDL_GetKeyboardFocus() != nullptr);
         if (read) {
             PadInputs inputs = read_gamepad(g);
+            // A press already let go, which the game has not read yet, reads as held.
+            if (const auto it = std::find_if(
+                    m_gamepads.begin(),
+                    m_gamepads.end(),
+                    [g](const Connected& c) { return c.gamepad == g; }
+                );
+                it != m_gamepads.end()) {
+                for (std::size_t b = 0; b < it->tapped.size(); ++b) {
+                    if (it->tapped[b] != 0) {
+                        inputs.buttons[b] = true;
+                        --it->tapped[b];
+                    }
+                }
+            }
             // A pad labelled Nintendo's way (A east), read by its labels: A is PadSouth.
             if (m_bindings[static_cast<std::size_t>(port)].tuning.face_labels
                 && SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_SOUTH)
@@ -482,7 +543,7 @@ void Input::refresh_pads() {
                 m_bindings[static_cast<std::size_t>(port)].tuning.trigger_threshold,
                 m_latch[static_cast<std::size_t>(port)]
             );
-            apply_pad(m_bindings[static_cast<std::size_t>(port)], inputs, gates, pad);
+            apply_pad(m_bindings[static_cast<std::size_t>(port)], inputs, gates, pad, m_dead_zone);
         } else {
             // Gone, or not read: nothing of it is held, so nothing is held back either.
             m_last[static_cast<std::size_t>(port)] = {};
@@ -493,7 +554,7 @@ void Input::refresh_pads() {
         }
         if (port == 0) {
             m_touch.idle(SDL_GetTicks());
-            m_touch.apply(pad);
+            m_touch.apply(pad, m_dead_zone);
         }
     }
 }

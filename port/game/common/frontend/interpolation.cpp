@@ -27,6 +27,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/breadcrumbs.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
@@ -284,6 +285,9 @@ bool enhanced_graphics_available() {
 
 namespace {
 
+// The time spent writing shots, until take_shot_time asks (both on the window's thread).
+std::chrono::steady_clock::duration shot_time{};
+
 // Writes a requested capture only after the submitted frame is complete.
 void capture_frame(const FramePresentation& output) {
     const bool first = output.first;
@@ -296,9 +300,21 @@ void capture_frame(const FramePresentation& output) {
         stats::probe("OPENRAC_SHOT_BETWEEN", "OPENRAC_SHOT also writes the frames between ticks");
     static int between_index = 0;
     between_index = first ? 0 : between_index + 1;
+    // With one frame a tick (OPENRAC_UNCAPPED, OPENRAC_NO_BLEND, which scripted runs often set) no
+    // frame is drawn between ticks, so there is none to write: said once, not left to guess.
+    static bool told_none_between = false;
+    if (shot_between && !told_none_between && one_frame_a_tick()) {
+        told_none_between = true;
+        log::warn(
+            "OPENRAC_SHOT_BETWEEN: no frames between ticks to write while OPENRAC_UNCAPPED or "
+            "OPENRAC_NO_BLEND is set (one frame a tick); run in real time with a frame rate above "
+            "Original"
+        );
+    }
     // OPENRAC_SHOT_FROM=FRAME: no shots before that frame.
     static const std::uint64_t shot_from = env_frame(env::Var::ShotFrom).value_or(0);
     if ((first || shot_between) && shots().due(output.tick) && output.tick >= shot_from) {
+        const auto writing = std::chrono::steady_clock::now();
         const std::string path = shots().prefix + std::to_string(output.tick)
                                  + (first ? std::string() : "_b" + std::to_string(between_index))
                                  + ".png";
@@ -310,6 +326,7 @@ void capture_frame(const FramePresentation& output) {
         }
         scene::write_png(path, width, height, pixels);
         log::info("frame {} written to {}", output.tick, path);
+        shot_time += std::chrono::steady_clock::now() - writing;
     }
 }
 
@@ -406,7 +423,8 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
                     .count()
             );
         },
-        error
+        error,
+        output->source_frame
     );
     // Job rejection means a previous failure, never an unbounded queue.
     if (!queued) {
@@ -490,6 +508,7 @@ void present_frame(FramePresentation& output) {
         capture_frame(output);
         slow_frame();
     }
+    crash::breadcrumb(crash::BreadcrumbThread::Main, "presenting frame", output.source_frame);
     present(shown, width, height, window_width, window_height, false, aspect);
     {
         const stats::Scope touch("touch pad");
@@ -566,8 +585,10 @@ void draw_kept(bool first) try {
         g->window->latency_begin(std::exchange(g_latency_slept, 0.0));
     }
     auto output = std::make_shared<FramePresentation>();
+    output->source_frame = static_cast<std::int64_t>(g->kept->frame);
     output->started = std::chrono::steady_clock::now();
     output->first = first;
+    output->camera_debug = debug_overlay::camera_debug_frame();
     output->dump_draws = renderer::g_dump_draws;
     const auto display = next_display(output->started);
     output->alpha = interpolating() ? alpha_at(display) : 1.0f;
@@ -585,7 +606,13 @@ void draw_kept(bool first) try {
     log_pacing(*output);
     // OpenGL contexts retain the original window-thread path.
     if (!threaded_rendering()) {
+        crash::breadcrumb(
+            crash::BreadcrumbThread::Main, "synchronous render started", output->source_frame
+        );
         render_scene(*g, *g->kept, settings::get(), *output);
+        crash::breadcrumb(
+            crash::BreadcrumbThread::Main, "synchronous render finished", output->source_frame
+        );
         present_frame(*output);
         return;
     }
@@ -618,6 +645,10 @@ void set_tick(
 bool interpolating() {
     return !one_frame_a_tick() && settings::get().frame_rate != settings::FrameRate::Original && g
            && g->window;
+}
+
+std::chrono::steady_clock::duration take_shot_time() {
+    return std::exchange(shot_time, std::chrono::steady_clock::duration{});
 }
 
 bool wants_between() {
@@ -700,12 +731,15 @@ int between(std::chrono::steady_clock::time_point next_tick) {
             if (event.type == SDL_EVENT_QUIT) {
                 return -1;
             }
-            if (window_key(event) || debug_overlay::event(event)
-                || debug_menu::event(event, openrac_game_loaded_overlay())) {
+            const bool consumed = window_key(event) || debug_overlay::event(event)
+                                  || debug_menu::event(event, openrac_game_loaded_overlay());
+            debug_overlay::camera_debug_event(event);
+            if (consumed) {
                 continue;
             }
             g->input.handle_event(event);
         }
+        apply_mouse_capture();
     }
     const bool dump = renderer::g_dump_draws;
     renderer::g_dump_draws = false;
@@ -734,11 +768,14 @@ bool hold() {
             if (event.type == SDL_EVENT_QUIT) {
                 return false;
             }
-            if (window_key(event) || debug_overlay::event(event)) {
+            const bool consumed = window_key(event) || debug_overlay::event(event);
+            debug_overlay::camera_debug_event(event);
+            if (consumed) {
                 continue;
             }
             g->input.handle_event(event);
         }
+        apply_mouse_capture();  // the pointer as the menu, now open or shut, wants it
         if (debug_overlay::take_settings_changed()) {
             apply_settings();  // the drawer is open over the paused game
         }

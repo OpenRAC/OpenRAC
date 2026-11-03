@@ -4,9 +4,16 @@
 // AgX matrices adapted from Filament be858f42ab95cf0ba6e224ac2dc3950bdb172080.
 // Exposure uses an analytical sigmoid and a 40% display-hue blend.
 // See ../lighting/README.md and agx-LICENSE.txt for attribution and SDR limitations.
+#ifdef OPENRAC_AGX_COMPUTE
+layout(local_size_x=8, local_size_y=8) in;
+layout(binding=0) uniform sampler2D tex_T0;
+layout(binding=1, rgba8) writeonly uniform image2D target_colour;
+layout(push_constant) uniform Exposure { float exposure_ev; };
+#else
 uniform sampler2D tex_T0;
 uniform float exposure_ev;
 out vec4 colour;
+#endif
 float AgXSigmoid(float x)
 {
     const float pivotX = 10.0/16.5;
@@ -67,9 +74,21 @@ vec3 AgXDisplay(vec3 scene)
 }
 
 void main() {
+#ifdef OPENRAC_AGX_COMPUTE
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if(any(greaterThanEqual(pixel,imageSize(target_colour)))) return;
+    // Each invocation reads only the texel it subsequently owns and writes; no filtering.
+    vec4 source = texelFetch(tex_T0,pixel,0);
+#else
     vec4 source = texelFetch(tex_T0, ivec2(gl_FragCoord.xy), 0);
+#endif
     // Existing world storage is display-referred UNORM, not scene-linear HDR.
     vec3 linear = mix(source.rgb / 12.92, pow((source.rgb + 0.055) / 1.055, vec3(2.4)),
                       greaterThan(source.rgb, vec3(0.04045)));
-    colour = vec4(AgXDisplay(linear * exp2(exposure_ev)), source.a);
+    vec4 result = vec4(AgXDisplay(linear * exp2(exposure_ev)), source.a);
+#ifdef OPENRAC_AGX_COMPUTE
+    imageStore(target_colour,pixel,result);
+#else
+    colour = result;
+#endif
 }

@@ -26,9 +26,11 @@
 extern s32 func_00125588();
 extern s32 D_001A748C __attribute__((sda));
 
+extern s32 D_001A7110 __attribute__((nosda));
+
 s32 func_00133688(void) {
     if (D_001A748C == 0) {
         return func_00125588();
     }
-    return *(s32 *)0x1A7110;
+    return D_001A7110;
 }

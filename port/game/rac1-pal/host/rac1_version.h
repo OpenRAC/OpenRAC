@@ -8,6 +8,9 @@
 #ifndef OPENRAC_RAC1_VERSION_H
 #define OPENRAC_RAC1_VERSION_H
 
+/* The capsule query's last argument, as this version's C declares it (host/collision.c). */
+#define RAC1_COLL_CAPSULE_IGNORE gaddr
+
 #define RAC1_ADDR(a) a
 gaddr rac1_ship_destination_text(int id);
 #define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)

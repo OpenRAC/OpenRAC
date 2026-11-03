@@ -32,7 +32,10 @@ void a_rectangle_is_two_triangles_of_its_colour() {
     CHECK(list.vertices().size() == 6);
     const OverlayVertex& first = list.vertices()[0];
     CHECK(first.x == 10.0f && first.y == 20.0f);
-    CHECK(first.rgba[0] == 0x11 && first.rgba[1] == 0x22 && first.rgba[2] == 0x33 && first.rgba[3] == 0x44);
+    CHECK(
+        first.rgba[0] == 0x11 && first.rgba[1] == 0x22 && first.rgba[2] == 0x33
+        && first.rgba[3] == 0x44
+    );
     float right = 0, bottom = 0;
     for (const OverlayVertex& v : list.vertices()) {
         right = std::max(right, v.x);
@@ -131,7 +134,9 @@ void a_point_is_found_on_the_picture() {
     // Behind the camera, off to the side, or no number at all: not on the picture.
     CHECK(!overlay_project(view, projection, {-10, 0, 0}, x, y));
     CHECK(!overlay_project(view, projection, {10, 100, 0}, x, y));
-    CHECK(!overlay_project(view, projection, {10, 0, std::numeric_limits<float>::quiet_NaN()}, x, y));
+    CHECK(
+        !overlay_project(view, projection, {10, 0, std::numeric_limits<float>::quiet_NaN()}, x, y)
+    );
 }
 
 void fade_falls_between_its_distances() {
