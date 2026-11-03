@@ -38,20 +38,29 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
     if (full) {
         FastMemCopy(h, (char *)(src[4] + (s32)src), src[5]);
         level_texture_data_base = 0;
-        copy_memory_by_alignment(mission_state, saved_mission_state + g_current_level_index * 16, 0x10);
+        copy_memory_by_alignment_v(mission_state, saved_mission_state + g_current_level_index * 16, 0x10);
         upload_texture_images((char *)(src[6] + (s32)src), h->v[0], (char *)h + h->v[1]);
         saved_sound_bank_handle = sound_bank_handle;
         flush_cache(0);
         used = fast_decompress((char *)(src[0x14] + (s32)src), base);
 
         level_texture_data_base = (s32)(base + h->v[0x18]);
-        level_tex0_regs_128a[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x24]) >> 8) | ((u64)(2) << 14) | ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) | ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x25]) >> 8) << 37) | ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
+        level_tex0_regs_128a[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x24]) >> 8) | ((u64)(2) << 14) |
+                                    ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) |
+                                    ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x25]) >> 8) << 37) |
+                                    ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
         level_tex0_regs_128a[1] = 0x0000FFA0000000E0;
         level_tex0_regs_128a[2] = 0x0040000400004000;
-        level_tex0_regs_64[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x26]) >> 8) | ((u64)(1) << 14) | ((u64)(0x13) << 20) | ((u64)(6) << 26) | ((u64)(6) << 30) | ((u64)(1) << 34) | ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x27]) >> 8) << 37) | ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
+        level_tex0_regs_64[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x26]) >> 8) | ((u64)(1) << 14) |
+                                  ((u64)(0x13) << 20) | ((u64)(6) << 26) | ((u64)(6) << 30) | ((u64)(1) << 34) |
+                                  ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x27]) >> 8) << 37) |
+                                  ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
         level_tex0_regs_64[1] = 0x0000FFA0000000E0;
         level_tex0_regs_64[2] = 0x0040000400004000;
-        level_tex0_regs_128b[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x30]) >> 8) | ((u64)(2) << 14) | ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) | ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x31]) >> 8) << 37) | ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
+        level_tex0_regs_128b[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x30]) >> 8) | ((u64)(2) << 14) |
+                                    ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) |
+                                    ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x31]) >> 8) << 37) |
+                                    ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
         level_tex0_regs_128b[1] = 0x0000FFA0000000E0;
         level_tex0_regs_128b[2] = 0x0040000400004000;
 
@@ -100,14 +109,17 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
             swap_moby_class_ids[m] = *(s32 *)(q + 4);
             swap_moby_class_data[m] = base + *(s32 *)q;
             D_J_L00_001AFE00[m] = *(s32 *)(q + 8);
-            { s32 o = g_class_slot[*(s32 *)(q + 4)] * 32 + 0x10;
-            qcopy(&swap_moby_class_headers[m], (char *)h + h->v[7] + o); }
+            {
+                s32 o = g_class_slot[*(s32 *)(q + 4)] * 32 + 0x10;
+                qcopy(&swap_moby_class_headers[m], (char *)h + h->v[7] + o);
+            }
         }
         for (i = 0, q2 = (char *)h + h->v[9]; i < h->v[8]; i++, q2 += 0x20)
             register_object_render_class(base + *(s32 *)q2, (char *)h + h->v[0x11], q2 + 0x10, *(s32 *)(q2 + 4));
-        Profile_Mark((char *)h + h->v[9], h->v[8]);
+        Profile_Mark_v((char *)h + h->v[9], h->v[8]);
         for (i = 0, q2 = (char *)h + h->v[0xB]; i < h->v[0xA]; i++, q2 += 0x30)
-            register_shrub_render_class(base + *(s32 *)q2, (char *)h + h->v[0x13], q2 + 0x10, q2 + 0x20, *(s32 *)(q2 + 4));
+            register_shrub_render_class(base + *(s32 *)q2, (char *)h + h->v[0x13], q2 + 0x10, q2 + 0x20,
+                                        *(s32 *)(q2 + 4));
         level_effects_data = base + h->v[0x1A];
         unpack_point_records((char *)h + h->v[0x17], h->v[0x16]);
         if (h->v[0x28]) {
@@ -142,7 +154,7 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         n = span->count;
         level_sound_slots = (Slot244110 *)free;
         level_sound_slot_count = n;
-        copy_memory_by_alignment(free, tbl + span->off, n * 32);
+        copy_memory_by_alignment_v(free, tbl + span->off, n * 32);
         span++;
         free += n * 32;
         e = tbl + span->off;
@@ -185,51 +197,134 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
     if (full) {
         char *top;
         ((void (*)())STUB_printf)(mem_report_header_msg);
-        ((void (*)())STUB_printf)(mem_report_low_mem_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(0x100000)) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(mem_report_low_mem_fmt,
+                                  (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(0x100000)) * (1.0f / 1024.0f)))));
         top = level_overlay_end;
-        ((void (*)())STUB_printf)(mem_report_code_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(top - 0x100000)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_buffer1_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->f0 - top)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_buffer2_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->fC - ((Load244110 *)&lvl_resource_buffers)->f0)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_buffer3_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->f10 - ((Load244110 *)&lvl_resource_buffers)->fC)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_buffer4_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->f14 - ((Load244110 *)&lvl_resource_buffers)->f10)) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_code_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(top - 0x100000)) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_buffer1_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->f0 - top)) *
+                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_buffer2_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->fC -
+                                                              ((Load244110 *)&lvl_resource_buffers)->f0)) *
+                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_buffer3_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->f10 -
+                                                              ((Load244110 *)&lvl_resource_buffers)->fC)) *
+                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_buffer4_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((Load244110 *)&lvl_resource_buffers)->f14 -
+                                                              ((Load244110 *)&lvl_resource_buffers)->f10)) *
+                                             (1.0f / 1024.0f)))));
         if (occlusion_grid != 0)
-            ((void (*)())STUB_printf)(mem_report_base_data_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((char *)occlusion_grid - ((Load244110 *)&lvl_resource_buffers)->f14)) * (1.0f / 1024.0f)))));
+            ((void (*)())STUB_printf)(
+                mem_report_base_data_fmt,
+                (((*(f64 (*)(f32))func_00120778)(
+                    IntToFloat((s32)((char *)occlusion_grid - ((Load244110 *)&lvl_resource_buffers)->f14)) *
+                    (1.0f / 1024.0f)))));
         else if (sky_data != 0)
-            ((void (*)())STUB_printf)(mem_report_base_data_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((char *)sky_data - ((Load244110 *)&lvl_resource_buffers)->f14)) * (1.0f / 1024.0f)))));
+            ((void (*)())STUB_printf)(
+                mem_report_base_data_fmt,
+                (((*(f64 (*)(f32))func_00120778)(
+                    IntToFloat((s32)((char *)sky_data - ((Load244110 *)&lvl_resource_buffers)->f14)) *
+                    (1.0f / 1024.0f)))));
         else
             ((void (*)())STUB_printf)(mem_report_no_base_data_msg);
         if (occlusion_grid != 0) {
             if (sky_data != 0)
-                ((void (*)())STUB_printf)(mem_report_occlusion_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(sky_data - (s32)occlusion_grid)) * (1.0f / 1024.0f)))));
+                ((void (*)())STUB_printf)(mem_report_occlusion_fmt,
+                                          (((*(f64 (*)(f32))func_00120778)(
+                                              IntToFloat((s32)(sky_data - (s32)occlusion_grid)) * (1.0f / 1024.0f)))));
             else
-                ((void (*)())STUB_printf)(mem_report_occlusion_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)coll_hit_result.f0) - (s32)occlusion_grid)) * (1.0f / 1024.0f)))));
+                ((void (*)())STUB_printf)(
+                    mem_report_occlusion_fmt,
+                    (((*(f64 (*)(f32))func_00120778)(
+                        IntToFloat((s32)(((char *)coll_hit_result.f0) - (s32)occlusion_grid)) * (1.0f / 1024.0f)))));
         }
         if (h->v[4])
-            ((void (*)())STUB_printf)(mem_report_sky_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)coll_hit_result.f0) - (char *)sky_data)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_collision_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(level_texture_data_base - (s32)((char *)coll_hit_result.f0))) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_texture_data_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((particle_texture_vram_table[1] >> 4) - level_texture_data_base)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_particle_vram_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((s32)level_effects_data - (particle_texture_vram_table[1] >> 4))) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_effects_vram_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((char *)moby_class_headers[0] - level_effects_data)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_moby_classes_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_tie_classes[0]) - (char *)moby_class_headers[0])) * (1.0f / 1024.0f)))));
+            ((void (*)())STUB_printf)(
+                mem_report_sky_fmt,
+                (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)coll_hit_result.f0) - (char *)sky_data)) *
+                                                 (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_collision_fmt,
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)(level_texture_data_base - (s32)((char *)coll_hit_result.f0))) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_texture_data_fmt,
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)((particle_texture_vram_table[1] >> 4) - level_texture_data_base)) *
+                (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_particle_vram_fmt,
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)((s32)level_effects_data - (particle_texture_vram_table[1] >> 4))) *
+                (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_effects_vram_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((char *)moby_class_headers[0] - level_effects_data)) *
+                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(mem_report_moby_classes_fmt,
+                                  (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_tie_classes[0]) -
+                                                                                    (char *)moby_class_headers[0])) *
+                                                                   (1.0f / 1024.0f)))));
         if (h->v[0xA])
-            ((void (*)())STUB_printf)(mem_report_tie_classes_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)shrub_class_table[0]) - ((char *)level_tie_classes[0]))) * (1.0f / 1024.0f)))));
+            ((void (*)())STUB_printf)(
+                mem_report_tie_classes_fmt,
+                (((*(f64 (*)(f32))func_00120778)(
+                    IntToFloat((s32)(((char *)shrub_class_table[0]) - ((char *)level_tie_classes[0]))) *
+                    (1.0f / 1024.0f)))));
         else
-            ((void (*)())STUB_printf)(mem_report_tie_classes_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)tie_instances) - ((char *)level_tie_classes[0]))) * (1.0f / 1024.0f)))));
+            ((void (*)())STUB_printf)(
+                mem_report_tie_classes_fmt,
+                (((*(f64 (*)(f32))func_00120778)(
+                    IntToFloat((s32)(((char *)tie_instances) - ((char *)level_tie_classes[0]))) * (1.0f / 1024.0f)))));
         if (h->v[0xA])
-            ((void (*)())STUB_printf)(mem_report_shrub_classes_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(moby_class_headers[0]->seqs[0] - ((char *)shrub_class_table[0]))) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_moby_seqs_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)tie_instances) - moby_class_headers[0]->seqs[0])) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_tie_instances_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)shrub_instances) - ((char *)tie_instances))) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_shrub_instances_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)moby_array_start) - ((char *)shrub_instances))) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_mobys_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(moby_spawn_pvar_pool - ((char *)moby_array_start))) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_moby_pvars_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(level_path_data - moby_spawn_pvar_pool)) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_paths_fmt, (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(particle_pool - level_path_data)) * (1.0f / 1024.0f)))));
+            ((void (*)())STUB_printf)(
+                mem_report_shrub_classes_fmt,
+                (((*(f64 (*)(f32))func_00120778)(
+                    IntToFloat((s32)(moby_class_headers[0]->seqs[0] - ((char *)shrub_class_table[0]))) *
+                    (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_moby_seqs_fmt,
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)(((char *)tie_instances) - moby_class_headers[0]->seqs[0])) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_tie_instances_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)shrub_instances) - ((char *)tie_instances))) *
+                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_shrub_instances_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)moby_array_start) - ((char *)shrub_instances))) *
+                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_mobys_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(moby_spawn_pvar_pool - ((char *)moby_array_start))) *
+                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(mem_report_moby_pvars_fmt,
+                                  (((*(f64 (*)(f32))func_00120778)(
+                                      IntToFloat((s32)(level_path_data - moby_spawn_pvar_pool)) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_paths_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(particle_pool - level_path_data)) * (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(mem_report_particles_fmt, 128.0);
         ((void (*)())STUB_printf)(mem_report_separator_msg);
-        ((void (*)())STUB_printf)(mem_report_particle_pool_end_fmt, (*(f64 (*)(f32))func_00120778)(IntToFloat((s32)particle_pool + 0x20000) * (1.0f / 1048576.0f)));
+        ((void (*)())STUB_printf)(
+            mem_report_particle_pool_end_fmt,
+            (*(f64 (*)(f32))func_00120778)(IntToFloat((s32)particle_pool + 0x20000) * (1.0f / 1048576.0f)));
         ((void (*)())STUB_printf)(mem_report_separator_msg);
         {
             char *lo = ((Load244110 *)&lvl_resource_buffers)->f0 - 0x2D0000;
-            ((void (*)())STUB_printf)(mem_report_total_used_fmt, (*(f64 (*)(f32))func_00120778)(IntToFloat(((Load244110 *)&lvl_resource_buffers)->f1C - lo) * (1.0f / 1048576.0f)));
+            ((void (*)())STUB_printf)(
+                mem_report_total_used_fmt,
+                (*(f64 (*)(f32))func_00120778)(IntToFloat(((Load244110 *)&lvl_resource_buffers)->f1C - lo) *
+                                               (1.0f / 1048576.0f)));
         }
         ((void (*)())STUB_printf)(mem_report_separator_msg);
     }

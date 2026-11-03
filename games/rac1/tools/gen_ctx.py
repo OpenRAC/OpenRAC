@@ -33,7 +33,7 @@ def generate_ctx():
     ctx_in = build_dir / "ctx_in.c"
     ctx_out = REPO_ROOT / "ctx.c"
 
-    ctx_in.write_text('#include "common.h"\n#include "structs.h"\n', encoding="utf-8")
+    ctx_in.write_text('#include "common.h"\n#include "structs/misc.h"\n', encoding="utf-8")
 
     cmd = [
         str(cpp),

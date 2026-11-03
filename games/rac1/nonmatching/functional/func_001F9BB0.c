@@ -4,7 +4,7 @@
 
 /*
  * Ratchet & Clank (PAL): two of the game's small number routines that only its sound
- * code reaches (src/game/sound.c: where a sound is panned to, and whether a wall is
+ * code reaches (src/game/audio/sound.c: where a sound is panned to, and whether a wall is
  * between it and the listener), still assembly in the decompilation. Not a PS2 match.
  *
  * Unlike game_fastfunc.c's, these were not written from the routines' instructions:

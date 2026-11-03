@@ -9,6 +9,9 @@ Line structure is kept: every replacement stays on its line.
 import re
 from functools import lru_cache
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import names_header  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 HEADER = ROOT / "include/names.h"
@@ -16,7 +19,7 @@ HEADER = ROOT / "include/names.h"
 
 @lru_cache(maxsize=1)
 def _table():
-    text = HEADER.read_text() if HEADER.exists() else ""
+    text = names_header.read(HEADER)
     names = dict(re.findall(r"(?m)^#define\s+(\w+)\s+(func_(?:L\d\d_)?[0-9A-Fa-f]{8})\s*$", text))
     if not names:
         return None, names

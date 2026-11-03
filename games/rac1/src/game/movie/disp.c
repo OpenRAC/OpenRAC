@@ -1,19 +1,20 @@
 #include "common.h"
-#include "structs.h"
+#include "structs/misc.h"
+#include "data/executable.h"
+#include "core/gs/put_draw_env.h"
 
 /*
  * movie/disp.cpp in the original source; text 0x23C5E0-0x23C9C0.
  * Name and boundary from the NTSC split of this game, mapped to PAL by matching function
- * sizes -- see docs/DECOMP_PROGRESS.md. Compiled as C for now.
+ * sizes -- see docs/reference/DECOMP_PROGRESS.md. Compiled as C for now.
  */
 
 /* setImageTag (recovered name), written from the retail assembly: writes a DMA/GIF tag chain into p.
- * A 4-qword header (the destination from D_0015EF84 >> 8), then one 0x60-byte entry per 16x16
+ * A 4-qword header (the destination from draw_buffer_address >> 8), then one 0x60-byte entry per 16x16
  * block of a (w >> 4) x (h >> 4) grid, each pointing at the next 0x400 bytes of image, then a
  * 0x20-byte trailer and the end tag. */
 extern int draw_buffer_address MACRO_ADDR;
 extern char *active_fs_aa_buffer MACRO_ADDR;
-extern char fs_aa_resample_packet[];
 
 /* Builds the DMA packet that uploads a w x h movie image to the frame buffer in 16x16 blocks. */
 void setImageTag(unsigned long *p, unsigned int image, int w, int h) {
@@ -66,7 +67,6 @@ ASM_FUNC("asm/handwritten/text", func_0023C7A8); /* vblankHandler */
 ASM_FUNC("asm/handwritten/text", func_0023C910); /* handler_endimage */
 extern volatile int movie_display_active MACRO_ADDR;   /* display-active flag, shared with the vblank handler */
 extern volatile int movie_vblank_count MACRO_ADDR;
-extern int sce_gs_sync_v(int);
 
 /* startDisplay(int) -- waits until the vertical-sync field differs from the given one, then
  * marks the display active. */

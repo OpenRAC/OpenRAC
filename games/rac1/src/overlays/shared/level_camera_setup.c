@@ -1,25 +1,27 @@
 /* Starts at 0x001ED6D8 (was camera_001ED6D8.c). */
-/* Shared level code: func_L00_001ED6D8 in a file of its own, built with -fno-force-mem
+/* Shared level code: setup_level_cameras in a file of its own, built with -fno-force-mem
  * (config/file_cflags.txt). GCC 2.95 takes options per translation unit,
  * and the functions of the file it came from do not build with this one
- * (docs/BUILD_FIDELITY.md, "Flags"). */
+ * (docs/reference/BUILD_FIDELITY.md, "Flags"). */
 #include "common.h"
 #include "include_asm.h"
-#include "camera.h"
-#include "hero.h"
-#include "moby.h"
+#include "structs/camera.h"
+#include "structs/hero.h"
+#include "structs/moby.h"
+#include "overlays/shared/camera_switch_and_update.h"
+#include "data/shared_levels.h"
+#include "asm_functions/executable.h"
+#include "asm_functions/shared_levels.h"
+extern Hero g_hero;
 
 extern CameraSystem player_camera;
-extern char hero_globals_base[];
-extern void vec_scale_to_length(void *, void *, float);
+
 extern Camera gCameraSlotsLvl[];
-extern int gCameraSlotUsedLvl[];
+
 extern int gCamPostUpdCountLvl MACRO_ADDR;
 extern int gCameraDefCountLvl MACRO_ADDR;
-extern short follow_cam_turn_blend_weight;
+extern float follow_cam_turn_blend_weight SDATA(follow_cam_turn_blend_weight);
 extern CameraDef *camera_descriptors MACRO_ADDR;
-extern void clear_u64_value(void *);
-extern void init_camera_system(void);
 
 /* Initialises the camera slot tables and the camera state from the hero's transform. */
 void setup_level_cameras(void) {
@@ -33,14 +35,14 @@ void setup_level_cameras(void) {
 
     g->underwater = 0;
     g->frames = 0;
-    *(float *)&follow_cam_turn_blend_weight = 0.75f;
+    follow_cam_turn_blend_weight = 0.75f;
     gCamPostUpdCountLvl = 0;
     for (k = 0; k < 48; k++) {
         gCameraSlotsLvl[k].hard_cut = 0;
         gCameraSlotUsedLvl[k] = 0;
     }
     g1 = &player_camera;
-    base = (struct Hero *)(hero_globals_base + 0xE1D);
+    base = &g_hero;
     q = &g1->follow;
     p1 = &g1->follow.up;
     g1->previous = 0;

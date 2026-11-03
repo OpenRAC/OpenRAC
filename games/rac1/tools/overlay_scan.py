@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 How much of each level's code overlay is the executable's own code, engine
-code shared between levels, or code of a single level (docs/ASSETS.md,
+code shared between levels, or code of a single level (docs/reference/ASSETS.md,
 "Code overlays").
 
   python3 tools/overlay_scan.py      # needs baserom/SCES_509.16{,.iso}

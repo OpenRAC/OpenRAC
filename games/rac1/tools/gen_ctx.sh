@@ -5,7 +5,7 @@
 set -e
 . tools/toolchain.sh
 CPP=toolchain/sn-prodg-24/local/sce/ee/gcc/bin/ee-gcc2953.exe
-printf '#include "common.h"\n#include "structs.h"\n' > build-sn/ctx_in.c
+printf '#include "common.h"\n#include "structs/misc.h"\n' > build-sn/ctx_in.c
 sn $CPP -E -P -Iinclude \
     -D'__attribute__(x)=' -D'__asm__(x)=' \
     build-sn/ctx_in.c > ctx.c

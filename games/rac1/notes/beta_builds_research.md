@@ -38,7 +38,7 @@ In the retail binary (`SCES_509.16`), assert strings and compilation unit filena
    - Manages GS frame buffers, display swap chains, and clearing.
 6. **`db_core.cpp`**:
    - Debug system core and string formatting buffer checks (`len < 128`).
-7. **`memcard.h`**:
+7. **`structs/memcard.h`**:
    - Inline memory card index bounds assertion (`idx >= 0`).
 
 ---
@@ -146,7 +146,7 @@ The debug build memory dumps in `jun25` and `aug02` contain the full enumeration
 - `paths:`
 - `part insts:`
 
-This breakdown directly correlates with the global instance tables and heap boundaries in the retail executable and provides explicit naming for structures in [`include/structs.h`](file:///home/lynder063/rac1-decomp/include/structs.h).
+This breakdown directly correlates with the global instance tables and heap boundaries in the retail executable and provides explicit naming for structures in [`include/structs/misc.h`](file:///home/lynder063/rac1-decomp/include/structs.h).
 
 ---
 

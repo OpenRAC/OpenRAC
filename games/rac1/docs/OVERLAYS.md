@@ -2,7 +2,7 @@
 
 Each level carries its own build of the game program, which replaces the
 executable's `main` segment (literals, bss, data, three vtables, text) when
-the level loads (docs/ASSETS.md, "Code overlays"). The executable's game
+the level loads (docs/reference/ASSETS.md, "Code overlays"). The executable's game
 code is a subset of every level's program; all distinct game code is about
 3.5 MB. This page is the plan for decompiling it, and the contract between
 the tools involved.
@@ -241,7 +241,7 @@ so removed tails cannot remain variant names or parents.
   InitCamera_7 at offset `+0x10`, referenced by `camvtbl` in levels 0, 1
   and 8. The 12-byte remnant entry excludes its final alignment nop;
   the independent eight-byte return-zero function is three additional
-  placements of the existing exact `func_001E97C8` in `src/game/stub.c`.
+  placements of the existing exact `func_001E97C8` in `src/game/system/stub.c`.
 
 - `func_L00_00261448` (48 bytes, all 19 levels) is one function: the 16-byte
   `func_L00_0025D390` prefix, `func_L00_00261458` and the return-zero tail
@@ -285,7 +285,7 @@ A function that ends in a return of its own which other code also reaches has `f
 An entry of single words that follows a finished function, each on an 8-byte boundary with a nop
 or fill after it, and that nothing branches to, is a different thing: what the linker left of
 functions it stripped. Those are listed in `config/overlays/linker_remnants.txt` and marked
-`LINKER_REMNANT` in the source (docs/ASM_CLASSIFICATION.md, "Level code"); `tools/overlay_remnants.py`
+`LINKER_REMNANT` in the source (docs/reference/ASM_CLASSIFICATION.md, "Level code"); `tools/overlay_remnants.py`
 tells the two apart from the bytes.
 
 ## Relatives
@@ -380,7 +380,7 @@ with `tools/lombyte.py`'s size alignment on 969 Lombyte functions,
 corrects 2 that alignment put one function off (`IsNaN`,
 `JumpToRfuStatus`) and pairs 216 it could not.
 
-`tools/lombyte.py` pairs through the map (docs/SIBLING_DECOMPS.md).
+`tools/lombyte.py` pairs through the map (docs/agents/SIBLING_DECOMPS.md).
 Rerun `us-map` after the catalogue changes, then `rerac-notes`.
 
 ## ReRAC notes

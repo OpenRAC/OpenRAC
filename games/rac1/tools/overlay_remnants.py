@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Linker remnants (docs/ASM_CLASSIFICATION.md): what retail's linker left of
+Linker remnants (docs/reference/ASM_CLASSIFICATION.md): what retail's linker left of
 the functions it stripped. A stripped function of size 4 mod 8 leaves its
 last word, the delay slot of its return, then an alignment nop or the
 linker's 0xCDCDCDCD fill (tools/strip_dead.py); one of size 0 mod 8 leaves
@@ -52,7 +52,7 @@ PAD = (0, FILL)
 HEADER = """\
 # Level code's linker remnants: what retail's linker left of the functions it stripped (each
 # one's last delay slot, then an alignment nop or fill). Kept as original assembly and counted as
-# finished, as config/linker_remnants.txt does for the executable (docs/ASM_CLASSIFICATION.md).
+# finished, as config/linker_remnants.txt does for the executable (docs/reference/ASM_CLASSIFICATION.md).
 # tools/overlay_remnants.py states the rule and checks this list against the level dumps;
 # the source marks each with LINKER_REMNANT("asm/overlays", name).
 """

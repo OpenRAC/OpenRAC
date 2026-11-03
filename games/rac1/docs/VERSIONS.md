@@ -105,7 +105,7 @@ holding that function alone, under the counterpart's name. It is built inside it
 translation unit, as retail built it: `tools/version_src.py build --version K` compiles the shared
 file with the version's definitions put in place of the shared ones, through the same pipeline and
 with the same flags as the shared file, so a version can never build a function with options or a
-context its object did not have (docs/BUILD_FIDELITY.md applies unchanged).
+context its object did not have (docs/reference/BUILD_FIDELITY.md applies unchanged).
 
     bash tools/docker/run.sh python tools/version_src.py try --version jp func_X cand.c   # one candidate
     bash tools/docker/run.sh python tools/version_clone.py --version jp                   # no model

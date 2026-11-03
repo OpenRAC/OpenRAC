@@ -63,19 +63,19 @@ type changes. Also seen:
 - `_r` definitions: a function defined under another C name with an
   `__asm__` label (`func_L00_00250478_r(...) __asm__("func_L00_00250478")`),
   when the file's existing prototype has another type
-  ([LEVERS.md](../LEVERS.md) "Rules"). Tools read `func_X_r` as `func_X`.
+  ([LEVERS.md](../agents/LEVERS.md) "Rules"). Tools read `func_X_r` as `func_X`.
 - Function-pointer macros (`#define d_update_visible ((void(*)(void))(func_00213C78))`
   in `src/overlays/shared/vendor_menu.c`).
 
 An alias names one existing symbol, never an expression
-(`"D_0013E633 + 0xF1D"`) or a number ([QUEUE.md](../QUEUE.md) "Rules");
+(`"D_0013E633 + 0xF1D"`) or a number ([QUEUE.md](../agents/QUEUE.md) "Rules");
 hardware registers are `*(volatile int *)0x10000000`.
 
 **New or reworked C adds no `__asm__`** (no aliases, `_r` definitions,
 `SDATA()` or asm statements; exceptions in [section 5](#5-pure-c-no-permuter)).
 Use the file's own declarations, value casts, real symbol names and struct
 copies. Existing aliases stay until tidied with identical bytes. Where
-[LEVERS.md](../LEVERS.md) or [QUEUE.md](../QUEUE.md) still allow aliases, this
+[LEVERS.md](../agents/LEVERS.md) or [QUEUE.md](../agents/QUEUE.md) still allow aliases, this
 stricter rule wins.
 
 ### How a global is addressed: `$gp` vs `lui`
@@ -90,10 +90,16 @@ Retail reaches some globals via `$gp` (small data, base 0x166D00), others via
 | `SDATA(sym)` | `__asm__(#sym "__gp") MACRO_ADDR` | a scalar of a level file's own small data with its real type, reached through `$gp` (`tools/check_macro_slots.py` equates the `sym__gp` label). Legacy |
 
 Older idiom: `extern short D_x;` read as `*(float *)&D_x` or `*(int *)&D_x`
-(2 bytes makes it small data at `-G2`; [AGENT_WORKFLOW.md](../AGENT_WORKFLOW.md)).
+(2 bytes makes it small data at `-G2`; [AGENT_WORKFLOW.md](../agents/AGENT_WORKFLOW.md)).
 A port reads these as plain globals of the cast-to type. One `MACRO_ADDR`
 alias changes a symbol's form for the whole file, so every landing re-checks
 the whole file.
+
+### Fake bases
+
+`hero_globals_base + 0xE1D` is the address of `g_hero`: base plus constant lands on a named global. The bases are labels
+at odd addresses, and they keep an address in a register, as retail does. Use the real global. Keep a base only in a
+function that stops matching without it. `tools/tidy/fake_bases.py` does this file by file.
 
 ### Assembly stubs
 
@@ -107,7 +113,7 @@ Macros from `include/include_asm.h`:
 | `INCLUDE_RODATA` | retail rodata included verbatim |
 
 Empty under `M2CTX`/`PERMUTER`. `.s` files come from `tools/setup_asm.sh` and
-are never committed ([ASM_CLASSIFICATION.md](../ASM_CLASSIFICATION.md)). A
+are never committed ([ASM_CLASSIFICATION.md](../reference/ASM_CLASSIFICATION.md)). A
 port supplies its own code for these (`nonmatching/functional/` has port-only C).
 
 ## 3. Shared headers
@@ -117,15 +123,16 @@ Use these, not private struct copies (fields: [data-structures.md](data-structur
 | Header | Contents |
 |---|---|
 | `include/common.h` | `s8`..`u64`, `f32`, `f64`; `NOT_SDA`, `MACRO_ADDR`, `SDATA`; `qcopy`, `qcopy_nc`, `qzero`, `CpuSync`, `CpuSyncP`, `CpuEnableInt`, `CpuDisableInt`; includes `names.h` |
-| `include/moby.h` | `struct Moby` (0x100 bytes; `update` 0x74, `pvars` 0x78, `oclass` 0xA6) and `struct MobyClass` |
-| `include/hero.h` | `struct Hero` (`D_0013F450`) and its records (`HeroMotion`, `HeroState`, `HeroItemSlot`, `HeroManipulator`, `HeroHealth`, `HeroEase`, `HeroRandTimer`, `HeroVelocityKey`, `MobyTrail`) |
-| `include/pad.h` | `struct PadState` (0x350 bytes, `D_0013CA40`) |
-| `include/vector.h` | `Vec4f`, `Vec4A` (16-byte aligned), `Vec4` (union moved with one `lq`/`sq`), `VecQuad` (128-bit integer) |
-| `include/records.h` | `DispatchRec` (0x14-byte function-pointer entry), `PadSlots`, `AnimSeq` |
+| `include/structs/moby.h` | `struct Moby` (0x100 bytes; `update` 0x74, `pvars` 0x78, `oclass` 0xA6) and `struct MobyClass` |
+| `include/structs/hero.h` | `struct Hero` (`D_0013F450`) and its records (`HeroMotion`, `HeroState`, `HeroItemSlot`, `HeroManipulator`, `HeroHealth`, `HeroEase`, `HeroRandTimer`, `HeroVelocityKey`, `MobyTrail`) |
+| `include/structs/pad.h` | `struct PadState` (0x350 bytes, `D_0013CA40`) |
+| `include/structs/vector.h` | `Vec4f`, `Vec4A` (16-byte aligned), `Vec4` (union moved with one `lq`/`sq`), `VecQuad` (128-bit integer) |
+| `include/structs/disc.h` | `struct DiscTable` (`disc_table`, `D_00137C80`) and `struct DiscFile` |
+| `include/structs/records.h` | `DispatchRec` (0x14-byte function-pointer entry), `PadSlots`, `AnimSeq` |
 | `include/callees.h` | prototypes of engine functions that three or more files declared the same way |
-| `include/structs.h`, `include/moby_pvars.h` | older shared structs; `moby_pvars.h` (class pvars adapted from Wrench) is not included by any source file today |
+| `include/structs/misc.h`, `include/pvars/moby_pvars.h` | older shared structs; `pvars/moby_pvars.h` (class pvars adapted from Wrench) is not included by any source file today |
 
-`moby.h`, `hero.h`, `pad.h` and `vector.h` are adapted from Lombyte's headers
+`structs/moby.h`, `structs/hero.h`, `structs/pad.h` and `structs/vector.h` are adapted from Lombyte's headers
 (MIT; see `THIRD_PARTY_NOTICES.md`). `unkNNN` / `pad_NNN` fields are unknown,
 not unused.
 
@@ -135,7 +142,7 @@ Write `x = (s32)h->motion.unk10;` / `h->field = (T)(v);`, not
 `*(T *)&D_0013F450.pad_x`. An address cast folds the offset into the symbol (`%hi(D_0013F450+off)`) and
 can change the code; value casts fixed about 60 hero mismatches in the header
 pass. A cast into a `pad_` field means the field should be named in the header
-([LEVERS.md](../LEVERS.md) lever 15).
+([LEVERS.md](../agents/LEVERS.md) lever 15).
 
 ### Private views that stay on purpose
 
@@ -143,13 +150,27 @@ pass. A cast into a `pad_` field means the field should be named in the header
 |---|---|---|
 | `Moby_26ff10` | `src/overlays/shared/effect_particle_updates.c` | not a moby: a particle record (passed to `KillPart`, `func_L00_002688A8`) with its own vector and pvar layouts |
 | `Moby_2E8210`, `Moby_2E8AC8` | `src/overlays/shared/follow_camera.c` | camera-side records (`cam` at 0x70 points to a `Cam_2E8210`), not a moby past the header |
-| `HeroPos_2E9978` | `src/overlays/l10_orxon/toxic_crabs_and_gates.c` | one field at `D_0013E633 + 0xE9D` (= `gHeroPos`, 0x13F4D0) + 0x200C: retail derives it from a register holding that base, which the `Hero` symbol would fold away |
+| `HeroPos` | `src/overlays/l10_orxon/toxic_crabs_and_gates.c` | one field at `D_0013E633 + 0xE9D` (= `gHeroPos`, 0x13F4D0) + 0x200C: retail derives it from a register holding that base, which the `Hero` symbol would fold away |
 | `HeroManip4_5FF0` | `src/overlays/shared/hero_idle_and_animation.c` | four more manipulators after `manipulators[7]` at hero+0xEF0, plus a random-delay timer; `struct Hero` lays this out differently |
 | `Pad_2D9F08` | `src/overlays/shared/trespasser_pad_and_background_ships.c` | reads `held` and `pressed` as one doubleword (`b1C0`); `PadState`'s separate `s32` fields would change the load |
 
+These hero views still change bytes or break a version's C when converted to `struct Hero`:
+`LevelObjectState` (`src/game/system/space.c`), `G_pp_t` (`bolts_and_wrench.c`), `G_2CF6A0`
+(`morphoray_chicken_and_drones.c`), `Hero40` (`nanotech_ball_and_suck_cannon.c`) and `G_6570`
+(`heavy_interceptor_and_turrets.c`). So do these camera and pad views: `SceneG` (`draw.c`), `P` and `PadStateWords`
+(`cutscene_and_movie_playback.c`), `Input` (`debug_menu_and_text.c`), `G` (`hero_steering_and_tilt.c`) and `PadD`
+(`vendor_menu.c`, a JP version fragment depends on it). These `disc_table` views stay too: `Tab`
+(`alpha_fade_particle_updates.c`) and `Tab` (`level_gameplay_loading.c`) index from a base pointer, and rewriting
+that as `[28 + i]` changes the code.
+
+Private moby views still left: converting them gives more `*(T *)&m->field` casts than plain fields, so they wait until
+`struct Moby` has the right field types. The largest are in `gates_helicopters_ultramechs.c`, `snow_plow_and_woodcut_bot.c`,
+`pause.c`, `test_dummies_and_conveyors.c`, `elevator_and_birdbot.c`, `turrets_and_fighter_jet.c`, `rocks_and_sandmouse.c`
+and `bolt_thief_and_path_cameras.c`. `tools/tidy/conv.py FILE --target moby --dry` lists them.
+
 *(inferred from the definitions and uses; the pad reason is from the
-header-tidy notes.)* Small `fNN` data views in `help_*.c` (`S141948`, `Cam`,
-`Row13E650`, `Rec2C` ...) are also still private.
+header-tidy notes.)* Small `fNN` data views in `help_*.c` (`S141948`,
+`Row13E650` ...) are also still private. Shared hero views are in `include/structs/hero_views.h`.
 
 ## 4. Comments and provenance
 
@@ -163,14 +184,14 @@ header-tidy notes.)* Small `fNN` data views in `help_*.c` (`S141948`, `Cam`,
   pass. Ported code ends its comment with e.g.
   `Adapted from Lombyte (GPL-3.0) for PAL: src/textbin/world/startlevel.c, startlevel.`
   or `... for PAL by OpenRAC's tools/port.py: <file>, <name>.`; headers
-  (`include/moby.h`, `include/hero.h`) carry the same. Names inside them
+  (`include/structs/moby.h`, `include/structs/hero.h`) carry the same. Names inside them
   (`FUN_L04_002aee30`) are the source project's US names.
-- Old stub comments are often wrong ([LEVERS.md](../LEVERS.md) "Rules").
+- Old stub comments are often wrong ([LEVERS.md](../agents/LEVERS.md) "Rules").
 
 ## 5. Pure C, no permuter
 
-Rules for new C besides section 2's no-`__asm__` rule ([WORKER.md](../WORKER.md),
-[QUEUE.md](../QUEUE.md#rules), [AGENT_WORKFLOW.md](../AGENT_WORKFLOW.md),
+Rules for new C besides section 2's no-`__asm__` rule ([WORKER.md](../agents/WORKER.md),
+[QUEUE.md](../agents/QUEUE.md#rules), [AGENT_WORKFLOW.md](../agents/AGENT_WORKFLOW.md),
 current policy):
 
 - Plain C. No register pins, artificial barriers (`__asm__("" : ...)`,
@@ -184,7 +205,7 @@ current policy):
   - since 2026-10-17, functions whose retail code is VU0 (`v*.xyzw`,
     `qmtc2`/`qmfc2`, `lqc2`/`sqc2`, `vcallms`, `ctc2`/`cfc2`) or hand-written
     assembly.
-- No decomp-permuter ([PERMUTER.md](../PERMUTER.md) is unused); decompile by
+- No decomp-permuter ([PERMUTER.md](../agents/PERMUTER.md) is unused); decompile by
   hand, led by Ghidra and the assembly.
 - The build is fixed: no step that edits compiler output, no per-function
   flags. Options are per file, in `config/file_cflags.txt`.
@@ -212,7 +233,7 @@ Comment- and rename-only edits get the check too: a changed declaration type
 or section can change code.
 
 Several agents in one checkout: `tools/claims.py`
-([AGENT_WORKFLOW.md](../AGENT_WORKFLOW.md) "Several agents at once").
+([AGENT_WORKFLOW.md](../agents/AGENT_WORKFLOW.md) "Several agents at once").
 
 ```sh
 python3 tools/claims.py claim <owner> func_L05_002559DC   # before working on it
@@ -225,7 +246,7 @@ python3 tools/claims.py unlock <owner>                    # right after
 
 `src/overlays/shared/smoke_puff_projectiles.c`: a generated header ("Shared code
 following vendor", i.e. link position); includes (`common.h`,
-`include_asm.h`, `hero.h`, `moby.h`, often `pad.h`, `callees.h`); then per
+`include_asm.h`, `structs/hero.h`, `structs/moby.h`, often `structs/pad.h`, `callees.h`); then per
 landing its declarations (early ones aliases like `D_0013F450_B0068`, local
 types like `ShotVars_B0068`; later ones often plain names) followed by its
 function; `INCLUDE_ASM` stubs for the rest. A symbol may appear under two C
@@ -235,5 +256,5 @@ names. Functions stay in retail's address order.
 `ShotVars *v = (ShotVars *)m->pvars;` in `func_L04_002B0290`
 ([mobys.md](mobys.md#memory-the-moby-array-and-pvars)). Other spellings
 (`*(T **)&m->pvars`, `m->pvars + 0xC0`) stay as matched.
-[PVARS.md](../PVARS.md) has wrong offsets and level numbers; see
+[PVARS.md](../reference/PVARS.md) has wrong offsets and level numbers; see
 [known inconsistencies](README.md#known-inconsistencies).

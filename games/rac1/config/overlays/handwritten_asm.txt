@@ -1,4 +1,4 @@
-# Level-code functions written as assembly in the original (docs/ASM_CLASSIFICATION.md, "Level code").
+# Level-code functions written as assembly in the original (docs/reference/ASM_CLASSIFICATION.md, "Level code").
 # The source keeps each one as ASM_FUNC("asm/overlays", name) and the progress report counts it as
 # finished, as it does the executable's config/handwritten_asm.txt. A joined function
 # (config/overlays/joined.tsv) is listed under its first name; its later pieces are finished with it.

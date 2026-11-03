@@ -145,9 +145,7 @@ def ps2eeas_real_sources() -> set[str]:
 def source_of(obj: str) -> str:
     """The source file an object in the list is built from."""
     name = obj.rsplit("/", 1)[1][:-2]
-    if obj.startswith("build-sn/core/"):
-        return f"src/core/{name}.c"
-    if obj.startswith("build-sn/game/"):
+    if obj.startswith(("build-sn/core/", "build-sn/game/")):
         return "src/" + obj[len("build-sn/"):-2] + ".c"
     if name.startswith("asm_"):
         return f"src/libgcc/nonmatching_{name[4:]}.c"

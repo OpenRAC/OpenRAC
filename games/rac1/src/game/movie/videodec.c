@@ -1,5 +1,12 @@
 #include "common.h"
-#include "structs.h"
+#include "structs/misc.h"
+#include "core/mpeg/demux.h"
+#include "game/movie/movie.h"
+#include "game/system/stub.h"
+#include "game/movie/vibuf.h"
+#include "game/movie/vobuf.h"
+#include "game/movie/disp.h"
+#include "game/movie/read.h"
 
 /* Retail-disassembly reconstruction of decoder buffer operations. */
 extern int sce_mpeg_create(void *, unsigned char *, int);
@@ -10,9 +17,11 @@ extern int mpeg_stop_dma(void);
 extern int mpeg_restart_video_dma(void);
 extern int get_mpeg_timestamp(int, char *);
 extern void movie_reset(void *) __asm__("func_0023E000");
-extern int viBufCreate(void *, void *, void *, int, void *, int);
-/* videoDecCreate(VideoDec *, unsigned char *, int, unsigned long long *, unsigned long long *, int, TimeStamp *, int) */
-int videoDecCreate(char *dec, unsigned char *data, int size, void *input, void *tags, int count, void *stamps, int stampCount) {
+
+/* videoDecCreate(VideoDec *, unsigned char *, int, unsigned long long *, unsigned long long *, int, TimeStamp *, int)
+   */
+int videoDecCreate(char *dec, unsigned char *data, int size, void *input, void *tags, int count, void *stamps,
+                   int stampCount) {
     sce_mpeg_create(dec, data, size);
     sce_mpeg_add_callback(dec, 0, (int)mpegError, 0);
     sce_mpeg_add_callback(dec, 1, (int)mpegNodata, 0);
@@ -26,21 +35,18 @@ int videoDecCreate(char *dec, unsigned char *data, int size, void *input, void *
 LINKER_REMNANT("asm/remnants/text", func_0023DF98);
 /* VideoDec: only the fields these functions touch are known. */
 typedef struct VideoDec {
-    int width;          /* 0x0, dimensions passed to the frame-copy routine */
-    int height;         /* 0x4 */
-    int f08;            /* 0x8, controls the frame-copy path */
+    int width; /* 0x0, dimensions passed to the frame-copy routine */
+    int height; /* 0x4 */
+    int f08; /* 0x8, controls the frame-copy path */
     char pad0C[0x3C];
-    char viBuf[0x60];   /* ViBuf, the video input buffer */
-    int state;          /* 0xA8 */
+    char viBuf[0x60]; /* ViBuf, the video input buffer */
+    int state; /* 0xA8 */
 } VideoDec;
 
 extern int sce_mpeg_add_str_callback(void *, int, int, int, int);
-extern void viBufBeginPut(void *, unsigned char **, int *, unsigned char **, int *);
-extern void viBufEndPut(void *);
-extern int viBufCount(void *);
 
 /* videoDecSetStream(VideoDec *, int, int, int (*)(sceMpeg *, sceMpegCbData *, void *), void *)
- * -- hands its five arguments to func_0012B008 and returns 1. */
+ * -- hands its five arguments to sce_mpeg_add_str_callback and returns 1. */
 int videoDecSetStream(VideoDec *dec, int a1, int a2, int (*cb)(void *, void *, void *), void *arg) {
     sce_mpeg_add_str_callback(dec, a1, a2, (int)cb, (int)arg);
     return 1;
@@ -52,15 +58,15 @@ void videoDecBeginPut(VideoDec *dec, unsigned char **p1, int *n1, unsigned char 
 }
 /* videoDecEndPut(VideoDec *, int size) -- viBufEndPut on the decoder's input buffer;
  * the size in $a1 passes straight through. */
-extern void vibuf_end_put(void *, int) __asm__("func_0023D2E8");
+
 void videoDecEndPut(VideoDec *dec, int size) {
-    vibuf_end_put(dec->viBuf, size);
+    viBufEndPut(dec->viBuf, size);
 }
 /* videoDecReset(VideoDec *) -- clears the decoder state. */
 void videoDecReset(VideoDec *dec) {
     dec->state = 0;
 }
-extern int viBufDelete(void *);
+
 extern int sce_mpeg_delete(void *);
 
 /* videoDecDelete(VideoDec *) */
@@ -83,7 +89,7 @@ int videoDecSetState(VideoDec *dec, unsigned int state) {
     dec->state = state;
     return old;
 }
-extern void viBufPutTs(char *, void *);
+
 extern char *decoder_state MACRO_ADDR;
 
 /* videoDecPutTs(VideoDec *, long, long, unsigned char *, int) */
@@ -106,18 +112,26 @@ int videoDecInputCount(VideoDec *dec) {
 }
 LINKER_REMNANT("asm/remnants/text", func_0023E0D0);
 /* Decoder control reconstructed from retail disassembly. */
-typedef struct MovieFourBytes { unsigned char bytes[4]; } MovieFourBytes;
-typedef struct MoviePutSpans { unsigned char *first; int firstSize; unsigned char *second; int secondSize; } MoviePutSpans;
+typedef struct MovieFourBytes {
+    unsigned char bytes[4];
+} MovieFourBytes;
+typedef struct MoviePutSpans {
+    unsigned char *first;
+    int firstSize;
+    unsigned char *second;
+    int secondSize;
+} MoviePutSpans;
 extern MovieFourBytes mpeg_sequence_end_code;
-extern int cpy2area(unsigned char *, int, unsigned char *, int, void *, int, void *, int);
+
 extern void movie_end_put(void *, int) __asm__("func_0023DFE0");
-extern void viBufFlush(void *);
+
 /* videoDecFlush(VideoDec *) */
 int videoDecFlush(VideoDec *dec) {
     MovieFourBytes marker = mpeg_sequence_end_code;
     MoviePutSpans spans;
     videoDecBeginPut(dec, &spans.first, &spans.firstSize, &spans.second, &spans.secondSize);
-    if (spans.firstSize + spans.secondSize < 4) return 0;
+    if (spans.firstSize + spans.secondSize < 4)
+        return 0;
     {
         unsigned char *first = (unsigned char *)(((unsigned int)spans.first & 0x0FFFFFFF) | 0x20000000);
         unsigned char *second = (unsigned char *)(((unsigned int)spans.second & 0x0FFFFFFF) | 0x20000000);
@@ -125,7 +139,8 @@ int videoDecFlush(VideoDec *dec) {
         movie_end_put(decoder_state + 0xD9048, copied);
     }
     viBufFlush(dec->viBuf);
-    if (dec->state == 0) dec->state = 2;
+    if (dec->state == 0)
+        dec->state = 2;
     return 1;
 }
 extern int videoDecInputCount(VideoDec *);
@@ -140,8 +155,7 @@ int videoDecIsFlushed(VideoDec *dec) {
     return res;
 }
 /* Decoder control reconstructed from retail disassembly. */
-extern void viBufReset(void *);
-extern void voBufReset(void *);
+
 extern int sceMpegGetPicture(VideoDec *);
 /* videoDecMain(void *) */
 void videoDecMain(VideoDec *dec) {
@@ -164,15 +178,10 @@ typedef struct MovieFrameState {
     int count;
 } MovieFrameState;
 extern char str_mpeg_get_picture_error[], str_decode_thread_aborted[];
-extern char *voBufGetData(void *);
-extern void voBufIncCount(void *);
+
 extern int sce_mpeg_get_picture(void *, void *, int);
 extern int sce_mpeg_is_end(void *);
-extern void sce_mpeg_reset(void *);
-extern void ErrMessage(char *);
-extern void switchThread(void);
-extern void STUB_printf(char *, ...);
-extern void setImageTag(void *, void *, int, int);
+
 /* sceMpegGetPicture(VideoDec *) */
 int sceMpegGetPicture(VideoDec *dec) {
     int result = 1;
@@ -183,8 +192,10 @@ int sceMpegGetPicture(VideoDec *dec) {
             STUB_printf(str_decode_thread_aborted);
             break;
         }
-        while ((frame = voBufGetData(decoder_state + 0xD9168)) == 0) switchThread();
-        if (sce_mpeg_get_picture(dec, frame, 0x340) < 0) ErrMessage(str_mpeg_get_picture_error);
+        while ((frame = voBufGetData(decoder_state + 0xD9168)) == 0)
+            switchThread();
+        if (sce_mpeg_get_picture(dec, frame, 0x340) < 0)
+            ErrMessage(str_mpeg_get_picture_error);
         {
             char *ringState;
             if (dec->f08 == 0) {
@@ -194,7 +205,7 @@ int sceMpegGetPicture(VideoDec *dec) {
                 int index = 0;
                 for (index = 0; index < ((MovieFrameState *)(state + 0xD8000))->count; index++) {
                     setImageTag(((MovieFrameState *)(state + 0xD8000))->entries + index * 0x138C0 + 0x40,
-                                 ((MovieFrameState *)(state + 0xD8000))->frames + index * 0xD0000, width, height);
+                                ((MovieFrameState *)(state + 0xD8000))->frames + index * 0xD0000, width, height);
                     state = decoder_state;
                 }
                 ringState = decoder_state;
@@ -214,7 +225,6 @@ int mpegError(void *mpeg, int *cbdata, void *arg) {
     STUB_printf(video_error_message, cbdata[1]);
     return 1;
 }
-extern int viBufAddDMA(char *);
 
 /* mpegNodata(sceMpeg *, sceMpegCbData *, void *) -- switchThread, then viBufAddDMA on the
  * buffer at offset 0xD9090 of the movie state. Returns 1. */
@@ -223,7 +233,6 @@ int mpegNodata(void *mpeg, void *cbdata, void *arg) {
     viBufAddDMA(decoder_state + 0xD9090);
     return 1;
 }
-extern int viBufStopDMA(char *);   /* viBufStopDMA */
 
 /* No recovered name. viBufStopDMA on the
  * ViBuf at offset 0xD9090 of the movie state. Returns 1. */
@@ -231,7 +240,6 @@ int mpeg_stop_dma(void) {
     viBufStopDMA(decoder_state + 0xD9090);
     return 1;
 }
-extern int viBufRestartDMA(char *);   /* viBufRestartDMA */
 
 /* No recovered name. viBufRestartDMA on the ViBuf at
  * offset 0xD9090 of the movie state. Returns 1. */
@@ -239,8 +247,10 @@ int mpeg_restart_video_dma(void) {
     viBufRestartDMA(decoder_state + 0xD9090);
     return 1;
 }
-typedef struct { long first, second; long pad[2]; } TimeStamp;   /* 0x20 bytes: retail reserves that much */
-extern void viBufGetTs(char *, TimeStamp *);   /* viBufGetTs */
+typedef struct {
+    long first, second;
+    long pad[2];
+} TimeStamp; /* 0x20 bytes: retail reserves that much */
 
 /* No recovered name. Reads the
  * timestamp of the ViBuf at offset 0xD9090 of the movie state with viBufGetTs and stores it

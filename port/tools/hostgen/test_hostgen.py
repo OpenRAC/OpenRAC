@@ -1409,6 +1409,28 @@ class Translate(unittest.TestCase):
         self.assertEqual(out[3], "#define B AT(x, 4)")
         self.assertEqual(out[5], "int g(char *s) { return AT(s, 4); }")
 
+    def test_a_cast_macro_over_several_lines_is_written_out_too(self):
+        src = ("#define AT(p, o)    \\\n"
+               "    (((struct {      \\\n"
+               "         char _p[o]; \\\n"
+               "         int v;      \\\n"
+               "     } *)(p))        \\\n"
+               "         ->v)\n"
+               "int f(char *s) { return AT(s, 8); }\n")
+        out = prep.expand_cast_macros(src).split("\n")
+        self.assertEqual(len(out), len(src.split("\n")))
+        self.assertIn("char _p[8]; int v;", out[6])
+        self.assertNotIn("AT(", out[6])
+
+    def test_alias_header_reads_the_parts_it_includes(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "names").mkdir()
+            (root / "names.h").write_text('#include "names/a.h"\n#include "absent.h"\n')
+            (root / "names/a.h").write_text("#define readable func_00100000\n")
+            aliases = prep.read_aliases(prep.read_alias_header(root / "names.h"))
+        self.assertEqual(aliases, {"readable": "func_00100000"})
+
     def test_alloca_takes_game_stack_until_the_function_returns(self):
         # rac1's func_L13_002EE590: __builtin_alloca for a copy of a list. The space is in game
         # memory (its address is passed on) and is given back when the function returns.

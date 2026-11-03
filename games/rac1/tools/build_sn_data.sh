@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assembles the standalone data/rodata .s files (not part of any C file)
-# through the SN Systems ProDG assembler. See docs/TOOLCHAIN.md.
+# through the SN Systems ProDG assembler. See docs/reference/TOOLCHAIN.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 . tools/toolchain.sh
@@ -34,6 +34,25 @@ python tools/split_data_s.py asm/data/data.data.s build-sn/data $(python tools/j
 for s in build-sn/data_*.s; do
   sn "$AS" -I include-sn -I include -o "${s%.s}.o" "$s"
   echo "assembled ${s%.s}.o"
+done
+
+# core_data minus the blocks that files in src/data/ now provide (tools/data_in_c.py).
+rm -f build-sn/core_data_*.s build-sn/core_data_*.o
+python tools/split_data_s.py asm/data/core_data.data.s build-sn/core_data $(python tools/data_in_c.py labels core)
+for s in build-sn/core_data_*.s; do
+  sn "$AS" -I include-sn -I include -o "${s%.s}.o" "$s"
+  echo "assembled ${s%.s}.o"
+done
+
+# The literal and level table blobs, the same way.
+for blob in core_lit:rodata lit:rodata lvl_vtbl:data lvl_camvtbl:data lvl_sndvtbl:data; do
+  name=${blob%:*}
+  rm -f build-sn/${name}_*.s build-sn/${name}_*.o
+  python tools/split_data_s.py asm/data/$name.${blob#*:}.s build-sn/$name $(python tools/data_in_c.py labels $name)
+  for s in build-sn/${name}_*.s; do
+    sn "$AS" -I include-sn -I include -o "${s%.s}.o" "$s"
+    echo "assembled ${s%.s}.o"
+  done
 done
 
 # bss padding objects -- see rac1.ld.sh for why these are real loaded

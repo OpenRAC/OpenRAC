@@ -1,5 +1,5 @@
 int Menu_GoNextWithFlag(void) {
-    int f = *(int *)(pad_globals_base + 0x2604);
+    int f = *(int *)pad0_pressed;
     if (f & 0x60) {
         char *p = level_menu_system;
         char *q;

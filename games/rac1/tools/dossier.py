@@ -347,7 +347,7 @@ def role_lines(roles: list[str], classes: dict[int, str] | None = None) -> list[
     classes = load_moby_classes() if classes is None else classes
     shown = "; ".join(describe_role(r, classes) for r in roles[:3])
     more = f"; +{len(roles) - 3} more" if len(roles) > 3 else ""
-    moby = (" An update function takes the moby in $a0 (a partial `Moby` struct is in src/game/mobyfunc.c)."
+    moby = (" An update function takes the moby in $a0 (a partial `Moby` struct is in src/game/moby/mobyfunc.c)."
             if any(r.startswith("UpdateMoby_") for r in roles) else "")
     return [f"- Role, from the levels' dispatch records (config/overlays/names.tsv): {shown}{more}.{moby}"]
 

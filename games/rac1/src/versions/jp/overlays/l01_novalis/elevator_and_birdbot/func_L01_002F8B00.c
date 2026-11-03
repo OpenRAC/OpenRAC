@@ -1,12 +1,12 @@
 void bomber_jet_update(Moby *m) {
-    Vars_F8B00 *d = (void *)m->pvars;
-    Sub_F8B00 *sub = &d->sub;
+    Vars *d = (void *)m->pvars;
+    Sub *sub = &d->sub;
     float s;
     void *hit;
     int i;
     int j;
-    Quad_F8B00 a;
-    Quad_F8B00 b;
+    Quad a;
+    Quad b;
     Vec4 dir;
     Vec4 pos;
     Vec4 col;
@@ -39,17 +39,18 @@ void bomber_jet_update(Moby *m) {
     do {
         if (m->state == 0) {
             if (sub->path != -1) {
-                Path_F8B00 *path = (Path_F8B00 *)novalis_paths[sub->path];
+                Path *path = (Path *)novalis_paths[sub->path];
                 j = 0;
                 d->fFC = d->fFC * 2.0f;
                 if (FastVecDist((char *)path + 0x10, (char *)path + (path->count << 4)) < 0.5f) {
                     path->count--;
                 }
                 for (i = 0; i < path->count; i++) {
-                    if (((Path_F8B00 *)((char *)path + (i << 4)))->w == 1.0f) {
+                    if (((Path *)((char *)path + (i << 4)))->w == 1.0f) {
                         d->slots[j] = i;
                         j++;
-                        if (j >= 4) break;
+                        if (j >= 4)
+                            break;
                     }
                 }
                 d->side = 0;
@@ -58,13 +59,16 @@ void bomber_jet_update(Moby *m) {
                 d->scale178 = m->scale;
                 d->f17C = d->fFC;
             } else {
-                STUB_printf(novalis_bomber_jet_no_path_msg, m->oclass, truncate_float_to_s32_r((float)(((int)m - novalis_mobys_r3) >> 8)));
+                STUB_printf(novalis_bomber_jet_no_path_msg, m->oclass,
+                            truncate_float_to_s32_r((float)(((int)m - novalis_mobys_r3) >> 8)));
             }
             m->update_dist = 0xFF;
             m->draw_dist = 0xFF;
         }
-        if (1.0f < s) s = 1.0f;
-        if (s < novalis_bomber_jet_min_scale) s = novalis_bomber_jet_min_scale;
+        if (1.0f < s)
+            s = 1.0f;
+        if (s < novalis_bomber_jet_min_scale)
+            s = novalis_bomber_jet_min_scale;
         m->scale = d->scale178 * s;
         d->fFC = d->f17C * s;
         if (175.0f <= m->pos.z) {
@@ -78,14 +82,14 @@ void bomber_jet_update(Moby *m) {
             if (m->state == 0) {
                 gunship_follow_path((char *)m);
             }
-            if (d->timer == -1 && is_point_inside_clip_volume(hero_globals_base + 0xE9D, d->flag170)) {
-                if (novalis_checkpoint_level_state_killed[(short)m->save_id] != 0
-                    || (level_moby_killed[g_current_level_index][(short)m->save_id >> 5] >> (m->save_id & 0x1F)) & 1) {
+            if (d->timer == -1 && is_point_inside_clip_volume(gHeroPos, d->flag170)) {
+                if (novalis_checkpoint_level_state_killed[(short)m->save_id] != 0 ||
+                    (level_moby_killed[g_current_level_index][(short)m->save_id >> 5] >> (m->save_id & 0x1F)) & 1) {
                     for (j = 0; j < 4; j++) {
                         if (d->turrets[j] != -1) {
                             Moby *o = (Moby *)(novalis_mobys_r3 + (d->turrets[j] << 8));
-                            if (o != 0 && o->oclass == 0x1CB && o->state != 0xFE && o->state != 0xFD) {
-                                Turret_F8B00 *t = (void *)o->pvars;
+                            if (o != 0 && o->oclass == MOBY_CLASS_BIRDBOT && o->state != 0xFE && o->state != 0xFD) {
+                                Turret *t = (void *)o->pvars;
                                 t->f1E8 = 1;
                                 t->f1EC = scale_ticks(2);
                             }
@@ -97,7 +101,8 @@ void bomber_jet_update(Moby *m) {
                 m->flags &= 0xFFBE;
                 if (d->cam174 != -1) {
                     Hero_SetMoveState(0x72, 0);
-                    CameraScript(camera_points + (d->cam174 << 7) + 0x30, camera_points + (d->cam174 << 7) + 0x70, 0, 0, 0);
+                    CameraScript(camera_points + (d->cam174 << 7) + 0x30, camera_points + (d->cam174 << 7) + 0x70, 0, 0,
+                                 0);
                     cutscene_active = 1;
                     m->collision = 0;
                     m->flags &= 0xEFFF;
@@ -106,7 +111,7 @@ void bomber_jet_update(Moby *m) {
             } else if (d->timer != -1) {
                 if (FastDecTimer(&d->timer)) {
                     CameraScript2(0);
-                    Hero_SetMoveState(0, 1);
+                    Hero_SetMoveState(HERO_STATE_IDLE, 1);
                     cutscene_active = 0;
                     level_moby_killed[g_current_level_index][(short)m->save_id >> 5] |= 1 << (m->save_id & 0x1F);
                     moby_killed[(short)m->save_id >> 5] |= 1 << (m->save_id & 0x1F);
@@ -117,8 +122,8 @@ void bomber_jet_update(Moby *m) {
                     for (j = 0; j < 4; j++) {
                         if (d->turrets[j] != -1) {
                             Moby *o = (Moby *)((d->turrets[j] << 8) + novalis_mobys_r3);
-                            if (o->oclass == 0x1CB) {
-                                Turret_F8B00 *t = (void *)o->pvars;
+                            if (o->oclass == MOBY_CLASS_BIRDBOT) {
+                                Turret *t = (void *)o->pvars;
                                 t->f1E8 = 1;
                                 t->f1EC = scale_ticks(2);
                             }
@@ -140,7 +145,8 @@ void bomber_jet_update(Moby *m) {
             int found = -1;
             for (i = 0; i < 4; i++) {
                 unsigned char *t = d->slots;
-                if (d->sub.cur == t[i]) found = i;
+                if (d->sub.cur == t[i])
+                    found = i;
             }
             if (found != -1) {
                 int cnt;
@@ -156,8 +162,10 @@ void bomber_jet_update(Moby *m) {
                         cnt++;
                     }
                 }
-                if (j == 0) break;
-                if (is_point_inside_clip_volume(camera_pos, d->flag188)) break;
+                if (j == 0)
+                    break;
+                if (is_point_inside_clip_volume(camera_pos, d->flag188))
+                    break;
                 for (i = j - 1; i >= 0; i--) {
                     if (coll_line(camera_pos, camera_points + (a.v[i] << 7) + 0x30, 0x86, m, 0)) {
                         if (novalis_coll_hit.moby == 0 || novalis_coll_hit.moby != m) {
@@ -185,7 +193,8 @@ void bomber_jet_update(Moby *m) {
                     FastVecSub(&dir, camera_points + (i << 7) + 0x30, &pos);
                     vec_scale_to_length(&dir, &dir, g_frame_time * 160.0f);
                     col.q = *(u128 *)((i << 7) + (int)camera_points + 0x30);
-                    bm = spawn_beam_r(m, &pos, &dir, &col, is_point_inside_clip_volume(hero_globals_base + 0xE9D, d->flag18C), d->flag170 != -1);
+                    bm = spawn_beam_r(m, &pos, &dir, &col, is_point_inside_clip_volume(gHeroPos, d->flag18C),
+                                      d->flag170 != -1);
                     if (bm != 0) {
                         int k = 0;
                         int *out = (int *)((char *)((void *)bm->pvars) + 0x20);
@@ -197,14 +206,15 @@ void bomber_jet_update(Moby *m) {
                             if (d->guards[i] != -1) {
                                 Moby *o = (Moby *)((d->guards[i] << 8) + novalis_mobys_r3);
                                 if (o->oclass == 0x2BC) {
-                                    Guard_F8B00 *g = (void *)o->pvars;
-                                    if (g->f4 == 0 && g->f0 == 0 && random_integer_below(0x64) < 0x64
-                                        && is_point_inside_clip_volume(hero_globals_base + 0xE9D, g->f8)
-                                        && is_point_inside_clip_volume(camera_pos, g->f8)) {
+                                    Guard *g = (void *)o->pvars;
+                                    if (g->f4 == 0 && g->f0 == 0 && random_integer_below(0x64) < 0x64 &&
+                                        is_point_inside_clip_volume(gHeroPos, g->f8) &&
+                                        is_point_inside_clip_volume(camera_pos, g->f8)) {
                                         out[k] = d->guards[i];
                                         k++;
                                     }
-                                    if (k >= 4) break;
+                                    if (k >= 4)
+                                        break;
                                 }
                             }
                         }

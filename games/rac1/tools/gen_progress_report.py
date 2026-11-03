@@ -52,6 +52,7 @@ from libgcc_units import (MODULES, FUNCTIONS as LIBGCC_FUNCTIONS, SEGMENT_SOURCE
 from organize_asm import LISTS, entries
 from toolchain import TC, make_sn, sn, start_wineserver
 from levels import NUM_LEVELS, dirname as level_dirname, level_of_dir, title as level_title
+import move_src
 import srcnames
 
 SHARED_TITLE = "Shared level code"
@@ -62,6 +63,7 @@ def is_level_unit(unit: dict) -> bool:
     return "level_code" in (unit.get("metadata") or {}).get("progress_categories", [])
 
 REPORT = Path("progress/report.json")
+UNIT_ALIASES = move_src.load_aliases(Path("."))
 BASEROM = "baserom/SCES_509.16"
 LINKED_ELF = "build-sn/rac1.elf"
 
@@ -80,11 +82,11 @@ WORK_ROOT = Path("build-sn/overlays/report")
 # pyelftools at module scope for the toolchain-driven build/compare path,
 # which CI (no toolchain, no baserom) never runs.
 OVERLAY_STUB = re.compile(r'^\s*(?:INCLUDE_ASM|LINKER_REMNANT|ASM_FUNC)\([^)]*\b(func_L\d{2}_[0-9A-Fa-f]{8})\)')
-# Level-code linker remnants (docs/ASM_CLASSIFICATION.md): what the linker left of stripped functions
+# Level-code linker remnants (docs/reference/ASM_CLASSIFICATION.md): what the linker left of stripped functions
 # (each one's last delay slot), kept as assembly and counted as finished, as the executable's are.
 OVERLAY_REMNANT = re.compile(r'^\s*LINKER_REMNANT\("asm/overlays",\s*(func_L\d{2}_[0-9A-Fa-f]{8})\);', re.M)
 OVERLAY_REMNANTS = Path("config/overlays/linker_remnants.txt")
-# Level-code hand-written functions (docs/ASM_CLASSIFICATION.md): original assembly, kept as it is
+# Level-code hand-written functions (docs/reference/ASM_CLASSIFICATION.md): original assembly, kept as it is
 # and counted as finished, as the executable's ASM_FUNC functions are.
 OVERLAY_HANDWRITTEN = re.compile(r'^\s*ASM_FUNC\("asm/overlays",\s*(func_L\d{2}_[0-9A-Fa-f]{8})\);', re.M)
 OVERLAY_HANDWRITTEN_LIST = Path("config/overlays/handwritten_asm.txt")
@@ -165,6 +167,11 @@ def classified_asm() -> dict[str, str]:
     return {name: folder for name, (folder, _) in expected.items()}
 
 
+def report_unit(unit: str) -> str:
+    """The name the report keeps for a moved object (tools/move_src.py), so its history survives."""
+    return UNIT_ALIASES.get(unit, unit)
+
+
 def unit_of(name: str, seg: str, vram: int) -> tuple[str, str, str]:
     """(unit name, source path, progress category)."""
     for mod, src, fns, stubs in MODULES:
@@ -172,9 +179,9 @@ def unit_of(name: str, seg: str, vram: int) -> tuple[str, str, str]:
             return f"libgcc/{mod}", src, "libgcc"
     if seg == "text":
         name, src, _ = object_of("text", vram)
-        return name, src, "game"
+        return report_unit(name), src, "game"
     name, src, _ = object_of("core_text", vram)
-    return f"core/{name}", src, "game"
+    return report_unit(f"core/{name}"), src, "game"
 
 
 def overlay_catalogue() -> dict[str, tuple[str, int]]:
@@ -248,7 +255,7 @@ def overlay_listed(listing: Path, marker: re.Pattern) -> set[str]:
         sys.exit(f"*** {listing}: a name is listed twice")
     marked = []
     for directory, _ in overlay_dirs():
-        for path in sorted(directory.glob("*.c")):
+        for path in sorted(directory.rglob("*.c")):
             marked += marker.findall(path.read_text(errors="replace"))
     if sorted(marked) != sorted(listed):
         sys.exit(f"*** {listing} disagrees with src/overlays/: "
@@ -269,7 +276,7 @@ def overlay_remnants() -> set[str]:
 
 def overlay_handwritten() -> set[str]:
     """The level-code hand-written functions: config/overlays/handwritten_asm.txt and the
-    ASM_FUNC lines of src/overlays/ (docs/ASM_CLASSIFICATION.md, "Level code"). A joined
+    ASM_FUNC lines of src/overlays/ (docs/reference/ASM_CLASSIFICATION.md, "Level code"). A joined
     function is listed under its first name; its later pieces are finished with it."""
     return overlay_listed(OVERLAY_HANDWRITTEN_LIST, OVERLAY_HANDWRITTEN)
 
@@ -288,7 +295,7 @@ def overlay_file_map() -> dict[Path, list[tuple[str, bool]]]:
     or src/overlays/lNN_<planet>/."""
     return {path: overlay_file_functions(path)
             for directory, _ in overlay_dirs()
-            for path in sorted(directory.glob("*.c"))}
+            for path in sorted(directory.rglob("*.c"))}
 
 
 def _build_and_check(path: Path, c_names: list[str]) -> tuple[Path, dict[str, float] | str]:
@@ -351,7 +358,7 @@ def overlay_match_results(file_map: dict) -> dict[str, float]:
     for owner, pieces in overlay_joined().items():
         if out.get(owner) == 100.0:
             out.update({piece: 100.0 for piece in pieces if piece in out})
-    # Near misses staged in nonmatching/ (docs/NONMATCHING.md): their share
+    # Near misses staged in nonmatching/ (docs/reference/NONMATCHING.md): their share
     # of matching bytes as fuzzy_match_percent. They are never finished:
     # only an EXACT C definition in src/overlays/ counts as matched code.
     import nonmatching
@@ -387,7 +394,7 @@ def overlay_units(file_map: dict, fuzzy: dict) -> tuple[list[dict], list, dict, 
     for directory, cats in overlay_dirs():
         shared = directory.name == "shared"
         groups = []     # [(unit name, source path, rows)]
-        for path in sorted(directory.glob("*.c")):
+        for path in sorted(directory.rglob("*.c")):
             fns = file_map[path]
             if not fns:
                 continue
@@ -450,7 +457,7 @@ def overlay_c_functions() -> tuple[dict, set[str]]:
     file_map = overlay_file_map()
     have_c = set()
     for directory, _cats in overlay_dirs():
-        for path in sorted(directory.glob("*.c")):
+        for path in sorted(directory.rglob("*.c")):
             for name, is_c in file_map[path]:
                 if name not in catalogue:
                     sys.exit(f"*** {path}: {name} is not in {OVERLAYS_CATALOGUE}")
@@ -546,6 +553,7 @@ def compiled_data() -> list[tuple[str, str, int]]:
     (tools/jump_tables.py). The link puts each in the hole cut for it at its first label, whose
     name is its retail address."""
     import core_rodata
+    import data_in_c
     import jump_tables
     out = []
     for obj, section, labels in core_rodata.sections():
@@ -554,6 +562,8 @@ def compiled_data() -> list[tuple[str, str, int]]:
         m = EXE_LABEL.match(label)
         if m:                                      # level code's tables live in the levels
             out.append((obj, f".rodata.{label}", int(m.group(1), 16)))
+    for label, obj, section in [row for segment in data_in_c.SEGMENTS for row in data_in_c.provided(segment)]:
+        out.append((obj, section, int(EXE_LABEL.match(label).group(1), 16)))
     return out
 
 
@@ -562,9 +572,7 @@ def unit_of_object(obj: str) -> str:
     name = obj.rsplit("/", 1)[1][:-2]
     if obj.startswith("build-sn/libgcc/"):
         return "libgcc/" + name.removeprefix("l2_")
-    if obj.startswith("build-sn/core/"):
-        return f"core/{name}"
-    return obj[len("build-sn/"):-2]
+    return report_unit(obj[len("build-sn/"):-2])
 
 
 def data_results() -> tuple[int, list[tuple[str, int, bool]]]:
@@ -575,7 +583,9 @@ def data_results() -> tuple[int, list[tuple[str, int, bool]]]:
 
     with open(BASEROM, "rb") as f:
         retail = ELFFile(f)
-        total = sum(retail.get_section_by_name(n)["sh_size"] for n in RETAIL_DATA_SECTIONS)
+        ranges = [(retail.get_section_by_name(n)["sh_addr"], retail.get_section_by_name(n)["sh_size"])
+                  for n in RETAIL_DATA_SECTIONS]
+        total = sum(size for _, size in ranges)
         seg = next(s for s in retail.iter_segments() if s["p_type"] == "PT_LOAD")
         delta = seg["p_vaddr"] - seg["p_offset"]
     raw = Path(BASEROM).read_bytes()
@@ -597,7 +607,9 @@ def data_results() -> tuple[int, list[tuple[str, int, bool]]]:
                 sys.exit(f"*** {obj} has no {section} section")
             size = sec["sh_size"]
         exact = ours(addr, size) == raw[addr - delta: addr - delta + size]
-        pieces.append((unit_of_object(obj), size, exact))
+        # A block can end in the padding between two retail sections: those bytes are not in the total.
+        counted = sum(max(0, min(addr + size, base + length) - max(addr, base)) for base, length in ranges)
+        pieces.append((unit_of_object(obj), counted, exact))
     return total, pieces
 
 
@@ -743,7 +755,7 @@ def generate() -> dict:
 
 
 def check() -> None:
-    # The build runs only documented assembler/linker steps, with flags per file (docs/BUILD_FIDELITY.md).
+    # The build runs only documented assembler/linker steps, with flags per file (docs/reference/BUILD_FIDELITY.md).
     import check_build_fidelity
     check_build_fidelity.main()
     if not REPORT.exists():

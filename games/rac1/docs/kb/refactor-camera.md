@@ -2,7 +2,7 @@
 
 The camera code, the state it owns, and the plan for turning its raw byte
 offsets into named fields without changing one byte of the build. The
-layouts are in [`include/camera.h`](../../include/camera.h); this page is the
+layouts are in [`include/structs/camera.h`](../../include/structs/camera.h); this page is the
 map and the conversion table. Conventions: [conventions.md](conventions.md);
 the byte-exact rule: [README](README.md#the-one-rule).
 
@@ -21,17 +21,17 @@ worker rules in `build-sn/refactor/WORKER_BRIEF.md`.
 
 | File | What | C functions |
 |---|---|---|
-| `src/game/camera.c` | the executable's camera unit (`camera.cpp`, text 0x1EC038-0x1EDFF8) | 22 |
+| `src/game/gameplay/camera.c` | the executable's camera unit (`camera.cpp`, text 0x1EC038-0x1EDFF8) | 22 |
 | `src/overlays/shared/camera_switch_and_update.c` | the level copy, shared by all 19 levels (canonical addresses in level 00) | 15 (+7 stubs) |
 | `src/overlays/shared/level_camera_setup.c` | `Camera_InitSlots`, in a file of its own for `-fno-force-mem` (BUILD_FIDELITY.md, "Flags") | 1 |
 | `src/overlays/shared/camera_update_callbacks.c` | `RegisterUniqueCallback` (canonical in level 02) | 1 |
-| `include/camera.h` | the layouts below, offsets checked at compile time | |
+| `include/structs/camera.h` | the layouts below, offsets checked at compile time | |
 
 The executable's `main` only runs before the first level loads; each level
 carries its own build of the game program ([architecture.md](architecture.md#2-level-overlays)).
 So there are two copies of the camera code and of its state:
 
-- the executable's, at `D_00187040` and friends (`src/game/camera.c`);
+- the executable's, at `D_00187040` and friends (`src/game/gameplay/camera.c`);
 - the level build's, at `D_L00_00166D80` and friends in level 00 (other
   levels pack it elsewhere: level 01 at `D_L01_00167180`, level 02 at
   `D_L02_00167300` ...). Shared level code names the level-00 symbol and
@@ -66,7 +66,7 @@ calls through those two places, not through the name. See the
 Executable addresses; the level-00 symbol in the third column. Names are
 `config/names_local.tsv` rows (suffix `Lvl` = the level build's copy).
 
-| Address | Level 00 | Name | Type (`camera.h`) | Size | What |
+| Address | Level 00 | Name | Type (`structs/camera.h`) | Size | What |
 |---|---|---|---|---|---|
 | `D_00187040` | `D_L00_00166D80` | `gCamera` / `gCameraLvl` | `CameraSystem` | 0x3A0 | the camera block; transition.c clears 0x3A0 bytes on a level load |
 | `D_00187510` | `D_L00_00167250` | `gCameraSlots` / `gCameraSlotsLvl` | `Camera[48]` | 0x1E00 | the camera slots |
@@ -108,7 +108,7 @@ the symbol where the conversion changes code, section 6):
 
 ## 3. Layouts
 
-Field names and comments are in `include/camera.h`; this is the overview.
+Field names and comments are in `include/structs/camera.h`; this is the overview.
 Offsets are checked by `CAMERA_AT`/`CAMERA_SIZE` lines in the header: a
 wrong one stops the compile.
 
@@ -196,7 +196,7 @@ hero), `next_kind` (what the switch asked for), then two halves:
 
 ## 4. The functions
 
-Executable (`src/game/camera.c`), in address order. Callers are from the
+Executable (`src/game/gameplay/camera.c`), in address order. Callers are from the
 retail assembly (`jal`); "level" lists the level copy.
 
 | Address | Name | What | Callers | State |
@@ -272,7 +272,7 @@ basis straight into `gCamera.pos` / `matrix`; Euler angles into
   of `gCamera`.
 - Types: `Camera`, `CameraType`, `CameraDef`, `CameraInfo`, `CameraShake`,
   `CameraFollow`, `CamBlend`, `CamBlendLerp`, `CamBlendOrbit`,
-  `CameraSystem`, `DebugFreeCam` (`include/camera.h`). Fields
+  `CameraSystem`, `DebugFreeCam` (`include/structs/camera.h`). Fields
   `snake_case`; `unkXXX` for accessed-but-unknown, `padXXX` for gaps.
 - Locals: `cam` for a `Camera *`, `cs` (or the existing one-letter name)
   for a `CameraSystem *`, `b` for a `CamBlend *`, `lerp` / `orbit` for its
@@ -346,7 +346,7 @@ their layouts are the next header section.
 ## 9. Next
 
 What the pilot cost, measured: the designer (reads the code, writes
-`camera.h`, the plan and the task briefs) used about 354k tokens; the three
+`structs/camera.h`, the plan and the task briefs) used about 354k tokens; the three
 Haiku workers that converted the files used about 100k, 214k and 248k. Every
 step was checked by the full build (every function exact, image equal to
 retail) and `overlay_file_check.py`.
@@ -374,7 +374,7 @@ Candidate next systems, each with the same method (design first, then
 workers on bounded tasks, full build after every task):
 
 1. **Hero** (the state block, the per-state functions, the pad/velocity
-   fields; include/hero.h is the start): the largest reader population after the camera.
+   fields; include/structs/hero.h is the start): the largest reader population after the camera.
 2. **Mobys** (`Moby` and the pvar layouts per class): most numerous, and
    `Moby` already has a header to extend.
 3. **HUD** (the draw lists, counters, the menu records).

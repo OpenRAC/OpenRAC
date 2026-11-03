@@ -300,6 +300,22 @@ def _expand_line(line: str, name: str, params: list[str] | None, body: str) -> s
 _MACRO_NESTING = 8
 
 
+def _join_cast_macros(lines: list[str]) -> list[str]:
+    """A macro continued over several lines, whose body defines a record inside a cast, on its first
+    line (clang-format splits them), its other lines left blank: every line stays where it was."""
+    for i, line in enumerate(lines):
+        if not line.endswith("\\") or not _DEFINE.match(line):
+            continue
+        end = i
+        while lines[end].endswith("\\") and end + 1 < len(lines):
+            end += 1
+        joined = " ".join(part.rstrip("\\").strip() for part in lines[i:end + 1])
+        m = _DEFINE.match(joined)
+        if m and _CAST_RECORD.search(m.group(3)):
+            lines[i:end + 1] = [joined] + [""] * (end - i)
+    return lines
+
+
 def expand_cast_macros(text: str) -> str:
     """A one-line macro of the unit whose body defines a record inside a cast is written out where
     it is used, so name_cast_records finds the record in each function (Clang's JSON leaves a
@@ -308,7 +324,7 @@ def expand_cast_macros(text: str) -> str:
     stays where it was."""
     if not _CAST_RECORD.search(text) or "define" not in text:
         return text
-    lines = text.split("\n")
+    lines = _join_cast_macros(text.split("\n"))
     for i, line in enumerate(lines):
         m = _DEFINE.match(line)
         if not m or line.endswith("\\") or not _CAST_RECORD.search(m.group(3)) or "#" in m.group(3):
@@ -422,6 +438,14 @@ _ALIAS_TOKEN = re.compile(
     re.S | re.M,
 )
 _ALIAS_DEFINE = re.compile(r'^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)[ \t]+((?:D|func)_\w+)[ \t]*$', re.M)
+_LOCAL_INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]+"([^"]+)"', re.M)
+
+
+def read_alias_header(path) -> str:
+    """A names header's text and that of the parts it includes (rac1's include/names/*.h)."""
+    text = path.read_text(encoding="utf-8", errors="surrogateescape")
+    parts = [path.parent / part for part in _LOCAL_INCLUDE.findall(text)]
+    return "\n".join([text] + [read_alias_header(part) for part in parts if part.is_file()])
 
 
 def read_aliases(text: str) -> dict[str, str]:
@@ -754,7 +778,13 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     This is a temporary workaround so that the native port builds cleanly without
     modifying the decompilation repository. Once fixed upstream, this function should be removed.
     """
-    if rel.endswith("src/overlays/l13_gemlik/vendor_002EBD00.c"):
+    if rel.endswith("include/asm_functions/executable.h"):
+        # A candidate defines func_0020E3D0 with a Moby *: its prototype replaces this header's line
+        # (clangast._supersede), so the type must be known here. Same line, so no line moves.
+        text = text.replace("/* Functions with no C definition: executable. */",
+                            "typedef struct Moby Moby; /* Functions with no C definition: executable. */", 1)
+
+    elif rel.endswith("src/overlays/l13_gemlik/vendor_002EBD00.c"):
         # func_L00_001F2BE8 has conflicting prototypes in local block vs file scope
         idx = text.find("void func_L13_002EE590(")
         end_idx = text.find("extern void func_L00_00251328(", idx) if idx != -1 else -1
