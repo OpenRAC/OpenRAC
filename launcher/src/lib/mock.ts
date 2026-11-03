@@ -56,6 +56,9 @@ import type { RemotePreview } from "./generated/RemotePreview";
 import type { ReportEntry } from "./generated/ReportEntry";
 import type { SaveChange } from "./generated/SaveChange";
 import type { SaveFields } from "./generated/SaveFields";
+import type { ExportedSaves } from "./generated/ExportedSaves";
+import type { SaveArchiveSlot } from "./generated/SaveArchiveSlot";
+import type { SaveImportPreview } from "./generated/SaveImportPreview";
 import type { SaveView } from "./generated/SaveView";
 import type { Scope } from "./generated/Scope";
 import type { Started } from "./generated/Started";
@@ -262,6 +265,21 @@ let config: Config = {
   autoUpdateMods: true,
   cleanupUnusedDeps: true,
 };
+
+/** A used slot as an exported file names it (Export and Import saves). */
+function mockTransferSlot(serial: string, slotIndex: number, planetId: number, planetName: string, bolts: number) {
+  return {
+    folder: serial === "SCUS_972.68" ? "BASCUS-97268RATCHET" : "BESCES-50916RATCHET",
+    slotIndex,
+    file: `save${slotIndex}.bin`,
+    empty: false,
+    planetId,
+    planetName,
+    bolts,
+    timestamp: "2026-10-09 17:21:44",
+    mods: null,
+  } satisfies SaveArchiveSlot;
+}
 
 const query = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
 
@@ -2600,6 +2618,51 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay("/home/you/.config/PCSX2/memcards");
     case "import_pcsx2_saves":
       return delay({ folders: ["BESCES-50916RATCHET"], files: 8, backup: null });
+    // An OpenRAC saves file (core/src/save_transfer.rs). `?saves=other` previews another game's
+    // file, `?saves=damaged` a damaged one.
+    case "export_saves": {
+      const serial = typeof args.serial === "string" ? args.serial : "SCES_509.16";
+      const slots = [
+        mockTransferSlot(serial, 0, 0, "Veldin", 1250),
+        mockTransferSlot(serial, 1, 3, "Kerwan", 4890),
+      ].filter((s) => args.slot == null || s.slotIndex === args.slot);
+      return delay<ExportedSaves>({ saved: `~/Downloads/OpenRAC saves ${serial} 2026-11-02.zip`, slots });
+    }
+    case "preview_save_import": {
+      const serial = typeof args.serial === "string" ? args.serial : "SCES_509.16";
+      if (query.get("saves") === "other")
+        throw new Error(
+          `These saves are from another game or disc (Ratchet & Clank, SCUS_971.99), not this one (${serial}): they can only be imported there.`,
+        );
+      if (query.get("saves") === "damaged")
+        throw new Error("saves.zip is damaged: BESCES-50916RATCHET/save1.bin is not the file that was exported");
+      return delay<SaveImportPreview>({
+        serial,
+        title: "Ratchet & Clank",
+        launcherVersion: packageFile.version,
+        created: "2026-11-02T14:05:00Z",
+        slots: [
+          {
+            slot: mockTransferSlot(serial, 1, 8, "Batalia", 12650),
+            replaces: mockTransferSlot(serial, 1, 3, "Kerwan", 4890),
+          },
+          { slot: mockTransferSlot(serial, 2, 12, "Hoven", 30210), replaces: null },
+        ],
+        cardHasSaves: true,
+      });
+    }
+    case "import_saves":
+      return delay({
+        folders: ["BESCES-50916RATCHET"],
+        files: 3,
+        backup: {
+          name: `.backup_${Math.floor(Date.now() / 1000)}_before_import`,
+          path: "/home/you/.local/share/openrac/memcard/SCES_509.16/.backup_x_before_import",
+          note: "before import",
+          createdMillis: Date.now(),
+          totalSize: 364544,
+        },
+      });
     case "reports_list":
       return delay<ReportEntry[]>(args.game === "rac1" ? mockReports : []);
     case "report_delete":
