@@ -221,6 +221,10 @@ class Program:
     def data_address(self, symbol: str) -> int | None:
         if symbol in self.symbols:
             return self.symbols[symbol]
+        if symbol in self.level_names:
+            # A global a level's build derived (a matched level function's ref_LNN_ name): its
+            # address in that level, relocated per level like any other level global.
+            return self.level_names[symbol][1]
         for pattern in self.data_names + self.code_names:
             m = pattern.match(symbol)
             if m:
@@ -241,6 +245,8 @@ class Program:
         offset = _SYMBOL_OFFSET.match(symbol)
         if offset:
             symbol = offset.group(1)
+        if symbol in self.level_names and self.level_names[symbol][0] >= 0:
+            return self.level_names[symbol][0]
         for pattern in self.data_names:
             m = pattern.match(symbol)
             if m and m.groupdict().get("overlay") is not None:
