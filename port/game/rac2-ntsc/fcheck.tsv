@@ -527,3 +527,6 @@ func_L19_00417F88	same	2026-11-02	dca226c0	8f8732e9d38e	1 calls from the wide ce
 func_L13_00438D88	same	2026-11-02	7fd05375	02fada5f90fc	1 call (level 18's copy, w18v8); ran 351 of 676 instructions; unrun blocks read; fixed gate (R2-F)
 func_L18_003FA180	same	2026-11-02	7fd05375	05d88452235a	1 call (w18v8); ran 104 of 399 instructions; unrun blocks read; fixed gate (R2-F)
 func_L19_0041C328	unchecked	2026-11-02	7fd05375	4b60d488ff25	no capture calls it (a Grelbin object's event path); read in full against retail (R2-F)
+func_0032D758	same	2026-11-02	b5fc73f2	fa4e189d641a	1 calls from the wide census scripts; ran 35 of 189 instructions; unrun blocks read; fixed gate (R2-F)
+func_L00_003B5BF8	same	2026-11-02	b5fc73f2	4101fd2ab0f5	3 calls from the wide census scripts; ran 167 of 316 instructions; unrun blocks read; fixed gate (R2-F)
+func_L00_003F0198	same	2026-11-02	b5fc73f2	d8a23614241d	1 calls from the wide census scripts; ran 167 of 313 instructions; unrun blocks read; fixed gate (R2-F)
