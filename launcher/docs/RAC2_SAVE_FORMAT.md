@@ -33,38 +33,38 @@ chunk:   s32 id, u32 size, size bytes, zero padding to 4
   copy of `size` bytes at `address`, a level's copy at `address + level * size`
   (`func_0029AF98`). Read from the retail ELF:
 
-| id | size | address | what (names from the decomp's symbols) |
-|---|---|---|---|
-| 0 | 4 | 0x1A79F0 | level the save resumes on (`g_playerProgress`), -1 in an empty slot |
-| 39 | 64 | 0x1A79F8 | progress block, below |
-| 3 | 4 | 0x1A7BC0 | time played |
-| 4 | 8 | 0x1A7360 | clock when saved, BCD (`g_saveClock`) |
-| 1003 | 4 | 0x1A7390 | |
-| 5 | 205 | 0x1395B8 | progress flags (+0x8D armour shop bits, +0x90 platinum bolts spent) |
-| 7 | 12 | 0x1A7A40 | cheats (`g_cheatFlags`) |
-| 8 | 32 | 0x1A7A60 | skill points (`g_skillPointFlags`), 30 counted |
-| 9 | 224 | 0x139688 | ammo, s32 per item (`g_weaponAmmo`) |
-| 10 | 56 | 0x1A7AF8 | owned, u8 per item (`g_inventoryOwned`) |
-| 11 | 56 | 0x1A7B30 | "new" mark per item (`g_inventoryNewFlag`) |
-| 40 | 224 | 0x139868 | weapon experience, s32 per item (`g_weaponXp`) |
-| 12 | 32 | 0x1A7B68 | weapon list order: low 6 bits item, 0x40 owned, 0xFF end (`g_inventoryOrder`) |
-| 13 | 32 | 0x1A73B8 | quick select, s32[8] item ids (`g_equippedItemSlots`) |
-| 14 | 28 | 0x1A7BC8 | levels on the ship's map, u8 per level (`g_abLevelAvailableFlags`) |
-| 20 | 112 | 0x139948 | galactic map order, s32[28] (`g_anAvailableLevelOrder`) |
-| 15 | 1824 | 0x139A28 | map blips |
-| 16, 17, 18 | | 0x18C958, 0x18C750, 0x18C4B0 | |
-| 38 | 40 | 0x1A7B90 | options (sound +8, language +0x24) |
-| 30 | 80 | 0x139568 | each item's record in the record table, u8 (the version: see below) |
-| 32 | 28 | 0x1A7398 | what the hero has in hand or on, s32[7] (`g_itemEquipSlotTable`) |
-| 37 | 12 | 0x1A7A50 | special skins |
-| 41 | 76 | 0x188610 | |
-| 42 | 56 | 0x1A7A80 | weapon mods bought, bits per item (`g_itemStateFlags`) |
-| 45 | 56 | 0x1A7AB8 | |
-| 43 | 256 | 0x139768 | cinematics seen (`g_cinematicUnlockedFlags`) |
-| 44 | 4 | 0x1A7AF0 | ship customisation (`g_shipCustomization`), bits 16..20 the paint job |
-| 46 | 40 | 0x1A7368 | |
-| 47 | 256 | 0x188510 | bestiary kill counts |
-| 1005, 1010, 1011 | | | deaths, help log and its position |
+| id               | size | address                      | what (names from the decomp's symbols)                                        |
+| ---------------- | ---- | ---------------------------- | ----------------------------------------------------------------------------- |
+| 0                | 4    | 0x1A79F0                     | level the save resumes on (`g_playerProgress`), -1 in an empty slot           |
+| 39               | 64   | 0x1A79F8                     | progress block, below                                                         |
+| 3                | 4    | 0x1A7BC0                     | time played                                                                   |
+| 4                | 8    | 0x1A7360                     | clock when saved, BCD (`g_saveClock`)                                         |
+| 1003             | 4    | 0x1A7390                     |                                                                               |
+| 5                | 205  | 0x1395B8                     | progress flags (+0x8D armour shop bits, +0x90 platinum bolts spent)           |
+| 7                | 12   | 0x1A7A40                     | cheats (`g_cheatFlags`)                                                       |
+| 8                | 32   | 0x1A7A60                     | skill points (`g_skillPointFlags`), 30 counted                                |
+| 9                | 224  | 0x139688                     | ammo, s32 per item (`g_weaponAmmo`)                                           |
+| 10               | 56   | 0x1A7AF8                     | owned, u8 per item (`g_inventoryOwned`)                                       |
+| 11               | 56   | 0x1A7B30                     | "new" mark per item (`g_inventoryNewFlag`)                                    |
+| 40               | 224  | 0x139868                     | weapon experience, s32 per item (`g_weaponXp`)                                |
+| 12               | 32   | 0x1A7B68                     | weapon list order: low 6 bits item, 0x40 owned, 0xFF end (`g_inventoryOrder`) |
+| 13               | 32   | 0x1A73B8                     | quick select, s32[8] item ids (`g_equippedItemSlots`)                         |
+| 14               | 28   | 0x1A7BC8                     | levels on the ship's map, u8 per level (`g_abLevelAvailableFlags`)            |
+| 20               | 112  | 0x139948                     | galactic map order, s32[28] (`g_anAvailableLevelOrder`)                       |
+| 15               | 1824 | 0x139A28                     | map blips                                                                     |
+| 16, 17, 18       |      | 0x18C958, 0x18C750, 0x18C4B0 |                                                                               |
+| 38               | 40   | 0x1A7B90                     | options (sound +8, language +0x24)                                            |
+| 30               | 80   | 0x139568                     | each item's record in the record table, u8 (the version: see below)           |
+| 32               | 28   | 0x1A7398                     | what the hero has in hand or on, s32[7] (`g_itemEquipSlotTable`)              |
+| 37               | 12   | 0x1A7A50                     | special skins                                                                 |
+| 41               | 76   | 0x188610                     |                                                                               |
+| 42               | 56   | 0x1A7A80                     | weapon mods bought, bits per item (`g_itemStateFlags`)                        |
+| 45               | 56   | 0x1A7AB8                     |                                                                               |
+| 43               | 256  | 0x139768                     | cinematics seen (`g_cinematicUnlockedFlags`)                                  |
+| 44               | 4    | 0x1A7AF0                     | ship customisation (`g_shipCustomization`), bits 16..20 the paint job         |
+| 46               | 40   | 0x1A7368                     |                                                                               |
+| 47               | 256  | 0x188510                     | bestiary kill counts                                                          |
+| 1005, 1010, 1011 |      |                              | deaths, help log and its position                                             |
 
 Per level (table 0x00256368): 3001 visited (u8, 0x1A7BE8), 3002 the map (2048), 3003 platinum
 bolts found (u8[4], 0x19B278, `g_platinumBoltFlags`), 3004 missions (16), 3005 (1024), 3007 (12),
@@ -72,15 +72,15 @@ bolts found (u8[4], 0x19B278, `g_platinumBoltFlags`), 3004 missions (16), 3005 (
 
 The progress block (chunk 39, 0x1A79F8):
 
-| offset | address | what |
-|---|---|---|
-| +0x00 | 0x1A79F8 | bolts, u32 (`g_boltCount`) |
-| +0x04 | 0x1A79FC | raritanium, u32 |
-| +0x08 | 0x1A7A00 | maximum health (`g_maxHealth`): the game sets it each tick |
-| +0x12 | 0x1A7A0A | challenge mode counter (`g_miscExtras`, +1 at each New Game+) |
-| +0x14 | 0x1A7A0C | nanotech experience, u32 |
-| +0x20 | 0x1A7A18 | armour worn, u8 0..4 (`g_equippedArmor`) |
-| +0x30 | 0x1A7A28 | the ten Nanotech Boosts, u8 each |
+| offset | address  | what                                                          |
+| ------ | -------- | ------------------------------------------------------------- |
+| +0x00  | 0x1A79F8 | bolts, u32 (`g_boltCount`)                                    |
+| +0x04  | 0x1A79FC | raritanium, u32                                               |
+| +0x08  | 0x1A7A00 | maximum health (`g_maxHealth`): the game sets it each tick    |
+| +0x12  | 0x1A7A0A | challenge mode counter (`g_miscExtras`, +1 at each New Game+) |
+| +0x14  | 0x1A7A0C | nanotech experience, u32                                      |
+| +0x20  | 0x1A7A18 | armour worn, u8 0..4 (`g_equippedArmor`)                      |
+| +0x30  | 0x1A7A28 | the ten Nanotech Boosts, u8 each                              |
 
 The game works the maximum health out at each tick (`func_L00_002D5EB8`): 4, plus the health
 steps reached by `nanotech experience >> 5` in the table `D_L00_00262260`, plus one per
@@ -124,8 +124,7 @@ raritanium 4,321, nanotech experience 20,000, boosts 1 and 2, armour 2, paint 5,
 1..3, Heli-Pack and Chopper given, Seeker Gun ammo 10, Lancer experience 100, Endako and Barlow
 on the map, two platinum bolts on Oozla), then Load from the title: the hero gets control on
 Oozla, and the RAM 900 frames later holds every value, with the game's reactions: maximum health
-8, the armour pack loaded (0x1A7290 = 2), paint 5 loaded (0x152C30), the galactic map list 1, 3,
-4.
+8, the armour pack loaded (0x1A7290 = 2), paint 5 loaded (0x152C30), the galactic map list 1, 3, 4.
 
 ## What the editor leaves out, and why
 
