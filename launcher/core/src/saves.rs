@@ -720,6 +720,39 @@ fn decode_shift_jis_or_ascii(bytes: &[u8]) -> Option<String> {
     }
 }
 
+/// What one save file holds, for a list of slots away from the card (an exported file's).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SaveSummary {
+    /// A slot never saved to, or one whose clock cannot be read.
+    pub empty: bool,
+    pub bolts: Option<u32>,
+    pub planet_id: Option<u32>,
+    pub planet_name: Option<String>,
+    pub timestamp: Option<String>,
+}
+
+/// Reads a save file's planet, bolts and clock as the Saves page's slots do (`inspect_card`).
+pub fn describe_save(serial: &str, bytes: &[u8]) -> SaveSummary {
+    let g = parse_save_gameplay_info(bytes, bolts_record(serial));
+    if g.empty || g.timestamp.is_none() {
+        return SaveSummary { empty: true, ..SaveSummary::default() };
+    }
+    SaveSummary {
+        empty: false,
+        bolts: g.bolts,
+        planet_name: g.planet_id.and_then(|p| get_planet_name(serial, p)),
+        planet_id: g.planet_id,
+        timestamp: g.timestamp,
+    }
+}
+
+/// The game's name from a save folder's `icon.sys` (its Shift-JIS title), as `inspect_card` reads it.
+pub fn icon_title(icon_sys: &[u8]) -> Option<String> {
+    let raw = icon_sys.get(0xc0..icon_sys.len().min(0x100))?;
+    let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
+    decode_shift_jis_or_ascii(&raw[..end])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
