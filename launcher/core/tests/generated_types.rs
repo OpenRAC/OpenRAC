@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use openrac_launcher_core::{
     actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_state, enhanced, index,
     index_apply, jobs, library, mod_error, mod_updates, overrides, pcsx2_card, plugins, remote, reports, reset,
-    resolver, save_edit, save_edit_rac2, saves, steam, update,
+    resolver, save_edit, save_edit_rac2, save_edit_rac2_extra, saves, steam, update,
 };
 use ts_rs::{Config, TS};
 
@@ -77,6 +77,8 @@ fn export_all(cfg: &Config) {
         save_edit::WriteResult,
         save_edit_rac2::Rac2SaveFields,
         save_edit_rac2::Rac2WriteResult,
+        save_edit_rac2_extra::Rac2ExtraFields,
+        save_edit_rac2_extra::Rac2ExtraWriteResult,
         saves::GameSaveStatus,
         update::Channel,
         update::Release,
