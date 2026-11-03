@@ -402,10 +402,9 @@ pub fn planet_from_log(game: &str, line: &str) -> Option<Place> {
             planet: crate::saves::RAC1_PLANETS.get(level)?.to_string(),
             location: crate::saves::RAC1_LOCATIONS.get(level).map(|l| l.to_string()),
         }),
-        "rac2" => Some(Place {
-            planet: crate::saves::rac2_planet(u32::try_from(level).ok()?)?.to_string(),
-            location: None,
-        }),
+        "rac2" => {
+            Some(Place { planet: crate::saves::rac2_planet(u32::try_from(level).ok()?)?.to_string(), location: None })
+        }
         _ => Some(Place { planet: format!("Level {level}"), location: None }),
     }
 }
