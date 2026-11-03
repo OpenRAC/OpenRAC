@@ -1221,6 +1221,38 @@ class Translate(unittest.TestCase):
         self.assertEqual(out, ["0"])
         self.assertNotIn("openrac_ee_sw_dma(", self.last_generated)
 
+    def test_ps2_float_reaches_the_static_helpers_of_its_candidate(self):
+        # A ps2_float function's candidate C is that routine's arithmetic split up: its static
+        # helpers (a functional candidate's vector helpers) compute as the EE does too, and sqrtf
+        # is sqrt.s (the root of |x|, cut). Another candidate in the same file, not ps2_float,
+        # keeps the host's floats in its helpers.
+        add = "static float add(float a, float b) { return a + b; }\n"
+        bits = "static int bits(float f) { union { float f; int i; } u; u.f = f; return u.i; }\n"
+        out = self.run_program({"a.c": """
+            #define INCLUDE_ASM(dir, name)
+            extern float D_00200000[4];
+            INCLUDE_ASM("asm", func_00110100);
+            INCLUDE_ASM("asm", func_00110200);
+            extern void func_00110100(void);
+            extern void func_00110200(void);
+            int test_main(void) {
+                *(int *)&D_00200000[1] = 0x33C00000;
+                D_00200000[0] = 1.0f;
+                D_00200000[2] = 2.0f;
+                func_00110100();
+                func_00110200();
+                return 0;
+            }
+        """}, config={"candidates": "candidates.tsv", "ps2_float": ["func_00110100"]}, extra_files={
+            "game/candidates.tsv": "# name\tfile\nfunc_00110100\tcand/a.c\nfunc_00110200\tcand/b.c\n",
+            "game/cand/a.c": "extern float sqrtf(float);\n" + add + bits
+            + "void func_00110100(void) { test_print(bits(add(D_00200000[0], D_00200000[1])));"
+              " test_print(bits(sqrtf(D_00200000[2]))); }\n",
+            "game/cand/b.c": add + bits + "void func_00110200(void) { test_print(bits(add(D_00200000[0], D_00200000[1]))); }\n",
+        }, cxx=PS2FLOAT_CXX)
+        self.assertEqual(out, [str(0x3F800000), str(0x3FB504F3), str(0x3F800001)])
+        self.assertIn("openrac_ps2_sqrt(", self.last_generated)
+
     def test_ps2_float_comparisons_keep_the_order_of_their_calls(self):
         # a > b and a >= b with a call on each side: the left one is called first, as the game's
         # code calls them (FastAbsF(r) > FastAbsF(*v)).
