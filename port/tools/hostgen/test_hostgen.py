@@ -3570,6 +3570,38 @@ class FromAssembly(unittest.TestCase):
             """)})
         self.assertEqual(out, ["132"])
 
+    def test_an_argument_kept_in_the_frame_is_a_parameter(self):
+        # Going Commando's level loader reads its second argument only from the slot it saved it
+        # to; a variadic routine's saves, never loaded again, stay no use of the registers.
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            INCLUDE_ASM("asm", func_00100100);
+            extern int func_00100000();
+            extern int func_00100100();
+            int test_main(void) {
+                test_print(func_00100000(1, 7));
+                test_print(func_00100100(1, 7));
+                return 0;
+            }
+        """}, config=ASM_CONFIG, extra_files={
+            "game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, """
+                addiu $29, $29, -16
+                sw $5, 4($29)
+                lw $2, 4($29)
+                jr $31
+                addiu $29, $29, 16
+            """),
+            "game/asm/func_00100100.s": assembler.assemble("func_00100100", 0x00100100, """
+                addiu $29, $29, -16
+                sw $5, 4($29)
+                daddu $2, $4, $0
+                jr $31
+                addiu $29, $29, 16
+            """)})
+        self.assertEqual(out, ["7", "1"])
+        self.assertRegex(self.last_generated, r"func_00100000\(int a0, int a1\)")
+        self.assertRegex(self.last_generated, r"func_00100100\(int a0\)")
+
     def test_a_register_taken_from_itself_is_no_input(self):
         # $f0 - $f0 is zero whatever $f0 held; refused as an input, the routine had no translation.
         out = self.run_program({"a.c": """

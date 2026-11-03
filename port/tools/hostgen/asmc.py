@@ -587,6 +587,21 @@ class Translator:
             ret = ctype.Base("float")
         return Signature(ret, tuple(params), False, True)
 
+    def _reloaded_argument(self, save: asm.Insn) -> bool:
+        """Whether SAVE keeps an argument register in a frame slot the code loads again: a use of
+        the argument, kept for after a call. Going Commando's level loader tests its second
+        argument only so. A variadic routine reaches its saved registers through a pointer."""
+        if save.op == "swc1":
+            if save.ft not in FARG_REGS:
+                return False
+            loads = ("lwc1", "lw")
+        else:
+            if save.rt not in ARG_REGS:
+                return False
+            loads = ("lw", "ld", "lq", "lwc1")
+        return any(load.op in loads and load.rs == 29 and load.imm == save.imm
+                   for load in map(self.at, self.reach))
+
     def _entry_reads(self, frame_saves: bool = False):
         """The argument registers read before they are written, along the code from the entry up
         to its first call or return, in address order (a parameter is used early). With frame_saves,
@@ -600,7 +615,8 @@ class Translator:
                 break
             ins = self.at(a)
             rg, wg, rf, wf = rw(ins)
-            if ins.op in ("sw", "sd", "sq", "swc1") and ins.rs == 29 and not frame_saves:
+            if ins.op in ("sw", "sd", "sq", "swc1") and ins.rs == 29 and not frame_saves \
+                    and not self._reloaded_argument(ins):
                 # A register saved to the frame is not a use of it: a variadic routine saves every
                 # argument register so, whatever its callers pass.
                 rg, rf = rg - {ins.rt}, rf - {ins.ft}
