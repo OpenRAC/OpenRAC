@@ -33,7 +33,7 @@
       "source": {
         "name": "rac2-decomp",
         "repo": "https://github.com/OpenRAC/rac2-decomp",
-        "branch": "port/backfill-2",
+        "branch": "master",
         "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
         "exclude": [
@@ -58,9 +58,9 @@
             " unsigned int color;\n /* OpenRAC: as in func_002E76C0, the new records' colour and alpha now (+0x30, +0x38) are drawn once as\n    the stack left them; retail's alpha byte 0 there, so that first draw changes no pixel. */\n effect.unknown = 0x001A0000;\n effect.unknown2 = 0x001C0000;\n spark.unknown = 0x001A0000;\n spark.unknown2 = 0x001C0000;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n"
           ]
         ],
-        "commit": "2990ba7e114dd2b9ef13872d0bac05fc6c1ba900",
-        "date": "2026-11-02",
-        "imported": "2026-11-02"
+        "commit": "99f35ac2c084fc59cdf3d631f8f960a825e7a49c",
+        "date": "2026-11-03",
+        "imported": "2026-11-03"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",

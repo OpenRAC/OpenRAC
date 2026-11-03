@@ -95,6 +95,8 @@ Equal-size `func_L04_003EC140` and `func_L05_00420A88` drafts also remain near
 misses: respectively six loop-pointer ordering words and four FP-register words
 still differ. Their source headers record the profiles and reopening evidence.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_L05_00420A88` is C in `src/levels/05_feltzin_system/L05_00420A88-g8.c` (`-O2 -G8 -ffunction-sections -frac2-zero-ti-por`), placed at 1 US place (PAL and US2 catalogues have no function of this name); `func_L07_0040FA90` is C in `src/levels/07_siberius/L07_003F4578.c` (`-O2 -G0 -ffunction-sections`), placed at 1 US, 1 PAL, 1 US2 places. Its `nonmatching/levels/func_L07_0040FA90-matrix.c` draft stays as an earlier alternative. The measurements above are kept as history.
+
 ### Ring geometry and path-controller storage
 
 `func_L09_003FD128` uses the public RAC1
@@ -481,6 +483,8 @@ loops give them: `for (i = 0; i < 16; i++) a[i] = 0;` has an address computation
 into the same pointer countdown as `*dst++` over a reversed counter. Check loop spellings first when a near miss is
 all stack offsets; they change nothing after loop.c.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_L12_00300410` is C in `src/levels/12_todano/L12_00300410-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 1 US place (PAL and US2 catalogues have no function of this name). The measurements above are kept as history.
+
 **Qualified field and call-lifetime remedies, 25 October 2026:**
 `func_002B52A0` is now a 980-byte C implementation at 21 places in each
 USA release; PAL has no matching canonical identity. Its controller +0x90
@@ -731,6 +735,8 @@ through +0xFC. Neither equal size nor a neutral allocator-dump build is a match.
 
 **28 October 2026, `func_L11_004411C8` closed (DrLegitamate, USA v1.01, 1/1 place, `tools/build.py level 11 --strict` OK):** the loop-with-calls sub-case above yields to the incomplete-array `sda` alias from COMPILER-NOTES.md. Declaring the class table base as `extern u8 *D_L11_001B359C_base[] __asm__("D_L11_001B359C") __attribute__((sda));` and reading `D_L11_001B359C_base[0]` inside the loop gives retail's per-iteration `lui $v1,%hi ; lw $v1,%lo($v1)` with no hoist and no extra saves in the `-G0` unit; the head then needs the list in its own variable (`list = table[index]; if (list == 0) return; p = list;`). The same declaration is the next experiment for `func_L11_00440868`.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_L11_00440868` is C in `src/levels/11_joba/L11_0043E1A0.c` (`-O2 -G0 -ffunction-sections`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name). The measurements above are kept as history.
+
 **25 October 2026, saved-pair swap closed by block scope (measured, `func_L00_003EB400`, 528 bytes, 2/2 places):** the remaining disagreement was `$s1`/`$s2` only - retail kept the actor pointer in `$s1` and the precomputed `i + 1` in `$s2`, cc1 the other way. Declaring the loop index **inside the `if` block that owns the loop** (`if (state == 1) { int i; for (i = 0; i < 4; i++) ... }`) instead of at function scope reproduces retail's pair, because the parameter copy then sorts below the loop's live-across-call temporary. In the same body a named `char *row = (char *)state + i * 4;` before `id = *(int *)row;` gives retail's `addu $s0,$s4,$v0` operand order where the inline indexed read gives `addu $s0,$v0,$s4`. Both levers together closed the function; keep the block-scoped index for any similar 4-iteration loop whose counter lands in the wrong one of `$s1`/`$s2`.
 
 <a id="blocker-03"></a>
@@ -918,6 +924,8 @@ avoids that invalid binding assumption. Root/index lifetime and address setup
 still differ. Reopen with independent type/lifetime evidence and exact arm
 layout; neither generated switch data nor linking has been qualified.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_002F6510` is C in `src/game/002F5220.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US, 28 PAL, 28 US2 places. Its draft `nonmatching/game/func_002F6510.c` is removed. The measurements above are kept as history.
+
 **Complete constant pools, 25 October 2026:** the same interleaving principle
 now retains complete relocation-free `.rodata`/`.rdata` sections. Their base is
 derived from that object's accepted text relocations; every byte and padding
@@ -987,6 +995,10 @@ order and direct conditional store) retain the same allocation: retail's
 using `$a1`, then stores `$v1` instead of `$a1`. A dedicated `-G8` replay is
 32/40 bytes. `tools/check.py func_002CC528 --diff` reports 0/28 placements
 for these attempts; the C remains in `nonmatching/game/func_002CC528.c`.
+**3 November 2026, resolved:** the catalogue row included an 8-byte filler prefix
+(`addiu $sp,$sp,0x60; nop`); with the entry corrected to `0x002CC530` (32 bytes, see
+docs/LEVELS.md) the body is C in `src/game/002CC528-g8.c` under `-G8 -mno-split-addresses`,
+28 of 28 places.
 
 Two documented names may express different addressing forms of one real global. They must derive the same true identity; malformed names, invented addresses or aliases hiding inconsistent bindings are not remedies. PR #244's review corrected such naming defects. Use ref_LNN_XXXXXXXX_kk where a target's identity genuinely varies by placement, not as a substitute for a known correct data name.
 
@@ -1598,6 +1610,8 @@ also remain 120/124 and 0/28; neither moves the short load, and the latter chang
 stack-save and float-constant order. No artificial dependency or volatile access is
 justified to force the slot.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_002FFCF8` is C in `src/game/002FC8D0-fade.c` (`-O2 -G0 -ffunction-sections`), placed at 28 US, 28 PAL, 28 US2 places. The measurements above are kept as history.
+
 **28 October 2026 follow-up:** `func_002F7320` is 132 bytes at 28 USA v1.01 placements.
 The retained nested-condition candidate was 132/132 but 0/28. A temporary explicit
 single-loop/goto form, with the same table-search and comparison semantics, compiled to
@@ -1746,6 +1760,8 @@ These semantic repairs are not matches. The three Joba visibility bodies
 remain 628/632 bytes with a 0x70 frame instead of 0x80 after restoring the
 true absolute entity-pool pointer and integer dispatcher interface.
 Preserve those fixes; their former invented array extent was not valid.
+
+**Update, 3 November 2026 (pending review):** now matched. `func_L05_00426568` is C in `src/levels/shared/L05_00426568-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 4 US, 4 PAL, 4 US2 places. The measurements above are kept as history.
 
 Large Snivelak trail renderers still need independent packet/state-lifetime
 evidence. In `func_L07_003E5070`, the two observed 144-byte packets and the
@@ -2106,12 +2122,15 @@ Those results do not establish that all retail 64-bit arithmetic differs from th
 
 ## 34. The catalogue's fingerprint merges two bodies
 
-**Unresolved hypothesis:** the 23/27 report was not remeasured here. Its field offsets differ from section 12's description; re-extract current extents before a generator change. The 82 historical candidates are not 82 proven collisions.
+**2 November 2026 recheck:** all 27 USA placements were re-extracted. The ordinary
+23 use the `+0xE4/+0xE8` fields described in section 12; the former `+0xDC/+0xE0`
+figure here was wrong. The four exceptions remain different bodies. This confirms
+this row's immediate mismatch, not all 82 historical collision candidates.
 
 **Suspected mechanism:** address-taint masking can group constants treated as address fields. The current generator compares ordinary untainted small immediates; it does not blindly mask every small immediate. Same-fingerprint candidates require byte-level review.
 
 **Measured:** `func_L00_00424BB8` is the level's float setter in 23 levels (base `q + 0x60`,
-fields at `+0xDC`/`+0xE0`) and another body in levels 16, 22, 23 and 26 (base `q + 0x20`,
+fields at `+0xE4`/`+0xE8`) and another body in levels 16, 22, 23 and 26 (base `q + 0x20`,
 fields at `+0x1C`/`+0x20`); the matching body in level 16 sits at `0x0042FB58` in its own row,
 `func_L16_0042FB58`. No source shape can produce both, because the offsets are constants.
 
@@ -2138,6 +2157,8 @@ The earlier filler and immediate epilogue-residue rules are implemented through 
 The flag can keep lui and its low-half calculation together where the tested default profile split them. This is a measured unit-level effect, not a universal address rule.
 
 Current witnesses: func_L00_003EA7D0 has its dedicated profile and passes 27/27; func_002A90C8 passes 23/23 in its existing profile. Older examples func_002B0C28 and func_002B0CE0 remain markers and are not resolved by those successes.
+
+**Update, 3 November 2026 (pending review):** now matched. `func_002B0C28` is C in `src/game/002B00B0-state-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US, 28 PAL, 28 US2 places; `func_002B0CE0` is C in `src/game/002B00B0-state-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US, 28 PAL, 28 US2 places. The measurements above are kept as history.
 
 Section31's proposed infrastructure is present. Requalify every C function when changing a unit's flags; isolate incompatible profiles.
 
@@ -2303,6 +2324,8 @@ are **one** pseudo living across three calls: no reference count can make it eli
 
 **23 October 2026, requalified 28 October 2026, retained near miss:** `func_0028E2A8` has a 332-byte plain-C `-G8` draft against 348 retail bytes, 0/28 in USA v1.01. Ten earlier target runs included one checker environment failure and an incomplete-array compile failure; the current-master `-O2 -G8 -ffunction-sections` check confirms the same 332-byte result. A separate 344-byte section-annotated diagnostic matched 0/28 in USA v1.01, PAL, and USA v2.00. Recomputing the second record lookup and moving to a G8 sibling improved the draft, but register allocation, branch layout, and external-address materialization remain different. The marker is restored; reopen with verified global storage and argument-layout evidence.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_0028E2A8` is C in `src/game/0028BDB0-menu-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US, 28 PAL, 28 US2 places. The measurements above are kept as history.
+
 **23 October 2026, retained near miss; rechecked 28 October:** `func_0028B160` uses the default game -G0 profile in `src/game/00288D88.c`; retail is 292 bytes with 28 placements in each release. Six plain-C candidates were measured, and the best three reached 280 bytes, 0/28 in USA v1.01, PAL, and USA v2.00. Since the size differed, the checker did not perform relocation-adjusted byte comparisons. The retained draft models the count loop, renderer call, and scaled offset update. `python3 tools/regalloc.py func_0028B160 --version us` reports byte-identical baseline/dump objects under -O2 -G0; the candidate holds the address of `D_001B1894` in a saved register across the loop, while retail rematerializes the address each pass and uses `$s6` for the shift base 1 (candidate uses `$fp`). This narrows the allocation difference but supplies no source-level remedy yet. The marker is restored; no full build was run.
 
 **23 October 2026, rechecked 28 October 2026, retained near miss:** `func_00280670` is 160 bytes with 28 USA v1.01 placements. The retained record-based counted-threshold loop compiles to 152 bytes, 0/28 in current-master USA v1.01. Reversing the `count`/`total` declaration order leaves the output unchanged. The body still differs in total/count and input-pointer allocation, loop setup and result-pointer reconstruction. Ten earlier plain-C forms were also 152 bytes; PAL/USA v2.00 checks are historical because those ROMs are absent from this checkout. Reopen with verified record-layout or argument-liveness evidence; the marker is restored and no full build was run.
@@ -2405,6 +2428,8 @@ Historical examples, to requalify in the final unit:
 - Reads of a `$gp` scalar pass struct stores (section 1, MEM_IN_STRUCT). If retail keeps such a load behind the stores, write the stores through a char view: func_00342BE8, 19 words to 2.
 - An int under -G8 can fill a branch slot from the target thread. If retail has the two-word form there, it is part of a larger object: func_002F8178's screen size as one 8-byte struct, 66 words to 33.
 - A hill climb over statement order (48 orders a round, 1 to 3 moves each, on box2) closed func_002F8178's store blocks where 18 statements are too many to enumerate: 33 words to 8.
+
+**Update, 3 November 2026 (pending review):** now matched. `func_002F8178` is C in `src/game/002F5220-open-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US places (PAL and US2 catalogues have no function of this name). The measurements above are kept as history.
 
 **Update, 1 November 2026 (closer D).** Before tuning a near miss, walk its branch targets against retail's: `func_L02_003EB8F8` went from 132 rows to 0 by fixing three wrong targets, nothing else; a jump into the middle of what looks like an arm is the sign. A table reached through two `la` with reloads between stores (`func_L09_003806A0`) is one structure array declared `MACRO_ADDR`: separate arrays give the `la` but no aliasing, pointers walk it into a reversed loop. A base kept unfolded for a hero field can be a pointer local inside the arm, which loop.c hoists: it reaches the loop's preheader without being available at the next use, so gcse leaves that use alone. A pointer local set before the branch on the path where PRE must not insert (`d = delta;` in one `case`) gives one insertion instead of three. loop.c's `threshold` falls by 3 per register moved: when retail hoists some constants of a loop and not others, make one a local so the count works out (`func_L10_0039DA48`).
 
@@ -2684,6 +2709,8 @@ were left on the table for nothing. The over-broad classes are:
 * **A body that a worker could not close in a hundred spellings is a wall to record**,
   not a near miss to retry.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_L00_003FEAC8` is C in `src/levels/shared/L00_003F8E08-eac8-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 27 US, 27 US2 places (PAL catalogue has no function of this name). Its `mult` is the 0xE0-byte row index into `D_L00_00262570`, whose product the matched C reads, so the dead-`mult` reading above does not hold for it; `func_L00_002FCF18` is unchanged. The measurements above are kept as history.
+
 ### The catalogue defects this wave found
 
 (the fix belongs in `tools/levels.py`, outside every worker's lane):
@@ -2903,11 +2930,11 @@ probes did not emit those operations; unsupported wide-integer expressions were
 recorded as compilation errors, not evidence of a match. Absence from the C
 control set alone is not a general impossibility proof for arbitrary compilers.
 
-Four entries are deliberately still open: `func_001158F4` has no external witness
-at its current entry, `func_00129410` is an incomplete fallthrough extent, and
+Four entries are deliberately still open: `func_001158F4` has a four-byte fill
+prefix, with fresh USA calls at `00299368` and `00299384` targeting `001158F8`
+rather than the catalogue entry. `func_00129410` is an incomplete fallthrough extent, and
 `func_US2_L01_00305170` / `func_PAL_L01_00305C50` have outgoing-flow/extent
-uncertainty. Their bytes and retained notes remain untouched; none receives
-assembly-completion credit. Other contributors' reservations were excluded.
+uncertainty. No boundary or assembly-completion credit follows from these notes.
 
 Retained attempts stay in `nonmatching/`, with their historical status made
 explicit; this does not turn them into matched C or validated portable replacements.
@@ -2941,6 +2968,8 @@ remains unlinked; historical results were 248/260 bytes, 0/27 placements in each
 release with `-g`. The catalogue correction does not resolve its register and
 address-reuse differences or qualify a new C match.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_L00_0032D208` is C in `src/levels/shared/L00_0032C638.c` (`-O2 -G0 -ffunction-sections`), placed at 27 US, 27 PAL, 27 US2 places. The measurements above are kept as history.
+
 The individually checked one-word remnants in `FUNCTION_RESIDUES` follow closed
 returns or a terminal jump and have no measured incoming references. They leave
 the catalogue while their bytes remain in assembly; identical instructions at
@@ -2970,7 +2999,25 @@ The old appendix is an investigation record, not a current work queue. Filler re
 - func_L16_00424B48's eight-byte restore/nop prefix is now independently verified and excluded; its 160-byte body starts at 00424B50. func_L11_00440790 remains a separate historical proposal (212 bytes, candidate 192-byte body and an apparently unreachable block). An old size or apparently dead block alone does not establish that second correction or handwritten code.
 - **Differing-callee case resolved:** func_L00_003F5660 now uses ref_L00_003F5660_00 and passes 27/27, including levels 08,09,19,30. The old assertion that no single definition could represent it was wrong. Genuine nonrelocated immediate differences remain a different problem.
 
-The historical full core scan reported 60 fill-starting entries rather than the earlier 26. Many simple cases were subsequently removed; mixed examples such as func_001158F4, func_0011A7F8, func_0011E920, func_0011ED28, func_0011F364, func_0011FB8C, func_00120354, func_00125D94, func_0012646C, func_0012F998 and func_00130A8C need their own boundary evidence. For `func_0012F998`, a 28 October 2026 USA v1.01 scan found no direct boot branch/jump target or aligned loaded-word pointer into the 16-byte row, which follows `func_0012F948`’s completed return and delay slot; PAL and USA v2.00 extents remain unaudited, so no correction is adopted. The old table and prose disagreed on func_0011F364: 28-byte prefix/608-byte body at 11F380 versus 4/632 at 11F368. Neither historical figure is adopted here as a verified correction. Preserve the real code until the discrepancy is resolved. **28 October 2026 follow-up for `func_0011A7F8`:** USA v1.01 decodes its 24-byte body as two `pref 0x0D,-0x3233($t6)` words, `addiu $v1,$zero,0`, `syscall 0`, `jr $ra`, `nop`. It follows the preceding function’s completed return and stack-adjustment delay slot. Scanning catalogued boot functions and aligned loaded words found no direct/pointer reference to the extent, but computed indirect entries are untraced and the syscall body itself is coherent. No C or handwritten classification is proposed; retain the marker pending entry/ABI and compiler review.
+The historical full core scan reported 60 fill-starting entries rather than the earlier 26.
+Many simple cases were subsequently removed. Mixed entries need their own boundary evidence;
+a fill word alone does not identify the following function or every reachable entry.
+
+For `func_0012F998`, the 28 October 2026 USA v1.01 scan found no direct boot branch/jump
+target or aligned loaded-word pointer into the 16-byte row after `func_0012F948`'s completed
+return and delay slot. That audit did not cover PAL or USA v2.00; no correction followed.
+
+**2 November 2026:** fresh representative reads of `func_0011F364` in all three releases
+resolve the earlier conflicting prefix counts: seven fill words, or 28 bytes, precede the
+real code. The following exception/context code uses CP0, the saved arithmetic banks and
+privileged return operations, with additional entries/fragments. This fixes the prefix
+description, not the full entry map; no generator or assembly-classification change is made.
+
+**28 October 2026 follow-up for `func_0011A7F8`:** USA v1.01's 24-byte extent has two
+fill-like words before a syscall/return body. It follows the preceding completed return and
+stack-adjustment delay slot. The scan of catalogued boot functions and aligned loaded words
+found no direct/pointer reference to the extent, but computed indirect entries are untraced
+and the syscall body itself is coherent. Retain the marker pending entry/ABI and compiler review.
 
 A known entry pointer is strong positive evidence; one pointer lookup is not proof that all other entry points or indirect targets are absent. Verify every affected placement and preserve raw bytes.
 
@@ -3011,6 +3058,8 @@ attributed for provenance, not exclusive ownership.
 | Spill-slot order, `func_L00_003E5BD8` | **Open, 1 November** | 1108/1108, only 19 stack offsets differ. A private cc1 overriding `expr_hash_table_size` shows the slots follow gcse's bucket order: 133 buckets gives 7 rows, no odd size from 101 to 501 gives 0, and declaration order has no effect. Three pseudos remain rotated, so retail differs in more than the table size. |
 | Weighted refs, `func_002FDBD8` | **Open, 1 November** | Global-alloc priority is `floor_log2(refs) * refs / live`, refs weighted by loop depth. With the shared `off` the colour block is exact but `n` falls to 15 refs; 16 would pass `direction`. One more read of `n` inside the loop is what is missing. |
 | Copy epilogue, `func_00335370` | **Qualified C, 25 October** | Default game profile plus the reviewed shared `qcopy`: 88 bytes, 28/28 per release, all 84 strict programs pass. Prior TI-only measurements are historical; source is `src/game/00335370-copy.c`. |
+
+**Update, 3 November 2026 (pending review):** now matched. `func_002FDBD8` is C in `src/game/002FC8D0-billboard-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US, 28 US2 places (PAL catalogue has no function of this name). The measurements above are kept as history.
 
 For #267, a same-source comparison of 781 configured units changed code only in the new multiplier; eleven differences were debug-only. The shared union changed no object section in the four existing users. Source, flags and durable explanations are in the merged repository; partial C remains in `nonmatching/`. No progress report was regenerated.
 
@@ -3316,6 +3365,8 @@ attributed for provenance, not exclusive ownership.
 
 </details>
 
+**Update, 3 November 2026 (pending review):** now matched. `func_L03_00421398` is C in `src/levels/03_endako/L03_0041F720-g8.c` (`-O2 -G8 -Wa,-G32 -ffunction-sections -frac2-hazard-labels`), placed at 1 US, 1 US2 places (PAL catalogue has no function of this name). Its entry correction `(1428, 8)` is in `tools/levels.py`, so its row starts at the prologue. The measurements above are kept as history.
+
 One more row outside the census above, because its first leading word is a store
 (DrLegitamate, 28 October 2026, USA v1.01): `func_L12_0035A838` (288 bytes, one
 placement) begins with `sw $t3,0x40($v1) ; nop ; addiu $sp,$sp,0x20 ; nop`, the previous
@@ -3562,6 +3613,8 @@ The former diagnostic-only `func_L05_00441D40` and `func_002FF0D8` screens now
 retain meaningful C in `nonmatching/` with the remaining allocation, address and
 store-order differences. Neither is counted as matching C.
 
+**Update, 3 November 2026 (pending review):** now matched. `func_L05_00441D40` is C in `src/levels/shared/L05_00428350-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 4 US, 4 US2 places (PAL catalogue has no function of this name). `func_002FF0D8` remains a near miss. The measurements above are kept as history.
+
 The old diagnostic-only refusal of `func_L09_003F9970` is superseded by qualified
 C (28 October 2026): its four formerly invalid words are ordinary
 quadword transfers, reproduced by default `qcopy`. A measured `MACRO_ADDR` view
@@ -3638,6 +3691,8 @@ compiler rejects `-mno-branch-likely`; no compiler change was made.
 
 
 **28 October 2026 current-master near-miss checks:** `func_0029FDF0` remains 176/240 bytes and 0/28, with direct-global variants at 196/240 and 180/240; `func_002FE8D8` replay in the actual unit is 240/248 and 0/28 (the previously reported exact size was not reproducible); `func_0034AC10` remains 256/256 and 0/28, first mismatch +0x18; `func_002E3360` remains 168/264 and 0/28; `func_002CA790` remains 280/276 and 0/28; `func_00290B48` remains 280/280 and 0/28, first mismatch +0x3C; `func_00291640` remains 292/280 and 0/28; `func_003427C0` remains 284/284 and 0/28, first mismatch +0x88; `func_0027C540` remains 252/288 and 0/28; `func_0029F840` remains 284/288 and 0/28; `func_003462A8`'s original candidate is 296/288 and 0/28 in a `-G8` probe; moving its local copy later produces 276/288 and 0/28, while the volatile-array trial is 252/288 and 0/28; `func_0028B160` remains 280/292 and 0/28; `func_002B6480` remains 308/308 and 0/28, first mismatch +0xBC; `func_002D1590` remains 296/308 and 0/28; `func_00291CA8` remains 316/312 and 0/28; `func_002CB510` remains 312/312 and 0/28, first mismatch +0x48; an explicit state/table-pointer form measures 300/312 and 0/28; `func_00350240` remains 304/312 and 0/28. These are USA v1.01 measurements.
+
+**Update, 3 November 2026 (pending review):** now matched. `func_002D1590` is C in `src/game/002CD8C0.c` (`-O2 -G0 -ffunction-sections`), placed at 28 US places (PAL and US2 catalogues have no function of this name); `func_00350240` is C in `src/game/0034CEA0-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US, 28 PAL, 28 US2 places. The measurements above are kept as history.
 
 **29 October 2026 current-master recheck:** `func_0011BEE0` (public SDK `kputchar`, USA v1.01 boot, default game profile `-O2 -G0 -ffunction-sections`) was replayed in its isolated source unit. A volatile SIO register-block view with status at `0x1000F130` and data at offset `0x50` compiles to 48/56 bytes and 0/1. It matches the materialized `$v1` data address and the volatile byte store in the `jr` delay slot; GCC instead forms the status access as `lui $v0,0x1001` plus `lw $v0,-0xED0($v0)`, shortens the wait loop, and places the return-value copy differently. This is a meaningful, hardware-backed alternative to the earlier register-pinned probe, but not a match. See `nonmatching/core/func_0011BEE0.c`.
 
@@ -3772,6 +3827,18 @@ global strength-reduction disable, or branch-tail merging as if they were new tr
 
 ### Caller contracts, scratch records and allocation-only drafts
 
+**2 November 2026 follow-up:** the same contract audit found a concrete delay-slot
+misreading in `func_0032AE30`. The integer lifetime result is stored in both lifetime
+fields; `func_002A7940` then returns a float for a different field, followed by the
+separate scaled-angle sample. Treating the random float as an integer had made a
+semantic error look like a scheduler mismatch. Inspect the instruction in each
+call's delay slot before assigning its result to the called function.
+
+In `func_L00_00390FF8`, correcting `func_L00_002C42E0` to its real integer return
+fixes the attachment store's call delay slot, but the entry register/store ordering
+still differs. It remains a 792-byte near miss. Other ignored-return repairs remain
+near misses too; a corrected declaration alone is not matching credit.
+
 `func_L04_003FA7E0` is now reconstructed in `src/levels/shared/L04_003FA7E0.c`.
 Its normal aligned 0x50-byte template assignment uses the current compiler's
 quadword block moves. Correct helper return declarations then resolve the one
@@ -3816,3 +3883,46 @@ The related retained investigations establish these constraints:
 Current sizes, profiles and applicable-release results are in the existing
 nonmatching index and source headers. Equal sizes, fixed local blocks and typed
 buffer repairs remain distinct from a complete matching or functional build.
+
+### Retained controls and newly identified entry witnesses
+
+The following 2 November 2026 findings change what is worth trying next; they
+do not reclassify an unresolved function or change a catalogue.
+
+- Remove diagnostic source controls before comparing meaningful C. The eight
+  overwritten initializers in `func_L02_00412D50`, ten dead initializers in
+  `func_L01_003A6638`, always-true regeneration guard in `func_L06_004587E8`,
+  and dead-temporary `SCREEN_Y` control in `func_L25_0040DE40` are gone from
+  the retained drafts. Their old small residuals are not valid matches.
+  Current lawful measurements and reopening conditions remain in their headers.
+- `func_L02_003E7B58`'s old block-copy refusal is obsolete under the maintained
+  compiler. Ordinary assignment of its real aligned 192-byte template now
+  reproduces the retail copy loop and prologue: 972/972 bytes, still 0/1 USA.
+  Flag/zero setup and later lifetimes remain different; this is a new useful
+  constraint, not a reason to repeat every unchanged near miss.
+- `func_00131D98` is already an 80-byte main loop in the USA catalogue. Its
+  faithful retained C passes that local check with independently evidenced
+  file-scope alignment, but PAL/USA v2.00 still describe a 656-byte main-plus-sound
+  extent. Those release catalogues need a verified split before promotion.
+- The menu-initializer relatives include real entry witnesses at `+0x10` for
+  `func_L08_00363320`, `func_L11_00369700`, `func_L17_003583F8`,
+  `func_L22_00358778` and `func_L24_0034C450`. The skipped `+0x20` stack restore
+  is positive, not a prologue; the old Joba and Ship Shack `+8` descriptions were
+  wrong. The fresh USA data pointers support `+0x10`; retain the bytes and verify
+  the complete carrying-release rule before editing the generator.
+- Fresh USA calls target `func_0012646C` at `00126470` and `func_0012672C` at
+  `00126730`, after their four-byte fill prefixes. The first body's ordinary
+  `por` zeroing and `sq` transfers are compiler-reachable, so its old generic
+  MMI-based handwritten diagnosis is not sufficient.
+- `func_L00_0042A4E8` contains three independent return stubs: initialized
+  pointers reach `+0`, `+8` and `+0x10` in all 27 USA placements. The same
+  three-entry pattern has separate witnesses for `func_L13_0043E8C0` in all
+  three releases. Do not fabricate a single C function spanning these entries.
+
+Reference scans must separate EE text from `.vutext`: decoding VU microcode as
+R5900 instructions creates false branch witnesses. An aligned word equal to an
+address may instead be scalar data; neither a positive scalar coincidence nor
+absence from a bounded static scan resolves arbitrary indirect control flow.
+Keep per-placement raw scans private and state their coverage. Useful C stays
+in `nonmatching/`; the old dummy-frame and unrelated guessed bodies were removed
+from `func_L03_0041B848` and `func_L00_00309DB0` rather than promoted.
