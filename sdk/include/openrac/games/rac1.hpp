@@ -411,6 +411,14 @@ struct Save_UpdateState {
     using fn = void (*)();
 };
 
+// Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
+struct msg_string {
+    static constexpr const char* id = "rac1.text.msg_string";
+    static constexpr const char* name = "msg_string";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -7512,6 +7520,9 @@ namespace hooks {
         using init_transition = rac1::Ship_InitTransition;
         using travel_to = rac1::Ship_TravelTo;
     }  // namespace ship
+    namespace text {
+        using msg_string = rac1::msg_string;
+    }  // namespace text
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
         using init_level_stock = rac1::Vendor_InitLevelStock;

@@ -683,6 +683,7 @@ rac1.save.serialize	pal:0020BA00	FUN_0020abb0,Save_Serialize,func_0020BA00
 rac1.save.update_state	pal:00209E68	FUN_002093d8,Save_UpdateState,func_00209E68
 rac1.ship.init_transition	pal:L00:0028FCA0	FUN_L00_0028e9c8,Ship_InitTransition,func_L00_0028FCA0
 rac1.ship.travel_to	pal:L00:00290030	FUN_L00_0028ed58,Ship_TravelTo,func_L00_00290030
+rac1.text.msg_string	pal:001FE540	FUN_001fdd10,func_001FE540,msg_string
 rac1.vendor.build_item_list	pal:L00:0029B770	FUN_L00_0029a400,Vendor_BuildItemList,func_L00_0029B770
 rac1.vendor.init_level_stock	pal:L00:0023DB30	FUN_L00_0023d198,Vendor_InitLevelStock,func_L00_0023DB30
 rac1.vendor.initialize_selected	pal:L00:0029C9E8	FUN_L00_0029b680,Vendor_InitializeSelected,func_L00_0029C9E8

@@ -58,6 +58,7 @@ type HookPoint =
     | "rac1.save.new_game_plus"
     | "rac1.save.serialize"
     | "rac1.save.update_state"
+    | "rac1.text.msg_string"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -1382,6 +1383,7 @@ type HookPoint =
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
     | "Weapon_TakeAmmo"
+    | "msg_string"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
 
 type Fields = {
@@ -1498,6 +1500,8 @@ type Save_NewGamePlusFn = (slot: number) -> ()
 type Save_SerializeFn = (out: number) -> ()
 -- rac1.save.update_state (Save_UpdateState) void(): The memory card's state machine, each tick (memcard_update_state): saves and loads go through it.
 type Save_UpdateStateFn = () -> ()
+-- rac1.text.msg_string (msg_string) i32(i32): Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
+type msg_stringFn = (id: number) -> number
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 

@@ -689,7 +689,8 @@
    "Vendor_InitLevelStock": "rac1.vendor.init_level_stock",
    "Vendor_InitializeSelected": "rac1.vendor.initialize_selected",
    "Vendor_MenuUpdate": "rac1.vendor.menu_update",
-   "Weapon_TakeAmmo": "rac1.weapon.take_ammo"
+   "Weapon_TakeAmmo": "rac1.weapon.take_ammo",
+   "msg_string": "rac1.text.msg_string"
   }
  }
 }

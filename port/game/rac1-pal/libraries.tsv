@@ -344,6 +344,7 @@ func_00200CA0	hud	func_00200CA0	wrap	a sprite of a given texture: drawn natively
 func_00200E38	hud	func_00200E38	wrap	a rotated sprite: drawn natively (rac1/host/ui2d.c)
 func_00201190	hud	func_00201190	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (rac1/host/ui2d.c)
 func_001FE540	text	msg_string	wrap	the text of an id: the port's own ids (its rows on the Video options page) have their strings from the port (host/options.c)
+func_001FE540	text	msg_string	hook	the text of a game message id: a hook point for mods (docs/port/MODS.md)	int (int)
 func_L00_00286598	game	func_L00_00286598	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	void (void)
 func_L03_002DDD58	game	func_L03_002DDD58	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	void (void)
 func_L07_002F9418	game	func_L07_002F9418	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	void (void)

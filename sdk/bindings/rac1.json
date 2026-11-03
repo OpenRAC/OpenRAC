@@ -675,6 +675,19 @@
         "ntsc": "FUN_002093d8"
       },
       "about": "The memory card's state machine, each tick (memcard_update_state): saves and loads go through it."
+    },
+    {
+      "id": "rac1.text.msg_string",
+      "name": "msg_string",
+      "signature": "i32(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "pal": "func_001FE540",
+        "ntsc": "FUN_001fdd10"
+      },
+      "about": "Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn."
     }
   ],
   "bases": {

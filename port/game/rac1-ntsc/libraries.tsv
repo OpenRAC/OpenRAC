@@ -289,6 +289,7 @@ FUN_001f46c8	draw	dispatch_callback_list_2	wrap	a draw callback list's run: in a
 FUN_001f4740	draw	dispatch_callback_list_3	wrap	a draw callback list's run: in a picture wider than the game's, the cull matrix and clip constants the callbacks test against (the liquid grid's seas, lava and sand; the overlay layers' bounding spheres) are opened by as much as the picture is wider for the run, and put back after it (rac1/host/wide_view.c); PAL func_001F4AF0
 FUN_001f4808	draw	dispatch_callback_list_4	wrap	a draw callback list's run: in a picture wider than the game's, the cull matrix and clip constants the callbacks test against (the liquid grid's seas, lava and sand; the overlay layers' bounding spheres) are opened by as much as the picture is wider for the run, and put back after it (rac1/host/wide_view.c); PAL func_001F4BB8
 FUN_001fdd10	text	msg_string	wrap	the text of an id: the port's own ids (its rows on the Video options page) have their strings from the port (rac1/host/options.c); PAL func_001FE540
+FUN_001fdd10	text	msg_string	hook	the text of a game message id: a hook point for mods (docs/port/MODS.md); PAL func_001FE540	int (int)
 _Exit	kernel	Exit	host	system call 0x04 (KExit); PAL func_00118A60
 func_001187C0	kernel	AddDmacHandler2	host	system call 0x12, the handler takes an argument (libmpeg's colour conversion); PAL func_00118AC0
 SetAlarm	kernel	SetAlarm	host	system call 0xFC; the callback runs at once; PAL func_00118B20
