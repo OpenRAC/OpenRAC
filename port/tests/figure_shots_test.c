@@ -81,6 +81,11 @@ int rac1_figure_alive(gaddr moby) {
     return !figure_gone && (moby == FIGURE || moby == OTHER_FIGURE);
 }
 
+/* The Blaster's line check: collision.c, not linked here. */
+void rac1_coll_line_also_ignore(gaddr moby) {
+    (void)moby;
+}
+
 gaddr rac1_updating_moby(void) {
     return (gaddr)updating;
 }

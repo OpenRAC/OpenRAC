@@ -89,6 +89,20 @@ void func_L00_00235FF8(int context) {
 /* CreateMoby: the next slot of the current array; DeleteMoby: the state the game gives. */
 static gaddr created_in;
 
+/* The zone trigger's tests (world.c): no class 258 here. */
+int func_00215570(gaddr point, int volume) {
+    (void)point;
+    (void)volume;
+    return 0;
+}
+
+int func_L00_0025A778(gaddr point, gaddr polygon, int count) {
+    (void)point;
+    (void)polygon;
+    (void)count;
+    return 0;
+}
+
 gaddr func_0020D348(int oclass) {
     const gaddr base = GREF(gaddr, MOBY_ARRAY);
     created_in = base;

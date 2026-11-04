@@ -152,6 +152,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * (timed_activation_pads.c). */
 #define func_L09_002F0B48 func_L09_002EF7F8
 #define func_L02_002A5238 game_FUN_L02_002a4058
+#define RAC1_ADDR_L05_0x001672C0u 0x001671C0u
+#define RAC1_ADDR_L05_0x001B0CB0u 0x001B0930u
 #define RAC1_ADDR_L09_0x001FCA00u 0x001FC740u
 #define RAC1_ADDR_L09_0x002F0AA0u 0x002EF750u
 /* A movie in a level (movie.c): PAL prepare_movie_playback func_L00_0029A940 is FUN_L00_002995d0
@@ -240,6 +242,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * (its load_level_gameplay.c's moby_index_remap), and the end of the placed mobys, PAL D_0016001C,
  * 0x15FF1C (`exact`). */
 #define RAC1_POST_HIT_DAMAGE_LAST 1
+#define func_00215570 game_FUN_00214720
+#define func_L00_0025A778 game_FUN_L00_00259740
 #define func_L00_0025AC00 game_FUN_L00_00259bc8
 #define func_L00_0025AC00__game game_FUN_L00_00259bc8__game
 #define func_L00_0025AAC0 game_FUN_L00_00259a88
