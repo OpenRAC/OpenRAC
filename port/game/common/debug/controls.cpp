@@ -704,6 +704,8 @@ void enhanced_settings_window() {
                 slider_float("Fog base height", &atmosphere.base_height, -100, 200, "%.1f units");
             edited |= slider_float("Height falloff", &atmosphere.height_falloff, 0, 1, "%.3f");
             edited |= slider_float("Scattered sunlight", &atmosphere.sun_strength, 0, 1);
+            edited |= slider_float("Jitter size", &atmosphere.jitter_size, 0, 1);
+            control_tip("0 centres sun-shadow samples. 1 spreads them across the full froxel.");
             edited |= slider_float("Scattering directionality", &atmosphere.anisotropy, -.8f, .8f);
             if (ImGui::TreeNode("Local fog volumes")) {
                 for (std::size_t i = 0; i < atmosphere.volumes.size(); ++i) {

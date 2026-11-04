@@ -48,6 +48,7 @@ void set_atmosphere_settings(AtmosphereSettings value) {
     value.height_falloff = finite(value.height_falloff, 0, 4, .1f);
     value.distance = finite(value.distance, 10, 2000, 750);
     value.sun_strength = finite(value.sun_strength, 0, 1, .15f);
+    value.jitter_size = finite(value.jitter_size, 0, 1, 1);
     value.anisotropy = finite(value.anisotropy, -.8f, .8f, .3f);
     for (auto& volume : value.volumes) {
         for (int k = 0; k < 3; ++k) {
@@ -265,7 +266,7 @@ void Atmosphere::prepare(
         controls.haze,
         controls.sun_strength,
         controls.anisotropy,
-        0
+        controls.jitter_size
     );
     glUniform1i(compute.uniform("atmosphere_volume_count"), volume_count);
     m_sky_active = controls.height_density > 0 || volume_count > 0;
