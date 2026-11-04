@@ -53,7 +53,7 @@ struct Setting {
     std::size_t max_length = 0;        // a string's (0: no limit)
     int binds = 2;                     // a keybind's most binds
     std::vector<std::string> choice_names;  // the names of a choice's values, in their order
-    int party = 0;                     // "multiplayer": an OPENRAC_PARTY_SETTING_* value
+    int party = 0;                          // "multiplayer": an OPENRAC_PARTY_SETTING_* value
 };
 
 // A keybind's text as names of openrac/keys.h, split at commas or spaces: false when one is no

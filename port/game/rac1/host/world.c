@@ -481,8 +481,7 @@ void rac1_stand_in_end(gaddr updated) {
      * no health, whom the game keeps down (a dying state refuses a new one, hero_down.c): nothing
      * here may stand him up. */
     const int32_t state = GREF(int32_t, HERO_STATE);
-    if (state != stand.state && rac1_camera_hold_state(state)
-        && GREF(int32_t, HERO_HEALTH) > 0) {
+    if (state != stand.state && rac1_camera_hold_state(state) && GREF(int32_t, HERO_HEALTH) > 0) {
         rac1_camera_script_free_hero();
     }
 }
@@ -511,6 +510,7 @@ enum {
     TRIGGER_VOLUME_COUNT = 6,
     TRIGGER_USE_CAMERA = 0x7E
 };
+
 #define TRIGGER_CAMERA OPENRAC_LDATA(5, RAC1_LADDR(05, 0x001672C0u))
 #define TRIGGER_PATHS OPENRAC_LDATA(5, RAC1_LADDR(05, 0x001B0CB0u))
 

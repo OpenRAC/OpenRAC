@@ -301,7 +301,6 @@ static void mark_save(const char* path) {
     fclose(f);
 }
 
-
 /* ---- The card filter ---- */
 
 /* A party's game must never reach a player's own saves. The game writes its saves two ways, and a
@@ -466,7 +465,9 @@ int openrac_game_card_write(int slot, const uint8_t* bytes, uint32_t size) {
 
 /* Starts the private copy of the redirect folder's save the game's write goes to; the game's own
  * `slot` unless the mod named one. Fills `target` and `temp`; 0 when there can be no copy. */
-static int start_redirect(int slot, char* target, size_t target_size, char* temp, size_t temp_size) {
+static int start_redirect(
+    int slot, char* target, size_t target_size, char* temp, size_t temp_size
+) {
     char previous[1100];
     if (!redirect_path(card_slot >= 0 ? card_slot : slot, target, target_size)
         || !sibling(target, ".tmp", temp, temp_size)

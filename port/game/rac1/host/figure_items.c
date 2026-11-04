@@ -53,12 +53,13 @@
  * OPENRAC_ITEMS_DEBUG=1 says on stderr what the hero holds, the pieces made, the classes decoded
  * for figures and the figures' shots.
  */
+#include "figure_items.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "figure_items.h"
 #include "figure_tracks.h"
 #include "openrac/host_env.h"
 #include "rac1.h"
@@ -299,7 +300,8 @@ static float distance_to_hero(gaddr moby) {
     const gaddr hero = GREF(gaddr, HERO_MOBY);
     float sum = 0.0f;
     for (unsigned c = 0; c < 3; ++c) {
-        const float d = GREF(float, moby + MOBY_POS + 4u * c) - GREF(float, hero + MOBY_POS + 4u * c);
+        const float d =
+            GREF(float, moby + MOBY_POS + 4u * c) - GREF(float, hero + MOBY_POS + 4u * c);
         sum += d * d;
     }
     return sqrtf(sum);

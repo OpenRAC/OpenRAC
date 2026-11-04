@@ -41,8 +41,12 @@ gaddr func_L00_002CC3C0__game(gaddr a0, gaddr a1, gaddr a2, float a3, float a4, 
 gaddr func_L00_002AE110(int a0, gaddr a1);
 void func_L00_002AE278(gaddr a0, gaddr a1, gaddr a2);
 void func_L00_002AE278__game(gaddr a0, gaddr a1, gaddr a2);
-gaddr func_L00_002B0F58(gaddr a0, gaddr a1, gaddr a2, float a3, float a4, float a5, float a6, float a7);
-gaddr func_L00_002B0F58__game(gaddr a0, gaddr a1, gaddr a2, float a3, float a4, float a5, float a6, float a7);
+gaddr func_L00_002B0F58(
+    gaddr a0, gaddr a1, gaddr a2, float a3, float a4, float a5, float a6, float a7
+);
+gaddr func_L00_002B0F58__game(
+    gaddr a0, gaddr a1, gaddr a2, float a3, float a4, float a5, float a6, float a7
+);
 gaddr func_L00_002CE390(int a0, gaddr a1, gaddr a2, float a3, float a4, float a5);
 gaddr func_L00_002CE390__game(int a0, gaddr a1, gaddr a2, float a3, float a4, float a5);
 void func_L00_002C96D0(gaddr a0, gaddr a1, gaddr a2);
@@ -57,8 +61,32 @@ gaddr func_L00_002C48C8(int a0, gaddr a1, gaddr a2);
 gaddr func_L00_0026C0D0(gaddr a0, gaddr a1, unsigned char a2, float a3);
 void func_L00_0026E438(gaddr a0, gaddr a1, int a2);
 void func_L00_002B6FF0(gaddr a0, int a1);
-void func_L00_0025BA50(gaddr a0, gaddr a1, gaddr a2, int a3, gaddr a4, int a5, int a6, int a7, float a8, float a9, float a10);
-void func_L00_0025BA50__game(gaddr a0, gaddr a1, gaddr a2, int a3, gaddr a4, int a5, int a6, int a7, float a8, float a9, float a10);
+void func_L00_0025BA50(
+    gaddr a0,
+    gaddr a1,
+    gaddr a2,
+    int a3,
+    gaddr a4,
+    int a5,
+    int a6,
+    int a7,
+    float a8,
+    float a9,
+    float a10
+);
+void func_L00_0025BA50__game(
+    gaddr a0,
+    gaddr a1,
+    gaddr a2,
+    int a3,
+    gaddr a4,
+    int a5,
+    int a6,
+    int a7,
+    float a8,
+    float a9,
+    float a10
+);
 int func_L00_00222B80(int a0, int a1);
 int func_L00_00222B80__game(int a0, int a1);
 int func_L01_0023D688(int a0, int a1);

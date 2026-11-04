@@ -84,7 +84,9 @@ int rac1_hero_guarded(void);
 void rac1_hero_guard_killed(void);
 void rac1_hero_guard_begin(void);
 void rac1_hero_guard_show(int32_t state, int32_t health, uint32_t flags);
-int rac1_hero_guard_read(float position[3], float* yaw, int32_t* state, int32_t* health, uint32_t* flags);
+int rac1_hero_guard_read(
+    float position[3], float* yaw, int32_t* state, int32_t* health, uint32_t* flags
+);
 void rac1_hero_guard_end(gaddr moby);
 int rac1_hero_grab(int animation, uint32_t flags);
 int rac1_hero_hold_at(const float position[3], float yaw);

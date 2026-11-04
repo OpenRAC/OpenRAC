@@ -51,10 +51,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "openrac/games/rac1_save.h"
 #include "openrac/host_env.h"
 #include "pose_anim.h"
 #include "rac1.h"
-#include "openrac/games/rac1_save.h"
 
 #define LEVELS 19
 

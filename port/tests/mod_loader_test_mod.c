@@ -579,7 +579,8 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
         s_api = api;
     }
-    if (behaviour[0] == 't') { /* twelve: with no game behind them, the calls of interface 1.12 answer unknown; with no stack, no packs */
+    if (behaviour[0]
+        == 't') { /* twelve: with no game behind them, the calls of interface 1.12 answer unknown; with no stack, no packs */
         float where[3] = {0, 0, 0};
         int blocked = 0;
         openrac_stand_in stand_in = {{0, 0, 0}, 0, 0, 0, 0};
@@ -591,12 +592,12 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         openrac_moby2 moby = {sizeof moby};
         openrac_packs_info packs = {sizeof packs, 0, 0};
         openrac_pack_entry pack = {sizeof pack, NULL, NULL, 0, NULL};
-        if (api->api_minor < 12 || api->card_filter(mod, OPENRAC_CARD_PASS, "") != OPENRAC_HOOK_UNKNOWN
+        if (api->api_minor < 12
+            || api->card_filter(mod, OPENRAC_CARD_PASS, "") != OPENRAC_HOOK_UNKNOWN
             || api->card_slot_hint(mod, 0) != OPENRAC_HOOK_UNKNOWN
             || api->coop_save_write(mod, 0, text, 1) != OPENRAC_HOOK_UNKNOWN
             || api->save_slot2("", 0, &info) != OPENRAC_HOOK_UNKNOWN
-            || api->save_read2("", 0, text, sizeof text) != 0
-            || api->card_saves() != 0
+            || api->save_read2("", 0, text, sizeof text) != 0 || api->card_saves() != 0
             || api->card_note_write(mod, 0, "x") != OPENRAC_HOOK_UNKNOWN
             || api->card_note_read("coop", 0, text, sizeof text) != 0
             || api->shared_read(1, text, sizeof text) != OPENRAC_HOOK_UNKNOWN

@@ -7,9 +7,9 @@
 // settings, frame and pad callbacks, a mod's own refusal, an unknown hook point and a wrong
 // signature, status.json, and the slots left null when nothing loads.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
-#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
@@ -626,7 +626,10 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     openrac_mod_setting setting{};
     setting.size = sizeof setting;
     CHECK(api.mod_setting(0, 0, &setting) == OPENRAC_HOOK_OK);
-    CHECK(std::string(setting.key) == "tag" && std::string(setting.value) == "7" && !setting.is_default);
+    CHECK(
+        std::string(setting.key) == "tag" && std::string(setting.value) == "7"
+        && !setting.is_default
+    );
     CHECK(api.mod_setting(0, 1, &setting) == OPENRAC_HOOK_OK);
     CHECK(std::string(setting.value) == "rules" && std::string(setting.shown) == "Rules");
     CHECK(api.mod_setting(1, 0, &setting) == OPENRAC_HOOK_OK);
@@ -679,7 +682,9 @@ void a_party_reads_the_data_packs(const fs::path& plugins) {
         {"id": "looks", "name": "HD textures", "gameplay": false},
         {"id": "walls", "name": "New walls", "gameplay": true, "version": "1.2", "digest": "abcdef01aa"}],
         "files": {}})");
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
     mods::Host h = host(plugins);
     h.stack = stack;
     CHECK(mods::load(h) == "test-a 1.0.0");
@@ -691,25 +696,40 @@ void a_party_reads_the_data_packs(const fs::path& plugins) {
     openrac_pack_entry entry{};
     entry.size = sizeof entry;
     CHECK(api.packs_entry(0, &entry) == OPENRAC_HOOK_OK);
-    CHECK(std::string(entry.id) == "packed" && std::string(entry.name) == "your packed levels" && entry.digest == 2);
+    CHECK(
+        std::string(entry.id) == "packed" && std::string(entry.name) == "your packed levels"
+        && entry.digest == 2
+    );
     CHECK(api.packs_entry(1, &entry) == OPENRAC_HOOK_OK);
-    CHECK(std::string(entry.id) == "walls" && std::string(entry.version) == "1.2" && entry.digest == 0xABCDEF01u);
+    CHECK(
+        std::string(entry.id) == "walls" && std::string(entry.version) == "1.2"
+        && entry.digest == 0xABCDEF01u
+    );
     CHECK(api.packs_entry(2, &entry) == OPENRAC_HOOK_UNKNOWN);
     CHECK(api.packs_entry(-1, &entry) == OPENRAC_HOOK_UNKNOWN);
     // A caller from before `name` still gets the rest.
     entry = {};
     entry.size = offsetof(openrac_pack_entry, name);
-    CHECK(api.packs_entry(1, &entry) == OPENRAC_HOOK_OK && entry.name == nullptr && entry.digest == 0xABCDEF01u);
+    CHECK(
+        api.packs_entry(1, &entry) == OPENRAC_HOOK_OK && entry.name == nullptr
+        && entry.digest == 0xABCDEF01u
+    );
     mods::reset();
 
     mods::Host other = host(plugins);
-    write(plugins / "stack2.json", R"({"layers": [{"id": "walls", "name": "New walls", "gameplay": true,
-        "version": "1.2", "digest": "abcdef01aa"}]})");
+    write(
+        plugins / "stack2.json",
+        R"({"layers": [{"id": "walls", "name": "New walls", "gameplay": true,
+        "version": "1.2", "digest": "abcdef01aa"}]})"
+    );
     other.stack = plugins / "stack2.json";
     CHECK(mods::load(other) == "test-a 1.0.0");
     info = {};
     info.size = sizeof info;
-    CHECK(mods::api_for_tests().packs_info(&info) == OPENRAC_HOOK_OK && info.count == 1 && info.digest != digest);
+    CHECK(
+        mods::api_for_tests().packs_info(&info) == OPENRAC_HOOK_OK && info.count == 1
+        && info.digest != digest
+    );
     mods::reset();
 
     write(plugins / "stack3.json", "{ not json");
@@ -723,7 +743,9 @@ void a_party_reads_the_data_packs(const fs::path& plugins) {
 
 // The clipboard and the launcher's key (interface 1.12).
 void a_mod_copies_and_knows_the_key(const fs::path& plugins) {
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
     mods::Host h = host(plugins);
     CHECK(mods::load(h) == "test-a 1.0.0");
     CHECK(mods::api_for_tests().clipboard_set("K7M2-9QXR") == OPENRAC_HOOK_UNKNOWN);
@@ -741,7 +763,10 @@ void a_mod_copies_and_knows_the_key(const fs::path& plugins) {
 
     char key[33] = {};
     // From the test's environment (CMakeLists.txt): the port's variables are read once (common/env.h).
-    CHECK(api.identity_key(key, sizeof key) == 32 && std::string(key) == "0123456789abcdef0123456789abcdef");
+    CHECK(
+        api.identity_key(key, sizeof key) == 32
+        && std::string(key) == "0123456789abcdef0123456789abcdef"
+    );
     // Cut short it would be another key.
     CHECK(api.identity_key(key, 8) == 0);
     mods::reset();
@@ -987,7 +1012,9 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         mods::fill_play_api(api, &kPlay, dir / "cards");
         // The world the disc belongs to, and what a level's games must agree on.
         char family[32] = {};
-        CHECK(api.world_family(family, sizeof family) == 12 && std::string(family) == "test-world-1");
+        CHECK(
+            api.world_family(family, sizeof family) == 12 && std::string(family) == "test-world-1"
+        );
         CHECK(api.world_family(family, 12) == 0);
         std::uint32_t digest = 0;
         CHECK(api.sim_digest(4, &digest) == OPENRAC_HOOK_OK && digest == 0xABCDu);
@@ -1011,17 +1038,27 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         CHECK(api.hero_revive(mod, nowhere, 0) == OPENRAC_HOOK_UNKNOWN && g_revived[0] == 0.0f);
         CHECK(api.hero_revive(mod, nullptr, OPENRAC_REVIVE_HOLD + 8u) == OPENRAC_HOOK_UNKNOWN);
         // A mod's call to a dig outside its load comes too late.
-        CHECK(api.on_metal_detect(mod, [](void*, int, int) { return 1; }, nullptr) == OPENRAC_HOOK_TOO_LATE);
+        CHECK(
+            api.on_metal_detect(
+                mod, [](void*, int, int) { return 1; }, nullptr
+            )
+            == OPENRAC_HOOK_TOO_LATE
+        );
         // A moby's mission beside what moby_list says.
         std::vector<openrac_moby2> mobys(8);
         const int listed = api.moby_list2(mobys.data(), 8);
         for (int i = 0; i < std::min(listed, 8); ++i) {
             CHECK(mobys[static_cast<std::size_t>(i)].size == sizeof(openrac_moby2));
-            CHECK(mobys[static_cast<std::size_t>(i)].mission == (mobys[static_cast<std::size_t>(i)].slot == 7 ? 3 : -1));
+            CHECK(
+                mobys[static_cast<std::size_t>(i)].mission
+                == (mobys[static_cast<std::size_t>(i)].slot == 7 ? 3 : -1)
+            );
         }
         // Camera scripts: heard once a tick, one a mod and only at load; a view only with one
         // running; a script shown only by the mod that asked, and no bad number passed on.
-        const auto heard = [](void*, int id, int started) { g_script_heard.emplace_back(id, started); };
+        const auto heard = [](void*, int id, int started) {
+            g_script_heard.emplace_back(id, started);
+        };
         CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_TOO_LATE);
         mods::play_loading(reinterpret_cast<const openrac_mod*>(mod));
         CHECK(api.on_camera_script(mod, heard, nullptr) == OPENRAC_HOOK_OK);
@@ -1301,7 +1338,10 @@ std::vector<std::string> g_opened;
 float g_overlay_rect[4];
 
 void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"behaviour": "hud"}}]})");
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"behaviour": "hud"}}]})"
+    );
     mods::Host h = host(plugins);
     h.play = &kPlay;
     h.cards = dir / "cards";
@@ -1329,7 +1369,9 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
         g_overlay_rect[2] = w;
         g_overlay_rect[3] = h;
     };
-    overlay.text_width = [](void*, float height, const char*) { return height / 2.0f; };
+    overlay.text_width = [](void*, float height, const char*) {
+        return height / 2.0f;
+    };
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
     CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
@@ -1352,7 +1394,9 @@ void only_a_mod_codes_link_opens(const fs::path& plugins) {
     CHECK(!mods::is_mod_code_link("openrac://modset/K7M2\n"));
     CHECK(!mods::is_mod_code_link("openrac://modset/" + std::string(17 * 1024, 'A')));
 
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})");
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
     mods::Host h = host(plugins);
     h.open_url = [](const char* url) {
         g_opened.emplace_back(url);
