@@ -77,20 +77,15 @@ void test_cache_equivalence() {
         cached.begin_pass();
         const auto actual = cached.prepare(strip, source);
         CHECK(actual.vertices == expected.vertices && actual.draws == expected.draws);
-        CHECK(
-            std::equal(
-                reference.sources().begin(),
-                reference.sources().end(),
-                cached.sources().begin(),
-                cached.sources().end()
-            )
-        );
-        const auto& a = reference.plan(expected.handle).batches;
-        const auto& b = cached.plan(actual.handle).batches;
-        CHECK(a.size() == b.size());
-        for (std::size_t i = 0; i < std::min(a.size(), b.size()); ++i) {
-            CHECK(a[i].shape == b[i].shape && a[i].first == b[i].first && a[i].count == b[i].count);
-        }
+        CHECK(std::equal(
+            reference.sources().begin(),
+            reference.sources().end(),
+            cached.sources().begin(),
+            cached.sources().end()
+        ));
+        const auto& a = reference.plan(expected.handle);
+        const auto& b = cached.plan(actual.handle);
+        CHECK(a.vertices == b.vertices && a.first_triangle == b.first_triangle);
         height_hits += cached.cache_counts()[1];
         topology_hits += cached.cache_counts()[3];
         if (frame == 1 || frame == 2) {
@@ -130,7 +125,7 @@ int main() {
             CHECK(std::bit_cast<float>(coarse[i * 2 + 1][0]) == source[i].s);
         }
         CHECK(coarse[6][3] == (0x80000000u | frame * 77));
-        CHECK(mesh.plan(output.handle).batches[0].count == 1);
+        CHECK(mesh.plan(output.handle).vertices[0].triangle == 0);
     }
     // Permutations still resolve the authored triangle, without changing the baked stream.
     std::swap(source[1], source[2]);
@@ -140,7 +135,36 @@ int main() {
     // Several strips keep distinct instance ranges until the pass is drawn.
     const auto second = mesh.prepare(strip, source);
     CHECK(second.handle == 1);
-    CHECK(mesh.plan(second.handle).batches[0].first == 1);
+    CHECK(mesh.plan(second.handle).first_triangle == 1);
+    // A strip can disappear and return at a different draw-list slot without rebuilding.
+    auto shifted = source;
+    for (auto& vertex : shifted) {
+        vertex.x += 10.f;
+    }
+    mesh.begin_pass();
+    mesh.prepare(strip, source);
+    mesh.prepare(strip, shifted);
+    mesh.begin_pass();
+    const auto visible = mesh.prepare(strip, shifted);
+    CHECK(mesh.cache_counts()[2] == 0 && mesh.cache_counts()[3] == 1);
+    CHECK(mesh.plan(visible.handle).first_triangle == 0);
+    mesh.begin_pass();
+    const auto first_returned = mesh.prepare(strip, shifted);
+    const auto second_returned = mesh.prepare(strip, source);
+    CHECK(mesh.cache_counts()[2] == 0 && mesh.cache_counts()[3] == 2);
+    CHECK(mesh.plan(first_returned.handle).first_triangle == 0);
+    CHECK(mesh.plan(second_returned.handle).first_triangle == 1);
+    // A baked template followed by the coarse fallback still draws as one strip.
+    std::array mixed{source[0], source[1], source[2], renderer::EffectVertex{2, 2, 1, 0, 0, 0}};
+    mesh.begin_pass();
+    strip.count = static_cast<unsigned>(mixed.size());
+    const auto combined = mesh.prepare(strip, mixed);
+    CHECK(combined.vertices == 9 && combined.draws == 1);
+    const auto& vertices = mesh.plan(combined.handle).vertices;
+    if (vertices.size() == 9) {
+        CHECK(vertices[5].triangle == 0);
+        CHECK(vertices[6].triangle == 1 && vertices[8].triangle == 1);
+    }
     auto wrong = data.fingerprint;
     wrong[0] = 'y';
     bool rejected = false;
