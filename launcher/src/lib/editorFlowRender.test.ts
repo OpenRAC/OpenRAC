@@ -27,6 +27,7 @@ const action = (id: string) => ({
   runnable: true,
   blockers: [],
   done: true,
+  missingArtifact: false,
   developer: false,
   warning: null,
 });

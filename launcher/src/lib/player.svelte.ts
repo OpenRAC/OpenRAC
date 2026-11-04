@@ -147,6 +147,13 @@ export function playerVersion(game: GameView): VersionView | null {
   });
 }
 
+/** Play waits for the game's program, which is not there, and this launcher has no step that
+ *  builds it (an installer that carries neither, such as Going Commando's in launcher 1.0.0). */
+export function missingProgram(v: VersionView): boolean {
+  const builds = [action(v, "port-rebuild"), action(v, "port-build")].filter((a) => a?.thisPlatform);
+  return !!action(v, "play")?.missingArtifact && builds.length === 0;
+}
+
 /** The game is built for this computer: its program is there (on Android, the APK's), whether or
  *  not its levels are ready yet. */
 export function isBuilt(game: GameView, v: VersionView): boolean {
@@ -155,7 +162,9 @@ export function isBuilt(game: GameView, v: VersionView): boolean {
 
 /**
  * What Rebuild runs: the build from scratch where this platform builds, else (Android, which plays
- * the game its APK carries) the levels read from the disc again and checked. Null when it cannot run.
+ * the game its APK carries) the levels read from the disc again and checked. Null when it cannot run,
+ * and when the game's program is not there with nothing to build it (missingProgram): reading the
+ * levels again would leave Play just as blocked, and Rebuild would be offered again, forever.
  */
 export function rebuildSteps(v: VersionView): ActionView[] | null {
   const builds = [action(v, "port-rebuild"), action(v, "port-build")].filter((a) => a !== null);
@@ -163,6 +172,7 @@ export function rebuildSteps(v: VersionView): ActionView[] | null {
     const build = builds.find((a) => a.runnable);
     return build ? [build] : null;
   }
+  if (missingProgram(v)) return null;
   const levels = action(v, "port-levels");
   const check = action(v, "port-levels-check");
   return levels?.runnable ? [levels, ...(check ? [check] : [])] : null;
@@ -324,6 +334,18 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       hint: "Makes the game again from the start, so it can be played. Your saves are kept.",
       primary: true,
       status: "Needs rebuilding",
+      tone: "warn",
+    };
+  }
+  if (missingProgram(v)) {
+    return {
+      ...base,
+      kind: "blocked",
+      label: "Play",
+      icon: "play",
+      hint: "This launcher has no program for this game and cannot build it. Update the launcher (Settings): a newer one builds it from your disc.",
+      disabled: true,
+      status: "Needs a newer launcher",
       tone: "warn",
     };
   }
