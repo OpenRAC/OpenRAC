@@ -57,9 +57,10 @@ inline constexpr float kDefaultPeakNits = 1000.0f;
 inline constexpr float kPqMaxNits = 10000.0f;
 // The settings' ranges (0 in the file: the system's, or the default). The peak goes to PQ's top:
 // the brightest TVs and phones of 2026 are sold (and some measured) at 10000 nits in a small window.
-// Paper white goes to what the brightest phones keep over the whole screen (2000-3000 nits).
+// Paper white is the whole picture (BT.2408: 203); above 1000 it reaches the peak and the highlights
+// stop standing out.
 inline constexpr int kPaperWhiteMin = 80;
-inline constexpr int kPaperWhiteMax = 3000;
+inline constexpr int kPaperWhiteMax = 1000;
 inline constexpr int kPeakMin = 400;
 inline constexpr int kPeakMax = static_cast<int>(kPqMaxNits);
 // The picture's bytes are display-referred: a monitor shows them with a 2.2 gamma (an sRGB

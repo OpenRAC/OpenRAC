@@ -115,8 +115,8 @@ void test_levels() {
     CHECK(l.paper_white == hdr::kPaperWhiteMin && l.peak == hdr::kPeakMin);
     // The brightest screens on sale: a display's 10000 nits and a bright paper white stay as they are.
     const hdr::Display bright{true, true, 0.0f, 10000.0f};
-    l = hdr::resolve_levels(2500, 0, bright);
-    CHECK(l.paper_white == 2500.0f && l.peak == 10000.0f);
+    l = hdr::resolve_levels(1000, 0, bright);
+    CHECK(l.paper_white == 1000.0f && l.peak == 10000.0f);
     l = hdr::resolve_levels(0, 6000, bright);
     CHECK(l.peak == 6000.0f);
     // A peak below paper white is raised to it.

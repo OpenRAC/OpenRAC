@@ -97,9 +97,8 @@ constexpr std::array<const char*, 5> kInspectNames =
     {"Main camera", "Shadow cascade 1", "Shadow cascade 2", "Shadow cascade 3", "Shadow cascade 4"};
 
 // HDR's paper whites: 0 is the system's SDR white.
-constexpr std::array<int, 16> kWhites = {
-    0, 80, 100, 120, 160, 203, 250, 300, 400, 500, 600, 800, 1000, 1500, 2000, hdr::kPaperWhiteMax
-};
+constexpr std::array<int, 13> kWhites =
+    {0, 80, 100, 120, 160, 203, 250, 300, 400, 500, 600, 800, hdr::kPaperWhiteMax};
 // HDR's peaks: 0 is the display's. Up to PQ's 10000 nits, what the brightest screens are sold at.
 constexpr std::array<int, 13> kPeaks =
     {0, 400, 600, 800, 1000, 1400, 2000, 2500, 3000, 4000, 5000, 6000, hdr::kPeakMax};
