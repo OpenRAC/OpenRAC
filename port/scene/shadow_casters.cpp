@@ -211,9 +211,7 @@ void LevelScene::draw_shadow_map(
             for (std::size_t at = 0; at < bucket.size();) {
                 const auto& command = bucket[at];
                 std::size_t end = at + 1;
-                // Keep separate range submissions for the indexed-viewport atlas. Bulk
-                // submissions can drop caster ranges as the cascade visibility changes.
-                if (atlas_view < 0 && i == 0 && command.batch
+                if (i == 0 && command.batch
                     && renderer::render_opt::enabled(
                         renderer::render_opt::Opt::ShadowGeometryCull
                     )) {
