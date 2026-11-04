@@ -24,7 +24,8 @@ them. `openrac-boot --swap ENTRY:FIRSTWORD:TARGET:FILE[:ADDRESS:FILE...]` can: i
 calls of ENTRY to code loaded elsewhere, while FIRSTWORD is at ENTRY. With `--dump-ram FIELD[,FIELD...]`,
 compare main memory at those fields with a plain run under the same script and `OPENRAC_CLOCK`, leaving
 out the candidate's code and the stack. `--digest FILE` hashes that memory every field, and `--cover ADDRESS:BYTES FILE`
-writes which instructions of a function the run ran. Compare memory, not just the random state and the hero's place:
+writes which instructions of a function the run ran. `--returns ENTRY:FIRSTWORD FILE` logs each return of a function:
+its result, kept registers and a memory hash. Compare memory, not just the random state and the hero's place:
 a loader with its `resume` test inverted passed those, and memory caught it. It covers only what the
 route ran.
 

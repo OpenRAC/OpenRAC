@@ -225,7 +225,7 @@ its `resume` test inverted passed those, and memory caught it.
 
 A verdict needs its controls: two plain runs agree on `--digest` (a hash of memory each field), and the
 function's own retail bytes through `--swap` give no differing field. `--cover` says what the route ran;
-the note gives it. A difference on some fields needs reading, not waving away: code that takes other
+the note gives it. `--returns` compares each return, for a difference a later field overwrites. A difference on some fields needs reading, not waving away: code that takes other
 instruction counts moves counters and load progress (retail's bytes padded with 400 `nop`s differed on
 more fields than any candidate here), but the difference can also be a bug. Columns: `name`, `status`, `date`,
 `decomp` (the commit), `csum`, `route`, `field`, `calls`, `note`.

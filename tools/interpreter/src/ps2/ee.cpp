@@ -436,6 +436,10 @@ void Ee::step() {
     u32 at = pc;
     instruction = at;
 
+    if (at == watch_pc && on_watch) {
+        on_watch();
+    }
+
     if (cover && at - cover_base < cover_bytes) {
         cover[(at - cover_base) >> 2] = 1;
     }

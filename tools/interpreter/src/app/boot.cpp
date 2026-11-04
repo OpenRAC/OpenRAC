@@ -116,6 +116,21 @@ bool write_ppm(const std::string& path, const Image& image) {
  * @return 0 when the run ended, 1 when the disc, the program or the window cannot be opened, 2
  *     for a bad command line.
  */
+/**
+ * Main memory as one number (FNV-1a over words), leaving out the swapped code (below 0x100000) and
+ * the stack (from 0x1F00000).
+ */
+u64 memory_hash(sys::Machine& machine) {
+    u64 hash = 0xCBF29CE484222325ull;
+    const u32* words = reinterpret_cast<const u32*>(machine.memory.ram(0x100000));
+
+    for (std::size_t n = 0; n < (0x1F00000 - 0x100000) / 4; n++) {
+        hash = (hash ^ words[n]) * 0x100000001B3ull;
+    }
+
+    return hash;
+}
+
 int main(int argc, char** argv) {
     // Settings from the command line. A frame number of -1 means the option was not given.
     std::string iso, hooks, ppm, vif_file, card, wav, native, native_calls;
@@ -235,6 +250,9 @@ int main(int argc, char** argv) {
     std::vector<Swap> swaps;
     std::set<long long> dump_fields;
     std::FILE* digest_file = nullptr;
+    std::FILE* returns_file = nullptr;
+    u32 returns_entry = 0, returns_first_word = 0;
+    std::vector<std::pair<u32, u32>> returns_pending;  // Return address and stack, innermost last.
     std::vector<u8> cover_map;
     u32 cover_base = 0;
     std::string cover_path;
@@ -318,6 +336,16 @@ int main(int argc, char** argv) {
             cover_base = std::stoul(range.substr(0, colon), nullptr, 16);
             cover_map.assign(std::stoul(range.substr(colon + 1), nullptr, 16) / 4, 0);
             cover_path = argv[++i];
+        } else if (arg == "--returns" && i + 2 < argc) {
+            // ENTRY:FIRSTWORD (hexadecimal) and FILE: a line at each return of that function: the
+            // field, the return address, the result registers, the registers a function keeps and
+            // the memory hash `--digest` uses. Two runs of one script compare call by call.
+            std::string spec = argv[++i];
+            std::size_t colon = spec.find(':');
+
+            returns_entry = std::stoul(spec.substr(0, colon), nullptr, 16);
+            returns_first_word = std::stoul(spec.substr(colon + 1), nullptr, 16);
+            returns_file = std::fopen(argv[++i], "w");
         } else if (arg == "--swap" && i + 1 < argc) {
             // ENTRY:FIRSTWORD:TARGET:FILE[:ADDRESS:FILE...] (hexadecimal addresses): a call of
             // ENTRY while FIRSTWORD is there goes to TARGET, with each FILE loaded at its address
@@ -824,17 +852,10 @@ int main(int argc, char** argv) {
             };
         }
 
-        // The field's memory as one number (FNV-1a over words).
+        // The field's memory as one number.
         if (digest_file) {
-            u64 hash = 0xCBF29CE484222325ull;
-            const u32* words = reinterpret_cast<const u32*>(machine.memory.ram(0x100000));
-
-            for (std::size_t n = 0; n < (0x1F00000 - 0x100000) / 4; n++) {
-                hash = (hash ^ words[n]) * 0x100000001B3ull;
-            }
-
             std::fprintf(digest_file, "%lld %016llx\n", static_cast<long long>(machine.frames),
-                         static_cast<unsigned long long>(hash));
+                         static_cast<unsigned long long>(memory_hash(machine)));
         }
 
         // The fields whose memory `--dump-ram` keeps.
@@ -1264,8 +1285,47 @@ int main(int argc, char** argv) {
         machine.ee.cover_bytes = static_cast<u32>(cover_map.size() * 4);
     }
 
-    if (!swaps.empty()) {
-        machine.ee.on_call = [&machine, &swaps](u32 target) {
+    if (returns_file) {
+        Ee& ee = machine.ee;
+
+        ee.on_watch = [&, returns_file]() {
+            if (returns_pending.empty() || static_cast<u32>(ee.gpr[29].lo) != returns_pending.back().second) {
+                return;
+            }
+
+            std::fprintf(returns_file, "%lld %x v0 %llx v1 %llx f0 %x", static_cast<long long>(machine.frames),
+                         returns_pending.back().first, static_cast<unsigned long long>(ee.gpr[2].lo),
+                         static_cast<unsigned long long>(ee.gpr[3].lo), ee.fpr[0]);
+
+            for (int r : {16, 17, 18, 19, 20, 21, 22, 23, 28, 29, 30, 31}) {
+                std::fprintf(returns_file, " %llx", static_cast<unsigned long long>(ee.gpr[r].lo));
+            }
+
+            for (int f = 20; f < 32; f++) {
+                std::fprintf(returns_file, " %x", ee.fpr[f]);
+            }
+
+            std::fprintf(returns_file, " mem %016llx\n", static_cast<unsigned long long>(memory_hash(machine)));
+            std::fflush(returns_file);
+            returns_pending.pop_back();
+            ee.watch_pc = returns_pending.empty() ? ~0u : returns_pending.back().first;
+        };
+    }
+
+    if (!swaps.empty() || returns_file) {
+        machine.ee.on_call = [&, returns_file](u32 target) {
+            if (returns_file && target == returns_entry) {
+                u32 word = 0;
+
+                std::memcpy(&word, machine.memory.ram(target), 4);
+
+                if (word == returns_first_word) {
+                    returns_pending.push_back({static_cast<u32>(machine.ee.gpr[31].lo),
+                                               static_cast<u32>(machine.ee.gpr[29].lo)});
+                    machine.ee.watch_pc = returns_pending.back().first;
+                }
+            }
+
             for (Swap& swap : swaps) {
                 u32 word = 0;
 
