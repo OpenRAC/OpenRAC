@@ -261,6 +261,10 @@ def build_llvm(ndk: Path) -> Path:
     proc.run(["cmake", "-G", "Ninja", src / "llvm", *options, "-DCMAKE_C_COMPILER_LAUNCHER=",
               "-DCMAKE_CXX_COMPILER_LAUNCHER="], cwd=build, echo=True)
     proc.run(["cmake", "--build", ".", "--target", *PART_TOOLS], cwd=build, echo=True)
+    # Without their debug information they are a tenth of the size (about 110 MB), here and in CI's cache.
+    strip = ndk_toolchain(ndk) / "bin/llvm-strip"
+    for tool in PART_TOOLS:
+        proc.run([strip, "--strip-all", (build / "bin" / tool).resolve()], cwd=ROOT, echo=True)
     stamp.write_text(json.dumps(want, indent=1) + "\n")
     return build
 

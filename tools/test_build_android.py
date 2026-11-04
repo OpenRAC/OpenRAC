@@ -63,6 +63,8 @@ class BuildAndroidTests(unittest.TestCase):
 
     def test_llvm_is_built_once_for_its_version_and_options(self):
         ndk = self.make_ndk(self.dir / "ndk")
+        (ndk / "toolchains/llvm/prebuilt/test/bin").mkdir(parents=True)
+        (ndk / "toolchains/llvm/prebuilt/test/bin/clang").write_bytes(b"")
         llvm = self.dir / "llvm"
         (llvm / "llvm-project/llvm").mkdir(parents=True)
         (llvm / "llvm-project/llvm/CMakeLists.txt").write_text("")
@@ -75,11 +77,11 @@ class BuildAndroidTests(unittest.TestCase):
         with mock.patch.object(build_android, "LLVM_ANDROID", llvm), \
                 mock.patch.object(build_android.proc, "run", side_effect=fake) as run:
             self.assertEqual(build_android.build_llvm(ndk), llvm / "build")
-            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_count, 2 + len(build_android.PART_TOOLS))
             configure = run.call_args_list[0].args[0]
             self.assertIn("-DLLVM_TARGETS_TO_BUILD=AArch64", configure)
             build_android.build_llvm(ndk)
-            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_count, 2 + len(build_android.PART_TOOLS))
 
     def native_tree(self):
         """Creates fake build outputs, including SDL and the NDK runtime, without compiling."""
