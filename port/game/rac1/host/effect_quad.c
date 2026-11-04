@@ -10,6 +10,12 @@
  * ticks (openrac_game_quad::id); 0 for none. */
 uint32_t rac1_effect_quad_id;
 
+static int skip_ocean_quad;
+
+void openrac_skip_ocean_quad(int skip) {
+    skip_ocean_quad = skip;
+}
+
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
     return openrac_effect_texture(
         tex0,
@@ -29,6 +35,9 @@ static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t*
  * window draws it in the world (openrac_game_effect_quad).
  */
 void func_001F7EF8(gaddr a0, int a1, int a2) {
+    if (skip_ocean_quad) {
+        return;
+    }
     (void)a2;
     const uint8_t* r = G(a0);
     openrac_game_quad q;

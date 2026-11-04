@@ -74,6 +74,10 @@ struct Body {
 
 // Reads finite, bounded decoded surface inputs and collision geometry.
 Input read_input(const std::filesystem::path& path);
+// Loads the collision export with the same solid and water classification as the water bake.
+void load_collision(Input& input, const std::filesystem::path& path);
+// Marks solid banks on an already populated water grid.
+void clip_solid_banks(Raster& raster, const Input& input);
 // Returns a signed XY edge test; face winding is irrelevant.
 bool contains(Point p, const Triangle& triangle);
 // Projects onto a nonvertical triangle, returning no height outside its footprint.

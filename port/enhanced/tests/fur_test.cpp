@@ -32,6 +32,8 @@ scene::LevelData fixture(enhanced::FurProfile& profile) {
     level.vertices[4].uv[1] = 0;
     level.vertices[5].uv[0] = 0;
     level.vertices[5].uv[1] = 1;
+    level.vertices[4].position[0] = 1;
+    level.vertices[5].position[2] = 1;
     level.indices = {3, 4, 5, 6, 7, 8, 0, 1, 2};
     level.models.resize(1);
     level.models[0].primitives = {{0, 6, 0}, {6, 3, 1}};
@@ -140,6 +142,21 @@ int test_gpu() {
     scene::Instance hero;
     hero.palette = 7;
     fur.prepare(hero);
+    CHECK(fur.shell_layers(0, 0, 6) == 0);
+    auto coat = enhanced::fur_material_settings();
+    coat.shells_enabled = true;
+    enhanced::set_fur_material_settings(coat);
+    CHECK(fur.shell_layers(0, 0, 6) == coat.shell_layers);
+    CHECK(fur.shell_layers(1, 0, 6) == 0);
+    CHECK(fur.shell_layers(0, 1, 6) == 0);
+    CHECK(fur.shell_layers(0, 0, 3) == 0);
+    fur.prepare(hero, {1000, 0, 0});
+    CHECK(fur.shell_layers(0, 0, 6) == 0);
+    fur.prepare(hero);
+    set_enhanced_rendering(false);
+    CHECK(fur.shell_layers(0, 0, 6) == 0);
+    set_enhanced_rendering(true);
+    enhanced::set_fur_material_settings(settings);
     renderer::Shader shader;
     const std::string vertex =
         std::string("#version 430 core\n") + lighting::shaders::fur_vertex_glsl + R"(

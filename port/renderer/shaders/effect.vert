@@ -28,6 +28,11 @@ void main() {
     effect_vertex(v_world, uv, v_colour);
 #endif
     gl_Position = view_projection * vec4(v_world, 1.0);
+#ifdef OPENRAC_OCEAN_SPECTRUM
+    // The ocean extends beyond the world camera's far plane at clear depth.
+    if (water_mesh != 0 && gl_Position.w > 0.)
+        gl_Position.z = max(gl_Position.z, -.999999 * gl_Position.w);
+#endif
     v_stq = vec3(uv, 1.0);
     float depth = -(view * vec4(v_world, 1.0)).z * 1024.0;
     // Between the two intensities whichever is lower: GLSL leaves clamp undefined when the lower

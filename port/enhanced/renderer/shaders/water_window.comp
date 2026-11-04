@@ -14,6 +14,9 @@ uniform float water_sim_height;
 uniform int initialize_history;
 uniform vec2 previous_window;
 uniform float water_current_scale;
+uniform float ocean_depth;
+uniform int ocean_dry_count;
+uniform vec4 ocean_dry[8];
 int water_baked_cell(vec2 p,int index) {
     int body=index*5;
     ivec2 cell=ivec2(floor((p-bodies[body].xy)/bodies[body+4].z));
@@ -32,6 +35,9 @@ void main(){
     if(all(greaterThanEqual(cell,ivec2(0))) && all(lessThan(cell,size))){
         int source=int(bodies[body+3].w)+cell.y*size.x+cell.x;
         c=coast[source];h=hydraulics[source];
+    } else if(ocean_depth>0.) {
+        c=vec4(512.+water_sim_height,2.,0.,0.);
+        h=vec4(clamp(ocean_depth,.25,1.5),0.,0.,ocean_depth);
     }
     // Fill the selected field's gaps with wet cells at a compatible height.
     // Actual dry cells remain barriers; overlapping fields prefer the selected one.
@@ -46,6 +52,10 @@ void main(){
                 c=coast[candidate];h=hydraulics[candidate];closest=difference;
             }
         }
+    }
+    for(int i=0;i<ocean_dry_count;++i) {
+        vec4 bounds=ocean_dry[i];
+        if(all(greaterThanEqual(p,bounds.xy)) && all(lessThan(p,bounds.zw))) c=vec4(0.);
     }
     c.z=max(c.z,smoothstep(float(window.z)*.25*.375,float(window.z)*.25*.484375,length(p-(vec2(window.xy)+float(window.z)*.5)*.25)));
     ivec2 world=window.xy+ivec2(at%window.z,at/window.z);

@@ -171,12 +171,67 @@ bool motion_blur_controls(settings::Settings& graphics) {
     return changed;
 }
 
+// Preview this level's ocean optics and restore its authored values.
+void ocean_material_controls() {
+    auto material = enhanced::ocean_material();
+    bool changed = colour_edit("Body colour (linear RGB)", material.colour.data());
+    changed |= slider_float(
+        "Red absorption", &material.absorption[0], 0, 4, "%.3f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= slider_float(
+        "Green absorption", &material.absorption[1], 0, 4, "%.3f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= slider_float(
+        "Blue absorption", &material.absorption[2], 0, 4, "%.3f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= slider_float(
+        "Roughness", &material.roughness, .04f, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= slider_float(
+        "Reflectivity (F0)", &material.reflectivity, 0, 1, "%.3f", ImGuiSliderFlags_AlwaysClamp
+    );
+    changed |= slider_float(
+        "Reflection strength",
+        &material.reflection_strength,
+        0,
+        4,
+        "%.2fx",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    // Reset takes precedence if the user edited another control on the same frame.
+    if (ImGui::Button("Reset ocean material to level profile")) {
+        enhanced::reset_ocean_material();
+        return;
+    }
+    // Avoid writing the live settings when the panel is only being read.
+    if (changed) {
+        enhanced::set_ocean_material(material);
+    }
+}
+
+// Shell geometry is a session option independent of authored fur shading.
+void fur_shell_controls() {
+    auto fur = enhanced::fur_material_settings();
+    bool changed = checkbox("Fluffy shell coat", &fur.shells_enabled);
+    changed |= slider_float("Coat length (body fraction)", &fur.shell_length, 0, .08f, "%.3f");
+    changed |= slider_int("Coat layers", &fur.shell_layers, 4, 16);
+    changed |= slider_float("Strand density", &fur.shell_density, 32, 256, "%.0f");
+    changed |= slider_float("Coat fade distance", &fur.shell_distance, 4, 64, "%.0f units");
+    // Keep the current material settings when the shell controls are only being read.
+    if (changed) {
+        enhanced::set_fur_material_settings(fur);
+    }
+}
+
 // Live, session-only water controls; the render worker consumes a locked copy.
 void water_controls() {
     auto options = enhanced::water_debug_settings();
     ImGui::TextDisabled("Session only; changes are not saved.");
     ImGui::BeginDisabled(!enhanced::water_available());
     bool changed = checkbox("Pause simulation", &options.paused);
+    if (!enhanced::ocean_replaces_horizon()) {
+        changed |= checkbox("Pokitaru coastal correction", &options.coastal_correction);
+    }
     ImGui::PushItemWidth(dp(170.f));
     changed |= slider_float(
         "Current speed", &options.current_scale, 0, 2.5f, "%.2fx", ImGuiSliderFlags_AlwaysClamp
@@ -259,9 +314,16 @@ void water_controls() {
         "%.2f units",
         ImGuiSliderFlags_AlwaysClamp
     );
-    changed |= slider_float(
-        "Fine ripples", &options.fine_normal_strength, 0, 2, "%.2fx", ImGuiSliderFlags_AlwaysClamp
-    );
+    if (!enhanced::ocean_replaces_horizon()) {
+        changed |= slider_float(
+            "Fine ripples",
+            &options.fine_normal_strength,
+            0,
+            2,
+            "%.2fx",
+            ImGuiSliderFlags_AlwaysClamp
+        );
+    }
     changed |= combo(
         "Water view",
         &options.view,
@@ -604,6 +666,68 @@ void enhanced_settings_window() {
         ImGui::TextDisabled(
             "Shared JSON materials: foliage, emission, reflections, fur and wetness."
         );
+        if (ImGui::TreeNode("Ratchet fur geometry")) {
+            fur_shell_controls();
+            ImGui::TreePop();
+        }
+        if (enhanced::ocean_replaces_horizon() && ImGui::TreeNode("Ocean")) {
+            auto options = enhanced::water_debug_settings();
+            ImGui::TextDisabled("Live session overrides of the level profile.");
+            ImGui::PushItemWidth(dp(170.f));
+            bool changed = checkbox("Baked coastal response", &options.coastal_correction);
+            changed |= slider_float(
+                "Chop strength", &options.ocean_chop, 0, 4, "%.2fx", ImGuiSliderFlags_AlwaysClamp
+            );
+            changed |= slider_float(
+                "Fine ripple strength",
+                &options.ocean_ripples,
+                0,
+                4,
+                "%.2fx",
+                ImGuiSliderFlags_AlwaysClamp
+            );
+            changed |= slider_float(
+                "Wind direction offset",
+                &options.ocean_wind_offset,
+                -180,
+                180,
+                "%.0f deg",
+                ImGuiSliderFlags_AlwaysClamp
+            );
+            changed |= slider_float(
+                "Near mesh radius",
+                &options.ocean_near_scale,
+                .5f,
+                2,
+                "%.2fx",
+                ImGuiSliderFlags_AlwaysClamp
+            );
+            changed |= slider_float(
+                "Horizon radius",
+                &options.ocean_horizon_scale,
+                .5f,
+                2,
+                "%.2fx",
+                ImGuiSliderFlags_AlwaysClamp
+            );
+            if (ImGui::Button("Reset ocean tuning")) {
+                const enhanced::WaterDebugSettings defaults;
+                options.coastal_correction = defaults.coastal_correction;
+                options.ocean_chop = defaults.ocean_chop;
+                options.ocean_ripples = defaults.ocean_ripples;
+                options.ocean_wind_offset = defaults.ocean_wind_offset;
+                options.ocean_near_scale = defaults.ocean_near_scale;
+                options.ocean_horizon_scale = defaults.ocean_horizon_scale;
+                changed = true;
+            }
+            if (changed) {
+                enhanced::set_water_debug_settings(options);
+            }
+            ImGui::SeparatorText("Ocean material");
+            ocean_material_controls();
+            ImGui::PopItemWidth();
+            ImGui::TreePop();
+        }
         if (ImGui::TreeNode("Water simulation")) {
             water_controls();
             ImGui::TreePop();

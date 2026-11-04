@@ -111,6 +111,23 @@ mat4 joint_matrix(int index) {
 void main() {
     vec4 p = vec4(position, 1.0);
     vec3 n = normal;
+#ifdef OPENRAC_HERO_FUR
+    if (hero_fur_shell > 0.) {
+        // Displace bind-pose vertices before skinning, so every shell follows the same joints.
+        int shell_receiver = hero_fur_receiver(gl_VertexID, palette, moby_light.w);
+        float shell_wetness = 0.;
+#ifdef OPENRAC_HERO_WETNESS
+        int shell_wet_index = gl_VertexID - hero_wetness_first;
+        if (hero_wetness_enabled != 0 && int(palette + .5) == hero_wetness_palette
+            && shell_wet_index >= 0 && shell_wet_index < hero_wetness_count) {
+            shell_wetness = hero_wetness[shell_wet_index];
+        }
+#endif
+        if (shell_receiver != 0 && dot(normal, normal) > 1e-12) {
+            p.xyz += normalize(normal) * fur_shell_extent(shell_wetness);
+        }
+    }
+#endif
 #ifndef OPENRAC_STATIC_COLOUR
     float total = weights.x + weights.y + weights.z + weights.w;
     if (skinning != 0 && palette >= 0.0 && total > 0.0) {

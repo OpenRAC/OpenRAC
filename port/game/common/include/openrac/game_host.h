@@ -818,6 +818,7 @@ void openrac_game_option_step(int row, int by);
 void openrac_game_option_word(const char* english, char* out, int size);
 
 /* Nonzero only while the enhanced Novalis water replacement is ready and enabled. */
+/* 0 for original water, 1 for enhanced local water, 2 for a full ocean replacement. */
 int openrac_game_enhanced_water(void);
 
 /* ---- Developer tools ---- */

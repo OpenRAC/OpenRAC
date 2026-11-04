@@ -279,6 +279,10 @@ void banks(Raster& raster, const Input& input) {
 }
 }  // namespace
 
+void clip_solid_banks(Raster& raster, const Input& input) {
+    banks(raster, input);
+}
+
 Raster rasterise(const Surface& surface, const Input& input) {
     const profiling::Zone timing("Rasterise waterline");
     auto raster = allocate(surface, input.cell);

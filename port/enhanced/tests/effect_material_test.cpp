@@ -4,11 +4,15 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <fstream>
+#include <numbers>
+#include <string_view>
 #include <vector>
 
 #include "common/stats.h"
 #include "enhanced/renderer/atmosphere.h"
 #include "enhanced/renderer/water.h"
+#include "enhanced/renderer/water_internal.h"
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/tests/water_test_bake.h"
 #include "enhanced/viewer/scene_lighting.h"
@@ -120,11 +124,184 @@ void draw_joined_effects(
 }
 }  // namespace
 
-int main() {
+// Compare the separable FFT against direct synthesis at an off-axis grid point.
+void check_ocean_fft(bool fine) {
+    using namespace enhanced::water_detail;
+    auto spectrum = std::make_unique<OceanSpectrum>(12., fine);
+    constexpr double time = 1.25;
+    constexpr int x = 13, y = 21;
+    spectrum->evaluate(time);
+    double reference = 0.;
+    for (int ky = 0; ky < kOceanSide; ++ky) {
+        for (int kx = 0; kx < kOceanSide; ++kx) {
+            const int i = ky * kOceanSide + kx;
+            const double phase = 2 * std::numbers::pi * (kx * x + ky * y) / kOceanSide
+                                 - spectrum->frequency[i] * time;
+            reference += 2 * (spectrum->seed[i] * std::polar(1., phase)).real();
+        }
+    }
+    CHECK(std::abs(spectrum->pixels[y * kOceanSide + x][0] - reference * spectrum->gain) < 1e-6);
+    const float difference =
+        spectrum->pixels[y * kOceanSide + x + 1][0] - spectrum->pixels[y * kOceanSide + x - 1][0];
+    CHECK(
+        std::abs(
+            spectrum->pixels[y * kOceanSide + x][1] - difference * kOceanSide / (2 * spectrum->tile)
+        )
+        < 1e-6
+    );
+    for (const auto& pixel : spectrum->pixels) {
+        CHECK(std::abs(pixel[0]) < (fine ? .06f : .5f));
+    }
+}
+
+// A fixed camera must see a correction toggle without changing the FFT clock.
+void check_ocean_material(renderer::Renderer& renderer, scene::LevelScene& scene, bool spectrum) {
+    test::WaterTestBake fixture;
+    const auto path = fixture.folder / "ocean.wave";
+    renderer::Rgba8Image ocean_colour(1, 1);
+    ocean_colour.set_texel(0, 0, 0xffc08040);
+    renderer.textures().place(
+        1050, renderer.textures().add(std::move(ocean_colour), renderer::AlphaScale::Full, "ocean")
+    );
+    {
+        std::ofstream out(path);
+        out << "{\"version\":" << (spectrum ? 3 : 1);
+        out << R"(,"heading":180,"period":3.2,"wavenumber":0.4,"offshore_depth":12,
+                  "patch":{"size":64,"cell":0.5,"mean_height":223,"origin":[0,0],"bank":[)";
+        for (int i = 0; i < 4096; ++i) {
+            out << (i ? ",false" : "false");
+        }
+        out << "],\"depth\":[";
+        for (int i = 0; i < 4096; ++i) {
+            out << (i ? ",12" : "12");
+        }
+        out << "]}";
+        if (spectrum) {
+            // Put the only correction in BA, leaving the dominant mode's RG clear.
+            out << R"(,"modes":[
+                {"heading":180,"period":3.2,"wavenumber":0.4,"amplitude":0.075},
+                {"heading":155,"period":2.65,"wavenumber":0.57,"amplitude":0.045)";
+        }
+        out << ",\"correction\":[";
+        for (int i = 0; i < 4096; ++i) {
+            if (spectrum && i == 0) {
+                out << "null";
+                continue;
+            }
+            const auto ramp = 4.f * std::sin(float(i % 64) * .36f);
+            out << (i ? ",[" : "[") << (spectrum ? 0.f : ramp) << ',' << (spectrum ? ramp : 0.f)
+                << ']';
+        }
+        out << "]}";
+        if (spectrum) {
+            out << "]}";
+        }
+    }
+    if (spectrum) {
+        std::ofstream profile(fixture.folder / "ocean-profile.json");
+        profile << R"({"near_radius":24,"fine":{"rms":0.004},"material":{
+            "colour":[0.08,0.16,0.32],"absorption":[0,0.5,1],
+            "roughness":0.3,"reflectivity":0.04,"reflection_strength":1.5}})";
+    }
+    auto material = enhanced::make_water(scene, fixture.folder);
+    std::filesystem::remove(path);
+    CHECK(bool(material));
+    renderer::EffectRenderer effects(
+        "ocean correction",
+        renderer::EffectPart::Rest,
+        renderer::Bucket::Particles,
+        std::move(material)
+    );
+    renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create(64, 64, error));
+    renderer::RenderState state{renderer.textures(), {target.id(), 64, 64}, {}};
+    CHECK(effects.init(state, error));
+    // The spectrum fixture publishes its profile and resets live edits back to that profile.
+    if (spectrum) {
+        const auto authored = enhanced::ocean_material();
+        CHECK((authored.colour == std::array{.08f, .16f, .32f}));
+        CHECK((authored.absorption == std::array{0.f, .5f, 1.f}));
+        CHECK(authored.roughness == .3f);
+        CHECK(authored.reflectivity == .04f);
+        CHECK(authored.reflection_strength == 1.5f);
+        enhanced::set_ocean_material({});
+        CHECK(enhanced::ocean_material().colour != authored.colour);
+        enhanced::reset_ocean_material();
+        CHECK(enhanced::ocean_material().colour == authored.colour);
+    }
+    const std::array<renderer::EffectVertex, 4> vertices{{
+        {0, 0, 223, 0, 0, 0x80808080},
+        {50, 0, 223, 1, 0, 0x80808080},
+        {0, 50, 223, 0, 1, 0x80808080},
+        {50, 50, 223, 1, 1, 0x80808080},
+    }};
+    renderer::EffectStrip strip{};
+    strip.count = 4;
+    strip.surface = 1;
+    strip.tex0 = 1050ull | (2ull << 26) | (2ull << 30) | (1ull << 34);
+    strip.alpha = 0x44;
+    renderer::FrameInput input;
+    input.enhanced_water = true;
+    input.camera.position = {16, 9, 228};
+    input.camera.view = renderer::look_along(input.camera.position, {0, .7f, -.7f}, {0, 1, 0});
+    input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
+    input.strip_vertices = vertices;
+    input.strips = {&strip, 1};
+    const auto saved = enhanced::water_debug_settings();
+    auto settings = saved;
+    settings.paused = true;
+    const auto draw = [&](bool correction) {
+        settings.coastal_correction = correction;
+        enhanced::set_water_debug_settings(settings);
+        ++input.frame;
+        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+        glViewport(0, 0, 64, 64);
+        glDepthMask(GL_TRUE);
+        glClearDepth(0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        effects.render(input, state);
+        return target.read_rgba();
+    };
+    const auto offshore = draw(false);
+    CHECK(draw(true) != offshore);
+    CHECK(draw(false) == offshore);
+    if (spectrum) {
+        settings.ocean_chop = 0;
+        settings.ocean_ripples = 0;
+        CHECK(draw(false) != offshore);
+        settings.ocean_chop = saved.ocean_chop;
+        settings.ocean_ripples = saved.ocean_ripples;
+        CHECK(draw(false) == offshore);
+    }
+    enhanced::set_water_debug_settings(saved);
+    effects.release();
+}
+
+int main(int argc, char** argv) {
     test::GlContext context;
     std::string error;
     if (!context.open(error) || !is_vulkan() || !enhanced_rendering_available()) {
         return test::kSkip;
+    }
+    const std::string_view mode = argc == 2 ? argv[1] : "";
+    if (mode == "--ocean-only" || mode == "--ocean-spectrum") {
+        if (mode == "--ocean-spectrum") {
+            check_ocean_fft(false);
+            check_ocean_fft(true);
+        }
+        renderer::Renderer renderer;
+        scene::LevelScene scene;
+        lighting::use_scene_lighting(scene);
+        CHECK(test::shadow_probe_fixture(scene, error));
+        scene.set_probe_lighting(true, 1);
+        check_ocean_material(renderer, scene, mode == "--ocean-spectrum");
+#ifdef OPENRAC_VULKAN
+        CHECK(vkgl::submission_counters().validation_errors == 0);
+#endif
+        scene.release();
+        renderer.release();
+        return test::result();
     }
     std::vector<std::vector<std::uint8_t>> variant_reference;
     std::size_t compared_variants = 0;

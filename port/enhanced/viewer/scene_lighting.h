@@ -69,6 +69,11 @@ public:
         const std::optional<scene::Instance>& hero
     ) override;
     void bind_wetness(const renderer::Shader& shader) const override;
+    int surface_layers(
+        std::uint32_t model, std::uint32_t first, std::uint32_t count
+    ) const override;
+    void bind_surface_layer(const renderer::Shader& shader, int layer) const override;
+    std::string motion_fragment(std::string source) const override;
 
 #ifdef OPENRAC_LIGHT_AUTHORING
     void prepare_instances(

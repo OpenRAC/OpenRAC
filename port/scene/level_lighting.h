@@ -60,6 +60,15 @@ public:
 
     virtual void bind_wetness(const renderer::Shader&) const {}
 
+    // Optional extra material surfaces reuse only a provider-approved geometry range.
+    virtual int surface_layers(std::uint32_t, std::uint32_t, std::uint32_t) const { return 0; }
+
+    // Zero restores the original surface and supplies complete resources for temporal draws.
+    virtual void bind_surface_layer(const renderer::Shader&, int) const {}
+
+    // Temporal coverage must use the same optional surface mask as colour rendering.
+    virtual std::string motion_fragment(std::string source) const { return source; }
+
     // Optional class-bound effects receive complete instances, including offscreen light-only captures.
     virtual void prepare_instances(Layer, std::span<const Instance>) {}
 
