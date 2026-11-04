@@ -82,8 +82,7 @@ MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("asse
 # game's, shared by its versions: each version's levels are <data>/port/<version>, which is also where
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
-# The programs carried when the build has them; the first is required. Going Commando's plays
-# only with developer tools on (its actions are `"developer": true`).
+# The programs carried when the build has them; the first is required.
 GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac2-ntsc")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.

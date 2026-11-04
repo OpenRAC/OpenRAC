@@ -148,15 +148,19 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual([need["path"] for need in check["needs"]], [levels["artifact"]])
         self.assertTrue(check["artifact"].endswith("openrac-rac1-ntsc.exe"))
 
-    def test_going_commando_plays_for_developers(self):
-        # Its Play is carried as it is (a developer's, with its warning), started in the data
+    def test_going_commando_plays_for_players(self):
+        # Its Play is carried as it is (a player's, with its warning), started in the data
         # folder, reading the data folder's levels. It has no level check yet, so it waits for the
         # disc set up there and for the export's own stamp: a format bump reads the levels again
         # before it starts. Its build needs a checkout.
         actions = {a["id"]: a for a in self.actions["versions"]["rac2/ntsc"]}
         play = actions["play"]
-        self.assertTrue(play["developer"])
-        self.assertIn("development only", play["warning"])
+        self.assertNotIn("developer", play)
+        self.assertIn("early and unstable", play["warning"])
+        bake = actions["probe-bake"]
+        self.assertNotIn("developer", bake)
+        self.assertEqual(bake["args"][bake["args"].index("--levels-dir") + 1], "{data}/port/ntsc")
+        self.assertEqual([need["path"] for need in bake["needs"]], [actions["port-levels"]["artifact"]])
         self.assertEqual(play["args"], ["--data", "{data}", "--window", "--levels", "{data}/port/ntsc"])
         self.assertEqual(play["cwd"], "{data}")
         self.assertEqual([n["path"] for n in play["needs"]],
