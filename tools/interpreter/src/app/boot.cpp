@@ -22,6 +22,9 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <set>
+#include <iterator>
+#include <sstream>
 #include <map>
 #include <string>
 #include <thread>
@@ -113,6 +116,21 @@ bool write_ppm(const std::string& path, const Image& image) {
  * @return 0 when the run ended, 1 when the disc, the program or the window cannot be opened, 2
  *     for a bad command line.
  */
+/**
+ * Main memory as one number (FNV-1a over words), leaving out the swapped code (below 0x100000) and
+ * the stack (from 0x1F00000).
+ */
+u64 memory_hash(sys::Machine& machine) {
+    u64 hash = 0xCBF29CE484222325ull;
+    const u32* words = reinterpret_cast<const u32*>(machine.memory.ram(0x100000));
+
+    for (std::size_t n = 0; n < (0x1F00000 - 0x100000) / 4; n++) {
+        hash = (hash ^ words[n]) * 0x100000001B3ull;
+    }
+
+    return hash;
+}
+
 int main(int argc, char** argv) {
     // Settings from the command line. A frame number of -1 means the option was not given.
     std::string iso, hooks, ppm, vif_file, card, wav, native, native_calls;
@@ -222,6 +240,22 @@ int main(int argc, char** argv) {
         unsigned address, words;
     };
 
+    /** `--swap`: a function whose calls go to code loaded elsewhere. */
+    struct Swap {
+        u32 entry = 0, first_word = 0, target = 0;
+        std::vector<std::pair<u32, std::vector<char>>> code;
+        u64 calls = 0;
+    };
+
+    std::vector<Swap> swaps;
+    std::set<long long> dump_fields;
+    std::FILE* digest_file = nullptr;
+    std::FILE* returns_file = nullptr;
+    u32 returns_entry = 0, returns_first_word = 0;
+    std::vector<std::pair<u32, u32>> returns_pending;  // Return address and stack, innermost last.
+    std::vector<u8> cover_map;
+    u32 cover_base = 0;
+    std::string cover_path;
     std::vector<Traced> traced;
     std::FILE* trace_file = nullptr;
     sys::Machine machine;
@@ -280,6 +314,73 @@ int main(int argc, char** argv) {
         } else if (arg == "--capture-limit" && i + 1 < argc) {
             // The most states of one function in this run.
             capture_limit = static_cast<unsigned>(std::atoi(argv[++i]));
+        } else if (arg == "--dump-ram" && i + 1 < argc) {
+            // FIELD[,FIELD...]: main memory into ram_FIELD.bin in the working directory.
+            std::stringstream parts(argv[++i]);
+            std::string part;
+
+            while (std::getline(parts, part, ',')) {
+                dump_fields.insert(std::stoll(part));
+            }
+        } else if (arg == "--digest" && i + 1 < argc) {
+            // FILE: a line per field with a hash of main memory, leaving out the swapped code
+            // (0xA0000 to 0x100000) and the stack (from 0x1F00000). Two runs part at the first line
+            // that differs.
+            digest_file = std::fopen(argv[++i], "w");
+        } else if (arg == "--cover" && i + 2 < argc) {
+            // ADDRESS:BYTES (hexadecimal) and FILE: which instructions of that code the run ran, a
+            // digit each, written at the end.
+            std::string range = argv[++i];
+            std::size_t colon = range.find(':');
+
+            cover_base = std::stoul(range.substr(0, colon), nullptr, 16);
+            cover_map.assign(std::stoul(range.substr(colon + 1), nullptr, 16) / 4, 0);
+            cover_path = argv[++i];
+        } else if (arg == "--returns" && i + 2 < argc) {
+            // ENTRY:FIRSTWORD (hexadecimal) and FILE: a line at each return of that function: the
+            // field, the return address, the result registers, the registers a function keeps and
+            // the memory hash `--digest` uses. Two runs of one script compare call by call.
+            std::string spec = argv[++i];
+            std::size_t colon = spec.find(':');
+
+            returns_entry = std::stoul(spec.substr(0, colon), nullptr, 16);
+            returns_first_word = std::stoul(spec.substr(colon + 1), nullptr, 16);
+            returns_file = std::fopen(argv[++i], "w");
+        } else if (arg == "--swap" && i + 1 < argc) {
+            // ENTRY:FIRSTWORD:TARGET:FILE[:ADDRESS:FILE...] (hexadecimal addresses): a call of
+            // ENTRY while FIRSTWORD is there goes to TARGET, with each FILE loaded at its address
+            // (the first at TARGET). For a whole-run comparison of C with the function it replaces.
+            std::stringstream parts(argv[++i]);
+            std::string part;
+            std::vector<std::string> fields;
+
+            while (std::getline(parts, part, ':')) {
+                fields.push_back(part);
+            }
+
+            if (fields.size() < 4 || fields.size() % 2 != 0) {
+                std::fprintf(stderr, "--swap wants ENTRY:FIRSTWORD:TARGET:FILE[:ADDRESS:FILE...]\n");
+                return 2;
+            }
+
+            Swap swap;
+            swap.entry = std::stoul(fields[0], nullptr, 16);
+            swap.first_word = std::stoul(fields[1], nullptr, 16);
+            swap.target = std::stoul(fields[2], nullptr, 16);
+
+            for (std::size_t n = 2; n + 1 < fields.size(); n += 2) {
+                std::ifstream file(fields[n + 1], std::ios::binary);
+
+                if (!file) {
+                    std::fprintf(stderr, "cannot read %s\n", fields[n + 1].c_str());
+                    return 2;
+                }
+
+                swap.code.push_back({static_cast<u32>(std::stoul(fields[n], nullptr, 16)),
+                                     std::vector<char>(std::istreambuf_iterator<char>(file), {})});
+            }
+
+            swaps.push_back(std::move(swap));
         } else if (arg == "--trace" && i + 2 < argc) {
             // FILE and ADDRESS[:WORDS],... in hexadecimal, words decimal.
             trace_file = std::fopen(argv[++i], "w");
@@ -751,6 +852,22 @@ int main(int argc, char** argv) {
             };
         }
 
+        // The field's memory as one number.
+        if (digest_file) {
+            std::fprintf(digest_file, "%lld %016llx\n", static_cast<long long>(machine.frames),
+                         static_cast<unsigned long long>(memory_hash(machine)));
+        }
+
+        // The fields whose memory `--dump-ram` keeps.
+        if (dump_fields.count(static_cast<long long>(machine.frames))) {
+            const std::string name = "ram_" + std::to_string(static_cast<long long>(machine.frames)) + ".bin";
+
+            if (std::FILE* file = std::fopen(name.c_str(), "wb")) {
+                std::fwrite(machine.memory.ram(0), 1, GuestMemory::kRamBytes, file);
+                std::fclose(file);
+            }
+        }
+
         // The traced words of this field.
         if (trace_file) {
             std::fprintf(trace_file, "%lld", static_cast<long long>(machine.frames));
@@ -948,6 +1065,24 @@ int main(int argc, char** argv) {
 
     // When the run is over: the reports and the files asked for. Returns the exit code.
     auto finish = [&]() -> int {
+        if (!cover_path.empty()) {
+            if (std::FILE* file = std::fopen(cover_path.c_str(), "w")) {
+                for (u8 ran : cover_map) {
+                    std::fputc(ran ? '1' : '0', file);
+                }
+
+                std::fclose(file);
+            }
+        }
+
+        if (digest_file) {
+            std::fclose(digest_file);
+        }
+
+        for (const Swap& swap : swaps) {
+            std::fprintf(stderr, "swap %x: %llu calls\n", swap.entry, static_cast<unsigned long long>(swap.calls));
+        }
+
         // The closing report: the drawing side must finish first so its counts are complete.
         machine.drawing.sync();
         std::fprintf(
@@ -1143,6 +1278,77 @@ int main(int argc, char** argv) {
     };
 
     before_field();
+
+    if (!cover_map.empty()) {
+        machine.ee.cover = cover_map.data();
+        machine.ee.cover_base = cover_base;
+        machine.ee.cover_bytes = static_cast<u32>(cover_map.size() * 4);
+    }
+
+    if (returns_file) {
+        Ee& ee = machine.ee;
+
+        ee.on_watch = [&, returns_file]() {
+            if (returns_pending.empty() || static_cast<u32>(ee.gpr[29].lo) != returns_pending.back().second) {
+                return;
+            }
+
+            std::fprintf(returns_file, "%lld %x v0 %llx v1 %llx f0 %x", static_cast<long long>(machine.frames),
+                         returns_pending.back().first, static_cast<unsigned long long>(ee.gpr[2].lo),
+                         static_cast<unsigned long long>(ee.gpr[3].lo), ee.fpr[0]);
+
+            for (int r : {16, 17, 18, 19, 20, 21, 22, 23, 28, 29, 30, 31}) {
+                std::fprintf(returns_file, " %llx", static_cast<unsigned long long>(ee.gpr[r].lo));
+            }
+
+            for (int f = 20; f < 32; f++) {
+                std::fprintf(returns_file, " %x", ee.fpr[f]);
+            }
+
+            std::fprintf(returns_file, " mem %016llx\n", static_cast<unsigned long long>(memory_hash(machine)));
+            std::fflush(returns_file);
+            returns_pending.pop_back();
+            ee.watch_pc = returns_pending.empty() ? ~0u : returns_pending.back().first;
+        };
+    }
+
+    if (!swaps.empty() || returns_file) {
+        machine.ee.on_call = [&, returns_file](u32 target) {
+            if (returns_file && target == returns_entry) {
+                u32 word = 0;
+
+                std::memcpy(&word, machine.memory.ram(target), 4);
+
+                if (word == returns_first_word) {
+                    returns_pending.push_back({static_cast<u32>(machine.ee.gpr[31].lo),
+                                               static_cast<u32>(machine.ee.gpr[29].lo)});
+                    machine.ee.watch_pc = returns_pending.back().first;
+                }
+            }
+
+            for (Swap& swap : swaps) {
+                u32 word = 0;
+
+                // A level's place holds other code until that level is loaded.
+                if (target != swap.entry) {
+                    continue;
+                }
+
+                std::memcpy(&word, machine.memory.ram(target), 4);
+
+                if (word != swap.first_word) {
+                    continue;
+                }
+
+                for (const auto& [address, bytes] : swap.code) {
+                    std::memcpy(machine.memory.ram(address), bytes.data(), bytes.size());
+                }
+
+                swap.calls++;
+                machine.ee.next_pc = swap.target;
+            }
+        };
+    }
 
     // Runs until `on_frame` ends the process; it comes back here only when the program halts.
     while (!stop_run && !machine.halted && frames > 0) {

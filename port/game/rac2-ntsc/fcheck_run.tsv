@@ -1,0 +1,10 @@
+# Whole-run verdicts for C fcheck cannot run: openrac-boot --swap, against a plain run with the same script and clock (docs/port/BACKFILL.md, "same-run"). Not `same`: a row here is not done.
+# name	status	date	decomp	csum	route	field	calls	note
+func_0026EDE8	same-run	2026-11-04	0c8ce745	b4df3987724d	level05	3300	1	0 words at the field; 603 of 3,400 fields differ, the sampled ones by a counter or load data; ran 524 of 585
+func_002CA070	same-run	2026-11-04	0c8ce745	dcd9baa836e7	level05	3300	2	0 words at the field; 0 of 3,400 fields differ; ran 228 of 343
+func_002EAB18	same-run	2026-11-04	0c8ce745	507621f235c6	level05	3300	1	0 words at the field; 0 of 3,400 fields differ; ran all 397
+func_002F5FB8	same-run	2026-11-04	0c8ce745	f59e5f30b95d	level05	3300	4	0 words at the field; 0 of 3,400 fields differ; ran all 296
+func_L00_002A3B88	same-run	2026-11-04	0c8ce745	831f33c51ab3	level05	3300	1	0 words at the field; 0 of 3,400 fields differ; ran 428 of 858
+func_L00_002A3B88	same-run	2026-11-04	0c8ce745	831f33c51ab3	level14	3700	1	0 words at the field; 0 of 3,800 fields differ; ran 559 of 858
+func_L00_00303990	same-run	2026-11-04	0c8ce745	30f3ef944a07	level00	3300	1	0 words at the field; 7 of 3,400 fields differ, during the load; ran 781 of 847; no resume
+func_L00_00303990	same-run	2026-11-04	0c8ce745	30f3ef944a07	level14	3700	2	0 words at the field; 7 of 3,800 fields differ, during the load; ran 785 of 847; resume ran; built with D_L14_001B2B20 for D_L00_001B2420
