@@ -369,7 +369,13 @@ void set_camera(SceneFrame& frame) {
     owner.scene.choose_scenery(
         frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
     );
+    const bool had_probes = owner.scene.probe_data_available();
     owner.scene.update_probe_regions(input.camera);
+
+    // Background bakes can become usable here, after initial level setup skipped modern shadows.
+    if (!had_probes && owner.scene.probe_data_available()) {
+        configure_level_shadows(owner, scene.level);
+    }
     // This hook only prepares declared probe/light selection kernels and stable uploads.
     input.prepares_world_depth = true;
     input.after_world_depth =

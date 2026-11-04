@@ -510,6 +510,9 @@ gaddr light_bank_address();
 // where it was (frontend/world.cpp).
 void use_level(int number);
 
+// Configures the level shadow passes on the thread that owns the renderer.
+void configure_level_shadows(State& owner, int level);
+
 // Reads level `number`'s files on another thread for use_level to take when the level comes: the
 // flight between planets reads its destination's while it plays (frontend/world.cpp).
 void preload_level(int number);
