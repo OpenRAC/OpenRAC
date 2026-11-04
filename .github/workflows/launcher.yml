@@ -38,6 +38,7 @@ on:
       - "editor/**"
       - "games/rac1/**"
       - "tools/bundle_standalone.py"
+      - "tools/build_game.py"
       - "tools/build_android.py"
       - "tools/build_port.py"
       - "tools/extractor.py"

@@ -66,6 +66,24 @@ class Program(unittest.TestCase):
         with self.assertRaises(SystemExit):
             build_game.copy_program(self.dir, "x", self.dir)
 
+    def test_clean_up_leaves_only_this_build(self):
+        out = self.dir / "program" / "new"
+        (out / "src").mkdir(parents=True)
+        (out / "openrac-x").write_text("program")
+        (self.dir / "program" / "old" / "src").mkdir(parents=True)
+        (self.dir / "program" / "note").write_text("kept")
+        build_game.clean_up(out / "src", out)
+        self.assertEqual(sorted(p.name for p in out.iterdir()), ["openrac-x"])
+        self.assertEqual(sorted(p.name for p in out.parent.iterdir()), ["new", "note"])
+
+    def test_clean_up_touches_no_other_folder(self):
+        out = self.dir / "mine" / "new"
+        (out / "src").mkdir(parents=True)
+        (self.dir / "mine" / "other").mkdir()
+        build_game.clean_up(out / "src", out)
+        self.assertTrue((self.dir / "mine" / "other").is_dir())
+        self.assertFalse((out / "src").exists())
+
     def test_the_commit_comes_from_the_stamp(self):
         stamp = self.dir / "openrac-build.json"
         stamp.write_text(json.dumps({"commit": "abc"}))

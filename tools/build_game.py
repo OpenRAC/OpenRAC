@@ -25,6 +25,7 @@ PRESET = "standalone"
 # Under DIR, and short: Windows limits a path's length, and the build's own are long.
 SOURCE = "src"
 DONE = ".openrac-source"
+PROGRAMS = "program"
 
 
 def carried_commit(stamp: Path = STAMP) -> str:
@@ -72,6 +73,17 @@ def copy_program(build: Path, game: str, out: Path) -> Path:
     sys.exit(f"the build made no {name} in {build}")
 
 
+def clean_up(source: Path, out: Path) -> None:
+    """After a build that worked: its source and build, and the builds of older launchers. Only
+    under {data}/program, whose folders are all this script's."""
+    shutil.rmtree(source, ignore_errors=True)
+    if out.parent.name != PROGRAMS:
+        return
+    for other in out.parent.iterdir():
+        if other.is_dir() and other != out:
+            shutil.rmtree(other, ignore_errors=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Builds a game from your disc, from an installed launcher.")
     parser.add_argument("game", help="the port game, such as rac2-ntsc")
@@ -90,6 +102,7 @@ def main(argv: list[str] | None = None) -> int:
     subprocess.run([sys.executable, "tools/build_port.py", args.game, "--disc", str(args.disc.resolve()),
                     "--preset", args.preset], cwd=source, check=True)
     program = copy_program(source / "port" / "build" / args.preset, args.game, out)
+    clean_up(source, out)
     print(f"built {program}", flush=True)
     return 0
 
