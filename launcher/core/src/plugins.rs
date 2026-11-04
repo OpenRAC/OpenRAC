@@ -854,6 +854,9 @@ pub fn set_enabled(dir: &Path, game: &str, version: &str, id: &str, on: bool) ->
         let manifests: Vec<Result<Manifest, String>> =
             mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
         let m = manifests[at].clone().map_err(|e| format!("{id} cannot be read: {e}"))?;
+        if m.kind_name() == "tool" {
+            return Err(format!("{} is a page in the launcher, with nothing to load in the game", m.name));
+        }
         m.runs_on(game, version, platform_key())?;
         if let Some(why) = against_others(&m, at, &mods, &manifests, true) {
             return Err(why);
@@ -1386,7 +1389,7 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
     }
     // A native mod's source folder (a checkout not yet built) names no library: the port would
     // refuse it at every start, so it is refused here, before it replaces a working copy.
-    if !m.is_script() && m.plugin.is_empty() {
+    if !m.is_script() && m.plugin.is_empty() && m.tool.is_none() {
         return Err(format!(
             "{} has no library built: this is its source folder. Add its release .zip, or build the mods \
              first (cmake --build build) and add the checkout again, whose build/package is then taken",
@@ -1403,6 +1406,11 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
             return Err(format!("{} names a script it does not hold ({path})", m.name));
         }
     }
+    if let Some(tool) = &m.tool {
+        if !root.join(&tool.page).is_file() {
+            return Err(format!("{} names a page it does not hold ({})", m.name, tool.page));
+        }
+    }
     // Staged in `.staging/<id>`, then swapped in; an install it replaces waits in `.previous/<id>`
     // (one kept), so a failure puts it back and a bad update can be rolled back.
     let staging = dir.join(STAGING).join(&m.id);
@@ -1417,7 +1425,10 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         // New: on when it can run here and nothing stands against it.
         let manifests: Vec<Result<Manifest, String>> =
             mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
-        if m.runs_on(game, version, platform_key()).is_ok() && against_others(&m, at, &mods, &manifests, true).is_none()
+        // A mod that is only a page in the launcher has nothing for the game to load: never on.
+        if m.kind_name() != "tool"
+            && m.runs_on(game, version, platform_key()).is_ok()
+            && against_others(&m, at, &mods, &manifests, true).is_none()
         {
             mods[at].enabled = true;
             place(&mut mods, at, &manifests);
@@ -1526,6 +1537,27 @@ mod tests {
         installed_mod(&dir, "nanotech-upscaler", json!({"tool": {"page": "ui/index.html"}}));
         let views = list(&dir, "rac1", "pal").unwrap();
         assert_eq!(view(&views, "nanotech-upscaler").tool.as_deref(), Some("ui/index.html"));
+    }
+
+    #[test]
+    fn install_a_page_of_its_own() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("plugins");
+        let mut m = manifest("upscaler", json!({"tool": {"page": "ui/index.html"}}));
+        m.as_object_mut().unwrap().remove("plugin");
+        m.as_object_mut().unwrap().remove("api");
+        let src = tmp.path().join("upscaler");
+        std::fs::create_dir_all(src.join("ui")).unwrap();
+        std::fs::write(src.join(MANIFEST), serde_json::to_vec(&m).unwrap()).unwrap();
+        assert!(install(&dir, "rac1", "pal", &src).unwrap_err().contains("page it does not hold"));
+        std::fs::write(src.join("ui").join("index.html"), "<!doctype html>").unwrap();
+        // Installed, but never on: the game has nothing of it to load.
+        match install(&dir, "rac1", "pal", &src).unwrap() {
+            Installed::Plugin { id, enabled, .. } => assert_eq!((id.as_str(), enabled), ("upscaler", false)),
+            other => panic!("{other:?}"),
+        }
+        assert!(set_enabled(&dir, "rac1", "pal", "upscaler", true).unwrap_err().contains("page in the launcher"));
+        assert_eq!(view(&list(&dir, "rac1", "pal").unwrap(), "upscaler").kind, "tool");
     }
 
     #[test]

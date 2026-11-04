@@ -190,7 +190,7 @@
     </ol>
   </nav>
 
-  <section class="panel head" class:off={!mod.enabled}>
+  <section class="panel head" class:off={!mod.enabled && mod.kind !== "tool"}>
     <div class="title">
       <h2 bind:this={heading} tabindex="-1">{mod.name}</h2>
       <p class="meta">
@@ -220,20 +220,22 @@
           )}</button
         >
       {/if}
-      <label class="power" class:on={mod.enabled}>
-        <span>{mod.enabled ? T.MOD_PAGE.on : T.MOD_PAGE.off}</span>
-        <input
-          type="checkbox"
-          role="switch"
-          class="switch"
-          aria-label={T.useAria(mod.name)}
-          checked={mod.enabled}
-          disabled={!mod.enabled && mod.blocked !== ""}
-          onchange={(e) => {
-            onenable(e.currentTarget.checked);
-          }}
-        />
-      </label>
+      {#if mod.kind !== "tool"}
+        <label class="power" class:on={mod.enabled}>
+          <span>{mod.enabled ? T.MOD_PAGE.on : T.MOD_PAGE.off}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            aria-label={T.useAria(mod.name)}
+            checked={mod.enabled}
+            disabled={!mod.enabled && mod.blocked !== ""}
+            onchange={(e) => {
+              onenable(e.currentTarget.checked);
+            }}
+          />
+        </label>
+      {/if}
       {#if menu.length}<Menu label={T.MOD_PAGE.more(mod.name)} items={menu} />{/if}
     </div>
 

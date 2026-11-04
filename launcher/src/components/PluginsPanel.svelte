@@ -435,17 +435,21 @@
         {#each mods as mod, i (mod.id)}
           {@const update = sources[mod.id]?.pin ? null : (updates[mod.id]?.available ?? null)}
           {@const badge = modBadge(mod, update, purist)}
-          <li class="mod" class:off={!mod.enabled}>
-            <input
-              type="checkbox"
-              role="switch"
-              class="switch"
-              aria-label={T.useAria(mod.name)}
-              checked={mod.enabled}
-              disabled={!mod.enabled && mod.blocked !== ""}
-              title={!mod.enabled && mod.blocked ? hidePaths(mod.blocked).text : undefined}
-              onchange={(e) => void setOn(mod, e.currentTarget.checked)}
-            />
+          <li class="mod" class:off={!mod.enabled && mod.kind !== "tool"}>
+            {#if mod.kind === "tool"}
+              <span class="no-switch" aria-hidden="true"></span>
+            {:else}
+              <input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                aria-label={T.useAria(mod.name)}
+                checked={mod.enabled}
+                disabled={!mod.enabled && mod.blocked !== ""}
+                title={!mod.enabled && mod.blocked ? hidePaths(mod.blocked).text : undefined}
+                onchange={(e) => void setOn(mod, e.currentTarget.checked)}
+              />
+            {/if}
             <button
               class="open"
               id={`open-${mod.id}`}
@@ -604,6 +608,12 @@
 
   .mod:first-child {
     border-top: 0;
+  }
+
+  /* A mod that is only a page in the launcher: nothing to switch on, its name where the others' are. */
+  .no-switch {
+    flex: none;
+    width: 42px;
   }
 
   .mod > input.switch:focus-visible {

@@ -713,7 +713,8 @@ until that page's draw is carried over.
 A mod whose manifest names a `tool` page gets an **Open** button on its page
 in the Mods tab: the launcher shows the page in a frame under the mod's name.
 It is for work done in the launcher rather than in the game, such as making a
-texture pack from the game's own textures. The page is the mod's code, so it
+texture pack from the game's own textures. A mod that has only a page (no
+`plugin`, no scripts) is never switched on: the game has nothing of it to load. The page is the mod's code, so it
 is kept apart from the launcher
 ([core/src/mod_tools.rs](../../launcher/core/src/mod_tools.rs),
 [src-tauri/src/mod_tool.rs](../../launcher/src-tauri/src/mod_tool.rs)):

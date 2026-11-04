@@ -1715,7 +1715,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
           "Upscales every texture of Ratchet & Clank on your own device into a texture pack, in the game's own style.",
         homepage: "https://github.com/mateuszklysz/Nanotech-Upscaler",
         license: "GPL-3.0-or-later",
-        enabled: true,
+        enabled: false,
         state: "ready",
         reason: "",
         blocked: "",
