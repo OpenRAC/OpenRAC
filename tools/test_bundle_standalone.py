@@ -46,6 +46,16 @@ class PlayerActions(unittest.TestCase):
         self.pal = {a["id"]: a for a in self.actions["versions"]["rac1/pal"]}
         self.ntsc = {a["id"]: a for a in self.actions["versions"]["rac1/ntsc"]}
 
+    def test_an_apk_plays_only_the_games_it_carries(self):
+        def platforms(actions, key):
+            return next(a for a in actions["versions"][key] if a["id"] == "play").get("platforms", [])
+        without = bundle.player_actions(android=True, android_games={"rac1-pal", "rac1-ntsc"})
+        self.assertNotIn("android", platforms(without, "rac2/ntsc"))
+        self.assertIn("linux", platforms(without, "rac2/ntsc"))
+        with_rac2 = bundle.player_actions(android=True, android_games={"rac1-pal", "rac1-ntsc", "rac2-ntsc"})
+        self.assertIn("android", platforms(with_rac2, "rac2/ntsc"))
+        self.assertIn("android", platforms(bundle.player_actions(android=True), "rac2/ntsc"))
+
     def test_only_what_a_player_does(self):
         self.assertEqual(self.actions["repository"], [])
         for key, actions in self.actions["versions"].items():

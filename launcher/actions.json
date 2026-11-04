@@ -1964,7 +1964,7 @@
         "state": "unverified",
         "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
         "docs": "port/game/rac2-ntsc/README.md",
-        "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-ntsc --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp.",
+        "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-ntsc --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. Android plays it only from an APK built with tools/build_android.py --disc rac2-ntsc=<the disc>: CI has no disc.",
         "program": "{artifact}",
         "args": [
           "--data",
@@ -1976,7 +1976,8 @@
         "platforms": [
           "linux",
           "macos",
-          "windows"
+          "windows",
+          "android"
         ],
         "requires": [
           "artifact"

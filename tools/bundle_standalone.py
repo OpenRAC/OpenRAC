@@ -147,8 +147,9 @@ def point_at(args: list[str], levels: str) -> list[str]:
     return args[:at + 1] + [levels] + args[at + 2:]
 
 
-def player_actions(android: bool = False) -> dict:
-    """launcher/actions.json cut down to what works from a carried copy."""
+def player_actions(android: bool = False, android_games: set[str] | None = None) -> dict:
+    """launcher/actions.json cut down to what works from a carried copy. ANDROID_GAMES: the
+    games an APK carries (rac1-pal, ...); a Play for any other is not Android's there."""
     source = json.loads((ROOT / "launcher/actions.json").read_text())
     out = {key: value for key, value in source.items() if key not in ("repository", "versions")}
     out["repository"] = []
@@ -164,6 +165,11 @@ def player_actions(android: bool = False) -> dict:
             if action["id"] not in KEEP:
                 continue
             action = dict(action)
+            if (android_games is not None and action["id"] == "play"
+                    and key.replace("/", "-") not in android_games and "android" in action.get("platforms", [])):
+                # Its library is not in the APK (Going Commando's is built with the player's disc,
+                # tools/build_android.py --disc): Play would start nothing.
+                action["platforms"] = [p for p in action["platforms"] if p != "android"]
             if action.get("state") != "planned":
                 args = action.get("args", [])
                 if action["id"] == "port-levels" and not key.startswith("rac1/"):
@@ -274,6 +280,8 @@ def main() -> int:
     parser.add_argument("--game-build", type=Path, help="the build folder holding the game (port/build/release)")
     parser.add_argument("--python", type=Path, help="an unpacked standalone Python (its python/ folder)")
     parser.add_argument("--android", action="store_true", help="the Android launcher's copy (tools/build_android.py)")
+    parser.add_argument("--android-games", metavar="ID,...",
+                        help="with --android: the games the APK carries (rac1-pal,rac1-ntsc); Play is Android's for those only")
     args = parser.parse_args()
     if args.android and args.game_build:
         sys.exit("--android carries no game build: the games are the APK's libraries")
@@ -310,7 +318,8 @@ def main() -> int:
     (out / "progress").mkdir(exist_ok=True)
     shutil.copy2(ROOT / "progress/summary.json", out / "progress/summary.json")
     (out / "launcher").mkdir(exist_ok=True)
-    (out / "launcher/actions.json").write_text(json.dumps(player_actions(args.android), indent=2) + "\n")
+    android_games = set(args.android_games.split(",")) if args.android and args.android_games else None
+    (out / "launcher/actions.json").write_text(json.dumps(player_actions(args.android, android_games), indent=2) + "\n")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, out / name)

@@ -56,6 +56,12 @@ are Build the game and Rebuild: Play on a fresh checkout is Build and play. An i
 carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not), so there the
 game says it is built from a checkout instead of offering steps that cannot make it.
 
+On Android the game is a library of the APK, built on a computer with your disc:
+`python3 tools/build_android.py rac1-pal rac1-ntsc rac2-ntsc --disc rac2-ntsc=<SCUS_972.68 image>`.
+That APK carries code read from your disc, so keep it to yourself. In it Going Commando sets up,
+reads its levels and plays as Ratchet & Clank does. An APK without it (CI's) has no Play for it
+and says why.
+
 For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
 executable: hostgen's `retail.read_image` uses the editor's reader
 (`editor/disc.py`, Ratchet & Clank's discs) when the image is one and otherwise

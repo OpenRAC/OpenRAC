@@ -179,8 +179,13 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
   const base = { primary: false, disabled: false, job: null as Job | null };
   /** Play waits for a program this launcher cannot make: it carries none for the game, and has no
    *  step that builds one (Going Commando's is built from the player's own disc, in a checkout). */
-  const unbuildable = !!play && !build && !play.done && play.blockers.some(missingProgram);
-  const noBuildHint = `${game.title} is built on your computer from your own disc, which an installed launcher cannot do yet. Run the launcher from a copy of OpenRAC's source to build and play it.`;
+  // Android has no such case: a game the APK does not carry has no Play there (bundle_standalone.py).
+  const unbuildable = !onAndroid && !!play && !build && !play.done && play.blockers.some(missingProgram);
+  /** Android: a game whose Play the APK leaves out, as it carries no library for it. */
+  const notInApp = onAndroid && !play && v.actions.some((a) => a.id === "play" && a.state !== "planned");
+  const noBuildHint = notInApp
+    ? `This app does not carry ${game.title}: it is built from your own disc, on a computer, into the app (tools/build_android.py --disc).`
+    : `${game.title} is built on your computer from your own disc, and this launcher has no step that builds it. Run the launcher from a copy of OpenRAC's source to build and play it.`;
 
   if (installing) {
     return {
@@ -202,13 +207,14 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       kind: "set-up",
       label: found ? "Set up" : "Set up from your disc",
       icon: "disc",
-      hint: unbuildable
-        ? `${noBuildHint} You can set your disc up now.`
-        : planned
-          ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
-          : found
-            ? `Found in your games folder: ${fileName(found.path)}`
-            : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
+      hint:
+        unbuildable || notInApp
+          ? `${noBuildHint} You can set your disc up now.`
+          : planned
+            ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
+            : found
+              ? `Found in your games folder: ${fileName(found.path)}`
+              : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
       primary: !planned,
       status: planned ? "Not playable yet" : "Not set up",
       tone: planned ? "info" : "warn",
@@ -226,7 +232,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "info",
     };
   }
-  if (unbuildable) {
+  if (unbuildable || notInApp) {
     return {
       ...base,
       kind: "unavailable",

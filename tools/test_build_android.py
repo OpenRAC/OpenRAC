@@ -53,6 +53,24 @@ class BuildAndroidTests(unittest.TestCase):
                 for target in ("openrac-enhanced-baker",):
                     self.assertEqual(target in command, enabled)
 
+    def test_a_disc_is_passed_as_its_games_retail_image(self):
+        image = self.dir / "SCUS_972.68.iso"
+        image.write_bytes(b"")
+        discs = build_android.parse_discs([f"rac2-ntsc={image}"], ["rac1-ntsc", "rac2-ntsc"])
+        self.assertEqual(discs, {"rac2-ntsc": image})
+        with mock.patch.object(build_android.proc, "run") as run:
+            build_android.build_port(["rac2-ntsc"], self.dir, self.dir, baker=False, discs=discs)
+        configure = run.call_args_list[0].args[0]
+        self.assertIn(f"-DOPENRAC_RAC2_NTSC_RETAIL_IMAGE={image.resolve().as_posix()}", configure)
+
+    def test_a_disc_for_a_game_not_built_or_not_there_stops(self):
+        image = self.dir / "disc.iso"
+        image.write_bytes(b"")
+        for value, games in ((f"rac2-ntsc={image}", ["rac1-ntsc"]), ("rac2-ntsc=missing.iso", ["rac2-ntsc"]),
+                             ("rac2-ntsc", ["rac2-ntsc"])):
+            with self.subTest(value=value), self.assertRaises(SystemExit):
+                build_android.parse_discs([value], games)
+
     def native_tree(self):
         """Creates fake build outputs, including SDL and the NDK runtime, without compiling."""
         build, app, ndk, python = (self.dir / name for name in ("build", "app", "ndk", "python"))

@@ -3,10 +3,15 @@
 Builds OpenRAC for Android: the launcher's APK with the games in it
 (docs/port/ANDROID.md).
 
-  python3 tools/build_android.py [GAME ...] [--release] [--keep-symbols] [--no-apk]
+  python3 tools/build_android.py [GAME ...] [--disc GAME=IMAGE] [--release] [--keep-symbols] [--no-apk]
 
 GAME is one of the port's games (port/game/<id>/hostgen.json), rac1-pal and
-rac1-ntsc when none is named. The steps:
+rac1-ntsc when none is named. --disc GAME=IMAGE names the image of GAME's
+disc, as tools/build_port.py --disc does on a desktop: the functions its
+decompilation has no C for yet are translated from that disc's programs.
+Going Commando needs it (rac2-ntsc=SCUS_972.68.iso); without it its library
+has no retail code and exits at once. Such an APK carries code read from your
+disc: keep it to yourself. The steps:
 
   1. a Python for the launcher's tools: CPython for Android as Chaquopy
      packages it (MIT), from Maven Central at a fixed version, each file
@@ -185,10 +190,14 @@ def baker_defines(ndk: Path) -> list[str]:
         return ["-DOPENRAC_PROBE_BAKER=OFF"]
 
 
-def build_port(games: list[str], ndk: Path, python_target: Path, baker: bool = True) -> bool:
-    """The port's libraries for GAMES; whether the probe baker is among them."""
+def build_port(games: list[str], ndk: Path, python_target: Path, baker: bool = True,
+               discs: dict[str, Path] | None = None) -> bool:
+    """The port's libraries for GAMES, each of DISCS' games translated from its disc image;
+    whether the probe baker is among them."""
     env = dict(os.environ, ANDROID_NDK_HOME=str(ndk))
     defines = baker_defines(ndk) if baker else ["-DOPENRAC_PROBE_BAKER=OFF"]
+    defines += [f"-D{desktop.retail_variable(g)}={Path(image).resolve().as_posix()}"
+                for g, image in (discs or {}).items()]
     proc.run(["cmake", "--preset", "android-arm64", f"-DOPENRAC_ANDROID_PYTHON={python_target}", *defines],
              cwd=PORT, env=env, echo=True)
     targets = [t for g in games for t in (f"openrac-{g}", f"openrac-{g}-cli")]
@@ -243,9 +252,10 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
     return names
 
 
-def bundle(python_home: Path, baker: bool = False) -> Path:
+def bundle(python_home: Path, baker: bool = False, games: list[str] | None = None) -> Path:
     out = BUILD / "openrac"
-    proc.run([sys.executable, ROOT / "tools/bundle_standalone.py", out, "--android", "--python", python_home],
+    proc.run([sys.executable, ROOT / "tools/bundle_standalone.py", out, "--android", "--python", python_home,
+              "--android-games", ",".join(games or DEFAULT_GAMES)],
              cwd=ROOT, echo=True)
     # Runtime HDR decoders also need their notices when the baker is omitted.
     if (PORT_BUILD / "licenses").is_dir():
@@ -282,6 +292,21 @@ def build_apk(ndk: Path, release: bool, keep_symbols: bool) -> None:
         print(f"APK: {apk} ({apk.stat().st_size / 1e6:.0f} MB)")
 
 
+def parse_discs(values: list[str], games: list[str]) -> dict[str, Path]:
+    """--disc GAME=IMAGE values as {GAME: IMAGE}; each GAME one being built, each IMAGE there."""
+    discs = {}
+    for value in values:
+        game, sep, image = value.partition("=")
+        if not sep or not image:
+            sys.exit(f"--disc {value}: give it as GAME=IMAGE (rac2-ntsc=SCUS_972.68.iso)")
+        if game not in games:
+            sys.exit(f"--disc {value}: {game} is not one of the games being built ({', '.join(games)})")
+        if not Path(image).is_file():
+            sys.exit(f"--disc {value}: {image} is not there")
+        discs[game] = Path(image)
+    return discs
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("games", nargs="*", default=list(DEFAULT_GAMES))
@@ -290,16 +315,19 @@ def main() -> int:
     parser.add_argument("--no-apk", action="store_true", help="stop before Gradle (steps 1 to 4)")
     parser.add_argument("--no-probe-baker", action="store_true",
                         help="leave Enhanced graphics' probe baker (and Embree) out")
+    parser.add_argument("--disc", action="append", default=[], metavar="GAME=IMAGE",
+                        help="the image of GAME's disc, for the functions with no C (rac2-ntsc needs it)")
     args = parser.parse_args()
     for game in args.games:
         if not (PORT / "game" / game / "hostgen.json").is_file():
             sys.exit(f"{game} is not one of the port's games (port/game/<id>/hostgen.json)")
+    discs = parse_discs(args.disc, args.games)
     ndk = ndk_home()
     python_target, python_home = python()
-    baker = build_port(args.games, ndk, python_target, baker=not args.no_probe_baker)
+    baker = build_port(args.games, ndk, python_target, baker=not args.no_probe_baker, discs=discs)
     names = collect_libraries(args.games, ndk, python_target, args.keep_symbols, baker)
     print("native libraries:", ", ".join(names))
-    bundle(python_home, baker)
+    bundle(python_home, baker, args.games)
     if not args.no_apk:
         build_apk(ndk, args.release, args.keep_symbols)
     return 0
